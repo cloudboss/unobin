@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Test CloudFormation
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: test group
+      VpcId: vpc-c71371be
+  SecurityGroupTwo:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: another test group
+      VpcId: vpc-c71371be
+
+Outputs:
+  SecurityGroup:
+    Value: !Ref SecurityGroup
+  SecurityGroupTwo:
+    Value: !Ref SecurityGroupTwo

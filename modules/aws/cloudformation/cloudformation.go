@@ -1,0 +1,218 @@
+package cloudformation
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudformation"
+	"github.com/cloudboss/go-player/pkg/types"
+)
+
+const (
+	moduleName = "cloudformation"
+)
+
+var (
+	capabilities = []*string{
+		aws.String("CAPABILITY_IAM"),
+		aws.String("CAPABILITY_NAMED_IAM"),
+		aws.String("CAPABILITY_AUTO_EXPAND"),
+	}
+)
+
+type CloudFormation struct {
+	StackName       string
+	DisableRollback bool
+	TemplateBody    string
+	TemplateURL     string
+	cfn             *cloudformation.CloudFormation
+}
+
+func (c *CloudFormation) Initialize() error {
+	sess, err := session.NewSession()
+	if err != nil {
+		return err
+	}
+	sess.Config.Logger = nil
+	c.cfn = cloudformation.New(sess)
+	return nil
+}
+
+func (c *CloudFormation) Name() string {
+	return moduleName
+}
+
+func (c *CloudFormation) Build() *types.Result {
+	stackInfo, err := c.getStackInfo()
+	if err != nil {
+		return errResult(err.Error())
+	}
+
+	stackExists := stackInfo != nil
+	if !stackExists {
+		return c.createStack()
+	}
+
+	return c.updateStack()
+}
+
+func (c *CloudFormation) Destroy() *types.Result {
+	return nil
+}
+
+func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
+	stackResponse, err := c.cfn.DescribeStacks(&cloudformation.DescribeStacksInput{
+		StackName: &c.StackName,
+	})
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			msgNoExist := fmt.Sprintf("Stack with id %s does not exist", c.StackName)
+			if strings.Contains(awsErr.Message(), msgNoExist) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return nil, err
+	}
+
+	for _, stack := range stackResponse.Stacks {
+		return stack, nil
+	}
+
+	return nil, fmt.Errorf("unknown error getting stack info")
+}
+
+func (c *CloudFormation) createStack() *types.Result {
+	createStackInput := cloudformation.CreateStackInput{
+		StackName:    &c.StackName,
+		Capabilities: capabilities,
+	}
+
+	if c.TemplateBody != "" {
+		createStackInput.TemplateBody = &c.TemplateBody
+	}
+
+	if c.TemplateURL != "" {
+		createStackInput.TemplateURL = &c.TemplateURL
+	}
+
+	_, err := c.cfn.CreateStack(&createStackInput)
+	if err != nil {
+		return errResult(err.Error())
+	}
+
+	createErr := c.cfn.WaitUntilStackCreateCompleteWithContext(
+		aws.BackgroundContext(),
+		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
+		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
+	)
+
+	stackInfo, err := c.getStackInfo()
+	if err != nil {
+		return errResult(err.Error())
+	}
+
+	result := &types.Result{
+		Succeeded: createErr == nil,
+		Changed:   true,
+		Module:    moduleName,
+		Output: map[string]interface{}{
+			"outputs": outputsToMap(stackInfo.Outputs),
+		},
+	}
+
+	if createErr != nil {
+		result.Error = *stackInfo.StackStatus
+	}
+
+	return result
+}
+
+func (c *CloudFormation) updateStack() *types.Result {
+	updateStackInput := cloudformation.UpdateStackInput{
+		StackName:    &c.StackName,
+		Capabilities: capabilities,
+	}
+
+	if c.TemplateBody != "" {
+		updateStackInput.TemplateBody = &c.TemplateBody
+	}
+
+	if c.TemplateURL != "" {
+		updateStackInput.TemplateURL = &c.TemplateURL
+	}
+
+	_, err := c.cfn.UpdateStack(&updateStackInput)
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			errNoUpdate := "No updates are to be performed"
+			if strings.Contains(awsErr.Message(), errNoUpdate) {
+				stackInfo, err := c.getStackInfo()
+				if err != nil {
+					return errResult(err.Error())
+				}
+				return &types.Result{
+					Succeeded: true,
+					Changed:   false,
+					Module:    moduleName,
+					Output: map[string]interface{}{
+						"outputs": outputsToMap(stackInfo.Outputs),
+					},
+				}
+			}
+			return errResult(err.Error())
+		}
+		return errResult(err.Error())
+	}
+
+	updateErr := c.cfn.WaitUntilStackUpdateCompleteWithContext(
+		aws.BackgroundContext(),
+		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
+		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
+	)
+
+	stackInfo, err := c.getStackInfo()
+	if err != nil {
+		return errResult(err.Error())
+	}
+
+	result := &types.Result{
+		Succeeded: updateErr == nil,
+		Changed:   true,
+		Module:    moduleName,
+		Output: map[string]interface{}{
+			"outputs": outputsToMap(stackInfo.Outputs),
+		},
+	}
+
+	if updateErr != nil {
+		result.Error = *stackInfo.StackStatus
+	}
+
+	return result
+}
+
+func outputsToMap(outputs []*cloudformation.Output) map[string]interface{} {
+	if outputs == nil {
+		return nil
+	}
+	outputMap := make(map[string]interface{})
+	for _, output := range outputs {
+		outputMap[*output.OutputKey] = *output.OutputValue
+	}
+	return outputMap
+}
+
+func errResult(msg string) *types.Result {
+	return &types.Result{
+		Succeeded: false,
+		Changed:   false,
+		Error:     msg,
+		Module:    moduleName,
+	}
+}
