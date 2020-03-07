@@ -4,20 +4,18 @@ type Predicate func() (bool, error)
 
 type Action func() *Result
 
-type StringF func() string
-
-type String string
-
-func (s String) resolve(input string) String {
-	return String(input)
-}
-
 type Result struct {
 	Succeeded bool                   `json:"succeeded"`
 	Changed   bool                   `json:"changed"`
 	Error     string                 `json:"error,omitempty"`
 	Module    string                 `json:"module"`
 	Output    map[string]interface{} `json:"output,omitempty"`
+}
+
+type Frame struct {
+	Vars  map[string]interface{}
+	State map[string]interface{}
+	Item  interface{}
 }
 
 func DoIf(module string, condition Predicate, do Action) *Result {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/go-player/pkg/commands"
+	"github.com/cloudboss/go-player/pkg/lazy"
 	"github.com/cloudboss/go-player/pkg/types"
 	"github.com/cloudboss/go-player/pkg/util"
 )
@@ -12,17 +13,19 @@ import (
 const moduleName = "command"
 
 type Command struct {
-	Execute types.StringF
-	Creates types.StringF
-	Removes types.StringF
+	Execute lazy.String
+	Creates lazy.String
+	Removes lazy.String
+	frame   *types.Frame
 }
 
-func (c *Command) Initialize() error {
+func (c *Command) Initialize(frame *types.Frame) error {
+	c.frame = frame
 	if c.Creates == nil {
-		c.Creates = func() string { return "" }
+		c.Creates = lazy.EmptyString
 	}
 	if c.Removes == nil {
-		c.Removes = func() string { return "" }
+		c.Removes = lazy.EmptyString
 	}
 	return nil
 }
@@ -32,7 +35,7 @@ func (c *Command) Name() string {
 }
 
 func (c *Command) Build() *types.Result {
-	parts := strings.Fields(c.Execute())
+	parts := strings.Fields(c.Execute(c.frame))
 	command := parts[0]
 	args := parts[1:]
 	return types.DoIf(
@@ -75,17 +78,17 @@ func (c *Command) Destroy() *types.Result {
 }
 
 func (c *Command) done() (bool, error) {
-	if c.Creates() == "" && c.Removes() == "" {
+	if c.Creates(c.frame) == "" && c.Removes(c.frame) == "" {
 		return false, nil
 	}
 
 	var predicates []types.Predicate
-	if c.Creates() != "" {
+	if c.Creates(c.frame) != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.created()
 		})
 	}
-	if c.Removes() != "" {
+	if c.Removes(c.frame) != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.removed()
 		})
@@ -103,7 +106,7 @@ func (c *Command) done() (bool, error) {
 }
 
 func (c *Command) created() (bool, error) {
-	_, err := os.Stat(c.Creates())
+	_, err := os.Stat(c.Creates(c.frame))
 	if err == nil {
 		return true, nil
 	}
@@ -111,7 +114,7 @@ func (c *Command) created() (bool, error) {
 }
 
 func (c *Command) removed() (bool, error) {
-	_, err := os.Stat(c.Removes())
+	_, err := os.Stat(c.Removes(c.frame))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return true, nil

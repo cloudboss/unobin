@@ -11,9 +11,8 @@ import (
 )
 
 type Playbook struct {
-	Vars      map[string]interface{}
-	State     map[string]interface{}
 	Tasks     []*task.Task
+	Frame     *types.Frame
 	Succeeded bool
 }
 
@@ -43,10 +42,13 @@ func (p *Playbook) print(result *types.Result) error {
 func (p *Playbook) Run() []*types.Result {
 	var results []*types.Result
 
-	p.State = map[string]interface{}{}
+	p.Frame = &types.Frame{
+		Vars:  map[string]interface{}{},
+		State: map[string]interface{}{},
+	}
 
 	for _, task := range p.Tasks {
-		err := task.Module.Initialize()
+		err := task.Module.Initialize(p.Frame)
 		if err != nil {
 			result := &types.Result{
 				Error:  err.Error(),
@@ -66,7 +68,7 @@ func (p *Playbook) Run() []*types.Result {
 			return results
 		}
 		if result.Output != nil {
-			p.State[task.Name] = result.Output
+			p.Frame.State[task.Name] = result.Output
 		}
 	}
 

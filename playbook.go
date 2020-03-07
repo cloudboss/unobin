@@ -6,16 +6,10 @@ import (
 
 	"github.com/cloudboss/go-player/modules/aws/cloudformation"
 	"github.com/cloudboss/go-player/modules/command"
+	lz "github.com/cloudboss/go-player/pkg/lazy"
 	"github.com/cloudboss/go-player/pkg/playbook"
 	"github.com/cloudboss/go-player/pkg/task"
-	"github.com/cloudboss/go-player/pkg/types"
 )
-
-func s(s string) types.StringF {
-	return func() string {
-		return s
-	}
-}
 
 func main() {
 	b, err := ioutil.ReadFile("cf.yml")
@@ -27,22 +21,22 @@ func main() {
 			{
 				Name: `do something`,
 				Module: &command.Command{
-					Execute: s(`ls /`),
+					Execute: lz.S(`ls /`),
 				},
 				When: task.WhenExecute(`/bin/true`),
 			},
 			{
 				Name: `do something else`,
 				Module: &command.Command{
-					Execute: s(`ls /`),
-					Creates: s(`/`),
+					Execute: lz.S(`ls /`),
+					Creates: lz.S(`/`),
 				},
 			},
 			{
 				Name: `build a stack`,
 				Module: &cloudformation.CloudFormation{
-					StackName:    `test-stack`,
-					TemplateBody: string(b),
+					StackName:    lz.S(`test-stack`),
+					TemplateBody: lz.S(string(b)),
 				},
 			},
 		},

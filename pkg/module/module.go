@@ -5,7 +5,7 @@ import (
 )
 
 type Module interface {
-	Initialize() error
+	Initialize(frame *types.Frame) error
 	Name() string
 	Build() *types.Result
 	Destroy() *types.Result

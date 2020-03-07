@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
+	"github.com/cloudboss/go-player/pkg/lazy"
 	"github.com/cloudboss/go-player/pkg/types"
 )
 
@@ -26,20 +27,32 @@ var (
 )
 
 type CloudFormation struct {
-	StackName       string
-	DisableRollback bool
-	TemplateBody    string
-	TemplateURL     string
+	StackName       lazy.String
+	DisableRollback lazy.Bool
+	TemplateBody    lazy.String
+	TemplateURL     lazy.String
 	cfn             *cloudformation.CloudFormation
+	frame           *types.Frame
 }
 
-func (c *CloudFormation) Initialize() error {
+func (c *CloudFormation) Initialize(frame *types.Frame) error {
 	sess, err := session.NewSession()
 	if err != nil {
 		return err
 	}
 	sess.Config.Logger = nil
 	c.cfn = cloudformation.New(sess)
+
+	c.frame = frame
+
+	if c.TemplateBody == nil && c.TemplateURL == nil {
+		return fmt.Errorf("one of TemplateBody or TemplateURL is required")
+	}
+
+	if c.DisableRollback == nil {
+		c.DisableRollback = lazy.False
+	}
+
 	return nil
 }
 
@@ -66,8 +79,9 @@ func (c *CloudFormation) Destroy() *types.Result {
 }
 
 func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
+	stackName := c.StackName(c.frame)
 	stackResponse, err := c.cfn.DescribeStacks(&cloudformation.DescribeStacksInput{
-		StackName: &c.StackName,
+		StackName: &stackName,
 	})
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
@@ -88,17 +102,20 @@ func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
 }
 
 func (c *CloudFormation) createStack() *types.Result {
+	stackName := c.StackName(c.frame)
 	createStackInput := cloudformation.CreateStackInput{
-		StackName:    &c.StackName,
+		StackName:    &stackName,
 		Capabilities: capabilities,
 	}
 
-	if c.TemplateBody != "" {
-		createStackInput.TemplateBody = &c.TemplateBody
+	if c.TemplateBody != nil {
+		body := c.TemplateBody(c.frame)
+		createStackInput.TemplateBody = &body
 	}
 
-	if c.TemplateURL != "" {
-		createStackInput.TemplateURL = &c.TemplateURL
+	if c.TemplateURL != nil {
+		templateURL := c.TemplateURL(c.frame)
+		createStackInput.TemplateURL = &templateURL
 	}
 
 	_, err := c.cfn.CreateStack(&createStackInput)
@@ -108,7 +125,7 @@ func (c *CloudFormation) createStack() *types.Result {
 
 	createErr := c.cfn.WaitUntilStackCreateCompleteWithContext(
 		aws.BackgroundContext(),
-		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
+		&cloudformation.DescribeStacksInput{StackName: &stackName},
 		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
 	)
 
@@ -134,17 +151,20 @@ func (c *CloudFormation) createStack() *types.Result {
 }
 
 func (c *CloudFormation) updateStack() *types.Result {
+	stackName := c.StackName(c.frame)
 	updateStackInput := cloudformation.UpdateStackInput{
-		StackName:    &c.StackName,
+		StackName:    &stackName,
 		Capabilities: capabilities,
 	}
 
-	if c.TemplateBody != "" {
-		updateStackInput.TemplateBody = &c.TemplateBody
+	if c.TemplateBody != nil {
+		body := c.TemplateBody(c.frame)
+		updateStackInput.TemplateBody = &body
 	}
 
-	if c.TemplateURL != "" {
-		updateStackInput.TemplateURL = &c.TemplateURL
+	if c.TemplateURL != nil {
+		templateURL := c.TemplateURL(c.frame)
+		updateStackInput.TemplateURL = &templateURL
 	}
 
 	_, err := c.cfn.UpdateStack(&updateStackInput)
@@ -172,7 +192,7 @@ func (c *CloudFormation) updateStack() *types.Result {
 
 	updateErr := c.cfn.WaitUntilStackUpdateCompleteWithContext(
 		aws.BackgroundContext(),
-		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
+		&cloudformation.DescribeStacksInput{StackName: &stackName},
 		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
 	)
 
