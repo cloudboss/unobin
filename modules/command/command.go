@@ -13,14 +13,12 @@ import (
 const moduleName = "command"
 
 type Command struct {
-	Execute lazy.String
-	Creates lazy.String
-	Removes lazy.String
-	frame   *types.Frame
+	Execute lazy.StringValue
+	Creates lazy.StringValue
+	Removes lazy.StringValue
 }
 
-func (c *Command) Initialize(frame *types.Frame) error {
-	c.frame = frame
+func (c *Command) Initialize() error {
 	if c.Creates == nil {
 		c.Creates = lazy.EmptyString
 	}
@@ -35,7 +33,7 @@ func (c *Command) Name() string {
 }
 
 func (c *Command) Build() *types.Result {
-	parts := strings.Fields(c.Execute(c.frame))
+	parts := strings.Fields(c.Execute())
 	command := parts[0]
 	args := parts[1:]
 	return types.DoIf(
@@ -78,17 +76,17 @@ func (c *Command) Destroy() *types.Result {
 }
 
 func (c *Command) done() (bool, error) {
-	if c.Creates(c.frame) == "" && c.Removes(c.frame) == "" {
+	if c.Creates() == "" && c.Removes() == "" {
 		return false, nil
 	}
 
 	var predicates []types.Predicate
-	if c.Creates(c.frame) != "" {
+	if c.Creates() != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.created()
 		})
 	}
-	if c.Removes(c.frame) != "" {
+	if c.Removes() != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.removed()
 		})
@@ -106,7 +104,7 @@ func (c *Command) done() (bool, error) {
 }
 
 func (c *Command) created() (bool, error) {
-	_, err := os.Stat(c.Creates(c.frame))
+	_, err := os.Stat(c.Creates())
 	if err == nil {
 		return true, nil
 	}
@@ -114,7 +112,7 @@ func (c *Command) created() (bool, error) {
 }
 
 func (c *Command) removed() (bool, error) {
-	_, err := os.Stat(c.Removes(c.frame))
+	_, err := os.Stat(c.Removes())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return true, nil

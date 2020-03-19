@@ -42,13 +42,8 @@ func (p *Playbook) print(result *types.Result) error {
 func (p *Playbook) Run() []*types.Result {
 	var results []*types.Result
 
-	p.Frame = &types.Frame{
-		Vars:  map[string]interface{}{},
-		State: map[string]interface{}{},
-	}
-
 	for _, task := range p.Tasks {
-		err := task.Module.Initialize(p.Frame)
+		err := task.Module.Initialize()
 		if err != nil {
 			result := &types.Result{
 				Error:  err.Error(),

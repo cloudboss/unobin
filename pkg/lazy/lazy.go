@@ -7,50 +7,59 @@ import (
 	"github.com/cloudboss/go-player/pkg/types"
 )
 
-type Interface func(*types.Frame) interface{}
-type String func(*types.Frame) string
-type Bool func(*types.Frame) bool
+type Interface func(*types.Frame) InterfaceValue
+type InterfaceValue func() interface{}
+type String func(*types.Frame) StringValue
+type StringValue func() string
+type Bool func(*types.Frame) BoolValue
+type BoolValue func() bool
 
 func S(s string) String {
-	return func(*types.Frame) string {
-		return s
+	return func(*types.Frame) StringValue {
+		return func() string {
+			return s
+		}
 	}
 }
 
 func B(b bool) Bool {
-	return func(*types.Frame) bool {
-		return b
+	return func(*types.Frame) BoolValue {
+		return func() bool {
+			return b
+		}
 	}
 }
 
-func False(*types.Frame) bool {
+func False() bool {
 	return false
 }
 
-func True(*types.Frame) bool {
+func True() bool {
 	return true
 }
 
-func EmptyString(*types.Frame) string {
+func EmptyString() string {
 	return ""
 }
 
-func Sprintf(format string, fs ...Interface) String {
-	return func(frame *types.Frame) string {
+func Sprintf(format string, fs ...InterfaceValue) StringValue {
+	return func() string {
 		args := make([]interface{}, len(fs))
 		for i, f := range fs {
-			args[i] = f(frame)
+			args[i] = f()
 		}
 		return fmt.Sprintf(format, args...)
 	}
 }
 
 func Output(task, path string) Interface {
-	return func(frame *types.Frame) interface{} {
-		moduleOutput, ok := frame.State[task].(map[string]interface{})
-		if !ok {
-			return ""
+	return func(frame *types.Frame) InterfaceValue {
+		return func() interface{} {
+			moduleOutput, ok := frame.State[task].(map[string]interface{})
+			if !ok {
+				return ""
+			}
+			return playbook.ResolveString(moduleOutput, path)
 		}
-		return playbook.ResolveString(moduleOutput, path)
 	}
 }

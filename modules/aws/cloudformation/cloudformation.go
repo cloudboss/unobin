@@ -27,23 +27,20 @@ var (
 )
 
 type CloudFormation struct {
-	StackName       lazy.String
-	DisableRollback lazy.Bool
-	TemplateBody    lazy.String
-	TemplateURL     lazy.String
+	StackName       lazy.StringValue
+	DisableRollback lazy.BoolValue
+	TemplateBody    lazy.StringValue
+	TemplateURL     lazy.StringValue
 	cfn             *cloudformation.CloudFormation
-	frame           *types.Frame
 }
 
-func (c *CloudFormation) Initialize(frame *types.Frame) error {
+func (c *CloudFormation) Initialize() error {
 	sess, err := session.NewSession()
 	if err != nil {
 		return err
 	}
 	sess.Config.Logger = nil
 	c.cfn = cloudformation.New(sess)
-
-	c.frame = frame
 
 	if c.TemplateBody == nil && c.TemplateURL == nil {
 		return fmt.Errorf("one of TemplateBody or TemplateURL is required")
@@ -79,7 +76,7 @@ func (c *CloudFormation) Destroy() *types.Result {
 }
 
 func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
-	stackName := c.StackName(c.frame)
+	stackName := c.StackName()
 	stackResponse, err := c.cfn.DescribeStacks(&cloudformation.DescribeStacksInput{
 		StackName: &stackName,
 	})
@@ -102,19 +99,19 @@ func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
 }
 
 func (c *CloudFormation) createStack() *types.Result {
-	stackName := c.StackName(c.frame)
+	stackName := c.StackName()
 	createStackInput := cloudformation.CreateStackInput{
 		StackName:    &stackName,
 		Capabilities: capabilities,
 	}
 
 	if c.TemplateBody != nil {
-		body := c.TemplateBody(c.frame)
+		body := c.TemplateBody()
 		createStackInput.TemplateBody = &body
 	}
 
 	if c.TemplateURL != nil {
-		templateURL := c.TemplateURL(c.frame)
+		templateURL := c.TemplateURL()
 		createStackInput.TemplateURL = &templateURL
 	}
 
@@ -151,19 +148,19 @@ func (c *CloudFormation) createStack() *types.Result {
 }
 
 func (c *CloudFormation) updateStack() *types.Result {
-	stackName := c.StackName(c.frame)
+	stackName := c.StackName()
 	updateStackInput := cloudformation.UpdateStackInput{
 		StackName:    &stackName,
 		Capabilities: capabilities,
 	}
 
 	if c.TemplateBody != nil {
-		body := c.TemplateBody(c.frame)
+		body := c.TemplateBody()
 		updateStackInput.TemplateBody = &body
 	}
 
 	if c.TemplateURL != nil {
-		templateURL := c.TemplateURL(c.frame)
+		templateURL := c.TemplateURL()
 		updateStackInput.TemplateURL = &templateURL
 	}
 
