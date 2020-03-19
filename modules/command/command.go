@@ -33,7 +33,11 @@ func (c *Command) Name() string {
 }
 
 func (c *Command) Build() *types.Result {
-	parts := strings.Fields(c.Execute())
+	execute, err := c.Execute()
+	if err != nil {
+		return util.ErrResult(err.Error(), moduleName)
+	}
+	parts := strings.Fields(execute)
 	command := parts[0]
 	args := parts[1:]
 	return types.DoIf(
@@ -76,17 +80,25 @@ func (c *Command) Destroy() *types.Result {
 }
 
 func (c *Command) done() (bool, error) {
-	if c.Creates() == "" && c.Removes() == "" {
+	creates, err := c.Creates()
+	if err != nil {
+		return false, err
+	}
+	removes, err := c.Removes()
+	if err != nil {
+		return false, err
+	}
+	if creates == "" && removes == "" {
 		return false, nil
 	}
 
 	var predicates []types.Predicate
-	if c.Creates() != "" {
+	if creates != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.created()
 		})
 	}
-	if c.Removes() != "" {
+	if removes != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.removed()
 		})
@@ -104,7 +116,11 @@ func (c *Command) done() (bool, error) {
 }
 
 func (c *Command) created() (bool, error) {
-	_, err := os.Stat(c.Creates())
+	creates, err := c.Creates()
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(creates)
 	if err == nil {
 		return true, nil
 	}
@@ -112,7 +128,11 @@ func (c *Command) created() (bool, error) {
 }
 
 func (c *Command) removed() (bool, error) {
-	_, err := os.Stat(c.Removes())
+	removes, err := c.Removes()
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(removes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return true, nil

@@ -71,29 +71,29 @@ func (p *Playbook) Run() []*types.Result {
 	return results
 }
 
-func ResolveMap(attributes map[string]interface{}, path string) map[string]interface{} {
+func ResolveMap(attributes map[string]interface{}, path string) (map[string]interface{}, error) {
 	parts := strings.Split(path, ".")
 	innerAttributes := attributes
 	for _, part := range parts {
 		var ok bool
 		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
-			return nil
+			return nil, fmt.Errorf("map attribute %s not found", path)
 		}
 	}
-	return innerAttributes
+	return innerAttributes, nil
 }
 
-func ResolveString(attributes map[string]interface{}, path string) string {
+func ResolveString(attributes map[string]interface{}, path string) (string, error) {
 	parts := strings.Split(path, ".")
 	innerAttributes := attributes
 	for _, part := range parts[:len(parts)-1] {
 		var ok bool
 		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
-			return ""
+			return "", fmt.Errorf("string attribute %s not found", path)
 		}
 	}
 	if s, ok := innerAttributes[parts[len(parts)-1]].(string); ok {
-		return s
+		return s, nil
 	}
-	return ""
+	return "", fmt.Errorf("string attribute %s not found", path)
 }

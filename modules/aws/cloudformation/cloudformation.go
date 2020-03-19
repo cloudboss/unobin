@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/cloudboss/go-player/pkg/lazy"
 	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/go-player/pkg/util"
 )
 
 const (
@@ -60,7 +61,7 @@ func (c *CloudFormation) Name() string {
 func (c *CloudFormation) Build() *types.Result {
 	stackInfo, err := c.getStackInfo()
 	if err != nil {
-		return errResult(err.Error())
+		return util.ErrResult(err.Error(), moduleName)
 	}
 
 	stackExists := stackInfo != nil
@@ -76,7 +77,10 @@ func (c *CloudFormation) Destroy() *types.Result {
 }
 
 func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
-	stackName := c.StackName()
+	stackName, err := c.StackName()
+	if err != nil {
+		return nil, err
+	}
 	stackResponse, err := c.cfn.DescribeStacks(&cloudformation.DescribeStacksInput{
 		StackName: &stackName,
 	})
@@ -99,25 +103,34 @@ func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
 }
 
 func (c *CloudFormation) createStack() *types.Result {
-	stackName := c.StackName()
+	stackName, err := c.StackName()
+	if err != nil {
+		return util.ErrResult(err.Error(), moduleName)
+	}
 	createStackInput := cloudformation.CreateStackInput{
 		StackName:    &stackName,
 		Capabilities: capabilities,
 	}
 
 	if c.TemplateBody != nil {
-		body := c.TemplateBody()
+		body, err := c.TemplateBody()
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
 		createStackInput.TemplateBody = &body
 	}
 
 	if c.TemplateURL != nil {
-		templateURL := c.TemplateURL()
+		templateURL, err := c.TemplateURL()
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
 		createStackInput.TemplateURL = &templateURL
 	}
 
-	_, err := c.cfn.CreateStack(&createStackInput)
+	_, err = c.cfn.CreateStack(&createStackInput)
 	if err != nil {
-		return errResult(err.Error())
+		return util.ErrResult(err.Error(), moduleName)
 	}
 
 	createErr := c.cfn.WaitUntilStackCreateCompleteWithContext(
@@ -128,7 +141,7 @@ func (c *CloudFormation) createStack() *types.Result {
 
 	stackInfo, err := c.getStackInfo()
 	if err != nil {
-		return errResult(err.Error())
+		return util.ErrResult(err.Error(), moduleName)
 	}
 
 	result := &types.Result{
@@ -148,30 +161,39 @@ func (c *CloudFormation) createStack() *types.Result {
 }
 
 func (c *CloudFormation) updateStack() *types.Result {
-	stackName := c.StackName()
+	stackName, err := c.StackName()
+	if err != nil {
+		return util.ErrResult(err.Error(), moduleName)
+	}
 	updateStackInput := cloudformation.UpdateStackInput{
 		StackName:    &stackName,
 		Capabilities: capabilities,
 	}
 
 	if c.TemplateBody != nil {
-		body := c.TemplateBody()
+		body, err := c.TemplateBody()
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
 		updateStackInput.TemplateBody = &body
 	}
 
 	if c.TemplateURL != nil {
-		templateURL := c.TemplateURL()
+		templateURL, err := c.TemplateURL()
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
 		updateStackInput.TemplateURL = &templateURL
 	}
 
-	_, err := c.cfn.UpdateStack(&updateStackInput)
+	_, err = c.cfn.UpdateStack(&updateStackInput)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			errNoUpdate := "No updates are to be performed"
 			if strings.Contains(awsErr.Message(), errNoUpdate) {
 				stackInfo, err := c.getStackInfo()
 				if err != nil {
-					return errResult(err.Error())
+					return util.ErrResult(err.Error(), moduleName)
 				}
 				return &types.Result{
 					Succeeded: true,
@@ -182,9 +204,9 @@ func (c *CloudFormation) updateStack() *types.Result {
 					},
 				}
 			}
-			return errResult(err.Error())
+			return util.ErrResult(err.Error(), moduleName)
 		}
-		return errResult(err.Error())
+		return util.ErrResult(err.Error(), moduleName)
 	}
 
 	updateErr := c.cfn.WaitUntilStackUpdateCompleteWithContext(
@@ -195,7 +217,7 @@ func (c *CloudFormation) updateStack() *types.Result {
 
 	stackInfo, err := c.getStackInfo()
 	if err != nil {
-		return errResult(err.Error())
+		return util.ErrResult(err.Error(), moduleName)
 	}
 
 	result := &types.Result{
@@ -223,13 +245,4 @@ func outputsToMap(outputs []*cloudformation.Output) map[string]interface{} {
 		outputMap[*output.OutputKey] = *output.OutputValue
 	}
 	return outputMap
-}
-
-func errResult(msg string) *types.Result {
-	return &types.Result{
-		Succeeded: false,
-		Changed:   false,
-		Error:     msg,
-		Module:    moduleName,
-	}
 }

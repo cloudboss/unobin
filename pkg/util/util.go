@@ -1,5 +1,9 @@
 package util
 
+import (
+	"github.com/cloudboss/go-player/pkg/types"
+)
+
 func FilterEmpty(items []string) []string {
 	nonEmpty := []string{}
 	for _, item := range items {
@@ -26,4 +30,13 @@ func All(bools []bool) bool {
 		}
 	}
 	return true
+}
+
+func ErrResult(msg, moduleName string) *types.Result {
+	return &types.Result{
+		Succeeded: false,
+		Changed:   false,
+		Error:     msg,
+		Module:    moduleName,
+	}
 }
