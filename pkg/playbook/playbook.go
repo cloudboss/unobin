@@ -76,7 +76,7 @@ func (p *Playbook) Run() []*types.Result {
 	return results
 }
 
-func resolveMap(attributes map[string]interface{}, path string) map[string]interface{} {
+func ResolveMap(attributes map[string]interface{}, path string) map[string]interface{} {
 	parts := strings.Split(path, ".")
 	innerAttributes := attributes
 	for _, part := range parts {
@@ -88,7 +88,7 @@ func resolveMap(attributes map[string]interface{}, path string) map[string]inter
 	return innerAttributes
 }
 
-func resolveString(attributes map[string]interface{}, path string) string {
+func ResolveString(attributes map[string]interface{}, path string) string {
 	parts := strings.Split(path, ".")
 	innerAttributes := attributes
 	for _, part := range parts[:len(parts)-1] {

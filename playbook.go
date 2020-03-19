@@ -39,6 +39,15 @@ func main() {
 					TemplateBody: lz.S(string(b)),
 				},
 			},
+			{
+				Name: `run a command from output`,
+				Module: &command.Command{
+					Execute: lz.Sprintf(`echo "sg1 is %s and sg2 is %s"`,
+						lz.Output("build a stack", "outputs.SecurityGroup"),
+						lz.Output("build a stack", "outputs.SecurityGroupTwo"),
+					),
+				},
+			},
 		},
 	}
 	pb.Run()
