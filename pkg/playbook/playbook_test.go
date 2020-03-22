@@ -1,31 +1,35 @@
 package playbook
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_resolveMap(t *testing.T) {
+func Test_ResolveMap(t *testing.T) {
 	testCases := []struct {
 		name       string
 		path       string
 		attributes map[string]interface{}
 		result     map[string]interface{}
+		err        error
 	}{
 		{
-			name:       "empty attributes should produce nil map",
+			name:       "empty attributes should produce error",
 			path:       "x.y.z",
 			attributes: map[string]interface{}{},
 			result:     nil,
+			err:        errors.New("map attribute `x.y.z` not found"),
 		},
 		{
-			name: "empty path should produce nil map",
+			name: "empty path should produce error",
 			path: "",
 			attributes: map[string]interface{}{
 				"xyz": "abc",
 			},
 			result: nil,
+			err:    errors.New("map attribute `` not found"),
 		},
 		{
 			name: "nonempty attributes with correct path should produce nonempty map",
@@ -42,9 +46,10 @@ func Test_resolveMap(t *testing.T) {
 			result: map[string]interface{}{
 				"xyz": "abc",
 			},
+			err: nil,
 		},
 		{
-			name: "nonempty attributes with wrong value at path should produce nil map",
+			name: "nonempty attributes with wrong value at path should produce error",
 			path: "x.y.z",
 			attributes: map[string]interface{}{
 				"x": map[string]interface{}{
@@ -54,9 +59,10 @@ func Test_resolveMap(t *testing.T) {
 				},
 			},
 			result: nil,
+			err:    errors.New("map attribute `x.y.z` not found"),
 		},
 		{
-			name: "nonempty attributes with incorrect path should produce nil map",
+			name: "nonempty attributes with incorrect path should produce error",
 			path: "a.b.c",
 			attributes: map[string]interface{}{
 				"x": map[string]interface{}{
@@ -68,36 +74,41 @@ func Test_resolveMap(t *testing.T) {
 				},
 			},
 			result: nil,
+			err:    errors.New("map attribute `a.b.c` not found"),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := resolveMap(tc.attributes, tc.path)
+			result, err := ResolveMap(tc.attributes, tc.path)
 			assert.Equal(t, result, tc.result)
+			assert.Equal(t, err, tc.err)
 		})
 	}
 }
 
-func Test_resolveString(t *testing.T) {
+func Test_ResolveString(t *testing.T) {
 	testCases := []struct {
 		name       string
 		path       string
 		attributes map[string]interface{}
 		result     string
+		err        error
 	}{
 		{
-			name:       "empty attributes should produce empty string",
+			name:       "empty attributes should produce error",
 			path:       "x.y.z",
 			attributes: map[string]interface{}{},
 			result:     "",
+			err:        errors.New("string attribute `x.y.z` not found"),
 		},
 		{
-			name: "empty path should produce empty string",
+			name: "empty path should produce error",
 			path: "",
 			attributes: map[string]interface{}{
 				"xyz": "abc",
 			},
 			result: "",
+			err:    errors.New("string attribute `` not found"),
 		},
 		{
 			name: "nonempty attributes with correct path should produce nonempty string",
@@ -110,6 +121,7 @@ func Test_resolveString(t *testing.T) {
 				},
 			},
 			result: "abc",
+			err:    nil,
 		},
 		{
 			name: "nonempty attributes with incorrect path should produce empty string",
@@ -122,6 +134,7 @@ func Test_resolveString(t *testing.T) {
 				},
 			},
 			result: "",
+			err:    errors.New("string attribute `a.b.c` not found"),
 		},
 		{
 			name: "nonempty attributes with correct single length path should produce nonempty string",
@@ -130,12 +143,14 @@ func Test_resolveString(t *testing.T) {
 				"a": "xyz",
 			},
 			result: "xyz",
+			err:    nil,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := resolveString(tc.attributes, tc.path)
+			result, err := ResolveString(tc.attributes, tc.path)
 			assert.Equal(t, result, tc.result)
+			assert.Equal(t, err, tc.err)
 		})
 	}
 }

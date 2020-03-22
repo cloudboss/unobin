@@ -77,7 +77,7 @@ func ResolveMap(attributes map[string]interface{}, path string) (map[string]inte
 	for _, part := range parts {
 		var ok bool
 		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
-			return nil, fmt.Errorf("map attribute %s not found", path)
+			return nil, fmt.Errorf("map attribute `%s` not found", path)
 		}
 	}
 	return innerAttributes, nil
@@ -89,11 +89,11 @@ func ResolveString(attributes map[string]interface{}, path string) (string, erro
 	for _, part := range parts[:len(parts)-1] {
 		var ok bool
 		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
-			return "", fmt.Errorf("string attribute %s not found", path)
+			return "", fmt.Errorf("string attribute `%s` not found", path)
 		}
 	}
 	if s, ok := innerAttributes[parts[len(parts)-1]].(string); ok {
 		return s, nil
 	}
-	return "", fmt.Errorf("string attribute %s not found", path)
+	return "", fmt.Errorf("string attribute `%s` not found", path)
 }
