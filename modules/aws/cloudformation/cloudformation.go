@@ -86,7 +86,7 @@ func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
 	})
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
-			msgNoExist := fmt.Sprintf("Stack with id %s does not exist", c.StackName)
+			msgNoExist := fmt.Sprintf("Stack with id %s does not exist", stackName)
 			if strings.Contains(awsErr.Message(), msgNoExist) {
 				return nil, nil
 			}
