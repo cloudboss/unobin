@@ -4,16 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/cloudboss/go-player/pkg/task"
 	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/spf13/cobra"
 )
 
 type Playbook struct {
-	Tasks     []*task.Task
-	Frame     *types.Frame
-	Succeeded bool
+	Name        string
+	Description string
+	Tasks       []*task.Task
+	Frame       *types.Frame
+	Succeeded   bool
 }
 
 func NewPlaybook(playbookPath, moduleSearchPath string) (*Playbook, error) {
@@ -69,6 +73,27 @@ func (p *Playbook) Run() []*types.Result {
 
 	p.Succeeded = true
 	return results
+}
+
+func (p *Playbook) StartCLI() {
+	root := &cobra.Command{
+		Use:   p.Name,
+		Short: p.Description,
+	}
+
+	apply := &cobra.Command{
+		Use:   "apply",
+		Short: "Apply playbook",
+		Run: func(cmd *cobra.Command, args []string) {
+			p.Run()
+			if !p.Succeeded {
+				os.Exit(1)
+			}
+		},
+	}
+
+	root.AddCommand(apply)
+	root.Execute()
 }
 
 func ResolveMap(attributes map[string]interface{}, path string) (map[string]interface{}, error) {

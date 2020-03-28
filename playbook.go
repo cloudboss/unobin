@@ -24,7 +24,9 @@ func main() {
 	}
 
 	pb := playbook.Playbook{
-		Frame: frame,
+		Name:        "cfer",
+		Description: "Build a CloudFormation stack",
+		Frame:       frame,
 		Tasks: []*task.Task{
 			{
 				Name: `do something`,
@@ -58,9 +60,5 @@ func main() {
 			},
 		},
 	}
-	pb.Run()
-	if !pb.Succeeded {
-		os.Exit(1)
-	}
-	os.Exit(0)
+	pb.StartCLI()
 }
