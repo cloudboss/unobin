@@ -71,3 +71,15 @@ func Output(task, path string) Interface {
 		}
 	}
 }
+
+func Var(path string) Interface {
+	return func(frame *types.Frame) InterfaceValue {
+		return func() (interface{}, error) {
+			s, err := playbook.ResolveString(frame.Vars, path)
+			if err != nil {
+				return "", err
+			}
+			return s, nil
+		}
+	}
+}

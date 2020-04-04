@@ -2,6 +2,7 @@ package playbook
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,11 +11,13 @@ import (
 	"github.com/cloudboss/go-player/pkg/task"
 	"github.com/cloudboss/go-player/pkg/types"
 	"github.com/spf13/cobra"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 type Playbook struct {
 	Name        string
 	Description string
+	InputSchema map[string]interface{}
 	Tasks       []*task.Task
 	Frame       *types.Frame
 	Succeeded   bool
@@ -81,19 +84,71 @@ func (p *Playbook) StartCLI() {
 		Short: p.Description,
 	}
 
-	apply := &cobra.Command{
-		Use:   "apply",
-		Short: "Apply playbook",
-		Run: func(cmd *cobra.Command, args []string) {
-			p.Run()
-			if !p.Succeeded {
-				os.Exit(1)
-			}
-		},
+	var (
+		varsFile     string
+		applyCommand = &cobra.Command{
+			Use:   "apply",
+			Short: "Apply playbook",
+			Run: func(cmd *cobra.Command, args []string) {
+				vars, err := p.validateInputVars(varsFile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					os.Exit(1)
+				}
+
+				p.Frame.Vars = vars
+
+				p.Run()
+				if !p.Succeeded {
+					os.Exit(1)
+				}
+			},
+		}
+	)
+
+	root.AddCommand(applyCommand)
+	applyCommand.Flags().StringVarP(&varsFile, "vars", "v", "", "File containing input variables")
+	applyCommand.MarkFlagRequired("vars")
+
+	root.Execute()
+}
+
+func (p *Playbook) validateInputVars(varsFile string) (map[string]interface{}, error) {
+	if _, err := os.Stat(varsFile); os.IsNotExist(err) {
+		return nil, errors.New(fmt.Sprintf("file %s not found", varsFile))
 	}
 
-	root.AddCommand(apply)
-	root.Execute()
+	jsn, err := ioutil.ReadFile(varsFile)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("error reading file %s: %v", varsFile, err))
+	}
+
+	inputSchemaLoader := gojsonschema.NewGoLoader(p.InputSchema)
+	document := gojsonschema.NewStringLoader(string(jsn))
+
+	result, err := gojsonschema.Validate(inputSchemaLoader, document)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to validate file %s: %v", varsFile, err))
+	}
+	if !result.Valid() {
+		errMsg := fmt.Sprintf("file %s is not valid: ", varsFile)
+		for i, err := range result.Errors() {
+			var sep string
+			if i == 0 {
+				sep = ""
+			} else {
+				sep = "; "
+			}
+			errMsg += fmt.Sprintf("%s%s", sep, err)
+		}
+		return nil, errors.New(errMsg)
+	}
+
+	// Unmarshal error is ignored because JSON is already validated.
+	var vars map[string]interface{}
+	json.Unmarshal(jsn, &vars)
+
+	return vars, nil
 }
 
 func ResolveMap(attributes map[string]interface{}, path string) (map[string]interface{}, error) {

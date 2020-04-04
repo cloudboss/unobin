@@ -2,6 +2,7 @@ package cloudformation
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ var (
 type CloudFormation struct {
 	StackName       lazy.StringValue
 	DisableRollback lazy.BoolValue
+	TemplateFile    lazy.StringValue
 	TemplateBody    lazy.StringValue
 	TemplateURL     lazy.StringValue
 	cfn             *cloudformation.CloudFormation
@@ -43,8 +45,8 @@ func (c *CloudFormation) Initialize() error {
 	sess.Config.Logger = nil
 	c.cfn = cloudformation.New(sess)
 
-	if c.TemplateBody == nil && c.TemplateURL == nil {
-		return fmt.Errorf("one of TemplateBody or TemplateURL is required")
+	if c.TemplateBody == nil && c.TemplateFile == nil && c.TemplateURL == nil {
+		return fmt.Errorf("one of TemplateBody, TemplateFile, or TemplateURL is required")
 	}
 
 	if c.DisableRollback == nil {
@@ -120,6 +122,19 @@ func (c *CloudFormation) createStack() *types.Result {
 		createStackInput.TemplateBody = &body
 	}
 
+	if c.TemplateFile != nil {
+		file, err := c.TemplateFile()
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
+		b, err := ioutil.ReadFile(file)
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
+		s := string(b)
+		createStackInput.TemplateBody = &s
+	}
+
 	if c.TemplateURL != nil {
 		templateURL, err := c.TemplateURL()
 		if err != nil {
@@ -176,6 +191,19 @@ func (c *CloudFormation) updateStack() *types.Result {
 			return util.ErrResult(err.Error(), moduleName)
 		}
 		updateStackInput.TemplateBody = &body
+	}
+
+	if c.TemplateFile != nil {
+		file, err := c.TemplateFile()
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
+		b, err := ioutil.ReadFile(file)
+		if err != nil {
+			return util.ErrResult(err.Error(), moduleName)
+		}
+		s := string(b)
+		updateStackInput.TemplateBody = &s
 	}
 
 	if c.TemplateURL != nil {

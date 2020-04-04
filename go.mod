@@ -9,4 +9,5 @@ require (
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.4.0
+	github.com/xeipuuv/gojsonschema v1.2.0
 )
