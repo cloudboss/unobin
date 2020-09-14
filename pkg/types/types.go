@@ -12,7 +12,7 @@ type Result struct {
 	Output    map[string]interface{} `json:"output,omitempty"`
 }
 
-type Frame struct {
+type Context struct {
 	Vars  map[string]interface{}
 	State map[string]interface{}
 	Item  interface{}

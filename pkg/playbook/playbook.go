@@ -14,13 +14,23 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
+type PlaybookRepr struct {
+	Name        string                   `yaml:"name"`
+	Description string                   `yaml:"description"`
+	Imports     map[string]string        `yaml:"imports"`
+	InputSchema map[string]interface{}   `yaml:"input_schema"`
+	Tasks       []map[string]interface{} `yaml:"tasks"`
+}
+
 type Playbook struct {
 	Name        string
 	Description string
+	Imports     map[string]string
 	InputSchema map[string]interface{}
 	Tasks       []*task.Task
-	Frame       *types.Frame
+	Context     *types.Context
 	Succeeded   bool
+	Outputs     map[string]interface{}
 }
 
 func NewPlaybook(playbookPath, moduleSearchPath string) (*Playbook, error) {
@@ -70,7 +80,7 @@ func (p *Playbook) Run() []*types.Result {
 			return results
 		}
 		if result.Output != nil {
-			p.Frame.State[task.Name] = result.Output
+			p.Context.State[task.Name] = result.Output
 		}
 	}
 
@@ -96,7 +106,7 @@ func (p *Playbook) StartCLI() {
 					os.Exit(1)
 				}
 
-				p.Frame.Vars = vars
+				p.Context.Vars = vars
 
 				p.Run()
 				if !p.Succeeded {

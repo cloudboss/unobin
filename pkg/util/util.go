@@ -1,6 +1,8 @@
 package util
 
 import (
+	"strings"
+
 	"github.com/cloudboss/go-player/pkg/types"
 )
 
@@ -39,4 +41,19 @@ func ErrResult(msg, moduleName string) *types.Result {
 		Error:     msg,
 		Module:    moduleName,
 	}
+}
+
+// SnakeToPascal converts a "snake_case" string to a "PascalCase" string.
+func SnakeToPascal(s string) string {
+	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '_' })
+	capitalized_parts := []string{}
+	for _, part := range parts {
+		first := strings.ToUpper(string(part[0]))
+		rest := ""
+		if len(part) >= 2 {
+			rest = string(part[1:])
+		}
+		capitalized_parts = append(capitalized_parts, first+rest)
+	}
+	return strings.Join(capitalized_parts, "")
 }

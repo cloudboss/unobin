@@ -1,0 +1,66 @@
+name: cfer
+description: Demo to showcase go-player features
+
+# Imports are modules written in Go. The import keys match the modules in
+# tasks. The path to the import is the same as in Go, but with the module
+# type appended as a suffix.
+imports:
+  cfn: github.com/cloudboss/go-player/modules/aws/cloudformation.CloudFormation
+  cmd: github.com/cloudboss/go-player/modules/command.Command
+
+# The input schema is a JSON schema for validating input variables. The playbook
+# will not accept input variables that do not validate.
+input_schema:
+  $schema: http://json-schema.org/schema#
+  $id: github.com/cloudboss/go-player
+  type: object
+  properties:
+    template:
+      type: string
+    stack_name:
+      type: string
+  required:
+  - template
+  - stack_name
+  additionalProperties: false
+
+tasks:
+- name: show contents of /etc/services
+  # The name of the module, cmd, must match one of the import keys.
+  cmd:
+    execute: "cat /etc/services"
+  # when_execute() runs its argument and succeeds if the exit status equals 0.
+  when: when_execute("/bin/true")
+
+- name: echo the truth
+  cmd:
+    # The output of this command will be used as the input to when_execute
+    # in the next task.
+    execute: "echo /bin/true"
+
+- name: run ls command
+  cmd:
+    execute: "ls /"
+  # Here, when_execute() uses the "echo the truth" task output's
+  # "stdout" attribute as a command to run.
+  when: when_execute(string_output("echo the truth", "stdout"))
+
+- name: run ls command if file doesn't exist
+  cmd:
+    execute: "ls /"
+    # This will never run since / always exists.
+    creates: "/"
+
+- name: build a cloudformation stack
+  cfn:
+    # string_var() gets a string variable from the input variables.
+    stack_name: string_var("stack_name")
+    template_file: string_var("template")
+
+- name: run a command from output
+  cmd:
+    execute:
+      # The format function behaves like printf.
+      format("echo \"sg1 is %s and sg2 is %s\"",
+        any_output("build a cloudformation stack", "outputs.SecurityGroup"),
+        any_output("build a cloudformation stack", "outputs.SecurityGroupTwo"))
