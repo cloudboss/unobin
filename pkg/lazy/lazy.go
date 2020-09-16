@@ -111,10 +111,14 @@ func StringOutput(task, path StringValue) String {
 	}
 }
 
-func Var(path string) Interface {
-	return func(ctx *types.Context) InterfaceValue {
-		return func() (interface{}, error) {
-			s, err := playbook.ResolveString(ctx.Vars, path)
+func StringVar(path StringValue) String {
+	return func(ctx *types.Context) StringValue {
+		return func() (string, error) {
+			pathStr, err := path()
+			if err != nil {
+				return "", err
+			}
+			s, err := playbook.ResolveString(ctx.Vars, pathStr)
 			if err != nil {
 				return "", err
 			}
@@ -123,9 +127,9 @@ func Var(path string) Interface {
 	}
 }
 
-func StringVar(path StringValue) String {
-	return func(ctx *types.Context) StringValue {
-		return func() (string, error) {
+func AnyVar(path StringValue) Interface {
+	return func(ctx *types.Context) InterfaceValue {
+		return func() (interface{}, error) {
 			pathStr, err := path()
 			if err != nil {
 				return "", err
