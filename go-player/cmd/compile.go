@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -64,7 +65,10 @@ var (
 			ast.SortImports(fset, astFile)
 			format.Node(file, fset, astFile)
 
-			return compileGo(output, goPath)
+			if err = compileGo(output, goPath); err != nil {
+				cmd.SilenceUsage = true
+			}
+			return err
 		},
 	}
 )
@@ -86,6 +90,12 @@ func playbookName(path string) (string, error) {
 }
 
 func compileGo(name, goPath string) error {
+	var stderr bytes.Buffer
 	cmd := exec.Command("go", "build", "-o", name, goPath)
-	return cmd.Run()
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println(stderr.String())
+	}
+	return err
 }
