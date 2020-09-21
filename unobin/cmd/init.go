@@ -32,14 +32,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const templatePath = "github.com/cloudboss/go-player:/go-player/cmd/templates"
+const templatePath = "github.com/cloudboss/unobin:/unobin/cmd/templates"
 
 var (
 	importPath  string
 	projectPath string
 	initCmd     = &cobra.Command{
 		Use:   "init",
-		Short: "Initialize a go-player project",
+		Short: "Initialize a unobin project",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 			if importPath == "" {
@@ -54,7 +54,7 @@ var (
 			if err := os.MkdirAll(projectPath, 0777); err != nil {
 				return err
 			}
-			return pkger.Walk("/go-player/cmd/templates", func(path string, info os.FileInfo, err error) error {
+			return pkger.Walk("/unobin/cmd/templates", func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}

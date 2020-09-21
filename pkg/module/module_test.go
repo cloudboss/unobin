@@ -19,7 +19,7 @@ func Test_qualifiedIdentifier(t *testing.T) {
 		},
 		{
 			name:   "A URL import should give a result",
-			input:  "github.com/cloudboss/go-player/modules/command.Command",
+			input:  "github.com/cloudboss/unobin/modules/command.Command",
 			result: "command.Command",
 		},
 		{

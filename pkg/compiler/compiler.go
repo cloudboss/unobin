@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"strconv"
 
-	"github.com/cloudboss/go-player/pkg/module"
-	"github.com/cloudboss/go-player/pkg/playbook"
-	"github.com/cloudboss/go-player/pkg/util"
+	"github.com/cloudboss/unobin/pkg/module"
+	"github.com/cloudboss/unobin/pkg/playbook"
+	"github.com/cloudboss/unobin/pkg/util"
 	"gopkg.in/yaml.v2"
 )
 
@@ -134,10 +134,10 @@ func Compile(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleImport)
 // genDecl_import creates an `*ast.GenDecl` for all of the playbook's imports.
 func genDecl_import(imports map[string]*module.ModuleImport) *ast.GenDecl {
 	specs := []ast.Spec{
-		importSpec("github.com/cloudboss/go-player/pkg/lazy"),
-		importSpec("github.com/cloudboss/go-player/pkg/playbook"),
-		importSpec("github.com/cloudboss/go-player/pkg/task"),
-		importSpec("github.com/cloudboss/go-player/pkg/types"),
+		importSpec("github.com/cloudboss/unobin/pkg/lazy"),
+		importSpec("github.com/cloudboss/unobin/pkg/playbook"),
+		importSpec("github.com/cloudboss/unobin/pkg/task"),
+		importSpec("github.com/cloudboss/unobin/pkg/types"),
 	}
 	for _, value := range imports {
 		specs = append(specs, importSpec(value.GoImportPath))

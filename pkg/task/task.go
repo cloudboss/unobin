@@ -1,8 +1,8 @@
 package task
 
 import (
-	"github.com/cloudboss/go-player/pkg/module"
-	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/unobin/pkg/module"
+	"github.com/cloudboss/unobin/pkg/types"
 )
 
 type Task struct {

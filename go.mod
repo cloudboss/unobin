@@ -1,4 +1,4 @@
-module github.com/cloudboss/go-player
+module github.com/cloudboss/unobin
 
 go 1.14
 

@@ -20,7 +20,7 @@
 
 package main
 
-import "github.com/cloudboss/go-player/go-player/cmd"
+import "github.com/cloudboss/unobin/unobin/cmd"
 
 func main() {
 	cmd.Execute()

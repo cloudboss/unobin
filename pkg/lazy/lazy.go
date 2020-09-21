@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudboss/go-player/pkg/commands"
-	"github.com/cloudboss/go-player/pkg/playbook"
-	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/unobin/pkg/commands"
+	"github.com/cloudboss/unobin/pkg/playbook"
+	"github.com/cloudboss/unobin/pkg/types"
 )
 
 type Interface func(*types.Context) InterfaceValue

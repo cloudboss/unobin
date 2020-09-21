@@ -1,18 +1,18 @@
 name: cfer
-description: Demo to showcase go-player features
+description: Demo to showcase unobin features
 
 # Imports are modules written in Go. The import keys match the modules in
 # tasks. The path to the import is the same as in Go, but with the module
 # type appended as a suffix.
 imports:
-  cfn: github.com/cloudboss/go-player/modules/aws/cloudformation.CloudFormation
-  cmd: github.com/cloudboss/go-player/modules/command.Command
+  cfn: github.com/cloudboss/unobin/modules/aws/cloudformation.CloudFormation
+  cmd: github.com/cloudboss/unobin/modules/command.Command
 
 # The input schema is a JSON schema for validating input variables. The playbook
 # will not accept input variables that do not validate.
 input_schema:
   $schema: http://json-schema.org/schema#
-  $id: github.com/cloudboss/go-player
+  $id: github.com/cloudboss/unobin
   type: object
   properties:
     template:

@@ -4,10 +4,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cloudboss/go-player/pkg/commands"
-	"github.com/cloudboss/go-player/pkg/lazy"
-	"github.com/cloudboss/go-player/pkg/types"
-	"github.com/cloudboss/go-player/pkg/util"
+	"github.com/cloudboss/unobin/pkg/commands"
+	"github.com/cloudboss/unobin/pkg/lazy"
+	"github.com/cloudboss/unobin/pkg/types"
+	"github.com/cloudboss/unobin/pkg/util"
 )
 
 const moduleName = "command"

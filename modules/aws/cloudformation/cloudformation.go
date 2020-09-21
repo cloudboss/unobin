@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
-	"github.com/cloudboss/go-player/pkg/lazy"
-	"github.com/cloudboss/go-player/pkg/types"
-	"github.com/cloudboss/go-player/pkg/util"
+	"github.com/cloudboss/unobin/pkg/lazy"
+	"github.com/cloudboss/unobin/pkg/types"
+	"github.com/cloudboss/unobin/pkg/util"
 )
 
 const (

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/cloudboss/go-player/modules/aws/cloudformation"
-	"github.com/cloudboss/go-player/modules/command"
-	"github.com/cloudboss/go-player/pkg/lazy"
-	"github.com/cloudboss/go-player/pkg/playbook"
-	"github.com/cloudboss/go-player/pkg/task"
-	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/unobin/modules/aws/cloudformation"
+	"github.com/cloudboss/unobin/modules/command"
+	"github.com/cloudboss/unobin/pkg/lazy"
+	"github.com/cloudboss/unobin/pkg/playbook"
+	"github.com/cloudboss/unobin/pkg/task"
+	"github.com/cloudboss/unobin/pkg/types"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 		Description: "Build a CloudFormation stack",
 		InputSchema: map[string]interface{}{
 			"$schema": "http://json-schema.org/schema#",
-			"$id":     "github.com/cloudboss/go-player",
+			"$id":     "github.com/cloudboss/unobin",
 			"type":    "object",
 			"properties": map[string]interface{}{
 				"template": map[string]interface{}{"type": "string"},

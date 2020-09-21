@@ -34,18 +34,18 @@ func Test_SnakeToPascal(t *testing.T) {
 		},
 		{
 			name:   "Underscores should be removed with capitalized letters following",
-			input:  "go-player_is_really_cool",
-			result: "Go-playerIsReallyCool",
+			input:  "unobin_is_really_cool",
+			result: "UnobinIsReallyCool",
 		},
 		{
 			name:   "Existing capital letters should not be affected",
-			input:  "go-player_is_reALly_coOl",
-			result: "Go-playerIsReALlyCoOl",
+			input:  "unobin_is_reALly_coOl",
+			result: "UnobinIsReALlyCoOl",
 		},
 		{
 			name:   "Spaces should not affect the result",
-			input:  "go-player is really cool",
-			result: "Go-player is really cool",
+			input:  "unobin is really cool",
+			result: "Unobin is really cool",
 		},
 		{
 			name:   "Strings with only spaces should not be affected",

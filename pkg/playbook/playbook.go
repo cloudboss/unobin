@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cloudboss/go-player/pkg/task"
-	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/unobin/pkg/task"
+	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/spf13/cobra"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -98,7 +98,7 @@ func (p *Playbook) StartCLI() {
 		varsFile     string
 		applyCommand = &cobra.Command{
 			Use:   "apply",
-			Short: "Apply playbook",
+			Short: fmt.Sprintf("Apply %s", p.Name),
 			Run: func(cmd *cobra.Command, args []string) {
 				vars, err := p.validateInputVars(varsFile)
 				if err != nil {

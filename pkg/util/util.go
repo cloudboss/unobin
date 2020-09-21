@@ -3,7 +3,7 @@ package util
 import (
 	"strings"
 
-	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/unobin/pkg/types"
 )
 
 func FilterEmpty(items []string) []string {

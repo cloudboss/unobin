@@ -26,7 +26,7 @@ import (
 )
 
 var RootCmd = &cobra.Command{
-	Use: "go-player",
+	Use: "unobin",
 }
 
 func Execute() {

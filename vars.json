@@ -1,4 +1,4 @@
 {
   "template": "cf.yml",
-  "stack_name": "go-player"
+  "stack_name": "unobin"
 }

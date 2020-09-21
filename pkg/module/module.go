@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudboss/go-player/pkg/types"
+	"github.com/cloudboss/unobin/pkg/types"
 )
 
 type ModuleImport struct {
@@ -38,7 +38,7 @@ func NewModuleImport(alias, importPath string) (*ModuleImport, error) {
 
 // qualifiedIdentifier takes a playbook import path for a module and returns the qualified
 // identifier for the module at that path. The qualified identifier is a dot-separated package
-// and module name. For example, "github.com/cloudboss/go-player/modules/command.Command"
+// and module name. For example, "github.com/cloudboss/unobin/modules/command.Command"
 // results in "command.Command". An empty importPath will result in an empty string.
 func qualifiedIdentifier(importPath string) string {
 	if importPath == "" {

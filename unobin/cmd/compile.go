@@ -30,7 +30,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/cloudboss/go-player/pkg/compiler"
+	"github.com/cloudboss/unobin/pkg/compiler"
 	"github.com/spf13/cobra"
 )
 
