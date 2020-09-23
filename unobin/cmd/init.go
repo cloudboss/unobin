@@ -117,7 +117,7 @@ func resolvePath(path string) (string, string, error) {
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("unexpected path %s", path)
 	}
-	projectFile := fmt.Sprintf("%s%s", projectPath, string(parts[1]))
+	projectFile := fmt.Sprintf("%s%s", projectPath, parts[1])
 	projectDir := filepath.Dir(projectFile)
 	return projectFile, projectDir, nil
 }

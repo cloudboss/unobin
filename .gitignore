@@ -12,3 +12,5 @@
 *.out
 
 _output/
+dist/
+unobin/cmd/pkged.go
