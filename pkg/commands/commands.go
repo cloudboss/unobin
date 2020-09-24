@@ -33,8 +33,8 @@ func RunCommand(command string, args ...string) (*CommandOutput, error) {
 		ExitStatus:  waitStatus.ExitStatus(),
 		Stdout:      stdoutStr,
 		Stderr:      stderrStr,
-		StdoutLines: strings.Split(stdoutStr, "\n"),
-		StderrLines: strings.Split(stderrStr, "\n"),
+		StdoutLines: strings.Fields(stdoutStr),
+		StderrLines: strings.Fields(stderrStr),
 	}
 	return commandOutput, nil
 }
