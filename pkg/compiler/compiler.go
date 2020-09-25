@@ -100,11 +100,12 @@ func validateTask(task map[string]interface{}, imports map[string]string) (*modu
 		return nil, fmt.Errorf("unknown attributes defined on task %+v", task)
 	}
 
-	// The alias defining the module must match a key in `imports`.
 	for alias, body := range taskCopy {
+		// Basic type check to ensure the type of a module body is a map.
 		if _, ok := body.(map[interface{}]interface{}); !ok {
-			return nil, fmt.Errorf("invalid module for task %+v", task)
+			return nil, fmt.Errorf("type of module body should be a map for task %+v", task)
 		}
+		// The alias defining the module must match a key in `imports`.
 		if importPath, ok := imports[alias]; !ok {
 			return nil, fmt.Errorf("unknown module for task %+v", task)
 		} else {
