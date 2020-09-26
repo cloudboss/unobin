@@ -19,15 +19,19 @@ const (
 	ctxField                    = "Context"
 	ctxVar                      = "ctx"
 	ctxQualifiedIdentifier      = "types.Context"
+	errorType                   = "error"
+	errVar                      = "err"
 	inputSchemaField            = "InputSchema"
 	interfaceType               = "interface{}"
 	invalidIdentifier           = "InvalidIdentifier"
 	lazyPackageTemplate         = "lazy.%s"
 	lazySFunction               = "lazy.S"
 	maine                       = "main"
-	moduleField                 = "Module"
+	moduleType                  = "module.Module"
+	modVar                      = "mod"
 	nameField                   = "Name"
 	nameKey                     = "name"
+	nilValue                    = "nil"
 	pbVar                       = "pb"
 	playbookQualifiedIdentifier = "playbook.Playbook"
 	startCLIMethod              = "pb.StartCLI"
@@ -35,6 +39,7 @@ const (
 	stringType                  = "string"
 	taskQualifiedIdentifier     = "task.Task"
 	tasksField                  = "Tasks"
+	unwrapField                 = "Unwrap"
 	varsField                   = "Vars"
 	whenField                   = "When"
 	whenKey                     = "when"
@@ -118,14 +123,14 @@ func validateTask(task map[string]interface{}, imports map[string]string) (*modu
 
 // Compile takes a `*playbook.PlaybookRepr` and returns an `*ast.File` which can
 // be formatted into Go using `go/format` or `go/printer`.
-func Compile(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleImport) *ast.File {
+func Compile(pb *playbook.PlaybookRepr, moduleImports map[string]*module.ModuleImport) *ast.File {
 	file := &ast.File{
 		Name: &ast.Ident{
 			Name: maine,
 		},
 		Decls: []ast.Decl{
-			genDecl_import(modules),
-			funcDecl_main(pb, modules),
+			genDecl_import(moduleImports),
+			funcDecl_main(pb, moduleImports),
 		},
 		Package: 1,
 	}
@@ -136,6 +141,7 @@ func Compile(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleImport)
 func genDecl_import(imports map[string]*module.ModuleImport) *ast.GenDecl {
 	specs := []ast.Spec{
 		importSpec("github.com/cloudboss/unobin/pkg/lazy"),
+		importSpec("github.com/cloudboss/unobin/pkg/module"),
 		importSpec("github.com/cloudboss/unobin/pkg/playbook"),
 		importSpec("github.com/cloudboss/unobin/pkg/task"),
 		importSpec("github.com/cloudboss/unobin/pkg/types"),
@@ -157,14 +163,14 @@ func importSpec(path string) *ast.ImportSpec {
 }
 
 // funcDecl_main creates an `*ast.FuncDecl` for the playbook's `main` function.
-func funcDecl_main(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleImport) *ast.FuncDecl {
+func funcDecl_main(pb *playbook.PlaybookRepr, moduleImports map[string]*module.ModuleImport) *ast.FuncDecl {
 	return &ast.FuncDecl{
 		Name: &ast.Ident{Name: maine},
 		Type: &ast.FuncType{},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				assignStmt_ctx(),
-				assignStmt_pb(pb, modules),
+				assignStmt_pb(pb, moduleImports),
 				&ast.ExprStmt{
 					X: &ast.CallExpr{
 						Fun: &ast.Ident{Name: startCLIMethod},
@@ -214,7 +220,7 @@ func assignStmt_ctx() *ast.AssignStmt {
 }
 
 // assignStmt_pb creates an `*ast.AssignStmt` for the main function's `playbook.Playbook`.
-func assignStmt_pb(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleImport) *ast.AssignStmt {
+func assignStmt_pb(pb *playbook.PlaybookRepr, moduleImports map[string]*module.ModuleImport) *ast.AssignStmt {
 	return &ast.AssignStmt{
 		Tok: token.DEFINE,
 		Lhs: []ast.Expr{
@@ -242,7 +248,7 @@ func assignStmt_pb(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleI
 					},
 					&ast.KeyValueExpr{
 						Key:   &ast.Ident{Name: tasksField},
-						Value: compositeLit_tasks(pb, modules),
+						Value: compositeLit_tasks(pb, moduleImports),
 					},
 				},
 			},
@@ -251,7 +257,7 @@ func assignStmt_pb(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleI
 }
 
 // compositeLit_tasks creates an `*ast.CompositeLit` for the playbook's `*task.Task` array.
-func compositeLit_tasks(pb *playbook.PlaybookRepr, modules map[string]*module.ModuleImport) *ast.CompositeLit {
+func compositeLit_tasks(pb *playbook.PlaybookRepr, moduleImports map[string]*module.ModuleImport) *ast.CompositeLit {
 	taskExprs := []ast.Expr{}
 	for _, task := range pb.Tasks {
 		taskExpr := &ast.CompositeLit{Elts: []ast.Expr{}}
@@ -264,16 +270,13 @@ func compositeLit_tasks(pb *playbook.PlaybookRepr, modules map[string]*module.Mo
 			Value: &ast.BasicLit{Value: strconv.Quote(name)},
 		})
 		taskExpr.Elts = append(taskExpr.Elts, &ast.KeyValueExpr{
-			Key: &ast.Ident{Name: moduleField},
-			Value: &ast.UnaryExpr{
-				Op: token.AND,
-				X:  compositeLit_module(task, modules),
-			},
+			Key:   &ast.Ident{Name: unwrapField},
+			Value: funcLit_unwrap(task, moduleImports),
 		})
 		if when, ok := task[whenKey].(string); ok {
 			taskExpr.Elts = append(taskExpr.Elts, &ast.KeyValueExpr{
 				Key:   &ast.Ident{Name: whenField},
-				Value: compileModuleField(when),
+				Value: compileTaskField(when),
 			})
 		}
 		taskExprs = append(taskExprs, taskExpr)
@@ -297,7 +300,7 @@ func compositeLit_module(task map[string]interface{}, modules map[string]*module
 		cl.Type = &ast.Ident{Name: moduleImport.QualifiedIdentifier}
 		for k, v := range body {
 			key := util.SnakeToPascal(k.(string))
-			value := compileModuleField(v.(string))
+			value := compileTaskField(v.(string))
 			cl.Elts = append(cl.Elts, &ast.KeyValueExpr{
 				Key:   &ast.Ident{Name: key},
 				Value: value,
@@ -305,6 +308,101 @@ func compositeLit_module(task map[string]interface{}, modules map[string]*module
 		}
 	}
 	return &cl
+}
+
+// funcLit_unwrap creates an `*ast.FuncLit` for a playbook task's `Unwrap` field.
+func funcLit_unwrap(task map[string]interface{}, moduleImports map[string]*module.ModuleImport) *ast.FuncLit {
+	funcLit := ast.FuncLit{
+		Type: &ast.FuncType{
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{Type: &ast.Ident{Name: moduleType}},
+					{Type: &ast.Ident{Name: errorType}},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{},
+	}
+
+	var alias string
+	var moduleImport *module.ModuleImport
+	var moduleBody map[interface{}]interface{}
+
+	for alias, moduleImport = range moduleImports {
+		var ok bool
+		if moduleBody, ok = task[alias].(map[interface{}]interface{}); ok {
+			break
+		}
+	}
+
+	funcLit.Body.List = []ast.Stmt{
+		&ast.AssignStmt{
+			Tok: token.DEFINE,
+			Lhs: []ast.Expr{
+				&ast.Ident{Name: modVar},
+			},
+			Rhs: []ast.Expr{
+				&ast.UnaryExpr{
+					Op: token.AND,
+					X:  &ast.CompositeLit{Type: &ast.Ident{Name: moduleImport.QualifiedIdentifier}},
+				},
+			},
+		},
+	}
+
+	for k, v := range moduleBody {
+		variable := util.SnakeToCamel(k.(string))
+		assignStmt := &ast.AssignStmt{
+			Tok: token.DEFINE,
+			Lhs: []ast.Expr{
+				&ast.Ident{Name: variable},
+				&ast.Ident{Name: errVar},
+			},
+			Rhs: []ast.Expr{
+				&ast.CallExpr{
+					Fun: compileTaskField(v.(string)),
+				},
+			},
+		}
+		ifErrStmt := &ast.IfStmt{
+			Cond: &ast.BinaryExpr{
+				Op: token.NEQ,
+				X:  &ast.Ident{Name: errVar},
+				Y:  &ast.Ident{Name: nilValue},
+			},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.ReturnStmt{
+						Results: []ast.Expr{
+							&ast.Ident{Name: modVar},
+							&ast.Ident{Name: errVar},
+						},
+					},
+				},
+			},
+		}
+		field := util.SnakeToPascal(k.(string))
+		assignFieldStmt := &ast.AssignStmt{
+			Tok: token.ASSIGN,
+			Lhs: []ast.Expr{
+				&ast.Ident{Name: fmt.Sprintf("mod.%s", field)},
+			},
+			Rhs: []ast.Expr{
+				&ast.Ident{Name: variable},
+			},
+		}
+		funcLit.Body.List = append(funcLit.Body.List, assignStmt)
+		funcLit.Body.List = append(funcLit.Body.List, ifErrStmt)
+		funcLit.Body.List = append(funcLit.Body.List, assignFieldStmt)
+	}
+
+	funcLit.Body.List = append(funcLit.Body.List, &ast.ReturnStmt{
+		Results: []ast.Expr{
+			&ast.Ident{Name: modVar},
+			&ast.Ident{Name: nilValue},
+		},
+	})
+	return &funcLit
 }
 
 // callExpr_lazyS returns an `*ast.CallExpr` which represents a "string literal",
@@ -378,11 +476,11 @@ func compileInputSchema(input interface{}) ast.Expr {
 	}
 }
 
-// compileModuleField takes the value of a playbook module's field and parses it to obtain
+// compileTaskField takes the value of a playbook task's field and parses it to obtain
 // a function call expression. Given that it uses the Go parser, a playbook function call
 // must be valid Go syntax. If the expression does not parse as a Go `*ast.CallExpr`, it
 // is treated as a literal string.
-func compileModuleField(field string) ast.Expr {
+func compileTaskField(field string) ast.Expr {
 	expr, err := parser.ParseExprFrom(token.NewFileSet(), "", field, parser.AllErrors)
 	if err != nil {
 		// A parse error will be treated as a literal string.

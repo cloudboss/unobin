@@ -43,17 +43,33 @@ func ErrResult(msg, moduleName string) *types.Result {
 	}
 }
 
-// SnakeToPascal converts a "snake_case" string to a "PascalCase" string.
-func SnakeToPascal(s string) string {
+// snakeToThing converts a "snake_case" string to either a "PascalCase" or a "camelCase" string.
+// The firstUpper argument determines if the first letter of the returned string is lower case.
+func snakeToThing(s string, firstLower bool) string {
 	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '_' })
-	capitalized_parts := []string{}
-	for _, part := range parts {
-		first := strings.ToUpper(string(part[0]))
+	capitalizedParts := []string{}
+	for i, part := range parts {
+		var first string
+		if i == 0 && firstLower {
+			first = strings.ToLower(string(part[0]))
+		} else {
+			first = strings.ToUpper(string(part[0]))
+		}
 		rest := ""
 		if len(part) >= 2 {
 			rest = string(part[1:])
 		}
-		capitalized_parts = append(capitalized_parts, first+rest)
+		capitalizedParts = append(capitalizedParts, first+rest)
 	}
-	return strings.Join(capitalized_parts, "")
+	return strings.Join(capitalizedParts, "")
+}
+
+// SnakeToPascal converts a "snake_case" string to a "PascalCase" string.
+func SnakeToPascal(s string) string {
+	return snakeToThing(s, false)
+}
+
+// SnakeToCamel converts a "snake_case" string to a "camelCase" string.
+func SnakeToCamel(s string) string {
+	return snakeToThing(s, true)
 }

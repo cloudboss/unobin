@@ -60,7 +60,20 @@ func (p *Playbook) Run() []*types.Result {
 	var results []*types.Result
 
 	for _, task := range p.Tasks {
-		err := task.Module.Initialize()
+		mod, err := task.Unwrap()
+		if err != nil {
+			result := &types.Result{
+				Succeeded: false,
+				Changed:   false,
+				Module:    mod.Name(),
+				Error:     err.Error(),
+			}
+			results = append(results, result)
+			p.print(result)
+			return results
+		}
+
+		err = mod.Initialize()
 		if err != nil {
 			result := &types.Result{
 				Error:  err.Error(),
@@ -70,6 +83,9 @@ func (p *Playbook) Run() []*types.Result {
 			p.print(result)
 			return results
 		}
+
+		task.Module = mod
+
 		result := task.Run()
 		results = append(results, result)
 		err = p.print(result)

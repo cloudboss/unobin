@@ -10,6 +10,7 @@ type Task struct {
 	ModuleName string                 `json:"module"`
 	Params     map[string]interface{} `json:"params,omitempty"`
 	Module     module.Module
+	Unwrap     func() (module.Module, error)
 	When       func() (bool, error)
 }
 

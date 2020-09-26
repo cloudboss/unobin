@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/commands"
-	"github.com/cloudboss/unobin/pkg/lazy"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
 )
@@ -13,18 +12,12 @@ import (
 const moduleName = "command"
 
 type Command struct {
-	Execute lazy.StringValue
-	Creates lazy.StringValue
-	Removes lazy.StringValue
+	Execute string
+	Creates string
+	Removes string
 }
 
 func (c *Command) Initialize() error {
-	if c.Creates == nil {
-		c.Creates = lazy.EmptyString
-	}
-	if c.Removes == nil {
-		c.Removes = lazy.EmptyString
-	}
 	return nil
 }
 
@@ -33,11 +26,7 @@ func (c *Command) Name() string {
 }
 
 func (c *Command) Apply() *types.Result {
-	execute, err := c.Execute()
-	if err != nil {
-		return util.ErrResult(err.Error(), moduleName)
-	}
-	parts := strings.Fields(execute)
+	parts := strings.Fields(c.Execute)
 	command := parts[0]
 	args := parts[1:]
 	return types.DoIf(
@@ -80,25 +69,17 @@ func (c *Command) Destroy() *types.Result {
 }
 
 func (c *Command) done() (bool, error) {
-	creates, err := c.Creates()
-	if err != nil {
-		return false, err
-	}
-	removes, err := c.Removes()
-	if err != nil {
-		return false, err
-	}
-	if creates == "" && removes == "" {
+	if c.Creates == "" && c.Removes == "" {
 		return false, nil
 	}
 
 	var predicates []types.Predicate
-	if creates != "" {
+	if c.Creates != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.created()
 		})
 	}
-	if removes != "" {
+	if c.Removes != "" {
 		predicates = append(predicates, func() (bool, error) {
 			return c.removed()
 		})
@@ -116,11 +97,7 @@ func (c *Command) done() (bool, error) {
 }
 
 func (c *Command) created() (bool, error) {
-	creates, err := c.Creates()
-	if err != nil {
-		return false, err
-	}
-	_, err = os.Stat(creates)
+	_, err := os.Stat(c.Creates)
 	if err == nil {
 		return true, nil
 	}
@@ -128,11 +105,7 @@ func (c *Command) created() (bool, error) {
 }
 
 func (c *Command) removed() (bool, error) {
-	removes, err := c.Removes()
-	if err != nil {
-		return false, err
-	}
-	_, err = os.Stat(removes)
+	_, err := os.Stat(c.Removes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return true, nil

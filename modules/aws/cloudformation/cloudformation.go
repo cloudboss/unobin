@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
-	"github.com/cloudboss/unobin/pkg/lazy"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
 )
@@ -29,11 +28,11 @@ var (
 )
 
 type CloudFormation struct {
-	StackName       lazy.StringValue
-	DisableRollback lazy.BoolValue
-	TemplateFile    lazy.StringValue
-	TemplateBody    lazy.StringValue
-	TemplateURL     lazy.StringValue
+	StackName       string
+	DisableRollback bool
+	TemplateFile    string
+	TemplateBody    string
+	TemplateURL     string
 	cfn             *cloudformation.CloudFormation
 }
 
@@ -45,12 +44,8 @@ func (c *CloudFormation) Initialize() error {
 	sess.Config.Logger = nil
 	c.cfn = cloudformation.New(sess)
 
-	if c.TemplateBody == nil && c.TemplateFile == nil && c.TemplateURL == nil {
+	if c.TemplateBody == "" && c.TemplateFile == "" && c.TemplateURL == "" {
 		return fmt.Errorf("one of TemplateBody, TemplateFile, or TemplateURL is required")
-	}
-
-	if c.DisableRollback == nil {
-		c.DisableRollback = lazy.False
 	}
 
 	return nil
@@ -79,16 +74,12 @@ func (c *CloudFormation) Destroy() *types.Result {
 }
 
 func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
-	stackName, err := c.StackName()
-	if err != nil {
-		return nil, err
-	}
 	stackResponse, err := c.cfn.DescribeStacks(&cloudformation.DescribeStacksInput{
-		StackName: &stackName,
+		StackName: &c.StackName,
 	})
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
-			msgNoExist := fmt.Sprintf("Stack with id %s does not exist", stackName)
+			msgNoExist := fmt.Sprintf("Stack with id %s does not exist", c.StackName)
 			if strings.Contains(awsErr.Message(), msgNoExist) {
 				return nil, nil
 			}
@@ -105,29 +96,17 @@ func (c *CloudFormation) getStackInfo() (*cloudformation.Stack, error) {
 }
 
 func (c *CloudFormation) createStack() *types.Result {
-	stackName, err := c.StackName()
-	if err != nil {
-		return util.ErrResult(err.Error(), moduleName)
-	}
 	createStackInput := cloudformation.CreateStackInput{
-		StackName:    &stackName,
+		StackName:    &c.StackName,
 		Capabilities: capabilities,
 	}
 
-	if c.TemplateBody != nil {
-		body, err := c.TemplateBody()
-		if err != nil {
-			return util.ErrResult(err.Error(), moduleName)
-		}
-		createStackInput.TemplateBody = &body
+	if c.TemplateBody != "" {
+		createStackInput.TemplateBody = &c.TemplateBody
 	}
 
-	if c.TemplateFile != nil {
-		file, err := c.TemplateFile()
-		if err != nil {
-			return util.ErrResult(err.Error(), moduleName)
-		}
-		b, err := ioutil.ReadFile(file)
+	if c.TemplateFile != "" {
+		b, err := ioutil.ReadFile(c.TemplateFile)
 		if err != nil {
 			return util.ErrResult(err.Error(), moduleName)
 		}
@@ -135,22 +114,18 @@ func (c *CloudFormation) createStack() *types.Result {
 		createStackInput.TemplateBody = &s
 	}
 
-	if c.TemplateURL != nil {
-		templateURL, err := c.TemplateURL()
-		if err != nil {
-			return util.ErrResult(err.Error(), moduleName)
-		}
-		createStackInput.TemplateURL = &templateURL
+	if c.TemplateURL != "" {
+		createStackInput.TemplateURL = &c.TemplateURL
 	}
 
-	_, err = c.cfn.CreateStack(&createStackInput)
+	_, err := c.cfn.CreateStack(&createStackInput)
 	if err != nil {
 		return util.ErrResult(err.Error(), moduleName)
 	}
 
 	createErr := c.cfn.WaitUntilStackCreateCompleteWithContext(
 		aws.BackgroundContext(),
-		&cloudformation.DescribeStacksInput{StackName: &stackName},
+		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
 		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
 	)
 
@@ -176,29 +151,17 @@ func (c *CloudFormation) createStack() *types.Result {
 }
 
 func (c *CloudFormation) updateStack() *types.Result {
-	stackName, err := c.StackName()
-	if err != nil {
-		return util.ErrResult(err.Error(), moduleName)
-	}
 	updateStackInput := cloudformation.UpdateStackInput{
-		StackName:    &stackName,
+		StackName:    &c.StackName,
 		Capabilities: capabilities,
 	}
 
-	if c.TemplateBody != nil {
-		body, err := c.TemplateBody()
-		if err != nil {
-			return util.ErrResult(err.Error(), moduleName)
-		}
-		updateStackInput.TemplateBody = &body
+	if c.TemplateBody != "" {
+		updateStackInput.TemplateBody = &c.TemplateBody
 	}
 
-	if c.TemplateFile != nil {
-		file, err := c.TemplateFile()
-		if err != nil {
-			return util.ErrResult(err.Error(), moduleName)
-		}
-		b, err := ioutil.ReadFile(file)
+	if c.TemplateFile != "" {
+		b, err := ioutil.ReadFile(c.TemplateFile)
 		if err != nil {
 			return util.ErrResult(err.Error(), moduleName)
 		}
@@ -206,15 +169,11 @@ func (c *CloudFormation) updateStack() *types.Result {
 		updateStackInput.TemplateBody = &s
 	}
 
-	if c.TemplateURL != nil {
-		templateURL, err := c.TemplateURL()
-		if err != nil {
-			return util.ErrResult(err.Error(), moduleName)
-		}
-		updateStackInput.TemplateURL = &templateURL
+	if c.TemplateURL != "" {
+		updateStackInput.TemplateURL = &c.TemplateURL
 	}
 
-	_, err = c.cfn.UpdateStack(&updateStackInput)
+	_, err := c.cfn.UpdateStack(&updateStackInput)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			errNoUpdate := "No updates are to be performed"
@@ -239,7 +198,7 @@ func (c *CloudFormation) updateStack() *types.Result {
 
 	updateErr := c.cfn.WaitUntilStackUpdateCompleteWithContext(
 		aws.BackgroundContext(),
-		&cloudformation.DescribeStacksInput{StackName: &stackName},
+		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
 		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
 	)
 
