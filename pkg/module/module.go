@@ -55,6 +55,6 @@ func qualifiedIdentifier(importPath string) string {
 type Module interface {
 	Initialize() error
 	Name() string
-	Build() *types.Result
+	Apply() *types.Result
 	Destroy() *types.Result
 }

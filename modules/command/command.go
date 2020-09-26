@@ -32,7 +32,7 @@ func (c *Command) Name() string {
 	return moduleName
 }
 
-func (c *Command) Build() *types.Result {
+func (c *Command) Apply() *types.Result {
 	execute, err := c.Execute()
 	if err != nil {
 		return util.ErrResult(err.Error(), moduleName)

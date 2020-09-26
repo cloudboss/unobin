@@ -60,7 +60,7 @@ func (c *CloudFormation) Name() string {
 	return moduleName
 }
 
-func (c *CloudFormation) Build() *types.Result {
+func (c *CloudFormation) Apply() *types.Result {
 	stackInfo, err := c.getStackInfo()
 	if err != nil {
 		return util.ErrResult(err.Error(), moduleName)

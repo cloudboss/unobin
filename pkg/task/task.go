@@ -32,5 +32,5 @@ func (t Task) Run() *types.Result {
 			}
 		}
 	}
-	return t.Module.Build()
+	return t.Module.Apply()
 }
