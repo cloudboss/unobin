@@ -127,6 +127,22 @@ func StringVar(path StringValue) String {
 	}
 }
 
+func BoolVar(path StringValue) Bool {
+	return func(ctx *types.Context) BoolValue {
+		return func() (bool, error) {
+			pathStr, err := path()
+			if err != nil {
+				return false, err
+			}
+			b, err := playbook.ResolveBool(ctx.Vars, pathStr)
+			if err != nil {
+				return false, err
+			}
+			return b, nil
+		}
+	}
+}
+
 func AnyVar(path StringValue) Interface {
 	return func(ctx *types.Context) InterfaceValue {
 		return func() (interface{}, error) {

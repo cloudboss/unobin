@@ -203,3 +203,18 @@ func ResolveString(attributes map[string]interface{}, path string) (string, erro
 	}
 	return "", fmt.Errorf("string attribute `%s` not found", path)
 }
+
+func ResolveBool(attributes map[string]interface{}, path string) (bool, error) {
+	parts := strings.Split(path, ".")
+	innerAttributes := attributes
+	for _, part := range parts[:len(parts)-1] {
+		var ok bool
+		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
+			return false, fmt.Errorf("string attribute `%s` not found", path)
+		}
+	}
+	if b, ok := innerAttributes[parts[len(parts)-1]].(bool); ok {
+		return b, nil
+	}
+	return false, fmt.Errorf("string attribute `%s` not found", path)
+}

@@ -24,8 +24,9 @@ func main() {
 			"$id":     "github.com/cloudboss/unobin",
 			"type":    "object",
 			"properties": map[string]interface{}{
-				"stack_name": map[string]interface{}{"type": "string"},
-				"template":   map[string]interface{}{"type": "string"},
+				"stack_name":       map[string]interface{}{"type": "string"},
+				"template":         map[string]interface{}{"type": "string"},
+				"disable_rollback": map[string]interface{}{"type": "boolean"},
 			},
 			"additionalProperties": false,
 		},
@@ -75,6 +76,11 @@ func main() {
 						return mod, err
 					}
 					mod.TemplateFile = templateFile
+					disableRollback, err := lazy.BoolVar(lazy.S("disable_rollback")(ctx))(ctx)()
+					if err != nil {
+						return mod, err
+					}
+					mod.DisableRollback = disableRollback
 					return mod, nil
 				},
 			},
