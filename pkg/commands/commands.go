@@ -33,8 +33,8 @@ func RunCommand(command string, args ...string) (*CommandOutput, error) {
 		ExitStatus:  waitStatus.ExitStatus(),
 		Stdout:      stdoutStr,
 		Stderr:      stderrStr,
-		StdoutLines: strings.Fields(stdoutStr),
-		StderrLines: strings.Fields(stderrStr),
+		StdoutLines: strings.FieldsFunc(stdoutStr, func(r rune) bool { return r == '\n' }),
+		StderrLines: strings.FieldsFunc(stderrStr, func(r rune) bool { return r == '\n' }),
 	}
 	return commandOutput, nil
 }
