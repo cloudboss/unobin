@@ -41,9 +41,9 @@ var (
 		Use:   "compile",
 		Short: "Compile a YAML playbook to a binary",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fset := token.NewFileSet()
+			comp := compiler.Compiler{}
 
-			pb, modules, err := compiler.Load(playbook)
+			err := comp.Load(playbook)
 			if err != nil {
 				return err
 			}
@@ -61,7 +61,8 @@ var (
 				return err
 			}
 
-			astFile := compiler.Compile(pb, modules)
+			fset := token.NewFileSet()
+			astFile := comp.Compile()
 			ast.SortImports(fset, astFile)
 			format.Node(file, fset, astFile)
 
