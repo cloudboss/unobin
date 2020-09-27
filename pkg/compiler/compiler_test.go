@@ -63,7 +63,7 @@ func Test_validateTask(t *testing.T) {
 		{
 			"task with required attributes should produce a *module.ModuleImport",
 			map[string]interface{}{
-				"name": "i will fail",
+				"name": "i will succeed",
 				"cmd":  map[interface{}]interface{}{},
 			},
 			map[string]string{
@@ -79,7 +79,7 @@ func Test_validateTask(t *testing.T) {
 		{
 			"task with optional attributes should produce a *module.ModuleImport",
 			map[string]interface{}{
-				"name": "i will fail",
+				"name": "i will also succeed",
 				"cmd":  map[interface{}]interface{}{},
 				"when": "when_execute(`true`)",
 			},
