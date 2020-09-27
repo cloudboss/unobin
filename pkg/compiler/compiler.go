@@ -27,7 +27,7 @@ const (
 	lazyPackageTemplate         = "lazy.%s"
 	lazySFunction               = "lazy.S"
 	maine                       = "main"
-	moduleType                  = "module.Module"
+	moduleQualifiedIdentifier   = "module.Module"
 	modVar                      = "mod"
 	nameField                   = "Name"
 	nameKey                     = "name"
@@ -316,7 +316,7 @@ func funcLit_unwrap(task map[string]interface{}, moduleImports map[string]*modul
 		Type: &ast.FuncType{
 			Results: &ast.FieldList{
 				List: []*ast.Field{
-					{Type: &ast.Ident{Name: moduleType}},
+					{Type: &ast.Ident{Name: moduleQualifiedIdentifier}},
 					{Type: &ast.Ident{Name: errorType}},
 				},
 			},
