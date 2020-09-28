@@ -26,9 +26,8 @@ import (
 )
 
 type Task struct {
-	Name       string                 `json:"name"`
-	ModuleName string                 `json:"module"`
-	Params     map[string]interface{} `json:"params,omitempty"`
+	Name       string
+	ModuleName string
 	Module     module.Module
 	Unwrap     func() (module.Module, error)
 	When       func() (bool, error)
