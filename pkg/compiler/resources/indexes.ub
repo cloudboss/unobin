@@ -1,0 +1,8 @@
+index-with-dots: var.name
+index-with-brackets: var[name]
+index-with-multiple-brackets: out[name is here][attr][0]
+index-with-dots-and-brackets: out[almost anything goes here -- ~`!@$%^&*()_-+=].stuff.here
+index-int-0: value[0]
+index-int-1: value[0].attr
+index-int-1: value[0].attr[1].attr
+index-name-has-dashes: variable.attr-with-dashes.value

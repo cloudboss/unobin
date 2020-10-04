@@ -1,0 +1,67 @@
+object-empty: {}
+object-empty-spaces: {  }
+object-empty-newline: {
+}
+object-empty-newlines-and-spaces: {
+# Newline
+
+        # Spaces
+	# A tab
+}
+object-one-line: {one: 1 two: 2}
+object-multiline-0: {
+  one: 1 two: 2
+}
+object-multiline-1: {
+  one: 1
+  two: 2
+}
+object-comment-inline: {
+  one: 1 # An inline comment is fine
+  two: 2
+}
+object-string-keys: {'one': 1 'two': 2}
+object-string-keys-newlines: {
+  'one': 1
+  'two': 2
+}
+object-string-keys-string-values: {
+  'one': '1'
+  'two': '2'
+}
+object-all-kinds-of-values: {
+  '1': 1
+  '1a': [1]
+  '1b': [{'a': 'A'}]
+  '1c': [[] {}]
+  one: {'a': 'A' 'b': 'B'}
+  two: {
+                      #   _____
+    'a': 100 'b': 200 #  C\0/0/D
+                      #    \-/
+                      #    /%\
+    'c': 300
+  }
+  four: [
+    {'a': 'A'}
+    {'a': {} 'b': []}
+    [{}]
+    [1 'a' true {} [] fun()]
+  ]
+  '2': 2
+  '2a': 2.0
+  '2b': 0.2
+  true: false
+  false: true
+  'true': false
+  'false': true
+  f: fun()
+  fa: fun(  )
+  fb: fun(1 2 3)
+  fc: fun(
+    1
+    2
+    3
+  ) fd: fun(1 '1' {}) fe: fun({} '1' 1
+  )
+}

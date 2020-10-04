@@ -1,0 +1,87 @@
+# Copyright © 2020 Joseph Wright <joseph@cloudboss.co>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+package compiler
+
+type Grammar Peg {
+}
+
+entry               <- all_space* statement* end
+ident               <- ident_chars space*
+ident_chars         <- alpha ident_char*
+ident_char          <- alpha / digit / MINUS
+comment             <- COMMENT_START not_newline* (newline / end)
+space               <- [ \t]
+not_newline         <- [^\r\n]
+newline             <- [\r\n]
+all_space           <- space / newline / comment
+alpha               <- [A-Z] / [a-z]
+digit               <- [0-9]
+sentence_char       <- !(INDEX_CLOSE / all_space) .
+sentence            <- sentence_char+ (space+ sentence_char+)*
+statement           <- pair / block
+pair                <- (ident / string) PAIR_DELIM value all_space*
+value               <- array / bool_expr / fun_expr / index_expr / math_expr / object / string
+index_expr          <- ident_chars index_expr_tail+
+index_expr_tail     <- DOT ident_chars
+                     / INDEX_OPEN sentence INDEX_CLOSE
+array               <- ARRAY_OPEN (value (item_delim value)*)* item_delim ARRAY_CLOSE
+bool_expr           <- (TRUE / FALSE) all_space*
+item_delim          <- all_space*
+fun_expr            <- ident GROUP_OPEN (value (item_delim value)*)* item_delim GROUP_CLOSE all_space*
+math_expr           <- number space*
+number              <- float / int
+int                 <- MINUS digit+ / digit+
+float               <- (MINUS digit+ / digit+) DOT digit+
+object              <- BLOCK_OPEN (pair (item_delim pair)*)* BLOCK_CLOSE
+string              <- STRING_DELIM (!(STRING_DELIM / newline) .)* STRING_DELIM space*
+block               <- simple_block / compound_block
+simple_block        <- ident block_description BLOCK_OPEN pair+ BLOCK_CLOSE
+block_description   <- INDEX_OPEN sentence INDEX_CLOSE all_space*
+compound_block      <- BLOCK BLOCK_OPEN pair* simple_block+ BLOCK_CLOSE rescue_clause? always_clause?
+rescue_clause       <- RESCUE BLOCK_OPEN simple_block+ BLOCK_CLOSE
+always_clause       <- ALWAYS BLOCK_OPEN simple_block+ BLOCK_CLOSE
+end                 <- !.
+
+PAIR_DELIM          <- ':'         space*
+DOT                 <- '.'
+STRING_DELIM        <- "'"
+COMMENT_START       <- '#'
+MINUS               <- '-'
+INDEX_OPEN          <- '['
+INDEX_CLOSE         <- ']'
+ARRAY_OPEN          <- '['         all_space*
+ARRAY_CLOSE         <- ']'         all_space*
+GROUP_OPEN          <- '('         all_space*
+GROUP_CLOSE         <- ')'         all_space*
+BLOCK_OPEN          <- '{'         all_space*
+BLOCK_CLOSE         <- '}'         all_space*
+BLOCK               <- 'block'     !alpha all_space*
+RESCUE              <- 'rescue'    !alpha all_space*
+ALWAYS              <- 'always'    !alpha all_space*
+TRUE                <- 'true'      !alpha
+FALSE               <- 'false'     !alpha
+EQ                  <- '=='        all_space*
+LT                  <- '<'         all_space*
+GT                  <- '>'         all_space*
+LTE                 <- '<='        all_space*
+GTE                 <- '>='        all_space*
+AND                 <- '&&'        all_space*
+OR                  <- '||'        all_space*

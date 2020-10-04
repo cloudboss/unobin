@@ -1,0 +1,35 @@
+fun-noargs: fun()
+fun-noargs-spaces: fun(  )
+fun-noargs-newline: fun(
+)
+fun-noargs-newlines-and-spaces: fun(
+# Newline
+
+        # Spaces
+	# A tab
+)
+fun-one-line: fun(1 2)
+fun-multiline-0: fun(
+  1 2
+)
+fun-multiline-1: fun(
+  1
+  2
+)
+fun-comment-inline: fun(
+  1 # Unobin is fun!
+  2
+  -3
+  4.0
+  -5.0
+)
+fun-all-kinds-of-args: fun(
+  '1'
+  [1]
+  [{'a': 'A'}]
+  [[] {}]
+  {}
+  {'a': []}
+  true false
+  -1000
+)

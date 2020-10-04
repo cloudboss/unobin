@@ -1,0 +1,8 @@
+float-0: 0.1
+float-1: 1.0
+float-2: 123.456
+float-negative: -123.456
+int-0: 0
+int-1: 1000
+int-2: 9876
+int-negative: -7654
