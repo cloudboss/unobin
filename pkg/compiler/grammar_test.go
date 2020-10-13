@@ -66,7 +66,7 @@ func Test_grammarFiles(t *testing.T) {
 		},
 		{
 			name: "Full playbooks work",
-			file: "resources/playbook.ub",
+			file: "resources/playbook-valid.ub",
 		},
 	}
 	for _, tc := range testCases {
@@ -156,6 +156,31 @@ newlines'`,
 			} else {
 				assert.Nil(t, err)
 			}
+		})
+	}
+}
+
+func Test_ast(t *testing.T) {
+	testCases := []struct {
+		name string
+		file string
+	}{
+		{
+			name: "Full playbooks work",
+			file: "resources/playbook-valid.ub",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := ioutil.ReadFile(tc.file)
+			if err != nil {
+				t.Fatal(err)
+				return
+			}
+			g := Grammar{Buffer: string(b)}
+			g.Init()
+			g.Parse()
+			g.LoadUAST()
 		})
 	}
 }

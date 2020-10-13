@@ -1,0 +1,12 @@
+name: 'playbook-valid-small'
+description: 'A small playbook'
+
+imports: {
+  cmd: 'github.com/cloudboss/unobin/modules/command.Command'
+}
+
+input-schema: ''
+
+cmd [echo the truth] {
+  execute: 'echo true'
+}

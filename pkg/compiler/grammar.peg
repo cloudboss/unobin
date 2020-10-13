@@ -21,6 +21,7 @@
 package compiler
 
 type Grammar Peg {
+	uast *UAST
 }
 
 entry               <- all_space* statement* end
@@ -50,14 +51,15 @@ math_expr           <- number space*
 number              <- float / int
 int                 <- MINUS digit+ / digit+
 float               <- (MINUS digit+ / digit+) DOT digit+
-object              <- BLOCK_OPEN (pair (item_delim pair)*)* BLOCK_CLOSE
-string              <- STRING_DELIM (!(STRING_DELIM / newline) .)* STRING_DELIM space*
+object              <- OBJECT_OPEN (pair (item_delim pair)*)* OBJECT_CLOSE
+string              <- STRING_DELIM string_body STRING_DELIM space*
+string_body         <- (!(STRING_DELIM / newline) .)*
 block               <- simple_block / compound_block
-simple_block        <- ident block_description BLOCK_OPEN pair+ BLOCK_CLOSE
+simple_block        <- ident block_description OBJECT_OPEN pair+ OBJECT_CLOSE
 block_description   <- INDEX_OPEN sentence INDEX_CLOSE all_space*
-compound_block      <- BLOCK BLOCK_OPEN pair* simple_block+ BLOCK_CLOSE rescue_clause? always_clause?
-rescue_clause       <- RESCUE BLOCK_OPEN simple_block+ BLOCK_CLOSE
-always_clause       <- ALWAYS BLOCK_OPEN simple_block+ BLOCK_CLOSE
+compound_block      <- BLOCK OBJECT_OPEN pair* simple_block+ OBJECT_CLOSE rescue_clause? always_clause?
+rescue_clause       <- RESCUE OBJECT_OPEN simple_block+ OBJECT_CLOSE
+always_clause       <- ALWAYS OBJECT_OPEN simple_block+ OBJECT_CLOSE
 end                 <- !.
 
 PAIR_DELIM          <- ':'         space*
@@ -71,8 +73,8 @@ ARRAY_OPEN          <- '['         all_space*
 ARRAY_CLOSE         <- ']'         all_space*
 GROUP_OPEN          <- '('         all_space*
 GROUP_CLOSE         <- ')'         all_space*
-BLOCK_OPEN          <- '{'         all_space*
-BLOCK_CLOSE         <- '}'         all_space*
+OBJECT_OPEN         <- '{'         all_space*
+OBJECT_CLOSE        <- '}'         all_space*
 BLOCK               <- 'block'     !alpha all_space*
 RESCUE              <- 'rescue'    !alpha all_space*
 ALWAYS              <- 'always'    !alpha all_space*

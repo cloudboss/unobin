@@ -135,3 +135,113 @@ func Test_SnakeToCamel(t *testing.T) {
 		})
 	}
 }
+
+func Test_KebabToCamel(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  string
+		result string
+	}{
+		{
+			name:   "An empty string should result in an empty string",
+			input:  "",
+			result: "",
+		},
+		{
+			name:   "Only a dash should result in an empty string",
+			input:  "-",
+			result: "",
+		},
+		{
+			name:   "Only multiple dashes should result in an empty string",
+			input:  "---",
+			result: "",
+		},
+		{
+			name:   "Lowercase string should result in a lowercase string",
+			input:  "hello",
+			result: "hello",
+		},
+		{
+			name:   "Dashes should be removed with capitalized letters following",
+			input:  "unobin-is-really-cool",
+			result: "unobinIsReallyCool",
+		},
+		{
+			name:   "Existing capital letters should not be affected",
+			input:  "unobin-is-reALly-coOl",
+			result: "unobinIsReALlyCoOl",
+		},
+		{
+			name:   "Spaces should not affect the result",
+			input:  "unobin is really cool",
+			result: "unobin is really cool",
+		},
+		{
+			name:   "Strings with only spaces should not be affected",
+			input:  "     ",
+			result: "     ",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := KebabToCamel(tc.input)
+			assert.Equal(t, tc.result, result)
+		})
+	}
+}
+
+func Test_KebabToPascal(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  string
+		result string
+	}{
+		{
+			name:   "An empty string should result in an empty string",
+			input:  "",
+			result: "",
+		},
+		{
+			name:   "Only a dash should result in an empty string",
+			input:  "-",
+			result: "",
+		},
+		{
+			name:   "Only multiple dashes should result in an empty string",
+			input:  "---",
+			result: "",
+		},
+		{
+			name:   "Lowercase string should result in a capitalized string",
+			input:  "hello",
+			result: "Hello",
+		},
+		{
+			name:   "Underscores should be removed with capitalized letters following",
+			input:  "unobin-is-really-cool",
+			result: "UnobinIsReallyCool",
+		},
+		{
+			name:   "Existing capital letters should not be affected",
+			input:  "unobin-is-reALly-coOl",
+			result: "UnobinIsReALlyCoOl",
+		},
+		{
+			name:   "Spaces should not affect the result",
+			input:  "unobin is really cool",
+			result: "Unobin is really cool",
+		},
+		{
+			name:   "Strings with only spaces should not be affected",
+			input:  "     ",
+			result: "     ",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := KebabToPascal(tc.input)
+			assert.Equal(t, tc.result, result)
+		})
+	}
+}

@@ -34,12 +34,11 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
-type PlaybookRepr struct {
-	Name        string                   `yaml:"name"`
-	Description string                   `yaml:"description"`
-	Imports     map[string]string        `yaml:"imports"`
-	InputSchema map[string]interface{}   `yaml:"input_schema"`
-	Tasks       []map[string]interface{} `yaml:"tasks"`
+type PlaybookAttributes struct {
+	Name        string
+	Description string
+	Imports     map[string]string
+	InputSchema map[string]interface{}
 }
 
 type Playbook struct {

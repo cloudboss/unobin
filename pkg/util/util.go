@@ -54,6 +54,26 @@ func All(bools []bool) bool {
 	return true
 }
 
+// BoolP returns a pointer to the given bool.
+func BoolP(boole bool) *bool {
+	return &boole
+}
+
+// StringP returns a pointer to the given string.
+func StringP(stringue string) *string {
+	return &stringue
+}
+
+// FloatP returns a pointer to the given float64.
+func FloatP(n float64) *float64 {
+	return &n
+}
+
+// IntP returns a pointer to the given int64.
+func IntP(n int64) *int64 {
+	return &n
+}
+
 func ErrResult(msg, moduleName string) *types.Result {
 	return &types.Result{
 		Succeeded: false,
@@ -63,11 +83,12 @@ func ErrResult(msg, moduleName string) *types.Result {
 	}
 }
 
-// snakeToThing converts a "snake_case" string to either a "PascalCase" or a "camelCase" string.
-// The firstUpper argument determines if the first letter of the returned string is lower case.
-func snakeToThing(s string, firstLower bool) string {
-	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '_' })
-	capitalizedParts := []string{}
+// thingToThing converts a string separated by `delim` to either a "PascalCase" or a
+// "camelCase" string. The firstUpper argument determines if the first letter of the
+// returned string is lower case.
+func thingToThing(s string, delim rune, firstLower bool) string {
+	parts := strings.FieldsFunc(s, func(r rune) bool { return r == delim })
+	capitalizedParts := make([]string, len(parts))
 	for i, part := range parts {
 		var first string
 		if i == 0 && firstLower {
@@ -79,17 +100,27 @@ func snakeToThing(s string, firstLower bool) string {
 		if len(part) >= 2 {
 			rest = string(part[1:])
 		}
-		capitalizedParts = append(capitalizedParts, first+rest)
+		capitalizedParts[i] = first + rest
 	}
 	return strings.Join(capitalizedParts, "")
 }
 
 // SnakeToPascal converts a "snake_case" string to a "PascalCase" string.
 func SnakeToPascal(s string) string {
-	return snakeToThing(s, false)
+	return thingToThing(s, '_', false)
 }
 
 // SnakeToCamel converts a "snake_case" string to a "camelCase" string.
 func SnakeToCamel(s string) string {
-	return snakeToThing(s, true)
+	return thingToThing(s, '_', true)
+}
+
+// KebabToPascal converts a "kebab-case" string to a "PascalCase" string.
+func KebabToPascal(s string) string {
+	return thingToThing(s, '-', false)
+}
+
+// KebabToCamel converts a "kebab-case" string to a "camelCase" string.
+func KebabToCamel(s string) string {
+	return thingToThing(s, '-', true)
 }

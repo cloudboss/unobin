@@ -1,0 +1,57 @@
+name: '{{ .Project }}'
+description: 'A binary playbook'
+
+# Imports are modules written in Go. The import keys match the modules in
+# tasks. The path to the import is the same as in Go, but with the module
+# type appended as a suffix.
+imports: {
+  cmd: 'github.com/cloudboss/unobin/modules/command.Command'
+}
+
+# The input schema is a JSON schema for validating input variables. The playbook
+# will not accept input variables that do not validate.
+input-schema: {
+  type: 'object'
+  properties: {
+    name: { type: 'string' }
+  }
+  required: ['name']
+  additionalProperties: false
+}
+
+block {
+  # when-execute() runs its argument and succeeds if the exit status equals 0.
+  when: when-execute('/bin/true')
+
+  # The name of the module, cmd, must match one of the import keys.
+  cmd [hello from an input variable!] {
+    # The format function behaves like sprintf.
+    execute: format('echo Hello %s!' any-var('name'))
+  }
+}
+
+cmd [echo the truth] {
+  # The output of this command will be used as the input to when_execute
+  # in the next task.
+  execute: 'echo /bin/true'
+}
+
+block {
+  # Here, when-execute() uses the 'echo the truth' task output's
+  # 'stdout' attribute as a command to run.
+  when: when-execute(string-output('echo the truth' 'stdout'))
+
+  cmd [run ls command] {
+    execute: 'ls /'
+  }
+}
+
+cmd [run ls command if file doesn't exist] {
+  execute: 'ls /'
+  # This will never run since / always exists.
+  creates: '/'
+}
+
+cmd [run a command using another command's output] {
+  execute: format('echo Output of ls command is: %s' any-output('run ls command' 'stdout'))
+}

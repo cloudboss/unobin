@@ -1,0 +1,17 @@
+name: 'playbook-valid-small'
+description: 'A small playbook'
+
+imports: {
+  cmd: 'github.com/cloudboss/unobin/modules/command.Command'
+}
+
+input-schema: {}
+
+block {
+  when: when-execute('true')
+  cmd [echo the truth] {
+    execute: out[echo true].stdout
+    foo: hey('hello')
+    bar: 123.456
+  }
+}

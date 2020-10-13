@@ -41,9 +41,14 @@ var (
 		Use:   "compile",
 		Short: "Compile a YAML playbook to a binary",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			comp := compiler.Compiler{}
+			comp := compiler.NewCompiler(playbook)
 
-			err := comp.Load(playbook)
+			err := comp.Load()
+			if err != nil {
+				return err
+			}
+
+			err = comp.Validate()
 			if err != nil {
 				return err
 			}
@@ -77,9 +82,9 @@ var (
 func init() {
 	RootCmd.AddCommand(compileCmd)
 	compileCmd.Flags().StringVarP(&playbook, "playbook", "p",
-		"", "Path to YAML playbook")
+		"", "Path to playbook file")
 	compileCmd.Flags().StringVarP(&output, "output", "o",
-		"", "Output filename, defaulting to the prefix of the YAML playbook filename.")
+		"", "Output filename, defaulting to the prefix of the playbook filename.")
 }
 
 func playbookName(path string) (string, error) {

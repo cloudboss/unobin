@@ -1,0 +1,12 @@
+name: 'playbook-valid-small'
+description: 'A small playbook'
+
+imports: {
+  cmd: [1 2 3]
+}
+
+input-schema: {}
+
+cmd [echo the truth] {
+  execute: 'echo true'
+}

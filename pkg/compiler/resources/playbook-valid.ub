@@ -13,7 +13,6 @@ imports: {
 # The input schema is a JSON schema for validating input variables. The playbook
 # will not accept input variables that do not validate.
 input-schema: {
-  '$schema': 'http://json-schema.org/schema#'
   '$id': 'github.com/cloudboss/unobin'
   type: 'object'
   properties: {
@@ -35,19 +34,27 @@ input-schema: {
   additionalProperties: false
 }
 
-cmd [show contents of /etc/services] {
-  execute: 'cat /etc/services'
+# Attributes on tasks, such as `when` or `foreach`, require using a block.
+# Standalone tasks have an implicit block with no attributes or clauses.
+block {
   # when-execute() runs its argument and succeeds if the exit status equals 0.
   when: when-execute('true')
+
+  cmd [show contents of /etc/services] {
+    execute: 'cat /etc/services'
+  }
 }
 
 cmd [echo the truth] {
   execute: 'echo true'
 }
 
-cmd [run ls command] {
-  execute: 'ls /'
+block {
   when: when-execute(out[echo the truth].stdout)
+
+  cmd [run ls command] {
+    execute: 'ls /'
+  }
 }
 
 cmd [run ls command if file doesn't exist] {
@@ -55,10 +62,13 @@ cmd [run ls command if file doesn't exist] {
   creates: '/'
 }
 
-cmd [echo ls output in a loop] {
-  execute: 'echo ${item}'
-  creates: '/'
+block {
   foreach: out[run ls command].stdout-lines
+
+  cmd [echo ls output in a loop] {
+    execute: 'echo ${item}'
+    creates: '/'
+  }
 }
 
 cfn [build a cloudformation stack] {
@@ -68,18 +78,6 @@ cfn [build a cloudformation stack] {
 
 cmd [run a command from output] {
   execute: 'echo "sg1 is ${out[build a cloudformation stack].outputs.SecurityGroup}"'
-}
-
-# Block without rescue or always clauses.
-block {
-  when: var.proceed
-
-  cmd [grep passwd file] {
-    execute: 'grep -E "^me:" /etc/passwd'
-  }
-  cmd [create tempdir] {
-    execute: 'mktemp -d'
-  }
 }
 
 # Block with rescue and always clauses.
