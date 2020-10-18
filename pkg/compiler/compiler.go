@@ -35,40 +35,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
-const (
-	descriptionAttr             = "description"
-	descriptionField            = "Description"
-	ctxField                    = "Context"
-	ctxVar                      = "ctx"
-	ctxQualifiedIdentifier      = "types.Context"
-	errorType                   = "error"
-	errVar                      = "err"
-	importsAttr                 = "imports"
-	inputSchemaAttr             = "input-schema"
-	inputSchemaField            = "InputSchema"
-	interfaceType               = "interface{}"
-	invalidIdentifier           = "InvalidIdentifier"
-	lazyPackageTemplate         = "lazy.%s"
-	lazySFunction               = "lazy.S"
-	maine                       = "main"
-	moduleQualifiedIdentifier   = "module.Module"
-	modVar                      = "mod"
-	nameField                   = "Name"
-	nameAttr                    = "name"
-	nilValue                    = "nil"
-	pbVar                       = "pb"
-	playbookQualifiedIdentifier = "playbook.Playbook"
-	startCLIMethod              = "pb.StartCLI"
-	stateField                  = "State"
-	stringType                  = "string"
-	taskQualifiedIdentifier     = "task.Task"
-	tasksField                  = "Tasks"
-	unwrapField                 = "Unwrap"
-	varsField                   = "Vars"
-	whenField                   = "When"
-	whenKey                     = "when"
-)
-
 type Compiler struct {
 	file          string
 	moduleImports map[string]*module.ModuleImport
@@ -264,7 +230,7 @@ func (c *Compiler) Compile() *ast.File {
 // genDecl_import creates an `*ast.GenDecl` for all of the playbook's imports.
 func (c *Compiler) genDecl_import() *ast.GenDecl {
 	specs := []ast.Spec{
-		importSpec("github.com/cloudboss/unobin/pkg/lazy"),
+		importSpec("github.com/cloudboss/unobin/pkg/functions"),
 		importSpec("github.com/cloudboss/unobin/pkg/module"),
 		importSpec("github.com/cloudboss/unobin/pkg/playbook"),
 		importSpec("github.com/cloudboss/unobin/pkg/task"),
@@ -391,10 +357,7 @@ func (c *Compiler) compositeLit_tasks() *ast.CompositeLit {
 			// playbook structure to operate on an array of blocks containing
 			// tasks instead of just an array of tasks.
 			if when, ok := block.Attributes[whenKey]; ok {
-				taskExpr.Elts = append(taskExpr.Elts, &ast.KeyValueExpr{
-					Key:   &ast.Ident{Name: whenField},
-					Value: c.compileModuleExpr(when),
-				})
+				taskExpr.Elts = append(taskExpr.Elts, c.compileWhenExpr(when))
 			}
 			taskExprs = append(taskExprs, taskExpr)
 		}
@@ -402,6 +365,48 @@ func (c *Compiler) compositeLit_tasks() *ast.CompositeLit {
 	return &ast.CompositeLit{
 		Type: &ast.ArrayType{Elt: &ast.StarExpr{X: &ast.Ident{Name: taskQualifiedIdentifier}}},
 		Elts: taskExprs,
+	}
+}
+
+// compileWhenExpr compiles the `*ast.KeyValueExpr` for the `When` field of a task.
+func (c *Compiler) compileWhenExpr(when *ValueExpr) *ast.KeyValueExpr {
+	return &ast.KeyValueExpr{
+		Key: &ast.BasicLit{Kind: token.STRING, Value: whenField},
+		Value: &ast.FuncLit{
+			Type: &ast.FuncType{
+				Results: &ast.FieldList{
+					List: []*ast.Field{
+						{Type: &ast.Ident{Name: boolType}},
+						{Type: &ast.Ident{Name: errorType}},
+					},
+				},
+			},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.AssignStmt{
+						Tok: token.DEFINE,
+						Lhs: []ast.Expr{
+							&ast.Ident{Name: whenKey},
+						},
+						Rhs: []ast.Expr{
+							c.compileModuleExpr(when),
+						},
+					},
+					&ast.ReturnStmt{
+						Results: []ast.Expr{
+							&ast.BasicLit{
+								Kind:  token.STRING,
+								Value: fmt.Sprintf("%s.Value", whenKey),
+							},
+							&ast.BasicLit{
+								Kind:  token.STRING,
+								Value: fmt.Sprintf("%s.Error", whenKey),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -450,39 +455,22 @@ func (c *Compiler) funcLit_unwrap(task *TaskExpr) *ast.FuncLit {
 	return &funcLit
 }
 
-// compileModuleExpr is initially given an `*ast.CallExpr` parsed from the playbook and recursively
-// produces an `*ast.CallExpr` from it. When it reaches an `*ast.BasicLit`, it returns a literal string.
+// compileModuleExpr is given a `*ValueExpr` parsed from the playbook and produces an `*ast.CallExpr`
+// from it. If it encounters another function call as an argument, it recursively calls itself to
+// compile it, otherwise it returns a CompositeLit for a literal value from the `functions` package.
 func (c *Compiler) compileModuleExpr(value *ValueExpr) ast.Expr {
 	switch value.Type() {
 	case FunctionType:
-		f := value.Function
-		name := fmt.Sprintf(lazyPackageTemplate, util.KebabToPascal(f.Name))
-		args := make([]ast.Expr, len(f.Args))
-		for i, arg := range f.Args {
-			args[i] = c.compileModuleExpr(arg)
-		}
-		return &ast.CallExpr{
-			Fun: &ast.CallExpr{
-				Fun:  &ast.Ident{Name: name},
-				Args: args,
-			},
-			Args: []ast.Expr{
-				&ast.Ident{Name: ctxVar},
-			},
-		}
-	case StringType:
-		return &ast.CallExpr{
-			Fun: &ast.CallExpr{
-				Fun: &ast.Ident{Name: lazySFunction},
-				Args: []ast.Expr{
-					value.ToGoAST(),
-				},
-			},
-			Args: []ast.Expr{&ast.Ident{Name: ctxVar}},
-		}
+		return value.ToGoAST()
 	default:
-		// TODO: Handle other types
-		return &ast.CallExpr{Fun: &ast.Ident{Name: invalidIdentifier}}
+		qualifiedIdentifier := fmt.Sprintf(functionsPackageTemplate, typeRepr[value.Type()])
+		return &ast.CompositeLit{
+			Type: &ast.BasicLit{Kind: token.STRING, Value: qualifiedIdentifier},
+			Elts: []ast.Expr{
+				value.ToGoAST(),
+				&ast.BasicLit{Kind: token.STRING, Value: nilValue},
+			},
+		}
 	}
 }
 
@@ -496,19 +484,15 @@ func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []ast.Stmt {
 			Tok: token.DEFINE,
 			Lhs: []ast.Expr{
 				&ast.Ident{Name: variable},
-				&ast.Ident{Name: errVar},
 			},
-			Rhs: []ast.Expr{
-				&ast.CallExpr{
-					Fun: c.compileModuleExpr(value),
-				},
-			},
+			Rhs: []ast.Expr{c.compileModuleExpr(value)},
 		}
 		stmts = append(stmts, assignStmt)
+		errField := fmt.Sprintf("%s.Error", variable)
 		ifErrStmt := &ast.IfStmt{
 			Cond: &ast.BinaryExpr{
 				Op: token.NEQ,
-				X:  &ast.Ident{Name: errVar},
+				X:  &ast.Ident{Name: errField},
 				Y:  &ast.Ident{Name: nilValue},
 			},
 			Body: &ast.BlockStmt{
@@ -516,20 +500,21 @@ func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []ast.Stmt {
 					&ast.ReturnStmt{
 						Results: []ast.Expr{
 							&ast.Ident{Name: modVar},
-							&ast.Ident{Name: errVar},
+							&ast.Ident{Name: errField},
 						},
 					},
 				},
 			},
 		}
 		stmts = append(stmts, ifErrStmt)
+		valueField := fmt.Sprintf("%s.Value", variable)
 		assignFieldStmt := &ast.AssignStmt{
 			Tok: token.ASSIGN,
 			Lhs: []ast.Expr{
 				&ast.Ident{Name: fmt.Sprintf("mod.%s", util.KebabToPascal(ident))},
 			},
 			Rhs: []ast.Expr{
-				&ast.Ident{Name: variable},
+				&ast.Ident{Name: valueField},
 			},
 		}
 		stmts = append(stmts, assignFieldStmt)

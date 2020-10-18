@@ -229,11 +229,26 @@ func ResolveBool(attributes map[string]interface{}, path string) (bool, error) {
 	for _, part := range parts[:len(parts)-1] {
 		var ok bool
 		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
-			return false, fmt.Errorf("string attribute `%s` not found", path)
+			return false, fmt.Errorf("bool attribute `%s` not found", path)
 		}
 	}
 	if b, ok := innerAttributes[parts[len(parts)-1]].(bool); ok {
 		return b, nil
 	}
-	return false, fmt.Errorf("string attribute `%s` not found", path)
+	return false, fmt.Errorf("bool attribute `%s` not found", path)
+}
+
+func ResolveAny(attributes map[string]interface{}, path string) (interface{}, error) {
+	parts := strings.Split(path, ".")
+	innerAttributes := attributes
+	for _, part := range parts[:len(parts)-1] {
+		var ok bool
+		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
+			return false, fmt.Errorf("interface{} attribute `%s` not found", path)
+		}
+	}
+	if b, ok := innerAttributes[parts[len(parts)-1]]; ok {
+		return b, nil
+	}
+	return false, fmt.Errorf("interface{} attribute `%s` not found", path)
 }

@@ -226,10 +226,27 @@ func (f *FunctionExpr) ToGoValue() []interface{} {
 }
 
 func (f *FunctionExpr) ToGoAST() ast.Expr {
-	name := fmt.Sprintf(lazyPackageTemplate, util.KebabToPascal(f.Name))
-	args := make([]ast.Expr, len(f.Args))
-	for i, arg := range f.Args {
-		args[i] = arg.ToGoAST()
+	name := fmt.Sprintf(functionsPackageTemplate, util.KebabToPascal(f.Name))
+	args := make([]ast.Expr, len(f.Args)+1)
+	for i, _ := range args {
+		if i == 0 {
+			args[i] = &ast.Ident{Name: ctxVar}
+		} else {
+			value := f.Args[i-1]
+			if value.Type() == FunctionType {
+				args[i] = value.ToGoAST()
+			} else {
+				qi := fmt.Sprintf(functionsPackageTemplate, typeRepr[value.Type()])
+				cl := &ast.CompositeLit{
+					Type: &ast.BasicLit{Kind: token.STRING, Value: qi},
+					Elts: []ast.Expr{
+						value.ToGoAST(),
+						&ast.BasicLit{Kind: token.STRING, Value: nilValue},
+					},
+				}
+				args[i] = cl
+			}
+		}
 	}
 	return &ast.CallExpr{
 		Fun:  &ast.Ident{Name: name},
