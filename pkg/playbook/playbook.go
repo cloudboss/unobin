@@ -46,6 +46,7 @@ type Playbook struct {
 	Description string
 	Imports     map[string]string
 	InputSchema map[string]interface{}
+	Blocks      []*task.Block
 	Tasks       []*task.Task
 	Context     *types.Context
 	Succeeded   bool
@@ -123,6 +124,43 @@ func (p *Playbook) Run() []*types.Result {
 	return results
 }
 
+func (p *Playbook) Apply() []*types.Result {
+	results := []*types.Result{}
+	resultChan := make(chan (*types.TaskResult))
+	doneChan := make(chan (bool))
+
+	p.Succeeded = true
+
+	for _, block := range p.Blocks {
+		go func() { block.Run(resultChan, doneChan) }()
+	selectLoop:
+		for {
+			select {
+			case taskResult := <-resultChan:
+				results = append(results, taskResult.Result)
+				p.print(taskResult.Result)
+				if taskResult.Result.Error != "" {
+					continue
+				}
+				if taskResult.Result.Output != nil {
+					p.Context.State[taskResult.TaskName] = taskResult.Result.Output
+				}
+			case blockSucceeded := <-doneChan:
+				p.Succeeded = blockSucceeded
+				if !blockSucceeded {
+					goto out
+				} else {
+					break selectLoop
+				}
+			}
+		}
+	}
+out:
+	close(resultChan)
+	close(doneChan)
+	return results
+}
+
 func (p *Playbook) StartCLI() {
 	root := &cobra.Command{
 		Use:   p.Name,
@@ -143,7 +181,7 @@ func (p *Playbook) StartCLI() {
 
 				p.Context.Vars = vars
 
-				p.Run()
+				p.Apply()
 				if !p.Succeeded {
 					os.Exit(1)
 				}

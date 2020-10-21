@@ -24,9 +24,15 @@ type Predicate func() (bool, error)
 
 type Action func() *Result
 
+type TaskResult struct {
+	TaskName string
+	Result   *Result
+}
+
 type Result struct {
 	Succeeded bool                   `json:"succeeded"`
 	Changed   bool                   `json:"changed"`
+	Rescued   bool                   `json:"rescued"`
 	Error     string                 `json:"error,omitempty"`
 	Module    string                 `json:"module"`
 	Output    map[string]interface{} `json:"output,omitempty"`

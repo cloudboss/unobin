@@ -31,67 +31,101 @@ func main() {
 			"additionalProperties": false,
 		},
 		Context: ctx,
-		Tasks: []*task.Task{
+		Blocks: []*task.Block{
 			{
-				Name: `do something`,
-				Unwrap: func() (module.Module, error) {
-					mod := &command.Command{}
-					mod.Execute = "ls /"
-					return mod, nil
+				Body: []*task.Task{
+					{
+						Name: `do something`,
+						Unwrap: func() (module.Module, error) {
+							mod := &command.Command{}
+							mod.Execute = "ls /"
+							return mod, nil
+						},
+					},
 				},
 				When: func() (bool, error) {
-					when := functions.WhenExecute(ctx, functions.String{"/bin/true", nil})
+					when := functions.WhenExecute(ctx, functions.String{"troo", nil})
 					return when.Value, when.Error
 				},
-			},
-			{
-				Name: `do something else`,
-				Unwrap: func() (module.Module, error) {
-					mod := &command.Command{}
-					mod.Execute = "ls /"
-					mod.Creates = "/"
-					return mod, nil
+				Rescue: []*task.Task{
+					{
+						Name: `rescue`,
+						Unwrap: func() (module.Module, error) {
+							mod := &command.Command{}
+							mod.Execute = "echo heyhey"
+							return mod, nil
+						},
+					},
+					{
+						Name: `rescue again`,
+						Unwrap: func() (module.Module, error) {
+							mod := &command.Command{}
+							mod.Execute = "echo hoho"
+							return mod, nil
+						},
+					},
 				},
 			},
 			{
-				Name: `build a stack`,
-				Unwrap: func() (module.Module, error) {
-					mod := &cloudformation.CloudFormation{}
-					stackName := functions.StringVar(ctx, functions.String{"stack-name", nil})
-					if stackName.Error != nil {
-						return mod, stackName.Error
-					}
-					mod.StackName = stackName.Value
-					templateFile := functions.StringVar(ctx, functions.String{"template", nil})
-					if templateFile.Error != nil {
-						return mod, templateFile.Error
-					}
-					mod.TemplateFile = templateFile.Value
-					disableRollback := functions.BoolVar(ctx, functions.String{"disable-rollback", nil})
-					if disableRollback.Error != nil {
-						return mod, disableRollback.Error
-					}
-					mod.DisableRollback = disableRollback.Value
-					return mod, nil
+				Body: []*task.Task{
+					{
+						Name: `do something else`,
+						Unwrap: func() (module.Module, error) {
+							mod := &command.Command{}
+							mod.Execute = "ls /"
+							mod.Creates = "/"
+							return mod, nil
+						},
+					},
 				},
 			},
 			{
-				Name: `run a command from output`,
-				Unwrap: func() (module.Module, error) {
-					mod := &command.Command{}
-					execute := functions.Format(ctx,
-						functions.String{`echo "sg1 is %s and sg2 is %s"`, nil},
-						functions.AnyOutput(ctx,
-							functions.String{"build a stack", nil},
-							functions.String{"outputs.SecurityGroup", nil}),
-						functions.AnyOutput(ctx,
-							functions.String{"build a stack", nil},
-							functions.String{"outputs.SecurityGroupTwo", nil}))
-					if execute.Error != nil {
-						return mod, execute.Error
-					}
-					mod.Execute = execute.Value
-					return mod, nil
+				Body: []*task.Task{
+					{
+						Name: `build a stack`,
+						Unwrap: func() (module.Module, error) {
+							mod := &cloudformation.CloudFormation{}
+							stackName := functions.StringVar(ctx, functions.String{"stack-name", nil})
+							if stackName.Error != nil {
+								return mod, stackName.Error
+							}
+							mod.StackName = stackName.Value
+							templateFile := functions.StringVar(ctx, functions.String{"template", nil})
+							if templateFile.Error != nil {
+								return mod, templateFile.Error
+							}
+							mod.TemplateFile = templateFile.Value
+							disableRollback := functions.BoolVar(ctx, functions.String{"disable-rollback", nil})
+							if disableRollback.Error != nil {
+								return mod, disableRollback.Error
+							}
+							mod.DisableRollback = disableRollback.Value
+							return mod, nil
+						},
+					},
+				},
+			},
+			{
+				Body: []*task.Task{
+					{
+						Name: `run a command from output`,
+						Unwrap: func() (module.Module, error) {
+							mod := &command.Command{}
+							execute := functions.Format(ctx,
+								functions.String{`echo "sg1 is %s and sg2 is %s"`, nil},
+								functions.AnyOutput(ctx,
+									functions.String{"build a stack", nil},
+									functions.String{"outputs.SecurityGroup", nil}),
+								functions.AnyOutput(ctx,
+									functions.String{"build a stack", nil},
+									functions.String{"outputs.SecurityGroupTwo", nil}))
+							if execute.Error != nil {
+								return mod, execute.Error
+							}
+							mod.Execute = execute.Value
+							return mod, nil
+						},
+					},
 				},
 			},
 		},
