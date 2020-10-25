@@ -31,6 +31,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/module"
 	"github.com/cloudboss/unobin/pkg/util"
+	"github.com/go-bindata/go-bindata"
 	"github.com/hashicorp/go-multierror"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -220,6 +221,7 @@ func (c *Compiler) Compile() *ast.File {
 		},
 		Decls: []ast.Decl{
 			c.genDecl_import(),
+			// c.genDecl_var(),
 			c.funcDecl_main(),
 		},
 		Package: 1,
@@ -230,11 +232,14 @@ func (c *Compiler) Compile() *ast.File {
 // genDecl_import creates an `*ast.GenDecl` for all of the playbook's imports.
 func (c *Compiler) genDecl_import() *ast.GenDecl {
 	specs := []ast.Spec{
+		importSpec("fmt"),
+		importSpec("os"),
 		importSpec("github.com/cloudboss/unobin/pkg/functions"),
 		importSpec("github.com/cloudboss/unobin/pkg/module"),
 		importSpec("github.com/cloudboss/unobin/pkg/playbook"),
 		importSpec("github.com/cloudboss/unobin/pkg/task"),
 		importSpec("github.com/cloudboss/unobin/pkg/types"),
+		// importSpec("github.com/markbates/pkger"),
 	}
 	for _, value := range c.moduleImports {
 		specs = append(specs, importSpec(value.GoImportPath))
@@ -242,6 +247,36 @@ func (c *Compiler) genDecl_import() *ast.GenDecl {
 	return &ast.GenDecl{
 		Tok:   token.IMPORT,
 		Specs: specs,
+	}
+}
+
+// genDecl_var creates an `*ast.GenDecl` for a pkger.Include() call assigned to a var `_`.
+// This allows the playbook to bundle files in the playbook's resources directory.
+// See https://godoc.org/github.com/markbates/pkger#Include.
+func (c *Compiler) genDecl_var() *ast.GenDecl {
+	return &ast.GenDecl{
+		Tok: token.VAR,
+		Specs: []ast.Spec{
+			&ast.ValueSpec{
+				Names: []*ast.Ident{
+					&ast.Ident{Name: underscoreVar},
+				},
+				Values: []ast.Expr{
+					&ast.CallExpr{
+						Fun: &ast.BasicLit{
+							Kind:  token.STRING,
+							Value: includeQualifiedIdentifier,
+						},
+						Args: []ast.Expr{
+							&ast.BasicLit{
+								Kind:  token.STRING,
+								Value: strconv.Quote(resources),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -253,10 +288,204 @@ func (c *Compiler) funcDecl_main() *ast.FuncDecl {
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				c.assignStmt_ctx(),
+				c.assignStmt_resourceNames(),
+				c.assignStmt_resourcesLen(),
+				c.assignStmt_resources(),
+				c.rangeStmt_resources(),
 				c.assignStmt_pb(),
 				&ast.ExprStmt{
 					X: &ast.CallExpr{
 						Fun: &ast.Ident{Name: startCLIMethod},
+					},
+				},
+			},
+		},
+	}
+}
+
+// assignStmt_resourceNames creates an `*ast.AssignStmt` for the main function's `resourceNames` variable.
+func (c *Compiler) assignStmt_resourceNames() *ast.AssignStmt {
+	return &ast.AssignStmt{
+		Tok: token.DEFINE,
+		Lhs: []ast.Expr{
+			&ast.Ident{Name: resourceNamesVar},
+		},
+		Rhs: []ast.Expr{
+			&ast.CallExpr{Fun: &ast.Ident{Name: assetNamesFunc}},
+		},
+	}
+}
+
+// assignStmt_resourcesLen creates an `*ast.AssignStmt` for the main function's `resourcesLen` variable.
+func (c *Compiler) assignStmt_resourcesLen() *ast.AssignStmt {
+	return &ast.AssignStmt{
+		Tok: token.DEFINE,
+		Lhs: []ast.Expr{&ast.Ident{Name: resourcesLenVar}},
+		Rhs: []ast.Expr{
+			&ast.CallExpr{
+				Fun: &ast.Ident{Name: "len"},
+				Args: []ast.Expr{
+					&ast.Ident{Name: resourceNamesVar},
+				},
+			},
+		},
+	}
+}
+
+// assignStmt_resources creates an `*ast.AssignStmt` for the main function's `resources` variable.
+func (c *Compiler) assignStmt_resources() *ast.AssignStmt {
+	return &ast.AssignStmt{
+		Tok: token.DEFINE,
+		Lhs: []ast.Expr{&ast.Ident{Name: resources}},
+		Rhs: []ast.Expr{
+			&ast.CallExpr{
+				Fun: &ast.Ident{Name: makeFunc},
+				Args: []ast.Expr{
+					&ast.Ident{
+						Name: fmt.Sprintf("[]%s", resourceQualifiedIdentifier),
+					},
+					&ast.Ident{Name: resourcesLenVar},
+				},
+			},
+		},
+	}
+}
+
+// rangeStmt_resources creates an `*ast.RangeStmt` to fill the main function's `resources` variable.
+func (c *Compiler) rangeStmt_resources() *ast.RangeStmt {
+	return &ast.RangeStmt{
+		Key:   &ast.Ident{Name: iVar},
+		Value: &ast.Ident{Name: resourceVar},
+		X:     &ast.Ident{Name: resourceNamesVar},
+		Tok:   token.DEFINE,
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.AssignStmt{
+					Tok: token.DEFINE,
+					Lhs: []ast.Expr{
+						&ast.Ident{Name: infoVar},
+						&ast.Ident{Name: errVar},
+					},
+					Rhs: []ast.Expr{
+						&ast.CallExpr{
+							Fun: &ast.Ident{Name: assetInfoFunc},
+							Args: []ast.Expr{
+								&ast.Ident{Name: resourceVar},
+							},
+						},
+					},
+				},
+				&ast.IfStmt{
+					Cond: &ast.BinaryExpr{
+						Op: token.NEQ,
+						X:  &ast.Ident{Name: errVar},
+						Y:  &ast.Ident{Name: nilValue},
+					},
+					Body: &ast.BlockStmt{
+						List: []ast.Stmt{
+							&ast.ExprStmt{
+								&ast.CallExpr{
+									Fun: &ast.Ident{Name: printfQualifiedIdentifier},
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: strconv.Quote("failed to get info for resource %s: %s"),
+										},
+										&ast.Ident{Name: resourceVar},
+										&ast.Ident{Name: errVar},
+									},
+								},
+							},
+							&ast.ExprStmt{
+								X: &ast.CallExpr{
+									Fun: &ast.Ident{Name: exitQualifiedIdentifier},
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.INT,
+											Value: "1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&ast.AssignStmt{
+					Tok: token.DEFINE,
+					Lhs: []ast.Expr{
+						&ast.Ident{Name: contentsVar},
+						&ast.Ident{Name: errVar},
+					},
+					Rhs: []ast.Expr{
+						&ast.CallExpr{
+							Fun: &ast.Ident{Name: assetFunc},
+							Args: []ast.Expr{
+								&ast.Ident{Name: resourceVar},
+							},
+						},
+					},
+				},
+				&ast.IfStmt{
+					Cond: &ast.BinaryExpr{
+						Op: token.NEQ,
+						X:  &ast.Ident{Name: errVar},
+						Y:  &ast.Ident{Name: nilValue},
+					},
+					Body: &ast.BlockStmt{
+						List: []ast.Stmt{
+							&ast.ExprStmt{
+								&ast.CallExpr{
+									Fun: &ast.Ident{Name: printfQualifiedIdentifier},
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: strconv.Quote("failed to get contents of resource %s: %s"),
+										},
+										&ast.Ident{Name: resourceVar},
+										&ast.Ident{Name: errVar},
+									},
+								},
+							},
+							&ast.ExprStmt{
+								X: &ast.CallExpr{
+									Fun: &ast.Ident{Name: exitQualifiedIdentifier},
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.INT,
+											Value: "1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&ast.AssignStmt{
+					Tok: token.ASSIGN,
+					Lhs: []ast.Expr{
+						&ast.IndexExpr{
+							X:     &ast.Ident{Name: resources},
+							Index: &ast.Ident{Name: iVar},
+						},
+					},
+					Rhs: []ast.Expr{
+						&ast.CompositeLit{
+							Type: &ast.Ident{Name: resourceQualifiedIdentifier},
+							Elts: []ast.Expr{
+								&ast.KeyValueExpr{
+									Key:   &ast.Ident{Name: pathField},
+									Value: &ast.Ident{Name: resourceVar},
+								},
+								&ast.KeyValueExpr{
+									Key:   &ast.Ident{Name: infoField},
+									Value: &ast.Ident{Name: infoVar},
+								},
+								&ast.KeyValueExpr{
+									Key:   &ast.Ident{Name: contentsField},
+									Value: &ast.Ident{Name: contentsVar},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -328,6 +557,10 @@ func (c *Compiler) assignStmt_pb() *ast.AssignStmt {
 					&ast.KeyValueExpr{
 						Key:   &ast.Ident{Name: inputSchemaField},
 						Value: c.grammar.uast.Attributes[inputSchemaAttr].ToGoAST(),
+					},
+					&ast.KeyValueExpr{
+						Key:   &ast.Ident{Name: resourcesField},
+						Value: &ast.Ident{Name: resources},
 					},
 					&ast.KeyValueExpr{
 						Key:   &ast.Ident{Name: tasksField},
@@ -531,6 +764,42 @@ func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []ast.Stmt {
 		stmts = append(stmts, assignFieldStmt)
 	}
 	return stmts
+}
+
+// func (c *Compiler) PackageResources() error {
+// 	info, err := here.Current()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	fp := filepath.Join(info.Dir, "resources.go")
+// 	os.RemoveAll(fp)
+
+// 	decls, err := parser.Parse(info, []string{}...)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if err := cmds.Package(info, fp, decls); err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
+
+func (c *Compiler) PackageResources() error {
+	config := &bindata.Config{
+		Prefix:  resources,
+		Package: maine,
+		Input: []bindata.InputConfig{
+			{
+				Path:      resources,
+				Recursive: true,
+			},
+		},
+		Output: "resources.go",
+	}
+	return bindata.Translate(config)
 }
 
 // importSpec creates an `*ast.ImportSpec` for a single import.

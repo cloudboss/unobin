@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/task"
@@ -33,6 +35,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/xeipuuv/gojsonschema"
 )
+
+const CacheDirectoryEnv = "UNOBIN_CACHE_DIRECTORY"
 
 type PlaybookAttributes struct {
 	Name        string
@@ -50,6 +54,13 @@ type Playbook struct {
 	Context     *types.Context
 	Succeeded   bool
 	Outputs     map[string]interface{}
+	Resources   []Resource
+}
+
+type Resource struct {
+	Path     string
+	Info     os.FileInfo
+	Contents []byte
 }
 
 func NewPlaybook(playbookPath, moduleSearchPath string) (*Playbook, error) {
@@ -129,12 +140,38 @@ func (p *Playbook) StartCLI() {
 		Short: p.Description,
 	}
 
+	defaultCacheDirectory := fmt.Sprintf("~/.unobin/%s", p.Name)
+
 	var (
-		varsFile     string
-		applyCommand = &cobra.Command{
+		varsFile       string
+		cacheDirectory string
+		applyCommand   = &cobra.Command{
 			Use:   "apply",
 			Short: fmt.Sprintf("Apply %s", p.Name),
+			PreRunE: func(cmd *cobra.Command, args []string) error {
+				if cacheDirectory == defaultCacheDirectory {
+					currentUser, err := user.Current()
+					if err != nil {
+						return err
+					}
+					cacheDirectory = fmt.Sprintf("%s/.unobin/%s", currentUser.HomeDir, p.Name)
+				}
+				return nil
+			},
 			Run: func(cmd *cobra.Command, args []string) {
+				err := p.cacheResources(cacheDirectory)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					os.Exit(1)
+				}
+
+				// Set environment variable so modules know where to look for cached files.
+				err = os.Setenv(CacheDirectoryEnv, cacheDirectory)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					os.Exit(1)
+				}
+
 				vars, err := p.validateInputVars(varsFile)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -154,6 +191,8 @@ func (p *Playbook) StartCLI() {
 	root.AddCommand(applyCommand)
 	applyCommand.Flags().StringVarP(&varsFile, "vars", "v", "", "File containing input variables")
 	applyCommand.MarkFlagRequired("vars")
+	applyCommand.Flags().StringVarP(&cacheDirectory, "cache-directory", "c", defaultCacheDirectory,
+		"Directory where resources will be cached")
 
 	root.Execute()
 }
@@ -194,6 +233,26 @@ func (p *Playbook) validateInputVars(varsFile string) (map[string]interface{}, e
 	json.Unmarshal(jsn, &vars)
 
 	return vars, nil
+}
+
+func (p *Playbook) cacheResources(cacheDirectory string) error {
+	for _, resource := range p.Resources {
+		fullPath := fmt.Sprintf("%s/%s", cacheDirectory, resource.Path)
+		dir := filepath.Dir(fullPath)
+		err := os.MkdirAll(dir, os.FileMode(0755))
+		if err != nil {
+			return err
+		}
+		err = ioutil.WriteFile(fullPath, resource.Contents, resource.Info.Mode())
+		if err != nil {
+			return err
+		}
+		err = os.Chtimes(fullPath, resource.Info.ModTime(), resource.Info.ModTime())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ResolveMap(attributes map[string]interface{}, path string) (map[string]interface{}, error) {

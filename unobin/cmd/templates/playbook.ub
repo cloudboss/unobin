@@ -6,6 +6,7 @@ description: 'A binary playbook'
 # type appended as a suffix.
 imports: {
   cmd: 'github.com/cloudboss/unobin/modules/command.Command'
+  template: 'github.com/cloudboss/unobin/modules/file/template.Template'
 }
 
 # The input schema is a JSON schema for validating input variables. The playbook
@@ -54,4 +55,13 @@ cmd [run ls command if file doesn't exist] {
 
 cmd [run a command using another command's output] {
   execute: format('echo Output of ls command is: %s' any-output('run ls command' 'stdout'))
+}
+
+template [expand a template] {
+  # src is relative to the playbook's resources directory.
+  src: 'hello.txt.tmpl'
+  # dest is relative to the current working directory or an absolute path.
+  dest: 'hello.txt'
+  mode: '0644'
+  vars: { name: 'Joe' }
 }

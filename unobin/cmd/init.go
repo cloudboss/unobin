@@ -24,15 +24,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/markbates/pkger"
 	"github.com/spf13/cobra"
 )
-
-const templatePath = "github.com/cloudboss/unobin:/unobin/cmd/templates"
 
 var (
 	importPath  string
@@ -51,18 +47,16 @@ var (
 			return err
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := os.MkdirAll(projectPath, 0777); err != nil {
+			if err := os.MkdirAll(projectPath, 0755); err != nil {
 				return err
 			}
-			return pkger.Walk("/unobin/cmd/templates", func(path string, info os.FileInfo, err error) error {
+			for _, path := range AssetNames() {
+				err := writeToProject(path)
 				if err != nil {
 					return err
 				}
-				if info.IsDir() {
-					return nil
-				}
-				return writeToProject(path, info)
-			})
+			}
+			return nil
 		},
 	}
 )
@@ -75,34 +69,27 @@ func init() {
 		"", "Filesystem path for the project")
 }
 
-func writeToProject(path string, info os.FileInfo) error {
-	projectFile, projectDir, err := resolvePath(path)
-	if err != nil {
-		return err
-	}
+func writeToProject(path string) error {
+	projectFile := fmt.Sprintf("%s/%s", projectPath, path)
+	projectDir := filepath.Dir(projectFile)
 
 	// Ensure destination directory is present.
-	if err := os.MkdirAll(projectDir, 0777); err != nil {
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return err
 	}
-
-	inFile, err := pkger.Open(path)
+	info, err := AssetInfo(path)
 	if err != nil {
 		return err
 	}
-	defer inFile.Close()
-
-	buf := make([]byte, info.Size())
-	if i, err := inFile.Read(buf); i != 0 && err != nil {
-		return err
-	}
-
 	outFile, err := os.OpenFile(projectFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
 	if err != nil {
 		return err
 	}
-
-	t, err := template.New(projectFile).Parse(string(buf))
+	contents, err := Asset(path)
+	if err != nil {
+		return err
+	}
+	t, err := template.New(projectFile).Parse(string(contents))
 	if err != nil {
 		return err
 	}
@@ -110,14 +97,4 @@ func writeToProject(path string, info os.FileInfo) error {
 		"ImportPath": importPath,
 		"Project":    projectPath,
 	})
-}
-
-func resolvePath(path string) (string, string, error) {
-	parts := strings.Split(path, templatePath)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("unexpected path %s", path)
-	}
-	projectFile := fmt.Sprintf("%s%s", projectPath, parts[1])
-	projectDir := filepath.Dir(projectFile)
-	return projectFile, projectDir, nil
 }

@@ -35,9 +35,10 @@ import (
 )
 
 var (
-	playbook   string
-	output     string
-	compileCmd = &cobra.Command{
+	playbook      string
+	output        string
+	skipResources bool
+	compileCmd    = &cobra.Command{
 		Use:   "compile",
 		Short: "Compile a YAML playbook to a binary",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,7 +72,14 @@ var (
 			ast.SortImports(fset, astFile)
 			format.Node(file, fset, astFile)
 
-			if err = compileGo(output, goPath); err != nil {
+			if !skipResources {
+				if err = comp.PackageResources(); err != nil {
+					cmd.SilenceUsage = true
+					return err
+				}
+			}
+
+			if err = compileGo(output); err != nil {
 				cmd.SilenceUsage = true
 			}
 			return err
@@ -85,6 +93,8 @@ func init() {
 		"", "Path to playbook file")
 	compileCmd.Flags().StringVarP(&output, "output", "o",
 		"", "Output filename, defaulting to the prefix of the playbook filename.")
+	compileCmd.Flags().BoolVarP(&skipResources, "skip-resources", "",
+		false, "Skip generating resources.go from resources directory.")
 }
 
 func playbookName(path string) (string, error) {
@@ -95,9 +105,9 @@ func playbookName(path string) (string, error) {
 	return parts[0], nil
 }
 
-func compileGo(name, goPath string) error {
+func compileGo(name string) error {
 	var stderr bytes.Buffer
-	cmd := exec.Command("go", "build", "-o", name, goPath)
+	cmd := exec.Command("go", "build", "-o", name, "./...")
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
