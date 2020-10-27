@@ -42,6 +42,8 @@ var (
 		Use:   "compile",
 		Short: "Compile a YAML playbook to a binary",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+
 			comp := compiler.NewCompiler(playbook)
 
 			err := comp.Load()
@@ -74,15 +76,11 @@ var (
 
 			if !skipResources {
 				if err = comp.PackageResources(); err != nil {
-					cmd.SilenceUsage = true
 					return err
 				}
 			}
 
-			if err = compileGo(output); err != nil {
-				cmd.SilenceUsage = true
-			}
-			return err
+			return compileGo(output)
 		},
 	}
 )
@@ -90,7 +88,8 @@ var (
 func init() {
 	RootCmd.AddCommand(compileCmd)
 	compileCmd.Flags().StringVarP(&playbook, "playbook", "p",
-		"", "Path to playbook file")
+		"", "Path to playbook file.")
+	compileCmd.MarkFlagRequired("playbook")
 	compileCmd.Flags().StringVarP(&output, "output", "o",
 		"", "Output filename, defaulting to the prefix of the playbook filename.")
 	compileCmd.Flags().BoolVarP(&skipResources, "skip-resources", "",
