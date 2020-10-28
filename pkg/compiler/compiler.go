@@ -24,13 +24,13 @@ package compiler
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"io/ioutil"
 	"strconv"
 
 	"github.com/cloudboss/unobin/pkg/module"
 	"github.com/cloudboss/unobin/pkg/util"
+	"github.com/dave/dst"
 	"github.com/go-bindata/go-bindata"
 	"github.com/hashicorp/go-multierror"
 	"github.com/xeipuuv/gojsonschema"
@@ -212,26 +212,25 @@ func (c *Compiler) validateBlocks(blocks []*BlockExpr) error {
 	return err
 }
 
-// Compile returns an `*ast.File` which can be formatted into Go using `go/format` or `go/printer`.
+// Compile returns a `*dst.File` which can be formatted into Go using `go/format` or `go/printer`.
 // The Load() method must be called before this.
-func (c *Compiler) Compile() *ast.File {
-	file := &ast.File{
-		Name: &ast.Ident{
+func (c *Compiler) Compile() *dst.File {
+	file := &dst.File{
+		Name: &dst.Ident{
 			Name: maine,
 		},
-		Decls: []ast.Decl{
+		Decls: []dst.Decl{
 			c.genDecl_import(),
 			// c.genDecl_var(),
 			c.funcDecl_main(),
 		},
-		Package: 1,
 	}
 	return file
 }
 
-// genDecl_import creates an `*ast.GenDecl` for all of the playbook's imports.
-func (c *Compiler) genDecl_import() *ast.GenDecl {
-	specs := []ast.Spec{
+// genDecl_import creates a `*dst.GenDecl` for all of the playbook's imports.
+func (c *Compiler) genDecl_import() *dst.GenDecl {
+	specs := []dst.Spec{
 		importSpec("fmt"),
 		importSpec("os"),
 		importSpec("github.com/cloudboss/unobin/pkg/functions"),
@@ -239,36 +238,35 @@ func (c *Compiler) genDecl_import() *ast.GenDecl {
 		importSpec("github.com/cloudboss/unobin/pkg/playbook"),
 		importSpec("github.com/cloudboss/unobin/pkg/task"),
 		importSpec("github.com/cloudboss/unobin/pkg/types"),
-		// importSpec("github.com/markbates/pkger"),
 	}
 	for _, value := range c.moduleImports {
 		specs = append(specs, importSpec(value.GoImportPath))
 	}
-	return &ast.GenDecl{
+	return &dst.GenDecl{
 		Tok:   token.IMPORT,
 		Specs: specs,
 	}
 }
 
-// genDecl_var creates an `*ast.GenDecl` for a pkger.Include() call assigned to a var `_`.
+// genDecl_var creates a `*dst.GenDecl` for a pkger.Include() call assigned to a var `_`.
 // This allows the playbook to bundle files in the playbook's resources directory.
 // See https://godoc.org/github.com/markbates/pkger#Include.
-func (c *Compiler) genDecl_var() *ast.GenDecl {
-	return &ast.GenDecl{
+func (c *Compiler) genDecl_var() *dst.GenDecl {
+	return &dst.GenDecl{
 		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{
-				Names: []*ast.Ident{
-					&ast.Ident{Name: underscoreVar},
+		Specs: []dst.Spec{
+			&dst.ValueSpec{
+				Names: []*dst.Ident{
+					&dst.Ident{Name: underscoreVar},
 				},
-				Values: []ast.Expr{
-					&ast.CallExpr{
-						Fun: &ast.BasicLit{
+				Values: []dst.Expr{
+					&dst.CallExpr{
+						Fun: &dst.BasicLit{
 							Kind:  token.STRING,
 							Value: includeQualifiedIdentifier,
 						},
-						Args: []ast.Expr{
-							&ast.BasicLit{
+						Args: []dst.Expr{
+							&dst.BasicLit{
 								Kind:  token.STRING,
 								Value: strconv.Quote(resources),
 							},
@@ -280,22 +278,22 @@ func (c *Compiler) genDecl_var() *ast.GenDecl {
 	}
 }
 
-// funcDecl_main creates an `*ast.FuncDecl` for the playbook's `main` function.
-func (c *Compiler) funcDecl_main() *ast.FuncDecl {
-	return &ast.FuncDecl{
-		Name: &ast.Ident{Name: maine},
-		Type: &ast.FuncType{},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
+// funcDecl_main creates a `*dst.FuncDecl` for the playbook's `main` function.
+func (c *Compiler) funcDecl_main() *dst.FuncDecl {
+	return &dst.FuncDecl{
+		Name: &dst.Ident{Name: maine},
+		Type: &dst.FuncType{},
+		Body: &dst.BlockStmt{
+			List: []dst.Stmt{
 				c.assignStmt_ctx(),
 				c.assignStmt_resourceNames(),
 				c.assignStmt_resourcesLen(),
 				c.assignStmt_resources(),
 				c.rangeStmt_resources(),
 				c.assignStmt_pb(),
-				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Fun: &ast.Ident{Name: startCLIMethod},
+				&dst.ExprStmt{
+					X: &dst.CallExpr{
+						Fun: &dst.Ident{Name: startCLIMethod},
 					},
 				},
 			},
@@ -303,104 +301,104 @@ func (c *Compiler) funcDecl_main() *ast.FuncDecl {
 	}
 }
 
-// assignStmt_resourceNames creates an `*ast.AssignStmt` for the main function's `resourceNames` variable.
-func (c *Compiler) assignStmt_resourceNames() *ast.AssignStmt {
-	return &ast.AssignStmt{
+// assignStmt_resourceNames creates a `*dst.AssignStmt` for the main function's `resourceNames` variable.
+func (c *Compiler) assignStmt_resourceNames() *dst.AssignStmt {
+	return &dst.AssignStmt{
 		Tok: token.DEFINE,
-		Lhs: []ast.Expr{
-			&ast.Ident{Name: resourceNamesVar},
+		Lhs: []dst.Expr{
+			&dst.Ident{Name: resourceNamesVar},
 		},
-		Rhs: []ast.Expr{
-			&ast.CallExpr{Fun: &ast.Ident{Name: assetNamesFunc}},
+		Rhs: []dst.Expr{
+			&dst.CallExpr{Fun: &dst.Ident{Name: assetNamesFunc}},
 		},
 	}
 }
 
-// assignStmt_resourcesLen creates an `*ast.AssignStmt` for the main function's `resourcesLen` variable.
-func (c *Compiler) assignStmt_resourcesLen() *ast.AssignStmt {
-	return &ast.AssignStmt{
+// assignStmt_resourcesLen creates a `*dst.AssignStmt` for the main function's `resourcesLen` variable.
+func (c *Compiler) assignStmt_resourcesLen() *dst.AssignStmt {
+	return &dst.AssignStmt{
 		Tok: token.DEFINE,
-		Lhs: []ast.Expr{&ast.Ident{Name: resourcesLenVar}},
-		Rhs: []ast.Expr{
-			&ast.CallExpr{
-				Fun: &ast.Ident{Name: "len"},
-				Args: []ast.Expr{
-					&ast.Ident{Name: resourceNamesVar},
+		Lhs: []dst.Expr{&dst.Ident{Name: resourcesLenVar}},
+		Rhs: []dst.Expr{
+			&dst.CallExpr{
+				Fun: &dst.Ident{Name: "len"},
+				Args: []dst.Expr{
+					&dst.Ident{Name: resourceNamesVar},
 				},
 			},
 		},
 	}
 }
 
-// assignStmt_resources creates an `*ast.AssignStmt` for the main function's `resources` variable.
-func (c *Compiler) assignStmt_resources() *ast.AssignStmt {
-	return &ast.AssignStmt{
+// assignStmt_resources creates a `*dst.AssignStmt` for the main function's `resources` variable.
+func (c *Compiler) assignStmt_resources() *dst.AssignStmt {
+	return &dst.AssignStmt{
 		Tok: token.DEFINE,
-		Lhs: []ast.Expr{&ast.Ident{Name: resources}},
-		Rhs: []ast.Expr{
-			&ast.CallExpr{
-				Fun: &ast.Ident{Name: makeFunc},
-				Args: []ast.Expr{
-					&ast.Ident{
+		Lhs: []dst.Expr{&dst.Ident{Name: resources}},
+		Rhs: []dst.Expr{
+			&dst.CallExpr{
+				Fun: &dst.Ident{Name: makeFunc},
+				Args: []dst.Expr{
+					&dst.Ident{
 						Name: fmt.Sprintf("[]%s", resourceQualifiedIdentifier),
 					},
-					&ast.Ident{Name: resourcesLenVar},
+					&dst.Ident{Name: resourcesLenVar},
 				},
 			},
 		},
 	}
 }
 
-// rangeStmt_resources creates an `*ast.RangeStmt` to fill the main function's `resources` variable.
-func (c *Compiler) rangeStmt_resources() *ast.RangeStmt {
-	return &ast.RangeStmt{
-		Key:   &ast.Ident{Name: iVar},
-		Value: &ast.Ident{Name: resourceVar},
-		X:     &ast.Ident{Name: resourceNamesVar},
+// rangeStmt_resources creates a `*dst.RangeStmt` to fill the main function's `resources` variable.
+func (c *Compiler) rangeStmt_resources() *dst.RangeStmt {
+	return &dst.RangeStmt{
+		Key:   &dst.Ident{Name: iVar},
+		Value: &dst.Ident{Name: resourceVar},
+		X:     &dst.Ident{Name: resourceNamesVar},
 		Tok:   token.DEFINE,
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.AssignStmt{
+		Body: &dst.BlockStmt{
+			List: []dst.Stmt{
+				&dst.AssignStmt{
 					Tok: token.DEFINE,
-					Lhs: []ast.Expr{
-						&ast.Ident{Name: infoVar},
-						&ast.Ident{Name: errVar},
+					Lhs: []dst.Expr{
+						&dst.Ident{Name: infoVar},
+						&dst.Ident{Name: errVar},
 					},
-					Rhs: []ast.Expr{
-						&ast.CallExpr{
-							Fun: &ast.Ident{Name: assetInfoFunc},
-							Args: []ast.Expr{
-								&ast.Ident{Name: resourceVar},
+					Rhs: []dst.Expr{
+						&dst.CallExpr{
+							Fun: &dst.Ident{Name: assetInfoFunc},
+							Args: []dst.Expr{
+								&dst.Ident{Name: resourceVar},
 							},
 						},
 					},
 				},
-				&ast.IfStmt{
-					Cond: &ast.BinaryExpr{
+				&dst.IfStmt{
+					Cond: &dst.BinaryExpr{
 						Op: token.NEQ,
-						X:  &ast.Ident{Name: errVar},
-						Y:  &ast.Ident{Name: nilValue},
+						X:  &dst.Ident{Name: errVar},
+						Y:  &dst.Ident{Name: nilValue},
 					},
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ExprStmt{
-								&ast.CallExpr{
-									Fun: &ast.Ident{Name: printfQualifiedIdentifier},
-									Args: []ast.Expr{
-										&ast.BasicLit{
+					Body: &dst.BlockStmt{
+						List: []dst.Stmt{
+							&dst.ExprStmt{
+								X: &dst.CallExpr{
+									Fun: &dst.Ident{Name: printfQualifiedIdentifier},
+									Args: []dst.Expr{
+										&dst.BasicLit{
 											Kind:  token.STRING,
 											Value: strconv.Quote("failed to get info for resource %s: %s"),
 										},
-										&ast.Ident{Name: resourceVar},
-										&ast.Ident{Name: errVar},
+										&dst.Ident{Name: resourceVar},
+										&dst.Ident{Name: errVar},
 									},
 								},
 							},
-							&ast.ExprStmt{
-								X: &ast.CallExpr{
-									Fun: &ast.Ident{Name: exitQualifiedIdentifier},
-									Args: []ast.Expr{
-										&ast.BasicLit{
+							&dst.ExprStmt{
+								X: &dst.CallExpr{
+									Fun: &dst.Ident{Name: exitQualifiedIdentifier},
+									Args: []dst.Expr{
+										&dst.BasicLit{
 											Kind:  token.INT,
 											Value: "1",
 										},
@@ -410,47 +408,47 @@ func (c *Compiler) rangeStmt_resources() *ast.RangeStmt {
 						},
 					},
 				},
-				&ast.AssignStmt{
+				&dst.AssignStmt{
 					Tok: token.DEFINE,
-					Lhs: []ast.Expr{
-						&ast.Ident{Name: contentsVar},
-						&ast.Ident{Name: errVar},
+					Lhs: []dst.Expr{
+						&dst.Ident{Name: contentsVar},
+						&dst.Ident{Name: errVar},
 					},
-					Rhs: []ast.Expr{
-						&ast.CallExpr{
-							Fun: &ast.Ident{Name: assetFunc},
-							Args: []ast.Expr{
-								&ast.Ident{Name: resourceVar},
+					Rhs: []dst.Expr{
+						&dst.CallExpr{
+							Fun: &dst.Ident{Name: assetFunc},
+							Args: []dst.Expr{
+								&dst.Ident{Name: resourceVar},
 							},
 						},
 					},
 				},
-				&ast.IfStmt{
-					Cond: &ast.BinaryExpr{
+				&dst.IfStmt{
+					Cond: &dst.BinaryExpr{
 						Op: token.NEQ,
-						X:  &ast.Ident{Name: errVar},
-						Y:  &ast.Ident{Name: nilValue},
+						X:  &dst.Ident{Name: errVar},
+						Y:  &dst.Ident{Name: nilValue},
 					},
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ExprStmt{
-								&ast.CallExpr{
-									Fun: &ast.Ident{Name: printfQualifiedIdentifier},
-									Args: []ast.Expr{
-										&ast.BasicLit{
+					Body: &dst.BlockStmt{
+						List: []dst.Stmt{
+							&dst.ExprStmt{
+								X: &dst.CallExpr{
+									Fun: &dst.Ident{Name: printfQualifiedIdentifier},
+									Args: []dst.Expr{
+										&dst.BasicLit{
 											Kind:  token.STRING,
 											Value: strconv.Quote("failed to get contents of resource %s: %s"),
 										},
-										&ast.Ident{Name: resourceVar},
-										&ast.Ident{Name: errVar},
+										&dst.Ident{Name: resourceVar},
+										&dst.Ident{Name: errVar},
 									},
 								},
 							},
-							&ast.ExprStmt{
-								X: &ast.CallExpr{
-									Fun: &ast.Ident{Name: exitQualifiedIdentifier},
-									Args: []ast.Expr{
-										&ast.BasicLit{
+							&dst.ExprStmt{
+								X: &dst.CallExpr{
+									Fun: &dst.Ident{Name: exitQualifiedIdentifier},
+									Args: []dst.Expr{
+										&dst.BasicLit{
 											Kind:  token.INT,
 											Value: "1",
 										},
@@ -460,29 +458,29 @@ func (c *Compiler) rangeStmt_resources() *ast.RangeStmt {
 						},
 					},
 				},
-				&ast.AssignStmt{
+				&dst.AssignStmt{
 					Tok: token.ASSIGN,
-					Lhs: []ast.Expr{
-						&ast.IndexExpr{
-							X:     &ast.Ident{Name: resources},
-							Index: &ast.Ident{Name: iVar},
+					Lhs: []dst.Expr{
+						&dst.IndexExpr{
+							X:     &dst.Ident{Name: resources},
+							Index: &dst.Ident{Name: iVar},
 						},
 					},
-					Rhs: []ast.Expr{
-						&ast.CompositeLit{
-							Type: &ast.Ident{Name: resourceQualifiedIdentifier},
-							Elts: []ast.Expr{
-								&ast.KeyValueExpr{
-									Key:   &ast.Ident{Name: pathField},
-									Value: &ast.Ident{Name: resourceVar},
+					Rhs: []dst.Expr{
+						&dst.CompositeLit{
+							Type: &dst.Ident{Name: resourceQualifiedIdentifier},
+							Elts: []dst.Expr{
+								&dst.KeyValueExpr{
+									Key:   &dst.Ident{Name: pathField},
+									Value: &dst.Ident{Name: resourceVar},
 								},
-								&ast.KeyValueExpr{
-									Key:   &ast.Ident{Name: infoField},
-									Value: &ast.Ident{Name: infoVar},
+								&dst.KeyValueExpr{
+									Key:   &dst.Ident{Name: infoField},
+									Value: &dst.Ident{Name: infoVar},
 								},
-								&ast.KeyValueExpr{
-									Key:   &ast.Ident{Name: contentsField},
-									Value: &ast.Ident{Name: contentsVar},
+								&dst.KeyValueExpr{
+									Key:   &dst.Ident{Name: contentsField},
+									Value: &dst.Ident{Name: contentsVar},
 								},
 							},
 						},
@@ -493,34 +491,41 @@ func (c *Compiler) rangeStmt_resources() *ast.RangeStmt {
 	}
 }
 
-// assignStmt_ctx creates an `*ast.AssignStmt` for the main function's `types.Context`.
-func (c *Compiler) assignStmt_ctx() *ast.AssignStmt {
-	return &ast.AssignStmt{
+// assignStmt_ctx creates a `*dst.AssignStmt` for the main function's `types.Context`.
+func (c *Compiler) assignStmt_ctx() *dst.AssignStmt {
+	return &dst.AssignStmt{
 		Tok: token.DEFINE,
-		Lhs: []ast.Expr{
-			&ast.Ident{Name: ctxVar},
+		Lhs: []dst.Expr{
+			&dst.Ident{Name: ctxVar},
 		},
-		Rhs: []ast.Expr{
-			&ast.UnaryExpr{
+		Rhs: []dst.Expr{
+			&dst.UnaryExpr{
 				Op: token.AND,
-				X: &ast.CompositeLit{
-					Type: &ast.Ident{Name: ctxQualifiedIdentifier},
-					Elts: []ast.Expr{
-						&ast.KeyValueExpr{
-							Key: &ast.Ident{Name: varsField},
-							Value: &ast.CompositeLit{
-								Type: &ast.MapType{
-									Key:   &ast.Ident{Name: stringType},
-									Value: &ast.Ident{Name: interfaceType},
+				X: &dst.CompositeLit{
+					Type: &dst.Ident{Name: ctxQualifiedIdentifier},
+					Elts: []dst.Expr{
+						&dst.KeyValueExpr{
+							Decs: dst.KeyValueExprDecorations{
+								NodeDecs: dst.NodeDecs{
+									Before: dst.NewLine,
+									After:  dst.NewLine,
+								},
+							},
+							Key: &dst.Ident{Name: varsField},
+							Value: &dst.CompositeLit{
+								Type: &dst.MapType{
+									Key:   &dst.Ident{Name: stringType},
+									Value: &dst.Ident{Name: interfaceType},
 								},
 							},
 						},
-						&ast.KeyValueExpr{
-							Key: &ast.Ident{Name: stateField},
-							Value: &ast.CompositeLit{
-								Type: &ast.MapType{
-									Key:   &ast.Ident{Name: stringType},
-									Value: &ast.Ident{Name: interfaceType},
+						&dst.KeyValueExpr{
+							Decs: dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+							Key:  &dst.Ident{Name: stateField},
+							Value: &dst.CompositeLit{
+								Type: &dst.MapType{
+									Key:   &dst.Ident{Name: stringType},
+									Value: &dst.Ident{Name: interfaceType},
 								},
 							},
 						},
@@ -531,39 +536,50 @@ func (c *Compiler) assignStmt_ctx() *ast.AssignStmt {
 	}
 }
 
-// assignStmt_pb creates an `*ast.AssignStmt` for the main function's `playbook.Playbook`.
-func (c *Compiler) assignStmt_pb() *ast.AssignStmt {
-	return &ast.AssignStmt{
+// assignStmt_pb creates a `*dst.AssignStmt` for the main function's `playbook.Playbook`.
+func (c *Compiler) assignStmt_pb() *dst.AssignStmt {
+	return &dst.AssignStmt{
 		Tok: token.DEFINE,
-		Lhs: []ast.Expr{
-			&ast.Ident{Name: pbVar},
+		Lhs: []dst.Expr{
+			&dst.Ident{Name: pbVar},
 		},
-		Rhs: []ast.Expr{
-			&ast.CompositeLit{
-				Type: &ast.Ident{Name: playbookQualifiedIdentifier},
-				Elts: []ast.Expr{
-					&ast.KeyValueExpr{
-						Key:   &ast.Ident{Name: nameField},
+		Rhs: []dst.Expr{
+			&dst.CompositeLit{
+				Type: &dst.Ident{Name: playbookQualifiedIdentifier},
+				Elts: []dst.Expr{
+					&dst.KeyValueExpr{
+						Decs: dst.KeyValueExprDecorations{
+							NodeDecs: dst.NodeDecs{
+								Before: dst.NewLine,
+								After:  dst.NewLine,
+							},
+						},
+						Key:   &dst.Ident{Name: nameField},
 						Value: c.grammar.uast.Attributes[nameAttr].ToGoAST(),
 					},
-					&ast.KeyValueExpr{
-						Key:   &ast.Ident{Name: descriptionField},
+					&dst.KeyValueExpr{
+						Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+						Key:   &dst.Ident{Name: descriptionField},
 						Value: c.grammar.uast.Attributes[descriptionAttr].ToGoAST(),
 					},
-					&ast.KeyValueExpr{
-						Key:   &ast.Ident{Name: ctxField},
-						Value: &ast.BasicLit{Kind: token.STRING, Value: ctxVar},
+					&dst.KeyValueExpr{
+						Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+						Key:   &dst.Ident{Name: ctxField},
+						Value: &dst.BasicLit{Kind: token.STRING, Value: ctxVar},
 					},
-					&ast.KeyValueExpr{
-						Key:   &ast.Ident{Name: inputSchemaField},
+					&dst.KeyValueExpr{
+						Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+						Key:   &dst.Ident{Name: inputSchemaField},
 						Value: c.grammar.uast.Attributes[inputSchemaAttr].ToGoAST(),
 					},
-					&ast.KeyValueExpr{
-						Key:   &ast.Ident{Name: resourcesField},
-						Value: &ast.Ident{Name: resources},
+					&dst.KeyValueExpr{
+						Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+						Key:   &dst.Ident{Name: resourcesField},
+						Value: &dst.Ident{Name: resources},
 					},
-					&ast.KeyValueExpr{
-						Key:   &ast.Ident{Name: tasksField},
+					&dst.KeyValueExpr{
+						Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+						Key:   &dst.Ident{Name: tasksField},
 						Value: c.compositeLit_tasks(),
 					},
 				},
@@ -572,18 +588,33 @@ func (c *Compiler) assignStmt_pb() *ast.AssignStmt {
 	}
 }
 
-// compositeLit_tasks creates an `*ast.CompositeLit` for the playbook's `*task.Task` array.
-func (c *Compiler) compositeLit_tasks() *ast.CompositeLit {
-	taskExprs := []ast.Expr{}
+// compositeLit_tasks creates a `*dst.CompositeLit` for the playbook's `*task.Task` array.
+func (c *Compiler) compositeLit_tasks() *dst.CompositeLit {
+	taskExprs := []dst.Expr{}
 	for _, block := range c.grammar.uast.Blocks {
 		for _, task := range block.Body {
-			taskExpr := &ast.CompositeLit{Elts: []ast.Expr{}}
-			taskExpr.Elts = append(taskExpr.Elts, &ast.KeyValueExpr{
-				Key:   &ast.Ident{Name: nameField},
-				Value: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(task.Name)},
+			taskExpr := &dst.CompositeLit{
+				Decs: dst.CompositeLitDecorations{
+					NodeDecs: dst.NodeDecs{
+						Before: dst.NewLine,
+						After:  dst.NewLine,
+					},
+				},
+				Elts: []dst.Expr{},
+			}
+			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+				Decs: dst.KeyValueExprDecorations{
+					NodeDecs: dst.NodeDecs{
+						Before: dst.NewLine,
+						After:  dst.NewLine,
+					},
+				},
+				Key:   &dst.Ident{Name: nameField},
+				Value: &dst.BasicLit{Kind: token.STRING, Value: strconv.Quote(task.Name)},
 			})
-			taskExpr.Elts = append(taskExpr.Elts, &ast.KeyValueExpr{
-				Key:   &ast.Ident{Name: unwrapField},
+			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+				Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+				Key:   &dst.Ident{Name: unwrapField},
 				Value: c.funcLit_unwrap(task),
 			})
 			// TODO: move this up to the block level after refactoring
@@ -595,43 +626,43 @@ func (c *Compiler) compositeLit_tasks() *ast.CompositeLit {
 			taskExprs = append(taskExprs, taskExpr)
 		}
 	}
-	return &ast.CompositeLit{
-		Type: &ast.ArrayType{Elt: &ast.StarExpr{X: &ast.Ident{Name: taskQualifiedIdentifier}}},
+	return &dst.CompositeLit{
+		Type: &dst.ArrayType{Elt: &dst.StarExpr{X: &dst.Ident{Name: taskQualifiedIdentifier}}},
 		Elts: taskExprs,
 	}
 }
 
-// compileWhenExpr compiles the `*ast.KeyValueExpr` for the `When` field of a task.
-func (c *Compiler) compileWhenExpr(when *ValueExpr) *ast.KeyValueExpr {
-	return &ast.KeyValueExpr{
-		Key: &ast.BasicLit{Kind: token.STRING, Value: whenField},
-		Value: &ast.FuncLit{
-			Type: &ast.FuncType{
-				Results: &ast.FieldList{
-					List: []*ast.Field{
-						{Type: &ast.Ident{Name: boolType}},
-						{Type: &ast.Ident{Name: errorType}},
+// compileWhenExpr compiles the `*dst.KeyValueExpr` for the `When` field of a task.
+func (c *Compiler) compileWhenExpr(when *ValueExpr) *dst.KeyValueExpr {
+	return &dst.KeyValueExpr{
+		Key: &dst.BasicLit{Kind: token.STRING, Value: whenField},
+		Value: &dst.FuncLit{
+			Type: &dst.FuncType{
+				Results: &dst.FieldList{
+					List: []*dst.Field{
+						{Type: &dst.Ident{Name: boolType}},
+						{Type: &dst.Ident{Name: errorType}},
 					},
 				},
 			},
-			Body: &ast.BlockStmt{
-				List: []ast.Stmt{
-					&ast.AssignStmt{
+			Body: &dst.BlockStmt{
+				List: []dst.Stmt{
+					&dst.AssignStmt{
 						Tok: token.DEFINE,
-						Lhs: []ast.Expr{
-							&ast.Ident{Name: whenKey},
+						Lhs: []dst.Expr{
+							&dst.Ident{Name: whenKey},
 						},
-						Rhs: []ast.Expr{
+						Rhs: []dst.Expr{
 							c.compileModuleExpr(when),
 						},
 					},
-					&ast.ReturnStmt{
-						Results: []ast.Expr{
-							&ast.BasicLit{
+					&dst.ReturnStmt{
+						Results: []dst.Expr{
+							&dst.BasicLit{
 								Kind:  token.STRING,
 								Value: fmt.Sprintf("%s.Value", whenKey),
 							},
-							&ast.BasicLit{
+							&dst.BasicLit{
 								Kind:  token.STRING,
 								Value: fmt.Sprintf("%s.Error", whenKey),
 							},
@@ -643,31 +674,31 @@ func (c *Compiler) compileWhenExpr(when *ValueExpr) *ast.KeyValueExpr {
 	}
 }
 
-// funcLit_unwrap creates an `*ast.FuncLit` for a playbook task's `Unwrap` field.
-func (c *Compiler) funcLit_unwrap(task *TaskExpr) *ast.FuncLit {
-	funcLit := ast.FuncLit{
-		Type: &ast.FuncType{
-			Results: &ast.FieldList{
-				List: []*ast.Field{
-					{Type: &ast.Ident{Name: moduleQualifiedIdentifier}},
-					{Type: &ast.Ident{Name: errorType}},
+// funcLit_unwrap creates a `*dst.FuncLit` for a playbook task's `Unwrap` field.
+func (c *Compiler) funcLit_unwrap(task *TaskExpr) *dst.FuncLit {
+	funcLit := dst.FuncLit{
+		Type: &dst.FuncType{
+			Results: &dst.FieldList{
+				List: []*dst.Field{
+					{Type: &dst.Ident{Name: moduleQualifiedIdentifier}},
+					{Type: &dst.Ident{Name: errorType}},
 				},
 			},
 		},
-		Body: &ast.BlockStmt{},
+		Body: &dst.BlockStmt{},
 	}
 	moduleImport := c.moduleImports[task.ModuleName]
-	funcLit.Body.List = []ast.Stmt{
-		&ast.AssignStmt{
+	funcLit.Body.List = []dst.Stmt{
+		&dst.AssignStmt{
 			Tok: token.DEFINE,
-			Lhs: []ast.Expr{
-				&ast.Ident{Name: modVar},
+			Lhs: []dst.Expr{
+				&dst.Ident{Name: modVar},
 			},
-			Rhs: []ast.Expr{
-				&ast.UnaryExpr{
+			Rhs: []dst.Expr{
+				&dst.UnaryExpr{
 					Op: token.AND,
-					X: &ast.CompositeLit{
-						Type: &ast.Ident{
+					X: &dst.CompositeLit{
+						Type: &dst.Ident{
 							Name: moduleImport.QualifiedIdentifier,
 						},
 					},
@@ -679,61 +710,61 @@ func (c *Compiler) funcLit_unwrap(task *TaskExpr) *ast.FuncLit {
 		stmts := c.moduleParamStmts(k, v)
 		funcLit.Body.List = append(funcLit.Body.List, stmts...)
 	}
-	funcLit.Body.List = append(funcLit.Body.List, &ast.ReturnStmt{
-		Results: []ast.Expr{
-			&ast.Ident{Name: modVar},
-			&ast.Ident{Name: nilValue},
+	funcLit.Body.List = append(funcLit.Body.List, &dst.ReturnStmt{
+		Results: []dst.Expr{
+			&dst.Ident{Name: modVar},
+			&dst.Ident{Name: nilValue},
 		},
 	})
 	return &funcLit
 }
 
-// compileModuleExpr is given a `*ValueExpr` parsed from the playbook and produces an `*ast.CallExpr`
+// compileModuleExpr is given a `*ValueExpr` parsed from the playbook and produces a `*dst.CallExpr`
 // from it. If it encounters another function call as an argument, it recursively calls itself to
 // compile it, otherwise it returns a CompositeLit for a literal value from the `functions` package.
-func (c *Compiler) compileModuleExpr(value *ValueExpr) ast.Expr {
+func (c *Compiler) compileModuleExpr(value *ValueExpr) dst.Expr {
 	switch value.Type() {
 	case FunctionType:
 		return value.ToGoAST()
 	default:
 		qualifiedIdentifier := fmt.Sprintf(functionsPackageTemplate, typeRepr[value.Type()])
-		return &ast.CompositeLit{
-			Type: &ast.BasicLit{Kind: token.STRING, Value: qualifiedIdentifier},
-			Elts: []ast.Expr{
+		return &dst.CompositeLit{
+			Type: &dst.BasicLit{Kind: token.STRING, Value: qualifiedIdentifier},
+			Elts: []dst.Expr{
 				value.ToGoAST(),
-				&ast.BasicLit{Kind: token.STRING, Value: nilValue},
+				&dst.BasicLit{Kind: token.STRING, Value: nilValue},
 			},
 		}
 	}
 }
 
-// moduleParamStmts creates an `[]ast.Stmt` for a task's module parameters.
-func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []ast.Stmt {
-	stmts := []ast.Stmt{}
+// moduleParamStmts creates a `[]dst.Stmt` for a task's module parameters.
+func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []dst.Stmt {
+	stmts := []dst.Stmt{}
 	variable := util.KebabToCamel(ident)
 	t := value.Type()
 	if t == FunctionType {
-		assignStmt := &ast.AssignStmt{
+		assignStmt := &dst.AssignStmt{
 			Tok: token.DEFINE,
-			Lhs: []ast.Expr{
-				&ast.Ident{Name: variable},
+			Lhs: []dst.Expr{
+				&dst.Ident{Name: variable},
 			},
-			Rhs: []ast.Expr{c.compileModuleExpr(value)},
+			Rhs: []dst.Expr{c.compileModuleExpr(value)},
 		}
 		stmts = append(stmts, assignStmt)
 		errField := fmt.Sprintf("%s.Error", variable)
-		ifErrStmt := &ast.IfStmt{
-			Cond: &ast.BinaryExpr{
+		ifErrStmt := &dst.IfStmt{
+			Cond: &dst.BinaryExpr{
 				Op: token.NEQ,
-				X:  &ast.Ident{Name: errField},
-				Y:  &ast.Ident{Name: nilValue},
+				X:  &dst.Ident{Name: errField},
+				Y:  &dst.Ident{Name: nilValue},
 			},
-			Body: &ast.BlockStmt{
-				List: []ast.Stmt{
-					&ast.ReturnStmt{
-						Results: []ast.Expr{
-							&ast.Ident{Name: modVar},
-							&ast.Ident{Name: errField},
+			Body: &dst.BlockStmt{
+				List: []dst.Stmt{
+					&dst.ReturnStmt{
+						Results: []dst.Expr{
+							&dst.Ident{Name: modVar},
+							&dst.Ident{Name: errField},
 						},
 					},
 				},
@@ -741,23 +772,23 @@ func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []ast.Stmt {
 		}
 		stmts = append(stmts, ifErrStmt)
 		valueField := fmt.Sprintf("%s.Value", variable)
-		assignFieldStmt := &ast.AssignStmt{
+		assignFieldStmt := &dst.AssignStmt{
 			Tok: token.ASSIGN,
-			Lhs: []ast.Expr{
-				&ast.Ident{Name: fmt.Sprintf("mod.%s", util.KebabToPascal(ident))},
+			Lhs: []dst.Expr{
+				&dst.Ident{Name: fmt.Sprintf("mod.%s", util.KebabToPascal(ident))},
 			},
-			Rhs: []ast.Expr{
-				&ast.Ident{Name: valueField},
+			Rhs: []dst.Expr{
+				&dst.Ident{Name: valueField},
 			},
 		}
 		stmts = append(stmts, assignFieldStmt)
 	} else {
-		assignFieldStmt := &ast.AssignStmt{
+		assignFieldStmt := &dst.AssignStmt{
 			Tok: token.ASSIGN,
-			Lhs: []ast.Expr{
-				&ast.Ident{Name: fmt.Sprintf("mod.%s", util.KebabToPascal(ident))},
+			Lhs: []dst.Expr{
+				&dst.Ident{Name: fmt.Sprintf("mod.%s", util.KebabToPascal(ident))},
 			},
-			Rhs: []ast.Expr{
+			Rhs: []dst.Expr{
 				value.ToGoAST(),
 			},
 		}
@@ -802,9 +833,9 @@ func (c *Compiler) PackageResources() error {
 	return bindata.Translate(config)
 }
 
-// importSpec creates an `*ast.ImportSpec` for a single import.
-func importSpec(path string) *ast.ImportSpec {
-	return &ast.ImportSpec{
-		Path: &ast.BasicLit{Value: strconv.Quote(path)},
+// importSpec creates a `*dst.ImportSpec` for a single import.
+func importSpec(path string) *dst.ImportSpec {
+	return &dst.ImportSpec{
+		Path: &dst.BasicLit{Value: strconv.Quote(path)},
 	}
 }

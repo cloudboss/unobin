@@ -22,12 +22,12 @@ package compiler
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"reflect"
 	"strconv"
 
 	"github.com/cloudboss/unobin/pkg/util"
+	"github.com/dave/dst"
 )
 
 type Type int
@@ -81,17 +81,23 @@ func (o ObjectExpr) ToGoValue() map[string]interface{} {
 	return m
 }
 
-func (o ObjectExpr) ToGoAST() ast.Expr {
-	cl := &ast.CompositeLit{
-		Type: &ast.MapType{
-			Key:   &ast.Ident{Name: stringType},
-			Value: &ast.Ident{Name: interfaceType},
+func (o ObjectExpr) ToGoAST() dst.Expr {
+	cl := &dst.CompositeLit{
+		Type: &dst.MapType{
+			Key:   &dst.Ident{Name: stringType},
+			Value: &dst.Ident{Name: interfaceType},
 		},
-		Elts: []ast.Expr{},
+		Elts: []dst.Expr{},
 	}
 	for k, v := range o {
-		expr := &ast.KeyValueExpr{
-			Key:   &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(k)},
+		expr := &dst.KeyValueExpr{
+			Decs: dst.KeyValueExprDecorations{
+				NodeDecs: dst.NodeDecs{
+					Before: dst.NewLine,
+					After:  dst.NewLine,
+				},
+			},
+			Key:   &dst.BasicLit{Kind: token.STRING, Value: strconv.Quote(k)},
 			Value: v.ToGoAST(),
 		}
 		cl.Elts = append(cl.Elts, expr)
@@ -162,12 +168,12 @@ func (v *ValueExpr) ToGoValue() interface{} {
 	return nil
 }
 
-func (v *ValueExpr) ToGoAST() ast.Expr {
+func (v *ValueExpr) ToGoAST() dst.Expr {
 	if v.Array != nil {
 		return v.Array.ToGoAST()
 	}
 	if v.Bool != nil {
-		return &ast.BasicLit{Kind: token.STRING, Value: strconv.FormatBool(*v.Bool)}
+		return &dst.BasicLit{Kind: token.STRING, Value: strconv.FormatBool(*v.Bool)}
 	}
 	if v.Function != nil {
 		return v.Function.ToGoAST()
@@ -179,7 +185,7 @@ func (v *ValueExpr) ToGoAST() ast.Expr {
 		return v.Object.ToGoAST()
 	}
 	if v.String != nil {
-		return &ast.BasicLit{
+		return &dst.BasicLit{
 			Kind:  token.STRING,
 			Value: strconv.Quote(*v.String),
 		}
@@ -197,11 +203,11 @@ func (a ArrayExpr) ToGoValue() []interface{} {
 	return array
 }
 
-func (a ArrayExpr) ToGoAST() ast.Expr {
-	cl := &ast.CompositeLit{
-		Type: &ast.ArrayType{Elt: &ast.BasicLit{Kind: token.STRING, Value: interfaceType}},
+func (a ArrayExpr) ToGoAST() dst.Expr {
+	cl := &dst.CompositeLit{
+		Type: &dst.ArrayType{Elt: &dst.BasicLit{Kind: token.STRING, Value: interfaceType}},
 	}
-	elts := make([]ast.Expr, len(a))
+	elts := make([]dst.Expr, len(a))
 	for i, el := range a {
 		elts[i] = el.ToGoAST()
 	}
@@ -225,31 +231,31 @@ func (f *FunctionExpr) ToGoValue() []interface{} {
 	return array
 }
 
-func (f *FunctionExpr) ToGoAST() ast.Expr {
+func (f *FunctionExpr) ToGoAST() dst.Expr {
 	name := fmt.Sprintf(functionsPackageTemplate, util.KebabToPascal(f.Name))
-	args := make([]ast.Expr, len(f.Args)+1)
+	args := make([]dst.Expr, len(f.Args)+1)
 	for i, _ := range args {
 		if i == 0 {
-			args[i] = &ast.Ident{Name: ctxVar}
+			args[i] = &dst.Ident{Name: ctxVar}
 		} else {
 			value := f.Args[i-1]
 			if value.Type() == FunctionType {
 				args[i] = value.ToGoAST()
 			} else {
 				qi := fmt.Sprintf(functionsPackageTemplate, typeRepr[value.Type()])
-				cl := &ast.CompositeLit{
-					Type: &ast.BasicLit{Kind: token.STRING, Value: qi},
-					Elts: []ast.Expr{
+				cl := &dst.CompositeLit{
+					Type: &dst.BasicLit{Kind: token.STRING, Value: qi},
+					Elts: []dst.Expr{
 						value.ToGoAST(),
-						&ast.BasicLit{Kind: token.STRING, Value: nilValue},
+						&dst.BasicLit{Kind: token.STRING, Value: nilValue},
 					},
 				}
 				args[i] = cl
 			}
 		}
 	}
-	return &ast.CallExpr{
-		Fun:  &ast.Ident{Name: name},
+	return &dst.CallExpr{
+		Fun:  &dst.Ident{Name: name},
 		Args: args,
 	}
 }
@@ -269,12 +275,12 @@ func (n *NumberExpr) ToGoValue() interface{} {
 	return nil
 }
 
-func (n *NumberExpr) ToGoAST() ast.Expr {
+func (n *NumberExpr) ToGoAST() dst.Expr {
 	if n.Int != nil {
-		return &ast.BasicLit{Kind: token.INT, Value: fmt.Sprint(*n.Int)}
+		return &dst.BasicLit{Kind: token.INT, Value: fmt.Sprint(*n.Int)}
 	}
 	if n.Float != nil {
-		return &ast.BasicLit{
+		return &dst.BasicLit{
 			Kind:  token.FLOAT,
 			Value: strconv.FormatFloat(*n.Float, 'f', -1, 64),
 		}

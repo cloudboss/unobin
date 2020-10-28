@@ -33,6 +33,14 @@ github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/cloudformation
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
+# github.com/dave/dst v0.26.2
+## explicit
+github.com/dave/dst
+github.com/dave/dst/decorator
+github.com/dave/dst/decorator/resolver
+github.com/dave/dst/decorator/resolver/gopackages
+github.com/dave/dst/decorator/resolver/gotypes
+github.com/dave/dst/dstutil
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/go-bindata/go-bindata v3.1.2+incompatible
@@ -64,6 +72,20 @@ github.com/xeipuuv/gojsonreference
 # github.com/xeipuuv/gojsonschema v1.2.0
 ## explicit
 github.com/xeipuuv/gojsonschema
+# golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5
+golang.org/x/tools/go/gcexportdata
+golang.org/x/tools/go/internal/gcimporter
+golang.org/x/tools/go/internal/packagesdriver
+golang.org/x/tools/go/packages
+golang.org/x/tools/internal/event
+golang.org/x/tools/internal/event/core
+golang.org/x/tools/internal/event/keys
+golang.org/x/tools/internal/event/label
+golang.org/x/tools/internal/gocommand
+golang.org/x/tools/internal/packagesinternal
+# golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
+golang.org/x/xerrors
+golang.org/x/xerrors/internal
 # gopkg.in/yaml.v2 v2.2.7
 ## explicit
 gopkg.in/yaml.v2

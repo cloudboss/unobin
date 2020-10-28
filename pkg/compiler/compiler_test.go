@@ -23,10 +23,6 @@ package compiler
 import (
 	"errors"
 	"fmt"
-	"go/ast"
-	"go/format"
-	"go/token"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -128,11 +124,7 @@ func Test_Compile(t *testing.T) {
 			err := comp.Load()
 			assert.Nil(t, err)
 			err = comp.Validate()
-
-			fset := token.NewFileSet()
-			astFile := comp.Compile()
-			ast.SortImports(fset, astFile)
-			format.Node(os.Stdout, fset, astFile)
+			assert.Nil(t, err)
 		})
 	}
 }

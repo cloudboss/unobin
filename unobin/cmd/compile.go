@@ -23,14 +23,12 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"go/ast"
-	"go/format"
-	"go/token"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/compiler"
+	"github.com/dave/dst/decorator"
 	"github.com/spf13/cobra"
 )
 
@@ -69,10 +67,8 @@ var (
 				return err
 			}
 
-			fset := token.NewFileSet()
 			astFile := comp.Compile()
-			ast.SortImports(fset, astFile)
-			format.Node(file, fset, astFile)
+			decorator.Fprint(file, astFile)
 
 			if !skipResources {
 				if err = comp.PackageResources(); err != nil {
