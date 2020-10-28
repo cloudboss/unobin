@@ -797,6 +797,8 @@ func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []dst.Stmt {
 	return stmts
 }
 
+// PackageResources bundles files from a playbook's resources directory
+// into a file called resources.go using github.com/go-bindata/go-bindata.
 func (c *Compiler) PackageResources() error {
 	config := &bindata.Config{
 		Prefix:  resources,
