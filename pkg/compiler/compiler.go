@@ -797,27 +797,6 @@ func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []dst.Stmt {
 	return stmts
 }
 
-// func (c *Compiler) PackageResources() error {
-// 	info, err := here.Current()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	fp := filepath.Join(info.Dir, "resources.go")
-// 	os.RemoveAll(fp)
-
-// 	decls, err := parser.Parse(info, []string{}...)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if err := cmds.Package(info, fp, decls); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 func (c *Compiler) PackageResources() error {
 	config := &bindata.Config{
 		Prefix:  resources,
