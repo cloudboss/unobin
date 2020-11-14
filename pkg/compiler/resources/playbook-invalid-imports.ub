@@ -7,6 +7,9 @@ imports: {
 
 input-schema: {}
 
-cmd [echo the truth] {
-  execute: 'echo true'
+task [echo the truth] {
+  module: cmd
+  args: {
+    execute: 'echo true'
+  }
 }

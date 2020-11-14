@@ -23,34 +23,155 @@ package task
 import (
 	"github.com/cloudboss/unobin/pkg/module"
 	"github.com/cloudboss/unobin/pkg/types"
+	"github.com/cloudboss/unobin/pkg/util"
 )
 
 type Task struct {
-	Name       string
-	ModuleName string
-	Module     module.Module
-	Unwrap     func() (module.Module, error)
-	When       func() (bool, error)
+	Description  string
+	UnwrapModule func() (module.Module, error)
+	When         func() (bool, error)
+	Body         []*Task
+	Rescue       []*Task
+	Always       []*Task
+	Context      *types.Context
+	Succeeded    bool
+	module       module.Module
 }
 
-func (t Task) Run() *types.Result {
-	if t.When != nil {
-		runTask, err := t.When()
-		if err != nil {
-			return &types.Result{
-				Succeeded: false,
-				Changed:   false,
-				Module:    t.Module.Name(),
-				Error:     err.Error(),
+func (t *Task) Run() []*types.Result {
+	t.Succeeded = true
+	if t.UnwrapModule != nil {
+		// "Simple" task which has a non-nil UnwrapModule and a nil Body.
+		return t.run(func() []*types.Result {
+			results := []*types.Result{}
+			result := t.module.Apply()
+			util.PrintResult(result)
+			results = append(results, result)
+			if !result.Succeeded {
+				if t.Rescue != nil {
+					succeeded, rescueResults := runTasks(t.Rescue)
+					t.Succeeded = succeeded
+					results = append(results, rescueResults...)
+				} else {
+					t.Succeeded = false
+				}
+			} else {
+				if result.Output != nil && t.Description != "" {
+					t.Context.State[t.Description] = result.Output
+				}
 			}
-		}
-		if !runTask {
-			return &types.Result{
-				Succeeded: true,
-				Changed:   false,
-				Module:    t.Module.Name(),
+			return results
+		})
+	} else {
+		// "Compound" task which has a nil UnwrapModule and a non-nil Body.
+		return t.run(func() []*types.Result {
+			succeeded, results := runTasks(t.Body)
+			if !succeeded {
+				if t.Rescue != nil {
+					succeeded, rescueResults := runTasks(t.Rescue)
+					t.Succeeded = succeeded
+					results = append(results, rescueResults...)
+				} else {
+					t.Succeeded = false
+				}
+			}
+			return results
+		})
+	}
+}
+
+func (t *Task) run(runCore func() []*types.Result) []*types.Result {
+	results := []*types.Result{}
+	if t.UnwrapModule != nil {
+		err := t.unwrapModule()
+		if err != nil {
+			if t.Rescue != nil {
+				succeeded, rescueResults := runTasks(t.Rescue)
+				t.Succeeded = succeeded
+				results = append(results, rescueResults...)
+			} else {
+				t.Succeeded = false
+			}
+			if t.Always != nil {
+				succeeded, alwaysResults := runTasks(t.Always)
+				// Only modify t.Succeeded if the Always clause fails, as
+				// the task might have already failed, and we don't want
+				// a success here to set back it to true. But a failure
+				// here should cause the whole task to fail.
+				if !succeeded {
+					t.Succeeded = false
+				}
+				results = append(results, alwaysResults...)
+			}
+			if len(results) > 0 {
+				return results
+			}
+			return []*types.Result{
+				// Unwrapping of a module always returns the module, even
+				// on error, so it is safe to call t.module.Name().
+				util.ResultFailedUnchanged(t.module.Name(), err.Error()),
 			}
 		}
 	}
-	return t.Module.Apply()
+
+	// A compound task has a pseudo-module name "_internal". This won't clash
+	// with other module names as they are not allowed to contain underscores.
+	moduleName := "_internal"
+	if t.UnwrapModule != nil {
+		moduleName = t.module.Name()
+	}
+
+	proceed, err := t.runWhen()
+	if err != nil {
+		t.Succeeded = false
+		return []*types.Result{util.ResultFailedUnchanged(moduleName, err.Error())}
+	}
+	if !proceed {
+		return []*types.Result{util.ResultSuceededUnchanged(moduleName)}
+	}
+
+	// Run the module of a simple task or the body of a compound task.
+	results = append(results, runCore()...)
+
+	if t.Always != nil {
+		succeeded, alwaysResults := runTasks(t.Always)
+		if !succeeded {
+			t.Succeeded = false
+		}
+		results = append(results, alwaysResults...)
+	}
+	if len(results) > 0 {
+		return results
+	}
+	return []*types.Result{util.ResultSuceededUnchanged(t.module.Name())}
+}
+
+func (t *Task) runWhen() (bool, error) {
+	if t.When != nil {
+		proceed, err := t.When()
+		if err != nil {
+			return false, err
+		}
+		return proceed, nil
+	}
+	return true, nil
+}
+
+func (t *Task) unwrapModule() error {
+	var err error
+	if t.module, err = t.UnwrapModule(); err != nil {
+		return err
+	}
+	return t.module.Initialize()
+}
+
+func runTasks(tasks []*Task) (bool, []*types.Result) {
+	results := []*types.Result{}
+	for _, task := range tasks {
+		results = append(results, task.Run()...)
+		if !task.Succeeded {
+			return false, results
+		}
+	}
+	return true, results
 }

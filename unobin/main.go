@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+//go:generate go-bindata -modtime 71884800 -pkg cmd -prefix cmd/templates -o ./cmd/bindata.go ./cmd/templates/...
+
 package main
 
 import "github.com/cloudboss/unobin/unobin/cmd"

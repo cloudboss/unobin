@@ -56,14 +56,17 @@ var typeRepr = []string{
 // which is generated during compilation.
 type UAST struct {
 	Attributes ObjectExpr
-	Blocks     []*BlockExpr
+	Tasks      []*TaskExpr
 }
 
-type BlockExpr struct {
-	Attributes ObjectExpr
-	Body       []*TaskExpr
-	Rescue     []*TaskExpr
-	Always     []*TaskExpr
+type TaskExpr struct {
+	Description string
+	Module      string
+	When        *FunctionExpr
+	Args        ObjectExpr
+	Body        []*TaskExpr
+	Rescue      []*TaskExpr
+	Always      []*TaskExpr
 }
 
 type PairExpr struct {
@@ -103,12 +106,6 @@ func (o ObjectExpr) ToGoAST() dst.Expr {
 		cl.Elts = append(cl.Elts, expr)
 	}
 	return cl
-}
-
-type TaskExpr struct {
-	Name             string
-	ModuleName       string
-	ModuleParameters ObjectExpr
 }
 
 type ValueExpr struct {
@@ -291,7 +288,7 @@ func (n *NumberExpr) ToGoAST() dst.Expr {
 func NewUAST() *UAST {
 	return &UAST{
 		Attributes: ObjectExpr{},
-		Blocks:     make([]*BlockExpr, 0, 10),
+		Tasks:      make([]*TaskExpr, 0, 10),
 	}
 }
 
@@ -319,9 +316,8 @@ func (g *Grammar) ruleStatement(node *node32) {
 		case rulepair:
 			pair := g.rulePair(node)
 			g.uast.Attributes[pair.Name] = pair.Value
-		case ruleblock:
-			g.uast.Blocks = append(g.uast.Blocks, g.ruleBlock(node))
-
+		case ruletask:
+			g.uast.Tasks = append(g.uast.Tasks, g.ruleTask(node))
 		}
 		node = node.next
 	}
@@ -344,44 +340,110 @@ func (g *Grammar) rulePair(node *node32) *PairExpr {
 	return pair
 }
 
-func (g *Grammar) ruleBlock(node *node32) *BlockExpr {
+func (g *Grammar) ruleTasks(node *node32) []*TaskExpr {
 	node = node.up
-	block := &BlockExpr{}
+	tasks := []*TaskExpr{}
 	for node != nil {
 		switch node.pegRule {
-		case rulesimple_block:
-			task := g.ruleSimpleBlock(node)
-			block.Body = []*TaskExpr{task}
-		case rulecompound_block:
-			g.ruleCompoundBlock(node, block)
+		case ruletask:
+			tasks = append(tasks, g.ruleTask(node))
 		}
 		node = node.next
 	}
-	return block
+	return tasks
 }
 
-func (g *Grammar) ruleSimpleBlock(node *node32) *TaskExpr {
+func (g *Grammar) ruleTask(node *node32) *TaskExpr {
 	node = node.up
 	task := &TaskExpr{}
 	for node != nil {
 		switch node.pegRule {
-		case ruleident:
-			task.ModuleName = g.ruleIdent(node)
-		case ruleblock_description:
-			task.Name = g.ruleBlockDescription(node)
-		case rulepair:
-			pair := g.rulePair(node)
-			if task.ModuleParameters == nil {
-				task.ModuleParameters = ObjectExpr{}
-			}
-			task.ModuleParameters[pair.Name] = pair.Value
+		case rulesimple_task:
+			task = g.ruleSimpleTask(node)
+		case rulecompound_task:
+			g.ruleCompoundTask(node, task)
 		}
 		node = node.next
 	}
 	return task
 }
 
-func (g *Grammar) ruleBlockDescription(node *node32) string {
+func (g *Grammar) ruleSimpleTask(node *node32) *TaskExpr {
+	node = node.up
+	task := &TaskExpr{}
+	for node != nil {
+		switch node.pegRule {
+		case ruletask_description:
+			task.Description = g.ruleTaskDescription(node)
+		case ruletask_pair:
+			g.ruleTaskPair(node, task)
+		case rulerescue_clause:
+			task.Rescue = g.ruleTasks(node)
+		case rulealways_clause:
+			task.Always = g.ruleTasks(node)
+		}
+		node = node.next
+	}
+	return task
+}
+
+func (g *Grammar) ruleModulePair(node *node32) string {
+	node = node.up
+	module := ""
+	for node != nil {
+		switch node.pegRule {
+		case ruleident:
+			module = g.ruleIdent(node)
+		}
+		node = node.next
+	}
+	return module
+}
+
+func (g *Grammar) ruleArgsPair(node *node32) ObjectExpr {
+	node = node.up
+	args := ObjectExpr{}
+	for node != nil {
+		switch node.pegRule {
+		case ruleobject:
+			args = g.ruleObject(node)
+		}
+		node = node.next
+	}
+	return args
+}
+
+func (g *Grammar) ruleWhenPair(node *node32) *FunctionExpr {
+	node = node.up
+	fun := &FunctionExpr{}
+	for node != nil {
+		switch node.pegRule {
+		case rulefun_expr:
+			fun = g.ruleFunExpr(node)
+		}
+		node = node.next
+	}
+	return fun
+}
+
+func (g *Grammar) ruleCompoundTask(node *node32, task *TaskExpr) {
+	node = node.up
+	for node != nil {
+		switch node.pegRule {
+		case rulewhen_pair:
+			task.When = g.ruleWhenPair(node)
+		case ruletask:
+			task.Body = append(task.Body, g.ruleTask(node))
+		case rulerescue_clause:
+			task.Rescue = g.ruleTasks(node)
+		case rulealways_clause:
+			task.Always = g.ruleTasks(node)
+		}
+		node = node.next
+	}
+}
+
+func (g *Grammar) ruleTaskDescription(node *node32) string {
 	node = node.up
 	str := ""
 	for node != nil {
@@ -394,45 +456,19 @@ func (g *Grammar) ruleBlockDescription(node *node32) string {
 	return str
 }
 
-func (g *Grammar) ruleCompoundBlock(node *node32, block *BlockExpr) {
+func (g *Grammar) ruleTaskPair(node *node32, task *TaskExpr) {
 	node = node.up
 	for node != nil {
 		switch node.pegRule {
-		case rulepair:
-			pair := g.rulePair(node)
-			if block.Attributes == nil {
-				block.Attributes = ObjectExpr{}
-			}
-			block.Attributes[pair.Name] = pair.Value
-		case rulesimple_block:
-			task := g.ruleSimpleBlock(node)
-			if block.Body == nil {
-				block.Body = []*TaskExpr{}
-			}
-			block.Body = append(block.Body, task)
-		case rulerescue_clause:
-			tasks := g.ruleClause(node)
-			block.Rescue = tasks
-		case rulealways_clause:
-			tasks := g.ruleClause(node)
-			block.Always = tasks
+		case rulewhen_pair:
+			task.When = g.ruleWhenPair(node)
+		case rulemodule_pair:
+			task.Module = g.ruleModulePair(node)
+		case ruleargs_pair:
+			task.Args = g.ruleArgsPair(node)
 		}
 		node = node.next
 	}
-}
-
-func (g *Grammar) ruleClause(node *node32) []*TaskExpr {
-	node = node.up
-	tasks := []*TaskExpr{}
-	for node != nil {
-		switch node.pegRule {
-		case rulesimple_block:
-			task := g.ruleSimpleBlock(node)
-			tasks = append(tasks, task)
-		}
-		node = node.next
-	}
-	return tasks
 }
 
 func (g *Grammar) ruleValue(node *node32) *ValueExpr {

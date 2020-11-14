@@ -22,7 +22,6 @@ package compiler
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,6 +36,11 @@ func Test_Load(t *testing.T) {
 		{
 			"syntatically valid playbook should load",
 			"resources/playbook-valid.ub",
+			"",
+		},
+		{
+			"syntatically valid small playbook should load",
+			"resources/playbook-valid-small.ub",
 			"",
 		},
 		{
@@ -99,7 +103,7 @@ func Test_Validate(t *testing.T) {
 			if tc.errStr != "" {
 				assert.Contains(t, errors.Unwrap(err).Error(), tc.errStr)
 			} else {
-				fmt.Printf("%s\n", errors.Unwrap(err))
+				t.Logf("%s\n", errors.Unwrap(err))
 				assert.Nil(t, err)
 			}
 		})

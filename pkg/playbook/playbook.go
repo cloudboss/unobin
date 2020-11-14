@@ -77,56 +77,13 @@ func NewPlaybook(playbookPath, moduleSearchPath string) (*Playbook, error) {
 	return &playbook, nil
 }
 
-func (p *Playbook) print(result *types.Result) error {
-	b, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%v\n", string(b))
-	return nil
-}
-
-func (p *Playbook) Run() []*types.Result {
+func (p *Playbook) Apply() []*types.Result {
 	var results []*types.Result
 
 	for _, task := range p.Tasks {
-		mod, err := task.Unwrap()
-		if err != nil {
-			result := &types.Result{
-				Succeeded: false,
-				Changed:   false,
-				Module:    mod.Name(),
-				Error:     err.Error(),
-			}
-			results = append(results, result)
-			p.print(result)
+		results = append(results, task.Run()...)
+		if !task.Succeeded {
 			return results
-		}
-
-		err = mod.Initialize()
-		if err != nil {
-			result := &types.Result{
-				Error:  err.Error(),
-				Module: task.Module.Name(),
-			}
-			results = append(results, result)
-			p.print(result)
-			return results
-		}
-
-		task.Module = mod
-
-		result := task.Run()
-		results = append(results, result)
-		err = p.print(result)
-		if err != nil {
-			return results
-		}
-		if result.Error != "" {
-			return results
-		}
-		if result.Output != nil {
-			p.Context.State[task.Name] = result.Output
 		}
 	}
 
@@ -180,7 +137,7 @@ func (p *Playbook) StartCLI() {
 
 				p.Context.Vars = vars
 
-				p.Run()
+				p.Apply()
 				if !p.Succeeded {
 					os.Exit(1)
 				}

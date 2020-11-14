@@ -77,7 +77,7 @@ func (c *Compiler) Load() error {
 // * Imports are defined as an object with string keys and string values, and that the
 //   import paths are correctly formatted. TODO: check that module exists on the given path.
 // * The input schema is a valid JSON schema.
-// * Block tasks refer only to modules that are defined in imports.
+// * Tasks refer only to modules that are defined in imports.
 func (c *Compiler) Validate() error {
 	var err error
 	attrErr := c.validateAttributes(c.grammar.uast.Attributes)
@@ -95,9 +95,9 @@ func (c *Compiler) Validate() error {
 	if schemaErr != nil {
 		err = multierror.Append(err, schemaErr)
 	}
-	blockErr := c.validateBlocks(c.grammar.uast.Blocks)
-	if blockErr != nil {
-		err = multierror.Append(err, blockErr)
+	taskErr := c.validateTasks(c.grammar.uast.Tasks)
+	if taskErr != nil {
+		err = multierror.Append(err, taskErr)
 	}
 	return err
 }
@@ -139,7 +139,7 @@ func (c *Compiler) validateAttributes(attributes ObjectExpr) error {
 // validateImports ensures that imports are defined with string keys and string values. It also
 // populates the compiler's `moduleImports` field once the validation is complete. Having the module
 // imports populated makes it easy to validate that playbook tasks are using only imported modules
-// later when validateBlocks runs.
+// later when validateTasks runs.
 func (c *Compiler) validateImports(imports *ValueExpr) error {
 	var err error
 	for k, v := range imports.Object {
@@ -182,30 +182,26 @@ func (c *Compiler) validateInputSchema(inputSchema *ValueExpr) error {
 	return err
 }
 
-// validateBlocks ensures that block tasks refer to modules that have been imported.
-func (c *Compiler) validateBlocks(blocks []*BlockExpr) error {
+// validateTasks ensures that tasks refer to modules that have been imported.
+func (c *Compiler) validateTasks(tasks []*TaskExpr) error {
 	var err error
-	for _, block := range blocks {
-		for _, task := range block.Body {
-			_, ok := c.moduleImports[task.ModuleName]
+	for _, task := range tasks {
+		if isSimpleTask(task) {
+			_, ok := c.moduleImports[task.Module]
 			if !ok {
-				err = fmt.Errorf("unkown module %s", task.ModuleName)
+				err = fmt.Errorf("unkown module %s", task.Module)
 			}
 		}
-		if block.Rescue != nil {
-			for _, task := range block.Rescue {
-				_, ok := c.moduleImports[task.ModuleName]
-				if !ok {
-					err = fmt.Errorf("unkown module %s", task.ModuleName)
-				}
+		if task.Rescue != nil {
+			rescueErr := c.validateTasks(task.Rescue)
+			if rescueErr != nil {
+				err = multierror.Append(err, rescueErr)
 			}
 		}
-		if block.Always != nil {
-			for _, task := range block.Always {
-				_, ok := c.moduleImports[task.ModuleName]
-				if !ok {
-					err = fmt.Errorf("unkown module %s", task.ModuleName)
-				}
+		if task.Always != nil {
+			alwaysErr := c.validateTasks(task.Always)
+			if alwaysErr != nil {
+				err = multierror.Append(err, alwaysErr)
 			}
 		}
 	}
@@ -580,7 +576,7 @@ func (c *Compiler) assignStmt_pb() *dst.AssignStmt {
 					&dst.KeyValueExpr{
 						Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
 						Key:   &dst.Ident{Name: tasksField},
-						Value: c.compositeLit_tasks(),
+						Value: c.compositeLit_tasks(c.grammar.uast.Tasks),
 					},
 				},
 			},
@@ -589,19 +585,45 @@ func (c *Compiler) assignStmt_pb() *dst.AssignStmt {
 }
 
 // compositeLit_tasks creates a `*dst.CompositeLit` for the playbook's `*task.Task` array.
-func (c *Compiler) compositeLit_tasks() *dst.CompositeLit {
+func (c *Compiler) compositeLit_tasks(tasks []*TaskExpr) *dst.CompositeLit {
 	taskExprs := []dst.Expr{}
-	for _, block := range c.grammar.uast.Blocks {
-		for _, task := range block.Body {
-			taskExpr := &dst.CompositeLit{
-				Decs: dst.CompositeLitDecorations{
-					NodeDecs: dst.NodeDecs{
-						Before: dst.NewLine,
-						After:  dst.NewLine,
-					},
+	for _, task := range tasks {
+		taskExpr := &dst.CompositeLit{
+			Decs: dst.CompositeLitDecorations{
+				NodeDecs: dst.NodeDecs{
+					Before: dst.NewLine,
+					After:  dst.NewLine,
 				},
-				Elts: []dst.Expr{},
-			}
+			},
+			Elts: []dst.Expr{},
+		}
+		taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+			Decs: dst.KeyValueExprDecorations{
+				NodeDecs: dst.NodeDecs{
+					Before: dst.NewLine,
+					After:  dst.NewLine,
+				},
+			},
+			Key:   &dst.Ident{Name: descriptionField},
+			Value: &dst.BasicLit{Kind: token.STRING, Value: strconv.Quote(task.Description)},
+		})
+		taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+			Decs: dst.KeyValueExprDecorations{
+				NodeDecs: dst.NodeDecs{
+					Before: dst.NewLine,
+					After:  dst.NewLine,
+				},
+			},
+			Key:   &dst.Ident{Name: ctxField},
+			Value: &dst.BasicLit{Kind: token.STRING, Value: ctxVar},
+		})
+		if isSimpleTask(task) {
+			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+				Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
+				Key:   &dst.Ident{Name: unwrapModuleField},
+				Value: c.funcLit_unwrapModule(task),
+			})
+		} else {
 			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
 				Decs: dst.KeyValueExprDecorations{
 					NodeDecs: dst.NodeDecs{
@@ -609,22 +631,38 @@ func (c *Compiler) compositeLit_tasks() *dst.CompositeLit {
 						After:  dst.NewLine,
 					},
 				},
-				Key:   &dst.Ident{Name: nameField},
-				Value: &dst.BasicLit{Kind: token.STRING, Value: strconv.Quote(task.Name)},
+				Key:   &dst.Ident{Name: bodyField},
+				Value: c.compositeLit_tasks(task.Body),
 			})
-			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
-				Decs:  dst.KeyValueExprDecorations{NodeDecs: dst.NodeDecs{After: dst.NewLine}},
-				Key:   &dst.Ident{Name: unwrapField},
-				Value: c.funcLit_unwrap(task),
-			})
-			// TODO: move this up to the block level after refactoring
-			// playbook structure to operate on an array of blocks containing
-			// tasks instead of just an array of tasks.
-			if when, ok := block.Attributes[whenKey]; ok {
-				taskExpr.Elts = append(taskExpr.Elts, c.compileWhenExpr(when))
-			}
-			taskExprs = append(taskExprs, taskExpr)
 		}
+		if task.When != nil {
+			taskExpr.Elts = append(taskExpr.Elts, c.compileWhenExpr(task.When))
+		}
+		if task.Rescue != nil {
+			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+				Decs: dst.KeyValueExprDecorations{
+					NodeDecs: dst.NodeDecs{
+						Before: dst.NewLine,
+						After:  dst.NewLine,
+					},
+				},
+				Key:   &dst.Ident{Name: rescueField},
+				Value: c.compositeLit_tasks(task.Rescue),
+			})
+		}
+		if task.Always != nil {
+			taskExpr.Elts = append(taskExpr.Elts, &dst.KeyValueExpr{
+				Decs: dst.KeyValueExprDecorations{
+					NodeDecs: dst.NodeDecs{
+						Before: dst.NewLine,
+						After:  dst.NewLine,
+					},
+				},
+				Key:   &dst.Ident{Name: alwaysField},
+				Value: c.compositeLit_tasks(task.Always),
+			})
+		}
+		taskExprs = append(taskExprs, taskExpr)
 	}
 	return &dst.CompositeLit{
 		Type: &dst.ArrayType{Elt: &dst.StarExpr{X: &dst.Ident{Name: taskQualifiedIdentifier}}},
@@ -633,7 +671,7 @@ func (c *Compiler) compositeLit_tasks() *dst.CompositeLit {
 }
 
 // compileWhenExpr compiles the `*dst.KeyValueExpr` for the `When` field of a task.
-func (c *Compiler) compileWhenExpr(when *ValueExpr) *dst.KeyValueExpr {
+func (c *Compiler) compileWhenExpr(when *FunctionExpr) *dst.KeyValueExpr {
 	return &dst.KeyValueExpr{
 		Key: &dst.BasicLit{Kind: token.STRING, Value: whenField},
 		Value: &dst.FuncLit{
@@ -653,7 +691,7 @@ func (c *Compiler) compileWhenExpr(when *ValueExpr) *dst.KeyValueExpr {
 							&dst.Ident{Name: whenKey},
 						},
 						Rhs: []dst.Expr{
-							c.compileModuleExpr(when),
+							c.compileModuleExpr(&ValueExpr{Function: when}),
 						},
 					},
 					&dst.ReturnStmt{
@@ -674,8 +712,8 @@ func (c *Compiler) compileWhenExpr(when *ValueExpr) *dst.KeyValueExpr {
 	}
 }
 
-// funcLit_unwrap creates a `*dst.FuncLit` for a playbook task's `Unwrap` field.
-func (c *Compiler) funcLit_unwrap(task *TaskExpr) *dst.FuncLit {
+// funcLit_unwrapModule creates a `*dst.FuncLit` for a playbook task's `Unwrap` field.
+func (c *Compiler) funcLit_unwrapModule(task *TaskExpr) *dst.FuncLit {
 	funcLit := dst.FuncLit{
 		Type: &dst.FuncType{
 			Results: &dst.FieldList{
@@ -687,7 +725,7 @@ func (c *Compiler) funcLit_unwrap(task *TaskExpr) *dst.FuncLit {
 		},
 		Body: &dst.BlockStmt{},
 	}
-	moduleImport := c.moduleImports[task.ModuleName]
+	moduleImport := c.moduleImports[task.Module]
 	funcLit.Body.List = []dst.Stmt{
 		&dst.AssignStmt{
 			Tok: token.DEFINE,
@@ -706,8 +744,8 @@ func (c *Compiler) funcLit_unwrap(task *TaskExpr) *dst.FuncLit {
 			},
 		},
 	}
-	for k, v := range task.ModuleParameters {
-		stmts := c.moduleParamStmts(k, v)
+	for k, v := range task.Args {
+		stmts := c.moduleArgStmts(k, v)
 		funcLit.Body.List = append(funcLit.Body.List, stmts...)
 	}
 	funcLit.Body.List = append(funcLit.Body.List, &dst.ReturnStmt{
@@ -738,8 +776,8 @@ func (c *Compiler) compileModuleExpr(value *ValueExpr) dst.Expr {
 	}
 }
 
-// moduleParamStmts creates a `[]dst.Stmt` for a task's module parameters.
-func (c *Compiler) moduleParamStmts(ident string, value *ValueExpr) []dst.Stmt {
+// moduleArgStmts creates a `[]dst.Stmt` for a task's module parameters.
+func (c *Compiler) moduleArgStmts(ident string, value *ValueExpr) []dst.Stmt {
 	stmts := []dst.Stmt{}
 	variable := util.KebabToCamel(ident)
 	t := value.Type()
@@ -819,4 +857,17 @@ func importSpec(path string) *dst.ImportSpec {
 	return &dst.ImportSpec{
 		Path: &dst.BasicLit{Value: strconv.Quote(path)},
 	}
+}
+
+// isSimpleTask returns true if the given task is a simple task.
+func isSimpleTask(task *TaskExpr) bool {
+	// If Module or Args are zero values, task is a compound
+	// task with a non-nil Body, as determined by the parser.
+	if task.Module == "" {
+		return false
+	}
+	if task.Args == nil {
+		return false
+	}
+	return true
 }

@@ -7,9 +7,10 @@ imports: {
 
 input-schema: {}
 
-block {
+task [echo the truth] {
   when: when-execute('true')
-  cmd [echo the truth] {
+  module: cmd
+  args: {
     execute: out[echo true].stdout
     foo: hey('hello')
     bar: 123.456

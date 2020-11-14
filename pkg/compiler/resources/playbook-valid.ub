@@ -1,13 +1,9 @@
 name: 'cfer'
 description: 'Demo to showcase unobin features'
 
-# Imports are modules written in Go. The import keys match the modules in
-# tasks. The path to the import is the same as in Go, but with the module
-# type appended as a suffix.
 imports: {
   cfn: 'github.com/cloudboss/unobin/modules/aws/cloudformation.CloudFormation'
   cmd: 'github.com/cloudboss/unobin/modules/command.Command'
-  block: 'github.com/cloudboss/unobin/modules/block.Block'
 }
 
 # The input schema is a JSON schema for validating input variables. The playbook
@@ -34,98 +30,141 @@ input-schema: {
   additionalProperties: false
 }
 
-# Attributes on tasks, such as `when` or `foreach`, require using a block.
-# Standalone tasks have an implicit block with no attributes or clauses.
-block {
+task [show contents of /etc/services] {
   # when-execute() runs its argument and succeeds if the exit status equals 0.
   when: when-execute('true')
 
-  cmd [show contents of /etc/services] {
+  module: cmd
+  args: {
     execute: 'cat /etc/services'
   }
 }
 
-cmd [echo the truth] {
-  execute: 'echo true'
+task [echo the truth] {
+  module: cmd
+  args: {
+    execute: 'echo true'
+  }
 }
 
-block {
+task [run ls command] {
   when: when-execute(out[echo the truth].stdout)
 
-  cmd [run ls command] {
+  module: cmd
+  args: {
     execute: 'ls /'
   }
 }
 
-cmd [run ls command if file doesn't exist] {
-  execute: 'ls /'
-  creates: '/'
+task [run ls command if file doesn't exist] {
+  module: cmd
+  args: {
+    execute: 'ls /'
+    creates: '/'
+  }
 }
 
-block {
-  foreach: out[run ls command].stdout-lines
+task [echo ls output in a loop] {
+  # foreach: out[run ls command].stdout-lines
 
-  cmd [echo ls output in a loop] {
+  module: cmd
+  args: {
     execute: 'echo ${item}'
     creates: '/'
   }
 }
 
-cfn [build a cloudformation stack] {
-  stack-name: var.stack-name
-  template-file: var.template
-}
-
-cmd [run a command from output] {
-  execute: 'echo "sg1 is ${out[build a cloudformation stack].outputs.SecurityGroup}"'
-}
-
-# Block with rescue and always clauses.
-block {
-  cmd [grep passwd file] {
-    execute: 'grep -E "^me:" /etc/passwd'
+task [build a cloudformation stack] {
+  module: cfn
+  args: {
+    stack-name: var.stack-name
+    template-file: var.template
   }
-  cmd [create tempdir] {
-    execute: 'mktemp -d'
+}
+
+task [run a command from output] {
+  module: cmd
+  args: {
+    execute: 'echo "sg1 is ${out[build a cloudformation stack].outputs.SecurityGroup}"'
+  }
+}
+
+# Task with rescue and always clauses.
+task {
+  task [grep passwd file] {
+    module: cmd
+    args: {
+      execute: 'grep -E "^me:" /etc/passwd'
+    }
+  }
+  task [create tempdir] {
+    module: cmd
+    args: {
+      execute: 'mktemp -d'
+    }
   }
 } rescue {
-  file [clean up] {
-    path: out[create tempdir].stdout
-    state: 'absent'
+  task [clean up] {
+    module: file
+    args: {
+      path: out[create tempdir].stdout
+      state: 'absent'
+    }
   }
 } always {
-  file [clean up] {
-    path: out[create tempdir].stdout
-    state: 'absent'
+  task [clean up] {
+    module: file
+    args: {
+      path: out[create tempdir].stdout
+      state: 'absent'
+    }
   }
 }
 
-# Block with a rescue clause.
-block {
-  cmd [grep passwd file] {
-    execute: 'grep -E "^me:" /etc/passwd'
+# Task with a rescue clause.
+task {
+  task [grep passwd file] {
+    module: cmd
+    args: {
+      execute: 'grep -E "^me:" /etc/passwd'
+    }
   }
-  cmd [create tempdir] {
-    execute: 'mktemp -d'
+  task [create tempdir] {
+    module: cmd
+    args: {
+      execute: 'mktemp -d'
+    }
   }
 } rescue {
-  file [clean up] {
-    path: out[create tempdir].stdout
-    state: 'absent'
+  task [clean up] {
+    module: cmd
+    args: {
+      path: out[create tempdir].stdout
+      state: 'absent'
+    }
   }
 }
 
-# Block with an always clause.
-block {
-  cmd [grep passwd file] {
-    execute: 'grep -E "^me:" /etc/passwd'
+# Task with an always clause.
+task {
+  task [grep passwd file] {
+    module: cmd
+    args: {
+      execute: 'grep -E "^me:" /etc/passwd'
+    }
   }
-  cmd [create tempdir] {
-    execute: 'mktemp -d'
+  task [create tempdir] {
+    module: cmd
+    args: {
+      execute: 'mktemp -d'
+    }
   }
 } always {
-  file [clean up] {
-    path: out[create tempdir].stdout
-    state: 'absent'
+  task [clean up] {
+    module: cmd
+    args: {
+      path: out[create tempdir].stdout
+      state: 'absent'
+    }
   }
 }

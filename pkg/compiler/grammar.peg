@@ -37,7 +37,7 @@ alpha               <- [A-Z] / [a-z]
 digit               <- [0-9]
 sentence_char       <- !(INDEX_CLOSE / all_space) .
 sentence            <- sentence_char+ (space+ sentence_char+)*
-statement           <- pair / block
+statement           <- pair / task
 pair                <- (ident / string) PAIR_DELIM value all_space*
 value               <- array / bool_expr / fun_expr / index_expr / math_expr / object / string
 index_expr          <- ident_chars index_expr_tail+
@@ -54,12 +54,16 @@ float               <- (MINUS digit+ / digit+) DOT digit+
 object              <- OBJECT_OPEN (pair (item_delim pair)*)* OBJECT_CLOSE
 string              <- STRING_DELIM string_body STRING_DELIM space*
 string_body         <- (!(STRING_DELIM / newline) .)*
-block               <- simple_block / compound_block
-simple_block        <- ident block_description OBJECT_OPEN pair+ OBJECT_CLOSE
-block_description   <- INDEX_OPEN sentence INDEX_CLOSE all_space*
-compound_block      <- BLOCK OBJECT_OPEN pair* simple_block+ OBJECT_CLOSE rescue_clause? always_clause?
-rescue_clause       <- RESCUE OBJECT_OPEN simple_block+ OBJECT_CLOSE
-always_clause       <- ALWAYS OBJECT_OPEN simple_block+ OBJECT_CLOSE
+task                <- simple_task / compound_task
+simple_task         <- TASK task_description OBJECT_OPEN task_pair+ OBJECT_CLOSE rescue_clause? always_clause?
+task_description    <- INDEX_OPEN sentence INDEX_CLOSE all_space*
+compound_task       <- TASK OBJECT_OPEN when_pair* task+ OBJECT_CLOSE rescue_clause? always_clause?
+task_pair           <- when_pair / module_pair / args_pair
+when_pair           <- WHEN PAIR_DELIM fun_expr
+module_pair         <- MODULE PAIR_DELIM ident all_space*
+args_pair           <- ARGS PAIR_DELIM object
+rescue_clause       <- RESCUE OBJECT_OPEN task+ OBJECT_CLOSE
+always_clause       <- ALWAYS OBJECT_OPEN task+ OBJECT_CLOSE
 end                 <- !.
 
 PAIR_DELIM          <- ':'         space*
@@ -75,7 +79,10 @@ GROUP_OPEN          <- '('         all_space*
 GROUP_CLOSE         <- ')'         all_space*
 OBJECT_OPEN         <- '{'         all_space*
 OBJECT_CLOSE        <- '}'         all_space*
-BLOCK               <- 'block'     !alpha all_space*
+TASK                <- 'task'      !alpha all_space*
+WHEN                <- 'when'      !alpha all_space*
+MODULE              <- 'module'    !alpha all_space*
+ARGS                <- 'args'      !alpha all_space*
 RESCUE              <- 'rescue'    !alpha all_space*
 ALWAYS              <- 'always'    !alpha all_space*
 TRUE                <- 'true'      !alpha

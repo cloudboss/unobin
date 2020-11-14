@@ -21,6 +21,9 @@
 package util
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/cloudboss/unobin/pkg/types"
 )
 
@@ -56,4 +59,9 @@ func ResultFailedUnchanged(module, err string) *types.Result {
 		Module:    module,
 		Error:     err,
 	}
+}
+
+func PrintResult(result *types.Result) {
+	b, _ := json.MarshalIndent(result, "", "  ")
+	fmt.Printf("%v\n", string(b))
 }

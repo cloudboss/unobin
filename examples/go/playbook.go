@@ -33,8 +33,8 @@ func main() {
 		Context: ctx,
 		Tasks: []*task.Task{
 			{
-				Name: `do something`,
-				Unwrap: func() (module.Module, error) {
+				Description: `do something`,
+				UnwrapModule: func() (module.Module, error) {
 					mod := &command.Command{}
 					mod.Execute = "ls /"
 					return mod, nil
@@ -43,19 +43,21 @@ func main() {
 					when := functions.WhenExecute(ctx, functions.String{"/bin/true", nil})
 					return when.Value, when.Error
 				},
+				Context: ctx,
 			},
 			{
-				Name: `do something else`,
-				Unwrap: func() (module.Module, error) {
+				Description: `do something else`,
+				UnwrapModule: func() (module.Module, error) {
 					mod := &command.Command{}
 					mod.Execute = "ls /"
 					mod.Creates = "/"
 					return mod, nil
 				},
+				Context: ctx,
 			},
 			{
-				Name: `build a stack`,
-				Unwrap: func() (module.Module, error) {
+				Description: `build a stack`,
+				UnwrapModule: func() (module.Module, error) {
 					mod := &cloudformation.CloudFormation{}
 					stackName := functions.StringVar(ctx, functions.String{"stack-name", nil})
 					if stackName.Error != nil {
@@ -74,25 +76,69 @@ func main() {
 					mod.DisableRollback = disableRollback.Value
 					return mod, nil
 				},
+				Context: ctx,
 			},
 			{
-				Name: `run a command from output`,
-				Unwrap: func() (module.Module, error) {
-					mod := &command.Command{}
-					execute := functions.Format(ctx,
-						functions.String{`echo "sg1 is %s and sg2 is %s"`, nil},
-						functions.AnyOutput(ctx,
-							functions.String{"build a stack", nil},
-							functions.String{"outputs.SecurityGroup", nil}),
-						functions.AnyOutput(ctx,
-							functions.String{"build a stack", nil},
-							functions.String{"outputs.SecurityGroupTwo", nil}))
-					if execute.Error != nil {
-						return mod, execute.Error
-					}
-					mod.Execute = execute.Value
-					return mod, nil
+				Description: `compound task`,
+				Body: []*task.Task{
+					{
+						Description: `run a command from output`,
+						UnwrapModule: func() (module.Module, error) {
+							mod := &command.Command{}
+							execute := functions.Format(ctx,
+								functions.String{`echo "sg1 is %s and sg2 is %s"`, nil},
+								functions.AnyOutput(ctx,
+									functions.String{"build a stack", nil},
+									functions.String{"outputs.SecurityGroup", nil}),
+								functions.AnyOutput(ctx,
+									functions.String{"build a stack", nil},
+									functions.String{"outputs.SecurityGroupTwo", nil}))
+							if execute.Error != nil {
+								return mod, execute.Error
+							}
+							mod.Execute = execute.Value
+							return mod, nil
+						},
+						Context: ctx,
+					},
+					{
+						Description: `run just a simple command`,
+						UnwrapModule: func() (module.Module, error) {
+							mod := &command.Command{}
+							mod.Execute = "ls /etc"
+							return mod, nil
+						},
+						Context: ctx,
+					},
+					{
+						Description: `a nested compound module`,
+						Body: []*task.Task{
+							{
+								Description: `run an even simpler command`,
+								UnwrapModule: func() (module.Module, error) {
+									mod := &command.Command{}
+									// This nonexistent command should fail.
+									mod.Execute = "abcxyz123"
+									return mod, nil
+								},
+								Context: ctx,
+							},
+						},
+						Context: ctx,
+					},
 				},
+				Rescue: []*task.Task{
+					{
+						Description: `recover`,
+						UnwrapModule: func() (module.Module, error) {
+							mod := &command.Command{}
+							mod.Execute = "true"
+							return mod, nil
+						},
+						Context: ctx,
+					},
+				},
+				Context: ctx,
 			},
 		},
 	}
