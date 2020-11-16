@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -101,12 +100,8 @@ func playbookName(path string) (string, error) {
 }
 
 func compileGo(name string) error {
-	var stderr bytes.Buffer
 	cmd := exec.Command("go", "build", "-o", name, "./...")
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(stderr.String())
-	}
-	return err
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
