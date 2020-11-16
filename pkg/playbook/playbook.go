@@ -97,9 +97,9 @@ func (p *Playbook) StartCLI() {
 		Short: p.Description,
 	}
 
-	defaultCacheDirectory := fmt.Sprintf("~/.unobin/%s", p.Name)
-
 	var (
+		defaultCacheDirectory = fmt.Sprintf("~/.unobin/%s", p.Name)
+
 		varsFile       string
 		cacheDirectory string
 		applyCommand   = &cobra.Command{

@@ -65,11 +65,7 @@ func WriteOnChange(path string, contents *bytes.Buffer, mode os.FileMode) (bool,
 	}
 
 	_, err = chmodOnChange(path, mode)
-	if err != nil {
-		return true, err
-	}
-
-	return true, nil
+	return true, err
 }
 
 // atomicWrite creates a temporary directory in the same directory as the file at

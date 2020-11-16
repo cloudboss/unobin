@@ -196,10 +196,10 @@ func Test_ValueExprToGoValue(t *testing.T) {
 				Object: ObjectExpr{
 					"key": &ValueExpr{
 						Array: []*ValueExpr{
-							&ValueExpr{Bool: util.BoolP(true)},
-							&ValueExpr{String: util.StringP("hello")},
-							&ValueExpr{Number: &NumberExpr{Int: util.IntP(1234)}},
-							&ValueExpr{Number: &NumberExpr{Float: util.FloatP(1234.5678)}},
+							{Bool: util.BoolP(true)},
+							{String: util.StringP("hello")},
+							{Number: &NumberExpr{Int: util.IntP(1234)}},
+							{Number: &NumberExpr{Float: util.FloatP(1234.5678)}},
 						},
 					},
 				},

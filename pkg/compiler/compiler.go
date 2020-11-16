@@ -128,7 +128,7 @@ func (c *Compiler) validateAttributes(attributes ObjectExpr) error {
 		}
 	}
 	if len(validAttributes) != 0 {
-		for k, _ := range validAttributes {
+		for k := range validAttributes {
 			e := fmt.Errorf("required attribute %s is not defined", k)
 			err = multierror.Append(err, e)
 		}
@@ -217,7 +217,6 @@ func (c *Compiler) Compile() *dst.File {
 		},
 		Decls: []dst.Decl{
 			c.genDecl_import(),
-			// c.genDecl_var(),
 			c.funcDecl_main(),
 		},
 	}
@@ -241,36 +240,6 @@ func (c *Compiler) genDecl_import() *dst.GenDecl {
 	return &dst.GenDecl{
 		Tok:   token.IMPORT,
 		Specs: specs,
-	}
-}
-
-// genDecl_var creates a `*dst.GenDecl` for a pkger.Include() call assigned to a var `_`.
-// This allows the playbook to bundle files in the playbook's resources directory.
-// See https://godoc.org/github.com/markbates/pkger#Include.
-func (c *Compiler) genDecl_var() *dst.GenDecl {
-	return &dst.GenDecl{
-		Tok: token.VAR,
-		Specs: []dst.Spec{
-			&dst.ValueSpec{
-				Names: []*dst.Ident{
-					&dst.Ident{Name: underscoreVar},
-				},
-				Values: []dst.Expr{
-					&dst.CallExpr{
-						Fun: &dst.BasicLit{
-							Kind:  token.STRING,
-							Value: includeQualifiedIdentifier,
-						},
-						Args: []dst.Expr{
-							&dst.BasicLit{
-								Kind:  token.STRING,
-								Value: strconv.Quote(resources),
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }
 

@@ -231,7 +231,7 @@ func (f *FunctionExpr) ToGoValue() []interface{} {
 func (f *FunctionExpr) ToGoAST() dst.Expr {
 	name := fmt.Sprintf(functionsPackageTemplate, util.KebabToPascal(f.Name))
 	args := make([]dst.Expr, len(f.Args)+1)
-	for i, _ := range args {
+	for i := range args {
 		if i == 0 {
 			args[i] = &dst.Ident{Name: ctxVar}
 		} else {
