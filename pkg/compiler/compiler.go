@@ -660,7 +660,7 @@ func (c *Compiler) compileWhenExpr(when *FunctionExpr) *dst.KeyValueExpr {
 							&dst.Ident{Name: whenKey},
 						},
 						Rhs: []dst.Expr{
-							c.compileModuleExpr(&ValueExpr{Function: when}),
+							ValueExpr{Function: when}.Function.ToGoAST(),
 						},
 					},
 					&dst.ReturnStmt{
@@ -726,37 +726,21 @@ func (c *Compiler) funcLit_unwrapModule(task *TaskExpr) *dst.FuncLit {
 	return &funcLit
 }
 
-// compileModuleExpr is given a `*ValueExpr` parsed from the playbook and produces a `*dst.CallExpr`
-// from it. If it encounters another function call as an argument, it recursively calls itself to
-// compile it, otherwise it returns a CompositeLit for a literal value from the `functions` package.
-func (c *Compiler) compileModuleExpr(value *ValueExpr) dst.Expr {
-	switch value.Type() {
-	case FunctionType:
-		return value.ToGoAST()
-	default:
-		qualifiedIdentifier := fmt.Sprintf(functionsPackageTemplate, typeRepr[value.Type()])
-		return &dst.CompositeLit{
-			Type: &dst.BasicLit{Kind: token.STRING, Value: qualifiedIdentifier},
-			Elts: []dst.Expr{
-				value.ToGoAST(),
-				&dst.BasicLit{Kind: token.STRING, Value: nilValue},
-			},
-		}
-	}
-}
-
 // moduleArgStmts creates a `[]dst.Stmt` for a task's module parameters.
 func (c *Compiler) moduleArgStmts(ident string, value *ValueExpr) []dst.Stmt {
 	stmts := []dst.Stmt{}
 	variable := util.KebabToCamel(ident)
 	t := value.Type()
-	if t == FunctionType {
+	switch t {
+	case ArrayType:
+		stmts = append(stmts, c.compileCollectionExpansion(expandArrayFunc, ident, variable, value)...)
+	case ObjectType:
+		stmts = append(stmts, c.compileCollectionExpansion(expandObjectFunc, ident, variable, value)...)
+	case FunctionType:
 		assignStmt := &dst.AssignStmt{
 			Tok: token.DEFINE,
-			Lhs: []dst.Expr{
-				&dst.Ident{Name: variable},
-			},
-			Rhs: []dst.Expr{c.compileModuleExpr(value)},
+			Lhs: []dst.Expr{&dst.Ident{Name: variable}},
+			Rhs: []dst.Expr{value.ToGoAST()},
 		}
 		stmts = append(stmts, assignStmt)
 		errField := fmt.Sprintf("%s.Error", variable)
@@ -789,7 +773,7 @@ func (c *Compiler) moduleArgStmts(ident string, value *ValueExpr) []dst.Stmt {
 			},
 		}
 		stmts = append(stmts, assignFieldStmt)
-	} else {
+	default:
 		assignFieldStmt := &dst.AssignStmt{
 			Tok: token.ASSIGN,
 			Lhs: []dst.Expr{
@@ -801,6 +785,61 @@ func (c *Compiler) moduleArgStmts(ident string, value *ValueExpr) []dst.Stmt {
 		}
 		stmts = append(stmts, assignFieldStmt)
 	}
+	return stmts
+}
+
+// compileCollectionExpansion compiles the statements to expand an `Object` or `Array` value into a Go map or array.
+func (c *Compiler) compileCollectionExpansion(function, ident, variable string, value *ValueExpr) []dst.Stmt {
+	stmts := []dst.Stmt{}
+	tmpVar := fmt.Sprintf("_%s", variable)
+	tmpAssignMapStmt := &dst.AssignStmt{
+		Tok: token.DEFINE,
+		Lhs: []dst.Expr{&dst.Ident{Name: tmpVar}},
+		Rhs: []dst.Expr{value.ToGoAST()},
+	}
+	stmts = append(stmts, tmpAssignMapStmt)
+	assignMapStmt := &dst.AssignStmt{
+		Tok: token.DEFINE,
+		Lhs: []dst.Expr{
+			&dst.Ident{Name: variable},
+			&dst.Ident{Name: errVar},
+		},
+		Rhs: []dst.Expr{
+			&dst.CallExpr{
+				Fun: &dst.Ident{
+					Name: fmt.Sprintf(functionsPackageTemplate, function),
+				},
+				Args: []dst.Expr{
+					&dst.Ident{Name: tmpVar},
+				},
+			},
+		},
+	}
+	stmts = append(stmts, assignMapStmt)
+	ifErrStmt := &dst.IfStmt{
+		Cond: &dst.BinaryExpr{
+			Op: token.NEQ,
+			X:  &dst.Ident{Name: errVar},
+			Y:  &dst.Ident{Name: nilValue},
+		},
+		Body: &dst.BlockStmt{
+			List: []dst.Stmt{
+				&dst.ReturnStmt{
+					Results: []dst.Expr{
+						&dst.Ident{Name: modVar},
+						&dst.Ident{Name: errVar},
+					},
+				},
+			},
+		},
+	}
+	stmts = append(stmts, ifErrStmt)
+	assignFieldStmt := &dst.AssignStmt{
+		Tok: token.ASSIGN,
+		Lhs: []dst.Expr{&dst.Ident{Name: fmt.Sprintf("mod.%s", util.KebabToPascal(ident))}},
+		Rhs: []dst.Expr{&dst.Ident{Name: variable}},
+	}
+	stmts = append(stmts, assignFieldStmt)
 	return stmts
 }
 

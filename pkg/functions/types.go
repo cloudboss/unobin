@@ -45,7 +45,7 @@ type Interface struct {
 	Error error
 }
 
-type Map struct {
+type Object struct {
 	Value map[string]interface{}
 	Error error
 }

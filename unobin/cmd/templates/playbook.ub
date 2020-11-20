@@ -70,7 +70,7 @@ task [expand a template] {
     # dest is relative to the current working directory or an absolute path.
     dest: 'hello.txt'
     mode: '0644'
-    vars: { name: 'Joe' }
+    vars: { name: string-var('name') }
   }
 }
 
