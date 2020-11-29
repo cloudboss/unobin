@@ -17,7 +17,7 @@ func Test_outputsToMap(t *testing.T) {
 		{
 			name:    "nil output array should produce a nil map",
 			outputs: nil,
-			result:  nil,
+			result:  map[string]interface{}{},
 		},
 		{
 			name:    "empty output array should produce an empty map",
@@ -42,7 +42,7 @@ func Test_outputsToMap(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := outputsToMap(tc.outputs)
-			assert.Equal(t, result, tc.result)
+			assert.Equal(t, tc.result, result)
 		})
 	}
 }

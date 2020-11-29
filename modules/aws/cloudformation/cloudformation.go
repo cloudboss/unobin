@@ -158,9 +158,12 @@ func (c *CloudFormation) createStack() *types.Result {
 		Succeeded: createErr == nil,
 		Changed:   true,
 		Module:    moduleName,
-		Output: map[string]interface{}{
+	}
+
+	if stackInfo.Outputs != nil {
+		result.Output = map[string]interface{}{
 			"outputs": outputsToMap(stackInfo.Outputs),
-		},
+		}
 	}
 
 	if createErr != nil {
@@ -244,9 +247,6 @@ func (c *CloudFormation) updateStack() *types.Result {
 }
 
 func outputsToMap(outputs []*cloudformation.Output) map[string]interface{} {
-	if outputs == nil {
-		return nil
-	}
 	outputMap := make(map[string]interface{})
 	for _, output := range outputs {
 		outputMap[*output.OutputKey] = *output.OutputValue
