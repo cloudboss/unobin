@@ -85,6 +85,11 @@ func (t *Task) run(runCore func() []*types.Result) []*types.Result {
 	if t.UnwrapModule != nil {
 		err := t.unwrapModule()
 		if err != nil {
+			// Unwrapping of a module always returns the module, even
+			// on error, so it is safe to call t.module.Name().
+			result := util.ResultFailedUnchanged(t.module.Name(), err.Error())
+			util.PrintResult(result)
+			results = append(results, result)
 			if t.Rescue != nil {
 				succeeded, rescueResults := runTasks(t.Rescue)
 				t.Succeeded = succeeded
@@ -103,14 +108,7 @@ func (t *Task) run(runCore func() []*types.Result) []*types.Result {
 				}
 				results = append(results, alwaysResults...)
 			}
-			if len(results) > 0 {
-				return results
-			}
-			return []*types.Result{
-				// Unwrapping of a module always returns the module, even
-				// on error, so it is safe to call t.module.Name().
-				util.ResultFailedUnchanged(t.module.Name(), err.Error()),
-			}
+			return results
 		}
 	}
 
