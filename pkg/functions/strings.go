@@ -21,6 +21,7 @@
 package functions
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/cloudboss/unobin/pkg/types"
@@ -45,4 +46,25 @@ func Format(_ctx *types.Context, format String, args ...Interface) String {
 	}
 
 	return String{fmt.Sprintf(format.Value, argsValues...), nil}
+}
+
+func B64Decode(_ctx *types.Context, input String) String {
+	if input.Error != nil {
+		return String{Error: input.Error}
+	}
+
+	out, err := base64.StdEncoding.DecodeString(input.Value)
+	if err != nil {
+		return String{Error: err}
+	}
+	return String{string(out), nil}
+}
+
+func B64Encode(_ctx *types.Context, input String) String {
+	if input.Error != nil {
+		return String{Error: input.Error}
+	}
+
+	out := base64.StdEncoding.EncodeToString([]byte(input.Value))
+	return String{string(out), nil}
 }
