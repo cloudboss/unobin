@@ -28,7 +28,21 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/cloudboss/unobin/pkg/playbook"
 )
+
+// AbsolutePathAt returns an absolute path within the playbook cache directory if the given
+// path does not start with a `/` character, otherwise it just returns the path argument.
+func AbsolutePathAt(path string) string {
+	if path == "" {
+		return path
+	}
+	if path[0] == '/' {
+		return path
+	}
+	return fmt.Sprintf("%s/%s", os.Getenv(playbook.CacheDirectoryEnv), path)
+}
 
 // WriteOnChange atomically writes path if contents differs from the file contents.
 // The returned bool indicates if the file at path was changed.

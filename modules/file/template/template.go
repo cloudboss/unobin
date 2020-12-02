@@ -23,14 +23,12 @@ package template
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"html/template"
 	"io/ioutil"
 	"os"
 	"strconv"
 
 	"github.com/cloudboss/unobin/pkg/file"
-	"github.com/cloudboss/unobin/pkg/playbook"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
 )
@@ -71,7 +69,7 @@ func (t *Template) Name() string {
 }
 
 func (t *Template) Apply() *types.Result {
-	path := fmt.Sprintf("%s/%s", os.Getenv(playbook.CacheDirectoryEnv), t.Src)
+	path := file.AbsolutePathAt(t.Src)
 	f, err := os.Open(path)
 	if err != nil {
 		return util.ResultFailedUnchanged(moduleName, err.Error())

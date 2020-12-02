@@ -31,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
+	"github.com/cloudboss/unobin/pkg/file"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
 )
@@ -126,7 +127,8 @@ func (c *CloudFormation) createStack() *types.Result {
 	}
 
 	if c.TemplateFile != "" {
-		b, err := ioutil.ReadFile(c.TemplateFile)
+		path := file.AbsolutePathAt(c.TemplateFile)
+		b, err := ioutil.ReadFile(path)
 		if err != nil {
 			return util.ErrResult(err.Error(), moduleName)
 		}
