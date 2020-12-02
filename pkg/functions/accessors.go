@@ -39,6 +39,18 @@ func AnyVar(ctx *types.Context, path String) Interface {
 	return Interface{i, nil}
 }
 
+func ArrayVar(ctx *types.Context, path String) Array {
+	if path.Error != nil {
+		return Array{Error: path.Error}
+	}
+
+	array, err := playbook.ResolveArray(ctx.Vars, path.Value)
+	if err != nil {
+		return Array{nil, err}
+	}
+	return Array{array, nil}
+}
+
 func BoolVar(ctx *types.Context, path String) Bool {
 	if path.Error != nil {
 		return Bool{Error: path.Error}

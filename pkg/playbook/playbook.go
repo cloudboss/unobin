@@ -212,6 +212,21 @@ func (p *Playbook) cacheResources(cacheDirectory string) error {
 	return nil
 }
 
+func ResolveArray(attributes map[string]interface{}, path string) ([]interface{}, error) {
+	parts := strings.Split(path, ".")
+	innerAttributes := attributes
+	for _, part := range parts[:len(parts)-1] {
+		var ok bool
+		if innerAttributes, ok = innerAttributes[part].(map[string]interface{}); !ok {
+			return nil, fmt.Errorf("string attribute `%s` not found", path)
+		}
+	}
+	if array, ok := innerAttributes[parts[len(parts)-1]].([]interface{}); ok {
+		return array, nil
+	}
+	return nil, fmt.Errorf("string attribute `%s` not found", path)
+}
+
 func ResolveMap(attributes map[string]interface{}, path string) (map[string]interface{}, error) {
 	parts := strings.Split(path, ".")
 	innerAttributes := attributes
