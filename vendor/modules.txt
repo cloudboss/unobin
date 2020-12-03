@@ -33,6 +33,146 @@ github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/cloudformation
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
+# github.com/awslabs/goformation/v4 v4.15.6
+## explicit
+github.com/awslabs/goformation/v4/cloudformation
+github.com/awslabs/goformation/v4/cloudformation/accessanalyzer
+github.com/awslabs/goformation/v4/cloudformation/acmpca
+github.com/awslabs/goformation/v4/cloudformation/amazonmq
+github.com/awslabs/goformation/v4/cloudformation/amplify
+github.com/awslabs/goformation/v4/cloudformation/apigateway
+github.com/awslabs/goformation/v4/cloudformation/apigatewayv2
+github.com/awslabs/goformation/v4/cloudformation/appconfig
+github.com/awslabs/goformation/v4/cloudformation/appflow
+github.com/awslabs/goformation/v4/cloudformation/applicationautoscaling
+github.com/awslabs/goformation/v4/cloudformation/applicationinsights
+github.com/awslabs/goformation/v4/cloudformation/appmesh
+github.com/awslabs/goformation/v4/cloudformation/appstream
+github.com/awslabs/goformation/v4/cloudformation/appsync
+github.com/awslabs/goformation/v4/cloudformation/ask
+github.com/awslabs/goformation/v4/cloudformation/athena
+github.com/awslabs/goformation/v4/cloudformation/autoscaling
+github.com/awslabs/goformation/v4/cloudformation/autoscalingplans
+github.com/awslabs/goformation/v4/cloudformation/backup
+github.com/awslabs/goformation/v4/cloudformation/batch
+github.com/awslabs/goformation/v4/cloudformation/budgets
+github.com/awslabs/goformation/v4/cloudformation/cassandra
+github.com/awslabs/goformation/v4/cloudformation/ce
+github.com/awslabs/goformation/v4/cloudformation/certificatemanager
+github.com/awslabs/goformation/v4/cloudformation/chatbot
+github.com/awslabs/goformation/v4/cloudformation/cloud9
+github.com/awslabs/goformation/v4/cloudformation/cloudformation
+github.com/awslabs/goformation/v4/cloudformation/cloudfront
+github.com/awslabs/goformation/v4/cloudformation/cloudtrail
+github.com/awslabs/goformation/v4/cloudformation/cloudwatch
+github.com/awslabs/goformation/v4/cloudformation/codeartifact
+github.com/awslabs/goformation/v4/cloudformation/codebuild
+github.com/awslabs/goformation/v4/cloudformation/codecommit
+github.com/awslabs/goformation/v4/cloudformation/codedeploy
+github.com/awslabs/goformation/v4/cloudformation/codeguruprofiler
+github.com/awslabs/goformation/v4/cloudformation/codegurureviewer
+github.com/awslabs/goformation/v4/cloudformation/codepipeline
+github.com/awslabs/goformation/v4/cloudformation/codestar
+github.com/awslabs/goformation/v4/cloudformation/codestarconnections
+github.com/awslabs/goformation/v4/cloudformation/codestarnotifications
+github.com/awslabs/goformation/v4/cloudformation/cognito
+github.com/awslabs/goformation/v4/cloudformation/config
+github.com/awslabs/goformation/v4/cloudformation/databrew
+github.com/awslabs/goformation/v4/cloudformation/datapipeline
+github.com/awslabs/goformation/v4/cloudformation/dax
+github.com/awslabs/goformation/v4/cloudformation/detective
+github.com/awslabs/goformation/v4/cloudformation/directoryservice
+github.com/awslabs/goformation/v4/cloudformation/dlm
+github.com/awslabs/goformation/v4/cloudformation/dms
+github.com/awslabs/goformation/v4/cloudformation/docdb
+github.com/awslabs/goformation/v4/cloudformation/dynamodb
+github.com/awslabs/goformation/v4/cloudformation/ec2
+github.com/awslabs/goformation/v4/cloudformation/ecr
+github.com/awslabs/goformation/v4/cloudformation/ecs
+github.com/awslabs/goformation/v4/cloudformation/efs
+github.com/awslabs/goformation/v4/cloudformation/eks
+github.com/awslabs/goformation/v4/cloudformation/elasticache
+github.com/awslabs/goformation/v4/cloudformation/elasticbeanstalk
+github.com/awslabs/goformation/v4/cloudformation/elasticloadbalancing
+github.com/awslabs/goformation/v4/cloudformation/elasticloadbalancingv2
+github.com/awslabs/goformation/v4/cloudformation/elasticsearch
+github.com/awslabs/goformation/v4/cloudformation/emr
+github.com/awslabs/goformation/v4/cloudformation/events
+github.com/awslabs/goformation/v4/cloudformation/eventschemas
+github.com/awslabs/goformation/v4/cloudformation/fms
+github.com/awslabs/goformation/v4/cloudformation/fsx
+github.com/awslabs/goformation/v4/cloudformation/gamelift
+github.com/awslabs/goformation/v4/cloudformation/globalaccelerator
+github.com/awslabs/goformation/v4/cloudformation/glue
+github.com/awslabs/goformation/v4/cloudformation/greengrass
+github.com/awslabs/goformation/v4/cloudformation/guardduty
+github.com/awslabs/goformation/v4/cloudformation/iam
+github.com/awslabs/goformation/v4/cloudformation/imagebuilder
+github.com/awslabs/goformation/v4/cloudformation/inspector
+github.com/awslabs/goformation/v4/cloudformation/iot
+github.com/awslabs/goformation/v4/cloudformation/iot1click
+github.com/awslabs/goformation/v4/cloudformation/iotanalytics
+github.com/awslabs/goformation/v4/cloudformation/iotevents
+github.com/awslabs/goformation/v4/cloudformation/iotsitewise
+github.com/awslabs/goformation/v4/cloudformation/iotthingsgraph
+github.com/awslabs/goformation/v4/cloudformation/ivs
+github.com/awslabs/goformation/v4/cloudformation/kendra
+github.com/awslabs/goformation/v4/cloudformation/kinesis
+github.com/awslabs/goformation/v4/cloudformation/kinesisanalytics
+github.com/awslabs/goformation/v4/cloudformation/kinesisanalyticsv2
+github.com/awslabs/goformation/v4/cloudformation/kinesisfirehose
+github.com/awslabs/goformation/v4/cloudformation/kms
+github.com/awslabs/goformation/v4/cloudformation/lakeformation
+github.com/awslabs/goformation/v4/cloudformation/lambda
+github.com/awslabs/goformation/v4/cloudformation/logs
+github.com/awslabs/goformation/v4/cloudformation/macie
+github.com/awslabs/goformation/v4/cloudformation/managedblockchain
+github.com/awslabs/goformation/v4/cloudformation/mediaconvert
+github.com/awslabs/goformation/v4/cloudformation/medialive
+github.com/awslabs/goformation/v4/cloudformation/mediapackage
+github.com/awslabs/goformation/v4/cloudformation/mediastore
+github.com/awslabs/goformation/v4/cloudformation/msk
+github.com/awslabs/goformation/v4/cloudformation/neptune
+github.com/awslabs/goformation/v4/cloudformation/networkfirewall
+github.com/awslabs/goformation/v4/cloudformation/networkmanager
+github.com/awslabs/goformation/v4/cloudformation/opsworks
+github.com/awslabs/goformation/v4/cloudformation/opsworkscm
+github.com/awslabs/goformation/v4/cloudformation/pinpoint
+github.com/awslabs/goformation/v4/cloudformation/pinpointemail
+github.com/awslabs/goformation/v4/cloudformation/policies
+github.com/awslabs/goformation/v4/cloudformation/qldb
+github.com/awslabs/goformation/v4/cloudformation/ram
+github.com/awslabs/goformation/v4/cloudformation/rds
+github.com/awslabs/goformation/v4/cloudformation/redshift
+github.com/awslabs/goformation/v4/cloudformation/resourcegroups
+github.com/awslabs/goformation/v4/cloudformation/robomaker
+github.com/awslabs/goformation/v4/cloudformation/route53
+github.com/awslabs/goformation/v4/cloudformation/route53resolver
+github.com/awslabs/goformation/v4/cloudformation/s3
+github.com/awslabs/goformation/v4/cloudformation/sagemaker
+github.com/awslabs/goformation/v4/cloudformation/sdb
+github.com/awslabs/goformation/v4/cloudformation/secretsmanager
+github.com/awslabs/goformation/v4/cloudformation/securityhub
+github.com/awslabs/goformation/v4/cloudformation/serverless
+github.com/awslabs/goformation/v4/cloudformation/servicecatalog
+github.com/awslabs/goformation/v4/cloudformation/servicediscovery
+github.com/awslabs/goformation/v4/cloudformation/ses
+github.com/awslabs/goformation/v4/cloudformation/signer
+github.com/awslabs/goformation/v4/cloudformation/sns
+github.com/awslabs/goformation/v4/cloudformation/sqs
+github.com/awslabs/goformation/v4/cloudformation/ssm
+github.com/awslabs/goformation/v4/cloudformation/sso
+github.com/awslabs/goformation/v4/cloudformation/stepfunctions
+github.com/awslabs/goformation/v4/cloudformation/synthetics
+github.com/awslabs/goformation/v4/cloudformation/tags
+github.com/awslabs/goformation/v4/cloudformation/timestream
+github.com/awslabs/goformation/v4/cloudformation/transfer
+github.com/awslabs/goformation/v4/cloudformation/utils
+github.com/awslabs/goformation/v4/cloudformation/waf
+github.com/awslabs/goformation/v4/cloudformation/wafregional
+github.com/awslabs/goformation/v4/cloudformation/wafv2
+github.com/awslabs/goformation/v4/cloudformation/workspaces
+github.com/awslabs/goformation/v4/intrinsics
 # github.com/dave/dst v0.26.2
 ## explicit
 github.com/dave/dst
@@ -51,21 +191,30 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.0
 ## explicit
 github.com/hashicorp/go-multierror
+# github.com/imdario/mergo v0.3.11
+github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 github.com/jmespath/go-jmespath
+# github.com/mitchellh/mapstructure v1.1.2
+## explicit
+github.com/mitchellh/mapstructure
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
+# github.com/sanathkr/go-yaml v0.0.0-20170819195128-ed9d249f429b
+github.com/sanathkr/go-yaml
+# github.com/sanathkr/yaml v0.0.0-20170819201035-0056894fa522
+github.com/sanathkr/yaml
 # github.com/spf13/cobra v0.0.6
 ## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.4.0
+# github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
-# github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f
+# github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb
 github.com/xeipuuv/gojsonpointer
 # github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415
 github.com/xeipuuv/gojsonreference
@@ -86,6 +235,5 @@ golang.org/x/tools/internal/packagesinternal
 # golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# gopkg.in/yaml.v2 v2.2.7
-## explicit
-gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+gopkg.in/yaml.v3
