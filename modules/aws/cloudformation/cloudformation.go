@@ -161,7 +161,10 @@ func (c *CloudFormation) createStack() *types.Result {
 	createErr := c.cfn.WaitUntilStackCreateCompleteWithContext(
 		aws.BackgroundContext(),
 		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
-		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
+		func(w *request.Waiter) {
+			w.Delay = request.ConstantWaiterDelay(10 * time.Second)
+			w.MaxAttempts = 1080
+		},
 	)
 
 	stackInfo, err := c.getStackInfo()
@@ -240,7 +243,10 @@ func (c *CloudFormation) updateStack() *types.Result {
 	updateErr := c.cfn.WaitUntilStackUpdateCompleteWithContext(
 		aws.BackgroundContext(),
 		&cloudformation.DescribeStacksInput{StackName: &c.StackName},
-		func(w *request.Waiter) { w.Delay = request.ConstantWaiterDelay(5 * time.Second) },
+		func(w *request.Waiter) {
+			w.Delay = request.ConstantWaiterDelay(10 * time.Second)
+			w.MaxAttempts = 1080
+		},
 	)
 
 	stackInfo, err := c.getStackInfo()
