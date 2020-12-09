@@ -21,6 +21,7 @@
 package cloudformation
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -54,6 +55,7 @@ type CloudFormation struct {
 	TemplateFile    string
 	TemplateBody    string
 	TemplateURL     string
+	Parameters      map[string]interface{}
 	cfn             *cloudformation.CloudFormation
 }
 
@@ -69,6 +71,14 @@ func (c *CloudFormation) Initialize() error {
 		return fmt.Errorf("one of TemplateBody, TemplateFile, or TemplateURL is required")
 	}
 
+	if c.Parameters != nil {
+		for _, v := range c.Parameters {
+			_, ok := v.(string)
+			if !ok {
+				return errors.New("parameter values must be strings")
+			}
+		}
+	}
 	return nil
 }
 
@@ -120,6 +130,9 @@ func (c *CloudFormation) createStack() *types.Result {
 	createStackInput := cloudformation.CreateStackInput{
 		StackName:    &c.StackName,
 		Capabilities: capabilities,
+	}
+	if c.Parameters != nil {
+		createStackInput.Parameters = mapToParameters(c.Parameters)
 	}
 
 	if c.TemplateBody != "" {
@@ -179,6 +192,9 @@ func (c *CloudFormation) updateStack() *types.Result {
 	updateStackInput := cloudformation.UpdateStackInput{
 		StackName:    &c.StackName,
 		Capabilities: capabilities,
+	}
+	if c.Parameters != nil {
+		updateStackInput.Parameters = mapToParameters(c.Parameters)
 	}
 
 	if c.TemplateBody != "" {
@@ -254,4 +270,18 @@ func outputsToMap(outputs []*cloudformation.Output) map[string]interface{} {
 		outputMap[*output.OutputKey] = *output.OutputValue
 	}
 	return outputMap
+}
+
+func mapToParameters(m map[string]interface{}) []*cloudformation.Parameter {
+	parameters := make([]*cloudformation.Parameter, len(m))
+	i := 0
+	for k, v := range m {
+		value := v.(string)
+		parameters[i] = &cloudformation.Parameter{
+			ParameterKey:   &k,
+			ParameterValue: &value,
+		}
+		i++
+	}
+	return parameters
 }
