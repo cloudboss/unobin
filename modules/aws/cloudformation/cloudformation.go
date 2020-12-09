@@ -167,25 +167,26 @@ func (c *CloudFormation) createStack() *types.Result {
 		},
 	)
 
-	stackInfo, err := c.getStackInfo()
-	if err != nil {
-		return util.ErrResult(err.Error(), moduleName)
-	}
-
 	result := &types.Result{
 		Succeeded: createErr == nil,
 		Changed:   true,
 		Module:    moduleName,
 	}
 
-	if stackInfo.Outputs != nil {
-		result.Output = map[string]interface{}{
-			"outputs": outputsToMap(stackInfo.Outputs),
-		}
-	}
-
 	if createErr != nil {
-		result.Error = *stackInfo.StackStatus
+		result.Error = createErr.Error()
+	} else {
+		stackInfo, err := c.getStackInfo()
+		if err != nil {
+			result.Succeeded = false
+			result.Error = err.Error()
+			return result
+		}
+		if stackInfo.Outputs != nil {
+			result.Output = map[string]interface{}{
+				"outputs": outputsToMap(stackInfo.Outputs),
+			}
+		}
 	}
 
 	return result
@@ -249,22 +250,26 @@ func (c *CloudFormation) updateStack() *types.Result {
 		},
 	)
 
-	stackInfo, err := c.getStackInfo()
-	if err != nil {
-		return util.ErrResult(err.Error(), moduleName)
-	}
-
 	result := &types.Result{
 		Succeeded: updateErr == nil,
 		Changed:   true,
 		Module:    moduleName,
-		Output: map[string]interface{}{
-			"outputs": outputsToMap(stackInfo.Outputs),
-		},
 	}
 
 	if updateErr != nil {
-		result.Error = *stackInfo.StackStatus
+		result.Error = updateErr.Error()
+	} else {
+		stackInfo, err := c.getStackInfo()
+		if err != nil {
+			result.Succeeded = false
+			result.Error = err.Error()
+			return result
+		}
+		if stackInfo.Outputs != nil {
+			result.Output = map[string]interface{}{
+				"outputs": outputsToMap(stackInfo.Outputs),
+			}
+		}
 	}
 
 	return result
