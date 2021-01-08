@@ -32,6 +32,7 @@ import (
 	"github.com/awslabs/goformation/v4/cloudformation/elasticloadbalancingv2"
 	"github.com/awslabs/goformation/v4/cloudformation/policies"
 	"github.com/awslabs/goformation/v4/cloudformation/route53"
+	"github.com/cloudboss/unobin/pkg/aws"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
 	"github.com/mitchellh/mapstructure"
@@ -271,7 +272,7 @@ func (c *Cluster) Apply() *types.Result {
 	c.defineTemplateMachines()
 	c.defineTemplateOutputs()
 
-	template, err := c.generateTemplate()
+	template, err := aws.GenerateCloudFormationTemplate(c.Format, c.template)
 	if err != nil {
 		return util.ResultFailedUnchanged(moduleName, err.Error())
 	}
@@ -621,26 +622,6 @@ func (c *Cluster) defineTemplateOutputs() {
 		Export: cloudformation.Export{Name: asgSecurityGroupKey},
 		Value:  cloudformation.GetAtt(asgSecurityGroupKey, "GroupId"),
 	}
-}
-
-func (c *Cluster) generateTemplate() (string, error) {
-	if strings.ToLower(c.Format) == "json" {
-		template, err := c.template.JSON()
-		if err != nil {
-			return "", err
-		}
-		return string(template), nil
-	}
-	if strings.ToLower(c.Format) == "yaml" {
-		template, err := c.template.YAML()
-		if err != nil {
-			return "", err
-		}
-		return string(template), nil
-	}
-	// Should not reach here since c.Format has been validated
-	// to be either json or yaml.
-	return "", errors.New("invalid template format")
 }
 
 func validateMachines(machines *machines) error {
