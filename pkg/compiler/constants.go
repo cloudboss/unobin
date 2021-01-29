@@ -22,6 +22,7 @@ package compiler
 
 const (
 	alwaysField                 = "Always"
+	arrayType                   = "Array"
 	assetFunc                   = "Asset"
 	assetInfoFunc               = "AssetInfo"
 	assetNamesFunc              = "AssetNames"

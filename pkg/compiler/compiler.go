@@ -250,6 +250,7 @@ func (c *Compiler) funcDecl_main() *dst.FuncDecl {
 		Type: &dst.FuncType{},
 		Body: &dst.BlockStmt{
 			List: []dst.Stmt{
+				c.declStmt_underscore(),
 				c.assignStmt_ctx(),
 				c.assignStmt_resourceNames(),
 				c.assignStmt_resourcesLen(),
@@ -260,6 +261,26 @@ func (c *Compiler) funcDecl_main() *dst.FuncDecl {
 					X: &dst.CallExpr{
 						Fun: &dst.Ident{Name: startCLIMethod},
 					},
+				},
+			},
+		},
+	}
+}
+
+// declStmt_underscore declares a variable of type `functions.Array`, so that there will not be a
+// compile error if a playbook does not use any functions from the `functions` package, since it
+// is always imported into all playbooks.
+func (c *Compiler) declStmt_underscore() *dst.DeclStmt {
+	arbitraryType := fmt.Sprintf(functionsPackageTemplate, arrayType)
+	return &dst.DeclStmt{
+		Decl: &dst.GenDecl{
+			Tok: token.VAR,
+			Specs: []dst.Spec{
+				&dst.ValueSpec{
+					Names: []*dst.Ident{
+						{Name: underscoreVar},
+					},
+					Type: &dst.Ident{Name: arbitraryType},
 				},
 			},
 		},
