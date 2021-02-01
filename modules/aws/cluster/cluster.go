@@ -873,16 +873,19 @@ func validateListener(lbType string, listener *listener) error {
 	if err != nil {
 		return err
 	}
+	if listener.TargetProtocol == nil {
+		return errors.New("target-protocol must be defined for load balancer listener")
+	}
 	if listener.HealthCheck.Protocol == nil {
-		listener.HealthCheck.Protocol = listener.ListenProtocol
+		listener.HealthCheck.Protocol = listener.TargetProtocol
 	}
 	if listener.HealthCheck.Path == nil {
-		if *listener.ListenProtocol == http || *listener.ListenProtocol == https {
+		if *listener.TargetProtocol == http || *listener.TargetProtocol == https {
 			listener.HealthCheck.Path = util.StringP("/")
 		}
 	}
 	if listener.HealthCheck.Matcher == nil {
-		if *listener.ListenProtocol == http || *listener.ListenProtocol == https {
+		if *listener.TargetProtocol == http || *listener.TargetProtocol == https {
 			listener.HealthCheck.Matcher = util.IntP(200)
 		}
 	}
@@ -894,9 +897,6 @@ func validateListener(lbType string, listener *listener) error {
 	err = validatePort("target-port", "load balancer listener", listener.TargetPort)
 	if err != nil {
 		return err
-	}
-	if listener.TargetProtocol == nil {
-		return errors.New("target-protocol must be defined for load balancer listener")
 	}
 	if lbType == layer7 {
 		validProtocols := []string{http, https}
