@@ -691,24 +691,6 @@ func validateUpdatePolicy(updatePolicy *updatePolicy) error {
 	if updatePolicy == nil {
 		return nil
 	}
-	nils := 0
-	if updatePolicy.AutoScalingReplacingUpdate == nil {
-		nils++
-	}
-	if updatePolicy.AutoScalingRollingUpdate == nil {
-		nils++
-	}
-	if updatePolicy.AutoScalingScheduledAction == nil {
-		nils++
-	}
-	if nils != 2 {
-		validChoices := []string{
-			"auto-scaling-replacing-update",
-			"auto-scaling-rolling-update",
-			"auto-scaling-scheduled-action",
-		}
-		return fmt.Errorf("provisioner update policy must contain one of %s", strings.Join(validChoices, ", "))
-	}
 	if updatePolicy.AutoScalingReplacingUpdate != nil {
 		if updatePolicy.AutoScalingReplacingUpdate.WillReplace == nil {
 			return errors.New("will-replace must be defined for auto scaling replacing update")
