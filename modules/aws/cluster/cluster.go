@@ -82,6 +82,7 @@ type machines struct {
 	MaxCount            *int64               `mapstructure:"max-count,omitempty"`
 	PlacementTenancy    *string              `mapstructure:"placement-tenancy,omitempty"`
 	Provisioner         *provisioner         `mapstructure:"provisioner,omitempty"`
+	ScheduledActions    []scheduledAction    `mapstructure:"scheduled-actions,omitempty"`
 	Subnets             []string             `mapstructure:"subnets,omitempty"`
 	TargetGroupArns     []string             `mapstructure:"target-group-arns,omitempty"`
 	UpdatePolicy        *updatePolicy        `mapstructure:"update-policy,omitempty"`
@@ -123,6 +124,15 @@ type provisioner struct {
 
 type rawProvisioner struct {
 	Content *string `mapstructure:"content,omitempty"`
+}
+
+type scheduledAction struct {
+	DesiredCapacity *int64  `mapstructure:"desired-capacity,omitempty"`
+	EndTime         *string `mapstructure:"end-time,omitempty"`
+	MaxSize         *int64  `mapstructure:"max-size,omitempty"`
+	MinSize         *int64  `mapstructure:"min-size,omitempty"`
+	Recurrence      *string `mapstructure:"recurrence,omitempty"`
+	StartTime       *string `mapstructure:"start-time,omitempty"`
 }
 
 type updatePolicy struct {
@@ -558,6 +568,31 @@ func (c *Cluster) defineTemplateMachines() {
 			},
 		}
 	}
+	for i, action := range c.cluster.Machines.ScheduledActions {
+		scheduledActionRsc := &autoscaling.ScheduledAction{
+			AutoScalingGroupName: cloudformation.Ref("AutoscalingGroup"),
+		}
+		if action.DesiredCapacity != nil {
+			scheduledActionRsc.DesiredCapacity = int(*action.DesiredCapacity)
+		}
+		if action.EndTime != nil {
+			scheduledActionRsc.EndTime = *action.EndTime
+		}
+		if action.MaxSize != nil {
+			scheduledActionRsc.MaxSize = int(*action.MaxSize)
+		}
+		if action.MinSize != nil {
+			scheduledActionRsc.MinSize = int(*action.MinSize)
+		}
+		if action.Recurrence != nil {
+			scheduledActionRsc.Recurrence = *action.Recurrence
+		}
+		if action.StartTime != nil {
+			scheduledActionRsc.StartTime = *action.StartTime
+		}
+		scheduledActionKey := fmt.Sprintf("AutoscalingGroupScheduledAction%d", i)
+		c.template.Resources[scheduledActionKey] = scheduledActionRsc
+	}
 	if c.cluster.Machines.UpdatePolicy != nil {
 		asgRsc.AWSCloudFormationUpdatePolicy = &policies.UpdatePolicy{}
 		if c.cluster.Machines.UpdatePolicy.AutoScalingReplacingUpdate != nil {
@@ -659,6 +694,10 @@ func validateMachines(machines *machines) error {
 	if err != nil {
 		return err
 	}
+	err = validateScheduledActions(machines.ScheduledActions)
+	if err != nil {
+		return err
+	}
 	if len(machines.Subnets) == 0 {
 		return errors.New("subnets must be defined for machines")
 	}
@@ -683,6 +722,35 @@ func validateProvisioner(provisioner *provisioner) error {
 	}
 	if provisioner.Timeout == nil {
 		provisioner.Timeout = util.StringP("PT15M")
+	}
+	return nil
+}
+
+func validateScheduledActions(scheduledActions []scheduledAction) error {
+	if scheduledActions == nil {
+		return nil
+	}
+	for _, action := range scheduledActions {
+		nils := 0
+		if action.DesiredCapacity == nil {
+			nils++
+		}
+		if action.MaxSize == nil {
+			nils++
+		}
+		if action.MinSize == nil {
+			nils++
+		}
+		if nils == 3 {
+			validChoices := []string{
+				"desired-capacity",
+				"max-size",
+				"min-size",
+			}
+			return fmt.Errorf("scheduled actions must contain at least one of %s",
+				strings.Join(validChoices, ", "))
+		}
+		// TODO: validate format of StartTime, EndTime, and Recurrence
 	}
 	return nil
 }
