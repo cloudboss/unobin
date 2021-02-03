@@ -70,6 +70,7 @@ type cluster struct {
 
 type machines struct {
 	BlockDeviceMappings []blockDeviceMapping `mapstructure:"block-device-mappings,omitempty"`
+	CreationPolicy      *creationPolicy      `mapstructure:"creation-policy,omitempty"`
 	EgressRules         []egressRule         `mapstructure:"egress-rules,omitempty"`
 	ExtraSecurityGroups []string             `mapstructure:"extra-security-groups,omitempty"`
 	ExtraTags           map[string]string    `mapstructure:"extra-tags,omitempty"`
@@ -81,7 +82,6 @@ type machines struct {
 	MinCount            *int64               `mapstructure:"min-count,omitempty"`
 	MaxCount            *int64               `mapstructure:"max-count,omitempty"`
 	PlacementTenancy    *string              `mapstructure:"placement-tenancy,omitempty"`
-	Provisioner         *provisioner         `mapstructure:"provisioner,omitempty"`
 	ScheduledActions    []scheduledAction    `mapstructure:"scheduled-actions,omitempty"`
 	Subnets             []string             `mapstructure:"subnets,omitempty"`
 	TargetGroupArns     []string             `mapstructure:"target-group-arns,omitempty"`
@@ -116,14 +116,18 @@ type ebs struct {
 	VolumeType          *string `mapstructure:"volume-type,omitempty"`
 }
 
-type provisioner struct {
-	CfSignal *bool
-	Raw      *rawProvisioner `mapstructure:"raw,omitempty"`
-	Timeout  *string
+type creationPolicy struct {
+	AutoScalingCreationPolicy *autoScalingCreationPolicy `mapstructure:"auto-scaling-creation-policy,omitempty"`
+	ResourceSignal            *resourceSignal            `mapstructure:"resource-signal,omitempty"`
 }
 
-type rawProvisioner struct {
-	Content *string `mapstructure:"content,omitempty"`
+type autoScalingCreationPolicy struct {
+	MinSuccessfulInstancesPercent *int64 `mapstructure:"min-successful-instances-percent,omitempty"`
+}
+
+type resourceSignal struct {
+	Count   *int64  `mapstructure:"count,omitempty"`
+	Timeout *string `mapstructure:"timeout,omitempty"`
 }
 
 type scheduledAction struct {
@@ -560,11 +564,14 @@ func (c *Cluster) defineTemplateMachines() {
 		tags = append(tags, autoscaling.AutoScalingGroup_TagProperty{Key: k, Value: v, PropagateAtLaunch: true})
 	}
 	asgRsc.Tags = tags
-	if c.cluster.Machines.Provisioner.CfSignal != nil && *c.cluster.Machines.Provisioner.CfSignal {
+	if c.cluster.Machines.CreationPolicy != nil {
 		asgRsc.AWSCloudFormationCreationPolicy = &policies.CreationPolicy{
+			AutoScalingCreationPolicy: &policies.AutoScalingCreationPolicy{
+				MinSuccessfulInstancesPercent: float64(*c.cluster.Machines.CreationPolicy.AutoScalingCreationPolicy.MinSuccessfulInstancesPercent),
+			},
 			ResourceSignal: &policies.ResourceSignal{
-				Count:   float64(*c.cluster.Machines.MinCount),
-				Timeout: *c.cluster.Machines.Provisioner.Timeout,
+				Count:   float64(*c.cluster.Machines.CreationPolicy.ResourceSignal.Count),
+				Timeout: *c.cluster.Machines.CreationPolicy.ResourceSignal.Timeout,
 			},
 		}
 	}
@@ -690,7 +697,7 @@ func validateMachines(machines *machines) error {
 	if machines.PlacementTenancy == nil {
 		machines.PlacementTenancy = util.StringP("default")
 	}
-	err := validateProvisioner(machines.Provisioner)
+	err := validateCreationPolicy(machines.CreationPolicy, machines.MinCount)
 	if err != nil {
 		return err
 	}
@@ -713,15 +720,30 @@ func validateMachines(machines *machines) error {
 	return nil
 }
 
-func validateProvisioner(provisioner *provisioner) error {
-	if provisioner == nil {
-		return errors.New("provisioner must be defined for machines")
+func validateCreationPolicy(creationPolicy *creationPolicy, defaultCount *int64) error {
+	if creationPolicy == nil {
+		return nil
 	}
-	if provisioner.CfSignal == nil {
-		provisioner.CfSignal = util.BoolP(false)
+	if creationPolicy.AutoScalingCreationPolicy == nil {
+		creationPolicy.AutoScalingCreationPolicy = &autoScalingCreationPolicy{
+			MinSuccessfulInstancesPercent: util.IntP(100),
+		}
 	}
-	if provisioner.Timeout == nil {
-		provisioner.Timeout = util.StringP("PT15M")
+	if creationPolicy.AutoScalingCreationPolicy.MinSuccessfulInstancesPercent == nil {
+		creationPolicy.AutoScalingCreationPolicy.MinSuccessfulInstancesPercent = util.IntP(100)
+	}
+	// TODO: validate Timeout string
+	if creationPolicy.ResourceSignal == nil {
+		creationPolicy.ResourceSignal = &resourceSignal{
+			Count:   defaultCount,
+			Timeout: util.StringP(pt15m),
+		}
+	}
+	if creationPolicy.ResourceSignal.Count == nil {
+		creationPolicy.ResourceSignal.Count = defaultCount
+	}
+	if creationPolicy.ResourceSignal.Timeout == nil {
+		creationPolicy.ResourceSignal.Timeout = util.StringP(pt15m)
 	}
 	return nil
 }
