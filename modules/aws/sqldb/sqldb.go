@@ -898,10 +898,13 @@ func validate(args map[string]interface{}) error {
 				"required": []interface{}{"instance-class", "network"},
 			},
 			"scaling-configuration": map[string]interface{}{
-				"AutoPause":             map[string]interface{}{"type": "boolean"},
-				"MaxCapacity":           map[string]interface{}{"type": "integer"},
-				"MinCapacity":           map[string]interface{}{"type": "integer"},
-				"SecondsUntilAutoPause": map[string]interface{}{"type": "integer"},
+				"type": "object",
+				"properties": map[string]interface{}{
+					"auto-pause":               map[string]interface{}{"type": "boolean"},
+					"max-capacity":             map[string]interface{}{"type": "integer"},
+					"min-capacity":             map[string]interface{}{"type": "integer"},
+					"seconds-until-auto-pause": map[string]interface{}{"type": "integer"},
+				},
 			},
 			"network": map[string]interface{}{
 				"type": "object",
