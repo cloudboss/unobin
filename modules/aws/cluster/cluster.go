@@ -26,12 +26,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/awslabs/goformation/v4/cloudformation"
-	"github.com/awslabs/goformation/v4/cloudformation/autoscaling"
-	"github.com/awslabs/goformation/v4/cloudformation/ec2"
-	"github.com/awslabs/goformation/v4/cloudformation/elasticloadbalancingv2"
-	"github.com/awslabs/goformation/v4/cloudformation/policies"
-	"github.com/awslabs/goformation/v4/cloudformation/route53"
+	"github.com/awslabs/goformation/v5/cloudformation"
+	"github.com/awslabs/goformation/v5/cloudformation/autoscaling"
+	"github.com/awslabs/goformation/v5/cloudformation/ec2"
+	"github.com/awslabs/goformation/v5/cloudformation/elasticloadbalancingv2"
+	"github.com/awslabs/goformation/v5/cloudformation/policies"
+	"github.com/awslabs/goformation/v5/cloudformation/route53"
 	"github.com/cloudboss/unobin/pkg/aws"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
@@ -634,34 +634,27 @@ func (c *Cluster) defineTemplateOutputs() {
 		if *lb.Type == layer7 {
 			securityGroupKey := fmt.Sprintf("LoadBalancer%dSecurityGroup", i)
 			c.template.Outputs[securityGroupKey] = cloudformation.Output{
-				// Exports are required as they aren't pointers and can't be nil.
-				// See https://github.com/awslabs/goformation/pull/299.
-				Export: cloudformation.Export{Name: securityGroupKey},
 				Value:  cloudformation.GetAtt(securityGroupKey, "GroupId"),
 			}
 		}
 		amzDnsKey := fmt.Sprintf("LoadBalancer%dAmazonDns", i)
 		lbKey := fmt.Sprintf("LoadBalancer%d", i)
 		c.template.Outputs[amzDnsKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: amzDnsKey},
 			Value:  cloudformation.GetAtt(lbKey, "DNSName"),
 		}
 		for j := range lb.Listeners {
 			targetGroupKey := fmt.Sprintf("LoadBalancer%dTargetGroup%d", i, j)
 			c.template.Outputs[targetGroupKey] = cloudformation.Output{
-				Export: cloudformation.Export{Name: targetGroupKey},
 				Value:  cloudformation.Ref(targetGroupKey),
 			}
 		}
 	}
 	asgKey := "AutoscalingGroup"
 	c.template.Outputs[asgKey] = cloudformation.Output{
-		Export: cloudformation.Export{Name: asgKey},
 		Value:  cloudformation.Ref(asgKey),
 	}
 	asgSecurityGroupKey := "AutoscalingGroupSecurityGroup"
 	c.template.Outputs[asgSecurityGroupKey] = cloudformation.Output{
-		Export: cloudformation.Export{Name: asgSecurityGroupKey},
 		Value:  cloudformation.GetAtt(asgSecurityGroupKey, "GroupId"),
 	}
 }

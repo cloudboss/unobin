@@ -24,7 +24,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/awslabs/goformation/v4/cloudformation"
+	"github.com/awslabs/goformation/v5/cloudformation"
 )
 
 func GenerateCloudFormationTemplate(format string, template *cloudformation.Template) (string, error) {

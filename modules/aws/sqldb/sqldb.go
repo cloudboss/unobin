@@ -24,11 +24,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/awslabs/goformation/v4/cloudformation"
-	"github.com/awslabs/goformation/v4/cloudformation/ec2"
-	"github.com/awslabs/goformation/v4/cloudformation/rds"
-	"github.com/awslabs/goformation/v4/cloudformation/route53"
-	"github.com/awslabs/goformation/v4/cloudformation/tags"
+	"github.com/awslabs/goformation/v5/cloudformation"
+	"github.com/awslabs/goformation/v5/cloudformation/ec2"
+	"github.com/awslabs/goformation/v5/cloudformation/rds"
+	"github.com/awslabs/goformation/v5/cloudformation/route53"
+	"github.com/awslabs/goformation/v5/cloudformation/tags"
 	"github.com/cloudboss/unobin/pkg/aws"
 	"github.com/cloudboss/unobin/pkg/types"
 	"github.com/cloudboss/unobin/pkg/util"
@@ -703,87 +703,72 @@ func (s *SqlDb) defineTemplateOutputs() {
 	endpointPortKey := "EndpointPort"
 	if s.isAurora {
 		s.template.Outputs[amazonEndpointKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: amazonEndpointKey},
-			Value:  cloudformation.GetAtt(clusterKey, "Endpoint.Address"),
+			Value: cloudformation.GetAtt(clusterKey, "Endpoint.Address"),
 		}
 		s.template.Outputs[endpointPortKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: endpointPortKey},
-			Value:  cloudformation.GetAtt(clusterKey, "Endpoint.Port"),
+			Value: cloudformation.GetAtt(clusterKey, "Endpoint.Port"),
 		}
 		if !s.isServerless {
 			s.template.Outputs[amazonReadEndpointKey] = cloudformation.Output{
-				Export: cloudformation.Export{Name: amazonReadEndpointKey},
-				Value:  cloudformation.GetAtt(clusterKey, "ReadEndpoint.Address"),
+				Value: cloudformation.GetAtt(clusterKey, "ReadEndpoint.Address"),
 			}
 		}
 	} else {
 		s.template.Outputs[amazonEndpointKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: amazonEndpointKey},
-			Value:  cloudformation.GetAtt(masterInstanceKey, "Endpoint.Address"),
+			Value: cloudformation.GetAtt(masterInstanceKey, "Endpoint.Address"),
 		}
 		s.template.Outputs[endpointPortKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: endpointPortKey},
-			Value:  cloudformation.GetAtt(masterInstanceKey, "Endpoint.Port"),
+			Value: cloudformation.GetAtt(masterInstanceKey, "Endpoint.Port"),
 		}
 	}
 	if s.sqldb.Dns != nil {
 		domainEndpointKey := "DomainEndpoint"
 		s.template.Outputs[domainEndpointKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: domainEndpointKey},
-			Value:  fmt.Sprintf("%s.%s", *s.sqldb.Dns.WriterHostname, *s.sqldb.Dns.Domain),
+			Value: fmt.Sprintf("%s.%s", *s.sqldb.Dns.WriterHostname, *s.sqldb.Dns.Domain),
 		}
 		if !s.isServerless {
 			domainReadEndpointKey := "DomainReadEndpointAddress"
 			s.template.Outputs[domainReadEndpointKey] = cloudformation.Output{
-				Export: cloudformation.Export{Name: domainReadEndpointKey},
-				Value:  fmt.Sprintf("%s.%s", *s.sqldb.Dns.ReaderHostname, *s.sqldb.Dns.Domain),
+				Value: fmt.Sprintf("%s.%s", *s.sqldb.Dns.ReaderHostname, *s.sqldb.Dns.Domain),
 			}
 		}
 	}
 	s.template.Outputs[masterSecurityGroupKey] = cloudformation.Output{
-		Export: cloudformation.Export{Name: masterSecurityGroupKey},
-		Value:  cloudformation.Ref(masterSecurityGroupKey),
+		Value: cloudformation.Ref(masterSecurityGroupKey),
 	}
 	if s.isServerless {
 		return
 	}
 	masterInstanceKey := "MasterInstance"
 	s.template.Outputs[masterInstanceKey] = cloudformation.Output{
-		Export: cloudformation.Export{Name: masterInstanceKey},
-		Value:  cloudformation.Ref(masterInstanceKey),
+		Value: cloudformation.Ref(masterInstanceKey),
 	}
 	masterInstanceAddressKey := "MasterInstanceAddress"
 	s.template.Outputs[masterInstanceAddressKey] = cloudformation.Output{
-		Export: cloudformation.Export{Name: masterInstanceAddressKey},
-		Value:  cloudformation.GetAtt(masterInstanceKey, "Endpoint.Address"),
+		Value: cloudformation.GetAtt(masterInstanceKey, "Endpoint.Address"),
 	}
 	masterInstancePortKey := "MasterInstancePort"
 	s.template.Outputs[masterInstancePortKey] = cloudformation.Output{
-		Export: cloudformation.Export{Name: masterInstancePortKey},
-		Value:  cloudformation.GetAtt(masterInstanceKey, "Endpoint.Port"),
+		Value: cloudformation.GetAtt(masterInstanceKey, "Endpoint.Port"),
 	}
 	for i := range s.sqldb.Replicas {
 		if !s.isAurora {
 			replicaSecurityGroupKey := fmt.Sprintf("Replica%dSecurityGroup", i)
 			s.template.Outputs[replicaSecurityGroupKey] = cloudformation.Output{
-				Export: cloudformation.Export{Name: replicaSecurityGroupKey},
-				Value:  cloudformation.Ref(replicaSecurityGroupKey),
+				Value: cloudformation.Ref(replicaSecurityGroupKey),
 			}
 		}
 		replicaInstanceKey := fmt.Sprintf("Replica%dInstance", i)
 		s.template.Outputs[replicaInstanceKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: replicaInstanceKey},
-			Value:  cloudformation.Ref(replicaInstanceKey),
+			Value: cloudformation.Ref(replicaInstanceKey),
 		}
 		replicaInstanceAddressKey := fmt.Sprintf("Replica%dInstanceAddress", i)
 		s.template.Outputs[replicaInstanceAddressKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: replicaInstanceAddressKey},
-			Value:  cloudformation.GetAtt(replicaInstanceKey, "Endpoint.Address"),
+			Value: cloudformation.GetAtt(replicaInstanceKey, "Endpoint.Address"),
 		}
 		replicaInstancePortKey := fmt.Sprintf("Replica%dInstancePort", i)
 		s.template.Outputs[replicaInstancePortKey] = cloudformation.Output{
-			Export: cloudformation.Export{Name: replicaInstancePortKey},
-			Value:  cloudformation.GetAtt(replicaInstanceKey, "Endpoint.Port"),
+			Value: cloudformation.GetAtt(replicaInstanceKey, "Endpoint.Port"),
 		}
 	}
 }
