@@ -69,7 +69,7 @@ type SqlDb struct {
 	MonitoringInterval          int64
 	MonitoringRoleArn           string
 	MultiAz                     bool
-	Network                     map[string]interface{}
+	Firewall                    map[string]interface{}
 	ParameterGroup              map[string]interface{}
 	Port                        int64
 	PreferredBackupWindow       string
@@ -104,7 +104,7 @@ type sqldb struct {
 	MonitoringInterval          *int64                `mapstructure:"monitoring-interval"`
 	MonitoringRoleArn           *string               `mapstructure:"monitoring-role-arn"`
 	MultiAz                     *bool                 `mapstructure:"multi-az"`
-	Network                     *network              `mapstructure:"network,omitempty"`
+	Firewall                    *firewall             `mapstructure:"firewall,omitempty"`
 	ParameterGroup              *parameterGroup       `mapstructure:"parameter-group,omitempty"`
 	Port                        *int64                `mapstructure:"port,omitempty"`
 	PreferredBackupWindow       *string               `mapstructure:"preferred-backup-window,omitempty"`
@@ -125,7 +125,7 @@ type dns struct {
 	WriterHostname *string `mapstructure:"writer-hostname,omitempty"`
 }
 
-type network struct {
+type firewall struct {
 	EgressRules         []egressRule  `mapstructure:"egress-rules,omitempty"`
 	ExtraSecurityGroups []string      `mapstructure:"extra-security-groups,omitempty"`
 	IngressRules        []ingressRule `mapstructure:"ingress-rules,omitempty"`
@@ -139,7 +139,7 @@ type parameterGroup struct {
 
 type replica struct {
 	InstanceClass  *string           `mapstructure:"instance-class"`
-	Network        *network          `mapstructure:"network"`
+	Firewall       *firewall         `mapstructure:"firewall"`
 	ParameterGroup *parameterGroup   `mapstructure:"parameter-group,omitempty"`
 	Region         *string           `mapstructure:"region,omitempty"`
 	Tags           map[string]string `mapstructure:"tags,omitempty"`
@@ -216,8 +216,8 @@ func (s *SqlDb) Initialize() error {
 	if s.MonitoringRoleArn != "" {
 		args["monitoring-role-arn"] = s.MonitoringRoleArn
 	}
-	if s.Network != nil {
-		args["network"] = s.Network
+	if s.Firewall != nil {
+		args["firewall"] = s.Firewall
 	}
 	if s.ParameterGroup != nil {
 		args["parameter-group"] = s.ParameterGroup
@@ -359,10 +359,10 @@ func (s *SqlDb) defineTemplateAuroraCluster() {
 			i++
 		}
 	}
-	clusterRsc.VpcSecurityGroupIds = make([]string, len(s.sqldb.Network.ExtraSecurityGroups)+1)
+	clusterRsc.VpcSecurityGroupIds = make([]string, len(s.sqldb.Firewall.ExtraSecurityGroups)+1)
 	clusterRsc.VpcSecurityGroupIds[0] = cloudformation.Ref(masterSecurityGroupKey)
-	for i := range s.sqldb.Network.ExtraSecurityGroups {
-		clusterRsc.VpcSecurityGroupIds[i+1] = s.sqldb.Network.ExtraSecurityGroups[i]
+	for i := range s.sqldb.Firewall.ExtraSecurityGroups {
+		clusterRsc.VpcSecurityGroupIds[i+1] = s.sqldb.Firewall.ExtraSecurityGroups[i]
 	}
 	s.template.Resources[clusterKey] = clusterRsc
 }
@@ -444,10 +444,10 @@ func (s *SqlDb) defineTemplateMasterInstance() {
 			i++
 		}
 	}
-	masterInstanceRsc.VPCSecurityGroups = make([]string, len(s.sqldb.Network.ExtraSecurityGroups)+1)
+	masterInstanceRsc.VPCSecurityGroups = make([]string, len(s.sqldb.Firewall.ExtraSecurityGroups)+1)
 	masterInstanceRsc.VPCSecurityGroups[0] = cloudformation.Ref(masterSecurityGroupKey)
-	for i := range s.sqldb.Network.ExtraSecurityGroups {
-		masterInstanceRsc.VPCSecurityGroups[i+1] = s.sqldb.Network.ExtraSecurityGroups[i]
+	for i := range s.sqldb.Firewall.ExtraSecurityGroups {
+		masterInstanceRsc.VPCSecurityGroups[i+1] = s.sqldb.Firewall.ExtraSecurityGroups[i]
 	}
 	s.template.Resources[masterInstanceKey] = masterInstanceRsc
 }
@@ -515,10 +515,10 @@ func (s *SqlDb) defineTemplateReplicas() {
 				i++
 			}
 		}
-		replicaInstanceRsc.VPCSecurityGroups = make([]string, len(replica.Network.ExtraSecurityGroups)+1)
+		replicaInstanceRsc.VPCSecurityGroups = make([]string, len(replica.Firewall.ExtraSecurityGroups)+1)
 		replicaInstanceRsc.VPCSecurityGroups[0] = cloudformation.Ref(fmt.Sprintf("Replica%dSecurityGroup", i))
-		for i := range replica.Network.ExtraSecurityGroups {
-			replicaInstanceRsc.VPCSecurityGroups[i+1] = replica.Network.ExtraSecurityGroups[i]
+		for i := range replica.Firewall.ExtraSecurityGroups {
+			replicaInstanceRsc.VPCSecurityGroups[i+1] = replica.Firewall.ExtraSecurityGroups[i]
 		}
 		replicaSecurityGroupKey := fmt.Sprintf("Replica%dSecurityGroup", i)
 		replicaSecurityGroupRsc := &ec2.SecurityGroup{
@@ -526,7 +526,7 @@ func (s *SqlDb) defineTemplateReplicas() {
 			VpcId:            *s.sqldb.VpcId,
 		}
 		s.template.Resources[replicaSecurityGroupKey] = replicaSecurityGroupRsc
-		for j, ingress := range replica.Network.IngressRules {
+		for j, ingress := range replica.Firewall.IngressRules {
 			ingressRuleKey := fmt.Sprintf("Replica%dSecurityGroupIngress%d", i, j)
 			ingressRuleRsc := &ec2.SecurityGroupIngress{
 				FromPort:   int(*ingress.FromPort),
@@ -545,7 +545,7 @@ func (s *SqlDb) defineTemplateReplicas() {
 			}
 			s.template.Resources[ingressRuleKey] = ingressRuleRsc
 		}
-		for j, egress := range replica.Network.EgressRules {
+		for j, egress := range replica.Firewall.EgressRules {
 			egressRuleKey := fmt.Sprintf("Replica%dSecurityGroupEgress%d", i, j)
 			egressRuleRsc := &ec2.SecurityGroupEgress{
 				FromPort:   int(*egress.FromPort),
@@ -630,7 +630,7 @@ func (s *SqlDb) defineTemplateCommonResources() {
 		GroupDescription: fmt.Sprintf("Security group for %s", s.StackName),
 		VpcId:            *s.sqldb.VpcId,
 	}
-	for i, ingress := range s.sqldb.Network.IngressRules {
+	for i, ingress := range s.sqldb.Firewall.IngressRules {
 		ingressKey := fmt.Sprintf("%sIngress%d", masterSecurityGroupKey, i)
 		ingressRsc := &ec2.SecurityGroupIngress{
 			FromPort:   int(*ingress.FromPort),
@@ -649,7 +649,7 @@ func (s *SqlDb) defineTemplateCommonResources() {
 		}
 		s.template.Resources[ingressKey] = ingressRsc
 	}
-	for i, egress := range s.sqldb.Network.EgressRules {
+	for i, egress := range s.sqldb.Firewall.EgressRules {
 		egressKey := fmt.Sprintf("%sEgress%d", masterSecurityGroupKey, i)
 		egressRsc := &ec2.SecurityGroupEgress{
 			FromPort:   int(*egress.FromPort),
@@ -788,11 +788,11 @@ func validate(args map[string]interface{}) error {
 			"engine":                        map[string]interface{}{"type": "string"},
 			"engine-mode":                   map[string]interface{}{"type": "string"},
 			"engine-version":                map[string]interface{}{"type": "string"},
+			"firewall":                      map[string]interface{}{"$ref": "#/definitions/firewall"},
 			"master-username":               map[string]interface{}{"type": "string"},
 			"monitoring-interval":           map[string]interface{}{"type": "integer"},
 			"monitoring-role-arn":           map[string]interface{}{"type": "string"},
 			"multi-az":                      map[string]interface{}{"type": "boolean"},
-			"network":                       map[string]interface{}{"$ref": "#/definitions/network"},
 			"parameter-group":               map[string]interface{}{"$ref": "#/definitions/parameter-group"},
 			"port":                          map[string]interface{}{"$ref": "#/definitions/valid-port"},
 			"preferred-backup-window":       map[string]interface{}{"type": "string"},
@@ -807,7 +807,7 @@ func validate(args map[string]interface{}) error {
 		},
 		"required": []interface{}{
 			"database-name", "engine", "engine-version", "instance-class",
-			"master-username", "network", "port", "subnet-ids", "vpc-id",
+			"master-username", "firewall", "port", "subnet-ids", "vpc-id",
 		},
 		"definitions": map[string]interface{}{
 			"dns": map[string]interface{}{
@@ -838,6 +838,24 @@ func validate(args map[string]interface{}) error {
 					map[string]interface{}{"required": []interface{}{"destination-security-group-id"}},
 				},
 				"required": []interface{}{"from-port", "to-port"},
+			},
+			"firewall": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"egress-rules": map[string]interface{}{
+						"type":  "array",
+						"items": map[string]interface{}{"$ref": "#/definitions/egress-rule"},
+					},
+					"extra-security-groups": map[string]interface{}{
+						"type": "array",
+					},
+					"ingress-rules": map[string]interface{}{
+						"type":     "array",
+						"items":    map[string]interface{}{"$ref": "#/definitions/ingress-rule"},
+						"minItems": 1,
+					},
+				},
+				"required": []interface{}{"ingress-rules"},
 			},
 			"ingress-rule": map[string]interface{}{
 				"type": "object",
@@ -875,12 +893,12 @@ func validate(args map[string]interface{}) error {
 				"properties": map[string]interface{}{
 					"extra-security-groups": map[string]interface{}{"type": "array"},
 					"instance-class":        map[string]interface{}{"type": "string"},
-					"network":               map[string]interface{}{"$ref": "#/definitions/network"},
+					"firewall":              map[string]interface{}{"$ref": "#/definitions/firewall"},
 					"parameter-group":       map[string]interface{}{"$ref": "#/definitions/parameter-group"},
 					"region":                map[string]interface{}{"type": "string"},
 					"tags":                  map[string]interface{}{"type": "object"},
 				},
-				"required": []interface{}{"instance-class", "network"},
+				"required": []interface{}{"instance-class", "firewall"},
 			},
 			"scaling-configuration": map[string]interface{}{
 				"type": "object",
@@ -890,24 +908,6 @@ func validate(args map[string]interface{}) error {
 					"min-capacity":             map[string]interface{}{"type": "integer"},
 					"seconds-until-auto-pause": map[string]interface{}{"type": "integer"},
 				},
-			},
-			"network": map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"egress-rules": map[string]interface{}{
-						"type":  "array",
-						"items": map[string]interface{}{"$ref": "#/definitions/egress-rule"},
-					},
-					"extra-security-groups": map[string]interface{}{
-						"type": "array",
-					},
-					"ingress-rules": map[string]interface{}{
-						"type":     "array",
-						"items":    map[string]interface{}{"$ref": "#/definitions/ingress-rule"},
-						"minItems": 1,
-					},
-				},
-				"required": []interface{}{"ingress-rules"},
 			},
 			"storage": map[string]interface{}{
 				"type": "object",
@@ -945,7 +945,7 @@ func decode(args map[string]interface{}) (*sqldb, error) {
 	sqldb := sqldb{
 		MonitoringInterval: util.IntP(0),
 		MultiAz:            util.BoolP(false),
-		Network: &network{
+		Firewall: &firewall{
 			EgressRules:         []egressRule{},
 			ExtraSecurityGroups: []string{},
 		},
@@ -972,11 +972,11 @@ func decode(args map[string]interface{}) (*sqldb, error) {
 	}
 	if len(sqldb.Replicas) > 0 {
 		for _, replica := range sqldb.Replicas {
-			if replica.Network.EgressRules == nil {
-				replica.Network.EgressRules = []egressRule{}
+			if replica.Firewall.EgressRules == nil {
+				replica.Firewall.EgressRules = []egressRule{}
 			}
-			if replica.Network.ExtraSecurityGroups == nil {
-				replica.Network.ExtraSecurityGroups = []string{}
+			if replica.Firewall.ExtraSecurityGroups == nil {
+				replica.Firewall.ExtraSecurityGroups = []string{}
 			}
 			if replica.Tags == nil {
 				replica.Tags = map[string]string{}
