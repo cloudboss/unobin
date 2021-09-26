@@ -778,7 +778,7 @@ func validate(args map[string]interface{}) error {
 		"properties": map[string]interface{}{
 			"allow-major-version-upgrade":   map[string]interface{}{"type": "boolean"},
 			"auto-minor-version-upgrade":    map[string]interface{}{"type": "boolean"},
-			"backup-retention-period":       map[string]interface{}{"type": "integer"},
+			"backup-retention-period":       map[string]interface{}{"$ref": "#/definitions/backup-retention-period"},
 			"copy-tags-to-snapshot":         map[string]interface{}{"type": "boolean"},
 			"database-name":                 map[string]interface{}{"$ref": "#/definitions/non-empty-string"},
 			"instance-class":                map[string]interface{}{"type": "string"},
@@ -787,6 +787,7 @@ func validate(args map[string]interface{}) error {
 			"engine-mode":                   map[string]interface{}{"type": "string"},
 			"engine-version":                map[string]interface{}{"type": "string"},
 			"firewall":                      map[string]interface{}{"$ref": "#/definitions/firewall"},
+			"license-model":                 map[string]interface{}{"$ref": "#/definitions/license-model"},
 			"master-username":               map[string]interface{}{"type": "string"},
 			"monitoring-interval":           map[string]interface{}{"type": "integer"},
 			"monitoring-role-arn":           map[string]interface{}{"type": "string"},
@@ -808,6 +809,11 @@ func validate(args map[string]interface{}) error {
 			"master-username", "firewall", "port", "subnet-ids", "vpc-id",
 		},
 		"definitions": map[string]interface{}{
+			"backup-retention-period": map[string]interface{}{
+				"type":    "integer",
+				"minimum": 0,
+				"maximum": 35,
+			},
 			"dns": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -816,7 +822,7 @@ func validate(args map[string]interface{}) error {
 					"ttl":             map[string]interface{}{"type": "integer"},
 					"writer-hostname": map[string]interface{}{"type": "string"},
 				},
-				"required": []interface{}{"domain"},
+				"required": []interface{}{"domain", "writer-hostname"},
 			},
 			"egress-rule": map[string]interface{}{
 				"type": "object",
@@ -873,6 +879,11 @@ func validate(args map[string]interface{}) error {
 				},
 				"required": []interface{}{"from-port", "to-port"},
 			},
+			"license-model": map[string]interface{}{
+				"enum": []interface{}{
+					"license-included", "bring-your-own-license", "general-public-license",
+				},
+			},
 			"non-empty-string": map[string]interface{}{
 				"type":      "string",
 				"minLength": 1,
@@ -914,7 +925,12 @@ func validate(args map[string]interface{}) error {
 					"iops":       map[string]interface{}{"type": "integer"},
 					"kms-key-id": map[string]interface{}{"type": "string"},
 					"size":       map[string]interface{}{"type": "integer"},
-					"type":       map[string]interface{}{"type": "string"},
+					"type":       map[string]interface{}{"$ref": "#/definitions/storage-type"},
+				},
+			},
+			"storage-type": map[string]interface{}{
+				"enum": []interface{}{
+					"standard", "gp2", "io1",
 				},
 			},
 			"valid-port": map[string]interface{}{
