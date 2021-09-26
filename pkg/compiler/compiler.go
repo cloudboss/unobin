@@ -80,7 +80,7 @@ func (c *Compiler) Load() error {
 // * Tasks refer only to modules that are defined in imports.
 func (c *Compiler) Validate() error {
 	var err error
-	attrErr := c.validateAttributes(c.grammar.uast.Attributes)
+	missingAttrs, attrErr := c.validateAttributes(c.grammar.uast.Attributes)
 	if attrErr != nil {
 		err = multierror.Append(err, attrErr)
 	}
@@ -91,9 +91,11 @@ func (c *Compiler) Validate() error {
 			err = multierror.Append(err, importsErr)
 		}
 	}
-	schemaErr := c.validateInputSchema(c.grammar.uast.Attributes[inputSchemaAttr])
-	if schemaErr != nil {
-		err = multierror.Append(err, schemaErr)
+	if !util.ContainsString(missingAttrs, inputSchemaAttr) {
+		schemaErr := c.validateInputSchema(c.grammar.uast.Attributes[inputSchemaAttr])
+		if schemaErr != nil {
+			err = multierror.Append(err, schemaErr)
+		}
 	}
 	taskErr := c.validateTasks(c.grammar.uast.Tasks)
 	if taskErr != nil {
@@ -105,13 +107,14 @@ func (c *Compiler) Validate() error {
 // validateAttributes ensures that playbook attributes are defined with the correct types.
 // This checks only the high level types, for example that imports is an Object. This is
 // checked further by validateImports later to ensure that the Object values are strings.
-func (c *Compiler) validateAttributes(attributes ObjectExpr) error {
+func (c *Compiler) validateAttributes(attributes ObjectExpr) ([]string, error) {
 	validAttributes := map[string]Type{
 		nameAttr:        StringType,
 		descriptionAttr: StringType,
 		importsAttr:     ObjectType,
 		inputSchemaAttr: ObjectType,
 	}
+	var missingAttrs []string
 	var err error
 	for k, v := range attributes {
 		validType, found := validAttributes[k]
@@ -131,9 +134,10 @@ func (c *Compiler) validateAttributes(attributes ObjectExpr) error {
 		for k := range validAttributes {
 			e := fmt.Errorf("required attribute %s is not defined", k)
 			err = multierror.Append(err, e)
+			missingAttrs = append(missingAttrs, k)
 		}
 	}
-	return err
+	return missingAttrs, err
 }
 
 // validateImports ensures that imports are defined with string keys and string values. It also

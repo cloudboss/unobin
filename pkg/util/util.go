@@ -54,6 +54,15 @@ func All(bools []bool) bool {
 	return true
 }
 
+func ContainsString(array []string, value string) bool {
+	for _, s := range array {
+		if s == value {
+			return true
+		}
+	}
+	return false
+}
+
 // BoolP returns a pointer to the given bool.
 func BoolP(boole bool) *bool {
 	return &boole
