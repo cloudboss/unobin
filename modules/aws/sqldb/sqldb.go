@@ -805,8 +805,8 @@ func validate(args map[string]interface{}) error {
 			"vpc-id":                        map[string]interface{}{"type": "string"},
 		},
 		"required": []interface{}{
-			"database-name", "engine", "engine-version", "instance-class",
-			"master-username", "firewall", "port", "subnet-ids", "vpc-id",
+			"database-name", "engine", "engine-version", "master-username",
+			"firewall", "port", "subnet-ids", "vpc-id",
 		},
 		"definitions": map[string]interface{}{
 			"backup-retention-period": map[string]interface{}{
