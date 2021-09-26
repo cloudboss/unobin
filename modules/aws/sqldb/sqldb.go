@@ -78,7 +78,6 @@ type SqlDb struct {
 	ReplicationSourceIdentifier string
 	ScalingConfiguration        map[string]interface{}
 	SecurityGroup               map[string]interface{}
-	StackName                   string
 	Storage                     map[string]interface{}
 	SubnetIds                   []interface{}
 	Tags                        map[string]interface{}
@@ -309,7 +308,7 @@ func (s *SqlDb) Destroy() *types.Result {
 func (s *SqlDb) defineTemplateAuroraCluster() {
 	clusterRsc := &rds.DBCluster{
 		DatabaseName:        *s.sqldb.DatabaseName,
-		DBClusterIdentifier: s.StackName,
+		DBClusterIdentifier: cloudformation.Ref("AWS::StackName"),
 		DBSubnetGroupName:   cloudformation.Ref(subnetGroupKey),
 		Engine:              *s.sqldb.Engine,
 		EngineVersion:       *s.sqldb.EngineVersion,
@@ -374,7 +373,7 @@ func (s *SqlDb) defineTemplateAuroraMasterInstance() {
 		CopyTagsToSnapshot:       *s.sqldb.CopyTagsToSnapshot,
 		DBClusterIdentifier:      cloudformation.Ref(clusterKey),
 		DBInstanceClass:          *s.sqldb.InstanceClass,
-		DBInstanceIdentifier:     s.StackName,
+		DBInstanceIdentifier:     cloudformation.Ref("AWS::StackName"),
 		DBSubnetGroupName:        cloudformation.Ref(subnetGroupKey),
 		Engine:                   *s.sqldb.Engine,
 		EngineVersion:            *s.sqldb.EngineVersion,
@@ -405,7 +404,7 @@ func (s *SqlDb) defineTemplateMasterInstance() {
 		AutoMinorVersionUpgrade:  *s.sqldb.AutoMinorVersionUpgrade,
 		CopyTagsToSnapshot:       *s.sqldb.CopyTagsToSnapshot,
 		DBInstanceClass:          *s.sqldb.InstanceClass,
-		DBInstanceIdentifier:     s.StackName,
+		DBInstanceIdentifier:     cloudformation.Ref("AWS::StackName"),
 		DBName:                   *s.sqldb.DatabaseName,
 		DBSubnetGroupName:        cloudformation.Ref(subnetGroupKey),
 		Engine:                   *s.sqldb.Engine,
@@ -457,7 +456,7 @@ func (s *SqlDb) defineTemplateAuroraReplicas() {
 		replicaInstanceKey := fmt.Sprintf("Replica%dInstance", i)
 		replicaInstanceRsc := &rds.DBInstance{
 			DBClusterIdentifier:  cloudformation.Ref(clusterKey),
-			DBInstanceIdentifier: fmt.Sprintf("%s-replica-%d", s.StackName, i),
+			DBInstanceIdentifier: cloudformation.Sub(fmt.Sprintf("${AWS::StackName}-replica-%d", i)),
 			DBInstanceClass:      *replica.InstanceClass,
 			// DBSubnetGroupName:    cloudformation.Ref(subnetGroupKey),
 			Engine:             *s.sqldb.Engine,
@@ -488,7 +487,7 @@ func (s *SqlDb) defineTemplateAuroraReplicas() {
 func (s *SqlDb) defineTemplateReplicas() {
 	for i, replica := range s.sqldb.Replicas {
 		replicaInstanceKey := fmt.Sprintf("Replica%dInstance", i)
-		replicaInstanceName := fmt.Sprintf("%s-replica-%d", s.StackName, i)
+		replicaInstanceName := cloudformation.Sub(fmt.Sprintf("${AWS::StackName}-replica-%d", i))
 		replicaInstanceRsc := &rds.DBInstance{
 			DBInstanceIdentifier:       replicaInstanceName,
 			DBInstanceClass:            *replica.InstanceClass,
@@ -622,12 +621,12 @@ func (s *SqlDb) defineTemplateDns() {
 
 func (s *SqlDb) defineTemplateCommonResources() {
 	s.template.Resources[subnetGroupKey] = &rds.DBSubnetGroup{
-		DBSubnetGroupName:        s.StackName,
-		DBSubnetGroupDescription: s.StackName,
+		DBSubnetGroupName:        cloudformation.Ref("AWS::StackName"),
+		DBSubnetGroupDescription: cloudformation.Ref("AWS::StackName"),
 		SubnetIds:                s.sqldb.SubnetIds,
 	}
 	s.template.Resources[masterSecurityGroupKey] = &ec2.SecurityGroup{
-		GroupDescription: fmt.Sprintf("Security group for %s", s.StackName),
+		GroupDescription: cloudformation.Sub("Security group for ${AWS::StackName}"),
 		VpcId:            *s.sqldb.VpcId,
 	}
 	for i, ingress := range s.sqldb.Firewall.IngressRules {
@@ -673,14 +672,14 @@ func (s *SqlDb) defineTemplateCommonResources() {
 	}
 	if s.sqldb.ParameterGroup != nil && s.sqldb.ParameterGroup.Parameters != nil {
 		s.template.Resources[masterParameterGroupKey] = &rds.DBParameterGroup{
-			Description: s.StackName,
+			Description: cloudformation.Ref("AWS::StackName"),
 			Family:      *s.sqldb.ParameterGroup.Family,
 			Parameters:  s.sqldb.ParameterGroup.Parameters,
 		}
 	}
 	if s.sqldb.ParameterGroup != nil && s.sqldb.ParameterGroup.ClusterParameters != nil {
 		s.template.Resources[clusterParameterGroupKey] = &rds.DBClusterParameterGroup{
-			Description: s.StackName,
+			Description: cloudformation.Ref("AWS::StackName"),
 			Family:      *s.sqldb.ParameterGroup.Family,
 			Parameters:  s.sqldb.ParameterGroup.Parameters,
 		}
