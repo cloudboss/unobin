@@ -42,5 +42,5 @@ func GenerateCloudFormationTemplate(format string, template *cloudformation.Temp
 		}
 		return string(template), nil
 	}
-	return "", errors.New("invalid template format")
+	return "", errors.New("template format must be one of json, yaml")
 }
