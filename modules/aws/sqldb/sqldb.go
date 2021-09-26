@@ -77,7 +77,6 @@ type SqlDb struct {
 	Replicas                    []interface{}
 	ReplicationSourceIdentifier string
 	ScalingConfiguration        map[string]interface{}
-	SecurityGroup               map[string]interface{}
 	Storage                     map[string]interface{}
 	SubnetIds                   []interface{}
 	Tags                        map[string]interface{}
