@@ -1,8 +1,9 @@
 package lang
 
 // ParseSource reads .ub source from b and returns the parsed File. The
-// path is only used to populate Position.File on each AST node. Pass an
-// empty string when parsing in-memory input.
+// path populates Position.File on each AST node and seeds Kind via
+// ClassifyByFilename. Pass an empty string when parsing in-memory input.
+// Callers loading config or exported-type files set Kind themselves.
 //
 // On parse failure, the returned error wraps pigeon's diagnostics. Callers
 // that want structured errors should switch on the underlying type.
@@ -15,5 +16,7 @@ func ParseSource(path string, b []byte) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return v.(*File), nil
+	f := v.(*File)
+	f.Kind = ClassifyByFilename(path)
+	return f, nil
 }
