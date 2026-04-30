@@ -284,3 +284,139 @@ inputs: {
 	require.GreaterOrEqual(t, errs.Len(), 3,
 		"got: %v", errsToStrings(errs))
 }
+
+func parseConstraintsBlock(t *testing.T, src string) *ArrayLit {
+	t.Helper()
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	require.NotEmpty(t, f.Body.Fields)
+	require.Equal(t, "constraints", f.Body.Fields[0].Key.Name)
+	a, ok := f.Body.Fields[0].Value.(*ArrayLit)
+	require.True(t, ok, "expected `constraints:` to be an array literal")
+	return a
+}
+
+func TestValidateConstraintsHappy(t *testing.T) {
+	src := `
+constraints: [
+  { kind: exactly-one-of,    fields: [encryption-key, encryption-key-arn] },
+  { kind: required-together, fields: [vpc-id, subnet-ids] },
+  { kind: mutually-exclusive, fields: [use-spot, reserved-capacity] },
+  {
+    kind:    predicate
+    when:    'var.region == \'us-gov-east-1\''
+    require: 'var.fips-mode == true'
+    message: 'GovCloud regions require FIPS mode enabled'
+  },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintEntryNotObject(t *testing.T) {
+	src := `
+constraints: ['bogus']
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "must be an object")
+}
+
+func TestValidateConstraintMissingKind(t *testing.T) {
+	src := `
+constraints: [
+  { fields: [a, b] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "missing required `kind:`")
+}
+
+func TestValidateConstraintUnknownKind(t *testing.T) {
+	src := `
+constraints: [
+  { kind: weird-thing, fields: [a] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "unknown constraint kind")
+}
+
+func TestValidateConstraintFieldsRequired(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "requires a `fields:` list")
+}
+
+func TestValidateConstraintFieldsEmpty(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together, fields: [] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "must not be empty")
+}
+
+func TestValidateConstraintFieldsNotIdent(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together, fields: ['quoted-name', 42, valid-name] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintUnknownKeyForFieldsKind(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together, fields: [a, b], message: 'x' },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "unknown key")
+}
+
+func TestValidateConstraintPredicateMissingWhen(t *testing.T) {
+	src := `
+constraints: [
+  { kind: predicate, require: 'true' },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "`when:`")
+}
+
+func TestValidateConstraintPredicateMissingRequire(t *testing.T) {
+	src := `
+constraints: [
+  { kind: predicate, when: 'true' },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "`require:`")
+}
+
+func TestValidateConstraintDuplicateKey(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together, fields: [a], fields: [b] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
+}

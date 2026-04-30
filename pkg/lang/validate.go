@@ -195,3 +195,165 @@ func validateInputDecl(name string, fld *Field, errs *ErrorList) {
 		errs.Addf(ErrSchema, decl.S.Start, "input %q: missing required `type:` key", name)
 	}
 }
+
+// fieldsBasedConstraintKinds carries a list of input names under `fields:`.
+var fieldsBasedConstraintKinds = map[string]struct{}{
+	"exactly-one-of":     {},
+	"at-least-one-of":    {},
+	"at-most-one-of":     {},
+	"mutually-exclusive": {},
+	"required-together":  {},
+	"required-with":      {},
+	"forbidden-with":     {},
+}
+
+// ValidateConstraints walks a `constraints:` array and checks each entry's
+// shape per its declared `kind:`. Field-based kinds carry a nonempty
+// `fields:` list of input names; the `predicate` kind carries `when:` and
+// `require:` expressions plus an optional `message:`.
+func ValidateConstraints(arr *ArrayLit) *ErrorList {
+	errs := NewErrorList(0)
+	for i, e := range arr.Elements {
+		validateConstraint(i, e, errs)
+	}
+	return errs
+}
+
+func validateConstraint(idx int, e Expr, errs *ErrorList) {
+	obj, ok := e.(*ObjectLit)
+	if !ok {
+		errs.Addf(ErrSchema, e.Span().Start,
+			"constraints[%d]: entry must be an object, got %s", idx, exprKind(e))
+		return
+	}
+	var kindField *Field
+	for _, f := range obj.Fields {
+		if f.Key.Kind == FieldIdent && f.Key.Name == "kind" {
+			kindField = f
+			break
+		}
+	}
+	if kindField == nil {
+		errs.Addf(ErrSchema, obj.S.Start, "constraints[%d]: missing required `kind:` key", idx)
+		return
+	}
+	kindIdent, ok := kindField.Value.(*Ident)
+	if !ok {
+		errs.Addf(ErrSchema, kindField.Value.Span().Start,
+			"constraints[%d]: `kind:` must be an identifier", idx)
+		return
+	}
+	kind := kindIdent.Name
+	switch {
+	case kind == "predicate":
+		validatePredicateConstraint(idx, obj, errs)
+	case isFieldsBasedKind(kind):
+		validateFieldsConstraint(idx, kind, obj, errs)
+	default:
+		errs.Addf(ErrSchema, kindIdent.S.Start,
+			"constraints[%d]: unknown constraint kind %q", idx, kind)
+	}
+}
+
+func isFieldsBasedKind(s string) bool {
+	_, ok := fieldsBasedConstraintKinds[s]
+	return ok
+}
+
+func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorList) {
+	var fieldsField *Field
+	seen := make(map[string]Position, len(obj.Fields))
+	for _, f := range obj.Fields {
+		if !validateConstraintCommonKey(idx, f, seen, errs) {
+			continue
+		}
+		switch f.Key.Name {
+		case "kind":
+			// Already handled.
+		case "fields":
+			fieldsField = f
+		default:
+			errs.Addf(ErrSchema, f.Key.S.Start,
+				"constraints[%d]: unknown key %q for kind %q", idx, f.Key.Name, kind)
+		}
+	}
+	if fieldsField == nil {
+		errs.Addf(ErrSchema, obj.S.Start,
+			"constraints[%d]: %q requires a `fields:` list", idx, kind)
+		return
+	}
+	arr, ok := fieldsField.Value.(*ArrayLit)
+	if !ok {
+		errs.Addf(ErrSchema, fieldsField.Value.Span().Start,
+			"constraints[%d]: `fields:` must be an array of input names", idx)
+		return
+	}
+	if len(arr.Elements) == 0 {
+		errs.Addf(ErrSchema, arr.S.Start,
+			"constraints[%d]: `fields:` must not be empty", idx)
+		return
+	}
+	for j, el := range arr.Elements {
+		if _, ok := el.(*Ident); !ok {
+			errs.Addf(ErrSchema, el.Span().Start,
+				"constraints[%d].fields[%d]: must be an identifier referencing an input name",
+				idx, j)
+		}
+	}
+}
+
+func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
+	var hasWhen, hasRequire bool
+	seen := make(map[string]Position, len(obj.Fields))
+	for _, f := range obj.Fields {
+		if !validateConstraintCommonKey(idx, f, seen, errs) {
+			continue
+		}
+		switch f.Key.Name {
+		case "kind":
+			// Already handled.
+		case "when":
+			hasWhen = true
+		case "require":
+			hasRequire = true
+		case "message":
+			// Optional, no shape check at this level.
+		default:
+			errs.Addf(ErrSchema, f.Key.S.Start,
+				"constraints[%d]: unknown key %q for kind \"predicate\"", idx, f.Key.Name)
+		}
+	}
+	if !hasWhen {
+		errs.Addf(ErrSchema, obj.S.Start,
+			"constraints[%d]: predicate requires a `when:` expression", idx)
+	}
+	if !hasRequire {
+		errs.Addf(ErrSchema, obj.S.Start,
+			"constraints[%d]: predicate requires a `require:` expression", idx)
+	}
+}
+
+// validateConstraintCommonKey rejects quoted string keys, `@`-prefixed
+// keys, and duplicates - the checks every constraint kind shares before
+// per-kind dispatch. Returns false when the field should be skipped.
+func validateConstraintCommonKey(idx int, f *Field, seen map[string]Position, errs *ErrorList) bool {
+	if f.Key.Kind == FieldString {
+		errs.Addf(ErrSchema, f.Key.S.Start,
+			"constraints[%d]: key must be an identifier, got quoted string %q",
+			idx, f.Key.String)
+		return false
+	}
+	name := f.Key.Name
+	if f.Key.IsMeta() {
+		errs.Addf(ErrSchema, f.Key.S.Start,
+			"constraints[%d]: meta key %q not allowed", idx, name)
+		return false
+	}
+	if prev, dup := seen[name]; dup {
+		errs.Addf(ErrSchema, f.Key.S.Start,
+			"constraints[%d]: duplicate key %q (first defined at %s)", idx, name, prev)
+		return false
+	}
+	seen[name] = f.Key.S.Start
+	return true
+}
