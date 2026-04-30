@@ -333,6 +333,128 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 	}
 }
 
+// ValidateOutputs checks an `outputs:` block: each entry is an
+// identifier name bound to an expression.
+func ValidateOutputs(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"output name must be a bare identifier, got quoted string %q", fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"@-prefixed key %q is not a valid output name", fld.Key.Name)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate output %q (first defined at %s)", name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+	}
+	return errs
+}
+
+// ValidateConstraintReferences checks that every name in the `fields:`
+// list of each constraint corresponds to a declared input. Constraint
+// entries with the wrong shape are skipped.
+func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	known := make(map[string]struct{}, len(inputs.Fields))
+	for _, fld := range inputs.Fields {
+		if fld.Key.Kind == FieldIdent && !fld.Key.IsMeta() {
+			known[fld.Key.Name] = struct{}{}
+		}
+	}
+	for i, e := range constraints.Elements {
+		obj, ok := e.(*ObjectLit)
+		if !ok {
+			continue
+		}
+		var fieldsField *Field
+		for _, f := range obj.Fields {
+			if f.Key.Kind == FieldIdent && f.Key.Name == "fields" {
+				fieldsField = f
+				break
+			}
+		}
+		if fieldsField == nil {
+			continue
+		}
+		arr, ok := fieldsField.Value.(*ArrayLit)
+		if !ok {
+			continue
+		}
+		for j, el := range arr.Elements {
+			id, ok := el.(*Ident)
+			if !ok {
+				continue
+			}
+			if _, exists := known[id.Name]; !exists {
+				errs.Addf(ErrResolve, id.S.Start,
+					"constraints[%d].fields[%d]: input %q not declared in `inputs:`",
+					i, j, id.Name)
+			}
+		}
+	}
+	return errs
+}
+
+// ValidateFile runs every schema check appropriate to f.Kind and returns
+// the combined diagnostics. The file must already be classified; FileUnknown
+// produces only the top-level-keys error directing the caller to classify.
+func ValidateFile(f *File) *ErrorList {
+	errs := ValidateTopLevelKeys(f)
+	if f.Kind == FileUnknown || f.Kind == FileConfig {
+		return errs
+	}
+	blocks := indexTopLevelBlocks(f)
+	switch f.Kind {
+	case FileStack, FileExportedType:
+		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateInputDeclarations(obj))
+		}
+		if arr, ok := blocks["constraints"].(*ArrayLit); ok {
+			mergeErrors(errs, ValidateConstraints(arr))
+			if iobj, ok := blocks["inputs"].(*ObjectLit); ok {
+				mergeErrors(errs, ValidateConstraintReferences(arr, iobj))
+			}
+		}
+		if obj, ok := blocks["imports"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateImports(obj))
+		}
+		if obj, ok := blocks["outputs"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateOutputs(obj))
+		}
+	case FileModule:
+		if obj, ok := blocks["exports"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateExports(obj))
+		}
+	}
+	return errs
+}
+
+func indexTopLevelBlocks(f *File) map[string]Expr {
+	out := make(map[string]Expr, len(f.Body.Fields))
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind == FieldIdent && !fld.Key.IsMeta() {
+			out[fld.Key.Name] = fld.Value
+		}
+	}
+	return out
+}
+
+func mergeErrors(dst, src *ErrorList) {
+	for _, e := range src.Errors() {
+		dst.Add(e)
+	}
+}
+
 // ValidateImports checks an `imports:` block: every entry is an
 // identifier alias bound to a quoted string source URL or local path.
 func ValidateImports(block *ObjectLit) *ErrorList {

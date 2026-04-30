@@ -500,3 +500,142 @@ exports: {
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "quoted-string")
 }
+
+func TestValidateOutputsHappy(t *testing.T) {
+	src := `
+outputs: {
+  cluster-id:  resource.net.cluster.web.id
+  cluster-arn: resource.net.cluster.web.arn
+  region:      var.region
+  static:      'literal'
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	require.Equal(t, 0, errs.Len())
+}
+
+func TestValidateOutputsRejectsBadKeys(t *testing.T) {
+	src := `
+outputs: {
+  ok:        var.x
+  ok:        var.y
+  @bad:      var.z
+  'quoted':  var.q
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	require.Equal(t, 3, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintReferencesHappy(t *testing.T) {
+	src := `
+inputs: {
+  vpc-id:     { type: string }
+  subnet-ids: { type: list(string) }
+}
+constraints: [
+  { kind: required-together, fields: [vpc-id, subnet-ids] },
+]
+`
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	inputs := f.Body.Fields[0].Value.(*ObjectLit)
+	constraints := f.Body.Fields[1].Value.(*ArrayLit)
+
+	errs := ValidateConstraintReferences(constraints, inputs)
+	require.Equal(t, 0, errs.Len())
+}
+
+func TestValidateConstraintReferencesUnknown(t *testing.T) {
+	src := `
+inputs: {
+  vpc-id: { type: string }
+}
+constraints: [
+  { kind: required-together, fields: [vpc-id, missing-name] },
+]
+`
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	inputs := f.Body.Fields[0].Value.(*ObjectLit)
+	constraints := f.Body.Fields[1].Value.(*ArrayLit)
+
+	errs := ValidateConstraintReferences(constraints, inputs)
+	require.Equal(t, 1, errs.Len())
+	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
+	require.Contains(t, errs.Errors()[0].Msg, "missing-name")
+}
+
+func TestValidateFileStack(t *testing.T) {
+	src := `
+description: 'a stack'
+inputs: {
+  region: { type: string }
+}
+constraints: [
+  { kind: required-together, fields: [region] },
+]
+imports: {
+  aws: 'github.com/x/y@v1.0.0'
+}
+outputs: {
+  out: var.region
+}
+`
+	f, err := ParseSource("stack.ub", []byte(src))
+	require.NoError(t, err)
+	require.Equal(t, FileStack, f.Kind)
+
+	errs := ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateFileStackCollectsCrossErrors(t *testing.T) {
+	src := `
+inputs: {
+  region: { type: string }
+  bad:    { description: 'no type' }
+}
+constraints: [
+  { kind: required-together, fields: [region, missing] },
+]
+imports: {
+  aws: 42
+}
+exports: {
+  x: 'y.ub'
+}
+`
+	f, err := ParseSource("stack.ub", []byte(src))
+	require.NoError(t, err)
+
+	errs := ValidateFile(f)
+	require.GreaterOrEqual(t, errs.Len(), 4, "got: %v", errsToStrings(errs))
+}
+
+func TestValidateFileModule(t *testing.T) {
+	src := `
+description: 'a module'
+exports: {
+  cluster: 'cluster.ub'
+  proxy:   'proxy.ub'
+}
+`
+	f, err := ParseSource("module.ub", []byte(src))
+	require.NoError(t, err)
+	require.Equal(t, FileModule, f.Kind)
+
+	errs := ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateFileUnknownKind(t *testing.T) {
+	src := `description: 'x'`
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	require.Equal(t, FileUnknown, f.Kind)
+
+	errs := ValidateFile(f)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "unknown")
+}
