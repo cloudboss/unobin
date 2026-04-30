@@ -1,0 +1,41 @@
+empty:         []
+empty-spaces:  [  ]
+empty-newline: [
+]
+empty-with-comments: [
+  # leading
+        # mid
+
+	# trailing
+]
+one-line: [1 2 3]
+multiline-tight: [
+  1 2 3
+  4 5 6
+]
+multiline-loose: [
+  1
+  2
+  3
+  4
+  5
+]
+comment-inline: [
+  1 # one
+  2
+]
+all-kinds-of-values: [
+  '1'
+  [1]
+  [{'a': 'A'}]
+  [[] {}]
+  {'a': 'A' 'b': 'B'}
+  {
+    'a': 100 'b': 200
+    'c': 300
+  }
+  2.0
+  false
+  true
+  null
+]

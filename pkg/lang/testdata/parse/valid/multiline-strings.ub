@@ -1,0 +1,18 @@
+single-line: `hello world`
+two-line: `
+  first
+  second
+  `
+indented-content: `
+    echo "starting"
+    run-thing
+    `
+preserves-extra-indent: `
+  outer
+    inner
+  `
+empty-blank-line: `
+  one
+
+  two
+  `

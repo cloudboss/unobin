@@ -1,0 +1,4 @@
+type:    string
+kind:    required-together
+format:  date-time
+backend: s3

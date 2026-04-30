@@ -1,0 +1,8 @@
+int-zero:    0
+int-pos:     1000
+int-large:   9876543210
+int-neg:     -7654
+float-zero:  0.0
+float-pos:   123.456
+float-small: 0.1
+float-neg:   -123.456

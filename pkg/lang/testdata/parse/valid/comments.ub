@@ -1,0 +1,12 @@
+# top-of-file comment
+
+# blank line above
+one: 1  # trailing
+two: 2
+# between
+
+# multiple
+# comment
+# lines
+three: 3 # tail
+# final comment with no trailing newline

@@ -1,0 +1,277 @@
+// PEG grammar for the .ub data format. Compiled by pigeon into grammar.gen.go.
+// Run `go generate ./pkg/lang/...` after editing.
+//
+// Scope of this grammar is the data shape: top level pairs, object and array
+// literals, scalars, identifiers as enum values. Expressions (dotted paths,
+// function calls, operators, backtick multiline strings) are not yet handled.
+{
+package lang
+
+import (
+	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// span returns a Span whose Start is the parser's current position. End is
+// left zero; that is intentional until expressions land and a use case for
+// end-of-match position appears.
+func (c *current) span() Span {
+	pos := Position{
+		Line:   c.pos.line,
+		Column: c.pos.col,
+		Offset: c.pos.offset,
+	}
+	if f, ok := c.globalStore["file"].(string); ok {
+		pos.File = f
+	}
+	return Span{Start: pos}
+}
+
+// processMultiline turns a backtick delimited literal into its decoded
+// value. text includes the surrounding backticks; startCol is the column
+// of the opening backtick. Single line forms (no newline in the body)
+// are returned verbatim. Multiline forms drop the first newline after
+// the opening backtick and strip the closing backtick column's indent
+// prefix from every content line. Lines with less indentation are a
+// parse error.
+func processMultiline(text []byte, startCol int) (string, error) {
+	if len(text) < 2 {
+		return "", fmt.Errorf("multiline string too short")
+	}
+	body := text[1 : len(text)-1]
+	if !bytes.ContainsAny(body, "\n\r") {
+		return string(body), nil
+	}
+	switch {
+	case body[0] == '\n':
+		body = body[1:]
+	case len(body) >= 2 && body[0] == '\r' && body[1] == '\n':
+		body = body[2:]
+	}
+	col := startCol
+	for i := 0; i < len(text)-1; i++ {
+		switch text[i] {
+		case '\n':
+			col = 1
+		case '\r':
+		default:
+			col++
+		}
+	}
+	closeCol := col
+	if closeCol <= 1 {
+		return string(body), nil
+	}
+	stripN := closeCol - 1
+	lines := strings.Split(string(body), "\n")
+	out := make([]string, 0, len(lines))
+	for i, ln := range lines {
+		ln = strings.TrimRight(ln, "\r")
+		if i == len(lines)-1 {
+			if strings.TrimSpace(ln) != "" {
+				return "", fmt.Errorf("multiline string: closing backtick has content on its line")
+			}
+			continue
+		}
+		if len(ln) < stripN {
+			if strings.TrimSpace(ln) == "" {
+				out = append(out, "")
+				continue
+			}
+			return "", fmt.Errorf("multiline string: line has less indentation than the closing backtick")
+		}
+		if strings.TrimSpace(ln[:stripN]) != "" {
+			return "", fmt.Errorf("multiline string: line does not start with the closing backtick indent")
+		}
+		out = append(out, ln[stripN:])
+	}
+	if len(out) == 0 {
+		return "", nil
+	}
+	return strings.Join(out, "\n") + "\n", nil
+}
+
+// fieldSlice converts pigeon's []any of pair captures to []*Field.
+func fieldSlice(v any) []*Field {
+	if v == nil {
+		return nil
+	}
+	in := v.([]any)
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*Field, len(in))
+	for i, x := range in {
+		out[i] = x.(*Field)
+	}
+	return out
+}
+
+// exprSlice converts pigeon's []any of element captures to []Expr.
+func exprSlice(v any) []Expr {
+	if v == nil {
+		return nil
+	}
+	in := v.([]any)
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]Expr, len(in))
+	for i, x := range in {
+		out[i] = x.(Expr)
+	}
+	return out
+}
+
+// unquoteSingle decodes a single-quoted string body. Backslash escapes
+// recognized: \\ \' \n \t \r \0. An unknown escape is kept literal.
+func unquoteSingle(s string) string {
+	if !strings.ContainsRune(s, '\\') {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if ch == '\\' && i+1 < len(s) {
+			next := s[i+1]
+			switch next {
+			case '\\':
+				b.WriteByte('\\')
+			case '\'':
+				b.WriteByte('\'')
+			case 'n':
+				b.WriteByte('\n')
+			case 't':
+				b.WriteByte('\t')
+			case 'r':
+				b.WriteByte('\r')
+			case '0':
+				b.WriteByte(0)
+			default:
+				b.WriteByte('\\')
+				b.WriteByte(next)
+			}
+			i++
+			continue
+		}
+		b.WriteByte(ch)
+	}
+	return b.String()
+}
+}
+
+
+File <- _ pairs:Pair* EOF {
+	body := &ObjectLit{S: c.span(), Fields: fieldSlice(pairs)}
+	f := &File{S: c.span(), Body: body}
+	if path, ok := c.globalStore["file"].(string); ok {
+		f.Path = path
+	}
+	return f, nil
+}
+
+// A pair is `key: value` plus any trailing whitespace (including comments and
+// newlines). The trailing whitespace is what separates one pair from the next.
+Pair <- key:Key _ ":" _ value:Value _ {
+	fk := key.(FieldKey)
+	return &Field{S: fk.S, Key: fk, Value: value.(Expr)}, nil
+}
+
+
+Key <- IdentKey / StringKey
+
+IdentKey <- name:IdentText {
+	return FieldKey{S: c.span(), Kind: FieldIdent, Name: name.(string)}, nil
+}
+
+StringKey <- s:StringLitNode {
+	sl := s.(*StringLit)
+	return FieldKey{S: sl.S, Kind: FieldString, String: sl.Value}, nil
+}
+
+
+Value <- ObjectLitNode / ArrayLitNode / StringLitNode / MultilineStringLitNode / NumberLitNode / BoolLitNode / NullLitNode / IdentValueNode
+
+ObjectLitNode <- "{" _ pairs:Pair* "}" {
+	return &ObjectLit{S: c.span(), Fields: fieldSlice(pairs)}, nil
+}
+
+ArrayLitNode <- "[" _ elems:ArrayElem* "]" {
+	return &ArrayLit{S: c.span(), Elements: exprSlice(elems)}, nil
+}
+
+ArrayElem <- v:Value _ {
+	return v, nil
+}
+
+
+StringLitNode <- "'" body:StringBody "'" {
+	return &StringLit{S: c.span(), Value: body.(string)}, nil
+}
+
+StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
+	return unquoteSingle(string(c.text)), nil
+}
+
+MultilineStringLitNode <- "`" MultilineBody "`" {
+	val, err := processMultiline(c.text, c.pos.col)
+	return &StringLit{S: c.span(), Value: val, Multiline: true}, err
+}
+
+MultilineBody <- ( !"`" . )*
+
+NumberLitNode <- ( "-"? [0-9]+ ( "." [0-9]+ )? ) {
+	raw := string(c.text)
+	n := &NumberLit{S: c.span(), Value: raw}
+	if strings.ContainsRune(raw, '.') {
+		f, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return nil, err
+		}
+		n.IsFloat = true
+		n.ParsedFloat = f
+	} else {
+		i, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		n.ParsedInt = i
+	}
+	return n, nil
+}
+
+BoolLitNode <- "true" !IdentChar {
+	return &BoolLit{S: c.span(), Value: true}, nil
+} / "false" !IdentChar {
+	return &BoolLit{S: c.span(), Value: false}, nil
+}
+
+NullLitNode <- "null" !IdentChar {
+	return &NullLit{S: c.span()}, nil
+}
+
+IdentValueNode <- name:IdentText {
+	return &Ident{S: c.span(), Name: name.(string)}, nil
+}
+
+
+// Kebab-case identifier with optional `@` prefix for meta keys. Starts
+// with a letter, may contain letters, digits, and hyphens, must end with
+// a letter or digit (no leading or trailing hyphens; consecutive hyphens
+// are allowed). The PEG `*` is possessive, so we structure each iteration
+// to end on an alnum, ensuring the match never stops on a trailing hyphen.
+IdentText <- ( "@"? [a-zA-Z] ( "-"+ [a-zA-Z0-9] / [a-zA-Z0-9] )* ) {
+	return string(c.text), nil
+}
+
+IdentChar <- [a-zA-Z0-9_-]
+
+
+_ <- ( [ \t\r\n] / Comment )*
+
+Comment <- "#" [^\r\n]*
+
+EOF <- !.
