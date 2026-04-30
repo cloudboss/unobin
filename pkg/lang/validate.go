@@ -1,5 +1,7 @@
 package lang
 
+import "errors"
+
 // allowedTopLevelKeys is the set of identifier keys permitted at the
 // top level of each file kind. A stack and an exported type body are
 // identical. A module manifest is just description + exports. A config
@@ -83,4 +85,113 @@ func ValidateTopLevelKeys(f *File) *ErrorList {
 		seen[name] = fld.Key.S.Start
 	}
 	return errs
+}
+
+// inputModifierKeys is the set of modifier keys permitted alongside `type:`
+// inside an input declaration.
+var inputModifierKeys = map[string]struct{}{
+	"type":        {},
+	"description": {},
+	"pattern":     {},
+	"minimum":     {},
+	"maximum":     {},
+	"min-items":   {},
+	"max-items":   {},
+	"format":      {},
+	"min-length":  {},
+	"max-length":  {},
+	"enum":        {},
+}
+
+// ValidateInputDeclarations checks the shape of an `inputs:` block as it
+// appears in a stack or exported-type body. Every entry must be an
+// identifier name bound to an object declaration carrying a `type:`
+// expression and any number of permitted modifiers; types are promoted
+// here so callers see syntactic and type level errors in one batch.
+//
+// Config file `inputs:` blocks have a different shape (values, not
+// declarations) and are not validated by this function.
+func ValidateInputDeclarations(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"input name must be an identifier, got quoted string %q", fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"@-prefixed key %q is not a valid input name", fld.Key.Name)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate input %q (first defined at %s)", name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		validateInputDecl(name, fld, errs)
+	}
+	return errs
+}
+
+func validateInputDecl(name string, fld *Field, errs *ErrorList) {
+	decl, ok := fld.Value.(*ObjectLit)
+	if !ok {
+		errs.Addf(ErrSchema, fld.Value.Span().Start,
+			"input %q must be an object declaration with a `type:` key", name)
+		return
+	}
+	var hasType bool
+	innerSeen := make(map[string]Position, len(decl.Fields))
+	for _, df := range decl.Fields {
+		if df.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"input %q: declaration key must be an identifier, got quoted string %q",
+				name, df.Key.String)
+			continue
+		}
+		keyName := df.Key.Name
+		if df.Key.IsMeta() {
+			if keyName == "@sensitive" {
+				if prev, dup := innerSeen[keyName]; dup {
+					errs.Addf(ErrSchema, df.Key.S.Start,
+						"input %q: duplicate key %q (first defined at %s)", name, keyName, prev)
+					continue
+				}
+				innerSeen[keyName] = df.Key.S.Start
+				continue
+			}
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"input %q: meta key %q is not allowed in an input declaration", name, keyName)
+			continue
+		}
+		if _, ok := inputModifierKeys[keyName]; !ok {
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"input %q: unknown modifier %q", name, keyName)
+			continue
+		}
+		if prev, dup := innerSeen[keyName]; dup {
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"input %q: duplicate key %q (first defined at %s)", name, keyName, prev)
+			continue
+		}
+		innerSeen[keyName] = df.Key.S.Start
+		if keyName == "type" {
+			hasType = true
+			if _, err := PromoteType(df.Value); err != nil {
+				var pe *Error
+				if errors.As(err, &pe) {
+					errs.Add(pe)
+				} else {
+					errs.Addf(ErrType, df.Value.Span().Start, "input %q: %v", name, err)
+				}
+			}
+		}
+	}
+	if !hasType {
+		errs.Addf(ErrSchema, decl.S.Start, "input %q: missing required `type:` key", name)
+	}
 }

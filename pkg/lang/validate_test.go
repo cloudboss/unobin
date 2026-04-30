@@ -144,3 +144,143 @@ func errsToStrings(l *ErrorList) []string {
 	}
 	return out
 }
+
+func parseInputsBlock(t *testing.T, src string) *ObjectLit {
+	t.Helper()
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	require.NotEmpty(t, f.Body.Fields)
+	require.Equal(t, "inputs", f.Body.Fields[0].Key.Name)
+	o, ok := f.Body.Fields[0].Value.(*ObjectLit)
+	require.True(t, ok, "expected `inputs:` to be an object literal")
+	return o
+}
+
+func TestValidateInputDeclarationsHappy(t *testing.T) {
+	src := `
+inputs: {
+  region: {
+    type:        string
+    description: 'AWS region'
+    pattern:     '^[a-z]+'
+  }
+  size: {
+    type:    optional(integer, 3)
+    minimum: 1
+    maximum: 100
+  }
+  subnets: {
+    type:      list(string)
+    min-items: 1
+  }
+  tags: {
+    type:        optional(map(string), {})
+    description: 'Resource tags'
+    @sensitive:  true
+  }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateInputMissingType(t *testing.T) {
+	src := `
+inputs: {
+  bad: { description: 'no type' }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "missing required `type:`")
+}
+
+func TestValidateInputBadType(t *testing.T) {
+	src := `
+inputs: {
+  bad: { type: list(weird-thing) }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Equal(t, ErrType, errs.Errors()[0].Kind)
+}
+
+func TestValidateInputUnknownModifier(t *testing.T) {
+	src := `
+inputs: {
+  region: {
+    type:    string
+    bogus:   'x'
+  }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "unknown modifier")
+}
+
+func TestValidateInputDeclNotObject(t *testing.T) {
+	src := `
+inputs: {
+  region: 'us-east-1'
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "object declaration")
+}
+
+func TestValidateInputDuplicateName(t *testing.T) {
+	src := `
+inputs: {
+  region: { type: string }
+  region: { type: integer }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate input")
+}
+
+func TestValidateInputDuplicateModifier(t *testing.T) {
+	src := `
+inputs: {
+  region: {
+    type:    string
+    pattern: '^a'
+    pattern: '^b'
+  }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
+}
+
+func TestValidateInputBadMetaKey(t *testing.T) {
+	src := `
+inputs: {
+  region: {
+    type:    string
+    @module: 'aws'
+  }
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "@module")
+}
+
+func TestValidateInputCollectsMultiple(t *testing.T) {
+	src := `
+inputs: {
+  one: { description: 'no type' }
+  two: { type: weird-atomic, bogus: 1 }
+  three: 'not an object'
+}
+`
+	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
+	require.GreaterOrEqual(t, errs.Len(), 3,
+		"got: %v", errsToStrings(errs))
+}
