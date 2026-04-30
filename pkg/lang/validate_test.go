@@ -420,3 +420,83 @@ constraints: [
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
 }
+
+func parseObjectBlock(t *testing.T, src, key string) *ObjectLit {
+	t.Helper()
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	require.NotEmpty(t, f.Body.Fields)
+	require.Equal(t, key, f.Body.Fields[0].Key.Name)
+	o, ok := f.Body.Fields[0].Value.(*ObjectLit)
+	require.True(t, ok, "expected `%s:` to be an object literal", key)
+	return o
+}
+
+func TestValidateImportsHappy(t *testing.T) {
+	src := `
+imports: {
+  aws:   'github.com/cloudboss/unobin-modules/aws@v0.5.0'
+  net:   'github.com/me/modules/network@v1.2.3'
+  utils: 'github.com/me/utils@v0.3.0'
+  local: './local-modules/foo'
+}
+`
+	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateImportsNotString(t *testing.T) {
+	src := `
+imports: {
+  aws: { url: 'github.com/x/y' }
+}
+`
+	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "quoted-string")
+}
+
+func TestValidateImportsDuplicate(t *testing.T) {
+	src := `
+imports: {
+  aws: 'github.com/a/x'
+  aws: 'github.com/a/y'
+}
+`
+	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate import")
+}
+
+func TestValidateImportsRejectsMetaAndStringKeys(t *testing.T) {
+	src := `
+imports: {
+  @bad:   'x'
+  'aws':  'github.com/a/y'
+}
+`
+	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
+	require.Equal(t, 2, errs.Len())
+}
+
+func TestValidateExportsHappy(t *testing.T) {
+	src := `
+exports: {
+  cluster: 'cluster.ub'
+  proxy:   'proxy.ub'
+}
+`
+	errs := ValidateExports(parseObjectBlock(t, src, "exports"))
+	require.Equal(t, 0, errs.Len())
+}
+
+func TestValidateExportsNotString(t *testing.T) {
+	src := `
+exports: {
+  cluster: 42
+}
+`
+	errs := ValidateExports(parseObjectBlock(t, src, "exports"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "quoted-string")
+}

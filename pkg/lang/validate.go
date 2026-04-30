@@ -333,6 +333,49 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 	}
 }
 
+// ValidateImports checks an `imports:` block: every entry is an
+// identifier alias bound to a quoted string source URL or local path.
+func ValidateImports(block *ObjectLit) *ErrorList {
+	return validateAliasToString(block, "import", "source URL or local path")
+}
+
+// ValidateExports checks a `module.ub` `exports:` block: every entry is an
+// identifier name bound to a quoted string path to an exported-type `.ub` file.
+func ValidateExports(block *ObjectLit) *ErrorList {
+	return validateAliasToString(block, "export", "path to an exported-type file")
+}
+
+func validateAliasToString(block *ObjectLit, what, valueDesc string) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s name must be a bare identifier, got quoted string %q",
+				what, fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"@-prefixed key %q is not a valid %s name", fld.Key.Name, what)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate %s %q (first defined at %s)", what, name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		if _, ok := fld.Value.(*StringLit); !ok {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"%s %q: value must be a quoted-string %s, got %s",
+				what, name, valueDesc, exprKind(fld.Value))
+		}
+	}
+	return errs
+}
+
 // validateConstraintCommonKey rejects quoted string keys, `@`-prefixed
 // keys, and duplicates - the checks every constraint kind shares before
 // per-kind dispatch. Returns false when the field should be skipped.
