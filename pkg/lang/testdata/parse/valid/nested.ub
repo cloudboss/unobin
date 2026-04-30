@@ -1,10 +1,10 @@
 root: {
   items: [
-    { name: 'first'  size: 1 }
-    { name: 'second' size: 2 }
+    { name: 'first',  size: 1 },
+    { name: 'second', size: 2 },
   ]
   meta: {
-    flags: [true false true]
+    flags: [true, false, true]
     owner: 'me'
   }
 }

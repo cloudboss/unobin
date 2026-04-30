@@ -1,9 +1,5 @@
 // PEG grammar for the .ub data format. Compiled by pigeon into grammar.gen.go.
 // Run `go generate ./pkg/lang/...` after editing.
-//
-// Scope of this grammar is the data shape: top level pairs, object and array
-// literals, scalars, identifiers as enum values. Expressions (dotted paths,
-// function calls, operators, backtick multiline strings) are not yet handled.
 {
 package lang
 
@@ -125,6 +121,35 @@ func exprSlice(v any) []Expr {
 	return out
 }
 
+// infixTail carries one (op, right) tail produced by an operator-level
+// rule. The leftmost operand is the head; foldInfix combines a head with
+// any number of tails into a left-associated Infix tree.
+type infixTail struct {
+	op    string
+	right Expr
+}
+
+func foldInfix(left Expr, rest any) Expr {
+	if rest == nil {
+		return left
+	}
+	cur := left
+	for _, t := range rest.([]any) {
+		tail := t.(infixTail)
+		cur = &Infix{S: cur.Span(), Op: tail.op, Left: cur, Right: tail.right}
+	}
+	return cur
+}
+
+func dotSegments(v any) []DotSegment {
+	in := v.([]any)
+	out := make([]DotSegment, len(in))
+	for i, x := range in {
+		out[i] = x.(DotSegment)
+	}
+	return out
+}
+
 // unquoteSingle decodes a single-quoted string body. Backslash escapes
 // recognized: \\ \' \n \t \r \0. An unknown escape is kept literal.
 func unquoteSingle(s string) string {
@@ -175,7 +200,7 @@ File <- _ pairs:Pair* EOF {
 
 // A pair is `key: value` plus any trailing whitespace (including comments and
 // newlines). The trailing whitespace is what separates one pair from the next.
-Pair <- key:Key _ ":" _ value:Value _ {
+Pair <- key:Key _ ":" _ value:Value _ ","? _ {
 	fk := key.(FieldKey)
 	return &Field{S: fk.S, Key: fk, Value: value.(Expr)}, nil
 }
@@ -193,18 +218,134 @@ StringKey <- s:StringLitNode {
 }
 
 
-Value <- ObjectLitNode / ArrayLitNode / StringLitNode / MultilineStringLitNode / NumberLitNode / BoolLitNode / NullLitNode / IdentValueNode
+Value <- Expr
+
+Expr <- left:AndExpr rest:OrTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+OrTail <- _ "||" _ right:AndExpr {
+	return infixTail{op: "||", right: right.(Expr)}, nil
+}
+
+AndExpr <- left:EqualityExpr rest:AndTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+AndTail <- _ "&&" _ right:EqualityExpr {
+	return infixTail{op: "&&", right: right.(Expr)}, nil
+}
+
+EqualityExpr <- left:ComparisonExpr rest:EqualityTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+EqualityTail <- _ op:( "==" / "!=" ) _ right:ComparisonExpr {
+	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+}
+
+ComparisonExpr <- left:AdditiveExpr rest:ComparisonTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+ComparisonTail <- _ op:( "<=" / ">=" / "<" / ">" ) _ right:AdditiveExpr {
+	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+}
+
+AdditiveExpr <- left:MultiplicativeExpr rest:AdditiveTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+AdditiveTail <- _ op:( "+" / "-" ) _ right:MultiplicativeExpr {
+	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+}
+
+MultiplicativeExpr <- left:UnaryExpr rest:MultiplicativeTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+MultiplicativeTail <- _ op:( "*" / "/" ) _ right:UnaryExpr {
+	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+}
+
+UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
+	return &Prefix{S: c.span(), Op: string(op.([]byte)), Expr: inner.(Expr)}, nil
+}
+
+Primary <- ParenExpr / ObjectLitNode / ArrayLitNode / StringLitNode / MultilineStringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
+
+ParenExpr <- "(" _ e:Value _ ")" {
+	return e, nil
+}
+
+NameExpression <- ModuleCall / BareCall / DotPath / IdentValue
+
+ModuleCall <- mod:IdentText "." fn:IdentText "(" _ args:CallArgs _ ")" {
+	span := c.span()
+	return &Call{
+		S:      span,
+		Module: &Ident{S: span, Name: mod.(string)},
+		Func:   &Ident{S: span, Name: fn.(string)},
+		Args:   exprSlice(args),
+	}, nil
+}
+
+BareCall <- name:IdentText "(" _ args:CallArgs _ ")" {
+	span := c.span()
+	return &Call{
+		S:      span,
+		Callee: &Ident{S: span, Name: name.(string)},
+		Args:   exprSlice(args),
+	}, nil
+}
+
+CallArgs <- args:( first:Value rest:( _ "," _ v:Value { return v, nil } )* _ ","? )? {
+	if args == nil {
+		return []any{}, nil
+	}
+	parts := args.([]any)
+	first := parts[0]
+	rest := parts[1].([]any)
+	out := make([]any, 0, 1+len(rest))
+	out = append(out, first)
+	out = append(out, rest...)
+	return out, nil
+}
+
+DotPath <- root:IdentText segs:DotSegmentRule+ {
+	span := c.span()
+	return &DotPath{
+		S:        span,
+		Root:     &Ident{S: span, Name: root.(string)},
+		Segments: dotSegments(segs),
+	}, nil
+}
+
+DotSegmentRule <- "." name:IdentText {
+	return DotSegment{S: c.span(), Name: name.(string)}, nil
+} / "[" _ key:Value _ "]" {
+	return DotSegment{S: c.span(), Index: key.(Expr)}, nil
+}
+
+IdentValue <- name:IdentText {
+	return &Ident{S: c.span(), Name: name.(string)}, nil
+}
 
 ObjectLitNode <- "{" _ pairs:Pair* "}" {
 	return &ObjectLit{S: c.span(), Fields: fieldSlice(pairs)}, nil
 }
 
-ArrayLitNode <- "[" _ elems:ArrayElem* "]" {
+ArrayLitNode <- "[" _ elems:ArrayElems? _ "]" {
+	if elems == nil {
+		return &ArrayLit{S: c.span()}, nil
+	}
 	return &ArrayLit{S: c.span(), Elements: exprSlice(elems)}, nil
 }
 
-ArrayElem <- v:Value _ {
-	return v, nil
+ArrayElems <- first:Value rest:( _ "," _ v:Value { return v, nil } )* _ ","? {
+	out := []any{first}
+	out = append(out, rest.([]any)...)
+	return out, nil
 }
 
 
@@ -252,11 +393,6 @@ BoolLitNode <- "true" !IdentChar {
 NullLitNode <- "null" !IdentChar {
 	return &NullLit{S: c.span()}, nil
 }
-
-IdentValueNode <- name:IdentText {
-	return &Ident{S: c.span(), Name: name.(string)}, nil
-}
-
 
 // Kebab-case identifier with optional `@` prefix for meta keys. Starts
 // with a letter, may contain letters, digits, and hyphens, must end with

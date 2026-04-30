@@ -152,7 +152,7 @@ func TestParseFixtureIdents(t *testing.T) {
 
 func TestParseFixtureObjects(t *testing.T) {
 	f := loadFixture(t, "testdata/parse/valid/objects.ub")
-	require.Len(t, f.Body.Fields, 12)
+	require.Len(t, f.Body.Fields, 14)
 
 	mustObj := func(idx int, key string) *ObjectLit {
 		t.Helper()
@@ -222,6 +222,14 @@ func TestParseFixtureObjects(t *testing.T) {
 
 	all := mustObj(11, "all-kinds-of-values")
 	require.GreaterOrEqual(t, len(all.Fields), 10)
+
+	oneCommas := mustObj(12, "one-line-commas")
+	require.Len(t, oneCommas.Fields, 2)
+	identField(t, oneCommas.Fields[0], "one")
+	require.Equal(t, int64(1), oneCommas.Fields[0].Value.(*NumberLit).ParsedInt)
+
+	multiCommas := mustObj(13, "multiline-commas")
+	require.Len(t, multiCommas.Fields, 2)
 }
 
 func TestParseFixtureArrays(t *testing.T) {
@@ -345,6 +353,317 @@ func TestParseFixtureRealistic(t *testing.T) {
 	require.Equal(t,
 		"Multi-line notes preserve their content with the leading\nindent stripped to the closing-backtick column.\n",
 		notes.Value)
+}
+
+func TestParseFixtureDotPaths(t *testing.T) {
+	f := loadFixture(t, "testdata/parse/valid/dot-paths.ub")
+	require.Len(t, f.Body.Fields, 8)
+
+	getPath := func(idx int, key string) *DotPath {
+		t.Helper()
+		identField(t, f.Body.Fields[idx], key)
+		p, ok := f.Body.Fields[idx].Value.(*DotPath)
+		require.True(t, ok, "%s: got %T, want *DotPath", key, f.Body.Fields[idx].Value)
+		return p
+	}
+
+	single := getPath(0, "single-segment")
+	require.Equal(t, "var", single.Root.Name)
+	require.Len(t, single.Segments, 1)
+	require.Equal(t, "region", single.Segments[0].Name)
+
+	deep := getPath(2, "deep")
+	require.Equal(t, "resource", deep.Root.Name)
+	wantNames := []string{"aws", "vpc", "main", "id"}
+	require.Len(t, deep.Segments, len(wantNames))
+	for i, n := range wantNames {
+		require.Equal(t, n, deep.Segments[i].Name)
+	}
+
+	indexed := getPath(3, "indexed-string")
+	require.Equal(t, "resource", indexed.Root.Name)
+	require.Len(t, indexed.Segments, 4)
+	require.Equal(t, "alpha", indexed.Segments[3].Index.(*StringLit).Value)
+
+	indexedThenAttr := getPath(4, "indexed-then-attr")
+	require.Len(t, indexedThenAttr.Segments, 5)
+	require.Equal(t, "alpha", indexedThenAttr.Segments[3].Index.(*StringLit).Value)
+	require.Equal(t, "arn", indexedThenAttr.Segments[4].Name)
+
+	eachKey := getPath(5, "each-key")
+	require.Equal(t, "@each", eachKey.Root.Name)
+	require.Equal(t, "key", eachKey.Segments[0].Name)
+
+	nestedIndex := getPath(7, "nested-index")
+	require.IsType(t, &DotPath{}, nestedIndex.Segments[2].Index)
+	inner := nestedIndex.Segments[2].Index.(*DotPath)
+	require.Equal(t, "var", inner.Root.Name)
+	require.Equal(t, "key", inner.Segments[0].Name)
+}
+
+func TestParseFixtureCalls(t *testing.T) {
+	f := loadFixture(t, "testdata/parse/valid/calls.ub")
+	require.Len(t, f.Body.Fields, 8)
+
+	getCall := func(idx int, key string) *Call {
+		t.Helper()
+		identField(t, f.Body.Fields[idx], key)
+		c, ok := f.Body.Fields[idx].Value.(*Call)
+		require.True(t, ok, "%s: got %T, want *Call", key, f.Body.Fields[idx].Value)
+		return c
+	}
+
+	noArgs := getCall(0, "no-args")
+	require.Equal(t, "range", noArgs.Callee.Name)
+	require.Empty(t, noArgs.Args)
+
+	one := getCall(1, "one-arg")
+	require.Equal(t, "range", one.Callee.Name)
+	require.Len(t, one.Args, 1)
+	require.Equal(t, int64(3), one.Args[0].(*NumberLit).ParsedInt)
+
+	multi := getCall(2, "multi-arg")
+	require.Equal(t, "format", multi.Callee.Name)
+	require.Len(t, multi.Args, 3)
+	require.Equal(t, "%s-%s", multi.Args[0].(*StringLit).Value)
+	require.IsType(t, &DotPath{}, multi.Args[1])
+	require.IsType(t, &DotPath{}, multi.Args[2])
+
+	nested := getCall(3, "nested-calls")
+	require.Equal(t, "format", nested.Callee.Name)
+	inner := nested.Args[1].(*Call)
+	require.Equal(t, "b64-encode", inner.Callee.Name)
+	require.Equal(t, "plaintext", inner.Args[0].(*StringLit).Value)
+
+	mod := getCall(4, "module-call")
+	require.Nil(t, mod.Callee)
+	require.Equal(t, "lib", mod.Module.Name)
+	require.Equal(t, "index-by", mod.Func.Name)
+	require.Len(t, mod.Args, 2)
+
+	modNoArgs := getCall(5, "module-no-args")
+	require.Equal(t, "lib", modNoArgs.Module.Name)
+	require.Equal(t, "now", modNoArgs.Func.Name)
+	require.Empty(t, modNoArgs.Args)
+
+	trailing := getCall(7, "trailing-comma")
+	require.Equal(t, "format", trailing.Callee.Name)
+	require.Len(t, trailing.Args, 2)
+}
+
+func TestParseFixtureOperators(t *testing.T) {
+	f := loadFixture(t, "testdata/parse/valid/operators.ub")
+	require.Len(t, f.Body.Fields, 23)
+
+	getInfix := func(idx int, key, op string) *Infix {
+		t.Helper()
+		identField(t, f.Body.Fields[idx], key)
+		i, ok := f.Body.Fields[idx].Value.(*Infix)
+		require.True(t, ok, "%s: got %T", key, f.Body.Fields[idx].Value)
+		require.Equal(t, op, i.Op)
+		return i
+	}
+
+	add := getInfix(0, "add", "+")
+	require.Equal(t, int64(1), add.Left.(*NumberLit).ParsedInt)
+	require.Equal(t, int64(2), add.Right.(*NumberLit).ParsedInt)
+
+	for i, want := range []struct {
+		key, op string
+	}{
+		{"add", "+"}, {"sub", "-"}, {"mul", "*"}, {"div", "/"},
+		{"eq", "=="}, {"ne", "!="}, {"lt", "<"}, {"le", "<="},
+		{"gt", ">"}, {"ge", ">="}, {"both-and", "&&"}, {"either-or", "||"},
+	} {
+		identField(t, f.Body.Fields[i], want.key)
+		require.Equal(t, want.op, f.Body.Fields[i].Value.(*Infix).Op, want.key)
+	}
+
+	identField(t, f.Body.Fields[12], "negate")
+	neg := f.Body.Fields[12].Value.(*Prefix)
+	require.Equal(t, "!", neg.Op)
+	require.Equal(t, "a", neg.Expr.(*Ident).Name)
+
+	identField(t, f.Body.Fields[13], "unary-neg")
+	un := f.Body.Fields[13].Value.(*Prefix)
+	require.Equal(t, "-", un.Op)
+	require.Equal(t, "x", un.Expr.(*Ident).Name)
+
+	chainAdd := getInfix(14, "chain-add", "+")
+	require.Equal(t, "+", chainAdd.Left.(*Infix).Op)
+	require.Equal(t, int64(3), chainAdd.Right.(*NumberLit).ParsedInt)
+
+	mixed := getInfix(16, "mixed", "+")
+	require.Equal(t, int64(1), mixed.Left.(*NumberLit).ParsedInt)
+	require.Equal(t, "*", mixed.Right.(*Infix).Op)
+
+	parens := getInfix(17, "parens", "*")
+	require.Equal(t, "+", parens.Left.(*Infix).Op)
+	require.Equal(t, int64(3), parens.Right.(*NumberLit).ParsedInt)
+
+	logic := getInfix(19, "logic", "||")
+	require.Equal(t, "&&", logic.Left.(*Infix).Op)
+
+	multi := getInfix(20, "multi-line", "+")
+	require.Equal(t, "+", multi.Left.(*Infix).Op)
+	require.Equal(t, int64(3), multi.Right.(*NumberLit).ParsedInt)
+
+	tightAdd := getInfix(21, "tight-add", "+")
+	require.Equal(t, int64(1), tightAdd.Left.(*NumberLit).ParsedInt)
+	require.Equal(t, int64(2), tightAdd.Right.(*NumberLit).ParsedInt)
+
+	tightMul := getInfix(22, "tight-mul", "*")
+	require.Equal(t, int64(3), tightMul.Left.(*NumberLit).ParsedInt)
+	require.Equal(t, int64(4), tightMul.Right.(*NumberLit).ParsedInt)
+}
+
+func TestParseFixtureComplex(t *testing.T) {
+	f := loadFixture(t, "testdata/parse/valid/complex.ub")
+	require.Len(t, f.Body.Fields, 18)
+
+	byKey := make(map[string]Expr, len(f.Body.Fields))
+	for _, fld := range f.Body.Fields {
+		byKey[fld.Key.Name] = fld.Value
+	}
+
+	// call-plus-string: format(...) + '-suffix'
+	cps := byKey["call-plus-string"].(*Infix)
+	require.Equal(t, "+", cps.Op)
+	require.IsType(t, &Call{}, cps.Left)
+	require.Equal(t, "format", cps.Left.(*Call).Callee.Name)
+	require.Equal(t, "-suffix", cps.Right.(*StringLit).Value)
+
+	// nested-calls: lib.index-by(format('%s', var.x), 'name')
+	nc := byKey["nested-calls"].(*Call)
+	require.Equal(t, "lib", nc.Module.Name)
+	require.Equal(t, "index-by", nc.Func.Name)
+	require.Len(t, nc.Args, 2)
+	require.Equal(t, "format", nc.Args[0].(*Call).Callee.Name)
+	require.Equal(t, "name", nc.Args[1].(*StringLit).Value)
+
+	// call-as-operand: count(var.items) > 0 && var.enabled
+	cao := byKey["call-as-operand"].(*Infix)
+	require.Equal(t, "&&", cao.Op)
+	cmp := cao.Left.(*Infix)
+	require.Equal(t, ">", cmp.Op)
+	require.Equal(t, "count", cmp.Left.(*Call).Callee.Name)
+	require.Equal(t, int64(0), cmp.Right.(*NumberLit).ParsedInt)
+	require.Equal(t, "var", cao.Right.(*DotPath).Root.Name)
+
+	// arith-with-vars: (var.size + 1) * 2
+	awv := byKey["arith-with-vars"].(*Infix)
+	require.Equal(t, "*", awv.Op)
+	add := awv.Left.(*Infix)
+	require.Equal(t, "+", add.Op)
+	require.Equal(t, "var", add.Left.(*DotPath).Root.Name)
+	require.Equal(t, int64(1), add.Right.(*NumberLit).ParsedInt)
+	require.Equal(t, int64(2), awv.Right.(*NumberLit).ParsedInt)
+
+	// deep-comparison: var.region == 'us-east-1' || var.region == 'us-west-2'
+	dc := byKey["deep-comparison"].(*Infix)
+	require.Equal(t, "||", dc.Op)
+	require.Equal(t, "==", dc.Left.(*Infix).Op)
+	require.Equal(t, "==", dc.Right.(*Infix).Op)
+	require.Equal(t, "us-east-1", dc.Left.(*Infix).Right.(*StringLit).Value)
+	require.Equal(t, "us-west-2", dc.Right.(*Infix).Right.(*StringLit).Value)
+
+	// indexed-in-arith: var.tags['Name'] + '-x'
+	iia := byKey["indexed-in-arith"].(*Infix)
+	require.Equal(t, "+", iia.Op)
+	tags := iia.Left.(*DotPath)
+	require.Equal(t, "var", tags.Root.Name)
+	require.Equal(t, "tags", tags.Segments[0].Name)
+	require.Equal(t, "Name", tags.Segments[1].Index.(*StringLit).Value)
+	require.Equal(t, "-x", iia.Right.(*StringLit).Value)
+
+	// arr-of-exprs: [1+1, 2*2, format(...), var.x]
+	arr := byKey["arr-of-exprs"].(*ArrayLit)
+	require.Len(t, arr.Elements, 4)
+	require.Equal(t, "+", arr.Elements[0].(*Infix).Op)
+	require.Equal(t, "*", arr.Elements[1].(*Infix).Op)
+	require.Equal(t, "format", arr.Elements[2].(*Call).Callee.Name)
+	require.Equal(t, "var", arr.Elements[3].(*DotPath).Root.Name)
+
+	// obj-of-exprs
+	obj := byKey["obj-of-exprs"].(*ObjectLit)
+	require.Len(t, obj.Fields, 4)
+	require.Equal(t, "+", obj.Fields[0].Value.(*Infix).Op)
+	require.Equal(t, "!", obj.Fields[1].Value.(*Prefix).Op)
+	require.Equal(t, "format", obj.Fields[2].Value.(*Call).Callee.Name)
+	guarded := obj.Fields[3].Value.(*Infix)
+	require.Equal(t, "&&", guarded.Op)
+
+	// deep-paren-mix: ((a+1) * (b-2)) / (c+3)
+	dpm := byKey["deep-paren-mix"].(*Infix)
+	require.Equal(t, "/", dpm.Op)
+	require.Equal(t, "*", dpm.Left.(*Infix).Op)
+	require.Equal(t, "+", dpm.Right.(*Infix).Op)
+
+	// call-in-call-in-call: outer(middle(inner('deep')), 1)
+	cic := byKey["call-in-call-in-call"].(*Call)
+	require.Equal(t, "outer", cic.Callee.Name)
+	require.Len(t, cic.Args, 2)
+	mid := cic.Args[0].(*Call)
+	require.Equal(t, "middle", mid.Callee.Name)
+	in := mid.Args[0].(*Call)
+	require.Equal(t, "inner", in.Callee.Name)
+	require.Equal(t, "deep", in.Args[0].(*StringLit).Value)
+	require.Equal(t, int64(1), cic.Args[1].(*NumberLit).ParsedInt)
+
+	// mixed-precedence: a + b * c == d - e / f && g
+	// && binds loosest, so top is &&
+	mp := byKey["mixed-precedence"].(*Infix)
+	require.Equal(t, "&&", mp.Op)
+	// Left of && is the equality (== binds looser than +/-)
+	require.Equal(t, "==", mp.Left.(*Infix).Op)
+	require.Equal(t, "g", mp.Right.(*Ident).Name)
+	// Left of == is "a + b * c"
+	eqLeft := mp.Left.(*Infix).Left.(*Infix)
+	require.Equal(t, "+", eqLeft.Op)
+	require.Equal(t, "*", eqLeft.Right.(*Infix).Op)
+	// Right of == is "d - e / f"
+	eqRight := mp.Left.(*Infix).Right.(*Infix)
+	require.Equal(t, "-", eqRight.Op)
+	require.Equal(t, "/", eqRight.Right.(*Infix).Op)
+
+	// unary-on-call: !lib.is-valid(var.x)
+	uoc := byKey["unary-on-call"].(*Prefix)
+	require.Equal(t, "!", uoc.Op)
+	call := uoc.Expr.(*Call)
+	require.Equal(t, "lib", call.Module.Name)
+	require.Equal(t, "is-valid", call.Func.Name)
+
+	// unary-on-paren: -(var.x + var.y)
+	uop := byKey["unary-on-paren"].(*Prefix)
+	require.Equal(t, "-", uop.Op)
+	require.Equal(t, "+", uop.Expr.(*Infix).Op)
+
+	// chain-with-calls: a + format(...) + b - left-associated
+	cwc := byKey["chain-with-calls"].(*Infix)
+	require.Equal(t, "+", cwc.Op)
+	require.Equal(t, "+", cwc.Left.(*Infix).Op)
+	require.Equal(t, "b", cwc.Right.(*Ident).Name)
+
+	// call-with-arr-arg: build([1,2,3], var.opts)
+	cwa := byKey["call-with-arr-arg"].(*Call)
+	require.Equal(t, "build", cwa.Callee.Name)
+	require.IsType(t, &ArrayLit{}, cwa.Args[0])
+	require.Len(t, cwa.Args[0].(*ArrayLit).Elements, 3)
+
+	// call-with-obj-arg: merge({a:1,b:2}, var.extra)
+	cwo := byKey["call-with-obj-arg"].(*Call)
+	require.Equal(t, "merge", cwo.Callee.Name)
+	require.IsType(t, &ObjectLit{}, cwo.Args[0])
+	require.Len(t, cwo.Args[0].(*ObjectLit).Fields, 2)
+
+	// double-indexed: data.x['outer']['inner'].field
+	di := byKey["double-indexed"].(*DotPath)
+	require.Equal(t, "data", di.Root.Name)
+	require.Len(t, di.Segments, 4)
+	require.Equal(t, "x", di.Segments[0].Name)
+	require.Equal(t, "outer", di.Segments[1].Index.(*StringLit).Value)
+	require.Equal(t, "inner", di.Segments[2].Index.(*StringLit).Value)
+	require.Equal(t, "field", di.Segments[3].Name)
 }
 
 func TestParseInvalidFixtures(t *testing.T) {

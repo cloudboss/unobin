@@ -1,0 +1,25 @@
+add:        1 + 2
+sub:        5 - 3
+mul:        4 * 6
+div:        10 / 2
+eq:         a == b
+ne:         a != b
+lt:         a < b
+le:         a <= b
+gt:         a > b
+ge:         a >= b
+both-and:   a && b
+either-or:  a || b
+negate:     !a
+unary-neg:  -x
+chain-add:  1 + 2 + 3
+chain-mul:  2 * 3 * 4
+mixed:      1 + 2 * 3
+parens:     (1 + 2) * 3
+mixed-cmp:  a + b == c * 2
+logic:      a > 0 && b < 10 || c == 0
+multi-line: 1
+            + 2
+            + 3
+tight-add:  1+2
+tight-mul:  3*4

@@ -1,0 +1,23 @@
+call-plus-string:    format('%s-%s', var.region, var.name) + '-suffix'
+nested-calls:        lib.index-by(format('%s', var.x), 'name')
+call-as-operand:     count(var.items) > 0 && var.enabled
+arith-with-vars:     (var.size + 1) * 2
+deep-comparison:     var.region == 'us-east-1' || var.region == 'us-west-2'
+indexed-in-arith:    var.tags['Name'] + '-x'
+arr-of-exprs:        [1 + 1, 2 * 2, format('%d', 3), var.x]
+obj-of-exprs: {
+  computed: var.x + 1,
+  negated:  !var.flag,
+  call:     format('%s', var.x),
+  guarded:  var.x > 0 && var.x < 100,
+}
+deep-paren-mix:      ((var.a + 1) * (var.b - 2)) / (var.c + 3)
+call-in-call-in-call: outer(middle(inner('deep')), 1)
+ternary-like:        var.x > 0 && (var.x < 10 || var.x > 100)
+mixed-precedence:    a + b * c == d - e / f && g
+unary-on-call:       !lib.is-valid(var.x)
+unary-on-paren:      -(var.x + var.y)
+chain-with-calls:    a + format('%s', x) + b
+call-with-arr-arg:   build([1, 2, 3], var.opts)
+call-with-obj-arg:   merge({a: 1, b: 2}, var.extra)
+double-indexed:      data.x['outer']['inner'].field

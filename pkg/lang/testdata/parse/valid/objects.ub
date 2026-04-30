@@ -21,44 +21,47 @@ comment-inline: {
   one: 1 # An inline comment is fine
   two: 2
 }
-string-keys: {'one': 1 'two': 2}
+string-keys: {'one': 1, 'two': 2}
 mixed-keys: {
-  bare-key: 1
-  'string-key': 2
-  '$id': 3
+  bare-key: 1,
+  'string-key': 2,
+  '$id': 3,
 }
 arbitrary-keys: {
-  '': 'empty key'
-  ' leading space': 1
-  'has spaces in middle': 2
-  'with.dots': 3
-  'with/slashes/path': 4
-  'with-dashes-and_underscores': 5
-  'starts-with-digit-1': 6
-  '@looks-like-meta': 7
-  'special $#%&* chars': 8
-  'with"double"quotes': 9
-  'escaped \'apostrophe\'': 10
-  'unicode-cafe': 11
-  'true': 'not a bool'
+  '': 'empty key',
+  ' leading space': 1,
+  'has spaces in middle': 2,
+  'with.dots': 3,
+  'with/slashes/path': 4,
+  'with-dashes-and_underscores': 5,
+  'starts-with-digit-1': 6,
+  '@looks-like-meta': 7,
+  'special $#%&* chars': 8,
+  'with"double"quotes': 9,
+  'escaped \'apostrophe\'': 10,
+  'unicode-cafe': 11,
+  'true': 'not a bool',
 }
 all-kinds-of-values: {
-  '1': 1
-  '1a': [1]
-  '1b': [{'a': 'A'}]
-  '1c': [[] {}]
-  one: {'a': 'A' 'b': 'B'}
+  '1': 1,
+  '1a': [1],
+  '1b': [{'a': 'A'}],
+  '1c': [[], {}],
+  one: {'a': 'A', 'b': 'B'},
   two: {
-                      #   _____
-    'a': 100 'b': 200 # nested objects with inline comments
-                      #
-    'c': 300
-  }
-  '2': 2
-  '2a': 2.0
-  '2b': 0.2
-  true-key: false
-  false-key: true
-  'true': false
-  'false': true
+    'a': 100, 'b': 200,
+    'c': 300,
+  },
+  '2': 2,
+  '2a': 2.0,
+  '2b': 0.2,
+  true-key: false,
+  false-key: true,
+  'true': false,
+  'false': true,
+}
+one-line-commas: {one: 1, two: 2}
+multiline-commas: {
+  one: 1,
+  two: 2,
 }

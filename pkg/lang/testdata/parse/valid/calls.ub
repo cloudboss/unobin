@@ -1,0 +1,8 @@
+no-args:        range()
+one-arg:         range(3)
+multi-arg:       format('%s-%s', var.region, var.name)
+nested-calls:    format('%s', b64-encode('plaintext'))
+module-call:     lib.index-by(var.items, 'name')
+module-no-args:  lib.now()
+call-as-arg:     outer(inner('x'), 1)
+trailing-comma:  format('%s', var.x,)
