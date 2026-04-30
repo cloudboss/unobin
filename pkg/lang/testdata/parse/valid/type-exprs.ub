@@ -1,0 +1,51 @@
+# Every form a type expression can take. Each top-level value is the value
+# slot the schema validator would call PromoteType on.
+
+atomic-string:  string
+atomic-number:  number
+atomic-integer: integer
+atomic-boolean: boolean
+atomic-null:    null
+atomic-any:     any
+
+list-strings: list(string)
+set-strings:  set(string)
+map-strings:  map(string)
+
+nested-list-of-list: list(list(integer))
+list-of-map:         list(map(string))
+
+tuple-mixed: tuple([string, integer, boolean])
+tuple-empty: tuple([])
+
+simple-object: object({
+  name:  string,
+  count: integer,
+})
+
+object-of-object: object({
+  inner: object({
+    flag: boolean,
+  }),
+})
+
+optional-bare:         optional(string)
+optional-with-default: optional(integer, 3)
+optional-list:         optional(list(string), [])
+optional-map:          optional(map(string), {})
+
+# Realistic input-declaration shape: an object field whose value is a full
+# input declaration (carries `type:` plus modifier keys).
+object-with-decl: object({
+  name: { type: string, pattern: '^[a-z]+$' },
+  size: { type: optional(integer, 3), minimum: 1 },
+})
+
+# A deeply nested combination matching the language reference example.
+deep: optional(list(object({
+  from-port:   integer,
+  to-port:     integer,
+  protocol:    string,
+  cidr-blocks: list(string),
+  description: optional(string),
+})), [])
