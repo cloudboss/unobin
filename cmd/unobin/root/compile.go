@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
@@ -25,10 +26,13 @@ var (
 )
 
 type compileConfig struct {
-	stackPath string
-	version   string
-	commit    string
-	stackName string
+	stackPath     string
+	version       string
+	commit        string
+	stackName     string
+	outDir        string
+	goVersion     string
+	unobinVersion string
 }
 
 func init() {
@@ -43,9 +47,21 @@ func init() {
 
 	CompileCmd.Flags().StringVar(&compileCfg.stackName, "name", "",
 		"Stack name. Defaults to the parent directory's basename.")
+
+	CompileCmd.Flags().StringVarP(&compileCfg.outDir, "out", "o", "",
+		"Directory to write main.go and go.mod into, or `-` to print main.go to stdout.")
+
+	CompileCmd.Flags().StringVar(&compileCfg.goVersion, "go-version", goMajorMinor(),
+		"Go toolchain version to declare in the generated go.mod.")
+
+	CompileCmd.Flags().StringVar(&compileCfg.unobinVersion, "unobin-version", "v0.0.0",
+		"Version of github.com/cloudboss/unobin to require in the generated go.mod.")
 }
 
 func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
+	if cfg.outDir == "" {
+		return errors.New("--out is required (use `-` for stdout)")
+	}
 	src, err := os.ReadFile(cfg.stackPath)
 	if err != nil {
 		return err
@@ -63,6 +79,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		return errors.Join(errs...)
 	}
 	goImports := make(map[string]string, len(refs))
+	importVersions := make(map[string]string, len(refs))
 	for alias, ref := range refs {
 		rem, ok := ref.(*resolve.RemoteImport)
 		if !ok {
@@ -73,25 +90,41 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 			path += "/" + rem.Subdir
 		}
 		goImports[alias] = path
+		importVersions[path] = rem.Version
 	}
 
 	name := cfg.stackName
 	if name == "" {
 		name = deriveStackName(cfg.stackPath)
 	}
-
-	out, err := codegen.Generate(codegen.Input{
+	in := codegen.Input{
 		Source:    string(src),
 		StackName: name,
 		Version:   cfg.version,
 		Commit:    cfg.commit,
 		GoImports: goImports,
-	})
-	if err != nil {
+	}
+
+	if cfg.outDir == "-" {
+		out, err := codegen.Generate(in)
+		if err != nil {
+			return err
+		}
+		_, err = cmd.OutOrStdout().Write(out)
 		return err
 	}
-	_, err = cmd.OutOrStdout().Write(out)
-	return err
+	return codegen.WriteSource(cfg.outDir, in, cfg.goVersion, cfg.unobinVersion, importVersions)
+}
+
+// goMajorMinor returns the running Go toolchain's `<major>.<minor>` so
+// the generated go.mod's `go` directive matches the current toolchain.
+func goMajorMinor() string {
+	v := strings.TrimPrefix(goruntime.Version(), "go")
+	parts := strings.SplitN(v, ".", 3)
+	if len(parts) >= 2 {
+		return parts[0] + "." + parts[1]
+	}
+	return v
 }
 
 func deriveStackName(stackPath string) string {
