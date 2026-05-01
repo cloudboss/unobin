@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -33,6 +34,8 @@ type compileConfig struct {
 	outDir        string
 	goVersion     string
 	unobinVersion string
+	replaceUnobin string
+	build         bool
 }
 
 func init() {
@@ -56,6 +59,12 @@ func init() {
 
 	CompileCmd.Flags().StringVar(&compileCfg.unobinVersion, "unobin-version", "v0.0.0",
 		"Version of github.com/cloudboss/unobin to require in the generated go.mod.")
+
+	CompileCmd.Flags().StringVar(&compileCfg.replaceUnobin, "replace-unobin", "",
+		"Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive.")
+
+	CompileCmd.Flags().BoolVar(&compileCfg.build, "build", false,
+		"After writing the source, run `go build` in the output directory.")
 }
 
 func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
@@ -113,7 +122,44 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		_, err = cmd.OutOrStdout().Write(out)
 		return err
 	}
-	return codegen.WriteSource(cfg.outDir, in, cfg.goVersion, cfg.unobinVersion, importVersions)
+
+	replaces := codegen.Replaces{}
+	if cfg.replaceUnobin != "" {
+		abs, err := filepath.Abs(cfg.replaceUnobin)
+		if err != nil {
+			return err
+		}
+		replaces["github.com/cloudboss/unobin"] = abs
+	}
+
+	err = codegen.WriteSource(cfg.outDir, in,
+		cfg.goVersion, cfg.unobinVersion, importVersions, replaces)
+	if err != nil {
+		return err
+	}
+	if cfg.build {
+		return runGoBuild(cmd, cfg.outDir, name)
+	}
+	return nil
+}
+
+func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
+	tidy := exec.Command("go", "mod", "tidy")
+	tidy.Dir = dir
+	tidy.Stdout = cmd.OutOrStdout()
+	tidy.Stderr = cmd.ErrOrStderr()
+	if err := tidy.Run(); err != nil {
+		return fmt.Errorf("go mod tidy failed: %w", err)
+	}
+
+	build := exec.Command("go", "build", "-o", binaryName, ".")
+	build.Dir = dir
+	build.Stdout = cmd.OutOrStdout()
+	build.Stderr = cmd.ErrOrStderr()
+	if err := build.Run(); err != nil {
+		return fmt.Errorf("go build failed: %w", err)
+	}
+	return nil
 }
 
 // goMajorMinor returns the running Go toolchain's `<major>.<minor>` so

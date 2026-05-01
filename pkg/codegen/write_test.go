@@ -21,7 +21,7 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 		},
 	}, "1.26", "v0.10.0", map[string]string{
 		"github.com/cloudboss/unobin/pkg/modules/core": "v0.10.0",
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	mainBytes, err := os.ReadFile(filepath.Join(dir, "main.go"))
@@ -48,7 +48,7 @@ func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 		},
 	}, "1.26", "v0.10.0", map[string]string{
 		"github.com/cloudboss/unobin/pkg/modules/core": "v0.10.0",
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	modBytes, err := os.ReadFile(filepath.Join(dir, "go.mod"))
@@ -72,7 +72,7 @@ func TestWriteSourceIncludesExternalImports(t *testing.T) {
 	}, "1.26", "v0.10.0", map[string]string{
 		"github.com/cloudboss/unobin/pkg/modules/core": "v0.10.0",
 		"github.com/cloudboss/unobin-modules/aws":      "v0.5.0",
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	modBytes, err := os.ReadFile(filepath.Join(dir, "go.mod"))
@@ -91,7 +91,7 @@ func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 		GoImports: map[string]string{
 			"aws": "github.com/cloudboss/unobin-modules/aws",
 		},
-	}, "1.26", "v0.10.0", map[string]string{})
+	}, "1.26", "v0.10.0", map[string]string{}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no version")
 }
@@ -108,7 +108,30 @@ func TestWriteSourceRequiresGoVersion(t *testing.T) {
 		},
 	}, "", "v0.10.0", map[string]string{
 		"github.com/cloudboss/unobin/pkg/modules/core": "v0.10.0",
-	})
+	}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "goVersion")
+}
+
+func TestWriteSourceWritesReplaceDirectives(t *testing.T) {
+	dir := t.TempDir()
+	err := WriteSource(dir, Input{
+		Source:    "description: 'x'\n",
+		StackName: "demo",
+		Version:   "v0",
+		Commit:    "c",
+		GoImports: map[string]string{
+			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+		},
+	}, "1.26", "v0.10.0", map[string]string{
+		"github.com/cloudboss/unobin/pkg/modules/core": "v0.10.0",
+	}, Replaces{
+		"github.com/cloudboss/unobin": "/local/checkout/unobin",
+	})
+	require.NoError(t, err)
+
+	modBytes, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(modBytes),
+		"github.com/cloudboss/unobin => /local/checkout/unobin")
 }
