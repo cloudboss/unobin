@@ -2,10 +2,12 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/state"
 )
 
 // Executor runs a DAG end to end: each node is processed in topological
@@ -13,59 +15,110 @@ import (
 // grows as upstream nodes complete. Action and data source results feed
 // back into the context for downstream references. Output values
 // collect into the result.
+//
+// The Executor reads the prior snapshot from Store at the start of the
+// run, uses it to skip actions whose trigger hash matches, and writes a
+// fresh snapshot at the end. Store and Stack must be set.
 type Executor struct {
 	DAG     *DAG
 	Modules map[string]*Module
 	Inputs  map[string]any
+
+	Store *state.LocalStore
+	Stack state.StackInfo
 }
 
-// ExecResult is what the Executor produces: the outputs map, plus the
-// Action and Data tables populated during the run for later inspection.
+// ExecResult is what the Executor produces: the outputs map, the
+// Action and Data tables populated during the run, and the rev of the
+// snapshot written (empty when no Store was configured).
 type ExecResult struct {
-	Outputs map[string]any
-	Actions map[string]any
-	Data    map[string]any
+	Outputs    map[string]any
+	Actions    map[string]any
+	Data       map[string]any
+	WrittenRev string
+}
+
+type runState struct {
+	eval    *EvalContext
+	outputs map[string]any
+	prior   *state.Snapshot
+	next    *state.Snapshot
 }
 
 // Run executes every node in dependency order and returns the result.
 // The first error from a node aborts the run.
 func (e *Executor) Run(ctx context.Context) (*ExecResult, error) {
+	if e.Store == nil {
+		return nil, errors.New("executor: Store is required")
+	}
 	order, err := e.DAG.TopologicalOrder()
 	if err != nil {
 		return nil, err
 	}
-	eval := &EvalContext{
-		Vars:      e.Inputs,
-		Resources: make(map[string]any),
-		Data:      make(map[string]any),
-		Actions:   make(map[string]any),
+	rs, err := e.initRun()
+	if err != nil {
+		return nil, err
 	}
-	outputs := make(map[string]any)
 	for _, addr := range order {
 		node := e.DAG.Nodes[addr]
-		if err := e.runNode(ctx, node, eval, outputs); err != nil {
+		if err := e.runNode(ctx, rs, node); err != nil {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
 	}
+	rev, err := e.persist(rs)
+	if err != nil {
+		return nil, err
+	}
 	return &ExecResult{
-		Outputs: outputs,
-		Actions: eval.Actions,
-		Data:    eval.Data,
+		Outputs:    rs.outputs,
+		Actions:    rs.eval.Actions,
+		Data:       rs.eval.Data,
+		WrittenRev: rev,
 	}, nil
 }
 
-func (e *Executor) runNode(ctx context.Context, n *Node, ec *EvalContext, outputs map[string]any) error {
+func (e *Executor) initRun() (*runState, error) {
+	rs := &runState{
+		eval: &EvalContext{
+			Vars:      e.Inputs,
+			Resources: make(map[string]any),
+			Data:      make(map[string]any),
+			Actions:   make(map[string]any),
+		},
+		outputs: make(map[string]any),
+		next:    state.NewSnapshot(e.Stack, e.Store.DeploymentID),
+	}
+	prior, err := e.Store.Current()
+	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
+		return nil, err
+	}
+	rs.prior = prior
+	return rs, nil
+}
+
+func (e *Executor) persist(rs *runState) (string, error) {
+	rev, err := e.Store.Write(rs.next)
+	if err != nil {
+		return "", err
+	}
+	if err := e.Store.SetCurrent(rev); err != nil {
+		return "", err
+	}
+	return rev, nil
+}
+
+func (e *Executor) runNode(ctx context.Context, rs *runState, n *Node) error {
 	switch n.Kind {
 	case NodeAction:
-		return e.runAction(ctx, n, ec)
+		return e.runAction(ctx, rs, n)
 	case NodeData:
-		return e.runData(ctx, n, ec)
+		return e.runData(ctx, rs, n)
 	case NodeOutput:
-		val, err := Eval(n.Body, ec)
+		val, err := Eval(n.Body, rs.eval)
 		if err != nil {
 			return err
 		}
-		outputs[n.Name] = val
+		rs.outputs[n.Name] = val
 		return nil
 	case NodeResource:
 		return fmt.Errorf("resources are not handled by the executor yet")
@@ -74,7 +127,7 @@ func (e *Executor) runNode(ctx context.Context, n *Node, ec *EvalContext, output
 	}
 }
 
-func (e *Executor) runAction(ctx context.Context, n *Node, ec *EvalContext) error {
+func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
 	mod, ok := e.Modules[n.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", n.NS)
@@ -83,23 +136,50 @@ func (e *Executor) runAction(ctx context.Context, n *Node, ec *EvalContext) erro
 	if !ok {
 		return fmt.Errorf("module %s has no action %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, ec)
+	inputs, err := evalBody(n.Body, rs.eval)
 	if err != nil {
 		return err
 	}
-	action := at.New()
-	if err := Decode(action, inputs); err != nil {
-		return err
-	}
-	result, err := action.Run(ctx)
+	trigger, err := ComputeTrigger(n, inputs, rs.eval)
 	if err != nil {
 		return err
 	}
-	storeNested(ec.Actions, n, mapify(result))
+
+	var prior *state.Entry
+	if rs.prior != nil {
+		prior = rs.prior.Find(n.Address)
+	}
+	skip := !trigger.AlwaysRerun && prior != nil && prior.TriggerHash != "" &&
+		prior.TriggerHash == trigger.Hash
+
+	var outputs map[string]any
+	if skip {
+		outputs = prior.Outputs
+	} else {
+		action := at.New()
+		if err := Decode(action, inputs); err != nil {
+			return err
+		}
+		result, err := action.Run(ctx)
+		if err != nil {
+			return err
+		}
+		outputs = mapify(result)
+	}
+	storeNested(rs.eval.Actions, n, outputs)
+
+	rs.next.Entries = append(rs.next.Entries, &state.Entry{
+		Address:     n.Address,
+		Type:        state.EntryAction,
+		Kind:        n.Type,
+		TriggerHash: trigger.Hash,
+		Inputs:      inputs,
+		Outputs:     outputs,
+	})
 	return nil
 }
 
-func (e *Executor) runData(ctx context.Context, n *Node, ec *EvalContext) error {
+func (e *Executor) runData(ctx context.Context, rs *runState, n *Node) error {
 	mod, ok := e.Modules[n.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", n.NS)
@@ -108,7 +188,7 @@ func (e *Executor) runData(ctx context.Context, n *Node, ec *EvalContext) error 
 	if !ok {
 		return fmt.Errorf("module %s has no data source %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, ec)
+	inputs, err := evalBody(n.Body, rs.eval)
 	if err != nil {
 		return err
 	}
@@ -120,7 +200,7 @@ func (e *Executor) runData(ctx context.Context, n *Node, ec *EvalContext) error 
 	if err != nil {
 		return err
 	}
-	storeNested(ec.Data, n, mapify(result))
+	storeNested(rs.eval.Data, n, mapify(result))
 	return nil
 }
 
