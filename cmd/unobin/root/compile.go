@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
@@ -144,7 +145,12 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 }
 
 func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
-	tidy := exec.Command("go", "mod", "tidy")
+	goBin, err := deps.Ensure(deps.Go)
+	if err != nil {
+		return err
+	}
+
+	tidy := exec.Command(goBin, "mod", "tidy")
 	tidy.Dir = dir
 	tidy.Stdout = cmd.OutOrStdout()
 	tidy.Stderr = cmd.ErrOrStderr()
@@ -152,7 +158,7 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
 		return fmt.Errorf("go mod tidy failed: %w", err)
 	}
 
-	build := exec.Command("go", "build", "-o", binaryName, ".")
+	build := exec.Command(goBin, "build", "-o", binaryName, ".")
 	build.Dir = dir
 	build.Stdout = cmd.OutOrStdout()
 	build.Stderr = cmd.ErrOrStderr()
