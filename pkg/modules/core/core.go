@@ -19,6 +19,11 @@ func Module() *runtime.Module {
 				Description: "Run a shell script and capture its output",
 				New:         func() runtime.Action { return &ScriptAction{} },
 			},
+			"http": {
+				Name:        "http",
+				Description: "Issue an HTTP request and capture the response",
+				New:         func() runtime.Action { return &HTTPAction{} },
+			},
 		},
 	}
 }
