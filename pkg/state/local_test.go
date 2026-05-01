@@ -11,46 +11,52 @@ import (
 
 func newStore(t *testing.T) *LocalStore {
 	t.Helper()
-	s, err := NewLocalStore(t.TempDir(), "cluster-deploy", "prod-east-alpha")
+	s, err := NewLocalStore(t.TempDir(), "cluster-deploy", "prod-east-alpha", NoopEncrypter{})
 	require.NoError(t, err)
 	return s
 }
 
 func TestLocalStorePathLayout(t *testing.T) {
 	root := t.TempDir()
-	s, err := NewLocalStore(root, "cluster-deploy", "prod")
+	s, err := NewLocalStore(root, "cluster-deploy", "prod", NoopEncrypter{})
 	require.NoError(t, err)
 	require.Equal(t, root, s.Root)
 	require.Equal(t, "cluster-deploy", s.Stack)
 	require.Equal(t, "prod", s.DeploymentID)
 
-	sha, err := s.Write(sampleSnapshot())
+	rev, err := s.Write(sampleSnapshot())
 	require.NoError(t, err)
-	wantPath := filepath.Join(root, "cluster-deploy", "prod", "snapshots", sha+".json")
+	wantPath := filepath.Join(root, "cluster-deploy", "prod", "snapshots", rev+".json.enc")
 	_, err = os.Stat(wantPath)
 	require.NoError(t, err)
 }
 
 func TestLocalStoreRequiresStackAndDeployment(t *testing.T) {
 	root := t.TempDir()
-	_, err := NewLocalStore(root, "", "prod")
+	_, err := NewLocalStore(root, "", "prod", NoopEncrypter{})
 	require.Error(t, err)
-	_, err = NewLocalStore(root, "stack", "")
+	_, err = NewLocalStore(root, "stack", "", NoopEncrypter{})
 	require.Error(t, err)
+}
+
+func TestLocalStoreRequiresEncrypter(t *testing.T) {
+	_, err := NewLocalStore(t.TempDir(), "stack", "prod", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "encrypter")
 }
 
 func TestLocalStoreSiblingDeploymentsIsolated(t *testing.T) {
 	root := t.TempDir()
-	a, err := NewLocalStore(root, "stack", "prod")
+	a, err := NewLocalStore(root, "stack", "prod", NoopEncrypter{})
 	require.NoError(t, err)
-	b, err := NewLocalStore(root, "stack", "staging")
+	b, err := NewLocalStore(root, "stack", "staging", NoopEncrypter{})
 	require.NoError(t, err)
 
 	prodSnap := sampleSnapshot()
 	prodSnap.DeploymentID = "prod"
-	prodSHA, err := a.Write(prodSnap)
+	rev, err := a.Write(prodSnap)
 	require.NoError(t, err)
-	require.NoError(t, a.SetCurrent(prodSHA))
+	require.NoError(t, a.SetCurrent(rev))
 
 	_, err = b.Current()
 	require.True(t, errors.Is(err, ErrNoCurrent))
@@ -66,11 +72,11 @@ func TestLocalStoreWriteAndRead(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()
 
-	sha, err := s.Write(snap)
+	rev, err := s.Write(snap)
 	require.NoError(t, err)
-	require.Len(t, sha, 64)
+	require.NotEmpty(t, rev)
 
-	got, err := s.Get(sha)
+	got, err := s.Get(rev)
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
 }
@@ -79,26 +85,26 @@ func TestLocalStoreSetCurrent(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()
 
-	sha, err := s.Write(snap)
+	rev, err := s.Write(snap)
 	require.NoError(t, err)
-	require.NoError(t, s.SetCurrent(sha))
+	require.NoError(t, s.SetCurrent(rev))
 
-	gotSHA, err := s.CurrentSHA()
+	gotRev, err := s.CurrentRev()
 	require.NoError(t, err)
-	require.Equal(t, sha, gotSHA)
+	require.Equal(t, rev, gotRev)
 
 	got, err := s.Current()
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
 }
 
-func TestLocalStoreSetCurrentRejectsUnknownSHA(t *testing.T) {
+func TestLocalStoreSetCurrentRejectsUnknownRev(t *testing.T) {
 	s := newStore(t)
-	err := s.SetCurrent("0123456789abcdef")
+	err := s.SetCurrent("2026-05-01T00:00:00Z")
 	require.Error(t, err)
 }
 
-func TestLocalStoreSameContentSameSHA(t *testing.T) {
+func TestLocalStoreSameContentDistinctRevs(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()
 
@@ -106,10 +112,10 @@ func TestLocalStoreSameContentSameSHA(t *testing.T) {
 	require.NoError(t, err)
 	b, err := s.Write(snap)
 	require.NoError(t, err)
-	require.Equal(t, a, b)
+	require.NotEqual(t, a, b, "two writes should yield two distinct revs")
 }
 
-func TestLocalStoreList(t *testing.T) {
+func TestLocalStoreListChronological(t *testing.T) {
 	s := newStore(t)
 	require.Empty(t, mustList(t, s))
 
@@ -124,7 +130,7 @@ func TestLocalStoreList(t *testing.T) {
 	require.NoError(t, err)
 
 	got := mustList(t, s)
-	require.ElementsMatch(t, []string{a, b}, got)
+	require.Equal(t, []string{a, b}, got, "List should return revs in chronological order")
 }
 
 func TestLocalStoreCurrentSurvivesNewWrites(t *testing.T) {
@@ -132,9 +138,9 @@ func TestLocalStoreCurrentSurvivesNewWrites(t *testing.T) {
 
 	first := sampleSnapshot()
 	first.DeploymentID = "first"
-	aSHA, err := s.Write(first)
+	rev, err := s.Write(first)
 	require.NoError(t, err)
-	require.NoError(t, s.SetCurrent(aSHA))
+	require.NoError(t, s.SetCurrent(rev))
 
 	second := sampleSnapshot()
 	second.DeploymentID = "second"
@@ -151,4 +157,48 @@ func mustList(t *testing.T, s *LocalStore) []string {
 	got, err := s.List()
 	require.NoError(t, err)
 	return got
+}
+
+func TestLocalStoreWithEnvKeyEncrypter(t *testing.T) {
+	setKey(t, "UB_TEST_KEY")
+	enc, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	require.NoError(t, err)
+
+	s, err := NewLocalStore(t.TempDir(), "stack", "prod", enc)
+	require.NoError(t, err)
+
+	snap := sampleSnapshot()
+	rev, err := s.Write(snap)
+	require.NoError(t, err)
+
+	onDisk, err := os.ReadFile(filepath.Join(s.dir, "snapshots", rev+".json.enc"))
+	require.NoError(t, err)
+	require.NotContains(t, string(onDisk), "cluster-deploy")
+	require.NotContains(t, string(onDisk), "vpc-abc")
+
+	got, err := s.Get(rev)
+	require.NoError(t, err)
+	require.Equal(t, snap, got)
+}
+
+func TestLocalStoreWrongKeyCantDecrypt(t *testing.T) {
+	root := t.TempDir()
+
+	setKey(t, "UB_TEST_KEY_A")
+	encA, err := NewEnvKeyEncrypter("UB_TEST_KEY_A")
+	require.NoError(t, err)
+	a, err := NewLocalStore(root, "stack", "prod", encA)
+	require.NoError(t, err)
+	rev, err := a.Write(sampleSnapshot())
+	require.NoError(t, err)
+
+	setKey(t, "UB_TEST_KEY_B")
+	encB, err := NewEnvKeyEncrypter("UB_TEST_KEY_B")
+	require.NoError(t, err)
+	b, err := NewLocalStore(root, "stack", "prod", encB)
+	require.NoError(t, err)
+
+	_, err = b.Get(rev)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "decrypt")
 }
