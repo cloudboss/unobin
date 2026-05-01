@@ -14,6 +14,11 @@ func Module() *runtime.Module {
 				Description: "Execute a process and capture its output",
 				New:         func() runtime.Action { return &CommandAction{} },
 			},
+			"script": {
+				Name:        "script",
+				Description: "Run a shell script and capture its output",
+				New:         func() runtime.Action { return &ScriptAction{} },
+			},
 		},
 	}
 }

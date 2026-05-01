@@ -1,0 +1,63 @@
+package core
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func runScript(t *testing.T, a *ScriptAction) CommandResult {
+	t.Helper()
+	res, err := a.Run(context.Background())
+	require.NoError(t, err)
+	cr, ok := res.(CommandResult)
+	require.True(t, ok, "got %T", res)
+	return cr
+}
+
+func TestScriptDefaultsToSh(t *testing.T) {
+	cr := runScript(t, &ScriptAction{Script: "echo hello"})
+	require.Equal(t, "hello\n", cr.Stdout)
+	require.Equal(t, 0, cr.ExitCode)
+}
+
+func TestScriptMultiline(t *testing.T) {
+	cr := runScript(t, &ScriptAction{Script: "echo one\necho two\necho three\n"})
+	require.Equal(t, "one\ntwo\nthree\n", cr.Stdout)
+}
+
+func TestScriptExpandsEnvironment(t *testing.T) {
+	cr := runScript(t, &ScriptAction{
+		Script:      "echo \"$UNOBIN_TEST_KEY\"",
+		Environment: map[string]string{"UNOBIN_TEST_KEY": "abc123"},
+	})
+	require.Equal(t, "abc123\n", cr.Stdout)
+}
+
+func TestScriptCustomShell(t *testing.T) {
+	cr := runScript(t, &ScriptAction{
+		Shell:  "bash",
+		Script: "echo $BASH_VERSION",
+	})
+	require.NotEmpty(t, cr.Stdout)
+}
+
+func TestScriptReportsExitCode(t *testing.T) {
+	cr := runScript(t, &ScriptAction{Script: "exit 9"})
+	require.Equal(t, 9, cr.ExitCode)
+}
+
+func TestScriptRequiresBody(t *testing.T) {
+	_, err := (&ScriptAction{}).Run(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "script is required")
+}
+
+func TestCoreModuleRegistersScript(t *testing.T) {
+	at, ok := Module().Actions["script"]
+	require.True(t, ok)
+	require.NotNil(t, at.New)
+	_, ok = at.New().(*ScriptAction)
+	require.True(t, ok)
+}

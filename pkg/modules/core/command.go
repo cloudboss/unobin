@@ -1,13 +1,9 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"sort"
 	"time"
 )
 
@@ -36,52 +32,9 @@ func (a *CommandAction) Run(ctx context.Context) (any, error) {
 	if a.Argv[0] == "" {
 		return nil, fmt.Errorf("argv[0] is empty")
 	}
-	cmd := exec.CommandContext(ctx, a.Argv[0], a.Argv[1:]...)
-	cmd.Env = mergedEnv(a.Environment)
-	if a.WorkingDir != "" {
-		cmd.Dir = a.WorkingDir
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	start := time.Now()
-	err := cmd.Run()
-	duration := time.Since(start)
-
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		return nil, ctxErr
-	}
-	exitCode := 0
-	if err != nil {
-		exitErr, ok := errors.AsType[*exec.ExitError](err)
-		if !ok {
-			return nil, err
-		}
-		exitCode = exitErr.ExitCode()
-	}
-
-	return CommandResult{
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-		ExitCode: exitCode,
-		Duration: duration,
-	}, nil
-}
-
-func mergedEnv(extra map[string]string) []string {
-	env := append([]string(nil), os.Environ()...)
-	if len(extra) == 0 {
-		return env
-	}
-	keys := make([]string, 0, len(extra))
-	for k := range extra {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		env = append(env, k+"="+extra[k])
-	}
-	return env
+	return runProcess(ctx, processSpec{
+		Argv:        a.Argv,
+		Environment: a.Environment,
+		WorkingDir:  a.WorkingDir,
+	})
 }
