@@ -1,0 +1,112 @@
+package codegen
+
+import (
+	"go/parser"
+	"go/token"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestGenerateValidGo(t *testing.T) {
+	out, err := Generate(Input{
+		Source:    "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
+		StackName: "demo",
+		Version:   "v0.1.0",
+		Commit:    "abc123",
+		GoImports: map[string]string{
+			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+		},
+	})
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "main.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
+}
+
+func TestGenerateEmbedsConstants(t *testing.T) {
+	out, err := Generate(Input{
+		Source:    "description: 'x'\n",
+		StackName: "my-stack",
+		Version:   "v2.0.3",
+		Commit:    "deadbeef",
+		GoImports: map[string]string{
+			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `stackName    = "my-stack"`)
+	require.Contains(t, s, `stackVersion = "v2.0.3"`)
+	require.Contains(t, s, `stackCommit  = "deadbeef"`)
+}
+
+func TestGenerateEmbedsSourceVerbatim(t *testing.T) {
+	src := "actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"
+	out, err := Generate(Input{
+		Source:    src,
+		StackName: "x",
+		Version:   "v0",
+		Commit:    "c",
+		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
+	})
+	require.NoError(t, err)
+
+	require.Contains(t, string(out), `"actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"`)
+}
+
+func TestGenerateOrdersImports(t *testing.T) {
+	out, err := Generate(Input{
+		Source:    "description: 'x'\n",
+		StackName: "x",
+		Version:   "v0",
+		Commit:    "c",
+		GoImports: map[string]string{
+			"net":  "github.com/me/modules/network",
+			"aws":  "github.com/cloudboss/unobin-modules/aws",
+			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	awsAt := strings.Index(s, `"github.com/cloudboss/unobin-modules/aws"`)
+	coreAt := strings.Index(s, `"github.com/cloudboss/unobin/pkg/modules/core"`)
+	netAt := strings.Index(s, `"github.com/me/modules/network"`)
+	require.True(t, awsAt > 0 && coreAt > 0 && netAt > 0,
+		"all imports should appear in source")
+	require.Less(t, awsAt, coreAt, "aws should appear before core")
+	require.Less(t, coreAt, netAt, "core should appear before net")
+}
+
+func TestGenerateRequiresStackName(t *testing.T) {
+	_, err := Generate(Input{
+		Source:    "description: 'x'",
+		Version:   "v0",
+		Commit:    "c",
+		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "StackName")
+}
+
+func TestGenerateBuildsModulesMap(t *testing.T) {
+	out, err := Generate(Input{
+		Source:    "description: 'x'",
+		StackName: "x",
+		Version:   "v0",
+		Commit:    "c",
+		GoImports: map[string]string{
+			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+			"aws":  "github.com/cloudboss/unobin-modules/aws",
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `"aws":  mod_aws.Module(),`)
+	require.Contains(t, s, `"core": mod_core.Module(),`)
+}
