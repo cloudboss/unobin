@@ -1,7 +1,9 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -121,10 +123,79 @@ func (e *Executor) runNode(ctx context.Context, rs *runState, n *Node) error {
 		rs.outputs[n.Name] = val
 		return nil
 	case NodeResource:
-		return fmt.Errorf("resources are not handled by the executor yet")
+		return e.runResource(ctx, rs, n)
 	default:
 		return fmt.Errorf("unknown node kind %q", n.Kind)
 	}
+}
+
+func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error {
+	mod, ok := e.Modules[n.NS]
+	if !ok {
+		return fmt.Errorf("module %q is not imported", n.NS)
+	}
+	rt, ok := mod.Resources[n.Type]
+	if !ok {
+		return fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+	}
+	inputs, err := evalBody(n.Body, rs.eval)
+	if err != nil {
+		return err
+	}
+
+	var prior *state.Entry
+	if rs.prior != nil {
+		prior = rs.prior.Find(n.Address)
+	}
+
+	resource := rt.New()
+	if err := Decode(resource, inputs); err != nil {
+		return err
+	}
+
+	var outputs map[string]any
+	switch {
+	case prior == nil:
+		result, err := resource.Create(ctx)
+		if err != nil {
+			return err
+		}
+		outputs = mapify(result)
+	case sameInputs(prior.Inputs, inputs):
+		outputs = prior.Outputs
+	default:
+		result, err := resource.Update(ctx, prior.Outputs)
+		if err != nil {
+			return err
+		}
+		outputs = mapify(result)
+	}
+	storeNested(rs.eval.Resources, n, outputs)
+
+	rs.next.Entries = append(rs.next.Entries, &state.Entry{
+		Address:       n.Address,
+		Type:          state.EntryLeaf,
+		Kind:          n.Type,
+		SchemaVersion: rt.SchemaVersion,
+		Inputs:        inputs,
+		Outputs:       outputs,
+	})
+	return nil
+}
+
+// sameInputs compares two input maps by their canonical JSON form so a
+// state round trip, which renders integers as floats, doesn't show up as
+// a change.
+func sameInputs(a, b map[string]any) bool {
+	aj, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bj, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(aj, bj)
 }
 
 func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {

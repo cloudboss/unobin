@@ -176,14 +176,145 @@ actions: {
 	require.Contains(t, err.Error(), "intentional failure")
 }
 
-func TestExecutorRejectsResources(t *testing.T) {
+type resourceCounters struct {
+	creates int64
+	updates int64
+	deletes int64
+}
+
+type countingResource struct {
+	Name string `mapstructure:"name"`
+	Size int64  `mapstructure:"size"`
+
+	counters *resourceCounters
+}
+
+func (r *countingResource) Create(_ context.Context) (any, error) {
+	atomic.AddInt64(&r.counters.creates, 1)
+	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+}
+
+func (r *countingResource) Read(_ context.Context, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *countingResource) Update(_ context.Context, prior any) (any, error) {
+	atomic.AddInt64(&r.counters.updates, 1)
+	m, _ := prior.(map[string]any)
+	if m == nil {
+		m = map[string]any{}
+	}
+	m["name"] = r.Name
+	m["size"] = r.Size
+	return m, nil
+}
+
+func (r *countingResource) Delete(_ context.Context, _ any) error {
+	atomic.AddInt64(&r.counters.deletes, 1)
+	return nil
+}
+
+func (r *countingResource) ReplaceFields() []string {
+	return nil
+}
+
+func resourceModules(c *resourceCounters) map[string]*Module {
+	return map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceType{
+				"thing": {
+					Name:          "thing",
+					SchemaVersion: 1,
+					New:           func() Resource { return &countingResource{counters: c} },
+				},
+			},
+		},
+	}
+}
+
+func TestExecutorCreatesResource(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: { one: { name: 'alpha', size: 1 } }
+  }
+}
+outputs: {
+  id: resource.core.thing.one.id
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src)),
+		Modules: resourceModules(&c),
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "fake-alpha", res.Outputs["id"])
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates))
+}
+
+func TestExecutorSameInputsNoCreateOrUpdate(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: { one: { name: 'alpha', size: 1 } }
+  }
+}
+`
+	var c resourceCounters
+	runExecutorTwice(t, src, resourceModules(&c))
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates))
+}
+
+func TestExecutorChangedInputsTriggersUpdate(t *testing.T) {
+	first := `
+resources: {
+  core: {
+    thing: { one: { name: 'alpha', size: 1 } }
+  }
+}
+`
+	second := `
+resources: {
+  core: {
+    thing: { one: { name: 'alpha', size: 9 } }
+  }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+	_, err = (&Executor{
+		DAG: BuildDAG(parseStack(t, second)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.updates))
+}
+
+func TestExecutorResourceMissingType(t *testing.T) {
 	_, err := runExecutor(t, `
 resources: {
-  core: { whatever: { x: {} } }
+  core: { not-a-thing: { x: {} } }
 }
 `, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "resources")
+	require.Contains(t, err.Error(), "not-a-thing")
 }
 
 func TestExecutorUnknownModule(t *testing.T) {
