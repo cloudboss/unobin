@@ -16,6 +16,7 @@ type EntryType string
 const (
 	EntryLeaf       EntryType = "leaf"
 	EntryModuleCall EntryType = "module-call"
+	EntryAction     EntryType = "action"
 )
 
 // Entry is one record in a snapshot. Type discriminates the shape: leaf
@@ -32,6 +33,8 @@ type Entry struct {
 
 	Module     string `json:"module,omitempty"`
 	ModuleType string `json:"module-type,omitempty"`
+
+	TriggerHash string `json:"trigger-hash,omitempty"`
 
 	Inputs    map[string]any `json:"inputs,omitempty"`
 	Outputs   map[string]any `json:"outputs,omitempty"`
@@ -146,6 +149,10 @@ func (e *Entry) validate() error {
 		}
 		if e.ModuleType == "" {
 			return fmt.Errorf("snapshot: module-call entry %q missing module-type", e.Address)
+		}
+	case EntryAction:
+		if e.Kind == "" {
+			return fmt.Errorf("snapshot: action entry %q missing kind", e.Address)
 		}
 	case "":
 		return fmt.Errorf("snapshot: entry %q missing type", e.Address)

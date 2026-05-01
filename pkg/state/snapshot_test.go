@@ -137,3 +137,43 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.Contains(t, out, `"address": "resource.aws.vpc.main"`)
 	require.Contains(t, out, `"module-type": "cluster"`)
 }
+
+func TestSnapshotActionEntry(t *testing.T) {
+	snap := &Snapshot{
+		FormatVersion: CurrentFormatVersion,
+		Stack:         StackInfo{Name: "x", Version: "v1", Commit: "abc"},
+		DeploymentID:  "prod",
+		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		Entries: []*Entry{
+			{
+				Address:     "action.core.command.smoke-test",
+				Type:        EntryAction,
+				Kind:        "command",
+				TriggerHash: "sha256:deadbeef",
+				Inputs:      map[string]any{"argv": []any{"true"}},
+				Outputs:     map[string]any{"stdout": "", "exit-code": float64(0)},
+			},
+		},
+	}
+	b, err := EncodeSnapshot(snap)
+	require.NoError(t, err)
+	got, err := DecodeSnapshot(b)
+	require.NoError(t, err)
+	require.Equal(t, snap, got)
+	require.Contains(t, string(b), `"trigger-hash": "sha256:deadbeef"`)
+}
+
+func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
+	snap := &Snapshot{
+		FormatVersion: CurrentFormatVersion,
+		Stack:         StackInfo{Name: "x"},
+		DeploymentID:  "prod",
+		GeneratedAt:   time.Now().UTC(),
+		Entries: []*Entry{
+			{Address: "action.core.command.x", Type: EntryAction},
+		},
+	}
+	_, err := EncodeSnapshot(snap)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing kind")
+}
