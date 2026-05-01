@@ -24,6 +24,11 @@ func Module() *runtime.Module {
 				Description: "Issue an HTTP request and capture the response",
 				New:         func() runtime.Action { return &HTTPAction{} },
 			},
+			"wait-for": {
+				Name:        "wait-for",
+				Description: "Poll a command until it exits 0 or a timeout fires",
+				New:         func() runtime.Action { return &WaitForAction{} },
+			},
 		},
 	}
 }
