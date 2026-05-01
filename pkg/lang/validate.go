@@ -428,6 +428,15 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["imports"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateImports(obj))
 		}
+		if obj, ok := blocks["resources"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateResources(obj))
+		}
+		if obj, ok := blocks["data"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateDataSources(obj))
+		}
+		if obj, ok := blocks["actions"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateActions(obj))
+		}
 		if obj, ok := blocks["outputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateOutputs(obj))
 		}
@@ -517,6 +526,86 @@ func validateConstraintCommonKey(idx int, f *Field, seen map[string]Position, er
 	if prev, dup := seen[name]; dup {
 		errs.Addf(ErrSchema, f.Key.S.Start,
 			"constraints[%d]: duplicate key %q (first defined at %s)", idx, name, prev)
+		return false
+	}
+	seen[name] = f.Key.S.Start
+	return true
+}
+
+// ValidateResources checks the shape of a `resources:` block: namespace,
+// type name, instance name, body.
+func ValidateResources(block *ObjectLit) *ErrorList {
+	return validateNestedTypeBlock(block, "resource")
+}
+
+// ValidateDataSources checks the shape of a `data:` block.
+func ValidateDataSources(block *ObjectLit) *ErrorList {
+	return validateNestedTypeBlock(block, "data source")
+}
+
+// ValidateActions checks the shape of an `actions:` block.
+func ValidateActions(block *ObjectLit) *ErrorList {
+	return validateNestedTypeBlock(block, "action")
+}
+
+func validateNestedTypeBlock(block *ObjectLit, what string) *ErrorList {
+	errs := NewErrorList(0)
+	seenNS := make(map[string]Position, len(block.Fields))
+	for _, nsFld := range block.Fields {
+		if !checkBareIdentKey(nsFld, seenNS, what+" namespace", errs) {
+			continue
+		}
+		nsObj, ok := nsFld.Value.(*ObjectLit)
+		if !ok {
+			errs.Addf(ErrSchema, nsFld.Value.Span().Start,
+				"%s namespace %q: must be an object of type names",
+				what, nsFld.Key.Name)
+			continue
+		}
+		seenType := make(map[string]Position, len(nsObj.Fields))
+		for _, typeFld := range nsObj.Fields {
+			if !checkBareIdentKey(typeFld, seenType, what+" type", errs) {
+				continue
+			}
+			typeObj, ok := typeFld.Value.(*ObjectLit)
+			if !ok {
+				errs.Addf(ErrSchema, typeFld.Value.Span().Start,
+					"%s %s.%s: must be an object of instance names",
+					what, nsFld.Key.Name, typeFld.Key.Name)
+				continue
+			}
+			seenName := make(map[string]Position, len(typeObj.Fields))
+			for _, nameFld := range typeObj.Fields {
+				if !checkBareIdentKey(nameFld, seenName, what+" name", errs) {
+					continue
+				}
+				if _, ok := nameFld.Value.(*ObjectLit); !ok {
+					errs.Addf(ErrSchema, nameFld.Value.Span().Start,
+						"%s %s.%s.%s: body must be an object",
+						what, nsFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name)
+				}
+			}
+		}
+	}
+	return errs
+}
+
+func checkBareIdentKey(f *Field, seen map[string]Position, what string, errs *ErrorList) bool {
+	if f.Key.Kind == FieldString {
+		errs.Addf(ErrSchema, f.Key.S.Start,
+			"%s key must be a bare identifier, got quoted string %q",
+			what, f.Key.String)
+		return false
+	}
+	name := f.Key.Name
+	if f.Key.IsMeta() {
+		errs.Addf(ErrSchema, f.Key.S.Start,
+			"@-prefixed key %q is not a valid %s key", name, what)
+		return false
+	}
+	if prev, dup := seen[name]; dup {
+		errs.Addf(ErrSchema, f.Key.S.Start,
+			"duplicate %s %q (first defined at %s)", what, name, prev)
 		return false
 	}
 	seen[name] = f.Key.S.Start

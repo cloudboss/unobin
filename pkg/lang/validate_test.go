@@ -639,3 +639,149 @@ func TestValidateFileUnknownKind(t *testing.T) {
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "unknown")
 }
+
+func TestValidateResourcesHappy(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    vpc: {
+      main: {
+        cidr-block: '10.0.0.0/16'
+        tags: { Name: 'prod' }
+      }
+    }
+    security-group: {
+      web: {
+        @depends-on: [resource.aws.vpc.main]
+        vpc-id:      resource.aws.vpc.main.id
+      }
+    }
+  }
+  net: {
+    cluster: {
+      web: {
+        size: 3
+      }
+    }
+  }
+}
+`
+	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateResourcesRejectsBadShape(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    vpc: {
+      main: 'not-an-object'
+    }
+  }
+}
+`
+	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "body must be an object")
+}
+
+func TestValidateResourcesRejectsMetaAtNamespace(t *testing.T) {
+	src := `
+resources: {
+  @bad: { vpc: { main: {} } }
+}
+`
+	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "@bad")
+}
+
+func TestValidateResourcesDuplicateName(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    vpc: {
+      main: { cidr: '10.0.0.0/16' }
+      main: { cidr: '10.1.0.0/16' }
+    }
+  }
+}
+`
+	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
+}
+
+func TestValidateResourcesNamespaceNotObject(t *testing.T) {
+	src := `
+resources: {
+  aws: 'oops'
+}
+`
+	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg, "must be an object of type names")
+}
+
+func TestValidateDataSourcesHappy(t *testing.T) {
+	src := `
+data: {
+  aws: {
+    ami: {
+      ubuntu: {
+        most-recent: true
+        owners:      ['099720109477']
+      }
+    }
+  }
+}
+`
+	errs := ValidateDataSources(parseObjectBlock(t, src, "data"))
+	require.Equal(t, 0, errs.Len())
+}
+
+func TestValidateActionsHappy(t *testing.T) {
+	src := `
+actions: {
+  core: {
+    command: {
+      smoke-test: {
+        @trigger: 'always'
+        execute:  'curl -fsS https://example/health'
+        @timeout: '30s'
+      }
+    }
+  }
+}
+`
+	errs := ValidateActions(parseObjectBlock(t, src, "actions"))
+	require.Equal(t, 0, errs.Len())
+}
+
+func TestValidateFileWithResourcesAndActions(t *testing.T) {
+	src := `
+description: 'a stack'
+inputs: {
+  size: { type: optional(integer, 3) }
+}
+resources: {
+  aws: {
+    vpc: {
+      main: { cidr-block: '10.0.0.0/16' }
+    }
+  }
+}
+actions: {
+  core: {
+    command: {
+      smoke: { @trigger: 'always', execute: 'echo' }
+    }
+  }
+}
+`
+	f, err := ParseSource("stack.ub", []byte(src))
+	require.NoError(t, err)
+
+	errs := ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
