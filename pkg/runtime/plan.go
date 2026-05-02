@@ -76,15 +76,29 @@ func (e *Executor) Plan(_ context.Context) (*Plan, error) {
 	// has something to bind to even when an upstream node would change.
 	seedFromPriorState(rs)
 
+	addressDecision := make(map[string]Decision)
 	for _, addr := range order {
 		node := e.DAG.Nodes[addr]
 		step, err := e.planNode(rs, node)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
-		if step != nil {
-			plan.Steps = append(plan.Steps, step)
+		if step == nil {
+			continue
 		}
+		// An action whose upstream is changing must rerun, even when its
+		// own inputs and trigger value (against prior state) match.
+		if step.Kind == NodeAction && step.Decision == DecisionSkip {
+			for _, ref := range Refs(node.Body) {
+				if isUpstreamChange(addressDecision[ref]) {
+					step.Decision = DecisionRerun
+					step.TriggerHash = ""
+					break
+				}
+			}
+		}
+		plan.Steps = append(plan.Steps, step)
+		addressDecision[step.Address] = step.Decision
 	}
 
 	// Orphans: prior leaf entries with no source resource node.
@@ -134,6 +148,16 @@ func seedNested(target map[string]any, ns, typeName, name string, value map[stri
 	nsMap := getOrCreate(target, ns)
 	typeMap := getOrCreate(nsMap, typeName)
 	typeMap[name] = value
+}
+
+// isUpstreamChange reports whether the named decision implies the
+// referenced node's outputs may differ from what's in prior state.
+func isUpstreamChange(d Decision) bool {
+	switch d {
+	case DecisionCreate, DecisionUpdate, DecisionReplace, DecisionDestroy, DecisionRerun:
+		return true
+	}
+	return false
 }
 
 func parseActionAddress(addr string) (ns, kind, name string, ok bool) {

@@ -106,11 +106,21 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		return fmt.Errorf("action: unexpected decision %q", step.Decision)
 	}
 	storeNested(rs.eval.Actions, &Node{NS: ns, Type: kind, Name: name}, outputs)
+
+	// Recompute the trigger hash with the fresh upstream state so the
+	// next plan compares against an accurate hash.
+	hash := step.TriggerHash
+	if node, ok := e.DAG.Nodes[step.Address]; ok {
+		if t, err := ComputeTrigger(node, step.Inputs, rs.eval); err == nil && !t.AlwaysRerun {
+			hash = t.Hash
+		}
+	}
+
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:     step.Address,
 		Type:        state.EntryAction,
 		Kind:        kind,
-		TriggerHash: step.TriggerHash,
+		TriggerHash: hash,
 		Inputs:      step.Inputs,
 		Outputs:     outputs,
 	})

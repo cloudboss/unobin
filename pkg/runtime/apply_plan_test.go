@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/state"
@@ -119,6 +120,86 @@ func TestEncodeDecodePlan(t *testing.T) {
 	require.Equal(t, plan.StateRev, pf.StateRev)
 	require.Equal(t, "resource.core.thing.x", pf.Steps[0].Address)
 	require.Equal(t, DecisionCreate, pf.Steps[0].Decision)
+}
+
+func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
+	src := func(name string) string {
+		return `
+resources: {
+  core: { thing: { one: { name: '` + name + `', size: 1 } } }
+}
+actions: {
+  core: {
+    echo: {
+      observe: {
+        @trigger: resource.core.thing.one.id
+        echo:     'observed'
+      }
+    }
+  }
+}
+`
+	}
+
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	var resCounters resourceCounters
+	var actionRuns int64
+	mods := map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceType{
+				"thing": {
+					Name:          "thing",
+					SchemaVersion: 1,
+					New: func() Resource {
+						return &countingResource{counters: &resCounters}
+					},
+				},
+			},
+			Actions: map[string]ActionType{
+				"echo": {
+					Name: "echo",
+					New: func() Action {
+						return &countingAction{runs: &actionRuns}
+					},
+				},
+			},
+		},
+	}
+
+	planAndApply := func(stackSrc string) {
+		exec := &Executor{
+			DAG:     BuildDAG(parseStack(t, stackSrc)),
+			Modules: mods,
+			Store:   store,
+			Stack:   stack,
+		}
+		plan, err := exec.Plan(context.Background())
+		require.NoError(t, err)
+		encoded, err := EncodePlan(plan)
+		require.NoError(t, err)
+		pf, err := DecodePlan(encoded)
+		require.NoError(t, err)
+		_, err = exec.ApplyPlan(context.Background(), pf)
+		require.NoError(t, err)
+	}
+
+	// First run: fresh state. Resource is created; action runs even though
+	// its trigger references a not-yet-created resource.
+	planAndApply(src("alpha"))
+	require.Equal(t, int64(1), atomic.LoadInt64(&actionRuns))
+
+	// Second run, same source: resource is unchanged, action should skip.
+	planAndApply(src("alpha"))
+	require.Equal(t, int64(1), atomic.LoadInt64(&actionRuns),
+		"action should skip on the second run when upstream is unchanged")
+
+	// Third run with the resource's name changed: ReplaceFields=["name"]
+	// triggers a replace, which the action treats as a rerun signal.
+	planAndApply(src("beta"))
+	require.Equal(t, int64(2), atomic.LoadInt64(&actionRuns),
+		"action should rerun when its upstream resource is changing")
 }
 
 func TestDecodePlanRejectsBadFormatVersion(t *testing.T) {

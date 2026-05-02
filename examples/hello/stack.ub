@@ -31,8 +31,8 @@ actions: {
   core: {
     command: {
       read-back: {
-        @depends-on: [resource.local.file.hello]
-        argv:        ['cat', var.path]
+        @trigger: resource.local.file.hello.sha256
+        argv:     ['cat', var.path]
       }
     }
   }

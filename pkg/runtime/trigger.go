@@ -42,7 +42,11 @@ func ComputeTrigger(n *Node, inputs map[string]any, ec *EvalContext) (TriggerDec
 	if triggerExpr != nil {
 		val, err := Eval(triggerExpr, ec)
 		if err != nil {
-			return TriggerDecision{}, err
+			// Trigger references something the EvalContext can't yet
+			// resolve (e.g., a fresh resource's outputs at plan time).
+			// Return an empty hash so the action reruns; apply
+			// recomputes the hash against fresh state and stores it.
+			return TriggerDecision{HasExplicit: true}, nil
 		}
 		if s, ok := val.(string); ok && s == TriggerAlways {
 			return TriggerDecision{AlwaysRerun: true, HasExplicit: true}, nil
