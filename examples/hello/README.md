@@ -30,6 +30,13 @@ cd /tmp/hello-build
 ./hello output
 ```
 
+Set `UB_STATE_KEY` to a base64-encoded 32-byte key to encrypt
+state snapshots and plan files at rest:
+
+```
+export UB_STATE_KEY=$(head -c 32 /dev/urandom | base64)
+```
+
 ## Other subcommands
 
 ```
