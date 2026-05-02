@@ -100,19 +100,23 @@ func newApplyCmd(info Info) *cobra.Command {
 }
 
 func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
-	encoded, err := os.ReadFile(planPath)
+	enc, err := loadEncrypter()
 	if err != nil {
 		return err
+	}
+	sealed, err := os.ReadFile(planPath)
+	if err != nil {
+		return err
+	}
+	encoded, err := enc.Decrypt(sealed)
+	if err != nil {
+		return fmt.Errorf("apply: decrypt plan: %w", err)
 	}
 	pf, err := runtime.DecodePlan(encoded)
 	if err != nil {
 		return err
 	}
 	f, err := parsedFile(info)
-	if err != nil {
-		return err
-	}
-	enc, err := loadEncrypter()
 	if err != nil {
 		return err
 	}
@@ -214,7 +218,11 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 		if err != nil {
 			return err
 		}
-		if err := ufs.WriteFileAtomic(outPath, encoded, 0o600); err != nil {
+		sealed, err := enc.Encrypt(encoded)
+		if err != nil {
+			return err
+		}
+		if err := ufs.WriteFileAtomic(outPath, sealed, 0o600); err != nil {
 			return err
 		}
 	}

@@ -438,6 +438,69 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestPlanFileEncryptedWithEnvKey(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello world' } } }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
+
+	planFile := filepath.Join(t.TempDir(), "plan.enc")
+	_, err := runRoot(t, info, "plan", "-o", planFile)
+	require.NoError(t, err)
+
+	body, err := os.ReadFile(planFile)
+	require.NoError(t, err)
+
+	enc, err := state.NewEnvKeyEncrypter("UB_STATE_KEY")
+	require.NoError(t, err)
+	plaintext, err := enc.Decrypt(body)
+	require.NoError(t, err)
+	require.Contains(t, string(plaintext), `"format-version": 1`)
+	require.Contains(t, string(plaintext), "action.core.echo.hi")
+
+	out, err := runRoot(t, info, "apply", planFile)
+	require.NoError(t, err)
+	require.Contains(t, out, "said = hello world")
+}
+
+func TestApplyTamperedPlanFile(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
+	info := testInfo(t, src)
+	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
+
+	planFile := filepath.Join(t.TempDir(), "plan.enc")
+	_, err := runRoot(t, info, "plan", "-o", planFile)
+	require.NoError(t, err)
+
+	body, err := os.ReadFile(planFile)
+	require.NoError(t, err)
+	body[len(body)-1] ^= 0xff
+	require.NoError(t, os.WriteFile(planFile, body, 0o600))
+
+	_, err = runRoot(t, info, "apply", planFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "decrypt")
+}
+
+func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
+	info := testInfo(t, src)
+
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+	_, err := runRoot(t, info, "plan", "-o", planFile)
+	require.NoError(t, err)
+
+	body, err := os.ReadFile(planFile)
+	require.NoError(t, err)
+	require.Contains(t, string(body), `"format-version": 1`)
+}
+
 // Ensure t.TempDir is visible to the loadStore call (which writes to
 // `.unobin/state` relative to cwd) by chdir-ing in testInfo.
 var _ = filepath.Join
