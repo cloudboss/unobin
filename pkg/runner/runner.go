@@ -187,11 +187,20 @@ func doPlan(cmd *cobra.Command, info Info, configPath string) error {
 
 func printPlan(cmd *cobra.Command, plan *runtime.Plan) {
 	out := cmd.OutOrStdout()
-	if len(plan.Steps) == 0 {
+	var changes []*runtime.PlanStep
+	for _, s := range plan.Steps {
+		switch s.Decision {
+		case runtime.DecisionNoOp, runtime.DecisionSkip,
+			runtime.DecisionRead, runtime.DecisionEval:
+			continue
+		}
+		changes = append(changes, s)
+	}
+	if len(changes) == 0 {
 		fmt.Fprintln(out, "No changes.")
 		return
 	}
-	for _, step := range plan.Steps {
+	for _, step := range changes {
 		fmt.Fprintf(out, "  %s %s\n", decisionSymbol(step.Decision), step.Address)
 	}
 }

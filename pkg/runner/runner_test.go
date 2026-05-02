@@ -202,7 +202,7 @@ actions: {
 	require.Contains(t, out, "> action.core.echo.hi")
 }
 
-func TestPlanShowsSkipAfterApply(t *testing.T) {
+func TestPlanHidesSkipAfterApply(t *testing.T) {
 	src := `
 actions: {
   core: { echo: { hi: { echo: 'hello' } } }
@@ -214,7 +214,7 @@ actions: {
 
 	out, err := runRoot(t, info, "plan")
 	require.NoError(t, err)
-	require.Contains(t, out, ". action.core.echo.hi")
+	require.Contains(t, out, "No changes.")
 }
 
 func TestPlanEmpty(t *testing.T) {
