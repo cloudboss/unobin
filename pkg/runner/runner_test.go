@@ -212,6 +212,8 @@ actions: {
 	out, err := runRoot(t, info, "plan")
 	require.NoError(t, err)
 	require.Contains(t, out, "> action.core.echo.hi")
+	require.Contains(t, out, `echo: "hello"`)
+	require.Contains(t, out, "Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.")
 }
 
 func TestPlanHidesSkipAfterApply(t *testing.T) {

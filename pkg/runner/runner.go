@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
@@ -217,7 +219,71 @@ func printPlan(cmd *cobra.Command, plan *runtime.Plan) {
 	}
 	for _, step := range changes {
 		fmt.Fprintf(out, "  %s %s\n", decisionSymbol(step.Decision), step.Address)
+		for _, key := range sortedMapKeys(step.Inputs) {
+			fmt.Fprintf(out, "      %s: %s\n", key, formatValue(step.Inputs[key]))
+		}
 	}
+	c := summarize(changes)
+	fmt.Fprintln(out)
+	fmt.Fprintf(out,
+		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
+		c.create, c.update, c.replace, c.destroy, c.rerun)
+}
+
+type planCounts struct {
+	create, update, replace, destroy, rerun int
+}
+
+func summarize(steps []*runtime.PlanStep) planCounts {
+	var c planCounts
+	for _, s := range steps {
+		switch s.Decision {
+		case runtime.DecisionCreate:
+			c.create++
+		case runtime.DecisionUpdate:
+			c.update++
+		case runtime.DecisionReplace:
+			c.replace++
+		case runtime.DecisionDestroy:
+			c.destroy++
+		case runtime.DecisionRerun:
+			c.rerun++
+		}
+	}
+	return c
+}
+
+func formatValue(v any) string {
+	switch x := v.(type) {
+	case string:
+		return strconv.Quote(x)
+	case []any:
+		parts := make([]string, len(x))
+		for i, el := range x {
+			parts[i] = formatValue(el)
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case map[string]any:
+		keys := sortedMapKeys(x)
+		parts := make([]string, 0, len(keys))
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%s: %s", k, formatValue(x[k])))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	case nil:
+		return "null"
+	default:
+		return fmt.Sprintf("%v", x)
+	}
+}
+
+func sortedMapKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func decisionSymbol(d runtime.Decision) string {
