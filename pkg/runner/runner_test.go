@@ -243,6 +243,40 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["plan"])
 	require.True(t, subs["apply"])
 	require.True(t, subs["output"])
+	require.True(t, subs["schema"])
+}
+
+func TestSchema(t *testing.T) {
+	src := `
+inputs: {
+  greeting: {
+    type:        string
+    description: 'a friendly word'
+  }
+  size: {
+    type:    optional(integer, 3)
+    minimum: 1
+  }
+  hosts: {
+    type: list(string)
+  }
+}
+`
+	info := testInfo(t, src)
+	out, err := runRoot(t, info, "schema")
+	require.NoError(t, err)
+
+	require.Contains(t, out, "greeting: string")
+	require.Contains(t, out, "a friendly word")
+	require.Contains(t, out, "size: optional(integer, 3)")
+	require.Contains(t, out, "hosts: list(string)")
+}
+
+func TestSchemaEmpty(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	out, err := runRoot(t, info, "schema")
+	require.NoError(t, err)
+	require.Contains(t, out, "No inputs declared.")
 }
 
 // Ensure t.TempDir is visible to the loadStore call (which writes to

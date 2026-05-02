@@ -50,6 +50,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newPlanCmd(info))
 	root.AddCommand(newApplyCmd(info))
 	root.AddCommand(newOutputCmd(info))
+	root.AddCommand(newSchemaCmd(info))
 	return root
 }
 
