@@ -47,6 +47,7 @@ func newRootCmd(info Info) *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.AddCommand(newVersionCmd(info))
+	root.AddCommand(newPlanCmd(info))
 	root.AddCommand(newApplyCmd(info))
 	root.AddCommand(newOutputCmd(info))
 	return root
@@ -61,6 +62,20 @@ func newVersionCmd(info Info) *cobra.Command {
 				info.StackName, info.StackVersion, info.StackCommit)
 		},
 	}
+}
+
+func newPlanCmd(info Info) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "plan",
+		Short: "Show what apply would do",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doPlan(cmd, info, configPath)
+		},
+	}
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a config.ub for inputs and per-deployment configuration.")
+	return cmd
 }
 
 func newApplyCmd(info Info) *cobra.Command {
@@ -104,16 +119,10 @@ func loadStore(info Info) (*state.LocalStore, error) {
 }
 
 func doApply(cmd *cobra.Command, info Info, configPath string) error {
-	inputs := map[string]any{}
-	if configPath != "" {
-		loaded, err := loadConfigInputs(configPath)
-		if err != nil {
-			return err
-		}
-		inputs = loaded
+	inputs, err := buildInputs(configPath)
+	if err != nil {
+		return err
 	}
-	applyEnvOverrides(inputs)
-
 	f, err := parsedFile(info)
 	if err != nil {
 		return err
@@ -141,6 +150,86 @@ func doApply(cmd *cobra.Command, info Info, configPath string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
 	}
 	return nil
+}
+
+func doPlan(cmd *cobra.Command, info Info, configPath string) error {
+	inputs, err := buildInputs(configPath)
+	if err != nil {
+		return err
+	}
+	f, err := parsedFile(info)
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info)
+	if err != nil {
+		return err
+	}
+	exec := &runtime.Executor{
+		DAG:     runtime.BuildDAG(f),
+		Modules: info.Modules,
+		Inputs:  inputs,
+		Store:   store,
+		Stack: state.StackInfo{
+			Name:    info.StackName,
+			Version: info.StackVersion,
+			Commit:  info.StackCommit,
+		},
+	}
+	plan, err := exec.Plan(context.Background())
+	if err != nil {
+		return err
+	}
+	printPlan(cmd, plan)
+	return nil
+}
+
+func printPlan(cmd *cobra.Command, plan *runtime.Plan) {
+	out := cmd.OutOrStdout()
+	if len(plan.Steps) == 0 {
+		fmt.Fprintln(out, "No changes.")
+		return
+	}
+	for _, step := range plan.Steps {
+		fmt.Fprintf(out, "  %s %s\n", decisionSymbol(step.Decision), step.Address)
+	}
+}
+
+func decisionSymbol(d runtime.Decision) string {
+	switch d {
+	case runtime.DecisionCreate:
+		return "+"
+	case runtime.DecisionUpdate:
+		return "~"
+	case runtime.DecisionReplace:
+		return "R"
+	case runtime.DecisionDestroy:
+		return "-"
+	case runtime.DecisionRerun:
+		return ">"
+	case runtime.DecisionSkip:
+		return "."
+	case runtime.DecisionNoOp:
+		return " "
+	case runtime.DecisionRead:
+		return "?"
+	case runtime.DecisionEval:
+		return "="
+	}
+	return "?"
+}
+
+func buildInputs(configPath string) (map[string]any, error) {
+	inputs := map[string]any{}
+	if configPath != "" {
+		loaded, err := loadConfigInputs(configPath)
+		if err != nil {
+			return nil, err
+		}
+		inputs = loaded
+	}
+	applyEnvOverrides(inputs)
+	return inputs, nil
 }
 
 // loadConfigInputs reads a config .ub file and returns the evaluated

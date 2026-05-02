@@ -190,6 +190,40 @@ outputs: {
 	require.Contains(t, out, "said = web-prod")
 }
 
+func TestPlanShowsCreateBeforeApply(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello' } } }
+}
+`
+	info := testInfo(t, src)
+	out, err := runRoot(t, info, "plan")
+	require.NoError(t, err)
+	require.Contains(t, out, "> action.core.echo.hi")
+}
+
+func TestPlanShowsSkipAfterApply(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello' } } }
+}
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "apply")
+	require.NoError(t, err)
+
+	out, err := runRoot(t, info, "plan")
+	require.NoError(t, err)
+	require.Contains(t, out, ". action.core.echo.hi")
+}
+
+func TestPlanEmpty(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	out, err := runRoot(t, info, "plan")
+	require.NoError(t, err)
+	require.Contains(t, out, "No changes.")
+}
+
 func TestApplyMissingConfigFile(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
 	_, err := runRoot(t, info, "apply", "-c", "/no/such/path.ub")
@@ -206,6 +240,7 @@ func TestRootIsCobraTree(t *testing.T) {
 		subs[c.Name()] = true
 	}
 	require.True(t, subs["version"])
+	require.True(t, subs["plan"])
 	require.True(t, subs["apply"])
 	require.True(t, subs["output"])
 }
