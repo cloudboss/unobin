@@ -54,6 +54,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newApplyCmd(info))
 	root.AddCommand(newOutputCmd(info))
 	root.AddCommand(newSchemaCmd(info))
+	root.AddCommand(newStateCmd(info))
 	return root
 }
 

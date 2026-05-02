@@ -307,6 +307,31 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["apply"])
 	require.True(t, subs["output"])
 	require.True(t, subs["schema"])
+	require.True(t, subs["state"])
+}
+
+func TestStateListAndShow(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello' } } }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	listOut, err := runRoot(t, info, "state", "list")
+	require.NoError(t, err)
+	require.Contains(t, listOut, "* ")
+
+	showOut, err := runRoot(t, info, "state", "show")
+	require.NoError(t, err)
+	require.Contains(t, showOut, "stack:")
+	require.Contains(t, showOut, "test-stack")
+	require.Contains(t, showOut, "action.core.echo.hi")
+	require.Contains(t, showOut, `said = "hello"`)
 }
 
 func TestSchema(t *testing.T) {
