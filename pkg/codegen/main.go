@@ -86,6 +86,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/spf13/cobra"
 {{range .Aliases}}	mod_{{.}} {{quote (index $.Imports .)}}
 {{end -}}
 )
@@ -98,26 +99,76 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
+	root := &cobra.Command{
+		Use:           stackName,
+		Short:         "Compiled unobin stack " + stackName,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.AddCommand(versionCmd())
+	root.AddCommand(applyCmd())
+	root.AddCommand(outputCmd())
+	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func versionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print stack identity",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("%s %s (commit %s)\n", stackName, stackVersion, stackCommit)
+		},
+	}
+}
+
+func applyCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "apply",
+		Short: "Run the stack",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runApply()
+		},
+	}
+}
+
+func outputCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "output [name]",
+		Short: "Print stack outputs from the current state",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runOutput(args)
+		},
+	}
+}
+
+func parsedFile() (*lang.File, error) {
 	f, err := lang.ParseSource("stack.ub", []byte(stackSource))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return errs.Err()
+		return nil, errs.Err()
 	}
+	return f, nil
+}
 
-	store, err := state.NewLocalStore(".unobin/state", stackName, "default", state.NoopEncrypter{})
+func loadStore() (*state.LocalStore, error) {
+	return state.NewLocalStore(".unobin/state", stackName, "default", state.NoopEncrypter{})
+}
+
+func runApply() error {
+	f, err := parsedFile()
 	if err != nil {
 		return err
 	}
-
+	store, err := loadStore()
+	if err != nil {
+		return err
+	}
 	exec := &runtime.Executor{
 		DAG: runtime.BuildDAG(f),
 		Modules: map[string]*runtime.Module{
@@ -126,7 +177,6 @@ func run() error {
 		Store: store,
 		Stack: state.StackInfo{Name: stackName, Version: stackVersion, Commit: stackCommit},
 	}
-
 	res, err := exec.Run(context.Background())
 	if err != nil {
 		return err
@@ -134,6 +184,30 @@ func run() error {
 	for k, v := range res.Outputs {
 		fmt.Printf("%s = %v\n", k, v)
 	}
+	return nil
+}
+
+func runOutput(args []string) error {
+	store, err := loadStore()
+	if err != nil {
+		return err
+	}
+	snap, err := store.Current()
+	if err != nil {
+		return err
+	}
+	if len(args) == 0 {
+		for k, v := range snap.Outputs {
+			fmt.Printf("%s = %v\n", k, v)
+		}
+		return nil
+	}
+	name := args[0]
+	val, ok := snap.Outputs[name]
+	if !ok {
+		return fmt.Errorf("no output %q", name)
+	}
+	fmt.Printf("%v\n", val)
 	return nil
 }
 `))
