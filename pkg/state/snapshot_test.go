@@ -163,6 +163,18 @@ func TestSnapshotActionEntry(t *testing.T) {
 	require.Contains(t, string(b), `"trigger-hash": "sha256:deadbeef"`)
 }
 
+func TestSnapshotPersistsOutputs(t *testing.T) {
+	snap := sampleSnapshot()
+	snap.Outputs = map[string]any{"vpc-id": "vpc-abc", "size": float64(5)}
+
+	b, err := EncodeSnapshot(snap)
+	require.NoError(t, err)
+	got, err := DecodeSnapshot(b)
+	require.NoError(t, err)
+	require.Equal(t, snap.Outputs, got.Outputs)
+	require.Contains(t, string(b), `"outputs":`)
+}
+
 func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
 	snap := &Snapshot{
 		FormatVersion: CurrentFormatVersion,

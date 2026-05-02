@@ -67,6 +67,7 @@ func (e *Executor) Run(ctx context.Context) (*ExecResult, error) {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
 	}
+	rs.next.Outputs = rs.outputs
 	rev, err := e.persist(rs)
 	if err != nil {
 		return nil, err

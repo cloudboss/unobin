@@ -53,11 +53,12 @@ type StackInfo struct {
 // current snapshot at the start of plan or apply, and writes a fresh one
 // after each successful resource action.
 type Snapshot struct {
-	FormatVersion int       `json:"format-version"`
-	Stack         StackInfo `json:"stack"`
-	DeploymentID  string    `json:"deployment-id"`
-	GeneratedAt   time.Time `json:"generated-at"`
-	Entries       []*Entry  `json:"entries"`
+	FormatVersion int            `json:"format-version"`
+	Stack         StackInfo      `json:"stack"`
+	DeploymentID  string         `json:"deployment-id"`
+	GeneratedAt   time.Time      `json:"generated-at"`
+	Entries       []*Entry       `json:"entries"`
+	Outputs       map[string]any `json:"outputs,omitempty"`
 }
 
 // NewSnapshot returns an empty snapshot at the current schema version.
