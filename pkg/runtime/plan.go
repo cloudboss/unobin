@@ -29,12 +29,12 @@ const (
 // or destroy of a resource that is not found). For actions, TriggerHash
 // is the hash that determines whether to rerun or skip.
 type PlanStep struct {
-	Address      string
-	Kind         NodeKind
-	Decision     Decision
-	Inputs       map[string]any
-	PriorOutputs map[string]any
-	TriggerHash  string
+	Address      string         `json:"address"`
+	Kind         NodeKind       `json:"kind"`
+	Decision     Decision       `json:"decision"`
+	Inputs       map[string]any `json:"inputs,omitempty"`
+	PriorOutputs map[string]any `json:"prior-outputs,omitempty"`
+	TriggerHash  string         `json:"trigger-hash,omitempty"`
 }
 
 // Plan is the readonly result of computing what an apply would do.
