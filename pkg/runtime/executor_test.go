@@ -215,7 +215,7 @@ func (r *countingResource) Delete(_ context.Context, _ any) error {
 }
 
 func (r *countingResource) ReplaceFields() []string {
-	return nil
+	return []string{"name"}
 }
 
 func resourceModules(c *resourceCounters) map[string]*Module {
@@ -305,6 +305,91 @@ resources: {
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.updates))
+}
+
+func TestExecutorReplaceFieldChangeTriggersDeleteAndCreate(t *testing.T) {
+	first := `
+resources: {
+  core: {
+    thing: { one: { name: 'alpha', size: 1 } }
+  }
+}
+`
+	second := `
+resources: {
+  core: {
+    thing: { one: { name: 'beta', size: 1 } }
+  }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+	_, err = (&Executor{
+		DAG: BuildDAG(parseStack(t, second)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates),
+		"replace destroys the old and creates a new")
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
+		"replace deletes the old before creating")
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates),
+		"replace bypasses Update")
+}
+
+func TestExecutorOrphanResourceDeleted(t *testing.T) {
+	first := `
+resources: {
+  core: {
+    thing: {
+      keep:  { name: 'a', size: 1 }
+      orph:  { name: 'b', size: 2 }
+    }
+  }
+}
+`
+	second := `
+resources: {
+  core: {
+    thing: {
+      keep: { name: 'a', size: 1 }
+    }
+  }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+	_, err = (&Executor{
+		DAG: BuildDAG(parseStack(t, second)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
+		"the orphan resource (orph) should be deleted on the second run")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addresses := []string{}
+	for _, e := range snap.Entries {
+		if e.Type == state.EntryLeaf {
+			addresses = append(addresses, e.Address)
+		}
+	}
+	require.Equal(t, []string{"resource.core.thing.keep"}, addresses)
 }
 
 func TestExecutorResourceMissingType(t *testing.T) {

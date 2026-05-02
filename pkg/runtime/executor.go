@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/state"
@@ -66,6 +67,9 @@ func (e *Executor) Run(ctx context.Context) (*ExecResult, error) {
 		if err := e.runNode(ctx, rs, node); err != nil {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
+	}
+	if err := e.deleteOrphans(ctx, rs); err != nil {
+		return nil, err
 	}
 	rs.next.Outputs = rs.outputs
 	rev, err := e.persist(rs)
@@ -164,6 +168,15 @@ func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error
 		outputs = mapify(result)
 	case sameInputs(prior.Inputs, inputs):
 		outputs = prior.Outputs
+	case needsReplace(resource, prior.Inputs, inputs):
+		if err := resource.Delete(ctx, prior.Outputs); err != nil {
+			return fmt.Errorf("replace: delete prior: %w", err)
+		}
+		result, err := resource.Create(ctx)
+		if err != nil {
+			return fmt.Errorf("replace: create: %w", err)
+		}
+		outputs = mapify(result)
 	default:
 		result, err := resource.Update(ctx, prior.Outputs)
 		if err != nil {
@@ -197,6 +210,79 @@ func sameInputs(a, b map[string]any) bool {
 		return false
 	}
 	return bytes.Equal(aj, bj)
+}
+
+// needsReplace reports whether any field in r.ReplaceFields() has a
+// different canonical JSON value between prior and current inputs.
+func needsReplace(r Resource, prior, current map[string]any) bool {
+	for _, field := range r.ReplaceFields() {
+		if !sameValue(prior[field], current[field]) {
+			return true
+		}
+	}
+	return false
+}
+
+func sameValue(a, b any) bool {
+	aj, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bj, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(aj, bj)
+}
+
+// deleteOrphans destroys leaf entries that were in the prior snapshot
+// but have no corresponding node in the new run. It runs after the main
+// DAG walk and before the snapshot is written.
+func (e *Executor) deleteOrphans(ctx context.Context, rs *runState) error {
+	if rs.prior == nil {
+		return nil
+	}
+	keep := make(map[string]bool, len(rs.next.Entries))
+	for _, ent := range rs.next.Entries {
+		keep[ent.Address] = true
+	}
+	for _, prior := range rs.prior.Entries {
+		if prior.Type != state.EntryLeaf {
+			continue
+		}
+		if keep[prior.Address] {
+			continue
+		}
+		ns, typeName, _, ok := parseResourceAddress(prior.Address)
+		if !ok {
+			return fmt.Errorf("orphan %s: cannot parse address", prior.Address)
+		}
+		mod, ok := e.Modules[ns]
+		if !ok {
+			return fmt.Errorf("orphan %s: module %q is not imported", prior.Address, ns)
+		}
+		rt, ok := mod.Resources[typeName]
+		if !ok {
+			return fmt.Errorf("orphan %s: module %s has no resource %q",
+				prior.Address, ns, typeName)
+		}
+		resource := rt.New()
+		if err := Decode(resource, prior.Inputs); err != nil {
+			return fmt.Errorf("orphan %s: %w", prior.Address, err)
+		}
+		if err := resource.Delete(ctx, prior.Outputs); err != nil {
+			return fmt.Errorf("delete orphan %s: %w", prior.Address, err)
+		}
+	}
+	return nil
+}
+
+func parseResourceAddress(addr string) (ns, typeName, name string, ok bool) {
+	parts := strings.SplitN(addr, ".", 4)
+	if len(parts) != 4 || parts[0] != "resource" {
+		return "", "", "", false
+	}
+	return parts[1], parts[2], parts[3], true
 }
 
 func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
