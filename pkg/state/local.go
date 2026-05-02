@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	ufs "github.com/cloudboss/unobin/pkg/fs"
 )
 
 const maxRevAttempts = 100
@@ -98,7 +100,7 @@ func (s *LocalStore) Write(snap *Snapshot) (string, error) {
 		if !errors.Is(statErr, fs.ErrNotExist) {
 			return "", statErr
 		}
-		if err := writeFileAtomic(path, ciphertext, 0o600); err != nil {
+		if err := ufs.WriteFileAtomic(path, ciphertext, 0o600); err != nil {
 			return "", err
 		}
 		return rev, nil
@@ -112,7 +114,7 @@ func (s *LocalStore) SetCurrent(rev string) error {
 	if _, err := os.Stat(s.snapshotPath(rev)); err != nil {
 		return fmt.Errorf("set-current %s: %w", rev, err)
 	}
-	return writeFileAtomic(filepath.Join(s.dir, "current"), []byte(rev+"\n"), 0o600)
+	return ufs.WriteFileAtomic(filepath.Join(s.dir, "current"), []byte(rev+"\n"), 0o600)
 }
 
 // Get returns the snapshot with the given rev.
@@ -167,10 +169,3 @@ func (s *LocalStore) currentRev() (string, error) {
 	return rev, nil
 }
 
-func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, mode); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
