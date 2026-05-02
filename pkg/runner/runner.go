@@ -112,7 +112,11 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info)
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
 	if err != nil {
 		return err
 	}
@@ -158,8 +162,18 @@ func parsedFile(info Info) (*lang.File, error) {
 	return f, nil
 }
 
-func loadStore(info Info) (*state.LocalStore, error) {
-	return state.NewLocalStore(".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+func loadStore(info Info, enc state.Encrypter) (*state.LocalStore, error) {
+	return state.NewLocalStore(".unobin/state", info.StackName, "default", enc)
+}
+
+// loadEncrypter returns the Encrypter constructed from `UB_STATE_KEY`.
+// When the environment variable is unset, it returns `NoopEncrypter` so
+// development workflows and tests can run without a key configured.
+func loadEncrypter() (state.Encrypter, error) {
+	if os.Getenv("UB_STATE_KEY") == "" {
+		return state.NoopEncrypter{}, nil
+	}
+	return state.NewEnvKeyEncrypter("UB_STATE_KEY")
 }
 
 func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
@@ -171,7 +185,11 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info)
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
 	if err != nil {
 		return err
 	}
@@ -381,7 +399,11 @@ func applyEnvOverrides(inputs map[string]any) {
 }
 
 func doOutput(cmd *cobra.Command, info Info, args []string) error {
-	store, err := loadStore(info)
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
 	if err != nil {
 		return err
 	}

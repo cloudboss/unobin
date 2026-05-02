@@ -23,7 +23,11 @@ func newStateListCmd(info Info) *cobra.Command {
 		Use:   "list",
 		Short: "List snapshot revisions, marking the current one with *",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(info)
+			enc, err := loadEncrypter()
+			if err != nil {
+				return err
+			}
+			store, err := loadStore(info, enc)
 			if err != nil {
 				return err
 			}
@@ -51,7 +55,11 @@ func newStateShowCmd(info Info) *cobra.Command {
 		Short: "Show a snapshot's entries (current snapshot if no revision given)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(info)
+			enc, err := loadEncrypter()
+			if err != nil {
+				return err
+			}
+			store, err := loadStore(info, enc)
 			if err != nil {
 				return err
 			}

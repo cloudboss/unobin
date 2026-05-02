@@ -3,14 +3,33 @@ package runner
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
+
+// freshKeyB64 returns a random 32 byte AES key encoded in base64.
+func freshKeyB64(t *testing.T) string {
+	t.Helper()
+	k := make([]byte, 32)
+	_, err := rand.Read(k)
+	require.NoError(t, err)
+	return base64.StdEncoding.EncodeToString(k)
+}
+
+// isJSON reports whether b parses as a JSON value.
+func isJSON(b []byte) bool {
+	var v any
+	return json.Unmarshal(b, &v) == nil
+}
 
 // echoAction is a tiny test action: takes an Echo string, returns it
 // in its outputs.
@@ -365,6 +384,58 @@ func TestSchemaEmpty(t *testing.T) {
 	out, err := runRoot(t, info, "schema")
 	require.NoError(t, err)
 	require.Contains(t, out, "No inputs declared.")
+}
+
+func TestStateEncryptedWithEnvKey(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello' } } }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
+
+	_ = applyVia(t, info, "")
+
+	snapDir := filepath.Join(".unobin", "state", "test-stack", "default", "snapshots")
+	entries, err := os.ReadDir(snapDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+
+	enc, err := state.NewEnvKeyEncrypter("UB_STATE_KEY")
+	require.NoError(t, err)
+	for _, e := range entries {
+		body, err := os.ReadFile(filepath.Join(snapDir, e.Name()))
+		require.NoError(t, err)
+		plaintext, err := enc.Decrypt(body)
+		require.NoError(t, err, "snapshot %s should decrypt with the configured key", e.Name())
+		require.True(t, isJSON(plaintext), "decrypted snapshot %s should be JSON", e.Name())
+	}
+
+	showOut, err := runRoot(t, info, "state", "show")
+	require.NoError(t, err)
+	require.Contains(t, showOut, `said = "hello"`)
+}
+
+func TestStateShowFailsWithWrongKey(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	info := testInfo(t, src)
+
+	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
+	_ = applyVia(t, info, "")
+
+	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
+	_, err := runRoot(t, info, "state", "show")
+	require.Error(t, err)
+}
+
+func TestLoadEncrypterRejectsBadKey(t *testing.T) {
+	t.Setenv("UB_STATE_KEY", "not-base64!!")
+	_, err := loadEncrypter()
+	require.Error(t, err)
 }
 
 // Ensure t.TempDir is visible to the loadStore call (which writes to
