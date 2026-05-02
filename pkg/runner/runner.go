@@ -7,12 +7,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/spf13/cobra"
 )
+
+// EnvVarPrefix is the prefix unobin reads input overrides from. An env
+// var like `UB_VAR_cluster_name=web-prod` overrides the `cluster-name`
+// input, with snake case converted to kebab case.
+const EnvVarPrefix = "UB_VAR_"
 
 // Info bundles everything a generated stack binary passes into Run.
 type Info struct {
@@ -23,8 +29,8 @@ type Info struct {
 	Modules      map[string]*runtime.Module
 }
 
-// Run builds the cobra command tree and executes it. Exits the process
-// non-zero on error.
+// Run builds the cobra command tree and executes it. The process exits
+// with status code 1 on error.
 func Run(info Info) {
 	root := newRootCmd(info)
 	if err := root.Execute(); err != nil {
@@ -58,13 +64,17 @@ func newVersionCmd(info Info) *cobra.Command {
 }
 
 func newApplyCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var configPath string
+	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Run the stack",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doApply(cmd, info)
+			return doApply(cmd, info, configPath)
 		},
 	}
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a config.ub for inputs and per-deployment configuration.")
+	return cmd
 }
 
 func newOutputCmd(info Info) *cobra.Command {
@@ -93,7 +103,17 @@ func loadStore(info Info) (*state.LocalStore, error) {
 	return state.NewLocalStore(".unobin/state", info.StackName, "default", state.NoopEncrypter{})
 }
 
-func doApply(cmd *cobra.Command, info Info) error {
+func doApply(cmd *cobra.Command, info Info, configPath string) error {
+	inputs := map[string]any{}
+	if configPath != "" {
+		loaded, err := loadConfigInputs(configPath)
+		if err != nil {
+			return err
+		}
+		inputs = loaded
+	}
+	applyEnvOverrides(inputs)
+
 	f, err := parsedFile(info)
 	if err != nil {
 		return err
@@ -105,6 +125,7 @@ func doApply(cmd *cobra.Command, info Info) error {
 	exec := &runtime.Executor{
 		DAG:     runtime.BuildDAG(f),
 		Modules: info.Modules,
+		Inputs:  inputs,
 		Store:   store,
 		Stack: state.StackInfo{
 			Name:    info.StackName,
@@ -120,6 +141,62 @@ func doApply(cmd *cobra.Command, info Info) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
 	}
 	return nil
+}
+
+// loadConfigInputs reads a config .ub file and returns the evaluated
+// inputs section. Other config sections are not consumed yet.
+func loadConfigInputs(path string) (map[string]any, error) {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	f, err := lang.ParseSource(path, src)
+	if err != nil {
+		return nil, err
+	}
+	f.Kind = lang.FileConfig
+	if errs := lang.ValidateFile(f); errs.Len() > 0 {
+		return nil, errs.Err()
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "inputs" {
+			continue
+		}
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			return nil, fmt.Errorf("config %s: `inputs:` must be an object", path)
+		}
+		val, err := runtime.Eval(obj, &runtime.EvalContext{})
+		if err != nil {
+			return nil, fmt.Errorf("config %s: %w", path, err)
+		}
+		out, ok := val.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("config %s: `inputs:` evaluated to %T, want map", path, val)
+		}
+		return out, nil
+	}
+	return map[string]any{}, nil
+}
+
+// applyEnvOverrides reads UB_VAR_<name> environment variables and writes
+// them into inputs. Underscores in the env name become hyphens to match
+// kebab case input names. Values are taken as plain strings.
+func applyEnvOverrides(inputs map[string]any) {
+	for _, env := range os.Environ() {
+		if !strings.HasPrefix(env, EnvVarPrefix) {
+			continue
+		}
+		eq := strings.IndexByte(env, '=')
+		if eq < 0 {
+			continue
+		}
+		name := strings.ReplaceAll(env[len(EnvVarPrefix):eq], "_", "-")
+		if name == "" {
+			continue
+		}
+		inputs[name] = env[eq+1:]
+	}
 }
 
 func doOutput(cmd *cobra.Command, info Info, args []string) error {

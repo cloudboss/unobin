@@ -111,6 +111,91 @@ func TestApplyParseError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestApplyWithConfigInputs(t *testing.T) {
+	src := `
+inputs: {
+  greeting: { type: string }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.greeting } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(`
+inputs: {
+  greeting: 'from-config'
+}
+`), 0o644))
+
+	out, err := runRoot(t, info, "apply", "-c", cfg)
+	require.NoError(t, err)
+	require.Contains(t, out, "said = from-config")
+}
+
+func TestEnvVarOverridesConfig(t *testing.T) {
+	src := `
+inputs: {
+  greeting: { type: string }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.greeting } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(`
+inputs: {
+  greeting: 'from-config'
+}
+`), 0o644))
+
+	t.Setenv("UB_VAR_greeting", "from-env")
+	out, err := runRoot(t, info, "apply", "-c", cfg)
+	require.NoError(t, err)
+	require.Contains(t, out, "said = from-env")
+}
+
+func TestEnvVarUnderscoreToHyphen(t *testing.T) {
+	src := `
+inputs: {
+  cluster-name: { type: string }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.cluster-name } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+
+	t.Setenv("UB_VAR_cluster_name", "web-prod")
+	out, err := runRoot(t, info, "apply")
+	require.NoError(t, err)
+	require.Contains(t, out, "said = web-prod")
+}
+
+func TestApplyMissingConfigFile(t *testing.T) {
+	info := testInfo(t, "description: 'x'")
+	_, err := runRoot(t, info, "apply", "-c", "/no/such/path.ub")
+	require.Error(t, err)
+}
+
 func TestRootIsCobraTree(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
 	root := newRootCmd(info)
