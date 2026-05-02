@@ -59,6 +59,23 @@ func runRoot(t *testing.T, info Info, args ...string) (string, error) {
 	return out.String(), err
 }
 
+// applyVia runs `plan -o <tmp> [-c cfg]` then `apply <tmp>` and returns
+// the apply output. Tests use this when they don't need to inspect the
+// plan separately.
+func applyVia(t *testing.T, info Info, configPath string) string {
+	t.Helper()
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+	args := []string{"plan", "-o", planFile}
+	if configPath != "" {
+		args = append(args, "-c", configPath)
+	}
+	_, err := runRoot(t, info, args...)
+	require.NoError(t, err)
+	out, err := runRoot(t, info, "apply", planFile)
+	require.NoError(t, err)
+	return out
+}
+
 func TestVersion(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
 	out, err := runRoot(t, info, "version")
@@ -77,8 +94,7 @@ outputs: {
   said: action.core.echo.hi.echo
 }
 `)
-	apply, err := runRoot(t, info, "apply")
-	require.NoError(t, err)
+	apply := applyVia(t, info, "")
 	require.Contains(t, apply, "said = hello world")
 
 	all, err := runRoot(t, info, "output")
@@ -92,9 +108,8 @@ outputs: {
 
 func TestOutputUnknownName(t *testing.T) {
 	info := testInfo(t, `outputs: { x: 'y' }`)
-	_, err := runRoot(t, info, "apply")
-	require.NoError(t, err)
-	_, err = runRoot(t, info, "output", "missing")
+	_ = applyVia(t, info, "")
+	_, err := runRoot(t, info, "output", "missing")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no output")
 }
@@ -105,9 +120,9 @@ func TestOutputBeforeApply(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestApplyParseError(t *testing.T) {
+func TestPlanParseError(t *testing.T) {
 	info := testInfo(t, `not valid syntax {{`)
-	_, err := runRoot(t, info, "apply")
+	_, err := runRoot(t, info, "plan")
 	require.Error(t, err)
 }
 
@@ -134,8 +149,7 @@ inputs: {
 }
 `), 0o644))
 
-	out, err := runRoot(t, info, "apply", "-c", cfg)
-	require.NoError(t, err)
+	out := applyVia(t, info, cfg)
 	require.Contains(t, out, "said = from-config")
 }
 
@@ -163,8 +177,7 @@ inputs: {
 `), 0o644))
 
 	t.Setenv("UB_VAR_greeting", "from-env")
-	out, err := runRoot(t, info, "apply", "-c", cfg)
-	require.NoError(t, err)
+	out := applyVia(t, info, cfg)
 	require.Contains(t, out, "said = from-env")
 }
 
@@ -185,8 +198,7 @@ outputs: {
 	info := testInfo(t, src)
 
 	t.Setenv("UB_VAR_cluster_name", "web-prod")
-	out, err := runRoot(t, info, "apply")
-	require.NoError(t, err)
+	out := applyVia(t, info, "")
 	require.Contains(t, out, "said = web-prod")
 }
 
@@ -209,8 +221,7 @@ actions: {
 }
 `
 	info := testInfo(t, src)
-	_, err := runRoot(t, info, "apply")
-	require.NoError(t, err)
+	_ = applyVia(t, info, "")
 
 	out, err := runRoot(t, info, "plan")
 	require.NoError(t, err)
@@ -224,9 +235,59 @@ func TestPlanEmpty(t *testing.T) {
 	require.Contains(t, out, "No changes.")
 }
 
-func TestApplyMissingConfigFile(t *testing.T) {
+func TestPlanWritesPlanFile(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello' } } }
+}
+`
+	info := testInfo(t, src)
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+
+	_, err := runRoot(t, info, "plan", "-o", planFile)
+	require.NoError(t, err)
+
+	body, err := os.ReadFile(planFile)
+	require.NoError(t, err)
+	require.Contains(t, string(body), `"format-version": 1`)
+	require.Contains(t, string(body), "action.core.echo.hi")
+}
+
+func TestApplyConsumesPlanFile(t *testing.T) {
+	src := `
+actions: {
+  core: { echo: { hi: { echo: 'hello world' } } }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+
+	_, err := runRoot(t, info, "plan", "-o", planFile)
+	require.NoError(t, err)
+
+	out, err := runRoot(t, info, "apply", planFile)
+	require.NoError(t, err)
+	require.Contains(t, out, "said = hello world")
+}
+
+func TestPlanMissingConfigFile(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
-	_, err := runRoot(t, info, "apply", "-c", "/no/such/path.ub")
+	_, err := runRoot(t, info, "plan", "-c", "/no/such/path.ub")
+	require.Error(t, err)
+}
+
+func TestApplyMissingPlanFile(t *testing.T) {
+	info := testInfo(t, "description: 'x'")
+	_, err := runRoot(t, info, "apply", "/no/such/plan.json")
+	require.Error(t, err)
+}
+
+func TestApplyRequiresPlanFile(t *testing.T) {
+	info := testInfo(t, "description: 'x'")
+	_, err := runRoot(t, info, "apply")
 	require.Error(t, err)
 }
 

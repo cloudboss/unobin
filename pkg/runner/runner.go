@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/state"
@@ -66,31 +67,70 @@ func newVersionCmd(info Info) *cobra.Command {
 }
 
 func newPlanCmd(info Info) *cobra.Command {
-	var configPath string
+	var (
+		configPath string
+		outPath    string
+	)
 	cmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Show what apply would do",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doPlan(cmd, info, configPath)
+			return doPlan(cmd, info, configPath, outPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a config.ub for inputs and per-deployment configuration.")
+	cmd.Flags().StringVarP(&outPath, "out", "o", "",
+		"Write the plan to this file so apply can consume it.")
 	return cmd
 }
 
 func newApplyCmd(info Info) *cobra.Command {
-	var configPath string
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Run the stack",
+	return &cobra.Command{
+		Use:   "apply <plan-file>",
+		Short: "Run a previously computed plan",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doApply(cmd, info, configPath)
+			return doApplyPlan(cmd, info, args[0])
 		},
 	}
-	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub for inputs and per-deployment configuration.")
-	return cmd
+}
+
+func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
+	encoded, err := os.ReadFile(planPath)
+	if err != nil {
+		return err
+	}
+	pf, err := runtime.DecodePlan(encoded)
+	if err != nil {
+		return err
+	}
+	f, err := parsedFile(info)
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info)
+	if err != nil {
+		return err
+	}
+	exec := &runtime.Executor{
+		DAG:     runtime.BuildDAG(f),
+		Modules: info.Modules,
+		Store:   store,
+		Stack: state.StackInfo{
+			Name:    info.StackName,
+			Version: info.StackVersion,
+			Commit:  info.StackCommit,
+		},
+	}
+	res, err := exec.ApplyPlan(context.Background(), pf)
+	if err != nil {
+		return err
+	}
+	for k, v := range res.Outputs {
+		fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
+	}
+	return nil
 }
 
 func newOutputCmd(info Info) *cobra.Command {
@@ -119,41 +159,7 @@ func loadStore(info Info) (*state.LocalStore, error) {
 	return state.NewLocalStore(".unobin/state", info.StackName, "default", state.NoopEncrypter{})
 }
 
-func doApply(cmd *cobra.Command, info Info, configPath string) error {
-	inputs, err := buildInputs(configPath)
-	if err != nil {
-		return err
-	}
-	f, err := parsedFile(info)
-	if err != nil {
-		return err
-	}
-	store, err := loadStore(info)
-	if err != nil {
-		return err
-	}
-	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f),
-		Modules: info.Modules,
-		Inputs:  inputs,
-		Store:   store,
-		Stack: state.StackInfo{
-			Name:    info.StackName,
-			Version: info.StackVersion,
-			Commit:  info.StackCommit,
-		},
-	}
-	res, err := exec.Run(context.Background())
-	if err != nil {
-		return err
-	}
-	for k, v := range res.Outputs {
-		fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
-	}
-	return nil
-}
-
-func doPlan(cmd *cobra.Command, info Info, configPath string) error {
+func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	inputs, err := buildInputs(configPath)
 	if err != nil {
 		return err
@@ -182,6 +188,15 @@ func doPlan(cmd *cobra.Command, info Info, configPath string) error {
 		return err
 	}
 	printPlan(cmd, plan)
+	if outPath != "" {
+		encoded, err := runtime.EncodePlan(plan)
+		if err != nil {
+			return err
+		}
+		if err := ufs.WriteFileAtomic(outPath, encoded, 0o600); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
