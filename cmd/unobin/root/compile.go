@@ -3,6 +3,7 @@ package root
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -88,34 +89,61 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	goImports := make(map[string]string, len(refs))
-	importVersions := make(map[string]string, len(refs))
-	for alias, ref := range refs {
-		rem, ok := ref.(*resolve.RemoteImport)
-		if !ok {
-			return fmt.Errorf("import %q: local imports are not handled by compile yet", alias)
-		}
-		path := rem.URL
-		if rem.Subdir != "" {
-			path += "/" + rem.Subdir
-		}
-		goImports[alias] = path
-		importVersions[path] = rem.Version
-	}
 
 	name := cfg.stackName
 	if name == "" {
 		name = deriveStackName(cfg.stackPath)
 	}
+
+	stackDir := filepath.Dir(cfg.stackPath)
+	localResolver := resolve.NewLocalResolver(stackDir)
+
+	goImports := make(map[string]string, len(refs))
+	importVersions := make(map[string]string, len(refs))
+	ubImports := make(map[string]string, len(refs))
+	ubPackages := make(map[string][]byte, len(refs))
+
+	for alias, ref := range refs {
+		switch r := ref.(type) {
+		case *resolve.LocalImport:
+			source, err := localResolver.Resolve(r)
+			if err != nil {
+				return fmt.Errorf("import %q: %w", alias, err)
+			}
+			if !resolve.IsUBModule(source) {
+				return fmt.Errorf("import %q: local source at %q has no module.ub", alias, r.Path)
+			}
+			pkg, err := buildUBPackage(alias, source)
+			if err != nil {
+				return fmt.Errorf("import %q: %w", alias, err)
+			}
+			ubPackages[alias] = pkg
+			ubImports[alias] = name + "/internal/" + alias
+		case *resolve.RemoteImport:
+			path := r.URL
+			if r.Subdir != "" {
+				path += "/" + r.Subdir
+			}
+			goImports[alias] = path
+			importVersions[path] = r.Version
+		default:
+			return fmt.Errorf("import %q: unsupported ref type %T", alias, ref)
+		}
+	}
+
 	in := codegen.Input{
 		Source:    string(src),
 		StackName: name,
 		Version:   cfg.version,
 		Commit:    cfg.commit,
 		GoImports: goImports,
+		UBImports: ubImports,
 	}
 
 	if cfg.outDir == "-" {
+		if len(ubPackages) > 0 {
+			return errors.New("compile: cannot stream to stdout when UB modules are imported")
+		}
 		out, err := codegen.Generate(in)
 		if err != nil {
 			return err
@@ -138,10 +166,91 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if err != nil {
 		return err
 	}
+	for alias, pkg := range ubPackages {
+		pkgDir := filepath.Join(cfg.outDir, "internal", alias)
+		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(pkgDir, alias+".go"), pkg, 0o644); err != nil {
+			return err
+		}
+	}
 	if cfg.build {
 		return runGoBuild(cmd, cfg.outDir, name)
 	}
 	return nil
+}
+
+// buildUBPackage reads the UB module's manifest and exported body
+// files from source and runs codegen.GenerateUBModule to produce
+// the per-module Go package source.
+func buildUBPackage(alias string, source *resolve.Source) ([]byte, error) {
+	manifestBytes, err := readSourceFile(source, "module.ub")
+	if err != nil {
+		return nil, fmt.Errorf("read module.ub: %w", err)
+	}
+	manifest, err := lang.ParseSource("module.ub", manifestBytes)
+	if err != nil {
+		return nil, err
+	}
+	if errs := lang.ValidateFile(manifest); errs.Len() > 0 {
+		return nil, errs.Err()
+	}
+	exports, err := readManifestExports(manifest)
+	if err != nil {
+		return nil, err
+	}
+	bodies := make(map[string]*lang.File, len(exports))
+	for name, path := range exports {
+		body, err := readSourceFile(source, path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+		f, err := lang.ParseSource(path, body)
+		if err != nil {
+			return nil, err
+		}
+		f.Kind = lang.FileExportedType
+		if errs := lang.ValidateFile(f); errs.Len() > 0 {
+			return nil, errs.Err()
+		}
+		bodies[name] = f
+	}
+	return codegen.GenerateUBModule(alias, manifest, bodies)
+}
+
+func readSourceFile(s *resolve.Source, name string) ([]byte, error) {
+	f, err := s.FS.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
+}
+
+func readManifestExports(f *lang.File) (map[string]string, error) {
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "exports" {
+			continue
+		}
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			return nil, fmt.Errorf("`exports:` must be an object")
+		}
+		out := make(map[string]string, len(obj.Fields))
+		for _, ef := range obj.Fields {
+			if ef.Key.Kind != lang.FieldIdent || ef.Key.IsMeta() {
+				continue
+			}
+			s, ok := ef.Value.(*lang.StringLit)
+			if !ok {
+				return nil, fmt.Errorf("export %q: value must be a string", ef.Key.Name)
+			}
+			out[ef.Key.Name] = s.Value
+		}
+		return out, nil
+	}
+	return map[string]string{}, nil
 }
 
 func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
