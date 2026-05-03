@@ -12,15 +12,19 @@ import (
 // Input bundles everything codegen needs to produce a stack binary's
 // `main.go`. Source is the literal stack source the binary embeds and
 // parses on each invocation. StackName, Version, and Commit identify
-// the binary back to the operator's `config.ub`. GoImports maps each
-// module alias the source uses to the Go import path that supplies it
-// (e.g., "core" -> "github.com/cloudboss/unobin/pkg/modules/core").
+// the binary back to its `config.ub`. GoImports maps each Go-module
+// alias the source uses to the Go import path that supplies it (e.g.,
+// `"core" -> "github.com/cloudboss/unobin/pkg/modules/core"`).
+// UBImports maps each UB-module alias to the local Go import path of
+// the package that compile generated for it (typically
+// `<stack-name>/internal/<alias>`).
 type Input struct {
 	Source    string
 	StackName string
 	Version   string
 	Commit    string
 	GoImports map[string]string
+	UBImports map[string]string
 }
 
 // Generate produces the formatted Go source for the stack binary's
@@ -31,6 +35,7 @@ func Generate(in Input) ([]byte, error) {
 		return nil, fmt.Errorf("codegen: StackName is required")
 	}
 	aliases := sortedKeys(in.GoImports)
+	ubAliases := sortedKeys(in.UBImports)
 	data := struct {
 		Source    string
 		StackName string
@@ -38,6 +43,8 @@ func Generate(in Input) ([]byte, error) {
 		Commit    string
 		Aliases   []string
 		Imports   map[string]string
+		UBAliases []string
+		UBImports map[string]string
 	}{
 		Source:    in.Source,
 		StackName: in.StackName,
@@ -45,6 +52,8 @@ func Generate(in Input) ([]byte, error) {
 		Commit:    in.Commit,
 		Aliases:   aliases,
 		Imports:   in.GoImports,
+		UBAliases: ubAliases,
+		UBImports: in.UBImports,
 	}
 
 	var buf bytes.Buffer
@@ -82,6 +91,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 {{range .Aliases}}	mod_{{.}} {{quote (index $.Imports .)}}
+{{end}}{{range .UBAliases}}	mod_{{.}} {{quote (index $.UBImports .)}}
 {{end -}}
 )
 
@@ -100,6 +110,7 @@ func main() {
 		StackSource:  stackSource,
 		Modules: map[string]*runtime.Module{
 {{range .Aliases}}			{{quote .}}: mod_{{.}}.Module(),
+{{end}}{{range .UBAliases}}			{{quote .}}: mod_{{.}}.Module(),
 {{end}}		},
 	})
 }
