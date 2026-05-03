@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // Module is the registration record a Go module exports for its primitive
@@ -68,6 +69,22 @@ type Resource interface {
 // ErrNotFound is returned by Resource.Read when the resource is absent in the
 // cloud. The runtime treats it as a request to recreate.
 var ErrNotFound = errors.New("resource not found")
+
+// migrateOutputs upgrades a state entry's outputs from an older schema
+// version to the resource type's current one by calling rt.Migrate.
+// Returns the outputs unchanged when versions match. Errors when the
+// stored version is older but no Migrate function is registered.
+func migrateOutputs(rt ResourceType, priorVersion int, outputs map[string]any) (map[string]any, error) {
+	if priorVersion >= rt.SchemaVersion {
+		return outputs, nil
+	}
+	if rt.Migrate == nil {
+		return nil, fmt.Errorf(
+			"state schema-version is %d but the current module declares %d with no Migrate function",
+			priorVersion, rt.SchemaVersion)
+	}
+	return rt.Migrate(priorVersion, outputs)
+}
 
 // DataSourceType registers a readonly data source under a module.
 type DataSourceType struct {

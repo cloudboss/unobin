@@ -281,9 +281,13 @@ func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*Pl
 		step.Decision = DecisionCreate
 		return step, nil
 	}
-	step.PriorOutputs = prior.Outputs
+	priorOutputs, err := migrateOutputs(rt, prior.SchemaVersion, prior.Outputs)
+	if err != nil {
+		return nil, err
+	}
+	step.PriorOutputs = priorOutputs
 
-	observed, err := readObserved(ctx, rt, inputs, prior.Outputs)
+	observed, err := readObserved(ctx, rt, inputs, priorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		step.Decision = DecisionCreate
 		return step, nil

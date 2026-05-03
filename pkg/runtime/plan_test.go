@@ -150,6 +150,120 @@ resources: {
 	require.NotEqual(t, step.PriorOutputs["size"], step.ObservedOutputs["size"])
 }
 
+func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	prior := state.NewSnapshot(stack, store.DeploymentID)
+	prior.Entries = []*state.Entry{{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha", "size": float64(1)},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
+	}}
+	rev, err := store.Write(prior)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	var c resourceCounters
+	mods := map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceType{
+				"thing": {
+					Name:          "thing",
+					SchemaVersion: 2,
+					New:           func() Resource { return &countingResource{counters: &c} },
+					Migrate: func(_ int, st map[string]any) (map[string]any, error) {
+						out := map[string]any{}
+						for k, v := range st {
+							out[k] = v
+						}
+						if v, ok := out["id"]; ok {
+							out["name-id"] = v
+							delete(out, "id")
+						}
+						return out, nil
+					},
+				},
+			},
+		},
+	}
+
+	var seenByRead any
+	c.readFn = func(prior any) (any, error) {
+		seenByRead = prior
+		return prior, nil
+	}
+
+	plan := runPlan(t, src, mods, store)
+	step := stepFor(plan, "resource.core.thing.one")
+	require.NotNil(t, step)
+	require.Equal(t, DecisionNoOp, step.Decision)
+
+	rcv, ok := seenByRead.(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, rcv, "id", "Read should see the migrated outputs")
+	require.Equal(t, "fake-alpha", rcv["name-id"])
+	require.NotContains(t, step.PriorOutputs, "id",
+		"PriorOutputs on the plan step should be the migrated outputs")
+	require.Equal(t, "fake-alpha", step.PriorOutputs["name-id"])
+}
+
+func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	prior := state.NewSnapshot(stack, store.DeploymentID)
+	prior.Entries = []*state.Entry{{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha", "size": float64(1)},
+		Outputs:       map[string]any{"id": "fake-alpha"},
+	}}
+	rev, err := store.Write(prior)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	var c resourceCounters
+	mods := map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceType{
+				"thing": {
+					Name:          "thing",
+					SchemaVersion: 2,
+					New:           func() Resource { return &countingResource{counters: &c} },
+				},
+			},
+		},
+	}
+
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src)),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err = exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Migrate")
+}
+
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	src := `
 resources: {
