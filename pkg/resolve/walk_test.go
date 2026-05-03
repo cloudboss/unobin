@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,9 +120,7 @@ imports: {
 }
 `)
 	f := parseFile(t, stackPath)
-	graph, errs := ResolveAll(stackPath, f, NewRemoteResolver())
-	// Stub resolver returns ErrRemoteNotImplemented, so the import is
-	// reported as an error and not added as a graph leaf.
+	graph, errs := ResolveAll(stackPath, f, stubResolver{err: errors.New("stub")})
 	require.NotEmpty(t, errs)
 	require.NotContains(t, graph.edges[stackPath], "github.com/x/y@v1.0.0")
 }
@@ -136,7 +135,7 @@ imports: {
 }
 `)
 	f := parseFile(t, stackPath)
-	_, errs := ResolveAll(stackPath, f, NewRemoteResolver())
+	_, errs := ResolveAll(stackPath, f, stubResolver{err: errors.New("stub")})
 	conflict := false
 	for _, e := range errs {
 		if strings.Contains(e.Error(), "same repo") {

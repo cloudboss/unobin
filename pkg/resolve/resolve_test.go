@@ -67,17 +67,23 @@ func TestLocalResolverRejectsRemoteRef(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot handle")
 }
 
-func TestRemoteResolverStubErrors(t *testing.T) {
-	_, err := NewRemoteResolver().Resolve(&RemoteImport{
-		URL: "github.com/x/y", Version: "v1",
-	})
-	require.True(t, errors.Is(err, ErrRemoteNotImplemented))
-}
-
 func TestRemoteResolverRejectsLocalRef(t *testing.T) {
-	_, err := NewRemoteResolver().Resolve(&LocalImport{Path: "./x"})
+	r, err := NewRemoteResolver()
+	require.NoError(t, err)
+	_, err = r.Resolve(&LocalImport{Path: "./x"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot handle")
+}
+
+// stubResolver returns a fixed error from every Resolve call. Tests
+// that exercise the resolver framework use it instead of the real
+// RemoteResolver so they don't reach across the network.
+type stubResolver struct {
+	err error
+}
+
+func (s stubResolver) Resolve(_ ImportRef) (*Source, error) {
+	return nil, s.err
 }
 
 func TestIsUBModule(t *testing.T) {

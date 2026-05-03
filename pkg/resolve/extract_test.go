@@ -99,15 +99,16 @@ imports: {
 	require.True(t, IsUBModule(got.Source))
 }
 
-func TestResolveImportsRemoteStubErrors(t *testing.T) {
+func TestResolveImportsPropagatesResolverErrors(t *testing.T) {
 	f := parseStack(t, `
 imports: {
   aws: 'github.com/x/y@v1.0.0'
 }
 `)
-	resolved, errs := ResolveImports(f, NewRemoteResolver())
+	boom := errors.New("resolver said no")
+	resolved, errs := ResolveImports(f, stubResolver{err: boom})
 	require.Len(t, errs, 1)
-	require.True(t, errors.Is(errs[0], ErrRemoteNotImplemented))
+	require.True(t, errors.Is(errs[0], boom))
 
 	got := resolved["aws"]
 	require.NotNil(t, got)
@@ -122,8 +123,7 @@ imports: {
   b: 'github.com/x/y//b@v1.1.0'
 }
 `)
-	_, errs := ResolveImports(f, NewRemoteResolver())
-	// Expect: 1 version-conflict + 2 stub-not-implemented errors.
+	_, errs := ResolveImports(f, stubResolver{err: errors.New("ignored")})
 	conflict := false
 	for _, e := range errs {
 		if strings.Contains(e.Error(), "same repo") {
