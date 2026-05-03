@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -15,8 +16,62 @@ func newStateCmd(info Info) *cobra.Command {
 	}
 	cmd.AddCommand(newStateListCmd(info))
 	cmd.AddCommand(newStateShowCmd(info))
+	cmd.AddCommand(newStateMoveCmd(info))
 	cmd.AddCommand(newStateForceUnlockCmd(info))
 	return cmd
+}
+
+func newStateMoveCmd(info Info) *cobra.Command {
+	return &cobra.Command{
+		Use:   "move <old-address> <new-address>",
+		Short: "Move a state entry to a new address",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doStateMove(cmd, info, args[0], args[1])
+		},
+	}
+}
+
+func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
+	if oldAddr == newAddr {
+		return fmt.Errorf("old and new address are the same")
+	}
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
+	if err != nil {
+		return err
+	}
+	lock, err := store.Lock(context.Background())
+	if err != nil {
+		return fmt.Errorf("acquire lock: %w", err)
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	snap, err := store.Current()
+	if err != nil {
+		return err
+	}
+	if snap.Find(newAddr) != nil {
+		return fmt.Errorf("an entry already exists at %s", newAddr)
+	}
+	entry := snap.Find(oldAddr)
+	if entry == nil {
+		return fmt.Errorf("no entry at %s", oldAddr)
+	}
+	entry.Address = newAddr
+
+	rev, err := store.Write(snap)
+	if err != nil {
+		return err
+	}
+	if err := store.SetCurrent(rev); err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Moved %s to %s.\n", oldAddr, newAddr)
+	return nil
 }
 
 func newStateForceUnlockCmd(info Info) *cobra.Command {

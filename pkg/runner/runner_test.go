@@ -405,6 +405,53 @@ actions: { core: { echo: { hi: { echo: var.greeting } } } }
 	require.Error(t, err)
 }
 
+func TestStateMoveRelocatesEntry(t *testing.T) {
+	src := `
+actions: { core: { echo: { hi: { echo: 'hello' } } } }
+outputs: { said: action.core.echo.hi.echo }
+`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	out, err := runRoot(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
+	require.NoError(t, err)
+	require.Contains(t, out, "Moved action.core.echo.hi to action.core.echo.bye")
+
+	show, err := runRoot(t, info, "state", "show")
+	require.NoError(t, err)
+	require.Contains(t, show, "action.core.echo.bye")
+	require.NotContains(t, show, "action.core.echo.hi ")
+}
+
+func TestStateMoveRejectsMissingSource(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	_, err := runRoot(t, info, "state", "move", "action.core.echo.gone", "action.core.echo.elsewhere")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no entry at")
+}
+
+func TestStateMoveRejectsCollision(t *testing.T) {
+	src := `
+actions: {
+  core: {
+    echo: {
+      hi:  { echo: 'hello' }
+      bye: { echo: 'bye' }
+    }
+  }
+}
+`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	_, err := runRoot(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "already exists")
+}
+
 func TestStateForceUnlockReleasesLock(t *testing.T) {
 	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
 	info := testInfo(t, src)
