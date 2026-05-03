@@ -4,18 +4,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// Module is the registration record a Go module exports for its primitive
-// types and actions. The compiler links each imported Go module's Module()
-// function and aggregates the resulting registrations under the alias the
-// stack source assigned to the import.
+// Module is the registration record a module exports for its types,
+// actions, and data sources. Go modules supply Resources, Actions,
+// and DataSources directly; UB modules - compiled to Go packages by
+// `unobin compile` - contribute Composites whose bodies are parsed
+// AST literals built into the binary. The compiler links each
+// imported module's record and aggregates them under the alias the
+// calling source assigned to the import.
 type Module struct {
 	Name        string
 	Description string
 	Actions     map[string]ActionType
 	Resources   map[string]ResourceType
 	DataSources map[string]DataSourceType
+	Composites  map[string]*CompositeType
+}
+
+// CompositeType registers a UB-implemented type under a module. Body
+// is the parsed body file for the composite (same shape as a stack
+// minus `configurations:`). The runtime expands a call site into
+// sub-DAG nodes by walking Body's `resources:`, `actions:`, and
+// `data:` blocks under the call site's address prefix.
+type CompositeType struct {
+	Name string
+	Body *lang.File
 }
 
 // ActionType registers an action under a module. Name is the type name as

@@ -114,3 +114,15 @@ func TestDataSourceRead(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "abc", out.(map[string]any)["value"])
 }
+
+func TestModuleHoldsCompositeTypes(t *testing.T) {
+	parsed := parseStack(t, "description: 'cluster'\n")
+	mod := &Module{
+		Name: "net",
+		Composites: map[string]*CompositeType{
+			"cluster": {Name: "cluster", Body: parsed},
+		},
+	}
+	require.Contains(t, mod.Composites, "cluster")
+	require.Same(t, parsed, mod.Composites["cluster"].Body)
+}
