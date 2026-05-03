@@ -4,8 +4,11 @@
 package runner
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -212,7 +215,7 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	printPlan(cmd, plan)
+	printPlan(cmd.OutOrStdout(), plan)
 	if outPath != "" {
 		encoded, err := runtime.EncodePlan(plan)
 		if err != nil {
@@ -229,16 +232,25 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	return nil
 }
 
-func printPlan(cmd *cobra.Command, plan *runtime.Plan) {
-	out := cmd.OutOrStdout()
-	var changes []*runtime.PlanStep
+func printPlan(out io.Writer, plan *runtime.Plan) {
+	var drift, changes []*runtime.PlanStep
 	for _, s := range plan.Steps {
+		if s.Drift() || s.Gone() {
+			drift = append(drift, s)
+		}
 		switch s.Decision {
 		case runtime.DecisionNoOp, runtime.DecisionSkip,
 			runtime.DecisionRead, runtime.DecisionEval:
 			continue
 		}
 		changes = append(changes, s)
+	}
+	if len(drift) > 0 {
+		fmt.Fprintf(out, "Drift detected (%d):\n", len(drift))
+		for _, s := range drift {
+			printDriftStep(out, s)
+		}
+		fmt.Fprintln(out)
 	}
 	if len(changes) == 0 {
 		fmt.Fprintln(out, "No changes.")
@@ -255,6 +267,50 @@ func printPlan(cmd *cobra.Command, plan *runtime.Plan) {
 	fmt.Fprintf(out,
 		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
 		c.create, c.update, c.replace, c.destroy, c.rerun)
+}
+
+func printDriftStep(out io.Writer, s *runtime.PlanStep) {
+	if s.Gone() {
+		fmt.Fprintf(out, "  ! %s  (no longer present)\n", s.Address)
+		return
+	}
+	fmt.Fprintf(out, "  ~ %s\n", s.Address)
+	for _, key := range driftedFields(s) {
+		fmt.Fprintf(out, "      %s: %s -> %s\n",
+			key,
+			formatValue(s.PriorOutputs[key]),
+			formatValue(s.ObservedOutputs[key]))
+	}
+}
+
+func driftedFields(s *runtime.PlanStep) []string {
+	seen := map[string]bool{}
+	for k := range s.PriorOutputs {
+		seen[k] = true
+	}
+	for k := range s.ObservedOutputs {
+		seen[k] = true
+	}
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		if !sameJSONValue(s.PriorOutputs[k], s.ObservedOutputs[k]) {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func sameJSONValue(a, b any) bool {
+	aj, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bj, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(aj, bj)
 }
 
 type planCounts struct {

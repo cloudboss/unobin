@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -247,6 +248,51 @@ actions: {
 	out, err := runRoot(t, info, "plan")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
+}
+
+func TestPrintPlanShowsDriftSection(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:         "resource.local.file.x",
+				Kind:            runtime.NodeResource,
+				Decision:        runtime.DecisionUpdate,
+				Inputs:          map[string]any{"path": "/tmp/x"},
+				PriorOutputs:    map[string]any{"path": "/tmp/x", "sha256": "old"},
+				ObservedOutputs: map[string]any{"path": "/tmp/x", "sha256": "new"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out, "Drift detected (1)")
+	require.Contains(t, out, "  ~ resource.local.file.x")
+	require.Contains(t, out, `sha256: "old" -> "new"`)
+	driftSection := strings.SplitN(out, "\n\n", 2)[0]
+	require.NotContains(t, driftSection, "path: ",
+		"non-drifted fields should not appear in the drift section")
+	require.Contains(t, out, "Plan: 0 to create, 1 to update")
+}
+
+func TestPrintPlanShowsGoneSection(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:      "resource.local.file.y",
+				Kind:         runtime.NodeResource,
+				Decision:     runtime.DecisionCreate,
+				Inputs:       map[string]any{"path": "/tmp/y"},
+				PriorOutputs: map[string]any{"path": "/tmp/y", "sha256": "abc"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out, "Drift detected (1)")
+	require.Contains(t, out, "! resource.local.file.y  (no longer present)")
+	require.Contains(t, out, "Plan: 1 to create")
 }
 
 func TestPlanEmpty(t *testing.T) {
