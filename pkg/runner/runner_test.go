@@ -370,9 +370,33 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["version"])
 	require.True(t, subs["plan"])
 	require.True(t, subs["apply"])
+	require.True(t, subs["refresh"])
 	require.True(t, subs["output"])
 	require.True(t, subs["schema"])
 	require.True(t, subs["state"])
+}
+
+func TestRefreshNoStateIsOK(t *testing.T) {
+	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
+	out, err := runRoot(t, info, "refresh")
+	require.NoError(t, err)
+	require.Contains(t, out, "Refreshed 0, dropped 0.")
+}
+
+func TestRefreshCarriesActionsForward(t *testing.T) {
+	info := testInfo(t, `
+actions: { core: { echo: { hi: { echo: 'hello' } } } }
+outputs: { said: action.core.echo.hi.echo }
+`)
+	_ = applyVia(t, info, "")
+
+	out, err := runRoot(t, info, "refresh")
+	require.NoError(t, err)
+	require.Contains(t, out, "Refreshed 0, dropped 0.")
+
+	show, err := runRoot(t, info, "state", "show")
+	require.NoError(t, err)
+	require.Contains(t, show, "action.core.echo.hi")
 }
 
 func TestStateListAndShow(t *testing.T) {

@@ -55,6 +55,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newVersionCmd(info))
 	root.AddCommand(newPlanCmd(info))
 	root.AddCommand(newApplyCmd(info))
+	root.AddCommand(newRefreshCmd(info))
 	root.AddCommand(newOutputCmd(info))
 	root.AddCommand(newSchemaCmd(info))
 	root.AddCommand(newStateCmd(info))
@@ -143,6 +144,60 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	}
 	for k, v := range res.Outputs {
 		fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
+	}
+	return nil
+}
+
+func newRefreshCmd(info Info) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "refresh",
+		Short: "Update state to match what each resource currently reports",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doRefresh(cmd, info, configPath)
+		},
+	}
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a config.ub for inputs and per-deployment configuration.")
+	return cmd
+}
+
+func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
+	inputs, err := buildInputs(configPath)
+	if err != nil {
+		return err
+	}
+	f, err := parsedFile(info)
+	if err != nil {
+		return err
+	}
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
+	if err != nil {
+		return err
+	}
+	exec := &runtime.Executor{
+		DAG:     runtime.BuildDAG(f),
+		Modules: info.Modules,
+		Inputs:  inputs,
+		Store:   store,
+		Stack: state.StackInfo{
+			Name:    info.StackName,
+			Version: info.StackVersion,
+			Commit:  info.StackCommit,
+		},
+	}
+	res, err := exec.Refresh(context.Background())
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Refreshed %d, dropped %d.\n", res.Refreshed, res.Dropped)
+	if res.WrittenRev != "" {
+		fmt.Fprintf(out, "State rev: %s\n", res.WrittenRev)
 	}
 	return nil
 }
