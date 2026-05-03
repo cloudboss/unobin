@@ -21,19 +21,23 @@ var ErrNoCurrent = errors.New("no current snapshot")
 // LocalStore reads and writes snapshots under a per-deployment directory.
 // Layout is as follows:
 //
-//	<Root>/<Stack>/<DeploymentID>/
+//	<Root>/<Stack>/<deploymentID>/
 //	  current             // File containing the SHA of the current snapshot.
 //	  snapshots/
 //	    <rev>.json.enc    // rev is an RFC3339Nano timestamp
 //	    ...
 type LocalStore struct {
-	Root         string
-	Stack        string
-	DeploymentID string
+	Root  string
+	Stack string
 
-	enc Encrypter
-	dir string
+	deploymentID string
+	enc          Encrypter
+	dir          string
 }
+
+// DeploymentID returns the deployment id this store was constructed
+// for. Required by the Backend interface.
+func (s *LocalStore) DeploymentID() string { return s.deploymentID }
 
 // NewLocalStore returns a LocalStore for the given stack and deployment ID
 // under root, creating the directory tree if it doesn't exist. The
@@ -55,7 +59,7 @@ func NewLocalStore(root, stack, deploymentID string, enc Encrypter) (*LocalStore
 	return &LocalStore{
 		Root:         root,
 		Stack:        stack,
-		DeploymentID: deploymentID,
+		deploymentID: deploymentID,
 		enc:          enc,
 		dir:          dir,
 	}, nil

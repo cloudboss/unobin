@@ -22,7 +22,7 @@ func TestLocalStorePathLayout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, root, s.Root)
 	require.Equal(t, "cluster-deploy", s.Stack)
-	require.Equal(t, "prod", s.DeploymentID)
+	require.Equal(t, "prod", s.DeploymentID())
 
 	rev, err := s.Write(sampleSnapshot())
 	require.NoError(t, err)

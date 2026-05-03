@@ -159,7 +159,7 @@ resources: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 
-	prior := state.NewSnapshot(stack, store.DeploymentID)
+	prior := state.NewSnapshot(stack, store.DeploymentID())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
@@ -226,7 +226,7 @@ resources: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 
-	prior := state.NewSnapshot(stack, store.DeploymentID)
+	prior := state.NewSnapshot(stack, store.DeploymentID())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,

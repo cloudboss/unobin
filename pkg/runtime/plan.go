@@ -90,7 +90,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 	plan := &Plan{
 		Stack:        e.Stack,
-		DeploymentID: e.Store.DeploymentID,
+		DeploymentID: e.Store.DeploymentID(),
 		StateRev:     stateRev,
 	}
 

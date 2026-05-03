@@ -27,7 +27,7 @@ type Executor struct {
 	Modules map[string]*Module
 	Inputs  map[string]any
 
-	Store *state.LocalStore
+	Store state.Backend
 	Stack state.StackInfo
 }
 
@@ -93,7 +93,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Actions:   make(map[string]any),
 		},
 		outputs: make(map[string]any),
-		next:    state.NewSnapshot(e.Stack, e.Store.DeploymentID),
+		next:    state.NewSnapshot(e.Stack, e.Store.DeploymentID()),
 	}
 	prior, err := e.Store.Current()
 	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
