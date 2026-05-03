@@ -26,15 +26,36 @@ const (
 
 // PlanStep records one node's planned action. For resources, Inputs is
 // the evaluated body. PriorOutputs is what state holds (nil for create
-// or destroy of a resource that is not found). For actions, TriggerHash
+// or destroy of a resource that is not found). ObservedOutputs is what
+// Resource.Read returned at plan time; it differs from PriorOutputs
+// when the resource has drifted out of band. For actions, TriggerHash
 // is the hash that determines whether to rerun or skip.
 type PlanStep struct {
-	Address      string         `json:"address"`
-	Kind         NodeKind       `json:"kind"`
-	Decision     Decision       `json:"decision"`
-	Inputs       map[string]any `json:"inputs,omitempty"`
-	PriorOutputs map[string]any `json:"prior-outputs,omitempty"`
-	TriggerHash  string         `json:"trigger-hash,omitempty"`
+	Address         string         `json:"address"`
+	Kind            NodeKind       `json:"kind"`
+	Decision        Decision       `json:"decision"`
+	Inputs          map[string]any `json:"inputs,omitempty"`
+	PriorOutputs    map[string]any `json:"prior-outputs,omitempty"`
+	ObservedOutputs map[string]any `json:"observed-outputs,omitempty"`
+	TriggerHash     string         `json:"trigger-hash,omitempty"`
+}
+
+// Drift reports whether the resource's observed outputs differ from
+// the outputs in prior state. False for steps with no prior or no
+// observation (Create, Destroy, Gone).
+func (s *PlanStep) Drift() bool {
+	if len(s.PriorOutputs) == 0 || len(s.ObservedOutputs) == 0 {
+		return false
+	}
+	return !sameInputs(s.PriorOutputs, s.ObservedOutputs)
+}
+
+// Gone reports whether a resource with prior state was missing in the
+// cloud at plan time. Encoded as Create with PriorOutputs set.
+func (s *PlanStep) Gone() bool {
+	return s.Kind == NodeResource &&
+		s.Decision == DecisionCreate &&
+		len(s.PriorOutputs) > 0
 }
 
 // Plan is the readonly result of computing what an apply would do.
@@ -48,11 +69,12 @@ type Plan struct {
 }
 
 // Plan walks the DAG against prior state and returns the planned
-// actions per node. It does not execute anything: no resource CRUD
-// methods are called, no actions run. Inputs that reference outputs of
-// nodes about to run are evaluated against the prior state where
-// available.
-func (e *Executor) Plan(_ context.Context) (*Plan, error) {
+// actions per node. Resources with prior state get their Read method
+// invoked so the plan can report drift; no CRUD methods (Create,
+// Update, Replace, Delete) are called and no actions run. Inputs that
+// reference outputs of nodes about to run are evaluated against the
+// prior state where available.
+func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
@@ -79,7 +101,7 @@ func (e *Executor) Plan(_ context.Context) (*Plan, error) {
 	addressDecision := make(map[string]Decision)
 	for _, addr := range order {
 		node := e.DAG.Nodes[addr]
-		step, err := e.planNode(rs, node)
+		step, err := e.planNode(ctx, rs, node)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
@@ -168,12 +190,12 @@ func parseActionAddress(addr string) (ns, kind, name string, ok bool) {
 	return parts[1], parts[2], parts[3], true
 }
 
-func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
+func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
 	switch n.Kind {
 	case NodeAction:
 		return e.planAction(rs, n)
 	case NodeResource:
-		return e.planResource(rs, n)
+		return e.planResource(ctx, rs, n)
 	case NodeData:
 		inputs, err := evalBody(n.Body, rs.eval)
 		if err != nil {
@@ -232,7 +254,7 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 	}, nil
 }
 
-func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
+func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
 	mod, ok := e.Modules[n.NS]
 	if !ok {
 		return nil, fmt.Errorf("module %q is not imported", n.NS)
@@ -255,14 +277,23 @@ func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
 		Kind:    n.Kind,
 		Inputs:  inputs,
 	}
-	switch {
-	case prior == nil:
+	if prior == nil {
 		step.Decision = DecisionCreate
-	case sameInputs(prior.Inputs, inputs):
-		step.Decision = DecisionNoOp
-		step.PriorOutputs = prior.Outputs
-	default:
-		step.PriorOutputs = prior.Outputs
+		return step, nil
+	}
+	step.PriorOutputs = prior.Outputs
+
+	observed, err := readObserved(ctx, rt, inputs, prior.Outputs)
+	if errors.Is(err, ErrNotFound) {
+		step.Decision = DecisionCreate
+		return step, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	step.ObservedOutputs = observed
+
+	if !sameInputs(prior.Inputs, inputs) {
 		probe := rt.New()
 		if err := Decode(probe, inputs); err != nil {
 			return nil, err
@@ -272,6 +303,32 @@ func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
 		} else {
 			step.Decision = DecisionUpdate
 		}
+		return step, nil
 	}
+	if step.Drift() {
+		step.Decision = DecisionUpdate
+		return step, nil
+	}
+	step.Decision = DecisionNoOp
 	return step, nil
+}
+
+// readObserved decodes inputs onto a fresh resource and asks the
+// module what's in the cloud for it. It returns the result in the same
+// canonical map shape state uses, or ErrNotFound when the resource is
+// gone.
+func readObserved(
+	ctx context.Context,
+	rt ResourceType,
+	inputs, priorOutputs map[string]any,
+) (map[string]any, error) {
+	res := rt.New()
+	if err := Decode(res, inputs); err != nil {
+		return nil, err
+	}
+	result, err := res.Read(ctx, priorOutputs)
+	if err != nil {
+		return nil, err
+	}
+	return mapify(result), nil
 }

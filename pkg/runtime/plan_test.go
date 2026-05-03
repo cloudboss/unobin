@@ -22,12 +22,19 @@ func runPlan(t *testing.T, src string, modules map[string]*Module, store *state.
 }
 
 func decisionFor(plan *Plan, addr string) Decision {
-	for _, s := range plan.Steps {
-		if s.Address == addr {
-			return s.Decision
-		}
+	if s := stepFor(plan, addr); s != nil {
+		return s.Decision
 	}
 	return ""
+}
+
+func stepFor(plan *Plan, addr string) *PlanStep {
+	for _, s := range plan.Steps {
+		if s.Address == addr {
+			return s
+		}
+	}
+	return nil
 }
 
 func TestPlanCreateForFreshResource(t *testing.T) {
@@ -107,6 +114,66 @@ resources: {
 
 	plan := runPlan(t, second, mods, store)
 	require.Equal(t, DecisionReplace, decisionFor(plan, "resource.core.thing.one"))
+}
+
+func TestPlanUpdateRevertsDrift(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	c.readFn = func(prior any) (any, error) {
+		m, _ := prior.(map[string]any)
+		out := map[string]any{}
+		for k, v := range m {
+			out[k] = v
+		}
+		out["size"] = int64(99)
+		return out, nil
+	}
+
+	plan := runPlan(t, src, mods, store)
+	step := stepFor(plan, "resource.core.thing.one")
+	require.NotNil(t, step)
+	require.Equal(t, DecisionUpdate, step.Decision,
+		"drift with no input change should plan a revert via Update")
+	require.True(t, step.Drift(), "step should report drift")
+	require.NotEqual(t, step.PriorOutputs["size"], step.ObservedOutputs["size"])
+}
+
+func TestPlanCreateWhenResourceIsGone(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
+
+	plan := runPlan(t, src, mods, store)
+	step := stepFor(plan, "resource.core.thing.one")
+	require.NotNil(t, step)
+	require.Equal(t, DecisionCreate, step.Decision,
+		"a missing resource with prior state should plan a recreate")
+	require.True(t, step.Gone(), "step should report Gone")
+	require.Empty(t, step.ObservedOutputs)
 }
 
 func TestPlanDestroyForOrphan(t *testing.T) {

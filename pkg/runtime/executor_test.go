@@ -180,6 +180,9 @@ type resourceCounters struct {
 	creates int64
 	updates int64
 	deletes int64
+	// readFn lets a test control what countingResource.Read returns;
+	// nil means Read returns prior unchanged (no drift, not gone).
+	readFn func(prior any) (any, error)
 }
 
 type countingResource struct {
@@ -195,6 +198,9 @@ func (r *countingResource) Create(_ context.Context) (any, error) {
 }
 
 func (r *countingResource) Read(_ context.Context, prior any) (any, error) {
+	if r.counters.readFn != nil {
+		return r.counters.readFn(prior)
+	}
 	return prior, nil
 }
 
