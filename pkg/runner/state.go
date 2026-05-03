@@ -15,7 +15,32 @@ func newStateCmd(info Info) *cobra.Command {
 	}
 	cmd.AddCommand(newStateListCmd(info))
 	cmd.AddCommand(newStateShowCmd(info))
+	cmd.AddCommand(newStateForceUnlockCmd(info))
 	return cmd
+}
+
+func newStateForceUnlockCmd(info Info) *cobra.Command {
+	return &cobra.Command{
+		Use:   "force-unlock",
+		Short: "Remove the deployment's lock without checking who holds it",
+		Long: "Use this only when a previous run died without releasing the lock. " +
+			"Make sure no apply or refresh is running against this deployment first.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			enc, err := loadEncrypter()
+			if err != nil {
+				return err
+			}
+			store, err := loadStore(info, enc)
+			if err != nil {
+				return err
+			}
+			if err := store.ForceUnlock(); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Lock cleared.")
+			return nil
+		},
+	}
 }
 
 func newStateListCmd(info Info) *cobra.Command {

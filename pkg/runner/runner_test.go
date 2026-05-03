@@ -405,6 +405,25 @@ actions: { core: { echo: { hi: { echo: var.greeting } } } }
 	require.Error(t, err)
 }
 
+func TestStateForceUnlockReleasesLock(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	store, err := state.NewLocalStore(".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	require.NoError(t, err)
+	_, err = store.Lock(context.Background())
+	require.NoError(t, err)
+
+	out, err := runRoot(t, info, "state", "force-unlock")
+	require.NoError(t, err)
+	require.Contains(t, out, "Lock cleared.")
+
+	again, err := store.Lock(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, again.Unlock())
+}
+
 func TestRefreshNoStateIsOK(t *testing.T) {
 	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
 	out, err := runRoot(t, info, "refresh")
