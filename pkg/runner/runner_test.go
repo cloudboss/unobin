@@ -371,9 +371,38 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["plan"])
 	require.True(t, subs["apply"])
 	require.True(t, subs["refresh"])
+	require.True(t, subs["validate"])
 	require.True(t, subs["output"])
 	require.True(t, subs["schema"])
 	require.True(t, subs["state"])
+}
+
+func TestValidateAcceptsCleanSource(t *testing.T) {
+	info := testInfo(t, `
+actions: {
+  core: { echo: { hi: { echo: 'hello' } } }
+}
+`)
+	out, err := runRoot(t, info, "validate")
+	require.NoError(t, err)
+	require.Contains(t, out, "OK")
+}
+
+func TestValidateRejectsBadSource(t *testing.T) {
+	info := testInfo(t, `not valid syntax {{`)
+	_, err := runRoot(t, info, "validate")
+	require.Error(t, err)
+}
+
+func TestValidateChecksConfig(t *testing.T) {
+	info := testInfo(t, `
+inputs: { greeting: { type: string } }
+actions: { core: { echo: { hi: { echo: var.greeting } } } }
+`)
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(`bogus { not valid`), 0o644))
+	_, err := runRoot(t, info, "validate", "-c", cfg)
+	require.Error(t, err)
 }
 
 func TestRefreshNoStateIsOK(t *testing.T) {

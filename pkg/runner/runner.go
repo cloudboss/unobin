@@ -56,6 +56,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newPlanCmd(info))
 	root.AddCommand(newApplyCmd(info))
 	root.AddCommand(newRefreshCmd(info))
+	root.AddCommand(newValidateCmd(info))
 	root.AddCommand(newOutputCmd(info))
 	root.AddCommand(newSchemaCmd(info))
 	root.AddCommand(newStateCmd(info))
@@ -199,6 +200,35 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 	if res.WrittenRev != "" {
 		fmt.Fprintf(out, "State rev: %s\n", res.WrittenRev)
 	}
+	return nil
+}
+
+func newValidateCmd(info Info) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Check stack source and config without reading state or resources",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doValidate(cmd, info, configPath)
+		},
+	}
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a config.ub to validate alongside the stack source.")
+	return cmd
+}
+
+func doValidate(cmd *cobra.Command, info Info, configPath string) error {
+	if _, err := buildInputs(configPath); err != nil {
+		return err
+	}
+	f, err := parsedFile(info)
+	if err != nil {
+		return err
+	}
+	if _, err := runtime.BuildDAG(f).TopologicalOrder(); err != nil {
+		return err
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "OK")
 	return nil
 }
 
