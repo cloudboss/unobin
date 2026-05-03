@@ -1,10 +1,12 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -179,6 +181,74 @@ func TestLocalStoreWithEnvKeyEncrypter(t *testing.T) {
 	got, err := s.Get(rev)
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
+}
+
+func TestLocalStoreLockExcludesSecondHolder(t *testing.T) {
+	s := newStore(t)
+	first, err := s.Lock(context.Background())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = first.Unlock() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err = s.Lock(ctx)
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestLocalStoreLockReacquiresAfterUnlock(t *testing.T) {
+	s := newStore(t)
+	first, err := s.Lock(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, first.Unlock())
+
+	second, err := s.Lock(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, second.Unlock())
+}
+
+func TestLocalStoreLockBlocksUntilReleased(t *testing.T) {
+	s := newStore(t)
+	first, err := s.Lock(context.Background())
+	require.NoError(t, err)
+
+	got := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		l, err := s.Lock(ctx)
+		if err == nil {
+			_ = l.Unlock()
+		}
+		got <- err
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, first.Unlock())
+
+	select {
+	case err := <-got:
+		require.NoError(t, err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("second Lock did not return after first released")
+	}
+}
+
+func TestLocalStoreForceUnlockClearsLock(t *testing.T) {
+	s := newStore(t)
+	_, err := s.Lock(context.Background())
+	require.NoError(t, err)
+
+	require.NoError(t, s.ForceUnlock())
+
+	again, err := s.Lock(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, again.Unlock())
+}
+
+func TestLocalStoreForceUnlockNoLockIsOK(t *testing.T) {
+	s := newStore(t)
+	require.NoError(t, s.ForceUnlock())
 }
 
 func TestLocalStoreWrongKeyCantDecrypt(t *testing.T) {

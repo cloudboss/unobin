@@ -1,6 +1,7 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -110,6 +111,56 @@ func (s *LocalStore) Write(snap *Snapshot) (string, error) {
 		return rev, nil
 	}
 	return "", fmt.Errorf("local store: could not allocate fresh revision after %d attempts", maxRevAttempts)
+}
+
+// Lock acquires the deployment's exclusive lock by creating a marker
+// file under the deployment directory. Lock blocks until the marker
+// can be created or ctx is canceled. The marker file holds the
+// holder's pid so an operator can identify a stuck lock.
+func (s *LocalStore) Lock(ctx context.Context) (Lock, error) {
+	path := filepath.Join(s.dir, "lock")
+	for {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err == nil {
+			fmt.Fprintf(f, "%d\n", os.Getpid())
+			if cerr := f.Close(); cerr != nil {
+				_ = os.Remove(path)
+				return nil, cerr
+			}
+			return &fileLock{path: path}, nil
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// ForceUnlock removes the lock marker without checking who holds it.
+// Operators run this to recover after a leaked lock and must ensure
+// no concurrent run is in progress.
+func (s *LocalStore) ForceUnlock() error {
+	err := os.Remove(filepath.Join(s.dir, "lock"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+type fileLock struct {
+	path string
+}
+
+func (l *fileLock) Unlock() error {
+	err := os.Remove(l.path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 // SetCurrent atomically points "current" at the named rev. The snapshot
