@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/stretchr/testify/require"
@@ -71,6 +72,37 @@ resources: {
 	_, err = exec.ApplyPlan(context.Background(), pf)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "state-rev drift")
+}
+
+func TestApplyPlanWaitsForLock(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+
+	held, err := store.Lock(context.Background())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = held.Unlock() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err = exec.ApplyPlan(ctx, pf)
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {

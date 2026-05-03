@@ -13,7 +13,7 @@ import (
 // Executor is used for output expressions, while resource and action
 // bodies come from the plan. The plan's stack identity must match the
 // Executor's, and the prior state's rev must match what the plan was
-// computed against.
+// computed against. The deployment's lock is held for the duration.
 func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
@@ -26,6 +26,13 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			pf.Stack.Name, pf.Stack.Version, pf.Stack.Commit,
 			e.Stack.Name, e.Stack.Version, e.Stack.Commit)
 	}
+
+	lock, err := e.Store.Lock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("acquire lock: %w", err)
+	}
+	defer func() { _ = lock.Unlock() }()
+
 	currentRev, _ := e.Store.CurrentRev()
 	if currentRev != pf.StateRev {
 		return nil, fmt.Errorf("state-rev drift: plan was computed against %q, "+

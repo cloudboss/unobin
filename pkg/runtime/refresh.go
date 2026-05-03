@@ -22,11 +22,18 @@ type RefreshResult struct {
 // fresh snapshot whose leaf outputs reflect the observation. Resources
 // that are no longer present are dropped. Action and module-call
 // entries, plus stack-level outputs, carry forward unchanged. No
-// resource writes happen.
+// resource writes happen. The deployment's lock is held for the
+// duration.
 func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
+	lock, err := e.Store.Lock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("acquire lock: %w", err)
+	}
+	defer func() { _ = lock.Unlock() }()
+
 	rs, err := e.initRun()
 	if err != nil {
 		return nil, err

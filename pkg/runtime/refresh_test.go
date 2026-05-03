@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/stretchr/testify/require"
@@ -104,6 +105,35 @@ actions: {
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 1)
 	require.Equal(t, state.EntryAction, snap.Entries[0].Type)
+}
+
+func TestRefreshWaitsForLock(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	held, err := store.Lock(context.Background())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = held.Unlock() })
+
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err = exec.Refresh(ctx)
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestRefreshNoPriorState(t *testing.T) {
