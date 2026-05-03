@@ -452,6 +452,30 @@ actions: {
 	require.Contains(t, err.Error(), "already exists")
 }
 
+func TestStateRemoveDropsEntry(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	out, err := runRoot(t, info, "state", "remove", "action.core.echo.hi")
+	require.NoError(t, err)
+	require.Contains(t, out, "Removed action.core.echo.hi")
+
+	show, err := runRoot(t, info, "state", "show")
+	require.NoError(t, err)
+	require.NotContains(t, show, "action.core.echo.hi")
+}
+
+func TestStateRemoveRejectsMissing(t *testing.T) {
+	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	info := testInfo(t, src)
+	_ = applyVia(t, info, "")
+
+	_, err := runRoot(t, info, "state", "remove", "action.core.echo.gone")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no entry at")
+}
+
 func TestStateForceUnlockReleasesLock(t *testing.T) {
 	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
 	info := testInfo(t, src)

@@ -17,6 +17,7 @@ func newStateCmd(info Info) *cobra.Command {
 	cmd.AddCommand(newStateListCmd(info))
 	cmd.AddCommand(newStateShowCmd(info))
 	cmd.AddCommand(newStateMoveCmd(info))
+	cmd.AddCommand(newStateRemoveCmd(info))
 	cmd.AddCommand(newStateForceUnlockCmd(info))
 	return cmd
 }
@@ -71,6 +72,59 @@ func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
 		return err
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Moved %s to %s.\n", oldAddr, newAddr)
+	return nil
+}
+
+func newStateRemoveCmd(info Info) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <address>",
+		Short: "Remove a state entry without touching the underlying resource",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doStateRemove(cmd, info, args[0])
+		},
+	}
+}
+
+func doStateRemove(cmd *cobra.Command, info Info, addr string) error {
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
+	if err != nil {
+		return err
+	}
+	lock, err := store.Lock(context.Background())
+	if err != nil {
+		return fmt.Errorf("acquire lock: %w", err)
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	snap, err := store.Current()
+	if err != nil {
+		return err
+	}
+	idx := -1
+	for i, e := range snap.Entries {
+		if e.Address == addr {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return fmt.Errorf("no entry at %s", addr)
+	}
+	snap.Entries = append(snap.Entries[:idx], snap.Entries[idx+1:]...)
+
+	rev, err := store.Write(snap)
+	if err != nil {
+		return err
+	}
+	if err := store.SetCurrent(rev); err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Removed %s.\n", addr)
 	return nil
 }
 
