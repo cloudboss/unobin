@@ -1,0 +1,27 @@
+description: 'Writes a greeting file at the chosen path.'
+
+inputs: {
+  message: { type: string }
+  path:    { type: string }
+}
+
+imports: {
+  local: 'github.com/cloudboss/unobin/pkg/modules/local@v0.1.0'
+}
+
+resources: {
+  local: {
+    file: {
+      this: {
+        path:    var.path
+        content: var.message
+      }
+    }
+  }
+}
+
+outputs: {
+  path:   resource.local.file.this.path
+  size:   resource.local.file.this.size
+  sha256: resource.local.file.this.sha256
+}

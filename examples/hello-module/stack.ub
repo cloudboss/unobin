@@ -1,0 +1,34 @@
+description: 'Hello-world stack that uses a UB module composite.'
+
+inputs: {
+  message: {
+    type:        string
+    description: 'Text to write to the greeting file'
+  }
+  path: {
+    type:        string
+    description: 'Filesystem path for the greeting file'
+  }
+}
+
+imports: {
+  greeter: './greeter'
+  local:   'github.com/cloudboss/unobin/pkg/modules/local@v0.1.0'
+}
+
+resources: {
+  greeter: {
+    greeting: {
+      welcome: {
+        message: var.message
+        path:    var.path
+      }
+    }
+  }
+}
+
+outputs: {
+  greeting-path:   resource.greeter.greeting.welcome.path
+  greeting-size:   resource.greeter.greeting.welcome.size
+  greeting-sha256: resource.greeter.greeting.welcome.sha256
+}
