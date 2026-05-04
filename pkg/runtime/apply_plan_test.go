@@ -104,6 +104,143 @@ outputs: {
 	require.Contains(t, types, state.EntryLeaf)
 }
 
+func TestApplyPlanCompositeOrphan(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  core: {
+    thing: {
+      one: { name: var.name, size: 1 }
+      two: { name: var.name, size: 2 }
+    }
+  }
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	first := `
+resources: {
+  core: { thing: { keep: { name: 'kept', size: 7 } } }
+  w:    { box:   { x:    { name: 'alpha' } } }
+}
+`
+	second := `
+resources: {
+  core: { thing: { keep: { name: 'kept', size: 7 } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	planAndApply := func(src string) *Plan {
+		exec := &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Store:   store,
+			Stack:   stack,
+		}
+		plan, err := exec.Plan(context.Background())
+		require.NoError(t, err)
+		encoded, err := EncodePlan(plan)
+		require.NoError(t, err)
+		pf, err := DecodePlan(encoded)
+		require.NoError(t, err)
+		_, err = exec.ApplyPlan(context.Background(), pf)
+		require.NoError(t, err)
+		return plan
+	}
+
+	planAndApply(first)
+	require.Equal(t, int64(3), c.creates,
+		"first apply creates two internals plus one root resource")
+	require.Equal(t, int64(0), c.deletes)
+
+	plan := planAndApply(second)
+	require.Equal(t, int64(2), c.deletes,
+		"both internals are destroyed when the call site goes away")
+
+	destroyed := []string{}
+	for _, step := range plan.Steps {
+		if step.Decision == DecisionDestroy {
+			destroyed = append(destroyed, step.Address)
+		}
+	}
+	require.ElementsMatch(t,
+		[]string{
+			"resource.w.box.x/core.thing.one",
+			"resource.w.box.x/core.thing.two",
+		},
+		destroyed,
+		"the plan reports both internals as destroys")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addresses := []string{}
+	for _, e := range snap.Entries {
+		addresses = append(addresses, e.Address)
+	}
+	require.Equal(t, []string{"resource.core.thing.keep"}, addresses,
+		"only the root-level resource that stays in source remains in state")
+}
+
+func TestApplyPlanCompositeUpdateInPlace(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  core: { thing: { one: { name: var.name, size: 1 } } }
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	first := `
+resources: {
+  w: { box: { x: { name: 'alpha' } } }
+}
+`
+	second := `
+resources: {
+  w: { box: { x: { name: 'alpha' } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	planAndApply := func(src string) {
+		exec := &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Store:   store,
+			Stack:   stack,
+		}
+		plan, err := exec.Plan(context.Background())
+		require.NoError(t, err)
+		encoded, err := EncodePlan(plan)
+		require.NoError(t, err)
+		pf, err := DecodePlan(encoded)
+		require.NoError(t, err)
+		_, err = exec.ApplyPlan(context.Background(), pf)
+		require.NoError(t, err)
+	}
+
+	planAndApply(first)
+	require.Equal(t, int64(1), c.creates)
+	planAndApply(second)
+	require.Equal(t, int64(1), c.creates,
+		"unchanged composite call site does not recreate internals")
+	require.Equal(t, int64(0), c.deletes)
+	require.Equal(t, int64(0), c.updates)
+}
+
 func TestApplyPlanRefusesOnStateRevDrift(t *testing.T) {
 	src := `
 resources: {

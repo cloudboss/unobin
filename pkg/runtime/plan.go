@@ -157,6 +157,9 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			if err != nil {
 				return err
 			}
+			if scope == nil {
+				continue
+			}
 			ns, kind, name, ok := parseActionAddress(innerAddress(ent.Address))
 			if !ok {
 				continue
@@ -166,6 +169,9 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			scope, err := e.scopeForAddress(rs, ent.Address)
 			if err != nil {
 				return err
+			}
+			if scope == nil {
+				continue
 			}
 			ns, typeName, name, ok := parseResourceAddress(innerAddress(ent.Address))
 			if !ok {
@@ -179,10 +185,16 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 
 // scopeForAddress returns the scope a state entry belongs to. Entries
 // addressed inside a composite (their address contains `/`) seed the
-// composite's scope; root entries seed root.
+// composite's scope; root entries seed root. When a prior entry's
+// composite has been removed from source, its boundary is not in the
+// DAG, so there is no scope to seed and the entry is skipped (a nil
+// scope tells the caller to move on).
 func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, error) {
 	if i := strings.Index(addr, "/"); i >= 0 {
 		callSite := addr[:i]
+		if _, ok := e.DAG.Nodes[callSite]; !ok {
+			return nil, nil
+		}
 		return e.ensureCompositeScope(rs, callSite)
 	}
 	return rs.eval, nil

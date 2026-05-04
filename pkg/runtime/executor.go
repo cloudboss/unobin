@@ -366,7 +366,7 @@ func (e *Executor) deleteOrphans(ctx context.Context, rs *runState) error {
 		if keep[prior.Address] {
 			continue
 		}
-		ns, typeName, _, ok := parseResourceAddress(prior.Address)
+		ns, typeName, _, ok := parseResourceAddress(innerAddress(prior.Address))
 		if !ok {
 			return fmt.Errorf("orphan %s: cannot parse address", prior.Address)
 		}

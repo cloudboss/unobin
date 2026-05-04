@@ -202,9 +202,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 
 // applyDestroy handles an orphan destroy step. The address is not in
 // the DAG (since the node was removed from source), so the resource
-// type is recovered by parsing the address.
+// type is recovered by parsing the address. Composite-internal
+// addresses keep their call site prefix, so the inner address is
+// stripped first.
 func (e *Executor) applyDestroy(ctx context.Context, step *PlanStep) error {
-	ns, typeName, _, ok := parseResourceAddress(step.Address)
+	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)
 	}
