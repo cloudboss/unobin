@@ -130,7 +130,7 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 		return err
 	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f),
+		DAG:     runtime.BuildDAG(f, info.Modules),
 		Modules: info.Modules,
 		Store:   store,
 		Stack: state.StackInfo{
@@ -181,7 +181,7 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 		return err
 	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f),
+		DAG:     runtime.BuildDAG(f, info.Modules),
 		Modules: info.Modules,
 		Inputs:  inputs,
 		Store:   store,
@@ -225,7 +225,7 @@ func doValidate(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := runtime.BuildDAG(f).TopologicalOrder(); err != nil {
+	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "OK")
@@ -286,7 +286,7 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 		return err
 	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f),
+		DAG:     runtime.BuildDAG(f, info.Modules),
 		Modules: info.Modules,
 		Inputs:  inputs,
 		Store:   store,

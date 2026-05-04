@@ -16,7 +16,7 @@ func parseStack(t *testing.T, src string) *lang.File {
 
 func TestExtractNodesEmpty(t *testing.T) {
 	f := parseStack(t, `description: 'nothing here'`)
-	require.Empty(t, ExtractNodes(f))
+	require.Empty(t, ExtractNodes(f, nil))
 }
 
 func TestExtractNodesResources(t *testing.T) {
@@ -33,7 +33,7 @@ resources: {
   }
 }
 `
-	got := ExtractNodes(parseStack(t, src))
+	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 3)
 
 	require.Equal(t, "resource.aws.vpc.main", got[0].Address)
@@ -62,7 +62,7 @@ outputs: {
   static: 'literal'
 }
 `
-	got := ExtractNodes(parseStack(t, src))
+	got := ExtractNodes(parseStack(t, src), nil)
 	addresses := make([]string, len(got))
 	for i, n := range got {
 		addresses[i] = n.Address
@@ -87,7 +87,7 @@ outputs: {
   vpc-id: resource.aws.vpc.main.id
 }
 `
-	got := ExtractNodes(parseStack(t, src))
+	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
 	require.IsType(t, &lang.DotPath{}, got[0].Body)
 }
@@ -102,7 +102,7 @@ resources: {
   }
 }
 `
-	got := ExtractNodes(parseStack(t, src))
+	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
 	body, ok := got[0].Body.(*lang.ObjectLit)
 	require.True(t, ok)
@@ -122,7 +122,7 @@ resources: {
   }
 }
 `
-	got := ExtractNodes(parseStack(t, src))
+	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
 	require.Equal(t, "resource.net.real.web", got[0].Address)
 }

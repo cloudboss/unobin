@@ -17,9 +17,11 @@ type DAG struct {
 }
 
 // BuildDAG walks a parsed stack file and returns its dependency graph.
-// The file is assumed to be validated.
-func BuildDAG(f *lang.File) *DAG {
-	nodes := ExtractNodes(f)
+// The file is assumed to be validated. mods is the imported-module
+// table; passed to ExtractNodes so composite call sites are expanded
+// before edges are computed.
+func BuildDAG(f *lang.File, mods map[string]*Module) *DAG {
+	nodes := ExtractNodes(f, mods)
 	g := &DAG{
 		Nodes: make(map[string]*Node, len(nodes)),
 		Edges: make(map[string][]string, len(nodes)),

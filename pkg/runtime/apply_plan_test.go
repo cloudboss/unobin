@@ -25,7 +25,7 @@ outputs: {
 	mods := resourceModules(&c)
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src)),
+		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
 		Store:   store,
 		Stack:   stack,
@@ -56,7 +56,7 @@ resources: {
 	mods := resourceModules(&c)
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ resources: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src)),
+		DAG:     BuildDAG(parseStack(t, src), nil),
 		Modules: map[string]*Module{},
 		Store:   store,
 		Stack:   stack,
@@ -202,7 +202,7 @@ actions: {
 
 	planAndApply := func(stackSrc string) {
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, stackSrc)),
+			DAG:     BuildDAG(parseStack(t, stackSrc), mods),
 			Modules: mods,
 			Store:   store,
 			Stack:   stack,

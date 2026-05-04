@@ -25,14 +25,15 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	store, err := state.NewLocalStore(t.TempDir(), "demo-stack", "test", state.NoopEncrypter{})
 	require.NoError(t, err)
 
+	mods := map[string]*runtime.Module{
+		"core": core.Module(),
+	}
 	exec := &runtime.Executor{
-		DAG: runtime.BuildDAG(f),
-		Modules: map[string]*runtime.Module{
-			"core": core.Module(),
-		},
-		Inputs: inputs,
-		Store:  store,
-		Stack:  state.StackInfo{Name: "demo-stack", Version: "v0", Commit: "c0"},
+		DAG:     runtime.BuildDAG(f, mods),
+		Modules: mods,
+		Inputs:  inputs,
+		Store:   store,
+		Stack:   state.StackInfo{Name: "demo-stack", Version: "v0", Commit: "c0"},
 	}
 	res, err := exec.Run(context.Background())
 	require.NoError(t, err)
@@ -130,11 +131,11 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	require.NoError(t, err)
 
 	first, err := (&runtime.Executor{
-		DAG: runtime.BuildDAG(f), Modules: mods, Store: store, Stack: stack,
+		DAG: runtime.BuildDAG(f, mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 	second, err := (&runtime.Executor{
-		DAG: runtime.BuildDAG(f), Modules: mods, Store: store, Stack: stack,
+		DAG: runtime.BuildDAG(f, mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 

@@ -10,10 +10,11 @@ import (
 type NodeKind string
 
 const (
-	NodeResource NodeKind = "resource"
-	NodeData     NodeKind = "data"
-	NodeAction   NodeKind = "action"
-	NodeOutput   NodeKind = "output"
+	NodeResource  NodeKind = "resource"
+	NodeData      NodeKind = "data"
+	NodeAction    NodeKind = "action"
+	NodeOutput    NodeKind = "output"
+	NodeComposite NodeKind = "composite"
 )
 
 // Node is one addressable element of a stack: a single resource instance,
@@ -34,7 +35,13 @@ type Node struct {
 // addressable node in source order. The file's shape is assumed to be
 // validated. Malformed subtrees are skipped silently rather than reported
 // as they should be validated with `lang.ValidateFile` first.
-func ExtractNodes(f *lang.File) []*Node {
+//
+// mods is the imported-module table keyed by alias. It is consulted to
+// distinguish primitive resource call sites from composite call sites;
+// composites expand into a NodeComposite plus internal sub-nodes. A nil
+// or empty mods skips the composite check, in which case every node in
+// `resources:` is treated as a primitive.
+func ExtractNodes(f *lang.File, mods map[string]*Module) []*Node {
 	if f == nil || f.Body == nil {
 		return nil
 	}

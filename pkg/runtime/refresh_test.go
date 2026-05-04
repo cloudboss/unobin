@@ -20,7 +20,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -35,7 +35,7 @@ resources: {
 	}
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -61,14 +61,14 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -89,12 +89,12 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: testModules(), Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), testModules()), Modules: testModules(), Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: testModules(), Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), testModules()), Modules: testModules(), Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -118,7 +118,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -127,7 +127,7 @@ resources: {
 	t.Cleanup(func() { _ = held.Unlock() })
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -140,7 +140,8 @@ func TestRefreshNoPriorState(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, `description: 'x'`)), Modules: map[string]*Module{},
+		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
+		Modules: map[string]*Module{},
 		Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())

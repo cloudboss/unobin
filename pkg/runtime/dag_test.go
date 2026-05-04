@@ -7,7 +7,7 @@ import (
 )
 
 func TestBuildDAGEmpty(t *testing.T) {
-	g := BuildDAG(parseStack(t, `description: 'no nodes'`))
+	g := BuildDAG(parseStack(t, `description: 'no nodes'`), nil)
 	require.Empty(t, g.Nodes)
 	require.Empty(t, g.Edges)
 }
@@ -21,7 +21,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	require.Len(t, g.Nodes, 1)
 	require.Empty(t, g.Edges["resource.aws.vpc.main"])
 }
@@ -40,7 +40,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	require.Equal(t,
 		[]string{"resource.aws.vpc.main"},
 		g.Edges["resource.aws.security-group.web"])
@@ -61,7 +61,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	require.Equal(t,
 		[]string{"resource.aws.vpc.main"},
 		g.Edges["resource.aws.security-group.web"])
@@ -81,7 +81,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	require.ElementsMatch(t,
 		[]string{"resource.aws.vpc.main", "resource.aws.subnet.public"},
 		g.Edges["resource.aws.security-group.web"])
@@ -95,7 +95,7 @@ resources: {
 outputs: {
   vpc-id: resource.aws.vpc.main.id
 }
-`))
+`), nil)
 	require.Equal(t,
 		[]string{"resource.aws.vpc.main"},
 		g.Edges["output.vpc-id"])
@@ -113,7 +113,7 @@ actions: {
     }
   }
 }
-`))
+`), nil)
 	require.Equal(t,
 		[]string{"resource.aws.vpc.main"},
 		g.Edges["action.core.command.log"])
@@ -126,14 +126,14 @@ resources: {
     vpc: { main: { cidr-block: var.cidr } }
   }
 }
-`))
+`), nil)
 	require.Equal(t,
 		[]string{"var.cidr"},
 		g.Edges["resource.aws.vpc.main"])
 }
 
 func TestTopologicalOrderEmpty(t *testing.T) {
-	got, err := BuildDAG(parseStack(t, `description: 'empty'`)).TopologicalOrder()
+	got, err := BuildDAG(parseStack(t, `description: 'empty'`), nil).TopologicalOrder()
 	require.NoError(t, err)
 	require.Empty(t, got)
 }
@@ -141,7 +141,7 @@ func TestTopologicalOrderEmpty(t *testing.T) {
 func TestTopologicalOrderSingle(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: { aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } } }
-`))
+`), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{"resource.aws.vpc.main"}, got)
@@ -158,7 +158,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{
@@ -184,7 +184,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	indexOf := func(addr string) int {
@@ -208,7 +208,7 @@ resources: {
     vpc: { main: { cidr-block: var.cidr } }
   }
 }
-`))
+`), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{"resource.aws.vpc.main"}, got)
@@ -230,7 +230,7 @@ resources: {
     }
   }
 }
-`))
+`), nil)
 	_, err := g.TopologicalOrder()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cycle")
@@ -248,7 +248,7 @@ resources: {
   }
 }
 `
-	g := BuildDAG(parseStack(t, src))
+	g := BuildDAG(parseStack(t, src), nil)
 	first, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	for i := 0; i < 5; i++ {

@@ -59,10 +59,11 @@ func testModules() map[string]*Module {
 func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, error) {
 	t.Helper()
 	f := parseStack(t, src)
-	g := BuildDAG(f)
+	mods := testModules()
+	g := BuildDAG(f, mods)
 	exec := &Executor{
 		DAG:     g,
-		Modules: testModules(),
+		Modules: mods,
 		Inputs:  inputs,
 		Store:   newStateStore(t),
 		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
@@ -72,7 +73,7 @@ func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, 
 
 func TestExecutorRequiresStore(t *testing.T) {
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, `description: 'x'`)),
+		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
 		Modules: testModules(),
 	}
 	_, err := exec.Run(context.Background())
@@ -253,9 +254,10 @@ outputs: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src)),
-		Modules: resourceModules(&c),
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
 		Store:   store,
 		Stack:   stack,
 	}
@@ -301,11 +303,11 @@ resources: {
 	mods := resourceModules(&c)
 
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 	_, err = (&Executor{
-		DAG: BuildDAG(parseStack(t, second)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -334,11 +336,11 @@ resources: {
 	mods := resourceModules(&c)
 
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 	_, err = (&Executor{
-		DAG: BuildDAG(parseStack(t, second)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -376,11 +378,11 @@ resources: {
 	mods := resourceModules(&c)
 
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 	_, err = (&Executor{
-		DAG: BuildDAG(parseStack(t, second)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -455,7 +457,7 @@ func runExecutorTwice(t *testing.T, src string, modules map[string]*Module) (*Ex
 	t.Helper()
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	g := BuildDAG(parseStack(t, src))
+	g := BuildDAG(parseStack(t, src), modules)
 
 	first, err := (&Executor{DAG: g, Modules: modules, Store: store, Stack: stack}).Run(context.Background())
 	require.NoError(t, err)
@@ -480,6 +482,7 @@ func countingModules(runs *int64) map[string]*Module {
 
 func TestExecutorPersistsSnapshot(t *testing.T) {
 	store := newStateStore(t)
+	mods := testModules()
 	exec := &Executor{
 		DAG: BuildDAG(parseStack(t, `
 actions: {
@@ -487,8 +490,8 @@ actions: {
     echo: { hi: { echo: 'hello' } }
   }
 }
-`)),
-		Modules: testModules(),
+`), mods),
+		Modules: mods,
 		Store:   store,
 		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
 	}

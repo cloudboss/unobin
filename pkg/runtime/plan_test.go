@@ -11,7 +11,7 @@ import (
 func runPlan(t *testing.T, src string, modules map[string]*Module, store *state.LocalStore) *Plan {
 	t.Helper()
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src)),
+		DAG:     BuildDAG(parseStack(t, src), modules),
 		Modules: modules,
 		Store:   store,
 		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
@@ -60,7 +60,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -84,7 +84,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -108,7 +108,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -127,7 +127,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -254,7 +254,7 @@ resources: {
 	}
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src)),
+		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
 		Store:   store,
 		Stack:   stack,
@@ -275,7 +275,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -311,7 +311,7 @@ resources: {
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -342,7 +342,7 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, first)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -367,7 +367,7 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
@@ -380,7 +380,10 @@ func TestPlanRecordsStateRev(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	_, err := (&Executor{
-		DAG: BuildDAG(parseStack(t, src)), Modules: map[string]*Module{}, Store: store, Stack: stack,
+		DAG:     BuildDAG(parseStack(t, src), nil),
+		Modules: map[string]*Module{},
+		Store:   store,
+		Stack:   stack,
 	}).Run(context.Background())
 	require.NoError(t, err)
 
