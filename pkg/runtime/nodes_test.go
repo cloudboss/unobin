@@ -110,6 +110,75 @@ resources: {
 	require.Equal(t, "cidr-block", body.Fields[0].Key.Name)
 }
 
+func TestExtractNodesExpandsComposite(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: {
+    file: { greeting: { path: 'hello.txt', content: 'hi' } }
+  }
+}
+outputs: {
+  greeting-path: resource.local.file.greeting.path
+}
+`)
+	mods := map[string]*Module{
+		"net": {
+			Name: "net",
+			Composites: map[string]*CompositeType{
+				"cluster": {Name: "cluster", Body: composite},
+			},
+		},
+	}
+	stack := parseStack(t, `
+resources: {
+  net: {
+    cluster: { web: { name: 'web' } }
+  }
+}
+`)
+	got := ExtractNodes(stack, mods)
+	require.Len(t, got, 2)
+
+	require.Equal(t, "resource.net.cluster.web", got[0].Address)
+	require.Equal(t, NodeComposite, got[0].Kind)
+	require.Equal(t, composite, got[0].CompositeBody)
+	require.Empty(t, got[0].Composite)
+
+	require.Equal(t, "resource.net.cluster.web/local.file.greeting", got[1].Address)
+	require.Equal(t, NodeResource, got[1].Kind)
+	require.Equal(t, "resource.net.cluster.web", got[1].Composite)
+	require.Equal(t, "local", got[1].NS)
+	require.Equal(t, "file", got[1].Type)
+	require.Equal(t, "greeting", got[1].Name)
+}
+
+func TestExtractNodesCompositeDropsInternalOutputs(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: { file: { x: { path: 'x.txt' } } }
+}
+outputs: {
+  path: resource.local.file.x.path
+}
+`)
+	mods := map[string]*Module{
+		"m": {
+			Name:       "m",
+			Composites: map[string]*CompositeType{"t": {Name: "t", Body: composite}},
+		},
+	}
+	stack := parseStack(t, `
+resources: {
+  m: { t: { one: {} } }
+}
+`)
+	got := ExtractNodes(stack, mods)
+	for _, n := range got {
+		require.NotEqual(t, NodeOutput, n.Kind,
+			"output node should not become a DAG node; got %q", n.Address)
+	}
+}
+
 func TestExtractNodesSkipsMalformed(t *testing.T) {
 	src := `
 resources: {

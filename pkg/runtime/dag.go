@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -28,7 +29,9 @@ func BuildDAG(f *lang.File, mods map[string]*Module) *DAG {
 	}
 	for _, n := range nodes {
 		g.Nodes[n.Address] = n
-		g.Edges[n.Address] = dependenciesOf(n)
+	}
+	for _, n := range nodes {
+		g.Edges[n.Address] = computeDeps(n, g.Nodes)
 	}
 	return g
 }
@@ -91,9 +94,59 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 	return order, nil
 }
 
-func dependenciesOf(n *Node) []string {
-	deps := Refs(n.Body)
-	if obj, ok := n.Body.(*lang.ObjectLit); ok {
+// computeDeps returns the addresses n depends on, taking composite
+// scope into account. A composite boundary depends on each of its
+// internal nodes so its `outputs:` evaluation runs last. An internal
+// node depends on its body's refs, rewritten so resource refs point
+// at the prefixed sibling addresses, plus the boundary's body refs.
+// The boundary refs are the call site args, which carry the root deps
+// the composite needs resolved before any internal can run. Other
+// nodes keep the original behavior: body refs and any `@depends-on`
+// entries.
+func computeDeps(n *Node, nodes map[string]*Node) []string {
+	if n.Kind == NodeComposite {
+		return internalsOf(n.Address, nodes)
+	}
+	deps := bodyDeps(n.Body)
+	if n.Composite != "" {
+		scoped := make([]string, 0, len(deps))
+		for _, d := range deps {
+			scoped = append(scoped, scopeRef(d, n.Composite))
+		}
+		deps = scoped
+		if boundary := nodes[n.Composite]; boundary != nil {
+			deps = append(deps, Refs(boundary.Body)...)
+		}
+	}
+	return dedupe(deps)
+}
+
+func internalsOf(callSite string, nodes map[string]*Node) []string {
+	var out []string
+	for _, m := range nodes {
+		if m.Composite == callSite {
+			out = append(out, m.Address)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// scopeRef rewrites a root reference into a composite internal
+// address. `resource.aws.vpc.this` under call site
+// `resource.net.cluster.web` becomes
+// `resource.net.cluster.web/aws.vpc.this`. Var refs and unsupported
+// kinds pass through unchanged so toposort skips them.
+func scopeRef(ref, callSite string) string {
+	if strings.HasPrefix(ref, "resource.") {
+		return callSite + "/" + strings.TrimPrefix(ref, "resource.")
+	}
+	return ref
+}
+
+func bodyDeps(body lang.Expr) []string {
+	deps := Refs(body)
+	if obj, ok := body.(*lang.ObjectLit); ok {
 		for _, fld := range obj.Fields {
 			if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@depends-on" {
 				continue
@@ -113,5 +166,5 @@ func dependenciesOf(n *Node) []string {
 			}
 		}
 	}
-	return dedupe(deps)
+	return deps
 }

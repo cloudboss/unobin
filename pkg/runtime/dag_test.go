@@ -132,6 +132,91 @@ resources: {
 		g.Edges["resource.aws.vpc.main"])
 }
 
+func TestBuildDAGCompositeBoundaryDependsOnInternals(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: {
+    file: {
+      a: { path: 'a.txt' }
+      b: { path: 'b.txt' }
+    }
+  }
+}
+`)
+	mods := map[string]*Module{
+		"net": {
+			Name:       "net",
+			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
+		},
+	}
+	g := BuildDAG(parseStack(t, `
+resources: {
+  net: { cluster: { web: { name: 'web' } } }
+}
+`), mods)
+	require.ElementsMatch(t,
+		[]string{
+			"resource.net.cluster.web/local.file.a",
+			"resource.net.cluster.web/local.file.b",
+		},
+		g.Edges["resource.net.cluster.web"])
+}
+
+func TestBuildDAGCompositeInternalRewritesSiblingRef(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: {
+    file: {
+      a: { path: 'a.txt' }
+      b: { path: resource.local.file.a.path }
+    }
+  }
+}
+`)
+	mods := map[string]*Module{
+		"net": {
+			Name:       "net",
+			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
+		},
+	}
+	g := BuildDAG(parseStack(t, `
+resources: {
+  net: { cluster: { web: {} } }
+}
+`), mods)
+	require.Equal(t,
+		[]string{"resource.net.cluster.web/local.file.a"},
+		g.Edges["resource.net.cluster.web/local.file.b"])
+}
+
+func TestBuildDAGCompositeInternalInheritsCallSiteArgsRefs(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: { file: { x: { path: var.target } } }
+}
+`)
+	mods := map[string]*Module{
+		"net": {
+			Name:       "net",
+			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
+		},
+	}
+	g := BuildDAG(parseStack(t, `
+resources: {
+  local: { file: { src: { path: 'src.txt' } } }
+  net: {
+    cluster: {
+      web: { target: resource.local.file.src.path }
+    }
+  }
+}
+`), mods)
+	require.Contains(t,
+		g.Edges["resource.net.cluster.web/local.file.x"],
+		"resource.local.file.src",
+		"internal should inherit the call-site args' root refs")
+}
+
 func TestTopologicalOrderEmpty(t *testing.T) {
 	got, err := BuildDAG(parseStack(t, `description: 'empty'`), nil).TopologicalOrder()
 	require.NoError(t, err)
