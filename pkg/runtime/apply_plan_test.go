@@ -188,6 +188,80 @@ resources: {
 		"only the root-level resource that stays in source remains in state")
 }
 
+func TestApplyPlanCompositeWithRootVarArgs(t *testing.T) {
+	// The plan and apply phases run separately and apply does not
+	// have access to the root inputs that plan used. The composite
+	// boundary's args are evaluated at plan time and must seed the
+	// composite scope at apply time so internals can read them.
+	composite := parseStack(t, `
+inputs: {
+  who: { type: string }
+}
+resources: {
+  core: { thing: { greet: { name: var.who, size: 1 } } }
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"hello": {Name: "hello", Body: composite},
+		},
+	}
+	src := `
+inputs: {
+  who: { type: string }
+}
+resources: {
+  w: { hello: { x: { who: var.who } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	planExec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs:  map[string]any{"who": "world"},
+		Store:   store,
+		Stack:   stack,
+	}
+	plan, err := planExec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+
+	// Apply runs without root inputs, mirroring the stack binary's
+	// `apply` subcommand which reads only the plan file.
+	applyExec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err = applyExec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), c.creates)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	leaf := findEntryByAddr(snap, "resource.w.hello.x/core.thing.greet")
+	require.NotNil(t, leaf)
+	require.Equal(t, "world", leaf.Inputs["name"])
+}
+
+func findEntryByAddr(snap *state.Snapshot, addr string) *state.Entry {
+	for _, e := range snap.Entries {
+		if e.Address == addr {
+			return e
+		}
+	}
+	return nil
+}
+
 func TestApplyPlanCompositeUpdateInPlace(t *testing.T) {
 	composite := parseStack(t, `
 resources: {

@@ -44,6 +44,22 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 		return nil, err
 	}
 
+	// Composite scopes seed from the plan: each composite step carries
+	// its evaluated call site args as Inputs, so internals see the
+	// right Vars without needing the root inputs again.
+	for i := range pf.Steps {
+		step := &pf.Steps[i]
+		if step.Kind != NodeComposite {
+			continue
+		}
+		rs.composites[step.Address] = &EvalContext{
+			Vars:      step.Inputs,
+			Resources: make(map[string]any),
+			Data:      make(map[string]any),
+			Actions:   make(map[string]any),
+		}
+	}
+
 	for i := range pf.Steps {
 		step := &pf.Steps[i]
 		if err := e.applyStep(ctx, rs, step); err != nil {
