@@ -169,9 +169,78 @@ func (e *Executor) runNode(ctx context.Context, rs *runState, n *Node) error {
 		return nil
 	case NodeResource:
 		return e.runResource(ctx, rs, n)
+	case NodeComposite:
+		scope, err := e.ensureCompositeScope(rs, n.Address)
+		if err != nil {
+			return err
+		}
+		return e.finalizeComposite(rs, n, scope.Vars)
 	default:
 		return fmt.Errorf("unknown node kind %q", n.Kind)
 	}
+}
+
+// finalizeComposite closes a composite call site after its
+// internals have finished. It reads the composite body's `outputs:`
+// block against the composite scope, exposes those outputs at the
+// call site address so the root can reach them, and writes one
+// EntryModuleCall record holding the given inputs and the computed
+// outputs. Inputs is the call site arg map; pass scope.Vars when
+// called from Run, step.Inputs when called from ApplyPlan.
+func (e *Executor) finalizeComposite(rs *runState, n *Node, inputs map[string]any) error {
+	scope, err := e.ensureCompositeScope(rs, n.Address)
+	if err != nil {
+		return err
+	}
+	outputs, err := evalCompositeOutputs(n.CompositeBody, scope)
+	if err != nil {
+		return err
+	}
+	storeNested(rs.eval.Resources, n, outputs)
+	rs.next.Entries = append(rs.next.Entries, &state.Entry{
+		Address:    n.Address,
+		Type:       state.EntryModuleCall,
+		Module:     n.NS,
+		ModuleType: n.Type,
+		Inputs:     inputs,
+		Outputs:    outputs,
+	})
+	return nil
+}
+
+// evalCompositeOutputs reads the composite body's `outputs:` block
+// and reduces each field against the given scope. Returns nil when
+// the body has no outputs block.
+func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, error) {
+	if body == nil || body.Body == nil {
+		return nil, nil
+	}
+	var outBlock *lang.ObjectLit
+	for _, fld := range body.Body.Fields {
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "outputs" {
+			obj, ok := fld.Value.(*lang.ObjectLit)
+			if !ok {
+				return nil, fmt.Errorf("composite outputs: expected an object")
+			}
+			outBlock = obj
+			break
+		}
+	}
+	if outBlock == nil {
+		return nil, nil
+	}
+	out := make(map[string]any, len(outBlock.Fields))
+	for _, fld := range outBlock.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		val, err := Eval(fld.Value, scope)
+		if err != nil {
+			return nil, fmt.Errorf("composite output %q: %w", fld.Key.Name, err)
+		}
+		out[fld.Key.Name] = val
+	}
+	return out, nil
 }
 
 func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error {
@@ -183,7 +252,11 @@ func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error
 	if !ok {
 		return fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, rs.eval)
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return err
+	}
+	inputs, err := evalBody(n.Body, scope)
 	if err != nil {
 		return err
 	}
@@ -224,7 +297,7 @@ func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error
 		}
 		outputs = mapify(result)
 	}
-	storeNested(rs.eval.Resources, n, outputs)
+	storeNested(scope.Resources, n, outputs)
 
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:       n.Address,
@@ -334,11 +407,15 @@ func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
 	if !ok {
 		return fmt.Errorf("module %s has no action %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, rs.eval)
+	scope, err := e.scopeFor(rs, n)
 	if err != nil {
 		return err
 	}
-	trigger, err := ComputeTrigger(n, inputs, rs.eval)
+	inputs, err := evalBody(n.Body, scope)
+	if err != nil {
+		return err
+	}
+	trigger, err := ComputeTrigger(n, inputs, scope)
 	if err != nil {
 		return err
 	}
@@ -364,7 +441,7 @@ func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
 		}
 		outputs = mapify(result)
 	}
-	storeNested(rs.eval.Actions, n, outputs)
+	storeNested(scope.Actions, n, outputs)
 
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:     n.Address,
@@ -386,7 +463,11 @@ func (e *Executor) runData(ctx context.Context, rs *runState, n *Node) error {
 	if !ok {
 		return fmt.Errorf("module %s has no data source %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, rs.eval)
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return err
+	}
+	inputs, err := evalBody(n.Body, scope)
 	if err != nil {
 		return err
 	}
@@ -398,7 +479,7 @@ func (e *Executor) runData(ctx context.Context, rs *runState, n *Node) error {
 	if err != nil {
 		return err
 	}
-	storeNested(rs.eval.Data, n, mapify(result))
+	storeNested(scope.Data, n, mapify(result))
 	return nil
 }
 

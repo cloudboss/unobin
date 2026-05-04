@@ -240,6 +240,73 @@ func resourceModules(c *resourceCounters) map[string]*Module {
 	}
 }
 
+func TestExecutorRunsComposite(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  core: {
+    thing: {
+      one: { name: var.name, size: 1 }
+    }
+  }
+}
+outputs: {
+  id: resource.core.thing.one.id
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	src := `
+resources: {
+  w: { box: { x: { name: 'alpha' } } }
+}
+outputs: {
+  out: resource.w.box.x.id
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "fake-alpha", res.Outputs["out"])
+	require.Equal(t, int64(1), c.creates)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Len(t, snap.Entries, 2)
+
+	var leaf, modCall *state.Entry
+	for _, e := range snap.Entries {
+		switch e.Type {
+		case state.EntryLeaf:
+			leaf = e
+		case state.EntryModuleCall:
+			modCall = e
+		}
+	}
+	require.NotNil(t, leaf)
+	require.Equal(t, "resource.w.box.x/core.thing.one", leaf.Address)
+	require.Equal(t, "thing", leaf.Kind)
+
+	require.NotNil(t, modCall)
+	require.Equal(t, "resource.w.box.x", modCall.Address)
+	require.Equal(t, "w", modCall.Module)
+	require.Equal(t, "box", modCall.ModuleType)
+	require.Equal(t, "alpha", modCall.Inputs["name"])
+	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
+}
+
 func TestExecutorCreatesResource(t *testing.T) {
 	src := `
 resources: {

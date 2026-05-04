@@ -44,6 +44,66 @@ outputs: {
 	require.Equal(t, int64(1), c.creates)
 }
 
+func TestApplyPlanComposite(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  core: { thing: { one: { name: var.name, size: 1 } } }
+}
+outputs: {
+  id: resource.core.thing.one.id
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	src := `
+resources: {
+  w: { box: { x: { name: 'alpha' } } }
+}
+outputs: {
+  out: resource.w.box.x.id
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+
+	res, err := exec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, "fake-alpha", res.Outputs["out"])
+	require.Equal(t, int64(1), c.creates)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addresses := make([]string, len(snap.Entries))
+	types := make([]state.EntryType, len(snap.Entries))
+	for i, e := range snap.Entries {
+		addresses[i] = e.Address
+		types[i] = e.Type
+	}
+	require.ElementsMatch(t,
+		[]string{"resource.w.box.x", "resource.w.box.x/core.thing.one"},
+		addresses)
+	require.Contains(t, types, state.EntryModuleCall)
+	require.Contains(t, types, state.EntryLeaf)
+}
+
 func TestApplyPlanRefusesOnStateRevDrift(t *testing.T) {
 	src := `
 resources: {

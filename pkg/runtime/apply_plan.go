@@ -75,6 +75,12 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return e.applyResource(ctx, rs, step)
 	case NodeData:
 		return e.applyData(ctx, rs, step)
+	case NodeComposite:
+		node, ok := e.DAG.Nodes[step.Address]
+		if !ok || node.Kind != NodeComposite {
+			return fmt.Errorf("composite: node %q not in DAG", step.Address)
+		}
+		return e.finalizeComposite(rs, node, step.Inputs)
 	case NodeOutput:
 		return nil
 	default:
@@ -82,18 +88,19 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 	}
 }
 
+
 func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep) error {
-	ns, kind, name, ok := parseActionAddress(step.Address)
-	if !ok {
-		return fmt.Errorf("malformed address")
+	node, scope, err := e.nodeAndScope(rs, step.Address)
+	if err != nil {
+		return err
 	}
-	mod, ok := e.Modules[ns]
+	mod, ok := e.Modules[node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", ns)
+		return fmt.Errorf("module %q is not imported", node.NS)
 	}
-	at, ok := mod.Actions[kind]
+	at, ok := mod.Actions[node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no action %q", ns, kind)
+		return fmt.Errorf("module %s has no action %q", node.NS, node.Type)
 	}
 	var outputs map[string]any
 	switch step.Decision {
@@ -112,21 +119,19 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	default:
 		return fmt.Errorf("action: unexpected decision %q", step.Decision)
 	}
-	storeNested(rs.eval.Actions, &Node{NS: ns, Type: kind, Name: name}, outputs)
+	storeNested(scope.Actions, node, outputs)
 
 	// Recompute the trigger hash with the fresh upstream state so the
 	// next plan compares against an accurate hash.
 	hash := step.TriggerHash
-	if node, ok := e.DAG.Nodes[step.Address]; ok {
-		if t, err := ComputeTrigger(node, step.Inputs, rs.eval); err == nil && !t.AlwaysRerun {
-			hash = t.Hash
-		}
+	if t, err := ComputeTrigger(node, step.Inputs, scope); err == nil && !t.AlwaysRerun {
+		hash = t.Hash
 	}
 
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:     step.Address,
 		Type:        state.EntryAction,
-		Kind:        kind,
+		Kind:        node.Type,
 		TriggerHash: hash,
 		Inputs:      step.Inputs,
 		Outputs:     outputs,
@@ -135,25 +140,20 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 }
 
 func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanStep) error {
-	ns, typeName, name, ok := parseResourceAddress(step.Address)
-	if !ok {
-		return fmt.Errorf("malformed address")
-	}
-	mod, ok := e.Modules[ns]
-	if !ok {
-		return fmt.Errorf("module %q is not imported", ns)
-	}
-	rt, ok := mod.Resources[typeName]
-	if !ok {
-		return fmt.Errorf("module %s has no resource %q", ns, typeName)
-	}
-
 	if step.Decision == DecisionDestroy {
-		resource := rt.New()
-		if err := Decode(resource, step.Inputs); err != nil {
-			return err
-		}
-		return resource.Delete(ctx, step.PriorOutputs)
+		return e.applyDestroy(ctx, step)
+	}
+	node, scope, err := e.nodeAndScope(rs, step.Address)
+	if err != nil {
+		return err
+	}
+	mod, ok := e.Modules[node.NS]
+	if !ok {
+		return fmt.Errorf("module %q is not imported", node.NS)
+	}
+	rt, ok := mod.Resources[node.Type]
+	if !ok {
+		return fmt.Errorf("module %s has no resource %q", node.NS, node.Type)
 	}
 
 	resource := rt.New()
@@ -188,11 +188,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	default:
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
-	storeNested(rs.eval.Resources, &Node{NS: ns, Type: typeName, Name: name}, outputs)
+	storeNested(scope.Resources, node, outputs)
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:       step.Address,
 		Type:          state.EntryLeaf,
-		Kind:          typeName,
+		Kind:          node.Type,
 		SchemaVersion: rt.SchemaVersion,
 		Inputs:        step.Inputs,
 		Outputs:       outputs,
@@ -200,17 +200,56 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	return nil
 }
 
-func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) error {
-	ns := splitFirst(step.Address, ".")[1]
-	typeName := splitFirst(step.Address, ".")[2]
-	name := splitFirst(step.Address, ".")[3]
+// applyDestroy handles an orphan destroy step. The address is not in
+// the DAG (since the node was removed from source), so the resource
+// type is recovered by parsing the address.
+func (e *Executor) applyDestroy(ctx context.Context, step *PlanStep) error {
+	ns, typeName, _, ok := parseResourceAddress(step.Address)
+	if !ok {
+		return fmt.Errorf("destroy: malformed address %q", step.Address)
+	}
 	mod, ok := e.Modules[ns]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", ns)
 	}
-	dt, ok := mod.DataSources[typeName]
+	rt, ok := mod.Resources[typeName]
 	if !ok {
-		return fmt.Errorf("module %s has no data source %q", ns, typeName)
+		return fmt.Errorf("module %s has no resource %q", ns, typeName)
+	}
+	resource := rt.New()
+	if err := Decode(resource, step.Inputs); err != nil {
+		return err
+	}
+	return resource.Delete(ctx, step.PriorOutputs)
+}
+
+// nodeAndScope looks up the DAG node at addr and returns it together
+// with the EvalContext for evaluating its body. Composite internals
+// resolve to the composite's own scope; root nodes resolve to root.
+func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext, error) {
+	node, ok := e.DAG.Nodes[addr]
+	if !ok {
+		return nil, nil, fmt.Errorf("address %q not in DAG", addr)
+	}
+	scope, err := e.scopeFor(rs, node)
+	if err != nil {
+		return nil, nil, err
+	}
+	return node, scope, nil
+}
+
+func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) error {
+	node, scope, err := e.nodeAndScope(rs, step.Address)
+	if err != nil {
+		return err
+	}
+	mod, ok := e.Modules[node.NS]
+	if !ok {
+		return fmt.Errorf("module %q is not imported", node.NS)
+	}
+	dt, ok := mod.DataSources[node.Type]
+	if !ok {
+		return fmt.Errorf("module %s has no data source %q", node.NS, node.Type)
 	}
 	ds := dt.New()
 	if err := Decode(ds, step.Inputs); err != nil {
@@ -220,28 +259,8 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
-	storeNested(rs.eval.Data, &Node{NS: ns, Type: typeName, Name: name}, mapify(result))
+	storeNested(scope.Data, node, mapify(result))
 	return nil
-}
-
-func splitFirst(s, sep string) []string {
-	out := []string{}
-	cur := ""
-	for _, c := range s {
-		if string(c) == sep {
-			out = append(out, cur)
-			cur = ""
-			continue
-		}
-		cur += string(c)
-	}
-	if cur != "" {
-		out = append(out, cur)
-	}
-	for len(out) < 4 {
-		out = append(out, "")
-	}
-	return out
 }
 
 // evalPlanOutputs evaluates each output node from the source against the
