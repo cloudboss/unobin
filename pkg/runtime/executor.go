@@ -46,6 +46,12 @@ type runState struct {
 	outputs map[string]any
 	prior   *state.Snapshot
 	next    *state.Snapshot
+
+	// composites holds one EvalContext per composite call site. Lazily
+	// built when a node inside a composite first needs evaluation. Vars
+	// in each scope are the call site args; Resources, Data, Actions
+	// hold sibling outputs as the internals complete.
+	composites map[string]*EvalContext
 }
 
 // Run executes every node in dependency order and returns the result.
@@ -92,8 +98,9 @@ func (e *Executor) initRun() (*runState, error) {
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
 		},
-		outputs: make(map[string]any),
-		next:    state.NewSnapshot(e.Stack, e.Store.DeploymentID()),
+		outputs:    make(map[string]any),
+		composites: make(map[string]*EvalContext),
+		next:       state.NewSnapshot(e.Stack, e.Store.DeploymentID()),
 	}
 	prior, err := e.Store.Current()
 	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
@@ -101,6 +108,39 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs.prior = prior
 	return rs, nil
+}
+
+// scopeFor returns the EvalContext n's body should be evaluated
+// against. Root scope for nodes outside a composite, the composite's
+// own scope otherwise. The composite scope's Vars carry the call site
+// args and its Resources/Data/Actions hold sibling outputs.
+func (e *Executor) scopeFor(rs *runState, n *Node) (*EvalContext, error) {
+	if n.Composite == "" {
+		return rs.eval, nil
+	}
+	return e.ensureCompositeScope(rs, n.Composite)
+}
+
+func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalContext, error) {
+	if scope, ok := rs.composites[callSite]; ok {
+		return scope, nil
+	}
+	boundary, ok := e.DAG.Nodes[callSite]
+	if !ok {
+		return nil, fmt.Errorf("composite %s: boundary node not in DAG", callSite)
+	}
+	args, err := evalBody(boundary.Body, rs.eval)
+	if err != nil {
+		return nil, fmt.Errorf("composite %s: eval call args: %w", callSite, err)
+	}
+	scope := &EvalContext{
+		Vars:      args,
+		Resources: make(map[string]any),
+		Data:      make(map[string]any),
+		Actions:   make(map[string]any),
+	}
+	rs.composites[callSite] = scope
+	return scope, nil
 }
 
 func (e *Executor) persist(rs *runState) (string, error) {

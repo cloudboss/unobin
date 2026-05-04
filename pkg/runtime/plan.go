@@ -96,7 +96,9 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 	// Seed the EvalContext with prior outputs so downstream evaluation
 	// has something to bind to even when an upstream node would change.
-	seedFromPriorState(rs)
+	if err := e.seedFromPriorState(rs); err != nil {
+		return nil, err
+	}
 
 	addressDecision := make(map[string]Decision)
 	for _, addr := range order {
@@ -144,26 +146,65 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
-func seedFromPriorState(rs *runState) {
+func (e *Executor) seedFromPriorState(rs *runState) error {
 	if rs.prior == nil {
-		return
+		return nil
 	}
 	for _, ent := range rs.prior.Entries {
 		switch ent.Type {
 		case state.EntryAction:
-			ns, kind, name, ok := parseActionAddress(ent.Address)
+			scope, err := e.scopeForAddress(rs, ent.Address)
+			if err != nil {
+				return err
+			}
+			ns, kind, name, ok := parseActionAddress(innerAddress(ent.Address))
 			if !ok {
 				continue
 			}
-			seedNested(rs.eval.Actions, ns, kind, name, ent.Outputs)
+			seedNested(scope.Actions, ns, kind, name, ent.Outputs)
 		case state.EntryLeaf:
-			ns, typeName, name, ok := parseResourceAddress(ent.Address)
+			scope, err := e.scopeForAddress(rs, ent.Address)
+			if err != nil {
+				return err
+			}
+			ns, typeName, name, ok := parseResourceAddress(innerAddress(ent.Address))
 			if !ok {
 				continue
 			}
-			seedNested(rs.eval.Resources, ns, typeName, name, ent.Outputs)
+			seedNested(scope.Resources, ns, typeName, name, ent.Outputs)
 		}
 	}
+	return nil
+}
+
+// scopeForAddress returns the scope a state entry belongs to. Entries
+// addressed inside a composite (their address contains `/`) seed the
+// composite's scope; root entries seed root.
+func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, error) {
+	if i := strings.Index(addr, "/"); i >= 0 {
+		callSite := addr[:i]
+		return e.ensureCompositeScope(rs, callSite)
+	}
+	return rs.eval, nil
+}
+
+// innerAddress strips the call site prefix from a composite-internal
+// address so the existing parsers can read it. A root address comes
+// back unchanged.
+func innerAddress(addr string) string {
+	if i := strings.Index(addr, "/"); i >= 0 {
+		// Internal addresses drop the leading "resource." from the
+		// inner part for resources. Restore it so parseResourceAddress
+		// keeps working.
+		inner := addr[i+1:]
+		if !strings.HasPrefix(inner, "data.") &&
+			!strings.HasPrefix(inner, "action.") &&
+			!strings.HasPrefix(inner, "resource.") {
+			return "resource." + inner
+		}
+		return inner
+	}
+	return addr
 }
 
 func seedNested(target map[string]any, ns, typeName, name string, value map[string]any) {
@@ -196,8 +237,14 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		return e.planAction(rs, n)
 	case NodeResource:
 		return e.planResource(ctx, rs, n)
+	case NodeComposite:
+		return e.planComposite(rs, n)
 	case NodeData:
-		inputs, err := evalBody(n.Body, rs.eval)
+		scope, err := e.scopeFor(rs, n)
+		if err != nil {
+			return nil, err
+		}
+		inputs, err := evalBody(n.Body, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -214,6 +261,36 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 	}
 }
 
+// planComposite plans the composite boundary. The call site args are
+// evaluated against root scope and a composite scope is created so
+// internal nodes can see them as `var.X`. The boundary itself does no
+// CRUD: its decision is Eval and its outputs are computed at apply
+// time after the internals run.
+func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
+	args, err := evalBody(n.Body, rs.eval)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := e.ensureCompositeScope(rs, n.Address); err != nil {
+		return nil, err
+	}
+	var prior *state.Entry
+	if rs.prior != nil {
+		prior = rs.prior.Find(n.Address)
+	}
+	var priorOut map[string]any
+	if prior != nil {
+		priorOut = prior.Outputs
+	}
+	return &PlanStep{
+		Address:      n.Address,
+		Kind:         n.Kind,
+		Decision:     DecisionEval,
+		Inputs:       args,
+		PriorOutputs: priorOut,
+	}, nil
+}
+
 func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 	mod, ok := e.Modules[n.NS]
 	if !ok {
@@ -222,11 +299,15 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 	if _, ok := mod.Actions[n.Type]; !ok {
 		return nil, fmt.Errorf("module %s has no action %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, rs.eval)
+	scope, err := e.scopeFor(rs, n)
 	if err != nil {
 		return nil, err
 	}
-	trigger, err := ComputeTrigger(n, inputs, rs.eval)
+	inputs, err := evalBody(n.Body, scope)
+	if err != nil {
+		return nil, err
+	}
+	trigger, err := ComputeTrigger(n, inputs, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +344,11 @@ func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*Pl
 	if !ok {
 		return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
 	}
-	inputs, err := evalBody(n.Body, rs.eval)
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := evalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}

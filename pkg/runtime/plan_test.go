@@ -37,6 +37,49 @@ func stepFor(plan *Plan, addr string) *PlanStep {
 	return nil
 }
 
+func TestPlanComposite(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  core: {
+    thing: {
+      one: { name: var.name, size: 1 }
+      two: { name: var.name, size: 2 }
+    }
+  }
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"pair": {Name: "pair", Body: composite},
+		},
+	}
+	stackSrc := `
+resources: {
+  w: { pair: { x: { name: 'alpha' } } }
+}
+`
+	plan := runPlan(t, stackSrc, mods, newStateStore(t))
+
+	boundary := stepFor(plan, "resource.w.pair.x")
+	require.NotNil(t, boundary)
+	require.Equal(t, NodeComposite, boundary.Kind)
+	require.Equal(t, DecisionEval, boundary.Decision)
+	require.Equal(t, "alpha", boundary.Inputs["name"])
+
+	one := stepFor(plan, "resource.w.pair.x/core.thing.one")
+	require.NotNil(t, one)
+	require.Equal(t, NodeResource, one.Kind)
+	require.Equal(t, DecisionCreate, one.Decision)
+	require.Equal(t, "alpha", one.Inputs["name"])
+
+	two := stepFor(plan, "resource.w.pair.x/core.thing.two")
+	require.NotNil(t, two)
+	require.Equal(t, DecisionCreate, two.Decision)
+}
+
 func TestPlanCreateForFreshResource(t *testing.T) {
 	src := `
 resources: {
