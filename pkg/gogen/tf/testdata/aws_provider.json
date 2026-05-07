@@ -1,0 +1,43 @@
+{
+  "format_version": "1.0",
+  "provider_schemas": {
+    "registry.terraform.io/hashicorp/aws": {
+      "resource_schemas": {
+        "aws_s3_bucket": {
+          "version": 0,
+          "block": {
+            "attributes": {
+              "bucket": {
+                "type": "string",
+                "required": true,
+                "description": "Name of the bucket"
+              },
+              "force_destroy": {
+                "type": "bool",
+                "optional": true,
+                "description": "Delete all objects when destroying the bucket"
+              },
+              "tags": {
+                "type": ["map", "string"],
+                "optional": true,
+                "description": "Resource tags"
+              },
+              "arn": {
+                "type": "string",
+                "computed": true,
+                "description": "ARN of the bucket"
+              },
+              "bucket_domain_name": {
+                "type": "string",
+                "computed": true,
+                "description": "Domain name of the bucket"
+              }
+            },
+            "block_types": {}
+          }
+        }
+      },
+      "data_source_schemas": {}
+    }
+  }
+}
