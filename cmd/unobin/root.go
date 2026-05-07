@@ -12,7 +12,7 @@ var (
 		Use:           "unobin",
 		Short:         "Compile and manage unobin stacks",
 		SilenceUsage:  true,
-		SilenceErrors: true,
+
 	}
 )
 

@@ -17,7 +17,6 @@ func runCommand(t *testing.T, args ...string) (string, error) {
 	root := &cobra.Command{
 		Use:           "unobin",
 		SilenceUsage:  true,
-		SilenceErrors: true,
 	}
 	root.AddCommand(VersionCmd)
 	root.AddCommand(CompileCmd)

@@ -50,7 +50,6 @@ func newRootCmd(info Info) *cobra.Command {
 		Use:           info.StackName,
 		Short:         "Compiled unobin stack " + info.StackName,
 		SilenceUsage:  true,
-		SilenceErrors: true,
 	}
 	root.AddCommand(newVersionCmd(info))
 	root.AddCommand(newPlanCmd(info))
