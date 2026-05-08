@@ -257,14 +257,18 @@ func doValidate(cmd *cobra.Command, info Info, configPath string) error {
 }
 
 func newOutputCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var asJSON bool
+	cmd := &cobra.Command{
 		Use:   "output [name]",
 		Short: "Print stack outputs from the current state",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doOutput(cmd, info, args)
+			return doOutput(cmd, info, args, asJSON)
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false,
+		"Emit outputs as JSON instead of plain text.")
+	return cmd
 }
 
 func parsedFile(info Info) (*lang.File, error) {
@@ -691,7 +695,7 @@ func applyEnvOverrides(inputs map[string]any) {
 	}
 }
 
-func doOutput(cmd *cobra.Command, info Info, args []string) error {
+func doOutput(cmd *cobra.Command, info Info, args []string, asJSON bool) error {
 	enc, err := loadEncrypter()
 	if err != nil {
 		return err
@@ -705,6 +709,9 @@ func doOutput(cmd *cobra.Command, info Info, args []string) error {
 		return err
 	}
 	if len(args) == 0 {
+		if asJSON {
+			return writeJSON(cmd.OutOrStdout(), snap.Outputs)
+		}
 		for k, v := range snap.Outputs {
 			fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
 		}
@@ -715,6 +722,19 @@ func doOutput(cmd *cobra.Command, info Info, args []string) error {
 	if !ok {
 		return fmt.Errorf("no output %q", name)
 	}
+	if asJSON {
+		return writeJSON(cmd.OutOrStdout(), val)
+	}
 	fmt.Fprintf(cmd.OutOrStdout(), "%v\n", val)
+	return nil
+}
+
+func writeJSON(out io.Writer, v any) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, _ = out.Write(b)
+	_, _ = out.Write([]byte{'\n'})
 	return nil
 }

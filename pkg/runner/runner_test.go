@@ -127,6 +127,29 @@ outputs: {
 	require.Contains(t, one, "hello world")
 }
 
+func TestOutputJSON(t *testing.T) {
+	info := testInfo(t, `
+actions: {
+  core: {
+    echo: { hi: { echo: 'hello world' } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+  count: 7
+}
+`)
+	_ = applyVia(t, info, "")
+
+	all, err := runRoot(t, info, "output", "--json")
+	require.NoError(t, err)
+	require.Equal(t, "{\n  \"count\": 7,\n  \"said\": \"hello world\"\n}\n", all)
+
+	one, err := runRoot(t, info, "output", "--json", "said")
+	require.NoError(t, err)
+	require.Equal(t, "\"hello world\"\n", one)
+}
+
 func TestOutputUnknownName(t *testing.T) {
 	info := testInfo(t, `outputs: { x: 'y' }`)
 	_ = applyVia(t, info, "")
