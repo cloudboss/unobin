@@ -47,9 +47,9 @@ func Run(info Info) {
 
 func newRootCmd(info Info) *cobra.Command {
 	root := &cobra.Command{
-		Use:           info.StackName,
-		Short:         "Compiled unobin stack " + info.StackName,
-		SilenceUsage:  true,
+		Use:          info.StackName,
+		Short:        "Compiled unobin stack " + info.StackName,
+		SilenceUsage: true,
 	}
 	root.AddCommand(newVersionCmd(info))
 	root.AddCommand(newPlanCmd(info))
@@ -75,13 +75,18 @@ func newVersionCmd(info Info) *cobra.Command {
 
 func newPlanCmd(info Info) *cobra.Command {
 	var (
-		configPath string
-		outPath    string
+		configPath           string
+		outPath              string
+		allowVersionMismatch bool
 	)
 	cmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Show what apply would do",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			err := verifyStackEnvelope(info, configPath, allowVersionMismatch)
+			if err != nil {
+				return err
+			}
 			return doPlan(cmd, info, configPath, outPath)
 		},
 	}
@@ -89,6 +94,8 @@ func newPlanCmd(info Info) *cobra.Command {
 		"Path to a config.ub for inputs and per-deployment configuration.")
 	cmd.Flags().StringVarP(&outPath, "out", "o", "",
 		"Write the plan to this file so apply can consume it.")
+	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
+		"Run even when the config does not pin this binary's version.")
 	return cmd
 }
 
@@ -149,16 +156,25 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 }
 
 func newRefreshCmd(info Info) *cobra.Command {
-	var configPath string
+	var (
+		configPath           string
+		allowVersionMismatch bool
+	)
 	cmd := &cobra.Command{
 		Use:   "refresh",
 		Short: "Update state to match what each resource currently reports",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			err := verifyStackEnvelope(info, configPath, allowVersionMismatch)
+			if err != nil {
+				return err
+			}
 			return doRefresh(cmd, info, configPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a config.ub for inputs and per-deployment configuration.")
+	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
+		"Run even when the config does not pin this binary's version.")
 	return cmd
 }
 
@@ -203,16 +219,25 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 }
 
 func newValidateCmd(info Info) *cobra.Command {
-	var configPath string
+	var (
+		configPath           string
+		allowVersionMismatch bool
+	)
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Check stack source and config without reading state or resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			err := verifyStackEnvelope(info, configPath, allowVersionMismatch)
+			if err != nil {
+				return err
+			}
 			return doValidate(cmd, info, configPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a config.ub to validate alongside the stack source.")
+	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
+		"Validate even when the config does not pin this binary's version.")
 	return cmd
 }
 

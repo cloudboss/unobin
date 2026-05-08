@@ -25,10 +25,16 @@ the pinned Go toolchain at `~/.cache/unobin/bin/go-<version>`.
 
 ```
 cd /tmp/hello-build
-./hello plan -c "$OLDPWD"/examples/hello/dev.ub -o /tmp/hello-plan.json
+./hello plan --allow-version-mismatch \
+  -c "$OLDPWD"/examples/hello/dev.ub -o /tmp/hello-plan.json
 ./hello apply /tmp/hello-plan.json
 ./hello output
 ```
+
+`--allow-version-mismatch` is needed for the dev workflow because
+`dev.ub` does not declare `stack.supported-versions`. In real
+deployments the operator pins the binary's version+commit in
+`config.ub` and the flag is unnecessary.
 
 Set `UB_STATE_KEY` to a base64-encoded 32-byte key to encrypt
 state snapshots and plan files at rest:

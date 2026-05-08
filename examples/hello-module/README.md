@@ -19,11 +19,17 @@ go run ./cmd/unobin compile \
 
 ```
 cd /tmp/hello-module-build
-./hello-module plan -c "$OLDPWD"/examples/hello-module/dev.ub -o /tmp/hello-module-plan.json
+./hello-module plan --allow-version-mismatch \
+  -c "$OLDPWD"/examples/hello-module/dev.ub -o /tmp/hello-module-plan.json
 ./hello-module apply /tmp/hello-module-plan.json
 ./hello-module output
 ./hello-module state list
 ```
+
+`--allow-version-mismatch` is needed for the dev workflow because
+`dev.ub` does not declare `stack.supported-versions`. In real
+deployments the operator pins the binary's version+commit in
+`config.ub` and the flag is unnecessary.
 
 `state list` shows two entries: the module-call record at
 `resource.greeter.greeting.welcome` and the internal leaf at

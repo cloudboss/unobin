@@ -81,11 +81,12 @@ func runRoot(t *testing.T, info Info, args ...string) (string, error) {
 
 // applyVia runs `plan -o <tmp> [-c cfg]` then `apply <tmp>` and returns
 // the apply output. Tests use this when they don't need to inspect the
-// plan separately.
+// plan separately. The plan call passes --allow-version-mismatch since
+// most tests do not exercise pin verification.
 func applyVia(t *testing.T, info Info, configPath string) string {
 	t.Helper()
 	planFile := filepath.Join(t.TempDir(), "plan.json")
-	args := []string{"plan", "-o", planFile}
+	args := []string{"plan", "--allow-version-mismatch", "-o", planFile}
 	if configPath != "" {
 		args = append(args, "-c", configPath)
 	}
@@ -142,7 +143,7 @@ func TestOutputBeforeApply(t *testing.T) {
 
 func TestPlanParseError(t *testing.T) {
 	info := testInfo(t, `not valid syntax {{`)
-	_, err := runRoot(t, info, "plan")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.Error(t, err)
 }
 
@@ -229,7 +230,7 @@ actions: {
 }
 `
 	info := testInfo(t, src)
-	out, err := runRoot(t, info, "plan")
+	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "> action.core.echo.hi")
 	require.Contains(t, out, `echo: "hello"`)
@@ -245,7 +246,7 @@ actions: {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runRoot(t, info, "plan")
+	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
 }
@@ -297,7 +298,7 @@ func TestPrintPlanShowsGoneSection(t *testing.T) {
 
 func TestPlanEmpty(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
-	out, err := runRoot(t, info, "plan")
+	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
 }
@@ -311,7 +312,7 @@ actions: {
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 
-	_, err := runRoot(t, info, "plan", "-o", planFile)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
@@ -332,7 +333,7 @@ outputs: {
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 
-	_, err := runRoot(t, info, "plan", "-o", planFile)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	out, err := runRoot(t, info, "apply", planFile)
@@ -383,14 +384,14 @@ actions: {
   core: { echo: { hi: { echo: 'hello' } } }
 }
 `)
-	out, err := runRoot(t, info, "validate")
+	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "OK")
 }
 
 func TestValidateRejectsBadSource(t *testing.T) {
 	info := testInfo(t, `not valid syntax {{`)
-	_, err := runRoot(t, info, "validate")
+	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.Error(t, err)
 }
 
@@ -497,7 +498,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 
 func TestRefreshNoStateIsOK(t *testing.T) {
 	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
-	out, err := runRoot(t, info, "refresh")
+	out, err := runRoot(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 }
@@ -509,7 +510,7 @@ outputs: { said: action.core.echo.hi.echo }
 `)
 	_ = applyVia(t, info, "")
 
-	out, err := runRoot(t, info, "refresh")
+	out, err := runRoot(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 
@@ -640,7 +641,7 @@ outputs: {
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
 	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runRoot(t, info, "plan", "-o", planFile)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
@@ -664,7 +665,7 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
 	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runRoot(t, info, "plan", "-o", planFile)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
@@ -682,7 +683,7 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 	info := testInfo(t, src)
 
 	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runRoot(t, info, "plan", "-o", planFile)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
