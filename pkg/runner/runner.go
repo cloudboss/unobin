@@ -59,6 +59,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newOutputCmd(info))
 	root.AddCommand(newSchemaCmd(info))
 	root.AddCommand(newStateCmd(info))
+	root.AddCommand(newPrintGraphCmd(info))
 	return root
 }
 
@@ -254,6 +255,82 @@ func doValidate(cmd *cobra.Command, info Info, configPath string) error {
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "OK")
 	return nil
+}
+
+func newPrintGraphCmd(info Info) *cobra.Command {
+	var format string
+	cmd := &cobra.Command{
+		Use:   "print-graph",
+		Short: "Print the stack's dependency graph",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doPrintGraph(cmd, info, format)
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "plain",
+		"Output format: 'plain' for an indented text listing,"+
+			" 'dot' for Graphviz.")
+	return cmd
+}
+
+func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
+	f, err := parsedFile(info)
+	if err != nil {
+		return err
+	}
+	dag := runtime.BuildDAG(f, info.Modules)
+	out := cmd.OutOrStdout()
+	switch format {
+	case "plain":
+		printGraphPlain(out, dag)
+	case "dot":
+		printGraphDot(out, dag, info.StackName)
+	default:
+		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", format)
+	}
+	return nil
+}
+
+func printGraphPlain(out io.Writer, dag *runtime.DAG) {
+	addrs := sortedNodeAddresses(dag)
+	for i, a := range addrs {
+		if i > 0 {
+			fmt.Fprintln(out)
+		}
+		fmt.Fprintln(out, a)
+		deps := append([]string{}, dag.Edges[a]...)
+		sort.Strings(deps)
+		for _, d := range deps {
+			fmt.Fprintf(out, "  -> %s\n", d)
+		}
+	}
+}
+
+func printGraphDot(out io.Writer, dag *runtime.DAG, name string) {
+	fmt.Fprintf(out, "digraph %q {\n", name)
+	addrs := sortedNodeAddresses(dag)
+	for _, a := range addrs {
+		fmt.Fprintf(out, "  %q;\n", a)
+	}
+	for _, from := range addrs {
+		deps := append([]string{}, dag.Edges[from]...)
+		sort.Strings(deps)
+		for _, dep := range deps {
+			if _, ok := dag.Nodes[dep]; !ok {
+				continue
+			}
+			fmt.Fprintf(out, "  %q -> %q;\n", from, dep)
+		}
+	}
+	fmt.Fprintln(out, "}")
+}
+
+func sortedNodeAddresses(dag *runtime.DAG) []string {
+	addrs := make([]string, 0, len(dag.Nodes))
+	for a := range dag.Nodes {
+		addrs = append(addrs, a)
+	}
+	sort.Strings(addrs)
+	return addrs
 }
 
 func newOutputCmd(info Info) *cobra.Command {

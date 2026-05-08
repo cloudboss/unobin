@@ -556,6 +556,61 @@ actions: { core: { echo: { hi: { echo: var.greeting } } } }
 	require.Error(t, err)
 }
 
+func TestPrintGraphPlain(t *testing.T) {
+	src := `
+inputs: { msg: { type: string } }
+actions: {
+  core: {
+    echo: {
+      first:  { echo: var.msg }
+      second: { echo: action.core.echo.first.echo }
+    }
+  }
+}
+`
+	info := testInfo(t, src)
+	out, err := runRoot(t, info, "print-graph")
+	require.NoError(t, err)
+	expected := `action.core.echo.first
+  -> var.msg
+
+action.core.echo.second
+  -> action.core.echo.first
+`
+	require.Equal(t, expected, out)
+}
+
+func TestPrintGraphDot(t *testing.T) {
+	src := `
+inputs: { msg: { type: string } }
+actions: {
+  core: {
+    echo: {
+      first:  { echo: var.msg }
+      second: { echo: action.core.echo.first.echo }
+    }
+  }
+}
+`
+	info := testInfo(t, src)
+	out, err := runRoot(t, info, "print-graph", "--format", "dot")
+	require.NoError(t, err)
+	expected := `digraph "test-stack" {
+  "action.core.echo.first";
+  "action.core.echo.second";
+  "action.core.echo.second" -> "action.core.echo.first";
+}
+`
+	require.Equal(t, expected, out)
+}
+
+func TestPrintGraphRejectsUnknownFormat(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	_, err := runRoot(t, info, "print-graph", "--format", "yaml")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--format")
+}
+
 func TestStateMoveRelocatesEntry(t *testing.T) {
 	src := `
 actions: { core: { echo: { hi: { echo: 'hello' } } } }
