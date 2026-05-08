@@ -54,7 +54,7 @@ func init() {
 	GomoduleCmd.Flags().StringVar(&gomoduleCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive")
 
-	GomoduleCmd.MarkFlagRequired("module-path")
+	_ = GomoduleCmd.MarkFlagRequired("module-path")
 }
 
 func runGenerate(cmd *cobra.Command, cfg *gomoduleConfig) error {

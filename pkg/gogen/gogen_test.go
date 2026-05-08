@@ -82,8 +82,10 @@ func TestGenerateWritesFiles(t *testing.T) {
 func TestGenerateDefaultOutDir(t *testing.T) {
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(orig)
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
 
 	adapter := &mockAdapter{
 		name: "testmod",
@@ -110,7 +112,7 @@ func TestGenerateDefaultOutDir(t *testing.T) {
 		t.Errorf("expected default outDir ./testmod-module, got %q", out.ModulePath)
 	}
 
-	os.RemoveAll("./testmod-module")
+	_ = os.RemoveAll("./testmod-module")
 }
 
 func TestGenerateNoResources(t *testing.T) {

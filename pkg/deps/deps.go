@@ -91,7 +91,7 @@ func Ensure(dep Dependency) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(archive)
+	defer func() { _ = os.Remove(archive) }()
 
 	if err := verifyChecksum(archive, expectedHash); err != nil {
 		return "", err
@@ -139,7 +139,7 @@ func download(url string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("deps: download %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("deps: download %s: HTTP %d", url, resp.StatusCode)
 	}
@@ -152,13 +152,13 @@ func download(url string) (string, error) {
 		reader = &progressReader{reader: resp.Body, total: size}
 	}
 	if _, err := io.Copy(f, reader); err != nil {
-		f.Close()
-		os.Remove(f.Name())
+		_ = f.Close()
+		_ = os.Remove(f.Name())
 		return "", err
 	}
 	fmt.Fprintln(os.Stderr)
 	if err := f.Close(); err != nil {
-		os.Remove(f.Name())
+		_ = os.Remove(f.Name())
 		return "", err
 	}
 	return f.Name(), nil
@@ -203,7 +203,7 @@ func verifyChecksum(path, expected string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return err
@@ -232,12 +232,12 @@ func installBinary(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 	_, err = io.Copy(out, in)
 	return err
 }
@@ -250,12 +250,12 @@ func extractTarGz(archive, target string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	tr := tar.NewReader(gz)
 	for {
 		h, err := tr.Next()
@@ -281,7 +281,7 @@ func extractTarGz(archive, target string) error {
 				return err
 			}
 			if _, err := io.Copy(out, tr); err != nil {
-				out.Close()
+				_ = out.Close()
 				return err
 			}
 			if err := out.Close(); err != nil {

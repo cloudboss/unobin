@@ -24,12 +24,12 @@ func WriteFileAtomic(path string, content []byte, mode os.FileMode) error {
 		return err
 	}
 	if _, err := f.Write(content); err != nil {
-		f.Close()
+		_ = f.Close()
 		_ = os.Remove(tmp)
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close()
 		_ = os.Remove(tmp)
 		return err
 	}
@@ -46,7 +46,7 @@ func WriteFileAtomic(path string, content []byte, mode os.FileMode) error {
 	if err != nil {
 		return nil
 	}
-	defer parent.Close()
+	defer func() { _ = parent.Close() }()
 	_ = parent.Sync()
 	return nil
 }

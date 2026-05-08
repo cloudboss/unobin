@@ -27,7 +27,7 @@ func (CLIFetcher) FetchSchema(
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	versionConstraint := ""
 	if version != "" {
@@ -320,7 +320,7 @@ func tfTypeToGo(raw json.RawMessage) string {
 	}
 
 	var kind string
-	json.Unmarshal(arr[0], &kind)
+	_ = json.Unmarshal(arr[0], &kind)
 
 	switch kind {
 	case "list", "set":
