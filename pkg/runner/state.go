@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/spf13/cobra"
@@ -126,14 +127,29 @@ func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
 	if err != nil {
 		return err
 	}
-	if snap.Find(newAddr) != nil {
-		return fmt.Errorf("an entry already exists at %s", newAddr)
+
+	var moved []*state.Entry
+	occupied := map[string]bool{}
+	for _, e := range snap.Entries {
+		if e.Address == oldAddr || strings.HasPrefix(e.Address, oldAddr+"/") {
+			moved = append(moved, e)
+		} else {
+			occupied[e.Address] = true
+		}
 	}
-	entry := snap.Find(oldAddr)
-	if entry == nil {
+	if len(moved) == 0 {
 		return fmt.Errorf("no entry at %s", oldAddr)
 	}
-	entry.Address = newAddr
+	for _, e := range moved {
+		target := newAddr + e.Address[len(oldAddr):]
+		if occupied[target] {
+			return fmt.Errorf("an entry already exists at %s", target)
+		}
+		occupied[target] = true
+	}
+	for _, e := range moved {
+		e.Address = newAddr + e.Address[len(oldAddr):]
+	}
 
 	rev, err := store.Write(snap)
 	if err != nil {
@@ -142,7 +158,12 @@ func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
 	if err := store.SetCurrent(rev); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Moved %s to %s.\n", oldAddr, newAddr)
+	out := cmd.OutOrStdout()
+	if len(moved) == 1 {
+		fmt.Fprintf(out, "Moved %s to %s.\n", oldAddr, newAddr)
+	} else {
+		fmt.Fprintf(out, "Moved %s to %s (%d entries).\n", oldAddr, newAddr, len(moved))
+	}
 	return nil
 }
 

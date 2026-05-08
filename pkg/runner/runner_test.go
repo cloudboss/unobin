@@ -627,6 +627,132 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 	require.Contains(t, err.Error(), "no entry at")
 }
 
+// stateMoveFixture builds a snapshot that mixes a module call site
+// (boundary + one internal) with one unrelated leaf so the move tests
+// can exercise both shapes against the same state.
+func stateMoveFixture(t *testing.T, info Info) *state.LocalStore {
+	t.Helper()
+	store, err := state.NewLocalStore(
+		".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	require.NoError(t, err)
+	stackInfo := state.StackInfo{
+		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
+	}
+	snap := state.NewSnapshot(stackInfo, "default")
+	snap.Entries = []*state.Entry{
+		{
+			Address:    "resource.greeter.greeting.welcome",
+			Type:       state.EntryModuleCall,
+			Module:     "greeter",
+			ModuleType: "greeting",
+		},
+		{
+			Address: "resource.greeter.greeting.welcome/local.file.this",
+			Type:    state.EntryLeaf,
+			Kind:    "resource",
+		},
+		{
+			Address: "resource.local.file.other",
+			Type:    state.EntryLeaf,
+			Kind:    "resource",
+		},
+	}
+	rev, err := store.Write(snap)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+	return store
+}
+
+func snapshotAddresses(t *testing.T, store *state.LocalStore) []string {
+	t.Helper()
+	snap, err := store.Current()
+	require.NoError(t, err)
+	out := make([]string, 0, len(snap.Entries))
+	for _, e := range snap.Entries {
+		out = append(out, e.Address)
+	}
+	return out
+}
+
+func TestStateMoveRelocatesModuleCallSite(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	store := stateMoveFixture(t, info)
+
+	out, err := runRoot(t, info, "state", "move",
+		"resource.greeter.greeting.welcome", "resource.greeter.greeting.hello")
+	require.NoError(t, err)
+	require.Contains(t, out,
+		"Moved resource.greeter.greeting.welcome"+
+			" to resource.greeter.greeting.hello (2 entries).")
+
+	require.ElementsMatch(t, []string{
+		"resource.greeter.greeting.hello",
+		"resource.greeter.greeting.hello/local.file.this",
+		"resource.local.file.other",
+	}, snapshotAddresses(t, store))
+}
+
+func TestStateMoveSingleEntryLeavesModuleAlone(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	store := stateMoveFixture(t, info)
+
+	out, err := runRoot(t, info, "state", "move",
+		"resource.local.file.other", "resource.local.file.renamed")
+	require.NoError(t, err)
+	require.Contains(t, out,
+		"Moved resource.local.file.other to resource.local.file.renamed.")
+	require.NotContains(t, out, "entries")
+
+	require.ElementsMatch(t, []string{
+		"resource.greeter.greeting.welcome",
+		"resource.greeter.greeting.welcome/local.file.this",
+		"resource.local.file.renamed",
+	}, snapshotAddresses(t, store))
+}
+
+func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	store, err := state.NewLocalStore(
+		".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	require.NoError(t, err)
+	stackInfo := state.StackInfo{
+		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
+	}
+	snap := state.NewSnapshot(stackInfo, "default")
+	snap.Entries = []*state.Entry{
+		{
+			Address:    "resource.greeter.greeting.a",
+			Type:       state.EntryModuleCall,
+			Module:     "greeter",
+			ModuleType: "greeting",
+		},
+		{
+			Address: "resource.greeter.greeting.a/local.file.this",
+			Type:    state.EntryLeaf,
+			Kind:    "resource",
+		},
+		{
+			Address: "resource.greeter.greeting.b/local.file.this",
+			Type:    state.EntryLeaf,
+			Kind:    "resource",
+		},
+	}
+	rev, err := store.Write(snap)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	_, err = runRoot(t, info, "state", "move",
+		"resource.greeter.greeting.a", "resource.greeter.greeting.b")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "already exists at resource.greeter.greeting.b/local.file.this")
+
+	require.ElementsMatch(t, []string{
+		"resource.greeter.greeting.a",
+		"resource.greeter.greeting.a/local.file.this",
+		"resource.greeter.greeting.b/local.file.this",
+	}, snapshotAddresses(t, store))
+}
+
 func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
 	_ = applyVia(t, info, "")
