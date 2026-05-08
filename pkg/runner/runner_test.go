@@ -296,6 +296,65 @@ func TestPrintPlanShowsGoneSection(t *testing.T) {
 	require.Contains(t, out, "Plan: 1 to create")
 }
 
+func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "resource.greeter.greeting.welcome",
+				Kind:     runtime.NodeComposite,
+				Decision: runtime.DecisionEval,
+				Inputs: map[string]any{
+					"message": "Hello",
+					"path":    "/tmp/x",
+				},
+			},
+			{
+				Address:  "resource.greeter.greeting.welcome/local.file.this",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs: map[string]any{
+					"content": "Hello",
+					"path":    "/tmp/x",
+				},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	expected := `  + resource.greeter.greeting.welcome  (module greeter.greeting)
+      message: "Hello"
+      path: "/tmp/x"
+    + local.file.this
+        content: "Hello"
+        path: "/tmp/x"
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
+`
+	require.Equal(t, expected, buf.String())
+}
+
+func TestPrintPlanHidesCompositeWhenInternalsUnchanged(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "resource.greeter.greeting.welcome",
+				Kind:     runtime.NodeComposite,
+				Decision: runtime.DecisionEval,
+				Inputs:   map[string]any{"message": "Hello"},
+			},
+			{
+				Address:  "resource.greeter.greeting.welcome/local.file.this",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionNoOp,
+				Inputs:   map[string]any{"content": "Hello"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	require.Equal(t, "No changes.\n", buf.String())
+}
+
 func TestPlanEmpty(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")

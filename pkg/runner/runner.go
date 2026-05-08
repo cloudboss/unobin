@@ -342,18 +342,37 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 }
 
 func printPlan(out io.Writer, plan *runtime.Plan) {
-	var drift, changes []*runtime.PlanStep
+	var drift []*runtime.PlanStep
 	for _, s := range plan.Steps {
 		if s.Drift() || s.Gone() {
 			drift = append(drift, s)
 		}
-		switch s.Decision {
-		case runtime.DecisionNoOp, runtime.DecisionSkip,
-			runtime.DecisionRead, runtime.DecisionEval:
+	}
+
+	boundaries := map[string]*runtime.PlanStep{}
+	for _, s := range plan.Steps {
+		if s.Kind == runtime.NodeComposite {
+			boundaries[s.Address] = s
+		}
+	}
+	internals := map[string][]*runtime.PlanStep{}
+	var topLevel []*runtime.PlanStep
+	for _, s := range plan.Steps {
+		if s.Kind == runtime.NodeComposite {
 			continue
 		}
-		changes = append(changes, s)
+		if i := strings.Index(s.Address, "/"); i > 0 {
+			parent := s.Address[:i]
+			if _, ok := boundaries[parent]; ok {
+				internals[parent] = append(internals[parent], s)
+				continue
+			}
+		}
+		if isChange(s.Decision) {
+			topLevel = append(topLevel, s)
+		}
 	}
+
 	if len(drift) > 0 {
 		fmt.Fprintf(out, "Drift detected (%d):\n", len(drift))
 		for _, s := range drift {
@@ -361,21 +380,122 @@ func printPlan(out io.Writer, plan *runtime.Plan) {
 		}
 		fmt.Fprintln(out)
 	}
-	if len(changes) == 0 {
+
+	var compositeOrder []string
+	for addr := range boundaries {
+		if anyChange(internals[addr]) {
+			compositeOrder = append(compositeOrder, addr)
+		}
+	}
+	sort.Strings(compositeOrder)
+
+	if len(topLevel) == 0 && len(compositeOrder) == 0 {
 		fmt.Fprintln(out, "No changes.")
 		return
 	}
-	for _, step := range changes {
+
+	for _, step := range topLevel {
 		fmt.Fprintf(out, "  %s %s\n", decisionSymbol(step.Decision), step.Address)
 		for _, key := range sortedMapKeys(step.Inputs) {
 			fmt.Fprintf(out, "      %s: %s\n", key, formatValue(step.Inputs[key]))
 		}
 	}
-	c := summarize(changes)
+	for _, addr := range compositeOrder {
+		printCompositeGroup(out, boundaries[addr], internals[addr])
+	}
+
+	counted := append([]*runtime.PlanStep{}, topLevel...)
+	for _, addr := range compositeOrder {
+		for _, in := range internals[addr] {
+			if isChange(in.Decision) {
+				counted = append(counted, in)
+			}
+		}
+	}
+	c := summarize(counted)
 	fmt.Fprintln(out)
 	fmt.Fprintf(out,
 		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
 		c.create, c.update, c.replace, c.destroy, c.rerun)
+}
+
+func printCompositeGroup(out io.Writer, boundary *runtime.PlanStep,
+	internals []*runtime.PlanStep) {
+	sym := decisionSymbol(boundaryDecision(internals))
+	fmt.Fprintf(out, "  %s %s  (module %s)\n",
+		sym, boundary.Address, compositeRef(boundary.Address))
+	for _, key := range sortedMapKeys(boundary.Inputs) {
+		fmt.Fprintf(out, "      %s: %s\n", key, formatValue(boundary.Inputs[key]))
+	}
+	sorted := append([]*runtime.PlanStep{}, internals...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Address < sorted[j].Address })
+	for _, in := range sorted {
+		if !isChange(in.Decision) {
+			continue
+		}
+		fmt.Fprintf(out, "    %s %s\n",
+			decisionSymbol(in.Decision), internalRel(in.Address))
+		for _, key := range sortedMapKeys(in.Inputs) {
+			fmt.Fprintf(out, "        %s: %s\n", key, formatValue(in.Inputs[key]))
+		}
+	}
+}
+
+func isChange(d runtime.Decision) bool {
+	switch d {
+	case runtime.DecisionNoOp, runtime.DecisionSkip,
+		runtime.DecisionRead, runtime.DecisionEval:
+		return false
+	}
+	return true
+}
+
+func anyChange(steps []*runtime.PlanStep) bool {
+	for _, s := range steps {
+		if isChange(s.Decision) {
+			return true
+		}
+	}
+	return false
+}
+
+func boundaryDecision(internals []*runtime.PlanStep) runtime.Decision {
+	priority := map[runtime.Decision]int{
+		runtime.DecisionDestroy: 5,
+		runtime.DecisionReplace: 4,
+		runtime.DecisionCreate:  3,
+		runtime.DecisionUpdate:  2,
+		runtime.DecisionRerun:   1,
+	}
+	best := runtime.DecisionNoOp
+	bestPri := 0
+	for _, s := range internals {
+		if p, ok := priority[s.Decision]; ok && p > bestPri {
+			bestPri = p
+			best = s.Decision
+		}
+	}
+	return best
+}
+
+// compositeRef extracts the "<alias>.<composite-type>" pair from a
+// boundary address like "resource.greeter.greeting.welcome".
+func compositeRef(address string) string {
+	parts := strings.SplitN(strings.TrimPrefix(address, "resource."), ".", 3)
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[0] + "." + parts[1]
+}
+
+// internalRel returns the part of an internal address that follows the
+// boundary's call site, e.g. "local.file.this" out of
+// "resource.greeter.greeting.welcome/local.file.this".
+func internalRel(address string) string {
+	if i := strings.Index(address, "/"); i > 0 {
+		return address[i+1:]
+	}
+	return address
 }
 
 func printDriftStep(out io.Writer, s *runtime.PlanStep) {
