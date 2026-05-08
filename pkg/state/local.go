@@ -205,6 +205,16 @@ func (s *LocalStore) List() ([]string, error) {
 	return out, nil
 }
 
+// Delete removes the snapshot with the given rev. Removing a rev that
+// does not exist is not an error.
+func (s *LocalStore) Delete(rev string) error {
+	err := os.Remove(s.snapshotPath(rev))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
 func (s *LocalStore) snapshotPath(rev string) string {
 	return filepath.Join(s.dir, "snapshots", rev+".json.enc")
 }

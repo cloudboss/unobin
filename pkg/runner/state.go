@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cloudboss/unobin/pkg/state"
@@ -18,8 +19,78 @@ func newStateCmd(info Info) *cobra.Command {
 	cmd.AddCommand(newStateShowCmd(info))
 	cmd.AddCommand(newStateMoveCmd(info))
 	cmd.AddCommand(newStateRemoveCmd(info))
+	cmd.AddCommand(newStateGCCmd(info))
 	cmd.AddCommand(newStateForceUnlockCmd(info))
 	return cmd
+}
+
+func newStateGCCmd(info Info) *cobra.Command {
+	var keep int
+	cmd := &cobra.Command{
+		Use:   "gc",
+		Short: "Delete old snapshot revisions, keeping the most recent ones",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doStateGC(cmd, info, keep)
+		},
+	}
+	cmd.Flags().IntVar(&keep, "keep", 10,
+		"Number of recent snapshot revisions to keep. The current revision"+
+			" is always kept in addition to these.")
+	return cmd
+}
+
+func doStateGC(cmd *cobra.Command, info Info, keep int) error {
+	if keep < 0 {
+		return fmt.Errorf("--keep must not be negative")
+	}
+	enc, err := loadEncrypter()
+	if err != nil {
+		return err
+	}
+	store, err := loadStore(info, enc)
+	if err != nil {
+		return err
+	}
+	lock, err := store.Lock(context.Background())
+	if err != nil {
+		return fmt.Errorf("acquire lock: %w", err)
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	revs, err := store.List()
+	if err != nil {
+		return err
+	}
+	current, err := store.CurrentRev()
+	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
+		return err
+	}
+
+	keepSet := map[string]bool{}
+	if current != "" {
+		keepSet[current] = true
+	}
+	cutoff := len(revs) - keep
+	if cutoff < 0 {
+		cutoff = 0
+	}
+	for _, r := range revs[cutoff:] {
+		keepSet[r] = true
+	}
+
+	var deleted int
+	for _, r := range revs {
+		if keepSet[r] {
+			continue
+		}
+		if err := store.Delete(r); err != nil {
+			return err
+		}
+		deleted++
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Deleted %d snapshot(s), kept %d.\n",
+		deleted, len(revs)-deleted)
+	return nil
 }
 
 func newStateMoveCmd(info Info) *cobra.Command {

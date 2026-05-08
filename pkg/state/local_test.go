@@ -106,6 +106,18 @@ func TestLocalStoreSetCurrentRejectsUnknownRev(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestLocalStoreDelete(t *testing.T) {
+	s := newStore(t)
+	rev, err := s.Write(sampleSnapshot())
+	require.NoError(t, err)
+
+	require.NoError(t, s.Delete(rev))
+	_, err = s.Get(rev)
+	require.Error(t, err)
+
+	require.NoError(t, s.Delete(rev), "deleting an absent rev should be a no-op")
+}
+
 func TestLocalStoreSameContentDistinctRevs(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()

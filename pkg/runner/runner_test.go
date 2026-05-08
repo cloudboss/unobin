@@ -627,6 +627,44 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 	require.Contains(t, err.Error(), "no entry at")
 }
 
+func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
+	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
+	_ = applyVia(t, info, "")
+
+	store, err := state.NewLocalStore(
+		".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	require.NoError(t, err)
+	currentRev, err := store.CurrentRev()
+	require.NoError(t, err)
+
+	stackInfo := state.StackInfo{
+		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
+	}
+	for i := 0; i < 4; i++ {
+		_, err := store.Write(state.NewSnapshot(stackInfo, "default"))
+		require.NoError(t, err)
+	}
+	revs, err := store.List()
+	require.NoError(t, err)
+	require.Len(t, revs, 5)
+
+	out, err := runRoot(t, info, "state", "gc", "--keep", "2")
+	require.NoError(t, err)
+	require.Contains(t, out, "Deleted 2 snapshot(s), kept 3.")
+
+	after, err := store.List()
+	require.NoError(t, err)
+	require.Equal(t, []string{currentRev, revs[3], revs[4]}, after)
+}
+
+func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
+	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
+	_ = applyVia(t, info, "")
+	out, err := runRoot(t, info, "state", "gc", "--keep", "10")
+	require.NoError(t, err)
+	require.Contains(t, out, "Deleted 0 snapshot(s), kept 1.")
+}
+
 func TestStateForceUnlockReleasesLock(t *testing.T) {
 	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
 	info := testInfo(t, src)

@@ -18,6 +18,7 @@ type Backend interface {
 	Write(snap *Snapshot) (string, error)
 	SetCurrent(rev string) error
 	List() ([]string, error)
+	Delete(rev string) error
 	Lock(ctx context.Context) (Lock, error)
 	ForceUnlock() error
 }
