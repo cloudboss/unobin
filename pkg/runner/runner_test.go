@@ -378,6 +378,74 @@ func TestPrintPlanHidesCompositeWhenInternalsUnchanged(t *testing.T) {
 	require.Equal(t, "No changes.\n", buf.String())
 }
 
+func TestSchemaTemplate(t *testing.T) {
+	src := `
+inputs: {
+  greeting: {
+    type:        string
+    description: 'Text to write'
+  }
+  count:   { type: integer }
+  enabled: { type: boolean }
+  tags:    { type: list(string) }
+}
+`
+	info := testInfo(t, src)
+	out, err := runRoot(t, info, "schema", "template")
+	require.NoError(t, err)
+
+	expected := `stack: {
+  supported-versions: [
+    { version: 'v0.1.0', commit: 'abcdef' }
+  ]
+}
+
+inputs: {
+  # Text to write
+  greeting: ''  # type: string
+  count: 0  # type: integer
+  enabled: false  # type: boolean
+  tags: []  # type: list(string)
+}
+`
+	require.Equal(t, expected, out)
+}
+
+func TestSchemaTemplateNoInputs(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	out, err := runRoot(t, info, "schema", "template")
+	require.NoError(t, err)
+	expected := `stack: {
+  supported-versions: [
+    { version: 'v0.1.0', commit: 'abcdef' }
+  ]
+}
+`
+	require.Equal(t, expected, out)
+}
+
+func TestSchemaTemplateWritesToFile(t *testing.T) {
+	info := testInfo(t, `inputs: { greeting: { type: string } }`)
+	dst := filepath.Join(t.TempDir(), "config.ub")
+	stdout, err := runRoot(t, info, "schema", "template", "-o", dst)
+	require.NoError(t, err)
+	require.Empty(t, stdout)
+
+	written, err := os.ReadFile(dst)
+	require.NoError(t, err)
+	expected := `stack: {
+  supported-versions: [
+    { version: 'v0.1.0', commit: 'abcdef' }
+  ]
+}
+
+inputs: {
+  greeting: ''  # type: string
+}
+`
+	require.Equal(t, expected, string(written))
+}
+
 func TestPlanEmpty(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
