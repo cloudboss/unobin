@@ -2,17 +2,30 @@ package root
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 )
 
 func runCommand(t *testing.T, args ...string) (string, error) {
+	return runCommandWithRemotes(t, nil, args...)
+}
+
+// runCommandWithRemotes is runCommand with a fake resolver that
+// returns predefined Sources for the given remote URLs. Anything not
+// in remotes is returned as a Source with no FS, so compile treats
+// it as a plain Go import. Local imports keep working through the
+// real LocalResolver.
+func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
+	args ...string) (string, error) {
 	t.Helper()
+	stubCompileResolver(t, remotes)
 	resetFlags(CompileCmd)
 	root := &cobra.Command{
 		Use:          "unobin",
@@ -26,6 +39,41 @@ func runCommand(t *testing.T, args ...string) (string, error) {
 	root.SetArgs(args)
 	err := root.Execute()
 	return out.String(), err
+}
+
+func stubCompileResolver(t *testing.T, remotes map[string]*resolve.Source) {
+	t.Helper()
+	prev := newCompileResolver
+	newCompileResolver = func(stackDir string) (resolve.Resolver, error) {
+		return &fakeResolver{
+			local:   resolve.NewLocalResolver(stackDir),
+			remotes: remotes,
+		}, nil
+	}
+	t.Cleanup(func() { newCompileResolver = prev })
+}
+
+type fakeResolver struct {
+	local   *resolve.LocalResolver
+	remotes map[string]*resolve.Source
+}
+
+func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	if li, ok := ref.(*resolve.LocalImport); ok {
+		return r.local.Resolve(li)
+	}
+	ri, ok := ref.(*resolve.RemoteImport)
+	if !ok {
+		return nil, fmt.Errorf("fake resolver: unsupported ref type %T", ref)
+	}
+	key := ri.URL + "@" + ri.Version
+	if ri.Subdir != "" {
+		key = ri.URL + "//" + ri.Subdir + "@" + ri.Version
+	}
+	if src, found := r.remotes[key]; found {
+		return src, nil
+	}
+	return &resolve.Source{Commit: "fakecommit"}, nil
 }
 
 func resetFlags(cmd *cobra.Command) {
@@ -208,6 +256,147 @@ func Module() *runtime.Module {
 	pkgBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "net", "net.go"))
 	require.NoError(t, err)
 	require.Equal(t, wantPkg, string(pkgBytes))
+}
+
+func TestCompileWithRemoteUBModule(t *testing.T) {
+	moduleDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "module.ub"), []byte(`
+description: 'remote net'
+exports: { cluster: 'cluster.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "cluster.ub"), []byte(`
+description: 'a cluster'
+resources: {
+  local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } }
+}
+`), 0o644))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  net: 'github.com/example/net//modules/network@v1'
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	remotes := map[string]*resolve.Source{
+		"github.com/example/net//modules/network@v1": {
+			FS:     os.DirFS(moduleDir),
+			Commit: "abc123",
+			Hash:   "sha256:fakehash",
+		},
+	}
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+	require.NoError(t, err)
+
+	pkgBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "net", "net.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(pkgBytes), "package net")
+	require.Contains(t, string(pkgBytes), `"cluster": {Name: "cluster"`)
+
+	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(mainBytes), `mod_net "demo-stack/internal/net"`)
+	require.Contains(t, string(mainBytes), `"net": mod_net.Module()`)
+
+	modBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.NotContains(t, string(modBytes), "github.com/example/net",
+		"a UB-module remote should not appear as a Go-import in go.mod")
+}
+
+func TestCompileReplaceUnobinUBSubdir(t *testing.T) {
+	fakeUnobin := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(fakeUnobin, "some-mod"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(fakeUnobin, "some-mod", "module.ub"), []byte(`
+description: 'replaced module'
+exports: { foo: 'foo.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(fakeUnobin, "some-mod", "foo.ub"), []byte(`
+description: 'a foo'
+resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } } }
+`), 0o644))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  some: 'github.com/cloudboss/unobin//some-mod@v0.1.0'
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile",
+		"-p", stackPath, "-o", outDir,
+		"--unobin-version", "v0.1.0",
+		"--replace-unobin", fakeUnobin)
+	require.NoError(t, err)
+
+	pkgBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "some", "some.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(pkgBytes), "package some")
+	require.Contains(t, string(pkgBytes), `"foo": {Name: "foo"`)
+}
+
+func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
+	fakeUnobin := t.TempDir()
+	require.NoError(t, os.MkdirAll(
+		filepath.Join(fakeUnobin, "pkg/modules/local"), 0o755))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+`), 0o644))
+
+	out, err := runCommand(t, "compile",
+		"-p", stackPath, "-o", "-",
+		"--version", "v0.1.0",
+		"--replace-unobin", fakeUnobin)
+	require.NoError(t, err)
+	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/local"`)
+}
+
+func TestCompileReplaceUnobinMissingPath(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+`), 0o644))
+
+	_, err := runCommand(t, "compile",
+		"-p", stackPath, "-o", "-",
+		"--replace-unobin", filepath.Join(t.TempDir(), "no-such-tree"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "replace github.com/cloudboss/unobin")
+}
+
+func TestCompileWithRemoteGoSubpath(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+`), 0o644))
+
+	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
+		"--version", "v0.1.0")
+	require.NoError(t, err)
+	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/local"`)
 }
 
 func TestCompileLocalNonUBModuleFails(t *testing.T) {

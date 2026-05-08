@@ -95,8 +95,27 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		name = deriveStackName(cfg.stackPath)
 	}
 
+	var replaceUnobinAbs string
+	if cfg.replaceUnobin != "" {
+		abs, err := filepath.Abs(cfg.replaceUnobin)
+		if err != nil {
+			return err
+		}
+		replaceUnobinAbs = abs
+	}
+
 	stackDir := filepath.Dir(cfg.stackPath)
-	localResolver := resolve.NewLocalResolver(stackDir)
+	resolver, err := newCompileResolver(stackDir)
+	if err != nil {
+		return err
+	}
+	if replaceUnobinAbs != "" {
+		resolver = &replaceResolver{
+			prefix:  "github.com/cloudboss/unobin",
+			local:   replaceUnobinAbs,
+			wrapped: resolver,
+		}
+	}
 
 	goImports := make(map[string]string, len(refs))
 	importVersions := make(map[string]string, len(refs))
@@ -104,21 +123,22 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	ubPackages := make(map[string][]byte, len(refs))
 
 	for alias, ref := range refs {
-		switch r := ref.(type) {
-		case *resolve.LocalImport:
-			source, err := localResolver.Resolve(r)
-			if err != nil {
-				return fmt.Errorf("import %q: %w", alias, err)
-			}
-			if !resolve.IsUBModule(source) {
-				return fmt.Errorf("import %q: local source at %q has no module.ub", alias, r.Path)
-			}
+		source, err := resolver.Resolve(ref)
+		if err != nil {
+			return fmt.Errorf("import %q: %w", alias, err)
+		}
+		if resolve.IsUBModule(source) {
 			pkg, err := buildUBPackage(alias, source)
 			if err != nil {
 				return fmt.Errorf("import %q: %w", alias, err)
 			}
 			ubPackages[alias] = pkg
 			ubImports[alias] = name + "/internal/" + alias
+			continue
+		}
+		switch r := ref.(type) {
+		case *resolve.LocalImport:
+			return fmt.Errorf("import %q: local source at %q has no module.ub", alias, r.Path)
 		case *resolve.RemoteImport:
 			path := r.URL
 			if r.Subdir != "" {
@@ -153,12 +173,8 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	replaces := codegen.Replaces{}
-	if cfg.replaceUnobin != "" {
-		abs, err := filepath.Abs(cfg.replaceUnobin)
-		if err != nil {
-			return err
-		}
-		replaces["github.com/cloudboss/unobin"] = abs
+	if replaceUnobinAbs != "" {
+		replaces["github.com/cloudboss/unobin"] = replaceUnobinAbs
 	}
 
 	err = codegen.WriteSource(cfg.outDir, in,
@@ -275,6 +291,70 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
 		return fmt.Errorf("go build failed: %w", err)
 	}
 	return nil
+}
+
+// newCompileResolver returns the resolver compile uses to fetch
+// import sources. Production wires up a local resolver for relative
+// paths and a remote resolver for everything else; tests override
+// this package var to avoid any network access.
+var newCompileResolver = func(stackDir string) (resolve.Resolver, error) {
+	remote, err := resolve.NewRemoteResolver()
+	if err != nil {
+		return nil, err
+	}
+	return &dispatchResolver{
+		local:  resolve.NewLocalResolver(stackDir),
+		remote: remote,
+	}, nil
+}
+
+type dispatchResolver struct {
+	local  *resolve.LocalResolver
+	remote *resolve.RemoteResolver
+}
+
+func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	switch ref.(type) {
+	case *resolve.LocalImport:
+		return r.local.Resolve(ref)
+	case *resolve.RemoteImport:
+		return r.remote.Resolve(ref)
+	}
+	return nil, fmt.Errorf("unsupported import ref type %T", ref)
+}
+
+// replaceResolver short-circuits remote imports whose URL matches a
+// configured prefix and serves them from a local directory instead.
+// Set up by `--replace-unobin` so a developer can compile a stack that
+// imports `github.com/cloudboss/unobin//<subdir>` against a working
+// tree without making any network calls.
+type replaceResolver struct {
+	prefix  string
+	local   string
+	wrapped resolve.Resolver
+}
+
+func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	ri, ok := ref.(*resolve.RemoteImport)
+	if !ok || ri.URL != r.prefix {
+		return r.wrapped.Resolve(ref)
+	}
+	target := r.local
+	if ri.Subdir != "" {
+		target = filepath.Join(target, ri.Subdir)
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		return nil, fmt.Errorf("replace %s: %w", r.prefix, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
+	}
+	src := &resolve.Source{Commit: "replace"}
+	if _, err := os.Stat(filepath.Join(target, "module.ub")); err == nil {
+		src.FS = os.DirFS(target)
+	}
+	return src, nil
 }
 
 // goMajorMinor returns the running Go toolchain's `<major>.<minor>` so

@@ -6,7 +6,7 @@ inputs: {
 }
 
 imports: {
-  local: 'github.com/cloudboss/unobin/pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
 }
 
 resources: {
