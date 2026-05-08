@@ -46,10 +46,16 @@ func TestConvertS3Bucket(t *testing.T) {
 		t.Errorf("expected 3 input fields, got %d", len(rs.InputFields))
 	}
 
-	findInput := func(name string) *struct{ GoType string; Required bool } {
+	findInput := func(name string) *struct {
+		GoType   string
+		Required bool
+	} {
 		for _, f := range rs.InputFields {
 			if f.Name == name {
-				return &struct{ GoType string; Required bool }{f.GoType, f.Required}
+				return &struct {
+					GoType   string
+					Required bool
+				}{f.GoType, f.Required}
 			}
 		}
 		return nil

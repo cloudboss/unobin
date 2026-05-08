@@ -104,7 +104,6 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 	}
 }
 
-
 func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep) error {
 	node, scope, err := e.nodeAndScope(rs, step.Address)
 	if err != nil {

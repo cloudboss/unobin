@@ -9,10 +9,9 @@ import (
 
 var (
 	RootCmd = &cobra.Command{
-		Use:           "unobin",
-		Short:         "Compile and manage unobin stacks",
-		SilenceUsage:  true,
-
+		Use:          "unobin",
+		Short:        "Compile and manage unobin stacks",
+		SilenceUsage: true,
 	}
 )
 

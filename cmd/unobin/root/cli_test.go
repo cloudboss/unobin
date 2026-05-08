@@ -15,8 +15,8 @@ func runCommand(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	resetFlags(CompileCmd)
 	root := &cobra.Command{
-		Use:           "unobin",
-		SilenceUsage:  true,
+		Use:          "unobin",
+		SilenceUsage: true,
 	}
 	root.AddCommand(VersionCmd)
 	root.AddCommand(CompileCmd)

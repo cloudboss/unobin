@@ -17,9 +17,9 @@ const TriggerAlways = "always"
 // dispatching it: a hash to compare against state and a flag for the
 // always-rerun escape hatch.
 type TriggerDecision struct {
-	Hash         string
-	AlwaysRerun  bool
-	HasExplicit  bool
+	Hash        string
+	AlwaysRerun bool
+	HasExplicit bool
 }
 
 // ComputeTrigger evaluates the action node's `@trigger` meta key (if any)

@@ -326,4 +326,3 @@ func TestEncodeTypeOptionalNoDefault(t *testing.T) {
 	require.NotContains(t, got, "Default")
 	parsesAsGoExpr(t, got)
 }
-

@@ -8,8 +8,8 @@ var Go = Dependency{
 	Version: "1.26.2",
 	Format:  TarGz,
 	URLs: map[Platform]string{
-		{"linux", "amd64"}: "https://go.dev/dl/go1.26.2.linux-amd64.tar.gz",
-		{"linux", "arm64"}: "https://go.dev/dl/go1.26.2.linux-arm64.tar.gz",
+		{"linux", "amd64"}:  "https://go.dev/dl/go1.26.2.linux-amd64.tar.gz",
+		{"linux", "arm64"}:  "https://go.dev/dl/go1.26.2.linux-arm64.tar.gz",
 		{"darwin", "amd64"}: "https://go.dev/dl/go1.26.2.darwin-amd64.tar.gz",
 		{"darwin", "arm64"}: "https://go.dev/dl/go1.26.2.darwin-arm64.tar.gz",
 	},

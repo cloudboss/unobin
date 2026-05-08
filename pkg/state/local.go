@@ -223,4 +223,3 @@ func (s *LocalStore) currentRev() (string, error) {
 	}
 	return rev, nil
 }
-

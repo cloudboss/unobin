@@ -142,7 +142,7 @@ func TestRefreshNoPriorState(t *testing.T) {
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
 		Modules: map[string]*Module{},
-		Store: store, Stack: stack,
+		Store:   store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
