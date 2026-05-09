@@ -92,6 +92,7 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		return nil, fmt.Errorf("eval: unknown address root %q", p.Root.Name)
 	}
 	cur := root
+	path := p.Root.Name
 	for _, seg := range p.Segments {
 		var step string
 		switch {
@@ -108,14 +109,14 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 			}
 			step = s
 		}
+		path = path + "." + step
 		m, ok := cur.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("eval: cannot navigate into %T at %s.%s",
-				cur, p.Root.Name, step)
+			return nil, fmt.Errorf("eval: cannot navigate into %T at %s", cur, path)
 		}
 		next, exists := m[step]
 		if !exists {
-			return nil, fmt.Errorf("eval: %s.%s: not found", p.Root.Name, step)
+			return nil, fmt.Errorf("eval: %s: not found", path)
 		}
 		cur = next
 	}
