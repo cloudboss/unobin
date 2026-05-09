@@ -299,6 +299,72 @@ resources: {
 		"internal should inherit the call-site args' root refs")
 }
 
+func TestBuildDAGNestedComposite(t *testing.T) {
+	clusterBody := parseStack(t, `
+inputs: {
+  path: { type: string }
+}
+
+resources: {
+  local: {
+    file: { x: { path: var.path } }
+  }
+}
+`)
+	layerBody := parseStack(t, `
+inputs: {
+  target: { type: string }
+}
+
+resources: {
+  inner-mod: {
+    cluster: { only: { path: var.target } }
+  }
+}
+`)
+	mods := map[string]*Module{
+		"outer-mod": {
+			Name: "outer-mod",
+			Composites: map[string]*CompositeType{
+				"layer": {Name: "layer", Body: layerBody},
+			},
+		},
+		"inner-mod": {
+			Name: "inner-mod",
+			Composites: map[string]*CompositeType{
+				"cluster": {Name: "cluster", Body: clusterBody},
+			},
+		},
+	}
+	g := BuildDAG(parseStack(t, `
+resources: {
+  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
+  outer-mod: {
+    layer: {
+      mine: { target: resource.aws.vpc.main.id }
+    }
+  }
+}
+`), mods)
+
+	outerAddr := "resource.outer-mod.layer.mine"
+	innerAddr := outerAddr + "/inner-mod.cluster.only"
+	leafAddr := innerAddr + "/local.file.x"
+
+	require.ElementsMatch(t,
+		[]string{innerAddr},
+		g.Edges[outerAddr],
+		"outer boundary depends on its direct internals only")
+	require.ElementsMatch(t,
+		[]string{leafAddr},
+		g.Edges[innerAddr],
+		"inner boundary depends on its direct internals only")
+	require.Contains(t,
+		g.Edges[leafAddr],
+		"resource.aws.vpc.main",
+		"leaf inherits root refs from the outer call site's args via walk-up")
+}
+
 func TestTopologicalOrderEmpty(t *testing.T) {
 	got, err := BuildDAG(parseStack(t, `description: 'empty'`), nil).TopologicalOrder()
 	require.NoError(t, err)

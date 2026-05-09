@@ -96,32 +96,42 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 
 // computeDeps returns the addresses n depends on, taking composite
 // scope into account. A composite boundary depends on each of its
-// internal nodes so its `outputs:` evaluation runs last. An internal
-// node depends on its body's resource refs, rewritten so they point
-// at the prefixed sibling addresses, plus the boundary's body refs.
-// Var refs inside an internal are dropped: they name composite-scoped
-// vars that resolve to call-site args, not anything in parent scope.
-// The boundary's body refs are the call-site args themselves, which
-// carry the parent-scope dependencies the composite needs resolved
-// before any internal can run. Other nodes keep the original behavior:
-// body refs and any `@depends-on` entries.
+// internal nodes so its `outputs:` evaluation runs last. A leaf
+// inside a composite walks up the boundary chain and inherits each
+// boundary's body refs scoped by that boundary's own enclosing
+// scope; this makes deeply nested leaves see the outer call sites'
+// args, ensuring root nodes referenced by call args run before the
+// leaf. Composite boundaries pick those deps up transitively via
+// their leaves and don't walk up themselves. Var refs inside a
+// leaf's own body are dropped: they name composite-scoped vars that
+// resolve to call-site args, not anything in parent scope. Top-level
+// nodes keep the original behavior: body refs and any `@depends-on`
+// entries.
 func computeDeps(n *Node, nodes map[string]*Node) []string {
 	if n.Kind == NodeComposite {
 		return internalsOf(n.Address, nodes)
 	}
-	deps := bodyDeps(n.Body)
-	if n.Composite != "" {
-		scoped := make([]string, 0, len(deps))
-		for _, d := range deps {
-			if strings.HasPrefix(d, "var.") {
+	var deps []string
+	bodyRefs := bodyDeps(n.Body)
+	if n.Composite == "" {
+		deps = bodyRefs
+	} else {
+		for _, ref := range bodyRefs {
+			if strings.HasPrefix(ref, "var.") {
 				continue
 			}
-			scoped = append(scoped, scopeRef(d, n.Composite))
+			deps = append(deps, scopeRef(ref, n.Composite))
 		}
-		deps = scoped
-		if boundary := nodes[n.Composite]; boundary != nil {
-			deps = append(deps, Refs(boundary.Body)...)
+	}
+	for current := n.Composite; current != ""; {
+		boundary, ok := nodes[current]
+		if !ok {
+			break
 		}
+		for _, ref := range Refs(boundary.Body) {
+			deps = append(deps, scopeRef(ref, boundary.Composite))
+		}
+		current = boundary.Composite
 	}
 	return dedupe(deps)
 }
@@ -137,15 +147,21 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 	return out
 }
 
-// scopeRef rewrites a root reference into a composite internal
-// address. `resource.aws.vpc.this` under call site
+// scopeRef rewrites a reference into a composite internal address.
+// `resource.aws.vpc.this` under call site
 // `resource.net.cluster.web` becomes
 // `resource.net.cluster.web/aws.vpc.this`; the leading `resource.`
 // drops since the call site is already a resource address.
 // `data.X.Y.Z` and `action.X.Y.Z` keep their kind prefix in the
 // joined form, matching what `expandComposite` produces. Var refs
 // and unsupported kinds pass through unchanged so toposort skips them.
+// An empty callSite means the ref is already in its target scope (a
+// top-level boundary's body refs, or a no-op when walking up past the
+// outermost scope) and the ref returns unchanged.
 func scopeRef(ref, callSite string) string {
+	if callSite == "" {
+		return ref
+	}
 	if strings.HasPrefix(ref, "resource.") {
 		return callSite + "/" + strings.TrimPrefix(ref, "resource.")
 	}
