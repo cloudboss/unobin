@@ -179,6 +179,91 @@ resources: {
 	}
 }
 
+func TestExtractNodesNestedComposite(t *testing.T) {
+	// clusterBody is the body file for the `cluster` composite type
+	// registered under module alias `inner-mod`. In a real project this
+	// would live in `cluster.ub`, listed in inner-mod's `module.ub`
+	// manifest as `exports: { cluster: 'cluster.ub' }`.
+	clusterBody := parseStack(t, `
+inputs: {
+  path: { type: string }
+}
+
+resources: {
+  local: {
+    file: { x: { path: var.path } }
+  }
+}
+
+outputs: {
+  path: resource.local.file.x.path
+}
+`)
+	// layerBody is the body file for the `layer` composite type registered
+	// under module alias `outer-mod`. Its body calls inner-mod's `cluster`
+	// composite, which is what makes this a nested composite.
+	layerBody := parseStack(t, `
+inputs: {
+  target: { type: string }
+}
+
+resources: {
+  inner-mod: {
+    cluster: {
+      only: { path: var.target }
+    }
+  }
+}
+
+outputs: {
+  path: resource.inner-mod.cluster.only.path
+}
+`)
+	mods := map[string]*Module{
+		"outer-mod": {
+			Name: "outer-mod",
+			Composites: map[string]*CompositeType{
+				"layer": {Name: "layer", Body: layerBody},
+			},
+		},
+		"inner-mod": {
+			Name: "inner-mod",
+			Composites: map[string]*CompositeType{
+				"cluster": {Name: "cluster", Body: clusterBody},
+			},
+		},
+	}
+	stack := parseStack(t, `
+resources: {
+  outer-mod: { layer: { mine: { target: '/tmp/x' } } }
+}
+`)
+	got := ExtractNodes(stack, mods)
+
+	byAddr := map[string]*Node{}
+	for _, n := range got {
+		byAddr[n.Address] = n
+	}
+
+	outerBoundary := byAddr["resource.outer-mod.layer.mine"]
+	require.NotNil(t, outerBoundary, "outer boundary at root address")
+	require.Equal(t, NodeComposite, outerBoundary.Kind)
+	require.Empty(t, outerBoundary.Composite, "outer boundary has root scope")
+
+	innerBoundary := byAddr["resource.outer-mod.layer.mine/inner-mod.cluster.only"]
+	require.NotNil(t, innerBoundary, "inner boundary nested under outer")
+	require.Equal(t, NodeComposite, innerBoundary.Kind)
+	require.Equal(t, "resource.outer-mod.layer.mine", innerBoundary.Composite,
+		"inner boundary's direct parent is outer call site")
+
+	leafAddr := "resource.outer-mod.layer.mine/inner-mod.cluster.only/local.file.x"
+	leaf := byAddr[leafAddr]
+	require.NotNil(t, leaf, "leaf under inner composite")
+	require.Equal(t, NodeResource, leaf.Kind)
+	require.Equal(t, "resource.outer-mod.layer.mine/inner-mod.cluster.only", leaf.Composite,
+		"leaf's direct parent is inner call site")
+}
+
 func TestExtractNodesSkipsMalformed(t *testing.T) {
 	src := `
 resources: {

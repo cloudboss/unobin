@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -29,7 +28,10 @@ const (
 // Composite so the runtime evaluates its body against the composite's
 // scope rather than the root. Its address looks like
 // `resource.<call site>/<ns>.<type>.<name>`, with the call site as a
-// prefix joined by a single `/`.
+// prefix joined by a single `/`. For a composite that itself calls
+// another composite the chain continues:
+// `resource.<outer>/<inner-rel>/<deepest-rel>`, and each node's
+// Composite names its direct enclosing call site.
 //
 // CompositeBody is set only on NodeComposite. It points to the
 // composite type's full body so the runtime can evaluate the
@@ -56,27 +58,40 @@ type Node struct {
 // or empty mods skips the composite check, in which case every node in
 // `resources:` is treated as a primitive.
 func ExtractNodes(f *lang.File, mods map[string]*Module) []*Node {
+	return extractNodes(f, "", mods)
+}
+
+// extractNodes is the recursive workhorse. parent is the address of the
+// enclosing composite call site, or "" at root; each non-output node
+// gets its Composite set to parent, and resource/data/action addresses
+// are prefixed with `parent + "/"` when parent is non-empty. Output
+// blocks are only emitted at root: a composite's `outputs:` block is
+// consumed by `evalCompositeOutputs` at apply time, not turned into
+// DAG nodes.
+func extractNodes(f *lang.File, parent string, mods map[string]*Module) []*Node {
 	if f == nil || f.Body == nil {
 		return nil
 	}
 	var nodes []*Node
 	blocks := topLevelMap(f.Body)
 	if obj, ok := blocks["resources"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractResources(obj, mods)...)
+		nodes = append(nodes, extractResources(obj, parent, mods)...)
 	}
 	if obj, ok := blocks["data"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractNested(obj, NodeData)...)
+		nodes = append(nodes, extractNested(obj, NodeData, parent)...)
 	}
 	if obj, ok := blocks["actions"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractNested(obj, NodeAction)...)
+		nodes = append(nodes, extractNested(obj, NodeAction, parent)...)
 	}
-	if obj, ok := blocks["outputs"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractOutputs(obj)...)
+	if parent == "" {
+		if obj, ok := blocks["outputs"].(*lang.ObjectLit); ok {
+			nodes = append(nodes, extractOutputs(obj)...)
+		}
 	}
 	return nodes
 }
 
-func extractResources(block *lang.ObjectLit, mods map[string]*Module) []*Node {
+func extractResources(block *lang.ObjectLit, parent string, mods map[string]*Module) []*Node {
 	var out []*Node
 	for _, ns := range block.Fields {
 		if ns.Key.Kind != lang.FieldIdent || ns.Key.IsMeta() {
@@ -99,21 +114,21 @@ func extractResources(block *lang.ObjectLit, mods map[string]*Module) []*Node {
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
 				}
-				addr := fmt.Sprintf("resource.%s.%s.%s",
-					ns.Key.Name, t.Key.Name, n.Key.Name)
+				addr := composeResourceAddress(parent, ns.Key.Name, t.Key.Name, n.Key.Name)
 				if composite != nil {
-					out = append(out, expandComposite(addr,
+					out = append(out, expandComposite(addr, parent,
 						ns.Key.Name, t.Key.Name, n.Key.Name,
-						n.Value, composite)...)
+						n.Value, composite, mods)...)
 					continue
 				}
 				out = append(out, &Node{
-					Address: addr,
-					Kind:    NodeResource,
-					NS:      ns.Key.Name,
-					Type:    t.Key.Name,
-					Name:    n.Key.Name,
-					Body:    n.Value,
+					Address:   addr,
+					Kind:      NodeResource,
+					NS:        ns.Key.Name,
+					Type:      t.Key.Name,
+					Name:      n.Key.Name,
+					Body:      n.Value,
+					Composite: parent,
 				})
 			}
 		}
@@ -121,7 +136,7 @@ func extractResources(block *lang.ObjectLit, mods map[string]*Module) []*Node {
 	return out
 }
 
-func extractNested(block *lang.ObjectLit, kind NodeKind) []*Node {
+func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node {
 	var out []*Node
 	for _, ns := range block.Fields {
 		if ns.Key.Kind != lang.FieldIdent || ns.Key.IsMeta() {
@@ -144,13 +159,14 @@ func extractNested(block *lang.ObjectLit, kind NodeKind) []*Node {
 					continue
 				}
 				out = append(out, &Node{
-					Address: fmt.Sprintf("%s.%s.%s.%s",
-						kind, ns.Key.Name, t.Key.Name, n.Key.Name),
-					Kind: kind,
-					NS:   ns.Key.Name,
-					Type: t.Key.Name,
-					Name: n.Key.Name,
-					Body: n.Value,
+					Address: composeKindAddress(parent, kind,
+						ns.Key.Name, t.Key.Name, n.Key.Name),
+					Kind:      kind,
+					NS:        ns.Key.Name,
+					Type:      t.Key.Name,
+					Name:      n.Key.Name,
+					Body:      n.Value,
+					Composite: parent,
 				})
 			}
 		}
@@ -173,13 +189,19 @@ func lookupComposite(mods map[string]*Module, alias, typ string) *CompositeType 
 // for a composite call site. The boundary node sits at the call site
 // address and carries the call site args as Body; the runtime
 // evaluates the composite's `outputs:` block via CompositeBody once
-// the internals complete. Each internal address prefixes the call
-// site with `/`, drops the leading `resource.` from the inner part
-// to fit the spec form, and carries the call site address in
-// Composite so edge building and evaluation route through the
-// composite's scope.
-func expandComposite(callSiteAddr, ns, typ, name string,
-	args lang.Expr, composite *CompositeType) []*Node {
+// the internals complete. parent is the boundary's enclosing call
+// site (empty for top-level call sites; the outer call site address
+// for nested ones), and is recorded on the boundary's Composite
+// field so the boundary's args evaluate against the right scope.
+//
+// Internals come from a recursive walk of the composite's body with
+// the new call site address as the parent prefix, so nested addresses
+// build up like `outer/inner-rel/leaf-rel` and each internal's
+// Composite names its direct enclosing call site. mods drives the
+// recursion's composite detection so a composite that calls another
+// composite expands properly.
+func expandComposite(callSiteAddr, parent, ns, typ, name string,
+	args lang.Expr, composite *CompositeType, mods map[string]*Module) []*Node {
 	out := []*Node{{
 		Address:       callSiteAddr,
 		Kind:          NodeComposite,
@@ -187,16 +209,10 @@ func expandComposite(callSiteAddr, ns, typ, name string,
 		Type:          typ,
 		Name:          name,
 		Body:          args,
+		Composite:     parent,
 		CompositeBody: composite.Body,
 	}}
-	for _, internal := range ExtractNodes(composite.Body, nil) {
-		if internal.Kind == NodeOutput {
-			continue
-		}
-		internal.Address = callSiteAddr + "/" + strings.TrimPrefix(internal.Address, "resource.")
-		internal.Composite = callSiteAddr
-		out = append(out, internal)
-	}
+	out = append(out, extractNodes(composite.Body, callSiteAddr, mods)...)
 	return out
 }
 
@@ -224,4 +240,26 @@ func topLevelMap(body *lang.ObjectLit) map[string]lang.Expr {
 		}
 	}
 	return out
+}
+
+// composeResourceAddress builds a resource node's address. At root the
+// shape is `resource.<ns>.<type>.<name>`. Inside a composite the inner
+// part drops the leading `resource.` to fit the spec form
+// `<call-site>/<ns>.<type>.<name>`.
+func composeResourceAddress(parent, ns, typ, name string) string {
+	if parent == "" {
+		return fmt.Sprintf("resource.%s.%s.%s", ns, typ, name)
+	}
+	return fmt.Sprintf("%s/%s.%s.%s", parent, ns, typ, name)
+}
+
+// composeKindAddress builds a data or action node's address. Data and
+// action addresses keep their kind prefix in the joined form: at root
+// it is `<kind>.<ns>.<type>.<name>`, inside a composite it is
+// `<call-site>/<kind>.<ns>.<type>.<name>`.
+func composeKindAddress(parent string, kind NodeKind, ns, typ, name string) string {
+	if parent == "" {
+		return fmt.Sprintf("%s.%s.%s.%s", kind, ns, typ, name)
+	}
+	return fmt.Sprintf("%s/%s.%s.%s.%s", parent, kind, ns, typ, name)
 }
