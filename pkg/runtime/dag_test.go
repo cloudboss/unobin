@@ -189,6 +189,40 @@ resources: {
 		g.Edges["resource.net.cluster.web/local.file.b"])
 }
 
+func TestBuildDAGCompositeInternalDropsCompositeScopedVars(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: { file: { x: { path: var.path, content: var.message } } }
+}
+`)
+	mods := map[string]*Module{
+		"net": {
+			Name: "net",
+			Composites: map[string]*CompositeType{
+				"cluster": {Name: "cluster", Body: composite},
+			},
+		},
+	}
+	g := BuildDAG(parseStack(t, `
+resources: {
+  net: {
+    cluster: {
+      web: { path: var.target-path, message: var.target-message }
+    }
+  }
+}
+`), mods)
+	deps := g.Edges["resource.net.cluster.web/local.file.x"]
+	require.NotContains(t, deps, "var.path",
+		"composite-scoped var.path should not appear as a parent-scope dep")
+	require.NotContains(t, deps, "var.message",
+		"composite-scoped var.message should not appear as a parent-scope dep")
+	require.Contains(t, deps, "var.target-path",
+		"the call-site args' parent-scope refs should still appear")
+	require.Contains(t, deps, "var.target-message",
+		"the call-site args' parent-scope refs should still appear")
+}
+
 func TestBuildDAGCompositeInternalInheritsCallSiteArgsRefs(t *testing.T) {
 	composite := parseStack(t, `
 resources: {

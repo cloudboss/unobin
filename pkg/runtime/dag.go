@@ -97,12 +97,14 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 // computeDeps returns the addresses n depends on, taking composite
 // scope into account. A composite boundary depends on each of its
 // internal nodes so its `outputs:` evaluation runs last. An internal
-// node depends on its body's refs, rewritten so resource refs point
+// node depends on its body's resource refs, rewritten so they point
 // at the prefixed sibling addresses, plus the boundary's body refs.
-// The boundary refs are the call site args, which carry the root deps
-// the composite needs resolved before any internal can run. Other
-// nodes keep the original behavior: body refs and any `@depends-on`
-// entries.
+// Var refs inside an internal are dropped: they name composite-scoped
+// vars that resolve to call-site args, not anything in parent scope.
+// The boundary's body refs are the call-site args themselves, which
+// carry the parent-scope dependencies the composite needs resolved
+// before any internal can run. Other nodes keep the original behavior:
+// body refs and any `@depends-on` entries.
 func computeDeps(n *Node, nodes map[string]*Node) []string {
 	if n.Kind == NodeComposite {
 		return internalsOf(n.Address, nodes)
@@ -111,6 +113,9 @@ func computeDeps(n *Node, nodes map[string]*Node) []string {
 	if n.Composite != "" {
 		scoped := make([]string, 0, len(deps))
 		for _, d := range deps {
+			if strings.HasPrefix(d, "var.") {
+				continue
+			}
 			scoped = append(scoped, scopeRef(d, n.Composite))
 		}
 		deps = scoped
