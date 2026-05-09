@@ -104,6 +104,104 @@ outputs: {
 	require.Contains(t, types, state.EntryLeaf)
 }
 
+func TestApplyPlanNestedComposite(t *testing.T) {
+	clusterBody := parseStack(t, `
+inputs: {
+  path: { type: string }
+}
+
+resources: {
+  core: { thing: { x: { name: var.path, size: 1 } } }
+}
+
+outputs: {
+  path: resource.core.thing.x.name
+}
+`)
+	layerBody := parseStack(t, `
+inputs: {
+  target: { type: string }
+}
+
+resources: {
+  inner-mod: {
+    cluster: { only: { path: var.target } }
+  }
+}
+
+outputs: {
+  path: resource.inner-mod.cluster.only.path
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["outer-mod"] = &Module{
+		Name: "outer-mod",
+		Composites: map[string]*CompositeType{
+			"layer": {Name: "layer", Body: layerBody},
+		},
+	}
+	mods["inner-mod"] = &Module{
+		Name: "inner-mod",
+		Composites: map[string]*CompositeType{
+			"cluster": {Name: "cluster", Body: clusterBody},
+		},
+	}
+	src := `
+resources: {
+  outer-mod: { layer: { mine: { target: 'alpha' } } }
+}
+outputs: {
+  out: resource.outer-mod.layer.mine.path
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	planExec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	plan, err := planExec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+
+	// Apply runs without root inputs, mirroring the stack binary's
+	// `apply` subcommand which only reads the plan file. Both
+	// composite scopes (outer and inner) must be seeded from the plan
+	// steps so the deepest leaf can read its `var.path`.
+	applyExec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := applyExec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, "alpha", res.Outputs["out"])
+	require.Equal(t, int64(1), c.creates)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addresses := []string{}
+	for _, e := range snap.Entries {
+		addresses = append(addresses, e.Address)
+	}
+	require.ElementsMatch(t,
+		[]string{
+			"resource.outer-mod.layer.mine",
+			"resource.outer-mod.layer.mine/inner-mod.cluster.only",
+			"resource.outer-mod.layer.mine/inner-mod.cluster.only/core.thing.x",
+		},
+		addresses,
+		"both boundaries persist as module-call records, plus the deepest leaf")
+}
+
 func TestApplyPlanCompositeOrphan(t *testing.T) {
 	composite := parseStack(t, `
 resources: {

@@ -129,7 +129,11 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	if !ok {
 		return nil, fmt.Errorf("composite %s: boundary node not in DAG", callSite)
 	}
-	args, err := evalBody(boundary.Body, rs.eval)
+	parent, err := e.scopeFor(rs, boundary)
+	if err != nil {
+		return nil, fmt.Errorf("composite %s: build parent scope: %w", callSite, err)
+	}
+	args, err := evalBody(boundary.Body, parent)
 	if err != nil {
 		return nil, fmt.Errorf("composite %s: eval call args: %w", callSite, err)
 	}
@@ -183,10 +187,11 @@ func (e *Executor) runNode(ctx context.Context, rs *runState, n *Node) error {
 // finalizeComposite closes a composite call site after its
 // internals have finished. It reads the composite body's `outputs:`
 // block against the composite scope, exposes those outputs at the
-// call site address so the root can reach them, and writes one
-// EntryModuleCall record holding the given inputs and the computed
-// outputs. Inputs is the call site arg map; pass scope.Vars when
-// called from Run, step.Inputs when called from ApplyPlan.
+// call site address in the boundary's enclosing scope so its parent
+// can reach them, and writes one EntryModuleCall record holding the
+// given inputs and the computed outputs. Inputs is the call site arg
+// map; pass scope.Vars when called from Run, step.Inputs when called
+// from ApplyPlan.
 func (e *Executor) finalizeComposite(rs *runState, n *Node, inputs map[string]any) error {
 	scope, err := e.ensureCompositeScope(rs, n.Address)
 	if err != nil {
@@ -196,7 +201,11 @@ func (e *Executor) finalizeComposite(rs *runState, n *Node, inputs map[string]an
 	if err != nil {
 		return err
 	}
-	storeNested(rs.eval.Resources, n, outputs)
+	parent, err := e.scopeFor(rs, n)
+	if err != nil {
+		return err
+	}
+	storeNested(parent.Resources, n, outputs)
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:    n.Address,
 		Type:       state.EntryModuleCall,

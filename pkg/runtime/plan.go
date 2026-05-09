@@ -185,12 +185,13 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 
 // scopeForAddress returns the scope a state entry belongs to. Entries
 // addressed inside a composite (their address contains `/`) seed the
-// composite's scope; root entries seed root. When a prior entry's
+// scope of their direct enclosing composite, which is everything up
+// to the last `/` for nested composites. When a prior entry's
 // composite has been removed from source, its boundary is not in the
 // DAG, so there is no scope to seed and the entry is skipped (a nil
 // scope tells the caller to move on).
 func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, error) {
-	if i := strings.Index(addr, "/"); i >= 0 {
+	if i := strings.LastIndex(addr, "/"); i >= 0 {
 		callSite := addr[:i]
 		if _, ok := e.DAG.Nodes[callSite]; !ok {
 			return nil, nil
@@ -274,16 +275,14 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 }
 
 // planComposite plans the composite boundary. The call site args are
-// evaluated against root scope and a composite scope is created so
-// internal nodes can see them as `var.X`. The boundary itself does no
-// CRUD: its decision is Eval and its outputs are computed at apply
-// time after the internals run.
+// evaluated against the boundary's enclosing scope (root for top-level
+// boundaries, the outer composite's scope for nested ones) by
+// constructing the composite scope; its Vars are those evaluated args.
+// The boundary itself does no CRUD: its decision is Eval and its
+// outputs are computed at apply time after the internals run.
 func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
-	args, err := evalBody(n.Body, rs.eval)
+	scope, err := e.ensureCompositeScope(rs, n.Address)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := e.ensureCompositeScope(rs, n.Address); err != nil {
 		return nil, err
 	}
 	var prior *state.Entry
@@ -298,7 +297,7 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 		Address:      n.Address,
 		Kind:         n.Kind,
 		Decision:     DecisionEval,
-		Inputs:       args,
+		Inputs:       scope.Vars,
 		PriorOutputs: priorOut,
 	}, nil
 }

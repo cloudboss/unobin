@@ -307,6 +307,217 @@ outputs: {
 	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
 }
 
+func TestExecutorRunsNestedComposite(t *testing.T) {
+	clusterBody := parseStack(t, `
+inputs: {
+  path: { type: string }
+}
+
+resources: {
+  core: {
+    thing: { x: { name: var.path, size: 1 } }
+  }
+}
+
+outputs: {
+  path: resource.core.thing.x.name
+}
+`)
+	layerBody := parseStack(t, `
+inputs: {
+  target: { type: string }
+}
+
+resources: {
+  inner-mod: {
+    cluster: { only: { path: var.target } }
+  }
+}
+
+outputs: {
+  path: resource.inner-mod.cluster.only.path
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["outer-mod"] = &Module{
+		Name: "outer-mod",
+		Composites: map[string]*CompositeType{
+			"layer": {Name: "layer", Body: layerBody},
+		},
+	}
+	mods["inner-mod"] = &Module{
+		Name: "inner-mod",
+		Composites: map[string]*CompositeType{
+			"cluster": {Name: "cluster", Body: clusterBody},
+		},
+	}
+	src := `
+resources: {
+  outer-mod: { layer: { mine: { target: 'alpha' } } }
+}
+outputs: {
+  out: resource.outer-mod.layer.mine.path
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "alpha", res.Outputs["out"],
+		"path flows up through both composite layers")
+	require.Equal(t, int64(1), c.creates,
+		"only the deepest leaf creates a real resource")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+
+	byAddr := map[string]*state.Entry{}
+	for _, e := range snap.Entries {
+		byAddr[e.Address] = e
+	}
+
+	leafAddr := "resource.outer-mod.layer.mine/inner-mod.cluster.only/core.thing.x"
+	leaf := byAddr[leafAddr]
+	require.NotNil(t, leaf, "deepest leaf persists at fully chained address")
+	require.Equal(t, state.EntryLeaf, leaf.Type)
+
+	innerAddr := "resource.outer-mod.layer.mine/inner-mod.cluster.only"
+	inner := byAddr[innerAddr]
+	require.NotNil(t, inner)
+	require.Equal(t, state.EntryModuleCall, inner.Type)
+	require.Equal(t, "inner-mod", inner.Module)
+	require.Equal(t, "cluster", inner.ModuleType)
+
+	outerAddr := "resource.outer-mod.layer.mine"
+	outer := byAddr[outerAddr]
+	require.NotNil(t, outer)
+	require.Equal(t, state.EntryModuleCall, outer.Type)
+	require.Equal(t, "outer-mod", outer.Module)
+}
+
+func TestExecutorNestedCompositeEncapsulation(t *testing.T) {
+	// Inner's leaf produces {id, name, size}; inner only publishes
+	// {path}. Outer's outputs reference the boundary's published
+	// outputs, not the leaf's internals.
+	clusterBody := parseStack(t, `
+inputs: {
+  path: { type: string }
+}
+
+resources: {
+  core: {
+    thing: { x: { name: var.path, size: 7 } }
+  }
+}
+
+outputs: {
+  path: resource.core.thing.x.name
+}
+`)
+	layerBody := parseStack(t, `
+inputs: {
+  target: { type: string }
+}
+
+resources: {
+  inner-mod: {
+    cluster: { only: { path: var.target } }
+  }
+}
+
+outputs: {
+  exposed: resource.inner-mod.cluster.only.path
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["outer-mod"] = &Module{
+		Name: "outer-mod",
+		Composites: map[string]*CompositeType{
+			"layer": {Name: "layer", Body: layerBody},
+		},
+	}
+	mods["inner-mod"] = &Module{
+		Name: "inner-mod",
+		Composites: map[string]*CompositeType{
+			"cluster": {Name: "cluster", Body: clusterBody},
+		},
+	}
+
+	t.Run("only published outputs cross the boundary", func(t *testing.T) {
+		src := `
+resources: {
+  outer-mod: { layer: { mine: { target: 'beta' } } }
+}
+outputs: {
+  out: resource.outer-mod.layer.mine.exposed
+}
+`
+		store := newStateStore(t)
+		stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+		exec := &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Store:   store,
+			Stack:   stack,
+		}
+		res, err := exec.Run(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "beta", res.Outputs["out"])
+
+		snap, err := store.Current()
+		require.NoError(t, err)
+		var inner *state.Entry
+		for _, e := range snap.Entries {
+			if e.Address == "resource.outer-mod.layer.mine/inner-mod.cluster.only" {
+				inner = e
+			}
+		}
+		require.NotNil(t, inner)
+		require.Equal(t, map[string]any{"path": "beta"}, inner.Outputs,
+			"inner boundary's published outputs are exactly the composite's outputs block, "+
+				"not the leaf's full output map")
+		require.NotContains(t, inner.Outputs, "id",
+			"leaf's internal id field must not leak through the boundary")
+		require.NotContains(t, inner.Outputs, "size",
+			"leaf's internal size field must not leak through the boundary")
+	})
+
+	t.Run("non-published fields are unreachable from outer scope", func(t *testing.T) {
+		// Outer attempts to reference resource.inner-mod.cluster.only.size
+		// which is the leaf's `size` field, not in inner's `outputs:` block.
+		// The reference must fail at eval time because outer scope holds
+		// only the boundary's published map.
+		src := `
+resources: {
+  outer-mod: { layer: { mine: { target: 'gamma' } } }
+}
+outputs: {
+  leak: resource.outer-mod.layer.mine.size
+}
+`
+		store := newStateStore(t)
+		stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+		exec := &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Store:   store,
+			Stack:   stack,
+		}
+		_, err := exec.Run(context.Background())
+		require.Error(t, err,
+			"outer scope must not expose the inner leaf's internal fields")
+		require.Contains(t, err.Error(), "not found")
+	})
+}
+
 func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
 	composite := parseStack(t, `
 inputs: {
