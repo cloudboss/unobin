@@ -27,12 +27,14 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	t.Helper()
 	stubCompileResolver(t, remotes)
 	resetFlags(CompileCmd)
+	resetFlags(FetchCmd)
 	root := &cobra.Command{
 		Use:          "unobin",
 		SilenceUsage: true,
 	}
 	root.AddCommand(VersionCmd)
 	root.AddCommand(CompileCmd)
+	root.AddCommand(FetchCmd)
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(out)
@@ -397,6 +399,42 @@ imports: {
 		"--version", "v0.1.0")
 	require.NoError(t, err)
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/local"`)
+}
+
+func TestFetchResolvesLocalUBModule(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  net: './modules/net'
+}
+`), 0o644))
+
+	netDir := filepath.Join(dir, "modules", "net")
+	require.NoError(t, os.MkdirAll(netDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(netDir, "module.ub"), []byte(`
+description: 'net primitives'
+exports: {}
+`), 0o644))
+
+	out, err := runCommand(t, "fetch", "-p", stackPath)
+	require.NoError(t, err)
+	require.Contains(t, out, "net -> ./modules/net (local)")
+}
+
+func TestFetchEmptyImports(t *testing.T) {
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`description: 'x'`), 0o644))
+	out, err := runCommand(t, "fetch", "-p", stackPath)
+	require.NoError(t, err)
+	require.Contains(t, out, "No imports")
+}
+
+func TestFetchMissingStack(t *testing.T) {
+	_, err := runCommand(t, "fetch", "-p", "/no/such/path/stack.ub")
+	require.Error(t, err)
 }
 
 func TestCompileLocalNonUBModuleFails(t *testing.T) {

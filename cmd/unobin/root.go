@@ -19,6 +19,7 @@ func init() {
 	RootCmd.AddCommand(root.VersionCmd)
 	RootCmd.AddCommand(root.CompileCmd)
 	RootCmd.AddCommand(root.GenerateCmd)
+	RootCmd.AddCommand(root.FetchCmd)
 }
 
 func main() {
