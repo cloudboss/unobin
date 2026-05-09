@@ -80,6 +80,50 @@ resources: {
 	require.Equal(t, DecisionCreate, two.Decision)
 }
 
+func TestPlanCompositeInternalActionSkipsAfterRun(t *testing.T) {
+	composite := parseStack(t, `
+inputs: { phrase: { type: string } }
+actions: {
+  core: {
+    echo: { say: { echo: var.phrase } }
+  }
+}
+outputs: {
+  said: action.core.echo.say.echo
+}
+`)
+	mods := testModules()
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	stackSrc := `
+resources: {
+  w: { box: { x: { phrase: 'hello' } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, stackSrc), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := exec.Run(context.Background())
+	require.NoError(t, err)
+
+	plan := runPlan(t, stackSrc, mods, store)
+	step := stepFor(plan, "resource.w.box.x/action.core.echo.say")
+	require.NotNil(t, step,
+		"internal action should appear as a plan step under its composite-prefixed address")
+	require.Equal(t, NodeAction, step.Kind)
+	require.Equal(t, DecisionSkip, step.Decision,
+		"second plan should skip the internal action whose trigger hash matches state")
+}
+
 func TestPlanCreateForFreshResource(t *testing.T) {
 	src := `
 resources: {

@@ -307,6 +307,72 @@ outputs: {
 	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
 }
 
+func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
+	composite := parseStack(t, `
+inputs: {
+  key: { type: string }
+}
+data: {
+  core: {
+    lookup: { found: { key: var.key } }
+  }
+}
+actions: {
+  core: {
+    echo: { say: { echo: data.core.lookup.found.value } }
+  }
+}
+outputs: {
+  said: action.core.echo.say.echo
+}
+`)
+	mods := testModules()
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	src := `
+resources: {
+  w: { box: { x: { key: 'banana' } } }
+}
+outputs: {
+  result: resource.w.box.x.said
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "looked-up:banana", res.Outputs["result"])
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	var actionEntry, modCall *state.Entry
+	for _, e := range snap.Entries {
+		switch e.Address {
+		case "resource.w.box.x/action.core.echo.say":
+			actionEntry = e
+		case "resource.w.box.x":
+			modCall = e
+		}
+	}
+	require.NotNil(t, actionEntry,
+		"internal action should be persisted under composite-prefixed address")
+	require.Equal(t, state.EntryAction, actionEntry.Type)
+	require.Equal(t, "looked-up:banana", actionEntry.Outputs["echo"])
+
+	require.NotNil(t, modCall)
+	require.Equal(t, "looked-up:banana", modCall.Outputs["said"])
+}
+
 func TestExecutorCreatesResource(t *testing.T) {
 	src := `
 resources: {

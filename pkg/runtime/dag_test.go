@@ -223,6 +223,54 @@ resources: {
 		"the call-site args' parent-scope refs should still appear")
 }
 
+func TestBuildDAGCompositeInternalRewritesDataAndActionRefs(t *testing.T) {
+	composite := parseStack(t, `
+data: {
+  aws: { ami: { ubuntu: { most-recent: true } } }
+}
+actions: {
+  core: {
+    command: {
+      lookup: { argv: ['echo', data.aws.ami.ubuntu.id] }
+      verify: { argv: ['check', action.core.command.lookup.stdout] }
+    }
+  }
+}
+resources: {
+  local: {
+    file: {
+      x: { content: action.core.command.lookup.stdout }
+    }
+  }
+}
+`)
+	mods := map[string]*Module{
+		"net": {
+			Name: "net",
+			Composites: map[string]*CompositeType{
+				"cluster": {Name: "cluster", Body: composite},
+			},
+		},
+	}
+	g := BuildDAG(parseStack(t, `
+resources: {
+  net: { cluster: { web: {} } }
+}
+`), mods)
+	require.Contains(t,
+		g.Edges["resource.net.cluster.web/action.core.command.lookup"],
+		"resource.net.cluster.web/data.aws.ami.ubuntu",
+		"internal action -> internal data ref should be composite-prefixed")
+	require.Contains(t,
+		g.Edges["resource.net.cluster.web/action.core.command.verify"],
+		"resource.net.cluster.web/action.core.command.lookup",
+		"internal action -> internal action ref should be composite-prefixed")
+	require.Contains(t,
+		g.Edges["resource.net.cluster.web/local.file.x"],
+		"resource.net.cluster.web/action.core.command.lookup",
+		"internal resource -> internal action ref should be composite-prefixed")
+}
+
 func TestBuildDAGCompositeInternalInheritsCallSiteArgsRefs(t *testing.T) {
 	composite := parseStack(t, `
 resources: {

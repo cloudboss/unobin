@@ -140,11 +140,17 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 // scopeRef rewrites a root reference into a composite internal
 // address. `resource.aws.vpc.this` under call site
 // `resource.net.cluster.web` becomes
-// `resource.net.cluster.web/aws.vpc.this`. Var refs and unsupported
-// kinds pass through unchanged so toposort skips them.
+// `resource.net.cluster.web/aws.vpc.this`; the leading `resource.`
+// drops since the call site is already a resource address.
+// `data.X.Y.Z` and `action.X.Y.Z` keep their kind prefix in the
+// joined form, matching what `expandComposite` produces. Var refs
+// and unsupported kinds pass through unchanged so toposort skips them.
 func scopeRef(ref, callSite string) string {
 	if strings.HasPrefix(ref, "resource.") {
 		return callSite + "/" + strings.TrimPrefix(ref, "resource.")
+	}
+	if strings.HasPrefix(ref, "data.") || strings.HasPrefix(ref, "action.") {
+		return callSite + "/" + ref
 	}
 	return ref
 }
