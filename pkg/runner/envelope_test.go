@@ -67,7 +67,7 @@ func TestVerifyStackEnvelopeNoConfigSoftFails(t *testing.T) {
 		StackName:    "test-stack",
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackSource:  "github.com/cloudboss/test-stack",
+		StackBody:  "github.com/cloudboss/test-stack",
 	}
 	err := verifyStackEnvelope(info, "", false)
 	require.Error(t, err)
@@ -94,7 +94,7 @@ stack: {
   source: 'github.com/cloudboss/test'
   supported-versions: []
 }`)
-	info.StackSource = "github.com/cloudboss/test"
+	info.StackBody = "github.com/cloudboss/test"
 	err := verifyStackEnvelope(info, path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
@@ -105,7 +105,7 @@ func TestVerifyStackEnvelopeVersionNotInListSoftFails(t *testing.T) {
 		StackName:    "test",
 		StackVersion: "v0.9.0",
 		StackCommit:  "ffffff",
-		StackSource:  "github.com/cloudboss/test",
+		StackBody:  "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
@@ -124,7 +124,7 @@ func TestVerifyStackEnvelopeVersionMismatchOverrideAllows(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.9.0",
 		StackCommit:  "ffffff",
-		StackSource:  "github.com/cloudboss/test",
+		StackBody:  "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
@@ -140,7 +140,7 @@ func TestVerifyStackEnvelopeSourceMismatchHardFails(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackSource:  "github.com/cloudboss/binary-source",
+		StackBody:  "github.com/cloudboss/binary-source",
 	}
 	path := writeConfig(t, `
 stack: {
@@ -159,7 +159,7 @@ func TestVerifyStackEnvelopeSourceMismatchNotOverridable(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackSource:  "github.com/cloudboss/binary-source",
+		StackBody:  "github.com/cloudboss/binary-source",
 	}
 	path := writeConfig(t, `
 stack: {
@@ -176,7 +176,7 @@ func TestVerifyStackEnvelopeMatchingPinPasses(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackSource:  "github.com/cloudboss/test",
+		StackBody:  "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
@@ -192,7 +192,7 @@ func TestVerifyStackEnvelopeNoSourceFieldChecksOnlyPin(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackSource:  "github.com/cloudboss/test",
+		StackBody:  "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {

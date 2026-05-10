@@ -12,7 +12,7 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "stack-out")
 
 	err := WriteSource(dir, Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",
@@ -39,7 +39,7 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",
@@ -61,7 +61,7 @@ func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 func TestWriteSourceIncludesExternalImports(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",
@@ -84,7 +84,7 @@ func TestWriteSourceIncludesExternalImports(t *testing.T) {
 func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",
@@ -99,7 +99,7 @@ func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 func TestWriteSourceRequiresGoVersion(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Source:    "description: 'x'",
+		Body:      "description: 'x'",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",
@@ -116,7 +116,7 @@ func TestWriteSourceRequiresGoVersion(t *testing.T) {
 func TestWriteSourceWritesReplaceDirectives(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",

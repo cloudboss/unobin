@@ -27,11 +27,13 @@ import (
 const EnvVarPrefix = "UB_VAR_"
 
 // Info bundles everything a generated stack binary passes into Run.
+// StackBody is the embedded stack source the binary parses on each
+// invocation.
 type Info struct {
 	StackName    string
 	StackVersion string
 	StackCommit  string
-	StackSource  string
+	StackBody    string
 	Modules      map[string]*runtime.Module
 }
 
@@ -349,7 +351,7 @@ func newOutputCmd(info Info) *cobra.Command {
 }
 
 func parsedFile(info Info) (*lang.File, error) {
-	f, err := lang.ParseSource("stack.ub", []byte(info.StackSource))
+	f, err := lang.ParseSource("stack.ub", []byte(info.StackBody))
 	if err != nil {
 		return nil, err
 	}

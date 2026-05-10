@@ -81,7 +81,7 @@ func runGenerate(cmd *cobra.Command, cfg *gomoduleConfig) error {
 		OutDir:        cfg.output,
 		ModulePath:    cfg.modulePath,
 		ReplaceUnobin: replaceUnobin,
-		Source:        cfg.from,
+		From:          cfg.from,
 	})
 	if err != nil {
 		return err

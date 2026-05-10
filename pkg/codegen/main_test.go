@@ -11,7 +11,7 @@ import (
 
 func TestGenerateValidGo(t *testing.T) {
 	out, err := Generate(Input{
-		Source:    "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
+		Body:      "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
 		StackName: "demo",
 		Version:   "v0.1.0",
 		Commit:    "abc123",
@@ -28,7 +28,7 @@ func TestGenerateValidGo(t *testing.T) {
 
 func TestGenerateEmbedsConstants(t *testing.T) {
 	out, err := Generate(Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "my-stack",
 		Version:   "v2.0.3",
 		Commit:    "deadbeef",
@@ -44,10 +44,10 @@ func TestGenerateEmbedsConstants(t *testing.T) {
 	require.Contains(t, s, `stackCommit  = "deadbeef"`)
 }
 
-func TestGenerateEmbedsSourceVerbatim(t *testing.T) {
+func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 	src := "actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"
 	out, err := Generate(Input{
-		Source:    src,
+		Body:      src,
 		StackName: "x",
 		Version:   "v0",
 		Commit:    "c",
@@ -60,7 +60,7 @@ func TestGenerateEmbedsSourceVerbatim(t *testing.T) {
 
 func TestGenerateOrdersImports(t *testing.T) {
 	out, err := Generate(Input{
-		Source:    "description: 'x'\n",
+		Body:      "description: 'x'\n",
 		StackName: "x",
 		Version:   "v0",
 		Commit:    "c",
@@ -84,7 +84,7 @@ func TestGenerateOrdersImports(t *testing.T) {
 
 func TestGenerateRequiresStackName(t *testing.T) {
 	_, err := Generate(Input{
-		Source:    "description: 'x'",
+		Body:      "description: 'x'",
 		Version:   "v0",
 		Commit:    "c",
 		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
@@ -95,7 +95,7 @@ func TestGenerateRequiresStackName(t *testing.T) {
 
 func TestGenerateImportsAndCallsUBModules(t *testing.T) {
 	out, err := Generate(Input{
-		Source:    "description: 'x'",
+		Body:      "description: 'x'",
 		StackName: "demo",
 		Version:   "v0",
 		Commit:    "c",
@@ -121,7 +121,7 @@ import (
 )
 
 const (
-	stackSource  = "description: 'x'"
+	stackBody    = "description: 'x'"
 	stackName    = "demo"
 	stackVersion = "v0"
 	stackCommit  = "c"
@@ -132,7 +132,7 @@ func main() {
 		StackName:    stackName,
 		StackVersion: stackVersion,
 		StackCommit:  stackCommit,
-		StackSource:  stackSource,
+		StackBody:    stackBody,
 		Modules: map[string]*runtime.Module{
 			"core":    mod_core.Module(),
 			"cluster": mod_cluster.Module(),
@@ -146,7 +146,7 @@ func main() {
 
 func TestGenerateBuildsModulesMap(t *testing.T) {
 	out, err := Generate(Input{
-		Source:    "description: 'x'",
+		Body:      "description: 'x'",
 		StackName: "x",
 		Version:   "v0",
 		Commit:    "c",

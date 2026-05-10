@@ -120,11 +120,11 @@ func verifyStackEnvelope(
 	if err != nil {
 		return err
 	}
-	if env.Source != "" && env.Source != info.StackSource {
+	if env.Source != "" && env.Source != info.StackBody {
 		return fmt.Errorf(
 			"stack source mismatch: config declares %q"+
 				" but this binary is built from %q",
-			env.Source, info.StackSource)
+			env.Source, info.StackBody)
 	}
 	if len(env.SupportedVersions) == 0 {
 		if allowVersionMismatch {

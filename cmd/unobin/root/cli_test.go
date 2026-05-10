@@ -215,7 +215,7 @@ import (
 )
 
 const (
-	stackSource  = "\nimports: {\n  net: './modules/net'\n}\n"
+	stackBody    = "\nimports: {\n  net: './modules/net'\n}\n"
 	stackName    = "demo-stack"
 	stackVersion = "dev"
 	stackCommit  = ""
@@ -226,7 +226,7 @@ func main() {
 		StackName:    stackName,
 		StackVersion: stackVersion,
 		StackCommit:  stackCommit,
-		StackSource:  stackSource,
+		StackBody:    stackBody,
 		Modules: map[string]*runtime.Module{
 			"net": mod_net.Module(),
 		},

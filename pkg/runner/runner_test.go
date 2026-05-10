@@ -53,7 +53,7 @@ func testInfo(t *testing.T, src string) Info {
 		StackName:    "test-stack",
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackSource:  src,
+		StackBody:    src,
 		Modules: map[string]*runtime.Module{
 			"core": {
 				Name: "core",

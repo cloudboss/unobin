@@ -10,7 +10,7 @@ import (
 )
 
 // Input bundles everything codegen needs to produce a stack binary's
-// `main.go`. Source is the literal stack source the binary embeds and
+// `main.go`. Body is the literal stack source the binary embeds and
 // parses on each invocation. StackName, Version, and Commit identify
 // the binary back to its `config.ub`. GoImports maps each Go-module
 // alias the source uses to the Go import path that supplies it (e.g.,
@@ -19,7 +19,7 @@ import (
 // the package that compile generated for it (typically
 // `<stack-name>/internal/<alias>`).
 type Input struct {
-	Source    string
+	Body      string
 	StackName string
 	Version   string
 	Commit    string
@@ -37,7 +37,7 @@ func Generate(in Input) ([]byte, error) {
 	aliases := sortedKeys(in.GoImports)
 	ubAliases := sortedKeys(in.UBImports)
 	data := struct {
-		Source    string
+		Body      string
 		StackName string
 		Version   string
 		Commit    string
@@ -46,7 +46,7 @@ func Generate(in Input) ([]byte, error) {
 		UBAliases []string
 		UBImports map[string]string
 	}{
-		Source:    in.Source,
+		Body:      in.Body,
 		StackName: in.StackName,
 		Version:   in.Version,
 		Commit:    in.Commit,
@@ -96,7 +96,7 @@ import (
 )
 
 const (
-	stackSource  = {{quote .Source}}
+	stackBody    = {{quote .Body}}
 	stackName    = {{quote .StackName}}
 	stackVersion = {{quote .Version}}
 	stackCommit  = {{quote .Commit}}
@@ -107,7 +107,7 @@ func main() {
 		StackName:    stackName,
 		StackVersion: stackVersion,
 		StackCommit:  stackCommit,
-		StackSource:  stackSource,
+		StackBody:    stackBody,
 		Modules: map[string]*runtime.Module{
 {{range .Aliases}}			{{quote .}}: mod_{{.}}.Module(),
 {{end}}{{range .UBAliases}}			{{quote .}}: mod_{{.}}.Module(),

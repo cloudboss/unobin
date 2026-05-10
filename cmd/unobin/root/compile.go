@@ -152,7 +152,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	in := codegen.Input{
-		Source:    string(src),
+		Body:      string(src),
 		StackName: name,
 		Version:   cfg.version,
 		Commit:    cfg.commit,

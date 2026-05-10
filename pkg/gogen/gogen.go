@@ -48,7 +48,7 @@ type Input struct {
 	Resources     []string
 	OutDir        string
 	ModulePath    string
-	Source        string
+	From          string
 	ReplaceUnobin string // local path to github.com/cloudboss/unobin for go.mod replace
 }
 
@@ -93,7 +93,7 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 			return nil, fmt.Errorf("mkdir %s: %w", resourcesDir, err)
 		}
 		for _, rs := range resources {
-			src, err := ResourceFile(rs, in.Source)
+			src, err := ResourceFile(rs, in.From)
 			if err != nil {
 				return nil, fmt.Errorf("render %s: %w", rs.GoName, err)
 			}
@@ -110,7 +110,7 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 			return nil, fmt.Errorf("mkdir %s: %w", dataDir, err)
 		}
 		for _, ds := range dataSources {
-			src, err := DataSourceFile(ds, in.Source)
+			src, err := DataSourceFile(ds, in.From)
 			if err != nil {
 				return nil, fmt.Errorf("render data source %s: %w", ds.GoName, err)
 			}
@@ -121,7 +121,7 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 		}
 	}
 
-	modSrc, err := ModuleFile(adapter.Name(), resources, dataSources, in.ModulePath, in.Source)
+	modSrc, err := ModuleFile(adapter.Name(), resources, dataSources, in.ModulePath, in.From)
 	if err != nil {
 		return nil, fmt.Errorf("render module.go: %w", err)
 	}

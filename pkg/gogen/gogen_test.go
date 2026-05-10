@@ -37,7 +37,7 @@ func TestGenerateWritesFiles(t *testing.T) {
 	out, err := Generate(context.Background(), adapter, Input{
 		OutDir:     dir,
 		ModulePath: "example.com/testmod",
-		Source:     "tf",
+		From:       "tf",
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
@@ -102,7 +102,7 @@ func TestGenerateDefaultOutDir(t *testing.T) {
 
 	out, err := Generate(context.Background(), adapter, Input{
 		ModulePath: "example.com/testmod",
-		Source:     "tf",
+		From:       "tf",
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
@@ -120,7 +120,7 @@ func TestGenerateNoResources(t *testing.T) {
 	_, err := Generate(context.Background(), adapter, Input{
 		OutDir:     t.TempDir(),
 		ModulePath: "example.com/empty",
-		Source:     "tf",
+		From:       "tf",
 	})
 	if err == nil {
 		t.Error("expected error when no resources or data sources found")
