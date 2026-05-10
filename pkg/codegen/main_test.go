@@ -39,9 +39,9 @@ func TestGenerateEmbedsConstants(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, `stackName    = "my-stack"`)
-	require.Contains(t, s, `stackVersion = "v2.0.3"`)
-	require.Contains(t, s, `stackCommit  = "deadbeef"`)
+	require.Contains(t, s, `stackName       = "my-stack"`)
+	require.Contains(t, s, `stackVersion    = "v2.0.3"`)
+	require.Contains(t, s, `stackCommit     = "deadbeef"`)
 }
 
 func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
@@ -121,10 +121,11 @@ import (
 )
 
 const (
-	stackBody    = "description: 'x'"
-	stackName    = "demo"
-	stackVersion = "v0"
-	stackCommit  = "c"
+	stackBody       = "description: 'x'"
+	stackModulePath = ""
+	stackName       = "demo"
+	stackVersion    = "v0"
+	stackCommit     = "c"
 )
 
 func main() {
@@ -133,6 +134,7 @@ func main() {
 		StackVersion: stackVersion,
 		StackCommit:  stackCommit,
 		StackBody:    stackBody,
+		ModulePath:   stackModulePath,
 		Modules: map[string]*runtime.Module{
 			"core":    mod_core.Module(),
 			"cluster": mod_cluster.Module(),

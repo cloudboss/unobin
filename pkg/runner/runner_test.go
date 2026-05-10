@@ -473,6 +473,21 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	require.Equal(t, expected, out)
 }
 
+func TestSchemaTemplateIncludesModulePathWhenSet(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	info.ModulePath = "github.com/cloudboss/cluster-deploy"
+	out, err := runRoot(t, info, "schema", "template")
+	require.NoError(t, err)
+	expected := `stack: {
+  module-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [
+    { version: 'v0.1.0', commit: 'abcdef' }
+  ]
+}
+`
+	require.Equal(t, expected, out)
+}
+
 func TestSchemaTemplateWritesToFile(t *testing.T) {
 	info := testInfo(t, `inputs: { greeting: { type: string } }`)
 	dst := filepath.Join(t.TempDir(), "config.ub")

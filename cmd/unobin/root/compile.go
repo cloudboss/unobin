@@ -33,6 +33,7 @@ type compileConfig struct {
 	version       string
 	commit        string
 	stackName     string
+	modulePath    string
 	outDir        string
 	goVersion     string
 	unobinVersion string
@@ -52,6 +53,11 @@ func init() {
 
 	CompileCmd.Flags().StringVar(&compileCfg.stackName, "name", "",
 		"Stack name. Defaults to the parent directory's basename.")
+
+	CompileCmd.Flags().StringVar(&compileCfg.modulePath, "module-path", "",
+		"Module-path identity to embed in the binary. The operator's"+
+			" config.ub asserts the same value under stack.module-path"+
+			" and plan, refresh, and validate refuse on mismatch.")
 
 	CompileCmd.Flags().StringVarP(&compileCfg.outDir, "out", "o", "",
 		"Directory to write main.go and go.mod into, or `-` to print main.go to stdout.")
@@ -152,12 +158,13 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	in := codegen.Input{
-		Body:      string(src),
-		StackName: name,
-		Version:   cfg.version,
-		Commit:    cfg.commit,
-		GoImports: goImports,
-		UBImports: ubImports,
+		Body:       string(src),
+		ModulePath: cfg.modulePath,
+		StackName:  name,
+		Version:    cfg.version,
+		Commit:     cfg.commit,
+		GoImports:  goImports,
+		UBImports:  ubImports,
 	}
 
 	if cfg.outDir == "-" {

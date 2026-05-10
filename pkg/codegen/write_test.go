@@ -26,7 +26,7 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 
 	mainBytes, err := os.ReadFile(filepath.Join(dir, "main.go"))
 	require.NoError(t, err)
-	require.Contains(t, string(mainBytes), `stackName    = "demo"`)
+	require.Contains(t, string(mainBytes), `stackName       = "demo"`)
 
 	modBytes, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 	require.NoError(t, err)

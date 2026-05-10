@@ -20,7 +20,7 @@ func TestLoadStackEnvelopeEmptyPath(t *testing.T) {
 	env, err := loadStackEnvelope("")
 	require.NoError(t, err)
 	assert.False(t, env.Present)
-	assert.Empty(t, env.Source)
+	assert.Empty(t, env.ModulePath)
 	assert.Empty(t, env.SupportedVersions)
 }
 
@@ -34,7 +34,7 @@ func TestLoadStackEnvelopeNoStackBlock(t *testing.T) {
 func TestLoadStackEnvelopeWithStackBlock(t *testing.T) {
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/cluster-deploy'
+  module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', commit: 'abcdef' },
     { version: 'v0.2.0', commit: '123456' },
@@ -43,7 +43,7 @@ stack: {
 	env, err := loadStackEnvelope(path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
-	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.Source)
+	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.ModulePath)
 	assert.Equal(t, []supportedVersion{
 		{Version: "v0.1.0", Commit: "abcdef"},
 		{Version: "v0.2.0", Commit: "123456"},
@@ -53,12 +53,12 @@ stack: {
 func TestLoadStackEnvelopeStackBlockWithoutSupportedVersions(t *testing.T) {
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/cluster-deploy'
+  module-path: 'github.com/cloudboss/cluster-deploy'
 }`)
 	env, err := loadStackEnvelope(path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
-	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.Source)
+	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.ModulePath)
 	assert.Empty(t, env.SupportedVersions)
 }
 
@@ -67,7 +67,7 @@ func TestVerifyStackEnvelopeNoConfigSoftFails(t *testing.T) {
 		StackName:    "test-stack",
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackBody:  "github.com/cloudboss/test-stack",
+		ModulePath:   "github.com/cloudboss/test-stack",
 	}
 	err := verifyStackEnvelope(info, "", false)
 	require.Error(t, err)
@@ -91,10 +91,10 @@ func TestVerifyStackEnvelopeEmptySupportedVersionsSoftFails(t *testing.T) {
 	info := Info{StackVersion: "v0.1.0", StackCommit: "abcdef"}
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/test'
+  module-path: 'github.com/cloudboss/test'
   supported-versions: []
 }`)
-	info.StackBody = "github.com/cloudboss/test"
+	info.ModulePath = "github.com/cloudboss/test"
 	err := verifyStackEnvelope(info, path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
@@ -105,11 +105,11 @@ func TestVerifyStackEnvelopeVersionNotInListSoftFails(t *testing.T) {
 		StackName:    "test",
 		StackVersion: "v0.9.0",
 		StackCommit:  "ffffff",
-		StackBody:  "github.com/cloudboss/test",
+		ModulePath:   "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/test'
+  module-path: 'github.com/cloudboss/test'
   supported-versions: [
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
@@ -124,11 +124,11 @@ func TestVerifyStackEnvelopeVersionMismatchOverrideAllows(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.9.0",
 		StackCommit:  "ffffff",
-		StackBody:  "github.com/cloudboss/test",
+		ModulePath:   "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/test'
+  module-path: 'github.com/cloudboss/test'
   supported-versions: [
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
@@ -136,15 +136,15 @@ stack: {
 	require.NoError(t, verifyStackEnvelope(info, path, true))
 }
 
-func TestVerifyStackEnvelopeSourceMismatchHardFails(t *testing.T) {
+func TestVerifyStackEnvelopeModulePathMismatchHardFails(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackBody:  "github.com/cloudboss/binary-source",
+		ModulePath:   "github.com/cloudboss/binary-source",
 	}
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/different-source'
+  module-path: 'github.com/cloudboss/different-source'
   supported-versions: [
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
@@ -155,15 +155,15 @@ stack: {
 	assert.Contains(t, err.Error(), "different-source")
 }
 
-func TestVerifyStackEnvelopeSourceMismatchNotOverridable(t *testing.T) {
+func TestVerifyStackEnvelopeModulePathMismatchNotOverridable(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackBody:  "github.com/cloudboss/binary-source",
+		ModulePath:   "github.com/cloudboss/binary-source",
 	}
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/different-source'
+  module-path: 'github.com/cloudboss/different-source'
   supported-versions: [
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
@@ -176,11 +176,11 @@ func TestVerifyStackEnvelopeMatchingPinPasses(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackBody:  "github.com/cloudboss/test",
+		ModulePath:   "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
-  source: 'github.com/cloudboss/test'
+  module-path: 'github.com/cloudboss/test'
   supported-versions: [
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
@@ -188,16 +188,44 @@ stack: {
 	require.NoError(t, verifyStackEnvelope(info, path, false))
 }
 
-func TestVerifyStackEnvelopeNoSourceFieldChecksOnlyPin(t *testing.T) {
+func TestVerifyStackEnvelopeNoModulePathFieldChecksOnlyPin(t *testing.T) {
 	info := Info{
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
-		StackBody:  "github.com/cloudboss/test",
+		ModulePath:   "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
   supported-versions: [
     { version: 'v0.1.0'  commit: 'abcdef' }
+  ]
+}`)
+	require.NoError(t, verifyStackEnvelope(info, path, false))
+}
+
+// TestVerifyStackEnvelopeComparesAgainstModulePathNotBody guards against
+// the regression where the identity check compared the config's
+// module-path against the embedded source bytes (which are a multi-line
+// .ub file, never a URL). It's the realistic shape: StackBody holds
+// multi-line source, ModulePath holds a clean URL, the config's
+// module-path matches the URL.
+func TestVerifyStackEnvelopeComparesAgainstModulePathNotBody(t *testing.T) {
+	info := Info{
+		StackVersion: "v0.1.0",
+		StackCommit:  "abcdef",
+		ModulePath:   "github.com/cloudboss/cluster-deploy",
+		StackBody: `
+inputs: { region: { type: string } }
+resources: {
+  local: { file: { x: { path: '/tmp/x', content: 'hi' } } }
+}
+`,
+	}
+	path := writeConfig(t, `
+stack: {
+  module-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [
+    { version: 'v0.1.0', commit: 'abcdef' }
   ]
 }`)
 	require.NoError(t, verifyStackEnvelope(info, path, false))

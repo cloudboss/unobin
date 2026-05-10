@@ -28,12 +28,16 @@ const EnvVarPrefix = "UB_VAR_"
 
 // Info bundles everything a generated stack binary passes into Run.
 // StackBody is the embedded stack source the binary parses on each
-// invocation.
+// invocation. ModulePath is the binary's module-path identity (the
+// same shape Go modules use); the operator's `config.ub` asserts the
+// same value under `stack.module-path`. An empty ModulePath disables
+// that identity check.
 type Info struct {
 	StackName    string
 	StackVersion string
 	StackCommit  string
 	StackBody    string
+	ModulePath   string
 	Modules      map[string]*runtime.Module
 }
 

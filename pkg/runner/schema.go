@@ -90,8 +90,12 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 }
 
 func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
+	fmt.Fprintln(out, "stack: {")
+	if info.ModulePath != "" {
+		fmt.Fprintf(out, "  module-path: '%s'\n", info.ModulePath)
+	}
 	fmt.Fprintf(out,
-		"stack: {\n  supported-versions: [\n    { version: '%s', commit: '%s' }\n  ]\n}\n",
+		"  supported-versions: [\n    { version: '%s', commit: '%s' }\n  ]\n}\n",
 		info.StackVersion, info.StackCommit)
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {

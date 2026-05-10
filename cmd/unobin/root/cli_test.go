@@ -114,9 +114,9 @@ actions: {
 	require.NoError(t, err)
 
 	require.Contains(t, out, "package main")
-	require.Contains(t, out, `stackName    = "demo-stack"`)
-	require.Contains(t, out, `stackVersion = "v0.1.0"`)
-	require.Contains(t, out, `stackCommit  = "abc"`)
+	require.Contains(t, out, `stackName       = "demo-stack"`)
+	require.Contains(t, out, `stackVersion    = "v0.1.0"`)
+	require.Contains(t, out, `stackCommit     = "abc"`)
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/core"`)
 }
 
@@ -215,10 +215,11 @@ import (
 )
 
 const (
-	stackBody    = "\nimports: {\n  net: './modules/net'\n}\n"
-	stackName    = "demo-stack"
-	stackVersion = "dev"
-	stackCommit  = ""
+	stackBody       = "\nimports: {\n  net: './modules/net'\n}\n"
+	stackModulePath = ""
+	stackName       = "demo-stack"
+	stackVersion    = "dev"
+	stackCommit     = ""
 )
 
 func main() {
@@ -227,6 +228,7 @@ func main() {
 		StackVersion: stackVersion,
 		StackCommit:  stackCommit,
 		StackBody:    stackBody,
+		ModulePath:   stackModulePath,
 		Modules: map[string]*runtime.Module{
 			"net": mod_net.Module(),
 		},
