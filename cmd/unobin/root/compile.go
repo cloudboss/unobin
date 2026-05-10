@@ -232,7 +232,7 @@ func buildUBPackage(alias string, source *resolve.Source) ([]byte, error) {
 		}
 		bodies[name] = f
 	}
-	return codegen.GenerateUBModule(alias, manifest, bodies)
+	return codegen.GenerateUBModule(alias, manifest, bodies, nil)
 }
 
 func readSourceFile(s *resolve.Source, name string) ([]byte, error) {

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"path"
 	"sort"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -16,7 +18,17 @@ import (
 // `Module()` function returning a `*runtime.Module` with one
 // `*runtime.CompositeType` per entry in the manifest's `exports:`
 // block. bodies must hold a parsed body file under each export name.
-func GenerateUBModule(alias string, manifest *lang.File, bodies map[string]*lang.File) ([]byte, error) {
+//
+// imports maps each composite's name to its resolved import table:
+// the composite's body's own imports block, with each declared alias
+// mapped to the Go import path of the package that supplies it. The
+// generated source emits one Go-level import per unique path and
+// renders a per-composite `Modules` map binding each composite-local
+// alias to the corresponding package's `Module()`. Pass nil or an
+// empty map when a composite has no imports.
+func GenerateUBModule(alias string, manifest *lang.File,
+	bodies map[string]*lang.File,
+	imports map[string]map[string]string) ([]byte, error) {
 	if alias == "" {
 		return nil, fmt.Errorf("ubmodule: alias is required")
 	}
@@ -28,6 +40,8 @@ func GenerateUBModule(alias string, manifest *lang.File, bodies map[string]*lang
 	if err != nil {
 		return nil, err
 	}
+
+	idents := newIdentTable()
 	composites := make([]compositeEntry, 0, len(exports))
 	for _, name := range exports {
 		body, ok := bodies[name]
@@ -38,7 +52,16 @@ func GenerateUBModule(alias string, manifest *lang.File, bodies map[string]*lang
 		if err != nil {
 			return nil, fmt.Errorf("ubmodule %q: encode %q body: %w", alias, name, err)
 		}
-		composites = append(composites, compositeEntry{Name: name, Body: encoded})
+		entry := compositeEntry{Name: name, Body: encoded}
+		for _, localAlias := range sortedAliases(imports[name]) {
+			pathStr := imports[name][localAlias]
+			ident := idents.identFor(pathStr)
+			entry.Modules = append(entry.Modules, moduleBinding{
+				LocalAlias: localAlias,
+				GoIdent:    ident,
+			})
+		}
+		composites = append(composites, entry)
 	}
 
 	var buf bytes.Buffer
@@ -46,10 +69,12 @@ func GenerateUBModule(alias string, manifest *lang.File, bodies map[string]*lang
 		Alias       string
 		Description string
 		Composites  []compositeEntry
+		GoImports   []goImport
 	}{
 		Alias:       alias,
 		Description: description,
 		Composites:  composites,
+		GoImports:   idents.imports(),
 	}
 	if err := ubModuleTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("ubmodule: %w", err)
@@ -62,8 +87,94 @@ func GenerateUBModule(alias string, manifest *lang.File, bodies map[string]*lang
 }
 
 type compositeEntry struct {
-	Name string
-	Body string
+	Name    string
+	Body    string
+	Modules []moduleBinding
+}
+
+type moduleBinding struct {
+	LocalAlias string
+	GoIdent    string
+}
+
+type goImport struct {
+	GoIdent string
+	Path    string
+}
+
+// identTable assigns one Go-level identifier to each unique import
+// path. The first time a path is seen, the ident is `mod_` followed
+// by the path's last component sanitized into a valid Go identifier;
+// later paths whose sanitized last component would collide get a
+// numeric suffix appended.
+type identTable struct {
+	byPath map[string]string
+	used   map[string]bool
+	order  []string
+}
+
+func newIdentTable() *identTable {
+	return &identTable{
+		byPath: map[string]string{},
+		used:   map[string]bool{},
+	}
+}
+
+func (t *identTable) identFor(p string) string {
+	if id, ok := t.byPath[p]; ok {
+		return id
+	}
+	base := "mod_" + sanitizeIdent(path.Base(p))
+	id := base
+	for i := 2; t.used[id]; i++ {
+		id = fmt.Sprintf("%s_%d", base, i)
+	}
+	t.byPath[p] = id
+	t.used[id] = true
+	t.order = append(t.order, p)
+	return id
+}
+
+func (t *identTable) imports() []goImport {
+	out := make([]goImport, 0, len(t.order))
+	paths := append([]string(nil), t.order...)
+	sort.Strings(paths)
+	for _, p := range paths {
+		out = append(out, goImport{GoIdent: t.byPath[p], Path: p})
+	}
+	return out
+}
+
+func sanitizeIdent(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		switch {
+		case r == '-' || r == '.':
+			b.WriteRune('_')
+		case r >= '0' && r <= '9':
+			if i == 0 {
+				b.WriteRune('_')
+			}
+			b.WriteRune(r)
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	if b.Len() == 0 {
+		return "x"
+	}
+	return b.String()
+}
+
+func sortedAliases(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func manifestDescription(f *lang.File) string {
@@ -108,14 +219,23 @@ package {{.Alias}}
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
-)
+{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
+{{end}})
 
 func Module() *runtime.Module {
 	return &runtime.Module{
 		Name:        {{quote .Alias}},
 		Description: {{quote .Description}},
 		Composites: map[string]*runtime.CompositeType{
-{{range .Composites}}			{{quote .Name}}: {Name: {{quote .Name}}, Body: {{.Body}}},
+{{range .Composites}}			{{quote .Name}}: {
+				Name: {{quote .Name}},
+				Body: {{.Body}},
+{{- if .Modules}}
+				Modules: map[string]*runtime.Module{
+{{range .Modules}}					{{quote .LocalAlias}}: {{.GoIdent}}.Module(),
+{{end}}				},
+{{- end}}
+			},
 {{end}}		},
 	}
 }

@@ -39,7 +39,7 @@ resources: {
 }
 `)
 
-	out, err := GenerateUBModule("net", manifest, map[string]*lang.File{"cluster": body})
+	out, err := GenerateUBModule("net", manifest, map[string]*lang.File{"cluster": body}, nil)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -60,7 +60,7 @@ exports: {
 		"beta":  parseUB(t, "beta.ub", "description: 'b'"),
 	}
 
-	out, err := GenerateUBModule("net", manifest, bodies)
+	out, err := GenerateUBModule("net", manifest, bodies, nil)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -69,8 +69,8 @@ exports: {
 	require.Regexp(t, `Name:\s*"net"`, s)
 	require.Regexp(t, `Description:\s*"test module"`, s)
 	require.Regexp(t, `Composites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
-	require.Regexp(t, `"alpha":\s*\{Name: "alpha", Body:`, s)
-	require.Regexp(t, `"beta":\s*\{Name: "beta", Body:`, s)
+	require.Regexp(t, `"alpha":\s*\{\s*Name:\s*"alpha"`, s)
+	require.Regexp(t, `"beta":\s*\{\s*Name:\s*"beta"`, s)
 
 	alphaAt := strings.Index(s, `"alpha":`)
 	betaAt := strings.Index(s, `"beta":`)
@@ -78,9 +78,76 @@ exports: {
 	require.Less(t, alphaAt, betaAt, "composites should be in sorted order")
 }
 
+func TestGenerateUBModuleEmitsPerCompositeModules(t *testing.T) {
+	manifest := parseUB(t, "module.ub", `description: 'wraps an inner UB module'
+
+exports: {
+  greeting: 'greeting.ub'
+}
+`)
+	body := parseUB(t, "greeting.ub", `description: 'a greeting'
+
+resources: {
+  helloer: { hello: { file: { message: var.message, path: var.path } } }
+}
+`)
+	imports := map[string]map[string]string{
+		"greeting": {
+			"helloer": "github.com/cloudboss/unobin-modules-scratch/ub/helloer",
+			"local":   "github.com/cloudboss/unobin/pkg/modules/local",
+		},
+	}
+
+	out, err := GenerateUBModule("greeter", manifest, map[string]*lang.File{"greeting": body}, imports)
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "greeter.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", out)
+
+	s := string(out)
+	require.Contains(t, s, `mod_helloer "github.com/cloudboss/unobin-modules-scratch/ub/helloer"`,
+		"each unique composite-imported path gets its own Go-level alias")
+	require.Contains(t, s, `mod_local "github.com/cloudboss/unobin/pkg/modules/local"`)
+	require.Regexp(t, `Modules:\s*map\[string\]\*runtime\.Module\{`,
+		s, "the composite carries its resolved imports")
+	require.Contains(t, s, `"helloer": mod_helloer.Module()`)
+	require.Contains(t, s, `"local":   mod_local.Module()`)
+}
+
+func TestGenerateUBModuleSharesIdentForSamePath(t *testing.T) {
+	manifest := parseUB(t, "module.ub", `description: 'two composites share an import'
+
+exports: {
+  alpha: 'alpha.ub'
+  beta:  'beta.ub'
+}
+`)
+	bodies := map[string]*lang.File{
+		"alpha": parseUB(t, "alpha.ub", `description: 'a'`),
+		"beta":  parseUB(t, "beta.ub", `description: 'b'`),
+	}
+	// Both composites import the same package; the generated file
+	// should declare it once and bind both composite-local aliases to
+	// the same Go-level identifier.
+	imports := map[string]map[string]string{
+		"alpha": {"local": "github.com/cloudboss/unobin/pkg/modules/local"},
+		"beta":  {"thing": "github.com/cloudboss/unobin/pkg/modules/local"},
+	}
+	out, err := GenerateUBModule("test", manifest, bodies, imports)
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Equal(t, 1,
+		strings.Count(s, `"github.com/cloudboss/unobin/pkg/modules/local"`),
+		"the same path should be imported only once across composites")
+	require.Contains(t, s, `"local": mod_local.Module()`)
+	require.Contains(t, s, `"thing": mod_local.Module()`)
+}
+
 func TestGenerateUBModuleErrorsOnMissingBody(t *testing.T) {
 	manifest := parseUB(t, "module.ub", `exports: { cluster: 'cluster.ub' }`)
-	_, err := GenerateUBModule("net", manifest, nil)
+	_, err := GenerateUBModule("net", manifest, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cluster")
 	require.Contains(t, err.Error(), "no body")
@@ -88,7 +155,7 @@ func TestGenerateUBModuleErrorsOnMissingBody(t *testing.T) {
 
 func TestGenerateUBModuleEmptyExports(t *testing.T) {
 	manifest := parseUB(t, "module.ub", `description: 'no exports'`)
-	out, err := GenerateUBModule("empty", manifest, nil)
+	out, err := GenerateUBModule("empty", manifest, nil, nil)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -99,7 +166,7 @@ func TestGenerateUBModuleEmptyExports(t *testing.T) {
 
 func TestGenerateUBModuleRejectsEmptyAlias(t *testing.T) {
 	manifest := parseUB(t, "module.ub", `description: 'x'`)
-	_, err := GenerateUBModule("", manifest, nil)
+	_, err := GenerateUBModule("", manifest, nil, nil)
 	require.Error(t, err)
 }
 
@@ -131,7 +198,7 @@ resources: {
 }
 `)
 
-	out, err := GenerateUBModule("net", manifest, map[string]*lang.File{"cluster": body})
+	out, err := GenerateUBModule("net", manifest, map[string]*lang.File{"cluster": body}, nil)
 	require.NoError(t, err)
 
 	rootDir := findUnobinRoot(t)

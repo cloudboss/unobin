@@ -250,7 +250,10 @@ func Module() *runtime.Module {
 		Name:        "net",
 		Description: "net primitives",
 		Composites: map[string]*runtime.CompositeType{
-			"cluster": {Name: "cluster", Body: &lang.File{Kind: lang.FileExportedType, Path: "cluster.ub", Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "description"}, Value: &lang.StringLit{Value: "a cluster"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "resources"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "local"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "file"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "x"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}}}}}}}}}}}}},
+			"cluster": {
+				Name: "cluster",
+				Body: &lang.File{Kind: lang.FileExportedType, Path: "cluster.ub", Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "description"}, Value: &lang.StringLit{Value: "a cluster"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "resources"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "local"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "file"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "x"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}}}}}}}}}}}},
+			},
 		},
 	}
 }
@@ -297,7 +300,7 @@ imports: {
 	pkgBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "net", "net.go"))
 	require.NoError(t, err)
 	require.Contains(t, string(pkgBytes), "package net")
-	require.Contains(t, string(pkgBytes), `"cluster": {Name: "cluster"`)
+	require.Regexp(t, `"cluster":\s*\{\s*Name:\s*"cluster"`, string(pkgBytes))
 
 	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
 	require.NoError(t, err)
@@ -343,7 +346,7 @@ imports: {
 	pkgBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "some", "some.go"))
 	require.NoError(t, err)
 	require.Contains(t, string(pkgBytes), "package some")
-	require.Contains(t, string(pkgBytes), `"foo": {Name: "foo"`)
+	require.Regexp(t, `"foo":\s*\{\s*Name:\s*"foo"`, string(pkgBytes))
 }
 
 func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
