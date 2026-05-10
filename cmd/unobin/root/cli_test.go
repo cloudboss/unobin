@@ -313,6 +313,274 @@ imports: {
 		"a UB-module remote should not appear as a Go-import in go.mod")
 }
 
+func TestCompileNestedUBModules(t *testing.T) {
+	// inner module: a remote UB module the outer one imports.
+	innerDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "module.ub"), []byte(`
+description: 'inner module'
+exports: { hello: 'hello.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "hello.ub"), []byte(`
+description: 'inner hello'
+inputs: { path: { type: string } }
+imports: {
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+resources: {
+  local: { file: { this: { path: var.path, content: 'hi' } } }
+}
+outputs: { path: resource.local.file.this.path }
+`), 0o644))
+
+	// outer module: imports inner under a different alias and wraps it.
+	outerDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "module.ub"), []byte(`
+description: 'outer module'
+exports: { greeting: 'greeting.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "greeting.ub"), []byte(`
+description: 'outer greeting'
+inputs: { path: { type: string } }
+imports: {
+  inner: 'github.com/example/inner//ub/inner@v1'
+}
+resources: {
+  inner: { hello: { x: { path: var.path } } }
+}
+outputs: { path: resource.inner.hello.x.path }
+`), 0o644))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  outer: 'github.com/example/outer//ub/outer@v1'
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	remotes := map[string]*resolve.Source{
+		"github.com/example/outer//ub/outer@v1": {
+			FS: os.DirFS(outerDir), Commit: "outer-commit",
+		},
+		"github.com/example/inner//ub/inner@v1": {
+			FS: os.DirFS(innerDir), Commit: "inner-commit",
+		},
+	}
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+	require.NoError(t, err)
+
+	// Both packages were emitted.
+	outerBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "outer", "outer.go"))
+	require.NoError(t, err)
+	innerBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "inner", "inner.go"))
+	require.NoError(t, err)
+
+	// Outer's generated source binds the composite-local "inner"
+	// alias to the inner package's Module().
+	require.Contains(t, string(outerBytes),
+		`mod_inner "demo-stack/internal/inner"`,
+		"outer should import the inner UB sub-package by its generated path")
+	require.Contains(t, string(outerBytes),
+		`"inner": mod_inner.Module()`,
+		"outer's composite carries inner in its Modules map")
+
+	// Inner's generated source binds "local" to the unobin local
+	// primitives package.
+	require.Contains(t, string(innerBytes),
+		`mod_local "github.com/cloudboss/unobin/pkg/modules/local"`)
+	require.Contains(t, string(innerBytes),
+		`"local": mod_local.Module()`)
+
+	// Stack root only imports outer; main.go does not see inner.
+	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(mainBytes), `mod_outer "demo-stack/internal/outer"`)
+	require.NotContains(t, string(mainBytes), "demo-stack/internal/inner",
+		"the stack only references the outer module; inner is private to outer")
+
+	// go.mod requires the unobin Go module pinned by inner's body.
+	modBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(modBytes),
+		"github.com/cloudboss/unobin v0.1.0",
+		"the Go module imported deep inside a composite is pinned in the stack go.mod")
+}
+
+func TestCompileRejectsConflictingGoVersions(t *testing.T) {
+	// The stack root pins github.com/cloudboss/unobin at v0.1.0 via a
+	// Go-module import. The composite body pins the same module at
+	// v0.2.0. The stack ends up with two incompatible pins for the same
+	// Go module path, which compile must reject up front rather than
+	// letting `go build` discover it later.
+	innerDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "module.ub"), []byte(`
+description: 'remote net'
+exports: { cluster: 'cluster.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "cluster.ub"), []byte(`
+description: 'a cluster'
+imports: {
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.2.0'
+}
+resources: { local: { file: { x: { path: '/tmp/x', content: 'hi' } } } }
+`), 0o644))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  net:   'github.com/example/net//modules/network@v1'
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	remotes := map[string]*resolve.Source{
+		"github.com/example/net//modules/network@v1": {
+			FS: os.DirFS(innerDir), Commit: "abc123",
+		},
+	}
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "conflicting versions")
+	require.Contains(t, err.Error(), "v0.1.0")
+	require.Contains(t, err.Error(), "v0.2.0")
+}
+
+func TestCompileDetectsUBImportCycle(t *testing.T) {
+	// Module A's body imports module B; module B's body imports module
+	// A. Compile must report the cycle rather than recurse forever.
+	aDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(aDir, "module.ub"), []byte(`
+description: 'a'
+exports: { type-a: 'type-a.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(aDir, "type-a.ub"), []byte(`
+description: 'a body'
+imports: { b: 'github.com/example/b//ub/b@v1' }
+resources: { b: { type-b: { y: {} } } }
+`), 0o644))
+
+	bDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(bDir, "module.ub"), []byte(`
+description: 'b'
+exports: { type-b: 'type-b.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(bDir, "type-b.ub"), []byte(`
+description: 'b body'
+imports: { a: 'github.com/example/a//ub/a@v1' }
+resources: { a: { type-a: { z: {} } } }
+`), 0o644))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  a: 'github.com/example/a//ub/a@v1'
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	remotes := map[string]*resolve.Source{
+		"github.com/example/a//ub/a@v1": {FS: os.DirFS(aDir), Commit: "a"},
+		"github.com/example/b//ub/b@v1": {FS: os.DirFS(bDir), Commit: "b"},
+	}
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "import cycle")
+}
+
+func TestCompileSharesPackageAcrossAliases(t *testing.T) {
+	// One UB module imported under different aliases from different
+	// sites should generate exactly one Go package and both call sites
+	// should bind to it.
+	innerDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "module.ub"), []byte(`
+description: 'shared inner'
+exports: { hello: 'hello.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "hello.ub"), []byte(`
+description: 'inner hello'
+inputs: { path: { type: string } }
+resources: { local: { file: { x: { path: var.path, content: 'hi' } } } }
+outputs: { path: resource.local.file.x.path }
+`), 0o644))
+
+	wrapDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "module.ub"), []byte(`
+description: 'wrap'
+exports: { greeting: 'greeting.ub' }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "greeting.ub"), []byte(`
+description: 'wrap greeting'
+inputs: { path: { type: string } }
+imports: {
+  inside: 'github.com/example/shared//ub/shared@v1'
+}
+resources: { inside: { hello: { x: { path: var.path } } } }
+outputs: { path: resource.inside.hello.x.path }
+`), 0o644))
+
+	dir := filepath.Join(t.TempDir(), "demo-stack")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "stack.ub")
+	// Stack root uses alias "shared"; the wrapper composite uses
+	// alias "inside" for the same URL.
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  shared: 'github.com/example/shared//ub/shared@v1'
+  wrap:   'github.com/example/wrap//ub/wrap@v1'
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	remotes := map[string]*resolve.Source{
+		"github.com/example/shared//ub/shared@v1": {
+			FS: os.DirFS(innerDir), Commit: "shared",
+		},
+		"github.com/example/wrap//ub/wrap@v1": {
+			FS: os.DirFS(wrapDir), Commit: "wrap",
+		},
+	}
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+	require.NoError(t, err)
+
+	// The shared module appears once under its first-seen alias.
+	entries, err := os.ReadDir(filepath.Join(outDir, "internal"))
+	require.NoError(t, err)
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.Name()
+	}
+	require.ElementsMatch(t, []string{"shared", "wrap"}, names,
+		"the shared module is generated once; the wrap module gets its own package")
+
+	// The wrap package's composite Modules map binds its local alias
+	// "inside" to the shared package's Module().
+	wrapBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "wrap", "wrap.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(wrapBytes),
+		`mod_shared "demo-stack/internal/shared"`,
+		"the wrap package imports the shared sub-package by its canonical path")
+	require.Contains(t, string(wrapBytes),
+		`"inside": mod_shared.Module()`,
+		"wrap's composite-local alias `inside` resolves to the shared module")
+
+	// main.go binds both stack-root aliases.
+	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(mainBytes), `"shared": mod_shared.Module()`)
+	require.Contains(t, string(mainBytes), `"wrap":   mod_wrap.Module()`)
+}
+
 func TestCompileReplaceUnobinUBSubdir(t *testing.T) {
 	fakeUnobin := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(fakeUnobin, "some-mod"), 0o755))
