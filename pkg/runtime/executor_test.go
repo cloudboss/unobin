@@ -307,6 +307,64 @@ outputs: {
 	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
 }
 
+func TestExecutorCompositeUsesItsOwnModules(t *testing.T) {
+	// The composite declares which modules its body uses via its own
+	// imports. The runtime should resolve composite-internal lookups
+	// against the composite's Modules table, not the stack root's. This
+	// is the encapsulation that lets a composite be reusable without the
+	// caller needing to import everything the composite uses transitively.
+	layerBody := parseStack(t, `
+inputs: {
+  name: { type: string }
+}
+
+resources: {
+  core: { thing: { y: { name: var.name, size: 1 } } }
+}
+
+outputs: {
+  id: resource.core.thing.y.id
+}
+`)
+	var c resourceCounters
+	// "core" is registered only in the composite's Modules, never in
+	// the stack-root mods.
+	composite := &CompositeType{
+		Name:    "layer",
+		Body:    layerBody,
+		Modules: resourceModules(&c),
+	}
+	rootMods := map[string]*Module{
+		"outer-mod": {
+			Name: "outer-mod",
+			Composites: map[string]*CompositeType{
+				"layer": composite,
+			},
+		},
+	}
+	src := `
+resources: {
+  outer-mod: { layer: { x: { name: 'alpha' } } }
+}
+outputs: {
+  out: resource.outer-mod.layer.x.id
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), rootMods),
+		Modules: rootMods,
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err,
+		"composite-internal core.thing should resolve via the composite's own Modules")
+	require.Equal(t, "fake-alpha", res.Outputs["out"])
+	require.Equal(t, int64(1), c.creates)
+}
+
 func TestExecutorRunsNestedComposite(t *testing.T) {
 	clusterBody := parseStack(t, `
 inputs: {

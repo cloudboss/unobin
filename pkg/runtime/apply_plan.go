@@ -109,7 +109,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if err != nil {
 		return err
 	}
-	mod, ok := e.Modules[node.NS]
+	mod, ok := e.modulesFor(node)[node.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", node.NS)
 	}
@@ -162,7 +162,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if err != nil {
 		return err
 	}
-	mod, ok := e.Modules[node.NS]
+	mod, ok := e.modulesFor(node)[node.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", node.NS)
 	}
@@ -225,7 +225,7 @@ func (e *Executor) applyDestroy(ctx context.Context, step *PlanStep) error {
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)
 	}
-	mod, ok := e.Modules[ns]
+	mod, ok := e.modulesForAddress(step.Address)[ns]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", ns)
 	}
@@ -260,7 +260,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
-	mod, ok := e.Modules[node.NS]
+	mod, ok := e.modulesFor(node)[node.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", node.NS)
 	}

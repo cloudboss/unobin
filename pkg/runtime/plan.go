@@ -303,7 +303,7 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 }
 
 func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
-	mod, ok := e.Modules[n.NS]
+	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return nil, fmt.Errorf("module %q is not imported", n.NS)
 	}
@@ -347,7 +347,7 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 }
 
 func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
-	mod, ok := e.Modules[n.NS]
+	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return nil, fmt.Errorf("module %q is not imported", n.NS)
 	}

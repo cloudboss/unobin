@@ -121,6 +121,39 @@ func (e *Executor) scopeFor(rs *runState, n *Node) (*EvalContext, error) {
 	return e.ensureCompositeScope(rs, n.Composite)
 }
 
+// modulesFor returns the import table the runtime should resolve n's
+// module alias against. Top-level nodes use the executor's root
+// Modules; composite-internal nodes use their boundary's Modules so a
+// composite stays self-contained. Falls back to e.Modules when a
+// composite has no Modules populated, preserving backward
+// compatibility for direct test construction.
+func (e *Executor) modulesFor(n *Node) map[string]*Module {
+	if n.Composite == "" {
+		return e.Modules
+	}
+	if boundary, ok := e.DAG.Nodes[n.Composite]; ok && boundary.Modules != nil {
+		return boundary.Modules
+	}
+	return e.Modules
+}
+
+// modulesForAddress is the orphan-path equivalent of modulesFor: it
+// resolves the import table for a state-only address whose source node
+// has been removed. The direct parent call site (everything up to the
+// last `/`) is consulted in the DAG; if its boundary is still present,
+// its Modules are used. Otherwise the executor's root Modules is
+// returned, which works whenever the parent composite type is still
+// imported at the stack root.
+func (e *Executor) modulesForAddress(addr string) map[string]*Module {
+	if i := strings.LastIndex(addr, "/"); i >= 0 {
+		callSite := addr[:i]
+		if boundary, ok := e.DAG.Nodes[callSite]; ok && boundary.Modules != nil {
+			return boundary.Modules
+		}
+	}
+	return e.Modules
+}
+
 func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalContext, error) {
 	if scope, ok := rs.composites[callSite]; ok {
 		return scope, nil
@@ -253,7 +286,7 @@ func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, 
 }
 
 func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error {
-	mod, ok := e.Modules[n.NS]
+	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", n.NS)
 	}
@@ -379,7 +412,7 @@ func (e *Executor) deleteOrphans(ctx context.Context, rs *runState) error {
 		if !ok {
 			return fmt.Errorf("orphan %s: cannot parse address", prior.Address)
 		}
-		mod, ok := e.Modules[ns]
+		mod, ok := e.modulesForAddress(prior.Address)[ns]
 		if !ok {
 			return fmt.Errorf("orphan %s: module %q is not imported", prior.Address, ns)
 		}
@@ -408,7 +441,7 @@ func parseResourceAddress(addr string) (ns, typeName, name string, ok bool) {
 }
 
 func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
-	mod, ok := e.Modules[n.NS]
+	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", n.NS)
 	}
@@ -464,7 +497,7 @@ func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
 }
 
 func (e *Executor) runData(ctx context.Context, rs *runState, n *Node) error {
-	mod, ok := e.Modules[n.NS]
+	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return fmt.Errorf("module %q is not imported", n.NS)
 	}

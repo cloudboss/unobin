@@ -29,9 +29,18 @@ type Module struct {
 // minus `configurations:`). The runtime expands a call site into
 // sub-DAG nodes by walking Body's `resources:`, `actions:`, and
 // `data:` blocks under the call site's address prefix.
+//
+// Modules is the resolved import table for this composite's body,
+// keyed by the alias declared in the body's `imports:` block. The
+// runtime looks up composite-internal nodes against this table, not
+// the stack root's, so a composite can be reused without the caller
+// importing every module it transitively uses. A nil Modules falls
+// back to the executor's root Modules table for backward
+// compatibility with composites built directly in tests.
 type CompositeType struct {
-	Name string
-	Body *lang.File
+	Name    string
+	Body    *lang.File
+	Modules map[string]*Module
 }
 
 // ActionType registers an action under a module. Name is the type name as

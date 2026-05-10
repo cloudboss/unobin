@@ -33,9 +33,13 @@ const (
 // `resource.<outer>/<inner-rel>/<deepest-rel>`, and each node's
 // Composite names its direct enclosing call site.
 //
-// CompositeBody is set only on NodeComposite. It points to the
-// composite type's full body so the runtime can evaluate the
-// `outputs:` block once the internals complete.
+// CompositeBody and Modules are set only on NodeComposite.
+// CompositeBody points to the composite type's full body so the
+// runtime can evaluate the `outputs:` block once the internals
+// complete. Modules is the composite's resolved import table; the
+// runtime resolves composite-internal node lookups against this map
+// rather than the stack root's, so a composite can be reused without
+// the caller importing every module it transitively uses.
 type Node struct {
 	Address       string
 	Kind          NodeKind
@@ -45,6 +49,7 @@ type Node struct {
 	Body          lang.Expr
 	Composite     string
 	CompositeBody *lang.File
+	Modules       map[string]*Module
 }
 
 // ExtractNodes walks a parsed stack or exported-type file and returns every
@@ -197,11 +202,20 @@ func lookupComposite(mods map[string]*Module, alias, typ string) *CompositeType 
 // Internals come from a recursive walk of the composite's body with
 // the new call site address as the parent prefix, so nested addresses
 // build up like `outer/inner-rel/leaf-rel` and each internal's
-// Composite names its direct enclosing call site. mods drives the
-// recursion's composite detection so a composite that calls another
-// composite expands properly.
+// Composite names its direct enclosing call site. The composite's
+// own Modules table drives that recursion so a composite that calls
+// another composite expands against its own imports rather than the
+// caller's. The boundary node also carries the Modules table itself
+// so the runtime can resolve internal node lookups against it. When
+// a composite has no Modules set, fallMods is used as a fallback
+// for tests that build composites directly without populating
+// imports.
 func expandComposite(callSiteAddr, parent, ns, typ, name string,
-	args lang.Expr, composite *CompositeType, mods map[string]*Module) []*Node {
+	args lang.Expr, composite *CompositeType, fallMods map[string]*Module) []*Node {
+	scopeMods := composite.Modules
+	if scopeMods == nil {
+		scopeMods = fallMods
+	}
 	out := []*Node{{
 		Address:       callSiteAddr,
 		Kind:          NodeComposite,
@@ -211,8 +225,9 @@ func expandComposite(callSiteAddr, parent, ns, typ, name string,
 		Body:          args,
 		Composite:     parent,
 		CompositeBody: composite.Body,
+		Modules:       scopeMods,
 	}}
-	out = append(out, extractNodes(composite.Body, callSiteAddr, mods)...)
+	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
 	return out
 }
 
