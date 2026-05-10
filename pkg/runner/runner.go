@@ -430,29 +430,7 @@ func printPlan(out io.Writer, plan *runtime.Plan) {
 		}
 	}
 
-	boundaries := map[string]*runtime.PlanStep{}
-	for _, s := range plan.Steps {
-		if s.Kind == runtime.NodeComposite {
-			boundaries[s.Address] = s
-		}
-	}
-	internals := map[string][]*runtime.PlanStep{}
-	var topLevel []*runtime.PlanStep
-	for _, s := range plan.Steps {
-		if s.Kind == runtime.NodeComposite {
-			continue
-		}
-		if i := strings.Index(s.Address, "/"); i > 0 {
-			parent := s.Address[:i]
-			if _, ok := boundaries[parent]; ok {
-				internals[parent] = append(internals[parent], s)
-				continue
-			}
-		}
-		if isChange(s.Decision) {
-			topLevel = append(topLevel, s)
-		}
-	}
+	tree := buildPlanTree(plan.Steps)
 
 	if len(drift) > 0 {
 		fmt.Fprintf(out, "Drift detected (%d):\n", len(drift))
@@ -462,64 +440,155 @@ func printPlan(out io.Writer, plan *runtime.Plan) {
 		fmt.Fprintln(out)
 	}
 
-	var compositeOrder []string
-	for addr := range boundaries {
-		if anyChange(internals[addr]) {
-			compositeOrder = append(compositeOrder, addr)
-		}
-	}
-	sort.Strings(compositeOrder)
-
-	if len(topLevel) == 0 && len(compositeOrder) == 0 {
+	if !anyChangeRecursive(tree, "") {
 		fmt.Fprintln(out, "No changes.")
 		return
 	}
 
-	for _, step := range topLevel {
-		fmt.Fprintf(out, "  %s %s\n", decisionSymbol(step.Decision), step.Address)
-		for _, key := range sortedMapKeys(step.Inputs) {
-			fmt.Fprintf(out, "      %s: %s\n", key, formatValue(step.Inputs[key]))
-		}
-	}
-	for _, addr := range compositeOrder {
-		printCompositeGroup(out, boundaries[addr], internals[addr])
-	}
+	renderPlanTree(out, tree, "", 0)
 
-	counted := append([]*runtime.PlanStep{}, topLevel...)
-	for _, addr := range compositeOrder {
-		for _, in := range internals[addr] {
-			if isChange(in.Decision) {
-				counted = append(counted, in)
-			}
-		}
-	}
-	c := summarize(counted)
+	var leaves []*runtime.PlanStep
+	collectChangedLeaves(tree, "", &leaves)
+	c := summarize(leaves)
 	fmt.Fprintln(out)
 	fmt.Fprintf(out,
 		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
 		c.create, c.update, c.replace, c.destroy, c.rerun)
 }
 
-func printCompositeGroup(out io.Writer, boundary *runtime.PlanStep,
-	internals []*runtime.PlanStep) {
-	sym := decisionSymbol(boundaryDecision(internals))
-	fmt.Fprintf(out, "  %s %s  (module %s)\n",
-		sym, boundary.Address, compositeRef(boundary.Address))
-	for _, key := range sortedMapKeys(boundary.Inputs) {
-		fmt.Fprintf(out, "      %s: %s\n", key, formatValue(boundary.Inputs[key]))
+// planTree groups plan steps by their direct enclosing composite call
+// site so the renderer can walk the composite hierarchy. children are
+// indexed by parent address; the empty key holds steps whose direct
+// parent is not a composite boundary in this plan (top-level steps and
+// orphan destroys for removed call sites). boundaries holds every
+// composite step keyed by address.
+type planTree struct {
+	children   map[string][]*runtime.PlanStep
+	boundaries map[string]*runtime.PlanStep
+}
+
+func buildPlanTree(steps []*runtime.PlanStep) *planTree {
+	t := &planTree{
+		children:   map[string][]*runtime.PlanStep{},
+		boundaries: map[string]*runtime.PlanStep{},
 	}
-	sorted := append([]*runtime.PlanStep{}, internals...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Address < sorted[j].Address })
-	for _, in := range sorted {
-		if !isChange(in.Decision) {
+	for _, s := range steps {
+		if s.Kind == runtime.NodeComposite {
+			t.boundaries[s.Address] = s
+		}
+	}
+	for _, s := range steps {
+		parent := directParent(s.Address)
+		if _, ok := t.boundaries[parent]; !ok {
+			parent = ""
+		}
+		t.children[parent] = append(t.children[parent], s)
+	}
+	return t
+}
+
+func directParent(addr string) string {
+	if i := strings.LastIndex(addr, "/"); i >= 0 {
+		return addr[:i]
+	}
+	return ""
+}
+
+func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
+	children := append([]*runtime.PlanStep{}, t.children[parent]...)
+	sort.Slice(children, func(i, j int) bool { return children[i].Address < children[j].Address })
+
+	symPad := strings.Repeat("  ", depth+1)
+	fieldPad := strings.Repeat("  ", depth+3)
+
+	for _, child := range children {
+		if child.Kind == runtime.NodeComposite {
+			if !anyChangeRecursive(t, child.Address) {
+				continue
+			}
+			sym := decisionSymbol(boundaryDecisionRecursive(t, child.Address))
+			fmt.Fprintf(out, "%s%s %s  (module %s)\n",
+				symPad, sym, child.Address, compositeRef(child.Address))
+			for _, key := range sortedMapKeys(child.Inputs) {
+				fmt.Fprintf(out, "%s%s: %s\n", fieldPad, key, formatValue(child.Inputs[key]))
+			}
+			renderPlanTree(out, t, child.Address, depth+1)
 			continue
 		}
-		fmt.Fprintf(out, "    %s %s\n",
-			decisionSymbol(in.Decision), internalRel(in.Address))
-		for _, key := range sortedMapKeys(in.Inputs) {
-			fmt.Fprintf(out, "        %s: %s\n", key, formatValue(in.Inputs[key]))
+		if !isChange(child.Decision) {
+			continue
+		}
+		fmt.Fprintf(out, "%s%s %s\n",
+			symPad, decisionSymbol(child.Decision), relTo(child.Address, parent))
+		for _, key := range sortedMapKeys(child.Inputs) {
+			fmt.Fprintf(out, "%s%s: %s\n", fieldPad, key, formatValue(child.Inputs[key]))
 		}
 	}
+}
+
+func anyChangeRecursive(t *planTree, parent string) bool {
+	for _, child := range t.children[parent] {
+		if child.Kind == runtime.NodeComposite {
+			if anyChangeRecursive(t, child.Address) {
+				return true
+			}
+			continue
+		}
+		if isChange(child.Decision) {
+			return true
+		}
+	}
+	return false
+}
+
+func boundaryDecisionRecursive(t *planTree, addr string) runtime.Decision {
+	priority := map[runtime.Decision]int{
+		runtime.DecisionDestroy: 5,
+		runtime.DecisionReplace: 4,
+		runtime.DecisionCreate:  3,
+		runtime.DecisionUpdate:  2,
+		runtime.DecisionRerun:   1,
+	}
+	best := runtime.DecisionNoOp
+	bestPri := 0
+	var visit func(p string)
+	visit = func(p string) {
+		for _, child := range t.children[p] {
+			if child.Kind == runtime.NodeComposite {
+				visit(child.Address)
+				continue
+			}
+			if pri, ok := priority[child.Decision]; ok && pri > bestPri {
+				bestPri = pri
+				best = child.Decision
+			}
+		}
+	}
+	visit(addr)
+	return best
+}
+
+func collectChangedLeaves(t *planTree, parent string, into *[]*runtime.PlanStep) {
+	for _, child := range t.children[parent] {
+		if child.Kind == runtime.NodeComposite {
+			collectChangedLeaves(t, child.Address, into)
+			continue
+		}
+		if isChange(child.Decision) {
+			*into = append(*into, child)
+		}
+	}
+}
+
+// relTo returns addr with the parent prefix removed. Top-level steps
+// (parent == "") are unchanged; composite-internal addresses lose
+// only their direct enclosing prefix so a deeply-nested leaf reads
+// as its single innermost segment under each boundary header.
+func relTo(addr, parent string) string {
+	if parent == "" {
+		return addr
+	}
+	return strings.TrimPrefix(addr, parent+"/")
 }
 
 func isChange(d runtime.Decision) bool {
@@ -531,52 +600,24 @@ func isChange(d runtime.Decision) bool {
 	return true
 }
 
-func anyChange(steps []*runtime.PlanStep) bool {
-	for _, s := range steps {
-		if isChange(s.Decision) {
-			return true
-		}
-	}
-	return false
-}
-
-func boundaryDecision(internals []*runtime.PlanStep) runtime.Decision {
-	priority := map[runtime.Decision]int{
-		runtime.DecisionDestroy: 5,
-		runtime.DecisionReplace: 4,
-		runtime.DecisionCreate:  3,
-		runtime.DecisionUpdate:  2,
-		runtime.DecisionRerun:   1,
-	}
-	best := runtime.DecisionNoOp
-	bestPri := 0
-	for _, s := range internals {
-		if p, ok := priority[s.Decision]; ok && p > bestPri {
-			bestPri = p
-			best = s.Decision
-		}
-	}
-	return best
-}
-
-// compositeRef extracts the "<alias>.<composite-type>" pair from a
-// boundary address like "resource.greeter.greeting.welcome".
+// compositeRef extracts the trailing "<alias>.<composite-type>" pair
+// from a boundary address. At root the address looks like
+// "resource.greeter.greeting.welcome" and yields "greeter.greeting".
+// For a nested boundary the prefix carries the chain of enclosing
+// call sites, e.g. "resource.A.B.C/D.E.F" where the inner part
+// "D.E.F" is the "<alias>.<type>.<name>" of the nested call.
 func compositeRef(address string) string {
-	parts := strings.SplitN(strings.TrimPrefix(address, "resource."), ".", 3)
+	tail := address
+	if i := strings.LastIndex(tail, "/"); i >= 0 {
+		tail = tail[i+1:]
+	} else {
+		tail = strings.TrimPrefix(tail, "resource.")
+	}
+	parts := strings.SplitN(tail, ".", 3)
 	if len(parts) < 3 {
 		return ""
 	}
 	return parts[0] + "." + parts[1]
-}
-
-// internalRel returns the part of an internal address that follows the
-// boundary's call site, e.g. "local.file.this" out of
-// "resource.greeter.greeting.welcome/local.file.this".
-func internalRel(address string) string {
-	if i := strings.Index(address, "/"); i > 0 {
-		return address[i+1:]
-	}
-	return address
 }
 
 func printDriftStep(out io.Writer, s *runtime.PlanStep) {
