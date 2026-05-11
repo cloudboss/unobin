@@ -801,7 +801,11 @@ func loadConfigInputs(path string) (map[string]any, error) {
 
 // applyEnvOverrides reads UB_VAR_<name> environment variables and writes
 // them into inputs. Underscores in the env name become hyphens to match
-// kebab case input names. Values are taken as plain strings.
+// kebab case input names. Each value is parsed as a UB literal:
+// `UB_VAR_size=5` arrives as int64, `UB_VAR_use_spot=true` as bool,
+// `UB_VAR_subnets=['a', 'b']` as a list. Values that do not parse fall
+// through to a plain string, so URLs, paths, and names with special
+// characters work without shell-escaped quotes.
 func applyEnvOverrides(inputs map[string]any) {
 	for _, env := range os.Environ() {
 		if !strings.HasPrefix(env, EnvVarPrefix) {
@@ -815,8 +819,29 @@ func applyEnvOverrides(inputs map[string]any) {
 		if name == "" {
 			continue
 		}
-		inputs[name] = env[eq+1:]
+		inputs[name] = parseEnvValue(env[eq+1:])
 	}
+}
+
+// parseEnvValue tries to read raw as a single UB literal expression. A
+// successful parse and Eval returns the typed value; any failure
+// (parse error, multi-expression, eval error) falls through to the
+// raw string so values that look like URLs or paths still arrive as
+// strings without shell-escape ceremony.
+func parseEnvValue(raw string) any {
+	src := []byte("v: " + raw + "\n")
+	f, err := lang.ParseSource("env", src)
+	if err != nil {
+		return raw
+	}
+	if f.Body == nil || len(f.Body.Fields) != 1 {
+		return raw
+	}
+	val, err := runtime.Eval(f.Body.Fields[0].Value, &runtime.EvalContext{})
+	if err != nil {
+		return raw
+	}
+	return val
 }
 
 func doOutput(cmd *cobra.Command, info Info, args []string, asJSON bool) error {

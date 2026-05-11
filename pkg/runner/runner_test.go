@@ -246,6 +246,82 @@ outputs: {
 	require.Contains(t, out, "said = web-prod")
 }
 
+func TestEnvVarParsesTypedLiterals(t *testing.T) {
+	src := `
+inputs: {
+  size:     { type: integer }
+  use-spot: { type: boolean }
+  ratio:    { type: number }
+  subnets:  { type: list(string) }
+}
+actions: {
+  core: {
+    echo: {
+      summary: {
+        echo: format('size=%d spot=%v ratio=%v subnets=%v',
+          var.size, var.use-spot, var.ratio, var.subnets)
+      }
+    }
+  }
+}
+outputs: {
+  said: action.core.echo.summary.echo
+}
+`
+	info := testInfo(t, src)
+
+	t.Setenv("UB_VAR_size", "5")
+	t.Setenv("UB_VAR_use_spot", "true")
+	t.Setenv("UB_VAR_ratio", "1.5")
+	t.Setenv("UB_VAR_subnets", "['subnet-a', 'subnet-b']")
+
+	out := applyVia(t, info, "")
+	require.Contains(t, out,
+		"said = size=5 spot=true ratio=1.5 subnets=[subnet-a subnet-b]")
+}
+
+func TestEnvVarUnparseableFallsBackToString(t *testing.T) {
+	// URLs, paths, and names with special characters do not parse as UB
+	// literals; they arrive as plain strings without shell-escape ceremony.
+	src := `
+inputs: {
+  endpoint: { type: string }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.endpoint } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_endpoint", "https://example.com/health")
+	out := applyVia(t, info, "")
+	require.Contains(t, out, "said = https://example.com/health")
+}
+
+func TestEnvVarQuotedStringStillWorks(t *testing.T) {
+	src := `
+inputs: {
+  greeting: { type: string }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.greeting } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_greeting", "'hello world'")
+	out := applyVia(t, info, "")
+	require.Contains(t, out, "said = hello world")
+}
+
 func TestPlanShowsCreateBeforeApply(t *testing.T) {
 	src := `
 actions: {
