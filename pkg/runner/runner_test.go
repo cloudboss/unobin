@@ -277,7 +277,7 @@ outputs: {
 
 	out := applyVia(t, info, "")
 	require.Contains(t, out,
-		"said = size=5 spot=true ratio=1.5 subnets=[subnet-a subnet-b]")
+		"said = size=5 spot=true ratio=1.5 subnets=['subnet-a', 'subnet-b']")
 }
 
 func TestEnvVarUnparseableFallsBackToString(t *testing.T) {

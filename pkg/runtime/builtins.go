@@ -3,6 +3,8 @@ package runtime
 import (
 	"encoding/base64"
 	"fmt"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 // BuiltinFunc is the signature every built-in implements. Eval has
@@ -23,7 +25,9 @@ var builtins = map[string]BuiltinFunc{
 
 // builtinFormat is the canonical interpolation helper: a printf-style
 // format string followed by zero or more values. Verbs are Go's fmt
-// package verbs, so `%s` accepts a string and `%d` an integer.
+// package verbs, so `%s` accepts a string and `%d` an integer. Lists
+// and maps are pre-rendered as UB literals so an operator sees
+// `['a', 'b']` instead of Go's space-separated `[a b]` shape.
 func builtinFormat(args []any) (any, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("format: needs at least the format string")
@@ -32,7 +36,22 @@ func builtinFormat(args []any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("format: first argument must be a string, got %T", args[0])
 	}
-	return fmt.Sprintf(f, args[1:]...), nil
+	rendered := make([]any, len(args)-1)
+	for i, a := range args[1:] {
+		rendered[i] = renderForFormat(a)
+	}
+	return fmt.Sprintf(f, rendered...), nil
+}
+
+// renderForFormat returns lists and maps as UB literal strings so they
+// print readably, and leaves primitives alone so the type-specific
+// verbs like `%d` still work.
+func renderForFormat(v any) any {
+	switch v.(type) {
+	case []any, map[string]any:
+		return lang.Render(v)
+	}
+	return v
 }
 
 func builtinB64Encode(args []any) (any, error) {

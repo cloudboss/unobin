@@ -260,6 +260,26 @@ func TestEvalCallNested(t *testing.T) {
 	require.Equal(t, "cGxhaW4=", got)
 }
 
+func TestEvalCallFormatComposites(t *testing.T) {
+	cases := []struct {
+		src, want string
+	}{
+		{"format('%s', [1, 2, 3])", "[1, 2, 3]"},
+		{"format('%s', ['a', 'b'])", "['a', 'b']"},
+		{"format('%s', { a: 1, b: 2 })", "{ a: 1, b: 2 }"},
+		{"format('list=%s', [])", "list=[]"},
+		{"format('subnets=%v', ['subnet-a', 'subnet-b'])",
+			"subnets=['subnet-a', 'subnet-b']"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := Eval(parseValue(t, c.src), &EvalContext{})
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
 func TestEvalCallArgError(t *testing.T) {
 	// An error inside an argument expression bubbles up with the call
 	// name and arg index so debugging can find it.
