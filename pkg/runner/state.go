@@ -25,22 +25,34 @@ func newStateCmd(info Info) *cobra.Command {
 	return cmd
 }
 
+// addConfigFlag attaches a -c flag to a state subcommand. The flag is
+// the only way to select which deployment the command operates on
+// once deployment id comes from the config filename.
+func addConfigFlag(cmd *cobra.Command, dst *string) {
+	cmd.Flags().StringVarP(dst, "config", "c", "",
+		"Path to a config.ub identifying the deployment.")
+}
+
 func newStateGCCmd(info Info) *cobra.Command {
-	var keep int
+	var (
+		keep       int
+		configPath string
+	)
 	cmd := &cobra.Command{
 		Use:   "gc",
 		Short: "Delete old snapshot revisions, keeping the most recent ones",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doStateGC(cmd, info, keep)
+			return doStateGC(cmd, info, configPath, keep)
 		},
 	}
 	cmd.Flags().IntVar(&keep, "keep", 10,
 		"Number of recent snapshot revisions to keep. The current revision"+
 			" is always kept in addition to these.")
+	addConfigFlag(cmd, &configPath)
 	return cmd
 }
 
-func doStateGC(cmd *cobra.Command, info Info, keep int) error {
+func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error {
 	if keep < 0 {
 		return fmt.Errorf("--keep must not be negative")
 	}
@@ -48,7 +60,7 @@ func doStateGC(cmd *cobra.Command, info Info, keep int) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := loadStore(info, configPath, enc)
 	if err != nil {
 		return err
 	}
@@ -95,17 +107,20 @@ func doStateGC(cmd *cobra.Command, info Info, keep int) error {
 }
 
 func newStateMoveCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var configPath string
+	cmd := &cobra.Command{
 		Use:   "move <old-address> <new-address>",
 		Short: "Move a state entry to a new address",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doStateMove(cmd, info, args[0], args[1])
+			return doStateMove(cmd, info, configPath, args[0], args[1])
 		},
 	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
 }
 
-func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
+func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr string) error {
 	if oldAddr == newAddr {
 		return fmt.Errorf("old and new address are the same")
 	}
@@ -113,7 +128,7 @@ func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := loadStore(info, configPath, enc)
 	if err != nil {
 		return err
 	}
@@ -168,22 +183,25 @@ func doStateMove(cmd *cobra.Command, info Info, oldAddr, newAddr string) error {
 }
 
 func newStateRemoveCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var configPath string
+	cmd := &cobra.Command{
 		Use:   "remove <address>",
 		Short: "Remove a state entry without touching the underlying resource",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doStateRemove(cmd, info, args[0])
+			return doStateRemove(cmd, info, configPath, args[0])
 		},
 	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
 }
 
-func doStateRemove(cmd *cobra.Command, info Info, addr string) error {
+func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error {
 	enc, err := loadEncrypter()
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := loadStore(info, configPath, enc)
 	if err != nil {
 		return err
 	}
@@ -221,7 +239,8 @@ func doStateRemove(cmd *cobra.Command, info Info, addr string) error {
 }
 
 func newStateForceUnlockCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var configPath string
+	cmd := &cobra.Command{
 		Use:   "force-unlock",
 		Short: "Remove the deployment's lock without checking who holds it",
 		Long: "Use this only when a previous run died without releasing the lock. " +
@@ -231,7 +250,7 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, enc)
+			store, err := loadStore(info, configPath, enc)
 			if err != nil {
 				return err
 			}
@@ -242,10 +261,13 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
 }
 
 func newStateListCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var configPath string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List snapshot revisions, marking the current one with *",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -253,7 +275,7 @@ func newStateListCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, enc)
+			store, err := loadStore(info, configPath, enc)
 			if err != nil {
 				return err
 			}
@@ -273,10 +295,13 @@ func newStateListCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
 }
 
 func newStateShowCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var configPath string
+	cmd := &cobra.Command{
 		Use:   "show [revision]",
 		Short: "Show a snapshot's entries (current snapshot if no revision given)",
 		Args:  cobra.MaximumNArgs(1),
@@ -285,7 +310,7 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, enc)
+			store, err := loadStore(info, configPath, enc)
 			if err != nil {
 				return err
 			}
@@ -301,6 +326,8 @@ func newStateShowCmd(info Info) *cobra.Command {
 			return printSnapshot(cmd, snap)
 		},
 	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
 }
 
 func printSnapshot(cmd *cobra.Command, snap *state.Snapshot) error {

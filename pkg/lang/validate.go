@@ -34,7 +34,6 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	},
 	FileConfig: {
 		"stack":          {},
-		"deployment-id":  {},
 		"parallelism":    {},
 		"state":          {},
 		"inputs":         {},

@@ -197,6 +197,63 @@ inputs: {
 	require.Contains(t, out, "said = from-config")
 }
 
+func TestDeploymentID(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"", "default"},
+		{"prod.ub", "prod"},
+		{"staging.ub", "staging"},
+		{"prod-east.ub", "prod-east"},
+		{"./prod.ub", "prod"},
+		{"/tmp/foo/prod.ub", "prod"},
+		{"noext", "noext"},
+		{"prod.foo.ub", "prod.foo"},
+	}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			require.Equal(t, c.want, deploymentID(c.in))
+		})
+	}
+}
+
+func TestPlanIsolatesDeploymentsByConfigName(t *testing.T) {
+	src := `
+inputs: {
+  greeting: { type: string }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.greeting } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+
+	prod := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(prod,
+		[]byte(`inputs: { greeting: 'hello-prod' }`), 0o644))
+	staging := filepath.Join(filepath.Dir(prod), "staging.ub")
+	require.NoError(t, os.WriteFile(staging,
+		[]byte(`inputs: { greeting: 'hello-staging' }`), 0o644))
+
+	out := applyVia(t, info, prod)
+	require.Contains(t, out, "said = hello-prod")
+	out = applyVia(t, info, staging)
+	require.Contains(t, out, "said = hello-staging")
+
+	// Both deployments now have their own snapshot directory.
+	prodSnap := filepath.Join(".unobin/state", info.StackName, "prod")
+	stagingSnap := filepath.Join(".unobin/state", info.StackName, "staging")
+	_, err := os.Stat(prodSnap)
+	require.NoError(t, err)
+	_, err = os.Stat(stagingSnap)
+	require.NoError(t, err)
+}
+
 func TestEnvVarOverridesConfig(t *testing.T) {
 	src := `
 inputs: {

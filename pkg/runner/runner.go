@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,7 +139,8 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := state.NewLocalStore(
+		".unobin/state", info.StackName, pf.DeploymentID, enc)
 	if err != nil {
 		return err
 	}
@@ -199,7 +201,7 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := loadStore(info, configPath, enc)
 	if err != nil {
 		return err
 	}
@@ -343,15 +345,20 @@ func sortedNodeAddresses(dag *runtime.DAG) []string {
 }
 
 func newOutputCmd(info Info) *cobra.Command {
-	var asJSON bool
+	var (
+		asJSON     bool
+		configPath string
+	)
 	cmd := &cobra.Command{
 		Use:   "output [name]",
 		Short: "Print stack outputs from the current state",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doOutput(cmd, info, args, asJSON)
+			return doOutput(cmd, info, configPath, args, asJSON)
 		},
 	}
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a config.ub identifying the deployment.")
 	cmd.Flags().BoolVar(&asJSON, "json", false,
 		"Emit outputs as JSON instead of plain text.")
 	return cmd
@@ -368,8 +375,25 @@ func parsedFile(info Info) (*lang.File, error) {
 	return f, nil
 }
 
-func loadStore(info Info, enc state.Encrypter) (*state.LocalStore, error) {
-	return state.NewLocalStore(".unobin/state", info.StackName, "default", enc)
+func loadStore(info Info, configPath string, enc state.Encrypter) (*state.LocalStore, error) {
+	return state.NewLocalStore(
+		".unobin/state", info.StackName, deploymentID(configPath), enc)
+}
+
+// deploymentID derives a deployment id from the config file path. The
+// basename minus any extension is the id, so `prod.ub` becomes "prod"
+// and `staging.ub` becomes "staging". A missing config path falls back
+// to "default" to keep the tests and dev workflows that pass no config
+// running.
+func deploymentID(configPath string) string {
+	if configPath == "" {
+		return "default"
+	}
+	base := filepath.Base(configPath)
+	if i := strings.LastIndex(base, "."); i > 0 {
+		return base[:i]
+	}
+	return base
 }
 
 // loadEncrypter returns the Encrypter constructed from `UB_STATE_KEY`.
@@ -396,7 +420,7 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := loadStore(info, configPath, enc)
 	if err != nil {
 		return err
 	}
@@ -878,12 +902,12 @@ func parseEnvValue(raw string) any {
 	return val
 }
 
-func doOutput(cmd *cobra.Command, info Info, args []string, asJSON bool) error {
+func doOutput(cmd *cobra.Command, info Info, configPath string, args []string, asJSON bool) error {
 	enc, err := loadEncrypter()
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, enc)
+	store, err := loadStore(info, configPath, enc)
 	if err != nil {
 		return err
 	}

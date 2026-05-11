@@ -42,7 +42,6 @@ exports:     { cluster: 'cluster.ub' }
 func TestValidateTopLevelKeysConfig(t *testing.T) {
 	src := `
 stack:          { source: 'github.com/x/y' }
-deployment-id:  'prod'
 parallelism:    10
 state:          { backend: local }
 inputs:         { region: 'us-east-1' }
@@ -50,6 +49,17 @@ configurations: { aws: { default: {} } }
 `
 	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileConfig))
 	require.Equal(t, 0, errs.Len())
+}
+
+func TestValidateTopLevelKeysConfigRejectsDeploymentID(t *testing.T) {
+	// The deployment id comes from the config filename basename, so
+	// `deployment-id:` is not a permitted top-level key in a config.
+	src := `
+deployment-id: 'prod'
+`
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileConfig))
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), `"deployment-id"`)
 }
 
 func TestValidateRejectsForeignKeys(t *testing.T) {
