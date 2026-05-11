@@ -280,6 +280,79 @@ outputs: {
 		"said = size=5 spot=true ratio=1.5 subnets=['subnet-a', 'subnet-b']")
 }
 
+func TestPlanRejectsTypeMismatch(t *testing.T) {
+	src := `
+inputs: {
+  size: { type: integer }
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_size", "'not-a-number'")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `input "size"`)
+	require.Contains(t, err.Error(), "expected integer")
+}
+
+func TestPlanRejectsMissingRequiredInput(t *testing.T) {
+	src := `
+inputs: {
+  region: { type: string }
+}
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `input "region"`)
+	require.Contains(t, err.Error(), "required but not provided")
+}
+
+func TestPlanRejectsUnknownInput(t *testing.T) {
+	src := `
+inputs: {
+  region: { type: string }
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_region", "us-east-1")
+	t.Setenv("UB_VAR_clustr_name", "typo")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unknown input "clustr-name"`)
+}
+
+func TestPlanAppliesOptionalDefault(t *testing.T) {
+	src := `
+inputs: {
+  size: { type: optional(integer, 3) }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: format('size=%d', var.size) } }
+  }
+}
+outputs: {
+  said: action.core.echo.hi.echo
+}
+`
+	info := testInfo(t, src)
+	out := applyVia(t, info, "")
+	require.Contains(t, out, "said = size=3")
+}
+
+func TestPlanRejectsValueOutsideMinimum(t *testing.T) {
+	src := `
+inputs: {
+  size: { type: integer, minimum: 1 }
+}
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_size", "0")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "below minimum")
+}
+
 func TestEnvVarUnparseableFallsBackToString(t *testing.T) {
 	// URLs, paths, and names with special characters do not parse as UB
 	// literals; they arrive as plain strings without shell-escape ceremony.

@@ -186,11 +186,11 @@ func newRefreshCmd(info Info) *cobra.Command {
 }
 
 func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
-	inputs, err := buildInputs(configPath)
+	f, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
-	f, err := parsedFile(info)
+	inputs, err := buildInputs(configPath, topLevelObject(f, "inputs"))
 	if err != nil {
 		return err
 	}
@@ -249,11 +249,11 @@ func newValidateCmd(info Info) *cobra.Command {
 }
 
 func doValidate(cmd *cobra.Command, info Info, configPath string) error {
-	if _, err := buildInputs(configPath); err != nil {
-		return err
-	}
 	f, err := parsedFile(info)
 	if err != nil {
+		return err
+	}
+	if _, err := buildInputs(configPath, topLevelObject(f, "inputs")); err != nil {
 		return err
 	}
 	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
@@ -380,11 +380,11 @@ func loadEncrypter() (state.Encrypter, error) {
 }
 
 func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
-	inputs, err := buildInputs(configPath)
+	f, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
-	f, err := parsedFile(info)
+	inputs, err := buildInputs(configPath, topLevelObject(f, "inputs"))
 	if err != nil {
 		return err
 	}
@@ -750,7 +750,7 @@ func decisionSymbol(d runtime.Decision) string {
 	return "?"
 }
 
-func buildInputs(configPath string) (map[string]any, error) {
+func buildInputs(configPath string, decl *lang.ObjectLit) (map[string]any, error) {
 	inputs := map[string]any{}
 	if configPath != "" {
 		loaded, err := loadConfigInputs(configPath)
@@ -760,7 +760,19 @@ func buildInputs(configPath string) (map[string]any, error) {
 		inputs = loaded
 	}
 	applyEnvOverrides(inputs)
-	return inputs, nil
+	validated, errs := lang.ValidateInputs(decl, inputs, defaultEval)
+	if errs.Len() > 0 {
+		return nil, errs.Err()
+	}
+	return validated, nil
+}
+
+// defaultEval reduces an `optional(T, default)` default expression to a
+// Go value. The empty EvalContext means defaults can use literals,
+// arithmetic, and built-in calls but not address roots like var.X
+// (which would be circular at default-application time anyway).
+func defaultEval(e lang.Expr) (any, error) {
+	return runtime.Eval(e, &runtime.EvalContext{})
 }
 
 // loadConfigInputs reads a config .ub file and returns the evaluated
