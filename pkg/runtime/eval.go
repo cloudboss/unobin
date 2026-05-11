@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -41,6 +42,10 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 		return evalObject(v, ctx)
 	case *lang.DotPath:
 		return evalDotPath(v, ctx)
+	case *lang.Infix:
+		return evalInfix(v, ctx)
+	case *lang.Prefix:
+		return evalPrefix(v, ctx)
 	default:
 		return nil, fmt.Errorf("eval: unsupported expression %T", e)
 	}
@@ -75,6 +80,211 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 		out[key] = val
 	}
 	return out, nil
+}
+
+// evalInfix evaluates a binary operator expression. `&&` and `||` short
+// circuit on the left operand; every other operator evaluates both sides
+// before dispatching by kind.
+func evalInfix(n *lang.Infix, ctx *EvalContext) (any, error) {
+	if n.Op == "&&" || n.Op == "||" {
+		return evalLogical(n, ctx)
+	}
+	left, err := Eval(n.Left, ctx)
+	if err != nil {
+		return nil, err
+	}
+	right, err := Eval(n.Right, ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch n.Op {
+	case "+", "-", "*", "/":
+		return evalArith(n.Op, left, right)
+	case "<", "<=", ">", ">=":
+		return evalCmp(n.Op, left, right)
+	case "==":
+		return evalEq(left, right), nil
+	case "!=":
+		return !evalEq(left, right), nil
+	}
+	return nil, fmt.Errorf("eval: unknown operator %q", n.Op)
+}
+
+// evalLogical evaluates `&&` and `||` with left-to-right short circuit:
+// `&&` skips its right operand when the left is false, `||` skips when
+// the left is true. Either operand evaluating to a non-boolean is a
+// type error.
+func evalLogical(n *lang.Infix, ctx *EvalContext) (any, error) {
+	left, err := Eval(n.Left, ctx)
+	if err != nil {
+		return nil, err
+	}
+	lb, ok := left.(bool)
+	if !ok {
+		return nil, fmt.Errorf("eval: %s: left operand must be a boolean, got %T", n.Op, left)
+	}
+	if n.Op == "&&" && !lb {
+		return false, nil
+	}
+	if n.Op == "||" && lb {
+		return true, nil
+	}
+	right, err := Eval(n.Right, ctx)
+	if err != nil {
+		return nil, err
+	}
+	rb, ok := right.(bool)
+	if !ok {
+		return nil, fmt.Errorf("eval: %s: right operand must be a boolean, got %T", n.Op, right)
+	}
+	return rb, nil
+}
+
+// evalArith evaluates the four arithmetic operators. Both operands must
+// be numbers (int64 or float64). When both are int64 the result stays
+// int64 with no float round trip; any float operand promotes the pair
+// and the result is float64. Division by zero returns an error in both
+// modes; integer division truncates toward zero (Go's `/` semantics).
+func evalArith(op string, a, b any) (any, error) {
+	if ai, ok := a.(int64); ok {
+		if bi, ok := b.(int64); ok {
+			return arithInt(op, ai, bi)
+		}
+	}
+	af, aOK := numericFloat(a)
+	bf, bOK := numericFloat(b)
+	if !aOK || !bOK {
+		return nil, fmt.Errorf("eval: %s: operands must be numbers, got %T and %T", op, a, b)
+	}
+	return arithFloat(op, af, bf)
+}
+
+func arithInt(op string, a, b int64) (any, error) {
+	switch op {
+	case "+":
+		return a + b, nil
+	case "-":
+		return a - b, nil
+	case "*":
+		return a * b, nil
+	case "/":
+		if b == 0 {
+			return nil, fmt.Errorf("eval: division by zero")
+		}
+		return a / b, nil
+	}
+	return nil, fmt.Errorf("eval: unknown arithmetic operator %q", op)
+}
+
+func arithFloat(op string, a, b float64) (any, error) {
+	switch op {
+	case "+":
+		return a + b, nil
+	case "-":
+		return a - b, nil
+	case "*":
+		return a * b, nil
+	case "/":
+		if b == 0 {
+			return nil, fmt.Errorf("eval: division by zero")
+		}
+		return a / b, nil
+	}
+	return nil, fmt.Errorf("eval: unknown arithmetic operator %q", op)
+}
+
+// evalCmp evaluates the four ordering operators. Numbers compare with
+// numeric promotion; strings compare lexicographically. Any other
+// combination is a type error.
+func evalCmp(op string, a, b any) (any, error) {
+	if af, bf, ok := numericPair(a, b); ok {
+		switch op {
+		case "<":
+			return af < bf, nil
+		case "<=":
+			return af <= bf, nil
+		case ">":
+			return af > bf, nil
+		case ">=":
+			return af >= bf, nil
+		}
+	}
+	if as, aok := a.(string); aok {
+		if bs, bok := b.(string); bok {
+			switch op {
+			case "<":
+				return as < bs, nil
+			case "<=":
+				return as <= bs, nil
+			case ">":
+				return as > bs, nil
+			case ">=":
+				return as >= bs, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("eval: %s: operands must be numbers or strings, got %T and %T", op, a, b)
+}
+
+// evalEq reports value equality. Numeric operands compare after
+// promotion (so 1 == 1.0 is true). Everything else falls through to
+// reflect.DeepEqual, which gives the expected element-wise comparison
+// for lists and maps and a false answer for cross-type comparisons
+// outside the numeric pair.
+func evalEq(a, b any) bool {
+	if af, bf, ok := numericPair(a, b); ok {
+		return af == bf
+	}
+	return reflect.DeepEqual(a, b)
+}
+
+// numericPair coerces a and b to a common float64 form for ordering
+// and equality tests. ok is false when either input is not numeric.
+// Arithmetic stays in the int64 domain on its own path; this helper is
+// only used where the two values are about to be compared.
+func numericPair(a, b any) (af, bf float64, ok bool) {
+	af, aOK := numericFloat(a)
+	bf, bOK := numericFloat(b)
+	if !aOK || !bOK {
+		return 0, 0, false
+	}
+	return af, bf, true
+}
+
+func numericFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case int64:
+		return float64(x), true
+	case float64:
+		return x, true
+	}
+	return 0, false
+}
+
+// evalPrefix evaluates a unary operator. `-` negates a number; `!` flips
+// a boolean. Other operators or operand types yield an error.
+func evalPrefix(n *lang.Prefix, ctx *EvalContext) (any, error) {
+	v, err := Eval(n.Expr, ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch n.Op {
+	case "-":
+		switch x := v.(type) {
+		case int64:
+			return -x, nil
+		case float64:
+			return -x, nil
+		}
+		return nil, fmt.Errorf("eval: -: operand must be a number, got %T", v)
+	case "!":
+		b, ok := v.(bool)
+		if !ok {
+			return nil, fmt.Errorf("eval: !: operand must be a boolean, got %T", v)
+		}
+		return !b, nil
+	}
+	return nil, fmt.Errorf("eval: unknown prefix operator %q", n.Op)
 }
 
 func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
