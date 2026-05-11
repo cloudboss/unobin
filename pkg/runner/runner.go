@@ -190,7 +190,8 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	inputs, err := buildInputs(configPath, topLevelObject(f, "inputs"))
+	inputs, err := buildInputs(configPath,
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
 	if err != nil {
 		return err
 	}
@@ -253,7 +254,9 @@ func doValidate(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := buildInputs(configPath, topLevelObject(f, "inputs")); err != nil {
+	_, err = buildInputs(configPath,
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
+	if err != nil {
 		return err
 	}
 	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
@@ -384,7 +387,8 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	inputs, err := buildInputs(configPath, topLevelObject(f, "inputs"))
+	inputs, err := buildInputs(configPath,
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
 	if err != nil {
 		return err
 	}
@@ -750,7 +754,11 @@ func decisionSymbol(d runtime.Decision) string {
 	return "?"
 }
 
-func buildInputs(configPath string, decl *lang.ObjectLit) (map[string]any, error) {
+func buildInputs(
+	configPath string,
+	decl *lang.ObjectLit,
+	constraints *lang.ArrayLit,
+) (map[string]any, error) {
 	inputs := map[string]any{}
 	if configPath != "" {
 		loaded, err := loadConfigInputs(configPath)
@@ -764,6 +772,10 @@ func buildInputs(configPath string, decl *lang.ObjectLit) (map[string]any, error
 	if errs.Len() > 0 {
 		return nil, errs.Err()
 	}
+	cerrs := lang.CheckConstraints(constraints, validated, predicateEval(validated))
+	if cerrs.Len() > 0 {
+		return nil, cerrs.Err()
+	}
 	return validated, nil
 }
 
@@ -773,6 +785,16 @@ func buildInputs(configPath string, decl *lang.ObjectLit) (map[string]any, error
 // (which would be circular at default-application time anyway).
 func defaultEval(e lang.Expr) (any, error) {
 	return runtime.Eval(e, &runtime.EvalContext{})
+}
+
+// predicateEval reduces a constraint's `when:` or `require:` expression
+// against the validated inputs, so a predicate can read var.X for any
+// declared input.
+func predicateEval(values map[string]any) lang.EvalFunc {
+	ctx := &runtime.EvalContext{Vars: values}
+	return func(e lang.Expr) (any, error) {
+		return runtime.Eval(e, ctx)
+	}
 }
 
 // loadConfigInputs reads a config .ub file and returns the evaluated

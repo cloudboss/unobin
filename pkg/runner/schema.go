@@ -159,6 +159,21 @@ func placeholderForType(e lang.Expr) string {
 	return "null"
 }
 
+func topLevelArray(f *lang.File, name string) *lang.ArrayLit {
+	if f == nil || f.Body == nil {
+		return nil
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == name {
+			if arr, ok := fld.Value.(*lang.ArrayLit); ok {
+				return arr
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
 func topLevelObject(f *lang.File, name string) *lang.ObjectLit {
 	if f == nil || f.Body == nil {
 		return nil

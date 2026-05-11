@@ -340,6 +340,45 @@ outputs: {
 	require.Contains(t, out, "said = size=3")
 }
 
+func TestPlanRejectsConstraintViolation(t *testing.T) {
+	src := `
+inputs: {
+  vpc-id:     { type: optional(string) }
+  subnet-ids: { type: optional(list(string)) }
+}
+constraints: [
+  { kind: required-together, fields: [vpc-id, subnet-ids] },
+]
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_vpc_id", "vpc-abc")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "required-together")
+}
+
+func TestPlanRejectsPredicate(t *testing.T) {
+	src := `
+inputs: {
+  region:    { type: string }
+  fips-mode: { type: optional(boolean, false) }
+}
+constraints: [
+  {
+    kind:    predicate
+    when:    var.region == 'us-gov-east-1'
+    require: var.fips-mode == true
+    message: 'GovCloud regions require FIPS mode enabled'
+  },
+]
+`
+	info := testInfo(t, src)
+	t.Setenv("UB_VAR_region", "us-gov-east-1")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "GovCloud regions require FIPS mode enabled")
+}
+
 func TestPlanRejectsValueOutsideMinimum(t *testing.T) {
 	src := `
 inputs: {
