@@ -46,6 +46,8 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 		return evalInfix(v, ctx)
 	case *lang.Prefix:
 		return evalPrefix(v, ctx)
+	case *lang.Call:
+		return evalCall(v, ctx)
 	default:
 		return nil, fmt.Errorf("eval: unsupported expression %T", e)
 	}
@@ -80,6 +82,34 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 		out[key] = val
 	}
 	return out, nil
+}
+
+// evalCall evaluates a function call. Bare identifiers (`format(...)`)
+// look up the built-in registry; module-qualified calls
+// (`alias.func(...)`) are not yet supported and return an error
+// pointing at the gap.
+func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
+	if c.Module != nil {
+		return nil, fmt.Errorf(
+			"eval: module-qualified function %s.%s: module functions are not yet supported",
+			c.Module.Name, c.Func.Name)
+	}
+	if c.Callee == nil {
+		return nil, fmt.Errorf("eval: call has no callee")
+	}
+	fn, ok := builtins[c.Callee.Name]
+	if !ok {
+		return nil, fmt.Errorf("eval: unknown function %q", c.Callee.Name)
+	}
+	args := make([]any, len(c.Args))
+	for i, a := range c.Args {
+		v, err := Eval(a, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("eval: %s arg %d: %w", c.Callee.Name, i, err)
+		}
+		args[i] = v
+	}
+	return fn(args)
 }
 
 // evalInfix evaluates a binary operator expression. `&&` and `||` short
