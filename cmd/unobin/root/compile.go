@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
@@ -127,7 +128,8 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	goImports := make(map[string]string, len(refs))
 	ubImports := make(map[string]string, len(refs))
 
-	for alias, ref := range refs {
+	for _, alias := range sortedRefAliases(refs) {
+		ref := refs[alias]
 		source, err := resolver.Resolve(ref)
 		if err != nil {
 			return fmt.Errorf("import %q: %w", alias, err)
@@ -319,7 +321,8 @@ func (b *ubBuilder) build(localAlias string, ref resolve.ImportRef,
 // same module imported from multiple places is generated once.
 func (b *ubBuilder) resolveCompositeImports(refs map[string]resolve.ImportRef) (map[string]string, error) {
 	out := make(map[string]string, len(refs))
-	for alias, ref := range refs {
+	for _, alias := range sortedRefAliases(refs) {
+		ref := refs[alias]
 		source, err := b.resolver.Resolve(ref)
 		if err != nil {
 			return nil, fmt.Errorf("import %q: %w", alias, err)
@@ -358,6 +361,19 @@ func (b *ubBuilder) recordGoImport(path, version string) error {
 	}
 	b.importVersions[path] = version
 	return nil
+}
+
+// sortedRefAliases returns refs's keys in lexicographic order. The
+// stack-root and composite-body walks both rely on this so the
+// canonical alias for a deduped UB module is the lexicographically
+// smallest one rather than whichever the map hands back first.
+func sortedRefAliases(refs map[string]resolve.ImportRef) []string {
+	aliases := make([]string, 0, len(refs))
+	for a := range refs {
+		aliases = append(aliases, a)
+	}
+	sort.Strings(aliases)
+	return aliases
 }
 
 // ubKey is the dedup key for a UB-module import reference. Remote
