@@ -519,6 +519,32 @@ actions: {
 	require.Contains(t, out, "No changes.")
 }
 
+func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "resource.local.file.x",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs: map[string]any{
+					"tags": map[string]any{
+						"clean":         "yes",
+						"has space":     "true",
+						"with.dots":     "x",
+						"with-dashes":   "ok",
+					},
+				},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out,
+		`tags: {clean: "yes", 'has space': "true", with-dashes: "ok", 'with.dots': "x"}`,
+		"map keys that are not bare kebab identifiers must be quoted")
+}
+
 func TestPrintPlanShowsDriftSection(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{

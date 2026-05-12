@@ -43,7 +43,7 @@ func Render(v any) string {
 		sort.Strings(keys)
 		parts := make([]string, 0, len(keys))
 		for _, k := range keys {
-			parts = append(parts, renderKey(k)+": "+Render(x[k]))
+			parts = append(parts, RenderKey(k)+": "+Render(x[k]))
 		}
 		return "{ " + strings.Join(parts, ", ") + " }"
 	}
@@ -77,10 +77,10 @@ func renderString(s string) string {
 	return b.String()
 }
 
-// renderKey returns k as a bare kebab-case identifier when it is a
+// RenderKey returns k as a bare kebab-case identifier when it is a
 // valid one, otherwise as a quoted string. Round trips cleanly through
 // the parser either way.
-func renderKey(k string) string {
+func RenderKey(k string) string {
 	if isKebabIdent(k) {
 		return k
 	}

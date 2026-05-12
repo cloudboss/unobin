@@ -735,7 +735,7 @@ func formatValue(v any) string {
 		keys := sortedMapKeys(x)
 		parts := make([]string, 0, len(keys))
 		for _, k := range keys {
-			parts = append(parts, fmt.Sprintf("%s: %s", k, formatValue(x[k])))
+			parts = append(parts, fmt.Sprintf("%s: %s", lang.RenderKey(k), formatValue(x[k])))
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	case nil:
