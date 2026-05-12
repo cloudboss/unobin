@@ -136,6 +136,69 @@ resources: {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
+func TestRefreshUpdatesCompositeInternalLeaf(t *testing.T) {
+	compositeBody := parseStack(t, `
+inputs: {
+  name: { type: string }
+}
+
+resources: {
+  core: {
+    thing: { inside: { name: var.name, size: 1 } }
+  }
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: compositeBody, Modules: mods},
+		},
+	}
+	src := `
+resources: {
+  w: { box: { x: { name: 'alpha' } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	_, err := (&Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	}).Run(context.Background())
+	require.NoError(t, err)
+
+	c.readFn = func(prior any) (any, error) {
+		m, _ := prior.(map[string]any)
+		out := map[string]any{}
+		for k, v := range m {
+			out[k] = v
+		}
+		out["size"] = int64(42)
+		return out, nil
+	}
+
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	}
+	res, err := exec.Refresh(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, res.Refreshed)
+	require.Equal(t, 0, res.Dropped)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	leafAddr := "resource.w.box.x/core.thing.inside"
+	var leaf *state.Entry
+	for _, e := range snap.Entries {
+		if e.Address == leafAddr {
+			leaf = e
+		}
+	}
+	require.NotNil(t, leaf, "composite internal leaf still in snapshot after refresh")
+	require.EqualValues(t, 42, leaf.Outputs["size"])
+}
+
 func TestRefreshNoPriorState(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
