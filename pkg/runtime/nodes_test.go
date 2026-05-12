@@ -264,6 +264,59 @@ resources: {
 		"leaf's direct parent is inner call site")
 }
 
+func TestExtractNodesResourceForEach(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    instance: {
+      nodes: {
+        @for-each:     var.configs
+        instance-type: @each.value.size
+      }
+    }
+  }
+}
+`
+	got := ExtractNodes(parseStack(t, src), nil)
+	require.Len(t, got, 1)
+	require.Equal(t, "resource.aws.instance.nodes", got[0].Address)
+	require.NotNil(t, got[0].ForEach, "@for-each iterable captured on the node")
+	dp, ok := got[0].ForEach.(*lang.DotPath)
+	require.True(t, ok, "iterable is a DotPath")
+	require.Equal(t, "var", dp.Root.Name)
+	require.Equal(t, "configs", dp.Segments[0].Name)
+}
+
+func TestExtractNodesActionForEach(t *testing.T) {
+	src := `
+actions: {
+  core: {
+    command: {
+      many: {
+        @for-each: var.targets
+        argv:      ['echo', @each.value]
+      }
+    }
+  }
+}
+`
+	got := ExtractNodes(parseStack(t, src), nil)
+	require.Len(t, got, 1)
+	require.Equal(t, "action.core.command.many", got[0].Address)
+	require.NotNil(t, got[0].ForEach)
+}
+
+func TestExtractNodesNoForEachLeavesFieldNil(t *testing.T) {
+	src := `
+resources: {
+  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
+}
+`
+	got := ExtractNodes(parseStack(t, src), nil)
+	require.Len(t, got, 1)
+	require.Nil(t, got[0].ForEach)
+}
+
 func TestExtractNodesSkipsMalformed(t *testing.T) {
 	src := `
 resources: {

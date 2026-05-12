@@ -12,13 +12,18 @@ import (
 // overrides. Resources, Data, and Actions hold the outputs of nodes
 // that have already executed, indexed by their source address path.
 // Modules is the import table the scope's `<alias>.<func>(...)` calls
-// resolve against; nil disables module-qualified calls.
+// resolve against; nil disables module-qualified calls. EachKey and
+// EachValue carry the current iteration binding inside a `@for-each`
+// body; ForEach reports whether they are valid to read.
 type EvalContext struct {
 	Vars      map[string]any
 	Resources map[string]any
 	Data      map[string]any
 	Actions   map[string]any
 	Modules   map[string]*Module
+	EachKey   any
+	EachValue any
+	ForEach   bool
 }
 
 // Eval reduces a parsed expression to a Go value. Supported are
@@ -342,6 +347,57 @@ func evalPrefix(n *lang.Prefix, ctx *EvalContext) (any, error) {
 	return nil, fmt.Errorf("eval: unknown prefix operator %q", n.Op)
 }
 
+// evalEach resolves an `@each.key` / `@each.value` reference against
+// the current iteration scope. Reading @each outside a `@for-each`
+// body is an error.
+func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
+	if !ctx.ForEach {
+		return nil, fmt.Errorf("eval: @each is only valid inside a @for-each body")
+	}
+	if len(p.Segments) == 0 {
+		return nil, fmt.Errorf("eval: @each requires .key or .value")
+	}
+	first := p.Segments[0].Name
+	var cur any
+	switch first {
+	case "key":
+		cur = ctx.EachKey
+	case "value":
+		cur = ctx.EachValue
+	default:
+		return nil, fmt.Errorf("eval: @each.%s: only @each.key and @each.value are valid", first)
+	}
+	path := "@each." + first
+	for _, seg := range p.Segments[1:] {
+		var step string
+		switch {
+		case seg.Name != "":
+			step = seg.Name
+		case seg.Index != nil:
+			idx, err := Eval(seg.Index, ctx)
+			if err != nil {
+				return nil, err
+			}
+			s, ok := idx.(string)
+			if !ok {
+				return nil, fmt.Errorf("eval: index must be a string, got %T", idx)
+			}
+			step = s
+		}
+		path = path + "." + step
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("eval: cannot navigate into %T at %s", cur, path)
+		}
+		next, exists := m[step]
+		if !exists {
+			return nil, fmt.Errorf("eval: %s: not found", path)
+		}
+		cur = next
+	}
+	return cur, nil
+}
+
 func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	var root any
 	switch p.Root.Name {
@@ -353,6 +409,8 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		root = ctx.Data
 	case "action":
 		root = ctx.Actions
+	case "@each":
+		return evalEach(p, ctx)
 	default:
 		return nil, fmt.Errorf("eval: unknown address root %q", p.Root.Name)
 	}

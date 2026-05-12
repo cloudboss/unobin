@@ -50,6 +50,7 @@ type Node struct {
 	Composite     string
 	CompositeBody *lang.File
 	Modules       map[string]*Module
+	ForEach       lang.Expr
 }
 
 // ExtractNodes walks a parsed stack or exported-type file and returns every
@@ -134,6 +135,7 @@ func extractResources(block *lang.ObjectLit, parent string, mods map[string]*Mod
 					Name:      n.Key.Name,
 					Body:      n.Value,
 					Composite: parent,
+					ForEach:   extractForEach(n.Value),
 				})
 			}
 		}
@@ -172,11 +174,28 @@ func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node 
 					Name:      n.Key.Name,
 					Body:      n.Value,
 					Composite: parent,
+					ForEach:   extractForEach(n.Value),
 				})
 			}
 		}
 	}
 	return out
+}
+
+// extractForEach returns the iterable expression from a body's
+// `@for-each:` field, or nil if the body has none. Non-object bodies
+// (which the validator rejects elsewhere) yield nil too.
+func extractForEach(body lang.Expr) lang.Expr {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "@for-each" {
+			return fld.Value
+		}
+	}
+	return nil
 }
 
 func lookupComposite(mods map[string]*Module, alias, typ string) *CompositeType {

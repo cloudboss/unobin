@@ -554,6 +554,41 @@ func TestEvalPrefixTypeError(t *testing.T) {
 	require.Contains(t, err.Error(), "number")
 }
 
+func TestEvalEachKey(t *testing.T) {
+	ctx := &EvalContext{EachKey: "alpha", EachValue: "v", ForEach: true}
+	got, err := Eval(parseValue(t, "@each.key"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "alpha", got)
+}
+
+func TestEvalEachValueScalar(t *testing.T) {
+	ctx := &EvalContext{EachKey: "alpha", EachValue: "v", ForEach: true}
+	got, err := Eval(parseValue(t, "@each.value"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "v", got)
+}
+
+func TestEvalEachValueNested(t *testing.T) {
+	ctx := &EvalContext{
+		EachKey:   "alpha",
+		EachValue: map[string]any{"size": int64(3), "subnet": "s-1"},
+		ForEach:   true,
+	}
+	got, err := Eval(parseValue(t, "@each.value.size"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), got)
+
+	got, err = Eval(parseValue(t, "@each.value.subnet"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "s-1", got)
+}
+
+func TestEvalEachOutsideForEachIsError(t *testing.T) {
+	_, err := Eval(parseValue(t, "@each.key"), &EvalContext{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "@each")
+}
+
 func TestEvalCallModuleFunction(t *testing.T) {
 	ctx := &EvalContext{
 		Vars: map[string]any{"name": "web"},
