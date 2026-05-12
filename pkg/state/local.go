@@ -15,6 +15,10 @@ import (
 
 const maxRevAttempts = 100
 
+// now returns the current time. Tests override it to freeze the clock
+// and force the rev allocator to disambiguate collisions structurally.
+var now = time.Now
+
 // ErrNoCurrent is returned by LocalStore.Current when no snapshot has been
 // written for this deployment.
 var ErrNoCurrent = errors.New("no current snapshot")
@@ -81,10 +85,12 @@ func (s *LocalStore) CurrentRev() (string, error) {
 	return s.currentRev()
 }
 
-// Write commits snap to disk and returns its rev (an RFC3339Nano
-// timestamp). The caller advances the current pointer with SetCurrent.
-// On the rare collision where two writes land in the same nanosecond,
-// Write retries with a fresh timestamp.
+// Write commits snap to disk and returns its rev. The caller advances
+// the current pointer with SetCurrent. Each rev starts as an
+// RFC3339Nano timestamp; if a snapshot already exists at that path
+// (because two writes share the same nanosecond), a numeric suffix
+// is appended until the path is fresh, so uniqueness does not depend
+// on the clock advancing between writes.
 func (s *LocalStore) Write(snap *Snapshot) (string, error) {
 	plaintext, err := EncodeSnapshot(snap)
 	if err != nil {
@@ -94,12 +100,15 @@ func (s *LocalStore) Write(snap *Snapshot) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	base := now().UTC().Format(time.RFC3339Nano)
+	rev := base
 	for attempt := 0; attempt < maxRevAttempts; attempt++ {
-		rev := time.Now().UTC().Format(time.RFC3339Nano)
+		if attempt > 0 {
+			rev = fmt.Sprintf("%s_%d", base, attempt)
+		}
 		path := s.snapshotPath(rev)
 		_, statErr := os.Stat(path)
 		if statErr == nil {
-			time.Sleep(time.Nanosecond)
 			continue
 		}
 		if !errors.Is(statErr, fs.ErrNotExist) {

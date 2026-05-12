@@ -129,6 +129,29 @@ func TestLocalStoreSameContentDistinctRevs(t *testing.T) {
 	require.NotEqual(t, a, b, "two writes should yield two distinct revs")
 }
 
+func TestLocalStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
+	frozen := time.Date(2026, 5, 12, 15, 30, 0, 0, time.UTC)
+	t.Cleanup(func() { now = time.Now })
+	now = func() time.Time { return frozen }
+
+	s := newStore(t)
+	seen := map[string]bool{}
+	for i := 0; i < 5; i++ {
+		rev, err := s.Write(sampleSnapshot())
+		require.NoError(t, err)
+		require.False(t, seen[rev], "rev %q reused while clock was frozen", rev)
+		seen[rev] = true
+	}
+
+	require.Equal(t, []string{
+		frozen.Format(time.RFC3339Nano),
+		frozen.Format(time.RFC3339Nano) + "_1",
+		frozen.Format(time.RFC3339Nano) + "_2",
+		frozen.Format(time.RFC3339Nano) + "_3",
+		frozen.Format(time.RFC3339Nano) + "_4",
+	}, mustList(t, s))
+}
+
 func TestLocalStoreListChronological(t *testing.T) {
 	s := newStore(t)
 	require.Empty(t, mustList(t, s))
