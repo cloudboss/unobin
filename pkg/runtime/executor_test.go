@@ -321,6 +321,130 @@ outputs: {
 	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
 }
 
+func TestExecutorForEachResourceCreatesPerInstance(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+        size:      @each.value
+      }
+    }
+  }
+}
+outputs: {
+  alpha-id: resource.core.thing.many['alpha'].id
+  beta-id:  resource.core.thing.many['beta'].id
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs: map[string]any{
+			"configs": map[string]any{
+				"alpha": int64(1),
+				"beta":  int64(2),
+			},
+		},
+		Store: store,
+		Stack: stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
+	require.Equal(t, "fake-alpha", res.Outputs["alpha-id"])
+	require.Equal(t, "fake-beta", res.Outputs["beta-id"])
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addrs := map[string]bool{}
+	for _, ent := range snap.Entries {
+		addrs[ent.Address] = true
+	}
+	require.True(t, addrs["resource.core.thing.many['alpha']"], "alpha instance in state")
+	require.True(t, addrs["resource.core.thing.many['beta']"], "beta instance in state")
+}
+
+func TestExecutorForEachOrphanInstanceDeleted(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+        size:      @each.value
+      }
+    }
+  }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+	runOnce := func(configs map[string]any) {
+		exec := &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Inputs:  map[string]any{"configs": configs},
+			Store:   store,
+			Stack:   stack,
+		}
+		_, err := exec.Run(context.Background())
+		require.NoError(t, err)
+	}
+	runOnce(map[string]any{"alpha": int64(1), "beta": int64(2)})
+	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
+
+	runOnce(map[string]any{"alpha": int64(1)})
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes), "beta instance destroyed")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addrs := map[string]bool{}
+	for _, ent := range snap.Entries {
+		addrs[ent.Address] = true
+	}
+	require.True(t, addrs["resource.core.thing.many['alpha']"])
+	require.False(t, addrs["resource.core.thing.many['beta']"], "beta dropped from state")
+}
+
+func TestExecutorForEachRejectsList(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.items
+        name:      @each.value
+      }
+    }
+  }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs:  map[string]any{"items": []any{"a", "b"}},
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := exec.Run(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "@for-each")
+}
+
 func TestExecutorModuleFunctionInOutput(t *testing.T) {
 	res, err := runExecutor(t, `
 outputs: {

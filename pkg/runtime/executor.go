@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -311,58 +312,143 @@ func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error
 	if err != nil {
 		return err
 	}
-	inputs, err := evalBody(n.Body, scope)
+	if n.ForEach != nil {
+		return e.runForEachResource(ctx, rs, n, rt, scope)
+	}
+	outputs, err := e.runOneResource(ctx, rs, n, rt, scope, n.Address)
 	if err != nil {
 		return err
 	}
+	storeNested(scope.Resources, n, outputs)
+	return nil
+}
 
+// runOneResource runs the lifecycle for a single resource instance and
+// appends its state entry. Outputs are returned so the caller can place
+// them in the eval scope (a single-instance leaf stores the outputs
+// directly; a for-each template stores a map keyed by instance).
+func (e *Executor) runOneResource(
+	ctx context.Context, rs *runState, n *Node, rt ResourceType,
+	scope *EvalContext, addr string,
+) (map[string]any, error) {
+	inputs, err := evalBody(n.Body, scope)
+	if err != nil {
+		return nil, err
+	}
 	var prior *state.Entry
 	if rs.prior != nil {
-		prior = rs.prior.Find(n.Address)
+		prior = rs.prior.Find(addr)
 	}
-
 	resource := rt.New()
 	if err := Decode(resource, inputs); err != nil {
-		return err
+		return nil, err
 	}
-
 	var outputs map[string]any
 	switch {
 	case prior == nil:
 		result, err := resource.Create(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		outputs = mapify(result)
 	case sameInputs(prior.Inputs, inputs):
 		outputs = prior.Outputs
 	case needsReplace(resource, prior.Inputs, inputs):
 		if err := resource.Delete(ctx, prior.Outputs); err != nil {
-			return fmt.Errorf("replace: delete prior: %w", err)
+			return nil, fmt.Errorf("replace: delete prior: %w", err)
 		}
 		result, err := resource.Create(ctx)
 		if err != nil {
-			return fmt.Errorf("replace: create: %w", err)
+			return nil, fmt.Errorf("replace: create: %w", err)
 		}
 		outputs = mapify(result)
 	default:
 		result, err := resource.Update(ctx, prior.Outputs)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		outputs = mapify(result)
 	}
-	storeNested(scope.Resources, n, outputs)
-
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
-		Address:       n.Address,
+		Address:       addr,
 		Type:          state.EntryLeaf,
 		Kind:          n.Type,
 		SchemaVersion: rt.SchemaVersion,
 		Inputs:        inputs,
 		Outputs:       outputs,
 	})
+	return outputs, nil
+}
+
+// runForEachResource expands a for-each template into one instance per
+// iterable key. Each instance gets its own scope with `@each.key` and
+// `@each.value` bound, its own state entry under
+// `<address>['<key>']`, and the parent scope sees a map of instance
+// outputs at the template address so downstream refs can index in.
+func (e *Executor) runForEachResource(
+	ctx context.Context, rs *runState, n *Node, rt ResourceType, scope *EvalContext,
+) error {
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return err
+	}
+	outputs := make(map[string]any, len(instances))
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		out, err := e.runOneResource(ctx, rs, n, rt, inst, addr)
+		if err != nil {
+			return fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		outputs[key] = out
+	}
+	storeNested(scope.Resources, n, outputs)
 	return nil
+}
+
+// evalForEach reduces a `@for-each:` expression to the iterable's
+// key-value pairs. A map literal evaluates to map[string]any directly.
+// A list evaluates to []any and is rejected per the language design
+// (sets are the only sequence form; lists are not a valid iterable).
+func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
+	v, err := Eval(expr, scope)
+	if err != nil {
+		return nil, fmt.Errorf("@for-each: %w", err)
+	}
+	switch x := v.(type) {
+	case map[string]any:
+		return x, nil
+	case []any:
+		return nil, fmt.Errorf("@for-each: lists are not a valid iterable; use a map or a set")
+	}
+	return nil, fmt.Errorf("@for-each: expected a map, got %T", v)
+}
+
+// childScopeWithEach returns a per-instance evaluation scope whose
+// `@each.key` and `@each.value` bindings are set to the iteration's
+// pair. The parent's Vars, Resources, Data, Actions, and Modules are
+// shared by reference.
+func childScopeWithEach(parent *EvalContext, key string, value any) *EvalContext {
+	child := *parent
+	child.EachKey = key
+	child.EachValue = value
+	child.ForEach = true
+	return &child
+}
+
+// instanceAddress appends a per-key suffix to a template address using
+// the source-side `['<key>']` form so eval and state-lookup agree.
+func instanceAddress(templateAddr, key string) string {
+	return fmt.Sprintf("%s['%s']", templateAddr, key)
+}
+
+func sortedKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // sameInputs compares two input maps by their canonical JSON form so a
