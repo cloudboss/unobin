@@ -37,6 +37,85 @@ func stepFor(plan *Plan, addr string) *PlanStep {
 	return nil
 }
 
+func TestPlanForEachResourceEmitsOneStepPerInstance(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+        size:      @each.value
+      }
+    }
+  }
+}
+`
+	var c resourceCounters
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:   newStateStore(t),
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+
+	alpha := stepFor(plan, "resource.core.thing.many['alpha']")
+	require.NotNil(t, alpha, "alpha instance step")
+	require.Equal(t, DecisionCreate, alpha.Decision)
+	require.Equal(t, "alpha", alpha.Inputs["name"])
+	require.Equal(t, int64(1), alpha.Inputs["size"])
+
+	beta := stepFor(plan, "resource.core.thing.many['beta']")
+	require.NotNil(t, beta, "beta instance step")
+	require.Equal(t, DecisionCreate, beta.Decision)
+	require.Equal(t, "beta", beta.Inputs["name"])
+	require.Equal(t, int64(2), beta.Inputs["size"])
+
+	require.Nil(t, stepFor(plan, "resource.core.thing.many"),
+		"no plan step for the template address itself")
+}
+
+func TestPlanForEachOrphanInstanceDestroyed(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+        size:      @each.value
+      }
+    }
+  }
+}
+`
+	var c resourceCounters
+	mods := resourceModules(&c)
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := exec.Run(context.Background())
+	require.NoError(t, err)
+
+	exec.Inputs = map[string]any{"configs": map[string]any{"alpha": int64(1)}}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+
+	beta := stepFor(plan, "resource.core.thing.many['beta']")
+	require.NotNil(t, beta, "removed instance shows up as orphan")
+	require.Equal(t, DecisionDestroy, beta.Decision)
+}
+
 func TestPlanComposite(t *testing.T) {
 	composite := parseStack(t, `
 resources: {

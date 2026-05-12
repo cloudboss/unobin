@@ -158,7 +158,8 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if step.Decision == DecisionDestroy {
 		return e.applyDestroy(ctx, step)
 	}
-	node, scope, err := e.nodeAndScope(rs, step.Address)
+	tmpl, instKey := splitInstanceAddress(step.Address)
+	node, scope, err := e.nodeAndScope(rs, tmpl)
 	if err != nil {
 		return err
 	}
@@ -203,7 +204,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	default:
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
-	storeNested(scope.Resources, node, outputs)
+	if instKey == "" {
+		storeNested(scope.Resources, node, outputs)
+	} else {
+		seedInstance(scope.Resources, node.NS, node.Type, node.Name, instKey, outputs)
+	}
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:       step.Address,
 		Type:          state.EntryLeaf,

@@ -10,6 +10,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestApplyPlanForEachResource(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+        size:      @each.value
+      }
+    }
+  }
+}
+outputs: {
+  alpha-id: resource.core.thing.many['alpha'].id
+  beta-id:  resource.core.thing.many['beta'].id
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:   store,
+		Stack:   stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+
+	res, err := exec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
+	require.Equal(t, "fake-alpha", res.Outputs["alpha-id"])
+	require.Equal(t, "fake-beta", res.Outputs["beta-id"])
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addrs := map[string]bool{}
+	for _, ent := range snap.Entries {
+		addrs[ent.Address] = true
+	}
+	require.True(t, addrs["resource.core.thing.many['alpha']"])
+	require.True(t, addrs["resource.core.thing.many['beta']"])
+}
+
 func TestApplyPlanCreatesResource(t *testing.T) {
 	src := `
 resources: {

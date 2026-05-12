@@ -101,37 +101,38 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	}
 
 	addressDecision := make(map[string]Decision)
+	liveAddresses := make(map[string]bool)
 	for _, addr := range order {
 		node := e.DAG.Nodes[addr]
-		step, err := e.planNode(ctx, rs, node)
+		steps, err := e.planNodeSteps(ctx, rs, node)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
-		if step == nil {
-			continue
-		}
-		// An action whose upstream is changing must rerun, even when its
-		// own inputs and trigger value (against prior state) match.
-		if step.Kind == NodeAction && step.Decision == DecisionSkip {
-			for _, ref := range Refs(node.Body) {
-				if isUpstreamChange(addressDecision[ref]) {
-					step.Decision = DecisionRerun
-					step.TriggerHash = ""
-					break
+		for _, step := range steps {
+			// An action whose upstream is changing must rerun, even when
+			// its own inputs and trigger value (against prior state) match.
+			if step.Kind == NodeAction && step.Decision == DecisionSkip {
+				for _, ref := range Refs(node.Body) {
+					if isUpstreamChange(addressDecision[ref]) {
+						step.Decision = DecisionRerun
+						step.TriggerHash = ""
+						break
+					}
 				}
 			}
+			plan.Steps = append(plan.Steps, step)
+			addressDecision[step.Address] = step.Decision
+			liveAddresses[step.Address] = true
 		}
-		plan.Steps = append(plan.Steps, step)
-		addressDecision[step.Address] = step.Decision
 	}
 
-	// Orphans: prior leaf entries with no source resource node.
+	// Orphans: prior leaf entries with no live address in this plan.
 	if rs.prior != nil {
 		for _, prior := range rs.prior.Entries {
 			if prior.Type != state.EntryLeaf {
 				continue
 			}
-			if _, ok := e.DAG.Nodes[prior.Address]; ok {
+			if liveAddresses[prior.Address] {
 				continue
 			}
 			plan.Steps = append(plan.Steps, &PlanStep{
@@ -144,6 +145,24 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		}
 	}
 	return plan, nil
+}
+
+// planNodeSteps wraps planNode so a single per-node planner can emit
+// multiple steps. A `@for-each` resource fans out into one step per
+// instance; everything else returns a one-element slice (or nil to
+// skip the node).
+func (e *Executor) planNodeSteps(ctx context.Context, rs *runState, n *Node) ([]*PlanStep, error) {
+	if n.Kind == NodeResource && n.ForEach != nil {
+		return e.planForEachResource(ctx, rs, n)
+	}
+	step, err := e.planNode(ctx, rs, n)
+	if err != nil {
+		return nil, err
+	}
+	if step == nil {
+		return nil, nil
+	}
+	return []*PlanStep{step}, nil
 }
 
 func (e *Executor) seedFromPriorState(rs *runState) error {
@@ -173,11 +192,16 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			if scope == nil {
 				continue
 			}
-			ns, typeName, name, ok := parseResourceAddress(innerAddress(ent.Address))
+			tmpl, instKey := splitInstanceAddress(ent.Address)
+			ns, typeName, name, ok := parseResourceAddress(innerAddress(tmpl))
 			if !ok {
 				continue
 			}
-			seedNested(scope.Resources, ns, typeName, name, ent.Outputs)
+			if instKey == "" {
+				seedNested(scope.Resources, ns, typeName, name, ent.Outputs)
+			} else {
+				seedInstance(scope.Resources, ns, typeName, name, instKey, ent.Outputs)
+			}
 		}
 	}
 	return nil
@@ -224,6 +248,31 @@ func seedNested(target map[string]any, ns, typeName, name string, value map[stri
 	nsMap := getOrCreate(target, ns)
 	typeMap := getOrCreate(nsMap, typeName)
 	typeMap[name] = value
+}
+
+// seedInstance writes one for-each instance's outputs into scope at
+// `target[ns][type][name][key] = value`, so that an expression like
+// `resource.<ns>.<type>.<name>['<key>'].<field>` resolves through
+// ordinary dot-path navigation.
+func seedInstance(target map[string]any, ns, typeName, name, key string, value map[string]any) {
+	nsMap := getOrCreate(target, ns)
+	typeMap := getOrCreate(nsMap, typeName)
+	nameMap := getOrCreate(typeMap, name)
+	nameMap[key] = value
+}
+
+// splitInstanceAddress separates a `<template>['<key>']` address into
+// its template part and the instance key. Non-instance addresses
+// return unchanged with an empty key.
+func splitInstanceAddress(addr string) (template, key string) {
+	if !strings.HasSuffix(addr, "']") {
+		return addr, ""
+	}
+	idx := strings.LastIndex(addr, "['")
+	if idx < 0 {
+		return addr, ""
+	}
+	return addr[:idx], addr[idx+2 : len(addr)-2]
 }
 
 // isUpstreamChange reports whether the named decision implies the
@@ -359,17 +408,27 @@ func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*Pl
 	if err != nil {
 		return nil, err
 	}
+	return e.planOneResource(ctx, rs, n, rt, scope, n.Address)
+}
+
+// planOneResource plans a single resource instance against the given
+// scope and state address. Used both by the plain resource path
+// (scope == parent, addr == n.Address) and by the for-each path
+// (scope has @each bound, addr has the `['<key>']` suffix).
+func (e *Executor) planOneResource(
+	ctx context.Context, rs *runState, n *Node, rt ResourceType,
+	scope *EvalContext, addr string,
+) (*PlanStep, error) {
 	inputs, err := evalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
-
 	var prior *state.Entry
 	if rs.prior != nil {
-		prior = rs.prior.Find(n.Address)
+		prior = rs.prior.Find(addr)
 	}
 	step := &PlanStep{
-		Address: n.Address,
+		Address: addr,
 		Kind:    n.Kind,
 		Inputs:  inputs,
 	}
@@ -411,6 +470,42 @@ func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*Pl
 	}
 	step.Decision = DecisionNoOp
 	return step, nil
+}
+
+// planForEachResource plans one step per iterable key. The iterable is
+// evaluated against the node's natural scope; each instance is planned
+// against a child scope carrying its `@each.key` / `@each.value`
+// binding, with its own state address.
+func (e *Executor) planForEachResource(
+	ctx context.Context, rs *runState, n *Node,
+) ([]*PlanStep, error) {
+	mod, ok := e.modulesFor(n)[n.NS]
+	if !ok {
+		return nil, fmt.Errorf("module %q is not imported", n.NS)
+	}
+	rt, ok := mod.Resources[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+	}
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		step, err := e.planOneResource(ctx, rs, n, rt, inst, addr)
+		if err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
 }
 
 // readObserved decodes inputs onto a fresh resource and asks the
