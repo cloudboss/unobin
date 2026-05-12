@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -50,6 +52,18 @@ func testModules() map[string]*Module {
 				"lookup": {
 					Name: "lookup",
 					New:  func() DataSource { return &lookupDataSource{} },
+				},
+			},
+			Functions: map[string]FunctionType{
+				"uppercase": {
+					Name: "uppercase",
+					Func: func(args []any) (any, error) {
+						s, ok := args[0].(string)
+						if !ok {
+							return nil, fmt.Errorf("uppercase: want string, got %T", args[0])
+						}
+						return strings.ToUpper(s), nil
+					},
 				},
 			},
 		},
@@ -305,6 +319,46 @@ outputs: {
 	require.Equal(t, "box", modCall.ModuleType)
 	require.Equal(t, "alpha", modCall.Inputs["name"])
 	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
+}
+
+func TestExecutorModuleFunctionInOutput(t *testing.T) {
+	res, err := runExecutor(t, `
+outputs: {
+  shout: core.uppercase(var.name)
+}
+`, map[string]any{"name": "hello"})
+	require.NoError(t, err)
+	require.Equal(t, "HELLO", res.Outputs["shout"])
+}
+
+func TestExecutorModuleFunctionInsideComposite(t *testing.T) {
+	layerBody := parseStack(t, `
+inputs: { name: { type: string } }
+outputs: { shout: core.uppercase(var.name) }
+`)
+	rootMods := map[string]*Module{
+		"wrapper": {
+			Name: "wrapper",
+			Composites: map[string]*CompositeType{
+				"layer": {Name: "layer", Body: layerBody, Modules: testModules()},
+			},
+		},
+	}
+	src := `
+resources: { wrapper: { layer: { x: { name: 'hi' } } } }
+outputs: { out: resource.wrapper.layer.x.shout }
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), rootMods),
+		Modules: rootMods,
+		Store:   store,
+		Stack:   stack,
+	}
+	res, err := exec.Run(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "HI", res.Outputs["out"])
 }
 
 func TestExecutorCompositeUsesItsOwnModules(t *testing.T) {

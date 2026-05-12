@@ -11,11 +11,14 @@ import (
 // is the validated `inputs:` map after `config.ub` and `UB_VAR_*` env
 // overrides. Resources, Data, and Actions hold the outputs of nodes
 // that have already executed, indexed by their source address path.
+// Modules is the import table the scope's `<alias>.<func>(...)` calls
+// resolve against; nil disables module-qualified calls.
 type EvalContext struct {
 	Vars      map[string]any
 	Resources map[string]any
 	Data      map[string]any
 	Actions   map[string]any
+	Modules   map[string]*Module
 }
 
 // Eval reduces a parsed expression to a Go value. Supported are
@@ -86,13 +89,10 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 
 // evalCall evaluates a function call. Bare identifiers (`format(...)`)
 // look up the built-in registry; module-qualified calls
-// (`alias.func(...)`) are not yet supported and return an error
-// pointing at the gap.
+// (`alias.func(...)`) resolve against the scope's Modules table.
 func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if c.Module != nil {
-		return nil, fmt.Errorf(
-			"eval: module-qualified function %s.%s: module functions are not yet supported",
-			c.Module.Name, c.Func.Name)
+		return evalModuleCall(c, ctx)
 	}
 	if c.Callee == nil {
 		return nil, fmt.Errorf("eval: call has no callee")
@@ -101,15 +101,40 @@ func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("eval: unknown function %q", c.Callee.Name)
 	}
-	args := make([]any, len(c.Args))
-	for i, a := range c.Args {
+	args, err := evalArgs(c.Callee.Name, c.Args, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return fn(args)
+}
+
+func evalModuleCall(c *lang.Call, ctx *EvalContext) (any, error) {
+	mod, ok := ctx.Modules[c.Module.Name]
+	if !ok {
+		return nil, fmt.Errorf("eval: module %q is not imported", c.Module.Name)
+	}
+	fn, ok := mod.Functions[c.Func.Name]
+	if !ok {
+		return nil, fmt.Errorf("eval: module %s has no function %q",
+			c.Module.Name, c.Func.Name)
+	}
+	args, err := evalArgs(c.Module.Name+"."+c.Func.Name, c.Args, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return fn.Func(args)
+}
+
+func evalArgs(name string, exprs []lang.Expr, ctx *EvalContext) ([]any, error) {
+	args := make([]any, len(exprs))
+	for i, a := range exprs {
 		v, err := Eval(a, ctx)
 		if err != nil {
-			return nil, fmt.Errorf("eval: %s arg %d: %w", c.Callee.Name, i, err)
+			return nil, fmt.Errorf("eval: %s arg %d: %w", name, i, err)
 		}
 		args[i] = v
 	}
-	return fn(args)
+	return args, nil
 }
 
 // evalInfix evaluates a binary operator expression. `&&` and `||` short

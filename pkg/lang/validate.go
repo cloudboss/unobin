@@ -439,12 +439,88 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["outputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateOutputs(obj))
 		}
+		mergeErrors(errs, ValidateModuleCallAliases(f))
 	case FileModule:
 		if obj, ok := blocks["exports"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateExports(obj))
 		}
 	}
 	return errs
+}
+
+// ValidateModuleCallAliases walks every expression in f looking for
+// `<alias>.<func>(...)` calls and rejects any whose alias is missing
+// from the file's `imports:` block. The function's existence in the
+// module is not checked here; that's a runtime concern because the
+// module's actual function set lives in compiled Go code.
+func ValidateModuleCallAliases(f *File) *ErrorList {
+	errs := NewErrorList(0)
+	imports := importedAliases(f)
+	walkExpressions(f.Body, func(e Expr) {
+		c, ok := e.(*Call)
+		if !ok || c.Module == nil {
+			return
+		}
+		if _, declared := imports[c.Module.Name]; !declared {
+			errs.Addf(ErrResolve, c.Module.S.Start,
+				"module %q is not imported (called as %s.%s)",
+				c.Module.Name, c.Module.Name, c.Func.Name)
+		}
+	})
+	return errs
+}
+
+func importedAliases(f *File) map[string]struct{} {
+	out := map[string]struct{}{}
+	if f.Body == nil {
+		return out
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.Name != "imports" {
+			continue
+		}
+		obj, ok := fld.Value.(*ObjectLit)
+		if !ok {
+			return out
+		}
+		for _, imp := range obj.Fields {
+			if imp.Key.Kind == FieldIdent && !imp.Key.IsMeta() {
+				out[imp.Key.Name] = struct{}{}
+			}
+		}
+		return out
+	}
+	return out
+}
+
+func walkExpressions(e Expr, visit func(Expr)) {
+	if e == nil {
+		return
+	}
+	visit(e)
+	switch v := e.(type) {
+	case *ObjectLit:
+		for _, fld := range v.Fields {
+			walkExpressions(fld.Value, visit)
+		}
+	case *ArrayLit:
+		for _, el := range v.Elements {
+			walkExpressions(el, visit)
+		}
+	case *Call:
+		for _, a := range v.Args {
+			walkExpressions(a, visit)
+		}
+	case *Infix:
+		walkExpressions(v.Left, visit)
+		walkExpressions(v.Right, visit)
+	case *Prefix:
+		walkExpressions(v.Expr, visit)
+	case *DotPath:
+		for _, seg := range v.Segments {
+			walkExpressions(seg.Index, visit)
+		}
+	}
 }
 
 func indexTopLevelBlocks(f *File) map[string]Expr {

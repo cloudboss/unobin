@@ -146,6 +146,53 @@ state:      { backend: local }
 		strings.Join(errsToStrings(errs), "; "))
 }
 
+func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
+	src := `
+imports: { core: 'github.com/x/core@v0.1.0' }
+outputs: {
+  shout: lib.upper(var.name)
+}
+`
+	f, err := ParseSource("stack.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	msg := errs.Errors()[0].Error()
+	require.Contains(t, msg, `"lib"`)
+	require.Contains(t, msg, "not imported")
+}
+
+func TestValidateAcceptsCallToImportedModule(t *testing.T) {
+	src := `
+imports: { lib: 'github.com/x/lib@v0.1.0' }
+outputs: {
+  shout: lib.upper(var.name)
+}
+`
+	f, err := ParseSource("stack.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateChecksCallsInNestedExpressions(t *testing.T) {
+	src := `
+imports: { core: 'github.com/x/core@v0.1.0' }
+resources: {
+  core: {
+    thing: {
+      one: { name: lib.upper('hi') }
+    }
+  }
+}
+`
+	f, err := ParseSource("stack.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Error(), `"lib"`)
+}
+
 func errsToStrings(l *ErrorList) []string {
 	es := l.Errors()
 	out := make([]string, len(es))

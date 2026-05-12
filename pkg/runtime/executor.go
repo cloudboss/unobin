@@ -97,6 +97,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
+			Modules:   e.Modules,
 		},
 		outputs:    make(map[string]any),
 		composites: make(map[string]*EvalContext),
@@ -137,6 +138,17 @@ func (e *Executor) modulesFor(n *Node) map[string]*Module {
 	return e.Modules
 }
 
+// compositeBodyModules returns the import table the composite's own
+// body (internals and outputs) should resolve aliases against. The
+// boundary node carries the composite's Modules; an unset table falls
+// back to the executor's root for test compositions that don't set it.
+func compositeBodyModules(boundary *Node, fallback map[string]*Module) map[string]*Module {
+	if boundary.Modules != nil {
+		return boundary.Modules
+	}
+	return fallback
+}
+
 // modulesForAddress is the orphan-path equivalent of modulesFor: it
 // resolves the import table for a state-only address whose source node
 // has been removed. The direct parent call site (everything up to the
@@ -175,6 +187,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		Resources: make(map[string]any),
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
+		Modules:   compositeBodyModules(boundary, e.Modules),
 	}
 	rs.composites[callSite] = scope
 	return scope, nil

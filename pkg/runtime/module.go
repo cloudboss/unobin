@@ -22,6 +22,17 @@ type Module struct {
 	Resources   map[string]ResourceType
 	DataSources map[string]DataSourceType
 	Composites  map[string]*CompositeType
+	Functions   map[string]FunctionType
+}
+
+// FunctionType registers a callable function under a Go module. Functions
+// take pre-evaluated argument values and return a single value or an
+// error. They run inline during expression evaluation and have no DAG
+// node or state of their own.
+type FunctionType struct {
+	Name        string
+	Description string
+	Func        func(args []any) (any, error)
 }
 
 // CompositeType registers a UB-implemented type under a module. Body

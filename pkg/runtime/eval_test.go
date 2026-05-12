@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -246,12 +248,6 @@ func TestEvalCallUnknown(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown function")
 	require.Contains(t, err.Error(), "frobnicate")
-}
-
-func TestEvalCallModuleNotSupported(t *testing.T) {
-	_, err := Eval(parseValue(t, "lib.foo('x')"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "module functions are not yet supported")
 }
 
 func TestEvalCallNested(t *testing.T) {
@@ -556,6 +552,66 @@ func TestEvalPrefixTypeError(t *testing.T) {
 	_, err = Eval(parseValue(t, "-'a'"), &EvalContext{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "number")
+}
+
+func TestEvalCallModuleFunction(t *testing.T) {
+	ctx := &EvalContext{
+		Vars: map[string]any{"name": "web"},
+		Modules: map[string]*Module{
+			"lib": {
+				Name: "lib",
+				Functions: map[string]FunctionType{
+					"upper": {
+						Name: "upper",
+						Func: func(args []any) (any, error) {
+							return strings.ToUpper(args[0].(string)), nil
+						},
+					},
+				},
+			},
+		},
+	}
+	got, err := Eval(parseValue(t, "lib.upper(var.name)"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "WEB", got)
+}
+
+func TestEvalCallModuleNotImported(t *testing.T) {
+	_, err := Eval(parseValue(t, "lib.upper('x')"), &EvalContext{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `"lib"`)
+}
+
+func TestEvalCallModuleFunctionNotFound(t *testing.T) {
+	ctx := &EvalContext{
+		Modules: map[string]*Module{
+			"lib": {Name: "lib"},
+		},
+	}
+	_, err := Eval(parseValue(t, "lib.upper('x')"), ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `"upper"`)
+}
+
+func TestEvalCallModuleFunctionError(t *testing.T) {
+	ctx := &EvalContext{
+		Modules: map[string]*Module{
+			"lib": {
+				Name: "lib",
+				Functions: map[string]FunctionType{
+					"boom": {
+						Name: "boom",
+						Func: func(args []any) (any, error) {
+							return nil, fmt.Errorf("kaboom")
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := Eval(parseValue(t, "lib.boom()"), ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "kaboom")
 }
 
 func TestEvalNestedExpr(t *testing.T) {
