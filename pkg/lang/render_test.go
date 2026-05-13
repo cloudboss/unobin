@@ -82,6 +82,70 @@ func TestRenderNested(t *testing.T) {
 		Render(v))
 }
 
+func TestRenderPrettyEmpty(t *testing.T) {
+	require.Equal(t, "{}", RenderPretty(map[string]any{}))
+	require.Equal(t, "[]", RenderPretty([]any{}))
+}
+
+func TestRenderPrettyPrimitivesMatchRender(t *testing.T) {
+	cases := []any{nil, true, false, int64(42), 1.5, "hello", "it's"}
+	for _, c := range cases {
+		require.Equal(t, Render(c), RenderPretty(c))
+	}
+}
+
+func TestRenderPrettyFlatMap(t *testing.T) {
+	v := map[string]any{"a": int64(1), "b": "two"}
+	want := "{\n  a: 1\n  b: 'two'\n}"
+	require.Equal(t, want, RenderPretty(v))
+}
+
+func TestRenderPrettyFlatList(t *testing.T) {
+	v := []any{int64(1), int64(2), int64(3)}
+	want := "[\n  1,\n  2,\n  3,\n]"
+	require.Equal(t, want, RenderPretty(v))
+}
+
+func TestRenderPrettyNested(t *testing.T) {
+	v := map[string]any{
+		"files": map[string]any{
+			"alpha": map[string]any{
+				"path": "/tmp/alpha.txt",
+				"size": int64(13),
+			},
+			"beta": map[string]any{
+				"path": "/tmp/beta.txt",
+				"size": int64(14),
+			},
+		},
+	}
+	want := "{\n" +
+		"  files: {\n" +
+		"    alpha: {\n" +
+		"      path: '/tmp/alpha.txt'\n" +
+		"      size: 13\n" +
+		"    }\n" +
+		"    beta: {\n" +
+		"      path: '/tmp/beta.txt'\n" +
+		"      size: 14\n" +
+		"    }\n" +
+		"  }\n" +
+		"}"
+	require.Equal(t, want, RenderPretty(v))
+}
+
+func TestRenderPrettyReparses(t *testing.T) {
+	v := map[string]any{
+		"files": map[string]any{
+			"alpha": map[string]any{"path": "/tmp/a", "size": int64(13)},
+		},
+		"tags": []any{"x", "y"},
+	}
+	rendered := RenderPretty(v)
+	_, err := ParseSource("pretty", []byte("v: "+rendered+"\n"))
+	require.NoError(t, err)
+}
+
 func TestRenderRoundTrip(t *testing.T) {
 	values := []any{
 		"hello",

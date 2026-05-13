@@ -345,7 +345,8 @@ func printSnapshot(cmd *cobra.Command, snap *state.Snapshot) error {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "outputs:")
 		for _, k := range sortedMapKeys(snap.Outputs) {
-			fmt.Fprintf(out, "  %s = %s\n", k, lang.Render(snap.Outputs[k]))
+			rendered := strings.ReplaceAll(lang.RenderPretty(snap.Outputs[k]), "\n", "\n  ")
+			fmt.Fprintf(out, "  %s: %s\n", k, rendered)
 		}
 	}
 	return nil

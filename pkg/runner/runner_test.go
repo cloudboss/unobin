@@ -116,11 +116,11 @@ outputs: {
 }
 `)
 	apply := applyVia(t, info, "")
-	require.Contains(t, apply, "said = 'hello world'")
+	require.Contains(t, apply, "said: 'hello world'")
 
 	all, err := runRoot(t, info, "output")
 	require.NoError(t, err)
-	require.Contains(t, all, "said = 'hello world'")
+	require.Contains(t, all, "said: 'hello world'")
 
 	one, err := runRoot(t, info, "output", "said")
 	require.NoError(t, err)
@@ -194,7 +194,7 @@ inputs: {
 `), 0o644))
 
 	out := applyVia(t, info, cfg)
-	require.Contains(t, out, "said = 'from-config'")
+	require.Contains(t, out, "said: 'from-config'")
 }
 
 func TestDeploymentID(t *testing.T) {
@@ -241,9 +241,9 @@ outputs: {
 		[]byte(`inputs: { greeting: 'hello-staging' }`), 0o644))
 
 	out := applyVia(t, info, prod)
-	require.Contains(t, out, "said = 'hello-prod'")
+	require.Contains(t, out, "said: 'hello-prod'")
 	out = applyVia(t, info, staging)
-	require.Contains(t, out, "said = 'hello-staging'")
+	require.Contains(t, out, "said: 'hello-staging'")
 
 	// Both deployments now have their own snapshot directory.
 	prodSnap := filepath.Join(".unobin/state", info.StackName, "prod")
@@ -279,7 +279,7 @@ inputs: {
 
 	t.Setenv("UB_VAR_greeting", "from-env")
 	out := applyVia(t, info, cfg)
-	require.Contains(t, out, "said = 'from-env'")
+	require.Contains(t, out, "said: 'from-env'")
 }
 
 func TestEnvVarUnderscoreToHyphen(t *testing.T) {
@@ -300,7 +300,7 @@ outputs: {
 
 	t.Setenv("UB_VAR_cluster_name", "web-prod")
 	out := applyVia(t, info, "")
-	require.Contains(t, out, "said = 'web-prod'")
+	require.Contains(t, out, "said: 'web-prod'")
 }
 
 func TestEnvVarParsesTypedLiterals(t *testing.T) {
@@ -334,7 +334,7 @@ outputs: {
 
 	out := applyVia(t, info, "")
 	require.Contains(t, out,
-		`said = 'size=5 spot=true ratio=1.5 subnets=[\'subnet-a\', \'subnet-b\']'`)
+		`said: 'size=5 spot=true ratio=1.5 subnets=[\'subnet-a\', \'subnet-b\']'`)
 }
 
 func TestPlanRejectsTypeMismatch(t *testing.T) {
@@ -394,7 +394,7 @@ outputs: {
 `
 	info := testInfo(t, src)
 	out := applyVia(t, info, "")
-	require.Contains(t, out, "said = 'size=3'")
+	require.Contains(t, out, "said: 'size=3'")
 }
 
 func TestPlanRejectsConstraintViolation(t *testing.T) {
@@ -468,7 +468,7 @@ outputs: {
 	info := testInfo(t, src)
 	t.Setenv("UB_VAR_endpoint", "https://example.com/health")
 	out := applyVia(t, info, "")
-	require.Contains(t, out, "said = 'https://example.com/health'")
+	require.Contains(t, out, "said: 'https://example.com/health'")
 }
 
 func TestEnvVarQuotedStringStillWorks(t *testing.T) {
@@ -488,7 +488,7 @@ outputs: {
 	info := testInfo(t, src)
 	t.Setenv("UB_VAR_greeting", "'hello world'")
 	out := applyVia(t, info, "")
-	require.Contains(t, out, "said = 'hello world'")
+	require.Contains(t, out, "said: 'hello world'")
 }
 
 func TestPlanShowsCreateBeforeApply(t *testing.T) {
@@ -893,7 +893,7 @@ outputs: {
 
 	out, err := runRoot(t, info, "apply", planFile)
 	require.NoError(t, err)
-	require.Contains(t, out, "said = 'hello world'")
+	require.Contains(t, out, "said: 'hello world'")
 }
 
 func TestPlanMissingConfigFile(t *testing.T) {
@@ -1314,7 +1314,7 @@ outputs: {
 	require.Contains(t, showOut, "stack:")
 	require.Contains(t, showOut, "test-stack")
 	require.Contains(t, showOut, "action.core.echo.hi")
-	require.Contains(t, showOut, `said = 'hello'`)
+	require.Contains(t, showOut, `said: 'hello'`)
 }
 
 func TestSchema(t *testing.T) {
@@ -1381,7 +1381,7 @@ outputs: {
 
 	showOut, err := runRoot(t, info, "state", "show")
 	require.NoError(t, err)
-	require.Contains(t, showOut, `said = 'hello'`)
+	require.Contains(t, showOut, `said: 'hello'`)
 }
 
 func TestStateShowFailsWithWrongKey(t *testing.T) {
@@ -1430,7 +1430,7 @@ outputs: {
 
 	out, err := runRoot(t, info, "apply", planFile)
 	require.NoError(t, err)
-	require.Contains(t, out, "said = 'hello world'")
+	require.Contains(t, out, "said: 'hello world'")
 }
 
 func TestApplyTamperedPlanFile(t *testing.T) {

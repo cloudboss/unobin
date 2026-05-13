@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-// Render formats v as a UB literal expression. Strings get single
-// quotes with backslash escaping; lists, maps, and primitives use the
-// canonical UB syntax. The result round trips through ParseSource for
-// the value forms unobin natively produces (string, int64, float64,
-// bool, nil, []any, map[string]any).
+// Render formats v as a UB literal expression on one line. Strings
+// get single quotes with backslash escaping; lists, maps, and
+// primitives use the canonical UB syntax. The result re-parses
+// through ParseSource for the value forms unobin natively produces
+// (string, int64, float64, bool, nil, []any, map[string]any).
 func Render(v any) string {
 	switch x := v.(type) {
 	case nil:
@@ -48,6 +48,83 @@ func Render(v any) string {
 		return "{ " + strings.Join(parts, ", ") + " }"
 	}
 	return fmt.Sprintf("%v", v)
+}
+
+// RenderPretty formats v as UB syntax with indented multi-line
+// expansion for non-empty maps and lists. Maps put each field on its
+// own line, separated by newlines (UB permits whitespace as a
+// separator inside an object literal). Empty collections render
+// inline as `{}` or `[]`. Primitive values render exactly as Render
+// would emit them.
+func RenderPretty(v any) string {
+	var b strings.Builder
+	renderPretty(&b, v, 0)
+	return b.String()
+}
+
+func renderPretty(b *strings.Builder, v any, depth int) {
+	switch x := v.(type) {
+	case nil:
+		b.WriteString("null")
+	case string:
+		b.WriteString(renderString(x))
+	case bool:
+		if x {
+			b.WriteString("true")
+		} else {
+			b.WriteString("false")
+		}
+	case int64:
+		b.WriteString(strconv.FormatInt(x, 10))
+	case int:
+		b.WriteString(strconv.FormatInt(int64(x), 10))
+	case float64:
+		b.WriteString(strconv.FormatFloat(x, 'g', -1, 64))
+	case []any:
+		if len(x) == 0 {
+			b.WriteString("[]")
+			return
+		}
+		inner := strings.Repeat("  ", depth+1)
+		closer := strings.Repeat("  ", depth)
+		b.WriteString("[\n")
+		for _, el := range x {
+			b.WriteString(inner)
+			renderPretty(b, el, depth+1)
+			b.WriteString(",\n")
+		}
+		b.WriteString(closer)
+		b.WriteString("]")
+	case map[string]any:
+		if len(x) == 0 {
+			b.WriteString("{}")
+			return
+		}
+		keys := sortedStringKeys(x)
+		inner := strings.Repeat("  ", depth+1)
+		closer := strings.Repeat("  ", depth)
+		b.WriteString("{\n")
+		for _, k := range keys {
+			b.WriteString(inner)
+			b.WriteString(RenderKey(k))
+			b.WriteString(": ")
+			renderPretty(b, x[k], depth+1)
+			b.WriteString("\n")
+		}
+		b.WriteString(closer)
+		b.WriteString("}")
+	default:
+		b.WriteString(fmt.Sprintf("%v", v))
+	}
+}
+
+func sortedStringKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // renderString emits s as a single-quoted UB string with backslash
