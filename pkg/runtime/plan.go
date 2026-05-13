@@ -6,8 +6,24 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/state"
 )
+
+// tolerantEvalBody evaluates a body against the plan-time scope. When
+// the body references an upstream node whose outputs are not yet
+// known (a fresh resource or action with no prior, a data source that
+// has not run), eval returns ErrEvalNotFound; tolerantEvalBody
+// swallows that as nil inputs so the plan step still emits. Apply
+// re-evaluates the body against the live scope and surfaces a real
+// error if the reference is genuinely invalid.
+func tolerantEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
+	inputs, err := evalBody(body, ec)
+	if err != nil && errors.Is(err, ErrEvalNotFound) {
+		return nil, nil
+	}
+	return inputs, err
+}
 
 // Decision tags one node's planned action.
 type Decision string
@@ -60,11 +76,14 @@ func (s *PlanStep) Gone() bool {
 
 // Plan is the readonly result of computing what an apply would do.
 // StateRev is the snapshot rev the plan was computed against. Apply
-// rejects the plan when the current rev no longer matches.
+// rejects the plan when the current rev no longer matches. Inputs
+// captures the validated root inputs so apply can rebuild the same
+// eval scope without re-reading config.ub.
 type Plan struct {
 	Stack        state.StackInfo
 	DeploymentID string
 	StateRev     string
+	Inputs       map[string]any
 	Steps        []*PlanStep
 }
 
@@ -92,6 +111,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		Stack:        e.Stack,
 		DeploymentID: e.Store.DeploymentID(),
 		StateRev:     stateRev,
+		Inputs:       e.Inputs,
 	}
 
 	// Seed the EvalContext with prior outputs so downstream evaluation
@@ -306,7 +326,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		if err != nil {
 			return nil, err
 		}
-		inputs, err := evalBody(n.Body, scope)
+		inputs, err := tolerantEvalBody(n.Body, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +383,7 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := evalBody(n.Body, scope)
+	inputs, err := tolerantEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +439,7 @@ func (e *Executor) planOneResource(
 	ctx context.Context, rs *runState, n *Node, rt ResourceType,
 	scope *EvalContext, addr string,
 ) (*PlanStep, error) {
-	inputs, err := evalBody(n.Body, scope)
+	inputs, err := tolerantEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}

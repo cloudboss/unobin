@@ -12,8 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stack runs an end-to-end pipeline: parse, validate, build the DAG,
-// instantiate an Executor with a tempdir LocalStore, and Run.
+// applyOnce drives one Plan-then-ApplyPlan cycle through the exec,
+// round-tripping the plan bytes the way a real stack binary would. It
+// is the only apply entry point; there is no apply-without-plan path.
+func applyOnce(t *testing.T, exec *runtime.Executor) *runtime.ExecResult {
+	t.Helper()
+	ctx := context.Background()
+	plan, err := exec.Plan(ctx)
+	require.NoError(t, err)
+	encoded, err := runtime.EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := runtime.DecodePlan(encoded)
+	require.NoError(t, err)
+	res, err := exec.ApplyPlan(ctx, pf)
+	require.NoError(t, err)
+	return res
+}
+
+// runStack parses, validates, builds the DAG, and drives one
+// Plan-and-ApplyPlan cycle through the executor.
 func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResult {
 	t.Helper()
 	f, err := lang.ParseSource("stack.ub", []byte(src))
@@ -35,9 +52,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 		Store:   store,
 		Stack:   state.StackInfo{Name: "demo-stack", Version: "v0", Commit: "c0"},
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
-	return res
+	return applyOnce(t, exec)
 }
 
 func errsAsStrings(l *lang.ErrorList) []string {
@@ -106,8 +121,8 @@ outputs: {
 	require.Equal(t, "computed-value\n", res.Outputs["result"])
 }
 
-// stackTwiceCounts re-uses one Store across two Runs to verify state
-// flows between executions.
+// stackTwiceCounts re-uses one Store across two apply cycles to verify
+// state flows between executions.
 func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *runtime.ExecResult) {
 	t.Helper()
 	store, err := state.NewLocalStore(t.TempDir(), "demo-stack", "test", state.NoopEncrypter{})
@@ -130,15 +145,12 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	f, err := lang.ParseSource("stack.ub", []byte(src))
 	require.NoError(t, err)
 
-	first, err := (&runtime.Executor{
+	first := applyOnce(t, &runtime.Executor{
 		DAG: runtime.BuildDAG(f, mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
-	second, err := (&runtime.Executor{
+	})
+	second := applyOnce(t, &runtime.Executor{
 		DAG: runtime.BuildDAG(f, mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
-
+	})
 	return atomic.LoadInt64(&runs), first, second
 }
 

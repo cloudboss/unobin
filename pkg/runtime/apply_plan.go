@@ -43,20 +43,34 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	if err != nil {
 		return nil, err
 	}
+	// The apply subcommand is invoked with only the plan file, so the
+	// executor's own Inputs is typically empty. Seed root Vars from
+	// the plan file so root-scope references like `var.X` resolve when
+	// applyXxx re-evaluates a node body.
+	if len(rs.eval.Vars) == 0 && len(pf.Inputs) > 0 {
+		rs.eval.Vars = pf.Inputs
+	}
 
 	// Composite scopes seed from the plan: each composite step carries
 	// its evaluated call site args as Inputs, so internals see the
-	// right Vars without needing the root inputs again.
+	// right Vars without needing the root inputs again. Modules comes
+	// from the boundary node so functions invoked in the composite's
+	// outputs or internals resolve against the composite's own imports.
 	for i := range pf.Steps {
 		step := &pf.Steps[i]
 		if step.Kind != NodeComposite {
 			continue
+		}
+		boundary, ok := e.DAG.Nodes[step.Address]
+		if !ok {
+			return nil, fmt.Errorf("composite %q: not in DAG", step.Address)
 		}
 		rs.composites[step.Address] = &EvalContext{
 			Vars:      step.Inputs,
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
+			Modules:   compositeBodyModules(boundary, e.Modules),
 		}
 	}
 
@@ -117,13 +131,21 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if !ok {
 		return fmt.Errorf("module %s has no action %q", node.NS, node.Type)
 	}
+	// Re-evaluate the body against the live scope. Upstream actions
+	// and data sources have already run by this point, so references
+	// like `action.X.Y.field` resolve to real values rather than the
+	// plan-time best guess in step.Inputs.
+	inputs, err := evalBody(node.Body, scope)
+	if err != nil {
+		return err
+	}
 	var outputs map[string]any
 	switch step.Decision {
 	case DecisionSkip:
 		outputs = step.PriorOutputs
 	case DecisionRerun:
 		action := at.New()
-		if err := Decode(action, step.Inputs); err != nil {
+		if err := Decode(action, inputs); err != nil {
 			return err
 		}
 		result, err := action.Run(ctx)
@@ -139,7 +161,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	// Recompute the trigger hash with the fresh upstream state so the
 	// next plan compares against an accurate hash.
 	hash := step.TriggerHash
-	if t, err := ComputeTrigger(node, step.Inputs, scope); err == nil && !t.AlwaysRerun {
+	if t, err := ComputeTrigger(node, inputs, scope); err == nil && !t.AlwaysRerun {
 		hash = t.Hash
 	}
 
@@ -148,7 +170,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		Type:        state.EntryAction,
 		Kind:        node.Type,
 		TriggerHash: hash,
-		Inputs:      step.Inputs,
+		Inputs:      inputs,
 		Outputs:     outputs,
 	})
 	return nil
@@ -172,8 +194,15 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return fmt.Errorf("module %s has no resource %q", node.NS, node.Type)
 	}
 
+	// Re-evaluate the body against the live scope so upstream nodes'
+	// real outputs are picked up rather than the plan-time guess.
+	inputs, err := evalResourceBody(node, scope, instKey)
+	if err != nil {
+		return err
+	}
+
 	resource := rt.New()
-	if err := Decode(resource, step.Inputs); err != nil {
+	if err := Decode(resource, inputs); err != nil {
 		return err
 	}
 	var outputs map[string]any
@@ -214,10 +243,29 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Type:          state.EntryLeaf,
 		Kind:          node.Type,
 		SchemaVersion: rt.SchemaVersion,
-		Inputs:        step.Inputs,
+		Inputs:        inputs,
 		Outputs:       outputs,
 	})
 	return nil
+}
+
+// evalResourceBody evaluates a resource template body against the given
+// scope. For a `@for-each` instance, the iterable is re-evaluated and
+// a child scope with `@each.key` / `@each.value` bound is used so the
+// body's per-instance references resolve as they did at plan time.
+func evalResourceBody(node *Node, scope *EvalContext, instKey string) (map[string]any, error) {
+	if instKey == "" {
+		return evalBody(node.Body, scope)
+	}
+	instances, err := evalForEach(node.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	value, ok := instances[instKey]
+	if !ok {
+		return nil, fmt.Errorf("@for-each instance %q no longer in iterable", instKey)
+	}
+	return evalBody(node.Body, childScopeWithEach(scope, instKey, value))
 }
 
 // applyDestroy handles an orphan destroy step. The address is not in
@@ -273,8 +321,12 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if !ok {
 		return fmt.Errorf("module %s has no data source %q", node.NS, node.Type)
 	}
+	inputs, err := evalBody(node.Body, scope)
+	if err != nil {
+		return err
+	}
 	ds := dt.New()
-	if err := Decode(ds, step.Inputs); err != nil {
+	if err := Decode(ds, inputs); err != nil {
 		return err
 	}
 	result, err := ds.Read(ctx)

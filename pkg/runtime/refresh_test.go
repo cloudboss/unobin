@@ -19,10 +19,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
@@ -60,10 +59,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
@@ -88,10 +86,9 @@ actions: {
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), testModules()), Modules: testModules(), Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	exec := &Executor{
 		DAG: BuildDAG(parseStack(t, src), testModules()), Modules: testModules(), Store: store, Stack: stack,
@@ -117,10 +114,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	held, err := store.Lock(context.Background())
 	require.NoError(t, err)
@@ -163,10 +159,9 @@ resources: {
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)

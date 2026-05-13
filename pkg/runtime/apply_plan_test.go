@@ -488,8 +488,9 @@ resources: {
 	require.NoError(t, err)
 
 	// Drift: a separate apply changes state out from under our plan.
-	_, err = exec.Run(context.Background())
-	require.NoError(t, err)
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	})
 
 	_, err = exec.ApplyPlan(context.Background(), pf)
 	require.Error(t, err)

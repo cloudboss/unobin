@@ -104,8 +104,7 @@ resources: {
 		Store:   store,
 		Stack:   stack,
 	}
-	_, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	applyOnce(t, exec)
 
 	exec.Inputs = map[string]any{"configs": map[string]any{"alpha": int64(1)}}
 	plan, err := exec.Plan(context.Background())
@@ -191,8 +190,7 @@ resources: {
 		Store:   store,
 		Stack:   stack,
 	}
-	_, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	applyOnce(t, exec)
 
 	plan := runPlan(t, stackSrc, mods, store)
 	step := stepFor(plan, "resource.w.box.x/action.core.echo.say")
@@ -225,10 +223,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, src, mods, store)
 	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.core.thing.one"))
@@ -249,10 +246,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, second, mods, store)
 	require.Equal(t, DecisionUpdate, decisionFor(plan, "resource.core.thing.one"))
@@ -273,10 +269,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, second, mods, store)
 	require.Equal(t, DecisionReplace, decisionFor(plan, "resource.core.thing.one"))
@@ -292,10 +287,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
@@ -440,10 +434,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
@@ -476,10 +469,9 @@ resources: {
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, second, mods, store)
 	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.core.thing.keep"))
@@ -507,10 +499,9 @@ actions: {
 	}
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, second, mods, store)
 	require.Equal(t, DecisionRerun, decisionFor(plan, "action.core.echo.hi"))
@@ -532,10 +523,9 @@ actions: {
 	}
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, src, mods, store)
 	require.Equal(t, DecisionSkip, decisionFor(plan, "action.core.echo.hi"))
@@ -545,13 +535,12 @@ func TestPlanRecordsStateRev(t *testing.T) {
 	src := `description: 'x'`
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG:     BuildDAG(parseStack(t, src), nil),
 		Modules: map[string]*Module{},
 		Store:   store,
 		Stack:   stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	plan := runPlan(t, src, map[string]*Module{}, store)
 	require.NotEmpty(t, plan.StateRev)

@@ -82,7 +82,7 @@ func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, 
 		Store:   newStateStore(t),
 		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
 	}
-	return exec.Run(context.Background())
+	return planAndApply(exec)
 }
 
 func TestExecutorRequiresStore(t *testing.T) {
@@ -90,7 +90,7 @@ func TestExecutorRequiresStore(t *testing.T) {
 		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
 		Modules: testModules(),
 	}
-	_, err := exec.Run(context.Background())
+	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Store")
 }
@@ -291,8 +291,7 @@ outputs: {
 		Store:   store,
 		Stack:   stack,
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["out"])
 	require.Equal(t, int64(1), c.creates)
 
@@ -355,8 +354,7 @@ outputs: {
 		Store: store,
 		Stack: stack,
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
 	require.Equal(t, "fake-alpha", res.Outputs["alpha-id"])
 	require.Equal(t, "fake-beta", res.Outputs["beta-id"])
@@ -397,8 +395,7 @@ resources: {
 			Store:   store,
 			Stack:   stack,
 		}
-		_, err := exec.Run(context.Background())
-		require.NoError(t, err)
+		applyOnce(t, exec)
 	}
 	runOnce(map[string]any{"alpha": int64(1), "beta": int64(2)})
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
@@ -440,7 +437,7 @@ resources: {
 		Store:   store,
 		Stack:   stack,
 	}
-	_, err := exec.Run(context.Background())
+	_, err := planAndApply(exec)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "@for-each")
 }
@@ -480,8 +477,7 @@ outputs: { out: resource.wrapper.layer.x.shout }
 		Store:   store,
 		Stack:   stack,
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.Equal(t, "HI", res.Outputs["out"])
 }
 
@@ -536,7 +532,7 @@ outputs: {
 		Store:   store,
 		Stack:   stack,
 	}
-	res, err := exec.Run(context.Background())
+	res, err := planAndApply(exec)
 	require.NoError(t, err,
 		"composite-internal core.thing should resolve via the composite's own Modules")
 	require.Equal(t, "fake-alpha", res.Outputs["out"])
@@ -604,8 +600,7 @@ outputs: {
 		Store:   store,
 		Stack:   stack,
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.Equal(t, "alpha", res.Outputs["out"],
 		"path flows up through both composite layers")
 	require.Equal(t, int64(1), c.creates,
@@ -704,8 +699,7 @@ outputs: {
 			Store:   store,
 			Stack:   stack,
 		}
-		res, err := exec.Run(context.Background())
-		require.NoError(t, err)
+		res := applyOnce(t, exec)
 		require.Equal(t, "beta", res.Outputs["out"])
 
 		snap, err := store.Current()
@@ -747,7 +741,7 @@ outputs: {
 			Store:   store,
 			Stack:   stack,
 		}
-		_, err := exec.Run(context.Background())
+		_, err := planAndApply(exec)
 		require.Error(t, err,
 			"outer scope must not expose the inner leaf's internal fields")
 		require.Contains(t, err.Error(), "not found")
@@ -796,8 +790,7 @@ outputs: {
 		Store:   store,
 		Stack:   stack,
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.Equal(t, "looked-up:banana", res.Outputs["result"])
 
 	snap, err := store.Current()
@@ -841,8 +834,7 @@ outputs: {
 		Store:   store,
 		Stack:   stack,
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["id"])
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
 	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates))
@@ -882,14 +874,12 @@ resources: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	mods := resourceModules(&c)
 
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
-	_, err = (&Executor{
+	})
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.updates))
@@ -915,14 +905,12 @@ resources: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	mods := resourceModules(&c)
 
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
-	_, err = (&Executor{
+	})
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates),
 		"replace destroys the old and creates a new")
@@ -957,14 +945,12 @@ resources: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	mods := resourceModules(&c)
 
-	_, err := (&Executor{
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
-	_, err = (&Executor{
+	})
+	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
-	}).Run(context.Background())
-	require.NoError(t, err)
+	})
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
 		"the orphan resource (orph) should be deleted on the second run")
@@ -1039,10 +1025,8 @@ func runExecutorTwice(t *testing.T, src string, modules map[string]*Module) (*Ex
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	g := BuildDAG(parseStack(t, src), modules)
 
-	first, err := (&Executor{DAG: g, Modules: modules, Store: store, Stack: stack}).Run(context.Background())
-	require.NoError(t, err)
-	second, err := (&Executor{DAG: g, Modules: modules, Store: store, Stack: stack}).Run(context.Background())
-	require.NoError(t, err)
+	first := applyOnce(t, &Executor{DAG: g, Modules: modules, Store: store, Stack: stack})
+	second := applyOnce(t, &Executor{DAG: g, Modules: modules, Store: store, Stack: stack})
 	return first, second
 }
 
@@ -1075,8 +1059,7 @@ actions: {
 		Store:   store,
 		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
 	}
-	res, err := exec.Run(context.Background())
-	require.NoError(t, err)
+	res := applyOnce(t, exec)
 	require.NotEmpty(t, res.WrittenRev)
 
 	gotRev, err := store.CurrentRev()

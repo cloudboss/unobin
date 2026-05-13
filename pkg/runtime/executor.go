@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,15 +13,12 @@ import (
 	"github.com/cloudboss/unobin/pkg/state"
 )
 
-// Executor runs a DAG end to end: each node is processed in topological
-// order, with body expressions evaluated against an EvalContext that
-// grows as upstream nodes complete. Action and data source results feed
-// back into the context for downstream references. Output values
-// collect into the result.
-//
-// The Executor reads the prior snapshot from Store at the start of the
-// run, uses it to skip actions whose trigger hash matches, and writes a
-// fresh snapshot at the end. Store and Stack must be set.
+// Executor wires together the parsed DAG, the imported modules, the
+// caller's inputs, and a state backend. It exposes three lifecycle
+// methods: Plan computes a PlanStep slice against prior state without
+// running any CRUD, ApplyPlan executes a previously computed plan,
+// and Refresh reads each prior-state resource and writes back observed
+// outputs. Store and Stack must always be set.
 type Executor struct {
 	DAG     *DAG
 	Modules map[string]*Module
@@ -53,42 +49,6 @@ type runState struct {
 	// in each scope are the call site args; Resources, Data, Actions
 	// hold sibling outputs as the internals complete.
 	composites map[string]*EvalContext
-}
-
-// Run executes every node in dependency order and returns the result.
-// The first error from a node aborts the run.
-func (e *Executor) Run(ctx context.Context) (*ExecResult, error) {
-	if e.Store == nil {
-		return nil, errors.New("executor: Store is required")
-	}
-	order, err := e.DAG.TopologicalOrder()
-	if err != nil {
-		return nil, err
-	}
-	rs, err := e.initRun()
-	if err != nil {
-		return nil, err
-	}
-	for _, addr := range order {
-		node := e.DAG.Nodes[addr]
-		if err := e.runNode(ctx, rs, node); err != nil {
-			return nil, fmt.Errorf("%s: %w", addr, err)
-		}
-	}
-	if err := e.deleteOrphans(ctx, rs); err != nil {
-		return nil, err
-	}
-	rs.next.Outputs = rs.outputs
-	rev, err := e.persist(rs)
-	if err != nil {
-		return nil, err
-	}
-	return &ExecResult{
-		Outputs:    rs.outputs,
-		Actions:    rs.eval.Actions,
-		Data:       rs.eval.Data,
-		WrittenRev: rev,
-	}, nil
 }
 
 func (e *Executor) initRun() (*runState, error) {
@@ -205,32 +165,6 @@ func (e *Executor) persist(rs *runState) (string, error) {
 	return rev, nil
 }
 
-func (e *Executor) runNode(ctx context.Context, rs *runState, n *Node) error {
-	switch n.Kind {
-	case NodeAction:
-		return e.runAction(ctx, rs, n)
-	case NodeData:
-		return e.runData(ctx, rs, n)
-	case NodeOutput:
-		val, err := Eval(n.Body, rs.eval)
-		if err != nil {
-			return err
-		}
-		rs.outputs[n.Name] = val
-		return nil
-	case NodeResource:
-		return e.runResource(ctx, rs, n)
-	case NodeComposite:
-		scope, err := e.ensureCompositeScope(rs, n.Address)
-		if err != nil {
-			return err
-		}
-		return e.finalizeComposite(rs, n, scope.Vars)
-	default:
-		return fmt.Errorf("unknown node kind %q", n.Kind)
-	}
-}
-
 // finalizeComposite closes a composite call site after its
 // internals have finished. It reads the composite body's `outputs:`
 // block against the composite scope, exposes those outputs at the
@@ -297,113 +231,6 @@ func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, 
 		out[fld.Key.Name] = val
 	}
 	return out, nil
-}
-
-func (e *Executor) runResource(ctx context.Context, rs *runState, n *Node) error {
-	mod, ok := e.modulesFor(n)[n.NS]
-	if !ok {
-		return fmt.Errorf("module %q is not imported", n.NS)
-	}
-	rt, ok := mod.Resources[n.Type]
-	if !ok {
-		return fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
-	if err != nil {
-		return err
-	}
-	if n.ForEach != nil {
-		return e.runForEachResource(ctx, rs, n, rt, scope)
-	}
-	outputs, err := e.runOneResource(ctx, rs, n, rt, scope, n.Address)
-	if err != nil {
-		return err
-	}
-	storeNested(scope.Resources, n, outputs)
-	return nil
-}
-
-// runOneResource runs the lifecycle for a single resource instance and
-// appends its state entry. Outputs are returned so the caller can place
-// them in the eval scope (a single-instance leaf stores the outputs
-// directly; a for-each template stores a map keyed by instance).
-func (e *Executor) runOneResource(
-	ctx context.Context, rs *runState, n *Node, rt ResourceType,
-	scope *EvalContext, addr string,
-) (map[string]any, error) {
-	inputs, err := evalBody(n.Body, scope)
-	if err != nil {
-		return nil, err
-	}
-	var prior *state.Entry
-	if rs.prior != nil {
-		prior = rs.prior.Find(addr)
-	}
-	resource := rt.New()
-	if err := Decode(resource, inputs); err != nil {
-		return nil, err
-	}
-	var outputs map[string]any
-	switch {
-	case prior == nil:
-		result, err := resource.Create(ctx)
-		if err != nil {
-			return nil, err
-		}
-		outputs = mapify(result)
-	case sameInputs(prior.Inputs, inputs):
-		outputs = prior.Outputs
-	case needsReplace(resource, prior.Inputs, inputs):
-		if err := resource.Delete(ctx, prior.Outputs); err != nil {
-			return nil, fmt.Errorf("replace: delete prior: %w", err)
-		}
-		result, err := resource.Create(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("replace: create: %w", err)
-		}
-		outputs = mapify(result)
-	default:
-		result, err := resource.Update(ctx, prior.Outputs)
-		if err != nil {
-			return nil, err
-		}
-		outputs = mapify(result)
-	}
-	rs.next.Entries = append(rs.next.Entries, &state.Entry{
-		Address:       addr,
-		Type:          state.EntryLeaf,
-		Kind:          n.Type,
-		SchemaVersion: rt.SchemaVersion,
-		Inputs:        inputs,
-		Outputs:       outputs,
-	})
-	return outputs, nil
-}
-
-// runForEachResource expands a for-each template into one instance per
-// iterable key. Each instance gets its own scope with `@each.key` and
-// `@each.value` bound, its own state entry under
-// `<address>['<key>']`, and the parent scope sees a map of instance
-// outputs at the template address so downstream refs can index in.
-func (e *Executor) runForEachResource(
-	ctx context.Context, rs *runState, n *Node, rt ResourceType, scope *EvalContext,
-) error {
-	instances, err := evalForEach(n.ForEach, scope)
-	if err != nil {
-		return err
-	}
-	outputs := make(map[string]any, len(instances))
-	for _, key := range sortedKeys(instances) {
-		inst := childScopeWithEach(scope, key, instances[key])
-		addr := instanceAddress(n.Address, key)
-		out, err := e.runOneResource(ctx, rs, n, rt, inst, addr)
-		if err != nil {
-			return fmt.Errorf("@for-each[%q]: %w", key, err)
-		}
-		outputs[key] = out
-	}
-	storeNested(scope.Resources, n, outputs)
-	return nil
 }
 
 // evalForEach reduces a `@for-each:` expression to the iterable's
@@ -489,139 +316,12 @@ func sameValue(a, b any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-// deleteOrphans destroys leaf entries that were in the prior snapshot
-// but have no corresponding node in the new run. It runs after the main
-// DAG walk and before the snapshot is written.
-func (e *Executor) deleteOrphans(ctx context.Context, rs *runState) error {
-	if rs.prior == nil {
-		return nil
-	}
-	keep := make(map[string]bool, len(rs.next.Entries))
-	for _, ent := range rs.next.Entries {
-		keep[ent.Address] = true
-	}
-	for _, prior := range rs.prior.Entries {
-		if prior.Type != state.EntryLeaf {
-			continue
-		}
-		if keep[prior.Address] {
-			continue
-		}
-		ns, typeName, _, ok := parseResourceAddress(innerAddress(prior.Address))
-		if !ok {
-			return fmt.Errorf("orphan %s: cannot parse address", prior.Address)
-		}
-		mod, ok := e.modulesForAddress(prior.Address)[ns]
-		if !ok {
-			return fmt.Errorf("orphan %s: module %q is not imported", prior.Address, ns)
-		}
-		rt, ok := mod.Resources[typeName]
-		if !ok {
-			return fmt.Errorf("orphan %s: module %s has no resource %q",
-				prior.Address, ns, typeName)
-		}
-		resource := rt.New()
-		if err := Decode(resource, prior.Inputs); err != nil {
-			return fmt.Errorf("orphan %s: %w", prior.Address, err)
-		}
-		if err := resource.Delete(ctx, prior.Outputs); err != nil {
-			return fmt.Errorf("delete orphan %s: %w", prior.Address, err)
-		}
-	}
-	return nil
-}
-
 func parseResourceAddress(addr string) (ns, typeName, name string, ok bool) {
 	parts := strings.SplitN(addr, ".", 4)
 	if len(parts) != 4 || parts[0] != "resource" {
 		return "", "", "", false
 	}
 	return parts[1], parts[2], parts[3], true
-}
-
-func (e *Executor) runAction(ctx context.Context, rs *runState, n *Node) error {
-	mod, ok := e.modulesFor(n)[n.NS]
-	if !ok {
-		return fmt.Errorf("module %q is not imported", n.NS)
-	}
-	at, ok := mod.Actions[n.Type]
-	if !ok {
-		return fmt.Errorf("module %s has no action %q", n.NS, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
-	if err != nil {
-		return err
-	}
-	inputs, err := evalBody(n.Body, scope)
-	if err != nil {
-		return err
-	}
-	trigger, err := ComputeTrigger(n, inputs, scope)
-	if err != nil {
-		return err
-	}
-
-	var prior *state.Entry
-	if rs.prior != nil {
-		prior = rs.prior.Find(n.Address)
-	}
-	skip := !trigger.AlwaysRerun && prior != nil && prior.TriggerHash != "" &&
-		prior.TriggerHash == trigger.Hash
-
-	var outputs map[string]any
-	if skip {
-		outputs = prior.Outputs
-	} else {
-		action := at.New()
-		if err := Decode(action, inputs); err != nil {
-			return err
-		}
-		result, err := action.Run(ctx)
-		if err != nil {
-			return err
-		}
-		outputs = mapify(result)
-	}
-	storeNested(scope.Actions, n, outputs)
-
-	rs.next.Entries = append(rs.next.Entries, &state.Entry{
-		Address:     n.Address,
-		Type:        state.EntryAction,
-		Kind:        n.Type,
-		TriggerHash: trigger.Hash,
-		Inputs:      inputs,
-		Outputs:     outputs,
-	})
-	return nil
-}
-
-func (e *Executor) runData(ctx context.Context, rs *runState, n *Node) error {
-	mod, ok := e.modulesFor(n)[n.NS]
-	if !ok {
-		return fmt.Errorf("module %q is not imported", n.NS)
-	}
-	dt, ok := mod.DataSources[n.Type]
-	if !ok {
-		return fmt.Errorf("module %s has no data source %q", n.NS, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
-	if err != nil {
-		return err
-	}
-	inputs, err := evalBody(n.Body, scope)
-	if err != nil {
-		return err
-	}
-	ds := dt.New()
-	if err := Decode(ds, inputs); err != nil {
-		return err
-	}
-	result, err := ds.Read(ctx)
-	if err != nil {
-		return err
-	}
-	storeNested(scope.Data, n, mapify(result))
-	return nil
 }
 
 // evalBody evaluates an object literal body to a map[string]any of input

@@ -1,11 +1,18 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
+
+// ErrEvalNotFound is returned by Eval when an address or field cannot
+// be resolved in the current scope. Plan callers may treat it as
+// "known after apply"; apply re-evaluates against the live scope and
+// surfaces a real failure when the reference truly is invalid.
+var ErrEvalNotFound = errors.New("not found")
 
 // EvalContext supplies the values that addresses resolve against. Vars
 // is the validated `inputs:` map after `config.ub` and `UB_VAR_*` env
@@ -391,7 +398,7 @@ func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		}
 		next, exists := m[step]
 		if !exists {
-			return nil, fmt.Errorf("eval: %s: not found", path)
+			return nil, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
 		}
 		cur = next
 	}
@@ -439,7 +446,7 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		}
 		next, exists := m[step]
 		if !exists {
-			return nil, fmt.Errorf("eval: %s: not found", path)
+			return nil, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
 		}
 		cur = next
 	}
