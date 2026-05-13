@@ -293,9 +293,16 @@ func seedInstance(target map[string]any, ns, typeName, name, key string, value m
 	nameMap[key] = value
 }
 
-// splitInstanceAddress separates a `<template>['<key>']` address into
+// SplitInstanceAddress separates a `<template>['<key>']` address into
 // its template part and the instance key. Non-instance addresses
 // return unchanged with an empty key.
+func SplitInstanceAddress(addr string) (template, key string) {
+	return splitInstanceAddress(addr)
+}
+
+// splitInstanceAddress is the package-internal version used by Plan
+// and ApplyPlan. It is also exposed via SplitInstanceAddress for the
+// renderer in `pkg/runner`.
 func splitInstanceAddress(addr string) (template, key string) {
 	if !strings.HasSuffix(addr, "']") {
 		return addr, ""

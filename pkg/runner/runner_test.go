@@ -590,6 +590,76 @@ func TestPrintPlanShowsGoneSection(t *testing.T) {
 	require.Contains(t, out, "Plan: 1 to create")
 }
 
+func TestPrintPlanGroupsForEachInstances(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "resource.core.thing.many['alpha']",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs:   map[string]any{"name": "alpha", "size": int64(1)},
+			},
+			{
+				Address:  "resource.core.thing.many['beta']",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs:   map[string]any{"name": "beta", "size": int64(2)},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	expected := `  + resource.core.thing.many  (for-each, 2 instances)
+    + ['alpha']
+        name: "alpha"
+        size: 1
+    + ['beta']
+        name: "beta"
+        size: 2
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
+`
+	require.Equal(t, expected, buf.String())
+}
+
+func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "resource.greeter.greeting.welcome",
+				Kind:     runtime.NodeComposite,
+				Decision: runtime.DecisionEval,
+				Inputs:   map[string]any{"path": "/tmp/x"},
+			},
+			{
+				Address:  "resource.greeter.greeting.welcome/local.file.many['a']",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs:   map[string]any{"path": "/tmp/a"},
+			},
+			{
+				Address:  "resource.greeter.greeting.welcome/local.file.many['b']",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs:   map[string]any{"path": "/tmp/b"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	expected := `  + resource.greeter.greeting.welcome  (module greeter.greeting)
+      path: "/tmp/x"
+    + local.file.many  (for-each, 2 instances)
+      + ['a']
+          path: "/tmp/a"
+      + ['b']
+          path: "/tmp/b"
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
+`
+	require.Equal(t, expected, buf.String())
+}
+
 func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{

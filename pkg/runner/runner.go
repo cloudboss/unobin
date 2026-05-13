@@ -535,9 +535,11 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 	symPad := strings.Repeat("  ", depth+1)
 	fieldPad := strings.Repeat("  ", depth+3)
 
-	for _, child := range children {
+	for i := 0; i < len(children); {
+		child := children[i]
 		if child.Kind == runtime.NodeComposite {
 			if !anyChangeRecursive(t, child.Address) {
+				i++
 				continue
 			}
 			sym := decisionSymbol(boundaryDecisionRecursive(t, child.Address))
@@ -547,9 +549,17 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 				fmt.Fprintf(out, "%s%s: %s\n", fieldPad, key, formatValue(child.Inputs[key]))
 			}
 			renderPlanTree(out, t, child.Address, depth+1)
+			i++
+			continue
+		}
+		tmpl, key := runtime.SplitInstanceAddress(child.Address)
+		if key != "" {
+			n := renderForEachGroup(out, t, parent, children, i, tmpl, depth)
+			i += n
 			continue
 		}
 		if !isChange(child.Decision) {
+			i++
 			continue
 		}
 		fmt.Fprintf(out, "%s%s %s\n",
@@ -557,7 +567,79 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 		for _, key := range sortedMapKeys(child.Inputs) {
 			fmt.Fprintf(out, "%s%s: %s\n", fieldPad, key, formatValue(child.Inputs[key]))
 		}
+		i++
 	}
+}
+
+// renderForEachGroup renders all per-instance steps that share the
+// same template address as a single group: one header line carrying
+// the template address and instance count, then each instance
+// indented one level deeper. start is the first index in children
+// belonging to the group; the returned count is how many entries
+// were consumed.
+func renderForEachGroup(
+	out io.Writer,
+	t *planTree,
+	parent string,
+	children []*runtime.PlanStep,
+	start int,
+	tmpl string,
+	depth int,
+) int {
+	end := start
+	for end < len(children) {
+		t2, k2 := runtime.SplitInstanceAddress(children[end].Address)
+		if t2 != tmpl || k2 == "" {
+			break
+		}
+		end++
+	}
+	group := children[start:end]
+	var changing []*runtime.PlanStep
+	for _, g := range group {
+		if isChange(g.Decision) {
+			changing = append(changing, g)
+		}
+	}
+	if len(changing) == 0 {
+		return end - start
+	}
+	symPad := strings.Repeat("  ", depth+1)
+	instSymPad := strings.Repeat("  ", depth+2)
+	instFieldPad := strings.Repeat("  ", depth+4)
+	header := decisionSymbol(strongestDecision(changing))
+	fmt.Fprintf(out, "%s%s %s  (for-each, %d instances)\n",
+		symPad, header, relTo(tmpl, parent), len(group))
+	for _, inst := range changing {
+		_, k := runtime.SplitInstanceAddress(inst.Address)
+		fmt.Fprintf(out, "%s%s ['%s']\n", instSymPad, decisionSymbol(inst.Decision), k)
+		for _, fld := range sortedMapKeys(inst.Inputs) {
+			fmt.Fprintf(out, "%s%s: %s\n", instFieldPad, fld, formatValue(inst.Inputs[fld]))
+		}
+	}
+	return end - start
+}
+
+// strongestDecision picks the most consequential decision among a
+// group of per-instance steps. Destroy > Replace > Create > Update >
+// Rerun; anything else returns NoOp.
+func strongestDecision(steps []*runtime.PlanStep) runtime.Decision {
+	priority := map[runtime.Decision]int{
+		runtime.DecisionDestroy: 5,
+		runtime.DecisionReplace: 4,
+		runtime.DecisionCreate:  3,
+		runtime.DecisionUpdate:  2,
+		runtime.DecisionRerun:   1,
+	}
+	best := runtime.DecisionNoOp
+	bestPri := 0
+	for _, s := range steps {
+		if pri, ok := priority[s.Decision]; ok && pri > bestPri {
+			bestPri = pri
+			best = s.Decision
+		}
+	}
+	return best
 }
 
 func anyChangeRecursive(t *planTree, parent string) bool {
