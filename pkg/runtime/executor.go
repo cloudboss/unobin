@@ -431,8 +431,12 @@ func getOrCreate(m map[string]any, key string) map[string]any {
 }
 
 // mapify reduces a typed result struct to a map[string]any using its
-// `mapstructure` field tags. Maps pass through; nil yields nil; anything
-// else (non-struct, non-map) yields nil.
+// `mapstructure` field tags. Each field's value is canonicalized to
+// the closed set of types unobin's runtime carries (string, int64,
+// float64, bool, nil, []any, map[string]any), so named numeric types
+// like time.Duration come back as int64 rather than leaking their
+// Go-specific stringer through the renderer. Maps pass through; nil
+// yields nil; anything else (non-struct, non-map) yields nil.
 func mapify(v any) map[string]any {
 	if v == nil {
 		return nil
@@ -461,7 +465,51 @@ func mapify(v any) map[string]any {
 		if name == "-" {
 			continue
 		}
-		out[name] = rv.Field(i).Interface()
+		out[name] = canonicalize(rv.Field(i))
 	}
 	return out
+}
+
+// canonicalize collapses a reflect.Value to one of the runtime's
+// canonical Go types so downstream code (eval, render, state I/O)
+// sees the same value forms regardless of whether the value came
+// fresh from a module struct or back out of the state encoder. A
+// named numeric type such as time.Duration normalizes to its
+// underlying int64 (nanoseconds, in Duration's case).
+func canonicalize(v reflect.Value) any {
+	switch v.Kind() {
+	case reflect.Bool:
+		return v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int64(v.Uint())
+	case reflect.Float32, reflect.Float64:
+		return v.Float()
+	case reflect.String:
+		return v.String()
+	case reflect.Slice, reflect.Array:
+		out := make([]any, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			out[i] = canonicalize(v.Index(i))
+		}
+		return out
+	case reflect.Map:
+		out := make(map[string]any, v.Len())
+		iter := v.MapRange()
+		for iter.Next() {
+			k := iter.Key()
+			if k.Kind() != reflect.String {
+				continue
+			}
+			out[k.String()] = canonicalize(iter.Value())
+		}
+		return out
+	case reflect.Interface, reflect.Ptr:
+		if v.IsNil() {
+			return nil
+		}
+		return canonicalize(v.Elem())
+	}
+	return v.Interface()
 }
