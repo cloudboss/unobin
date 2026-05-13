@@ -2,11 +2,11 @@ package runner
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/spf13/cobra"
 )
@@ -345,8 +345,7 @@ func printSnapshot(cmd *cobra.Command, snap *state.Snapshot) error {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "outputs:")
 		for _, k := range sortedMapKeys(snap.Outputs) {
-			b, _ := json.Marshal(snap.Outputs[k])
-			fmt.Fprintf(out, "  %s = %s\n", k, string(b))
+			fmt.Fprintf(out, "  %s = %s\n", k, lang.Render(snap.Outputs[k]))
 		}
 	}
 	return nil

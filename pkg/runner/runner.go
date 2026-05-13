@@ -158,8 +158,8 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range res.Outputs {
-		fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
+	for _, k := range sortedMapKeys(res.Outputs) {
+		fmt.Fprintf(cmd.OutOrStdout(), "%s = %s\n", k, lang.Render(res.Outputs[k]))
 	}
 	return nil
 }
@@ -1001,8 +1001,8 @@ func doOutput(cmd *cobra.Command, info Info, configPath string, args []string, a
 		if asJSON {
 			return writeJSON(cmd.OutOrStdout(), snap.Outputs)
 		}
-		for k, v := range snap.Outputs {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", k, v)
+		for _, k := range sortedMapKeys(snap.Outputs) {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s = %s\n", k, lang.Render(snap.Outputs[k]))
 		}
 		return nil
 	}
@@ -1014,7 +1014,7 @@ func doOutput(cmd *cobra.Command, info Info, configPath string, args []string, a
 	if asJSON {
 		return writeJSON(cmd.OutOrStdout(), val)
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%v\n", val)
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", lang.Render(val))
 	return nil
 }
 
