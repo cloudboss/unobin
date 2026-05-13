@@ -1,0 +1,65 @@
+description: 'Demonstrates @for-each on a resource, an action, and a composite call site.'
+
+inputs: {
+  files: {
+    type:        map(string)
+    description: 'Map of file-name to message contents'
+  }
+  base-path: {
+    type:        string
+    description: 'Directory where files and alerts are written'
+  }
+}
+
+imports: {
+  core:   'github.com/cloudboss/unobin//pkg/modules/core@v0.1.0'
+  local:  'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  notify: './notify'
+}
+
+resources: {
+  local: {
+    file: {
+      many: {
+        @for-each: var.files
+        path:      format('%s/%s.txt', var.base-path, @each.key)
+        content:   @each.value
+      }
+    }
+  }
+  notify: {
+    alert: {
+      many: {
+        @for-each: var.files
+        topic:     @each.key
+        body:      @each.value
+        path:      format('%s/%s.alert', var.base-path, @each.key)
+      }
+    }
+  }
+}
+
+actions: {
+  core: {
+    command: {
+      announce: {
+        @for-each: var.files
+        @trigger:  resource.local.file.many[@each.key].sha256
+        argv: [
+          'echo',
+          format(
+            'wrote %s (sha %s)',
+            resource.local.file.many[@each.key].path,
+            resource.local.file.many[@each.key].sha256,
+          ),
+        ]
+      }
+    }
+  }
+}
+
+outputs: {
+  files:         resource.local.file.many
+  alerts:        resource.notify.alert.many
+  announcements: action.core.command.announce
+}

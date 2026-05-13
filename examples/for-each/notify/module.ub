@@ -1,0 +1,5 @@
+description: 'Reusable notification primitives'
+
+exports: {
+  alert: 'alert.ub'
+}
