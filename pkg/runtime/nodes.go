@@ -245,6 +245,7 @@ func expandComposite(callSiteAddr, parent, ns, typ, name string,
 		Composite:     parent,
 		CompositeBody: composite.Body,
 		Modules:       scopeMods,
+		ForEach:       extractForEach(args),
 	}}
 	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
 	return out

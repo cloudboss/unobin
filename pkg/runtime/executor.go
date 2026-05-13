@@ -13,6 +13,14 @@ import (
 	"github.com/cloudboss/unobin/pkg/state"
 )
 
+// ErrInstanceGone is returned by ensureCompositeScope when a per-
+// instance composite scope is requested for a key that the boundary's
+// `@for-each` iterable no longer yields. Plan-time seeding of prior
+// state treats this as a signal to skip rather than fail; orphan
+// destroy steps for the missing instance still emit through the
+// usual orphan path.
+var ErrInstanceGone = errors.New("instance no longer in iterable")
+
 // Executor wires together the parsed DAG, the imported modules, the
 // caller's inputs, and a state backend. It exposes three lifecycle
 // methods: Plan computes a PlanStep slice against prior state without
@@ -131,7 +139,8 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	if scope, ok := rs.composites[callSite]; ok {
 		return scope, nil
 	}
-	boundary, ok := e.DAG.Nodes[callSite]
+	tmpl, instKey := splitInstanceAddress(callSite)
+	boundary, ok := e.DAG.Nodes[tmpl]
 	if !ok {
 		return nil, fmt.Errorf("composite %s: boundary node not in DAG", callSite)
 	}
@@ -139,7 +148,19 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	if err != nil {
 		return nil, fmt.Errorf("composite %s: build parent scope: %w", callSite, err)
 	}
-	args, err := evalBody(boundary.Body, parent)
+	bodyScope := parent
+	if instKey != "" {
+		instances, err := evalForEach(boundary.ForEach, parent)
+		if err != nil {
+			return nil, fmt.Errorf("composite %s: eval @for-each: %w", callSite, err)
+		}
+		value, ok := instances[instKey]
+		if !ok {
+			return nil, fmt.Errorf("composite %s: %w", callSite, ErrInstanceGone)
+		}
+		bodyScope = childScopeWithEach(parent, instKey, value)
+	}
+	args, err := evalBody(boundary.Body, bodyScope)
 	if err != nil {
 		return nil, fmt.Errorf("composite %s: eval call args: %w", callSite, err)
 	}
@@ -152,6 +173,42 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	}
 	rs.composites[callSite] = scope
 	return scope, nil
+}
+
+// templateAddress strips every `['key']` segment from addr to return
+// the DAG-side address used to look the node up. Per-instance
+// addresses inside a `@for-each` composite (`<x>['k']/<y>`) and
+// leaf instance addresses (`<y>['k']`) both reduce to their
+// template form.
+func templateAddress(addr string) string {
+	var out strings.Builder
+	rest := addr
+	for {
+		start := strings.Index(rest, "['")
+		if start < 0 {
+			out.WriteString(rest)
+			return out.String()
+		}
+		out.WriteString(rest[:start])
+		rest = rest[start:]
+		end := strings.Index(rest, "']")
+		if end < 0 {
+			out.WriteString(rest)
+			return out.String()
+		}
+		rest = rest[end+2:]
+	}
+}
+
+// directParent returns the substring before the last `/` in addr, or
+// the empty string when addr has no `/`. Unlike templateAddress,
+// directParent preserves `['key']` segments so the result names a
+// per-instance composite call site when one is present.
+func directParent(addr string) string {
+	if i := strings.LastIndex(addr, "/"); i >= 0 {
+		return addr[:i]
+	}
+	return ""
 }
 
 func (e *Executor) persist(rs *runState) (string, error) {
@@ -167,14 +224,18 @@ func (e *Executor) persist(rs *runState) (string, error) {
 
 // finalizeComposite closes a composite call site after its
 // internals have finished. It reads the composite body's `outputs:`
-// block against the composite scope, exposes those outputs at the
-// call site address in the boundary's enclosing scope so its parent
-// can reach them, and writes one EntryModuleCall record holding the
-// given inputs and the computed outputs. Inputs is the call site arg
-// map; pass scope.Vars when called from Run, step.Inputs when called
-// from ApplyPlan.
-func (e *Executor) finalizeComposite(rs *runState, n *Node, inputs map[string]any) error {
-	scope, err := e.ensureCompositeScope(rs, n.Address)
+// block against the per-instance scope (a non-for-each composite
+// has one instance, addressed at the template address itself),
+// exposes those outputs at the call site address in the boundary's
+// enclosing scope so its parent can reach them, and writes one
+// EntryModuleCall record. instAddr is the address actually being
+// finalized: equal to n.Address for a plain composite, with a
+// trailing `['key']` for a `@for-each` instance. inputs is the call
+// site arg map evaluated for this instance.
+func (e *Executor) finalizeComposite(
+	rs *runState, n *Node, instAddr string, inputs map[string]any,
+) error {
+	scope, err := e.ensureCompositeScope(rs, instAddr)
 	if err != nil {
 		return err
 	}
@@ -186,9 +247,14 @@ func (e *Executor) finalizeComposite(rs *runState, n *Node, inputs map[string]an
 	if err != nil {
 		return err
 	}
-	storeNested(parent.Resources, n, outputs)
+	_, instKey := splitInstanceAddress(instAddr)
+	if instKey == "" {
+		storeNested(parent.Resources, n, outputs)
+	} else {
+		seedInstance(parent.Resources, n.NS, n.Type, n.Name, instKey, outputs)
+	}
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
-		Address:    n.Address,
+		Address:    instAddr,
 		Type:       state.EntryModuleCall,
 		Module:     n.NS,
 		ModuleType: n.Type,

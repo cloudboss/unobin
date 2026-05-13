@@ -56,12 +56,15 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	// right Vars without needing the root inputs again. Modules comes
 	// from the boundary node so functions invoked in the composite's
 	// outputs or internals resolve against the composite's own imports.
+	// A `@for-each` composite emits one step per instance, each at a
+	// `<boundary>['<key>']` address; the cache key is the instance
+	// address so distinct instances get distinct scopes.
 	for i := range pf.Steps {
 		step := &pf.Steps[i]
 		if step.Kind != NodeComposite {
 			continue
 		}
-		boundary, ok := e.DAG.Nodes[step.Address]
+		boundary, ok := e.DAG.Nodes[templateAddress(step.Address)]
 		if !ok {
 			return nil, fmt.Errorf("composite %q: not in DAG", step.Address)
 		}
@@ -106,11 +109,11 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 	case NodeData:
 		return e.applyData(ctx, rs, step)
 	case NodeComposite:
-		node, ok := e.DAG.Nodes[step.Address]
+		node, ok := e.DAG.Nodes[templateAddress(step.Address)]
 		if !ok || node.Kind != NodeComposite {
 			return fmt.Errorf("composite: node %q not in DAG", step.Address)
 		}
-		return e.finalizeComposite(rs, node, step.Inputs)
+		return e.finalizeComposite(rs, node, step.Address, step.Inputs)
 	case NodeOutput:
 		return nil
 	default:
@@ -307,15 +310,22 @@ func (e *Executor) applyDestroy(ctx context.Context, step *PlanStep) error {
 	return resource.Delete(ctx, step.PriorOutputs)
 }
 
-// nodeAndScope looks up the DAG node at addr and returns it together
-// with the EvalContext for evaluating its body. Composite internals
-// resolve to the composite's own scope; root nodes resolve to root.
+// nodeAndScope resolves a per-instance step address to its DAG
+// template node and the scope its body should be evaluated against.
+// Any `['key']` segments in addr are stripped to find the node;
+// segments before the last `/` survive into the parent address so
+// composite-internal nodes pick the right per-instance scope.
 func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext, error) {
-	node, ok := e.DAG.Nodes[addr]
+	tmpl := templateAddress(addr)
+	node, ok := e.DAG.Nodes[tmpl]
 	if !ok {
 		return nil, nil, fmt.Errorf("address %q not in DAG", addr)
 	}
-	scope, err := e.scopeFor(rs, node)
+	parentAddr := directParent(addr)
+	if parentAddr == "" {
+		return node, rs.eval, nil
+	}
+	scope, err := e.ensureCompositeScope(rs, parentAddr)
 	if err != nil {
 		return nil, nil, err
 	}

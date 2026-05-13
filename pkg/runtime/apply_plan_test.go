@@ -212,6 +212,132 @@ outputs: {
 	require.Equal(t, int64(1), c.creates)
 }
 
+func TestApplyPlanForEachComposite(t *testing.T) {
+	composite := parseStack(t, `
+inputs: {
+  name: { type: string }
+  size: { type: integer }
+}
+resources: {
+  core: { thing: { only: { name: var.name, size: var.size } } }
+}
+outputs: {
+  id: resource.core.thing.only.id
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite, Modules: mods},
+		},
+	}
+	src := `
+resources: {
+  w: {
+    box: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+        size:      @each.value
+      }
+    }
+  }
+}
+outputs: {
+  alpha-id: resource.w.box.many['alpha'].id
+  beta-id:  resource.w.box.many['beta'].id
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs: map[string]any{
+			"configs": map[string]any{"alpha": int64(1), "beta": int64(2)},
+		},
+		Store: store,
+		Stack: stack,
+	}
+	res, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates),
+		"each instance creates its own leaf")
+	require.Equal(t, "fake-alpha", res.Outputs["alpha-id"])
+	require.Equal(t, "fake-beta", res.Outputs["beta-id"])
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addrs := map[string]state.EntryType{}
+	for _, ent := range snap.Entries {
+		addrs[ent.Address] = ent.Type
+	}
+	require.Equal(t, state.EntryModuleCall, addrs["resource.w.box.many['alpha']"])
+	require.Equal(t, state.EntryModuleCall, addrs["resource.w.box.many['beta']"])
+	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['alpha']/core.thing.only"])
+	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['beta']/core.thing.only"])
+}
+
+func TestApplyPlanForEachCompositeOrphan(t *testing.T) {
+	composite := parseStack(t, `
+inputs: {
+  name: { type: string }
+}
+resources: {
+  core: { thing: { only: { name: var.name, size: 1 } } }
+}
+`)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	mods["w"] = &Module{
+		Name: "w",
+		Composites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite, Modules: mods},
+		},
+	}
+	src := `
+resources: {
+  w: {
+    box: {
+      many: {
+        @for-each: var.configs
+        name:      @each.key
+      }
+    }
+  }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	apply := func(configs map[string]any) {
+		applyOnce(t, &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Inputs:  map[string]any{"configs": configs},
+			Store:   store,
+			Stack:   stack,
+		})
+	}
+	apply(map[string]any{"alpha": true, "beta": true})
+	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
+	apply(map[string]any{"alpha": true})
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
+		"the beta instance's internal leaf is destroyed when the key is removed")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addrs := map[string]bool{}
+	for _, ent := range snap.Entries {
+		addrs[ent.Address] = true
+	}
+	require.True(t, addrs["resource.w.box.many['alpha']"])
+	require.True(t, addrs["resource.w.box.many['alpha']/core.thing.only"])
+	require.False(t, addrs["resource.w.box.many['beta']"])
+	require.False(t, addrs["resource.w.box.many['beta']/core.thing.only"])
+}
+
 func TestApplyPlanComposite(t *testing.T) {
 	composite := parseStack(t, `
 resources: {
