@@ -168,12 +168,19 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 }
 
 // planNodeSteps wraps planNode so a single per-node planner can emit
-// multiple steps. A `@for-each` resource fans out into one step per
-// instance; everything else returns a one-element slice (or nil to
-// skip the node).
+// multiple steps. A `@for-each` template (resource, action, or data
+// source) fans out into one step per instance; everything else returns
+// a one-element slice (or nil to skip the node).
 func (e *Executor) planNodeSteps(ctx context.Context, rs *runState, n *Node) ([]*PlanStep, error) {
-	if n.Kind == NodeResource && n.ForEach != nil {
-		return e.planForEachResource(ctx, rs, n)
+	if n.ForEach != nil {
+		switch n.Kind {
+		case NodeResource:
+			return e.planForEachResource(ctx, rs, n)
+		case NodeAction:
+			return e.planForEachAction(rs, n)
+		case NodeData:
+			return e.planForEachData(rs, n)
+		}
 	}
 	step, err := e.planNode(ctx, rs, n)
 	if err != nil {
@@ -199,11 +206,16 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			if scope == nil {
 				continue
 			}
-			ns, kind, name, ok := parseActionAddress(innerAddress(ent.Address))
+			tmpl, instKey := splitInstanceAddress(ent.Address)
+			ns, kind, name, ok := parseActionAddress(innerAddress(tmpl))
 			if !ok {
 				continue
 			}
-			seedNested(scope.Actions, ns, kind, name, ent.Outputs)
+			if instKey == "" {
+				seedNested(scope.Actions, ns, kind, name, ent.Outputs)
+			} else {
+				seedInstance(scope.Actions, ns, kind, name, instKey, ent.Outputs)
+			}
 		case state.EntryLeaf:
 			scope, err := e.scopeForAddress(rs, ent.Address)
 			if err != nil {
@@ -326,16 +338,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		if err != nil {
 			return nil, err
 		}
-		inputs, err := tolerantEvalBody(n.Body, scope)
-		if err != nil {
-			return nil, err
-		}
-		return &PlanStep{
-			Address:  n.Address,
-			Kind:     n.Kind,
-			Decision: DecisionRead,
-			Inputs:   inputs,
-		}, nil
+		return e.planOneData(n, scope, n.Address)
 	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
 	default:
@@ -383,6 +386,16 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 	if err != nil {
 		return nil, err
 	}
+	return e.planOneAction(rs, n, scope, n.Address)
+}
+
+// planOneAction plans a single action instance against the given scope
+// and state address. Used both by the plain action path
+// (scope == parent, addr == n.Address) and by the for-each path
+// (scope has @each bound, addr has the `['<key>']` suffix).
+func (e *Executor) planOneAction(
+	rs *runState, n *Node, scope *EvalContext, addr string,
+) (*PlanStep, error) {
 	inputs, err := tolerantEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
@@ -394,7 +407,7 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 
 	var prior *state.Entry
 	if rs.prior != nil {
-		prior = rs.prior.Find(n.Address)
+		prior = rs.prior.Find(addr)
 	}
 	dec := DecisionRerun
 	var priorOut map[string]any
@@ -406,7 +419,7 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 		dec = DecisionSkip
 	}
 	return &PlanStep{
-		Address:      n.Address,
+		Address:      addr,
 		Kind:         n.Kind,
 		Decision:     dec,
 		Inputs:       inputs,
@@ -490,6 +503,84 @@ func (e *Executor) planOneResource(
 	}
 	step.Decision = DecisionNoOp
 	return step, nil
+}
+
+// planForEachAction plans one action step per iterable key. Mirrors
+// planForEachResource: each instance evaluates against a child scope
+// with `@each.key` / `@each.value` bound, and its state address gets
+// a `['<key>']` suffix.
+func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error) {
+	mod, ok := e.modulesFor(n)[n.NS]
+	if !ok {
+		return nil, fmt.Errorf("module %q is not imported", n.NS)
+	}
+	if _, ok := mod.Actions[n.Type]; !ok {
+		return nil, fmt.Errorf("module %s has no action %q", n.NS, n.Type)
+	}
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		step, err := e.planOneAction(rs, n, inst, addr)
+		if err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
+
+// planOneData plans a single data source instance against the given
+// scope and state address.
+func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanStep, error) {
+	inputs, err := tolerantEvalBody(n.Body, scope)
+	if err != nil {
+		return nil, err
+	}
+	return &PlanStep{
+		Address:  addr,
+		Kind:     n.Kind,
+		Decision: DecisionRead,
+		Inputs:   inputs,
+	}, nil
+}
+
+// planForEachData plans one data source step per iterable key.
+func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
+	mod, ok := e.modulesFor(n)[n.NS]
+	if !ok {
+		return nil, fmt.Errorf("module %q is not imported", n.NS)
+	}
+	if _, ok := mod.DataSources[n.Type]; !ok {
+		return nil, fmt.Errorf("module %s has no data source %q", n.NS, n.Type)
+	}
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		step, err := e.planOneData(n, inst, addr)
+		if err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
 }
 
 // planForEachResource plans one step per iterable key. The iterable is

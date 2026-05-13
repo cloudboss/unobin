@@ -63,6 +63,121 @@ outputs: {
 	require.True(t, addrs["resource.core.thing.many['beta']"])
 }
 
+func TestApplyPlanForEachAction(t *testing.T) {
+	src := `
+actions: {
+  core: {
+    echo: {
+      many: {
+        @for-each: var.names
+        echo:      @each.value
+      }
+    }
+  }
+}
+outputs: {
+  alpha-said: action.core.echo.many['alpha'].echo
+  beta-said:  action.core.echo.many['beta'].echo
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := testModules()
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs: map[string]any{
+			"names": map[string]any{"alpha": "hello-alpha", "beta": "hello-beta"},
+		},
+		Store: store,
+		Stack: stack,
+	}
+	res, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, "hello-alpha", res.Outputs["alpha-said"])
+	require.Equal(t, "hello-beta", res.Outputs["beta-said"])
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addrs := map[string]bool{}
+	for _, ent := range snap.Entries {
+		addrs[ent.Address] = true
+	}
+	require.True(t, addrs["action.core.echo.many['alpha']"])
+	require.True(t, addrs["action.core.echo.many['beta']"])
+}
+
+func TestApplyPlanForEachActionSkipsUnchanged(t *testing.T) {
+	src := `
+actions: {
+  core: {
+    echo: {
+      many: {
+        @for-each: var.names
+        echo:      @each.value
+      }
+    }
+  }
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	var runs int64
+	mods := countingModules(&runs)
+	inputs := map[string]any{
+		"names": map[string]any{"alpha": "first", "beta": "second"},
+	}
+	apply := func() {
+		applyOnce(t, &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Inputs:  inputs,
+			Store:   store,
+			Stack:   stack,
+		})
+	}
+	apply()
+	require.Equal(t, int64(2), atomic.LoadInt64(&runs))
+	apply()
+	require.Equal(t, int64(2), atomic.LoadInt64(&runs),
+		"second apply skips both instances because their trigger hashes match")
+}
+
+func TestApplyPlanForEachData(t *testing.T) {
+	src := `
+data: {
+  core: {
+    lookup: {
+      many: {
+        @for-each: var.keys
+        key:       @each.value
+      }
+    }
+  }
+}
+outputs: {
+  alpha-value: data.core.lookup.many['alpha'].value
+  beta-value:  data.core.lookup.many['beta'].value
+}
+`
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := testModules()
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs: map[string]any{
+			"keys": map[string]any{"alpha": "alpha-key", "beta": "beta-key"},
+		},
+		Store: store,
+		Stack: stack,
+	}
+	res, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, "looked-up:alpha-key", res.Outputs["alpha-value"])
+	require.Equal(t, "looked-up:beta-key", res.Outputs["beta-value"])
+}
+
 func TestApplyPlanCreatesResource(t *testing.T) {
 	src := `
 resources: {

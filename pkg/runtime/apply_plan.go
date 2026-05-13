@@ -119,7 +119,8 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 }
 
 func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep) error {
-	node, scope, err := e.nodeAndScope(rs, step.Address)
+	tmpl, instKey := splitInstanceAddress(step.Address)
+	node, parentScope, err := e.nodeAndScope(rs, tmpl)
 	if err != nil {
 		return err
 	}
@@ -130,6 +131,10 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	at, ok := mod.Actions[node.Type]
 	if !ok {
 		return fmt.Errorf("module %s has no action %q", node.NS, node.Type)
+	}
+	scope, err := instanceScope(node, parentScope, instKey)
+	if err != nil {
+		return err
 	}
 	// Re-evaluate the body against the live scope. Upstream actions
 	// and data sources have already run by this point, so references
@@ -156,7 +161,11 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	default:
 		return fmt.Errorf("action: unexpected decision %q", step.Decision)
 	}
-	storeNested(scope.Actions, node, outputs)
+	if instKey == "" {
+		storeNested(parentScope.Actions, node, outputs)
+	} else {
+		seedInstance(parentScope.Actions, node.NS, node.Type, node.Name, instKey, outputs)
+	}
 
 	// Recompute the trigger hash with the fresh upstream state so the
 	// next plan compares against an accurate hash.
@@ -181,7 +190,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return e.applyDestroy(ctx, step)
 	}
 	tmpl, instKey := splitInstanceAddress(step.Address)
-	node, scope, err := e.nodeAndScope(rs, tmpl)
+	node, parentScope, err := e.nodeAndScope(rs, tmpl)
 	if err != nil {
 		return err
 	}
@@ -194,9 +203,13 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return fmt.Errorf("module %s has no resource %q", node.NS, node.Type)
 	}
 
+	scope, err := instanceScope(node, parentScope, instKey)
+	if err != nil {
+		return err
+	}
 	// Re-evaluate the body against the live scope so upstream nodes'
 	// real outputs are picked up rather than the plan-time guess.
-	inputs, err := evalResourceBody(node, scope, instKey)
+	inputs, err := evalBody(node.Body, scope)
 	if err != nil {
 		return err
 	}
@@ -234,9 +247,9 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
 	if instKey == "" {
-		storeNested(scope.Resources, node, outputs)
+		storeNested(parentScope.Resources, node, outputs)
 	} else {
-		seedInstance(scope.Resources, node.NS, node.Type, node.Name, instKey, outputs)
+		seedInstance(parentScope.Resources, node.NS, node.Type, node.Name, instKey, outputs)
 	}
 	rs.next.Entries = append(rs.next.Entries, &state.Entry{
 		Address:       step.Address,
@@ -249,15 +262,16 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	return nil
 }
 
-// evalResourceBody evaluates a resource template body against the given
-// scope. For a `@for-each` instance, the iterable is re-evaluated and
-// a child scope with `@each.key` / `@each.value` bound is used so the
-// body's per-instance references resolve as they did at plan time.
-func evalResourceBody(node *Node, scope *EvalContext, instKey string) (map[string]any, error) {
+// instanceScope returns the scope a step body should be evaluated
+// against. For a non-for-each step it returns parent unchanged. For a
+// for-each instance it re-evaluates the iterable, looks up the bound
+// value for instKey, and returns a child scope with `@each.key` and
+// `@each.value` set.
+func instanceScope(node *Node, parent *EvalContext, instKey string) (*EvalContext, error) {
 	if instKey == "" {
-		return evalBody(node.Body, scope)
+		return parent, nil
 	}
-	instances, err := evalForEach(node.ForEach, scope)
+	instances, err := evalForEach(node.ForEach, parent)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +279,7 @@ func evalResourceBody(node *Node, scope *EvalContext, instKey string) (map[strin
 	if !ok {
 		return nil, fmt.Errorf("@for-each instance %q no longer in iterable", instKey)
 	}
-	return evalBody(node.Body, childScopeWithEach(scope, instKey, value))
+	return childScopeWithEach(parent, instKey, value), nil
 }
 
 // applyDestroy handles an orphan destroy step. The address is not in
@@ -309,7 +323,8 @@ func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext,
 }
 
 func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) error {
-	node, scope, err := e.nodeAndScope(rs, step.Address)
+	tmpl, instKey := splitInstanceAddress(step.Address)
+	node, parentScope, err := e.nodeAndScope(rs, tmpl)
 	if err != nil {
 		return err
 	}
@@ -320,6 +335,10 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	dt, ok := mod.DataSources[node.Type]
 	if !ok {
 		return fmt.Errorf("module %s has no data source %q", node.NS, node.Type)
+	}
+	scope, err := instanceScope(node, parentScope, instKey)
+	if err != nil {
+		return err
 	}
 	inputs, err := evalBody(node.Body, scope)
 	if err != nil {
@@ -333,7 +352,11 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
-	storeNested(scope.Data, node, mapify(result))
+	if instKey == "" {
+		storeNested(parentScope.Data, node, mapify(result))
+	} else {
+		seedInstance(parentScope.Data, node.NS, node.Type, node.Name, instKey, mapify(result))
+	}
 	return nil
 }
 
