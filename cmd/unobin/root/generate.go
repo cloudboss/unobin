@@ -12,5 +12,6 @@ var GenerateCmd = &cobra.Command{
 
 func init() {
 	GenerateCmd.AddCommand(generate.GomoduleCmd)
+	GenerateCmd.AddCommand(generate.StackCmd)
 	GenerateCmd.AddCommand(generate.UbmoduleCmd)
 }
