@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
+	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/state"
@@ -292,56 +293,13 @@ func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
 	out := cmd.OutOrStdout()
 	switch format {
 	case "plain":
-		printGraphPlain(out, dag)
+		graphprint.Plain(out, dag)
 	case "dot":
-		printGraphDot(out, dag, info.StackName)
+		graphprint.DOT(out, dag, info.StackName)
 	default:
 		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", format)
 	}
 	return nil
-}
-
-func printGraphPlain(out io.Writer, dag *runtime.DAG) {
-	addrs := sortedNodeAddresses(dag)
-	for i, a := range addrs {
-		if i > 0 {
-			fmt.Fprintln(out)
-		}
-		fmt.Fprintln(out, a)
-		deps := append([]string{}, dag.Edges[a]...)
-		sort.Strings(deps)
-		for _, d := range deps {
-			fmt.Fprintf(out, "  -> %s\n", d)
-		}
-	}
-}
-
-func printGraphDot(out io.Writer, dag *runtime.DAG, name string) {
-	fmt.Fprintf(out, "digraph %q {\n", name)
-	addrs := sortedNodeAddresses(dag)
-	for _, a := range addrs {
-		fmt.Fprintf(out, "  %q;\n", a)
-	}
-	for _, from := range addrs {
-		deps := append([]string{}, dag.Edges[from]...)
-		sort.Strings(deps)
-		for _, dep := range deps {
-			if _, ok := dag.Nodes[dep]; !ok {
-				continue
-			}
-			fmt.Fprintf(out, "  %q -> %q;\n", from, dep)
-		}
-	}
-	fmt.Fprintln(out, "}")
-}
-
-func sortedNodeAddresses(dag *runtime.DAG) []string {
-	addrs := make([]string, 0, len(dag.Nodes))
-	for a := range dag.Nodes {
-		addrs = append(addrs, a)
-	}
-	sort.Strings(addrs)
-	return addrs
 }
 
 func newOutputCmd(info Info) *cobra.Command {
