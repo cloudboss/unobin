@@ -28,6 +28,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	stubCompileResolver(t, remotes)
 	resetFlags(CompileCmd)
 	resetFlags(FetchCmd)
+	resetFlags(PrintGraphCmd)
 	root := &cobra.Command{
 		Use:          "unobin",
 		SilenceUsage: true,
@@ -35,6 +36,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	root.AddCommand(VersionCmd)
 	root.AddCommand(CompileCmd)
 	root.AddCommand(FetchCmd)
+	root.AddCommand(PrintGraphCmd)
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(out)

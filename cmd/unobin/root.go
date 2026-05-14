@@ -20,6 +20,7 @@ func init() {
 	RootCmd.AddCommand(root.CompileCmd)
 	RootCmd.AddCommand(root.GenerateCmd)
 	RootCmd.AddCommand(root.FetchCmd)
+	RootCmd.AddCommand(root.PrintGraphCmd)
 }
 
 func main() {
