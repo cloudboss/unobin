@@ -1,0 +1,289 @@
+package runtime
+
+import (
+	"context"
+	"fmt"
+	"strings"
+)
+
+// insideForEachComposite reports whether any composite call site in
+// n's ancestry is itself a `@for-each` template. Such nodes are
+// planned per-instance by their boundary's planner, not on their own.
+func (e *Executor) insideForEachComposite(n *Node) bool {
+	cur := n.Composite
+	for cur != "" {
+		b, ok := e.DAG.Nodes[cur]
+		if !ok {
+			return false
+		}
+		if b.Kind == NodeComposite && b.ForEach != nil {
+			return true
+		}
+		cur = b.Composite
+	}
+	return false
+}
+
+// planForEachAction plans one action step per iterable key. Mirrors
+// planForEachResource: each instance evaluates against a child scope
+// with `@each.key` / `@each.value` bound, and its state address gets
+// a `['<key>']` suffix.
+func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error) {
+	mod, ok := e.modulesFor(n)[n.NS]
+	if !ok {
+		return nil, fmt.Errorf("module %q is not imported", n.NS)
+	}
+	if _, ok := mod.Actions[n.Type]; !ok {
+		return nil, fmt.Errorf("module %s has no action %q", n.NS, n.Type)
+	}
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		step, err := e.planOneAction(rs, n, inst, addr)
+		if err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
+
+// planForEachData plans one data source step per iterable key.
+func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
+	mod, ok := e.modulesFor(n)[n.NS]
+	if !ok {
+		return nil, fmt.Errorf("module %q is not imported", n.NS)
+	}
+	if _, ok := mod.DataSources[n.Type]; !ok {
+		return nil, fmt.Errorf("module %s has no data source %q", n.NS, n.Type)
+	}
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		step, err := e.planOneData(n, inst, addr)
+		if err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
+
+// planForEachComposite expands a `@for-each` composite call site into
+// one full subtree per iterable key. For each key it ensures the
+// per-instance composite scope (whose Vars are the args evaluated
+// with `@each` bound) is built, then plans every template-internal
+// node of the boundary under a per-instance address, finishing with
+// the boundary's own per-instance step.
+//
+// The plan-step order within an instance mirrors topological order:
+// internals first, boundary last, so subsequent apply lookups find
+// the per-instance scope populated by the time the boundary
+// finalizes its outputs.
+func (e *Executor) planForEachComposite(
+	ctx context.Context, rs *runState, boundary *Node,
+) ([]*PlanStep, error) {
+	parent, err := e.scopeFor(rs, boundary)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(boundary.ForEach, parent)
+	if err != nil {
+		return nil, err
+	}
+	internals := e.compositeInternalsInOrder(boundary.Address)
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		instAddr := instanceAddress(boundary.Address, key)
+		if _, err := e.ensureCompositeScope(rs, instAddr); err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		for _, internal := range internals {
+			rewritten := rewriteAddress(internal.Address, boundary.Address, instAddr)
+			subSteps, err := e.planInternalUnder(ctx, rs, internal, rewritten, instAddr)
+			if err != nil {
+				return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+			}
+			steps = append(steps, subSteps...)
+		}
+		scope, _ := e.ensureCompositeScope(rs, instAddr)
+		var priorOut map[string]any
+		if rs.prior != nil {
+			if prior := rs.prior.Find(instAddr); prior != nil {
+				priorOut = prior.Outputs
+			}
+		}
+		steps = append(steps, &PlanStep{
+			Address:      instAddr,
+			Kind:         NodeComposite,
+			Decision:     DecisionEval,
+			Inputs:       scope.Vars,
+			PriorOutputs: priorOut,
+		})
+	}
+	return steps, nil
+}
+
+// compositeInternalsInOrder returns every DAG node whose Composite
+// chain transitively contains the named boundary, sorted by
+// topological order. Nested composites are included.
+func (e *Executor) compositeInternalsInOrder(boundary string) []*Node {
+	order, err := e.DAG.TopologicalOrder()
+	if err != nil {
+		return nil
+	}
+	included := map[string]bool{}
+	for _, addr := range order {
+		n := e.DAG.Nodes[addr]
+		if n == nil {
+			continue
+		}
+		cur := n.Composite
+		for cur != "" {
+			if cur == boundary {
+				included[addr] = true
+				break
+			}
+			b, ok := e.DAG.Nodes[cur]
+			if !ok {
+				break
+			}
+			cur = b.Composite
+		}
+	}
+	out := make([]*Node, 0, len(included))
+	for _, addr := range order {
+		if included[addr] {
+			out = append(out, e.DAG.Nodes[addr])
+		}
+	}
+	return out
+}
+
+// rewriteAddress substitutes the for-each boundary's template address
+// with its per-instance form everywhere it appears as a prefix in
+// addr. The boundary itself reduces to instAddr; an internal at
+// `<boundary>/<inner>` becomes `<instAddr>/<inner>`.
+func rewriteAddress(addr, boundary, instAddr string) string {
+	if addr == boundary {
+		return instAddr
+	}
+	prefix := boundary + "/"
+	if strings.HasPrefix(addr, prefix) {
+		return instAddr + "/" + addr[len(prefix):]
+	}
+	return addr
+}
+
+// planInternalUnder plans an internal node of a `@for-each`
+// composite at its per-instance address. The internal's scope comes
+// from the cached per-instance composite scope (built lazily via
+// scopeForAddress when its body is evaluated).
+func (e *Executor) planInternalUnder(
+	ctx context.Context, rs *runState, n *Node, addr, instCallSite string,
+) ([]*PlanStep, error) {
+	scope, err := e.scopeForAddress(rs, addr)
+	if err != nil {
+		return nil, err
+	}
+	if scope == nil {
+		return nil, fmt.Errorf("internal %q: no scope", addr)
+	}
+	switch n.Kind {
+	case NodeResource:
+		mod, ok := e.modulesFor(n)[n.NS]
+		if !ok {
+			return nil, fmt.Errorf("module %q is not imported", n.NS)
+		}
+		rt, ok := mod.Resources[n.Type]
+		if !ok {
+			return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+		}
+		step, err := e.planOneResource(ctx, rs, n, rt, scope, addr)
+		if err != nil {
+			return nil, err
+		}
+		return []*PlanStep{step}, nil
+	case NodeAction:
+		step, err := e.planOneAction(rs, n, scope, addr)
+		if err != nil {
+			return nil, err
+		}
+		return []*PlanStep{step}, nil
+	case NodeData:
+		step, err := e.planOneData(n, scope, addr)
+		if err != nil {
+			return nil, err
+		}
+		return []*PlanStep{step}, nil
+	case NodeComposite:
+		var priorOut map[string]any
+		if rs.prior != nil {
+			if prior := rs.prior.Find(addr); prior != nil {
+				priorOut = prior.Outputs
+			}
+		}
+		return []*PlanStep{{
+			Address:      addr,
+			Kind:         NodeComposite,
+			Decision:     DecisionEval,
+			Inputs:       scope.Vars,
+			PriorOutputs: priorOut,
+		}}, nil
+	}
+	return nil, fmt.Errorf("internal %q: unsupported kind %s", addr, n.Kind)
+}
+
+// planForEachResource plans one step per iterable key. The iterable is
+// evaluated against the node's natural scope; each instance is planned
+// against a child scope carrying its `@each.key` / `@each.value`
+// binding, with its own state address.
+func (e *Executor) planForEachResource(
+	ctx context.Context, rs *runState, n *Node,
+) ([]*PlanStep, error) {
+	mod, ok := e.modulesFor(n)[n.NS]
+	if !ok {
+		return nil, fmt.Errorf("module %q is not imported", n.NS)
+	}
+	rt, ok := mod.Resources[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+	}
+	scope, err := e.scopeFor(rs, n)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := evalForEach(n.ForEach, scope)
+	if err != nil {
+		return nil, err
+	}
+	var steps []*PlanStep
+	for _, key := range sortedKeys(instances) {
+		inst := childScopeWithEach(scope, key, instances[key])
+		addr := instanceAddress(n.Address, key)
+		step, err := e.planOneResource(ctx, rs, n, rt, inst, addr)
+		if err != nil {
+			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
+}
