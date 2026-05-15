@@ -114,7 +114,7 @@ func renderPretty(b *strings.Builder, v any, depth int) {
 		b.WriteString(closer)
 		b.WriteString("}")
 	default:
-		b.WriteString(fmt.Sprintf("%v", v))
+		fmt.Fprintf(b, "%v", v)
 	}
 }
 
