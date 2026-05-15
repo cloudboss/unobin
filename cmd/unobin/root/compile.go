@@ -3,12 +3,10 @@ package root
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
-	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
@@ -124,38 +122,20 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		}
 	}
 
-	builder := newUBBuilder(name, resolver)
-	goImports := make(map[string]string, len(refs))
-	ubImports := make(map[string]string, len(refs))
+	v := newCompileVisitor(name)
+	top, err := resolve.WalkUB(refs, resolver, v)
+	if err != nil {
+		return err
+	}
 
-	for _, alias := range sortedRefAliases(refs) {
-		ref := refs[alias]
-		source, err := resolver.Resolve(ref)
-		if err != nil {
-			return fmt.Errorf("import %q: %w", alias, err)
-		}
-		if resolve.IsUBModule(source) {
-			canonical, err := builder.build(alias, ref, source)
-			if err != nil {
-				return fmt.Errorf("import %q: %w", alias, err)
-			}
-			ubImports[alias] = name + "/internal/" + canonical
-			continue
-		}
-		switch r := ref.(type) {
-		case *resolve.LocalImport:
-			return fmt.Errorf("import %q: local source at %q has no module.ub", alias, r.Path)
-		case *resolve.RemoteImport:
-			path := r.URL
-			if r.Subdir != "" {
-				path += "/" + r.Subdir
-			}
-			if err := builder.recordGoImport(path, r.Version); err != nil {
-				return fmt.Errorf("import %q: %w", alias, err)
-			}
-			goImports[alias] = path
-		default:
-			return fmt.Errorf("import %q: unsupported ref type %T", alias, ref)
+	goImports := make(map[string]string, len(top))
+	ubImports := make(map[string]string, len(top))
+	for _, res := range top {
+		switch res.Kind {
+		case resolve.ResolutionGo:
+			goImports[res.LocalAlias] = res.Path
+		case resolve.ResolutionUB:
+			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
 		}
 	}
 
@@ -170,7 +150,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	if cfg.outDir == "-" {
-		if len(builder.packages) > 0 {
+		if len(v.packages) > 0 {
 			return errors.New("compile: cannot stream to stdout when UB modules are imported")
 		}
 		out, err := codegen.Generate(in)
@@ -187,12 +167,12 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	err = codegen.WriteSource(cfg.outDir, in,
-		cfg.goVersion, cfg.unobinVersion, builder.importVersions, replaces)
+		cfg.goVersion, cfg.unobinVersion, v.importVersions, replaces)
 	if err != nil {
 		return err
 	}
-	for key, pkgBytes := range builder.packages {
-		canonical := builder.canonicalAlias[key]
+	for key, pkgBytes := range v.packages {
+		canonical := v.canonicalAlias[key]
 		pkgDir := filepath.Join(cfg.outDir, "internal", canonical)
 		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 			return err
@@ -207,222 +187,65 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	return nil
 }
 
-// ubBuilder accumulates the state of a recursive UB-module build.
-// Compile starts at the stack root and descends through every UB
-// module's body imports. Each unique UB module URL is generated as a
-// single Go package under `<stack-name>/internal/<canonical-alias>`,
-// where the canonical alias is whichever name the module was first
-// imported as. Multiple call sites that point at the same URL share
-// that package even if they use different local aliases. Go-module
-// imports are merged into importVersions for go.mod, with an error
-// when two sites disagree on the version. Cycles through UB-module
-// imports are detected and reported.
-type ubBuilder struct {
-	stackName string
-	resolver  resolve.Resolver
-
+// compileVisitor accumulates the per-import state compile needs as the
+// walker descends the import graph. canonicalAlias maps each UB
+// module's dedup key to the local alias of the first site that
+// reached it (used as the `internal/<dir>/` package name). packages
+// holds the generated Go source per key. importVersions pins each
+// Go-module path to its version for the stack's go.mod, and reports a
+// conflict when two sites disagree on a version.
+type compileVisitor struct {
+	stackName      string
 	canonicalAlias map[string]string
 	packages       map[string][]byte
 	importVersions map[string]string
-	inProgress     map[string]bool
 }
 
-func newUBBuilder(stackName string, resolver resolve.Resolver) *ubBuilder {
-	return &ubBuilder{
+func newCompileVisitor(stackName string) *compileVisitor {
+	return &compileVisitor{
 		stackName:      stackName,
-		resolver:       resolver,
 		canonicalAlias: map[string]string{},
 		packages:       map[string][]byte{},
 		importVersions: map[string]string{},
-		inProgress:     map[string]bool{},
 	}
 }
 
-// build reads a UB module's manifest, parses each exported body, and
-// recursively resolves the body's `imports:` block so per-composite
-// Modules maps can be baked into the generated source. localAlias is
-// the name this site uses for the module; the first site wins as the
-// canonical alias.
-func (b *ubBuilder) build(localAlias string, ref resolve.ImportRef,
-	source *resolve.Source) (string, error) {
-	key := ubKey(ref)
-	if existing, ok := b.canonicalAlias[key]; ok {
-		return existing, nil
-	}
-	if b.inProgress[key] {
-		return "", fmt.Errorf("import cycle through %s", key)
-	}
-	b.inProgress[key] = true
-	defer delete(b.inProgress, key)
-
-	canonical := localAlias
-
-	manifestBytes, err := readSourceFile(source, "module.ub")
-	if err != nil {
-		return "", fmt.Errorf("read module.ub: %w", err)
-	}
-	manifest, err := lang.ParseSource("module.ub", manifestBytes)
-	if err != nil {
-		return "", err
-	}
-	if errs := lang.ValidateFile(manifest); errs.Len() > 0 {
-		return "", errs.Err()
-	}
-
-	exports, err := readManifestExports(manifest)
-	if err != nil {
-		return "", err
-	}
-
-	bodies := make(map[string]*lang.File, len(exports))
-	composites := make(map[string]map[string]string, len(exports))
-
-	for name, path := range exports {
-		body, err := readSourceFile(source, path)
-		if err != nil {
-			return "", fmt.Errorf("read %s: %w", path, err)
-		}
-		f, err := lang.ParseSource(path, body)
-		if err != nil {
-			return "", err
-		}
-		f.Kind = lang.FileExportedType
-		if errs := lang.ValidateFile(f); errs.Len() > 0 {
-			return "", errs.Err()
-		}
-		bodies[name] = f
-
-		bodyImports, importErrs := resolve.ExtractImports(f)
-		if len(importErrs) > 0 {
-			return "", errors.Join(importErrs...)
-		}
-		paths, err := b.resolveCompositeImports(bodyImports)
-		if err != nil {
-			return "", fmt.Errorf("composite %q: %w", name, err)
-		}
-		if len(paths) > 0 {
-			composites[name] = paths
-		}
-	}
-
-	src, err := codegen.GenerateUBModule(canonical, manifest, bodies, composites)
-	if err != nil {
-		return "", err
-	}
-	b.canonicalAlias[key] = canonical
-	b.packages[key] = src
-	return canonical, nil
-}
-
-// resolveCompositeImports resolves each entry of a composite body's
-// `imports:` block. Go-module entries register at top level (so the
-// stack's go.mod gets a single merged set of pinned versions).
-// UB-module entries recurse via build, which dedupes by URL so the
-// same module imported from multiple places is generated once.
-func (b *ubBuilder) resolveCompositeImports(refs map[string]resolve.ImportRef) (map[string]string, error) {
-	out := make(map[string]string, len(refs))
-	for _, alias := range sortedRefAliases(refs) {
-		ref := refs[alias]
-		source, err := b.resolver.Resolve(ref)
-		if err != nil {
-			return nil, fmt.Errorf("import %q: %w", alias, err)
-		}
-		if resolve.IsUBModule(source) {
-			canonical, err := b.build(alias, ref, source)
-			if err != nil {
-				return nil, fmt.Errorf("import %q: %w", alias, err)
-			}
-			out[alias] = b.stackName + "/internal/" + canonical
-			continue
-		}
-		r, ok := ref.(*resolve.RemoteImport)
-		if !ok {
-			return nil, fmt.Errorf("import %q: composite imports must be remote", alias)
-		}
-		path := r.URL
-		if r.Subdir != "" {
-			path += "/" + r.Subdir
-		}
-		if err := b.recordGoImport(path, r.Version); err != nil {
-			return nil, fmt.Errorf("import %q: %w", alias, err)
-		}
-		out[alias] = path
-	}
-	return out, nil
-}
-
-// recordGoImport pins a Go-module path to a specific version. When the
-// same path has already been pinned to a different version somewhere
-// else in the stack, the conflict is reported.
-func (b *ubBuilder) recordGoImport(path, version string) error {
-	if existing, ok := b.importVersions[path]; ok && existing != version {
+func (c *compileVisitor) OnGoImport(_, path, version string) error {
+	if existing, ok := c.importVersions[path]; ok && existing != version {
 		return fmt.Errorf("conflicting versions for %s: %s vs %s",
 			path, existing, version)
 	}
-	b.importVersions[path] = version
+	c.importVersions[path] = version
 	return nil
 }
 
-// sortedRefAliases returns refs's keys in lexicographic order. The
-// stack-root and composite-body walks both rely on this so the
-// canonical alias for a deduped UB module is the lexicographically
-// smallest one rather than whichever the map hands back first.
-func sortedRefAliases(refs map[string]resolve.ImportRef) []string {
-	aliases := make([]string, 0, len(refs))
-	for a := range refs {
-		aliases = append(aliases, a)
+func (c *compileVisitor) OnUBModule(
+	alias, canonicalKey string, _ resolve.ImportRef, mod *resolve.UBModule,
+) error {
+	composites := make(map[string]map[string]string, len(mod.BodyImports))
+	for name, resols := range mod.BodyImports {
+		composite := make(map[string]string, len(resols))
+		for _, res := range resols {
+			switch res.Kind {
+			case resolve.ResolutionGo:
+				composite[res.LocalAlias] = res.Path
+			case resolve.ResolutionUB:
+				composite[res.LocalAlias] = c.stackName +
+					"/internal/" + c.canonicalAlias[res.CanonicalKey]
+			}
+		}
+		if len(composite) > 0 {
+			composites[name] = composite
+		}
 	}
-	sort.Strings(aliases)
-	return aliases
-}
-
-// ubKey is the dedup key for a UB-module import reference. Remote
-// imports key on URL, subdir, and version so two stack sites that
-// pin the same module the same way share one generated package.
-// Local imports key on path; the resolver enforces uniqueness up to
-// the parent's working directory.
-func ubKey(ref resolve.ImportRef) string {
-	switch r := ref.(type) {
-	case *resolve.RemoteImport:
-		return "remote:" + r.URL + "//" + r.Subdir + "@" + r.Version
-	case *resolve.LocalImport:
-		return "local:" + r.Path
-	}
-	return ""
-}
-
-func readSourceFile(s *resolve.Source, name string) ([]byte, error) {
-	f, err := s.FS.Open(name)
+	canonical := alias
+	src, err := codegen.GenerateUBModule(canonical, mod.Manifest, mod.Bodies, composites)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	defer func() { _ = f.Close() }()
-	return io.ReadAll(f)
-}
-
-func readManifestExports(f *lang.File) (map[string]string, error) {
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "exports" {
-			continue
-		}
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			return nil, fmt.Errorf("`exports:` must be an object")
-		}
-		out := make(map[string]string, len(obj.Fields))
-		for _, ef := range obj.Fields {
-			if ef.Key.Kind != lang.FieldIdent || ef.Key.IsMeta() {
-				continue
-			}
-			s, ok := ef.Value.(*lang.StringLit)
-			if !ok {
-				return nil, fmt.Errorf("export %q: value must be a string", ef.Key.Name)
-			}
-			out[ef.Key.Name] = s.Value
-		}
-		return out, nil
-	}
-	return map[string]string{}, nil
+	c.canonicalAlias[canonicalKey] = canonical
+	c.packages[canonicalKey] = src
+	return nil
 }
 
 func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {

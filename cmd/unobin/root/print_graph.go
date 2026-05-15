@@ -105,121 +105,62 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	return nil
 }
 
-// buildModuleMap turns each top-level import alias into a *runtime.Module
-// whose Composites map (for UB modules) is populated from the parsed
-// exports. Go modules become empty Module values so the runtime's
-// composite check distinguishes "imported but not a composite" from
-// "not imported at all". Each composite carries its own Modules map so
-// composite-internal lookups stay self-contained.
+// buildModuleMap turns each top-level import alias into a *runtime.Module.
+// UB-module Composites are populated from the parsed exports; Go modules
+// become empty Module values so the runtime can tell "imported but not a
+// composite" apart from "not imported at all". Each composite carries
+// its own Modules map so composite-internal lookups stay self-contained.
 func buildModuleMap(refs map[string]resolve.ImportRef,
 	resolver resolve.Resolver) (map[string]*runtime.Module, error) {
-	b := &graphModBuilder{
-		resolver:   resolver,
-		byKey:      map[string]*runtime.Module{},
-		inProgress: map[string]bool{},
+	v := &graphVisitor{byKey: map[string]*runtime.Module{}}
+	top, err := resolve.WalkUB(refs, resolver, v)
+	if err != nil {
+		return nil, err
 	}
-	out := make(map[string]*runtime.Module, len(refs))
-	for _, alias := range sortedRefAliases(refs) {
-		mod, err := b.resolve(refs[alias])
-		if err != nil {
-			return nil, fmt.Errorf("import %q: %w", alias, err)
+	out := make(map[string]*runtime.Module, len(top))
+	for _, res := range top {
+		switch res.Kind {
+		case resolve.ResolutionGo:
+			out[res.LocalAlias] = &runtime.Module{}
+		case resolve.ResolutionUB:
+			out[res.LocalAlias] = v.byKey[res.CanonicalKey]
 		}
-		out[alias] = mod
 	}
 	return out, nil
 }
 
-type graphModBuilder struct {
-	resolver   resolve.Resolver
-	byKey      map[string]*runtime.Module
-	inProgress map[string]bool
+// graphVisitor builds a *runtime.Module per unique UB-module key.
+// Go imports contribute nothing to its state because print-graph
+// doesn't model their types; the consumer fills in an empty
+// *runtime.Module per top-level Go alias.
+type graphVisitor struct {
+	byKey map[string]*runtime.Module
 }
 
-func (b *graphModBuilder) resolve(ref resolve.ImportRef) (*runtime.Module, error) {
-	source, err := b.resolver.Resolve(ref)
-	if err != nil {
-		return nil, err
-	}
-	if !resolve.IsUBModule(source) {
-		return &runtime.Module{}, nil
-	}
-	return b.buildUB(ref, source)
+func (g *graphVisitor) OnGoImport(_, _, _ string) error {
+	return nil
 }
 
-func (b *graphModBuilder) buildUB(ref resolve.ImportRef,
-	source *resolve.Source) (*runtime.Module, error) {
-	key := ubKey(ref)
-	if mod, ok := b.byKey[key]; ok {
-		return mod, nil
-	}
-	if b.inProgress[key] {
-		return nil, fmt.Errorf("import cycle through %s", key)
-	}
-	b.inProgress[key] = true
-	defer delete(b.inProgress, key)
-
-	manifestBytes, err := readSourceFile(source, "module.ub")
-	if err != nil {
-		return nil, fmt.Errorf("read module.ub: %w", err)
-	}
-	manifest, err := lang.ParseSource("module.ub", manifestBytes)
-	if err != nil {
-		return nil, err
-	}
-	manifest.Kind = lang.FileModule
-	if errs := lang.ValidateFile(manifest); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
-
-	exports, err := readManifestExports(manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	composites := make(map[string]*runtime.CompositeType, len(exports))
-	for name, path := range exports {
-		body, err := readSourceFile(source, path)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", path, err)
-		}
-		bf, err := lang.ParseSource(path, body)
-		if err != nil {
-			return nil, err
-		}
-		bf.Kind = lang.FileExportedType
-		if errs := lang.ValidateFile(bf); errs.Len() > 0 {
-			return nil, errs.Err()
-		}
-
-		bodyImports, importErrs := resolve.ExtractImports(bf)
-		if len(importErrs) > 0 {
-			return nil, errors.Join(importErrs...)
-		}
-		bodyMods, err := b.bodyMods(bodyImports)
-		if err != nil {
-			return nil, fmt.Errorf("composite %q: %w", name, err)
+func (g *graphVisitor) OnUBModule(
+	_, canonicalKey string, _ resolve.ImportRef, mod *resolve.UBModule,
+) error {
+	composites := make(map[string]*runtime.CompositeType, len(mod.Bodies))
+	for name, body := range mod.Bodies {
+		bodyMods := make(map[string]*runtime.Module, len(mod.BodyImports[name]))
+		for _, res := range mod.BodyImports[name] {
+			switch res.Kind {
+			case resolve.ResolutionGo:
+				bodyMods[res.LocalAlias] = &runtime.Module{}
+			case resolve.ResolutionUB:
+				bodyMods[res.LocalAlias] = g.byKey[res.CanonicalKey]
+			}
 		}
 		composites[name] = &runtime.CompositeType{
 			Name:    name,
-			Body:    bf,
+			Body:    body,
 			Modules: bodyMods,
 		}
 	}
-
-	mod := &runtime.Module{Composites: composites}
-	b.byKey[key] = mod
-	return mod, nil
-}
-
-func (b *graphModBuilder) bodyMods(refs map[string]resolve.ImportRef) (
-	map[string]*runtime.Module, error) {
-	out := make(map[string]*runtime.Module, len(refs))
-	for _, alias := range sortedRefAliases(refs) {
-		mod, err := b.resolve(refs[alias])
-		if err != nil {
-			return nil, fmt.Errorf("import %q: %w", alias, err)
-		}
-		out[alias] = mod
-	}
-	return out, nil
+	g.byKey[canonicalKey] = &runtime.Module{Composites: composites}
+	return nil
 }
