@@ -319,6 +319,10 @@ func newOutputCmd(info Info) *cobra.Command {
 	return cmd
 }
 
+// parsedFile parses the stack source baked into the binary at compile
+// time. The "stack.ub" filename labels error positions; the original
+// source filename is not preserved across compile, so this label is
+// the convention regardless of what the file was called on disk.
 func parsedFile(info Info) (*lang.File, error) {
 	f, err := lang.ParseSource("stack.ub", []byte(info.StackBody))
 	if err != nil {
