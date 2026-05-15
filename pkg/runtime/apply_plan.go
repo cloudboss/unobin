@@ -321,7 +321,7 @@ func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext,
 	if !ok {
 		return nil, nil, fmt.Errorf("address %q not in DAG", addr)
 	}
-	parentAddr := directParent(addr)
+	parentAddr := DirectParent(addr)
 	if parentAddr == "" {
 		return node, rs.eval, nil
 	}

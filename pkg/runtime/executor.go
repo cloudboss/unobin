@@ -200,11 +200,11 @@ func templateAddress(addr string) string {
 	}
 }
 
-// directParent returns the substring before the last `/` in addr, or
+// DirectParent returns the substring before the last `/` in addr, or
 // the empty string when addr has no `/`. Unlike templateAddress,
-// directParent preserves `['key']` segments so the result names a
+// DirectParent preserves `['key']` segments so the result names a
 // per-instance composite call site when one is present.
-func directParent(addr string) string {
+func DirectParent(addr string) string {
 	if i := strings.LastIndex(addr, "/"); i >= 0 {
 		return addr[:i]
 	}

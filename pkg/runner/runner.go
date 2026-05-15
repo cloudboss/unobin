@@ -470,20 +470,13 @@ func buildPlanTree(steps []*runtime.PlanStep) *planTree {
 		}
 	}
 	for _, s := range steps {
-		parent := directParent(s.Address)
+		parent := runtime.DirectParent(s.Address)
 		if _, ok := t.boundaries[parent]; !ok {
 			parent = ""
 		}
 		t.children[parent] = append(t.children[parent], s)
 	}
 	return t
-}
-
-func directParent(addr string) string {
-	if i := strings.LastIndex(addr, "/"); i >= 0 {
-		return addr[:i]
-	}
-	return ""
 }
 
 func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
