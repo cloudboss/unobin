@@ -35,7 +35,6 @@ go run ./cmd/unobin compile \
 ## Run
 
 ```
-mkdir -p /tmp/unobin-for-each
 cd /tmp/for-each-build
 ./for-each plan --allow-version-mismatch \
   -c "$OLDPWD"/examples/for-each/dev.ub -o /tmp/for-each-plan.json

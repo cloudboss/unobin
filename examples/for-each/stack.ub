@@ -21,9 +21,10 @@ resources: {
   local: {
     file: {
       many: {
-        @for-each: var.files
-        path:      format('%s/%s.txt', var.base-path, @each.key)
-        content:   @each.value
+        @for-each:        var.files
+        path:             format('%s/%s.txt', var.base-path, @each.key)
+        content:          @each.value
+        create-directory: true
       }
     }
   }

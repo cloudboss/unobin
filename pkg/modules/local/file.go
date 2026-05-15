@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -15,10 +16,14 @@ import (
 // File writes a regular file to the local filesystem. The file's path
 // is part of the input set; changing the path replaces the resource
 // (the prior file is deleted and a new one is written at the new path).
+// CreateDirectory opts the resource into creating any missing parent
+// directories of Path. Without it, a missing parent is an error so
+// callers do not accidentally write outside an expected tree.
 type File struct {
-	Path    string `mapstructure:"path"`
-	Content string `mapstructure:"content"`
-	Mode    int64  `mapstructure:"mode"`
+	Path            string `mapstructure:"path"`
+	Content         string `mapstructure:"content"`
+	Mode            int64  `mapstructure:"mode"`
+	CreateDirectory bool   `mapstructure:"create-directory"`
 }
 
 // FileOutputs is what gets stored in state after Create / Update.
@@ -73,6 +78,11 @@ func (f *File) write() (FileOutputs, error) {
 	mode := os.FileMode(f.Mode)
 	if mode == 0 {
 		mode = 0o644
+	}
+	if f.CreateDirectory {
+		if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
+			return FileOutputs{}, err
+		}
 	}
 	body := []byte(f.Content)
 	if err := ufs.WriteFileAtomic(f.Path, body, mode); err != nil {

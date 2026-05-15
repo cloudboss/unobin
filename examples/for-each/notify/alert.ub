@@ -14,8 +14,9 @@ resources: {
   local: {
     file: {
       this: {
-        path:    var.path
-        content: format('ALERT %s: %s\n', var.topic, var.body)
+        path:             var.path
+        content:          format('ALERT %s: %s\n', var.topic, var.body)
+        create-directory: true
       }
     }
   }

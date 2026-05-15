@@ -31,6 +31,29 @@ func TestFileCreate(t *testing.T) {
 	require.Equal(t, "hi there", string(body))
 }
 
+func TestFileCreatesMissingParentDirsWhenOptedIn(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "deep", "hello.txt")
+
+	out, err := (&File{Path: path, Content: "deep", CreateDirectory: true}).
+		Create(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, path, out.(FileOutputs).Path)
+
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "deep", string(body))
+}
+
+func TestFileFailsWhenParentMissingAndOptOut(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "hello.txt")
+
+	_, err := (&File{Path: path, Content: "x"}).Create(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no such file or directory")
+}
+
 func TestFileWriteWithMode(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "exec.sh")
