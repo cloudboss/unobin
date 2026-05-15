@@ -52,7 +52,7 @@ func (w *walker) walkFile(id string, parentSrc *Source, f *lang.File) {
 	}
 	w.errors = append(w.errors, CheckSameRepoVersions(refs)...)
 
-	for _, alias := range sortedKeys(refs) {
+	for _, alias := range sortedAliases(refs) {
 		ref := refs[alias]
 		src, err := w.resolveOne(parentSrc, ref)
 		if err != nil {
@@ -155,17 +155,3 @@ func importNodeID(parentID, alias string, ref ImportRef) string {
 	}
 }
 
-func sortedKeys(m map[string]ImportRef) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	// Simple insertion sort - the slice is short and stdlib's sort import
-	// would dwarf the savings.
-	for i := 1; i < len(keys); i++ {
-		for j := i; j > 0 && keys[j-1] > keys[j]; j-- {
-			keys[j-1], keys[j] = keys[j], keys[j-1]
-		}
-	}
-	return keys
-}
