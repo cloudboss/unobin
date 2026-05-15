@@ -503,9 +503,7 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 			sym := decisionSymbol(boundaryDecisionRecursive(t, child.Address))
 			fmt.Fprintf(out, "%s%s %s  (module %s)\n",
 				symPad, sym, child.Address, compositeRef(child.Address))
-			for _, key := range sortedMapKeys(child.Inputs) {
-				fmt.Fprintf(out, "%s%s: %s\n", fieldPad, key, formatValue(child.Inputs[key]))
-			}
+			renderStepInputs(out, fieldPad, child)
 			renderPlanTree(out, t, child.Address, depth+1)
 			i++
 			continue
@@ -522,11 +520,26 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 		}
 		fmt.Fprintf(out, "%s%s %s\n",
 			symPad, decisionSymbol(child.Decision), relTo(child.Address, parent))
-		for _, key := range sortedMapKeys(child.Inputs) {
-			fmt.Fprintf(out, "%s%s: %s\n", fieldPad, key, formatValue(child.Inputs[key]))
-		}
+		renderStepInputs(out, fieldPad, child)
 		i++
 	}
+}
+
+// renderStepInputs writes one line per input field of step. Fields
+// whose plan-time evaluation hit a forward reference render as
+// `<source.address>` so operators see which upstream node will fill
+// the value; the alternative was a misleading literal `null`.
+func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
+	for _, key := range sortedMapKeys(step.Inputs) {
+		fmt.Fprintf(out, "%s%s: %s\n", pad, key, renderInputValue(step, key))
+	}
+}
+
+func renderInputValue(step *runtime.PlanStep, field string) string {
+	if refs := step.UnresolvedInputs[field]; len(refs) > 0 {
+		return "<" + strings.Join(refs, ", ") + ">"
+	}
+	return formatValue(step.Inputs[field])
 }
 
 // renderForEachGroup renders all per-instance steps that share the
@@ -571,9 +584,7 @@ func renderForEachGroup(
 	for _, inst := range changing {
 		_, k := runtime.SplitInstanceAddress(inst.Address)
 		fmt.Fprintf(out, "%s%s ['%s']\n", instSymPad, decisionSymbol(inst.Decision), k)
-		for _, fld := range sortedMapKeys(inst.Inputs) {
-			fmt.Fprintf(out, "%s%s: %s\n", instFieldPad, fld, formatValue(inst.Inputs[fld]))
-		}
+		renderStepInputs(out, instFieldPad, inst)
 	}
 	return end - start
 }

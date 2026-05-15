@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -32,6 +33,58 @@ func Refs(e lang.Expr) []string {
 		}
 	})
 	return dedupe(out)
+}
+
+// deferredRefs returns the full dotted source paths an expression
+// reads from. Unlike Refs, the trailing field segments are preserved
+// so the renderer can show `<resource.aws.vpc.main.id>` rather than
+// the bare node address. `@each` bindings are skipped because they
+// resolve from the for-each scope, not from an upstream node.
+func deferredRefs(e lang.Expr) []string {
+	if e == nil {
+		return nil
+	}
+	var out []string
+	walkExpr(e, func(node lang.Expr) {
+		dp, ok := node.(*lang.DotPath)
+		if !ok {
+			return
+		}
+		switch dp.Root.Name {
+		case "var", "resource", "data", "action":
+		default:
+			return
+		}
+		if path := dotPathString(dp); path != "" {
+			out = append(out, path)
+		}
+	})
+	return dedupe(out)
+}
+
+// dotPathString renders a dotted reference back to its source form.
+// Named segments are joined with `.`; indexed segments preserve the
+// `['<key>']` form when the index is a string literal, and otherwise
+// collapse to `[...]` so the path stays readable.
+func dotPathString(p *lang.DotPath) string {
+	var b strings.Builder
+	b.WriteString(p.Root.Name)
+	for _, seg := range p.Segments {
+		switch {
+		case seg.Name != "":
+			b.WriteByte('.')
+			b.WriteString(seg.Name)
+		case seg.Index != nil:
+			if s, ok := seg.Index.(*lang.StringLit); ok {
+				b.WriteString("['")
+				b.WriteString(s.Value)
+				b.WriteString("']")
+			} else {
+				b.WriteString("[...]")
+			}
+		}
+	}
+	return b.String()
 }
 
 func refAddress(p *lang.DotPath) string {

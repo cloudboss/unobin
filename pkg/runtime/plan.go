@@ -10,19 +10,44 @@ import (
 	"github.com/cloudboss/unobin/pkg/state"
 )
 
-// tolerantEvalBody evaluates a body against the plan-time scope. When
-// the body references an upstream node whose outputs are not yet
-// known (a fresh resource or action with no prior, a data source that
-// has not run), eval returns ErrEvalNotFound; tolerantEvalBody
-// swallows that as nil inputs so the plan step still emits. Apply
-// re-evaluates the body against the live scope and surfaces a real
-// error if the reference is genuinely invalid.
-func tolerantEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
-	inputs, err := evalBody(body, ec)
-	if err != nil && errors.Is(err, ErrEvalNotFound) {
-		return nil, nil
+// planEvalBody evaluates a body field by field against the plan-time
+// scope. A field that resolves cleanly contributes its evaluated value
+// to inputs. A field whose evaluation hits ErrEvalNotFound (because an
+// upstream resource, action, or data source has not run yet) gets nil
+// in inputs and its referenced source addresses are recorded in
+// unresolved so the renderer can show `<resource.X.field>` rather than
+// a misleading null. Apply re-evaluates the body against the live
+// scope and returns a real error if the reference is genuinely
+// invalid.
+func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][]string, error) {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return nil, nil, fmt.Errorf("body must be an object literal")
 	}
-	return inputs, err
+	inputs := make(map[string]any, len(obj.Fields))
+	var unresolved map[string][]string
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		val, err := Eval(fld.Value, ec)
+		if err == nil {
+			inputs[fld.Key.Name] = val
+			continue
+		}
+		if !errors.Is(err, ErrEvalNotFound) {
+			return nil, nil, fmt.Errorf("field %q: %w", fld.Key.Name, err)
+		}
+		inputs[fld.Key.Name] = nil
+		refs := deferredRefs(fld.Value)
+		if len(refs) > 0 {
+			if unresolved == nil {
+				unresolved = map[string][]string{}
+			}
+			unresolved[fld.Key.Name] = refs
+		}
+	}
+	return inputs, unresolved, nil
 }
 
 // Decision tags one node's planned action.
@@ -46,14 +71,20 @@ const (
 // Resource.Read returned at plan time; it differs from PriorOutputs
 // when the resource has drifted out of band. For actions, TriggerHash
 // is the hash that determines whether to rerun or skip.
+//
+// UnresolvedInputs names the input fields whose plan-time evaluation
+// hit a forward reference (an upstream node with no prior state). Each
+// entry maps the field name to the source-side dot paths the body
+// reads from. Apply re-evaluates these against the live scope.
 type PlanStep struct {
-	Address         string         `json:"address"`
-	Kind            NodeKind       `json:"kind"`
-	Decision        Decision       `json:"decision"`
-	Inputs          map[string]any `json:"inputs,omitempty"`
-	PriorOutputs    map[string]any `json:"prior-outputs,omitempty"`
-	ObservedOutputs map[string]any `json:"observed-outputs,omitempty"`
-	TriggerHash     string         `json:"trigger-hash,omitempty"`
+	Address          string              `json:"address"`
+	Kind             NodeKind            `json:"kind"`
+	Decision         Decision            `json:"decision"`
+	Inputs           map[string]any      `json:"inputs,omitempty"`
+	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
+	PriorOutputs     map[string]any      `json:"prior-outputs,omitempty"`
+	ObservedOutputs  map[string]any      `json:"observed-outputs,omitempty"`
+	TriggerHash      string              `json:"trigger-hash,omitempty"`
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -437,7 +468,7 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 func (e *Executor) planOneAction(
 	rs *runState, n *Node, scope *EvalContext, addr string,
 ) (*PlanStep, error) {
-	inputs, err := tolerantEvalBody(n.Body, scope)
+	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -460,12 +491,13 @@ func (e *Executor) planOneAction(
 		dec = DecisionSkip
 	}
 	return &PlanStep{
-		Address:      addr,
-		Kind:         n.Kind,
-		Decision:     dec,
-		Inputs:       inputs,
-		PriorOutputs: priorOut,
-		TriggerHash:  trigger.Hash,
+		Address:          addr,
+		Kind:             n.Kind,
+		Decision:         dec,
+		Inputs:           inputs,
+		UnresolvedInputs: unresolved,
+		PriorOutputs:     priorOut,
+		TriggerHash:      trigger.Hash,
 	}, nil
 }
 
@@ -493,7 +525,7 @@ func (e *Executor) planOneResource(
 	ctx context.Context, rs *runState, n *Node, rt ResourceType,
 	scope *EvalContext, addr string,
 ) (*PlanStep, error) {
-	inputs, err := tolerantEvalBody(n.Body, scope)
+	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -502,9 +534,10 @@ func (e *Executor) planOneResource(
 		prior = rs.prior.Find(addr)
 	}
 	step := &PlanStep{
-		Address: addr,
-		Kind:    n.Kind,
-		Inputs:  inputs,
+		Address:          addr,
+		Kind:             n.Kind,
+		Inputs:           inputs,
+		UnresolvedInputs: unresolved,
 	}
 	if prior == nil {
 		step.Decision = DecisionCreate
@@ -582,15 +615,16 @@ func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error)
 // planOneData plans a single data source instance against the given
 // scope and state address.
 func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanStep, error) {
-	inputs, err := tolerantEvalBody(n.Body, scope)
+	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
 	return &PlanStep{
-		Address:  addr,
-		Kind:     n.Kind,
-		Decision: DecisionRead,
-		Inputs:   inputs,
+		Address:          addr,
+		Kind:             n.Kind,
+		Decision:         DecisionRead,
+		Inputs:           inputs,
+		UnresolvedInputs: unresolved,
 	}, nil
 }
 

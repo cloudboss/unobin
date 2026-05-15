@@ -545,6 +545,30 @@ func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 		"map keys that are not bare kebab identifiers must be quoted")
 }
 
+func TestPrintPlanShowsUnresolvedInputRefs(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "resource.core.thing.two",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionCreate,
+				Inputs: map[string]any{
+					"name": nil,
+					"size": int64(2),
+				},
+				UnresolvedInputs: map[string][]string{
+					"name": {"resource.core.thing.one.name"},
+				},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out, "name: <resource.core.thing.one.name>")
+	require.Contains(t, out, "size: 2")
+}
+
 func TestPrintPlanShowsDriftSection(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{

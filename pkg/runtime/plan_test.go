@@ -424,6 +424,31 @@ resources: {
 	require.Contains(t, err.Error(), "Migrate")
 }
 
+func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      one: { name: 'alpha', size: 1 }
+      two: { name: resource.core.thing.one.name, size: 2 }
+    }
+  }
+}
+`
+	var c resourceCounters
+	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
+
+	two := stepFor(plan, "resource.core.thing.two")
+	require.NotNil(t, two)
+	require.Equal(t, DecisionCreate, two.Decision)
+	require.Equal(t, []string{"resource.core.thing.one.name"}, two.UnresolvedInputs["name"])
+	require.NotContains(t, two.UnresolvedInputs, "size",
+		"resolved fields should not appear in UnresolvedInputs")
+	require.Nil(t, two.Inputs["name"],
+		"the unresolved field's value should be nil so the renderer can spot it")
+	require.Equal(t, int64(2), two.Inputs["size"])
+}
+
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	src := `
 resources: {
