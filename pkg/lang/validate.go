@@ -456,7 +456,7 @@ func ValidateFile(f *File) *ErrorList {
 func ValidateModuleCallAliases(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	imports := importedAliases(f)
-	walkExpressions(f.Body, func(e Expr) {
+	Walk(f.Body, func(e Expr) {
 		c, ok := e.(*Call)
 		if !ok || c.Module == nil {
 			return
@@ -491,36 +491,6 @@ func importedAliases(f *File) map[string]struct{} {
 		return out
 	}
 	return out
-}
-
-func walkExpressions(e Expr, visit func(Expr)) {
-	if e == nil {
-		return
-	}
-	visit(e)
-	switch v := e.(type) {
-	case *ObjectLit:
-		for _, fld := range v.Fields {
-			walkExpressions(fld.Value, visit)
-		}
-	case *ArrayLit:
-		for _, el := range v.Elements {
-			walkExpressions(el, visit)
-		}
-	case *Call:
-		for _, a := range v.Args {
-			walkExpressions(a, visit)
-		}
-	case *Infix:
-		walkExpressions(v.Left, visit)
-		walkExpressions(v.Right, visit)
-	case *Prefix:
-		walkExpressions(v.Expr, visit)
-	case *DotPath:
-		for _, seg := range v.Segments {
-			walkExpressions(seg.Index, visit)
-		}
-	}
 }
 
 func indexTopLevelBlocks(f *File) map[string]Expr {

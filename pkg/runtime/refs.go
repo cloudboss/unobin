@@ -23,7 +23,7 @@ func Refs(e lang.Expr) []string {
 		return nil
 	}
 	var out []string
-	walkExpr(e, func(node lang.Expr) {
+	lang.Walk(e, func(node lang.Expr) {
 		dp, ok := node.(*lang.DotPath)
 		if !ok {
 			return
@@ -45,7 +45,7 @@ func deferredRefs(e lang.Expr) []string {
 		return nil
 	}
 	var out []string
-	walkExpr(e, func(node lang.Expr) {
+	lang.Walk(e, func(node lang.Expr) {
 		dp, ok := node.(*lang.DotPath)
 		if !ok {
 			return
@@ -110,38 +110,6 @@ func refAddress(p *lang.DotPath) string {
 			p.Segments[2].Name)
 	default:
 		return ""
-	}
-}
-
-func walkExpr(e lang.Expr, visit func(lang.Expr)) {
-	if e == nil {
-		return
-	}
-	visit(e)
-	switch v := e.(type) {
-	case *lang.ObjectLit:
-		for _, fld := range v.Fields {
-			walkExpr(fld.Value, visit)
-		}
-	case *lang.ArrayLit:
-		for _, el := range v.Elements {
-			walkExpr(el, visit)
-		}
-	case *lang.Call:
-		for _, arg := range v.Args {
-			walkExpr(arg, visit)
-		}
-	case *lang.Infix:
-		walkExpr(v.Left, visit)
-		walkExpr(v.Right, visit)
-	case *lang.Prefix:
-		walkExpr(v.Expr, visit)
-	case *lang.DotPath:
-		for _, seg := range v.Segments {
-			if seg.Index != nil {
-				walkExpr(seg.Index, visit)
-			}
-		}
 	}
 }
 
