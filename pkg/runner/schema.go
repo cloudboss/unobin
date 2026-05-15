@@ -189,6 +189,9 @@ func topLevelObject(f *lang.File, name string) *lang.ObjectLit {
 	return nil
 }
 
+// printType renders a parsed type expression back to its source form
+// (e.g., `optional(list(string))`). It stays separate from lang.Render
+// because Render formats evaluated Go values rather than AST nodes.
 func printType(e lang.Expr) string {
 	switch v := e.(type) {
 	case *lang.Ident:
