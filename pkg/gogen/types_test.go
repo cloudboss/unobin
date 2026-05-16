@@ -27,28 +27,6 @@ func TestPointerType(t *testing.T) {
 	}
 }
 
-func TestPascalToKebab(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"BucketName", "bucket-name"},
-		{"CIDRBlock", "cidr-block"},
-		{"Name", "name"},
-		{"", ""},
-		{"S3Bucket", "s3-bucket"},
-		{"VPCEndpointID", "vpc-endpoint-id"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := pascalToKebab(tt.input)
-			if got != tt.want {
-				t.Errorf("pascalToKebab(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestMapstructureTag(t *testing.T) {
 	got := MapstructureTag("BucketName")
 	if got != "bucket-name" {

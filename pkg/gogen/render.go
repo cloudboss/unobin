@@ -6,6 +6,8 @@ import (
 	"go/format"
 	"sort"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 // ResourceFile renders a Go source file for one resource into the resources/
@@ -188,13 +190,13 @@ func ModuleFile(
 
 	if len(resources) > 0 {
 		sort.Slice(resources, func(i, j int) bool {
-			identI := pascalToKebab(resources[i].GoName)
-			identJ := pascalToKebab(resources[j].GoName)
+			identI := lang.PascalToKebab(resources[i].GoName)
+			identJ := lang.PascalToKebab(resources[j].GoName)
 			return identI < identJ
 		})
 		b.WriteString("\t\tResources: map[string]runtime.ResourceType{\n")
 		for _, rs := range resources {
-			typeKey := pascalToKebab(rs.GoName)
+			typeKey := lang.PascalToKebab(rs.GoName)
 			fmt.Fprintf(&b, "\t\t\t\"%s\": {\n", typeKey)
 			fmt.Fprintf(&b, "\t\t\t\tName:          \"%s\",\n", typeKey)
 			desc := escapeQuote(rs.Description)
@@ -209,13 +211,13 @@ func ModuleFile(
 
 	if len(dataSources) > 0 {
 		sort.Slice(dataSources, func(i, j int) bool {
-			identI := pascalToKebab(dataSources[i].GoName)
-			identJ := pascalToKebab(dataSources[j].GoName)
+			identI := lang.PascalToKebab(dataSources[i].GoName)
+			identJ := lang.PascalToKebab(dataSources[j].GoName)
 			return identI < identJ
 		})
 		b.WriteString("\t\tDataSources: map[string]runtime.DataSourceType{\n")
 		for _, ds := range dataSources {
-			typeKey := pascalToKebab(ds.GoName)
+			typeKey := lang.PascalToKebab(ds.GoName)
 			fmt.Fprintf(&b, "\t\t\t\"%s\": {\n", typeKey)
 			fmt.Fprintf(&b, "\t\t\t\tName:        \"%s\",\n", typeKey)
 			desc := escapeQuote(ds.Description)
