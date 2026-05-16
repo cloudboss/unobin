@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -121,6 +122,14 @@ func decodeWrapper(
 		decodeObject(v, raw, present, optional, path, errs)
 		return
 	}
+	if t.Implements(listKindType) {
+		decodeList(v, raw, present, optional, path, errs)
+		return
+	}
+	if t.Implements(mapKindType) {
+		decodeMap(v, raw, present, optional, path, errs)
+		return
+	}
 	switch t {
 	case stringType:
 		decodeString(v, raw, present, optional, path, errs)
@@ -136,10 +145,14 @@ func decodeWrapper(
 	}
 }
 
-// objectKind is the marker the decoder uses to identify Object[T]
-// wrappers, since each generic instantiation has a distinct
+// objectKind, listKind, and mapKind let the decoder identify generic
+// wrappers at runtime; each generic instantiation has a distinct
 // reflect.Type that direct equality cannot catch.
-type objectKind interface{ isUbObject() }
+type (
+	objectKind interface{ isUbObject() }
+	listKind   interface{ isUbList() }
+	mapKind    interface{ isUbMap() }
+)
 
 var (
 	stringType     = reflect.TypeFor[String]()
@@ -147,6 +160,8 @@ var (
 	numberType     = reflect.TypeFor[Number]()
 	booleanType    = reflect.TypeFor[Boolean]()
 	objectKindType = reflect.TypeFor[objectKind]()
+	listKindType   = reflect.TypeFor[listKind]()
+	mapKindType    = reflect.TypeFor[mapKind]()
 )
 
 func decodeObject(
@@ -180,6 +195,95 @@ func decodeObject(
 	if !validateField.IsNil() {
 		runValidate(
 			validateField.Interface().(Validator), inner.Interface(), path, errs)
+	}
+}
+
+func decodeList(
+	v reflect.Value,
+	raw any,
+	present, optional bool,
+	path string,
+	errs *errList,
+) {
+	valueField := v.FieldByName("Value")
+	defaultField := v.FieldByName("Default")
+	element := v.FieldByName("Element")
+	if !present {
+		if !optional {
+			errs.addf("field %s: required", path)
+			return
+		}
+		if defaultField.Len() > 0 {
+			valueField.Set(defaultField)
+		}
+		return
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		errs.addf("field %s: expected a list, got %T", path, raw)
+		return
+	}
+	out := reflect.MakeSlice(valueField.Type(), 0, len(arr))
+	for i, item := range arr {
+		elem := reflect.New(element.Type()).Elem()
+		elem.Set(element)
+		itemPath := fmt.Sprintf("%s[%d]", path, i)
+		decodeField(elem, element.Type(), item, true, false, itemPath, errs)
+		out = reflect.Append(out, elem)
+	}
+	valueField.Set(out)
+
+	validateField := v.FieldByName("Validate")
+	if !validateField.IsNil() {
+		runValidate(
+			validateField.Interface().(Validator), valueField.Interface(), path, errs)
+	}
+}
+
+func decodeMap(
+	v reflect.Value,
+	raw any,
+	present, optional bool,
+	path string,
+	errs *errList,
+) {
+	valueField := v.FieldByName("Value")
+	defaultField := v.FieldByName("Default")
+	element := v.FieldByName("Element")
+	if !present {
+		if !optional {
+			errs.addf("field %s: required", path)
+			return
+		}
+		if defaultField.Len() > 0 {
+			valueField.Set(defaultField)
+		}
+		return
+	}
+	m, ok := raw.(map[string]any)
+	if !ok {
+		errs.addf("field %s: expected a map, got %T", path, raw)
+		return
+	}
+	out := reflect.MakeMapWithSize(valueField.Type(), len(m))
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		elem := reflect.New(element.Type()).Elem()
+		elem.Set(element)
+		itemPath := fmt.Sprintf("%s[%q]", path, k)
+		decodeField(elem, element.Type(), m[k], true, false, itemPath, errs)
+		out.SetMapIndex(reflect.ValueOf(k), elem)
+	}
+	valueField.Set(out)
+
+	validateField := v.FieldByName("Validate")
+	if !validateField.IsNil() {
+		runValidate(
+			validateField.Interface().(Validator), valueField.Interface(), path, errs)
 	}
 }
 

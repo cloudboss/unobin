@@ -74,6 +74,7 @@ type List[T Value] struct {
 }
 
 func (List[T]) isUbValue() {}
+func (List[T]) isUbList()  {}
 
 type Map[T Value] struct {
 	Value       map[string]T
@@ -84,6 +85,7 @@ type Map[T Value] struct {
 }
 
 func (Map[T]) isUbValue() {}
+func (Map[T]) isUbMap()   {}
 
 // Set is backed by a slice rather than a map so element types need
 // not be comparable; the decoder rejects duplicates.

@@ -360,3 +360,171 @@ func TestDecodeObjectInnerErrorPropagates(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "primary.host")
 }
+
+func TestDecodeListOfStrings(t *testing.T) {
+	type Configuration struct {
+		Subnets List[String]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	raw := map[string]any{"subnets": []any{"a", "b", "c"}}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+	got := out.(*Configuration).Subnets.Value
+	require.Len(t, got, 3)
+	require.Equal(t, "a", got[0].Value)
+	require.Equal(t, "c", got[2].Value)
+}
+
+func TestDecodeListOfIntegers(t *testing.T) {
+	type Configuration struct {
+		Ports List[Integer]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	raw := map[string]any{"ports": []any{int64(80), int64(443)}}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+	got := out.(*Configuration).Ports.Value
+	require.Len(t, got, 2)
+	require.EqualValues(t, 80, got[0].Value)
+	require.EqualValues(t, 443, got[1].Value)
+}
+
+func TestDecodeListMustBeList(t *testing.T) {
+	type Configuration struct {
+		Subnets List[String]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	_, err := Decode(ct, map[string]any{"subnets": "oops"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected a list")
+}
+
+func TestDecodeListRequiredAbsentErrors(t *testing.T) {
+	type Configuration struct {
+		Subnets List[String]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	_, err := Decode(ct, map[string]any{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "subnets")
+}
+
+func TestDecodeListOptionalAbsentUsesDefault(t *testing.T) {
+	type Configuration struct {
+		Subnets *List[String]
+	}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{
+				Subnets: &List[String]{
+					Default: []String{{Value: "default-subnet"}},
+				},
+			}
+		},
+	}
+	out, err := Decode(ct, map[string]any{})
+	require.NoError(t, err)
+	got := out.(*Configuration).Subnets.Value
+	require.Len(t, got, 1)
+	require.Equal(t, "default-subnet", got[0].Value)
+}
+
+func TestDecodeListElementValidatorRunsPerItem(t *testing.T) {
+	type Configuration struct {
+		Subnets List[String]
+	}
+	stub := &stubValidator{}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{
+				Subnets: List[String]{Element: String{Validate: stub}},
+			}
+		},
+	}
+	_, err := Decode(ct, map[string]any{"subnets": []any{"a", "b"}})
+	require.NoError(t, err)
+	require.Equal(t, []any{"a", "b"}, stub.seen)
+}
+
+func TestDecodeListOfObjects(t *testing.T) {
+	type Server struct {
+		Host String
+		Port Integer
+	}
+	type Configuration struct {
+		Servers List[Object[Server]]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	raw := map[string]any{
+		"servers": []any{
+			map[string]any{"host": "a", "port": int64(80)},
+			map[string]any{"host": "b", "port": int64(81)},
+		},
+	}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+	got := out.(*Configuration).Servers.Value
+	require.Len(t, got, 2)
+	require.Equal(t, "a", got[0].Value.Host.Value)
+	require.EqualValues(t, 81, got[1].Value.Port.Value)
+}
+
+func TestDecodeMapOfStrings(t *testing.T) {
+	type Configuration struct {
+		Tags Map[String]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	raw := map[string]any{
+		"tags": map[string]any{"Name": "web", "Env": "prod"},
+	}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+	got := out.(*Configuration).Tags.Value
+	require.Len(t, got, 2)
+	require.Equal(t, "web", got["Name"].Value)
+	require.Equal(t, "prod", got["Env"].Value)
+}
+
+func TestDecodeMapMustBeMap(t *testing.T) {
+	type Configuration struct {
+		Tags Map[String]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	_, err := Decode(ct, map[string]any{"tags": []any{"oops"}})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected a map")
+}
+
+func TestDecodeNestedMapOfMaps(t *testing.T) {
+	type Configuration struct {
+		PerRegion Map[Map[String]]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	raw := map[string]any{
+		"per-region": map[string]any{
+			"east": map[string]any{"profile": "prod"},
+			"west": map[string]any{"profile": "dev"},
+		},
+	}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+	regions := out.(*Configuration).PerRegion.Value
+	require.Equal(t, "prod", regions["east"].Value["profile"].Value)
+	require.Equal(t, "dev", regions["west"].Value["profile"].Value)
+}
