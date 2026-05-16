@@ -331,6 +331,9 @@ func parsedFile(info Info) (*lang.File, error) {
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
+	if errs := runtime.CheckReferences(f, info.Modules); errs.Len() > 0 {
+		return nil, errs.Err()
+	}
 	return f, nil
 }
 

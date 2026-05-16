@@ -974,6 +974,21 @@ func TestValidateRejectsBadSource(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestValidateRejectsInvalidReference(t *testing.T) {
+	info := testInfo(t, `
+actions: {
+  core: {
+    echo: {
+      bad: { echo: var.missing }
+    }
+  }
+}
+`)
+	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unknown input "missing"`)
+}
+
 func TestValidateChecksConfig(t *testing.T) {
 	info := testInfo(t, `
 inputs: { greeting: { type: string } }

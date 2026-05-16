@@ -91,6 +91,9 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
+	if errs := runtime.CheckReferences(f, mods); errs.Len() > 0 {
+		return errs.Err()
+	}
 
 	dag := runtime.BuildDAG(f, mods)
 	out := cmd.OutOrStdout()

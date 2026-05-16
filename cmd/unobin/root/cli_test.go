@@ -173,6 +173,45 @@ func TestCompileInvalidStackFails(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestCompileInvalidReferenceFails(t *testing.T) {
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+resources: {
+  local: {
+    file: {
+      bad: { path: var.missing }
+    }
+  }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unknown input "missing"`)
+}
+
+func TestCompileUnimportedResourceModuleFails(t *testing.T) {
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+resources: {
+  greeter: {
+    greeting: {
+      welcome: { message: 'hello' }
+    }
+  }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `module "greeter" is not imported`)
+}
+
 func TestCompileWithLocalUBModule(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

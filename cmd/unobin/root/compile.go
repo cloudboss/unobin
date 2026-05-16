@@ -13,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/spf13/cobra"
 )
 
@@ -130,13 +131,19 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 
 	goImports := make(map[string]string, len(top))
 	ubImports := make(map[string]string, len(top))
+	mods := make(map[string]*ubruntime.Module, len(top))
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			goImports[res.LocalAlias] = res.Path
+			mods[res.LocalAlias] = &ubruntime.Module{}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
+			mods[res.LocalAlias] = v.runtimeModules[res.CanonicalKey]
 		}
+	}
+	if errs := ubruntime.CheckReferences(f, mods); errs.Len() > 0 {
+		return errs.Err()
 	}
 
 	in := codegen.Input{
@@ -199,6 +206,7 @@ type compileVisitor struct {
 	canonicalAlias map[string]string
 	packages       map[string][]byte
 	importVersions map[string]string
+	runtimeModules map[string]*ubruntime.Module
 }
 
 func newCompileVisitor(stackName string) *compileVisitor {
@@ -207,6 +215,7 @@ func newCompileVisitor(stackName string) *compileVisitor {
 		canonicalAlias: map[string]string{},
 		packages:       map[string][]byte{},
 		importVersions: map[string]string{},
+		runtimeModules: map[string]*ubruntime.Module{},
 	}
 }
 
@@ -223,6 +232,23 @@ func (c *compileVisitor) OnUBModule(
 	alias, canonicalKey string, _ resolve.ImportRef, mod *resolve.UBModule,
 ) error {
 	composites := make(map[string]map[string]string, len(mod.BodyImports))
+	runtimeComposites := make(map[string]*ubruntime.CompositeType, len(mod.Bodies))
+	for name, body := range mod.Bodies {
+		bodyMods := make(map[string]*ubruntime.Module, len(mod.BodyImports[name]))
+		for _, res := range mod.BodyImports[name] {
+			switch res.Kind {
+			case resolve.ResolutionGo:
+				bodyMods[res.LocalAlias] = &ubruntime.Module{}
+			case resolve.ResolutionUB:
+				bodyMods[res.LocalAlias] = c.runtimeModules[res.CanonicalKey]
+			}
+		}
+		runtimeComposites[name] = &ubruntime.CompositeType{
+			Name:    name,
+			Body:    body,
+			Modules: bodyMods,
+		}
+	}
 	for name, resols := range mod.BodyImports {
 		composite := make(map[string]string, len(resols))
 		for _, res := range resols {
@@ -245,6 +271,10 @@ func (c *compileVisitor) OnUBModule(
 	}
 	c.canonicalAlias[canonicalKey] = canonical
 	c.packages[canonicalKey] = src
+	c.runtimeModules[canonicalKey] = &ubruntime.Module{
+		Name:       alias,
+		Composites: runtimeComposites,
+	}
 	return nil
 }
 

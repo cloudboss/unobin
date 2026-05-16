@@ -88,6 +88,18 @@ description: 'x'
 	require.Contains(t, err.Error(), "--format")
 }
 
+func TestPrintGraphInvalidReferenceFails(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "graph-invalid-ref")
+	stackPath := writeStack(t, dir, `
+outputs: {
+  bad: resource.local.file.missing.path
+}
+`)
+	_, err := runCommand(t, "print-graph", "-p", stackPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unknown resource "resource.local.file.missing"`)
+}
+
 func TestPrintGraphExpandsLocalUBModuleComposite(t *testing.T) {
 	root := t.TempDir()
 
