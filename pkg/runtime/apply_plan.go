@@ -43,6 +43,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	if err != nil {
 		return nil, err
 	}
+	e.prepareApplySnapshot(rs)
 	// The apply subcommand is invoked with only the plan file, so the
 	// executor's own Inputs is typically empty. Seed root Vars from
 	// the plan file so root-scope references like `var.X` resolve when
@@ -83,6 +84,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			return nil, fmt.Errorf("%s: %w", step.Address, err)
 		}
 	}
+	pruneStateEntries(rs.next, pf.Steps)
 	if err := e.evalPlanOutputs(rs); err != nil {
 		return nil, err
 	}
@@ -177,7 +179,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		hash = t.Hash
 	}
 
-	rs.next.Entries = append(rs.next.Entries, &state.Entry{
+	upsertEntry(rs.next, &state.Entry{
 		Address:     step.Address,
 		Type:        state.EntryAction,
 		Kind:        node.Type,
@@ -190,7 +192,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 
 func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanStep) error {
 	if step.Decision == DecisionDestroy {
-		return e.applyDestroy(ctx, step)
+		return e.applyDestroy(ctx, rs, step)
 	}
 	tmpl, instKey := splitInstanceAddress(step.Address)
 	node, parentScope, err := e.nodeAndScope(rs, tmpl)
@@ -254,7 +256,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	} else {
 		seedInstance(parentScope.Resources, node.NS, node.Type, node.Name, instKey, outputs)
 	}
-	rs.next.Entries = append(rs.next.Entries, &state.Entry{
+	upsertEntry(rs.next, &state.Entry{
 		Address:       step.Address,
 		Type:          state.EntryLeaf,
 		Kind:          node.Type,
@@ -262,6 +264,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Inputs:        inputs,
 		Outputs:       outputs,
 	})
+	switch step.Decision {
+	case DecisionCreate, DecisionUpdate, DecisionReplace:
+		_, err := e.persist(rs)
+		return err
+	}
 	return nil
 }
 
@@ -290,7 +297,7 @@ func instanceScope(node *Node, parent *EvalContext, instKey string) (*EvalContex
 // type is recovered by parsing the address. Composite-internal
 // addresses keep their call site prefix, so the inner address is
 // stripped first.
-func (e *Executor) applyDestroy(ctx context.Context, step *PlanStep) error {
+func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanStep) error {
 	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)
@@ -307,7 +314,12 @@ func (e *Executor) applyDestroy(ctx context.Context, step *PlanStep) error {
 	if err := Decode(resource, step.Inputs); err != nil {
 		return err
 	}
-	return resource.Delete(ctx, step.PriorOutputs)
+	if err := resource.Delete(ctx, step.PriorOutputs); err != nil {
+		return err
+	}
+	removeEntry(rs.next, step.Address)
+	_, err := e.persist(rs)
+	return err
 }
 
 // nodeAndScope resolves a per-instance step address to its DAG

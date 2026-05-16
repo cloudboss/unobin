@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/state"
@@ -212,6 +213,7 @@ func DirectParent(addr string) string {
 }
 
 func (e *Executor) persist(rs *runState) (string, error) {
+	rs.next.GeneratedAt = time.Now().UTC()
 	rev, err := e.Store.Write(rs.next)
 	if err != nil {
 		return "", err
@@ -220,6 +222,104 @@ func (e *Executor) persist(rs *runState) (string, error) {
 		return "", err
 	}
 	return rev, nil
+}
+
+func (e *Executor) prepareApplySnapshot(rs *runState) {
+	if rs.prior == nil {
+		return
+	}
+	rs.next = cloneSnapshot(rs.prior)
+	rs.next.Stack = e.Stack
+	rs.next.DeploymentID = e.Store.DeploymentID()
+}
+
+func cloneSnapshot(s *state.Snapshot) *state.Snapshot {
+	out := state.NewSnapshot(s.Stack, s.DeploymentID)
+	out.Outputs = cloneMap(s.Outputs)
+	out.Entries = make([]*state.Entry, 0, len(s.Entries))
+	for _, ent := range s.Entries {
+		out.Entries = append(out.Entries, cloneEntry(ent))
+	}
+	return out
+}
+
+func cloneEntry(ent *state.Entry) *state.Entry {
+	if ent == nil {
+		return nil
+	}
+	out := *ent
+	out.SensitiveFields = append([]string(nil), ent.SensitiveFields...)
+	out.Inputs = cloneMap(ent.Inputs)
+	out.Outputs = cloneMap(ent.Outputs)
+	out.DependsOn = append([]string(nil), ent.DependsOn...)
+	return &out
+}
+
+func cloneMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = cloneValue(v)
+	}
+	return out
+}
+
+func cloneValue(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		return cloneMap(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, el := range x {
+			out[i] = cloneValue(el)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+func upsertEntry(snap *state.Snapshot, ent *state.Entry) {
+	for i, existing := range snap.Entries {
+		if existing.Address == ent.Address {
+			snap.Entries[i] = ent
+			return
+		}
+	}
+	snap.Entries = append(snap.Entries, ent)
+}
+
+func removeEntry(snap *state.Snapshot, address string) {
+	for i, ent := range snap.Entries {
+		if ent.Address != address {
+			continue
+		}
+		snap.Entries = append(snap.Entries[:i], snap.Entries[i+1:]...)
+		return
+	}
+}
+
+func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
+	keep := make(map[string]bool, len(steps))
+	for _, step := range steps {
+		switch step.Kind {
+		case NodeAction, NodeComposite:
+			keep[step.Address] = true
+		case NodeResource:
+			if step.Decision != DecisionDestroy {
+				keep[step.Address] = true
+			}
+		}
+	}
+	out := snap.Entries[:0]
+	for _, ent := range snap.Entries {
+		if keep[ent.Address] {
+			out = append(out, ent)
+		}
+	}
+	snap.Entries = out
 }
 
 // finalizeComposite closes a composite call site after its
@@ -253,7 +353,7 @@ func (e *Executor) finalizeComposite(
 	} else {
 		seedInstance(parent.Resources, n.NS, n.Type, n.Name, instKey, outputs)
 	}
-	rs.next.Entries = append(rs.next.Entries, &state.Entry{
+	upsertEntry(rs.next, &state.Entry{
 		Address:    instAddr,
 		Type:       state.EntryModuleCall,
 		Module:     n.NS,

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -9,6 +10,121 @@ import (
 	"github.com/cloudboss/unobin/pkg/state"
 	"github.com/stretchr/testify/require"
 )
+
+var errIncrementalResource = errors.New("intentional resource failure")
+
+type incrementalResourceCounters struct {
+	creates int64
+	updates int64
+	deletes int64
+}
+
+type incrementalResource struct {
+	Name string `mapstructure:"name"`
+	Size int64  `mapstructure:"size"`
+
+	counters *incrementalResourceCounters
+}
+
+func (r *incrementalResource) Create(_ context.Context) (any, error) {
+	if r.Name == "fail-create" {
+		return nil, errIncrementalResource
+	}
+	atomic.AddInt64(&r.counters.creates, 1)
+	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+}
+
+func (r *incrementalResource) Read(_ context.Context, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *incrementalResource) Update(_ context.Context, prior any) (any, error) {
+	if r.Size == 99 {
+		return nil, errIncrementalResource
+	}
+	atomic.AddInt64(&r.counters.updates, 1)
+	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+}
+
+func (r *incrementalResource) Delete(_ context.Context, _ any) error {
+	if r.Name == "fail-delete" {
+		return errIncrementalResource
+	}
+	atomic.AddInt64(&r.counters.deletes, 1)
+	return nil
+}
+
+func (r *incrementalResource) ReplaceFields() []string {
+	return []string{"name"}
+}
+
+func incrementalModules(c *incrementalResourceCounters) map[string]*Module {
+	return map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceType{
+				"inc": {
+					Name:          "inc",
+					SchemaVersion: 1,
+					New: func() Resource {
+						return &incrementalResource{counters: c}
+					},
+				},
+			},
+		},
+	}
+}
+
+func incrementalEntry(address, name string, size int64) *state.Entry {
+	return &state.Entry{
+		Address:       address,
+		Type:          state.EntryLeaf,
+		Kind:          "inc",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": name, "size": size},
+		Outputs: map[string]any{
+			"id":   "fake-" + name,
+			"name": name,
+			"size": size,
+		},
+	}
+}
+
+func requireIncrementalOutputs(t *testing.T, ent *state.Entry, name string, size int64) {
+	t.Helper()
+	require.NotNil(t, ent)
+	require.Equal(t, "fake-"+name, ent.Outputs["id"])
+	require.Equal(t, name, ent.Outputs["name"])
+	require.EqualValues(t, size, ent.Outputs["size"])
+}
+
+func seedIncrementalState(t *testing.T, store *state.LocalStore, entries ...*state.Entry) {
+	t.Helper()
+	snap := state.NewSnapshot(state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		store.DeploymentID())
+	snap.Entries = entries
+	rev, err := store.Write(snap)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+}
+
+func applyIncrementalPlan(
+	t *testing.T,
+	store *state.LocalStore,
+	counters *incrementalResourceCounters,
+	src string,
+) error {
+	t.Helper()
+	mods := incrementalModules(counters)
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+	}
+	_, err := planAndApply(exec)
+	return err
+}
 
 func TestApplyPlanForEachResource(t *testing.T) {
 	src := `
@@ -210,6 +326,115 @@ outputs: {
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha", res.Outputs["id"])
 	require.Equal(t, int64(1), c.creates)
+}
+
+func TestApplyPlanPersistsCreateBeforeLaterFailure(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    inc: {
+      first: { name: 'first', size: 1 }
+      later: {
+        @depends-on: [resource.core.inc.first]
+        name:        'fail-create'
+        size:        1
+      }
+    }
+  }
+}
+`
+	store := newStateStore(t)
+	var c incrementalResourceCounters
+
+	err := applyIncrementalPlan(t, store, &c, src)
+	require.ErrorIs(t, err, errIncrementalResource)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	first := snap.Find("resource.core.inc.first")
+	requireIncrementalOutputs(t, first, "first", 1)
+	require.Nil(t, snap.Find("resource.core.inc.later"))
+}
+
+func TestApplyPlanPersistsUpdateBeforeLaterFailure(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    inc: {
+      first: { name: 'first', size: 2 }
+      later: {
+        @depends-on: [resource.core.inc.first]
+        name:        'fail-create'
+        size:        1
+      }
+    }
+  }
+}
+`
+	store := newStateStore(t)
+	seedIncrementalState(t, store,
+		incrementalEntry("resource.core.inc.first", "first", 1))
+	var c incrementalResourceCounters
+
+	err := applyIncrementalPlan(t, store, &c, src)
+	require.ErrorIs(t, err, errIncrementalResource)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	first := snap.Find("resource.core.inc.first")
+	requireIncrementalOutputs(t, first, "first", 2)
+	require.Equal(t, "first", first.Inputs["name"])
+	require.EqualValues(t, 2, first.Inputs["size"])
+	require.Nil(t, snap.Find("resource.core.inc.later"))
+}
+
+func TestApplyPlanPersistsReplaceBeforeLaterFailure(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    inc: {
+      first: { name: 'new', size: 1 }
+      later: {
+        @depends-on: [resource.core.inc.first]
+        name:        'fail-create'
+        size:        1
+      }
+    }
+  }
+}
+`
+	store := newStateStore(t)
+	seedIncrementalState(t, store,
+		incrementalEntry("resource.core.inc.first", "old", 1))
+	var c incrementalResourceCounters
+
+	err := applyIncrementalPlan(t, store, &c, src)
+	require.ErrorIs(t, err, errIncrementalResource)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	first := snap.Find("resource.core.inc.first")
+	requireIncrementalOutputs(t, first, "new", 1)
+	require.Equal(t, "new", first.Inputs["name"])
+	require.EqualValues(t, 1, first.Inputs["size"])
+	require.Nil(t, snap.Find("resource.core.inc.later"))
+}
+
+func TestApplyPlanPersistsDestroyBeforeLaterFailure(t *testing.T) {
+	src := `description: 'empty'`
+	store := newStateStore(t)
+	seedIncrementalState(t, store,
+		incrementalEntry("resource.core.inc.orphan", "orphan", 1),
+		incrementalEntry("resource.core.inc.later", "fail-delete", 1))
+	var c incrementalResourceCounters
+
+	err := applyIncrementalPlan(t, store, &c, src)
+	require.ErrorIs(t, err, errIncrementalResource)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Nil(t, snap.Find("resource.core.inc.orphan"))
+	require.NotNil(t, snap.Find("resource.core.inc.later"))
 }
 
 func TestApplyPlanForEachComposite(t *testing.T) {
