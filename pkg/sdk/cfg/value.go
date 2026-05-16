@@ -109,4 +109,5 @@ type Object[T any] struct {
 	Validate    Validator
 }
 
-func (Object[T]) isUbValue() {}
+func (Object[T]) isUbValue()  {}
+func (Object[T]) isUbObject() {}

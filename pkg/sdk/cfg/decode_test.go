@@ -264,3 +264,99 @@ func TestDecodeSkipsValidatorOnTypeMismatch(t *testing.T) {
 	require.Error(t, err)
 	require.Empty(t, stub.seen, "validator should not run when decode failed")
 }
+
+func TestDecodeObjectPopulatesInnerStruct(t *testing.T) {
+	type Server struct {
+		Host String
+		Port Integer
+	}
+	type Configuration struct {
+		Primary Object[Server]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	raw := map[string]any{
+		"primary": map[string]any{
+			"host": "db.internal",
+			"port": int64(5432),
+		},
+	}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+	primary := out.(*Configuration).Primary
+	require.Equal(t, "db.internal", primary.Value.Host.Value)
+	require.EqualValues(t, 5432, primary.Value.Port.Value)
+}
+
+func TestDecodeObjectMissingRequiredErrors(t *testing.T) {
+	type Server struct {
+		Host String
+	}
+	type Configuration struct {
+		Primary Object[Server]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	_, err := Decode(ct, map[string]any{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "primary")
+	require.Contains(t, err.Error(), "required")
+}
+
+func TestDecodeObjectOptionalAbsentLeavesZero(t *testing.T) {
+	type Server struct {
+		Host String
+	}
+	type Configuration struct {
+		Primary *Object[Server]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	out, err := Decode(ct, map[string]any{})
+	require.NoError(t, err)
+	require.Nil(t, out.(*Configuration).Primary)
+}
+
+func TestDecodeObjectRunsValidatorOnInnerStruct(t *testing.T) {
+	type Server struct {
+		Host String
+	}
+	type Configuration struct {
+		Primary Object[Server]
+	}
+	stub := &stubValidator{}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{
+				Primary: Object[Server]{Validate: stub},
+			}
+		},
+	}
+	_, err := Decode(ct, map[string]any{
+		"primary": map[string]any{"host": "x"},
+	})
+	require.NoError(t, err)
+	require.Len(t, stub.seen, 1)
+	got := stub.seen[0].(Server)
+	require.Equal(t, "x", got.Host.Value)
+}
+
+func TestDecodeObjectInnerErrorPropagates(t *testing.T) {
+	type Server struct {
+		Host String
+	}
+	type Configuration struct {
+		Primary Object[Server]
+	}
+	ct := &ConfigurationType{
+		New: func() any { return &Configuration{} },
+	}
+	_, err := Decode(ct, map[string]any{
+		"primary": map[string]any{},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "primary.host")
+}

@@ -117,6 +117,10 @@ func decodeWrapper(
 	path string,
 	errs *errList,
 ) {
+	if t.Implements(objectKindType) {
+		decodeObject(v, raw, present, optional, path, errs)
+		return
+	}
 	switch t {
 	case stringType:
 		decodeString(v, raw, present, optional, path, errs)
@@ -132,12 +136,52 @@ func decodeWrapper(
 	}
 }
 
+// objectKind is the marker the decoder uses to identify Object[T]
+// wrappers, since each generic instantiation has a distinct
+// reflect.Type that direct equality cannot catch.
+type objectKind interface{ isUbObject() }
+
 var (
-	stringType  = reflect.TypeFor[String]()
-	integerType = reflect.TypeFor[Integer]()
-	numberType  = reflect.TypeFor[Number]()
-	booleanType = reflect.TypeFor[Boolean]()
+	stringType     = reflect.TypeFor[String]()
+	integerType    = reflect.TypeFor[Integer]()
+	numberType     = reflect.TypeFor[Number]()
+	booleanType    = reflect.TypeFor[Boolean]()
+	objectKindType = reflect.TypeFor[objectKind]()
 )
+
+func decodeObject(
+	v reflect.Value,
+	raw any,
+	present, optional bool,
+	path string,
+	errs *errList,
+) {
+	if !present {
+		if !optional {
+			errs.addf("field %s: required", path)
+		}
+		return
+	}
+	sub, ok := raw.(map[string]any)
+	if !ok {
+		errs.addf("field %s: expected a map, got %T", path, raw)
+		return
+	}
+	inner := v.FieldByName("Value")
+	if inner.Kind() != reflect.Struct {
+		errs.addf(
+			"field %s: Object[T] requires T to be a struct, got %s",
+			path, inner.Type())
+		return
+	}
+	decodeStruct(inner, sub, path, errs)
+
+	validateField := v.FieldByName("Validate")
+	if !validateField.IsNil() {
+		runValidate(
+			validateField.Interface().(Validator), inner.Interface(), path, errs)
+	}
+}
 
 func decodeString(
 	v reflect.Value,
