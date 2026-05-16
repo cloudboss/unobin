@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
 // Module is the registration record a module exports for its types,
@@ -16,13 +17,14 @@ import (
 // imported module's record and aggregates them under the alias the
 // calling source assigned to the import.
 type Module struct {
-	Name        string
-	Description string
-	Actions     map[string]ActionType
-	Resources   map[string]ResourceType
-	DataSources map[string]DataSourceType
-	Composites  map[string]*CompositeType
-	Functions   map[string]FunctionType
+	Name          string
+	Description   string
+	Configuration *cfg.ConfigurationType
+	Actions       map[string]ActionType
+	Resources     map[string]ResourceType
+	DataSources   map[string]DataSourceType
+	Composites    map[string]*CompositeType
+	Functions     map[string]FunctionType
 }
 
 // FunctionType registers a callable function under a Go module. Functions
