@@ -1,10 +1,25 @@
 package cfg
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+type stubValidator struct {
+	err  error
+	seen []any
+}
+
+func (s *stubValidator) Check(v any) error {
+	s.seen = append(s.seen, v)
+	return s.err
+}
+
+func (s *stubValidator) Describe() ValidatorDesc {
+	return ValidatorDesc{Kind: "stub"}
+}
 
 func TestDecodeAtomicFields(t *testing.T) {
 	type Configuration struct {
@@ -186,3 +201,66 @@ func TestDecodeStructMustBeMap(t *testing.T) {
 	require.Contains(t, err.Error(), "expected a map")
 }
 
+func TestDecodeRunsValidatorOnDecodedValue(t *testing.T) {
+	type Configuration struct {
+		Region String
+	}
+	stub := &stubValidator{}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{Region: String{Validate: stub}}
+		},
+	}
+	_, err := Decode(ct, map[string]any{"region": "us-east-1"})
+	require.NoError(t, err)
+	require.Equal(t, []any{"us-east-1"}, stub.seen)
+}
+
+func TestDecodeReportsValidatorFailureWithFieldPath(t *testing.T) {
+	type Configuration struct {
+		Region String
+	}
+	stub := &stubValidator{err: errors.New("bad region")}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{Region: String{Validate: stub}}
+		},
+	}
+	_, err := Decode(ct, map[string]any{"region": "us-east-1"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "region")
+	require.Contains(t, err.Error(), "bad region")
+}
+
+func TestDecodeValidatesDefaultsToo(t *testing.T) {
+	type Configuration struct {
+		Profile *String
+	}
+	stub := &stubValidator{err: errors.New("default rejected")}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{
+				Profile: &String{Default: "bad-default", Validate: stub},
+			}
+		},
+	}
+	_, err := Decode(ct, map[string]any{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "profile")
+	require.Contains(t, err.Error(), "default rejected")
+}
+
+func TestDecodeSkipsValidatorOnTypeMismatch(t *testing.T) {
+	type Configuration struct {
+		Replicas Integer
+	}
+	stub := &stubValidator{}
+	ct := &ConfigurationType{
+		New: func() any {
+			return &Configuration{Replicas: Integer{Validate: stub}}
+		},
+	}
+	_, err := Decode(ct, map[string]any{"replicas": "five"})
+	require.Error(t, err)
+	require.Empty(t, stub.seen, "validator should not run when decode failed")
+}

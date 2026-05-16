@@ -153,14 +153,15 @@ func decodeString(
 			return
 		}
 		w.Value = w.Default
-		return
+	} else {
+		s, ok := raw.(string)
+		if !ok {
+			errs.addf("field %s: expected string, got %T", path, raw)
+			return
+		}
+		w.Value = s
 	}
-	s, ok := raw.(string)
-	if !ok {
-		errs.addf("field %s: expected string, got %T", path, raw)
-		return
-	}
-	w.Value = s
+	runValidate(w.Validate, w.Value, path, errs)
 }
 
 func decodeInteger(
@@ -177,18 +178,20 @@ func decodeInteger(
 			return
 		}
 		w.Value = w.Default
-		return
+	} else {
+		switch n := raw.(type) {
+		case int64:
+			w.Value = n
+		case int:
+			w.Value = int64(n)
+		case int32:
+			w.Value = int64(n)
+		default:
+			errs.addf("field %s: expected integer, got %T", path, raw)
+			return
+		}
 	}
-	switch n := raw.(type) {
-	case int64:
-		w.Value = n
-	case int:
-		w.Value = int64(n)
-	case int32:
-		w.Value = int64(n)
-	default:
-		errs.addf("field %s: expected integer, got %T", path, raw)
-	}
+	runValidate(w.Validate, w.Value, path, errs)
 }
 
 func decodeNumber(
@@ -205,20 +208,22 @@ func decodeNumber(
 			return
 		}
 		w.Value = w.Default
-		return
+	} else {
+		switch n := raw.(type) {
+		case float64:
+			w.Value = n
+		case float32:
+			w.Value = float64(n)
+		case int64:
+			w.Value = float64(n)
+		case int:
+			w.Value = float64(n)
+		default:
+			errs.addf("field %s: expected number, got %T", path, raw)
+			return
+		}
 	}
-	switch n := raw.(type) {
-	case float64:
-		w.Value = n
-	case float32:
-		w.Value = float64(n)
-	case int64:
-		w.Value = float64(n)
-	case int:
-		w.Value = float64(n)
-	default:
-		errs.addf("field %s: expected number, got %T", path, raw)
-	}
+	runValidate(w.Validate, w.Value, path, errs)
 }
 
 func decodeBoolean(
@@ -235,14 +240,23 @@ func decodeBoolean(
 			return
 		}
 		w.Value = w.Default
+	} else {
+		b, ok := raw.(bool)
+		if !ok {
+			errs.addf("field %s: expected boolean, got %T", path, raw)
+			return
+		}
+		w.Value = b
+	}
+}
+
+func runValidate(v Validator, value any, path string, errs *errList) {
+	if v == nil {
 		return
 	}
-	b, ok := raw.(bool)
-	if !ok {
-		errs.addf("field %s: expected boolean, got %T", path, raw)
-		return
+	if err := v.Check(value); err != nil {
+		errs.addf("field %s: %s", path, err)
 	}
-	w.Value = b
 }
 
 func joinPath(parent, child string) string {
