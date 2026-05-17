@@ -46,10 +46,10 @@ func TestResourceFileProducesParseableGo(t *testing.T) {
 		"BucketName string `mapstructure:\"bucket-name\"`",
 		"Tags map[string]string `mapstructure:\"tags\"`",
 		"Arn string `mapstructure:\"arn\"`",
-		"func (r *S3Bucket) Create(ctx context.Context) (any, error)",
-		"func (r *S3Bucket) Read(ctx context.Context, priorOutputs any) (any, error)",
-		"func (r *S3Bucket) Update(ctx context.Context, priorOutputs any) (any, error)",
-		"func (r *S3Bucket) Delete(ctx context.Context, priorOutputs any) error",
+		"func (r *S3Bucket) Create(ctx context.Context, cfg any) (any, error)",
+		"func (r *S3Bucket) Read(ctx context.Context, cfg any, priorOutputs any) (any, error)",
+		"func (r *S3Bucket) Update(ctx context.Context, cfg any, priorOutputs any) (any, error)",
+		"func (r *S3Bucket) Delete(ctx context.Context, cfg any, priorOutputs any) error",
 		"return []string{\n\t\t\"bucket-name\",\n\t}",
 		`panic("not implemented")`,
 	}
@@ -125,7 +125,7 @@ func TestDataSourceFileProducesParseableGo(t *testing.T) {
 	if !strings.Contains(s, "package data") {
 		t.Error("expected package data")
 	}
-	if !strings.Contains(s, "func (d *AMI) Read(ctx context.Context) (any, error)") {
+	if !strings.Contains(s, "func (d *AMI) Read(ctx context.Context, cfg any) (any, error)") {
 		t.Error("expected Read method on data source")
 	}
 }

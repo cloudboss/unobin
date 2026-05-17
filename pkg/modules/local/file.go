@@ -35,11 +35,11 @@ type FileOutputs struct {
 
 func (f *File) ReplaceFields() []string { return []string{"path"} }
 
-func (f *File) Create(_ context.Context) (any, error) {
+func (f *File) Create(_ context.Context, _ any) (any, error) {
 	return f.write()
 }
 
-func (f *File) Read(_ context.Context, prior any) (any, error) {
+func (f *File) Read(_ context.Context, _ any, prior any) (any, error) {
 	info, err := os.Stat(f.Path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -59,11 +59,11 @@ func (f *File) Read(_ context.Context, prior any) (any, error) {
 	}, nil
 }
 
-func (f *File) Update(_ context.Context, _ any) (any, error) {
+func (f *File) Update(_ context.Context, _ any, _ any) (any, error) {
 	return f.write()
 }
 
-func (f *File) Delete(_ context.Context, _ any) error {
+func (f *File) Delete(_ context.Context, _ any, _ any) error {
 	err := os.Remove(f.Path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err

@@ -158,7 +158,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		if err := Decode(action, inputs); err != nil {
 			return err
 		}
-		result, err := action.Run(ctx)
+		result, err := action.Run(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	var outputs map[string]any
 	switch step.Decision {
 	case DecisionCreate:
-		result, err := resource.Create(ctx)
+		result, err := resource.Create(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -234,16 +234,16 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	case DecisionNoOp:
 		outputs = step.PriorOutputs
 	case DecisionUpdate:
-		result, err := resource.Update(ctx, step.PriorOutputs)
+		result, err := resource.Update(ctx, nil, step.PriorOutputs)
 		if err != nil {
 			return err
 		}
 		outputs = mapify(result)
 	case DecisionReplace:
-		if err := resource.Delete(ctx, step.PriorOutputs); err != nil {
+		if err := resource.Delete(ctx, nil, step.PriorOutputs); err != nil {
 			return fmt.Errorf("replace: delete prior: %w", err)
 		}
-		result, err := resource.Create(ctx)
+		result, err := resource.Create(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("replace: create: %w", err)
 		}
@@ -314,7 +314,7 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err := Decode(resource, step.Inputs); err != nil {
 		return err
 	}
-	if err := resource.Delete(ctx, step.PriorOutputs); err != nil {
+	if err := resource.Delete(ctx, nil, step.PriorOutputs); err != nil {
 		return err
 	}
 	removeEntry(rs.next, step.Address)
@@ -370,7 +370,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err := Decode(ds, inputs); err != nil {
 		return err
 	}
-	result, err := ds.Read(ctx)
+	result, err := ds.Read(ctx, nil)
 	if err != nil {
 		return err
 	}

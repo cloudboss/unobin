@@ -69,11 +69,13 @@ type ActionType struct {
 
 // Action is the interface a Go implementation satisfies. The runtime
 // instantiates a fresh Action via ActionType.New, decodes the action's
-// input fields onto it, then calls Run. The returned value is encoded
-// into state and made available to other DAG nodes as
+// input fields onto it, then calls Run. The cfg argument is the
+// decoded module configuration for the action's selected alias, or
+// nil when the module declares no Configuration. The returned value
+// is encoded into state and made available to other DAG nodes as
 // `action.<module>.<type>.<name>.<field>`.
 type Action interface {
-	Run(ctx context.Context) (any, error)
+	Run(ctx context.Context, cfg any) (any, error)
 }
 
 // ResourceType registers a primitive resource under a module. SchemaVersion
@@ -90,17 +92,20 @@ type ResourceType struct {
 // Resource is the lifecycle interface a primitive resource satisfies. The
 // runtime instantiates a fresh value via ResourceType.New, decodes the
 // resource's input fields onto it, and dispatches to Create, Read, Update,
-// or Delete based on the plan. priorOutputs carries the outputs of the
-// previous successful Create or Update from state; pass nil on Create.
+// or Delete based on the plan. The cfg argument is the decoded module
+// configuration for the resource's selected alias, or nil when the
+// module declares no Configuration. priorOutputs carries the outputs
+// of the previous successful Create or Update from state; pass nil on
+// Create.
 //
 // ReplaceFields names the input fields whose change requires a destroy
 // followed by a fresh Create rather than an in-place Update. The runtime
 // uses this to compute replace-because chains in plan output.
 type Resource interface {
-	Create(ctx context.Context) (any, error)
-	Read(ctx context.Context, priorOutputs any) (any, error)
-	Update(ctx context.Context, priorOutputs any) (any, error)
-	Delete(ctx context.Context, priorOutputs any) error
+	Create(ctx context.Context, cfg any) (any, error)
+	Read(ctx context.Context, cfg any, priorOutputs any) (any, error)
+	Update(ctx context.Context, cfg any, priorOutputs any) (any, error)
+	Delete(ctx context.Context, cfg any, priorOutputs any) error
 	ReplaceFields() []string
 }
 
@@ -132,8 +137,10 @@ type DataSourceType struct {
 }
 
 // DataSource is the readonly counterpart to Resource. Every plan reruns
-// Read; no state is kept between runs. The receiver carries the data
-// source's input fields once the runtime has decoded them.
+// Read; no state is kept between runs. The cfg argument is the decoded
+// module configuration for the data source's selected alias, or nil
+// when the module declares no Configuration. The receiver carries the
+// data source's input fields once the runtime has decoded them.
 type DataSource interface {
-	Read(ctx context.Context) (any, error)
+	Read(ctx context.Context, cfg any) (any, error)
 }

@@ -16,7 +16,7 @@ func TestFileCreate(t *testing.T) {
 	path := filepath.Join(dir, "hello.txt")
 
 	f := &File{Path: path, Content: "hi there"}
-	outAny, err := f.Create(context.Background())
+	outAny, err := f.Create(context.Background(), nil)
 	require.NoError(t, err)
 	out := outAny.(FileOutputs)
 
@@ -36,7 +36,7 @@ func TestFileCreatesMissingParentDirsWhenOptedIn(t *testing.T) {
 	path := filepath.Join(dir, "nested", "deep", "hello.txt")
 
 	out, err := (&File{Path: path, Content: "deep", CreateDirectory: true}).
-		Create(context.Background())
+		Create(context.Background(), nil)
 	require.NoError(t, err)
 	require.Equal(t, path, out.(FileOutputs).Path)
 
@@ -49,7 +49,7 @@ func TestFileFailsWhenParentMissingAndOptOut(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "hello.txt")
 
-	_, err := (&File{Path: path, Content: "x"}).Create(context.Background())
+	_, err := (&File{Path: path, Content: "x"}).Create(context.Background(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no such file or directory")
 }
@@ -59,7 +59,7 @@ func TestFileWriteWithMode(t *testing.T) {
 	path := filepath.Join(dir, "exec.sh")
 
 	_, err := (&File{Path: path, Content: "#!/bin/sh\n", Mode: 0o755}).
-		Create(context.Background())
+		Create(context.Background(), nil)
 	require.NoError(t, err)
 
 	info, err := os.Stat(path)
@@ -72,11 +72,11 @@ func TestFileUpdate(t *testing.T) {
 	path := filepath.Join(dir, "u.txt")
 
 	f := &File{Path: path, Content: "first"}
-	first, err := f.Create(context.Background())
+	first, err := f.Create(context.Background(), nil)
 	require.NoError(t, err)
 
 	f.Content = "second value"
-	second, err := f.Update(context.Background(), first)
+	second, err := f.Update(context.Background(), nil, first)
 	require.NoError(t, err)
 	out := second.(FileOutputs)
 
@@ -88,7 +88,7 @@ func TestFileUpdate(t *testing.T) {
 
 func TestFileReadReportsNotFound(t *testing.T) {
 	f := &File{Path: filepath.Join(t.TempDir(), "missing")}
-	_, err := f.Read(context.Background(), nil)
+	_, err := f.Read(context.Background(), nil, nil)
 	require.True(t, errors.Is(err, runtime.ErrNotFound))
 }
 
@@ -98,7 +98,7 @@ func TestFileReadFromDisk(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("on disk"), 0o644))
 
 	f := &File{Path: path}
-	out, err := f.Read(context.Background(), nil)
+	out, err := f.Read(context.Background(), nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, int64(7), out.(FileOutputs).Size)
 }
@@ -108,18 +108,18 @@ func TestFileDelete(t *testing.T) {
 	path := filepath.Join(dir, "d.txt")
 	require.NoError(t, os.WriteFile(path, []byte("x"), 0o644))
 
-	require.NoError(t, (&File{Path: path}).Delete(context.Background(), nil))
+	require.NoError(t, (&File{Path: path}).Delete(context.Background(), nil, nil))
 	_, err := os.Stat(path)
 	require.True(t, errors.Is(err, os.ErrNotExist))
 }
 
 func TestFileDeleteAbsentIsNoop(t *testing.T) {
 	require.NoError(t, (&File{Path: filepath.Join(t.TempDir(), "absent")}).
-		Delete(context.Background(), nil))
+		Delete(context.Background(), nil, nil))
 }
 
 func TestFileRequiresPath(t *testing.T) {
-	_, err := (&File{Content: "x"}).Create(context.Background())
+	_, err := (&File{Content: "x"}).Create(context.Background(), nil)
 	require.Error(t, err)
 }
 
@@ -127,7 +127,7 @@ func TestFileAtomicWriteLeavesNoTmp(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "atomic.txt")
 
-	_, err := (&File{Path: path, Content: "data"}).Create(context.Background())
+	_, err := (&File{Path: path, Content: "data"}).Create(context.Background(), nil)
 	require.NoError(t, err)
 
 	entries, err := os.ReadDir(dir)

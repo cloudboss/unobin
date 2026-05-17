@@ -26,7 +26,7 @@ type incrementalResource struct {
 	counters *incrementalResourceCounters
 }
 
-func (r *incrementalResource) Create(_ context.Context) (any, error) {
+func (r *incrementalResource) Create(_ context.Context, _ any) (any, error) {
 	if r.Name == "fail-create" {
 		return nil, errIncrementalResource
 	}
@@ -34,11 +34,11 @@ func (r *incrementalResource) Create(_ context.Context) (any, error) {
 	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
 }
 
-func (r *incrementalResource) Read(_ context.Context, prior any) (any, error) {
+func (r *incrementalResource) Read(_ context.Context, _ any, prior any) (any, error) {
 	return prior, nil
 }
 
-func (r *incrementalResource) Update(_ context.Context, prior any) (any, error) {
+func (r *incrementalResource) Update(_ context.Context, _ any, prior any) (any, error) {
 	if r.Size == 99 {
 		return nil, errIncrementalResource
 	}
@@ -46,7 +46,7 @@ func (r *incrementalResource) Update(_ context.Context, prior any) (any, error) 
 	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
 }
 
-func (r *incrementalResource) Delete(_ context.Context, _ any) error {
+func (r *incrementalResource) Delete(_ context.Context, _ any, _ any) error {
 	if r.Name == "fail-delete" {
 		return errIncrementalResource
 	}

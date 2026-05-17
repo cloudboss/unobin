@@ -30,7 +30,7 @@ type WaitForResult struct {
 // Run polls until the command exits 0, the timeout fires, or the context
 // is cancelled. A nonzero exit triggers another attempt, and an error is
 // returned if the process fails to start.
-func (a *WaitForAction) Run(ctx context.Context) (any, error) {
+func (a *WaitForAction) Run(ctx context.Context, _ any) (any, error) {
 	if len(a.Argv) == 0 {
 		return nil, errors.New("argv is required")
 	}

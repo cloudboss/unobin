@@ -16,7 +16,7 @@ type echoAction struct {
 	Echo string `mapstructure:"echo"`
 }
 
-func (a *echoAction) Run(_ context.Context) (any, error) {
+func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo, "len": int64(len(a.Echo))}, nil
 }
 
@@ -24,13 +24,13 @@ type lookupDataSource struct {
 	Key string `mapstructure:"key"`
 }
 
-func (d *lookupDataSource) Read(_ context.Context) (any, error) {
+func (d *lookupDataSource) Read(_ context.Context, _ any) (any, error) {
 	return map[string]any{"value": "looked-up:" + d.Key}, nil
 }
 
 type failingAction struct{}
 
-func (failingAction) Run(_ context.Context) (any, error) {
+func (failingAction) Run(_ context.Context, _ any) (any, error) {
 	return nil, errors.New("intentional failure")
 }
 
@@ -207,19 +207,19 @@ type countingResource struct {
 	counters *resourceCounters
 }
 
-func (r *countingResource) Create(_ context.Context) (any, error) {
+func (r *countingResource) Create(_ context.Context, _ any) (any, error) {
 	atomic.AddInt64(&r.counters.creates, 1)
 	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
 }
 
-func (r *countingResource) Read(_ context.Context, prior any) (any, error) {
+func (r *countingResource) Read(_ context.Context, _ any, prior any) (any, error) {
 	if r.counters.readFn != nil {
 		return r.counters.readFn(prior)
 	}
 	return prior, nil
 }
 
-func (r *countingResource) Update(_ context.Context, prior any) (any, error) {
+func (r *countingResource) Update(_ context.Context, _ any, prior any) (any, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
 	m, _ := prior.(map[string]any)
 	if m == nil {
@@ -230,7 +230,7 @@ func (r *countingResource) Update(_ context.Context, prior any) (any, error) {
 	return m, nil
 }
 
-func (r *countingResource) Delete(_ context.Context, _ any) error {
+func (r *countingResource) Delete(_ context.Context, _ any, _ any) error {
 	atomic.AddInt64(&r.counters.deletes, 1)
 	return nil
 }
@@ -1007,7 +1007,7 @@ type countingAction struct {
 	runs *int64
 }
 
-func (a *countingAction) Run(_ context.Context) (any, error) {
+func (a *countingAction) Run(_ context.Context, _ any) (any, error) {
 	atomic.AddInt64(a.runs, 1)
 	return map[string]any{"echo": a.Echo}, nil
 }

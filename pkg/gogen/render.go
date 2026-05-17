@@ -81,10 +81,10 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	for _, op := range []struct {
 		method, params, returns string
 	}{
-		{"Create", "ctx context.Context", "(any, error)"},
-		{"Read", "ctx context.Context, priorOutputs any", "(any, error)"},
-		{"Update", "ctx context.Context, priorOutputs any", "(any, error)"},
-		{"Delete", "ctx context.Context, priorOutputs any", "error"},
+		{"Create", "ctx context.Context, cfg any", "(any, error)"},
+		{"Read", "ctx context.Context, cfg any, priorOutputs any", "(any, error)"},
+		{"Update", "ctx context.Context, cfg any, priorOutputs any", "(any, error)"},
+		{"Delete", "ctx context.Context, cfg any, priorOutputs any", "error"},
 	} {
 		b.WriteString(writeStub(rs.GoName, op.method, op.params, op.returns))
 	}
@@ -146,7 +146,7 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 
-	fmt.Fprintf(&b, "func (d *%s) Read(ctx context.Context) (any, error) {\n", ds.GoName)
+	fmt.Fprintf(&b, "func (d *%s) Read(ctx context.Context, cfg any) (any, error) {\n", ds.GoName)
 	b.WriteString("\tpanic(\"not implemented\")\n")
 	b.WriteString("}\n")
 

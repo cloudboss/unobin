@@ -12,24 +12,24 @@ type fakeResource struct {
 	Name string
 }
 
-func (r *fakeResource) Create(_ context.Context) (any, error) {
+func (r *fakeResource) Create(_ context.Context, _ any) (any, error) {
 	return map[string]any{"id": "fake-" + r.Name}, nil
 }
 
-func (r *fakeResource) Read(_ context.Context, prior any) (any, error) {
+func (r *fakeResource) Read(_ context.Context, _ any, prior any) (any, error) {
 	if prior == nil {
 		return nil, ErrNotFound
 	}
 	return prior, nil
 }
 
-func (r *fakeResource) Update(_ context.Context, prior any) (any, error) {
+func (r *fakeResource) Update(_ context.Context, _ any, prior any) (any, error) {
 	m := prior.(map[string]any)
 	m["id"] = "fake-" + r.Name + "-updated"
 	return m, nil
 }
 
-func (r *fakeResource) Delete(_ context.Context, _ any) error { return nil }
+func (r *fakeResource) Delete(_ context.Context, _ any, _ any) error { return nil }
 
 func (r *fakeResource) ReplaceFields() []string { return []string{"name"} }
 
@@ -37,7 +37,7 @@ type fakeDataSource struct {
 	Key string
 }
 
-func (d *fakeDataSource) Read(_ context.Context) (any, error) {
+func (d *fakeDataSource) Read(_ context.Context, _ any) (any, error) {
 	return map[string]any{"value": d.Key}, nil
 }
 
@@ -45,7 +45,7 @@ type fakeAction struct {
 	Echo string
 }
 
-func (a *fakeAction) Run(_ context.Context) (any, error) {
+func (a *fakeAction) Run(_ context.Context, _ any) (any, error) {
 	return a.Echo, nil
 }
 
@@ -86,21 +86,21 @@ func TestResourceLifecycle(t *testing.T) {
 	r := rt.New()
 	ctx := context.Background()
 
-	out, err := r.Create(ctx)
+	out, err := r.Create(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha", out.(map[string]any)["id"])
 
-	got, err := r.Read(ctx, out)
+	got, err := r.Read(ctx, nil, out)
 	require.NoError(t, err)
 	require.Equal(t, out, got)
 
-	updated, err := r.Update(ctx, out)
+	updated, err := r.Update(ctx, nil, out)
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha-updated", updated.(map[string]any)["id"])
 
-	require.NoError(t, r.Delete(ctx, updated))
+	require.NoError(t, r.Delete(ctx, nil, updated))
 
-	gone, err := r.Read(ctx, nil)
+	gone, err := r.Read(ctx, nil, nil)
 	require.True(t, errors.Is(err, ErrNotFound))
 	require.Nil(t, gone)
 }
@@ -110,7 +110,7 @@ func TestDataSourceRead(t *testing.T) {
 		Name: "lookup",
 		New:  func() DataSource { return &fakeDataSource{Key: "abc"} },
 	}).New()
-	out, err := ds.Read(context.Background())
+	out, err := ds.Read(context.Background(), nil)
 	require.NoError(t, err)
 	require.Equal(t, "abc", out.(map[string]any)["value"])
 }

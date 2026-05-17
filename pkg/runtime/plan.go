@@ -590,7 +590,7 @@ func readObserved(
 	if err := Decode(res, inputs); err != nil {
 		return nil, err
 	}
-	result, err := res.Read(ctx, priorOutputs)
+	result, err := res.Read(ctx, nil, priorOutputs)
 	if err != nil {
 		return nil, err
 	}

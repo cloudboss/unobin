@@ -12,7 +12,7 @@ import (
 
 func runWaitFor(t *testing.T, a *WaitForAction) WaitForResult {
 	t.Helper()
-	res, err := a.Run(context.Background())
+	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
 	wr, ok := res.(WaitForResult)
 	require.True(t, ok, "got %T", res)
@@ -47,13 +47,13 @@ func TestWaitForTimesOut(t *testing.T) {
 		Argv:     []string{"false"},
 		Interval: 10 * time.Millisecond,
 		Timeout:  50 * time.Millisecond,
-	}).Run(context.Background())
+	}).Run(context.Background(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "timed out")
 }
 
 func TestWaitForRequiresArgv(t *testing.T) {
-	_, err := (&WaitForAction{}).Run(context.Background())
+	_, err := (&WaitForAction{}).Run(context.Background(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "argv is required")
 }
@@ -62,7 +62,7 @@ func TestWaitForAbortsOnStartFailure(t *testing.T) {
 	_, err := (&WaitForAction{
 		Argv:    []string{"unobin-no-such-binary-xyz"},
 		Timeout: time.Second,
-	}).Run(context.Background())
+	}).Run(context.Background(), nil)
 	require.Error(t, err)
 }
 
@@ -73,7 +73,7 @@ func TestWaitForContextCancel(t *testing.T) {
 		Argv:     []string{"false"},
 		Interval: 5 * time.Millisecond,
 		Timeout:  5 * time.Second,
-	}).Run(ctx)
+	}).Run(ctx, nil)
 	require.Error(t, err)
 }
 

@@ -13,7 +13,7 @@ import (
 
 func runHTTP(t *testing.T, a *HTTPAction) HTTPResult {
 	t.Helper()
-	res, err := a.Run(context.Background())
+	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
 	hr, ok := res.(HTTPResult)
 	require.True(t, ok, "got %T", res)
@@ -70,7 +70,7 @@ func TestHTTPReports404AsData(t *testing.T) {
 }
 
 func TestHTTPRequiresURL(t *testing.T) {
-	_, err := (&HTTPAction{}).Run(context.Background())
+	_, err := (&HTTPAction{}).Run(context.Background(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "url is required")
 }
@@ -82,7 +82,8 @@ func TestHTTPTimeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := (&HTTPAction{URL: srv.URL, Timeout: 10 * time.Millisecond}).Run(context.Background())
+	a := &HTTPAction{URL: srv.URL, Timeout: 10 * time.Millisecond}
+	_, err := a.Run(context.Background(), nil)
 	require.Error(t, err)
 }
 
@@ -95,7 +96,7 @@ func TestHTTPContextCancel(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	_, err := (&HTTPAction{URL: srv.URL}).Run(ctx)
+	_, err := (&HTTPAction{URL: srv.URL}).Run(ctx, nil)
 	require.Error(t, err)
 }
 

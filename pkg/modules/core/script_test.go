@@ -9,7 +9,7 @@ import (
 
 func runScript(t *testing.T, a *ScriptAction) CommandResult {
 	t.Helper()
-	res, err := a.Run(context.Background())
+	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
 	cr, ok := res.(CommandResult)
 	require.True(t, ok, "got %T", res)
@@ -49,7 +49,7 @@ func TestScriptReportsExitCode(t *testing.T) {
 }
 
 func TestScriptRequiresBody(t *testing.T) {
-	_, err := (&ScriptAction{}).Run(context.Background())
+	_, err := (&ScriptAction{}).Run(context.Background(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "script is required")
 }

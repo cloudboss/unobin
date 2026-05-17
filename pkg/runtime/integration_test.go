@@ -159,7 +159,7 @@ type counter struct {
 	runs *int64
 }
 
-func (c *counter) Run(_ context.Context) (any, error) {
+func (c *counter) Run(_ context.Context, _ any) (any, error) {
 	atomic.AddInt64(c.runs, 1)
 	return map[string]any{"tag": c.Tag}, nil
 }

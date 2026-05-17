@@ -11,7 +11,7 @@ import (
 
 func runCommand(t *testing.T, a *CommandAction) CommandResult {
 	t.Helper()
-	res, err := a.Run(context.Background())
+	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
 	cr, ok := res.(CommandResult)
 	require.True(t, ok, "got %T", res)
@@ -37,7 +37,7 @@ func TestCommandReportsExitCode(t *testing.T) {
 }
 
 func TestCommandRequiresArgv(t *testing.T) {
-	_, err := (&CommandAction{}).Run(context.Background())
+	_, err := (&CommandAction{}).Run(context.Background(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "argv is required")
 }
@@ -68,12 +68,13 @@ func TestCommandWorkingDir(t *testing.T) {
 func TestCommandContextCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	_, err := (&CommandAction{Argv: []string{"sleep", "5"}}).Run(ctx)
+	_, err := (&CommandAction{Argv: []string{"sleep", "5"}}).Run(ctx, nil)
 	require.Error(t, err)
 }
 
 func TestCommandMissingExecutable(t *testing.T) {
-	_, err := (&CommandAction{Argv: []string{"unobin-no-such-binary-xyz"}}).Run(context.Background())
+	a := &CommandAction{Argv: []string{"unobin-no-such-binary-xyz"}}
+	_, err := a.Run(context.Background(), nil)
 	require.Error(t, err)
 }
 

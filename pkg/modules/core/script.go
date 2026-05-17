@@ -17,7 +17,7 @@ type ScriptAction struct {
 
 // Run invokes the configured shell with the script. Output is captured in
 // the same shape as CommandAction returns.
-func (a *ScriptAction) Run(ctx context.Context) (any, error) {
+func (a *ScriptAction) Run(ctx context.Context, _ any) (any, error) {
 	if a.Script == "" {
 		return nil, errors.New("script is required")
 	}

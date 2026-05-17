@@ -38,7 +38,7 @@ type echoAction struct {
 	Echo string `mapstructure:"echo"`
 }
 
-func (a *echoAction) Run(_ context.Context) (any, error) {
+func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo}, nil
 }
 
