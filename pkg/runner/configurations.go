@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -66,24 +65,24 @@ func decodeConfigurations(
 	modules map[string]*runtime.Module,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
-	var errs []string
+	var errs []error
 	for importAlias, mod := range modules {
 		if mod.Configuration == nil {
 			if _, supplied := rawByImport[importAlias]; supplied {
-				errs = append(errs, fmt.Sprintf(
+				errs = append(errs, fmt.Errorf(
 					"configurations.%s: module declares no configuration", importAlias))
 			}
 			continue
 		}
 		aliases, supplied := rawByImport[importAlias]
 		if !supplied || len(aliases) == 0 {
-			errs = append(errs, fmt.Sprintf(
+			errs = append(errs, fmt.Errorf(
 				"configurations.%s: module requires a configuration but none was given",
 				importAlias))
 			continue
 		}
 		if _, hasDefault := aliases["default"]; !hasDefault {
-			errs = append(errs, fmt.Sprintf(
+			errs = append(errs, fmt.Errorf(
 				"configurations.%s: missing `default` entry", importAlias))
 			continue
 		}
@@ -91,15 +90,15 @@ func decodeConfigurations(
 		for aliasName, rawVal := range aliases {
 			m, ok := rawVal.(map[string]any)
 			if !ok {
-				errs = append(errs, fmt.Sprintf(
+				errs = append(errs, fmt.Errorf(
 					"configurations.%s.%s: want a map, got %s",
 					importAlias, aliasName, lang.TypeMessage(rawVal)))
 				continue
 			}
 			d, err := cfg.Decode(mod.Configuration, m)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf(
-					"configurations.%s.%s: %s", importAlias, aliasName, err))
+				errs = append(errs, fmt.Errorf(
+					"configurations.%s.%s: %w", importAlias, aliasName, err))
 				continue
 			}
 			decodedAliases[aliasName] = d
@@ -108,12 +107,12 @@ func decodeConfigurations(
 	}
 	for importAlias := range rawByImport {
 		if _, known := modules[importAlias]; !known {
-			errs = append(errs, fmt.Sprintf(
+			errs = append(errs, fmt.Errorf(
 				"configurations.%s: unknown import alias", importAlias))
 		}
 	}
-	if len(errs) > 0 {
-		return nil, errors.New(strings.Join(errs, "; "))
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
@@ -137,17 +136,17 @@ func readConfigurationsBlock(
 	block *lang.ObjectLit,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
-	var errs []string
+	var errs []error
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != lang.FieldIdent {
-			errs = append(errs, fmt.Sprintf(
+			errs = append(errs, fmt.Errorf(
 				"%s: configurations key must be an identifier", configPath))
 			continue
 		}
 		importAlias := fld.Key.Name
 		obj, ok := fld.Value.(*lang.ObjectLit)
 		if !ok {
-			errs = append(errs, fmt.Sprintf(
+			errs = append(errs, fmt.Errorf(
 				"%s: configurations.%s must be an object", configPath, importAlias))
 			continue
 		}
@@ -159,14 +158,14 @@ func readConfigurationsBlock(
 			aliasName := aliasFld.Key.Name
 			val, err := runtime.Eval(aliasFld.Value, &runtime.EvalContext{})
 			if err != nil {
-				errs = append(errs, fmt.Sprintf(
-					"%s: configurations.%s.%s: %s",
+				errs = append(errs, fmt.Errorf(
+					"%s: configurations.%s.%s: %w",
 					configPath, importAlias, aliasName, err))
 				continue
 			}
 			m, ok := val.(map[string]any)
 			if !ok {
-				errs = append(errs, fmt.Sprintf(
+				errs = append(errs, fmt.Errorf(
 					"%s: configurations.%s.%s must be a map",
 					configPath, importAlias, aliasName))
 				continue
@@ -175,8 +174,8 @@ func readConfigurationsBlock(
 		}
 		out[importAlias] = aliases
 	}
-	if len(errs) > 0 {
-		return nil, errors.New(strings.Join(errs, "; "))
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

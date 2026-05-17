@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -38,17 +37,17 @@ func Decode(ct *ConfigurationType, raw map[string]any) (any, error) {
 }
 
 type errList struct {
-	msgs []string
+	errs []error
 }
 
 func (e *errList) addf(format string, args ...any) {
-	e.msgs = append(e.msgs, fmt.Sprintf(format, args...))
+	e.errs = append(e.errs, fmt.Errorf(format, args...))
 }
 
-func (e *errList) ok() bool { return len(e.msgs) == 0 }
+func (e *errList) ok() bool { return len(e.errs) == 0 }
 
 func (e *errList) err() error {
-	return errors.New(strings.Join(e.msgs, "; "))
+	return errors.Join(e.errs...)
 }
 
 func decodeStruct(s reflect.Value, raw map[string]any, path string, errs *errList) {

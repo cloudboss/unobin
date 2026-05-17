@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 // ValidateConfigurationType verifies that every reachable field in
@@ -37,7 +36,7 @@ func walkStruct(t reflect.Type, path string, visited map[reflect.Type]bool) erro
 	}
 	visited[t] = true
 
-	var errs []string
+	var errs []error
 	for f := range t.Fields() {
 		if !f.IsExported() {
 			continue
@@ -55,18 +54,15 @@ func walkStruct(t reflect.Type, path string, visited map[reflect.Type]bool) erro
 		}
 		if ft.Kind() == reflect.Struct {
 			if err := walkStruct(ft, fieldPath, visited); err != nil {
-				errs = append(errs, err.Error())
+				errs = append(errs, err)
 			}
 			continue
 		}
-		errs = append(errs, fmt.Sprintf(
+		errs = append(errs, fmt.Errorf(
 			"type of field %s is %s, but must be a Value or a struct with Value fields",
 			fieldPath, f.Type))
 	}
-	if len(errs) > 0 {
-		return errors.New(strings.Join(errs, "; "))
-	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func implementsValue(t reflect.Type) bool {
