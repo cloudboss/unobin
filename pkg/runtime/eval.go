@@ -188,7 +188,9 @@ func evalLogical(n *lang.Infix, ctx *EvalContext) (any, error) {
 	}
 	lb, ok := left.(bool)
 	if !ok {
-		return nil, fmt.Errorf("eval: %s: left operand must be a boolean, got %T", n.Op, left)
+		return nil, fmt.Errorf(
+			"eval: %s: left operand must be a boolean, got %s",
+			n.Op, lang.TypeMessage(left))
 	}
 	if n.Op == "&&" && !lb {
 		return false, nil
@@ -202,7 +204,9 @@ func evalLogical(n *lang.Infix, ctx *EvalContext) (any, error) {
 	}
 	rb, ok := right.(bool)
 	if !ok {
-		return nil, fmt.Errorf("eval: %s: right operand must be a boolean, got %T", n.Op, right)
+		return nil, fmt.Errorf(
+			"eval: %s: right operand must be a boolean, got %s",
+			n.Op, lang.TypeMessage(right))
 	}
 	return rb, nil
 }
@@ -221,7 +225,9 @@ func evalArith(op string, a, b any) (any, error) {
 	af, aOK := numericFloat(a)
 	bf, bOK := numericFloat(b)
 	if !aOK || !bOK {
-		return nil, fmt.Errorf("eval: %s: operands must be numbers, got %T and %T", op, a, b)
+		return nil, fmt.Errorf(
+			"eval: %s: operands must be numbers, got %s and %s",
+			op, lang.TypeMessage(a), lang.TypeMessage(b))
 	}
 	return arithFloat(op, af, bf)
 }
@@ -290,7 +296,9 @@ func evalCmp(op string, a, b any) (any, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("eval: %s: operands must be numbers or strings, got %T and %T", op, a, b)
+	return nil, fmt.Errorf(
+		"eval: %s: operands must be numbers or strings, got %s and %s",
+		op, lang.TypeMessage(a), lang.TypeMessage(b))
 }
 
 // evalEq reports value equality. Numeric operands compare after
@@ -343,11 +351,11 @@ func evalPrefix(n *lang.Prefix, ctx *EvalContext) (any, error) {
 		case float64:
 			return -x, nil
 		}
-		return nil, fmt.Errorf("eval: -: operand must be a number, got %T", v)
+		return nil, fmt.Errorf("eval: -: operand must be a number, got %s", lang.TypeMessage(v))
 	case "!":
 		b, ok := v.(bool)
 		if !ok {
-			return nil, fmt.Errorf("eval: !: operand must be a boolean, got %T", v)
+			return nil, fmt.Errorf("eval: !: operand must be a boolean, got %s", lang.TypeMessage(v))
 		}
 		return !b, nil
 	}
@@ -387,14 +395,15 @@ func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
 			}
 			s, ok := idx.(string)
 			if !ok {
-				return nil, fmt.Errorf("eval: index must be a string, got %T", idx)
+				return nil, fmt.Errorf("eval: index must be a string, got %s", lang.TypeMessage(idx))
 			}
 			step = s
 		}
 		path = path + "." + step
 		m, ok := cur.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("eval: cannot navigate into %T at %s", cur, path)
+			return nil, fmt.Errorf(
+				"eval: cannot navigate into %s at %s", lang.TypeMessage(cur), path)
 		}
 		next, exists := m[step]
 		if !exists {
@@ -435,14 +444,15 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 			}
 			s, ok := idx.(string)
 			if !ok {
-				return nil, fmt.Errorf("eval: index must be a string, got %T", idx)
+				return nil, fmt.Errorf("eval: index must be a string, got %s", lang.TypeMessage(idx))
 			}
 			step = s
 		}
 		path = path + "." + step
 		m, ok := cur.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("eval: cannot navigate into %T at %s", cur, path)
+			return nil, fmt.Errorf(
+				"eval: cannot navigate into %s at %s", lang.TypeMessage(cur), path)
 		}
 		next, exists := m[step]
 		if !exists {

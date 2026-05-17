@@ -219,7 +219,8 @@ func checkPredicate(
 	whenBool, ok := whenVal.(bool)
 	if !ok {
 		errs.Addf(ErrSchema, c.when.Span().Start,
-			"constraints[%d] (predicate): when must evaluate to a boolean, got %T", idx, whenVal)
+			"constraints[%d] (predicate): when must evaluate to a boolean, got %s",
+			idx, TypeMessage(whenVal))
 		return
 	}
 	if !whenBool {
@@ -234,7 +235,8 @@ func checkPredicate(
 	requireBool, ok := requireVal.(bool)
 	if !ok {
 		errs.Addf(ErrSchema, c.require.Span().Start,
-			"constraints[%d] (predicate): require must evaluate to a boolean, got %T", idx, requireVal)
+			"constraints[%d] (predicate): require must evaluate to a boolean, got %s",
+			idx, TypeMessage(requireVal))
 		return
 	}
 	if !requireBool {

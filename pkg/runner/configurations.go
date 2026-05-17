@@ -92,8 +92,8 @@ func decodeConfigurations(
 			m, ok := rawVal.(map[string]any)
 			if !ok {
 				errs = append(errs, fmt.Sprintf(
-					"configurations.%s.%s: want a map, got %T",
-					importAlias, aliasName, rawVal))
+					"configurations.%s.%s: want a map, got %s",
+					importAlias, aliasName, lang.TypeMessage(rawVal)))
 				continue
 			}
 			d, err := cfg.Decode(mod.Configuration, m)

@@ -467,7 +467,7 @@ func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 	case []any:
 		return nil, fmt.Errorf("@for-each: lists are not a valid iterable; use a map or a set")
 	}
-	return nil, fmt.Errorf("@for-each: expected a map, got %T", v)
+	return nil, fmt.Errorf("@for-each: expected a map, got %s", lang.TypeMessage(v))
 }
 
 // childScopeWithEach returns a per-instance evaluation scope whose

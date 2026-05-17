@@ -34,7 +34,8 @@ func builtinFormat(args []any) (any, error) {
 	}
 	f, ok := args[0].(string)
 	if !ok {
-		return nil, fmt.Errorf("format: first argument must be a string, got %T", args[0])
+		return nil, fmt.Errorf(
+			"format: first argument must be a string, got %s", lang.TypeMessage(args[0]))
 	}
 	rendered := make([]any, len(args)-1)
 	for i, a := range args[1:] {
@@ -83,7 +84,8 @@ func builtinRange(args []any) (any, error) {
 	}
 	n, ok := args[0].(int64)
 	if !ok {
-		return nil, fmt.Errorf("range: argument must be an integer, got %T", args[0])
+		return nil, fmt.Errorf(
+			"range: argument must be an integer, got %s", lang.TypeMessage(args[0]))
 	}
 	if n < 0 {
 		return nil, fmt.Errorf("range: argument must be non-negative, got %d", n)
@@ -110,7 +112,8 @@ func builtinLength(args []any) (any, error) {
 	case map[string]any:
 		return int64(len(v)), nil
 	}
-	return nil, fmt.Errorf("length: argument must be a string, list, or map, got %T", args[0])
+	return nil, fmt.Errorf(
+		"length: argument must be a string, list, or map, got %s", lang.TypeMessage(args[0]))
 }
 
 func singleStringArg(name string, args []any) (string, error) {
@@ -119,7 +122,8 @@ func singleStringArg(name string, args []any) (string, error) {
 	}
 	s, ok := args[0].(string)
 	if !ok {
-		return "", fmt.Errorf("%s: argument must be a string, got %T", name, args[0])
+		return "", fmt.Errorf(
+			"%s: argument must be a string, got %s", name, lang.TypeMessage(args[0]))
 	}
 	return s, nil
 }

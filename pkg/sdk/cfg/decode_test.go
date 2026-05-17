@@ -89,7 +89,79 @@ func TestDecodeTypeMismatchIsAnError(t *testing.T) {
 	_, err := Decode(ct, map[string]any{"replicas": "five"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "replicas")
-	require.Contains(t, err.Error(), "expected integer")
+	require.Contains(t, err.Error(), "expected an integer")
+}
+
+func TestDecodeTypeMismatchUsesUbTypeNames(t *testing.T) {
+	type Inner struct {
+		Host String
+	}
+	type Configuration struct {
+		Name     String
+		Replicas Integer
+		Ratio    Number
+		Enabled  Boolean
+		Subnets  List[String]
+		Tags     Map[String]
+		Inner    Inner
+		Server   Object[Inner]
+	}
+	tests := []struct {
+		name    string
+		raw     map[string]any
+		wantSub string
+	}{
+		{
+			name:    "string got integer",
+			raw:     map[string]any{"name": int64(5)},
+			wantSub: "name: expected a string, got an integer",
+		},
+		{
+			name:    "integer got string",
+			raw:     map[string]any{"name": "x", "replicas": "five"},
+			wantSub: "replicas: expected an integer, got a string",
+		},
+		{
+			name:    "number got boolean",
+			raw:     map[string]any{"name": "x", "ratio": true},
+			wantSub: "ratio: expected a number, got a boolean",
+		},
+		{
+			name:    "boolean got null",
+			raw:     map[string]any{"name": "x", "enabled": nil},
+			wantSub: "enabled: expected a boolean, got null",
+		},
+		{
+			name:    "list got object",
+			raw:     map[string]any{"name": "x", "subnets": map[string]any{}},
+			wantSub: "subnets: expected a list, got an object",
+		},
+		{
+			name:    "map got list",
+			raw:     map[string]any{"name": "x", "tags": []any{}},
+			wantSub: "tags: expected a map, got a list",
+		},
+		{
+			name:    "nested struct got string",
+			raw:     map[string]any{"name": "x", "inner": "oops"},
+			wantSub: "inner: expected a map, got a string",
+		},
+		{
+			name:    "object got string",
+			raw:     map[string]any{"name": "x", "server": "oops"},
+			wantSub: "server: expected a map, got a string",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ct := &ConfigurationType{
+				New: func() any { return &Configuration{} },
+			}
+			_, err := Decode(ct, tt.raw)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantSub)
+		})
+	}
 }
 
 func TestDecodeUnknownKeyIsAnError(t *testing.T) {

@@ -99,7 +99,8 @@ func decodeField(
 		if present {
 			m, ok := raw.(map[string]any)
 			if !ok {
-				errs.addf("field %s: expected a map, got %T", path, raw)
+				errs.addf("field %s: expected a map, got %s", path,
+					lang.TypeMessage(raw))
 				return
 			}
 			sub = m
@@ -185,7 +186,7 @@ func decodeObject(
 	}
 	sub, ok := raw.(map[string]any)
 	if !ok {
-		errs.addf("field %s: expected a map, got %T", path, raw)
+		errs.addf("field %s: expected a map, got %s", path, lang.TypeMessage(raw))
 		return
 	}
 	inner := v.FieldByName("Value")
@@ -226,7 +227,7 @@ func decodeList(
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		errs.addf("field %s: expected a list, got %T", path, raw)
+		errs.addf("field %s: expected a list, got %s", path, lang.TypeMessage(raw))
 		return
 	}
 	out := reflect.MakeSlice(valueField.Type(), 0, len(arr))
@@ -268,7 +269,7 @@ func decodeMap(
 	}
 	m, ok := raw.(map[string]any)
 	if !ok {
-		errs.addf("field %s: expected a map, got %T", path, raw)
+		errs.addf("field %s: expected a map, got %s", path, lang.TypeMessage(raw))
 		return
 	}
 	out := reflect.MakeMapWithSize(valueField.Type(), len(m))
@@ -310,7 +311,8 @@ func decodeString(
 	} else {
 		s, ok := raw.(string)
 		if !ok {
-			errs.addf("field %s: expected string, got %T", path, raw)
+			errs.addf("field %s: expected a string, got %s", path,
+				lang.TypeMessage(raw))
 			return
 		}
 		w.Value = s
@@ -341,7 +343,8 @@ func decodeInteger(
 		case int32:
 			w.Value = int64(n)
 		default:
-			errs.addf("field %s: expected integer, got %T", path, raw)
+			errs.addf("field %s: expected an integer, got %s", path,
+				lang.TypeMessage(raw))
 			return
 		}
 	}
@@ -373,7 +376,8 @@ func decodeNumber(
 		case int:
 			w.Value = float64(n)
 		default:
-			errs.addf("field %s: expected number, got %T", path, raw)
+			errs.addf("field %s: expected a number, got %s", path,
+				lang.TypeMessage(raw))
 			return
 		}
 	}
@@ -397,7 +401,8 @@ func decodeBoolean(
 	} else {
 		b, ok := raw.(bool)
 		if !ok {
-			errs.addf("field %s: expected boolean, got %T", path, raw)
+			errs.addf("field %s: expected a boolean, got %s", path,
+				lang.TypeMessage(raw))
 			return
 		}
 		w.Value = b
@@ -439,7 +444,7 @@ func decodeSet(
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		errs.addf("field %s: expected a list, got %T", path, raw)
+		errs.addf("field %s: expected a list, got %s", path, lang.TypeMessage(raw))
 		return
 	}
 	innerField, ok := element.Type().FieldByName("Value")
