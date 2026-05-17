@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/modules/core"
 	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +40,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	errs := lang.ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "validate: %v", errsAsStrings(errs))
 
-	store, err := state.NewLocalStore(t.TempDir(), "demo-stack", "test", state.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 
 	mods := map[string]*runtime.Module{
@@ -125,7 +126,7 @@ outputs: {
 // state flows between executions.
 func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *runtime.ExecResult) {
 	t.Helper()
-	store, err := state.NewLocalStore(t.TempDir(), "demo-stack", "test", state.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 
 	var runs int64

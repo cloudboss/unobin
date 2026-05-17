@@ -10,6 +10,7 @@
 //   - Action semantics (triggered with @trigger; 'always' literal; @lock; @timeout)
 //
 // Companion packages:
-//   - pkg/state - backend implementations (local, s3, gcs, azure-blob)
+//   - pkg/sdk/state - Backend contract that provider modules implement
+//   - pkg/state - the local filesystem backend (the only one in core)
 //   - pkg/cli/stack - CLI surface that invokes runtime entry points
 package runtime

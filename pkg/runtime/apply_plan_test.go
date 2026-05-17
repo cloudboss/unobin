@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/localstate"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,7 +99,7 @@ func requireIncrementalOutputs(t *testing.T, ent *state.Entry, name string, size
 	require.EqualValues(t, size, ent.Outputs["size"])
 }
 
-func seedIncrementalState(t *testing.T, store *state.LocalStore, entries ...*state.Entry) {
+func seedIncrementalState(t *testing.T, store *localstate.LocalStore, entries ...*state.Entry) {
 	t.Helper()
 	snap := state.NewSnapshot(state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
 		store.DeploymentID())
@@ -110,7 +111,7 @@ func seedIncrementalState(t *testing.T, store *state.LocalStore, entries ...*sta
 
 func applyIncrementalPlan(
 	t *testing.T,
-	store *state.LocalStore,
+	store *localstate.LocalStore,
 	counters *incrementalResourceCounters,
 	src string,
 ) error {

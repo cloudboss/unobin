@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 // ApplyPlan executes a previously computed PlanFile against the

@@ -10,7 +10,7 @@ import (
 // for snapshots. Older versions error on read.
 const CurrentFormatVersion = 1
 
-// EntryType discriminates the two records a snapshot can hold.
+// EntryType discriminates the three records a snapshot can hold.
 type EntryType string
 
 const (
@@ -19,8 +19,8 @@ const (
 	EntryAction     EntryType = "action"
 )
 
-// Entry is one record in a snapshot. Type discriminates the shape: leaf
-// entries hold a primitive resource's Kind, SchemaVersion, Inputs, and
+// Entry is one record in a snapshot. Type discriminates the fields used:
+// leaf entries hold a primitive resource's Kind, SchemaVersion, Inputs, and
 // Outputs; module-call entries hold a composite type's Module, ModuleType,
 // and call-site Inputs/Outputs.
 type Entry struct {
@@ -49,9 +49,9 @@ type StackInfo struct {
 	Commit  string `json:"commit"`
 }
 
-// Snapshot is the in-memory shape of one state file. The runtime reads the
-// current snapshot at the start of plan or apply, and writes a fresh one
-// after each successful resource action.
+// Snapshot is the in-memory record of one state file. The runtime reads
+// the current snapshot at the start of plan or apply, and writes a fresh
+// one after each successful resource action.
 type Snapshot struct {
 	FormatVersion int            `json:"format-version"`
 	Stack         StackInfo      `json:"stack"`

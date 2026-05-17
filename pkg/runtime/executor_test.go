@@ -8,7 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/localstate"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1012,9 +1013,9 @@ func (a *countingAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo}, nil
 }
 
-func newStateStore(t *testing.T) *state.LocalStore {
+func newStateStore(t *testing.T) *localstate.LocalStore {
 	t.Helper()
-	s, err := state.NewLocalStore(t.TempDir(), "test-stack", "prod", state.NoopEncrypter{})
+	s, err := localstate.NewLocalStore(t.TempDir(), "test-stack", "prod", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 	return s
 }

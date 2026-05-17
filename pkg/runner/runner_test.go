@@ -11,8 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -528,10 +529,10 @@ func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 				Decision: runtime.DecisionCreate,
 				Inputs: map[string]any{
 					"tags": map[string]any{
-						"clean":         "yes",
-						"has space":     "true",
-						"with.dots":     "x",
-						"with-dashes":   "ok",
+						"clean":       "yes",
+						"has space":   "true",
+						"with.dots":   "x",
+						"with-dashes": "ok",
 					},
 				},
 			},
@@ -1129,10 +1130,10 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 // stateMoveFixture builds a snapshot that mixes a module call site
 // (boundary + one internal) with one unrelated leaf so the move tests
 // can exercise both shapes against the same state.
-func stateMoveFixture(t *testing.T, info Info) *state.LocalStore {
+func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 	t.Helper()
-	store, err := state.NewLocalStore(
-		".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(
+		".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 	stackInfo := state.StackInfo{
 		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
@@ -1162,7 +1163,7 @@ func stateMoveFixture(t *testing.T, info Info) *state.LocalStore {
 	return store
 }
 
-func snapshotAddresses(t *testing.T, store *state.LocalStore) []string {
+func snapshotAddresses(t *testing.T, store *localstate.LocalStore) []string {
 	t.Helper()
 	snap, err := store.Current()
 	require.NoError(t, err)
@@ -1211,8 +1212,8 @@ func TestStateMoveSingleEntryLeavesModuleAlone(t *testing.T) {
 
 func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
-	store, err := state.NewLocalStore(
-		".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(
+		".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 	stackInfo := state.StackInfo{
 		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
@@ -1256,8 +1257,8 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
 	_ = applyVia(t, info, "")
 
-	store, err := state.NewLocalStore(
-		".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(
+		".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 	currentRev, err := store.CurrentRev()
 	require.NoError(t, err)
@@ -1295,7 +1296,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	store, err := state.NewLocalStore(".unobin/state", info.StackName, "default", state.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
 	require.NoError(t, err)
 	_, err = store.Lock(context.Background())
 	require.NoError(t, err)
@@ -1408,7 +1409,7 @@ outputs: {
 	require.NoError(t, err)
 	require.NotEmpty(t, entries)
 
-	enc, err := state.NewEnvKeyEncrypter("UB_STATE_KEY")
+	enc, err := localstate.NewEnvKeyEncrypter("UB_STATE_KEY")
 	require.NoError(t, err)
 	for _, e := range entries {
 		body, err := os.ReadFile(filepath.Join(snapDir, e.Name()))
@@ -1460,7 +1461,7 @@ outputs: {
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
 
-	enc, err := state.NewEnvKeyEncrypter("UB_STATE_KEY")
+	enc, err := localstate.NewEnvKeyEncrypter("UB_STATE_KEY")
 	require.NoError(t, err)
 	plaintext, err := enc.Decrypt(body)
 	require.NoError(t, err)

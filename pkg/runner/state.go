@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
 )
 

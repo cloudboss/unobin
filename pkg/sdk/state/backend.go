@@ -1,15 +1,16 @@
 package state
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
-// Backend is the abstraction over snapshot storage. The runtime reads
+// Backend is the contract a state backend satisfies. The runtime reads
 // and writes snapshots through it; concrete implementations decide
-// where the bytes live. `LocalStore` is the on-disk implementation;
-// cloud-backed implementations (S3, GCS, Azure-blob) plug in here.
-//
-// Apply and refresh acquire the deployment's lock through Lock and
-// release it through the returned `Lock`. Plan is read-only and never
-// locks. ForceUnlock is the escape hatch for a leaked lock.
+// where the bytes live. Apply and refresh acquire the deployment's
+// lock through Lock and release it through the returned Lock value.
+// Plan is read-only and never locks. ForceUnlock is the escape hatch
+// for a leaked lock.
 type Backend interface {
 	DeploymentID() string
 	Current() (*Snapshot, error)
@@ -30,4 +31,6 @@ type Lock interface {
 	Unlock() error
 }
 
-var _ Backend = (*LocalStore)(nil)
+// ErrNoCurrent is returned by Backend.Current and Backend.CurrentRev when
+// no snapshot has been written for the deployment yet.
+var ErrNoCurrent = errors.New("no current snapshot")

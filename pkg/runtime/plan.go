@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 // planEvalBody evaluates a body field by field against the plan-time
@@ -114,12 +114,12 @@ func (s *PlanStep) Gone() bool {
 // alias name) so apply re-decodes them through the same code path
 // rather than re-reading the config file.
 type Plan struct {
-	Stack              state.StackInfo
-	DeploymentID       string
-	StateRev           string
-	Inputs             map[string]any
-	RawConfigurations  map[string]map[string]any
-	Steps              []*PlanStep
+	Stack             state.StackInfo
+	DeploymentID      string
+	StateRev          string
+	Inputs            map[string]any
+	RawConfigurations map[string]map[string]any
+	Steps             []*PlanStep
 }
 
 // Plan walks the DAG against prior state and returns the planned

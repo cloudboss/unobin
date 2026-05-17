@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/state"
+	"github.com/cloudboss/unobin/pkg/localstate"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
-func runPlan(t *testing.T, src string, modules map[string]*Module, store *state.LocalStore) *Plan {
+func runPlan(t *testing.T, src string, modules map[string]*Module, store *localstate.LocalStore) *Plan {
 	t.Helper()
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), modules),

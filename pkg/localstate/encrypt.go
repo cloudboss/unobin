@@ -1,4 +1,4 @@
-package state
+package localstate
 
 import (
 	"crypto/aes"

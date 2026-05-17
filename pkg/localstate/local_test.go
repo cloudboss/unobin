@@ -1,4 +1,4 @@
-package state
+package localstate
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,13 +62,13 @@ func TestLocalStoreSiblingDeploymentsIsolated(t *testing.T) {
 	require.NoError(t, a.SetCurrent(rev))
 
 	_, err = b.Current()
-	require.True(t, errors.Is(err, ErrNoCurrent))
+	require.True(t, errors.Is(err, sdkstate.ErrNoCurrent))
 }
 
 func TestLocalStoreCurrentEmpty(t *testing.T) {
 	s := newStore(t)
 	_, err := s.Current()
-	require.True(t, errors.Is(err, ErrNoCurrent))
+	require.True(t, errors.Is(err, sdkstate.ErrNoCurrent))
 }
 
 func TestLocalStoreWriteAndRead(t *testing.T) {

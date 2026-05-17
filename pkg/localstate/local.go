@@ -1,4 +1,4 @@
-package state
+package localstate
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
+	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 const maxRevAttempts = 100
@@ -19,9 +20,7 @@ const maxRevAttempts = 100
 // and force the rev allocator to disambiguate collisions structurally.
 var now = time.Now
 
-// ErrNoCurrent is returned by LocalStore.Current when no snapshot has been
-// written for this deployment.
-var ErrNoCurrent = errors.New("no current snapshot")
+var _ sdkstate.Backend = (*LocalStore)(nil)
 
 // LocalStore reads and writes snapshots under a per-deployment directory.
 // Layout is as follows:
@@ -71,8 +70,8 @@ func NewLocalStore(root, stack, deploymentID string, enc Encrypter) (*LocalStore
 }
 
 // Current returns the snapshot named by the current pointer. Returns
-// ErrNoCurrent when no snapshot has been written yet.
-func (s *LocalStore) Current() (*Snapshot, error) {
+// sdkstate.ErrNoCurrent when no snapshot has been written yet.
+func (s *LocalStore) Current() (*sdkstate.Snapshot, error) {
 	rev, err := s.currentRev()
 	if err != nil {
 		return nil, err
@@ -80,7 +79,7 @@ func (s *LocalStore) Current() (*Snapshot, error) {
 	return s.Get(rev)
 }
 
-// CurrentRev returns the rev the current pointer names, or ErrNoCurrent.
+// CurrentRev returns the rev the current pointer names, or sdkstate.ErrNoCurrent.
 func (s *LocalStore) CurrentRev() (string, error) {
 	return s.currentRev()
 }
@@ -91,8 +90,8 @@ func (s *LocalStore) CurrentRev() (string, error) {
 // (because two writes share the same nanosecond), a numeric suffix
 // is appended until the path is fresh, so uniqueness does not depend
 // on the clock advancing between writes.
-func (s *LocalStore) Write(snap *Snapshot) (string, error) {
-	plaintext, err := EncodeSnapshot(snap)
+func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
+	plaintext, err := sdkstate.EncodeSnapshot(snap)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +125,7 @@ func (s *LocalStore) Write(snap *Snapshot) (string, error) {
 // file under the deployment directory. Lock blocks until the marker
 // can be created or ctx is canceled. The marker file holds the
 // holder's pid so an operator can identify a stuck lock.
-func (s *LocalStore) Lock(ctx context.Context) (Lock, error) {
+func (s *LocalStore) Lock(ctx context.Context) (sdkstate.Lock, error) {
 	path := filepath.Join(s.dir, "lock")
 	for {
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -182,7 +181,7 @@ func (s *LocalStore) SetCurrent(rev string) error {
 }
 
 // Get returns the snapshot with the given rev.
-func (s *LocalStore) Get(rev string) (*Snapshot, error) {
+func (s *LocalStore) Get(rev string) (*sdkstate.Snapshot, error) {
 	ciphertext, err := os.ReadFile(s.snapshotPath(rev))
 	if err != nil {
 		return nil, err
@@ -191,7 +190,7 @@ func (s *LocalStore) Get(rev string) (*Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("local store: decrypt %s: %w", rev, err)
 	}
-	return DecodeSnapshot(plaintext)
+	return sdkstate.DecodeSnapshot(plaintext)
 }
 
 // List returns the revs of every stored snapshot in chronological order.
@@ -232,13 +231,13 @@ func (s *LocalStore) currentRev() (string, error) {
 	b, err := os.ReadFile(filepath.Join(s.dir, "current"))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return "", ErrNoCurrent
+			return "", sdkstate.ErrNoCurrent
 		}
 		return "", err
 	}
 	rev := strings.TrimSpace(string(b))
 	if rev == "" {
-		return "", ErrNoCurrent
+		return "", sdkstate.ErrNoCurrent
 	}
 	return rev, nil
 }
