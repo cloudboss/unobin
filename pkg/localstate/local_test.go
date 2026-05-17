@@ -8,20 +8,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/envencrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
 func newStore(t *testing.T) *LocalStore {
 	t.Helper()
-	s, err := NewLocalStore(t.TempDir(), "cluster-deploy", "prod-east-alpha", NoopEncrypter{})
+	s, err := NewLocalStore(t.TempDir(), "cluster-deploy", "prod-east-alpha", envencrypt.Noop{})
 	require.NoError(t, err)
 	return s
 }
 
 func TestLocalStorePathLayout(t *testing.T) {
 	root := t.TempDir()
-	s, err := NewLocalStore(root, "cluster-deploy", "prod", NoopEncrypter{})
+	s, err := NewLocalStore(root, "cluster-deploy", "prod", envencrypt.Noop{})
 	require.NoError(t, err)
 	require.Equal(t, root, s.Root)
 	require.Equal(t, "cluster-deploy", s.Stack)
@@ -36,9 +37,9 @@ func TestLocalStorePathLayout(t *testing.T) {
 
 func TestLocalStoreRequiresStackAndDeployment(t *testing.T) {
 	root := t.TempDir()
-	_, err := NewLocalStore(root, "", "prod", NoopEncrypter{})
+	_, err := NewLocalStore(root, "", "prod", envencrypt.Noop{})
 	require.Error(t, err)
-	_, err = NewLocalStore(root, "stack", "", NoopEncrypter{})
+	_, err = NewLocalStore(root, "stack", "", envencrypt.Noop{})
 	require.Error(t, err)
 }
 
@@ -50,9 +51,9 @@ func TestLocalStoreRequiresEncrypter(t *testing.T) {
 
 func TestLocalStoreSiblingDeploymentsIsolated(t *testing.T) {
 	root := t.TempDir()
-	a, err := NewLocalStore(root, "stack", "prod", NoopEncrypter{})
+	a, err := NewLocalStore(root, "stack", "prod", envencrypt.Noop{})
 	require.NoError(t, err)
-	b, err := NewLocalStore(root, "stack", "staging", NoopEncrypter{})
+	b, err := NewLocalStore(root, "stack", "staging", envencrypt.Noop{})
 	require.NoError(t, err)
 
 	prodSnap := sampleSnapshot()
@@ -199,7 +200,7 @@ func mustList(t *testing.T, s *LocalStore) []string {
 
 func TestLocalStoreWithEnvKeyEncrypter(t *testing.T) {
 	setKey(t, "UB_TEST_KEY")
-	enc, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	enc, err := envencrypt.NewEnvKey("UB_TEST_KEY")
 	require.NoError(t, err)
 
 	s, err := NewLocalStore(t.TempDir(), "stack", "prod", enc)
@@ -291,7 +292,7 @@ func TestLocalStoreWrongKeyCantDecrypt(t *testing.T) {
 	root := t.TempDir()
 
 	setKey(t, "UB_TEST_KEY_A")
-	encA, err := NewEnvKeyEncrypter("UB_TEST_KEY_A")
+	encA, err := envencrypt.NewEnvKey("UB_TEST_KEY_A")
 	require.NoError(t, err)
 	a, err := NewLocalStore(root, "stack", "prod", encA)
 	require.NoError(t, err)
@@ -299,7 +300,7 @@ func TestLocalStoreWrongKeyCantDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	setKey(t, "UB_TEST_KEY_B")
-	encB, err := NewEnvKeyEncrypter("UB_TEST_KEY_B")
+	encB, err := envencrypt.NewEnvKey("UB_TEST_KEY_B")
 	require.NoError(t, err)
 	b, err := NewLocalStore(root, "stack", "prod", encB)
 	require.NoError(t, err)

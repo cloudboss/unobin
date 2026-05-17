@@ -1,4 +1,4 @@
-package localstate
+package envencrypt
 
 import (
 	"crypto/rand"
@@ -17,8 +17,8 @@ func setKey(t *testing.T, envVar string) []byte {
 	return key
 }
 
-func TestNoopEncrypterPassesThrough(t *testing.T) {
-	e := NoopEncrypter{}
+func TestNoopPassesThrough(t *testing.T) {
+	e := Noop{}
 	ct, err := e.Encrypt([]byte("hello"))
 	require.NoError(t, err)
 	require.Equal(t, []byte("hello"), ct)
@@ -27,9 +27,9 @@ func TestNoopEncrypterPassesThrough(t *testing.T) {
 	require.Equal(t, []byte("hello"), pt)
 }
 
-func TestEnvKeyEncrypterRoundTrip(t *testing.T) {
+func TestEnvKeyRoundTrip(t *testing.T) {
 	setKey(t, "UB_TEST_KEY")
-	e, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	e, err := NewEnvKey("UB_TEST_KEY")
 	require.NoError(t, err)
 
 	plaintext := []byte("the quick brown fox jumps over the lazy dog")
@@ -42,9 +42,9 @@ func TestEnvKeyEncrypterRoundTrip(t *testing.T) {
 	require.Equal(t, plaintext, pt)
 }
 
-func TestEnvKeyEncrypterUsesFreshNonce(t *testing.T) {
+func TestEnvKeyUsesFreshNonce(t *testing.T) {
 	setKey(t, "UB_TEST_KEY")
-	e, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	e, err := NewEnvKey("UB_TEST_KEY")
 	require.NoError(t, err)
 
 	a, err := e.Encrypt([]byte("same plaintext"))
@@ -54,9 +54,9 @@ func TestEnvKeyEncrypterUsesFreshNonce(t *testing.T) {
 	require.NotEqual(t, a, b)
 }
 
-func TestEnvKeyEncrypterRejectsTamper(t *testing.T) {
+func TestEnvKeyRejectsTamper(t *testing.T) {
 	setKey(t, "UB_TEST_KEY")
-	e, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	e, err := NewEnvKey("UB_TEST_KEY")
 	require.NoError(t, err)
 
 	ct, err := e.Encrypt([]byte("payload"))
@@ -67,44 +67,44 @@ func TestEnvKeyEncrypterRejectsTamper(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEnvKeyEncrypterRejectsShortCiphertext(t *testing.T) {
+func TestEnvKeyRejectsShortCiphertext(t *testing.T) {
 	setKey(t, "UB_TEST_KEY")
-	e, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	e, err := NewEnvKey("UB_TEST_KEY")
 	require.NoError(t, err)
 
 	_, err = e.Decrypt([]byte("nope"))
 	require.Error(t, err)
 }
 
-func TestEnvKeyEncrypterRejectsMissingEnv(t *testing.T) {
+func TestEnvKeyRejectsMissingEnv(t *testing.T) {
 	t.Setenv("UB_TEST_KEY", "")
-	_, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	_, err := NewEnvKey("UB_TEST_KEY")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not set")
 }
 
-func TestEnvKeyEncrypterRejectsBadBase64(t *testing.T) {
+func TestEnvKeyRejectsBadBase64(t *testing.T) {
 	t.Setenv("UB_TEST_KEY", "!!!not-base64!!!")
-	_, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	_, err := NewEnvKey("UB_TEST_KEY")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "base64")
 }
 
-func TestEnvKeyEncrypterRejectsWrongKeyLength(t *testing.T) {
+func TestEnvKeyRejectsWrongKeyLength(t *testing.T) {
 	short := make([]byte, 16)
 	_, _ = rand.Read(short)
 	t.Setenv("UB_TEST_KEY", base64.StdEncoding.EncodeToString(short))
-	_, err := NewEnvKeyEncrypter("UB_TEST_KEY")
+	_, err := NewEnvKey("UB_TEST_KEY")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "32")
 }
 
-func TestEnvKeyEncrypterDifferentKeysDontOpen(t *testing.T) {
+func TestEnvKeyDifferentKeysDontOpen(t *testing.T) {
 	setKey(t, "UB_TEST_KEY_A")
 	setKey(t, "UB_TEST_KEY_B")
-	a, err := NewEnvKeyEncrypter("UB_TEST_KEY_A")
+	a, err := NewEnvKey("UB_TEST_KEY_A")
 	require.NoError(t, err)
-	b, err := NewEnvKeyEncrypter("UB_TEST_KEY_B")
+	b, err := NewEnvKey("UB_TEST_KEY_B")
 	require.NoError(t, err)
 
 	ct, err := a.Encrypt([]byte("secret"))

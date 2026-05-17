@@ -12,11 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/envencrypt"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
 )
@@ -351,7 +353,11 @@ func parsedFile(info Info) (*lang.File, error) {
 	return f, nil
 }
 
-func loadStore(info Info, configPath string, enc localstate.Encrypter) (*localstate.LocalStore, error) {
+func loadStore(
+	info Info,
+	configPath string,
+	enc sdkencrypt.Encrypter,
+) (*localstate.LocalStore, error) {
 	return localstate.NewLocalStore(
 		".unobin/state", info.StackName, deploymentID(configPath), enc)
 }
@@ -373,13 +379,13 @@ func deploymentID(configPath string) string {
 }
 
 // loadEncrypter returns the Encrypter constructed from `UB_STATE_KEY`.
-// When the environment variable is unset, it returns `NoopEncrypter` so
+// When the environment variable is unset, it returns a pass-through so
 // development workflows and tests can run without a key configured.
-func loadEncrypter() (localstate.Encrypter, error) {
+func loadEncrypter() (sdkencrypt.Encrypter, error) {
 	if os.Getenv("UB_STATE_KEY") == "" {
-		return localstate.NoopEncrypter{}, nil
+		return envencrypt.Noop{}, nil
 	}
-	return localstate.NewEnvKeyEncrypter("UB_STATE_KEY")
+	return envencrypt.NewEnvKey("UB_STATE_KEY")
 }
 
 func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {

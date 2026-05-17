@@ -1,4 +1,4 @@
-package localstate
+package envencrypt
 
 import (
 	"crypto/aes"
@@ -10,31 +10,24 @@ import (
 	"os"
 )
 
-// Encrypter encrypts and decrypts opaque bytes. Implementations cover one
-// key source each: an env var holding a 32-byte symmetric key, a KMS
-// service that wraps a per-snapshot data key, etc.
-type Encrypter interface {
-	Encrypt(plaintext []byte) ([]byte, error)
-	Decrypt(ciphertext []byte) ([]byte, error)
-}
+// Noop passes bytes through unchanged. Useful in tests and for dev
+// workflows where the operator has explicitly opted out of encryption.
+type Noop struct{}
 
-// NoopEncrypter passes bytes through unchanged. Useful in tests and for
-// dev workflows where the operator has explicitly opted out.
-type NoopEncrypter struct{}
+func (Noop) Encrypt(p []byte) ([]byte, error) { return p, nil }
+func (Noop) Decrypt(p []byte) ([]byte, error) { return p, nil }
 
-func (NoopEncrypter) Encrypt(p []byte) ([]byte, error) { return p, nil }
-func (NoopEncrypter) Decrypt(p []byte) ([]byte, error) { return p, nil }
-
-// EnvKeyEncrypter uses AES-256-GCM with a 32 byte symmetric key read from
-// a named environment variable. The env value must be the base64 encoded key.
-type EnvKeyEncrypter struct {
+// EnvKey uses AES-256-GCM with a 32 byte symmetric key read from a
+// named environment variable. The env value must be the base64-encoded
+// key.
+type EnvKey struct {
 	aead cipher.AEAD
 }
 
-// NewEnvKeyEncrypter reads the env var, decodes the key, and returns an
-// Encrypter. Errors when the env var is unset, not base64, or doesn't decode
-// to 32 bytes.
-func NewEnvKeyEncrypter(envVar string) (*EnvKeyEncrypter, error) {
+// NewEnvKey reads the env var, decodes the key, and returns an
+// EnvKey encrypter. Errors when the env var is unset, not base64, or
+// does not decode to 32 bytes.
+func NewEnvKey(envVar string) (*EnvKey, error) {
 	val := os.Getenv(envVar)
 	if val == "" {
 		return nil, fmt.Errorf("env-key encrypter: %s is not set", envVar)
@@ -55,12 +48,12 @@ func NewEnvKeyEncrypter(envVar string) (*EnvKeyEncrypter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EnvKeyEncrypter{aead: aead}, nil
+	return &EnvKey{aead: aead}, nil
 }
 
 // Encrypt seals plaintext with a fresh random nonce. Output bytes are
 // `nonce || ciphertext+tag`.
-func (e *EnvKeyEncrypter) Encrypt(plaintext []byte) ([]byte, error) {
+func (e *EnvKey) Encrypt(plaintext []byte) ([]byte, error) {
 	nonce := make([]byte, e.aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
@@ -70,7 +63,7 @@ func (e *EnvKeyEncrypter) Encrypt(plaintext []byte) ([]byte, error) {
 
 // Decrypt opens a value produced by Encrypt. Errors on tampered or
 // truncated bytes.
-func (e *EnvKeyEncrypter) Decrypt(ciphertext []byte) ([]byte, error) {
+func (e *EnvKey) Decrypt(ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < e.aead.NonceSize() {
 		return nil, errors.New("env-key encrypter: ciphertext shorter than nonce")
 	}

@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/modules/core"
@@ -40,7 +41,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	errs := lang.ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "validate: %v", errsAsStrings(errs))
 
-	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", localstate.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", envencrypt.Noop{})
 	require.NoError(t, err)
 
 	mods := map[string]*runtime.Module{
@@ -126,7 +127,7 @@ outputs: {
 // state flows between executions.
 func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *runtime.ExecResult) {
 	t.Helper()
-	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", localstate.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", envencrypt.Noop{})
 	require.NoError(t, err)
 
 	var runs int64

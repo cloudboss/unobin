@@ -1,9 +1,13 @@
 package localstate
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"testing"
 	"time"
 
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/stretchr/testify/require"
 )
 
 func sampleSnapshot() *sdkstate.Snapshot {
@@ -27,4 +31,12 @@ func sampleSnapshot() *sdkstate.Snapshot {
 			},
 		},
 	}
+}
+
+func setKey(t *testing.T, envVar string) {
+	t.Helper()
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	require.NoError(t, err)
+	t.Setenv(envVar, base64.StdEncoding.EncodeToString(key))
 }

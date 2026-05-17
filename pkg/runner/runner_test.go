@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -1133,7 +1134,7 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 	t.Helper()
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
+		".unobin/state", info.StackName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.StackInfo{
 		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
@@ -1213,7 +1214,7 @@ func TestStateMoveSingleEntryLeavesModuleAlone(t *testing.T) {
 func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
+		".unobin/state", info.StackName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.StackInfo{
 		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
@@ -1258,7 +1259,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	_ = applyVia(t, info, "")
 
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
+		".unobin/state", info.StackName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	currentRev, err := store.CurrentRev()
 	require.NoError(t, err)
@@ -1296,7 +1297,8 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	store, err := localstate.NewLocalStore(".unobin/state", info.StackName, "default", localstate.NoopEncrypter{})
+	store, err := localstate.NewLocalStore(".unobin/state", info.StackName, "default",
+		envencrypt.Noop{})
 	require.NoError(t, err)
 	_, err = store.Lock(context.Background())
 	require.NoError(t, err)
@@ -1409,7 +1411,7 @@ outputs: {
 	require.NoError(t, err)
 	require.NotEmpty(t, entries)
 
-	enc, err := localstate.NewEnvKeyEncrypter("UB_STATE_KEY")
+	enc, err := envencrypt.NewEnvKey("UB_STATE_KEY")
 	require.NoError(t, err)
 	for _, e := range entries {
 		body, err := os.ReadFile(filepath.Join(snapDir, e.Name()))
@@ -1461,7 +1463,7 @@ outputs: {
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
 
-	enc, err := localstate.NewEnvKeyEncrypter("UB_STATE_KEY")
+	enc, err := envencrypt.NewEnvKey("UB_STATE_KEY")
 	require.NoError(t, err)
 	plaintext, err := enc.Decrypt(body)
 	require.NoError(t, err)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
+	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -35,7 +36,7 @@ type LocalStore struct {
 	Stack string
 
 	deploymentID string
-	enc          Encrypter
+	enc          sdkencrypt.Encrypter
 	dir          string
 }
 
@@ -45,8 +46,12 @@ func (s *LocalStore) DeploymentID() string { return s.deploymentID }
 
 // NewLocalStore returns a LocalStore for the given stack and deployment ID
 // under root, creating the directory tree if it doesn't exist. The
-// Encrypter is required, but NoopEncrypter{} can be passed for tests.
-func NewLocalStore(root, stack, deploymentID string, enc Encrypter) (*LocalStore, error) {
+// Encrypter is required, but a pass-through (envencrypt.Noop) can be
+// passed for tests.
+func NewLocalStore(
+	root, stack, deploymentID string,
+	enc sdkencrypt.Encrypter,
+) (*LocalStore, error) {
 	if stack == "" {
 		return nil, errors.New("local store: stack is required")
 	}
