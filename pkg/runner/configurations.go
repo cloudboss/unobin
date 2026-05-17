@@ -12,12 +12,11 @@ import (
 )
 
 // loadConfigurations reads the `configurations:` block from a config
-// file, decodes the `default` alias of each import, and returns both
-// the decoded table (for the executor) and the raw form (for plan
-// file storage). V1 reads only the `default` entry per import;
-// `@module:`-driven alias selection is not yet wired up. A module
-// that declares a Configuration must have a corresponding entry in
-// config.ub or the load errors.
+// file, decodes every alias under each import, and returns both the
+// decoded table (for the executor) and the raw form (for plan-file
+// storage). The outer key is the import alias; the inner key is the
+// configuration alias name. Every module that declares a
+// Configuration must have at least a `default` entry in config.ub.
 func loadConfigurations(
 	configPath string,
 	modules map[string]*runtime.Module,
@@ -51,53 +50,66 @@ func loadConfigurations(
 	if err != nil {
 		return nil, nil, err
 	}
-	raw = nil
 	if len(rawByImport) > 0 {
-		raw = map[string]map[string]any{}
-		for alias, rawCfg := range rawByImport {
-			raw[alias] = map[string]any{"default": rawCfg}
-		}
+		raw = rawByImport
 	}
 	return decoded, raw, nil
 }
 
-// decodeConfigurations runs cfg.Decode for each module that declares
-// a Configuration against the matching raw entry. It also errors when
-// a module requires configuration but none was given, when a block
-// targets an unknown import, or when a block targets a module that
-// has no Configuration.
+// decodeConfigurations runs cfg.Decode for each configuration alias
+// under each module. It errors when a module requires configuration
+// but none was given, when an alias targets a module that has no
+// Configuration, when an import is unknown, or when the `default`
+// entry is missing for a module that needs one.
 func decodeConfigurations(
 	rawByImport map[string]map[string]any,
 	modules map[string]*runtime.Module,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
 	var errs []string
-	for alias, mod := range modules {
+	for importAlias, mod := range modules {
 		if mod.Configuration == nil {
-			if _, supplied := rawByImport[alias]; supplied {
+			if _, supplied := rawByImport[importAlias]; supplied {
 				errs = append(errs, fmt.Sprintf(
-					"configurations.%s: module declares no configuration", alias))
+					"configurations.%s: module declares no configuration", importAlias))
 			}
 			continue
 		}
-		raw, supplied := rawByImport[alias]
-		if !supplied {
+		aliases, supplied := rawByImport[importAlias]
+		if !supplied || len(aliases) == 0 {
 			errs = append(errs, fmt.Sprintf(
 				"configurations.%s: module requires a configuration but none was given",
-				alias))
+				importAlias))
 			continue
 		}
-		decoded, err := cfg.Decode(mod.Configuration, raw)
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("configurations.%s.default: %s", alias, err))
-			continue
-		}
-		out[alias] = map[string]any{"default": decoded}
-	}
-	for alias := range rawByImport {
-		if _, known := modules[alias]; !known {
+		if _, hasDefault := aliases["default"]; !hasDefault {
 			errs = append(errs, fmt.Sprintf(
-				"configurations.%s: unknown import alias", alias))
+				"configurations.%s: missing `default` entry", importAlias))
+			continue
+		}
+		decodedAliases := map[string]any{}
+		for aliasName, rawVal := range aliases {
+			m, ok := rawVal.(map[string]any)
+			if !ok {
+				errs = append(errs, fmt.Sprintf(
+					"configurations.%s.%s: want a map, got %T",
+					importAlias, aliasName, rawVal))
+				continue
+			}
+			d, err := cfg.Decode(mod.Configuration, m)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf(
+					"configurations.%s.%s: %s", importAlias, aliasName, err))
+				continue
+			}
+			decodedAliases[aliasName] = d
+		}
+		out[importAlias] = decodedAliases
+	}
+	for importAlias := range rawByImport {
+		if _, known := modules[importAlias]; !known {
+			errs = append(errs, fmt.Sprintf(
+				"configurations.%s: unknown import alias", importAlias))
 		}
 	}
 	if len(errs) > 0 {
@@ -107,33 +119,19 @@ func decodeConfigurations(
 }
 
 // decodeConfigurationsFromPlan re-decodes the raw configurations
-// stored in a plan file. The raw form keys by import alias and
-// alias name; V1 reads the "default" entry per import.
+// stored in a plan file. The shape matches what loadConfigurations
+// returns for the raw form.
 func decodeConfigurationsFromPlan(
 	raw map[string]map[string]any,
 	modules map[string]*runtime.Module,
 ) (map[string]map[string]any, error) {
-	flattened := map[string]map[string]any{}
-	for alias, byAlias := range raw {
-		def, ok := byAlias["default"]
-		if !ok {
-			return nil, fmt.Errorf(
-				"plan: configurations.%s: missing `default` entry", alias)
-		}
-		m, ok := def.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf(
-				"plan: configurations.%s.default: want a map, got %T", alias, def)
-		}
-		flattened[alias] = m
-	}
-	return decodeConfigurations(flattened, modules)
+	return decodeConfigurations(raw, modules)
 }
 
 // readConfigurationsBlock walks the `configurations:` body and pulls
-// the `default` entry under each import alias into a raw map ready
-// for cfg.Decode. Anything that isn't a `default` entry is ignored
-// in V1; future alias support will read additional entries.
+// every alias entry under each import into a raw form ready for
+// decoding. The outer key is the import alias; the inner key is the
+// configuration alias name; the value is the raw map of fields.
 func readConfigurationsBlock(
 	configPath string,
 	block *lang.ObjectLit,
@@ -146,40 +144,36 @@ func readConfigurationsBlock(
 				"%s: configurations key must be an identifier", configPath))
 			continue
 		}
-		alias := fld.Key.Name
+		importAlias := fld.Key.Name
 		obj, ok := fld.Value.(*lang.ObjectLit)
 		if !ok {
 			errs = append(errs, fmt.Sprintf(
-				"%s: configurations.%s must be an object", configPath, alias))
+				"%s: configurations.%s must be an object", configPath, importAlias))
 			continue
 		}
-		var raw map[string]any
+		aliases := map[string]any{}
 		for _, aliasFld := range obj.Fields {
-			if aliasFld.Key.Kind != lang.FieldIdent || aliasFld.Key.Name != "default" {
+			if aliasFld.Key.Kind != lang.FieldIdent {
 				continue
 			}
+			aliasName := aliasFld.Key.Name
 			val, err := runtime.Eval(aliasFld.Value, &runtime.EvalContext{})
 			if err != nil {
 				errs = append(errs, fmt.Sprintf(
-					"%s: configurations.%s.default: %s", configPath, alias, err))
-				break
+					"%s: configurations.%s.%s: %s",
+					configPath, importAlias, aliasName, err))
+				continue
 			}
 			m, ok := val.(map[string]any)
 			if !ok {
 				errs = append(errs, fmt.Sprintf(
-					"%s: configurations.%s.default must be a map",
-					configPath, alias))
-				break
+					"%s: configurations.%s.%s must be a map",
+					configPath, importAlias, aliasName))
+				continue
 			}
-			raw = m
-			break
+			aliases[aliasName] = m
 		}
-		if raw == nil {
-			errs = append(errs, fmt.Sprintf(
-				"%s: configurations.%s: missing `default` entry", configPath, alias))
-			continue
-		}
-		out[alias] = raw
+		out[importAlias] = aliases
 	}
 	if len(errs) > 0 {
 		return nil, errors.New(strings.Join(errs, "; "))

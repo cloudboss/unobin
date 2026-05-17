@@ -45,16 +45,27 @@ type Executor struct {
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
-// on the given node. V1 routes every call to the import alias's
-// "default" entry; `@module:`-driven alias selection is not yet wired
-// up.
+// on the given node. The node's `@configuration:` selection picks
+// which alias under the import; an empty selection falls back to
+// "default".
 func (e *Executor) configFor(n *Node) any {
-	return e.configForNS(n.NS)
+	alias := n.ConfigurationAlias
+	if alias == "" {
+		alias = "default"
+	}
+	return e.lookupConfiguration(n.NS, alias)
 }
 
 // configForNS is the address-side lookup used for orphan destroy
-// steps that have no live DAG node to consult.
+// steps that have no live DAG node to consult. The alias is always
+// "default" because state records carry the configuration values
+// already applied; an orphan deletion only needs credentials and
+// region for the same import that owned the resource.
 func (e *Executor) configForNS(ns string) any {
+	return e.lookupConfiguration(ns, "default")
+}
+
+func (e *Executor) lookupConfiguration(ns, alias string) any {
 	if e.Configurations == nil {
 		return nil
 	}
@@ -62,7 +73,7 @@ func (e *Executor) configForNS(ns string) any {
 	if !ok {
 		return nil
 	}
-	return aliases["default"]
+	return aliases[alias]
 }
 
 // ExecResult is what the Executor produces: the outputs map, the

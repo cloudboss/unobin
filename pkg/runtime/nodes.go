@@ -51,6 +51,11 @@ type Node struct {
 	CompositeBody *lang.File
 	Modules       map[string]*Module
 	ForEach       lang.Expr
+
+	// ConfigurationAlias names the configuration alias under
+	// the node's import (NS) that the runtime hands to CRUD
+	// calls. Empty falls back to "default" at lookup time.
+	ConfigurationAlias string
 }
 
 // ExtractNodes walks a parsed stack or exported-type file and returns every
@@ -128,14 +133,15 @@ func extractResources(block *lang.ObjectLit, parent string, mods map[string]*Mod
 					continue
 				}
 				out = append(out, &Node{
-					Address:   addr,
-					Kind:      NodeResource,
-					NS:        ns.Key.Name,
-					Type:      t.Key.Name,
-					Name:      n.Key.Name,
-					Body:      n.Value,
-					Composite: parent,
-					ForEach:   extractForEach(n.Value),
+					Address:            addr,
+					Kind:               NodeResource,
+					NS:                 ns.Key.Name,
+					Type:               t.Key.Name,
+					Name:               n.Key.Name,
+					Body:               n.Value,
+					Composite:          parent,
+					ForEach:            extractForEach(n.Value),
+					ConfigurationAlias: extractConfigurationAlias(n.Value, ns.Key.Name),
 				})
 			}
 		}
@@ -168,13 +174,14 @@ func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node 
 				out = append(out, &Node{
 					Address: composeKindAddress(parent, kind,
 						ns.Key.Name, t.Key.Name, n.Key.Name),
-					Kind:      kind,
-					NS:        ns.Key.Name,
-					Type:      t.Key.Name,
-					Name:      n.Key.Name,
-					Body:      n.Value,
-					Composite: parent,
-					ForEach:   extractForEach(n.Value),
+					Kind:               kind,
+					NS:                 ns.Key.Name,
+					Type:               t.Key.Name,
+					Name:               n.Key.Name,
+					Body:               n.Value,
+					Composite:          parent,
+					ForEach:            extractForEach(n.Value),
+					ConfigurationAlias: extractConfigurationAlias(n.Value, ns.Key.Name),
 				})
 			}
 		}
@@ -196,6 +203,33 @@ func extractForEach(body lang.Expr) lang.Expr {
 		}
 	}
 	return nil
+}
+
+// extractConfigurationAlias reads `@configuration: <import>.<alias>`
+// from a body and returns the alias segment. The import part is
+// expected to match ns; a mismatch or malformed value yields an
+// empty string and the validator surfaces the error elsewhere. An
+// absent meta key returns "" too; the runtime falls back to
+// "default" at lookup time.
+func extractConfigurationAlias(body lang.Expr, ns string) string {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return ""
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configuration" {
+			continue
+		}
+		dp, ok := fld.Value.(*lang.DotPath)
+		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
+			return ""
+		}
+		if dp.Root.Name != ns {
+			return ""
+		}
+		return dp.Segments[0].Name
+	}
+	return ""
 }
 
 func lookupComposite(mods map[string]*Module, alias, typ string) *CompositeType {

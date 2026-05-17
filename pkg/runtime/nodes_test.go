@@ -333,3 +333,72 @@ resources: {
 	require.Len(t, got, 1)
 	require.Equal(t, "resource.net.real.web", got[0].Address)
 }
+
+func TestExtractNodesReadsConfigurationAlias(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    instance: {
+      web: { ami: 'ami-1' }
+      mirror: {
+        @configuration: aws.east2
+        ami: 'ami-2'
+      }
+    }
+  }
+}
+data: {
+  aws: {
+    ami: {
+      ubuntu: {
+        @configuration: aws.east2
+        most-recent: true
+      }
+    }
+  }
+}
+actions: {
+  core: {
+    command: {
+      probe: {
+        @configuration: core.alt
+        argv: ['echo']
+      }
+    }
+  }
+}
+`
+	got := ExtractNodes(parseStack(t, src), nil)
+	require.Len(t, got, 4)
+
+	require.Equal(t, "resource.aws.instance.web", got[0].Address)
+	require.Empty(t, got[0].ConfigurationAlias)
+
+	require.Equal(t, "resource.aws.instance.mirror", got[1].Address)
+	require.Equal(t, "east2", got[1].ConfigurationAlias)
+
+	require.Equal(t, "data.aws.ami.ubuntu", got[2].Address)
+	require.Equal(t, "east2", got[2].ConfigurationAlias)
+
+	require.Equal(t, "action.core.command.probe", got[3].Address)
+	require.Equal(t, "alt", got[3].ConfigurationAlias)
+}
+
+func TestExtractConfigurationAliasIgnoresMismatchedNamespace(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    instance: {
+      web: {
+        @configuration: gcp.something
+        ami: 'ami-1'
+      }
+    }
+  }
+}
+`
+	got := ExtractNodes(parseStack(t, src), nil)
+	require.Len(t, got, 1)
+	require.Empty(t, got[0].ConfigurationAlias,
+		"mismatched namespace should yield empty alias")
+}
