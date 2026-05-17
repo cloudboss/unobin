@@ -1,0 +1,5 @@
+description: 'Wraps a greet.say in a composite so @configurations can rebind the import.'
+
+exports: {
+  greeting: 'greeting.ub'
+}
