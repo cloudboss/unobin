@@ -109,13 +109,17 @@ func (s *PlanStep) Gone() bool {
 // StateRev is the snapshot rev the plan was computed against. Apply
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
-// eval scope without re-reading config.ub.
+// eval scope without re-reading config.ub. RawConfigurations carries
+// the raw per-module configuration maps (keyed by import alias then
+// alias name) so apply re-decodes them through the same code path
+// rather than re-reading the config file.
 type Plan struct {
-	Stack        state.StackInfo
-	DeploymentID string
-	StateRev     string
-	Inputs       map[string]any
-	Steps        []*PlanStep
+	Stack              state.StackInfo
+	DeploymentID       string
+	StateRev           string
+	Inputs             map[string]any
+	RawConfigurations  map[string]map[string]any
+	Steps              []*PlanStep
 }
 
 // Plan walks the DAG against prior state and returns the planned

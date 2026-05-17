@@ -12,40 +12,64 @@ import (
 )
 
 // loadConfigurations reads the `configurations:` block from a config
-// file, decodes the `default` alias of each import, and returns the
-// table keyed by import alias and alias name. V1 reads only the
-// `default` entry per import; `@module:`-driven alias selection is
-// not yet wired up. A module that declares a Configuration must have
-// a corresponding entry in config.ub or the load errors.
+// file, decodes the `default` alias of each import, and returns both
+// the decoded table (for the executor) and the raw form (for plan
+// file storage). V1 reads only the `default` entry per import;
+// `@module:`-driven alias selection is not yet wired up. A module
+// that declares a Configuration must have a corresponding entry in
+// config.ub or the load errors.
 func loadConfigurations(
 	configPath string,
 	modules map[string]*runtime.Module,
-) (map[string]map[string]any, error) {
+) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
 	if configPath != "" {
 		src, err := os.ReadFile(configPath)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		f, err := lang.ParseSource(configPath, src)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		f.Kind = lang.FileConfig
 		if errs := lang.ValidateFile(f); errs.Len() > 0 {
-			return nil, errs.Err()
+			return nil, nil, errs.Err()
 		}
 		block := topLevelObject(f, "configurations")
 		if block != nil {
 			loaded, err := readConfigurationsBlock(configPath, block)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			rawByImport = loaded
 		}
 	}
 
+	decoded, err = decodeConfigurations(rawByImport, modules)
+	if err != nil {
+		return nil, nil, err
+	}
+	raw = nil
+	if len(rawByImport) > 0 {
+		raw = map[string]map[string]any{}
+		for alias, rawCfg := range rawByImport {
+			raw[alias] = map[string]any{"default": rawCfg}
+		}
+	}
+	return decoded, raw, nil
+}
+
+// decodeConfigurations runs cfg.Decode for each module that declares
+// a Configuration against the matching raw entry. It also errors when
+// a module requires configuration but none was given, when a block
+// targets an unknown import, or when a block targets a module that
+// has no Configuration.
+func decodeConfigurations(
+	rawByImport map[string]map[string]any,
+	modules map[string]*runtime.Module,
+) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
 	var errs []string
 	for alias, mod := range modules {
@@ -80,6 +104,30 @@ func loadConfigurations(
 		return nil, errors.New(strings.Join(errs, "; "))
 	}
 	return out, nil
+}
+
+// decodeConfigurationsFromPlan re-decodes the raw configurations
+// stored in a plan file. The raw form keys by import alias and
+// alias name; V1 reads the "default" entry per import.
+func decodeConfigurationsFromPlan(
+	raw map[string]map[string]any,
+	modules map[string]*runtime.Module,
+) (map[string]map[string]any, error) {
+	flattened := map[string]map[string]any{}
+	for alias, byAlias := range raw {
+		def, ok := byAlias["default"]
+		if !ok {
+			return nil, fmt.Errorf(
+				"plan: configurations.%s: missing `default` entry", alias)
+		}
+		m, ok := def.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf(
+				"plan: configurations.%s.default: want a map, got %T", alias, def)
+		}
+		flattened[alias] = m
+	}
+	return decodeConfigurations(flattened, modules)
 }
 
 // readConfigurationsBlock walks the `configurations:` body and pulls

@@ -18,13 +18,14 @@ const PlanFormatVersion = 1
 // computed against, so apply can seed them into its eval scope without
 // re-reading config.ub.
 type PlanFile struct {
-	FormatVersion int            `json:"format-version"`
-	Stack         StackRef       `json:"stack"`
-	DeploymentID  string         `json:"deployment-id"`
-	StateRev      string         `json:"state-rev"`
-	GeneratedAt   time.Time      `json:"generated-at"`
-	Inputs        map[string]any `json:"inputs,omitempty"`
-	Steps         []PlanStep     `json:"steps"`
+	FormatVersion     int                       `json:"format-version"`
+	Stack             StackRef                  `json:"stack"`
+	DeploymentID      string                    `json:"deployment-id"`
+	StateRev          string                    `json:"state-rev"`
+	GeneratedAt       time.Time                 `json:"generated-at"`
+	Inputs            map[string]any            `json:"inputs,omitempty"`
+	RawConfigurations map[string]map[string]any `json:"configurations,omitempty"`
+	Steps             []PlanStep                `json:"steps"`
 }
 
 // StackRef identifies the stack a plan was computed against.
@@ -47,11 +48,12 @@ func EncodePlan(p *Plan) ([]byte, error) {
 			Version: p.Stack.Version,
 			Commit:  p.Stack.Commit,
 		},
-		DeploymentID: p.DeploymentID,
-		StateRev:     p.StateRev,
-		GeneratedAt:  time.Now().UTC(),
-		Inputs:       p.Inputs,
-		Steps:        steps,
+		DeploymentID:      p.DeploymentID,
+		StateRev:          p.StateRev,
+		GeneratedAt:       time.Now().UTC(),
+		Inputs:            p.Inputs,
+		RawConfigurations: p.RawConfigurations,
+		Steps:             steps,
 	}
 	b, err := json.MarshalIndent(pf, "", "  ")
 	if err != nil {
@@ -79,6 +81,9 @@ func DecodePlan(b []byte) (*PlanFile, error) {
 			pf.FormatVersion, PlanFormatVersion)
 	}
 	pf.Inputs = coerceMap(pf.Inputs)
+	for k, m := range pf.RawConfigurations {
+		pf.RawConfigurations[k] = coerceMap(m)
+	}
 	for i := range pf.Steps {
 		s := &pf.Steps[i]
 		s.Inputs = coerceMap(s.Inputs)

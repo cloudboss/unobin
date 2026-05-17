@@ -142,10 +142,15 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
+	configurations, err := decodeConfigurationsFromPlan(pf.RawConfigurations, info.Modules)
+	if err != nil {
+		return err
+	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f, info.Modules),
-		Modules: info.Modules,
-		Store:   store,
+		DAG:            runtime.BuildDAG(f, info.Modules),
+		Modules:        info.Modules,
+		Configurations: configurations,
+		Store:          store,
 		Stack: state.StackInfo{
 			Name:    info.StackName,
 			Version: info.StackVersion,
@@ -195,7 +200,7 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	configurations, err := loadConfigurations(configPath, info.Modules)
+	configurations, _, err := loadConfigurations(configPath, info.Modules)
 	if err != nil {
 		return err
 	}
@@ -264,7 +269,7 @@ func doValidate(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := loadConfigurations(configPath, info.Modules); err != nil {
+	if _, _, err := loadConfigurations(configPath, info.Modules); err != nil {
 		return err
 	}
 	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
@@ -386,7 +391,7 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	configurations, err := loadConfigurations(configPath, info.Modules)
+	configurations, rawConfigurations, err := loadConfigurations(configPath, info.Modules)
 	if err != nil {
 		return err
 	}
@@ -414,6 +419,7 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
+	plan.RawConfigurations = rawConfigurations
 	printPlan(cmd.OutOrStdout(), plan)
 	if outPath != "" {
 		encoded, err := runtime.EncodePlan(plan)
