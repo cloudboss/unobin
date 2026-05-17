@@ -56,11 +56,11 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 	if keep < 0 {
 		return fmt.Errorf("--keep must not be negative")
 	}
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, enc)
+	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -124,11 +124,11 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr str
 	if oldAddr == newAddr {
 		return fmt.Errorf("old and new address are the same")
 	}
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, enc)
+	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -197,11 +197,11 @@ func newStateRemoveCmd(info Info) *cobra.Command {
 }
 
 func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error {
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, enc)
+	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -246,11 +246,11 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 		Long: "Use this only when a previous run died without releasing the lock. " +
 			"Make sure no apply or refresh is running against this deployment first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			enc, err := loadEncrypter()
+			enc, err := loadEncrypter(info, configPath)
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, configPath, enc)
+			store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 			if err != nil {
 				return err
 			}
@@ -271,11 +271,11 @@ func newStateListCmd(info Info) *cobra.Command {
 		Use:   "list",
 		Short: "List snapshot revisions, marking the current one with *",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			enc, err := loadEncrypter()
+			enc, err := loadEncrypter(info, configPath)
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, configPath, enc)
+			store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 			if err != nil {
 				return err
 			}
@@ -306,11 +306,11 @@ func newStateShowCmd(info Info) *cobra.Command {
 		Short: "Show a snapshot's entries (current snapshot if no revision given)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			enc, err := loadEncrypter()
+			enc, err := loadEncrypter(info, configPath)
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, configPath, enc)
+			store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 			if err != nil {
 				return err
 			}

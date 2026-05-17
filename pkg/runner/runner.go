@@ -12,11 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cloudboss/unobin/pkg/envencrypt"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -120,7 +118,7 @@ func newApplyCmd(info Info) *cobra.Command {
 }
 
 func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, "")
 	if err != nil {
 		return err
 	}
@@ -140,8 +138,7 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, pf.DeploymentID, enc)
+	store, err := loadStore(info, "", pf.DeploymentID, enc)
 	if err != nil {
 		return err
 	}
@@ -207,11 +204,11 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, enc)
+	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -353,13 +350,21 @@ func parsedFile(info Info) (*lang.File, error) {
 	return f, nil
 }
 
+// loadStore resolves a state backend from the `state:` block of
+// config.ub. With configPath empty, the resolver falls back to the
+// local backend at `.unobin/state`. deploymentID is the per-deployment
+// directory name (the basename of config.ub for plan/refresh, or the
+// plan file's embedded value for apply).
 func loadStore(
 	info Info,
-	configPath string,
+	configPath, deploymentID string,
 	enc sdkencrypt.Encrypter,
-) (*localstate.LocalStore, error) {
-	return localstate.NewLocalStore(
-		".unobin/state", info.StackName, deploymentID(configPath), enc)
+) (state.Backend, error) {
+	sc, err := parseStateConfig(configPath)
+	if err != nil {
+		return nil, err
+	}
+	return resolveBackend(info, sc.Backend, info.StackName, deploymentID, enc)
 }
 
 // deploymentID derives a deployment id from the config file path. The
@@ -378,14 +383,16 @@ func deploymentID(configPath string) string {
 	return base
 }
 
-// loadEncrypter returns the Encrypter constructed from `UB_STATE_KEY`.
-// When the environment variable is unset, it returns a pass-through so
-// development workflows and tests can run without a key configured.
-func loadEncrypter() (sdkencrypt.Encrypter, error) {
-	if os.Getenv("UB_STATE_KEY") == "" {
-		return envencrypt.Noop{}, nil
+// loadEncrypter resolves the encrypter from the `encryption:` sub-block
+// of config.ub. With configPath empty, or no encryption block present,
+// the resolver falls back to the env-key encrypter against
+// `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
+func loadEncrypter(info Info, configPath string) (sdkencrypt.Encrypter, error) {
+	sc, err := parseStateConfig(configPath)
+	if err != nil {
+		return nil, err
 	}
-	return envencrypt.NewEnvKey("UB_STATE_KEY")
+	return resolveEncrypter(info, sc.Encrypter)
 }
 
 func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
@@ -402,11 +409,11 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, enc)
+	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -569,11 +576,11 @@ func parseEnvValue(raw string) any {
 }
 
 func doOutput(cmd *cobra.Command, info Info, configPath string, args []string, asJSON bool) error {
-	enc, err := loadEncrypter()
+	enc, err := loadEncrypter(info, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, enc)
+	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/localstate"
+	"github.com/cloudboss/unobin/pkg/modules/core"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
@@ -51,22 +52,17 @@ func testInfo(t *testing.T, src string) Info {
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	require.NoError(t, os.Chdir(t.TempDir()))
 
+	coreMod := core.Module()
+	coreMod.Actions["echo"] = runtime.ActionType{
+		Name: "echo",
+		New:  func() runtime.Action { return &echoAction{} },
+	}
 	return Info{
 		StackName:    "test-stack",
 		StackVersion: "v0.1.0",
 		StackCommit:  "abcdef",
 		StackBody:    src,
-		Modules: map[string]*runtime.Module{
-			"core": {
-				Name: "core",
-				Actions: map[string]runtime.ActionType{
-					"echo": {
-						Name: "echo",
-						New:  func() runtime.Action { return &echoAction{} },
-					},
-				},
-			},
-		},
+		Modules:      map[string]*runtime.Module{"core": coreMod},
 	}
 }
 
@@ -1440,7 +1436,7 @@ func TestStateShowFailsWithWrongKey(t *testing.T) {
 
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", "not-base64!!")
-	_, err := loadEncrypter()
+	_, err := loadEncrypter(testInfo(t, ""), "")
 	require.Error(t, err)
 }
 
