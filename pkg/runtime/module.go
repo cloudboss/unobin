@@ -7,6 +7,8 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+	"github.com/cloudboss/unobin/pkg/sdk/encrypt"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 // Module is the registration record a module exports for its types,
@@ -25,6 +27,8 @@ type Module struct {
 	DataSources   map[string]DataSourceType
 	Composites    map[string]*CompositeType
 	Functions     map[string]FunctionType
+	StateBackends map[string]state.BackendType
+	Encrypters    map[string]encrypt.EncrypterType
 }
 
 // FunctionType registers a callable function under a Go module. Functions
