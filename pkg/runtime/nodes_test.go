@@ -412,10 +412,12 @@ resources: {
 	got := ExtractNodes(parseStack(t, src), mods)
 	require.NotEmpty(t, got)
 	require.Equal(t, NodeComposite, got[0].Kind)
-	require.Equal(t, map[string]string{"aws": "east2"}, got[0].ConfigurationsRemap)
+	require.Equal(t,
+		map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
+		got[0].ConfigurationsRemap)
 }
 
-func TestExtractConfigurationsRemapDropsMismatchedNamespace(t *testing.T) {
+func TestExtractConfigurationsRemapKeepsMismatchedNamespaceForValidation(t *testing.T) {
 	src := `
 resources: {
   net: {
@@ -439,7 +441,10 @@ resources: {
 	}
 	got := ExtractNodes(parseStack(t, src), mods)
 	require.NotEmpty(t, got)
-	require.Nil(t, got[0].ConfigurationsRemap)
+	require.Equal(t,
+		map[string]ConfigRef{"aws": {NS: "gcp", Alias: "east2"}},
+		got[0].ConfigurationsRemap,
+		"mismatched namespace is kept so the validator can report it")
 }
 
 func TestExtractConfigurationAliasIgnoresMismatchedNamespace(t *testing.T) {

@@ -28,6 +28,9 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
+	if err := e.checkConfigurations(); err != nil {
+		return nil, err
+	}
 	lock, err := e.Store.Lock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("acquire lock: %w", err)

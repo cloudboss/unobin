@@ -58,12 +58,19 @@ type Node struct {
 	ConfigurationAlias string
 
 	// ConfigurationsRemap is set only on NodeComposite. It maps an
-	// inner import alias to the configuration alias of the same
-	// import name in the caller's scope; e.g., {"aws": "east2"}
-	// makes every internal use of aws resolve to aws.east2 outside.
-	// Internal leaves walk the composite chain looking for the
-	// nearest entry covering their NS.
-	ConfigurationsRemap map[string]string
+	// inner import alias to the (namespace, alias) of the
+	// configuration that backs that import inside the call. The
+	// runtime walks the composite chain at lookup time and the
+	// validator enforces that the right-hand-side namespace matches
+	// the key.
+	ConfigurationsRemap map[string]ConfigRef
+}
+
+// ConfigRef names a particular configuration alias on an import.
+// `@configuration: aws.east2` parses to {NS: "aws", Alias: "east2"}.
+type ConfigRef struct {
+	NS    string
+	Alias string
 }
 
 // ExtractNodes walks a parsed stack or exported-type file and returns every
@@ -214,11 +221,13 @@ func extractForEach(body lang.Expr) lang.Expr {
 }
 
 // extractConfigurationsRemap reads `@configurations:` from a
-// composite call site body and returns the inner-alias-to-outer-alias
-// map. Entries whose right-hand side names a different import than
-// the key are dropped; the validator reports them elsewhere. An
-// empty or absent meta key returns nil.
-func extractConfigurationsRemap(body lang.Expr) map[string]string {
+// composite call site body and returns the inner-import-to-outer
+// reference map. Entries whose value is not a dotted notation are
+// dropped (the parser would reject malformed ones anyway). Entries
+// whose right-hand-side namespace differs from the key still come
+// through so the validator can surface them. An empty or absent
+// meta key returns nil.
+func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
 		return nil
@@ -231,7 +240,7 @@ func extractConfigurationsRemap(body lang.Expr) map[string]string {
 		if !ok {
 			return nil
 		}
-		out := map[string]string{}
+		out := map[string]ConfigRef{}
 		for _, entry := range mapping.Fields {
 			if entry.Key.Kind != lang.FieldIdent {
 				continue
@@ -240,10 +249,10 @@ func extractConfigurationsRemap(body lang.Expr) map[string]string {
 			if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 				continue
 			}
-			if dp.Root.Name != entry.Key.Name {
-				continue
+			out[entry.Key.Name] = ConfigRef{
+				NS:    dp.Root.Name,
+				Alias: dp.Segments[0].Name,
 			}
-			out[entry.Key.Name] = dp.Segments[0].Name
 		}
 		if len(out) == 0 {
 			return nil

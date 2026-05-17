@@ -1162,7 +1162,7 @@ func TestConfigForPicksUpCompositeRemap(t *testing.T) {
 		Address:             "resource.net.cluster.east",
 		Kind:                NodeComposite,
 		NS:                  "net",
-		ConfigurationsRemap: map[string]string{"aws": "east2"},
+		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
 	}
 	leaf := &Node{
 		Address:   "resource.net.cluster.east/aws.instance.worker",
@@ -1189,7 +1189,7 @@ func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
 		Address:             "resource.outer.wrap.x",
 		Kind:                NodeComposite,
 		NS:                  "outer",
-		ConfigurationsRemap: map[string]string{"aws": "east2"},
+		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
 	}
 	inner := &Node{
 		Address:   "resource.outer.wrap.x/inner.cluster.y",

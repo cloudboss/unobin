@@ -50,6 +50,7 @@ type Executor struct {
 // covers the node's import. If none does, the node's own
 // `@configuration:` selection (or "default") applies.
 func (e *Executor) configFor(n *Node) any {
+	ns := n.NS
 	alias := n.ConfigurationAlias
 	if alias == "" {
 		alias = "default"
@@ -60,12 +61,13 @@ func (e *Executor) configFor(n *Node) any {
 			break
 		}
 		if mapped, has := c.ConfigurationsRemap[n.NS]; has {
-			alias = mapped
+			ns = mapped.NS
+			alias = mapped.Alias
 			break
 		}
 		parent = c.Composite
 	}
-	return e.lookupConfiguration(n.NS, alias)
+	return e.lookupConfiguration(ns, alias)
 }
 
 // configForNS is the address-side lookup used for orphan destroy

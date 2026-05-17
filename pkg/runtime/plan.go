@@ -132,6 +132,9 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
+	if err := e.checkConfigurations(); err != nil {
+		return nil, err
+	}
 	order, err := e.DAG.TopologicalOrder()
 	if err != nil {
 		return nil, err
