@@ -33,8 +33,36 @@ type Executor struct {
 	Modules map[string]*Module
 	Inputs  map[string]any
 
+	// Configurations is keyed first by the module's import alias and
+	// then by the configuration alias declared in config.ub. Entries
+	// are the value returned by cfg.ConfigurationType.New populated
+	// by cfg.Decode. A nil map disables config routing and every CRUD
+	// call sees a nil cfg argument.
+	Configurations map[string]map[string]any
+
 	Store state.Backend
 	Stack state.StackInfo
+}
+
+// configFor returns the decoded configuration to pass to a CRUD call
+// on the given node. V1 routes every call to the import alias's
+// "default" entry; `@module:`-driven alias selection is not yet wired
+// up.
+func (e *Executor) configFor(n *Node) any {
+	return e.configForNS(n.NS)
+}
+
+// configForNS is the address-side lookup used for orphan destroy
+// steps that have no live DAG node to consult.
+func (e *Executor) configForNS(ns string) any {
+	if e.Configurations == nil {
+		return nil
+	}
+	aliases, ok := e.Configurations[ns]
+	if !ok {
+		return nil
+	}
+	return aliases["default"]
 }
 
 // ExecResult is what the Executor produces: the outputs map, the

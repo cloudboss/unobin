@@ -48,7 +48,7 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 			rs.next.Entries = append(rs.next.Entries, ent)
 			continue
 		}
-		updated, dropped, err := refreshLeaf(ctx, e.modulesForAddress(ent.Address), ent)
+		updated, dropped, err := e.refreshLeaf(ctx, ent)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", ent.Address, err)
 		}
@@ -69,16 +69,15 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	return res, nil
 }
 
-func refreshLeaf(
+func (e *Executor) refreshLeaf(
 	ctx context.Context,
-	modules map[string]*Module,
 	ent *state.Entry,
 ) (*state.Entry, bool, error) {
 	ns, typeName, _, ok := parseResourceAddress(innerAddress(ent.Address))
 	if !ok {
 		return nil, false, fmt.Errorf("malformed resource address %q", ent.Address)
 	}
-	mod, ok := modules[ns]
+	mod, ok := e.modulesForAddress(ent.Address)[ns]
 	if !ok {
 		return nil, false, fmt.Errorf("module %q is not imported", ns)
 	}
@@ -90,7 +89,7 @@ func refreshLeaf(
 	if err != nil {
 		return nil, false, err
 	}
-	observed, err := readObserved(ctx, rt, ent.Inputs, priorOutputs)
+	observed, err := readObserved(ctx, rt, e.configForNS(ns), ent.Inputs, priorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return nil, true, nil
 	}

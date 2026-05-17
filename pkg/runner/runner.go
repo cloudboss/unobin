@@ -195,6 +195,10 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 	if err != nil {
 		return err
 	}
+	configurations, err := loadConfigurations(configPath, info.Modules)
+	if err != nil {
+		return err
+	}
 	enc, err := loadEncrypter()
 	if err != nil {
 		return err
@@ -204,10 +208,11 @@ func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
 		return err
 	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f, info.Modules),
-		Modules: info.Modules,
-		Inputs:  inputs,
-		Store:   store,
+		DAG:            runtime.BuildDAG(f, info.Modules),
+		Modules:        info.Modules,
+		Inputs:         inputs,
+		Configurations: configurations,
+		Store:          store,
 		Stack: state.StackInfo{
 			Name:    info.StackName,
 			Version: info.StackVersion,
@@ -257,6 +262,9 @@ func doValidate(cmd *cobra.Command, info Info, configPath string) error {
 	_, err = buildInputs(configPath,
 		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
 	if err != nil {
+		return err
+	}
+	if _, err := loadConfigurations(configPath, info.Modules); err != nil {
 		return err
 	}
 	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
@@ -378,6 +386,10 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 	if err != nil {
 		return err
 	}
+	configurations, err := loadConfigurations(configPath, info.Modules)
+	if err != nil {
+		return err
+	}
 	enc, err := loadEncrypter()
 	if err != nil {
 		return err
@@ -387,10 +399,11 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 		return err
 	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f, info.Modules),
-		Modules: info.Modules,
-		Inputs:  inputs,
-		Store:   store,
+		DAG:            runtime.BuildDAG(f, info.Modules),
+		Modules:        info.Modules,
+		Inputs:         inputs,
+		Configurations: configurations,
+		Store:          store,
 		Stack: state.StackInfo{
 			Name:    info.StackName,
 			Version: info.StackVersion,

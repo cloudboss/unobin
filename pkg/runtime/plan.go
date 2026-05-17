@@ -531,7 +531,7 @@ func (e *Executor) planOneResource(
 	}
 	step.PriorOutputs = priorOutputs
 
-	observed, err := readObserved(ctx, rt, inputs, priorOutputs)
+	observed, err := readObserved(ctx, rt, e.configFor(n), inputs, priorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		step.Decision = DecisionCreate
 		return step, nil
@@ -578,19 +578,20 @@ func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanS
 }
 
 // readObserved decodes inputs onto a fresh resource and asks the
-// module what's in the cloud for it. It returns the result in the same
-// canonical map shape state uses, or ErrNotFound when the resource is
+// module what's in the cloud for it. It returns the result in the
+// same canonical map state uses, or ErrNotFound when the resource is
 // gone.
 func readObserved(
 	ctx context.Context,
 	rt ResourceType,
+	cfg any,
 	inputs, priorOutputs map[string]any,
 ) (map[string]any, error) {
 	res := rt.New()
 	if err := Decode(res, inputs); err != nil {
 		return nil, err
 	}
-	result, err := res.Read(ctx, nil, priorOutputs)
+	result, err := res.Read(ctx, cfg, priorOutputs)
 	if err != nil {
 		return nil, err
 	}
