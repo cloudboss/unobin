@@ -98,6 +98,7 @@ type Set[T Value] struct {
 }
 
 func (Set[T]) isUbValue() {}
+func (Set[T]) isUbSet()   {}
 
 // Object wraps a user struct in a position that requires a Value,
 // such as the element type of a List or Map. T must be a struct
