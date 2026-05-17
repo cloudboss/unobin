@@ -45,13 +45,25 @@ type Executor struct {
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
-// on the given node. The node's `@configuration:` selection picks
-// which alias under the import; an empty selection falls back to
-// "default".
+// on the given node. The lookup walks the composite chain from the
+// node up to root, taking the first `@configurations:` entry that
+// covers the node's import. If none does, the node's own
+// `@configuration:` selection (or "default") applies.
 func (e *Executor) configFor(n *Node) any {
 	alias := n.ConfigurationAlias
 	if alias == "" {
 		alias = "default"
+	}
+	for parent := n.Composite; parent != ""; {
+		c, ok := e.DAG.Nodes[parent]
+		if !ok {
+			break
+		}
+		if mapped, has := c.ConfigurationsRemap[n.NS]; has {
+			alias = mapped
+			break
+		}
+		parent = c.Composite
 	}
 	return e.lookupConfiguration(n.NS, alias)
 }

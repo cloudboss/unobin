@@ -1125,6 +1125,114 @@ actions: {
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
 }
 
+func TestConfigForUsesNodeAlias(t *testing.T) {
+	leaf := &Node{
+		Address:            "resource.aws.instance.web",
+		NS:                 "aws",
+		ConfigurationAlias: "east2",
+	}
+	e := &Executor{
+		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
+		Configurations: map[string]map[string]any{
+			"aws": {
+				"default": "default-cfg",
+				"east2":   "east2-cfg",
+			},
+		},
+	}
+	require.Equal(t, "east2-cfg", e.configFor(leaf))
+}
+
+func TestConfigForFallsBackToDefault(t *testing.T) {
+	leaf := &Node{
+		Address: "resource.aws.instance.web",
+		NS:      "aws",
+	}
+	e := &Executor{
+		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
+		Configurations: map[string]map[string]any{
+			"aws": {"default": "default-cfg"},
+		},
+	}
+	require.Equal(t, "default-cfg", e.configFor(leaf))
+}
+
+func TestConfigForPicksUpCompositeRemap(t *testing.T) {
+	composite := &Node{
+		Address:             "resource.net.cluster.east",
+		Kind:                NodeComposite,
+		NS:                  "net",
+		ConfigurationsRemap: map[string]string{"aws": "east2"},
+	}
+	leaf := &Node{
+		Address:   "resource.net.cluster.east/aws.instance.worker",
+		NS:        "aws",
+		Composite: composite.Address,
+	}
+	e := &Executor{
+		DAG: &DAG{Nodes: map[string]*Node{
+			composite.Address: composite,
+			leaf.Address:      leaf,
+		}},
+		Configurations: map[string]map[string]any{
+			"aws": {
+				"default": "default-cfg",
+				"east2":   "east2-cfg",
+			},
+		},
+	}
+	require.Equal(t, "east2-cfg", e.configFor(leaf))
+}
+
+func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
+	outer := &Node{
+		Address:             "resource.outer.wrap.x",
+		Kind:                NodeComposite,
+		NS:                  "outer",
+		ConfigurationsRemap: map[string]string{"aws": "east2"},
+	}
+	inner := &Node{
+		Address:   "resource.outer.wrap.x/inner.cluster.y",
+		Kind:      NodeComposite,
+		NS:        "inner",
+		Composite: outer.Address,
+	}
+	leaf := &Node{
+		Address:   inner.Address + "/aws.instance.worker",
+		NS:        "aws",
+		Composite: inner.Address,
+	}
+	e := &Executor{
+		DAG: &DAG{Nodes: map[string]*Node{
+			outer.Address: outer,
+			inner.Address: inner,
+			leaf.Address:  leaf,
+		}},
+		Configurations: map[string]map[string]any{
+			"aws": {
+				"default": "default-cfg",
+				"east2":   "east2-cfg",
+			},
+		},
+	}
+	require.Equal(t, "east2-cfg", e.configFor(leaf))
+}
+
+func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
+	leaf := &Node{
+		Address:            "resource.aws.instance.web",
+		NS:                 "aws",
+		ConfigurationAlias: "ghost",
+	}
+	e := &Executor{
+		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
+		Configurations: map[string]map[string]any{
+			"aws": {"default": "default-cfg"},
+		},
+	}
+	require.Nil(t, e.configFor(leaf))
+}
+
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {
 	src := `
 actions: {

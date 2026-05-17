@@ -56,6 +56,14 @@ type Node struct {
 	// the node's import (NS) that the runtime hands to CRUD
 	// calls. Empty falls back to "default" at lookup time.
 	ConfigurationAlias string
+
+	// ConfigurationsRemap is set only on NodeComposite. It maps an
+	// inner import alias to the configuration alias of the same
+	// import name in the caller's scope; e.g., {"aws": "east2"}
+	// makes every internal use of aws resolve to aws.east2 outside.
+	// Internal leaves walk the composite chain looking for the
+	// nearest entry covering their NS.
+	ConfigurationsRemap map[string]string
 }
 
 // ExtractNodes walks a parsed stack or exported-type file and returns every
@@ -205,6 +213,46 @@ func extractForEach(body lang.Expr) lang.Expr {
 	return nil
 }
 
+// extractConfigurationsRemap reads `@configurations:` from a
+// composite call site body and returns the inner-alias-to-outer-alias
+// map. Entries whose right-hand side names a different import than
+// the key are dropped; the validator reports them elsewhere. An
+// empty or absent meta key returns nil.
+func extractConfigurationsRemap(body lang.Expr) map[string]string {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configurations" {
+			continue
+		}
+		mapping, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			return nil
+		}
+		out := map[string]string{}
+		for _, entry := range mapping.Fields {
+			if entry.Key.Kind != lang.FieldIdent {
+				continue
+			}
+			dp, ok := entry.Value.(*lang.DotPath)
+			if !ok || dp.Root == nil || len(dp.Segments) != 1 {
+				continue
+			}
+			if dp.Root.Name != entry.Key.Name {
+				continue
+			}
+			out[entry.Key.Name] = dp.Segments[0].Name
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return nil
+}
+
 // extractConfigurationAlias reads `@configuration: <import>.<alias>`
 // from a body and returns the alias segment. The import part is
 // expected to match ns; a mismatch or malformed value yields an
@@ -270,16 +318,17 @@ func expandComposite(callSiteAddr, parent, ns, typ, name string,
 		scopeMods = fallMods
 	}
 	out := []*Node{{
-		Address:       callSiteAddr,
-		Kind:          NodeComposite,
-		NS:            ns,
-		Type:          typ,
-		Name:          name,
-		Body:          args,
-		Composite:     parent,
-		CompositeBody: composite.Body,
-		Modules:       scopeMods,
-		ForEach:       extractForEach(args),
+		Address:             callSiteAddr,
+		Kind:                NodeComposite,
+		NS:                  ns,
+		Type:                typ,
+		Name:                name,
+		Body:                args,
+		Composite:           parent,
+		CompositeBody:       composite.Body,
+		Modules:             scopeMods,
+		ForEach:             extractForEach(args),
+		ConfigurationsRemap: extractConfigurationsRemap(args),
 	}}
 	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
 	return out

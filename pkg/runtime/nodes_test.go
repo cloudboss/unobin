@@ -384,6 +384,64 @@ actions: {
 	require.Equal(t, "alt", got[3].ConfigurationAlias)
 }
 
+func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {
+	src := `
+imports: {
+  net: 'github.com/example/net'
+}
+resources: {
+  net: {
+    cluster: {
+      east: {
+        @configurations: { aws: aws.east2 }
+        name: 'east'
+      }
+    }
+  }
+}
+`
+	composite := &CompositeType{
+		Body: parseStack(t, `description: 'noop'`),
+	}
+	mods := map[string]*Module{
+		"net": {
+			Name:       "net",
+			Composites: map[string]*CompositeType{"cluster": composite},
+		},
+	}
+	got := ExtractNodes(parseStack(t, src), mods)
+	require.NotEmpty(t, got)
+	require.Equal(t, NodeComposite, got[0].Kind)
+	require.Equal(t, map[string]string{"aws": "east2"}, got[0].ConfigurationsRemap)
+}
+
+func TestExtractConfigurationsRemapDropsMismatchedNamespace(t *testing.T) {
+	src := `
+resources: {
+  net: {
+    cluster: {
+      east: {
+        @configurations: { aws: gcp.east2 }
+        name: 'east'
+      }
+    }
+  }
+}
+`
+	composite := &CompositeType{
+		Body: parseStack(t, `description: 'noop'`),
+	}
+	mods := map[string]*Module{
+		"net": {
+			Name:       "net",
+			Composites: map[string]*CompositeType{"cluster": composite},
+		},
+	}
+	got := ExtractNodes(parseStack(t, src), mods)
+	require.NotEmpty(t, got)
+	require.Nil(t, got[0].ConfigurationsRemap)
+}
+
 func TestExtractConfigurationAliasIgnoresMismatchedNamespace(t *testing.T) {
 	src := `
 resources: {
