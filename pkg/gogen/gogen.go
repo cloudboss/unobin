@@ -8,11 +8,25 @@ import (
 )
 
 // SchemaAdapter fetches resource and data source schemas from an external
-// source (e.g. a TF provider schema).
+// source (e.g. a TF provider schema). FetchConfiguration returns the
+// module-level configuration schema (the provider's own config block in
+// TF). A nil return means the source has no configuration to expose; the
+// generated module then omits the Configuration field.
 type SchemaAdapter interface {
 	Name() string
 	FetchResources(ctx context.Context, resources []string) ([]ResourceSchema, error)
 	FetchDataSources(ctx context.Context, resources []string) ([]DataSourceSchema, error)
+	FetchConfiguration(ctx context.Context) (*ConfigurationSchema, error)
+}
+
+// ConfigurationSchema describes the operator-facing module configuration.
+// Fields carry primitive Go types ("string", "int64", "float64", "bool",
+// "[]string", "map[string]string", "any", ...); the renderer wraps each
+// in the matching cfg.* wrapper type when it emits the struct.
+type ConfigurationSchema struct {
+	GoName      string
+	Description string
+	Fields      []Field
 }
 
 // ResourceSchema describes one cloud resource type for code generation.
@@ -79,6 +93,11 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 		return nil, fmt.Errorf("fetch data sources: %w", err)
 	}
 
+	configuration, err := adapter.FetchConfiguration(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch configuration: %w", err)
+	}
+
 	if len(resources) == 0 && len(dataSources) == 0 {
 		return nil, fmt.Errorf("no resources or data sources found for %v", in.Resources)
 	}
@@ -121,7 +140,19 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 		}
 	}
 
-	modSrc, err := ModuleFile(adapter.Name(), resources, dataSources, in.ModulePath, in.From)
+	if configuration != nil && len(configuration.Fields) > 0 {
+		cfgSrc, err := ConfigurationFile(*configuration, adapter.Name(), in.From)
+		if err != nil {
+			return nil, fmt.Errorf("render configuration.go: %w", err)
+		}
+		path := filepath.Join(outDir, "configuration.go")
+		if err := os.WriteFile(path, cfgSrc, 0644); err != nil {
+			return nil, fmt.Errorf("write %s: %w", path, err)
+		}
+	}
+
+	modSrc, err := ModuleFile(adapter.Name(), resources, dataSources, configuration,
+		in.ModulePath, in.From)
 	if err != nil {
 		return nil, fmt.Errorf("render module.go: %w", err)
 	}

@@ -160,14 +160,21 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 
 // ModuleFile renders a module.go that registers all resources and data
 // sources. It lives in the root package and imports the resources/ and
-// data/ sub-packages (only the ones that have content).
+// data/ sub-packages (only the ones that have content). configuration
+// may be nil; when present and non-empty, the registration references
+// the ProviderConfig struct declared in configuration.go. StateBackends
+// and Encrypters are always emitted as empty maps with a TODO comment
+// so a module author has a visible place to fill them in.
 func ModuleFile(
 	packageName string,
 	resources []ResourceSchema,
 	dataSources []DataSourceSchema,
+	configuration *ConfigurationSchema,
 	modulePath, from string,
 ) ([]byte, error) {
 	var b bytes.Buffer
+
+	hasConfig := configuration != nil && len(configuration.Fields) > 0
 
 	writeGeneratedComment(&b, from)
 	fmt.Fprintf(&b, "package %s\n\n", packageName)
@@ -181,12 +188,29 @@ func ModuleFile(
 	}
 	b.WriteString("\n")
 	b.WriteString(`	"github.com/cloudboss/unobin/pkg/runtime"` + "\n")
+	if hasConfig {
+		b.WriteString(`	"github.com/cloudboss/unobin/pkg/sdk/cfg"` + "\n")
+	}
+	b.WriteString(`	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"` + "\n")
+	b.WriteString(`	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"` + "\n")
 	b.WriteString(")\n\n")
 
 	b.WriteString("func Module() *runtime.Module {\n")
 	b.WriteString("\treturn &runtime.Module{\n")
 	fmt.Fprintf(&b, "\t\tName:        \"%s\",\n", packageName)
 	fmt.Fprintf(&b, "\t\tDescription: \"Generated %s module\",\n", packageName)
+
+	if hasConfig {
+		b.WriteString("\t\tConfiguration: &cfg.ConfigurationType{\n")
+		desc := escapeQuote(configuration.Description)
+		if desc == "" {
+			desc = packageName + " provider configuration."
+		}
+		fmt.Fprintf(&b, "\t\t\tDescription: \"%s\",\n", desc)
+		fmt.Fprintf(&b, "\t\t\tNew:         func() any { return &%s{} },\n",
+			configuration.GoName)
+		b.WriteString("\t\t},\n")
+	}
 
 	if len(resources) > 0 {
 		sort.Slice(resources, func(i, j int) bool {
@@ -229,10 +253,86 @@ func ModuleFile(
 		b.WriteString("\t\t},\n")
 	}
 
+	b.WriteString("\t\t// TODO: register state backends here.\n")
+	b.WriteString("\t\tStateBackends: map[string]sdkstate.BackendType{},\n")
+	b.WriteString("\t\t// TODO: register encrypters here.\n")
+	b.WriteString("\t\tEncrypters: map[string]sdkencrypt.EncrypterType{},\n")
+
 	b.WriteString("\t}\n")
 	b.WriteString("}\n")
 
 	return format.Source(b.Bytes())
+}
+
+// ConfigurationFile renders a configuration.go that declares the
+// module-level provider config struct. Each field is wrapped in the
+// cfg.* type matching its primitive Go type; non-required fields use
+// a pointer so the decoder treats them as optional.
+func ConfigurationFile(cs ConfigurationSchema, packageName, from string) ([]byte, error) {
+	var b bytes.Buffer
+
+	writeGeneratedComment(&b, from)
+	fmt.Fprintf(&b, "package %s\n\n", packageName)
+	b.WriteString("import (\n")
+	b.WriteString(`	"github.com/cloudboss/unobin/pkg/sdk/cfg"` + "\n")
+	b.WriteString(")\n\n")
+
+	if cs.Description != "" {
+		for _, line := range wordWrap(sanitizeComment(cs.Description), 80) {
+			fmt.Fprintf(&b, "// %s\n", line)
+		}
+	}
+	fmt.Fprintf(&b, "// %s is the operator-facing body of `configurations: { %s: { default: ... } }`.\n",
+		cs.GoName, packageName)
+	fmt.Fprintf(&b, "type %s struct {\n", cs.GoName)
+	for _, f := range cs.Fields {
+		if f.Name == "" {
+			continue
+		}
+		if f.Description != "" {
+			fmt.Fprintf(&b, "\t// %s\n", sanitizeComment(f.Description))
+		}
+		wrapper := cfgWrapperType(f.GoType)
+		if !f.Required {
+			wrapper = "*" + wrapper
+		}
+		fmt.Fprintf(&b, "\t%s %s\n", f.Name, wrapper)
+	}
+	if len(cs.Fields) == 0 {
+		b.WriteString("\t// No configuration fields\n")
+	}
+	b.WriteString("}\n")
+
+	raw := b.Bytes()
+	out, err := format.Source(raw)
+	if err != nil {
+		return nil, fmt.Errorf("format: %w\n\nraw source:\n%s", err, raw)
+	}
+	return out, nil
+}
+
+// cfgWrapperType maps a primitive Go type produced by a SchemaAdapter to
+// the corresponding cfg.* wrapper. Unknown types fall back to cfg.Any so
+// the generated file still compiles; the module author can refine the
+// type by hand.
+func cfgWrapperType(goType string) string {
+	switch goType {
+	case "string":
+		return "cfg.String"
+	case "int64":
+		return "cfg.Integer"
+	case "float64":
+		return "cfg.Number"
+	case "bool":
+		return "cfg.Boolean"
+	}
+	if strings.HasPrefix(goType, "[]") {
+		return "cfg.List[" + cfgWrapperType(goType[2:]) + "]"
+	}
+	if strings.HasPrefix(goType, "map[string]") {
+		return "cfg.Map[" + cfgWrapperType(goType[len("map[string]"):]) + "]"
+	}
+	return "cfg.Any"
 }
 
 // GoMod renders a go.mod file for a generated module. When replaceUnobin is

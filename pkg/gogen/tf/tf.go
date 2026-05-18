@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/gogen"
@@ -124,6 +125,61 @@ func (a *Adapter) FetchResources(
 	return all, nil
 }
 
+// FetchConfiguration extracts the TF provider's own configuration block
+// (e.g. aws { region = ... }) and returns it as a generic schema for
+// the renderer. A nil result means the provider declares no
+// configuration attributes; the renderer then skips emitting a
+// ProviderConfig struct and module Configuration entry.
+func (a *Adapter) FetchConfiguration(ctx context.Context) (*gogen.ConfigurationSchema, error) {
+	data, err := a.Fetcher.FetchSchema(ctx, a.source, a.localName, a.version)
+	if err != nil {
+		return nil, err
+	}
+
+	parsed, err := parseProviderSchema(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse provider schema: %w", err)
+	}
+
+	var providerName string
+	for k := range parsed.ProviderSchemas {
+		providerName = k
+		break
+	}
+	ps := parsed.ProviderSchemas[providerName]
+	if ps.Provider == nil || len(ps.Provider.Block.Attributes) == 0 {
+		return nil, nil
+	}
+
+	var fields []gogen.Field
+	for attrName, attr := range ps.Provider.Block.Attributes {
+		goField := tfAttrNameToGo(attrName)
+		if goField == "" {
+			continue
+		}
+		if attr.Computed && !attr.Optional && !attr.Required {
+			continue
+		}
+		fields = append(fields, gogen.Field{
+			Name:        goField,
+			GoType:      tfTypeToGo(attr.Type),
+			Description: attr.Description,
+			Required:    attr.Required,
+		})
+	}
+	if len(fields) == 0 {
+		return nil, nil
+	}
+
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+
+	return &gogen.ConfigurationSchema{
+		GoName:      "ProviderConfig",
+		Description: a.localName + " provider configuration.",
+		Fields:      fields,
+	}, nil
+}
+
 func (a *Adapter) FetchDataSources(
 	ctx context.Context,
 	resources []string,
@@ -193,6 +249,7 @@ type tfProviderSchema struct {
 }
 
 type tfProvSchema struct {
+	Provider          *tfResourceSchema           `json:"provider"`
 	ResourceSchemas   map[string]tfResourceSchema `json:"resource_schemas"`
 	DataSourceSchemas map[string]tfResourceSchema `json:"data_source_schemas"`
 }

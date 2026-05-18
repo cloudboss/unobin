@@ -10,9 +10,10 @@ import (
 )
 
 type mockAdapter struct {
-	name        string
-	resources   []ResourceSchema
-	dataSources []DataSourceSchema
+	name          string
+	resources     []ResourceSchema
+	dataSources   []DataSourceSchema
+	configuration *ConfigurationSchema
 }
 
 func (m *mockAdapter) Name() string { return m.name }
@@ -23,6 +24,10 @@ func (m *mockAdapter) FetchResources(_ context.Context, _ []string) ([]ResourceS
 
 func (m *mockAdapter) FetchDataSources(_ context.Context, _ []string) ([]DataSourceSchema, error) {
 	return m.dataSources, nil
+}
+
+func (m *mockAdapter) FetchConfiguration(_ context.Context) (*ConfigurationSchema, error) {
+	return m.configuration, nil
 }
 
 func TestGenerateWritesFiles(t *testing.T) {
@@ -113,6 +118,51 @@ func TestGenerateDefaultOutDir(t *testing.T) {
 	}
 
 	_ = os.RemoveAll("./testmod-module")
+}
+
+func TestGenerateWritesConfigurationFile(t *testing.T) {
+	dir := t.TempDir()
+	adapter := &mockAdapter{
+		name:      "aws",
+		resources: []ResourceSchema{sampleResourceSchema()},
+		configuration: &ConfigurationSchema{
+			GoName:      "ProviderConfig",
+			Description: "aws provider configuration.",
+			Fields: []Field{
+				{Name: "Region", GoType: "string", Required: true},
+				{Name: "Profile", GoType: "string"},
+			},
+		},
+	}
+	if _, err := Generate(context.Background(), adapter, Input{
+		OutDir: dir, ModulePath: "example.com/aws", From: "tf",
+	}); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	src, err := os.ReadFile(filepath.Join(dir, "configuration.go"))
+	if err != nil {
+		t.Fatalf("read configuration.go: %v", err)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(),
+		"configuration.go", src, parser.AllErrors); err != nil {
+		t.Fatalf("configuration.go does not parse: %v\n%s", err, src)
+	}
+}
+
+func TestGenerateSkipsConfigurationFileWhenEmpty(t *testing.T) {
+	dir := t.TempDir()
+	adapter := &mockAdapter{
+		name:      "random",
+		resources: []ResourceSchema{sampleResourceSchema()},
+	}
+	if _, err := Generate(context.Background(), adapter, Input{
+		OutDir: dir, ModulePath: "example.com/random", From: "tf",
+	}); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "configuration.go")); !os.IsNotExist(err) {
+		t.Errorf("expected no configuration.go to be written when adapter returns nil schema (err=%v)", err)
+	}
 }
 
 func TestGenerateNoResources(t *testing.T) {

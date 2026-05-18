@@ -133,7 +133,7 @@ func TestDataSourceFileProducesParseableGo(t *testing.T) {
 func TestModuleFileProducesParseableGo(t *testing.T) {
 	resources := []ResourceSchema{sampleResourceSchema()}
 
-	src, err := ModuleFile("aws", resources, nil, "example.com/aws", "tf")
+	src, err := ModuleFile("aws", resources, nil, nil, "example.com/aws", "tf")
 	if err != nil {
 		t.Fatalf("ModuleFile: %v", err)
 	}
@@ -153,6 +153,10 @@ func TestModuleFileProducesParseableGo(t *testing.T) {
 		"Resources: map[string]runtime.ResourceType",
 		`"s3-bucket": {`,
 		`New:           func() runtime.Resource { return &resources.S3Bucket{} }`,
+		"// TODO: register state backends here.",
+		"StateBackends: map[string]sdkstate.BackendType{}",
+		"// TODO: register encrypters here.",
+		"Encrypters: map[string]sdkencrypt.EncrypterType{}",
 	}
 	for _, c := range checks {
 		if !strings.Contains(s, c) {
@@ -172,7 +176,7 @@ func TestModuleFileWithDataSources(t *testing.T) {
 		{GoName: "AMI", CloudType: "AWS::EC2::AMI", Description: "An AMI"},
 	}
 
-	src, err := ModuleFile("aws", nil, dataSources, "example.com/aws", "tf")
+	src, err := ModuleFile("aws", nil, dataSources, nil, "example.com/aws", "tf")
 	if err != nil {
 		t.Fatalf("ModuleFile: %v", err)
 	}
@@ -192,6 +196,100 @@ func TestModuleFileWithDataSources(t *testing.T) {
 	}
 	if strings.Contains(s, "Resources") {
 		t.Error("expected no Resources section when none provided")
+	}
+}
+
+func TestModuleFileWithConfiguration(t *testing.T) {
+	cs := &ConfigurationSchema{
+		GoName:      "ProviderConfig",
+		Description: "aws provider configuration.",
+		Fields: []Field{
+			{Name: "Region", GoType: "string", Required: true},
+		},
+	}
+	src, err := ModuleFile("aws", nil,
+		[]DataSourceSchema{{GoName: "AMI", CloudType: "aws_ami"}},
+		cs, "example.com/aws", "tf")
+	if err != nil {
+		t.Fatalf("ModuleFile: %v", err)
+	}
+	fset := token.NewFileSet()
+	if _, err := parser.ParseFile(fset, "module.go", src, parser.AllErrors); err != nil {
+		t.Fatalf("generated source does not parse: %v\n\nSource:\n%s", err, src)
+	}
+	s := string(src)
+	checks := []string{
+		`"github.com/cloudboss/unobin/pkg/sdk/cfg"`,
+		"Configuration: &cfg.ConfigurationType{",
+		`Description: "aws provider configuration."`,
+		"New:         func() any { return &ProviderConfig{} }",
+	}
+	for _, c := range checks {
+		if !strings.Contains(s, c) {
+			t.Errorf("expected generated source to contain %q", c)
+		}
+	}
+}
+
+func TestConfigurationFile(t *testing.T) {
+	cs := ConfigurationSchema{
+		GoName:      "ProviderConfig",
+		Description: "aws provider configuration.",
+		Fields: []Field{
+			{Name: "Region", GoType: "string", Description: "The AWS region", Required: true},
+			{Name: "Profile", GoType: "string", Description: "Shared credentials profile"},
+			{Name: "MaxRetries", GoType: "int64", Description: "Retry budget"},
+			{Name: "AllowedAccountIds", GoType: "[]string"},
+			{Name: "Tags", GoType: "map[string]string"},
+		},
+	}
+	src, err := ConfigurationFile(cs, "aws", "tf")
+	if err != nil {
+		t.Fatalf("ConfigurationFile: %v", err)
+	}
+	fset := token.NewFileSet()
+	if _, err := parser.ParseFile(fset, "configuration.go", src, parser.AllErrors); err != nil {
+		t.Fatalf("generated source does not parse: %v\n\nSource:\n%s", err, src)
+	}
+	s := string(src)
+	checks := []string{
+		"package aws",
+		`"github.com/cloudboss/unobin/pkg/sdk/cfg"`,
+		"type ProviderConfig struct {",
+		"Region cfg.String",
+		"Profile *cfg.String",
+		"MaxRetries        *cfg.Integer",
+		"AllowedAccountIds *cfg.List[cfg.String]",
+		"Tags              *cfg.Map[cfg.String]",
+	}
+	for _, c := range checks {
+		if !strings.Contains(s, c) {
+			t.Errorf("expected generated source to contain %q\n\nSource:\n%s", c, s)
+		}
+	}
+}
+
+func TestCfgWrapperType(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"string", "cfg.String"},
+		{"int64", "cfg.Integer"},
+		{"float64", "cfg.Number"},
+		{"bool", "cfg.Boolean"},
+		{"[]string", "cfg.List[cfg.String]"},
+		{"[]bool", "cfg.List[cfg.Boolean]"},
+		{"map[string]string", "cfg.Map[cfg.String]"},
+		{"map[string][]string", "cfg.Map[cfg.List[cfg.String]]"},
+		{"map[string]any", "cfg.Map[cfg.Any]"},
+		{"any", "cfg.Any"},
+		{"some_weird_type", "cfg.Any"},
+	}
+	for _, tt := range tests {
+		got := cfgWrapperType(tt.in)
+		if got != tt.want {
+			t.Errorf("cfgWrapperType(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }
 

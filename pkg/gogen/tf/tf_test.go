@@ -234,6 +234,81 @@ func TestConvertResourceSkipsInvalidGoNames(t *testing.T) {
 	}
 }
 
+func TestFetchConfiguration(t *testing.T) {
+	schema := `{
+	  "format_version": "1.0",
+	  "provider_schemas": {
+	    "registry.terraform.io/hashicorp/aws": {
+	      "provider": {
+	        "version": 0,
+	        "block": {
+	          "attributes": {
+	            "region":  {"type": "string", "required": true, "description": "AWS region"},
+	            "profile": {"type": "string", "optional": true, "description": "Shared profile"},
+	            "max_retries": {"type": "number", "optional": true},
+	            "allowed_account_ids": {"type": ["set", "string"], "optional": true},
+	            "ignore_tags": {"type": ["map", "string"], "computed": true}
+	          }
+	        }
+	      },
+	      "resource_schemas": {},
+	      "data_source_schemas": {}
+	    }
+	  }
+	}`
+
+	adapter := NewAdapter(&staticFetcher{data: []byte(schema)}, "hashicorp/aws", "")
+	cs, err := adapter.FetchConfiguration(context.Background())
+	if err != nil {
+		t.Fatalf("FetchConfiguration: %v", err)
+	}
+	if cs == nil {
+		t.Fatal("expected non-nil ConfigurationSchema")
+	}
+	if cs.GoName != "ProviderConfig" {
+		t.Errorf("GoName = %q, want ProviderConfig", cs.GoName)
+	}
+	if len(cs.Fields) != 4 {
+		t.Fatalf("expected 4 fields (computed dropped), got %d: %+v", len(cs.Fields), cs.Fields)
+	}
+
+	want := []struct {
+		name, goType string
+		required     bool
+	}{
+		{"AllowedAccountIds", "[]string", false},
+		{"MaxRetries", "float64", false},
+		{"Profile", "string", false},
+		{"Region", "string", true},
+	}
+	for i, w := range want {
+		if cs.Fields[i].Name != w.name {
+			t.Errorf("Fields[%d].Name = %q, want %q", i, cs.Fields[i].Name, w.name)
+		}
+		if cs.Fields[i].GoType != w.goType {
+			t.Errorf("Fields[%d].GoType = %q, want %q", i, cs.Fields[i].GoType, w.goType)
+		}
+		if cs.Fields[i].Required != w.required {
+			t.Errorf("Fields[%d].Required = %v, want %v", i, cs.Fields[i].Required, w.required)
+		}
+	}
+}
+
+func TestFetchConfigurationNoProviderBlock(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "aws_provider.json"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	adapter := NewAdapter(&staticFetcher{data: data}, "hashicorp/aws", "")
+	cs, err := adapter.FetchConfiguration(context.Background())
+	if err != nil {
+		t.Fatalf("FetchConfiguration: %v", err)
+	}
+	if cs != nil {
+		t.Errorf("expected nil ConfigurationSchema when provider block is absent, got %+v", cs)
+	}
+}
+
 func TestConvertDataSource(t *testing.T) {
 	ds := tfResourceSchema{
 		Version: 0,
