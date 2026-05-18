@@ -1,6 +1,9 @@
 package lang
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // allowedTopLevelKeys is the set of identifier keys permitted at the
 // top level of each file kind. A stack and an exported type body are
@@ -409,7 +412,7 @@ func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *Err
 // produces only the top-level-keys error directing the caller to classify.
 func ValidateFile(f *File) *ErrorList {
 	errs := ValidateTopLevelKeys(f)
-	if f.Kind == FileUnknown || f.Kind == FileConfig {
+	if f.Kind == FileUnknown {
 		return errs
 	}
 	blocks := indexTopLevelBlocks(f)
@@ -443,6 +446,10 @@ func ValidateFile(f *File) *ErrorList {
 	case FileModule:
 		if obj, ok := blocks["exports"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateExports(obj))
+		}
+	case FileConfig:
+		if obj, ok := blocks["state"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateStateConfig(obj))
 		}
 	}
 	return errs
@@ -655,4 +662,95 @@ func checkBareIdentKey(f *Field, seen map[string]Position, what string, errs *Er
 	}
 	seen[name] = f.Key.S.Start
 	return true
+}
+
+// ValidateStateConfig checks the structure of a `state:` block in a
+// config file. The block must carry exactly one `@backend:` meta-key
+// whose value is a bare identifier (`local`) or a two-segment
+// alias-qualified reference (`aws.s3`). It may carry a nested
+// `encryption:` object of the same form with `@key-source:`, plus any
+// number of body fields keyed by bare identifiers. Body values are not
+// type-checked here; the resolver decodes them against each backend's
+// declared configuration.
+func ValidateStateConfig(block *ObjectLit) *ErrorList {
+	return validateBackendBlock(block, "state", "@backend")
+}
+
+// ValidateEncryptionConfig checks the structure of an `encryption:`
+// sub-block nested inside a `state:` block. Same rules as
+// ValidateStateConfig but with `@key-source:` in place of `@backend:`
+// and no further nested blocks.
+func ValidateEncryptionConfig(block *ObjectLit) *ErrorList {
+	return validateBackendBlock(block, "encryption", "@key-source")
+}
+
+func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	var metaPos Position
+	var metaSet bool
+	for _, fld := range block.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s block key must be a bare identifier, got quoted string %q",
+				what, fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			if fld.Key.Name == metaKey {
+				if metaSet {
+					errs.Addf(ErrSchema, fld.Key.S.Start,
+						"%s block: duplicate %s (first defined at %s)",
+						what, metaKey, metaPos)
+					continue
+				}
+				metaSet = true
+				metaPos = fld.Key.S.Start
+				if err := validateResolverRefValue(fld.Value); err != nil {
+					errs.Addf(ErrSchema, fld.Value.Span().Start,
+						"%s block: %s: %s", what, metaKey, err.Error())
+				}
+				continue
+			}
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s block: unknown meta-key %q", what, fld.Key.Name)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s block: duplicate key %q (first defined at %s)", what, name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		if what == "state" && name == "encryption" {
+			sub, ok := fld.Value.(*ObjectLit)
+			if !ok {
+				errs.Addf(ErrSchema, fld.Value.Span().Start,
+					"state block: encryption must be an object, got %s",
+					exprKind(fld.Value))
+				continue
+			}
+			mergeErrors(errs, ValidateEncryptionConfig(sub))
+		}
+	}
+	if !metaSet {
+		errs.Addf(ErrSchema, block.S.Start,
+			"%s block: missing required %s", what, metaKey)
+	}
+	return errs
+}
+
+func validateResolverRefValue(expr Expr) error {
+	switch v := expr.(type) {
+	case *Ident:
+		return nil
+	case *DotPath:
+		if v.Root == nil || len(v.Segments) != 1 || v.Segments[0].Name == "" {
+			return errors.New("expected `name` or `alias.name`")
+		}
+		return nil
+	default:
+		return fmt.Errorf("expected `name` or `alias.name`, got %s", exprKind(expr))
+	}
 }

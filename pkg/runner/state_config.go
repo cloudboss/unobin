@@ -33,8 +33,10 @@ type stateConfig struct {
 
 // parseStateConfig extracts the `state:` block from a pre-parsed
 // config. A nil file or an absent block returns an empty stateConfig
-// and the caller falls back to defaults. path is preserved only for
-// error messages.
+// and the caller falls back to defaults. The block is expected to be
+// structurally validated by lang.ValidateStateConfig before this runs;
+// this function evaluates body expressions and packages them for the
+// resolver. path is preserved only for error messages from Eval.
 func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 	if f == nil {
 		return &stateConfig{}, nil
@@ -50,29 +52,13 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 	sc := &stateConfig{}
 	body := map[string]any{}
 	var alias, name string
-	var backendSet bool
 	var errs []error
 
 	for _, fld := range block.Fields {
 		if fld.Key.IsMeta() {
 			if fld.Key.Name == "@backend" {
-				if backendSet {
-					errs = append(errs, fmt.Errorf(
-						"%s: duplicate @backend in state block", configPath))
-					continue
-				}
-				a, n, perr := parseResolverRef(fld.Value)
-				if perr != nil {
-					errs = append(errs, fmt.Errorf("%s: @backend: %w", configPath, perr))
-					continue
-				}
-				alias = a
-				name = n
-				backendSet = true
-				continue
+				alias, name = resolverRefValue(fld.Value)
 			}
-			errs = append(errs, fmt.Errorf(
-				"%s: unknown meta-key @%s in state block", configPath, fld.Key.Name))
 			continue
 		}
 		if fld.Key.Kind != lang.FieldIdent {
@@ -81,8 +67,6 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 		if fld.Key.Name == "encryption" {
 			obj, ok := fld.Value.(*lang.ObjectLit)
 			if !ok {
-				errs = append(errs, fmt.Errorf(
-					"%s: encryption must be an object", configPath))
 				continue
 			}
 			ref, perr := readEncryptionBlock(configPath, obj)
@@ -101,10 +85,7 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 		}
 		body[fld.Key.Name] = val
 	}
-	if !backendSet {
-		errs = append(errs, fmt.Errorf(
-			"%s: state block missing @backend", configPath))
-	} else {
+	if name != "" {
 		sc.Backend = &resolverRef{Alias: alias, Name: name, Body: body}
 	}
 	if err := errors.Join(errs...); err != nil {
@@ -116,30 +97,13 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef, error) {
 	body := map[string]any{}
 	var alias, name string
-	var keySourceSet bool
 	var errs []error
 
 	for _, fld := range block.Fields {
 		if fld.Key.IsMeta() {
 			if fld.Key.Name == "@key-source" {
-				if keySourceSet {
-					errs = append(errs, fmt.Errorf(
-						"%s: duplicate @key-source in encryption block", configPath))
-					continue
-				}
-				a, n, perr := parseResolverRef(fld.Value)
-				if perr != nil {
-					errs = append(errs, fmt.Errorf(
-						"%s: @key-source: %w", configPath, perr))
-					continue
-				}
-				alias = a
-				name = n
-				keySourceSet = true
-				continue
+				alias, name = resolverRefValue(fld.Value)
 			}
-			errs = append(errs, fmt.Errorf(
-				"%s: unknown meta-key @%s in encryption block", configPath, fld.Key.Name))
 			continue
 		}
 		if fld.Key.Kind != lang.FieldIdent {
@@ -153,30 +117,31 @@ func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef
 		}
 		body[fld.Key.Name] = val
 	}
-	if !keySourceSet {
-		errs = append(errs, fmt.Errorf(
-			"%s: encryption block missing @key-source", configPath))
-	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
+	}
+	if name == "" {
+		return nil, nil
 	}
 	return &resolverRef{Alias: alias, Name: name, Body: body}, nil
 }
 
-// parseResolverRef accepts either a bare identifier (`local`) or a
-// two-segment dotted path (`aws.s3`) and returns the alias and name.
-// A bare identifier yields an empty alias.
-func parseResolverRef(expr lang.Expr) (alias, name string, err error) {
+// resolverRefValue extracts the (alias, name) pair from a `@backend:`
+// or `@key-source:` value. The caller relies on lang.ValidateStateConfig
+// to have rejected anything other than an Ident or a two-segment DotPath
+// upstream; this helper returns ("", "") for any other value so callers
+// fall back to defaults.
+func resolverRefValue(expr lang.Expr) (alias, name string) {
 	switch v := expr.(type) {
 	case *lang.Ident:
-		return "", v.Name, nil
+		return "", v.Name
 	case *lang.DotPath:
-		if v.Root == nil || len(v.Segments) != 1 || v.Segments[0].Name == "" {
-			return "", "", fmt.Errorf("expected `name` or `alias.name`")
+		if v.Root == nil || len(v.Segments) != 1 {
+			return "", ""
 		}
-		return v.Root.Name, v.Segments[0].Name, nil
+		return v.Root.Name, v.Segments[0].Name
 	default:
-		return "", "", fmt.Errorf("expected `name` or `alias.name`, got %T", expr)
+		return "", ""
 	}
 }
 
