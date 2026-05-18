@@ -88,6 +88,7 @@ func newPlanCmd(info Info) *cobra.Command {
 		configPath           string
 		outPath              string
 		allowVersionMismatch bool
+		parallelism          int
 	)
 	cmd := &cobra.Command{
 		Use:   "plan",
@@ -100,7 +101,7 @@ func newPlanCmd(info Info) *cobra.Command {
 			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
 				return err
 			}
-			return doPlan(cmd, info, config, configPath, outPath)
+			return doPlan(cmd, info, config, configPath, outPath, parallelism)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -109,21 +110,29 @@ func newPlanCmd(info Info) *cobra.Command {
 		"Write the plan to this file so apply can consume it.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
 		"Run even when the config does not pin this binary's version.")
+	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
+		"Override the in-flight cap baked into the plan."+
+			" Zero (the default) falls back to config.ub, then to the runtime default.")
 	return cmd
 }
 
 func newApplyCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	var parallelism int
+	cmd := &cobra.Command{
 		Use:   "apply <plan-file>",
 		Short: "Run a previously computed plan",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doApplyPlan(cmd, info, args[0])
+			return doApplyPlan(cmd, info, args[0], parallelism)
 		},
 	}
+	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
+		"Override the in-flight cap baked into the plan."+
+			" Zero (the default) uses the value the plan was computed with.")
+	return cmd
 }
 
-func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
+func doApplyPlan(cmd *cobra.Command, info Info, planPath string, parallelismOverride int) error {
 	enc, err := loadEncrypter(info, nil, "")
 	if err != nil {
 		return err
@@ -154,6 +163,10 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	}
 	ctx, drain, stop := applySignalContext(cmd.ErrOrStderr())
 	defer stop()
+	parallelism := pf.Parallelism
+	if parallelismOverride > 0 {
+		parallelism = parallelismOverride
+	}
 	exec := &runtime.Executor{
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
@@ -164,7 +177,7 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 			Version: info.StackVersion,
 			Commit:  info.StackCommit,
 		},
-		Parallelism: pf.Parallelism,
+		Parallelism: parallelism,
 		Drain:       drain,
 	}
 	res, err := exec.ApplyPlan(ctx, pf)
@@ -478,7 +491,10 @@ func loadEncrypter(info Info, f *lang.File, configPath string) (sdkencrypt.Encry
 	return resolveEncrypter(info, sc.Encrypter)
 }
 
-func doPlan(cmd *cobra.Command, info Info, config *lang.File, configPath, outPath string) error {
+func doPlan(
+	cmd *cobra.Command, info Info, config *lang.File,
+	configPath, outPath string, parallelismOverride int,
+) error {
 	f, err := parsedFile(info)
 	if err != nil {
 		return err
@@ -503,6 +519,9 @@ func doPlan(cmd *cobra.Command, info Info, config *lang.File, configPath, outPat
 	parallelism, err := loadParallelism(config, configPath)
 	if err != nil {
 		return err
+	}
+	if parallelismOverride > 0 {
+		parallelism = parallelismOverride
 	}
 	exec := &runtime.Executor{
 		DAG:            runtime.BuildDAG(f, info.Modules),
