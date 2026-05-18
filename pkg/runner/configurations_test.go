@@ -42,7 +42,7 @@ configurations: {
   }
 }
 `)
-	out, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ configurations: {
   }
 }
 `)
-	out, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ configurations: {
 }
 
 func TestLoadConfigurationsErrorsWhenModuleRequiresOneAndConfigIsAbsent(t *testing.T) {
-	_, _, err := loadConfigurations("", map[string]*runtime.Module{
+	_, _, err := loadConfigurations(nil, "", map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.Error(t, err)
@@ -85,7 +85,7 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.Error(t, err)
@@ -100,7 +100,7 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(path, map[string]*runtime.Module{})
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ghost")
 	require.Contains(t, err.Error(), "unknown import alias")
@@ -114,7 +114,7 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleNoConfig(),
 	})
 	require.Error(t, err)
@@ -131,7 +131,7 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.Error(t, err)
@@ -148,7 +148,7 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.Error(t, err)
@@ -156,7 +156,7 @@ configurations: {
 }
 
 func TestLoadConfigurationsReturnsNilWhenNoModuleNeedsOne(t *testing.T) {
-	out, _, err := loadConfigurations("", map[string]*runtime.Module{
+	out, _, err := loadConfigurations(nil, "", map[string]*runtime.Module{
 		"core": awsModuleNoConfig(),
 	})
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ configurations: {
   }
 }
 `)
-	out, raw, err := loadConfigurations(path, map[string]*runtime.Module{
+	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.NoError(t, err)
@@ -204,7 +204,7 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(path, map[string]*runtime.Module{
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Module{
 		"aws": awsModuleWithConfig(),
 	})
 	require.Error(t, err)

@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -23,25 +22,13 @@ type stackEnvelope struct {
 	SupportedVersions []supportedVersion
 }
 
-// loadStackEnvelope parses the config at path and returns the `stack:`
-// block. An empty path returns a zero envelope without error so the
+// loadStackEnvelope extracts the `stack:` block from a pre-parsed
+// config. A nil file returns a zero envelope without error so the
 // caller can apply the same pin policy to "no config" and "config
-// without stack block."
-func loadStackEnvelope(path string) (stackEnvelope, error) {
-	if path == "" {
+// without stack block." path is preserved only for error messages.
+func loadStackEnvelope(f *lang.File, path string) (stackEnvelope, error) {
+	if f == nil {
 		return stackEnvelope{}, nil
-	}
-	src, err := os.ReadFile(path)
-	if err != nil {
-		return stackEnvelope{}, err
-	}
-	f, err := lang.ParseSource(path, src)
-	if err != nil {
-		return stackEnvelope{}, err
-	}
-	f.Kind = lang.FileConfig
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return stackEnvelope{}, errs.Err()
 	}
 	for _, fld := range f.Body.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "stack" {
@@ -114,9 +101,9 @@ func parseStackBlock(path string, m map[string]any) (stackEnvelope, error) {
 // soft-fails (overridable by allowVersionMismatch) when the config does
 // not pin any versions, or pins versions but not this binary's.
 func verifyStackEnvelope(
-	info Info, configPath string, allowVersionMismatch bool,
+	info Info, f *lang.File, configPath string, allowVersionMismatch bool,
 ) error {
-	env, err := loadStackEnvelope(configPath)
+	env, err := loadStackEnvelope(f, configPath)
 	if err != nil {
 		return err
 	}

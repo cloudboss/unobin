@@ -1436,7 +1436,7 @@ func TestStateShowFailsWithWrongKey(t *testing.T) {
 
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", "not-base64!!")
-	_, err := loadEncrypter(testInfo(t, ""), "")
+	_, err := loadEncrypter(testInfo(t, ""), nil, "")
 	require.Error(t, err)
 }
 

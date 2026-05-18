@@ -90,11 +90,14 @@ func newPlanCmd(info Info) *cobra.Command {
 		Use:   "plan",
 		Short: "Show what apply would do",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := verifyStackEnvelope(info, configPath, allowVersionMismatch)
+			config, err := parseConfigFile(configPath)
 			if err != nil {
 				return err
 			}
-			return doPlan(cmd, info, configPath, outPath)
+			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return err
+			}
+			return doPlan(cmd, info, config, configPath, outPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -118,7 +121,7 @@ func newApplyCmd(info Info) *cobra.Command {
 }
 
 func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
-	enc, err := loadEncrypter(info, "")
+	enc, err := loadEncrypter(info, nil, "")
 	if err != nil {
 		return err
 	}
@@ -138,7 +141,7 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, "", pf.DeploymentID, enc)
+	store, err := loadStore(info, nil, "", pf.DeploymentID, enc)
 	if err != nil {
 		return err
 	}
@@ -176,11 +179,14 @@ func newRefreshCmd(info Info) *cobra.Command {
 		Use:   "refresh",
 		Short: "Update state to match what each resource currently reports",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := verifyStackEnvelope(info, configPath, allowVersionMismatch)
+			config, err := parseConfigFile(configPath)
 			if err != nil {
 				return err
 			}
-			return doRefresh(cmd, info, configPath)
+			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return err
+			}
+			return doRefresh(cmd, info, config, configPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -190,25 +196,25 @@ func newRefreshCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doRefresh(cmd *cobra.Command, info Info, configPath string) error {
+func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
 	f, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
-	inputs, err := buildInputs(configPath,
+	inputs, err := buildInputs(config, configPath,
 		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
 	if err != nil {
 		return err
 	}
-	configurations, _, err := loadConfigurations(configPath, info.Modules)
+	configurations, _, err := loadConfigurations(config, configPath, info.Modules)
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, configPath)
+	enc, err := loadEncrypter(info, config, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -245,11 +251,14 @@ func newValidateCmd(info Info) *cobra.Command {
 		Use:   "validate",
 		Short: "Check stack source and config without reading state or resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := verifyStackEnvelope(info, configPath, allowVersionMismatch)
+			config, err := parseConfigFile(configPath)
 			if err != nil {
 				return err
 			}
-			return doValidate(cmd, info, configPath)
+			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return err
+			}
+			return doValidate(cmd, info, config, configPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -259,17 +268,17 @@ func newValidateCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doValidate(cmd *cobra.Command, info Info, configPath string) error {
+func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
 	f, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
-	_, err = buildInputs(configPath,
+	_, err = buildInputs(config, configPath,
 		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
 	if err != nil {
 		return err
 	}
-	if _, _, err := loadConfigurations(configPath, info.Modules); err != nil {
+	if _, _, err := loadConfigurations(config, configPath, info.Modules); err != nil {
 		return err
 	}
 	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
@@ -322,7 +331,11 @@ func newOutputCmd(info Info) *cobra.Command {
 		Short: "Print stack outputs from the current state",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doOutput(cmd, info, configPath, args, asJSON)
+			config, err := parseConfigFile(configPath)
+			if err != nil {
+				return err
+			}
+			return doOutput(cmd, info, config, configPath, args, asJSON)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -350,17 +363,19 @@ func parsedFile(info Info) (*lang.File, error) {
 	return f, nil
 }
 
-// loadStore resolves a state backend from the `state:` block of
-// config.ub. With configPath empty, the resolver falls back to the
+// loadStore resolves a state backend from the `state:` block of a
+// pre-parsed config. With a nil file, the resolver falls back to the
 // local backend at `.unobin/state`. deploymentID is the per-deployment
 // directory name (the basename of config.ub for plan/refresh, or the
-// plan file's embedded value for apply).
+// plan file's embedded value for apply). configPath is preserved only
+// for error messages.
 func loadStore(
 	info Info,
+	f *lang.File,
 	configPath, deploymentID string,
 	enc sdkencrypt.Encrypter,
 ) (state.Backend, error) {
-	sc, err := parseStateConfig(configPath)
+	sc, err := parseStateConfig(f, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -384,36 +399,37 @@ func deploymentID(configPath string) string {
 }
 
 // loadEncrypter resolves the encrypter from the `encryption:` sub-block
-// of config.ub. With configPath empty, or no encryption block present,
-// the resolver falls back to the env-key encrypter against
+// of a pre-parsed config. With a nil file, or no encryption block
+// present, the resolver falls back to the env-key encrypter against
 // `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
-func loadEncrypter(info Info, configPath string) (sdkencrypt.Encrypter, error) {
-	sc, err := parseStateConfig(configPath)
+// configPath is preserved only for error messages.
+func loadEncrypter(info Info, f *lang.File, configPath string) (sdkencrypt.Encrypter, error) {
+	sc, err := parseStateConfig(f, configPath)
 	if err != nil {
 		return nil, err
 	}
 	return resolveEncrypter(info, sc.Encrypter)
 }
 
-func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
+func doPlan(cmd *cobra.Command, info Info, config *lang.File, configPath, outPath string) error {
 	f, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
-	inputs, err := buildInputs(configPath,
+	inputs, err := buildInputs(config, configPath,
 		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
 	if err != nil {
 		return err
 	}
-	configurations, rawConfigurations, err := loadConfigurations(configPath, info.Modules)
+	configurations, rawConfigurations, err := loadConfigurations(config, configPath, info.Modules)
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, configPath)
+	enc, err := loadEncrypter(info, config, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -452,17 +468,14 @@ func doPlan(cmd *cobra.Command, info Info, configPath, outPath string) error {
 }
 
 func buildInputs(
+	f *lang.File,
 	configPath string,
 	decl *lang.ObjectLit,
 	constraints *lang.ArrayLit,
 ) (map[string]any, error) {
-	inputs := map[string]any{}
-	if configPath != "" {
-		loaded, err := loadConfigInputs(configPath)
-		if err != nil {
-			return nil, err
-		}
-		inputs = loaded
+	inputs, err := loadConfigInputs(f, configPath)
+	if err != nil {
+		return nil, err
 	}
 	applyEnvOverrides(inputs)
 	validated, errs := lang.ValidateInputs(decl, inputs, defaultEval)
@@ -494,20 +507,12 @@ func predicateEval(values map[string]any) lang.EvalFunc {
 	}
 }
 
-// loadConfigInputs reads a config .ub file and returns the evaluated
-// inputs section. Other config sections are not consumed yet.
-func loadConfigInputs(path string) (map[string]any, error) {
-	src, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	f, err := lang.ParseSource(path, src)
-	if err != nil {
-		return nil, err
-	}
-	f.Kind = lang.FileConfig
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, errs.Err()
+// loadConfigInputs extracts the `inputs:` block from a pre-parsed
+// config. A nil file returns an empty map with no error. path is
+// preserved only for error messages.
+func loadConfigInputs(f *lang.File, path string) (map[string]any, error) {
+	if f == nil {
+		return map[string]any{}, nil
 	}
 	for _, fld := range f.Body.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "inputs" {
@@ -575,12 +580,15 @@ func parseEnvValue(raw string) any {
 	return val
 }
 
-func doOutput(cmd *cobra.Command, info Info, configPath string, args []string, asJSON bool) error {
-	enc, err := loadEncrypter(info, configPath)
+func doOutput(
+	cmd *cobra.Command, info Info, config *lang.File, configPath string,
+	args []string, asJSON bool,
+) error {
+	enc, err := loadEncrypter(info, config, configPath)
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
 	if err != nil {
 		return err
 	}

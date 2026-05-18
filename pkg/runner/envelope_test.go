@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,8 +17,15 @@ func writeConfig(t *testing.T, body string) string {
 	return path
 }
 
-func TestLoadStackEnvelopeEmptyPath(t *testing.T) {
-	env, err := loadStackEnvelope("")
+func parseTestConfig(t *testing.T, path string) *lang.File {
+	t.Helper()
+	f, err := parseConfigFile(path)
+	require.NoError(t, err)
+	return f
+}
+
+func TestLoadStackEnvelopeNilFile(t *testing.T) {
+	env, err := loadStackEnvelope(nil, "")
 	require.NoError(t, err)
 	assert.False(t, env.Present)
 	assert.Empty(t, env.ModulePath)
@@ -26,7 +34,7 @@ func TestLoadStackEnvelopeEmptyPath(t *testing.T) {
 
 func TestLoadStackEnvelopeNoStackBlock(t *testing.T) {
 	path := writeConfig(t, `inputs: { region: 'us-east-1' }`)
-	env, err := loadStackEnvelope(path)
+	env, err := loadStackEnvelope(parseTestConfig(t, path), path)
 	require.NoError(t, err)
 	assert.False(t, env.Present)
 }
@@ -40,7 +48,7 @@ stack: {
     { version: 'v0.2.0', commit: '123456' },
   ]
 }`)
-	env, err := loadStackEnvelope(path)
+	env, err := loadStackEnvelope(parseTestConfig(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
 	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.ModulePath)
@@ -55,7 +63,7 @@ func TestLoadStackEnvelopeStackBlockWithoutSupportedVersions(t *testing.T) {
 stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
 }`)
-	env, err := loadStackEnvelope(path)
+	env, err := loadStackEnvelope(parseTestConfig(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
 	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.ModulePath)
@@ -69,20 +77,20 @@ func TestVerifyStackEnvelopeNoConfigSoftFails(t *testing.T) {
 		StackCommit:  "abcdef",
 		ModulePath:   "github.com/cloudboss/test-stack",
 	}
-	err := verifyStackEnvelope(info, "", false)
+	err := verifyStackEnvelope(info, nil, "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 }
 
 func TestVerifyStackEnvelopeNoConfigOverrideAllows(t *testing.T) {
 	info := Info{StackVersion: "v0.1.0", StackCommit: "abcdef"}
-	require.NoError(t, verifyStackEnvelope(info, "", true))
+	require.NoError(t, verifyStackEnvelope(info, nil, "", true))
 }
 
 func TestVerifyStackEnvelopeMissingStackBlockSoftFails(t *testing.T) {
 	info := Info{StackVersion: "v0.1.0", StackCommit: "abcdef"}
 	path := writeConfig(t, `inputs: { region: 'us-east-1' }`)
-	err := verifyStackEnvelope(info, path, false)
+	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 }
@@ -95,7 +103,7 @@ stack: {
   supported-versions: []
 }`)
 	info.ModulePath = "github.com/cloudboss/test"
-	err := verifyStackEnvelope(info, path, false)
+	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 }
@@ -114,7 +122,7 @@ stack: {
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
 }`)
-	err := verifyStackEnvelope(info, path, false)
+	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 	assert.Contains(t, err.Error(), "v0.9.0")
@@ -133,7 +141,7 @@ stack: {
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
 }`)
-	require.NoError(t, verifyStackEnvelope(info, path, true))
+	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, true))
 }
 
 func TestVerifyStackEnvelopeModulePathMismatchHardFails(t *testing.T) {
@@ -149,7 +157,7 @@ stack: {
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
 }`)
-	err := verifyStackEnvelope(info, path, false)
+	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "--allow-version-mismatch")
 	assert.Contains(t, err.Error(), "different-source")
@@ -168,7 +176,7 @@ stack: {
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
 }`)
-	err := verifyStackEnvelope(info, path, true)
+	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, true)
 	require.Error(t, err)
 }
 
@@ -185,7 +193,7 @@ stack: {
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
 }`)
-	require.NoError(t, verifyStackEnvelope(info, path, false))
+	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, false))
 }
 
 func TestVerifyStackEnvelopeNoModulePathFieldChecksOnlyPin(t *testing.T) {
@@ -200,7 +208,7 @@ stack: {
     { version: 'v0.1.0'  commit: 'abcdef' }
   ]
 }`)
-	require.NoError(t, verifyStackEnvelope(info, path, false))
+	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, false))
 }
 
 // TestVerifyStackEnvelopeComparesAgainstModulePathNotBody guards against
@@ -228,5 +236,5 @@ stack: {
     { version: 'v0.1.0', commit: 'abcdef' }
   ]
 }`)
-	require.NoError(t, verifyStackEnvelope(info, path, false))
+	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, false))
 }

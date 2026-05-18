@@ -31,30 +31,19 @@ type stateConfig struct {
 	Encrypter *resolverRef
 }
 
-// parseStateConfig reads the state: block of config.ub (if any) and
-// returns its parsed form. A missing config path or absent block
-// returns an empty stateConfig; the caller falls back to defaults.
-func parseStateConfig(configPath string) (*stateConfig, error) {
-	if configPath == "" {
+// parseStateConfig extracts the `state:` block from a pre-parsed
+// config. A nil file or an absent block returns an empty stateConfig
+// and the caller falls back to defaults. path is preserved only for
+// error messages.
+func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
+	if f == nil {
 		return &stateConfig{}, nil
-	}
-	src, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-	f, err := lang.ParseSource(configPath, src)
-	if err != nil {
-		return nil, err
-	}
-	f.Kind = lang.FileConfig
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, errs.Err()
 	}
 	block := topLevelObject(f, "state")
 	if block == nil {
 		return &stateConfig{}, nil
 	}
-	return readStateBlock(configPath, block)
+	return readStateBlock(path, block)
 }
 
 func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, error) {

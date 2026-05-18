@@ -3,41 +3,30 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
-// loadConfigurations reads the `configurations:` block from a config
-// file, decodes every alias under each import, and returns both the
-// decoded table (for the executor) and the raw form (for plan-file
-// storage). The outer key is the import alias; the inner key is the
-// configuration alias name. Every module that declares a
+// loadConfigurations extracts the `configurations:` block from a pre-
+// parsed config, decodes every alias under each import, and returns
+// both the decoded table (for the executor) and the raw form (for
+// plan-file storage). The outer key is the import alias; the inner
+// key is the configuration alias name. Every module that declares a
 // Configuration must have at least a `default` entry in config.ub.
+// path is preserved only for error messages.
 func loadConfigurations(
-	configPath string,
+	f *lang.File,
+	path string,
 	modules map[string]*runtime.Module,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
-	if configPath != "" {
-		src, err := os.ReadFile(configPath)
-		if err != nil {
-			return nil, nil, err
-		}
-		f, err := lang.ParseSource(configPath, src)
-		if err != nil {
-			return nil, nil, err
-		}
-		f.Kind = lang.FileConfig
-		if errs := lang.ValidateFile(f); errs.Len() > 0 {
-			return nil, nil, errs.Err()
-		}
+	if f != nil {
 		block := topLevelObject(f, "configurations")
 		if block != nil {
-			loaded, err := readConfigurationsBlock(configPath, block)
+			loaded, err := readConfigurationsBlock(path, block)
 			if err != nil {
 				return nil, nil, err
 			}
