@@ -2,12 +2,13 @@
 // ~/.cache/unobin so unobin invocations use the same toolchain
 // versions across machines and don't depend on whatever happens to be
 // installed on ${PATH}. Single file `Binary` dependencies live at
-// ~/.cache/unobin/bin/<name>-<version>; `TarGz` archives extract to
-// ~/.cache/unobin/<name>-<version>/.
+// ~/.cache/unobin/bin/<name>-<version>; `TarGz` and `Zip` archives
+// extract to ~/.cache/unobin/<name>-<version>/.
 package deps
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
@@ -30,6 +31,8 @@ const (
 	Binary Format = iota
 	// TarGz is a gzipped tar archive containing the executable.
 	TarGz
+	// Zip is a zip archive extracted to the install directory.
+	Zip
 )
 
 // Platform identifies a target OS and architecture.
@@ -222,6 +225,8 @@ func install(archive, root string, dep Dependency) error {
 		return installBinary(archive, target)
 	case TarGz:
 		return extractTarGz(archive, target)
+	case Zip:
+		return extractZip(archive, target)
 	default:
 		return fmt.Errorf("deps: unknown format %d", dep.Format)
 	}
@@ -297,4 +302,53 @@ func extractTarGz(archive, target string) error {
 			}
 		}
 	}
+}
+
+func extractZip(archive, target string) error {
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		return err
+	}
+	r, err := zip.OpenReader(archive)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.Close() }()
+	for _, zf := range r.File {
+		path := filepath.Join(target, zf.Name)
+		rel, err := filepath.Rel(target, path)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return fmt.Errorf("deps: zip entry escapes target: %s", zf.Name)
+		}
+		if zf.FileInfo().IsDir() {
+			if err := os.MkdirAll(path, zf.Mode()); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		rc, err := zf.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, zf.Mode())
+		if err != nil {
+			_ = rc.Close()
+			return err
+		}
+		if _, err := io.Copy(out, rc); err != nil {
+			_ = rc.Close()
+			_ = out.Close()
+			return err
+		}
+		if err := rc.Close(); err != nil {
+			_ = out.Close()
+			return err
+		}
+		if err := out.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

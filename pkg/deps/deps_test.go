@@ -2,6 +2,7 @@ package deps
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
@@ -112,6 +113,38 @@ func TestExtractTarGz(t *testing.T) {
 	assert.Equal(t, "pkg files", string(got))
 }
 
+func TestExtractZip(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "archive.zip")
+	writeZip(t, archive, map[string]string{
+		"models/iam/service.json":     "{\"iam\":true}",
+		"models/ec2/service.json":     "{\"ec2\":true}",
+		"models/s3/inner/service.json": "{\"s3\":true}",
+	})
+
+	target := filepath.Join(t.TempDir(), "out")
+	require.NoError(t, extractZip(archive, target))
+
+	got, err := os.ReadFile(filepath.Join(target, "models", "iam", "service.json"))
+	require.NoError(t, err)
+	assert.Equal(t, "{\"iam\":true}", string(got))
+
+	got, err = os.ReadFile(filepath.Join(target, "models", "s3", "inner", "service.json"))
+	require.NoError(t, err)
+	assert.Equal(t, "{\"s3\":true}", string(got))
+}
+
+func TestExtractZipRejectsPathTraversal(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "evil.zip")
+	writeZip(t, archive, map[string]string{
+		"../escape.txt": "should not extract",
+	})
+
+	target := filepath.Join(t.TempDir(), "out")
+	err := extractZip(archive, target)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes target")
+}
+
 func TestEnsureDownloadsAndExtracts(t *testing.T) {
 	contents := map[string]string{"bin/demo": "fresh download"}
 	tarBytes := buildTarGz(t, contents)
@@ -211,4 +244,23 @@ func sha256OfBytes(t *testing.T, b []byte) string {
 	t.Helper()
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+func writeZip(t *testing.T, path string, files map[string]string) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(path, buildZip(t, files), 0o644))
+}
+
+func buildZip(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range files {
+		w, err := zw.Create(name)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(body))
+		require.NoError(t, err)
+	}
+	require.NoError(t, zw.Close())
+	return buf.Bytes()
 }
