@@ -59,9 +59,13 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	var firstErr error
 	halted := false
 	inFlight := 0
+	heldLocks := map[string]bool{}
 
 	handleResult := func(r stepResult) {
 		inFlight--
+		if lock := graph.locks[r.step.Address]; lock != "" {
+			delete(heldLocks, lock)
+		}
 		if r.err != nil {
 			if firstErr == nil {
 				firstErr = fmt.Errorf("%s: %w", r.step.Address, r.err)
@@ -82,6 +86,9 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			if indegree[step.Address] != 0 {
 				continue
 			}
+			if lock := graph.locks[step.Address]; lock != "" && heldLocks[lock] {
+				continue
+			}
 			return step
 		}
 		return nil
@@ -97,6 +104,9 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			case ready <- next:
 				dispatched[next.Address] = true
 				inFlight++
+				if lock := graph.locks[next.Address]; lock != "" {
+					heldLocks[lock] = true
+				}
 			case r := <-results:
 				handleResult(r)
 			}

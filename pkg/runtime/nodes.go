@@ -57,6 +57,12 @@ type Node struct {
 	// calls. Empty falls back to "default" at lookup time.
 	ConfigurationAlias string
 
+	// LockName is the value of an action body's `@lock:` field.
+	// Two actions sharing a non-empty LockName cannot run in
+	// parallel under apply's scheduler, even on unrelated DAG
+	// branches. Empty means the action is not under a named lock.
+	LockName string
+
 	// ConfigurationsRemap is set only on NodeComposite. It maps an
 	// inner import alias to the (namespace, alias) of the
 	// configuration that backs that import inside the call. The
@@ -186,7 +192,7 @@ func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node 
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
 				}
-				out = append(out, &Node{
+				node := &Node{
 					Address: composeKindAddress(parent, kind,
 						ns.Key.Name, t.Key.Name, n.Key.Name),
 					Kind:               kind,
@@ -197,11 +203,36 @@ func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node 
 					Composite:          parent,
 					ForEach:            extractForEach(n.Value),
 					ConfigurationAlias: extractConfigurationAlias(n.Value, ns.Key.Name),
-				})
+				}
+				if kind == NodeAction {
+					node.LockName = extractLockName(n.Value)
+				}
+				out = append(out, node)
 			}
 		}
 	}
 	return out
+}
+
+// extractLockName reads `@lock: 'name'` from an action body. The
+// value must be a string literal; anything else yields the empty
+// string (the validator catches the error elsewhere).
+func extractLockName(body lang.Expr) string {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return ""
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@lock" {
+			continue
+		}
+		s, ok := fld.Value.(*lang.StringLit)
+		if !ok {
+			return ""
+		}
+		return s.Value
+	}
+	return ""
 }
 
 // extractForEach returns the iterable expression from a body's

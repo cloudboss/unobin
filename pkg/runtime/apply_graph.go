@@ -7,10 +7,13 @@ import (
 // stepGraph is the apply-time view of step-to-step dependencies. It is
 // derived from the plan's step addresses and the executor's DAG edges
 // (template-form). Each entry in indegree counts how many predecessors
-// have not yet completed; dependents names who depends on this step.
+// have not yet completed. dependents names who depends on this step.
+// locks names the `@lock:` value carried by each step (empty for
+// steps not under a named lock).
 type stepGraph struct {
 	indegree   map[string]int
 	dependents map[string][]string
+	locks      map[string]string
 }
 
 // buildStepGraph translates the template-form DAG edges into instance-
@@ -30,7 +33,13 @@ func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
 	for i := range pf.Steps {
 		addresses[i] = pf.Steps[i].Address
 	}
-	return buildStepGraphFromAddresses(addresses, dag)
+	g := buildStepGraphFromAddresses(addresses, dag)
+	for _, addr := range addresses {
+		if node, ok := dag.Nodes[templateAddress(addr)]; ok && node.LockName != "" {
+			g.locks[addr] = node.LockName
+		}
+	}
+	return g
 }
 
 // buildStepGraphFromAddresses is the testable entry point that mirrors
@@ -40,6 +49,7 @@ func buildStepGraphFromAddresses(addresses []string, dag *DAG) *stepGraph {
 	g := &stepGraph{
 		indegree:   make(map[string]int, len(addresses)),
 		dependents: make(map[string][]string, len(addresses)),
+		locks:      map[string]string{},
 	}
 	for _, a := range addresses {
 		g.indegree[a] = 0
