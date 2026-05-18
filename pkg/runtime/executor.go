@@ -52,6 +52,13 @@ type Executor struct {
 	// action steps during ApplyPlan. Zero or negative falls back to
 	// DefaultParallelism.
 	Parallelism int
+
+	// Drain, when non-nil, lets the caller ask the scheduler to stop
+	// dispatching new steps without canceling the apply context. The
+	// runner closes this channel on SIGINT so in-flight CRUD calls
+	// finish and their state writes commit; SIGTERM cancels the
+	// context directly. A nil channel disables the drain signal.
+	Drain <-chan struct{}
 }
 
 // effectiveParallelism returns the in-flight cap apply should honor.

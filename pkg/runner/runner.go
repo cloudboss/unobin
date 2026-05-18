@@ -9,8 +9,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
@@ -149,6 +152,8 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 	if err != nil {
 		return err
 	}
+	ctx, drain, stop := applySignalContext(cmd.ErrOrStderr())
+	defer stop()
 	exec := &runtime.Executor{
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
@@ -160,8 +165,9 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 			Commit:  info.StackCommit,
 		},
 		Parallelism: pf.Parallelism,
+		Drain:       drain,
 	}
-	res, err := exec.ApplyPlan(context.Background(), pf)
+	res, err := exec.ApplyPlan(ctx, pf)
 	if err != nil {
 		return err
 	}
@@ -169,6 +175,66 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", k, lang.RenderPretty(res.Outputs[k]))
 	}
 	return nil
+}
+
+// applyDrainGrace is the time SIGINT-initiated drain has to let
+// in-flight CRUD calls finish before the apply context is canceled.
+const applyDrainGrace = 60 * time.Second
+
+// applySignalContext wires up SIGINT and SIGTERM handling for apply.
+// The first SIGINT closes the returned drain channel so the scheduler
+// stops dispatching and starts a grace timer; a second SIGINT or any
+// SIGTERM cancels the context immediately. stop must be called by
+// the caller to release the signal handler when apply returns.
+func applySignalContext(stderr io.Writer) (context.Context, <-chan struct{}, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+	drain := make(chan struct{})
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		drainStarted := false
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case sig, ok := <-sigCh:
+				if !ok {
+					return
+				}
+				switch sig {
+				case syscall.SIGINT:
+					if !drainStarted {
+						drainStarted = true
+						close(drain)
+						fmt.Fprintln(stderr,
+							"Interrupted; letting in-flight steps finish."+
+								" Press Ctrl-C again or send SIGTERM to abort.")
+						go func() {
+							select {
+							case <-time.After(applyDrainGrace):
+								cancel()
+							case <-ctx.Done():
+							}
+						}()
+						continue
+					}
+					cancel()
+					return
+				case syscall.SIGTERM:
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	stop := func() {
+		signal.Stop(sigCh)
+		cancel()
+		<-done
+	}
+	return ctx, drain, stop
 }
 
 func newRefreshCmd(info Info) *cobra.Command {

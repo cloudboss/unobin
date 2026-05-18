@@ -7,6 +7,12 @@ import (
 	"sync"
 )
 
+// ErrInterrupted is returned by ApplyPlan when the executor's Drain
+// channel was closed before all steps could be dispatched. The
+// returned snapshot still reflects every step that completed before
+// the drain, so re-plan plus apply will pick up the remainder.
+var ErrInterrupted = errors.New("apply: interrupted")
+
 // stepResult is what a worker hands back to the scheduler when it
 // finishes a step. A nil err means the step completed successfully and
 // its dependents may be promoted.
@@ -58,6 +64,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 
 	var firstErr error
 	halted := false
+	drained := false
 	inFlight := 0
 	heldLocks := map[string]bool{}
 
@@ -95,6 +102,14 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	}
 
 	for {
+		if !halted {
+			select {
+			case <-e.Drain:
+				halted = true
+				drained = true
+			default:
+			}
+		}
 		var next *PlanStep
 		if !halted {
 			next = pickReady()
@@ -109,23 +124,36 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 				}
 			case r := <-results:
 				handleResult(r)
+			case <-e.Drain:
+				halted = true
 			}
 			continue
 		}
 		if inFlight == 0 {
 			break
 		}
-		r := <-results
-		handleResult(r)
+		select {
+		case r := <-results:
+			handleResult(r)
+		case <-e.Drain:
+			halted = true
+			drained = true
+		}
 	}
 
 	close(ready)
 	wg.Wait()
 
-	if firstErr == nil && !halted && !allDispatched(pending, dispatched) {
+	if firstErr != nil {
+		return firstErr
+	}
+	if drained {
+		return ErrInterrupted
+	}
+	if !allDispatched(pending, dispatched) {
 		return errors.New("apply: scheduler exited with steps left unread")
 	}
-	return firstErr
+	return nil
 }
 
 func allDispatched(steps []*PlanStep, dispatched map[string]bool) bool {
