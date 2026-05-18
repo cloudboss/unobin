@@ -113,6 +113,54 @@ func refAddress(p *lang.DotPath) string {
 	}
 }
 
+// pairKeyDeps returns the set of template addresses an expression
+// references with an `[@each.key]` index segment. For each entry in
+// the result, the body says "depend on a specific instance of this
+// template, the instance whose key matches my own for-each key,"
+// which lets the apply scheduler narrow a cartesian fan-out down to
+// a same-key pair. Refs that do not carry an `[@each.key]` selector
+// are not included even if their template appears elsewhere indexed.
+func pairKeyDeps(e lang.Expr) map[string]bool {
+	if e == nil {
+		return nil
+	}
+	out := map[string]bool{}
+	lang.Walk(e, func(node lang.Expr) {
+		dp, ok := node.(*lang.DotPath)
+		if !ok {
+			return
+		}
+		addr := refAddress(dp)
+		if addr == "" {
+			return
+		}
+		if !strings.HasPrefix(addr, "resource.") &&
+			!strings.HasPrefix(addr, "data.") &&
+			!strings.HasPrefix(addr, "action.") {
+			return
+		}
+		if len(dp.Segments) <= 3 {
+			return
+		}
+		seg := dp.Segments[3]
+		if seg.Index == nil {
+			return
+		}
+		idx, ok := seg.Index.(*lang.DotPath)
+		if !ok || idx.Root == nil || idx.Root.Name != "@each" {
+			return
+		}
+		if len(idx.Segments) != 1 || idx.Segments[0].Name != "key" {
+			return
+		}
+		out[addr] = true
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func dedupe(s []string) []string {
 	if len(s) == 0 {
 		return nil

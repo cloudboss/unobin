@@ -154,6 +154,54 @@ func TestBuildStepGraphOrphanHasNoPredecessors(t *testing.T) {
 	assert.Nil(t, g.dependents["resource.aws.deleted.zombie"])
 }
 
+func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
+	src := `
+resources: {
+  aws: {
+    instance: {
+      nodes: { @for-each: var.cfgs, name: @each.value }
+    }
+    volume: {
+      vols: {
+        @for-each: var.cfgs
+        instance:  resource.aws.instance.nodes[@each.key].name
+      }
+    }
+  }
+}
+`
+	mods := map[string]*Module{
+		"aws": {
+			Name: "aws",
+			Resources: map[string]ResourceType{
+				"instance": {Name: "instance", New: func() Resource { return nil }},
+				"volume":   {Name: "volume", New: func() Resource { return nil }},
+			},
+		},
+	}
+	f := parseStack(t, src)
+	dag := BuildDAG(f, mods)
+	addresses := []string{
+		"resource.aws.instance.nodes['alpha']",
+		"resource.aws.instance.nodes['beta']",
+		"resource.aws.volume.vols['alpha']",
+		"resource.aws.volume.vols['beta']",
+	}
+	pairKey := map[string]map[string]bool{}
+	for _, addr := range addresses {
+		if node, ok := dag.Nodes[templateAddress(addr)]; ok {
+			if pk := pairKeyDeps(node.Body); pk != nil {
+				pairKey[addr] = pk
+			}
+		}
+	}
+	g := buildStepGraphWithPairKey(addresses, dag, pairKey)
+	assert.Equal(t, 1, g.indegree["resource.aws.volume.vols['alpha']"],
+		"alpha vol should depend on only the alpha node, not both")
+	assert.Equal(t, 1, g.indegree["resource.aws.volume.vols['beta']"],
+		"beta vol should depend on only the beta node, not both")
+}
+
 func TestKeyPath(t *testing.T) {
 	tests := []struct {
 		name string
