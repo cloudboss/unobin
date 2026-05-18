@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -192,6 +193,45 @@ resources: {
 	}
 	require.NotNil(t, leaf, "composite internal leaf still in snapshot after refresh")
 	require.EqualValues(t, 42, leaf.Outputs["size"])
+}
+
+func TestRefreshReadsLeavesInParallel(t *testing.T) {
+	const n = 6
+	src := "resources: {\n  core: {\n    thing: {\n"
+	for i := 0; i < n; i++ {
+		src += fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i)
+	}
+	src += "    }\n  }\n}\n"
+
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	})
+
+	const delay = 150 * time.Millisecond
+	c.readFn = func(prior any) (any, error) {
+		time.Sleep(delay)
+		return prior, nil
+	}
+
+	exec := &Executor{
+		DAG:         BuildDAG(parseStack(t, src), mods),
+		Modules:     mods,
+		Store:       store,
+		Stack:       stack,
+		Parallelism: n,
+	}
+	start := time.Now()
+	res, err := exec.Refresh(context.Background())
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	require.Equal(t, n, res.Refreshed)
+	require.Less(t, elapsed, time.Duration(n-1)*delay,
+		"parallel refresh took %s; expected well under %s for serial",
+		elapsed, time.Duration(n-1)*delay)
 }
 
 func TestRefreshNoPriorState(t *testing.T) {

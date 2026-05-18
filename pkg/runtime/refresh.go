@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
@@ -46,20 +47,44 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	}
 
 	res := &RefreshResult{}
+	type leafResult struct {
+		idx     int
+		updated *state.Entry
+		dropped bool
+		err     error
+	}
+	leaves := []*state.Entry{}
+	carry := []*state.Entry{}
 	for _, ent := range rs.prior.Entries {
 		if ent.Type != state.EntryLeaf {
-			rs.next.Entries = append(rs.next.Entries, ent)
+			carry = append(carry, ent)
 			continue
 		}
-		updated, dropped, err := e.refreshLeaf(ctx, ent)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", ent.Address, err)
+		leaves = append(leaves, ent)
+	}
+	results := make([]leafResult, len(leaves))
+	sem := make(chan struct{}, e.effectiveParallelism())
+	var wg sync.WaitGroup
+	for i, ent := range leaves {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, ent *state.Entry) {
+			defer func() { <-sem; wg.Done() }()
+			updated, dropped, err := e.refreshLeaf(ctx, ent)
+			results[i] = leafResult{idx: i, updated: updated, dropped: dropped, err: err}
+		}(i, ent)
+	}
+	wg.Wait()
+	rs.next.Entries = append(rs.next.Entries, carry...)
+	for _, r := range results {
+		if r.err != nil {
+			return nil, fmt.Errorf("%s: %w", leaves[r.idx].Address, r.err)
 		}
-		if dropped {
+		if r.dropped {
 			res.Dropped++
 			continue
 		}
-		rs.next.Entries = append(rs.next.Entries, updated)
+		rs.next.Entries = append(rs.next.Entries, r.updated)
 		res.Refreshed++
 	}
 	rs.next.Outputs = rs.prior.Outputs
