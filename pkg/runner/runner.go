@@ -132,7 +132,9 @@ func newApplyCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doApplyPlan(cmd *cobra.Command, info Info, planPath string, parallelismOverride int) error {
+func doApplyPlan(
+	cmd *cobra.Command, info Info, planPath string, parallelismOverride int,
+) error {
 	enc, err := loadEncrypter(info, nil, "")
 	if err != nil {
 		return err
@@ -167,6 +169,12 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string, parallelismOver
 	if parallelismOverride > 0 {
 		parallelism = parallelismOverride
 	}
+	events := make(chan runtime.ApplyEvent, len(pf.Steps)*3+16)
+	rendererDone := make(chan struct{})
+	go func() {
+		defer close(rendererDone)
+		consumeApplyEvents(events, cmd.ErrOrStderr())
+	}()
 	exec := &runtime.Executor{
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
@@ -179,8 +187,11 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string, parallelismOver
 		},
 		Parallelism: parallelism,
 		Drain:       drain,
+		Events:      events,
 	}
 	res, err := exec.ApplyPlan(ctx, pf)
+	close(events)
+	<-rendererDone
 	if err != nil {
 		return err
 	}

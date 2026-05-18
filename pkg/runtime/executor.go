@@ -59,6 +59,14 @@ type Executor struct {
 	// finish and their state writes commit; SIGTERM cancels the
 	// context directly. A nil channel disables the drain signal.
 	Drain <-chan struct{}
+
+	// Events, when non-nil, receives one ApplyEvent per step stage
+	// during ApplyPlan: start when the scheduler hands the step to a
+	// worker, done or fail when the worker returns. The caller owns
+	// the channel and is responsible for sizing the buffer and
+	// closing it after ApplyPlan returns. A nil channel disables
+	// event emission.
+	Events chan<- ApplyEvent
 }
 
 // effectiveParallelism returns the in-flight cap apply should honor.

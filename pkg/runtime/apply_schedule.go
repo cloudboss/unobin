@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // ErrInterrupted is returned by ApplyPlan when the executor's Drain
@@ -67,19 +68,37 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	drained := false
 	inFlight := 0
 	heldLocks := map[string]bool{}
+	startedAt := make(map[string]time.Time, len(pf.Steps))
+
+	emit := func(ev ApplyEvent) {
+		if e.Events == nil {
+			return
+		}
+		ev.Time = time.Now()
+		e.Events <- ev
+	}
 
 	handleResult := func(r stepResult) {
 		inFlight--
 		if lock := graph.locks[r.step.Address]; lock != "" {
 			delete(heldLocks, lock)
 		}
+		elapsed := time.Since(startedAt[r.step.Address])
 		if r.err != nil {
+			emit(ApplyEvent{
+				Address: r.step.Address, Kind: r.step.Kind, Decision: r.step.Decision,
+				Stage: StageFail, Elapsed: elapsed, Err: r.err,
+			})
 			if firstErr == nil {
 				firstErr = fmt.Errorf("%s: %w", r.step.Address, r.err)
 			}
 			halted = true
 			return
 		}
+		emit(ApplyEvent{
+			Address: r.step.Address, Kind: r.step.Kind, Decision: r.step.Decision,
+			Stage: StageDone, Elapsed: elapsed,
+		})
 		for _, dep := range graph.dependents[r.step.Address] {
 			indegree[dep]--
 		}
@@ -122,10 +141,16 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 				if lock := graph.locks[next.Address]; lock != "" {
 					heldLocks[lock] = true
 				}
+				startedAt[next.Address] = time.Now()
+				emit(ApplyEvent{
+					Address: next.Address, Kind: next.Kind,
+					Decision: next.Decision, Stage: StageStart,
+				})
 			case r := <-results:
 				handleResult(r)
 			case <-e.Drain:
 				halted = true
+				drained = true
 			}
 			continue
 		}
