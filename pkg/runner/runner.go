@@ -6,6 +6,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -56,9 +57,10 @@ func Run(info Info) {
 
 func newRootCmd(info Info) *cobra.Command {
 	root := &cobra.Command{
-		Use:          info.StackName,
-		Short:        "Compiled unobin stack " + info.StackName,
-		SilenceUsage: true,
+		Use:           info.StackName,
+		Short:         "Compiled unobin stack " + info.StackName,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	root.AddCommand(newVersionCmd(info))
 	root.AddCommand(newPlanCmd(info))
@@ -193,6 +195,10 @@ func doApplyPlan(
 	close(events)
 	<-rendererDone
 	if err != nil {
+		var ae *runtime.ApplyError
+		if errors.As(err, &ae) {
+			renderApplyError(cmd.ErrOrStderr(), ae)
+		}
 		return err
 	}
 	for _, k := range sortedMapKeys(res.Outputs) {

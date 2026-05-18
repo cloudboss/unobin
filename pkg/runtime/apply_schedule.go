@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -64,11 +63,13 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	}
 
 	var firstErr error
+	var firstFail *ApplyError
 	halted := false
 	drained := false
 	inFlight := 0
 	heldLocks := map[string]bool{}
 	startedAt := make(map[string]time.Time, len(pf.Steps))
+	failedAddrs := map[string]bool{}
 
 	emit := func(ev ApplyEvent) {
 		if e.Events == nil {
@@ -89,8 +90,21 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 				Address: r.step.Address, Kind: r.step.Kind, Decision: r.step.Decision,
 				Stage: StageFail, Elapsed: elapsed, Err: r.err,
 			})
+			failedAddrs[r.step.Address] = true
 			if firstErr == nil {
-				firstErr = fmt.Errorf("%s: %w", r.step.Address, r.err)
+				module := ""
+				if n, ok := e.DAG.Nodes[templateAddress(r.step.Address)]; ok {
+					module = n.NS
+				}
+				firstFail = &ApplyError{
+					Address:  r.step.Address,
+					Kind:     r.step.Kind,
+					Decision: r.step.Decision,
+					Module:   module,
+					Elapsed:  elapsed,
+					Err:      r.err,
+				}
+				firstErr = firstFail
 			}
 			halted = true
 			return
@@ -170,6 +184,12 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	wg.Wait()
 
 	if firstErr != nil {
+		if firstFail != nil {
+			firstFail.SkippedCount = countTransitiveSkipped(
+				graph, firstFail.Address, dispatched, failedAddrs)
+			firstFail.SucceededCount = countSucceeded(
+				pending, dispatched, failedAddrs)
+		}
 		return firstErr
 	}
 	if drained {
@@ -179,6 +199,45 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		return errors.New("apply: scheduler exited with steps left unread")
 	}
 	return nil
+}
+
+// countTransitiveSkipped counts the steps that were not dispatched
+// because they transitively depended on a failed step. The walk starts
+// at addr and follows dependents, skipping anything already dispatched
+// or already counted.
+func countTransitiveSkipped(
+	g *stepGraph, addr string, dispatched, failed map[string]bool,
+) int {
+	seen := map[string]bool{}
+	queue := []string{addr}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, dep := range g.dependents[cur] {
+			if seen[dep] || dispatched[dep] || failed[dep] {
+				continue
+			}
+			seen[dep] = true
+			queue = append(queue, dep)
+		}
+	}
+	return len(seen)
+}
+
+// countSucceeded counts steps that were dispatched and did not fail.
+// In drain or fail modes some steps may still be in flight when the
+// scheduler exits; this counter treats only the ones that recorded
+// no failure as successes.
+func countSucceeded(
+	pending []*PlanStep, dispatched, failed map[string]bool,
+) int {
+	n := 0
+	for _, s := range pending {
+		if dispatched[s.Address] && !failed[s.Address] {
+			n++
+		}
+	}
+	return n
 }
 
 func allDispatched(steps []*PlanStep, dispatched map[string]bool) bool {

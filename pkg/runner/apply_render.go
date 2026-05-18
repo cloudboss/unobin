@@ -97,3 +97,30 @@ func formatDuration(d time.Duration) string {
 	}
 	return fmt.Sprintf("%.1fs", d.Seconds())
 }
+
+// renderApplyError prints the structured failure report. The
+// underlying module error is printed verbatim so operators see the
+// exact text the cloud API returned. Skipped and succeeded counts
+// give a quick sense of blast radius without listing every address.
+func renderApplyError(out io.Writer, ae *runtime.ApplyError) {
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Apply failed.")
+	fmt.Fprintln(out)
+	fmt.Fprintf(out, "Failed: %s (%s) after %s\n",
+		ae.Address, ae.Decision, formatDuration(ae.Elapsed))
+	if ae.Module != "" {
+		fmt.Fprintf(out, "  Module: %s\n", ae.Module)
+	}
+	fmt.Fprintf(out, "  Error:  %v\n", ae.Err)
+	fmt.Fprintln(out)
+	if ae.SkippedCount > 0 {
+		fmt.Fprintf(out,
+			"Skipped %d transitive dependent(s); they were not run.\n",
+			ae.SkippedCount)
+	}
+	if ae.SucceededCount > 0 {
+		fmt.Fprintf(out,
+			"%d step(s) completed before the failure; their state is preserved.\n",
+			ae.SucceededCount)
+	}
+}
