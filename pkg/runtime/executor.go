@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -21,6 +22,10 @@ import (
 // destroy steps for the missing instance still emit through the
 // usual orphan path.
 var ErrInstanceGone = errors.New("instance no longer in iterable")
+
+// DefaultParallelism is the in-flight cap apply uses when no explicit
+// value is given on the Executor or in the plan file.
+const DefaultParallelism = 10
 
 // Executor wires together the parsed DAG, the imported modules, the
 // caller's inputs, and a state backend. It exposes three lifecycle
@@ -42,6 +47,19 @@ type Executor struct {
 
 	Store state.Backend
 	Stack state.StackInfo
+
+	// Parallelism caps the number of in-flight resource, data, and
+	// action steps during ApplyPlan. Zero or negative falls back to
+	// DefaultParallelism.
+	Parallelism int
+}
+
+// effectiveParallelism returns the in-flight cap apply should honor.
+func (e *Executor) effectiveParallelism() int {
+	if e.Parallelism > 0 {
+		return e.Parallelism
+	}
+	return DefaultParallelism
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
@@ -111,6 +129,14 @@ type runState struct {
 	// in each scope are the call site args; Resources, Data, Actions
 	// hold sibling outputs as the internals complete.
 	composites map[string]*EvalContext
+
+	// mu serializes mutation of eval, composites, next, and outputs,
+	// plus calls to Store.Write / Store.SetCurrent. Apply takes the
+	// lock around scope evaluation and around state writes; it is
+	// released for the duration of each module's CRUD call so cloud
+	// I/O runs in parallel across workers. Plan, Refresh, and the
+	// state subcommands are single-threaded and do not contend.
+	mu sync.Mutex
 }
 
 func (e *Executor) initRun() (*runState, error) {
@@ -388,6 +414,8 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 func (e *Executor) finalizeComposite(
 	rs *runState, n *Node, instAddr string, inputs map[string]any,
 ) error {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
 	scope, err := e.ensureCompositeScope(rs, instAddr)
 	if err != nil {
 		return err

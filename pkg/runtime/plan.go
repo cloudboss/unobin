@@ -120,6 +120,10 @@ type Plan struct {
 	Inputs            map[string]any
 	RawConfigurations map[string]map[string]any
 	Steps             []*PlanStep
+
+	// Parallelism is the in-flight cap apply should honor. Zero means
+	// the runtime's DefaultParallelism applies.
+	Parallelism int
 }
 
 // Plan walks the DAG against prior state and returns the planned
@@ -150,6 +154,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		DeploymentID: e.Store.DeploymentID(),
 		StateRev:     stateRev,
 		Inputs:       e.Inputs,
+		Parallelism:  e.Parallelism,
 	}
 
 	// Seed the EvalContext with prior outputs so downstream evaluation

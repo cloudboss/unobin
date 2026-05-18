@@ -25,6 +25,7 @@ type PlanFile struct {
 	GeneratedAt       time.Time                 `json:"generated-at"`
 	Inputs            map[string]any            `json:"inputs,omitempty"`
 	RawConfigurations map[string]map[string]any `json:"configurations,omitempty"`
+	Parallelism       int                       `json:"parallelism,omitempty"`
 	Steps             []PlanStep                `json:"steps"`
 }
 
@@ -53,6 +54,7 @@ func EncodePlan(p *Plan) ([]byte, error) {
 		GeneratedAt:       time.Now().UTC(),
 		Inputs:            p.Inputs,
 		RawConfigurations: p.RawConfigurations,
+		Parallelism:       p.Parallelism,
 		Steps:             steps,
 	}
 	b, err := json.MarshalIndent(pf, "", "  ")

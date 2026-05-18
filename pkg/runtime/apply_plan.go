@@ -78,11 +78,8 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 		}
 	}
 
-	for i := range pf.Steps {
-		step := &pf.Steps[i]
-		if err := e.applyStep(ctx, rs, step); err != nil {
-			return nil, fmt.Errorf("%s: %w", step.Address, err)
-		}
+	if err := e.runApplySchedule(ctx, rs, pf); err != nil {
+		return nil, err
 	}
 	pruneStateEntries(rs.next, pf.Steps)
 	if err := e.evalPlanOutputs(rs); err != nil {
@@ -124,30 +121,17 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 }
 
 func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep) error {
-	tmpl, instKey := splitInstanceAddress(step.Address)
-	node, parentScope, err := e.nodeAndScope(rs, tmpl)
+	prep, err := e.prepareStep(rs, step.Address)
 	if err != nil {
 		return err
 	}
-	mod, ok := e.modulesFor(node)[node.NS]
+	mod, ok := e.modulesFor(prep.node)[prep.node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", node.NS)
+		return fmt.Errorf("module %q is not imported", prep.node.NS)
 	}
-	at, ok := mod.Actions[node.Type]
+	at, ok := mod.Actions[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no action %q", node.NS, node.Type)
-	}
-	scope, err := instanceScope(node, parentScope, instKey)
-	if err != nil {
-		return err
-	}
-	// Re-evaluate the body against the live scope. Upstream actions
-	// and data sources have already run by this point, so references
-	// like `action.X.Y.field` resolve to real values rather than the
-	// plan-time best guess in step.Inputs.
-	inputs, err := evalBody(node.Body, scope)
-	if err != nil {
-		return err
+		return fmt.Errorf("module %s has no action %q", prep.node.NS, prep.node.Type)
 	}
 	var outputs map[string]any
 	switch step.Decision {
@@ -155,10 +139,10 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		outputs = step.PriorOutputs
 	case DecisionRerun:
 		action := at.New()
-		if err := Decode(action, inputs); err != nil {
+		if err := Decode(action, prep.inputs); err != nil {
 			return err
 		}
-		result, err := action.Run(ctx, e.configFor(node))
+		result, err := action.Run(ctx, e.configFor(prep.node))
 		if err != nil {
 			return err
 		}
@@ -166,25 +150,29 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	default:
 		return fmt.Errorf("action: unexpected decision %q", step.Decision)
 	}
-	if instKey == "" {
-		storeNested(parentScope.Actions, node, outputs)
+
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	if prep.instKey == "" {
+		storeNested(prep.parent.Actions, prep.node, outputs)
 	} else {
-		seedInstance(parentScope.Actions, node.NS, node.Type, node.Name, instKey, outputs)
+		seedInstance(prep.parent.Actions, prep.node.NS, prep.node.Type, prep.node.Name,
+			prep.instKey, outputs)
 	}
 
 	// Recompute the trigger hash with the fresh upstream state so the
 	// next plan compares against an accurate hash.
 	hash := step.TriggerHash
-	if t, err := ComputeTrigger(node, inputs, scope); err == nil && !t.AlwaysRerun {
+	if t, err := ComputeTrigger(prep.node, prep.inputs, prep.scope); err == nil && !t.AlwaysRerun {
 		hash = t.Hash
 	}
 
 	upsertEntry(rs.next, &state.Entry{
 		Address:     step.Address,
 		Type:        state.EntryAction,
-		Kind:        node.Type,
+		Kind:        prep.node.Type,
 		TriggerHash: hash,
-		Inputs:      inputs,
+		Inputs:      prep.inputs,
 		Outputs:     outputs,
 	})
 	return nil
@@ -194,39 +182,27 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if step.Decision == DecisionDestroy {
 		return e.applyDestroy(ctx, rs, step)
 	}
-	tmpl, instKey := splitInstanceAddress(step.Address)
-	node, parentScope, err := e.nodeAndScope(rs, tmpl)
+	prep, err := e.prepareStep(rs, step.Address)
 	if err != nil {
 		return err
 	}
-	mod, ok := e.modulesFor(node)[node.NS]
+	mod, ok := e.modulesFor(prep.node)[prep.node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", node.NS)
+		return fmt.Errorf("module %q is not imported", prep.node.NS)
 	}
-	rt, ok := mod.Resources[node.Type]
+	rt, ok := mod.Resources[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no resource %q", node.NS, node.Type)
-	}
-
-	scope, err := instanceScope(node, parentScope, instKey)
-	if err != nil {
-		return err
-	}
-	// Re-evaluate the body against the live scope so upstream nodes'
-	// real outputs are picked up rather than the plan-time guess.
-	inputs, err := evalBody(node.Body, scope)
-	if err != nil {
-		return err
+		return fmt.Errorf("module %s has no resource %q", prep.node.NS, prep.node.Type)
 	}
 
 	resource := rt.New()
-	if err := Decode(resource, inputs); err != nil {
+	if err := Decode(resource, prep.inputs); err != nil {
 		return err
 	}
 	var outputs map[string]any
 	switch step.Decision {
 	case DecisionCreate:
-		result, err := resource.Create(ctx, e.configFor(node))
+		result, err := resource.Create(ctx, e.configFor(prep.node))
 		if err != nil {
 			return err
 		}
@@ -234,13 +210,13 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	case DecisionNoOp:
 		outputs = step.PriorOutputs
 	case DecisionUpdate:
-		result, err := resource.Update(ctx, e.configFor(node), step.PriorOutputs)
+		result, err := resource.Update(ctx, e.configFor(prep.node), step.PriorOutputs)
 		if err != nil {
 			return err
 		}
 		outputs = mapify(result)
 	case DecisionReplace:
-		cfg := e.configFor(node)
+		cfg := e.configFor(prep.node)
 		if err := resource.Delete(ctx, cfg, step.PriorOutputs); err != nil {
 			return fmt.Errorf("replace: delete prior: %w", err)
 		}
@@ -252,17 +228,20 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	default:
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
-	if instKey == "" {
-		storeNested(parentScope.Resources, node, outputs)
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	if prep.instKey == "" {
+		storeNested(prep.parent.Resources, prep.node, outputs)
 	} else {
-		seedInstance(parentScope.Resources, node.NS, node.Type, node.Name, instKey, outputs)
+		seedInstance(prep.parent.Resources, prep.node.NS, prep.node.Type, prep.node.Name,
+			prep.instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:       step.Address,
 		Type:          state.EntryLeaf,
-		Kind:          node.Type,
+		Kind:          prep.node.Type,
 		SchemaVersion: rt.SchemaVersion,
-		Inputs:        inputs,
+		Inputs:        prep.inputs,
 		Outputs:       outputs,
 	})
 	switch step.Decision {
@@ -318,9 +297,54 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err := resource.Delete(ctx, e.configForNS(ns), step.PriorOutputs); err != nil {
 		return err
 	}
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
 	removeEntry(rs.next, step.Address)
 	_, err := e.persist(rs)
 	return err
+}
+
+// stepPrep is the slice of per-step state that prepareStep evaluates
+// under the run state's mutex. Each field is detached from any locked
+// map: callers may pass inputs to a CRUD method without holding the
+// lock, and may use parent / scope to write outputs back after retaking
+// the lock.
+type stepPrep struct {
+	node    *Node
+	parent  *EvalContext
+	scope   *EvalContext
+	instKey string
+	inputs  map[string]any
+}
+
+// prepareStep takes rs.mu, resolves the step's DAG node and its scope,
+// evaluates the body against that scope, and releases the lock. The
+// returned stepPrep gives the caller everything needed to run CRUD
+// without holding the lock; the caller retakes rs.mu before writing
+// outputs back into scope.
+func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	tmpl, instKey := splitInstanceAddress(addr)
+	node, parent, err := e.nodeAndScope(rs, tmpl)
+	if err != nil {
+		return nil, err
+	}
+	scope, err := instanceScope(node, parent, instKey)
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := evalBody(node.Body, scope)
+	if err != nil {
+		return nil, err
+	}
+	return &stepPrep{
+		node:    node,
+		parent:  parent,
+		scope:   scope,
+		instKey: instKey,
+		inputs:  inputs,
+	}, nil
 }
 
 // nodeAndScope resolves a per-instance step address to its DAG
@@ -346,39 +370,33 @@ func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext,
 }
 
 func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) error {
-	tmpl, instKey := splitInstanceAddress(step.Address)
-	node, parentScope, err := e.nodeAndScope(rs, tmpl)
+	prep, err := e.prepareStep(rs, step.Address)
 	if err != nil {
 		return err
 	}
-	mod, ok := e.modulesFor(node)[node.NS]
+	mod, ok := e.modulesFor(prep.node)[prep.node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", node.NS)
+		return fmt.Errorf("module %q is not imported", prep.node.NS)
 	}
-	dt, ok := mod.DataSources[node.Type]
+	dt, ok := mod.DataSources[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no data source %q", node.NS, node.Type)
-	}
-	scope, err := instanceScope(node, parentScope, instKey)
-	if err != nil {
-		return err
-	}
-	inputs, err := evalBody(node.Body, scope)
-	if err != nil {
-		return err
+		return fmt.Errorf("module %s has no data source %q", prep.node.NS, prep.node.Type)
 	}
 	ds := dt.New()
-	if err := Decode(ds, inputs); err != nil {
+	if err := Decode(ds, prep.inputs); err != nil {
 		return err
 	}
-	result, err := ds.Read(ctx, e.configFor(node))
+	result, err := ds.Read(ctx, e.configFor(prep.node))
 	if err != nil {
 		return err
 	}
-	if instKey == "" {
-		storeNested(parentScope.Data, node, mapify(result))
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	if prep.instKey == "" {
+		storeNested(prep.parent.Data, prep.node, mapify(result))
 	} else {
-		seedInstance(parentScope.Data, node.NS, node.Type, node.Name, instKey, mapify(result))
+		seedInstance(prep.parent.Data, prep.node.NS, prep.node.Type, prep.node.Name,
+			prep.instKey, mapify(result))
 	}
 	return nil
 }

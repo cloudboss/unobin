@@ -159,6 +159,7 @@ func doApplyPlan(cmd *cobra.Command, info Info, planPath string) error {
 			Version: info.StackVersion,
 			Commit:  info.StackCommit,
 		},
+		Parallelism: pf.Parallelism,
 	}
 	res, err := exec.ApplyPlan(context.Background(), pf)
 	if err != nil {
@@ -433,6 +434,10 @@ func doPlan(cmd *cobra.Command, info Info, config *lang.File, configPath, outPat
 	if err != nil {
 		return err
 	}
+	parallelism, err := loadParallelism(config, configPath)
+	if err != nil {
+		return err
+	}
 	exec := &runtime.Executor{
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
@@ -444,6 +449,7 @@ func doPlan(cmd *cobra.Command, info Info, config *lang.File, configPath, outPat
 			Version: info.StackVersion,
 			Commit:  info.StackCommit,
 		},
+		Parallelism: parallelism,
 	}
 	plan, err := exec.Plan(context.Background())
 	if err != nil {
@@ -505,6 +511,38 @@ func predicateEval(values map[string]any) lang.EvalFunc {
 	return func(e lang.Expr) (any, error) {
 		return runtime.Eval(e, ctx)
 	}
+}
+
+// loadParallelism extracts the `parallelism: N` top-level field from
+// a pre-parsed config. Zero is returned when the file omits the field
+// or when f is nil, signaling the runtime should pick its default.
+// path is preserved only for error messages.
+func loadParallelism(f *lang.File, path string) (int, error) {
+	if f == nil {
+		return 0, nil
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "parallelism" {
+			continue
+		}
+		val, err := runtime.Eval(fld.Value, &runtime.EvalContext{})
+		if err != nil {
+			return 0, fmt.Errorf("config %s: parallelism: %w", path, err)
+		}
+		n, ok := val.(int64)
+		if !ok {
+			return 0, fmt.Errorf(
+				"config %s: parallelism: want a positive integer, got %s",
+				path, lang.TypeMessage(val))
+		}
+		if n < 1 {
+			return 0, fmt.Errorf(
+				"config %s: parallelism: want a positive integer, got %d",
+				path, n)
+		}
+		return int(n), nil
+	}
+	return 0, nil
 }
 
 // loadConfigInputs extracts the `inputs:` block from a pre-parsed
