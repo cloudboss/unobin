@@ -121,6 +121,12 @@ type Plan struct {
 	RawConfigurations map[string]map[string]any
 	Steps             []*PlanStep
 
+	// Backend names the state backend the plan was computed against,
+	// so apply can reconstruct the same backend without re-reading
+	// config.ub. A nil value means the resolver's default (the local
+	// backend under .unobin/state) was used.
+	Backend *StateRef
+
 	// Parallelism is the in-flight cap apply should honor. Zero means
 	// the runtime's DefaultParallelism applies.
 	Parallelism int

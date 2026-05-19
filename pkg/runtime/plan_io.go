@@ -25,6 +25,7 @@ type PlanFile struct {
 	GeneratedAt       time.Time                 `json:"generated-at"`
 	Inputs            map[string]any            `json:"inputs,omitempty"`
 	RawConfigurations map[string]map[string]any `json:"configurations,omitempty"`
+	Backend           *StateRef                 `json:"backend,omitempty"`
 	Parallelism       int                       `json:"parallelism,omitempty"`
 	Steps             []PlanStep                `json:"steps"`
 }
@@ -54,6 +55,7 @@ func EncodePlan(p *Plan) ([]byte, error) {
 		GeneratedAt:       time.Now().UTC(),
 		Inputs:            p.Inputs,
 		RawConfigurations: p.RawConfigurations,
+		Backend:           p.Backend,
 		Parallelism:       p.Parallelism,
 		Steps:             steps,
 	}
@@ -85,6 +87,9 @@ func DecodePlan(b []byte) (*PlanFile, error) {
 	pf.Inputs = coerceMap(pf.Inputs)
 	for k, m := range pf.RawConfigurations {
 		pf.RawConfigurations[k] = coerceMap(m)
+	}
+	if pf.Backend != nil {
+		pf.Backend.Body = coerceMap(pf.Backend.Body)
 	}
 	for i := range pf.Steps {
 		s := &pf.Steps[i]

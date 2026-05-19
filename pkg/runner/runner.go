@@ -157,7 +157,8 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, nil, "", pf.DeploymentID, enc)
+	store, err := resolveBackend(info, fromRuntimeStateRef(pf.Backend),
+		info.StackName, pf.DeploymentID, enc)
 	if err != nil {
 		return err
 	}
@@ -592,6 +593,11 @@ func doPlan(
 		return err
 	}
 	plan.RawConfigurations = rawConfigurations
+	sc, err := parseStateConfig(config, configPath)
+	if err != nil {
+		return err
+	}
+	plan.Backend = toRuntimeStateRef(sc.Backend)
 	printPlan(cmd.OutOrStdout(), plan)
 	if outPath != "" {
 		encoded, err := runtime.EncodePlan(plan)
