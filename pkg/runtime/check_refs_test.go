@@ -156,6 +156,77 @@ resources: {
 	require.Contains(t, got[1], `unknown resource "resource.local.file.absent"`)
 }
 
+func TestCheckReferencesConstraintPredicateRootScope(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: {
+  region: { type: string }
+}
+constraints: [
+  {
+    kind: predicate
+    when: var.bogus == 'x'
+    require: var.also-missing == true
+    message: 'should error'
+  }
+]
+`), nil)
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 2)
+	require.Contains(t, got[0], `unknown input "bogus"`)
+	require.Contains(t, got[1], `unknown input "also-missing"`)
+}
+
+func TestCheckReferencesConstraintPredicateCompositeScope(t *testing.T) {
+	composite := parseStack(t, `
+inputs: {
+  region: { type: string }
+}
+constraints: [
+  {
+    kind: predicate
+    when: var.bogus == 'x'
+    require: var.region == 'y'
+  }
+]
+resources: {
+  local: {
+    file: {
+      one: { path: var.region content: 'hi' }
+    }
+  }
+}
+outputs: {
+  path: resource.local.file.one.path
+}
+`)
+	mods := map[string]*Module{
+		"bundle": {
+			Composites: map[string]*CompositeType{
+				"thing": {
+					Name:    "thing",
+					Body:    composite,
+					Modules: map[string]*Module{"local": {}},
+				},
+			},
+		},
+	}
+
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  bundle: {
+    thing: {
+      demo: { region: 'us-east-1' }
+    }
+  }
+}
+`), mods)
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown input "bogus"`)
+}
+
 func TestCheckReferencesEachScope(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: {

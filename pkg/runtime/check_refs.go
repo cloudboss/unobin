@@ -11,6 +11,7 @@ import (
 // node address, or active for-each binding.
 func CheckReferences(f *lang.File, mods map[string]*Module) *lang.ErrorList {
 	c := &referenceChecker{
+		root:    f,
 		dag:     BuildDAG(f, mods),
 		errs:    lang.NewErrorList(0),
 		inputs:  map[string]map[string]bool{"": inputNames(f)},
@@ -20,10 +21,12 @@ func CheckReferences(f *lang.File, mods map[string]*Module) *lang.ErrorList {
 	c.collectCompositeScopes()
 	c.checkDeclarations()
 	c.checkNodes()
+	c.checkConstraints()
 	return c.errs
 }
 
 type referenceChecker struct {
+	root    *lang.File
 	dag     *DAG
 	errs    *lang.ErrorList
 	inputs  map[string]map[string]bool
@@ -64,6 +67,41 @@ func (c *referenceChecker) checkNodes() {
 		c.checkBody(n.Body, n.Composite, n.ForEach != nil)
 		if n.Kind == NodeComposite {
 			c.checkCompositeOutputs(n)
+		}
+	}
+}
+
+func (c *referenceChecker) checkConstraints() {
+	c.checkConstraintsBlock(c.root, "")
+	for _, n := range c.dag.Nodes {
+		if n.Kind != NodeComposite || n.CompositeBody == nil {
+			continue
+		}
+		c.checkConstraintsBlock(n.CompositeBody, n.Address)
+	}
+}
+
+func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
+	if f == nil || f.Body == nil {
+		return
+	}
+	arr, ok := topLevelMap(f.Body)["constraints"].(*lang.ArrayLit)
+	if !ok {
+		return
+	}
+	for _, e := range arr.Elements {
+		obj, ok := e.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		for _, fld := range obj.Fields {
+			if fld.Key.Kind != lang.FieldIdent {
+				continue
+			}
+			if fld.Key.Name != "when" && fld.Key.Name != "require" {
+				continue
+			}
+			c.checkExpr(fld.Value, scope, false)
 		}
 	}
 }
