@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -276,12 +277,15 @@ func outputsFromPackage(files []*ast.File, typeName string) map[string]string {
 	}
 	out := map[string]string{}
 	for _, fld := range st.Fields.List {
-		tag := mapstructureTag(fld.Tag)
-		if tag == "" {
-			continue
-		}
 		typeStr := typeString(fld.Type)
-		out[tag] = typeStr
+		tag := mapstructureTag(fld.Tag)
+		for _, name := range fld.Names {
+			key := tag
+			if key == "" {
+				key = lang.PascalToKebab(name.Name)
+			}
+			out[key] = typeStr
+		}
 	}
 	return out
 }

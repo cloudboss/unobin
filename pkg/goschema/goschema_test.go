@@ -45,6 +45,20 @@ func TestReadSubpackage(t *testing.T) {
 	}, ami.Outputs)
 }
 
+func TestReadDerivesKebabFromFieldNameWhenTagAbsent(t *testing.T) {
+	schema, err := Read("testdata/untagged")
+	require.NoError(t, err)
+
+	require.Contains(t, schema.Resources, "thing")
+	thing := schema.Resources["thing"]
+	require.Equal(t, map[string]string{
+		"id":           "string",
+		"cidr-block":   "string",
+		"https-proxy":  "string",
+		"explicit-tag": "string",
+	}, thing.Outputs)
+}
+
 func TestReadErrorsWhenNoModuleFunc(t *testing.T) {
 	dir := t.TempDir()
 	src := []byte("package empty\n\nfunc Other() int { return 0 }\n")
