@@ -24,17 +24,19 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-// Read parses the Go module rooted at dir and returns its schema.
-// Returns an error when no `Module()` function is found in dir's
-// root package, or when the directory cannot be read.
-func Read(dir string) (*runtime.ModuleSchema, error) {
+// Read parses the Go module rooted at dir and returns its schema
+// plus any warnings about registered types whose sibling Output
+// struct could not be located. Returns an error when no `Module()`
+// function is found in dir's root package, or when the directory
+// cannot be read.
+func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 	rootPkg, err := parsePackageDir(dir)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	moduleFunc := findModuleFunc(rootPkg)
 	if moduleFunc == nil {
-		return nil, fmt.Errorf("no Module() function in %s", dir)
+		return nil, nil, fmt.Errorf("no Module() function in %s", dir)
 	}
 	modulePath := readGoModPath(dir)
 
@@ -43,11 +45,16 @@ func Read(dir string) (*runtime.ModuleSchema, error) {
 		DataSources: map[string]*runtime.TypeSchema{},
 		Actions:     map[string]*runtime.TypeSchema{},
 	}
+	var warnings []string
 
 	for _, reg := range extractRegistrations(moduleFunc) {
-		ts := &runtime.TypeSchema{
-			Outputs: lookupOutputs(rootPkg, dir, modulePath, reg.Ref),
+		outputs := lookupOutputs(rootPkg, dir, modulePath, reg.Ref)
+		if outputs == nil {
+			warnings = append(warnings, fmt.Sprintf(
+				"%s %q: %sOutput not found in the module's source",
+				registrationKindLabel(reg.Field), reg.Name, reg.Ref.TypeName))
 		}
+		ts := &runtime.TypeSchema{Outputs: outputs}
 		switch reg.Field {
 		case "Resources":
 			schema.Resources[reg.Name] = ts
@@ -57,7 +64,19 @@ func Read(dir string) (*runtime.ModuleSchema, error) {
 			schema.Actions[reg.Name] = ts
 		}
 	}
-	return schema, nil
+	return schema, warnings, nil
+}
+
+func registrationKindLabel(field string) string {
+	switch field {
+	case "Resources":
+		return "resource"
+	case "DataSources":
+		return "data source"
+	case "Actions":
+		return "action"
+	}
+	return field
 }
 
 // registration is one entry extracted from the Module() function's

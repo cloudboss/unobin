@@ -307,6 +307,54 @@ type ThingOutput struct {
 	return modDir
 }
 
+func TestCompileWarnsWhenOutputTypeMissing(t *testing.T) {
+	modDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),
+		[]byte("module example.com/partial\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"), []byte(`package partial
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Module() *runtime.Module {
+	return &runtime.Module{
+		Name: "partial",
+		Resources: map[string]runtime.ResourceType{
+			"thing": {
+				Name: "thing",
+				New:  func() runtime.Resource { return &Thing{} },
+			},
+		},
+	}
+}
+
+type Thing struct{}
+`), 0o644))
+
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  partial: 'example.com/partial@v0.1.0'
+}
+resources: {
+  partial: {
+    thing: {
+      x: {}
+    }
+  }
+}
+`), 0o644))
+
+	remotes := map[string]*resolve.Source{
+		"example.com/partial@v0.1.0": {Commit: "fakecommit", Path: modDir},
+	}
+	out, err := runCommandWithRemotes(t, remotes,
+		"compile", "-p", stackPath, "-o", "-")
+	require.NoError(t, err)
+	require.Contains(t, out, `warning: import "partial"`)
+	require.Contains(t, out, "ThingOutput")
+}
+
 func TestCompileMalformedGoModuleFails(t *testing.T) {
 	modDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),

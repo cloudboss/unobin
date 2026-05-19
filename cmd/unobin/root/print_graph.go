@@ -3,6 +3,7 @@ package root
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -87,7 +88,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		}
 	}
 
-	mods, err := buildModuleMap(refs, resolver)
+	mods, err := buildModuleMap(refs, resolver, cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}
@@ -114,8 +115,8 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 // composite" apart from "not imported at all". Each composite carries
 // its own Modules map so composite-internal lookups stay self-contained.
 func buildModuleMap(refs map[string]resolve.ImportRef,
-	resolver resolve.Resolver) (map[string]*runtime.Module, error) {
-	v := &graphVisitor{byKey: map[string]*runtime.Module{}}
+	resolver resolve.Resolver, warnOut io.Writer) (map[string]*runtime.Module, error) {
+	v := &graphVisitor{byKey: map[string]*runtime.Module{}, warnOut: warnOut}
 	top, err := resolve.WalkUB(refs, resolver, v)
 	if err != nil {
 		return nil, err
@@ -124,10 +125,11 @@ func buildModuleMap(refs map[string]resolve.ImportRef,
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
-			schema, err := readGoSchema(res.SourcePath)
+			schema, warnings, err := readGoSchema(res.SourcePath)
 			if err != nil {
 				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
+			printSchemaWarnings(warnOut, res.LocalAlias, warnings)
 			out[res.LocalAlias] = &runtime.Module{Schema: schema}
 		case resolve.ResolutionUB:
 			out[res.LocalAlias] = v.byKey[res.CanonicalKey]
@@ -141,7 +143,8 @@ func buildModuleMap(refs map[string]resolve.ImportRef,
 // doesn't model their types; the consumer fills in an empty
 // *runtime.Module per top-level Go alias.
 type graphVisitor struct {
-	byKey map[string]*runtime.Module
+	byKey   map[string]*runtime.Module
+	warnOut io.Writer
 }
 
 func (g *graphVisitor) OnGoImport(_, _, _ string) error {
@@ -157,12 +160,13 @@ func (g *graphVisitor) OnUBModule(
 		for _, res := range mod.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, err := readGoSchema(res.SourcePath)
+				schema, warnings, err := readGoSchema(res.SourcePath)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",
 						name, res.LocalAlias, err)
 				}
+				printSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
 				bodyMods[res.LocalAlias] = &runtime.Module{Schema: schema}
 			case resolve.ResolutionUB:
 				bodyMods[res.LocalAlias] = g.byKey[res.CanonicalKey]

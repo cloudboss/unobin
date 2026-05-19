@@ -3,6 +3,7 @@ package root
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -124,7 +125,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		}
 	}
 
-	v := newCompileVisitor(name)
+	v := newCompileVisitor(name, cmd.ErrOrStderr())
 	top, err := resolve.WalkUB(refs, resolver, v)
 	if err != nil {
 		return err
@@ -137,10 +138,11 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			goImports[res.LocalAlias] = res.Path
-			schema, err := readGoSchema(res.SourcePath)
+			schema, warnings, err := readGoSchema(res.SourcePath)
 			if err != nil {
 				return fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
+			printSchemaWarnings(cmd.ErrOrStderr(), res.LocalAlias, warnings)
 			mods[res.LocalAlias] = &ubruntime.Module{Schema: schema}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
@@ -212,15 +214,17 @@ type compileVisitor struct {
 	packages       map[string][]byte
 	importVersions map[string]string
 	runtimeModules map[string]*ubruntime.Module
+	warnOut        io.Writer
 }
 
-func newCompileVisitor(stackName string) *compileVisitor {
+func newCompileVisitor(stackName string, warnOut io.Writer) *compileVisitor {
 	return &compileVisitor{
 		stackName:      stackName,
 		canonicalAlias: map[string]string{},
 		packages:       map[string][]byte{},
 		importVersions: map[string]string{},
 		runtimeModules: map[string]*ubruntime.Module{},
+		warnOut:        warnOut,
 	}
 }
 
@@ -243,12 +247,13 @@ func (c *compileVisitor) OnUBModule(
 		for _, res := range mod.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, err := readGoSchema(res.SourcePath)
+				schema, warnings, err := readGoSchema(res.SourcePath)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",
 						name, res.LocalAlias, err)
 				}
+				printSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
 				bodyMods[res.LocalAlias] = &ubruntime.Module{Schema: schema}
 			case resolve.ResolutionUB:
 				bodyMods[res.LocalAlias] = c.runtimeModules[res.CanonicalKey]
@@ -378,16 +383,26 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 }
 
 // readGoSchema reads a fetched Go module's source from sourcePath
-// and returns its schema. A missing path returns a nil schema with
-// no error, which lets fake resolvers in tests fall through without
-// having to write a real module to disk. Any other failure mode
-// (missing Module() function, parse error, malformed source) is
-// propagated so a broken import fails the compile.
-func readGoSchema(sourcePath string) (*ubruntime.ModuleSchema, error) {
+// and returns its schema plus any warnings about registered types
+// whose sibling Output struct could not be located. A missing path
+// returns nil values with no error, which lets fake resolvers in
+// tests fall through without having to write a real module to disk.
+// Any other failure mode (missing Module() function, parse error,
+// malformed source) is propagated so a broken import fails the
+// compile.
+func readGoSchema(sourcePath string) (*ubruntime.ModuleSchema, []string, error) {
 	if sourcePath == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	return goschema.Read(sourcePath)
+}
+
+// printSchemaWarnings emits each warning string to err prefixed with
+// the import alias the schema came from.
+func printSchemaWarnings(out io.Writer, alias string, warnings []string) {
+	for _, w := range warnings {
+		fmt.Fprintf(out, "warning: import %q: %s\n", alias, w)
+	}
 }
 
 // goMajorMinor returns the running Go toolchain's `<major>.<minor>` so
