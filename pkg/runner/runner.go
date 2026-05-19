@@ -378,10 +378,44 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	if _, _, err := loadConfigurations(config, configPath, info.Modules); err != nil {
 		return err
 	}
+	if err := validateStateRefs(info, config, configPath); err != nil {
+		return err
+	}
 	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "OK")
+	return nil
+}
+
+// validateStateRefs looks up each named backend and encrypter against
+// info.Modules and decodes its body against the registered
+// configuration schema. It stops short of constructing either object,
+// so validate does no filesystem or network work. Unset refs are not
+// checked; the resolver's defaults are always available.
+func validateStateRefs(info Info, config *lang.File, configPath string) error {
+	sc, err := parseStateConfig(config, configPath)
+	if err != nil {
+		return err
+	}
+	if sc.Backend != nil {
+		bt, err := lookupBackendType(info.Modules, sc.Backend)
+		if err != nil {
+			return err
+		}
+		if _, err := decodeRefConfig(bt.Configuration, sc.Backend); err != nil {
+			return fmt.Errorf("state: %w", err)
+		}
+	}
+	if sc.Encrypter != nil {
+		et, err := lookupEncrypterType(info.Modules, sc.Encrypter)
+		if err != nil {
+			return err
+		}
+		if _, err := decodeRefConfig(et.Configuration, sc.Encrypter); err != nil {
+			return fmt.Errorf("encryption: %w", err)
+		}
+	}
 	return nil
 }
 

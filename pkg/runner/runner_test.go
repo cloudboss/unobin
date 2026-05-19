@@ -998,6 +998,60 @@ actions: { core: { echo: { hi: { echo: var.greeting } } } }
 	require.Error(t, err)
 }
 
+func TestValidateRejectsUnknownBackendAlias(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(
+		"state: { @backend: missing.bucket }\n"), 0o644))
+	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `import "missing" not found`)
+}
+
+func TestValidateRejectsUnknownBackendName(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(
+		"state: { @backend: ghost }\n"), 0o644))
+	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `registers no backend named "ghost"`)
+}
+
+func TestValidateRejectsBadBackendBody(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(
+		"state: { @backend: local, unknown-field: 1 }\n"), 0o644))
+	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown key")
+}
+
+func TestValidateRejectsUnknownEncrypterAlias(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(
+		"state: { @backend: local, path: '.unobin/state',"+
+			" encryption: { @key-source: missing.kms } }\n"),
+		0o644))
+	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `import "missing" not found`)
+}
+
+func TestValidateAcceptsCoreBackendAndEncrypter(t *testing.T) {
+	info := testInfo(t, `description: 'x'`)
+	cfg := filepath.Join(t.TempDir(), "prod.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(
+		"state: { @backend: local, path: '.unobin/state',"+
+			" encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' } }\n"),
+		0o644))
+	out, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
+	require.NoError(t, err)
+	require.Contains(t, out, "OK")
+}
+
 func TestPrintGraphPlain(t *testing.T) {
 	src := `
 inputs: { msg: { type: string } }
