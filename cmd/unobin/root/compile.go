@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
@@ -136,7 +137,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			goImports[res.LocalAlias] = res.Path
-			mods[res.LocalAlias] = &ubruntime.Module{}
+			mods[res.LocalAlias] = &ubruntime.Module{
+				Schema: readGoSchema(res.SourcePath),
+			}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
 			mods[res.LocalAlias] = v.runtimeModules[res.CanonicalKey]
@@ -238,7 +241,9 @@ func (c *compileVisitor) OnUBModule(
 		for _, res := range mod.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				bodyMods[res.LocalAlias] = &ubruntime.Module{}
+				bodyMods[res.LocalAlias] = &ubruntime.Module{
+					Schema: readGoSchema(res.SourcePath),
+				}
 			case resolve.ResolutionUB:
 				bodyMods[res.LocalAlias] = c.runtimeModules[res.CanonicalKey]
 			}
@@ -359,11 +364,27 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 	if !info.IsDir() {
 		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
 	}
-	src := &resolve.Source{Commit: "replace"}
+	src := &resolve.Source{Commit: "replace", Path: target}
 	if _, err := os.Stat(filepath.Join(target, "module.ub")); err == nil {
 		src.FS = os.DirFS(target)
 	}
 	return src, nil
+}
+
+// readGoSchema reads a fetched Go module's source from sourcePath
+// and returns its schema. Errors and a missing path silently produce
+// a nil schema so a module that does not follow the
+// `<GoName>Output` convention simply skips trailing-field
+// validation rather than blocking the compile.
+func readGoSchema(sourcePath string) *ubruntime.ModuleSchema {
+	if sourcePath == "" {
+		return nil
+	}
+	schema, err := goschema.Read(sourcePath)
+	if err != nil {
+		return nil
+	}
+	return schema
 }
 
 // goMajorMinor returns the running Go toolchain's `<major>.<minor>` so

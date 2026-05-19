@@ -7,8 +7,11 @@ import "io/fs"
 // imports, Commit and Hash record the resolved git commit and a content
 // hash so the lock file can pin reproducibility. Local imports leave
 // both empty since their content is whatever the developer has now.
+// Path is the on-disk directory the source was fetched into, which the
+// dev CLI uses for compile-time inspection of Go-module source.
 type Source struct {
 	FS     fs.FS
+	Path   string
 	Commit string
 	Hash   string
 }

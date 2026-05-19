@@ -36,5 +36,5 @@ func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("local import %q: not a directory", li.Path)
 	}
-	return &Source{FS: os.DirFS(abs)}, nil
+	return &Source{FS: os.DirFS(abs), Path: abs}, nil
 }

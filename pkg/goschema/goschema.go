@@ -19,29 +19,14 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
-
-// ModuleSchema describes a Go module's registered types as the dev
-// CLI sees them from source.
-type ModuleSchema struct {
-	Resources   map[string]*TypeSchema
-	DataSources map[string]*TypeSchema
-	Actions     map[string]*TypeSchema
-}
-
-// TypeSchema describes the output fields of one resource, data
-// source, or action. Outputs maps each kebab-case field name (from
-// the Output struct's `mapstructure` tag) to the field's Go type
-// expression as written in source (e.g. `string`, `[]string`,
-// `map[string]string`, `time.Duration`).
-type TypeSchema struct {
-	Outputs map[string]string
-}
 
 // Read parses the Go module rooted at dir and returns its schema.
 // Returns an error when no `Module()` function is found in dir's
 // root package, or when the directory cannot be read.
-func Read(dir string) (*ModuleSchema, error) {
+func Read(dir string) (*runtime.ModuleSchema, error) {
 	rootPkg, err := parsePackageDir(dir)
 	if err != nil {
 		return nil, err
@@ -52,14 +37,14 @@ func Read(dir string) (*ModuleSchema, error) {
 	}
 	modulePath := readGoModPath(dir)
 
-	schema := &ModuleSchema{
-		Resources:   map[string]*TypeSchema{},
-		DataSources: map[string]*TypeSchema{},
-		Actions:     map[string]*TypeSchema{},
+	schema := &runtime.ModuleSchema{
+		Resources:   map[string]*runtime.TypeSchema{},
+		DataSources: map[string]*runtime.TypeSchema{},
+		Actions:     map[string]*runtime.TypeSchema{},
 	}
 
 	for _, reg := range extractRegistrations(moduleFunc) {
-		ts := &TypeSchema{
+		ts := &runtime.TypeSchema{
 			Outputs: lookupOutputs(rootPkg, dir, modulePath, reg.Ref),
 		}
 		switch reg.Field {

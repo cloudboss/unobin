@@ -29,6 +29,11 @@ type Module struct {
 	Functions     map[string]FunctionType
 	StateBackends map[string]state.BackendType
 	Encrypters    map[string]encrypt.EncrypterType
+	// Schema carries the module's resource, data source, and action
+	// output field sets. Populated by the dev CLI from a fetched Go
+	// module's source for compile-time reference checking; nil at
+	// runtime since the stack binary does not need it.
+	Schema *ModuleSchema
 }
 
 // FunctionType registers a callable function under a Go module. Functions

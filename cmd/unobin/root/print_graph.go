@@ -124,7 +124,7 @@ func buildModuleMap(refs map[string]resolve.ImportRef,
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
-			out[res.LocalAlias] = &runtime.Module{}
+			out[res.LocalAlias] = &runtime.Module{Schema: readGoSchema(res.SourcePath)}
 		case resolve.ResolutionUB:
 			out[res.LocalAlias] = v.byKey[res.CanonicalKey]
 		}
@@ -153,7 +153,9 @@ func (g *graphVisitor) OnUBModule(
 		for _, res := range mod.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				bodyMods[res.LocalAlias] = &runtime.Module{}
+				bodyMods[res.LocalAlias] = &runtime.Module{
+					Schema: readGoSchema(res.SourcePath),
+				}
 			case resolve.ResolutionUB:
 				bodyMods[res.LocalAlias] = g.byKey[res.CanonicalKey]
 			}

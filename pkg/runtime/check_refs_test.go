@@ -227,6 +227,205 @@ resources: {
 	require.Contains(t, got[0], `unknown input "bogus"`)
 }
 
+func TestCheckReferencesUnknownTrailingField(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: { path: { type: string } }
+resources: {
+  local: {
+    file: {
+      one: { path: var.path, content: 'hi' }
+    }
+  }
+}
+outputs: {
+  ok:  resource.local.file.one.path
+  bad: resource.local.file.one.bogus
+}
+`), map[string]*Module{
+		"local": {Schema: &ModuleSchema{
+			Resources: map[string]*TypeSchema{
+				"file": {Outputs: map[string]string{
+					"path":   "string",
+					"sha256": "string",
+					"size":   "int64",
+				}},
+			},
+		}},
+	})
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "bogus"`)
+	require.Contains(t, got[0], `local.file`)
+}
+
+func TestCheckReferencesActionFieldMustExist(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+actions: {
+  core: {
+    command: {
+      x: { argv: ['true'] }
+    }
+  }
+}
+outputs: {
+  bad: action.core.command.x.nope
+}
+`), map[string]*Module{
+		"core": {Schema: &ModuleSchema{
+			Actions: map[string]*TypeSchema{
+				"command": {Outputs: map[string]string{
+					"stdout":    "string",
+					"exit-code": "int",
+				}},
+			},
+		}},
+	})
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "nope"`)
+}
+
+func TestCheckReferencesCompositeOutputMustBeDeclared(t *testing.T) {
+	composite := parseStack(t, `
+resources: {
+  local: {
+    file: {
+      one: { path: 'x.txt', content: 'hi' }
+    }
+  }
+}
+outputs: {
+  path: resource.local.file.one.path
+}
+`)
+	mods := map[string]*Module{
+		"bundle": {
+			Composites: map[string]*CompositeType{
+				"thing": {
+					Name: "thing",
+					Body: composite,
+					Modules: map[string]*Module{"local": {
+						Schema: &ModuleSchema{
+							Resources: map[string]*TypeSchema{
+								"file": {
+									Outputs: map[string]string{
+										"path": "string",
+									},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  bundle: {
+    thing: {
+      demo: {}
+    }
+  }
+}
+outputs: {
+  ok:  resource.bundle.thing.demo.path
+  bad: resource.bundle.thing.demo.bogus
+}
+`), mods)
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "bogus"`)
+}
+
+func TestCheckReferencesDataSourceFieldMustExist(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+data: {
+  aws: {
+    ami: {
+      ubuntu: { most-recent: true }
+    }
+  }
+}
+outputs: {
+  ok:  data.aws.ami.ubuntu.id
+  bad: data.aws.ami.ubuntu.misspelled
+}
+`), map[string]*Module{
+		"aws": {Schema: &ModuleSchema{
+			DataSources: map[string]*TypeSchema{
+				"ami": {Outputs: map[string]string{
+					"id":           "string",
+					"architecture": "string",
+				}},
+			},
+		}},
+	})
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "misspelled"`)
+	require.Contains(t, got[0], `aws.ami`)
+}
+
+func TestCheckReferencesForEachInstanceFieldMustExist(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: {
+  names: { type: set(string) }
+}
+resources: {
+  local: {
+    file: {
+      many: {
+        @for-each: var.names
+        path:      @each.value
+        content:   'hello'
+      }
+    }
+  }
+}
+outputs: {
+  ok:  resource.local.file.many['greet'].path
+  bad: resource.local.file.many['greet'].whatever
+}
+`), map[string]*Module{
+		"local": {Schema: &ModuleSchema{
+			Resources: map[string]*TypeSchema{
+				"file": {Outputs: map[string]string{
+					"path":   "string",
+					"sha256": "string",
+				}},
+			},
+		}},
+	})
+
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "whatever"`)
+}
+
+func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  local: {
+    file: {
+      one: { path: 'x.txt' }
+    }
+  }
+}
+outputs: {
+  anything: resource.local.file.one.whatever
+}
+`), map[string]*Module{
+		"local": {},
+	})
+
+	require.Empty(t, checkRefMessages(t, errs))
+}
+
 func TestCheckReferencesEachScope(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: {

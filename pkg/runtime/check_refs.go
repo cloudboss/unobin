@@ -170,11 +170,100 @@ func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
 	if ref == "" {
 		return
 	}
-	if _, ok := c.dag.Nodes[scopeRef(ref, scope)]; ok {
+	node, ok := c.dag.Nodes[scopeRef(ref, scope)]
+	if !ok {
+		kind, _, _ := strings.Cut(ref, ".")
+		c.addf(dp.S.Start, `unknown %s %q`, kind, ref)
 		return
 	}
-	kind, _, _ := strings.Cut(ref, ".")
-	c.addf(dp.S.Start, `unknown %s %q`, kind, ref)
+	c.checkField(dp, node, scope)
+}
+
+// checkField reports a trailing field reference whose name is not
+// declared in the node's output schema. Returns silently when the
+// path has no trailing field, when no schema is available, or when
+// the field is present.
+func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string) {
+	field := trailingField(dp)
+	if field == "" {
+		return
+	}
+	outputs := c.outputsFor(node, scope)
+	if outputs == nil {
+		return
+	}
+	if _, ok := outputs[field]; ok {
+		return
+	}
+	c.addf(dp.S.Start, `unknown field %q on %s.%s`, field, node.NS, node.Type)
+}
+
+func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]string {
+	if node.Kind == NodeComposite {
+		return compositeOutputNames(node)
+	}
+	mods := c.modules[scope]
+	if mods == nil {
+		return nil
+	}
+	mod := mods[node.NS]
+	if mod == nil || mod.Schema == nil {
+		return nil
+	}
+	var ts *TypeSchema
+	switch node.Kind {
+	case NodeResource:
+		ts = mod.Schema.Resources[node.Type]
+	case NodeData:
+		ts = mod.Schema.DataSources[node.Type]
+	case NodeAction:
+		ts = mod.Schema.Actions[node.Type]
+	}
+	if ts == nil {
+		return nil
+	}
+	return ts.Outputs
+}
+
+// compositeOutputNames extracts the set of output names declared in
+// a composite type's `outputs:` block. The map's values are empty
+// strings since the V1 checker validates field-name existence only.
+func compositeOutputNames(node *Node) map[string]string {
+	if node.CompositeBody == nil {
+		return nil
+	}
+	outputs, ok := topLevelMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	out := map[string]string{}
+	for _, fld := range outputs.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		out[fld.Key.Name] = ""
+	}
+	return out
+}
+
+// trailingField extracts the field segment from a resource, data,
+// or action reference. For `resource.<ns>.<type>.<name>.<field>` it
+// returns `<field>`. For
+// `resource.<ns>.<type>.<name>['key'].<field>` it skips the index
+// segment and returns `<field>`. Returns "" when the path has no
+// trailing field segment.
+func trailingField(dp *lang.DotPath) string {
+	if len(dp.Segments) < 4 {
+		return ""
+	}
+	seg := dp.Segments[3]
+	if seg.Index != nil {
+		if len(dp.Segments) < 5 {
+			return ""
+		}
+		seg = dp.Segments[4]
+	}
+	return seg.Name
 }
 
 func (c *referenceChecker) checkEach(dp *lang.DotPath, eachOK bool) {

@@ -65,7 +65,7 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 		subdirPath = filepath.Join(dir, ri.Subdir)
 	}
 
-	src := &Source{Commit: commit}
+	src := &Source{Commit: commit, Path: subdirPath}
 	if _, err := os.Stat(filepath.Join(subdirPath, "module.ub")); err == nil {
 		src.FS = os.DirFS(subdirPath)
 		hash, err := hashTree(src.FS)

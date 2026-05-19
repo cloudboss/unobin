@@ -44,7 +44,9 @@ const (
 // imports, Path is the canonical Go-import path (URL plus subdir when
 // present) and Version is the pinned version. For UB imports,
 // CanonicalKey is the dedup key (see UBKey) and visitors look up their
-// per-module state by that key.
+// per-module state by that key. SourcePath is the on-disk directory
+// where the resolver fetched the import, useful for compile-time
+// inspection.
 type Resolution struct {
 	Kind         ResolutionKind
 	LocalAlias   string
@@ -52,6 +54,7 @@ type Resolution struct {
 	Path         string
 	Version      string
 	CanonicalKey string
+	SourcePath   string
 }
 
 // UBModule carries everything the visitor needs about a UB module the
@@ -122,12 +125,14 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef) (Resolution, error) {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
 	if !IsUBModule(source) {
-		return w.handleGoImport(alias, ref)
+		return w.handleGoImport(alias, ref, source)
 	}
 	return w.handleUBImport(alias, ref, source)
 }
 
-func (w *ubWalker) handleGoImport(alias string, ref ImportRef) (Resolution, error) {
+func (w *ubWalker) handleGoImport(
+	alias string, ref ImportRef, source *Source,
+) (Resolution, error) {
 	r, ok := ref.(*RemoteImport)
 	if !ok {
 		return Resolution{}, fmt.Errorf(
@@ -146,6 +151,7 @@ func (w *ubWalker) handleGoImport(alias string, ref ImportRef) (Resolution, erro
 		Ref:        ref,
 		Path:       path,
 		Version:    r.Version,
+		SourcePath: source.Path,
 	}, nil
 }
 

@@ -212,6 +212,101 @@ resources: {
 	require.Contains(t, err.Error(), `module "greeter" is not imported`)
 }
 
+func TestCompileUnknownTrailingFieldFails(t *testing.T) {
+	modDir := writeFakeGoModule(t)
+
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  fake: 'example.com/fake@v0.1.0'
+}
+resources: {
+  fake: {
+    thing: {
+      x: {}
+    }
+  }
+}
+outputs: {
+  bad: resource.fake.thing.x.nonexistent
+}
+`), 0o644))
+
+	remotes := map[string]*resolve.Source{
+		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: modDir},
+	}
+	_, err := runCommandWithRemotes(t, remotes,
+		"compile", "-p", stackPath, "-o", "-")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unknown field "nonexistent"`)
+	require.Contains(t, err.Error(), `fake.thing`)
+}
+
+func TestCompileAcceptsKnownTrailingField(t *testing.T) {
+	modDir := writeFakeGoModule(t)
+
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  fake: 'example.com/fake@v0.1.0'
+}
+resources: {
+  fake: {
+    thing: {
+      x: {}
+    }
+  }
+}
+outputs: {
+  good: resource.fake.thing.x.id
+}
+`), 0o644))
+
+	remotes := map[string]*resolve.Source{
+		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: modDir},
+	}
+	_, err := runCommandWithRemotes(t, remotes,
+		"compile", "-p", stackPath, "-o", "-")
+	require.NoError(t, err)
+}
+
+// writeFakeGoModule writes a minimal Go module to a tmpdir that
+// registers one resource type "thing" whose output struct lists `id`
+// and `name`. The dev CLI's goschema walker parses this dir to
+// learn the type's output schema.
+func writeFakeGoModule(t *testing.T) string {
+	t.Helper()
+	modDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),
+		[]byte("module example.com/fake\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"), []byte(`package fake
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Module() *runtime.Module {
+	return &runtime.Module{
+		Name: "fake",
+		Resources: map[string]runtime.ResourceType{
+			"thing": {
+				Name: "thing",
+				New:  func() runtime.Resource { return &Thing{} },
+			},
+		},
+	}
+}
+
+type Thing struct{}
+
+type ThingOutput struct {
+	ID   string `+"`mapstructure:\"id\"`"+`
+	Name string `+"`mapstructure:\"name\"`"+`
+}
+`), 0o644))
+	return modDir
+}
+
 func TestCompileWithLocalUBModule(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
