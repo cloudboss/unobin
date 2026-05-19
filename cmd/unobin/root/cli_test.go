@@ -307,6 +307,33 @@ type ThingOutput struct {
 	return modDir
 }
 
+func TestCompileMalformedGoModuleFails(t *testing.T) {
+	modDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),
+		[]byte("module example.com/broken\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"), []byte(`package broken
+
+// no Module() function defined here -- the dev CLI should reject
+// this import.
+`), 0o644))
+
+	dir := t.TempDir()
+	stackPath := filepath.Join(dir, "stack.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+imports: {
+  broken: 'example.com/broken@v0.1.0'
+}
+`), 0o644))
+
+	remotes := map[string]*resolve.Source{
+		"example.com/broken@v0.1.0": {Commit: "fakecommit", Path: modDir},
+	}
+	_, err := runCommandWithRemotes(t, remotes,
+		"compile", "-p", stackPath, "-o", "-")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `no Module()`)
+}
+
 func TestCompileWithLocalUBModule(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
@@ -757,8 +784,10 @@ imports: {
 
 func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
 	fakeUnobin := t.TempDir()
-	require.NoError(t, os.MkdirAll(
-		filepath.Join(fakeUnobin, "pkg/modules/local"), 0o755))
+	modDir := filepath.Join(fakeUnobin, "pkg/modules/local")
+	require.NoError(t, os.MkdirAll(modDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"),
+		[]byte("package local\n\nfunc Module() any { return nil }\n"), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

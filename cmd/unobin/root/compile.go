@@ -137,9 +137,11 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			goImports[res.LocalAlias] = res.Path
-			mods[res.LocalAlias] = &ubruntime.Module{
-				Schema: readGoSchema(res.SourcePath),
+			schema, err := readGoSchema(res.SourcePath)
+			if err != nil {
+				return fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
+			mods[res.LocalAlias] = &ubruntime.Module{Schema: schema}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
 			mods[res.LocalAlias] = v.runtimeModules[res.CanonicalKey]
@@ -241,9 +243,13 @@ func (c *compileVisitor) OnUBModule(
 		for _, res := range mod.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				bodyMods[res.LocalAlias] = &ubruntime.Module{
-					Schema: readGoSchema(res.SourcePath),
+				schema, err := readGoSchema(res.SourcePath)
+				if err != nil {
+					return fmt.Errorf(
+						"composite %q import %q: %w",
+						name, res.LocalAlias, err)
 				}
+				bodyMods[res.LocalAlias] = &ubruntime.Module{Schema: schema}
 			case resolve.ResolutionUB:
 				bodyMods[res.LocalAlias] = c.runtimeModules[res.CanonicalKey]
 			}
@@ -372,19 +378,16 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 }
 
 // readGoSchema reads a fetched Go module's source from sourcePath
-// and returns its schema. Errors and a missing path silently produce
-// a nil schema so a module that does not follow the
-// `<GoName>Output` convention simply skips trailing-field
-// validation rather than blocking the compile.
-func readGoSchema(sourcePath string) *ubruntime.ModuleSchema {
+// and returns its schema. A missing path returns a nil schema with
+// no error, which lets fake resolvers in tests fall through without
+// having to write a real module to disk. Any other failure mode
+// (missing Module() function, parse error, malformed source) is
+// propagated so a broken import fails the compile.
+func readGoSchema(sourcePath string) (*ubruntime.ModuleSchema, error) {
 	if sourcePath == "" {
-		return nil
+		return nil, nil
 	}
-	schema, err := goschema.Read(sourcePath)
-	if err != nil {
-		return nil
-	}
-	return schema
+	return goschema.Read(sourcePath)
 }
 
 // goMajorMinor returns the running Go toolchain's `<major>.<minor>` so
