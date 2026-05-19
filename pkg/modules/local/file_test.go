@@ -18,7 +18,7 @@ func TestFileCreate(t *testing.T) {
 	f := &File{Path: path, Content: "hi there"}
 	outAny, err := f.Create(context.Background(), nil)
 	require.NoError(t, err)
-	out := outAny.(FileOutputs)
+	out := outAny.(FileOutput)
 
 	require.Equal(t, path, out.Path)
 	require.Equal(t, int64(8), out.Size)
@@ -38,7 +38,7 @@ func TestFileCreatesMissingParentDirsWhenOptedIn(t *testing.T) {
 	out, err := (&File{Path: path, Content: "deep", CreateDirectory: true}).
 		Create(context.Background(), nil)
 	require.NoError(t, err)
-	require.Equal(t, path, out.(FileOutputs).Path)
+	require.Equal(t, path, out.(FileOutput).Path)
 
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -78,12 +78,12 @@ func TestFileUpdate(t *testing.T) {
 	f.Content = "second value"
 	second, err := f.Update(context.Background(), nil, first)
 	require.NoError(t, err)
-	out := second.(FileOutputs)
+	out := second.(FileOutput)
 
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, "second value", string(body))
-	require.NotEqual(t, first.(FileOutputs).SHA256, out.SHA256)
+	require.NotEqual(t, first.(FileOutput).SHA256, out.SHA256)
 }
 
 func TestFileReadReportsNotFound(t *testing.T) {
@@ -100,7 +100,7 @@ func TestFileReadFromDisk(t *testing.T) {
 	f := &File{Path: path}
 	out, err := f.Read(context.Background(), nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, int64(7), out.(FileOutputs).Size)
+	require.Equal(t, int64(7), out.(FileOutput).Size)
 }
 
 func TestFileDelete(t *testing.T) {

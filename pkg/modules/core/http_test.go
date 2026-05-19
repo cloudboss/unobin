@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runHTTP(t *testing.T, a *HTTPAction) HTTPResult {
+func runHTTP(t *testing.T, a *HTTPAction) HTTPActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	hr, ok := res.(HTTPResult)
+	hr, ok := res.(HTTPActionOutput)
 	require.True(t, ok, "got %T", res)
 	return hr
 }

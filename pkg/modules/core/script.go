@@ -15,6 +15,12 @@ type ScriptAction struct {
 	WorkingDir  string            `mapstructure:"working-dir"`
 }
 
+// ScriptActionOutput is the captured output of a script run. It is the
+// same shape as the command action's output because both reduce to a
+// process exec; the alias keeps the convention that every action type
+// has a sibling type named `<GoName>Output`.
+type ScriptActionOutput = CommandActionOutput
+
 // Run invokes the configured shell with the script. Output is captured in
 // the same shape as CommandAction returns.
 func (a *ScriptAction) Run(ctx context.Context, _ any) (any, error) {

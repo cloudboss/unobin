@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runScript(t *testing.T, a *ScriptAction) CommandResult {
+func runScript(t *testing.T, a *ScriptAction) CommandActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	cr, ok := res.(CommandResult)
+	cr, ok := res.(CommandActionOutput)
 	require.True(t, ok, "got %T", res)
 	return cr
 }

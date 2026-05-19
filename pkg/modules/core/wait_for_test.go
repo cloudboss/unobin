@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runWaitFor(t *testing.T, a *WaitForAction) WaitForResult {
+func runWaitFor(t *testing.T, a *WaitForAction) WaitForActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	wr, ok := res.(WaitForResult)
+	wr, ok := res.(WaitForActionOutput)
 	require.True(t, ok, "got %T", res)
 	return wr
 }

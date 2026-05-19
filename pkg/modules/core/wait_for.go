@@ -18,9 +18,9 @@ type WaitForAction struct {
 	WorkingDir  string            `mapstructure:"working-dir"`
 }
 
-// WaitForResult records how many attempts ran, the elapsed time, and the
+// WaitForActionOutput records how many attempts ran, the elapsed time, and the
 // stdout/stderr of the successful attempt.
-type WaitForResult struct {
+type WaitForActionOutput struct {
 	Attempts int           `mapstructure:"attempts"`
 	Duration time.Duration `mapstructure:"duration"`
 	Stdout   string        `mapstructure:"stdout"`
@@ -71,7 +71,7 @@ func (a *WaitForAction) Run(ctx context.Context, _ any) (any, error) {
 			return nil, err
 		}
 		if result.ExitCode == 0 {
-			return WaitForResult{
+			return WaitForActionOutput{
 				Attempts: attempts,
 				Duration: time.Since(start),
 				Stdout:   result.Stdout,

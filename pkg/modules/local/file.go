@@ -26,8 +26,8 @@ type File struct {
 	CreateDirectory bool   `mapstructure:"create-directory"`
 }
 
-// FileOutputs is what gets stored in state after Create / Update.
-type FileOutputs struct {
+// FileOutput is what gets stored in state after Create / Update.
+type FileOutput struct {
 	Path   string `mapstructure:"path"`
 	SHA256 string `mapstructure:"sha256"`
 	Size   int64  `mapstructure:"size"`
@@ -52,7 +52,7 @@ func (f *File) Read(_ context.Context, _ any, prior any) (any, error) {
 		return nil, err
 	}
 	sum := sha256.Sum256(body)
-	return FileOutputs{
+	return FileOutput{
 		Path:   f.Path,
 		SHA256: hex.EncodeToString(sum[:]),
 		Size:   info.Size(),
@@ -71,9 +71,9 @@ func (f *File) Delete(_ context.Context, _ any, _ any) error {
 	return nil
 }
 
-func (f *File) write() (FileOutputs, error) {
+func (f *File) write() (FileOutput, error) {
 	if f.Path == "" {
-		return FileOutputs{}, errors.New("local.file: path is required")
+		return FileOutput{}, errors.New("local.file: path is required")
 	}
 	mode := os.FileMode(f.Mode)
 	if mode == 0 {
@@ -81,15 +81,15 @@ func (f *File) write() (FileOutputs, error) {
 	}
 	if f.CreateDirectory {
 		if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
-			return FileOutputs{}, err
+			return FileOutput{}, err
 		}
 	}
 	body := []byte(f.Content)
 	if err := ufs.WriteFileAtomic(f.Path, body, mode); err != nil {
-		return FileOutputs{}, err
+		return FileOutput{}, err
 	}
 	sum := sha256.Sum256(body)
-	return FileOutputs{
+	return FileOutput{
 		Path:   f.Path,
 		SHA256: hex.EncodeToString(sum[:]),
 		Size:   int64(len(body)),

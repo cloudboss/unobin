@@ -18,10 +18,10 @@ type HTTPAction struct {
 	Timeout time.Duration     `mapstructure:"timeout"`
 }
 
-// HTTPResult is the captured response. The action returns an error only
+// HTTPActionOutput is the captured response. The action returns an error only
 // when the request can't be built or the transport fails, not on HTTP
 // error status codes. HTTP status codes are returned as data in Status.
-type HTTPResult struct {
+type HTTPActionOutput struct {
 	Status     int                 `mapstructure:"status"`
 	StatusText string              `mapstructure:"status-text"`
 	Headers    map[string][]string `mapstructure:"headers"`
@@ -69,7 +69,7 @@ func (a *HTTPAction) Run(ctx context.Context, _ any) (any, error) {
 		return nil, err
 	}
 
-	return HTTPResult{
+	return HTTPActionOutput{
 		Status:     resp.StatusCode,
 		StatusText: resp.Status,
 		Headers:    resp.Header,

@@ -14,9 +14,9 @@ type CommandAction struct {
 	WorkingDir  string            `mapstructure:"working-dir"`
 }
 
-// CommandResult carries the captured output of a command run. Run returns
+// CommandActionOutput carries the captured output of a command run. Run returns
 // an error when the process fails to start or the context is canceled.
-type CommandResult struct {
+type CommandActionOutput struct {
 	Stdout   string        `mapstructure:"stdout"`
 	Stderr   string        `mapstructure:"stderr"`
 	ExitCode int           `mapstructure:"exit-code"`
