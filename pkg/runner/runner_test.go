@@ -15,6 +15,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/modules/core"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -93,6 +94,20 @@ func applyVia(t *testing.T, info Info, configPath string) string {
 	out, err := runRoot(t, info, "apply", planFile)
 	require.NoError(t, err)
 	return out
+}
+
+// openPlanFile reads a plan file from disk and returns its inner
+// PlanFile. The envelope's encrypter ref is resolved against
+// info.Modules, the same path apply uses.
+func openPlanFile(t *testing.T, info Info, path string) *runtime.PlanFile {
+	t.Helper()
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	pf, err := runtime.OpenPlan(body, func(ref *runtime.StateRef) (sdkenc.Encrypter, error) {
+		return resolveEncrypter(info, fromRuntimeStateRef(ref))
+	})
+	require.NoError(t, err)
+	return pf
 }
 
 func TestVersion(t *testing.T) {
@@ -892,10 +907,13 @@ actions: {
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
-	body, err := os.ReadFile(planFile)
-	require.NoError(t, err)
-	require.Contains(t, string(body), `"format-version": 1`)
-	require.Contains(t, string(body), "action.core.echo.hi")
+	pf := openPlanFile(t, info, planFile)
+	require.Equal(t, 1, pf.FormatVersion)
+	addresses := make([]string, len(pf.Steps))
+	for i, s := range pf.Steps {
+		addresses[i] = s.Address
+	}
+	require.Contains(t, addresses, "action.core.echo.hi")
 }
 
 func TestApplyConsumesPlanFile(t *testing.T) {
@@ -1512,10 +1530,16 @@ outputs: {
 
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
+	var env runtime.PlanEnvelope
+	require.NoError(t, json.Unmarshal(body, &env))
+	require.Equal(t, runtime.EnvelopeVersion, env.EnvelopeVersion)
+	require.NotEmpty(t, env.Ciphertext)
+	require.False(t, isJSON(env.Ciphertext),
+		"ciphertext should not parse as JSON when an encrypter is in use")
 
 	enc, err := envencrypt.NewEnvKey("UB_STATE_KEY")
 	require.NoError(t, err)
-	plaintext, err := enc.Decrypt(body)
+	plaintext, err := enc.Decrypt(env.Ciphertext)
 	require.NoError(t, err)
 	require.Contains(t, string(plaintext), `"format-version": 1`)
 	require.Contains(t, string(plaintext), "action.core.echo.hi")
@@ -1537,10 +1561,7 @@ inputs: {}
 		"-c", cfg, "-o", planFile, "--parallelism", "7")
 	require.NoError(t, err)
 
-	body, err := os.ReadFile(planFile)
-	require.NoError(t, err)
-	pf, err := runtime.DecodePlan(body)
-	require.NoError(t, err)
+	pf := openPlanFile(t, info, planFile)
 	require.Equal(t, 7, pf.Parallelism)
 }
 
@@ -1556,10 +1577,7 @@ inputs: {}
 		"-c", cfg, "-o", planFile)
 	require.NoError(t, err)
 
-	body, err := os.ReadFile(planFile)
-	require.NoError(t, err)
-	pf, err := runtime.DecodePlan(body)
-	require.NoError(t, err)
+	pf := openPlanFile(t, info, planFile)
 	require.Equal(t, 4, pf.Parallelism)
 }
 
@@ -1574,8 +1592,13 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
-	body[len(body)-1] ^= 0xff
-	require.NoError(t, os.WriteFile(planFile, body, 0o600))
+	var env runtime.PlanEnvelope
+	require.NoError(t, json.Unmarshal(body, &env))
+	require.NotEmpty(t, env.Ciphertext)
+	env.Ciphertext[len(env.Ciphertext)-1] ^= 0xff
+	tampered, err := json.Marshal(env)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(planFile, tampered, 0o600))
 
 	_, err = runRoot(t, info, "apply", planFile)
 	require.Error(t, err)
@@ -1592,7 +1615,12 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
-	require.Contains(t, string(body), `"format-version": 1`)
+	var env runtime.PlanEnvelope
+	require.NoError(t, json.Unmarshal(body, &env))
+	require.Equal(t, runtime.EnvelopeVersion, env.EnvelopeVersion)
+	require.True(t, isJSON(env.Ciphertext),
+		"with no encrypter, ciphertext should be plain plan JSON")
+	require.Contains(t, string(env.Ciphertext), `"format-version": 1`)
 }
 
 // Ensure t.TempDir is visible to the loadStore call (which writes to

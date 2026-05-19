@@ -137,19 +137,19 @@ func newApplyCmd(info Info) *cobra.Command {
 func doApplyPlan(
 	cmd *cobra.Command, info Info, planPath string, parallelismOverride int,
 ) error {
-	enc, err := loadEncrypter(info, nil, "")
-	if err != nil {
-		return err
-	}
 	sealed, err := os.ReadFile(planPath)
 	if err != nil {
 		return err
 	}
-	encoded, err := enc.Decrypt(sealed)
-	if err != nil {
-		return fmt.Errorf("apply: decrypt plan: %w", err)
-	}
-	pf, err := runtime.DecodePlan(encoded)
+	var enc sdkencrypt.Encrypter
+	pf, err := runtime.OpenPlan(sealed, func(ref *runtime.StateRef) (sdkencrypt.Encrypter, error) {
+		e, err := resolveEncrypter(info, fromRuntimeStateRef(ref))
+		if err != nil {
+			return nil, err
+		}
+		enc = e
+		return e, nil
+	})
 	if err != nil {
 		return err
 	}
@@ -600,11 +600,7 @@ func doPlan(
 	plan.Backend = toRuntimeStateRef(sc.Backend)
 	printPlan(cmd.OutOrStdout(), plan)
 	if outPath != "" {
-		encoded, err := runtime.EncodePlan(plan)
-		if err != nil {
-			return err
-		}
-		sealed, err := enc.Encrypt(encoded)
+		sealed, err := runtime.SealPlan(plan, toRuntimeStateRef(sc.Encrypter), enc)
 		if err != nil {
 			return err
 		}
