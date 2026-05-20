@@ -14,7 +14,7 @@ import (
 // PromoteType is exercised against.
 func promoteFixture(t *testing.T) map[string]Expr {
 	t.Helper()
-	f := loadFixture(t, "testdata/parse/valid/type-exprs.ub")
+	f := loadFixture(t, "parse/testdata/valid/type-exprs.ub")
 	out := make(map[string]Expr, len(f.Body.Fields))
 	for _, fld := range f.Body.Fields {
 		require.Equal(t, FieldIdent, fld.Key.Kind)

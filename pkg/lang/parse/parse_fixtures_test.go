@@ -1,4 +1,4 @@
-package lang
+package parse
 
 import (
 	"os"
@@ -24,17 +24,17 @@ func identField(t *testing.T, fld *Field, key string) {
 }
 
 func TestParseFixtureEmpty(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/empty.ub")
+	f := loadFixture(t, "testdata/valid/empty.ub")
 	require.Empty(t, f.Body.Fields)
 }
 
 func TestParseFixtureWhitespace(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/whitespace.ub")
+	f := loadFixture(t, "testdata/valid/whitespace.ub")
 	require.Empty(t, f.Body.Fields)
 }
 
 func TestParseFixtureBools(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/bools.ub")
+	f := loadFixture(t, "testdata/valid/bools.ub")
 	require.Len(t, f.Body.Fields, 2)
 
 	identField(t, f.Body.Fields[0], "bool-true")
@@ -45,14 +45,14 @@ func TestParseFixtureBools(t *testing.T) {
 }
 
 func TestParseFixtureNull(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/null.ub")
+	f := loadFixture(t, "testdata/valid/null.ub")
 	require.Len(t, f.Body.Fields, 1)
 	identField(t, f.Body.Fields[0], "empty")
 	require.IsType(t, &NullLit{}, f.Body.Fields[0].Value)
 }
 
 func TestParseFixtureNumbers(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/numbers.ub")
+	f := loadFixture(t, "testdata/valid/numbers.ub")
 
 	wantInt := []struct {
 		key string
@@ -90,7 +90,7 @@ func TestParseFixtureNumbers(t *testing.T) {
 }
 
 func TestParseFixtureStrings(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/strings.ub")
+	f := loadFixture(t, "testdata/valid/strings.ub")
 	wants := []struct {
 		key, val string
 	}{
@@ -114,7 +114,7 @@ func TestParseFixtureStrings(t *testing.T) {
 }
 
 func TestParseFixtureMultilineStrings(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/multiline-strings.ub")
+	f := loadFixture(t, "testdata/valid/multiline-strings.ub")
 	wants := []struct {
 		key, val string
 	}{
@@ -134,7 +134,7 @@ func TestParseFixtureMultilineStrings(t *testing.T) {
 }
 
 func TestParseFixtureIdents(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/idents.ub")
+	f := loadFixture(t, "testdata/valid/idents.ub")
 	wants := []struct {
 		key, val string
 	}{
@@ -151,7 +151,7 @@ func TestParseFixtureIdents(t *testing.T) {
 }
 
 func TestParseFixtureObjects(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/objects.ub")
+	f := loadFixture(t, "testdata/valid/objects.ub")
 	require.Len(t, f.Body.Fields, 14)
 
 	mustObj := func(idx int, key string) *ObjectLit {
@@ -233,7 +233,7 @@ func TestParseFixtureObjects(t *testing.T) {
 }
 
 func TestParseFixtureArrays(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/arrays.ub")
+	f := loadFixture(t, "testdata/valid/arrays.ub")
 	require.Len(t, f.Body.Fields, 9)
 
 	mustArr := func(idx int, key string) *ArrayLit {
@@ -274,7 +274,7 @@ func TestParseFixtureArrays(t *testing.T) {
 }
 
 func TestParseFixtureComments(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/comments.ub")
+	f := loadFixture(t, "testdata/valid/comments.ub")
 	require.Len(t, f.Body.Fields, 3)
 
 	identField(t, f.Body.Fields[0], "one")
@@ -286,7 +286,7 @@ func TestParseFixtureComments(t *testing.T) {
 }
 
 func TestParseFixtureMetaKeys(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/meta-keys.ub")
+	f := loadFixture(t, "testdata/valid/meta-keys.ub")
 	wants := []string{"@for-each", "@depends-on", "@sensitive", "@trigger", "@module"}
 	require.Len(t, f.Body.Fields, len(wants))
 	for i, want := range wants {
@@ -297,7 +297,7 @@ func TestParseFixtureMetaKeys(t *testing.T) {
 }
 
 func TestParseFixtureNested(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/nested.ub")
+	f := loadFixture(t, "testdata/valid/nested.ub")
 	require.Len(t, f.Body.Fields, 1)
 	identField(t, f.Body.Fields[0], "root")
 	root := f.Body.Fields[0].Value.(*ObjectLit)
@@ -329,7 +329,7 @@ func TestParseFixtureNested(t *testing.T) {
 }
 
 func TestParseFixtureRealistic(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/realistic.ub")
+	f := loadFixture(t, "testdata/valid/realistic.ub")
 	wants := []string{"description", "inputs", "constraints", "imports", "outputs", "notes"}
 	require.Len(t, f.Body.Fields, len(wants))
 	for i, want := range wants {
@@ -356,7 +356,7 @@ func TestParseFixtureRealistic(t *testing.T) {
 }
 
 func TestParseFixtureDotPaths(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/dot-paths.ub")
+	f := loadFixture(t, "testdata/valid/dot-paths.ub")
 	require.Len(t, f.Body.Fields, 8)
 
 	getPath := func(idx int, key string) *DotPath {
@@ -402,7 +402,7 @@ func TestParseFixtureDotPaths(t *testing.T) {
 }
 
 func TestParseFixtureCalls(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/calls.ub")
+	f := loadFixture(t, "testdata/valid/calls.ub")
 	require.Len(t, f.Body.Fields, 8)
 
 	getCall := func(idx int, key string) *Call {
@@ -452,7 +452,7 @@ func TestParseFixtureCalls(t *testing.T) {
 }
 
 func TestParseFixtureOperators(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/operators.ub")
+	f := loadFixture(t, "testdata/valid/operators.ub")
 	require.Len(t, f.Body.Fields, 23)
 
 	getInfix := func(idx int, key, op string) *Infix {
@@ -518,7 +518,7 @@ func TestParseFixtureOperators(t *testing.T) {
 }
 
 func TestParseFixtureComplex(t *testing.T) {
-	f := loadFixture(t, "testdata/parse/valid/complex.ub")
+	f := loadFixture(t, "testdata/valid/complex.ub")
 	require.Len(t, f.Body.Fields, 18)
 
 	byKey := make(map[string]Expr, len(f.Body.Fields))
@@ -667,7 +667,7 @@ func TestParseFixtureComplex(t *testing.T) {
 }
 
 func TestParseInvalidFixtures(t *testing.T) {
-	matches, err := filepath.Glob("testdata/parse/invalid/*.ub")
+	matches, err := filepath.Glob("testdata/invalid/*.ub")
 	require.NoError(t, err)
 	require.NotEmpty(t, matches)
 

@@ -1,4 +1,4 @@
-package lang
+package parse
 
 // Node is the root of the AST hierarchy. Every node knows its source span;
 // the End may be the zero Position when only a starting point is known.
