@@ -20,3 +20,26 @@ func ParseSource(path string, b []byte) (*File, error) {
 	}
 	return v.(*File), nil
 }
+
+// ParseExpr parses b as a single UB expression and returns its AST.
+// path labels Position.File on each node. Trailing content past the
+// expression is rejected: parsing happens through a synthetic
+// single-field file so the grammar's EOF rule rejects leftovers.
+// Position columns are reported one greater than the input column
+// because of the wrapping prefix; callers showing source context to
+// users may want to adjust.
+func ParseExpr(path string, b []byte) (Expr, error) {
+	wrapped := make([]byte, 0, len(b)+4)
+	wrapped = append(wrapped, 'x', ':', ' ')
+	wrapped = append(wrapped, b...)
+	wrapped = append(wrapped, '\n')
+	f, err := ParseSource(path, wrapped)
+	if err != nil {
+		return nil, err
+	}
+	if len(f.Body.Fields) != 1 {
+		return nil, Errorf(ErrParse, Position{File: path},
+			"expected a single expression, got %d", len(f.Body.Fields))
+	}
+	return f.Body.Fields[0].Value, nil
+}
