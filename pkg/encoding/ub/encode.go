@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 )
 
 // Marshaler is implemented by types that supply their own unobin
@@ -317,7 +319,7 @@ func parseTag(tag, fieldName string) (name string, omitempty bool, skip bool) {
 	parts := strings.Split(tag, ",")
 	name = parts[0]
 	if name == "" {
-		name = pascalToKebab(fieldName)
+		name = parse.PascalToKebab(fieldName)
 	}
 	for _, opt := range parts[1:] {
 		if opt == "omitempty" {
@@ -386,31 +388,3 @@ func isDigit(b byte) bool {
 	return b >= '0' && b <= '9'
 }
 
-// pascalToKebab is a local copy of lang.PascalToKebab. Duplicated here
-// so this package stays a leaf and lang can later delegate to it
-// without a cycle.
-func pascalToKebab(s string) string {
-	var b strings.Builder
-	b.Grow(len(s) + 4)
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if i > 0 && c >= 'A' && c <= 'Z' {
-			prev := s[i-1]
-			next := byte(0)
-			if i+1 < len(s) {
-				next = s[i+1]
-			}
-			lowerPrev := prev >= 'a' && prev <= 'z'
-			digitPrev := prev >= '0' && prev <= '9'
-			lowerNext := next >= 'a' && next <= 'z'
-			if lowerPrev || digitPrev || (next != 0 && lowerNext) {
-				b.WriteByte('-')
-			}
-		}
-		if c >= 'A' && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		b.WriteByte(c)
-	}
-	return b.String()
-}

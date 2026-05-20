@@ -57,8 +57,9 @@ const (
 )
 
 var (
-	NewErrorList = parse.NewErrorList
-	Errorf       = parse.Errorf
+	NewErrorList   = parse.NewErrorList
+	Errorf         = parse.Errorf
+	PascalToKebab  = parse.PascalToKebab
 )
 
 // ParseSource reads .ub source from b, returns the parsed File, and
