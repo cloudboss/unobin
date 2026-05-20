@@ -71,11 +71,8 @@ import "github.com/cloudboss/unobin/pkg/runtime"
 func Module() *runtime.Module {
 	return &runtime.Module{
 		Name: "mod",
-		Resources: map[string]runtime.ResourceType{
-			"thing": {
-				Name: "thing",
-				New:  func() runtime.Resource { return &Thing{} },
-			},
+		Resources: map[string]runtime.ResourceRegistration{
+			"thing": runtime.MakeResource[Thing, *ThingOutput](),
 		},
 	}
 }

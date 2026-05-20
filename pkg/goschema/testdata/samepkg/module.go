@@ -7,15 +7,9 @@ import (
 func Module() *runtime.Module {
 	return &runtime.Module{
 		Name: "samepkg",
-		Actions: map[string]runtime.ActionType{
-			"do": {
-				Name: "do",
-				New:  func() runtime.Action { return &DoAction{} },
-			},
-			"do2": {
-				Name: "do2",
-				New:  func() runtime.Action { return &Do2Action{} },
-			},
+		Actions: map[string]runtime.ActionRegistration{
+			"do":  runtime.MakeAction[DoAction, *DoActionOutput](),
+			"do2": runtime.MakeAction[Do2Action, *Do2ActionOutput](),
 		},
 	}
 }

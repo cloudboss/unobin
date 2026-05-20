@@ -171,11 +171,7 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 				if !ok {
 					continue
 				}
-				entryLit, ok := ekv.Value.(*ast.CompositeLit)
-				if !ok {
-					continue
-				}
-				ref, ok := findNewRef(entryLit)
+				ref, ok := outputRefFromMakeCall(ekv.Value)
 				if !ok {
 					continue
 				}
@@ -188,6 +184,58 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 		}
 	}
 	return out
+}
+
+// outputRefFromMakeCall extracts the output-type reference from a
+// `runtime.MakeResource[T, Out](...)` style call. It accepts the
+// `With` variants too. The second type argument is the output type;
+// any leading `*` is stripped so the caller looks up the struct
+// itself.
+func outputRefFromMakeCall(e ast.Expr) (typeRef, bool) {
+	call, ok := e.(*ast.CallExpr)
+	if !ok {
+		return typeRef{}, false
+	}
+	indices := indexedTypeArgs(call.Fun)
+	if len(indices) < 2 {
+		return typeRef{}, false
+	}
+	return outputTypeRef(indices[1])
+}
+
+// indexedTypeArgs returns the type-argument expressions on a generic
+// call's function part, in source order. The call `MakeResource[T, Out]()`
+// has fn = IndexListExpr{ X: MakeResource, Indices: [T, Out] }.
+// For older or single-arg shapes (`MakeResource[T]()`), it returns
+// the single index.
+func indexedTypeArgs(fn ast.Expr) []ast.Expr {
+	switch v := fn.(type) {
+	case *ast.IndexListExpr:
+		return v.Indices
+	case *ast.IndexExpr:
+		return []ast.Expr{v.Index}
+	}
+	return nil
+}
+
+// outputTypeRef converts a type-argument expression like `*VpcOutput`
+// or `*resources.VpcOutput` into a typeRef. A leading `*` is
+// stripped.
+func outputTypeRef(e ast.Expr) (typeRef, bool) {
+	if star, ok := e.(*ast.StarExpr); ok {
+		e = star.X
+	}
+	switch v := e.(type) {
+	case *ast.Ident:
+		return typeRef{TypeName: v.Name}, true
+	case *ast.SelectorExpr:
+		pkg, ok := identName(v.X)
+		if !ok {
+			return typeRef{}, false
+		}
+		return typeRef{PkgAlias: pkg, TypeName: v.Sel.Name}, true
+	}
+	return typeRef{}, false
 }
 
 // unwrapModuleLiteral takes the expression in `return &runtime.Module{...}`
@@ -205,57 +253,11 @@ func unwrapModuleLiteral(e ast.Expr) *ast.CompositeLit {
 	return cl
 }
 
-// findNewRef walks the body of a registration entry like
-// `{Name: "x", New: func() runtime.X { return &<expr>{} }}` and
-// returns the Go type that the New func instantiates.
-func findNewRef(entry *ast.CompositeLit) (typeRef, bool) {
-	for _, el := range entry.Elts {
-		kv, ok := el.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		name, ok := identName(kv.Key)
-		if !ok || name != "New" {
-			continue
-		}
-		fl, ok := kv.Value.(*ast.FuncLit)
-		if !ok || fl.Body == nil {
-			continue
-		}
-		for _, stmt := range fl.Body.List {
-			ret, ok := stmt.(*ast.ReturnStmt)
-			if !ok || len(ret.Results) != 1 {
-				continue
-			}
-			expr := ret.Results[0]
-			if u, ok := expr.(*ast.UnaryExpr); ok && u.Op == token.AND {
-				expr = u.X
-			}
-			cl, ok := expr.(*ast.CompositeLit)
-			if !ok {
-				continue
-			}
-			switch t := cl.Type.(type) {
-			case *ast.Ident:
-				return typeRef{TypeName: t.Name}, true
-			case *ast.SelectorExpr:
-				pkg, ok := identName(t.X)
-				if !ok {
-					return typeRef{}, false
-				}
-				return typeRef{PkgAlias: pkg, TypeName: t.Sel.Name}, true
-			}
-		}
-	}
-	return typeRef{}, false
-}
-
 func lookupOutputs(
 	rootPkg []*ast.File, rootDir, modulePath string, ref typeRef,
 ) map[string]string {
-	outName := ref.TypeName + "Output"
 	if ref.PkgAlias == "" {
-		return outputsFromPackage(rootPkg, outName)
+		return outputsFromPackage(rootPkg, ref.TypeName)
 	}
 	importPath := resolveImportPath(rootPkg, ref.PkgAlias)
 	if importPath == "" || modulePath == "" ||
@@ -268,7 +270,7 @@ func lookupOutputs(
 	if err != nil {
 		return nil
 	}
-	return outputsFromPackage(subPkg, outName)
+	return outputsFromPackage(subPkg, ref.TypeName)
 }
 
 // outputsFromPackage finds the named type in the package's files,

@@ -10,17 +10,11 @@ import (
 func Module() *runtime.Module {
 	return &runtime.Module{
 		Name: "subpkg",
-		Resources: map[string]runtime.ResourceType{
-			"thing": {
-				Name: "thing",
-				New:  func() runtime.Resource { return &resources.Thing{} },
-			},
+		Resources: map[string]runtime.ResourceRegistration{
+			"thing": runtime.MakeResource[resources.Thing, *resources.ThingOutput](),
 		},
-		DataSources: map[string]runtime.DataSourceType{
-			"ami": {
-				Name: "ami",
-				New:  func() runtime.DataSource { return &data.AMI{} },
-			},
+		DataSources: map[string]runtime.DataSourceRegistration{
+			"ami": runtime.MakeDataSource[data.AMI, *data.AMIOutput](),
 		},
 	}
 }
