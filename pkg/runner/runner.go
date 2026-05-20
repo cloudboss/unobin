@@ -120,23 +120,32 @@ func newPlanCmd(info Info) *cobra.Command {
 }
 
 func newApplyCmd(info Info) *cobra.Command {
-	var parallelism int
+	var (
+		parallelism int
+		outputStr   string
+	)
 	cmd := &cobra.Command{
 		Use:   "apply <plan-file>",
 		Short: "Run a previously computed plan",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doApplyPlan(cmd, info, args[0], parallelism)
+			format, err := ParseFormat(outputStr)
+			if err != nil {
+				return err
+			}
+			return doApplyPlan(cmd, info, args[0], parallelism, format)
 		},
 	}
 	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
 		"Override the in-flight cap baked into the plan."+
 			" Zero (the default) uses the value the plan was computed with.")
+	cmd.Flags().StringVar(&outputStr, "output", "text",
+		"Output format: text (human), json (NDJSON envelopes), unobin (one UB literal per line).")
 	return cmd
 }
 
 func doApplyPlan(
-	cmd *cobra.Command, info Info, planPath string, parallelismOverride int,
+	cmd *cobra.Command, info Info, planPath string, parallelismOverride int, format Format,
 ) error {
 	sealed, err := os.ReadFile(planPath)
 	if err != nil {
@@ -177,7 +186,7 @@ func doApplyPlan(
 	rendererDone := make(chan struct{})
 	go func() {
 		defer close(rendererDone)
-		consumeApplyEvents(events, cmd.ErrOrStderr())
+		consumeApplyEvents(events, cmd.ErrOrStderr(), format)
 	}()
 	exec := &runtime.Executor{
 		DAG:            runtime.BuildDAG(f, info.Modules),
@@ -199,12 +208,32 @@ func doApplyPlan(
 	if err != nil {
 		var ae *runtime.ApplyError
 		if errors.As(err, &ae) {
-			renderApplyError(cmd.ErrOrStderr(), ae)
+			renderApplyError(cmd.ErrOrStderr(), ae, format)
 		}
 		return err
 	}
-	for _, k := range sortedMapKeys(res.Outputs) {
-		fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", k, lang.RenderPretty(res.Outputs[k]))
+	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs)
+}
+
+// writeApplyOutputs prints the final outputs in the requested
+// format. Text emits `name: value` lines; json and unobin emit one
+// apply-output envelope per name in alphabetical order.
+func writeApplyOutputs(out io.Writer, format Format, outputs map[string]any) error {
+	if format != FormatJSON && format != FormatUnobin {
+		for _, k := range sortedMapKeys(outputs) {
+			fmt.Fprintf(out, "%s: %s\n", k, lang.RenderPretty(outputs[k]))
+		}
+		return nil
+	}
+	for _, k := range sortedMapKeys(outputs) {
+		env := applyOutputEnv{
+			Kind:  "apply-output",
+			Name:  k,
+			Value: outputs[k],
+		}
+		if err := writeEnvelope(out, format, env); err != nil {
+			return err
+		}
 	}
 	return nil
 }

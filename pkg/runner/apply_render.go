@@ -8,17 +8,22 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-// consumeApplyEvents reads events until the channel closes and writes
-// one line per event to out. Events that represent no observable
-// work, such as a composite boundary's output evaluation, a no-op
-// resource, or a skipped action, are filtered so the stream shows
-// only steps the operator cares about.
-func consumeApplyEvents(events <-chan runtime.ApplyEvent, out io.Writer) {
+// consumeApplyEvents reads events until the channel closes and
+// renders each to out in the requested format. Events that represent
+// no observable work, such as a composite boundary's output
+// evaluation, a no-op resource, or a skipped action, are filtered so
+// the stream shows only steps the operator cares about.
+func consumeApplyEvents(events <-chan runtime.ApplyEvent, out io.Writer, format Format) {
 	for ev := range events {
 		if isSilentEvent(ev) {
 			continue
 		}
-		writeApplyEventHuman(out, ev)
+		switch format {
+		case FormatJSON, FormatUnobin:
+			_ = writeEnvelope(out, format, applyEventFrom(ev))
+		default:
+			writeApplyEventHuman(out, ev)
+		}
 	}
 }
 
@@ -47,6 +52,32 @@ func writeApplyEventHuman(out io.Writer, ev runtime.ApplyEvent) {
 			ts, decisionGerund(ev.Decision), ev.Address,
 			formatDuration(ev.Elapsed), ev.Err)
 	}
+}
+
+// applyEventFrom converts a runtime ApplyEvent into the envelope
+// shape that lands on the wire. Stage strings stay lowercase verbs so
+// downstream filters can match on them without an enum table.
+func applyEventFrom(ev runtime.ApplyEvent) applyEventEnv {
+	env := applyEventEnv{
+		Kind:     "apply-event",
+		Time:     ev.Time.Format("15:04:05"),
+		Address:  ev.Address,
+		Decision: string(ev.Decision),
+	}
+	switch ev.Stage {
+	case runtime.StageStart:
+		env.Stage = "start"
+	case runtime.StageDone:
+		env.Stage = "done"
+		env.Elapsed = formatDuration(ev.Elapsed)
+	case runtime.StageFail:
+		env.Stage = "fail"
+		env.Elapsed = formatDuration(ev.Elapsed)
+		if ev.Err != nil {
+			env.Err = ev.Err.Error()
+		}
+	}
+	return env
 }
 
 // decisionGerund returns the present-participle verb for a decision,
@@ -98,11 +129,24 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.1fs", d.Seconds())
 }
 
-// renderApplyError prints the structured failure report. The
-// underlying module error is printed verbatim so operators see the
-// exact text the cloud API returned. Skipped and succeeded counts
-// give a quick sense of blast radius without listing every address.
-func renderApplyError(out io.Writer, ae *runtime.ApplyError) {
+// renderApplyError prints the failure either as the structured human
+// report or as a single envelope, depending on format. The underlying
+// module error text is preserved verbatim in both forms.
+func renderApplyError(out io.Writer, ae *runtime.ApplyError, format Format) {
+	if format == FormatJSON || format == FormatUnobin {
+		env := applyErrorEnv{
+			Kind:      "apply-error",
+			Address:   ae.Address,
+			Decision:  string(ae.Decision),
+			Module:    ae.Module,
+			Elapsed:   formatDuration(ae.Elapsed),
+			Err:       ae.Err.Error(),
+			Skipped:   ae.SkippedCount,
+			Succeeded: ae.SucceededCount,
+		}
+		_ = writeEnvelope(out, format, env)
+		return
+	}
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Apply failed.")
 	fmt.Fprintln(out)
