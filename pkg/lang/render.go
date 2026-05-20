@@ -2,129 +2,34 @@ package lang
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/encoding/ub"
 )
 
-// Render formats v as a UB literal expression on one line. Strings
-// get single quotes with backslash escaping; lists, maps, and
-// primitives use the canonical UB syntax. The result re-parses
-// through ParseSource for the value forms unobin natively produces
-// (string, int64, float64, bool, nil, []any, map[string]any).
+// Render formats v as a UB literal expression on one line. The
+// canonical set (string, bool, int64, float64, []any, map[string]any,
+// nil) renders directly; types implementing ub.Marshaler control
+// their own form; anything else falls through to Go's default
+// formatter so callers never see an empty string.
 func Render(v any) string {
-	switch x := v.(type) {
-	case nil:
-		return "null"
-	case string:
-		return renderString(x)
-	case bool:
-		if x {
-			return "true"
-		}
-		return "false"
-	case int64:
-		return strconv.FormatInt(x, 10)
-	case int:
-		return strconv.FormatInt(int64(x), 10)
-	case float64:
-		return strconv.FormatFloat(x, 'g', -1, 64)
-	case []any:
-		parts := make([]string, len(x))
-		for i, el := range x {
-			parts[i] = Render(el)
-		}
-		return "[" + strings.Join(parts, ", ") + "]"
-	case map[string]any:
-		keys := make([]string, 0, len(x))
-		for k := range x {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		parts := make([]string, 0, len(keys))
-		for _, k := range keys {
-			parts = append(parts, RenderKey(k)+": "+Render(x[k]))
-		}
-		return "{ " + strings.Join(parts, ", ") + " }"
+	b, err := ub.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
 	}
-	return fmt.Sprintf("%v", v)
+	return string(b)
 }
 
 // RenderPretty formats v as UB syntax with indented multi-line
-// expansion for non-empty maps and lists. Maps put each field on its
-// own line, separated by newlines (UB permits whitespace as a
-// separator inside an object literal). Empty collections render
-// inline as `{}` or `[]`. Primitive values render exactly as Render
-// would emit them.
+// expansion for non-empty maps and lists. Empty collections render
+// inline as `{}` or `[]`. Atoms render exactly as Render would emit
+// them.
 func RenderPretty(v any) string {
-	var b strings.Builder
-	renderPretty(&b, v, 0)
-	return b.String()
-}
-
-func renderPretty(b *strings.Builder, v any, depth int) {
-	switch x := v.(type) {
-	case nil:
-		b.WriteString("null")
-	case string:
-		b.WriteString(renderString(x))
-	case bool:
-		if x {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
-	case int64:
-		b.WriteString(strconv.FormatInt(x, 10))
-	case int:
-		b.WriteString(strconv.FormatInt(int64(x), 10))
-	case float64:
-		b.WriteString(strconv.FormatFloat(x, 'g', -1, 64))
-	case []any:
-		if len(x) == 0 {
-			b.WriteString("[]")
-			return
-		}
-		inner := strings.Repeat("  ", depth+1)
-		closer := strings.Repeat("  ", depth)
-		b.WriteString("[\n")
-		for _, el := range x {
-			b.WriteString(inner)
-			renderPretty(b, el, depth+1)
-			b.WriteString(",\n")
-		}
-		b.WriteString(closer)
-		b.WriteString("]")
-	case map[string]any:
-		if len(x) == 0 {
-			b.WriteString("{}")
-			return
-		}
-		keys := sortedStringKeys(x)
-		inner := strings.Repeat("  ", depth+1)
-		closer := strings.Repeat("  ", depth)
-		b.WriteString("{\n")
-		for _, k := range keys {
-			b.WriteString(inner)
-			b.WriteString(RenderKey(k))
-			b.WriteString(": ")
-			renderPretty(b, x[k], depth+1)
-			b.WriteString("\n")
-		}
-		b.WriteString(closer)
-		b.WriteString("}")
-	default:
-		fmt.Fprintf(b, "%v", v)
+	b, err := ub.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", v)
 	}
-}
-
-func sortedStringKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
+	return string(b)
 }
 
 // renderString emits s as a single-quoted UB string with backslash

@@ -56,7 +56,7 @@ func TestRenderList(t *testing.T) {
 }
 
 func TestRenderMap(t *testing.T) {
-	require.Equal(t, "{  }", Render(map[string]any{}))
+	require.Equal(t, "{}", Render(map[string]any{}))
 	require.Equal(t, "{ a: 1 }", Render(map[string]any{"a": int64(1)}))
 	require.Equal(t, "{ a: 1, b: 2 }",
 		Render(map[string]any{"a": int64(1), "b": int64(2)}))
