@@ -22,6 +22,7 @@ func CheckReferences(f *lang.File, mods map[string]*Module) *lang.ErrorList {
 	c.checkDeclarations()
 	c.checkNodes()
 	c.checkConstraints()
+	c.checkTypes()
 	return c.errs
 }
 
