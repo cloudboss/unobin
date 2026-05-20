@@ -12,6 +12,7 @@ inputs: {
 }
 
 imports: {
+  core:    'github.com/cloudboss/unobin//pkg/modules/core@v0.1.0'
   greeter: './greeter'
 }
 
