@@ -71,6 +71,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newSchemaCmd(info))
 	root.AddCommand(newStateCmd(info))
 	root.AddCommand(newPrintGraphCmd(info))
+	root.AddCommand(newPinCmd(info))
 	return root
 }
 
