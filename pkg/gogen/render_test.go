@@ -46,10 +46,11 @@ func TestResourceFileProducesParseableGo(t *testing.T) {
 		"BucketName string `mapstructure:\"bucket-name\"`",
 		"Tags map[string]string `mapstructure:\"tags\"`",
 		"Arn string `mapstructure:\"arn\"`",
-		"func (r *S3Bucket) Create(ctx context.Context, cfg any) (any, error)",
-		"func (r *S3Bucket) Read(ctx context.Context, cfg any, priorOutputs any) (any, error)",
-		"func (r *S3Bucket) Update(ctx context.Context, cfg any, priorOutputs any) (any, error)",
-		"func (r *S3Bucket) Delete(ctx context.Context, cfg any, priorOutputs any) error",
+		"func (r *S3Bucket) SchemaVersion() int { return 1 }",
+		"func (r *S3Bucket) Create(ctx context.Context, cfg any) (*S3BucketOutput, error)",
+		"func (r *S3Bucket) Read(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) (*S3BucketOutput, error)",
+		"func (r *S3Bucket) Update(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) (*S3BucketOutput, error)",
+		"func (r *S3Bucket) Delete(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) error",
 		"return []string{\n\t\t\"bucket-name\",\n\t}",
 		`panic("not implemented")`,
 	}
@@ -125,7 +126,7 @@ func TestDataSourceFileProducesParseableGo(t *testing.T) {
 	if !strings.Contains(s, "package data") {
 		t.Error("expected package data")
 	}
-	if !strings.Contains(s, "func (d *AMI) Read(ctx context.Context, cfg any) (any, error)") {
+	if !strings.Contains(s, "func (d *AMI) Read(ctx context.Context, cfg any) (*AMIOutput, error)") {
 		t.Error("expected Read method on data source")
 	}
 }
@@ -150,9 +151,8 @@ func TestModuleFileProducesParseableGo(t *testing.T) {
 		"package aws",
 		`"example.com/aws/resources"`,
 		"func Module() *runtime.Module",
-		"Resources: map[string]runtime.ResourceType",
-		`"s3-bucket": {`,
-		`New:           func() runtime.Resource { return &resources.S3Bucket{} }`,
+		"Resources: map[string]runtime.ResourceRegistration",
+		`"s3-bucket": runtime.MakeResource[resources.S3Bucket, *resources.S3BucketOutput]()`,
 		"// TODO: register state backends here.",
 		"StateBackends: map[string]sdkstate.BackendType{}",
 		"// TODO: register encrypters here.",
@@ -191,7 +191,7 @@ func TestModuleFileWithDataSources(t *testing.T) {
 	if !strings.Contains(s, `"example.com/aws/data"`) {
 		t.Error("expected /data import")
 	}
-	if !strings.Contains(s, `New:         func() runtime.DataSource { return &data.AMI{} }`) {
+	if !strings.Contains(s, `"ami": runtime.MakeDataSource[data.AMI, *data.AMIOutput]()`) {
 		t.Error("expected qualified data source type reference")
 	}
 	if strings.Contains(s, "Resources") {

@@ -65,6 +65,8 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 
+	fmt.Fprintf(&b, "func (r *%s) SchemaVersion() int { return 1 }\n\n", rs.GoName)
+
 	fmt.Fprintf(&b, "func (r *%s) ReplaceFields() []string {\n", rs.GoName)
 	if len(rs.CreateOnlyFields) > 0 {
 		b.WriteString("\treturn []string{\n")
@@ -78,13 +80,14 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 
+	outPtr := "*" + outName
 	for _, op := range []struct {
 		method, params, returns string
 	}{
-		{"Create", "ctx context.Context, cfg any", "(any, error)"},
-		{"Read", "ctx context.Context, cfg any, priorOutputs any", "(any, error)"},
-		{"Update", "ctx context.Context, cfg any, priorOutputs any", "(any, error)"},
-		{"Delete", "ctx context.Context, cfg any, priorOutputs any", "error"},
+		{"Create", "ctx context.Context, cfg any", "(" + outPtr + ", error)"},
+		{"Read", "ctx context.Context, cfg any, priorOutputs " + outPtr, "(" + outPtr + ", error)"},
+		{"Update", "ctx context.Context, cfg any, priorOutputs " + outPtr, "(" + outPtr + ", error)"},
+		{"Delete", "ctx context.Context, cfg any, priorOutputs " + outPtr, "error"},
 	} {
 		b.WriteString(writeStub(rs.GoName, op.method, op.params, op.returns))
 	}
@@ -146,7 +149,7 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 
-	fmt.Fprintf(&b, "func (d *%s) Read(ctx context.Context, cfg any) (any, error) {\n", ds.GoName)
+	fmt.Fprintf(&b, "func (d *%s) Read(ctx context.Context, cfg any) (*%s, error) {\n", ds.GoName, outName)
 	b.WriteString("\tpanic(\"not implemented\")\n")
 	b.WriteString("}\n")
 
@@ -218,17 +221,12 @@ func ModuleFile(
 			identJ := lang.PascalToKebab(resources[j].GoName)
 			return identI < identJ
 		})
-		b.WriteString("\t\tResources: map[string]runtime.ResourceType{\n")
+		b.WriteString("\t\tResources: map[string]runtime.ResourceRegistration{\n")
 		for _, rs := range resources {
 			typeKey := lang.PascalToKebab(rs.GoName)
-			fmt.Fprintf(&b, "\t\t\t\"%s\": {\n", typeKey)
-			fmt.Fprintf(&b, "\t\t\t\tName:          \"%s\",\n", typeKey)
-			desc := escapeQuote(rs.Description)
-			fmt.Fprintf(&b, "\t\t\t\tDescription:   \"%s\",\n", desc)
-			b.WriteString("\t\t\t\tSchemaVersion: 1,\n")
-			fmt.Fprintf(&b, "\t\t\t\tNew:           func() runtime.Resource { return &resources.%s{} },\n",
-				rs.GoName)
-			b.WriteString("\t\t\t},\n")
+			fmt.Fprintf(&b,
+				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, *resources.%sOutput](),\n",
+				typeKey, rs.GoName, rs.GoName)
 		}
 		b.WriteString("\t\t},\n")
 	}
@@ -239,16 +237,12 @@ func ModuleFile(
 			identJ := lang.PascalToKebab(dataSources[j].GoName)
 			return identI < identJ
 		})
-		b.WriteString("\t\tDataSources: map[string]runtime.DataSourceType{\n")
+		b.WriteString("\t\tDataSources: map[string]runtime.DataSourceRegistration{\n")
 		for _, ds := range dataSources {
 			typeKey := lang.PascalToKebab(ds.GoName)
-			fmt.Fprintf(&b, "\t\t\t\"%s\": {\n", typeKey)
-			fmt.Fprintf(&b, "\t\t\t\tName:        \"%s\",\n", typeKey)
-			desc := escapeQuote(ds.Description)
-			fmt.Fprintf(&b, "\t\t\t\tDescription: \"%s\",\n", desc)
-			fmt.Fprintf(&b, "\t\t\t\tNew:         func() runtime.DataSource { return &data.%s{} },\n",
-				ds.GoName)
-			b.WriteString("\t\t\t},\n")
+			fmt.Fprintf(&b,
+				"\t\t\t\"%s\": runtime.MakeDataSource[data.%s, *data.%sOutput](),\n",
+				typeKey, ds.GoName, ds.GoName)
 		}
 		b.WriteString("\t\t},\n")
 	}
