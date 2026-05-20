@@ -152,9 +152,14 @@ func TestMarshalDuration(t *testing.T) {
 		in   time.Duration
 		want string
 	}{
-		{name: "seconds", in: 30 * time.Second, want: "'30s'"},
-		{name: "milliseconds", in: 1500 * time.Millisecond, want: "'1.5s'"},
+		{name: "zero", in: 0, want: "'0s'"},
+		{name: "nanoseconds", in: 42 * time.Nanosecond, want: "'42ns'"},
 		{name: "microseconds", in: 711785 * time.Nanosecond, want: "'711.785us'"},
+		{name: "milliseconds", in: 1500 * time.Millisecond, want: "'1.5s'"},
+		{name: "seconds", in: 30 * time.Second, want: "'30s'"},
+		{name: "minutes-and-seconds", in: 90 * time.Second, want: "'1m30s'"},
+		{name: "hours-and-seconds", in: time.Hour + 30*time.Second, want: "'1h0m30s'"},
+		{name: "negative", in: -30 * time.Second, want: "'-30s'"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
