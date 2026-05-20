@@ -48,13 +48,14 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 	var warnings []string
 
 	for _, reg := range extractRegistrations(moduleFunc) {
-		outputs := lookupOutputs(rootPkg, dir, modulePath, reg.Ref)
+		inputs := lookupOutputs(rootPkg, dir, modulePath, reg.InputRef)
+		outputs := lookupOutputs(rootPkg, dir, modulePath, reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s %q: %sOutput not found in the module's source",
-				registrationKindLabel(reg.Field), reg.Name, reg.Ref.TypeName))
+				"%s %q: %s not found in the module's source",
+				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
-		ts := &runtime.TypeSchema{Outputs: outputs}
+		ts := &runtime.TypeSchema{Inputs: inputs, Outputs: outputs}
 		switch reg.Field {
 		case "Resources":
 			schema.Resources[reg.Name] = ts
@@ -81,13 +82,16 @@ func registrationKindLabel(field string) string {
 
 // registration is one entry extracted from the Module() function's
 // Resources, DataSources, or Actions map. Name is the kebab-case
-// key. Ref names the Go type referenced from the New func: same
-// package when PkgAlias is empty, else a type in the package
-// imported under that alias.
+// key. InputRef names the receiver type (the first type argument of
+// MakeResource/MakeAction/MakeDataSource); OutputRef names the
+// output struct (the second type argument). Each ref points to a
+// type in the root package when PkgAlias is empty, or a subpackage
+// otherwise.
 type registration struct {
-	Field    string // "Resources", "DataSources", "Actions"
-	Name     string // kebab-case
-	Ref      typeRef
+	Field     string // "Resources", "DataSources", "Actions"
+	Name      string // kebab-case
+	InputRef  typeRef
+	OutputRef typeRef
 }
 
 type typeRef struct {
@@ -171,14 +175,15 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 				if !ok {
 					continue
 				}
-				ref, ok := outputRefFromMakeCall(ekv.Value)
+				inputRef, outputRef, ok := refsFromMakeCall(ekv.Value)
 				if !ok {
 					continue
 				}
 				out = append(out, registration{
-					Field: fieldName,
-					Name:  kebab,
-					Ref:   ref,
+					Field:     fieldName,
+					Name:      kebab,
+					InputRef:  inputRef,
+					OutputRef: outputRef,
 				})
 			}
 		}
@@ -186,21 +191,29 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 	return out
 }
 
-// outputRefFromMakeCall extracts the output-type reference from a
-// `runtime.MakeResource[T, Out](...)` style call. It accepts the
-// `With` variants too. The second type argument is the output type;
-// any leading `*` is stripped so the caller looks up the struct
-// itself.
-func outputRefFromMakeCall(e ast.Expr) (typeRef, bool) {
-	call, ok := e.(*ast.CallExpr)
-	if !ok {
-		return typeRef{}, false
+// refsFromMakeCall extracts the input and output type references
+// from a `runtime.MakeResource[T, Out](...)` call. It accepts the
+// `With` variants too. The first type argument is the input
+// (receiver) type; the second is the output type. Any leading `*`
+// is stripped from either so the caller looks up the struct itself.
+func refsFromMakeCall(e ast.Expr) (input, output typeRef, ok bool) {
+	call, callOk := e.(*ast.CallExpr)
+	if !callOk {
+		return typeRef{}, typeRef{}, false
 	}
 	indices := indexedTypeArgs(call.Fun)
 	if len(indices) < 2 {
-		return typeRef{}, false
+		return typeRef{}, typeRef{}, false
 	}
-	return outputTypeRef(indices[1])
+	input, inOk := outputTypeRef(indices[0])
+	output, outOk := outputTypeRef(indices[1])
+	if !outOk {
+		return typeRef{}, typeRef{}, false
+	}
+	if !inOk {
+		input = typeRef{}
+	}
+	return input, output, true
 }
 
 // indexedTypeArgs returns the type-argument expressions on a generic

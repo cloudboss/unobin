@@ -10,11 +10,14 @@ type ModuleSchema struct {
 	Actions     map[string]*TypeSchema
 }
 
-// TypeSchema describes the output fields of one resource, data
-// source, or action. Outputs maps each kebab-case field name (the
-// key by which stack source addresses the field, e.g. the `id` in
-// `resource.aws.vpc.main.id`) to the field's Go type expression as
-// written in source (e.g. `string`, `[]string`, `time.Duration`).
+// TypeSchema describes the input and output fields of one resource,
+// data source, or action. Each map keys a kebab-case field name
+// (the form stack source uses) to that field's Go type expression
+// as written in source (e.g. `string`, `[]string`, `time.Duration`).
+// Inputs lists the receiver type's exported fields; Outputs lists
+// the output struct's. The type checker turns these strings into
+// typecheck.Types at the comparison site.
 type TypeSchema struct {
+	Inputs  map[string]string
 	Outputs map[string]string
 }

@@ -17,6 +17,9 @@ func TestReadSamePackage(t *testing.T) {
 	require.Contains(t, schema.Actions, "do")
 	do := schema.Actions["do"]
 	require.Equal(t, map[string]string{
+		"what": "string",
+	}, do.Inputs)
+	require.Equal(t, map[string]string{
 		"result":   "string",
 		"duration": "time.Duration",
 		"tags":     "[]string",
@@ -35,6 +38,9 @@ func TestReadSubpackage(t *testing.T) {
 	require.Contains(t, schema.Resources, "thing")
 	thing := schema.Resources["thing"]
 	require.Equal(t, map[string]string{
+		"name": "string",
+	}, thing.Inputs)
+	require.Equal(t, map[string]string{
 		"id":         "string",
 		"cidr-block": "string",
 		"replicas":   "*int64",
@@ -42,6 +48,9 @@ func TestReadSubpackage(t *testing.T) {
 
 	require.Contains(t, schema.DataSources, "ami")
 	ami := schema.DataSources["ami"]
+	require.Equal(t, map[string]string{
+		"image-id": "string",
+	}, ami.Inputs)
 	require.Equal(t, map[string]string{
 		"architecture": "string",
 	}, ami.Outputs)
