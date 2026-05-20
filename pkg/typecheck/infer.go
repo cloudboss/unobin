@@ -241,7 +241,7 @@ func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if field.Optional {
 		t = TOptional(t)
 	}
-	return traverseSegments(t, dp.Segments[1:], dp, errs)
+	return traverseSegments(t, dp.Segments[1:], errs, false)
 }
 
 func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
@@ -262,7 +262,7 @@ func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if len(rest) > 0 && rest[0].Index != nil && rest[0].Name == "" {
 		rest = rest[1:]
 	}
-	return traverseSegments(t, rest, dp, errs)
+	return traverseSegments(t, rest, errs, true)
 }
 
 func inferEach(dp *lang.DotPath, scope *Scope) Type {
@@ -282,13 +282,18 @@ func inferEach(dp *lang.DotPath, scope *Scope) Type {
 // reference, narrowing the type as it descends. Each .name segment
 // looks up an object field; each [expr] segment unwraps a list,
 // set, or map element. Returns Unknown when a segment cannot be
-// resolved; the runtime's reference checker reports the specific
-// "unknown field" message at the right call site.
+// resolved.
+//
+// skipFirst suppresses the unknown-field diagnostic at segs[0] so
+// callers whose first segment is already checked elsewhere (the
+// reference checker's `unknown field "x" on <ns>.<type>` message
+// for resource/data/action paths) do not report twice. Deeper
+// segments always report.
 func traverseSegments(
-	t Type, segs []lang.DotSegment, _ *lang.DotPath, _ *lang.ErrorList,
+	t Type, segs []lang.DotSegment, errs *lang.ErrorList, skipFirst bool,
 ) Type {
 	current := t
-	for _, seg := range segs {
+	for i, seg := range segs {
 		current = current.Unwrap()
 		if !current.IsKnown() {
 			return TUnknown()
@@ -311,6 +316,10 @@ func traverseSegments(
 		case Object:
 			field, ok := current.Field(seg.Name)
 			if !ok {
+				if !(skipFirst && i == 0) {
+					errs.Addf(lang.ErrType, seg.S.Start,
+						"unknown field %q on %s", seg.Name, current)
+				}
 				return TUnknown()
 			}
 			current = field.Type

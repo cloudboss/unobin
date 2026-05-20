@@ -231,6 +231,25 @@ resources: {
 	require.Contains(t, got[0], `unknown field "paht" on local.file`)
 }
 
+func TestCheckTypesRejectsUnknownNestedObjectField(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: {
+  cfg: { type: object({ host: string  port: integer }) }
+}
+resources: {
+  local: {
+    file: {
+      one: { path: var.cfg.bogus, content: 'hi' }
+    }
+  }
+}
+`), map[string]*Module{"local": localFileModule()})
+
+	got := checkErrorMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "bogus" on object(`)
+}
+
 func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 resources: {

@@ -184,6 +184,76 @@ func TestInferNodeFieldTraversal(t *testing.T) {
 	assert.Empty(t, errs.Errors())
 }
 
+func TestInferVarNestedObjectReportsUnknownField(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "cfg", Type: TObject([]ObjectField{
+				{Name: "host", Type: TString()},
+				{Name: "port", Type: TInteger()},
+			})},
+		},
+	}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "var.cfg.bogus"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TUnknown()))
+	require.Len(t, errs.Errors(), 1)
+	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "bogus" on object(`)
+}
+
+func TestInferVarDeeplyNestedObjectReportsUnknownField(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "cfg", Type: TObject([]ObjectField{
+				{Name: "db", Type: TObject([]ObjectField{
+					{Name: "host", Type: TString()},
+				})},
+			})},
+		},
+	}
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "var.cfg.db.port"), TUnknown(), scope, errs)
+	require.Len(t, errs.Errors(), 1)
+	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "port" on object(`)
+}
+
+func TestInferNodeDeepNestedObjectReportsUnknownField(t *testing.T) {
+	output := TObject([]ObjectField{
+		{Name: "endpoint", Type: TObject([]ObjectField{
+			{Name: "host", Type: TString()},
+		})},
+	})
+	scope := &Scope{
+		LookupNode: func(kind, ns, typ, name string) (Type, bool) {
+			if kind == "resource" && ns == "aws" && typ == "rds" && name == "main" {
+				return output, true
+			}
+			return Type{}, false
+		},
+	}
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "resource.aws.rds.main.endpoint.port"), TUnknown(), scope, errs)
+	require.Len(t, errs.Errors(), 1)
+	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "port" on object(`)
+}
+
+func TestInferNodeFirstSegmentUnknownStaysSilent(t *testing.T) {
+	output := TObject([]ObjectField{
+		{Name: "id", Type: TString()},
+	})
+	scope := &Scope{
+		LookupNode: func(kind, ns, typ, name string) (Type, bool) {
+			if kind == "resource" && ns == "aws" && typ == "vpc" && name == "main" {
+				return output, true
+			}
+			return Type{}, false
+		},
+	}
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "resource.aws.vpc.main.bogus"), TUnknown(), scope, errs)
+	assert.Empty(t, errs.Errors(),
+		"first trailing segment is the reference checker's responsibility")
+}
+
 func TestInferEachKeyValue(t *testing.T) {
 	scope := &Scope{
 		Each: &EachBinding{Key: TString(), Value: TInteger()},
