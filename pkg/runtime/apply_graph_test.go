@@ -173,9 +173,9 @@ resources: {
 	mods := map[string]*Module{
 		"aws": {
 			Name: "aws",
-			Resources: map[string]ResourceType{
-				"instance": {Name: "instance", New: func() Resource { return nil }},
-				"volume":   {Name: "volume", New: func() Resource { return nil }},
+			Resources: map[string]ResourceRegistration{
+				"instance": MakeResource[plainResource, any](),
+				"volume":   MakeResource[plainResource, any](),
 			},
 		},
 	}

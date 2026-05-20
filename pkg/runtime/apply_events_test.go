@@ -14,6 +14,8 @@ type plainResource struct {
 	Name string `mapstructure:"name"`
 }
 
+func (r *plainResource) SchemaVersion() int { return 1 }
+
 func (r *plainResource) Create(_ context.Context, _ any) (any, error) {
 	return map[string]any{"name": r.Name}, nil
 }
@@ -29,6 +31,8 @@ func (r *plainResource) ReplaceFields() []string                  { return nil }
 type plainFailResource struct {
 	Name string `mapstructure:"name"`
 }
+
+func (r *plainFailResource) SchemaVersion() int { return 1 }
 
 func (r *plainFailResource) Create(_ context.Context, _ any) (any, error) {
 	return nil, errors.New("boom")
@@ -46,11 +50,8 @@ func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 	mods := map[string]*Module{
 		"r": {
 			Name: "r",
-			Resources: map[string]ResourceType{
-				"thing": {
-					Name: "thing",
-					New:  func() Resource { return &plainResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResource[plainResource, any](),
 			},
 		},
 	}
@@ -99,11 +100,8 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 	mods := map[string]*Module{
 		"r": {
 			Name: "r",
-			Resources: map[string]ResourceType{
-				"thing": {
-					Name: "thing",
-					New:  func() Resource { return &plainFailResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResource[plainFailResource, any](),
 			},
 		},
 	}

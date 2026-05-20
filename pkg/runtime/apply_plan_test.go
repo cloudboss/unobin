@@ -59,18 +59,18 @@ func (r *incrementalResource) ReplaceFields() []string {
 	return []string{"name"}
 }
 
+func (r *incrementalResource) SchemaVersion() int { return 1 }
+
 func incrementalModules(c *incrementalResourceCounters) map[string]*Module {
 	return map[string]*Module{
 		"core": {
 			Name: "core",
-			Resources: map[string]ResourceType{
-				"inc": {
-					Name:          "inc",
-					SchemaVersion: 1,
-					New: func() Resource {
+			Resources: map[string]ResourceRegistration{
+				"inc": MakeResourceWith[incrementalResource, any](
+					func() *incrementalResource {
 						return &incrementalResource{counters: c}
 					},
-				},
+				),
 			},
 		},
 	}
@@ -1070,22 +1070,19 @@ actions: {
 	mods := map[string]*Module{
 		"core": {
 			Name: "core",
-			Resources: map[string]ResourceType{
-				"thing": {
-					Name:          "thing",
-					SchemaVersion: 1,
-					New: func() Resource {
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResource, any](
+					func() *countingResource {
 						return &countingResource{counters: &resCounters}
 					},
-				},
+				),
 			},
-			Actions: map[string]ActionType{
-				"echo": {
-					Name: "echo",
-					New: func() Action {
+			Actions: map[string]ActionRegistration{
+				"echo": MakeActionWith[countingAction, any](
+					func() *countingAction {
 						return &countingAction{runs: &actionRuns}
 					},
-				},
+				),
 			},
 		},
 	}

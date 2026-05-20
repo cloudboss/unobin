@@ -11,13 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runHTTP(t *testing.T, a *HTTPAction) HTTPActionOutput {
+func runHTTP(t *testing.T, a *HTTPAction) *HTTPActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	hr, ok := res.(HTTPActionOutput)
-	require.True(t, ok, "got %T", res)
-	return hr
+	require.NotNil(t, res)
+	return res
 }
 
 func TestHTTPGet(t *testing.T) {
@@ -103,7 +102,7 @@ func TestHTTPContextCancel(t *testing.T) {
 func TestCoreModuleRegistersHTTP(t *testing.T) {
 	at, ok := Module().Actions["http"]
 	require.True(t, ok)
-	require.NotNil(t, at.New)
-	_, ok = at.New().(*HTTPAction)
+	require.NotNil(t, at)
+	_, ok = at.NewReceiver().(*HTTPAction)
 	require.True(t, ok)
 }

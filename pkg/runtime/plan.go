@@ -522,7 +522,7 @@ func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*Pl
 // (scope == parent, addr == n.Address) and by the for-each path
 // (scope has @each bound, addr has the `['<key>']` suffix).
 func (e *Executor) planOneResource(
-	ctx context.Context, rs *runState, n *Node, rt ResourceType,
+	ctx context.Context, rs *runState, n *Node, rt ResourceRegistration,
 	scope *EvalContext, addr string,
 ) (*PlanStep, error) {
 	inputs, unresolved, err := planEvalBody(n.Body, scope)
@@ -560,11 +560,11 @@ func (e *Executor) planOneResource(
 	step.ObservedOutputs = observed
 
 	if !sameInputs(prior.Inputs, inputs) {
-		probe := rt.New()
+		probe := rt.NewReceiver()
 		if err := Decode(probe, inputs); err != nil {
 			return nil, err
 		}
-		if needsReplace(probe, prior.Inputs, inputs) {
+		if needsReplace(rt.ReplaceFields(probe), prior.Inputs, inputs) {
 			step.Decision = DecisionReplace
 		} else {
 			step.Decision = DecisionUpdate
@@ -601,15 +601,15 @@ func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanS
 // gone.
 func readObserved(
 	ctx context.Context,
-	rt ResourceType,
+	rt ResourceRegistration,
 	cfg any,
 	inputs, priorOutputs map[string]any,
 ) (map[string]any, error) {
-	res := rt.New()
-	if err := Decode(res, inputs); err != nil {
+	receiver := rt.NewReceiver()
+	if err := Decode(receiver, inputs); err != nil {
 		return nil, err
 	}
-	result, err := res.Read(ctx, cfg, priorOutputs)
+	result, err := rt.Read(ctx, receiver, cfg, priorOutputs)
 	if err != nil {
 		return nil, err
 	}

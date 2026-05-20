@@ -53,11 +53,10 @@ func slowActionModules(track *concurrencyTracker) map[string]*Module {
 	return map[string]*Module{
 		"core": {
 			Name: "core",
-			Actions: map[string]ActionType{
-				"slow": {
-					Name: "slow",
-					New:  func() Action { return &slowAction{track: track} },
-				},
+			Actions: map[string]ActionRegistration{
+				"slow": MakeActionWith[slowAction, any](
+					func() *slowAction { return &slowAction{track: track} },
+				),
 			},
 		},
 	}

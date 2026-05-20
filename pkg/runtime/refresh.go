@@ -128,7 +128,7 @@ func (e *Executor) refreshLeaf(
 		Address:         ent.Address,
 		Type:            state.EntryLeaf,
 		Kind:            ent.Kind,
-		SchemaVersion:   rt.SchemaVersion,
+		SchemaVersion:   rt.SchemaVersion(),
 		SensitiveFields: ent.SensitiveFields,
 		TriggerHash:     ent.TriggerHash,
 		Inputs:          ent.Inputs,

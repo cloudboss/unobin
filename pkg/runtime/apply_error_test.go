@@ -13,11 +13,8 @@ func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 	mods := map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"fail": {
-					Name: "fail",
-					New:  func() Resource { return &slowFailResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"fail": MakeResource[slowFailResource, any](),
 			},
 		},
 	}
@@ -54,15 +51,9 @@ func TestApplyErrorCountsSkippedAndSucceeded(t *testing.T) {
 	mods := map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"fail": {
-					Name: "fail",
-					New:  func() Resource { return &slowFailResource{} },
-				},
-				"r": {
-					Name: "r",
-					New:  func() Resource { return &slowResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"fail": MakeResource[slowFailResource, any](),
+				"r":    MakeResource[slowResource, any](),
 			},
 		},
 	}

@@ -31,7 +31,7 @@ type HTTPActionOutput struct {
 
 // Run issues the request. Method defaults to GET. Timeout applies to the
 // whole round trip including reading the response body.
-func (a *HTTPAction) Run(ctx context.Context, _ any) (any, error) {
+func (a *HTTPAction) Run(ctx context.Context, _ any) (*HTTPActionOutput, error) {
 	if a.URL == "" {
 		return nil, errors.New("url is required")
 	}
@@ -69,7 +69,7 @@ func (a *HTTPAction) Run(ctx context.Context, _ any) (any, error) {
 		return nil, err
 	}
 
-	return HTTPActionOutput{
+	return &HTTPActionOutput{
 		Status:     resp.StatusCode,
 		StatusText: resp.Status,
 		Headers:    resp.Header,

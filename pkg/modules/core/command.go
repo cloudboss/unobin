@@ -25,7 +25,7 @@ type CommandActionOutput struct {
 
 // Run execs argv[0] with argv[1:] as arguments. Environment is merged
 // with the parent, with user-supplied variables taking precedence.
-func (a *CommandAction) Run(ctx context.Context, _ any) (any, error) {
+func (a *CommandAction) Run(ctx context.Context, _ any) (*CommandActionOutput, error) {
 	if len(a.Argv) == 0 {
 		return nil, errors.New("argv is required")
 	}

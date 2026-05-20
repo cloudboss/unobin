@@ -40,21 +40,12 @@ func testModules() map[string]*Module {
 	return map[string]*Module{
 		"core": {
 			Name: "core",
-			Actions: map[string]ActionType{
-				"echo": {
-					Name: "echo",
-					New:  func() Action { return &echoAction{} },
-				},
-				"fail": {
-					Name: "fail",
-					New:  func() Action { return failingAction{} },
-				},
+			Actions: map[string]ActionRegistration{
+				"echo": MakeAction[echoAction, any](),
+				"fail": MakeAction[failingAction, any](),
 			},
-			DataSources: map[string]DataSourceType{
-				"lookup": {
-					Name: "lookup",
-					New:  func() DataSource { return &lookupDataSource{} },
-				},
+			DataSources: map[string]DataSourceRegistration{
+				"lookup": MakeDataSource[lookupDataSource, any](),
 			},
 			Functions: map[string]FunctionType{
 				"uppercase": {
@@ -241,16 +232,46 @@ func (r *countingResource) ReplaceFields() []string {
 	return []string{"name"}
 }
 
+func (r *countingResource) SchemaVersion() int { return 1 }
+
+// countingResourceV2 is countingResource with SchemaVersion bumped
+// to 2 and no Migrate, used by plan tests that exercise the
+// missing-migration error path.
+type countingResourceV2 struct {
+	countingResource `mapstructure:",squash"`
+}
+
+func (r *countingResourceV2) SchemaVersion() int { return 2 }
+
+// migratingCountingResource is countingResourceV2 with a Migrate
+// method that rewrites `id` to `name-id` in state, used by the plan
+// test for the migration happy path.
+type migratingCountingResource struct {
+	countingResource `mapstructure:",squash"`
+}
+
+func (r *migratingCountingResource) SchemaVersion() int { return 2 }
+
+func (r *migratingCountingResource) Migrate(_ int, st map[string]any) (map[string]any, error) {
+	out := map[string]any{}
+	for k, v := range st {
+		out[k] = v
+	}
+	if v, ok := out["id"]; ok {
+		out["name-id"] = v
+		delete(out, "id")
+	}
+	return out, nil
+}
+
 func resourceModules(c *resourceCounters) map[string]*Module {
 	return map[string]*Module{
 		"core": {
 			Name: "core",
-			Resources: map[string]ResourceType{
-				"thing": {
-					Name:          "thing",
-					SchemaVersion: 1,
-					New:           func() Resource { return &countingResource{counters: c} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResource, any](
+					func() *countingResource { return &countingResource{counters: c} },
+				),
 			},
 		},
 	}
@@ -1036,11 +1057,10 @@ func countingModules(runs *int64) map[string]*Module {
 	return map[string]*Module{
 		"core": {
 			Name: "core",
-			Actions: map[string]ActionType{
-				"echo": {
-					Name: "echo",
-					New:  func() Action { return &countingAction{runs: runs} },
-				},
+			Actions: map[string]ActionRegistration{
+				"echo": MakeActionWith[countingAction, any](
+					func() *countingAction { return &countingAction{runs: runs} },
+				),
 			},
 		},
 	}

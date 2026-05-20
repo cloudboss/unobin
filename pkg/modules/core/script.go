@@ -21,9 +21,9 @@ type ScriptAction struct {
 // has a sibling type named `<GoName>Output`.
 type ScriptActionOutput = CommandActionOutput
 
-// Run invokes the configured shell with the script. Output is captured in
-// the same shape as CommandAction returns.
-func (a *ScriptAction) Run(ctx context.Context, _ any) (any, error) {
+// Run invokes the configured shell with the script. Output mirrors
+// what CommandAction returns.
+func (a *ScriptAction) Run(ctx context.Context, _ any) (*ScriptActionOutput, error) {
 	if a.Script == "" {
 		return nil, errors.New("script is required")
 	}

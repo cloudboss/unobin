@@ -12,6 +12,8 @@ type fakeResource struct {
 	Name string
 }
 
+func (r *fakeResource) SchemaVersion() int { return 1 }
+
 func (r *fakeResource) Create(_ context.Context, _ any) (any, error) {
 	return map[string]any{"id": "fake-" + r.Name}, nil
 }
@@ -52,24 +54,20 @@ func (a *fakeAction) Run(_ context.Context, _ any) (any, error) {
 func TestModuleHoldsAllRegistrationKinds(t *testing.T) {
 	mod := &Module{
 		Name: "fake",
-		Resources: map[string]ResourceType{
-			"thing": {
-				Name:          "thing",
-				SchemaVersion: 1,
-				New:           func() Resource { return &fakeResource{Name: "x"} },
-			},
+		Resources: map[string]ResourceRegistration{
+			"thing": MakeResourceWith[fakeResource, any](
+				func() *fakeResource { return &fakeResource{Name: "x"} },
+			),
 		},
-		DataSources: map[string]DataSourceType{
-			"lookup": {
-				Name: "lookup",
-				New:  func() DataSource { return &fakeDataSource{Key: "k"} },
-			},
+		DataSources: map[string]DataSourceRegistration{
+			"lookup": MakeDataSourceWith[fakeDataSource, any](
+				func() *fakeDataSource { return &fakeDataSource{Key: "k"} },
+			),
 		},
-		Actions: map[string]ActionType{
-			"echo": {
-				Name: "echo",
-				New:  func() Action { return &fakeAction{Echo: "hi"} },
-			},
+		Actions: map[string]ActionRegistration{
+			"echo": MakeActionWith[fakeAction, any](
+				func() *fakeAction { return &fakeAction{Echo: "hi"} },
+			),
 		},
 	}
 	require.Equal(t, "fake", mod.Name)
@@ -79,38 +77,37 @@ func TestModuleHoldsAllRegistrationKinds(t *testing.T) {
 }
 
 func TestResourceLifecycle(t *testing.T) {
-	rt := ResourceType{
-		Name: "thing",
-		New:  func() Resource { return &fakeResource{Name: "alpha"} },
-	}
-	r := rt.New()
+	rt := MakeResourceWith[fakeResource, any](
+		func() *fakeResource { return &fakeResource{Name: "alpha"} },
+	)
+	r := rt.NewReceiver()
 	ctx := context.Background()
 
-	out, err := r.Create(ctx, nil)
+	out, err := rt.Create(ctx, r, nil)
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha", out.(map[string]any)["id"])
 
-	got, err := r.Read(ctx, nil, out)
+	got, err := rt.Read(ctx, r, nil, out)
 	require.NoError(t, err)
 	require.Equal(t, out, got)
 
-	updated, err := r.Update(ctx, nil, out)
+	updated, err := rt.Update(ctx, r, nil, out)
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha-updated", updated.(map[string]any)["id"])
 
-	require.NoError(t, r.Delete(ctx, nil, updated))
+	require.NoError(t, rt.Delete(ctx, r, nil, updated))
 
-	gone, err := r.Read(ctx, nil, nil)
+	gone, err := rt.Read(ctx, r, nil, nil)
 	require.True(t, errors.Is(err, ErrNotFound))
 	require.Nil(t, gone)
 }
 
 func TestDataSourceRead(t *testing.T) {
-	ds := (&DataSourceType{
-		Name: "lookup",
-		New:  func() DataSource { return &fakeDataSource{Key: "abc"} },
-	}).New()
-	out, err := ds.Read(context.Background(), nil)
+	dt := MakeDataSourceWith[fakeDataSource, any](
+		func() *fakeDataSource { return &fakeDataSource{Key: "abc"} },
+	)
+	d := dt.NewReceiver()
+	out, err := dt.Read(context.Background(), d, nil)
 	require.NoError(t, err)
 	require.Equal(t, "abc", out.(map[string]any)["value"])
 }

@@ -54,10 +54,7 @@ func testInfo(t *testing.T, src string) Info {
 	require.NoError(t, os.Chdir(t.TempDir()))
 
 	coreMod := core.Module()
-	coreMod.Actions["echo"] = runtime.ActionType{
-		Name: "echo",
-		New:  func() runtime.Action { return &echoAction{} },
-	}
+	coreMod.Actions["echo"] = runtime.MakeAction[echoAction, any]()
 	return Info{
 		StackName:    "test-stack",
 		StackVersion: "v0.1.0",

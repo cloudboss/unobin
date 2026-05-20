@@ -15,7 +15,7 @@ func TestSayPrependsPrefix(t *testing.T) {
 		Prefix: cfg.String{Value: "hello"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "hello: world", out.(SayResult).Output)
+	require.Equal(t, "hello: world", out.Output)
 }
 
 func TestSayErrorsWithoutConfiguration(t *testing.T) {

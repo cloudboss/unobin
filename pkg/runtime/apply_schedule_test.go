@@ -18,6 +18,8 @@ type slowResource struct {
 	Delay int64  `mapstructure:"delay-ms"`
 }
 
+func (r *slowResource) SchemaVersion() int { return 1 }
+
 func (r *slowResource) Create(ctx context.Context, _ any) (any, error) {
 	select {
 	case <-time.After(time.Duration(r.Delay) * time.Millisecond):
@@ -41,6 +43,8 @@ type slowFailResource struct {
 	Delay int64  `mapstructure:"delay-ms"`
 }
 
+func (r *slowFailResource) SchemaVersion() int { return 1 }
+
 func (r *slowFailResource) Create(ctx context.Context, _ any) (any, error) {
 	select {
 	case <-time.After(time.Duration(r.Delay) * time.Millisecond):
@@ -63,15 +67,9 @@ func slowModules() map[string]*Module {
 	return map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"r": {
-					Name: "r",
-					New:  func() Resource { return &slowResource{} },
-				},
-				"fail": {
-					Name: "fail",
-					New:  func() Resource { return &slowFailResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"r":    MakeResource[slowResource, any](),
+				"fail": MakeResource[slowFailResource, any](),
 			},
 		},
 	}
@@ -142,6 +140,8 @@ type countingSlowResource struct {
 	runs  *atomic.Int64
 }
 
+func (r *countingSlowResource) SchemaVersion() int { return 1 }
+
 func (r *countingSlowResource) Create(ctx context.Context, _ any) (any, error) {
 	r.runs.Add(1)
 	select {
@@ -166,15 +166,11 @@ func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 	mods := map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"r": {
-					Name: "r",
-					New:  func() Resource { return &countingSlowResource{runs: &runs} },
-				},
-				"fail": {
-					Name: "fail",
-					New:  func() Resource { return &slowFailResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"r": MakeResourceWith[countingSlowResource, any](
+					func() *countingSlowResource { return &countingSlowResource{runs: &runs} },
+				),
+				"fail": MakeResource[slowFailResource, any](),
 			},
 		},
 	}
@@ -210,15 +206,11 @@ func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 	mods := map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"r": {
-					Name: "r",
-					New:  func() Resource { return &countingSlowResource{runs: &runs} },
-				},
-				"fail": {
-					Name: "fail",
-					New:  func() Resource { return &slowFailResource{} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"r": MakeResourceWith[countingSlowResource, any](
+					func() *countingSlowResource { return &countingSlowResource{runs: &runs} },
+				),
+				"fail": MakeResource[slowFailResource, any](),
 			},
 		},
 	}

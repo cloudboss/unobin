@@ -337,23 +337,14 @@ resources: {
 	mods := map[string]*Module{
 		"core": {
 			Name: "core",
-			Resources: map[string]ResourceType{
-				"thing": {
-					Name:          "thing",
-					SchemaVersion: 2,
-					New:           func() Resource { return &countingResource{counters: &c} },
-					Migrate: func(_ int, st map[string]any) (map[string]any, error) {
-						out := map[string]any{}
-						for k, v := range st {
-							out[k] = v
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[migratingCountingResource, any](
+					func() *migratingCountingResource {
+						return &migratingCountingResource{
+							countingResource: countingResource{counters: &c},
 						}
-						if v, ok := out["id"]; ok {
-							out["name-id"] = v
-							delete(out, "id")
-						}
-						return out, nil
 					},
-				},
+				),
 			},
 		},
 	}
@@ -404,12 +395,14 @@ resources: {
 	mods := map[string]*Module{
 		"core": {
 			Name: "core",
-			Resources: map[string]ResourceType{
-				"thing": {
-					Name:          "thing",
-					SchemaVersion: 2,
-					New:           func() Resource { return &countingResource{counters: &c} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResourceV2, any](
+					func() *countingResourceV2 {
+						return &countingResourceV2{
+							countingResource: countingResource{counters: &c},
+						}
+					},
+				),
 			},
 		},
 	}
@@ -422,7 +415,7 @@ resources: {
 	}
 	_, err = exec.Plan(context.Background())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Migrate")
+	require.Contains(t, err.Error(), "no migration registered")
 }
 
 func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
@@ -518,8 +511,8 @@ actions: {
 	mods := map[string]*Module{
 		"core": {
 			Name: "core",
-			Actions: map[string]ActionType{
-				"echo": {Name: "echo", New: func() Action { return &echoAction{} }},
+			Actions: map[string]ActionRegistration{
+				"echo": MakeAction[echoAction, any](),
 			},
 		},
 	}
@@ -542,8 +535,8 @@ actions: {
 	mods := map[string]*Module{
 		"core": {
 			Name: "core",
-			Actions: map[string]ActionType{
-				"echo": {Name: "echo", New: func() Action { return &echoAction{} }},
+			Actions: map[string]ActionRegistration{
+				"echo": MakeAction[echoAction, any](),
 			},
 		},
 	}

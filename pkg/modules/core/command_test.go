@@ -9,13 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runCommand(t *testing.T, a *CommandAction) CommandActionOutput {
+func runCommand(t *testing.T, a *CommandAction) *CommandActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	cr, ok := res.(CommandActionOutput)
-	require.True(t, ok, "got %T", res)
-	return cr
+	require.NotNil(t, res)
+	return res
 }
 
 func TestCommandSucceeds(t *testing.T) {
@@ -84,10 +83,9 @@ func TestCoreModuleRegistersCommand(t *testing.T) {
 	require.Contains(t, mod.Actions, "command")
 
 	at := mod.Actions["command"]
-	require.Equal(t, "command", at.Name)
-	require.NotNil(t, at.New)
+	require.NotNil(t, at)
 
-	a, ok := at.New().(*CommandAction)
+	a, ok := at.NewReceiver().(*CommandAction)
 	require.True(t, ok)
 	require.NotNil(t, a)
 }

@@ -19,6 +19,8 @@ type drainTrackerResource struct {
 	runs  *atomic.Int64
 }
 
+func (r *drainTrackerResource) SchemaVersion() int { return 1 }
+
 func (r *drainTrackerResource) Create(ctx context.Context, _ any) (any, error) {
 	r.runs.Add(1)
 	select {
@@ -38,16 +40,19 @@ func (r *drainTrackerResource) Update(_ context.Context, _, _ any) (any, error) 
 func (r *drainTrackerResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *drainTrackerResource) ReplaceFields() []string                  { return nil }
 
+func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
+	return MakeResourceWith[drainTrackerResource, any](
+		func() *drainTrackerResource { return &drainTrackerResource{runs: runs} },
+	)
+}
+
 func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 	var runs atomic.Int64
 	mods := map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"r": {
-					Name: "r",
-					New:  func() Resource { return &drainTrackerResource{runs: &runs} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"r": drainTrackerRegistration(&runs),
 			},
 		},
 	}
@@ -83,11 +88,8 @@ func TestApplyScheduleDrainBeforeDispatchSkipsEverything(t *testing.T) {
 	mods := map[string]*Module{
 		"slow": {
 			Name: "slow",
-			Resources: map[string]ResourceType{
-				"r": {
-					Name: "r",
-					New:  func() Resource { return &drainTrackerResource{runs: &runs} },
-				},
+			Resources: map[string]ResourceRegistration{
+				"r": drainTrackerRegistration(&runs),
 			},
 		},
 	}

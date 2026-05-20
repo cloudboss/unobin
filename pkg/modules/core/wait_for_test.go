@@ -10,13 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runWaitFor(t *testing.T, a *WaitForAction) WaitForActionOutput {
+func runWaitFor(t *testing.T, a *WaitForAction) *WaitForActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	wr, ok := res.(WaitForActionOutput)
-	require.True(t, ok, "got %T", res)
-	return wr
+	require.NotNil(t, res)
+	return res
 }
 
 func TestWaitForSucceedsImmediately(t *testing.T) {
@@ -80,6 +79,6 @@ func TestWaitForContextCancel(t *testing.T) {
 func TestCoreModuleRegistersWaitFor(t *testing.T) {
 	at, ok := Module().Actions["wait-for"]
 	require.True(t, ok)
-	_, ok = at.New().(*WaitForAction)
+	_, ok = at.NewReceiver().(*WaitForAction)
 	require.True(t, ok)
 }

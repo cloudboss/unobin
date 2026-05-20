@@ -23,17 +23,17 @@ type SayAction struct {
 	Message string `mapstructure:"message"`
 }
 
-// SayResult is the action's output.
-type SayResult struct {
+// SayActionOutput is the action's output.
+type SayActionOutput struct {
 	Output string `mapstructure:"output"`
 }
 
-func (a *SayAction) Run(_ context.Context, rawCfg any) (any, error) {
+func (a *SayAction) Run(_ context.Context, rawCfg any) (*SayActionOutput, error) {
 	c, ok := rawCfg.(*Configuration)
 	if !ok {
 		return nil, fmt.Errorf("greet.say: missing or wrong configuration (got %T)", rawCfg)
 	}
-	return SayResult{Output: c.Prefix.Value + ": " + a.Message}, nil
+	return &SayActionOutput{Output: c.Prefix.Value + ": " + a.Message}, nil
 }
 
 // Module returns the registration record for the `greet` module.
@@ -45,12 +45,8 @@ func Module() *runtime.Module {
 			Description: "Greeting prefix.",
 			New:         func() any { return &Configuration{} },
 		},
-		Actions: map[string]runtime.ActionType{
-			"say": {
-				Name:        "say",
-				Description: "Prepend the configured prefix to a message.",
-				New:         func() runtime.Action { return &SayAction{} },
-			},
+		Actions: map[string]runtime.ActionRegistration{
+			"say": runtime.MakeAction[SayAction, *SayActionOutput](),
 		},
 	}
 }

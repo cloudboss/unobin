@@ -134,11 +134,10 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	mods := map[string]*runtime.Module{
 		"test": {
 			Name: "test",
-			Actions: map[string]runtime.ActionType{
-				"counter": {
-					Name: "counter",
-					New:  func() runtime.Action { return &counter{runs: &runs} },
-				},
+			Actions: map[string]runtime.ActionRegistration{
+				"counter": runtime.MakeActionWith[counter, any](
+					func() *counter { return &counter{runs: &runs} },
+				),
 			},
 		},
 	}

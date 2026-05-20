@@ -16,27 +16,11 @@ func Module() *runtime.Module {
 	return &runtime.Module{
 		Name:        "core",
 		Description: "Built-in actions, state backend, and encrypter",
-		Actions: map[string]runtime.ActionType{
-			"command": {
-				Name:        "command",
-				Description: "Execute a process and capture its output",
-				New:         func() runtime.Action { return &CommandAction{} },
-			},
-			"script": {
-				Name:        "script",
-				Description: "Run a shell script and capture its output",
-				New:         func() runtime.Action { return &ScriptAction{} },
-			},
-			"http": {
-				Name:        "http",
-				Description: "Issue an HTTP request and capture the response",
-				New:         func() runtime.Action { return &HTTPAction{} },
-			},
-			"wait-for": {
-				Name:        "wait-for",
-				Description: "Poll a command until it exits 0 or a timeout fires",
-				New:         func() runtime.Action { return &WaitForAction{} },
-			},
+		Actions: map[string]runtime.ActionRegistration{
+			"command":  runtime.MakeAction[CommandAction, *CommandActionOutput](),
+			"script":   runtime.MakeAction[ScriptAction, *ScriptActionOutput](),
+			"http":     runtime.MakeAction[HTTPAction, *HTTPActionOutput](),
+			"wait-for": runtime.MakeAction[WaitForAction, *WaitForActionOutput](),
 		},
 		StateBackends: map[string]sdkstate.BackendType{
 			"local": {

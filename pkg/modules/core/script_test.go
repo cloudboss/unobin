@@ -7,13 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runScript(t *testing.T, a *ScriptAction) CommandActionOutput {
+func runScript(t *testing.T, a *ScriptAction) *CommandActionOutput {
 	t.Helper()
 	res, err := a.Run(context.Background(), nil)
 	require.NoError(t, err)
-	cr, ok := res.(CommandActionOutput)
-	require.True(t, ok, "got %T", res)
-	return cr
+	require.NotNil(t, res)
+	return res
 }
 
 func TestScriptDefaultsToSh(t *testing.T) {
@@ -57,7 +56,7 @@ func TestScriptRequiresBody(t *testing.T) {
 func TestCoreModuleRegistersScript(t *testing.T) {
 	at, ok := Module().Actions["script"]
 	require.True(t, ok)
-	require.NotNil(t, at.New)
-	_, ok = at.New().(*ScriptAction)
+	require.NotNil(t, at)
+	_, ok = at.NewReceiver().(*ScriptAction)
 	require.True(t, ok)
 }

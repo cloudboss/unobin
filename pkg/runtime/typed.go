@@ -87,9 +87,20 @@ type dataSourcePtr[T any, Out any] interface {
 
 // MakeResource produces a ResourceRegistration that wraps a
 // TypedResource[Out] implemented by *T. Use as
-// `runtime.MakeResource[Vpc, *VpcOutput]()`.
+// `runtime.MakeResource[Vpc, *VpcOutput]()`. Each receiver is
+// zero-constructed via new(T) when the runtime asks for one.
 func MakeResource[T any, Out any, PT resourcePtr[T, Out]]() ResourceRegistration {
 	return typedResourceReg[T, Out, PT]{}
+}
+
+// MakeResourceWith is the variant of MakeResource for callers that
+// need each receiver to capture external state. The constructor runs
+// once per instance the runtime needs; mapstructure then decodes the
+// inputs into it.
+func MakeResourceWith[T any, Out any, PT resourcePtr[T, Out]](
+	construct func() *T,
+) ResourceRegistration {
+	return typedResourceReg[T, Out, PT]{construct: construct}
 }
 
 // MakeAction produces an ActionRegistration that wraps a
@@ -98,13 +109,31 @@ func MakeAction[T any, Out any, PT actionPtr[T, Out]]() ActionRegistration {
 	return typedActionReg[T, Out, PT]{}
 }
 
+// MakeActionWith is the variant of MakeAction that captures
+// external state through the constructor.
+func MakeActionWith[T any, Out any, PT actionPtr[T, Out]](
+	construct func() *T,
+) ActionRegistration {
+	return typedActionReg[T, Out, PT]{construct: construct}
+}
+
 // MakeDataSource produces a DataSourceRegistration that wraps a
 // TypedDataSource[Out] implemented by *T.
 func MakeDataSource[T any, Out any, PT dataSourcePtr[T, Out]]() DataSourceRegistration {
 	return typedDataSourceReg[T, Out, PT]{}
 }
 
-type typedResourceReg[T any, Out any, PT resourcePtr[T, Out]] struct{}
+// MakeDataSourceWith is the variant of MakeDataSource that captures
+// external state through the constructor.
+func MakeDataSourceWith[T any, Out any, PT dataSourcePtr[T, Out]](
+	construct func() *T,
+) DataSourceRegistration {
+	return typedDataSourceReg[T, Out, PT]{construct: construct}
+}
+
+type typedResourceReg[T any, Out any, PT resourcePtr[T, Out]] struct {
+	construct func() *T
+}
 
 func (typedResourceReg[T, Out, PT]) SchemaVersion() int {
 	return PT(new(T)).SchemaVersion()
@@ -119,7 +148,10 @@ func (typedResourceReg[T, Out, PT]) Migrate(
 	return nil, fmt.Errorf("no migration registered for version %d", old)
 }
 
-func (typedResourceReg[T, Out, PT]) NewReceiver() any {
+func (r typedResourceReg[T, Out, PT]) NewReceiver() any {
+	if r.construct != nil {
+		return r.construct()
+	}
 	return new(T)
 }
 
@@ -156,9 +188,14 @@ func (typedResourceReg[T, Out, PT]) OutputType() reflect.Type {
 	return reflect.TypeOf(zero)
 }
 
-type typedActionReg[T any, Out any, PT actionPtr[T, Out]] struct{}
+type typedActionReg[T any, Out any, PT actionPtr[T, Out]] struct {
+	construct func() *T
+}
 
-func (typedActionReg[T, Out, PT]) NewReceiver() any {
+func (r typedActionReg[T, Out, PT]) NewReceiver() any {
+	if r.construct != nil {
+		return r.construct()
+	}
 	return new(T)
 }
 
@@ -173,9 +210,14 @@ func (typedActionReg[T, Out, PT]) OutputType() reflect.Type {
 	return reflect.TypeOf(zero)
 }
 
-type typedDataSourceReg[T any, Out any, PT dataSourcePtr[T, Out]] struct{}
+type typedDataSourceReg[T any, Out any, PT dataSourcePtr[T, Out]] struct {
+	construct func() *T
+}
 
-func (typedDataSourceReg[T, Out, PT]) NewReceiver() any {
+func (r typedDataSourceReg[T, Out, PT]) NewReceiver() any {
+	if r.construct != nil {
+		return r.construct()
+	}
 	return new(T)
 }
 

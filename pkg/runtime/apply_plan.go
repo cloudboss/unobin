@@ -138,11 +138,11 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	case DecisionSkip:
 		outputs = step.PriorOutputs
 	case DecisionRerun:
-		action := at.New()
-		if err := Decode(action, prep.inputs); err != nil {
+		receiver := at.NewReceiver()
+		if err := Decode(receiver, prep.inputs); err != nil {
 			return err
 		}
-		result, err := action.Run(ctx, e.configFor(prep.node))
+		result, err := at.Run(ctx, receiver, e.configFor(prep.node))
 		if err != nil {
 			return err
 		}
@@ -195,14 +195,14 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return fmt.Errorf("module %s has no resource %q", prep.node.NS, prep.node.Type)
 	}
 
-	resource := rt.New()
-	if err := Decode(resource, prep.inputs); err != nil {
+	receiver := rt.NewReceiver()
+	if err := Decode(receiver, prep.inputs); err != nil {
 		return err
 	}
 	var outputs map[string]any
 	switch step.Decision {
 	case DecisionCreate:
-		result, err := resource.Create(ctx, e.configFor(prep.node))
+		result, err := rt.Create(ctx, receiver, e.configFor(prep.node))
 		if err != nil {
 			return err
 		}
@@ -210,17 +210,17 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	case DecisionNoOp:
 		outputs = step.PriorOutputs
 	case DecisionUpdate:
-		result, err := resource.Update(ctx, e.configFor(prep.node), step.PriorOutputs)
+		result, err := rt.Update(ctx, receiver, e.configFor(prep.node), step.PriorOutputs)
 		if err != nil {
 			return err
 		}
 		outputs = mapify(result)
 	case DecisionReplace:
 		cfg := e.configFor(prep.node)
-		if err := resource.Delete(ctx, cfg, step.PriorOutputs); err != nil {
+		if err := rt.Delete(ctx, receiver, cfg, step.PriorOutputs); err != nil {
 			return fmt.Errorf("replace: delete prior: %w", err)
 		}
-		result, err := resource.Create(ctx, cfg)
+		result, err := rt.Create(ctx, receiver, cfg)
 		if err != nil {
 			return fmt.Errorf("replace: create: %w", err)
 		}
@@ -240,7 +240,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Address:       step.Address,
 		Type:          state.EntryLeaf,
 		Kind:          prep.node.Type,
-		SchemaVersion: rt.SchemaVersion,
+		SchemaVersion: rt.SchemaVersion(),
 		Inputs:        prep.inputs,
 		Outputs:       outputs,
 	})
@@ -290,11 +290,11 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if !ok {
 		return fmt.Errorf("module %s has no resource %q", ns, typeName)
 	}
-	resource := rt.New()
-	if err := Decode(resource, step.Inputs); err != nil {
+	receiver := rt.NewReceiver()
+	if err := Decode(receiver, step.Inputs); err != nil {
 		return err
 	}
-	if err := resource.Delete(ctx, e.configForNS(ns), step.PriorOutputs); err != nil {
+	if err := rt.Delete(ctx, receiver, e.configForNS(ns), step.PriorOutputs); err != nil {
 		return err
 	}
 	rs.mu.Lock()
@@ -382,11 +382,11 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if !ok {
 		return fmt.Errorf("module %s has no data source %q", prep.node.NS, prep.node.Type)
 	}
-	ds := dt.New()
-	if err := Decode(ds, prep.inputs); err != nil {
+	receiver := dt.NewReceiver()
+	if err := Decode(receiver, prep.inputs); err != nil {
 		return err
 	}
-	result, err := ds.Read(ctx, e.configFor(prep.node))
+	result, err := dt.Read(ctx, receiver, e.configFor(prep.node))
 	if err != nil {
 		return err
 	}

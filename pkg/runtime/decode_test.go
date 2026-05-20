@@ -57,12 +57,9 @@ func TestDecodeEmptyInputs(t *testing.T) {
 	require.Empty(t, a.Argv)
 }
 
-func TestDecodeWithActionInterface(t *testing.T) {
-	at := ActionType{
-		Name: "echo",
-		New:  func() Action { return &fakeAction{} },
-	}
-	a := at.New()
+func TestDecodeWithActionRegistration(t *testing.T) {
+	at := MakeAction[fakeAction, any]()
+	a := at.NewReceiver()
 	require.NoError(t, Decode(a, map[string]any{"echo": "hi"}))
 	require.Equal(t, "hi", a.(*fakeAction).Echo)
 }

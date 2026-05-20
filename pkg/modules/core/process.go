@@ -18,7 +18,7 @@ type processSpec struct {
 	WorkingDir  string
 }
 
-func runProcess(ctx context.Context, spec processSpec) (CommandActionOutput, error) {
+func runProcess(ctx context.Context, spec processSpec) (*CommandActionOutput, error) {
 	cmd := exec.CommandContext(ctx, spec.Argv[0], spec.Argv[1:]...)
 	cmd.Env = mergedEnv(spec.Environment)
 	if spec.WorkingDir != "" {
@@ -34,18 +34,18 @@ func runProcess(ctx context.Context, spec processSpec) (CommandActionOutput, err
 	duration := time.Since(start)
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return CommandActionOutput{}, ctxErr
+		return nil, ctxErr
 	}
 	exitCode := 0
 	if err != nil {
 		exitErr, ok := errors.AsType[*exec.ExitError](err)
 		if !ok {
-			return CommandActionOutput{}, err
+			return nil, err
 		}
 		exitCode = exitErr.ExitCode()
 	}
 
-	return CommandActionOutput{
+	return &CommandActionOutput{
 		Stdout:   stdout.String(),
 		Stderr:   stderr.String(),
 		ExitCode: exitCode,

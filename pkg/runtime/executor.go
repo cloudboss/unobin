@@ -555,10 +555,10 @@ func sameInputs(a, b map[string]any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-// needsReplace reports whether any field in r.ReplaceFields() has a
+// needsReplace reports whether any field in replaceFields has a
 // different canonical JSON value between prior and current inputs.
-func needsReplace(r Resource, prior, current map[string]any) bool {
-	for _, field := range r.ReplaceFields() {
+func needsReplace(replaceFields []string, prior, current map[string]any) bool {
+	for _, field := range replaceFields {
 		if !sameValue(prior[field], current[field]) {
 			return true
 		}
