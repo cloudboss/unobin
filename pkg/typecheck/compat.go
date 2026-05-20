@@ -1,0 +1,169 @@
+package typecheck
+
+// Assignable reports whether a value of type src can flow into a
+// slot declared with type dst. Either side being Unknown returns
+// true so partial schema information fails open rather than
+// producing spurious errors.
+//
+// Rules in plain terms:
+//   - any accepts anything; null is assignable only into a slot
+//     that includes null (an optional() wrapper or the null atom).
+//   - integer widens into number but not the other way.
+//   - optional(T) accepts T or null; the source side is unwrapped
+//     before comparing, so an optional value flows into a non-
+//     optional slot when the underlying types match (the runtime
+//     enforces non-nullness at decode time).
+//   - list/set/map/tuple compare element-wise.
+//   - object types compare structurally: every required dst field
+//     must have a compatible src field; extra src fields are
+//     allowed (open against the source) and missing-optional dst
+//     fields are tolerated.
+func Assignable(dst, src Type) bool {
+	if !dst.IsKnown() || !src.IsKnown() {
+		return true
+	}
+	if dst.Kind == Any {
+		return true
+	}
+	if src.Kind == Any {
+		return true
+	}
+
+	if dst.Kind == Optional {
+		if src.Kind == Null {
+			return true
+		}
+		inner := dst.Elem
+		if inner == nil {
+			return true
+		}
+		return Assignable(*inner, src.Unwrap())
+	}
+	if src.Kind == Optional {
+		return Assignable(dst, src.Unwrap())
+	}
+	if src.Kind == Null {
+		return dst.Kind == Null
+	}
+
+	switch dst.Kind {
+	case String, Boolean, Null:
+		return dst.Kind == src.Kind
+	case Integer:
+		return src.Kind == Integer
+	case Number:
+		return src.Kind == Integer || src.Kind == Number
+	case List:
+		return listAssignable(dst, src)
+	case Set:
+		return setAssignable(dst, src)
+	case Map:
+		return mapAssignable(dst, src)
+	case Tuple:
+		return tupleAssignable(dst, src)
+	case Object:
+		return objectAssignable(dst, src)
+	}
+	return false
+}
+
+func listAssignable(dst, src Type) bool {
+	if dst.Elem == nil {
+		return true
+	}
+	if src.Kind == List || src.Kind == Set {
+		if src.Elem == nil {
+			return true
+		}
+		return Assignable(*dst.Elem, *src.Elem)
+	}
+	if src.Kind == Tuple {
+		for _, e := range src.Elems {
+			if !Assignable(*dst.Elem, e) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func setAssignable(dst, src Type) bool {
+	if dst.Elem == nil {
+		return true
+	}
+	if src.Kind != List && src.Kind != Set && src.Kind != Tuple {
+		return false
+	}
+	return listAssignable(dst, src)
+}
+
+func mapAssignable(dst, src Type) bool {
+	if dst.Elem == nil {
+		return true
+	}
+	if src.Kind == Map {
+		if src.Elem == nil {
+			return true
+		}
+		return Assignable(*dst.Elem, *src.Elem)
+	}
+	if src.Kind == Object {
+		for _, f := range src.Fields {
+			if !Assignable(*dst.Elem, f.Type) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func tupleAssignable(dst, src Type) bool {
+	if src.Kind != Tuple {
+		return false
+	}
+	if len(dst.Elems) != len(src.Elems) {
+		return false
+	}
+	for i := range dst.Elems {
+		if !Assignable(dst.Elems[i], src.Elems[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func objectAssignable(dst, src Type) bool {
+	if src.Kind != Object && src.Kind != Map {
+		return false
+	}
+	if src.Kind == Map {
+		if src.Elem == nil {
+			return true
+		}
+		for _, f := range dst.Fields {
+			if !Assignable(f.Type, *src.Elem) {
+				return false
+			}
+		}
+		return true
+	}
+	srcFields := map[string]ObjectField{}
+	for _, f := range src.Fields {
+		srcFields[f.Name] = f
+	}
+	for _, f := range dst.Fields {
+		got, present := srcFields[f.Name]
+		if !present {
+			if f.Optional {
+				continue
+			}
+			return false
+		}
+		if !Assignable(f.Type, got.Type) {
+			return false
+		}
+	}
+	return true
+}
