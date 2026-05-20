@@ -122,6 +122,38 @@ func (d *fakeAMI) Read(_ context.Context, _ any) (*fakeAMIOutput, error) {
 	return &fakeAMIOutput{Architecture: "x86_64"}, nil
 }
 
+func TestCoercePriorNil(t *testing.T) {
+	got := coercePrior[*fakeVpcOutput](nil)
+	require.Nil(t, got)
+}
+
+func TestCoercePriorPassesTypedValueThrough(t *testing.T) {
+	prior := &fakeVpcOutput{ID: "vpc-abc"}
+	got := coercePrior[*fakeVpcOutput](prior)
+	require.Equal(t, prior, got)
+}
+
+func TestCoercePriorFromStateMap(t *testing.T) {
+	// State on disk is JSON-decoded, so prior outputs arrive as
+	// map[string]any rather than the typed *Out. coercePrior must
+	// decode the map into the typed shape.
+	prior := map[string]any{"id": "vpc-abc"}
+	got := coercePrior[*fakeVpcOutput](prior)
+	require.NotNil(t, got)
+	require.Equal(t, "vpc-abc", got.ID)
+}
+
+func TestReadAcceptsStateMapPrior(t *testing.T) {
+	// The plan code path that panicked: typed Read called with the
+	// JSON-decoded prior.
+	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
+	receiver := reg.NewReceiver()
+	prior := map[string]any{"id": "vpc-abc"}
+	out, err := reg.Read(context.Background(), receiver, nil, prior)
+	require.NoError(t, err)
+	require.Equal(t, "vpc-abc", out.(*fakeVpcOutput).ID)
+}
+
 func TestMakeDataSourceProducesWorkingRegistration(t *testing.T) {
 	reg := MakeDataSource[fakeAMI, *fakeAMIOutput]()
 

@@ -232,15 +232,32 @@ func (typedDataSourceReg[T, Out, PT]) OutputType() reflect.Type {
 	return reflect.TypeOf(zero)
 }
 
-// coercePrior returns prior as Out, or the zero value of Out when
-// prior is nil. The runtime passes nil for "no prior state" on the
-// first read of a new resource; this helper lets the typed methods
-// receive a nil pointer (when Out is a pointer type) without an
-// explicit nil-cast guard at every call site.
+// coercePrior returns prior as Out. nil is the runtime's "no prior
+// state" sentinel and yields the zero value (a nil pointer for the
+// usual Out = *Something). An already-typed Out passes through. State
+// loaded from disk arrives as map[string]any (JSON round trip) and
+// gets decoded into a fresh Out via the same mapstructure rules used
+// for inputs.
 func coercePrior[Out any](prior any) Out {
 	if prior == nil {
 		var zero Out
 		return zero
 	}
-	return prior.(Out)
+	if typed, ok := prior.(Out); ok {
+		return typed
+	}
+	m, ok := prior.(map[string]any)
+	if !ok {
+		panic(fmt.Sprintf("coercePrior: unsupported prior type %T", prior))
+	}
+	var zero Out
+	t := reflect.TypeOf(zero)
+	if t == nil || t.Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("coercePrior: Out type %T is not a pointer", zero))
+	}
+	target := reflect.New(t.Elem())
+	if err := Decode(target.Interface(), m); err != nil {
+		panic(fmt.Sprintf("coercePrior: decode prior state into %s: %v", t, err))
+	}
+	return target.Interface().(Out)
 }
