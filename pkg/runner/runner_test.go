@@ -820,7 +820,7 @@ inputs: {
 
 	expected := `stack: {
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' }
+    { version: 'v0.1.0', commit: 'abcdef' },
   ]
 }
 
@@ -841,7 +841,7 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	require.NoError(t, err)
 	expected := `stack: {
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' }
+    { version: 'v0.1.0', commit: 'abcdef' },
   ]
 }
 `
@@ -856,7 +856,7 @@ func TestSchemaTemplateIncludesModulePathWhenSet(t *testing.T) {
 	expected := `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' }
+    { version: 'v0.1.0', commit: 'abcdef' },
   ]
 }
 `
@@ -874,7 +874,7 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 	require.NoError(t, err)
 	expected := `stack: {
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' }
+    { version: 'v0.1.0', commit: 'abcdef' },
   ]
 }
 
