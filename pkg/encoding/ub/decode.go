@@ -11,25 +11,27 @@ import (
 )
 
 // Unmarshaler is implemented by types that parse their own unobin
-// representation. UnmarshalUB receives the raw bytes of the value (as
-// they appeared in the input) and populates the receiver.
+// representation. UnmarshalUB receives the bytes of the value as they
+// appeared in the input (with surrounding whitespace trimmed by the
+// parser) and populates the receiver.
 type Unmarshaler interface {
 	UnmarshalUB(data []byte) error
 }
+
+var unmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 
 // Unmarshal parses data as a UB expression and stores the result in
 // the value pointed to by v. v must be a non-nil pointer. The decode
 // rules mirror the encoder's: bool, integer, float, string, list,
 // map, struct, time.Time, time.Duration, and []byte all decode
-// reflectively; types implementing Unmarshaler at the top level
-// receive the input bytes verbatim.
+// reflectively. Types implementing Unmarshaler receive the value's UB
+// form (re-rendered from the parsed AST, so callers see a canonical
+// representation rather than the input's original whitespace) at
+// every level: top, struct field, map value, slice element.
 func Unmarshal(data []byte, v any) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return errors.New("ub: Unmarshal requires a non-nil pointer")
-	}
-	if u, ok := v.(Unmarshaler); ok {
-		return u.UnmarshalUB(data)
 	}
 	expr, err := parse.ParseExpr("", data)
 	if err != nil {
@@ -48,6 +50,10 @@ func decodeValue(e parse.Expr, dst reflect.Value) error {
 			dst.Set(reflect.New(dst.Type().Elem()))
 		}
 		dst = dst.Elem()
+	}
+
+	if ok, err := tryUnmarshaler(e, dst); ok {
+		return err
 	}
 
 	switch dst.Type() {
@@ -90,6 +96,27 @@ func decodeValue(e parse.Expr, dst reflect.Value) error {
 		return decodeObject(n, dst)
 	}
 	return fmt.Errorf("ub: cannot decode %T into %s", e, dst.Type())
+}
+
+func tryUnmarshaler(e parse.Expr, dst reflect.Value) (bool, error) {
+	var u Unmarshaler
+	switch {
+	case dst.CanAddr() && dst.Addr().Type().Implements(unmarshalerType):
+		u = dst.Addr().Interface().(Unmarshaler)
+	case dst.Type().Implements(unmarshalerType):
+		u = dst.Interface().(Unmarshaler)
+	default:
+		return false, nil
+	}
+	v, err := naturalValue(e)
+	if err != nil {
+		return true, err
+	}
+	bytes, err := Marshal(v)
+	if err != nil {
+		return true, err
+	}
+	return true, u.UnmarshalUB(bytes)
 }
 
 func decodeNumber(n *parse.NumberLit, dst reflect.Value) error {

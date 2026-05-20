@@ -331,6 +331,63 @@ func TestUnmarshalQuotedMapKey(t *testing.T) {
 	assert.Equal(t, map[string]int{"has space": 1, "dot.path": 2}, m)
 }
 
+type stringWrap struct {
+	raw string
+}
+
+func (s *stringWrap) UnmarshalUB(data []byte) error {
+	s.raw = "wrapped:" + string(data)
+	return nil
+}
+
+func TestUnmarshalerInStructField(t *testing.T) {
+	type outer struct {
+		Name  string
+		Inner stringWrap
+	}
+	var got outer
+	require.NoError(t, Unmarshal([]byte("{ name: 'outside', inner: 'hi' }"), &got))
+	assert.Equal(t, "outside", got.Name)
+	assert.Equal(t, "wrapped:'hi'", got.Inner.raw)
+}
+
+func TestUnmarshalerInPointerStructField(t *testing.T) {
+	type outer struct {
+		Inner *stringWrap
+	}
+	var got outer
+	require.NoError(t, Unmarshal([]byte("{ inner: 'hi' }"), &got))
+	require.NotNil(t, got.Inner)
+	assert.Equal(t, "wrapped:'hi'", got.Inner.raw)
+}
+
+func TestUnmarshalerInMapValue(t *testing.T) {
+	var got map[string]stringWrap
+	require.NoError(t, Unmarshal([]byte("{ a: 'x', b: 'y' }"), &got))
+	assert.Equal(t, "wrapped:'x'", got["a"].raw)
+	assert.Equal(t, "wrapped:'y'", got["b"].raw)
+}
+
+func TestUnmarshalerInSliceElement(t *testing.T) {
+	var got []stringWrap
+	require.NoError(t, Unmarshal([]byte("['x', 'y']"), &got))
+	require.Len(t, got, 2)
+	assert.Equal(t, "wrapped:'x'", got[0].raw)
+	assert.Equal(t, "wrapped:'y'", got[1].raw)
+}
+
+func TestUnmarshalerDeeplyNested(t *testing.T) {
+	type level2 struct {
+		Tag stringWrap
+	}
+	type level1 struct {
+		Inner level2
+	}
+	var got level1
+	require.NoError(t, Unmarshal([]byte("{ inner: { tag: 'deep' } }"), &got))
+	assert.Equal(t, "wrapped:'deep'", got.Inner.Tag.raw)
+}
+
 func TestUnmarshalFixedArray(t *testing.T) {
 	var exact [3]int
 	require.NoError(t, Unmarshal([]byte("[1, 2, 3]"), &exact))
