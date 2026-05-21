@@ -70,11 +70,18 @@ func RenderKey(k string) string {
 }
 
 func isKebabIdent(s string) bool {
-	if s == "" || !isLetter(s[0]) {
+	if s == "" {
 		return false
 	}
-	for i := 1; i < len(s); i++ {
-		c := s[i]
+	i := 0
+	if s[0] == '@' {
+		i = 1
+	}
+	if i >= len(s) || !isLetter(s[i]) {
+		return false
+	}
+	for j := i + 1; j < len(s); j++ {
+		c := s[j]
 		if !isLetter(c) && !isDigit(c) && c != '-' {
 			return false
 		}

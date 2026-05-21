@@ -58,6 +58,14 @@ func TestFormatArrayHasTrailingCommas(t *testing.T) {
 	require.Equal(t, src, formatString(t, src))
 }
 
+func TestFormatMetaKeyStaysBare(t *testing.T) {
+	src := `@trigger: 'x'
+@for-each: var.items
+plain: 'y'
+`
+	require.Equal(t, src, formatString(t, src))
+}
+
 func TestFormatPreservesQuotedKey(t *testing.T) {
 	src := `'has space': 1
 plain: 2

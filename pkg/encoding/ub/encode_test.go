@@ -58,6 +58,12 @@ func TestMarshalQuotedKey(t *testing.T) {
 	assert.Equal(t, "{ 'has space': 1 }", string(got))
 }
 
+func TestMarshalMetaKeyStaysBare(t *testing.T) {
+	got, err := Marshal(map[string]any{"@trigger": "x"})
+	require.NoError(t, err)
+	assert.Equal(t, "{ @trigger: 'x' }", string(got))
+}
+
 func TestMarshalNested(t *testing.T) {
 	in := map[string]any{
 		"a": []any{1, 2},
