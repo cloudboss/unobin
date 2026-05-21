@@ -26,6 +26,27 @@ func (c *current) span() Span {
 	return Span{Start: pos}
 }
 
+// rangeSpan returns a Span whose Start is the parser's current position
+// and whose End is one byte past the last byte of the rule's matched
+// text. Use it for collection rules (`{...}`, `[...]`) where the
+// renderer needs to know the position of the closing delimiter; bare
+// `span()` leaves End at the zero value, which other call sites depend
+// on.
+func (c *current) rangeSpan() Span {
+	start := c.span().Start
+	end := start
+	for _, b := range c.text {
+		end.Offset++
+		if b == '\n' {
+			end.Line++
+			end.Column = 1
+		} else {
+			end.Column++
+		}
+	}
+	return Span{Start: start, End: end}
+}
+
 // processMultiline turns a backtick delimited literal into its decoded
 // value. text includes the surrounding backticks; startCol is the column
 // of the opening backtick. Single line forms (no newline in the body)
@@ -365,14 +386,14 @@ IdentValue <- name:IdentText {
 }
 
 ObjectLitNode <- "{" _ pairs:Pair* "}" {
-	return &ObjectLit{S: c.span(), Fields: fieldSlice(pairs)}, nil
+	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(pairs)}, nil
 }
 
 ArrayLitNode <- "[" _ elems:ArrayElems? _ "]" {
 	if elems == nil {
-		return &ArrayLit{S: c.span()}, nil
+		return &ArrayLit{S: c.rangeSpan()}, nil
 	}
-	return &ArrayLit{S: c.span(), Elements: exprSlice(elems)}, nil
+	return &ArrayLit{S: c.rangeSpan(), Elements: exprSlice(elems)}, nil
 }
 
 ArrayElems <- first:Value rest:( _ "," _ v:Value { return v, nil } )* _ ","? {

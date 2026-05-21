@@ -83,3 +83,18 @@ func TestParseNoCommentsLeavesSliceNil(t *testing.T) {
 	f := mustParse(t, "name: 'cfer'\n")
 	require.Nil(t, f.Comments)
 }
+
+func TestParseCollectionsRecordEndPosition(t *testing.T) {
+	f := mustParse(t, "outer: {\n  a: 1\n}\nlist: [\n  1,\n  2,\n]\n")
+
+	obj := f.Body.Fields[0].Value.(*ObjectLit).Span()
+	require.Equal(t, 1, obj.Start.Line)
+	require.Equal(t, 8, obj.Start.Column)
+	require.Equal(t, 3, obj.End.Line)
+	require.Equal(t, 2, obj.End.Column)
+
+	arr := f.Body.Fields[1].Value.(*ArrayLit).Span()
+	require.Equal(t, 4, arr.Start.Line)
+	require.Equal(t, 7, arr.End.Line)
+	require.Equal(t, 2, arr.End.Column)
+}
