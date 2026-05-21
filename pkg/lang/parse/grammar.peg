@@ -326,7 +326,7 @@ UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
 	return &Prefix{S: c.span(), Op: string(op.([]byte)), Expr: inner.(Expr)}, nil
 }
 
-Primary <- ParenExpr / ObjectLitNode / ArrayLitNode / StringLitNode / MultilineStringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
+Primary <- ParenExpr / ObjectLitNode / ArrayLitNode / StringLitNode / BacktickStringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
 
 ParenExpr <- "(" _ e:Value _ ")" {
 	return e, nil
@@ -411,7 +411,7 @@ StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 	return unquoteSingle(string(c.text)), nil
 }
 
-MultilineStringLitNode <- "`" MultilineBody "`" {
+BacktickStringLitNode <- "`" BacktickBody "`" {
 	val, err := processMultiline(c.text, c.pos.col)
 	form := StringBacktickSingleLine
 	if len(c.text) >= 2 && bytes.ContainsAny(c.text[1:len(c.text)-1], "\n\r") {
@@ -420,7 +420,7 @@ MultilineStringLitNode <- "`" MultilineBody "`" {
 	return &StringLit{S: c.span(), Value: val, Form: form}, err
 }
 
-MultilineBody <- ( !"`" . )*
+BacktickBody <- ( !"`" . )*
 
 NumberLitNode <- ( "-"? [0-9]+ ( "." [0-9]+ )? ) {
 	raw := string(c.text)
