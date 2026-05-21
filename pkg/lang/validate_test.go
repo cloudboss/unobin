@@ -708,6 +708,47 @@ outputs: {
 	require.Contains(t, joined, "missing required `value:`")
 }
 
+func TestValidateOutputsAcceptsSensitive(t *testing.T) {
+	src := `
+outputs: {
+  password: {
+    value: var.p
+    @sensitive: true
+  }
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateOutputsRejectsUnknownMetaKey(t *testing.T) {
+	src := `
+outputs: {
+  bad: {
+    value: 1
+    @bogus: true
+  }
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	joined := strings.Join(errsToStrings(errs), "; ")
+	require.Contains(t, joined, `unknown meta key "@bogus"`)
+}
+
+func TestValidateOutputsRejectsNonBoolSensitive(t *testing.T) {
+	src := `
+outputs: {
+  bad: {
+    value: 1
+    @sensitive: 'yes'
+  }
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	joined := strings.Join(errsToStrings(errs), "; ")
+	require.Contains(t, joined, "must be a boolean literal")
+}
+
 func TestValidateConstraintReferencesHappy(t *testing.T) {
 	src := `
 inputs: {
