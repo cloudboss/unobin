@@ -17,7 +17,8 @@ type ModuleSchema struct {
 // form stack source uses) to that field's semantic Type. Inputs
 // lists the receiver type's exported fields; Outputs lists the
 // output struct's. The walker that builds this schema (goschema)
-// is responsible for producing these Types.
+// recursively expands named struct types so nested object fields
+// can be type-checked too.
 type TypeSchema struct {
 	Inputs  map[string]typecheck.Type
 	Outputs map[string]typecheck.Type

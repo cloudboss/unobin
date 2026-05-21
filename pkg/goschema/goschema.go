@@ -49,17 +49,14 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 	var warnings []string
 
 	for _, reg := range extractRegistrations(moduleFunc) {
-		inputs := lookupOutputs(rootPkg, dir, modulePath, reg.InputRef)
-		outputs := lookupOutputs(rootPkg, dir, modulePath, reg.OutputRef)
+		inputs := lookupFields(rootPkg, dir, modulePath, reg.InputRef)
+		outputs := lookupFields(rootPkg, dir, modulePath, reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
 				"%s %q: %s not found in the module's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
-		ts := &runtime.TypeSchema{
-			Inputs:  promoteFields(inputs),
-			Outputs: promoteFields(outputs),
-		}
+		ts := &runtime.TypeSchema{Inputs: inputs, Outputs: outputs}
 		switch reg.Field {
 		case "Resources":
 			schema.Resources[reg.Name] = ts
@@ -70,21 +67,6 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 		}
 	}
 	return schema, warnings, nil
-}
-
-// promoteFields turns a kebab-name to Go-type-string map (the form
-// outputsFromPackage produces) into the typecheck.Type map that
-// runtime.TypeSchema now carries. Unknown Go types collapse to
-// typecheck.Unknown.
-func promoteFields(in map[string]string) map[string]typecheck.Type {
-	if in == nil {
-		return nil
-	}
-	out := make(map[string]typecheck.Type, len(in))
-	for k, v := range in {
-		out[k] = typecheck.FromGoString(v)
-	}
-	return out
 }
 
 func registrationKindLabel(field string) string {
@@ -285,11 +267,15 @@ func unwrapModuleLiteral(e ast.Expr) *ast.CompositeLit {
 	return cl
 }
 
-func lookupOutputs(
+// lookupFields resolves a typeRef to the kebab-name to typecheck.Type
+// map of the named struct's fields. The ref's package alias (empty
+// for the root package) selects which package the type lives in; a
+// subpackage is parsed lazily.
+func lookupFields(
 	rootPkg []*ast.File, rootDir, modulePath string, ref typeRef,
-) map[string]string {
+) map[string]typecheck.Type {
 	if ref.PkgAlias == "" {
-		return outputsFromPackage(rootPkg, ref.TypeName)
+		return fieldsFromPackage(rootPkg, ref.TypeName)
 	}
 	importPath := resolveImportPath(rootPkg, ref.PkgAlias)
 	if importPath == "" || modulePath == "" ||
@@ -302,13 +288,15 @@ func lookupOutputs(
 	if err != nil {
 		return nil
 	}
-	return outputsFromPackage(subPkg, ref.TypeName)
+	return fieldsFromPackage(subPkg, ref.TypeName)
 }
 
-// outputsFromPackage finds the named type in the package's files,
-// follows one level of alias if present, and returns the kebab-tag
-// to Go-type map extracted from the resolved struct's fields.
-func outputsFromPackage(files []*ast.File, typeName string) map[string]string {
+// fieldsFromPackage finds the named type in the package's files,
+// follows one level of alias if present, and returns the kebab-name
+// to typecheck.Type map of the resolved struct's fields. Same-
+// package nested struct types are expanded recursively; selector
+// types and unrecognized Go types collapse to Unknown.
+func fieldsFromPackage(files []*ast.File, typeName string) map[string]typecheck.Type {
 	spec := findTypeSpec(files, typeName)
 	if spec == nil {
 		return nil
@@ -325,22 +313,124 @@ func outputsFromPackage(files []*ast.File, typeName string) map[string]string {
 		}
 	}
 	st, ok := spec.Type.(*ast.StructType)
-	if !ok || st.Fields == nil {
+	if !ok {
 		return nil
 	}
-	out := map[string]string{}
+	visiting := map[string]bool{typeName: true}
+	return fieldsFromStruct(st, files, visiting)
+}
+
+// fieldsFromStruct walks one struct's fields into a kebab-name to
+// Type map. Each field's Go type goes through typeFromAST so nested
+// struct types in the same package expand into Object types.
+func fieldsFromStruct(
+	st *ast.StructType, files []*ast.File, visiting map[string]bool,
+) map[string]typecheck.Type {
+	if st.Fields == nil {
+		return nil
+	}
+	out := map[string]typecheck.Type{}
 	for _, fld := range st.Fields.List {
-		typeStr := typeString(fld.Type)
+		t := typeFromAST(fld.Type, files, visiting)
 		tag := mapstructureTag(fld.Tag)
 		for _, name := range fld.Names {
 			key := tag
 			if key == "" {
 				key = lang.PascalToKebab(name.Name)
 			}
-			out[key] = typeStr
+			out[key] = t
 		}
 	}
 	return out
+}
+
+// typeFromAST converts a Go AST type expression to a typecheck.Type.
+// Same-package named struct types expand into Object types; named
+// aliases follow to their underlying type. Cross-package selectors
+// stay Unknown except for a small allowlist (time.Duration).
+// visiting tracks named types currently being walked so a recursive
+// struct does not loop forever.
+func typeFromAST(
+	e ast.Expr, files []*ast.File, visiting map[string]bool,
+) typecheck.Type {
+	switch v := e.(type) {
+	case *ast.Ident:
+		if t, ok := primitiveFromName(v.Name); ok {
+			return t
+		}
+		return namedTypeFromIdent(v.Name, files, visiting)
+	case *ast.SelectorExpr:
+		pkg, ok := identName(v.X)
+		if !ok {
+			return typecheck.TUnknown()
+		}
+		if pkg == "time" && v.Sel.Name == "Duration" {
+			return typecheck.TInteger()
+		}
+		return typecheck.TUnknown()
+	case *ast.StarExpr:
+		return typecheck.TOptional(typeFromAST(v.X, files, visiting))
+	case *ast.ArrayType:
+		return typecheck.TList(typeFromAST(v.Elt, files, visiting))
+	case *ast.MapType:
+		keyID, ok := v.Key.(*ast.Ident)
+		if !ok || keyID.Name != "string" {
+			return typecheck.TUnknown()
+		}
+		return typecheck.TMap(typeFromAST(v.Value, files, visiting))
+	case *ast.InterfaceType:
+		return typecheck.TAny()
+	}
+	return typecheck.TUnknown()
+}
+
+func primitiveFromName(name string) (typecheck.Type, bool) {
+	switch name {
+	case "string":
+		return typecheck.TString(), true
+	case "bool":
+		return typecheck.TBoolean(), true
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64", "byte", "rune":
+		return typecheck.TInteger(), true
+	case "float32", "float64":
+		return typecheck.TNumber(), true
+	case "any":
+		return typecheck.TAny(), true
+	}
+	return typecheck.Type{}, false
+}
+
+// namedTypeFromIdent resolves an identifier that names a type in the
+// same package. Aliases and defined-but-not-struct types delegate to
+// their underlying type. Struct definitions become Object types with
+// each field recursively expanded; the visiting set guards against
+// cycles.
+func namedTypeFromIdent(
+	name string, files []*ast.File, visiting map[string]bool,
+) typecheck.Type {
+	if visiting[name] {
+		return typecheck.TUnknown()
+	}
+	spec := findTypeSpec(files, name)
+	if spec == nil {
+		return typecheck.TUnknown()
+	}
+	if spec.Assign != token.NoPos {
+		return typeFromAST(spec.Type, files, visiting)
+	}
+	st, ok := spec.Type.(*ast.StructType)
+	if !ok {
+		return typeFromAST(spec.Type, files, visiting)
+	}
+	visiting[name] = true
+	defer delete(visiting, name)
+	fields := fieldsFromStruct(st, files, visiting)
+	out := make([]typecheck.ObjectField, 0, len(fields))
+	for fname, ft := range fields {
+		out = append(out, typecheck.ObjectField{Name: fname, Type: ft})
+	}
+	return typecheck.TObject(out)
 }
 
 func findTypeSpec(files []*ast.File, name string) *ast.TypeSpec {
@@ -393,27 +483,6 @@ func mapstructureTag(tag *ast.BasicLit) string {
 	raw := strings.Trim(tag.Value, "`")
 	t := reflect.StructTag(raw)
 	return t.Get("mapstructure")
-}
-
-// typeString stringifies an AST type expression in the form used by
-// the project's Go source.
-func typeString(e ast.Expr) string {
-	switch v := e.(type) {
-	case *ast.Ident:
-		return v.Name
-	case *ast.SelectorExpr:
-		x, _ := identName(v.X)
-		return x + "." + v.Sel.Name
-	case *ast.StarExpr:
-		return "*" + typeString(v.X)
-	case *ast.ArrayType:
-		return "[]" + typeString(v.Elt)
-	case *ast.MapType:
-		return "map[" + typeString(v.Key) + "]" + typeString(v.Value)
-	case *ast.InterfaceType:
-		return "any"
-	}
-	return "?"
 }
 
 func identName(e ast.Expr) (string, bool) {

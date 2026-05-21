@@ -126,10 +126,12 @@ func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 
 // nodeOutputType builds an Object Type that describes a node's
 // outputs. Go-backed nodes return their TypeSchema.Outputs as an
-// Object directly. Composite nodes contribute an Object whose
-// fields all carry Unknown types; the field-existence check still
-// catches typos but the type checker stops descending past a
-// composite output until composite-output typing is implemented.
+// Object directly; goschema has already expanded nested struct
+// types so the descender can walk through them. Composite nodes
+// contribute an Object whose fields all carry Unknown types; the
+// field-existence check still catches typos but the type checker
+// stops descending past a composite output until composite-output
+// typing is implemented.
 func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 	if node == nil {
 		return typecheck.TUnknown()

@@ -102,6 +102,35 @@ type Thing struct{}
 	require.Contains(t, warnings[0], "ThingOutput")
 }
 
+func TestReadExpandsNestedStructTypes(t *testing.T) {
+	schema, warnings, err := Read("testdata/nested")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	require.Contains(t, schema.Resources, "db")
+	db := schema.Resources["db"]
+
+	endpoint := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "host", Type: typecheck.TString()},
+		{Name: "port", Type: typecheck.TInteger()},
+	})
+
+	require.Len(t, db.Outputs, 4)
+	require.True(t, db.Outputs["id"].Equal(typecheck.TString()),
+		"got %s", db.Outputs["id"])
+	require.True(t, db.Outputs["endpoint"].Equal(endpoint),
+		"got %s", db.Outputs["endpoint"])
+	require.True(t,
+		db.Outputs["replicas"].Equal(typecheck.TList(endpoint)),
+		"got %s", db.Outputs["replicas"])
+	// Self is *DBOutput while DBOutput is being walked, so the
+	// cycle guard returns Unknown for the recursive reference.
+	require.True(t,
+		db.Outputs["self"].Equal(typecheck.TOptional(typecheck.TUnknown())),
+		"recursive self should hit the cycle guard, got %s",
+		db.Outputs["self"])
+}
+
 func TestReadErrorsWhenNoModuleFunc(t *testing.T) {
 	dir := t.TempDir()
 	src := []byte("package empty\n\nfunc Other() int { return 0 }\n")

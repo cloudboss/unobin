@@ -234,6 +234,48 @@ resources: {
 	require.Contains(t, got[0], `unknown field "paht" on local.file`)
 }
 
+func TestCheckTypesRejectsUnknownFieldOnNestedResourceOutput(t *testing.T) {
+	endpoint := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "host", Type: typecheck.TString()},
+		{Name: "port", Type: typecheck.TInteger()},
+	})
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  aws: {
+    rds: {
+      main: { name: 'one' }
+    }
+  }
+  local: {
+    file: {
+      one: {
+        path: resource.aws.rds.main.endpoint.bogus
+        content: 'hi'
+      }
+    }
+  }
+}
+`), map[string]*Module{
+		"local": localFileModule(),
+		"aws": {Schema: &ModuleSchema{
+			Resources: map[string]*TypeSchema{
+				"rds": {
+					Inputs: map[string]typecheck.Type{
+						"name": typecheck.TString(),
+					},
+					Outputs: map[string]typecheck.Type{
+						"endpoint": endpoint,
+					},
+				},
+			},
+		}},
+	})
+
+	got := checkErrorMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown field "bogus" on object(`)
+}
+
 func TestCheckTypesRejectsUnknownNestedObjectField(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: {
