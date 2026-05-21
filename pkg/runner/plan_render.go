@@ -128,6 +128,9 @@ func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
 }
 
 func renderInputValue(step *runtime.PlanStep, field string) string {
+	if stringSetContains(step.SensitiveInputs, field) {
+		return sensitivePlaceholder
+	}
 	if refs := step.UnresolvedInputs[field]; len(refs) > 0 {
 		return "<" + strings.Join(refs, ", ") + ">"
 	}
@@ -304,10 +307,13 @@ func printDriftStep(out io.Writer, s *runtime.PlanStep) {
 	}
 	fmt.Fprintf(out, "  ~ %s\n", s.Address)
 	for _, key := range driftedFields(s) {
-		fmt.Fprintf(out, "      %s: %s -> %s\n",
-			key,
-			formatValue(s.PriorOutputs[key]),
-			formatValue(s.ObservedOutputs[key]))
+		prior := formatValue(s.PriorOutputs[key])
+		observed := formatValue(s.ObservedOutputs[key])
+		if stringSetContains(s.SensitiveOutputs, key) {
+			prior = sensitivePlaceholder
+			observed = sensitivePlaceholder
+		}
+		fmt.Fprintf(out, "      %s: %s -> %s\n", key, prior, observed)
 	}
 }
 

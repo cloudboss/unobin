@@ -213,16 +213,23 @@ func doApplyPlan(
 		}
 		return err
 	}
-	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs)
+	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs, rootSensitiveOutputs(f))
 }
 
 // writeApplyOutputs prints the final outputs in the requested
 // format. Text emits `name: value` lines; json and unobin emit one
-// apply-output envelope per name in alphabetical order.
-func writeApplyOutputs(out io.Writer, format Format, outputs map[string]any) error {
+// apply-output envelope per name in alphabetical order. Names in
+// sensitive get their value masked with the placeholder.
+func writeApplyOutputs(
+	out io.Writer, format Format, outputs map[string]any, sensitive map[string]bool,
+) error {
 	if format != FormatJSON && format != FormatUnobin {
 		for _, k := range sortedMapKeys(outputs) {
-			fmt.Fprintf(out, "%s: %s\n", k, lang.RenderPretty(outputs[k]))
+			value := lang.RenderPretty(outputs[k])
+			if sensitive[k] {
+				value = sensitivePlaceholder
+			}
+			fmt.Fprintf(out, "%s: %s\n", k, value)
 		}
 		return nil
 	}
@@ -231,6 +238,9 @@ func writeApplyOutputs(out io.Writer, format Format, outputs map[string]any) err
 			Kind:  "apply-output",
 			Name:  k,
 			Value: outputs[k],
+		}
+		if sensitive[k] {
+			env.Value = sensitivePlaceholder
 		}
 		if err := writeEnvelope(out, format, env); err != nil {
 			return err
@@ -805,12 +815,31 @@ func doOutput(
 	if err != nil {
 		return err
 	}
+	source, err := parsedFile(info)
+	if err != nil {
+		return err
+	}
+	sensitive := rootSensitiveOutputs(source)
+	masked := func(k string, v any) any {
+		if sensitive[k] {
+			return sensitivePlaceholder
+		}
+		return v
+	}
 	if len(args) == 0 {
 		if asJSON {
-			return writeJSON(cmd.OutOrStdout(), snap.Outputs)
+			out := make(map[string]any, len(snap.Outputs))
+			for k, v := range snap.Outputs {
+				out[k] = masked(k, v)
+			}
+			return writeJSON(cmd.OutOrStdout(), out)
 		}
 		for _, k := range sortedMapKeys(snap.Outputs) {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", k, lang.RenderPretty(snap.Outputs[k]))
+			value := lang.RenderPretty(snap.Outputs[k])
+			if sensitive[k] {
+				value = sensitivePlaceholder
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", k, value)
 		}
 		return nil
 	}
@@ -820,7 +849,11 @@ func doOutput(
 		return fmt.Errorf("no output %q", name)
 	}
 	if asJSON {
-		return writeJSON(cmd.OutOrStdout(), val)
+		return writeJSON(cmd.OutOrStdout(), masked(name, val))
+	}
+	if sensitive[name] {
+		fmt.Fprintln(cmd.OutOrStdout(), sensitivePlaceholder)
+		return nil
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", lang.RenderPretty(val))
 	return nil

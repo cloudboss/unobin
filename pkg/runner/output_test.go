@@ -92,7 +92,7 @@ func TestApplyOutputEnvelopes(t *testing.T) {
 		"sizes":  []any{int64(1), int64(2)},
 	}
 	var buf bytes.Buffer
-	require.NoError(t, writeApplyOutputs(&buf, FormatUnobin, outputs))
+	require.NoError(t, writeApplyOutputs(&buf, FormatUnobin, outputs, nil))
 	assert.Equal(t,
 		"{ kind: 'apply-output', name: 'sizes', value: [1, 2] }\n"+
 			"{ kind: 'apply-output', name: 'vpc-id', value: 'vpc-abc123' }\n",
@@ -104,7 +104,7 @@ func TestApplyOutputEnvelopesJSON(t *testing.T) {
 		"vpc-id": "vpc-abc123",
 	}
 	var buf bytes.Buffer
-	require.NoError(t, writeApplyOutputs(&buf, FormatJSON, outputs))
+	require.NoError(t, writeApplyOutputs(&buf, FormatJSON, outputs, nil))
 	assert.Equal(t,
 		`{"kind":"apply-output","name":"vpc-id","value":"vpc-abc123"}`+"\n",
 		buf.String())
@@ -113,8 +113,30 @@ func TestApplyOutputEnvelopesJSON(t *testing.T) {
 func TestApplyOutputsText(t *testing.T) {
 	outputs := map[string]any{"vpc-id": "vpc-abc123"}
 	var buf bytes.Buffer
-	require.NoError(t, writeApplyOutputs(&buf, FormatText, outputs))
+	require.NoError(t, writeApplyOutputs(&buf, FormatText, outputs, nil))
 	assert.Equal(t, "vpc-id: 'vpc-abc123'\n", buf.String())
+}
+
+func TestApplyOutputEnvelopesMasksSensitive(t *testing.T) {
+	outputs := map[string]any{
+		"password": "shh",
+		"vpc-id":   "vpc-abc123",
+	}
+	sensitive := map[string]bool{"password": true}
+	var buf bytes.Buffer
+	require.NoError(t, writeApplyOutputs(&buf, FormatUnobin, outputs, sensitive))
+	assert.Equal(t,
+		"{ kind: 'apply-output', name: 'password', value: '***' }\n"+
+			"{ kind: 'apply-output', name: 'vpc-id', value: 'vpc-abc123' }\n",
+		buf.String())
+}
+
+func TestApplyOutputsTextMasksSensitive(t *testing.T) {
+	outputs := map[string]any{"password": "shh"}
+	sensitive := map[string]bool{"password": true}
+	var buf bytes.Buffer
+	require.NoError(t, writeApplyOutputs(&buf, FormatText, outputs, sensitive))
+	assert.Equal(t, "password: ***\n", buf.String())
 }
 
 func TestApplyErrorEnvelope(t *testing.T) {

@@ -347,14 +347,18 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printSnapshot(cmd, snap)
+			source, err := parsedFile(info)
+			if err != nil {
+				return err
+			}
+			return printSnapshot(cmd, snap, rootSensitiveOutputs(source))
 		},
 	}
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
 
-func printSnapshot(cmd *cobra.Command, snap *state.Snapshot) error {
+func printSnapshot(cmd *cobra.Command, snap *state.Snapshot, sensitive map[string]bool) error {
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "stack:        %s %s (commit %s)\n",
 		snap.Stack.Name, snap.Stack.Version, snap.Stack.Commit)
@@ -369,8 +373,11 @@ func printSnapshot(cmd *cobra.Command, snap *state.Snapshot) error {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "outputs:")
 		for _, k := range sortedMapKeys(snap.Outputs) {
-			rendered := strings.ReplaceAll(lang.RenderPretty(snap.Outputs[k]), "\n", "\n  ")
-			fmt.Fprintf(out, "  %s: %s\n", k, rendered)
+			value := sensitivePlaceholder
+			if !sensitive[k] {
+				value = strings.ReplaceAll(lang.RenderPretty(snap.Outputs[k]), "\n", "\n  ")
+			}
+			fmt.Fprintf(out, "  %s: %s\n", k, value)
 		}
 	}
 	return nil

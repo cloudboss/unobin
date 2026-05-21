@@ -604,6 +604,48 @@ func TestPrintPlanShowsDriftSection(t *testing.T) {
 	require.Contains(t, out, "Plan: 0 to create, 1 to update")
 }
 
+func TestPrintPlanMasksSensitiveInput(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:         "resource.local.secret.s",
+				Kind:            runtime.NodeResource,
+				Decision:        runtime.DecisionCreate,
+				Inputs:          map[string]any{"password": "shh", "name": "tok"},
+				SensitiveInputs: []string{"password"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out, "password: ***")
+	require.NotContains(t, out, "shh")
+	require.Contains(t, out, `name: "tok"`)
+}
+
+func TestPrintPlanMasksSensitiveDrift(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:          "resource.local.secret.s",
+				Kind:             runtime.NodeResource,
+				Decision:         runtime.DecisionUpdate,
+				Inputs:           map[string]any{"name": "tok"},
+				PriorOutputs:     map[string]any{"value": "old-secret"},
+				ObservedOutputs:  map[string]any{"value": "new-secret"},
+				SensitiveOutputs: []string{"value"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out, "value: *** -> ***")
+	require.NotContains(t, out, "old-secret")
+	require.NotContains(t, out, "new-secret")
+}
+
 func TestPrintPlanShowsGoneSection(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
