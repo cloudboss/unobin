@@ -150,8 +150,9 @@ func encodeArrayLit(b *strings.Builder, n *lang.ArrayLit) error {
 func encodeStringLit(b *strings.Builder, n *lang.StringLit) error {
 	b.WriteString("&lang.StringLit{Value: ")
 	b.WriteString(strconv.Quote(n.Value))
-	if n.Multiline {
-		b.WriteString(", Multiline: true")
+	if n.Form != lang.StringSingleQuoted {
+		b.WriteString(", Form: lang.")
+		b.WriteString(n.Form.String())
 	}
 	b.WriteString("}")
 	return nil

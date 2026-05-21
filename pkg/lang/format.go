@@ -136,7 +136,7 @@ func isSingleLineField(field *Field) bool {
 	case *ArrayLit:
 		return len(x.Elements) == 0
 	case *StringLit:
-		return !x.Multiline || !strings.ContainsAny(x.Value, "\n")
+		return !x.Form.IsMultiLine() || !strings.ContainsAny(x.Value, "\n")
 	case *TypeObject:
 		return len(x.Fields) == 0
 	}
@@ -193,7 +193,7 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 }
 
 func (w *formatter) writeString(s *StringLit, indent string) error {
-	if s.Multiline && strings.ContainsAny(s.Value, "\n") {
+	if s.Form.IsMultiLine() && strings.ContainsAny(s.Value, "\n") {
 		return w.writeMultilineString(s, indent)
 	}
 	w.buf.WriteString(renderString(s.Value))

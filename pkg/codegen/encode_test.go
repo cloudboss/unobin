@@ -37,10 +37,10 @@ func TestEncodeStringLit(t *testing.T) {
 }
 
 func TestEncodeStringLitMultiline(t *testing.T) {
-	got, err := EncodeNode(&lang.StringLit{Value: "line one\nline two", Multiline: true})
+	got, err := EncodeNode(&lang.StringLit{Value: "line one\nline two", Form: lang.StringLiteralClip})
 	require.NoError(t, err)
 	require.Contains(t, got, `Value: "line one\nline two"`)
-	require.Contains(t, got, "Multiline: true")
+	require.Contains(t, got, "Form: lang.StringLiteralClip")
 	parsesAsGoExpr(t, got)
 }
 

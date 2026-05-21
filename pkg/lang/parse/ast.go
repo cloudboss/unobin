@@ -125,28 +125,81 @@ type ArrayLit struct {
 func (n *ArrayLit) Span() Span { return n.S }
 func (n *ArrayLit) exprNode()  {}
 
-// StringLit is a string literal. Two source forms produce this node:
+// StringLit is a string literal. Three families of source form produce
+// this node, tracked on Form:
 //
-//   - Single quoted: `'hello\nworld'`. Backslash escapes are processed
+//   - Single quoted: 'hello\nworld'. Backslash escapes are processed
 //     during parsing, so Value holds the decoded content. Double quotes
 //     are not a string delimiter.
-//   - Backtick multiline: " ` ... ` ". Source indentation is *not* part
-//     of the string value. The closing backtick's column is the strip
-//     baseline; each content line's leading whitespace up to that column
-//     is removed and Value holds the dedented content. The first newline
-//     after the opening backtick is dropped. Lines with less indentation
-//     than the baseline are a parse error.
+//   - Single-line backtick: `hello world`. The body contains no newline
+//     and is returned verbatim.
+//   - Multi-line backtick with a sigil that selects mode (literal /
+//     folded / joined) and chomp (clip / strip). Value holds the
+//     dedented and mode-processed content.
 //
-// The Multiline flag distinguishes the two source forms (informational -
-// the Value is already canonical either way).
+// The formatter dispatches on Form to choose the source form when
+// re-emitting; the runtime and type-checker only read Value.
 type StringLit struct {
-	S         Span
-	Value     string
-	Multiline bool
+	S     Span
+	Value string
+	Form  StringForm
 }
 
 func (n *StringLit) Span() Span { return n.S }
 func (n *StringLit) exprNode()  {}
+
+// StringForm distinguishes the source form a StringLit was parsed from
+// and tells the formatter which form to re-emit. The zero value is
+// StringSingleQuoted.
+type StringForm int
+
+const (
+	StringSingleQuoted StringForm = iota
+	StringBacktickSingleLine
+	StringLiteralClip
+	StringLiteralStrip
+	StringFoldedClip
+	StringFoldedStrip
+	StringJoinedClip
+	StringJoinedStrip
+)
+
+// IsMultiLine reports whether the form occupies multiple source lines.
+// It returns true for the six sigil-bearing backtick forms and false
+// for single-quoted and single-line backtick.
+func (f StringForm) IsMultiLine() bool {
+	switch f {
+	case StringLiteralClip, StringLiteralStrip,
+		StringFoldedClip, StringFoldedStrip,
+		StringJoinedClip, StringJoinedStrip:
+		return true
+	}
+	return false
+}
+
+// String returns the constant's identifier. Used by codegen to emit a
+// human-readable form constant in generated source.
+func (f StringForm) String() string {
+	switch f {
+	case StringSingleQuoted:
+		return "StringSingleQuoted"
+	case StringBacktickSingleLine:
+		return "StringBacktickSingleLine"
+	case StringLiteralClip:
+		return "StringLiteralClip"
+	case StringLiteralStrip:
+		return "StringLiteralStrip"
+	case StringFoldedClip:
+		return "StringFoldedClip"
+	case StringFoldedStrip:
+		return "StringFoldedStrip"
+	case StringJoinedClip:
+		return "StringJoinedClip"
+	case StringJoinedStrip:
+		return "StringJoinedStrip"
+	}
+	return "StringSingleQuoted"
+}
 
 // NumberLit covers both integers and floats - the type system narrows to
 // `integer` when a constraint demands it. Value is the canonical text from

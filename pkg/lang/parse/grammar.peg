@@ -413,7 +413,11 @@ StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 
 MultilineStringLitNode <- "`" MultilineBody "`" {
 	val, err := processMultiline(c.text, c.pos.col)
-	return &StringLit{S: c.span(), Value: val, Multiline: true}, err
+	form := StringBacktickSingleLine
+	if len(c.text) >= 2 && bytes.ContainsAny(c.text[1:len(c.text)-1], "\n\r") {
+		form = StringLiteralClip
+	}
+	return &StringLit{S: c.span(), Value: val, Form: form}, err
 }
 
 MultilineBody <- ( !"`" . )*

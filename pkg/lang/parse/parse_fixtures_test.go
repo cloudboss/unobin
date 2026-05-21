@@ -117,18 +117,19 @@ func TestParseFixtureMultilineStrings(t *testing.T) {
 	f := loadFixture(t, "testdata/valid/multiline-strings.ub")
 	wants := []struct {
 		key, val string
+		form     StringForm
 	}{
-		{"single-line", "hello world"},
-		{"two-line", "first\nsecond\n"},
-		{"indented-content", `echo "starting"` + "\nrun-thing\n"},
-		{"preserves-extra-indent", "outer\n  inner\n"},
-		{"empty-blank-line", "one\n\ntwo\n"},
+		{"single-line", "hello world", StringBacktickSingleLine},
+		{"two-line", "first\nsecond\n", StringLiteralClip},
+		{"indented-content", `echo "starting"` + "\nrun-thing\n", StringLiteralClip},
+		{"preserves-extra-indent", "outer\n  inner\n", StringLiteralClip},
+		{"empty-blank-line", "one\n\ntwo\n", StringLiteralClip},
 	}
 	require.Len(t, f.Body.Fields, len(wants))
 	for i, w := range wants {
 		identField(t, f.Body.Fields[i], w.key)
 		s := f.Body.Fields[i].Value.(*StringLit)
-		require.True(t, s.Multiline, "%s: Multiline flag", w.key)
+		require.Equal(t, w.form, s.Form, "%s: Form", w.key)
 		require.Equal(t, w.val, s.Value, w.key)
 	}
 }
@@ -349,7 +350,7 @@ func TestParseFixtureRealistic(t *testing.T) {
 	require.Len(t, constraints.Elements, 1)
 
 	notes := f.Body.Fields[5].Value.(*StringLit)
-	require.True(t, notes.Multiline)
+	require.Equal(t, StringLiteralClip, notes.Form)
 	require.Equal(t,
 		"Multi-line notes preserve their content with the leading\nindent stripped to the closing-backtick column.\n",
 		notes.Value)
