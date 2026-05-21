@@ -11,11 +11,22 @@ type Node interface {
 // matching them against the known file types (stack, module, exported type,
 // config). Until that classification step runs, a File's Kind is FileUnknown.
 type File struct {
-	S       Span
-	Kind    FileKind
-	Path    string
-	Body    *ObjectLit // The top level body is always an object.
-	Comment string     // File-level leading comment, if any.
+	S    Span
+	Kind FileKind
+	Path string
+	Body *ObjectLit // The top level body is always an object.
+	// Comments is every `#` line comment captured during parsing, in
+	// source order. The format renderer interleaves them by position;
+	// the runtime and type checker ignore them.
+	Comments []Comment
+}
+
+// Comment is a single `# ...` line comment as recorded during parsing.
+// The Text field includes the leading `#` and runs to (but does not
+// include) the terminating newline.
+type Comment struct {
+	S    Span
+	Text string
 }
 
 func (f *File) Span() Span { return f.S }

@@ -31,6 +31,7 @@ type (
 	TypeObjectField  = parse.TypeObjectField
 	TypeTuple        = parse.TypeTuple
 	TypeOptional     = parse.TypeOptional
+	Comment          = parse.Comment
 	Span             = parse.Span
 	Position         = parse.Position
 	Error            = parse.Error

@@ -1,11 +1,12 @@
 // PEG grammar for the .ub data format. Compiled by pigeon into grammar.gen.go.
-// Run `go generate ./pkg/lang/...` after editing.
+// Run `go generate ./pkg/lang/parse/...` after editing.
 {
-package lang
+package parse
 
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -186,6 +187,37 @@ func unquoteSingle(s string) string {
 	}
 	return b.String()
 }
+
+// pushComment stashes a captured comment on the parser's global
+// store, keyed on source offset so backtracking does not insert
+// duplicates. The format renderer reads the collected map back after
+// parsing to interleave comments in their original positions.
+func pushComment(c *current, text string) {
+	cm := Comment{S: c.span(), Text: text}
+	store, ok := c.globalStore["comments"].(map[int]Comment)
+	if !ok {
+		store = map[int]Comment{}
+		c.globalStore["comments"] = store
+	}
+	store[cm.S.Start.Offset] = cm
+}
+
+// collectComments flattens the offset-keyed comment map captured
+// during parsing into a slice ordered by source offset.
+func collectComments(c *current) []Comment {
+	store, ok := c.globalStore["comments"].(map[int]Comment)
+	if !ok || len(store) == 0 {
+		return nil
+	}
+	out := make([]Comment, 0, len(store))
+	for _, cm := range store {
+		out = append(out, cm)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].S.Start.Offset < out[j].S.Start.Offset
+	})
+	return out
+}
 }
 
 
@@ -195,6 +227,7 @@ File <- _ pairs:Pair* EOF {
 	if path, ok := c.globalStore["file"].(string); ok {
 		f.Path = path
 	}
+	f.Comments = collectComments(c)
 	return f, nil
 }
 
@@ -408,6 +441,9 @@ IdentChar <- [a-zA-Z0-9_-]
 
 _ <- ( [ \t\r\n] / Comment )*
 
-Comment <- "#" [^\r\n]*
+Comment <- "#" [^\r\n]* {
+	pushComment(c, string(c.text))
+	return nil, nil
+}
 
 EOF <- !.

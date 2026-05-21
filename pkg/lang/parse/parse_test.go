@@ -59,3 +59,27 @@ func TestParseAllowsConsecutiveHyphens(t *testing.T) {
 	require.Equal(t, "fine--name", f.Body.Fields[0].Key.Name)
 	require.Equal(t, int64(1), f.Body.Fields[0].Value.(*NumberLit).ParsedInt)
 }
+
+func TestParseCapturesComments(t *testing.T) {
+	src := "# top\nname: 'cfer' # trailing\n# between\nx: 1\n# final"
+	f := mustParse(t, src)
+	require.Len(t, f.Comments, 4)
+
+	require.Equal(t, "# top", f.Comments[0].Text)
+	require.Equal(t, 1, f.Comments[0].S.Start.Line)
+	require.Equal(t, 1, f.Comments[0].S.Start.Column)
+
+	require.Equal(t, "# trailing", f.Comments[1].Text)
+	require.Equal(t, 2, f.Comments[1].S.Start.Line)
+
+	require.Equal(t, "# between", f.Comments[2].Text)
+	require.Equal(t, 3, f.Comments[2].S.Start.Line)
+
+	require.Equal(t, "# final", f.Comments[3].Text)
+	require.Equal(t, 5, f.Comments[3].S.Start.Line)
+}
+
+func TestParseNoCommentsLeavesSliceNil(t *testing.T) {
+	f := mustParse(t, "name: 'cfer'\n")
+	require.Nil(t, f.Comments)
+}

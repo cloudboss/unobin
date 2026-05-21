@@ -81,9 +81,6 @@ func encodeFile(b *strings.Builder, n *lang.File) error {
 	if n.Path != "" {
 		fmt.Fprintf(b, ", Path: %s", strconv.Quote(n.Path))
 	}
-	if n.Comment != "" {
-		fmt.Fprintf(b, ", Comment: %s", strconv.Quote(n.Comment))
-	}
 	if n.Body != nil {
 		b.WriteString(", Body: ")
 		if err := encodeObjectLit(b, n.Body); err != nil {
