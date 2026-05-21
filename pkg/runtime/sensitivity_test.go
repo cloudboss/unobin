@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
 
@@ -313,4 +314,49 @@ func TestSensitivityHandlesNilSource(t *testing.T) {
 	an := newSensitivityAnalyzer(nil, mods, nil)
 	body := &lang.ObjectLit{}
 	require.Empty(t, an.sensitiveInputs(body, ""))
+}
+
+func TestSensitivityPersistsOntoStateEntry(t *testing.T) {
+	src := `
+inputs: {
+  message: {
+    type: string
+    @sensitive: true
+  }
+}
+
+actions: {
+  core: {
+    echo: {
+      hi: { echo: var.message }
+    }
+  }
+}
+`
+	mods := testModules()
+	mods["core"].Schema = &ModuleSchema{
+		Actions: map[string]*TypeSchema{
+			"echo": {SensitiveOutputs: []string{"echo"}},
+		},
+	}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	f := parseStack(t, src)
+	store := newStateStore(t)
+	exec := &Executor{
+		Source:  f,
+		DAG:     BuildDAG(f, mods),
+		Modules: mods,
+		Inputs:  map[string]any{"message": "shh"},
+		Store:   store,
+		Stack:   stack,
+	}
+	applyOnce(t, exec)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+
+	ent := snap.Find("action.core.echo.hi")
+	require.NotNil(t, ent, "echo action should have a state entry")
+	require.Equal(t, []string{"echo"}, ent.SensitiveInputs)
+	require.Equal(t, []string{"echo"}, ent.SensitiveOutputs)
 }

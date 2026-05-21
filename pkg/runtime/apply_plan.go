@@ -112,7 +112,8 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		if !ok || node.Kind != NodeComposite {
 			return fmt.Errorf("composite: node %q not in DAG", step.Address)
 		}
-		return e.finalizeComposite(rs, node, step.Address, step.Inputs)
+		return e.finalizeComposite(rs, node, step.Address, step.Inputs,
+			step.SensitiveInputs, step.SensitiveOutputs)
 	case NodeOutput:
 		return nil
 	default:
@@ -168,12 +169,14 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	}
 
 	upsertEntry(rs.next, &state.Entry{
-		Address:     step.Address,
-		Type:        state.EntryAction,
-		Kind:        prep.node.Type,
-		TriggerHash: hash,
-		Inputs:      prep.inputs,
-		Outputs:     outputs,
+		Address:          step.Address,
+		Type:             state.EntryAction,
+		Kind:             prep.node.Type,
+		TriggerHash:      hash,
+		Inputs:           prep.inputs,
+		Outputs:          outputs,
+		SensitiveInputs:  step.SensitiveInputs,
+		SensitiveOutputs: step.SensitiveOutputs,
 	})
 	return nil
 }
@@ -237,12 +240,14 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			prep.instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
-		Address:       step.Address,
-		Type:          state.EntryLeaf,
-		Kind:          prep.node.Type,
-		SchemaVersion: rt.SchemaVersion(),
-		Inputs:        prep.inputs,
-		Outputs:       outputs,
+		Address:          step.Address,
+		Type:             state.EntryLeaf,
+		Kind:             prep.node.Type,
+		SchemaVersion:    rt.SchemaVersion(),
+		Inputs:           prep.inputs,
+		Outputs:          outputs,
+		SensitiveInputs:  step.SensitiveInputs,
+		SensitiveOutputs: step.SensitiveOutputs,
 	})
 	switch step.Decision {
 	case DecisionCreate, DecisionUpdate, DecisionReplace:

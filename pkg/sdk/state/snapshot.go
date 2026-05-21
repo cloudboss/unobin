@@ -23,13 +23,18 @@ const (
 // leaf entries hold a primitive resource's Kind, SchemaVersion, Inputs, and
 // Outputs; module-call entries hold a composite type's Module, ModuleType,
 // and call-site Inputs/Outputs.
+//
+// SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
+// values came from a sensitive source. Renderers mask the matching
+// entries when printing.
 type Entry struct {
 	Address string    `json:"address"`
 	Type    EntryType `json:"type"`
 
-	Kind            string   `json:"kind,omitempty"`
-	SchemaVersion   int      `json:"schema-version,omitempty"`
-	SensitiveFields []string `json:"sensitive-fields,omitempty"`
+	Kind             string   `json:"kind,omitempty"`
+	SchemaVersion    int      `json:"schema-version,omitempty"`
+	SensitiveInputs  []string `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
 
 	Module     string `json:"module,omitempty"`
 	ModuleType string `json:"module-type,omitempty"`

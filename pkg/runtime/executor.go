@@ -348,7 +348,8 @@ func cloneEntry(ent *state.Entry) *state.Entry {
 		return nil
 	}
 	out := *ent
-	out.SensitiveFields = append([]string(nil), ent.SensitiveFields...)
+	out.SensitiveInputs = append([]string(nil), ent.SensitiveInputs...)
+	out.SensitiveOutputs = append([]string(nil), ent.SensitiveOutputs...)
 	out.Inputs = cloneMap(ent.Inputs)
 	out.Outputs = cloneMap(ent.Outputs)
 	out.DependsOn = append([]string(nil), ent.DependsOn...)
@@ -434,6 +435,7 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 // site arg map evaluated for this instance.
 func (e *Executor) finalizeComposite(
 	rs *runState, n *Node, instAddr string, inputs map[string]any,
+	sensitiveInputs, sensitiveOutputs []string,
 ) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -456,12 +458,14 @@ func (e *Executor) finalizeComposite(
 		seedInstance(parent.Resources, n.NS, n.Type, n.Name, instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
-		Address:    instAddr,
-		Type:       state.EntryModuleCall,
-		Module:     n.NS,
-		ModuleType: n.Type,
-		Inputs:     inputs,
-		Outputs:    outputs,
+		Address:          instAddr,
+		Type:             state.EntryModuleCall,
+		Module:           n.NS,
+		ModuleType:       n.Type,
+		Inputs:           inputs,
+		Outputs:          outputs,
+		SensitiveInputs:  sensitiveInputs,
+		SensitiveOutputs: sensitiveOutputs,
 	})
 	return nil
 }

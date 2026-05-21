@@ -125,14 +125,15 @@ func (e *Executor) refreshLeaf(
 		return nil, false, err
 	}
 	return &state.Entry{
-		Address:         ent.Address,
-		Type:            state.EntryLeaf,
-		Kind:            ent.Kind,
-		SchemaVersion:   rt.SchemaVersion(),
-		SensitiveFields: ent.SensitiveFields,
-		TriggerHash:     ent.TriggerHash,
-		Inputs:          ent.Inputs,
-		Outputs:         observed,
-		DependsOn:       ent.DependsOn,
+		Address:          ent.Address,
+		Type:             state.EntryLeaf,
+		Kind:             ent.Kind,
+		SchemaVersion:    rt.SchemaVersion(),
+		SensitiveInputs:  ent.SensitiveInputs,
+		SensitiveOutputs: ent.SensitiveOutputs,
+		TriggerHash:      ent.TriggerHash,
+		Inputs:           ent.Inputs,
+		Outputs:          observed,
+		DependsOn:        ent.DependsOn,
 	}, false, nil
 }

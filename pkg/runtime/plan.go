@@ -90,6 +90,13 @@ type PlanStep struct {
 	// reads from any sensitive source. Renderers replace the value
 	// with a placeholder rather than printing the secret.
 	SensitiveInputs []string `json:"sensitive-inputs,omitempty"`
+
+	// SensitiveOutputs names the output fields of this step that are
+	// sensitive. For a primitive resource/action it comes from the
+	// module schema's tagged fields; for a composite call site it
+	// comes from the composite type's `@sensitive` markers and from
+	// propagation through its body.
+	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -197,6 +204,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				}
 			}
 			step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
+			step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
 			plan.Steps = append(plan.Steps, step)
 			addressDecision[step.Address] = step.Decision
 			liveAddresses[step.Address] = true

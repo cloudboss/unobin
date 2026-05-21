@@ -65,6 +65,62 @@ func (s *sensitivityAnalyzer) sensitiveInputs(body lang.Expr, compositeAddr stri
 	return names
 }
 
+// sensitiveOutputs returns the kebab-case output field names this
+// node exposes as sensitive. For a primitive resource, data source,
+// or action it comes from the module schema's tagged fields; for a
+// composite call site it comes from the composite type's analyzed
+// outputs (declared `@sensitive` plus propagation).
+func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
+	switch n.Kind {
+	case NodeResource, NodeAction, NodeData:
+		mods, _ := s.modsForNode(n)
+		mod, ok := mods[n.NS]
+		if !ok || mod == nil || mod.Schema == nil {
+			return nil
+		}
+		var ts *TypeSchema
+		switch n.Kind {
+		case NodeResource:
+			ts = mod.Schema.Resources[n.Type]
+		case NodeData:
+			ts = mod.Schema.DataSources[n.Type]
+		case NodeAction:
+			ts = mod.Schema.Actions[n.Type]
+		}
+		if ts == nil {
+			return nil
+		}
+		return append([]string(nil), ts.SensitiveOutputs...)
+	case NodeComposite:
+		cs := s.compositeSensitivity(n)
+		if cs == nil {
+			return nil
+		}
+		names := make([]string, 0, len(cs.outputs))
+		for name := range cs.outputs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return names
+	}
+	return nil
+}
+
+// modsForNode returns the modules table that resolves the node's
+// namespace alias. Root nodes use the analyzer's rootMods; nodes
+// inside a composite use the call-site boundary's Modules.
+func (s *sensitivityAnalyzer) modsForNode(n *Node) (map[string]*Module, *Node) {
+	if n.Composite == "" || s.dag == nil {
+		return s.rootMods, nil
+	}
+	tmpl, _ := splitInstanceAddress(n.Composite)
+	boundary, ok := s.dag.Nodes[tmpl]
+	if !ok || boundary.Modules == nil {
+		return s.rootMods, boundary
+	}
+	return boundary.Modules, boundary
+}
+
 // scopeFor returns the sensitive-vars set and modules table to
 // resolve references against when analyzing inside the named
 // composite call site. The root scope returns the analyzer's
