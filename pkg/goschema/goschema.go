@@ -22,6 +22,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 // Read parses the Go module rooted at dir and returns its schema
@@ -55,7 +56,10 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 				"%s %q: %s not found in the module's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
-		ts := &runtime.TypeSchema{Inputs: inputs, Outputs: outputs}
+		ts := &runtime.TypeSchema{
+			Inputs:  promoteFields(inputs),
+			Outputs: promoteFields(outputs),
+		}
 		switch reg.Field {
 		case "Resources":
 			schema.Resources[reg.Name] = ts
@@ -66,6 +70,21 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 		}
 	}
 	return schema, warnings, nil
+}
+
+// promoteFields turns a kebab-name to Go-type-string map (the form
+// outputsFromPackage produces) into the typecheck.Type map that
+// runtime.TypeSchema now carries. Unknown Go types collapse to
+// typecheck.Unknown.
+func promoteFields(in map[string]string) map[string]typecheck.Type {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]typecheck.Type, len(in))
+	for k, v := range in {
+		out[k] = typecheck.FromGoString(v)
+	}
+	return out
 }
 
 func registrationKindLabel(field string) string {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,16 +16,16 @@ func localFileModule() *Module {
 		Schema: &ModuleSchema{
 			Resources: map[string]*TypeSchema{
 				"file": {
-					Inputs: map[string]string{
-						"path":             "string",
-						"content":          "string",
-						"mode":             "int64",
-						"create-directory": "bool",
+					Inputs: map[string]typecheck.Type{
+						"path":             typecheck.TString(),
+						"content":          typecheck.TString(),
+						"mode":             typecheck.TInteger(),
+						"create-directory": typecheck.TBoolean(),
 					},
-					Outputs: map[string]string{
-						"path":   "string",
-						"sha256": "string",
-						"size":   "int64",
+					Outputs: map[string]typecheck.Type{
+						"path":   typecheck.TString(),
+						"sha256": typecheck.TString(),
+						"size":   typecheck.TInteger(),
 					},
 				},
 			},
@@ -125,8 +126,8 @@ actions: {
 		"core": {Schema: &ModuleSchema{
 			Actions: map[string]*TypeSchema{
 				"command": {
-					Inputs: map[string]string{
-						"argv": "[]string",
+					Inputs: map[string]typecheck.Type{
+						"argv": typecheck.TList(typecheck.TString()),
 					},
 				},
 			},
@@ -151,7 +152,9 @@ actions: {
 		"core": {Schema: &ModuleSchema{
 			Actions: map[string]*TypeSchema{
 				"command": {
-					Inputs: map[string]string{"argv": "[]string"},
+					Inputs: map[string]typecheck.Type{
+						"argv": typecheck.TList(typecheck.TString()),
+					},
 				},
 			},
 		}},
@@ -262,7 +265,7 @@ resources: {
 `), map[string]*Module{
 		"local": {Schema: &ModuleSchema{
 			Resources: map[string]*TypeSchema{
-				"file": {Outputs: map[string]string{"path": "string"}},
+				"file": {Outputs: map[string]typecheck.Type{"path": typecheck.TString()}},
 			},
 		}},
 	})

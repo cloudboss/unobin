@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 // CheckReferences reports references that cannot resolve to an input binding,
@@ -199,7 +200,7 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 	c.addf(dp.S.Start, `unknown field %q on %s.%s`, field, node.NS, node.Type)
 }
 
-func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]string {
+func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typecheck.Type {
 	if node.Kind == NodeComposite {
 		return compositeOutputNames(node)
 	}
@@ -227,9 +228,11 @@ func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]strin
 }
 
 // compositeOutputNames extracts the set of output names declared in
-// a composite type's `outputs:` block. The map's values are empty
-// strings since the V1 checker validates field-name existence only.
-func compositeOutputNames(node *Node) map[string]string {
+// a composite type's `outputs:` block. Each field carries Unknown
+// since the V1 checker validates field-name existence only; the
+// returned map shape matches the Go-side schema so callers do not
+// branch.
+func compositeOutputNames(node *Node) map[string]typecheck.Type {
 	if node.CompositeBody == nil {
 		return nil
 	}
@@ -237,12 +240,12 @@ func compositeOutputNames(node *Node) map[string]string {
 	if !ok {
 		return nil
 	}
-	out := map[string]string{}
+	out := map[string]typecheck.Type{}
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
-		out[fld.Key.Name] = ""
+		out[fld.Key.Name] = typecheck.TUnknown()
 	}
 	return out
 }

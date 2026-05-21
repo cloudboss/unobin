@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -244,10 +245,10 @@ outputs: {
 `), map[string]*Module{
 		"local": {Schema: &ModuleSchema{
 			Resources: map[string]*TypeSchema{
-				"file": {Outputs: map[string]string{
-					"path":   "string",
-					"sha256": "string",
-					"size":   "int64",
+				"file": {Outputs: map[string]typecheck.Type{
+					"path":   typecheck.TString(),
+					"sha256": typecheck.TString(),
+					"size":   typecheck.TInteger(),
 				}},
 			},
 		}},
@@ -274,9 +275,9 @@ outputs: {
 `), map[string]*Module{
 		"core": {Schema: &ModuleSchema{
 			Actions: map[string]*TypeSchema{
-				"command": {Outputs: map[string]string{
-					"stdout":    "string",
-					"exit-code": "int",
+				"command": {Outputs: map[string]typecheck.Type{
+					"stdout":    typecheck.TString(),
+					"exit-code": typecheck.TInteger(),
 				}},
 			},
 		}},
@@ -310,8 +311,8 @@ outputs: {
 						Schema: &ModuleSchema{
 							Resources: map[string]*TypeSchema{
 								"file": {
-									Outputs: map[string]string{
-										"path": "string",
+									Outputs: map[string]typecheck.Type{
+										"path": typecheck.TString(),
 									},
 								},
 							},
@@ -357,9 +358,9 @@ outputs: {
 `), map[string]*Module{
 		"aws": {Schema: &ModuleSchema{
 			DataSources: map[string]*TypeSchema{
-				"ami": {Outputs: map[string]string{
-					"id":           "string",
-					"architecture": "string",
+				"ami": {Outputs: map[string]typecheck.Type{
+					"id":           typecheck.TString(),
+					"architecture": typecheck.TString(),
 				}},
 			},
 		}},
@@ -394,9 +395,9 @@ outputs: {
 `), map[string]*Module{
 		"local": {Schema: &ModuleSchema{
 			Resources: map[string]*TypeSchema{
-				"file": {Outputs: map[string]string{
-					"path":   "string",
-					"sha256": "string",
+				"file": {Outputs: map[string]typecheck.Type{
+					"path":   typecheck.TString(),
+					"sha256": typecheck.TString(),
 				}},
 			},
 		}},

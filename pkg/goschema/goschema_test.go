@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,13 +17,13 @@ func TestReadSamePackage(t *testing.T) {
 
 	require.Contains(t, schema.Actions, "do")
 	do := schema.Actions["do"]
-	require.Equal(t, map[string]string{
-		"what": "string",
+	require.Equal(t, map[string]typecheck.Type{
+		"what": typecheck.TString(),
 	}, do.Inputs)
-	require.Equal(t, map[string]string{
-		"result":   "string",
-		"duration": "time.Duration",
-		"tags":     "[]string",
+	require.Equal(t, map[string]typecheck.Type{
+		"result":   typecheck.TString(),
+		"duration": typecheck.TInteger(),
+		"tags":     typecheck.TList(typecheck.TString()),
 	}, do.Outputs)
 
 	require.Contains(t, schema.Actions, "do2")
@@ -37,22 +38,22 @@ func TestReadSubpackage(t *testing.T) {
 
 	require.Contains(t, schema.Resources, "thing")
 	thing := schema.Resources["thing"]
-	require.Equal(t, map[string]string{
-		"name": "string",
+	require.Equal(t, map[string]typecheck.Type{
+		"name": typecheck.TString(),
 	}, thing.Inputs)
-	require.Equal(t, map[string]string{
-		"id":         "string",
-		"cidr-block": "string",
-		"replicas":   "*int64",
+	require.Equal(t, map[string]typecheck.Type{
+		"id":         typecheck.TString(),
+		"cidr-block": typecheck.TString(),
+		"replicas":   typecheck.TOptional(typecheck.TInteger()),
 	}, thing.Outputs)
 
 	require.Contains(t, schema.DataSources, "ami")
 	ami := schema.DataSources["ami"]
-	require.Equal(t, map[string]string{
-		"image-id": "string",
+	require.Equal(t, map[string]typecheck.Type{
+		"image-id": typecheck.TString(),
 	}, ami.Inputs)
-	require.Equal(t, map[string]string{
-		"architecture": "string",
+	require.Equal(t, map[string]typecheck.Type{
+		"architecture": typecheck.TString(),
 	}, ami.Outputs)
 }
 
@@ -63,11 +64,11 @@ func TestReadDerivesKebabFromFieldNameWhenTagAbsent(t *testing.T) {
 
 	require.Contains(t, schema.Resources, "thing")
 	thing := schema.Resources["thing"]
-	require.Equal(t, map[string]string{
-		"id":           "string",
-		"cidr-block":   "string",
-		"https-proxy":  "string",
-		"explicit-tag": "string",
+	require.Equal(t, map[string]typecheck.Type{
+		"id":           typecheck.TString(),
+		"cidr-block":   typecheck.TString(),
+		"https-proxy":  typecheck.TString(),
+		"explicit-tag": typecheck.TString(),
 	}, thing.Outputs)
 }
 

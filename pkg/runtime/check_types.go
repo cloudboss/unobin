@@ -66,11 +66,7 @@ func (c *referenceChecker) goInputTargets(n *Node) map[string]typecheck.Type {
 	if ts == nil || ts.Inputs == nil {
 		return nil
 	}
-	out := make(map[string]typecheck.Type, len(ts.Inputs))
-	for name, goType := range ts.Inputs {
-		out[name] = typecheck.FromGoString(goType)
-	}
-	return out
+	return ts.Inputs
 }
 
 func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
@@ -129,12 +125,11 @@ func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 }
 
 // nodeOutputType builds an Object Type that describes a node's
-// outputs. Go-backed nodes read their TypeSchema.Outputs and
-// promote each string-typed field via typecheck.FromGoString.
-// Composite nodes contribute an Object whose fields all carry
-// Unknown types; the field-existence check still catches typos but
-// the type checker stops descending past a composite output until
-// composite-output typing is implemented.
+// outputs. Go-backed nodes return their TypeSchema.Outputs as an
+// Object directly. Composite nodes contribute an Object whose
+// fields all carry Unknown types; the field-existence check still
+// catches typos but the type checker stops descending past a
+// composite output until composite-output typing is implemented.
 func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 	if node == nil {
 		return typecheck.TUnknown()
@@ -171,11 +166,8 @@ func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 		return typecheck.TUnknown()
 	}
 	fields := make([]typecheck.ObjectField, 0, len(ts.Outputs))
-	for name, goType := range ts.Outputs {
-		fields = append(fields, typecheck.ObjectField{
-			Name: name,
-			Type: typecheck.FromGoString(goType),
-		})
+	for name, t := range ts.Outputs {
+		fields = append(fields, typecheck.ObjectField{Name: name, Type: t})
 	}
 	return typecheck.TObject(fields)
 }
