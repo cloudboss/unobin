@@ -40,6 +40,7 @@ type compileConfig struct {
 	goVersion     string
 	unobinVersion string
 	replaceUnobin string
+	replaceModule []string
 	build         bool
 }
 
@@ -72,6 +73,10 @@ func init() {
 
 	CompileCmd.Flags().StringVar(&compileCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive.")
+
+	CompileCmd.Flags().StringArrayVar(&compileCfg.replaceModule, "replace-module", nil,
+		"Generic local-replace, repeatable. Format: `module-path=local-path`. "+
+			"Both the import resolver and the generated go.mod use the substitution.")
 
 	CompileCmd.Flags().BoolVar(&compileCfg.build, "build", false,
 		"After writing the source, run `go build` in the output directory.")
@@ -121,6 +126,17 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		resolver = &replaceResolver{
 			prefix:  "github.com/cloudboss/unobin",
 			local:   replaceUnobinAbs,
+			wrapped: resolver,
+		}
+	}
+	extraReplaces, err := parseReplaceFlags(cfg.replaceModule)
+	if err != nil {
+		return err
+	}
+	for prefix, local := range extraReplaces {
+		resolver = &replaceResolver{
+			prefix:  prefix,
+			local:   local,
 			wrapped: resolver,
 		}
 	}
@@ -178,6 +194,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	replaces := codegen.Replaces{}
 	if replaceUnobinAbs != "" {
 		replaces["github.com/cloudboss/unobin"] = replaceUnobinAbs
+	}
+	for prefix, local := range extraReplaces {
+		replaces[prefix] = local
 	}
 
 	err = codegen.WriteSource(cfg.outDir, in,
@@ -403,6 +422,30 @@ func printSchemaWarnings(out io.Writer, alias string, warnings []string) {
 	for _, w := range warnings {
 		fmt.Fprintf(out, "warning: import %q: %s\n", alias, w)
 	}
+}
+
+// parseReplaceFlags parses each `--replace-module module-path=local-path`
+// value into the map fed to both the import resolver and the generated
+// go.mod's replace directive. Returns an error on malformed entries
+// (missing `=`, empty side, or relative paths -- the substitution must
+// be unambiguous in go.mod and on disk).
+func parseReplaceFlags(values []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, raw := range values {
+		idx := strings.IndexByte(raw, '=')
+		if idx <= 0 || idx == len(raw)-1 {
+			return nil, fmt.Errorf(
+				"--replace-module %q: expected module-path=local-path", raw)
+		}
+		mod := raw[:idx]
+		path := raw[idx+1:]
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return nil, fmt.Errorf("--replace-module %q: %w", raw, err)
+		}
+		out[mod] = abs
+	}
+	return out, nil
 }
 
 // goMajorMinor returns the running Go toolchain's `<major>.<minor>` so
