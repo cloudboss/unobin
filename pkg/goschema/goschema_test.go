@@ -131,6 +131,37 @@ func TestReadExpandsNestedStructTypes(t *testing.T) {
 		db.Outputs["self"])
 }
 
+func TestReadExpandsCrossPackageStructTypes(t *testing.T) {
+	schema, warnings, err := Read("testdata/crosspkg")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	require.Contains(t, schema.Resources, "db")
+	db := schema.Resources["db"]
+
+	port := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "number", Type: typecheck.TInteger()},
+		{Name: "protocol", Type: typecheck.TString()},
+	})
+	endpoint := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "host", Type: typecheck.TString()},
+		{Name: "port", Type: port},
+	})
+
+	require.Len(t, db.Outputs, 4)
+	require.True(t, db.Outputs["id"].Equal(typecheck.TString()),
+		"got %s", db.Outputs["id"])
+	require.True(t, db.Outputs["endpoint"].Equal(endpoint),
+		"got %s", db.Outputs["endpoint"])
+	require.True(t,
+		db.Outputs["replicas"].Equal(typecheck.TList(endpoint)),
+		"got %s", db.Outputs["replicas"])
+	require.True(t,
+		db.Outputs["self"].Equal(typecheck.TOptional(typecheck.TUnknown())),
+		"recursive self should hit the cycle guard, got %s",
+		db.Outputs["self"])
+}
+
 func TestReadErrorsWhenNoModuleFunc(t *testing.T) {
 	dir := t.TempDir()
 	src := []byte("package empty\n\nfunc Other() int { return 0 }\n")

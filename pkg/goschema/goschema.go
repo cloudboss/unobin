@@ -3,11 +3,6 @@
 // dev CLI feeds the result into the reference checker so trailing
 // field names in references like `resource.aws.vpc.main.id` can be
 // validated at compile time.
-//
-// The convention is that each registered Go type referenced by a
-// `New:` function in the module's `Module()` registration has a
-// sibling Go type named `<GoName>Output` (or a type alias of one)
-// whose `mapstructure` tags name the kebab-case output field keys.
 package goschema
 
 import (
@@ -48,9 +43,12 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 	}
 	var warnings []string
 
+	cache := map[string][]*ast.File{}
 	for _, reg := range extractRegistrations(moduleFunc) {
-		inputs := lookupFields(rootPkg, dir, modulePath, reg.InputRef)
-		outputs := lookupFields(rootPkg, dir, modulePath, reg.OutputRef)
+		w := newWalker(dir, modulePath, rootPkg, cache)
+		inputs := w.lookupFields(reg.InputRef)
+		w = newWalker(dir, modulePath, rootPkg, cache)
+		outputs := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
 				"%s %q: %s not found in the module's source",
@@ -98,6 +96,267 @@ type registration struct {
 type typeRef struct {
 	PkgAlias string
 	TypeName string
+}
+
+// walker carries the state needed to resolve a Go type expression
+// into a typecheck.Type, including the cross-package recursion that
+// follows selector types into sibling packages within the same
+// module.
+//
+// Per-package fields (importPath, files, imports) describe the
+// package the walker is currently resolving inside. Cross-package
+// recursion clones the walker via sub(), swapping these fields to
+// point at the target package while keeping the shared fields
+// (rootDir, modulePath, packageCache, visiting) intact. visiting
+// is keyed `<importPath>.<typeName>` so a recursive type that runs
+// through two packages is still broken at re-entry.
+type walker struct {
+	rootDir      string
+	modulePath   string
+	packageCache map[string][]*ast.File
+	visiting     map[string]bool
+
+	importPath string
+	files      []*ast.File
+	imports    map[string]string
+}
+
+func newWalker(
+	rootDir, modulePath string,
+	rootFiles []*ast.File,
+	cache map[string][]*ast.File,
+) *walker {
+	if modulePath != "" {
+		cache[modulePath] = rootFiles
+	}
+	return &walker{
+		rootDir:      rootDir,
+		modulePath:   modulePath,
+		packageCache: cache,
+		visiting:     map[string]bool{},
+		importPath:   modulePath,
+		files:        rootFiles,
+		imports:      buildImportMap(rootFiles),
+	}
+}
+
+// sub returns a walker positioned at the named in-module package, or
+// nil when the import path lives outside the module or the
+// subpackage cannot be parsed. The shared maps (packageCache,
+// visiting) are aliased into the returned walker so cycle detection
+// and cache hits span the whole walk.
+func (w *walker) sub(importPath string) *walker {
+	files, ok := w.loadPackage(importPath)
+	if !ok {
+		return nil
+	}
+	cp := *w
+	cp.importPath = importPath
+	cp.files = files
+	cp.imports = buildImportMap(files)
+	return &cp
+}
+
+// loadPackage returns the AST files for an in-module import path,
+// parsing the directory lazily and caching the result. Imports
+// outside the module return (nil, false).
+func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
+	if files, ok := w.packageCache[importPath]; ok {
+		return files, true
+	}
+	if w.modulePath == "" || !strings.HasPrefix(importPath, w.modulePath) {
+		return nil, false
+	}
+	rel := strings.TrimPrefix(importPath, w.modulePath)
+	rel = strings.TrimPrefix(rel, "/")
+	files, err := parsePackageDir(filepath.Join(w.rootDir, rel))
+	if err != nil {
+		return nil, false
+	}
+	w.packageCache[importPath] = files
+	return files, true
+}
+
+// lookupFields resolves a typeRef from a registration's type
+// argument into the kebab-name to typecheck.Type map of the named
+// struct's fields. The walker's current position must be the
+// module's root package; PkgAlias triggers a switch into the
+// referenced subpackage.
+func (w *walker) lookupFields(ref typeRef) map[string]typecheck.Type {
+	if ref.PkgAlias == "" {
+		return w.fieldsFromPackage(ref.TypeName)
+	}
+	importPath, ok := w.imports[ref.PkgAlias]
+	if !ok {
+		return nil
+	}
+	sub := w.sub(importPath)
+	if sub == nil {
+		return nil
+	}
+	return sub.fieldsFromPackage(ref.TypeName)
+}
+
+// fieldsFromPackage finds the named type in the walker's current
+// package files, follows one level of alias if present (including
+// across packages for selector aliases), and returns the kebab-name
+// to typecheck.Type map of the resolved struct's fields.
+func (w *walker) fieldsFromPackage(typeName string) map[string]typecheck.Type {
+	spec := findTypeSpec(w.files, typeName)
+	if spec == nil {
+		return nil
+	}
+	if spec.Assign != token.NoPos {
+		switch t := spec.Type.(type) {
+		case *ast.Ident:
+			spec = findTypeSpec(w.files, t.Name)
+		case *ast.SelectorExpr:
+			pkg, ok := identName(t.X)
+			if !ok {
+				return nil
+			}
+			importPath, ok := w.imports[pkg]
+			if !ok {
+				return nil
+			}
+			sub := w.sub(importPath)
+			if sub == nil {
+				return nil
+			}
+			return sub.fieldsFromPackage(t.Sel.Name)
+		default:
+			return nil
+		}
+		if spec == nil {
+			return nil
+		}
+	}
+	st, ok := spec.Type.(*ast.StructType)
+	if !ok {
+		return nil
+	}
+	key := w.importPath + "." + typeName
+	w.visiting[key] = true
+	defer delete(w.visiting, key)
+	return w.fieldsFromStruct(st)
+}
+
+// fieldsFromStruct walks one struct's fields into a kebab-name to
+// Type map. Each field's Go type goes through typeFromAST so nested
+// struct types in the same package expand into Object types, and
+// types named via a selector into another in-module package expand
+// the same way.
+func (w *walker) fieldsFromStruct(st *ast.StructType) map[string]typecheck.Type {
+	if st.Fields == nil {
+		return nil
+	}
+	out := map[string]typecheck.Type{}
+	for _, fld := range st.Fields.List {
+		t := w.typeFromAST(fld.Type)
+		tag := mapstructureTag(fld.Tag)
+		for _, name := range fld.Names {
+			key := tag
+			if key == "" {
+				key = lang.PascalToKebab(name.Name)
+			}
+			out[key] = t
+		}
+	}
+	return out
+}
+
+// typeFromAST converts a Go AST type expression to a typecheck.Type.
+// Named struct types in the current package expand into Object
+// types; selector types into sibling packages within the same
+// module expand the same way via a sub-walker. Out-of-module types
+// stay Unknown except for a small allowlist (time.Duration).
+func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
+	switch v := e.(type) {
+	case *ast.Ident:
+		if t, ok := primitiveFromName(v.Name); ok {
+			return t
+		}
+		return w.namedTypeFromIdent(v.Name)
+	case *ast.SelectorExpr:
+		pkg, ok := identName(v.X)
+		if !ok {
+			return typecheck.TUnknown()
+		}
+		if pkg == "time" && v.Sel.Name == "Duration" {
+			return typecheck.TInteger()
+		}
+		importPath, ok := w.imports[pkg]
+		if !ok {
+			return typecheck.TUnknown()
+		}
+		sub := w.sub(importPath)
+		if sub == nil {
+			return typecheck.TUnknown()
+		}
+		return sub.namedTypeFromIdent(v.Sel.Name)
+	case *ast.StarExpr:
+		return typecheck.TOptional(w.typeFromAST(v.X))
+	case *ast.ArrayType:
+		return typecheck.TList(w.typeFromAST(v.Elt))
+	case *ast.MapType:
+		keyID, ok := v.Key.(*ast.Ident)
+		if !ok || keyID.Name != "string" {
+			return typecheck.TUnknown()
+		}
+		return typecheck.TMap(w.typeFromAST(v.Value))
+	case *ast.InterfaceType:
+		return typecheck.TAny()
+	}
+	return typecheck.TUnknown()
+}
+
+func primitiveFromName(name string) (typecheck.Type, bool) {
+	switch name {
+	case "string":
+		return typecheck.TString(), true
+	case "bool":
+		return typecheck.TBoolean(), true
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64", "byte", "rune":
+		return typecheck.TInteger(), true
+	case "float32", "float64":
+		return typecheck.TNumber(), true
+	case "any":
+		return typecheck.TAny(), true
+	}
+	return typecheck.Type{}, false
+}
+
+// namedTypeFromIdent resolves an identifier that names a type in the
+// walker's current package. Aliases and defined-but-not-struct
+// types delegate to their underlying type. Struct definitions
+// become Object types with each field recursively expanded; the
+// visiting set, keyed by `<importPath>.<typeName>`, guards against
+// cycles across packages.
+func (w *walker) namedTypeFromIdent(name string) typecheck.Type {
+	key := w.importPath + "." + name
+	if w.visiting[key] {
+		return typecheck.TUnknown()
+	}
+	spec := findTypeSpec(w.files, name)
+	if spec == nil {
+		return typecheck.TUnknown()
+	}
+	if spec.Assign != token.NoPos {
+		return w.typeFromAST(spec.Type)
+	}
+	st, ok := spec.Type.(*ast.StructType)
+	if !ok {
+		return w.typeFromAST(spec.Type)
+	}
+	w.visiting[key] = true
+	defer delete(w.visiting, key)
+	fields := w.fieldsFromStruct(st)
+	out := make([]typecheck.ObjectField, 0, len(fields))
+	for fname, ft := range fields {
+		out = append(out, typecheck.ObjectField{Name: fname, Type: ft})
+	}
+	return typecheck.TObject(out)
 }
 
 func parsePackageDir(dir string) ([]*ast.File, error) {
@@ -267,172 +526,6 @@ func unwrapModuleLiteral(e ast.Expr) *ast.CompositeLit {
 	return cl
 }
 
-// lookupFields resolves a typeRef to the kebab-name to typecheck.Type
-// map of the named struct's fields. The ref's package alias (empty
-// for the root package) selects which package the type lives in; a
-// subpackage is parsed lazily.
-func lookupFields(
-	rootPkg []*ast.File, rootDir, modulePath string, ref typeRef,
-) map[string]typecheck.Type {
-	if ref.PkgAlias == "" {
-		return fieldsFromPackage(rootPkg, ref.TypeName)
-	}
-	importPath := resolveImportPath(rootPkg, ref.PkgAlias)
-	if importPath == "" || modulePath == "" ||
-		!strings.HasPrefix(importPath, modulePath) {
-		return nil
-	}
-	rel := strings.TrimPrefix(importPath, modulePath)
-	rel = strings.TrimPrefix(rel, "/")
-	subPkg, err := parsePackageDir(filepath.Join(rootDir, rel))
-	if err != nil {
-		return nil
-	}
-	return fieldsFromPackage(subPkg, ref.TypeName)
-}
-
-// fieldsFromPackage finds the named type in the package's files,
-// follows one level of alias if present, and returns the kebab-name
-// to typecheck.Type map of the resolved struct's fields. Same-
-// package nested struct types are expanded recursively; selector
-// types and unrecognized Go types collapse to Unknown.
-func fieldsFromPackage(files []*ast.File, typeName string) map[string]typecheck.Type {
-	spec := findTypeSpec(files, typeName)
-	if spec == nil {
-		return nil
-	}
-	if spec.Assign != token.NoPos {
-		switch t := spec.Type.(type) {
-		case *ast.Ident:
-			spec = findTypeSpec(files, t.Name)
-		case *ast.SelectorExpr:
-			return nil
-		}
-		if spec == nil {
-			return nil
-		}
-	}
-	st, ok := spec.Type.(*ast.StructType)
-	if !ok {
-		return nil
-	}
-	visiting := map[string]bool{typeName: true}
-	return fieldsFromStruct(st, files, visiting)
-}
-
-// fieldsFromStruct walks one struct's fields into a kebab-name to
-// Type map. Each field's Go type goes through typeFromAST so nested
-// struct types in the same package expand into Object types.
-func fieldsFromStruct(
-	st *ast.StructType, files []*ast.File, visiting map[string]bool,
-) map[string]typecheck.Type {
-	if st.Fields == nil {
-		return nil
-	}
-	out := map[string]typecheck.Type{}
-	for _, fld := range st.Fields.List {
-		t := typeFromAST(fld.Type, files, visiting)
-		tag := mapstructureTag(fld.Tag)
-		for _, name := range fld.Names {
-			key := tag
-			if key == "" {
-				key = lang.PascalToKebab(name.Name)
-			}
-			out[key] = t
-		}
-	}
-	return out
-}
-
-// typeFromAST converts a Go AST type expression to a typecheck.Type.
-// Same-package named struct types expand into Object types; named
-// aliases follow to their underlying type. Cross-package selectors
-// stay Unknown except for a small allowlist (time.Duration).
-// visiting tracks named types currently being walked so a recursive
-// struct does not loop forever.
-func typeFromAST(
-	e ast.Expr, files []*ast.File, visiting map[string]bool,
-) typecheck.Type {
-	switch v := e.(type) {
-	case *ast.Ident:
-		if t, ok := primitiveFromName(v.Name); ok {
-			return t
-		}
-		return namedTypeFromIdent(v.Name, files, visiting)
-	case *ast.SelectorExpr:
-		pkg, ok := identName(v.X)
-		if !ok {
-			return typecheck.TUnknown()
-		}
-		if pkg == "time" && v.Sel.Name == "Duration" {
-			return typecheck.TInteger()
-		}
-		return typecheck.TUnknown()
-	case *ast.StarExpr:
-		return typecheck.TOptional(typeFromAST(v.X, files, visiting))
-	case *ast.ArrayType:
-		return typecheck.TList(typeFromAST(v.Elt, files, visiting))
-	case *ast.MapType:
-		keyID, ok := v.Key.(*ast.Ident)
-		if !ok || keyID.Name != "string" {
-			return typecheck.TUnknown()
-		}
-		return typecheck.TMap(typeFromAST(v.Value, files, visiting))
-	case *ast.InterfaceType:
-		return typecheck.TAny()
-	}
-	return typecheck.TUnknown()
-}
-
-func primitiveFromName(name string) (typecheck.Type, bool) {
-	switch name {
-	case "string":
-		return typecheck.TString(), true
-	case "bool":
-		return typecheck.TBoolean(), true
-	case "int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64", "byte", "rune":
-		return typecheck.TInteger(), true
-	case "float32", "float64":
-		return typecheck.TNumber(), true
-	case "any":
-		return typecheck.TAny(), true
-	}
-	return typecheck.Type{}, false
-}
-
-// namedTypeFromIdent resolves an identifier that names a type in the
-// same package. Aliases and defined-but-not-struct types delegate to
-// their underlying type. Struct definitions become Object types with
-// each field recursively expanded; the visiting set guards against
-// cycles.
-func namedTypeFromIdent(
-	name string, files []*ast.File, visiting map[string]bool,
-) typecheck.Type {
-	if visiting[name] {
-		return typecheck.TUnknown()
-	}
-	spec := findTypeSpec(files, name)
-	if spec == nil {
-		return typecheck.TUnknown()
-	}
-	if spec.Assign != token.NoPos {
-		return typeFromAST(spec.Type, files, visiting)
-	}
-	st, ok := spec.Type.(*ast.StructType)
-	if !ok {
-		return typeFromAST(spec.Type, files, visiting)
-	}
-	visiting[name] = true
-	defer delete(visiting, name)
-	fields := fieldsFromStruct(st, files, visiting)
-	out := make([]typecheck.ObjectField, 0, len(fields))
-	for fname, ft := range fields {
-		out = append(out, typecheck.ObjectField{Name: fname, Type: ft})
-	}
-	return typecheck.TObject(out)
-}
-
 func findTypeSpec(files []*ast.File, name string) *ast.TypeSpec {
 	for _, f := range files {
 		for _, decl := range f.Decls {
@@ -454,26 +547,33 @@ func findTypeSpec(files []*ast.File, name string) *ast.TypeSpec {
 	return nil
 }
 
-func resolveImportPath(files []*ast.File, alias string) string {
+// buildImportMap returns alias -> import path for a package's files.
+// Aliases default to the last segment of the import path; an
+// explicit `import x "..."` overrides. Dot and blank imports are
+// skipped. When the same alias is bound to multiple paths across
+// files (rare but legal at the Go level), the first binding wins;
+// this is a pragmatic simplification rather than a per-file map.
+func buildImportMap(files []*ast.File) map[string]string {
+	out := map[string]string{}
 	for _, f := range files {
 		for _, imp := range f.Imports {
 			path := strings.Trim(imp.Path.Value, `"`)
-			name := alias
+			alias := ""
 			if imp.Name != nil {
-				if imp.Name.Name == alias {
-					return path
+				if imp.Name.Name == "." || imp.Name.Name == "_" {
+					continue
 				}
+				alias = imp.Name.Name
+			} else {
+				alias = path[strings.LastIndex(path, "/")+1:]
+			}
+			if _, exists := out[alias]; exists {
 				continue
 			}
-			// No explicit alias: the imported package name is the
-			// last path segment by convention.
-			seg := path[strings.LastIndex(path, "/")+1:]
-			if seg == name {
-				return path
-			}
+			out[alias] = path
 		}
 	}
-	return ""
+	return out
 }
 
 func mapstructureTag(tag *ast.BasicLit) string {
