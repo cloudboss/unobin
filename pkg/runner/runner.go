@@ -189,6 +189,7 @@ func doApplyPlan(
 		consumeApplyEvents(events, cmd.ErrOrStderr(), format)
 	}()
 	exec := &runtime.Executor{
+		Source:         f,
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
 		Configurations: configurations,
@@ -347,6 +348,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 		return err
 	}
 	exec := &runtime.Executor{
+		Source:         f,
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
 		Inputs:         inputs,
@@ -606,6 +608,7 @@ func doPlan(
 		parallelism = parallelismOverride
 	}
 	exec := &runtime.Executor{
+		Source:         f,
 		DAG:            runtime.BuildDAG(f, info.Modules),
 		Modules:        info.Modules,
 		Inputs:         inputs,

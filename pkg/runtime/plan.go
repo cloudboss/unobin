@@ -85,6 +85,11 @@ type PlanStep struct {
 	PriorOutputs     map[string]any      `json:"prior-outputs,omitempty"`
 	ObservedOutputs  map[string]any      `json:"observed-outputs,omitempty"`
 	TriggerHash      string              `json:"trigger-hash,omitempty"`
+
+	// SensitiveInputs names the input fields whose value expression
+	// reads from any sensitive source. Renderers replace the value
+	// with a placeholder rather than printing the secret.
+	SensitiveInputs []string `json:"sensitive-inputs,omitempty"`
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -169,6 +174,8 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		return nil, err
 	}
 
+	sensitivity := newSensitivityAnalyzer(e.Source, e.Modules, e.DAG)
+
 	addressDecision := make(map[string]Decision)
 	liveAddresses := make(map[string]bool)
 	for _, addr := range order {
@@ -189,6 +196,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 					}
 				}
 			}
+			step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
 			plan.Steps = append(plan.Steps, step)
 			addressDecision[step.Address] = step.Decision
 			liveAddresses[step.Address] = true

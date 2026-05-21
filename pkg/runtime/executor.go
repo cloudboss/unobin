@@ -38,6 +38,12 @@ type Executor struct {
 	Modules map[string]*Module
 	Inputs  map[string]any
 
+	// Source is the parsed stack file. Static analysis passes (e.g.
+	// sensitivity propagation at plan time) consult its top-level
+	// blocks for declarations the DAG alone does not carry. May be
+	// nil in test setups; analyses that need it degrade to no-op.
+	Source *lang.File
+
 	// Configurations is keyed first by the module's import alias and
 	// then by the configuration alias declared in config.ub. Entries
 	// are the value returned by cfg.ConfigurationType.New populated
