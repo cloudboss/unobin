@@ -16,19 +16,19 @@ func formatString(t *testing.T, src string) string {
 }
 
 func TestFormatAtoms(t *testing.T) {
-	src := `name: 'cfer'
-port: 42
-ratio: 1.5
+	src := `name:    'cfer'
+port:    42
+ratio:   1.5
 enabled: true
-empty: null
+empty:   null
 `
 	require.Equal(t, src, formatString(t, src))
 }
 
 func TestFormatNumberKeepsSourceText(t *testing.T) {
-	src := `small: 42
+	src := `small:      42
 fractional: 3.14
-negative: -7
+negative:   -7
 `
 	require.Equal(t, src, formatString(t, src))
 }
@@ -42,7 +42,7 @@ func TestFormatNestedObject(t *testing.T) {
 }
 
 func TestFormatEmptyCollectionsInline(t *testing.T) {
-	src := `obj: {}
+	src := `obj:  {}
 list: []
 `
 	require.Equal(t, src, formatString(t, src))
@@ -59,16 +59,16 @@ func TestFormatArrayHasTrailingCommas(t *testing.T) {
 }
 
 func TestFormatMetaKeyStaysBare(t *testing.T) {
-	src := `@trigger: 'x'
+	src := `@trigger:  'x'
 @for-each: var.items
-plain: 'y'
+plain:     'y'
 `
 	require.Equal(t, src, formatString(t, src))
 }
 
 func TestFormatPreservesQuotedKey(t *testing.T) {
 	src := `'has space': 1
-plain: 2
+plain:       2
 `
 	require.Equal(t, src, formatString(t, src))
 }
@@ -188,6 +188,234 @@ b: 2
 func TestFormatMultilineString(t *testing.T) {
 	src := "script: `\n  echo hi\n  echo bye\n`\n"
 	require.Equal(t, src, formatString(t, src))
+}
+
+func TestFormatAlignsValuesAcrossKeyLengths(t *testing.T) {
+	in := `a: 1
+bb: 2
+ccc: 3
+`
+	want := `a:   1
+bb:  2
+ccc: 3
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatBlankLineBreaksAlignmentGroup(t *testing.T) {
+	in := `a: 1
+bb: 2
+
+ccc: 3
+`
+	want := `a:  1
+bb: 2
+
+ccc: 3
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatMultilineFieldBreaksAlignmentGroup(t *testing.T) {
+	in := `aa: 1
+bbbbbb: {
+  x: 1
+}
+cc: 2
+`
+	want := `aa: 1
+bbbbbb: {
+  x: 1
+}
+cc: 2
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatCommentInsideGroupKeepsAlignment(t *testing.T) {
+	in := `a: 1
+# comment between
+bbbb: 2
+`
+	want := `a:    1
+# comment between
+bbbb: 2
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatAlignsInsideNestedObject(t *testing.T) {
+	in := `inputs: {
+  a: 1
+  bbbb: 2
+}
+`
+	want := `inputs: {
+  a:    1
+  bbbb: 2
+}
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatTrailingCommentNotAligned(t *testing.T) {
+	in := `a: 1  # x
+bb: 22  # y
+ccc: 333  # z
+`
+	want := `a:   1  # x
+bb:  22  # y
+ccc: 333  # z
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatAlignsAcrossDeepNesting(t *testing.T) {
+	in := `top-a: 1
+top-bbb: 2
+top-cccc: {
+  mid-a: 1
+  mid-bbb: 2
+  mid-cccc: {
+    inner-a: 1
+    inner-bbbbb: 2
+  }
+}
+`
+	want := `top-a:   1
+top-bbb: 2
+top-cccc: {
+  mid-a:   1
+  mid-bbb: 2
+  mid-cccc: {
+    inner-a:     1
+    inner-bbbbb: 2
+  }
+}
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatParallelNestedObjectsAlignIndependently(t *testing.T) {
+	in := `left: {
+  a: 1
+  bbb: 2
+}
+right: {
+  xxxxxx: 1
+  y: 2
+}
+`
+	want := `left: {
+  a:   1
+  bbb: 2
+}
+right: {
+  xxxxxx: 1
+  y:      2
+}
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatAlignsMixedValueTypes(t *testing.T) {
+	in := `str: 'x'
+num: 42
+fp: 1.5
+flag: true
+empty: null
+path: var.x
+call: range(1, 5)
+sum: 1 + 2
+neg: !var.flag
+`
+	want := `str:   'x'
+num:   42
+fp:    1.5
+flag:  true
+empty: null
+path:  var.x
+call:  range(1, 5)
+sum:   1 + 2
+neg:   !var.flag
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatAlignsAroundEmptyCollections(t *testing.T) {
+	in := `obj: {}
+list: []
+str: 'x'
+`
+	want := `obj:  {}
+list: []
+str:  'x'
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatGroupResumesAfterMultilineValue(t *testing.T) {
+	in := `a: 1
+bb: 2
+ccc: {
+  x: 1
+}
+dd: 3
+eeeee: 4
+`
+	want := `a:  1
+bb: 2
+ccc: {
+  x: 1
+}
+dd:    3
+eeeee: 4
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatBlankAfterCommentBreaksGroup(t *testing.T) {
+	in := `a: 1
+# divider
+
+bbb: 2
+`
+	want := `a: 1
+# divider
+
+bbb: 2
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatTopLevelMixOfSingleAndMultiline(t *testing.T) {
+	in := `description: 'demo'
+imports: {
+  core: 'foo'
+  local: 'bar'
+}
+name: 'x'
+version: 'v1'
+`
+	want := `description: 'demo'
+imports: {
+  core:  'foo'
+  local: 'bar'
+}
+name:    'x'
+version: 'v1'
+`
+	require.Equal(t, want, formatString(t, in))
+}
+
+func TestFormatMetaKeyParticipatesInAlignment(t *testing.T) {
+	in := `@trigger: 'x'
+name: 'y'
+`
+	want := `@trigger: 'x'
+name:     'y'
+`
+	require.Equal(t, want, formatString(t, in))
 }
 
 func TestFormatIdempotent(t *testing.T) {
