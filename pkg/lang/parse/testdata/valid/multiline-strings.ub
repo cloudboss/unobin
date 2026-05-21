@@ -1,17 +1,17 @@
 single-line: `hello world`
-two-line: `
+two-line: `|
   first
   second
   `
-indented-content: `
+indented-content: `|
     echo "starting"
     run-thing
     `
-preserves-extra-indent: `
+preserves-extra-indent: `|
   outer
     inner
   `
-empty-blank-line: `
+empty-blank-line: `|
   one
 
   two

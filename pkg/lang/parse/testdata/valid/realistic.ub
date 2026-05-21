@@ -35,7 +35,7 @@ outputs: {
   region: { value: 'us-east-1' }
 }
 
-notes: `
+notes: `|
   Multi-line notes preserve their content with the leading
   indent stripped to the closing-backtick column.
   `

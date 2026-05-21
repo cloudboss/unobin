@@ -186,7 +186,7 @@ b: 2
 }
 
 func TestFormatMultilineString(t *testing.T) {
-	src := "script: `\n  echo hi\n  echo bye\n`\n"
+	src := "script: `|\n  echo hi\n  echo bye\n`\n"
 	require.Equal(t, src, formatString(t, src))
 }
 

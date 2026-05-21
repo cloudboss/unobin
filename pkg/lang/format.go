@@ -202,7 +202,9 @@ func (w *formatter) writeString(s *StringLit, indent string) error {
 
 func (w *formatter) writeMultilineString(s *StringLit, indent string) error {
 	body := strings.TrimSuffix(s.Value, "\n")
-	w.buf.WriteString("`\n")
+	w.buf.WriteByte('`')
+	w.buf.WriteString(sigilFor(s.Form))
+	w.buf.WriteByte('\n')
 	for _, line := range strings.Split(body, "\n") {
 		if line == "" {
 			w.buf.WriteByte('\n')
@@ -215,6 +217,24 @@ func (w *formatter) writeMultilineString(s *StringLit, indent string) error {
 	w.buf.WriteString(indent)
 	w.buf.WriteByte('`')
 	return nil
+}
+
+func sigilFor(f StringForm) string {
+	switch f {
+	case StringLiteralClip:
+		return "|"
+	case StringLiteralStrip:
+		return "|-"
+	case StringFoldedClip:
+		return ">"
+	case StringFoldedStrip:
+		return ">-"
+	case StringJoinedClip:
+		return "\\"
+	case StringJoinedStrip:
+		return "\\-"
+	}
+	return ""
 }
 
 func (w *formatter) writeObject(o *ObjectLit, indent string) error {
