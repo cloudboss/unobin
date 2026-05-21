@@ -120,7 +120,11 @@ func (c *referenceChecker) checkCompositeOutputs(n *Node) {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
-		c.checkExpr(fld.Value, n.Address, false)
+		inner := lang.OutputValueExpr(fld.Value)
+		if inner == nil {
+			continue
+		}
+		c.checkExpr(inner, n.Address, false)
 	}
 }
 

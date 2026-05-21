@@ -21,7 +21,7 @@ resources: {
 }
 
 outputs: {
-  path:   resource.local.file.this.path
-  size:   resource.local.file.this.size
-  sha256: resource.local.file.this.sha256
+  path:   { value: resource.local.file.this.path }
+  size:   { value: resource.local.file.this.size }
+  sha256: { value: resource.local.file.this.sha256 }
 }

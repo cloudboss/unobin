@@ -79,7 +79,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.command.hello.stdout
+  said: { value: action.core.command.hello.stdout }
 }
 `
 	res := runStack(t, src, map[string]any{"greeting": "world"})
@@ -97,7 +97,7 @@ actions: {
   }
 }
 outputs: {
-  result: action.core.command.second.stdout
+  result: { value: action.core.command.second.stdout }
 }
 `
 	res := runStack(t, src, nil)
@@ -116,7 +116,7 @@ actions: {
   }
 }
 outputs: {
-  result: action.core.script.compute.stdout
+  result: { value: action.core.script.compute.stdout }
 }
 `
 	res := runStack(t, src, nil)

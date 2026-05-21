@@ -21,7 +21,7 @@ resources: {
 }
 
 outputs: {
-  path:   resource.helloer.hello.file.path
-  size:   resource.helloer.hello.file.size
-  sha256: resource.helloer.hello.file.sha256
+  path:   { value: resource.helloer.hello.file.path }
+  size:   { value: resource.helloer.hello.file.size }
+  sha256: { value: resource.helloer.hello.file.sha256 }
 }

@@ -122,7 +122,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `)
 	apply := applyVia(t, info, "")
@@ -145,8 +145,8 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
-  count: 7
+  said: { value: action.core.echo.hi.echo }
+  count: { value: 7 }
 }
 `)
 	_ = applyVia(t, info, "")
@@ -161,7 +161,7 @@ outputs: {
 }
 
 func TestOutputUnknownName(t *testing.T) {
-	info := testInfo(t, `outputs: { x: 'y' }`)
+	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
 	_ = applyVia(t, info, "")
 	_, err := runRoot(t, info, "output", "missing")
 	require.Error(t, err)
@@ -169,7 +169,7 @@ func TestOutputUnknownName(t *testing.T) {
 }
 
 func TestOutputBeforeApply(t *testing.T) {
-	info := testInfo(t, `outputs: { x: 'y' }`)
+	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
 	_, err := runRoot(t, info, "output")
 	require.Error(t, err)
 }
@@ -191,7 +191,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -238,7 +238,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -275,7 +275,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -303,7 +303,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -332,7 +332,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.summary.echo
+  said: { value: action.core.echo.summary.echo }
 }
 `
 	info := testInfo(t, src)
@@ -399,7 +399,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -472,7 +472,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -492,7 +492,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -919,7 +919,7 @@ actions: {
   core: { echo: { hi: { echo: 'hello world' } } }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -1125,7 +1125,7 @@ func TestPrintGraphRejectsUnknownFormat(t *testing.T) {
 func TestStateMoveRelocatesEntry(t *testing.T) {
 	src := `
 actions: { core: { echo: { hi: { echo: 'hello' } } } }
-outputs: { said: action.core.echo.hi.echo }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
@@ -1387,7 +1387,7 @@ func TestRefreshNoStateIsOK(t *testing.T) {
 func TestRefreshCarriesActionsForward(t *testing.T) {
 	info := testInfo(t, `
 actions: { core: { echo: { hi: { echo: 'hello' } } } }
-outputs: { said: action.core.echo.hi.echo }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `)
 	_ = applyVia(t, info, "")
 
@@ -1406,7 +1406,7 @@ actions: {
   core: { echo: { hi: { echo: 'hello' } } }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -1463,7 +1463,7 @@ actions: {
   core: { echo: { hi: { echo: 'hello' } } }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)
@@ -1515,7 +1515,7 @@ actions: {
   core: { echo: { hi: { echo: 'hello world' } } }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)

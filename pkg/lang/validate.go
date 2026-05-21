@@ -335,8 +335,11 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 	}
 }
 
-// ValidateOutputs checks an `outputs:` block: each entry is an
-// identifier name bound to an expression.
+// ValidateOutputs checks an `outputs:` block. Every entry is a
+// bare identifier name bound to an object wrapper of the form
+// `{ value: expr }`, optionally carrying `@sensitive: true`. The
+// wrapper exists so per-output metadata keys can ride alongside
+// the value without ambiguity.
 func ValidateOutputs(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
@@ -358,8 +361,66 @@ func ValidateOutputs(block *ObjectLit) *ErrorList {
 			continue
 		}
 		seen[name] = fld.Key.S.Start
+		validateOutputEntry(name, fld.Value, errs)
 	}
 	return errs
+}
+
+// validateOutputEntry enforces the wrapper shape on one output
+// entry's value. The value must be an object literal carrying a
+// `value:` key plus, optionally, `@sensitive: true`.
+func validateOutputEntry(name string, value Expr, errs *ErrorList) {
+	obj, ok := value.(*ObjectLit)
+	if !ok {
+		errs.Addf(ErrSchema, value.Span().Start,
+			"output %q: value must be a wrapper object of the form { value: <expr> }", name)
+		return
+	}
+	var hasValue bool
+	innerSeen := make(map[string]Position, len(obj.Fields))
+	for _, df := range obj.Fields {
+		keyName := df.Key.Name
+		if df.Key.IsMeta() {
+			if keyName != "@sensitive" {
+				errs.Addf(ErrSchema, df.Key.S.Start,
+					"output %q: unknown meta key %q", name, keyName)
+				continue
+			}
+			if prev, dup := innerSeen[keyName]; dup {
+				errs.Addf(ErrSchema, df.Key.S.Start,
+					"output %q: duplicate key %q (first defined at %s)", name, keyName, prev)
+				continue
+			}
+			innerSeen[keyName] = df.Key.S.Start
+			if _, ok := df.Value.(*BoolLit); !ok {
+				errs.Addf(ErrType, df.Value.Span().Start,
+					"output %q: %s must be a boolean literal", name, keyName)
+			}
+			continue
+		}
+		if df.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"output %q: wrapper key must be an identifier, got quoted string %q",
+				name, df.Key.String)
+			continue
+		}
+		if keyName != "value" {
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"output %q: unknown wrapper key %q (allowed: value)", name, keyName)
+			continue
+		}
+		if prev, dup := innerSeen[keyName]; dup {
+			errs.Addf(ErrSchema, df.Key.S.Start,
+				"output %q: duplicate key %q (first defined at %s)", name, keyName, prev)
+			continue
+		}
+		innerSeen[keyName] = df.Key.S.Start
+		hasValue = true
+	}
+	if !hasValue {
+		errs.Addf(ErrSchema, obj.S.Start,
+			"output %q: wrapper missing required `value:` key", name)
+	}
 }
 
 // ValidateConstraintReferences checks that every name in the `fields:`

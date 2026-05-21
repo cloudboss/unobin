@@ -150,7 +150,7 @@ func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
 	src := `
 imports: { core: 'github.com/x/core@v0.1.0' }
 outputs: {
-  shout: lib.upper(var.name)
+  shout: { value: lib.upper(var.name) }
 }
 `
 	f, err := ParseSource("stack.ub", []byte(src))
@@ -166,7 +166,7 @@ func TestValidateAcceptsCallToImportedModule(t *testing.T) {
 	src := `
 imports: { lib: 'github.com/x/lib@v0.1.0' }
 outputs: {
-  shout: lib.upper(var.name)
+  shout: { value: lib.upper(var.name) }
 }
 `
 	f, err := ParseSource("stack.ub", []byte(src))
@@ -662,27 +662,50 @@ exports: {
 func TestValidateOutputsHappy(t *testing.T) {
 	src := `
 outputs: {
-  cluster-id:  resource.net.cluster.web.id
-  cluster-arn: resource.net.cluster.web.arn
-  region:      var.region
-  static:      'literal'
+  cluster-id:  { value: resource.net.cluster.web.id }
+  cluster-arn: { value: resource.net.cluster.web.arn }
+  region:      { value: var.region }
+  static:      { value: 'literal' }
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 0, errs.Len())
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
 }
 
 func TestValidateOutputsRejectsBadKeys(t *testing.T) {
 	src := `
 outputs: {
-  ok:        var.x
-  ok:        var.y
-  @bad:      var.z
-  'quoted':  var.q
+  ok:        { value: var.x }
+  ok:        { value: var.y }
+  @bad:      { value: var.z }
+  'quoted':  { value: var.q }
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
 	require.Equal(t, 3, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateOutputsRejectsBareForm(t *testing.T) {
+	src := `
+outputs: {
+  bare: var.x
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, "wrapper object")
+}
+
+func TestValidateOutputsRejectsWrapperMissingValue(t *testing.T) {
+	src := `
+outputs: {
+  bad: { extra: 1 }
+}
+`
+	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
+	joined := strings.Join(errsToStrings(errs), "; ")
+	require.Contains(t, joined, "unknown wrapper key")
+	require.Contains(t, joined, "missing required `value:`")
 }
 
 func TestValidateConstraintReferencesHappy(t *testing.T) {
@@ -737,7 +760,7 @@ imports: {
   aws: 'github.com/x/y@v1.0.0'
 }
 outputs: {
-  out: var.region
+  out: { value: var.region }
 }
 `
 	f, err := ParseSource("stack.ub", []byte(src))

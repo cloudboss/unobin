@@ -32,7 +32,7 @@ imports: {
 }
 
 outputs: {
-  region: 'us-east-1'
+  region: { value: 'us-east-1' }
 }
 
 notes: `

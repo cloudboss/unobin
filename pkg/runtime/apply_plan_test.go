@@ -141,8 +141,8 @@ resources: {
   }
 }
 outputs: {
-  alpha-id: resource.core.thing.many['alpha'].id
-  beta-id:  resource.core.thing.many['beta'].id
+  alpha-id: { value: resource.core.thing.many['alpha'].id }
+  beta-id:  { value: resource.core.thing.many['beta'].id }
 }
 `
 	var c resourceCounters
@@ -193,8 +193,8 @@ actions: {
   }
 }
 outputs: {
-  alpha-said: action.core.echo.many['alpha'].echo
-  beta-said:  action.core.echo.many['beta'].echo
+  alpha-said: { value: action.core.echo.many['alpha'].echo }
+  beta-said:  { value: action.core.echo.many['beta'].echo }
 }
 `
 	store := newStateStore(t)
@@ -273,8 +273,8 @@ data: {
   }
 }
 outputs: {
-  alpha-value: data.core.lookup.many['alpha'].value
-  beta-value:  data.core.lookup.many['beta'].value
+  alpha-value: { value: data.core.lookup.many['alpha'].value }
+  beta-value:  { value: data.core.lookup.many['beta'].value }
 }
 `
 	store := newStateStore(t)
@@ -301,7 +301,7 @@ resources: {
   core: { thing: { one: { name: 'alpha', size: 1 } } }
 }
 outputs: {
-  id: resource.core.thing.one.id
+  id: { value: resource.core.thing.one.id }
 }
 `
 	var c resourceCounters
@@ -448,7 +448,7 @@ resources: {
   core: { thing: { only: { name: var.name, size: var.size } } }
 }
 outputs: {
-  id: resource.core.thing.only.id
+  id: { value: resource.core.thing.only.id }
 }
 `)
 	var c resourceCounters
@@ -472,8 +472,8 @@ resources: {
   }
 }
 outputs: {
-  alpha-id: resource.w.box.many['alpha'].id
-  beta-id:  resource.w.box.many['beta'].id
+  alpha-id: { value: resource.w.box.many['alpha'].id }
+  beta-id:  { value: resource.w.box.many['beta'].id }
 }
 `
 	store := newStateStore(t)
@@ -570,7 +570,7 @@ resources: {
   core: { thing: { one: { name: var.name, size: 1 } } }
 }
 outputs: {
-  id: resource.core.thing.one.id
+  id: { value: resource.core.thing.one.id }
 }
 `)
 	var c resourceCounters
@@ -586,7 +586,7 @@ resources: {
   w: { box: { x: { name: 'alpha' } } }
 }
 outputs: {
-  out: resource.w.box.x.id
+  out: { value: resource.w.box.x.id }
 }
 `
 	store := newStateStore(t)
@@ -635,7 +635,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.core.thing.x.name
+  path: { value: resource.core.thing.x.name }
 }
 `)
 	layerBody := parseStack(t, `
@@ -650,7 +650,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.inner-mod.cluster.only.path
+  path: { value: resource.inner-mod.cluster.only.path }
 }
 `)
 	var c resourceCounters
@@ -672,7 +672,7 @@ resources: {
   outer-mod: { layer: { mine: { target: 'alpha' } } }
 }
 outputs: {
-  out: resource.outer-mod.layer.mine.path
+  out: { value: resource.outer-mod.layer.mine.path }
 }
 `
 	store := newStateStore(t)

@@ -91,7 +91,7 @@ func TestExecutorRequiresStore(t *testing.T) {
 func TestExecutorOutputOnly(t *testing.T) {
 	res, err := runExecutor(t, `
 outputs: {
-  region: var.region
+  region: { value: var.region }
 }
 `, map[string]any{"region": "us-east-1"})
 	require.NoError(t, err)
@@ -108,8 +108,8 @@ actions: {
   }
 }
 outputs: {
-  said:    action.core.echo.hi.echo
-  letters: action.core.echo.hi.len
+  said:    { value: action.core.echo.hi.echo }
+  letters: { value: action.core.echo.hi.len }
 }
 `, nil)
 	require.NoError(t, err)
@@ -127,7 +127,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.greet.echo
+  said: { value: action.core.echo.greet.echo }
 }
 `, map[string]any{"name": "world"})
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ data: {
   }
 }
 outputs: {
-  found: data.core.lookup.it.value
+  found: { value: data.core.lookup.it.value }
 }
 `, map[string]any{"key": "abc"})
 	require.NoError(t, err)
@@ -162,7 +162,7 @@ actions: {
   }
 }
 outputs: {
-  result: action.core.echo.second.echo
+  result: { value: action.core.echo.second.echo }
 }
 `, nil)
 	require.NoError(t, err)
@@ -287,7 +287,7 @@ resources: {
   }
 }
 outputs: {
-  id: resource.core.thing.one.id
+  id: { value: resource.core.thing.one.id }
 }
 `)
 	var c resourceCounters
@@ -303,7 +303,7 @@ resources: {
   w: { box: { x: { name: 'alpha' } } }
 }
 outputs: {
-  out: resource.w.box.x.id
+  out: { value: resource.w.box.x.id }
 }
 `
 	store := newStateStore(t)
@@ -357,8 +357,8 @@ resources: {
   }
 }
 outputs: {
-  alpha-id: resource.core.thing.many['alpha'].id
-  beta-id:  resource.core.thing.many['beta'].id
+  alpha-id: { value: resource.core.thing.many['alpha'].id }
+  beta-id:  { value: resource.core.thing.many['beta'].id }
 }
 `
 	var c resourceCounters
@@ -468,7 +468,7 @@ resources: {
 func TestExecutorModuleFunctionInOutput(t *testing.T) {
 	res, err := runExecutor(t, `
 outputs: {
-  shout: core.uppercase(var.name)
+  shout: { value: core.uppercase(var.name) }
 }
 `, map[string]any{"name": "hello"})
 	require.NoError(t, err)
@@ -478,7 +478,7 @@ outputs: {
 func TestExecutorModuleFunctionInsideComposite(t *testing.T) {
 	layerBody := parseStack(t, `
 inputs: { name: { type: string } }
-outputs: { shout: core.uppercase(var.name) }
+outputs: { shout: { value: core.uppercase(var.name) } }
 `)
 	rootMods := map[string]*Module{
 		"wrapper": {
@@ -490,7 +490,7 @@ outputs: { shout: core.uppercase(var.name) }
 	}
 	src := `
 resources: { wrapper: { layer: { x: { name: 'hi' } } } }
-outputs: { out: resource.wrapper.layer.x.shout }
+outputs: { out: { value: resource.wrapper.layer.x.shout } }
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
@@ -520,7 +520,7 @@ resources: {
 }
 
 outputs: {
-  id: resource.core.thing.y.id
+  id: { value: resource.core.thing.y.id }
 }
 `)
 	var c resourceCounters
@@ -544,7 +544,7 @@ resources: {
   outer-mod: { layer: { x: { name: 'alpha' } } }
 }
 outputs: {
-  out: resource.outer-mod.layer.x.id
+  out: { value: resource.outer-mod.layer.x.id }
 }
 `
 	store := newStateStore(t)
@@ -575,7 +575,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.core.thing.x.name
+  path: { value: resource.core.thing.x.name }
 }
 `)
 	layerBody := parseStack(t, `
@@ -590,7 +590,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.inner-mod.cluster.only.path
+  path: { value: resource.inner-mod.cluster.only.path }
 }
 `)
 	var c resourceCounters
@@ -612,7 +612,7 @@ resources: {
   outer-mod: { layer: { mine: { target: 'alpha' } } }
 }
 outputs: {
-  out: resource.outer-mod.layer.mine.path
+  out: { value: resource.outer-mod.layer.mine.path }
 }
 `
 	store := newStateStore(t)
@@ -672,7 +672,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.core.thing.x.name
+  path: { value: resource.core.thing.x.name }
 }
 `)
 	layerBody := parseStack(t, `
@@ -687,7 +687,7 @@ resources: {
 }
 
 outputs: {
-  exposed: resource.inner-mod.cluster.only.path
+  exposed: { value: resource.inner-mod.cluster.only.path }
 }
 `)
 	var c resourceCounters
@@ -711,7 +711,7 @@ resources: {
   outer-mod: { layer: { mine: { target: 'beta' } } }
 }
 outputs: {
-  out: resource.outer-mod.layer.mine.exposed
+  out: { value: resource.outer-mod.layer.mine.exposed }
 }
 `
 		store := newStateStore(t)
@@ -753,7 +753,7 @@ resources: {
   outer-mod: { layer: { mine: { target: 'gamma' } } }
 }
 outputs: {
-  leak: resource.outer-mod.layer.mine.size
+  leak: { value: resource.outer-mod.layer.mine.size }
 }
 `
 		store := newStateStore(t)
@@ -787,7 +787,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.say.echo
+  said: { value: action.core.echo.say.echo }
 }
 `)
 	mods := testModules()
@@ -802,7 +802,7 @@ resources: {
   w: { box: { x: { key: 'banana' } } }
 }
 outputs: {
-  result: resource.w.box.x.said
+  result: { value: resource.w.box.x.said }
 }
 `
 	store := newStateStore(t)
@@ -844,7 +844,7 @@ resources: {
   }
 }
 outputs: {
-  id: resource.core.thing.one.id
+  id: { value: resource.core.thing.one.id }
 }
 `
 	var c resourceCounters
@@ -1263,7 +1263,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	var runs int64

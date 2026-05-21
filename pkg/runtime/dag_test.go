@@ -93,7 +93,7 @@ resources: {
   aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
 }
 outputs: {
-  vpc-id: resource.aws.vpc.main.id
+  vpc-id: { value: resource.aws.vpc.main.id }
 }
 `), nil)
 	require.Equal(t,

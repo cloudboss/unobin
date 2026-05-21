@@ -168,7 +168,7 @@ actions: {
   }
 }
 outputs: {
-  said: action.core.echo.say.echo
+  said: { value: action.core.echo.say.echo }
 }
 `)
 	mods := testModules()

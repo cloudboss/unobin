@@ -22,5 +22,5 @@ actions: {
 }
 
 outputs: {
-  output: action.greet.say.this.output
+  output: { value: action.greet.say.this.output }
 }

@@ -486,7 +486,11 @@ func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, 
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
-		val, err := Eval(fld.Value, scope)
+		inner := lang.OutputValueExpr(fld.Value)
+		if inner == nil {
+			return nil, fmt.Errorf("composite output %q: missing wrapper", fld.Key.Name)
+		}
+		val, err := Eval(inner, scope)
 		if err != nil {
 			return nil, fmt.Errorf("composite output %q: %w", fld.Key.Name, err)
 		}

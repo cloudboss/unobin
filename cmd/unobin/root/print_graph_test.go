@@ -92,7 +92,7 @@ func TestPrintGraphInvalidReferenceFails(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-invalid-ref")
 	stackPath := writeStack(t, dir, `
 outputs: {
-  bad: resource.local.file.missing.path
+  bad: { value: resource.local.file.missing.path }
 }
 `)
 	_, err := runCommand(t, "print-graph", "-p", stackPath)
@@ -135,7 +135,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.local.file.this.path
+  path: { value: resource.local.file.this.path }
 }
 `), 0o644))
 

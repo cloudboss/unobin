@@ -28,7 +28,7 @@ resources: {
 }
 
 outputs: {
-  greeting-path:   resource.greeter.greeting.welcome.path
-  greeting-size:   resource.greeter.greeting.welcome.size
-  greeting-sha256: resource.greeter.greeting.welcome.sha256
+  greeting-path:   { value: resource.greeter.greeting.welcome.path }
+  greeting-size:   { value: resource.greeter.greeting.welcome.size }
+  greeting-sha256: { value: resource.greeter.greeting.welcome.sha256 }
 }

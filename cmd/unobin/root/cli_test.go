@@ -229,7 +229,7 @@ resources: {
   }
 }
 outputs: {
-  bad: resource.fake.thing.x.nonexistent
+  bad: { value: resource.fake.thing.x.nonexistent }
 }
 `), 0o644))
 
@@ -260,7 +260,7 @@ resources: {
   }
 }
 outputs: {
-  good: resource.fake.thing.x.id
+  good: { value: resource.fake.thing.x.id }
 }
 `), 0o644))
 
@@ -536,7 +536,7 @@ imports: {
 resources: {
   local: { file: { this: { path: var.path, content: 'hi' } } }
 }
-outputs: { path: resource.local.file.this.path }
+outputs: { path: { value: resource.local.file.this.path } }
 `), 0o644))
 
 	// outer module: imports inner under a different alias and wraps it.
@@ -554,7 +554,7 @@ imports: {
 resources: {
   inner: { hello: { x: { path: var.path } } }
 }
-outputs: { path: resource.inner.hello.x.path }
+outputs: { path: { value: resource.inner.hello.x.path } }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-stack")
@@ -717,7 +717,7 @@ exports: { hello: 'hello.ub' }
 description: 'inner hello'
 inputs: { path: { type: string } }
 resources: { local: { file: { x: { path: var.path, content: 'hi' } } } }
-outputs: { path: resource.local.file.x.path }
+outputs: { path: { value: resource.local.file.x.path } }
 `), 0o644))
 
 	wrapDir := t.TempDir()
@@ -732,7 +732,7 @@ imports: {
   inside: 'github.com/example/shared//ub/shared@v1'
 }
 resources: { inside: { hello: { x: { path: var.path } } } }
-outputs: { path: resource.inside.hello.x.path }
+outputs: { path: { value: resource.inside.hello.x.path } }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-stack")

@@ -117,7 +117,7 @@ func TestEncodeObjectLit(t *testing.T) {
 }
 
 func TestEncodeDotPath(t *testing.T) {
-	src := "outputs: { x: resource.aws.vpc.main.id }"
+	src := "outputs: { x: { value: resource.aws.vpc.main.id } }"
 	out := encodeBody(t, src)
 	require.Contains(t, out, `&lang.DotPath{`)
 	require.Contains(t, out, `&lang.Ident{Name: "resource"}`)
@@ -128,14 +128,14 @@ func TestEncodeDotPath(t *testing.T) {
 }
 
 func TestEncodeDotPathWithIndex(t *testing.T) {
-	src := "outputs: { x: resource.aws.subnet.public['us-east-1a'].id }"
+	src := "outputs: { x: { value: resource.aws.subnet.public['us-east-1a'].id } }"
 	out := encodeBody(t, src)
 	require.Contains(t, out, `Index: &lang.StringLit{Value: "us-east-1a"}`)
 	parsesAsGoExpr(t, out)
 }
 
 func TestEncodeCall(t *testing.T) {
-	src := "outputs: { x: format('%s-%s', var.a, var.b) }"
+	src := "outputs: { x: { value: format('%s-%s', var.a, var.b) } }"
 	out := encodeBody(t, src)
 	require.Contains(t, out, `&lang.Call{`)
 	require.Contains(t, out, `Callee: &lang.Ident{Name: "format"}`)
@@ -144,7 +144,7 @@ func TestEncodeCall(t *testing.T) {
 }
 
 func TestEncodeInfixAndPrefix(t *testing.T) {
-	src := "outputs: { x: !(var.a == 1) }"
+	src := "outputs: { x: { value: !(var.a == 1) } }"
 	out := encodeBody(t, src)
 	require.Contains(t, out, `&lang.Prefix{Op: "!"`)
 	require.Contains(t, out, `&lang.Infix{Op: "=="`)
@@ -167,7 +167,7 @@ resources: {
 }
 
 outputs: {
-  id: resource.core.thing.one.id
+  id: { value: resource.core.thing.one.id }
 }
 `
 	out := encodeBody(t, src)

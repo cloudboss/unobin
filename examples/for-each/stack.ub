@@ -60,7 +60,7 @@ actions: {
 }
 
 outputs: {
-  files:         resource.local.file.many
-  alerts:        resource.notify.alert.many
-  announcements: action.core.command.announce
+  files:         { value: resource.local.file.many }
+  alerts:        { value: resource.notify.alert.many }
+  announcements: { value: action.core.command.announce }
 }

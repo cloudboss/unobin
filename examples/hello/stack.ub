@@ -39,7 +39,7 @@ actions: {
 }
 
 outputs: {
-  written-path: resource.local.file.hello.path
-  size:         resource.local.file.hello.size
-  read-back:    action.core.command.read-back.stdout
+  written-path: { value: resource.local.file.hello.path }
+  size:         { value: resource.local.file.hello.size }
+  read-back:    { value: action.core.command.read-back.stdout }
 }

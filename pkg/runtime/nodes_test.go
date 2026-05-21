@@ -58,8 +58,8 @@ actions: {
   core: { command: { hello: { argv: ['echo'] } } }
 }
 outputs: {
-  vpc-id: resource.aws.vpc.main.id
-  static: 'literal'
+  vpc-id: { value: resource.aws.vpc.main.id }
+  static: { value: 'literal' }
 }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
@@ -84,7 +84,7 @@ outputs: {
 func TestExtractNodesOutputBody(t *testing.T) {
 	src := `
 outputs: {
-  vpc-id: resource.aws.vpc.main.id
+  vpc-id: { value: resource.aws.vpc.main.id }
 }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
@@ -118,7 +118,7 @@ resources: {
   }
 }
 outputs: {
-  greeting-path: resource.local.file.greeting.path
+  greeting-path: { value: resource.local.file.greeting.path }
 }
 `)
 	mods := map[string]*Module{
@@ -158,7 +158,7 @@ resources: {
   local: { file: { x: { path: 'x.txt' } } }
 }
 outputs: {
-  path: resource.local.file.x.path
+  path: { value: resource.local.file.x.path }
 }
 `)
 	mods := map[string]*Module{
@@ -196,7 +196,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.local.file.x.path
+  path: { value: resource.local.file.x.path }
 }
 `)
 	// layerBody is the body file for the `layer` composite type registered
@@ -216,7 +216,7 @@ resources: {
 }
 
 outputs: {
-  path: resource.inner-mod.cluster.only.path
+  path: { value: resource.inner-mod.cluster.only.path }
 }
 `)
 	mods := map[string]*Module{

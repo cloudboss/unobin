@@ -53,7 +53,7 @@ actions: {
   core: { echo: { hi: { echo: 'via-provider' } } }
 }
 outputs: {
-  said: action.core.echo.hi.echo
+  said: { value: action.core.echo.hi.echo }
 }
 `
 	info := testInfo(t, src)

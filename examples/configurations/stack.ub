@@ -35,8 +35,8 @@ resources: {
 }
 
 outputs: {
-  casual:      action.greet.say.casual.output
-  formal:      action.greet.say.formal.output
-  casual-wrap: resource.greeter.greeting.casual-wrap.output
-  formal-wrap: resource.greeter.greeting.formal-wrap.output
+  casual:      { value: action.greet.say.casual.output }
+  formal:      { value: action.greet.say.formal.output }
+  casual-wrap: { value: resource.greeter.greeting.casual-wrap.output }
+  formal-wrap: { value: resource.greeter.greeting.formal-wrap.output }
 }

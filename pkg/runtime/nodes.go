@@ -380,11 +380,15 @@ func extractOutputs(block *lang.ObjectLit) []*Node {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
+		inner := lang.OutputValueExpr(fld.Value)
+		if inner == nil {
+			continue
+		}
 		out = append(out, &Node{
 			Address: "output." + fld.Key.Name,
 			Kind:    NodeOutput,
 			Name:    fld.Key.Name,
-			Body:    fld.Value,
+			Body:    inner,
 		})
 	}
 	return out

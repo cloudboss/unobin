@@ -24,8 +24,8 @@ resources: {
   }
 }
 outputs: {
-  good: resource.local.file.one.path
-  bad: data.core.lookup.missing.value
+  good: { value: resource.local.file.one.path }
+  bad: { value: data.core.lookup.missing.value }
 }
 `), nil)
 
@@ -76,7 +76,7 @@ resources: {
   }
 }
 outputs: {
-  path: resource.local.file.two.path
+  path: { value: resource.local.file.two.path }
 }
 `)
 	mods := map[string]*Module{
@@ -103,7 +103,7 @@ resources: {
   }
 }
 outputs: {
-  path: resource.bundle.file-pair.demo.path
+  path: { value: resource.bundle.file-pair.demo.path }
 }
 `), mods)
 
@@ -126,7 +126,7 @@ resources: {
   }
 }
 outputs: {
-  path: resource.local.file.one.path
+  path: { value: resource.local.file.one.path }
 }
 `)
 	mods := map[string]*Module{
@@ -198,7 +198,7 @@ resources: {
   }
 }
 outputs: {
-  path: resource.local.file.one.path
+  path: { value: resource.local.file.one.path }
 }
 `)
 	mods := map[string]*Module{
@@ -239,8 +239,8 @@ resources: {
   }
 }
 outputs: {
-  ok:  resource.local.file.one.path
-  bad: resource.local.file.one.bogus
+  ok:  { value: resource.local.file.one.path }
+  bad: { value: resource.local.file.one.bogus }
 }
 `), map[string]*Module{
 		"local": {Schema: &ModuleSchema{
@@ -270,7 +270,7 @@ actions: {
   }
 }
 outputs: {
-  bad: action.core.command.x.nope
+  bad: { value: action.core.command.x.nope }
 }
 `), map[string]*Module{
 		"core": {Schema: &ModuleSchema{
@@ -298,7 +298,7 @@ resources: {
   }
 }
 outputs: {
-  path: resource.local.file.one.path
+  path: { value: resource.local.file.one.path }
 }
 `)
 	mods := map[string]*Module{
@@ -332,8 +332,8 @@ resources: {
   }
 }
 outputs: {
-  ok:  resource.bundle.thing.demo.path
-  bad: resource.bundle.thing.demo.bogus
+  ok:  { value: resource.bundle.thing.demo.path }
+  bad: { value: resource.bundle.thing.demo.bogus }
 }
 `), mods)
 
@@ -352,8 +352,8 @@ data: {
   }
 }
 outputs: {
-  ok:  data.aws.ami.ubuntu.id
-  bad: data.aws.ami.ubuntu.misspelled
+  ok:  { value: data.aws.ami.ubuntu.id }
+  bad: { value: data.aws.ami.ubuntu.misspelled }
 }
 `), map[string]*Module{
 		"aws": {Schema: &ModuleSchema{
@@ -389,8 +389,8 @@ resources: {
   }
 }
 outputs: {
-  ok:  resource.local.file.many['greet'].path
-  bad: resource.local.file.many['greet'].whatever
+  ok:  { value: resource.local.file.many['greet'].path }
+  bad: { value: resource.local.file.many['greet'].whatever }
 }
 `), map[string]*Module{
 		"local": {Schema: &ModuleSchema{
@@ -418,7 +418,7 @@ resources: {
   }
 }
 outputs: {
-  anything: resource.local.file.one.whatever
+  anything: { value: resource.local.file.one.whatever }
 }
 `), map[string]*Module{
 		"local": {},
