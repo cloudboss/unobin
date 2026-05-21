@@ -19,7 +19,14 @@ type ModuleSchema struct {
 // output struct's. The walker that builds this schema (goschema)
 // recursively expands named struct types so nested object fields
 // can be type-checked too.
+//
+// SensitiveInputs and SensitiveOutputs hold the kebab-case names of
+// fields a module marked sensitive via a `ub:",sensitive"` struct
+// tag. Both are top-level only; sensitivity does not descend into
+// nested object fields.
 type TypeSchema struct {
-	Inputs  map[string]typecheck.Type
-	Outputs map[string]typecheck.Type
+	Inputs           map[string]typecheck.Type
+	Outputs          map[string]typecheck.Type
+	SensitiveInputs  []string
+	SensitiveOutputs []string
 }

@@ -162,6 +162,17 @@ func TestReadExpandsCrossPackageStructTypes(t *testing.T) {
 		db.Outputs["self"])
 }
 
+func TestReadCarriesSensitiveTag(t *testing.T) {
+	schema, warnings, err := Read("testdata/sensitive")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	require.Contains(t, schema.Resources, "secret")
+	secret := schema.Resources["secret"]
+	require.Equal(t, []string{"password"}, secret.SensitiveInputs)
+	require.Equal(t, []string{"value"}, secret.SensitiveOutputs)
+}
+
 func TestReadErrorsWhenNoModuleFunc(t *testing.T) {
 	dir := t.TempDir()
 	src := []byte("package empty\n\nfunc Other() int { return 0 }\n")

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -46,15 +47,20 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 	cache := map[string][]*ast.File{}
 	for _, reg := range extractRegistrations(moduleFunc) {
 		w := newWalker(dir, modulePath, rootPkg, cache)
-		inputs := w.lookupFields(reg.InputRef)
+		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
 		w = newWalker(dir, modulePath, rootPkg, cache)
-		outputs := w.lookupFields(reg.OutputRef)
+		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
 				"%s %q: %s not found in the module's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
-		ts := &runtime.TypeSchema{Inputs: inputs, Outputs: outputs}
+		ts := &runtime.TypeSchema{
+			Inputs:           inputs,
+			Outputs:          outputs,
+			SensitiveInputs:  sortedKeys(sensitiveIn),
+			SensitiveOutputs: sortedKeys(sensitiveOut),
+		}
 		switch reg.Field {
 		case "Resources":
 			schema.Resources[reg.Name] = ts
@@ -65,6 +71,18 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 		}
 	}
 	return schema, warnings, nil
+}
+
+func sortedKeys(m map[string]bool) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func registrationKindLabel(field string) string {
@@ -179,20 +197,21 @@ func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
 
 // lookupFields resolves a typeRef from a registration's type
 // argument into the kebab-name to typecheck.Type map of the named
-// struct's fields. The walker's current position must be the
-// module's root package; PkgAlias triggers a switch into the
-// referenced subpackage.
-func (w *walker) lookupFields(ref typeRef) map[string]typecheck.Type {
+// struct's fields, plus a set of field names the module marked
+// sensitive via a `ub:",sensitive"` struct tag. The walker's
+// current position must be the module's root package; PkgAlias
+// triggers a switch into the referenced subpackage.
+func (w *walker) lookupFields(ref typeRef) (map[string]typecheck.Type, map[string]bool) {
 	if ref.PkgAlias == "" {
 		return w.fieldsFromPackage(ref.TypeName)
 	}
 	importPath, ok := w.imports[ref.PkgAlias]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	sub := w.sub(importPath)
 	if sub == nil {
-		return nil
+		return nil, nil
 	}
 	return sub.fieldsFromPackage(ref.TypeName)
 }
@@ -200,11 +219,12 @@ func (w *walker) lookupFields(ref typeRef) map[string]typecheck.Type {
 // fieldsFromPackage finds the named type in the walker's current
 // package files, follows one level of alias if present (including
 // across packages for selector aliases), and returns the kebab-name
-// to typecheck.Type map of the resolved struct's fields.
-func (w *walker) fieldsFromPackage(typeName string) map[string]typecheck.Type {
+// to typecheck.Type map of the resolved struct's fields along with
+// the set of fields marked sensitive.
+func (w *walker) fieldsFromPackage(typeName string) (map[string]typecheck.Type, map[string]bool) {
 	spec := findTypeSpec(w.files, typeName)
 	if spec == nil {
-		return nil
+		return nil, nil
 	}
 	if spec.Assign != token.NoPos {
 		switch t := spec.Type.(type) {
@@ -213,27 +233,27 @@ func (w *walker) fieldsFromPackage(typeName string) map[string]typecheck.Type {
 		case *ast.SelectorExpr:
 			pkg, ok := identName(t.X)
 			if !ok {
-				return nil
+				return nil, nil
 			}
 			importPath, ok := w.imports[pkg]
 			if !ok {
-				return nil
+				return nil, nil
 			}
 			sub := w.sub(importPath)
 			if sub == nil {
-				return nil
+				return nil, nil
 			}
 			return sub.fieldsFromPackage(t.Sel.Name)
 		default:
-			return nil
+			return nil, nil
 		}
 		if spec == nil {
-			return nil
+			return nil, nil
 		}
 	}
 	st, ok := spec.Type.(*ast.StructType)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	key := w.importPath + "." + typeName
 	w.visiting[key] = true
@@ -242,27 +262,35 @@ func (w *walker) fieldsFromPackage(typeName string) map[string]typecheck.Type {
 }
 
 // fieldsFromStruct walks one struct's fields into a kebab-name to
-// Type map. Each field's Go type goes through typeFromAST so nested
-// struct types in the same package expand into Object types, and
-// types named via a selector into another in-module package expand
-// the same way.
-func (w *walker) fieldsFromStruct(st *ast.StructType) map[string]typecheck.Type {
+// Type map plus a set of names the module marked sensitive. Each
+// field's Go type goes through typeFromAST so nested struct types
+// in the same package expand into Object types, and types named via
+// a selector into another in-module package expand the same way.
+func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type, map[string]bool) {
 	if st.Fields == nil {
-		return nil
+		return nil, nil
 	}
 	out := map[string]typecheck.Type{}
+	var sensitive map[string]bool
 	for _, fld := range st.Fields.List {
 		t := w.typeFromAST(fld.Type)
 		tag := mapstructureTag(fld.Tag)
+		isSensitive := ubTagHas(fld.Tag, "sensitive")
 		for _, name := range fld.Names {
 			key := tag
 			if key == "" {
 				key = lang.PascalToKebab(name.Name)
 			}
 			out[key] = t
+			if isSensitive {
+				if sensitive == nil {
+					sensitive = map[string]bool{}
+				}
+				sensitive[key] = true
+			}
 		}
 	}
-	return out
+	return out, sensitive
 }
 
 // typeFromAST converts a Go AST type expression to a typecheck.Type.
@@ -351,7 +379,7 @@ func (w *walker) namedTypeFromIdent(name string) typecheck.Type {
 	}
 	w.visiting[key] = true
 	defer delete(w.visiting, key)
-	fields := w.fieldsFromStruct(st)
+	fields, _ := w.fieldsFromStruct(st)
 	out := make([]typecheck.ObjectField, 0, len(fields))
 	for fname, ft := range fields {
 		out = append(out, typecheck.ObjectField{Name: fname, Type: ft})
@@ -583,6 +611,30 @@ func mapstructureTag(tag *ast.BasicLit) string {
 	raw := strings.Trim(tag.Value, "`")
 	t := reflect.StructTag(raw)
 	return t.Get("mapstructure")
+}
+
+// ubTagHas reports whether the `ub:"..."` struct tag on a field
+// carries the named comma-separated option. The first entry of a
+// `ub` tag is the field name (used by the encoder); subsequent
+// entries are options like "omitempty" (encoder) and "sensitive"
+// (the runtime's display-masking signal). The encoder ignores
+// unknown options.
+func ubTagHas(tag *ast.BasicLit, option string) bool {
+	if tag == nil {
+		return false
+	}
+	raw := strings.Trim(tag.Value, "`")
+	val := reflect.StructTag(raw).Get("ub")
+	if val == "" {
+		return false
+	}
+	parts := strings.Split(val, ",")
+	for _, part := range parts[1:] {
+		if strings.TrimSpace(part) == option {
+			return true
+		}
+	}
+	return false
 }
 
 func identName(e ast.Expr) (string, bool) {
