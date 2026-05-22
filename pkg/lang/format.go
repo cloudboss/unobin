@@ -303,7 +303,7 @@ func (w *formatter) writeJoinedBacktick(value, indent string, clip bool) error {
 	if width < 1 {
 		width = 1
 	}
-	for _, line := range columnBreak(body, width) {
+	for _, line := range smartColumnBreak(body, width) {
 		w.buf.WriteString(inner)
 		w.buf.WriteString(line)
 		w.buf.WriteByte('\n')
@@ -341,24 +341,95 @@ func wordWrap(s string, width int) []string {
 	return lines
 }
 
-// columnBreak chops s into chunks of at most width bytes each. The
-// last chunk holds the remainder; no chunk ever exceeds width.
-func columnBreak(s string, width int) []string {
+// joinedBreakChars are byte values smartColumnBreak prefers to break
+// after when wrapping a joined-mode value. The set covers the common
+// punctuation in URLs, ARNs, query strings, and similar punctuated
+// strings.
+const joinedBreakChars = "/?&#:;.,|@=_-+"
+
+// smartColumnBreak chops s into chunks that each fit within maxWidth
+// and aim to be of similar length. It picks the smallest line count
+// that satisfies the width budget, then walks each ideal split point
+// and prefers a position one past a joinedBreakChars character within
+// half of the target length. If no such break is in range, it cuts
+// at the ideal column - that is the fallback for blob content (e.g.
+// base64) where any boundary is fine.
+func smartColumnBreak(s string, maxWidth int) []string {
 	if s == "" {
 		return nil
 	}
-	if width < 1 {
-		width = 1
+	if maxWidth < 1 {
+		maxWidth = 1
+	}
+	if len(s) <= maxWidth {
+		return []string{s}
+	}
+	n := (len(s) + maxWidth - 1) / maxWidth
+	target := (len(s) + n - 1) / n
+	tolerance := target / 2
+	if tolerance < 1 {
+		tolerance = 1
 	}
 	var lines []string
-	for len(s) > width {
-		lines = append(lines, s[:width])
-		s = s[width:]
+	pos := 0
+	for i := 1; i < n; i++ {
+		ideal := pos + target
+		hardMax := pos + maxWidth
+		if hardMax > len(s) {
+			hardMax = len(s)
+		}
+		if ideal > hardMax {
+			ideal = hardMax
+		}
+		hardMin := len(s) - (n-i)*maxWidth
+		breakAt := findJoinedBreak(s, pos, ideal, tolerance, hardMin, hardMax)
+		lines = append(lines, s[pos:breakAt])
+		pos = breakAt
 	}
-	if s != "" {
-		lines = append(lines, s)
+	if pos < len(s) {
+		lines = append(lines, s[pos:])
 	}
 	return lines
+}
+
+func findJoinedBreak(s string, start, ideal, tolerance, hardMin, hardMax int) int {
+	lo := ideal - tolerance
+	if lo <= start {
+		lo = start + 1
+	}
+	if lo < hardMin {
+		lo = hardMin
+	}
+	hi := ideal + tolerance
+	if hi > hardMax {
+		hi = hardMax
+	}
+	best := -1
+	bestDist := 0
+	for j := lo; j <= hi; j++ {
+		if !isJoinedBreakChar(s[j-1]) {
+			continue
+		}
+		dist := j - ideal
+		if dist < 0 {
+			dist = -dist
+		}
+		if best < 0 || dist < bestDist {
+			best = j
+			bestDist = dist
+		}
+	}
+	if best >= 0 {
+		return best
+	}
+	if ideal < hardMin {
+		return hardMin
+	}
+	return ideal
+}
+
+func isJoinedBreakChar(b byte) bool {
+	return strings.IndexByte(joinedBreakChars, b) >= 0
 }
 
 func (w *formatter) writeObject(o *ObjectLit, indent string) error {

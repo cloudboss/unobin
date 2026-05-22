@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -188,6 +189,182 @@ b: 2
 func TestFormatMultilineString(t *testing.T) {
 	src := "script: `|\n  echo hi\n  echo bye\n  `\n"
 	require.Equal(t, src, formatString(t, src))
+}
+
+var smartColumnBreakCases = []struct {
+	name  string
+	input string
+	width int
+	want  []string
+}{
+	{
+		name:  "empty",
+		input: "",
+		width: 30,
+		want:  nil,
+	},
+	{
+		name:  "single char",
+		input: "x",
+		width: 30,
+		want:  []string{"x"},
+	},
+	{
+		name:  "exactly width",
+		input: "0123456789",
+		width: 10,
+		want:  []string{"0123456789"},
+	},
+	{
+		name:  "shorter than width",
+		input: "https://example.com/short",
+		width: 50,
+		want:  []string{"https://example.com/short"},
+	},
+	{
+		name:  "one over width with no break char",
+		input: "abcdefghijk",
+		width: 10,
+		want:  []string{"abcdef", "ghijk"},
+	},
+	{
+		name:  "url breaks at a slash near midpoint",
+		input: "https://example.com/api/v1/resources/12345/details",
+		width: 30,
+		want:  []string{"https://example.com/api/", "v1/resources/12345/details"},
+	},
+	{
+		name:  "url with query string breaks at dot then ampersand",
+		input: "https://example.com/search?q=hello&lang=en&limit=20",
+		width: 25,
+		want:  []string{"https://example.", "com/search?q=hello&", "lang=en&limit=20"},
+	},
+	{
+		name:  "url ending in fragment breaks at slash near midpoint",
+		input: "https://example.com/docs/guide/intro#section-three",
+		width: 25,
+		want:  []string{"https://example.com/docs/", "guide/intro#section-three"},
+	},
+	{
+		name:  "arn breaks at the dash closest to the midpoint",
+		input: "arn:aws:s3:::very-long-bucket-name/key/inside/the/bucket",
+		width: 30,
+		want:  []string{"arn:aws:s3:::very-long-bucket-", "name/key/inside/the/bucket"},
+	},
+	{
+		name:  "unix path breaks at slash then dash",
+		input: "/usr/local/share/applications/something-with-a-long-name.desktop",
+		width: 25,
+		want:  []string{"/usr/local/share/", "applications/something-", "with-a-long-name.desktop"},
+	},
+	{
+		name:  "comma list breaks at commas",
+		input: "alpha,beta,gamma,delta,epsilon,zeta,eta,theta,iota,kappa,lambda,mu",
+		width: 30,
+		want:  []string{"alpha,beta,gamma,delta,", "epsilon,zeta,eta,theta,", "iota,kappa,lambda,mu"},
+	},
+	{
+		name:  "blob with no break chars cuts evenly",
+		input: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+		width: 20,
+		want:  []string{"abcdefghijklmnop", "qrstuvwxyzABCDEF", "GHIJKLMNOPQRSTUV", "WXYZ0123456789"},
+	},
+	{
+		name:  "blob exact multiple of width cuts at width",
+		input: "AAAAAAAAAABBBBBBBBBBCCCCCCCCCCDDDDDDDDDD",
+		width: 10,
+		want:  []string{"AAAAAAAAAA", "BBBBBBBBBB", "CCCCCCCCCC", "DDDDDDDDDD"},
+	},
+	{
+		name:  "blob one over width multiple takes an extra line",
+		input: "AAAAAAAAAABBBBBBBBBBCCCCCCCCCCDDDDDDDDDDX",
+		width: 10,
+		want:  []string{"AAAAAAAAA", "ABBBBBBBB", "BBCCCCCCC", "CCCDDDDDD", "DDDDX"},
+	},
+	{
+		name:  "long url breaks into three lines at slashes",
+		input: "https://example.com/api/v1/resources/12345/details/extra/path/parts/here/now",
+		width: 30,
+		want:  []string{"https://example.com/api/v1/", "resources/12345/details/", "extra/path/parts/here/now"},
+	},
+	{
+		name:  "break char outside tolerance falls back to ideal",
+		input: "x/" + strings.Repeat("y", 60),
+		width: 20,
+		want: []string{
+			"x/" + strings.Repeat("y", 14),
+			strings.Repeat("y", 16),
+			strings.Repeat("y", 16),
+			strings.Repeat("y", 14),
+		},
+	},
+	{
+		name:  "tight width forces many lines",
+		input: "https://example.com/a/b/c/d/e",
+		width: 6,
+		want:  []string{"https:", "//exam", "ple.co", "m/a/b/", "c/d/e"},
+	},
+	{
+		name:  "equidistant break chars pick the earlier one",
+		input: "xxx/yyy/zzz",
+		width: 8,
+		want:  []string{"xxx/", "yyy/zzz"},
+	},
+	{
+		name:  "dot in domain breaks earlier than slash if closer to ideal",
+		input: "foo.bar.baz/qux/quux/corge",
+		width: 12,
+		want:  []string{"foo.bar.", "baz/qux/", "quux/corge"},
+	},
+}
+
+func TestSmartColumnBreak(t *testing.T) {
+	for _, tt := range smartColumnBreakCases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := smartColumnBreak(tt.input, tt.width)
+			require.Equal(t, tt.want, got)
+			for _, ln := range got {
+				require.LessOrEqual(t, len(ln), tt.width,
+					"line %q exceeds width %d", ln, tt.width)
+			}
+			require.Equal(t, tt.input, strings.Join(got, ""),
+				"joined lines reproduce input")
+		})
+	}
+}
+
+func TestSmartColumnBreakDeterministic(t *testing.T) {
+	for _, tt := range smartColumnBreakCases {
+		t.Run(tt.name, func(t *testing.T) {
+			first := smartColumnBreak(tt.input, tt.width)
+			for i := 0; i < 5; i++ {
+				again := smartColumnBreak(tt.input, tt.width)
+				require.Equal(t, first, again,
+					"run %d produced a different result for input %q",
+					i+2, tt.input)
+			}
+		})
+	}
+}
+
+func TestFormatJoinedWrapsLongValue(t *testing.T) {
+	value := "https://very-long-domain.example.com/" +
+		strings.Repeat("api/v1/resources/", 5) + "details"
+	src := "k: `\\-\n  " + value + "\n  `\n"
+	formatted := formatString(t, src)
+
+	require.Greater(t, strings.Count(formatted, "\n"), 3,
+		"expected multi-line output, got:\n%s", formatted)
+
+	for _, line := range strings.Split(formatted, "\n") {
+		require.LessOrEqual(t, len(line), 100,
+			"line exceeds 100 columns: %q", line)
+	}
+
+	f, err := ParseSource("test.ub", []byte(formatted))
+	require.NoError(t, err)
+	got := f.Body.Fields[0].Value.(*StringLit).Value
+	require.Equal(t, value, got)
 }
 
 func TestFormatBacktickAllSigils(t *testing.T) {
