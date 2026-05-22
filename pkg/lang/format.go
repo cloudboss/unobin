@@ -939,6 +939,33 @@ func (w *formatter) writeDotPath(dp *DotPath, indent string) error {
 }
 
 func (w *formatter) writeCall(c *Call, indent string) error {
+	w.writeCallHeader(c)
+	w.buf.WriteByte('(')
+	if len(c.Args) == 0 {
+		w.buf.WriteByte(')')
+		return nil
+	}
+	if w.callArgsFitInline(c) {
+		for i, arg := range c.Args {
+			if i > 0 {
+				w.buf.WriteString(", ")
+			}
+			if err := w.writeExpr(arg, indent); err != nil {
+				return err
+			}
+		}
+		w.buf.WriteByte(')')
+		return nil
+	}
+	w.buf.WriteByte('\n')
+	inner := indent + fmtStep
+	if elementsAreAtoms(c.Args) {
+		return w.writeCallArgsPacked(c, indent, inner)
+	}
+	return w.writeCallArgsPerLine(c, indent, inner)
+}
+
+func (w *formatter) writeCallHeader(c *Call) {
 	switch {
 	case c.Module != nil && c.Func != nil:
 		w.buf.WriteString(c.Module.Name)
@@ -947,15 +974,72 @@ func (w *formatter) writeCall(c *Call, indent string) error {
 	case c.Callee != nil:
 		w.buf.WriteString(c.Callee.Name)
 	}
-	w.buf.WriteByte('(')
+}
+
+// callArgsFitInline reports whether the call's args, joined by ", ",
+// plus the closing paren, fit on the current line. The header and
+// open paren have already been written, so the running column already
+// accounts for them.
+func (w *formatter) callArgsFitInline(c *Call) bool {
+	width := 1
 	for i, arg := range c.Args {
-		if i > 0 {
-			w.buf.WriteString(", ")
+		aw := w.singleLineWidth(arg)
+		if aw < 0 {
+			return false
 		}
-		if err := w.writeExpr(arg, indent); err != nil {
-			return err
+		width += aw
+		if i > 0 {
+			width += 2
 		}
 	}
+	return w.column()+width <= w.maxColumn
+}
+
+func (w *formatter) writeCallArgsPerLine(c *Call, indent, inner string) error {
+	for _, arg := range c.Args {
+		w.buf.WriteString(inner)
+		if err := w.writeExpr(arg, inner); err != nil {
+			return err
+		}
+		w.buf.WriteByte(',')
+		w.buf.WriteByte('\n')
+	}
+	w.buf.WriteString(indent)
+	w.buf.WriteByte(')')
+	return nil
+}
+
+func (w *formatter) writeCallArgsPacked(c *Call, indent, inner string) error {
+	widths := make([]int, len(c.Args))
+	for i, a := range c.Args {
+		widths[i] = w.singleLineWidth(a) + 1
+	}
+	budget := w.maxColumn - len(inner)
+	cap := evenLineCap(widths, budget)
+
+	w.buf.WriteString(inner)
+	if err := w.writeExpr(c.Args[0], inner); err != nil {
+		return err
+	}
+	w.buf.WriteByte(',')
+	col := widths[0]
+	for i := 1; i < len(c.Args); i++ {
+		proposed := col + 1 + widths[i]
+		if proposed > cap {
+			w.buf.WriteByte('\n')
+			w.buf.WriteString(inner)
+			col = widths[i]
+		} else {
+			w.buf.WriteByte(' ')
+			col = proposed
+		}
+		if err := w.writeExpr(c.Args[i], inner); err != nil {
+			return err
+		}
+		w.buf.WriteByte(',')
+	}
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(indent)
 	w.buf.WriteByte(')')
 	return nil
 }

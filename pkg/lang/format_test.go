@@ -337,6 +337,97 @@ func TestFormatObject(t *testing.T) {
 	}
 }
 
+func TestFormatCall(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "no_args_inline",
+			src:  "a: lib.foo()\n",
+			want: "a: lib.foo()\n",
+		},
+		{
+			name: "short_inline",
+			src:  "a: lib.foo(var.x, var.y)\n",
+			want: "a: lib.foo(var.x, var.y)\n",
+		},
+		{
+			name: "bare_callee_inline",
+			src:  "a: range(1, 5)\n",
+			want: "a: range(1, 5)\n",
+		},
+		{
+			name: "messy_whitespace_normalized",
+			src:  "a:lib.foo( 1 , 2 , 3 )\n",
+			want: "a: lib.foo(1, 2, 3)\n",
+		},
+		{
+			name: "long_complex_args_per_line",
+			src:  "a: lib.foo(core.file('/very/long/path/to/something/important'), core.file('/another/long/path/here/that/extends/well'))\n",
+			want: "a: lib.foo(\n  core.file('/very/long/path/to/something/important'),\n  core.file('/another/long/path/here/that/extends/well'),\n)\n",
+		},
+		{
+			name: "long_atom_args_packed",
+			src:  "a: lib.foo('aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn')\n",
+			want: "a: lib.foo(\n  'aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg',\n  'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn',\n)\n",
+		},
+		{
+			name: "mixed_atom_and_complex_per_line",
+			src:  "a: lib.foo(1, core.file('/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 2)\n",
+			want: "a: lib.foo(\n  1,\n  core.file('/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),\n  2,\n)\n",
+		},
+		{
+			name: "single_arg_too_long_per_line",
+			src:  "a: lib.foo('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')\n",
+			want: "a: lib.foo(\n  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',\n)\n",
+		},
+		{
+			name: "long_dot_path_args_per_line",
+			src:  "a: lib.foo(var.alpha.beta.gamma.delta.epsilon.zeta, var.aaaaa.bbbbb.ccccc.ddddd.eeeee.fffff.ggggg.hhhhh)\n",
+			want: "a: lib.foo(\n  var.alpha.beta.gamma.delta.epsilon.zeta,\n  var.aaaaa.bbbbb.ccccc.ddddd.eeeee.fffff.ggggg.hhhhh,\n)\n",
+		},
+		{
+			name: "nested_call_inline",
+			src:  "a: lib.foo(other.bar(1))\n",
+			want: "a: lib.foo(other.bar(1))\n",
+		},
+		{
+			name: "trailing_comma_stripped_in_inline",
+			src:  "a: lib.foo(1, 2, 3,)\n",
+			want: "a: lib.foo(1, 2, 3)\n",
+		},
+		{
+			name: "bool_atom_args_inline",
+			src:  "a: f(true, false, null)\n",
+			want: "a: f(true, false, null)\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatString(t, tt.src)
+			require.Equal(t, tt.want, got)
+			again := formatString(t, got)
+			require.Equal(t, got, again, "format is not idempotent")
+		})
+	}
+}
+
+func TestFormatCallDeterministic(t *testing.T) {
+	tests := []string{
+		"a: lib.foo(1, 2, 3)\n",
+		"a: lib.foo('aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn')\n",
+	}
+	for _, src := range tests {
+		first := formatString(t, src)
+		for i := 0; i < 5; i++ {
+			again := formatString(t, src)
+			require.Equal(t, first, again, "iteration %d differs", i)
+		}
+	}
+}
+
 func TestFormatObjectDeterministic(t *testing.T) {
 	tests := []string{
 		"outer: { a: 1, b: 2 }\n",
@@ -387,13 +478,6 @@ func TestFormatDotPath(t *testing.T) {
 	src := `a: var.region
 b: resource.local.file.x.path
 c: var.cfg['key']
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatCall(t *testing.T) {
-	src := `a: lib.foo(var.x, var.y)
-b: range(1, 5)
 `
 	require.Equal(t, src, formatString(t, src))
 }
