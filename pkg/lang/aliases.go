@@ -50,14 +50,14 @@ const (
 	FieldIdent  = parse.FieldIdent
 	FieldString = parse.FieldString
 
-	StringSingleQuoted       = parse.StringSingleQuoted
-	StringBacktickSingleLine = parse.StringBacktickSingleLine
-	StringLiteralClip        = parse.StringLiteralClip
-	StringLiteralStrip       = parse.StringLiteralStrip
-	StringFoldedClip         = parse.StringFoldedClip
-	StringFoldedStrip        = parse.StringFoldedStrip
-	StringJoinedClip         = parse.StringJoinedClip
-	StringJoinedStrip        = parse.StringJoinedStrip
+	StringSingleQuoted          = parse.StringSingleQuoted
+	StringTripleQuoteSingleLine = parse.StringTripleQuoteSingleLine
+	StringLiteralClip           = parse.StringLiteralClip
+	StringLiteralStrip          = parse.StringLiteralStrip
+	StringFoldedClip            = parse.StringFoldedClip
+	StringFoldedStrip           = parse.StringFoldedStrip
+	StringJoinedClip            = parse.StringJoinedClip
+	StringJoinedStrip           = parse.StringJoinedStrip
 
 	ErrUnknown = parse.ErrUnknown
 	ErrParse   = parse.ErrParse

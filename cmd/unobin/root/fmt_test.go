@@ -144,7 +144,7 @@ func TestFmtDefaultMaxKeepsShortArrayInline(t *testing.T) {
 
 func TestFmtWrapStringsRewritesOverflowingSingleQuoted(t *testing.T) {
 	src := "msg: 'this is a fairly long sentence that does not fit on a forty char line'\n"
-	want := "msg: `>-\n  this is a fairly long sentence that\n  does not fit on a forty char line\n  `\n"
+	want := "msg: '''>-\n  this is a fairly long sentence that\n  does not fit on a forty char line\n  '''\n"
 
 	got, err := runFmtCommand(t, strings.NewReader(src),
 		"--max-line-length", "40", "--wrap-strings")

@@ -113,8 +113,8 @@ func TestParseFixtureStrings(t *testing.T) {
 	}
 }
 
-func TestParseFixtureBacktickStrings(t *testing.T) {
-	f := loadFixture(t, "testdata/valid/backtick-strings.ub")
+func TestParseFixtureTripleStrings(t *testing.T) {
+	f := loadFixture(t, "testdata/valid/triple-strings.ub")
 	wants := []struct {
 		key  string
 		form StringForm
@@ -122,7 +122,7 @@ func TestParseFixtureBacktickStrings(t *testing.T) {
 	}{
 		{
 			key:  "single",
-			form: StringBacktickSingleLine,
+			form: StringTripleQuoteSingleLine,
 			val:  "hello world",
 		},
 		{
@@ -171,9 +171,9 @@ func TestParseFixtureBacktickStrings(t *testing.T) {
 			val:  "firstsecond",
 		},
 		{
-			key:  "embedded-backtick",
+			key:  "embedded-triple-quote",
 			form: StringLiteralClip,
-			val:  "before `tick` after\n",
+			val:  "before '''mid''' after\n",
 		},
 		{
 			key:  "trailing-whitespace-trim",
@@ -196,7 +196,7 @@ func TestParseFixtureMultilineStrings(t *testing.T) {
 		key, val string
 		form     StringForm
 	}{
-		{"single-line", "hello world", StringBacktickSingleLine},
+		{"single-line", "hello world", StringTripleQuoteSingleLine},
 		{"two-line", "first\nsecond\n", StringLiteralClip},
 		{"indented-content", `echo "starting"` + "\nrun-thing\n", StringLiteralClip},
 		{"preserves-extra-indent", "outer\n  inner\n", StringLiteralClip},
@@ -429,7 +429,7 @@ func TestParseFixtureRealistic(t *testing.T) {
 	notes := f.Body.Fields[5].Value.(*StringLit)
 	require.Equal(t, StringLiteralClip, notes.Form)
 	require.Equal(t,
-		"Multi-line notes preserve their content with the leading\nindent stripped to the closing-backtick column.\n",
+		"Multi-line notes preserve their content with the leading\nindent stripped to the closing-quote column.\n",
 		notes.Value)
 }
 
@@ -744,15 +744,16 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "field", di.Segments[3].Name)
 }
 
-func TestParseBacktickInvalidReasons(t *testing.T) {
+func TestParseTripleQuoteInvalidReasons(t *testing.T) {
 	tests := []struct {
 		file string
 		want string
 	}{
-		{"backtick-missing-sigil.ub", "no match found"},
-		{"backtick-sigil-then-content.ub", "no match found"},
-		{"backtick-tab-in-baseline.ub", "no tabs"},
-		{"backtick-less-indented.ub", "less indented"},
+		{"triple-missing-sigil.ub", "no match found"},
+		{"triple-sigil-then-content.ub", "no match found"},
+		{"triple-tab-in-baseline.ub", "no tabs"},
+		{"triple-less-indented.ub", "less indented"},
+		{"triple-trailing-after-close.ub", "no match found"},
 		{"multiline-bad-indent.ub", "less indented"},
 		{"multiline-content-on-close-line.ub", "no match found"},
 		{"unclosed-multiline.ub", "no match found"},

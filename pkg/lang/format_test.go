@@ -145,8 +145,8 @@ func TestFormatArray(t *testing.T) {
 		},
 		{
 			name: "multiline_string_element_forces_per_line",
-			src:  "items: [\n  1,\n  `|\n    hello\n    `,\n  3,\n]\n",
-			want: "items: [\n  1,\n  `|\n    hello\n    `,\n  3,\n]\n",
+			src:  "items: [\n  1,\n  '''|\n    hello\n    ''',\n  3,\n]\n",
+			want: "items: [\n  1,\n  '''|\n    hello\n    ''',\n  3,\n]\n",
 		},
 		{
 			name: "bool_atoms_inline",
@@ -213,10 +213,10 @@ func TestFormatWithMaxColumn(t *testing.T) {
 			want:      "x: 'hi'\n",
 		},
 		{
-			name:      "folded_backtick_respects_tight_max",
+			name:      "folded_triple_quote_respects_tight_max",
 			maxColumn: 20,
-			src:       "msg: `>\n  one two three four five six seven eight nine ten\n  `\n",
-			want:      "msg: `>\n  one two three four\n  five six seven\n  eight nine ten\n  `\n",
+			src:       "msg: '''>\n  one two three four five six seven eight nine ten\n  '''\n",
+			want:      "msg: '''>\n  one two three four\n  five six seven\n  eight nine ten\n  '''\n",
 		},
 	}
 	for _, tt := range tests {
@@ -278,8 +278,8 @@ func TestFormatObject(t *testing.T) {
 		},
 		{
 			name: "multi_line_string_inside_forces_multi_line",
-			src:  "outer: {\n  a: 1\n  b: `|\n    line\n    `\n}\n",
-			want: "outer: {\n  a: 1\n  b: `|\n    line\n    `\n}\n",
+			src:  "outer: {\n  a: 1\n  b: '''|\n    line\n    '''\n}\n",
+			want: "outer: {\n  a: 1\n  b: '''|\n    line\n    '''\n}\n",
 		},
 		{
 			name: "long_object_breaks_multi_line_without_commas",
@@ -470,35 +470,35 @@ func TestFormatWithWrapStrings(t *testing.T) {
 			maxColumn:   40,
 			wrapStrings: true,
 			src:         "msg: 'this is a fairly long sentence that does not fit on a forty char line'\n",
-			want:        "msg: `>-\n  this is a fairly long sentence that\n  does not fit on a forty char line\n  `\n",
+			want:        "msg: '''>-\n  this is a fairly long sentence that\n  does not fit on a forty char line\n  '''\n",
 		},
 		{
 			name:        "on_long_without_spaces_becomes_joined",
 			maxColumn:   40,
 			wrapStrings: true,
 			src:         "url: 'https://example.com/api/v2/very/long/path/that/needs/breaking/up'\n",
-			want:        "url: `\\-\n  https://example.com/api/v2/very/\n  long/path/that/needs/breaking/up\n  `\n",
+			want:        "url: '''\\-\n  https://example.com/api/v2/very/\n  long/path/that/needs/breaking/up\n  '''\n",
 		},
 		{
-			name:        "on_with_backtick_in_body_stays_single_quoted",
+			name:        "on_with_triple_quote_in_body_stays_single_quoted",
 			maxColumn:   30,
 			wrapStrings: true,
-			src:         "msg: 'contains a backtick ` in the middle of a longer body'\n",
-			want:        "msg: 'contains a backtick ` in the middle of a longer body'\n",
+			src:         "msg: 'contains triple-quote \\'\\'\\' in the middle of a longer body'\n",
+			want:        "msg: 'contains triple-quote \\'\\'\\' in the middle of a longer body'\n",
 		},
 		{
 			name:        "off_long_folded_input_still_rewraps_at_max",
 			maxColumn:   30,
 			wrapStrings: false,
-			src:         "msg: `>\n  one two three four five six seven eight nine ten eleven\n  `\n",
-			want:        "msg: `>\n  one two three four five six\n  seven eight nine ten eleven\n  `\n",
+			src:         "msg: '''>\n  one two three four five six seven eight nine ten eleven\n  '''\n",
+			want:        "msg: '''>\n  one two three four five six\n  seven eight nine ten eleven\n  '''\n",
 		},
 		{
 			name:        "off_long_literal_does_not_rewrap",
 			maxColumn:   20,
 			wrapStrings: false,
-			src:         "msg: `|\n  this exact line stays as it is even if too long\n  `\n",
-			want:        "msg: `|\n  this exact line stays as it is even if too long\n  `\n",
+			src:         "msg: '''|\n  this exact line stays as it is even if too long\n  '''\n",
+			want:        "msg: '''|\n  this exact line stays as it is even if too long\n  '''\n",
 		},
 	}
 	for _, tt := range tests {
@@ -644,12 +644,12 @@ b: 2
 }
 
 func TestFormatMultilineString(t *testing.T) {
-	src := "script: `|\n  echo hi\n  echo bye\n  `\n"
+	src := "script: '''|\n  echo hi\n  echo bye\n  '''\n"
 	require.Equal(t, src, formatString(t, src))
 }
 
 func TestFormatMultilineStringNoSpuriousBlankBefore(t *testing.T) {
-	src := "script: `|\n  one\n  two\n  `\nnext: 'x'\n"
+	src := "script: '''|\n  one\n  two\n  '''\nnext: 'x'\n"
 	require.Equal(t, src, formatString(t, src))
 }
 
@@ -812,7 +812,7 @@ func TestSmartColumnBreakDeterministic(t *testing.T) {
 func TestFormatJoinedWrapsLongValue(t *testing.T) {
 	value := "https://very-long-domain.example.com/" +
 		strings.Repeat("api/v1/resources/", 5) + "details"
-	src := "k: `\\-\n  " + value + "\n  `\n"
+	src := "k: '''\\-\n  " + value + "\n  '''\n"
 	formatted := formatString(t, src)
 
 	require.Greater(t, strings.Count(formatted, "\n"), 3,
@@ -829,38 +829,38 @@ func TestFormatJoinedWrapsLongValue(t *testing.T) {
 	require.Equal(t, value, got)
 }
 
-func TestFormatBacktickAllSigils(t *testing.T) {
+func TestFormatTripleQuoteAllSigils(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
 	}{
 		{
 			name: "literal clip",
-			src:  "k: `|\n  one\n  two\n  `\n",
+			src:  "k: '''|\n  one\n  two\n  '''\n",
 		},
 		{
 			name: "literal strip",
-			src:  "k: `|-\n  one\n  two\n  `\n",
+			src:  "k: '''|-\n  one\n  two\n  '''\n",
 		},
 		{
 			name: "folded clip",
-			src:  "k: `>\n  one two\n  `\n",
+			src:  "k: '''>\n  one two\n  '''\n",
 		},
 		{
 			name: "folded strip with paragraphs",
-			src:  "k: `>-\n  paragraph one\n\n  paragraph two\n  `\n",
+			src:  "k: '''>-\n  paragraph one\n\n  paragraph two\n  '''\n",
 		},
 		{
 			name: "joined clip url",
-			src:  "k: `\\\n  https://example.com/api/v1/users\n  `\n",
+			src:  "k: '''\\\n  https://example.com/api/v1/users\n  '''\n",
 		},
 		{
 			name: "joined strip arn",
-			src:  "k: `\\-\n  arn:aws:s3:::bucket/key\n  `\n",
+			src:  "k: '''\\-\n  arn:aws:s3:::bucket/key\n  '''\n",
 		},
 		{
-			name: "single-line backtick",
-			src:  "k: `it's here`\n",
+			name: "single-line triple-quote",
+			src:  "k: '''it's here'''\n",
 		},
 	}
 	for _, tt := range tests {
@@ -897,8 +897,8 @@ ccc: 3
 }
 
 func TestFormatMultilineFieldBreaksAlignmentGroup(t *testing.T) {
-	in := "aa: 1\nbbbbbb: `|\n  hello\n  `\ncc: 2\n"
-	want := "aa: 1\nbbbbbb: `|\n  hello\n  `\ncc: 2\n"
+	in := "aa: 1\nbbbbbb: '''|\n  hello\n  '''\ncc: 2\n"
+	want := "aa: 1\nbbbbbb: '''|\n  hello\n  '''\ncc: 2\n"
 	require.Equal(t, want, formatString(t, in))
 }
 
@@ -1025,8 +1025,8 @@ str:  'x'
 }
 
 func TestFormatGroupResumesAfterMultilineValue(t *testing.T) {
-	in := "a: 1\nbb: 2\nccc: `|\n  x\n  `\ndd: 3\neeeee: 4\n"
-	want := "a:  1\nbb: 2\nccc: `|\n  x\n  `\ndd:    3\neeeee: 4\n"
+	in := "a: 1\nbb: 2\nccc: '''|\n  x\n  '''\ndd: 3\neeeee: 4\n"
+	want := "a:  1\nbb: 2\nccc: '''|\n  x\n  '''\ndd:    3\neeeee: 4\n"
 	require.Equal(t, want, formatString(t, in))
 }
 
@@ -1096,7 +1096,7 @@ func TestSingleLineWidthAtoms(t *testing.T) {
 		{"null", "null", 4},
 		{"ident", "string", 6},
 		{"single-quoted string", "'hi'", 4},
-		{"backtick single line", "`hi`", 4},
+		{"triple-quote single line", "'''hi'''", 8},
 		{"empty object", "{}", 2},
 		{"empty array", "[]", 2},
 		{"dot path", "var.x.y", 7},
@@ -1123,13 +1123,13 @@ func TestSingleLineWidthInlineCollections(t *testing.T) {
 }
 
 func TestSingleLineWidthMultilineStringForcesBreak(t *testing.T) {
-	w, expr := parseFirstValue(t, "`|\n  hi\n  `")
+	w, expr := parseFirstValue(t, "'''|\n  hi\n  '''")
 	require.Equal(t, -1, w.singleLineWidth(expr))
 
-	w, expr = parseFirstValue(t, "[1, `|\n  hi\n  `, 3]")
+	w, expr = parseFirstValue(t, "[1, '''|\n  hi\n  ''', 3]")
 	require.Equal(t, -1, w.singleLineWidth(expr))
 
-	w, expr = parseFirstValue(t, "{ a: 1, b: `|\n  hi\n  ` }")
+	w, expr = parseFirstValue(t, "{ a: 1, b: '''|\n  hi\n  ''' }")
 	require.Equal(t, -1, w.singleLineWidth(expr))
 }
 

@@ -1,28 +1,28 @@
-single: `hello world`
+single: '''hello world'''
 
-literal-clip: `|
+literal-clip: '''|
   one
   two
-  `
+  '''
 
-literal-strip: `|-
+literal-strip: '''|-
   one
   two
-  `
+  '''
 
-folded-clip: `>
+folded-clip: '''>
   one two three
-  `
+  '''
 
-folded-paragraphs: `>
+folded-paragraphs: '''>
   first paragraph
   continues here.
 
   second paragraph
   also continues.
-  `
+  '''
 
-folded-more-indented: `>
+folded-more-indented: '''>
   prose paragraph
   that folds normally.
 
@@ -33,34 +33,34 @@ folded-more-indented: `>
 
   back to folded prose
   that continues here.
-  `
+  '''
 
-folded-strip: `>-
+folded-strip: '''>-
   one two three
-  `
+  '''
 
-joined-clip: `\
+joined-clip: '''\
   https://example.com/
   api/v1/users/12345
-  `
+  '''
 
-joined-strip: `\-
+joined-strip: '''\-
   arn:aws:s3:::very-long-bucket-name/
   some/key/with/a/long/prefix/
   and-a-filename.tar.gz
-  `
+  '''
 
-joined-skips-blanks: `\-
+joined-skips-blanks: '''\-
   first
 
   second
-  `
+  '''
 
-embedded-backtick: `|
-  before `tick` after
-  `
+embedded-triple-quote: '''|
+  before '''mid''' after
+  '''
 
-trailing-whitespace-trim: `|
+trailing-whitespace-trim: '''|
   one
   two
-  `
+  '''

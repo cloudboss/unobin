@@ -12,12 +12,12 @@ import (
 type FormatOptions struct {
 	// MaxColumn is the soft target line width. The formatter prefers
 	// to break long lines so no rendered line exceeds this width. Some
-	// constructs (a literal-mode backtick string, or a single token
-	// that won't fit anywhere) can still go past this width.
+	// constructs (a literal-mode triple-quoted string, or a single
+	// token that won't fit anywhere) can still go past this width.
 	MaxColumn int
 
 	// WrapStrings, when true, lets the formatter rewrite an overflowing
-	// single-quoted string as a folded (`>-`) or joined (`\-`) backtick
+	// single-quoted string as a folded (>-) or joined (\-) triple-quoted
 	// string so the body wraps within the line budget. When false, a
 	// single-quoted string keeps its form even when it overflows.
 	WrapStrings bool
@@ -231,8 +231,8 @@ func fieldKeyString(k FieldKey) string {
 
 // singleLineWidth returns the rendered width of e if it can be emitted
 // on a single line, or -1 if the subtree forces a multi-line form. The
-// multi-line forcers are: a multi-line backtick string anywhere in the
-// subtree, a comment whose source offset falls inside the span of any
+// multi-line forcers are: a multi-line triple-quoted string anywhere in
+// the subtree, a comment whose source offset falls inside the span of any
 // enclosing collection, and a non-empty type-object literal.
 func (w *formatter) singleLineWidth(e Expr) int {
 	switch x := e.(type) {
@@ -295,8 +295,8 @@ func (w *formatter) fitsOnLine(e Expr, column int) bool {
 }
 
 func stringInlineWidth(s *StringLit) int {
-	if s.Form == StringBacktickSingleLine && canBacktickSingleLine(s.Value) {
-		return 2 + len(s.Value)
+	if s.Form == StringTripleQuoteSingleLine && canTripleQuoteSingleLine(s.Value) {
+		return 6 + len(s.Value)
 	}
 	return len(renderString(s.Value))
 }
@@ -496,59 +496,59 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 
 func (w *formatter) writeString(s *StringLit, indent string) error {
 	switch {
-	case s.Form == StringBacktickSingleLine && canBacktickSingleLine(s.Value):
-		w.buf.WriteByte('`')
+	case s.Form == StringTripleQuoteSingleLine && canTripleQuoteSingleLine(s.Value):
+		w.buf.WriteString("'''")
 		w.buf.WriteString(s.Value)
-		w.buf.WriteByte('`')
+		w.buf.WriteString("'''")
 		return nil
 	case s.Form.IsMultiLine():
 		return w.writeMultilineString(s, indent)
 	}
 	if w.wrapStrings && w.shouldWrapSingleQuoted(s) {
 		if strings.ContainsRune(s.Value, ' ') {
-			return w.writeFoldedBacktick(s.Value, indent, false)
+			return w.writeFoldedTriple(s.Value, indent, false)
 		}
-		return w.writeJoinedBacktick(s.Value, indent, false)
+		return w.writeJoinedTriple(s.Value, indent, false)
 	}
 	w.buf.WriteString(renderString(s.Value))
 	return nil
 }
 
 // shouldWrapSingleQuoted reports whether a single-quoted string can
-// and should be rewritten in folded or joined backtick form. Bodies
-// containing a backtick or newline cannot be carried in either form
+// and should be rewritten in folded or joined triple-quote form.
+// Bodies containing ''' or a newline cannot be carried in either form
 // and are left alone. Bodies that already fit on the current line
 // stay single-quoted regardless of the wrapStrings setting.
 func (w *formatter) shouldWrapSingleQuoted(s *StringLit) bool {
-	if strings.ContainsAny(s.Value, "`\n\r") {
+	if strings.Contains(s.Value, "'''") || strings.ContainsAny(s.Value, "\n\r") {
 		return false
 	}
 	return w.column()+stringInlineWidth(s) > w.maxColumn
 }
 
-func canBacktickSingleLine(v string) bool {
-	return !strings.ContainsAny(v, "`\n\r")
+func canTripleQuoteSingleLine(v string) bool {
+	return !strings.Contains(v, "'''") && !strings.ContainsAny(v, "\n\r")
 }
 
 func (w *formatter) writeMultilineString(s *StringLit, indent string) error {
 	switch s.Form {
 	case StringLiteralClip:
-		return w.writeLiteralBacktick(s.Value, indent, true)
+		return w.writeLiteralTriple(s.Value, indent, true)
 	case StringLiteralStrip:
-		return w.writeLiteralBacktick(s.Value, indent, false)
+		return w.writeLiteralTriple(s.Value, indent, false)
 	case StringFoldedClip:
-		return w.writeFoldedBacktick(s.Value, indent, true)
+		return w.writeFoldedTriple(s.Value, indent, true)
 	case StringFoldedStrip:
-		return w.writeFoldedBacktick(s.Value, indent, false)
+		return w.writeFoldedTriple(s.Value, indent, false)
 	case StringJoinedClip:
-		return w.writeJoinedBacktick(s.Value, indent, true)
+		return w.writeJoinedTriple(s.Value, indent, true)
 	case StringJoinedStrip:
-		return w.writeJoinedBacktick(s.Value, indent, false)
+		return w.writeJoinedTriple(s.Value, indent, false)
 	}
 	return fmt.Errorf("format: unexpected string form %v", s.Form)
 }
 
-func (w *formatter) writeLiteralBacktick(value, indent string, clip bool) error {
+func (w *formatter) writeLiteralTriple(value, indent string, clip bool) error {
 	body := value
 	sigil := "|-"
 	if clip {
@@ -556,7 +556,7 @@ func (w *formatter) writeLiteralBacktick(value, indent string, clip bool) error 
 		sigil = "|"
 	}
 	inner := indent + fmtStep
-	w.buf.WriteByte('`')
+	w.buf.WriteString("'''")
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
 	for _, line := range strings.Split(body, "\n") {
@@ -569,11 +569,11 @@ func (w *formatter) writeLiteralBacktick(value, indent string, clip bool) error 
 		w.buf.WriteByte('\n')
 	}
 	w.buf.WriteString(inner)
-	w.buf.WriteByte('`')
+	w.buf.WriteString("'''")
 	return nil
 }
 
-func (w *formatter) writeFoldedBacktick(value, indent string, clip bool) error {
+func (w *formatter) writeFoldedTriple(value, indent string, clip bool) error {
 	body := value
 	sigil := ">-"
 	if clip {
@@ -581,7 +581,7 @@ func (w *formatter) writeFoldedBacktick(value, indent string, clip bool) error {
 		sigil = ">"
 	}
 	inner := indent + fmtStep
-	w.buf.WriteByte('`')
+	w.buf.WriteString("'''")
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
 	width := w.maxColumn - len(inner)
@@ -602,11 +602,11 @@ func (w *formatter) writeFoldedBacktick(value, indent string, clip bool) error {
 		}
 	}
 	w.buf.WriteString(inner)
-	w.buf.WriteByte('`')
+	w.buf.WriteString("'''")
 	return nil
 }
 
-func (w *formatter) writeJoinedBacktick(value, indent string, clip bool) error {
+func (w *formatter) writeJoinedTriple(value, indent string, clip bool) error {
 	body := value
 	sigil := "\\-"
 	if clip {
@@ -614,7 +614,7 @@ func (w *formatter) writeJoinedBacktick(value, indent string, clip bool) error {
 		sigil = "\\"
 	}
 	inner := indent + fmtStep
-	w.buf.WriteByte('`')
+	w.buf.WriteString("'''")
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
 	width := w.maxColumn - len(inner)
@@ -627,7 +627,7 @@ func (w *formatter) writeJoinedBacktick(value, indent string, clip bool) error {
 		w.buf.WriteByte('\n')
 	}
 	w.buf.WriteString(inner)
-	w.buf.WriteByte('`')
+	w.buf.WriteString("'''")
 	return nil
 }
 

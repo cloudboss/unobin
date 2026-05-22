@@ -131,10 +131,10 @@ func (n *ArrayLit) exprNode()  {}
 //   - Single quoted: 'hello\nworld'. Backslash escapes are processed
 //     during parsing, so Value holds the decoded content. Double quotes
 //     are not a string delimiter.
-//   - Single-line backtick: `hello world`. The body contains no newline
-//     and is returned verbatim.
-//   - Multi-line backtick with a sigil that selects mode (literal /
-//     folded / joined) and chomp (clip / strip). Value holds the
+//   - Single-line triple-quoted: '''hello world'''. The body contains
+//     no newline, no escape processing, and is returned verbatim.
+//   - Multi-line triple-quoted with a sigil that selects mode (literal
+//     / folded / joined) and chomp (clip / strip). Value holds the
 //     dedented and mode-processed content.
 //
 // The formatter dispatches on Form to choose the source form when
@@ -155,7 +155,7 @@ type StringForm int
 
 const (
 	StringSingleQuoted StringForm = iota
-	StringBacktickSingleLine
+	StringTripleQuoteSingleLine
 	StringLiteralClip
 	StringLiteralStrip
 	StringFoldedClip
@@ -165,8 +165,8 @@ const (
 )
 
 // IsMultiLine reports whether the form occupies multiple source lines.
-// It returns true for the six sigil-bearing backtick forms and false
-// for single-quoted and single-line backtick.
+// It returns true for the six sigil-bearing triple-quote forms and false
+// for single-quoted and single-line triple-quote.
 func (f StringForm) IsMultiLine() bool {
 	switch f {
 	case StringLiteralClip, StringLiteralStrip,
@@ -183,8 +183,8 @@ func (f StringForm) String() string {
 	switch f {
 	case StringSingleQuoted:
 		return "StringSingleQuoted"
-	case StringBacktickSingleLine:
-		return "StringBacktickSingleLine"
+	case StringTripleQuoteSingleLine:
+		return "StringTripleQuoteSingleLine"
 	case StringLiteralClip:
 		return "StringLiteralClip"
 	case StringLiteralStrip:

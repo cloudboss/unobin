@@ -5,32 +5,32 @@ import (
 	"strings"
 )
 
-// processBacktickBody decodes a backtick string. text is the entire
-// literal including its delimiters; startCol is the column of the
-// opening backtick; sigil is "" for the single-line form or one of
-// "|", "|-", ">", ">-", "\\", "\\-" for the multi-line forms.
+// processTripleQuoteBody decodes a triple-quoted string. text is the
+// entire literal including its three-quote delimiters; startCol is the
+// column of the opening quote; sigil is "" for the single-line form or
+// one of "|", "|-", ">", ">-", "\\", "\\-" for the multi-line forms.
 //
-// Single-line form returns the body verbatim. Multi-line form strips
-// the closing-backtick column's space-only indent prefix from every
-// content line, dispatches on the sigil for mode (literal, folded,
-// joined), and applies chomp (clip keeps one trailing newline, strip
-// removes all trailing newlines).
-func processBacktickBody(text []byte, startCol int, sigil string) (string, error) {
-	if len(text) < 2 {
-		return "", fmt.Errorf("backtick string too short")
+// Single-line form returns the body verbatim with no escape processing.
+// Multi-line form strips the closing line's space-only indent prefix
+// from every content line, dispatches on the sigil for mode (literal,
+// folded, joined), and applies chomp (clip keeps one trailing newline,
+// strip removes all trailing newlines).
+func processTripleQuoteBody(text []byte, startCol int, sigil string) (string, error) {
+	if len(text) < 6 {
+		return "", fmt.Errorf("triple-quoted string too short")
 	}
-	body := text[1 : len(text)-1]
+	body := text[3 : len(text)-3]
 	if sigil == "" {
 		return string(body), nil
 	}
 	skip := len(sigil) + 1
 	if skip > len(body) {
-		return "", fmt.Errorf("backtick string body too short")
+		return "", fmt.Errorf("triple-quoted string body too short")
 	}
 	body = body[skip:]
 
 	col := startCol
-	for i := 0; i < len(text)-1; i++ {
+	for i := 0; i < len(text)-3; i++ {
 		switch text[i] {
 		case '\n':
 			col = 1
@@ -45,38 +45,38 @@ func processBacktickBody(text []byte, startCol int, sigil string) (string, error
 	}
 
 	raw := strings.Split(string(body), "\n")
-	lines := make([]backtickLine, 0, len(raw))
+	lines := make([]contentLine, 0, len(raw))
 	for i, ln := range raw {
 		ln = strings.TrimRight(ln, "\r")
 		if i == len(raw)-1 {
 			for j := 0; j < len(ln); j++ {
 				if ln[j] != ' ' {
-					return "", fmt.Errorf("backtick string: closing indent must be spaces only")
+					return "", fmt.Errorf("triple-quoted string: closing indent must be spaces only")
 				}
 			}
 			continue
 		}
 		if len(ln) < stripN {
 			if strings.TrimSpace(ln) != "" {
-				return "", fmt.Errorf("backtick string: line is less indented than the closing backtick")
+				return "", fmt.Errorf("triple-quoted string: line is less indented than the closing quote")
 			}
-			lines = append(lines, backtickLine{blank: true})
+			lines = append(lines, contentLine{blank: true})
 			continue
 		}
 		for j := 0; j < stripN; j++ {
 			if ln[j] == '\t' {
-				return "", fmt.Errorf("backtick string: indent prefix must be spaces only, no tabs")
+				return "", fmt.Errorf("triple-quoted string: indent prefix must be spaces only, no tabs")
 			}
 			if ln[j] != ' ' {
-				return "", fmt.Errorf("backtick string: line is less indented than the closing backtick")
+				return "", fmt.Errorf("triple-quoted string: line is less indented than the closing quote")
 			}
 		}
 		rest := strings.TrimRight(ln[stripN:], " \t")
 		if rest == "" {
-			lines = append(lines, backtickLine{blank: true})
+			lines = append(lines, contentLine{blank: true})
 			continue
 		}
-		info := backtickLine{text: rest}
+		info := contentLine{text: rest}
 		if rest[0] == ' ' || rest[0] == '\t' {
 			info.more = true
 		}
@@ -95,7 +95,7 @@ func processBacktickBody(text []byte, startCol int, sigil string) (string, error
 	case "\\":
 		value = joinedValue(lines)
 	default:
-		return "", fmt.Errorf("unknown backtick sigil %q", sigil)
+		return "", fmt.Errorf("unknown triple-quote sigil %q", sigil)
 	}
 
 	if chomp {
@@ -106,12 +106,12 @@ func processBacktickBody(text []byte, startCol int, sigil string) (string, error
 	return value, nil
 }
 
-// backtickLine describes one content line of a multi-line backtick
-// after the baseline indent has been stripped. blank means the line
-// was empty or whitespace-only after the strip. more means the
+// contentLine describes one content line of a multi-line triple-quoted
+// string after the baseline indent has been stripped. blank means the
+// line was empty or whitespace-only after the strip. more means the
 // remaining content begins with whitespace, which marks the line as
 // more-indented than the strip baseline.
-type backtickLine struct {
+type contentLine struct {
 	text  string
 	blank bool
 	more  bool
@@ -121,7 +121,7 @@ type backtickLine struct {
 // its content, lines are joined with "\n", and a trailing "\n" is
 // appended when the body is non-empty so the resulting value ends on
 // a newline boundary (clip semantics; strip is applied later).
-func literalValue(lines []backtickLine) string {
+func literalValue(lines []contentLine) string {
 	if len(lines) == 0 {
 		return ""
 	}
@@ -139,7 +139,7 @@ func literalValue(lines []backtickLine) string {
 // more-indented line are joined by "\n"; a run of N blank lines
 // between two non-blank lines contributes N "\n" and replaces any
 // separator that would otherwise apply.
-func foldedValue(lines []backtickLine) string {
+func foldedValue(lines []contentLine) string {
 	first := -1
 	for i, ln := range lines {
 		if !ln.blank {
@@ -175,7 +175,7 @@ func foldedValue(lines []backtickLine) string {
 // Blank lines contribute nothing. Trailing whitespace per line has
 // already been trimmed at classification time; leading whitespace
 // past the strip baseline is preserved as content.
-func joinedValue(lines []backtickLine) string {
+func joinedValue(lines []contentLine) string {
 	var b strings.Builder
 	saw := false
 	for _, ln := range lines {
@@ -192,11 +192,11 @@ func joinedValue(lines []backtickLine) string {
 }
 
 // formFromSigil maps the parsed sigil text to its StringForm. The
-// empty string is the single-line backtick form.
+// empty string is the single-line triple-quote form.
 func formFromSigil(s string) StringForm {
 	switch s {
 	case "":
-		return StringBacktickSingleLine
+		return StringTripleQuoteSingleLine
 	case "|":
 		return StringLiteralClip
 	case "|-":
@@ -210,5 +210,5 @@ func formFromSigil(s string) StringForm {
 	case "\\-":
 		return StringJoinedStrip
 	}
-	return StringBacktickSingleLine
+	return StringTripleQuoteSingleLine
 }

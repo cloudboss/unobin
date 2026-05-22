@@ -268,10 +268,11 @@ func findField(obj *lang.ObjectLit, name string) *lang.Field {
 }
 
 // findMatchingClose returns the index of the delimiter that closes the
-// `{` or `[` at openIdx. It tracks single-quoted strings, backtick
-// multi-line strings, and `#` line comments so braces or brackets
-// inside those tokens do not affect the depth count. Returns -1 if no
-// match is found (which should not happen on parser-validated input).
+// `{` or `[` at openIdx. It tracks single-quoted strings (which cover
+// triple-quoted strings too, since their content is bracketed by `'`
+// runs) and `#` line comments, so braces or brackets inside those tokens
+// do not affect the depth count. Returns -1 if no match is found (which
+// should not happen on parser-validated input).
 func findMatchingClose(src []byte, openIdx int) int {
 	open := src[openIdx]
 	var closeCh byte
@@ -294,11 +295,6 @@ func findMatchingClose(src []byte, openIdx int) int {
 					i += 2
 					continue
 				}
-				i++
-			}
-		case '`':
-			i++
-			for i < len(src) && src[i] != '`' {
 				i++
 			}
 		case '#':

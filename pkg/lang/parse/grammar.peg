@@ -262,7 +262,7 @@ UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
 	return &Prefix{S: c.span(), Op: string(op.([]byte)), Expr: inner.(Expr)}, nil
 }
 
-Primary <- ParenExpr / ObjectLitNode / ArrayLitNode / StringLitNode / BacktickStringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
+Primary <- ParenExpr / ObjectLitNode / ArrayLitNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
 
 ParenExpr <- "(" _ e:Value _ ")" {
 	return e, nil
@@ -347,20 +347,17 @@ StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 	return unquoteSingle(string(c.text)), nil
 }
 
-BacktickStringLitNode <- "`" sigil:BacktickBody "`" {
-	s := sigil.(string)
-	val, err := processBacktickBody(c.text, c.pos.col, s)
-	return &StringLit{S: c.rangeSpan(), Value: val, Form: formFromSigil(s)}, err
+TripleQuoteStringLitNode <- MultiLineTripleQuote / SingleLineTripleQuote
+
+MultiLineTripleQuote <- "'''" s:Sigil "\n" MultiLineContent Indent "'''" {
+	sig := s.(string)
+	val, err := processTripleQuoteBody(c.text, c.pos.col, sig)
+	return &StringLit{S: c.rangeSpan(), Value: val, Form: formFromSigil(sig)}, err
 }
 
-BacktickBody <- MultiLineForm / SingleLineForm
-
-MultiLineForm <- s:Sigil "\n" MultiLineContent Indent {
-	return s, nil
-}
-
-SingleLineForm <- SingleLineContent {
-	return "", nil
+SingleLineTripleQuote <- "'''" SingleLineContent "'''" {
+	val, err := processTripleQuoteBody(c.text, c.pos.col, "")
+	return &StringLit{S: c.rangeSpan(), Value: val, Form: formFromSigil("")}, err
 }
 
 Sigil <- ( "|" / ">" / "\\" ) "-"? {
@@ -369,11 +366,13 @@ Sigil <- ( "|" / ">" / "\\" ) "-"? {
 
 MultiLineContent <- ( !ContentBreak . )*
 
-ContentBreak <- "\n" [ \t]* "`"
+ContentBreak <- "\n" [ \t]* "'''" CloseFollower
+
+CloseFollower <- "\n" / !. / [ \t,)}\]#]
 
 Indent <- "\n" [ \t]*
 
-SingleLineContent <- ( !"`" !"\n" . )*
+SingleLineContent <- ( !"'''" !"\n" . )*
 
 NumberLitNode <- ( "-"? [0-9]+ ( "." [0-9]+ )? ) {
 	raw := string(c.text)

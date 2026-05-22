@@ -56,7 +56,7 @@ func init() {
 	FmtCmd.Flags().IntVar(&fmtCfg.maxLineLength, "max-line-length", lang.DefaultMaxColumn,
 		"Target line width for formatted output.")
 	FmtCmd.Flags().BoolVar(&fmtCfg.wrapStrings, "wrap-strings", false,
-		"Rewrite overflowing single-quoted strings as folded or joined backtick form.")
+		"Rewrite overflowing single-quoted strings as folded or joined triple-quoted form.")
 }
 
 func runFmt(cmd *cobra.Command, args []string, cfg *fmtConfig) error {

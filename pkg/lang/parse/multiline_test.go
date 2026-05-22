@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBacktickSigilDispatch(t *testing.T) {
+func TestTripleQuoteSigilDispatch(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
@@ -15,69 +15,69 @@ func TestBacktickSigilDispatch(t *testing.T) {
 	}{
 		{
 			name: "literal clip",
-			src:  "k: `|\n  one\n  two\n  `\n",
+			src:  "k: '''|\n  one\n  two\n  '''\n",
 			val:  "one\ntwo\n",
 			form: StringLiteralClip,
 		},
 		{
 			name: "literal strip",
-			src:  "k: `|-\n  one\n  two\n  `\n",
+			src:  "k: '''|-\n  one\n  two\n  '''\n",
 			val:  "one\ntwo",
 			form: StringLiteralStrip,
 		},
 		{
 			name: "folded clip",
-			src:  "k: `>\n  one\n  two\n  `\n",
+			src:  "k: '''>\n  one\n  two\n  '''\n",
 			val:  "one two\n",
 			form: StringFoldedClip,
 		},
 		{
 			name: "folded strip",
-			src:  "k: `>-\n  one\n  two\n  `\n",
+			src:  "k: '''>-\n  one\n  two\n  '''\n",
 			val:  "one two",
 			form: StringFoldedStrip,
 		},
 		{
 			name: "folded paragraph break",
-			src:  "k: `>\n  one\n\n  two\n  `\n",
+			src:  "k: '''>\n  one\n\n  two\n  '''\n",
 			val:  "one\ntwo\n",
 			form: StringFoldedClip,
 		},
 		{
 			name: "folded double blank",
-			src:  "k: `>\n  one\n\n\n  two\n  `\n",
+			src:  "k: '''>\n  one\n\n\n  two\n  '''\n",
 			val:  "one\n\ntwo\n",
 			form: StringFoldedClip,
 		},
 		{
 			name: "folded more indented preserved",
-			src:  "k: `>\n  prose\n    code\n    more\n  back\n  `\n",
+			src:  "k: '''>\n  prose\n    code\n    more\n  back\n  '''\n",
 			val:  "prose\n  code\n  more\nback\n",
 			form: StringFoldedClip,
 		},
 		{
 			name: "joined clip",
-			src:  "k: `\\\n  https://example.com/\n  api/v1/users\n  `\n",
+			src:  "k: '''\\\n  https://example.com/\n  api/v1/users\n  '''\n",
 			val:  "https://example.com/api/v1/users\n",
 			form: StringJoinedClip,
 		},
 		{
 			name: "joined strip",
-			src:  "k: `\\-\n  https://example.com/\n  api/v1/users\n  `\n",
+			src:  "k: '''\\-\n  https://example.com/\n  api/v1/users\n  '''\n",
 			val:  "https://example.com/api/v1/users",
 			form: StringJoinedStrip,
 		},
 		{
 			name: "joined ignores blank lines",
-			src:  "k: `\\-\n  a\n\n  b\n  `\n",
+			src:  "k: '''\\-\n  a\n\n  b\n  '''\n",
 			val:  "ab",
 			form: StringJoinedStrip,
 		},
 		{
-			name: "single-line backtick",
-			src:  "k: `hello world`\n",
+			name: "single-line triple-quote",
+			src:  "k: '''hello world'''\n",
 			val:  "hello world",
-			form: StringBacktickSingleLine,
+			form: StringTripleQuoteSingleLine,
 		},
 	}
 	for _, tt := range tests {
@@ -92,11 +92,11 @@ func TestBacktickSigilDispatch(t *testing.T) {
 	}
 }
 
-func TestBacktickEmbeddedBacktick(t *testing.T) {
-	src := "k: `|\n  before `tick` after\n  `\n"
+func TestTripleQuoteEmbeddedTripleQuote(t *testing.T) {
+	src := "k: '''|\n  before '''mid''' after\n  '''\n"
 	f, err := ParseSource("test.ub", []byte(src))
 	require.NoError(t, err)
 	require.Len(t, f.Body.Fields, 1)
 	s := f.Body.Fields[0].Value.(*StringLit)
-	require.Equal(t, "before `tick` after\n", s.Value)
+	require.Equal(t, "before '''mid''' after\n", s.Value)
 }
