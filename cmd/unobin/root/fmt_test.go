@@ -38,11 +38,8 @@ func writeUBFile(t *testing.T, dir, name, body string) string {
 	return path
 }
 
-const canonicalSource = `name: 'demo'
-items: [
-  1,
-  2,
-]
+const canonicalSource = `name:  'demo'
+items: [1, 2]
 `
 
 const messySource = `name:'demo'

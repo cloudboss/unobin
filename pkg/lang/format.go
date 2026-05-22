@@ -70,12 +70,12 @@ func (w *formatter) writeFields(fields []*Field, indent string) error {
 // source line with its predecessor.
 func (w *formatter) findAlignmentGroup(fields []*Field, start int) (int, int) {
 	maxKey := keyWidth(fields[start].Key)
-	if !isSingleLineField(fields[start]) {
+	if !w.isSingleLineField(fields[start]) {
 		return start + 1, maxKey
 	}
 	end := start + 1
 	for end < len(fields) {
-		if !isSingleLineField(fields[end]) {
+		if !w.isSingleLineField(fields[end]) {
 			break
 		}
 		if w.hasBlankLineBetween(fields[end-1], fields[end]) {
@@ -125,16 +125,28 @@ func (w *formatter) writeField(field *Field, indent string, keyCol int) error {
 	return w.writeExpr(field.Value, indent)
 }
 
+// column returns the column of the next character to be written,
+// counted from the start of the current line.
+func (w *formatter) column() int {
+	s := w.buf.String()
+	if i := strings.LastIndexByte(s, '\n'); i >= 0 {
+		return len(s) - i - 1
+	}
+	return len(s)
+}
+
 // isSingleLineField reports whether a field's value renders on a
-// single line. Empty collections still count as single-line; only
-// non-empty objects, non-empty arrays, multi-line strings, and
-// non-empty type-object literals expand onto multiple lines.
-func isSingleLineField(field *Field) bool {
+// single line. Empty collections count as single-line; an array
+// whose elements can all be rendered inline also counts (the renderer
+// decides at write time whether the column budget allows it).
+// Non-empty objects, multi-line strings, and non-empty type-object
+// literals always expand onto multiple lines.
+func (w *formatter) isSingleLineField(field *Field) bool {
 	switch x := field.Value.(type) {
 	case *ObjectLit:
 		return len(x.Fields) == 0
 	case *ArrayLit:
-		return len(x.Elements) == 0
+		return w.singleLineWidth(x) >= 0
 	case *StringLit:
 		return !x.Form.IsMultiLine()
 	case *TypeObject:
@@ -683,18 +695,45 @@ func (w *formatter) writeArray(a *ArrayLit, indent string) error {
 		w.buf.WriteString("[]")
 		return nil
 	}
+	if w.fitsOnLine(a, w.column()) {
+		return w.writeArrayInline(a)
+	}
 	inner := indent + fmtStep
 	w.buf.WriteByte('[')
 	w.buf.WriteByte('\n')
 	w.lastLine = a.S.Start.Line
+	hasComments := w.hasCommentInSpan(a.S.Start.Offset, a.S.End.Offset)
+	if !hasComments && elementsAreAtoms(a.Elements) {
+		return w.writeArrayPacked(a, indent, inner)
+	}
+	return w.writeArrayPerLine(a, indent, inner)
+}
+
+func (w *formatter) writeArrayInline(a *ArrayLit) error {
+	w.buf.WriteByte('[')
+	for i, elem := range a.Elements {
+		if i > 0 {
+			w.buf.WriteString(", ")
+		}
+		if err := w.writeExpr(elem, ""); err != nil {
+			return err
+		}
+	}
+	w.buf.WriteByte(']')
+	return nil
+}
+
+func (w *formatter) writeArrayPerLine(a *ArrayLit, indent, inner string) error {
 	for _, elem := range a.Elements {
 		w.flushBefore(elem.Span().Start.Offset, inner)
+		w.maybeBlankLine(elem.Span().Start.Line)
 		w.buf.WriteString(inner)
 		if err := w.writeExpr(elem, inner); err != nil {
 			return err
 		}
 		w.buf.WriteByte(',')
-		w.flushTrailingOnLine(valueEndLine(elem))
+		w.lastLine = valueEndLine(elem)
+		w.flushTrailingOnLine(w.lastLine)
 		w.buf.WriteByte('\n')
 	}
 	w.flushBefore(a.S.End.Offset, inner)
@@ -702,6 +741,96 @@ func (w *formatter) writeArray(a *ArrayLit, indent string) error {
 	w.buf.WriteByte(']')
 	w.lastLine = a.S.End.Line
 	return nil
+}
+
+// writeArrayPacked groups atom elements onto lines whose widths are
+// as even as possible, with a trailing comma on every element.
+// Comments inside the array force the per-line path instead, so this
+// code path never has to interleave them.
+func (w *formatter) writeArrayPacked(a *ArrayLit, indent, inner string) error {
+	widths := make([]int, len(a.Elements))
+	for i, e := range a.Elements {
+		widths[i] = w.singleLineWidth(e) + 1
+	}
+	budget := fmtMaxColumn - len(inner)
+	target := evenLineTarget(widths, budget)
+
+	w.buf.WriteString(inner)
+	if err := w.writeExpr(a.Elements[0], inner); err != nil {
+		return err
+	}
+	w.buf.WriteByte(',')
+	col := widths[0]
+	for i := 1; i < len(a.Elements); i++ {
+		proposed := col + 1 + widths[i]
+		breakHere := proposed > budget || (proposed > target && col >= target/2)
+		if breakHere {
+			w.buf.WriteByte('\n')
+			w.buf.WriteString(inner)
+			col = widths[i]
+		} else {
+			w.buf.WriteByte(' ')
+			col = proposed
+		}
+		if err := w.writeExpr(a.Elements[i], inner); err != nil {
+			return err
+		}
+		w.buf.WriteByte(',')
+	}
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(indent)
+	w.buf.WriteByte(']')
+	w.lastLine = a.S.End.Line
+	return nil
+}
+
+// evenLineTarget returns the soft per-line cap that produces roughly
+// equal line widths when packing items whose widths already include
+// their trailing comma. budget is the hard maximum per line; items
+// are separated by a single space within a line.
+func evenLineTarget(widths []int, budget int) int {
+	if len(widths) == 0 {
+		return budget
+	}
+	total := 0
+	for _, w := range widths {
+		total += w
+	}
+	total += len(widths) - 1
+	lines := 1
+	cur := widths[0]
+	for i := 1; i < len(widths); i++ {
+		if cur+1+widths[i] > budget {
+			lines++
+			cur = widths[i]
+		} else {
+			cur += 1 + widths[i]
+		}
+	}
+	target := (total + lines - 1) / lines
+	if target < 1 {
+		target = 1
+	}
+	return target
+}
+
+func isAtom(e Expr) bool {
+	switch x := e.(type) {
+	case *NumberLit, *BoolLit, *NullLit, *Ident:
+		return true
+	case *StringLit:
+		return !x.Form.IsMultiLine()
+	}
+	return false
+}
+
+func elementsAreAtoms(elems []Expr) bool {
+	for _, e := range elems {
+		if !isAtom(e) {
+			return false
+		}
+	}
+	return true
 }
 
 func (w *formatter) writeDotPath(dp *DotPath, indent string) error {

@@ -49,14 +49,142 @@ list: []
 	require.Equal(t, src, formatString(t, src))
 }
 
-func TestFormatArrayHasTrailingCommas(t *testing.T) {
-	src := `items: [
-  1,
-  2,
-  3,
-]
-`
-	require.Equal(t, src, formatString(t, src))
+func TestFormatArray(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "empty_inline",
+			src:  "items: []\n",
+			want: "items: []\n",
+		},
+		{
+			name: "empty_with_whitespace_normalized",
+			src:  "items: [    ]\n",
+			want: "items: []\n",
+		},
+		{
+			name: "single_atom",
+			src:  "items: [42]\n",
+			want: "items: [42]\n",
+		},
+		{
+			name: "short_atoms_inline",
+			src:  "items: [1, 2, 3]\n",
+			want: "items: [1, 2, 3]\n",
+		},
+		{
+			name: "short_atoms_multi_line_collapses_to_inline",
+			src:  "items: [\n  1,\n  2,\n  3,\n]\n",
+			want: "items: [1, 2, 3]\n",
+		},
+		{
+			name: "trailing_comma_dropped_in_inline_form",
+			src:  "items: [1, 2, 3,]\n",
+			want: "items: [1, 2, 3]\n",
+		},
+		{
+			name: "messy_whitespace_normalized_inline",
+			src:  "items:[ 1 , 2 , 3 ]\n",
+			want: "items: [1, 2, 3]\n",
+		},
+		{
+			name: "short_complex_inline",
+			src:  "items: [core.file('a'), core.file('b')]\n",
+			want: "items: [core.file('a'), core.file('b')]\n",
+		},
+		{
+			name: "long_complex_per_line",
+			src:  "items: [core.file('/very/long/path/to/some/important/file'), core.file('/another/very/long/path/to/different/file')]\n",
+			want: "items: [\n  core.file('/very/long/path/to/some/important/file'),\n  core.file('/another/very/long/path/to/different/file'),\n]\n",
+		},
+		{
+			name: "long_complex_multi_line_stays_per_line",
+			src:  "items: [\n  core.file('/very/long/path/to/some/important/file'),\n  core.file('/another/very/long/path/to/different/file'),\n]\n",
+			want: "items: [\n  core.file('/very/long/path/to/some/important/file'),\n  core.file('/another/very/long/path/to/different/file'),\n]\n",
+		},
+		{
+			name: "long_atoms_balanced_packed",
+			src:  "items: ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn']\n",
+			want: "items: [\n  'aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg',\n  'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn',\n]\n",
+		},
+		{
+			name: "long_atoms_repacked_from_one_per_line",
+			src:  "items: [\n  'aaaa',\n  'bbbb',\n  'cccc',\n  'dddd',\n  'eeee',\n  'ffff',\n  'gggg',\n  'hhhh',\n  'iiii',\n  'jjjj',\n  'kkkk',\n  'llll',\n  'mmmm',\n  'nnnn',\n]\n",
+			want: "items: [\n  'aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg',\n  'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn',\n]\n",
+		},
+		{
+			name: "mixed_atoms_and_complex_per_line",
+			src:  "items: [1, core.file('/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 2]\n",
+			want: "items: [\n  1,\n  core.file('/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),\n  2,\n]\n",
+		},
+		{
+			name: "sub_arrays_per_line",
+			src:  "items: [\n  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],\n  [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],\n]\n",
+			want: "items: [\n  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],\n  [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],\n]\n",
+		},
+		{
+			name: "dot_paths_per_line",
+			src:  "items: [\n  var.alpha.beta.gamma.delta,\n  var.epsilon.zeta.eta.theta.iota.kappa.lambda.mu.nu.xi.omicron.pi.rho.sigma,\n]\n",
+			want: "items: [\n  var.alpha.beta.gamma.delta,\n  var.epsilon.zeta.eta.theta.iota.kappa.lambda.mu.nu.xi.omicron.pi.rho.sigma,\n]\n",
+		},
+		{
+			name: "comment_between_atoms_forces_per_line",
+			src:  "items: [\n  1,\n  # an aside\n  2,\n  3,\n]\n",
+			want: "items: [\n  1,\n  # an aside\n  2,\n  3,\n]\n",
+		},
+		{
+			name: "comment_before_first_element",
+			src:  "items: [\n  # leading\n  1,\n  2,\n  3,\n]\n",
+			want: "items: [\n  # leading\n  1,\n  2,\n  3,\n]\n",
+		},
+		{
+			name: "comment_after_last_element",
+			src:  "items: [\n  1,\n  2,\n  3,\n  # trailing\n]\n",
+			want: "items: [\n  1,\n  2,\n  3,\n  # trailing\n]\n",
+		},
+		{
+			name: "multiline_string_element_forces_per_line",
+			src:  "items: [\n  1,\n  `|\n    hello\n    `,\n  3,\n]\n",
+			want: "items: [\n  1,\n  `|\n    hello\n    `,\n  3,\n]\n",
+		},
+		{
+			name: "bool_atoms_inline",
+			src:  "items: [true, false, null]\n",
+			want: "items: [true, false, null]\n",
+		},
+		{
+			name: "ident_atoms_inline",
+			src:  "items: [string, integer, boolean]\n",
+			want: "items: [string, integer, boolean]\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatString(t, tt.src)
+			require.Equal(t, tt.want, got)
+			again := formatString(t, got)
+			require.Equal(t, got, again, "format is not idempotent")
+		})
+	}
+}
+
+func TestFormatArrayDeterministic(t *testing.T) {
+	tests := []string{
+		"items: [1, 2, 3]\n",
+		"items: ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn']\n",
+		"items: [\n  core.file('/very/long/path/to/some/important/file'),\n  core.file('/another/very/long/path/to/different/file'),\n]\n",
+		"items: [\n  1,\n  # comment\n  2,\n]\n",
+	}
+	for _, src := range tests {
+		first := formatString(t, src)
+		for i := 0; i < 5; i++ {
+			again := formatString(t, src)
+			require.Equal(t, first, again, "iteration %d differs", i)
+		}
+	}
 }
 
 func TestFormatMetaKeyStaysBare(t *testing.T) {
@@ -744,10 +872,7 @@ func TestFormatIdempotent(t *testing.T) {
 output: {
   region: 'us-east-1'
   # nested comment
-  items: [
-    1,
-    2,
-  ]
+  items:  [1, 2]
 }
 
 other: var.x.y
