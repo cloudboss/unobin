@@ -443,6 +443,78 @@ func TestFormatObjectDeterministic(t *testing.T) {
 	}
 }
 
+func TestFormatWithWrapStrings(t *testing.T) {
+	tests := []struct {
+		name        string
+		maxColumn   int
+		wrapStrings bool
+		src         string
+		want        string
+	}{
+		{
+			name:        "off_by_default_keeps_long_single_quoted",
+			maxColumn:   0,
+			wrapStrings: false,
+			src:         "msg: 'this is an intentionally long single quoted string that goes well past the line budget by a lot'\n",
+			want:        "msg: 'this is an intentionally long single quoted string that goes well past the line budget by a lot'\n",
+		},
+		{
+			name:        "on_short_stays_single_quoted",
+			maxColumn:   0,
+			wrapStrings: true,
+			src:         "msg: 'short string'\n",
+			want:        "msg: 'short string'\n",
+		},
+		{
+			name:        "on_long_with_spaces_becomes_folded",
+			maxColumn:   40,
+			wrapStrings: true,
+			src:         "msg: 'this is a fairly long sentence that does not fit on a forty char line'\n",
+			want:        "msg: `>-\n  this is a fairly long sentence that\n  does not fit on a forty char line\n  `\n",
+		},
+		{
+			name:        "on_long_without_spaces_becomes_joined",
+			maxColumn:   40,
+			wrapStrings: true,
+			src:         "url: 'https://example.com/api/v2/very/long/path/that/needs/breaking/up'\n",
+			want:        "url: `\\-\n  https://example.com/api/v2/very/\n  long/path/that/needs/breaking/up\n  `\n",
+		},
+		{
+			name:        "on_with_backtick_in_body_stays_single_quoted",
+			maxColumn:   30,
+			wrapStrings: true,
+			src:         "msg: 'contains a backtick ` in the middle of a longer body'\n",
+			want:        "msg: 'contains a backtick ` in the middle of a longer body'\n",
+		},
+		{
+			name:        "off_long_folded_input_still_rewraps_at_max",
+			maxColumn:   30,
+			wrapStrings: false,
+			src:         "msg: `>\n  one two three four five six seven eight nine ten eleven\n  `\n",
+			want:        "msg: `>\n  one two three four five six\n  seven eight nine ten eleven\n  `\n",
+		},
+		{
+			name:        "off_long_literal_does_not_rewrap",
+			maxColumn:   20,
+			wrapStrings: false,
+			src:         "msg: `|\n  this exact line stays as it is even if too long\n  `\n",
+			want:        "msg: `|\n  this exact line stays as it is even if too long\n  `\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := ParseSource("t.ub", []byte(tt.src))
+			require.NoError(t, err)
+			got, err := FormatWith(file, FormatOptions{
+				MaxColumn:   tt.maxColumn,
+				WrapStrings: tt.wrapStrings,
+			})
+			require.NoError(t, err)
+			require.Equal(t, tt.want, string(got))
+		})
+	}
+}
+
 func TestFormatArrayDeterministic(t *testing.T) {
 	tests := []string{
 		"items: [1, 2, 3]\n",

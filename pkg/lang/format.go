@@ -7,13 +7,20 @@ import (
 )
 
 // FormatOptions configures Format behavior. The zero value means
-// "use defaults": MaxColumn is taken to be DefaultMaxColumn.
+// "use defaults": MaxColumn is taken to be DefaultMaxColumn, and
+// WrapStrings is false.
 type FormatOptions struct {
 	// MaxColumn is the soft target line width. The formatter prefers
 	// to break long lines so no rendered line exceeds this width. Some
 	// constructs (a literal-mode backtick string, or a single token
 	// that won't fit anywhere) can still go past this width.
 	MaxColumn int
+
+	// WrapStrings, when true, lets the formatter rewrite an overflowing
+	// single-quoted string as a folded (`>-`) or joined (`\-`) backtick
+	// string so the body wraps within the line budget. When false, a
+	// single-quoted string keeps its form even when it overflows.
+	WrapStrings bool
 }
 
 // DefaultMaxColumn is the line width used when FormatOptions.MaxColumn
@@ -36,7 +43,11 @@ func FormatWith(file *File, opts FormatOptions) ([]byte, error) {
 	if maxColumn <= 0 {
 		maxColumn = DefaultMaxColumn
 	}
-	w := &formatter{comments: file.Comments, maxColumn: maxColumn}
+	w := &formatter{
+		comments:    file.Comments,
+		maxColumn:   maxColumn,
+		wrapStrings: opts.WrapStrings,
+	}
 	if err := w.writeFile(file); err != nil {
 		return nil, err
 	}
@@ -44,11 +55,12 @@ func FormatWith(file *File, opts FormatOptions) ([]byte, error) {
 }
 
 type formatter struct {
-	buf       strings.Builder
-	comments  []Comment
-	cIdx      int
-	lastLine  int
-	maxColumn int
+	buf         strings.Builder
+	comments    []Comment
+	cIdx        int
+	lastLine    int
+	maxColumn   int
+	wrapStrings bool
 }
 
 const fmtStep = "  "
@@ -492,8 +504,26 @@ func (w *formatter) writeString(s *StringLit, indent string) error {
 	case s.Form.IsMultiLine():
 		return w.writeMultilineString(s, indent)
 	}
+	if w.wrapStrings && w.shouldWrapSingleQuoted(s) {
+		if strings.ContainsRune(s.Value, ' ') {
+			return w.writeFoldedBacktick(s.Value, indent, false)
+		}
+		return w.writeJoinedBacktick(s.Value, indent, false)
+	}
 	w.buf.WriteString(renderString(s.Value))
 	return nil
+}
+
+// shouldWrapSingleQuoted reports whether a single-quoted string can
+// and should be rewritten in folded or joined backtick form. Bodies
+// containing a backtick or newline cannot be carried in either form
+// and are left alone. Bodies that already fit on the current line
+// stay single-quoted regardless of the wrapStrings setting.
+func (w *formatter) shouldWrapSingleQuoted(s *StringLit) bool {
+	if strings.ContainsAny(s.Value, "`\n\r") {
+		return false
+	}
+	return w.column()+stringInlineWidth(s) > w.maxColumn
 }
 
 func canBacktickSingleLine(v string) bool {

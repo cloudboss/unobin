@@ -141,3 +141,21 @@ func TestFmtDefaultMaxKeepsShortArrayInline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, src, got)
 }
+
+func TestFmtWrapStringsRewritesOverflowingSingleQuoted(t *testing.T) {
+	src := "msg: 'this is a fairly long sentence that does not fit on a forty char line'\n"
+	want := "msg: `>-\n  this is a fairly long sentence that\n  does not fit on a forty char line\n  `\n"
+
+	got, err := runFmtCommand(t, strings.NewReader(src),
+		"--max-line-length", "40", "--wrap-strings")
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+func TestFmtWrapStringsOffKeepsSingleQuoted(t *testing.T) {
+	src := "msg: 'this is a fairly long sentence that does not fit on a forty char line'\n"
+	got, err := runFmtCommand(t, strings.NewReader(src),
+		"--max-line-length", "40")
+	require.NoError(t, err)
+	require.Equal(t, src, got)
+}

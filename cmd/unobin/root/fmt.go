@@ -45,6 +45,7 @@ type fmtConfig struct {
 	write         bool
 	list          bool
 	maxLineLength int
+	wrapStrings   bool
 }
 
 func init() {
@@ -54,6 +55,8 @@ func init() {
 		"Print paths whose formatted output differs from their contents.")
 	FmtCmd.Flags().IntVar(&fmtCfg.maxLineLength, "max-line-length", lang.DefaultMaxColumn,
 		"Target line width for formatted output.")
+	FmtCmd.Flags().BoolVar(&fmtCfg.wrapStrings, "wrap-strings", false,
+		"Rewrite overflowing single-quoted strings as folded or joined backtick form.")
 }
 
 func runFmt(cmd *cobra.Command, args []string, cfg *fmtConfig) error {
@@ -141,7 +144,10 @@ func formatBytes(name string, src []byte, cfg *fmtConfig) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lang.FormatWith(file, lang.FormatOptions{MaxColumn: cfg.maxLineLength})
+	return lang.FormatWith(file, lang.FormatOptions{
+		MaxColumn:   cfg.maxLineLength,
+		WrapStrings: cfg.wrapStrings,
+	})
 }
 
 // expandFmtPaths walks each argument and returns the list of files to
