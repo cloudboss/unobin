@@ -154,6 +154,233 @@ func fieldKeyString(k FieldKey) string {
 	return k.Name
 }
 
+// singleLineWidth returns the rendered width of e if it can be emitted
+// on a single line, or -1 if the subtree forces a multi-line form. The
+// multi-line forcers are: a multi-line backtick string anywhere in the
+// subtree, a comment whose source offset falls inside the span of any
+// enclosing collection, and a non-empty type-object literal.
+func (w *formatter) singleLineWidth(e Expr) int {
+	switch x := e.(type) {
+	case *StringLit:
+		if x.Form.IsMultiLine() {
+			return -1
+		}
+		return stringInlineWidth(x)
+	case *NumberLit:
+		return len(x.Value)
+	case *BoolLit:
+		if x.Value {
+			return len("true")
+		}
+		return len("false")
+	case *NullLit:
+		return len("null")
+	case *Ident:
+		return len(x.Name)
+	case *ObjectLit:
+		return w.objectInlineWidth(x)
+	case *ArrayLit:
+		return w.arrayInlineWidth(x)
+	case *DotPath:
+		return w.dotPathWidth(x)
+	case *Call:
+		return w.callInlineWidth(x)
+	case *Infix:
+		l := w.singleLineWidth(x.Left)
+		if l < 0 {
+			return -1
+		}
+		r := w.singleLineWidth(x.Right)
+		if r < 0 {
+			return -1
+		}
+		return l + 1 + len(x.Op) + 1 + r
+	case *Prefix:
+		i := w.singleLineWidth(x.Expr)
+		if i < 0 {
+			return -1
+		}
+		return len(x.Op) + i
+	case TypeExpr:
+		return w.typeExprWidth(x)
+	case nil:
+		return len("null")
+	}
+	return -1
+}
+
+// fitsOnLine reports whether e's single-line form fits between column
+// and fmtMaxColumn.
+func (w *formatter) fitsOnLine(e Expr, column int) bool {
+	width := w.singleLineWidth(e)
+	if width < 0 {
+		return false
+	}
+	return column+width <= fmtMaxColumn
+}
+
+func stringInlineWidth(s *StringLit) int {
+	if s.Form == StringBacktickSingleLine && canBacktickSingleLine(s.Value) {
+		return 2 + len(s.Value)
+	}
+	return len(renderString(s.Value))
+}
+
+func (w *formatter) objectInlineWidth(o *ObjectLit) int {
+	if len(o.Fields) == 0 {
+		return 2
+	}
+	if w.hasCommentInSpan(o.S.Start.Offset, o.S.End.Offset) {
+		return -1
+	}
+	total := 4
+	for i, f := range o.Fields {
+		vw := w.singleLineWidth(f.Value)
+		if vw < 0 {
+			return -1
+		}
+		total += keyWidth(f.Key) + 2 + vw
+		if i > 0 {
+			total += 2
+		}
+	}
+	return total
+}
+
+func (w *formatter) arrayInlineWidth(a *ArrayLit) int {
+	if len(a.Elements) == 0 {
+		return 2
+	}
+	if w.hasCommentInSpan(a.S.Start.Offset, a.S.End.Offset) {
+		return -1
+	}
+	total := 2
+	for i, el := range a.Elements {
+		ew := w.singleLineWidth(el)
+		if ew < 0 {
+			return -1
+		}
+		total += ew
+		if i > 0 {
+			total += 2
+		}
+	}
+	return total
+}
+
+func (w *formatter) dotPathWidth(dp *DotPath) int {
+	total := 0
+	if dp.Root != nil {
+		total += len(dp.Root.Name)
+	}
+	for _, seg := range dp.Segments {
+		if seg.Index != nil {
+			iw := w.singleLineWidth(seg.Index)
+			if iw < 0 {
+				return -1
+			}
+			total += 2 + iw
+			continue
+		}
+		total += 1 + len(seg.Name)
+	}
+	return total
+}
+
+func (w *formatter) callInlineWidth(c *Call) int {
+	total := 2
+	switch {
+	case c.Module != nil && c.Func != nil:
+		total += len(c.Module.Name) + 1 + len(c.Func.Name)
+	case c.Callee != nil:
+		total += len(c.Callee.Name)
+	}
+	for i, a := range c.Args {
+		aw := w.singleLineWidth(a)
+		if aw < 0 {
+			return -1
+		}
+		total += aw
+		if i > 0 {
+			total += 2
+		}
+	}
+	return total
+}
+
+func (w *formatter) typeExprWidth(t TypeExpr) int {
+	switch x := t.(type) {
+	case *TypeAtomic:
+		return len(x.Name)
+	case *TypeList:
+		i := w.typeExprWidth(x.Elem)
+		if i < 0 {
+			return -1
+		}
+		return len("list(") + i + 1
+	case *TypeSet:
+		i := w.typeExprWidth(x.Elem)
+		if i < 0 {
+			return -1
+		}
+		return len("set(") + i + 1
+	case *TypeMap:
+		i := w.typeExprWidth(x.Elem)
+		if i < 0 {
+			return -1
+		}
+		return len("map(") + i + 1
+	case *TypeObject:
+		if len(x.Fields) == 0 {
+			return len("object({})")
+		}
+		return -1
+	case *TypeTuple:
+		total := len("tuple([])")
+		for i, el := range x.Elements {
+			ew := w.typeExprWidth(el)
+			if ew < 0 {
+				return -1
+			}
+			total += ew
+			if i > 0 {
+				total += 2
+			}
+		}
+		return total
+	case *TypeOptional:
+		i := w.typeExprWidth(x.Elem)
+		if i < 0 {
+			return -1
+		}
+		total := len("optional(") + i + 1
+		if x.Default != nil {
+			d := w.singleLineWidth(x.Default)
+			if d < 0 {
+				return -1
+			}
+			total += 2 + d
+		}
+		return total
+	}
+	return -1
+}
+
+// hasCommentInSpan reports whether any not-yet-flushed comment's source
+// offset falls within [start, end).
+func (w *formatter) hasCommentInSpan(start, end int) bool {
+	for k := w.cIdx; k < len(w.comments); k++ {
+		off := w.comments[k].S.Start.Offset
+		if off >= end {
+			return false
+		}
+		if off >= start {
+			return true
+		}
+	}
+	return false
+}
+
 func (w *formatter) writeExpr(expr Expr, indent string) error {
 	switch x := expr.(type) {
 	case *StringLit:

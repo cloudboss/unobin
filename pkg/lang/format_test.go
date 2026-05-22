@@ -641,6 +641,104 @@ name:     'y'
 	require.Equal(t, want, formatString(t, in))
 }
 
+func parseFirstValue(t *testing.T, src string) (*formatter, Expr) {
+	t.Helper()
+	wrapped := "k: " + src + "\n"
+	f, err := ParseSource("t.ub", []byte(wrapped))
+	require.NoError(t, err)
+	return &formatter{comments: f.Comments}, f.Body.Fields[0].Value
+}
+
+func TestSingleLineWidthAtoms(t *testing.T) {
+	tests := []struct {
+		name  string
+		src   string
+		width int
+	}{
+		{"number", "42", 2},
+		{"negative number", "-7", 2},
+		{"float", "3.14", 4},
+		{"bool true", "true", 4},
+		{"bool false", "false", 5},
+		{"null", "null", 4},
+		{"ident", "string", 6},
+		{"single-quoted string", "'hi'", 4},
+		{"backtick single line", "`hi`", 4},
+		{"empty object", "{}", 2},
+		{"empty array", "[]", 2},
+		{"dot path", "var.x.y", 7},
+		{"dot path with index", "var.x['k']", 10},
+		{"bare call", "format('x', 1)", 14},
+		{"module call", "lib.foo(1, 2)", 13},
+		{"infix", "1 + 2", 5},
+		{"prefix", "!var.x", 6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w, expr := parseFirstValue(t, tt.src)
+			require.Equal(t, tt.width, w.singleLineWidth(expr))
+		})
+	}
+}
+
+func TestSingleLineWidthInlineCollections(t *testing.T) {
+	w, expr := parseFirstValue(t, "{ a: 1, b: 'x' }")
+	require.Equal(t, len("{ a: 1, b: 'x' }"), w.singleLineWidth(expr))
+
+	w, expr = parseFirstValue(t, "[1, 2, 3]")
+	require.Equal(t, len("[1, 2, 3]"), w.singleLineWidth(expr))
+}
+
+func TestSingleLineWidthMultilineStringForcesBreak(t *testing.T) {
+	w, expr := parseFirstValue(t, "`|\n  hi\n  `")
+	require.Equal(t, -1, w.singleLineWidth(expr))
+
+	w, expr = parseFirstValue(t, "[1, `|\n  hi\n  `, 3]")
+	require.Equal(t, -1, w.singleLineWidth(expr))
+
+	w, expr = parseFirstValue(t, "{ a: 1, b: `|\n  hi\n  ` }")
+	require.Equal(t, -1, w.singleLineWidth(expr))
+}
+
+func TestSingleLineWidthCommentInsideCollectionForcesBreak(t *testing.T) {
+	src := "k: {\n  a: 1\n  # nope\n  b: 2\n}\n"
+	f, err := ParseSource("t.ub", []byte(src))
+	require.NoError(t, err)
+	w := &formatter{comments: f.Comments}
+	require.Equal(t, -1, w.singleLineWidth(f.Body.Fields[0].Value))
+}
+
+func TestSingleLineWidthPromotedTypeExpressions(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want int
+	}{
+		{"atomic", "string", len("string")},
+		{"list", "list(string)", len("list(string)")},
+		{"optional", "optional(map(string))", len("optional(map(string))")},
+		{"empty type object", "object({})", len("object({})")},
+		{"non-empty type object forces break", "object({ a: integer })", -1},
+		{"optional with default", "optional(integer, 3)", len("optional(integer, 3)")},
+		{"tuple", "tuple([string, integer])", len("tuple([string, integer])")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w, expr := parseFirstValue(t, tt.src)
+			te, err := PromoteType(expr)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, w.singleLineWidth(te))
+		})
+	}
+}
+
+func TestFitsOnLine(t *testing.T) {
+	w, expr := parseFirstValue(t, "[1, 2, 3]")
+	require.True(t, w.fitsOnLine(expr, 90))
+	require.True(t, w.fitsOnLine(expr, 91))
+	require.False(t, w.fitsOnLine(expr, 92))
+}
+
 func TestFormatIdempotent(t *testing.T) {
 	src := `# top
 output: {
