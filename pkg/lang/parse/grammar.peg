@@ -350,10 +350,7 @@ StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 BacktickStringLitNode <- "`" sigil:BacktickBody "`" {
 	s := sigil.(string)
 	val, err := processBacktickBody(c.text, c.pos.col, s)
-	if err != nil {
-		return nil, err
-	}
-	return &StringLit{S: c.span(), Value: val, Form: formFromSigil(s)}, nil
+	return &StringLit{S: c.span(), Value: val, Form: formFromSigil(s)}, err
 }
 
 BacktickBody <- MultiLineForm / SingleLineForm

@@ -113,6 +113,83 @@ func TestParseFixtureStrings(t *testing.T) {
 	}
 }
 
+func TestParseFixtureBacktickStrings(t *testing.T) {
+	f := loadFixture(t, "testdata/valid/backtick-strings.ub")
+	wants := []struct {
+		key  string
+		form StringForm
+		val  string
+	}{
+		{
+			key:  "single",
+			form: StringBacktickSingleLine,
+			val:  "hello world",
+		},
+		{
+			key:  "literal-clip",
+			form: StringLiteralClip,
+			val:  "one\ntwo\n",
+		},
+		{
+			key:  "literal-strip",
+			form: StringLiteralStrip,
+			val:  "one\ntwo",
+		},
+		{
+			key:  "folded-clip",
+			form: StringFoldedClip,
+			val:  "one two three\n",
+		},
+		{
+			key:  "folded-paragraphs",
+			form: StringFoldedClip,
+			val:  "first paragraph continues here.\nsecond paragraph also continues.\n",
+		},
+		{
+			key:  "folded-more-indented",
+			form: StringFoldedClip,
+			val:  "prose paragraph that folds normally.\nfollowed by:\n  item one\n  item two\n  item three\nback to folded prose that continues here.\n",
+		},
+		{
+			key:  "folded-strip",
+			form: StringFoldedStrip,
+			val:  "one two three",
+		},
+		{
+			key:  "joined-clip",
+			form: StringJoinedClip,
+			val:  "https://example.com/api/v1/users/12345\n",
+		},
+		{
+			key:  "joined-strip",
+			form: StringJoinedStrip,
+			val:  "arn:aws:s3:::very-long-bucket-name/some/key/with/a/long/prefix/and-a-filename.tar.gz",
+		},
+		{
+			key:  "joined-skips-blanks",
+			form: StringJoinedStrip,
+			val:  "firstsecond",
+		},
+		{
+			key:  "embedded-backtick",
+			form: StringLiteralClip,
+			val:  "before `tick` after\n",
+		},
+		{
+			key:  "trailing-whitespace-trim",
+			form: StringLiteralClip,
+			val:  "one\ntwo\n",
+		},
+	}
+	require.Len(t, f.Body.Fields, len(wants))
+	for i, w := range wants {
+		identField(t, f.Body.Fields[i], w.key)
+		s := f.Body.Fields[i].Value.(*StringLit)
+		require.Equal(t, w.form, s.Form, "%s: Form", w.key)
+		require.Equal(t, w.val, s.Value, "%s: Value", w.key)
+	}
+}
+
 func TestParseFixtureMultilineStrings(t *testing.T) {
 	f := loadFixture(t, "testdata/valid/multiline-strings.ub")
 	wants := []struct {
