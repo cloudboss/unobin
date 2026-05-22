@@ -42,8 +42,9 @@ Examples:
 )
 
 type fmtConfig struct {
-	write bool
-	list  bool
+	write         bool
+	list          bool
+	maxLineLength int
 }
 
 func init() {
@@ -51,6 +52,8 @@ func init() {
 		"Write the formatted output back to the source file.")
 	FmtCmd.Flags().BoolVarP(&fmtCfg.list, "list", "l", false,
 		"Print paths whose formatted output differs from their contents.")
+	FmtCmd.Flags().IntVar(&fmtCfg.maxLineLength, "max-line-length", lang.DefaultMaxColumn,
+		"Target line width for formatted output.")
 }
 
 func runFmt(cmd *cobra.Command, args []string, cfg *fmtConfig) error {
@@ -85,7 +88,7 @@ func formatStdin(out io.Writer, in io.Reader, cfg *fmtConfig) error {
 	if err != nil {
 		return fmt.Errorf("read stdin: %w", err)
 	}
-	formatted, err := formatBytes("<stdin>", src)
+	formatted, err := formatBytes("<stdin>", src, cfg)
 	if err != nil {
 		return err
 	}
@@ -108,7 +111,7 @@ func formatPath(out io.Writer, path string, cfg *fmtConfig) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", path, err)
 	}
-	formatted, err := formatBytes(path, src)
+	formatted, err := formatBytes(path, src, cfg)
 	if err != nil {
 		return false, err
 	}
@@ -133,12 +136,12 @@ func formatPath(out io.Writer, path string, cfg *fmtConfig) (bool, error) {
 	return unchanged, nil
 }
 
-func formatBytes(name string, src []byte) ([]byte, error) {
+func formatBytes(name string, src []byte, cfg *fmtConfig) ([]byte, error) {
 	file, err := lang.ParseSource(name, src)
 	if err != nil {
 		return nil, err
 	}
-	return lang.Format(file)
+	return lang.FormatWith(file, lang.FormatOptions{MaxColumn: cfg.maxLineLength})
 }
 
 // expandFmtPaths walks each argument and returns the list of files to

@@ -125,3 +125,19 @@ func TestFmtRejectsUnparseableSource(t *testing.T) {
 	_, err := runFmtCommand(t, nil, path)
 	require.Error(t, err)
 }
+
+func TestFmtMaxLineLengthBreaksArray(t *testing.T) {
+	src := "items: ['a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a']\n"
+	want := "items: [\n  'a', 'a', 'a', 'a', 'a',\n  'a', 'a', 'a', 'a', 'a',\n  'a', 'a', 'a', 'a',\n]\n"
+
+	got, err := runFmtCommand(t, strings.NewReader(src), "--max-line-length", "28")
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+func TestFmtDefaultMaxKeepsShortArrayInline(t *testing.T) {
+	src := "items: ['a', 'a', 'a']\n"
+	got, err := runFmtCommand(t, strings.NewReader(src))
+	require.NoError(t, err)
+	require.Equal(t, src, got)
+}

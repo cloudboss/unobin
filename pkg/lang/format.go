@@ -6,13 +6,37 @@ import (
 	"strings"
 )
 
-// Format renders a parsed File back to canonical UB source. Comments
-// captured during parsing are interleaved at their original
-// positions; non-comment whitespace is normalized. Output is stable:
-// re-parsing the result and feeding it back through Format yields the
-// same bytes.
+// FormatOptions configures Format behavior. The zero value means
+// "use defaults": MaxColumn is taken to be DefaultMaxColumn.
+type FormatOptions struct {
+	// MaxColumn is the soft target line width. The formatter prefers
+	// to break long lines so no rendered line exceeds this width. Some
+	// constructs (a literal-mode backtick string, or a single token
+	// that won't fit anywhere) can still go past this width.
+	MaxColumn int
+}
+
+// DefaultMaxColumn is the line width used when FormatOptions.MaxColumn
+// is unset.
+const DefaultMaxColumn = 100
+
+// Format renders a parsed File back to canonical UB source using the
+// default options. Comments captured during parsing are interleaved
+// at their original positions; non-comment whitespace is normalized.
+// Output is stable: re-parsing the result and feeding it back through
+// Format yields the same bytes.
 func Format(file *File) ([]byte, error) {
-	w := &formatter{comments: file.Comments}
+	return FormatWith(file, FormatOptions{})
+}
+
+// FormatWith renders a parsed File with the supplied options. Zero
+// values fall back to their package defaults.
+func FormatWith(file *File, opts FormatOptions) ([]byte, error) {
+	maxColumn := opts.MaxColumn
+	if maxColumn <= 0 {
+		maxColumn = DefaultMaxColumn
+	}
+	w := &formatter{comments: file.Comments, maxColumn: maxColumn}
 	if err := w.writeFile(file); err != nil {
 		return nil, err
 	}
@@ -20,10 +44,11 @@ func Format(file *File) ([]byte, error) {
 }
 
 type formatter struct {
-	buf      strings.Builder
-	comments []Comment
-	cIdx     int
-	lastLine int
+	buf       strings.Builder
+	comments  []Comment
+	cIdx      int
+	lastLine  int
+	maxColumn int
 }
 
 const fmtStep = "  "
@@ -222,13 +247,13 @@ func (w *formatter) singleLineWidth(e Expr) int {
 }
 
 // fitsOnLine reports whether e's single-line form fits between column
-// and fmtMaxColumn.
+// and the formatter's max column.
 func (w *formatter) fitsOnLine(e Expr, column int) bool {
 	width := w.singleLineWidth(e)
 	if width < 0 {
 		return false
 	}
-	return column+width <= fmtMaxColumn
+	return column+width <= w.maxColumn
 }
 
 func stringInlineWidth(s *StringLit) int {
@@ -467,8 +492,6 @@ func (w *formatter) writeMultilineString(s *StringLit, indent string) error {
 	return fmt.Errorf("format: unexpected string form %v", s.Form)
 }
 
-const fmtMaxColumn = 100
-
 func (w *formatter) writeLiteralBacktick(value, indent string, clip bool) error {
 	body := value
 	sigil := "|-"
@@ -505,7 +528,7 @@ func (w *formatter) writeFoldedBacktick(value, indent string, clip bool) error {
 	w.buf.WriteByte('`')
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
-	width := fmtMaxColumn - len(inner)
+	width := w.maxColumn - len(inner)
 	if width < 1 {
 		width = 1
 	}
@@ -538,7 +561,7 @@ func (w *formatter) writeJoinedBacktick(value, indent string, clip bool) error {
 	w.buf.WriteByte('`')
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
-	width := fmtMaxColumn - len(inner)
+	width := w.maxColumn - len(inner)
 	if width < 1 {
 		width = 1
 	}
@@ -752,8 +775,8 @@ func (w *formatter) writeArrayPacked(a *ArrayLit, indent, inner string) error {
 	for i, e := range a.Elements {
 		widths[i] = w.singleLineWidth(e) + 1
 	}
-	budget := fmtMaxColumn - len(inner)
-	target := evenLineTarget(widths, budget)
+	budget := w.maxColumn - len(inner)
+	cap := evenLineCap(widths, budget)
 
 	w.buf.WriteString(inner)
 	if err := w.writeExpr(a.Elements[0], inner); err != nil {
@@ -763,8 +786,7 @@ func (w *formatter) writeArrayPacked(a *ArrayLit, indent, inner string) error {
 	col := widths[0]
 	for i := 1; i < len(a.Elements); i++ {
 		proposed := col + 1 + widths[i]
-		breakHere := proposed > budget || (proposed > target && col >= target/2)
-		if breakHere {
+		if proposed > cap {
 			w.buf.WriteByte('\n')
 			w.buf.WriteString(inner)
 			col = widths[i]
@@ -784,34 +806,53 @@ func (w *formatter) writeArrayPacked(a *ArrayLit, indent, inner string) error {
 	return nil
 }
 
-// evenLineTarget returns the soft per-line cap that produces roughly
-// equal line widths when packing items whose widths already include
-// their trailing comma. budget is the hard maximum per line; items
-// are separated by a single space within a line.
-func evenLineTarget(widths []int, budget int) int {
-	if len(widths) == 0 {
+// evenLineCap returns the smallest per-line cap that fits the items
+// into the same number of lines as a greedy pack at budget would.
+// Items are separated by a single space within a line; each width
+// already includes its trailing comma. The returned cap may exceed
+// budget when a single item is wider than budget (the item still
+// gets its own line, overflowing the user's max).
+func evenLineCap(widths []int, budget int) int {
+	if len(widths) <= 1 {
 		return budget
 	}
-	total := 0
-	for _, w := range widths {
-		total += w
+	maxw := widths[0]
+	for _, w := range widths[1:] {
+		if w > maxw {
+			maxw = w
+		}
 	}
-	total += len(widths) - 1
+	if maxw > budget {
+		budget = maxw
+	}
+	lines := linesNeeded(widths, budget)
+	lo, hi := maxw, budget
+	for lo < hi {
+		mid := (lo + hi) / 2
+		if linesNeeded(widths, mid) <= lines {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	return lo
+}
+
+func linesNeeded(widths []int, cap int) int {
+	if len(widths) == 0 {
+		return 0
+	}
 	lines := 1
 	cur := widths[0]
 	for i := 1; i < len(widths); i++ {
-		if cur+1+widths[i] > budget {
+		if cur+1+widths[i] > cap {
 			lines++
 			cur = widths[i]
 		} else {
 			cur += 1 + widths[i]
 		}
 	}
-	target := (total + lines - 1) / lines
-	if target < 1 {
-		target = 1
-	}
-	return target
+	return lines
 }
 
 func isAtom(e Expr) bool {

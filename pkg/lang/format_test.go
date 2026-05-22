@@ -171,6 +171,67 @@ func TestFormatArray(t *testing.T) {
 	}
 }
 
+func TestFormatWithMaxColumn(t *testing.T) {
+	tests := []struct {
+		name      string
+		maxColumn int
+		src       string
+		want      string
+	}{
+		{
+			name:      "default_keeps_array_inline",
+			maxColumn: 0,
+			src:       "items: [1, 2, 3, 4, 5, 6, 7]\n",
+			want:      "items: [1, 2, 3, 4, 5, 6, 7]\n",
+		},
+		{
+			name:      "default_uses_100_when_unset",
+			maxColumn: 0,
+			src:       "x: 'a'\n",
+			want:      "x: 'a'\n",
+		},
+		{
+			name:      "max_28_packs_14_atoms_into_5_5_4",
+			maxColumn: 28,
+			src:       "items: ['a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a']\n",
+			want:      "items: [\n  'a', 'a', 'a', 'a', 'a',\n  'a', 'a', 'a', 'a', 'a',\n  'a', 'a', 'a', 'a',\n]\n",
+		},
+		{
+			name:      "tight_max_packs_evenly_into_three_per_line",
+			maxColumn: 12,
+			src:       "items: [1, 2, 3, 4, 5, 6, 7]\n",
+			want:      "items: [\n  1, 2, 3,\n  4, 5, 6,\n  7,\n]\n",
+		},
+		{
+			name:      "single_atom_wider_than_max_still_renders",
+			maxColumn: 4,
+			src:       "items: ['abcdef']\n",
+			want:      "items: [\n  'abcdef',\n]\n",
+		},
+		{
+			name:      "negative_max_falls_back_to_default",
+			maxColumn: -1,
+			src:       "x: 'hi'\n",
+			want:      "x: 'hi'\n",
+		},
+		{
+			name:      "folded_backtick_respects_tight_max",
+			maxColumn: 20,
+			src:       "msg: `>\n  one two three four five six seven eight nine ten\n  `\n",
+			want:      "msg: `>\n  one two three four\n  five six seven\n  eight nine ten\n  `\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := ParseSource("t.ub", []byte(tt.src))
+			require.NoError(t, err)
+			got, err := FormatWith(file, FormatOptions{MaxColumn: tt.maxColumn})
+			require.NoError(t, err)
+			require.Equal(t, tt.want, string(got))
+		})
+	}
+}
+
 func TestFormatArrayDeterministic(t *testing.T) {
 	tests := []string{
 		"items: [1, 2, 3]\n",
@@ -774,7 +835,7 @@ func parseFirstValue(t *testing.T, src string) (*formatter, Expr) {
 	wrapped := "k: " + src + "\n"
 	f, err := ParseSource("t.ub", []byte(wrapped))
 	require.NoError(t, err)
-	return &formatter{comments: f.Comments}, f.Body.Fields[0].Value
+	return &formatter{comments: f.Comments, maxColumn: DefaultMaxColumn}, f.Body.Fields[0].Value
 }
 
 func TestSingleLineWidthAtoms(t *testing.T) {
