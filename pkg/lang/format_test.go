@@ -186,8 +186,49 @@ b: 2
 }
 
 func TestFormatMultilineString(t *testing.T) {
-	src := "script: `|\n  echo hi\n  echo bye\n`\n"
+	src := "script: `|\n  echo hi\n  echo bye\n  `\n"
 	require.Equal(t, src, formatString(t, src))
+}
+
+func TestFormatBacktickAllSigils(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "literal clip",
+			src:  "k: `|\n  one\n  two\n  `\n",
+		},
+		{
+			name: "literal strip",
+			src:  "k: `|-\n  one\n  two\n  `\n",
+		},
+		{
+			name: "folded clip",
+			src:  "k: `>\n  one two\n  `\n",
+		},
+		{
+			name: "folded strip with paragraphs",
+			src:  "k: `>-\n  paragraph one\n\n  paragraph two\n  `\n",
+		},
+		{
+			name: "joined clip url",
+			src:  "k: `\\\n  https://example.com/api/v1/users\n  `\n",
+		},
+		{
+			name: "joined strip arn",
+			src:  "k: `\\-\n  arn:aws:s3:::bucket/key\n  `\n",
+		},
+		{
+			name: "single-line backtick",
+			src:  "k: `it's here`\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.src, formatString(t, tt.src))
+		})
+	}
 }
 
 func TestFormatAlignsValuesAcrossKeyLengths(t *testing.T) {

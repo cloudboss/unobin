@@ -136,7 +136,7 @@ func isSingleLineField(field *Field) bool {
 	case *ArrayLit:
 		return len(x.Elements) == 0
 	case *StringLit:
-		return !x.Form.IsMultiLine() || !strings.ContainsAny(x.Value, "\n")
+		return !x.Form.IsMultiLine()
 	case *TypeObject:
 		return len(x.Fields) == 0
 	}
@@ -193,48 +193,172 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 }
 
 func (w *formatter) writeString(s *StringLit, indent string) error {
-	if s.Form.IsMultiLine() && strings.ContainsAny(s.Value, "\n") {
+	switch {
+	case s.Form == StringBacktickSingleLine && canBacktickSingleLine(s.Value):
+		w.buf.WriteByte('`')
+		w.buf.WriteString(s.Value)
+		w.buf.WriteByte('`')
+		return nil
+	case s.Form.IsMultiLine():
 		return w.writeMultilineString(s, indent)
 	}
 	w.buf.WriteString(renderString(s.Value))
 	return nil
 }
 
+func canBacktickSingleLine(v string) bool {
+	return !strings.ContainsAny(v, "`\n\r")
+}
+
 func (w *formatter) writeMultilineString(s *StringLit, indent string) error {
-	body := strings.TrimSuffix(s.Value, "\n")
+	switch s.Form {
+	case StringLiteralClip:
+		return w.writeLiteralBacktick(s.Value, indent, true)
+	case StringLiteralStrip:
+		return w.writeLiteralBacktick(s.Value, indent, false)
+	case StringFoldedClip:
+		return w.writeFoldedBacktick(s.Value, indent, true)
+	case StringFoldedStrip:
+		return w.writeFoldedBacktick(s.Value, indent, false)
+	case StringJoinedClip:
+		return w.writeJoinedBacktick(s.Value, indent, true)
+	case StringJoinedStrip:
+		return w.writeJoinedBacktick(s.Value, indent, false)
+	}
+	return fmt.Errorf("format: unexpected string form %v", s.Form)
+}
+
+const fmtMaxColumn = 100
+
+func (w *formatter) writeLiteralBacktick(value, indent string, clip bool) error {
+	body := value
+	sigil := "|-"
+	if clip {
+		body = strings.TrimSuffix(body, "\n")
+		sigil = "|"
+	}
+	inner := indent + fmtStep
 	w.buf.WriteByte('`')
-	w.buf.WriteString(sigilFor(s.Form))
+	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
 	for _, line := range strings.Split(body, "\n") {
 		if line == "" {
 			w.buf.WriteByte('\n')
 			continue
 		}
-		w.buf.WriteString(indent)
+		w.buf.WriteString(inner)
 		w.buf.WriteString(line)
 		w.buf.WriteByte('\n')
 	}
-	w.buf.WriteString(indent)
+	w.buf.WriteString(inner)
 	w.buf.WriteByte('`')
 	return nil
 }
 
-func sigilFor(f StringForm) string {
-	switch f {
-	case StringLiteralClip:
-		return "|"
-	case StringLiteralStrip:
-		return "|-"
-	case StringFoldedClip:
-		return ">"
-	case StringFoldedStrip:
-		return ">-"
-	case StringJoinedClip:
-		return "\\"
-	case StringJoinedStrip:
-		return "\\-"
+func (w *formatter) writeFoldedBacktick(value, indent string, clip bool) error {
+	body := value
+	sigil := ">-"
+	if clip {
+		body = strings.TrimSuffix(body, "\n")
+		sigil = ">"
 	}
-	return ""
+	inner := indent + fmtStep
+	w.buf.WriteByte('`')
+	w.buf.WriteString(sigil)
+	w.buf.WriteByte('\n')
+	width := fmtMaxColumn - len(inner)
+	if width < 1 {
+		width = 1
+	}
+	for i, seg := range strings.Split(body, "\n") {
+		if i > 0 {
+			w.buf.WriteByte('\n')
+		}
+		if seg == "" {
+			continue
+		}
+		for _, line := range wordWrap(seg, width) {
+			w.buf.WriteString(inner)
+			w.buf.WriteString(line)
+			w.buf.WriteByte('\n')
+		}
+	}
+	w.buf.WriteString(inner)
+	w.buf.WriteByte('`')
+	return nil
+}
+
+func (w *formatter) writeJoinedBacktick(value, indent string, clip bool) error {
+	body := value
+	sigil := "\\-"
+	if clip {
+		body = strings.TrimSuffix(body, "\n")
+		sigil = "\\"
+	}
+	inner := indent + fmtStep
+	w.buf.WriteByte('`')
+	w.buf.WriteString(sigil)
+	w.buf.WriteByte('\n')
+	width := fmtMaxColumn - len(inner)
+	if width < 1 {
+		width = 1
+	}
+	for _, line := range columnBreak(body, width) {
+		w.buf.WriteString(inner)
+		w.buf.WriteString(line)
+		w.buf.WriteByte('\n')
+	}
+	w.buf.WriteString(inner)
+	w.buf.WriteByte('`')
+	return nil
+}
+
+// wordWrap breaks s into lines no longer than width by splitting at the
+// last space that fits. A word longer than width gets its own line and
+// exceeds width; mid-word breaks are not introduced.
+func wordWrap(s string, width int) []string {
+	if s == "" {
+		return nil
+	}
+	if width < 1 {
+		width = 1
+	}
+	var lines []string
+	for len(s) > width {
+		breakAt := strings.LastIndex(s[:width+1], " ")
+		if breakAt < 0 {
+			breakAt = strings.Index(s, " ")
+			if breakAt < 0 {
+				break
+			}
+		}
+		lines = append(lines, s[:breakAt])
+		s = s[breakAt+1:]
+	}
+	if s != "" {
+		lines = append(lines, s)
+	}
+	return lines
+}
+
+// columnBreak chops s into chunks of at most width bytes each. The
+// last chunk holds the remainder; no chunk ever exceeds width.
+func columnBreak(s string, width int) []string {
+	if s == "" {
+		return nil
+	}
+	if width < 1 {
+		width = 1
+	}
+	var lines []string
+	for len(s) > width {
+		lines = append(lines, s[:width])
+		s = s[width:]
+	}
+	if s != "" {
+		lines = append(lines, s)
+	}
+	return lines
 }
 
 func (w *formatter) writeObject(o *ObjectLit, indent string) error {
