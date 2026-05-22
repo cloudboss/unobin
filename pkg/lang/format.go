@@ -71,7 +71,7 @@ func (w *formatter) writeFile(file *File) error {
 func (w *formatter) writeFields(fields []*Field, indent string) error {
 	i := 0
 	for i < len(fields) {
-		end, keyCol := w.findAlignmentGroup(fields, i)
+		end, keyCol := w.findAlignmentGroup(fields, i, indent)
 		for k := i; k < end; k++ {
 			field := fields[k]
 			w.flushBefore(field.S.Start.Offset, indent)
@@ -90,10 +90,11 @@ func (w *formatter) writeFields(fields []*Field, indent string) error {
 
 // findAlignmentGroup returns the half-open range [start, end) of
 // fields that form an alignment group together with the max rendered
-// key length to pad each member to. A group starts at start and
-// extends while each next field is single-line and shares no blank
-// source line with its predecessor.
-func (w *formatter) findAlignmentGroup(fields []*Field, start int) (int, int) {
+// key length to pad each member to. A group extends while each next
+// field is single-line, shares no blank line with its predecessor,
+// and every member's value still fits inline at the new shared
+// column.
+func (w *formatter) findAlignmentGroup(fields []*Field, start int, indent string) (int, int) {
 	maxKey := keyWidth(fields[start].Key)
 	if !w.isSingleLineField(fields[start]) {
 		return start + 1, maxKey
@@ -106,12 +107,37 @@ func (w *formatter) findAlignmentGroup(fields []*Field, start int) (int, int) {
 		if w.hasBlankLineBetween(fields[end-1], fields[end]) {
 			break
 		}
-		if k := keyWidth(fields[end].Key); k > maxKey {
-			maxKey = k
+		newMaxKey := maxKey
+		if k := keyWidth(fields[end].Key); k > newMaxKey {
+			newMaxKey = k
 		}
+		column := len(indent) + newMaxKey + 2
+		allFit := true
+		for j := start; j <= end; j++ {
+			if !w.fitsAtColumn(fields[j].Value, column) {
+				allFit = false
+				break
+			}
+		}
+		if !allFit {
+			break
+		}
+		maxKey = newMaxKey
 		end++
 	}
 	return end, maxKey
+}
+
+// fitsAtColumn reports whether a value would render inline at the
+// given column. Atoms and string literals are treated as always
+// fitting (they render on one line regardless of width). Collections
+// must satisfy the formatter's column budget.
+func (w *formatter) fitsAtColumn(e Expr, column int) bool {
+	switch e.(type) {
+	case *ObjectLit, *ArrayLit:
+		return w.fitsOnLine(e, column)
+	}
+	return true
 }
 
 // hasBlankLineBetween reports whether the source has at least one
@@ -161,15 +187,15 @@ func (w *formatter) column() int {
 }
 
 // isSingleLineField reports whether a field's value renders on a
-// single line. Empty collections count as single-line; an array
-// whose elements can all be rendered inline also counts (the renderer
+// single line. Empty collections count as single-line; objects and
+// arrays with a renderable inline form also count (the renderer
 // decides at write time whether the column budget allows it).
-// Non-empty objects, multi-line strings, and non-empty type-object
-// literals always expand onto multiple lines.
+// Multi-line strings and non-empty type-object literals always expand
+// onto multiple lines.
 func (w *formatter) isSingleLineField(field *Field) bool {
 	switch x := field.Value.(type) {
 	case *ObjectLit:
-		return len(x.Fields) == 0
+		return w.singleLineWidth(x) >= 0
 	case *ArrayLit:
 		return w.singleLineWidth(x) >= 0
 	case *StringLit:
@@ -699,6 +725,9 @@ func (w *formatter) writeObject(o *ObjectLit, indent string) error {
 		w.buf.WriteString("{}")
 		return nil
 	}
+	if w.fitsOnLine(o, w.column()) {
+		return w.writeObjectInline(o)
+	}
 	inner := indent + fmtStep
 	w.buf.WriteByte('{')
 	w.buf.WriteByte('\n')
@@ -710,6 +739,22 @@ func (w *formatter) writeObject(o *ObjectLit, indent string) error {
 	w.buf.WriteString(indent)
 	w.buf.WriteByte('}')
 	w.lastLine = o.S.End.Line
+	return nil
+}
+
+func (w *formatter) writeObjectInline(o *ObjectLit) error {
+	w.buf.WriteString("{ ")
+	for i, f := range o.Fields {
+		if i > 0 {
+			w.buf.WriteString(", ")
+		}
+		w.buf.WriteString(RenderKey(fieldKeyString(f.Key)))
+		w.buf.WriteString(": ")
+		if err := w.writeExpr(f.Value, ""); err != nil {
+			return err
+		}
+	}
+	w.buf.WriteString(" }")
 	return nil
 }
 

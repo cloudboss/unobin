@@ -35,9 +35,7 @@ negative:   -7
 }
 
 func TestFormatNestedObject(t *testing.T) {
-	src := `outer: {
-  inner: 'x'
-}
+	src := `outer: { inner: 'x' }
 `
 	require.Equal(t, src, formatString(t, src))
 }
@@ -232,6 +230,128 @@ func TestFormatWithMaxColumn(t *testing.T) {
 	}
 }
 
+func TestFormatObject(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "empty_inline",
+			src:  "outer: {}\n",
+			want: "outer: {}\n",
+		},
+		{
+			name: "empty_with_whitespace_normalized",
+			src:  "outer: {     }\n",
+			want: "outer: {}\n",
+		},
+		{
+			name: "single_field_inline",
+			src:  "outer: { inner: 'x' }\n",
+			want: "outer: { inner: 'x' }\n",
+		},
+		{
+			name: "single_field_multi_line_collapses_to_inline",
+			src:  "outer: {\n  inner: 'x'\n}\n",
+			want: "outer: { inner: 'x' }\n",
+		},
+		{
+			name: "two_fields_inline_with_commas",
+			src:  "outer: { a: 1, b: 2 }\n",
+			want: "outer: { a: 1, b: 2 }\n",
+		},
+		{
+			name: "two_fields_multi_line_collapses_to_inline_with_commas",
+			src:  "outer: {\n  a: 1\n  b: 2\n}\n",
+			want: "outer: { a: 1, b: 2 }\n",
+		},
+		{
+			name: "messy_whitespace_normalized_inline",
+			src:  "outer:{a:1,b:2}\n",
+			want: "outer: { a: 1, b: 2 }\n",
+		},
+		{
+			name: "comment_inside_forces_multi_line_without_commas",
+			src:  "outer: {\n  a: 1\n  # divider\n  b: 2\n}\n",
+			want: "outer: {\n  a: 1\n  # divider\n  b: 2\n}\n",
+		},
+		{
+			name: "multi_line_string_inside_forces_multi_line",
+			src:  "outer: {\n  a: 1\n  b: `|\n    line\n    `\n}\n",
+			want: "outer: {\n  a: 1\n  b: `|\n    line\n    `\n}\n",
+		},
+		{
+			name: "long_object_breaks_multi_line_without_commas",
+			src:  "outer: { aaaa: 'a value here that is fairly long', bbbb: 'another value here that is also fairly long to push over' }\n",
+			want: "outer: {\n  aaaa: 'a value here that is fairly long'\n  bbbb: 'another value here that is also fairly long to push over'\n}\n",
+		},
+		{
+			name: "nested_objects_both_inline",
+			src:  "outer: { inner: { x: 1 } }\n",
+			want: "outer: { inner: { x: 1 } }\n",
+		},
+		{
+			name: "outer_breaks_inner_inlines",
+			src:  "outer: { one: { xxx: 'one' }, two: { yyy: 'two' }, three: { zzz: 'three' }, four: { www: 'four' }, five: { vvv: 'five' } }\n",
+			want: "outer: {\n  one:   { xxx: 'one' }\n  two:   { yyy: 'two' }\n  three: { zzz: 'three' }\n  four:  { www: 'four' }\n  five:  { vvv: 'five' }\n}\n",
+		},
+		{
+			name: "trailing_comma_stripped_in_inline",
+			src:  "outer: { a: 1, b: 2, }\n",
+			want: "outer: { a: 1, b: 2 }\n",
+		},
+		{
+			name: "object_with_quoted_key_inline",
+			src:  "outer: { 'has space': 1, plain: 2 }\n",
+			want: "outer: { 'has space': 1, plain: 2 }\n",
+		},
+		{
+			name: "object_with_meta_key_inline",
+			src:  "step: { @trigger: 'x', name: 'y' }\n",
+			want: "step: { @trigger: 'x', name: 'y' }\n",
+		},
+		{
+			name: "deeply_nested_inline_if_total_fits",
+			src:  "a: { b: { c: { d: 1 } } }\n",
+			want: "a: { b: { c: { d: 1 } } }\n",
+		},
+		{
+			name: "object_with_array_value_inline",
+			src:  "outer: { ids: [1, 2, 3] }\n",
+			want: "outer: { ids: [1, 2, 3] }\n",
+		},
+		{
+			name: "object_with_long_array_value_breaks_outer",
+			src:  "outer: { ids: ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk'] }\n",
+			want: "outer: {\n  ids: ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk']\n}\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatString(t, tt.src)
+			require.Equal(t, tt.want, got)
+			again := formatString(t, got)
+			require.Equal(t, got, again, "format is not idempotent")
+		})
+	}
+}
+
+func TestFormatObjectDeterministic(t *testing.T) {
+	tests := []string{
+		"outer: { a: 1, b: 2 }\n",
+		"outer: {\n  a: 1\n  # mid\n  b: 2\n}\n",
+		"deep: { x: { y: { z: 1 } } }\n",
+	}
+	for _, src := range tests {
+		first := formatString(t, src)
+		for i := 0; i < 5; i++ {
+			again := formatString(t, src)
+			require.Equal(t, first, again, "iteration %d differs", i)
+		}
+	}
+}
+
 func TestFormatArrayDeterministic(t *testing.T) {
 	tests := []string{
 		"items: [1, 2, 3]\n",
@@ -288,15 +408,9 @@ c: var.x == 'y'
 
 func TestFormatTypeExpressions(t *testing.T) {
 	src := `inputs: {
-  region: {
-    type: string
-  }
-  ports: {
-    type: list(integer)
-  }
-  cfg: {
-    type: optional(map(string))
-  }
+  region: { type: string }
+  ports:  { type: list(integer) }
+  cfg:    { type: optional(map(string)) }
 }
 `
 	require.Equal(t, src, formatString(t, src))
@@ -344,11 +458,9 @@ after: 'x'
 }
 
 func TestFormatCommentAfterCloseBrace(t *testing.T) {
-	src := `outer: {
-  a: 1
-}
+	src := `outer: { a: 1 }
 # after
-b: 2
+b:     2
 `
 	require.Equal(t, src, formatString(t, src))
 }
@@ -629,18 +741,8 @@ ccc: 3
 }
 
 func TestFormatMultilineFieldBreaksAlignmentGroup(t *testing.T) {
-	in := `aa: 1
-bbbbbb: {
-  x: 1
-}
-cc: 2
-`
-	want := `aa: 1
-bbbbbb: {
-  x: 1
-}
-cc: 2
-`
+	in := "aa: 1\nbbbbbb: `|\n  hello\n  `\ncc: 2\n"
+	want := "aa: 1\nbbbbbb: `|\n  hello\n  `\ncc: 2\n"
 	require.Equal(t, want, formatString(t, in))
 }
 
@@ -659,12 +761,12 @@ bbbb: 2
 func TestFormatAlignsInsideNestedObject(t *testing.T) {
 	in := `inputs: {
   a: 1
-  bbbb: 2
+  bbbb: 'this is a value just long enough to push the inline form past the line budget'
 }
 `
 	want := `inputs: {
   a:    1
-  bbbb: 2
+  bbbb: 'this is a value just long enough to push the inline form past the line budget'
 }
 `
 	require.Equal(t, want, formatString(t, in))
@@ -690,7 +792,7 @@ top-cccc: {
   mid-bbb: 2
   mid-cccc: {
     inner-a: 1
-    inner-bbbbb: 2
+    inner-bbbbb: 'long enough value here to push this inner object past the inline budget'
   }
 }
 `
@@ -701,7 +803,7 @@ top-cccc: {
   mid-bbb: 2
   mid-cccc: {
     inner-a:     1
-    inner-bbbbb: 2
+    inner-bbbbb: 'long enough value here to push this inner object past the inline budget'
   }
 }
 `
@@ -711,20 +813,20 @@ top-cccc: {
 func TestFormatParallelNestedObjectsAlignIndependently(t *testing.T) {
 	in := `left: {
   a: 1
-  bbb: 2
+  bbb: 'a long enough left side value to keep the inline form of this object past the line budget'
 }
 right: {
   xxxxxx: 1
-  y: 2
+  y: 'a long enough right side value to keep the inline form of this object past the line budget'
 }
 `
 	want := `left: {
   a:   1
-  bbb: 2
+  bbb: 'a long enough left side value to keep the inline form of this object past the line budget'
 }
 right: {
   xxxxxx: 1
-  y:      2
+  y:      'a long enough right side value to keep the inline form of this object past the line budget'
 }
 `
 	require.Equal(t, want, formatString(t, in))
@@ -767,22 +869,8 @@ str:  'x'
 }
 
 func TestFormatGroupResumesAfterMultilineValue(t *testing.T) {
-	in := `a: 1
-bb: 2
-ccc: {
-  x: 1
-}
-dd: 3
-eeeee: 4
-`
-	want := `a:  1
-bb: 2
-ccc: {
-  x: 1
-}
-dd:    3
-eeeee: 4
-`
+	in := "a: 1\nbb: 2\nccc: `|\n  x\n  `\ndd: 3\neeeee: 4\n"
+	want := "a:  1\nbb: 2\nccc: `|\n  x\n  `\ndd:    3\neeeee: 4\n"
 	require.Equal(t, want, formatString(t, in))
 }
 
@@ -803,16 +891,16 @@ bbb: 2
 func TestFormatTopLevelMixOfSingleAndMultiline(t *testing.T) {
 	in := `description: 'demo'
 imports: {
-  core: 'foo'
-  local: 'bar'
+  core: 'github.com/cloudboss/unobin-core'
+  local: 'github.com/cloudboss/unobin-modules-local/v2'
 }
 name: 'x'
 version: 'v1'
 `
 	want := `description: 'demo'
 imports: {
-  core:  'foo'
-  local: 'bar'
+  core:  'github.com/cloudboss/unobin-core'
+  local: 'github.com/cloudboss/unobin-modules-local/v2'
 }
 name:    'x'
 version: 'v1'
