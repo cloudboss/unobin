@@ -191,6 +191,11 @@ func TestFormatMultilineString(t *testing.T) {
 	require.Equal(t, src, formatString(t, src))
 }
 
+func TestFormatMultilineStringNoSpuriousBlankBefore(t *testing.T) {
+	src := "script: `|\n  one\n  two\n  `\nnext: 'x'\n"
+	require.Equal(t, src, formatString(t, src))
+}
+
 var smartColumnBreakCases = []struct {
 	name  string
 	input string
