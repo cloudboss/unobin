@@ -369,9 +369,9 @@ Sigil <- ( "|" / ">" / "\\" ) "-"? {
 
 MultiLineContent <- ( !ContentBreak . )*
 
-ContentBreak <- "\n" [ ]* "`"
+ContentBreak <- "\n" [ \t]* "`"
 
-Indent <- "\n" [ ]*
+Indent <- "\n" [ \t]*
 
 SingleLineContent <- ( !"`" !"\n" . )*
 

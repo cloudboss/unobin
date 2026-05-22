@@ -744,6 +744,32 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "field", di.Segments[3].Name)
 }
 
+func TestParseBacktickInvalidReasons(t *testing.T) {
+	tests := []struct {
+		file string
+		want string
+	}{
+		{"backtick-missing-sigil.ub", "no match found"},
+		{"backtick-sigil-then-content.ub", "no match found"},
+		{"backtick-tab-in-baseline.ub", "no tabs"},
+		{"backtick-less-indented.ub", "less indented"},
+		{"multiline-bad-indent.ub", "less indented"},
+		{"multiline-content-on-close-line.ub", "no match found"},
+		{"unclosed-multiline.ub", "no match found"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			path := filepath.Join("testdata/invalid", tt.file)
+			b, err := os.ReadFile(path)
+			require.NoError(t, err)
+			_, err = ParseSource(path, b)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.want,
+				"expected error containing %q, got %v", tt.want, err)
+		})
+	}
+}
+
 func TestParseInvalidFixtures(t *testing.T) {
 	matches, err := filepath.Glob("testdata/invalid/*.ub")
 	require.NoError(t, err)

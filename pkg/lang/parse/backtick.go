@@ -58,14 +58,17 @@ func processBacktickBody(text []byte, startCol int, sigil string) (string, error
 		}
 		if len(ln) < stripN {
 			if strings.TrimSpace(ln) != "" {
-				return "", fmt.Errorf("backtick string: line has less indentation than the closing backtick")
+				return "", fmt.Errorf("backtick string: line is less indented than the closing backtick")
 			}
 			lines = append(lines, backtickLine{blank: true})
 			continue
 		}
 		for j := 0; j < stripN; j++ {
+			if ln[j] == '\t' {
+				return "", fmt.Errorf("backtick string: indent prefix must be spaces only, no tabs")
+			}
 			if ln[j] != ' ' {
-				return "", fmt.Errorf("backtick string: indent prefix must be spaces only")
+				return "", fmt.Errorf("backtick string: line is less indented than the closing backtick")
 			}
 		}
 		rest := strings.TrimRight(ln[stripN:], " \t")
