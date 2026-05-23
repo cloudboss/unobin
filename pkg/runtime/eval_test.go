@@ -124,6 +124,45 @@ func TestEvalIndexedAddress(t *testing.T) {
 	require.Equal(t, "i-abc", got)
 }
 
+func TestEvalConditional(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{"prod": true, "n": int64(5)}}
+	tests := []struct {
+		name string
+		src  string
+		want any
+	}{
+		{name: "true takes then", src: "if true then 'a' else 'b'", want: "a"},
+		{name: "false takes else", src: "if false then 'a' else 'b'", want: "b"},
+		{name: "var condition", src: "if var.prod then 'big' else 'small'", want: "big"},
+		{name: "comparison condition", src: "if var.n > 3 then 'hi' else 'lo'", want: "hi"},
+		{name: "else-if chain", src: "if false then 1 else if true then 2 else 3", want: int64(2)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Eval(parseValue(t, tt.src), ctx)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEvalConditionalShortCircuits(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{}}
+	// The dead branch reads a missing var, but must not be evaluated.
+	got, err := Eval(parseValue(t, "if true then 'ok' else var.missing"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "ok", got)
+
+	got, err = Eval(parseValue(t, "if false then var.missing else 'ok'"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "ok", got)
+}
+
+func TestEvalConditionalNonBoolCondition(t *testing.T) {
+	_, err := Eval(parseValue(t, "if 'yes' then 1 else 0"), &EvalContext{})
+	require.Error(t, err)
+}
+
 func TestEvalUnknownRoot(t *testing.T) {
 	_, err := Eval(parseValue(t, "weird.thing"), &EvalContext{})
 	require.Error(t, err)

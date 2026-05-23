@@ -63,9 +63,30 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 		return evalPrefix(v, ctx)
 	case *lang.Call:
 		return evalCall(v, ctx)
+	case *lang.Conditional:
+		return evalConditional(v, ctx)
 	default:
 		return nil, fmt.Errorf("eval: unsupported expression %T", e)
 	}
+}
+
+// evalConditional evaluates `if cond then a else b`. The condition must
+// be a boolean, and only the taken branch is evaluated, so the dead
+// branch never runs and never errors.
+func evalConditional(n *lang.Conditional, ctx *EvalContext) (any, error) {
+	cond, err := Eval(n.Cond, ctx)
+	if err != nil {
+		return nil, err
+	}
+	b, ok := cond.(bool)
+	if !ok {
+		return nil, fmt.Errorf(
+			"eval: if: condition must be a boolean, got %s", lang.TypeMessage(cond))
+	}
+	if b {
+		return Eval(n.Then, ctx)
+	}
+	return Eval(n.Else, ctx)
 }
 
 func evalArray(a *lang.ArrayLit, ctx *EvalContext) ([]any, error) {
