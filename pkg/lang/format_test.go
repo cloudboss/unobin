@@ -1030,6 +1030,22 @@ func TestFormatGroupResumesAfterMultilineValue(t *testing.T) {
 	require.Equal(t, want, formatString(t, in))
 }
 
+func TestFormatCallBreaksAlignmentWhenItOverflows(t *testing.T) {
+	in := "a: 1\nsuper-long-key: format('aa', 'bb', 'cc', 'dd', 'ee')\nb: 2\n"
+	want := "a: 1\nsuper-long-key: format(\n  'aa', 'bb', 'cc', 'dd', 'ee',\n)\nb: 2\n"
+	file, err := ParseSource("t.ub", []byte(in))
+	require.NoError(t, err)
+	got, err := FormatWith(file, FormatOptions{MaxColumn: 50})
+	require.NoError(t, err)
+	require.Equal(t, want, string(got))
+}
+
+func TestFormatInlineCallJoinsAlignmentGroup(t *testing.T) {
+	in := "short: 1\npath: format('%s/%s', a, b)\nlong-key-name: 2\n"
+	want := "short:         1\npath:          format('%s/%s', a, b)\nlong-key-name: 2\n"
+	require.Equal(t, want, formatString(t, in))
+}
+
 func TestFormatBlankAfterCommentBreaksGroup(t *testing.T) {
 	in := `a: 1
 # divider

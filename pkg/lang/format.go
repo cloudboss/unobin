@@ -142,11 +142,13 @@ func (w *formatter) findAlignmentGroup(fields []*Field, start int, indent string
 
 // fitsAtColumn reports whether a value would render inline at the
 // given column. Atoms and string literals are treated as always
-// fitting (they render on one line regardless of width). Collections
-// must satisfy the formatter's column budget.
+// fitting (they render on one line regardless of width). Values that
+// have a multi-line alternative (collections, calls) must satisfy the
+// formatter's column budget so they don't expand inside an alignment
+// group that has already padded the short-key siblings.
 func (w *formatter) fitsAtColumn(e Expr, column int) bool {
 	switch e.(type) {
-	case *ObjectLit, *ArrayLit:
+	case *ObjectLit, *ArrayLit, *Call:
 		return w.fitsOnLine(e, column)
 	}
 	return true
@@ -199,11 +201,11 @@ func (w *formatter) column() int {
 }
 
 // isSingleLineField reports whether a field's value renders on a
-// single line. Empty collections count as single-line; objects and
-// arrays with a renderable inline form also count (the renderer
-// decides at write time whether the column budget allows it).
-// Multi-line strings and non-empty type-object literals always expand
-// onto multiple lines.
+// single line. Empty collections count as single-line; objects,
+// arrays, and calls with a renderable inline form also count (the
+// renderer decides at write time whether the column budget allows it).
+// Multi-line strings, calls with a forced-multi-line argument, and
+// non-empty type-object literals always expand onto multiple lines.
 func (w *formatter) isSingleLineField(field *Field) bool {
 	switch x := field.Value.(type) {
 	case *ObjectLit:
@@ -212,6 +214,8 @@ func (w *formatter) isSingleLineField(field *Field) bool {
 		return w.singleLineWidth(x) >= 0
 	case *StringLit:
 		return !x.Form.IsMultiLine()
+	case *Call:
+		return w.singleLineWidth(x) >= 0
 	case *TypeObject:
 		return len(x.Fields) == 0
 	}
