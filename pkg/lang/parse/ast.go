@@ -131,7 +131,7 @@ func (n *ArrayLit) exprNode()  {}
 //   - Single quoted: 'hello\nworld'. Backslash escapes are processed
 //     during parsing, so Value holds the decoded content. Double quotes
 //     are not a string delimiter.
-//   - Single-line triple-quoted: '''hello world'''. The body contains
+//   - Single-line triple-quoted: ”'hello world”'. The body contains
 //     no newline, no escape processing, and is returned verbatim.
 //   - Multi-line triple-quoted with a sigil that selects mode (literal
 //     / folded / joined) and chomp (clip / strip). Value holds the
@@ -305,6 +305,55 @@ type Prefix struct {
 
 func (n *Prefix) Span() Span { return n.S }
 func (n *Prefix) exprNode()  {}
+
+// Conditional is `if cond then a else b`. The else branch is mandatory;
+// chaining `else if` falls out of Else holding another Conditional. The
+// runtime evaluates Cond, then only the taken branch (short circuit), so
+// the dead branch never runs. The static dependency set is the union of
+// refs in both branches, since the graph is built before Cond is known.
+type Conditional struct {
+	S    Span
+	Cond Expr
+	Then Expr
+	Else Expr
+}
+
+func (n *Conditional) Span() Span { return n.S }
+func (n *Conditional) exprNode()  {}
+
+// ComprehensionKind distinguishes the list form `[ for x in xs : elem ]`
+// from the map form `{ for x in xs : key => val }`.
+type ComprehensionKind int
+
+const (
+	CompList ComprehensionKind = iota
+	CompMap
+)
+
+// Comprehension is a list or map comprehension over an iterable. Names
+// holds one or two bound identifiers: one binds each element (list) or
+// value (map); two binds index+element (list source) or key+value (map
+// source), resolved by the source type at check time. The bound names
+// are a new dot-path root class scoped to the body, so the reference
+// walker excludes them from the dependency graph.
+//
+// For CompList, Value is the produced element and Key is nil. For
+// CompMap, Key and Value are the produced pair, and Group reports a
+// trailing `...` that collects same-key values into a list. Filter is
+// the `when` predicate, nil when absent.
+type Comprehension struct {
+	S      Span
+	Kind   ComprehensionKind
+	Names  []string
+	Source Expr
+	Key    Expr
+	Value  Expr
+	Group  bool
+	Filter Expr
+}
+
+func (n *Comprehension) Span() Span { return n.S }
+func (n *Comprehension) exprNode()  {}
 
 // TypeExpr is an expression in the type sub-grammar. Type expressions appear
 // wherever a type is declared (input schema's `type:` field, object field

@@ -208,7 +208,22 @@ StringKey <- s:StringLitNode {
 }
 
 
-Value <- Expr
+Value <- Conditional / Expr
+
+// Condition-first conditional. `then` is grammatically required: it marks
+// the cond/then boundary, which cannot be inferred because operators are
+// spacing-independent (`a -b` lexes like `a - b`). Then and Else are full
+// Values so `else if` chaining and a nested conditional branch parse with
+// no parens. Cond is an Expr (not a Value), so a conditional condition
+// needs parens.
+Conditional <- "if" !IdentChar _ cond:Expr _ "then" !IdentChar _ then:Value _ "else" !IdentChar _ els:Value {
+	return &Conditional{
+		S:    c.span(),
+		Cond: cond.(Expr),
+		Then: then.(Expr),
+		Else: els.(Expr),
+	}, nil
+}
 
 Expr <- left:AndExpr rest:OrTail* {
 	return foldInfix(left.(Expr), rest), nil
@@ -262,7 +277,7 @@ UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
 	return &Prefix{S: c.span(), Op: string(op.([]byte)), Expr: inner.(Expr)}, nil
 }
 
-Primary <- ParenExpr / ObjectLitNode / ArrayLitNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
+Primary <- ParenExpr / MapComp / ListComp / ObjectLitNode / ArrayLitNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
 
 ParenExpr <- "(" _ e:Value _ ")" {
 	return e, nil
@@ -336,6 +351,58 @@ ArrayElems <- first:Value rest:( _ "," _ v:Value { return v, nil } )* _ ","? {
 	out := []any{first}
 	out = append(out, rest.([]any)...)
 	return out, nil
+}
+
+
+// Comprehensions. The leading `for` after the delimiter is the signal
+// that distinguishes a comprehension from an array/object literal; PEG
+// ordered choice tries these before ObjectLitNode/ArrayLitNode and
+// backtracks when `for` is absent. Body/value are Values so a
+// conditional body parses without parens; Source/Key are Exprs.
+ListComp <- "[" _ "for" !IdentChar _ b:Binding _ "in" !IdentChar _ src:Expr _ ":" _ body:Value filt:Filter? _ "]" {
+	comp := &Comprehension{
+		S:      c.rangeSpan(),
+		Kind:   CompList,
+		Names:  b.([]string),
+		Source: src.(Expr),
+		Value:  body.(Expr),
+	}
+	if filt != nil {
+		comp.Filter = filt.(Expr)
+	}
+	return comp, nil
+}
+
+MapComp <- "{" _ "for" !IdentChar _ b:Binding _ "in" !IdentChar _ src:Expr _ ":" _ key:Expr _ "=>" _ val:Value grp:Group? filt:Filter? _ "}" {
+	comp := &Comprehension{
+		S:      c.rangeSpan(),
+		Kind:   CompMap,
+		Names:  b.([]string),
+		Source: src.(Expr),
+		Key:    key.(Expr),
+		Value:  val.(Expr),
+		Group:  grp != nil,
+	}
+	if filt != nil {
+		comp.Filter = filt.(Expr)
+	}
+	return comp, nil
+}
+
+Binding <- name1:IdentText sec:( _ "," _ n:IdentText { return n, nil } )? {
+	names := []string{name1.(string)}
+	if sec != nil {
+		names = append(names, sec.(string))
+	}
+	return names, nil
+}
+
+Filter <- _ "when" !IdentChar _ pred:Expr {
+	return pred, nil
+}
+
+Group <- _ "..." {
+	return true, nil
 }
 
 

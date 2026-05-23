@@ -3,41 +3,44 @@ package lang
 import "github.com/cloudboss/unobin/pkg/lang/parse"
 
 type (
-	Node             = parse.Node
-	File             = parse.File
-	FileKind         = parse.FileKind
-	Field            = parse.Field
-	FieldKey         = parse.FieldKey
-	FieldKeyKind     = parse.FieldKeyKind
-	StringForm       = parse.StringForm
-	Expr             = parse.Expr
-	ObjectLit        = parse.ObjectLit
-	ArrayLit         = parse.ArrayLit
-	StringLit        = parse.StringLit
-	NumberLit        = parse.NumberLit
-	BoolLit          = parse.BoolLit
-	NullLit          = parse.NullLit
-	Ident            = parse.Ident
-	DotPath          = parse.DotPath
-	DotSegment       = parse.DotSegment
-	Call             = parse.Call
-	Infix            = parse.Infix
-	Prefix           = parse.Prefix
-	TypeExpr         = parse.TypeExpr
-	TypeAtomic       = parse.TypeAtomic
-	TypeList         = parse.TypeList
-	TypeSet          = parse.TypeSet
-	TypeMap          = parse.TypeMap
-	TypeObject       = parse.TypeObject
-	TypeObjectField  = parse.TypeObjectField
-	TypeTuple        = parse.TypeTuple
-	TypeOptional     = parse.TypeOptional
-	Comment          = parse.Comment
-	Span             = parse.Span
-	Position         = parse.Position
-	Error            = parse.Error
-	ErrorList        = parse.ErrorList
-	ErrorKind        = parse.ErrorKind
+	Node              = parse.Node
+	File              = parse.File
+	FileKind          = parse.FileKind
+	Field             = parse.Field
+	FieldKey          = parse.FieldKey
+	FieldKeyKind      = parse.FieldKeyKind
+	StringForm        = parse.StringForm
+	Expr              = parse.Expr
+	ObjectLit         = parse.ObjectLit
+	ArrayLit          = parse.ArrayLit
+	StringLit         = parse.StringLit
+	NumberLit         = parse.NumberLit
+	BoolLit           = parse.BoolLit
+	NullLit           = parse.NullLit
+	Ident             = parse.Ident
+	DotPath           = parse.DotPath
+	DotSegment        = parse.DotSegment
+	Call              = parse.Call
+	Infix             = parse.Infix
+	Prefix            = parse.Prefix
+	Conditional       = parse.Conditional
+	Comprehension     = parse.Comprehension
+	ComprehensionKind = parse.ComprehensionKind
+	TypeExpr          = parse.TypeExpr
+	TypeAtomic        = parse.TypeAtomic
+	TypeList          = parse.TypeList
+	TypeSet           = parse.TypeSet
+	TypeMap           = parse.TypeMap
+	TypeObject        = parse.TypeObject
+	TypeObjectField   = parse.TypeObjectField
+	TypeTuple         = parse.TypeTuple
+	TypeOptional      = parse.TypeOptional
+	Comment           = parse.Comment
+	Span              = parse.Span
+	Position          = parse.Position
+	Error             = parse.Error
+	ErrorList         = parse.ErrorList
+	ErrorKind         = parse.ErrorKind
 )
 
 const (
@@ -49,6 +52,9 @@ const (
 
 	FieldIdent  = parse.FieldIdent
 	FieldString = parse.FieldString
+
+	CompList = parse.CompList
+	CompMap  = parse.CompMap
 
 	StringSingleQuoted          = parse.StringSingleQuoted
 	StringTripleQuoteSingleLine = parse.StringTripleQuoteSingleLine
@@ -68,9 +74,9 @@ const (
 )
 
 var (
-	NewErrorList   = parse.NewErrorList
-	Errorf         = parse.Errorf
-	PascalToKebab  = parse.PascalToKebab
+	NewErrorList  = parse.NewErrorList
+	Errorf        = parse.Errorf
+	PascalToKebab = parse.PascalToKebab
 )
 
 // ParseSource reads .ub source from b, returns the parsed File, and
