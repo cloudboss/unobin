@@ -91,3 +91,26 @@ func TestRefsResourceWithoutThreeSegmentsIgnored(t *testing.T) {
 func TestRefsUnknownRootIgnored(t *testing.T) {
 	require.Empty(t, Refs(parseValue(t, "weird.thing.somewhere")))
 }
+
+func TestRefsInsideConditional(t *testing.T) {
+	src := `if var.prod then resource.aws.vpc.big.id else resource.aws.vpc.small.id`
+	got := Refs(parseValue(t, src))
+	require.Equal(t, []string{
+		"var.prod", "resource.aws.vpc.big", "resource.aws.vpc.small",
+	}, got)
+}
+
+// A comprehension's bound name is not a node address, so it never
+// becomes a dependency edge; only the source and any var/resource refs
+// in the body or filter count.
+func TestRefsInsideComprehensionExcludesBoundName(t *testing.T) {
+	src := `[ for s in var.subnets : s.cidr-block when s.public ]`
+	got := Refs(parseValue(t, src))
+	require.Equal(t, []string{"var.subnets"}, got)
+}
+
+func TestRefsInsideMapComprehension(t *testing.T) {
+	src := `{ for s in resource.aws.subnet.all : s.id => var.tags }`
+	got := Refs(parseValue(t, src))
+	require.Equal(t, []string{"resource.aws.subnet.all", "var.tags"}, got)
+}

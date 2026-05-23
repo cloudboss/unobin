@@ -32,6 +32,43 @@ func TestWalkNilIsSafe(t *testing.T) {
 	require.False(t, called)
 }
 
+func TestWalkVisitsConditionalBranches(t *testing.T) {
+	f, err := ParseSource("stack.ub", []byte(`
+resources: {
+  a: { b: { c: { x: if var.prod then var.big else var.small } } }
+}
+`))
+	require.NoError(t, err)
+
+	var roots []string
+	Walk(f.Body, func(e Expr) {
+		if dp, ok := e.(*DotPath); ok && len(dp.Segments) > 0 {
+			roots = append(roots, dp.Root.Name+"."+dp.Segments[0].Name)
+		}
+	})
+	require.Contains(t, roots, "var.prod")
+	require.Contains(t, roots, "var.big")
+	require.Contains(t, roots, "var.small")
+}
+
+func TestWalkVisitsComprehensionParts(t *testing.T) {
+	f, err := ParseSource("stack.ub", []byte(`
+resources: {
+  a: { b: { c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } } }
+}
+`))
+	require.NoError(t, err)
+
+	var roots []string
+	Walk(f.Body, func(e Expr) {
+		if dp, ok := e.(*DotPath); ok {
+			roots = append(roots, dp.Root.Name)
+		}
+	})
+	require.Contains(t, roots, "var", "source and filter var refs should be visited")
+	require.Contains(t, roots, "s", "bound name in the body should be visited")
+}
+
 func TestWalkVisitsDotPathIndexExpr(t *testing.T) {
 	f, err := ParseSource("stack.ub", []byte(`
 resources: {
