@@ -832,10 +832,41 @@ func (w *formatter) writeJoinedTriple(value, indent string, clip bool) error {
 	return nil
 }
 
-// wordWrap breaks s into lines no longer than width by splitting at the
-// last space that fits. A word longer than width gets its own line and
-// exceeds width; mid-word breaks are not introduced.
+// wordWrap breaks s at spaces into lines of roughly equal length. It
+// first finds the fewest lines that fit within width (greedy word-wrap
+// is optimal for that), then the smallest per-line cap that still hits
+// that line count, so the lines come out as even as the word
+// boundaries allow. This mirrors the even distribution the joined-mode
+// wrapper produces. A word longer than width gets its own line and
+// overflows; mid-word breaks are never introduced.
 func wordWrap(s string, width int) []string {
+	if s == "" {
+		return nil
+	}
+	if width < 1 {
+		width = 1
+	}
+	lines := wordWrapAt(s, width)
+	if len(lines) <= 1 {
+		return lines
+	}
+	target := len(lines)
+	lo, hi := 1, width
+	for lo < hi {
+		mid := (lo + hi) / 2
+		if len(wordWrapAt(s, mid)) <= target {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	return wordWrapAt(s, lo)
+}
+
+// wordWrapAt is greedy word-wrap: each line takes as many space-separated
+// words as fit within width, breaking at the last space that fits. A
+// word longer than width gets its own line and exceeds width.
+func wordWrapAt(s string, width int) []string {
 	if s == "" {
 		return nil
 	}

@@ -480,6 +480,15 @@ func TestFormatWithWrapStrings(t *testing.T) {
 			want:        "url: '''\\-\n  https://example.com/api/v2/very/\n  long/path/that/needs/breaking/up\n  '''\n",
 		},
 		{
+			// Greedy would pack the first line full (24) and leave the
+			// second short (14); the even wrap balances them at 19 each.
+			name:        "on_long_folded_distributes_evenly",
+			maxColumn:   26,
+			wrapStrings: true,
+			src:         "msg: 'aaaa bbbb cccc dddd eeee ffff gggg hhhh'\n",
+			want:        "msg: '''>-\n  aaaa bbbb cccc dddd\n  eeee ffff gggg hhhh\n  '''\n",
+		},
+		{
 			name:        "on_with_triple_quote_in_body_stays_single_quoted",
 			maxColumn:   30,
 			wrapStrings: true,
@@ -512,6 +521,150 @@ func TestFormatWithWrapStrings(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.want, string(got))
 		})
+	}
+}
+
+func TestWordWrap(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    string
+		width int
+		want  []string
+	}{
+		{
+			name:  "empty",
+			in:    "",
+			width: 10,
+			want:  nil,
+		},
+		{
+			name:  "single word fits",
+			in:    "hello",
+			width: 10,
+			want:  []string{"hello"},
+		},
+		{
+			name:  "single word exact",
+			in:    "hello",
+			width: 5,
+			want:  []string{"hello"},
+		},
+		{
+			name:  "single word overflows",
+			in:    "hello",
+			width: 3,
+			want:  []string{"hello"},
+		},
+		{
+			name:  "no spaces overflows",
+			in:    "supercalifragilistic",
+			width: 8,
+			want:  []string{"supercalifragilistic"},
+		},
+		{
+			name:  "two words one line",
+			in:    "aa bb",
+			width: 10,
+			want:  []string{"aa bb"},
+		},
+		{
+			name:  "two words exact fit",
+			in:    "aaaa bbbb",
+			width: 9,
+			want:  []string{"aaaa bbbb"},
+		},
+		{
+			name:  "two words must split",
+			in:    "aaaa bbbb",
+			width: 5,
+			want:  []string{"aaaa", "bbbb"},
+		},
+		{
+			name:  "fits whole on wide line",
+			in:    "aaaa bbbb cccc",
+			width: 100,
+			want:  []string{"aaaa bbbb cccc"},
+		},
+		{
+			name:  "balances two lines",
+			in:    "aaaa bbbb cccc dddd eeee ffff gggg hhhh",
+			width: 24,
+			want:  []string{"aaaa bbbb cccc dddd", "eeee ffff gggg hhhh"},
+		},
+		{
+			name:  "balances six words",
+			in:    "xxxx xxxx xxxx xxxx xxxx xxxx",
+			width: 20,
+			want:  []string{"xxxx xxxx xxxx", "xxxx xxxx xxxx"},
+		},
+		{
+			name:  "balances three lines",
+			in:    "xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx",
+			width: 14,
+			want:  []string{"xxxx xxxx xxxx", "xxxx xxxx xxxx", "xxxx xxxx xxxx"},
+		},
+		{
+			name:  "balances four lines",
+			in:    "xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx",
+			width: 14,
+			want: []string{
+				"xxxx xxxx xxxx", "xxxx xxxx xxxx", "xxxx xxxx xxxx", "xxxx xxxx xxxx",
+			},
+		},
+		{
+			name:  "balances uneven word lengths",
+			in:    "aaaaaa bb cc dd",
+			width: 10,
+			want:  []string{"aaaaaa", "bb cc dd"},
+		},
+		{
+			name:  "long word among short ones",
+			in:    "a bbbbbbbbbb c",
+			width: 6,
+			want:  []string{"a", "bbbbbbbbbb", "c"},
+		},
+		{
+			name:  "width one breaks every word",
+			in:    "ab cd",
+			width: 1,
+			want:  []string{"ab", "cd"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, wordWrap(tt.in, tt.width))
+		})
+	}
+}
+
+// Every wrapped line stays within width except a single word that is
+// itself wider than width, which gets its own overflowing line.
+func TestWordWrapRespectsWidth(t *testing.T) {
+	in := "alpha bravo charlie delta echo foxtrot golf hotel india juliet"
+	for width := 5; width <= 40; width++ {
+		for _, line := range wordWrap(in, width) {
+			if strings.Contains(line, " ") {
+				require.LessOrEqual(t, len(line), width,
+					"multi-word line %q exceeds width %d", line, width)
+			}
+		}
+	}
+}
+
+func TestWordWrapDeterministic(t *testing.T) {
+	inputs := []struct {
+		in    string
+		width int
+	}{
+		{"aaaa bbbb cccc dddd eeee ffff gggg hhhh", 24},
+		{"xxxx xxxx xxxx xxxx xxxx xxxx", 20},
+		{"aaaaaa bb cc dd", 10},
+	}
+	for _, tt := range inputs {
+		first := wordWrap(tt.in, tt.width)
+		for i := 0; i < 5; i++ {
+			require.Equal(t, first, wordWrap(tt.in, tt.width), "iteration %d differs", i)
+		}
 	}
 }
 
