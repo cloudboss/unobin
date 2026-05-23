@@ -41,6 +41,14 @@ func TestInferConditionalBranchMismatch(t *testing.T) {
 	assert.Contains(t, errs.Errors()[0].Msg, "branches have different types")
 }
 
+func TestInferConditionalJoinsListBranches(t *testing.T) {
+	scope := &Scope{}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "if true then ['a', 'b'] else []"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TList(TString())), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
 func TestInferConditionalAgainstTarget(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)

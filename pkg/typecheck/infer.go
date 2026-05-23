@@ -569,6 +569,19 @@ func join(a, b Type) (Type, bool) {
 		}
 		return TOptional(j), true
 	}
+	// Same container kind: join element types covariantly. An empty
+	// literal contributes an unknown element that joins to the other
+	// side, so `if c then [strings] else []` is a list of strings.
+	if a.Kind == b.Kind && a.Elem != nil && b.Elem != nil {
+		switch a.Kind {
+		case List, Set, Map:
+			j, ok := join(*a.Elem, *b.Elem)
+			if !ok {
+				return Type{}, false
+			}
+			return Type{Kind: a.Kind, Elem: &j}, true
+		}
+	}
 	return Type{}, false
 }
 
