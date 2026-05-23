@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"fmt"
 	"strings"
 )
@@ -98,9 +97,7 @@ func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
 // internals first, boundary last, so subsequent apply lookups find
 // the per-instance scope populated by the time the boundary
 // finalizes its outputs.
-func (e *Executor) planForEachComposite(
-	ctx context.Context, rs *runState, boundary *Node,
-) ([]*PlanStep, error) {
+func (e *Executor) planForEachComposite(rs *runState, boundary *Node) ([]*PlanStep, error) {
 	parent, err := e.scopeFor(rs, boundary)
 	if err != nil {
 		return nil, err
@@ -118,7 +115,7 @@ func (e *Executor) planForEachComposite(
 		}
 		for _, internal := range internals {
 			rewritten := rewriteAddress(internal.Address, boundary.Address, instAddr)
-			subSteps, err := e.planInternalUnder(ctx, rs, internal, rewritten, instAddr)
+			subSteps, err := e.planInternalUnder(rs, internal, rewritten, instAddr)
 			if err != nil {
 				return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
 			}
@@ -198,7 +195,7 @@ func rewriteAddress(addr, boundary, instAddr string) string {
 // from the cached per-instance composite scope (built lazily via
 // scopeForAddress when its body is evaluated).
 func (e *Executor) planInternalUnder(
-	ctx context.Context, rs *runState, n *Node, addr, instCallSite string,
+	rs *runState, n *Node, addr, instCallSite string,
 ) ([]*PlanStep, error) {
 	scope, err := e.scopeForAddress(rs, addr)
 	if err != nil {
@@ -217,7 +214,7 @@ func (e *Executor) planInternalUnder(
 		if !ok {
 			return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
 		}
-		step, err := e.planOneResource(ctx, rs, n, rt, scope, addr)
+		step, err := e.planOneResource(rs, n, rt, scope, addr)
 		if err != nil {
 			return nil, err
 		}
@@ -256,9 +253,7 @@ func (e *Executor) planInternalUnder(
 // evaluated against the node's natural scope; each instance is planned
 // against a child scope carrying its `@each.key` / `@each.value`
 // binding, with its own state address.
-func (e *Executor) planForEachResource(
-	ctx context.Context, rs *runState, n *Node,
-) ([]*PlanStep, error) {
+func (e *Executor) planForEachResource(rs *runState, n *Node) ([]*PlanStep, error) {
 	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return nil, fmt.Errorf("module %q is not imported", n.NS)
@@ -279,7 +274,7 @@ func (e *Executor) planForEachResource(
 	for _, key := range sortedKeys(instances) {
 		inst := childScopeWithEach(scope, key, instances[key])
 		addr := instanceAddress(n.Address, key)
-		step, err := e.planOneResource(ctx, rs, n, rt, inst, addr)
+		step, err := e.planOneResource(rs, n, rt, inst, addr)
 		if err != nil {
 			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
 		}

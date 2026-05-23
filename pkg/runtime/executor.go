@@ -151,6 +151,11 @@ type runState struct {
 	// hold sibling outputs as the internals complete.
 	composites map[string]*EvalContext
 
+	// pendingReads queues per-resource Read calls collected during
+	// Plan's serial walk so Plan can fan them out across workers
+	// before finalizing decisions. Apply and Refresh leave this nil.
+	pendingReads []*pendingRead
+
 	// mu serializes mutation of eval, composites, next, and outputs,
 	// plus calls to Store.Write / Store.SetCurrent. Apply takes the
 	// lock around scope evaluation and around state writes; it is

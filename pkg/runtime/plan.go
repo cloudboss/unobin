@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -183,33 +184,28 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 	sensitivity := newSensitivityAnalyzer(e.Source, e.Modules, e.DAG)
 
-	addressDecision := make(map[string]Decision)
 	liveAddresses := make(map[string]bool)
 	for _, addr := range order {
 		node := e.DAG.Nodes[addr]
-		steps, err := e.planNodeSteps(ctx, rs, node)
+		steps, err := e.planNodeSteps(rs, node)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", addr, err)
 		}
 		for _, step := range steps {
-			// An action whose upstream is changing must rerun, even when
-			// its own inputs and trigger value (against prior state) match.
-			if step.Kind == NodeAction && step.Decision == DecisionSkip {
-				for _, ref := range Refs(node.Body) {
-					if isUpstreamChange(addressDecision[ref]) {
-						step.Decision = DecisionRerun
-						step.TriggerHash = ""
-						break
-					}
-				}
-			}
 			step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
 			step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
 			plan.Steps = append(plan.Steps, step)
-			addressDecision[step.Address] = step.Decision
 			liveAddresses[step.Address] = true
 		}
 	}
+
+	if err := e.runPendingReads(ctx, rs); err != nil {
+		return nil, err
+	}
+	if err := e.finalizePendingReads(rs); err != nil {
+		return nil, err
+	}
+	upgradeActionRerun(plan.Steps, e.DAG)
 
 	// Orphans: prior leaf entries with no live address in this plan.
 	if rs.prior != nil {
@@ -238,23 +234,23 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 // everything else returns a one-element slice (or nil to skip the
 // node). Nodes inside a `@for-each` composite are skipped here: their
 // boundary's planner emits per-instance subtrees for them.
-func (e *Executor) planNodeSteps(ctx context.Context, rs *runState, n *Node) ([]*PlanStep, error) {
+func (e *Executor) planNodeSteps(rs *runState, n *Node) ([]*PlanStep, error) {
 	if e.insideForEachComposite(n) {
 		return nil, nil
 	}
 	if n.ForEach != nil {
 		switch n.Kind {
 		case NodeResource:
-			return e.planForEachResource(ctx, rs, n)
+			return e.planForEachResource(rs, n)
 		case NodeAction:
 			return e.planForEachAction(rs, n)
 		case NodeData:
 			return e.planForEachData(rs, n)
 		case NodeComposite:
-			return e.planForEachComposite(ctx, rs, n)
+			return e.planForEachComposite(rs, n)
 		}
 	}
-	step, err := e.planNode(ctx, rs, n)
+	step, err := e.planNode(rs, n)
 	if err != nil {
 		return nil, err
 	}
@@ -413,12 +409,12 @@ func parseActionAddress(addr string) (ns, kind, name string, ok bool) {
 	return parts[1], parts[2], parts[3], true
 }
 
-func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
+func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
 	switch n.Kind {
 	case NodeAction:
 		return e.planAction(rs, n)
 	case NodeResource:
-		return e.planResource(ctx, rs, n)
+		return e.planResource(rs, n)
 	case NodeComposite:
 		return e.planComposite(rs, n)
 	case NodeData:
@@ -517,7 +513,7 @@ func (e *Executor) planOneAction(
 	}, nil
 }
 
-func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
+func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
 	mod, ok := e.modulesFor(n)[n.NS]
 	if !ok {
 		return nil, fmt.Errorf("module %q is not imported", n.NS)
@@ -530,15 +526,33 @@ func (e *Executor) planResource(ctx context.Context, rs *runState, n *Node) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	return e.planOneResource(ctx, rs, n, rt, scope, n.Address)
+	return e.planOneResource(rs, n, rt, scope, n.Address)
+}
+
+// pendingRead is the per-resource read job queued by planOneResource
+// during Plan's serial walk. runPendingReads fans them out across
+// workers; finalizePendingReads then sets each step's Decision and
+// ObservedOutputs from the result.
+type pendingRead struct {
+	step         *PlanStep
+	rt           ResourceRegistration
+	cfg          any
+	inputs       map[string]any
+	priorInputs  map[string]any
+	priorOutputs map[string]any
+	observed     map[string]any
+	err          error
 }
 
 // planOneResource plans a single resource instance against the given
 // scope and state address. Used both by the plain resource path
 // (scope == parent, addr == n.Address) and by the for-each path
-// (scope has @each bound, addr has the `['<key>']` suffix).
+// (scope has @each bound, addr has the `['<key>']` suffix). When the
+// resource has prior state, the Read is deferred onto rs.pendingReads
+// for parallel execution; the returned step's Decision is left blank
+// until finalizePendingReads runs.
 func (e *Executor) planOneResource(
-	ctx context.Context, rs *runState, n *Node, rt ResourceRegistration,
+	rs *runState, n *Node, rt ResourceRegistration,
 	scope *EvalContext, addr string,
 ) (*PlanStep, error) {
 	inputs, unresolved, err := planEvalBody(n.Body, scope)
@@ -564,35 +578,110 @@ func (e *Executor) planOneResource(
 		return nil, err
 	}
 	step.PriorOutputs = priorOutputs
-
-	observed, err := readObserved(ctx, rt, e.configFor(n), inputs, priorOutputs)
-	if errors.Is(err, ErrNotFound) {
-		step.Decision = DecisionCreate
-		return step, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
-	}
-	step.ObservedOutputs = observed
-
-	if !sameInputs(prior.Inputs, inputs) {
-		probe := rt.NewReceiver()
-		if err := Decode(probe, inputs); err != nil {
-			return nil, err
-		}
-		if needsReplace(rt.ReplaceFields(probe), prior.Inputs, inputs) {
-			step.Decision = DecisionReplace
-		} else {
-			step.Decision = DecisionUpdate
-		}
-		return step, nil
-	}
-	if step.Drift() {
-		step.Decision = DecisionUpdate
-		return step, nil
-	}
-	step.Decision = DecisionNoOp
+	rs.pendingReads = append(rs.pendingReads, &pendingRead{
+		step:         step,
+		rt:           rt,
+		cfg:          e.configFor(n),
+		inputs:       inputs,
+		priorInputs:  prior.Inputs,
+		priorOutputs: priorOutputs,
+	})
 	return step, nil
+}
+
+// runPendingReads runs every queued resource Read concurrently, up to
+// effectiveParallelism. The result is stashed on each pendingRead so
+// finalizePendingReads can pick between ErrNotFound (which maps to
+// Create) and a real read failure (which propagates).
+func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
+	if len(rs.pendingReads) == 0 {
+		return nil
+	}
+	sem := make(chan struct{}, e.effectiveParallelism())
+	var wg sync.WaitGroup
+	for _, pr := range rs.pendingReads {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(pr *pendingRead) {
+			defer func() { <-sem; wg.Done() }()
+			pr.observed, pr.err = readObserved(ctx, pr.rt, pr.cfg, pr.inputs, pr.priorOutputs)
+		}(pr)
+	}
+	wg.Wait()
+	return nil
+}
+
+// finalizePendingReads walks the queued reads in plan order and turns
+// each (observed, err) pair into a step Decision: ErrNotFound becomes
+// Create, any other error propagates, and a clean read picks between
+// Replace, Update, and NoOp using the existing input-diff and
+// drift-diff rules.
+func (e *Executor) finalizePendingReads(rs *runState) error {
+	for _, pr := range rs.pendingReads {
+		if err := finalizeResourceRead(pr); err != nil {
+			return fmt.Errorf("%s: %w", pr.step.Address, err)
+		}
+	}
+	return nil
+}
+
+func finalizeResourceRead(pr *pendingRead) error {
+	if errors.Is(pr.err, ErrNotFound) {
+		pr.step.Decision = DecisionCreate
+		return nil
+	}
+	if pr.err != nil {
+		return fmt.Errorf("read: %w", pr.err)
+	}
+	pr.step.ObservedOutputs = pr.observed
+	if !sameInputs(pr.priorInputs, pr.inputs) {
+		probe := pr.rt.NewReceiver()
+		if err := Decode(probe, pr.inputs); err != nil {
+			return err
+		}
+		if needsReplace(pr.rt.ReplaceFields(probe), pr.priorInputs, pr.inputs) {
+			pr.step.Decision = DecisionReplace
+		} else {
+			pr.step.Decision = DecisionUpdate
+		}
+		return nil
+	}
+	if pr.step.Drift() {
+		pr.step.Decision = DecisionUpdate
+		return nil
+	}
+	pr.step.Decision = DecisionNoOp
+	return nil
+}
+
+// upgradeActionRerun walks plan steps in order and turns a Skip action
+// into a Rerun when any of its references points to a step whose
+// decision implies an upstream change. The walk runs after all reads
+// have finalized, so every step's Decision is set; it updates the
+// per-address index in place so a transitive Skip->Rerun chain picks
+// up the upgrade from an earlier step.
+func upgradeActionRerun(steps []*PlanStep, dag *DAG) {
+	addressDecision := make(map[string]Decision, len(steps))
+	for _, step := range steps {
+		addressDecision[step.Address] = step.Decision
+	}
+	for _, step := range steps {
+		if step.Kind != NodeAction || step.Decision != DecisionSkip {
+			continue
+		}
+		node := dag.Nodes[templateAddress(step.Address)]
+		if node == nil {
+			continue
+		}
+		for _, ref := range Refs(node.Body) {
+			if isUpstreamChange(addressDecision[ref]) {
+				step.Decision = DecisionRerun
+				step.TriggerHash = ""
+				addressDecision[step.Address] = DecisionRerun
+				break
+			}
+		}
+	}
 }
 
 // planOneData plans a single data source instance against the given

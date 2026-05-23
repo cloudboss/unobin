@@ -2,7 +2,10 @@ package runtime
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -563,4 +566,109 @@ func TestPlanRecordsStateRev(t *testing.T) {
 
 	plan := runPlan(t, src, map[string]*Module{}, store)
 	require.NotEmpty(t, plan.StateRev)
+}
+
+// planResourcesSrc builds a stack with n core.thing resources named
+// r0..r(n-1) so the parallel-read tests can dial the fan-out.
+func planResourcesSrc(n int) string {
+	src := "resources: {\n  core: {\n    thing: {\n"
+	for i := 0; i < n; i++ {
+		src += fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i)
+	}
+	src += "    }\n  }\n}\n"
+	return src
+}
+
+func TestPlanReadsResourcesInParallel(t *testing.T) {
+	const n = 6
+	src := planResourcesSrc(n)
+
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	})
+
+	const delay = 150 * time.Millisecond
+	c.readFn = func(prior any) (any, error) {
+		time.Sleep(delay)
+		return prior, nil
+	}
+
+	exec := &Executor{
+		DAG:         BuildDAG(parseStack(t, src), mods),
+		Modules:     mods,
+		Store:       store,
+		Stack:       stack,
+		Parallelism: n,
+	}
+	start := time.Now()
+	plan, err := exec.Plan(context.Background())
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, n)
+	require.Less(t, elapsed, time.Duration(n-1)*delay,
+		"parallel plan took %s; expected well under %s for serial",
+		elapsed, time.Duration(n-1)*delay)
+}
+
+func TestPlanReadsAreSerialAtP1(t *testing.T) {
+	const n = 4
+	src := planResourcesSrc(n)
+
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	})
+
+	const delay = 80 * time.Millisecond
+	c.readFn = func(prior any) (any, error) {
+		time.Sleep(delay)
+		return prior, nil
+	}
+
+	exec := &Executor{
+		DAG:         BuildDAG(parseStack(t, src), mods),
+		Modules:     mods,
+		Store:       store,
+		Stack:       stack,
+		Parallelism: 1,
+	}
+	start := time.Now()
+	_, err := exec.Plan(context.Background())
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, elapsed, time.Duration(n)*delay,
+		"serial plan took %s; expected at least %s", elapsed, time.Duration(n)*delay)
+}
+
+func TestPlanPropagatesReadError(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	mods := resourceModules(&c)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	})
+
+	wantErr := errors.New("cloud is unwell")
+	c.readFn = func(any) (any, error) { return nil, wantErr }
+
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+	}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.ErrorIs(t, err, wantErr)
+	require.Contains(t, err.Error(), "resource.core.thing.one")
 }
