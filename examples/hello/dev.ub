@@ -1,4 +1,1 @@
-inputs: {
-  message: 'Hello from unobin!'
-  path:    '/tmp/unobin-hello.txt'
-}
+inputs: { message: 'Hello from unobin!', path: '/tmp/unobin-hello.txt' }

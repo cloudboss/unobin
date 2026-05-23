@@ -1,14 +1,8 @@
 description: 'Hello-world stack: writes a file and reads it back.'
 
 inputs: {
-  message: {
-    type:        string
-    description: 'Text to write to the greeting file'
-  }
-  path: {
-    type:        string
-    description: 'Filesystem path for the greeting file'
-  }
+  message: { type: string, description: 'Text to write to the greeting file' }
+  path:    { type: string, description: 'Filesystem path for the greeting file' }
 }
 
 imports: {
@@ -16,25 +10,11 @@ imports: {
   local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
 }
 
-resources: {
-  local: {
-    file: {
-      hello: {
-        path:    var.path
-        content: var.message
-      }
-    }
-  }
-}
+resources: { local: { file: { hello: { path: var.path, content: var.message } } } }
 
 actions: {
   core: {
-    command: {
-      read-back: {
-        @trigger: resource.local.file.hello.sha256
-        argv:     ['cat', var.path]
-      }
-    }
+    command: { read-back: { @trigger: resource.local.file.hello.sha256, argv: ['cat', var.path] } }
   }
 }
 

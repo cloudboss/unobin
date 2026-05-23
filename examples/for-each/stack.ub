@@ -1,14 +1,8 @@
 description: 'Demonstrates @for-each on a resource, an action, and a composite call site.'
 
 inputs: {
-  files: {
-    type:        map(string)
-    description: 'Map of file-name to message contents'
-  }
-  base-path: {
-    type:        string
-    description: 'Directory where files and alerts are written'
-  }
+  files:     { type: map(string), description: 'Map of file-name to message contents' }
+  base-path: { type: string, description: 'Directory where files and alerts are written' }
 }
 
 imports: {

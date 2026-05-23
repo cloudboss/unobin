@@ -1,10 +1,1 @@
-configurations: {
-  greet: {
-    default: {
-      prefix: 'hello'
-    }
-    formal: {
-      prefix: 'Good day'
-    }
-  }
-}
+configurations: { greet: { default: { prefix: 'hello' }, formal: { prefix: 'Good day' } } }

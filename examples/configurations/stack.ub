@@ -9,13 +9,8 @@ imports: {
 actions: {
   greet: {
     say: {
-      casual: {
-        message: 'world'
-      }
-      formal: {
-        @configuration: greet.formal
-        message:        'world'
-      }
+      casual: { message: 'world' }
+      formal: { @configuration: greet.formal, message: 'world' }
     }
   }
 }
@@ -23,13 +18,8 @@ actions: {
 resources: {
   greeter: {
     greeting: {
-      casual-wrap: {
-        message: 'wrapped'
-      }
-      formal-wrap: {
-        @configurations: { greet: greet.formal }
-        message:         'wrapped'
-      }
+      casual-wrap: { message: 'wrapped' }
+      formal-wrap: { @configurations: { greet: greet.formal }, message: 'wrapped' }
     }
   }
 }

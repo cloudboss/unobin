@@ -1,6 +1,6 @@
 description: '''>-
-  Demonstrates if-expressions and list/map comprehensions, including grouping, nesting, and
-  if-expressions inside and around comprehensions.
+  Demonstrates if-expressions and list/map comprehensions, including
+  grouping, nesting, and if-expressions inside and around comprehensions.
   '''
 
 inputs: {

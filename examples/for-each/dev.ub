@@ -1,7 +1,4 @@
 inputs: {
   base-path: '/tmp/unobin-for-each'
-  files: {
-    alpha: 'first message'
-    beta:  'second message'
-  }
+  files:     { alpha: 'first message', beta: 'second message' }
 }

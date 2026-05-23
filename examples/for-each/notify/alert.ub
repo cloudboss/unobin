@@ -1,14 +1,8 @@
 description: 'Writes an alert file announcing a topic.'
 
-inputs: {
-  topic: { type: string }
-  body:  { type: string }
-  path:  { type: string }
-}
+inputs: { topic: { type: string }, body: { type: string }, path: { type: string } }
 
-imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
-}
+imports: { local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0' }
 
 resources: {
   local: {
