@@ -148,7 +148,7 @@ func (w *formatter) findAlignmentGroup(fields []*Field, start int, indent string
 // group that has already padded the short-key siblings.
 func (w *formatter) fitsAtColumn(e Expr, column int) bool {
 	switch e.(type) {
-	case *ObjectLit, *ArrayLit, *Call:
+	case *ObjectLit, *ArrayLit, *Call, *Conditional, *Comprehension:
 		return w.fitsOnLine(e, column)
 	}
 	return true
@@ -216,6 +216,10 @@ func (w *formatter) isSingleLineField(field *Field) bool {
 		return !x.Form.IsMultiLine()
 	case *Call:
 		return w.singleLineWidth(x) >= 0
+	case *Conditional:
+		return w.singleLineWidth(x) >= 0
+	case *Comprehension:
+		return w.singleLineWidth(x) >= 0
 	case *TypeObject:
 		return len(x.Fields) == 0
 	}
@@ -280,12 +284,71 @@ func (w *formatter) singleLineWidth(e Expr) int {
 			return -1
 		}
 		return len(x.Op) + i
+	case *Conditional:
+		return w.conditionalInlineWidth(x)
+	case *Comprehension:
+		return w.comprehensionInlineWidth(x)
 	case TypeExpr:
 		return w.typeExprWidth(x)
 	case nil:
 		return len("null")
 	}
 	return -1
+}
+
+// conditionalInlineWidth returns the single-line width of `if cond then
+// a else b`, or -1 when any part forces a multi-line form.
+func (w *formatter) conditionalInlineWidth(c *Conditional) int {
+	cw := w.singleLineWidth(c.Cond)
+	if cw < 0 {
+		return -1
+	}
+	tw := w.singleLineWidth(c.Then)
+	if tw < 0 {
+		return -1
+	}
+	ew := w.singleLineWidth(c.Else)
+	if ew < 0 {
+		return -1
+	}
+	return len("if ") + cw + len(" then ") + tw + len(" else ") + ew
+}
+
+// comprehensionInlineWidth returns the single-line width of a list or
+// map comprehension, or -1 when any part forces a multi-line form.
+func (w *formatter) comprehensionInlineWidth(c *Comprehension) int {
+	if w.hasCommentInSpan(c.S.Start.Offset, c.S.End.Offset) {
+		return -1
+	}
+	srcW := w.singleLineWidth(c.Source)
+	if srcW < 0 {
+		return -1
+	}
+	valW := w.singleLineWidth(c.Value)
+	if valW < 0 {
+		return -1
+	}
+	// open + " for " + names + " in " + source + " : "
+	total := 1 + len(" for ") + len(strings.Join(c.Names, ", ")) + len(" in ") + srcW + len(" : ")
+	if c.Kind == CompMap {
+		keyW := w.singleLineWidth(c.Key)
+		if keyW < 0 {
+			return -1
+		}
+		total += keyW + len(" => ")
+	}
+	total += valW
+	if c.Group {
+		total += len("...")
+	}
+	if c.Filter != nil {
+		fw := w.singleLineWidth(c.Filter)
+		if fw < 0 {
+			return -1
+		}
+		total += len(" when ") + fw
+	}
+	return total + len(" ") + 1 // trailing space + close delimiter
 }
 
 // fitsOnLine reports whether e's single-line form fits between column
@@ -488,6 +551,10 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 		return w.writeInfix(x, indent)
 	case *Prefix:
 		return w.writePrefix(x, indent)
+	case *Conditional:
+		return w.writeConditional(x, indent)
+	case *Comprehension:
+		return w.writeComprehension(x, indent)
 	case TypeExpr:
 		return w.writeTypeExpr(x, indent)
 	case nil:
@@ -496,6 +563,136 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 		return fmt.Errorf("format: unsupported expression %T", expr)
 	}
 	return nil
+}
+
+// writeConditional renders `if cond then a else b` inline when it fits;
+// otherwise it breaks before then and else, indented one step under the
+// if.
+func (w *formatter) writeConditional(c *Conditional, indent string) error {
+	if w.fitsOnLine(c, w.column()) {
+		return w.writeConditionalInline(c)
+	}
+	inner := indent + fmtStep
+	w.buf.WriteString("if ")
+	if err := w.writeExpr(c.Cond, indent); err != nil {
+		return err
+	}
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(inner)
+	w.buf.WriteString("then ")
+	if err := w.writeExpr(c.Then, inner); err != nil {
+		return err
+	}
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(inner)
+	w.buf.WriteString("else ")
+	return w.writeExpr(c.Else, inner)
+}
+
+func (w *formatter) writeConditionalInline(c *Conditional) error {
+	w.buf.WriteString("if ")
+	if err := w.writeExpr(c.Cond, ""); err != nil {
+		return err
+	}
+	w.buf.WriteString(" then ")
+	if err := w.writeExpr(c.Then, ""); err != nil {
+		return err
+	}
+	w.buf.WriteString(" else ")
+	return w.writeExpr(c.Else, "")
+}
+
+// writeComprehension renders a list or map comprehension inline when it
+// fits; otherwise it puts the header, body, and filter on their own
+// lines indented one step in.
+func (w *formatter) writeComprehension(c *Comprehension, indent string) error {
+	if w.fitsOnLine(c, w.column()) {
+		return w.writeComprehensionInline(c)
+	}
+	open, closer := comprehensionDelims(c.Kind)
+	inner := indent + fmtStep
+	w.buf.WriteString(open)
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(inner)
+	if err := w.writeComprehensionHeader(c, inner); err != nil {
+		return err
+	}
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(inner)
+	if err := w.writeComprehensionBody(c, inner); err != nil {
+		return err
+	}
+	if c.Filter != nil {
+		w.buf.WriteByte('\n')
+		w.buf.WriteString(inner)
+		w.buf.WriteString("when ")
+		if err := w.writeExpr(c.Filter, inner); err != nil {
+			return err
+		}
+	}
+	w.buf.WriteByte('\n')
+	w.buf.WriteString(indent)
+	w.buf.WriteString(closer)
+	return nil
+}
+
+func (w *formatter) writeComprehensionInline(c *Comprehension) error {
+	open, closer := comprehensionDelims(c.Kind)
+	w.buf.WriteString(open)
+	w.buf.WriteByte(' ')
+	if err := w.writeComprehensionHeader(c, ""); err != nil {
+		return err
+	}
+	w.buf.WriteByte(' ')
+	if err := w.writeComprehensionBody(c, ""); err != nil {
+		return err
+	}
+	if c.Filter != nil {
+		w.buf.WriteString(" when ")
+		if err := w.writeExpr(c.Filter, ""); err != nil {
+			return err
+		}
+	}
+	w.buf.WriteByte(' ')
+	w.buf.WriteString(closer)
+	return nil
+}
+
+// writeComprehensionHeader writes `for <names> in <source> :`.
+func (w *formatter) writeComprehensionHeader(c *Comprehension, indent string) error {
+	w.buf.WriteString("for ")
+	w.buf.WriteString(strings.Join(c.Names, ", "))
+	w.buf.WriteString(" in ")
+	if err := w.writeExpr(c.Source, indent); err != nil {
+		return err
+	}
+	w.buf.WriteString(" :")
+	return nil
+}
+
+// writeComprehensionBody writes the produced element: `value` for a
+// list, `key => value` for a map, with a trailing `...` when grouping.
+func (w *formatter) writeComprehensionBody(c *Comprehension, indent string) error {
+	if c.Kind == CompMap {
+		if err := w.writeExpr(c.Key, indent); err != nil {
+			return err
+		}
+		w.buf.WriteString(" => ")
+	}
+	if err := w.writeExpr(c.Value, indent); err != nil {
+		return err
+	}
+	if c.Group {
+		w.buf.WriteString("...")
+	}
+	return nil
+}
+
+func comprehensionDelims(kind ComprehensionKind) (string, string) {
+	if kind == CompMap {
+		return "{", "}"
+	}
+	return "[", "]"
 }
 
 func (w *formatter) writeString(s *StringLit, indent string) error {
@@ -520,7 +717,7 @@ func (w *formatter) writeString(s *StringLit, indent string) error {
 
 // shouldWrapSingleQuoted reports whether a single-quoted string can
 // and should be rewritten in folded or joined triple-quote form.
-// Bodies containing ''' or a newline cannot be carried in either form
+// Bodies containing ”' or a newline cannot be carried in either form
 // and are left alone. Bodies that already fit on the current line
 // stay single-quoted regardless of the wrapStrings setting.
 func (w *formatter) shouldWrapSingleQuoted(s *StringLit) bool {
