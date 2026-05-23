@@ -108,41 +108,43 @@ func dotSegments(v any) []DotSegment {
 	return out
 }
 
-// unquoteSingle decodes a single-quoted string body. Backslash escapes
-// recognized: \\ \' \n \t \r \0. An unknown escape is kept literal.
-func unquoteSingle(s string) string {
+// unquoteSingle decodes a single-quoted string body under strict
+// escaping. Recognized escapes: \\ \' \n \t \r \0. Any other escape is a
+// parse error; backslash-heavy values use a raw triple-quoted string.
+func unquoteSingle(s string) (string, error) {
 	if !strings.ContainsRune(s, '\\') {
-		return s
+		return s, nil
 	}
 	var b strings.Builder
 	b.Grow(len(s))
 	for i := 0; i < len(s); i++ {
 		ch := s[i]
-		if ch == '\\' && i+1 < len(s) {
-			next := s[i+1]
-			switch next {
-			case '\\':
-				b.WriteByte('\\')
-			case '\'':
-				b.WriteByte('\'')
-			case 'n':
-				b.WriteByte('\n')
-			case 't':
-				b.WriteByte('\t')
-			case 'r':
-				b.WriteByte('\r')
-			case '0':
-				b.WriteByte(0)
-			default:
-				b.WriteByte('\\')
-				b.WriteByte(next)
-			}
-			i++
+		if ch != '\\' {
+			b.WriteByte(ch)
 			continue
 		}
-		b.WriteByte(ch)
+		if i+1 >= len(s) {
+			return "", fmt.Errorf("trailing backslash in string")
+		}
+		switch next := s[i+1]; next {
+		case '\\':
+			b.WriteByte('\\')
+		case '\'':
+			b.WriteByte('\'')
+		case 'n':
+			b.WriteByte('\n')
+		case 't':
+			b.WriteByte('\t')
+		case 'r':
+			b.WriteByte('\r')
+		case '0':
+			b.WriteByte(0)
+		default:
+			return "", fmt.Errorf("invalid escape \"\\%c\" in string", next)
+		}
+		i++
 	}
-	return b.String()
+	return b.String(), nil
 }
 
 // pushComment stashes a captured comment on the parser's global
@@ -411,7 +413,7 @@ StringLitNode <- "'" body:StringBody "'" {
 }
 
 StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
-	return unquoteSingle(string(c.text)), nil
+	return unquoteSingle(string(c.text))
 }
 
 TripleQuoteStringLitNode <- MultiLineTripleQuote / SingleLineTripleQuote

@@ -13,19 +13,69 @@ func mustParse(t *testing.T, src string) *File {
 	return f
 }
 
-func TestParseStringEscapes(t *testing.T) {
-	cases := map[string]string{
-		`s: 'plain'`:           "plain",
-		`s: 'it\'s'`:           "it's",
-		`s: 'a\\b'`:            `a\b`,
-		`s: 'line1\nline2'`:    "line1\nline2",
-		`s: 'tab\there'`:       "tab\there",
-		`s: 'unknown\xescape'`: `unknown\xescape`,
+func TestParseStringEscapesValid(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"plain", `s: 'plain'`, "plain"},
+		{"empty", `s: ''`, ""},
+		{"no backslash with quote-ish text", `s: 'a:b/c=d'`, "a:b/c=d"},
+		{"escaped quote", `s: 'it\'s'`, "it's"},
+		{"only an escaped quote", `s: '\''`, "'"},
+		{"two escaped quotes", `s: '\'\''`, "''"},
+		{"backslash", `s: 'a\\b'`, `a\b`},
+		{"only a backslash", `s: '\\'`, `\`},
+		{"double backslash", `s: '\\\\'`, `\\`},
+		{"backslash then n is not newline", `s: 'a\\nb'`, `a\nb`},
+		{"backslash before quote", `s: 'a\\'`, `a\`},
+		{"backslash then escaped quote", `s: '\\\''`, `\'`},
+		{"newline", `s: 'line1\nline2'`, "line1\nline2"},
+		{"tab", `s: 'tab\there'`, "tab\there"},
+		{"carriage return", `s: 'ret\rhere'`, "ret\rhere"},
+		{"nul", `s: 'nul\0byte'`, "nul\x00byte"},
+		{"escape at start", `s: '\nfoo'`, "\nfoo"},
+		{"escape at end", `s: 'foo\n'`, "foo\n"},
+		{"adjacent escapes", `s: '\n\t\r'`, "\n\t\r"},
+		{"mixed escapes", `s: 'a\nb\tc\\d\'e'`, "a\nb\tc\\d'e"},
 	}
-	for src, want := range cases {
-		t.Run(src, func(t *testing.T) {
-			f := mustParse(t, src)
-			require.Equal(t, want, f.Body.Fields[0].Value.(*StringLit).Value)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := mustParse(t, tt.src)
+			require.Equal(t, tt.want, f.Body.Fields[0].Value.(*StringLit).Value)
+		})
+	}
+}
+
+func TestParseStringEscapesInvalid(t *testing.T) {
+	// Strict escaping: any escape outside the recognized set (\\ \' \n \t
+	// \r \0) is a parse error rather than being kept literal. Backslash-
+	// heavy values use a raw triple-quoted string instead.
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{"unknown letter x", `s: 'unknown\xescape'`},
+		{"unknown letter d", `s: 'digit\d'`},
+		{"single open brace", `s: 'brace\{'`},
+		{"single close brace", `s: 'brace\}'`},
+		{"bell a", `s: 'ring\a'`},
+		{"backspace b", `s: 'back\b'`},
+		{"form feed f", `s: 'feed\f'`},
+		{"vertical tab v", `s: 'vtab\v'`},
+		{"unicode u", `s: 'uni\uABCD'`},
+		{"hex x with digits", `s: 'hex\x41'`},
+		{"octal-ish 1", `s: 'oct\1'`},
+		{"uppercase N is not newline", `s: 'big\Nope'`},
+		{"escaped double quote", `s: 'dq\"here'`},
+		{"backslash space", `s: 'sp\ here'`},
+		{"escaped hash", `s: 'hash\#one'`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseSource("test.ub", []byte(tt.src))
+			require.Error(t, err)
 		})
 	}
 }

@@ -102,7 +102,7 @@ func TestParseFixtureStrings(t *testing.T) {
 		{"with-newline", "line1\nline2"},
 		{"with-tab", "col1\tcol2"},
 		{"with-cr", "r\rn"},
-		{"unknown-esc", `keep \xliteral`},
+		{"with-nul", "a\x00b"},
 		{"url", "github.com/cloudboss/unobin@v1.2.3"},
 		{"regex", `^[a-z][a-z0-9-]*$`},
 	}
