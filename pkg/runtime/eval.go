@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -21,16 +22,36 @@ var ErrEvalNotFound = errors.New("not found")
 // Modules is the import table the scope's `<alias>.<func>(...)` calls
 // resolve against; nil disables module-qualified calls. EachKey and
 // EachValue carry the current iteration binding inside a `@for-each`
-// body; ForEach reports whether they are valid to read.
+// body; ForEach reports whether they are valid to read. Locals holds
+// comprehension-bound names, which resolve as bare values and as
+// dot-path roots ahead of the reserved roots, so an inner binding
+// shadows an outer one.
 type EvalContext struct {
 	Vars      map[string]any
 	Resources map[string]any
 	Data      map[string]any
 	Actions   map[string]any
 	Modules   map[string]*Module
+	Locals    map[string]any
 	EachKey   any
 	EachValue any
 	ForEach   bool
+}
+
+// withLocals returns a shallow copy of ctx whose Locals merges the
+// parent bindings with binds. The parent is left untouched so sibling
+// iterations and enclosing scopes do not see each other's bindings.
+func (ctx *EvalContext) withLocals(binds map[string]any) *EvalContext {
+	child := *ctx
+	merged := make(map[string]any, len(ctx.Locals)+len(binds))
+	for k, v := range ctx.Locals {
+		merged[k] = v
+	}
+	for k, v := range binds {
+		merged[k] = v
+	}
+	child.Locals = merged
+	return &child
 }
 
 // Eval reduces a parsed expression to a Go value. Supported are
@@ -50,6 +71,9 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 	case *lang.NullLit:
 		return nil, nil
 	case *lang.Ident:
+		if val, ok := ctx.Locals[v.Name]; ok {
+			return val, nil
+		}
 		return v.Name, nil
 	case *lang.ArrayLit:
 		return evalArray(v, ctx)
@@ -65,9 +89,147 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 		return evalCall(v, ctx)
 	case *lang.Conditional:
 		return evalConditional(v, ctx)
+	case *lang.Comprehension:
+		return evalComprehension(v, ctx)
 	default:
 		return nil, fmt.Errorf("eval: unsupported expression %T", e)
 	}
+}
+
+// evalComprehension evaluates a list or map comprehension. The source
+// is reduced first; a list source iterates its elements in order and a
+// map source iterates its entries by sorted key, so the output is
+// deterministic.
+func evalComprehension(n *lang.Comprehension, ctx *EvalContext) (any, error) {
+	src, err := Eval(n.Source, ctx)
+	if err != nil {
+		return nil, err
+	}
+	binds, err := comprehensionBindings(src, n.Names)
+	if err != nil {
+		return nil, err
+	}
+	if n.Kind == lang.CompMap {
+		return evalMapComp(n, binds, ctx)
+	}
+	return evalListComp(n, binds, ctx)
+}
+
+// comprehensionBindings turns the source value into one binding map per
+// iteration. One name binds the element (list) or value (map); two
+// names bind index+element (list) or key+value (map).
+func comprehensionBindings(src any, names []string) ([]map[string]any, error) {
+	switch s := src.(type) {
+	case []any:
+		out := make([]map[string]any, 0, len(s))
+		for i, el := range s {
+			out = append(out, bindNames(names, int64(i), el))
+		}
+		return out, nil
+	case map[string]any:
+		keys := make([]string, 0, len(s))
+		for k := range s {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		out := make([]map[string]any, 0, len(s))
+		for _, k := range keys {
+			out = append(out, bindNames(names, k, s[k]))
+		}
+		return out, nil
+	}
+	return nil, fmt.Errorf(
+		"eval: comprehension source must be a list or map, got %s", lang.TypeMessage(src))
+}
+
+// bindNames pairs the bound identifiers with the iteration's first
+// (index or key) and second (element or value) positions.
+func bindNames(names []string, first, second any) map[string]any {
+	b := make(map[string]any, len(names))
+	switch len(names) {
+	case 1:
+		b[names[0]] = second
+	case 2:
+		b[names[0]] = first
+		b[names[1]] = second
+	}
+	return b
+}
+
+func evalListComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext) (any, error) {
+	out := make([]any, 0, len(binds))
+	for _, b := range binds {
+		child := ctx.withLocals(b)
+		keep, err := comprehensionKeep(n.Filter, child)
+		if err != nil {
+			return nil, err
+		}
+		if !keep {
+			continue
+		}
+		val, err := Eval(n.Value, child)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, val)
+	}
+	return out, nil
+}
+
+func evalMapComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext) (any, error) {
+	out := make(map[string]any, len(binds))
+	for _, b := range binds {
+		child := ctx.withLocals(b)
+		keep, err := comprehensionKeep(n.Filter, child)
+		if err != nil {
+			return nil, err
+		}
+		if !keep {
+			continue
+		}
+		keyVal, err := Eval(n.Key, child)
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyVal.(string)
+		if !ok {
+			return nil, fmt.Errorf(
+				"eval: comprehension key must be a string, got %s", lang.TypeMessage(keyVal))
+		}
+		val, err := Eval(n.Value, child)
+		if err != nil {
+			return nil, err
+		}
+		if n.Group {
+			lst, _ := out[key].([]any)
+			out[key] = append(lst, val)
+			continue
+		}
+		if _, exists := out[key]; exists {
+			return nil, fmt.Errorf(
+				"eval: comprehension produced duplicate key %q; use ... to group", key)
+		}
+		out[key] = val
+	}
+	return out, nil
+}
+
+// comprehensionKeep evaluates a `when` filter. A nil filter keeps every
+// element; otherwise the predicate must reduce to a boolean.
+func comprehensionKeep(filter lang.Expr, ctx *EvalContext) (bool, error) {
+	if filter == nil {
+		return true, nil
+	}
+	v, err := Eval(filter, ctx)
+	if err != nil {
+		return false, err
+	}
+	b, ok := v.(bool)
+	if !ok {
+		return false, fmt.Errorf(
+			"eval: comprehension filter must be a boolean, got %s", lang.TypeMessage(v))
+	}
+	return b, nil
 }
 
 // evalConditional evaluates `if cond then a else b`. The condition must
@@ -436,6 +598,9 @@ func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
 }
 
 func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
+	if base, ok := ctx.Locals[p.Root.Name]; ok {
+		return navigateSegments(base, p.Root.Name, p.Segments, ctx)
+	}
 	var root any
 	switch p.Root.Name {
 	case "var":
@@ -451,9 +616,17 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	default:
 		return nil, fmt.Errorf("eval: unknown address root %q", p.Root.Name)
 	}
-	cur := root
-	path := p.Root.Name
-	for _, seg := range p.Segments {
+	return navigateSegments(root, p.Root.Name, p.Segments, ctx)
+}
+
+// navigateSegments walks a dot path's segments from cur, stepping into
+// nested maps. path accumulates the source form for error messages. A
+// missing key yields ErrEvalNotFound so plan can treat it as known
+// after apply.
+func navigateSegments(
+	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
+) (any, error) {
+	for _, seg := range segs {
 		var step string
 		switch {
 		case seg.Name != "":
