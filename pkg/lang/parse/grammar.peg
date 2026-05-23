@@ -147,6 +147,64 @@ func unquoteSingle(s string) (string, error) {
 	return b.String(), nil
 }
 
+// unquoteInterpolated decodes a literal run inside an interpolated string. It
+// extends the strict single-quote escape set with \{{ -> {{ (the only
+// brace escape needed); \}} and every other unrecognized escape are
+// errors, exactly as in a plain single-quoted string.
+func unquoteInterpolated(s string) (string, error) {
+	if !strings.ContainsRune(s, '\\') {
+		return s, nil
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if ch != '\\' {
+			b.WriteByte(ch)
+			continue
+		}
+		if i+1 >= len(s) {
+			return "", fmt.Errorf("trailing backslash in string")
+		}
+		switch next := s[i+1]; next {
+		case '\\':
+			b.WriteByte('\\')
+		case '\'':
+			b.WriteByte('\'')
+		case 'n':
+			b.WriteByte('\n')
+		case 't':
+			b.WriteByte('\t')
+		case 'r':
+			b.WriteByte('\r')
+		case '0':
+			b.WriteByte(0)
+		case '{':
+			if i+2 < len(s) && s[i+2] == '{' {
+				b.WriteString("{{")
+				i += 2
+				continue
+			}
+			return "", fmt.Errorf("invalid escape \"\\{\" in string (use \\{{ for a literal {{)")
+		default:
+			return "", fmt.Errorf("invalid escape \"\\%c\" in string", next)
+		}
+		i++
+	}
+	return b.String(), nil
+}
+
+// buildInterpolatedString assembles an InterpolatedString from the parts captured by
+// the interpolation rules.
+func buildInterpolatedString(s Span, parts any, form StringForm) (any, error) {
+	in, _ := parts.([]any)
+	out := make([]InterpolatedPart, 0, len(in))
+	for _, p := range in {
+		out = append(out, p.(InterpolatedPart))
+	}
+	return &InterpolatedString{S: s, Parts: out, Form: form}, nil
+}
+
 // pushComment stashes a captured comment on the parser's global
 // store, keyed on source offset so backtracking does not insert
 // duplicates. The format renderer reads the collected map back after
@@ -279,7 +337,7 @@ UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
 	return &Prefix{S: c.span(), Op: string(op.([]byte)), Expr: inner.(Expr)}, nil
 }
 
-Primary <- ParenExpr / MapComp / ListComp / ObjectLitNode / ArrayLitNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
+Primary <- ParenExpr / MapComp / ListComp / ObjectLitNode / ArrayLitNode / InterpolatedStringNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
 
 ParenExpr <- "(" _ e:Value _ ")" {
 	return e, nil
@@ -414,6 +472,39 @@ StringLitNode <- "'" body:StringBody "'" {
 
 StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 	return unquoteSingle(string(c.text))
+}
+
+// Interpolatedolated single-quoted string: `$'...{{ expr }}...'`. The !"''"
+// guard keeps this from swallowing the `$'''` triple-quote opener. A
+// `{{` opens a slot; a single `{` is literal; `\{{` is a literal `{{`.
+InterpolatedStringNode <- "$'" !"''" parts:InterpolatedSinglePart* "'" {
+	return buildInterpolatedString(c.span(), parts, StringSingleQuoted)
+}
+
+InterpolatedSinglePart <- InterpolatedSlot / InterpolatedSingleLiteral
+
+InterpolatedSlot <- "{{" _ e:Value v:InterpolatedVerb? _ "}}" {
+	part := InterpolatedPart{S: c.span(), Expr: e.(Expr)}
+	if v != nil {
+		part.Verb = v.(string)
+	}
+	return part, nil
+}
+
+InterpolatedVerb <- _ ":" _ v:VerbBody {
+	return v, nil
+}
+
+VerbBody <- "%" ( !"}}" !"\n" !"'" . )* {
+	return strings.TrimRight(string(c.text), " \t"), nil
+}
+
+InterpolatedSingleLiteral <- ( "\\" . / !"{{" !"'" !"\n" !"\r" . )+ {
+	lit, err := unquoteInterpolated(string(c.text))
+	if err != nil {
+		return InterpolatedPart{}, err
+	}
+	return InterpolatedPart{S: c.span(), Lit: lit}, nil
 }
 
 TripleQuoteStringLitNode <- MultiLineTripleQuote / SingleLineTripleQuote

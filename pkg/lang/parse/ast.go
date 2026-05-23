@@ -148,6 +148,31 @@ type StringLit struct {
 func (n *StringLit) Span() Span { return n.S }
 func (n *StringLit) exprNode()  {}
 
+// InterpolatedString is an interpolated string from the `$'...'` form.
+// Parts run left to right, alternating literal text and `{{ expr }}`
+// slots. Form records the underlying string form so the formatter
+// re-emits the right delimiter. A slot's value must evaluate to a scalar;
+// the type checker enforces that.
+type InterpolatedString struct {
+	S     Span
+	Parts []InterpolatedPart
+	Form  StringForm
+}
+
+func (n *InterpolatedString) Span() Span { return n.S }
+func (n *InterpolatedString) exprNode()  {}
+
+// InterpolatedPart is one segment of an InterpolatedString. When Expr is
+// nil it is a literal run carried in Lit. Otherwise it is a `{{ Expr }}`
+// slot, rendered through the Go printf verb in Verb (e.g. "%03d") when
+// Verb is non-empty, or with the default rendering when Verb is empty.
+type InterpolatedPart struct {
+	S    Span
+	Lit  string
+	Expr Expr
+	Verb string
+}
+
 // StringForm distinguishes the source form a StringLit was parsed from
 // and tells the formatter which form to re-emit. The zero value is
 // StringSingleQuoted.
