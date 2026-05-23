@@ -16,6 +16,31 @@ type Scope struct {
 	Inputs     []ObjectField
 	Each       *EachBinding
 	LookupNode LookupNodeFn
+	// Locals holds comprehension-bound names. They resolve as bare
+	// values and as dot-path roots ahead of var/resource/data/action,
+	// so an inner binding shadows an outer one.
+	Locals map[string]Type
+}
+
+// withLocals returns a child scope that adds the comprehension
+// bindings to Locals. One name binds the element (list) or value
+// (map); two names bind index/key plus element/value. The parent is
+// left untouched.
+func (s *Scope) withLocals(names []string, key, elem Type) *Scope {
+	child := *s
+	locals := make(map[string]Type, len(s.Locals)+2)
+	for k, v := range s.Locals {
+		locals[k] = v
+	}
+	switch len(names) {
+	case 1:
+		locals[names[0]] = elem
+	case 2:
+		locals[names[0]] = key
+		locals[names[1]] = elem
+	}
+	child.Locals = locals
+	return &child
 }
 
 // EachBinding is the type pair bound by an enclosing @for-each.
@@ -56,6 +81,11 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	case *lang.NullLit:
 		return TNull()
 	case *lang.Ident:
+		if scope != nil {
+			if t, ok := scope.Locals[v.Name]; ok {
+				return t
+			}
+		}
 		return TUnknown()
 	case *lang.ArrayLit:
 		return inferArray(v, target, scope, errs)
@@ -69,8 +99,96 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return inferInfix(v, scope, errs)
 	case *lang.Prefix:
 		return inferPrefix(v, scope, errs)
+	case *lang.Conditional:
+		return inferConditional(v, target, scope, errs)
+	case *lang.Comprehension:
+		return inferComprehension(v, target, scope, errs)
 	}
 	return TUnknown()
+}
+
+// inferConditional types `if cond then a else b`. The condition must be
+// a boolean. The result is the join of the two branch types; when the
+// branches have incompatible known types it reports a mismatch and
+// yields Unknown.
+func inferConditional(
+	c *lang.Conditional, target Type, scope *Scope, errs *lang.ErrorList,
+) Type {
+	Check(c.Cond, TBoolean(), scope, errs)
+	thenT := Infer(c.Then, target, scope, errs)
+	elseT := Infer(c.Else, target, scope, errs)
+	if j, ok := join(thenT, elseT); ok {
+		return j
+	}
+	if thenT.IsKnown() && elseT.IsKnown() {
+		errs.Addf(lang.ErrType, c.S.Start,
+			"if branches have different types: %s and %s", thenT, elseT)
+	}
+	return TUnknown()
+}
+
+// inferComprehension types a list or map comprehension. It binds the
+// element (and index/key) types from the source into a child scope,
+// requires a boolean filter and a string map key, and returns the
+// produced list or map type. A grouped map (`...`) collects values
+// into a list per key.
+func inferComprehension(
+	c *lang.Comprehension, target Type, scope *Scope, errs *lang.ErrorList,
+) Type {
+	if scope == nil {
+		scope = &Scope{}
+	}
+	srcT := Infer(c.Source, TUnknown(), scope, errs)
+	if srcT.Unwrap().Kind == Set {
+		errs.Addf(lang.ErrType, c.Source.Span().Start,
+			"comprehension source cannot be a set; convert it with to-list first")
+	}
+	key, elem := comprehensionBindingTypes(srcT)
+	child := scope.withLocals(c.Names, key, elem)
+	if c.Filter != nil {
+		Check(c.Filter, TBoolean(), child, errs)
+	}
+	if c.Kind == lang.CompMap {
+		Check(c.Key, TString(), child, errs)
+		valT := Infer(c.Value, TUnknown(), child, errs)
+		if c.Group {
+			return TMap(TList(valT))
+		}
+		return TMap(valT)
+	}
+	if elemTarget, ok := listElemTarget(target); ok {
+		Check(c.Value, elemTarget, child, errs)
+		return TList(elemTarget)
+	}
+	return TList(Infer(c.Value, TUnknown(), child, errs))
+}
+
+// comprehensionBindingTypes derives the binding types from the source.
+// key is the first binding (index for a list, key for a map); elem is
+// the iterated element or value.
+func comprehensionBindingTypes(src Type) (key, elem Type) {
+	src = src.Unwrap()
+	switch src.Kind {
+	case List, Set:
+		return TInteger(), elemOr(src)
+	case Map:
+		return TString(), elemOr(src)
+	}
+	return TUnknown(), TUnknown()
+}
+
+func elemOr(t Type) Type {
+	if t.Elem != nil {
+		return *t.Elem
+	}
+	return TUnknown()
+}
+
+func listElemTarget(target Type) (Type, bool) {
+	if (target.Kind == List || target.Kind == Set) && target.Elem != nil {
+		return *target.Elem, true
+	}
+	return Type{}, false
 }
 
 // Check infers the type of e and verifies it is assignable to the
@@ -216,6 +334,11 @@ func inferObjectFree(
 func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if dp.Root == nil {
 		return TUnknown()
+	}
+	if scope != nil {
+		if t, ok := scope.Locals[dp.Root.Name]; ok {
+			return traverseSegments(t, dp.Segments, errs, false)
+		}
 	}
 	switch dp.Root.Name {
 	case "var":
