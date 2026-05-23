@@ -326,3 +326,47 @@ func TestEncodeTypeOptionalNoDefault(t *testing.T) {
 	require.NotContains(t, got, "Default")
 	parsesAsGoExpr(t, got)
 }
+
+func encodeExpr(t *testing.T, src string) string {
+	t.Helper()
+	f, err := lang.ParseSource("test.ub", []byte("v: "+src+"\n"))
+	require.NoError(t, err)
+	require.NotEmpty(t, f.Body.Fields)
+	got, err := EncodeNode(f.Body.Fields[0].Value)
+	require.NoError(t, err)
+	parsesAsGoExpr(t, got)
+	return got
+}
+
+func TestEncodeConditional(t *testing.T) {
+	got := encodeExpr(t, "if a then b else c")
+	require.Equal(t,
+		`&lang.Conditional{Cond: &lang.Ident{Name: "a"}, `+
+			`Then: &lang.Ident{Name: "b"}, Else: &lang.Ident{Name: "c"}}`,
+		got)
+}
+
+func TestEncodeListComprehension(t *testing.T) {
+	got := encodeExpr(t, "[ for s in var.subnets : s.cidr ]")
+	require.Equal(t,
+		`&lang.Comprehension{Kind: lang.CompList, Names: []string{"s"}, `+
+			`Source: &lang.DotPath{Root: &lang.Ident{Name: "var"}, `+
+			`Segments: []lang.DotSegment{{Name: "subnets"}}}, `+
+			`Value: &lang.DotPath{Root: &lang.Ident{Name: "s"}, `+
+			`Segments: []lang.DotSegment{{Name: "cidr"}}}}`,
+		got)
+}
+
+func TestEncodeMapComprehensionGroupAndFilter(t *testing.T) {
+	got := encodeExpr(t, "{ for s in var.subnets : s.az => s.id... when s.public }")
+	require.Contains(t, got, "&lang.Comprehension{Kind: lang.CompMap")
+	require.Contains(t, got, `Names: []string{"s"}`)
+	require.Contains(t, got, "Key: &lang.DotPath{")
+	require.Contains(t, got, "Group: true")
+	require.Contains(t, got, "Filter: &lang.DotPath{")
+}
+
+func TestEncodeComprehensionTwoNames(t *testing.T) {
+	got := encodeExpr(t, "[ for i, s in var.items : i ]")
+	require.Contains(t, got, `Names: []string{"i", "s"}`)
+}

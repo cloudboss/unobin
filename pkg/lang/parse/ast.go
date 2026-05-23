@@ -330,6 +330,15 @@ const (
 	CompMap
 )
 
+// String returns the constant's identifier. Used by codegen to emit a
+// human-readable kind constant in generated source.
+func (k ComprehensionKind) String() string {
+	if k == CompMap {
+		return "CompMap"
+	}
+	return "CompList"
+}
+
 // Comprehension is a list or map comprehension over an iterable. Names
 // holds one or two bound identifiers: one binds each element (list) or
 // value (map); two binds index+element (list source) or key+value (map

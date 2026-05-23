@@ -53,6 +53,10 @@ func encodeNode(b *strings.Builder, n lang.Node) error {
 		return encodeInfix(b, x)
 	case *lang.Prefix:
 		return encodePrefix(b, x)
+	case *lang.Conditional:
+		return encodeConditional(b, x)
+	case *lang.Comprehension:
+		return encodeComprehension(b, x)
 	case *lang.TypeAtomic:
 		return encodeTypeAtomic(b, x)
 	case *lang.TypeList:
@@ -293,6 +297,62 @@ func encodePrefix(b *strings.Builder, n *lang.Prefix) error {
 	b.WriteString(", Expr: ")
 	if err := encodeNode(b, n.Expr); err != nil {
 		return err
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeConditional(b *strings.Builder, n *lang.Conditional) error {
+	b.WriteString("&lang.Conditional{Cond: ")
+	if err := encodeNode(b, n.Cond); err != nil {
+		return err
+	}
+	b.WriteString(", Then: ")
+	if err := encodeNode(b, n.Then); err != nil {
+		return err
+	}
+	b.WriteString(", Else: ")
+	if err := encodeNode(b, n.Else); err != nil {
+		return err
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeComprehension(b *strings.Builder, n *lang.Comprehension) error {
+	fmt.Fprintf(b, "&lang.Comprehension{Kind: lang.%s", n.Kind.String())
+	if len(n.Names) > 0 {
+		b.WriteString(", Names: []string{")
+		for i, name := range n.Names {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(strconv.Quote(name))
+		}
+		b.WriteString("}")
+	}
+	b.WriteString(", Source: ")
+	if err := encodeNode(b, n.Source); err != nil {
+		return err
+	}
+	if n.Key != nil {
+		b.WriteString(", Key: ")
+		if err := encodeNode(b, n.Key); err != nil {
+			return err
+		}
+	}
+	b.WriteString(", Value: ")
+	if err := encodeNode(b, n.Value); err != nil {
+		return err
+	}
+	if n.Group {
+		b.WriteString(", Group: true")
+	}
+	if n.Filter != nil {
+		b.WriteString(", Filter: ")
+		if err := encodeNode(b, n.Filter); err != nil {
+			return err
+		}
 	}
 	b.WriteString("}")
 	return nil
