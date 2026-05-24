@@ -24,7 +24,7 @@ var ErrEvalNotFound = errors.New("not found")
 // Modules is the import table the scope's `<alias>.<func>(...)` calls
 // resolve against; nil disables module-qualified calls. EachKey and
 // EachValue carry the current iteration binding inside a `@for-each`
-// body; ForEach reports whether they are valid to read. Locals holds
+// body; ForEach reports whether they are valid to read. Bindings holds
 // comprehension-bound names, which resolve as bare values and as
 // dot-path roots ahead of the reserved roots, so an inner binding
 // shadows an outer one.
@@ -34,25 +34,25 @@ type EvalContext struct {
 	Data      map[string]any
 	Actions   map[string]any
 	Modules   map[string]*Module
-	Locals    map[string]any
+	Bindings  map[string]any
 	EachKey   any
 	EachValue any
 	ForEach   bool
 }
 
-// withLocals returns a shallow copy of ctx whose Locals merges the
+// withBindings returns a shallow copy of ctx whose Bindings merges the
 // parent bindings with binds. The parent is left untouched so sibling
 // iterations and enclosing scopes do not see each other's bindings.
-func (ctx *EvalContext) withLocals(binds map[string]any) *EvalContext {
+func (ctx *EvalContext) withBindings(binds map[string]any) *EvalContext {
 	child := *ctx
-	merged := make(map[string]any, len(ctx.Locals)+len(binds))
-	for k, v := range ctx.Locals {
+	merged := make(map[string]any, len(ctx.Bindings)+len(binds))
+	for k, v := range ctx.Bindings {
 		merged[k] = v
 	}
 	for k, v := range binds {
 		merged[k] = v
 	}
-	child.Locals = merged
+	child.Bindings = merged
 	return &child
 }
 
@@ -75,7 +75,7 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 	case *lang.NullLit:
 		return nil, nil
 	case *lang.Ident:
-		if val, ok := ctx.Locals[v.Name]; ok {
+		if val, ok := ctx.Bindings[v.Name]; ok {
 			return val, nil
 		}
 		return v.Name, nil
@@ -163,7 +163,7 @@ func bindNames(names []string, first, second any) map[string]any {
 func evalListComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext) (any, error) {
 	out := make([]any, 0, len(binds))
 	for _, b := range binds {
-		child := ctx.withLocals(b)
+		child := ctx.withBindings(b)
 		keep, err := comprehensionKeep(n.Filter, child)
 		if err != nil {
 			return nil, err
@@ -183,7 +183,7 @@ func evalListComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContex
 func evalMapComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext) (any, error) {
 	out := make(map[string]any, len(binds))
 	for _, b := range binds {
-		child := ctx.withLocals(b)
+		child := ctx.withBindings(b)
 		keep, err := comprehensionKeep(n.Filter, child)
 		if err != nil {
 			return nil, err
@@ -654,7 +654,7 @@ func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
 }
 
 func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
-	if base, ok := ctx.Locals[p.Root.Name]; ok {
+	if base, ok := ctx.Bindings[p.Root.Name]; ok {
 		return navigateSegments(base, p.Root.Name, p.Segments, ctx)
 	}
 	var root any

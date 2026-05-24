@@ -16,30 +16,30 @@ type Scope struct {
 	Inputs     []ObjectField
 	Each       *EachBinding
 	LookupNode LookupNodeFn
-	// Locals holds comprehension-bound names. They resolve as bare
+	// Bindings holds comprehension-bound names. They resolve as bare
 	// values and as dot-path roots ahead of var/resource/data/action,
 	// so an inner binding shadows an outer one.
-	Locals map[string]Type
+	Bindings map[string]Type
 }
 
-// withLocals returns a child scope that adds the comprehension
-// bindings to Locals. One name binds the element (list) or value
+// withBindings returns a child scope that adds the comprehension
+// bindings to Bindings. One name binds the element (list) or value
 // (map); two names bind index/key plus element/value. The parent is
 // left untouched.
-func (s *Scope) withLocals(names []string, key, elem Type) *Scope {
+func (s *Scope) withBindings(names []string, key, elem Type) *Scope {
 	child := *s
-	locals := make(map[string]Type, len(s.Locals)+2)
-	for k, v := range s.Locals {
-		locals[k] = v
+	binds := make(map[string]Type, len(s.Bindings)+2)
+	for k, v := range s.Bindings {
+		binds[k] = v
 	}
 	switch len(names) {
 	case 1:
-		locals[names[0]] = elem
+		binds[names[0]] = elem
 	case 2:
-		locals[names[0]] = key
-		locals[names[1]] = elem
+		binds[names[0]] = key
+		binds[names[1]] = elem
 	}
-	child.Locals = locals
+	child.Bindings = binds
 	return &child
 }
 
@@ -84,7 +84,7 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return TNull()
 	case *lang.Ident:
 		if scope != nil {
-			if t, ok := scope.Locals[v.Name]; ok {
+			if t, ok := scope.Bindings[v.Name]; ok {
 				return t
 			}
 		}
@@ -176,7 +176,7 @@ func inferComprehension(
 			"comprehension source cannot be a set; convert it with to-list first")
 	}
 	key, elem := comprehensionBindingTypes(srcT)
-	child := scope.withLocals(c.Names, key, elem)
+	child := scope.withBindings(c.Names, key, elem)
 	if c.Filter != nil {
 		Check(c.Filter, TBoolean(), child, errs)
 	}
@@ -368,7 +368,7 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 		return TUnknown()
 	}
 	if scope != nil {
-		if t, ok := scope.Locals[dp.Root.Name]; ok {
+		if t, ok := scope.Bindings[dp.Root.Name]; ok {
 			return traverseSegments(t, dp.Segments, errs, false)
 		}
 	}
