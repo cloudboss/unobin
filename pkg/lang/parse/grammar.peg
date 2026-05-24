@@ -205,6 +205,211 @@ func buildInterpolatedString(s Span, parts any, form StringForm) (any, error) {
 	return &InterpolatedString{S: s, Parts: out, Form: form}, nil
 }
 
+// parseExprFn indirects ParseExpr so the grammar's triple-quote action
+// helpers can parse a slot's sub-expression. The indirection is assigned
+// in init() rather than statically so the package-level grammar value `g`
+// does not refer to itself through ParseExpr at initialization time.
+var parseExprFn func(string, []byte) (Expr, error)
+
+func init() { parseExprFn = ParseExpr }
+
+// buildInterpolatedTriple builds an InterpolatedString from a triple-
+// quoted, `$`-prefixed match. full is the whole matched text including
+// the leading `$`;
+// startCol is the column of that `$`. Slots are pulled out of the raw
+// body and replaced with NUL-delimited sentinels, the existing triple-
+// quote layout runs over the sentinel-substituted text (sentinels are
+// spaceless, so fold/join treat each as one atomic token), and the laid-
+// out value is split back into literal runs and slots.
+func buildInterpolatedTriple(span Span, full []byte, startCol int, sigil string) (any, error) {
+	// On error return a typed (empty) node, not nil: pigeon still treats
+	// the rule as matched and downstream expression rules type-assert the
+	// value, so a nil would panic before the recorded error surfaces.
+	subbed, slots, err := scanInterpolatedSlots(string(full[1:]))
+	if err != nil {
+		return &InterpolatedString{S: span}, err
+	}
+	value, err := processTripleQuoteBody([]byte(subbed), startCol+1, sigil)
+	if err != nil {
+		return &InterpolatedString{S: span}, err
+	}
+	parts, err := splitInterpolatedValue(value, slots)
+	if err != nil {
+		return &InterpolatedString{S: span}, err
+	}
+	return &InterpolatedString{S: span, Parts: parts, Form: formFromSigil(sigil)}, nil
+}
+
+// scanInterpolatedSlots rewrites a raw triple-quoted body, replacing each
+// `{{ ... }}` slot with a `\x00<index>\x00` sentinel and returning the
+// parsed slots in order. A backslash escape is copied as two bytes, so
+// `\{{` never opens a slot. A slot may not span a newline (V1).
+func scanInterpolatedSlots(s string) (string, []InterpolatedPart, error) {
+	var out strings.Builder
+	var slots []InterpolatedPart
+	for i := 0; i < len(s); {
+		c := s[i]
+		if c == '\\' && i+1 < len(s) {
+			out.WriteByte(c)
+			out.WriteByte(s[i+1])
+			i += 2
+			continue
+		}
+		if c == '{' && i+1 < len(s) && s[i+1] == '{' {
+			end, part, err := parseInterpolatedSlot(s, i)
+			if err != nil {
+				return "", nil, err
+			}
+			out.WriteByte(0)
+			out.WriteString(strconv.Itoa(len(slots)))
+			out.WriteByte(0)
+			slots = append(slots, part)
+			i = end
+			continue
+		}
+		out.WriteByte(c)
+		i++
+	}
+	return out.String(), slots, nil
+}
+
+// parseInterpolatedSlot parses the slot beginning at s[start] ("{{"). It
+// returns the index just past the closing "}}". The matching "}}" is the
+// first at bracket depth zero outside a string; a depth-zero ':' splits
+// off a printf verb.
+func parseInterpolatedSlot(s string, start int) (int, InterpolatedPart, error) {
+	depth := 0
+	inStr := false
+	colon := -1
+	for j := start + 2; j < len(s); {
+		c := s[j]
+		if c == '\n' {
+			return 0, InterpolatedPart{}, fmt.Errorf("interpolation slot must be on one line")
+		}
+		if inStr {
+			if c == '\\' {
+				j += 2
+				continue
+			}
+			if c == '\'' {
+				inStr = false
+			}
+			j++
+			continue
+		}
+		switch c {
+		case '\'':
+			inStr = true
+		case '(', '[', '{':
+			depth++
+		case ')', ']':
+			depth--
+		case ':':
+			if depth == 0 && colon < 0 {
+				colon = j
+			}
+		case '}':
+			if depth > 0 {
+				depth--
+			} else if j+1 < len(s) && s[j+1] == '}' {
+				part, err := finishInterpolatedSlot(s, start+2, colon, j)
+				return j + 2, part, err
+			}
+		}
+		j++
+	}
+	return 0, InterpolatedPart{}, fmt.Errorf("unterminated interpolation slot")
+}
+
+// finishInterpolatedSlot parses the expression (and optional verb) of a
+// slot whose body runs from exprStart up to the closing "}}" at close.
+func finishInterpolatedSlot(s string, exprStart, colon, close int) (InterpolatedPart, error) {
+	exprEnd := close
+	verb := ""
+	if colon >= 0 {
+		exprEnd = colon
+		verb = strings.TrimSpace(s[colon+1 : close])
+		if verb == "" || verb[0] != '%' {
+			return InterpolatedPart{}, fmt.Errorf("interpolation directive must be a printf verb like %%03d")
+		}
+	}
+	exprText := strings.TrimSpace(s[exprStart:exprEnd])
+	if exprText == "" {
+		return InterpolatedPart{}, fmt.Errorf("empty interpolation slot")
+	}
+	expr, err := parseExprFn("", []byte(exprText))
+	if err != nil {
+		return InterpolatedPart{}, err
+	}
+	return InterpolatedPart{Expr: expr, Verb: verb}, nil
+}
+
+// splitInterpolatedValue splits a laid-out triple-quote value on its
+// sentinels, interleaving decoded literal runs with the parsed slots.
+func splitInterpolatedValue(value string, slots []InterpolatedPart) ([]InterpolatedPart, error) {
+	var parts []InterpolatedPart
+	var lit strings.Builder
+	flush := func() error {
+		if lit.Len() == 0 {
+			return nil
+		}
+		dec, err := decodeTripleInterpolatedLiteral(lit.String())
+		if err != nil {
+			return err
+		}
+		parts = append(parts, InterpolatedPart{Lit: dec})
+		lit.Reset()
+		return nil
+	}
+	for i := 0; i < len(value); {
+		if value[i] == 0 {
+			if err := flush(); err != nil {
+				return nil, err
+			}
+			j := i + 1
+			for j < len(value) && value[j] != 0 {
+				j++
+			}
+			idx, err := strconv.Atoi(value[i+1 : j])
+			if err != nil || idx < 0 || idx >= len(slots) {
+				return nil, fmt.Errorf("interpolation: bad slot marker")
+			}
+			parts = append(parts, slots[idx])
+			i = j + 1
+			continue
+		}
+		lit.WriteByte(value[i])
+		i++
+	}
+	if err := flush(); err != nil {
+		return nil, err
+	}
+	return parts, nil
+}
+
+// decodeTripleInterpolatedLiteral decodes a literal run from an
+// interpolated triple-quoted string. The body is raw except that `\{{`
+// yields a literal `{{`; `\}}` is rejected as it is in the single-quoted
+// form, and every other backslash stays verbatim.
+func decodeTripleInterpolatedLiteral(s string) (string, error) {
+	if !strings.ContainsRune(s, '\\') {
+		return s, nil
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+2 < len(s) && s[i+1] == '{' && s[i+2] == '{' {
+			b.WriteString("{{")
+			i += 2
+			continue
+		}
+		if s[i] == '\\' && i+2 < len(s) && s[i+1] == '}' && s[i+2] == '}' {
+			return "", fmt.Errorf("invalid escape \"\\}}\" in interpolated string")
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String(), nil
+}
+
 // pushComment stashes a captured comment on the parser's global
 // store, keyed on source offset so backtracking does not insert
 // duplicates. The format renderer reads the collected map back after
@@ -474,10 +679,22 @@ StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 	return unquoteSingle(string(c.text))
 }
 
-// Interpolatedolated single-quoted string: `$'...{{ expr }}...'`. The !"''"
-// guard keeps this from swallowing the `$'''` triple-quote opener. A
-// `{{` opens a slot; a single `{` is literal; `\{{` is a literal `{{`.
-InterpolatedStringNode <- "$'" !"''" parts:InterpolatedSinglePart* "'" {
+// Interpolated strings: `$'...'` single-quoted and `$'''...'''` triple-
+// quoted (single- and multi-line). The triple forms are tried first so
+// `$'''` is not mistaken for `$'` followed by content; the !"''" guard on
+// the single form is the matching backstop. A `{{` opens a slot, a single
+// `{` is literal, and `\{{` is a literal `{{`.
+InterpolatedStringNode <- InterpolatedMultiTriple / InterpolatedSingleTriple / InterpolatedSingleQuote
+
+InterpolatedMultiTriple <- "$'''" s:Sigil "\n" MultiLineContent Indent "'''" {
+	return buildInterpolatedTriple(c.rangeSpan(), c.text, c.pos.col, s.(string))
+}
+
+InterpolatedSingleTriple <- "$'''" SingleLineContent "'''" {
+	return buildInterpolatedTriple(c.rangeSpan(), c.text, c.pos.col, "")
+}
+
+InterpolatedSingleQuote <- "$'" !"''" parts:InterpolatedSinglePart* "'" {
 	return buildInterpolatedString(c.span(), parts, StringSingleQuoted)
 }
 

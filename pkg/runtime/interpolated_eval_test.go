@@ -50,6 +50,43 @@ func TestEvalInterpolated(t *testing.T) {
 	}
 }
 
+func TestEvalInterpolatedTriple(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{"name": "web", "region": "us-east-1"}}
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			"single line",
+			`$'''Hello {{ var.name }}!'''`,
+			"Hello web!",
+		},
+		{
+			"folded strip joins lines with a space",
+			"$'''>-\n  Hello {{ var.name }},\n  region {{ var.region }}\n  '''",
+			"Hello web, region us-east-1",
+		},
+		{
+			"literal strip keeps the newline",
+			"$'''|-\n  host {{ var.name }}\n  zone {{ var.region }}\n  '''",
+			"host web\nzone us-east-1",
+		},
+		{
+			"joined strip drops the line break",
+			"$'''\\-\n  {{ var.name }}\n  -{{ var.region }}\n  '''",
+			"web-us-east-1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Eval(parseValue(t, tt.src), ctx)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestEvalInterpolatedRejectsNonScalar(t *testing.T) {
 	ctx := &EvalContext{Vars: map[string]any{
 		"nothing": nil,
