@@ -13,9 +13,10 @@ import (
 // be nil when the caller has no node table; the walker returns
 // Unknown for any node reference in that case.
 type Scope struct {
-	Inputs     []ObjectField
-	Each       *EachBinding
-	LookupNode LookupNodeFn
+	Inputs      []ObjectField
+	Each        *EachBinding
+	LookupNode  LookupNodeFn
+	LookupLocal LookupLocalFn
 	// Bindings holds comprehension-bound names. They resolve as bare
 	// values and as dot-path roots ahead of var/resource/data/action,
 	// so an inner binding shadows an outer one.
@@ -57,6 +58,12 @@ type EachBinding struct {
 // reference checker has the responsibility to report unresolved
 // node addresses).
 type LookupNodeFn func(kind, ns, typ, name string) (Type, bool)
+
+// LookupLocalFn returns the inferred Type of a `locals:` entry by
+// name. The boolean is false when no such local is declared; the
+// inferrer then returns Unknown without an error (the reference
+// checker reports an unknown local name).
+type LookupLocalFn func(name string) (Type, bool)
 
 // Infer walks e and returns its inferred type. The target steers
 // how ambiguous literals decide between list/tuple and how object
@@ -377,10 +384,27 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 		return inferVar(dp, scope, errs)
 	case "resource", "data", "action":
 		return inferNode(dp, scope, errs)
+	case "local":
+		return inferLocal(dp, scope, errs)
 	case "@each":
 		return inferEach(dp, scope)
 	}
 	return TUnknown()
+}
+
+func inferLocal(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
+	if scope == nil || scope.LookupLocal == nil || len(dp.Segments) == 0 {
+		return TUnknown()
+	}
+	name := dp.Segments[0].Name
+	if name == "" {
+		return TUnknown()
+	}
+	t, ok := scope.LookupLocal(name)
+	if !ok {
+		return TUnknown()
+	}
+	return traverseSegments(t, dp.Segments[1:], errs, false)
 }
 
 func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {

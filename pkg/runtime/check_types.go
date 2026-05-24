@@ -91,10 +91,54 @@ func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
 
 func (c *referenceChecker) scopeFor(n *Node) *typecheck.Scope {
 	inputs := c.scopeInputs(n.Composite)
-	return &typecheck.Scope{
+	scope := &typecheck.Scope{
 		Inputs:     inputs,
 		LookupNode: c.lookupNodeFor(n.Composite),
 	}
+	scope.LookupLocal = c.lookupLocalFor(n.Composite, scope)
+	return scope
+}
+
+// lookupLocalFor returns a resolver that infers the type of a local in
+// the given scope. The local's expression is inferred against the same
+// scope, so a local may read inputs, nodes, and other locals. Results
+// are memoized; a local caught mid-inference (a cycle, already reported
+// by the reference checker) yields Unknown rather than looping.
+func (c *referenceChecker) lookupLocalFor(
+	scope string,
+	sc *typecheck.Scope,
+) typecheck.LookupLocalFn {
+	exprs := c.localExprsFor(scope)
+	memo := map[string]typecheck.Type{}
+	forcing := map[string]bool{}
+	return func(name string) (typecheck.Type, bool) {
+		expr, ok := exprs[name]
+		if !ok {
+			return typecheck.Type{}, false
+		}
+		if t, done := memo[name]; done {
+			return t, true
+		}
+		if forcing[name] {
+			return typecheck.TUnknown(), true
+		}
+		forcing[name] = true
+		t := typecheck.Infer(expr, typecheck.TUnknown(), sc, lang.NewErrorList(0))
+		delete(forcing, name)
+		memo[name] = t
+		return t, true
+	}
+}
+
+func (c *referenceChecker) localExprsFor(scope string) map[string]lang.Expr {
+	if scope == "" {
+		return localExprs(localsBlock(c.root))
+	}
+	node, ok := c.dag.Nodes[scope]
+	if !ok {
+		return nil
+	}
+	return localExprs(localsBlock(node.CompositeBody))
 }
 
 func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {

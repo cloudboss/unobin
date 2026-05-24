@@ -81,6 +81,58 @@ resources: {
 	require.Contains(t, got[0], "expected string, got integer")
 }
 
+func TestCheckTypesAcceptsLocalMatchingField(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: { p: 'somewhere' }
+resources: {
+  local: {
+    file: {
+      one: { path: local.p, content: 'hi' }
+    }
+  }
+}
+`), map[string]*Module{"local": localFileModule()})
+
+	require.Empty(t, checkErrorMessages(t, errs))
+}
+
+func TestCheckTypesRejectsLocalWithWrongType(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: { m: 5 }
+resources: {
+  local: {
+    file: {
+      one: { path: local.m, content: 'hi' }
+    }
+  }
+}
+`), map[string]*Module{"local": localFileModule()})
+
+	got := checkErrorMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "expected string, got integer")
+}
+
+func TestCheckTypesRejectsChainedLocalWithWrongType(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: {
+  raw:     5
+  derived: local.raw
+}
+resources: {
+  local: {
+    file: {
+      one: { path: local.derived, content: 'hi' }
+    }
+  }
+}
+`), map[string]*Module{"local": localFileModule()})
+
+	got := checkErrorMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "expected string, got integer")
+}
+
 func TestCheckTypesRejectsResourceFieldWithWrongType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 resources: {
