@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 )
 
 // Decode fills v's exported fields from the inputs map using
