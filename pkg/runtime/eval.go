@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -61,6 +63,8 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 	switch v := e.(type) {
 	case *lang.StringLit:
 		return v.Value, nil
+	case *lang.InterpolatedString:
+		return evalInterpolated(v, ctx)
 	case *lang.NumberLit:
 		if v.IsFloat {
 			return v.ParsedFloat, nil
@@ -249,6 +253,58 @@ func evalConditional(n *lang.Conditional, ctx *EvalContext) (any, error) {
 		return Eval(n.Then, ctx)
 	}
 	return Eval(n.Else, ctx)
+}
+
+// evalInterpolated reduces an interpolated string by concatenating its
+// literal runs with the rendered value of each slot. A slot must reduce
+// to a scalar; a non-empty verb formats it through fmt, otherwise the
+// value uses its default rendering.
+func evalInterpolated(n *lang.InterpolatedString, ctx *EvalContext) (any, error) {
+	var b strings.Builder
+	for _, part := range n.Parts {
+		if part.Expr == nil {
+			b.WriteString(part.Lit)
+			continue
+		}
+		val, err := Eval(part.Expr, ctx)
+		if err != nil {
+			return nil, err
+		}
+		s, err := interpolatedSlot(val, part.Verb)
+		if err != nil {
+			return nil, err
+		}
+		b.WriteString(s)
+	}
+	return b.String(), nil
+}
+
+// interpolatedSlot renders one slot value to text. A null or a composite
+// value is an error; the type checker rejects most of these statically,
+// but a value flowing in from a node output is guarded here too.
+func interpolatedSlot(v any, verb string) (string, error) {
+	switch v.(type) {
+	case nil:
+		return "", fmt.Errorf("eval: interpolation slot is null")
+	case []any, map[string]any:
+		return "", fmt.Errorf(
+			"eval: interpolation slot must be a scalar, got %s", lang.TypeMessage(v))
+	}
+	if verb != "" {
+		return fmt.Sprintf(verb, v), nil
+	}
+	switch x := v.(type) {
+	case string:
+		return x, nil
+	case bool:
+		return strconv.FormatBool(x), nil
+	case int64:
+		return strconv.FormatInt(x, 10), nil
+	case float64:
+		return strconv.FormatFloat(x, 'g', -1, 64), nil
+	default:
+		return fmt.Sprintf("%v", v), nil
+	}
 }
 
 func evalArray(a *lang.ArrayLit, ctx *EvalContext) ([]any, error) {

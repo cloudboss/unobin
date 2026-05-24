@@ -44,6 +44,53 @@ func TestRefsEachIgnored(t *testing.T) {
 	require.Empty(t, Refs(parseValue(t, "@each.key")))
 }
 
+func TestRefsInterpolated(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{"empty string", `$''`, nil},
+		{"literal only", `$'just text'`, nil},
+		{"escaped braces are literal", `$'\{{not a ref}}'`, nil},
+		{"each binding ignored", `$'{{@each.value}}'`, nil},
+		{"single var", `$'{{var.region}}'`, []string{"var.region"}},
+		{"single resource", `$'{{resource.aws.vpc.main.id}}'`, []string{"resource.aws.vpc.main"}},
+		{"single data", `$'{{data.aws.ami.ubuntu.id}}'`, []string{"data.aws.ami.ubuntu"}},
+		{
+			"single action",
+			`$'{{action.core.command.smoke.exit-code}}'`,
+			[]string{"action.core.command.smoke"},
+		},
+		{"literal around ref", `$'https://{{var.host}}/v1'`, []string{"var.host"}},
+		{"verb does not change ref", `$'{{var.n:%03d}}'`, []string{"var.n"}},
+		{"nested field collapses to node", `$'{{var.network.vpc-id}}'`, []string{"var.network"}},
+		{
+			"for-each instance index",
+			`$'{{resource.aws.instance.nodes['alpha'].id}}'`,
+			[]string{"resource.aws.instance.nodes"},
+		},
+		{"two vars in order", `$'{{var.z}}-{{var.a}}'`, []string{"var.z", "var.a"}},
+		{"duplicate ref deduped", `$'{{var.x}}/{{var.x}}'`, []string{"var.x"}},
+		{
+			"mixed kinds",
+			`$'{{var.region}}/{{resource.aws.vpc.main.id}}/{{data.aws.ami.ubuntu.id}}'`,
+			[]string{"var.region", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
+		},
+		{
+			"conditional slot unions both branches",
+			`$'{{if var.cond then resource.aws.vpc.main.id else data.aws.ami.ubuntu.id}}'`,
+			[]string{"var.cond", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
+		},
+		{"call argument ref", `$'{{format('%s', var.x)}}'`, []string{"var.x"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, Refs(parseValue(t, tt.src)))
+		})
+	}
+}
+
 func TestRefsCollectsAcrossArrayAndObject(t *testing.T) {
 	src := `[
   var.a,

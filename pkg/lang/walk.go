@@ -3,9 +3,9 @@ package lang
 // Walk invokes visit for e and then for every nested expression in
 // source order. It recurses into object field values, array elements,
 // call args, infix and prefix operands, dot-path index expressions,
-// conditional branches, and comprehension parts. A nil expression is a
-// no-op so callers can recurse through optional fields without guarding
-// first.
+// conditional branches, comprehension parts, and interpolated-string
+// slots. A nil expression is a no-op so callers can recurse through
+// optional fields without guarding first.
 func Walk(e Expr, visit func(Expr)) {
 	if e == nil {
 		return
@@ -42,5 +42,9 @@ func Walk(e Expr, visit func(Expr)) {
 		Walk(v.Key, visit)
 		Walk(v.Value, visit)
 		Walk(v.Filter, visit)
+	case *InterpolatedString:
+		for _, part := range v.Parts {
+			Walk(part.Expr, visit)
+		}
 	}
 }
