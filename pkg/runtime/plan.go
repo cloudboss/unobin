@@ -209,7 +209,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if err := e.finalizePendingReads(rs); err != nil {
 		return nil, err
 	}
-	upgradeActionRerun(plan.Steps, e.DAG)
+	upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.Source, e.DAG.Nodes))
 
 	// Orphans: prior leaf entries with no live address in this plan.
 	if rs.prior != nil {
@@ -660,11 +660,12 @@ func finalizeResourceRead(pr *pendingRead) error {
 
 // upgradeActionRerun walks plan steps in order and turns a Skip action
 // into a Rerun when any of its references points to a step whose
-// decision implies an upstream change. The walk runs after all reads
-// have finalized, so every step's Decision is set; it updates the
-// per-address index in place so a transitive Skip->Rerun chain picks
-// up the upgrade from an earlier step.
-func upgradeActionRerun(steps []*PlanStep, dag *DAG) {
+// decision implies an upstream change. A reference made through a local
+// counts: the local is followed to the upstream it reads. The walk runs
+// after all reads have finalized, so every step's Decision is set; it
+// updates the per-address index in place so a transitive Skip->Rerun
+// chain picks up the upgrade from an earlier step.
+func upgradeActionRerun(steps []*PlanStep, dag *DAG, sl *scopeLocals) {
 	addressDecision := make(map[string]Decision, len(steps))
 	for _, step := range steps {
 		addressDecision[step.Address] = step.Decision
@@ -677,7 +678,7 @@ func upgradeActionRerun(steps []*PlanStep, dag *DAG) {
 		if node == nil {
 			continue
 		}
-		for _, ref := range Refs(node.Body) {
+		for _, ref := range refsWithLocals(node.Body, sl.forScope(node.Composite)) {
 			if isUpstreamChange(addressDecision[ref]) {
 				step.Decision = DecisionRerun
 				step.TriggerHash = ""

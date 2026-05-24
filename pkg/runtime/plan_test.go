@@ -481,6 +481,42 @@ resources: {
 	require.Nil(t, two.Inputs["name"])
 }
 
+func TestUpgradeActionRerunFollowsLocal(t *testing.T) {
+	src := `
+locals: {
+  thing-id: resource.core.thing.one.id
+}
+resources: {
+  core: { thing: { one: { name: 'a' } } }
+}
+actions: {
+  core: { command: { notify: { argv: ['echo', local.thing-id] } } }
+}
+`
+	f := parseStack(t, src)
+	dag := BuildDAG(f, nil)
+	sl := newScopeLocals(f, dag.Nodes)
+
+	cases := []struct {
+		name     string
+		upstream Decision
+		want     Decision
+	}{
+		{"upstream updated", DecisionUpdate, DecisionRerun},
+		{"upstream unchanged", DecisionNoOp, DecisionSkip},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			steps := []*PlanStep{
+				{Address: "resource.core.thing.one", Kind: NodeResource, Decision: tc.upstream},
+				{Address: "action.core.command.notify", Kind: NodeAction, Decision: DecisionSkip},
+			}
+			upgradeActionRerun(steps, dag, sl)
+			require.Equal(t, tc.want, steps[1].Decision)
+		})
+	}
+}
+
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	src := `
 resources: {
