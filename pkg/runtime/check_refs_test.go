@@ -36,6 +36,57 @@ outputs: {
 	require.Contains(t, got[2], `unknown data "data.core.lookup.missing"`)
 }
 
+func TestCheckReferencesLocalsValid(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: { env: { type: string } }
+locals: {
+  base:    var.env
+  derived: local.base
+}
+resources: {
+  local: { file: { one: { path: local.derived } } }
+}
+outputs: {
+  p: { value: resource.local.file.one.path }
+}
+`), nil)
+	require.Empty(t, checkRefMessages(t, errs))
+}
+
+func TestCheckReferencesUnknownLocal(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+outputs: {
+  bad: { value: local.nope }
+}
+`), nil)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown local "nope"`)
+}
+
+func TestCheckReferencesLocalReadsUnknownInput(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: { x: var.missing }
+outputs: { o: { value: local.x } }
+`), nil)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `unknown input "missing"`)
+}
+
+func TestCheckReferencesLocalCycle(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: {
+  a: local.b
+  b: local.a
+}
+outputs: { o: { value: local.a } }
+`), nil)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `is part of a cycle`)
+}
+
 func TestCheckReferencesResourceModuleMustBeImported(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 resources: {

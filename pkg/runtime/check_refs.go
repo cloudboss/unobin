@@ -16,12 +16,15 @@ func CheckReferences(f *lang.File, mods map[string]*Module) *lang.ErrorList {
 		dag:     BuildDAG(f, mods),
 		errs:    lang.NewErrorList(0),
 		inputs:  map[string]map[string]bool{"": inputNames(f)},
+		locals:  map[string]map[string]bool{"": localNames(f)},
 		modules: map[string]map[string]*Module{"": mods},
 		seen:    map[string]bool{},
 	}
 	c.collectCompositeScopes()
 	c.checkDeclarations()
 	c.checkNodes()
+	c.checkLocals()
+	c.checkLocalCycles()
 	c.checkConstraints()
 	c.checkTypes()
 	return c.errs
@@ -32,6 +35,7 @@ type referenceChecker struct {
 	dag     *DAG
 	errs    *lang.ErrorList
 	inputs  map[string]map[string]bool
+	locals  map[string]map[string]bool
 	modules map[string]map[string]*Module
 	seen    map[string]bool
 }
@@ -42,6 +46,7 @@ func (c *referenceChecker) collectCompositeScopes() {
 			continue
 		}
 		c.inputs[n.Address] = inputNames(n.CompositeBody)
+		c.locals[n.Address] = localNames(n.CompositeBody)
 		c.modules[n.Address] = n.Modules
 	}
 }
@@ -154,6 +159,8 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 			c.checkVar(dp, scope)
 		case "resource", "data", "action":
 			c.checkNode(dp, scope)
+		case "local":
+			c.checkLocal(dp, scope)
 		case "@each":
 			c.checkEach(dp, eachOK)
 		}
@@ -169,6 +176,130 @@ func (c *referenceChecker) checkVar(dp *lang.DotPath, scope string) {
 		return
 	}
 	c.addf(dp.S.Start, `unknown input %q`, name)
+}
+
+func (c *referenceChecker) checkLocal(dp *lang.DotPath, scope string) {
+	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
+		return
+	}
+	name := dp.Segments[0].Name
+	if c.locals[scope][name] {
+		return
+	}
+	c.addf(dp.S.Start, `unknown local %q`, name)
+}
+
+// checkLocals walks every local's value expression so references made
+// inside a `locals:` block (to inputs, nodes, or other locals) are
+// validated even though locals are not nodes in the graph.
+func (c *referenceChecker) checkLocals() {
+	c.checkLocalsBlock(c.root, "")
+	for _, n := range c.dag.Nodes {
+		if n.Kind != NodeComposite || n.CompositeBody == nil {
+			continue
+		}
+		c.checkLocalsBlock(n.CompositeBody, n.Address)
+	}
+}
+
+func (c *referenceChecker) checkLocalsBlock(f *lang.File, scope string) {
+	block := localsBlock(f)
+	if block == nil {
+		return
+	}
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		c.checkExpr(fld.Value, scope, false)
+	}
+}
+
+// checkLocalCycles reports a `locals:` block whose entries refer to one
+// another in a loop. Declaration order does not matter, so the cycle is
+// found structurally rather than by evaluation.
+func (c *referenceChecker) checkLocalCycles() {
+	c.checkLocalCyclesBlock(c.root, "")
+	for _, n := range c.dag.Nodes {
+		if n.Kind != NodeComposite || n.CompositeBody == nil {
+			continue
+		}
+		c.checkLocalCyclesBlock(n.CompositeBody, n.Address)
+	}
+}
+
+func (c *referenceChecker) checkLocalCyclesBlock(f *lang.File, scope string) {
+	block := localsBlock(f)
+	if block == nil {
+		return
+	}
+	graph := map[string][]string{}
+	pos := map[string]lang.Position{}
+	var order []string
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		name := fld.Key.Name
+		graph[name] = localRefNames(fld.Value)
+		pos[name] = fld.Key.S.Start
+		order = append(order, name)
+	}
+	const (
+		unvisited = 0
+		active    = 1
+		done      = 2
+	)
+	visiting := map[string]int{}
+	var visit func(string) bool
+	visit = func(name string) bool {
+		visiting[name] = active
+		for _, ref := range graph[name] {
+			if _, isLocal := graph[ref]; !isLocal {
+				continue
+			}
+			if visiting[ref] == active {
+				return true
+			}
+			if visiting[ref] == unvisited && visit(ref) {
+				return true
+			}
+		}
+		visiting[name] = done
+		return false
+	}
+	for _, name := range order {
+		if visiting[name] == unvisited && visit(name) {
+			c.addf(pos[name], `local %q is part of a cycle`, name)
+		}
+	}
+}
+
+// localNames returns the set of names declared in a file's `locals:`
+// block.
+func localNames(f *lang.File) map[string]bool {
+	out := map[string]bool{}
+	for name := range localExprs(localsBlock(f)) {
+		out[name] = true
+	}
+	return out
+}
+
+// localRefNames returns the local names an expression reads through
+// `local.<name>` references, in source order.
+func localRefNames(e lang.Expr) []string {
+	var out []string
+	lang.Walk(e, func(node lang.Expr) {
+		dp, ok := node.(*lang.DotPath)
+		if !ok || dp.Root.Name != "local" {
+			return
+		}
+		if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
+			return
+		}
+		out = append(out, dp.Segments[0].Name)
+	})
+	return out
 }
 
 func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
