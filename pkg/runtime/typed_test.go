@@ -123,35 +123,62 @@ func (d *fakeAMI) Read(_ context.Context, _ any) (*fakeAMIOutput, error) {
 }
 
 func TestCoercePriorNil(t *testing.T) {
-	got := coercePrior[*fakeVpcOutput](nil)
+	got, err := coercePrior[*fakeVpcOutput](nil)
+	require.NoError(t, err)
 	require.Nil(t, got)
 }
 
 func TestCoercePriorPassesTypedValueThrough(t *testing.T) {
 	prior := &fakeVpcOutput{ID: "vpc-abc"}
-	got := coercePrior[*fakeVpcOutput](prior)
+	got, err := coercePrior[*fakeVpcOutput](prior)
+	require.NoError(t, err)
 	require.Equal(t, prior, got)
 }
 
 func TestCoercePriorFromStateMap(t *testing.T) {
 	// State on disk is JSON-decoded, so prior outputs arrive as
 	// map[string]any rather than the typed *Out. coercePrior must
-	// decode the map into the typed shape.
+	// decode the map into the typed output.
 	prior := map[string]any{"id": "vpc-abc"}
-	got := coercePrior[*fakeVpcOutput](prior)
+	got, err := coercePrior[*fakeVpcOutput](prior)
+	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.Equal(t, "vpc-abc", got.ID)
 }
 
+func TestCoercePriorUnsupportedTypeReturnsError(t *testing.T) {
+	// A prior that is neither nil, the typed output, nor a map cannot
+	// be coerced. It must return an error, not crash.
+	_, err := coercePrior[*fakeVpcOutput](42)
+	require.Error(t, err)
+}
+
+func TestCoercePriorUndecodableMapReturnsError(t *testing.T) {
+	// A state map with a field the output struct does not declare fails
+	// to decode. It must return an error, not crash.
+	_, err := coercePrior[*fakeVpcOutput](map[string]any{"unknown-field": "x"})
+	require.Error(t, err)
+}
+
 func TestReadAcceptsStateMapPrior(t *testing.T) {
-	// The plan code path that panicked: typed Read called with the
-	// JSON-decoded prior.
+	// State on disk is JSON-decoded, so typed Read is called with the
+	// map[string]any prior.
 	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
 	receiver := reg.NewReceiver()
 	prior := map[string]any{"id": "vpc-abc"}
 	out, err := reg.Read(context.Background(), receiver, nil, prior)
 	require.NoError(t, err)
 	require.Equal(t, "vpc-abc", out.(*fakeVpcOutput).ID)
+}
+
+func TestReadReturnsErrorOnUndecodableStateMap(t *testing.T) {
+	// A corrupt prior state entry is reported as a Read error rather
+	// than a panic out of the registration.
+	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
+	receiver := reg.NewReceiver()
+	prior := map[string]any{"unknown-field": "x"}
+	_, err := reg.Read(context.Background(), receiver, nil, prior)
+	require.Error(t, err)
 }
 
 func TestMakeDataSourceProducesWorkingRegistration(t *testing.T) {

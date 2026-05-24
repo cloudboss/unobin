@@ -164,19 +164,31 @@ func (typedResourceReg[T, Out, PT]) Create(
 func (typedResourceReg[T, Out, PT]) Read(
 	ctx context.Context, receiver, cfg, prior any,
 ) (any, error) {
-	return PT(receiver.(*T)).Read(ctx, cfg, coercePrior[Out](prior))
+	p, err := coercePrior[Out](prior)
+	if err != nil {
+		return nil, err
+	}
+	return PT(receiver.(*T)).Read(ctx, cfg, p)
 }
 
 func (typedResourceReg[T, Out, PT]) Update(
 	ctx context.Context, receiver, cfg, prior any,
 ) (any, error) {
-	return PT(receiver.(*T)).Update(ctx, cfg, coercePrior[Out](prior))
+	p, err := coercePrior[Out](prior)
+	if err != nil {
+		return nil, err
+	}
+	return PT(receiver.(*T)).Update(ctx, cfg, p)
 }
 
 func (typedResourceReg[T, Out, PT]) Delete(
 	ctx context.Context, receiver, cfg, prior any,
 ) error {
-	return PT(receiver.(*T)).Delete(ctx, cfg, coercePrior[Out](prior))
+	p, err := coercePrior[Out](prior)
+	if err != nil {
+		return err
+	}
+	return PT(receiver.(*T)).Delete(ctx, cfg, p)
 }
 
 func (typedResourceReg[T, Out, PT]) ReplaceFields(receiver any) []string {
@@ -237,27 +249,29 @@ func (typedDataSourceReg[T, Out, PT]) OutputType() reflect.Type {
 // usual Out = *Something). An already-typed Out passes through. State
 // loaded from disk arrives as map[string]any (JSON round trip) and
 // gets decoded into a fresh Out via the same mapstructure rules used
-// for inputs.
-func coercePrior[Out any](prior any) Out {
+// for inputs. A prior value that is neither nil, the typed output, nor
+// a decodable map returns an error rather than crashing, so a corrupt
+// or hand-edited state entry is reported to the operator like any other
+// step failure.
+func coercePrior[Out any](prior any) (Out, error) {
+	var zero Out
 	if prior == nil {
-		var zero Out
-		return zero
+		return zero, nil
 	}
 	if typed, ok := prior.(Out); ok {
-		return typed
+		return typed, nil
 	}
 	m, ok := prior.(map[string]any)
 	if !ok {
-		panic(fmt.Sprintf("coercePrior: unsupported prior type %T", prior))
+		return zero, fmt.Errorf("coerce prior state: unsupported type %T", prior)
 	}
-	var zero Out
 	t := reflect.TypeOf(zero)
 	if t == nil || t.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("coercePrior: Out type %T is not a pointer", zero))
+		return zero, fmt.Errorf("coerce prior state: output type %T is not a pointer", zero)
 	}
 	target := reflect.New(t.Elem())
 	if err := Decode(target.Interface(), m); err != nil {
-		panic(fmt.Sprintf("coercePrior: decode prior state into %s: %v", t, err))
+		return zero, fmt.Errorf("coerce prior state into %s: %w", t, err)
 	}
-	return target.Interface().(Out)
+	return target.Interface().(Out), nil
 }
