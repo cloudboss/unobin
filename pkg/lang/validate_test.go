@@ -19,6 +19,7 @@ func TestValidateTopLevelKeysStack(t *testing.T) {
 	src := `
 description: 'test'
 inputs:      {}
+locals:      {}
 constraints: []
 imports:     {}
 data:        {}
@@ -747,6 +748,54 @@ outputs: {
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
 	joined := strings.Join(errsToStrings(errs), "; ")
 	require.Contains(t, joined, "must be a boolean literal")
+}
+
+func TestValidateLocalsHappy(t *testing.T) {
+	src := `
+locals: {
+  cluster-name: $'{{var.env}}-{{var.region}}'
+  endpoint:     resource.aws.lb.main.dns-name
+  is-prod:      var.env == 'prod'
+  static:       'literal'
+  derived:      local.cluster-name
+}
+`
+	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateLocalsRejectsQuotedName(t *testing.T) {
+	src := `
+locals: {
+  'quoted': var.x
+}
+`
+	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, "bare identifier")
+}
+
+func TestValidateLocalsRejectsMetaKey(t *testing.T) {
+	src := `
+locals: {
+  @bad: var.x
+}
+`
+	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, "@-prefixed")
+}
+
+func TestValidateLocalsRejectsDuplicateName(t *testing.T) {
+	src := `
+locals: {
+  dup: var.x
+  dup: var.y
+}
+`
+	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate local")
 }
 
 func TestValidateConstraintReferencesHappy(t *testing.T) {

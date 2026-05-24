@@ -14,6 +14,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	FileStack: {
 		"description": {},
 		"inputs":      {},
+		"locals":      {},
 		"constraints": {},
 		"imports":     {},
 		"data":        {},
@@ -24,6 +25,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	FileExportedType: {
 		"description": {},
 		"inputs":      {},
+		"locals":      {},
 		"constraints": {},
 		"imports":     {},
 		"data":        {},
@@ -423,6 +425,37 @@ func validateOutputEntry(name string, value Expr, errs *ErrorList) {
 	}
 }
 
+// ValidateLocals checks a `locals:` block. Every entry is a bare
+// identifier name bound to an arbitrary expression; a local's type is
+// inferred from its value, never declared. Names must be unique. The
+// entry is referenced elsewhere as `local.<name>`. The value
+// expression's own validity (references, cycles) is checked in later
+// passes, not here.
+func ValidateLocals(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"local name must be a bare identifier, got quoted string %q", fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"@-prefixed key %q is not a valid local name", fld.Key.Name)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate local %q (first defined at %s)", name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+	}
+	return errs
+}
+
 // ValidateConstraintReferences checks that every name in the `fields:`
 // list of each constraint corresponds to a declared input. Constraint
 // entries with the wrong shape are skipped.
@@ -481,6 +514,9 @@ func ValidateFile(f *File) *ErrorList {
 	case FileStack, FileExportedType:
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateInputDeclarations(obj))
+		}
+		if obj, ok := blocks["locals"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateLocals(obj))
 		}
 		if arr, ok := blocks["constraints"].(*ArrayLit); ok {
 			mergeErrors(errs, ValidateConstraints(arr))
