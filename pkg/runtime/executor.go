@@ -173,6 +173,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
 			Modules:   e.Modules,
+			locals:    newLocalScope(localsBlock(e.Source)),
 		},
 		outputs:    make(map[string]any),
 		composites: make(map[string]*EvalContext),
@@ -276,6 +277,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
 		Modules:   compositeBodyModules(boundary, e.Modules),
+		locals:    newLocalScope(localsBlock(boundary.CompositeBody)),
 	}
 	rs.composites[callSite] = scope
 	return scope, nil

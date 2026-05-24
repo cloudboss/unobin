@@ -38,6 +38,12 @@ type EvalContext struct {
 	EachKey   any
 	EachValue any
 	ForEach   bool
+
+	// locals holds the scope's `locals:` declarations and folds them
+	// lazily as `local.<name>` references are evaluated. Shared with
+	// child contexts so a comprehension inside the scope sees the
+	// same locals and reuses their memoized values.
+	locals *localScope
 }
 
 // withBindings returns a shallow copy of ctx whose Bindings merges the
@@ -667,6 +673,8 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		root = ctx.Data
 	case "action":
 		root = ctx.Actions
+	case "local":
+		return evalLocal(p, ctx)
 	case "@each":
 		return evalEach(p, ctx)
 	default:

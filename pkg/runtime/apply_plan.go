@@ -75,6 +75,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
 			Modules:   compositeBodyModules(boundary, e.Modules),
+			locals:    newLocalScope(localsBlock(boundary.CompositeBody)),
 		}
 	}
 
