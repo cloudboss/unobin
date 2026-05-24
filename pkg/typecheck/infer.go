@@ -71,6 +71,8 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	switch v := e.(type) {
 	case *lang.StringLit:
 		return TString()
+	case *lang.InterpolatedString:
+		return inferInterpolated(v, scope, errs)
 	case *lang.NumberLit:
 		if v.IsFloat {
 			return TNumber()
@@ -125,6 +127,36 @@ func inferConditional(
 			"if branches have different types: %s and %s", thenT, elseT)
 	}
 	return TUnknown()
+}
+
+// inferInterpolated types an interpolated string. The result is always
+// a string; each slot is checked to be a scalar that cannot be null,
+// since the only sensible thing to splice into text is a single value.
+func inferInterpolated(s *lang.InterpolatedString, scope *Scope, errs *lang.ErrorList) Type {
+	for _, part := range s.Parts {
+		if part.Expr == nil {
+			continue
+		}
+		t := Infer(part.Expr, TUnknown(), scope, errs)
+		checkInterpolatedSlot(t, part.Expr.Span().Start, errs)
+	}
+	return TString()
+}
+
+// checkInterpolatedSlot reports when a slot type is not a scalar or may
+// be null. Unknown and any fail open, so a value the inferrer cannot
+// reason about is left to the runtime guard in evalInterpolated.
+func checkInterpolatedSlot(t Type, pos lang.Position, errs *lang.ErrorList) {
+	switch t.Kind {
+	case Unknown, Any, String, Integer, Number, Boolean:
+		return
+	case Null, Optional:
+		errs.Addf(lang.ErrType, pos,
+			"interpolation slot may be null; narrow it before interpolating (got %s)", t)
+	default:
+		errs.Addf(lang.ErrType, pos,
+			"interpolation slot must be a scalar, got %s", t)
+	}
 }
 
 // inferComprehension types a list or map comprehension. It binds the
