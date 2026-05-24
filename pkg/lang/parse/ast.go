@@ -131,8 +131,8 @@ func (n *ArrayLit) exprNode()  {}
 //   - Single quoted: 'hello\nworld'. Backslash escapes are processed
 //     during parsing, so Value holds the decoded content. Double quotes
 //     are not a string delimiter.
-//   - Single-line triple-quoted: ”'hello world”'. The body contains
-//     no newline, no escape processing, and is returned verbatim.
+//   - Single-line triple-quoted (delimited by three single quotes). The
+//     body has no newline, no escape processing, and is verbatim.
 //   - Multi-line triple-quoted with a sigil that selects mode (literal
 //     / folded / joined) and chomp (clip / strip). Value holds the
 //     dedented and mode-processed content.

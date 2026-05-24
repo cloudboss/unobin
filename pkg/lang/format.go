@@ -803,9 +803,9 @@ func (w *formatter) writeString(s *StringLit, indent string) error {
 
 // shouldWrapSingleQuoted reports whether a single-quoted string can
 // and should be rewritten in folded or joined triple-quote form.
-// Bodies containing ”' or a newline cannot be carried in either form
-// and are left alone. Bodies that already fit on the current line
-// stay single-quoted regardless of the wrapStrings setting.
+// Bodies containing a triple-quote run or a newline cannot be carried in
+// either form and are left alone. Bodies that already fit on the current
+// line stay single-quoted regardless of the wrapStrings setting.
 func (w *formatter) shouldWrapSingleQuoted(s *StringLit) bool {
 	if strings.Contains(s.Value, "'''") || strings.ContainsAny(s.Value, "\n\r") {
 		return false
