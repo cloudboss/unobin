@@ -37,6 +37,8 @@ func encodeNode(b *strings.Builder, n lang.Node) error {
 		return encodeArrayLit(b, x)
 	case *lang.StringLit:
 		return encodeStringLit(b, x)
+	case *lang.InterpolatedString:
+		return encodeInterpolatedString(b, x)
 	case *lang.NumberLit:
 		return encodeNumberLit(b, x)
 	case *lang.BoolLit:
@@ -159,6 +161,35 @@ func encodeStringLit(b *strings.Builder, n *lang.StringLit) error {
 		b.WriteString(n.Form.String())
 	}
 	b.WriteString("}")
+	return nil
+}
+
+func encodeInterpolatedString(b *strings.Builder, n *lang.InterpolatedString) error {
+	b.WriteString("&lang.InterpolatedString{")
+	if n.Form != lang.StringSingleQuoted {
+		b.WriteString("Form: lang.")
+		b.WriteString(n.Form.String())
+		b.WriteString(", ")
+	}
+	b.WriteString("Parts: []lang.InterpolatedPart{")
+	for _, part := range n.Parts {
+		b.WriteString("{")
+		if part.Expr == nil {
+			b.WriteString("Lit: ")
+			b.WriteString(strconv.Quote(part.Lit))
+		} else {
+			b.WriteString("Expr: ")
+			if err := encodeNode(b, part.Expr); err != nil {
+				return err
+			}
+			if part.Verb != "" {
+				b.WriteString(", Verb: ")
+				b.WriteString(strconv.Quote(part.Verb))
+			}
+		}
+		b.WriteString("}, ")
+	}
+	b.WriteString("}}")
 	return nil
 }
 
