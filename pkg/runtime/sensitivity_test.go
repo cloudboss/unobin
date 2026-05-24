@@ -40,6 +40,141 @@ resources: {
 	require.Equal(t, []string{"password"}, got)
 }
 
+func TestSensitivityFollowsLocalToSensitiveVar(t *testing.T) {
+	src := `
+inputs: {
+  region:   { type: string }
+  password: { type: string  @sensitive: true }
+}
+locals: {
+  pw: var.password
+}
+resources: {
+  local: {
+    secret: {
+      one: {
+        name:     var.region
+        password: local.pw
+      }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{"local": {Name: "local"}}
+	dag := BuildDAG(f, mods)
+	an := newSensitivityAnalyzer(f, mods, dag)
+
+	node := dag.Nodes["resource.local.secret.one"]
+	require.NotNil(t, node)
+	require.Equal(t, []string{"password"}, an.sensitiveInputs(node.Body, node.Composite))
+}
+
+func TestSensitivityFollowsChainedLocal(t *testing.T) {
+	src := `
+inputs: {
+  plain:  { type: string }
+  secret: { type: string  @sensitive: true }
+}
+locals: {
+  a: var.secret
+  b: local.a
+  c: var.plain
+}
+resources: {
+  local: {
+    secret: {
+      one: {
+        name:     local.c
+        password: local.b
+      }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{"local": {Name: "local"}}
+	dag := BuildDAG(f, mods)
+	an := newSensitivityAnalyzer(f, mods, dag)
+
+	node := dag.Nodes["resource.local.secret.one"]
+	require.NotNil(t, node)
+	require.Equal(t, []string{"password"}, an.sensitiveInputs(node.Body, node.Composite))
+}
+
+func TestSensitivityFollowsLocalToSensitiveOutput(t *testing.T) {
+	src := `
+locals: {
+  tok: resource.vault.secret.s.value
+}
+resources: {
+  vault: { secret: { s: { name: 'token' } } }
+  local: {
+    file: {
+      f: {
+        path:    'out.txt'
+        content: local.tok
+      }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{
+		"vault": {
+			Name: "vault",
+			Schema: &ModuleSchema{Resources: map[string]*TypeSchema{
+				"secret": {SensitiveOutputs: []string{"value"}},
+			}},
+		},
+		"local": {Name: "local"},
+	}
+	dag := BuildDAG(f, mods)
+	an := newSensitivityAnalyzer(f, mods, dag)
+
+	node := dag.Nodes["resource.local.file.f"]
+	require.NotNil(t, node)
+	require.Equal(t, []string{"content"}, an.sensitiveInputs(node.Body, node.Composite))
+}
+
+func TestSensitivityLocalNonSensitive(t *testing.T) {
+	src := `
+inputs: { region: { type: string } }
+locals: { r: var.region }
+resources: {
+  local: { file: { f: { path: local.r } } }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{"local": {Name: "local"}}
+	dag := BuildDAG(f, mods)
+	an := newSensitivityAnalyzer(f, mods, dag)
+
+	node := dag.Nodes["resource.local.file.f"]
+	require.NotNil(t, node)
+	require.Empty(t, an.sensitiveInputs(node.Body, node.Composite))
+}
+
+func TestSensitivityLocalCycleTerminates(t *testing.T) {
+	src := `
+locals: {
+  a: local.b
+  b: local.a
+}
+resources: {
+  local: { file: { f: { path: local.a } } }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{"local": {Name: "local"}}
+	dag := BuildDAG(f, mods)
+	an := newSensitivityAnalyzer(f, mods, dag)
+
+	node := dag.Nodes["resource.local.file.f"]
+	require.NotNil(t, node)
+	require.Empty(t, an.sensitiveInputs(node.Body, node.Composite))
+}
+
 func TestSensitivityRecognizesSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {

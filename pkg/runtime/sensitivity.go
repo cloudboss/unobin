@@ -17,6 +17,7 @@ import (
 // sites of the same composite type pays the inference cost once.
 type sensitivityAnalyzer struct {
 	rootInputs map[string]bool
+	rootLocals map[string]lang.Expr
 	rootMods   map[string]*Module
 	dag        *DAG
 	cache      map[*lang.File]*compositeSensitivity
@@ -27,11 +28,34 @@ type compositeSensitivity struct {
 	outputs map[string]bool
 }
 
+// sensScope bundles what a body's references resolve against while
+// deciding sensitivity: the sensitive input names, the module table,
+// the scope's `locals:` declarations (so a `local.X` can be followed
+// to its expression), and a guard set that breaks cyclic locals.
+type sensScope struct {
+	vars    map[string]bool
+	mods    map[string]*Module
+	locals  map[string]lang.Expr
+	forcing map[string]bool
+}
+
+func newSensScope(
+	vars map[string]bool, mods map[string]*Module, locals map[string]lang.Expr,
+) *sensScope {
+	return &sensScope{
+		vars:    vars,
+		mods:    mods,
+		locals:  locals,
+		forcing: map[string]bool{},
+	}
+}
+
 func newSensitivityAnalyzer(
 	rootSource *lang.File, rootMods map[string]*Module, dag *DAG,
 ) *sensitivityAnalyzer {
 	return &sensitivityAnalyzer{
 		rootInputs: inputsBlockSensitive(rootSource),
+		rootLocals: localExprs(localsBlock(rootSource)),
 		rootMods:   rootMods,
 		dag:        dag,
 		cache:      map[*lang.File]*compositeSensitivity{},
@@ -48,13 +72,13 @@ func (s *sensitivityAnalyzer) sensitiveInputs(body lang.Expr, compositeAddr stri
 	if !ok {
 		return nil
 	}
-	inputs, mods := s.scopeFor(compositeAddr)
+	sc := s.scopeFor(compositeAddr)
 	var names []string
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
-		if s.exprSensitive(fld.Value, inputs, mods) {
+		if s.exprSensitive(fld.Value, sc) {
 			names = append(names, fld.Key.Name)
 		}
 	}
@@ -125,24 +149,24 @@ func (s *sensitivityAnalyzer) modsForNode(n *Node) (map[string]*Module, *Node) {
 // resolve references against when analyzing inside the named
 // composite call site. The root scope returns the analyzer's
 // rootInputs and rootMods.
-func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) (map[string]bool, map[string]*Module) {
+func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) *sensScope {
 	if compositeAddr == "" || s.dag == nil {
-		return s.rootInputs, s.rootMods
+		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
 	}
 	tmpl, _ := splitInstanceAddress(compositeAddr)
 	boundary, ok := s.dag.Nodes[tmpl]
 	if !ok {
-		return s.rootInputs, s.rootMods
+		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
 	}
 	cs := s.compositeSensitivity(boundary)
 	if cs == nil {
-		return s.rootInputs, s.rootMods
+		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
 	}
 	mods := boundary.Modules
 	if mods == nil {
 		mods = s.rootMods
 	}
-	return cs.inputs, mods
+	return newSensScope(cs.inputs, mods, localExprs(localsBlock(boundary.CompositeBody)))
 }
 
 // compositeSensitivity returns the analyzed sensitivity facts for
@@ -179,6 +203,7 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	if mods == nil {
 		mods = s.rootMods
 	}
+	sc := newSensScope(cs.inputs, mods, localExprs(localsBlock(body)))
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -191,7 +216,7 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 		if inner == nil {
 			continue
 		}
-		if s.exprSensitive(inner, cs.inputs, mods) {
+		if s.exprSensitive(inner, sc) {
 			cs.outputs[name] = true
 		}
 	}
@@ -200,9 +225,7 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 
 // exprSensitive walks an expression and returns true on the first
 // dot path that points to a sensitive source under the given scope.
-func (s *sensitivityAnalyzer) exprSensitive(
-	e lang.Expr, sensVars map[string]bool, mods map[string]*Module,
-) bool {
+func (s *sensitivityAnalyzer) exprSensitive(e lang.Expr, sc *sensScope) bool {
 	if e == nil {
 		return false
 	}
@@ -215,22 +238,22 @@ func (s *sensitivityAnalyzer) exprSensitive(
 		if !ok {
 			return
 		}
-		if s.dotPathSensitive(dp, sensVars, mods) {
+		if s.dotPathSensitive(dp, sc) {
 			sensitive = true
 		}
 	})
 	return sensitive
 }
 
-func (s *sensitivityAnalyzer) dotPathSensitive(
-	dp *lang.DotPath, sensVars map[string]bool, mods map[string]*Module,
-) bool {
+func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) bool {
 	switch dp.Root.Name {
 	case "var":
 		if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
 			return false
 		}
-		return sensVars[dp.Segments[0].Name]
+		return sc.vars[dp.Segments[0].Name]
+	case "local":
+		return s.localSensitive(dp, sc)
 	case "resource", "data", "action":
 		if len(dp.Segments) < 4 {
 			return false
@@ -241,7 +264,7 @@ func (s *sensitivityAnalyzer) dotPathSensitive(
 		if ns == "" || typ == "" || field == "" {
 			return false
 		}
-		mod, ok := mods[ns]
+		mod, ok := sc.mods[ns]
 		if !ok || mod == nil {
 			return false
 		}
@@ -272,6 +295,28 @@ func (s *sensitivityAnalyzer) dotPathSensitive(
 		}
 	}
 	return false
+}
+
+// localSensitive reports whether a `local.<name>` reference reads a
+// sensitive source. The local's own expression is analyzed in the
+// same scope, following one local into another. The scope's guard set
+// stops a cyclic locals block from looping; such a cycle is a compile
+// error reported elsewhere.
+func (s *sensitivityAnalyzer) localSensitive(dp *lang.DotPath, sc *sensScope) bool {
+	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
+		return false
+	}
+	name := dp.Segments[0].Name
+	if sc.forcing[name] {
+		return false
+	}
+	expr, ok := sc.locals[name]
+	if !ok {
+		return false
+	}
+	sc.forcing[name] = true
+	defer delete(sc.forcing, name)
+	return s.exprSensitive(expr, sc)
 }
 
 // compositeTypeOutputs returns the sensitive output names of a
@@ -305,6 +350,7 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	if mods == nil {
 		mods = s.rootMods
 	}
+	sc := newSensScope(cs.inputs, mods, localExprs(localsBlock(ct.Body)))
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -317,7 +363,7 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 		if inner == nil {
 			continue
 		}
-		if s.exprSensitive(inner, cs.inputs, mods) {
+		if s.exprSensitive(inner, sc) {
 			cs.outputs[name] = true
 		}
 	}
