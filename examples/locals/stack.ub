@@ -1,0 +1,37 @@
+description: '''>-
+  Uses a locals block to compute values once and reuse them: a cluster name built from
+  inputs, a banner that reads another local, a boolean flag, a path shared by a
+  resource and an action, and a file hash read back from the resource the stack writes.
+  '''
+
+inputs: {
+  env:     { type: string, description: 'Deployment environment, e.g. prod or dev' }
+  region:  { type: string, description: 'Region the cluster runs in' }
+  message: { type: string, description: 'Text to put in the banner' }
+}
+
+imports: {
+  core:  'github.com/cloudboss/unobin//pkg/modules/core@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+}
+
+locals: {
+  cluster:      $'{{ var.env }}-{{ var.region }}'
+  is-prod:      var.env == 'prod'
+  banner:       $'[{{ local.cluster }}] {{ var.message }}'
+  summary-path: $'/tmp/unobin-{{ local.cluster }}.txt'
+  file-hash:    resource.local.file.summary.sha256
+}
+
+resources: { local: { file: { summary: { path: local.summary-path, content: local.banner } } } }
+
+actions: {
+  core: { command: { read-back: { @trigger: local.file-hash, argv: ['cat', local.summary-path] } } }
+}
+
+outputs: {
+  cluster:   { value: local.cluster }
+  is-prod:   { value: local.is-prod }
+  banner:    { value: local.banner }
+  read-back: { value: action.core.command.read-back.stdout }
+}
