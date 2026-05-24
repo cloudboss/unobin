@@ -214,6 +214,8 @@ func (w *formatter) isSingleLineField(field *Field) bool {
 		return w.singleLineWidth(x) >= 0
 	case *StringLit:
 		return !x.Form.IsMultiLine()
+	case *InterpolatedString:
+		return w.singleLineWidth(x) >= 0
 	case *Call:
 		return w.singleLineWidth(x) >= 0
 	case *Conditional:
@@ -249,6 +251,8 @@ func (w *formatter) singleLineWidth(e Expr) int {
 			return -1
 		}
 		return stringInlineWidth(x)
+	case *InterpolatedString:
+		return w.interpolatedInlineWidth(x)
 	case *NumberLit:
 		return len(x.Value)
 	case *BoolLit:
@@ -527,6 +531,8 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 	switch x := expr.(type) {
 	case *StringLit:
 		return w.writeString(x, indent)
+	case *InterpolatedString:
+		return w.writeInterpolated(x)
 	case *NumberLit:
 		w.buf.WriteString(x.Value)
 	case *BoolLit:
@@ -563,6 +569,86 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 		return fmt.Errorf("format: unsupported expression %T", expr)
 	}
 	return nil
+}
+
+// writeInterpolated renders a `$'...'` string. It is always emitted on
+// one line: literal runs are re-escaped and slots render as `{{ expr }}`
+// (with `:verb` when the slot carries a printf directive). WrapStrings
+// has no effect here yet: wrapping a `$'...'` needs the interpolated
+// triple-quote form as a target, which keeps slots intact while the
+// literal runs fold or join.
+func (w *formatter) writeInterpolated(s *InterpolatedString) error {
+	w.buf.WriteString("$'")
+	for _, part := range s.Parts {
+		if part.Expr == nil {
+			w.buf.WriteString(escapeInterpolatedLiteral(part.Lit))
+			continue
+		}
+		w.buf.WriteString("{{ ")
+		if err := w.writeExpr(part.Expr, ""); err != nil {
+			return err
+		}
+		if part.Verb != "" {
+			w.buf.WriteByte(':')
+			w.buf.WriteString(part.Verb)
+		}
+		w.buf.WriteString(" }}")
+	}
+	w.buf.WriteByte('\'')
+	return nil
+}
+
+func (w *formatter) interpolatedInlineWidth(s *InterpolatedString) int {
+	n := len("$'") + len("'")
+	for _, part := range s.Parts {
+		if part.Expr == nil {
+			n += len(escapeInterpolatedLiteral(part.Lit))
+			continue
+		}
+		ew := w.singleLineWidth(part.Expr)
+		if ew < 0 {
+			return -1
+		}
+		n += len("{{ ") + ew + len(" }}")
+		if part.Verb != "" {
+			n += 1 + len(part.Verb)
+		}
+	}
+	return n
+}
+
+// escapeInterpolatedLiteral renders a literal run back to its source
+// form. It is the inverse of the interpolated-literal decoder: the
+// recognized escapes are re-applied, and a `{{` is written as `\{{` so
+// it does not reopen a slot when re-parsed. A single `{` stays literal.
+func escapeInterpolatedLiteral(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; c {
+		case '\\':
+			b.WriteString(`\\`)
+		case '\'':
+			b.WriteString(`\'`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\t':
+			b.WriteString(`\t`)
+		case '\r':
+			b.WriteString(`\r`)
+		case 0:
+			b.WriteString(`\0`)
+		case '{':
+			if i+1 < len(s) && s[i+1] == '{' {
+				b.WriteString(`\{{`)
+				i++
+				continue
+			}
+			b.WriteByte('{')
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
 }
 
 // writeConditional renders `if cond then a else b` inline when it fits;
