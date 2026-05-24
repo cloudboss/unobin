@@ -370,3 +370,17 @@ func TestEncodeComprehensionTwoNames(t *testing.T) {
 	got := encodeExpr(t, "[ for i, s in var.items : i ]")
 	require.Contains(t, got, `Names: []string{"i", "s"}`)
 }
+
+func TestEncodeLocalsBlock(t *testing.T) {
+	got := encodeBody(t, `
+locals: {
+  endpoint: resource.aws.lb.main.dns-name
+  name:     $'{{local.endpoint}}-x'
+}
+`)
+	parsesAsGoExpr(t, got)
+	require.Contains(t, got, `Name: "locals"`,
+		"the locals block must survive codegen so a composite body keeps it")
+	require.Contains(t, got, `&lang.Ident{Name: "local"}`,
+		"a local reference inside the block must encode as a local-rooted path")
+}
