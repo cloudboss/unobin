@@ -51,6 +51,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 		DAG:     runtime.BuildDAG(f, mods),
 		Modules: mods,
 		Inputs:  inputs,
+		Source:  f,
 		Store:   store,
 		Stack:   state.StackInfo{Name: "demo-stack", Version: "v0", Commit: "c0"},
 	}
@@ -84,6 +85,54 @@ outputs: {
 `
 	res := runStack(t, src, map[string]any{"greeting": "world"})
 	require.Equal(t, "world\n", res.Outputs["said"])
+}
+
+func TestStackUsesLocals(t *testing.T) {
+	src := `
+inputs: {
+  env:    { type: string }
+  region: { type: string }
+}
+locals: {
+  cluster:  $'{{var.env}}-{{var.region}}'
+  greeting: $'hello from {{local.cluster}}'
+}
+actions: {
+  core: {
+    command: {
+      hello: { argv: ['echo', local.greeting] }
+    }
+  }
+}
+outputs: {
+  said:    { value: action.core.command.hello.stdout }
+  cluster: { value: local.cluster }
+}
+`
+	res := runStack(t, src, map[string]any{"env": "prod", "region": "us-east-1"})
+	require.Equal(t, "hello from prod-us-east-1\n", res.Outputs["said"])
+	require.Equal(t, "prod-us-east-1", res.Outputs["cluster"])
+}
+
+func TestStackLocalReadsActionOutput(t *testing.T) {
+	src := `
+locals: {
+  echoed: action.core.command.first.stdout
+}
+actions: {
+  core: {
+    command: {
+      first:  { argv: ['echo', 'one'] }
+      second: { argv: ['echo', local.echoed] }
+    }
+  }
+}
+outputs: {
+  result: { value: action.core.command.second.stdout }
+}
+`
+	res := runStack(t, src, nil)
+	require.Equal(t, "one\n\n", res.Outputs["result"])
 }
 
 func TestStackChainsActions(t *testing.T) {
