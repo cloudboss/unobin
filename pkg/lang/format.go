@@ -3,6 +3,7 @@ package lang
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -532,7 +533,7 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 	case *StringLit:
 		return w.writeString(x, indent)
 	case *InterpolatedString:
-		return w.writeInterpolated(x)
+		return w.writeInterpolated(x, indent)
 	case *NumberLit:
 		w.buf.WriteString(x.Value)
 	case *BoolLit:
@@ -571,17 +572,31 @@ func (w *formatter) writeExpr(expr Expr, indent string) error {
 	return nil
 }
 
-// writeInterpolated renders a `$'...'` string. It is always emitted on
-// one line: literal runs are re-escaped and slots render as `{{ expr }}`
-// (with `:verb` when the slot carries a printf directive). WrapStrings
-// has no effect here yet: wrapping a `$'...'` needs the interpolated
-// triple-quote form as a target, which keeps slots intact while the
-// literal runs fold or join.
-func (w *formatter) writeInterpolated(s *InterpolatedString) error {
-	w.buf.WriteString("$'")
+// writeInterpolated renders an interpolated string in its own form. A
+// single-quoted or single-line triple-quoted value renders inline (a slot
+// is `{{ expr }}`, with `:verb` when it carries a printf directive). A
+// multi-line form re-emits the triple-quote layout. With WrapStrings, an
+// overflowing single-quoted value is rewritten as a folded or joined
+// triple-quote.
+func (w *formatter) writeInterpolated(s *InterpolatedString, indent string) error {
+	if s.Form.IsMultiLine() {
+		return w.writeInterpolatedMultiline(s, s.Form, indent)
+	}
+	if s.Form == StringSingleQuoted && w.wrapStrings && w.shouldWrapInterpolated(s) {
+		form := StringJoinedStrip
+		if w.interpolatedHasSpace(s) {
+			form = StringFoldedStrip
+		}
+		return w.writeInterpolatedMultiline(s, form, indent)
+	}
+	opener, closer, esc := "$'", "'", escapeInterpolatedLiteral
+	if s.Form == StringTripleQuoteSingleLine {
+		opener, closer, esc = "$'''", "'''", escapeTripleInterpolatedLiteral
+	}
+	w.buf.WriteString(opener)
 	for _, part := range s.Parts {
 		if part.Expr == nil {
-			w.buf.WriteString(escapeInterpolatedLiteral(part.Lit))
+			w.buf.WriteString(esc(part.Lit))
 			continue
 		}
 		w.buf.WriteString("{{ ")
@@ -594,15 +609,97 @@ func (w *formatter) writeInterpolated(s *InterpolatedString) error {
 		}
 		w.buf.WriteString(" }}")
 	}
-	w.buf.WriteByte('\'')
+	w.buf.WriteString(closer)
 	return nil
 }
 
-func (w *formatter) interpolatedInlineWidth(s *InterpolatedString) int {
-	n := len("$'") + len("'")
+// writeInterpolatedMultiline emits an interpolated string in a multi-line
+// triple-quote form. Each slot is rendered to its source and stood in for
+// by a width-matched, spaceless sentinel so the existing fold/join wrap
+// measures and breaks correctly; the real slot source is spliced back in
+// afterward, never split across a line.
+func (w *formatter) writeInterpolatedMultiline(
+	s *InterpolatedString, form StringForm, indent string,
+) error {
+	var slotSrc []string
+	var val strings.Builder
 	for _, part := range s.Parts {
 		if part.Expr == nil {
-			n += len(escapeInterpolatedLiteral(part.Lit))
+			val.WriteString(escapeTripleInterpolatedLiteral(part.Lit))
+			continue
+		}
+		src, err := w.slotSource(part)
+		if err != nil {
+			return err
+		}
+		val.WriteString(paddedSentinel(len(slotSrc), len(src)))
+		slotSrc = append(slotSrc, src)
+	}
+	tmp := &formatter{maxColumn: w.maxColumn, wrapStrings: w.wrapStrings}
+	syn := &StringLit{Value: val.String(), Form: form}
+	if err := tmp.writeMultilineString(syn, indent); err != nil {
+		return err
+	}
+	w.buf.WriteByte('$')
+	w.buf.WriteString(substituteSentinels(tmp.buf.String(), slotSrc))
+	return nil
+}
+
+// slotSource renders a slot to its `{{ expr }}` source form, with a
+// `:verb` suffix when the slot carries a printf directive.
+func (w *formatter) slotSource(part InterpolatedPart) (string, error) {
+	tmp := &formatter{maxColumn: w.maxColumn, wrapStrings: w.wrapStrings}
+	tmp.buf.WriteString("{{ ")
+	if err := tmp.writeExpr(part.Expr, ""); err != nil {
+		return "", err
+	}
+	if part.Verb != "" {
+		tmp.buf.WriteByte(':')
+		tmp.buf.WriteString(part.Verb)
+	}
+	tmp.buf.WriteString(" }}")
+	return tmp.buf.String(), nil
+}
+
+// shouldWrapInterpolated reports whether an overflowing single-quoted
+// interpolated string may be rewritten as a triple-quote. A literal run
+// holding a triple-quote run or a newline blocks the rewrite.
+func (w *formatter) shouldWrapInterpolated(s *InterpolatedString) bool {
+	for _, part := range s.Parts {
+		if part.Expr != nil {
+			continue
+		}
+		if strings.Contains(part.Lit, "'''") || strings.ContainsAny(part.Lit, "\n\r") {
+			return false
+		}
+	}
+	width := w.interpolatedInlineWidth(s)
+	return width >= 0 && w.column()+width > w.maxColumn
+}
+
+// interpolatedHasSpace reports whether any literal run contains a space,
+// which picks the folded form over the joined form when wrapping.
+func (w *formatter) interpolatedHasSpace(s *InterpolatedString) bool {
+	for _, part := range s.Parts {
+		if part.Expr == nil && strings.ContainsRune(part.Lit, ' ') {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *formatter) interpolatedInlineWidth(s *InterpolatedString) int {
+	if s.Form.IsMultiLine() {
+		return -1
+	}
+	opener, closer, esc := "$'", "'", escapeInterpolatedLiteral
+	if s.Form == StringTripleQuoteSingleLine {
+		opener, closer, esc = "$'''", "'''", escapeTripleInterpolatedLiteral
+	}
+	n := len(opener) + len(closer)
+	for _, part := range s.Parts {
+		if part.Expr == nil {
+			n += len(esc(part.Lit))
 			continue
 		}
 		ew := w.singleLineWidth(part.Expr)
@@ -615,6 +712,67 @@ func (w *formatter) interpolatedInlineWidth(s *InterpolatedString) int {
 		}
 	}
 	return n
+}
+
+// paddedSentinel returns a spaceless marker for slot idx, padded to width
+// columns with a filler byte so the wrap measures the slot at its true
+// rendered width. NUL delimits the index and \x01 is the filler; neither
+// is a space nor a join break character, so neither fold nor join splits
+// it, and neither occurs in source.
+func paddedSentinel(idx, width int) string {
+	core := "\x00" + strconv.Itoa(idx) + "\x00"
+	if len(core) >= width {
+		return core
+	}
+	return core + strings.Repeat("\x01", width-len(core))
+}
+
+// substituteSentinels replaces each paddedSentinel run in s with the
+// matching slot source.
+func substituteSentinels(s string, slotSrc []string) string {
+	if !strings.ContainsRune(s, 0) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] != 0 {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		j := i + 1
+		for j < len(s) && s[j] != 0 {
+			j++
+		}
+		k := j + 1
+		for k < len(s) && s[k] == 1 {
+			k++
+		}
+		if idx, err := strconv.Atoi(s[i+1 : j]); err == nil && idx >= 0 && idx < len(slotSrc) {
+			b.WriteString(slotSrc[idx])
+		}
+		i = k
+	}
+	return b.String()
+}
+
+// escapeTripleInterpolatedLiteral renders a literal run for a triple-
+// quoted interpolated string: the body is raw, so only a `{{` is escaped
+// (to `\{{`) so it does not reopen a slot when re-parsed.
+func escapeTripleInterpolatedLiteral(s string) string {
+	if !strings.Contains(s, "{{") {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '{' && i+1 < len(s) && s[i+1] == '{' {
+			b.WriteString(`\{{`)
+			i++
+			continue
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
 }
 
 // escapeInterpolatedLiteral renders a literal run back to its source
