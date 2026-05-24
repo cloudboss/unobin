@@ -35,18 +35,16 @@ func Refs(e lang.Expr) []string {
 	return dedupe(out)
 }
 
-// refsWithLocals returns the node addresses e depends on, expanding
-// every `local.<name>` reference into the refs of that local's own
-// expression. Expansion is transitive: a local that reads another
-// local contributes the second local's refs too. A name is expanded
-// at most once, so a self-referential or cyclic locals block cannot
-// loop forever here (the cycle itself is reported elsewhere). When
-// locals is empty this matches Refs.
-func refsWithLocals(e lang.Expr, locals map[string]lang.Expr) []string {
+// walkExpandingLocals visits every DotPath in e that is not itself a
+// `local.<name>` reference. A local reference is expanded in place:
+// the visitor instead sees the dotpaths inside that local's own
+// expression, transitively through chained locals. Each local is
+// expanded at most once, so a self-referential or cyclic locals block
+// cannot loop forever here; the cycle itself is reported elsewhere.
+func walkExpandingLocals(e lang.Expr, locals map[string]lang.Expr, visit func(*lang.DotPath)) {
 	if e == nil {
-		return nil
+		return
 	}
-	var out []string
 	expanded := map[string]bool{}
 	var walk func(lang.Expr)
 	walk = func(expr lang.Expr) {
@@ -69,37 +67,41 @@ func refsWithLocals(e lang.Expr, locals map[string]lang.Expr) []string {
 				}
 				return
 			}
-			if addr := refAddress(dp); addr != "" {
-				out = append(out, addr)
-			}
+			visit(dp)
 		})
 	}
 	walk(e)
+}
+
+// refsWithLocals returns the node addresses e depends on, expanding
+// every `local.<name>` reference into the refs of that local's own
+// expression. When locals is empty this matches Refs.
+func refsWithLocals(e lang.Expr, locals map[string]lang.Expr) []string {
+	var out []string
+	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
+		if addr := refAddress(dp); addr != "" {
+			out = append(out, addr)
+		}
+	})
 	return dedupe(out)
 }
 
 // deferredRefs returns the full dotted source paths an expression
 // reads from. Unlike Refs, the trailing field segments are preserved
 // so the renderer can show `<resource.aws.vpc.main.id>` rather than
-// the bare node address. `@each` bindings are skipped because they
-// resolve from the for-each scope, not from an upstream node.
-func deferredRefs(e lang.Expr) []string {
-	if e == nil {
-		return nil
-	}
+// the bare node address. A `local.<name>` reference expands to the
+// paths inside the local's own expression, so a plan field reading a
+// local still shows the real upstream it is waiting on. `@each`
+// bindings are skipped because they resolve from the for-each scope,
+// not from an upstream node.
+func deferredRefs(e lang.Expr, locals map[string]lang.Expr) []string {
 	var out []string
-	lang.Walk(e, func(node lang.Expr) {
-		dp, ok := node.(*lang.DotPath)
-		if !ok {
-			return
-		}
+	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
 		switch dp.Root.Name {
 		case "var", "resource", "data", "action":
-		default:
-			return
-		}
-		if path := dotPathString(dp); path != "" {
-			out = append(out, path)
+			if path := dotPathString(dp); path != "" {
+				out = append(out, path)
+			}
 		}
 	})
 	return dedupe(out)

@@ -27,6 +27,10 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 	}
 	inputs := make(map[string]any, len(obj.Fields))
 	var unresolved map[string][]string
+	var locals map[string]lang.Expr
+	if ec != nil && ec.locals != nil {
+		locals = ec.locals.exprs
+	}
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -40,7 +44,7 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 			return nil, nil, fmt.Errorf("field %q: %w", fld.Key.Name, err)
 		}
 		inputs[fld.Key.Name] = nil
-		refs := deferredRefs(fld.Value)
+		refs := deferredRefs(fld.Value, locals)
 		if len(refs) > 0 {
 			if unresolved == nil {
 				unresolved = map[string][]string{}

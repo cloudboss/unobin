@@ -446,6 +446,41 @@ resources: {
 	require.Equal(t, int64(2), two.Inputs["size"])
 }
 
+func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
+	src := `
+locals: {
+  one-name: resource.core.thing.one.name
+}
+resources: {
+  core: {
+    thing: {
+      one: { name: 'alpha', size: 1 }
+      two: { name: local.one-name, size: 2 }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	var c resourceCounters
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG:     BuildDAG(f, mods),
+		Modules: mods,
+		Source:  f,
+		Store:   newStateStore(t),
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+
+	two := stepFor(plan, "resource.core.thing.two")
+	require.NotNil(t, two)
+	require.Equal(t, DecisionCreate, two.Decision)
+	require.Equal(t, []string{"resource.core.thing.one.name"}, two.UnresolvedInputs["name"],
+		"a field reading a local should show the resource the local waits on")
+	require.Nil(t, two.Inputs["name"])
+}
+
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	src := `
 resources: {
