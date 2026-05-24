@@ -421,7 +421,7 @@ func TestFormatCallDeterministic(t *testing.T) {
 	}
 	for _, src := range tests {
 		first := formatString(t, src)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			again := formatString(t, src)
 			require.Equal(t, first, again, "iteration %d differs", i)
 		}
@@ -436,7 +436,7 @@ func TestFormatObjectDeterministic(t *testing.T) {
 	}
 	for _, src := range tests {
 		first := formatString(t, src)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			again := formatString(t, src)
 			require.Equal(t, first, again, "iteration %d differs", i)
 		}
@@ -662,7 +662,7 @@ func TestWordWrapDeterministic(t *testing.T) {
 	}
 	for _, tt := range inputs {
 		first := wordWrap(tt.in, tt.width)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			require.Equal(t, first, wordWrap(tt.in, tt.width), "iteration %d differs", i)
 		}
 	}
@@ -677,7 +677,7 @@ func TestFormatArrayDeterministic(t *testing.T) {
 	}
 	for _, src := range tests {
 		first := formatString(t, src)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			again := formatString(t, src)
 			require.Equal(t, first, again, "iteration %d differs", i)
 		}
@@ -952,7 +952,7 @@ func TestSmartColumnBreakDeterministic(t *testing.T) {
 	for _, tt := range smartColumnBreakCases {
 		t.Run(tt.name, func(t *testing.T) {
 			first := smartColumnBreak(tt.input, tt.width)
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				again := smartColumnBreak(tt.input, tt.width)
 				require.Equal(t, first, again,
 					"run %d produced a different result for input %q",
@@ -971,7 +971,7 @@ func TestFormatJoinedWrapsLongValue(t *testing.T) {
 	require.Greater(t, strings.Count(formatted, "\n"), 3,
 		"expected multi-line output, got:\n%s", formatted)
 
-	for _, line := range strings.Split(formatted, "\n") {
+	for line := range strings.SplitSeq(formatted, "\n") {
 		require.LessOrEqual(t, len(line), 100,
 			"line exceeds 100 columns: %q", line)
 	}

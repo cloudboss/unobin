@@ -1,6 +1,7 @@
 package typecheck
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -30,9 +31,7 @@ type Scope struct {
 func (s *Scope) withBindings(names []string, key, elem Type) *Scope {
 	child := *s
 	binds := make(map[string]Type, len(s.Bindings)+2)
-	for k, v := range s.Bindings {
-		binds[k] = v
-	}
+	maps.Copy(binds, s.Bindings)
 	switch len(names) {
 	case 1:
 		binds[names[0]] = elem

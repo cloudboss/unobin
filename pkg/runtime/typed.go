@@ -266,7 +266,7 @@ func coercePrior[Out any](prior any) (Out, error) {
 		return zero, fmt.Errorf("coerce prior state: unsupported type %T", prior)
 	}
 	t := reflect.TypeOf(zero)
-	if t == nil || t.Kind() != reflect.Ptr {
+	if t == nil || t.Kind() != reflect.Pointer {
 		return zero, fmt.Errorf("coerce prior state: output type %T is not a pointer", zero)
 	}
 	target := reflect.New(t.Elem())

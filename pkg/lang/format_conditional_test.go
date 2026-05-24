@@ -58,7 +58,7 @@ func TestFormatConditionalBreaksWhenTooLong(t *testing.T) {
 func TestFormatConditionalDeterministic(t *testing.T) {
 	src := "x: if var.n > 3 then 'big' else if var.n > 1 then 'mid' else 'small'\n"
 	first := formatString(t, src)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		require.Equal(t, first, formatString(t, src))
 	}
 }

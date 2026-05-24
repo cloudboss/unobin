@@ -1,5 +1,7 @@
 package runner
 
+import "slices"
+
 import "github.com/cloudboss/unobin/pkg/lang"
 
 // sensitivePlaceholder is the literal renderers print in place of a
@@ -10,12 +12,7 @@ const sensitivePlaceholder = "***"
 // small (per-step field counts) so a linear scan is cheaper than
 // allocating a map for one lookup.
 func stringSetContains(slice []string, s string) bool {
-	for _, x := range slice {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, s)
 }
 
 // rootSensitiveOutputs returns the set of root output names declared

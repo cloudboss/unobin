@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"strings"
 	"testing"
 	"time"
 
@@ -298,9 +300,7 @@ resources: {
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
 		out := map[string]any{}
-		for k, v := range m {
-			out[k] = v
-		}
+		maps.Copy(out, m)
 		out["size"] = int64(99)
 		return out, nil
 	}
@@ -642,12 +642,13 @@ func TestPlanRecordsStateRev(t *testing.T) {
 // planResourcesSrc builds a stack with n core.thing resources named
 // r0..r(n-1) so the parallel-read tests can dial the fan-out.
 func planResourcesSrc(n int) string {
-	src := "resources: {\n  core: {\n    thing: {\n"
-	for i := 0; i < n; i++ {
-		src += fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i)
+	var src strings.Builder
+	src.WriteString("resources: {\n  core: {\n    thing: {\n")
+	for i := range n {
+		src.WriteString(fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i))
 	}
-	src += "    }\n  }\n}\n"
-	return src
+	src.WriteString("    }\n  }\n}\n")
+	return src.String()
 }
 
 func TestPlanReadsResourcesInParallel(t *testing.T) {

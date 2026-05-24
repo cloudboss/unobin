@@ -662,7 +662,7 @@ func mapify(v any) map[string]any {
 		return m
 	}
 	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Ptr {
+	if rv.Kind() == reflect.Pointer {
 		rv = rv.Elem()
 	}
 	if rv.Kind() != reflect.Struct {
@@ -722,7 +722,7 @@ func canonicalize(v reflect.Value) any {
 			out[k.String()] = canonicalize(iter.Value())
 		}
 		return out
-	case reflect.Interface, reflect.Ptr:
+	case reflect.Interface, reflect.Pointer:
 		if v.IsNil() {
 			return nil
 		}

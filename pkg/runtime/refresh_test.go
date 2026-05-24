@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"maps"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,9 +29,7 @@ resources: {
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
 		out := map[string]any{}
-		for k, v := range m {
-			out[k] = v
-		}
+		maps.Copy(out, m)
 		out["size"] = int64(99)
 		return out, nil
 	}
@@ -167,9 +167,7 @@ resources: {
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
 		out := map[string]any{}
-		for k, v := range m {
-			out[k] = v
-		}
+		maps.Copy(out, m)
 		out["size"] = int64(42)
 		return out, nil
 	}
@@ -197,18 +195,19 @@ resources: {
 
 func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	const n = 6
-	src := "resources: {\n  core: {\n    thing: {\n"
-	for i := 0; i < n; i++ {
-		src += fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i)
+	var src strings.Builder
+	src.WriteString("resources: {\n  core: {\n    thing: {\n")
+	for i := range n {
+		src.WriteString(fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i))
 	}
-	src += "    }\n  }\n}\n"
+	src.WriteString("    }\n  }\n}\n")
 
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src.String()), mods), Modules: mods, Store: store, Stack: stack,
 	})
 
 	const delay = 150 * time.Millisecond
@@ -218,7 +217,7 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	}
 
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
+		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       store,
 		Stack:       stack,

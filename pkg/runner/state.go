@@ -87,10 +87,7 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 	if current != "" {
 		keepSet[current] = true
 	}
-	cutoff := len(revs) - keep
-	if cutoff < 0 {
-		cutoff = 0
-	}
+	cutoff := max(len(revs)-keep, 0)
 	for _, r := range revs[cutoff:] {
 		keepSet[r] = true
 	}

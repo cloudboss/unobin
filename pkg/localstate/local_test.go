@@ -138,7 +138,7 @@ func TestLocalStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 
 	s := newStore(t)
 	seen := map[string]bool{}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		rev, err := s.Write(sampleSnapshot())
 		require.NoError(t, err)
 		require.False(t, seen[rev], "rev %q reused while clock was frozen", rev)

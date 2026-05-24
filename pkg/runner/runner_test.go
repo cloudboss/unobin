@@ -1374,7 +1374,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	stackInfo := state.StackInfo{
 		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
 	}
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		_, err := store.Write(state.NewSnapshot(stackInfo, "default"))
 		require.NoError(t, err)
 	}

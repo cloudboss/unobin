@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -254,9 +255,7 @@ func (r *migratingCountingResource) SchemaVersion() int { return 2 }
 
 func (r *migratingCountingResource) Migrate(_ int, st map[string]any) (map[string]any, error) {
 	out := map[string]any{}
-	for k, v := range st {
-		out[k] = v
-	}
+	maps.Copy(out, st)
 	if v, ok := out["id"]; ok {
 		out["name-id"] = v
 		delete(out, "id")

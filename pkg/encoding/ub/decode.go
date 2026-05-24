@@ -18,7 +18,7 @@ type Unmarshaler interface {
 	UnmarshalUB(data []byte) error
 }
 
-var unmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
+var unmarshalerType = reflect.TypeFor[Unmarshaler]()
 
 // Unmarshal parses data as a UB expression and stores the result in
 // the value pointed to by v. v must be a non-nil pointer. The decode
@@ -30,7 +30,7 @@ var unmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 // every level: top, struct field, map value, slice element.
 func Unmarshal(data []byte, v any) error {
 	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
 		return errors.New("ub: Unmarshal requires a non-nil pointer")
 	}
 	expr, err := parse.ParseExpr("", data)
@@ -41,7 +41,7 @@ func Unmarshal(data []byte, v any) error {
 }
 
 func decodeValue(e parse.Expr, dst reflect.Value) error {
-	for dst.Kind() == reflect.Ptr {
+	for dst.Kind() == reflect.Pointer {
 		if _, isNull := e.(*parse.NullLit); isNull {
 			dst.Set(reflect.Zero(dst.Type()))
 			return nil

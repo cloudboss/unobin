@@ -88,7 +88,7 @@ func TestFormatComprehensionMapBreaksWhenTooLong(t *testing.T) {
 func TestFormatComprehensionDeterministic(t *testing.T) {
 	src := "x: { for s in var.subnets : s.az => s.id... when s.public }\n"
 	first := formatString(t, src)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		require.Equal(t, first, formatString(t, src))
 	}
 }

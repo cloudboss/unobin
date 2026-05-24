@@ -21,9 +21,9 @@ type Marshaler interface {
 }
 
 var (
-	marshalerType = reflect.TypeOf((*Marshaler)(nil)).Elem()
-	timeTimeType  = reflect.TypeOf(time.Time{})
-	durationType  = reflect.TypeOf(time.Duration(0))
+	marshalerType = reflect.TypeFor[Marshaler]()
+	timeTimeType  = reflect.TypeFor[time.Time]()
+	durationType  = reflect.TypeFor[time.Duration]()
 )
 
 // Marshal returns v as a one-line UB expression.
@@ -72,7 +72,7 @@ func (e *encoder) encode(v reflect.Value) error {
 }
 
 func (e *encoder) encodeMarshaler(v reflect.Value) error {
-	if (v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface) && v.IsNil() {
+	if (v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface) && v.IsNil() {
 		e.buf = append(e.buf, "null"...)
 		return nil
 	}
@@ -108,7 +108,7 @@ func (e *encoder) encodeKind(v reflect.Value) error {
 		return nil
 	case reflect.String:
 		return e.encodeString(v.String())
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Pointer, reflect.Interface:
 		if v.IsNil() {
 			e.buf = append(e.buf, "null"...)
 			return nil
@@ -171,7 +171,7 @@ func (e *encoder) encodeList(v reflect.Value) error {
 	if e.pretty {
 		e.buf = append(e.buf, '[', '\n')
 		e.depth++
-		for i := 0; i < n; i++ {
+		for i := range n {
 			e.writeIndent()
 			if err := e.encode(v.Index(i)); err != nil {
 				return err
@@ -184,7 +184,7 @@ func (e *encoder) encodeList(v reflect.Value) error {
 		return nil
 	}
 	e.buf = append(e.buf, '[')
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if i > 0 {
 			e.buf = append(e.buf, ',', ' ')
 		}
@@ -333,7 +333,7 @@ func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Slice, reflect.Map, reflect.String, reflect.Array:
 		return v.Len() == 0
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Pointer, reflect.Interface:
 		return v.IsNil()
 	}
 	return v.IsZero()
@@ -394,4 +394,3 @@ func isLetter(b byte) bool {
 func isDigit(b byte) bool {
 	return b >= '0' && b <= '9'
 }
-

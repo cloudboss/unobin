@@ -1,5 +1,7 @@
 package resolve
 
+import "slices"
+
 // Graph models import dependencies among UB files. Nodes are opaque
 // string IDs assigned by the caller - typically a canonical filesystem
 // path for local sources or `url@commit/subdir` for remote ones. Edges
@@ -29,10 +31,8 @@ func (g *Graph) AddNode(id string) {
 func (g *Graph) AddEdge(from, to string) {
 	g.AddNode(from)
 	g.AddNode(to)
-	for _, t := range g.edges[from] {
-		if t == to {
-			return
-		}
+	if slices.Contains(g.edges[from], to) {
+		return
 	}
 	g.edges[from] = append(g.edges[from], to)
 }

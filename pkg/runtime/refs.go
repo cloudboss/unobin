@@ -204,7 +204,7 @@ func refAddress(p *lang.DotPath) string {
 		if len(p.Segments) < 3 {
 			return ""
 		}
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			if p.Segments[i].Name == "" {
 				return ""
 			}

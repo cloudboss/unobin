@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strconv"
@@ -52,12 +53,8 @@ type EvalContext struct {
 func (ctx *EvalContext) withBindings(binds map[string]any) *EvalContext {
 	child := *ctx
 	merged := make(map[string]any, len(ctx.Bindings)+len(binds))
-	for k, v := range ctx.Bindings {
-		merged[k] = v
-	}
-	for k, v := range binds {
-		merged[k] = v
-	}
+	maps.Copy(merged, ctx.Bindings)
+	maps.Copy(merged, binds)
 	child.Bindings = merged
 	return &child
 }

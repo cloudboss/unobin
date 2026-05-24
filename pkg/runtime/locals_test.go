@@ -232,7 +232,7 @@ func TestEvalLocalDeterministic(t *testing.T) {
 		{`locals: { obj: { k: 'val' } }`, "local.obj.k", nil, "val"},
 	}
 	for _, c := range cases {
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			ctx := localsCtx(t, c.locals, c.vars, nil)
 			got, err := Eval(parseValue(t, c.expr), ctx)
 			require.NoError(t, err)

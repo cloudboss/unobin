@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -81,16 +82,17 @@ func TestApplyScheduleRunsIndependentLeavesInParallel(t *testing.T) {
 		delay    = 200 * time.Millisecond
 		serialUB = 7 * delay
 	)
-	src := "resources: {\n  slow: {\n    r: {\n"
-	for i := 0; i < n; i++ {
-		src += fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: %d }\n",
-			i, i, delay.Milliseconds())
+	var src strings.Builder
+	src.WriteString("resources: {\n  slow: {\n    r: {\n")
+	for i := range n {
+		src.WriteString(fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: %d }\n",
+			i, i, delay.Milliseconds()))
 	}
-	src += "    }\n  }\n}\n"
+	src.WriteString("    }\n  }\n}\n")
 
 	mods := slowModules()
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
+		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
@@ -110,16 +112,17 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 		n     = 4
 		delay = 100 * time.Millisecond
 	)
-	src := "resources: {\n  slow: {\n    r: {\n"
-	for i := 0; i < n; i++ {
-		src += fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: %d }\n",
-			i, i, delay.Milliseconds())
+	var src strings.Builder
+	src.WriteString("resources: {\n  slow: {\n    r: {\n")
+	for i := range n {
+		src.WriteString(fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: %d }\n",
+			i, i, delay.Milliseconds()))
 	}
-	src += "    }\n  }\n}\n"
+	src.WriteString("    }\n  }\n}\n")
 
 	mods := slowModules()
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
+		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},

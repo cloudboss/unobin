@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -56,15 +57,16 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 			},
 		},
 	}
-	src := "resources: {\n  slow: {\n    r: {\n"
-	for i := 0; i < 6; i++ {
-		src += fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: 200 }\n", i, i)
+	var src strings.Builder
+	src.WriteString("resources: {\n  slow: {\n    r: {\n")
+	for i := range 6 {
+		src.WriteString(fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: 200 }\n", i, i))
 	}
-	src += "    }\n  }\n}\n"
+	src.WriteString("    }\n  }\n}\n")
 
 	drain := make(chan struct{})
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
+		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},

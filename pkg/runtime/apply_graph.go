@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"maps"
 	"strings"
 )
 
@@ -77,9 +78,7 @@ func buildStepGraphWithPairKey(
 		locks:      map[string]string{},
 		pairKey:    map[string]map[string]bool{},
 	}
-	for k, v := range pairKey {
-		g.pairKey[k] = v
-	}
+	maps.Copy(g.pairKey, pairKey)
 	for _, a := range addresses {
 		g.indegree[a] = 0
 	}

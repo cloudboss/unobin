@@ -551,7 +551,7 @@ resources: {
 	g := BuildDAG(parseStack(t, src), nil)
 	first, err := g.TopologicalOrder()
 	require.NoError(t, err)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		again, err := g.TopologicalOrder()
 		require.NoError(t, err)
 		require.Equal(t, first, again)

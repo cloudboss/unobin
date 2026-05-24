@@ -39,10 +39,7 @@ func processTripleQuoteBody(text []byte, startCol int, sigil string) (string, er
 			col++
 		}
 	}
-	stripN := col - 1
-	if stripN < 0 {
-		stripN = 0
-	}
+	stripN := max(col-1, 0)
 
 	raw := strings.Split(string(body), "\n")
 	lines := make([]contentLine, 0, len(raw))

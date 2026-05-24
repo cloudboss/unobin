@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"maps"
 	"sync"
 	"time"
 )
@@ -32,19 +33,14 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		return nil
 	}
 	graph := buildStepGraph(pf, e.DAG)
-	parallelism := e.effectiveParallelism()
-	if parallelism > len(pf.Steps) {
-		parallelism = len(pf.Steps)
-	}
+	parallelism := min(e.effectiveParallelism(), len(pf.Steps))
 
 	pending := make([]*PlanStep, len(pf.Steps))
 	for i := range pf.Steps {
 		pending[i] = &pf.Steps[i]
 	}
 	indegree := make(map[string]int, len(graph.indegree))
-	for k, v := range graph.indegree {
-		indegree[k] = v
-	}
+	maps.Copy(indegree, graph.indegree)
 	dispatched := make(map[string]bool, len(pf.Steps))
 
 	ready := make(chan *PlanStep)
@@ -52,14 +48,12 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 
 	var wg sync.WaitGroup
 	for i := 0; i < parallelism; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for step := range ready {
 				err := e.applyStep(ctx, rs, step)
 				results <- stepResult{step: step, err: err}
 			}
-		}()
+		})
 	}
 
 	var firstErr error

@@ -342,11 +342,11 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 // address so the existing parsers can read it. A root address comes
 // back unchanged.
 func innerAddress(addr string) string {
-	if i := strings.Index(addr, "/"); i >= 0 {
+	if _, after, ok := strings.Cut(addr, "/"); ok {
 		// Internal addresses drop the leading "resource." from the
 		// inner part for resources. Restore it so parseResourceAddress
 		// keeps working.
-		inner := addr[i+1:]
+		inner := after
 		if !strings.HasPrefix(inner, "data.") &&
 			!strings.HasPrefix(inner, "action.") &&
 			!strings.HasPrefix(inner, "resource.") {

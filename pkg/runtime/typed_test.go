@@ -58,7 +58,7 @@ func TestMakeResourceProducesWorkingRegistration(t *testing.T) {
 	require.Equal(t, out, readBack)
 
 	require.Equal(t, []string{"cidr-block"}, reg.ReplaceFields(receiver))
-	require.Equal(t, reflect.TypeOf(&fakeVpcOutput{}), reg.OutputType())
+	require.Equal(t, reflect.TypeFor[*fakeVpcOutput](), reg.OutputType())
 }
 
 func TestResourceMigrateErrorsWhenNoMigratorImplemented(t *testing.T) {
@@ -107,7 +107,7 @@ func TestMakeActionProducesWorkingRegistration(t *testing.T) {
 	out, ok := result.(*typedFakeActionOutput)
 	require.True(t, ok)
 	require.Equal(t, "ran: echo", out.Stdout)
-	require.Equal(t, reflect.TypeOf(&typedFakeActionOutput{}), reg.OutputType())
+	require.Equal(t, reflect.TypeFor[*typedFakeActionOutput](), reg.OutputType())
 }
 
 type fakeAMI struct {
@@ -192,5 +192,5 @@ func TestMakeDataSourceProducesWorkingRegistration(t *testing.T) {
 	out, ok := result.(*fakeAMIOutput)
 	require.True(t, ok)
 	require.Equal(t, "x86_64", out.Architecture)
-	require.Equal(t, reflect.TypeOf(&fakeAMIOutput{}), reg.OutputType())
+	require.Equal(t, reflect.TypeFor[*fakeAMIOutput](), reg.OutputType())
 }

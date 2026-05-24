@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -195,9 +196,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if replaceUnobinAbs != "" {
 		replaces["github.com/cloudboss/unobin"] = replaceUnobinAbs
 	}
-	for prefix, local := range extraReplaces {
-		replaces[prefix] = local
-	}
+	maps.Copy(replaces, extraReplaces)
 
 	err = codegen.WriteSource(cfg.outDir, in,
 		cfg.goVersion, cfg.unobinVersion, v.importVersions, replaces)

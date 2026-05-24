@@ -106,7 +106,7 @@ func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
 	}
 	base := now().UTC().Format(time.RFC3339Nano)
 	rev := base
-	for attempt := 0; attempt < maxRevAttempts; attempt++ {
+	for attempt := range maxRevAttempts {
 		if attempt > 0 {
 			rev = fmt.Sprintf("%s_%d", base, attempt)
 		}
@@ -211,8 +211,8 @@ func (s *LocalStore) List() ([]string, error) {
 	var out []string
 	for _, e := range entries {
 		name := e.Name()
-		if strings.HasSuffix(name, suffix) {
-			out = append(out, strings.TrimSuffix(name, suffix))
+		if before, ok := strings.CutSuffix(name, suffix); ok {
+			out = append(out, before)
 		}
 	}
 	return out, nil

@@ -1004,7 +1004,7 @@ func (w *formatter) writeLiteralTriple(value, indent string, clip bool) error {
 	w.buf.WriteString("'''")
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if line == "" {
 			w.buf.WriteByte('\n')
 			continue
@@ -1029,10 +1029,7 @@ func (w *formatter) writeFoldedTriple(value, indent string, clip bool) error {
 	w.buf.WriteString("'''")
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
-	width := w.maxColumn - len(inner)
-	if width < 1 {
-		width = 1
-	}
+	width := max(w.maxColumn-len(inner), 1)
 	for i, seg := range strings.Split(body, "\n") {
 		if i > 0 {
 			w.buf.WriteByte('\n')
@@ -1062,10 +1059,7 @@ func (w *formatter) writeJoinedTriple(value, indent string, clip bool) error {
 	w.buf.WriteString("'''")
 	w.buf.WriteString(sigil)
 	w.buf.WriteByte('\n')
-	width := w.maxColumn - len(inner)
-	if width < 1 {
-		width = 1
-	}
+	width := max(w.maxColumn-len(inner), 1)
 	for _, line := range smartColumnBreak(body, width) {
 		w.buf.WriteString(inner)
 		w.buf.WriteString(line)
@@ -1160,18 +1154,12 @@ func smartColumnBreak(s string, maxWidth int) []string {
 	}
 	n := (len(s) + maxWidth - 1) / maxWidth
 	target := (len(s) + n - 1) / n
-	tolerance := target / 2
-	if tolerance < 1 {
-		tolerance = 1
-	}
+	tolerance := max(target/2, 1)
 	var lines []string
 	pos := 0
 	for i := 1; i < n; i++ {
 		ideal := pos + target
-		hardMax := pos + maxWidth
-		if hardMax > len(s) {
-			hardMax = len(s)
-		}
+		hardMax := min(pos+maxWidth, len(s))
 		if ideal > hardMax {
 			ideal = hardMax
 		}
@@ -1194,10 +1182,7 @@ func findJoinedBreak(s string, start, ideal, tolerance, hardMin, hardMax int) in
 	if lo < hardMin {
 		lo = hardMin
 	}
-	hi := ideal + tolerance
-	if hi > hardMax {
-		hi = hardMax
-	}
+	hi := min(ideal+tolerance, hardMax)
 	best := -1
 	bestDist := 0
 	for j := lo; j <= hi; j++ {

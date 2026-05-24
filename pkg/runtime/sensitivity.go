@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -288,10 +289,8 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 		if ts == nil {
 			return false
 		}
-		for _, n := range ts.SensitiveOutputs {
-			if n == field {
-				return true
-			}
+		if slices.Contains(ts.SensitiveOutputs, field) {
+			return true
 		}
 	}
 	return false

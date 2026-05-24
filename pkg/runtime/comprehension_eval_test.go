@@ -85,7 +85,7 @@ func TestEvalComprehensionMapSourceSortedByKey(t *testing.T) {
 	ctx := &EvalContext{Vars: map[string]any{
 		"m": map[string]any{"b": int64(2), "a": int64(1), "c": int64(3)},
 	}}
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		got, err := Eval(parseValue(t, "[ for v in var.m : v ]"), ctx)
 		require.NoError(t, err)
 		require.Equal(t, []any{int64(1), int64(2), int64(3)}, got)

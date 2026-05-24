@@ -200,8 +200,8 @@ func scopeRef(ref, callSite string) string {
 	if callSite == "" {
 		return ref
 	}
-	if strings.HasPrefix(ref, "resource.") {
-		return callSite + "/" + strings.TrimPrefix(ref, "resource.")
+	if after, ok := strings.CutPrefix(ref, "resource."); ok {
+		return callSite + "/" + after
 	}
 	if strings.HasPrefix(ref, "data.") || strings.HasPrefix(ref, "action.") {
 		return callSite + "/" + ref

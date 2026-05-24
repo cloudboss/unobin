@@ -115,8 +115,8 @@ func withDefaultScheme(url string) string {
 	if strings.HasPrefix(url, "/") || strings.HasPrefix(url, ".") {
 		return url
 	}
-	if at := strings.Index(url, "@"); at >= 0 {
-		if colon := strings.Index(url[at+1:], ":"); colon >= 0 {
+	if _, after, ok := strings.Cut(url, "@"); ok {
+		if colon := strings.Index(after, ":"); colon >= 0 {
 			return url
 		}
 	}
