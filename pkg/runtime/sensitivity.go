@@ -298,10 +298,13 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 }
 
 // localSensitive reports whether a `local.<name>` reference reads a
-// sensitive source. The local's own expression is analyzed in the
-// same scope, following one local into another. The scope's guard set
-// stops a cyclic locals block from looping; such a cycle is a compile
-// error reported elsewhere.
+// sensitive source. Only the sub-expressions the navigation actually
+// reads are analyzed, so reading a non-sensitive field of a local is
+// not masked just because a sibling field is sensitive; see
+// narrowLocal. Each sub-expression is analyzed in the same scope,
+// following one local into another. The scope's guard set stops a
+// cyclic locals block from looping; such a cycle is a compile error
+// reported elsewhere.
 func (s *sensitivityAnalyzer) localSensitive(dp *lang.DotPath, sc *sensScope) bool {
 	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
 		return false
@@ -316,7 +319,12 @@ func (s *sensitivityAnalyzer) localSensitive(dp *lang.DotPath, sc *sensScope) bo
 	}
 	sc.forcing[name] = true
 	defer delete(sc.forcing, name)
-	return s.exprSensitive(expr, sc)
+	for _, narrowed := range narrowLocal(expr, dp.Segments[1:]) {
+		if s.exprSensitive(narrowed, sc) {
+			return true
+		}
+	}
+	return false
 }
 
 // compositeTypeOutputs returns the sensitive output names of a

@@ -175,6 +175,42 @@ resources: {
 	require.Empty(t, an.sensitiveInputs(node.Body, node.Composite))
 }
 
+// An object-valued local with one sensitive field must not mask the
+// other fields. Reading the non-sensitive field through the local is
+// not sensitive; reading the sensitive field is.
+func TestSensitivityNarrowsObjectLocalToNavigatedField(t *testing.T) {
+	src := `
+inputs: {
+  user:     { type: string }
+  password: { type: string  @sensitive: true }
+}
+locals: {
+  creds: {
+    name:   var.user
+    secret: var.password
+  }
+}
+resources: {
+  local: {
+    file: {
+      f: {
+        path:    local.creds.name
+        content: local.creds.secret
+      }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{"local": {Name: "local"}}
+	dag := BuildDAG(f, mods)
+	an := newSensitivityAnalyzer(f, mods, dag)
+
+	node := dag.Nodes["resource.local.file.f"]
+	require.NotNil(t, node)
+	require.Equal(t, []string{"content"}, an.sensitiveInputs(node.Body, node.Composite))
+}
+
 func TestSensitivityRecognizesSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {

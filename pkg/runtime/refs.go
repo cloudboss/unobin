@@ -36,16 +36,19 @@ func Refs(e lang.Expr) []string {
 }
 
 // walkExpandingLocals visits every DotPath in e that is not itself a
-// `local.<name>` reference. A local reference is expanded in place:
-// the visitor instead sees the dotpaths inside that local's own
-// expression, transitively through chained locals. Each local is
-// expanded at most once, so a self-referential or cyclic locals block
-// cannot loop forever here; the cycle itself is reported elsewhere.
+// `local.<name>` reference. A local reference is expanded in place: the
+// visitor instead sees the dotpaths the navigation actually reads,
+// transitively through chained locals. When the reference navigates
+// into the local (`local.X.field`), only that field's sources are
+// visited, not every source the local references; see narrowLocal. A
+// local that is being expanded higher in the chain is skipped, so a
+// self-referential or cyclic locals block cannot loop forever here; the
+// cycle itself is reported elsewhere.
 func walkExpandingLocals(e lang.Expr, locals map[string]lang.Expr, visit func(*lang.DotPath)) {
 	if e == nil {
 		return
 	}
-	expanded := map[string]bool{}
+	expanding := map[string]bool{}
 	var walk func(lang.Expr)
 	walk = func(expr lang.Expr) {
 		lang.Walk(expr, func(node lang.Expr) {
@@ -53,24 +56,82 @@ func walkExpandingLocals(e lang.Expr, locals map[string]lang.Expr, visit func(*l
 			if !ok {
 				return
 			}
-			if dp.Root.Name == "local" {
-				if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
-					return
-				}
-				name := dp.Segments[0].Name
-				if expanded[name] {
-					return
-				}
-				expanded[name] = true
-				if sub, ok := locals[name]; ok {
-					walk(sub)
-				}
+			if dp.Root.Name != "local" {
+				visit(dp)
 				return
 			}
-			visit(dp)
+			if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
+				return
+			}
+			name := dp.Segments[0].Name
+			if expanding[name] {
+				return
+			}
+			sub, ok := locals[name]
+			if !ok {
+				return
+			}
+			expanding[name] = true
+			for _, narrowed := range narrowLocal(sub, dp.Segments[1:]) {
+				walk(narrowed)
+			}
+			delete(expanding, name)
 		})
 	}
 	walk(e)
+}
+
+// narrowLocal returns the sub-expressions a `local.<name>` reference
+// actually reads when it navigates into the local's value with the
+// given trailing segments. A dot-path local grows the trailing segments
+// onto its own path so only the trailed field's upstream is followed.
+// An object literal selects the named field and keeps narrowing into
+// it. Anything else (calls, comprehensions, conditionals, computed
+// indexes) cannot be narrowed by static inspection, so the whole
+// expression is returned and analysis stays conservative-correct.
+func narrowLocal(expr lang.Expr, trailing []lang.DotSegment) []lang.Expr {
+	if len(trailing) == 0 {
+		return []lang.Expr{expr}
+	}
+	switch v := expr.(type) {
+	case *lang.DotPath:
+		return []lang.Expr{graftDotPath(v, trailing)}
+	case *lang.ObjectLit:
+		if trailing[0].Name == "" {
+			return []lang.Expr{expr}
+		}
+		field := objectField(v, trailing[0].Name)
+		if field == nil {
+			return nil
+		}
+		return narrowLocal(field, trailing[1:])
+	default:
+		return []lang.Expr{expr}
+	}
+}
+
+// graftDotPath returns a new DotPath that reads into path with extra
+// trailing segments, as if the source had written path.<trailing>
+// inline. The original path is left unmodified.
+func graftDotPath(path *lang.DotPath, trailing []lang.DotSegment) *lang.DotPath {
+	segs := make([]lang.DotSegment, 0, len(path.Segments)+len(trailing))
+	segs = append(segs, path.Segments...)
+	segs = append(segs, trailing...)
+	return &lang.DotPath{Root: path.Root, Segments: segs}
+}
+
+// objectField returns the value of the named field in obj, or nil when
+// no such field is declared. Meta keys (`@...`) are skipped.
+func objectField(obj *lang.ObjectLit, name string) lang.Expr {
+	for _, fld := range obj.Fields {
+		if fld.Key.IsMeta() {
+			continue
+		}
+		if fld.Key.Name == name || fld.Key.String == name {
+			return fld.Value
+		}
+	}
+	return nil
 }
 
 // refsWithLocals returns the node addresses e depends on, expanding

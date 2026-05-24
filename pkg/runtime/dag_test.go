@@ -557,3 +557,34 @@ resources: {
 		require.Equal(t, first, again)
 	}
 }
+
+// Navigating into one field of an object-valued local must not pull in
+// the local's other sources as dependencies. If it did, a sibling
+// source that itself depends on the navigating node would form a
+// spurious cycle.
+func TestBuildDAGNarrowsObjectLocalAvoidingSpuriousCycle(t *testing.T) {
+	src := `
+locals: {
+  net: {
+    vpc:   resource.local.file.vpcfile.path
+    other: resource.local.file.b.path
+  }
+}
+resources: {
+  local: {
+    file: {
+      vpcfile: { path: 'vpc.txt' }
+      a:       { path: local.net.vpc }
+      b:       { path: resource.local.file.a.path }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	mods := map[string]*Module{"local": {Name: "local"}}
+	dag := BuildDAG(f, mods)
+
+	order, err := dag.TopologicalOrder()
+	require.NoError(t, err)
+	require.Len(t, order, 3)
+}

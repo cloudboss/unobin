@@ -3,8 +3,18 @@ package runtime
 import (
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/require"
 )
+
+func localExprsFor(t *testing.T, m map[string]string) map[string]lang.Expr {
+	t.Helper()
+	out := make(map[string]lang.Expr, len(m))
+	for k, v := range m {
+		out[k] = parseValue(t, v)
+	}
+	return out
+}
 
 func TestRefsLiteralHasNone(t *testing.T) {
 	require.Empty(t, Refs(parseValue(t, "'just a string'")))
@@ -160,4 +170,65 @@ func TestRefsInsideMapComprehension(t *testing.T) {
 	src := `{ for s in resource.aws.subnet.all : s.id => var.tags }`
 	got := Refs(parseValue(t, src))
 	require.Equal(t, []string{"resource.aws.subnet.all", "var.tags"}, got)
+}
+
+// Reading one field of an object-valued local depends only on that
+// field's own source, not on every source the object references.
+func TestRefsWithLocalsNarrowsObjectFieldToOneSource(t *testing.T) {
+	ls := localExprsFor(t, map[string]string{
+		"net": `{ vpc: resource.aws.vpc.main.id, sub: resource.aws.subnet.a.id }`,
+	})
+	got := refsWithLocals(parseValue(t, "local.net.vpc"), ls)
+	require.Equal(t, []string{"resource.aws.vpc.main"}, got)
+}
+
+// Reading the whole local still depends on every source it references.
+func TestRefsWithLocalsWholeReadExpandsEverySource(t *testing.T) {
+	ls := localExprsFor(t, map[string]string{
+		"net": `{ vpc: resource.aws.vpc.main.id, sub: resource.aws.subnet.a.id }`,
+	})
+	got := refsWithLocals(parseValue(t, "local.net"), ls)
+	require.Equal(t, []string{"resource.aws.vpc.main", "resource.aws.subnet.a"}, got)
+}
+
+// A local that is itself a call cannot be narrowed statically, so
+// navigating into it still depends on every source the call reads.
+func TestRefsWithLocalsCallLocalStaysConservative(t *testing.T) {
+	ls := localExprsFor(t, map[string]string{
+		"merged": `merge(resource.aws.vpc.main.tags, resource.aws.subnet.a.tags)`,
+	})
+	got := refsWithLocals(parseValue(t, "local.merged.Name"), ls)
+	require.Equal(t, []string{"resource.aws.vpc.main", "resource.aws.subnet.a"}, got)
+}
+
+// Navigating into a dot-path local preserves the trailed field in the
+// placeholder path rather than collapsing to the local's own path.
+func TestDeferredRefsPreservesFieldThroughDotPathLocal(t *testing.T) {
+	ls := localExprsFor(t, map[string]string{
+		"lb": `resource.aws.lb.main.endpoint`,
+	})
+	got := deferredRefs(parseValue(t, "local.lb.host"), ls)
+	require.Equal(t, []string{"resource.aws.lb.main.endpoint.host"}, got)
+}
+
+// Navigating into an object-valued local shows only the navigated
+// field's source path in the placeholder.
+func TestDeferredRefsNarrowsObjectField(t *testing.T) {
+	ls := localExprsFor(t, map[string]string{
+		"net": `{ vpc: resource.aws.vpc.main.id, sub: resource.aws.subnet.a.id }`,
+	})
+	got := deferredRefs(parseValue(t, "local.net.sub"), ls)
+	require.Equal(t, []string{"resource.aws.subnet.a.id"}, got)
+}
+
+// A chain of dot-path locals grafts the trailing field all the way down.
+func TestRefsWithLocalsChainsDotPathLocals(t *testing.T) {
+	ls := localExprsFor(t, map[string]string{
+		"outer": `local.inner.attrs`,
+		"inner": `resource.aws.lb.main.config`,
+	})
+	require.Equal(t, []string{"resource.aws.lb.main"},
+		refsWithLocals(parseValue(t, "local.outer.host"), ls))
+	require.Equal(t, []string{"resource.aws.lb.main.config.attrs.host"},
+		deferredRefs(parseValue(t, "local.outer.host"), ls))
 }
