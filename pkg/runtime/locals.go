@@ -22,21 +22,27 @@ type localScope struct {
 // newLocalScope builds a localScope from a parsed `locals:` block. A nil
 // block yields a usable empty scope, so every EvalContext can carry one.
 func newLocalScope(block *lang.ObjectLit) *localScope {
-	ls := &localScope{
-		exprs:   map[string]lang.Expr{},
+	return &localScope{
+		exprs:   localExprs(block),
 		values:  map[string]any{},
 		forcing: map[string]bool{},
 	}
+}
+
+// localExprs maps each declared local name to its expression. A nil
+// block yields an empty map.
+func localExprs(block *lang.ObjectLit) map[string]lang.Expr {
+	out := map[string]lang.Expr{}
 	if block == nil {
-		return ls
+		return out
 	}
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
-		ls.exprs[fld.Key.Name] = fld.Value
+		out[fld.Key.Name] = fld.Value
 	}
-	return ls
+	return out
 }
 
 // localsBlock returns the `locals:` object from a parsed file, or nil

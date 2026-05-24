@@ -67,6 +67,73 @@ resources: {
 		g.Edges["resource.aws.security-group.web"])
 }
 
+func TestBuildDAGLocalCarriesEdge(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+locals: {
+  endpoint: resource.aws.lb.main.dns-name
+}
+resources: {
+  aws: { lb: { main: { name: 'main' } } }
+}
+actions: {
+  core: { command: { notify: { argv: ['echo', local.endpoint] } } }
+}
+`), nil)
+	require.Equal(t,
+		[]string{"resource.aws.lb.main"},
+		g.Edges["action.core.command.notify"])
+}
+
+func TestBuildDAGLocalChainCarriesEdge(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+locals: {
+  raw:   resource.aws.lb.main.dns-name
+  url:   local.raw
+}
+resources: {
+  aws: { lb: { main: { name: 'main' } } }
+}
+actions: {
+  core: { command: { notify: { argv: ['echo', local.url] } } }
+}
+`), nil)
+	require.Equal(t,
+		[]string{"resource.aws.lb.main"},
+		g.Edges["action.core.command.notify"])
+}
+
+func TestBuildDAGLocalMergesMultipleUpstreams(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+locals: {
+  pair: { a: resource.aws.vpc.main.id  b: resource.aws.subnet.web.id }
+}
+resources: {
+  aws: {
+    vpc:    { main: { cidr-block: '10.0.0.0/16' } }
+    subnet: { web: { cidr-block: '10.0.1.0/24' } }
+  }
+}
+actions: {
+  core: { command: { go: { argv: ['echo', local.pair] } } }
+}
+`), nil)
+	require.ElementsMatch(t,
+		[]string{"resource.aws.vpc.main", "resource.aws.subnet.web"},
+		g.Edges["action.core.command.go"])
+}
+
+func TestBuildDAGLiteralLocalAddsNoEdge(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+locals: {
+  greeting: 'hello'
+}
+actions: {
+  core: { command: { go: { argv: ['echo', local.greeting] } } }
+}
+`), nil)
+	require.Empty(t, g.Edges["action.core.command.go"])
+}
+
 func TestBuildDAGMergesImplicitAndExplicit(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {

@@ -30,10 +30,48 @@ func BuildDAG(f *lang.File, mods map[string]*Module) *DAG {
 	for _, n := range nodes {
 		g.Nodes[n.Address] = n
 	}
+	sl := newScopeLocals(f, g.Nodes)
 	for _, n := range nodes {
-		g.Edges[n.Address] = computeDeps(n, g.Nodes)
+		g.Edges[n.Address] = computeDeps(n, g.Nodes, sl)
 	}
 	return g
+}
+
+// scopeLocals resolves the `locals:` declarations for an evaluation
+// scope. The stack body backs the root scope (the empty call site);
+// every other scope is a composite call site whose locals come from
+// the boundary node's composite body. Lookups are cached by template
+// address.
+type scopeLocals struct {
+	stack map[string]lang.Expr
+	nodes map[string]*Node
+	cache map[string]map[string]lang.Expr
+}
+
+func newScopeLocals(f *lang.File, nodes map[string]*Node) *scopeLocals {
+	return &scopeLocals{
+		stack: localExprs(localsBlock(f)),
+		nodes: nodes,
+		cache: map[string]map[string]lang.Expr{},
+	}
+}
+
+// forScope returns the locals declared in the scope named by callSite.
+// The empty string names the stack root.
+func (s *scopeLocals) forScope(callSite string) map[string]lang.Expr {
+	if callSite == "" {
+		return s.stack
+	}
+	tmpl := templateAddress(callSite)
+	if m, ok := s.cache[tmpl]; ok {
+		return m
+	}
+	var m map[string]lang.Expr
+	if boundary, ok := s.nodes[tmpl]; ok {
+		m = localExprs(localsBlock(boundary.CompositeBody))
+	}
+	s.cache[tmpl] = m
+	return m
 }
 
 // TopologicalOrder returns the DAG's nodes in dependency order: every
@@ -107,12 +145,12 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 // resolve to call-site args, not anything in parent scope. Top-level
 // nodes keep the original behavior: body refs and any `@depends-on`
 // entries.
-func computeDeps(n *Node, nodes map[string]*Node) []string {
+func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
 	if n.Kind == NodeComposite {
 		return internalsOf(n.Address, nodes)
 	}
 	var deps []string
-	bodyRefs := bodyDeps(n.Body)
+	bodyRefs := bodyDeps(n.Body, sl.forScope(n.Composite))
 	if n.Composite == "" {
 		deps = bodyRefs
 	} else {
@@ -128,7 +166,7 @@ func computeDeps(n *Node, nodes map[string]*Node) []string {
 		if !ok {
 			break
 		}
-		for _, ref := range Refs(boundary.Body) {
+		for _, ref := range refsWithLocals(boundary.Body, sl.forScope(boundary.Composite)) {
 			deps = append(deps, scopeRef(ref, boundary.Composite))
 		}
 		current = boundary.Composite
@@ -171,8 +209,8 @@ func scopeRef(ref, callSite string) string {
 	return ref
 }
 
-func bodyDeps(body lang.Expr) []string {
-	deps := Refs(body)
+func bodyDeps(body lang.Expr, locals map[string]lang.Expr) []string {
+	deps := refsWithLocals(body, locals)
 	if obj, ok := body.(*lang.ObjectLit); ok {
 		for _, fld := range obj.Fields {
 			if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@depends-on" {
