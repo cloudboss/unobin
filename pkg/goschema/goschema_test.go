@@ -131,6 +131,29 @@ func TestReadExpandsNestedStructTypes(t *testing.T) {
 		db.Outputs["self"])
 }
 
+func TestReadMarksPointerStructFieldsOptional(t *testing.T) {
+	schema, warnings, err := Read("testdata/nested")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	require.Contains(t, schema.Resources, "db")
+	code := schema.Resources["db"].Inputs["code"]
+
+	// signing is itself an optional nested object, and its own
+	// fields carry their own optionality, so the marking has to
+	// hold at every level of nesting, not just the first.
+	signing := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "key-arn", Type: typecheck.TString(), Optional: true},
+		{Name: "profile", Type: typecheck.TString()},
+	})
+	want := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "inline", Type: typecheck.TString(), Optional: true},
+		{Name: "from-file", Type: typecheck.TString(), Optional: true},
+		{Name: "signing", Type: signing, Optional: true},
+	})
+	require.True(t, code.Equal(want), "got %s", code)
+}
+
 func TestReadExpandsCrossPackageStructTypes(t *testing.T) {
 	schema, warnings, err := Read("testdata/crosspkg")
 	require.NoError(t, err)

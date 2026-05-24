@@ -382,9 +382,22 @@ func (w *walker) namedTypeFromIdent(name string) typecheck.Type {
 	fields, _ := w.fieldsFromStruct(st)
 	out := make([]typecheck.ObjectField, 0, len(fields))
 	for fname, ft := range fields {
-		out = append(out, typecheck.ObjectField{Name: fname, Type: ft})
+		out = append(out, objectField(fname, ft))
 	}
 	return typecheck.TObject(out)
+}
+
+// objectField builds one Object field from a struct field's kebab
+// name and type. A *T Go field arrives as an Optional-kind type;
+// nested object fields record optionality on the ObjectField.Optional
+// flag with the inner type unwrapped, matching what FromLang produces
+// for an optional() declaration. Without this the inferrer's
+// missing-field check treats every pointer field as required.
+func objectField(name string, t typecheck.Type) typecheck.ObjectField {
+	if t.Kind == typecheck.Optional {
+		return typecheck.ObjectField{Name: name, Type: t.Unwrap(), Optional: true}
+	}
+	return typecheck.ObjectField{Name: name, Type: t}
 }
 
 func parsePackageDir(dir string) ([]*ast.File, error) {

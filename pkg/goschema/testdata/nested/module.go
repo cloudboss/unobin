@@ -17,6 +17,18 @@ func Module() *runtime.Module {
 
 type DB struct {
 	Name string `mapstructure:"name"`
+	Code DBCode `mapstructure:"code"`
+}
+
+type DBCode struct {
+	Inline   *string    `mapstructure:"inline"`
+	FromFile *string    `mapstructure:"from-file"`
+	Signing  *DBSigning `mapstructure:"signing"`
+}
+
+type DBSigning struct {
+	KeyArn  *string `mapstructure:"key-arn"`
+	Profile string  `mapstructure:"profile"`
 }
 
 type Endpoint struct {
