@@ -55,7 +55,8 @@ func ValidateTopLevelKeys(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	if f.Kind == FileUnknown {
 		errs.Addf(ErrSchema, f.S.Start,
-			"cannot validate top level keys: file kind is unknown (classify by filename or caller context first)")
+			"cannot validate top level keys: file kind is unknown "+
+				"(classify by filename or caller context first)")
 		return errs
 	}
 	allowed, ok := allowedTopLevelKeys[f.Kind]
@@ -659,7 +660,9 @@ func validateAliasToString(block *ObjectLit, what, valueDesc string) *ErrorList 
 // validateConstraintCommonKey rejects quoted string keys, `@`-prefixed
 // keys, and duplicates - the checks every constraint kind shares before
 // per-kind dispatch. Returns false when the field should be skipped.
-func validateConstraintCommonKey(idx int, f *Field, seen map[string]Position, errs *ErrorList) bool {
+func validateConstraintCommonKey(
+	idx int, f *Field, seen map[string]Position, errs *ErrorList,
+) bool {
 	if f.Key.Kind == FieldString {
 		errs.Addf(ErrSchema, f.Key.S.Start,
 			"constraints[%d]: key must be an identifier, got quoted string %q",

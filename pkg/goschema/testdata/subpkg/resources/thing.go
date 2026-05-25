@@ -5,7 +5,7 @@ type Thing struct {
 }
 
 type ThingOutput struct {
-	ID         string  `mapstructure:"id"`
-	CidrBlock  string  `mapstructure:"cidr-block"`
-	Replicas   *int64  `mapstructure:"replicas"`
+	ID        string `mapstructure:"id"`
+	CidrBlock string `mapstructure:"cidr-block"`
+	Replicas  *int64 `mapstructure:"replicas"`
 }

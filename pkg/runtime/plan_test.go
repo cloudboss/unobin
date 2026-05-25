@@ -14,7 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runPlan(t *testing.T, src string, modules map[string]*Module, store *localstate.LocalStore) *Plan {
+func runPlan(
+	t *testing.T, src string, modules map[string]*Module, store *localstate.LocalStore,
+) *Plan {
 	t.Helper()
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), modules),

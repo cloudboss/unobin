@@ -21,7 +21,9 @@ type EvalFunc func(e Expr) (any, error)
 // map produced by loadConfigInputs + applyEnvOverrides. evalDefault
 // reduces default expressions to Go values; pass nil to refuse any
 // default that requires evaluation.
-func ValidateInputs(decl *ObjectLit, values map[string]any, evalDefault EvalFunc) (map[string]any, *ErrorList) {
+func ValidateInputs(
+	decl *ObjectLit, values map[string]any, evalDefault EvalFunc,
+) (map[string]any, *ErrorList) {
 	errs := NewErrorList(0)
 	out := make(map[string]any)
 
@@ -45,7 +47,9 @@ func ValidateInputs(decl *ObjectLit, values map[string]any, evalDefault EvalFunc
 	return out, errs
 }
 
-func validateOneInput(fld *Field, values, out map[string]any, evalDefault EvalFunc, errs *ErrorList) {
+func validateOneInput(
+	fld *Field, values, out map[string]any, evalDefault EvalFunc, errs *ErrorList,
+) {
 	name := fld.Key.Name
 	declObj, ok := fld.Value.(*ObjectLit)
 	if !ok {
@@ -110,7 +114,9 @@ func validateOneInput(fld *Field, values, out map[string]any, evalDefault EvalFu
 // false if the declaration has no `type:` or its type expression is
 // malformed; an earlier ValidateInputDeclarations pass should have
 // reported either case.
-func extractTypeAndDefault(decl *ObjectLit) (typeExpr TypeExpr, defaultExpr Expr, isOptional, ok bool) {
+func extractTypeAndDefault(
+	decl *ObjectLit,
+) (typeExpr TypeExpr, defaultExpr Expr, isOptional, ok bool) {
 	for _, df := range decl.Fields {
 		if df.Key.Kind != FieldIdent || df.Key.Name != "type" {
 			continue

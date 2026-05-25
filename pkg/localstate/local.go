@@ -123,7 +123,8 @@ func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
 		}
 		return rev, nil
 	}
-	return "", fmt.Errorf("local store: could not allocate fresh revision after %d attempts", maxRevAttempts)
+	return "", fmt.Errorf("local store: could not allocate fresh revision after %d attempts",
+		maxRevAttempts)
 }
 
 // Lock acquires the deployment's exclusive lock by creating a marker

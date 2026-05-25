@@ -94,7 +94,8 @@ func TestInferComprehensionUnknownBoundField(t *testing.T) {
 
 func TestInferMapComprehension(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "{ for s in var.subnets : s.cidr => s.public }"), TUnknown(), subnetScope(), errs)
+	got := Infer(parseExpr(t, "{ for s in var.subnets : s.cidr => s.public }"),
+		TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TMap(TBoolean())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
@@ -116,7 +117,8 @@ func TestInferMapComprehensionNonStringKey(t *testing.T) {
 
 func TestInferComprehensionNonBoolFilter(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "[ for s in var.subnets : s.cidr when s.cidr ]"), TUnknown(), subnetScope(), errs)
+	Infer(parseExpr(t, "[ for s in var.subnets : s.cidr when s.cidr ]"),
+		TUnknown(), subnetScope(), errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, "expected boolean, got string")
 }

@@ -1041,7 +1041,9 @@ func newStateStore(t *testing.T) *localstate.LocalStore {
 	return s
 }
 
-func runExecutorTwice(t *testing.T, src string, modules map[string]*Module) (*ExecResult, *ExecResult) {
+func runExecutorTwice(
+	t *testing.T, src string, modules map[string]*Module,
+) (*ExecResult, *ExecResult) {
 	t.Helper()
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}

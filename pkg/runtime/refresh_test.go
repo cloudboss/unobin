@@ -88,11 +88,17 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), testModules()), Modules: testModules(), Store: store, Stack: stack,
+		DAG:     BuildDAG(parseStack(t, src), testModules()),
+		Modules: testModules(),
+		Store:   store,
+		Stack:   stack,
 	})
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), testModules()), Modules: testModules(), Store: store, Stack: stack,
+		DAG:     BuildDAG(parseStack(t, src), testModules()),
+		Modules: testModules(),
+		Store:   store,
+		Stack:   stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)

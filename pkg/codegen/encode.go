@@ -197,7 +197,8 @@ func encodeNumberLit(b *strings.Builder, n *lang.NumberLit) error {
 	b.WriteString("&lang.NumberLit{Value: ")
 	b.WriteString(strconv.Quote(n.Value))
 	if n.IsFloat {
-		fmt.Fprintf(b, ", IsFloat: true, ParsedFloat: %s", strconv.FormatFloat(n.ParsedFloat, 'g', -1, 64))
+		fmt.Fprintf(b, ", IsFloat: true, ParsedFloat: %s",
+			strconv.FormatFloat(n.ParsedFloat, 'g', -1, 64))
 	} else {
 		fmt.Fprintf(b, ", ParsedInt: %d", n.ParsedInt)
 	}

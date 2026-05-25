@@ -154,4 +154,3 @@ func importNodeID(parentID, alias string, ref ImportRef) string {
 		return parentID + "/" + alias
 	}
 }
-

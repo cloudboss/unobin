@@ -266,8 +266,8 @@ inputs: {
 `)
 	_, errs := ValidateInputs(decl,
 		map[string]any{"rule": map[string]any{
-			"from-port":   int64(80),
-			"surprise":    "yes",
+			"from-port": int64(80),
+			"surprise":  "yes",
 		}}, litEval)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), `unknown field "surprise"`)

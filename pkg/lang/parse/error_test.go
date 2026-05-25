@@ -14,7 +14,10 @@ func TestErrorString(t *testing.T) {
 
 func TestErrorWithHint(t *testing.T) {
 	pos := Position{Line: 1, Column: 1}
-	e := &Error{Kind: ErrSchema, Pos: pos, Msg: "unknown block 'foo'", Hint: "valid blocks: inputs, resources, ..."}
+	e := &Error{
+		Kind: ErrSchema, Pos: pos, Msg: "unknown block 'foo'",
+		Hint: "valid blocks: inputs, resources, ...",
+	}
 	got := e.Error()
 	require.Contains(t, got, "1:1: schema: unknown block 'foo'")
 	require.Contains(t, got, "hint: valid blocks")

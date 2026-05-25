@@ -161,7 +161,8 @@ func TestGenerateSkipsConfigurationFileWhenEmpty(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "configuration.go")); !os.IsNotExist(err) {
-		t.Errorf("expected no configuration.go to be written when adapter returns nil schema (err=%v)", err)
+		t.Errorf("expected no configuration.go to be written when adapter returns nil schema (err=%v)",
+			err)
 	}
 }
 

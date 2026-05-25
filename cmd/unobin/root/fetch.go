@@ -32,7 +32,8 @@ func init() {
 	FetchCmd.Flags().StringVarP(&fetchCfg.stackPath, "path", "p", "stack.ub",
 		"Path to the stack source.")
 	FetchCmd.Flags().StringVar(&fetchCfg.replaceUnobin, "replace-unobin", "",
-		"Local path to substitute for github.com/cloudboss/unobin so the resolver reads from a working tree instead of fetching.")
+		"Local path to substitute for github.com/cloudboss/unobin so the "+
+			"resolver reads from a working tree instead of fetching.")
 }
 
 func runFetch(cmd *cobra.Command, cfg *fetchConfig) error {

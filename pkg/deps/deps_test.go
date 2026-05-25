@@ -116,8 +116,8 @@ func TestExtractTarGz(t *testing.T) {
 func TestExtractZip(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "archive.zip")
 	writeZip(t, archive, map[string]string{
-		"models/iam/service.json":     "{\"iam\":true}",
-		"models/ec2/service.json":     "{\"ec2\":true}",
+		"models/iam/service.json":      "{\"iam\":true}",
+		"models/ec2/service.json":      "{\"ec2\":true}",
 		"models/s3/inner/service.json": "{\"s3\":true}",
 	})
 

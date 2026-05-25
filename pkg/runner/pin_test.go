@@ -82,7 +82,7 @@ inputs: {
 		},
 		{
 			name: "empty stack block on a single line",
-			src:  `stack: {}
+			src: `stack: {}
 `,
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'

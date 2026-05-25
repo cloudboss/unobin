@@ -48,7 +48,8 @@ func init() {
 	PrintGraphCmd.Flags().StringVar(&printGraphCfg.format, "format", "plain",
 		"Output format: 'plain' for an indented text listing, 'dot' for Graphviz.")
 	PrintGraphCmd.Flags().StringVar(&printGraphCfg.replaceUnobin, "replace-unobin", "",
-		"Local path to substitute for github.com/cloudboss/unobin so the resolver reads from a working tree.")
+		"Local path to substitute for github.com/cloudboss/unobin so the "+
+			"resolver reads from a working tree.")
 
 	_ = PrintGraphCmd.MarkFlagRequired("path")
 }
