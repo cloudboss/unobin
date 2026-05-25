@@ -27,10 +27,10 @@ func TestPointerType(t *testing.T) {
 	}
 }
 
-func TestMapstructureTag(t *testing.T) {
-	got := MapstructureTag("BucketName")
+func TestUBTag(t *testing.T) {
+	got := UBTag("BucketName")
 	if got != "bucket-name" {
-		t.Errorf("MapstructureTag(BucketName) = %q, want \"bucket-name\"", got)
+		t.Errorf("UBTag(BucketName) = %q, want \"bucket-name\"", got)
 	}
 }
 

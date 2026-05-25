@@ -39,8 +39,8 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 		if !f.Required {
 			goType = PointerType(goType)
 		}
-		tag := MapstructureTag(f.Name)
-		fmt.Fprintf(&b, "\t%s %s `mapstructure:\"%s\"`\n", f.Name, goType, tag)
+		tag := UBTag(f.Name)
+		fmt.Fprintf(&b, "\t%s %s `ub:\"%s\"`\n", f.Name, goType, tag)
 	}
 	if len(rs.InputFields) == 0 {
 		b.WriteString("\t// No writable fields\n")
@@ -57,8 +57,8 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 		if f.Description != "" {
 			fmt.Fprintf(&b, "\t// %s\n", sanitizeComment(f.Description))
 		}
-		tag := MapstructureTag(f.Name)
-		fmt.Fprintf(&b, "\t%s %s `mapstructure:\"%s\"`\n", f.Name, f.GoType, tag)
+		tag := UBTag(f.Name)
+		fmt.Fprintf(&b, "\t%s %s `ub:\"%s\"`\n", f.Name, f.GoType, tag)
 	}
 	if len(rs.OutputFields) == 0 {
 		b.WriteString("\t// No read-only fields\n")
@@ -71,7 +71,7 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	if len(rs.CreateOnlyFields) > 0 {
 		b.WriteString("\treturn []string{\n")
 		for _, f := range rs.CreateOnlyFields {
-			tag := MapstructureTag(f)
+			tag := UBTag(f)
 			fmt.Fprintf(&b, "\t\t\"%s\",\n", tag)
 		}
 		b.WriteString("\t}\n")
@@ -129,8 +129,8 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 		if !f.Required {
 			goType = PointerType(goType)
 		}
-		tag := MapstructureTag(f.Name)
-		fmt.Fprintf(&b, "\t%s %s `mapstructure:\"%s\"`\n", f.Name, goType, tag)
+		tag := UBTag(f.Name)
+		fmt.Fprintf(&b, "\t%s %s `ub:\"%s\"`\n", f.Name, goType, tag)
 	}
 	b.WriteString("}\n\n")
 
@@ -144,8 +144,8 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 		if f.Description != "" {
 			fmt.Fprintf(&b, "\t// %s\n", sanitizeComment(f.Description))
 		}
-		tag := MapstructureTag(f.Name)
-		fmt.Fprintf(&b, "\t%s %s `mapstructure:\"%s\"`\n", f.Name, f.GoType, tag)
+		tag := UBTag(f.Name)
+		fmt.Fprintf(&b, "\t%s %s `ub:\"%s\"`\n", f.Name, f.GoType, tag)
 	}
 	b.WriteString("}\n\n")
 

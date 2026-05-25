@@ -18,7 +18,7 @@ var (
 		Short: "Generate a Go module skeleton from a TF provider schema",
 		Long: `Generate a Go module from a Terraform provider schema.
 
-The generated Go module contains typed structs with mapstructure tags and
+The generated Go module contains typed structs with ub tags and
 CRUD method stubs for every resource in the provider.
 
 Examples:

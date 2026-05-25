@@ -15,7 +15,7 @@ func PointerType(goType string) string {
 	}
 }
 
-// MapstructureTag returns the mapstructure tag value for a field name.
-func MapstructureTag(fieldName string) string {
+// UBTag returns the ub tag value for a field name.
+func UBTag(fieldName string) string {
 	return lang.PascalToKebab(fieldName)
 }
