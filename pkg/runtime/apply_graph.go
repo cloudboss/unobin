@@ -58,7 +58,36 @@ func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
 			g.locks[addr] = node.LockName
 		}
 	}
+	addDestroyEdges(g, pf.Steps)
 	return g
+}
+
+// addDestroyEdges reverses the dependency edges between destroy steps
+// so a resource is deleted before the resources it depended on. A
+// step's recorded DependsOn names the entries it was created after; for
+// destroy that order flips, so each dependency that is also being
+// destroyed waits for the dependent to finish. Dependencies that are
+// not being destroyed in this plan add no edge.
+func addDestroyEdges(g *stepGraph, steps []PlanStep) {
+	destroying := make(map[string]bool, len(steps))
+	for i := range steps {
+		if steps[i].Decision == DecisionDestroy {
+			destroying[steps[i].Address] = true
+		}
+	}
+	for i := range steps {
+		s := &steps[i]
+		if s.Decision != DecisionDestroy {
+			continue
+		}
+		for _, dep := range s.DependsOn {
+			if !destroying[dep] {
+				continue
+			}
+			g.dependents[s.Address] = append(g.dependents[s.Address], dep)
+			g.indegree[dep]++
+		}
+	}
 }
 
 // buildStepGraphFromAddresses is the testable entry point that mirrors

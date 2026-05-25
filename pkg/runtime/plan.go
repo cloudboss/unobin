@@ -96,6 +96,11 @@ type PlanStep struct {
 	// against the same credentials the resource was created with.
 	Configuration string `json:"configuration,omitempty"`
 
+	// DependsOn carries a destroy step's recorded dependencies from
+	// prior state. Apply reverses these edges so a resource is deleted
+	// before the resources it depended on.
+	DependsOn []string `json:"depends-on,omitempty"`
+
 	// SensitiveInputs names the input fields whose value expression
 	// reads from any sensitive source. Renderers replace the value
 	// with a placeholder rather than printing the secret.
@@ -232,6 +237,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				Inputs:        prior.Inputs,
 				PriorOutputs:  prior.Outputs,
 				Configuration: prior.Configuration,
+				DependsOn:     prior.DependsOn,
 			})
 		}
 	}

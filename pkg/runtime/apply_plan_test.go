@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +13,94 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
+
+// deleteOrder records the order resources were deleted in, so a test
+// can confirm destroys ran in reverse dependency order.
+type deleteOrder struct {
+	mu    sync.Mutex
+	order []string
+}
+
+type orderResource struct {
+	Name string
+	Dep  string
+
+	rec *deleteOrder
+}
+
+func (r *orderResource) Create(_ context.Context, _ any) (any, error) {
+	return map[string]any{"id": "id-" + r.Name, "name": r.Name}, nil
+}
+
+func (r *orderResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *orderResource) Update(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *orderResource) Delete(_ context.Context, _ any, _ any) error {
+	r.rec.mu.Lock()
+	r.rec.order = append(r.rec.order, r.Name)
+	r.rec.mu.Unlock()
+	return nil
+}
+
+func (r *orderResource) ReplaceFields() []string { return nil }
+
+func (r *orderResource) SchemaVersion() int { return 1 }
+
+func orderModules(rec *deleteOrder) map[string]*Module {
+	return map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[orderResource, any](
+					func() *orderResource { return &orderResource{rec: rec} },
+				),
+			},
+		},
+	}
+}
+
+func TestDestroyDeletesDependentsFirst(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	withBoth := `
+resources: {
+  core: {
+    thing: {
+      a: { name: 'a' }
+      b: { name: 'b', dep: resource.core.thing.a.id }
+    }
+  }
+}
+`
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, withBoth), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+
+	// Remove both from source so the next apply destroys them. b
+	// depended on a, so b must be deleted before a.
+	empty := &Executor{
+		DAG:     BuildDAG(parseStack(t, `description: 'gone'`), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err = planAndApply(empty)
+	require.NoError(t, err)
+	require.Equal(t, []string{"b", "a"}, rec.order)
+}
 
 // cfgCapture records the configuration value a cfgResource was handed
 // at delete time, so a test can confirm destroy used the right one.

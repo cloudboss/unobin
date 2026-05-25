@@ -351,6 +351,61 @@ func TestPersistedDependsOn(t *testing.T) {
 	}
 }
 
+func destroyStep(addr string, dependsOn ...string) PlanStep {
+	return PlanStep{
+		Address:   addr,
+		Kind:      NodeResource,
+		Decision:  DecisionDestroy,
+		DependsOn: dependsOn,
+	}
+}
+
+func TestAddDestroyEdges(t *testing.T) {
+	tests := []struct {
+		name         string
+		steps        []PlanStep
+		wantIndegree map[string]int
+	}{
+		{
+			name:         "dependent is deleted before its dependency",
+			steps:        []PlanStep{destroyStep("a"), destroyStep("b", "a")},
+			wantIndegree: map[string]int{"a": 1, "b": 0},
+		},
+		{
+			name: "chain reverses end to end",
+			steps: []PlanStep{
+				destroyStep("a"),
+				destroyStep("b", "a"),
+				destroyStep("c", "b"),
+			},
+			wantIndegree: map[string]int{"a": 1, "b": 1, "c": 0},
+		},
+		{
+			name: "a dependency that is not being destroyed adds no edge",
+			steps: []PlanStep{
+				destroyStep("b", "a"),
+				{Address: "a", Kind: NodeResource, Decision: DecisionUpdate},
+			},
+			wantIndegree: map[string]int{"a": 0, "b": 0},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := &stepGraph{
+				indegree:   map[string]int{},
+				dependents: map[string][]string{},
+			}
+			for i := range tt.steps {
+				g.indegree[tt.steps[i].Address] = 0
+			}
+			addDestroyEdges(g, tt.steps)
+			for addr, want := range tt.wantIndegree {
+				assert.Equal(t, want, g.indegree[addr], "indegree of %s", addr)
+			}
+		})
+	}
+}
+
 func TestPersistedDependsOnDeterministic(t *testing.T) {
 	steps := []PlanStep{leafStep("a"), leafStep("b"), leafStep("c"), leafStep("d")}
 	dependents := map[string][]string{
