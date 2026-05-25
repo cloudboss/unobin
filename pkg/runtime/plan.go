@@ -91,6 +91,11 @@ type PlanStep struct {
 	ObservedOutputs  map[string]any      `json:"observed-outputs,omitempty"`
 	TriggerHash      string              `json:"trigger-hash,omitempty"`
 
+	// Configuration carries a destroy step's recorded module
+	// configuration ref ("ns.alias") from prior state, so apply deletes
+	// against the same credentials the resource was created with.
+	Configuration string `json:"configuration,omitempty"`
+
 	// SensitiveInputs names the input fields whose value expression
 	// reads from any sensitive source. Renderers replace the value
 	// with a placeholder rather than printing the secret.
@@ -221,11 +226,12 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				continue
 			}
 			plan.Steps = append(plan.Steps, &PlanStep{
-				Address:      prior.Address,
-				Kind:         NodeResource,
-				Decision:     DecisionDestroy,
-				Inputs:       prior.Inputs,
-				PriorOutputs: prior.Outputs,
+				Address:       prior.Address,
+				Kind:          NodeResource,
+				Decision:      DecisionDestroy,
+				Inputs:        prior.Inputs,
+				PriorOutputs:  prior.Outputs,
+				Configuration: prior.Configuration,
 			})
 		}
 	}

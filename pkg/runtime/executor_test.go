@@ -1256,6 +1256,47 @@ func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
 	require.Nil(t, e.configFor(leaf))
 }
 
+func TestConfigRefString(t *testing.T) {
+	cfgs := map[string]map[string]any{
+		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
+	}
+
+	plain := &Node{Address: "resource.aws.instance.a", NS: "aws"}
+	ePlain := &Executor{
+		DAG:            &DAG{Nodes: map[string]*Node{plain.Address: plain}},
+		Configurations: cfgs,
+	}
+	require.Equal(t, "", ePlain.configRefString(plain),
+		"a default configuration records no ref; the address determines it")
+
+	aliased := &Node{Address: "resource.aws.instance.b", NS: "aws", ConfigurationAlias: "east2"}
+	eAliased := &Executor{
+		DAG:            &DAG{Nodes: map[string]*Node{aliased.Address: aliased}},
+		Configurations: cfgs,
+	}
+	require.Equal(t, "aws.east2", eAliased.configRefString(aliased))
+
+	composite := &Node{
+		Address:             "resource.net.cluster.east",
+		Kind:                NodeComposite,
+		NS:                  "net",
+		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
+	}
+	internal := &Node{
+		Address:   "resource.net.cluster.east/aws.instance.worker",
+		NS:        "aws",
+		Composite: composite.Address,
+	}
+	eRemap := &Executor{
+		DAG: &DAG{Nodes: map[string]*Node{
+			composite.Address: composite,
+			internal.Address:  internal,
+		}},
+		Configurations: cfgs,
+	}
+	require.Equal(t, "aws.east2", eRemap.configRefString(internal))
+}
+
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {
 	src := `
 actions: {

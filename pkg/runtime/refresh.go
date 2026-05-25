@@ -117,7 +117,8 @@ func (e *Executor) refreshLeaf(
 	if err != nil {
 		return nil, false, err
 	}
-	observed, err := readObserved(ctx, rt, e.configForNS(ns), ent.Inputs, priorOutputs)
+	observed, err := readObserved(ctx, rt,
+		e.configForRef(ent.Configuration, ns), ent.Inputs, priorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return nil, true, nil
 	}
@@ -129,6 +130,7 @@ func (e *Executor) refreshLeaf(
 		Type:             state.EntryLeaf,
 		Kind:             ent.Kind,
 		SchemaVersion:    rt.SchemaVersion(),
+		Configuration:    ent.Configuration,
 		SensitiveInputs:  ent.SensitiveInputs,
 		SensitiveOutputs: ent.SensitiveOutputs,
 		TriggerHash:      ent.TriggerHash,

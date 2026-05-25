@@ -39,6 +39,13 @@ type Entry struct {
 	Module     string `json:"module,omitempty"`
 	ModuleType string `json:"module-type,omitempty"`
 
+	// Configuration names the module configuration the resource was
+	// created against, as "ns.alias". It is recorded only when that
+	// differs from the import's own default, since destroy and refresh
+	// need it to find the right credentials once the resource is no
+	// longer described in source.
+	Configuration string `json:"configuration,omitempty"`
+
 	TriggerHash string `json:"trigger-hash,omitempty"`
 
 	Inputs    map[string]any `json:"inputs,omitempty"`

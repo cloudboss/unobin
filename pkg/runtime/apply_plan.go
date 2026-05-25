@@ -246,6 +246,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Type:             state.EntryLeaf,
 		Kind:             prep.node.Type,
 		SchemaVersion:    rt.SchemaVersion(),
+		Configuration:    e.configRefString(prep.node),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,
@@ -302,7 +303,8 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err := Decode(receiver, step.Inputs); err != nil {
 		return err
 	}
-	if err := rt.Delete(ctx, receiver, e.configForNS(ns), step.PriorOutputs); err != nil {
+	if err := rt.Delete(ctx, receiver, e.configForRef(step.Configuration, ns),
+		step.PriorOutputs); err != nil {
 		return err
 	}
 	rs.mu.Lock()

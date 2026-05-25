@@ -8,9 +8,114 @@ import (
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/localstate"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
+
+// cfgCapture records the configuration value a cfgResource was handed
+// at delete time, so a test can confirm destroy used the right one.
+type cfgCapture struct {
+	deleteCfg any
+	deleted   bool
+}
+
+type cfgResource struct {
+	Name string
+
+	capture *cfgCapture
+}
+
+func (r *cfgResource) Create(_ context.Context, _ any) (any, error) {
+	return map[string]any{"id": "id-" + r.Name}, nil
+}
+
+func (r *cfgResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *cfgResource) Update(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *cfgResource) Delete(_ context.Context, cfg any, _ any) error {
+	r.capture.deleteCfg = cfg
+	r.capture.deleted = true
+	return nil
+}
+
+func (r *cfgResource) ReplaceFields() []string { return nil }
+
+func (r *cfgResource) SchemaVersion() int { return 1 }
+
+func cfgCapturingModules(capture *cfgCapture) map[string]*Module {
+	return map[string]*Module{
+		"aws": {
+			Name:          "aws",
+			Configuration: &cfg.ConfigurationType{New: func() any { return &struct{}{} }},
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[cfgResource, any](
+					func() *cfgResource { return &cfgResource{capture: capture} },
+				),
+			},
+		},
+	}
+}
+
+func TestDestroyUsesRecordedConfiguration(t *testing.T) {
+	capture := &cfgCapture{}
+	mods := cfgCapturingModules(capture)
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	configurations := map[string]map[string]any{
+		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
+	}
+
+	withResource := `
+resources: {
+  aws: {
+    thing: {
+      x: {
+        @configuration: aws.east2
+        name:           'x'
+      }
+    }
+  }
+}
+`
+	exec := &Executor{
+		DAG:            BuildDAG(parseStack(t, withResource), mods),
+		Modules:        mods,
+		Configurations: configurations,
+		Store:          store,
+		Stack:          stack,
+	}
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Len(t, snap.Entries, 1)
+	require.Equal(t, "aws.east2", snap.Entries[0].Configuration)
+
+	// Remove the resource from source so the next apply destroys it,
+	// and confirm Delete ran against the east2 configuration.
+	empty := &Executor{
+		DAG:            BuildDAG(parseStack(t, `description: 'gone'`), mods),
+		Modules:        mods,
+		Configurations: configurations,
+		Store:          store,
+		Stack:          stack,
+	}
+	_, err = planAndApply(empty)
+	require.NoError(t, err)
+	require.True(t, capture.deleted)
+	require.Equal(t, "east2-cfg", capture.deleteCfg)
+
+	snap, err = store.Current()
+	require.NoError(t, err)
+	require.Empty(t, snap.Entries)
+}
 
 var errIncrementalResource = errors.New("intentional resource failure")
 

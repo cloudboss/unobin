@@ -83,14 +83,14 @@ func (e *Executor) effectiveParallelism() int {
 	return DefaultParallelism
 }
 
-// configFor returns the decoded configuration to pass to a CRUD call
-// on the given node. The lookup walks the composite chain from the
-// node up to root, taking the first `@configurations:` entry that
-// covers the node's import. If none does, the node's own
-// `@configuration:` selection (or "default") applies.
-func (e *Executor) configFor(n *Node) any {
-	ns := n.NS
-	alias := n.ConfigurationAlias
+// resolvedConfigRef returns the (ns, alias) pair the runtime resolves
+// for a node. The walk goes from the node up the composite chain,
+// taking the first `@configurations:` entry that covers the node's
+// import. If none does, the node's own `@configuration:` selection (or
+// "default") applies.
+func (e *Executor) resolvedConfigRef(n *Node) (ns, alias string) {
+	ns = n.NS
+	alias = n.ConfigurationAlias
 	if alias == "" {
 		alias = "default"
 	}
@@ -106,16 +106,42 @@ func (e *Executor) configFor(n *Node) any {
 		}
 		parent = c.Composite
 	}
+	return ns, alias
+}
+
+// configFor returns the decoded configuration to pass to a CRUD call
+// on the given node.
+func (e *Executor) configFor(n *Node) any {
+	ns, alias := e.resolvedConfigRef(n)
 	return e.lookupConfiguration(ns, alias)
 }
 
-// configForNS is the address-side lookup used for orphan destroy
-// steps that have no live DAG node to consult. The alias is always
-// "default" because state records carry the configuration values
-// already applied; an orphan deletion only needs credentials and
-// region for the same import that owned the resource.
-func (e *Executor) configForNS(ns string) any {
-	return e.lookupConfiguration(ns, "default")
+// configRefString returns the "ns.alias" a destroy or refresh should
+// use to find credentials for n, or "" when n uses its own import's
+// default configuration. The empty case is the common one and the
+// resource address alone determines it, so it is left off the state
+// entry to keep snapshots small.
+func (e *Executor) configRefString(n *Node) string {
+	ns, alias := e.resolvedConfigRef(n)
+	if ns == n.NS && alias == "default" {
+		return ""
+	}
+	return ns + "." + alias
+}
+
+// configForRef returns the configuration named by a state entry's
+// recorded ref of the form "ns.alias". An empty ref means the entry
+// used its import's default configuration, so the entry's own import
+// alias with the default applies.
+func (e *Executor) configForRef(ref, fallbackNS string) any {
+	if ref == "" {
+		return e.lookupConfiguration(fallbackNS, "default")
+	}
+	ns, alias, ok := strings.Cut(ref, ".")
+	if !ok {
+		return e.lookupConfiguration(fallbackNS, "default")
+	}
+	return e.lookupConfiguration(ns, alias)
 }
 
 func (e *Executor) lookupConfiguration(ns, alias string) any {
