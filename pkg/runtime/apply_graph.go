@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"maps"
+	"sort"
 	"strings"
 )
 
@@ -112,6 +113,67 @@ func buildStepGraphWithPairKey(
 		}
 	}
 	return g
+}
+
+// entryPersisted reports whether a step's apply writes a state entry
+// that survives in the snapshot. Resources (unless being destroyed),
+// actions, and composite call sites persist; data sources and outputs
+// do not.
+func entryPersisted(s *PlanStep) bool {
+	switch s.Kind {
+	case NodeAction, NodeComposite:
+		return true
+	case NodeResource:
+		return s.Decision != DecisionDestroy
+	default:
+		return false
+	}
+}
+
+// persistedDependsOn computes, for each plan step that becomes a state
+// entry, the addresses of the other entries it depends on. The step
+// graph's edges run from a dependency to its dependents, so they are
+// inverted here. A predecessor that is not itself persisted (a data
+// source or output) is collapsed through to its own persisted
+// predecessors, so every recorded address names an entry that will
+// exist in state. Destroy ordering reverses these edges.
+func persistedDependsOn(g *stepGraph, steps []PlanStep) map[string][]string {
+	persisted := make(map[string]bool, len(steps))
+	for i := range steps {
+		if entryPersisted(&steps[i]) {
+			persisted[steps[i].Address] = true
+		}
+	}
+	preds := make(map[string][]string, len(steps))
+	for dep, dependents := range g.dependents {
+		for _, d := range dependents {
+			preds[d] = append(preds[d], dep)
+		}
+	}
+	out := make(map[string][]string, len(persisted))
+	for addr := range persisted {
+		seen := map[string]bool{}
+		var collapsed []string
+		stack := append([]string(nil), preds[addr]...)
+		for len(stack) > 0 {
+			p := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			if persisted[p] {
+				collapsed = append(collapsed, p)
+				continue
+			}
+			stack = append(stack, preds[p]...)
+		}
+		if len(collapsed) > 0 {
+			sort.Strings(collapsed)
+			out[addr] = collapsed
+		}
+	}
+	return out
 }
 
 // pairKeyMatches reports whether step s has at least one key segment

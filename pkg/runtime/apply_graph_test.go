@@ -249,3 +249,118 @@ func TestKeyPathsAgree(t *testing.T) {
 	assert.True(t, keyPathsAgree(d, a))
 	assert.True(t, keyPathsAgree(d, d))
 }
+
+func leafStep(addr string) PlanStep {
+	return PlanStep{Address: addr, Kind: NodeResource, Decision: DecisionCreate}
+}
+
+func TestPersistedDependsOn(t *testing.T) {
+	tests := []struct {
+		name       string
+		steps      []PlanStep
+		dependents map[string][]string
+		want       map[string][]string
+	}{
+		{
+			name:  "one edge between leaves",
+			steps: []PlanStep{leafStep("a"), leafStep("b")},
+			// b is depended on by a, so a depends on b.
+			dependents: map[string][]string{"b": {"a"}},
+			want:       map[string][]string{"a": {"b"}},
+		},
+		{
+			name: "collapse through a data source",
+			steps: []PlanStep{
+				leafStep("a"),
+				{Address: "d", Kind: NodeData, Decision: DecisionRead},
+				leafStep("r"),
+			},
+			// a -> d -> r; d is not persisted, so a records r.
+			dependents: map[string][]string{"r": {"d"}, "d": {"a"}},
+			want:       map[string][]string{"a": {"r"}},
+		},
+		{
+			name: "module-call stays a node",
+			steps: []PlanStep{
+				leafStep("r"),
+				{Address: "m", Kind: NodeComposite, Decision: DecisionEval},
+				leafStep("m/internal"),
+			},
+			// r -> m -> m/internal; m persists, so no collapse.
+			dependents: map[string][]string{"m": {"r"}, "m/internal": {"m"}},
+			want: map[string][]string{
+				"r": {"m"},
+				"m": {"m/internal"},
+			},
+		},
+		{
+			name:  "diamond dedups",
+			steps: []PlanStep{leafStep("a"), leafStep("b"), leafStep("c"), leafStep("d")},
+			// a -> b, a -> c, b -> d, c -> d.
+			dependents: map[string][]string{
+				"b": {"a"},
+				"c": {"a"},
+				"d": {"b", "c"},
+			},
+			want: map[string][]string{
+				"a": {"b", "c"},
+				"b": {"d"},
+				"c": {"d"},
+			},
+		},
+		{
+			name: "diamond through data sources collapses to one",
+			steps: []PlanStep{
+				leafStep("a"),
+				{Address: "d1", Kind: NodeData, Decision: DecisionRead},
+				{Address: "d2", Kind: NodeData, Decision: DecisionRead},
+				leafStep("r"),
+			},
+			// a -> d1 -> r and a -> d2 -> r; a records r once.
+			dependents: map[string][]string{
+				"r":  {"d1", "d2"},
+				"d1": {"a"},
+				"d2": {"a"},
+			},
+			want: map[string][]string{"a": {"r"}},
+		},
+		{
+			name:       "no dependencies",
+			steps:      []PlanStep{leafStep("a")},
+			dependents: map[string][]string{},
+			want:       map[string][]string{},
+		},
+		{
+			name: "destroyed resource is not persisted",
+			steps: []PlanStep{
+				leafStep("a"),
+				{Address: "gone", Kind: NodeResource, Decision: DecisionDestroy},
+			},
+			// a depends on a resource being destroyed; the destroy is not
+			// a persisted entry, so it collapses to nothing.
+			dependents: map[string][]string{"gone": {"a"}},
+			want:       map[string][]string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := &stepGraph{dependents: tt.dependents}
+			got := persistedDependsOn(g, tt.steps)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestPersistedDependsOnDeterministic(t *testing.T) {
+	steps := []PlanStep{leafStep("a"), leafStep("b"), leafStep("c"), leafStep("d")}
+	dependents := map[string][]string{
+		"b": {"a"},
+		"c": {"a"},
+		"d": {"b", "c"},
+	}
+	want := persistedDependsOn(&stepGraph{dependents: dependents}, steps)
+	for i := 0; i < 20; i++ {
+		got := persistedDependsOn(&stepGraph{dependents: dependents}, steps)
+		assert.Equal(t, want, got)
+	}
+}

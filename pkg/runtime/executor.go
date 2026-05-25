@@ -156,6 +156,13 @@ type runState struct {
 	// before finalizing decisions. Apply and Refresh leave this nil.
 	pendingReads []*pendingRead
 
+	// dependsOn maps each persisted step address to the addresses of
+	// the other entries it depends on, in instance form. ApplyPlan
+	// computes it once before dispatch and each apply method copies the
+	// relevant slice onto the state entry it writes. Destroy ordering
+	// reverses these edges.
+	dependsOn map[string][]string
+
 	// mu serializes mutation of eval, composites, next, and outputs,
 	// plus calls to Store.Write / Store.SetCurrent. Apply takes the
 	// lock around scope evaluation and around state writes; it is
@@ -473,6 +480,7 @@ func (e *Executor) finalizeComposite(
 		Outputs:          outputs,
 		SensitiveInputs:  sensitiveInputs,
 		SensitiveOutputs: sensitiveOutputs,
+		DependsOn:        rs.dependsOn[instAddr],
 	})
 	return nil
 }

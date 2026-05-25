@@ -127,6 +127,43 @@ func applyIncrementalPlan(
 	return err
 }
 
+func TestApplyPersistsDependsOn(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      base:      { name: 'base', size: 1 }
+      dependent: { name: resource.core.thing.base.id, size: 2 }
+    }
+  }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	mods := resourceModules(&c)
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	byAddr := map[string]*state.Entry{}
+	for _, ent := range snap.Entries {
+		byAddr[ent.Address] = ent
+	}
+	require.Contains(t, byAddr, "resource.core.thing.base")
+	require.Contains(t, byAddr, "resource.core.thing.dependent")
+	require.Equal(t, []string{"resource.core.thing.base"},
+		byAddr["resource.core.thing.dependent"].DependsOn)
+	require.Empty(t, byAddr["resource.core.thing.base"].DependsOn)
+}
+
 func TestApplyPlanForEachResource(t *testing.T) {
 	src := `
 resources: {

@@ -178,6 +178,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,
 		SensitiveOutputs: step.SensitiveOutputs,
+		DependsOn:        rs.dependsOn[step.Address],
 	})
 	return nil
 }
@@ -249,6 +250,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,
 		SensitiveOutputs: step.SensitiveOutputs,
+		DependsOn:        rs.dependsOn[step.Address],
 	})
 	switch step.Decision {
 	case DecisionCreate, DecisionUpdate, DecisionReplace:

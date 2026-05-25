@@ -33,6 +33,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		return nil
 	}
 	graph := buildStepGraph(pf, e.DAG)
+	rs.dependsOn = persistedDependsOn(graph, pf.Steps)
 	parallelism := min(e.effectiveParallelism(), len(pf.Steps))
 
 	pending := make([]*PlanStep, len(pf.Steps))
