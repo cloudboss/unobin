@@ -95,8 +95,8 @@ func MakeResource[T any, Out any, PT resourcePtr[T, Out]]() ResourceRegistration
 
 // MakeResourceWith is the variant of MakeResource for callers that
 // need each receiver to capture external state. The constructor runs
-// once per instance the runtime needs; mapstructure then decodes the
-// inputs into it.
+// once per instance the runtime needs; Decode then fills it from the
+// inputs.
 func MakeResourceWith[T any, Out any, PT resourcePtr[T, Out]](
 	construct func() *T,
 ) ResourceRegistration {
@@ -248,8 +248,8 @@ func (typedDataSourceReg[T, Out, PT]) OutputType() reflect.Type {
 // state" sentinel and yields the zero value (a nil pointer for the
 // usual Out = *Something). An already-typed Out passes through. State
 // loaded from disk arrives as map[string]any (JSON round trip) and
-// gets decoded into a fresh Out via the same mapstructure rules used
-// for inputs. A prior value that is neither nil, the typed output, nor
+// gets decoded into a fresh Out via the same Decode rules used for
+// inputs. A prior value that is neither nil, the typed output, nor
 // a decodable map returns an error rather than crashing, so a corrupt
 // or hand-edited state entry is reported to the operator like any other
 // step failure.

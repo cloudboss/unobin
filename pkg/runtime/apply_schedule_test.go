@@ -15,8 +15,8 @@ import (
 )
 
 type slowResource struct {
-	Name  string `mapstructure:"name"`
-	Delay int64  `mapstructure:"delay-ms"`
+	Name  string
+	Delay int64 `ub:"delay-ms"`
 }
 
 func (r *slowResource) SchemaVersion() int { return 1 }
@@ -40,8 +40,8 @@ func (r *slowResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *slowResource) ReplaceFields() []string                  { return nil }
 
 type slowFailResource struct {
-	Name  string `mapstructure:"name"`
-	Delay int64  `mapstructure:"delay-ms"`
+	Name  string
+	Delay int64 `ub:"delay-ms"`
 }
 
 func (r *slowFailResource) SchemaVersion() int { return 1 }
@@ -138,8 +138,8 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 }
 
 type countingSlowResource struct {
-	Name  string `mapstructure:"name"`
-	Delay int64  `mapstructure:"delay-ms"`
+	Name  string
+	Delay int64 `ub:"delay-ms"`
 	runs  *atomic.Int64
 }
 

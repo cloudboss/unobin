@@ -9,11 +9,11 @@ import (
 )
 
 type fakeVpc struct {
-	CidrBlock string `mapstructure:"cidr-block"`
+	CidrBlock string
 }
 
 type fakeVpcOutput struct {
-	ID string `mapstructure:"id"`
+	ID string
 }
 
 func (v *fakeVpc) SchemaVersion() int { return 1 }
@@ -85,11 +85,11 @@ func TestResourceMigrateCallsMigratorWhenImplemented(t *testing.T) {
 }
 
 type typedFakeAction struct {
-	Argv []string `mapstructure:"argv"`
+	Argv []string
 }
 
 type typedFakeActionOutput struct {
-	Stdout string `mapstructure:"stdout"`
+	Stdout string
 }
 
 func (a *typedFakeAction) Run(_ context.Context, _ any) (*typedFakeActionOutput, error) {
@@ -111,11 +111,11 @@ func TestMakeActionProducesWorkingRegistration(t *testing.T) {
 }
 
 type fakeAMI struct {
-	ImageID string `mapstructure:"image-id"`
+	ImageID string
 }
 
 type fakeAMIOutput struct {
-	Architecture string `mapstructure:"architecture"`
+	Architecture string
 }
 
 func (d *fakeAMI) Read(_ context.Context, _ any) (*fakeAMIOutput, error) {

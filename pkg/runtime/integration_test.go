@@ -205,7 +205,7 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 }
 
 type counter struct {
-	Tag  string `mapstructure:"tag"`
+	Tag  string
 	runs *int64
 }
 

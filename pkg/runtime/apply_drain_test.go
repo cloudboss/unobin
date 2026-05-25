@@ -15,8 +15,8 @@ import (
 )
 
 type drainTrackerResource struct {
-	Name  string `mapstructure:"name"`
-	Delay int64  `mapstructure:"delay-ms"`
+	Name  string
+	Delay int64 `ub:"delay-ms"`
 	runs  *atomic.Int64
 }
 

@@ -21,8 +21,8 @@ type incrementalResourceCounters struct {
 }
 
 type incrementalResource struct {
-	Name string `mapstructure:"name"`
-	Size int64  `mapstructure:"size"`
+	Name string
+	Size int64
 
 	counters *incrementalResourceCounters
 }

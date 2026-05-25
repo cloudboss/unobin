@@ -16,7 +16,7 @@ import (
 )
 
 type echoAction struct {
-	Echo string `mapstructure:"echo"`
+	Echo string
 }
 
 func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
@@ -24,7 +24,7 @@ func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
 }
 
 type lookupDataSource struct {
-	Key string `mapstructure:"key"`
+	Key string
 }
 
 func (d *lookupDataSource) Read(_ context.Context, _ any) (any, error) {
@@ -195,8 +195,8 @@ type resourceCounters struct {
 }
 
 type countingResource struct {
-	Name string `mapstructure:"name"`
-	Size int64  `mapstructure:"size"`
+	Name string
+	Size int64
 
 	counters *resourceCounters
 }
@@ -239,7 +239,7 @@ func (r *countingResource) SchemaVersion() int { return 1 }
 // to 2 and no Migrate, used by plan tests that exercise the
 // missing-migration error path.
 type countingResourceV2 struct {
-	countingResource `mapstructure:",squash"`
+	countingResource `ub:",squash"`
 }
 
 func (r *countingResourceV2) SchemaVersion() int { return 2 }
@@ -248,7 +248,7 @@ func (r *countingResourceV2) SchemaVersion() int { return 2 }
 // method that rewrites `id` to `name-id` in state, used by the plan
 // test for the migration happy path.
 type migratingCountingResource struct {
-	countingResource `mapstructure:",squash"`
+	countingResource `ub:",squash"`
 }
 
 func (r *migratingCountingResource) SchemaVersion() int { return 2 }
@@ -1025,7 +1025,7 @@ func TestExecutorEmptyStack(t *testing.T) {
 }
 
 type countingAction struct {
-	Echo string `mapstructure:"echo"`
+	Echo string
 	runs *int64
 }
 

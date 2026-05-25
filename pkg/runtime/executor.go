@@ -648,7 +648,7 @@ func getOrCreate(m map[string]any, key string) map[string]any {
 }
 
 // mapify reduces a typed result struct to a map[string]any using its
-// `mapstructure` field tags. Each field's value is canonicalized to
+// `ub` field tags (see ubFieldKey). Each field's value is canonicalized to
 // the closed set of types unobin's runtime carries (string, int64,
 // float64, bool, nil, []any, map[string]any), so named numeric types
 // like time.Duration come back as int64 rather than leaking their
@@ -675,16 +675,33 @@ func mapify(v any) map[string]any {
 		if !field.IsExported() {
 			continue
 		}
-		name := field.Tag.Get("mapstructure")
-		if name == "" {
-			name = field.Name
-		}
-		if name == "-" {
+		name, skip := ubFieldKey(field)
+		if skip {
 			continue
 		}
 		out[name] = canonicalize(rv.Field(i))
 	}
 	return out
+}
+
+// ubFieldKey returns the map key for a struct field under the ub tag
+// convention, plus whether the field is skipped (`ub:"-"`). The key is
+// the tag's name, or the kebab-cased field name when the tag omits a
+// name. This mirrors how the decoder matches keys, so a value mapify
+// writes out reads back into the same field.
+func ubFieldKey(field reflect.StructField) (key string, skip bool) {
+	tag := field.Tag.Get("ub")
+	if tag == "-" {
+		return "", true
+	}
+	name := tag
+	if i := strings.IndexByte(tag, ','); i >= 0 {
+		name = tag[:i]
+	}
+	if name == "" {
+		name = lang.PascalToKebab(field.Name)
+	}
+	return name, false
 }
 
 // canonicalize collapses a reflect.Value to one of the runtime's

@@ -34,7 +34,7 @@ func (c *concurrencyTracker) leave() {
 }
 
 type slowAction struct {
-	Delay int64 `mapstructure:"delay-ms"`
+	Delay int64 `ub:"delay-ms"`
 	track *concurrencyTracker
 }
 

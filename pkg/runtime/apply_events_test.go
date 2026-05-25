@@ -11,7 +11,7 @@ import (
 )
 
 type plainResource struct {
-	Name string `mapstructure:"name"`
+	Name string
 }
 
 func (r *plainResource) SchemaVersion() int { return 1 }
@@ -29,7 +29,7 @@ func (r *plainResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *plainResource) ReplaceFields() []string                  { return nil }
 
 type plainFailResource struct {
-	Name string `mapstructure:"name"`
+	Name string
 }
 
 func (r *plainFailResource) SchemaVersion() int { return 1 }
