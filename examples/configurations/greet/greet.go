@@ -20,12 +20,12 @@ type Configuration struct {
 
 // SayAction prepends the configured prefix to a message.
 type SayAction struct {
-	Message string `mapstructure:"message"`
+	Message string
 }
 
 // SayActionOutput is the action's output.
 type SayActionOutput struct {
-	Output string `mapstructure:"output"`
+	Output string
 }
 
 func (a *SayAction) Run(_ context.Context, rawCfg any) (*SayActionOutput, error) {
