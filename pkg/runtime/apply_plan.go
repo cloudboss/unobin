@@ -62,7 +62,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	// address so distinct instances get distinct scopes.
 	for i := range pf.Steps {
 		step := &pf.Steps[i]
-		if step.Kind != NodeComposite {
+		if step.Kind != NodeComposite || step.Decision == DecisionDestroy {
 			continue
 		}
 		boundary, ok := e.DAG.Nodes[templateAddress(step.Address)]
@@ -105,6 +105,14 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 }
 
 func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) error {
+	if step.Decision == DecisionDestroy {
+		// Resources need their Delete called; action and module-call
+		// records have no external lifecycle, so they are just removed.
+		if step.Kind == NodeResource {
+			return e.applyDestroy(ctx, rs, step)
+		}
+		return e.removeRecord(rs, step)
+	}
 	switch step.Kind {
 	case NodeAction:
 		return e.applyAction(ctx, rs, step)
@@ -188,9 +196,6 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 }
 
 func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanStep) error {
-	if step.Decision == DecisionDestroy {
-		return e.applyDestroy(ctx, rs, step)
-	}
 	prep, err := e.prepareStep(rs, step.Address)
 	if err != nil {
 		return err
@@ -285,20 +290,16 @@ func instanceScope(node *Node, parent *EvalContext, instKey string) (*EvalContex
 	return childScopeWithEach(parent, instKey, value), nil
 }
 
-// applyDestroy handles an orphan destroy step. The address is not in
-// the DAG (since the node was removed from source), so the resource
-// type is recovered by parsing the address. Composite-internal
-// addresses keep their call site prefix, so the inner address is
-// stripped first.
+// applyDestroy deletes a resource and drops it from state. The module
+// is recovered by parsing the address, so this works whether the
+// resource was orphaned (removed from source) or is part of a full
+// teardown. Composite-internal addresses keep their call site prefix,
+// so the inner address is stripped first.
 func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanStep) error {
 	// The plan read this resource and found it already absent, so there
 	// is nothing to delete; just drop it from state.
 	if step.AlreadyGone {
-		rs.mu.Lock()
-		defer rs.mu.Unlock()
-		removeEntry(rs.next, step.Address)
-		_, err := e.persist(rs)
-		return err
+		return e.removeRecord(rs, step)
 	}
 	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
 	if !ok {
@@ -320,6 +321,18 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 		step.PriorOutputs); err != nil {
 		return err
 	}
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	removeEntry(rs.next, step.Address)
+	_, err := e.persist(rs)
+	return err
+}
+
+// removeRecord drops a state entry that has no external lifecycle - an
+// action record, a composite module-call record, or a resource the
+// plan already found absent - during a destroy. There is nothing to
+// delete; the record is simply removed and the new snapshot written.
+func (e *Executor) removeRecord(rs *runState, step *PlanStep) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	removeEntry(rs.next, step.Address)

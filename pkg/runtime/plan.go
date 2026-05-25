@@ -236,18 +236,26 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.Source, e.DAG.Nodes))
 	}
 
-	// Orphans: prior leaf entries with no live address in this plan.
+	// Orphans: prior entries with no live address in this plan become
+	// destroy steps. A normal plan only destroys orphaned leaf
+	// resources; action and module-call records are cleaned up by
+	// pruning. A destroy plan removes every record, so it emits a step
+	// for each entry type.
 	if rs.prior != nil {
 		for _, prior := range rs.prior.Entries {
-			if prior.Type != state.EntryLeaf {
+			if liveAddresses[prior.Address] {
 				continue
 			}
-			if liveAddresses[prior.Address] {
+			kind, ok := destroyEntryKind(prior.Type)
+			if !ok {
+				continue
+			}
+			if !e.Destroy && prior.Type != state.EntryLeaf {
 				continue
 			}
 			plan.Steps = append(plan.Steps, &PlanStep{
 				Address:       prior.Address,
-				Kind:          NodeResource,
+				Kind:          kind,
 				Decision:      DecisionDestroy,
 				Inputs:        prior.Inputs,
 				PriorOutputs:  prior.Outputs,
@@ -262,6 +270,22 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
+// destroyEntryKind maps a state entry type to the node kind its
+// destroy step carries. Leaf entries delete a real resource; action
+// and module-call records have no external lifecycle and are only
+// removed from state.
+func destroyEntryKind(t state.EntryType) (NodeKind, bool) {
+	switch t {
+	case state.EntryLeaf:
+		return NodeResource, true
+	case state.EntryAction:
+		return NodeAction, true
+	case state.EntryModuleCall:
+		return NodeComposite, true
+	}
+	return "", false
+}
+
 // readDestroySteps reads each destroy step's resource so the plan can
 // tell an already-absent resource from one that still needs deleting.
 // A read that comes back not-found marks the step AlreadyGone, so apply
@@ -272,7 +296,9 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) error {
 	var jobs []*PlanStep
 	for _, s := range steps {
-		if s.Decision == DecisionDestroy {
+		// Only resources have something in the world to read; action
+		// and module-call records are removed without a read.
+		if s.Decision == DecisionDestroy && s.Kind == NodeResource {
 			jobs = append(jobs, s)
 		}
 	}

@@ -451,13 +451,12 @@ func removeEntry(snap *state.Snapshot, address string) {
 func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 	keep := make(map[string]bool, len(steps))
 	for _, step := range steps {
+		if step.Decision == DecisionDestroy {
+			continue
+		}
 		switch step.Kind {
-		case NodeAction, NodeComposite:
+		case NodeAction, NodeComposite, NodeResource:
 			keep[step.Address] = true
-		case NodeResource:
-			if step.Decision != DecisionDestroy {
-				keep[step.Address] = true
-			}
 		}
 	}
 	out := snap.Entries[:0]

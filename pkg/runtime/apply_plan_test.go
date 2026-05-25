@@ -591,6 +591,63 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 	require.Equal(t, DecisionDestroy, pf.Steps[0].Decision)
 }
 
+func TestDestroyClearsActionAndModuleCallRecords(t *testing.T) {
+	compositeBody := parseStack(t, `
+inputs: { msg: { type: string } }
+actions: { core: { echo: { inner: { echo: var.msg } } } }
+outputs: { said: { value: action.core.echo.inner.echo } }
+`)
+	mods := testModules()
+	mods["w"] = &Module{
+		Name:       "w",
+		Composites: map[string]*CompositeType{"box": {Name: "box", Body: compositeBody}},
+	}
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	// No leaf resources: only a root action, a module-call record, and
+	// the composite's internal action. This is the shape that used to
+	// plan as "No changes".
+	src := `
+actions: { core: { echo: { top: { echo: 'hi' } } } }
+resources: { w: { box: { x: { msg: 'wrapped' } } } }
+`
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.NotEmpty(t, snap.Entries)
+
+	destroyer := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+		Destroy: true,
+	}
+	plan, err := destroyer.Plan(context.Background())
+	require.NoError(t, err)
+	require.NotEmpty(t, plan.Steps,
+		"destroy must plan to remove action and module-call records, not report no changes")
+	for _, s := range plan.Steps {
+		require.Equal(t, DecisionDestroy, s.Decision, s.Address)
+	}
+
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	_, err = destroyer.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	requireEmptyState(t, store)
+}
+
 func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	var c resourceCounters
 	mods := resourceModules(&c)
