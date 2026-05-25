@@ -1,9 +1,9 @@
 package data
 
 type AMI struct {
-	ImageID string `mapstructure:"image-id"`
+	ImageID string
 }
 
 type AMIOutput struct {
-	Architecture string `mapstructure:"architecture"`
+	Architecture string
 }

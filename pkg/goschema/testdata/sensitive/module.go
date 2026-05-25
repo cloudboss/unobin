@@ -16,13 +16,13 @@ func Module() *runtime.Module {
 }
 
 type Secret struct {
-	Name     string `mapstructure:"name"`
-	Password string `mapstructure:"password" ub:",sensitive"`
+	Name     string
+	Password string `ub:",sensitive"`
 }
 
 type SecretOutput struct {
-	ARN   string `mapstructure:"arn"`
-	Value string `mapstructure:"value" ub:",sensitive"`
+	ARN   string
+	Value string `ub:",sensitive"`
 }
 
 func (s *Secret) SchemaVersion() int { return 1 }

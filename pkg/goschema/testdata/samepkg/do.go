@@ -6,13 +6,13 @@ import (
 )
 
 type DoAction struct {
-	What string `mapstructure:"what"`
+	What string
 }
 
 type DoActionOutput struct {
-	Result   string        `mapstructure:"result"`
-	Duration time.Duration `mapstructure:"duration"`
-	Tags     []string      `mapstructure:"tags"`
+	Result   string
+	Duration time.Duration
+	Tags     []string
 }
 
 func (a *DoAction) Run(ctx context.Context, _ any) (any, error) {

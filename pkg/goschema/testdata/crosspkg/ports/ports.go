@@ -1,6 +1,6 @@
 package ports
 
 type Port struct {
-	Number   int64  `mapstructure:"number"`
-	Protocol string `mapstructure:"protocol"`
+	Number   int64
+	Protocol string
 }

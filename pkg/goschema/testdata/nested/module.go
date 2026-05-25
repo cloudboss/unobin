@@ -16,31 +16,31 @@ func Module() *runtime.Module {
 }
 
 type DB struct {
-	Name string `mapstructure:"name"`
-	Code DBCode `mapstructure:"code"`
+	Name string
+	Code DBCode
 }
 
 type DBCode struct {
-	Inline   *string    `mapstructure:"inline"`
-	FromFile *string    `mapstructure:"from-file"`
-	Signing  *DBSigning `mapstructure:"signing"`
+	Inline   *string
+	FromFile *string
+	Signing  *DBSigning
 }
 
 type DBSigning struct {
-	KeyArn  *string `mapstructure:"key-arn"`
-	Profile string  `mapstructure:"profile"`
+	KeyArn  *string
+	Profile string
 }
 
 type Endpoint struct {
-	Host string `mapstructure:"host"`
-	Port int64  `mapstructure:"port"`
+	Host string
+	Port int64
 }
 
 type DBOutput struct {
-	ID       string   `mapstructure:"id"`
-	Endpoint Endpoint `mapstructure:"endpoint"`
+	ID       string
+	Endpoint Endpoint
 	Replicas []Endpoint
-	Self     *DBOutput `mapstructure:"self"`
+	Self     *DBOutput
 }
 
 func (d *DB) Create(_ context.Context) (*DBOutput, error) { return &DBOutput{}, nil }

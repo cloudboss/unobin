@@ -18,14 +18,14 @@ func Module() *runtime.Module {
 }
 
 type DB struct {
-	Name string `mapstructure:"name"`
+	Name string
 }
 
 type DBOutput struct {
-	ID       string               `mapstructure:"id"`
-	Endpoint endpoints.Endpoint   `mapstructure:"endpoint"`
-	Replicas []endpoints.Endpoint `mapstructure:"replicas"`
-	Self     *DBOutput            `mapstructure:"self"`
+	ID       string
+	Endpoint endpoints.Endpoint
+	Replicas []endpoints.Endpoint
+	Self     *DBOutput
 }
 
 func (d *DB) Create(_ context.Context) (*DBOutput, error) { return &DBOutput{}, nil }

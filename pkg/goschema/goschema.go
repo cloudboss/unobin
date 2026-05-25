@@ -6,6 +6,7 @@
 package goschema
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -45,10 +46,11 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 	var warnings []string
 
 	cache := map[string][]*ast.File{}
+	errs := &[]error{}
 	for _, reg := range extractRegistrations(moduleFunc) {
-		w := newWalker(dir, modulePath, rootPkg, cache)
+		w := newWalker(dir, modulePath, rootPkg, cache, errs)
 		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
-		w = newWalker(dir, modulePath, rootPkg, cache)
+		w = newWalker(dir, modulePath, rootPkg, cache, errs)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
@@ -69,6 +71,9 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 		case "Actions":
 			schema.Actions[reg.Name] = ts
 		}
+	}
+	if len(*errs) > 0 {
+		return nil, warnings, errors.Join(*errs...)
 	}
 	return schema, warnings, nil
 }
@@ -133,6 +138,7 @@ type walker struct {
 	modulePath   string
 	packageCache map[string][]*ast.File
 	visiting     map[string]bool
+	errs         *[]error
 
 	importPath string
 	files      []*ast.File
@@ -143,6 +149,7 @@ func newWalker(
 	rootDir, modulePath string,
 	rootFiles []*ast.File,
 	cache map[string][]*ast.File,
+	errs *[]error,
 ) *walker {
 	if modulePath != "" {
 		cache[modulePath] = rootFiles
@@ -152,6 +159,7 @@ func newWalker(
 		modulePath:   modulePath,
 		packageCache: cache,
 		visiting:     map[string]bool{},
+		errs:         errs,
 		importPath:   modulePath,
 		files:        rootFiles,
 		imports:      buildImportMap(rootFiles),
@@ -274,12 +282,20 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 	var sensitive map[string]bool
 	for _, fld := range st.Fields.List {
 		t := w.typeFromAST(fld.Type)
-		tag := mapstructureTag(fld.Tag)
-		isSensitive := ubTagHas(fld.Tag, "sensitive")
-		for _, name := range fld.Names {
-			key := tag
+		name, skip, isSensitive, unknown := parseUBFieldTag(fld.Tag)
+		if skip {
+			continue
+		}
+		if len(unknown) > 0 && w.errs != nil {
+			for _, opt := range unknown {
+				*w.errs = append(*w.errs,
+					fmt.Errorf("unknown ub option %q on field %s", opt, fieldLabel(fld)))
+			}
+		}
+		for _, fieldName := range fld.Names {
+			key := name
 			if key == "" {
-				key = lang.PascalToKebab(name.Name)
+				key = lang.PascalToKebab(fieldName.Name)
 			}
 			out[key] = t
 			if isSensitive {
@@ -617,37 +633,43 @@ func buildImportMap(files []*ast.File) map[string]string {
 	return out
 }
 
-func mapstructureTag(tag *ast.BasicLit) string {
+// parseUBFieldTag reads a field's `ub` struct tag and returns its
+// name (empty means use the kebab-cased field name), whether the
+// field is skipped (`ub:"-"`), whether it is marked sensitive, and
+// any options that are not part of the module-field contract.
+// sensitive is the only option the schema acts on; omitempty and
+// squash are valid codec options and pass silently; anything else is
+// reported so a typo like "sensitiv" cannot quietly leave a secret
+// unmasked.
+func parseUBFieldTag(tag *ast.BasicLit) (name string, skip, sensitive bool, unknown []string) {
 	if tag == nil {
-		return ""
+		return "", false, false, nil
 	}
-	raw := strings.Trim(tag.Value, "`")
-	t := reflect.StructTag(raw)
-	return t.Get("mapstructure")
-}
-
-// ubTagHas reports whether the `ub:"..."` struct tag on a field
-// carries the named comma-separated option. The first entry of a
-// `ub` tag is the field name (used by the encoder); subsequent
-// entries are options like "omitempty" (encoder) and "sensitive"
-// (the runtime's display-masking signal). The encoder ignores
-// unknown options.
-func ubTagHas(tag *ast.BasicLit, option string) bool {
-	if tag == nil {
-		return false
-	}
-	raw := strings.Trim(tag.Value, "`")
-	val := reflect.StructTag(raw).Get("ub")
-	if val == "" {
-		return false
+	val := reflect.StructTag(strings.Trim(tag.Value, "`")).Get("ub")
+	if val == "-" {
+		return "", true, false, nil
 	}
 	parts := strings.Split(val, ",")
-	for _, part := range parts[1:] {
-		if strings.TrimSpace(part) == option {
-			return true
+	name = strings.TrimSpace(parts[0])
+	for _, opt := range parts[1:] {
+		switch strings.TrimSpace(opt) {
+		case "sensitive":
+			sensitive = true
+		case "omitempty", "squash", "":
+		default:
+			unknown = append(unknown, strings.TrimSpace(opt))
 		}
 	}
-	return false
+	return name, false, sensitive, unknown
+}
+
+// fieldLabel names a struct field for an error message, using the
+// first declared name or "embedded" for an embedded field.
+func fieldLabel(fld *ast.Field) string {
+	if len(fld.Names) > 0 {
+		return fld.Names[0].Name
+	}
+	return "embedded"
 }
 
 func identName(e ast.Expr) (string, bool) {

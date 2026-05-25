@@ -15,12 +15,12 @@ func Module() *runtime.Module {
 
 type Thing struct{}
 
-// ThingOutput intentionally omits mapstructure tags on some fields so
-// the walker exercises the kebab-case fallback derived from the Go
-// field name.
+// ThingOutput intentionally omits ub tags on some fields so the
+// walker exercises the kebab-case fallback derived from the Go field
+// name.
 type ThingOutput struct {
 	ID         string
 	CidrBlock  string
 	HTTPSProxy string
-	Tagged     string `mapstructure:"explicit-tag"`
+	Tagged     string `ub:"explicit-tag"`
 }

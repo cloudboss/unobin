@@ -204,3 +204,9 @@ func TestReadErrorsWhenNoModuleFunc(t *testing.T) {
 	_, _, err := Read(dir)
 	require.Error(t, err)
 }
+
+func TestReadRejectsUnknownUBOption(t *testing.T) {
+	_, _, err := Read("testdata/badoption")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "sensitiv")
+}
