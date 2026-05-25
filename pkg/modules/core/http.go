@@ -11,22 +11,22 @@ import (
 
 // HTTPAction issues an HTTP request and captures the response.
 type HTTPAction struct {
-	URL     string            `mapstructure:"url"`
-	Method  string            `mapstructure:"method"`
-	Headers map[string]string `mapstructure:"headers"`
-	Body    string            `mapstructure:"body"`
-	Timeout time.Duration     `mapstructure:"timeout"`
+	URL     string
+	Method  string
+	Headers map[string]string
+	Body    string
+	Timeout time.Duration
 }
 
 // HTTPActionOutput is the captured response. The action returns an error only
 // when the request can't be built or the transport fails, not on HTTP
 // error status codes. HTTP status codes are returned as data in Status.
 type HTTPActionOutput struct {
-	Status     int                 `mapstructure:"status"`
-	StatusText string              `mapstructure:"status-text"`
-	Headers    map[string][]string `mapstructure:"headers"`
-	Body       string              `mapstructure:"body"`
-	Duration   time.Duration       `mapstructure:"duration"`
+	Status     int
+	StatusText string
+	Headers    map[string][]string
+	Body       string
+	Duration   time.Duration
 }
 
 // Run issues the request. Method defaults to GET. Timeout applies to the

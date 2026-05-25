@@ -20,17 +20,17 @@ import (
 // directories of Path. Without it, a missing parent is an error so
 // callers do not accidentally write outside an expected tree.
 type File struct {
-	Path            string `mapstructure:"path"`
-	Content         string `mapstructure:"content"`
-	Mode            int64  `mapstructure:"mode"`
-	CreateDirectory bool   `mapstructure:"create-directory"`
+	Path            string
+	Content         string
+	Mode            int64
+	CreateDirectory bool
 }
 
 // FileOutput is what gets stored in state after Create / Update.
 type FileOutput struct {
-	Path   string `mapstructure:"path"`
-	SHA256 string `mapstructure:"sha256"`
-	Size   int64  `mapstructure:"size"`
+	Path   string
+	SHA256 string
+	Size   int64
 }
 
 func (f *File) SchemaVersion() int      { return 1 }

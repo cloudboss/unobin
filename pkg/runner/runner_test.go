@@ -39,7 +39,7 @@ func isJSON(b []byte) bool {
 // echoAction is a tiny test action: takes an Echo string, returns it
 // in its outputs.
 type echoAction struct {
-	Echo string `mapstructure:"echo"`
+	Echo string
 }
 
 func (a *echoAction) Run(_ context.Context, _ any) (any, error) {

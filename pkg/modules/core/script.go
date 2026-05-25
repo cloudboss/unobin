@@ -9,10 +9,10 @@ import (
 // to `sh`; set it to `bash`, `python3`, or any other interpreter that
 // accepts `-c`.
 type ScriptAction struct {
-	Script      string            `mapstructure:"script"`
-	Shell       string            `mapstructure:"shell"`
-	Environment map[string]string `mapstructure:"environment"`
-	WorkingDir  string            `mapstructure:"working-dir"`
+	Script      string
+	Shell       string
+	Environment map[string]string
+	WorkingDir  string
 }
 
 // ScriptActionOutput is the captured output of a script run. It is the

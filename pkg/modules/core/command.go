@@ -9,18 +9,18 @@ import (
 
 // CommandAction execs a single process and captures its output.
 type CommandAction struct {
-	Argv        []string          `mapstructure:"argv"`
-	Environment map[string]string `mapstructure:"environment"`
-	WorkingDir  string            `mapstructure:"working-dir"`
+	Argv        []string
+	Environment map[string]string
+	WorkingDir  string
 }
 
 // CommandActionOutput carries the captured output of a command run. Run returns
 // an error when the process fails to start or the context is canceled.
 type CommandActionOutput struct {
-	Stdout   string        `mapstructure:"stdout"`
-	Stderr   string        `mapstructure:"stderr"`
-	ExitCode int           `mapstructure:"exit-code"`
-	Duration time.Duration `mapstructure:"duration"`
+	Stdout   string
+	Stderr   string
+	ExitCode int
+	Duration time.Duration
 }
 
 // Run execs argv[0] with argv[1:] as arguments. Environment is merged

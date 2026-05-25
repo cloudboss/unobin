@@ -11,20 +11,20 @@ import (
 // The command runs at most once per Interval (default 1s) and the whole
 // poll loop runs for at most Timeout (default 5m).
 type WaitForAction struct {
-	Argv        []string          `mapstructure:"argv"`
-	Interval    time.Duration     `mapstructure:"interval"`
-	Timeout     time.Duration     `mapstructure:"timeout"`
-	Environment map[string]string `mapstructure:"environment"`
-	WorkingDir  string            `mapstructure:"working-dir"`
+	Argv        []string
+	Interval    time.Duration
+	Timeout     time.Duration
+	Environment map[string]string
+	WorkingDir  string
 }
 
 // WaitForActionOutput records how many attempts ran, the elapsed time, and the
 // stdout/stderr of the successful attempt.
 type WaitForActionOutput struct {
-	Attempts int           `mapstructure:"attempts"`
-	Duration time.Duration `mapstructure:"duration"`
-	Stdout   string        `mapstructure:"stdout"`
-	Stderr   string        `mapstructure:"stderr"`
+	Attempts int
+	Duration time.Duration
+	Stdout   string
+	Stderr   string
 }
 
 // Run polls until the command exits 0, the timeout fires, or the context

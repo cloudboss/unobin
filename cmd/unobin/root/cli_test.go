@@ -301,8 +301,8 @@ func Module() *runtime.Module {
 type Thing struct{}
 
 type ThingOutput struct {
-	ID   string `+"`mapstructure:\"id\"`"+`
-	Name string `+"`mapstructure:\"name\"`"+`
+	ID   string
+	Name string
 }
 `), 0o644))
 	return modDir
