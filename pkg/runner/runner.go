@@ -92,6 +92,7 @@ func newPlanCmd(info Info) *cobra.Command {
 		outPath              string
 		allowVersionMismatch bool
 		parallelism          int
+		destroy              bool
 	)
 	cmd := &cobra.Command{
 		Use:   "plan",
@@ -104,7 +105,7 @@ func newPlanCmd(info Info) *cobra.Command {
 			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
 				return err
 			}
-			return doPlan(cmd, info, config, configPath, outPath, parallelism)
+			return doPlan(cmd, info, config, configPath, outPath, parallelism, destroy)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -116,6 +117,8 @@ func newPlanCmd(info Info) *cobra.Command {
 	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
 		"Override the in-flight cap baked into the plan."+
 			" Zero (the default) falls back to config.ub, then to the runtime default.")
+	cmd.Flags().BoolVar(&destroy, "destroy", false,
+		"Plan to destroy every resource in state instead of converging on the source.")
 	return cmd
 }
 
@@ -587,7 +590,7 @@ func loadEncrypter(info Info, f *lang.File, configPath string) (sdkencrypt.Encry
 
 func doPlan(
 	cmd *cobra.Command, info Info, config *lang.File,
-	configPath, outPath string, parallelismOverride int,
+	configPath, outPath string, parallelismOverride int, destroy bool,
 ) error {
 	f, err := parsedFile(info)
 	if err != nil {
@@ -630,6 +633,7 @@ func doPlan(
 			Commit:  info.StackCommit,
 		},
 		Parallelism: parallelism,
+		Destroy:     destroy,
 	}
 	plan, err := exec.Plan(context.Background())
 	if err != nil {

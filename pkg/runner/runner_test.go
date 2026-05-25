@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/modules/core"
+	"github.com/cloudboss/unobin/pkg/modules/local"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -135,6 +137,56 @@ outputs: {
 	one, err := runRoot(t, info, "output", "said")
 	require.NoError(t, err)
 	require.Contains(t, one, "hello world")
+}
+
+func TestPlanDestroyRemovesResources(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "managed.txt")
+	src := fmt.Sprintf(`
+resources: {
+  local: {
+    file: {
+      x: {
+        path:    '%s'
+        content: 'hello'
+        mode:    420
+      }
+    }
+  }
+}
+`, path)
+	info := testInfo(t, src)
+	info.Modules["local"] = local.Module()
+
+	// Create the file with a normal apply.
+	_ = applyVia(t, info, "")
+	_, err := os.Stat(path)
+	require.NoError(t, err)
+
+	// A destroy plan renders the resource as a deletion and counts it.
+	render, err := runRoot(t, info, "plan", "--destroy", "--allow-version-mismatch")
+	require.NoError(t, err)
+	require.Contains(t, render, "- resource.local.file.x")
+	require.Contains(t, render, "0 to create, 0 to update, 0 to replace, 1 to destroy")
+
+	// A destroy plan should mark the file for deletion.
+	planFile := filepath.Join(t.TempDir(), "destroy.json")
+	_, err = runRoot(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
+	require.NoError(t, err)
+
+	pf := openPlanFile(t, info, planFile)
+	require.True(t, pf.Destroy)
+	require.Len(t, pf.Steps, 1)
+	require.Equal(t, runtime.DecisionDestroy, pf.Steps[0].Decision)
+
+	// Applying it removes the file and empties state.
+	_, err = runRoot(t, info, "apply", planFile)
+	require.NoError(t, err)
+	_, err = os.Stat(path)
+	require.True(t, os.IsNotExist(err), "file should be removed after destroy")
+
+	out, err := runRoot(t, info, "state", "list")
+	require.NoError(t, err)
+	require.NotContains(t, out, "resource.local.file.x")
 }
 
 func TestOutputJSON(t *testing.T) {
