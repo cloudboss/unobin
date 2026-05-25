@@ -59,6 +59,12 @@ type Executor struct {
 	// DefaultParallelism.
 	Parallelism int
 
+	// Destroy makes Plan compute a teardown: every resource in prior
+	// state is planned for destroy and no outputs are evaluated. The
+	// source is still parsed and its configurations still resolve, so
+	// the deletes use the right credentials.
+	Destroy bool
+
 	// Drain, when non-nil, lets the caller ask the scheduler to stop
 	// dispatching new steps without canceling the apply context. The
 	// runner closes this channel on SIGINT so in-flight CRUD calls

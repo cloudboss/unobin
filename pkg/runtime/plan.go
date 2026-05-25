@@ -157,6 +157,10 @@ type Plan struct {
 	// Parallelism is the in-flight cap apply should honor. Zero means
 	// the runtime's DefaultParallelism applies.
 	Parallelism int
+
+	// Destroy marks a teardown plan: every step is a destroy and apply
+	// evaluates no outputs.
+	Destroy bool
 }
 
 // Plan walks the DAG against prior state and returns the planned
@@ -188,6 +192,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		StateRev:     stateRev,
 		Inputs:       e.Inputs,
 		Parallelism:  e.Parallelism,
+		Destroy:      e.Destroy,
 	}
 
 	// Seed the EvalContext with prior outputs so downstream evaluation
@@ -198,28 +203,33 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 	sensitivity := newSensitivityAnalyzer(e.Source, e.Modules, e.DAG)
 
+	// A destroy plan wants nothing from source, so the desired-state
+	// walk is skipped. With no live addresses, every prior leaf below
+	// becomes a destroy step.
 	liveAddresses := make(map[string]bool)
-	for _, addr := range order {
-		node := e.DAG.Nodes[addr]
-		steps, err := e.planNodeSteps(rs, node)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", addr, err)
+	if !e.Destroy {
+		for _, addr := range order {
+			node := e.DAG.Nodes[addr]
+			steps, err := e.planNodeSteps(rs, node)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", addr, err)
+			}
+			for _, step := range steps {
+				step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
+				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
+				plan.Steps = append(plan.Steps, step)
+				liveAddresses[step.Address] = true
+			}
 		}
-		for _, step := range steps {
-			step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
-			step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
-			plan.Steps = append(plan.Steps, step)
-			liveAddresses[step.Address] = true
-		}
-	}
 
-	if err := e.runPendingReads(ctx, rs); err != nil {
-		return nil, err
+		if err := e.runPendingReads(ctx, rs); err != nil {
+			return nil, err
+		}
+		if err := e.finalizePendingReads(rs); err != nil {
+			return nil, err
+		}
+		upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.Source, e.DAG.Nodes))
 	}
-	if err := e.finalizePendingReads(rs); err != nil {
-		return nil, err
-	}
-	upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.Source, e.DAG.Nodes))
 
 	// Orphans: prior leaf entries with no live address in this plan.
 	if rs.prior != nil {

@@ -321,6 +321,276 @@ func applyIncrementalPlan(
 	return err
 }
 
+func TestPlanDestroyTearsDownEverything(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+
+	src := `
+resources: {
+  core: {
+    thing: {
+      a: { name: 'a' }
+      b: { name: 'b', dep: resource.core.thing.a.id }
+    }
+  }
+}
+outputs: {
+  a-id: { value: resource.core.thing.a.id }
+}
+`
+	build := func(destroy bool) *Executor {
+		return &Executor{
+			DAG:     BuildDAG(parseStack(t, src), mods),
+			Modules: mods,
+			Store:   store,
+			Stack:   stack,
+			Destroy: destroy,
+		}
+	}
+	_, err := planAndApply(build(false))
+	require.NoError(t, err)
+
+	// A destroy plan against the same source tears everything down in
+	// reverse dependency order and evaluates no outputs.
+	res, err := planAndApply(build(true))
+	require.NoError(t, err)
+	require.Equal(t, []string{"b", "a"}, rec.order)
+	require.Empty(t, res.Outputs)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Empty(t, snap.Entries)
+}
+
+func applyStack(
+	t *testing.T, store *localstate.LocalStore, mods map[string]*Module,
+	src string, inputs map[string]any,
+) *ExecResult {
+	t.Helper()
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Inputs:  inputs,
+		Store:   store,
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+	}
+	res, err := planAndApply(exec)
+	require.NoError(t, err)
+	return res
+}
+
+func destroyStack(
+	t *testing.T, store *localstate.LocalStore, mods map[string]*Module, src string,
+) (*ExecResult, error) {
+	t.Helper()
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Destroy: true,
+	}
+	return planAndApply(exec)
+}
+
+func requireEmptyState(t *testing.T, store *localstate.LocalStore) {
+	t.Helper()
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Empty(t, snap.Entries)
+}
+
+func TestPlanDestroyMarksEveryEntryForDeletion(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	store := newStateStore(t)
+	src := `
+resources: {
+  core: {
+    thing: {
+      a: { name: 'a' }
+      b: { name: 'b' }
+      c: { name: 'c' }
+    }
+  }
+}
+`
+	applyStack(t, store, mods, src, nil)
+
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Destroy: true,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.True(t, plan.Destroy)
+	require.Len(t, plan.Steps, 3)
+	for _, s := range plan.Steps {
+		require.Equal(t, DecisionDestroy, s.Decision, s.Address)
+	}
+}
+
+func TestPlanDestroyWithNoPriorStateIsEmpty(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	store := newStateStore(t)
+	src := `resources: { core: { thing: { a: { name: 'a' } } } }`
+
+	res, err := destroyStack(t, store, mods, src)
+	require.NoError(t, err)
+	require.Empty(t, rec.order)
+	require.Empty(t, res.Outputs)
+	requireEmptyState(t, store)
+}
+
+func TestDestroyChainDeletesInReverseOrder(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      a: { name: 'a' }
+      b: { name: 'b', dep: resource.core.thing.a.id }
+      c: { name: 'c', dep: resource.core.thing.b.id }
+    }
+  }
+}
+`
+	// Run the whole cycle several times; the reverse order must be
+	// byte-identical every time, not just usually.
+	for range 10 {
+		rec := &deleteOrder{}
+		mods := orderModules(rec)
+		store := newStateStore(t)
+		applyStack(t, store, mods, src, nil)
+		_, err := destroyStack(t, store, mods, src)
+		require.NoError(t, err)
+		require.Equal(t, []string{"c", "b", "a"}, rec.order)
+		requireEmptyState(t, store)
+	}
+}
+
+func TestDestroyForEachDeletesAllInstances(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	store := newStateStore(t)
+	src := `
+resources: {
+  core: {
+    thing: {
+      many: {
+        @for-each: var.names
+        name:      @each.key
+      }
+    }
+  }
+}
+`
+	applyStack(t, store, mods, src,
+		map[string]any{"names": map[string]any{"alpha": "a", "beta": "b"}})
+	_, err := destroyStack(t, store, mods, src)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"alpha", "beta"}, rec.order)
+	requireEmptyState(t, store)
+}
+
+func TestDestroyComposite(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	composite := parseStack(t, `
+resources: {
+  core: {
+    thing: {
+      one: { name: var.name }
+    }
+  }
+}
+outputs: {
+  id: { value: resource.core.thing.one.id }
+}
+`)
+	mods["w"] = &Module{
+		Name:       "w",
+		Composites: map[string]*CompositeType{"box": {Name: "box", Body: composite}},
+	}
+	store := newStateStore(t)
+	src := `resources: { w: { box: { x: { name: 'alpha' } } } }`
+	applyStack(t, store, mods, src, nil)
+
+	// Before destroy there is the module-call record plus its internal leaf.
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Len(t, snap.Entries, 2)
+
+	_, err = destroyStack(t, store, mods, src)
+	require.NoError(t, err)
+	require.Equal(t, []string{"alpha"}, rec.order)
+	requireEmptyState(t, store)
+}
+
+func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
+	rec := &deleteOrder{}
+	var runs int64
+	mods := map[string]*Module{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[orderResource, any](
+					func() *orderResource { return &orderResource{rec: rec} },
+				),
+			},
+			Actions: map[string]ActionRegistration{
+				"echo": MakeActionWith[countingAction, any](
+					func() *countingAction { return &countingAction{runs: &runs} },
+				),
+			},
+		},
+	}
+	store := newStateStore(t)
+	src := `
+resources: { core: { thing: { r: { name: 'r' } } } }
+actions: { core: { echo: { e: { echo: 'hi' } } } }
+`
+	applyStack(t, store, mods, src, nil)
+	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
+
+	_, err := destroyStack(t, store, mods, src)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), atomic.LoadInt64(&runs),
+		"an action has no delete step and must not run during destroy")
+	require.Equal(t, []string{"r"}, rec.order)
+	requireEmptyState(t, store)
+}
+
+func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
+	rec := &deleteOrder{}
+	mods := orderModules(rec)
+	store := newStateStore(t)
+	src := `resources: { core: { thing: { a: { name: 'a' } } } }`
+	applyStack(t, store, mods, src, nil)
+
+	exec := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Destroy: true,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	require.True(t, pf.Destroy)
+	require.Len(t, pf.Steps, 1)
+	require.Equal(t, DecisionDestroy, pf.Steps[0].Decision)
+}
+
 func TestApplyPersistsDependsOn(t *testing.T) {
 	src := `
 resources: {

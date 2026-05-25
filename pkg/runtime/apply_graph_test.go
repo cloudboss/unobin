@@ -195,7 +195,7 @@ resources: {
 			}
 		}
 	}
-	g := buildStepGraphWithPairKey(addresses, dag, pairKey)
+	g := buildStepGraphWithPairKey(addresses, dag, pairKey, nil)
 	assert.Equal(t, 1, g.indegree["resource.aws.volume.vols['alpha']"],
 		"alpha vol should depend on only the alpha node, not both")
 	assert.Equal(t, 1, g.indegree["resource.aws.volume.vols['beta']"],
@@ -414,7 +414,7 @@ func TestPersistedDependsOnDeterministic(t *testing.T) {
 		"d": {"b", "c"},
 	}
 	want := persistedDependsOn(&stepGraph{dependents: dependents}, steps)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		got := persistedDependsOn(&stepGraph{dependents: dependents}, steps)
 		assert.Equal(t, want, got)
 	}

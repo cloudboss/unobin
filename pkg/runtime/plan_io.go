@@ -27,6 +27,7 @@ type PlanFile struct {
 	RawConfigurations map[string]map[string]any `json:"configurations,omitempty"`
 	Backend           *StateRef                 `json:"backend,omitempty"`
 	Parallelism       int                       `json:"parallelism,omitempty"`
+	Destroy           bool                      `json:"destroy,omitempty"`
 	Steps             []PlanStep                `json:"steps"`
 }
 
@@ -57,6 +58,7 @@ func EncodePlan(p *Plan) ([]byte, error) {
 		RawConfigurations: p.RawConfigurations,
 		Backend:           p.Backend,
 		Parallelism:       p.Parallelism,
+		Destroy:           p.Destroy,
 		Steps:             steps,
 	}
 	b, err := json.MarshalIndent(pf, "", "  ")

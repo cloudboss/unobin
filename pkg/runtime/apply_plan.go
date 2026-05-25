@@ -83,8 +83,12 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 		return nil, err
 	}
 	pruneStateEntries(rs.next, pf.Steps)
-	if err := e.evalPlanOutputs(rs); err != nil {
-		return nil, err
+	// A destroy leaves nothing to read outputs from, so output
+	// evaluation is skipped and the snapshot ends with no outputs.
+	if !pf.Destroy {
+		if err := e.evalPlanOutputs(rs); err != nil {
+			return nil, err
+		}
 	}
 	rs.next.Outputs = rs.outputs
 

@@ -48,7 +48,13 @@ func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
 			pairKey[addr] = pk
 		}
 	}
-	g := buildStepGraphWithPairKey(addresses, dag, pairKey)
+	destroying := make(map[string]bool, len(pf.Steps))
+	for i := range pf.Steps {
+		if pf.Steps[i].Decision == DecisionDestroy {
+			destroying[pf.Steps[i].Address] = true
+		}
+	}
+	g := buildStepGraphWithPairKey(addresses, dag, pairKey, destroying)
 	for _, addr := range addresses {
 		node, ok := dag.Nodes[templateAddress(addr)]
 		if !ok {
@@ -96,11 +102,17 @@ func addDestroyEdges(g *stepGraph, steps []PlanStep) {
 // applied here; callers that have a pairKey map use the internal
 // buildStepGraphWithPairKey.
 func buildStepGraphFromAddresses(addresses []string, dag *DAG) *stepGraph {
-	return buildStepGraphWithPairKey(addresses, dag, nil)
+	return buildStepGraphWithPairKey(addresses, dag, nil, nil)
 }
 
+// buildStepGraphWithPairKey builds the instance-form forward edges. A
+// step in destroying gets no forward edges: a destroy step's ordering
+// comes only from addDestroyEdges, which reverses the recorded
+// dependencies. Without this a destroy whose source is still present
+// would pick up both the forward edge and its reverse and deadlock.
 func buildStepGraphWithPairKey(
 	addresses []string, dag *DAG, pairKey map[string]map[string]bool,
+	destroying map[string]bool,
 ) *stepGraph {
 	g := &stepGraph{
 		indegree:   make(map[string]int, len(addresses)),
@@ -118,6 +130,9 @@ func buildStepGraphWithPairKey(
 		instancesByTemplate[t] = append(instancesByTemplate[t], a)
 	}
 	for _, a := range addresses {
+		if destroying[a] {
+			continue
+		}
 		t := templateAddress(a)
 		sPath := keyPath(a)
 		stepPairs := g.pairKey[a]
