@@ -110,8 +110,9 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 			i++
 			continue
 		}
-		fmt.Fprintf(out, "%s%s %s\n",
-			symPad, decisionSymbol(child.Decision), relTo(child.Address, parent))
+		fmt.Fprintf(out, "%s%s %s%s\n",
+			symPad, decisionSymbol(child.Decision), relTo(child.Address, parent),
+			destroyNote(child))
 		renderStepInputs(out, fieldPad, child)
 		i++
 	}
@@ -178,7 +179,8 @@ func renderForEachGroup(
 		symPad, header, relTo(tmpl, parent), len(group))
 	for _, inst := range changing {
 		_, k := runtime.SplitInstanceAddress(inst.Address)
-		fmt.Fprintf(out, "%s%s ['%s']\n", instSymPad, decisionSymbol(inst.Decision), k)
+		fmt.Fprintf(out, "%s%s ['%s']%s\n",
+			instSymPad, decisionSymbol(inst.Decision), k, destroyNote(inst))
 		renderStepInputs(out, instFieldPad, inst)
 	}
 	return end - start
@@ -401,6 +403,15 @@ func sortedMapKeys(m map[string]any) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// destroyNote annotates a destroy step the plan read as already
+// absent, so the output shows there is no resource left to delete.
+func destroyNote(s *runtime.PlanStep) string {
+	if s.Decision == runtime.DecisionDestroy && s.AlreadyGone {
+		return "  (already absent)"
+	}
+	return ""
 }
 
 func decisionSymbol(d runtime.Decision) string {

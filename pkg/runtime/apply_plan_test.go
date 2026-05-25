@@ -591,6 +591,49 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 	require.Equal(t, DecisionDestroy, pf.Steps[0].Decision)
 }
 
+func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
+	var c resourceCounters
+	mods := resourceModules(&c)
+	store := newStateStore(t)
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	src := `resources: { core: { thing: { a: { name: 'a', size: 1 } } } }`
+
+	create := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+	}
+	_, err := planAndApply(create)
+	require.NoError(t, err)
+
+	// The resource vanishes out of band; its read now reports it gone.
+	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
+
+	destroyer := &Executor{
+		DAG:     BuildDAG(parseStack(t, src), mods),
+		Modules: mods,
+		Store:   store,
+		Stack:   stack,
+		Destroy: true,
+	}
+	plan, err := destroyer.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, DecisionDestroy, plan.Steps[0].Decision)
+	require.True(t, plan.Steps[0].AlreadyGone, "a read that comes back gone marks the step")
+
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	_, err = destroyer.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.deletes),
+		"an already-gone resource is dropped from state without a delete")
+	requireEmptyState(t, store)
+}
+
 func TestApplyPersistsDependsOn(t *testing.T) {
 	src := `
 resources: {

@@ -607,6 +607,31 @@ func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 		"map keys that are not bare kebab identifiers must be quoted")
 }
 
+func TestPrintPlanMarksAlreadyAbsentDestroy(t *testing.T) {
+	plan := &runtime.Plan{
+		Destroy: true,
+		Steps: []*runtime.PlanStep{
+			{
+				Address:     "resource.local.file.gone",
+				Kind:        runtime.NodeResource,
+				Decision:    runtime.DecisionDestroy,
+				AlreadyGone: true,
+			},
+			{
+				Address:  "resource.local.file.here",
+				Kind:     runtime.NodeResource,
+				Decision: runtime.DecisionDestroy,
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan)
+	out := buf.String()
+	require.Contains(t, out, "- resource.local.file.gone  (already absent)")
+	require.Contains(t, out, "- resource.local.file.here\n")
+	require.NotContains(t, out, "resource.local.file.here  (already absent)")
+}
+
 func TestPrintPlanShowsUnresolvedInputRefs(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{

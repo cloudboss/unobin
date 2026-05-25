@@ -291,6 +291,15 @@ func instanceScope(node *Node, parent *EvalContext, instKey string) (*EvalContex
 // addresses keep their call site prefix, so the inner address is
 // stripped first.
 func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanStep) error {
+	// The plan read this resource and found it already absent, so there
+	// is nothing to delete; just drop it from state.
+	if step.AlreadyGone {
+		rs.mu.Lock()
+		defer rs.mu.Unlock()
+		removeEntry(rs.next, step.Address)
+		_, err := e.persist(rs)
+		return err
+	}
 	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)

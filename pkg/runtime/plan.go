@@ -101,6 +101,11 @@ type PlanStep struct {
 	// before the resources it depended on.
 	DependsOn []string `json:"depends-on,omitempty"`
 
+	// AlreadyGone marks a destroy step whose resource was already
+	// absent when the plan read it. Apply drops the entry from state
+	// without calling Delete.
+	AlreadyGone bool `json:"already-gone,omitempty"`
+
 	// SensitiveInputs names the input fields whose value expression
 	// reads from any sensitive source. Renderers replace the value
 	// with a placeholder rather than printing the secret.
@@ -251,7 +256,77 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			})
 		}
 	}
+	if err := e.readDestroySteps(ctx, plan.Steps); err != nil {
+		return nil, err
+	}
 	return plan, nil
+}
+
+// readDestroySteps reads each destroy step's resource so the plan can
+// tell an already-absent resource from one that still needs deleting.
+// A read that comes back not-found marks the step AlreadyGone, so apply
+// drops the entry without calling Delete. Reads run in parallel up to
+// effectiveParallelism. This keeps destroy on the same "plan reads
+// every resource with prior state" footing as a normal plan, and
+// covers orphan destroys in a normal plan as well as a full teardown.
+func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) error {
+	var jobs []*PlanStep
+	for _, s := range steps {
+		if s.Decision == DecisionDestroy {
+			jobs = append(jobs, s)
+		}
+	}
+	if len(jobs) == 0 {
+		return nil
+	}
+	gone := make([]bool, len(jobs))
+	errs := make([]error, len(jobs))
+	sem := make(chan struct{}, e.effectiveParallelism())
+	var wg sync.WaitGroup
+	for i, s := range jobs {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, s *PlanStep) {
+			defer func() { <-sem; wg.Done() }()
+			gone[i], errs[i] = e.readDestroyTarget(ctx, s)
+		}(i, s)
+	}
+	wg.Wait()
+	for i, s := range jobs {
+		if errs[i] != nil {
+			return fmt.Errorf("%s: read: %w", s.Address, errs[i])
+		}
+		s.AlreadyGone = gone[i]
+	}
+	return nil
+}
+
+// readDestroyTarget resolves a destroy step's module from its address
+// and reads the resource, reporting whether it is already gone. It
+// needs no DAG node, so it works for an orphan whose source has been
+// removed as well as for a full teardown.
+func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool, error) {
+	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
+	if !ok {
+		return false, fmt.Errorf("malformed address %q", step.Address)
+	}
+	mod, ok := e.modulesForAddress(step.Address)[ns]
+	if !ok {
+		return false, fmt.Errorf("module %q is not imported", ns)
+	}
+	rt, ok := mod.Resources[typeName]
+	if !ok {
+		return false, fmt.Errorf("module %s has no resource %q", ns, typeName)
+	}
+	_, err := readObserved(ctx, rt,
+		e.configForRef(step.Configuration, ns), step.Inputs, step.PriorOutputs)
+	if errors.Is(err, ErrNotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // planNodeSteps wraps planNode so a single per-node planner can emit
