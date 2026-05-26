@@ -12,4 +12,5 @@ var DocsCmd = &cobra.Command{
 
 func init() {
 	DocsCmd.AddCommand(docs.CLICmd)
+	DocsCmd.AddCommand(docs.APICmd)
 }
