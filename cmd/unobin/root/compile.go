@@ -32,28 +32,24 @@ var (
 )
 
 type compileConfig struct {
-	stackPath       string
-	version         string
-	contentRevision string
-	stackName       string
-	modulePath      string
-	outDir          string
-	goVersion       string
-	unobinVersion   string
-	replaceUnobin   string
-	replaceModule   []string
-	build           bool
+	stackPath     string
+	version       string
+	stackName     string
+	modulePath    string
+	outDir        string
+	goVersion     string
+	unobinVersion string
+	replaceUnobin string
+	replaceModule []string
+	build         bool
 }
 
 func init() {
 	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", "stack.ub",
 		"Path to the stack source.")
 
-	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "dev",
-		"Stack version to embed in the generated binary.")
-
-	CompileCmd.Flags().StringVar(&compileCfg.contentRevision, "content-revision", "",
-		"Content-revision to embed in the generated binary.")
+	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "v0.0.0",
+		"Release version to stamp into the built binary.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.stackName, "name", "",
 		"Stack name. Defaults to the parent directory's basename.")
@@ -171,13 +167,11 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	in := codegen.Input{
-		Body:            string(src),
-		ModulePath:      cfg.modulePath,
-		StackName:       name,
-		Version:         cfg.version,
-		ContentRevision: cfg.contentRevision,
-		GoImports:       goImports,
-		UBImports:       ubImports,
+		Body:       string(src),
+		ModulePath: cfg.modulePath,
+		StackName:  name,
+		GoImports:  goImports,
+		UBImports:  ubImports,
 	}
 
 	if cfg.outDir == "-" {
@@ -214,7 +208,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		}
 	}
 	if cfg.build {
-		return runGoBuild(cmd, cfg.outDir, name)
+		return runGoBuild(cmd, cfg.outDir, name, cfg.version)
 	}
 	return nil
 }
@@ -312,7 +306,7 @@ func (c *compileVisitor) OnUBModule(
 	return nil
 }
 
-func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
+func runGoBuild(cmd *cobra.Command, dir, binaryName, version string) error {
 	goBin, err := deps.Ensure(deps.Go)
 	if err != nil {
 		return err
@@ -326,13 +320,22 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName string) error {
 		return fmt.Errorf("go mod tidy failed: %w", err)
 	}
 
-	build := exec.Command(goBin, "build", "-o", binaryName, ".")
+	revision, err := codegen.ContentRevision(dir)
+	if err != nil {
+		return err
+	}
+
+	ldflags := fmt.Sprintf("-X main.stackVersion=%s -X main.contentRevision=%s",
+		version, revision)
+	build := exec.Command(goBin, "build", "-ldflags", ldflags, "-o", binaryName, ".")
 	build.Dir = dir
 	build.Stdout = cmd.OutOrStdout()
 	build.Stderr = cmd.ErrOrStderr()
 	if err := build.Run(); err != nil {
 		return fmt.Errorf("go build failed: %w", err)
 	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Built %s %s (content-revision %s)\n",
+		binaryName, version, revision)
 	return nil
 }
 

@@ -115,14 +115,12 @@ actions: {
 `
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
 
-	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
-		"--version", "v0.1.0", "--content-revision", "abc")
+	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.NoError(t, err)
 
 	require.Contains(t, out, "package main")
 	require.Contains(t, out, `stackName       = "demo-stack"`)
-	require.Contains(t, out, `stackVersion    = "v0.1.0"`)
-	require.Contains(t, out, `contentRevision = "abc"`)
+	require.Contains(t, out, "var (\n\tstackVersion    string\n\tcontentRevision string\n)")
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/core"`)
 }
 
@@ -427,8 +425,12 @@ const (
 	stackBody       = "\nimports: {\n  net: './modules/net'\n}\n"
 	stackModulePath = ""
 	stackName       = "demo-stack"
-	stackVersion    = "dev"
-	contentRevision = ""
+)
+
+// Stamped at link time via -ldflags.
+var (
+	stackVersion    string
+	contentRevision string
 )
 
 func main() {

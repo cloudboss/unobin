@@ -12,24 +12,24 @@ import (
 // Input bundles everything codegen needs to produce a stack binary's
 // `main.go`. Body is the literal stack source the binary embeds and
 // parses on each invocation. ModulePath is the binary's module-path
-// identity, the same shape Go modules use; the operator's `config.ub`
+// identity, the same form Go modules use; the operator's `config.ub`
 // asserts the same value under `stack.module-path` and plan, refresh,
 // and validate refuse on mismatch. An empty ModulePath disables that
-// identity check. StackName, Version, and ContentRevision identify the binary
-// back to its `config.ub`. GoImports maps each Go-module alias the
-// source uses to the Go import path that supplies it (e.g.,
+// identity check. The version and content-revision are not generated
+// here; compile stamps them into the built binary with -ldflags so the
+// generated source stays a pure function of the stack content.
+// GoImports maps each Go-module alias the source uses to the Go import
+// path that supplies it (e.g.,
 // `"core" -> "github.com/cloudboss/unobin/pkg/modules/core"`).
 // UBImports maps each UB-module alias to the local Go import path of
 // the package that compile generated for it (typically
 // `<stack-name>/internal/<alias>`).
 type Input struct {
-	Body            string
-	ModulePath      string
-	StackName       string
-	Version         string
-	ContentRevision string
-	GoImports       map[string]string
-	UBImports       map[string]string
+	Body       string
+	ModulePath string
+	StackName  string
+	GoImports  map[string]string
+	UBImports  map[string]string
 }
 
 // Generate produces the formatted Go source for the stack binary's
@@ -42,25 +42,21 @@ func Generate(in Input) ([]byte, error) {
 	aliases := sortedKeys(in.GoImports)
 	ubAliases := sortedKeys(in.UBImports)
 	data := struct {
-		Body            string
-		ModulePath      string
-		StackName       string
-		Version         string
-		ContentRevision string
-		Aliases         []string
-		Imports         map[string]string
-		UBAliases       []string
-		UBImports       map[string]string
+		Body       string
+		ModulePath string
+		StackName  string
+		Aliases    []string
+		Imports    map[string]string
+		UBAliases  []string
+		UBImports  map[string]string
 	}{
-		Body:            in.Body,
-		ModulePath:      in.ModulePath,
-		StackName:       in.StackName,
-		Version:         in.Version,
-		ContentRevision: in.ContentRevision,
-		Aliases:         aliases,
-		Imports:         in.GoImports,
-		UBAliases:       ubAliases,
-		UBImports:       in.UBImports,
+		Body:       in.Body,
+		ModulePath: in.ModulePath,
+		StackName:  in.StackName,
+		Aliases:    aliases,
+		Imports:    in.GoImports,
+		UBAliases:  ubAliases,
+		UBImports:  in.UBImports,
 	}
 
 	var buf bytes.Buffer
@@ -106,8 +102,12 @@ const (
 	stackBody       = {{quote .Body}}
 	stackModulePath = {{quote .ModulePath}}
 	stackName       = {{quote .StackName}}
-	stackVersion    = {{quote .Version}}
-	contentRevision = {{quote .ContentRevision}}
+)
+
+// Stamped at link time via -ldflags.
+var (
+	stackVersion    string
+	contentRevision string
 )
 
 func main() {

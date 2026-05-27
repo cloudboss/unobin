@@ -11,10 +11,8 @@ import (
 
 func TestGenerateValidGo(t *testing.T) {
 	out, err := Generate(Input{
-		Body:            "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
-		StackName:       "demo",
-		Version:         "v0.1.0",
-		ContentRevision: "abc123",
+		Body:      "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
+		StackName: "demo",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},
@@ -26,12 +24,10 @@ func TestGenerateValidGo(t *testing.T) {
 	require.NoError(t, err, "generated source should parse:\n%s", string(out))
 }
 
-func TestGenerateEmbedsConstants(t *testing.T) {
+func TestGenerateEmbedsStackName(t *testing.T) {
 	out, err := Generate(Input{
-		Body:            "description: 'x'\n",
-		StackName:       "my-stack",
-		Version:         "v2.0.3",
-		ContentRevision: "deadbeef",
+		Body:      "description: 'x'\n",
+		StackName: "my-stack",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},
@@ -40,18 +36,28 @@ func TestGenerateEmbedsConstants(t *testing.T) {
 
 	s := string(out)
 	require.Contains(t, s, `stackName       = "my-stack"`)
-	require.Contains(t, s, `stackVersion    = "v2.0.3"`)
-	require.Contains(t, s, `contentRevision = "deadbeef"`)
+}
+
+func TestGenerateDeclaresStampVars(t *testing.T) {
+	out, err := Generate(Input{
+		Body:      "description: 'x'\n",
+		StackName: "my-stack",
+		GoImports: map[string]string{
+			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, "var (\n\tstackVersion    string\n\tcontentRevision string\n)")
 }
 
 func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 	src := "actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"
 	out, err := Generate(Input{
-		Body:            src,
-		StackName:       "x",
-		Version:         "v0",
-		ContentRevision: "c",
-		GoImports:       map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
+		Body:      src,
+		StackName: "x",
+		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
 	})
 	require.NoError(t, err)
 
@@ -60,10 +66,8 @@ func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 
 func TestGenerateOrdersImports(t *testing.T) {
 	out, err := Generate(Input{
-		Body:            "description: 'x'\n",
-		StackName:       "x",
-		Version:         "v0",
-		ContentRevision: "c",
+		Body:      "description: 'x'\n",
+		StackName: "x",
 		GoImports: map[string]string{
 			"net":  "github.com/me/modules/network",
 			"aws":  "github.com/cloudboss/unobin-modules/aws",
@@ -84,10 +88,8 @@ func TestGenerateOrdersImports(t *testing.T) {
 
 func TestGenerateRequiresStackName(t *testing.T) {
 	_, err := Generate(Input{
-		Body:            "description: 'x'",
-		Version:         "v0",
-		ContentRevision: "c",
-		GoImports:       map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
+		Body:      "description: 'x'",
+		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "StackName")
@@ -95,10 +97,8 @@ func TestGenerateRequiresStackName(t *testing.T) {
 
 func TestGenerateImportsAndCallsUBModules(t *testing.T) {
 	out, err := Generate(Input{
-		Body:            "description: 'x'",
-		StackName:       "demo",
-		Version:         "v0",
-		ContentRevision: "c",
+		Body:      "description: 'x'",
+		StackName: "demo",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},
@@ -124,8 +124,12 @@ const (
 	stackBody       = "description: 'x'"
 	stackModulePath = ""
 	stackName       = "demo"
-	stackVersion    = "v0"
-	contentRevision = "c"
+)
+
+// Stamped at link time via -ldflags.
+var (
+	stackVersion    string
+	contentRevision string
 )
 
 func main() {
@@ -148,10 +152,8 @@ func main() {
 
 func TestGenerateBuildsModulesMap(t *testing.T) {
 	out, err := Generate(Input{
-		Body:            "description: 'x'",
-		StackName:       "x",
-		Version:         "v0",
-		ContentRevision: "c",
+		Body:      "description: 'x'",
+		StackName: "x",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 			"aws":  "github.com/cloudboss/unobin-modules/aws",
