@@ -53,7 +53,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 		Inputs:  inputs,
 		Source:  f,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "demo-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return applyOnce(t, exec)
 }
@@ -190,7 +190,7 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 			},
 		},
 	}
-	stack := state.StackInfo{Name: "demo-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"}
 
 	f, err := lang.ParseSource("stack.ub", []byte(src))
 	require.NoError(t, err)

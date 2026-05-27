@@ -12,7 +12,7 @@ func TestPinFile(t *testing.T) {
 	const (
 		modulePath = "github.com/cloudboss/cluster-deploy"
 		version    = "v0.3.0"
-		commit     = "fedcba"
+		revision   = "fedcba"
 	)
 	tests := []struct {
 		name   string
@@ -29,7 +29,7 @@ func TestPinFile(t *testing.T) {
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 
@@ -45,7 +45,7 @@ inputs: {
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -60,7 +60,7 @@ inputs: {
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -74,7 +74,7 @@ inputs: {
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -87,7 +87,7 @@ inputs: {
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -103,7 +103,7 @@ inputs: {
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -114,17 +114,17 @@ inputs: {
 			src: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'aaa' },
-    { version: 'v0.2.0', commit: 'bbb' }
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.2.0', content-revision: 'bbb' }
   ]
 }
 `,
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'aaa' },
-    { version: 'v0.2.0', commit: 'bbb' },
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.2.0', content-revision: 'bbb' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -135,17 +135,17 @@ inputs: {
 			src: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'aaa' },
-    { version: 'v0.2.0', commit: 'bbb' },
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.2.0', content-revision: 'bbb' },
   ]
 }
 `,
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'aaa' },
-    { version: 'v0.2.0', commit: 'bbb' },
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.2.0', content-revision: 'bbb' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -156,14 +156,14 @@ inputs: {
 			src: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
 			want: `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
@@ -172,7 +172,7 @@ inputs: {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, action, err := pinFile([]byte(tt.src), modulePath, version, commit)
+			got, action, err := pinFile([]byte(tt.src), modulePath, version, revision)
 			require.NoError(t, err)
 			assert.Equal(t, tt.action, action)
 			assert.Equal(t, tt.want, string(got))
@@ -197,7 +197,7 @@ func TestPinFilePreservesTrailingContent(t *testing.T) {
 	src := []byte(`stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'aaa' }
+    { version: 'v0.1.0', content-revision: 'aaa' }
   ]
 }
 
@@ -208,8 +208,8 @@ inputs: {
 	want := `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'aaa' },
-    { version: 'v0.3.0', commit: 'fedcba' },
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 

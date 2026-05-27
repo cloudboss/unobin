@@ -22,7 +22,7 @@ func runPlan(
 		DAG:     BuildDAG(parseStack(t, src), modules),
 		Modules: modules,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ resources: {
 		Modules: mods,
 		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
 		Store:   newStateStore(t),
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ resources: {
 	var c resourceCounters
 	mods := resourceModules(&c)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
@@ -191,7 +191,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, stackSrc), mods),
 		Modules: mods,
@@ -230,7 +230,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -253,7 +253,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -276,7 +276,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -294,7 +294,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -323,7 +323,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	prior := state.NewSnapshot(stack, store.DeploymentID())
 	prior.Entries = []*state.Entry{{
@@ -381,7 +381,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	prior := state.NewSnapshot(stack, store.DeploymentID())
 	prior.Entries = []*state.Entry{{
@@ -470,7 +470,7 @@ resources: {
 		Modules: mods,
 		Source:  f,
 		Store:   newStateStore(t),
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -528,7 +528,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -563,7 +563,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -593,7 +593,7 @@ actions: {
 		},
 	}
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -617,7 +617,7 @@ actions: {
 		},
 	}
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -629,7 +629,7 @@ actions: {
 func TestPlanRecordsStateRev(t *testing.T) {
 	src := `description: 'x'`
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG:     BuildDAG(parseStack(t, src), nil),
 		Modules: map[string]*Module{},
@@ -660,7 +660,7 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -695,7 +695,7 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -730,7 +730,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})

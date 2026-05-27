@@ -74,7 +74,7 @@ func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, 
 		Modules: mods,
 		Inputs:  inputs,
 		Store:   newStateStore(t),
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return planAndApply(exec)
 }
@@ -306,7 +306,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
@@ -362,7 +362,7 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -407,7 +407,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	runOnce := func(configs map[string]any) {
 		exec := &Executor{
@@ -450,7 +450,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -492,7 +492,7 @@ resources: { wrapper: { layer: { x: { name: 'hi' } } } }
 outputs: { out: { value: resource.wrapper.layer.x.shout } }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), rootMods),
 		Modules: rootMods,
@@ -547,7 +547,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), rootMods),
 		Modules: rootMods,
@@ -615,7 +615,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
@@ -714,7 +714,7 @@ outputs: {
 }
 `
 		store := newStateStore(t)
-		stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+		stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := &Executor{
 			DAG:     BuildDAG(parseStack(t, src), mods),
 			Modules: mods,
@@ -756,7 +756,7 @@ outputs: {
 }
 `
 		store := newStateStore(t)
-		stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+		stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := &Executor{
 			DAG:     BuildDAG(parseStack(t, src), mods),
 			Modules: mods,
@@ -805,7 +805,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
@@ -848,7 +848,7 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -893,7 +893,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 
 	applyOnce(t, &Executor{
@@ -924,7 +924,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 
 	applyOnce(t, &Executor{
@@ -964,7 +964,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 
 	applyOnce(t, &Executor{
@@ -1046,7 +1046,7 @@ func runExecutorTwice(
 ) (*ExecResult, *ExecResult) {
 	t.Helper()
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g := BuildDAG(parseStack(t, src), modules)
 
 	first := applyOnce(t, &Executor{DAG: g, Modules: modules, Store: store, Stack: stack})
@@ -1080,7 +1080,7 @@ actions: {
 `), mods),
 		Modules: mods,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res := applyOnce(t, exec)
 	require.NotEmpty(t, res.WrittenRev)

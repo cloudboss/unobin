@@ -20,11 +20,11 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	}
 	if pf.Stack.Name != e.Stack.Name ||
 		pf.Stack.Version != e.Stack.Version ||
-		pf.Stack.Commit != e.Stack.Commit {
+		pf.Stack.ContentRevision != e.Stack.ContentRevision {
 		return nil, fmt.Errorf(
-			"plan was computed for %s %s (commit %s), this binary is %s %s (commit %s)",
-			pf.Stack.Name, pf.Stack.Version, pf.Stack.Commit,
-			e.Stack.Name, e.Stack.Version, e.Stack.Commit)
+			"plan was computed for %s %s (content-revision %s), this binary is %s %s (content-revision %s)",
+			pf.Stack.Name, pf.Stack.Version, pf.Stack.ContentRevision,
+			e.Stack.Name, e.Stack.Version, e.Stack.ContentRevision)
 	}
 
 	lock, err := e.Store.Lock(ctx)

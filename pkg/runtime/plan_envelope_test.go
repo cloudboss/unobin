@@ -29,7 +29,7 @@ func reverse(b []byte) []byte {
 
 func samplePlan() *Plan {
 	return &Plan{
-		Stack:        state.StackInfo{Name: "demo", Version: "v0.1.0", Commit: "abc"},
+		Stack:        state.StackInfo{Name: "demo", Version: "v0.1.0", ContentRevision: "abc"},
 		DeploymentID: "default",
 	}
 }

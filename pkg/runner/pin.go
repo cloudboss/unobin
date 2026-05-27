@@ -12,28 +12,28 @@ import (
 
 func newPinCmd(info Info) *cobra.Command {
 	var (
-		configPath      string
-		versionOverride string
-		commitOverride  string
+		configPath              string
+		versionOverride         string
+		contentRevisionOverride string
 	)
 	cmd := &cobra.Command{
 		Use:   "pin",
 		Short: "Add this binary's identity to config.ub",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doPin(cmd, info, configPath, versionOverride, commitOverride)
+			return doPin(cmd, info, configPath, versionOverride, contentRevisionOverride)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to the config.ub to pin into.")
 	cmd.Flags().StringVar(&versionOverride, "version", "",
 		"Pin this version instead of the binary's own.")
-	cmd.Flags().StringVar(&commitOverride, "commit", "",
-		"Pin this commit instead of the binary's own.")
+	cmd.Flags().StringVar(&contentRevisionOverride, "content-revision", "",
+		"Pin this content-revision instead of the binary's own.")
 	return cmd
 }
 
 func doPin(
-	cmd *cobra.Command, info Info, configPath, versionOverride, commitOverride string,
+	cmd *cobra.Command, info Info, configPath, versionOverride, contentRevisionOverride string,
 ) error {
 	if configPath == "" {
 		return fmt.Errorf("--config is required")
@@ -42,33 +42,33 @@ func doPin(
 	if version == "" {
 		version = info.StackVersion
 	}
-	commit := commitOverride
-	if commit == "" {
-		commit = info.StackCommit
+	revision := contentRevisionOverride
+	if revision == "" {
+		revision = info.ContentRevision
 	}
-	if version == "" || commit == "" {
+	if version == "" || revision == "" {
 		return fmt.Errorf(
-			"this binary has no embedded version or commit; " +
-				"pass --version and --commit to pin another binary's identity")
+			"this binary has no embedded version or content-revision; " +
+				"pass --version and --content-revision to pin another binary's identity")
 	}
 	src, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
-	updated, action, err := pinFile(src, info.ModulePath, version, commit)
+	updated, action, err := pinFile(src, info.ModulePath, version, revision)
 	if err != nil {
 		return fmt.Errorf("config %s: %w", configPath, err)
 	}
 	if action == pinActionAlreadyPinned {
 		fmt.Fprintf(cmd.ErrOrStderr(),
-			"%s already pins %s (commit %s).\n", configPath, version, commit)
+			"%s already pins %s (content-revision %s).\n", configPath, version, revision)
 		return nil
 	}
 	if err := ufs.WriteFileAtomic(configPath, updated, 0o644); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(),
-		"Pinned %s (commit %s) in %s (%s).\n", version, commit, configPath, action)
+		"Pinned %s (content-revision %s) in %s (%s).\n", version, revision, configPath, action)
 	return nil
 }
 
@@ -76,14 +76,14 @@ func doPin(
 // short human-readable action describing what changed; the returned
 // action is pinActionAlreadyPinned when the entry was already present
 // and the source bytes are unchanged.
-func pinFile(src []byte, modulePath, version, commit string) ([]byte, string, error) {
+func pinFile(src []byte, modulePath, version, revision string) ([]byte, string, error) {
 	f, err := lang.ParseSource("config.ub", src)
 	if err != nil {
 		return nil, "", err
 	}
 	stackField := findField(f.Body, "stack")
 	if stackField == nil {
-		return prependStackBlock(src, modulePath, version, commit)
+		return prependStackBlock(src, modulePath, version, revision)
 	}
 	stackObj, ok := stackField.Value.(*lang.ObjectLit)
 	if !ok {
@@ -102,22 +102,22 @@ func pinFile(src []byte, modulePath, version, commit string) ([]byte, string, er
 	}
 	svField := findField(stackObj, "supported-versions")
 	if svField == nil {
-		return fillStackBlock(src, stackObj, modulePath, version, commit)
+		return fillStackBlock(src, stackObj, modulePath, version, revision)
 	}
 	svArr, ok := svField.Value.(*lang.ArrayLit)
 	if !ok {
 		return nil, "", fmt.Errorf("`stack.supported-versions` must be a list")
 	}
 	for _, el := range svArr.Elements {
-		if entryMatches(el, version, commit) {
+		if entryMatches(el, version, revision) {
 			return src, pinActionAlreadyPinned, nil
 		}
 	}
-	return appendVersionEntry(src, svField, svArr, version, commit)
+	return appendVersionEntry(src, svField, svArr, version, revision)
 }
 
-func prependStackBlock(src []byte, modulePath, version, commit string) ([]byte, string, error) {
-	block := renderStackBlock(modulePath, version, commit)
+func prependStackBlock(src []byte, modulePath, version, revision string) ([]byte, string, error) {
+	block := renderStackBlock(modulePath, version, revision)
 	if len(src) == 0 {
 		return []byte(block), pinActionAddedStackBlock, nil
 	}
@@ -134,7 +134,7 @@ func prependStackBlock(src []byte, modulePath, version, commit string) ([]byte, 
 // canonical multi-line form so the new fields do not sit on the same
 // line as the opening brace.
 func fillStackBlock(
-	src []byte, stackObj *lang.ObjectLit, modulePath, version, commit string,
+	src []byte, stackObj *lang.ObjectLit, modulePath, version, revision string,
 ) ([]byte, string, error) {
 	openIdx := stackObj.S.Start.Offset
 	closeIdx := findMatchingClose(src, openIdx)
@@ -150,8 +150,8 @@ func fillStackBlock(
 	if modulePath != "" && findField(stackObj, "module-path") == nil {
 		fmt.Fprintf(&b, "%smodule-path: '%s'\n", childInd, modulePath)
 	}
-	fmt.Fprintf(&b, "%ssupported-versions: [\n%s  { version: '%s', commit: '%s' },\n%s]\n",
-		childInd, childInd, version, commit, childInd)
+	fmt.Fprintf(&b, "%ssupported-versions: [\n%s  { version: '%s', content-revision: '%s' },\n%s]\n",
+		childInd, childInd, version, revision, childInd)
 	if len(stackObj.Fields) == 0 {
 		return spliceReplace(src, openIdx+1, closeIdx, "\n"+b.String()+parentIndent),
 			pinActionAddedSupportedVersions, nil
@@ -161,13 +161,13 @@ func fillStackBlock(
 }
 
 func appendVersionEntry(
-	src []byte, svField *lang.Field, svArr *lang.ArrayLit, version, commit string,
+	src []byte, svField *lang.Field, svArr *lang.ArrayLit, version, revision string,
 ) ([]byte, string, error) {
 	closeIdx := findMatchingClose(src, svArr.S.Start.Offset)
 	if closeIdx < 0 {
 		return nil, "", fmt.Errorf("could not locate closing `]` of supported-versions")
 	}
-	entry := fmt.Sprintf("{ version: '%s', commit: '%s' }", version, commit)
+	entry := fmt.Sprintf("{ version: '%s', content-revision: '%s' }", version, revision)
 	if len(svArr.Elements) == 0 {
 		base := lineIndent(src, svField.S.Start.Offset)
 		body := fmt.Sprintf("\n%s  %s,\n%s", base, entry, base)
@@ -203,13 +203,13 @@ func appendVersionEntry(
 }
 
 // entryMatches reports whether el is an object literal whose `version`
-// and `commit` string fields equal the given values.
-func entryMatches(el lang.Expr, version, commit string) bool {
+// and `content-revision` string fields equal the given values.
+func entryMatches(el lang.Expr, version, revision string) bool {
 	obj, ok := el.(*lang.ObjectLit)
 	if !ok {
 		return false
 	}
-	var gotVersion, gotCommit string
+	var gotVersion, gotRevision string
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent {
 			continue
@@ -221,11 +221,11 @@ func entryMatches(el lang.Expr, version, commit string) bool {
 		switch fld.Key.Name {
 		case "version":
 			gotVersion = s.Value
-		case "commit":
-			gotCommit = s.Value
+		case "content-revision":
+			gotRevision = s.Value
 		}
 	}
-	return gotVersion == version && gotCommit == commit
+	return gotVersion == version && gotRevision == revision
 }
 
 // spliceBefore inserts text at idx.
@@ -334,14 +334,14 @@ func lineIndent(src []byte, offset int) string {
 // they want a blank line between this block and the rest of the file.
 // Entries always carry a trailing comma so the canonical shape matches
 // the form `pin` produces when it appends later.
-func renderStackBlock(modulePath, version, commit string) string {
+func renderStackBlock(modulePath, version, revision string) string {
 	var b strings.Builder
 	b.WriteString("stack: {\n")
 	if modulePath != "" {
 		fmt.Fprintf(&b, "  module-path: '%s'\n", modulePath)
 	}
 	fmt.Fprintf(&b,
-		"  supported-versions: [\n    { version: '%s', commit: '%s' },\n  ]\n}\n",
-		version, commit)
+		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",
+		version, revision)
 	return b.String()
 }

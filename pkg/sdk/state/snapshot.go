@@ -53,12 +53,12 @@ type Entry struct {
 	DependsOn []string       `json:"depends-on,omitempty"`
 }
 
-// StackInfo identifies the stack a snapshot belongs to. Commit is the git
-// SHA of the source the binary was compiled from.
+// StackInfo identifies the stack a snapshot belongs to. ContentRevision
+// is the content-addressable hash the binary was compiled with.
 type StackInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Commit  string `json:"commit"`
+	Name            string `json:"name"`
+	Version         string `json:"version"`
+	ContentRevision string `json:"content-revision"`
 }
 
 // Snapshot is the in-memory record of one state file. The runtime reads

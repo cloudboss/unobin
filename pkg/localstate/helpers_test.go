@@ -14,9 +14,9 @@ func sampleSnapshot() *sdkstate.Snapshot {
 	return &sdkstate.Snapshot{
 		FormatVersion: sdkstate.CurrentFormatVersion,
 		Stack: sdkstate.StackInfo{
-			Name:    "cluster-deploy",
-			Version: "v2.0.3",
-			Commit:  "abc123def456",
+			Name:            "cluster-deploy",
+			Version:         "v2.0.3",
+			ContentRevision: "abc123def456",
 		},
 		DeploymentID: "prod-east-alpha",
 		GeneratedAt:  time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),

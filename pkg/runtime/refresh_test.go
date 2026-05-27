@@ -21,7 +21,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -59,7 +59,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -86,7 +86,7 @@ actions: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG:     BuildDAG(parseStack(t, src), testModules()),
 		Modules: testModules(),
@@ -120,7 +120,7 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -165,7 +165,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -211,7 +211,7 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	var c resourceCounters
 	store := newStateStore(t)
 	mods := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, src.String()), mods), Modules: mods, Store: store, Stack: stack,
 	})
@@ -241,7 +241,7 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 
 func TestRefreshNoPriorState(t *testing.T) {
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
 		Modules: map[string]*Module{},

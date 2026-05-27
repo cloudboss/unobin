@@ -58,11 +58,11 @@ func testInfo(t *testing.T, src string) Info {
 	coreMod := core.Module()
 	coreMod.Actions["echo"] = runtime.MakeAction[echoAction, any]()
 	return Info{
-		StackName:    "test-stack",
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		StackBody:    src,
-		Modules:      map[string]*runtime.Module{"core": coreMod},
+		StackName:       "test-stack",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		StackBody:       src,
+		Modules:         map[string]*runtime.Module{"core": coreMod},
 	}
 }
 
@@ -113,7 +113,7 @@ func TestVersion(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
 	out, err := runRoot(t, info, "version")
 	require.NoError(t, err)
-	require.Contains(t, out, "test-stack v0.1.0 (commit abcdef)")
+	require.Contains(t, out, "test-stack v0.1.0 (content-revision abcdef)")
 }
 
 func TestApplyAndOutput(t *testing.T) {
@@ -939,7 +939,7 @@ inputs: {
 
 	expected := `stack: {
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' },
+    { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
 }
 
@@ -960,7 +960,7 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	require.NoError(t, err)
 	expected := `stack: {
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' },
+    { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
 }
 `
@@ -975,7 +975,7 @@ func TestSchemaTemplateIncludesModulePathWhenSet(t *testing.T) {
 	expected := `stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' },
+    { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
 }
 `
@@ -993,7 +993,7 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 	require.NoError(t, err)
 	expected := `stack: {
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' },
+    { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
 }
 
@@ -1321,7 +1321,7 @@ func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 		".unobin/state", info.StackName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.StackInfo{
-		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
+		Name: info.StackName, Version: info.StackVersion, ContentRevision: info.ContentRevision,
 	}
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
@@ -1401,7 +1401,7 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 		".unobin/state", info.StackName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.StackInfo{
-		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
+		Name: info.StackName, Version: info.StackVersion, ContentRevision: info.ContentRevision,
 	}
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
@@ -1449,7 +1449,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	stackInfo := state.StackInfo{
-		Name: info.StackName, Version: info.StackVersion, Commit: info.StackCommit,
+		Name: info.StackName, Version: info.StackVersion, ContentRevision: info.ContentRevision,
 	}
 	for range 4 {
 		_, err := store.Write(state.NewSnapshot(stackInfo, "default"))

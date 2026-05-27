@@ -32,17 +32,17 @@ var (
 )
 
 type compileConfig struct {
-	stackPath     string
-	version       string
-	commit        string
-	stackName     string
-	modulePath    string
-	outDir        string
-	goVersion     string
-	unobinVersion string
-	replaceUnobin string
-	replaceModule []string
-	build         bool
+	stackPath       string
+	version         string
+	contentRevision string
+	stackName       string
+	modulePath      string
+	outDir          string
+	goVersion       string
+	unobinVersion   string
+	replaceUnobin   string
+	replaceModule   []string
+	build           bool
 }
 
 func init() {
@@ -52,8 +52,8 @@ func init() {
 	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "dev",
 		"Stack version to embed in the generated binary.")
 
-	CompileCmd.Flags().StringVar(&compileCfg.commit, "commit", "",
-		"Git commit to embed in the generated binary.")
+	CompileCmd.Flags().StringVar(&compileCfg.contentRevision, "content-revision", "",
+		"Content-revision to embed in the generated binary.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.stackName, "name", "",
 		"Stack name. Defaults to the parent directory's basename.")
@@ -171,13 +171,13 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	in := codegen.Input{
-		Body:       string(src),
-		ModulePath: cfg.modulePath,
-		StackName:  name,
-		Version:    cfg.version,
-		Commit:     cfg.commit,
-		GoImports:  goImports,
-		UBImports:  ubImports,
+		Body:            string(src),
+		ModulePath:      cfg.modulePath,
+		StackName:       name,
+		Version:         cfg.version,
+		ContentRevision: cfg.contentRevision,
+		GoImports:       goImports,
+		UBImports:       ubImports,
 	}
 
 	if cfg.outDir == "-" {

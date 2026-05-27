@@ -68,7 +68,7 @@ func TestDestroyDeletesDependentsFirst(t *testing.T) {
 	rec := &deleteOrder{}
 	mods := orderModules(rec)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	withBoth := `
 resources: {
@@ -155,7 +155,7 @@ func TestDestroyUsesRecordedConfiguration(t *testing.T) {
 	capture := &cfgCapture{}
 	mods := cfgCapturingModules(capture)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	configurations := map[string]map[string]any{
 		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
 	}
@@ -295,7 +295,7 @@ func requireIncrementalOutputs(t *testing.T, ent *state.Entry, name string, size
 
 func seedIncrementalState(t *testing.T, store *localstate.LocalStore, entries ...*state.Entry) {
 	t.Helper()
-	snap := state.NewSnapshot(state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+	snap := state.NewSnapshot(state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		store.DeploymentID())
 	snap.Entries = entries
 	rev, err := store.Write(snap)
@@ -315,7 +315,7 @@ func applyIncrementalPlan(
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	_, err := planAndApply(exec)
 	return err
@@ -325,7 +325,7 @@ func TestPlanDestroyTearsDownEverything(t *testing.T) {
 	rec := &deleteOrder{}
 	mods := orderModules(rec)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	src := `
 resources: {
@@ -374,7 +374,7 @@ func applyStack(
 		Modules: mods,
 		Inputs:  inputs,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -389,7 +389,7 @@ func destroyStack(
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Destroy: true,
 	}
 	return planAndApply(exec)
@@ -423,7 +423,7 @@ resources: {
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Destroy: true,
 	}
 	plan, err := exec.Plan(context.Background())
@@ -577,7 +577,7 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
 		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Destroy: true,
 	}
 	plan, err := exec.Plan(context.Background())
@@ -603,7 +603,7 @@ outputs: { said: { value: action.core.echo.inner.echo } }
 		Composites: map[string]*CompositeType{"box": {Name: "box", Body: compositeBody}},
 	}
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	// No leaf resources: only a root action, a module-call record, and
 	// the composite's internal action. This is the shape that used to
 	// plan as "No changes".
@@ -652,7 +652,7 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	var c resourceCounters
 	mods := resourceModules(&c)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	src := `resources: { core: { thing: { a: { name: 'a', size: 1 } } } }`
 
 	create := &Executor{
@@ -704,7 +704,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -748,7 +748,7 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -799,7 +799,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := testModules()
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -839,7 +839,7 @@ actions: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var runs int64
 	mods := countingModules(&runs)
 	inputs := map[string]any{
@@ -879,7 +879,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := testModules()
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -907,7 +907,7 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 
 	exec := &Executor{
@@ -1078,7 +1078,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
@@ -1137,7 +1137,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	apply := func(configs map[string]any) {
 		applyOnce(t, &Executor{
 			DAG:     BuildDAG(parseStack(t, src), mods),
@@ -1191,7 +1191,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
 		Modules: mods,
@@ -1277,7 +1277,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planExec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -1354,7 +1354,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planAndApply := func(src string) *Plan {
 		exec := &Executor{
@@ -1437,7 +1437,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planExec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), mods),
@@ -1506,7 +1506,7 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planAndApply := func(src string) {
 		exec := &Executor{
@@ -1542,7 +1542,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 
 	exec := &Executor{
@@ -1573,7 +1573,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	mods := resourceModules(&c)
 	exec := &Executor{
 		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
@@ -1599,7 +1599,7 @@ resources: {
 func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 	src := `description: 'x'`
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	exec := &Executor{
 		DAG:     BuildDAG(parseStack(t, src), nil),
@@ -1615,7 +1615,7 @@ func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply against a different stack identity.
-	exec.Stack = state.StackInfo{Name: "different", Version: "v0", Commit: "c0"}
+	exec.Stack = state.StackInfo{Name: "different", Version: "v0", ContentRevision: "c0"}
 	_, err = exec.ApplyPlan(context.Background(), pf)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "different")
@@ -1623,7 +1623,7 @@ func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 
 func TestEncodeDecodePlan(t *testing.T) {
 	plan := &Plan{
-		Stack:        state.StackInfo{Name: "x", Version: "v1", Commit: "abc"},
+		Stack:        state.StackInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
 		DeploymentID: "prod",
 		StateRev:     "2026-05-01T00:00:00.000000000Z",
 		Steps: []*PlanStep{
@@ -1665,7 +1665,7 @@ actions: {
 	}
 
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"}
+	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var resCounters resourceCounters
 	var actionRuns int64
 	mods := map[string]*Module{

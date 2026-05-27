@@ -15,7 +15,7 @@ import (
 // identity, the same shape Go modules use; the operator's `config.ub`
 // asserts the same value under `stack.module-path` and plan, refresh,
 // and validate refuse on mismatch. An empty ModulePath disables that
-// identity check. StackName, Version, and Commit identify the binary
+// identity check. StackName, Version, and ContentRevision identify the binary
 // back to its `config.ub`. GoImports maps each Go-module alias the
 // source uses to the Go import path that supplies it (e.g.,
 // `"core" -> "github.com/cloudboss/unobin/pkg/modules/core"`).
@@ -23,13 +23,13 @@ import (
 // the package that compile generated for it (typically
 // `<stack-name>/internal/<alias>`).
 type Input struct {
-	Body       string
-	ModulePath string
-	StackName  string
-	Version    string
-	Commit     string
-	GoImports  map[string]string
-	UBImports  map[string]string
+	Body            string
+	ModulePath      string
+	StackName       string
+	Version         string
+	ContentRevision string
+	GoImports       map[string]string
+	UBImports       map[string]string
 }
 
 // Generate produces the formatted Go source for the stack binary's
@@ -42,25 +42,25 @@ func Generate(in Input) ([]byte, error) {
 	aliases := sortedKeys(in.GoImports)
 	ubAliases := sortedKeys(in.UBImports)
 	data := struct {
-		Body       string
-		ModulePath string
-		StackName  string
-		Version    string
-		Commit     string
-		Aliases    []string
-		Imports    map[string]string
-		UBAliases  []string
-		UBImports  map[string]string
+		Body            string
+		ModulePath      string
+		StackName       string
+		Version         string
+		ContentRevision string
+		Aliases         []string
+		Imports         map[string]string
+		UBAliases       []string
+		UBImports       map[string]string
 	}{
-		Body:       in.Body,
-		ModulePath: in.ModulePath,
-		StackName:  in.StackName,
-		Version:    in.Version,
-		Commit:     in.Commit,
-		Aliases:    aliases,
-		Imports:    in.GoImports,
-		UBAliases:  ubAliases,
-		UBImports:  in.UBImports,
+		Body:            in.Body,
+		ModulePath:      in.ModulePath,
+		StackName:       in.StackName,
+		Version:         in.Version,
+		ContentRevision: in.ContentRevision,
+		Aliases:         aliases,
+		Imports:         in.GoImports,
+		UBAliases:       ubAliases,
+		UBImports:       in.UBImports,
 	}
 
 	var buf bytes.Buffer
@@ -107,16 +107,16 @@ const (
 	stackModulePath = {{quote .ModulePath}}
 	stackName       = {{quote .StackName}}
 	stackVersion    = {{quote .Version}}
-	stackCommit     = {{quote .Commit}}
+	contentRevision = {{quote .ContentRevision}}
 )
 
 func main() {
 	runner.Run(runner.Info{
-		StackName:    stackName,
-		StackVersion: stackVersion,
-		StackCommit:  stackCommit,
-		StackBody:    stackBody,
-		ModulePath:   stackModulePath,
+		StackName:       stackName,
+		StackVersion:    stackVersion,
+		ContentRevision: contentRevision,
+		StackBody:       stackBody,
+		ModulePath:      stackModulePath,
 		Modules: map[string]*runtime.Module{
 {{range .Aliases}}			{{quote .}}: mod_{{.}}.Module(),
 {{end}}{{range .UBAliases}}			{{quote .}}: mod_{{.}}.Module(),

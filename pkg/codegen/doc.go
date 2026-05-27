@@ -2,7 +2,7 @@
 //
 // Uses dst (formatting-preserving Go AST) - preserved from the POC. Produces
 // the main.go that statically links all imports (Go modules and UB modules).
-// Embeds (source, version, commit) constants so the binary self-reports its
+// Embeds (source, version, content-revision) constants so the binary self-reports its
 // identity. UB modules are inlined as expanded sub-DAGs (composite types
 // decompose into internal resources at code-gen time).
 //

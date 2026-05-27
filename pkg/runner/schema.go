@@ -95,8 +95,8 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
 		fmt.Fprintf(out, "  module-path: '%s'\n", info.ModulePath)
 	}
 	fmt.Fprintf(out,
-		"  supported-versions: [\n    { version: '%s', commit: '%s' },\n  ]\n}\n",
-		info.StackVersion, info.StackCommit)
+		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",
+		info.StackVersion, info.ContentRevision)
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		return

@@ -44,8 +44,8 @@ func TestLoadStackEnvelopeWithStackBlock(t *testing.T) {
 stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' },
-    { version: 'v0.2.0', commit: '123456' },
+    { version: 'v0.1.0', content-revision: 'abcdef' },
+    { version: 'v0.2.0', content-revision: '123456' },
   ]
 }`)
 	env, err := loadStackEnvelope(parseTestConfig(t, path), path)
@@ -53,8 +53,8 @@ stack: {
 	assert.True(t, env.Present)
 	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.ModulePath)
 	assert.Equal(t, []supportedVersion{
-		{Version: "v0.1.0", Commit: "abcdef"},
-		{Version: "v0.2.0", Commit: "123456"},
+		{Version: "v0.1.0", ContentRevision: "abcdef"},
+		{Version: "v0.2.0", ContentRevision: "123456"},
 	}, env.SupportedVersions)
 }
 
@@ -72,10 +72,10 @@ stack: {
 
 func TestVerifyStackEnvelopeNoConfigSoftFails(t *testing.T) {
 	info := Info{
-		StackName:    "test-stack",
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		ModulePath:   "github.com/cloudboss/test-stack",
+		StackName:       "test-stack",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		ModulePath:      "github.com/cloudboss/test-stack",
 	}
 	err := verifyStackEnvelope(info, nil, "", false)
 	require.Error(t, err)
@@ -83,12 +83,12 @@ func TestVerifyStackEnvelopeNoConfigSoftFails(t *testing.T) {
 }
 
 func TestVerifyStackEnvelopeNoConfigOverrideAllows(t *testing.T) {
-	info := Info{StackVersion: "v0.1.0", StackCommit: "abcdef"}
+	info := Info{StackVersion: "v0.1.0", ContentRevision: "abcdef"}
 	require.NoError(t, verifyStackEnvelope(info, nil, "", true))
 }
 
 func TestVerifyStackEnvelopeMissingStackBlockSoftFails(t *testing.T) {
-	info := Info{StackVersion: "v0.1.0", StackCommit: "abcdef"}
+	info := Info{StackVersion: "v0.1.0", ContentRevision: "abcdef"}
 	path := writeConfig(t, `inputs: { region: 'us-east-1' }`)
 	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
 	require.Error(t, err)
@@ -96,7 +96,7 @@ func TestVerifyStackEnvelopeMissingStackBlockSoftFails(t *testing.T) {
 }
 
 func TestVerifyStackEnvelopeEmptySupportedVersionsSoftFails(t *testing.T) {
-	info := Info{StackVersion: "v0.1.0", StackCommit: "abcdef"}
+	info := Info{StackVersion: "v0.1.0", ContentRevision: "abcdef"}
 	path := writeConfig(t, `
 stack: {
   module-path: 'github.com/cloudboss/test'
@@ -110,16 +110,16 @@ stack: {
 
 func TestVerifyStackEnvelopeVersionNotInListSoftFails(t *testing.T) {
 	info := Info{
-		StackName:    "test",
-		StackVersion: "v0.9.0",
-		StackCommit:  "ffffff",
-		ModulePath:   "github.com/cloudboss/test",
+		StackName:       "test",
+		StackVersion:    "v0.9.0",
+		ContentRevision: "ffffff",
+		ModulePath:      "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
   module-path: 'github.com/cloudboss/test'
   supported-versions: [
-    { version: 'v0.1.0'  commit: 'abcdef' }
+    { version: 'v0.1.0'  content-revision: 'abcdef' }
   ]
 }`)
 	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
@@ -130,15 +130,15 @@ stack: {
 
 func TestVerifyStackEnvelopeVersionMismatchOverrideAllows(t *testing.T) {
 	info := Info{
-		StackVersion: "v0.9.0",
-		StackCommit:  "ffffff",
-		ModulePath:   "github.com/cloudboss/test",
+		StackVersion:    "v0.9.0",
+		ContentRevision: "ffffff",
+		ModulePath:      "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
   module-path: 'github.com/cloudboss/test'
   supported-versions: [
-    { version: 'v0.1.0'  commit: 'abcdef' }
+    { version: 'v0.1.0'  content-revision: 'abcdef' }
   ]
 }`)
 	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, true))
@@ -146,15 +146,15 @@ stack: {
 
 func TestVerifyStackEnvelopeModulePathMismatchHardFails(t *testing.T) {
 	info := Info{
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		ModulePath:   "github.com/cloudboss/binary-source",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		ModulePath:      "github.com/cloudboss/binary-source",
 	}
 	path := writeConfig(t, `
 stack: {
   module-path: 'github.com/cloudboss/different-source'
   supported-versions: [
-    { version: 'v0.1.0'  commit: 'abcdef' }
+    { version: 'v0.1.0'  content-revision: 'abcdef' }
   ]
 }`)
 	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, false)
@@ -165,15 +165,15 @@ stack: {
 
 func TestVerifyStackEnvelopeModulePathMismatchNotOverridable(t *testing.T) {
 	info := Info{
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		ModulePath:   "github.com/cloudboss/binary-source",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		ModulePath:      "github.com/cloudboss/binary-source",
 	}
 	path := writeConfig(t, `
 stack: {
   module-path: 'github.com/cloudboss/different-source'
   supported-versions: [
-    { version: 'v0.1.0'  commit: 'abcdef' }
+    { version: 'v0.1.0'  content-revision: 'abcdef' }
   ]
 }`)
 	err := verifyStackEnvelope(info, parseTestConfig(t, path), path, true)
@@ -182,15 +182,15 @@ stack: {
 
 func TestVerifyStackEnvelopeMatchingPinPasses(t *testing.T) {
 	info := Info{
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		ModulePath:   "github.com/cloudboss/test",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		ModulePath:      "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
   module-path: 'github.com/cloudboss/test'
   supported-versions: [
-    { version: 'v0.1.0'  commit: 'abcdef' }
+    { version: 'v0.1.0'  content-revision: 'abcdef' }
   ]
 }`)
 	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, false))
@@ -198,14 +198,14 @@ stack: {
 
 func TestVerifyStackEnvelopeNoModulePathFieldChecksOnlyPin(t *testing.T) {
 	info := Info{
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		ModulePath:   "github.com/cloudboss/test",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		ModulePath:      "github.com/cloudboss/test",
 	}
 	path := writeConfig(t, `
 stack: {
   supported-versions: [
-    { version: 'v0.1.0'  commit: 'abcdef' }
+    { version: 'v0.1.0'  content-revision: 'abcdef' }
   ]
 }`)
 	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, false))
@@ -219,9 +219,9 @@ stack: {
 // module-path matches the URL.
 func TestVerifyStackEnvelopeComparesAgainstModulePathNotBody(t *testing.T) {
 	info := Info{
-		StackVersion: "v0.1.0",
-		StackCommit:  "abcdef",
-		ModulePath:   "github.com/cloudboss/cluster-deploy",
+		StackVersion:    "v0.1.0",
+		ContentRevision: "abcdef",
+		ModulePath:      "github.com/cloudboss/cluster-deploy",
 		StackBody: `
 inputs: { region: { type: string } }
 resources: {
@@ -233,7 +233,7 @@ resources: {
 stack: {
   module-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
-    { version: 'v0.1.0', commit: 'abcdef' }
+    { version: 'v0.1.0', content-revision: 'abcdef' }
   ]
 }`)
 	require.NoError(t, verifyStackEnvelope(info, parseTestConfig(t, path), path, false))

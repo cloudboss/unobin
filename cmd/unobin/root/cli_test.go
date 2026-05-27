@@ -116,13 +116,13 @@ actions: {
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
 
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
-		"--version", "v0.1.0", "--commit", "abc")
+		"--version", "v0.1.0", "--content-revision", "abc")
 	require.NoError(t, err)
 
 	require.Contains(t, out, "package main")
 	require.Contains(t, out, `stackName       = "demo-stack"`)
 	require.Contains(t, out, `stackVersion    = "v0.1.0"`)
-	require.Contains(t, out, `stackCommit     = "abc"`)
+	require.Contains(t, out, `contentRevision = "abc"`)
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/core"`)
 }
 
@@ -428,16 +428,16 @@ const (
 	stackModulePath = ""
 	stackName       = "demo-stack"
 	stackVersion    = "dev"
-	stackCommit     = ""
+	contentRevision = ""
 )
 
 func main() {
 	runner.Run(runner.Info{
-		StackName:    stackName,
-		StackVersion: stackVersion,
-		StackCommit:  stackCommit,
-		StackBody:    stackBody,
-		ModulePath:   stackModulePath,
+		StackName:       stackName,
+		StackVersion:    stackVersion,
+		ContentRevision: contentRevision,
+		StackBody:       stackBody,
+		ModulePath:      stackModulePath,
 		Modules: map[string]*runtime.Module{
 			"net": mod_net.Module(),
 		},

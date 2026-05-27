@@ -357,8 +357,8 @@ func newStateShowCmd(info Info) *cobra.Command {
 
 func printSnapshot(cmd *cobra.Command, snap *state.Snapshot, sensitive map[string]bool) error {
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "stack:        %s %s (commit %s)\n",
-		snap.Stack.Name, snap.Stack.Version, snap.Stack.Commit)
+	fmt.Fprintf(out, "stack:        %s %s (content-revision %s)\n",
+		snap.Stack.Name, snap.Stack.Version, snap.Stack.ContentRevision)
 	fmt.Fprintf(out, "deployment:   %s\n", snap.DeploymentID)
 	fmt.Fprintf(out, "generated-at: %s\n", snap.GeneratedAt.Format("2006-01-02 15:04:05Z07:00"))
 	fmt.Fprintln(out)

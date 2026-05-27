@@ -37,12 +37,12 @@ const EnvVarPrefix = "UB_VAR_"
 // same value under `stack.module-path`. An empty ModulePath disables
 // that identity check.
 type Info struct {
-	StackName    string
-	StackVersion string
-	StackCommit  string
-	StackBody    string
-	ModulePath   string
-	Modules      map[string]*runtime.Module
+	StackName       string
+	StackVersion    string
+	ContentRevision string
+	StackBody       string
+	ModulePath      string
+	Modules         map[string]*runtime.Module
 }
 
 // Run builds the cobra command tree and executes it. The process exits
@@ -80,8 +80,8 @@ func newVersionCmd(info Info) *cobra.Command {
 		Use:   "version",
 		Short: "Print stack identity",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s %s (commit %s)\n",
-				info.StackName, info.StackVersion, info.StackCommit)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s (content-revision %s)\n",
+				info.StackName, info.StackVersion, info.ContentRevision)
 		},
 	}
 }
@@ -198,9 +198,9 @@ func doApplyPlan(
 		Configurations: configurations,
 		Store:          store,
 		Stack: state.StackInfo{
-			Name:    info.StackName,
-			Version: info.StackVersion,
-			Commit:  info.StackCommit,
+			Name:            info.StackName,
+			Version:         info.StackVersion,
+			ContentRevision: info.ContentRevision,
 		},
 		Parallelism: parallelism,
 		Drain:       drain,
@@ -368,9 +368,9 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 		Configurations: configurations,
 		Store:          store,
 		Stack: state.StackInfo{
-			Name:    info.StackName,
-			Version: info.StackVersion,
-			Commit:  info.StackCommit,
+			Name:            info.StackName,
+			Version:         info.StackVersion,
+			ContentRevision: info.ContentRevision,
 		},
 	}
 	res, err := exec.Refresh(context.Background())
@@ -628,9 +628,9 @@ func doPlan(
 		Configurations: configurations,
 		Store:          store,
 		Stack: state.StackInfo{
-			Name:    info.StackName,
-			Version: info.StackVersion,
-			Commit:  info.StackCommit,
+			Name:            info.StackName,
+			Version:         info.StackVersion,
+			ContentRevision: info.ContentRevision,
 		},
 		Parallelism: parallelism,
 		Destroy:     destroy,

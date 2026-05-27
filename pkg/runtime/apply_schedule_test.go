@@ -95,7 +95,7 @@ func TestApplyScheduleRunsIndependentLeavesInParallel(t *testing.T) {
 		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: n,
 	}
 	start := time.Now()
@@ -125,7 +125,7 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 1,
 	}
 	start := time.Now()
@@ -194,7 +194,7 @@ resources: {
 		DAG:         BuildDAG(parseStack(t, src), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
 	}
 	_, err := planAndApply(exec)
@@ -236,7 +236,7 @@ resources: {
 		DAG:         BuildDAG(parseStack(t, src), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
 	}
 	_, err := planAndApply(exec)

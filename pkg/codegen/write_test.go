@@ -12,10 +12,10 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "stack-out")
 
 	err := WriteSource(dir, Input{
-		Body:      "description: 'x'\n",
-		StackName: "demo",
-		Version:   "v0",
-		Commit:    "c",
+		Body:            "description: 'x'\n",
+		StackName:       "demo",
+		Version:         "v0",
+		ContentRevision: "c",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},
@@ -39,10 +39,10 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Body:      "description: 'x'\n",
-		StackName: "demo",
-		Version:   "v0",
-		Commit:    "c",
+		Body:            "description: 'x'\n",
+		StackName:       "demo",
+		Version:         "v0",
+		ContentRevision: "c",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},
@@ -61,10 +61,10 @@ func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 func TestWriteSourceIncludesExternalImports(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Body:      "description: 'x'\n",
-		StackName: "demo",
-		Version:   "v0",
-		Commit:    "c",
+		Body:            "description: 'x'\n",
+		StackName:       "demo",
+		Version:         "v0",
+		ContentRevision: "c",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 			"aws":  "github.com/cloudboss/unobin-modules/aws",
@@ -84,10 +84,10 @@ func TestWriteSourceIncludesExternalImports(t *testing.T) {
 func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Body:      "description: 'x'\n",
-		StackName: "demo",
-		Version:   "v0",
-		Commit:    "c",
+		Body:            "description: 'x'\n",
+		StackName:       "demo",
+		Version:         "v0",
+		ContentRevision: "c",
 		GoImports: map[string]string{
 			"aws": "github.com/cloudboss/unobin-modules/aws",
 		},
@@ -99,10 +99,10 @@ func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 func TestWriteSourceRequiresGoVersion(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Body:      "description: 'x'",
-		StackName: "demo",
-		Version:   "v0",
-		Commit:    "c",
+		Body:            "description: 'x'",
+		StackName:       "demo",
+		Version:         "v0",
+		ContentRevision: "c",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},
@@ -116,10 +116,10 @@ func TestWriteSourceRequiresGoVersion(t *testing.T) {
 func TestWriteSourceWritesReplaceDirectives(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
-		Body:      "description: 'x'\n",
-		StackName: "demo",
-		Version:   "v0",
-		Commit:    "c",
+		Body:            "description: 'x'\n",
+		StackName:       "demo",
+		Version:         "v0",
+		ContentRevision: "c",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/modules/core",
 		},

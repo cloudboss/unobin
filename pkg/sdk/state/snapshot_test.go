@@ -12,9 +12,9 @@ func sampleSnapshot() *Snapshot {
 	return &Snapshot{
 		FormatVersion: CurrentFormatVersion,
 		Stack: StackInfo{
-			Name:    "cluster-deploy",
-			Version: "v2.0.3",
-			Commit:  "abc123def456",
+			Name:            "cluster-deploy",
+			Version:         "v2.0.3",
+			ContentRevision: "abc123def456",
 		},
 		DeploymentID: "prod-east-alpha",
 		GeneratedAt:  time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
@@ -141,7 +141,7 @@ func TestSnapshotJSONShape(t *testing.T) {
 func TestSnapshotActionEntry(t *testing.T) {
 	snap := &Snapshot{
 		FormatVersion: CurrentFormatVersion,
-		Stack:         StackInfo{Name: "x", Version: "v1", Commit: "abc"},
+		Stack:         StackInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
 		DeploymentID:  "prod",
 		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Entries: []*Entry{

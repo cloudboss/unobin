@@ -69,7 +69,7 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 		DAG:         BuildDAG(parseStack(t, src.String()), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,
 		Drain:       drain,
 	}
@@ -110,7 +110,7 @@ resources: {
 		DAG:         BuildDAG(parseStack(t, src), mods),
 		Modules:     mods,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", Commit: "c0"},
+		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,
 		Drain:       drain,
 	}

@@ -9,8 +9,8 @@ import (
 
 // supportedVersion is one entry from `stack.supported-versions`.
 type supportedVersion struct {
-	Version string
-	Commit  string
+	Version         string
+	ContentRevision string
 }
 
 // stackEnvelope holds the values read from a config's `stack:` block.
@@ -81,16 +81,16 @@ func parseStackBlock(path string, m map[string]any) (stackEnvelope, error) {
 				path, i, item)
 		}
 		version, _ := entry["version"].(string)
-		commit, _ := entry["commit"].(string)
-		if version == "" || commit == "" {
+		revision, _ := entry["content-revision"].(string)
+		if version == "" || revision == "" {
 			return env, fmt.Errorf(
 				"config %s: `stack.supported-versions[%d]`"+
-					" must have non-empty `version` and `commit`",
+					" must have non-empty `version` and `content-revision`",
 				path, i)
 		}
 		env.SupportedVersions = append(env.SupportedVersions, supportedVersion{
-			Version: version,
-			Commit:  commit,
+			Version:         version,
+			ContentRevision: revision,
 		})
 	}
 	return env, nil
@@ -122,7 +122,7 @@ func verifyStackEnvelope(
 				"add an entry or pass --allow-version-mismatch")
 	}
 	for _, sv := range env.SupportedVersions {
-		if sv.Version == info.StackVersion && sv.Commit == info.StackCommit {
+		if sv.Version == info.StackVersion && sv.ContentRevision == info.ContentRevision {
 			return nil
 		}
 	}
@@ -130,7 +130,7 @@ func verifyStackEnvelope(
 		return nil
 	}
 	return fmt.Errorf(
-		"binary %s (commit %s) is not in `stack.supported-versions`; "+
+		"binary %s (content-revision %s) is not in `stack.supported-versions`; "+
 			"add an entry or pass --allow-version-mismatch",
-		info.StackVersion, info.StackCommit)
+		info.StackVersion, info.ContentRevision)
 }

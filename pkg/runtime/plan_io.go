@@ -33,9 +33,9 @@ type PlanFile struct {
 
 // StackRef identifies the stack a plan was computed against.
 type StackRef struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Commit  string `json:"commit"`
+	Name            string `json:"name"`
+	Version         string `json:"version"`
+	ContentRevision string `json:"content-revision"`
 }
 
 // EncodePlan renders a plan as JSON bytes for on-disk storage.
@@ -47,9 +47,9 @@ func EncodePlan(p *Plan) ([]byte, error) {
 	pf := PlanFile{
 		FormatVersion: PlanFormatVersion,
 		Stack: StackRef{
-			Name:    p.Stack.Name,
-			Version: p.Stack.Version,
-			Commit:  p.Stack.Commit,
+			Name:            p.Stack.Name,
+			Version:         p.Stack.Version,
+			ContentRevision: p.Stack.ContentRevision,
 		},
 		DeploymentID:      p.DeploymentID,
 		StateRev:          p.StateRev,
