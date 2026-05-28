@@ -331,7 +331,7 @@ outputs: {
 		}
 	}
 	require.NotNil(t, leaf)
-	require.Equal(t, "resource.w.box.x/core.thing.one", leaf.Address)
+	require.Equal(t, "resource.w.box.x/resource.core.thing.one", leaf.Address)
 	require.Equal(t, "thing", leaf.Kind)
 
 	require.NotNil(t, libCall)
@@ -636,12 +636,12 @@ outputs: {
 		byAddr[e.Address] = e
 	}
 
-	leafAddr := "resource.outer-lib.layer.mine/inner-lib.cluster.only/core.thing.x"
+	leafAddr := "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only/resource.core.thing.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "deepest leaf persists at fully chained address")
 	require.Equal(t, state.EntryLeaf, leaf.Type)
 
-	innerAddr := "resource.outer-lib.layer.mine/inner-lib.cluster.only"
+	innerAddr := "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only"
 	inner := byAddr[innerAddr]
 	require.NotNil(t, inner)
 	require.Equal(t, state.EntryLibraryCall, inner.Type)
@@ -728,7 +728,7 @@ outputs: {
 		require.NoError(t, err)
 		var inner *state.Entry
 		for _, e := range snap.Entries {
-			if e.Address == "resource.outer-lib.layer.mine/inner-lib.cluster.only" {
+			if e.Address == "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only" {
 				inner = e
 			}
 		}
@@ -1188,7 +1188,7 @@ func TestConfigForPicksUpCompositeRemap(t *testing.T) {
 		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
 	}
 	leaf := &Node{
-		Address:   "resource.net.cluster.east/aws.instance.worker",
+		Address:   "resource.net.cluster.east/resource.aws.instance.worker",
 		NS:        "aws",
 		Composite: composite.Address,
 	}
@@ -1215,13 +1215,13 @@ func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
 		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
 	}
 	inner := &Node{
-		Address:   "resource.outer.wrap.x/inner.cluster.y",
+		Address:   "resource.outer.wrap.x/resource.inner.cluster.y",
 		Kind:      NodeComposite,
 		NS:        "inner",
 		Composite: outer.Address,
 	}
 	leaf := &Node{
-		Address:   inner.Address + "/aws.instance.worker",
+		Address:   inner.Address + "/resource.aws.instance.worker",
 		NS:        "aws",
 		Composite: inner.Address,
 	}
@@ -1283,7 +1283,7 @@ func TestConfigRefString(t *testing.T) {
 		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
 	}
 	internal := &Node{
-		Address:   "resource.net.cluster.east/aws.instance.worker",
+		Address:   "resource.net.cluster.east/resource.aws.instance.worker",
 		NS:        "aws",
 		Composite: composite.Address,
 	}

@@ -144,7 +144,7 @@ resources: {
 	require.Equal(t, composite, got[0].CompositeBody)
 	require.Empty(t, got[0].Composite)
 
-	require.Equal(t, "resource.net.cluster.web/local.file.greeting", got[1].Address)
+	require.Equal(t, "resource.net.cluster.web/resource.local.file.greeting", got[1].Address)
 	require.Equal(t, NodeResource, got[1].Kind)
 	require.Equal(t, "resource.net.cluster.web", got[1].Composite)
 	require.Equal(t, "local", got[1].NS)
@@ -250,17 +250,17 @@ resources: {
 	require.Equal(t, NodeComposite, outerBoundary.Kind)
 	require.Empty(t, outerBoundary.Composite, "outer boundary has root scope")
 
-	innerBoundary := byAddr["resource.outer-lib.layer.mine/inner-lib.cluster.only"]
+	innerBoundary := byAddr["resource.outer-lib.layer.mine/resource.inner-lib.cluster.only"]
 	require.NotNil(t, innerBoundary, "inner boundary nested under outer")
 	require.Equal(t, NodeComposite, innerBoundary.Kind)
 	require.Equal(t, "resource.outer-lib.layer.mine", innerBoundary.Composite,
 		"inner boundary's direct parent is outer call site")
 
-	leafAddr := "resource.outer-lib.layer.mine/inner-lib.cluster.only/local.file.x"
+	leafAddr := "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only/resource.local.file.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "leaf under inner composite")
 	require.Equal(t, NodeResource, leaf.Kind)
-	require.Equal(t, "resource.outer-lib.layer.mine/inner-lib.cluster.only", leaf.Composite,
+	require.Equal(t, "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only", leaf.Composite,
 		"leaf's direct parent is inner call site")
 }
 

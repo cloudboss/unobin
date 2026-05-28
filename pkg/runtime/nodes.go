@@ -146,7 +146,7 @@ func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Lib
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
 				}
-				addr := composeResourceAddress(parent, ns.Key.Name, t.Key.Name, n.Key.Name)
+				addr := composeAddress(parent, NodeResource, ns.Key.Name, t.Key.Name, n.Key.Name)
 				if composite != nil {
 					out = append(out, expandComposite(addr, parent,
 						ns.Key.Name, t.Key.Name, n.Key.Name,
@@ -193,7 +193,7 @@ func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node 
 					continue
 				}
 				node := &Node{
-					Address: composeKindAddress(parent, kind,
+					Address: composeAddress(parent, kind,
 						ns.Key.Name, t.Key.Name, n.Key.Name),
 					Kind:               kind,
 					NS:                 ns.Key.Name,
@@ -404,22 +404,12 @@ func topLevelMap(body *lang.ObjectLit) map[string]lang.Expr {
 	return out
 }
 
-// composeResourceAddress builds a resource node's address. At root the
-// shape is `resource.<ns>.<type>.<name>`. Inside a composite the inner
-// part drops the leading `resource.` to fit the spec form
-// `<call-site>/<ns>.<type>.<name>`.
-func composeResourceAddress(parent, ns, typ, name string) string {
-	if parent == "" {
-		return fmt.Sprintf("resource.%s.%s.%s", ns, typ, name)
-	}
-	return fmt.Sprintf("%s/%s.%s.%s", parent, ns, typ, name)
-}
-
-// composeKindAddress builds a data or action node's address. Data and
-// action addresses keep their kind prefix in the joined form: at root
-// it is `<kind>.<ns>.<type>.<name>`, inside a composite it is
-// `<call-site>/<kind>.<ns>.<type>.<name>`.
-func composeKindAddress(parent string, kind NodeKind, ns, typ, name string) string {
+// composeAddress builds a node's address. Every segment carries its own
+// category root: at root the shape is `<kind>.<ns>.<type>.<name>`, and
+// inside a composite it is `<call-site>/<kind>.<ns>.<type>.<name>`. The
+// resource, data, and action kinds all follow the same form, so a state
+// key reads the same at every depth.
+func composeAddress(parent string, kind NodeKind, ns, typ, name string) string {
 	if parent == "" {
 		return fmt.Sprintf("%s.%s.%s.%s", kind, ns, typ, name)
 	}

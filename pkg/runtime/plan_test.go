@@ -155,13 +155,13 @@ resources: {
 	require.Equal(t, DecisionEval, boundary.Decision)
 	require.Equal(t, "alpha", boundary.Inputs["name"])
 
-	one := stepFor(plan, "resource.w.pair.x/core.thing.one")
+	one := stepFor(plan, "resource.w.pair.x/resource.core.thing.one")
 	require.NotNil(t, one)
 	require.Equal(t, NodeResource, one.Kind)
 	require.Equal(t, DecisionCreate, one.Decision)
 	require.Equal(t, "alpha", one.Inputs["name"])
 
-	two := stepFor(plan, "resource.w.pair.x/core.thing.two")
+	two := stepFor(plan, "resource.w.pair.x/resource.core.thing.two")
 	require.NotNil(t, two)
 	require.Equal(t, DecisionCreate, two.Decision)
 }

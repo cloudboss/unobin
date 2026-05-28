@@ -101,7 +101,7 @@ func (e *Executor) refreshLeaf(
 	ctx context.Context,
 	ent *state.Entry,
 ) (*state.Entry, bool, error) {
-	ns, typeName, _, ok := parseResourceAddress(innerAddress(ent.Address))
+	_, ns, typeName, _, ok := parseAddress(ent.Address)
 	if !ok {
 		return nil, false, fmt.Errorf("malformed resource address %q", ent.Address)
 	}

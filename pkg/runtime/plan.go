@@ -332,7 +332,7 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 // needs no DAG node, so it works for an orphan whose source has been
 // removed as well as for a full teardown.
 func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool, error) {
-	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
+	_, ns, typeName, _, ok := parseAddress(step.Address)
 	if !ok {
 		return false, fmt.Errorf("malformed address %q", step.Address)
 	}
@@ -402,14 +402,14 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				continue
 			}
 			tmpl, instKey := splitInstanceAddress(ent.Address)
-			ns, kind, name, ok := parseActionAddress(innerAddress(tmpl))
+			_, ns, typeName, name, ok := parseAddress(tmpl)
 			if !ok {
 				continue
 			}
 			if instKey == "" {
-				seedNested(scope.Actions, ns, kind, name, ent.Outputs)
+				seedNested(scope.Actions, ns, typeName, name, ent.Outputs)
 			} else {
-				seedInstance(scope.Actions, ns, kind, name, instKey, ent.Outputs)
+				seedInstance(scope.Actions, ns, typeName, name, instKey, ent.Outputs)
 			}
 		case state.EntryLeaf:
 			scope, err := e.scopeForAddress(rs, ent.Address)
@@ -420,7 +420,7 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				continue
 			}
 			tmpl, instKey := splitInstanceAddress(ent.Address)
-			ns, typeName, name, ok := parseResourceAddress(innerAddress(tmpl))
+			_, ns, typeName, name, ok := parseAddress(tmpl)
 			if !ok {
 				continue
 			}
@@ -459,25 +459,6 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 		return scope, nil
 	}
 	return rs.eval, nil
-}
-
-// innerAddress strips the call site prefix from a composite-internal
-// address so the existing parsers can read it. A root address comes
-// back unchanged.
-func innerAddress(addr string) string {
-	if _, after, ok := strings.Cut(addr, "/"); ok {
-		// Internal addresses drop the leading "resource." from the
-		// inner part for resources. Restore it so parseResourceAddress
-		// keeps working.
-		inner := after
-		if !strings.HasPrefix(inner, "data.") &&
-			!strings.HasPrefix(inner, "action.") &&
-			!strings.HasPrefix(inner, "resource.") {
-			return "resource." + inner
-		}
-		return inner
-	}
-	return addr
 }
 
 func seedNested(target map[string]any, ns, typeName, name string, value map[string]any) {
@@ -526,14 +507,6 @@ func isUpstreamChange(d Decision) bool {
 		return true
 	}
 	return false
-}
-
-func parseActionAddress(addr string) (ns, kind, name string, ok bool) {
-	parts := strings.SplitN(addr, ".", 4)
-	if len(parts) != 4 || parts[0] != "action" {
-		return "", "", "", false
-	}
-	return parts[1], parts[2], parts[3], true
 }
 
 func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {

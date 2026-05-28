@@ -223,8 +223,8 @@ resources: {
 `), libs)
 	require.ElementsMatch(t,
 		[]string{
-			"resource.net.cluster.web/local.file.a",
-			"resource.net.cluster.web/local.file.b",
+			"resource.net.cluster.web/resource.local.file.a",
+			"resource.net.cluster.web/resource.local.file.b",
 		},
 		g.Edges["resource.net.cluster.web"])
 }
@@ -252,8 +252,8 @@ resources: {
 }
 `), libs)
 	require.Equal(t,
-		[]string{"resource.net.cluster.web/local.file.a"},
-		g.Edges["resource.net.cluster.web/local.file.b"])
+		[]string{"resource.net.cluster.web/resource.local.file.a"},
+		g.Edges["resource.net.cluster.web/resource.local.file.b"])
 }
 
 func TestBuildDAGCompositeInternalDropsCompositeScopedVars(t *testing.T) {
@@ -279,7 +279,7 @@ resources: {
   }
 }
 `), libs)
-	deps := g.Edges["resource.net.cluster.web/local.file.x"]
+	deps := g.Edges["resource.net.cluster.web/resource.local.file.x"]
 	require.NotContains(t, deps, "var.path",
 		"composite-scoped var.path should not appear as a parent-scope dep")
 	require.NotContains(t, deps, "var.message",
@@ -333,7 +333,7 @@ resources: {
 		"resource.net.cluster.web/action.core.command.lookup",
 		"internal action -> internal action ref should be composite-prefixed")
 	require.Contains(t,
-		g.Edges["resource.net.cluster.web/local.file.x"],
+		g.Edges["resource.net.cluster.web/resource.local.file.x"],
 		"resource.net.cluster.web/action.core.command.lookup",
 		"internal resource -> internal action ref should be composite-prefixed")
 }
@@ -361,7 +361,7 @@ resources: {
 }
 `), libs)
 	require.Contains(t,
-		g.Edges["resource.net.cluster.web/local.file.x"],
+		g.Edges["resource.net.cluster.web/resource.local.file.x"],
 		"resource.local.file.src",
 		"internal should inherit the call-site args' root refs")
 }
@@ -415,8 +415,8 @@ resources: {
 `), libs)
 
 	outerAddr := "resource.outer-lib.layer.mine"
-	innerAddr := outerAddr + "/inner-lib.cluster.only"
-	leafAddr := innerAddr + "/local.file.x"
+	innerAddr := outerAddr + "/resource.inner-lib.cluster.only"
+	leafAddr := innerAddr + "/resource.local.file.x"
 
 	require.ElementsMatch(t,
 		[]string{innerAddr},

@@ -301,7 +301,7 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if step.AlreadyGone {
 		return e.removeRecord(rs, step)
 	}
-	ns, typeName, _, ok := parseResourceAddress(innerAddress(step.Address))
+	_, ns, typeName, _, ok := parseAddress(step.Address)
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)
 	}

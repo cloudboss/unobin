@@ -638,12 +638,23 @@ func sameValue(a, b any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-func parseResourceAddress(addr string) (ns, typeName, name string, ok bool) {
-	parts := strings.SplitN(addr, ".", 4)
-	if len(parts) != 4 || parts[0] != "resource" {
-		return "", "", "", false
+// parseAddress reads the inner-most node segment of addr and splits it
+// into its category root, namespace, type, and name. addr may be a root
+// address (`resource.aws.vpc.this`) or a composite-internal address whose
+// segments are `/`-joined; only the final segment is parsed, so the node
+// is read relative to its direct enclosing scope. A trailing `@for-each`
+// instance key on that segment is ignored.
+func parseAddress(addr string) (kind NodeKind, ns, typeName, name string, ok bool) {
+	seg := addr
+	if i := strings.LastIndex(seg, "/"); i >= 0 {
+		seg = seg[i+1:]
 	}
-	return parts[1], parts[2], parts[3], true
+	seg, _ = splitInstanceAddress(seg)
+	parts := strings.SplitN(seg, ".", 4)
+	if len(parts) != 4 {
+		return "", "", "", "", false
+	}
+	return NodeKind(parts[0]), parts[1], parts[2], parts[3], true
 }
 
 // evalBody evaluates an object literal body to a map[string]any of input

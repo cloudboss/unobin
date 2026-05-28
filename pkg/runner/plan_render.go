@@ -286,20 +286,19 @@ func isChange(d runtime.Decision) bool {
 // from a boundary address. At root the address looks like
 // "resource.greeter.greeting.welcome" and yields "greeter.greeting".
 // For a nested boundary the prefix carries the chain of enclosing
-// call sites, e.g. "resource.A.B.C/D.E.F" where the inner part
-// "D.E.F" is the "<alias>.<type>.<name>" of the nested call.
+// call sites, e.g. "resource.A.B.C/resource.D.E.F" where the inner
+// segment "resource.D.E.F" is the call's own category root plus
+// "<alias>.<type>.<name>".
 func compositeRef(address string) string {
 	tail := address
 	if i := strings.LastIndex(tail, "/"); i >= 0 {
 		tail = tail[i+1:]
-	} else {
-		tail = strings.TrimPrefix(tail, "resource.")
 	}
-	parts := strings.SplitN(tail, ".", 3)
-	if len(parts) < 3 {
+	parts := strings.SplitN(tail, ".", 4)
+	if len(parts) < 4 {
 		return ""
 	}
-	return parts[0] + "." + parts[1]
+	return parts[1] + "." + parts[2]
 }
 
 func printDriftStep(out io.Writer, s *runtime.PlanStep) {

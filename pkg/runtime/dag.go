@@ -186,24 +186,21 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 }
 
 // scopeRef rewrites a reference into a composite internal address.
-// `resource.aws.vpc.this` under call site
-// `resource.net.cluster.web` becomes
-// `resource.net.cluster.web/aws.vpc.this`; the leading `resource.`
-// drops since the call site is already a resource address.
-// `data.X.Y.Z` and `action.X.Y.Z` keep their kind prefix in the
-// joined form, matching what `expandComposite` produces. Var refs
-// and unsupported kinds pass through unchanged so toposort skips them.
-// An empty callSite means the ref is already in its target scope (a
-// top-level boundary's body refs, or a no-op when walking up past the
-// outermost scope) and the ref returns unchanged.
+// `resource.aws.vpc.this` under call site `resource.net.cluster.web`
+// becomes `resource.net.cluster.web/resource.aws.vpc.this`; every
+// segment keeps its own category root, so resource, data, and action
+// refs all join the same way, matching what `composeAddress` produces.
+// Var refs and unsupported kinds pass through unchanged so toposort
+// skips them. An empty callSite means the ref is already in its target
+// scope (a top-level boundary's body refs, or a no-op when walking up
+// past the outermost scope) and the ref returns unchanged.
 func scopeRef(ref, callSite string) string {
 	if callSite == "" {
 		return ref
 	}
-	if after, ok := strings.CutPrefix(ref, "resource."); ok {
-		return callSite + "/" + after
-	}
-	if strings.HasPrefix(ref, "data.") || strings.HasPrefix(ref, "action.") {
+	if strings.HasPrefix(ref, "resource.") ||
+		strings.HasPrefix(ref, "data.") ||
+		strings.HasPrefix(ref, "action.") {
 		return callSite + "/" + ref
 	}
 	return ref

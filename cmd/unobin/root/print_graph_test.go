@@ -159,9 +159,9 @@ resources: {
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
 	want := `resource.greeter.greeting.hello
-  -> resource.greeter.greeting.hello/local.file.this
+  -> resource.greeter.greeting.hello/resource.local.file.this
 
-resource.greeter.greeting.hello/local.file.this
+resource.greeter.greeting.hello/resource.local.file.this
   -> var.who
 `
 	require.Equal(t, want, out)

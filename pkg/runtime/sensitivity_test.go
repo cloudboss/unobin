@@ -472,7 +472,7 @@ resources: {
 	dag := BuildDAG(stack, libs)
 	an := newSensitivityAnalyzer(stack, libs, dag)
 
-	inner := dag.Nodes["resource.wrap.box.one/local.file.this"]
+	inner := dag.Nodes["resource.wrap.box.one/resource.local.file.this"]
 	require.NotNil(t, inner, "internal node should exist")
 	require.Equal(t, "resource.wrap.box.one", inner.Composite)
 	got := an.sensitiveInputs(inner.Body, inner.Composite)

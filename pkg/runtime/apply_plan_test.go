@@ -1103,8 +1103,8 @@ outputs: {
 	}
 	require.Equal(t, state.EntryLibraryCall, addrs["resource.w.box.many['alpha']"])
 	require.Equal(t, state.EntryLibraryCall, addrs["resource.w.box.many['beta']"])
-	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['alpha']/core.thing.only"])
-	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['beta']/core.thing.only"])
+	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['alpha']/resource.core.thing.only"])
+	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['beta']/resource.core.thing.only"])
 }
 
 func TestApplyPlanForEachCompositeOrphan(t *testing.T) {
@@ -1160,9 +1160,9 @@ resources: {
 		addrs[ent.Address] = true
 	}
 	require.True(t, addrs["resource.w.box.many['alpha']"])
-	require.True(t, addrs["resource.w.box.many['alpha']/core.thing.only"])
+	require.True(t, addrs["resource.w.box.many['alpha']/resource.core.thing.only"])
 	require.False(t, addrs["resource.w.box.many['beta']"])
-	require.False(t, addrs["resource.w.box.many['beta']/core.thing.only"])
+	require.False(t, addrs["resource.w.box.many['beta']/resource.core.thing.only"])
 }
 
 func TestApplyPlanComposite(t *testing.T) {
@@ -1219,7 +1219,7 @@ outputs: {
 		types[i] = e.Type
 	}
 	require.ElementsMatch(t,
-		[]string{"resource.w.box.x", "resource.w.box.x/core.thing.one"},
+		[]string{"resource.w.box.x", "resource.w.box.x/resource.core.thing.one"},
 		addresses)
 	require.Contains(t, types, state.EntryLibraryCall)
 	require.Contains(t, types, state.EntryLeaf)
@@ -1316,8 +1316,8 @@ outputs: {
 	require.ElementsMatch(t,
 		[]string{
 			"resource.outer-lib.layer.mine",
-			"resource.outer-lib.layer.mine/inner-lib.cluster.only",
-			"resource.outer-lib.layer.mine/inner-lib.cluster.only/core.thing.x",
+			"resource.outer-lib.layer.mine/resource.inner-lib.cluster.only",
+			"resource.outer-lib.layer.mine/resource.inner-lib.cluster.only/resource.core.thing.x",
 		},
 		addresses,
 		"both boundaries persist as library-call records, plus the deepest leaf")
@@ -1391,8 +1391,8 @@ resources: {
 	}
 	require.ElementsMatch(t,
 		[]string{
-			"resource.w.box.x/core.thing.one",
-			"resource.w.box.x/core.thing.two",
+			"resource.w.box.x/resource.core.thing.one",
+			"resource.w.box.x/resource.core.thing.two",
 		},
 		destroyed,
 		"the plan reports both internals as destroys")
@@ -1467,7 +1467,7 @@ resources: {
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	leaf := findEntryByAddr(snap, "resource.w.hello.x/core.thing.greet")
+	leaf := findEntryByAddr(snap, "resource.w.hello.x/resource.core.thing.greet")
 	require.NotNil(t, leaf)
 	require.Equal(t, "world", leaf.Inputs["name"])
 }

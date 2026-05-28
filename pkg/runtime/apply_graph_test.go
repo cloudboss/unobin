@@ -99,43 +99,43 @@ func TestBuildStepGraphForEachOnForEachCartesian(t *testing.T) {
 
 func TestBuildStepGraphCompositeInternalsSameKeyOnly(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.net.cluster.web/aws.subnet.this": {
-			"resource.net.cluster.web/aws.vpc.this",
+		"resource.net.cluster.web/resource.aws.subnet.this": {
+			"resource.net.cluster.web/resource.aws.vpc.this",
 		},
-		"resource.net.cluster.web/aws.vpc.this": nil,
+		"resource.net.cluster.web/resource.aws.vpc.this": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.net.cluster.web['k1']/aws.vpc.this",
-		"resource.net.cluster.web['k1']/aws.subnet.this",
-		"resource.net.cluster.web['k2']/aws.vpc.this",
-		"resource.net.cluster.web['k2']/aws.subnet.this",
+		"resource.net.cluster.web['k1']/resource.aws.vpc.this",
+		"resource.net.cluster.web['k1']/resource.aws.subnet.this",
+		"resource.net.cluster.web['k2']/resource.aws.vpc.this",
+		"resource.net.cluster.web['k2']/resource.aws.subnet.this",
 	}, dag)
 	sortDependents(g)
-	assert.Equal(t, 1, g.indegree["resource.net.cluster.web['k1']/aws.subnet.this"])
-	assert.Equal(t, 1, g.indegree["resource.net.cluster.web['k2']/aws.subnet.this"])
+	assert.Equal(t, 1, g.indegree["resource.net.cluster.web['k1']/resource.aws.subnet.this"])
+	assert.Equal(t, 1, g.indegree["resource.net.cluster.web['k2']/resource.aws.subnet.this"])
 	assert.Equal(t,
-		[]string{"resource.net.cluster.web['k1']/aws.subnet.this"},
-		g.dependents["resource.net.cluster.web['k1']/aws.vpc.this"])
+		[]string{"resource.net.cluster.web['k1']/resource.aws.subnet.this"},
+		g.dependents["resource.net.cluster.web['k1']/resource.aws.vpc.this"])
 	assert.Equal(t,
-		[]string{"resource.net.cluster.web['k2']/aws.subnet.this"},
-		g.dependents["resource.net.cluster.web['k2']/aws.vpc.this"])
+		[]string{"resource.net.cluster.web['k2']/resource.aws.subnet.this"},
+		g.dependents["resource.net.cluster.web['k2']/resource.aws.vpc.this"])
 }
 
 func TestBuildStepGraphForEachCompositeBoundary(t *testing.T) {
 	dag := newDAG(map[string][]string{
 		"resource.net.cluster.web": {
-			"resource.net.cluster.web/aws.vpc.this",
-			"resource.net.cluster.web/aws.subnet.this",
+			"resource.net.cluster.web/resource.aws.vpc.this",
+			"resource.net.cluster.web/resource.aws.subnet.this",
 		},
-		"resource.net.cluster.web/aws.vpc.this":    nil,
-		"resource.net.cluster.web/aws.subnet.this": nil,
+		"resource.net.cluster.web/resource.aws.vpc.this":    nil,
+		"resource.net.cluster.web/resource.aws.subnet.this": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.net.cluster.web['k1']/aws.vpc.this",
-		"resource.net.cluster.web['k1']/aws.subnet.this",
+		"resource.net.cluster.web['k1']/resource.aws.vpc.this",
+		"resource.net.cluster.web['k1']/resource.aws.subnet.this",
 		"resource.net.cluster.web['k1']",
-		"resource.net.cluster.web['k2']/aws.vpc.this",
-		"resource.net.cluster.web['k2']/aws.subnet.this",
+		"resource.net.cluster.web['k2']/resource.aws.vpc.this",
+		"resource.net.cluster.web['k2']/resource.aws.subnet.this",
 		"resource.net.cluster.web['k2']",
 	}, dag)
 	assert.Equal(t, 2, g.indegree["resource.net.cluster.web['k1']"])
@@ -220,14 +220,14 @@ func TestKeyPath(t *testing.T) {
 		},
 		{
 			name: "key at composite boundary",
-			addr: "resource.net.cluster.web['k1']/aws.vpc.this",
+			addr: "resource.net.cluster.web['k1']/resource.aws.vpc.this",
 			want: []keyPosition{{at: "resource.net.cluster.web", key: "k1"}},
 		},
 		{
 			name: "key only at internal",
-			addr: "resource.net.cluster.web/aws.instance.nodes['alpha']",
+			addr: "resource.net.cluster.web/resource.aws.instance.nodes['alpha']",
 			want: []keyPosition{
-				{at: "resource.net.cluster.web/aws.instance.nodes", key: "alpha"},
+				{at: "resource.net.cluster.web/resource.aws.instance.nodes", key: "alpha"},
 			},
 		},
 	}
@@ -239,9 +239,9 @@ func TestKeyPath(t *testing.T) {
 }
 
 func TestKeyPathsAgree(t *testing.T) {
-	a := keyPath("resource.net.cluster.web['k1']/aws.subnet.this")
-	b := keyPath("resource.net.cluster.web['k1']/aws.vpc.this")
-	c := keyPath("resource.net.cluster.web['k2']/aws.vpc.this")
+	a := keyPath("resource.net.cluster.web['k1']/resource.aws.subnet.this")
+	b := keyPath("resource.net.cluster.web['k1']/resource.aws.vpc.this")
+	c := keyPath("resource.net.cluster.web['k2']/resource.aws.vpc.this")
 	d := keyPath("resource.aws.subnet.this")
 	assert.True(t, keyPathsAgree(a, b))
 	assert.False(t, keyPathsAgree(a, c))

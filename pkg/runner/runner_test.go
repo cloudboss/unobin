@@ -785,13 +785,13 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 				Inputs:   map[string]any{"path": "/tmp/x"},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/local.file.many['a']",
+				Address:  "resource.greeter.greeting.welcome/resource.local.file.many['a']",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs:   map[string]any{"path": "/tmp/a"},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/local.file.many['b']",
+				Address:  "resource.greeter.greeting.welcome/resource.local.file.many['b']",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs:   map[string]any{"path": "/tmp/b"},
@@ -802,7 +802,7 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 	printPlan(buf, plan)
 	expected := `  + resource.greeter.greeting.welcome  (library greeter.greeting)
       path: "/tmp/x"
-    + local.file.many  (for-each, 2 instances)
+    + resource.local.file.many  (for-each, 2 instances)
       + ['a']
           path: "/tmp/a"
       + ['b']
@@ -826,7 +826,7 @@ func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
 				},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/local.file.this",
+				Address:  "resource.greeter.greeting.welcome/resource.local.file.this",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs: map[string]any{
@@ -841,7 +841,7 @@ func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
 	expected := `  + resource.greeter.greeting.welcome  (library greeter.greeting)
       message: "Hello"
       path: "/tmp/x"
-    + local.file.this
+    + resource.local.file.this
         content: "Hello"
         path: "/tmp/x"
 
@@ -863,7 +863,7 @@ func TestPrintPlanRendersNestedComposites(t *testing.T) {
 				},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/helloer.hello.file",
+				Address:  "resource.greeter.greeting.welcome/resource.helloer.hello.file",
 				Kind:     runtime.NodeComposite,
 				Decision: runtime.DecisionEval,
 				Inputs: map[string]any{
@@ -872,7 +872,7 @@ func TestPrintPlanRendersNestedComposites(t *testing.T) {
 				},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/helloer.hello.file/local.file.this",
+				Address:  "resource.greeter.greeting.welcome/resource.helloer.hello.file/resource.local.file.this",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs: map[string]any{
@@ -887,10 +887,10 @@ func TestPrintPlanRendersNestedComposites(t *testing.T) {
 	expected := `  + resource.greeter.greeting.welcome  (library greeter.greeting)
       message: "Hello"
       path: "/tmp/x"
-    + resource.greeter.greeting.welcome/helloer.hello.file  (library helloer.hello)
+    + resource.greeter.greeting.welcome/resource.helloer.hello.file  (library helloer.hello)
         message: "Hello"
         path: "/tmp/x"
-      + local.file.this
+      + resource.local.file.this
           content: "Hello"
           path: "/tmp/x"
 
@@ -909,7 +909,7 @@ func TestPrintPlanHidesCompositeWhenInternalsUnchanged(t *testing.T) {
 				Inputs:   map[string]any{"message": "Hello"},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/local.file.this",
+				Address:  "resource.greeter.greeting.welcome/resource.local.file.this",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionNoOp,
 				Inputs:   map[string]any{"content": "Hello"},
@@ -1332,7 +1332,7 @@ func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 			LibraryType: "greeting",
 		},
 		{
-			Address: "resource.greeter.greeting.welcome/local.file.this",
+			Address: "resource.greeter.greeting.welcome/resource.local.file.this",
 			Type:    state.EntryLeaf,
 			Kind:    "resource",
 		},
@@ -1372,7 +1372,7 @@ func TestStateMoveRelocatesLibraryCallSite(t *testing.T) {
 
 	require.ElementsMatch(t, []string{
 		"resource.greeter.greeting.hello",
-		"resource.greeter.greeting.hello/local.file.this",
+		"resource.greeter.greeting.hello/resource.local.file.this",
 		"resource.local.file.other",
 	}, snapshotAddresses(t, store))
 }
@@ -1390,7 +1390,7 @@ func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 
 	require.ElementsMatch(t, []string{
 		"resource.greeter.greeting.welcome",
-		"resource.greeter.greeting.welcome/local.file.this",
+		"resource.greeter.greeting.welcome/resource.local.file.this",
 		"resource.local.file.renamed",
 	}, snapshotAddresses(t, store))
 }
@@ -1412,12 +1412,12 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 			LibraryType: "greeting",
 		},
 		{
-			Address: "resource.greeter.greeting.a/local.file.this",
+			Address: "resource.greeter.greeting.a/resource.local.file.this",
 			Type:    state.EntryLeaf,
 			Kind:    "resource",
 		},
 		{
-			Address: "resource.greeter.greeting.b/local.file.this",
+			Address: "resource.greeter.greeting.b/resource.local.file.this",
 			Type:    state.EntryLeaf,
 			Kind:    "resource",
 		},
@@ -1429,12 +1429,12 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	_, err = runRoot(t, info, "state", "move",
 		"resource.greeter.greeting.a", "resource.greeter.greeting.b")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "already exists at resource.greeter.greeting.b/local.file.this")
+	require.Contains(t, err.Error(), "already exists at resource.greeter.greeting.b/resource.local.file.this")
 
 	require.ElementsMatch(t, []string{
 		"resource.greeter.greeting.a",
-		"resource.greeter.greeting.a/local.file.this",
-		"resource.greeter.greeting.b/local.file.this",
+		"resource.greeter.greeting.a/resource.local.file.this",
+		"resource.greeter.greeting.b/resource.local.file.this",
 	}, snapshotAddresses(t, store))
 }
 

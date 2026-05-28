@@ -188,7 +188,7 @@ resources: {
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	leafAddr := "resource.w.box.x/core.thing.inside"
+	leafAddr := "resource.w.box.x/resource.core.thing.inside"
 	var leaf *state.Entry
 	for _, e := range snap.Entries {
 		if e.Address == leafAddr {
