@@ -956,7 +956,7 @@ resources: {
 	require.Contains(t, errs.Errors()[0].Msg, "body must be an object")
 }
 
-func TestValidateResourcesRejectsMetaAtNamespace(t *testing.T) {
+func TestValidateResourcesRejectsMetaAtAlias(t *testing.T) {
 	src := `
 resources: {
   @bad: { vpc: { main: {} } }
@@ -983,7 +983,7 @@ resources: {
 	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
 }
 
-func TestValidateResourcesNamespaceNotObject(t *testing.T) {
+func TestValidateResourcesAliasNotObject(t *testing.T) {
 	src := `
 resources: {
   aws: 'oops'

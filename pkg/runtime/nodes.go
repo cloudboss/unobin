@@ -27,7 +27,7 @@ const (
 // A node inside a composite carries the call site address in
 // Composite so the runtime evaluates its body against the composite's
 // scope rather than the root. Its address looks like
-// `resource.<call site>/<ns>.<type>.<name>`, with the call site as a
+// `resource.<call site>/<alias>.<type>.<name>`, with the call site as a
 // prefix joined by a single `/`. For a composite that itself calls
 // another composite the chain continues:
 // `resource.<outer>/<inner-rel>/<deepest-rel>`, and each node's
@@ -43,7 +43,7 @@ const (
 type Node struct {
 	Address       string
 	Kind          NodeKind
-	NS            string
+	Alias         string
 	Type          string
 	Name          string
 	Body          lang.Expr
@@ -52,10 +52,10 @@ type Node struct {
 	Libraries     map[string]*Library
 	ForEach       lang.Expr
 
-	// ConfigurationAlias names the configuration alias under
-	// the node's import (NS) that the runtime hands to CRUD
-	// calls. Empty falls back to "default" at lookup time.
-	ConfigurationAlias string
+	// Configuration names the configuration selected under the node's
+	// import (Alias) that the runtime hands to CRUD calls. Empty falls
+	// back to "default" at lookup time.
+	Configuration string
 
 	// LockName is the value of an action body's `@lock:` field.
 	// Two actions sharing a non-empty LockName cannot run in
@@ -64,19 +64,19 @@ type Node struct {
 	LockName string
 
 	// ConfigurationsRemap is set only on NodeComposite. It maps an
-	// inner import alias to the (namespace, alias) of the
+	// inner import alias to the (alias, configuration) of the
 	// configuration that backs that import inside the call. The
 	// runtime walks the composite chain at lookup time and the
-	// validator enforces that the right-hand-side namespace matches
+	// validator enforces that the right-hand-side alias matches
 	// the key.
 	ConfigurationsRemap map[string]ConfigRef
 }
 
-// ConfigRef names a particular configuration alias on an import.
-// `@configuration: aws.east2` parses to {NS: "aws", Alias: "east2"}.
+// ConfigRef names a particular configuration on an import.
+// `@configuration: aws.east2` parses to {Alias: "aws", Configuration: "east2"}.
 type ConfigRef struct {
-	NS    string
-	Alias string
+	Alias         string
+	Configuration string
 }
 
 // ExtractNodes walks a parsed stack or exported-type file and returns every
@@ -125,15 +125,15 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 
 func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Library) []*Node {
 	var out []*Node
-	for _, ns := range block.Fields {
-		if ns.Key.Kind != lang.FieldIdent || ns.Key.IsMeta() {
+	for _, alias := range block.Fields {
+		if alias.Key.Kind != lang.FieldIdent || alias.Key.IsMeta() {
 			continue
 		}
-		nsObj, ok := ns.Value.(*lang.ObjectLit)
+		aliasObj, ok := alias.Value.(*lang.ObjectLit)
 		if !ok {
 			continue
 		}
-		for _, t := range nsObj.Fields {
+		for _, t := range aliasObj.Fields {
 			if t.Key.Kind != lang.FieldIdent || t.Key.IsMeta() {
 				continue
 			}
@@ -141,28 +141,28 @@ func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Lib
 			if !ok {
 				continue
 			}
-			composite := lookupComposite(libs, ns.Key.Name, t.Key.Name)
+			composite := lookupComposite(libs, alias.Key.Name, t.Key.Name)
 			for _, n := range tObj.Fields {
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
 				}
-				addr := composeAddress(parent, NodeResource, ns.Key.Name, t.Key.Name, n.Key.Name)
+				addr := composeAddress(parent, NodeResource, alias.Key.Name, t.Key.Name, n.Key.Name)
 				if composite != nil {
 					out = append(out, expandComposite(addr, parent,
-						ns.Key.Name, t.Key.Name, n.Key.Name,
+						alias.Key.Name, t.Key.Name, n.Key.Name,
 						n.Value, composite, libs)...)
 					continue
 				}
 				out = append(out, &Node{
-					Address:            addr,
-					Kind:               NodeResource,
-					NS:                 ns.Key.Name,
-					Type:               t.Key.Name,
-					Name:               n.Key.Name,
-					Body:               n.Value,
-					Composite:          parent,
-					ForEach:            extractForEach(n.Value),
-					ConfigurationAlias: extractConfigurationAlias(n.Value, ns.Key.Name),
+					Address:       addr,
+					Kind:          NodeResource,
+					Alias:         alias.Key.Name,
+					Type:          t.Key.Name,
+					Name:          n.Key.Name,
+					Body:          n.Value,
+					Composite:     parent,
+					ForEach:       extractForEach(n.Value),
+					Configuration: extractConfiguration(n.Value, alias.Key.Name),
 				})
 			}
 		}
@@ -172,15 +172,15 @@ func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Lib
 
 func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node {
 	var out []*Node
-	for _, ns := range block.Fields {
-		if ns.Key.Kind != lang.FieldIdent || ns.Key.IsMeta() {
+	for _, alias := range block.Fields {
+		if alias.Key.Kind != lang.FieldIdent || alias.Key.IsMeta() {
 			continue
 		}
-		nsObj, ok := ns.Value.(*lang.ObjectLit)
+		aliasObj, ok := alias.Value.(*lang.ObjectLit)
 		if !ok {
 			continue
 		}
-		for _, t := range nsObj.Fields {
+		for _, t := range aliasObj.Fields {
 			if t.Key.Kind != lang.FieldIdent || t.Key.IsMeta() {
 				continue
 			}
@@ -194,15 +194,15 @@ func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node 
 				}
 				node := &Node{
 					Address: composeAddress(parent, kind,
-						ns.Key.Name, t.Key.Name, n.Key.Name),
-					Kind:               kind,
-					NS:                 ns.Key.Name,
-					Type:               t.Key.Name,
-					Name:               n.Key.Name,
-					Body:               n.Value,
-					Composite:          parent,
-					ForEach:            extractForEach(n.Value),
-					ConfigurationAlias: extractConfigurationAlias(n.Value, ns.Key.Name),
+						alias.Key.Name, t.Key.Name, n.Key.Name),
+					Kind:          kind,
+					Alias:         alias.Key.Name,
+					Type:          t.Key.Name,
+					Name:          n.Key.Name,
+					Body:          n.Value,
+					Composite:     parent,
+					ForEach:       extractForEach(n.Value),
+					Configuration: extractConfiguration(n.Value, alias.Key.Name),
 				}
 				if kind == NodeAction {
 					node.LockName = extractLockName(n.Value)
@@ -255,7 +255,7 @@ func extractForEach(body lang.Expr) lang.Expr {
 // composite call site body and returns the inner-import-to-outer
 // reference map. Entries whose value is not a dotted notation are
 // dropped (the parser would reject malformed ones anyway). Entries
-// whose right-hand-side namespace differs from the key still come
+// whose right-hand-side alias differs from the key still come
 // through so the validator can surface them. An empty or absent
 // meta key returns nil.
 func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
@@ -281,8 +281,8 @@ func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 				continue
 			}
 			out[entry.Key.Name] = ConfigRef{
-				NS:    dp.Root.Name,
-				Alias: dp.Segments[0].Name,
+				Alias:         dp.Root.Name,
+				Configuration: dp.Segments[0].Name,
 			}
 		}
 		if len(out) == 0 {
@@ -293,13 +293,13 @@ func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 	return nil
 }
 
-// extractConfigurationAlias reads `@configuration: <import>.<alias>`
-// from a body and returns the alias segment. The import part is
-// expected to match ns; a mismatch or malformed value yields an
-// empty string and the validator surfaces the error elsewhere. An
-// absent meta key returns "" too; the runtime falls back to
-// "default" at lookup time.
-func extractConfigurationAlias(body lang.Expr, ns string) string {
+// extractConfiguration reads `@configuration: <alias>.<configuration>`
+// from a body and returns the configuration segment. The leading alias
+// is expected to match the node's own import alias; a mismatch or
+// malformed value yields an empty string and the validator reports the
+// error elsewhere. An absent meta key returns "" too; the runtime falls
+// back to "default" at lookup time.
+func extractConfiguration(body lang.Expr, alias string) string {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
 		return ""
@@ -312,7 +312,7 @@ func extractConfigurationAlias(body lang.Expr, ns string) string {
 		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 			return ""
 		}
-		if dp.Root.Name != ns {
+		if dp.Root.Name != alias {
 			return ""
 		}
 		return dp.Segments[0].Name
@@ -351,7 +351,7 @@ func lookupComposite(libs map[string]*Library, alias, typ string) *CompositeType
 // a composite has no Libraries set, fallMods is used as a fallback
 // for tests that build composites directly without populating
 // imports.
-func expandComposite(callSiteAddr, parent, ns, typ, name string,
+func expandComposite(callSiteAddr, parent, alias, typ, name string,
 	args lang.Expr, composite *CompositeType, fallMods map[string]*Library) []*Node {
 	scopeMods := composite.Libraries
 	if scopeMods == nil {
@@ -360,7 +360,7 @@ func expandComposite(callSiteAddr, parent, ns, typ, name string,
 	out := []*Node{{
 		Address:             callSiteAddr,
 		Kind:                NodeComposite,
-		NS:                  ns,
+		Alias:               alias,
 		Type:                typ,
 		Name:                name,
 		Body:                args,
@@ -405,13 +405,13 @@ func topLevelMap(body *lang.ObjectLit) map[string]lang.Expr {
 }
 
 // composeAddress builds a node's address. Every segment carries its own
-// category root: at root the shape is `<kind>.<ns>.<type>.<name>`, and
-// inside a composite it is `<call-site>/<kind>.<ns>.<type>.<name>`. The
+// category root: at root it is `<kind>.<alias>.<type>.<name>`, and
+// inside a composite it is `<call-site>/<kind>.<alias>.<type>.<name>`. The
 // resource, data, and action kinds all follow the same form, so a state
 // key reads the same at every depth.
-func composeAddress(parent string, kind NodeKind, ns, typ, name string) string {
+func composeAddress(parent string, kind NodeKind, alias, typ, name string) string {
 	if parent == "" {
-		return fmt.Sprintf("%s.%s.%s.%s", kind, ns, typ, name)
+		return fmt.Sprintf("%s.%s.%s.%s", kind, alias, typ, name)
 	}
-	return fmt.Sprintf("%s/%s.%s.%s.%s", parent, kind, ns, typ, name)
+	return fmt.Sprintf("%s/%s.%s.%s.%s", parent, kind, alias, typ, name)
 }

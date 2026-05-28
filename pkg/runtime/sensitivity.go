@@ -99,7 +99,7 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 	switch n.Kind {
 	case NodeResource, NodeAction, NodeData:
 		libs, _ := s.libsForNode(n)
-		lib, ok := libs[n.NS]
+		lib, ok := libs[n.Alias]
 		if !ok || lib == nil || lib.Schema == nil {
 			return nil
 		}
@@ -132,7 +132,7 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 }
 
 // libsForNode returns the libraries table that resolves the node's
-// namespace alias. Root nodes use the analyzer's rootMods; nodes
+// import alias. Root nodes use the analyzer's rootMods; nodes
 // inside a composite use the call-site boundary's Libraries.
 func (s *sensitivityAnalyzer) libsForNode(n *Node) (map[string]*Library, *Node) {
 	if n.Composite == "" || s.dag == nil {
@@ -259,13 +259,13 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 		if len(dp.Segments) < 4 {
 			return false
 		}
-		ns := dp.Segments[0].Name
+		alias := dp.Segments[0].Name
 		typ := dp.Segments[1].Name
 		field := trailingNamedSegment(dp)
-		if ns == "" || typ == "" || field == "" {
+		if alias == "" || typ == "" || field == "" {
 			return false
 		}
-		lib, ok := sc.libs[ns]
+		lib, ok := sc.libs[alias]
 		if !ok || lib == nil {
 			return false
 		}
@@ -393,7 +393,7 @@ func inputsBlockSensitive(f *lang.File) map[string]bool {
 
 // trailingNamedSegment returns the last named segment of a dot
 // path past the three-segment node address. Index-only segments
-// at the tail are skipped so `resource.ns.t.name['k'].field`
+// at the tail are skipped so `resource.alias.t.name['k'].field`
 // returns "field". Returns "" when no trailing named segment
 // exists.
 func trailingNamedSegment(dp *lang.DotPath) string {

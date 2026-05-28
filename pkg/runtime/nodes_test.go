@@ -38,7 +38,7 @@ resources: {
 
 	require.Equal(t, "resource.aws.vpc.main", got[0].Address)
 	require.Equal(t, NodeResource, got[0].Kind)
-	require.Equal(t, "aws", got[0].NS)
+	require.Equal(t, "aws", got[0].Alias)
 	require.Equal(t, "vpc", got[0].Type)
 	require.Equal(t, "main", got[0].Name)
 
@@ -147,7 +147,7 @@ resources: {
 	require.Equal(t, "resource.net.cluster.web/resource.local.file.greeting", got[1].Address)
 	require.Equal(t, NodeResource, got[1].Kind)
 	require.Equal(t, "resource.net.cluster.web", got[1].Composite)
-	require.Equal(t, "local", got[1].NS)
+	require.Equal(t, "local", got[1].Alias)
 	require.Equal(t, "file", got[1].Type)
 	require.Equal(t, "greeting", got[1].Name)
 }
@@ -372,16 +372,16 @@ actions: {
 	require.Len(t, got, 4)
 
 	require.Equal(t, "resource.aws.instance.web", got[0].Address)
-	require.Empty(t, got[0].ConfigurationAlias)
+	require.Empty(t, got[0].Configuration)
 
 	require.Equal(t, "resource.aws.instance.mirror", got[1].Address)
-	require.Equal(t, "east2", got[1].ConfigurationAlias)
+	require.Equal(t, "east2", got[1].Configuration)
 
 	require.Equal(t, "data.aws.ami.ubuntu", got[2].Address)
-	require.Equal(t, "east2", got[2].ConfigurationAlias)
+	require.Equal(t, "east2", got[2].Configuration)
 
 	require.Equal(t, "action.core.command.probe", got[3].Address)
-	require.Equal(t, "alt", got[3].ConfigurationAlias)
+	require.Equal(t, "alt", got[3].Configuration)
 }
 
 func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {
@@ -413,11 +413,11 @@ resources: {
 	require.NotEmpty(t, got)
 	require.Equal(t, NodeComposite, got[0].Kind)
 	require.Equal(t,
-		map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
+		map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 		got[0].ConfigurationsRemap)
 }
 
-func TestExtractConfigurationsRemapKeepsMismatchedNamespaceForValidation(t *testing.T) {
+func TestExtractConfigurationsRemapKeepsMismatchedAliasForValidation(t *testing.T) {
 	src := `
 resources: {
   net: {
@@ -442,12 +442,12 @@ resources: {
 	got := ExtractNodes(parseStack(t, src), libs)
 	require.NotEmpty(t, got)
 	require.Equal(t,
-		map[string]ConfigRef{"aws": {NS: "gcp", Alias: "east2"}},
+		map[string]ConfigRef{"aws": {Alias: "gcp", Configuration: "east2"}},
 		got[0].ConfigurationsRemap,
-		"mismatched namespace is kept so the validator can report it")
+		"mismatched alias is kept so the validator can report it")
 }
 
-func TestExtractConfigurationAliasIgnoresMismatchedNamespace(t *testing.T) {
+func TestExtractConfigurationIgnoresMismatchedAlias(t *testing.T) {
 	src := `
 resources: {
   aws: {
@@ -462,6 +462,6 @@ resources: {
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
-	require.Empty(t, got[0].ConfigurationAlias,
-		"mismatched namespace should yield empty alias")
+	require.Empty(t, got[0].Configuration,
+		"mismatched alias should yield empty configuration")
 }

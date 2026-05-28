@@ -74,7 +74,7 @@ func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
 	if libs == nil {
 		return nil
 	}
-	lib := libs[n.NS]
+	lib := libs[n.Alias]
 	if lib == nil || lib.Schema == nil {
 		return nil
 	}
@@ -158,8 +158,8 @@ func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 }
 
 func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
-	return func(kind, ns, typ, name string) (typecheck.Type, bool) {
-		ref := kind + "." + ns + "." + typ + "." + name
+	return func(kind, alias, typ, name string) (typecheck.Type, bool) {
+		ref := kind + "." + alias + "." + typ + "." + name
 		node, ok := c.dag.Nodes[scopeRef(ref, scope)]
 		if !ok {
 			return typecheck.Type{}, false
@@ -195,7 +195,7 @@ func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 	if libs == nil {
 		return typecheck.TUnknown()
 	}
-	lib := libs[node.NS]
+	lib := libs[node.Alias]
 	if lib == nil || lib.Schema == nil {
 		return typecheck.TUnknown()
 	}
@@ -241,7 +241,7 @@ func (c *referenceChecker) checkBodyTypes(
 			} else if owner != nil && owner.Kind != NodeComposite {
 				c.addf(fld.Key.S.Start,
 					`unknown field %q on %s.%s`,
-					fld.Key.Name, owner.NS, owner.Type)
+					fld.Key.Name, owner.Alias, owner.Type)
 				continue
 			}
 		}

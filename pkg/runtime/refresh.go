@@ -101,24 +101,24 @@ func (e *Executor) refreshLeaf(
 	ctx context.Context,
 	ent *state.Entry,
 ) (*state.Entry, bool, error) {
-	_, ns, typeName, _, ok := parseAddress(ent.Address)
+	_, alias, typeName, _, ok := parseAddress(ent.Address)
 	if !ok {
 		return nil, false, fmt.Errorf("malformed resource address %q", ent.Address)
 	}
-	lib, ok := e.librariesForAddress(ent.Address)[ns]
+	lib, ok := e.librariesForAddress(ent.Address)[alias]
 	if !ok {
-		return nil, false, fmt.Errorf("library %q is not imported", ns)
+		return nil, false, fmt.Errorf("library %q is not imported", alias)
 	}
 	rt, ok := lib.Resources[typeName]
 	if !ok {
-		return nil, false, fmt.Errorf("library %s has no resource %q", ns, typeName)
+		return nil, false, fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
 	priorOutputs, err := migrateOutputs(rt, ent.SchemaVersion, ent.Outputs)
 	if err != nil {
 		return nil, false, err
 	}
 	observed, err := readObserved(ctx, rt,
-		e.configForRef(ent.Configuration, ns), ent.Inputs, priorOutputs)
+		e.configForRef(ent.Configuration, alias), ent.Inputs, priorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return nil, true, nil
 	}

@@ -62,10 +62,10 @@ func (c *referenceChecker) checkDeclarations() {
 		if !found || libs == nil {
 			continue
 		}
-		if _, ok := libs[n.NS]; ok {
+		if _, ok := libs[n.Alias]; ok {
 			continue
 		}
-		c.addf(n.Body.Span().Start, `library %q is not imported`, n.NS)
+		c.addf(n.Body.Span().Start, `library %q is not imported`, n.Alias)
 	}
 }
 
@@ -332,7 +332,7 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 	if _, ok := outputs[field]; ok {
 		return
 	}
-	c.addf(dp.S.Start, `unknown field %q on %s.%s`, field, node.NS, node.Type)
+	c.addf(dp.S.Start, `unknown field %q on %s.%s`, field, node.Alias, node.Type)
 }
 
 func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typecheck.Type {
@@ -343,7 +343,7 @@ func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typec
 	if libs == nil {
 		return nil
 	}
-	lib := libs[node.NS]
+	lib := libs[node.Alias]
 	if lib == nil || lib.Schema == nil {
 		return nil
 	}
@@ -386,9 +386,9 @@ func compositeOutputNames(node *Node) map[string]typecheck.Type {
 }
 
 // trailingField extracts the field segment from a resource, data,
-// or action reference. For `resource.<ns>.<type>.<name>.<field>` it
+// or action reference. For `resource.<alias>.<type>.<name>.<field>` it
 // returns `<field>`. For
-// `resource.<ns>.<type>.<name>['key'].<field>` it skips the index
+// `resource.<alias>.<type>.<name>['key'].<field>` it skips the index
 // segment and returns `<field>`. Returns "" when the path has no
 // trailing field segment.
 func trailingField(dp *lang.DotPath) string {

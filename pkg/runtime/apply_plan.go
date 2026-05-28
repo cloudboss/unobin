@@ -139,13 +139,13 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if err != nil {
 		return err
 	}
-	lib, ok := e.librariesFor(prep.node)[prep.node.NS]
+	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
 	if !ok {
-		return fmt.Errorf("library %q is not imported", prep.node.NS)
+		return fmt.Errorf("library %q is not imported", prep.node.Alias)
 	}
 	at, ok := lib.Actions[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("library %s has no action %q", prep.node.NS, prep.node.Type)
+		return fmt.Errorf("library %s has no action %q", prep.node.Alias, prep.node.Type)
 	}
 	var outputs map[string]any
 	switch step.Decision {
@@ -170,7 +170,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if prep.instKey == "" {
 		storeNested(prep.parent.Actions, prep.node, outputs)
 	} else {
-		seedInstance(prep.parent.Actions, prep.node.NS, prep.node.Type, prep.node.Name,
+		seedInstance(prep.parent.Actions, prep.node.Alias, prep.node.Type, prep.node.Name,
 			prep.instKey, outputs)
 	}
 
@@ -200,13 +200,13 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if err != nil {
 		return err
 	}
-	lib, ok := e.librariesFor(prep.node)[prep.node.NS]
+	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
 	if !ok {
-		return fmt.Errorf("library %q is not imported", prep.node.NS)
+		return fmt.Errorf("library %q is not imported", prep.node.Alias)
 	}
 	rt, ok := lib.Resources[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("library %s has no resource %q", prep.node.NS, prep.node.Type)
+		return fmt.Errorf("library %s has no resource %q", prep.node.Alias, prep.node.Type)
 	}
 
 	receiver := rt.NewReceiver()
@@ -247,7 +247,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if prep.instKey == "" {
 		storeNested(prep.parent.Resources, prep.node, outputs)
 	} else {
-		seedInstance(prep.parent.Resources, prep.node.NS, prep.node.Type, prep.node.Name,
+		seedInstance(prep.parent.Resources, prep.node.Alias, prep.node.Type, prep.node.Name,
 			prep.instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
@@ -301,23 +301,23 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if step.AlreadyGone {
 		return e.removeRecord(rs, step)
 	}
-	_, ns, typeName, _, ok := parseAddress(step.Address)
+	_, alias, typeName, _, ok := parseAddress(step.Address)
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)
 	}
-	lib, ok := e.librariesForAddress(step.Address)[ns]
+	lib, ok := e.librariesForAddress(step.Address)[alias]
 	if !ok {
-		return fmt.Errorf("library %q is not imported", ns)
+		return fmt.Errorf("library %q is not imported", alias)
 	}
 	rt, ok := lib.Resources[typeName]
 	if !ok {
-		return fmt.Errorf("library %s has no resource %q", ns, typeName)
+		return fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
 	receiver := rt.NewReceiver()
 	if err := Decode(receiver, step.Inputs); err != nil {
 		return err
 	}
-	if err := rt.Delete(ctx, receiver, e.configForRef(step.Configuration, ns),
+	if err := rt.Delete(ctx, receiver, e.configForRef(step.Configuration, alias),
 		step.PriorOutputs); err != nil {
 		return err
 	}
@@ -410,13 +410,13 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
-	lib, ok := e.librariesFor(prep.node)[prep.node.NS]
+	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
 	if !ok {
-		return fmt.Errorf("library %q is not imported", prep.node.NS)
+		return fmt.Errorf("library %q is not imported", prep.node.Alias)
 	}
 	dt, ok := lib.DataSources[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("library %s has no data source %q", prep.node.NS, prep.node.Type)
+		return fmt.Errorf("library %s has no data source %q", prep.node.Alias, prep.node.Type)
 	}
 	receiver := dt.NewReceiver()
 	if err := Decode(receiver, prep.inputs); err != nil {
@@ -431,7 +431,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if prep.instKey == "" {
 		storeNested(prep.parent.Data, prep.node, mapify(result))
 	} else {
-		seedInstance(prep.parent.Data, prep.node.NS, prep.node.Type, prep.node.Name,
+		seedInstance(prep.parent.Data, prep.node.Alias, prep.node.Type, prep.node.Name,
 			prep.instKey, mapify(result))
 	}
 	return nil

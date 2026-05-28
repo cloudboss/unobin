@@ -10,7 +10,7 @@ import (
 // Scope carries the lexical information the inferrer needs to type
 // an expression: local input declarations, an optional @each
 // binding, and a callback that returns the output Type for a node
-// address (resource/data/action.<ns>.<type>.<name>). LookupNode may
+// address (resource/data/action.<alias>.<type>.<name>). LookupNode may
 // be nil when the caller has no node table; the walker returns
 // Unknown for any node reference in that case.
 type Scope struct {
@@ -51,12 +51,12 @@ type EachBinding struct {
 	Value Type
 }
 
-// LookupNodeFn returns the output Type of a node by kind, namespace,
+// LookupNodeFn returns the output Type of a node by kind, alias,
 // type, and name. The boolean is false when the node is not known;
 // the inferrer then returns Unknown without an error (the existing
 // reference checker has the responsibility to report unresolved
 // node addresses).
-type LookupNodeFn func(kind, ns, typ, name string) (Type, bool)
+type LookupNodeFn func(kind, alias, typ, name string) (Type, bool)
 
 // LookupLocalFn returns the inferred Type of a `locals:` entry by
 // name. The boolean is false when no such local is declared; the
@@ -426,13 +426,13 @@ func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || scope.LookupNode == nil || len(dp.Segments) < 3 {
 		return TUnknown()
 	}
-	ns := dp.Segments[0].Name
+	alias := dp.Segments[0].Name
 	typ := dp.Segments[1].Name
 	name := dp.Segments[2].Name
-	if ns == "" || typ == "" || name == "" {
+	if alias == "" || typ == "" || name == "" {
 		return TUnknown()
 	}
-	t, ok := scope.LookupNode(dp.Root.Name, ns, typ, name)
+	t, ok := scope.LookupNode(dp.Root.Name, alias, typ, name)
 	if !ok {
 		return TUnknown()
 	}
@@ -464,7 +464,7 @@ func inferEach(dp *lang.DotPath, scope *Scope) Type {
 //
 // skipFirst suppresses the unknown-field diagnostic at segs[0] so
 // callers whose first segment is already checked elsewhere (the
-// reference checker's `unknown field "x" on <ns>.<type>` message
+// reference checker's `unknown field "x" on <alias>.<type>` message
 // for resource/data/action paths) do not report twice. Deeper
 // segments always report.
 func traverseSegments(

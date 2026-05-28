@@ -1150,9 +1150,9 @@ actions: {
 
 func TestConfigForUsesNodeAlias(t *testing.T) {
 	leaf := &Node{
-		Address:            "resource.aws.instance.web",
-		NS:                 "aws",
-		ConfigurationAlias: "east2",
+		Address:       "resource.aws.instance.web",
+		Alias:         "aws",
+		Configuration: "east2",
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
@@ -1169,7 +1169,7 @@ func TestConfigForUsesNodeAlias(t *testing.T) {
 func TestConfigForFallsBackToDefault(t *testing.T) {
 	leaf := &Node{
 		Address: "resource.aws.instance.web",
-		NS:      "aws",
+		Alias:   "aws",
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
@@ -1184,12 +1184,12 @@ func TestConfigForPicksUpCompositeRemap(t *testing.T) {
 	composite := &Node{
 		Address:             "resource.net.cluster.east",
 		Kind:                NodeComposite,
-		NS:                  "net",
-		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
+		Alias:               "net",
+		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 	}
 	leaf := &Node{
 		Address:   "resource.net.cluster.east/resource.aws.instance.worker",
-		NS:        "aws",
+		Alias:     "aws",
 		Composite: composite.Address,
 	}
 	e := &Executor{
@@ -1211,18 +1211,18 @@ func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
 	outer := &Node{
 		Address:             "resource.outer.wrap.x",
 		Kind:                NodeComposite,
-		NS:                  "outer",
-		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
+		Alias:               "outer",
+		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 	}
 	inner := &Node{
 		Address:   "resource.outer.wrap.x/resource.inner.cluster.y",
 		Kind:      NodeComposite,
-		NS:        "inner",
+		Alias:     "inner",
 		Composite: outer.Address,
 	}
 	leaf := &Node{
 		Address:   inner.Address + "/resource.aws.instance.worker",
-		NS:        "aws",
+		Alias:     "aws",
 		Composite: inner.Address,
 	}
 	e := &Executor{
@@ -1243,9 +1243,9 @@ func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
 
 func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
 	leaf := &Node{
-		Address:            "resource.aws.instance.web",
-		NS:                 "aws",
-		ConfigurationAlias: "ghost",
+		Address:       "resource.aws.instance.web",
+		Alias:         "aws",
+		Configuration: "ghost",
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
@@ -1261,7 +1261,7 @@ func TestConfigRefString(t *testing.T) {
 		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
 	}
 
-	plain := &Node{Address: "resource.aws.instance.a", NS: "aws"}
+	plain := &Node{Address: "resource.aws.instance.a", Alias: "aws"}
 	ePlain := &Executor{
 		DAG:            &DAG{Nodes: map[string]*Node{plain.Address: plain}},
 		Configurations: cfgs,
@@ -1269,7 +1269,7 @@ func TestConfigRefString(t *testing.T) {
 	require.Equal(t, "", ePlain.configRefString(plain),
 		"a default configuration records no ref; the address determines it")
 
-	aliased := &Node{Address: "resource.aws.instance.b", NS: "aws", ConfigurationAlias: "east2"}
+	aliased := &Node{Address: "resource.aws.instance.b", Alias: "aws", Configuration: "east2"}
 	eAliased := &Executor{
 		DAG:            &DAG{Nodes: map[string]*Node{aliased.Address: aliased}},
 		Configurations: cfgs,
@@ -1279,12 +1279,12 @@ func TestConfigRefString(t *testing.T) {
 	composite := &Node{
 		Address:             "resource.net.cluster.east",
 		Kind:                NodeComposite,
-		NS:                  "net",
-		ConfigurationsRemap: map[string]ConfigRef{"aws": {NS: "aws", Alias: "east2"}},
+		Alias:               "net",
+		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 	}
 	internal := &Node{
 		Address:   "resource.net.cluster.east/resource.aws.instance.worker",
-		NS:        "aws",
+		Alias:     "aws",
 		Composite: composite.Address,
 	}
 	eRemap := &Executor{

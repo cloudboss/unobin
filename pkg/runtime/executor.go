@@ -89,76 +89,76 @@ func (e *Executor) effectiveParallelism() int {
 	return DefaultParallelism
 }
 
-// resolvedConfigRef returns the (ns, alias) pair the runtime resolves
-// for a node. The walk goes from the node up the composite chain,
-// taking the first `@configurations:` entry that covers the node's
-// import. If none does, the node's own `@configuration:` selection (or
-// "default") applies.
-func (e *Executor) resolvedConfigRef(n *Node) (ns, alias string) {
-	ns = n.NS
-	alias = n.ConfigurationAlias
-	if alias == "" {
-		alias = "default"
+// resolvedConfigRef returns the (alias, configuration) pair the runtime
+// resolves for a node. The walk goes from the node up the composite
+// chain, taking the first `@configurations:` entry that covers the
+// node's import. If none does, the node's own `@configuration:`
+// selection (or "default") applies.
+func (e *Executor) resolvedConfigRef(n *Node) (alias, configuration string) {
+	alias = n.Alias
+	configuration = n.Configuration
+	if configuration == "" {
+		configuration = "default"
 	}
 	for parent := n.Composite; parent != ""; {
 		c, ok := e.DAG.Nodes[parent]
 		if !ok {
 			break
 		}
-		if mapped, has := c.ConfigurationsRemap[n.NS]; has {
-			ns = mapped.NS
+		if mapped, has := c.ConfigurationsRemap[n.Alias]; has {
 			alias = mapped.Alias
+			configuration = mapped.Configuration
 			break
 		}
 		parent = c.Composite
 	}
-	return ns, alias
+	return alias, configuration
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
 // on the given node.
 func (e *Executor) configFor(n *Node) any {
-	ns, alias := e.resolvedConfigRef(n)
-	return e.lookupConfiguration(ns, alias)
+	alias, configuration := e.resolvedConfigRef(n)
+	return e.lookupConfiguration(alias, configuration)
 }
 
-// configRefString returns the "ns.alias" a destroy or refresh should
-// use to find credentials for n, or "" when n uses its own import's
-// default configuration. The empty case is the common one and the
-// resource address alone determines it, so it is left off the state
-// entry to keep snapshots small.
+// configRefString returns the "<alias>.<configuration>" a destroy or
+// refresh should use to find credentials for n, or "" when n uses its
+// own import's default configuration. The empty case is the common one
+// and the resource address alone determines it, so it is left off the
+// state entry to keep snapshots small.
 func (e *Executor) configRefString(n *Node) string {
-	ns, alias := e.resolvedConfigRef(n)
-	if ns == n.NS && alias == "default" {
+	alias, configuration := e.resolvedConfigRef(n)
+	if alias == n.Alias && configuration == "default" {
 		return ""
 	}
-	return ns + "." + alias
+	return alias + "." + configuration
 }
 
 // configForRef returns the configuration named by a state entry's
-// recorded ref of the form "ns.alias". An empty ref means the entry
-// used its import's default configuration, so the entry's own import
-// alias with the default applies.
-func (e *Executor) configForRef(ref, fallbackNS string) any {
+// recorded ref of the form "<alias>.<configuration>". An empty ref
+// means the entry used its import's default configuration, so the
+// entry's own import alias with the default applies.
+func (e *Executor) configForRef(ref, fallbackAlias string) any {
 	if ref == "" {
-		return e.lookupConfiguration(fallbackNS, "default")
+		return e.lookupConfiguration(fallbackAlias, "default")
 	}
-	ns, alias, ok := strings.Cut(ref, ".")
+	alias, configuration, ok := strings.Cut(ref, ".")
 	if !ok {
-		return e.lookupConfiguration(fallbackNS, "default")
+		return e.lookupConfiguration(fallbackAlias, "default")
 	}
-	return e.lookupConfiguration(ns, alias)
+	return e.lookupConfiguration(alias, configuration)
 }
 
-func (e *Executor) lookupConfiguration(ns, alias string) any {
+func (e *Executor) lookupConfiguration(alias, configuration string) any {
 	if e.Configurations == nil {
 		return nil
 	}
-	aliases, ok := e.Configurations[ns]
+	configurations, ok := e.Configurations[alias]
 	if !ok {
 		return nil
 	}
-	return aliases[alias]
+	return configurations[configuration]
 }
 
 // ExecResult is what the Executor produces: the outputs map, the
@@ -500,12 +500,12 @@ func (e *Executor) finalizeComposite(
 	if instKey == "" {
 		storeNested(parent.Resources, n, outputs)
 	} else {
-		seedInstance(parent.Resources, n.NS, n.Type, n.Name, instKey, outputs)
+		seedInstance(parent.Resources, n.Alias, n.Type, n.Name, instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          instAddr,
 		Type:             state.EntryLibraryCall,
-		Library:          n.NS,
+		Library:          n.Alias,
 		LibraryType:      n.Type,
 		Inputs:           inputs,
 		Outputs:          outputs,
@@ -639,12 +639,12 @@ func sameValue(a, b any) bool {
 }
 
 // parseAddress reads the inner-most node segment of addr and splits it
-// into its category root, namespace, type, and name. addr may be a root
+// into its category root, alias, type, and name. addr may be a root
 // address (`resource.aws.vpc.this`) or a composite-internal address whose
 // segments are `/`-joined; only the final segment is parsed, so the node
 // is read relative to its direct enclosing scope. A trailing `@for-each`
 // instance key on that segment is ignored.
-func parseAddress(addr string) (kind NodeKind, ns, typeName, name string, ok bool) {
+func parseAddress(addr string) (kind NodeKind, alias, typeName, name string, ok bool) {
 	seg := addr
 	if i := strings.LastIndex(seg, "/"); i >= 0 {
 		seg = seg[i+1:]
@@ -678,11 +678,11 @@ func evalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
 	return out, nil
 }
 
-// storeNested writes value at target[ns][type][name], creating intermediate
+// storeNested writes value at target[alias][type][name], creating intermediate
 // maps as needed.
 func storeNested(target map[string]any, n *Node, value map[string]any) {
-	ns := getOrCreate(target, n.NS)
-	typeMap := getOrCreate(ns, n.Type)
+	alias := getOrCreate(target, n.Alias)
+	typeMap := getOrCreate(alias, n.Type)
 	typeMap[n.Name] = value
 }
 

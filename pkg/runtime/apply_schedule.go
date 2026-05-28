@@ -89,7 +89,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			if firstErr == nil {
 				library := ""
 				if n, ok := e.DAG.Nodes[templateAddress(r.step.Address)]; ok {
-					library = n.NS
+					library = n.Alias
 				}
 				firstFail = &ApplyError{
 					Address:  r.step.Address,

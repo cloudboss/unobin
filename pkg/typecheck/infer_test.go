@@ -154,8 +154,8 @@ func TestInferNodeFieldTraversal(t *testing.T) {
 		{Name: "tags", Type: TMap(TString())},
 	})
 	scope := &Scope{
-		LookupNode: func(kind, ns, typ, name string) (Type, bool) {
-			if kind == "resource" && ns == "aws" && typ == "vpc" && name == "main" {
+		LookupNode: func(kind, alias, typ, name string) (Type, bool) {
+			if kind == "resource" && alias == "aws" && typ == "vpc" && name == "main" {
 				return output, true
 			}
 			return Type{}, false
@@ -223,8 +223,8 @@ func TestInferNodeDeepNestedObjectReportsUnknownField(t *testing.T) {
 		})},
 	})
 	scope := &Scope{
-		LookupNode: func(kind, ns, typ, name string) (Type, bool) {
-			if kind == "resource" && ns == "aws" && typ == "rds" && name == "main" {
+		LookupNode: func(kind, alias, typ, name string) (Type, bool) {
+			if kind == "resource" && alias == "aws" && typ == "rds" && name == "main" {
 				return output, true
 			}
 			return Type{}, false
@@ -241,8 +241,8 @@ func TestInferNodeFirstSegmentUnknownStaysSilent(t *testing.T) {
 		{Name: "id", Type: TString()},
 	})
 	scope := &Scope{
-		LookupNode: func(kind, ns, typ, name string) (Type, bool) {
-			if kind == "resource" && ns == "aws" && typ == "vpc" && name == "main" {
+		LookupNode: func(kind, alias, typ, name string) (Type, bool) {
+			if kind == "resource" && alias == "aws" && typ == "vpc" && name == "main" {
 				return output, true
 			}
 			return Type{}, false

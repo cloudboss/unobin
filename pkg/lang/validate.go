@@ -684,7 +684,7 @@ func validateConstraintCommonKey(
 	return true
 }
 
-// ValidateResources checks the shape of a `resources:` block: namespace,
+// ValidateResources checks a `resources:` block level by level: alias,
 // type name, instance name, body.
 func ValidateResources(block *ObjectLit) *ErrorList {
 	return validateNestedTypeBlock(block, "resource")
@@ -702,20 +702,20 @@ func ValidateActions(block *ObjectLit) *ErrorList {
 
 func validateNestedTypeBlock(block *ObjectLit, what string) *ErrorList {
 	errs := NewErrorList(0)
-	seenNS := make(map[string]Position, len(block.Fields))
-	for _, nsFld := range block.Fields {
-		if !checkBareIdentKey(nsFld, seenNS, what+" namespace", errs) {
+	seenAlias := make(map[string]Position, len(block.Fields))
+	for _, aliasFld := range block.Fields {
+		if !checkBareIdentKey(aliasFld, seenAlias, what+" alias", errs) {
 			continue
 		}
-		nsObj, ok := nsFld.Value.(*ObjectLit)
+		aliasObj, ok := aliasFld.Value.(*ObjectLit)
 		if !ok {
-			errs.Addf(ErrSchema, nsFld.Value.Span().Start,
-				"%s namespace %q: must be an object of type names",
-				what, nsFld.Key.Name)
+			errs.Addf(ErrSchema, aliasFld.Value.Span().Start,
+				"%s alias %q: must be an object of type names",
+				what, aliasFld.Key.Name)
 			continue
 		}
-		seenType := make(map[string]Position, len(nsObj.Fields))
-		for _, typeFld := range nsObj.Fields {
+		seenType := make(map[string]Position, len(aliasObj.Fields))
+		for _, typeFld := range aliasObj.Fields {
 			if !checkBareIdentKey(typeFld, seenType, what+" type", errs) {
 				continue
 			}
@@ -723,7 +723,7 @@ func validateNestedTypeBlock(block *ObjectLit, what string) *ErrorList {
 			if !ok {
 				errs.Addf(ErrSchema, typeFld.Value.Span().Start,
 					"%s %s.%s: must be an object of instance names",
-					what, nsFld.Key.Name, typeFld.Key.Name)
+					what, aliasFld.Key.Name, typeFld.Key.Name)
 				continue
 			}
 			seenName := make(map[string]Position, len(typeObj.Fields))
@@ -734,7 +734,7 @@ func validateNestedTypeBlock(block *ObjectLit, what string) *ErrorList {
 				if _, ok := nameFld.Value.(*ObjectLit); !ok {
 					errs.Addf(ErrSchema, nameFld.Value.Span().Start,
 						"%s %s.%s.%s: body must be an object",
-						what, nsFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name)
+						what, aliasFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name)
 				}
 			}
 		}

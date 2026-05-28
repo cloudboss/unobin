@@ -31,22 +31,22 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	if n.Kind != NodeResource && n.Kind != NodeData && n.Kind != NodeAction {
 		return nil
 	}
-	if n.ConfigurationAlias == "" {
+	if n.Configuration == "" {
 		return nil
 	}
-	lib, ok := e.Libraries[n.NS]
+	lib, ok := e.Libraries[n.Alias]
 	if !ok {
 		return nil
 	}
 	if lib.Configuration == nil {
 		return []error{fmt.Errorf(
 			"%s: @configuration %s.%s: library declares no configuration",
-			n.Address, n.NS, n.ConfigurationAlias)}
+			n.Address, n.Alias, n.Configuration)}
 	}
-	if _, ok := e.Configurations[n.NS][n.ConfigurationAlias]; !ok {
+	if _, ok := e.Configurations[n.Alias][n.Configuration]; !ok {
 		return []error{fmt.Errorf(
-			"%s: @configuration %s.%s: alias not declared in configurations",
-			n.Address, n.NS, n.ConfigurationAlias)}
+			"%s: @configuration %s.%s: configuration not declared",
+			n.Address, n.Alias, n.Configuration)}
 	}
 	return nil
 }
@@ -61,18 +61,18 @@ func (e *Executor) checkCompositeRemap(n *Node) []error {
 	}
 	sort.Strings(keys)
 	var errs []error
-	for _, innerNS := range keys {
-		ref := n.ConfigurationsRemap[innerNS]
-		if ref.NS != innerNS {
+	for _, innerAlias := range keys {
+		ref := n.ConfigurationsRemap[innerAlias]
+		if ref.Alias != innerAlias {
 			errs = append(errs, fmt.Errorf(
 				"%s: @configurations.%s: right-hand side import %q must match the key",
-				n.Address, innerNS, ref.NS))
+				n.Address, innerAlias, ref.Alias))
 			continue
 		}
-		if _, ok := e.Configurations[ref.NS][ref.Alias]; !ok {
+		if _, ok := e.Configurations[ref.Alias][ref.Configuration]; !ok {
 			errs = append(errs, fmt.Errorf(
-				"%s: @configurations.%s: alias %s.%s not declared in configurations",
-				n.Address, innerNS, ref.NS, ref.Alias))
+				"%s: @configurations.%s: configuration %s.%s not declared",
+				n.Address, innerAlias, ref.Alias, ref.Configuration))
 		}
 	}
 	return errs

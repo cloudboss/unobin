@@ -92,8 +92,9 @@ type PlanStep struct {
 	TriggerHash      string              `json:"trigger-hash,omitempty"`
 
 	// Configuration carries a destroy step's recorded library
-	// configuration ref ("ns.alias") from prior state, so apply deletes
-	// against the same credentials the resource was created with.
+	// configuration ref ("<alias>.<configuration>") from prior state, so
+	// apply deletes against the same credentials the resource was created
+	// with.
 	Configuration string `json:"configuration,omitempty"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
@@ -332,20 +333,20 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 // needs no DAG node, so it works for an orphan whose source has been
 // removed as well as for a full teardown.
 func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool, error) {
-	_, ns, typeName, _, ok := parseAddress(step.Address)
+	_, alias, typeName, _, ok := parseAddress(step.Address)
 	if !ok {
 		return false, fmt.Errorf("malformed address %q", step.Address)
 	}
-	lib, ok := e.librariesForAddress(step.Address)[ns]
+	lib, ok := e.librariesForAddress(step.Address)[alias]
 	if !ok {
-		return false, fmt.Errorf("library %q is not imported", ns)
+		return false, fmt.Errorf("library %q is not imported", alias)
 	}
 	rt, ok := lib.Resources[typeName]
 	if !ok {
-		return false, fmt.Errorf("library %s has no resource %q", ns, typeName)
+		return false, fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
 	_, err := readObserved(ctx, rt,
-		e.configForRef(step.Configuration, ns), step.Inputs, step.PriorOutputs)
+		e.configForRef(step.Configuration, alias), step.Inputs, step.PriorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return true, nil
 	}
@@ -402,14 +403,14 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				continue
 			}
 			tmpl, instKey := splitInstanceAddress(ent.Address)
-			_, ns, typeName, name, ok := parseAddress(tmpl)
+			_, alias, typeName, name, ok := parseAddress(tmpl)
 			if !ok {
 				continue
 			}
 			if instKey == "" {
-				seedNested(scope.Actions, ns, typeName, name, ent.Outputs)
+				seedNested(scope.Actions, alias, typeName, name, ent.Outputs)
 			} else {
-				seedInstance(scope.Actions, ns, typeName, name, instKey, ent.Outputs)
+				seedInstance(scope.Actions, alias, typeName, name, instKey, ent.Outputs)
 			}
 		case state.EntryLeaf:
 			scope, err := e.scopeForAddress(rs, ent.Address)
@@ -420,14 +421,14 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				continue
 			}
 			tmpl, instKey := splitInstanceAddress(ent.Address)
-			_, ns, typeName, name, ok := parseAddress(tmpl)
+			_, alias, typeName, name, ok := parseAddress(tmpl)
 			if !ok {
 				continue
 			}
 			if instKey == "" {
-				seedNested(scope.Resources, ns, typeName, name, ent.Outputs)
+				seedNested(scope.Resources, alias, typeName, name, ent.Outputs)
 			} else {
-				seedInstance(scope.Resources, ns, typeName, name, instKey, ent.Outputs)
+				seedInstance(scope.Resources, alias, typeName, name, instKey, ent.Outputs)
 			}
 		}
 	}
@@ -461,19 +462,19 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 	return rs.eval, nil
 }
 
-func seedNested(target map[string]any, ns, typeName, name string, value map[string]any) {
-	nsMap := getOrCreate(target, ns)
-	typeMap := getOrCreate(nsMap, typeName)
+func seedNested(target map[string]any, alias, typeName, name string, value map[string]any) {
+	aliasMap := getOrCreate(target, alias)
+	typeMap := getOrCreate(aliasMap, typeName)
 	typeMap[name] = value
 }
 
 // seedInstance writes one for-each instance's outputs into scope at
-// `target[ns][type][name][key] = value`, so that an expression like
-// `resource.<ns>.<type>.<name>['<key>'].<field>` resolves through
+// `target[alias][type][name][key] = value`, so that an expression like
+// `resource.<alias>.<type>.<name>['<key>'].<field>` resolves through
 // ordinary dot-path navigation.
-func seedInstance(target map[string]any, ns, typeName, name, key string, value map[string]any) {
-	nsMap := getOrCreate(target, ns)
-	typeMap := getOrCreate(nsMap, typeName)
+func seedInstance(target map[string]any, alias, typeName, name, key string, value map[string]any) {
+	aliasMap := getOrCreate(target, alias)
+	typeMap := getOrCreate(aliasMap, typeName)
 	nameMap := getOrCreate(typeMap, name)
 	nameMap[key] = value
 }
@@ -559,12 +560,12 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 }
 
 func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.Alias]
 	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.Alias)
 	}
 	if _, ok := lib.Actions[n.Type]; !ok {
-		return nil, fmt.Errorf("library %s has no action %q", n.NS, n.Type)
+		return nil, fmt.Errorf("library %s has no action %q", n.Alias, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {
@@ -614,13 +615,13 @@ func (e *Executor) planOneAction(
 }
 
 func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.Alias]
 	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.Alias)
 	}
 	rt, ok := lib.Resources[n.Type]
 	if !ok {
-		return nil, fmt.Errorf("library %s has no resource %q", n.NS, n.Type)
+		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {

@@ -29,10 +29,10 @@ func libraryWithConfig() *Library {
 
 func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 	leaf := &Node{
-		Address:            "resource.aws.instance.web",
-		Kind:               NodeResource,
-		NS:                 "aws",
-		ConfigurationAlias: "east2",
+		Address:       "resource.aws.instance.web",
+		Kind:          NodeResource,
+		Alias:         "aws",
+		Configuration: "east2",
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
@@ -44,10 +44,10 @@ func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 
 func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 	leaf := &Node{
-		Address:            "resource.aws.instance.web",
-		Kind:               NodeResource,
-		NS:                 "aws",
-		ConfigurationAlias: "ghost",
+		Address:       "resource.aws.instance.web",
+		Kind:          NodeResource,
+		Alias:         "aws",
+		Configuration: "ghost",
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
@@ -57,15 +57,15 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 	err := e.checkConfigurations()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "@configuration aws.ghost")
-	require.Contains(t, err.Error(), "alias not declared")
+	require.Contains(t, err.Error(), "configuration not declared")
 }
 
 func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) {
 	leaf := &Node{
-		Address:            "action.core.command.run",
-		Kind:               NodeAction,
-		NS:                 "core",
-		ConfigurationAlias: "alt",
+		Address:       "action.core.command.run",
+		Kind:          NodeAction,
+		Alias:         "core",
+		Configuration: "alt",
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
@@ -81,9 +81,9 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 	composite := &Node{
 		Address: "resource.net.cluster.east",
 		Kind:    NodeComposite,
-		NS:      "net",
+		Alias:   "net",
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {NS: "aws", Alias: "east2"},
+			"aws": {Alias: "aws", Configuration: "east2"},
 		},
 	}
 	e := newExecutorForConfigCheck(
@@ -94,13 +94,13 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 	require.NoError(t, e.checkConfigurations())
 }
 
-func TestCheckConfigurationsRejectsMismatchedNamespaceInRemap(t *testing.T) {
+func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 	composite := &Node{
 		Address: "resource.net.cluster.east",
 		Kind:    NodeComposite,
-		NS:      "net",
+		Alias:   "net",
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {NS: "gcp", Alias: "east2"},
+			"aws": {Alias: "gcp", Configuration: "east2"},
 		},
 	}
 	e := newExecutorForConfigCheck(
@@ -118,9 +118,9 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	composite := &Node{
 		Address: "resource.net.cluster.east",
 		Kind:    NodeComposite,
-		NS:      "net",
+		Alias:   "net",
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {NS: "aws", Alias: "ghost"},
+			"aws": {Alias: "aws", Configuration: "ghost"},
 		},
 	}
 	e := newExecutorForConfigCheck(
@@ -130,22 +130,22 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	)
 	err := e.checkConfigurations()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "alias aws.ghost not declared")
+	require.Contains(t, err.Error(), "configuration aws.ghost not declared")
 }
 
 func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 	leaf := &Node{
-		Address:            "resource.aws.instance.web",
-		Kind:               NodeResource,
-		NS:                 "aws",
-		ConfigurationAlias: "ghost",
+		Address:       "resource.aws.instance.web",
+		Kind:          NodeResource,
+		Alias:         "aws",
+		Configuration: "ghost",
 	}
 	composite := &Node{
 		Address: "resource.net.cluster.east",
 		Kind:    NodeComposite,
-		NS:      "net",
+		Alias:   "net",
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {NS: "gcp", Alias: "east2"},
+			"aws": {Alias: "gcp", Configuration: "east2"},
 		},
 	}
 	e := newExecutorForConfigCheck(

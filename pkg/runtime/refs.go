@@ -12,9 +12,9 @@ import (
 // of another node:
 //
 //	var.<name>
-//	resource.<ns>.<type>.<name>
-//	data.<ns>.<type>.<name>
-//	action.<ns>.<type>.<name>
+//	resource.<alias>.<type>.<name>
+//	data.<alias>.<type>.<name>
+//	action.<alias>.<type>.<name>
 //
 // Field segments past the node address (`.id`, `['key'].arn`) and
 // `@each.X` bindings are skipped.
