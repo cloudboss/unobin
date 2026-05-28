@@ -11,7 +11,7 @@ import (
 // holds deployment identity, state config, input values, and library
 // configurations.
 var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
-	FileStack: {
+	FileFactory: {
 		"description": {},
 		"inputs":      {},
 		"locals":      {},
@@ -38,7 +38,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 		"exports":     {},
 	},
 	FileConfig: {
-		"stack":          {},
+		"factory":        {},
 		"parallelism":    {},
 		"state":          {},
 		"inputs":         {},
@@ -512,7 +512,7 @@ func ValidateFile(f *File) *ErrorList {
 	}
 	blocks := indexTopLevelBlocks(f)
 	switch f.Kind {
-	case FileStack, FileExportedType:
+	case FileFactory, FileExportedType:
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateInputDeclarations(obj))
 		}

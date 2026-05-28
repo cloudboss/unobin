@@ -14,7 +14,7 @@ import (
 func newSchemaCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "schema",
-		Short: "Print the stack's input declarations",
+		Short: "Print the factory's input declarations",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doSchema(cmd, info)
 		},
@@ -22,7 +22,7 @@ func newSchemaCmd(info Info) *cobra.Command {
 	var outPath string
 	tmpl := &cobra.Command{
 		Use:   "template",
-		Short: "Print a starter config.ub for this stack",
+		Short: "Print a starter config.ub for this factory",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doSchemaTemplate(cmd, info, outPath)
 		},
@@ -90,13 +90,13 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 }
 
 func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
-	fmt.Fprintln(out, "stack: {")
+	fmt.Fprintln(out, "factory: {")
 	if info.LibraryPath != "" {
 		fmt.Fprintf(out, "  library-path: '%s'\n", info.LibraryPath)
 	}
 	fmt.Fprintf(out,
 		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",
-		info.StackVersion, info.ContentRevision)
+		info.FactoryVersion, info.ContentRevision)
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		return

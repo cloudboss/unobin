@@ -58,10 +58,10 @@ func testInfo(t *testing.T, src string) Info {
 	coreMod := core.Library()
 	coreMod.Actions["echo"] = runtime.MakeAction[echoAction, any]()
 	return Info{
-		StackName:       "test-stack",
-		StackVersion:    "v0.1.0",
+		FactoryName:     "test-stack",
+		FactoryVersion:  "v0.1.0",
 		ContentRevision: "abcdef",
-		StackBody:       src,
+		FactoryBody:     src,
 		Libraries:       map[string]*runtime.Library{"core": coreMod},
 	}
 }
@@ -274,7 +274,7 @@ func TestDeploymentID(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.in, func(t *testing.T) {
-			require.Equal(t, c.want, deploymentID(c.in))
+			require.Equal(t, c.want, stackName(c.in))
 		})
 	}
 }
@@ -308,8 +308,8 @@ outputs: {
 	require.Contains(t, out, "said: 'hello-staging'")
 
 	// Both deployments now have their own snapshot directory.
-	prodSnap := filepath.Join(".unobin/state", info.StackName, "prod")
-	stagingSnap := filepath.Join(".unobin/state", info.StackName, "staging")
+	prodSnap := filepath.Join(".unobin/state", info.FactoryName, "prod")
+	stagingSnap := filepath.Join(".unobin/state", info.FactoryName, "staging")
 	_, err := os.Stat(prodSnap)
 	require.NoError(t, err)
 	_, err = os.Stat(stagingSnap)
@@ -937,7 +937,7 @@ inputs: {
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
 
-	expected := `stack: {
+	expected := `factory: {
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
@@ -958,7 +958,7 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
-	expected := `stack: {
+	expected := `factory: {
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
@@ -972,7 +972,7 @@ func TemplateIncludesLibraryPathWhenSet(t *testing.T) {
 	info.LibraryPath = "github.com/cloudboss/cluster-deploy"
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
-	expected := `stack: {
+	expected := `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'abcdef' },
@@ -991,7 +991,7 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 
 	written, err := os.ReadFile(dst)
 	require.NoError(t, err)
-	expected := `stack: {
+	expected := `factory: {
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
@@ -1318,10 +1318,10 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 	t.Helper()
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, "default", envencrypt.Noop{})
+		".unobin/state", info.FactoryName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
-	stackInfo := state.StackInfo{
-		Name: info.StackName, Version: info.StackVersion, ContentRevision: info.ContentRevision,
+	stackInfo := state.FactoryInfo{
+		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
 	}
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
@@ -1398,10 +1398,10 @@ func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, "default", envencrypt.Noop{})
+		".unobin/state", info.FactoryName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
-	stackInfo := state.StackInfo{
-		Name: info.StackName, Version: info.StackVersion, ContentRevision: info.ContentRevision,
+	stackInfo := state.FactoryInfo{
+		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
 	}
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
@@ -1443,13 +1443,13 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	_ = applyVia(t, info, "")
 
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.StackName, "default", envencrypt.Noop{})
+		".unobin/state", info.FactoryName, "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	currentRev, err := store.CurrentRev()
 	require.NoError(t, err)
 
-	stackInfo := state.StackInfo{
-		Name: info.StackName, Version: info.StackVersion, ContentRevision: info.ContentRevision,
+	stackInfo := state.FactoryInfo{
+		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
 	}
 	for range 4 {
 		_, err := store.Write(state.NewSnapshot(stackInfo, "default"))
@@ -1481,7 +1481,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	store, err := localstate.NewLocalStore(".unobin/state", info.StackName, "default",
+	store, err := localstate.NewLocalStore(".unobin/state", info.FactoryName, "default",
 		envencrypt.Noop{})
 	require.NoError(t, err)
 	_, err = store.Lock(context.Background())
@@ -1537,7 +1537,7 @@ outputs: {
 
 	showOut, err := runRoot(t, info, "state", "show")
 	require.NoError(t, err)
-	require.Contains(t, showOut, "stack:")
+	require.Contains(t, showOut, "factory:")
 	require.Contains(t, showOut, "test-stack")
 	require.Contains(t, showOut, "action.core.echo.hi")
 	require.Contains(t, showOut, `said: 'hello'`)

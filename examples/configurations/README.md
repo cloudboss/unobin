@@ -13,7 +13,7 @@ default alias; the others select the `formal` alias either directly with
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/configurations/stack.ub \
+  -p examples/configurations/factory.ub \
   -o /tmp/configurations-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \

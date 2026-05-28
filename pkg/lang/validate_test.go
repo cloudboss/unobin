@@ -27,7 +27,7 @@ resources:   {}
 actions:     {}
 outputs:     {}
 `
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileStack))
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
 	require.Equal(t, 0, errs.Len(), "expected no errors, got: %v", errs.Errors())
 }
 
@@ -42,7 +42,7 @@ exports:     { cluster: 'cluster.ub' }
 
 func TestValidateTopLevelKeysConfig(t *testing.T) {
 	src := `
-stack:          { source: 'github.com/x/y' }
+factory:        { source: 'github.com/x/y' }
 parallelism:    10
 state:          { backend: local }
 inputs:         { region: 'us-east-1' }
@@ -52,15 +52,15 @@ configurations: { aws: { default: {} } }
 	require.Equal(t, 0, errs.Len())
 }
 
-func TestValidateTopLevelKeysConfigRejectsDeploymentID(t *testing.T) {
-	// The deployment id comes from the config filename basename, so
-	// `deployment-id:` is not a permitted top-level key in a config.
+func TestValidateTopLevelKeysConfigRejectsStackName(t *testing.T) {
+	// The stack name comes from the config filename basename, so
+	// `stack:` is not a permitted top-level key in a config.
 	src := `
-deployment-id: 'prod'
+stack: 'prod'
 `
 	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileConfig))
 	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Err().Error(), `"deployment-id"`)
+	require.Contains(t, errs.Err().Error(), `"stack"`)
 }
 
 func TestValidateRejectsForeignKeys(t *testing.T) {
@@ -72,7 +72,7 @@ func TestValidateRejectsForeignKeys(t *testing.T) {
 	}{
 		{
 			name:   "stack-with-exports",
-			kind:   FileStack,
+			kind:   FileFactory,
 			src:    "exports: { x: 'y.ub' }\n",
 			badKey: "exports",
 		},
@@ -90,7 +90,7 @@ func TestValidateRejectsForeignKeys(t *testing.T) {
 		},
 		{
 			name:   "stack-with-state",
-			kind:   FileStack,
+			kind:   FileFactory,
 			src:    "state: { backend: local }\n",
 			badKey: "state",
 		},
@@ -106,14 +106,14 @@ func TestValidateRejectsForeignKeys(t *testing.T) {
 
 func TestValidateRejectsMetaKey(t *testing.T) {
 	src := "@library: 'aws'\n"
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileStack))
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "@-prefixed")
 }
 
 func TestValidateRejectsStringKey(t *testing.T) {
 	src := "'description': 'x'\n"
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileStack))
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "top level key must be an identifier")
 }
@@ -123,7 +123,7 @@ func TestValidateRejectsDuplicateKey(t *testing.T) {
 description: 'first'
 description: 'second'
 `
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileStack))
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
 }
@@ -142,7 +142,7 @@ state:      { backend: local }
 @bad:       1
 'quoted':   2
 `
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileStack))
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
 	require.Equal(t, 4, errs.Len(), "expected 4 errors, got: %s",
 		strings.Join(errsToStrings(errs), "; "))
 }
@@ -154,7 +154,7 @@ outputs: {
   shout: { value: lib.upper(var.name) }
 }
 `
-	f, err := ParseSource("stack.ub", []byte(src))
+	f, err := ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
 	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
@@ -170,7 +170,7 @@ outputs: {
   shout: { value: lib.upper(var.name) }
 }
 `
-	f, err := ParseSource("stack.ub", []byte(src))
+	f, err := ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
@@ -187,7 +187,7 @@ resources: {
   }
 }
 `
-	f, err := ParseSource("stack.ub", []byte(src))
+	f, err := ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
 	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
@@ -853,9 +853,9 @@ outputs: {
   out: { value: var.region }
 }
 `
-	f, err := ParseSource("stack.ub", []byte(src))
+	f, err := ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
-	require.Equal(t, FileStack, f.Kind)
+	require.Equal(t, FileFactory, f.Kind)
 
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
@@ -877,7 +877,7 @@ exports: {
   x: 'y.ub'
 }
 `
-	f, err := ParseSource("stack.ub", []byte(src))
+	f, err := ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	errs := ValidateFile(f)
@@ -1050,7 +1050,7 @@ actions: {
   }
 }
 `
-	f, err := ParseSource("stack.ub", []byte(src))
+	f, err := ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	errs := ValidateFile(f)

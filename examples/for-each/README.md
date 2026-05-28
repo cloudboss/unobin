@@ -25,7 +25,7 @@ no built-in library ships one to wire up here.
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/for-each/stack.ub \
+  -p examples/for-each/factory.ub \
   -o /tmp/for-each-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \

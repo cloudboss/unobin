@@ -9,7 +9,7 @@ Hello-world stack. Writes a file via `local.file`, reads it back via
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/hello/stack.ub \
+  -p examples/hello/factory.ub \
   -o /tmp/hello-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \

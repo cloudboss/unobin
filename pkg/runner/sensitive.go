@@ -16,7 +16,7 @@ func stringSetContains(slice []string, s string) bool {
 }
 
 // rootSensitiveOutputs returns the set of root output names declared
-// with `@sensitive: true` in the stack source's `outputs:` block.
+// with `@sensitive: true` in the factory source's `outputs:` block.
 // Returns an empty set for a nil file or a file with no outputs
 // block.
 func rootSensitiveOutputs(f *lang.File) map[string]bool {

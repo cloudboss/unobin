@@ -7,9 +7,9 @@ import (
 )
 
 func TestErrorString(t *testing.T) {
-	pos := Position{File: "stack.ub", Line: 7, Column: 3}
+	pos := Position{File: "factory.ub", Line: 7, Column: 3}
 	e := Errorf(ErrType, pos, "expected %s, got %s", "string", "integer")
-	require.Equal(t, "stack.ub:7:3: type: expected string, got integer", e.Error())
+	require.Equal(t, "factory.ub:7:3: type: expected string, got integer", e.Error())
 }
 
 func TestErrorWithHint(t *testing.T) {

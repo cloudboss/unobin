@@ -21,12 +21,12 @@ func TestPinFile(t *testing.T) {
 		action string
 	}{
 		{
-			name: "no stack block, file with inputs only",
+			name: "no factory block, file with inputs only",
 			src: `inputs: {
   message: 'hi'
 }
 `,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
@@ -37,41 +37,27 @@ inputs: {
   message: 'hi'
 }
 `,
-			action: pinActionAddedStackBlock,
+			action: pinActionAddedFactoryBlock,
 		},
 		{
 			name: "empty file",
 			src:  ``,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
-			action: pinActionAddedStackBlock,
+			action: pinActionAddedFactoryBlock,
 		},
 		{
-			name: "stack block missing supported-versions",
-			src: `stack: {
+			name: "factory block missing supported-versions",
+			src: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
 }
 `,
-			want: `stack: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
-}
-`,
-			action: pinActionAddedSupportedVersions,
-		},
-		{
-			name: "stack block missing library-path and supported-versions",
-			src: `stack: {
-}
-`,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
@@ -81,10 +67,24 @@ inputs: {
 			action: pinActionAddedSupportedVersions,
 		},
 		{
-			name: "empty stack block on a single line",
-			src: `stack: {}
+			name: "factory block missing library-path and supported-versions",
+			src: `factory: {
+}
 `,
-			want: `stack: {
+			want: `factory: {
+  library-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [
+    { version: 'v0.3.0', content-revision: 'fedcba' },
+  ]
+}
+`,
+			action: pinActionAddedSupportedVersions,
+		},
+		{
+			name: "empty factory block on a single line",
+			src: `factory: {}
+`,
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
@@ -95,12 +95,12 @@ inputs: {
 		},
 		{
 			name: "empty supported-versions list",
-			src: `stack: {
+			src: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: []
 }
 `,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
@@ -111,7 +111,7 @@ inputs: {
 		},
 		{
 			name: "supported-versions with existing entries, no trailing comma",
-			src: `stack: {
+			src: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
@@ -119,7 +119,7 @@ inputs: {
   ]
 }
 `,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
@@ -132,7 +132,7 @@ inputs: {
 		},
 		{
 			name: "supported-versions with existing entries, with trailing comma",
-			src: `stack: {
+			src: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
@@ -140,7 +140,7 @@ inputs: {
   ]
 }
 `,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
@@ -153,14 +153,14 @@ inputs: {
 		},
 		{
 			name: "idempotent when entry already present",
-			src: `stack: {
+			src: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
-			want: `stack: {
+			want: `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
@@ -183,7 +183,7 @@ inputs: {
 }
 
 func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
-	src := []byte(`stack: {
+	src := []byte(`factory: {
   library-path: 'github.com/cloudboss/other'
   supported-versions: []
 }
@@ -194,7 +194,7 @@ func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
 }
 
 func TestPinFilePreservesTrailingContent(t *testing.T) {
-	src := []byte(`stack: {
+	src := []byte(`factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' }
@@ -205,7 +205,7 @@ inputs: {
   message: 'hi'
 }
 `)
-	want := `stack: {
+	want := `factory: {
   library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },

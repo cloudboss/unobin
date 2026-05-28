@@ -12,7 +12,7 @@ import (
 // Plan is read-only and never locks. ForceUnlock is the escape hatch
 // for a leaked lock.
 type Backend interface {
-	DeploymentID() string
+	Stack() string
 	Current() (*Snapshot, error)
 	CurrentRev() (string, error)
 	Get(rev string) (*Snapshot, error)

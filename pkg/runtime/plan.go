@@ -146,8 +146,8 @@ func (s *PlanStep) Gone() bool {
 // alias name) so apply re-decodes them through the same code path
 // rather than re-reading the config file.
 type Plan struct {
-	Stack             state.StackInfo
-	DeploymentID      string
+	Factory           state.FactoryInfo
+	Stack             string
 	StateRev          string
 	Inputs            map[string]any
 	RawConfigurations map[string]map[string]any
@@ -192,12 +192,12 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	stateRev, _ := e.Store.CurrentRev()
 
 	plan := &Plan{
-		Stack:        e.Stack,
-		DeploymentID: e.Store.DeploymentID(),
-		StateRev:     stateRev,
-		Inputs:       e.Inputs,
-		Parallelism:  e.Parallelism,
-		Destroy:      e.Destroy,
+		Factory:     e.Factory,
+		Stack:       e.Store.Stack(),
+		StateRev:    stateRev,
+		Inputs:      e.Inputs,
+		Parallelism: e.Parallelism,
+		Destroy:     e.Destroy,
 	}
 
 	// Seed the EvalContext with prior outputs so downstream evaluation

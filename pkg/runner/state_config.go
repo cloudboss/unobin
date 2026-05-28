@@ -173,7 +173,7 @@ func resolveEncrypter(info Info, ref *resolverRef) (sdkencrypt.Encrypter, error)
 func resolveBackend(
 	info Info,
 	ref *resolverRef,
-	stack, deploymentID string,
+	factory, stack string,
 	enc sdkencrypt.Encrypter,
 ) (sdkstate.Backend, error) {
 	if ref == nil {
@@ -191,7 +191,7 @@ func resolveBackend(
 	if err != nil {
 		return nil, fmt.Errorf("state: %w", err)
 	}
-	return bt.New(decoded, stack, deploymentID, enc)
+	return bt.New(decoded, factory, stack, enc)
 }
 
 func lookupBackendType(

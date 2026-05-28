@@ -64,7 +64,7 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr str
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -263,7 +263,7 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+			store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 			if err != nil {
 				return err
 			}
@@ -292,7 +292,7 @@ func newStateListCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+			store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 			if err != nil {
 				return err
 			}
@@ -331,7 +331,7 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+			store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 			if err != nil {
 				return err
 			}
@@ -357,9 +357,9 @@ func newStateShowCmd(info Info) *cobra.Command {
 
 func printSnapshot(cmd *cobra.Command, snap *state.Snapshot, sensitive map[string]bool) error {
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "stack:        %s %s (content-revision %s)\n",
-		snap.Stack.Name, snap.Stack.Version, snap.Stack.ContentRevision)
-	fmt.Fprintf(out, "deployment:   %s\n", snap.DeploymentID)
+	fmt.Fprintf(out, "factory:      %s %s (content-revision %s)\n",
+		snap.Factory.Name, snap.Factory.Version, snap.Factory.ContentRevision)
+	fmt.Fprintf(out, "stack:        %s\n", snap.Stack)
 	fmt.Fprintf(out, "generated-at: %s\n", snap.GeneratedAt.Format("2006-01-02 15:04:05Z07:00"))
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "entries:")

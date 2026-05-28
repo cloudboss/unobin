@@ -8,7 +8,7 @@ and the stack instantiates it as `greeter.greeting.welcome`.
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/hello-library/stack.ub \
+  -p examples/hello-library/factory.ub \
   -o /tmp/hello-library-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \

@@ -40,7 +40,7 @@ func doPin(
 	}
 	version := versionOverride
 	if version == "" {
-		version = info.StackVersion
+		version = info.FactoryVersion
 	}
 	revision := contentRevisionOverride
 	if revision == "" {
@@ -81,32 +81,32 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	if err != nil {
 		return nil, "", err
 	}
-	stackField := findField(f.Body, "stack")
-	if stackField == nil {
-		return prependStackBlock(src, libraryPath, version, revision)
+	factoryField := findField(f.Body, "factory")
+	if factoryField == nil {
+		return prependFactoryBlock(src, libraryPath, version, revision)
 	}
-	stackObj, ok := stackField.Value.(*lang.ObjectLit)
+	factoryObj, ok := factoryField.Value.(*lang.ObjectLit)
 	if !ok {
-		return nil, "", fmt.Errorf("`stack:` must be an object")
+		return nil, "", fmt.Errorf("`factory:` must be an object")
 	}
-	if mp := findField(stackObj, "library-path"); mp != nil {
+	if mp := findField(factoryObj, "library-path"); mp != nil {
 		existing, ok := mp.Value.(*lang.StringLit)
 		if !ok {
-			return nil, "", fmt.Errorf("`stack.library-path` must be a string")
+			return nil, "", fmt.Errorf("`factory.library-path` must be a string")
 		}
 		if libraryPath != "" && existing.Value != libraryPath {
 			return nil, "", fmt.Errorf(
-				"stack.library-path %q does not match this binary %q",
+				"factory.library-path %q does not match this binary %q",
 				existing.Value, libraryPath)
 		}
 	}
-	svField := findField(stackObj, "supported-versions")
+	svField := findField(factoryObj, "supported-versions")
 	if svField == nil {
-		return fillStackBlock(src, stackObj, libraryPath, version, revision)
+		return fillFactoryBlock(src, factoryObj, libraryPath, version, revision)
 	}
 	svArr, ok := svField.Value.(*lang.ArrayLit)
 	if !ok {
-		return nil, "", fmt.Errorf("`stack.supported-versions` must be a list")
+		return nil, "", fmt.Errorf("`factory.supported-versions` must be a list")
 	}
 	for _, el := range svArr.Elements {
 		if entryMatches(el, version, revision) {
@@ -116,43 +116,43 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	return appendVersionEntry(src, svField, svArr, version, revision)
 }
 
-func prependStackBlock(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
-	block := renderStackBlock(libraryPath, version, revision)
+func prependFactoryBlock(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
+	block := renderFactoryBlock(libraryPath, version, revision)
 	if len(src) == 0 {
-		return []byte(block), pinActionAddedStackBlock, nil
+		return []byte(block), pinActionAddedFactoryBlock, nil
 	}
 	out := make([]byte, 0, len(block)+1+len(src))
 	out = append(out, block...)
 	out = append(out, '\n')
 	out = append(out, src...)
-	return out, pinActionAddedStackBlock, nil
+	return out, pinActionAddedFactoryBlock, nil
 }
 
-// fillStackBlock inserts the missing `supported-versions:` (and
+// fillFactoryBlock inserts the missing `supported-versions:` (and
 // `library-path:` if the binary has one and the block does not declare
-// it) into an existing `stack:` block. An empty block is rewritten to
+// it) into an existing `factory:` block. An empty block is rewritten to
 // canonical multi-line form so the new fields do not sit on the same
 // line as the opening brace.
-func fillStackBlock(
-	src []byte, stackObj *lang.ObjectLit, libraryPath, version, revision string,
+func fillFactoryBlock(
+	src []byte, factoryObj *lang.ObjectLit, libraryPath, version, revision string,
 ) ([]byte, string, error) {
-	openIdx := stackObj.S.Start.Offset
+	openIdx := factoryObj.S.Start.Offset
 	closeIdx := findMatchingClose(src, openIdx)
 	if closeIdx < 0 {
-		return nil, "", fmt.Errorf("could not locate closing `}` of stack block")
+		return nil, "", fmt.Errorf("could not locate closing `}` of factory block")
 	}
 	parentIndent := lineIndent(src, openIdx)
 	childInd := parentIndent + "  "
-	if len(stackObj.Fields) > 0 {
-		childInd = lineIndent(src, stackObj.Fields[0].S.Start.Offset)
+	if len(factoryObj.Fields) > 0 {
+		childInd = lineIndent(src, factoryObj.Fields[0].S.Start.Offset)
 	}
 	var b strings.Builder
-	if libraryPath != "" && findField(stackObj, "library-path") == nil {
+	if libraryPath != "" && findField(factoryObj, "library-path") == nil {
 		fmt.Fprintf(&b, "%slibrary-path: '%s'\n", childInd, libraryPath)
 	}
 	fmt.Fprintf(&b, "%ssupported-versions: [\n%s  { version: '%s', content-revision: '%s' },\n%s]\n",
 		childInd, childInd, version, revision, childInd)
-	if len(stackObj.Fields) == 0 {
+	if len(factoryObj.Fields) == 0 {
 		return spliceReplace(src, openIdx+1, closeIdx, "\n"+b.String()+parentIndent),
 			pinActionAddedSupportedVersions, nil
 	}
@@ -247,7 +247,7 @@ func spliceReplace(src []byte, start, end int, text string) []byte {
 }
 
 const (
-	pinActionAddedStackBlock        = "added stack block"
+	pinActionAddedFactoryBlock      = "added factory block"
 	pinActionAddedSupportedVersions = "added supported-versions"
 	pinActionAppendedEntry          = "appended entry"
 	pinActionAlreadyPinned          = "already pinned"
@@ -329,14 +329,14 @@ func lineIndent(src []byte, offset int) string {
 	return string(src[start:end])
 }
 
-// renderStackBlock returns the canonical full `stack:` block. The
+// renderFactoryBlock returns the canonical full `factory:` block. The
 // closing newline is included; callers append their own separator if
 // they want a blank line between this block and the rest of the file.
 // Entries always carry a trailing comma so the canonical shape matches
 // the form `pin` produces when it appends later.
-func renderStackBlock(libraryPath, version, revision string) string {
+func renderFactoryBlock(libraryPath, version, revision string) string {
 	var b strings.Builder
-	b.WriteString("stack: {\n")
+	b.WriteString("factory: {\n")
 	if libraryPath != "" {
 		fmt.Fprintf(&b, "  library-path: '%s'\n", libraryPath)
 	}

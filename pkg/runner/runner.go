@@ -1,6 +1,6 @@
-// Package runner is the CLI scaffolding every compiled stack binary
+// Package runner is the CLI scaffolding every compiled factory binary
 // links into. The generated `main.go` stays tiny: it embeds the
-// stack-specific constants and calls Run with them.
+// factory-specific constants and calls Run with them.
 package runner
 
 import (
@@ -30,17 +30,17 @@ import (
 // input, with snake case converted to kebab case.
 const EnvVarPrefix = "UB_VAR_"
 
-// Info bundles everything a generated stack binary passes into Run.
-// StackBody is the embedded stack source the binary parses on each
+// Info bundles everything a generated factory binary passes into Run.
+// FactoryBody is the embedded factory source the binary parses on each
 // invocation. LibraryPath is the binary's library-path identity (the
 // same form Go libraries use); the operator's `config.ub` asserts the
-// same value under `stack.library-path`. An empty LibraryPath disables
+// same value under `factory.library-path`. An empty LibraryPath disables
 // that identity check.
 type Info struct {
-	StackName       string
-	StackVersion    string
+	FactoryName     string
+	FactoryVersion  string
 	ContentRevision string
-	StackBody       string
+	FactoryBody     string
 	LibraryPath     string
 	Libraries       map[string]*runtime.Library
 }
@@ -57,8 +57,8 @@ func Run(info Info) {
 
 func newRootCmd(info Info) *cobra.Command {
 	root := &cobra.Command{
-		Use:           info.StackName,
-		Short:         "Compiled unobin stack " + info.StackName,
+		Use:           info.FactoryName,
+		Short:         "Compiled unobin factory " + info.FactoryName,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -78,10 +78,10 @@ func newRootCmd(info Info) *cobra.Command {
 func newVersionCmd(info Info) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print stack identity",
+		Short: "Print factory identity",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(cmd.OutOrStdout(), "%s %s (content-revision %s)\n",
-				info.StackName, info.StackVersion, info.ContentRevision)
+				info.FactoryName, info.FactoryVersion, info.ContentRevision)
 		},
 	}
 }
@@ -102,7 +102,7 @@ func newPlanCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
 				return err
 			}
 			return doPlan(cmd, info, config, configPath, outPath, parallelism, destroy)
@@ -171,7 +171,7 @@ func doApplyPlan(
 		return err
 	}
 	store, err := resolveBackend(info, fromRuntimeStateRef(pf.Backend),
-		info.StackName, pf.DeploymentID, enc)
+		info.FactoryName, pf.Stack, enc)
 	if err != nil {
 		return err
 	}
@@ -197,9 +197,9 @@ func doApplyPlan(
 		Libraries:      info.Libraries,
 		Configurations: configurations,
 		Store:          store,
-		Stack: state.StackInfo{
-			Name:            info.StackName,
-			Version:         info.StackVersion,
+		Factory: state.FactoryInfo{
+			Name:            info.FactoryName,
+			Version:         info.FactoryVersion,
 			ContentRevision: info.ContentRevision,
 		},
 		Parallelism: parallelism,
@@ -325,7 +325,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
 				return err
 			}
 			return doRefresh(cmd, info, config, configPath)
@@ -356,7 +356,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -367,9 +367,9 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 		Inputs:         inputs,
 		Configurations: configurations,
 		Store:          store,
-		Stack: state.StackInfo{
-			Name:            info.StackName,
-			Version:         info.StackVersion,
+		Factory: state.FactoryInfo{
+			Name:            info.FactoryName,
+			Version:         info.FactoryVersion,
 			ContentRevision: info.ContentRevision,
 		},
 	}
@@ -392,20 +392,20 @@ func newValidateCmd(info Info) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "validate",
-		Short: "Check stack source and config without reading state or resources",
+		Short: "Check factory source and config without reading state or resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseConfigFile(configPath)
 			if err != nil {
 				return err
 			}
-			if err := verifyStackEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
 				return err
 			}
 			return doValidate(cmd, info, config, configPath)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub to validate alongside the stack source.")
+		"Path to a config.ub to validate alongside the factory source.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
 		"Validate even when the config does not pin this binary's version.")
 	return cmd
@@ -469,7 +469,7 @@ func newPrintGraphCmd(info Info) *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "print-graph",
-		Short: "Print the stack's dependency graph",
+		Short: "Print the factory's dependency graph",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doPrintGraph(cmd, info, format)
 		},
@@ -491,7 +491,7 @@ func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
 	case "plain":
 		graphprint.Plain(out, dag)
 	case "dot":
-		graphprint.DOT(out, dag, info.StackName)
+		graphprint.DOT(out, dag, info.FactoryName)
 	default:
 		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", format)
 	}
@@ -505,7 +505,7 @@ func newOutputCmd(info Info) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "output [name]",
-		Short: "Print stack outputs from the current state",
+		Short: "Print factory outputs from the current state",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseConfigFile(configPath)
@@ -522,12 +522,12 @@ func newOutputCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-// parsedFile parses the stack source baked into the binary at compile
-// time. The "stack.ub" filename labels error positions; the original
+// parsedFile parses the factory source baked into the binary at compile
+// time. The "factory.ub" filename labels error positions; the original
 // source filename is not preserved across compile, so this label is
 // the convention regardless of what the file was called on disk.
 func parsedFile(info Info) (*lang.File, error) {
-	f, err := lang.ParseSource("stack.ub", []byte(info.StackBody))
+	f, err := lang.ParseSource("factory.ub", []byte(info.FactoryBody))
 	if err != nil {
 		return nil, err
 	}
@@ -556,15 +556,15 @@ func loadStore(
 	if err != nil {
 		return nil, err
 	}
-	return resolveBackend(info, sc.Backend, info.StackName, deploymentID, enc)
+	return resolveBackend(info, sc.Backend, info.FactoryName, deploymentID, enc)
 }
 
-// deploymentID derives a deployment id from the config file path. The
+// stackName derives a deployment id from the config file path. The
 // basename minus any extension is the id, so `prod.ub` becomes "prod"
 // and `staging.ub` becomes "staging". A missing config path falls back
 // to "default" to keep the tests and dev workflows that pass no config
 // running.
-func deploymentID(configPath string) string {
+func stackName(configPath string) string {
 	if configPath == "" {
 		return "default"
 	}
@@ -609,7 +609,7 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
 		return err
 	}
@@ -627,9 +627,9 @@ func doPlan(
 		Inputs:         inputs,
 		Configurations: configurations,
 		Store:          store,
-		Stack: state.StackInfo{
-			Name:            info.StackName,
-			Version:         info.StackVersion,
+		Factory: state.FactoryInfo{
+			Name:            info.FactoryName,
+			Version:         info.FactoryVersion,
 			ContentRevision: info.ContentRevision,
 		},
 		Parallelism: parallelism,
@@ -811,7 +811,7 @@ func doOutput(
 	if err != nil {
 		return err
 	}
-	store, err := loadStore(info, config, configPath, deploymentID(configPath), enc)
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
 		return err
 	}

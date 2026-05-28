@@ -11,13 +11,13 @@ import (
 func sampleSnapshot() *Snapshot {
 	return &Snapshot{
 		FormatVersion: CurrentFormatVersion,
-		Stack: StackInfo{
+		Factory: FactoryInfo{
 			Name:            "cluster-deploy",
 			Version:         "v2.0.3",
 			ContentRevision: "abc123def456",
 		},
-		DeploymentID: "prod-east-alpha",
-		GeneratedAt:  time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
+		Stack:       "prod-east-alpha",
+		GeneratedAt: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
 				Address:       "resource.aws.vpc.main",
@@ -120,9 +120,9 @@ func TestSnapshotRejectsMissingAddress(t *testing.T) {
 }
 
 func TestNewSnapshotInitializes(t *testing.T) {
-	s := NewSnapshot(StackInfo{Name: "x"}, "prod")
+	s := NewSnapshot(FactoryInfo{Name: "x"}, "prod")
 	require.Equal(t, CurrentFormatVersion, s.FormatVersion)
-	require.Equal(t, "prod", s.DeploymentID)
+	require.Equal(t, "prod", s.Stack)
 	require.False(t, s.GeneratedAt.IsZero())
 	require.Empty(t, s.Entries)
 }
@@ -141,8 +141,8 @@ func TestSnapshotJSONShape(t *testing.T) {
 func TestSnapshotActionEntry(t *testing.T) {
 	snap := &Snapshot{
 		FormatVersion: CurrentFormatVersion,
-		Stack:         StackInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
-		DeploymentID:  "prod",
+		Factory:       FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
+		Stack:         "prod",
 		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
@@ -178,8 +178,8 @@ func TestSnapshotPersistsOutputs(t *testing.T) {
 func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
 	snap := &Snapshot{
 		FormatVersion: CurrentFormatVersion,
-		Stack:         StackInfo{Name: "x"},
-		DeploymentID:  "prod",
+		Factory:       FactoryInfo{Name: "x"},
+		Stack:         "prod",
 		GeneratedAt:   time.Now().UTC(),
 		Entries: []*Entry{
 			{Address: "action.core.command.x", Type: EntryAction},

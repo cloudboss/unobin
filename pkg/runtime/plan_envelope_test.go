@@ -29,8 +29,8 @@ func reverse(b []byte) []byte {
 
 func samplePlan() *Plan {
 	return &Plan{
-		Stack:        state.StackInfo{Name: "demo", Version: "v0.1.0", ContentRevision: "abc"},
-		DeploymentID: "default",
+		Factory: state.FactoryInfo{Name: "demo", Version: "v0.1.0", ContentRevision: "abc"},
+		Stack:   "default",
 	}
 }
 
@@ -47,8 +47,8 @@ func TestSealPlanOpenPlanRoundTrip(t *testing.T) {
 		return reversingEncrypter{}, nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, "demo", pf.Stack.Name)
-	require.Equal(t, "default", pf.DeploymentID)
+	require.Equal(t, "demo", pf.Factory.Name)
+	require.Equal(t, "default", pf.Stack)
 	require.Equal(t, PlanFormatVersion, pf.FormatVersion)
 }
 

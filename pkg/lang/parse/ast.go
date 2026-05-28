@@ -36,16 +36,16 @@ type FileKind int
 
 const (
 	FileUnknown FileKind = iota
-	FileStack
+	FileFactory
 	FileLibrary      // The library.ub manifest (only `description` and `exports`).
 	FileExportedType // The <name>.ub inside a library.
-	FileConfig       // The config .ub file for a stack.
+	FileConfig       // The config .ub file for a factory.
 )
 
 func (k FileKind) String() string {
 	switch k {
-	case FileStack:
-		return "stack"
+	case FileFactory:
+		return "factory"
 	case FileLibrary:
 		return "library"
 	case FileExportedType:

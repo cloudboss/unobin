@@ -9,42 +9,42 @@ import (
 	"text/template"
 )
 
-// Input bundles everything codegen needs to produce a stack binary's
-// `main.go`. Body is the literal stack source the binary embeds and
+// Input bundles everything codegen needs to produce a factory binary's
+// `main.go`. Body is the literal factory source the binary embeds and
 // parses on each invocation. LibraryPath is the binary's library-path
 // identity, the same form Go libraries use; the operator's `config.ub`
-// asserts the same value under `stack.library-path` and plan, refresh,
+// asserts the same value under `factory.library-path` and plan, refresh,
 // and validate refuse on mismatch. An empty LibraryPath disables that
 // identity check. The version and content-revision are not generated
 // here; compile stamps them into the built binary with -ldflags so the
-// generated source stays a pure function of the stack content.
+// generated source stays a pure function of the factory content.
 // GoImports maps each Go-library alias the source uses to the Go import
 // path that supplies it (e.g.,
 // `"core" -> "github.com/cloudboss/unobin/pkg/libraries/core"`).
 // UBImports maps each UB-library alias to the local Go import path of
 // the package that compile generated for it (typically
-// `<stack-name>/internal/<alias>`).
+// `<factory-name>/internal/<alias>`).
 type Input struct {
 	Body        string
 	LibraryPath string
-	StackName   string
+	FactoryName string
 	GoImports   map[string]string
 	UBImports   map[string]string
 }
 
-// Generate produces the formatted Go source for the stack binary's
+// Generate produces the formatted Go source for the factory binary's
 // main.go. The result is the bytes a caller writes to disk and feeds
 // through `go build`.
 func Generate(in Input) ([]byte, error) {
-	if in.StackName == "" {
-		return nil, fmt.Errorf("codegen: StackName is required")
+	if in.FactoryName == "" {
+		return nil, fmt.Errorf("codegen: FactoryName is required")
 	}
 	aliases := sortedKeys(in.GoImports)
 	ubAliases := sortedKeys(in.UBImports)
 	data := struct {
 		Body        string
 		LibraryPath string
-		StackName   string
+		FactoryName string
 		Aliases     []string
 		Imports     map[string]string
 		UBAliases   []string
@@ -52,7 +52,7 @@ func Generate(in Input) ([]byte, error) {
 	}{
 		Body:        in.Body,
 		LibraryPath: in.LibraryPath,
-		StackName:   in.StackName,
+		FactoryName: in.FactoryName,
 		Aliases:     aliases,
 		Imports:     in.GoImports,
 		UBAliases:   ubAliases,
@@ -80,7 +80,7 @@ func sortedKeys(m map[string]string) []string {
 }
 
 // quote renders a string as a Go double quoted literal. Used by the
-// template to embed the stack source verbatim.
+// template to embed the factory source verbatim.
 func quote(s string) string {
 	return strconv.Quote(s)
 }
@@ -99,24 +99,24 @@ import (
 )
 
 const (
-	stackBody        = {{quote .Body}}
-	stackLibraryPath = {{quote .LibraryPath}}
-	stackName        = {{quote .StackName}}
+	factoryBody        = {{quote .Body}}
+	factoryLibraryPath = {{quote .LibraryPath}}
+	factoryName        = {{quote .FactoryName}}
 )
 
 // Stamped at link time via -ldflags.
 var (
-	stackVersion    string
+	factoryVersion  string
 	contentRevision string
 )
 
 func main() {
 	runner.Run(runner.Info{
-		StackName:       stackName,
-		StackVersion:    stackVersion,
+		FactoryName:     factoryName,
+		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		StackBody:       stackBody,
-		LibraryPath:     stackLibraryPath,
+		FactoryBody:     factoryBody,
+		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 {{range .Aliases}}			{{quote .}}: lib_{{.}}.Library(),
 {{end}}{{range .UBAliases}}			{{quote .}}: lib_{{.}}.Library(),

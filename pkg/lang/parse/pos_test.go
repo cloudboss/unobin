@@ -12,7 +12,7 @@ func TestPositionString(t *testing.T) {
 		pos  Position
 		want string
 	}{
-		{"with file", Position{File: "stack.ub", Line: 12, Column: 4}, "stack.ub:12:4"},
+		{"with file", Position{File: "factory.ub", Line: 12, Column: 4}, "factory.ub:12:4"},
 		{"without file", Position{Line: 12, Column: 4}, "12:4"},
 	}
 	for _, c := range cases {

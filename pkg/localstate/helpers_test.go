@@ -13,13 +13,13 @@ import (
 func sampleSnapshot() *sdkstate.Snapshot {
 	return &sdkstate.Snapshot{
 		FormatVersion: sdkstate.CurrentFormatVersion,
-		Stack: sdkstate.StackInfo{
+		Factory: sdkstate.FactoryInfo{
 			Name:            "cluster-deploy",
 			Version:         "v2.0.3",
 			ContentRevision: "abc123def456",
 		},
-		DeploymentID: "prod-east-alpha",
-		GeneratedAt:  time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
+		Stack:       "prod-east-alpha",
+		GeneratedAt: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
 		Entries: []*sdkstate.Entry{
 			{
 				Address:       "resource.aws.vpc.main",

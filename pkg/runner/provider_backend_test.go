@@ -23,13 +23,13 @@ type memBackendConfig struct {
 }
 
 func newMemBackend(
-	c any, stack, deploymentID string, enc sdkencrypt.Encrypter,
+	c any, factory, stack string, enc sdkencrypt.Encrypter,
 ) (sdkstate.Backend, error) {
 	bc, ok := c.(*memBackendConfig)
 	if !ok {
 		return nil, fmt.Errorf("mem.store: missing or wrong configuration (got %T)", c)
 	}
-	return localstate.NewLocalStore(bc.Path.Value, stack, deploymentID, enc)
+	return localstate.NewLocalStore(bc.Path.Value, factory, stack, enc)
 }
 
 func memProviderLibrary() *runtime.Library {
@@ -68,7 +68,7 @@ outputs: {
 	out := applyVia(t, info, cfgPath)
 	require.Contains(t, out, "said: 'via-provider'")
 
-	snapshotsDir := filepath.Join(stateRoot, info.StackName, "prod", "snapshots")
+	snapshotsDir := filepath.Join(stateRoot, info.FactoryName, "prod", "snapshots")
 	entries, err := os.ReadDir(snapshotsDir)
 	require.NoError(t, err)
 	require.NotEmpty(t, entries,

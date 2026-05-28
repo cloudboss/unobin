@@ -23,54 +23,54 @@ var now = time.Now
 
 var _ sdkstate.Backend = (*LocalStore)(nil)
 
-// LocalStore reads and writes snapshots under a per-deployment directory.
+// LocalStore reads and writes snapshots under a per-stack directory.
 // Layout is as follows:
 //
-//	<Root>/<Stack>/<deploymentID>/
+//	<Root>/<Factory>/<Stack>/
 //	  current             // File containing the SHA of the current snapshot.
 //	  snapshots/
 //	    <rev>.json.enc    // rev is an RFC3339Nano timestamp
 //	    ...
 type LocalStore struct {
-	Root  string
-	Stack string
+	Root    string
+	Factory string
 
-	deploymentID string
-	enc          sdkencrypt.Encrypter
-	dir          string
+	stack string
+	enc   sdkencrypt.Encrypter
+	dir   string
 }
 
-// DeploymentID returns the deployment id this store was constructed
+// Stack returns the stack name this store was constructed
 // for. Required by the Backend interface.
-func (s *LocalStore) DeploymentID() string { return s.deploymentID }
+func (s *LocalStore) Stack() string { return s.stack }
 
-// NewLocalStore returns a LocalStore for the given stack and deployment ID
+// NewLocalStore returns a LocalStore for the given factory and stack
 // under root, creating the directory tree if it doesn't exist. The
 // Encrypter is required, but a pass-through (envencrypt.Noop) can be
 // passed for tests.
 func NewLocalStore(
-	root, stack, deploymentID string,
+	root, factory, stack string,
 	enc sdkencrypt.Encrypter,
 ) (*LocalStore, error) {
+	if factory == "" {
+		return nil, errors.New("local store: factory is required")
+	}
 	if stack == "" {
 		return nil, errors.New("local store: stack is required")
-	}
-	if deploymentID == "" {
-		return nil, errors.New("local store: deployment-id is required")
 	}
 	if enc == nil {
 		return nil, errors.New("local store: encrypter is required")
 	}
-	dir := filepath.Join(root, stack, deploymentID)
+	dir := filepath.Join(root, factory, stack)
 	if err := os.MkdirAll(filepath.Join(dir, "snapshots"), 0o755); err != nil {
 		return nil, err
 	}
 	return &LocalStore{
-		Root:         root,
-		Stack:        stack,
-		deploymentID: deploymentID,
-		enc:          enc,
-		dir:          dir,
+		Root:    root,
+		Factory: factory,
+		stack:   stack,
+		enc:     enc,
+		dir:     dir,
 	}, nil
 }
 

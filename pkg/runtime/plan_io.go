@@ -19,8 +19,8 @@ const PlanFormatVersion = 1
 // re-reading config.ub.
 type PlanFile struct {
 	FormatVersion     int                       `json:"format-version"`
-	Stack             StackRef                  `json:"stack"`
-	DeploymentID      string                    `json:"deployment-id"`
+	Factory           FactoryRef                `json:"stack"`
+	Stack             string                    `json:"deployment-id"`
 	StateRev          string                    `json:"state-rev"`
 	GeneratedAt       time.Time                 `json:"generated-at"`
 	Inputs            map[string]any            `json:"inputs,omitempty"`
@@ -31,8 +31,8 @@ type PlanFile struct {
 	Steps             []PlanStep                `json:"steps"`
 }
 
-// StackRef identifies the stack a plan was computed against.
-type StackRef struct {
+// FactoryRef identifies the stack a plan was computed against.
+type FactoryRef struct {
 	Name            string `json:"name"`
 	Version         string `json:"version"`
 	ContentRevision string `json:"content-revision"`
@@ -46,12 +46,12 @@ func EncodePlan(p *Plan) ([]byte, error) {
 	}
 	pf := PlanFile{
 		FormatVersion: PlanFormatVersion,
-		Stack: StackRef{
-			Name:            p.Stack.Name,
-			Version:         p.Stack.Version,
-			ContentRevision: p.Stack.ContentRevision,
+		Factory: FactoryRef{
+			Name:            p.Factory.Name,
+			Version:         p.Factory.Version,
+			ContentRevision: p.Factory.ContentRevision,
 		},
-		DeploymentID:      p.DeploymentID,
+		Stack:             p.Stack,
 		StateRev:          p.StateRev,
 		GeneratedAt:       time.Now().UTC(),
 		Inputs:            p.Inputs,

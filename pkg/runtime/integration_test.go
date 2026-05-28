@@ -35,7 +35,7 @@ func applyOnce(t *testing.T, exec *runtime.Executor) *runtime.ExecResult {
 // Plan-and-ApplyPlan cycle through the executor.
 func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResult {
 	t.Helper()
-	f, err := lang.ParseSource("stack.ub", []byte(src))
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	errs := lang.ValidateFile(f)
@@ -53,7 +53,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 		Inputs:    inputs,
 		Source:    f,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return applyOnce(t, exec)
 }
@@ -190,16 +190,16 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 			},
 		},
 	}
-	stack := state.StackInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"}
 
-	f, err := lang.ParseSource("stack.ub", []byte(src))
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	first := applyOnce(t, &runtime.Executor{
-		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Factory: stack,
 	})
 	second := applyOnce(t, &runtime.Executor{
-		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Factory: stack,
 	})
 	return atomic.LoadInt64(&runs), first, second
 }

@@ -51,8 +51,8 @@ type Executor struct {
 	// call sees a nil cfg argument.
 	Configurations map[string]map[string]any
 
-	Store state.Backend
-	Stack state.StackInfo
+	Store   state.Backend
+	Factory state.FactoryInfo
 
 	// Parallelism caps the number of in-flight resource, data, and
 	// action steps during ApplyPlan. Zero or negative falls back to
@@ -216,7 +216,7 @@ func (e *Executor) initRun() (*runState, error) {
 		},
 		outputs:    make(map[string]any),
 		composites: make(map[string]*EvalContext),
-		next:       state.NewSnapshot(e.Stack, e.Store.DeploymentID()),
+		next:       state.NewSnapshot(e.Factory, e.Store.Stack()),
 	}
 	prior, err := e.Store.Current()
 	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
@@ -375,12 +375,12 @@ func (e *Executor) prepareApplySnapshot(rs *runState) {
 		return
 	}
 	rs.next = cloneSnapshot(rs.prior)
-	rs.next.Stack = e.Stack
-	rs.next.DeploymentID = e.Store.DeploymentID()
+	rs.next.Factory = e.Factory
+	rs.next.Stack = e.Store.Stack()
 }
 
 func cloneSnapshot(s *state.Snapshot) *state.Snapshot {
-	out := state.NewSnapshot(s.Stack, s.DeploymentID)
+	out := state.NewSnapshot(s.Factory, s.Stack)
 	out.Outputs = cloneMap(s.Outputs)
 	out.Entries = make([]*state.Entry, 0, len(s.Entries))
 	for _, ent := range s.Entries {

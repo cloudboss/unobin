@@ -510,7 +510,7 @@ actions: {
 			"echo": {SensitiveOutputs: []string{"echo"}},
 		},
 	}
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	f := parseStack(t, src)
 	store := newStateStore(t)
 	exec := &Executor{
@@ -519,7 +519,7 @@ actions: {
 		Libraries: libs,
 		Inputs:    map[string]any{"message": "shh"},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	applyOnce(t, exec)
 

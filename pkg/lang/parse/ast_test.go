@@ -59,7 +59,7 @@ func TestFieldKeyIsMeta(t *testing.T) {
 func TestFileKindString(t *testing.T) {
 	cases := map[FileKind]string{
 		FileUnknown:      "unknown",
-		FileStack:        "stack",
+		FileFactory:      "factory",
 		FileLibrary:      "library",
 		FileExportedType: "exported-type",
 		FileConfig:       "config",

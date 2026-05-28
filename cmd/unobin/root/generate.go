@@ -12,6 +12,6 @@ var GenerateCmd = &cobra.Command{
 
 func init() {
 	GenerateCmd.AddCommand(generate.GolibraryCmd)
-	GenerateCmd.AddCommand(generate.StackCmd)
+	GenerateCmd.AddCommand(generate.FactoryCmd)
 	GenerateCmd.AddCommand(generate.UblibraryCmd)
 }

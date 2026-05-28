@@ -45,8 +45,8 @@ type compileConfig struct {
 }
 
 func init() {
-	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", "stack.ub",
-		"Path to the stack source.")
+	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", "factory.ub",
+		"Path to the factory source.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "v0.0.0",
 		"Release version to stamp into the built binary.")
@@ -169,7 +169,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	in := codegen.Input{
 		Body:        string(src),
 		LibraryPath: cfg.libraryPath,
-		StackName:   name,
+		FactoryName: name,
 		GoImports:   goImports,
 		UBImports:   ubImports,
 	}
@@ -325,7 +325,7 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName, version string) error {
 		return err
 	}
 
-	ldflags := fmt.Sprintf("-X main.stackVersion=%s -X main.contentRevision=%s",
+	ldflags := fmt.Sprintf("-X main.factoryVersion=%s -X main.contentRevision=%s",
 		version, revision)
 	build := exec.Command(goBin, "build", "-ldflags", ldflags, "-o", binaryName, ".")
 	build.Dir = dir

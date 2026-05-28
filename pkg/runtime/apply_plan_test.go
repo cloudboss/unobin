@@ -68,7 +68,7 @@ func TestDestroyDeletesDependentsFirst(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	withBoth := `
 resources: {
@@ -84,7 +84,7 @@ resources: {
 		DAG:       BuildDAG(parseStack(t, withBoth), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ resources: {
 		DAG:       BuildDAG(parseStack(t, `description: 'gone'`), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err = planAndApply(empty)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestDestroyUsesRecordedConfiguration(t *testing.T) {
 	capture := &cfgCapture{}
 	libs := cfgCapturingModules(capture)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	configurations := map[string]map[string]any{
 		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
 	}
@@ -177,7 +177,7 @@ resources: {
 		Libraries:      libs,
 		Configurations: configurations,
 		Store:          store,
-		Stack:          stack,
+		Factory:        stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -194,7 +194,7 @@ resources: {
 		Libraries:      libs,
 		Configurations: configurations,
 		Store:          store,
-		Stack:          stack,
+		Factory:        stack,
 	}
 	_, err = planAndApply(empty)
 	require.NoError(t, err)
@@ -295,8 +295,8 @@ func requireIncrementalOutputs(t *testing.T, ent *state.Entry, name string, size
 
 func seedIncrementalState(t *testing.T, store *localstate.LocalStore, entries ...*state.Entry) {
 	t.Helper()
-	snap := state.NewSnapshot(state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		store.DeploymentID())
+	snap := state.NewSnapshot(state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		store.Stack())
 	snap.Entries = entries
 	rev, err := store.Write(snap)
 	require.NoError(t, err)
@@ -315,7 +315,7 @@ func applyIncrementalPlan(
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	_, err := planAndApply(exec)
 	return err
@@ -325,7 +325,7 @@ func TestPlanDestroyTearsDownEverything(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	src := `
 resources: {
@@ -345,7 +345,7 @@ outputs: {
 			DAG:       BuildDAG(parseStack(t, src), libs),
 			Libraries: libs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 			Destroy:   destroy,
 		}
 	}
@@ -374,7 +374,7 @@ func applyStack(
 		Libraries: libs,
 		Inputs:    inputs,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -389,7 +389,7 @@ func destroyStack(
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Destroy:   true,
 	}
 	return planAndApply(exec)
@@ -423,7 +423,7 @@ resources: {
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Destroy:   true,
 	}
 	plan, err := exec.Plan(context.Background())
@@ -577,7 +577,7 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Destroy:   true,
 	}
 	plan, err := exec.Plan(context.Background())
@@ -603,7 +603,7 @@ outputs: { said: { value: action.core.echo.inner.echo } }
 		Composites: map[string]*CompositeType{"box": {Name: "box", Body: compositeBody}},
 	}
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	// No leaf resources: only a root action, a library-call record, and
 	// the composite's internal action. This is the shape that used to
 	// plan as "No changes".
@@ -615,7 +615,7 @@ resources: { w: { box: { x: { msg: 'wrapped' } } } }
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -628,7 +628,7 @@ resources: { w: { box: { x: { msg: 'wrapped' } } } }
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 		Destroy:   true,
 	}
 	plan, err := destroyer.Plan(context.Background())
@@ -652,14 +652,14 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	var c resourceCounters
 	libs := resourceModules(&c)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	src := `resources: { core: { thing: { a: { name: 'a', size: 1 } } } }`
 
 	create := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err := planAndApply(create)
 	require.NoError(t, err)
@@ -671,7 +671,7 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 		Destroy:   true,
 	}
 	plan, err := destroyer.Plan(context.Background())
@@ -704,13 +704,13 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -748,14 +748,14 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -799,7 +799,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := testModules()
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -807,8 +807,8 @@ outputs: {
 		Inputs: map[string]any{
 			"names": map[string]any{"alpha": "hello-alpha", "beta": "hello-beta"},
 		},
-		Store: store,
-		Stack: stack,
+		Store:   store,
+		Factory: stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -839,7 +839,7 @@ actions: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var runs int64
 	libs := countingModules(&runs)
 	inputs := map[string]any{
@@ -851,7 +851,7 @@ actions: {
 			Libraries: libs,
 			Inputs:    inputs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		})
 	}
 	apply()
@@ -879,7 +879,7 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := testModules()
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -887,8 +887,8 @@ outputs: {
 		Inputs: map[string]any{
 			"keys": map[string]any{"alpha": "alpha-key", "beta": "beta-key"},
 		},
-		Store: store,
-		Stack: stack,
+		Store:   store,
+		Factory: stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -907,14 +907,14 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1078,15 +1078,15 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Inputs: map[string]any{
 			"configs": map[string]any{"alpha": int64(1), "beta": int64(2)},
 		},
-		Store: store,
-		Stack: stack,
+		Store:   store,
+		Factory: stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -1137,14 +1137,14 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	apply := func(configs map[string]any) {
 		applyOnce(t, &Executor{
 			DAG:       BuildDAG(parseStack(t, src), libs),
 			Libraries: libs,
 			Inputs:    map[string]any{"configs": configs},
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		})
 	}
 	apply(map[string]any{"alpha": true, "beta": true})
@@ -1191,12 +1191,12 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1277,13 +1277,13 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planExec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	plan, err := planExec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1300,7 +1300,7 @@ outputs: {
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res, err := applyExec.ApplyPlan(context.Background(), pf)
 	require.NoError(t, err)
@@ -1354,14 +1354,14 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planAndApply := func(src string) *Plan {
 		exec := &Executor{
 			DAG:       BuildDAG(parseStack(t, src), libs),
 			Libraries: libs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		}
 		plan, err := exec.Plan(context.Background())
 		require.NoError(t, err)
@@ -1437,14 +1437,14 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planExec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Inputs:    map[string]any{"who": "world"},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	plan, err := planExec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1459,7 +1459,7 @@ resources: {
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err = applyExec.ApplyPlan(context.Background(), pf)
 	require.NoError(t, err)
@@ -1506,14 +1506,14 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planAndApply := func(src string) {
 		exec := &Executor{
 			DAG:       BuildDAG(parseStack(t, src), libs),
 			Libraries: libs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		}
 		plan, err := exec.Plan(context.Background())
 		require.NoError(t, err)
@@ -1542,11 +1542,11 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1557,7 +1557,7 @@ resources: {
 
 	// Drift: a separate apply changes state out from under our plan.
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	_, err = exec.ApplyPlan(context.Background(), pf)
@@ -1573,10 +1573,10 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1599,13 +1599,13 @@ resources: {
 func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 	src := `description: 'x'`
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), nil),
 		Libraries: map[string]*Library{},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1615,7 +1615,7 @@ func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply against a different stack identity.
-	exec.Stack = state.StackInfo{Name: "different", Version: "v0", ContentRevision: "c0"}
+	exec.Factory = state.FactoryInfo{Name: "different", Version: "v0", ContentRevision: "c0"}
 	_, err = exec.ApplyPlan(context.Background(), pf)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "different")
@@ -1623,9 +1623,9 @@ func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 
 func TestEncodeDecodePlan(t *testing.T) {
 	plan := &Plan{
-		Stack:        state.StackInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
-		DeploymentID: "prod",
-		StateRev:     "2026-05-01T00:00:00.000000000Z",
+		Factory:  state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
+		Stack:    "prod",
+		StateRev: "2026-05-01T00:00:00.000000000Z",
 		Steps: []*PlanStep{
 			{
 				Address:  "resource.core.thing.x",
@@ -1639,7 +1639,7 @@ func TestEncodeDecodePlan(t *testing.T) {
 	require.NoError(t, err)
 	pf, err := DecodePlan(encoded)
 	require.NoError(t, err)
-	require.Equal(t, plan.Stack.Name, pf.Stack.Name)
+	require.Equal(t, plan.Factory.Name, pf.Factory.Name)
 	require.Equal(t, plan.StateRev, pf.StateRev)
 	require.Equal(t, "resource.core.thing.x", pf.Steps[0].Address)
 	require.Equal(t, DecisionCreate, pf.Steps[0].Decision)
@@ -1665,7 +1665,7 @@ actions: {
 	}
 
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var resCounters resourceCounters
 	var actionRuns int64
 	libs := map[string]*Library{
@@ -1693,7 +1693,7 @@ actions: {
 			DAG:       BuildDAG(parseStack(t, stackSrc), libs),
 			Libraries: libs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		}
 		plan, err := exec.Plan(context.Background())
 		require.NoError(t, err)

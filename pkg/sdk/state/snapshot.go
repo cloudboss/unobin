@@ -53,9 +53,9 @@ type Entry struct {
 	DependsOn []string       `json:"depends-on,omitempty"`
 }
 
-// StackInfo identifies the stack a snapshot belongs to. ContentRevision
+// FactoryInfo identifies the stack a snapshot belongs to. ContentRevision
 // is the content-addressable hash the binary was compiled with.
-type StackInfo struct {
+type FactoryInfo struct {
 	Name            string `json:"name"`
 	Version         string `json:"version"`
 	ContentRevision string `json:"content-revision"`
@@ -66,19 +66,19 @@ type StackInfo struct {
 // one after each successful resource action.
 type Snapshot struct {
 	FormatVersion int            `json:"format-version"`
-	Stack         StackInfo      `json:"stack"`
-	DeploymentID  string         `json:"deployment-id"`
+	Factory       FactoryInfo    `json:"stack"`
+	Stack         string         `json:"deployment-id"`
 	GeneratedAt   time.Time      `json:"generated-at"`
 	Entries       []*Entry       `json:"entries"`
 	Outputs       map[string]any `json:"outputs,omitempty"`
 }
 
 // NewSnapshot returns an empty snapshot at the current schema version.
-func NewSnapshot(stack StackInfo, deploymentID string) *Snapshot {
+func NewSnapshot(stack FactoryInfo, deploymentID string) *Snapshot {
 	return &Snapshot{
 		FormatVersion: CurrentFormatVersion,
-		Stack:         stack,
-		DeploymentID:  deploymentID,
+		Factory:       stack,
+		Stack:         deploymentID,
 		GeneratedAt:   time.Now().UTC(),
 		Entries:       nil,
 	}

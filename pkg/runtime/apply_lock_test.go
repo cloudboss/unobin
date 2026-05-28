@@ -80,7 +80,7 @@ actions: {
 		DAG:         BuildDAG(parseStack(t, src), libs),
 		Libraries:   libs,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
 	}
 	_, err := planAndApply(exec)
@@ -107,7 +107,7 @@ actions: {
 		DAG:         BuildDAG(parseStack(t, src), libs),
 		Libraries:   libs,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
 	}
 	_, err := planAndApply(exec)
@@ -134,7 +134,7 @@ actions: {
 		DAG:         BuildDAG(parseStack(t, src), libs),
 		Libraries:   libs,
 		Store:       newStateStore(t),
-		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
 	}
 	_, err := planAndApply(exec)

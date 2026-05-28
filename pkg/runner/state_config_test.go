@@ -126,7 +126,7 @@ func fakeProviderLibrary() *runtime.Library {
 
 func resolverInfo() Info {
 	return Info{
-		StackName: "test-stack",
+		FactoryName: "test-stack",
 		Libraries: map[string]*runtime.Library{
 			"core": core.Library(),
 			"fake": fakeProviderLibrary(),

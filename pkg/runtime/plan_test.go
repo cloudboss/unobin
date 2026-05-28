@@ -22,7 +22,7 @@ func runPlan(
 		DAG:       BuildDAG(parseStack(t, src), libraries),
 		Libraries: libraries,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ resources: {
 		Libraries: libs,
 		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
 		Store:     newStateStore(t),
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -104,13 +104,13 @@ resources: {
 	var c resourceCounters
 	libs := resourceModules(&c)
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	applyOnce(t, exec)
 
@@ -191,12 +191,12 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, stackSrc), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	applyOnce(t, exec)
 
@@ -230,9 +230,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	plan := runPlan(t, src, libs, store)
@@ -253,9 +253,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	plan := runPlan(t, second, libs, store)
@@ -276,9 +276,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	plan := runPlan(t, second, libs, store)
@@ -294,9 +294,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	c.readFn = func(prior any) (any, error) {
@@ -323,9 +323,9 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	prior := state.NewSnapshot(stack, store.DeploymentID())
+	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
@@ -381,9 +381,9 @@ resources: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	prior := state.NewSnapshot(stack, store.DeploymentID())
+	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
@@ -416,7 +416,7 @@ resources: {
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err = exec.Plan(context.Background())
 	require.Error(t, err)
@@ -470,7 +470,7 @@ resources: {
 		Libraries: libs,
 		Source:    f,
 		Store:     newStateStore(t),
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -528,9 +528,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
@@ -563,9 +563,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	plan := runPlan(t, second, libs, store)
@@ -593,9 +593,9 @@ actions: {
 		},
 	}
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	plan := runPlan(t, second, libs, store)
@@ -617,9 +617,9 @@ actions: {
 		},
 	}
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	plan := runPlan(t, src, libs, store)
@@ -629,12 +629,12 @@ actions: {
 func TestPlanRecordsStateRev(t *testing.T) {
 	src := `description: 'x'`
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
 		DAG:       BuildDAG(parseStack(t, src), nil),
 		Libraries: map[string]*Library{},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	})
 
 	plan := runPlan(t, src, map[string]*Library{}, store)
@@ -660,9 +660,9 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	const delay = 150 * time.Millisecond
@@ -675,7 +675,7 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 		DAG:         BuildDAG(parseStack(t, src), libs),
 		Libraries:   libs,
 		Store:       store,
-		Stack:       stack,
+		Factory:     stack,
 		Parallelism: n,
 	}
 	start := time.Now()
@@ -695,9 +695,9 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	const delay = 80 * time.Millisecond
@@ -710,7 +710,7 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 		DAG:         BuildDAG(parseStack(t, src), libs),
 		Libraries:   libs,
 		Store:       store,
-		Stack:       stack,
+		Factory:     stack,
 		Parallelism: 1,
 	}
 	start := time.Now()
@@ -730,16 +730,16 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	wantErr := errors.New("cloud is unwell")
 	c.readFn = func(any) (any, error) { return nil, wantErr }
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
 	}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)

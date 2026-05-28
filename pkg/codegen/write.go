@@ -41,7 +41,7 @@ func WriteSource(
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), source, 0o644); err != nil {
 		return err
 	}
-	lib, err := renderGoMod(in.StackName, goVersion, unobinVersion,
+	lib, err := renderGoMod(in.FactoryName, goVersion, unobinVersion,
 		in.GoImports, importVersions, replaces)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func WriteSource(
 }
 
 func renderGoMod(
-	stackName, goVersion, unobinVersion string,
+	factoryName, goVersion, unobinVersion string,
 	goImports, importVersions map[string]string,
 	replaces Replaces,
 ) ([]byte, error) {
@@ -67,7 +67,7 @@ func renderGoMod(
 	}
 
 	var b []byte
-	b = append(b, "module "+stackName+"\n\n"...)
+	b = append(b, "module "+factoryName+"\n\n"...)
 	b = append(b, "go "+goVersion+"\n\n"...)
 	b = append(b, "require (\n"...)
 	b = append(b, "\tgithub.com/cloudboss/unobin "+unobinVersion+"\n"...)

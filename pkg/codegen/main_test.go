@@ -11,8 +11,8 @@ import (
 
 func TestGenerateValidGo(t *testing.T) {
 	out, err := Generate(Input{
-		Body:      "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
-		StackName: "demo",
+		Body:        "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
+		FactoryName: "demo",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
@@ -24,10 +24,10 @@ func TestGenerateValidGo(t *testing.T) {
 	require.NoError(t, err, "generated source should parse:\n%s", string(out))
 }
 
-func TestGenerateEmbedsStackName(t *testing.T) {
+func TestGenerateEmbedsFactoryName(t *testing.T) {
 	out, err := Generate(Input{
-		Body:      "description: 'x'\n",
-		StackName: "my-stack",
+		Body:        "description: 'x'\n",
+		FactoryName: "my-factory",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
@@ -35,13 +35,13 @@ func TestGenerateEmbedsStackName(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, `stackName        = "my-stack"`)
+	require.Contains(t, s, `factoryName        = "my-factory"`)
 }
 
 func TestGenerateDeclaresStampVars(t *testing.T) {
 	out, err := Generate(Input{
-		Body:      "description: 'x'\n",
-		StackName: "my-stack",
+		Body:        "description: 'x'\n",
+		FactoryName: "my-factory",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
@@ -49,15 +49,15 @@ func TestGenerateDeclaresStampVars(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, "var (\n\tstackVersion    string\n\tcontentRevision string\n)")
+	require.Contains(t, s, "var (\n\tfactoryVersion  string\n\tcontentRevision string\n)")
 }
 
 func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 	src := "actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"
 	out, err := Generate(Input{
-		Body:      src,
-		StackName: "x",
-		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/libraries/core"},
+		Body:        src,
+		FactoryName: "x",
+		GoImports:   map[string]string{"core": "github.com/cloudboss/unobin/pkg/libraries/core"},
 	})
 	require.NoError(t, err)
 
@@ -66,8 +66,8 @@ func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 
 func TestGenerateOrdersImports(t *testing.T) {
 	out, err := Generate(Input{
-		Body:      "description: 'x'\n",
-		StackName: "x",
+		Body:        "description: 'x'\n",
+		FactoryName: "x",
 		GoImports: map[string]string{
 			"net":  "github.com/me/libraries/network",
 			"aws":  "github.com/cloudboss/unobin-libraries/aws",
@@ -86,19 +86,19 @@ func TestGenerateOrdersImports(t *testing.T) {
 	require.Less(t, coreAt, netAt, "core should appear before net")
 }
 
-func TestGenerateRequiresStackName(t *testing.T) {
+func TestGenerateRequiresFactoryName(t *testing.T) {
 	_, err := Generate(Input{
 		Body:      "description: 'x'",
 		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/libraries/core"},
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "StackName")
+	require.Contains(t, err.Error(), "FactoryName")
 }
 
 func TestGenerateImportsAndCallsUBLibraries(t *testing.T) {
 	out, err := Generate(Input{
-		Body:      "description: 'x'",
-		StackName: "demo",
+		Body:        "description: 'x'",
+		FactoryName: "demo",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
@@ -121,24 +121,24 @@ import (
 )
 
 const (
-	stackBody        = "description: 'x'"
-	stackLibraryPath = ""
-	stackName        = "demo"
+	factoryBody        = "description: 'x'"
+	factoryLibraryPath = ""
+	factoryName        = "demo"
 )
 
 // Stamped at link time via -ldflags.
 var (
-	stackVersion    string
+	factoryVersion  string
 	contentRevision string
 )
 
 func main() {
 	runner.Run(runner.Info{
-		StackName:       stackName,
-		StackVersion:    stackVersion,
+		FactoryName:     factoryName,
+		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		StackBody:       stackBody,
-		LibraryPath:     stackLibraryPath,
+		FactoryBody:     factoryBody,
+		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"core":    lib_core.Library(),
 			"cluster": lib_cluster.Library(),
@@ -152,8 +152,8 @@ func main() {
 
 func TestGenerateBuildsLibrariesMap(t *testing.T) {
 	out, err := Generate(Input{
-		Body:      "description: 'x'",
-		StackName: "x",
+		Body:        "description: 'x'",
+		FactoryName: "x",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 			"aws":  "github.com/cloudboss/unobin-libraries/aws",

@@ -478,8 +478,8 @@ func encodeTypeOptional(b *strings.Builder, n *lang.TypeOptional) error {
 
 func fileKindIdent(k lang.FileKind) string {
 	switch k {
-	case lang.FileStack:
-		return "lang.FileStack"
+	case lang.FileFactory:
+		return "lang.FileFactory"
 	case lang.FileLibrary:
 		return "lang.FileLibrary"
 	case lang.FileExportedType:

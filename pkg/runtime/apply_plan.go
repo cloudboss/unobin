@@ -18,13 +18,13 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
-	if pf.Stack.Name != e.Stack.Name ||
-		pf.Stack.Version != e.Stack.Version ||
-		pf.Stack.ContentRevision != e.Stack.ContentRevision {
+	if pf.Factory.Name != e.Factory.Name ||
+		pf.Factory.Version != e.Factory.Version ||
+		pf.Factory.ContentRevision != e.Factory.ContentRevision {
 		return nil, fmt.Errorf(
 			"plan was computed for %s %s (content-revision %s), this binary is %s %s (content-revision %s)",
-			pf.Stack.Name, pf.Stack.Version, pf.Stack.ContentRevision,
-			e.Stack.Name, e.Stack.Version, e.Stack.ContentRevision)
+			pf.Factory.Name, pf.Factory.Version, pf.Factory.ContentRevision,
+			e.Factory.Name, e.Factory.Version, e.Factory.ContentRevision)
 	}
 
 	lock, err := e.Store.Lock(ctx)

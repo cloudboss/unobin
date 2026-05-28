@@ -74,7 +74,7 @@ func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, 
 		Libraries: libs,
 		Inputs:    inputs,
 		Store:     newStateStore(t),
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return planAndApply(exec)
 }
@@ -306,12 +306,12 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["out"])
@@ -362,7 +362,7 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -373,8 +373,8 @@ outputs: {
 				"beta":  int64(2),
 			},
 		},
-		Store: store,
-		Stack: stack,
+		Store:   store,
+		Factory: stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
@@ -407,7 +407,7 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	runOnce := func(configs map[string]any) {
 		exec := &Executor{
@@ -415,7 +415,7 @@ resources: {
 			Libraries: libs,
 			Inputs:    map[string]any{"configs": configs},
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		}
 		applyOnce(t, exec)
 	}
@@ -450,14 +450,14 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Inputs:    map[string]any{"items": []any{"a", "b"}},
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)
@@ -492,12 +492,12 @@ resources: { wrapper: { layer: { x: { name: 'hi' } } } }
 outputs: { out: { value: resource.wrapper.layer.x.shout } }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), rootMods),
 		Libraries: rootMods,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "HI", res.Outputs["out"])
@@ -547,12 +547,12 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), rootMods),
 		Libraries: rootMods,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err,
@@ -615,12 +615,12 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "alpha", res.Outputs["out"],
@@ -714,12 +714,12 @@ outputs: {
 }
 `
 		store := newStateStore(t)
-		stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := &Executor{
 			DAG:       BuildDAG(parseStack(t, src), libs),
 			Libraries: libs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		}
 		res := applyOnce(t, exec)
 		require.Equal(t, "beta", res.Outputs["out"])
@@ -756,12 +756,12 @@ outputs: {
 }
 `
 		store := newStateStore(t)
-		stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := &Executor{
 			DAG:       BuildDAG(parseStack(t, src), libs),
 			Libraries: libs,
 			Store:     store,
-			Stack:     stack,
+			Factory:   stack,
 		}
 		_, err := planAndApply(exec)
 		require.Error(t, err,
@@ -805,12 +805,12 @@ outputs: {
 }
 `
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "looked-up:banana", res.Outputs["result"])
@@ -848,13 +848,13 @@ outputs: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     stack,
+		Factory:   stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["id"])
@@ -893,14 +893,14 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
@@ -924,14 +924,14 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates),
@@ -964,14 +964,14 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Factory: stack,
 	})
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
@@ -1046,11 +1046,11 @@ func runExecutorTwice(
 ) (*ExecResult, *ExecResult) {
 	t.Helper()
 	store := newStateStore(t)
-	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g := BuildDAG(parseStack(t, src), libraries)
 
-	first := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Stack: stack})
-	second := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Stack: stack})
+	first := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Factory: stack})
+	second := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Factory: stack})
 	return first, second
 }
 
@@ -1080,7 +1080,7 @@ actions: {
 `), libs),
 		Libraries: libs,
 		Store:     store,
-		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res := applyOnce(t, exec)
 	require.NotEmpty(t, res.WrittenRev)

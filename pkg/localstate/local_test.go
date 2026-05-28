@@ -25,8 +25,8 @@ func TestLocalStorePathLayout(t *testing.T) {
 	s, err := NewLocalStore(root, "cluster-deploy", "prod", envencrypt.Noop{})
 	require.NoError(t, err)
 	require.Equal(t, root, s.Root)
-	require.Equal(t, "cluster-deploy", s.Stack)
-	require.Equal(t, "prod", s.DeploymentID())
+	require.Equal(t, "cluster-deploy", s.Factory)
+	require.Equal(t, "prod", s.Stack())
 
 	rev, err := s.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestLocalStoreSiblingDeploymentsIsolated(t *testing.T) {
 	require.NoError(t, err)
 
 	prodSnap := sampleSnapshot()
-	prodSnap.DeploymentID = "prod"
+	prodSnap.Stack = "prod"
 	rev, err := a.Write(prodSnap)
 	require.NoError(t, err)
 	require.NoError(t, a.SetCurrent(rev))
@@ -159,12 +159,12 @@ func TestLocalStoreListChronological(t *testing.T) {
 	require.Empty(t, mustList(t, s))
 
 	first := sampleSnapshot()
-	first.DeploymentID = "first"
+	first.Stack = "first"
 	a, err := s.Write(first)
 	require.NoError(t, err)
 
 	second := sampleSnapshot()
-	second.DeploymentID = "second"
+	second.Stack = "second"
 	b, err := s.Write(second)
 	require.NoError(t, err)
 
@@ -176,19 +176,19 @@ func TestLocalStoreCurrentSurvivesNewWrites(t *testing.T) {
 	s := newStore(t)
 
 	first := sampleSnapshot()
-	first.DeploymentID = "first"
+	first.Stack = "first"
 	rev, err := s.Write(first)
 	require.NoError(t, err)
 	require.NoError(t, s.SetCurrent(rev))
 
 	second := sampleSnapshot()
-	second.DeploymentID = "second"
+	second.Stack = "second"
 	_, err = s.Write(second)
 	require.NoError(t, err)
 
 	got, err := s.Current()
 	require.NoError(t, err)
-	require.Equal(t, "first", got.DeploymentID)
+	require.Equal(t, "first", got.Stack)
 }
 
 func mustList(t *testing.T, s *LocalStore) []string {
