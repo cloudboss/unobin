@@ -41,9 +41,9 @@ func promoteAtomic(id *Ident) (TypeExpr, error) {
 }
 
 func promoteCall(c *Call) (TypeExpr, error) {
-	if c.Module != nil {
+	if c.Library != nil {
 		return nil, Errorf(ErrType, c.S.Start,
-			"module-qualified call %s.%s is not a type expression", c.Module.Name, c.Func.Name)
+			"library-qualified call %s.%s is not a type expression", c.Library.Name, c.Func.Name)
 	}
 	name := c.Callee.Name
 	switch name {

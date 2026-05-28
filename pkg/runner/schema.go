@@ -91,8 +91,8 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 
 func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
 	fmt.Fprintln(out, "stack: {")
-	if info.ModulePath != "" {
-		fmt.Fprintf(out, "  module-path: '%s'\n", info.ModulePath)
+	if info.LibraryPath != "" {
+		fmt.Fprintf(out, "  library-path: '%s'\n", info.LibraryPath)
 	}
 	fmt.Fprintf(out,
 		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",

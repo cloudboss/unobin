@@ -20,10 +20,10 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	c.readFn = func(prior any) (any, error) {
@@ -35,7 +35,7 @@ resources: {
 	}
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -58,16 +58,16 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -88,17 +88,17 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG:     BuildDAG(parseStack(t, src), testModules()),
-		Modules: testModules(),
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), testModules()),
+		Libraries: testModules(),
+		Store:     store,
+		Stack:     stack,
 	})
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), testModules()),
-		Modules: testModules(),
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), testModules()),
+		Libraries: testModules(),
+		Store:     store,
+		Stack:     stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -119,10 +119,10 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	held, err := store.Lock(context.Background())
@@ -130,7 +130,7 @@ resources: {
 	t.Cleanup(func() { _ = held.Unlock() })
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -152,11 +152,11 @@ resources: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
-			"box": {Name: "box", Body: compositeBody, Modules: mods},
+			"box": {Name: "box", Body: compositeBody, Libraries: libs},
 		},
 	}
 	src := `
@@ -167,7 +167,7 @@ resources: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	c.readFn = func(prior any) (any, error) {
@@ -179,7 +179,7 @@ resources: {
 	}
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)
@@ -210,10 +210,10 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src.String()), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src.String()), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	const delay = 150 * time.Millisecond
@@ -223,8 +223,8 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	}
 
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src.String()), libs),
+		Libraries:   libs,
 		Store:       store,
 		Stack:       stack,
 		Parallelism: n,
@@ -243,9 +243,9 @@ func TestRefreshNoPriorState(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
-		Modules: map[string]*Module{},
-		Store:   store, Stack: stack,
+		DAG:       BuildDAG(parseStack(t, `description: 'x'`), nil),
+		Libraries: map[string]*Library{},
+		Store:     store, Stack: stack,
 	}
 	res, err := exec.Refresh(context.Background())
 	require.NoError(t, err)

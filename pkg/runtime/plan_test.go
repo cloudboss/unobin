@@ -15,14 +15,14 @@ import (
 )
 
 func runPlan(
-	t *testing.T, src string, modules map[string]*Module, store *localstate.LocalStore,
+	t *testing.T, src string, libraries map[string]*Library, store *localstate.LocalStore,
 ) *Plan {
 	t.Helper()
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), modules),
-		Modules: modules,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       BuildDAG(parseStack(t, src), libraries),
+		Libraries: libraries,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -60,13 +60,13 @@ resources: {
 }
 `
 	var c resourceCounters
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
-		Store:   newStateStore(t),
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:     newStateStore(t),
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -102,15 +102,15 @@ resources: {
 }
 `
 	var c resourceCounters
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:     store,
+		Stack:     stack,
 	}
 	applyOnce(t, exec)
 
@@ -135,8 +135,8 @@ resources: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"pair": {Name: "pair", Body: composite},
@@ -147,7 +147,7 @@ resources: {
   w: { pair: { x: { name: 'alpha' } } }
 }
 `
-	plan := runPlan(t, stackSrc, mods, newStateStore(t))
+	plan := runPlan(t, stackSrc, libs, newStateStore(t))
 
 	boundary := stepFor(plan, "resource.w.pair.x")
 	require.NotNil(t, boundary)
@@ -178,8 +178,8 @@ outputs: {
   said: { value: action.core.echo.say.echo }
 }
 `)
-	mods := testModules()
-	mods["w"] = &Module{
+	libs := testModules()
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
@@ -193,14 +193,14 @@ resources: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, stackSrc), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, stackSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	applyOnce(t, exec)
 
-	plan := runPlan(t, stackSrc, mods, store)
+	plan := runPlan(t, stackSrc, libs, store)
 	step := stepFor(plan, "resource.w.box.x/action.core.echo.say")
 	require.NotNil(t, step,
 		"internal action should appear as a plan step under its composite-prefixed address")
@@ -229,13 +229,13 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
-	plan := runPlan(t, src, mods, store)
+	plan := runPlan(t, src, libs, store)
 	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.core.thing.one"))
 }
 
@@ -252,13 +252,13 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
-	plan := runPlan(t, second, mods, store)
+	plan := runPlan(t, second, libs, store)
 	require.Equal(t, DecisionUpdate, decisionFor(plan, "resource.core.thing.one"))
 }
 
@@ -275,13 +275,13 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
-	plan := runPlan(t, second, mods, store)
+	plan := runPlan(t, second, libs, store)
 	require.Equal(t, DecisionReplace, decisionFor(plan, "resource.core.thing.one"))
 }
 
@@ -293,10 +293,10 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	c.readFn = func(prior any) (any, error) {
@@ -307,7 +307,7 @@ resources: {
 		return out, nil
 	}
 
-	plan := runPlan(t, src, mods, store)
+	plan := runPlan(t, src, libs, store)
 	step := stepFor(plan, "resource.core.thing.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionUpdate, step.Decision,
@@ -339,7 +339,7 @@ resources: {
 	require.NoError(t, store.SetCurrent(rev))
 
 	var c resourceCounters
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -360,7 +360,7 @@ resources: {
 		return prior, nil
 	}
 
-	plan := runPlan(t, src, mods, store)
+	plan := runPlan(t, src, libs, store)
 	step := stepFor(plan, "resource.core.thing.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionNoOp, step.Decision)
@@ -397,7 +397,7 @@ resources: {
 	require.NoError(t, store.SetCurrent(rev))
 
 	var c resourceCounters
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -413,10 +413,10 @@ resources: {
 	}
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err = exec.Plan(context.Background())
 	require.Error(t, err)
@@ -464,13 +464,13 @@ resources: {
 `
 	f := parseStack(t, src)
 	var c resourceCounters
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(f, mods),
-		Modules: mods,
-		Source:  f,
-		Store:   newStateStore(t),
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       BuildDAG(f, libs),
+		Libraries: libs,
+		Source:    f,
+		Store:     newStateStore(t),
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -527,15 +527,15 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
-	plan := runPlan(t, src, mods, store)
+	plan := runPlan(t, src, libs, store)
 	step := stepFor(plan, "resource.core.thing.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionCreate, step.Decision,
@@ -562,13 +562,13 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
-	plan := runPlan(t, second, mods, store)
+	plan := runPlan(t, second, libs, store)
 	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.core.thing.keep"))
 	require.Equal(t, DecisionDestroy, decisionFor(plan, "resource.core.thing.orph"))
 }
@@ -584,7 +584,7 @@ actions: {
   core: { echo: { hi: { echo: 'two' } } }
 }
 `
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
@@ -595,10 +595,10 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
-	plan := runPlan(t, second, mods, store)
+	plan := runPlan(t, second, libs, store)
 	require.Equal(t, DecisionRerun, decisionFor(plan, "action.core.echo.hi"))
 }
 
@@ -608,7 +608,7 @@ actions: {
   core: { echo: { hi: { echo: 'same' } } }
 }
 `
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
@@ -619,10 +619,10 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
-	plan := runPlan(t, src, mods, store)
+	plan := runPlan(t, src, libs, store)
 	require.Equal(t, DecisionSkip, decisionFor(plan, "action.core.echo.hi"))
 }
 
@@ -631,13 +631,13 @@ func TestPlanRecordsStateRev(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG:     BuildDAG(parseStack(t, src), nil),
-		Modules: map[string]*Module{},
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), nil),
+		Libraries: map[string]*Library{},
+		Store:     store,
+		Stack:     stack,
 	})
 
-	plan := runPlan(t, src, map[string]*Module{}, store)
+	plan := runPlan(t, src, map[string]*Library{}, store)
 	require.NotEmpty(t, plan.StateRev)
 }
 
@@ -659,10 +659,10 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	const delay = 150 * time.Millisecond
@@ -672,8 +672,8 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 	}
 
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       store,
 		Stack:       stack,
 		Parallelism: n,
@@ -694,10 +694,10 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	const delay = 80 * time.Millisecond
@@ -707,8 +707,8 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 	}
 
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       store,
 		Stack:       stack,
 		Parallelism: 1,
@@ -729,17 +729,17 @@ resources: {
 `
 	var c resourceCounters
 	store := newStateStore(t)
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	wantErr := errors.New("cloud is unwell")
 	c.readFn = func(any) (any, error) { return nil, wantErr }
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)

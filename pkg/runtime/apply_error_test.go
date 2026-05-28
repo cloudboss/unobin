@@ -10,7 +10,7 @@ import (
 )
 
 func TestApplyErrorPopulatesFailureFields(t *testing.T) {
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -28,8 +28,8 @@ resources: {
 }
 `
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,
@@ -42,13 +42,13 @@ resources: {
 	assert.Equal(t, "resource.slow.fail.boom", ae.Address)
 	assert.Equal(t, NodeResource, ae.Kind)
 	assert.Equal(t, DecisionCreate, ae.Decision)
-	assert.Equal(t, "slow", ae.Module)
+	assert.Equal(t, "slow", ae.Library)
 	assert.NotNil(t, ae.Err)
 	assert.Contains(t, ae.Err.Error(), "slow-fail")
 }
 
 func TestApplyErrorCountsSkippedAndSucceeded(t *testing.T) {
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -74,8 +74,8 @@ resources: {
 }
 `
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,

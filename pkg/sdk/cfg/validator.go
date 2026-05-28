@@ -1,6 +1,6 @@
 package cfg
 
-// Validator runs after decode to check that a value meets a module
+// Validator runs after decode to check that a value meets a library
 // author's constraints. Describe returns a structured form so the
 // schema commands and editor tooling can render the constraint
 // declaratively rather than as an opaque function.

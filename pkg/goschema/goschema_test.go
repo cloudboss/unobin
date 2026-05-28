@@ -74,13 +74,13 @@ func TestReadDerivesKebabFromFieldNameWhenTagAbsent(t *testing.T) {
 
 func TestReadWarnsWhenOutputTypeMissing(t *testing.T) {
 	dir := t.TempDir()
-	src := []byte(`package mod
+	src := []byte(`package lib
 
 import "github.com/cloudboss/unobin/pkg/runtime"
 
-func Module() *runtime.Module {
-	return &runtime.Module{
-		Name: "mod",
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput](),
 		},
@@ -89,7 +89,7 @@ func Module() *runtime.Module {
 
 type Thing struct{}
 `)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "module.go"), src, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"), src, 0o644))
 
 	schema, warnings, err := Read(dir)
 	require.NoError(t, err)

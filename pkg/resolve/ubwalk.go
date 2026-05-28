@@ -9,7 +9,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// UBKey is the dedup key for a UB-module import. Remote imports key on
+// UBKey is the dedup key for a UB-library import. Remote imports key on
 // URL, subdir, and version; the `//<subdir>` segment is included only
 // when the import names a subdirectory, so root-of-repo refs read
 // cleanly in cycle errors and other diagnostics. Local imports key on
@@ -32,11 +32,11 @@ func UBKey(ref ImportRef) string {
 type ResolutionKind int
 
 const (
-	// ResolutionGo names a Go-module import: a remote ref with no
-	// module.ub at the root of its resolved source.
+	// ResolutionGo names a Go-library import: a remote ref with no
+	// library.ub at the root of its resolved source.
 	ResolutionGo ResolutionKind = iota + 1
-	// ResolutionUB names a UB-module import: a ref whose resolved
-	// source has a module.ub at the root.
+	// ResolutionUB names a UB-library import: a ref whose resolved
+	// source has a library.ub at the root.
 	ResolutionUB
 )
 
@@ -44,7 +44,7 @@ const (
 // imports, Path is the canonical Go-import path (URL plus subdir when
 // present) and Version is the pinned version. For UB imports,
 // CanonicalKey is the dedup key (see UBKey) and visitors look up their
-// per-module state by that key. SourcePath is the on-disk directory
+// per-library state by that key. SourcePath is the on-disk directory
 // where the resolver fetched the import, useful for compile-time
 // inspection.
 type Resolution struct {
@@ -57,12 +57,12 @@ type Resolution struct {
 	SourcePath   string
 }
 
-// UBModule carries everything the visitor needs about a UB module the
-// first time the walker reaches it. Manifest is the parsed module.ub.
+// UBLibrary carries everything the visitor needs about a UB library the
+// first time the walker reaches it. Manifest is the parsed library.ub.
 // Bodies maps export name to the parsed body file. BodyImports maps
 // export name to the resolved imports declared by that body, in
 // alias-sorted order so callers see a stable view across runs.
-type UBModule struct {
+type UBLibrary struct {
 	Manifest    *lang.File
 	Bodies      map[string]*lang.File
 	BodyImports map[string][]Resolution
@@ -72,28 +72,28 @@ type UBModule struct {
 // import graph. The walker invokes its methods as it descends.
 type UBVisitor interface {
 	// OnGoImport is called for every site whose import resolves to a
-	// Go module. May fire multiple times with the same path when the
-	// same module is imported from several sites; visitors that need
+	// Go library. May fire multiple times with the same path when the
+	// same library is imported from several sites; visitors that need
 	// uniqueness dedup themselves.
 	OnGoImport(alias, path, version string) error
-	// OnUBModule is called once per canonical key. alias is the local
-	// alias of whichever site first reached the module (which matters
+	// OnUBLibrary is called once per canonical key. alias is the local
+	// alias of whichever site first reached the library (which matters
 	// when the visitor names a directory or package after it).
-	OnUBModule(alias, canonicalKey string, ref ImportRef, mod *UBModule) error
+	OnUBLibrary(alias, canonicalKey string, ref ImportRef, lib *UBLibrary) error
 }
 
-// WalkUB walks refs and every UB module they transitively reach,
+// WalkUB walks refs and every UB library they transitively reach,
 // invoking the visitor for each import. The returned slice mirrors
 // refs in resolved form, alias-sorted, so callers can build their own
 // alias-to-resolution map without per-site visitor callbacks. Cycles
-// through UB modules are reported as errors.
+// through UB libraries are reported as errors.
 func WalkUB(
 	refs map[string]ImportRef, resolver Resolver, v UBVisitor,
 ) ([]Resolution, error) {
 	w := &ubWalker{
 		resolver:   resolver,
 		visitor:    v,
-		parsed:     map[string]*UBModule{},
+		parsed:     map[string]*UBLibrary{},
 		inProgress: map[string]bool{},
 	}
 	return w.walkRefs(refs)
@@ -102,7 +102,7 @@ func WalkUB(
 type ubWalker struct {
 	resolver   Resolver
 	visitor    UBVisitor
-	parsed     map[string]*UBModule
+	parsed     map[string]*UBLibrary
 	inProgress map[string]bool
 }
 
@@ -124,7 +124,7 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef) (Resolution, error) {
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	if !IsUBModule(source) {
+	if !IsUBLibrary(source) {
 		return w.handleGoImport(alias, ref, source)
 	}
 	return w.handleUBImport(alias, ref, source)
@@ -136,7 +136,7 @@ func (w *ubWalker) handleGoImport(
 	r, ok := ref.(*RemoteImport)
 	if !ok {
 		return Resolution{}, fmt.Errorf(
-			"import %q: local source has no module.ub", alias)
+			"import %q: local source has no library.ub", alias)
 	}
 	path := r.URL
 	if r.Subdir != "" {
@@ -173,13 +173,13 @@ func (w *ubWalker) handleUBImport(
 	w.inProgress[key] = true
 	defer delete(w.inProgress, key)
 
-	mod, err := w.parseModule(source)
+	lib, err := w.parseLibrary(source)
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	mod.BodyImports = map[string][]Resolution{}
-	for _, name := range sortedBodyNames(mod.Bodies) {
-		body := mod.Bodies[name]
+	lib.BodyImports = map[string][]Resolution{}
+	for _, name := range sortedBodyNames(lib.Bodies) {
+		body := lib.Bodies[name]
 		bodyRefs, errs := ExtractImports(body)
 		if len(errs) > 0 {
 			return Resolution{}, errors.Join(errs...)
@@ -189,10 +189,10 @@ func (w *ubWalker) handleUBImport(
 			return Resolution{}, fmt.Errorf(
 				"import %q: composite %q: %w", alias, name, err)
 		}
-		mod.BodyImports[name] = resols
+		lib.BodyImports[name] = resols
 	}
-	w.parsed[key] = mod
-	if err := w.visitor.OnUBModule(alias, key, ref, mod); err != nil {
+	w.parsed[key] = lib
+	if err := w.visitor.OnUBLibrary(alias, key, ref, lib); err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
 	return Resolution{
@@ -203,16 +203,16 @@ func (w *ubWalker) handleUBImport(
 	}, nil
 }
 
-func (w *ubWalker) parseModule(source *Source) (*UBModule, error) {
-	manifestBytes, err := readSourceFile(source, "module.ub")
+func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
+	manifestBytes, err := readSourceFile(source, "library.ub")
 	if err != nil {
-		return nil, fmt.Errorf("read module.ub: %w", err)
+		return nil, fmt.Errorf("read library.ub: %w", err)
 	}
-	manifest, err := lang.ParseSource("module.ub", manifestBytes)
+	manifest, err := lang.ParseSource("library.ub", manifestBytes)
 	if err != nil {
 		return nil, err
 	}
-	manifest.Kind = lang.FileModule
+	manifest.Kind = lang.FileLibrary
 	if errs := lang.ValidateFile(manifest); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
@@ -236,7 +236,7 @@ func (w *ubWalker) parseModule(source *Source) (*UBModule, error) {
 		}
 		bodies[name] = f
 	}
-	return &UBModule{Manifest: manifest, Bodies: bodies}, nil
+	return &UBLibrary{Manifest: manifest, Bodies: bodies}, nil
 }
 
 func readSourceFile(s *Source, name string) ([]byte, error) {

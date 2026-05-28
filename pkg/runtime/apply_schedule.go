@@ -87,15 +87,15 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			})
 			failedAddrs[r.step.Address] = true
 			if firstErr == nil {
-				module := ""
+				library := ""
 				if n, ok := e.DAG.Nodes[templateAddress(r.step.Address)]; ok {
-					module = n.NS
+					library = n.NS
 				}
 				firstFail = &ApplyError{
 					Address:  r.step.Address,
 					Kind:     r.step.Kind,
 					Decision: r.step.Decision,
-					Module:   module,
+					Library:  library,
 					Elapsed:  elapsed,
 					Err:      r.err,
 				}

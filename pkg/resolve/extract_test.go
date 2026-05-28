@@ -23,7 +23,7 @@ func TestExtractImportsHappy(t *testing.T) {
 imports: {
   aws:   'github.com/x/y@v1.0.0'
   net:   'github.com/x/y//net@v1.0.0'
-  local: './local-mod'
+  local: './local-lib'
 }
 `)
 	refs, errs := ExtractImports(f)
@@ -39,7 +39,7 @@ imports: {
 	require.Equal(t, "net", net.Subdir)
 
 	local := refs["local"].(*LocalImport)
-	require.Equal(t, "./local-mod", local.Path)
+	require.Equal(t, "./local-lib", local.Path)
 }
 
 func TestExtractImportsAbsentBlock(t *testing.T) {
@@ -79,14 +79,14 @@ imports: {
 
 func TestResolveImportsLocal(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "modules", "net"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "libraries", "net"), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(root, "modules", "net", "module.ub"),
+		filepath.Join(root, "libraries", "net", "library.ub"),
 		[]byte("description: 'net'\n"), 0o644))
 
 	f := parseStack(t, `
 imports: {
-  net: './modules/net'
+  net: './libraries/net'
 }
 `)
 	resolved, errs := ResolveImports(f, NewLocalResolver(root))
@@ -96,7 +96,7 @@ imports: {
 	got := resolved["net"]
 	require.NotNil(t, got)
 	require.NotNil(t, got.Source)
-	require.True(t, IsUBModule(got.Source))
+	require.True(t, IsUBLibrary(got.Source))
 }
 
 func TestResolveImportsPropagatesResolverErrors(t *testing.T) {

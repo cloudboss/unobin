@@ -55,7 +55,7 @@ func doPin(
 	if err != nil {
 		return err
 	}
-	updated, action, err := pinFile(src, info.ModulePath, version, revision)
+	updated, action, err := pinFile(src, info.LibraryPath, version, revision)
 	if err != nil {
 		return fmt.Errorf("config %s: %w", configPath, err)
 	}
@@ -76,33 +76,33 @@ func doPin(
 // short human-readable action describing what changed; the returned
 // action is pinActionAlreadyPinned when the entry was already present
 // and the source bytes are unchanged.
-func pinFile(src []byte, modulePath, version, revision string) ([]byte, string, error) {
+func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
 	f, err := lang.ParseSource("config.ub", src)
 	if err != nil {
 		return nil, "", err
 	}
 	stackField := findField(f.Body, "stack")
 	if stackField == nil {
-		return prependStackBlock(src, modulePath, version, revision)
+		return prependStackBlock(src, libraryPath, version, revision)
 	}
 	stackObj, ok := stackField.Value.(*lang.ObjectLit)
 	if !ok {
 		return nil, "", fmt.Errorf("`stack:` must be an object")
 	}
-	if mp := findField(stackObj, "module-path"); mp != nil {
+	if mp := findField(stackObj, "library-path"); mp != nil {
 		existing, ok := mp.Value.(*lang.StringLit)
 		if !ok {
-			return nil, "", fmt.Errorf("`stack.module-path` must be a string")
+			return nil, "", fmt.Errorf("`stack.library-path` must be a string")
 		}
-		if modulePath != "" && existing.Value != modulePath {
+		if libraryPath != "" && existing.Value != libraryPath {
 			return nil, "", fmt.Errorf(
-				"stack.module-path %q does not match this binary %q",
-				existing.Value, modulePath)
+				"stack.library-path %q does not match this binary %q",
+				existing.Value, libraryPath)
 		}
 	}
 	svField := findField(stackObj, "supported-versions")
 	if svField == nil {
-		return fillStackBlock(src, stackObj, modulePath, version, revision)
+		return fillStackBlock(src, stackObj, libraryPath, version, revision)
 	}
 	svArr, ok := svField.Value.(*lang.ArrayLit)
 	if !ok {
@@ -116,8 +116,8 @@ func pinFile(src []byte, modulePath, version, revision string) ([]byte, string, 
 	return appendVersionEntry(src, svField, svArr, version, revision)
 }
 
-func prependStackBlock(src []byte, modulePath, version, revision string) ([]byte, string, error) {
-	block := renderStackBlock(modulePath, version, revision)
+func prependStackBlock(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
+	block := renderStackBlock(libraryPath, version, revision)
 	if len(src) == 0 {
 		return []byte(block), pinActionAddedStackBlock, nil
 	}
@@ -129,12 +129,12 @@ func prependStackBlock(src []byte, modulePath, version, revision string) ([]byte
 }
 
 // fillStackBlock inserts the missing `supported-versions:` (and
-// `module-path:` if the binary has one and the block does not declare
+// `library-path:` if the binary has one and the block does not declare
 // it) into an existing `stack:` block. An empty block is rewritten to
 // canonical multi-line form so the new fields do not sit on the same
 // line as the opening brace.
 func fillStackBlock(
-	src []byte, stackObj *lang.ObjectLit, modulePath, version, revision string,
+	src []byte, stackObj *lang.ObjectLit, libraryPath, version, revision string,
 ) ([]byte, string, error) {
 	openIdx := stackObj.S.Start.Offset
 	closeIdx := findMatchingClose(src, openIdx)
@@ -147,8 +147,8 @@ func fillStackBlock(
 		childInd = lineIndent(src, stackObj.Fields[0].S.Start.Offset)
 	}
 	var b strings.Builder
-	if modulePath != "" && findField(stackObj, "module-path") == nil {
-		fmt.Fprintf(&b, "%smodule-path: '%s'\n", childInd, modulePath)
+	if libraryPath != "" && findField(stackObj, "library-path") == nil {
+		fmt.Fprintf(&b, "%slibrary-path: '%s'\n", childInd, libraryPath)
 	}
 	fmt.Fprintf(&b, "%ssupported-versions: [\n%s  { version: '%s', content-revision: '%s' },\n%s]\n",
 		childInd, childInd, version, revision, childInd)
@@ -334,11 +334,11 @@ func lineIndent(src []byte, offset int) string {
 // they want a blank line between this block and the rest of the file.
 // Entries always carry a trailing comma so the canonical shape matches
 // the form `pin` produces when it appends later.
-func renderStackBlock(modulePath, version, revision string) string {
+func renderStackBlock(libraryPath, version, revision string) string {
 	var b strings.Builder
 	b.WriteString("stack: {\n")
-	if modulePath != "" {
-		fmt.Fprintf(&b, "  module-path: '%s'\n", modulePath)
+	if libraryPath != "" {
+		fmt.Fprintf(&b, "  library-path: '%s'\n", libraryPath)
 	}
 	fmt.Fprintf(&b,
 		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",

@@ -37,7 +37,7 @@ func NewRemoteResolver() (*RemoteResolver, error) {
 }
 
 // Resolve fetches the repo named by ref, caches it, and returns a
-// Source rooted at the import's subdir. UB modules (a `module.ub` is
+// Source rooted at the import's subdir. UB libraries (a `library.ub` is
 // present at the subdir root) get their FS, Commit, and Hash set;
 // non-UB imports return a Source with only Commit set.
 func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
@@ -66,7 +66,7 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	}
 
 	src := &Source{Commit: commit, Path: subdirPath}
-	if _, err := os.Stat(filepath.Join(subdirPath, "module.ub")); err == nil {
+	if _, err := os.Stat(filepath.Join(subdirPath, "library.ub")); err == nil {
 		src.FS = os.DirFS(subdirPath)
 		hash, err := hashTree(src.FS)
 		if err != nil {

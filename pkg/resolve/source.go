@@ -8,7 +8,7 @@ import "io/fs"
 // hash so the lock file can pin reproducibility. Local imports leave
 // both empty since their content is whatever the developer has now.
 // Path is the on-disk directory the source was fetched into, which the
-// dev CLI uses for compile-time inspection of Go-module source.
+// dev CLI uses for compile-time inspection of Go-library source.
 type Source struct {
 	FS     fs.FS
 	Path   string
@@ -23,13 +23,13 @@ type Resolver interface {
 	Resolve(ref ImportRef) (*Source, error)
 }
 
-// IsUBModule reports whether s carries a `module.ub` manifest at its
-// root. UB modules are identified structurally by the presence of that
-// file, while sources without it are Go modules.
-func IsUBModule(s *Source) bool {
+// IsUBLibrary reports whether s carries a `library.ub` manifest at its
+// root. UB libraries are identified structurally by the presence of that
+// file, while sources without it are Go libraries.
+func IsUBLibrary(s *Source) bool {
 	if s == nil || s.FS == nil {
 		return false
 	}
-	_, err := fs.Stat(s.FS, "module.ub")
+	_, err := fs.Stat(s.FS, "library.ub")
 	return err == nil
 }

@@ -631,7 +631,7 @@ func TestEvalEachOutsideForEachIsError(t *testing.T) {
 func TestEvalCallModuleFunction(t *testing.T) {
 	ctx := &EvalContext{
 		Vars: map[string]any{"name": "web"},
-		Modules: map[string]*Module{
+		Libraries: map[string]*Library{
 			"lib": {
 				Name: "lib",
 				Functions: map[string]FunctionType{
@@ -658,7 +658,7 @@ func TestEvalCallModuleNotImported(t *testing.T) {
 
 func TestEvalCallModuleFunctionNotFound(t *testing.T) {
 	ctx := &EvalContext{
-		Modules: map[string]*Module{
+		Libraries: map[string]*Library{
 			"lib": {Name: "lib"},
 		},
 	}
@@ -669,7 +669,7 @@ func TestEvalCallModuleFunctionNotFound(t *testing.T) {
 
 func TestEvalCallModuleFunctionError(t *testing.T) {
 	ctx := &EvalContext{
-		Modules: map[string]*Module{
+		Libraries: map[string]*Library{
 			"lib": {
 				Name: "lib",
 				Functions: map[string]FunctionType{

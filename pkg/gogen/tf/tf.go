@@ -129,7 +129,7 @@ func (a *Adapter) FetchResources(
 // (e.g. aws { region = ... }) and returns it as a generic schema for
 // the renderer. A nil result means the provider declares no
 // configuration attributes; the renderer then skips emitting a
-// ProviderConfig struct and module Configuration entry.
+// ProviderConfig struct and library Configuration entry.
 func (a *Adapter) FetchConfiguration(ctx context.Context) (*gogen.ConfigurationSchema, error) {
 	data, err := a.Fetcher.FetchSchema(ctx, a.source, a.localName, a.version)
 	if err != nil {

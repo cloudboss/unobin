@@ -32,17 +32,17 @@ const EnvVarPrefix = "UB_VAR_"
 
 // Info bundles everything a generated stack binary passes into Run.
 // StackBody is the embedded stack source the binary parses on each
-// invocation. ModulePath is the binary's module-path identity (the
-// same shape Go modules use); the operator's `config.ub` asserts the
-// same value under `stack.module-path`. An empty ModulePath disables
+// invocation. LibraryPath is the binary's library-path identity (the
+// same form Go libraries use); the operator's `config.ub` asserts the
+// same value under `stack.library-path`. An empty LibraryPath disables
 // that identity check.
 type Info struct {
 	StackName       string
 	StackVersion    string
 	ContentRevision string
 	StackBody       string
-	ModulePath      string
-	Modules         map[string]*runtime.Module
+	LibraryPath     string
+	Libraries       map[string]*runtime.Library
 }
 
 // Run builds the cobra command tree and executes it. The process exits
@@ -175,7 +175,7 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	configurations, err := decodeConfigurationsFromPlan(pf.RawConfigurations, info.Modules)
+	configurations, err := decodeConfigurationsFromPlan(pf.RawConfigurations, info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -193,8 +193,8 @@ func doApplyPlan(
 	}()
 	exec := &runtime.Executor{
 		Source:         f,
-		DAG:            runtime.BuildDAG(f, info.Modules),
-		Modules:        info.Modules,
+		DAG:            runtime.BuildDAG(f, info.Libraries),
+		Libraries:      info.Libraries,
 		Configurations: configurations,
 		Store:          store,
 		Stack: state.StackInfo{
@@ -348,7 +348,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
-	configurations, _, err := loadConfigurations(config, configPath, info.Modules)
+	configurations, _, err := loadConfigurations(config, configPath, info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -362,8 +362,8 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	}
 	exec := &runtime.Executor{
 		Source:         f,
-		DAG:            runtime.BuildDAG(f, info.Modules),
-		Modules:        info.Modules,
+		DAG:            runtime.BuildDAG(f, info.Libraries),
+		Libraries:      info.Libraries,
 		Inputs:         inputs,
 		Configurations: configurations,
 		Store:          store,
@@ -421,13 +421,13 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	if err != nil {
 		return err
 	}
-	if _, _, err := loadConfigurations(config, configPath, info.Modules); err != nil {
+	if _, _, err := loadConfigurations(config, configPath, info.Libraries); err != nil {
 		return err
 	}
 	if err := validateStateRefs(info, config, configPath); err != nil {
 		return err
 	}
-	if _, err := runtime.BuildDAG(f, info.Modules).TopologicalOrder(); err != nil {
+	if _, err := runtime.BuildDAG(f, info.Libraries).TopologicalOrder(); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "OK")
@@ -435,7 +435,7 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 }
 
 // validateStateRefs looks up each named backend and encrypter against
-// info.Modules and decodes its body against the registered
+// info.Libraries and decodes its body against the registered
 // configuration schema. It stops short of constructing either object,
 // so validate does no filesystem or network work. Unset refs are not
 // checked; the resolver's defaults are always available.
@@ -445,7 +445,7 @@ func validateStateRefs(info Info, config *lang.File, configPath string) error {
 		return err
 	}
 	if sc.Backend != nil {
-		bt, err := lookupBackendType(info.Modules, sc.Backend)
+		bt, err := lookupBackendType(info.Libraries, sc.Backend)
 		if err != nil {
 			return err
 		}
@@ -454,7 +454,7 @@ func validateStateRefs(info Info, config *lang.File, configPath string) error {
 		}
 	}
 	if sc.Encrypter != nil {
-		et, err := lookupEncrypterType(info.Modules, sc.Encrypter)
+		et, err := lookupEncrypterType(info.Libraries, sc.Encrypter)
 		if err != nil {
 			return err
 		}
@@ -485,7 +485,7 @@ func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
 	if err != nil {
 		return err
 	}
-	dag := runtime.BuildDAG(f, info.Modules)
+	dag := runtime.BuildDAG(f, info.Libraries)
 	out := cmd.OutOrStdout()
 	switch format {
 	case "plain":
@@ -534,7 +534,7 @@ func parsedFile(info Info) (*lang.File, error) {
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
-	if errs := runtime.CheckReferences(f, info.Modules); errs.Len() > 0 {
+	if errs := runtime.CheckReferences(f, info.Libraries); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
 	return f, nil
@@ -601,7 +601,7 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	configurations, rawConfigurations, err := loadConfigurations(config, configPath, info.Modules)
+	configurations, rawConfigurations, err := loadConfigurations(config, configPath, info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -622,8 +622,8 @@ func doPlan(
 	}
 	exec := &runtime.Executor{
 		Source:         f,
-		DAG:            runtime.BuildDAG(f, info.Modules),
-		Modules:        info.Modules,
+		DAG:            runtime.BuildDAG(f, info.Libraries),
+		Libraries:      info.Libraries,
 		Inputs:         inputs,
 		Configurations: configurations,
 		Store:          store,

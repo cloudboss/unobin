@@ -39,12 +39,12 @@ func (r *fakeUBResolver) Resolve(ref ImportRef) (*Source, error) {
 type recordingVisitor struct {
 	goCalls []string
 	ubCalls []string
-	ubMods  map[string]*UBModule
+	ubLibs  map[string]*UBLibrary
 	failOn  string
 }
 
 func newRecordingVisitor() *recordingVisitor {
-	return &recordingVisitor{ubMods: map[string]*UBModule{}}
+	return &recordingVisitor{ubLibs: map[string]*UBLibrary{}}
 }
 
 func (v *recordingVisitor) OnGoImport(alias, path, version string) error {
@@ -55,14 +55,14 @@ func (v *recordingVisitor) OnGoImport(alias, path, version string) error {
 	return nil
 }
 
-func (v *recordingVisitor) OnUBModule(
-	alias, key string, _ ImportRef, mod *UBModule,
+func (v *recordingVisitor) OnUBLibrary(
+	alias, key string, _ ImportRef, lib *UBLibrary,
 ) error {
 	if v.failOn == "ub:"+alias {
 		return fmt.Errorf("forced failure on %s", alias)
 	}
 	v.ubCalls = append(v.ubCalls, fmt.Sprintf("%s=%s", alias, key))
-	v.ubMods[key] = mod
+	v.ubLibs[key] = lib
 	return nil
 }
 
@@ -89,9 +89,9 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 	require.Empty(t, v.ubCalls)
 }
 
-func TestWalkUBRecordsUBModule(t *testing.T) {
+func TestWalkUBRecordsUBLibrary(t *testing.T) {
 	src := newUBSource(t, map[string]string{
-		"module.ub": "description: 'm'\nexports: { greeter: 'greeter.ub' }\n",
+		"library.ub": "description: 'm'\nexports: { greeter: 'greeter.ub' }\n",
 		"greeter.ub": `description: 'g'
 imports: { core: 'github.com/x/unobin//core@v0.1.0' }
 inputs: { name: { type: string } }
@@ -112,10 +112,10 @@ inputs: { name: { type: string } }
 	require.Equal(t, []string{"hello=remote:github.com/x/hello@v1.0.0"}, v.ubCalls)
 	require.Equal(t, []string{"core=github.com/x/unobin/core@v0.1.0"}, v.goCalls)
 
-	mod := v.ubMods["remote:github.com/x/hello@v1.0.0"]
-	require.NotNil(t, mod)
-	require.Contains(t, mod.Bodies, "greeter")
-	bodyImports := mod.BodyImports["greeter"]
+	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
+	require.NotNil(t, lib)
+	require.Contains(t, lib.Bodies, "greeter")
+	bodyImports := lib.BodyImports["greeter"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, ResolutionGo, bodyImports[0].Kind)
 	require.Equal(t, "core", bodyImports[0].LocalAlias)
@@ -123,8 +123,8 @@ inputs: { name: { type: string } }
 
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 	src := newUBSource(t, map[string]string{
-		"module.ub": "description: 'm'\nexports: { thing: 'thing.ub' }\n",
-		"thing.ub":  "description: 'thing'\ninputs: { x: { type: string } }\n",
+		"library.ub": "description: 'm'\nexports: { thing: 'thing.ub' }\n",
+		"thing.ub":   "description: 'thing'\ninputs: { x: { type: string } }\n",
 	})
 	refs := map[string]ImportRef{
 		"a": &RemoteImport{URL: "github.com/x/y", Version: "v1.0.0"},
@@ -138,21 +138,21 @@ func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, top, 2)
 	require.Equal(t, top[0].CanonicalKey, top[1].CanonicalKey)
-	require.Len(t, v.ubCalls, 1, "OnUBModule should fire once per canonical key")
+	require.Len(t, v.ubCalls, 1, "OnUBLibrary should fire once per canonical key")
 	require.Equal(t, "a=remote:github.com/x/y@v1.0.0", v.ubCalls[0],
-		"first alias by sort order should be the one passed to OnUBModule")
+		"first alias by sort order should be the one passed to OnUBLibrary")
 }
 
 func TestWalkUBDetectsCycle(t *testing.T) {
 	a := newUBSource(t, map[string]string{
-		"module.ub": "description: 'a'\nexports: { thing: 'thing.ub' }\n",
+		"library.ub": "description: 'a'\nexports: { thing: 'thing.ub' }\n",
 		"thing.ub": `description: 't'
 imports: { b: 'github.com/x/b@v1' }
 inputs: { x: { type: string } }
 `,
 	})
 	b := newUBSource(t, map[string]string{
-		"module.ub": "description: 'b'\nexports: { other: 'other.ub' }\n",
+		"library.ub": "description: 'b'\nexports: { other: 'other.ub' }\n",
 		"other.ub": `description: 'o'
 imports: { a: 'github.com/x/a@v1' }
 inputs: { y: { type: string } }

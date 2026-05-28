@@ -2,4 +2,4 @@
 @depends-on: []
 @sensitive:  true
 @trigger:    'always'
-@module:     aws
+@library:     aws

@@ -57,7 +57,7 @@ func TestGenerateWritesFiles(t *testing.T) {
 
 	files := []string{
 		"resources/s3_bucket_rsrc.go",
-		"module.go",
+		"library.go",
 		"go.mod",
 	}
 	for _, f := range files {
@@ -113,11 +113,11 @@ func TestGenerateDefaultOutDir(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if out.ModulePath != "./testmod-module" {
-		t.Errorf("expected default outDir ./testmod-module, got %q", out.ModulePath)
+	if out.ModulePath != "./testmod-library" {
+		t.Errorf("expected default outDir ./testmod-library, got %q", out.ModulePath)
 	}
 
-	_ = os.RemoveAll("./testmod-module")
+	_ = os.RemoveAll("./testmod-library")
 }
 
 func TestGenerateWritesConfigurationFile(t *testing.T) {

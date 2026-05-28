@@ -47,7 +47,7 @@ func (r *plainFailResource) Delete(_ context.Context, _, _ any) error { return n
 func (r *plainFailResource) ReplaceFields() []string                  { return nil }
 
 func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
@@ -67,8 +67,8 @@ resources: {
 `
 	events := make(chan ApplyEvent, 32)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,
@@ -97,7 +97,7 @@ resources: {
 }
 
 func TestApplyEventsEmitsFailEvent(t *testing.T) {
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
@@ -116,8 +116,8 @@ resources: {
 `
 	events := make(chan ApplyEvent, 8)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,

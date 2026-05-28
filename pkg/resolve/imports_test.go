@@ -11,9 +11,9 @@ func TestParseImportRefLocal(t *testing.T) {
 	cases := []string{
 		".",
 		"..",
-		"./local-modules/foo",
+		"./local-libraries/foo",
 		"../shared/bar",
-		"/abs/path/module",
+		"/abs/path/library",
 	}
 	for _, c := range cases {
 		t.Run(c, func(t *testing.T) {
@@ -58,15 +58,15 @@ func TestParseImportRefDoubleSlashSubdir(t *testing.T) {
 		version string
 	}{
 		{
-			in:      "github.com/cloudboss/unobin-modules//aws@v0.5.0",
-			url:     "github.com/cloudboss/unobin-modules",
+			in:      "github.com/cloudboss/unobin-libraries//aws@v0.5.0",
+			url:     "github.com/cloudboss/unobin-libraries",
 			subdir:  "aws",
 			version: "v0.5.0",
 		},
 		{
-			in:      "git.example.com/team/repo//modules/network@v1.2.3",
+			in:      "git.example.com/team/repo//libraries/network@v1.2.3",
 			url:     "git.example.com/team/repo",
-			subdir:  "modules/network",
+			subdir:  "libraries/network",
 			version: "v1.2.3",
 		},
 		{

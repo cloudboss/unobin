@@ -21,7 +21,7 @@ type RefreshResult struct {
 
 // Refresh reads every resource recorded in prior state and writes a
 // fresh snapshot whose leaf outputs reflect the observation. Resources
-// that are no longer present are dropped. Action and module-call
+// that are no longer present are dropped. Action and library-call
 // entries, plus stack-level outputs, carry forward unchanged. No
 // resource writes happen. The deployment's lock is held for the
 // duration.
@@ -105,13 +105,13 @@ func (e *Executor) refreshLeaf(
 	if !ok {
 		return nil, false, fmt.Errorf("malformed resource address %q", ent.Address)
 	}
-	mod, ok := e.modulesForAddress(ent.Address)[ns]
+	lib, ok := e.librariesForAddress(ent.Address)[ns]
 	if !ok {
-		return nil, false, fmt.Errorf("module %q is not imported", ns)
+		return nil, false, fmt.Errorf("library %q is not imported", ns)
 	}
-	rt, ok := mod.Resources[typeName]
+	rt, ok := lib.Resources[typeName]
 	if !ok {
-		return nil, false, fmt.Errorf("module %s has no resource %q", ns, typeName)
+		return nil, false, fmt.Errorf("library %s has no resource %q", ns, typeName)
 	}
 	priorOutputs, err := migrateOutputs(rt, ent.SchemaVersion, ent.Outputs)
 	if err != nil {

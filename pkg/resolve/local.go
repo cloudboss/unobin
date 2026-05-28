@@ -13,7 +13,7 @@ type LocalResolver struct {
 }
 
 // NewLocalResolver returns a LocalResolver rooted at root. Pass the
-// directory containing the stack.ub or module.ub that owns the imports.
+// directory containing the stack.ub or library.ub that owns the imports.
 func NewLocalResolver(root string) *LocalResolver {
 	return &LocalResolver{Root: root}
 }

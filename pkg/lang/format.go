@@ -437,8 +437,8 @@ func (w *formatter) dotPathWidth(dp *DotPath) int {
 func (w *formatter) callInlineWidth(c *Call) int {
 	total := 2
 	switch {
-	case c.Module != nil && c.Func != nil:
-		total += len(c.Module.Name) + 1 + len(c.Func.Name)
+	case c.Library != nil && c.Func != nil:
+		total += len(c.Library.Name) + 1 + len(c.Func.Name)
 	case c.Callee != nil:
 		total += len(c.Callee.Name)
 	}
@@ -1458,8 +1458,8 @@ func (w *formatter) writeCall(c *Call, indent string) error {
 
 func (w *formatter) writeCallHeader(c *Call) {
 	switch {
-	case c.Module != nil && c.Func != nil:
-		w.buf.WriteString(c.Module.Name)
+	case c.Library != nil && c.Func != nil:
+		w.buf.WriteString(c.Library.Name)
 		w.buf.WriteByte('.')
 		w.buf.WriteString(c.Func.Name)
 	case c.Callee != nil:

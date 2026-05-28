@@ -13,7 +13,7 @@ import (
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
-// resolverRef names one entry in a module's StateBackends or
+// resolverRef names one entry in a library's StateBackends or
 // Encrypters map. Alias is empty for core's built-in bare names
 // (`local`, `env-key`); otherwise it's the import alias from
 // `imports:`.
@@ -156,7 +156,7 @@ func resolveEncrypter(info Info, ref *resolverRef) (sdkencrypt.Encrypter, error)
 		}
 		return envencrypt.NewEnvKey("UB_STATE_KEY")
 	}
-	rt, err := lookupEncrypterType(info.Modules, ref)
+	rt, err := lookupEncrypterType(info.Libraries, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func resolveBackend(
 			Body:  map[string]any{"path": ".unobin/state"},
 		}
 	}
-	bt, err := lookupBackendType(info.Modules, ref)
+	bt, err := lookupBackendType(info.Libraries, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -195,45 +195,45 @@ func resolveBackend(
 }
 
 func lookupBackendType(
-	modules map[string]*runtime.Module,
+	libraries map[string]*runtime.Library,
 	ref *resolverRef,
 ) (sdkstate.BackendType, error) {
-	moduleAlias := ref.Alias
-	if moduleAlias == "" {
-		moduleAlias = "core"
+	libraryAlias := ref.Alias
+	if libraryAlias == "" {
+		libraryAlias = "core"
 	}
-	mod, ok := modules[moduleAlias]
+	lib, ok := libraries[libraryAlias]
 	if !ok {
 		return sdkstate.BackendType{}, fmt.Errorf(
-			"state: backend %s: import %q not found", refLabel(ref), moduleAlias)
+			"state: backend %s: import %q not found", refLabel(ref), libraryAlias)
 	}
-	bt, ok := mod.StateBackends[ref.Name]
+	bt, ok := lib.StateBackends[ref.Name]
 	if !ok {
 		return sdkstate.BackendType{}, fmt.Errorf(
-			"state: backend %s: module %q registers no backend named %q",
-			refLabel(ref), moduleAlias, ref.Name)
+			"state: backend %s: library %q registers no backend named %q",
+			refLabel(ref), libraryAlias, ref.Name)
 	}
 	return bt, nil
 }
 
 func lookupEncrypterType(
-	modules map[string]*runtime.Module,
+	libraries map[string]*runtime.Library,
 	ref *resolverRef,
 ) (sdkencrypt.EncrypterType, error) {
-	moduleAlias := ref.Alias
-	if moduleAlias == "" {
-		moduleAlias = "core"
+	libraryAlias := ref.Alias
+	if libraryAlias == "" {
+		libraryAlias = "core"
 	}
-	mod, ok := modules[moduleAlias]
+	lib, ok := libraries[libraryAlias]
 	if !ok {
 		return sdkencrypt.EncrypterType{}, fmt.Errorf(
-			"encryption: key-source %s: import %q not found", refLabel(ref), moduleAlias)
+			"encryption: key-source %s: import %q not found", refLabel(ref), libraryAlias)
 	}
-	et, ok := mod.Encrypters[ref.Name]
+	et, ok := lib.Encrypters[ref.Name]
 	if !ok {
 		return sdkencrypt.EncrypterType{}, fmt.Errorf(
-			"encryption: key-source %s: module %q registers no encrypter named %q",
-			refLabel(ref), moduleAlias, ref.Name)
+			"encryption: key-source %s: library %q registers no encrypter named %q",
+			refLabel(ref), libraryAlias, ref.Name)
 	}
 	return et, nil
 }

@@ -27,16 +27,16 @@ var ErrInstanceGone = errors.New("instance no longer in iterable")
 // value is given on the Executor or in the plan file.
 const DefaultParallelism = 10
 
-// Executor wires together the parsed DAG, the imported modules, the
+// Executor wires together the parsed DAG, the imported libraries, the
 // caller's inputs, and a state backend. It exposes three lifecycle
 // methods: Plan computes a PlanStep slice against prior state without
 // running any CRUD, ApplyPlan executes a previously computed plan,
 // and Refresh reads each prior-state resource and writes back observed
 // outputs. Store and Stack must always be set.
 type Executor struct {
-	DAG     *DAG
-	Modules map[string]*Module
-	Inputs  map[string]any
+	DAG       *DAG
+	Libraries map[string]*Library
+	Inputs    map[string]any
 
 	// Source is the parsed stack file. Static analysis passes (e.g.
 	// sensitivity propagation at plan time) consult its top-level
@@ -44,7 +44,7 @@ type Executor struct {
 	// nil in test setups; analyses that need it degrade to no-op.
 	Source *lang.File
 
-	// Configurations is keyed first by the module's import alias and
+	// Configurations is keyed first by the library's import alias and
 	// then by the configuration alias declared in config.ub. Entries
 	// are the value returned by cfg.ConfigurationType.New populated
 	// by cfg.Decode. A nil map disables config routing and every CRUD
@@ -198,7 +198,7 @@ type runState struct {
 	// mu serializes mutation of eval, composites, next, and outputs,
 	// plus calls to Store.Write / Store.SetCurrent. Apply takes the
 	// lock around scope evaluation and around state writes; it is
-	// released for the duration of each module's CRUD call so cloud
+	// released for the duration of each library's CRUD call so cloud
 	// I/O runs in parallel across workers. Plan, Refresh, and the
 	// state subcommands are single-threaded and do not contend.
 	mu sync.Mutex
@@ -211,7 +211,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
-			Modules:   e.Modules,
+			Libraries: e.Libraries,
 			locals:    newLocalScope(localsBlock(e.Source)),
 		},
 		outputs:    make(map[string]any),
@@ -237,48 +237,48 @@ func (e *Executor) scopeFor(rs *runState, n *Node) (*EvalContext, error) {
 	return e.ensureCompositeScope(rs, n.Composite)
 }
 
-// modulesFor returns the import table the runtime should resolve n's
-// module alias against. Top-level nodes use the executor's root
-// Modules; composite-internal nodes use their boundary's Modules so a
-// composite stays self-contained. Falls back to e.Modules when a
-// composite has no Modules populated, preserving backward
+// librariesFor returns the import table the runtime should resolve n's
+// library alias against. Top-level nodes use the executor's root
+// Libraries; composite-internal nodes use their boundary's Libraries so a
+// composite stays self-contained. Falls back to e.Libraries when a
+// composite has no Libraries populated, preserving backward
 // compatibility for direct test construction.
-func (e *Executor) modulesFor(n *Node) map[string]*Module {
+func (e *Executor) librariesFor(n *Node) map[string]*Library {
 	if n.Composite == "" {
-		return e.Modules
+		return e.Libraries
 	}
-	if boundary, ok := e.DAG.Nodes[n.Composite]; ok && boundary.Modules != nil {
-		return boundary.Modules
+	if boundary, ok := e.DAG.Nodes[n.Composite]; ok && boundary.Libraries != nil {
+		return boundary.Libraries
 	}
-	return e.Modules
+	return e.Libraries
 }
 
-// compositeBodyModules returns the import table the composite's own
+// compositeBodyLibraries returns the import table the composite's own
 // body (internals and outputs) should resolve aliases against. The
-// boundary node carries the composite's Modules; an unset table falls
+// boundary node carries the composite's Libraries; an unset table falls
 // back to the executor's root for test compositions that don't set it.
-func compositeBodyModules(boundary *Node, fallback map[string]*Module) map[string]*Module {
-	if boundary.Modules != nil {
-		return boundary.Modules
+func compositeBodyLibraries(boundary *Node, fallback map[string]*Library) map[string]*Library {
+	if boundary.Libraries != nil {
+		return boundary.Libraries
 	}
 	return fallback
 }
 
-// modulesForAddress is the orphan-path equivalent of modulesFor: it
+// librariesForAddress is the orphan-path equivalent of librariesFor: it
 // resolves the import table for a state-only address whose source node
 // has been removed. The direct parent call site (everything up to the
 // last `/`) is consulted in the DAG; if its boundary is still present,
-// its Modules are used. Otherwise the executor's root Modules is
+// its Libraries are used. Otherwise the executor's root Libraries is
 // returned, which works whenever the parent composite type is still
 // imported at the stack root.
-func (e *Executor) modulesForAddress(addr string) map[string]*Module {
+func (e *Executor) librariesForAddress(addr string) map[string]*Library {
 	if i := strings.LastIndex(addr, "/"); i >= 0 {
 		callSite := addr[:i]
-		if boundary, ok := e.DAG.Nodes[callSite]; ok && boundary.Modules != nil {
-			return boundary.Modules
+		if boundary, ok := e.DAG.Nodes[callSite]; ok && boundary.Libraries != nil {
+			return boundary.Libraries
 		}
 	}
-	return e.Modules
+	return e.Libraries
 }
 
 func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalContext, error) {
@@ -315,7 +315,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		Resources: make(map[string]any),
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
-		Modules:   compositeBodyModules(boundary, e.Modules),
+		Libraries: compositeBodyLibraries(boundary, e.Libraries),
 		locals:    newLocalScope(localsBlock(boundary.CompositeBody)),
 	}
 	rs.composites[callSite] = scope
@@ -474,7 +474,7 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 // has one instance, addressed at the template address itself),
 // exposes those outputs at the call site address in the boundary's
 // enclosing scope so its parent can reach them, and writes one
-// EntryModuleCall record. instAddr is the address actually being
+// EntryLibraryCall record. instAddr is the address actually being
 // finalized: equal to n.Address for a plain composite, with a
 // trailing `['key']` for a `@for-each` instance. inputs is the call
 // site arg map evaluated for this instance.
@@ -504,9 +504,9 @@ func (e *Executor) finalizeComposite(
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          instAddr,
-		Type:             state.EntryModuleCall,
-		Module:           n.NS,
-		ModuleType:       n.Type,
+		Type:             state.EntryLibraryCall,
+		Library:          n.NS,
+		LibraryType:      n.Type,
 		Inputs:           inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  sensitiveInputs,
@@ -575,7 +575,7 @@ func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 
 // childScopeWithEach returns a per-instance evaluation scope whose
 // `@each.key` and `@each.value` bindings are set to the iteration's
-// pair. The parent's Vars, Resources, Data, Actions, and Modules are
+// pair. The parent's Vars, Resources, Data, Actions, and Libraries are
 // shared by reference.
 func childScopeWithEach(parent *EvalContext, key string, value any) *EvalContext {
 	child := *parent
@@ -746,7 +746,7 @@ func ubFieldKey(field reflect.StructField) (key string, skip bool) {
 // canonicalize collapses a reflect.Value to one of the runtime's
 // canonical Go types so downstream code (eval, render, state I/O)
 // sees the same value forms regardless of whether the value came
-// fresh from a module struct or back out of the state encoder. A
+// fresh from a library struct or back out of the state encoder. A
 // named numeric type such as time.Duration normalizes to its
 // underlying int64 (nanoseconds, in Duration's case).
 func canonicalize(v reflect.Value) any {

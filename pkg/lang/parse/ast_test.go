@@ -60,7 +60,7 @@ func TestFileKindString(t *testing.T) {
 	cases := map[FileKind]string{
 		FileUnknown:      "unknown",
 		FileStack:        "stack",
-		FileModule:       "module",
+		FileLibrary:      "library",
 		FileExportedType: "exported-type",
 		FileConfig:       "config",
 	}

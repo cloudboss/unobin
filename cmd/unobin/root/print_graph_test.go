@@ -21,7 +21,7 @@ func TestPrintGraphPlain(t *testing.T) {
 	stackPath := writeStack(t, dir, `
 inputs: { msg: { type: string } }
 imports: {
-  core: 'github.com/cloudboss/unobin//pkg/modules/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
 }
 actions: {
   core: {
@@ -49,7 +49,7 @@ func TestPrintGraphDOT(t *testing.T) {
 	stackPath := writeStack(t, dir, `
 inputs: { msg: { type: string } }
 imports: {
-  core: 'github.com/cloudboss/unobin//pkg/modules/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
 }
 actions: {
   core: {
@@ -100,12 +100,12 @@ outputs: {
 	require.Contains(t, err.Error(), `unknown resource "resource.local.file.missing"`)
 }
 
-func TestPrintGraphExpandsLocalUBModuleComposite(t *testing.T) {
+func TestPrintGraphExpandsLocalUBLibraryComposite(t *testing.T) {
 	root := t.TempDir()
 
 	greeterDir := filepath.Join(root, "greeter")
 	require.NoError(t, os.MkdirAll(greeterDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "library.ub"), []byte(`
 description: 'Local greeter'
 
 exports: {
@@ -120,7 +120,7 @@ inputs: {
 }
 
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 
 resources: {

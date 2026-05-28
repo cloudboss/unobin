@@ -13,13 +13,13 @@ import (
 // parsed config, decodes every alias under each import, and returns
 // both the decoded table (for the executor) and the raw form (for
 // plan-file storage). The outer key is the import alias; the inner
-// key is the configuration alias name. Every module that declares a
+// key is the configuration alias name. Every library that declares a
 // Configuration must have at least a `default` entry in config.ub.
 // path is preserved only for error messages.
 func loadConfigurations(
 	f *lang.File,
 	path string,
-	modules map[string]*runtime.Module,
+	libraries map[string]*runtime.Library,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
@@ -34,7 +34,7 @@ func loadConfigurations(
 		}
 	}
 
-	decoded, err = decodeConfigurations(rawByImport, modules)
+	decoded, err = decodeConfigurations(rawByImport, libraries)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -45,28 +45,28 @@ func loadConfigurations(
 }
 
 // decodeConfigurations runs cfg.Decode for each configuration alias
-// under each module. It errors when a module requires configuration
-// but none was given, when an alias targets a module that has no
+// under each library. It errors when a library requires configuration
+// but none was given, when an alias targets a library that has no
 // Configuration, when an import is unknown, or when the `default`
-// entry is missing for a module that needs one.
+// entry is missing for a library that needs one.
 func decodeConfigurations(
 	rawByImport map[string]map[string]any,
-	modules map[string]*runtime.Module,
+	libraries map[string]*runtime.Library,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
 	var errs []error
-	for importAlias, mod := range modules {
-		if mod.Configuration == nil {
+	for importAlias, lib := range libraries {
+		if lib.Configuration == nil {
 			if _, supplied := rawByImport[importAlias]; supplied {
 				errs = append(errs, fmt.Errorf(
-					"configurations.%s: module declares no configuration", importAlias))
+					"configurations.%s: library declares no configuration", importAlias))
 			}
 			continue
 		}
 		aliases, supplied := rawByImport[importAlias]
 		if !supplied || len(aliases) == 0 {
 			errs = append(errs, fmt.Errorf(
-				"configurations.%s: module requires a configuration but none was given",
+				"configurations.%s: library requires a configuration but none was given",
 				importAlias))
 			continue
 		}
@@ -84,7 +84,7 @@ func decodeConfigurations(
 					importAlias, aliasName, lang.TypeMessage(rawVal)))
 				continue
 			}
-			d, err := cfg.Decode(mod.Configuration, m)
+			d, err := cfg.Decode(lib.Configuration, m)
 			if err != nil {
 				errs = append(errs, fmt.Errorf(
 					"configurations.%s.%s: %w", importAlias, aliasName, err))
@@ -95,7 +95,7 @@ func decodeConfigurations(
 		out[importAlias] = decodedAliases
 	}
 	for importAlias := range rawByImport {
-		if _, known := modules[importAlias]; !known {
+		if _, known := libraries[importAlias]; !known {
 			errs = append(errs, fmt.Errorf(
 				"configurations.%s: unknown import alias", importAlias))
 		}
@@ -111,9 +111,9 @@ func decodeConfigurations(
 // returns for the raw form.
 func decodeConfigurationsFromPlan(
 	raw map[string]map[string]any,
-	modules map[string]*runtime.Module,
+	libraries map[string]*runtime.Library,
 ) (map[string]map[string]any, error) {
-	return decodeConfigurations(raw, modules)
+	return decodeConfigurations(raw, libraries)
 }
 
 // readConfigurationsBlock walks the `configurations:` body and pulls

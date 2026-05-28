@@ -22,8 +22,8 @@ var ErrEvalNotFound = errors.New("not found")
 // is the validated `inputs:` map after `config.ub` and `UB_VAR_*` env
 // overrides. Resources, Data, and Actions hold the outputs of nodes
 // that have already executed, indexed by their source address path.
-// Modules is the import table the scope's `<alias>.<func>(...)` calls
-// resolve against; nil disables module-qualified calls. EachKey and
+// Libraries is the import table the scope's `<alias>.<func>(...)` calls
+// resolve against; nil disables library-qualified calls. EachKey and
 // EachValue carry the current iteration binding inside a `@for-each`
 // body; ForEach reports whether they are valid to read. Bindings holds
 // comprehension-bound names, which resolve as bare values and as
@@ -34,7 +34,7 @@ type EvalContext struct {
 	Resources map[string]any
 	Data      map[string]any
 	Actions   map[string]any
-	Modules   map[string]*Module
+	Libraries map[string]*Library
 	Bindings  map[string]any
 	EachKey   any
 	EachValue any
@@ -342,11 +342,11 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 }
 
 // evalCall evaluates a function call. Bare identifiers (`format(...)`)
-// look up the built-in registry; module-qualified calls
-// (`alias.func(...)`) resolve against the scope's Modules table.
+// look up the built-in registry; library-qualified calls
+// (`alias.func(...)`) resolve against the scope's Libraries table.
 func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
-	if c.Module != nil {
-		return evalModuleCall(c, ctx)
+	if c.Library != nil {
+		return evalLibraryCall(c, ctx)
 	}
 	if c.Callee == nil {
 		return nil, fmt.Errorf("eval: call has no callee")
@@ -362,17 +362,17 @@ func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	return fn(args)
 }
 
-func evalModuleCall(c *lang.Call, ctx *EvalContext) (any, error) {
-	mod, ok := ctx.Modules[c.Module.Name]
+func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
+	lib, ok := ctx.Libraries[c.Library.Name]
 	if !ok {
-		return nil, fmt.Errorf("eval: module %q is not imported", c.Module.Name)
+		return nil, fmt.Errorf("eval: library %q is not imported", c.Library.Name)
 	}
-	fn, ok := mod.Functions[c.Func.Name]
+	fn, ok := lib.Functions[c.Func.Name]
 	if !ok {
-		return nil, fmt.Errorf("eval: module %s has no function %q",
-			c.Module.Name, c.Func.Name)
+		return nil, fmt.Errorf("eval: library %s has no function %q",
+			c.Library.Name, c.Func.Name)
 	}
-	args, err := evalArgs(c.Module.Name+"."+c.Func.Name, c.Args, ctx)
+	args, err := evalArgs(c.Library.Name+"."+c.Func.Name, c.Args, ctx)
 	if err != nil {
 		return nil, err
 	}

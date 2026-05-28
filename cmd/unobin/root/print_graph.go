@@ -89,15 +89,15 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		}
 	}
 
-	mods, err := buildModuleMap(refs, resolver, cmd.ErrOrStderr())
+	libs, err := buildLibraryMap(refs, resolver, cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}
-	if errs := runtime.CheckReferences(f, mods); errs.Len() > 0 {
+	if errs := runtime.CheckReferences(f, libs); errs.Len() > 0 {
 		return errs.Err()
 	}
 
-	dag := runtime.BuildDAG(f, mods)
+	dag := runtime.BuildDAG(f, libs)
 	out := cmd.OutOrStdout()
 	switch cfg.format {
 	case "plain":
@@ -110,19 +110,19 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	return nil
 }
 
-// buildModuleMap turns each top-level import alias into a *runtime.Module.
-// UB-module Composites are populated from the parsed exports; Go modules
-// become empty Module values so the runtime can tell "imported but not a
+// buildLibraryMap turns each top-level import alias into a *runtime.Library.
+// UB-library Composites are populated from the parsed exports; Go libraries
+// become empty Library values so the runtime can tell "imported but not a
 // composite" apart from "not imported at all". Each composite carries
-// its own Modules map so composite-internal lookups stay self-contained.
-func buildModuleMap(refs map[string]resolve.ImportRef,
-	resolver resolve.Resolver, warnOut io.Writer) (map[string]*runtime.Module, error) {
-	v := &graphVisitor{byKey: map[string]*runtime.Module{}, warnOut: warnOut}
+// its own Libraries map so composite-internal lookups stay self-contained.
+func buildLibraryMap(refs map[string]resolve.ImportRef,
+	resolver resolve.Resolver, warnOut io.Writer) (map[string]*runtime.Library, error) {
+	v := &graphVisitor{byKey: map[string]*runtime.Library{}, warnOut: warnOut}
 	top, err := resolve.WalkUB(refs, resolver, v)
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]*runtime.Module, len(top))
+	out := make(map[string]*runtime.Library, len(top))
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
@@ -131,7 +131,7 @@ func buildModuleMap(refs map[string]resolve.ImportRef,
 				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
 			printSchemaWarnings(warnOut, res.LocalAlias, warnings)
-			out[res.LocalAlias] = &runtime.Module{Schema: schema}
+			out[res.LocalAlias] = &runtime.Library{Schema: schema}
 		case resolve.ResolutionUB:
 			out[res.LocalAlias] = v.byKey[res.CanonicalKey]
 		}
@@ -139,12 +139,12 @@ func buildModuleMap(refs map[string]resolve.ImportRef,
 	return out, nil
 }
 
-// graphVisitor builds a *runtime.Module per unique UB-module key.
+// graphVisitor builds a *runtime.Library per unique UB-library key.
 // Go imports contribute nothing to its state because print-graph
 // doesn't model their types; the consumer fills in an empty
-// *runtime.Module per top-level Go alias.
+// *runtime.Library per top-level Go alias.
 type graphVisitor struct {
-	byKey   map[string]*runtime.Module
+	byKey   map[string]*runtime.Library
 	warnOut io.Writer
 }
 
@@ -152,13 +152,13 @@ func (g *graphVisitor) OnGoImport(_, _, _ string) error {
 	return nil
 }
 
-func (g *graphVisitor) OnUBModule(
-	_, canonicalKey string, _ resolve.ImportRef, mod *resolve.UBModule,
+func (g *graphVisitor) OnUBLibrary(
+	_, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
-	composites := make(map[string]*runtime.CompositeType, len(mod.Bodies))
-	for name, body := range mod.Bodies {
-		bodyMods := make(map[string]*runtime.Module, len(mod.BodyImports[name]))
-		for _, res := range mod.BodyImports[name] {
+	composites := make(map[string]*runtime.CompositeType, len(lib.Bodies))
+	for name, body := range lib.Bodies {
+		bodyLibs := make(map[string]*runtime.Library, len(lib.BodyImports[name]))
+		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
 				schema, warnings, err := readGoSchema(res.SourcePath)
@@ -168,17 +168,17 @@ func (g *graphVisitor) OnUBModule(
 						name, res.LocalAlias, err)
 				}
 				printSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
-				bodyMods[res.LocalAlias] = &runtime.Module{Schema: schema}
+				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
 			case resolve.ResolutionUB:
-				bodyMods[res.LocalAlias] = g.byKey[res.CanonicalKey]
+				bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
 			}
 		}
 		composites[name] = &runtime.CompositeType{
-			Name:    name,
-			Body:    body,
-			Modules: bodyMods,
+			Name:      name,
+			Body:      body,
+			Libraries: bodyLibs,
 		}
 	}
-	g.byKey[canonicalKey] = &runtime.Module{Composites: composites}
+	g.byKey[canonicalKey] = &runtime.Library{Composites: composites}
 	return nil
 }

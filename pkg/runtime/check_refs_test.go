@@ -98,13 +98,13 @@ resources: {
     }
   }
 }
-`), map[string]*Module{
+`), map[string]*Library{
 		"local": {},
 	})
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
-	require.Contains(t, got[0], `module "greeter" is not imported`)
+	require.Contains(t, got[0], `library "greeter" is not imported`)
 }
 
 func TestCheckReferencesCompositeScope(t *testing.T) {
@@ -130,13 +130,13 @@ outputs: {
   path: { value: resource.local.file.two.path }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"bundle": {
 			Composites: map[string]*CompositeType{
 				"file-pair": {
-					Name:    "file-pair",
-					Body:    composite,
-					Modules: map[string]*Module{"local": {}},
+					Name:      "file-pair",
+					Body:      composite,
+					Libraries: map[string]*Library{"local": {}},
 				},
 			},
 		},
@@ -156,7 +156,7 @@ resources: {
 outputs: {
   path: { value: resource.bundle.file-pair.demo.path }
 }
-`), mods)
+`), libs)
 
 	require.Empty(t, checkRefMessages(t, errs))
 }
@@ -180,13 +180,13 @@ outputs: {
   path: { value: resource.local.file.one.path }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"bundle": {
 			Composites: map[string]*CompositeType{
 				"file-pair": {
-					Name:    "file-pair",
-					Body:    composite,
-					Modules: map[string]*Module{"local": {}},
+					Name:      "file-pair",
+					Body:      composite,
+					Libraries: map[string]*Library{"local": {}},
 				},
 			},
 		},
@@ -200,7 +200,7 @@ resources: {
     }
   }
 }
-`), mods)
+`), libs)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 2)
@@ -252,13 +252,13 @@ outputs: {
   path: { value: resource.local.file.one.path }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"bundle": {
 			Composites: map[string]*CompositeType{
 				"thing": {
-					Name:    "thing",
-					Body:    composite,
-					Modules: map[string]*Module{"local": {}},
+					Name:      "thing",
+					Body:      composite,
+					Libraries: map[string]*Library{"local": {}},
 				},
 			},
 		},
@@ -272,7 +272,7 @@ resources: {
     }
   }
 }
-`), mods)
+`), libs)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -293,8 +293,8 @@ outputs: {
   ok:  { value: resource.local.file.one.path }
   bad: { value: resource.local.file.one.bogus }
 }
-`), map[string]*Module{
-		"local": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"local": {Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{
 					"path":   typecheck.TString(),
@@ -323,8 +323,8 @@ actions: {
 outputs: {
   bad: { value: action.core.command.x.nope }
 }
-`), map[string]*Module{
-		"core": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"core": {Schema: &LibrarySchema{
 			Actions: map[string]*TypeSchema{
 				"command": {Outputs: map[string]typecheck.Type{
 					"stdout":    typecheck.TString(),
@@ -352,14 +352,14 @@ outputs: {
   path: { value: resource.local.file.one.path }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"bundle": {
 			Composites: map[string]*CompositeType{
 				"thing": {
 					Name: "thing",
 					Body: composite,
-					Modules: map[string]*Module{"local": {
-						Schema: &ModuleSchema{
+					Libraries: map[string]*Library{"local": {
+						Schema: &LibrarySchema{
 							Resources: map[string]*TypeSchema{
 								"file": {
 									Outputs: map[string]typecheck.Type{
@@ -386,7 +386,7 @@ outputs: {
   ok:  { value: resource.bundle.thing.demo.path }
   bad: { value: resource.bundle.thing.demo.bogus }
 }
-`), mods)
+`), libs)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -406,8 +406,8 @@ outputs: {
   ok:  { value: data.aws.ami.ubuntu.id }
   bad: { value: data.aws.ami.ubuntu.misspelled }
 }
-`), map[string]*Module{
-		"aws": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"aws": {Schema: &LibrarySchema{
 			DataSources: map[string]*TypeSchema{
 				"ami": {Outputs: map[string]typecheck.Type{
 					"id":           typecheck.TString(),
@@ -443,8 +443,8 @@ outputs: {
   ok:  { value: resource.local.file.many['greet'].path }
   bad: { value: resource.local.file.many['greet'].whatever }
 }
-`), map[string]*Module{
-		"local": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"local": {Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{
 					"path":   typecheck.TString(),
@@ -471,7 +471,7 @@ resources: {
 outputs: {
   anything: { value: resource.local.file.one.whatever }
 }
-`), map[string]*Module{
+`), map[string]*Library{
 		"local": {},
 	})
 

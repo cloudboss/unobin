@@ -13,7 +13,7 @@ import (
 type BuiltinFunc func(args []any) (any, error)
 
 // builtins is the registry Eval consults when it sees a Call with a
-// bare identifier callee. Module-qualified calls (`alias.func(...)`)
+// bare identifier callee. Library-qualified calls (`alias.func(...)`)
 // route through a separate path that is not yet implemented.
 var builtins = map[string]BuiltinFunc{
 	"format":     builtinFormat,

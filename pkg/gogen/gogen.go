@@ -9,9 +9,9 @@ import (
 
 // SchemaAdapter fetches resource and data source schemas from an external
 // source (e.g. a TF provider schema). FetchConfiguration returns the
-// module-level configuration schema (the provider's own config block in
+// library-level configuration schema (the provider's own config block in
 // TF). A nil return means the source has no configuration to expose; the
-// generated module then omits the Configuration field.
+// generated library then omits the Configuration field.
 type SchemaAdapter interface {
 	Name() string
 	FetchResources(ctx context.Context, resources []string) ([]ResourceSchema, error)
@@ -19,7 +19,7 @@ type SchemaAdapter interface {
 	FetchConfiguration(ctx context.Context) (*ConfigurationSchema, error)
 }
 
-// ConfigurationSchema describes the operator-facing module configuration.
+// ConfigurationSchema describes the operator-facing library configuration.
 // Fields carry primitive Go types ("string", "int64", "float64", "bool",
 // "[]string", "map[string]string", "any", ...); the renderer wraps each
 // in the matching cfg.* wrapper type when it emits the struct.
@@ -80,7 +80,7 @@ type Output struct {
 func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, error) {
 	outDir := in.OutDir
 	if len(outDir) == 0 {
-		outDir = "./" + adapter.Name() + "-module"
+		outDir = "./" + adapter.Name() + "-library"
 	}
 
 	resources, err := adapter.FetchResources(ctx, in.Resources)
@@ -151,13 +151,13 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 		}
 	}
 
-	modSrc, err := ModuleFile(adapter.Name(), resources, dataSources, configuration,
+	libSrc, err := LibraryFile(adapter.Name(), resources, dataSources, configuration,
 		in.ModulePath, in.From)
 	if err != nil {
-		return nil, fmt.Errorf("render module.go: %w", err)
+		return nil, fmt.Errorf("render library.go: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(outDir, "module.go"), modSrc, 0644); err != nil {
-		return nil, fmt.Errorf("write module.go: %w", err)
+	if err := os.WriteFile(filepath.Join(outDir, "library.go"), libSrc, 0644); err != nil {
+		return nil, fmt.Errorf("write library.go: %w", err)
 	}
 
 	goModSrc, err := GoMod(in.ModulePath, in.ReplaceUnobin)

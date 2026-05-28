@@ -30,9 +30,9 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.secret.one"]
 	require.NotNil(t, node)
@@ -61,9 +61,9 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.secret.one"]
 	require.NotNil(t, node)
@@ -93,9 +93,9 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.secret.one"]
 	require.NotNil(t, node)
@@ -120,17 +120,17 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
-			Schema: &ModuleSchema{Resources: map[string]*TypeSchema{
+			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
 				"secret": {SensitiveOutputs: []string{"value"}},
 			}},
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -146,9 +146,9 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -166,9 +166,9 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -202,9 +202,9 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -230,17 +230,17 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
-			Schema: &ModuleSchema{Resources: map[string]*TypeSchema{
+			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
 				"secret": {SensitiveOutputs: []string{"value"}},
 			}},
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -265,17 +265,17 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
-			Schema: &ModuleSchema{Resources: map[string]*TypeSchema{
+			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
 				"secret": {SensitiveOutputs: []string{"value"}},
 			}},
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, mods)
-	an := newSensitivityAnalyzer(f, mods, dag)
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	got := an.sensitiveInputs(node.Body, node.Composite)
@@ -299,11 +299,11 @@ outputs: {
   }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			Composites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Modules: map[string]*Module{
+				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"local": {Name: "local"},
 				}},
 			},
@@ -321,8 +321,8 @@ resources: {
   } }
 }
 `)
-	dag := BuildDAG(stack, mods)
-	an := newSensitivityAnalyzer(stack, mods, dag)
+	dag := BuildDAG(stack, libs)
+	an := newSensitivityAnalyzer(stack, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -342,14 +342,14 @@ outputs: {
   }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			Composites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Modules: map[string]*Module{
+				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"vault": {
 						Name: "vault",
-						Schema: &ModuleSchema{
+						Schema: &LibrarySchema{
 							Resources: map[string]*TypeSchema{
 								"secret": {
 									SensitiveOutputs: []string{
@@ -375,8 +375,8 @@ resources: {
   } }
 }
 `)
-	dag := BuildDAG(stack, mods)
-	an := newSensitivityAnalyzer(stack, mods, dag)
+	dag := BuildDAG(stack, libs)
+	an := newSensitivityAnalyzer(stack, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	require.NotNil(t, node)
@@ -395,14 +395,14 @@ outputs: {
   arn: { value: resource.vault.secret.this.arn }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			Composites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Modules: map[string]*Module{
+				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"vault": {
 						Name: "vault",
-						Schema: &ModuleSchema{
+						Schema: &LibrarySchema{
 							Resources: map[string]*TypeSchema{
 								"secret": {
 									SensitiveOutputs: []string{
@@ -428,8 +428,8 @@ resources: {
   } }
 }
 `)
-	dag := BuildDAG(stack, mods)
-	an := newSensitivityAnalyzer(stack, mods, dag)
+	dag := BuildDAG(stack, libs)
+	an := newSensitivityAnalyzer(stack, libs, dag)
 
 	node := dag.Nodes["resource.local.file.f"]
 	got := an.sensitiveInputs(node.Body, node.Composite)
@@ -453,11 +453,11 @@ outputs: {
   sha: { value: resource.local.file.this.sha256 }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			Composites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Modules: map[string]*Module{
+				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"local": {Name: "local"},
 				}},
 			},
@@ -469,8 +469,8 @@ resources: {
   wrap: { box: { one: { password: 'shh' } } }
 }
 `)
-	dag := BuildDAG(stack, mods)
-	an := newSensitivityAnalyzer(stack, mods, dag)
+	dag := BuildDAG(stack, libs)
+	an := newSensitivityAnalyzer(stack, libs, dag)
 
 	inner := dag.Nodes["resource.wrap.box.one/local.file.this"]
 	require.NotNil(t, inner, "internal node should exist")
@@ -481,8 +481,8 @@ resources: {
 }
 
 func TestSensitivityHandlesNilSource(t *testing.T) {
-	mods := map[string]*Module{}
-	an := newSensitivityAnalyzer(nil, mods, nil)
+	libs := map[string]*Library{}
+	an := newSensitivityAnalyzer(nil, libs, nil)
 	body := &lang.ObjectLit{}
 	require.Empty(t, an.sensitiveInputs(body, ""))
 }
@@ -504,8 +504,8 @@ actions: {
   }
 }
 `
-	mods := testModules()
-	mods["core"].Schema = &ModuleSchema{
+	libs := testModules()
+	libs["core"].Schema = &LibrarySchema{
 		Actions: map[string]*TypeSchema{
 			"echo": {SensitiveOutputs: []string{"echo"}},
 		},
@@ -514,12 +514,12 @@ actions: {
 	f := parseStack(t, src)
 	store := newStateStore(t)
 	exec := &Executor{
-		Source:  f,
-		DAG:     BuildDAG(f, mods),
-		Modules: mods,
-		Inputs:  map[string]any{"message": "shh"},
-		Store:   store,
-		Stack:   stack,
+		Source:    f,
+		DAG:       BuildDAG(f, libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"message": "shh"},
+		Store:     store,
+		Stack:     stack,
 	}
 	applyOnce(t, exec)
 

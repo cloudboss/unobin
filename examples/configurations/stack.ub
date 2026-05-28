@@ -1,7 +1,7 @@
 description: 'Exercises @configuration on leaves and @configurations on composite call sites.'
 
 imports: {
-  core:    'github.com/cloudboss/unobin//pkg/modules/core@v0.1.0'
+  core:    'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
   greet:   'github.com/cloudboss/unobin//examples/configurations/greet@v0.1.0'
   greeter: './greeter'
 }

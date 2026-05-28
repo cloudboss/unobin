@@ -365,7 +365,7 @@ func TestParseFixtureComments(t *testing.T) {
 
 func TestParseFixtureMetaKeys(t *testing.T) {
 	f := loadFixture(t, "testdata/valid/meta-keys.ub")
-	wants := []string{"@for-each", "@depends-on", "@sensitive", "@trigger", "@module"}
+	wants := []string{"@for-each", "@depends-on", "@sensitive", "@trigger", "@library"}
 	require.Len(t, f.Body.Fields, len(wants))
 	for i, want := range wants {
 		k := f.Body.Fields[i].Key
@@ -513,16 +513,16 @@ func TestParseFixtureCalls(t *testing.T) {
 	require.Equal(t, "b64-encode", inner.Callee.Name)
 	require.Equal(t, "plaintext", inner.Args[0].(*StringLit).Value)
 
-	mod := getCall(4, "module-call")
-	require.Nil(t, mod.Callee)
-	require.Equal(t, "lib", mod.Module.Name)
-	require.Equal(t, "index-by", mod.Func.Name)
-	require.Len(t, mod.Args, 2)
+	lib := getCall(4, "library-call")
+	require.Nil(t, lib.Callee)
+	require.Equal(t, "lib", lib.Library.Name)
+	require.Equal(t, "index-by", lib.Func.Name)
+	require.Len(t, lib.Args, 2)
 
-	modNoArgs := getCall(5, "module-no-args")
-	require.Equal(t, "lib", modNoArgs.Module.Name)
-	require.Equal(t, "now", modNoArgs.Func.Name)
-	require.Empty(t, modNoArgs.Args)
+	libNoArgs := getCall(5, "library-no-args")
+	require.Equal(t, "lib", libNoArgs.Library.Name)
+	require.Equal(t, "now", libNoArgs.Func.Name)
+	require.Empty(t, libNoArgs.Args)
 
 	trailing := getCall(7, "trailing-comma")
 	require.Equal(t, "format", trailing.Callee.Name)
@@ -613,7 +613,7 @@ func TestParseFixtureComplex(t *testing.T) {
 
 	// nested-calls: lib.index-by(format('%s', var.x), 'name')
 	nc := byKey["nested-calls"].(*Call)
-	require.Equal(t, "lib", nc.Module.Name)
+	require.Equal(t, "lib", nc.Library.Name)
 	require.Equal(t, "index-by", nc.Func.Name)
 	require.Len(t, nc.Args, 2)
 	require.Equal(t, "format", nc.Args[0].(*Call).Callee.Name)
@@ -708,7 +708,7 @@ func TestParseFixtureComplex(t *testing.T) {
 	uoc := byKey["unary-on-call"].(*Prefix)
 	require.Equal(t, "!", uoc.Op)
 	call := uoc.Expr.(*Call)
-	require.Equal(t, "lib", call.Module.Name)
+	require.Equal(t, "lib", call.Library.Name)
 	require.Equal(t, "is-valid", call.Func.Name)
 
 	// unary-on-paren: -(var.x + var.y)

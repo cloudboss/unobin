@@ -10,9 +10,9 @@ import (
 
 func TestPinFile(t *testing.T) {
 	const (
-		modulePath = "github.com/cloudboss/cluster-deploy"
-		version    = "v0.3.0"
-		revision   = "fedcba"
+		libraryPath = "github.com/cloudboss/cluster-deploy"
+		version     = "v0.3.0"
+		revision    = "fedcba"
 	)
 	tests := []struct {
 		name   string
@@ -27,7 +27,7 @@ func TestPinFile(t *testing.T) {
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -43,7 +43,7 @@ inputs: {
 			name: "empty file",
 			src:  ``,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -54,11 +54,11 @@ inputs: {
 		{
 			name: "stack block missing supported-versions",
 			src: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -67,12 +67,12 @@ inputs: {
 			action: pinActionAddedSupportedVersions,
 		},
 		{
-			name: "stack block missing module-path and supported-versions",
+			name: "stack block missing library-path and supported-versions",
 			src: `stack: {
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -85,7 +85,7 @@ inputs: {
 			src: `stack: {}
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -96,12 +96,12 @@ inputs: {
 		{
 			name: "empty supported-versions list",
 			src: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: []
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -112,7 +112,7 @@ inputs: {
 		{
 			name: "supported-versions with existing entries, no trailing comma",
 			src: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
     { version: 'v0.2.0', content-revision: 'bbb' }
@@ -120,7 +120,7 @@ inputs: {
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
     { version: 'v0.2.0', content-revision: 'bbb' },
@@ -133,7 +133,7 @@ inputs: {
 		{
 			name: "supported-versions with existing entries, with trailing comma",
 			src: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
     { version: 'v0.2.0', content-revision: 'bbb' },
@@ -141,7 +141,7 @@ inputs: {
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
     { version: 'v0.2.0', content-revision: 'bbb' },
@@ -154,14 +154,14 @@ inputs: {
 		{
 			name: "idempotent when entry already present",
 			src: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
 }
 `,
 			want: `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.3.0', content-revision: 'fedcba' },
   ]
@@ -172,7 +172,7 @@ inputs: {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, action, err := pinFile([]byte(tt.src), modulePath, version, revision)
+			got, action, err := pinFile([]byte(tt.src), libraryPath, version, revision)
 			require.NoError(t, err)
 			assert.Equal(t, tt.action, action)
 			assert.Equal(t, tt.want, string(got))
@@ -182,20 +182,20 @@ inputs: {
 	}
 }
 
-func TestPinFileRejectsModulePathMismatch(t *testing.T) {
+func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
 	src := []byte(`stack: {
-  module-path: 'github.com/cloudboss/other'
+  library-path: 'github.com/cloudboss/other'
   supported-versions: []
 }
 `)
 	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "module-path")
+	assert.Contains(t, err.Error(), "library-path")
 }
 
 func TestPinFilePreservesTrailingContent(t *testing.T) {
 	src := []byte(`stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' }
   ]
@@ -206,7 +206,7 @@ inputs: {
 }
 `)
 	want := `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'aaa' },
     { version: 'v0.3.0', content-revision: 'fedcba' },

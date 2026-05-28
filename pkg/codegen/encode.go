@@ -269,12 +269,12 @@ func encodeCall(b *strings.Builder, n *lang.Call) error {
 		}
 		first = false
 	}
-	if n.Module != nil {
+	if n.Library != nil {
 		if !first {
 			b.WriteString(", ")
 		}
-		b.WriteString("Module: ")
-		if err := encodeIdent(b, n.Module); err != nil {
+		b.WriteString("Library: ")
+		if err := encodeIdent(b, n.Library); err != nil {
 			return err
 		}
 		first = false
@@ -480,8 +480,8 @@ func fileKindIdent(k lang.FileKind) string {
 	switch k {
 	case lang.FileStack:
 		return "lang.FileStack"
-	case lang.FileModule:
-		return "lang.FileModule"
+	case lang.FileLibrary:
+		return "lang.FileLibrary"
 	case lang.FileExportedType:
 		return "lang.FileExportedType"
 	case lang.FileConfig:

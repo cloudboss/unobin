@@ -1,1 +1,0 @@
-inputs: { message: 'Hello from a UB module!', path: '/tmp/unobin-hello-module.txt' }

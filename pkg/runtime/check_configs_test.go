@@ -10,18 +10,18 @@ import (
 
 func newExecutorForConfigCheck(
 	nodes map[string]*Node,
-	mods map[string]*Module,
+	libs map[string]*Library,
 	configurations map[string]map[string]any,
 ) *Executor {
 	return &Executor{
 		DAG:            &DAG{Nodes: nodes},
-		Modules:        mods,
+		Libraries:      libs,
 		Configurations: configurations,
 	}
 }
 
-func moduleWithConfig() *Module {
-	return &Module{
+func libraryWithConfig() *Library {
+	return &Library{
 		Name:          "aws",
 		Configuration: &cfg.ConfigurationType{New: func() any { return &struct{}{} }},
 	}
@@ -36,7 +36,7 @@ func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
-		map[string]*Module{"aws": moduleWithConfig()},
+		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x", "east2": "y"}},
 	)
 	require.NoError(t, e.checkConfigurations())
@@ -51,7 +51,7 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
-		map[string]*Module{"aws": moduleWithConfig()},
+		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
 	err := e.checkConfigurations()
@@ -69,12 +69,12 @@ func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) 
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
-		map[string]*Module{"core": {Name: "core"}},
+		map[string]*Library{"core": {Name: "core"}},
 		nil,
 	)
 	err := e.checkConfigurations()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "module declares no configuration")
+	require.Contains(t, err.Error(), "library declares no configuration")
 }
 
 func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
@@ -88,7 +88,7 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{composite.Address: composite},
-		map[string]*Module{"aws": moduleWithConfig()},
+		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x", "east2": "y"}},
 	)
 	require.NoError(t, e.checkConfigurations())
@@ -105,7 +105,7 @@ func TestCheckConfigurationsRejectsMismatchedNamespaceInRemap(t *testing.T) {
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{composite.Address: composite},
-		map[string]*Module{"aws": moduleWithConfig()},
+		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
 	err := e.checkConfigurations()
@@ -125,7 +125,7 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{composite.Address: composite},
-		map[string]*Module{"aws": moduleWithConfig()},
+		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
 	err := e.checkConfigurations()
@@ -153,7 +153,7 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 			leaf.Address:      leaf,
 			composite.Address: composite,
 		},
-		map[string]*Module{"aws": moduleWithConfig()},
+		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
 	err := e.checkConfigurations()

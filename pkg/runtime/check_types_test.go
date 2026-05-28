@@ -9,11 +9,11 @@ import (
 )
 
 // localFileModule mirrors the input and output fields of the real
-// `local.file` resource so the tests don't pull the modules
+// `local.file` resource so the tests don't pull the libraries
 // package as a dependency.
-func localFileModule() *Module {
-	return &Module{
-		Schema: &ModuleSchema{
+func localFileLibrary() *Library {
+	return &Library{
+		Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
 				"file": {
 					Inputs: map[string]typecheck.Type{
@@ -43,7 +43,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkRefMessages(t, errs))
 }
@@ -57,7 +57,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -74,7 +74,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -91,7 +91,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkErrorMessages(t, errs))
 }
@@ -106,7 +106,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -126,7 +126,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -143,7 +143,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -160,7 +160,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkErrorMessages(t, errs))
 }
@@ -174,8 +174,8 @@ actions: {
     }
   }
 }
-`), map[string]*Module{
-		"core": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"core": {Schema: &LibrarySchema{
 			Actions: map[string]*TypeSchema{
 				"command": {
 					Inputs: map[string]typecheck.Type{
@@ -200,8 +200,8 @@ actions: {
     }
   }
 }
-`), map[string]*Module{
-		"core": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"core": {Schema: &LibrarySchema{
 			Actions: map[string]*TypeSchema{
 				"command": {
 					Inputs: map[string]typecheck.Type{
@@ -245,7 +245,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 	require.Empty(t, checkErrorMessages(t, errs))
 }
 
@@ -263,7 +263,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -279,7 +279,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -307,9 +307,9 @@ resources: {
     }
   }
 }
-`), map[string]*Module{
-		"local": localFileModule(),
-		"aws": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"local": localFileLibrary(),
+		"aws": {Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
 				"rds": {
 					Inputs: map[string]typecheck.Type{
@@ -340,7 +340,7 @@ resources: {
     }
   }
 }
-`), map[string]*Module{"local": localFileModule()})
+`), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
 	require.Len(t, got, 1)
@@ -356,8 +356,8 @@ resources: {
     }
   }
 }
-`), map[string]*Module{
-		"local": {Schema: &ModuleSchema{
+`), map[string]*Library{
+		"local": {Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{"path": typecheck.TString()}},
 			},

@@ -9,7 +9,7 @@ import (
 )
 
 // ApplyPlan executes a previously computed PlanFile against the
-// Executor's modules, store, and parsed source. The DAG passed on the
+// Executor's libraries, store, and parsed source. The DAG passed on the
 // Executor is used for output expressions, while resource and action
 // bodies come from the plan. The plan's stack identity must match the
 // Executor's, and the prior state's rev must match what the plan was
@@ -54,7 +54,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 
 	// Composite scopes seed from the plan: each composite step carries
 	// its evaluated call site args as Inputs, so internals see the
-	// right Vars without needing the root inputs again. Modules comes
+	// right Vars without needing the root inputs again. Libraries comes
 	// from the boundary node so functions invoked in the composite's
 	// outputs or internals resolve against the composite's own imports.
 	// A `@for-each` composite emits one step per instance, each at a
@@ -74,7 +74,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
-			Modules:   compositeBodyModules(boundary, e.Modules),
+			Libraries: compositeBodyLibraries(boundary, e.Libraries),
 			locals:    newLocalScope(localsBlock(boundary.CompositeBody)),
 		}
 	}
@@ -106,7 +106,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 
 func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) error {
 	if step.Decision == DecisionDestroy {
-		// Resources need their Delete called; action and module-call
+		// Resources need their Delete called; action and library-call
 		// records have no external lifecycle, so they are just removed.
 		if step.Kind == NodeResource {
 			return e.applyDestroy(ctx, rs, step)
@@ -139,13 +139,13 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if err != nil {
 		return err
 	}
-	mod, ok := e.modulesFor(prep.node)[prep.node.NS]
+	lib, ok := e.librariesFor(prep.node)[prep.node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", prep.node.NS)
+		return fmt.Errorf("library %q is not imported", prep.node.NS)
 	}
-	at, ok := mod.Actions[prep.node.Type]
+	at, ok := lib.Actions[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no action %q", prep.node.NS, prep.node.Type)
+		return fmt.Errorf("library %s has no action %q", prep.node.NS, prep.node.Type)
 	}
 	var outputs map[string]any
 	switch step.Decision {
@@ -200,13 +200,13 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if err != nil {
 		return err
 	}
-	mod, ok := e.modulesFor(prep.node)[prep.node.NS]
+	lib, ok := e.librariesFor(prep.node)[prep.node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", prep.node.NS)
+		return fmt.Errorf("library %q is not imported", prep.node.NS)
 	}
-	rt, ok := mod.Resources[prep.node.Type]
+	rt, ok := lib.Resources[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no resource %q", prep.node.NS, prep.node.Type)
+		return fmt.Errorf("library %s has no resource %q", prep.node.NS, prep.node.Type)
 	}
 
 	receiver := rt.NewReceiver()
@@ -290,7 +290,7 @@ func instanceScope(node *Node, parent *EvalContext, instKey string) (*EvalContex
 	return childScopeWithEach(parent, instKey, value), nil
 }
 
-// applyDestroy deletes a resource and drops it from state. The module
+// applyDestroy deletes a resource and drops it from state. The library
 // is recovered by parsing the address, so this works whether the
 // resource was orphaned (removed from source) or is part of a full
 // teardown. Composite-internal addresses keep their call site prefix,
@@ -305,13 +305,13 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if !ok {
 		return fmt.Errorf("destroy: malformed address %q", step.Address)
 	}
-	mod, ok := e.modulesForAddress(step.Address)[ns]
+	lib, ok := e.librariesForAddress(step.Address)[ns]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", ns)
+		return fmt.Errorf("library %q is not imported", ns)
 	}
-	rt, ok := mod.Resources[typeName]
+	rt, ok := lib.Resources[typeName]
 	if !ok {
-		return fmt.Errorf("module %s has no resource %q", ns, typeName)
+		return fmt.Errorf("library %s has no resource %q", ns, typeName)
 	}
 	receiver := rt.NewReceiver()
 	if err := Decode(receiver, step.Inputs); err != nil {
@@ -329,7 +329,7 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 }
 
 // removeRecord drops a state entry that has no external lifecycle - an
-// action record, a composite module-call record, or a resource the
+// action record, a composite library-call record, or a resource the
 // plan already found absent - during a destroy. There is nothing to
 // delete; the record is simply removed and the new snapshot written.
 func (e *Executor) removeRecord(rs *runState, step *PlanStep) error {
@@ -410,13 +410,13 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
-	mod, ok := e.modulesFor(prep.node)[prep.node.NS]
+	lib, ok := e.librariesFor(prep.node)[prep.node.NS]
 	if !ok {
-		return fmt.Errorf("module %q is not imported", prep.node.NS)
+		return fmt.Errorf("library %q is not imported", prep.node.NS)
 	}
-	dt, ok := mod.DataSources[prep.node.Type]
+	dt, ok := lib.DataSources[prep.node.Type]
 	if !ok {
-		return fmt.Errorf("module %s has no data source %q", prep.node.NS, prep.node.Type)
+		return fmt.Errorf("library %s has no data source %q", prep.node.NS, prep.node.Type)
 	}
 	receiver := dt.NewReceiver()
 	if err := Decode(receiver, prep.inputs); err != nil {

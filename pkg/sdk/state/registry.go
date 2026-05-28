@@ -5,7 +5,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
-// BackendType registers a state backend a provider module ships.
+// BackendType registers a state backend a provider library ships.
 // Configuration describes the schema for the `state:` block fields
 // the operator writes (e.g., path for the local backend, bucket and
 // region for an S3 backend). New is the factory the runtime invokes

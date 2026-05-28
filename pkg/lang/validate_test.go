@@ -33,10 +33,10 @@ outputs:     {}
 
 func TestValidateTopLevelKeysModule(t *testing.T) {
 	src := `
-description: 'a module'
+description: 'a library'
 exports:     { cluster: 'cluster.ub' }
 `
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileModule))
+	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileLibrary))
 	require.Equal(t, 0, errs.Len())
 }
 
@@ -77,8 +77,8 @@ func TestValidateRejectsForeignKeys(t *testing.T) {
 			badKey: "exports",
 		},
 		{
-			name:   "module-with-inputs",
-			kind:   FileModule,
+			name:   "library-with-inputs",
+			kind:   FileLibrary,
 			src:    "inputs: {}\n",
 			badKey: "inputs",
 		},
@@ -105,7 +105,7 @@ func TestValidateRejectsForeignKeys(t *testing.T) {
 }
 
 func TestValidateRejectsMetaKey(t *testing.T) {
-	src := "@module: 'aws'\n"
+	src := "@library: 'aws'\n"
 	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileStack))
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "@-prefixed")
@@ -422,13 +422,13 @@ func TestValidateInputBadMetaKey(t *testing.T) {
 inputs: {
   region: {
     type:    string
-    @module: 'aws'
+    @library: 'aws'
   }
 }
 `
 	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
 	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "@module")
+	require.Contains(t, errs.Errors()[0].Msg, "@library")
 }
 
 func TestValidateInputCollectsMultiple(t *testing.T) {
@@ -594,10 +594,10 @@ func parseObjectBlock(t *testing.T, src, key string) *ObjectLit {
 func TestValidateImportsHappy(t *testing.T) {
 	src := `
 imports: {
-  aws:   'github.com/cloudboss/unobin-modules/aws@v0.5.0'
-  net:   'github.com/me/modules/network@v1.2.3'
+  aws:   'github.com/cloudboss/unobin-libraries/aws@v0.5.0'
+  net:   'github.com/me/libraries/network@v1.2.3'
   utils: 'github.com/me/utils@v0.3.0'
-  local: './local-modules/foo'
+  local: './local-libraries/foo'
 }
 `
 	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
@@ -886,15 +886,15 @@ exports: {
 
 func TestValidateFileModule(t *testing.T) {
 	src := `
-description: 'a module'
+description: 'a library'
 exports: {
   cluster: 'cluster.ub'
   proxy:   'proxy.ub'
 }
 `
-	f, err := ParseSource("module.ub", []byte(src))
+	f, err := ParseSource("library.ub", []byte(src))
 	require.NoError(t, err)
-	require.Equal(t, FileModule, f.Kind)
+	require.Equal(t, FileLibrary, f.Kind)
 
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))

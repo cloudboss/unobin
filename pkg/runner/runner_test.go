@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/libraries/core"
+	"github.com/cloudboss/unobin/pkg/libraries/local"
 	"github.com/cloudboss/unobin/pkg/localstate"
-	"github.com/cloudboss/unobin/pkg/modules/core"
-	"github.com/cloudboss/unobin/pkg/modules/local"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -55,14 +55,14 @@ func testInfo(t *testing.T, src string) Info {
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	require.NoError(t, os.Chdir(t.TempDir()))
 
-	coreMod := core.Module()
+	coreMod := core.Library()
 	coreMod.Actions["echo"] = runtime.MakeAction[echoAction, any]()
 	return Info{
 		StackName:       "test-stack",
 		StackVersion:    "v0.1.0",
 		ContentRevision: "abcdef",
 		StackBody:       src,
-		Modules:         map[string]*runtime.Module{"core": coreMod},
+		Libraries:       map[string]*runtime.Library{"core": coreMod},
 	}
 }
 
@@ -97,7 +97,7 @@ func applyVia(t *testing.T, info Info, configPath string) string {
 
 // openPlanFile reads a plan file from disk and returns its inner
 // PlanFile. The envelope's encrypter ref is resolved against
-// info.Modules, the same path apply uses.
+// info.Libraries, the same path apply uses.
 func openPlanFile(t *testing.T, info Info, path string) *runtime.PlanFile {
 	t.Helper()
 	body, err := os.ReadFile(path)
@@ -155,7 +155,7 @@ resources: {
 }
 `, path)
 	info := testInfo(t, src)
-	info.Modules["local"] = local.Module()
+	info.Libraries["local"] = local.Library()
 
 	// Create the file with a normal apply.
 	_ = applyVia(t, info, "")
@@ -800,7 +800,7 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 	}
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan)
-	expected := `  + resource.greeter.greeting.welcome  (module greeter.greeting)
+	expected := `  + resource.greeter.greeting.welcome  (library greeter.greeting)
       path: "/tmp/x"
     + local.file.many  (for-each, 2 instances)
       + ['a']
@@ -838,7 +838,7 @@ func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
 	}
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan)
-	expected := `  + resource.greeter.greeting.welcome  (module greeter.greeting)
+	expected := `  + resource.greeter.greeting.welcome  (library greeter.greeting)
       message: "Hello"
       path: "/tmp/x"
     + local.file.this
@@ -884,10 +884,10 @@ func TestPrintPlanRendersNestedComposites(t *testing.T) {
 	}
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan)
-	expected := `  + resource.greeter.greeting.welcome  (module greeter.greeting)
+	expected := `  + resource.greeter.greeting.welcome  (library greeter.greeting)
       message: "Hello"
       path: "/tmp/x"
-    + resource.greeter.greeting.welcome/helloer.hello.file  (module helloer.hello)
+    + resource.greeter.greeting.welcome/helloer.hello.file  (library helloer.hello)
         message: "Hello"
         path: "/tmp/x"
       + local.file.this
@@ -967,13 +967,13 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	require.Equal(t, expected, out)
 }
 
-func TestSchemaTemplateIncludesModulePathWhenSet(t *testing.T) {
+func TemplateIncludesLibraryPathWhenSet(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
-	info.ModulePath = "github.com/cloudboss/cluster-deploy"
+	info.LibraryPath = "github.com/cloudboss/cluster-deploy"
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
 	expected := `stack: {
-  module-path: 'github.com/cloudboss/cluster-deploy'
+  library-path: 'github.com/cloudboss/cluster-deploy'
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
@@ -1312,7 +1312,7 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 	require.Contains(t, err.Error(), "no entry at")
 }
 
-// stateMoveFixture builds a snapshot that mixes a module call site
+// stateMoveFixture builds a snapshot that mixes a library call site
 // (boundary + one internal) with one unrelated leaf so the move tests
 // can exercise both shapes against the same state.
 func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
@@ -1326,10 +1326,10 @@ func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
 		{
-			Address:    "resource.greeter.greeting.welcome",
-			Type:       state.EntryModuleCall,
-			Module:     "greeter",
-			ModuleType: "greeting",
+			Address:     "resource.greeter.greeting.welcome",
+			Type:        state.EntryLibraryCall,
+			Library:     "greeter",
+			LibraryType: "greeting",
 		},
 		{
 			Address: "resource.greeter.greeting.welcome/local.file.this",
@@ -1359,7 +1359,7 @@ func snapshotAddresses(t *testing.T, store *localstate.LocalStore) []string {
 	return out
 }
 
-func TestStateMoveRelocatesModuleCallSite(t *testing.T) {
+func TestStateMoveRelocatesLibraryCallSite(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store := stateMoveFixture(t, info)
 
@@ -1377,7 +1377,7 @@ func TestStateMoveRelocatesModuleCallSite(t *testing.T) {
 	}, snapshotAddresses(t, store))
 }
 
-func TestStateMoveSingleEntryLeavesModuleAlone(t *testing.T) {
+func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store := stateMoveFixture(t, info)
 
@@ -1406,10 +1406,10 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
 		{
-			Address:    "resource.greeter.greeting.a",
-			Type:       state.EntryModuleCall,
-			Module:     "greeter",
-			ModuleType: "greeting",
+			Address:     "resource.greeter.greeting.a",
+			Type:        state.EntryLibraryCall,
+			Library:     "greeter",
+			LibraryType: "greeting",
 		},
 		{
 			Address: "resource.greeter.greeting.a/local.file.this",

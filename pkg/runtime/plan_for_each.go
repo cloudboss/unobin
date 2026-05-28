@@ -28,12 +28,12 @@ func (e *Executor) insideForEachComposite(n *Node) bool {
 // with `@each.key` / `@each.value` bound, and its state address gets
 // a `['<key>']` suffix.
 func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error) {
-	mod, ok := e.modulesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.NS]
 	if !ok {
-		return nil, fmt.Errorf("module %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.NS)
 	}
-	if _, ok := mod.Actions[n.Type]; !ok {
-		return nil, fmt.Errorf("module %s has no action %q", n.NS, n.Type)
+	if _, ok := lib.Actions[n.Type]; !ok {
+		return nil, fmt.Errorf("library %s has no action %q", n.NS, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {
@@ -58,12 +58,12 @@ func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error)
 
 // planForEachData plans one data source step per iterable key.
 func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
-	mod, ok := e.modulesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.NS]
 	if !ok {
-		return nil, fmt.Errorf("module %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.NS)
 	}
-	if _, ok := mod.DataSources[n.Type]; !ok {
-		return nil, fmt.Errorf("module %s has no data source %q", n.NS, n.Type)
+	if _, ok := lib.DataSources[n.Type]; !ok {
+		return nil, fmt.Errorf("library %s has no data source %q", n.NS, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {
@@ -206,13 +206,13 @@ func (e *Executor) planInternalUnder(
 	}
 	switch n.Kind {
 	case NodeResource:
-		mod, ok := e.modulesFor(n)[n.NS]
+		lib, ok := e.librariesFor(n)[n.NS]
 		if !ok {
-			return nil, fmt.Errorf("module %q is not imported", n.NS)
+			return nil, fmt.Errorf("library %q is not imported", n.NS)
 		}
-		rt, ok := mod.Resources[n.Type]
+		rt, ok := lib.Resources[n.Type]
 		if !ok {
-			return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+			return nil, fmt.Errorf("library %s has no resource %q", n.NS, n.Type)
 		}
 		step, err := e.planOneResource(rs, n, rt, scope, addr)
 		if err != nil {
@@ -254,13 +254,13 @@ func (e *Executor) planInternalUnder(
 // against a child scope carrying its `@each.key` / `@each.value`
 // binding, with its own state address.
 func (e *Executor) planForEachResource(rs *runState, n *Node) ([]*PlanStep, error) {
-	mod, ok := e.modulesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.NS]
 	if !ok {
-		return nil, fmt.Errorf("module %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.NS)
 	}
-	rt, ok := mod.Resources[n.Type]
+	rt, ok := lib.Resources[n.Type]
 	if !ok {
-		return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+		return nil, fmt.Errorf("library %s has no resource %q", n.NS, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {

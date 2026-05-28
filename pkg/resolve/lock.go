@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// LockFileName is the standard filename for a stack or module's lock file.
+// LockFileName is the standard filename for a stack or library's lock file.
 const LockFileName = "unobin.lock"
 
 // CurrentLockVersion is the schema version this package reads and writes.
@@ -14,12 +14,12 @@ const LockFileName = "unobin.lock"
 // can't guarantee correct interpretation.
 const CurrentLockVersion = 1
 
-// LockKind is the category of an imported module recorded in the lock.
+// LockKind is the category of an imported library recorded in the lock.
 type LockKind string
 
 const (
-	LockKindGoModule LockKind = "go-module"
-	LockKindUBModule LockKind = "ub-module"
+	LockKindGoLibrary LockKind = "go-library"
+	LockKindUBLibrary LockKind = "ub-library"
 )
 
 // LockFile is the on-disk schema for `unobin.lock`. Pins each import's
@@ -108,7 +108,7 @@ func validateLockEntries(lf *LockFile) error {
 			return fmt.Errorf("lock: import %q: nil entry", alias)
 		}
 		switch entry.Kind {
-		case LockKindGoModule, LockKindUBModule:
+		case LockKindGoLibrary, LockKindUBLibrary:
 		case "":
 			return fmt.Errorf("lock: import %q: missing `kind`", alias)
 		default:

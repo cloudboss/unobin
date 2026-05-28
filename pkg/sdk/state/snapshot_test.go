@@ -28,13 +28,13 @@ func sampleSnapshot() *Snapshot {
 				Outputs:       map[string]any{"id": "vpc-abc"},
 			},
 			{
-				Address:    "resource.net.cluster.web",
-				Type:       EntryModuleCall,
-				Module:     "net",
-				ModuleType: "cluster",
-				Inputs:     map[string]any{"name": "web", "size": float64(5)},
-				Outputs:    map[string]any{"arn": "arn:..."},
-				DependsOn:  []string{"resource.aws.vpc.main"},
+				Address:     "resource.net.cluster.web",
+				Type:        EntryLibraryCall,
+				Library:     "net",
+				LibraryType: "cluster",
+				Inputs:      map[string]any{"name": "web", "size": float64(5)},
+				Outputs:     map[string]any{"arn": "arn:..."},
+				DependsOn:   []string{"resource.aws.vpc.main"},
 			},
 		},
 	}
@@ -83,12 +83,12 @@ func TestSnapshotRejectsLeafWithoutKind(t *testing.T) {
 	require.Contains(t, err.Error(), "missing kind")
 }
 
-func TestSnapshotRejectsModuleCallWithoutModule(t *testing.T) {
+func TestSnapshotRejectsLibraryCallWithoutModule(t *testing.T) {
 	s := sampleSnapshot()
-	s.Entries[1].Module = ""
+	s.Entries[1].Library = ""
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing module")
+	require.Contains(t, err.Error(), "missing library")
 }
 
 func TestSnapshotRejectsUnknownType(t *testing.T) {
@@ -135,7 +135,7 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.True(t, strings.HasSuffix(out, "\n"))
 	require.Contains(t, out, `"format-version": 1`)
 	require.Contains(t, out, `"address": "resource.aws.vpc.main"`)
-	require.Contains(t, out, `"module-type": "cluster"`)
+	require.Contains(t, out, `"library-type": "cluster"`)
 }
 
 func TestSnapshotActionEntry(t *testing.T) {

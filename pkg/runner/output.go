@@ -81,7 +81,7 @@ type applyErrorEnv struct {
 	Kind      string `json:"kind"                  ub:"kind"`
 	Address   string `json:"address"               ub:"address"`
 	Decision  string `json:"decision,omitempty"    ub:"decision,omitempty"`
-	Module    string `json:"module,omitempty"      ub:"module,omitempty"`
+	Library   string `json:"library,omitempty"      ub:"library,omitempty"`
 	Elapsed   string `json:"elapsed,omitempty"     ub:"elapsed,omitempty"`
 	Err       string `json:"err"                   ub:"err"`
 	Skipped   int    `json:"skipped,omitempty"     ub:"skipped,omitempty"`

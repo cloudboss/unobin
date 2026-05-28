@@ -8,9 +8,9 @@ import (
 
 // ValidateConfigurationType verifies that every reachable field in
 // a fresh New() instance is a wrapper from this package or a struct
-// whose fields recurse to wrappers. Call this from a module's unit
+// whose fields recurse to wrappers. Call this from a library's unit
 // tests to catch misuse at go-test time. The runtime calls it at
-// module load to fail fast on a misdeclared configuration.
+// library load to fail fast on a misdeclared configuration.
 func ValidateConfigurationType(ct *ConfigurationType) error {
 	if ct == nil {
 		return errors.New("ConfigurationType is nil")

@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/modules/core"
+	"github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
@@ -100,8 +100,8 @@ func (fakeEncrypter) Decrypt(b []byte) ([]byte, error) { return b, nil }
 
 func newFakeEncrypter(_ any) (sdkencrypt.Encrypter, error) { return fakeEncrypter{}, nil }
 
-func fakeProviderModule() *runtime.Module {
-	return &runtime.Module{
+func fakeProviderLibrary() *runtime.Library {
+	return &runtime.Library{
 		Name: "fake",
 		StateBackends: map[string]sdkstate.BackendType{
 			"store": {
@@ -127,9 +127,9 @@ func fakeProviderModule() *runtime.Module {
 func resolverInfo() Info {
 	return Info{
 		StackName: "test-stack",
-		Modules: map[string]*runtime.Module{
-			"core": core.Module(),
-			"fake": fakeProviderModule(),
+		Libraries: map[string]*runtime.Library{
+			"core": core.Library(),
+			"fake": fakeProviderLibrary(),
 		},
 	}
 }

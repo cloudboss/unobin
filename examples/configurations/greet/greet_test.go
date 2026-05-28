@@ -25,9 +25,9 @@ func TestSayErrorsWithoutConfiguration(t *testing.T) {
 	require.Contains(t, err.Error(), "missing or wrong configuration")
 }
 
-func TestModuleDeclaresConfiguration(t *testing.T) {
-	mod := Module()
-	require.Equal(t, "greet", mod.Name)
-	require.NotNil(t, mod.Configuration)
-	require.NoError(t, cfg.ValidateConfigurationType(mod.Configuration))
+func TestLibraryDeclaresConfiguration(t *testing.T) {
+	lib := Library()
+	require.Equal(t, "greet", lib.Name)
+	require.NotNil(t, lib.Configuration)
+	require.NoError(t, cfg.ValidateConfigurationType(lib.Configuration))
 }

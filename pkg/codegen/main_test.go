@@ -14,7 +14,7 @@ func TestGenerateValidGo(t *testing.T) {
 		Body:      "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
 		StackName: "demo",
 		GoImports: map[string]string{
-			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
 	})
 	require.NoError(t, err)
@@ -29,13 +29,13 @@ func TestGenerateEmbedsStackName(t *testing.T) {
 		Body:      "description: 'x'\n",
 		StackName: "my-stack",
 		GoImports: map[string]string{
-			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
 	})
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, `stackName       = "my-stack"`)
+	require.Contains(t, s, `stackName        = "my-stack"`)
 }
 
 func TestGenerateDeclaresStampVars(t *testing.T) {
@@ -43,7 +43,7 @@ func TestGenerateDeclaresStampVars(t *testing.T) {
 		Body:      "description: 'x'\n",
 		StackName: "my-stack",
 		GoImports: map[string]string{
-			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
 	})
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 	out, err := Generate(Input{
 		Body:      src,
 		StackName: "x",
-		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
+		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/libraries/core"},
 	})
 	require.NoError(t, err)
 
@@ -69,17 +69,17 @@ func TestGenerateOrdersImports(t *testing.T) {
 		Body:      "description: 'x'\n",
 		StackName: "x",
 		GoImports: map[string]string{
-			"net":  "github.com/me/modules/network",
-			"aws":  "github.com/cloudboss/unobin-modules/aws",
-			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+			"net":  "github.com/me/libraries/network",
+			"aws":  "github.com/cloudboss/unobin-libraries/aws",
+			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
 	})
 	require.NoError(t, err)
 
 	s := string(out)
-	awsAt := strings.Index(s, `"github.com/cloudboss/unobin-modules/aws"`)
-	coreAt := strings.Index(s, `"github.com/cloudboss/unobin/pkg/modules/core"`)
-	netAt := strings.Index(s, `"github.com/me/modules/network"`)
+	awsAt := strings.Index(s, `"github.com/cloudboss/unobin-libraries/aws"`)
+	coreAt := strings.Index(s, `"github.com/cloudboss/unobin/pkg/libraries/core"`)
+	netAt := strings.Index(s, `"github.com/me/libraries/network"`)
 	require.True(t, awsAt > 0 && coreAt > 0 && netAt > 0,
 		"all imports should appear in source")
 	require.Less(t, awsAt, coreAt, "aws should appear before core")
@@ -89,18 +89,18 @@ func TestGenerateOrdersImports(t *testing.T) {
 func TestGenerateRequiresStackName(t *testing.T) {
 	_, err := Generate(Input{
 		Body:      "description: 'x'",
-		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/modules/core"},
+		GoImports: map[string]string{"core": "github.com/cloudboss/unobin/pkg/libraries/core"},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "StackName")
 }
 
-func TestGenerateImportsAndCallsUBModules(t *testing.T) {
+func TestGenerateImportsAndCallsUBLibraries(t *testing.T) {
 	out, err := Generate(Input{
 		Body:      "description: 'x'",
 		StackName: "demo",
 		GoImports: map[string]string{
-			"core": "github.com/cloudboss/unobin/pkg/modules/core",
+			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
 		},
 		UBImports: map[string]string{
 			"net":     "demo/internal/net",
@@ -113,17 +113,17 @@ func TestGenerateImportsAndCallsUBModules(t *testing.T) {
 package main
 
 import (
-	mod_cluster "demo/internal/cluster"
-	mod_net "demo/internal/net"
-	mod_core "github.com/cloudboss/unobin/pkg/modules/core"
+	lib_cluster "demo/internal/cluster"
+	lib_net "demo/internal/net"
+	lib_core "github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 const (
-	stackBody       = "description: 'x'"
-	stackModulePath = ""
-	stackName       = "demo"
+	stackBody        = "description: 'x'"
+	stackLibraryPath = ""
+	stackName        = "demo"
 )
 
 // Stamped at link time via -ldflags.
@@ -138,11 +138,11 @@ func main() {
 		StackVersion:    stackVersion,
 		ContentRevision: contentRevision,
 		StackBody:       stackBody,
-		ModulePath:      stackModulePath,
-		Modules: map[string]*runtime.Module{
-			"core":    mod_core.Module(),
-			"cluster": mod_cluster.Module(),
-			"net":     mod_net.Module(),
+		LibraryPath:     stackLibraryPath,
+		Libraries: map[string]*runtime.Library{
+			"core":    lib_core.Library(),
+			"cluster": lib_cluster.Library(),
+			"net":     lib_net.Library(),
 		},
 	})
 }
@@ -150,18 +150,18 @@ func main() {
 	require.Equal(t, want, string(out))
 }
 
-func TestGenerateBuildsModulesMap(t *testing.T) {
+func TestGenerateBuildsLibrariesMap(t *testing.T) {
 	out, err := Generate(Input{
 		Body:      "description: 'x'",
 		StackName: "x",
 		GoImports: map[string]string{
-			"core": "github.com/cloudboss/unobin/pkg/modules/core",
-			"aws":  "github.com/cloudboss/unobin-modules/aws",
+			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
+			"aws":  "github.com/cloudboss/unobin-libraries/aws",
 		},
 	})
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, `"aws":  mod_aws.Module(),`)
-	require.Contains(t, s, `"core": mod_core.Module(),`)
+	require.Contains(t, s, `"aws":  lib_aws.Library(),`)
+	require.Contains(t, s, `"core": lib_core.Library(),`)
 }

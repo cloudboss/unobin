@@ -170,7 +170,7 @@ resources: {
   }
 }
 `
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"aws": {
 			Name: "aws",
 			Resources: map[string]ResourceRegistration{
@@ -180,7 +180,7 @@ resources: {
 		},
 	}
 	f := parseStack(t, src)
-	dag := BuildDAG(f, mods)
+	dag := BuildDAG(f, libs)
 	addresses := []string{
 		"resource.aws.instance.nodes['alpha']",
 		"resource.aws.instance.nodes['beta']",
@@ -280,7 +280,7 @@ func TestPersistedDependsOn(t *testing.T) {
 			want:       map[string][]string{"a": {"r"}},
 		},
 		{
-			name: "module-call stays a node",
+			name: "library-call stays a node",
 			steps: []PlanStep{
 				leafStep("r"),
 				{Address: "m", Kind: NodeComposite, Decision: DecisionEval},

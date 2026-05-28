@@ -8,7 +8,7 @@ import (
 // checkTypes runs the type-compatibility pass over every body in
 // the DAG once the reference checker has resolved identifiers. It
 // walks each node's body, looks up the field's declared type from
-// the resolved module's schema, and asks typecheck.Check to
+// the resolved library's schema, and asks typecheck.Check to
 // validate the expression against it. Composite output and
 // constraint predicate bodies are walked too. Anything the schema
 // cannot describe (composite outputs, unknown Go field types) comes
@@ -31,7 +31,7 @@ func (c *referenceChecker) checkTypes() {
 // bodyTargets returns the per-field type targets for a node body.
 // Returns nil when the node's schema cannot be located; the caller
 // then runs the body's expressions with no target (free inference)
-// so missing-schema modules do not block compile.
+// so missing-schema libraries do not block compile.
 func (c *referenceChecker) bodyTargets(n *Node) map[string]typecheck.Type {
 	switch n.Kind {
 	case NodeComposite:
@@ -70,21 +70,21 @@ func (c *referenceChecker) goInputTargets(n *Node) map[string]typecheck.Type {
 }
 
 func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
-	mods := c.modules[n.Composite]
-	if mods == nil {
+	libs := c.libraries[n.Composite]
+	if libs == nil {
 		return nil
 	}
-	mod := mods[n.NS]
-	if mod == nil || mod.Schema == nil {
+	lib := libs[n.NS]
+	if lib == nil || lib.Schema == nil {
 		return nil
 	}
 	switch n.Kind {
 	case NodeResource:
-		return mod.Schema.Resources[n.Type]
+		return lib.Schema.Resources[n.Type]
 	case NodeData:
-		return mod.Schema.DataSources[n.Type]
+		return lib.Schema.DataSources[n.Type]
 	case NodeAction:
-		return mod.Schema.Actions[n.Type]
+		return lib.Schema.Actions[n.Type]
 	}
 	return nil
 }
@@ -191,22 +191,22 @@ func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 		}
 		return typecheck.TObject(fields)
 	}
-	mods := c.modules[node.Composite]
-	if mods == nil {
+	libs := c.libraries[node.Composite]
+	if libs == nil {
 		return typecheck.TUnknown()
 	}
-	mod := mods[node.NS]
-	if mod == nil || mod.Schema == nil {
+	lib := libs[node.NS]
+	if lib == nil || lib.Schema == nil {
 		return typecheck.TUnknown()
 	}
 	var ts *TypeSchema
 	switch node.Kind {
 	case NodeResource:
-		ts = mod.Schema.Resources[node.Type]
+		ts = lib.Schema.Resources[node.Type]
 	case NodeData:
-		ts = mod.Schema.DataSources[node.Type]
+		ts = lib.Schema.DataSources[node.Type]
 	case NodeAction:
-		ts = mod.Schema.Actions[node.Type]
+		ts = lib.Schema.Actions[node.Type]
 	}
 	if ts == nil || ts.Outputs == nil {
 		return typecheck.TUnknown()

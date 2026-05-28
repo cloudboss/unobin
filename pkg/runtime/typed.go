@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-// TypedResource is the typed contract a module author implements for
+// TypedResource is the typed contract a library author implements for
 // one primitive resource type. Out names the output struct, usually a
 // pointer (e.g. *VpcOutput) so a "no prior state" call passes nil.
 type TypedResource[Out any] interface {
@@ -37,7 +37,7 @@ type Migrator interface {
 }
 
 // ResourceRegistration is the type-erased registration the runtime's
-// resource map holds. A module author produces one via MakeResource;
+// resource map holds. A library author produces one via MakeResource;
 // the runtime calls the methods on it to dispatch CRUD work without
 // caring about the typed Out parameter.
 type ResourceRegistration interface {

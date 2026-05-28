@@ -1,8 +1,8 @@
 package runtime
 
-// StateRef names one entry in a module's StateBackends or Encrypters
+// StateRef names one entry in a library's StateBackends or Encrypters
 // map. Alias is empty for the bare names registered under the
-// built-in core module (`local`, `env-key`); otherwise it is the
+// built-in core library (`local`, `env-key`); otherwise it is the
 // import alias from `imports:`. Body carries the operator-provided
 // configuration the resolver decodes against the backend or
 // encrypter type's schema.

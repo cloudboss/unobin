@@ -49,8 +49,8 @@ func (a *slowAction) Run(ctx context.Context, _ any) (any, error) {
 	return map[string]any{}, nil
 }
 
-func slowActionModules(track *concurrencyTracker) map[string]*Module {
-	return map[string]*Module{
+func slowActionModules(track *concurrencyTracker) map[string]*Library {
+	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
@@ -75,10 +75,10 @@ actions: {
   }
 }
 `
-	mods := slowActionModules(&track)
+	libs := slowActionModules(&track)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
@@ -102,10 +102,10 @@ actions: {
   }
 }
 `
-	mods := slowActionModules(&track)
+	libs := slowActionModules(&track)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
@@ -129,10 +129,10 @@ actions: {
   }
 }
 `
-	mods := slowActionModules(&track)
+	libs := slowActionModules(&track)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,

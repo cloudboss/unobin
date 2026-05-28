@@ -34,13 +34,13 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	if n.ConfigurationAlias == "" {
 		return nil
 	}
-	mod, ok := e.Modules[n.NS]
+	lib, ok := e.Libraries[n.NS]
 	if !ok {
 		return nil
 	}
-	if mod.Configuration == nil {
+	if lib.Configuration == nil {
 		return []error{fmt.Errorf(
-			"%s: @configuration %s.%s: module declares no configuration",
+			"%s: @configuration %s.%s: library declares no configuration",
 			n.Address, n.NS, n.ConfigurationAlias)}
 	}
 	if _, ok := e.Configurations[n.NS][n.ConfigurationAlias]; !ok {

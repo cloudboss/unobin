@@ -18,26 +18,26 @@ func writeFile(t *testing.T, path, body string) {
 
 func TestLocalResolverRelative(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "modules", "net", "module.ub"),
+	writeFile(t, filepath.Join(root, "libraries", "net", "library.ub"),
 		"description: 'net'\n")
-	writeFile(t, filepath.Join(root, "modules", "net", "cluster.ub"),
+	writeFile(t, filepath.Join(root, "libraries", "net", "cluster.ub"),
 		"description: 'cluster'\n")
 
-	src, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./modules/net"})
+	src, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./libraries/net"})
 	require.NoError(t, err)
 	require.NotNil(t, src)
 	require.Empty(t, src.Commit)
 	require.Empty(t, src.Hash)
 
-	b, err := fs.ReadFile(src.FS, "module.ub")
+	b, err := fs.ReadFile(src.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(b), "net")
 }
 
 func TestLocalResolverAbsolute(t *testing.T) {
 	root := t.TempDir()
-	target := filepath.Join(t.TempDir(), "abs-module")
-	writeFile(t, filepath.Join(target, "module.ub"), "description: 'abs'\n")
+	target := filepath.Join(t.TempDir(), "abs-library")
+	writeFile(t, filepath.Join(target, "library.ub"), "description: 'abs'\n")
 
 	src, err := NewLocalResolver(root).Resolve(&LocalImport{Path: target})
 	require.NoError(t, err)
@@ -86,24 +86,24 @@ func (s stubResolver) Resolve(_ ImportRef) (*Source, error) {
 	return nil, s.err
 }
 
-func TestIsUBModule(t *testing.T) {
+func TestIsUBLibrary(t *testing.T) {
 	root := t.TempDir()
 	withManifest := filepath.Join(root, "with")
-	writeFile(t, filepath.Join(withManifest, "module.ub"), "description: 'x'\n")
+	writeFile(t, filepath.Join(withManifest, "library.ub"), "description: 'x'\n")
 	without := filepath.Join(root, "without")
 	require.NoError(t, os.MkdirAll(without, 0o755))
 
 	r := NewLocalResolver(root)
 	yes, err := r.Resolve(&LocalImport{Path: "./with"})
 	require.NoError(t, err)
-	require.True(t, IsUBModule(yes))
+	require.True(t, IsUBLibrary(yes))
 
 	no, err := r.Resolve(&LocalImport{Path: "./without"})
 	require.NoError(t, err)
-	require.False(t, IsUBModule(no))
+	require.False(t, IsUBLibrary(no))
 }
 
-func TestIsUBModuleNilSafe(t *testing.T) {
-	require.False(t, IsUBModule(nil))
-	require.False(t, IsUBModule(&Source{}))
+func TestIsUBLibraryNilSafe(t *testing.T) {
+	require.False(t, IsUBLibrary(nil))
+	require.False(t, IsUBLibrary(&Source{}))
 }

@@ -1,5 +1,5 @@
-// Package greet is a small demonstration module that exists so
-// examples and tests can exercise configuration routing. The module
+// Package greet is a small demonstration library that exists so
+// examples and tests can exercise configuration routing. The library
 // carries a single configuration field (Prefix) and a single action
 // (say) that prepends the prefix to a caller-supplied message.
 package greet
@@ -36,9 +36,9 @@ func (a *SayAction) Run(_ context.Context, rawCfg any) (*SayActionOutput, error)
 	return &SayActionOutput{Output: c.Prefix.Value + ": " + a.Message}, nil
 }
 
-// Module returns the registration record for the `greet` module.
-func Module() *runtime.Module {
-	return &runtime.Module{
+// Library returns the registration record for the `greet` library.
+func Library() *runtime.Library {
+	return &runtime.Library{
 		Name:        "greet",
 		Description: "Demonstrates configuration routing by prepending a prefix to a message.",
 		Configuration: &cfg.ConfigurationType{

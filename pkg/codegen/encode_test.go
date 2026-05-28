@@ -215,12 +215,12 @@ func TestEncodeRejectsUnsupportedNode(t *testing.T) {
 
 func TestEncodeCallModuleQualified(t *testing.T) {
 	got, err := EncodeNode(&lang.Call{
-		Module: &lang.Ident{Name: "lib"},
-		Func:   &lang.Ident{Name: "foo"},
-		Args:   []lang.Expr{&lang.NumberLit{Value: "1", ParsedInt: 1}},
+		Library: &lang.Ident{Name: "lib"},
+		Func:    &lang.Ident{Name: "foo"},
+		Args:    []lang.Expr{&lang.NumberLit{Value: "1", ParsedInt: 1}},
 	})
 	require.NoError(t, err)
-	require.Contains(t, got, `Module: &lang.Ident{Name: "lib"}`)
+	require.Contains(t, got, `Library: &lang.Ident{Name: "lib"}`)
 	require.Contains(t, got, `Func: &lang.Ident{Name: "foo"}`)
 	parsesAsGoExpr(t, got)
 }

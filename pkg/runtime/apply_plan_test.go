@@ -51,8 +51,8 @@ func (r *orderResource) ReplaceFields() []string { return nil }
 
 func (r *orderResource) SchemaVersion() int { return 1 }
 
-func orderModules(rec *deleteOrder) map[string]*Module {
-	return map[string]*Module{
+func orderModules(rec *deleteOrder) map[string]*Library {
+	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -66,7 +66,7 @@ func orderModules(rec *deleteOrder) map[string]*Module {
 
 func TestDestroyDeletesDependentsFirst(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -81,10 +81,10 @@ resources: {
 }
 `
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, withBoth), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, withBoth), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -92,10 +92,10 @@ resources: {
 	// Remove both from source so the next apply destroys them. b
 	// depended on a, so b must be deleted before a.
 	empty := &Executor{
-		DAG:     BuildDAG(parseStack(t, `description: 'gone'`), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, `description: 'gone'`), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err = planAndApply(empty)
 	require.NoError(t, err)
@@ -137,8 +137,8 @@ func (r *cfgResource) ReplaceFields() []string { return nil }
 
 func (r *cfgResource) SchemaVersion() int { return 1 }
 
-func cfgCapturingModules(capture *cfgCapture) map[string]*Module {
-	return map[string]*Module{
+func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
+	return map[string]*Library{
 		"aws": {
 			Name:          "aws",
 			Configuration: &cfg.ConfigurationType{New: func() any { return &struct{}{} }},
@@ -153,7 +153,7 @@ func cfgCapturingModules(capture *cfgCapture) map[string]*Module {
 
 func TestDestroyUsesRecordedConfiguration(t *testing.T) {
 	capture := &cfgCapture{}
-	mods := cfgCapturingModules(capture)
+	libs := cfgCapturingModules(capture)
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	configurations := map[string]map[string]any{
@@ -173,8 +173,8 @@ resources: {
 }
 `
 	exec := &Executor{
-		DAG:            BuildDAG(parseStack(t, withResource), mods),
-		Modules:        mods,
+		DAG:            BuildDAG(parseStack(t, withResource), libs),
+		Libraries:      libs,
 		Configurations: configurations,
 		Store:          store,
 		Stack:          stack,
@@ -190,8 +190,8 @@ resources: {
 	// Remove the resource from source so the next apply destroys it,
 	// and confirm Delete ran against the east2 configuration.
 	empty := &Executor{
-		DAG:            BuildDAG(parseStack(t, `description: 'gone'`), mods),
-		Modules:        mods,
+		DAG:            BuildDAG(parseStack(t, `description: 'gone'`), libs),
+		Libraries:      libs,
 		Configurations: configurations,
 		Store:          store,
 		Stack:          stack,
@@ -255,8 +255,8 @@ func (r *incrementalResource) ReplaceFields() []string {
 
 func (r *incrementalResource) SchemaVersion() int { return 1 }
 
-func incrementalModules(c *incrementalResourceCounters) map[string]*Module {
-	return map[string]*Module{
+func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
+	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -310,12 +310,12 @@ func applyIncrementalPlan(
 	src string,
 ) error {
 	t.Helper()
-	mods := incrementalModules(counters)
+	libs := incrementalModules(counters)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	_, err := planAndApply(exec)
 	return err
@@ -323,7 +323,7 @@ func applyIncrementalPlan(
 
 func TestPlanDestroyTearsDownEverything(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -342,11 +342,11 @@ outputs: {
 `
 	build := func(destroy bool) *Executor {
 		return &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Store:   store,
-			Stack:   stack,
-			Destroy: destroy,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Store:     store,
+			Stack:     stack,
+			Destroy:   destroy,
 		}
 	}
 	_, err := planAndApply(build(false))
@@ -365,16 +365,16 @@ outputs: {
 }
 
 func applyStack(
-	t *testing.T, store *localstate.LocalStore, mods map[string]*Module,
+	t *testing.T, store *localstate.LocalStore, libs map[string]*Library,
 	src string, inputs map[string]any,
 ) *ExecResult {
 	t.Helper()
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Inputs:  inputs,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    inputs,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -382,15 +382,15 @@ func applyStack(
 }
 
 func destroyStack(
-	t *testing.T, store *localstate.LocalStore, mods map[string]*Module, src string,
+	t *testing.T, store *localstate.LocalStore, libs map[string]*Library, src string,
 ) (*ExecResult, error) {
 	t.Helper()
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Destroy: true,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Destroy:   true,
 	}
 	return planAndApply(exec)
 }
@@ -404,7 +404,7 @@ func requireEmptyState(t *testing.T, store *localstate.LocalStore) {
 
 func TestPlanDestroyMarksEveryEntryForDeletion(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	store := newStateStore(t)
 	src := `
 resources: {
@@ -417,14 +417,14 @@ resources: {
   }
 }
 `
-	applyStack(t, store, mods, src, nil)
+	applyStack(t, store, libs, src, nil)
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Destroy: true,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Destroy:   true,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -437,11 +437,11 @@ resources: {
 
 func TestPlanDestroyWithNoPriorStateIsEmpty(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	store := newStateStore(t)
 	src := `resources: { core: { thing: { a: { name: 'a' } } } }`
 
-	res, err := destroyStack(t, store, mods, src)
+	res, err := destroyStack(t, store, libs, src)
 	require.NoError(t, err)
 	require.Empty(t, rec.order)
 	require.Empty(t, res.Outputs)
@@ -464,10 +464,10 @@ resources: {
 	// byte-identical every time, not just usually.
 	for range 10 {
 		rec := &deleteOrder{}
-		mods := orderModules(rec)
+		libs := orderModules(rec)
 		store := newStateStore(t)
-		applyStack(t, store, mods, src, nil)
-		_, err := destroyStack(t, store, mods, src)
+		applyStack(t, store, libs, src, nil)
+		_, err := destroyStack(t, store, libs, src)
 		require.NoError(t, err)
 		require.Equal(t, []string{"c", "b", "a"}, rec.order)
 		requireEmptyState(t, store)
@@ -476,7 +476,7 @@ resources: {
 
 func TestDestroyForEachDeletesAllInstances(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	store := newStateStore(t)
 	src := `
 resources: {
@@ -490,9 +490,9 @@ resources: {
   }
 }
 `
-	applyStack(t, store, mods, src,
+	applyStack(t, store, libs, src,
 		map[string]any{"names": map[string]any{"alpha": "a", "beta": "b"}})
-	_, err := destroyStack(t, store, mods, src)
+	_, err := destroyStack(t, store, libs, src)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"alpha", "beta"}, rec.order)
 	requireEmptyState(t, store)
@@ -500,7 +500,7 @@ resources: {
 
 func TestDestroyComposite(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	composite := parseStack(t, `
 resources: {
   core: {
@@ -513,20 +513,20 @@ outputs: {
   id: { value: resource.core.thing.one.id }
 }
 `)
-	mods["w"] = &Module{
+	libs["w"] = &Library{
 		Name:       "w",
 		Composites: map[string]*CompositeType{"box": {Name: "box", Body: composite}},
 	}
 	store := newStateStore(t)
 	src := `resources: { w: { box: { x: { name: 'alpha' } } } }`
-	applyStack(t, store, mods, src, nil)
+	applyStack(t, store, libs, src, nil)
 
-	// Before destroy there is the module-call record plus its internal leaf.
+	// Before destroy there is the library-call record plus its internal leaf.
 	snap, err := store.Current()
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 2)
 
-	_, err = destroyStack(t, store, mods, src)
+	_, err = destroyStack(t, store, libs, src)
 	require.NoError(t, err)
 	require.Equal(t, []string{"alpha"}, rec.order)
 	requireEmptyState(t, store)
@@ -535,7 +535,7 @@ outputs: {
 func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 	rec := &deleteOrder{}
 	var runs int64
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -555,10 +555,10 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 resources: { core: { thing: { r: { name: 'r' } } } }
 actions: { core: { echo: { e: { echo: 'hi' } } } }
 `
-	applyStack(t, store, mods, src, nil)
+	applyStack(t, store, libs, src, nil)
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
 
-	_, err := destroyStack(t, store, mods, src)
+	_, err := destroyStack(t, store, libs, src)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs),
 		"an action has no delete step and must not run during destroy")
@@ -568,17 +568,17 @@ actions: { core: { echo: { e: { echo: 'hi' } } } }
 
 func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 	rec := &deleteOrder{}
-	mods := orderModules(rec)
+	libs := orderModules(rec)
 	store := newStateStore(t)
 	src := `resources: { core: { thing: { a: { name: 'a' } } } }`
-	applyStack(t, store, mods, src, nil)
+	applyStack(t, store, libs, src, nil)
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Destroy: true,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Destroy:   true,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -591,20 +591,20 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 	require.Equal(t, DecisionDestroy, pf.Steps[0].Decision)
 }
 
-func TestDestroyClearsActionAndModuleCallRecords(t *testing.T) {
+func TestDestroyClearsActionAndLibraryCallRecords(t *testing.T) {
 	compositeBody := parseStack(t, `
 inputs: { msg: { type: string } }
 actions: { core: { echo: { inner: { echo: var.msg } } } }
 outputs: { said: { value: action.core.echo.inner.echo } }
 `)
-	mods := testModules()
-	mods["w"] = &Module{
+	libs := testModules()
+	libs["w"] = &Library{
 		Name:       "w",
 		Composites: map[string]*CompositeType{"box": {Name: "box", Body: compositeBody}},
 	}
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	// No leaf resources: only a root action, a module-call record, and
+	// No leaf resources: only a root action, a library-call record, and
 	// the composite's internal action. This is the shape that used to
 	// plan as "No changes".
 	src := `
@@ -612,10 +612,10 @@ actions: { core: { echo: { top: { echo: 'hi' } } } }
 resources: { w: { box: { x: { msg: 'wrapped' } } } }
 `
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -625,16 +625,16 @@ resources: { w: { box: { x: { msg: 'wrapped' } } } }
 	require.NotEmpty(t, snap.Entries)
 
 	destroyer := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
-		Destroy: true,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
+		Destroy:   true,
 	}
 	plan, err := destroyer.Plan(context.Background())
 	require.NoError(t, err)
 	require.NotEmpty(t, plan.Steps,
-		"destroy must plan to remove action and module-call records, not report no changes")
+		"destroy must plan to remove action and library-call records, not report no changes")
 	for _, s := range plan.Steps {
 		require.Equal(t, DecisionDestroy, s.Decision, s.Address)
 	}
@@ -650,16 +650,16 @@ resources: { w: { box: { x: { msg: 'wrapped' } } } }
 
 func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	var c resourceCounters
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	src := `resources: { core: { thing: { a: { name: 'a', size: 1 } } } }`
 
 	create := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err := planAndApply(create)
 	require.NoError(t, err)
@@ -668,11 +668,11 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
 	destroyer := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
-		Destroy: true,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
+		Destroy:   true,
 	}
 	plan, err := destroyer.Plan(context.Background())
 	require.NoError(t, err)
@@ -705,12 +705,12 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -749,13 +749,13 @@ outputs: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Inputs:  map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:     store,
+		Stack:     stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -800,10 +800,10 @@ outputs: {
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := testModules()
+	libs := testModules()
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
 		Inputs: map[string]any{
 			"names": map[string]any{"alpha": "hello-alpha", "beta": "hello-beta"},
 		},
@@ -841,17 +841,17 @@ actions: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var runs int64
-	mods := countingModules(&runs)
+	libs := countingModules(&runs)
 	inputs := map[string]any{
 		"names": map[string]any{"alpha": "first", "beta": "second"},
 	}
 	apply := func() {
 		applyOnce(t, &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Inputs:  inputs,
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Inputs:    inputs,
+			Store:     store,
+			Stack:     stack,
 		})
 	}
 	apply()
@@ -880,10 +880,10 @@ outputs: {
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := testModules()
+	libs := testModules()
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
 		Inputs: map[string]any{
 			"keys": map[string]any{"alpha": "alpha-key", "beta": "beta-key"},
 		},
@@ -908,13 +908,13 @@ outputs: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1053,11 +1053,11 @@ outputs: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
-			"box": {Name: "box", Body: composite, Modules: mods},
+			"box": {Name: "box", Body: composite, Libraries: libs},
 		},
 	}
 	src := `
@@ -1080,8 +1080,8 @@ outputs: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
 		Inputs: map[string]any{
 			"configs": map[string]any{"alpha": int64(1), "beta": int64(2)},
 		},
@@ -1101,8 +1101,8 @@ outputs: {
 	for _, ent := range snap.Entries {
 		addrs[ent.Address] = ent.Type
 	}
-	require.Equal(t, state.EntryModuleCall, addrs["resource.w.box.many['alpha']"])
-	require.Equal(t, state.EntryModuleCall, addrs["resource.w.box.many['beta']"])
+	require.Equal(t, state.EntryLibraryCall, addrs["resource.w.box.many['alpha']"])
+	require.Equal(t, state.EntryLibraryCall, addrs["resource.w.box.many['beta']"])
 	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['alpha']/core.thing.only"])
 	require.Equal(t, state.EntryLeaf, addrs["resource.w.box.many['beta']/core.thing.only"])
 }
@@ -1117,11 +1117,11 @@ resources: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
-			"box": {Name: "box", Body: composite, Modules: mods},
+			"box": {Name: "box", Body: composite, Libraries: libs},
 		},
 	}
 	src := `
@@ -1140,11 +1140,11 @@ resources: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	apply := func(configs map[string]any) {
 		applyOnce(t, &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Inputs:  map[string]any{"configs": configs},
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Inputs:    map[string]any{"configs": configs},
+			Store:     store,
+			Stack:     stack,
 		})
 	}
 	apply(map[string]any{"alpha": true, "beta": true})
@@ -1175,8 +1175,8 @@ outputs: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
@@ -1193,10 +1193,10 @@ outputs: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1221,7 +1221,7 @@ outputs: {
 	require.ElementsMatch(t,
 		[]string{"resource.w.box.x", "resource.w.box.x/core.thing.one"},
 		addresses)
-	require.Contains(t, types, state.EntryModuleCall)
+	require.Contains(t, types, state.EntryLibraryCall)
 	require.Contains(t, types, state.EntryLeaf)
 }
 
@@ -1245,45 +1245,45 @@ inputs: {
 }
 
 resources: {
-  inner-mod: {
+  inner-lib: {
     cluster: { only: { path: var.target } }
   }
 }
 
 outputs: {
-  path: { value: resource.inner-mod.cluster.only.path }
+  path: { value: resource.inner-lib.cluster.only.path }
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["outer-mod"] = &Module{
-		Name: "outer-mod",
+	libs := resourceModules(&c)
+	libs["outer-lib"] = &Library{
+		Name: "outer-lib",
 		Composites: map[string]*CompositeType{
 			"layer": {Name: "layer", Body: layerBody},
 		},
 	}
-	mods["inner-mod"] = &Module{
-		Name: "inner-mod",
+	libs["inner-lib"] = &Library{
+		Name: "inner-lib",
 		Composites: map[string]*CompositeType{
 			"cluster": {Name: "cluster", Body: clusterBody},
 		},
 	}
 	src := `
 resources: {
-  outer-mod: { layer: { mine: { target: 'alpha' } } }
+  outer-lib: { layer: { mine: { target: 'alpha' } } }
 }
 outputs: {
-  out: { value: resource.outer-mod.layer.mine.path }
+  out: { value: resource.outer-lib.layer.mine.path }
 }
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planExec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	plan, err := planExec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1297,10 +1297,10 @@ outputs: {
 	// composite scopes (outer and inner) must be seeded from the plan
 	// steps so the deepest leaf can read its `var.path`.
 	applyExec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	res, err := applyExec.ApplyPlan(context.Background(), pf)
 	require.NoError(t, err)
@@ -1315,12 +1315,12 @@ outputs: {
 	}
 	require.ElementsMatch(t,
 		[]string{
-			"resource.outer-mod.layer.mine",
-			"resource.outer-mod.layer.mine/inner-mod.cluster.only",
-			"resource.outer-mod.layer.mine/inner-mod.cluster.only/core.thing.x",
+			"resource.outer-lib.layer.mine",
+			"resource.outer-lib.layer.mine/inner-lib.cluster.only",
+			"resource.outer-lib.layer.mine/inner-lib.cluster.only/core.thing.x",
 		},
 		addresses,
-		"both boundaries persist as module-call records, plus the deepest leaf")
+		"both boundaries persist as library-call records, plus the deepest leaf")
 }
 
 func TestApplyPlanCompositeOrphan(t *testing.T) {
@@ -1335,8 +1335,8 @@ resources: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
@@ -1358,10 +1358,10 @@ resources: {
 
 	planAndApply := func(src string) *Plan {
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Store:     store,
+			Stack:     stack,
 		}
 		plan, err := exec.Plan(context.Background())
 		require.NoError(t, err)
@@ -1421,8 +1421,8 @@ resources: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"hello": {Name: "hello", Body: composite},
@@ -1440,11 +1440,11 @@ resources: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	planExec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Inputs:  map[string]any{"who": "world"},
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"who": "world"},
+		Store:     store,
+		Stack:     stack,
 	}
 	plan, err := planExec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1456,10 +1456,10 @@ resources: {
 	// Apply runs without root inputs, mirroring the stack binary's
 	// `apply` subcommand which reads only the plan file.
 	applyExec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err = applyExec.ApplyPlan(context.Background(), pf)
 	require.NoError(t, err)
@@ -1488,8 +1488,8 @@ resources: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
@@ -1510,10 +1510,10 @@ resources: {
 
 	planAndApply := func(src string) {
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Store:     store,
+			Stack:     stack,
 		}
 		plan, err := exec.Plan(context.Background())
 		require.NoError(t, err)
@@ -1543,10 +1543,10 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1557,7 +1557,7 @@ resources: {
 
 	// Drift: a separate apply changes state out from under our plan.
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	_, err = exec.ApplyPlan(context.Background(), pf)
@@ -1574,9 +1574,9 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Stack: stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1602,10 +1602,10 @@ func TestApplyPlanRefusesOnStackMismatch(t *testing.T) {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), nil),
-		Modules: map[string]*Module{},
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), nil),
+		Libraries: map[string]*Library{},
+		Store:     store,
+		Stack:     stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -1668,7 +1668,7 @@ actions: {
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var resCounters resourceCounters
 	var actionRuns int64
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -1690,10 +1690,10 @@ actions: {
 
 	planAndApply := func(stackSrc string) {
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, stackSrc), mods),
-			Modules: mods,
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, stackSrc), libs),
+			Libraries: libs,
+			Store:     store,
+			Stack:     stack,
 		}
 		plan, err := exec.Plan(context.Background())
 		require.NoError(t, err)

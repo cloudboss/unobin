@@ -18,7 +18,7 @@ type supportedVersion struct {
 // `stack:` section, or no config was provided at all.
 type stackEnvelope struct {
 	Present           bool
-	ModulePath        string
+	LibraryPath       string
 	SupportedVersions []supportedVersion
 }
 
@@ -55,13 +55,13 @@ func loadStackEnvelope(f *lang.File, path string) (stackEnvelope, error) {
 
 func parseStackBlock(path string, m map[string]any) (stackEnvelope, error) {
 	env := stackEnvelope{Present: true}
-	if v, ok := m["module-path"]; ok {
+	if v, ok := m["library-path"]; ok {
 		s, ok := v.(string)
 		if !ok {
 			return env, fmt.Errorf(
-				"config %s: `stack.module-path` must be a string, got %T", path, v)
+				"config %s: `stack.library-path` must be a string, got %T", path, v)
 		}
-		env.ModulePath = s
+		env.LibraryPath = s
 	}
 	raw, ok := m["supported-versions"]
 	if !ok {
@@ -97,7 +97,7 @@ func parseStackBlock(path string, m map[string]any) (stackEnvelope, error) {
 }
 
 // verifyStackEnvelope enforces version pinning. It hard-fails when the
-// config names a module-path that does not match the binary. It
+// config names a library-path that does not match the binary. It
 // soft-fails (overridable by allowVersionMismatch) when the config does
 // not pin any versions, or pins versions but not this binary's.
 func verifyStackEnvelope(
@@ -107,11 +107,11 @@ func verifyStackEnvelope(
 	if err != nil {
 		return err
 	}
-	if env.ModulePath != "" && env.ModulePath != info.ModulePath {
+	if env.LibraryPath != "" && env.LibraryPath != info.LibraryPath {
 		return fmt.Errorf(
-			"stack module-path mismatch: config declares %q"+
+			"stack library-path mismatch: config declares %q"+
 				" but this binary is built from %q",
-			env.ModulePath, info.ModulePath)
+			env.LibraryPath, info.LibraryPath)
 	}
 	if len(env.SupportedVersions) == 0 {
 		if allowVersionMismatch {

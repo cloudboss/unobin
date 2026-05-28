@@ -107,7 +107,7 @@ func TestCompileToStdout(t *testing.T) {
 	stackPath := filepath.Join(dir, "stack.ub")
 	src := `
 imports: {
-  core: 'github.com/cloudboss/unobin/pkg/modules/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0'
 }
 actions: {
   core: { command: { hi: { argv: ['echo', 'hi'] } } }
@@ -119,9 +119,9 @@ actions: {
 	require.NoError(t, err)
 
 	require.Contains(t, out, "package main")
-	require.Contains(t, out, `stackName       = "demo-stack"`)
+	require.Contains(t, out, `stackName        = "demo-stack"`)
 	require.Contains(t, out, "var (\n\tstackVersion    string\n\tcontentRevision string\n)")
-	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/core"`)
+	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/core"`)
 }
 
 func TestCompileWriteOut(t *testing.T) {
@@ -130,7 +130,7 @@ func TestCompileWriteOut(t *testing.T) {
 	stackPath := filepath.Join(dir, "stack.ub")
 	src := `
 imports: {
-  core: 'github.com/cloudboss/unobin/pkg/modules/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0'
 }
 `
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
@@ -144,10 +144,10 @@ imports: {
 	require.NoError(t, err)
 	require.Contains(t, string(mainBytes), "package main")
 
-	modBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	goModBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
 	require.NoError(t, err)
-	require.Contains(t, string(modBytes), "module demo-stack")
-	require.Contains(t, string(modBytes), "github.com/cloudboss/unobin v0.1.0")
+	require.Contains(t, string(goModBytes), "module demo-stack")
+	require.Contains(t, string(goModBytes), "github.com/cloudboss/unobin v0.1.0")
 }
 
 func TestCompileRequiresOut(t *testing.T) {
@@ -198,7 +198,7 @@ func TestCompileUnimportedResourceModuleFails(t *testing.T) {
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 resources: {
   greeter: {
@@ -211,11 +211,11 @@ resources: {
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `module "greeter" is not imported`)
+	require.Contains(t, err.Error(), `library "greeter" is not imported`)
 }
 
 func TestCompileUnknownTrailingFieldFails(t *testing.T) {
-	modDir := writeFakeGoModule(t)
+	goModDir := writeFakeGoModule(t)
 
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "stack.ub")
@@ -236,7 +236,7 @@ outputs: {
 `), 0o644))
 
 	remotes := map[string]*resolve.Source{
-		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: modDir},
+		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: goModDir},
 	}
 	_, err := runCommandWithRemotes(t, remotes,
 		"compile", "-p", stackPath, "-o", "-")
@@ -246,7 +246,7 @@ outputs: {
 }
 
 func TestCompileAcceptsKnownTrailingField(t *testing.T) {
-	modDir := writeFakeGoModule(t)
+	goModDir := writeFakeGoModule(t)
 
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "stack.ub")
@@ -267,28 +267,28 @@ outputs: {
 `), 0o644))
 
 	remotes := map[string]*resolve.Source{
-		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: modDir},
+		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: goModDir},
 	}
 	_, err := runCommandWithRemotes(t, remotes,
 		"compile", "-p", stackPath, "-o", "-")
 	require.NoError(t, err)
 }
 
-// writeFakeGoModule writes a minimal Go module to a tmpdir that
+// writeFakeGoModule writes a minimal Go library to a tmpdir that
 // registers one resource type "thing" whose output struct lists `id`
 // and `name`. The dev CLI's goschema walker parses this dir to
 // learn the type's output schema.
 func writeFakeGoModule(t *testing.T) string {
 	t.Helper()
-	modDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),
+	goModDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "go.mod"),
 		[]byte("module example.com/fake\n\ngo 1.26\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"), []byte(`package fake
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "library.go"), []byte(`package fake
 
 import "github.com/cloudboss/unobin/pkg/runtime"
 
-func Module() *runtime.Module {
-	return &runtime.Module{
+func Library() *runtime.Library {
+	return &runtime.Library{
 		Name: "fake",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput](),
@@ -303,19 +303,19 @@ type ThingOutput struct {
 	Name string
 }
 `), 0o644))
-	return modDir
+	return goModDir
 }
 
 func TestCompileWarnsWhenOutputTypeMissing(t *testing.T) {
-	modDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),
+	goModDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "go.mod"),
 		[]byte("module example.com/partial\n\ngo 1.26\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"), []byte(`package partial
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "library.go"), []byte(`package partial
 
 import "github.com/cloudboss/unobin/pkg/runtime"
 
-func Module() *runtime.Module {
-	return &runtime.Module{
+func Library() *runtime.Library {
+	return &runtime.Library{
 		Name: "partial",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput](),
@@ -342,7 +342,7 @@ resources: {
 `), 0o644))
 
 	remotes := map[string]*resolve.Source{
-		"example.com/partial@v0.1.0": {Commit: "fakecommit", Path: modDir},
+		"example.com/partial@v0.1.0": {Commit: "fakecommit", Path: goModDir},
 	}
 	out, err := runCommandWithRemotes(t, remotes,
 		"compile", "-p", stackPath, "-o", "-")
@@ -352,12 +352,12 @@ resources: {
 }
 
 func TestCompileMalformedGoModuleFails(t *testing.T) {
-	modDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "go.mod"),
+	goModDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "go.mod"),
 		[]byte("module example.com/broken\n\ngo 1.26\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"), []byte(`package broken
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "library.go"), []byte(`package broken
 
-// no Module() function defined here -- the dev CLI should reject
+// no Library() function defined here -- the dev CLI should reject
 // this import.
 `), 0o644))
 
@@ -370,29 +370,29 @@ imports: {
 `), 0o644))
 
 	remotes := map[string]*resolve.Source{
-		"example.com/broken@v0.1.0": {Commit: "fakecommit", Path: modDir},
+		"example.com/broken@v0.1.0": {Commit: "fakecommit", Path: goModDir},
 	}
 	_, err := runCommandWithRemotes(t, remotes,
 		"compile", "-p", stackPath, "-o", "-")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `no Module()`)
+	require.Contains(t, err.Error(), `no Library()`)
 }
 
-func TestCompileWithLocalUBModule(t *testing.T) {
+func TestCompileWithLocalUBLibrary(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
 	stackSrc := `
 imports: {
-  net: './modules/net'
+  net: './libraries/net'
 }
 `
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(stackSrc), 0o644))
 
-	netDir := filepath.Join(dir, "modules", "net")
+	netDir := filepath.Join(dir, "libraries", "net")
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(netDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(netDir, "library.ub"), []byte(`
 description: 'net primitives'
 exports: { cluster: 'cluster.ub' }
 `), 0o644))
@@ -416,15 +416,15 @@ resources: {
 package main
 
 import (
-	mod_net "demo-stack/internal/net"
+	lib_net "demo-stack/internal/net"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 const (
-	stackBody       = "\nimports: {\n  net: './modules/net'\n}\n"
-	stackModulePath = ""
-	stackName       = "demo-stack"
+	stackBody        = "\nimports: {\n  net: './libraries/net'\n}\n"
+	stackLibraryPath = ""
+	stackName        = "demo-stack"
 )
 
 // Stamped at link time via -ldflags.
@@ -439,9 +439,9 @@ func main() {
 		StackVersion:    stackVersion,
 		ContentRevision: contentRevision,
 		StackBody:       stackBody,
-		ModulePath:      stackModulePath,
-		Modules: map[string]*runtime.Module{
-			"net": mod_net.Module(),
+		LibraryPath:     stackLibraryPath,
+		Libraries: map[string]*runtime.Library{
+			"net": lib_net.Library(),
 		},
 	})
 }
@@ -458,8 +458,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-func Module() *runtime.Module {
-	return &runtime.Module{
+func Library() *runtime.Library {
+	return &runtime.Library{
 		Name:        "net",
 		Description: "net primitives",
 		Composites: map[string]*runtime.CompositeType{
@@ -476,13 +476,13 @@ func Module() *runtime.Module {
 	require.Equal(t, wantPkg, string(pkgBytes))
 }
 
-func TestCompileWithRemoteUBModule(t *testing.T) {
-	moduleDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "module.ub"), []byte(`
+func TestCompileWithRemoteUBLibrary(t *testing.T) {
+	libraryDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "library.ub"), []byte(`
 description: 'remote net'
 exports: { cluster: 'cluster.ub' }
 `), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "cluster.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "cluster.ub"), []byte(`
 description: 'a cluster'
 resources: {
   local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } }
@@ -494,14 +494,14 @@ resources: {
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  net: 'github.com/example/net//modules/network@v1'
+  net: 'github.com/example/net//libraries/network@v1'
 }
 `), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	remotes := map[string]*resolve.Source{
-		"github.com/example/net//modules/network@v1": {
-			FS:     os.DirFS(moduleDir),
+		"github.com/example/net//libraries/network@v1": {
+			FS:     os.DirFS(libraryDir),
 			Commit: "abc123",
 			Hash:   "sha256:fakehash",
 		},
@@ -517,27 +517,27 @@ imports: {
 
 	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
 	require.NoError(t, err)
-	require.Contains(t, string(mainBytes), `mod_net "demo-stack/internal/net"`)
-	require.Contains(t, string(mainBytes), `"net": mod_net.Module()`)
+	require.Contains(t, string(mainBytes), `lib_net "demo-stack/internal/net"`)
+	require.Contains(t, string(mainBytes), `"net": lib_net.Library()`)
 
-	modBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	goModBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
 	require.NoError(t, err)
-	require.NotContains(t, string(modBytes), "github.com/example/net",
-		"a UB-module remote should not appear as a Go-import in go.mod")
+	require.NotContains(t, string(goModBytes), "github.com/example/net",
+		"a UB library remote should not appear as a Go import in go.mod")
 }
 
-func TestCompileNestedUBModules(t *testing.T) {
-	// inner module: a remote UB module the outer one imports.
+func TestCompileNestedUBLibraries(t *testing.T) {
+	// inner library: a remote UB library the outer one imports.
 	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "module.ub"), []byte(`
-description: 'inner module'
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "library.ub"), []byte(`
+description: 'inner library'
 exports: { hello: 'hello.ub' }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "hello.ub"), []byte(`
 description: 'inner hello'
 inputs: { path: { type: string } }
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 resources: {
   local: { file: { this: { path: var.path, content: 'hi' } } }
@@ -545,10 +545,10 @@ resources: {
 outputs: { path: { value: resource.local.file.this.path } }
 `), 0o644))
 
-	// outer module: imports inner under a different alias and wraps it.
+	// outer library: imports inner under a different alias and wraps it.
 	outerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "module.ub"), []byte(`
-description: 'outer module'
+	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "library.ub"), []byte(`
+description: 'outer library'
 exports: { greeting: 'greeting.ub' }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "greeting.ub"), []byte(`
@@ -592,51 +592,51 @@ imports: {
 	require.NoError(t, err)
 
 	// Outer's generated source binds the composite-local "inner"
-	// alias to the inner package's Module().
+	// alias to the inner package's Library().
 	require.Contains(t, string(outerBytes),
-		`mod_inner "demo-stack/internal/inner"`,
+		`lib_inner "demo-stack/internal/inner"`,
 		"outer should import the inner UB sub-package by its generated path")
 	require.Contains(t, string(outerBytes),
-		`"inner": mod_inner.Module()`,
-		"outer's composite carries inner in its Modules map")
+		`"inner": lib_inner.Library()`,
+		"outer's composite carries inner in its Libraries map")
 
 	// Inner's generated source binds "local" to the unobin local
 	// primitives package.
 	require.Contains(t, string(innerBytes),
-		`mod_local "github.com/cloudboss/unobin/pkg/modules/local"`)
+		`lib_local "github.com/cloudboss/unobin/pkg/libraries/local"`)
 	require.Contains(t, string(innerBytes),
-		`"local": mod_local.Module()`)
+		`"local": lib_local.Library()`)
 
 	// Stack root only imports outer; main.go does not see inner.
 	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
 	require.NoError(t, err)
-	require.Contains(t, string(mainBytes), `mod_outer "demo-stack/internal/outer"`)
+	require.Contains(t, string(mainBytes), `lib_outer "demo-stack/internal/outer"`)
 	require.NotContains(t, string(mainBytes), "demo-stack/internal/inner",
-		"the stack only references the outer module; inner is private to outer")
+		"the stack only references the outer library; inner is private to outer")
 
-	// go.mod requires the unobin Go module pinned by inner's body.
-	modBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	// go.mod requires the unobin Go library pinned by inner's body.
+	goModBytes, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
 	require.NoError(t, err)
-	require.Contains(t, string(modBytes),
+	require.Contains(t, string(goModBytes),
 		"github.com/cloudboss/unobin v0.1.0",
-		"the Go module imported deep inside a composite is pinned in the stack go.mod")
+		"the Go library imported deep inside a composite is pinned in the stack go.mod")
 }
 
 func TestCompileRejectsConflictingGoVersions(t *testing.T) {
 	// The stack root pins github.com/cloudboss/unobin at v0.1.0 via a
-	// Go-module import. The composite body pins the same module at
+	// Go-library import. The composite body pins the same library at
 	// v0.2.0. The stack ends up with two incompatible pins for the same
-	// Go module path, which compile must reject up front rather than
+	// Go library path, which compile must reject up front rather than
 	// letting `go build` discover it later.
 	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "library.ub"), []byte(`
 description: 'remote net'
 exports: { cluster: 'cluster.ub' }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "cluster.ub"), []byte(`
 description: 'a cluster'
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.2.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.2.0'
 }
 resources: { local: { file: { x: { path: '/tmp/x', content: 'hi' } } } }
 `), 0o644))
@@ -646,14 +646,14 @@ resources: { local: { file: { x: { path: '/tmp/x', content: 'hi' } } } }
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  net:   'github.com/example/net//modules/network@v1'
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  net:   'github.com/example/net//libraries/network@v1'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 `), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	remotes := map[string]*resolve.Source{
-		"github.com/example/net//modules/network@v1": {
+		"github.com/example/net//libraries/network@v1": {
 			FS: os.DirFS(innerDir), Commit: "abc123",
 		},
 	}
@@ -666,10 +666,10 @@ imports: {
 }
 
 func TestCompileDetectsUBImportCycle(t *testing.T) {
-	// Module A's body imports module B; module B's body imports module
+	// Library A's body imports library B; library B's body imports library
 	// A. Compile must report the cycle rather than recurse forever.
 	aDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(aDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(aDir, "library.ub"), []byte(`
 description: 'a'
 exports: { type-a: 'type-a.ub' }
 `), 0o644))
@@ -680,7 +680,7 @@ resources: { b: { type-b: { y: {} } } }
 `), 0o644))
 
 	bDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(bDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(bDir, "library.ub"), []byte(`
 description: 'b'
 exports: { type-b: 'type-b.ub' }
 `), 0o644))
@@ -711,11 +711,11 @@ imports: {
 }
 
 func TestCompileSharesPackageAcrossAliases(t *testing.T) {
-	// One UB module imported under different aliases from different
+	// One UB library imported under different aliases from different
 	// sites should generate exactly one Go package and both call sites
 	// should bind to it.
 	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "library.ub"), []byte(`
 description: 'shared inner'
 exports: { hello: 'hello.ub' }
 `), 0o644))
@@ -727,7 +727,7 @@ outputs: { path: { value: resource.local.file.x.path } }
 `), 0o644))
 
 	wrapDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "library.ub"), []byte(`
 description: 'wrap'
 exports: { greeting: 'greeting.ub' }
 `), 0o644))
@@ -766,7 +766,7 @@ imports: {
 		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
 	require.NoError(t, err)
 
-	// The shared module appears once under its first-seen alias.
+	// The shared library appears once under its first-seen alias.
 	entries, err := os.ReadDir(filepath.Join(outDir, "internal"))
 	require.NoError(t, err)
 	names := make([]string, len(entries))
@@ -774,36 +774,36 @@ imports: {
 		names[i] = e.Name()
 	}
 	require.ElementsMatch(t, []string{"shared", "wrap"}, names,
-		"the shared module is generated once; the wrap module gets its own package")
+		"the shared library is generated once; the wrap library gets its own package")
 
-	// The wrap package's composite Modules map binds its local alias
-	// "inside" to the shared package's Module().
+	// The wrap package's composite Libraries map binds its local alias
+	// "inside" to the shared package's Library().
 	wrapBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "wrap", "wrap.go"))
 	require.NoError(t, err)
 	require.Contains(t, string(wrapBytes),
-		`mod_shared "demo-stack/internal/shared"`,
+		`lib_shared "demo-stack/internal/shared"`,
 		"the wrap package imports the shared sub-package by its canonical path")
 	require.Contains(t, string(wrapBytes),
-		`"inside": mod_shared.Module()`,
-		"wrap's composite-local alias `inside` resolves to the shared module")
+		`"inside": lib_shared.Library()`,
+		"wrap's composite-local alias `inside` resolves to the shared library")
 
 	// main.go binds both stack-root aliases.
 	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
 	require.NoError(t, err)
-	require.Contains(t, string(mainBytes), `"shared": mod_shared.Module()`)
-	require.Contains(t, string(mainBytes), `"wrap":   mod_wrap.Module()`)
+	require.Contains(t, string(mainBytes), `"shared": lib_shared.Library()`)
+	require.Contains(t, string(mainBytes), `"wrap":   lib_wrap.Library()`)
 }
 
 func TestCompileReplaceUnobinUBSubdir(t *testing.T) {
 	fakeUnobin := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(fakeUnobin, "some-mod"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(fakeUnobin, "some-lib"), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(fakeUnobin, "some-mod", "module.ub"), []byte(`
-description: 'replaced module'
+		filepath.Join(fakeUnobin, "some-lib", "library.ub"), []byte(`
+description: 'replaced library'
 exports: { foo: 'foo.ub' }
 `), 0o644))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(fakeUnobin, "some-mod", "foo.ub"), []byte(`
+		filepath.Join(fakeUnobin, "some-lib", "foo.ub"), []byte(`
 description: 'a foo'
 resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } } }
 `), 0o644))
@@ -813,7 +813,7 @@ resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } 
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  some: 'github.com/cloudboss/unobin//some-mod@v0.1.0'
+  some: 'github.com/cloudboss/unobin//some-lib@v0.1.0'
 }
 `), 0o644))
 
@@ -832,17 +832,17 @@ imports: {
 
 func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
 	fakeUnobin := t.TempDir()
-	modDir := filepath.Join(fakeUnobin, "pkg/modules/local")
-	require.NoError(t, os.MkdirAll(modDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(modDir, "module.go"),
-		[]byte("package local\n\nfunc Module() any { return nil }\n"), 0o644))
+	goModDir := filepath.Join(fakeUnobin, "pkg/libraries/local")
+	require.NoError(t, os.MkdirAll(goModDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "library.go"),
+		[]byte("package local\n\nfunc Library() any { return nil }\n"), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 `), 0o644))
 
@@ -851,7 +851,7 @@ imports: {
 		"--version", "v0.1.0",
 		"--replace-unobin", fakeUnobin)
 	require.NoError(t, err)
-	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/local"`)
+	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/local"`)
 }
 
 func TestCompileReplaceUnobinMissingPath(t *testing.T) {
@@ -860,7 +860,7 @@ func TestCompileReplaceUnobinMissingPath(t *testing.T) {
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 `), 0o644))
 
@@ -877,36 +877,36 @@ func TestCompileWithRemoteGoSubpath(t *testing.T) {
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/modules/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
 }
 `), 0o644))
 
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
 		"--version", "v0.1.0")
 	require.NoError(t, err)
-	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/modules/local"`)
+	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/local"`)
 }
 
-func TestFetchResolvesLocalUBModule(t *testing.T) {
+func TestFetchResolvesLocalUBLibrary(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	stackPath := filepath.Join(dir, "stack.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  net: './modules/net'
+  net: './libraries/net'
 }
 `), 0o644))
 
-	netDir := filepath.Join(dir, "modules", "net")
+	netDir := filepath.Join(dir, "libraries", "net")
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(netDir, "module.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(netDir, "library.ub"), []byte(`
 description: 'net primitives'
 exports: {}
 `), 0o644))
 
 	out, err := runCommand(t, "fetch", "-p", stackPath)
 	require.NoError(t, err)
-	require.Contains(t, out, "net -> ./modules/net (local)")
+	require.Contains(t, out, "net -> ./libraries/net (local)")
 }
 
 func TestFetchEmptyImports(t *testing.T) {
@@ -923,7 +923,7 @@ func TestFetchMissingStack(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCompileLocalNonUBModuleFails(t *testing.T) {
+func TestCompileLocalNonUBLibraryFails(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-stack")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
@@ -938,5 +938,5 @@ imports: {
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "module.ub")
+	require.Contains(t, err.Error(), "library.ub")
 }

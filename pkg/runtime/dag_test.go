@@ -210,7 +210,7 @@ resources: {
   }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name:       "net",
 			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
@@ -220,7 +220,7 @@ resources: {
 resources: {
   net: { cluster: { web: { name: 'web' } } }
 }
-`), mods)
+`), libs)
 	require.ElementsMatch(t,
 		[]string{
 			"resource.net.cluster.web/local.file.a",
@@ -240,7 +240,7 @@ resources: {
   }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name:       "net",
 			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
@@ -250,7 +250,7 @@ resources: {
 resources: {
   net: { cluster: { web: {} } }
 }
-`), mods)
+`), libs)
 	require.Equal(t,
 		[]string{"resource.net.cluster.web/local.file.a"},
 		g.Edges["resource.net.cluster.web/local.file.b"])
@@ -262,7 +262,7 @@ resources: {
   local: { file: { x: { path: var.path, content: var.message } } }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name: "net",
 			Composites: map[string]*CompositeType{
@@ -278,7 +278,7 @@ resources: {
     }
   }
 }
-`), mods)
+`), libs)
 	deps := g.Edges["resource.net.cluster.web/local.file.x"]
 	require.NotContains(t, deps, "var.path",
 		"composite-scoped var.path should not appear as a parent-scope dep")
@@ -311,7 +311,7 @@ resources: {
   }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name: "net",
 			Composites: map[string]*CompositeType{
@@ -323,7 +323,7 @@ resources: {
 resources: {
   net: { cluster: { web: {} } }
 }
-`), mods)
+`), libs)
 	require.Contains(t,
 		g.Edges["resource.net.cluster.web/action.core.command.lookup"],
 		"resource.net.cluster.web/data.aws.ami.ubuntu",
@@ -344,7 +344,7 @@ resources: {
   local: { file: { x: { path: var.target } } }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name:       "net",
 			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
@@ -359,7 +359,7 @@ resources: {
     }
   }
 }
-`), mods)
+`), libs)
 	require.Contains(t,
 		g.Edges["resource.net.cluster.web/local.file.x"],
 		"resource.local.file.src",
@@ -384,20 +384,20 @@ inputs: {
 }
 
 resources: {
-  inner-mod: {
+  inner-lib: {
     cluster: { only: { path: var.target } }
   }
 }
 `)
-	mods := map[string]*Module{
-		"outer-mod": {
-			Name: "outer-mod",
+	libs := map[string]*Library{
+		"outer-lib": {
+			Name: "outer-lib",
 			Composites: map[string]*CompositeType{
 				"layer": {Name: "layer", Body: layerBody},
 			},
 		},
-		"inner-mod": {
-			Name: "inner-mod",
+		"inner-lib": {
+			Name: "inner-lib",
 			Composites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: clusterBody},
 			},
@@ -406,16 +406,16 @@ resources: {
 	g := BuildDAG(parseStack(t, `
 resources: {
   aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
-  outer-mod: {
+  outer-lib: {
     layer: {
       mine: { target: resource.aws.vpc.main.id }
     }
   }
 }
-`), mods)
+`), libs)
 
-	outerAddr := "resource.outer-mod.layer.mine"
-	innerAddr := outerAddr + "/inner-mod.cluster.only"
+	outerAddr := "resource.outer-lib.layer.mine"
+	innerAddr := outerAddr + "/inner-lib.cluster.only"
 	leafAddr := innerAddr + "/local.file.x"
 
 	require.ElementsMatch(t,
@@ -581,8 +581,8 @@ resources: {
 }
 `
 	f := parseStack(t, src)
-	mods := map[string]*Module{"local": {Name: "local"}}
-	dag := BuildDAG(f, mods)
+	libs := map[string]*Library{"local": {Name: "local"}}
+	dag := BuildDAG(f, libs)
 
 	order, err := dag.TopologicalOrder()
 	require.NoError(t, err)

@@ -32,16 +32,16 @@ var (
 )
 
 type compileConfig struct {
-	stackPath     string
-	version       string
-	stackName     string
-	modulePath    string
-	outDir        string
-	goVersion     string
-	unobinVersion string
-	replaceUnobin string
-	replaceModule []string
-	build         bool
+	stackPath       string
+	version         string
+	stackName       string
+	libraryPath     string
+	outDir          string
+	goVersion       string
+	unobinVersion   string
+	replaceUnobin   string
+	replaceGoModule []string
+	build           bool
 }
 
 func init() {
@@ -54,9 +54,9 @@ func init() {
 	CompileCmd.Flags().StringVar(&compileCfg.stackName, "name", "",
 		"Stack name. Defaults to the parent directory's basename.")
 
-	CompileCmd.Flags().StringVar(&compileCfg.modulePath, "module-path", "",
-		"Module-path identity to embed in the binary. The operator's"+
-			" config.ub asserts the same value under stack.module-path"+
+	CompileCmd.Flags().StringVar(&compileCfg.libraryPath, "library-path", "",
+		"Library path identity to embed in the binary. The operator's"+
+			" config.ub asserts the same value under stack.library-path"+
 			" and plan, refresh, and validate refuse on mismatch.")
 
 	CompileCmd.Flags().StringVarP(&compileCfg.outDir, "out", "o", "",
@@ -71,8 +71,8 @@ func init() {
 	CompileCmd.Flags().StringVar(&compileCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive.")
 
-	CompileCmd.Flags().StringArrayVar(&compileCfg.replaceModule, "replace-module", nil,
-		"Generic local-replace, repeatable. Format: `module-path=local-path`. "+
+	CompileCmd.Flags().StringArrayVar(&compileCfg.replaceGoModule, "replace-go-module", nil,
+		"Local replace for a Go module, repeatable. Format: `module-path=local-path`. "+
 			"Both the import resolver and the generated go.mod use the substitution.")
 
 	CompileCmd.Flags().BoolVar(&compileCfg.build, "build", false,
@@ -126,7 +126,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 			wrapped: resolver,
 		}
 	}
-	extraReplaces, err := parseReplaceFlags(cfg.replaceModule)
+	extraReplaces, err := parseReplaceFlags(cfg.replaceGoModule)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 
 	goImports := make(map[string]string, len(top))
 	ubImports := make(map[string]string, len(top))
-	mods := make(map[string]*ubruntime.Module, len(top))
+	libs := make(map[string]*ubruntime.Library, len(top))
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
@@ -156,27 +156,27 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 				return fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
 			printSchemaWarnings(cmd.ErrOrStderr(), res.LocalAlias, warnings)
-			mods[res.LocalAlias] = &ubruntime.Module{Schema: schema}
+			libs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
-			mods[res.LocalAlias] = v.runtimeModules[res.CanonicalKey]
+			libs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
 		}
 	}
-	if errs := ubruntime.CheckReferences(f, mods); errs.Len() > 0 {
+	if errs := ubruntime.CheckReferences(f, libs); errs.Len() > 0 {
 		return errs.Err()
 	}
 
 	in := codegen.Input{
-		Body:       string(src),
-		ModulePath: cfg.modulePath,
-		StackName:  name,
-		GoImports:  goImports,
-		UBImports:  ubImports,
+		Body:        string(src),
+		LibraryPath: cfg.libraryPath,
+		StackName:   name,
+		GoImports:   goImports,
+		UBImports:   ubImports,
 	}
 
 	if cfg.outDir == "-" {
 		if len(v.packages) > 0 {
-			return errors.New("compile: cannot stream to stdout when UB modules are imported")
+			return errors.New("compile: cannot stream to stdout when UB libraries are imported")
 		}
 		out, err := codegen.Generate(in)
 		if err != nil {
@@ -215,28 +215,28 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 
 // compileVisitor accumulates the per-import state compile needs as the
 // walker descends the import graph. canonicalAlias maps each UB
-// module's dedup key to the local alias of the first site that
+// library's dedup key to the local alias of the first site that
 // reached it (used as the `internal/<dir>/` package name). packages
 // holds the generated Go source per key. importVersions pins each
-// Go-module path to its version for the stack's go.mod, and reports a
+// Go-library path to its version for the stack's go.mod, and reports a
 // conflict when two sites disagree on a version.
 type compileVisitor struct {
-	stackName      string
-	canonicalAlias map[string]string
-	packages       map[string][]byte
-	importVersions map[string]string
-	runtimeModules map[string]*ubruntime.Module
-	warnOut        io.Writer
+	stackName        string
+	canonicalAlias   map[string]string
+	packages         map[string][]byte
+	importVersions   map[string]string
+	runtimeLibraries map[string]*ubruntime.Library
+	warnOut          io.Writer
 }
 
 func newCompileVisitor(stackName string, warnOut io.Writer) *compileVisitor {
 	return &compileVisitor{
-		stackName:      stackName,
-		canonicalAlias: map[string]string{},
-		packages:       map[string][]byte{},
-		importVersions: map[string]string{},
-		runtimeModules: map[string]*ubruntime.Module{},
-		warnOut:        warnOut,
+		stackName:        stackName,
+		canonicalAlias:   map[string]string{},
+		packages:         map[string][]byte{},
+		importVersions:   map[string]string{},
+		runtimeLibraries: map[string]*ubruntime.Library{},
+		warnOut:          warnOut,
 	}
 }
 
@@ -249,14 +249,14 @@ func (c *compileVisitor) OnGoImport(_, path, version string) error {
 	return nil
 }
 
-func (c *compileVisitor) OnUBModule(
-	alias, canonicalKey string, _ resolve.ImportRef, mod *resolve.UBModule,
+func (c *compileVisitor) OnUBLibrary(
+	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
-	composites := make(map[string]map[string]string, len(mod.BodyImports))
-	runtimeComposites := make(map[string]*ubruntime.CompositeType, len(mod.Bodies))
-	for name, body := range mod.Bodies {
-		bodyMods := make(map[string]*ubruntime.Module, len(mod.BodyImports[name]))
-		for _, res := range mod.BodyImports[name] {
+	composites := make(map[string]map[string]string, len(lib.BodyImports))
+	runtimeComposites := make(map[string]*ubruntime.CompositeType, len(lib.Bodies))
+	for name, body := range lib.Bodies {
+		bodyLibs := make(map[string]*ubruntime.Library, len(lib.BodyImports[name]))
+		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
 				schema, warnings, err := readGoSchema(res.SourcePath)
@@ -266,18 +266,18 @@ func (c *compileVisitor) OnUBModule(
 						name, res.LocalAlias, err)
 				}
 				printSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
-				bodyMods[res.LocalAlias] = &ubruntime.Module{Schema: schema}
+				bodyLibs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
 			case resolve.ResolutionUB:
-				bodyMods[res.LocalAlias] = c.runtimeModules[res.CanonicalKey]
+				bodyLibs[res.LocalAlias] = c.runtimeLibraries[res.CanonicalKey]
 			}
 		}
 		runtimeComposites[name] = &ubruntime.CompositeType{
-			Name:    name,
-			Body:    body,
-			Modules: bodyMods,
+			Name:      name,
+			Body:      body,
+			Libraries: bodyLibs,
 		}
 	}
-	for name, resols := range mod.BodyImports {
+	for name, resols := range lib.BodyImports {
 		composite := make(map[string]string, len(resols))
 		for _, res := range resols {
 			switch res.Kind {
@@ -293,13 +293,13 @@ func (c *compileVisitor) OnUBModule(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBModule(canonical, mod.Manifest, mod.Bodies, composites)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.Manifest, lib.Bodies, composites)
 	if err != nil {
 		return err
 	}
 	c.canonicalAlias[canonicalKey] = canonical
 	c.packages[canonicalKey] = src
-	c.runtimeModules[canonicalKey] = &ubruntime.Module{
+	c.runtimeLibraries[canonicalKey] = &ubruntime.Library{
 		Name:       alias,
 		Composites: runtimeComposites,
 	}
@@ -397,21 +397,21 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
 	}
 	src := &resolve.Source{Commit: "replace", Path: target}
-	if _, err := os.Stat(filepath.Join(target, "module.ub")); err == nil {
+	if _, err := os.Stat(filepath.Join(target, "library.ub")); err == nil {
 		src.FS = os.DirFS(target)
 	}
 	return src, nil
 }
 
-// readGoSchema reads a fetched Go module's source from sourcePath
+// readGoSchema reads a fetched Go library's source from sourcePath
 // and returns its schema plus any warnings about registered types
 // whose sibling Output struct could not be located. A missing path
 // returns nil values with no error, which lets fake resolvers in
-// tests fall through without having to write a real module to disk.
-// Any other failure mode (missing Module() function, parse error,
+// tests fall through without having to write a real library to disk.
+// Any other failure mode (missing Library() function, parse error,
 // malformed source) is propagated so a broken import fails the
 // compile.
-func readGoSchema(sourcePath string) (*ubruntime.ModuleSchema, []string, error) {
+func readGoSchema(sourcePath string) (*ubruntime.LibrarySchema, []string, error) {
 	if sourcePath == "" {
 		return nil, nil, nil
 	}
@@ -426,7 +426,7 @@ func printSchemaWarnings(out io.Writer, alias string, warnings []string) {
 	}
 }
 
-// parseReplaceFlags parses each `--replace-module module-path=local-path`
+// parseReplaceFlags parses each `--replace-go-module module-path=local-path`
 // value into the map fed to both the import resolver and the generated
 // go.mod's replace directive. Returns an error on malformed entries
 // (missing `=`, empty side, or relative paths -- the substitution must
@@ -437,13 +437,13 @@ func parseReplaceFlags(values []string) (map[string]string, error) {
 		idx := strings.IndexByte(raw, '=')
 		if idx <= 0 || idx == len(raw)-1 {
 			return nil, fmt.Errorf(
-				"--replace-module %q: expected module-path=local-path", raw)
+				"--replace-go-module %q: expected module-path=local-path", raw)
 		}
 		mod := raw[:idx]
 		path := raw[idx+1:]
 		abs, err := filepath.Abs(path)
 		if err != nil {
-			return nil, fmt.Errorf("--replace-module %q: %w", raw, err)
+			return nil, fmt.Errorf("--replace-go-module %q: %w", raw, err)
 		}
 		out[mod] = abs
 	}

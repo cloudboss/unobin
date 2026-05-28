@@ -3,7 +3,7 @@
 Example that shows `@for-each` on a resource, an action, and a
 composite call site, all iterating the same `var.files` map.
 
-The stack imports a local UB module `notify` that exports a single
+The stack imports a local UB library `notify` that exports a single
 composite type `alert`. Each iteration produces:
 
 - a `local.file` resource carrying the message text
@@ -19,7 +19,7 @@ with empty inputs and apply re-evaluates the body against the live
 scope.
 
 Data sources also support `@for-each` with the same semantics, but
-no built-in module ships one to wire up here.
+no built-in library ships one to wire up here.
 
 ## Compile
 
@@ -56,14 +56,14 @@ The plan output groups the leaf instances under their template:
   + ['beta']
       content: "second message"
       path: "/tmp/unobin-for-each/beta.txt"
-+ resource.notify.alert.many['alpha']  (module notify.alert)
++ resource.notify.alert.many['alpha']  (library notify.alert)
     body: "first message"
     path: "/tmp/unobin-for-each/alpha.alert"
     topic: "alpha"
   + local.file.this
       content: "ALERT alpha: first message\n"
       path: "/tmp/unobin-for-each/alpha.alert"
-+ resource.notify.alert.many['beta']  (module notify.alert)
++ resource.notify.alert.many['beta']  (library notify.alert)
     ...
 ```
 
@@ -75,7 +75,7 @@ and the action) group under one template header.
 State after apply contains, per instance:
 
 - `resource.local.file.many['<key>']` — a leaf entry per file
-- `resource.notify.alert.many['<key>']` — a module-call entry per
+- `resource.notify.alert.many['<key>']` — a library-call entry per
   composite instance
 - `resource.notify.alert.many['<key>']/local.file.this` — the leaf
   inside each composite instance

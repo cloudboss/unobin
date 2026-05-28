@@ -9,7 +9,7 @@ import (
 
 // sensitivityAnalyzer decides whether an expression reads any
 // sensitive source. Sources are sensitive when their declaration
-// says so: stack inputs with `@sensitive: true`, module output
+// says so: stack inputs with `@sensitive: true`, library output
 // fields tagged `ub:",sensitive"`, and composite outputs that
 // either carry `@sensitive: true` on the wrapper or propagate from
 // a sensitive source themselves.
@@ -19,7 +19,7 @@ import (
 type sensitivityAnalyzer struct {
 	rootInputs map[string]bool
 	rootLocals map[string]lang.Expr
-	rootMods   map[string]*Module
+	rootMods   map[string]*Library
 	dag        *DAG
 	cache      map[*lang.File]*compositeSensitivity
 }
@@ -30,29 +30,29 @@ type compositeSensitivity struct {
 }
 
 // sensScope bundles what a body's references resolve against while
-// deciding sensitivity: the sensitive input names, the module table,
+// deciding sensitivity: the sensitive input names, the library table,
 // the scope's `locals:` declarations (so a `local.X` can be followed
 // to its expression), and a guard set that breaks cyclic locals.
 type sensScope struct {
 	vars    map[string]bool
-	mods    map[string]*Module
+	libs    map[string]*Library
 	locals  map[string]lang.Expr
 	forcing map[string]bool
 }
 
 func newSensScope(
-	vars map[string]bool, mods map[string]*Module, locals map[string]lang.Expr,
+	vars map[string]bool, libs map[string]*Library, locals map[string]lang.Expr,
 ) *sensScope {
 	return &sensScope{
 		vars:    vars,
-		mods:    mods,
+		libs:    libs,
 		locals:  locals,
 		forcing: map[string]bool{},
 	}
 }
 
 func newSensitivityAnalyzer(
-	rootSource *lang.File, rootMods map[string]*Module, dag *DAG,
+	rootSource *lang.File, rootMods map[string]*Library, dag *DAG,
 ) *sensitivityAnalyzer {
 	return &sensitivityAnalyzer{
 		rootInputs: inputsBlockSensitive(rootSource),
@@ -92,25 +92,25 @@ func (s *sensitivityAnalyzer) sensitiveInputs(body lang.Expr, compositeAddr stri
 
 // sensitiveOutputs returns the kebab-case output field names this
 // node exposes as sensitive. For a primitive resource, data source,
-// or action it comes from the module schema's tagged fields; for a
+// or action it comes from the library schema's tagged fields; for a
 // composite call site it comes from the composite type's analyzed
 // outputs (declared `@sensitive` plus propagation).
 func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 	switch n.Kind {
 	case NodeResource, NodeAction, NodeData:
-		mods, _ := s.modsForNode(n)
-		mod, ok := mods[n.NS]
-		if !ok || mod == nil || mod.Schema == nil {
+		libs, _ := s.libsForNode(n)
+		lib, ok := libs[n.NS]
+		if !ok || lib == nil || lib.Schema == nil {
 			return nil
 		}
 		var ts *TypeSchema
 		switch n.Kind {
 		case NodeResource:
-			ts = mod.Schema.Resources[n.Type]
+			ts = lib.Schema.Resources[n.Type]
 		case NodeData:
-			ts = mod.Schema.DataSources[n.Type]
+			ts = lib.Schema.DataSources[n.Type]
 		case NodeAction:
-			ts = mod.Schema.Actions[n.Type]
+			ts = lib.Schema.Actions[n.Type]
 		}
 		if ts == nil {
 			return nil
@@ -131,22 +131,22 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 	return nil
 }
 
-// modsForNode returns the modules table that resolves the node's
+// libsForNode returns the libraries table that resolves the node's
 // namespace alias. Root nodes use the analyzer's rootMods; nodes
-// inside a composite use the call-site boundary's Modules.
-func (s *sensitivityAnalyzer) modsForNode(n *Node) (map[string]*Module, *Node) {
+// inside a composite use the call-site boundary's Libraries.
+func (s *sensitivityAnalyzer) libsForNode(n *Node) (map[string]*Library, *Node) {
 	if n.Composite == "" || s.dag == nil {
 		return s.rootMods, nil
 	}
 	tmpl, _ := splitInstanceAddress(n.Composite)
 	boundary, ok := s.dag.Nodes[tmpl]
-	if !ok || boundary.Modules == nil {
+	if !ok || boundary.Libraries == nil {
 		return s.rootMods, boundary
 	}
-	return boundary.Modules, boundary
+	return boundary.Libraries, boundary
 }
 
-// scopeFor returns the sensitive-vars set and modules table to
+// scopeFor returns the sensitive-vars set and libraries table to
 // resolve references against when analyzing inside the named
 // composite call site. The root scope returns the analyzer's
 // rootInputs and rootMods.
@@ -163,11 +163,11 @@ func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) *sensScope {
 	if cs == nil {
 		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
 	}
-	mods := boundary.Modules
-	if mods == nil {
-		mods = s.rootMods
+	libs := boundary.Libraries
+	if libs == nil {
+		libs = s.rootMods
 	}
-	return newSensScope(cs.inputs, mods, localExprs(localsBlock(boundary.CompositeBody)))
+	return newSensScope(cs.inputs, libs, localExprs(localsBlock(boundary.CompositeBody)))
 }
 
 // compositeSensitivity returns the analyzed sensitivity facts for
@@ -200,11 +200,11 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	for name := range lang.SensitiveOutputs(outputs) {
 		cs.outputs[name] = true
 	}
-	mods := boundary.Modules
-	if mods == nil {
-		mods = s.rootMods
+	libs := boundary.Libraries
+	if libs == nil {
+		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, mods, localExprs(localsBlock(body)))
+	sc := newSensScope(cs.inputs, libs, localExprs(localsBlock(body)))
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -265,26 +265,26 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 		if ns == "" || typ == "" || field == "" {
 			return false
 		}
-		mod, ok := sc.mods[ns]
-		if !ok || mod == nil {
+		lib, ok := sc.libs[ns]
+		if !ok || lib == nil {
 			return false
 		}
 		if dp.Root.Name == "resource" {
-			if comp, ok := mod.Composites[typ]; ok {
+			if comp, ok := lib.Composites[typ]; ok {
 				return s.compositeTypeOutputs(comp)[field]
 			}
 		}
-		if mod.Schema == nil {
+		if lib.Schema == nil {
 			return false
 		}
 		var ts *TypeSchema
 		switch dp.Root.Name {
 		case "resource":
-			ts = mod.Schema.Resources[typ]
+			ts = lib.Schema.Resources[typ]
 		case "data":
-			ts = mod.Schema.DataSources[typ]
+			ts = lib.Schema.DataSources[typ]
 		case "action":
-			ts = mod.Schema.Actions[typ]
+			ts = lib.Schema.Actions[typ]
 		}
 		if ts == nil {
 			return false
@@ -353,11 +353,11 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	for name := range lang.SensitiveOutputs(outputs) {
 		cs.outputs[name] = true
 	}
-	mods := ct.Modules
-	if mods == nil {
-		mods = s.rootMods
+	libs := ct.Libraries
+	if libs == nil {
+		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, mods, localExprs(localsBlock(ct.Body)))
+	sc := newSensScope(cs.inputs, libs, localExprs(localsBlock(ct.Body)))
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue

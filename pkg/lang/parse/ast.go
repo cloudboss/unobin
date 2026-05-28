@@ -8,7 +8,7 @@ type Node interface {
 
 // File is the top level container for a parsed .ub source file. The Kind is
 // determined after parsing by inspecting which top level keys are present and
-// matching them against the known file types (stack, module, exported type,
+// matching them against the known file types (stack, library, exported type,
 // config). Until that classification step runs, a File's Kind is FileUnknown.
 type File struct {
 	S    Span
@@ -37,8 +37,8 @@ type FileKind int
 const (
 	FileUnknown FileKind = iota
 	FileStack
-	FileModule       // The module.ub manifest (only `description` and `exports`).
-	FileExportedType // The <name>.ub inside a module.
+	FileLibrary      // The library.ub manifest (only `description` and `exports`).
+	FileExportedType // The <name>.ub inside a library.
 	FileConfig       // The config .ub file for a stack.
 )
 
@@ -46,8 +46,8 @@ func (k FileKind) String() string {
 	switch k {
 	case FileStack:
 		return "stack"
-	case FileModule:
-		return "module"
+	case FileLibrary:
+		return "library"
 	case FileExportedType:
 		return "exported-type"
 	case FileConfig:
@@ -296,14 +296,14 @@ type DotSegment struct {
 
 // Call is a function call: `format('%s-%s' a b)`. Args are whitespace-
 // separated. The callee is either a bare identifier (built-in: `range`,
-// `format`, etc.) or a module-qualified dotted name (`alias.name`). For
+// `format`, etc.) or a library-qualified dotted name (`alias.name`). For
 // now we model the callee as its raw text; the resolver disambiguates.
 type Call struct {
-	S      Span
-	Callee *Ident // Simple name; nil if Module is set.
-	Module *Ident // Module alias (e.g., "lib") when callee is `lib.foo`.
-	Func   *Ident // Function name in module-qualified form.
-	Args   []Expr
+	S       Span
+	Callee  *Ident // Simple name; nil if Library is set.
+	Library *Ident // Library alias (e.g., "lib") when callee is `lib.foo`.
+	Func    *Ident // Function name in library-qualified form.
+	Args    []Expr
 }
 
 func (n *Call) Span() Span { return n.S }

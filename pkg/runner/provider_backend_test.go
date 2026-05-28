@@ -32,8 +32,8 @@ func newMemBackend(
 	return localstate.NewLocalStore(bc.Path.Value, stack, deploymentID, enc)
 }
 
-func memProviderModule() *runtime.Module {
-	return &runtime.Module{
+func memProviderLibrary() *runtime.Library {
+	return &runtime.Library{
 		Name: "mem",
 		StateBackends: map[string]sdkstate.BackendType{
 			"store": {
@@ -57,7 +57,7 @@ outputs: {
 }
 `
 	info := testInfo(t, src)
-	info.Modules["mem"] = memProviderModule()
+	info.Libraries["mem"] = memProviderLibrary()
 
 	stateRoot := filepath.Join(t.TempDir(), "state")
 	cfgPath := filepath.Join(t.TempDir(), "prod.ub")

@@ -49,7 +49,7 @@ func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
 
 func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 	var runs atomic.Int64
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -66,8 +66,8 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 
 	drain := make(chan struct{})
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src.String()), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,
@@ -87,7 +87,7 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 
 func TestApplyScheduleDrainBeforeDispatchSkipsEverything(t *testing.T) {
 	var runs atomic.Int64
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -107,8 +107,8 @@ resources: {
 	drain := make(chan struct{})
 	close(drain)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 2,

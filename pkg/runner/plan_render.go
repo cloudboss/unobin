@@ -93,7 +93,7 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 				continue
 			}
 			sym := decisionSymbol(boundaryDecisionRecursive(t, child.Address))
-			fmt.Fprintf(out, "%s%s %s  (module %s)\n",
+			fmt.Fprintf(out, "%s%s %s  (library %s)\n",
 				symPad, sym, child.Address, compositeRef(child.Address))
 			renderStepInputs(out, fieldPad, child)
 			renderPlanTree(out, t, child.Address, depth+1)

@@ -121,7 +121,7 @@ outputs: {
   greeting-path: { value: resource.local.file.greeting.path }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name: "net",
 			Composites: map[string]*CompositeType{
@@ -136,7 +136,7 @@ resources: {
   }
 }
 `)
-	got := ExtractNodes(stack, mods)
+	got := ExtractNodes(stack, libs)
 	require.Len(t, got, 2)
 
 	require.Equal(t, "resource.net.cluster.web", got[0].Address)
@@ -161,7 +161,7 @@ outputs: {
   path: { value: resource.local.file.x.path }
 }
 `)
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"m": {
 			Name:       "m",
 			Composites: map[string]*CompositeType{"t": {Name: "t", Body: composite}},
@@ -172,7 +172,7 @@ resources: {
   m: { t: { one: {} } }
 }
 `)
-	got := ExtractNodes(stack, mods)
+	got := ExtractNodes(stack, libs)
 	for _, n := range got {
 		require.NotEqual(t, NodeOutput, n.Kind,
 			"output node should not become a DAG node; got %q", n.Address)
@@ -181,8 +181,8 @@ resources: {
 
 func TestExtractNodesNestedComposite(t *testing.T) {
 	// clusterBody is the body file for the `cluster` composite type
-	// registered under module alias `inner-mod`. In a real project this
-	// would live in `cluster.ub`, listed in inner-mod's `module.ub`
+	// registered under library alias `inner-lib`. In a real project this
+	// would live in `cluster.ub`, listed in inner-lib's `library.ub`
 	// manifest as `exports: { cluster: 'cluster.ub' }`.
 	clusterBody := parseStack(t, `
 inputs: {
@@ -200,7 +200,7 @@ outputs: {
 }
 `)
 	// layerBody is the body file for the `layer` composite type registered
-	// under module alias `outer-mod`. Its body calls inner-mod's `cluster`
+	// under library alias `outer-lib`. Its body calls inner-lib's `cluster`
 	// composite, which is what makes this a nested composite.
 	layerBody := parseStack(t, `
 inputs: {
@@ -208,7 +208,7 @@ inputs: {
 }
 
 resources: {
-  inner-mod: {
+  inner-lib: {
     cluster: {
       only: { path: var.target }
     }
@@ -216,18 +216,18 @@ resources: {
 }
 
 outputs: {
-  path: { value: resource.inner-mod.cluster.only.path }
+  path: { value: resource.inner-lib.cluster.only.path }
 }
 `)
-	mods := map[string]*Module{
-		"outer-mod": {
-			Name: "outer-mod",
+	libs := map[string]*Library{
+		"outer-lib": {
+			Name: "outer-lib",
 			Composites: map[string]*CompositeType{
 				"layer": {Name: "layer", Body: layerBody},
 			},
 		},
-		"inner-mod": {
-			Name: "inner-mod",
+		"inner-lib": {
+			Name: "inner-lib",
 			Composites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: clusterBody},
 			},
@@ -235,32 +235,32 @@ outputs: {
 	}
 	stack := parseStack(t, `
 resources: {
-  outer-mod: { layer: { mine: { target: '/tmp/x' } } }
+  outer-lib: { layer: { mine: { target: '/tmp/x' } } }
 }
 `)
-	got := ExtractNodes(stack, mods)
+	got := ExtractNodes(stack, libs)
 
 	byAddr := map[string]*Node{}
 	for _, n := range got {
 		byAddr[n.Address] = n
 	}
 
-	outerBoundary := byAddr["resource.outer-mod.layer.mine"]
+	outerBoundary := byAddr["resource.outer-lib.layer.mine"]
 	require.NotNil(t, outerBoundary, "outer boundary at root address")
 	require.Equal(t, NodeComposite, outerBoundary.Kind)
 	require.Empty(t, outerBoundary.Composite, "outer boundary has root scope")
 
-	innerBoundary := byAddr["resource.outer-mod.layer.mine/inner-mod.cluster.only"]
+	innerBoundary := byAddr["resource.outer-lib.layer.mine/inner-lib.cluster.only"]
 	require.NotNil(t, innerBoundary, "inner boundary nested under outer")
 	require.Equal(t, NodeComposite, innerBoundary.Kind)
-	require.Equal(t, "resource.outer-mod.layer.mine", innerBoundary.Composite,
+	require.Equal(t, "resource.outer-lib.layer.mine", innerBoundary.Composite,
 		"inner boundary's direct parent is outer call site")
 
-	leafAddr := "resource.outer-mod.layer.mine/inner-mod.cluster.only/local.file.x"
+	leafAddr := "resource.outer-lib.layer.mine/inner-lib.cluster.only/local.file.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "leaf under inner composite")
 	require.Equal(t, NodeResource, leaf.Kind)
-	require.Equal(t, "resource.outer-mod.layer.mine/inner-mod.cluster.only", leaf.Composite,
+	require.Equal(t, "resource.outer-lib.layer.mine/inner-lib.cluster.only", leaf.Composite,
 		"leaf's direct parent is inner call site")
 }
 
@@ -403,13 +403,13 @@ resources: {
 	composite := &CompositeType{
 		Body: parseStack(t, `description: 'noop'`),
 	}
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name:       "net",
 			Composites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	got := ExtractNodes(parseStack(t, src), mods)
+	got := ExtractNodes(parseStack(t, src), libs)
 	require.NotEmpty(t, got)
 	require.Equal(t, NodeComposite, got[0].Kind)
 	require.Equal(t,
@@ -433,13 +433,13 @@ resources: {
 	composite := &CompositeType{
 		Body: parseStack(t, `description: 'noop'`),
 	}
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"net": {
 			Name:       "net",
 			Composites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	got := ExtractNodes(parseStack(t, src), mods)
+	got := ExtractNodes(parseStack(t, src), libs)
 	require.NotEmpty(t, got)
 	require.Equal(t,
 		map[string]ConfigRef{"aws": {NS: "gcp", Alias: "east2"}},

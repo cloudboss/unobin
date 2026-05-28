@@ -32,7 +32,7 @@ Flags:
 
 Examples:
   unobin fmt stack.ub
-  unobin fmt -w stack.ub modules/
+  unobin fmt -w stack.ub libraries/
   unobin fmt -l .
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {

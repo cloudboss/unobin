@@ -10,15 +10,15 @@ import (
 
 // CheckReferences reports references that cannot resolve to an input binding,
 // node address, or active for-each binding.
-func CheckReferences(f *lang.File, mods map[string]*Module) *lang.ErrorList {
+func CheckReferences(f *lang.File, libs map[string]*Library) *lang.ErrorList {
 	c := &referenceChecker{
-		root:    f,
-		dag:     BuildDAG(f, mods),
-		errs:    lang.NewErrorList(0),
-		inputs:  map[string]map[string]bool{"": inputNames(f)},
-		locals:  map[string]map[string]bool{"": localNames(f)},
-		modules: map[string]map[string]*Module{"": mods},
-		seen:    map[string]bool{},
+		root:      f,
+		dag:       BuildDAG(f, libs),
+		errs:      lang.NewErrorList(0),
+		inputs:    map[string]map[string]bool{"": inputNames(f)},
+		locals:    map[string]map[string]bool{"": localNames(f)},
+		libraries: map[string]map[string]*Library{"": libs},
+		seen:      map[string]bool{},
 	}
 	c.collectCompositeScopes()
 	c.checkDeclarations()
@@ -31,13 +31,13 @@ func CheckReferences(f *lang.File, mods map[string]*Module) *lang.ErrorList {
 }
 
 type referenceChecker struct {
-	root    *lang.File
-	dag     *DAG
-	errs    *lang.ErrorList
-	inputs  map[string]map[string]bool
-	locals  map[string]map[string]bool
-	modules map[string]map[string]*Module
-	seen    map[string]bool
+	root      *lang.File
+	dag       *DAG
+	errs      *lang.ErrorList
+	inputs    map[string]map[string]bool
+	locals    map[string]map[string]bool
+	libraries map[string]map[string]*Library
+	seen      map[string]bool
 }
 
 func (c *referenceChecker) collectCompositeScopes() {
@@ -47,7 +47,7 @@ func (c *referenceChecker) collectCompositeScopes() {
 		}
 		c.inputs[n.Address] = inputNames(n.CompositeBody)
 		c.locals[n.Address] = localNames(n.CompositeBody)
-		c.modules[n.Address] = n.Modules
+		c.libraries[n.Address] = n.Libraries
 	}
 }
 
@@ -58,14 +58,14 @@ func (c *referenceChecker) checkDeclarations() {
 		default:
 			continue
 		}
-		mods, found := c.modules[n.Composite]
-		if !found || mods == nil {
+		libs, found := c.libraries[n.Composite]
+		if !found || libs == nil {
 			continue
 		}
-		if _, ok := mods[n.NS]; ok {
+		if _, ok := libs[n.NS]; ok {
 			continue
 		}
-		c.addf(n.Body.Span().Start, `module %q is not imported`, n.NS)
+		c.addf(n.Body.Span().Start, `library %q is not imported`, n.NS)
 	}
 }
 
@@ -339,22 +339,22 @@ func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typec
 	if node.Kind == NodeComposite {
 		return compositeOutputNames(node)
 	}
-	mods := c.modules[scope]
-	if mods == nil {
+	libs := c.libraries[scope]
+	if libs == nil {
 		return nil
 	}
-	mod := mods[node.NS]
-	if mod == nil || mod.Schema == nil {
+	lib := libs[node.NS]
+	if lib == nil || lib.Schema == nil {
 		return nil
 	}
 	var ts *TypeSchema
 	switch node.Kind {
 	case NodeResource:
-		ts = mod.Schema.Resources[node.Type]
+		ts = lib.Schema.Resources[node.Type]
 	case NodeData:
-		ts = mod.Schema.DataSources[node.Type]
+		ts = lib.Schema.DataSources[node.Type]
 	case NodeAction:
-		ts = mod.Schema.Actions[node.Type]
+		ts = lib.Schema.Actions[node.Type]
 	}
 	if ts == nil {
 		return nil

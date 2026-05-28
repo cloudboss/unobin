@@ -26,7 +26,7 @@ func parseFile(t *testing.T, path string) *lang.File {
 	return f
 }
 
-// setupBasicTree writes a stack importing one local UB module that
+// setupBasicTree writes a stack importing one local UB library that
 // itself imports nothing. Returns the stack file's absolute path and
 // the dir to use as the resolver root.
 func setupBasicTree(t *testing.T) (string, string) {
@@ -37,16 +37,16 @@ func setupBasicTree(t *testing.T) (string, string) {
 	writeUB(t, stackPath, `
 description: 'top'
 imports: {
-  net: './modules/net'
+  net: './libraries/net'
 }
 `)
-	writeUB(t, filepath.Join(root, "modules", "net", "module.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "net", "library.ub"), `
 description: 'net'
 exports: {
   cluster: 'cluster.ub'
 }
 `)
-	writeUB(t, filepath.Join(root, "modules", "net", "cluster.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "net", "cluster.ub"), `
 description: 'cluster type'
 `)
 	return stackPath, root
@@ -60,8 +60,8 @@ func TestResolveAllSimpleLocal(t *testing.T) {
 	require.Empty(t, errs)
 
 	// Edges:
-	//   stackPath -> stackPath/net   (stack imports the module)
-	//   stackPath/net -> stackPath/net:cluster  (module exports cluster)
+	//   stackPath -> stackPath/net   (stack imports the library)
+	//   stackPath/net -> stackPath/net:cluster  (library exports cluster)
 	require.Empty(t, graph.DetectCycles())
 
 	netID := stackPath + "/net"
@@ -75,21 +75,21 @@ func TestResolveAllDetectsCycle(t *testing.T) {
 	stackPath := filepath.Join(root, "stack.ub")
 	writeUB(t, stackPath, `
 imports: {
-  a: './modules/a'
+  a: './libraries/a'
 }
 `)
-	writeUB(t, filepath.Join(root, "modules", "a", "module.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "a", "library.ub"), `
 exports: { x: 'x.ub' }
 `)
-	writeUB(t, filepath.Join(root, "modules", "a", "x.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "a", "x.ub"), `
 imports: {
   b: '../b'
 }
 `)
-	writeUB(t, filepath.Join(root, "modules", "b", "module.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "b", "library.ub"), `
 exports: { y: 'y.ub' }
 `)
-	writeUB(t, filepath.Join(root, "modules", "b", "y.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "b", "y.ub"), `
 imports: {
   loop: '../a'
 }
@@ -98,12 +98,12 @@ imports: {
 	graph, errs := ResolveAll(stackPath, f, NewLocalResolver(root))
 	// b/y.ub tries to import ../a which escapes b's source root - it
 	// should error rather than create a real cycle. The cycle is only
-	// possible if the language allowed climbing out of a UB module's
+	// possible if the language allowed climbing out of a UB library's
 	// fs.FS, which it doesn't.
 	require.NotEmpty(t, errs)
 	foundEscape := false
 	for _, e := range errs {
-		if strings.Contains(e.Error(), "must stay inside the module") {
+		if strings.Contains(e.Error(), "must stay inside the library") {
 			foundEscape = true
 		}
 	}

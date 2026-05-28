@@ -11,25 +11,25 @@ import (
 
 // Input bundles everything codegen needs to produce a stack binary's
 // `main.go`. Body is the literal stack source the binary embeds and
-// parses on each invocation. ModulePath is the binary's module-path
-// identity, the same form Go modules use; the operator's `config.ub`
-// asserts the same value under `stack.module-path` and plan, refresh,
-// and validate refuse on mismatch. An empty ModulePath disables that
+// parses on each invocation. LibraryPath is the binary's library-path
+// identity, the same form Go libraries use; the operator's `config.ub`
+// asserts the same value under `stack.library-path` and plan, refresh,
+// and validate refuse on mismatch. An empty LibraryPath disables that
 // identity check. The version and content-revision are not generated
 // here; compile stamps them into the built binary with -ldflags so the
 // generated source stays a pure function of the stack content.
-// GoImports maps each Go-module alias the source uses to the Go import
+// GoImports maps each Go-library alias the source uses to the Go import
 // path that supplies it (e.g.,
-// `"core" -> "github.com/cloudboss/unobin/pkg/modules/core"`).
-// UBImports maps each UB-module alias to the local Go import path of
+// `"core" -> "github.com/cloudboss/unobin/pkg/libraries/core"`).
+// UBImports maps each UB-library alias to the local Go import path of
 // the package that compile generated for it (typically
 // `<stack-name>/internal/<alias>`).
 type Input struct {
-	Body       string
-	ModulePath string
-	StackName  string
-	GoImports  map[string]string
-	UBImports  map[string]string
+	Body        string
+	LibraryPath string
+	StackName   string
+	GoImports   map[string]string
+	UBImports   map[string]string
 }
 
 // Generate produces the formatted Go source for the stack binary's
@@ -42,21 +42,21 @@ func Generate(in Input) ([]byte, error) {
 	aliases := sortedKeys(in.GoImports)
 	ubAliases := sortedKeys(in.UBImports)
 	data := struct {
-		Body       string
-		ModulePath string
-		StackName  string
-		Aliases    []string
-		Imports    map[string]string
-		UBAliases  []string
-		UBImports  map[string]string
+		Body        string
+		LibraryPath string
+		StackName   string
+		Aliases     []string
+		Imports     map[string]string
+		UBAliases   []string
+		UBImports   map[string]string
 	}{
-		Body:       in.Body,
-		ModulePath: in.ModulePath,
-		StackName:  in.StackName,
-		Aliases:    aliases,
-		Imports:    in.GoImports,
-		UBAliases:  ubAliases,
-		UBImports:  in.UBImports,
+		Body:        in.Body,
+		LibraryPath: in.LibraryPath,
+		StackName:   in.StackName,
+		Aliases:     aliases,
+		Imports:     in.GoImports,
+		UBAliases:   ubAliases,
+		UBImports:   in.UBImports,
 	}
 
 	var buf bytes.Buffer
@@ -93,15 +93,15 @@ package main
 import (
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
-{{range .Aliases}}	mod_{{.}} {{quote (index $.Imports .)}}
-{{end}}{{range .UBAliases}}	mod_{{.}} {{quote (index $.UBImports .)}}
+{{range .Aliases}}	lib_{{.}} {{quote (index $.Imports .)}}
+{{end}}{{range .UBAliases}}	lib_{{.}} {{quote (index $.UBImports .)}}
 {{end -}}
 )
 
 const (
-	stackBody       = {{quote .Body}}
-	stackModulePath = {{quote .ModulePath}}
-	stackName       = {{quote .StackName}}
+	stackBody        = {{quote .Body}}
+	stackLibraryPath = {{quote .LibraryPath}}
+	stackName        = {{quote .StackName}}
 )
 
 // Stamped at link time via -ldflags.
@@ -116,10 +116,10 @@ func main() {
 		StackVersion:    stackVersion,
 		ContentRevision: contentRevision,
 		StackBody:       stackBody,
-		ModulePath:      stackModulePath,
-		Modules: map[string]*runtime.Module{
-{{range .Aliases}}			{{quote .}}: mod_{{.}}.Module(),
-{{end}}{{range .UBAliases}}			{{quote .}}: mod_{{.}}.Module(),
+		LibraryPath:     stackLibraryPath,
+		Libraries: map[string]*runtime.Library{
+{{range .Aliases}}			{{quote .}}: lib_{{.}}.Library(),
+{{end}}{{range .UBAliases}}			{{quote .}}: lib_{{.}}.Library(),
 {{end}}		},
 	})
 }

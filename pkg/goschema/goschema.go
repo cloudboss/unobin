@@ -1,4 +1,4 @@
-// Package goschema reads a Go module's source to learn the output
+// Package goschema reads a Go library's source to learn the output
 // schema of each registered resource, data source, and action. The
 // dev CLI feeds the result into the reference checker so trailing
 // field names in references like `resource.aws.vpc.main.id` can be
@@ -22,23 +22,23 @@ import (
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
-// Read parses the Go module rooted at dir and returns its schema
+// Read parses the Go library rooted at dir and returns its schema
 // plus any warnings about registered types whose sibling Output
-// struct could not be located. Returns an error when no `Module()`
+// struct could not be located. Returns an error when no `Library()`
 // function is found in dir's root package, or when the directory
 // cannot be read.
-func Read(dir string) (*runtime.ModuleSchema, []string, error) {
+func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 	rootPkg, err := parsePackageDir(dir)
 	if err != nil {
 		return nil, nil, err
 	}
-	moduleFunc := findModuleFunc(rootPkg)
-	if moduleFunc == nil {
-		return nil, nil, fmt.Errorf("no Module() function in %s", dir)
+	libraryFunc := findModuleFunc(rootPkg)
+	if libraryFunc == nil {
+		return nil, nil, fmt.Errorf("no Library() function in %s", dir)
 	}
 	modulePath := readGoModPath(dir)
 
-	schema := &runtime.ModuleSchema{
+	schema := &runtime.LibrarySchema{
 		Resources:   map[string]*runtime.TypeSchema{},
 		DataSources: map[string]*runtime.TypeSchema{},
 		Actions:     map[string]*runtime.TypeSchema{},
@@ -47,14 +47,14 @@ func Read(dir string) (*runtime.ModuleSchema, []string, error) {
 
 	cache := map[string][]*ast.File{}
 	errs := &[]error{}
-	for _, reg := range extractRegistrations(moduleFunc) {
+	for _, reg := range extractRegistrations(libraryFunc) {
 		w := newWalker(dir, modulePath, rootPkg, cache, errs)
 		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
 		w = newWalker(dir, modulePath, rootPkg, cache, errs)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s %q: %s not found in the module's source",
+				"%s %q: %s not found in the library's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
 		ts := &runtime.TypeSchema{
@@ -102,7 +102,7 @@ func registrationKindLabel(field string) string {
 	return field
 }
 
-// registration is one entry extracted from the Module() function's
+// registration is one entry extracted from the Library() function's
 // Resources, DataSources, or Actions map. Name is the kebab-case
 // key. InputRef names the receiver type (the first type argument of
 // MakeResource/MakeAction/MakeDataSource); OutputRef names the
@@ -124,7 +124,7 @@ type typeRef struct {
 // walker carries the state needed to resolve a Go type expression
 // into a typecheck.Type, including the cross-package recursion that
 // follows selector types into sibling packages within the same
-// module.
+// library.
 //
 // Per-package fields (importPath, files, imports) describe the
 // package the walker is currently resolving inside. Cross-package
@@ -166,8 +166,8 @@ func newWalker(
 	}
 }
 
-// sub returns a walker positioned at the named in-module package, or
-// nil when the import path lives outside the module or the
+// sub returns a walker positioned at the named in-library package, or
+// nil when the import path lives outside the library or the
 // subpackage cannot be parsed. The shared maps (packageCache,
 // visiting) are aliased into the returned walker so cycle detection
 // and cache hits span the whole walk.
@@ -183,9 +183,9 @@ func (w *walker) sub(importPath string) *walker {
 	return &cp
 }
 
-// loadPackage returns the AST files for an in-module import path,
+// loadPackage returns the AST files for an in-library import path,
 // parsing the directory lazily and caching the result. Imports
-// outside the module return (nil, false).
+// outside the library return (nil, false).
 func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
 	if files, ok := w.packageCache[importPath]; ok {
 		return files, true
@@ -205,9 +205,9 @@ func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
 
 // lookupFields resolves a typeRef from a registration's type
 // argument into the kebab-name to typecheck.Type map of the named
-// struct's fields, plus a set of field names the module marked
+// struct's fields, plus a set of field names the library marked
 // sensitive via a `ub:",sensitive"` struct tag. The walker's
-// current position must be the module's root package; PkgAlias
+// current position must be the library's root package; PkgAlias
 // triggers a switch into the referenced subpackage.
 func (w *walker) lookupFields(ref typeRef) (map[string]typecheck.Type, map[string]bool) {
 	if ref.PkgAlias == "" {
@@ -270,10 +270,10 @@ func (w *walker) fieldsFromPackage(typeName string) (map[string]typecheck.Type, 
 }
 
 // fieldsFromStruct walks one struct's fields into a kebab-name to
-// Type map plus a set of names the module marked sensitive. Each
+// Type map plus a set of names the library marked sensitive. Each
 // field's Go type goes through typeFromAST so nested struct types
 // in the same package expand into Object types, and types named via
-// a selector into another in-module package expand the same way.
+// a selector into another in-library package expand the same way.
 func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type, map[string]bool) {
 	if st.Fields == nil {
 		return nil, nil
@@ -312,7 +312,7 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 // typeFromAST converts a Go AST type expression to a typecheck.Type.
 // Named struct types in the current package expand into Object
 // types; selector types into sibling packages within the same
-// module expand the same way via a sub-walker. Out-of-module types
+// library expand the same way via a sub-walker. Out-of-library types
 // stay Unknown except for a small allowlist (time.Duration).
 func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
 	switch v := e.(type) {
@@ -444,7 +444,7 @@ func findModuleFunc(files []*ast.File) *ast.FuncDecl {
 			if fn.Recv != nil {
 				continue
 			}
-			if fn.Name.Name == "Module" {
+			if fn.Name.Name == "Library" {
 				return fn
 			}
 		}
@@ -568,9 +568,9 @@ func outputTypeRef(e ast.Expr) (typeRef, bool) {
 	return typeRef{}, false
 }
 
-// unwrapModuleLiteral takes the expression in `return &runtime.Module{...}`
-// and returns the composite literal. Accepts `&Module{...}` or
-// `&pkg.Module{...}` (with or without the address-of); returns nil when
+// unwrapModuleLiteral takes the expression in `return &runtime.Library{...}`
+// and returns the composite literal. Accepts `&Library{...}` or
+// `&pkg.Library{...}` (with or without the address-of); returns nil when
 // the shape doesn't match.
 func unwrapModuleLiteral(e ast.Expr) *ast.CompositeLit {
 	if u, ok := e.(*ast.UnaryExpr); ok && u.Op == token.AND {
@@ -636,7 +636,7 @@ func buildImportMap(files []*ast.File) map[string]string {
 // parseUBFieldTag reads a field's `ub` struct tag and returns its
 // name (empty means use the kebab-cased field name), whether the
 // field is skipped (`ub:"-"`), whether it is marked sensitive, and
-// any options that are not part of the module-field contract.
+// any options that are not part of the library-field contract.
 // sensitive is the only option the schema acts on; omitempty and
 // squash are valid codec options and pass silently; anything else is
 // reported so a typo like "sensitiv" cannot quietly leave a secret

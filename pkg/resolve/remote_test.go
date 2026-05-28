@@ -41,10 +41,10 @@ func makeRemoteRepo(t *testing.T, dir string, files map[string]string) string {
 	return strings.TrimSpace(run("rev-parse", "HEAD"))
 }
 
-func TestRemoteResolverFetchesUBModule(t *testing.T) {
+func TestRemoteResolverFetchesUBLibrary(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
-		"module.ub":  "description: 'remote'\n",
+		"library.ub": "description: 'remote'\n",
 		"cluster.ub": "description: 'cluster'\n",
 	})
 
@@ -55,12 +55,12 @@ func TestRemoteResolverFetchesUBModule(t *testing.T) {
 	require.NotEmpty(t, got.Hash)
 	require.NotNil(t, got.FS)
 
-	body, err := fs.ReadFile(got.FS, "module.ub")
+	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "remote")
 }
 
-func TestRemoteResolverFetchesGoModule(t *testing.T) {
+func TestRemoteResolverFetchesGoLibrary(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
 		"go.mod":  "module example.com/x\n",
@@ -71,25 +71,25 @@ func TestRemoteResolverFetchesGoModule(t *testing.T) {
 	got, err := r.Resolve(&RemoteImport{URL: src, Version: "v1"})
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
-	require.Empty(t, got.Hash, "go-module imports do not record a content hash")
-	require.Nil(t, got.FS, "go-module imports do not expose a filesystem")
+	require.Empty(t, got.Hash, "go-library imports do not record a content hash")
+	require.Nil(t, got.FS, "go-library imports do not expose a filesystem")
 }
 
 func TestRemoteResolverHonorsSubdir(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	makeRemoteRepo(t, src, map[string]string{
-		"modules/net/module.ub":  "description: 'net'\n",
-		"modules/net/cluster.ub": "description: 'cluster'\n",
-		"go.mod":                 "module example.com/x\n",
+		"libraries/net/library.ub": "description: 'net'\n",
+		"libraries/net/cluster.ub": "description: 'cluster'\n",
+		"go.mod":                   "module example.com/x\n",
 	})
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
-	got, err := r.Resolve(&RemoteImport{URL: src, Subdir: "modules/net", Version: "v1"})
+	got, err := r.Resolve(&RemoteImport{URL: src, Subdir: "libraries/net", Version: "v1"})
 	require.NoError(t, err)
 	require.NotNil(t, got.FS)
 	require.NotEmpty(t, got.Hash)
 
-	body, err := fs.ReadFile(got.FS, "module.ub")
+	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "net")
 }
@@ -97,7 +97,7 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 func TestRemoteResolverCacheHitSkipsRefetch(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	makeRemoteRepo(t, src, map[string]string{
-		"module.ub": "description: 'first'\n",
+		"library.ub": "description: 'first'\n",
 	})
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
@@ -105,14 +105,14 @@ func TestRemoteResolverCacheHitSkipsRefetch(t *testing.T) {
 	require.NoError(t, err)
 
 	cacheDir := r.cacheDir(src, first.Commit)
-	mod := filepath.Join(cacheDir, "module.ub")
-	require.NoError(t, os.WriteFile(mod, []byte("description: 'overwritten'\n"), 0o644))
+	lib := filepath.Join(cacheDir, "library.ub")
+	require.NoError(t, os.WriteFile(lib, []byte("description: 'overwritten'\n"), 0o644))
 
 	second, err := r.Resolve(&RemoteImport{URL: src, Version: "v1"})
 	require.NoError(t, err)
 	require.Equal(t, first.Commit, second.Commit)
 
-	body, err := fs.ReadFile(second.FS, "module.ub")
+	body, err := fs.ReadFile(second.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "overwritten",
 		"second Resolve should reuse the cached tree, not refetch")

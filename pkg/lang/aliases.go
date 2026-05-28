@@ -48,7 +48,7 @@ type (
 const (
 	FileUnknown      = parse.FileUnknown
 	FileStack        = parse.FileStack
-	FileModule       = parse.FileModule
+	FileLibrary      = parse.FileLibrary
 	FileExportedType = parse.FileExportedType
 	FileConfig       = parse.FileConfig
 

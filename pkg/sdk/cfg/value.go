@@ -1,8 +1,8 @@
-// Package cfg is the typed vocabulary a Go module uses to declare
+// Package cfg is the typed vocabulary a Go library uses to declare
 // its configuration. Each wrapper carries the decoded value alongside
 // its schema info (description, default, validation) for one field.
 // Only wrappers in this package satisfy the Value constraint, so a
-// module author cannot place a bare Go type as the element of a
+// library author cannot place a bare Go type as the element of a
 // List, Map, or Set.
 package cfg
 
@@ -103,7 +103,7 @@ func (Set[T]) isUbSet()   {}
 // Object wraps a user struct in a position that requires a Value,
 // such as the element type of a List or Map. T must be a struct
 // whose fields are wrapper types or nested structs; the schema
-// walker rejects any other field type at module load. An optional
+// walker rejects any other field type at library load. An optional
 // nested struct at the top level of a Configuration uses a plain
 // *Struct and does not need this wrapper.
 type Object[T any] struct {

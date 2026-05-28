@@ -91,7 +91,7 @@ type PlanStep struct {
 	ObservedOutputs  map[string]any      `json:"observed-outputs,omitempty"`
 	TriggerHash      string              `json:"trigger-hash,omitempty"`
 
-	// Configuration carries a destroy step's recorded module
+	// Configuration carries a destroy step's recorded library
 	// configuration ref ("ns.alias") from prior state, so apply deletes
 	// against the same credentials the resource was created with.
 	Configuration string `json:"configuration,omitempty"`
@@ -113,7 +113,7 @@ type PlanStep struct {
 
 	// SensitiveOutputs names the output fields of this step that are
 	// sensitive. For a primitive resource/action it comes from the
-	// module schema's tagged fields; for a composite call site it
+	// library schema's tagged fields; for a composite call site it
 	// comes from the composite type's `@sensitive` markers and from
 	// propagation through its body.
 	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
@@ -142,7 +142,7 @@ func (s *PlanStep) Gone() bool {
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
 // eval scope without re-reading config.ub. RawConfigurations carries
-// the raw per-module configuration maps (keyed by import alias then
+// the raw per-library configuration maps (keyed by import alias then
 // alias name) so apply re-decodes them through the same code path
 // rather than re-reading the config file.
 type Plan struct {
@@ -206,7 +206,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		return nil, err
 	}
 
-	sensitivity := newSensitivityAnalyzer(e.Source, e.Modules, e.DAG)
+	sensitivity := newSensitivityAnalyzer(e.Source, e.Libraries, e.DAG)
 
 	// A destroy plan wants nothing from source, so the desired-state
 	// walk is skipped. With no live addresses, every prior leaf below
@@ -238,7 +238,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 	// Orphans: prior entries with no live address in this plan become
 	// destroy steps. A normal plan only destroys orphaned leaf
-	// resources; action and module-call records are cleaned up by
+	// resources; action and library-call records are cleaned up by
 	// pruning. A destroy plan removes every record, so it emits a step
 	// for each entry type.
 	if rs.prior != nil {
@@ -272,7 +272,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 // destroyEntryKind maps a state entry type to the node kind its
 // destroy step carries. Leaf entries delete a real resource; action
-// and module-call records have no external lifecycle and are only
+// and library-call records have no external lifecycle and are only
 // removed from state.
 func destroyEntryKind(t state.EntryType) (NodeKind, bool) {
 	switch t {
@@ -280,7 +280,7 @@ func destroyEntryKind(t state.EntryType) (NodeKind, bool) {
 		return NodeResource, true
 	case state.EntryAction:
 		return NodeAction, true
-	case state.EntryModuleCall:
+	case state.EntryLibraryCall:
 		return NodeComposite, true
 	}
 	return "", false
@@ -297,7 +297,7 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 	var jobs []*PlanStep
 	for _, s := range steps {
 		// Only resources have something in the world to read; action
-		// and module-call records are removed without a read.
+		// and library-call records are removed without a read.
 		if s.Decision == DecisionDestroy && s.Kind == NodeResource {
 			jobs = append(jobs, s)
 		}
@@ -327,7 +327,7 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 	return nil
 }
 
-// readDestroyTarget resolves a destroy step's module from its address
+// readDestroyTarget resolves a destroy step's library from its address
 // and reads the resource, reporting whether it is already gone. It
 // needs no DAG node, so it works for an orphan whose source has been
 // removed as well as for a full teardown.
@@ -336,13 +336,13 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 	if !ok {
 		return false, fmt.Errorf("malformed address %q", step.Address)
 	}
-	mod, ok := e.modulesForAddress(step.Address)[ns]
+	lib, ok := e.librariesForAddress(step.Address)[ns]
 	if !ok {
-		return false, fmt.Errorf("module %q is not imported", ns)
+		return false, fmt.Errorf("library %q is not imported", ns)
 	}
-	rt, ok := mod.Resources[typeName]
+	rt, ok := lib.Resources[typeName]
 	if !ok {
-		return false, fmt.Errorf("module %s has no resource %q", ns, typeName)
+		return false, fmt.Errorf("library %s has no resource %q", ns, typeName)
 	}
 	_, err := readObserved(ctx, rt,
 		e.configForRef(step.Configuration, ns), step.Inputs, step.PriorOutputs)
@@ -586,12 +586,12 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 }
 
 func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
-	mod, ok := e.modulesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.NS]
 	if !ok {
-		return nil, fmt.Errorf("module %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.NS)
 	}
-	if _, ok := mod.Actions[n.Type]; !ok {
-		return nil, fmt.Errorf("module %s has no action %q", n.NS, n.Type)
+	if _, ok := lib.Actions[n.Type]; !ok {
+		return nil, fmt.Errorf("library %s has no action %q", n.NS, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {
@@ -641,13 +641,13 @@ func (e *Executor) planOneAction(
 }
 
 func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
-	mod, ok := e.modulesFor(n)[n.NS]
+	lib, ok := e.librariesFor(n)[n.NS]
 	if !ok {
-		return nil, fmt.Errorf("module %q is not imported", n.NS)
+		return nil, fmt.Errorf("library %q is not imported", n.NS)
 	}
-	rt, ok := mod.Resources[n.Type]
+	rt, ok := lib.Resources[n.Type]
 	if !ok {
-		return nil, fmt.Errorf("module %s has no resource %q", n.NS, n.Type)
+		return nil, fmt.Errorf("library %s has no resource %q", n.NS, n.Type)
 	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {
@@ -829,7 +829,7 @@ func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanS
 }
 
 // readObserved decodes inputs onto a fresh resource and asks the
-// module what's in the cloud for it. It returns the result in the
+// library what's in the cloud for it. It returns the result in the
 // same canonical map state uses, or ErrNotFound when the resource is
 // gone.
 func readObserved(

@@ -2,11 +2,11 @@ package runtime
 
 import "github.com/cloudboss/unobin/pkg/typecheck"
 
-// ModuleSchema describes a Go module's registered resource, data
+// LibrarySchema describes a Go library's registered resource, data
 // source, and action types as the dev CLI sees them at compile time.
 // Each entry is keyed by the type's kebab-case name (the same name
 // used in stack source).
-type ModuleSchema struct {
+type LibrarySchema struct {
 	Resources   map[string]*TypeSchema
 	DataSources map[string]*TypeSchema
 	Actions     map[string]*TypeSchema
@@ -21,7 +21,7 @@ type ModuleSchema struct {
 // can be type-checked too.
 //
 // SensitiveInputs and SensitiveOutputs hold the kebab-case names of
-// fields a module marked sensitive via a `ub:",sensitive"` struct
+// fields a library marked sensitive via a `ub:",sensitive"` struct
 // tag. Both are top-level only; sensitivity does not descend into
 // nested object fields.
 type TypeSchema struct {

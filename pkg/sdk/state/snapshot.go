@@ -14,14 +14,14 @@ const CurrentFormatVersion = 1
 type EntryType string
 
 const (
-	EntryLeaf       EntryType = "leaf"
-	EntryModuleCall EntryType = "module-call"
-	EntryAction     EntryType = "action"
+	EntryLeaf        EntryType = "leaf"
+	EntryLibraryCall EntryType = "library-call"
+	EntryAction      EntryType = "action"
 )
 
 // Entry is one record in a snapshot. Type discriminates the fields used:
 // leaf entries hold a primitive resource's Kind, SchemaVersion, Inputs, and
-// Outputs; module-call entries hold a composite type's Module, ModuleType,
+// Outputs; library-call entries hold a composite type's Library, LibraryType,
 // and call-site Inputs/Outputs.
 //
 // SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
@@ -36,10 +36,10 @@ type Entry struct {
 	SensitiveInputs  []string `json:"sensitive-inputs,omitempty"`
 	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
 
-	Module     string `json:"module,omitempty"`
-	ModuleType string `json:"module-type,omitempty"`
+	Library     string `json:"library,omitempty"`
+	LibraryType string `json:"library-type,omitempty"`
 
-	// Configuration names the module configuration the resource was
+	// Configuration names the library configuration the resource was
 	// created against, as "ns.alias". It is recorded only when that
 	// differs from the import's own default, since destroy and refresh
 	// need it to find the right credentials once the resource is no
@@ -156,12 +156,12 @@ func (e *Entry) validate() error {
 		if e.Kind == "" {
 			return fmt.Errorf("snapshot: leaf entry %q missing kind", e.Address)
 		}
-	case EntryModuleCall:
-		if e.Module == "" {
-			return fmt.Errorf("snapshot: module-call entry %q missing module", e.Address)
+	case EntryLibraryCall:
+		if e.Library == "" {
+			return fmt.Errorf("snapshot: library-call entry %q missing library", e.Address)
 		}
-		if e.ModuleType == "" {
-			return fmt.Errorf("snapshot: module-call entry %q missing module-type", e.Address)
+		if e.LibraryType == "" {
+			return fmt.Errorf("snapshot: library-call entry %q missing library-type", e.Address)
 		}
 	case EntryAction:
 		if e.Kind == "" {

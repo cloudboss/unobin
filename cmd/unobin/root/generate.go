@@ -7,11 +7,11 @@ import (
 
 var GenerateCmd = &cobra.Command{
 	Use:   "generate",
-	Short: "Generate code and scaffold modules",
+	Short: "Generate code and scaffold libraries",
 }
 
 func init() {
-	GenerateCmd.AddCommand(generate.GomoduleCmd)
+	GenerateCmd.AddCommand(generate.GolibraryCmd)
 	GenerateCmd.AddCommand(generate.StackCmd)
-	GenerateCmd.AddCommand(generate.UbmoduleCmd)
+	GenerateCmd.AddCommand(generate.UblibraryCmd)
 }

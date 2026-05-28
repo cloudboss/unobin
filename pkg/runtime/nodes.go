@@ -33,13 +33,13 @@ const (
 // `resource.<outer>/<inner-rel>/<deepest-rel>`, and each node's
 // Composite names its direct enclosing call site.
 //
-// CompositeBody and Modules are set only on NodeComposite.
+// CompositeBody and Libraries are set only on NodeComposite.
 // CompositeBody points to the composite type's full body so the
 // runtime can evaluate the `outputs:` block once the internals
-// complete. Modules is the composite's resolved import table; the
+// complete. Libraries is the composite's resolved import table; the
 // runtime resolves composite-internal node lookups against this map
 // rather than the stack root's, so a composite can be reused without
-// the caller importing every module it transitively uses.
+// the caller importing every library it transitively uses.
 type Node struct {
 	Address       string
 	Kind          NodeKind
@@ -49,7 +49,7 @@ type Node struct {
 	Body          lang.Expr
 	Composite     string
 	CompositeBody *lang.File
-	Modules       map[string]*Module
+	Libraries     map[string]*Library
 	ForEach       lang.Expr
 
 	// ConfigurationAlias names the configuration alias under
@@ -84,13 +84,13 @@ type ConfigRef struct {
 // validated. Malformed subtrees are skipped silently rather than reported
 // as they should be validated with `lang.ValidateFile` first.
 //
-// mods is the imported-module table keyed by alias. It is consulted to
+// libs is the imported-library table keyed by alias. It is consulted to
 // distinguish primitive resource call sites from composite call sites;
 // composites expand into a NodeComposite plus internal nodes. A nil
-// or empty mods skips the composite check, in which case every node in
+// or empty libs skips the composite check, in which case every node in
 // `resources:` is treated as a primitive.
-func ExtractNodes(f *lang.File, mods map[string]*Module) []*Node {
-	return extractNodes(f, "", mods)
+func ExtractNodes(f *lang.File, libs map[string]*Library) []*Node {
+	return extractNodes(f, "", libs)
 }
 
 // extractNodes is the recursive workhorse. parent is the address of the
@@ -100,14 +100,14 @@ func ExtractNodes(f *lang.File, mods map[string]*Module) []*Node {
 // blocks are only emitted at root: a composite's `outputs:` block is
 // consumed by `evalCompositeOutputs` at apply time, not turned into
 // DAG nodes.
-func extractNodes(f *lang.File, parent string, mods map[string]*Module) []*Node {
+func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node {
 	if f == nil || f.Body == nil {
 		return nil
 	}
 	var nodes []*Node
 	blocks := topLevelMap(f.Body)
 	if obj, ok := blocks["resources"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractResources(obj, parent, mods)...)
+		nodes = append(nodes, extractResources(obj, parent, libs)...)
 	}
 	if obj, ok := blocks["data"].(*lang.ObjectLit); ok {
 		nodes = append(nodes, extractNested(obj, NodeData, parent)...)
@@ -123,7 +123,7 @@ func extractNodes(f *lang.File, parent string, mods map[string]*Module) []*Node 
 	return nodes
 }
 
-func extractResources(block *lang.ObjectLit, parent string, mods map[string]*Module) []*Node {
+func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Library) []*Node {
 	var out []*Node
 	for _, ns := range block.Fields {
 		if ns.Key.Kind != lang.FieldIdent || ns.Key.IsMeta() {
@@ -141,7 +141,7 @@ func extractResources(block *lang.ObjectLit, parent string, mods map[string]*Mod
 			if !ok {
 				continue
 			}
-			composite := lookupComposite(mods, ns.Key.Name, t.Key.Name)
+			composite := lookupComposite(libs, ns.Key.Name, t.Key.Name)
 			for _, n := range tObj.Fields {
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
@@ -150,7 +150,7 @@ func extractResources(block *lang.ObjectLit, parent string, mods map[string]*Mod
 				if composite != nil {
 					out = append(out, expandComposite(addr, parent,
 						ns.Key.Name, t.Key.Name, n.Key.Name,
-						n.Value, composite, mods)...)
+						n.Value, composite, libs)...)
 					continue
 				}
 				out = append(out, &Node{
@@ -320,15 +320,15 @@ func extractConfigurationAlias(body lang.Expr, ns string) string {
 	return ""
 }
 
-func lookupComposite(mods map[string]*Module, alias, typ string) *CompositeType {
-	if mods == nil {
+func lookupComposite(libs map[string]*Library, alias, typ string) *CompositeType {
+	if libs == nil {
 		return nil
 	}
-	mod, ok := mods[alias]
-	if !ok || mod.Composites == nil {
+	lib, ok := libs[alias]
+	if !ok || lib.Composites == nil {
 		return nil
 	}
-	return mod.Composites[typ]
+	return lib.Composites[typ]
 }
 
 // expandComposite emits the boundary node and the internal sub nodes
@@ -344,16 +344,16 @@ func lookupComposite(mods map[string]*Module, alias, typ string) *CompositeType 
 // the new call site address as the parent prefix, so nested addresses
 // build up like `outer/inner-rel/leaf-rel` and each internal's
 // Composite names its direct enclosing call site. The composite's
-// own Modules table drives that recursion so a composite that calls
+// own Libraries table drives that recursion so a composite that calls
 // another composite expands against its own imports rather than the
-// caller's. The boundary node also carries the Modules table itself
+// caller's. The boundary node also carries the Libraries table itself
 // so the runtime can resolve internal node lookups against it. When
-// a composite has no Modules set, fallMods is used as a fallback
+// a composite has no Libraries set, fallMods is used as a fallback
 // for tests that build composites directly without populating
 // imports.
 func expandComposite(callSiteAddr, parent, ns, typ, name string,
-	args lang.Expr, composite *CompositeType, fallMods map[string]*Module) []*Node {
-	scopeMods := composite.Modules
+	args lang.Expr, composite *CompositeType, fallMods map[string]*Library) []*Node {
+	scopeMods := composite.Libraries
 	if scopeMods == nil {
 		scopeMods = fallMods
 	}
@@ -366,7 +366,7 @@ func expandComposite(callSiteAddr, parent, ns, typ, name string,
 		Body:                args,
 		Composite:           parent,
 		CompositeBody:       composite.Body,
-		Modules:             scopeMods,
+		Libraries:           scopeMods,
 		ForEach:             extractForEach(args),
 		ConfigurationsRemap: extractConfigurationsRemap(args),
 	}}

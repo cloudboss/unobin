@@ -1,6 +1,6 @@
 # configurations example
 
-Shows how an operator routes per-deployment values to a module that declares a
+Shows how an operator routes per-deployment values to a library that declares a
 configuration, and how a composite remaps the alias for everything inside its
 call.
 

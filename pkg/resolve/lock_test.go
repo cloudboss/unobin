@@ -15,7 +15,7 @@ func sampleLock() *LockFile {
 		Version: CurrentLockVersion,
 		Imports: map[string]*LockEntry{
 			"aws": {
-				Kind:           LockKindGoModule,
+				Kind:           LockKindGoLibrary,
 				URL:            "github.com/cloudboss/unobin-cloud",
 				Subdir:         "aws",
 				Constraint:     "v1.2.3",
@@ -23,8 +23,8 @@ func sampleLock() *LockFile {
 				SubdirHash:     "sha256:deadbeef",
 			},
 			"net": {
-				Kind:           LockKindUBModule,
-				URL:            "github.com/me/modules",
+				Kind:           LockKindUBLibrary,
+				URL:            "github.com/me/libraries",
 				Subdir:         "network",
 				Constraint:     "v0.4.0",
 				ResolvedCommit: "fed098cba321",
@@ -77,7 +77,7 @@ func TestLockEncodeOmitsEmptySubdir(t *testing.T) {
 		Version: CurrentLockVersion,
 		Imports: map[string]*LockEntry{
 			"utils": {
-				Kind:           LockKindGoModule,
+				Kind:           LockKindGoLibrary,
 				URL:            "github.com/me/utils",
 				Constraint:     "v0.1.0",
 				ResolvedCommit: "abc",
@@ -129,22 +129,22 @@ func TestLockRejectsMissingFields(t *testing.T) {
 		},
 		{
 			name: "missing-url",
-			body: `{"kind": "go-module", "constraint": "v1", "resolved-commit": "a", "subdir-hash": "b"}`,
+			body: `{"kind": "go-library", "constraint": "v1", "resolved-commit": "a", "subdir-hash": "b"}`,
 			want: "missing `url`",
 		},
 		{
 			name: "missing-constraint",
-			body: `{"kind": "go-module", "url": "x", "resolved-commit": "a", "subdir-hash": "b"}`,
+			body: `{"kind": "go-library", "url": "x", "resolved-commit": "a", "subdir-hash": "b"}`,
 			want: "missing `constraint`",
 		},
 		{
 			name: "missing-commit",
-			body: `{"kind": "go-module", "url": "x", "constraint": "v1", "subdir-hash": "b"}`,
+			body: `{"kind": "go-library", "url": "x", "constraint": "v1", "subdir-hash": "b"}`,
 			want: "missing `resolved-commit`",
 		},
 		{
 			name: "missing-hash",
-			body: `{"kind": "go-module", "url": "x", "constraint": "v1", "resolved-commit": "a"}`,
+			body: `{"kind": "go-library", "url": "x", "constraint": "v1", "resolved-commit": "a"}`,
 			want: "missing `subdir-hash`",
 		},
 	}

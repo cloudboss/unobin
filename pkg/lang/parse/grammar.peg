@@ -548,13 +548,13 @@ ParenExpr <- "(" _ e:Value _ ")" {
 	return e, nil
 }
 
-NameExpression <- ModuleCall / BareCall / DotPath / IdentValue
+NameExpression <- LibraryCall / BareCall / DotPath / IdentValue
 
-ModuleCall <- mod:IdentText "." fn:IdentText "(" _ args:CallArgs _ ")" {
+LibraryCall <- lib:IdentText "." fn:IdentText "(" _ args:CallArgs _ ")" {
 	span := c.span()
 	return &Call{
 		S:      span,
-		Module: &Ident{S: span, Name: mod.(string)},
+		Library: &Ident{S: span, Name: lib.(string)},
 		Func:   &Ident{S: span, Name: fn.(string)},
 		Args:   exprSlice(args),
 	}, nil

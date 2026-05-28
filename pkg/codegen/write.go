@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-// Replaces maps a module path to a local filesystem path to substitute
+// Replaces maps a library path to a local filesystem path to substitute
 // at build time, used in the generated `go.mod`'s replace directives.
 // The value is typically the absolute path to a local checkout. An
 // empty map means no replace directives.
@@ -21,8 +21,8 @@ type Replaces map[string]string
 //
 // goVersion is the Go toolchain version to declare. unobinVersion is
 // the version of `github.com/cloudboss/unobin` the generated binary
-// depends on. importVersions maps each module's Go import path to the
-// version constraint to require. replaces maps a module path to a
+// depends on. importVersions maps each library's Go import path to the
+// version constraint to require. replaces maps a library path to a
 // local path to substitute via `replace`.
 func WriteSource(
 	dir string,
@@ -41,12 +41,12 @@ func WriteSource(
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), source, 0o644); err != nil {
 		return err
 	}
-	mod, err := renderGoMod(in.StackName, goVersion, unobinVersion,
+	lib, err := renderGoMod(in.StackName, goVersion, unobinVersion,
 		in.GoImports, importVersions, replaces)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "go.mod"), mod, 0o644)
+	return os.WriteFile(filepath.Join(dir, "go.mod"), lib, 0o644)
 }
 
 func renderGoMod(

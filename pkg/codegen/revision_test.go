@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeModuleDir lays out a minimal generated-module tree for
+// writeLibraryDir lays out a minimal generated-library tree for
 // ContentRevision to digest: a main.go, go.mod, go.sum, and one internal
 // package file.
-func writeModuleDir(t *testing.T) string {
+func writeLibraryDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"),
@@ -29,13 +29,13 @@ func writeModuleDir(t *testing.T) string {
 }
 
 func TestContentRevisionFormat(t *testing.T) {
-	got, err := ContentRevision(writeModuleDir(t))
+	got, err := ContentRevision(writeLibraryDir(t))
 	require.NoError(t, err)
 	require.Regexp(t, regexp.MustCompile(`^[0-9a-f]{12}$`), got)
 }
 
 func TestContentRevisionDeterministic(t *testing.T) {
-	dir := writeModuleDir(t)
+	dir := writeLibraryDir(t)
 	first, err := ContentRevision(dir)
 	require.NoError(t, err)
 	for range 5 {
@@ -46,7 +46,7 @@ func TestContentRevisionDeterministic(t *testing.T) {
 }
 
 func TestContentRevisionChangesWith(t *testing.T) {
-	base := writeModuleDir(t)
+	base := writeLibraryDir(t)
 	baseSum, err := ContentRevision(base)
 	require.NoError(t, err)
 
@@ -92,7 +92,7 @@ func TestContentRevisionChangesWith(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := writeModuleDir(t)
+			dir := writeLibraryDir(t)
 			tt.mutate(t, dir)
 			got, err := ContentRevision(dir)
 			require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestContentRevisionChangesWith(t *testing.T) {
 }
 
 func TestContentRevisionIgnoresNonSource(t *testing.T) {
-	dir := writeModuleDir(t)
+	dir := writeLibraryDir(t)
 	want, err := ContentRevision(dir)
 	require.NoError(t, err)
 

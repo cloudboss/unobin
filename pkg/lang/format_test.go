@@ -1217,7 +1217,7 @@ func TestFormatTopLevelMixOfSingleAndMultiline(t *testing.T) {
 	in := `description: 'demo'
 imports: {
   core: 'github.com/cloudboss/unobin-core'
-  local: 'github.com/cloudboss/unobin-modules-local/v2'
+  local: 'github.com/cloudboss/unobin-libraries-local/v2'
 }
 name: 'x'
 version: 'v1'
@@ -1225,7 +1225,7 @@ version: 'v1'
 	want := `description: 'demo'
 imports: {
   core:  'github.com/cloudboss/unobin-core'
-  local: 'github.com/cloudboss/unobin-modules-local/v2'
+  local: 'github.com/cloudboss/unobin-libraries-local/v2'
 }
 name:    'x'
 version: 'v1'
@@ -1271,7 +1271,7 @@ func TestSingleLineWidthAtoms(t *testing.T) {
 		{"dot path", "var.x.y", 7},
 		{"dot path with index", "var.x['k']", 10},
 		{"bare call", "format('x', 1)", 14},
-		{"module call", "lib.foo(1, 2)", 13},
+		{"library call", "lib.foo(1, 2)", 13},
 		{"infix", "1 + 2", 5},
 		{"prefix", "!var.x", 6},
 	}

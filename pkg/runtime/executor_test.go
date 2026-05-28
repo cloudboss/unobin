@@ -37,8 +37,8 @@ func (failingAction) Run(_ context.Context, _ any) (any, error) {
 	return nil, errors.New("intentional failure")
 }
 
-func testModules() map[string]*Module {
-	return map[string]*Module{
+func testModules() map[string]*Library {
+	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
@@ -67,22 +67,22 @@ func testModules() map[string]*Module {
 func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, error) {
 	t.Helper()
 	f := parseStack(t, src)
-	mods := testModules()
-	g := BuildDAG(f, mods)
+	libs := testModules()
+	g := BuildDAG(f, libs)
 	exec := &Executor{
-		DAG:     g,
-		Modules: mods,
-		Inputs:  inputs,
-		Store:   newStateStore(t),
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       g,
+		Libraries: libs,
+		Inputs:    inputs,
+		Store:     newStateStore(t),
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return planAndApply(exec)
 }
 
 func TestExecutorRequiresStore(t *testing.T) {
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, `description: 'x'`), nil),
-		Modules: testModules(),
+		DAG:       BuildDAG(parseStack(t, `description: 'x'`), nil),
+		Libraries: testModules(),
 	}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
@@ -263,8 +263,8 @@ func (r *migratingCountingResource) Migrate(_ int, st map[string]any) (map[strin
 	return out, nil
 }
 
-func resourceModules(c *resourceCounters) map[string]*Module {
-	return map[string]*Module{
+func resourceModules(c *resourceCounters) map[string]*Library {
+	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
@@ -290,8 +290,8 @@ outputs: {
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["w"] = &Module{
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
@@ -308,10 +308,10 @@ outputs: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["out"])
@@ -321,25 +321,25 @@ outputs: {
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 2)
 
-	var leaf, modCall *state.Entry
+	var leaf, libCall *state.Entry
 	for _, e := range snap.Entries {
 		switch e.Type {
 		case state.EntryLeaf:
 			leaf = e
-		case state.EntryModuleCall:
-			modCall = e
+		case state.EntryLibraryCall:
+			libCall = e
 		}
 	}
 	require.NotNil(t, leaf)
 	require.Equal(t, "resource.w.box.x/core.thing.one", leaf.Address)
 	require.Equal(t, "thing", leaf.Kind)
 
-	require.NotNil(t, modCall)
-	require.Equal(t, "resource.w.box.x", modCall.Address)
-	require.Equal(t, "w", modCall.Module)
-	require.Equal(t, "box", modCall.ModuleType)
-	require.Equal(t, "alpha", modCall.Inputs["name"])
-	require.Equal(t, "fake-alpha", modCall.Outputs["id"])
+	require.NotNil(t, libCall)
+	require.Equal(t, "resource.w.box.x", libCall.Address)
+	require.Equal(t, "w", libCall.Library)
+	require.Equal(t, "box", libCall.LibraryType)
+	require.Equal(t, "alpha", libCall.Inputs["name"])
+	require.Equal(t, "fake-alpha", libCall.Outputs["id"])
 }
 
 func TestExecutorForEachResourceCreatesPerInstance(t *testing.T) {
@@ -363,10 +363,10 @@ outputs: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
 		Inputs: map[string]any{
 			"configs": map[string]any{
 				"alpha": int64(1),
@@ -408,14 +408,14 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	runOnce := func(configs map[string]any) {
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Inputs:  map[string]any{"configs": configs},
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Inputs:    map[string]any{"configs": configs},
+			Store:     store,
+			Stack:     stack,
 		}
 		applyOnce(t, exec)
 	}
@@ -451,13 +451,13 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Inputs:  map[string]any{"items": []any{"a", "b"}},
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"items": []any{"a", "b"}},
+		Store:     store,
+		Stack:     stack,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)
@@ -479,11 +479,11 @@ func TestExecutorModuleFunctionInsideComposite(t *testing.T) {
 inputs: { name: { type: string } }
 outputs: { shout: { value: core.uppercase(var.name) } }
 `)
-	rootMods := map[string]*Module{
+	rootMods := map[string]*Library{
 		"wrapper": {
 			Name: "wrapper",
 			Composites: map[string]*CompositeType{
-				"layer": {Name: "layer", Body: layerBody, Modules: testModules()},
+				"layer": {Name: "layer", Body: layerBody, Libraries: testModules()},
 			},
 		},
 	}
@@ -494,19 +494,19 @@ outputs: { out: { value: resource.wrapper.layer.x.shout } }
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), rootMods),
-		Modules: rootMods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), rootMods),
+		Libraries: rootMods,
+		Store:     store,
+		Stack:     stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "HI", res.Outputs["out"])
 }
 
 func TestExecutorCompositeUsesItsOwnModules(t *testing.T) {
-	// The composite declares which modules its body uses via its own
+	// The composite declares which libraries its body uses via its own
 	// imports. The runtime should resolve composite-internal lookups
-	// against the composite's Modules table, not the stack root's. This
+	// against the composite's Libraries table, not the stack root's. This
 	// is the encapsulation that lets a composite be reusable without the
 	// caller needing to import everything the composite uses transitively.
 	layerBody := parseStack(t, `
@@ -523,16 +523,16 @@ outputs: {
 }
 `)
 	var c resourceCounters
-	// "core" is registered only in the composite's Modules, never in
-	// the stack-root mods.
+	// "core" is registered only in the composite's Libraries, never in
+	// the stack-root libs.
 	composite := &CompositeType{
-		Name:    "layer",
-		Body:    layerBody,
-		Modules: resourceModules(&c),
+		Name:      "layer",
+		Body:      layerBody,
+		Libraries: resourceModules(&c),
 	}
-	rootMods := map[string]*Module{
-		"outer-mod": {
-			Name: "outer-mod",
+	rootMods := map[string]*Library{
+		"outer-lib": {
+			Name: "outer-lib",
 			Composites: map[string]*CompositeType{
 				"layer": composite,
 			},
@@ -540,23 +540,23 @@ outputs: {
 	}
 	src := `
 resources: {
-  outer-mod: { layer: { x: { name: 'alpha' } } }
+  outer-lib: { layer: { x: { name: 'alpha' } } }
 }
 outputs: {
-  out: { value: resource.outer-mod.layer.x.id }
+  out: { value: resource.outer-lib.layer.x.id }
 }
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), rootMods),
-		Modules: rootMods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), rootMods),
+		Libraries: rootMods,
+		Store:     store,
+		Stack:     stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err,
-		"composite-internal core.thing should resolve via the composite's own Modules")
+		"composite-internal core.thing should resolve via the composite's own Libraries")
 	require.Equal(t, "fake-alpha", res.Outputs["out"])
 	require.Equal(t, int64(1), c.creates)
 }
@@ -583,44 +583,44 @@ inputs: {
 }
 
 resources: {
-  inner-mod: {
+  inner-lib: {
     cluster: { only: { path: var.target } }
   }
 }
 
 outputs: {
-  path: { value: resource.inner-mod.cluster.only.path }
+  path: { value: resource.inner-lib.cluster.only.path }
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["outer-mod"] = &Module{
-		Name: "outer-mod",
+	libs := resourceModules(&c)
+	libs["outer-lib"] = &Library{
+		Name: "outer-lib",
 		Composites: map[string]*CompositeType{
 			"layer": {Name: "layer", Body: layerBody},
 		},
 	}
-	mods["inner-mod"] = &Module{
-		Name: "inner-mod",
+	libs["inner-lib"] = &Library{
+		Name: "inner-lib",
 		Composites: map[string]*CompositeType{
 			"cluster": {Name: "cluster", Body: clusterBody},
 		},
 	}
 	src := `
 resources: {
-  outer-mod: { layer: { mine: { target: 'alpha' } } }
+  outer-lib: { layer: { mine: { target: 'alpha' } } }
 }
 outputs: {
-  out: { value: resource.outer-mod.layer.mine.path }
+  out: { value: resource.outer-lib.layer.mine.path }
 }
 `
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "alpha", res.Outputs["out"],
@@ -636,23 +636,23 @@ outputs: {
 		byAddr[e.Address] = e
 	}
 
-	leafAddr := "resource.outer-mod.layer.mine/inner-mod.cluster.only/core.thing.x"
+	leafAddr := "resource.outer-lib.layer.mine/inner-lib.cluster.only/core.thing.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "deepest leaf persists at fully chained address")
 	require.Equal(t, state.EntryLeaf, leaf.Type)
 
-	innerAddr := "resource.outer-mod.layer.mine/inner-mod.cluster.only"
+	innerAddr := "resource.outer-lib.layer.mine/inner-lib.cluster.only"
 	inner := byAddr[innerAddr]
 	require.NotNil(t, inner)
-	require.Equal(t, state.EntryModuleCall, inner.Type)
-	require.Equal(t, "inner-mod", inner.Module)
-	require.Equal(t, "cluster", inner.ModuleType)
+	require.Equal(t, state.EntryLibraryCall, inner.Type)
+	require.Equal(t, "inner-lib", inner.Library)
+	require.Equal(t, "cluster", inner.LibraryType)
 
-	outerAddr := "resource.outer-mod.layer.mine"
+	outerAddr := "resource.outer-lib.layer.mine"
 	outer := byAddr[outerAddr]
 	require.NotNil(t, outer)
-	require.Equal(t, state.EntryModuleCall, outer.Type)
-	require.Equal(t, "outer-mod", outer.Module)
+	require.Equal(t, state.EntryLibraryCall, outer.Type)
+	require.Equal(t, "outer-lib", outer.Library)
 }
 
 func TestExecutorNestedCompositeEncapsulation(t *testing.T) {
@@ -680,25 +680,25 @@ inputs: {
 }
 
 resources: {
-  inner-mod: {
+  inner-lib: {
     cluster: { only: { path: var.target } }
   }
 }
 
 outputs: {
-  exposed: { value: resource.inner-mod.cluster.only.path }
+  exposed: { value: resource.inner-lib.cluster.only.path }
 }
 `)
 	var c resourceCounters
-	mods := resourceModules(&c)
-	mods["outer-mod"] = &Module{
-		Name: "outer-mod",
+	libs := resourceModules(&c)
+	libs["outer-lib"] = &Library{
+		Name: "outer-lib",
 		Composites: map[string]*CompositeType{
 			"layer": {Name: "layer", Body: layerBody},
 		},
 	}
-	mods["inner-mod"] = &Module{
-		Name: "inner-mod",
+	libs["inner-lib"] = &Library{
+		Name: "inner-lib",
 		Composites: map[string]*CompositeType{
 			"cluster": {Name: "cluster", Body: clusterBody},
 		},
@@ -707,19 +707,19 @@ outputs: {
 	t.Run("only published outputs cross the boundary", func(t *testing.T) {
 		src := `
 resources: {
-  outer-mod: { layer: { mine: { target: 'beta' } } }
+  outer-lib: { layer: { mine: { target: 'beta' } } }
 }
 outputs: {
-  out: { value: resource.outer-mod.layer.mine.exposed }
+  out: { value: resource.outer-lib.layer.mine.exposed }
 }
 `
 		store := newStateStore(t)
 		stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Store:     store,
+			Stack:     stack,
 		}
 		res := applyOnce(t, exec)
 		require.Equal(t, "beta", res.Outputs["out"])
@@ -728,7 +728,7 @@ outputs: {
 		require.NoError(t, err)
 		var inner *state.Entry
 		for _, e := range snap.Entries {
-			if e.Address == "resource.outer-mod.layer.mine/inner-mod.cluster.only" {
+			if e.Address == "resource.outer-lib.layer.mine/inner-lib.cluster.only" {
 				inner = e
 			}
 		}
@@ -743,25 +743,25 @@ outputs: {
 	})
 
 	t.Run("non-published fields are unreachable from outer scope", func(t *testing.T) {
-		// Outer attempts to reference resource.inner-mod.cluster.only.size
+		// Outer attempts to reference resource.inner-lib.cluster.only.size
 		// which is the leaf's `size` field, not in inner's `outputs:` block.
 		// The reference must fail at eval time because outer scope holds
 		// only the boundary's published map.
 		src := `
 resources: {
-  outer-mod: { layer: { mine: { target: 'gamma' } } }
+  outer-lib: { layer: { mine: { target: 'gamma' } } }
 }
 outputs: {
-  leak: { value: resource.outer-mod.layer.mine.size }
+  leak: { value: resource.outer-lib.layer.mine.size }
 }
 `
 		store := newStateStore(t)
 		stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := &Executor{
-			DAG:     BuildDAG(parseStack(t, src), mods),
-			Modules: mods,
-			Store:   store,
-			Stack:   stack,
+			DAG:       BuildDAG(parseStack(t, src), libs),
+			Libraries: libs,
+			Store:     store,
+			Stack:     stack,
 		}
 		_, err := planAndApply(exec)
 		require.Error(t, err,
@@ -789,8 +789,8 @@ outputs: {
   said: { value: action.core.echo.say.echo }
 }
 `)
-	mods := testModules()
-	mods["w"] = &Module{
+	libs := testModules()
+	libs["w"] = &Library{
 		Name: "w",
 		Composites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
@@ -807,23 +807,23 @@ outputs: {
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "looked-up:banana", res.Outputs["result"])
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	var actionEntry, modCall *state.Entry
+	var actionEntry, libCall *state.Entry
 	for _, e := range snap.Entries {
 		switch e.Address {
 		case "resource.w.box.x/action.core.echo.say":
 			actionEntry = e
 		case "resource.w.box.x":
-			modCall = e
+			libCall = e
 		}
 	}
 	require.NotNil(t, actionEntry,
@@ -831,8 +831,8 @@ outputs: {
 	require.Equal(t, state.EntryAction, actionEntry.Type)
 	require.Equal(t, "looked-up:banana", actionEntry.Outputs["echo"])
 
-	require.NotNil(t, modCall)
-	require.Equal(t, "looked-up:banana", modCall.Outputs["said"])
+	require.NotNil(t, libCall)
+	require.Equal(t, "looked-up:banana", libCall.Outputs["said"])
 }
 
 func TestExecutorCreatesResource(t *testing.T) {
@@ -849,12 +849,12 @@ outputs: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:     BuildDAG(parseStack(t, src), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   stack,
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["id"])
@@ -894,13 +894,13 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
@@ -925,13 +925,13 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates),
@@ -965,13 +965,13 @@ resources: {
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	mods := resourceModules(&c)
+	libs := resourceModules(&c)
 
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), mods), Modules: mods, Store: store, Stack: stack,
+		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Stack: stack,
 	})
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
@@ -1042,20 +1042,20 @@ func newStateStore(t *testing.T) *localstate.LocalStore {
 }
 
 func runExecutorTwice(
-	t *testing.T, src string, modules map[string]*Module,
+	t *testing.T, src string, libraries map[string]*Library,
 ) (*ExecResult, *ExecResult) {
 	t.Helper()
 	store := newStateStore(t)
 	stack := state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), modules)
+	g := BuildDAG(parseStack(t, src), libraries)
 
-	first := applyOnce(t, &Executor{DAG: g, Modules: modules, Store: store, Stack: stack})
-	second := applyOnce(t, &Executor{DAG: g, Modules: modules, Store: store, Stack: stack})
+	first := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Stack: stack})
+	second := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Stack: stack})
 	return first, second
 }
 
-func countingModules(runs *int64) map[string]*Module {
-	return map[string]*Module{
+func countingModules(runs *int64) map[string]*Library {
+	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
@@ -1069,7 +1069,7 @@ func countingModules(runs *int64) map[string]*Module {
 
 func TestExecutorPersistsSnapshot(t *testing.T) {
 	store := newStateStore(t)
-	mods := testModules()
+	libs := testModules()
 	exec := &Executor{
 		DAG: BuildDAG(parseStack(t, `
 actions: {
@@ -1077,10 +1077,10 @@ actions: {
     echo: { hi: { echo: 'hello' } }
   }
 }
-`), mods),
-		Modules: mods,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+`), libs),
+		Libraries: libs,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res := applyOnce(t, exec)
 	require.NotEmpty(t, res.WrittenRev)

@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/localstate"
-	"github.com/cloudboss/unobin/pkg/modules/core"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
@@ -44,16 +44,16 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	store, err := localstate.NewLocalStore(t.TempDir(), "demo-stack", "test", envencrypt.Noop{})
 	require.NoError(t, err)
 
-	mods := map[string]*runtime.Module{
-		"core": core.Module(),
+	libs := map[string]*runtime.Library{
+		"core": core.Library(),
 	}
 	exec := &runtime.Executor{
-		DAG:     runtime.BuildDAG(f, mods),
-		Modules: mods,
-		Inputs:  inputs,
-		Source:  f,
-		Store:   store,
-		Stack:   state.StackInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:       runtime.BuildDAG(f, libs),
+		Libraries: libs,
+		Inputs:    inputs,
+		Source:    f,
+		Store:     store,
+		Stack:     state.StackInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return applyOnce(t, exec)
 }
@@ -180,7 +180,7 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	require.NoError(t, err)
 
 	var runs int64
-	mods := map[string]*runtime.Module{
+	libs := map[string]*runtime.Library{
 		"test": {
 			Name: "test",
 			Actions: map[string]runtime.ActionRegistration{
@@ -196,10 +196,10 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	require.NoError(t, err)
 
 	first := applyOnce(t, &runtime.Executor{
-		DAG: runtime.BuildDAG(f, mods), Modules: mods, Store: store, Stack: stack,
+		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Stack: stack,
 	})
 	second := applyOnce(t, &runtime.Executor{
-		DAG: runtime.BuildDAG(f, mods), Modules: mods, Store: store, Stack: stack,
+		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Stack: stack,
 	})
 	return atomic.LoadInt64(&runs), first, second
 }

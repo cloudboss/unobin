@@ -7,8 +7,8 @@ import (
 
 // allowedTopLevelKeys is the set of identifier keys permitted at the
 // top level of each file kind. A stack and an exported type body are
-// identical. A module manifest is just description + exports. A config
-// holds deployment identity, state config, input values, and module
+// identical. A library manifest is just description + exports. A config
+// holds deployment identity, state config, input values, and library
 // configurations.
 var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	FileStack: {
@@ -33,7 +33,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 		"actions":     {},
 		"outputs":     {},
 	},
-	FileModule: {
+	FileLibrary: {
 		"description": {},
 		"exports":     {},
 	},
@@ -540,8 +540,8 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["outputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateOutputs(obj))
 		}
-		mergeErrors(errs, ValidateModuleCallAliases(f))
-	case FileModule:
+		mergeErrors(errs, ValidateLibraryCallAliases(f))
+	case FileLibrary:
 		if obj, ok := blocks["exports"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateExports(obj))
 		}
@@ -553,23 +553,23 @@ func ValidateFile(f *File) *ErrorList {
 	return errs
 }
 
-// ValidateModuleCallAliases walks every expression in f looking for
+// ValidateLibraryCallAliases walks every expression in f looking for
 // `<alias>.<func>(...)` calls and rejects any whose alias is missing
 // from the file's `imports:` block. The function's existence in the
-// module is not checked here; that's a runtime concern because the
-// module's actual function set lives in compiled Go code.
-func ValidateModuleCallAliases(f *File) *ErrorList {
+// library is not checked here; that's a runtime concern because the
+// library's actual function set lives in compiled Go code.
+func ValidateLibraryCallAliases(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	imports := importedAliases(f)
 	Walk(f.Body, func(e Expr) {
 		c, ok := e.(*Call)
-		if !ok || c.Module == nil {
+		if !ok || c.Library == nil {
 			return
 		}
-		if _, declared := imports[c.Module.Name]; !declared {
-			errs.Addf(ErrResolve, c.Module.S.Start,
-				"module %q is not imported (called as %s.%s)",
-				c.Module.Name, c.Module.Name, c.Func.Name)
+		if _, declared := imports[c.Library.Name]; !declared {
+			errs.Addf(ErrResolve, c.Library.S.Start,
+				"library %q is not imported (called as %s.%s)",
+				c.Library.Name, c.Library.Name, c.Func.Name)
 		}
 	})
 	return errs
@@ -620,7 +620,7 @@ func ValidateImports(block *ObjectLit) *ErrorList {
 	return validateAliasToString(block, "import", "source URL or local path")
 }
 
-// ValidateExports checks a `module.ub` `exports:` block: every entry is an
+// ValidateExports checks a `library.ub` `exports:` block: every entry is an
 // identifier name bound to a quoted string path to an exported-type `.ub` file.
 func ValidateExports(block *ObjectLit) *ErrorList {
 	return validateAliasToString(block, "export", "path to an exported-type file")

@@ -131,14 +131,14 @@ func formatDuration(d time.Duration) string {
 
 // renderApplyError prints the failure either as the structured human
 // report or as a single envelope, depending on format. The underlying
-// module error text is preserved verbatim in both forms.
+// library error text is preserved verbatim in both forms.
 func renderApplyError(out io.Writer, ae *runtime.ApplyError, format Format) {
 	if format == FormatJSON || format == FormatUnobin {
 		env := applyErrorEnv{
 			Kind:      "apply-error",
 			Address:   ae.Address,
 			Decision:  string(ae.Decision),
-			Module:    ae.Module,
+			Library:   ae.Library,
 			Elapsed:   formatDuration(ae.Elapsed),
 			Err:       ae.Err.Error(),
 			Skipped:   ae.SkippedCount,
@@ -152,8 +152,8 @@ func renderApplyError(out io.Writer, ae *runtime.ApplyError, format Format) {
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "Failed: %s (%s) after %s\n",
 		ae.Address, ae.Decision, formatDuration(ae.Elapsed))
-	if ae.Module != "" {
-		fmt.Fprintf(out, "  Module: %s\n", ae.Module)
+	if ae.Library != "" {
+		fmt.Fprintf(out, "  Library: %s\n", ae.Library)
 	}
 	fmt.Fprintf(out, "  Error:  %v\n", ae.Err)
 	fmt.Fprintln(out)

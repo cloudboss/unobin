@@ -64,8 +64,8 @@ func (r *slowFailResource) Update(_ context.Context, _, _ any) (any, error) {
 func (r *slowFailResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *slowFailResource) ReplaceFields() []string                  { return nil }
 
-func slowModules() map[string]*Module {
-	return map[string]*Module{
+func slowLibraries() map[string]*Library {
+	return map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -90,10 +90,10 @@ func TestApplyScheduleRunsIndependentLeavesInParallel(t *testing.T) {
 	}
 	src.WriteString("    }\n  }\n}\n")
 
-	mods := slowModules()
+	libs := slowLibraries()
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src.String()), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: n,
@@ -120,10 +120,10 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 	}
 	src.WriteString("    }\n  }\n}\n")
 
-	mods := slowModules()
+	libs := slowLibraries()
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src.String()), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 1,
@@ -166,7 +166,7 @@ func (r *countingSlowResource) ReplaceFields() []string                  { retur
 
 func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 	var runs atomic.Int64
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -191,8 +191,8 @@ resources: {
 }
 `
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
@@ -206,7 +206,7 @@ resources: {
 
 func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 	var runs atomic.Int64
-	mods := map[string]*Module{
+	libs := map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
@@ -233,8 +233,8 @@ resources: {
 }
 `
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), mods),
-		Modules:     mods,
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
 		Store:       newStateStore(t),
 		Stack:       state.StackInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		Parallelism: 4,
