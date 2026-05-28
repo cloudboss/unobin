@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -148,6 +150,72 @@ imports: {
 	require.NoError(t, err)
 	require.Contains(t, string(goModBytes), "module demo-factory")
 	require.Contains(t, string(goModBytes), "github.com/cloudboss/unobin v0.1.0")
+}
+
+// TestCompileBuildStampsVersion compiles a minimal factory with --build
+// and then runs the resulting binary's `version` subcommand to confirm
+// that the factory version and content-revision were actually written
+// into the linked binary. This catches the failure mode where the
+// codegen template's `var factoryVersion` and the ldflags `-X main.<name>=`
+// identifier go out of sync: a mismatch leaves the stamp variable
+// empty, and the built binary reports no version.
+func TestCompileBuildStampsVersion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipped: spawns `go build` and is slow")
+	}
+	rootDir := findUnobinRoot(t)
+
+	srcDir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(srcDir, 0o755))
+	factoryPath := filepath.Join(srcDir, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath,
+		[]byte("description: 'minimal'\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile",
+		"-p", factoryPath,
+		"-o", outDir,
+		"--build",
+		"--unobin-version", "v0.0.0",
+		"--replace-unobin", rootDir,
+	)
+	require.NoError(t, err)
+
+	binaryPath := filepath.Join(outDir, "demo-factory")
+	require.FileExists(t, binaryPath)
+
+	out, err := exec.Command(binaryPath, "version").CombinedOutput()
+	require.NoError(t, err, "version subcommand failed: %s", out)
+	got := strings.TrimSpace(string(out))
+	require.Contains(t, got, "demo-factory v0.0.0",
+		"version output should carry the stamped factory version, got %q", got)
+	require.Contains(t, got, "content-revision ",
+		"version output should carry the stamped content-revision, got %q", got)
+	require.NotContains(t, got, "content-revision )",
+		"content-revision must not be empty (got %q); "+
+			"the ldflags -X identifier and the codegen template var have drifted",
+		got)
+}
+
+// findUnobinRoot walks up from the test's working directory looking
+// for a go.mod naming the unobin module. The compile --build path
+// needs this so it can pin the runtime via a local replace directive
+// instead of going to the network.
+func findUnobinRoot(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	for d := cwd; ; d = filepath.Dir(d) {
+		body, err := os.ReadFile(filepath.Join(d, "go.mod"))
+		if err == nil && strings.Contains(string(body), "module github.com/cloudboss/unobin") {
+			return d
+		}
+		if d == filepath.Dir(d) {
+			break
+		}
+	}
+	t.Fatalf("could not find unobin go.mod above %s", cwd)
+	return ""
 }
 
 func TestCompileRequiresOut(t *testing.T) {
