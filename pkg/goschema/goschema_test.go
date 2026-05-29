@@ -5,9 +5,44 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
+
+func TestReadExtractsSetConstraints(t *testing.T) {
+	schema, warnings, err := Read("testdata/constraints")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Contains(t, schema.Resources, "cert")
+
+	want := []lang.ConstraintEntry{
+		{Kind: "exactly-one-of", Fields: []string{"self-signed", "acm-arn", "pem-bundle"}},
+		{Kind: "at-least-one-of", Fields: []string{"self-signed", "acm-arn"}},
+		{Kind: "at-most-one-of", Fields: []string{"acm-arn", "pem-bundle"}},
+		{Kind: "required-together", Fields: []string{"pem-bundle", "private-key"}},
+		{Kind: "required-with", Fields: []string{"pem-bundle", "private-key"}},
+		{Kind: "forbidden-with", Fields: []string{"acm-arn", "renew-before"}},
+	}
+	require.Equal(t, want, schema.Resources["cert"].Constraints)
+}
+
+func TestExtractedConstraintsCheckAgainstValues(t *testing.T) {
+	schema, _, err := Read("testdata/constraints")
+	require.NoError(t, err)
+	entries := schema.Resources["cert"].Constraints
+
+	// One source set, nothing forbidden: every constraint holds.
+	ok := lang.CheckConstraintEntries(entries, map[string]any{"self-signed": true}, nil)
+	require.Equal(t, 0, ok.Len(), "a valid input set should pass: %v", ok.Err())
+
+	// Two sources set, and a pem bundle without its key: several fail.
+	bad := lang.CheckConstraintEntries(entries, map[string]any{
+		"acm-arn":    "arn",
+		"pem-bundle": "pem",
+	}, nil)
+	require.Greater(t, bad.Len(), 0, "a conflicting input set should fail")
+}
 
 func TestReadSamePackage(t *testing.T) {
 	schema, warnings, err := Read("testdata/samepkg")

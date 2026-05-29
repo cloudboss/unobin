@@ -26,36 +26,67 @@ func CheckConstraints(
 		if !ok {
 			continue
 		}
-		switch c.kind {
-		case "exactly-one-of":
-			checkExactlyOneOf(i, c.fields, values, errs)
-		case "at-least-one-of":
-			checkAtLeastOneOf(i, c.fields, values, errs)
-		case "at-most-one-of", "mutually-exclusive":
-			checkAtMostOneOf(i, c.kind, c.fields, values, errs)
-		case "required-together":
-			checkRequiredTogether(i, c.fields, values, errs)
-		case "required-with":
-			checkRequiredWith(i, c.fields, values, errs)
-		case "forbidden-with":
-			checkForbiddenWith(i, c.fields, values, errs)
-		case "predicate":
-			checkPredicate(i, c, values, evalAgainstInputs, errs)
-		}
+		checkEntry(i, c, values, evalAgainstInputs, errs)
 	}
 	return errs
 }
 
-type constraintEntry struct {
-	kind    string
-	fields  []string
-	when    Expr
-	require Expr
-	message string
+// CheckConstraintEntries checks already-resolved constraint entries, such
+// as those goschema derives from a Go type at compile time, against the
+// values. It is the same check CheckConstraints runs after parsing a UB
+// block, so Go-derived and UB constraints behave identically.
+func CheckConstraintEntries(
+	entries []ConstraintEntry,
+	values map[string]any,
+	evalAgainstInputs EvalFunc,
+) *ErrorList {
+	errs := NewErrorList(0)
+	for i, c := range entries {
+		checkEntry(i, c, values, evalAgainstInputs, errs)
+	}
+	return errs
 }
 
-func readConstraint(obj *ObjectLit) (constraintEntry, bool) {
-	var c constraintEntry
+func checkEntry(
+	idx int,
+	c ConstraintEntry,
+	values map[string]any,
+	evalAgainstInputs EvalFunc,
+	errs *ErrorList,
+) {
+	switch c.Kind {
+	case "exactly-one-of":
+		checkExactlyOneOf(idx, c.Fields, values, errs)
+	case "at-least-one-of":
+		checkAtLeastOneOf(idx, c.Fields, values, errs)
+	case "at-most-one-of", "mutually-exclusive":
+		checkAtMostOneOf(idx, c.Kind, c.Fields, values, errs)
+	case "required-together":
+		checkRequiredTogether(idx, c.Fields, values, errs)
+	case "required-with":
+		checkRequiredWith(idx, c.Fields, values, errs)
+	case "forbidden-with":
+		checkForbiddenWith(idx, c.Fields, values, errs)
+	case "predicate":
+		checkPredicate(idx, c, values, evalAgainstInputs, errs)
+	}
+}
+
+// ConstraintEntry is one resolved cross-field constraint, independent of
+// whether it was parsed from a UB constraints block or derived from a Go
+// type at compile time. The set kinds use Fields; a predicate uses When
+// and Require (and an optional Message). goschema builds these directly
+// for Go library types so they run through the same check as UB ones.
+type ConstraintEntry struct {
+	Kind    string
+	Fields  []string
+	When    Expr
+	Require Expr
+	Message string
+}
+
+func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
+	var c ConstraintEntry
 	for _, f := range obj.Fields {
 		if f.Key.Kind != FieldIdent {
 			continue
@@ -63,27 +94,27 @@ func readConstraint(obj *ObjectLit) (constraintEntry, bool) {
 		switch f.Key.Name {
 		case "kind":
 			if id, ok := f.Value.(*Ident); ok {
-				c.kind = id.Name
+				c.Kind = id.Name
 			}
 		case "fields":
 			if arr, ok := f.Value.(*ArrayLit); ok {
 				for _, el := range arr.Elements {
 					if id, ok := el.(*Ident); ok {
-						c.fields = append(c.fields, id.Name)
+						c.Fields = append(c.Fields, id.Name)
 					}
 				}
 			}
 		case "when":
-			c.when = f.Value
+			c.When = f.Value
 		case "require":
-			c.require = f.Value
+			c.Require = f.Value
 		case "message":
 			if s, ok := f.Value.(*StringLit); ok {
-				c.message = s.Value
+				c.Message = s.Value
 			}
 		}
 	}
-	if c.kind == "" {
+	if c.Kind == "" {
 		return c, false
 	}
 	return c, true
@@ -197,12 +228,12 @@ func nonNullMissing(fields []string, values map[string]any) []string {
 
 func checkPredicate(
 	idx int,
-	c constraintEntry,
+	c ConstraintEntry,
 	values map[string]any,
 	evalAgainstInputs EvalFunc,
 	errs *ErrorList,
 ) {
-	if c.when == nil || c.require == nil {
+	if c.When == nil || c.Require == nil {
 		return
 	}
 	if evalAgainstInputs == nil {
@@ -210,15 +241,15 @@ func checkPredicate(
 			"constraints[%d] (predicate): cannot evaluate (no evaluator provided)", idx)
 		return
 	}
-	whenVal, err := evalAgainstInputs(c.when)
+	whenVal, err := evalAgainstInputs(c.When)
 	if err != nil {
-		errs.Addf(ErrSchema, c.when.Span().Start,
+		errs.Addf(ErrSchema, c.When.Span().Start,
 			"constraints[%d] (predicate): when: %v", idx, err)
 		return
 	}
 	whenBool, ok := whenVal.(bool)
 	if !ok {
-		errs.Addf(ErrSchema, c.when.Span().Start,
+		errs.Addf(ErrSchema, c.When.Span().Start,
 			"constraints[%d] (predicate): when must evaluate to a boolean, got %s",
 			idx, TypeMessage(whenVal))
 		return
@@ -226,21 +257,21 @@ func checkPredicate(
 	if !whenBool {
 		return
 	}
-	requireVal, err := evalAgainstInputs(c.require)
+	requireVal, err := evalAgainstInputs(c.Require)
 	if err != nil {
-		errs.Addf(ErrSchema, c.require.Span().Start,
+		errs.Addf(ErrSchema, c.Require.Span().Start,
 			"constraints[%d] (predicate): require: %v", idx, err)
 		return
 	}
 	requireBool, ok := requireVal.(bool)
 	if !ok {
-		errs.Addf(ErrSchema, c.require.Span().Start,
+		errs.Addf(ErrSchema, c.Require.Span().Start,
 			"constraints[%d] (predicate): require must evaluate to a boolean, got %s",
 			idx, TypeMessage(requireVal))
 		return
 	}
 	if !requireBool {
-		msg := c.message
+		msg := c.Message
 		if msg == "" {
 			msg = "predicate requirement not satisfied"
 		}

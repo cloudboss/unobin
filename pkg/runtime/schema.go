@@ -1,6 +1,9 @@
 package runtime
 
-import "github.com/cloudboss/unobin/pkg/typecheck"
+import (
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/typecheck"
+)
 
 // LibrarySchema describes a Go library's registered resource, data
 // source, and action types as the dev CLI sees them at compile time.
@@ -29,4 +32,9 @@ type TypeSchema struct {
 	Outputs          map[string]typecheck.Type
 	SensitiveInputs  []string
 	SensitiveOutputs []string
+
+	// Constraints holds the type's cross-field constraints, derived from
+	// its Constraints method at compile time. They run through the same
+	// check as UB constraints via lang.CheckConstraintEntries.
+	Constraints []lang.ConstraintEntry
 }

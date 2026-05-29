@@ -57,11 +57,14 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 				"%s %q: %s not found in the library's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
+		w = newWalker(dir, modulePath, rootPkg, cache, errs)
+		constraints := w.lookupConstraints(reg.InputRef)
 		ts := &runtime.TypeSchema{
 			Inputs:           inputs,
 			Outputs:          outputs,
 			SensitiveInputs:  sortedKeys(sensitiveIn),
 			SensitiveOutputs: sortedKeys(sensitiveOut),
+			Constraints:      constraints,
 		}
 		switch reg.Field {
 		case "Resources":

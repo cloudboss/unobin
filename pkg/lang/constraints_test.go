@@ -279,6 +279,61 @@ constraints: [
 	require.Contains(t, errs.Err().Error(), "predicate requirement not satisfied")
 }
 
+func TestCheckConstraintEntries(t *testing.T) {
+	ab := []string{"a", "b"}
+	tests := []struct {
+		name    string
+		entry   ConstraintEntry
+		values  map[string]any
+		wantErr bool
+	}{
+		{"exactly-one one set", ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{"a": 1}, false},
+		{"exactly-one none set", ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{}, true},
+		{"exactly-one two set", ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{"a": 1, "b": 2}, true},
+		{"at-least one set", ConstraintEntry{Kind: "at-least-one-of", Fields: ab},
+			map[string]any{"b": 1}, false},
+		{"at-least none set", ConstraintEntry{Kind: "at-least-one-of", Fields: ab},
+			map[string]any{}, true},
+		{"at-most none set", ConstraintEntry{Kind: "at-most-one-of", Fields: ab},
+			map[string]any{}, false},
+		{"at-most one set", ConstraintEntry{Kind: "at-most-one-of", Fields: ab},
+			map[string]any{"a": 1}, false},
+		{"at-most two set", ConstraintEntry{Kind: "at-most-one-of", Fields: ab},
+			map[string]any{"a": 1, "b": 2}, true},
+		{"together all set", ConstraintEntry{Kind: "required-together", Fields: ab},
+			map[string]any{"a": 1, "b": 2}, false},
+		{"together none set", ConstraintEntry{Kind: "required-together", Fields: ab},
+			map[string]any{}, false},
+		{"together partial", ConstraintEntry{Kind: "required-together", Fields: ab},
+			map[string]any{"a": 1}, true},
+		{"with trigger unset", ConstraintEntry{Kind: "required-with", Fields: ab},
+			map[string]any{"b": 1}, false},
+		{"with trigger and dep", ConstraintEntry{Kind: "required-with", Fields: ab},
+			map[string]any{"a": 1, "b": 2}, false},
+		{"with trigger no dep", ConstraintEntry{Kind: "required-with", Fields: ab},
+			map[string]any{"a": 1}, true},
+		{"forbidden trigger unset", ConstraintEntry{Kind: "forbidden-with", Fields: ab},
+			map[string]any{"b": 1}, false},
+		{"forbidden trigger only", ConstraintEntry{Kind: "forbidden-with", Fields: ab},
+			map[string]any{"a": 1}, false},
+		{"forbidden both set", ConstraintEntry{Kind: "forbidden-with", Fields: ab},
+			map[string]any{"a": 1, "b": 2}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil)
+			if tt.wantErr {
+				require.Positive(t, errs.Len())
+			} else {
+				require.Equal(t, 0, errs.Len(), "unexpected: %v", errs.Err())
+			}
+		})
+	}
+}
+
 func TestCheckConstraintsCollectsMultiple(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
