@@ -465,3 +465,74 @@ resources: {
 	require.Empty(t, got[0].Configuration,
 		"mismatched alias should yield empty configuration")
 }
+
+func TestExtractNodesExpandsDataComposite(t *testing.T) {
+	composite := parseStack(t, `
+data: {
+  aws: { ami: { ubuntu: { most-recent: true } } }
+}
+outputs: {
+  id: { value: data.aws.ami.ubuntu.id }
+}
+`)
+	libs := map[string]*Library{
+		"img": {
+			Name: "img",
+			DataComposites: map[string]*CompositeType{
+				"lookup": {Name: "lookup", Category: NodeData, Body: composite},
+			},
+		},
+	}
+	stack := parseStack(t, `
+data: {
+  img: {
+    lookup: { latest: { family: 'ubuntu' } }
+  }
+}
+`)
+	got := ExtractNodes(stack, libs)
+	require.Len(t, got, 2)
+
+	require.Equal(t, "data.img.lookup.latest", got[0].Address)
+	require.Equal(t, NodeComposite, got[0].Kind)
+	require.Equal(t, composite, got[0].CompositeBody)
+	require.Empty(t, got[0].Composite)
+
+	require.Equal(t, "data.img.lookup.latest/data.aws.ami.ubuntu", got[1].Address)
+	require.Equal(t, NodeData, got[1].Kind)
+	require.Equal(t, "data.img.lookup.latest", got[1].Composite)
+}
+
+func TestExtractNodesExpandsActionComposite(t *testing.T) {
+	composite := parseStack(t, `
+actions: {
+  core: { command: { run: { argv: ['echo'] } } }
+}
+`)
+	libs := map[string]*Library{
+		"ops": {
+			Name: "ops",
+			ActionComposites: map[string]*CompositeType{
+				"deploy": {Name: "deploy", Category: NodeAction, Body: composite},
+			},
+		},
+	}
+	stack := parseStack(t, `
+actions: {
+  ops: {
+    deploy: { go: { target: 'prod' } }
+  }
+}
+`)
+	got := ExtractNodes(stack, libs)
+	require.Len(t, got, 2)
+
+	require.Equal(t, "action.ops.deploy.go", got[0].Address)
+	require.Equal(t, NodeComposite, got[0].Kind)
+	require.Equal(t, composite, got[0].CompositeBody)
+	require.Empty(t, got[0].Composite)
+
+	require.Equal(t, "action.ops.deploy.go/action.core.command.run", got[1].Address)
+	require.Equal(t, NodeAction, got[1].Kind)
+	require.Equal(t, "action.ops.deploy.go", got[1].Composite)
+}

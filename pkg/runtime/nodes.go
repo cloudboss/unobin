@@ -50,7 +50,15 @@ type Node struct {
 	Composite     string
 	CompositeBody *lang.File
 	Libraries     map[string]*Library
-	ForEach       lang.Expr
+
+	// Category is set only on a NodeComposite boundary. It names the call
+	// site's category (resource, data, or action) so the runtime stores
+	// the boundary's published outputs in the matching scope map and the
+	// boundary's address carries the right root. A leaf's category is its
+	// Kind; a boundary's Kind is NodeComposite, so it needs this too.
+	Category NodeKind
+
+	ForEach lang.Expr
 
 	// Configuration names the configuration selected under the node's
 	// import (Alias) that the runtime hands to CRUD calls. Empty falls
@@ -107,13 +115,13 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 	var nodes []*Node
 	blocks := topLevelMap(f.Body)
 	if obj, ok := blocks["resources"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractResources(obj, parent, libs)...)
+		nodes = append(nodes, extractCategory(obj, NodeResource, parent, libs)...)
 	}
 	if obj, ok := blocks["data"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractNested(obj, NodeData, parent)...)
+		nodes = append(nodes, extractCategory(obj, NodeData, parent, libs)...)
 	}
 	if obj, ok := blocks["actions"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractNested(obj, NodeAction, parent)...)
+		nodes = append(nodes, extractCategory(obj, NodeAction, parent, libs)...)
 	}
 	if parent == "" {
 		if obj, ok := blocks["outputs"].(*lang.ObjectLit); ok {
@@ -123,7 +131,19 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 	return nodes
 }
 
-func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Library) []*Node {
+// extractCategory walks one category block (resources, data, or actions)
+// and returns its nodes. A type that resolves to a composite in the
+// library table expands into a boundary node plus its internals; anything
+// else becomes a leaf of the given kind. The lookup is category-keyed, so a
+// `data:` call site matches only a data composite and an `actions:` call
+// site only an action composite, the same way Go-implemented types are
+// placed per category. A nil libs skips the composite check and every node
+// is a leaf. The boundary's address carries the call site's category root,
+// while its Kind stays NodeComposite, so the runtime treats every boundary
+// the same regardless of category.
+func extractCategory(
+	block *lang.ObjectLit, kind NodeKind, parent string, libs map[string]*Library,
+) []*Node {
 	var out []*Node
 	for _, alias := range block.Fields {
 		if alias.Key.Kind != lang.FieldIdent || alias.Key.IsMeta() {
@@ -141,60 +161,20 @@ func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Lib
 			if !ok {
 				continue
 			}
-			composite := lookupComposite(libs, alias.Key.Name, NodeResource, t.Key.Name)
+			composite := lookupComposite(libs, alias.Key.Name, kind, t.Key.Name)
 			for _, n := range tObj.Fields {
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
 				}
-				addr := composeAddress(parent, NodeResource, alias.Key.Name, t.Key.Name, n.Key.Name)
+				addr := composeAddress(parent, kind, alias.Key.Name, t.Key.Name, n.Key.Name)
 				if composite != nil {
 					out = append(out, expandComposite(addr, parent,
-						alias.Key.Name, t.Key.Name, n.Key.Name,
+						alias.Key.Name, t.Key.Name, n.Key.Name, kind,
 						n.Value, composite, libs)...)
 					continue
 				}
-				out = append(out, &Node{
-					Address:       addr,
-					Kind:          NodeResource,
-					Alias:         alias.Key.Name,
-					Type:          t.Key.Name,
-					Name:          n.Key.Name,
-					Body:          n.Value,
-					Composite:     parent,
-					ForEach:       extractForEach(n.Value),
-					Configuration: extractConfiguration(n.Value, alias.Key.Name),
-				})
-			}
-		}
-	}
-	return out
-}
-
-func extractNested(block *lang.ObjectLit, kind NodeKind, parent string) []*Node {
-	var out []*Node
-	for _, alias := range block.Fields {
-		if alias.Key.Kind != lang.FieldIdent || alias.Key.IsMeta() {
-			continue
-		}
-		aliasObj, ok := alias.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		for _, t := range aliasObj.Fields {
-			if t.Key.Kind != lang.FieldIdent || t.Key.IsMeta() {
-				continue
-			}
-			tObj, ok := t.Value.(*lang.ObjectLit)
-			if !ok {
-				continue
-			}
-			for _, n := range tObj.Fields {
-				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
-					continue
-				}
 				node := &Node{
-					Address: composeAddress(parent, kind,
-						alias.Key.Name, t.Key.Name, n.Key.Name),
+					Address:       addr,
 					Kind:          kind,
 					Alias:         alias.Key.Name,
 					Type:          t.Key.Name,
@@ -354,7 +334,8 @@ func lookupComposite(
 // for tests that build composites directly without populating
 // imports.
 func expandComposite(callSiteAddr, parent, alias, typ, name string,
-	args lang.Expr, composite *CompositeType, fallMods map[string]*Library) []*Node {
+	category NodeKind, args lang.Expr, composite *CompositeType,
+	fallMods map[string]*Library) []*Node {
 	scopeMods := composite.Libraries
 	if scopeMods == nil {
 		scopeMods = fallMods
@@ -365,6 +346,7 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 		Alias:               alias,
 		Type:                typ,
 		Name:                name,
+		Category:            category,
 		Body:                args,
 		Composite:           parent,
 		CompositeBody:       composite.Body,

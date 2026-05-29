@@ -468,6 +468,21 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 	snap.Entries = out
 }
 
+// compositeScopeMap returns the scope map a composite boundary's outputs
+// belong in, chosen by the call site's category so the parent reads them
+// back under the matching address root. An unset category (the zero value,
+// as in tests that build a boundary directly) falls back to resources.
+func compositeScopeMap(scope *EvalContext, category NodeKind) map[string]any {
+	switch category {
+	case NodeData:
+		return scope.Data
+	case NodeAction:
+		return scope.Actions
+	default:
+		return scope.Resources
+	}
+}
+
 // finalizeComposite closes a composite call site after its
 // internals have finished. It reads the composite body's `outputs:`
 // block against the per-instance scope (a non-for-each composite
@@ -497,10 +512,11 @@ func (e *Executor) finalizeComposite(
 		return err
 	}
 	_, instKey := splitInstanceAddress(instAddr)
+	target := compositeScopeMap(parent, n.Category)
 	if instKey == "" {
-		storeNested(parent.Resources, n, outputs)
+		storeNested(target, n, outputs)
 	} else {
-		seedInstance(parent.Resources, n.Alias, n.Type, n.Name, instKey, outputs)
+		seedInstance(target, n.Alias, n.Type, n.Name, instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          instAddr,

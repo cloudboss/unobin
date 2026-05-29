@@ -342,6 +342,117 @@ outputs: {
 	require.Equal(t, "fake-alpha", libCall.Outputs["id"])
 }
 
+func TestExecutorAppliesDataComposite(t *testing.T) {
+	composite := parseStack(t, `
+data: {
+  core: {
+    lookup: { it: { key: var.key } }
+  }
+}
+outputs: {
+  value: { value: data.core.lookup.it.value }
+}
+`)
+	libs := testModules()
+	libs["w"] = &Library{
+		Name: "w",
+		DataComposites: map[string]*CompositeType{
+			"box": {Name: "box", Category: NodeData, Body: composite},
+		},
+	}
+	src := `
+data: {
+  w: { box: { x: { key: 'abc' } } }
+}
+outputs: {
+  out: { value: data.w.box.x.value }
+}
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   stack,
+	}
+	res := applyOnce(t, exec)
+	require.Equal(t, "looked-up:abc", res.Outputs["out"],
+		"the data composite's published output flows to the root output")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	var libCall *state.Entry
+	for _, e := range snap.Entries {
+		if e.Type == state.EntryLibraryCall {
+			libCall = e
+		}
+	}
+	require.NotNil(t, libCall, "the data composite call records a library-call entry")
+	require.Equal(t, "data.w.box.x", libCall.Address,
+		"the boundary address carries the data category root")
+	require.Equal(t, "w", libCall.Library)
+	require.Equal(t, "box", libCall.LibraryType)
+	require.Equal(t, "looked-up:abc", libCall.Outputs["value"])
+
+	// A second plan and apply against the prior state still resolves the
+	// boundary's output, so the re-plan path handles a data boundary too.
+	res2 := applyOnce(t, exec)
+	require.Equal(t, "looked-up:abc", res2.Outputs["out"])
+}
+
+func TestExecutorAppliesActionComposite(t *testing.T) {
+	composite := parseStack(t, `
+actions: {
+  core: {
+    echo: { it: { echo: var.msg } }
+  }
+}
+outputs: {
+  said: { value: action.core.echo.it.echo }
+}
+`)
+	libs := testModules()
+	libs["ops"] = &Library{
+		Name: "ops",
+		ActionComposites: map[string]*CompositeType{
+			"greet": {Name: "greet", Category: NodeAction, Body: composite},
+		},
+	}
+	src := `
+actions: {
+  ops: { greet: { hello: { msg: 'hi' } } }
+}
+outputs: {
+  out: { value: action.ops.greet.hello.said }
+}
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   stack,
+	}
+	res := applyOnce(t, exec)
+	require.Equal(t, "hi", res.Outputs["out"],
+		"the action composite's published output flows to the root output")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	var libCall *state.Entry
+	for _, e := range snap.Entries {
+		if e.Type == state.EntryLibraryCall {
+			libCall = e
+		}
+	}
+	require.NotNil(t, libCall, "the action composite call records a library-call entry")
+	require.Equal(t, "action.ops.greet.hello", libCall.Address,
+		"the boundary address carries the action category root")
+	require.Equal(t, "hi", libCall.Outputs["said"])
+}
+
 func TestExecutorForEachResourceCreatesPerInstance(t *testing.T) {
 	src := `
 resources: {
