@@ -213,6 +213,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	// walk is skipped. With no live addresses, every prior leaf below
 	// becomes a destroy step.
 	liveAddresses := make(map[string]bool)
+	var constraintErrs []error
 	if !e.Destroy {
 		for _, addr := range order {
 			node := e.DAG.Nodes[addr]
@@ -225,6 +226,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
 				plan.Steps = append(plan.Steps, step)
 				liveAddresses[step.Address] = true
+				constraintErrs = append(constraintErrs, e.checkStepConstraints(step)...)
 			}
 		}
 
@@ -235,6 +237,10 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			return nil, err
 		}
 		upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.Source, e.DAG.Nodes))
+	}
+
+	if len(constraintErrs) > 0 {
+		return nil, errors.Join(constraintErrs...)
 	}
 
 	// Orphans: prior entries with no live address in this plan become
@@ -529,6 +535,53 @@ func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
 	default:
 		return nil, fmt.Errorf("unknown node kind %q", n.Kind)
 	}
+}
+
+// checkStepConstraints validates a leaf node's evaluated args against its
+// Go type's constraints, returning one error per violation prefixed with
+// the node address. It runs only when every arg resolved at plan, so a
+// forward-reference arg (unknown until apply) never causes a false
+// violation; a missing optional arg evaluates to null in a predicate
+// rather than erroring. Composite boundaries and types that declare no
+// constraint contribute nothing.
+func (e *Executor) checkStepConstraints(step *PlanStep) []error {
+	switch step.Kind {
+	case NodeResource, NodeData, NodeAction:
+	default:
+		return nil
+	}
+	if len(step.UnresolvedInputs) > 0 {
+		return nil
+	}
+	tmpl := templateAddress(step.Address)
+	kind, alias, typeName, _, ok := parseAddress(tmpl)
+	if !ok {
+		return nil
+	}
+	lib, ok := e.librariesForAddress(tmpl)[alias]
+	if !ok || lib == nil {
+		return nil
+	}
+	specs := lib.Constraints[string(kind)+"."+typeName]
+	if len(specs) == 0 {
+		return nil
+	}
+	entries, perr := lang.ParseSpecs(specs)
+	eval := func(ex lang.Expr) (any, error) {
+		v, err := Eval(ex, &EvalContext{Vars: step.Inputs})
+		if errors.Is(err, ErrEvalNotFound) {
+			return nil, nil
+		}
+		return v, err
+	}
+	var out []error
+	for _, er := range perr.Errors() {
+		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+	}
+	for _, er := range lang.CheckConstraintEntries(entries, step.Inputs, eval).Errors() {
+		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+	}
+	return out
 }
 
 // planComposite plans the composite boundary. The call site args are

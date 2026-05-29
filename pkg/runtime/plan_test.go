@@ -9,10 +9,53 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPlanRejectsGoTypeConstraintViolation(t *testing.T) {
+	libs := resourceModules(&resourceCounters{})
+	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
+		"resource.thing": {{Kind: "exactly-one-of", Fields: []string{"name", "size"}}},
+	}
+	src := `
+resources: {
+  core: { thing: { x: { name: 'x', size: 1 } } }
+}
+`
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	require.EqualError(t, err,
+		"resource.core.thing.x: schema: constraints[0] (exactly-one-of [name, size]): "+
+			"expected exactly one to be set, got 2 (name, size)")
+}
+
+func TestPlanAcceptsValidGoTypeConstraint(t *testing.T) {
+	libs := resourceModules(&resourceCounters{})
+	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
+		"resource.thing": {{Kind: "exactly-one-of", Fields: []string{"name", "size"}}},
+	}
+	src := `
+resources: {
+  core: { thing: { x: { name: 'x' } } }
+}
+`
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+}
 
 func runPlan(
 	t *testing.T, src string, libraries map[string]*Library, store *localstate.LocalStore,
