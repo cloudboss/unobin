@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ErrorKind tags an Error so callers can branch on category. The set is
+// ErrorKind tags an Error so callers can branch on its kind. The set is
 // deliberately small - finer-grained classification is the message's job.
 type ErrorKind int
 

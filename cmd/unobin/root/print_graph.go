@@ -111,7 +111,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 }
 
 // buildLibraryMap turns each top-level import alias into a *runtime.Library.
-// UB-library Composites are populated from the library's category-prefixed
+// UB-library Composites are populated from the library's kind-prefixed
 // body files; Go libraries become empty Library values so the runtime can
 // tell "imported but not a composite" apart from "not imported at all". Each
 // composite carries its own Libraries map so composite-internal lookups stay
@@ -176,7 +176,7 @@ func (g *graphVisitor) OnUBLibrary(
 		}
 		runtimeLib.AddComposite(&runtime.CompositeType{
 			Name:      name,
-			Kind:      runtime.NodeKind(lib.Categories[name]),
+			Kind:      runtime.NodeKind(lib.Kinds[name]),
 			Body:      body,
 			Libraries: bodyLibs,
 		})

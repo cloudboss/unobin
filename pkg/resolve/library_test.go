@@ -6,10 +6,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUBCategoryAndType(t *testing.T) {
+func TestUBKindAndType(t *testing.T) {
 	cases := []struct {
 		filename string
-		category string
+		kind     string
 		typeName string
 		ok       bool
 	}{
@@ -30,9 +30,9 @@ func TestUBCategoryAndType(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.filename, func(t *testing.T) {
-			category, typeName, ok := ubCategoryAndType(c.filename)
+			kind, typeName, ok := ubKindAndType(c.filename)
 			require.Equal(t, c.ok, ok)
-			require.Equal(t, c.category, category)
+			require.Equal(t, c.kind, kind)
 			require.Equal(t, c.typeName, typeName)
 		})
 	}
@@ -61,7 +61,7 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 			isLibrary: true,
 		},
 		{
-			name: "mixed category composites",
+			name: "mixed kind composites",
 			files: map[string]string{
 				"resource-a.ub": "description: 'a'",
 				"data-b.ub":     "description: 'b'",
@@ -126,7 +126,7 @@ func walkOneUB(t *testing.T, src *Source) (*UBLibrary, error) {
 	return v.ubLibs["remote:github.com/x/y@v1"], nil
 }
 
-func TestWalkUBDerivesCategoryAndTypeFromFilenames(t *testing.T) {
+func TestWalkUBDerivesKindAndTypeFromFilenames(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"resource-greeting.ub": "description: 'g'",
 		"data-ami.ub":          "description: 'a'",
@@ -141,7 +141,7 @@ func TestWalkUBDerivesCategoryAndTypeFromFilenames(t *testing.T) {
 		"greeting": "resource",
 		"ami":      "data",
 		"notify":   "action",
-	}, lib.Categories)
+	}, lib.Kinds)
 }
 
 func TestWalkUBKeepsMultiHyphenTypeName(t *testing.T) {
@@ -151,7 +151,7 @@ func TestWalkUBKeepsMultiHyphenTypeName(t *testing.T) {
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
 	require.Contains(t, lib.Bodies, "vpc-wrapper")
-	require.Equal(t, "resource", lib.Categories["vpc-wrapper"])
+	require.Equal(t, "resource", lib.Kinds["vpc-wrapper"])
 }
 
 func TestWalkUBRejectsMisnamedFiles(t *testing.T) {

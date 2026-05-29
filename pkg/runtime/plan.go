@@ -88,7 +88,7 @@ type PlanStep struct {
 
 	// Composite marks a step whose apply finalizes a composite call
 	// site (a boundary) rather than a primitive leaf. A boundary's Kind
-	// is its own resource/data/action category, so the runtime cannot
+	// is its own resource/data/action kind, so the runtime cannot
 	// tell it from a leaf by Kind alone; on a Node that distinction is
 	// the expanded CompositeBody (Node.IsComposite), but a step has no
 	// body, so the bit is stored explicitly in the plan file.
@@ -293,7 +293,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 // step takes and whether that step is a composite boundary. Leaf
 // entries delete a real resource; action and library-call records have
 // no external lifecycle and are only removed from state. A library-call
-// record does not remember its resource/data/action category, but a
+// record does not remember its resource/data/action kind, but a
 // destroy boundary never reads its kind (it is only removed), so the
 // kind is left empty and the composite bit alone routes it.
 func destroyEntryKind(t state.EntryType) (kind NodeKind, composite, ok bool) {

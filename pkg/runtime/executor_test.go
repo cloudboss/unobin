@@ -390,7 +390,7 @@ outputs: {
 	}
 	require.NotNil(t, libCall, "the data composite call records a library-call entry")
 	require.Equal(t, "data.w.box.x", libCall.Address,
-		"the boundary address carries the data category root")
+		"the boundary address has the data kind root")
 	require.Equal(t, "w", libCall.Library)
 	require.Equal(t, "box", libCall.LibraryType)
 	require.Equal(t, "looked-up:abc", libCall.Outputs["value"])
@@ -449,7 +449,7 @@ outputs: {
 	}
 	require.NotNil(t, libCall, "the action composite call records a library-call entry")
 	require.Equal(t, "action.ops.greet.hello", libCall.Address,
-		"the boundary address carries the action category root")
+		"the boundary address has the action kind root")
 	require.Equal(t, "hi", libCall.Outputs["said"])
 }
 

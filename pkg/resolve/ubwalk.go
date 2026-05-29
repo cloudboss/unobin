@@ -34,10 +34,10 @@ type ResolutionKind int
 
 const (
 	// ResolutionGo names a Go-library import: a remote ref whose resolved
-	// source has no category-prefixed body files at its root.
+	// source has no kind-prefixed body files at its root.
 	ResolutionGo ResolutionKind = iota + 1
 	// ResolutionUB names a UB-library import: a ref whose resolved source
-	// has category-prefixed body files at its root.
+	// has kind-prefixed body files at its root.
 	ResolutionUB
 )
 
@@ -58,16 +58,16 @@ type Resolution struct {
 	SourcePath   string
 }
 
-// UBLibrary carries everything the visitor needs about a UB library the
+// UBLibrary has everything the visitor needs about a UB library the
 // first time the walker reaches it. Bodies maps composite type name to
-// the parsed body file; the type name comes from a category-prefixed
-// filename (`<category>-<type>.ub`). Categories maps the same type name
-// to its category (`resource`, `data`, or `action`). BodyImports maps
-// the type name to the resolved imports declared by that body, in
-// alias-sorted order so callers see a stable view across runs.
+// the parsed body file; the type name comes from a kind-prefixed
+// filename (`<kind>-<type>.ub`). Kinds maps the same type name to its
+// kind (`resource`, `data`, or `action`). BodyImports maps the type
+// name to the resolved imports declared by that body, in alias-sorted
+// order so callers see a stable view across runs.
 type UBLibrary struct {
 	Bodies      map[string]*lang.File
-	Categories  map[string]string
+	Kinds       map[string]string
 	BodyImports map[string][]Resolution
 }
 
@@ -217,9 +217,9 @@ func (w *ubWalker) handleUBImport(
 }
 
 // parseLibrary reads a UB library's composite bodies straight from its
-// directory listing: every category-prefixed `.ub` file is one composite,
-// with the type name and category taken from the filename. There is no
-// manifest. A `.ub` file whose name is not `<category>-<type>.ub` is an
+// directory listing: every kind-prefixed `.ub` file is one composite,
+// with the type name and kind taken from the filename. There is no
+// manifest. A `.ub` file whose name is not `<kind>-<type>.ub` is an
 // error, as is two files naming the same type.
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	matches, err := fs.Glob(source.FS, "*.ub")
@@ -228,9 +228,9 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	}
 	sort.Strings(matches)
 	bodies := make(map[string]*lang.File, len(matches))
-	categories := make(map[string]string, len(matches))
+	kinds := make(map[string]string, len(matches))
 	for _, filename := range matches {
-		category, typeName, ok := ubCategoryAndType(filename)
+		kind, typeName, ok := ubKindAndType(filename)
 		if !ok {
 			return nil, fmt.Errorf(
 				"library file %q must be named <resource|data|action>-<type>.ub", filename)
@@ -252,9 +252,9 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 			return nil, errs.Err()
 		}
 		bodies[typeName] = f
-		categories[typeName] = category
+		kinds[typeName] = kind
 	}
-	return &UBLibrary{Bodies: bodies, Categories: categories}, nil
+	return &UBLibrary{Bodies: bodies, Kinds: kinds}, nil
 }
 
 func readSourceFile(s *Source, name string) ([]byte, error) {

@@ -7,8 +7,8 @@ import (
 )
 
 // ValidateCompositeBody checks a composite body against the floor and
-// ceiling rules for its category, which comes from the file's
-// `<category>-` name prefix:
+// ceiling rules for its kind, which comes from the file's `<kind>-`
+// name prefix:
 //
 //   - data: at least one output, may hold data, no resources, no actions.
 //   - action: at least one action, may hold data, no resources; outputs
@@ -20,14 +20,14 @@ import (
 // violated rule, in a fixed order, so a body reports every problem at once.
 // The resolver does not run this during the walk; the compile command runs
 // it over each resolved library so that print-graph and fetch stay lenient.
-func ValidateCompositeBody(category, typeName string, f *lang.File) []error {
+func ValidateCompositeBody(kind, typeName string, f *lang.File) []error {
 	var errs []error
 	add := func(msg string) {
-		errs = append(errs, fmt.Errorf("composite %q (%s): %s", typeName, category, msg))
+		errs = append(errs, fmt.Errorf("composite %q (%s): %s", typeName, kind, msg))
 	}
-	resources := categoryLeafCount(f, "resources")
-	actions := categoryLeafCount(f, "actions")
-	switch category {
+	resources := kindLeafCount(f, "resources")
+	actions := kindLeafCount(f, "actions")
+	switch kind {
 	case "data":
 		if outputCount(f) == 0 {
 			add("a data composite must declare at least one output")
@@ -53,11 +53,11 @@ func ValidateCompositeBody(category, typeName string, f *lang.File) []error {
 	return errs
 }
 
-// categoryLeafCount counts the leaf entries in a resources, data, or
+// kindLeafCount counts the leaf entries in a resources, data, or
 // actions block: one per `<alias>.<type>.<name>` path. Meta keys and
 // malformed nesting contribute nothing, so an empty or absent block is
 // zero.
-func categoryLeafCount(f *lang.File, block string) int {
+func kindLeafCount(f *lang.File, block string) int {
 	obj := topLevelBlock(f, block)
 	if obj == nil {
 		return 0

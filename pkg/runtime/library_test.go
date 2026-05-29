@@ -121,7 +121,7 @@ func TestLibraryHoldsCompositeTypes(t *testing.T) {
 		},
 	}
 	require.Same(t, parsed, lib.Composite(NodeResource, "cluster").Body)
-	require.Nil(t, lib.Composite(NodeData, "cluster"), "category selects the map")
+	require.Nil(t, lib.Composite(NodeData, "cluster"), "kind selects the map")
 }
 
 func TestLibraryAddComposite(t *testing.T) {

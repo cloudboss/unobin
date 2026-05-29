@@ -14,7 +14,8 @@ const LockFileName = "unobin.lock"
 // can't guarantee correct interpretation.
 const CurrentLockVersion = 1
 
-// LockKind is the category of an imported library recorded in the lock.
+// LockKind records whether an imported library is Go- or UB-implemented
+// in the lock.
 type LockKind string
 
 const (

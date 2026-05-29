@@ -24,7 +24,7 @@ type Library struct {
 	Actions       map[string]ActionRegistration
 	Resources     map[string]ResourceRegistration
 	DataSources   map[string]DataSourceRegistration
-	// Composites are kept in one map per category, mirroring the
+	// Composites are kept in one map per kind, mirroring the
 	// Resources / DataSources / Actions Go-type maps. resource, data,
 	// and action are distinct namespaces, so a library may declare
 	// resource.foo and data.foo as separate composites.
@@ -80,11 +80,11 @@ type CompositeType struct {
 	Libraries map[string]*Library
 }
 
-// Composite returns the composite of the given category and name, or nil
+// Composite returns the composite of the given kind and name, or nil
 // when the library has none. resource, data, and action are independent
-// namespaces, so the category selects which map to consult.
-func (l *Library) Composite(category NodeKind, name string) *CompositeType {
-	switch category {
+// namespaces, so the kind selects which map to consult.
+func (l *Library) Composite(kind NodeKind, name string) *CompositeType {
+	switch kind {
 	case NodeData:
 		return l.DataComposites[name]
 	case NodeAction:
@@ -94,7 +94,7 @@ func (l *Library) Composite(category NodeKind, name string) *CompositeType {
 	}
 }
 
-// AddComposite stores ct in the map for its category, creating the map on
+// AddComposite stores ct in the map for its kind, creating the map on
 // first use.
 func (l *Library) AddComposite(ct *CompositeType) {
 	switch ct.Kind {

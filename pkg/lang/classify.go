@@ -4,7 +4,7 @@ import "path/filepath"
 
 // ClassifyByFilename returns the file kind implied by the path's basename.
 // `main.ub` is FileFactory; anything else is FileUnknown. Callers classify
-// FileExportedType (a category-prefixed `<category>-<type>.ub` inside a
+// FileExportedType (a kind-prefixed `<kind>-<type>.ub` inside a
 // library) and FileConfig (the operator's stack config file, supplied by
 // path flag) from their own context.
 func ClassifyByFilename(path string) FileKind {

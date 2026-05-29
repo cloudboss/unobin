@@ -16,10 +16,10 @@ import (
 // GenerateUBLibrary produces the Go source for a UB library's
 // generated package. The package's name is alias; it exports a
 // `Library()` function returning a `*runtime.Library` whose composites
-// are split into one map per category (ResourceComposites,
-// DataComposites, ActionComposites). bodies and categories are both
-// keyed by composite type name (derived from each file's
-// `<category>-<type>.ub` name); categories gives the category.
+// are split into one map per kind (ResourceComposites, DataComposites,
+// ActionComposites). bodies and kinds are both keyed by composite type
+// name (derived from each file's `<kind>-<type>.ub` name); kinds gives
+// the kind.
 //
 // imports maps each composite's type name to its resolved import table:
 // the composite's body's own imports block, with each declared alias
@@ -30,7 +30,7 @@ import (
 // empty map when a composite has no imports.
 func GenerateUBLibrary(alias string,
 	bodies map[string]*lang.File,
-	categories map[string]string,
+	kinds map[string]string,
 	imports map[string]map[string]string) ([]byte, error) {
 	if alias == "" {
 		return nil, fmt.Errorf("ublibrary: alias is required")
@@ -44,15 +44,15 @@ func GenerateUBLibrary(alias string,
 	sort.Strings(names)
 
 	groups := map[string]*compositeGroup{}
-	for _, c := range compositeCategories {
-		groups[c.category] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
+	for _, c := range compositeKinds {
+		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
 	}
 	for _, name := range names {
-		category := categories[name]
-		group, ok := groups[category]
+		kind := kinds[name]
+		group, ok := groups[kind]
 		if !ok {
-			return nil, fmt.Errorf("ublibrary %q: composite %q has unknown category %q",
-				alias, name, category)
+			return nil, fmt.Errorf("ublibrary %q: composite %q has unknown kind %q",
+				alias, name, kind)
 		}
 		encoded, err := EncodeNode(bodies[name])
 		if err != nil {
@@ -69,9 +69,9 @@ func GenerateUBLibrary(alias string,
 		group.Entries = append(group.Entries, entry)
 	}
 
-	orderedGroups := make([]*compositeGroup, 0, len(compositeCategories))
-	for _, c := range compositeCategories {
-		if g := groups[c.category]; len(g.Entries) > 0 {
+	orderedGroups := make([]*compositeGroup, 0, len(compositeKinds))
+	for _, c := range compositeKinds {
+		if g := groups[c.kind]; len(g.Entries) > 0 {
 			orderedGroups = append(orderedGroups, g)
 		}
 	}
@@ -96,11 +96,11 @@ func GenerateUBLibrary(alias string,
 	return out, nil
 }
 
-// compositeCategories lists the categories in the order the generated
-// Library() emits their maps, with the runtime field and NodeKind symbol
-// for each.
-var compositeCategories = []struct {
-	category string
+// compositeKinds lists the kinds in the order the generated Library()
+// emits their maps, with the runtime field and NodeKind symbol for
+// each.
+var compositeKinds = []struct {
+	kind     string
 	mapField string
 	symbol   string
 }{

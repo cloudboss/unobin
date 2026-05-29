@@ -25,8 +25,8 @@ type ApplyEvent struct {
 	Kind    NodeKind
 
 	// Composite marks an event for a composite call site (a boundary).
-	// A boundary's Kind is its own resource/data/action category, so
-	// this is what tells a boundary apart from a leaf of that category.
+	// A boundary's Kind is its own resource/data/action kind, so this
+	// is what tells a boundary apart from a leaf of that kind.
 	Composite bool
 
 	Decision Decision

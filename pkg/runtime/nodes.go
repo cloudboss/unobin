@@ -75,9 +75,9 @@ type Node struct {
 
 // IsComposite reports whether the node is a composite call site (a
 // boundary) rather than a primitive leaf. A boundary has its own Kind
-// (the call site's resource/data/action category) just like a leaf;
-// what sets it apart is the CompositeBody it expands, which
-// extractCategory populates only on boundaries.
+// (the call site's resource/data/action kind) just like a leaf; what
+// sets it apart is the CompositeBody it expands, which extractKind
+// populates only on boundaries.
 func (n *Node) IsComposite() bool {
 	return n.CompositeBody != nil
 }
@@ -117,13 +117,13 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 	var nodes []*Node
 	blocks := topLevelMap(f.Body)
 	if obj, ok := blocks["resources"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractCategory(obj, NodeResource, parent, libs)...)
+		nodes = append(nodes, extractKind(obj, NodeResource, parent, libs)...)
 	}
 	if obj, ok := blocks["data"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractCategory(obj, NodeData, parent, libs)...)
+		nodes = append(nodes, extractKind(obj, NodeData, parent, libs)...)
 	}
 	if obj, ok := blocks["actions"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractCategory(obj, NodeAction, parent, libs)...)
+		nodes = append(nodes, extractKind(obj, NodeAction, parent, libs)...)
 	}
 	if parent == "" {
 		if obj, ok := blocks["outputs"].(*lang.ObjectLit); ok {
@@ -133,17 +133,17 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 	return nodes
 }
 
-// extractCategory walks one category block (resources, data, or actions)
-// and returns its nodes. A type that resolves to a composite in the
-// library table expands into a boundary node plus its internals; anything
-// else becomes a leaf of the given kind. The lookup is category-keyed, so a
+// extractKind walks one kind block (resources, data, or actions) and
+// returns its nodes. A type that resolves to a composite in the library
+// table expands into a boundary node plus its internals; anything else
+// becomes a leaf of the given kind. The lookup is kind-keyed, so a
 // `data:` call site matches only a data composite and an `actions:` call
 // site only an action composite, the same way Go-implemented types are
-// placed per category. A nil libs skips the composite check and every node
-// is a leaf. The boundary node takes the call site's category as its
-// Kind, the same as a leaf of that category; IsComposite tells the two
-// apart by the CompositeBody a boundary expands.
-func extractCategory(
+// placed per kind. A nil libs skips the composite check and every node
+// is a leaf. The boundary node takes the call site's kind as its Kind,
+// the same as a leaf of that kind; IsComposite tells the two apart by
+// the CompositeBody a boundary expands.
+func extractKind(
 	block *lang.ObjectLit, kind NodeKind, parent string, libs map[string]*Library,
 ) []*Node {
 	var out []*Node
@@ -303,7 +303,7 @@ func extractConfiguration(body lang.Expr, alias string) string {
 }
 
 func lookupComposite(
-	libs map[string]*Library, alias string, category NodeKind, typ string,
+	libs map[string]*Library, alias string, kind NodeKind, typ string,
 ) *CompositeType {
 	if libs == nil {
 		return nil
@@ -312,7 +312,7 @@ func lookupComposite(
 	if !ok || lib == nil {
 		return nil
 	}
-	return lib.Composite(category, typ)
+	return lib.Composite(kind, typ)
 }
 
 // expandComposite emits the boundary node and the internal sub nodes
@@ -336,7 +336,7 @@ func lookupComposite(
 // for tests that build composites directly without populating
 // imports.
 func expandComposite(callSiteAddr, parent, alias, typ, name string,
-	category NodeKind, args lang.Expr, composite *CompositeType,
+	kind NodeKind, args lang.Expr, composite *CompositeType,
 	fallMods map[string]*Library) []*Node {
 	scopeMods := composite.Libraries
 	if scopeMods == nil {
@@ -344,7 +344,7 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 	}
 	out := []*Node{{
 		Address:             callSiteAddr,
-		Kind:                category,
+		Kind:                kind,
 		Alias:               alias,
 		Type:                typ,
 		Name:                name,
@@ -389,8 +389,8 @@ func topLevelMap(body *lang.ObjectLit) map[string]lang.Expr {
 	return out
 }
 
-// composeAddress builds a node's address. Every segment carries its own
-// category root: at root it is `<kind>.<alias>.<type>.<name>`, and
+// composeAddress builds a node's address. Every segment has its own
+// kind root: at root it is `<kind>.<alias>.<type>.<name>`, and
 // inside a composite it is `<call-site>/<kind>.<alias>.<type>.<name>`. The
 // resource, data, and action kinds all follow the same form, so a state
 // key reads the same at every depth.

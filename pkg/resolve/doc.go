@@ -2,7 +2,7 @@
 //
 // Resolves import paths (bare URLs, with // subdirs, local ./ paths) to
 // concrete sources. Detects whether each import is a UB library (it has
-// category-prefixed body files at the root) or a Go library. Detects cycles
+// kind-prefixed body files at the root) or a Go library. Detects cycles
 // at resolve time and reports them as compile errors. Enforces same-repo
 // imports sharing a version.
 //

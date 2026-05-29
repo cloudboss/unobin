@@ -102,7 +102,7 @@ func (w *walker) resolveOne(parentSrc *Source, ref ImportRef) (*Source, error) {
 }
 
 // walkUBLibrary reads the library's composite bodies from its directory
-// listing: each category-prefixed `.ub` file is one composite, named by
+// listing: each kind-prefixed `.ub` file is one composite, named by
 // its filename. Errors during the scan or a body read are recorded but
 // do not stop the walk. repo is the repository the library lives in,
 // passed to each body so its imports are checked against the right repo.
@@ -114,7 +114,7 @@ func (w *walker) walkUBLibrary(libraryID string, src *Source, repo string) {
 	}
 	sort.Strings(matches)
 	for _, filename := range matches {
-		_, typeName, ok := ubCategoryAndType(filename)
+		_, typeName, ok := ubKindAndType(filename)
 		if !ok {
 			w.errors = append(w.errors, fmt.Errorf(
 				"library %q: file %q must be named <resource|data|action>-<type>.ub",

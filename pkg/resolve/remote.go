@@ -38,7 +38,7 @@ func NewRemoteResolver() (*RemoteResolver, error) {
 
 // Resolve fetches the repo named by ref, caches it, and returns a
 // Source rooted at the import's subdir, with FS and Commit always set.
-// A UB library (one with category-prefixed body files at the subdir
+// A UB library (one with kind-prefixed body files at the subdir
 // root) also gets its content Hash set for lock-file integrity.
 func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	ri, ok := ref.(*RemoteImport)

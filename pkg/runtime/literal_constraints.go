@@ -90,7 +90,7 @@ func literalValues(body lang.Expr) (map[string]any, bool) {
 }
 
 // typeSchema returns the schema for a node kind's type, or nil when the
-// kind is not a library category or the type is absent.
+// kind is not a resource, data, or action or the type is absent.
 func (s *LibrarySchema) typeSchema(kind NodeKind, typ string) *TypeSchema {
 	switch kind {
 	case NodeResource:

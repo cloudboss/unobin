@@ -29,7 +29,7 @@ type Resolver interface {
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
 // holding at least one `.ub` file and no `main.ub` (a `main.ub` marks a
 // factory, which is not importable). Every `.ub` file in a library is
-// expected to be a category-prefixed body (`resource-*.ub`, `data-*.ub`,
+// expected to be a kind-prefixed body (`resource-*.ub`, `data-*.ub`,
 // or `action-*.ub`); a misnamed one is caught when the library is parsed,
 // not here, so the author gets a clear error rather than having the whole
 // directory silently treated as a Go library. Sources with no `.ub` files
@@ -52,10 +52,10 @@ func ContainsMainUB(s *Source) bool {
 	return err == nil
 }
 
-// ubCategoryAndType splits a category-prefixed body filename into its
-// category (`resource`, `data`, or `action`) and the type name. It
-// reports ok=false for any name that is not `<category>-<type>.ub`.
-func ubCategoryAndType(filename string) (category, typeName string, ok bool) {
+// ubKindAndType splits a kind-prefixed body filename into its kind
+// (`resource`, `data`, or `action`) and the type name. It reports
+// ok=false for any name that is not `<kind>-<type>.ub`.
+func ubKindAndType(filename string) (kind, typeName string, ok bool) {
 	base, found := strings.CutSuffix(filename, ".ub")
 	if !found {
 		return "", "", false

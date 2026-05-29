@@ -473,11 +473,11 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 }
 
 // compositeScopeMap returns the scope map a composite boundary's outputs
-// belong in, chosen by the call site's category so the parent reads them
-// back under the matching address root. An unset category (the zero value,
+// belong in, chosen by the call site's kind so the parent reads them
+// back under the matching address root. An unset kind (the zero value,
 // as in tests that build a boundary directly) falls back to resources.
-func compositeScopeMap(scope *EvalContext, category NodeKind) map[string]any {
-	switch category {
+func compositeScopeMap(scope *EvalContext, kind NodeKind) map[string]any {
+	switch kind {
 	case NodeData:
 		return scope.Data
 	case NodeAction:
@@ -659,7 +659,7 @@ func sameValue(a, b any) bool {
 }
 
 // parseAddress reads the inner-most node segment of addr and splits it
-// into its category root, alias, type, and name. addr may be a root
+// into its kind root, alias, type, and name. addr may be a root
 // address (`resource.aws.vpc.this`) or a composite-internal address whose
 // segments are `/`-joined; only the final segment is parsed, so the node
 // is read relative to its direct enclosing scope. A trailing `@for-each`

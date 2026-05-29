@@ -264,7 +264,7 @@ func (c *compileVisitor) OnUBLibrary(
 	var violations []error
 	for _, name := range slices.Sorted(maps.Keys(lib.Bodies)) {
 		violations = append(violations,
-			resolve.ValidateCompositeBody(lib.Categories[name], name, lib.Bodies[name])...)
+			resolve.ValidateCompositeBody(lib.Kinds[name], name, lib.Bodies[name])...)
 	}
 	if len(violations) > 0 {
 		return errors.Join(violations...)
@@ -290,7 +290,7 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 		runtimeLib.AddComposite(&ubruntime.CompositeType{
 			Name:      name,
-			Kind:      ubruntime.NodeKind(lib.Categories[name]),
+			Kind:      ubruntime.NodeKind(lib.Kinds[name]),
 			Body:      body,
 			Libraries: bodyLibs,
 		})
@@ -311,7 +311,7 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, lib.Categories, composites)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, lib.Kinds, composites)
 	if err != nil {
 		return err
 	}
