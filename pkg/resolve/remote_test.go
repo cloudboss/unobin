@@ -44,8 +44,7 @@ func makeRemoteRepo(t *testing.T, dir string, files map[string]string) string {
 func TestRemoteResolverFetchesUBLibrary(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
-		"library.ub": "description: 'remote'\n",
-		"cluster.ub": "description: 'cluster'\n",
+		"resource-cluster.ub": "description: 'remote'\n",
 	})
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
@@ -55,7 +54,7 @@ func TestRemoteResolverFetchesUBLibrary(t *testing.T) {
 	require.NotEmpty(t, got.Hash)
 	require.NotNil(t, got.FS)
 
-	body, err := fs.ReadFile(got.FS, "library.ub")
+	body, err := fs.ReadFile(got.FS, "resource-cluster.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "remote")
 }
@@ -72,15 +71,14 @@ func TestRemoteResolverFetchesGoLibrary(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
 	require.Empty(t, got.Hash, "go-library imports do not record a content hash")
-	require.Nil(t, got.FS, "go-library imports do not expose a filesystem")
+	require.NotNil(t, got.FS, "every resolved source exposes a filesystem")
 }
 
 func TestRemoteResolverHonorsSubdir(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	makeRemoteRepo(t, src, map[string]string{
-		"libraries/net/library.ub": "description: 'net'\n",
-		"libraries/net/cluster.ub": "description: 'cluster'\n",
-		"go.mod":                   "module example.com/x\n",
+		"libraries/net/resource-cluster.ub": "description: 'net'\n",
+		"go.mod":                            "module example.com/x\n",
 	})
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
@@ -89,7 +87,7 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 	require.NotNil(t, got.FS)
 	require.NotEmpty(t, got.Hash)
 
-	body, err := fs.ReadFile(got.FS, "library.ub")
+	body, err := fs.ReadFile(got.FS, "resource-cluster.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "net")
 }

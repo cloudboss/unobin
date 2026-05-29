@@ -6,10 +6,9 @@ import (
 )
 
 // allowedTopLevelKeys is the set of identifier keys permitted at the
-// top level of each file kind. A stack and an exported type body are
-// identical. A library manifest is just description + exports. A config
-// holds deployment identity, state config, input values, and library
-// configurations.
+// top level of each file kind. A factory and an exported type body are
+// identical. A config holds deployment identity, state config, input
+// values, and library configurations.
 var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	FileFactory: {
 		"description": {},
@@ -32,10 +31,6 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 		"resources":   {},
 		"actions":     {},
 		"outputs":     {},
-	},
-	FileLibrary: {
-		"description": {},
-		"exports":     {},
 	},
 	FileConfig: {
 		"factory":        {},
@@ -541,10 +536,6 @@ func ValidateFile(f *File) *ErrorList {
 			mergeErrors(errs, ValidateOutputs(obj))
 		}
 		mergeErrors(errs, ValidateLibraryCallAliases(f))
-	case FileLibrary:
-		if obj, ok := blocks["exports"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateExports(obj))
-		}
 	case FileConfig:
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
@@ -618,12 +609,6 @@ func mergeErrors(dst, src *ErrorList) {
 // identifier alias bound to a quoted string source URL or local path.
 func ValidateImports(block *ObjectLit) *ErrorList {
 	return validateAliasToString(block, "import", "source URL or local path")
-}
-
-// ValidateExports checks a `library.ub` `exports:` block: every entry is an
-// identifier name bound to a quoted string path to an exported-type `.ub` file.
-func ValidateExports(block *ObjectLit) *ErrorList {
-	return validateAliasToString(block, "export", "path to an exported-type file")
 }
 
 func validateAliasToString(block *ObjectLit, what, valueDesc string) *ErrorList {

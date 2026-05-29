@@ -37,9 +37,9 @@ func NewRemoteResolver() (*RemoteResolver, error) {
 }
 
 // Resolve fetches the repo named by ref, caches it, and returns a
-// Source rooted at the import's subdir. UB libraries (a `library.ub` is
-// present at the subdir root) get their FS, Commit, and Hash set;
-// non-UB imports return a Source with only Commit set.
+// Source rooted at the import's subdir, with FS and Commit always set.
+// A UB library (one with category-prefixed body files at the subdir
+// root) also gets its content Hash set for lock-file integrity.
 func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	ri, ok := ref.(*RemoteImport)
 	if !ok {
@@ -65,9 +65,8 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 		subdirPath = filepath.Join(dir, ri.Subdir)
 	}
 
-	src := &Source{Commit: commit, Path: subdirPath}
-	if _, err := os.Stat(filepath.Join(subdirPath, "library.ub")); err == nil {
-		src.FS = os.DirFS(subdirPath)
+	src := &Source{Commit: commit, Path: subdirPath, FS: os.DirFS(subdirPath)}
+	if IsUBLibrary(src) {
 		hash, err := hashTree(src.FS)
 		if err != nil {
 			return nil, err

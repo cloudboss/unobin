@@ -480,8 +480,6 @@ func fileKindIdent(k lang.FileKind) string {
 	switch k {
 	case lang.FileFactory:
 		return "lang.FileFactory"
-	case lang.FileLibrary:
-		return "lang.FileLibrary"
 	case lang.FileExportedType:
 		return "lang.FileExportedType"
 	case lang.FileConfig:

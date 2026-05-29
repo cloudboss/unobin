@@ -37,20 +37,9 @@ func TestUblibraryDefaultTypeName(t *testing.T) {
 
 	out, err := runUblibraryCmd(t, "-o", dir)
 	require.NoError(t, err)
-	require.Contains(t, out, filepath.Join(dir, "library.ub"))
-	require.Contains(t, out, filepath.Join(dir, "main.ub"))
+	require.Contains(t, out, filepath.Join(dir, "resource-main.ub"))
 
-	manifest, err := os.ReadFile(filepath.Join(dir, "library.ub"))
-	require.NoError(t, err)
-	wantManifest := `description: 'TODO: describe this library'
-
-exports: {
-  main: 'main.ub'
-}
-`
-	require.Equal(t, wantManifest, string(manifest))
-
-	stub, err := os.ReadFile(filepath.Join(dir, "main.ub"))
+	stub, err := os.ReadFile(filepath.Join(dir, "resource-main.ub"))
 	require.NoError(t, err)
 	wantStub := `description: 'TODO: describe this composite type'
 
@@ -79,15 +68,11 @@ func TestUblibraryCustomTypeName(t *testing.T) {
 	_, err := runUblibraryCmd(t, "-o", dir, "--type", "greeting")
 	require.NoError(t, err)
 
-	manifest, err := os.ReadFile(filepath.Join(dir, "library.ub"))
-	require.NoError(t, err)
-	require.Contains(t, string(manifest), "greeting: 'greeting.ub'")
-
-	_, err = os.Stat(filepath.Join(dir, "greeting.ub"))
+	_, err = os.Stat(filepath.Join(dir, "resource-greeting.ub"))
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "main.ub"))
-	require.True(t, os.IsNotExist(err), "main.ub should not exist when --type=greeting")
+	_, err = os.Stat(filepath.Join(dir, "resource-main.ub"))
+	require.True(t, os.IsNotExist(err), "resource-main.ub should not exist when --type=greeting")
 }
 
 func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
@@ -95,23 +80,14 @@ func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
 	_, err := runUblibraryCmd(t, "-o", dir)
 	require.NoError(t, err)
 
-	cases := []struct {
-		name string
-		kind lang.FileKind
-	}{
-		{"library.ub", lang.FileLibrary},
-		{"main.ub", lang.FileExportedType},
-	}
-	for _, tc := range cases {
-		path := filepath.Join(dir, tc.name)
-		src, err := os.ReadFile(path)
-		require.NoError(t, err)
-		f, err := lang.ParseSource(path, src)
-		require.NoError(t, err, "parse %s", tc.name)
-		f.Kind = tc.kind
-		errs := lang.ValidateFile(f)
-		require.Equal(t, 0, errs.Len(), "validate %s: %v", tc.name, errs.Err())
-	}
+	path := filepath.Join(dir, "resource-main.ub")
+	src, err := os.ReadFile(path)
+	require.NoError(t, err)
+	f, err := lang.ParseSource(path, src)
+	require.NoError(t, err)
+	f.Kind = lang.FileExportedType
+	errs := lang.ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Err())
 }
 
 func TestUblibraryRefusesExistingDir(t *testing.T) {
@@ -126,13 +102,13 @@ func TestUblibraryRefusesExistingDir(t *testing.T) {
 func TestUblibraryForceOverwritesExistingDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "greeter")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stale := filepath.Join(dir, "library.ub")
+	stale := filepath.Join(dir, "resource-main.ub")
 	require.NoError(t, os.WriteFile(stale, []byte("stale content"), 0o644))
 
 	_, err := runUblibraryCmd(t, "-o", dir, "--force")
 	require.NoError(t, err)
 
-	manifest, err := os.ReadFile(stale)
+	stub, err := os.ReadFile(stale)
 	require.NoError(t, err)
-	require.Contains(t, string(manifest), "main: 'main.ub'")
+	require.Contains(t, string(stub), "TODO: describe this composite type")
 }

@@ -12,10 +12,9 @@ func TestClassifyByFilename(t *testing.T) {
 		want FileKind
 	}{
 		{"main.ub", FileFactory},
-		{"library.ub", FileLibrary},
 		{"deep/path/main.ub", FileFactory},
-		{"deep/path/library.ub", FileLibrary},
-		{"cluster.ub", FileUnknown},
+		{"library.ub", FileUnknown},
+		{"resource-greeting.ub", FileUnknown},
 		{"config.ub", FileUnknown},
 		{"prod.ub", FileUnknown},
 		{"", FileUnknown},
@@ -33,8 +32,7 @@ func TestParseSourceSetsKind(t *testing.T) {
 		want FileKind
 	}{
 		{"main.ub", FileFactory},
-		{"library.ub", FileLibrary},
-		{"cluster.ub", FileUnknown},
+		{"resource-greeting.ub", FileUnknown},
 		{"", FileUnknown},
 	}
 	for _, c := range cases {

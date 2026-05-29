@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"sort"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -32,11 +33,11 @@ func UBKey(ref ImportRef) string {
 type ResolutionKind int
 
 const (
-	// ResolutionGo names a Go-library import: a remote ref with no
-	// library.ub at the root of its resolved source.
+	// ResolutionGo names a Go-library import: a remote ref whose resolved
+	// source has no category-prefixed body files at its root.
 	ResolutionGo ResolutionKind = iota + 1
-	// ResolutionUB names a UB-library import: a ref whose resolved
-	// source has a library.ub at the root.
+	// ResolutionUB names a UB-library import: a ref whose resolved source
+	// has category-prefixed body files at its root.
 	ResolutionUB
 )
 
@@ -58,13 +59,15 @@ type Resolution struct {
 }
 
 // UBLibrary carries everything the visitor needs about a UB library the
-// first time the walker reaches it. Manifest is the parsed library.ub.
-// Bodies maps export name to the parsed body file. BodyImports maps
-// export name to the resolved imports declared by that body, in
+// first time the walker reaches it. Bodies maps composite type name to
+// the parsed body file; the type name comes from a category-prefixed
+// filename (`<category>-<type>.ub`). Categories maps the same type name
+// to its category (`resource`, `data`, or `action`). BodyImports maps
+// the type name to the resolved imports declared by that body, in
 // alias-sorted order so callers see a stable view across runs.
 type UBLibrary struct {
-	Manifest    *lang.File
 	Bodies      map[string]*lang.File
+	Categories  map[string]string
 	BodyImports map[string][]Resolution
 }
 
@@ -124,6 +127,10 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef) (Resolution, error) {
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
+	if ContainsMainUB(source) {
+		return Resolution{}, fmt.Errorf(
+			"import %q: a factory (a directory with main.ub) cannot be imported", alias)
+	}
 	if !IsUBLibrary(source) {
 		return w.handleGoImport(alias, ref, source)
 	}
@@ -136,7 +143,7 @@ func (w *ubWalker) handleGoImport(
 	r, ok := ref.(*RemoteImport)
 	if !ok {
 		return Resolution{}, fmt.Errorf(
-			"import %q: local source has no library.ub", alias)
+			"import %q: local source is not a UB library", alias)
 	}
 	path := r.URL
 	if r.Subdir != "" {
@@ -203,30 +210,34 @@ func (w *ubWalker) handleUBImport(
 	}, nil
 }
 
+// parseLibrary reads a UB library's composite bodies straight from its
+// directory listing: every category-prefixed `.ub` file is one composite,
+// with the type name and category taken from the filename. There is no
+// manifest. A `.ub` file whose name is not `<category>-<type>.ub` is an
+// error, as is two files naming the same type.
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
-	manifestBytes, err := readSourceFile(source, "library.ub")
-	if err != nil {
-		return nil, fmt.Errorf("read library.ub: %w", err)
-	}
-	manifest, err := lang.ParseSource("library.ub", manifestBytes)
+	matches, err := fs.Glob(source.FS, "*.ub")
 	if err != nil {
 		return nil, err
 	}
-	manifest.Kind = lang.FileLibrary
-	if errs := lang.ValidateFile(manifest); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
-	exports, err := readManifestExports(manifest)
-	if err != nil {
-		return nil, err
-	}
-	bodies := make(map[string]*lang.File, len(exports))
-	for name, path := range exports {
-		b, err := readSourceFile(source, path)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", path, err)
+	sort.Strings(matches)
+	bodies := make(map[string]*lang.File, len(matches))
+	categories := make(map[string]string, len(matches))
+	for _, filename := range matches {
+		category, typeName, ok := ubCategoryAndType(filename)
+		if !ok {
+			return nil, fmt.Errorf(
+				"library file %q must be named <resource|data|action>-<type>.ub", filename)
 		}
-		f, err := lang.ParseSource(path, b)
+		if _, dup := bodies[typeName]; dup {
+			return nil, fmt.Errorf(
+				"composite type %q is declared by more than one file", typeName)
+		}
+		b, err := readSourceFile(source, filename)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", filename, err)
+		}
+		f, err := lang.ParseSource(filename, b)
 		if err != nil {
 			return nil, err
 		}
@@ -234,9 +245,10 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		if errs := lang.ValidateFile(f); errs.Len() > 0 {
 			return nil, errs.Err()
 		}
-		bodies[name] = f
+		bodies[typeName] = f
+		categories[typeName] = category
 	}
-	return &UBLibrary{Manifest: manifest, Bodies: bodies}, nil
+	return &UBLibrary{Bodies: bodies, Categories: categories}, nil
 }
 
 func readSourceFile(s *Source, name string) ([]byte, error) {
@@ -246,31 +258,6 @@ func readSourceFile(s *Source, name string) ([]byte, error) {
 	}
 	defer func() { _ = f.Close() }()
 	return io.ReadAll(f)
-}
-
-func readManifestExports(f *lang.File) (map[string]string, error) {
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "exports" {
-			continue
-		}
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			return nil, fmt.Errorf("`exports:` must be an object")
-		}
-		out := make(map[string]string, len(obj.Fields))
-		for _, ef := range obj.Fields {
-			if ef.Key.Kind != lang.FieldIdent || ef.Key.IsMeta() {
-				continue
-			}
-			s, ok := ef.Value.(*lang.StringLit)
-			if !ok {
-				return nil, fmt.Errorf("export %q: value must be a string", ef.Key.Name)
-			}
-			out[ef.Key.Name] = s.Value
-		}
-		return out, nil
-	}
-	return map[string]string{}, nil
 }
 
 func sortedAliases(refs map[string]ImportRef) []string {

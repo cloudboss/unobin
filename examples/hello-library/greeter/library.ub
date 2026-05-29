@@ -1,3 +1,0 @@
-description: 'Reusable greeting primitives'
-
-exports: { greeting: 'greeting.ub' }

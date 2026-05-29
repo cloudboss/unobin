@@ -22,13 +22,7 @@ func parseUB(t *testing.T, name, src string) *lang.File {
 }
 
 func TestGenerateUBLibraryProducesValidGo(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `description: 'test library'
-
-exports: {
-  cluster: 'cluster.ub'
-}
-`)
-	body := parseUB(t, "cluster.ub", `description: 'a cluster'
+	body := parseUB(t, "resource-cluster.ub", `description: 'a cluster'
 
 resources: {
   local: {
@@ -39,7 +33,7 @@ resources: {
 }
 `)
 
-	out, err := GenerateUBLibrary("net", manifest, map[string]*lang.File{"cluster": body}, nil)
+	out, err := GenerateUBLibrary("net", map[string]*lang.File{"cluster": body}, nil)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -48,26 +42,18 @@ resources: {
 }
 
 func TestGenerateUBLibraryHasExpectedShape(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `description: 'test library'
-
-exports: {
-  alpha: 'alpha.ub'
-  beta:  'beta.ub'
-}
-`)
 	bodies := map[string]*lang.File{
-		"alpha": parseUB(t, "alpha.ub", "description: 'a'"),
-		"beta":  parseUB(t, "beta.ub", "description: 'b'"),
+		"alpha": parseUB(t, "resource-alpha.ub", "description: 'a'"),
+		"beta":  parseUB(t, "resource-beta.ub", "description: 'b'"),
 	}
 
-	out, err := GenerateUBLibrary("net", manifest, bodies, nil)
+	out, err := GenerateUBLibrary("net", bodies, nil)
 	require.NoError(t, err)
 
 	s := string(out)
 	require.Contains(t, s, "package net")
 	require.Contains(t, s, "func Library() *runtime.Library")
 	require.Regexp(t, `Name:\s*"net"`, s)
-	require.Regexp(t, `Description:\s*"test library"`, s)
 	require.Regexp(t, `Composites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
 	require.Regexp(t, `"alpha":\s*\{\s*Name:\s*"alpha"`, s)
 	require.Regexp(t, `"beta":\s*\{\s*Name:\s*"beta"`, s)
@@ -79,13 +65,7 @@ exports: {
 }
 
 func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `description: 'wraps an inner UB library'
-
-exports: {
-  greeting: 'greeting.ub'
-}
-`)
-	body := parseUB(t, "greeting.ub", `description: 'a greeting'
+	body := parseUB(t, "resource-greeting.ub", `description: 'a greeting'
 
 resources: {
   helloer: { hello: { file: { message: var.message, path: var.path } } }
@@ -98,7 +78,7 @@ resources: {
 		},
 	}
 
-	out, err := GenerateUBLibrary("greeter", manifest, map[string]*lang.File{"greeting": body}, imports)
+	out, err := GenerateUBLibrary("greeter", map[string]*lang.File{"greeting": body}, imports)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -116,16 +96,9 @@ resources: {
 }
 
 func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `description: 'two composites share an import'
-
-exports: {
-  alpha: 'alpha.ub'
-  beta:  'beta.ub'
-}
-`)
 	bodies := map[string]*lang.File{
-		"alpha": parseUB(t, "alpha.ub", `description: 'a'`),
-		"beta":  parseUB(t, "beta.ub", `description: 'b'`),
+		"alpha": parseUB(t, "resource-alpha.ub", `description: 'a'`),
+		"beta":  parseUB(t, "resource-beta.ub", `description: 'b'`),
 	}
 	// Both composites import the same package; the generated file
 	// should declare it once and bind both composite-local aliases to
@@ -134,7 +107,7 @@ exports: {
 		"alpha": {"local": "github.com/cloudboss/unobin/pkg/libraries/local"},
 		"beta":  {"thing": "github.com/cloudboss/unobin/pkg/libraries/local"},
 	}
-	out, err := GenerateUBLibrary("test", manifest, bodies, imports)
+	out, err := GenerateUBLibrary("test", bodies, imports)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -145,28 +118,17 @@ exports: {
 	require.Contains(t, s, `"thing": lib_local.Library()`)
 }
 
-func TestGenerateUBLibraryErrorsOnMissingBody(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `exports: { cluster: 'cluster.ub' }`)
-	_, err := GenerateUBLibrary("net", manifest, nil, nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "cluster")
-	require.Contains(t, err.Error(), "no body")
-}
-
-func TestGenerateUBLibraryEmptyExports(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `description: 'no exports'`)
-	out, err := GenerateUBLibrary("empty", manifest, nil, nil)
+func TestGenerateUBLibraryEmptyBodies(t *testing.T) {
+	out, err := GenerateUBLibrary("empty", nil, nil)
 	require.NoError(t, err)
 
 	s := string(out)
 	require.Contains(t, s, "package empty")
-	require.Regexp(t, `Description:\s*"no exports"`, s)
 	require.Regexp(t, `Composites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
 }
 
 func TestGenerateUBLibraryRejectsEmptyAlias(t *testing.T) {
-	manifest := parseUB(t, "library.ub", `description: 'x'`)
-	_, err := GenerateUBLibrary("", manifest, nil, nil)
+	_, err := GenerateUBLibrary("", nil, nil)
 	require.Error(t, err)
 }
 
@@ -181,13 +143,7 @@ func TestGenerateUBLibraryCompilesWithCaller(t *testing.T) {
 		t.Skip("skipped: spawns `go run` and is slow")
 	}
 
-	manifest := parseUB(t, "library.ub", `description: 'test library'
-
-exports: {
-  cluster: 'cluster.ub'
-}
-`)
-	body := parseUB(t, "cluster.ub", `description: 'a cluster'
+	body := parseUB(t, "resource-cluster.ub", `description: 'a cluster'
 
 resources: {
   local: {
@@ -198,7 +154,7 @@ resources: {
 }
 `)
 
-	out, err := GenerateUBLibrary("net", manifest, map[string]*lang.File{"cluster": body}, nil)
+	out, err := GenerateUBLibrary("net", map[string]*lang.File{"cluster": body}, nil)
 	require.NoError(t, err)
 
 	rootDir := findUnobinRoot(t)
@@ -220,7 +176,6 @@ import (
 func main() {
 	lib := net.Library()
 	fmt.Printf("name=%s\n", lib.Name)
-	fmt.Printf("description=%s\n", lib.Description)
 	fmt.Printf("composites=%d\n", len(lib.Composites))
 	for name, ct := range lib.Composites {
 		fmt.Printf("composite=%s body-fields=%d\n", name, len(ct.Body.Body.Fields))
@@ -256,7 +211,6 @@ replace github.com/cloudboss/unobin => %s
 
 	got := string(runOut)
 	require.Contains(t, got, "name=net")
-	require.Contains(t, got, "description=test library")
 	require.Contains(t, got, "composites=1")
 	require.Contains(t, got, "composite=cluster body-fields=2")
 }

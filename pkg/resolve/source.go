@@ -1,6 +1,9 @@
 package resolve
 
-import "io/fs"
+import (
+	"io/fs"
+	"strings"
+)
 
 // Source is the file tree of a resolved import, rooted at the import's
 // subdirectory, or the repo root when there is no subdir. For remote
@@ -23,13 +26,47 @@ type Resolver interface {
 	Resolve(ref ImportRef) (*Source, error)
 }
 
-// IsUBLibrary reports whether s carries a `library.ub` manifest at its
-// root. UB libraries are identified structurally by the presence of that
-// file, while sources without it are Go libraries.
+// IsUBLibrary reports whether s is a UB-implemented library: a directory
+// holding at least one `.ub` file and no `main.ub` (a `main.ub` marks a
+// factory, which is not importable). Every `.ub` file in a library is
+// expected to be a category-prefixed body (`resource-*.ub`, `data-*.ub`,
+// or `action-*.ub`); a misnamed one is caught when the library is parsed,
+// not here, so the author gets a clear error rather than having the whole
+// directory silently treated as a Go library. Sources with no `.ub` files
+// are Go libraries.
 func IsUBLibrary(s *Source) bool {
+	if s == nil || s.FS == nil || ContainsMainUB(s) {
+		return false
+	}
+	matches, err := fs.Glob(s.FS, "*.ub")
+	return err == nil && len(matches) > 0
+}
+
+// ContainsMainUB reports whether s has a `main.ub` at its root, which
+// marks the directory as a factory: runnable and not importable.
+func ContainsMainUB(s *Source) bool {
 	if s == nil || s.FS == nil {
 		return false
 	}
-	_, err := fs.Stat(s.FS, "library.ub")
+	_, err := fs.Stat(s.FS, "main.ub")
 	return err == nil
+}
+
+// ubCategoryAndType splits a category-prefixed body filename into its
+// category (`resource`, `data`, or `action`) and the type name. It
+// reports ok=false for any name that is not `<category>-<type>.ub`.
+func ubCategoryAndType(filename string) (category, typeName string, ok bool) {
+	base, found := strings.CutSuffix(filename, ".ub")
+	if !found {
+		return "", "", false
+	}
+	prefix, rest, found := strings.Cut(base, "-")
+	if !found || rest == "" {
+		return "", "", false
+	}
+	switch prefix {
+	case "resource", "data", "action":
+		return prefix, rest, true
+	}
+	return "", "", false
 }

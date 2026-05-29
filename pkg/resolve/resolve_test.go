@@ -89,7 +89,7 @@ func (s stubResolver) Resolve(_ ImportRef) (*Source, error) {
 func TestIsUBLibrary(t *testing.T) {
 	root := t.TempDir()
 	withManifest := filepath.Join(root, "with")
-	writeFile(t, filepath.Join(withManifest, "library.ub"), "description: 'x'\n")
+	writeFile(t, filepath.Join(withManifest, "resource-thing.ub"), "description: 'x'\n")
 	without := filepath.Join(root, "without")
 	require.NoError(t, os.MkdirAll(without, 0o755))
 

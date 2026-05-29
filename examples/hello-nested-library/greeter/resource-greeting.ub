@@ -2,7 +2,7 @@ description: 'Greets by delegating the file write to the remote helloer library.
 
 inputs: { message: { type: string }, path: { type: string } }
 
-imports: { helloer: 'github.com/cloudboss/unobin-libraries-scratch//ub/helloer@v0.3.0' }
+imports: { helloer: 'github.com/cloudboss/unobin-libraries-scratch//ub/helloer@v0.4.0' }
 
 resources: { helloer: { hello: { file: { message: var.message, path: var.path } } } }
 

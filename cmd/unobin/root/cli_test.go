@@ -460,11 +460,7 @@ imports: {
 
 	netDir := filepath.Join(dir, "libraries", "net")
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(netDir, "library.ub"), []byte(`
-description: 'net primitives'
-exports: { cluster: 'cluster.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(netDir, "cluster.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(netDir, "resource-cluster.ub"), []byte(`
 description: 'a cluster'
 resources: {
   local: {
@@ -528,12 +524,11 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
-		Name:        "net",
-		Description: "net primitives",
+		Name: "net",
 		Composites: map[string]*runtime.CompositeType{
 			"cluster": {
 				Name: "cluster",
-				Body: &lang.File{Kind: lang.FileExportedType, Path: "cluster.ub", Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "description"}, Value: &lang.StringLit{Value: "a cluster"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "resources"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "local"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "file"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "x"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}}}}}}}}}}}},
+				Body: &lang.File{Kind: lang.FileExportedType, Path: "resource-cluster.ub", Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "description"}, Value: &lang.StringLit{Value: "a cluster"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "resources"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "local"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "file"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "x"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}}}}}}}}}}}},
 			},
 		},
 	}
@@ -546,11 +541,7 @@ func Library() *runtime.Library {
 
 func TestCompileWithRemoteUBLibrary(t *testing.T) {
 	libraryDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "library.ub"), []byte(`
-description: 'remote net'
-exports: { cluster: 'cluster.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "cluster.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "resource-cluster.ub"), []byte(`
 description: 'a cluster'
 resources: {
   local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } }
@@ -597,11 +588,7 @@ imports: {
 func TestCompileNestedUBLibraries(t *testing.T) {
 	// inner library: a remote UB library the outer one imports.
 	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "library.ub"), []byte(`
-description: 'inner library'
-exports: { hello: 'hello.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "hello.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "resource-hello.ub"), []byte(`
 description: 'inner hello'
 inputs: { path: { type: string } }
 imports: {
@@ -615,11 +602,7 @@ outputs: { path: { value: resource.local.file.this.path } }
 
 	// outer library: imports inner under a different alias and wraps it.
 	outerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "library.ub"), []byte(`
-description: 'outer library'
-exports: { greeting: 'greeting.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "greeting.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "resource-greeting.ub"), []byte(`
 description: 'outer greeting'
 inputs: { path: { type: string } }
 imports: {
@@ -697,11 +680,7 @@ func TestCompileRejectsConflictingGoVersions(t *testing.T) {
 	// Go library path, which compile must reject up front rather than
 	// letting `go build` discover it later.
 	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "library.ub"), []byte(`
-description: 'remote net'
-exports: { cluster: 'cluster.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "cluster.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "resource-cluster.ub"), []byte(`
 description: 'a cluster'
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.2.0'
@@ -737,22 +716,14 @@ func TestCompileDetectsUBImportCycle(t *testing.T) {
 	// Library A's body imports library B; library B's body imports library
 	// A. Compile must report the cycle rather than recurse forever.
 	aDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(aDir, "library.ub"), []byte(`
-description: 'a'
-exports: { type-a: 'type-a.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(aDir, "type-a.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(aDir, "resource-type-a.ub"), []byte(`
 description: 'a body'
 imports: { b: 'github.com/example/b//ub/b@v1' }
 resources: { b: { type-b: { y: {} } } }
 `), 0o644))
 
 	bDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(bDir, "library.ub"), []byte(`
-description: 'b'
-exports: { type-b: 'type-b.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(bDir, "type-b.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(bDir, "resource-type-b.ub"), []byte(`
 description: 'b body'
 imports: { a: 'github.com/example/a//ub/a@v1' }
 resources: { a: { type-a: { z: {} } } }
@@ -783,11 +754,7 @@ func TestCompileSharesPackageAcrossAliases(t *testing.T) {
 	// sites should generate exactly one Go package and both call sites
 	// should bind to it.
 	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "library.ub"), []byte(`
-description: 'shared inner'
-exports: { hello: 'hello.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "hello.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "resource-hello.ub"), []byte(`
 description: 'inner hello'
 inputs: { path: { type: string } }
 resources: { local: { file: { x: { path: var.path, content: 'hi' } } } }
@@ -795,11 +762,7 @@ outputs: { path: { value: resource.local.file.x.path } }
 `), 0o644))
 
 	wrapDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "library.ub"), []byte(`
-description: 'wrap'
-exports: { greeting: 'greeting.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "greeting.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "resource-greeting.ub"), []byte(`
 description: 'wrap greeting'
 inputs: { path: { type: string } }
 imports: {
@@ -866,12 +829,7 @@ func TestCompileReplaceUnobinUBSubdir(t *testing.T) {
 	fakeUnobin := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(fakeUnobin, "some-lib"), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(fakeUnobin, "some-lib", "library.ub"), []byte(`
-description: 'replaced library'
-exports: { foo: 'foo.ub' }
-`), 0o644))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(fakeUnobin, "some-lib", "foo.ub"), []byte(`
+		filepath.Join(fakeUnobin, "some-lib", "resource-foo.ub"), []byte(`
 description: 'a foo'
 resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } } }
 `), 0o644))
@@ -967,9 +925,8 @@ imports: {
 
 	netDir := filepath.Join(dir, "libraries", "net")
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(netDir, "library.ub"), []byte(`
-description: 'net primitives'
-exports: {}
+	require.NoError(t, os.WriteFile(filepath.Join(netDir, "resource-cluster.ub"), []byte(`
+description: 'a cluster'
 `), 0o644))
 
 	out, err := runCommand(t, "fetch", "-p", stackPath)
@@ -1006,5 +963,5 @@ imports: {
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "library.ub")
+	require.Contains(t, err.Error(), "not a UB library")
 }

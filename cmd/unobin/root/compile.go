@@ -293,7 +293,7 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.Manifest, lib.Bodies, composites)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, composites)
 	if err != nil {
 		return err
 	}
@@ -396,11 +396,7 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 	if !info.IsDir() {
 		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
 	}
-	src := &resolve.Source{Commit: "replace", Path: target}
-	if _, err := os.Stat(filepath.Join(target, "library.ub")); err == nil {
-		src.FS = os.DirFS(target)
-	}
-	return src, nil
+	return &resolve.Source{Commit: "replace", Path: target, FS: os.DirFS(target)}, nil
 }
 
 // readGoSchema reads a fetched Go library's source from sourcePath

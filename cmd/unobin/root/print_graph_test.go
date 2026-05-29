@@ -105,14 +105,7 @@ func TestPrintGraphExpandsLocalUBLibraryComposite(t *testing.T) {
 
 	greeterDir := filepath.Join(root, "greeter")
 	require.NoError(t, os.MkdirAll(greeterDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "library.ub"), []byte(`
-description: 'Local greeter'
-
-exports: {
-  greeting: 'greeting.ub'
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "greeting.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "resource-greeting.ub"), []byte(`
 description: 'Greeting composite'
 
 inputs: {

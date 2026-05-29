@@ -81,7 +81,7 @@ func TestResolveImportsLocal(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "libraries", "net"), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(root, "libraries", "net", "library.ub"),
+		filepath.Join(root, "libraries", "net", "resource-cluster.ub"),
 		[]byte("description: 'net'\n"), 0o644))
 
 	f := parseStack(t, `

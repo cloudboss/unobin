@@ -40,13 +40,7 @@ imports: {
   net: './libraries/net'
 }
 `)
-	writeUB(t, filepath.Join(root, "libraries", "net", "library.ub"), `
-description: 'net'
-exports: {
-  cluster: 'cluster.ub'
-}
-`)
-	writeUB(t, filepath.Join(root, "libraries", "net", "cluster.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "net", "resource-cluster.ub"), `
 description: 'cluster type'
 `)
 	return stackPath, root
@@ -78,18 +72,12 @@ imports: {
   a: './libraries/a'
 }
 `)
-	writeUB(t, filepath.Join(root, "libraries", "a", "library.ub"), `
-exports: { x: 'x.ub' }
-`)
-	writeUB(t, filepath.Join(root, "libraries", "a", "x.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "a", "resource-x.ub"), `
 imports: {
   b: '../b'
 }
 `)
-	writeUB(t, filepath.Join(root, "libraries", "b", "library.ub"), `
-exports: { y: 'y.ub' }
-`)
-	writeUB(t, filepath.Join(root, "libraries", "b", "y.ub"), `
+	writeUB(t, filepath.Join(root, "libraries", "b", "resource-y.ub"), `
 imports: {
   loop: '../a'
 }

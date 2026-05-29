@@ -111,10 +111,11 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 }
 
 // buildLibraryMap turns each top-level import alias into a *runtime.Library.
-// UB-library Composites are populated from the parsed exports; Go libraries
-// become empty Library values so the runtime can tell "imported but not a
-// composite" apart from "not imported at all". Each composite carries
-// its own Libraries map so composite-internal lookups stay self-contained.
+// UB-library Composites are populated from the library's category-prefixed
+// body files; Go libraries become empty Library values so the runtime can
+// tell "imported but not a composite" apart from "not imported at all". Each
+// composite carries its own Libraries map so composite-internal lookups stay
+// self-contained.
 func buildLibraryMap(refs map[string]resolve.ImportRef,
 	resolver resolve.Resolver, warnOut io.Writer) (map[string]*runtime.Library, error) {
 	v := &graphVisitor{byKey: map[string]*runtime.Library{}, warnOut: warnOut}

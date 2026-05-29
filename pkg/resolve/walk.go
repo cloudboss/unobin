@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -61,6 +62,11 @@ func (w *walker) walkFile(id string, parentSrc *Source, f *lang.File) {
 		}
 		childID := importNodeID(id, alias, ref)
 		w.graph.AddEdge(id, childID)
+		if ContainsMainUB(src) {
+			w.errors = append(w.errors, fmt.Errorf(
+				"import %q: a factory (a directory with main.ub) cannot be imported", alias))
+			continue
+		}
 		if !IsUBLibrary(src) {
 			// Go library or some other leaf - record as a node, do not recurse.
 			w.graph.AddNode(childID)
@@ -89,51 +95,40 @@ func (w *walker) resolveOne(parentSrc *Source, ref ImportRef) (*Source, error) {
 	return w.resolver.Resolve(ref)
 }
 
-// walkUBLibrary reads the library's manifest and recurses into each
-// exported file. Errors during manifest parsing or export reads are
-// recorded but do not stop the walk.
+// walkUBLibrary reads the library's composite bodies from its directory
+// listing: each category-prefixed `.ub` file is one composite, named by
+// its filename. Errors during the scan or a body read are recorded but
+// do not stop the walk.
 func (w *walker) walkUBLibrary(libraryID string, src *Source) {
-	b, err := fs.ReadFile(src.FS, "library.ub")
+	matches, err := fs.Glob(src.FS, "*.ub")
 	if err != nil {
-		w.errors = append(w.errors,
-			fmt.Errorf("library %q: read library.ub: %w", libraryID, err))
+		w.errors = append(w.errors, fmt.Errorf("library %q: %w", libraryID, err))
 		return
 	}
-	manifest, err := lang.ParseSource(path.Join(libraryID, "library.ub"), b)
-	if err != nil {
-		w.errors = append(w.errors,
-			fmt.Errorf("library %q: parse library.ub: %w", libraryID, err))
-		return
-	}
-	exports := topLevelObject(manifest, "exports")
-	if exports == nil {
-		return
-	}
-	for _, fld := range exports.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		s, ok := fld.Value.(*lang.StringLit)
+	sort.Strings(matches)
+	for _, filename := range matches {
+		_, typeName, ok := ubCategoryAndType(filename)
 		if !ok {
+			w.errors = append(w.errors, fmt.Errorf(
+				"library %q: file %q must be named <resource|data|action>-<type>.ub",
+				libraryID, filename))
 			continue
 		}
-		exportName := fld.Key.Name
-		exportPath := s.Value
-		exportID := libraryID + ":" + exportName
+		exportID := libraryID + ":" + typeName
 		w.graph.AddEdge(libraryID, exportID)
 
-		body, err := fs.ReadFile(src.FS, exportPath)
+		body, err := fs.ReadFile(src.FS, filename)
 		if err != nil {
 			w.errors = append(w.errors,
-				fmt.Errorf("library %q export %q: read %s: %w",
-					libraryID, exportName, exportPath, err))
+				fmt.Errorf("library %q type %q: read %s: %w",
+					libraryID, typeName, filename, err))
 			continue
 		}
-		exportFile, err := lang.ParseSource(path.Join(libraryID, exportPath), body)
+		exportFile, err := lang.ParseSource(path.Join(libraryID, filename), body)
 		if err != nil {
 			w.errors = append(w.errors,
-				fmt.Errorf("library %q export %q: parse: %w",
-					libraryID, exportName, err))
+				fmt.Errorf("library %q type %q: parse: %w",
+					libraryID, typeName, err))
 			continue
 		}
 		w.walkFile(exportID, src, exportFile)

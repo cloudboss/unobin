@@ -31,15 +31,6 @@ outputs:     {}
 	require.Equal(t, 0, errs.Len(), "expected no errors, got: %v", errs.Errors())
 }
 
-func TestValidateTopLevelKeysModule(t *testing.T) {
-	src := `
-description: 'a library'
-exports:     { cluster: 'cluster.ub' }
-`
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileLibrary))
-	require.Equal(t, 0, errs.Len())
-}
-
 func TestValidateTopLevelKeysConfig(t *testing.T) {
 	src := `
 factory:        { source: 'github.com/x/y' }
@@ -75,12 +66,6 @@ func TestValidateRejectsForeignKeys(t *testing.T) {
 			kind:   FileFactory,
 			src:    "exports: { x: 'y.ub' }\n",
 			badKey: "exports",
-		},
-		{
-			name:   "library-with-inputs",
-			kind:   FileLibrary,
-			src:    "inputs: {}\n",
-			badKey: "inputs",
 		},
 		{
 			name:   "config-with-resources",
@@ -638,28 +623,6 @@ imports: {
 	require.Equal(t, 2, errs.Len())
 }
 
-func TestValidateExportsHappy(t *testing.T) {
-	src := `
-exports: {
-  cluster: 'cluster.ub'
-  proxy:   'proxy.ub'
-}
-`
-	errs := ValidateExports(parseObjectBlock(t, src, "exports"))
-	require.Equal(t, 0, errs.Len())
-}
-
-func TestValidateExportsNotString(t *testing.T) {
-	src := `
-exports: {
-  cluster: 42
-}
-`
-	errs := ValidateExports(parseObjectBlock(t, src, "exports"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "quoted-string")
-}
-
 func TestValidateOutputsHappy(t *testing.T) {
 	src := `
 outputs: {
@@ -884,18 +847,13 @@ exports: {
 	require.GreaterOrEqual(t, errs.Len(), 4, "got: %v", errsToStrings(errs))
 }
 
-func TestValidateFileModule(t *testing.T) {
+func TestValidateFileExportedType(t *testing.T) {
 	src := `
-description: 'a library'
-exports: {
-  cluster: 'cluster.ub'
-  proxy:   'proxy.ub'
-}
+description: 'a composite'
+inputs:  { name: { type: string } }
+outputs: { name: { value: var.name } }
 `
-	f, err := ParseSource("library.ub", []byte(src))
-	require.NoError(t, err)
-	require.Equal(t, FileLibrary, f.Kind)
-
+	f := parseWithKind(t, src, FileExportedType)
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
 }

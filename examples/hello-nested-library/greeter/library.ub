@@ -1,3 +1,0 @@
-description: 'Local library that wraps the remote helloer composite.'
-
-exports: { greeting: 'greeting.ub' }

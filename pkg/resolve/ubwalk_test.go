@@ -91,8 +91,7 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 
 func TestWalkUBRecordsUBLibrary(t *testing.T) {
 	src := newUBSource(t, map[string]string{
-		"library.ub": "description: 'm'\nexports: { greeter: 'greeter.ub' }\n",
-		"greeter.ub": `description: 'g'
+		"resource-greeter.ub": `description: 'g'
 imports: { core: 'github.com/x/unobin//core@v0.1.0' }
 inputs: { name: { type: string } }
 `,
@@ -123,8 +122,7 @@ inputs: { name: { type: string } }
 
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 	src := newUBSource(t, map[string]string{
-		"library.ub": "description: 'm'\nexports: { thing: 'thing.ub' }\n",
-		"thing.ub":   "description: 'thing'\ninputs: { x: { type: string } }\n",
+		"resource-thing.ub": "description: 'thing'\ninputs: { x: { type: string } }\n",
 	})
 	refs := map[string]ImportRef{
 		"a": &RemoteImport{URL: "github.com/x/y", Version: "v1.0.0"},
@@ -145,15 +143,13 @@ func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 
 func TestWalkUBDetectsCycle(t *testing.T) {
 	a := newUBSource(t, map[string]string{
-		"library.ub": "description: 'a'\nexports: { thing: 'thing.ub' }\n",
-		"thing.ub": `description: 't'
+		"resource-thing.ub": `description: 't'
 imports: { b: 'github.com/x/b@v1' }
 inputs: { x: { type: string } }
 `,
 	})
 	b := newUBSource(t, map[string]string{
-		"library.ub": "description: 'b'\nexports: { other: 'other.ub' }\n",
-		"other.ub": `description: 'o'
+		"resource-other.ub": `description: 'o'
 imports: { a: 'github.com/x/a@v1' }
 inputs: { y: { type: string } }
 `,
