@@ -170,6 +170,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if errs := ubruntime.CheckReferences(f, libs); errs.Len() > 0 {
 		return errs.Err()
 	}
+	if errs := ubruntime.CheckLiteralConstraints(f, libs); errs.Len() > 0 {
+		return errs.Err()
+	}
 
 	in := codegen.Input{
 		Body:          string(src),
