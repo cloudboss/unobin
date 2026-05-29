@@ -13,7 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-func printPlan(out io.Writer, plan *runtime.Plan) {
+func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 	var drift []*runtime.PlanStep
 	for _, s := range plan.Steps {
 		if s.Drift() || s.Gone() {
@@ -36,7 +36,7 @@ func printPlan(out io.Writer, plan *runtime.Plan) {
 		return
 	}
 
-	renderPlanTree(out, tree, "", 0)
+	renderPlanTree(out, tree, "", 0, ascii)
 
 	var leaves []*runtime.PlanStep
 	collectChangedLeaves(tree, "", &leaves)
@@ -78,7 +78,7 @@ func buildPlanTree(steps []*runtime.PlanStep) *planTree {
 	return t
 }
 
-func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
+func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii bool) {
 	children := append([]*runtime.PlanStep{}, t.children[parent]...)
 	sort.Slice(children, func(i, j int) bool { return children[i].Address < children[j].Address })
 
@@ -92,17 +92,17 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 				i++
 				continue
 			}
-			sym := decisionSymbol(boundaryDecisionRecursive(t, child.Address))
-			fmt.Fprintf(out, "%s%s %s  (library %s)\n",
-				symPad, sym, child.Address, compositeRef(child.Address))
+			sym := decisionSymbol(boundaryDecisionRecursive(t, child.Address), ascii)
+			fmt.Fprintf(out, "%s%s %s  (composite)\n",
+				symPad, sym, relTo(child.Address, parent))
 			renderStepInputs(out, fieldPad, child)
-			renderPlanTree(out, t, child.Address, depth+1)
+			renderPlanTree(out, t, child.Address, depth+1, ascii)
 			i++
 			continue
 		}
 		tmpl, key := runtime.SplitInstanceAddress(child.Address)
 		if key != "" {
-			n := renderForEachGroup(out, t, parent, children, i, tmpl, depth)
+			n := renderForEachGroup(out, t, parent, children, i, tmpl, depth, ascii)
 			i += n
 			continue
 		}
@@ -111,7 +111,7 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int) {
 			continue
 		}
 		fmt.Fprintf(out, "%s%s %s%s\n",
-			symPad, decisionSymbol(child.Decision), relTo(child.Address, parent),
+			symPad, decisionSymbol(child.Decision, ascii), relTo(child.Address, parent),
 			destroyNote(child))
 		renderStepInputs(out, fieldPad, child)
 		i++
@@ -152,6 +152,7 @@ func renderForEachGroup(
 	start int,
 	tmpl string,
 	depth int,
+	ascii bool,
 ) int {
 	end := start
 	for end < len(children) {
@@ -174,13 +175,13 @@ func renderForEachGroup(
 	symPad := strings.Repeat("  ", depth+1)
 	instSymPad := strings.Repeat("  ", depth+2)
 	instFieldPad := strings.Repeat("  ", depth+4)
-	header := decisionSymbol(strongestDecision(changing))
+	header := decisionSymbol(strongestDecision(changing), ascii)
 	fmt.Fprintf(out, "%s%s %s  (for-each, %d instances)\n",
 		symPad, header, relTo(tmpl, parent), len(group))
 	for _, inst := range changing {
 		_, k := runtime.SplitInstanceAddress(inst.Address)
 		fmt.Fprintf(out, "%s%s ['%s']%s\n",
-			instSymPad, decisionSymbol(inst.Decision), k, destroyNote(inst))
+			instSymPad, decisionSymbol(inst.Decision, ascii), k, destroyNote(inst))
 		renderStepInputs(out, instFieldPad, inst)
 	}
 	return end - start
@@ -280,25 +281,6 @@ func isChange(d runtime.Decision) bool {
 		return false
 	}
 	return true
-}
-
-// compositeRef extracts the trailing "<alias>.<composite-type>" pair
-// from a boundary address. At root the address looks like
-// "resource.greeter.greeting.welcome" and yields "greeter.greeting".
-// For a nested boundary the prefix carries the chain of enclosing
-// call sites, e.g. "resource.A.B.C/resource.D.E.F" where the inner
-// segment "resource.D.E.F" is the call's own category root plus
-// "<alias>.<type>.<name>".
-func compositeRef(address string) string {
-	tail := address
-	if i := strings.LastIndex(tail, "/"); i >= 0 {
-		tail = tail[i+1:]
-	}
-	parts := strings.SplitN(tail, ".", 4)
-	if len(parts) < 4 {
-		return ""
-	}
-	return parts[1] + "." + parts[2]
 }
 
 func printDriftStep(out io.Writer, s *runtime.PlanStep) {
@@ -413,26 +395,69 @@ func destroyNote(s *runtime.PlanStep) string {
 	return ""
 }
 
-func decisionSymbol(d runtime.Decision) string {
+// Plan-decision glyphs for the default output: a clockwise arrow (replace),
+// a counterclockwise arrow (rerun), a skip-forward bar (skip), and a
+// leftward arrow (read). ascii mode swaps in plain forms.
+var (
+	glyphReplace = "↻"
+	glyphRerun   = "↺"
+	glyphSkip    = "⏭"
+	glyphRead    = "←"
+)
+
+// decisionSymbol returns the marker for a decision. The default output uses
+// one-glyph arrows; ascii mode uses padded word labels so the marks read
+// clearly without a legend and the addresses still line up.
+func decisionSymbol(d runtime.Decision, ascii bool) string {
+	if ascii {
+		return asciiLabel(d)
+	}
 	switch d {
 	case runtime.DecisionCreate:
 		return "+"
 	case runtime.DecisionUpdate:
 		return "~"
 	case runtime.DecisionReplace:
-		return "R"
+		return glyphReplace
 	case runtime.DecisionDestroy:
 		return "-"
 	case runtime.DecisionRerun:
-		return ">"
+		return glyphRerun
 	case runtime.DecisionSkip:
-		return "."
+		return glyphSkip
+	case runtime.DecisionRead:
+		return glyphRead
 	case runtime.DecisionNoOp:
 		return " "
-	case runtime.DecisionRead:
-		return "?"
 	case runtime.DecisionEval:
 		return "="
 	}
 	return "?"
+}
+
+// asciiLabel renders a decision as a parenthesized word, padded to the width
+// of the longest label ("(replace)") so a column of marks stays aligned.
+func asciiLabel(d runtime.Decision) string {
+	word := "?"
+	switch d {
+	case runtime.DecisionCreate:
+		word = "create"
+	case runtime.DecisionUpdate:
+		word = "update"
+	case runtime.DecisionReplace:
+		word = "replace"
+	case runtime.DecisionDestroy:
+		word = "destroy"
+	case runtime.DecisionRerun:
+		word = "rerun"
+	case runtime.DecisionSkip:
+		word = "skip"
+	case runtime.DecisionRead:
+		word = "read"
+	case runtime.DecisionNoOp:
+		word = "noop"
+	case runtime.DecisionEval:
+		word = "eval"
+	}
+	return fmt.Sprintf("%-9s", "("+word+")")
 }

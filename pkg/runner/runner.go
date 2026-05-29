@@ -93,6 +93,7 @@ func newPlanCmd(info Info) *cobra.Command {
 		allowVersionMismatch bool
 		parallelism          int
 		destroy              bool
+		ascii                bool
 	)
 	cmd := &cobra.Command{
 		Use:   "plan",
@@ -105,7 +106,7 @@ func newPlanCmd(info Info) *cobra.Command {
 			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
 				return err
 			}
-			return doPlan(cmd, info, config, configPath, outPath, parallelism, destroy)
+			return doPlan(cmd, info, config, configPath, outPath, parallelism, destroy, ascii)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
@@ -119,6 +120,8 @@ func newPlanCmd(info Info) *cobra.Command {
 			" Zero (the default) falls back to config.ub, then to the runtime default.")
 	cmd.Flags().BoolVar(&destroy, "destroy", false,
 		"Plan to destroy every resource in state instead of converging on the source.")
+	cmd.Flags().BoolVar(&ascii, "ascii", false,
+		"Render the plan with plain ASCII symbols instead of the default arrows.")
 	return cmd
 }
 
@@ -590,7 +593,7 @@ func loadEncrypter(info Info, f *lang.File, configPath string) (sdkencrypt.Encry
 
 func doPlan(
 	cmd *cobra.Command, info Info, config *lang.File,
-	configPath, outPath string, parallelismOverride int, destroy bool,
+	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
 ) error {
 	f, err := parsedFile(info)
 	if err != nil {
@@ -645,7 +648,7 @@ func doPlan(
 		return err
 	}
 	plan.Backend = toRuntimeStateRef(sc.Backend)
-	printPlan(cmd.OutOrStdout(), plan)
+	printPlan(cmd.OutOrStdout(), plan, ascii)
 	if outPath != "" {
 		sealed, err := runtime.SealPlan(plan, toRuntimeStateRef(sc.Encrypter), enc)
 		if err != nil {
