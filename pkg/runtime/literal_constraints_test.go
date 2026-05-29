@@ -225,3 +225,72 @@ func constraintMessages(errs *lang.ErrorList) []string {
 	}
 	return out
 }
+
+// checkLiteralMsgs runs the compile-time check against one core.thing
+// resource whose type carries specs and whose body is the given literal,
+// returning the address-and-constraint messages.
+func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []string {
+	t.Helper()
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{
+			Resources: map[string]*TypeSchema{"thing": {Constraints: specs}},
+		}},
+	}
+	src := "resources: {\n  core: { thing: { x: " + body + " } }\n}\n"
+	return constraintMessages(CheckLiteralConstraints(parseStack(t, src), libs))
+}
+
+// TestCheckLiteralConstraintKinds covers the constraint kinds and the
+// predicate path through the compile-time check, including a predicate
+// that reads an input the body omits: the check must fill it with null so
+// the condition evaluates instead of failing.
+func TestCheckLiteralConstraintKinds(t *testing.T) {
+	const addr = "resource.core.thing.x: "
+	pred := []lang.ConstraintSpec{{
+		Kind: "predicate", When: "var.name != null", Require: "var.size != null",
+	}}
+	tests := []struct {
+		name  string
+		specs []lang.ConstraintSpec
+		body  string
+		want  []string
+	}{
+		{
+			name:  "at-least-one-of with none set is reported",
+			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of", Fields: []string{"name", "size"}}},
+			body:  `{ region: 'us' }`,
+			want: []string{addr + "constraints[0] (at-least-one-of [name, size]): " +
+				"expected at least one to be set, got none"},
+		},
+		{
+			name:  "required-together with one set is reported",
+			specs: []lang.ConstraintSpec{{Kind: "required-together", Fields: []string{"name", "size"}}},
+			body:  `{ name: 'a' }`,
+			want: []string{addr + "constraints[0] (required-together [name, size]): " +
+				"expected all set or all null, got 1 set (name)"},
+		},
+		{
+			name:  "predicate with unmet requirement is reported",
+			specs: pred,
+			body:  `{ name: 'a' }`,
+			want:  []string{addr + "constraints[0] (predicate): predicate requirement not satisfied"},
+		},
+		{
+			name:  "predicate with met requirement passes",
+			specs: pred,
+			body:  `{ name: 'a', size: 1 }`,
+			want:  nil,
+		},
+		{
+			name:  "predicate whose condition is false passes",
+			specs: pred,
+			body:  `{ size: 1 }`,
+			want:  nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, checkLiteralMsgs(t, tt.specs, tt.body))
+		})
+	}
+}

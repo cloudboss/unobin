@@ -15,16 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPlanRejectsGoTypeConstraintViolation(t *testing.T) {
+// planThingConstraintErr plans a stack with one core.thing resource whose
+// body is the given literal object, after attaching specs to the thing
+// type's constraints, and returns the plan error (nil when it succeeds).
+func planThingConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body string) error {
+	t.Helper()
 	libs := resourceModules(&resourceCounters{})
-	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
-		"resource.thing": {{Kind: "exactly-one-of", Fields: []string{"name", "size"}}},
-	}
-	src := `
-resources: {
-  core: { thing: { x: { name: 'x', size: 1 } } }
-}
-`
+	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
+	src := "resources: {\n  core: { thing: { x: " + body + " } }\n}\n"
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
@@ -32,19 +30,221 @@ resources: {
 		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
 	}
 	_, err := exec.Plan(context.Background())
-	require.EqualError(t, err,
-		"resource.core.thing.x: schema: constraints[0] (exactly-one-of [name, size]): "+
-			"expected exactly one to be set, got 2 (name, size)")
+	return err
 }
 
-func TestPlanAcceptsValidGoTypeConstraint(t *testing.T) {
+func setSpec(kind string, fields ...string) lang.ConstraintSpec {
+	return lang.ConstraintSpec{Kind: kind, Fields: fields}
+}
+
+func predSpec(when, require string) lang.ConstraintSpec {
+	return lang.ConstraintSpec{Kind: "predicate", When: when, Require: require}
+}
+
+// goConstraintCases drives both the violation table and the determinism
+// pass. The prefix repeated on every expected message is the node address
+// plus the kind tag lang.Error renders.
+const goConstraintPrefix = "resource.core.thing.x: schema: "
+
+func goConstraintCases() []struct {
+	name    string
+	specs   []lang.ConstraintSpec
+	body    string
+	wantErr string
+} {
+	return []struct {
+		name    string
+		specs   []lang.ConstraintSpec
+		body    string
+		wantErr string
+	}{
+		{
+			name:  "exactly-one-of with two set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [name, size]): " +
+				"expected exactly one to be set, got 2 (name, size)",
+		},
+		{
+			name:  "exactly-one-of with one set passes",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "name", "size")},
+			body:  `{ name: 'a' }`,
+		},
+		{
+			name:  "exactly-one-of with none set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "name", "size")},
+			body:  `{ region: 'us' }`,
+			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [name, size]): " +
+				"expected exactly one to be set, got 0 ()",
+		},
+		{
+			name:  "at-least-one-of with none set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "name", "size")},
+			body:  `{ region: 'us' }`,
+			wantErr: goConstraintPrefix + "constraints[0] (at-least-one-of [name, size]): " +
+				"expected at least one to be set, got none",
+		},
+		{
+			name:  "at-least-one-of with both set passes",
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+		},
+		{
+			name:  "at-most-one-of with two set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+			wantErr: goConstraintPrefix + "constraints[0] (at-most-one-of [name, size]): " +
+				"expected at most one to be set, got 2 (name, size)",
+		},
+		{
+			name:  "at-most-one-of with none set passes",
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "name", "size")},
+			body:  `{ region: 'us' }`,
+		},
+		{
+			name:  "mutually-exclusive with two set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("mutually-exclusive", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+			wantErr: goConstraintPrefix + "constraints[0] (mutually-exclusive [name, size]): " +
+				"expected at most one to be set, got 2 (name, size)",
+		},
+		{
+			name:  "required-together with one set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("required-together", "name", "size")},
+			body:  `{ name: 'a' }`,
+			wantErr: goConstraintPrefix + "constraints[0] (required-together [name, size]): " +
+				"expected all set or all null, got 1 set (name)",
+		},
+		{
+			name:  "required-together with both set passes",
+			specs: []lang.ConstraintSpec{setSpec("required-together", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+		},
+		{
+			name:  "required-together with neither set passes",
+			specs: []lang.ConstraintSpec{setSpec("required-together", "name", "size")},
+			body:  `{ region: 'us' }`,
+		},
+		{
+			name:  "required-with trigger lacking dependent is rejected",
+			specs: []lang.ConstraintSpec{setSpec("required-with", "name", "size")},
+			body:  `{ name: 'a' }`,
+			wantErr: goConstraintPrefix + `constraints[0] (required-with): ` +
+				`"name" is set, so [size] must also be set; missing size`,
+		},
+		{
+			name:  "required-with trigger with dependent passes",
+			specs: []lang.ConstraintSpec{setSpec("required-with", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+		},
+		{
+			name:  "required-with without trigger passes",
+			specs: []lang.ConstraintSpec{setSpec("required-with", "name", "size")},
+			body:  `{ size: 1 }`,
+		},
+		{
+			name:  "forbidden-with trigger and forbidden field is rejected",
+			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "name", "size")},
+			body:  `{ name: 'a', size: 1 }`,
+			wantErr: goConstraintPrefix + `constraints[0] (forbidden-with): ` +
+				`"name" is set, so [size] must be null; got size`,
+		},
+		{
+			name:  "forbidden-with trigger alone passes",
+			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "name", "size")},
+			body:  `{ name: 'a' }`,
+		},
+		{
+			name:    "predicate with unmet requirement is rejected",
+			specs:   []lang.ConstraintSpec{predSpec("var.name != null", "var.size != null")},
+			body:    `{ name: 'a' }`,
+			wantErr: goConstraintPrefix + "constraints[0] (predicate): predicate requirement not satisfied",
+		},
+		{
+			name:  "predicate with met requirement passes",
+			specs: []lang.ConstraintSpec{predSpec("var.name != null", "var.size != null")},
+			body:  `{ name: 'a', size: 1 }`,
+		},
+		{
+			name:  "predicate whose condition is false passes",
+			specs: []lang.ConstraintSpec{predSpec("var.name != null", "var.size != null")},
+			body:  `{ size: 1 }`,
+		},
+		{
+			name: "predicate uses its custom message",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", When: "var.name != null",
+				Require: "var.size != null", Message: "size is required with name",
+			}},
+			body:    `{ name: 'a' }`,
+			wantErr: goConstraintPrefix + "constraints[0] (predicate): size is required with name",
+		},
+		{
+			name: "two violated constraints report both",
+			specs: []lang.ConstraintSpec{
+				setSpec("exactly-one-of", "name", "size"),
+				setSpec("forbidden-with", "name", "size"),
+			},
+			body: `{ name: 'a', size: 1 }`,
+			wantErr: goConstraintPrefix +
+				"constraints[0] (exactly-one-of [name, size]): " +
+				"expected exactly one to be set, got 2 (name, size)\n" +
+				goConstraintPrefix +
+				`constraints[1] (forbidden-with): ` +
+				`"name" is set, so [size] must be null; got size`,
+		},
+	}
+}
+
+func TestPlanGoTypeConstraints(t *testing.T) {
+	for _, tt := range goConstraintCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			err := planThingConstraintErr(t, tt.specs, tt.body)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestPlanGoTypeConstraintsDeterministic re-plans each case many times and
+// requires the same error text, so map iteration order cannot reorder the
+// reported violations.
+func TestPlanGoTypeConstraintsDeterministic(t *testing.T) {
+	for _, tt := range goConstraintCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			first := planThingConstraintErr(t, tt.specs, tt.body)
+			for range 10 {
+				got := planThingConstraintErr(t, tt.specs, tt.body)
+				if tt.wantErr == "" {
+					require.NoError(t, got)
+				} else {
+					require.EqualError(t, got, first.Error())
+				}
+			}
+		})
+	}
+}
+
+// TestPlanGoTypeConstraintSkipsForwardRef proves the check defers a node
+// whose field is not yet known: thing requires exactly one of name or
+// size, and node b sets only name to a's apply-time output. Were the node
+// not skipped, name would read as unset and the constraint would fail.
+func TestPlanGoTypeConstraintSkipsForwardRef(t *testing.T) {
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.thing": {{Kind: "exactly-one-of", Fields: []string{"name", "size"}}},
 	}
 	src := `
 resources: {
-  core: { thing: { x: { name: 'x' } } }
+  core: {
+    thing: {
+      a: { name: 'a' }
+      b: { name: resource.core.thing.a.id }
+    }
+  }
 }
 `
 	exec := &Executor{
@@ -55,6 +255,32 @@ resources: {
 	}
 	_, err := exec.Plan(context.Background())
 	require.NoError(t, err)
+}
+
+// TestPlanGoTypeConstraintChecksActions confirms the check routes by node
+// kind: the same constraint on an action type reports against the action
+// address, not just resources.
+func TestPlanGoTypeConstraintChecksActions(t *testing.T) {
+	libs := resourceModules(&resourceCounters{})
+	libs["core"].Actions = map[string]ActionRegistration{"echo": MakeAction[echoAction, any]()}
+	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
+		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"name", "size"}}},
+	}
+	src := `
+actions: {
+  core: { echo: { x: { name: 'a', size: 1 } } }
+}
+`
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	require.EqualError(t, err,
+		"action.core.echo.x: schema: constraints[0] (exactly-one-of [name, size]): "+
+			"expected exactly one to be set, got 2 (name, size)")
 }
 
 func runPlan(
