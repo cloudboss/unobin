@@ -446,6 +446,104 @@ imports: {
 	require.Contains(t, err.Error(), `no Library()`)
 }
 
+// compileLibrary writes a factory that imports a local library `lib`
+// holding the given files (name -> body), runs compile without building,
+// and returns the error. A floor or ceiling violation stops compile before
+// any Go build, so no toolchain is needed.
+func compileLibrary(t *testing.T, files map[string]string) error {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "lib"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("imports: { lib: './lib' }\n"), 0o644))
+	for name, body := range files {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "lib", name), []byte(body), 0o644))
+	}
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"),
+		"-o", outDir, "--unobin-version", "v0.1.0")
+	return err
+}
+
+func TestCompileEnforcesCompositeFloors(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		body    string
+		wantErr string
+	}{
+		{
+			name: "valid pure data composite",
+			file: "data-lookup.ub",
+			body: "outputs: { v: { value: 'hi' } }\n",
+		},
+		{
+			name: "valid action composite",
+			file: "action-deploy.ub",
+			body: "actions: { core: { command: { c: { argv: ['echo'] } } } }\n",
+		},
+		{
+			name: "valid resource composite",
+			file: "resource-box.ub",
+			body: "resources: { local: { file: { x: { path: '/tmp/x' } } } }\n",
+		},
+		{
+			name: "data without output",
+			file: "data-lookup.ub",
+			body: "data: { aws: { ami: { x: { most-recent: true } } } }\n",
+			wantErr: `import "lib": composite "lookup" (data): ` +
+				`a data composite must declare at least one output`,
+		},
+		{
+			name: "data with a resource",
+			file: "data-lookup.ub",
+			body: "resources: { local: { file: { x: {} } } }\n" +
+				"outputs: { id: { value: 'x' } }\n",
+			wantErr: `import "lib": composite "lookup" (data): ` +
+				`a data composite must not contain resources`,
+		},
+		{
+			name: "action without an action",
+			file: "action-deploy.ub",
+			body: "outputs: { v: { value: 'x' } }\n",
+			wantErr: `import "lib": composite "deploy" (action): ` +
+				`an action composite must contain at least one action`,
+		},
+		{
+			name: "resource without a resource",
+			file: "resource-box.ub",
+			body: "data: { aws: { ami: { x: {} } } }\n",
+			wantErr: `import "lib": composite "box" (resource): ` +
+				`a resource composite must contain at least one resource`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := compileLibrary(t, map[string]string{tt.file: tt.body})
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCompileReportsAllCompositeViolationsInOrder(t *testing.T) {
+	files := map[string]string{
+		"data-a.ub":     "data: { aws: { ami: { x: {} } } }\n",
+		"resource-b.ub": "data: { aws: { ami: { x: {} } } }\n",
+	}
+	want := `import "lib": composite "a" (data): a data composite must declare at least one output
+composite "b" (resource): a resource composite must contain at least one resource`
+	// The library's composites are held in a map; only the sort in the
+	// compiler makes the reported order stable. Run several times so a
+	// missing sort would show up as a flapping order.
+	for range 3 {
+		require.EqualError(t, compileLibrary(t, files), want)
+	}
+}
+
 func TestCompileWithLocalUBLibrary(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

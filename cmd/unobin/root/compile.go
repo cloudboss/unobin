@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
@@ -252,6 +253,14 @@ func (c *compileVisitor) OnGoImport(_, path, version string) error {
 func (c *compileVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
+	var violations []error
+	for _, name := range slices.Sorted(maps.Keys(lib.Bodies)) {
+		violations = append(violations,
+			resolve.ValidateCompositeBody(lib.Categories[name], name, lib.Bodies[name])...)
+	}
+	if len(violations) > 0 {
+		return errors.Join(violations...)
+	}
 	composites := make(map[string]map[string]string, len(lib.BodyImports))
 	runtimeLib := &ubruntime.Library{Name: alias}
 	for name, body := range lib.Bodies {

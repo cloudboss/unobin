@@ -1,0 +1,128 @@
+package resolve
+
+import (
+	"fmt"
+
+	"github.com/cloudboss/unobin/pkg/lang"
+)
+
+// ValidateCompositeBody checks a composite body against the floor and
+// ceiling rules for its category, which comes from the file's
+// `<category>-` name prefix:
+//
+//   - data: at least one output, may hold data, no resources, no actions.
+//   - action: at least one action, may hold data, no resources; outputs
+//     are optional.
+//   - resource: at least one resource, may hold data and actions; outputs
+//     are optional.
+//
+// typeName names the composite in the messages. Returns one error per
+// violated rule, in a fixed order, so a body reports every problem at once.
+// The resolver does not run this during the walk; the compile command runs
+// it over each resolved library so that print-graph and fetch stay lenient.
+func ValidateCompositeBody(category, typeName string, f *lang.File) []error {
+	var errs []error
+	add := func(msg string) {
+		errs = append(errs, fmt.Errorf("composite %q (%s): %s", typeName, category, msg))
+	}
+	resources := categoryLeafCount(f, "resources")
+	actions := categoryLeafCount(f, "actions")
+	switch category {
+	case "data":
+		if outputCount(f) == 0 {
+			add("a data composite must declare at least one output")
+		}
+		if resources > 0 {
+			add("a data composite must not contain resources")
+		}
+		if actions > 0 {
+			add("a data composite must not contain actions")
+		}
+	case "action":
+		if actions == 0 {
+			add("an action composite must contain at least one action")
+		}
+		if resources > 0 {
+			add("an action composite must not contain resources")
+		}
+	case "resource":
+		if resources == 0 {
+			add("a resource composite must contain at least one resource")
+		}
+	}
+	return errs
+}
+
+// categoryLeafCount counts the leaf entries in a resources, data, or
+// actions block: one per `<alias>.<type>.<name>` path. Meta keys and
+// malformed nesting contribute nothing, so an empty or absent block is
+// zero.
+func categoryLeafCount(f *lang.File, block string) int {
+	obj := topLevelBlock(f, block)
+	if obj == nil {
+		return 0
+	}
+	count := 0
+	for _, alias := range obj.Fields {
+		aliasObj := childObject(alias)
+		if aliasObj == nil {
+			continue
+		}
+		for _, typ := range aliasObj.Fields {
+			typObj := childObject(typ)
+			if typObj == nil {
+				continue
+			}
+			for _, name := range typObj.Fields {
+				if name.Key.Kind == lang.FieldIdent && !name.Key.IsMeta() {
+					count++
+				}
+			}
+		}
+	}
+	return count
+}
+
+// outputCount counts the named fields in the outputs block.
+func outputCount(f *lang.File) int {
+	obj := topLevelBlock(f, "outputs")
+	if obj == nil {
+		return 0
+	}
+	count := 0
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind == lang.FieldIdent && !fld.Key.IsMeta() {
+			count++
+		}
+	}
+	return count
+}
+
+// childObject returns fld's value as an object when fld has a plain
+// identifier key, or nil otherwise (a meta key or a non-object value).
+func childObject(fld *lang.Field) *lang.ObjectLit {
+	if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+		return nil
+	}
+	obj, ok := fld.Value.(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	return obj
+}
+
+// topLevelBlock returns the named top-level block as an object, or nil
+// when it is absent or not an object.
+func topLevelBlock(f *lang.File, name string) *lang.ObjectLit {
+	if f == nil || f.Body == nil {
+		return nil
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind == lang.FieldIdent && !fld.Key.IsMeta() && fld.Key.Name == name {
+			if obj, ok := fld.Value.(*lang.ObjectLit); ok {
+				return obj
+			}
+		}
+	}
+	return nil
+}
