@@ -29,9 +29,9 @@ func TestFactoryWritesStarterFile(t *testing.T) {
 
 	out, err := runFactoryCmd(t, "-o", dir)
 	require.NoError(t, err)
-	require.Contains(t, out, filepath.Join(dir, "factory.ub"))
+	require.Contains(t, out, filepath.Join(dir, "main.ub"))
 
-	got, err := os.ReadFile(filepath.Join(dir, "factory.ub"))
+	got, err := os.ReadFile(filepath.Join(dir, "main.ub"))
 	require.NoError(t, err)
 	want := `description: 'TODO: describe this factory'
 
@@ -59,14 +59,14 @@ func TestFactoryGeneratedFileParsesAndValidates(t *testing.T) {
 	_, err := runFactoryCmd(t, "-o", dir)
 	require.NoError(t, err)
 
-	path := filepath.Join(dir, "factory.ub")
+	path := filepath.Join(dir, "main.ub")
 	src, err := os.ReadFile(path)
 	require.NoError(t, err)
 	f, err := lang.ParseSource(path, src)
 	require.NoError(t, err)
 	f.Kind = lang.FileFactory
 	errs := lang.ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "validate factory.ub: %v", errs.Err())
+	require.Equal(t, 0, errs.Len(), "validate main.ub: %v", errs.Err())
 }
 
 func TestFactoryRefusesExistingDir(t *testing.T) {
@@ -81,7 +81,7 @@ func TestFactoryRefusesExistingDir(t *testing.T) {
 func TestFactoryForceOverwritesExistingDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "my-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stale := filepath.Join(dir, "factory.ub")
+	stale := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stale, []byte("stale content"), 0o644))
 
 	_, err := runFactoryCmd(t, "-o", dir, "--force")

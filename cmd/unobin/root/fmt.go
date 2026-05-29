@@ -31,8 +31,8 @@ Flags:
                  differs from their current contents; no other output.
 
 Examples:
-  unobin fmt factory.ub
-  unobin fmt -w factory.ub libraries/
+  unobin fmt main.ub
+  unobin fmt -w main.ub libraries/
   unobin fmt -l .
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -45,7 +45,7 @@ type compileConfig struct {
 }
 
 func init() {
-	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", "factory.ub",
+	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", "main.ub",
 		"Path to the factory source.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "v0.0.0",

@@ -27,8 +27,8 @@ print-graph subcommand does. The output is intended to match what
 the compiled binary would emit.
 
 Examples:
-  unobin print-graph -p factory.ub
-  unobin print-graph -p factory.ub --format dot | dot -Tsvg > graph.svg`,
+  unobin print-graph -p main.ub
+  unobin print-graph -p main.ub --format dot | dot -Tsvg > graph.svg`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPrintGraph(cmd, printGraphCfg)

@@ -7,7 +7,7 @@ import (
 )
 
 func TestWalkVisitsNestedExpressions(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
+	f, err := ParseSource("main.ub", []byte(`
 inputs: {
   size: { type: integer }
 }
@@ -33,7 +33,7 @@ func TestWalkNilIsSafe(t *testing.T) {
 }
 
 func TestWalkVisitsConditionalBranches(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
+	f, err := ParseSource("main.ub", []byte(`
 resources: {
   a: { b: { c: { x: if var.prod then var.big else var.small } } }
 }
@@ -52,7 +52,7 @@ resources: {
 }
 
 func TestWalkVisitsComprehensionParts(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
+	f, err := ParseSource("main.ub", []byte(`
 resources: {
   a: { b: { c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } } }
 }
@@ -70,7 +70,7 @@ resources: {
 }
 
 func TestWalkVisitsDotPathIndexExpr(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
+	f, err := ParseSource("main.ub", []byte(`
 resources: {
   a: { b: { c: { x: resource.aws.thing.many['alpha'].id } } }
 }

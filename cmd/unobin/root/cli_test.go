@@ -106,7 +106,7 @@ func TestVersionPrintsVersion(t *testing.T) {
 func TestCompileToStdout(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	src := `
 imports: {
   core: 'github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0'
@@ -129,7 +129,7 @@ actions: {
 func TestCompileWriteOut(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	src := `
 imports: {
   core: 'github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0'
@@ -167,7 +167,7 @@ func TestCompileBuildStampsVersion(t *testing.T) {
 
 	srcDir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(srcDir, 0o755))
-	factoryPath := filepath.Join(srcDir, "factory.ub")
+	factoryPath := filepath.Join(srcDir, "main.ub")
 	require.NoError(t, os.WriteFile(factoryPath,
 		[]byte("description: 'minimal'\n"), 0o644))
 
@@ -221,7 +221,7 @@ func findUnobinRoot(t *testing.T) string {
 func TestCompileRequiresOut(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte("description: 'x'"), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", stackPath)
@@ -230,13 +230,13 @@ func TestCompileRequiresOut(t *testing.T) {
 }
 
 func TestCompileMissingStackFile(t *testing.T) {
-	_, err := runCommand(t, "compile", "-p", "/no/such/path/factory.ub", "-o", "-")
+	_, err := runCommand(t, "compile", "-p", "/no/such/path/main.ub", "-o", "-")
 	require.Error(t, err)
 }
 
 func TestCompileInvalidStackFails(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte("exports: { x: 'y.ub' }\n"), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
@@ -245,7 +245,7 @@ func TestCompileInvalidStackFails(t *testing.T) {
 
 func TestCompileInvalidReferenceFails(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 resources: {
   local: {
@@ -263,7 +263,7 @@ resources: {
 
 func TestCompileUnimportedResourceModuleFails(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
@@ -286,7 +286,7 @@ func TestCompileUnknownTrailingFieldFails(t *testing.T) {
 	goModDir := writeFakeGoModule(t)
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   fake: 'example.com/fake@v0.1.0'
@@ -317,7 +317,7 @@ func TestCompileAcceptsKnownTrailingField(t *testing.T) {
 	goModDir := writeFakeGoModule(t)
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   fake: 'example.com/fake@v0.1.0'
@@ -395,7 +395,7 @@ type Thing struct{}
 `), 0o644))
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   partial: 'example.com/partial@v0.1.0'
@@ -430,7 +430,7 @@ func TestCompileMalformedGoModuleFails(t *testing.T) {
 `), 0o644))
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   broken: 'example.com/broken@v0.1.0'
@@ -455,7 +455,7 @@ imports: {
   net: './libraries/net'
 }
 `
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(stackSrc), 0o644))
 
 	netDir := filepath.Join(dir, "libraries", "net")
@@ -559,7 +559,7 @@ resources: {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   net: 'github.com/example/net//libraries/network@v1'
@@ -633,7 +633,7 @@ outputs: { path: { value: resource.inner.hello.x.path } }
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   outer: 'github.com/example/outer//ub/outer@v1'
@@ -711,7 +711,7 @@ resources: { local: { file: { x: { path: '/tmp/x', content: 'hi' } } } }
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   net:   'github.com/example/net//libraries/network@v1'
@@ -760,7 +760,7 @@ resources: { a: { type-a: { z: {} } } }
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   a: 'github.com/example/a//ub/a@v1'
@@ -811,7 +811,7 @@ outputs: { path: { value: resource.inside.hello.x.path } }
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	// Stack root uses alias "shared"; the wrapper composite uses
 	// alias "inside" for the same URL.
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
@@ -878,7 +878,7 @@ resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } 
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   some: 'github.com/cloudboss/unobin//some-lib@v0.1.0'
@@ -907,7 +907,7 @@ func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
@@ -925,7 +925,7 @@ imports: {
 func TestCompileReplaceUnobinMissingPath(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
@@ -942,7 +942,7 @@ imports: {
 func TestCompileWithRemoteGoSubpath(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
@@ -958,7 +958,7 @@ imports: {
 func TestFetchResolvesLocalUBLibrary(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   net: './libraries/net'
@@ -979,7 +979,7 @@ exports: {}
 
 func TestFetchEmptyImports(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`description: 'x'`), 0o644))
 	out, err := runCommand(t, "fetch", "-p", stackPath)
 	require.NoError(t, err)
@@ -987,7 +987,7 @@ func TestFetchEmptyImports(t *testing.T) {
 }
 
 func TestFetchMissingStack(t *testing.T) {
-	_, err := runCommand(t, "fetch", "-p", "/no/such/path/factory.ub")
+	_, err := runCommand(t, "fetch", "-p", "/no/such/path/main.ub")
 	require.Error(t, err)
 }
 
@@ -995,7 +995,7 @@ func TestCompileLocalNonUBLibraryFails(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
   bare: './bare'

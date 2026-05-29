@@ -11,7 +11,7 @@ import (
 func writeStack(t *testing.T, dir, body string) string {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
+	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(body), 0o644))
 	return stackPath
 }

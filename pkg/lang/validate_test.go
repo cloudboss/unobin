@@ -154,7 +154,7 @@ outputs: {
   shout: { value: lib.upper(var.name) }
 }
 `
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
 	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
@@ -170,7 +170,7 @@ outputs: {
   shout: { value: lib.upper(var.name) }
 }
 `
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
@@ -187,7 +187,7 @@ resources: {
   }
 }
 `
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
 	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
@@ -853,7 +853,7 @@ outputs: {
   out: { value: var.region }
 }
 `
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, FileFactory, f.Kind)
 
@@ -877,7 +877,7 @@ exports: {
   x: 'y.ub'
 }
 `
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 
 	errs := ValidateFile(f)
@@ -1050,7 +1050,7 @@ actions: {
   }
 }
 `
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 
 	errs := ValidateFile(f)

@@ -29,7 +29,7 @@ type fetchConfig struct {
 }
 
 func init() {
-	FetchCmd.Flags().StringVarP(&fetchCfg.stackPath, "path", "p", "factory.ub",
+	FetchCmd.Flags().StringVarP(&fetchCfg.stackPath, "path", "p", "main.ub",
 		"Path to the factory source.")
 	FetchCmd.Flags().StringVar(&fetchCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin so the "+

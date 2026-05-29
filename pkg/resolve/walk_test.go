@@ -33,7 +33,7 @@ func setupBasicTree(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()
 
-	stackPath := filepath.Join(root, "factory.ub")
+	stackPath := filepath.Join(root, "main.ub")
 	writeUB(t, stackPath, `
 description: 'top'
 imports: {
@@ -72,7 +72,7 @@ func TestResolveAllSimpleLocal(t *testing.T) {
 
 func TestResolveAllDetectsCycle(t *testing.T) {
 	root := t.TempDir()
-	stackPath := filepath.Join(root, "factory.ub")
+	stackPath := filepath.Join(root, "main.ub")
 	writeUB(t, stackPath, `
 imports: {
   a: './libraries/a'
@@ -113,7 +113,7 @@ imports: {
 
 func TestResolveAllRecordsRemoteAsLeaf(t *testing.T) {
 	root := t.TempDir()
-	stackPath := filepath.Join(root, "factory.ub")
+	stackPath := filepath.Join(root, "main.ub")
 	writeUB(t, stackPath, `
 imports: {
   aws: 'github.com/x/y@v1.0.0'
@@ -127,7 +127,7 @@ imports: {
 
 func TestResolveAllFlagsVersionConflict(t *testing.T) {
 	root := t.TempDir()
-	stackPath := filepath.Join(root, "factory.ub")
+	stackPath := filepath.Join(root, "main.ub")
 	writeUB(t, stackPath, `
 imports: {
   a: 'github.com/x/y//a@v1.0.0'
@@ -147,7 +147,7 @@ imports: {
 
 func TestResolveAllNoImports(t *testing.T) {
 	root := t.TempDir()
-	stackPath := filepath.Join(root, "factory.ub")
+	stackPath := filepath.Join(root, "main.ub")
 	writeUB(t, stackPath, `description: 'just text'`)
 	f := parseFile(t, stackPath)
 

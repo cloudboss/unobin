@@ -70,7 +70,7 @@ inputs: {
   count: { type: optional(integer, 1) }
 }
 `
-	f, err := lang.ParseSource("factory.ub", []byte(src))
+	f, err := lang.ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 
 	inputs := topLevelInputs(t, f)

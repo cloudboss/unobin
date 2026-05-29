@@ -48,7 +48,7 @@ items:[1, 2]
 
 func TestFmtCanonicalFileIsNoOp(t *testing.T) {
 	dir := t.TempDir()
-	path := writeUBFile(t, dir, "factory.ub", canonicalSource)
+	path := writeUBFile(t, dir, "main.ub", canonicalSource)
 
 	got, err := runFmtCommand(t, nil, path)
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestFmtCanonicalFileIsNoOp(t *testing.T) {
 
 func TestFmtMessyFileEmitsCanonicalToStdout(t *testing.T) {
 	dir := t.TempDir()
-	path := writeUBFile(t, dir, "factory.ub", messySource)
+	path := writeUBFile(t, dir, "main.ub", messySource)
 
 	got, err := runFmtCommand(t, nil, path)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestFmtMessyFileEmitsCanonicalToStdout(t *testing.T) {
 
 func TestFmtWriteModeReformatsFileInPlace(t *testing.T) {
 	dir := t.TempDir()
-	path := writeUBFile(t, dir, "factory.ub", messySource)
+	path := writeUBFile(t, dir, "main.ub", messySource)
 
 	got, err := runFmtCommand(t, nil, "-w", path)
 	require.NoError(t, err)

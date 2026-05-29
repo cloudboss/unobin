@@ -82,16 +82,16 @@ func TestParseStringEscapesInvalid(t *testing.T) {
 
 func TestParsePosition(t *testing.T) {
 	src := "name: 'cfer'\nother: 1\n"
-	f, err := ParseSource("factory.ub", []byte(src))
+	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 
 	first := f.Body.Fields[0].S.Start
-	require.Equal(t, "factory.ub", first.File)
+	require.Equal(t, "main.ub", first.File)
 	require.Equal(t, 1, first.Line)
 	require.Equal(t, 1, first.Column)
 
 	second := f.Body.Fields[1].S.Start
-	require.Equal(t, "factory.ub", second.File)
+	require.Equal(t, "main.ub", second.File)
 	require.Equal(t, 2, second.Line)
 	require.Equal(t, 1, second.Column)
 }
