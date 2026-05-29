@@ -156,7 +156,7 @@ func (g *graphVisitor) OnGoImport(_, _, _ string) error {
 func (g *graphVisitor) OnUBLibrary(
 	_, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
-	composites := make(map[string]*runtime.CompositeType, len(lib.Bodies))
+	runtimeLib := &runtime.Library{}
 	for name, body := range lib.Bodies {
 		bodyLibs := make(map[string]*runtime.Library, len(lib.BodyImports[name]))
 		for _, res := range lib.BodyImports[name] {
@@ -174,12 +174,13 @@ func (g *graphVisitor) OnUBLibrary(
 				bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
 			}
 		}
-		composites[name] = &runtime.CompositeType{
+		runtimeLib.AddComposite(&runtime.CompositeType{
 			Name:      name,
+			Category:  runtime.NodeKind(lib.Categories[name]),
 			Body:      body,
 			Libraries: bodyLibs,
-		}
+		})
 	}
-	g.byKey[canonicalKey] = &runtime.Library{Composites: composites}
+	g.byKey[canonicalKey] = runtimeLib
 	return nil
 }

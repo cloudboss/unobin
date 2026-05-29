@@ -21,6 +21,15 @@ func parseUB(t *testing.T, name, src string) *lang.File {
 	return f
 }
 
+// allResource labels every name in bodies as a resource composite.
+func allResource(bodies map[string]*lang.File) map[string]string {
+	cats := make(map[string]string, len(bodies))
+	for name := range bodies {
+		cats[name] = "resource"
+	}
+	return cats
+}
+
 func TestGenerateUBLibraryProducesValidGo(t *testing.T) {
 	body := parseUB(t, "resource-cluster.ub", `description: 'a cluster'
 
@@ -32,8 +41,9 @@ resources: {
   }
 }
 `)
+	bodies := map[string]*lang.File{"cluster": body}
 
-	out, err := GenerateUBLibrary("net", map[string]*lang.File{"cluster": body}, nil)
+	out, err := GenerateUBLibrary("net", bodies, allResource(bodies), nil)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -47,21 +57,52 @@ func TestGenerateUBLibraryHasExpectedShape(t *testing.T) {
 		"beta":  parseUB(t, "resource-beta.ub", "description: 'b'"),
 	}
 
-	out, err := GenerateUBLibrary("net", bodies, nil)
+	out, err := GenerateUBLibrary("net", bodies, allResource(bodies), nil)
 	require.NoError(t, err)
 
 	s := string(out)
 	require.Contains(t, s, "package net")
 	require.Contains(t, s, "func Library() *runtime.Library")
 	require.Regexp(t, `Name:\s*"net"`, s)
-	require.Regexp(t, `Composites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
-	require.Regexp(t, `"alpha":\s*\{\s*Name:\s*"alpha"`, s)
-	require.Regexp(t, `"beta":\s*\{\s*Name:\s*"beta"`, s)
+	require.Regexp(t, `ResourceComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
+	require.Regexp(t, `"alpha":\s*\{\s*Name:\s*"alpha",\s*Category:\s*runtime\.NodeResource`, s)
+	require.Regexp(t, `"beta":\s*\{\s*Name:\s*"beta",\s*Category:\s*runtime\.NodeResource`, s)
 
 	alphaAt := strings.Index(s, `"alpha":`)
 	betaAt := strings.Index(s, `"beta":`)
 	require.True(t, alphaAt > 0 && betaAt > 0)
 	require.Less(t, alphaAt, betaAt, "composites should be in sorted order")
+}
+
+func TestGenerateUBLibrarySplitsByCategory(t *testing.T) {
+	bodies := map[string]*lang.File{
+		"box":    parseUB(t, "resource-box.ub", "description: 'r'"),
+		"lookup": parseUB(t, "data-lookup.ub", "description: 'd'"),
+		"run":    parseUB(t, "action-run.ub", "description: 'a'"),
+	}
+	categories := map[string]string{"box": "resource", "lookup": "data", "run": "action"}
+
+	out, err := GenerateUBLibrary("mixed", bodies, categories, nil)
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "mixed.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", out)
+
+	s := string(out)
+	require.Regexp(t, `ResourceComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
+	require.Regexp(t, `DataComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
+	require.Regexp(t, `ActionComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
+	require.Regexp(t, `"box":\s*\{\s*Name:\s*"box",\s*Category:\s*runtime\.NodeResource`, s)
+	require.Regexp(t, `"lookup":\s*\{\s*Name:\s*"lookup",\s*Category:\s*runtime\.NodeData`, s)
+	require.Regexp(t, `"run":\s*\{\s*Name:\s*"run",\s*Category:\s*runtime\.NodeAction`, s)
+}
+
+func TestGenerateUBLibraryRejectsUnknownCategory(t *testing.T) {
+	bodies := map[string]*lang.File{"x": parseUB(t, "resource-x.ub", "description: 'x'")}
+	_, err := GenerateUBLibrary("net", bodies, map[string]string{"x": "widget"}, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown category")
 }
 
 func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
@@ -71,6 +112,7 @@ resources: {
   helloer: { hello: { file: { message: var.message, path: var.path } } }
 }
 `)
+	bodies := map[string]*lang.File{"greeting": body}
 	imports := map[string]map[string]string{
 		"greeting": {
 			"helloer": "github.com/cloudboss/unobin-libraries-scratch/ub/helloer",
@@ -78,7 +120,7 @@ resources: {
 		},
 	}
 
-	out, err := GenerateUBLibrary("greeter", map[string]*lang.File{"greeting": body}, imports)
+	out, err := GenerateUBLibrary("greeter", bodies, allResource(bodies), imports)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -107,7 +149,7 @@ func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
 		"alpha": {"local": "github.com/cloudboss/unobin/pkg/libraries/local"},
 		"beta":  {"thing": "github.com/cloudboss/unobin/pkg/libraries/local"},
 	}
-	out, err := GenerateUBLibrary("test", bodies, imports)
+	out, err := GenerateUBLibrary("test", bodies, allResource(bodies), imports)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -119,16 +161,17 @@ func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
 }
 
 func TestGenerateUBLibraryEmptyBodies(t *testing.T) {
-	out, err := GenerateUBLibrary("empty", nil, nil)
+	out, err := GenerateUBLibrary("empty", nil, nil, nil)
 	require.NoError(t, err)
 
 	s := string(out)
 	require.Contains(t, s, "package empty")
-	require.Regexp(t, `Composites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
+	require.Contains(t, s, "func Library() *runtime.Library")
+	require.NotContains(t, s, "Composites:", "no composite maps when there are no bodies")
 }
 
 func TestGenerateUBLibraryRejectsEmptyAlias(t *testing.T) {
-	_, err := GenerateUBLibrary("", nil, nil)
+	_, err := GenerateUBLibrary("", nil, nil, nil)
 	require.Error(t, err)
 }
 
@@ -153,8 +196,9 @@ resources: {
   }
 }
 `)
+	bodies := map[string]*lang.File{"cluster": body}
 
-	out, err := GenerateUBLibrary("net", map[string]*lang.File{"cluster": body}, nil)
+	out, err := GenerateUBLibrary("net", bodies, allResource(bodies), nil)
 	require.NoError(t, err)
 
 	rootDir := findUnobinRoot(t)
@@ -176,11 +220,12 @@ import (
 func main() {
 	lib := net.Library()
 	fmt.Printf("name=%s\n", lib.Name)
-	fmt.Printf("composites=%d\n", len(lib.Composites))
-	for name, ct := range lib.Composites {
-		fmt.Printf("composite=%s body-fields=%d\n", name, len(ct.Body.Body.Fields))
+	fmt.Printf("resource-composites=%d\n", len(lib.ResourceComposites))
+	for name, ct := range lib.ResourceComposites {
+		fmt.Printf("composite=%s category=%s body-fields=%d\n",
+			name, ct.Category, len(ct.Body.Body.Fields))
 	}
-	if lib.Composites["cluster"] == nil {
+	if lib.ResourceComposites["cluster"] == nil {
 		fmt.Fprintln(os.Stderr, "missing cluster composite")
 		os.Exit(1)
 	}
@@ -211,8 +256,8 @@ replace github.com/cloudboss/unobin => %s
 
 	got := string(runOut)
 	require.Contains(t, got, "name=net")
-	require.Contains(t, got, "composites=1")
-	require.Contains(t, got, "composite=cluster body-fields=2")
+	require.Contains(t, got, "resource-composites=1")
+	require.Contains(t, got, "composite=cluster category=resource body-fields=2")
 }
 
 func findUnobinRoot(t *testing.T) string {

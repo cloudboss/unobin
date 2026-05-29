@@ -212,8 +212,8 @@ resources: {
 `)
 	libs := map[string]*Library{
 		"net": {
-			Name:       "net",
-			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
+			Name:               "net",
+			ResourceComposites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
 		},
 	}
 	g := BuildDAG(parseStack(t, `
@@ -242,8 +242,8 @@ resources: {
 `)
 	libs := map[string]*Library{
 		"net": {
-			Name:       "net",
-			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
+			Name:               "net",
+			ResourceComposites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
 		},
 	}
 	g := BuildDAG(parseStack(t, `
@@ -265,7 +265,7 @@ resources: {
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: composite},
 			},
 		},
@@ -314,7 +314,7 @@ resources: {
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: composite},
 			},
 		},
@@ -346,8 +346,8 @@ resources: {
 `)
 	libs := map[string]*Library{
 		"net": {
-			Name:       "net",
-			Composites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
+			Name:               "net",
+			ResourceComposites: map[string]*CompositeType{"cluster": {Name: "cluster", Body: composite}},
 		},
 	}
 	g := BuildDAG(parseStack(t, `
@@ -392,13 +392,13 @@ resources: {
 	libs := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"layer": {Name: "layer", Body: layerBody},
 			},
 		},
 		"inner-lib": {
 			Name: "inner-lib",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: clusterBody},
 			},
 		},

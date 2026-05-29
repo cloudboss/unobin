@@ -116,10 +116,23 @@ func TestLibraryHoldsCompositeTypes(t *testing.T) {
 	parsed := parseStack(t, "description: 'cluster'\n")
 	lib := &Library{
 		Name: "net",
-		Composites: map[string]*CompositeType{
-			"cluster": {Name: "cluster", Body: parsed},
+		ResourceComposites: map[string]*CompositeType{
+			"cluster": {Name: "cluster", Category: NodeResource, Body: parsed},
 		},
 	}
-	require.Contains(t, lib.Composites, "cluster")
-	require.Same(t, parsed, lib.Composites["cluster"].Body)
+	require.Same(t, parsed, lib.Composite(NodeResource, "cluster").Body)
+	require.Nil(t, lib.Composite(NodeData, "cluster"), "category selects the map")
+}
+
+func TestLibraryAddComposite(t *testing.T) {
+	lib := &Library{}
+	lib.AddComposite(&CompositeType{Name: "box", Category: NodeResource})
+	lib.AddComposite(&CompositeType{Name: "box", Category: NodeData})
+	lib.AddComposite(&CompositeType{Name: "run", Category: NodeAction})
+
+	require.NotNil(t, lib.Composite(NodeResource, "box"))
+	require.NotNil(t, lib.Composite(NodeData, "box"),
+		"resource.box and data.box are independent namespaces")
+	require.NotNil(t, lib.Composite(NodeAction, "run"))
+	require.Nil(t, lib.Composite(NodeAction, "box"))
 }

@@ -141,7 +141,7 @@ func extractResources(block *lang.ObjectLit, parent string, libs map[string]*Lib
 			if !ok {
 				continue
 			}
-			composite := lookupComposite(libs, alias.Key.Name, t.Key.Name)
+			composite := lookupComposite(libs, alias.Key.Name, NodeResource, t.Key.Name)
 			for _, n := range tObj.Fields {
 				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
 					continue
@@ -320,15 +320,17 @@ func extractConfiguration(body lang.Expr, alias string) string {
 	return ""
 }
 
-func lookupComposite(libs map[string]*Library, alias, typ string) *CompositeType {
+func lookupComposite(
+	libs map[string]*Library, alias string, category NodeKind, typ string,
+) *CompositeType {
 	if libs == nil {
 		return nil
 	}
 	lib, ok := libs[alias]
-	if !ok || lib.Composites == nil {
+	if !ok || lib == nil {
 		return nil
 	}
-	return lib.Composites[typ]
+	return lib.Composite(category, typ)
 }
 
 // expandComposite emits the boundary node and the internal sub nodes

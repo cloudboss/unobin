@@ -138,7 +138,7 @@ resources: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"pair": {Name: "pair", Body: composite},
 		},
 	}
@@ -181,7 +181,7 @@ outputs: {
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
 		},
 	}

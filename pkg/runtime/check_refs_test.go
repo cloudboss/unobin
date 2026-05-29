@@ -132,7 +132,7 @@ outputs: {
 `)
 	libs := map[string]*Library{
 		"bundle": {
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"file-pair": {
 					Name:      "file-pair",
 					Body:      composite,
@@ -182,7 +182,7 @@ outputs: {
 `)
 	libs := map[string]*Library{
 		"bundle": {
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"file-pair": {
 					Name:      "file-pair",
 					Body:      composite,
@@ -254,7 +254,7 @@ outputs: {
 `)
 	libs := map[string]*Library{
 		"bundle": {
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"thing": {
 					Name:      "thing",
 					Body:      composite,
@@ -354,7 +354,7 @@ outputs: {
 `)
 	libs := map[string]*Library{
 		"bundle": {
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"thing": {
 					Name: "thing",
 					Body: composite,

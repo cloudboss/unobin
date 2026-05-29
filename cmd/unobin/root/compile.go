@@ -253,7 +253,7 @@ func (c *compileVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
 	composites := make(map[string]map[string]string, len(lib.BodyImports))
-	runtimeComposites := make(map[string]*ubruntime.CompositeType, len(lib.Bodies))
+	runtimeLib := &ubruntime.Library{Name: alias}
 	for name, body := range lib.Bodies {
 		bodyLibs := make(map[string]*ubruntime.Library, len(lib.BodyImports[name]))
 		for _, res := range lib.BodyImports[name] {
@@ -271,11 +271,12 @@ func (c *compileVisitor) OnUBLibrary(
 				bodyLibs[res.LocalAlias] = c.runtimeLibraries[res.CanonicalKey]
 			}
 		}
-		runtimeComposites[name] = &ubruntime.CompositeType{
+		runtimeLib.AddComposite(&ubruntime.CompositeType{
 			Name:      name,
+			Category:  ubruntime.NodeKind(lib.Categories[name]),
 			Body:      body,
 			Libraries: bodyLibs,
-		}
+		})
 	}
 	for name, resols := range lib.BodyImports {
 		composite := make(map[string]string, len(resols))
@@ -293,16 +294,13 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, composites)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, lib.Categories, composites)
 	if err != nil {
 		return err
 	}
 	c.canonicalAlias[canonicalKey] = canonical
 	c.packages[canonicalKey] = src
-	c.runtimeLibraries[canonicalKey] = &ubruntime.Library{
-		Name:       alias,
-		Composites: runtimeComposites,
-	}
+	c.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
 }
 

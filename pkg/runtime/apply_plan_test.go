@@ -514,8 +514,8 @@ outputs: {
 }
 `)
 	libs["w"] = &Library{
-		Name:       "w",
-		Composites: map[string]*CompositeType{"box": {Name: "box", Body: composite}},
+		Name:               "w",
+		ResourceComposites: map[string]*CompositeType{"box": {Name: "box", Body: composite}},
 	}
 	store := newStateStore(t)
 	src := `resources: { w: { box: { x: { name: 'alpha' } } } }`
@@ -599,8 +599,8 @@ outputs: { said: { value: action.core.echo.inner.echo } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
-		Name:       "w",
-		Composites: map[string]*CompositeType{"box": {Name: "box", Body: compositeBody}},
+		Name:               "w",
+		ResourceComposites: map[string]*CompositeType{"box": {Name: "box", Body: compositeBody}},
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1056,7 +1056,7 @@ outputs: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite, Libraries: libs},
 		},
 	}
@@ -1120,7 +1120,7 @@ resources: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite, Libraries: libs},
 		},
 	}
@@ -1178,7 +1178,7 @@ outputs: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
 		},
 	}
@@ -1258,13 +1258,13 @@ outputs: {
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
 		Name: "outer-lib",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"layer": {Name: "layer", Body: layerBody},
 		},
 	}
 	libs["inner-lib"] = &Library{
 		Name: "inner-lib",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"cluster": {Name: "cluster", Body: clusterBody},
 		},
 	}
@@ -1338,7 +1338,7 @@ resources: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
 		},
 	}
@@ -1424,7 +1424,7 @@ resources: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"hello": {Name: "hello", Body: composite},
 		},
 	}
@@ -1491,7 +1491,7 @@ resources: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
 		},
 	}

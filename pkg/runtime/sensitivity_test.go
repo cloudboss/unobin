@@ -302,7 +302,7 @@ outputs: {
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"local": {Name: "local"},
 				}},
@@ -345,7 +345,7 @@ outputs: {
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"vault": {
 						Name: "vault",
@@ -398,7 +398,7 @@ outputs: {
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"vault": {
 						Name: "vault",
@@ -456,7 +456,7 @@ outputs: {
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
 					"local": {Name: "local"},
 				}},

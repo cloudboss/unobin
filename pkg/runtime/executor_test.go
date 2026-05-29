@@ -293,7 +293,7 @@ outputs: {
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
 		},
 	}
@@ -482,7 +482,7 @@ outputs: { shout: { value: core.uppercase(var.name) } }
 	rootMods := map[string]*Library{
 		"wrapper": {
 			Name: "wrapper",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"layer": {Name: "layer", Body: layerBody, Libraries: testModules()},
 			},
 		},
@@ -533,7 +533,7 @@ outputs: {
 	rootMods := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"layer": composite,
 			},
 		},
@@ -596,13 +596,13 @@ outputs: {
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
 		Name: "outer-lib",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"layer": {Name: "layer", Body: layerBody},
 		},
 	}
 	libs["inner-lib"] = &Library{
 		Name: "inner-lib",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"cluster": {Name: "cluster", Body: clusterBody},
 		},
 	}
@@ -693,13 +693,13 @@ outputs: {
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
 		Name: "outer-lib",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"layer": {Name: "layer", Body: layerBody},
 		},
 	}
 	libs["inner-lib"] = &Library{
 		Name: "inner-lib",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"cluster": {Name: "cluster", Body: clusterBody},
 		},
 	}
@@ -792,7 +792,7 @@ outputs: {
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
-		Composites: map[string]*CompositeType{
+		ResourceComposites: map[string]*CompositeType{
 			"box": {Name: "box", Body: composite},
 		},
 	}

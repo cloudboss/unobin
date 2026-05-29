@@ -24,10 +24,16 @@ type Library struct {
 	Actions       map[string]ActionRegistration
 	Resources     map[string]ResourceRegistration
 	DataSources   map[string]DataSourceRegistration
-	Composites    map[string]*CompositeType
-	Functions     map[string]FunctionType
-	StateBackends map[string]state.BackendType
-	Encrypters    map[string]encrypt.EncrypterType
+	// Composites are kept in one map per category, mirroring the
+	// Resources / DataSources / Actions Go-type maps. resource, data,
+	// and action are distinct namespaces, so a library may declare
+	// resource.foo and data.foo as separate composites.
+	ResourceComposites map[string]*CompositeType
+	DataComposites     map[string]*CompositeType
+	ActionComposites   map[string]*CompositeType
+	Functions          map[string]FunctionType
+	StateBackends      map[string]state.BackendType
+	Encrypters         map[string]encrypt.EncrypterType
 	// Schema carries the library's resource, data source, and action
 	// output field sets. Populated by the dev CLI from a fetched Go
 	// library's source for compile-time reference checking; nil at
@@ -60,8 +66,45 @@ type FunctionType struct {
 // compatibility with composites built directly in tests.
 type CompositeType struct {
 	Name      string
+	Category  NodeKind
 	Body      *lang.File
 	Libraries map[string]*Library
+}
+
+// Composite returns the composite of the given category and name, or nil
+// when the library has none. resource, data, and action are independent
+// namespaces, so the category selects which map to consult.
+func (l *Library) Composite(category NodeKind, name string) *CompositeType {
+	switch category {
+	case NodeData:
+		return l.DataComposites[name]
+	case NodeAction:
+		return l.ActionComposites[name]
+	default:
+		return l.ResourceComposites[name]
+	}
+}
+
+// AddComposite stores ct in the map for its category, creating the map on
+// first use.
+func (l *Library) AddComposite(ct *CompositeType) {
+	switch ct.Category {
+	case NodeData:
+		if l.DataComposites == nil {
+			l.DataComposites = map[string]*CompositeType{}
+		}
+		l.DataComposites[ct.Name] = ct
+	case NodeAction:
+		if l.ActionComposites == nil {
+			l.ActionComposites = map[string]*CompositeType{}
+		}
+		l.ActionComposites[ct.Name] = ct
+	default:
+		if l.ResourceComposites == nil {
+			l.ResourceComposites = map[string]*CompositeType{}
+		}
+		l.ResourceComposites[ct.Name] = ct
+	}
 }
 
 // ErrNotFound is returned by a resource's Read method when the

@@ -124,7 +124,7 @@ outputs: {
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: composite},
 			},
 		},
@@ -163,8 +163,8 @@ outputs: {
 `)
 	libs := map[string]*Library{
 		"m": {
-			Name:       "m",
-			Composites: map[string]*CompositeType{"t": {Name: "t", Body: composite}},
+			Name:               "m",
+			ResourceComposites: map[string]*CompositeType{"t": {Name: "t", Body: composite}},
 		},
 	}
 	stack := parseStack(t, `
@@ -222,13 +222,13 @@ outputs: {
 	libs := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"layer": {Name: "layer", Body: layerBody},
 			},
 		},
 		"inner-lib": {
 			Name: "inner-lib",
-			Composites: map[string]*CompositeType{
+			ResourceComposites: map[string]*CompositeType{
 				"cluster": {Name: "cluster", Body: clusterBody},
 			},
 		},
@@ -405,8 +405,8 @@ resources: {
 	}
 	libs := map[string]*Library{
 		"net": {
-			Name:       "net",
-			Composites: map[string]*CompositeType{"cluster": composite},
+			Name:               "net",
+			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
 	got := ExtractNodes(parseStack(t, src), libs)
@@ -435,8 +435,8 @@ resources: {
 	}
 	libs := map[string]*Library{
 		"net": {
-			Name:       "net",
-			Composites: map[string]*CompositeType{"cluster": composite},
+			Name:               "net",
+			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
 	got := ExtractNodes(parseStack(t, src), libs)

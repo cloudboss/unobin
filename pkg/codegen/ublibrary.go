@@ -15,9 +15,11 @@ import (
 
 // GenerateUBLibrary produces the Go source for a UB library's
 // generated package. The package's name is alias; it exports a
-// `Library()` function returning a `*runtime.Library` with one
-// `*runtime.CompositeType` per entry in bodies, keyed by composite type
-// name (derived from each file's `<category>-<type>.ub` name).
+// `Library()` function returning a `*runtime.Library` whose composites
+// are split into one map per category (ResourceComposites,
+// DataComposites, ActionComposites). bodies and categories are both
+// keyed by composite type name (derived from each file's
+// `<category>-<type>.ub` name); categories gives the category.
 //
 // imports maps each composite's type name to its resolved import table:
 // the composite's body's own imports block, with each declared alias
@@ -28,6 +30,7 @@ import (
 // empty map when a composite has no imports.
 func GenerateUBLibrary(alias string,
 	bodies map[string]*lang.File,
+	categories map[string]string,
 	imports map[string]map[string]string) ([]byte, error) {
 	if alias == "" {
 		return nil, fmt.Errorf("ublibrary: alias is required")
@@ -39,34 +42,49 @@ func GenerateUBLibrary(alias string,
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	composites := make([]compositeEntry, 0, len(names))
+
+	groups := map[string]*compositeGroup{}
+	for _, c := range compositeCategories {
+		groups[c.category] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
+	}
 	for _, name := range names {
-		body := bodies[name]
-		encoded, err := EncodeNode(body)
+		category := categories[name]
+		group, ok := groups[category]
+		if !ok {
+			return nil, fmt.Errorf("ublibrary %q: composite %q has unknown category %q",
+				alias, name, category)
+		}
+		encoded, err := EncodeNode(bodies[name])
 		if err != nil {
 			return nil, fmt.Errorf("ublibrary %q: encode %q body: %w", alias, name, err)
 		}
-		entry := compositeEntry{Name: name, Body: encoded}
+		entry := compositeEntry{Name: name, Symbol: group.Symbol, Body: encoded}
 		for _, localAlias := range sortedAliases(imports[name]) {
-			pathStr := imports[name][localAlias]
-			ident := idents.identFor(pathStr)
+			ident := idents.identFor(imports[name][localAlias])
 			entry.Libraries = append(entry.Libraries, libraryBinding{
 				LocalAlias: localAlias,
 				GoIdent:    ident,
 			})
 		}
-		composites = append(composites, entry)
+		group.Entries = append(group.Entries, entry)
+	}
+
+	orderedGroups := make([]*compositeGroup, 0, len(compositeCategories))
+	for _, c := range compositeCategories {
+		if g := groups[c.category]; len(g.Entries) > 0 {
+			orderedGroups = append(orderedGroups, g)
+		}
 	}
 
 	var buf bytes.Buffer
 	data := struct {
-		Alias      string
-		Composites []compositeEntry
-		GoImports  []goImport
+		Alias     string
+		Groups    []*compositeGroup
+		GoImports []goImport
 	}{
-		Alias:      alias,
-		Composites: composites,
-		GoImports:  idents.imports(),
+		Alias:     alias,
+		Groups:    orderedGroups,
+		GoImports: idents.imports(),
 	}
 	if err := ubLibraryTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("ublibrary: %w", err)
@@ -78,8 +96,28 @@ func GenerateUBLibrary(alias string,
 	return out, nil
 }
 
+// compositeCategories lists the categories in the order the generated
+// Library() emits their maps, with the runtime field and NodeKind symbol
+// for each.
+var compositeCategories = []struct {
+	category string
+	mapField string
+	symbol   string
+}{
+	{"resource", "ResourceComposites", "runtime.NodeResource"},
+	{"data", "DataComposites", "runtime.NodeData"},
+	{"action", "ActionComposites", "runtime.NodeAction"},
+}
+
+type compositeGroup struct {
+	MapField string
+	Symbol   string
+	Entries  []compositeEntry
+}
+
 type compositeEntry struct {
 	Name      string
+	Symbol    string
 	Body      string
 	Libraries []libraryBinding
 }
@@ -183,10 +221,11 @@ import (
 func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: {{quote .Alias}},
-		Composites: map[string]*runtime.CompositeType{
-{{range .Composites}}			{{quote .Name}}: {
-				Name: {{quote .Name}},
-				Body: {{.Body}},
+{{range .Groups}}		{{.MapField}}: map[string]*runtime.CompositeType{
+{{range .Entries}}			{{quote .Name}}: {
+				Name:     {{quote .Name}},
+				Category: {{.Symbol}},
+				Body:     {{.Body}},
 {{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{
 {{range .Libraries}}					{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
@@ -194,6 +233,6 @@ func Library() *runtime.Library {
 {{- end}}
 			},
 {{end}}		},
-	}
+{{end}}	}
 }
 `))

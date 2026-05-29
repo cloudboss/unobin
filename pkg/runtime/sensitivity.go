@@ -270,7 +270,7 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 			return false
 		}
 		if dp.Root.Name == "resource" {
-			if comp, ok := lib.Composites[typ]; ok {
+			if comp, ok := lib.ResourceComposites[typ]; ok {
 				return s.compositeTypeOutputs(comp)[field]
 			}
 		}
