@@ -39,6 +39,15 @@ type Library struct {
 	// library's source for compile-time reference checking; nil at
 	// runtime since the stack binary does not need it.
 	Schema *LibrarySchema
+
+	// Constraints holds each Go type's cross-field constraints in the
+	// embeddable spec form, keyed by "<kind>.<type>" (e.g. "resource.vpc")
+	// since resource, data, and action are distinct namespaces. codegen
+	// sets it in the generated main.go from the constraints goschema
+	// derived from the library's source; the plan checks a node against
+	// Constraints[node.Kind + "." + node.Type]. UB composites carry their
+	// own constraints in their bodies, so this stays empty for UB libraries.
+	Constraints map[string][]lang.ConstraintSpec
 }
 
 // FunctionType registers a callable function under a Go library. Functions

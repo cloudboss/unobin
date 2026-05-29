@@ -147,6 +147,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 
 	goImports := make(map[string]string, len(top))
 	ubImports := make(map[string]string, len(top))
+	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(top))
 	libs := make(map[string]*ubruntime.Library, len(top))
 	for _, res := range top {
 		switch res.Kind {
@@ -158,6 +159,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 			}
 			printSchemaWarnings(cmd.ErrOrStderr(), res.LocalAlias, warnings)
 			libs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
+			if c := constraintsFromSchema(schema); len(c) > 0 {
+				goConstraints[res.LocalAlias] = c
+			}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
 			libs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
@@ -168,11 +172,12 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	in := codegen.Input{
-		Body:        string(src),
-		LibraryPath: cfg.libraryPath,
-		FactoryName: name,
-		GoImports:   goImports,
-		UBImports:   ubImports,
+		Body:          string(src),
+		LibraryPath:   cfg.libraryPath,
+		FactoryName:   name,
+		GoImports:     goImports,
+		UBImports:     ubImports,
+		GoConstraints: goConstraints,
 	}
 
 	if cfg.outDir == "-" {
@@ -404,6 +409,30 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
 	}
 	return &resolve.Source{Commit: "replace", Path: target, FS: os.DirFS(target)}, nil
+}
+
+// constraintsFromSchema flattens a Go library's per-type constraints into
+// one map keyed by "<kind>.<type>", the form codegen embeds and the plan
+// looks up. Returns nil when no type in the library declares a constraint.
+func constraintsFromSchema(schema *ubruntime.LibrarySchema) map[string][]lang.ConstraintSpec {
+	if schema == nil {
+		return nil
+	}
+	out := map[string][]lang.ConstraintSpec{}
+	add := func(kind ubruntime.NodeKind, types map[string]*ubruntime.TypeSchema) {
+		for typ, ts := range types {
+			if len(ts.Constraints) > 0 {
+				out[string(kind)+"."+typ] = ts.Constraints
+			}
+		}
+	}
+	add(ubruntime.NodeResource, schema.Resources)
+	add(ubruntime.NodeData, schema.DataSources)
+	add(ubruntime.NodeAction, schema.Actions)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // readGoSchema reads a fetched Go library's source from sourcePath
