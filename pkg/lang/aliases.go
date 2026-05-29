@@ -92,3 +92,10 @@ func ParseSource(path string, b []byte) (*File, error) {
 	f.Kind = ClassifyByFilename(path)
 	return f, nil
 }
+
+// ParseExpr parses a single unobin expression from b. It wraps
+// parse.ParseExpr so callers depend on pkg/lang alone, such as goschema
+// synthesizing a constraint's when/require expression from Go source.
+func ParseExpr(path string, b []byte) (Expr, error) {
+	return parse.ParseExpr(path, b)
+}

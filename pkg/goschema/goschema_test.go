@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
@@ -42,6 +43,56 @@ func TestExtractedConstraintsCheckAgainstValues(t *testing.T) {
 		"pem-bundle": "pem",
 	}, nil)
 	require.Greater(t, bad.Len(), 0, "a conflicting input set should fail")
+}
+
+func TestReadExtractsPredicateConstraints(t *testing.T) {
+	schema, warnings, err := Read("testdata/constraints")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Contains(t, schema.Resources, "policy")
+
+	entries := schema.Resources["policy"].Constraints
+	require.Len(t, entries, 3)
+	for i, e := range entries {
+		require.Equal(t, "predicate", e.Kind, "entry %d kind", i)
+		require.NotNil(t, e.When, "entry %d when", i)
+		require.NotNil(t, e.Require, "entry %d require", i)
+	}
+	require.Equal(t, "prod requires backups", entries[0].Message)
+
+	// Evaluate the rendered when/require through the real evaluator, the
+	// same path a UB predicate takes at plan.
+	check := func(values map[string]any) int {
+		ctx := &runtime.EvalContext{Vars: values}
+		eval := func(e lang.Expr) (any, error) { return runtime.Eval(e, ctx) }
+		return lang.CheckConstraintEntries(entries, values, eval).Len()
+	}
+	base := func() map[string]any {
+		return map[string]any{
+			"tier": "dev", "backups": nil,
+			"min-size": nil, "max-size": nil, "region": "us-east-1",
+		}
+	}
+
+	require.Equal(t, 0, check(base()), "dev with a valid region passes")
+
+	prodNoBackups := base()
+	prodNoBackups["tier"] = "prod"
+	require.Equal(t, 1, check(prodNoBackups), "prod without backups fails")
+
+	prodBackups := base()
+	prodBackups["tier"] = "prod"
+	prodBackups["backups"] = true
+	require.Equal(t, 0, check(prodBackups), "prod with backups passes")
+
+	badSizes := base()
+	badSizes["min-size"] = int64(5)
+	badSizes["max-size"] = int64(2)
+	require.Equal(t, 1, check(badSizes), "max below min fails")
+
+	badRegion := base()
+	badRegion["region"] = "eu-west-1"
+	require.Equal(t, 1, check(badRegion), "a region outside the set fails")
 }
 
 func TestReadSamePackage(t *testing.T) {

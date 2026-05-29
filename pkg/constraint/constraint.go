@@ -113,13 +113,16 @@ func Absent(field any) Condition { return Condition{} }
 // a literal or another field. A null operand makes the condition pass.
 func AtLeast(field, value any) Condition { return Condition{} }
 
-// Above holds when field is greater than value (literal or field).
+// Above holds when field is greater than value (literal or field). A null
+// operand makes the condition pass.
 func Above(field, value any) Condition { return Condition{} }
 
-// Below holds when field is less than value (literal or field).
+// Below holds when field is less than value (literal or field). A null
+// operand makes the condition pass.
 func Below(field, value any) Condition { return Condition{} }
 
-// AtMost holds when field is less than or equal to value (literal or field).
+// AtMost holds when field is less than or equal to value (literal or
+// field). A null operand makes the condition pass.
 func AtMost(field, value any) Condition { return Condition{} }
 
 // OneOf holds when field's value is one of the given values.

@@ -11,7 +11,8 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "tls",
 		Resources: map[string]runtime.ResourceRegistration{
-			"cert": runtime.MakeResource[Cert, *CertOutput](),
+			"cert":   runtime.MakeResource[Cert, *CertOutput](),
+			"policy": runtime.MakeResource[Policy, *PolicyOutput](),
 		},
 	}
 }
@@ -55,3 +56,42 @@ func (c *Cert) Update(_ context.Context, _ any, _ *CertOutput) (*CertOutput, err
 }
 
 func (c *Cert) Delete(_ context.Context, _ any, _ *CertOutput) error { return nil }
+
+type Policy struct {
+	Tier    string `ub:"tier"`
+	Backups *bool  `ub:"backups,omitempty"`
+	MinSize *int   `ub:"min-size,omitempty"`
+	MaxSize *int   `ub:"max-size,omitempty"`
+	Region  string `ub:"region"`
+}
+
+// Constraints exercises predicates: a conditional When/Require with a
+// message, and two unconditional Must rules (a cross-field comparison and a
+// value-membership check).
+func (p Policy) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.When(constraint.Equals(p.Tier, "prod")).
+			Require(constraint.IsTrue(p.Backups)).
+			Message("prod requires backups"),
+		constraint.Must(constraint.AtLeast(p.MaxSize, p.MinSize)),
+		constraint.Must(constraint.OneOf(p.Region, "us-east-1", "us-west-2")),
+	}
+}
+
+type PolicyOutput struct {
+	ARN string
+}
+
+func (p *Policy) SchemaVersion() int { return 1 }
+
+func (p *Policy) Create(_ context.Context, _ any) (*PolicyOutput, error) { return nil, nil }
+
+func (p *Policy) Read(_ context.Context, _ any, _ *PolicyOutput) (*PolicyOutput, error) {
+	return nil, nil
+}
+
+func (p *Policy) Update(_ context.Context, _ any, _ *PolicyOutput) (*PolicyOutput, error) {
+	return nil, nil
+}
+
+func (p *Policy) Delete(_ context.Context, _ any, _ *PolicyOutput) error { return nil }
