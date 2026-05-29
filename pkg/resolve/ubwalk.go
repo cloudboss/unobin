@@ -99,7 +99,7 @@ func WalkUB(
 		parsed:     map[string]*UBLibrary{},
 		inProgress: map[string]bool{},
 	}
-	return w.walkRefs(refs)
+	return w.walkRefs(refs, "")
 }
 
 type ubWalker struct {
@@ -109,11 +109,14 @@ type ubWalker struct {
 	inProgress map[string]bool
 }
 
-func (w *ubWalker) walkRefs(refs map[string]ImportRef) ([]Resolution, error) {
+// walkRefs walks each ref in alias order. repo is the repository the
+// declaring body lives in (empty at the factory root); it scopes the
+// internal-visibility check.
+func (w *ubWalker) walkRefs(refs map[string]ImportRef, repo string) ([]Resolution, error) {
 	aliases := sortedAliases(refs)
 	out := make([]Resolution, 0, len(aliases))
 	for _, alias := range aliases {
-		res, err := w.walkOne(alias, refs[alias])
+		res, err := w.walkOne(alias, refs[alias], repo)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +125,10 @@ func (w *ubWalker) walkRefs(refs map[string]ImportRef) ([]Resolution, error) {
 	return out, nil
 }
 
-func (w *ubWalker) walkOne(alias string, ref ImportRef) (Resolution, error) {
+func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution, error) {
+	if r, ok := crossRepoInternal(repo, ref); ok {
+		return Resolution{}, internalImportError(alias, r)
+	}
 	source, err := w.resolver.Resolve(ref)
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
@@ -134,7 +140,7 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef) (Resolution, error) {
 	if !IsUBLibrary(source) {
 		return w.handleGoImport(alias, ref, source)
 	}
-	return w.handleUBImport(alias, ref, source)
+	return w.handleUBImport(alias, ref, source, repo)
 }
 
 func (w *ubWalker) handleGoImport(
@@ -163,7 +169,7 @@ func (w *ubWalker) handleGoImport(
 }
 
 func (w *ubWalker) handleUBImport(
-	alias string, ref ImportRef, source *Source,
+	alias string, ref ImportRef, source *Source, repo string,
 ) (Resolution, error) {
 	key := UBKey(ref)
 	if _, alreadyParsed := w.parsed[key]; alreadyParsed {
@@ -191,7 +197,7 @@ func (w *ubWalker) handleUBImport(
 		if len(errs) > 0 {
 			return Resolution{}, errors.Join(errs...)
 		}
-		resols, err := w.walkRefs(bodyRefs)
+		resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref))
 		if err != nil {
 			return Resolution{}, fmt.Errorf(
 				"import %q: composite %q: %w", alias, name, err)

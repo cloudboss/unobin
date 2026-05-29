@@ -25,7 +25,7 @@ func ResolveAll(id string, f *lang.File, resolver Resolver) (*Graph, []error) {
 		graph:    NewGraph(),
 		visited:  make(map[string]bool),
 	}
-	w.walkFile(id, nil, f)
+	w.walkFile(id, nil, f, "")
 	return w.graph, w.errors
 }
 
@@ -38,8 +38,10 @@ type walker struct {
 
 // walkFile processes a parsed file. parentSrc is the `Source` the file
 // came from. Pass nil for the starting file, which uses the external
-// Resolver instead.
-func (w *walker) walkFile(id string, parentSrc *Source, f *lang.File) {
+// Resolver instead. repo is the repository the file lives in (empty at
+// the factory root and through the developer's local tree); it scopes
+// the internal-visibility check on the file's imports.
+func (w *walker) walkFile(id string, parentSrc *Source, f *lang.File, repo string) {
 	if w.visited[id] {
 		return
 	}
@@ -55,6 +57,10 @@ func (w *walker) walkFile(id string, parentSrc *Source, f *lang.File) {
 
 	for _, alias := range sortedAliases(refs) {
 		ref := refs[alias]
+		if r, ok := crossRepoInternal(repo, ref); ok {
+			w.errors = append(w.errors, internalImportError(alias, r))
+			continue
+		}
 		src, err := w.resolveOne(parentSrc, ref)
 		if err != nil {
 			w.errors = append(w.errors, fmt.Errorf("import %q: %w", alias, err))
@@ -72,7 +78,7 @@ func (w *walker) walkFile(id string, parentSrc *Source, f *lang.File) {
 			w.graph.AddNode(childID)
 			continue
 		}
-		w.walkUBLibrary(childID, src)
+		w.walkUBLibrary(childID, src, repoOf(repo, ref))
 	}
 }
 
@@ -98,8 +104,9 @@ func (w *walker) resolveOne(parentSrc *Source, ref ImportRef) (*Source, error) {
 // walkUBLibrary reads the library's composite bodies from its directory
 // listing: each category-prefixed `.ub` file is one composite, named by
 // its filename. Errors during the scan or a body read are recorded but
-// do not stop the walk.
-func (w *walker) walkUBLibrary(libraryID string, src *Source) {
+// do not stop the walk. repo is the repository the library lives in,
+// passed to each body so its imports are checked against the right repo.
+func (w *walker) walkUBLibrary(libraryID string, src *Source, repo string) {
 	matches, err := fs.Glob(src.FS, "*.ub")
 	if err != nil {
 		w.errors = append(w.errors, fmt.Errorf("library %q: %w", libraryID, err))
@@ -131,7 +138,7 @@ func (w *walker) walkUBLibrary(libraryID string, src *Source) {
 					libraryID, typeName, err))
 			continue
 		}
-		w.walkFile(exportID, src, exportFile)
+		w.walkFile(exportID, src, exportFile, repo)
 	}
 }
 
