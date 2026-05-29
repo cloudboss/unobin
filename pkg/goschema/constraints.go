@@ -32,7 +32,7 @@ var setConstraintKinds = map[string]string{
 // constraint entries declared by its Constraints method, each field
 // selector mapped to its kebab input name. A type in a subpackage
 // (PkgAlias set) is followed the same way lookupFields does.
-func (w *walker) lookupConstraints(ref typeRef) []lang.ConstraintEntry {
+func (w *walker) lookupConstraints(ref typeRef) []lang.ConstraintSpec {
 	cw := w
 	if ref.PkgAlias != "" {
 		importPath, ok := w.imports[ref.PkgAlias]
@@ -48,16 +48,16 @@ func (w *walker) lookupConstraints(ref typeRef) []lang.ConstraintEntry {
 	return cw.constraintsFromType(ref.TypeName)
 }
 
-func (w *walker) constraintsFromType(typeName string) []lang.ConstraintEntry {
+func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	method := findMethod(w.files, typeName, "Constraints")
 	if method == nil {
 		return nil
 	}
 	names := w.fieldKebabByGoName(typeName)
-	var out []lang.ConstraintEntry
+	var out []lang.ConstraintSpec
 	for _, call := range constraintCalls(method) {
-		if entry, ok := w.entryFromCall(call, names); ok {
-			out = append(out, entry)
+		if spec, ok := w.specFromCall(call, names); ok {
+			out = append(out, spec)
 		}
 	}
 	return out
@@ -155,47 +155,47 @@ func constraintCalls(method *ast.FuncDecl) []*ast.CallExpr {
 // constructor against the set-constraint kinds; predicate constructors
 // return ok=false and are left for a later pass. Each argument is read as
 // a v.Field selector and mapped to its input name.
-func (w *walker) entryFromCall(
+func (w *walker) specFromCall(
 	call *ast.CallExpr, names map[string]string,
-) (lang.ConstraintEntry, bool) {
+) (lang.ConstraintSpec, bool) {
 	base, message := peelMessage(call)
 	sel, ok := base.Fun.(*ast.SelectorExpr)
 	if !ok {
-		return lang.ConstraintEntry{}, false
+		return lang.ConstraintSpec{}, false
 	}
 	// When(cond).Require(reqs...): the base call is .Require on a When call.
 	if sel.Sel.Name == "Require" {
 		when, ok := sel.X.(*ast.CallExpr)
 		if !ok {
-			return lang.ConstraintEntry{}, false
+			return lang.ConstraintSpec{}, false
 		}
 		whenStr, ok := w.whenCondition(when, names)
 		if !ok {
-			return lang.ConstraintEntry{}, false
+			return lang.ConstraintSpec{}, false
 		}
-		return w.predicateEntry(whenStr, base.Args, message, names)
+		return w.predicateSpec(whenStr, base.Args, message, names)
 	}
 	pkg, ok := identName(sel.X)
 	if !ok || w.imports[pkg] != constraintPkgPath {
-		return lang.ConstraintEntry{}, false
+		return lang.ConstraintSpec{}, false
 	}
 	// Must(reqs...) is an unconditional predicate: its when is always true.
 	if sel.Sel.Name == "Must" {
-		return w.predicateEntry("true", base.Args, message, names)
+		return w.predicateSpec("true", base.Args, message, names)
 	}
 	kind, ok := setConstraintKinds[sel.Sel.Name]
 	if !ok {
-		return lang.ConstraintEntry{}, false
+		return lang.ConstraintSpec{}, false
 	}
 	fields := make([]string, 0, len(base.Args))
 	for _, arg := range base.Args {
 		field, ok := w.selectorField(arg, names)
 		if !ok {
-			return lang.ConstraintEntry{}, false
+			return lang.ConstraintSpec{}, false
 		}
 		fields = append(fields, field)
 	}
-	return lang.ConstraintEntry{Kind: kind, Fields: fields, Message: message}, true
+	return lang.ConstraintSpec{Kind: kind, Fields: fields, Message: message}, true
 }
 
 // whenCondition reads the cond from a constraint.When(cond) call and
@@ -219,45 +219,30 @@ func (w *walker) whenCondition(when *ast.CallExpr, names map[string]string) (str
 // string and the require conditions, parsing both into lang expressions so
 // they run through the same check a UB predicate does. Requirements join
 // with && since every one must hold.
-func (w *walker) predicateEntry(
+// predicateSpec builds a predicate spec from a rendered when-expression
+// string and the require conditions. Requirements join with && since every
+// one must hold. The when and require stay as source strings; a check
+// parses them with lang.ParseSpecs.
+func (w *walker) predicateSpec(
 	whenStr string, reqArgs []ast.Expr, message string, names map[string]string,
-) (lang.ConstraintEntry, bool) {
+) (lang.ConstraintSpec, bool) {
 	reqs := make([]string, 0, len(reqArgs))
 	for _, r := range reqArgs {
 		s, ok := w.condString(r, names)
 		if !ok {
-			return lang.ConstraintEntry{}, false
+			return lang.ConstraintSpec{}, false
 		}
 		reqs = append(reqs, s)
 	}
 	if len(reqs) == 0 {
-		return lang.ConstraintEntry{}, false
+		return lang.ConstraintSpec{}, false
 	}
-	whenExpr, ok := w.parseCond(whenStr)
-	if !ok {
-		return lang.ConstraintEntry{}, false
-	}
-	requireExpr, ok := w.parseCond(strings.Join(reqs, " && "))
-	if !ok {
-		return lang.ConstraintEntry{}, false
-	}
-	return lang.ConstraintEntry{
+	return lang.ConstraintSpec{
 		Kind:    "predicate",
-		When:    whenExpr,
-		Require: requireExpr,
+		When:    whenStr,
+		Require: strings.Join(reqs, " && "),
 		Message: message,
 	}, true
-}
-
-func (w *walker) parseCond(s string) (lang.Expr, bool) {
-	expr, err := lang.ParseExpr("constraint", []byte(s))
-	if err != nil {
-		if w.errs != nil {
-			*w.errs = append(*w.errs, fmt.Errorf("constraint expression %q: %w", s, err))
-		}
-		return nil, false
-	}
-	return expr, true
 }
 
 // condString renders one condition builder call into a parenthesized

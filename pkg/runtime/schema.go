@@ -34,7 +34,8 @@ type TypeSchema struct {
 	SensitiveOutputs []string
 
 	// Constraints holds the type's cross-field constraints, derived from
-	// its Constraints method at compile time. They run through the same
-	// check as UB constraints via lang.CheckConstraintEntries.
-	Constraints []lang.ConstraintEntry
+	// its Constraints method at compile time, in the embeddable string
+	// form. A check parses them with lang.ParseSpecs and runs them through
+	// lang.CheckConstraintEntries, the same path UB constraints take.
+	Constraints []lang.ConstraintSpec
 }

@@ -282,3 +282,52 @@ func checkPredicate(
 func joinNames(names []string) string {
 	return strings.Join(names, ", ")
 }
+
+// ConstraintSpec is the embeddable, string-only form of a constraint. The
+// predicate When and Require are kept as unobin source so the whole set
+// can be generated into a factory and parsed back at plan time; a set
+// constraint leaves both empty and uses Fields. goschema produces these
+// from a Go type, and codegen bakes them into the factory.
+type ConstraintSpec struct {
+	Kind    string
+	Fields  []string
+	When    string
+	Require string
+	Message string
+}
+
+// ParseSpecs parses each spec's When and Require source into expressions
+// and returns entries ready for CheckConstraintEntries. A set constraint
+// (empty When and Require) yields an entry with nil expressions. Parse
+// errors are collected; a spec that fails to parse is skipped.
+func ParseSpecs(specs []ConstraintSpec) ([]ConstraintEntry, *ErrorList) {
+	errs := NewErrorList(0)
+	entries := make([]ConstraintEntry, 0, len(specs))
+	for _, s := range specs {
+		e := ConstraintEntry{Kind: s.Kind, Fields: s.Fields, Message: s.Message}
+		when, ok := parseSpecExpr(s.When, "when", errs)
+		if !ok {
+			continue
+		}
+		require, ok := parseSpecExpr(s.Require, "require", errs)
+		if !ok {
+			continue
+		}
+		e.When = when
+		e.Require = require
+		entries = append(entries, e)
+	}
+	return entries, errs
+}
+
+func parseSpecExpr(src, label string, errs *ErrorList) (Expr, bool) {
+	if src == "" {
+		return nil, true
+	}
+	expr, err := ParseExpr("constraint", []byte(src))
+	if err != nil {
+		errs.Addf(ErrSchema, Position{}, "constraint %s %q: %v", label, src, err)
+		return nil, false
+	}
+	return expr, true
+}

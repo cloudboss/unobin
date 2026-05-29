@@ -17,7 +17,7 @@ func TestReadExtractsSetConstraints(t *testing.T) {
 	require.Empty(t, warnings)
 	require.Contains(t, schema.Resources, "cert")
 
-	want := []lang.ConstraintEntry{
+	want := []lang.ConstraintSpec{
 		{Kind: "exactly-one-of", Fields: []string{"self-signed", "acm-arn", "pem-bundle"}},
 		{Kind: "at-least-one-of", Fields: []string{"self-signed", "acm-arn"}},
 		{Kind: "at-most-one-of", Fields: []string{"acm-arn", "pem-bundle"}},
@@ -31,7 +31,8 @@ func TestReadExtractsSetConstraints(t *testing.T) {
 func TestExtractedConstraintsCheckAgainstValues(t *testing.T) {
 	schema, _, err := Read("testdata/constraints")
 	require.NoError(t, err)
-	entries := schema.Resources["cert"].Constraints
+	entries, perr := lang.ParseSpecs(schema.Resources["cert"].Constraints)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
 
 	// One source set, nothing forbidden: every constraint holds.
 	ok := lang.CheckConstraintEntries(entries, map[string]any{"self-signed": true}, nil)
@@ -51,14 +52,29 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	require.Empty(t, warnings)
 	require.Contains(t, schema.Resources, "policy")
 
-	entries := schema.Resources["policy"].Constraints
-	require.Len(t, entries, 3)
-	for i, e := range entries {
-		require.Equal(t, "predicate", e.Kind, "entry %d kind", i)
-		require.NotNil(t, e.When, "entry %d when", i)
-		require.NotNil(t, e.Require, "entry %d require", i)
-	}
-	require.Equal(t, "prod requires backups", entries[0].Message)
+	specs := schema.Resources["policy"].Constraints
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "(var.tier == 'prod')",
+			Require: "(var.backups == true)",
+			Message: "prod requires backups",
+		},
+		{
+			Kind: "predicate",
+			When: "true",
+			Require: "(var.max-size == null || var.min-size == null" +
+				" || var.max-size >= var.min-size)",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(var.region == 'us-east-1' || var.region == 'us-west-2')",
+		},
+	}, specs)
+
+	entries, perr := lang.ParseSpecs(specs)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
 
 	// Evaluate the rendered when/require through the real evaluator, the
 	// same path a UB predicate takes at plan.

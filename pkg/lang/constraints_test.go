@@ -334,6 +334,36 @@ func TestCheckConstraintEntries(t *testing.T) {
 	}
 }
 
+func TestParseSpecs(t *testing.T) {
+	specs := []ConstraintSpec{
+		{Kind: "exactly-one-of", Fields: []string{"a", "b"}},
+		{Kind: "predicate", When: "var.tier == 'prod'",
+			Require: "var.backups == true", Message: "m"},
+	}
+	entries, errs := ParseSpecs(specs)
+	require.Equal(t, 0, errs.Len(), "unexpected: %v", errs.Err())
+	require.Len(t, entries, 2)
+
+	require.Equal(t, "exactly-one-of", entries[0].Kind)
+	require.Equal(t, []string{"a", "b"}, entries[0].Fields)
+	require.Nil(t, entries[0].When, "a set constraint has no when expression")
+	require.Nil(t, entries[0].Require)
+
+	require.Equal(t, "predicate", entries[1].Kind)
+	require.NotNil(t, entries[1].When)
+	require.NotNil(t, entries[1].Require)
+	require.Equal(t, "m", entries[1].Message)
+}
+
+func TestParseSpecsReportsBadExpression(t *testing.T) {
+	specs := []ConstraintSpec{
+		{Kind: "predicate", When: "(", Require: "true"},
+	}
+	entries, errs := ParseSpecs(specs)
+	require.Positive(t, errs.Len())
+	require.Empty(t, entries, "a spec that fails to parse is skipped")
+}
+
 func TestCheckConstraintsCollectsMultiple(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
