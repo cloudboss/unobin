@@ -28,8 +28,7 @@ func consumeApplyEvents(events <-chan runtime.ApplyEvent, out io.Writer, format 
 }
 
 func isSilentEvent(ev runtime.ApplyEvent) bool {
-	switch ev.Kind {
-	case runtime.NodeOutput, runtime.NodeComposite:
+	if ev.Composite || ev.Kind == runtime.NodeOutput {
 		return true
 	}
 	switch ev.Decision {

@@ -529,7 +529,8 @@ resources: {
 
 	boundary := stepFor(plan, "resource.w.pair.x")
 	require.NotNil(t, boundary)
-	require.Equal(t, NodeComposite, boundary.Kind)
+	require.True(t, boundary.Composite)
+	require.Equal(t, NodeResource, boundary.Kind)
 	require.Equal(t, DecisionEval, boundary.Decision)
 	require.Equal(t, "alpha", boundary.Inputs["name"])
 

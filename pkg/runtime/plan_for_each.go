@@ -15,7 +15,7 @@ func (e *Executor) insideForEachComposite(n *Node) bool {
 		if !ok {
 			return false
 		}
-		if b.Kind == NodeComposite && b.ForEach != nil {
+		if b.IsComposite() && b.ForEach != nil {
 			return true
 		}
 		cur = b.Composite
@@ -130,7 +130,8 @@ func (e *Executor) planForEachComposite(rs *runState, boundary *Node) ([]*PlanSt
 		}
 		steps = append(steps, &PlanStep{
 			Address:      instAddr,
-			Kind:         NodeComposite,
+			Kind:         boundary.Kind,
+			Composite:    true,
 			Decision:     DecisionEval,
 			Inputs:       scope.Vars,
 			PriorOutputs: priorOut,
@@ -204,6 +205,22 @@ func (e *Executor) planInternalUnder(
 	if scope == nil {
 		return nil, fmt.Errorf("internal %q: no scope", addr)
 	}
+	if n.IsComposite() {
+		var priorOut map[string]any
+		if rs.prior != nil {
+			if prior := rs.prior.Find(addr); prior != nil {
+				priorOut = prior.Outputs
+			}
+		}
+		return []*PlanStep{{
+			Address:      addr,
+			Kind:         n.Kind,
+			Composite:    true,
+			Decision:     DecisionEval,
+			Inputs:       scope.Vars,
+			PriorOutputs: priorOut,
+		}}, nil
+	}
 	switch n.Kind {
 	case NodeResource:
 		lib, ok := e.librariesFor(n)[n.Alias]
@@ -231,20 +248,6 @@ func (e *Executor) planInternalUnder(
 			return nil, err
 		}
 		return []*PlanStep{step}, nil
-	case NodeComposite:
-		var priorOut map[string]any
-		if rs.prior != nil {
-			if prior := rs.prior.Find(addr); prior != nil {
-				priorOut = prior.Outputs
-			}
-		}
-		return []*PlanStep{{
-			Address:      addr,
-			Kind:         NodeComposite,
-			Decision:     DecisionEval,
-			Inputs:       scope.Vars,
-			PriorOutputs: priorOut,
-		}}, nil
 	}
 	return nil, fmt.Errorf("internal %q: unsupported kind %s", addr, n.Kind)
 }

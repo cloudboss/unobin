@@ -16,7 +16,7 @@ import (
 func (c *referenceChecker) checkTypes() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
-		case NodeResource, NodeData, NodeAction, NodeComposite:
+		case NodeResource, NodeData, NodeAction:
 		default:
 			continue
 		}
@@ -33,12 +33,10 @@ func (c *referenceChecker) checkTypes() {
 // then runs the body's expressions with no target (free inference)
 // so missing-schema libraries do not block compile.
 func (c *referenceChecker) bodyTargets(n *Node) map[string]typecheck.Type {
-	switch n.Kind {
-	case NodeComposite:
+	if n.IsComposite() {
 		return compositeInputTargets(n)
-	default:
-		return c.goInputTargets(n)
 	}
+	return c.goInputTargets(n)
 }
 
 func compositeInputTargets(n *Node) map[string]typecheck.Type {
@@ -180,7 +178,7 @@ func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 	if node == nil {
 		return typecheck.TUnknown()
 	}
-	if node.Kind == NodeComposite {
+	if node.IsComposite() {
 		names := compositeOutputNames(node)
 		fields := make([]typecheck.ObjectField, 0, len(names))
 		for name := range names {
@@ -238,7 +236,7 @@ func (c *referenceChecker) checkBodyTypes(
 			t, ok := targets[fld.Key.Name]
 			if ok {
 				target = t
-			} else if owner != nil && owner.Kind != NodeComposite {
+			} else if owner != nil && !owner.IsComposite() {
 				c.addf(fld.Key.S.Start,
 					`unknown field %q on %s.%s`,
 					fld.Key.Name, owner.Alias, owner.Type)
@@ -301,7 +299,7 @@ func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
 func (c *referenceChecker) checkOutputBodyTypes() {
 	c.checkOutputsBlock(c.root, "")
 	for _, n := range c.dag.Nodes {
-		if n.Kind != NodeComposite || n.CompositeBody == nil {
+		if !n.IsComposite() {
 			continue
 		}
 		c.checkOutputsBlock(n.CompositeBody, n.Address)
@@ -334,7 +332,7 @@ func (c *referenceChecker) checkOutputsBlock(f *lang.File, scope string) {
 func (c *referenceChecker) checkConstraintTypes() {
 	c.checkConstraintTypesBlock(c.root, "")
 	for _, n := range c.dag.Nodes {
-		if n.Kind != NodeComposite || n.CompositeBody == nil {
+		if !n.IsComposite() {
 			continue
 		}
 		c.checkConstraintTypesBlock(n.CompositeBody, n.Address)

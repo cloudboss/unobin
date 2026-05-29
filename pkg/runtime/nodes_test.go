@@ -140,7 +140,8 @@ resources: {
 	require.Len(t, got, 2)
 
 	require.Equal(t, "resource.net.cluster.web", got[0].Address)
-	require.Equal(t, NodeComposite, got[0].Kind)
+	require.True(t, got[0].IsComposite())
+	require.Equal(t, NodeResource, got[0].Kind)
 	require.Equal(t, composite, got[0].CompositeBody)
 	require.Empty(t, got[0].Composite)
 
@@ -247,12 +248,14 @@ resources: {
 
 	outerBoundary := byAddr["resource.outer-lib.layer.mine"]
 	require.NotNil(t, outerBoundary, "outer boundary at root address")
-	require.Equal(t, NodeComposite, outerBoundary.Kind)
+	require.True(t, outerBoundary.IsComposite())
+	require.Equal(t, NodeResource, outerBoundary.Kind)
 	require.Empty(t, outerBoundary.Composite, "outer boundary has root scope")
 
 	innerBoundary := byAddr["resource.outer-lib.layer.mine/resource.inner-lib.cluster.only"]
 	require.NotNil(t, innerBoundary, "inner boundary nested under outer")
-	require.Equal(t, NodeComposite, innerBoundary.Kind)
+	require.True(t, innerBoundary.IsComposite())
+	require.Equal(t, NodeResource, innerBoundary.Kind)
 	require.Equal(t, "resource.outer-lib.layer.mine", innerBoundary.Composite,
 		"inner boundary's direct parent is outer call site")
 
@@ -411,7 +414,8 @@ resources: {
 	}
 	got := ExtractNodes(parseStack(t, src), libs)
 	require.NotEmpty(t, got)
-	require.Equal(t, NodeComposite, got[0].Kind)
+	require.True(t, got[0].IsComposite())
+	require.Equal(t, NodeResource, got[0].Kind)
 	require.Equal(t,
 		map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 		got[0].ConfigurationsRemap)
@@ -479,7 +483,7 @@ outputs: {
 		"img": {
 			Name: "img",
 			DataComposites: map[string]*CompositeType{
-				"lookup": {Name: "lookup", Category: NodeData, Body: composite},
+				"lookup": {Name: "lookup", Kind: NodeData, Body: composite},
 			},
 		},
 	}
@@ -494,7 +498,8 @@ data: {
 	require.Len(t, got, 2)
 
 	require.Equal(t, "data.img.lookup.latest", got[0].Address)
-	require.Equal(t, NodeComposite, got[0].Kind)
+	require.True(t, got[0].IsComposite())
+	require.Equal(t, NodeData, got[0].Kind)
 	require.Equal(t, composite, got[0].CompositeBody)
 	require.Empty(t, got[0].Composite)
 
@@ -513,7 +518,7 @@ actions: {
 		"ops": {
 			Name: "ops",
 			ActionComposites: map[string]*CompositeType{
-				"deploy": {Name: "deploy", Category: NodeAction, Body: composite},
+				"deploy": {Name: "deploy", Kind: NodeAction, Body: composite},
 			},
 		},
 	}
@@ -528,7 +533,8 @@ actions: {
 	require.Len(t, got, 2)
 
 	require.Equal(t, "action.ops.deploy.go", got[0].Address)
-	require.Equal(t, NodeComposite, got[0].Kind)
+	require.True(t, got[0].IsComposite())
+	require.Equal(t, NodeAction, got[0].Kind)
 	require.Equal(t, composite, got[0].CompositeBody)
 	require.Empty(t, got[0].Composite)
 

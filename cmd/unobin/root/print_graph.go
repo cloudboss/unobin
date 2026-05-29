@@ -176,7 +176,7 @@ func (g *graphVisitor) OnUBLibrary(
 		}
 		runtimeLib.AddComposite(&runtime.CompositeType{
 			Name:      name,
-			Category:  runtime.NodeKind(lib.Categories[name]),
+			Kind:      runtime.NodeKind(lib.Categories[name]),
 			Body:      body,
 			Libraries: bodyLibs,
 		})

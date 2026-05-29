@@ -62,7 +62,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	// address so distinct instances get distinct scopes.
 	for i := range pf.Steps {
 		step := &pf.Steps[i]
-		if step.Kind != NodeComposite || step.Decision == DecisionDestroy {
+		if !step.Composite || step.Decision == DecisionDestroy {
 			continue
 		}
 		boundary, ok := e.DAG.Nodes[templateAddress(step.Address)]
@@ -108,10 +108,18 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 	if step.Decision == DecisionDestroy {
 		// Resources need their Delete called; action and library-call
 		// records have no external lifecycle, so they are just removed.
-		if step.Kind == NodeResource {
+		if step.Kind == NodeResource && !step.Composite {
 			return e.applyDestroy(ctx, rs, step)
 		}
 		return e.removeRecord(rs, step)
+	}
+	if step.Composite {
+		node, ok := e.DAG.Nodes[templateAddress(step.Address)]
+		if !ok || !node.IsComposite() {
+			return fmt.Errorf("composite: node %q not in DAG", step.Address)
+		}
+		return e.finalizeComposite(rs, node, step.Address, step.Inputs,
+			step.SensitiveInputs, step.SensitiveOutputs)
 	}
 	switch step.Kind {
 	case NodeAction:
@@ -120,13 +128,6 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return e.applyResource(ctx, rs, step)
 	case NodeData:
 		return e.applyData(ctx, rs, step)
-	case NodeComposite:
-		node, ok := e.DAG.Nodes[templateAddress(step.Address)]
-		if !ok || node.Kind != NodeComposite {
-			return fmt.Errorf("composite: node %q not in DAG", step.Address)
-		}
-		return e.finalizeComposite(rs, node, step.Address, step.Inputs,
-			step.SensitiveInputs, step.SensitiveOutputs)
 	case NodeOutput:
 		return nil
 	default:

@@ -52,7 +52,7 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 }
 
 func (e *Executor) checkCompositeRemap(n *Node) []error {
-	if n.Kind != NodeComposite || len(n.ConfigurationsRemap) == 0 {
+	if !n.IsComposite() || len(n.ConfigurationsRemap) == 0 {
 		return nil
 	}
 	keys := make([]string, 0, len(n.ConfigurationsRemap))

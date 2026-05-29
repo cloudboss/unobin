@@ -82,8 +82,9 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		elapsed := time.Since(startedAt[r.step.Address])
 		if r.err != nil {
 			emit(ApplyEvent{
-				Address: r.step.Address, Kind: r.step.Kind, Decision: r.step.Decision,
-				Stage: StageFail, Elapsed: elapsed, Err: r.err,
+				Address: r.step.Address, Kind: r.step.Kind, Composite: r.step.Composite,
+				Decision: r.step.Decision,
+				Stage:    StageFail, Elapsed: elapsed, Err: r.err,
 			})
 			failedAddrs[r.step.Address] = true
 			if firstErr == nil {
@@ -105,8 +106,9 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			return
 		}
 		emit(ApplyEvent{
-			Address: r.step.Address, Kind: r.step.Kind, Decision: r.step.Decision,
-			Stage: StageDone, Elapsed: elapsed,
+			Address: r.step.Address, Kind: r.step.Kind, Composite: r.step.Composite,
+			Decision: r.step.Decision,
+			Stage:    StageDone, Elapsed: elapsed,
 		})
 		for _, dep := range graph.dependents[r.step.Address] {
 			indegree[dep]--
@@ -152,7 +154,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 				}
 				startedAt[next.Address] = time.Now()
 				emit(ApplyEvent{
-					Address: next.Address, Kind: next.Kind,
+					Address: next.Address, Kind: next.Kind, Composite: next.Composite,
 					Decision: next.Decision, Stage: StageStart,
 				})
 			case r := <-results:

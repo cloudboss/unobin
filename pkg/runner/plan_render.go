@@ -64,7 +64,7 @@ func buildPlanTree(steps []*runtime.PlanStep) *planTree {
 		boundaries: map[string]*runtime.PlanStep{},
 	}
 	for _, s := range steps {
-		if s.Kind == runtime.NodeComposite {
+		if s.Composite {
 			t.boundaries[s.Address] = s
 		}
 	}
@@ -87,7 +87,7 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 
 	for i := 0; i < len(children); {
 		child := children[i]
-		if child.Kind == runtime.NodeComposite {
+		if child.Composite {
 			if !anyChangeRecursive(t, child.Address) {
 				i++
 				continue
@@ -211,7 +211,7 @@ func strongestDecision(steps []*runtime.PlanStep) runtime.Decision {
 
 func anyChangeRecursive(t *planTree, parent string) bool {
 	for _, child := range t.children[parent] {
-		if child.Kind == runtime.NodeComposite {
+		if child.Composite {
 			if anyChangeRecursive(t, child.Address) {
 				return true
 			}
@@ -237,7 +237,7 @@ func boundaryDecisionRecursive(t *planTree, addr string) runtime.Decision {
 	var visit func(p string)
 	visit = func(p string) {
 		for _, child := range t.children[p] {
-			if child.Kind == runtime.NodeComposite {
+			if child.Composite {
 				visit(child.Address)
 				continue
 			}
@@ -253,7 +253,7 @@ func boundaryDecisionRecursive(t *planTree, addr string) runtime.Decision {
 
 func collectChangedLeaves(t *planTree, parent string, into *[]*runtime.PlanStep) {
 	for _, child := range t.children[parent] {
-		if child.Kind == runtime.NodeComposite {
+		if child.Composite {
 			collectChangedLeaves(t, child.Address, into)
 			continue
 		}

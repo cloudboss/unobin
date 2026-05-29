@@ -65,8 +65,8 @@ func TestGenerateUBLibraryHasExpectedShape(t *testing.T) {
 	require.Contains(t, s, "func Library() *runtime.Library")
 	require.Regexp(t, `Name:\s*"net"`, s)
 	require.Regexp(t, `ResourceComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
-	require.Regexp(t, `"alpha":\s*\{\s*Name:\s*"alpha",\s*Category:\s*runtime\.NodeResource`, s)
-	require.Regexp(t, `"beta":\s*\{\s*Name:\s*"beta",\s*Category:\s*runtime\.NodeResource`, s)
+	require.Regexp(t, `"alpha":\s*\{\s*Name:\s*"alpha",\s*Kind:\s*runtime\.NodeResource`, s)
+	require.Regexp(t, `"beta":\s*\{\s*Name:\s*"beta",\s*Kind:\s*runtime\.NodeResource`, s)
 
 	alphaAt := strings.Index(s, `"alpha":`)
 	betaAt := strings.Index(s, `"beta":`)
@@ -93,9 +93,9 @@ func TestGenerateUBLibrarySplitsByCategory(t *testing.T) {
 	require.Regexp(t, `ResourceComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
 	require.Regexp(t, `DataComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
 	require.Regexp(t, `ActionComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
-	require.Regexp(t, `"box":\s*\{\s*Name:\s*"box",\s*Category:\s*runtime\.NodeResource`, s)
-	require.Regexp(t, `"lookup":\s*\{\s*Name:\s*"lookup",\s*Category:\s*runtime\.NodeData`, s)
-	require.Regexp(t, `"run":\s*\{\s*Name:\s*"run",\s*Category:\s*runtime\.NodeAction`, s)
+	require.Regexp(t, `"box":\s*\{\s*Name:\s*"box",\s*Kind:\s*runtime\.NodeResource`, s)
+	require.Regexp(t, `"lookup":\s*\{\s*Name:\s*"lookup",\s*Kind:\s*runtime\.NodeData`, s)
+	require.Regexp(t, `"run":\s*\{\s*Name:\s*"run",\s*Kind:\s*runtime\.NodeAction`, s)
 }
 
 func TestGenerateUBLibraryRejectsUnknownCategory(t *testing.T) {
@@ -223,7 +223,7 @@ func main() {
 	fmt.Printf("resource-composites=%d\n", len(lib.ResourceComposites))
 	for name, ct := range lib.ResourceComposites {
 		fmt.Printf("composite=%s category=%s body-fields=%d\n",
-			name, ct.Category, len(ct.Body.Body.Fields))
+			name, ct.Kind, len(ct.Body.Body.Fields))
 	}
 	if lib.ResourceComposites["cluster"] == nil {
 		fmt.Fprintln(os.Stderr, "missing cluster composite")

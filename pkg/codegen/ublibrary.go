@@ -224,7 +224,7 @@ func Library() *runtime.Library {
 {{range .Groups}}		{{.MapField}}: map[string]*runtime.CompositeType{
 {{range .Entries}}			{{quote .Name}}: {
 				Name:     {{quote .Name}},
-				Category: {{.Symbol}},
+				Kind:     {{.Symbol}},
 				Body:     {{.Body}},
 {{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{

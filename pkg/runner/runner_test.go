@@ -779,10 +779,11 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:  "resource.greeter.greeting.welcome",
-				Kind:     runtime.NodeComposite,
-				Decision: runtime.DecisionEval,
-				Inputs:   map[string]any{"path": "/tmp/x"},
+				Address:   "resource.greeter.greeting.welcome",
+				Kind:      runtime.NodeResource,
+				Composite: true,
+				Decision:  runtime.DecisionEval,
+				Inputs:    map[string]any{"path": "/tmp/x"},
 			},
 			{
 				Address:  "resource.greeter.greeting.welcome/resource.local.file.many['a']",
@@ -817,9 +818,10 @@ func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:  "resource.greeter.greeting.welcome",
-				Kind:     runtime.NodeComposite,
-				Decision: runtime.DecisionEval,
+				Address:   "resource.greeter.greeting.welcome",
+				Kind:      runtime.NodeResource,
+				Composite: true,
+				Decision:  runtime.DecisionEval,
 				Inputs: map[string]any{
 					"message": "Hello",
 					"path":    "/tmp/x",
@@ -854,18 +856,20 @@ func TestPrintPlanRendersNestedComposites(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:  "resource.greeter.greeting.welcome",
-				Kind:     runtime.NodeComposite,
-				Decision: runtime.DecisionEval,
+				Address:   "resource.greeter.greeting.welcome",
+				Kind:      runtime.NodeResource,
+				Composite: true,
+				Decision:  runtime.DecisionEval,
 				Inputs: map[string]any{
 					"message": "Hello",
 					"path":    "/tmp/x",
 				},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/resource.helloer.hello.file",
-				Kind:     runtime.NodeComposite,
-				Decision: runtime.DecisionEval,
+				Address:   "resource.greeter.greeting.welcome/resource.helloer.hello.file",
+				Kind:      runtime.NodeResource,
+				Composite: true,
+				Decision:  runtime.DecisionEval,
 				Inputs: map[string]any{
 					"message": "Hello",
 					"path":    "/tmp/x",
@@ -944,10 +948,11 @@ func TestPrintPlanHidesCompositeWhenInternalsUnchanged(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:  "resource.greeter.greeting.welcome",
-				Kind:     runtime.NodeComposite,
-				Decision: runtime.DecisionEval,
-				Inputs:   map[string]any{"message": "Hello"},
+				Address:   "resource.greeter.greeting.welcome",
+				Kind:      runtime.NodeResource,
+				Composite: true,
+				Decision:  runtime.DecisionEval,
+				Inputs:    map[string]any{"message": "Hello"},
 			},
 			{
 				Address:  "resource.greeter.greeting.welcome/resource.local.file.this",

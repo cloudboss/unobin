@@ -42,7 +42,7 @@ type referenceChecker struct {
 
 func (c *referenceChecker) collectCompositeScopes() {
 	for _, n := range c.dag.Nodes {
-		if n.Kind != NodeComposite {
+		if !n.IsComposite() {
 			continue
 		}
 		c.inputs[n.Address] = inputNames(n.CompositeBody)
@@ -54,7 +54,7 @@ func (c *referenceChecker) collectCompositeScopes() {
 func (c *referenceChecker) checkDeclarations() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
-		case NodeResource, NodeData, NodeAction, NodeComposite:
+		case NodeResource, NodeData, NodeAction:
 		default:
 			continue
 		}
@@ -72,7 +72,7 @@ func (c *referenceChecker) checkDeclarations() {
 func (c *referenceChecker) checkNodes() {
 	for _, n := range c.dag.Nodes {
 		c.checkBody(n.Body, n.Composite, n.ForEach != nil)
-		if n.Kind == NodeComposite {
+		if n.IsComposite() {
 			c.checkCompositeOutputs(n)
 		}
 	}
@@ -81,7 +81,7 @@ func (c *referenceChecker) checkNodes() {
 func (c *referenceChecker) checkConstraints() {
 	c.checkConstraintsBlock(c.root, "")
 	for _, n := range c.dag.Nodes {
-		if n.Kind != NodeComposite || n.CompositeBody == nil {
+		if !n.IsComposite() {
 			continue
 		}
 		c.checkConstraintsBlock(n.CompositeBody, n.Address)
@@ -195,7 +195,7 @@ func (c *referenceChecker) checkLocal(dp *lang.DotPath, scope string) {
 func (c *referenceChecker) checkLocals() {
 	c.checkLocalsBlock(c.root, "")
 	for _, n := range c.dag.Nodes {
-		if n.Kind != NodeComposite || n.CompositeBody == nil {
+		if !n.IsComposite() {
 			continue
 		}
 		c.checkLocalsBlock(n.CompositeBody, n.Address)
@@ -221,7 +221,7 @@ func (c *referenceChecker) checkLocalsBlock(f *lang.File, scope string) {
 func (c *referenceChecker) checkLocalCycles() {
 	c.checkLocalCyclesBlock(c.root, "")
 	for _, n := range c.dag.Nodes {
-		if n.Kind != NodeComposite || n.CompositeBody == nil {
+		if !n.IsComposite() {
 			continue
 		}
 		c.checkLocalCyclesBlock(n.CompositeBody, n.Address)
@@ -336,7 +336,7 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 }
 
 func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typecheck.Type {
-	if node.Kind == NodeComposite {
+	if node.IsComposite() {
 		return compositeOutputNames(node)
 	}
 	libs := c.libraries[scope]

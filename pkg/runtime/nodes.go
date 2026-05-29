@@ -10,11 +10,10 @@ import (
 type NodeKind string
 
 const (
-	NodeResource  NodeKind = "resource"
-	NodeData      NodeKind = "data"
-	NodeAction    NodeKind = "action"
-	NodeOutput    NodeKind = "output"
-	NodeComposite NodeKind = "composite"
+	NodeResource NodeKind = "resource"
+	NodeData     NodeKind = "data"
+	NodeAction   NodeKind = "action"
+	NodeOutput   NodeKind = "output"
 )
 
 // Node is one addressable element of a stack: a single resource instance,
@@ -33,7 +32,8 @@ const (
 // `resource.<outer>/<inner-rel>/<deepest-rel>`, and each node's
 // Composite names its direct enclosing call site.
 //
-// CompositeBody and Libraries are set only on NodeComposite.
+// CompositeBody and Libraries are set only on a composite boundary
+// (the call site node), and IsComposite reports that case.
 // CompositeBody points to the composite type's full body so the
 // runtime can evaluate the `outputs:` block once the internals
 // complete. Libraries is the composite's resolved import table; the
@@ -51,13 +51,6 @@ type Node struct {
 	CompositeBody *lang.File
 	Libraries     map[string]*Library
 
-	// Category is set only on a NodeComposite boundary. It names the call
-	// site's category (resource, data, or action) so the runtime stores
-	// the boundary's published outputs in the matching scope map and the
-	// boundary's address carries the right root. A leaf's category is its
-	// Kind; a boundary's Kind is NodeComposite, so it needs this too.
-	Category NodeKind
-
 	ForEach lang.Expr
 
 	// Configuration names the configuration selected under the node's
@@ -71,13 +64,22 @@ type Node struct {
 	// branches. Empty means the action is not under a named lock.
 	LockName string
 
-	// ConfigurationsRemap is set only on NodeComposite. It maps an
+	// ConfigurationsRemap is set only on a composite boundary. It maps an
 	// inner import alias to the (alias, configuration) of the
 	// configuration that backs that import inside the call. The
 	// runtime walks the composite chain at lookup time and the
 	// validator enforces that the right-hand-side alias matches
 	// the key.
 	ConfigurationsRemap map[string]ConfigRef
+}
+
+// IsComposite reports whether the node is a composite call site (a
+// boundary) rather than a primitive leaf. A boundary has its own Kind
+// (the call site's resource/data/action category) just like a leaf;
+// what sets it apart is the CompositeBody it expands, which
+// extractCategory populates only on boundaries.
+func (n *Node) IsComposite() bool {
+	return n.CompositeBody != nil
 }
 
 // ConfigRef names a particular configuration on an import.
@@ -94,7 +96,7 @@ type ConfigRef struct {
 //
 // libs is the imported-library table keyed by alias. It is consulted to
 // distinguish primitive resource call sites from composite call sites;
-// composites expand into a NodeComposite plus internal nodes. A nil
+// composites expand into a boundary node plus internal nodes. A nil
 // or empty libs skips the composite check, in which case every node in
 // `resources:` is treated as a primitive.
 func ExtractNodes(f *lang.File, libs map[string]*Library) []*Node {
@@ -138,9 +140,9 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 // `data:` call site matches only a data composite and an `actions:` call
 // site only an action composite, the same way Go-implemented types are
 // placed per category. A nil libs skips the composite check and every node
-// is a leaf. The boundary's address carries the call site's category root,
-// while its Kind stays NodeComposite, so the runtime treats every boundary
-// the same regardless of category.
+// is a leaf. The boundary node takes the call site's category as its
+// Kind, the same as a leaf of that category; IsComposite tells the two
+// apart by the CompositeBody a boundary expands.
 func extractCategory(
 	block *lang.ObjectLit, kind NodeKind, parent string, libs map[string]*Library,
 ) []*Node {
@@ -342,11 +344,10 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 	}
 	out := []*Node{{
 		Address:             callSiteAddr,
-		Kind:                NodeComposite,
+		Kind:                category,
 		Alias:               alias,
 		Type:                typ,
 		Name:                name,
-		Category:            category,
 		Body:                args,
 		Composite:           parent,
 		CompositeBody:       composite.Body,

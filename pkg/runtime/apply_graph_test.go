@@ -283,7 +283,7 @@ func TestPersistedDependsOn(t *testing.T) {
 			name: "library-call stays a node",
 			steps: []PlanStep{
 				leafStep("r"),
-				{Address: "m", Kind: NodeComposite, Decision: DecisionEval},
+				{Address: "m", Composite: true, Decision: DecisionEval},
 				leafStep("m/internal"),
 			},
 			// r -> m -> m/internal; m persists, so no collapse.

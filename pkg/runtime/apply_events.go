@@ -21,8 +21,14 @@ const (
 // consumes these to print live per-step progress on stderr or to emit
 // one JSON object per event under --json.
 type ApplyEvent struct {
-	Address  string
-	Kind     NodeKind
+	Address string
+	Kind    NodeKind
+
+	// Composite marks an event for a composite call site (a boundary).
+	// A boundary's Kind is its own resource/data/action category, so
+	// this is what tells a boundary apart from a leaf of that category.
+	Composite bool
+
 	Decision Decision
 	Stage    ApplyStage
 	Time     time.Time

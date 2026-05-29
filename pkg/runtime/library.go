@@ -75,7 +75,7 @@ type FunctionType struct {
 // compatibility with composites built directly in tests.
 type CompositeType struct {
 	Name      string
-	Category  NodeKind
+	Kind      NodeKind
 	Body      *lang.File
 	Libraries map[string]*Library
 }
@@ -97,7 +97,7 @@ func (l *Library) Composite(category NodeKind, name string) *CompositeType {
 // AddComposite stores ct in the map for its category, creating the map on
 // first use.
 func (l *Library) AddComposite(ct *CompositeType) {
-	switch ct.Category {
+	switch ct.Kind {
 	case NodeData:
 		if l.DataComposites == nil {
 			l.DataComposites = map[string]*CompositeType{}

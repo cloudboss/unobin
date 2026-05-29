@@ -454,8 +454,12 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 		if step.Decision == DecisionDestroy {
 			continue
 		}
+		if step.Composite {
+			keep[step.Address] = true
+			continue
+		}
 		switch step.Kind {
-		case NodeAction, NodeComposite, NodeResource:
+		case NodeAction, NodeResource:
 			keep[step.Address] = true
 		}
 	}
@@ -512,7 +516,7 @@ func (e *Executor) finalizeComposite(
 		return err
 	}
 	_, instKey := splitInstanceAddress(instAddr)
-	target := compositeScopeMap(parent, n.Category)
+	target := compositeScopeMap(parent, n.Kind)
 	if instKey == "" {
 		storeNested(target, n, outputs)
 	} else {

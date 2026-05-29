@@ -146,7 +146,7 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 // nodes keep the original behavior: body refs and any `@depends-on`
 // entries.
 func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
-	if n.Kind == NodeComposite {
+	if n.IsComposite() {
 		return internalsOf(n.Address, nodes)
 	}
 	var deps []string

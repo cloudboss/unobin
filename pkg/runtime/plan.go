@@ -83,8 +83,17 @@ const (
 // entry maps the field name to the source-side dot paths the body
 // reads from. Apply re-evaluates these against the live scope.
 type PlanStep struct {
-	Address          string              `json:"address"`
-	Kind             NodeKind            `json:"kind"`
+	Address string   `json:"address"`
+	Kind    NodeKind `json:"kind"`
+
+	// Composite marks a step whose apply finalizes a composite call
+	// site (a boundary) rather than a primitive leaf. A boundary's Kind
+	// is its own resource/data/action category, so the runtime cannot
+	// tell it from a leaf by Kind alone; on a Node that distinction is
+	// the expanded CompositeBody (Node.IsComposite), but a step has no
+	// body, so the bit is stored explicitly in the plan file.
+	Composite bool `json:"composite,omitempty"`
+
 	Decision         Decision            `json:"decision"`
 	Inputs           map[string]any      `json:"inputs,omitempty"`
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
@@ -255,7 +264,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			if liveAddresses[prior.Address] {
 				continue
 			}
-			kind, ok := destroyEntryKind(prior.Type)
+			kind, composite, ok := destroyEntryKind(prior.Type)
 			if !ok {
 				continue
 			}
@@ -265,6 +274,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			plan.Steps = append(plan.Steps, &PlanStep{
 				Address:       prior.Address,
 				Kind:          kind,
+				Composite:     composite,
 				Decision:      DecisionDestroy,
 				Inputs:        prior.Inputs,
 				PriorOutputs:  prior.Outputs,
@@ -279,20 +289,23 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
-// destroyEntryKind maps a state entry type to the node kind its
-// destroy step carries. Leaf entries delete a real resource; action
-// and library-call records have no external lifecycle and are only
-// removed from state.
-func destroyEntryKind(t state.EntryType) (NodeKind, bool) {
+// destroyEntryKind maps a state entry type to the node kind its destroy
+// step takes and whether that step is a composite boundary. Leaf
+// entries delete a real resource; action and library-call records have
+// no external lifecycle and are only removed from state. A library-call
+// record does not remember its resource/data/action category, but a
+// destroy boundary never reads its kind (it is only removed), so the
+// kind is left empty and the composite bit alone routes it.
+func destroyEntryKind(t state.EntryType) (kind NodeKind, composite, ok bool) {
 	switch t {
 	case state.EntryLeaf:
-		return NodeResource, true
+		return NodeResource, false, true
 	case state.EntryAction:
-		return NodeAction, true
+		return NodeAction, false, true
 	case state.EntryLibraryCall:
-		return NodeComposite, true
+		return "", true, true
 	}
-	return "", false
+	return "", false, false
 }
 
 // readDestroySteps reads each destroy step's resource so the plan can
@@ -375,6 +388,9 @@ func (e *Executor) planNodeSteps(rs *runState, n *Node) ([]*PlanStep, error) {
 		return nil, nil
 	}
 	if n.ForEach != nil {
+		if n.IsComposite() {
+			return e.planForEachComposite(rs, n)
+		}
 		switch n.Kind {
 		case NodeResource:
 			return e.planForEachResource(rs, n)
@@ -382,8 +398,6 @@ func (e *Executor) planNodeSteps(rs *runState, n *Node) ([]*PlanStep, error) {
 			return e.planForEachAction(rs, n)
 		case NodeData:
 			return e.planForEachData(rs, n)
-		case NodeComposite:
-			return e.planForEachComposite(rs, n)
 		}
 	}
 	step, err := e.planNode(rs, n)
@@ -519,13 +533,14 @@ func isUpstreamChange(d Decision) bool {
 }
 
 func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
+	if n.IsComposite() {
+		return e.planComposite(rs, n)
+	}
 	switch n.Kind {
 	case NodeAction:
 		return e.planAction(rs, n)
 	case NodeResource:
 		return e.planResource(rs, n)
-	case NodeComposite:
-		return e.planComposite(rs, n)
 	case NodeData:
 		scope, err := e.scopeFor(rs, n)
 		if err != nil {
@@ -547,6 +562,9 @@ func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
 // rather than erroring. Composite boundaries and types that declare no
 // constraint contribute nothing.
 func (e *Executor) checkStepConstraints(step *PlanStep) []error {
+	if step.Composite {
+		return nil
+	}
 	switch step.Kind {
 	case NodeResource, NodeData, NodeAction:
 	default:
@@ -625,7 +643,7 @@ func constraintFieldNames(entries []lang.ConstraintEntry) []string {
 // for the factory. Nodes other than composites contribute nothing, as do
 // composites with no scope or no constraints.
 func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []error {
-	if step.Kind != NodeComposite {
+	if !step.Composite {
 		return nil
 	}
 	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
@@ -677,6 +695,7 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 	return &PlanStep{
 		Address:      n.Address,
 		Kind:         n.Kind,
+		Composite:    true,
 		Decision:     DecisionEval,
 		Inputs:       scope.Vars,
 		PriorOutputs: priorOut,

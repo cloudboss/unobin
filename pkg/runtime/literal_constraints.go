@@ -17,11 +17,14 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 	dag := BuildDAG(f, libs)
 	scopes := map[string]map[string]*Library{"": libs}
 	for _, n := range dag.Nodes {
-		if n.Kind == NodeComposite {
+		if n.IsComposite() {
 			scopes[n.Address] = n.Libraries
 		}
 	}
 	for _, n := range dag.Nodes {
+		if n.IsComposite() {
+			continue
+		}
 		switch n.Kind {
 		case NodeResource, NodeData, NodeAction:
 		default:

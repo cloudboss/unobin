@@ -290,7 +290,7 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 		runtimeLib.AddComposite(&ubruntime.CompositeType{
 			Name:      name,
-			Category:  ubruntime.NodeKind(lib.Categories[name]),
+			Kind:      ubruntime.NodeKind(lib.Categories[name]),
 			Body:      body,
 			Libraries: bodyLibs,
 		})

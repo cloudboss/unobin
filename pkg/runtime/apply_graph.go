@@ -164,8 +164,11 @@ func buildStepGraphWithPairKey(
 // actions, and composite call sites persist; data sources and outputs
 // do not.
 func entryPersisted(s *PlanStep) bool {
+	if s.Composite {
+		return true
+	}
 	switch s.Kind {
-	case NodeAction, NodeComposite:
+	case NodeAction:
 		return true
 	case NodeResource:
 		return s.Decision != DecisionDestroy

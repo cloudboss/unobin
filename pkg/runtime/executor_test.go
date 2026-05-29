@@ -357,7 +357,7 @@ outputs: {
 	libs["w"] = &Library{
 		Name: "w",
 		DataComposites: map[string]*CompositeType{
-			"box": {Name: "box", Category: NodeData, Body: composite},
+			"box": {Name: "box", Kind: NodeData, Body: composite},
 		},
 	}
 	src := `
@@ -416,7 +416,7 @@ outputs: {
 	libs["ops"] = &Library{
 		Name: "ops",
 		ActionComposites: map[string]*CompositeType{
-			"greet": {Name: "greet", Category: NodeAction, Body: composite},
+			"greet": {Name: "greet", Kind: NodeAction, Body: composite},
 		},
 	}
 	src := `
@@ -1294,7 +1294,7 @@ func TestConfigForFallsBackToDefault(t *testing.T) {
 func TestConfigForPicksUpCompositeRemap(t *testing.T) {
 	composite := &Node{
 		Address:             "resource.net.cluster.east",
-		Kind:                NodeComposite,
+		Kind:                NodeResource,
 		Alias:               "net",
 		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 	}
@@ -1321,13 +1321,13 @@ func TestConfigForPicksUpCompositeRemap(t *testing.T) {
 func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
 	outer := &Node{
 		Address:             "resource.outer.wrap.x",
-		Kind:                NodeComposite,
+		Kind:                NodeResource,
 		Alias:               "outer",
 		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 	}
 	inner := &Node{
 		Address:   "resource.outer.wrap.x/resource.inner.cluster.y",
-		Kind:      NodeComposite,
+		Kind:      NodeResource,
 		Alias:     "inner",
 		Composite: outer.Address,
 	}
@@ -1389,7 +1389,7 @@ func TestConfigRefString(t *testing.T) {
 
 	composite := &Node{
 		Address:             "resource.net.cluster.east",
-		Kind:                NodeComposite,
+		Kind:                NodeResource,
 		Alias:               "net",
 		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
 	}

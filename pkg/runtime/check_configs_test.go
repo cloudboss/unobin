@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
@@ -79,9 +80,10 @@ func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) 
 
 func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 	composite := &Node{
-		Address: "resource.net.cluster.east",
-		Kind:    NodeComposite,
-		Alias:   "net",
+		Address:       "resource.net.cluster.east",
+		Kind:          NodeResource,
+		Alias:         "net",
+		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "aws", Configuration: "east2"},
 		},
@@ -96,9 +98,10 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 
 func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 	composite := &Node{
-		Address: "resource.net.cluster.east",
-		Kind:    NodeComposite,
-		Alias:   "net",
+		Address:       "resource.net.cluster.east",
+		Kind:          NodeResource,
+		Alias:         "net",
+		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "gcp", Configuration: "east2"},
 		},
@@ -116,9 +119,10 @@ func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 
 func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	composite := &Node{
-		Address: "resource.net.cluster.east",
-		Kind:    NodeComposite,
-		Alias:   "net",
+		Address:       "resource.net.cluster.east",
+		Kind:          NodeResource,
+		Alias:         "net",
+		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "aws", Configuration: "ghost"},
 		},
@@ -141,9 +145,10 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 		Configuration: "ghost",
 	}
 	composite := &Node{
-		Address: "resource.net.cluster.east",
-		Kind:    NodeComposite,
-		Alias:   "net",
+		Address:       "resource.net.cluster.east",
+		Kind:          NodeResource,
+		Alias:         "net",
+		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "gcp", Configuration: "east2"},
 		},

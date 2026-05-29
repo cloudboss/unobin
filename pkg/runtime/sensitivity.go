@@ -96,6 +96,18 @@ func (s *sensitivityAnalyzer) sensitiveInputs(body lang.Expr, compositeAddr stri
 // composite call site it comes from the composite type's analyzed
 // outputs (declared `@sensitive` plus propagation).
 func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
+	if n.IsComposite() {
+		cs := s.compositeSensitivity(n)
+		if cs == nil {
+			return nil
+		}
+		names := make([]string, 0, len(cs.outputs))
+		for name := range cs.outputs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return names
+	}
 	switch n.Kind {
 	case NodeResource, NodeAction, NodeData:
 		libs, _ := s.libsForNode(n)
@@ -116,17 +128,6 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 			return nil
 		}
 		return append([]string(nil), ts.SensitiveOutputs...)
-	case NodeComposite:
-		cs := s.compositeSensitivity(n)
-		if cs == nil {
-			return nil
-		}
-		names := make([]string, 0, len(cs.outputs))
-		for name := range cs.outputs {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		return names
 	}
 	return nil
 }
