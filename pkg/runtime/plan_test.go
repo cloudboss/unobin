@@ -88,6 +88,115 @@ func stepFor(plan *Plan, addr string) *PlanStep {
 	return nil
 }
 
+// planCompositeConstraintErr plans a stack with a single composite whose
+// body carries the given `constraints:` block, instantiated with the
+// given call-site args, and returns the plan error (nil when the plan
+// succeeds). The composite declares name and size inputs the constraints
+// reference; its one internal resource uses literals so internal planning
+// never depends on an unset input.
+func planCompositeConstraintErr(t *testing.T, constraints, callArgs string) error {
+	t.Helper()
+	composite := parseStack(t, `
+inputs: {
+  name: { type: optional(string) }
+  size: { type: optional(integer) }
+}
+constraints: `+constraints+`
+resources: {
+  core: { thing: { one: { name: 'fixed', size: 1 } } }
+}
+`)
+	libs := resourceModules(&resourceCounters{})
+	libs["w"] = &Library{
+		Name: "w",
+		ResourceComposites: map[string]*CompositeType{
+			"pair": {Name: "pair", Body: composite},
+		},
+	}
+	src := `
+resources: {
+  w: { pair: { x: ` + callArgs + ` } }
+}
+`
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	return err
+}
+
+func TestPlanCompositeConstraints(t *testing.T) {
+	const oneOf = `[ { kind: exactly-one-of, fields: [name, size] } ]`
+	const together = `[ { kind: required-together, fields: [name, size] } ]`
+	const predicate = `[ { kind: predicate, when: var.name != null, require: var.size != null } ]`
+	tests := []struct {
+		name        string
+		constraints string
+		callArgs    string
+		wantErr     string
+	}{
+		{
+			name:        "exactly-one-of with both set is rejected",
+			constraints: oneOf,
+			callArgs:    `{ name: 'a', size: 1 }`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+				"[name, size]): expected exactly one to be set, got 2 (name, size)",
+		},
+		{
+			name:        "exactly-one-of with one set passes",
+			constraints: oneOf,
+			callArgs:    `{ name: 'a' }`,
+		},
+		{
+			name:        "predicate with unmet requirement is rejected",
+			constraints: predicate,
+			callArgs:    `{ name: 'a' }`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (predicate): " +
+				"predicate requirement not satisfied",
+		},
+		{
+			name:        "predicate with met requirement passes",
+			constraints: predicate,
+			callArgs:    `{ name: 'a', size: 1 }`,
+		},
+		{
+			name:        "predicate whose condition is false passes",
+			constraints: predicate,
+			callArgs:    `{ size: 1 }`,
+		},
+		{
+			name:        "required-together with one set is rejected",
+			constraints: together,
+			callArgs:    `{ name: 'a' }`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (required-together " +
+				"[name, size]): expected all set or all null, got 1 set (name)",
+		},
+		{
+			name:        "required-together with both set passes",
+			constraints: together,
+			callArgs:    `{ name: 'a', size: 1 }`,
+		},
+		{
+			name:        "required-together with neither set passes",
+			constraints: together,
+			callArgs:    `{}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := planCompositeConstraintErr(t, tt.constraints, tt.callArgs)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestPlanForEachResourceEmitsOneStepPerInstance(t *testing.T) {
 	src := `
 resources: {

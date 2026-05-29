@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 
@@ -227,6 +228,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				plan.Steps = append(plan.Steps, step)
 				liveAddresses[step.Address] = true
 				constraintErrs = append(constraintErrs, e.checkStepConstraints(step)...)
+				constraintErrs = append(constraintErrs, e.checkCompositeConstraints(rs, step)...)
 			}
 		}
 
@@ -579,6 +581,48 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	for _, er := range lang.CheckConstraintEntries(entries, step.Inputs, eval).Errors() {
+		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+	}
+	return out
+}
+
+// checkCompositeConstraints validates a composite boundary's own
+// `constraints:` block, returning one error per violation prefixed with
+// the boundary address. A composite's constraints are its input contract,
+// checked the same way the factory checks its own: against the inputs
+// alone. The call site's args were evaluated when the boundary scope was
+// built, so a forward-reference arg makes that fail earlier and never
+// reaches here. A composite applies no defaults, so every declared input
+// the call site left out is filled with null first; an unset input then
+// reads as null in a predicate, the same as an unset optional input does
+// for the factory. Nodes other than composites contribute nothing, as do
+// composites with no scope or no constraints.
+func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []error {
+	if step.Kind != NodeComposite {
+		return nil
+	}
+	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
+	if !ok || node.CompositeBody == nil {
+		return nil
+	}
+	arr, ok := topLevelMap(node.CompositeBody.Body)["constraints"].(*lang.ArrayLit)
+	if !ok || len(arr.Elements) == 0 {
+		return nil
+	}
+	scope, ok := rs.composites[step.Address]
+	if !ok || scope == nil {
+		return nil
+	}
+	values := make(map[string]any, len(scope.Vars))
+	for name := range inputNames(node.CompositeBody) {
+		values[name] = nil
+	}
+	maps.Copy(values, scope.Vars)
+	eval := func(ex lang.Expr) (any, error) {
+		return Eval(ex, &EvalContext{Vars: values})
+	}
+	var out []error
+	for _, er := range lang.CheckConstraints(arr, values, eval).Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	return out
