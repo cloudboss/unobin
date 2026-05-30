@@ -669,23 +669,49 @@ func validateConstraintCommonKey(
 	return true
 }
 
+// The @-keys a node body may hold, greenlisted by kind. The kind is the
+// block the body sits in (resources, data, or actions). Any @-prefixed key
+// not on the kind's greenlist is a compile error, so a misspelled or
+// not-yet-implemented meta key is caught early rather than silently ignored.
+//
+// resource, data, and action share a base set; an action body also allows
+// @lock and @trigger. A composite call site may sit in any of the three
+// blocks, so @configurations is greenlisted everywhere; whether a key suits
+// a leaf or a composite is a finer check done during resolution.
+var (
+	resourceBodyGreenlist = metaKeySet(
+		"@configuration", "@configurations", "@depends-on", "@for-each")
+	dataBodyGreenlist = metaKeySet(
+		"@configuration", "@configurations", "@depends-on", "@for-each")
+	actionBodyGreenlist = metaKeySet(
+		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@trigger")
+)
+
+func metaKeySet(keys ...string) map[string]bool {
+	set := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		set[k] = true
+	}
+	return set
+}
+
 // ValidateResources checks a `resources:` block level by level: alias,
 // type name, instance name, body.
 func ValidateResources(block *ObjectLit) *ErrorList {
-	return validateNestedTypeBlock(block, "resource")
+	return validateNestedTypeBlock(block, "resource", resourceBodyGreenlist)
 }
 
 // ValidateDataSources checks the shape of a `data:` block.
 func ValidateDataSources(block *ObjectLit) *ErrorList {
-	return validateNestedTypeBlock(block, "data source")
+	return validateNestedTypeBlock(block, "data source", dataBodyGreenlist)
 }
 
 // ValidateActions checks the shape of an `actions:` block.
 func ValidateActions(block *ObjectLit) *ErrorList {
-	return validateNestedTypeBlock(block, "action")
+	return validateNestedTypeBlock(block, "action", actionBodyGreenlist)
 }
 
-func validateNestedTypeBlock(block *ObjectLit, what string) *ErrorList {
+func validateNestedTypeBlock(block *ObjectLit, what string, greenlist map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
 	seenAlias := make(map[string]Position, len(block.Fields))
 	for _, aliasFld := range block.Fields {
@@ -716,10 +742,23 @@ func validateNestedTypeBlock(block *ObjectLit, what string) *ErrorList {
 				if !checkBareIdentKey(nameFld, seenName, what+" name", errs) {
 					continue
 				}
-				if _, ok := nameFld.Value.(*ObjectLit); !ok {
+				body, ok := nameFld.Value.(*ObjectLit)
+				if !ok {
 					errs.Addf(ErrSchema, nameFld.Value.Span().Start,
 						"%s %s.%s.%s: body must be an object",
 						what, aliasFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name)
+					continue
+				}
+				for _, bodyFld := range body.Fields {
+					if bodyFld.Key.Kind != FieldIdent || !bodyFld.Key.IsMeta() {
+						continue
+					}
+					if !greenlist[bodyFld.Key.Name] {
+						errs.Addf(ErrSchema, bodyFld.Key.S.Start,
+							"%s %s.%s.%s: meta key %q is not allowed",
+							what, aliasFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name,
+							bodyFld.Key.Name)
+					}
 				}
 			}
 		}
