@@ -192,6 +192,9 @@ type resourceCounters struct {
 	// readFn lets a test control what countingResource.Read returns;
 	// nil means Read returns prior unchanged (no drift, not gone).
 	readFn func(prior any) (any, error)
+	// gotUpdatePrior captures the Prior the last Update received, so a
+	// test can assert what reached the resource through plan and apply.
+	gotUpdatePrior *Prior[countingResource, any]
 }
 
 type countingResource struct {
@@ -217,6 +220,7 @@ func (r *countingResource) Update(
 	_ context.Context, _ any, prior Prior[countingResource, any],
 ) (any, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
+	r.counters.gotUpdatePrior = &prior
 	m, _ := prior.Outputs.(map[string]any)
 	if m == nil {
 		m = map[string]any{}

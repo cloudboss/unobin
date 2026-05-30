@@ -6,21 +6,28 @@ import (
 	"reflect"
 )
 
-// Prior is the previous applied state handed to Update: the inputs the
-// body evaluated to on the last apply and the outputs the resource
-// returned then. Compare current inputs against Inputs with Changed to
-// decide what to reconcile, and read Outputs for the prior handle (an
-// id, an arn) the update acts against.
+// Prior is everything known before Update acts: the inputs the body
+// evaluated to on the last apply, the outputs the resource returned
+// then, and the reality a plan-time Read last saw. Compare current
+// inputs against Inputs with Changed to decide what to reconcile, read
+// Outputs for the prior handle (an id, an arn) the update acts against,
+// and read Observed to patch from current reality rather than the
+// recorded result when the two have drifted apart.
 //
 // Inputs is the input struct by value, so it is never nil and needs no
 // guard; a prior whose recorded inputs no longer decode into the
 // current struct degrades to the zero value, which reads as "every
-// field changed". Outputs keeps the same pointer type the rest of the
-// contract uses, so a resource that recorded no outputs still passes
-// nil.
+// field changed". Outputs and Observed keep the same pointer type the
+// rest of the contract uses, so a resource with no recorded result or
+// no plan-time read still passes nil.
+//
+// Observed is plan-time, not apply-time: apply does not re-Read before
+// Update, so between plan and apply reality can move further. A resource
+// that needs apply-time truth must Read itself.
 type Prior[In, Out any] struct {
-	Inputs  In
-	Outputs Out
+	Inputs   In
+	Outputs  Out
+	Observed Out
 }
 
 // Changed reports whether a field differs between its prior and current
@@ -73,7 +80,7 @@ type ResourceRegistration interface {
 	NewReceiver() any
 	Create(ctx context.Context, receiver, cfg any) (any, error)
 	Read(ctx context.Context, receiver, cfg, prior any) (any, error)
-	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs any) (any, error)
+	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any) (any, error)
 	Delete(ctx context.Context, receiver, cfg, prior any) error
 	ReplaceFields(receiver any) []string
 	OutputType() reflect.Type
@@ -200,13 +207,21 @@ func (typedResourceReg[T, Out, PT]) Read(
 }
 
 func (typedResourceReg[T, Out, PT]) Update(
-	ctx context.Context, receiver, cfg, priorInputs, priorOutputs any,
+	ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any,
 ) (any, error) {
 	out, err := coercePrior[Out](priorOutputs)
 	if err != nil {
 		return nil, err
 	}
-	prior := Prior[T, Out]{Inputs: coercePriorInputs[T](priorInputs), Outputs: out}
+	obs, err := coercePrior[Out](observed)
+	if err != nil {
+		return nil, err
+	}
+	prior := Prior[T, Out]{
+		Inputs:   coercePriorInputs[T](priorInputs),
+		Outputs:  out,
+		Observed: obs,
+	}
 	return PT(receiver.(*T)).Update(ctx, cfg, prior)
 }
 

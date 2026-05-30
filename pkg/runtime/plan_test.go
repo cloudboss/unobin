@@ -695,6 +695,41 @@ resources: {
 	require.NotEqual(t, step.PriorOutputs["size"], step.ObservedOutputs["size"])
 }
 
+func TestUpdateSeesObservedDriftAtApply(t *testing.T) {
+	src := `
+resources: {
+  core: { thing: { one: { name: 'alpha', size: 1 } } }
+}
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	libs := resourceModules(&c)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	// First apply records outputs with size 1.
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+
+	// Reality drifts to size 99; the re-apply plans a revert Update.
+	c.readFn = func(prior any) (any, error) {
+		m, _ := prior.(map[string]any)
+		out := map[string]any{}
+		maps.Copy(out, m)
+		out["size"] = int64(99)
+		return out, nil
+	}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+
+	require.NotNil(t, c.gotUpdatePrior)
+	require.Equal(t, int64(1), c.gotUpdatePrior.Outputs.(map[string]any)["size"],
+		"Outputs is the result recorded by the last apply")
+	require.Equal(t, int64(99), c.gotUpdatePrior.Observed.(map[string]any)["size"],
+		"Observed is what the plan-time Read saw, the drifted reality")
+}
+
 func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 	src := `
 resources: {

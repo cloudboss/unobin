@@ -219,17 +219,34 @@ func TestCoercePriorInputsUnsupportedTypeYieldsZero(t *testing.T) {
 	require.Equal(t, fakeVpc{}, coercePriorInputs[fakeVpc](42))
 }
 
-func TestUpdateReceivesPriorInputsAndOutputs(t *testing.T) {
-	// The erased Update builds the Prior bundle from the prior inputs and
-	// prior outputs the runtime hands it, both arriving as state maps.
+func TestUpdateReceivesPriorInputsOutputsAndObserved(t *testing.T) {
+	// The erased Update builds the Prior bundle from the prior inputs, the
+	// prior outputs, and the plan-time observed outputs the runtime hands
+	// it, all arriving as state maps. Outputs is the recorded handle;
+	// Observed is what the plan-time Read saw, which can differ under drift.
 	reg := MakeResource[capturingVpc, *fakeVpcOutput]()
 	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
 	_, err := reg.Update(context.Background(), receiver, nil,
-		map[string]any{"cidr-block": "10.0.0.0/8"}, map[string]any{"id": "vpc-old"})
+		map[string]any{"cidr-block": "10.0.0.0/8"},
+		map[string]any{"id": "vpc-recorded"},
+		map[string]any{"id": "vpc-observed"})
 	require.NoError(t, err)
 	require.NotNil(t, receiver.gotPrior)
 	require.Equal(t, "10.0.0.0/8", receiver.gotPrior.Inputs.CidrBlock)
-	require.Equal(t, "vpc-old", receiver.gotPrior.Outputs.ID)
+	require.Equal(t, "vpc-recorded", receiver.gotPrior.Outputs.ID)
+	require.Equal(t, "vpc-observed", receiver.gotPrior.Observed.ID)
+}
+
+func TestUpdatePassesNilObservedAsZero(t *testing.T) {
+	// A resource with no plan-time read (or a nil observed map) gets the
+	// zero Out, the same nil-pointer convention Outputs uses.
+	reg := MakeResource[capturingVpc, *fakeVpcOutput]()
+	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
+	_, err := reg.Update(context.Background(), receiver, nil,
+		map[string]any{"cidr-block": "10.0.0.0/8"}, map[string]any{"id": "vpc-old"}, nil)
+	require.NoError(t, err)
+	require.NotNil(t, receiver.gotPrior)
+	require.Nil(t, receiver.gotPrior.Observed)
 }
 
 func TestChanged(t *testing.T) {

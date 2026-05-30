@@ -93,7 +93,7 @@ func TestResourceLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, out, got)
 
-	updated, err := rt.Update(ctx, r, nil, nil, out)
+	updated, err := rt.Update(ctx, r, nil, nil, out, nil)
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha-updated", updated.(map[string]any)["id"])
 
