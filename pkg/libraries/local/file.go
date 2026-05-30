@@ -26,9 +26,10 @@ type File struct {
 	CreateDirectory bool
 }
 
-// FileOutput is what gets stored in state after Create / Update.
+// FileOutput is what gets stored in state after Create / Update. It
+// holds only what writing the file computes; path is an input and is
+// readable as one, so it is not copied here.
 type FileOutput struct {
-	Path   string
 	SHA256 string
 	Size   int64
 }
@@ -54,7 +55,6 @@ func (f *File) Read(_ context.Context, _ any, _ *FileOutput) (*FileOutput, error
 	}
 	sum := sha256.Sum256(body)
 	return &FileOutput{
-		Path:   f.Path,
 		SHA256: hex.EncodeToString(sum[:]),
 		Size:   info.Size(),
 	}, nil
@@ -93,7 +93,6 @@ func (f *File) write() (*FileOutput, error) {
 	}
 	sum := sha256.Sum256(body)
 	return &FileOutput{
-		Path:   f.Path,
 		SHA256: hex.EncodeToString(sum[:]),
 		Size:   int64(len(body)),
 	}, nil

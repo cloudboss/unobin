@@ -20,7 +20,6 @@ func TestFileCreate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
-	require.Equal(t, path, out.Path)
 	require.Equal(t, int64(8), out.Size)
 	require.Equal(t,
 		"9b96a1fe1d548cbbc960cc6a0286668fd74a763667b06366fb2324269fcabaa4",
@@ -35,10 +34,9 @@ func TestFileCreatesMissingParentDirsWhenOptedIn(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "deep", "hello.txt")
 
-	out, err := (&File{Path: path, Content: "deep", CreateDirectory: true}).
+	_, err := (&File{Path: path, Content: "deep", CreateDirectory: true}).
 		Create(context.Background(), nil)
 	require.NoError(t, err)
-	require.Equal(t, path, out.Path)
 
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
