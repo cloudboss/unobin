@@ -1,71 +1,72 @@
 # Unobin
 
-Unobin means _one binary_. It's a tool for cloud automation inspired by [Ansible](https://github.com/ansible/ansible), but unlike Ansible, an unobin playbook compiles to a standalone binary.
+Unobin means _one binary_. It's a tool for infrastructure automation inspired by [Terraform](https://developer.hashicorp.com/terraform), [Ansible](https://docs.ansible.com/projects/ansible/latest/index.html), and others, but unlike those, unobin compiles your code to a standalone binary called a factory.
 
 ## Quickstart
 
-First get unobin:
+Install unobin:
 
 ```
-GO111MODULE=on go get -u github.com/cloudboss/unobin/unobin
+go install github.com/cloudboss/unobin/cmd/unobin@latest
 ```
 
-To start a new playbook project, you will use the `unobin init` command. Unobin playbooks compile to go, so in addition to giving the project a name, you will also need to give it a Go import path. This is usually the name of the Git repository where you will host the project.
-
-Start the project, giving it the project name with `-p` and Go import path with `-i`:
+To start a new factory, use the `unobin generate factory` command.
 
 ```
-unobin init -p myplaybook -i github.com/cloudboss/myplaybook
+unobin generate factory -o appdeploy
 ```
 
-Now you will have a directory created with the project name, containing an example playbook `playbook.ub`, a Go module definition `go.mod`, and a `resources` directory containing a template. Change to the project directory and compile:
+Now you will have a new directory `appdeploy` (given by `-o`) containing a `factory.ub` file. Edit `factory.ub` to import modules and add resources.
+
+When you compile, give it a library path with `--library-path`. This is similar to Go's `module-path` when running `go mod init`. It will normally be the git repo where your library will live.
+
+In the `appdeploy` directory, run:
 
 ```
-cd myplaybook
-unobin compile -p playbook.ub
+unobin compile -o ./appdeploy-compiled --build --library-path github.com/cloudboss/mystack
 ```
 
-Now there will be an executable called `playbook` with the contents of `resources` compiled into it. To run the playbook, you need some input variables. These are written in JSON. For the example playbook you only need one variable called `name`:
+Now there will be an executable called `./appdeploy-compiled/appdeploy`. You can use it to generate a configuration file from the stack's input schema:
 
 ```
-echo '{"name": "MyName"}' > vars.json
-./playbook apply -v vars.json
+./appdeploy-compiled/appdeploy schema template -o config.ub
 ```
+
+Edit the generated `config.ub` if necessary.
+
+Then run plan and apply. A factory cannot apply without first planning.
+
+```
+./appdeploy-compiled/appdeploy plan -o plan.json -c config.ub
+./appdeploy-compiled/appdeploy apply plan.json
+```
+
+See the [examples](./examples) directory for various example stacks that you can compile and run.
 
 ## Benefits of Unobin
 
 ### No Dependencies
 
-An unobin playbook includes the runtime. It's like having Python, Ansible, and all dependencies included in the playbook itself.
+An unobin factory includes the runtime and dependencies. It's like having your modules, providers, and Terraform itself all included in one executable.
 
 ### Consistent Interface
 
-All playbooks have the same command line arguments with automatically generated help. If you know how to run one, you know how to run all of them.
+All factories have the same command line arguments with automatically generated help. If you know how to run one, you know how to run all of them.
 
 ### Reproducible
 
-The goal is: if it works on my machine, then it works on your machine. You don't need to do extra steps or install anything before you can run a playbook. Just download the binary and run it.
-
-### Serverless
-
-No, not _that_ kind of serverless. It means unobin playbooks don't need to connect to a server or run from a control node. You run a playbook where you need it, whether from CI/CD or an individual machine that runs it to configure itself. The only "server" you need is for storage to host the playbook binary; use [Artifactory](https://jfrog.com/artifactory/), [Nexus](https://www.sonatype.com/nexus/repository-oss), a cloud storage bucket, or bake it into an image so it's already there when your machines boot.
-
-### Predictable
-
-There is one source for input variables: they are passed in as an argument to the playbook. Unlike Ansible, there are no levels of [precedence for variables](https://docs.ansible.com/ansible/latest/user_guide/playbooks_variables.html#understanding-variable-precedence).
-
-There is only one pass through the playbook. There are no lookup plugins to run at a different time from the task where they are called. In unobin, "lookups" are just ordinary tasks that produce output. The templating language is minimal, may only be used for task arguments, and is evaluated at the beginning of each task's execution.
+The goal is: if it works on my machine, then it works on your machine. You don't need to do extra steps or install anything before you can deploy your infrastructure. Just download the factory and run it.
 
 ### Input Validation
 
-All playbooks validate their input variables against a [schema](https://json-schema.org/). The playbook will only run if the inputs pass validation.
+All factories validate their inputs against a schema and will not run if the inputs do not pass validation.
 
 ## Comparison with Other Tools
 
-|                      | Unobin | Ansible    | Chef   |
-|:--------------------:|:------:|:----------:|:------:|
-|No server             |&check; |            |        |
-|Local mode            |&check; |optional    |&check; |
-|Syntax                |Unobin  |YAML+Jinja2 |Ruby    |
-|Works on my machine   |&check; |maybe       |maybe   |
-|Works on your machine |&check; |maybe       |maybe   |
+|                      | Unobin | Ansible    | Chef   | Terraform  |
+|:--------------------:|:------:|:----------:|:------:|:----------:|
+|No server             |&check; |            |        |&check;     |
+|Local mode            |&check; |optional    |&check; |&check;     |
+|Syntax                |Unobin  |YAML+Jinja2 |Ruby    |HCL         |
+|Works on my machine   |&check; |maybe       |maybe   |maybe       |
+|Works on your machine |&check; |maybe       |maybe   |maybe       |
