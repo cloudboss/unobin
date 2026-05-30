@@ -36,8 +36,10 @@ func (r *orderResource) Read(_ context.Context, _ any, prior any) (any, error) {
 	return prior, nil
 }
 
-func (r *orderResource) Update(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (r *orderResource) Update(
+	_ context.Context, _ any, prior Prior[orderResource, any],
+) (any, error) {
+	return prior.Outputs, nil
 }
 
 func (r *orderResource) Delete(_ context.Context, _ any, _ any) error {
@@ -123,8 +125,10 @@ func (r *cfgResource) Read(_ context.Context, _ any, prior any) (any, error) {
 	return prior, nil
 }
 
-func (r *cfgResource) Update(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (r *cfgResource) Update(
+	_ context.Context, _ any, prior Prior[cfgResource, any],
+) (any, error) {
+	return prior.Outputs, nil
 }
 
 func (r *cfgResource) Delete(_ context.Context, cfg any, _ any) error {
@@ -233,7 +237,9 @@ func (r *incrementalResource) Read(_ context.Context, _ any, prior any) (any, er
 	return prior, nil
 }
 
-func (r *incrementalResource) Update(_ context.Context, _ any, prior any) (any, error) {
+func (r *incrementalResource) Update(
+	_ context.Context, _ any, _ Prior[incrementalResource, any],
+) (any, error) {
 	if r.Size == 99 {
 		return nil, errIncrementalResource
 	}

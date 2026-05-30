@@ -60,7 +60,9 @@ func (f *File) Read(_ context.Context, _ any, _ *FileOutput) (*FileOutput, error
 	}, nil
 }
 
-func (f *File) Update(_ context.Context, _ any, _ *FileOutput) (*FileOutput, error) {
+func (f *File) Update(
+	_ context.Context, _ any, _ runtime.Prior[File, *FileOutput],
+) (*FileOutput, error) {
 	return f.write()
 }
 

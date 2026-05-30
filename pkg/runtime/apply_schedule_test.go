@@ -33,7 +33,9 @@ func (r *slowResource) Create(ctx context.Context, _ any) (any, error) {
 func (r *slowResource) Read(_ context.Context, _, _ any) (any, error) {
 	return nil, ErrNotFound
 }
-func (r *slowResource) Update(_ context.Context, _, _ any) (any, error) {
+func (r *slowResource) Update(
+	_ context.Context, _ any, _ Prior[slowResource, any],
+) (any, error) {
 	return map[string]any{"name": r.Name}, nil
 }
 func (r *slowResource) Delete(_ context.Context, _, _ any) error { return nil }
@@ -58,7 +60,9 @@ func (r *slowFailResource) Create(ctx context.Context, _ any) (any, error) {
 func (r *slowFailResource) Read(_ context.Context, _, _ any) (any, error) {
 	return nil, ErrNotFound
 }
-func (r *slowFailResource) Update(_ context.Context, _, _ any) (any, error) {
+func (r *slowFailResource) Update(
+	_ context.Context, _ any, _ Prior[slowFailResource, any],
+) (any, error) {
 	return nil, errors.New("unreachable")
 }
 func (r *slowFailResource) Delete(_ context.Context, _, _ any) error { return nil }
@@ -158,7 +162,9 @@ func (r *countingSlowResource) Create(ctx context.Context, _ any) (any, error) {
 func (r *countingSlowResource) Read(_ context.Context, _, _ any) (any, error) {
 	return nil, ErrNotFound
 }
-func (r *countingSlowResource) Update(_ context.Context, _, _ any) (any, error) {
+func (r *countingSlowResource) Update(
+	_ context.Context, _ any, _ Prior[countingSlowResource, any],
+) (any, error) {
 	return map[string]any{"name": r.Name}, nil
 }
 func (r *countingSlowResource) Delete(_ context.Context, _, _ any) error { return nil }

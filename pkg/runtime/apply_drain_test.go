@@ -35,7 +35,9 @@ func (r *drainTrackerResource) Create(ctx context.Context, _ any) (any, error) {
 func (r *drainTrackerResource) Read(_ context.Context, _, _ any) (any, error) {
 	return nil, ErrNotFound
 }
-func (r *drainTrackerResource) Update(_ context.Context, _, _ any) (any, error) {
+func (r *drainTrackerResource) Update(
+	_ context.Context, _ any, _ Prior[drainTrackerResource, any],
+) (any, error) {
 	return map[string]any{"name": r.Name}, nil
 }
 func (r *drainTrackerResource) Delete(_ context.Context, _, _ any) error { return nil }

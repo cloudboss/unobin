@@ -213,9 +213,11 @@ func (r *countingResource) Read(_ context.Context, _ any, prior any) (any, error
 	return prior, nil
 }
 
-func (r *countingResource) Update(_ context.Context, _ any, prior any) (any, error) {
+func (r *countingResource) Update(
+	_ context.Context, _ any, prior Prior[countingResource, any],
+) (any, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
-	m, _ := prior.(map[string]any)
+	m, _ := prior.Outputs.(map[string]any)
 	if m == nil {
 		m = map[string]any{}
 	}
@@ -244,6 +246,12 @@ type countingResourceV2 struct {
 
 func (r *countingResourceV2) SchemaVersion() int { return 2 }
 
+func (r *countingResourceV2) Update(
+	ctx context.Context, cfg any, prior Prior[countingResourceV2, any],
+) (any, error) {
+	return r.countingResource.Update(ctx, cfg, Prior[countingResource, any]{Outputs: prior.Outputs})
+}
+
 // migratingCountingResource is countingResourceV2 with a Migrate
 // method that rewrites `id` to `name-id` in state, used by the plan
 // test for the migration happy path.
@@ -252,6 +260,12 @@ type migratingCountingResource struct {
 }
 
 func (r *migratingCountingResource) SchemaVersion() int { return 2 }
+
+func (r *migratingCountingResource) Update(
+	ctx context.Context, cfg any, prior Prior[migratingCountingResource, any],
+) (any, error) {
+	return r.countingResource.Update(ctx, cfg, Prior[countingResource, any]{Outputs: prior.Outputs})
+}
 
 func (r *migratingCountingResource) Migrate(_ int, st map[string]any) (map[string]any, error) {
 	out := map[string]any{}

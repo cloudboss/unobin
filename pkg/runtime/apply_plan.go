@@ -235,7 +235,8 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	case DecisionNoOp:
 		outputs = step.PriorOutputs
 	case DecisionUpdate:
-		result, err := rt.Update(ctx, receiver, e.configFor(prep.node), step.PriorOutputs)
+		result, err := rt.Update(ctx, receiver, e.configFor(prep.node),
+			rs.priorInputs(step.Address), step.PriorOutputs)
 		if err != nil {
 			return err
 		}

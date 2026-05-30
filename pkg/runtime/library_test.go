@@ -25,8 +25,10 @@ func (r *fakeResource) Read(_ context.Context, _ any, prior any) (any, error) {
 	return prior, nil
 }
 
-func (r *fakeResource) Update(_ context.Context, _ any, prior any) (any, error) {
-	m := prior.(map[string]any)
+func (r *fakeResource) Update(
+	_ context.Context, _ any, prior Prior[fakeResource, any],
+) (any, error) {
+	m := prior.Outputs.(map[string]any)
 	m["id"] = "fake-" + r.Name + "-updated"
 	return m, nil
 }
@@ -91,7 +93,7 @@ func TestResourceLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, out, got)
 
-	updated, err := rt.Update(ctx, r, nil, out)
+	updated, err := rt.Update(ctx, r, nil, nil, out)
 	require.NoError(t, err)
 	require.Equal(t, "fake-alpha-updated", updated.(map[string]any)["id"])
 

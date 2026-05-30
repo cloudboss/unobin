@@ -226,6 +226,21 @@ func (e *Executor) initRun() (*runState, error) {
 	return rs, nil
 }
 
+// priorInputs returns the inputs recorded for addr in prior state, or
+// nil when there is no prior entry. Apply passes these to a resource's
+// Update so it can compare them against the current inputs. They are
+// advisory, so a missing entry is not an error.
+func (rs *runState) priorInputs(addr string) map[string]any {
+	if rs.prior == nil {
+		return nil
+	}
+	ent := rs.prior.Find(addr)
+	if ent == nil {
+		return nil
+	}
+	return ent.Inputs
+}
+
 // scopeFor returns the EvalContext n's body should be evaluated
 // against. Root scope for nodes outside a composite, the composite's
 // own scope otherwise. The composite scope's Vars carry the call site

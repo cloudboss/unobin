@@ -33,7 +33,9 @@ func (t *Thing) Read(_ context.Context, _ any, _ *ThingOutput) (*ThingOutput, er
 	return nil, nil
 }
 
-func (t *Thing) Update(_ context.Context, _ any, _ *ThingOutput) (*ThingOutput, error) {
+func (t *Thing) Update(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput],
+) (*ThingOutput, error) {
 	return nil, nil
 }
 

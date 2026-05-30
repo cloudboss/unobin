@@ -35,7 +35,9 @@ func (s *Secret) Read(_ context.Context, _ any, _ *SecretOutput) (*SecretOutput,
 	return nil, nil
 }
 
-func (s *Secret) Update(_ context.Context, _ any, _ *SecretOutput) (*SecretOutput, error) {
+func (s *Secret) Update(
+	_ context.Context, _ any, _ runtime.Prior[Secret, *SecretOutput],
+) (*SecretOutput, error) {
 	return nil, nil
 }
 

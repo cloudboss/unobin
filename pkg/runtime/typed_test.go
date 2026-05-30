@@ -26,7 +26,9 @@ func (v *fakeVpc) Read(_ context.Context, _ any, prior *fakeVpcOutput) (*fakeVpc
 	return prior, nil
 }
 
-func (v *fakeVpc) Update(ctx context.Context, cfg any, _ *fakeVpcOutput) (*fakeVpcOutput, error) {
+func (v *fakeVpc) Update(
+	ctx context.Context, cfg any, _ Prior[fakeVpc, *fakeVpcOutput],
+) (*fakeVpcOutput, error) {
 	return v.Create(ctx, cfg)
 }
 
@@ -71,6 +73,12 @@ type migratingVpc struct {
 	fakeVpc
 }
 
+func (v *migratingVpc) Update(
+	ctx context.Context, cfg any, _ Prior[migratingVpc, *fakeVpcOutput],
+) (*fakeVpcOutput, error) {
+	return v.Create(ctx, cfg)
+}
+
 func (v *migratingVpc) Migrate(old int, oldState map[string]any) (map[string]any, error) {
 	oldState["migrated-from-version"] = old
 	return oldState, nil
@@ -83,6 +91,36 @@ func TestResourceMigrateCallsMigratorWhenImplemented(t *testing.T) {
 	require.Equal(t, 0, out["migrated-from-version"])
 	require.Equal(t, "value", out["original"])
 }
+
+// capturingVpc records the Prior its Update receives so a test can
+// assert the bundle holds both prior inputs and prior outputs.
+type capturingVpc struct {
+	CidrBlock string
+	gotPrior  *Prior[capturingVpc, *fakeVpcOutput]
+}
+
+func (v *capturingVpc) SchemaVersion() int { return 1 }
+
+func (v *capturingVpc) Create(_ context.Context, _ any) (*fakeVpcOutput, error) {
+	return &fakeVpcOutput{ID: "vpc-" + v.CidrBlock}, nil
+}
+
+func (v *capturingVpc) Read(
+	_ context.Context, _ any, prior *fakeVpcOutput,
+) (*fakeVpcOutput, error) {
+	return prior, nil
+}
+
+func (v *capturingVpc) Update(
+	_ context.Context, _ any, prior Prior[capturingVpc, *fakeVpcOutput],
+) (*fakeVpcOutput, error) {
+	v.gotPrior = &prior
+	return prior.Outputs, nil
+}
+
+func (v *capturingVpc) Delete(_ context.Context, _ any, _ *fakeVpcOutput) error { return nil }
+
+func (v *capturingVpc) ReplaceFields() []string { return nil }
 
 type typedFakeAction struct {
 	Argv []string
@@ -158,6 +196,64 @@ func TestCoercePriorUndecodableMapReturnsError(t *testing.T) {
 	// to decode. It must return an error, not crash.
 	_, err := coercePrior[*fakeVpcOutput](map[string]any{"unknown-field": "x"})
 	require.Error(t, err)
+}
+
+func TestCoercePriorInputsNilYieldsZero(t *testing.T) {
+	require.Equal(t, fakeVpc{}, coercePriorInputs[fakeVpc](nil))
+}
+
+func TestCoercePriorInputsDecodesStateMap(t *testing.T) {
+	got := coercePriorInputs[fakeVpc](map[string]any{"cidr-block": "10.0.0.0/16"})
+	require.Equal(t, "10.0.0.0/16", got.CidrBlock)
+}
+
+func TestCoercePriorInputsUndecodableMapYieldsZero(t *testing.T) {
+	// Prior inputs are advisory: a field that no longer decodes (removed
+	// or retyped since the last apply) degrades to the zero value, which
+	// reads as "every field changed", rather than failing the apply the
+	// way an undecodable prior output does.
+	require.Equal(t, fakeVpc{}, coercePriorInputs[fakeVpc](map[string]any{"gone": "x"}))
+}
+
+func TestCoercePriorInputsUnsupportedTypeYieldsZero(t *testing.T) {
+	require.Equal(t, fakeVpc{}, coercePriorInputs[fakeVpc](42))
+}
+
+func TestUpdateReceivesPriorInputsAndOutputs(t *testing.T) {
+	// The erased Update builds the Prior bundle from the prior inputs and
+	// prior outputs the runtime hands it, both arriving as state maps.
+	reg := MakeResource[capturingVpc, *fakeVpcOutput]()
+	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
+	_, err := reg.Update(context.Background(), receiver, nil,
+		map[string]any{"cidr-block": "10.0.0.0/8"}, map[string]any{"id": "vpc-old"})
+	require.NoError(t, err)
+	require.NotNil(t, receiver.gotPrior)
+	require.Equal(t, "10.0.0.0/8", receiver.gotPrior.Inputs.CidrBlock)
+	require.Equal(t, "vpc-old", receiver.gotPrior.Outputs.ID)
+}
+
+func TestChanged(t *testing.T) {
+	a, b := "x", "x"
+	c := "y"
+	tests := []struct {
+		name           string
+		prior, current any
+		want           bool
+	}{
+		{"equal values", "x", "x", false},
+		{"different values", "x", "y", true},
+		{"equal ints", 5, 5, false},
+		{"pointers to equal values compare by value", &a, &b, false},
+		{"pointers to different values", &a, &c, true},
+		{"nil pointer vs set pointer", (*string)(nil), &a, true},
+		{"equal maps", map[string]string{"k": "v"}, map[string]string{"k": "v"}, false},
+		{"different maps", map[string]string{"k": "v"}, map[string]string{"k": "w"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, Changed(tt.prior, tt.current))
+		})
+	}
 }
 
 func TestReadAcceptsStateMapPrior(t *testing.T) {

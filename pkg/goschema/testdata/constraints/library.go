@@ -51,7 +51,9 @@ func (c *Cert) Read(_ context.Context, _ any, _ *CertOutput) (*CertOutput, error
 	return nil, nil
 }
 
-func (c *Cert) Update(_ context.Context, _ any, _ *CertOutput) (*CertOutput, error) {
+func (c *Cert) Update(
+	_ context.Context, _ any, _ runtime.Prior[Cert, *CertOutput],
+) (*CertOutput, error) {
 	return nil, nil
 }
 
@@ -90,7 +92,9 @@ func (p *Policy) Read(_ context.Context, _ any, _ *PolicyOutput) (*PolicyOutput,
 	return nil, nil
 }
 
-func (p *Policy) Update(_ context.Context, _ any, _ *PolicyOutput) (*PolicyOutput, error) {
+func (p *Policy) Update(
+	_ context.Context, _ any, _ runtime.Prior[Policy, *PolicyOutput],
+) (*PolicyOutput, error) {
 	return nil, nil
 }
 

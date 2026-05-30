@@ -18,7 +18,8 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	writeGeneratedComment(&b, from)
 	b.WriteString("package resources\n\n")
 	b.WriteString("import (\n")
-	b.WriteString(`	"context"` + "\n")
+	b.WriteString(`	"context"` + "\n\n")
+	b.WriteString(`	"github.com/cloudboss/unobin/pkg/runtime"` + "\n")
 	b.WriteString(")\n\n")
 
 	if rs.Description != "" {
@@ -86,7 +87,11 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	}{
 		{"Create", "ctx context.Context, cfg any", "(" + outPtr + ", error)"},
 		{"Read", "ctx context.Context, cfg any, priorOutputs " + outPtr, "(" + outPtr + ", error)"},
-		{"Update", "ctx context.Context, cfg any, priorOutputs " + outPtr, "(" + outPtr + ", error)"},
+		{
+			"Update",
+			"ctx context.Context, cfg any, prior runtime.Prior[" + rs.GoName + ", " + outPtr + "]",
+			"(" + outPtr + ", error)",
+		},
 		{"Delete", "ctx context.Context, cfg any, priorOutputs " + outPtr, "error"},
 	} {
 		b.WriteString(writeStub(rs.GoName, op.method, op.params, op.returns))

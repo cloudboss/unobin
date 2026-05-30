@@ -45,7 +45,7 @@ type DBOutput struct {
 
 func (d *DB) Create(_ context.Context) (*DBOutput, error) { return &DBOutput{}, nil }
 func (d *DB) Read(_ context.Context) (*DBOutput, error)   { return &DBOutput{}, nil }
-func (d *DB) Update(_ context.Context, _ *DBOutput) (*DBOutput, error) {
+func (d *DB) Update(_ context.Context, _ runtime.Prior[DB, *DBOutput]) (*DBOutput, error) {
 	return &DBOutput{}, nil
 }
 func (d *DB) Delete(_ context.Context, _ *DBOutput) error { return nil }

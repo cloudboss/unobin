@@ -76,7 +76,8 @@ func TestFileUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	f.Content = "second value"
-	second, err := f.Update(context.Background(), nil, first)
+	second, err := f.Update(context.Background(), nil,
+		runtime.Prior[File, *FileOutput]{Outputs: first})
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(path)

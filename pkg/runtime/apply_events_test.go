@@ -22,7 +22,9 @@ func (r *plainResource) Create(_ context.Context, _ any) (any, error) {
 func (r *plainResource) Read(_ context.Context, _, _ any) (any, error) {
 	return nil, ErrNotFound
 }
-func (r *plainResource) Update(_ context.Context, _, _ any) (any, error) {
+func (r *plainResource) Update(
+	_ context.Context, _ any, _ Prior[plainResource, any],
+) (any, error) {
 	return map[string]any{"name": r.Name}, nil
 }
 func (r *plainResource) Delete(_ context.Context, _, _ any) error { return nil }
@@ -40,7 +42,9 @@ func (r *plainFailResource) Create(_ context.Context, _ any) (any, error) {
 func (r *plainFailResource) Read(_ context.Context, _, _ any) (any, error) {
 	return nil, ErrNotFound
 }
-func (r *plainFailResource) Update(_ context.Context, _, _ any) (any, error) {
+func (r *plainFailResource) Update(
+	_ context.Context, _ any, _ Prior[plainFailResource, any],
+) (any, error) {
 	return nil, errors.New("unreachable")
 }
 func (r *plainFailResource) Delete(_ context.Context, _, _ any) error { return nil }

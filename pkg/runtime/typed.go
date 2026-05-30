@@ -6,14 +6,41 @@ import (
 	"reflect"
 )
 
+// Prior is the previous applied state handed to Update: the inputs the
+// body evaluated to on the last apply and the outputs the resource
+// returned then. Compare current inputs against Inputs with Changed to
+// decide what to reconcile, and read Outputs for the prior handle (an
+// id, an arn) the update acts against.
+//
+// Inputs is the input struct by value, so it is never nil and needs no
+// guard; a prior whose recorded inputs no longer decode into the
+// current struct degrades to the zero value, which reads as "every
+// field changed". Outputs keeps the same pointer type the rest of the
+// contract uses, so a resource that recorded no outputs still passes
+// nil.
+type Prior[In, Out any] struct {
+	Inputs  In
+	Outputs Out
+}
+
+// Changed reports whether a field differs between its prior and current
+// value. It compares by value, so a pointer field compares what it
+// points at, and a state round trip that re-decodes an equal value is
+// not a false positive.
+func Changed[T any](prior, current T) bool {
+	return !reflect.DeepEqual(prior, current)
+}
+
 // TypedResource is the typed contract a library author implements for
-// one primitive resource type. Out names the output struct, usually a
-// pointer (e.g. *VpcOutput) so a "no prior state" call passes nil.
-type TypedResource[Out any] interface {
+// one primitive resource type. In names the input struct, which is the
+// method receiver; Out names the output struct, usually a pointer (e.g.
+// *VpcOutput) so a "no prior state" call passes nil. Update receives a
+// Prior bundling the last apply's inputs and outputs.
+type TypedResource[In, Out any] interface {
 	SchemaVersion() int
 	Create(ctx context.Context, cfg any) (Out, error)
 	Read(ctx context.Context, cfg any, prior Out) (Out, error)
-	Update(ctx context.Context, cfg any, prior Out) (Out, error)
+	Update(ctx context.Context, cfg any, prior Prior[In, Out]) (Out, error)
 	Delete(ctx context.Context, cfg any, prior Out) error
 	ReplaceFields() []string
 }
@@ -46,7 +73,7 @@ type ResourceRegistration interface {
 	NewReceiver() any
 	Create(ctx context.Context, receiver, cfg any) (any, error)
 	Read(ctx context.Context, receiver, cfg, prior any) (any, error)
-	Update(ctx context.Context, receiver, cfg, prior any) (any, error)
+	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs any) (any, error)
 	Delete(ctx context.Context, receiver, cfg, prior any) error
 	ReplaceFields(receiver any) []string
 	OutputType() reflect.Type
@@ -67,12 +94,13 @@ type DataSourceRegistration interface {
 	OutputType() reflect.Type
 }
 
-// resourcePtr constrains PT to be exactly *T and a TypedResource[Out].
-// The dev CLI uses this pattern so the MakeResource helper can call
-// methods on *T without the caller spelling out the pointer type.
+// resourcePtr constrains PT to be exactly *T and a TypedResource whose
+// input struct is T. The dev CLI uses this pattern so the MakeResource
+// helper can call methods on *T without the caller spelling out the
+// pointer type.
 type resourcePtr[T any, Out any] interface {
 	*T
-	TypedResource[Out]
+	TypedResource[T, Out]
 }
 
 type actionPtr[T any, Out any] interface {
@@ -172,13 +200,14 @@ func (typedResourceReg[T, Out, PT]) Read(
 }
 
 func (typedResourceReg[T, Out, PT]) Update(
-	ctx context.Context, receiver, cfg, prior any,
+	ctx context.Context, receiver, cfg, priorInputs, priorOutputs any,
 ) (any, error) {
-	p, err := coercePrior[Out](prior)
+	out, err := coercePrior[Out](priorOutputs)
 	if err != nil {
 		return nil, err
 	}
-	return PT(receiver.(*T)).Update(ctx, cfg, p)
+	prior := Prior[T, Out]{Inputs: coercePriorInputs[T](priorInputs), Outputs: out}
+	return PT(receiver.(*T)).Update(ctx, cfg, prior)
 }
 
 func (typedResourceReg[T, Out, PT]) Delete(
@@ -274,4 +303,30 @@ func coercePrior[Out any](prior any) (Out, error) {
 		return zero, fmt.Errorf("coerce prior state into %s: %w", t, err)
 	}
 	return target.Interface().(Out), nil
+}
+
+// coercePriorInputs decodes a prior inputs map into the input struct In
+// for comparison inside Update. Unlike prior outputs, prior inputs are
+// advisory: they gate an optimization, not the correctness of the
+// update, so any problem decoding them (a field removed or retyped
+// since the last apply, a hand-edited entry) degrades to the zero
+// value, which reads as "every field changed" and triggers a full
+// reconcile rather than failing the apply.
+func coercePriorInputs[In any](prior any) In {
+	var zero In
+	if prior == nil {
+		return zero
+	}
+	if typed, ok := prior.(In); ok {
+		return typed
+	}
+	m, ok := prior.(map[string]any)
+	if !ok {
+		return zero
+	}
+	target := reflect.New(reflect.TypeOf(zero))
+	if err := Decode(target.Interface(), m); err != nil {
+		return zero
+	}
+	return target.Elem().Interface().(In)
 }
