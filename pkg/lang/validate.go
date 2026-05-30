@@ -3,6 +3,7 @@ package lang
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // allowedTopLevelKeys is the set of identifier keys permitted at the
@@ -675,18 +676,19 @@ func validateConstraintCommonKey(
 // not-yet-implemented meta key is caught early rather than silently ignored.
 //
 // resource, data, and action share a base set; an action body also allows
-// @trigger. @lock is allowed on any node (it serializes apply against a
-// named lock, which is kind-blind), though it has no effect on a data
-// source read at plan. A composite call site may sit in any of the three
-// blocks, so @configurations is greenlisted everywhere; whether a key suits
-// a leaf or a composite is a finer check done during resolution.
+// @trigger. @lock and @timeout are allowed on any node (they bound apply
+// in a kind-blind way), though neither affects a data source read at plan.
+// A composite call site may sit in any of the three blocks, so
+// @configurations is greenlisted everywhere; whether a key suits a leaf or
+// a composite is a finer check done during resolution.
 var (
 	resourceBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock")
+		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@timeout")
 	dataBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock")
+		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@timeout")
 	actionBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@trigger")
+		"@configuration", "@configurations", "@depends-on", "@for-each",
+		"@lock", "@timeout", "@trigger")
 )
 
 func metaKeySet(keys ...string) map[string]bool {
@@ -760,12 +762,35 @@ func validateNestedTypeBlock(block *ObjectLit, what string, greenlist map[string
 							"%s %s.%s.%s: meta key %q is not allowed",
 							what, aliasFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name,
 							bodyFld.Key.Name)
+						continue
+					}
+					if bodyFld.Key.Name == "@timeout" {
+						checkTimeoutValue(bodyFld, what, aliasFld.Key.Name,
+							typeFld.Key.Name, nameFld.Key.Name, errs)
 					}
 				}
 			}
 		}
 	}
 	return errs
+}
+
+// checkTimeoutValue reports an error when a body's `@timeout:` value is not
+// a duration string like '30s'. A malformed timeout is caught here rather
+// than silently becoming no limit at apply.
+func checkTimeoutValue(fld *Field, what, alias, typ, name string, errs *ErrorList) {
+	s, ok := fld.Value.(*StringLit)
+	if !ok {
+		errs.Addf(ErrSchema, fld.Value.Span().Start,
+			"%s %s.%s.%s: @timeout must be a duration string like '30s'",
+			what, alias, typ, name)
+		return
+	}
+	if _, err := time.ParseDuration(s.Value); err != nil {
+		errs.Addf(ErrSchema, fld.Value.Span().Start,
+			"%s %s.%s.%s: @timeout %q is not a valid duration",
+			what, alias, typ, name, s.Value)
+	}
 }
 
 func checkBareIdentKey(f *Field, seen map[string]Position, what string, errs *ErrorList) bool {

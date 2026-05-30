@@ -105,6 +105,16 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 }
 
 func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) error {
+	// A node's @timeout bounds how long its step may run. The deadline is
+	// read from the DAG node, so an orphan destroy (whose source node is
+	// gone) is never bounded. On expiry the operation sees a cancelled
+	// context and returns an error, which the scheduler handles like any
+	// other step failure.
+	if node, ok := e.DAG.Nodes[templateAddress(step.Address)]; ok && node.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, node.Timeout)
+		defer cancel()
+	}
 	if step.Decision == DecisionDestroy {
 		// Resources need their Delete called; action and library-call
 		// records have no external lifecycle, so they are just removed.

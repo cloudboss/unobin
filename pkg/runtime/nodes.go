@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -65,6 +66,13 @@ type Node struct {
 	// scheduler only runs nodes in parallel at apply, a lock has no
 	// effect on a data source whose inputs are known and read at plan.
 	LockName string
+
+	// Timeout is the parsed value of a node body's `@timeout:` field: a
+	// limit on how long the node's apply step may run. Zero means no
+	// limit. On expiry the step's context is cancelled and the step
+	// fails like any other apply error. Like @lock it only bites at
+	// apply, so it does not bound a data source read at plan.
+	Timeout time.Duration
 
 	// ConfigurationsRemap is set only on a composite boundary. It maps an
 	// inner import alias to the (alias, configuration) of the
@@ -188,6 +196,7 @@ func extractKind(
 					ForEach:       extractForEach(n.Value),
 					Configuration: extractConfiguration(n.Value, alias.Key.Name),
 					LockName:      extractLockName(n.Value),
+					Timeout:       extractTimeout(n.Value),
 				}
 				out = append(out, node)
 			}
@@ -215,6 +224,33 @@ func extractLockName(body lang.Expr) string {
 		return s.Value
 	}
 	return ""
+}
+
+// extractTimeout reads `@timeout: '30s'` from a node body and returns the
+// parsed duration, or 0 when the body has none. A non-string value or an
+// unparseable duration also yields 0; the validator reports a malformed
+// value at compile, so a body that reaches here either has no @timeout or
+// a well-formed one.
+func extractTimeout(body lang.Expr) time.Duration {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return 0
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@timeout" {
+			continue
+		}
+		s, ok := fld.Value.(*lang.StringLit)
+		if !ok {
+			return 0
+		}
+		d, err := time.ParseDuration(s.Value)
+		if err != nil {
+			return 0
+		}
+		return d
+	}
+	return 0
 }
 
 // extractForEach returns the iterable expression from a body's
