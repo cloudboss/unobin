@@ -150,6 +150,40 @@ resources: {
 	require.Contains(t, got[0], "expected string, got integer")
 }
 
+func TestCheckTypesAcceptsInputFieldReference(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  local: {
+    file: {
+      one: { path: 'one', content: 'hi' }
+      two: { path: resource.local.file.one.content, content: 'hi' }
+    }
+  }
+}
+`), map[string]*Library{"local": localFileLibrary()})
+
+	require.Empty(t, checkErrorMessages(t, errs),
+		"content is an input-only field and is readable like an output")
+}
+
+func TestCheckTypesRejectsInputFieldReferenceWithWrongType(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  local: {
+    file: {
+      one: { path: 'one', content: 'hi' }
+      two: { path: resource.local.file.one.mode, content: 'hi' }
+    }
+  }
+}
+`), map[string]*Library{"local": localFileLibrary()})
+
+	got := checkErrorMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "expected string, got integer",
+		"an input field keeps its declared type through the reference")
+}
+
 func TestCheckTypesAcceptsOptionalIntoRequired(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: { p: { type: optional(string, 'x') } }

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -325,17 +326,21 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 	if field == "" {
 		return
 	}
-	outputs := c.outputsFor(node, scope)
-	if outputs == nil {
+	attrs := c.attrsFor(node, scope)
+	if attrs == nil {
 		return
 	}
-	if _, ok := outputs[field]; ok {
+	if _, ok := attrs[field]; ok {
 		return
 	}
 	c.addf(dp.S.Start, `unknown field %q on %s.%s`, field, node.Alias, node.Type)
 }
 
-func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typecheck.Type {
+// attrsFor returns the field names a node exposes to references. A
+// Go-backed leaf exposes its inputs as well as its outputs, so a plain
+// input is readable without being echoed into the output struct. A
+// composite stays opaque except its declared outputs.
+func (c *referenceChecker) attrsFor(node *Node, scope string) map[string]typecheck.Type {
 	if node.IsComposite() {
 		return compositeOutputNames(node)
 	}
@@ -359,7 +364,13 @@ func (c *referenceChecker) outputsFor(node *Node, scope string) map[string]typec
 	if ts == nil {
 		return nil
 	}
-	return ts.Outputs
+	if ts.Inputs == nil {
+		return ts.Outputs
+	}
+	attrs := make(map[string]typecheck.Type, len(ts.Inputs)+len(ts.Outputs))
+	maps.Copy(attrs, ts.Inputs)
+	maps.Copy(attrs, ts.Outputs)
+	return attrs
 }
 
 // compositeOutputNames extracts the set of output names declared in

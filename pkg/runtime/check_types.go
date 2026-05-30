@@ -162,19 +162,20 @@ func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 		if !ok {
 			return typecheck.Type{}, false
 		}
-		return c.nodeOutputType(node), true
+		return c.nodeAttrType(node), true
 	}
 }
 
-// nodeOutputType builds an Object Type that describes a node's
-// outputs. Go-backed nodes return their TypeSchema.Outputs as an
-// Object directly; goschema has already expanded nested struct
-// types so the descender can walk through them. Composite nodes
-// contribute an Object whose fields all carry Unknown types; the
-// field-existence check still catches typos but the type checker
-// stops descending past a composite output until composite-output
-// typing is implemented.
-func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
+// nodeAttrType builds an Object Type describing what a node exposes to
+// references: for a Go-backed leaf, its inputs laid under its outputs,
+// matching the runtime merge so a reference to a plain input type-checks
+// without the resource echoing it into its output struct. Outputs win on
+// a name collision. goschema has already expanded nested struct types so
+// the descender can walk through them. Composite nodes contribute an
+// Object whose fields are all Unknown; the field-existence check still
+// catches typos but the type checker stops descending past a composite
+// output until composite-output typing is implemented.
+func (c *referenceChecker) nodeAttrType(node *Node) typecheck.Type {
 	if node == nil {
 		return typecheck.TUnknown()
 	}
@@ -206,12 +207,24 @@ func (c *referenceChecker) nodeOutputType(node *Node) typecheck.Type {
 	case NodeAction:
 		ts = lib.Schema.Actions[node.Type]
 	}
-	if ts == nil || ts.Outputs == nil {
+	if ts == nil {
 		return typecheck.TUnknown()
 	}
-	fields := make([]typecheck.ObjectField, 0, len(ts.Outputs))
-	for name, t := range ts.Outputs {
+	fields := make([]typecheck.ObjectField, 0, len(ts.Inputs)+len(ts.Outputs))
+	at := make(map[string]int, len(ts.Inputs)+len(ts.Outputs))
+	for name, t := range ts.Inputs {
+		at[name] = len(fields)
 		fields = append(fields, typecheck.ObjectField{Name: name, Type: t})
+	}
+	for name, t := range ts.Outputs {
+		if i, ok := at[name]; ok {
+			fields[i].Type = t
+			continue
+		}
+		fields = append(fields, typecheck.ObjectField{Name: name, Type: t})
+	}
+	if len(fields) == 0 {
+		return typecheck.TUnknown()
 	}
 	return typecheck.TObject(fields)
 }
