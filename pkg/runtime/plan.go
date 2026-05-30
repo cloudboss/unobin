@@ -463,10 +463,13 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 // seedStepAttrs makes a planned leaf node's attribute view visible to
 // the nodes that follow it in the topological walk, so a body that
 // reads an input of an upstream node resolves it at plan time rather
-// than deferring to apply. The view is the node's evaluated inputs laid
-// under any prior outputs, matching the apply-time merge. A composite
-// boundary is opaque except its declared outputs and is left to
-// finalizeComposite; a destroy seeds nothing.
+// than deferring to apply. The view is the node's known inputs laid
+// under any prior outputs, matching the apply-time merge. Only inputs
+// that are actually known are seeded: a field still waiting on an
+// upstream is left out so a reader sees it as unknown-until-apply
+// rather than a misleading nil. A composite boundary is opaque except
+// its declared outputs and is left to finalizeComposite; a destroy
+// seeds nothing.
 func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	if step.Composite || step.Decision == DecisionDestroy {
 		return nil
@@ -486,13 +489,32 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		return nil
 	}
 	target := scopeMapForKind(scope, step.Kind)
-	attrs := mergeAttrs(step.Inputs, step.PriorOutputs)
+	attrs := mergeAttrs(knownInputs(step), step.PriorOutputs)
 	if instKey == "" {
 		seedNested(target, alias, typeName, name, attrs)
 	} else {
 		seedInstance(target, alias, typeName, name, instKey, attrs)
 	}
 	return nil
+}
+
+// knownInputs returns the step's input fields whose value is settled at
+// plan time, dropping any field still waiting on an upstream node. A
+// pending field left in would seed a nil that a downstream reader would
+// take for a real value; left out, the reader sees unknown-until-apply
+// and resolves once the upstream runs.
+func knownInputs(step *PlanStep) map[string]any {
+	if len(step.UnresolvedInputs) == 0 {
+		return step.Inputs
+	}
+	known := make(map[string]any, len(step.Inputs))
+	for name, value := range step.Inputs {
+		if _, pending := step.UnresolvedInputs[name]; pending {
+			continue
+		}
+		known[name] = value
+	}
+	return known
 }
 
 // scopeForAddress returns the scope a state entry belongs to. Entries

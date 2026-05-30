@@ -849,6 +849,28 @@ resources: {
 	require.Equal(t, "alpha", two.Inputs["name"])
 }
 
+func TestPlanDoesNotResolveAPendingInput(t *testing.T) {
+	src := `
+resources: {
+  core: {
+    thing: {
+      one:   { name: 'alpha', size: 1 }
+      two:   { name: resource.core.thing.one.id, size: 2 }
+      three: { name: resource.core.thing.two.name, size: 3 }
+    }
+  }
+}
+`
+	var c resourceCounters
+	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
+
+	three := stepFor(plan, "resource.core.thing.three")
+	require.NotNil(t, three)
+	require.Equal(t, []string{"resource.core.thing.two.name"}, three.UnresolvedInputs["name"],
+		"two.name is itself waiting on one.id, so reading it stays unknown at plan")
+	require.Nil(t, three.Inputs["name"])
+}
+
 func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
 	src := `
 locals: {
