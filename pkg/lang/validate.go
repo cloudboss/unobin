@@ -675,14 +675,16 @@ func validateConstraintCommonKey(
 // not-yet-implemented meta key is caught early rather than silently ignored.
 //
 // resource, data, and action share a base set; an action body also allows
-// @lock and @trigger. A composite call site may sit in any of the three
+// @trigger. @lock is allowed on any node (it serializes apply against a
+// named lock, which is kind-blind), though it has no effect on a data
+// source read at plan. A composite call site may sit in any of the three
 // blocks, so @configurations is greenlisted everywhere; whether a key suits
 // a leaf or a composite is a finer check done during resolution.
 var (
 	resourceBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each")
+		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock")
 	dataBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each")
+		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock")
 	actionBodyGreenlist = metaKeySet(
 		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@trigger")
 )

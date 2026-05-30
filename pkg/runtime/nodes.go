@@ -58,10 +58,12 @@ type Node struct {
 	// back to "default" at lookup time.
 	Configuration string
 
-	// LockName is the value of an action body's `@lock:` field.
-	// Two actions sharing a non-empty LockName cannot run in
-	// parallel under apply's scheduler, even on unrelated DAG
-	// branches. Empty means the action is not under a named lock.
+	// LockName is the value of a node body's `@lock:` field. Two nodes
+	// sharing a non-empty LockName cannot run in parallel under apply's
+	// scheduler, even on unrelated DAG branches. Empty means the node is
+	// not under a named lock. It applies to any kind; since the
+	// scheduler only runs nodes in parallel at apply, a lock has no
+	// effect on a data source whose inputs are known and read at plan.
 	LockName string
 
 	// ConfigurationsRemap is set only on a composite boundary. It maps an
@@ -185,9 +187,7 @@ func extractKind(
 					Composite:     parent,
 					ForEach:       extractForEach(n.Value),
 					Configuration: extractConfiguration(n.Value, alias.Key.Name),
-				}
-				if kind == NodeAction {
-					node.LockName = extractLockName(n.Value)
+					LockName:      extractLockName(n.Value),
 				}
 				out = append(out, node)
 			}
@@ -196,9 +196,9 @@ func extractKind(
 	return out
 }
 
-// extractLockName reads `@lock: 'name'` from an action body. The
-// value must be a string literal; anything else yields the empty
-// string (the validator catches the error elsewhere).
+// extractLockName reads `@lock: 'name'` from a node body. The value
+// must be a string literal; anything else yields the empty string (the
+// validator catches the error elsewhere).
 func extractLockName(body lang.Expr) string {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {

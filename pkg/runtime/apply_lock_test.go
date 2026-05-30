@@ -144,17 +144,37 @@ actions: {
 }
 
 func TestExtractLockName(t *testing.T) {
-	src := `
-actions: {
-  core: {
-    slow: {
-      x: { @lock: 'kubectl', delay-ms: 50 }
-    }
-  }
-}
-`
-	f := parseStack(t, src)
-	nodes := ExtractNodes(f, nil)
-	require.Len(t, nodes, 1)
-	assert.Equal(t, "kubectl", nodes[0].LockName)
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "action",
+			src:  `actions: { core: { slow: { x: { @lock: 'kubectl', delay-ms: 50 } } } }`,
+			want: "kubectl",
+		},
+		{
+			name: "resource",
+			src:  `resources: { aws: { sg-rule: { x: { @lock: 'sg', port: 80 } } } }`,
+			want: "sg",
+		},
+		{
+			name: "data",
+			src:  `data: { aws: { ami: { x: { @lock: 'reads', most-recent: true } } } }`,
+			want: "reads",
+		},
+		{
+			name: "no lock",
+			src:  `resources: { aws: { vpc: { x: { cidr: '10.0.0.0/16' } } } }`,
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodes := ExtractNodes(parseStack(t, tt.src), nil)
+			require.Len(t, nodes, 1)
+			assert.Equal(t, tt.want, nodes[0].LockName)
+		})
+	}
 }
