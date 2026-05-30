@@ -1439,3 +1439,54 @@ outputs: {
 	require.Equal(t, "cached-value", second.Outputs["said"],
 		"skipped action's outputs should still flow to downstream references")
 }
+
+func TestMergeAttrs(t *testing.T) {
+	tests := []struct {
+		name    string
+		inputs  map[string]any
+		outputs map[string]any
+		want    map[string]any
+	}{
+		{
+			name:    "input passes through when no same-named output",
+			inputs:  map[string]any{"path": "/tmp/f"},
+			outputs: map[string]any{"sha256": "abc"},
+			want:    map[string]any{"path": "/tmp/f", "sha256": "abc"},
+		},
+		{
+			name:    "output wins on a name collision",
+			inputs:  map[string]any{"name": "Foo"},
+			outputs: map[string]any{"name": "foo"},
+			want:    map[string]any{"name": "foo"},
+		},
+		{
+			name:    "output-only field is present",
+			inputs:  map[string]any{},
+			outputs: map[string]any{"id": "x"},
+			want:    map[string]any{"id": "x"},
+		},
+		{
+			name:    "nil outputs leaves inputs readable",
+			inputs:  map[string]any{"path": "/tmp/f"},
+			outputs: nil,
+			want:    map[string]any{"path": "/tmp/f"},
+		},
+		{
+			name:    "nil inputs leaves outputs readable",
+			inputs:  nil,
+			outputs: map[string]any{"id": "x"},
+			want:    map[string]any{"id": "x"},
+		},
+		{
+			name:    "both nil yields an empty map",
+			inputs:  nil,
+			outputs: nil,
+			want:    map[string]any{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, mergeAttrs(tt.inputs, tt.outputs))
+		})
+	}
+}

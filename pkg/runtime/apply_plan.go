@@ -178,11 +178,12 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
+	attrs := mergeAttrs(prep.inputs, outputs)
 	if prep.instKey == "" {
-		storeNested(prep.parent.Actions, prep.node, outputs)
+		storeNested(prep.parent.Actions, prep.node, attrs)
 	} else {
 		seedInstance(prep.parent.Actions, prep.node.Alias, prep.node.Type, prep.node.Name,
-			prep.instKey, outputs)
+			prep.instKey, attrs)
 	}
 
 	// Recompute the trigger hash with the fresh upstream state so the
@@ -256,11 +257,12 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
+	attrs := mergeAttrs(prep.inputs, outputs)
 	if prep.instKey == "" {
-		storeNested(prep.parent.Resources, prep.node, outputs)
+		storeNested(prep.parent.Resources, prep.node, attrs)
 	} else {
 		seedInstance(prep.parent.Resources, prep.node.Alias, prep.node.Type, prep.node.Name,
-			prep.instKey, outputs)
+			prep.instKey, attrs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          step.Address,
@@ -440,11 +442,12 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
+	attrs := mergeAttrs(prep.inputs, mapify(result))
 	if prep.instKey == "" {
-		storeNested(prep.parent.Data, prep.node, mapify(result))
+		storeNested(prep.parent.Data, prep.node, attrs)
 	} else {
 		seedInstance(prep.parent.Data, prep.node.Alias, prep.node.Type, prep.node.Name,
-			prep.instKey, mapify(result))
+			prep.instKey, attrs)
 	}
 	return nil
 }

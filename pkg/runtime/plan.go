@@ -236,6 +236,9 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
 				plan.Steps = append(plan.Steps, step)
 				liveAddresses[step.Address] = true
+				if err := e.seedStepAttrs(rs, step); err != nil {
+					return nil, fmt.Errorf("%s: %w", step.Address, err)
+				}
 				constraintErrs = append(constraintErrs, e.checkStepConstraints(step)...)
 				constraintErrs = append(constraintErrs, e.checkCompositeConstraints(rs, step)...)
 			}
@@ -453,6 +456,41 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				seedInstance(scope.Resources, alias, typeName, name, instKey, ent.Outputs)
 			}
 		}
+	}
+	return nil
+}
+
+// seedStepAttrs makes a planned leaf node's attribute view visible to
+// the nodes that follow it in the topological walk, so a body that
+// reads an input of an upstream node resolves it at plan time rather
+// than deferring to apply. The view is the node's evaluated inputs laid
+// under any prior outputs, matching the apply-time merge. A composite
+// boundary is opaque except its declared outputs and is left to
+// finalizeComposite; a destroy seeds nothing.
+func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
+	if step.Composite || step.Decision == DecisionDestroy {
+		return nil
+	}
+	switch step.Kind {
+	case NodeResource, NodeData, NodeAction:
+	default:
+		return nil
+	}
+	scope, err := e.scopeForAddress(rs, step.Address)
+	if err != nil || scope == nil {
+		return err
+	}
+	tmpl, instKey := splitInstanceAddress(step.Address)
+	_, alias, typeName, name, ok := parseAddress(tmpl)
+	if !ok {
+		return nil
+	}
+	target := scopeMapForKind(scope, step.Kind)
+	attrs := mergeAttrs(step.Inputs, step.PriorOutputs)
+	if instKey == "" {
+		seedNested(target, alias, typeName, name, attrs)
+	} else {
+		seedInstance(target, alias, typeName, name, instKey, attrs)
 	}
 	return nil
 }

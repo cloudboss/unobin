@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -487,11 +488,11 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 	snap.Entries = out
 }
 
-// compositeScopeMap returns the scope map a composite boundary's outputs
-// belong in, chosen by the call site's kind so the parent reads them
-// back under the matching address root. An unset kind (the zero value,
-// as in tests that build a boundary directly) falls back to resources.
-func compositeScopeMap(scope *EvalContext, kind NodeKind) map[string]any {
+// scopeMapForKind returns the scope map a node's value belongs in,
+// chosen by its kind so references read it back under the matching
+// address root. An unset kind (the zero value, as in tests that build a
+// boundary directly) falls back to resources.
+func scopeMapForKind(scope *EvalContext, kind NodeKind) map[string]any {
 	switch kind {
 	case NodeData:
 		return scope.Data
@@ -531,7 +532,7 @@ func (e *Executor) finalizeComposite(
 		return err
 	}
 	_, instKey := splitInstanceAddress(instAddr)
-	target := compositeScopeMap(parent, n.Kind)
+	target := scopeMapForKind(parent, n.Kind)
 	if instKey == "" {
 		storeNested(target, n, outputs)
 	} else {
@@ -711,6 +712,20 @@ func evalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
 		out[fld.Key.Name] = val
 	}
 	return out, nil
+}
+
+// mergeAttrs returns the attribute view the reference layer sees for a
+// node: its inputs with its outputs laid over them, so a computed or
+// normalized output wins over a declared input of the same name. An
+// input that has no same-named output stays readable at its declared
+// value, which is why a downstream reference to a plain input resolves
+// without the resource having to echo it into its output struct. Either
+// map may be nil.
+func mergeAttrs(inputs, outputs map[string]any) map[string]any {
+	merged := make(map[string]any, len(inputs)+len(outputs))
+	maps.Copy(merged, inputs)
+	maps.Copy(merged, outputs)
+	return merged
 }
 
 // storeNested writes value at target[alias][type][name], creating intermediate

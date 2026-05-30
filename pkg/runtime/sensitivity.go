@@ -290,7 +290,11 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 		if ts == nil {
 			return false
 		}
-		if slices.Contains(ts.SensitiveOutputs, field) {
+		// A leaf's inputs are referenceable too (mergeAttrs), so a
+		// sensitive input masks a reader the same way a sensitive output
+		// does. Checked as a union: either side marks the field secret.
+		if slices.Contains(ts.SensitiveOutputs, field) ||
+			slices.Contains(ts.SensitiveInputs, field) {
 			return true
 		}
 	}

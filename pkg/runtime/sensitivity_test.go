@@ -248,6 +248,44 @@ resources: {
 	require.Equal(t, []string{"content"}, got)
 }
 
+func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
+	src := `
+resources: {
+  vault: {
+    secret: {
+      s: { token: 'shh' }
+    }
+  }
+  local: {
+    file: {
+      f: {
+        path: 'out.txt'
+        content: resource.vault.secret.s.token
+      }
+    }
+  }
+}
+`
+	f := parseStack(t, src)
+	libs := map[string]*Library{
+		"vault": {
+			Name: "vault",
+			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
+				"secret": {SensitiveInputs: []string{"token"}},
+			}},
+		},
+		"local": {Name: "local"},
+	}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
+
+	node := dag.Nodes["resource.local.file.f"]
+	require.NotNil(t, node)
+	got := an.sensitiveInputs(node.Body, node.Composite)
+	require.Equal(t, []string{"content"}, got,
+		"a reader of a sensitive input is masked, the same as a sensitive output")
+}
+
 func TestSensitivityRecognizesNonSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {
