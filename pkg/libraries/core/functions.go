@@ -1,4 +1,4 @@
-package runtime
+package core
 
 import (
 	"encoding/base64"
@@ -7,28 +7,12 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// BuiltinFunc is the signature every built-in implements. Eval has
-// already reduced each argument to a Go value; the function validates
-// its own arity and types and returns the result.
-type BuiltinFunc func(args []any) (any, error)
-
-// builtins is the registry Eval consults when it sees a Call with a
-// bare identifier callee. Library-qualified calls (`alias.func(...)`)
-// route through a separate path that is not yet implemented.
-var builtins = map[string]BuiltinFunc{
-	"format":     builtinFormat,
-	"b64-encode": builtinB64Encode,
-	"b64-decode": builtinB64Decode,
-	"range":      builtinRange,
-	"length":     builtinLength,
-}
-
-// builtinFormat is the canonical interpolation helper: a printf-style
-// format string followed by zero or more values. Verbs are Go's fmt
-// package verbs, so `%s` accepts a string and `%d` an integer. Lists
-// and maps are pre-rendered as UB literals so an operator sees
-// `['a', 'b']` instead of Go's space-separated `[a b]` shape.
-func builtinFormat(args []any) (any, error) {
+// fnFormat is the canonical interpolation helper: a printf-style format
+// string followed by zero or more values. Verbs are Go's fmt package
+// verbs, so %s accepts a string and %d an integer. Lists and maps are
+// pre-rendered as UB literals so an operator sees ['a', 'b'] instead of
+// Go's space-separated [a b] form.
+func fnFormat(args []any) (any, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("format: needs at least the format string")
 	}
@@ -45,8 +29,8 @@ func builtinFormat(args []any) (any, error) {
 }
 
 // renderForFormat returns lists and maps as UB literal strings so they
-// print readably, and leaves primitives alone so the type-specific
-// verbs like `%d` still work.
+// print readably, and leaves primitives alone so type-specific verbs
+// like %d still work.
 func renderForFormat(v any) any {
 	switch v.(type) {
 	case []any, map[string]any:
@@ -55,7 +39,7 @@ func renderForFormat(v any) any {
 	return v
 }
 
-func builtinB64Encode(args []any) (any, error) {
+func fnB64Encode(args []any) (any, error) {
 	s, err := singleStringArg("b64-encode", args)
 	if err != nil {
 		return nil, err
@@ -63,7 +47,7 @@ func builtinB64Encode(args []any) (any, error) {
 	return base64.StdEncoding.EncodeToString([]byte(s)), nil
 }
 
-func builtinB64Decode(args []any) (any, error) {
+func fnB64Decode(args []any) (any, error) {
 	s, err := singleStringArg("b64-decode", args)
 	if err != nil {
 		return nil, err
@@ -75,10 +59,10 @@ func builtinB64Decode(args []any) (any, error) {
 	return string(decoded), nil
 }
 
-// builtinRange returns the integers `[0, n)` as a list. Spec carve-out:
-// the result is a list, so it is not a valid `@for-each` iterable;
-// callers wanting fan-out write a map literal with intentional keys.
-func builtinRange(args []any) (any, error) {
+// fnRange returns the integers [0, n) as a list. The result is a list,
+// so it is not a valid @for-each iterable; callers wanting fan-out write
+// a map literal with intentional keys.
+func fnRange(args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("range: takes one argument, got %d", len(args))
 	}
@@ -97,10 +81,10 @@ func builtinRange(args []any) (any, error) {
 	return out, nil
 }
 
-// builtinLength returns the size of a string, list, or map. String
-// length is in bytes; UTF-8 rune counting belongs in a separate helper
-// if it is ever asked for.
-func builtinLength(args []any) (any, error) {
+// fnLength returns the size of a string, list, or map. String length is
+// in bytes; UTF-8 rune counting belongs in a separate helper if it is
+// ever asked for.
+func fnLength(args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("length: takes one argument, got %d", len(args))
 	}

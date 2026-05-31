@@ -7,18 +7,28 @@ import (
 )
 
 func TestEvalInterpolated(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
-		"region": "us-east-1",
-		"name":   "web",
-		"a":      "x",
-		"b":      "y",
-		"n":      int64(5),
-		"f":      3.14159,
-		"s":      "ab",
-		"prod":   true,
-		"flag":   false,
-		"net":    map[string]any{"id": "vpc-123"},
-	}}
+	ctx := &EvalContext{
+		Vars: map[string]any{
+			"region": "us-east-1",
+			"name":   "web",
+			"a":      "x",
+			"b":      "y",
+			"n":      int64(5),
+			"f":      3.14159,
+			"s":      "ab",
+			"prod":   true,
+			"flag":   false,
+			"net":    map[string]any{"id": "vpc-123"},
+		},
+		Libraries: map[string]*Library{"lib": {
+			Name: "lib",
+			Functions: map[string]FunctionType{
+				"bang": {Name: "bang", Func: func(args []any) (any, error) {
+					return args[0].(string) + "!", nil
+				}},
+			},
+		}},
+	}
 	tests := []struct {
 		name string
 		src  string
@@ -38,7 +48,7 @@ func TestEvalInterpolated(t *testing.T) {
 		{"verb float precision", `$'{{var.f:%.2f}}'`, "3.14"},
 		{"verb string width", `$'{{var.s:%-5s}}|'`, "ab   |"},
 		{"conditional slot", `$'{{if var.prod then 'big' else 'small'}}'`, "big"},
-		{"call slot", `$'{{format('%s!', var.a)}}'`, "x!"},
+		{"call slot", `$'{{lib.bang(var.a)}}'`, "x!"},
 		{"escaped open brace", `$'\{{x}}'`, "{{x}}"},
 	}
 	for _, tt := range tests {

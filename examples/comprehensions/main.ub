@@ -24,7 +24,7 @@ resources: {
     file: {
       summary: {
         path: var.path
-        content: format(
+        content: core.format(
           'environment=%s replicas=%d public=%s',
           var.environment,
           if var.environment == 'prod' then 3 else 1,

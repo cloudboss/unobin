@@ -15,12 +15,39 @@ import (
 func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "core",
-		Description: "Built-in actions, state backend, and encrypter",
+		Description: "Built-in actions, functions, state backend, and encrypter",
 		Actions: map[string]runtime.ActionRegistration{
 			"command":  runtime.MakeAction[CommandAction, *CommandActionOutput](),
 			"script":   runtime.MakeAction[ScriptAction, *ScriptActionOutput](),
 			"http":     runtime.MakeAction[HTTPAction, *HTTPActionOutput](),
 			"wait-for": runtime.MakeAction[WaitForAction, *WaitForActionOutput](),
+		},
+		Functions: map[string]runtime.FunctionType{
+			"format": {
+				Name:        "format",
+				Description: "Printf-style string formatting; the first argument is the format string.",
+				Func:        fnFormat,
+			},
+			"b64-encode": {
+				Name:        "b64-encode",
+				Description: "Base64-encode a string.",
+				Func:        fnB64Encode,
+			},
+			"b64-decode": {
+				Name:        "b64-decode",
+				Description: "Base64-decode a string.",
+				Func:        fnB64Decode,
+			},
+			"range": {
+				Name:        "range",
+				Description: "Return the integers [0, n) as a list.",
+				Func:        fnRange,
+			},
+			"length": {
+				Name:        "length",
+				Description: "Return the number of elements in a string, list, or map.",
+				Func:        fnLength,
+			},
 		},
 		StateBackends: map[string]sdkstate.BackendType{
 			"local": {

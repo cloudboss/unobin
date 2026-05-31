@@ -373,11 +373,14 @@ inputs: {
   ratio:    { type: number }
   subnets:  { type: list(string) }
 }
+imports: {
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+}
 actions: {
   core: {
     echo: {
       summary: {
-        echo: format('size=%d spot=%v ratio=%v subnets=%v',
+        echo: core.format('size=%d spot=%v ratio=%v subnets=%v',
           var.size, var.use-spot, var.ratio, var.subnets)
       }
     }
@@ -445,9 +448,12 @@ func TestPlanAppliesOptionalDefault(t *testing.T) {
 inputs: {
   size: { type: optional(integer, 3) }
 }
+imports: {
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+}
 actions: {
   core: {
-    echo: { hi: { echo: format('size=%d', var.size) } }
+    echo: { hi: { echo: core.format('size=%d', var.size) } }
   }
 }
 outputs: {

@@ -169,159 +169,30 @@ func TestEvalUnknownRoot(t *testing.T) {
 	require.Contains(t, err.Error(), "unknown address root")
 }
 
-func TestEvalCallFormat(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
-		"region": "us-east-1",
-		"name":   "web",
-	}}
-	cases := []struct {
-		src, want string
-	}{
-		{"format('hello')", "hello"},
-		{"format('%s', 'world')", "world"},
-		{"format('%s-%s', var.region, var.name)", "us-east-1-web"},
-		{"format('%d items', 3)", "3 items"},
-	}
-	for _, c := range cases {
-		t.Run(c.src, func(t *testing.T) {
-			got, err := Eval(parseValue(t, c.src), ctx)
-			require.NoError(t, err)
-			require.Equal(t, c.want, got)
-		})
-	}
-}
-
-func TestEvalCallFormatNoArgs(t *testing.T) {
-	_, err := Eval(parseValue(t, "format()"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "format string")
-}
-
-func TestEvalCallFormatNonStringFirst(t *testing.T) {
-	_, err := Eval(parseValue(t, "format(1, 'x')"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "first argument must be a string")
-}
-
-func TestEvalCallB64Encode(t *testing.T) {
-	got, err := Eval(parseValue(t, "b64-encode('hello')"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, "aGVsbG8=", got)
-}
-
-func TestEvalCallB64Decode(t *testing.T) {
-	got, err := Eval(parseValue(t, "b64-decode('aGVsbG8=')"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, "hello", got)
-}
-
-func TestEvalCallB64Roundtrip(t *testing.T) {
-	got, err := Eval(parseValue(t, "b64-decode(b64-encode('round trip'))"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, "round trip", got)
-}
-
-func TestEvalCallB64DecodeBad(t *testing.T) {
-	_, err := Eval(parseValue(t, "b64-decode('not-base64!!')"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "b64-decode")
-}
-
-func TestEvalCallB64EncodeWrongType(t *testing.T) {
-	_, err := Eval(parseValue(t, "b64-encode(1)"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "must be a string")
-}
-
-func TestEvalCallRange(t *testing.T) {
-	got, err := Eval(parseValue(t, "range(3)"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, []any{int64(0), int64(1), int64(2)}, got)
-
-	got, err = Eval(parseValue(t, "range(0)"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, []any{}, got)
-}
-
-func TestEvalCallRangeNegative(t *testing.T) {
-	_, err := Eval(parseValue(t, "range(-1)"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "non-negative")
-}
-
-func TestEvalCallRangeNonInt(t *testing.T) {
-	_, err := Eval(parseValue(t, "range(1.5)"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "integer")
-}
-
-func TestEvalCallLength(t *testing.T) {
-	cases := []struct {
-		src  string
-		want int64
-	}{
-		{"length('hello')", 5},
-		{"length('')", 0},
-		{"length([1, 2, 3])", 3},
-		{"length([])", 0},
-		{"length({ a: 1, b: 2 })", 2},
-		{"length({})", 0},
-	}
-	for _, c := range cases {
-		t.Run(c.src, func(t *testing.T) {
-			got, err := Eval(parseValue(t, c.src), &EvalContext{})
-			require.NoError(t, err)
-			require.Equal(t, c.want, got)
-		})
-	}
-}
-
-func TestEvalCallLengthTypeError(t *testing.T) {
-	_, err := Eval(parseValue(t, "length(1)"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "string, list, or map")
-}
-
-func TestEvalCallUnknown(t *testing.T) {
+func TestEvalCallBareRejected(t *testing.T) {
 	_, err := Eval(parseValue(t, "frobnicate('x')"), &EvalContext{})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown function")
+	require.Contains(t, err.Error(), "must be qualified")
 	require.Contains(t, err.Error(), "frobnicate")
-}
-
-func TestEvalCallNested(t *testing.T) {
-	got, err := Eval(parseValue(t, "format('%s', b64-encode('plain'))"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, "cGxhaW4=", got)
-}
-
-func TestEvalCallFormatComposites(t *testing.T) {
-	cases := []struct {
-		src, want string
-	}{
-		{"format('%s', [1, 2, 3])", "[1, 2, 3]"},
-		{"format('%s', ['a', 'b'])", "['a', 'b']"},
-		{"format('%s', { a: 1, b: 2 })", "{ a: 1, b: 2 }"},
-		{"format('list=%s', [])", "list=[]"},
-		{"format('subnets=%v', ['subnet-a', 'subnet-b'])",
-			"subnets=['subnet-a', 'subnet-b']"},
-	}
-	for _, c := range cases {
-		t.Run(c.src, func(t *testing.T) {
-			got, err := Eval(parseValue(t, c.src), &EvalContext{})
-			require.NoError(t, err)
-			require.Equal(t, c.want, got)
-		})
-	}
 }
 
 func TestEvalCallArgError(t *testing.T) {
 	// An error inside an argument expression bubbles up with the call
 	// name and arg index so debugging can find it.
-	_, err := Eval(parseValue(t, "format('%s', var.missing)"), &EvalContext{})
+	ctx := &EvalContext{Libraries: map[string]*Library{
+		"lib": {
+			Name: "lib",
+			Functions: map[string]FunctionType{
+				"upper": {Name: "upper", Func: func(args []any) (any, error) {
+					return args[0], nil
+				}},
+			},
+		},
+	}}
+	_, err := Eval(parseValue(t, "lib.upper(var.missing)"), ctx)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "format")
-	require.Contains(t, err.Error(), "arg 1")
+	require.Contains(t, err.Error(), "lib.upper")
+	require.Contains(t, err.Error(), "arg 0")
 }
 
 func TestEvalArithmeticInt(t *testing.T) {

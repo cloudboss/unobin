@@ -2,14 +2,17 @@ description: 'Writes an alert file announcing a topic.'
 
 inputs: { topic: { type: string }, body: { type: string }, path: { type: string } }
 
-imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0' }
+imports: {
+  core:  'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+}
 
 resources: {
   local: {
     file: {
       this: {
         path:             var.path
-        content:          format('ALERT %s: %s\n', var.topic, var.body)
+        content:          core.format('ALERT %s: %s\n', var.topic, var.body)
         create-directory: true
       }
     }

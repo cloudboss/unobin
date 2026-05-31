@@ -341,25 +341,19 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 	return out, nil
 }
 
-// evalCall evaluates a function call. Bare identifiers (`format(...)`)
-// look up the built-in registry; library-qualified calls
-// (`alias.func(...)`) resolve against the scope's Libraries table.
+// evalCall evaluates a function call. Every function lives in a library,
+// so a call must be library-qualified (core.format(...)); a bare call has
+// no library to resolve against and is rejected.
 func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if c.Library != nil {
 		return evalLibraryCall(c, ctx)
 	}
-	if c.Callee == nil {
-		return nil, fmt.Errorf("eval: call has no callee")
+	name := ""
+	if c.Callee != nil {
+		name = c.Callee.Name
 	}
-	fn, ok := builtins[c.Callee.Name]
-	if !ok {
-		return nil, fmt.Errorf("eval: unknown function %q", c.Callee.Name)
-	}
-	args, err := evalArgs(c.Callee.Name, c.Args, ctx)
-	if err != nil {
-		return nil, err
-	}
-	return fn(args)
+	return nil, fmt.Errorf(
+		"eval: function %q must be qualified with a library, e.g. core.%s(...)", name, name)
 }
 
 func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
