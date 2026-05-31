@@ -542,6 +542,9 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateConfigInputs(obj))
 		}
+		if obj, ok := blocks["configurations"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateConfigurations(obj))
+		}
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
 		}
@@ -669,12 +672,25 @@ func fieldValue(o *ObjectLit, name string) Expr {
 }
 
 // ValidateConfigInputs checks that every value in a config file's inputs:
-// block is a static value. A config has no imports and no surrounding
-// scope, so a function call can never resolve there and a reference (var.x,
-// resource.x, or a bare name) points at nothing. Literals, operators,
-// conditionals, and comprehensions over literals are allowed; a
-// comprehension's own bound names are in scope inside its body.
+// block is a static value; see checkStaticConfigBlock.
 func ValidateConfigInputs(block *ObjectLit) *ErrorList {
+	return checkStaticConfigBlock(block)
+}
+
+// ValidateConfigurations applies the same static-value rule to a config
+// file's configurations: block. The block nests by import alias and then
+// configuration name; the walk recurses through both to the leaf values.
+func ValidateConfigurations(block *ObjectLit) *ErrorList {
+	return checkStaticConfigBlock(block)
+}
+
+// checkStaticConfigBlock reports calls and free references in a config
+// block's values. A config has no imports and no surrounding scope, so a
+// function call can never resolve there and a reference (var.x, resource.x,
+// or a bare name) points at nothing. Literals, operators, conditionals, and
+// comprehensions over literals are allowed; a comprehension's own bound
+// names are in scope inside its body.
+func checkStaticConfigBlock(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	for _, f := range block.Fields {
 		checkConfigValue(f.Value, map[string]bool{}, errs)

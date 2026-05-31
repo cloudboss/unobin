@@ -306,6 +306,62 @@ func TestValidateConfigInputs(t *testing.T) {
 	}
 }
 
+func TestValidateConfigurations(t *testing.T) {
+	const ok = "" // no error expected
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"literal values", `configurations: { aws: { default: { region: 'us-east-1' } } }`, ok},
+		{
+			"multiple configs and fields",
+			`configurations: { aws: { default: { region: 'us-east-1' }, formal: { region: 'eu-west-1', profile: 'prod' } } }`,
+			ok,
+		},
+		{
+			"nested literal list and map",
+			`configurations: { aws: { default: { zones: ['a', 'b'], tags: { env: 'prod' } } } }`,
+			ok,
+		},
+		{
+			"static expression",
+			`configurations: { aws: { default: { region: if true then 'a' else 'b' } } }`,
+			ok,
+		},
+		{
+			"qualified call",
+			`configurations: { aws: { default: { region: core.format('x') } } }`,
+			"cannot call functions",
+		},
+		{"bare call", `configurations: { aws: { default: { region: pick() } } }`, "cannot call functions"},
+		{
+			"var reference",
+			`configurations: { aws: { default: { region: var.region } } }`,
+			"cannot reference other values",
+		},
+		{
+			"resource reference",
+			`configurations: { aws: { default: { region: resource.a.b.c } } }`,
+			"cannot reference other values",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f, err := ParseSource("config.ub", []byte(c.src))
+			require.NoError(t, err)
+			f.Kind = FileConfig
+			got := errsToStrings(ValidateFile(f))
+			if c.want == "" {
+				require.Empty(t, got)
+				return
+			}
+			require.Len(t, got, 1)
+			require.Contains(t, got[0], c.want)
+		})
+	}
+}
+
 func TestValidateStateConfigRejectsBareBackend(t *testing.T) {
 	src := `
 state: { @backend: local, path: '.unobin/state' }
