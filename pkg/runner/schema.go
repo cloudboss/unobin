@@ -97,6 +97,14 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
 	fmt.Fprintf(out,
 		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",
 		info.FactoryVersion, info.ContentRevision)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "state: {")
+	fmt.Fprintln(out, "  @backend: core.local")
+	fmt.Fprintln(out, "  path: '.unobin/state'")
+	fmt.Fprintln(out, "  encryption: {")
+	fmt.Fprintln(out, "    @key-source: core.noop")
+	fmt.Fprintln(out, "  }")
+	fmt.Fprintln(out, "}")
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		return

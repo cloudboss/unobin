@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/libraries/local"
 	"github.com/cloudboss/unobin/pkg/localstate"
@@ -995,6 +996,14 @@ inputs: {
   ]
 }
 
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: {
+    @key-source: core.noop
+  }
+}
+
 inputs: {
   # Text to write
   greeting: ''  # type: string
@@ -1015,11 +1024,19 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
     { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
 }
+
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: {
+    @key-source: core.noop
+  }
+}
 `
 	require.Equal(t, expected, out)
 }
 
-func TemplateIncludesLibraryPathWhenSet(t *testing.T) {
+func TestTemplateIncludesLibraryPathWhenSet(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	info.LibraryPath = "github.com/cloudboss/cluster-deploy"
 	out, err := runRoot(t, info, "schema", "template")
@@ -1029,6 +1046,14 @@ func TemplateIncludesLibraryPathWhenSet(t *testing.T) {
   supported-versions: [
     { version: 'v0.1.0', content-revision: 'abcdef' },
   ]
+}
+
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: {
+    @key-source: core.noop
+  }
 }
 `
 	require.Equal(t, expected, out)
@@ -1049,11 +1074,39 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
   ]
 }
 
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: {
+    @key-source: core.noop
+  }
+}
+
 inputs: {
   greeting: ''  # type: string
 }
 `
 	require.Equal(t, expected, string(written))
+}
+
+func TestSchemaTemplateScaffoldResolves(t *testing.T) {
+	info := testInfo(t, `inputs: { greeting: { type: string } }`)
+	out, err := runRoot(t, info, "schema", "template")
+	require.NoError(t, err)
+
+	f, err := lang.ParseSource("config.ub", []byte(out))
+	require.NoError(t, err)
+	sc, err := parseStateConfig(f, "config.ub")
+	require.NoError(t, err)
+
+	enc, err := resolveEncrypter(info, sc.Encrypter)
+	require.NoError(t, err)
+	_, isNoop := enc.(envencrypt.Noop)
+	require.True(t, isNoop, "scaffold should resolve to the noop encrypter, got %T", enc)
+
+	be, err := resolveBackend(info, sc.Backend, info.FactoryName, "default", enc)
+	require.NoError(t, err)
+	require.NotNil(t, be)
 }
 
 func TestPlanEmpty(t *testing.T) {
