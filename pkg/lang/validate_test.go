@@ -179,6 +179,21 @@ resources: {
 	require.Contains(t, errs.Errors()[0].Error(), `"lib"`)
 }
 
+func TestValidateRejectsBareCall(t *testing.T) {
+	src := `
+outputs: {
+  shout: { value: format('%s', var.name) }
+}
+`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	msg := errs.Errors()[0].Error()
+	require.Contains(t, msg, "must be qualified")
+	require.Contains(t, msg, "format")
+}
+
 func errsToStrings(l *ErrorList) []string {
 	es := l.Errors()
 	out := make([]string, len(es))

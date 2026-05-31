@@ -536,7 +536,7 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["outputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateOutputs(obj))
 		}
-		mergeErrors(errs, ValidateLibraryCallAliases(f))
+		mergeErrors(errs, ValidateCalls(f))
 	case FileConfig:
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
@@ -545,17 +545,37 @@ func ValidateFile(f *File) *ErrorList {
 	return errs
 }
 
-// ValidateLibraryCallAliases walks every expression in f looking for
-// `<alias>.<func>(...)` calls and rejects any whose alias is missing
-// from the file's `imports:` block. The function's existence in the
-// library is not checked here; that's a runtime concern because the
-// library's actual function set lives in compiled Go code.
-func ValidateLibraryCallAliases(f *File) *ErrorList {
+// ValidateCalls walks every expression in f and rejects two kinds of
+// function call: a bare call with no library qualifier (every function
+// lives in a library, so a call must name one, e.g. core.format), and a
+// qualified call whose alias is missing from the file's imports block.
+// Calls inside a type: field are left alone, since list(string) and
+// optional(integer, 0) share call syntax but denote types, not functions,
+// and are checked as input declarations. Whether a named function exists
+// is not checked here; that is a runtime concern, since a library's
+// function set lives in compiled Go code.
+func ValidateCalls(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	imports := importedAliases(f)
+	inType := typeExprCalls(f.Body)
 	Walk(f.Body, func(e Expr) {
 		c, ok := e.(*Call)
-		if !ok || c.Library == nil {
+		if !ok {
+			return
+		}
+		if _, isType := inType[e]; isType {
+			return
+		}
+		if c.Library == nil {
+			pos := c.S.Start
+			name := ""
+			if c.Callee != nil {
+				pos = c.Callee.S.Start
+				name = c.Callee.Name
+			}
+			errs.Addf(ErrResolve, pos,
+				"function %q must be qualified with a library, e.g. core.%s(...)",
+				name, name)
 			return
 		}
 		if _, declared := imports[c.Library.Name]; !declared {
@@ -565,6 +585,30 @@ func ValidateLibraryCallAliases(f *File) *ErrorList {
 		}
 	})
 	return errs
+}
+
+// typeExprCalls returns the set of Call nodes that sit inside a type:
+// field value, where call-form syntax such as list(...) or optional(...)
+// names a type constructor rather than a function.
+func typeExprCalls(body Expr) map[Expr]struct{} {
+	skip := map[Expr]struct{}{}
+	Walk(body, func(e Expr) {
+		obj, ok := e.(*ObjectLit)
+		if !ok {
+			return
+		}
+		for _, fld := range obj.Fields {
+			if fld.Key.Kind != FieldIdent || fld.Key.Name != "type" {
+				continue
+			}
+			Walk(fld.Value, func(inner Expr) {
+				if _, ok := inner.(*Call); ok {
+					skip[inner] = struct{}{}
+				}
+			})
+		}
+	})
+	return skip
 }
 
 func importedAliases(f *File) map[string]struct{} {
