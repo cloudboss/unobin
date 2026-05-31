@@ -279,16 +279,16 @@ func TestValidateConfigInputs(t *testing.T) {
 		{"map comprehension over a literal", `inputs: { m: { for n in [1, 2]: n => n } }`, ok},
 		{"comprehension with two bindings", `inputs: { xs: [for i, n in [10, 20]: n] }`, ok},
 		{"interpolation with a static slot", `inputs: { s: $'n={{1}}' }`, ok},
-		{"bare call", `inputs: { x: pick() }`, "cannot call functions"},
-		{"qualified call", `inputs: { x: core.format('hi') }`, "cannot call functions"},
-		{"var reference", `inputs: { x: var.other }`, "cannot reference other values"},
-		{"resource reference", `inputs: { x: resource.a.b.c }`, "cannot reference other values"},
-		{"bare ident reference", `inputs: { x: somename }`, "cannot reference other values"},
-		{"call nested in a list", `inputs: { x: [1, pick()] }`, "cannot call functions"},
-		{"call nested in a map", `inputs: { x: { a: pick() } }`, "cannot call functions"},
-		{"reference in comprehension source", `inputs: { x: [for n in var.xs: n] }`, "cannot reference other values"},
-		{"reference in comprehension body", `inputs: { x: [for n in [1, 2]: var.y] }`, "cannot reference other values"},
-		{"reference in interpolation slot", `inputs: { s: $'v={{var.x}}' }`, "cannot reference other values"},
+		{"bare call", `inputs: { x: pick() }`, "is a function call"},
+		{"qualified call", `inputs: { x: core.format('hi') }`, "is a function call"},
+		{"var reference", `inputs: { x: var.other }`, "is a reference"},
+		{"resource reference", `inputs: { x: resource.a.b.c }`, "is a reference"},
+		{"bare ident reference", `inputs: { x: somename }`, "is a reference"},
+		{"call nested in a list", `inputs: { x: [1, pick()] }`, "is a function call"},
+		{"call nested in a map", `inputs: { x: { a: pick() } }`, "is a function call"},
+		{"reference in comprehension source", `inputs: { x: [for n in var.xs: n] }`, "is a reference"},
+		{"reference in comprehension body", `inputs: { x: [for n in [1, 2]: var.y] }`, "is a reference"},
+		{"reference in interpolation slot", `inputs: { s: $'v={{var.x}}' }`, "is a reference"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -332,18 +332,18 @@ func TestValidateConfigurations(t *testing.T) {
 		{
 			"qualified call",
 			`configurations: { aws: { default: { region: core.format('x') } } }`,
-			"cannot call functions",
+			"is a function call",
 		},
-		{"bare call", `configurations: { aws: { default: { region: pick() } } }`, "cannot call functions"},
+		{"bare call", `configurations: { aws: { default: { region: pick() } } }`, "is a function call"},
 		{
 			"var reference",
 			`configurations: { aws: { default: { region: var.region } } }`,
-			"cannot reference other values",
+			"is a reference",
 		},
 		{
 			"resource reference",
 			`configurations: { aws: { default: { region: resource.a.b.c } } }`,
-			"cannot reference other values",
+			"is a reference",
 		},
 	}
 	for _, c := range cases {

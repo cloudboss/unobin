@@ -685,11 +685,17 @@ func ValidateConfigurations(block *ObjectLit) *ErrorList {
 }
 
 // checkStaticConfigBlock reports calls and free references in a config
-// block's values. A config has no imports and no surrounding scope, so a
-// function call can never resolve there and a reference (var.x, resource.x,
-// or a bare name) points at nothing. Literals, operators, conditionals, and
-// comprehensions over literals are allowed; a comprehension's own bound
-// names are in scope inside its body.
+// block's values. Config values are static data; the runner evaluates the
+// inputs and configurations blocks with no scope or library table, so a
+// function call or a reference (var.x, resource.x, a bare name) has nothing
+// to resolve against. Literals, operators, conditionals, and comprehensions
+// over literals are allowed; a comprehension's own bound names are in scope
+// inside its body.
+//
+// This is a deliberate static-data rule, not a no-imports limitation: the
+// state: block's @backend / @key-source meta-keys do name a library (core
+// or a factory import) and resolve fine, because they select a registered
+// backend rather than evaluate a value.
 func checkStaticConfigBlock(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	for _, f := range block.Fields {
@@ -739,12 +745,12 @@ func checkConfigValue(e Expr, bound map[string]bool, errs *ErrorList) {
 	case *Ident:
 		if !bound[v.Name] {
 			errs.Addf(ErrResolve, v.S.Start,
-				"config inputs cannot reference other values (%s)", v.Name)
+				"config values must be static, but %s is a reference", v.Name)
 		}
 	case *DotPath:
 		if v.Root == nil || !bound[v.Root.Name] {
 			errs.Addf(ErrResolve, v.S.Start,
-				"config inputs cannot reference other values (%s)", dotPathString(v))
+				"config values must be static, but %s is a reference", dotPathString(v))
 			return
 		}
 		for _, seg := range v.Segments {
@@ -752,7 +758,7 @@ func checkConfigValue(e Expr, bound map[string]bool, errs *ErrorList) {
 		}
 	case *Call:
 		errs.Addf(ErrResolve, v.S.Start,
-			"config inputs cannot call functions; a config has no imports (%s)", callName(v))
+			"config values must be static, but %s is a function call", callName(v))
 	default:
 		errs.Addf(ErrResolve, e.Span().Start, "config inputs must be static values")
 	}
