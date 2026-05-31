@@ -96,11 +96,11 @@ func (s *LocalStore) CurrentRev() (string, error) {
 // is appended until the path is fresh, so uniqueness does not depend
 // on the clock advancing between writes.
 func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
-	plaintext, err := sdkstate.EncodeSnapshot(snap)
+	body, err := sdkstate.EncodeSnapshot(snap)
 	if err != nil {
 		return "", err
 	}
-	ciphertext, err := s.enc.Encrypt(plaintext)
+	sealed, err := sdkstate.Seal(body, nil, s.enc)
 	if err != nil {
 		return "", err
 	}
@@ -118,7 +118,7 @@ func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
 		if !errors.Is(statErr, fs.ErrNotExist) {
 			return "", statErr
 		}
-		if err := ufs.WriteFileAtomic(path, ciphertext, 0o600); err != nil {
+		if err := ufs.WriteFileAtomic(path, sealed, 0o600); err != nil {
 			return "", err
 		}
 		return rev, nil
@@ -188,15 +188,17 @@ func (s *LocalStore) SetCurrent(rev string) error {
 
 // Get returns the snapshot with the given rev.
 func (s *LocalStore) Get(rev string) (*sdkstate.Snapshot, error) {
-	ciphertext, err := os.ReadFile(s.snapshotPath(rev))
+	sealed, err := os.ReadFile(s.snapshotPath(rev))
 	if err != nil {
 		return nil, err
 	}
-	plaintext, err := s.enc.Decrypt(ciphertext)
+	body, err := sdkstate.Open(sealed, func(*sdkstate.Ref) (sdkencrypt.Encrypter, error) {
+		return s.enc, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("local store: decrypt %s: %w", rev, err)
+		return nil, fmt.Errorf("local store: open %s: %w", rev, err)
 	}
-	return sdkstate.DecodeSnapshot(plaintext)
+	return sdkstate.DecodeSnapshot(body)
 }
 
 // List returns the revs of every stored snapshot in chronological order.

@@ -55,7 +55,7 @@ func TestSealPlanOpenPlanRoundTrip(t *testing.T) {
 func TestSealPlanOmitsEncrypterRefWhenNil(t *testing.T) {
 	sealed, err := SealPlan(samplePlan(), nil, reversingEncrypter{})
 	require.NoError(t, err)
-	var env PlanEnvelope
+	var env state.Envelope
 	require.NoError(t, json.Unmarshal(sealed, &env))
 	require.Nil(t, env.Encrypter)
 
@@ -67,7 +67,7 @@ func TestSealPlanOmitsEncrypterRefWhenNil(t *testing.T) {
 }
 
 func TestOpenPlanRejectsUnknownEnvelopeVersion(t *testing.T) {
-	env := PlanEnvelope{EnvelopeVersion: 99, Ciphertext: []byte("ignored")}
+	env := state.Envelope{EnvelopeVersion: 99, Ciphertext: []byte("ignored")}
 	body, err := json.Marshal(env)
 	require.NoError(t, err)
 	_, err = OpenPlan(body, func(*StateRef) (encrypt.Encrypter, error) {

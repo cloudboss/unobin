@@ -1758,7 +1758,10 @@ outputs: {
 	for _, e := range entries {
 		body, err := os.ReadFile(filepath.Join(snapDir, e.Name()))
 		require.NoError(t, err)
-		plaintext, err := enc.Decrypt(body)
+		var env state.Envelope
+		require.NoError(t, json.Unmarshal(body, &env), "snapshot %s should be an envelope", e.Name())
+		require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
+		plaintext, err := enc.Decrypt(env.Ciphertext)
 		require.NoError(t, err, "snapshot %s should decrypt with the configured key", e.Name())
 		require.True(t, isJSON(plaintext), "decrypted snapshot %s should be JSON", e.Name())
 	}
@@ -1804,9 +1807,9 @@ outputs: {
 
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
-	var env runtime.PlanEnvelope
+	var env state.Envelope
 	require.NoError(t, json.Unmarshal(body, &env))
-	require.Equal(t, runtime.EnvelopeVersion, env.EnvelopeVersion)
+	require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
 	require.NotEmpty(t, env.Ciphertext)
 	require.False(t, isJSON(env.Ciphertext),
 		"ciphertext should not parse as JSON when an encrypter is in use")
@@ -1866,7 +1869,7 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
-	var env runtime.PlanEnvelope
+	var env state.Envelope
 	require.NoError(t, json.Unmarshal(body, &env))
 	require.NotEmpty(t, env.Ciphertext)
 	env.Ciphertext[len(env.Ciphertext)-1] ^= 0xff
@@ -1889,9 +1892,9 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 
 	body, err := os.ReadFile(planFile)
 	require.NoError(t, err)
-	var env runtime.PlanEnvelope
+	var env state.Envelope
 	require.NoError(t, json.Unmarshal(body, &env))
-	require.Equal(t, runtime.EnvelopeVersion, env.EnvelopeVersion)
+	require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
 	require.True(t, isJSON(env.Ciphertext),
 		"with no encrypter, ciphertext should be plain plan JSON")
 	require.Contains(t, string(env.Ciphertext), `"format-version": 1`)
