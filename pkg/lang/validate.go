@@ -549,15 +549,16 @@ func ValidateFile(f *File) *ErrorList {
 // function call: a bare call with no library qualifier (every function
 // lives in a library, so a call must name one, e.g. core.format), and a
 // qualified call whose alias is missing from the file's imports block.
-// Calls inside a type: field are left alone, since list(string) and
-// optional(integer, 0) share call syntax but denote types, not functions,
-// and are checked as input declarations. Whether a named function exists
+// The type constructors in an input declaration's type (list(string),
+// optional(integer, 0)) are left alone: they share call syntax but denote
+// types; a default inside such a type stays a value and is still checked.
+// Whether a named function exists
 // is not checked here; that is a runtime concern, since a library's
 // function set lives in compiled Go code.
 func ValidateCalls(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	imports := importedAliases(f)
-	inType := typeExprCalls(f.Body)
+	inType := typeConstructorCalls(f)
 	Walk(f.Body, func(e Expr) {
 		c, ok := e.(*Call)
 		if !ok {
@@ -587,28 +588,80 @@ func ValidateCalls(f *File) *ErrorList {
 	return errs
 }
 
-// typeExprCalls returns the set of Call nodes that sit inside a type:
-// field value, where call-form syntax such as list(...) or optional(...)
-// names a type constructor rather than a function.
-func typeExprCalls(body Expr) map[Expr]struct{} {
+// typeConstructorCalls returns the Call nodes that name a type constructor
+// (list, map, optional, ...) rather than a function, so the call checker
+// leaves them alone. It starts only from input declarations, since that is
+// the one place a type can be written, and follows the type sub-grammar
+// from each declared type. Default values inside optional(...) and object
+// field declarations are values, not types, so their calls are not
+// collected and stay subject to the call checker.
+func typeConstructorCalls(f *File) map[Expr]struct{} {
 	skip := map[Expr]struct{}{}
-	Walk(body, func(e Expr) {
-		obj, ok := e.(*ObjectLit)
-		if !ok {
-			return
+	inputs, ok := indexTopLevelBlocks(f)["inputs"].(*ObjectLit)
+	if !ok {
+		return skip
+	}
+	for _, decl := range inputs.Fields {
+		if obj, ok := decl.Value.(*ObjectLit); ok {
+			collectTypeConstructors(fieldValue(obj, "type"), skip)
 		}
-		for _, fld := range obj.Fields {
-			if fld.Key.Kind != FieldIdent || fld.Key.Name != "type" {
-				continue
-			}
-			Walk(fld.Value, func(inner Expr) {
-				if _, ok := inner.(*Call); ok {
-					skip[inner] = struct{}{}
-				}
-			})
-		}
-	})
+	}
 	return skip
+}
+
+// collectTypeConstructors adds e to skip if it is a type constructor, then
+// recurses into its type arguments. It mirrors promoteCall's structure but
+// is tolerant: a malformed type just stops the descent and is reported by
+// ValidateInputDeclarations instead.
+func collectTypeConstructors(e Expr, skip map[Expr]struct{}) {
+	c, ok := e.(*Call)
+	if !ok || c.Library != nil || c.Callee == nil || !isTypeConstructor(c.Callee.Name) {
+		return
+	}
+	skip[c] = struct{}{}
+	if len(c.Args) == 0 {
+		return
+	}
+	switch c.Callee.Name {
+	case "list", "set", "map", "optional":
+		// The element or inner type is the first argument; optional's second
+		// argument is a default value and is left for the call checker.
+		collectTypeConstructors(c.Args[0], skip)
+	case "tuple":
+		if arr, ok := c.Args[0].(*ArrayLit); ok {
+			for _, el := range arr.Elements {
+				collectTypeConstructors(el, skip)
+			}
+		}
+	case "object":
+		if obj, ok := c.Args[0].(*ObjectLit); ok {
+			for _, fld := range obj.Fields {
+				collectObjectFieldType(fld, skip)
+			}
+		}
+	}
+}
+
+// collectObjectFieldType handles one field of an object(...) type. The
+// field value is either a direct type or a nested declaration carrying its
+// own type: key; only that type is a type position.
+func collectObjectFieldType(f *Field, skip map[Expr]struct{}) {
+	if obj, ok := f.Value.(*ObjectLit); ok {
+		collectTypeConstructors(fieldValue(obj, "type"), skip)
+		return
+	}
+	collectTypeConstructors(f.Value, skip)
+}
+
+// fieldValue returns the value of the bare-identifier field named name, or
+// nil when the object has no such field.
+func fieldValue(o *ObjectLit, name string) Expr {
+	for _, f := range o.Fields {
+		if f.Key.Kind == FieldIdent && f.Key.Name == name {
+			return f.Value
+		}
+	}
+	return nil
 }
 
 func importedAliases(f *File) map[string]struct{} {
