@@ -263,6 +263,49 @@ func errsToStrings(l *ErrorList) []string {
 	return out
 }
 
+func TestValidateConfigInputs(t *testing.T) {
+	const ok = "" // no error expected
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"string literal", `inputs: { region: 'us-east-1' }`, ok},
+		{"number and bool", `inputs: { size: 5, spot: true }`, ok},
+		{"list and map of literals", `inputs: { ports: [80, 443], tags: { env: 'prod' } }`, ok},
+		{"operators over literals", `inputs: { n: 1 + 2 * 3 }`, ok},
+		{"conditional over literals", `inputs: { r: if true then 3 else 1 }`, ok},
+		{"list comprehension over a literal", `inputs: { xs: [for n in [1, 2, 3]: n] }`, ok},
+		{"map comprehension over a literal", `inputs: { m: { for n in [1, 2]: n => n } }`, ok},
+		{"comprehension with two bindings", `inputs: { xs: [for i, n in [10, 20]: n] }`, ok},
+		{"interpolation with a static slot", `inputs: { s: $'n={{1}}' }`, ok},
+		{"bare call", `inputs: { x: pick() }`, "cannot call functions"},
+		{"qualified call", `inputs: { x: core.format('hi') }`, "cannot call functions"},
+		{"var reference", `inputs: { x: var.other }`, "cannot reference other values"},
+		{"resource reference", `inputs: { x: resource.a.b.c }`, "cannot reference other values"},
+		{"bare ident reference", `inputs: { x: somename }`, "cannot reference other values"},
+		{"call nested in a list", `inputs: { x: [1, pick()] }`, "cannot call functions"},
+		{"call nested in a map", `inputs: { x: { a: pick() } }`, "cannot call functions"},
+		{"reference in comprehension source", `inputs: { x: [for n in var.xs: n] }`, "cannot reference other values"},
+		{"reference in comprehension body", `inputs: { x: [for n in [1, 2]: var.y] }`, "cannot reference other values"},
+		{"reference in interpolation slot", `inputs: { s: $'v={{var.x}}' }`, "cannot reference other values"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f, err := ParseSource("config.ub", []byte(c.src))
+			require.NoError(t, err)
+			f.Kind = FileConfig
+			got := errsToStrings(ValidateFile(f))
+			if c.want == "" {
+				require.Empty(t, got)
+				return
+			}
+			require.Len(t, got, 1)
+			require.Contains(t, got[0], c.want)
+		})
+	}
+}
+
 func TestValidateStateConfigRejectsBareBackend(t *testing.T) {
 	src := `
 state: { @backend: local, path: '.unobin/state' }

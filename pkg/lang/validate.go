@@ -3,6 +3,7 @@ package lang
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -538,6 +539,9 @@ func ValidateFile(f *File) *ErrorList {
 		}
 		mergeErrors(errs, ValidateCalls(f))
 	case FileConfig:
+		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateConfigInputs(obj))
+		}
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
 		}
@@ -662,6 +666,119 @@ func fieldValue(o *ObjectLit, name string) Expr {
 		}
 	}
 	return nil
+}
+
+// ValidateConfigInputs checks that every value in a config file's inputs:
+// block is a static value. A config has no imports and no surrounding
+// scope, so a function call can never resolve there and a reference (var.x,
+// resource.x, or a bare name) points at nothing. Literals, operators,
+// conditionals, and comprehensions over literals are allowed; a
+// comprehension's own bound names are in scope inside its body.
+func ValidateConfigInputs(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	for _, f := range block.Fields {
+		checkConfigValue(f.Value, map[string]bool{}, errs)
+	}
+	return errs
+}
+
+// checkConfigValue reports calls and free references in a config value.
+// bound is the set of names a surrounding comprehension brought into scope.
+func checkConfigValue(e Expr, bound map[string]bool, errs *ErrorList) {
+	if e == nil {
+		return
+	}
+	switch v := e.(type) {
+	case *StringLit, *NumberLit, *BoolLit, *NullLit:
+		// A literal is always a valid config value.
+	case *ArrayLit:
+		for _, el := range v.Elements {
+			checkConfigValue(el, bound, errs)
+		}
+	case *ObjectLit:
+		for _, f := range v.Fields {
+			checkConfigValue(f.Value, bound, errs)
+		}
+	case *InterpolatedString:
+		for _, p := range v.Parts {
+			checkConfigValue(p.Expr, bound, errs)
+		}
+	case *Infix:
+		checkConfigValue(v.Left, bound, errs)
+		checkConfigValue(v.Right, bound, errs)
+	case *Prefix:
+		checkConfigValue(v.Expr, bound, errs)
+	case *Conditional:
+		checkConfigValue(v.Cond, bound, errs)
+		checkConfigValue(v.Then, bound, errs)
+		checkConfigValue(v.Else, bound, errs)
+	case *Comprehension:
+		// The source is evaluated before the binding exists; the key, value,
+		// and filter see the bound names.
+		checkConfigValue(v.Source, bound, errs)
+		inner := withBound(bound, v.Names)
+		checkConfigValue(v.Key, inner, errs)
+		checkConfigValue(v.Value, inner, errs)
+		checkConfigValue(v.Filter, inner, errs)
+	case *Ident:
+		if !bound[v.Name] {
+			errs.Addf(ErrResolve, v.S.Start,
+				"config inputs cannot reference other values (%s)", v.Name)
+		}
+	case *DotPath:
+		if v.Root == nil || !bound[v.Root.Name] {
+			errs.Addf(ErrResolve, v.S.Start,
+				"config inputs cannot reference other values (%s)", dotPathString(v))
+			return
+		}
+		for _, seg := range v.Segments {
+			checkConfigValue(seg.Index, bound, errs)
+		}
+	case *Call:
+		errs.Addf(ErrResolve, v.S.Start,
+			"config inputs cannot call functions; a config has no imports (%s)", callName(v))
+	default:
+		errs.Addf(ErrResolve, e.Span().Start, "config inputs must be static values")
+	}
+}
+
+// withBound returns bound extended with names. It copies so a sibling
+// expression does not see a comprehension's bindings.
+func withBound(bound map[string]bool, names []string) map[string]bool {
+	if len(names) == 0 {
+		return bound
+	}
+	out := make(map[string]bool, len(bound)+len(names))
+	for k := range bound {
+		out[k] = true
+	}
+	for _, n := range names {
+		out[n] = true
+	}
+	return out
+}
+
+func callName(c *Call) string {
+	if c.Library != nil && c.Func != nil {
+		return c.Library.Name + "." + c.Func.Name
+	}
+	if c.Callee != nil {
+		return c.Callee.Name
+	}
+	return "call"
+}
+
+func dotPathString(d *DotPath) string {
+	if d.Root == nil {
+		return "reference"
+	}
+	parts := []string{d.Root.Name}
+	for _, seg := range d.Segments {
+		if seg.Name != "" {
+			parts = append(parts, seg.Name)
+		}
+	}
+	return strings.Join(parts, ".")
 }
 
 func importedAliases(f *File) map[string]struct{} {
