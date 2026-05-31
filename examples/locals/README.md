@@ -27,7 +27,7 @@ From the unobin repo root:
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/locals/factory.ub \
+  -p examples/locals/main.ub \
   -o /tmp/locals-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \

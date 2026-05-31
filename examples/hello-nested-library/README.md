@@ -11,7 +11,7 @@ its libraries; the stack does not redeclare what its composites use.
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/hello-nested-library/factory.ub \
+  -p examples/hello-nested-library/main.ub \
   -o /tmp/hello-nested-library-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \
@@ -39,6 +39,6 @@ cd /tmp/hello-nested-library-build
   (the deepest leaf)
 
 `--allow-version-mismatch` is needed for the dev workflow because
-`dev.ub` does not declare `stack.supported-versions`. In real
+`dev.ub` does not declare `factory.supported-versions`. In real
 deployments the operator pins the binary's version+commit in
 `config.ub` and the flag is unnecessary.

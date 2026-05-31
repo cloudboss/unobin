@@ -9,7 +9,7 @@ Hello-world stack. Writes a file via `local.file`, reads it back via
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/hello/factory.ub \
+  -p examples/hello/main.ub \
   -o /tmp/hello-build \
   --replace-unobin="$(pwd)" \
   --unobin-version=v0.0.0 \
@@ -32,7 +32,7 @@ cd /tmp/hello-build
 ```
 
 `--allow-version-mismatch` is needed for the dev workflow because
-`dev.ub` does not declare `stack.supported-versions`. In real
+`dev.ub` does not declare `factory.supported-versions`. In real
 deployments the operator pins the binary's version+commit in
 `config.ub` and the flag is unnecessary.
 
