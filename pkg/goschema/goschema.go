@@ -11,10 +11,12 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -42,7 +44,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 		Resources:   map[string]*runtime.TypeSchema{},
 		DataSources: map[string]*runtime.TypeSchema{},
 		Actions:     map[string]*runtime.TypeSchema{},
-		Functions:   map[string]bool{},
+		Functions:   map[string]runtime.FunctionArity{},
 	}
 	var warnings []string
 
@@ -76,9 +78,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 			schema.Actions[reg.Name] = ts
 		}
 	}
-	for _, name := range extractFunctionNames(libraryFunc) {
-		schema.Functions[name] = true
-	}
+	maps.Copy(schema.Functions, extractFunctions(libraryFunc))
 	if len(*errs) > 0 {
 		return nil, warnings, errors.Join(*errs...)
 	}
@@ -515,13 +515,13 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 	return out
 }
 
-// extractFunctionNames returns the keys of the Functions map in the
-// Library() return literal. Only the names are needed -- the FunctionType
-// values hold a Go func the dev CLI cannot run, but the names alone let
-// the reference checker reject a call to a function the library does not
-// declare.
-func extractFunctionNames(fn *ast.FuncDecl) []string {
-	var out []string
+// extractFunctions returns each function in the Functions map of the
+// Library() return literal keyed to its declared arity. The FunctionType
+// values hold a Go func the dev CLI cannot run, but the name and the
+// ArgCount/Variadic fields let the reference checker reject a call to an
+// unknown function or one given the wrong number of arguments.
+func extractFunctions(fn *ast.FuncDecl) map[string]runtime.FunctionArity {
+	out := map[string]runtime.FunctionArity{}
 	if fn.Body == nil {
 		return out
 	}
@@ -553,12 +553,44 @@ func extractFunctionNames(fn *ast.FuncDecl) []string {
 					continue
 				}
 				if name, ok := stringLit(ekv.Key); ok {
-					out = append(out, name)
+					out[name] = functionArity(ekv.Value)
 				}
 			}
 		}
 	}
 	return out
+}
+
+// functionArity reads the ArgCount and Variadic fields from a FunctionType
+// composite literal. An omitted field keeps its zero value, so a function
+// declared with neither reads as taking exactly zero arguments.
+func functionArity(e ast.Expr) runtime.FunctionArity {
+	var arity runtime.FunctionArity
+	lit, ok := e.(*ast.CompositeLit)
+	if !ok {
+		return arity
+	}
+	for _, el := range lit.Elts {
+		kv, ok := el.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		name, ok := identName(kv.Key)
+		if !ok {
+			continue
+		}
+		switch name {
+		case "ArgCount":
+			if n, ok := intLit(kv.Value); ok {
+				arity.ArgCount = n
+			}
+		case "Variadic":
+			if b, ok := boolLit(kv.Value); ok {
+				arity.Variadic = b
+			}
+		}
+	}
+	return arity
 }
 
 // refsFromMakeCall extracts the input and output type references
@@ -743,6 +775,34 @@ func stringLit(e ast.Expr) (string, bool) {
 		return "", false
 	}
 	return s, true
+}
+
+// intLit reads a non-negative integer literal.
+func intLit(e ast.Expr) (int, bool) {
+	lit, ok := e.(*ast.BasicLit)
+	if !ok || lit.Kind != token.INT {
+		return 0, false
+	}
+	n, err := strconv.Atoi(lit.Value)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
+// boolLit reads a true or false literal.
+func boolLit(e ast.Expr) (bool, bool) {
+	id, ok := e.(*ast.Ident)
+	if !ok {
+		return false, false
+	}
+	switch id.Name {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	}
+	return false, false
 }
 
 func unquoteString(s string) (string, error) {

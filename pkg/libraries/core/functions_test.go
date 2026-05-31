@@ -37,12 +37,6 @@ func TestFunctionFormat(t *testing.T) {
 	}
 }
 
-func TestFunctionFormatNoArgs(t *testing.T) {
-	_, err := evalCore(t, "core.format()", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "format string")
-}
-
 func TestFunctionFormatNonStringFirst(t *testing.T) {
 	_, err := evalCore(t, "core.format(1, 'x')", nil)
 	require.Error(t, err)

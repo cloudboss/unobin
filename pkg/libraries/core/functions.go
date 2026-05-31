@@ -13,9 +13,6 @@ import (
 // pre-rendered as UB literals so an operator sees ['a', 'b'] instead of
 // Go's space-separated [a b] form.
 func fnFormat(args []any) (any, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("format: needs at least the format string")
-	}
 	f, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf(
@@ -63,9 +60,6 @@ func fnB64Decode(args []any) (any, error) {
 // so it is not a valid @for-each iterable; callers wanting fan-out write
 // a map literal with intentional keys.
 func fnRange(args []any) (any, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("range: takes one argument, got %d", len(args))
-	}
 	n, ok := args[0].(int64)
 	if !ok {
 		return nil, fmt.Errorf(
@@ -85,9 +79,6 @@ func fnRange(args []any) (any, error) {
 // in bytes; UTF-8 rune counting belongs in a separate helper if it is
 // ever asked for.
 func fnLength(args []any) (any, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("length: takes one argument, got %d", len(args))
-	}
 	switch v := args[0].(type) {
 	case string:
 		return int64(len(v)), nil
@@ -101,9 +92,6 @@ func fnLength(args []any) (any, error) {
 }
 
 func singleStringArg(name string, args []any) (string, error) {
-	if len(args) != 1 {
-		return "", fmt.Errorf("%s: takes one argument, got %d", name, len(args))
-	}
 	s, ok := args[0].(string)
 	if !ok {
 		return "", fmt.Errorf(

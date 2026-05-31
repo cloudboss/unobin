@@ -66,7 +66,9 @@ outputs: {
 
 func TestCheckReferencesFunctionExists(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]bool{"format": true}}},
+		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{
+			"format": {ArgCount: 1, Variadic: true},
+		}}},
 	}
 	errs := CheckReferences(parseStack(t, `
 actions: {
@@ -78,7 +80,9 @@ actions: {
 
 func TestCheckReferencesUnknownFunction(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]bool{"format": true}}},
+		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{
+			"format": {ArgCount: 1, Variadic: true},
+		}}},
 	}
 	errs := CheckReferences(parseStack(t, `
 actions: {
@@ -88,6 +92,39 @@ actions: {
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `library "core" has no function "formatt"`)
+}
+
+func TestCheckReferencesFunctionArity(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{
+			"format": {ArgCount: 1, Variadic: true},
+			"length": {ArgCount: 1},
+		}}},
+	}
+	cases := []struct {
+		name string
+		call string
+		want string
+	}{
+		{"variadic one arg", "core.format('%s')", ""},
+		{"variadic many args", "core.format('%s-%s', 'a', 'b')", ""},
+		{"variadic too few", "core.format()", "core.format takes at least 1 argument, got 0"},
+		{"fixed exact", "core.length('hi')", ""},
+		{"fixed too few", "core.length()", "core.length takes 1 argument, got 0"},
+		{"fixed too many", "core.length('a', 'b')", "core.length takes 1 argument, got 2"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := "actions: {\n  core: { command: { x: { argv: [" + c.call + "] } } }\n}\n"
+			got := checkRefMessages(t, CheckReferences(parseStack(t, src), libs))
+			if c.want == "" {
+				require.Empty(t, got)
+				return
+			}
+			require.Len(t, got, 1)
+			require.Contains(t, got[0], c.want)
+		})
+	}
 }
 
 func TestCheckReferencesLocalReadsUnknownInput(t *testing.T) {

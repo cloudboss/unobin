@@ -54,9 +54,17 @@ type Library struct {
 // take pre-evaluated argument values and return a single value or an
 // error. They run inline during expression evaluation and have no DAG
 // node or state of their own.
+//
+// ArgCount and Variadic declare the argument count the compiler enforces at
+// each call site: a non-variadic function takes exactly ArgCount arguments,
+// a variadic one takes ArgCount or more. A call's argument count is fixed in
+// the source, so this check is compile-time only and the function body may
+// assume it already holds.
 type FunctionType struct {
 	Name        string
 	Description string
+	ArgCount    int
+	Variadic    bool
 	Func        func(args []any) (any, error)
 }
 

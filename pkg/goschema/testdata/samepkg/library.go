@@ -12,8 +12,8 @@ func Library() *runtime.Library {
 			"do2": runtime.MakeAction[Do2Action, *Do2ActionOutput](),
 		},
 		Functions: map[string]runtime.FunctionType{
-			"shout":   {Name: "shout"},
-			"reverse": {Name: "reverse"},
+			"shout":   {Name: "shout", ArgCount: 1},
+			"reverse": {Name: "reverse", ArgCount: 1},
 		},
 	}
 }

@@ -26,26 +26,32 @@ func Library() *runtime.Library {
 			"format": {
 				Name:        "format",
 				Description: "Printf-style string formatting; the first argument is the format string.",
+				ArgCount:    1,
+				Variadic:    true,
 				Func:        fnFormat,
 			},
 			"b64-encode": {
 				Name:        "b64-encode",
 				Description: "Base64-encode a string.",
+				ArgCount:    1,
 				Func:        fnB64Encode,
 			},
 			"b64-decode": {
 				Name:        "b64-decode",
 				Description: "Base64-decode a string.",
+				ArgCount:    1,
 				Func:        fnB64Decode,
 			},
 			"range": {
 				Name:        "range",
 				Description: "Return the integers [0, n) as a list.",
+				ArgCount:    1,
 				Func:        fnRange,
 			},
 			"length": {
 				Name:        "length",
 				Description: "Return the number of elements in a string, list, or map.",
+				ArgCount:    1,
 				Func:        fnLength,
 			},
 		},

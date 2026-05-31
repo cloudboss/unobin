@@ -187,11 +187,35 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 	if lib == nil || lib.Schema == nil {
 		return
 	}
-	if lib.Schema.Functions[call.Func.Name] {
+	arity, ok := lib.Schema.Functions[call.Func.Name]
+	if !ok {
+		c.addf(call.Func.S.Start, `library %q has no function %q`,
+			call.Library.Name, call.Func.Name)
 		return
 	}
-	c.addf(call.Func.S.Start, `library %q has no function %q`,
-		call.Library.Name, call.Func.Name)
+	n := len(call.Args)
+	if (arity.Variadic && n < arity.ArgCount) || (!arity.Variadic && n != arity.ArgCount) {
+		c.addf(call.Func.S.Start, "%s",
+			arityMessage(call.Library.Name, call.Func.Name, arity, n))
+	}
+}
+
+// arityMessage describes the argument count a function expects against the
+// count it was given, for a call the reference checker rejected.
+func arityMessage(library, function string, arity FunctionArity, got int) string {
+	want := argCount(arity.ArgCount)
+	if arity.Variadic {
+		want = "at least " + want
+	}
+	return fmt.Sprintf("%s.%s takes %s, got %d", library, function, want, got)
+}
+
+// argCount renders an argument count with the right singular or plural noun.
+func argCount(n int) string {
+	if n == 1 {
+		return "1 argument"
+	}
+	return fmt.Sprintf("%d arguments", n)
 }
 
 func (c *referenceChecker) checkVar(dp *lang.DotPath, scope string) {
