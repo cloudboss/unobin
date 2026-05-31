@@ -21,3 +21,10 @@ func newEnvKey(config any) (sdkencrypt.Encrypter, error) {
 	}
 	return envencrypt.NewEnvKey(c.EnvVar.Value)
 }
+
+// newNoop builds the no-op encrypter, which writes state as plaintext.
+// It is the explicit opt-out for unencrypted state, chosen as core.noop
+// in a config's encryption block.
+func newNoop(_ any) (sdkencrypt.Encrypter, error) {
+	return envencrypt.Noop{}, nil
+}

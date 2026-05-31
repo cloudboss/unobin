@@ -70,6 +70,11 @@ func Library() *runtime.Library {
 				},
 				New: newEnvKey,
 			},
+			"noop": {
+				Name:        "noop",
+				Description: "No encryption; state is written as plaintext.",
+				New:         newNoop,
+			},
 		},
 	}
 }
