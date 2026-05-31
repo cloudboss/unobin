@@ -1,3 +1,9 @@
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: { @key-source: core.noop }
+}
+
 inputs: {
   base-path: '/tmp/unobin-for-each'
   files:     { alpha: 'first message', beta: 'second message' }

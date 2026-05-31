@@ -203,13 +203,14 @@ func errsToStrings(l *ErrorList) []string {
 	return out
 }
 
-func TestValidateStateConfigAcceptsBareBackend(t *testing.T) {
+func TestValidateStateConfigRejectsBareBackend(t *testing.T) {
 	src := `
 state: { @backend: local, path: '.unobin/state' }
 `
 	f := parseWithKind(t, src, FileConfig)
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.NotZero(t, errs.Len())
+	require.Contains(t, strings.Join(errsToStrings(errs), "; "), "fully qualified")
 }
 
 func TestValidateStateConfigAcceptsAliasedBackend(t *testing.T) {
@@ -250,12 +251,12 @@ func TestValidateStateConfigRejects(t *testing.T) {
 		{
 			name: "backend-string-value",
 			src:  "state: { @backend: 'local' }\n",
-			want: "state block: @backend: expected `name` or `alias.name`",
+			want: "state block: @backend: expected a fully-qualified reference like core.local",
 		},
 		{
 			name: "backend-too-many-segments",
 			src:  "state: { @backend: a.b.c }\n",
-			want: "state block: @backend: expected `name` or `alias.name`",
+			want: "state block: @backend: expected a fully-qualified reference like core.local",
 		},
 		{
 			name: "quoted-body-key",
@@ -290,7 +291,7 @@ func TestValidateStateConfigRejects(t *testing.T) {
 		{
 			name: "encryption-bad-key-source-value",
 			src:  "state: { @backend: local, encryption: { @key-source: 'env-key' } }\n",
-			want: "encryption block: @key-source: expected `name` or `alias.name`",
+			want: "encryption block: @key-source: expected a fully-qualified reference like core.local",
 		},
 	}
 	for _, c := range cases {

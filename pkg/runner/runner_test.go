@@ -78,22 +78,75 @@ func runRoot(t *testing.T, info Info, args ...string) (string, error) {
 	return out.String(), err
 }
 
-// applyVia runs `plan -o <tmp> [-c cfg]` then `apply <tmp>` and returns
-// the apply output. Tests use this when they don't need to inspect the
-// plan separately. The plan call passes --allow-version-mismatch since
-// most tests do not exercise pin verification.
+// applyVia runs `plan -o <tmp> -c cfg` then `apply <tmp>` and returns the
+// apply output. Tests use this when they don't need to inspect the plan
+// separately. An empty configPath gets a generated config with just the
+// required state block. The plan call passes --allow-version-mismatch
+// since most tests do not exercise pin verification.
 func applyVia(t *testing.T, info Info, configPath string) string {
 	t.Helper()
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-	args := []string{"plan", "--allow-version-mismatch", "-o", planFile}
-	if configPath != "" {
-		args = append(args, "-c", configPath)
+	if configPath == "" {
+		configPath = writeStateConfig(t, "")
 	}
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+	args := []string{"plan", "--allow-version-mismatch", "-o", planFile, "-c", configPath}
 	_, err := runRoot(t, info, args...)
 	require.NoError(t, err)
 	out, err := runRoot(t, info, "apply", planFile)
 	require.NoError(t, err)
 	return out
+}
+
+// stateConfigBody is the state: block every test config needs, now that a
+// backend must be configured explicitly.
+const stateConfigBody = `state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: { @key-source: core.noop }
+}
+`
+
+// writeStateConfig writes a config with the required state block plus body
+// and returns its path. The file is named default.ub so its deployment
+// name matches the "default" a missing -c used to produce, which the state
+// tests' hand-built stores also use.
+func writeStateConfig(t *testing.T, body string) string {
+	t.Helper()
+	cfg := filepath.Join(t.TempDir(), "default.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+body), 0o644))
+	return cfg
+}
+
+// runCfg runs a factory command with a fresh -c state config appended, for
+// commands that resolve a backend (plan, output, refresh, state). Every
+// config basename is default.ub, so each command in a test maps to the same
+// deployment and shares state.
+func runCfg(t *testing.T, info Info, args ...string) (string, error) {
+	t.Helper()
+	return runRoot(t, info, append(args, "-c", writeStateConfig(t, ""))...)
+}
+
+// backendConfigBody is a state block with a backend but no encryption, so
+// the encrypter falls back to env-key or noop based on UB_STATE_KEY.
+const backendConfigBody = `state: {
+  @backend: core.local
+  path: '.unobin/state'
+}
+`
+
+// writeBackendConfig writes a backend-only config (no encryption block) and
+// returns its path, for tests that exercise the env-key fallback.
+func writeBackendConfig(t *testing.T) string {
+	t.Helper()
+	cfg := filepath.Join(t.TempDir(), "default.ub")
+	require.NoError(t, os.WriteFile(cfg, []byte(backendConfigBody), 0o644))
+	return cfg
+}
+
+// runBackend runs a command with a fresh -c backend-only config appended.
+func runBackend(t *testing.T, info Info, args ...string) (string, error) {
+	t.Helper()
+	return runRoot(t, info, append(args, "-c", writeBackendConfig(t))...)
 }
 
 // openPlanFile reads a plan file from disk and returns its inner
@@ -131,11 +184,11 @@ outputs: {
 	apply := applyVia(t, info, "")
 	require.Contains(t, apply, "said: 'hello world'")
 
-	all, err := runRoot(t, info, "output")
+	all, err := runCfg(t, info, "output")
 	require.NoError(t, err)
 	require.Contains(t, all, "said: 'hello world'")
 
-	one, err := runRoot(t, info, "output", "said")
+	one, err := runCfg(t, info, "output", "said")
 	require.NoError(t, err)
 	require.Contains(t, one, "hello world")
 }
@@ -164,14 +217,14 @@ resources: {
 	require.NoError(t, err)
 
 	// A destroy plan renders the resource as a deletion and counts it.
-	render, err := runRoot(t, info, "plan", "--destroy", "--allow-version-mismatch")
+	render, err := runCfg(t, info, "plan", "--destroy", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, render, "- resource.local.file.x")
 	require.Contains(t, render, "0 to create, 0 to update, 0 to replace, 1 to destroy")
 
 	// A destroy plan should mark the file for deletion.
 	planFile := filepath.Join(t.TempDir(), "destroy.json")
-	_, err = runRoot(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
+	_, err = runCfg(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	pf := openPlanFile(t, info, planFile)
@@ -185,7 +238,7 @@ resources: {
 	_, err = os.Stat(path)
 	require.True(t, os.IsNotExist(err), "file should be removed after destroy")
 
-	out, err := runRoot(t, info, "state", "list")
+	out, err := runCfg(t, info, "state", "list")
 	require.NoError(t, err)
 	require.NotContains(t, out, "resource.local.file.x")
 }
@@ -204,11 +257,11 @@ outputs: {
 `)
 	_ = applyVia(t, info, "")
 
-	all, err := runRoot(t, info, "output", "--json")
+	all, err := runCfg(t, info, "output", "--json")
 	require.NoError(t, err)
 	require.Equal(t, "{\n  \"count\": 7,\n  \"said\": \"hello world\"\n}\n", all)
 
-	one, err := runRoot(t, info, "output", "--json", "said")
+	one, err := runCfg(t, info, "output", "--json", "said")
 	require.NoError(t, err)
 	require.Equal(t, "\"hello world\"\n", one)
 }
@@ -216,14 +269,14 @@ outputs: {
 func TestOutputUnknownName(t *testing.T) {
 	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
 	_ = applyVia(t, info, "")
-	_, err := runRoot(t, info, "output", "missing")
+	_, err := runCfg(t, info, "output", "missing")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no output")
 }
 
 func TestOutputBeforeApply(t *testing.T) {
 	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
-	_, err := runRoot(t, info, "output")
+	_, err := runCfg(t, info, "output")
 	require.Error(t, err)
 }
 
@@ -250,7 +303,7 @@ outputs: {
 	info := testInfo(t, src)
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(`
+	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+`
 inputs: {
   greeting: 'from-config'
 }
@@ -298,10 +351,10 @@ outputs: {
 
 	prod := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(prod,
-		[]byte(`inputs: { greeting: 'hello-prod' }`), 0o644))
+		[]byte(stateConfigBody+`inputs: { greeting: 'hello-prod' }`), 0o644))
 	staging := filepath.Join(filepath.Dir(prod), "staging.ub")
 	require.NoError(t, os.WriteFile(staging,
-		[]byte(`inputs: { greeting: 'hello-staging' }`), 0o644))
+		[]byte(stateConfigBody+`inputs: { greeting: 'hello-staging' }`), 0o644))
 
 	out := applyVia(t, info, prod)
 	require.Contains(t, out, "said: 'hello-prod'")
@@ -334,7 +387,7 @@ outputs: {
 	info := testInfo(t, src)
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(`
+	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+`
 inputs: {
   greeting: 'from-config'
 }
@@ -567,7 +620,7 @@ actions: {
 }
 `
 	info := testInfo(t, src)
-	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "↺ action.core.echo.hi")
 	require.Contains(t, out, `echo: "hello"`)
@@ -583,7 +636,7 @@ actions: {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
 }
@@ -1111,7 +1164,7 @@ func TestSchemaTemplateScaffoldResolves(t *testing.T) {
 
 func TestPlanEmpty(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
-	out, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
 }
@@ -1125,7 +1178,7 @@ actions: {
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	pf := openPlanFile(t, info, planFile)
@@ -1149,7 +1202,7 @@ outputs: {
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	out, err := runRoot(t, info, "apply", planFile)
@@ -1251,7 +1304,7 @@ func TestValidateRejectsUnknownBackendName(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: ghost }\n"), 0o644))
+		"state: { @backend: core.ghost }\n"), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `registers no backend named "ghost"`)
@@ -1261,7 +1314,7 @@ func TestValidateRejectsBadBackendBody(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, unknown-field: 1 }\n"), 0o644))
+		"state: { @backend: core.local, unknown-field: 1 }\n"), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown key")
@@ -1271,7 +1324,7 @@ func TestValidateRejectsUnknownEncrypterAlias(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, path: '.unobin/state',"+
+		"state: { @backend: core.local, path: '.unobin/state',"+
 			" encryption: { @key-source: missing.kms } }\n"),
 		0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
@@ -1283,8 +1336,8 @@ func TestValidateAcceptsCoreBackendAndEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, path: '.unobin/state',"+
-			" encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' } }\n"),
+		"state: { @backend: core.local, path: '.unobin/state',"+
+			" encryption: { @key-source: core.env-key, env-var: 'UB_STATE_KEY' } }\n"),
 		0o644))
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.NoError(t, err)
@@ -1354,11 +1407,11 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runRoot(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
+	out, err := runCfg(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
 	require.NoError(t, err)
 	require.Contains(t, out, "Moved action.core.echo.hi to action.core.echo.bye")
 
-	show, err := runRoot(t, info, "state", "show")
+	show, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, show, "action.core.echo.bye")
 	require.NotContains(t, show, "action.core.echo.hi ")
@@ -1369,7 +1422,7 @@ func TestStateMoveRejectsMissingSource(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runRoot(t, info, "state", "move", "action.core.echo.gone", "action.core.echo.elsewhere")
+	_, err := runCfg(t, info, "state", "move", "action.core.echo.gone", "action.core.echo.elsewhere")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no entry at")
 }
@@ -1388,7 +1441,7 @@ actions: {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runRoot(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
+	_, err := runCfg(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already exists")
 }
@@ -1398,11 +1451,11 @@ func TestStateRemoveDropsEntry(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runRoot(t, info, "state", "remove", "action.core.echo.hi")
+	out, err := runCfg(t, info, "state", "remove", "action.core.echo.hi")
 	require.NoError(t, err)
 	require.Contains(t, out, "Removed action.core.echo.hi")
 
-	show, err := runRoot(t, info, "state", "show")
+	show, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
 	require.NotContains(t, show, "action.core.echo.hi")
 }
@@ -1412,7 +1465,7 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runRoot(t, info, "state", "remove", "action.core.echo.gone")
+	_, err := runCfg(t, info, "state", "remove", "action.core.echo.gone")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no entry at")
 }
@@ -1468,7 +1521,7 @@ func TestStateMoveRelocatesLibraryCallSite(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store := stateMoveFixture(t, info)
 
-	out, err := runRoot(t, info, "state", "move",
+	out, err := runCfg(t, info, "state", "move",
 		"resource.greeter.greeting.welcome", "resource.greeter.greeting.hello")
 	require.NoError(t, err)
 	require.Contains(t, out,
@@ -1486,7 +1539,7 @@ func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store := stateMoveFixture(t, info)
 
-	out, err := runRoot(t, info, "state", "move",
+	out, err := runCfg(t, info, "state", "move",
 		"resource.local.file.other", "resource.local.file.renamed")
 	require.NoError(t, err)
 	require.Contains(t, out,
@@ -1531,7 +1584,7 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(rev))
 
-	_, err = runRoot(t, info, "state", "move",
+	_, err = runCfg(t, info, "state", "move",
 		"resource.greeter.greeting.a", "resource.greeter.greeting.b")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already exists at resource.greeter.greeting.b/resource.local.file.this")
@@ -1564,7 +1617,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, revs, 5)
 
-	out, err := runRoot(t, info, "state", "gc", "--keep", "2")
+	out, err := runCfg(t, info, "state", "gc", "--keep", "2")
 	require.NoError(t, err)
 	require.Contains(t, out, "Deleted 2 snapshot(s), kept 3.")
 
@@ -1576,7 +1629,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
 	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
 	_ = applyVia(t, info, "")
-	out, err := runRoot(t, info, "state", "gc", "--keep", "10")
+	out, err := runCfg(t, info, "state", "gc", "--keep", "10")
 	require.NoError(t, err)
 	require.Contains(t, out, "Deleted 0 snapshot(s), kept 1.")
 }
@@ -1592,7 +1645,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	_, err = store.Lock(context.Background())
 	require.NoError(t, err)
 
-	out, err := runRoot(t, info, "state", "force-unlock")
+	out, err := runCfg(t, info, "state", "force-unlock")
 	require.NoError(t, err)
 	require.Contains(t, out, "Lock cleared.")
 
@@ -1603,7 +1656,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 
 func TestRefreshNoStateIsOK(t *testing.T) {
 	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
-	out, err := runRoot(t, info, "refresh", "--allow-version-mismatch")
+	out, err := runCfg(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 }
@@ -1615,11 +1668,11 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 `)
 	_ = applyVia(t, info, "")
 
-	out, err := runRoot(t, info, "refresh", "--allow-version-mismatch")
+	out, err := runCfg(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 
-	show, err := runRoot(t, info, "state", "show")
+	show, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, show, "action.core.echo.hi")
 }
@@ -1636,11 +1689,11 @@ outputs: {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	listOut, err := runRoot(t, info, "state", "list")
+	listOut, err := runCfg(t, info, "state", "list")
 	require.NoError(t, err)
 	require.Contains(t, listOut, "* ")
 
-	showOut, err := runRoot(t, info, "state", "show")
+	showOut, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, showOut, "factory:")
 	require.Contains(t, showOut, "test-stack")
@@ -1693,7 +1746,7 @@ outputs: {
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
-	_ = applyVia(t, info, "")
+	_ = applyVia(t, info, writeBackendConfig(t))
 
 	snapDir := filepath.Join(".unobin", "state", "test-stack", "default", "snapshots")
 	entries, err := os.ReadDir(snapDir)
@@ -1710,7 +1763,7 @@ outputs: {
 		require.True(t, isJSON(plaintext), "decrypted snapshot %s should be JSON", e.Name())
 	}
 
-	showOut, err := runRoot(t, info, "state", "show")
+	showOut, err := runBackend(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, showOut, `said: 'hello'`)
 }
@@ -1720,10 +1773,10 @@ func TestStateShowFailsWithWrongKey(t *testing.T) {
 	info := testInfo(t, src)
 
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-	_ = applyVia(t, info, "")
+	_ = applyVia(t, info, writeBackendConfig(t))
 
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-	_, err := runRoot(t, info, "state", "show")
+	_, err := runBackend(t, info, "state", "show")
 	require.Error(t, err)
 }
 
@@ -1746,7 +1799,7 @@ outputs: {
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
 	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runBackend(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
@@ -1773,7 +1826,7 @@ outputs: {
 func TestPlanFlagOverridesConfigParallelism(t *testing.T) {
 	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
 	info := testInfo(t, src)
-	cfg := writeConfig(t, `
+	cfg := writeStateConfig(t, `
 parallelism: 3
 inputs: {}
 `)
@@ -1789,7 +1842,7 @@ inputs: {}
 func TestPlanFallsBackToConfigParallelism(t *testing.T) {
 	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
 	info := testInfo(t, src)
-	cfg := writeConfig(t, `
+	cfg := writeStateConfig(t, `
 parallelism: 4
 inputs: {}
 `)
@@ -1808,7 +1861,7 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
 	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runBackend(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
@@ -1831,7 +1884,7 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 	info := testInfo(t, src)
 
 	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)

@@ -1,3 +1,9 @@
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: { @key-source: core.noop }
+}
+
 inputs: {
   environment: 'prod'
   path:        '/tmp/unobin-comprehensions.txt'

@@ -14,9 +14,8 @@ import (
 )
 
 // resolverRef names one entry in a library's StateBackends or
-// Encrypters map. Alias is empty for core's built-in bare names
-// (`local`, `env-key`); otherwise it's the import alias from
-// `imports:`.
+// Encrypters map. Alias is the import alias from imports: (for example
+// core), and Name is the entry within that library (local, noop).
 type resolverRef struct {
 	Alias string
 	Name  string
@@ -168,8 +167,8 @@ func resolveEncrypter(info Info, ref *resolverRef) (sdkencrypt.Encrypter, error)
 }
 
 // resolveBackend constructs the backend named by the parsed state
-// config. A nil ref falls back to the local backend at
-// `.unobin/state`.
+// config. A nil ref means the config has no state: block, which is an
+// error: a state backend must be configured explicitly.
 func resolveBackend(
 	info Info,
 	ref *resolverRef,
@@ -177,11 +176,9 @@ func resolveBackend(
 	enc sdkencrypt.Encrypter,
 ) (sdkstate.Backend, error) {
 	if ref == nil {
-		ref = &resolverRef{
-			Alias: "",
-			Name:  "local",
-			Body:  map[string]any{"path": ".unobin/state"},
-		}
+		return nil, errors.New(
+			"state: a state backend must be configured; add a state: block to config.ub " +
+				"(run 'schema template' for a starter)")
 	}
 	bt, err := lookupBackendType(info.Libraries, ref)
 	if err != nil {
@@ -198,20 +195,16 @@ func lookupBackendType(
 	libraries map[string]*runtime.Library,
 	ref *resolverRef,
 ) (sdkstate.BackendType, error) {
-	libraryAlias := ref.Alias
-	if libraryAlias == "" {
-		libraryAlias = "core"
-	}
-	lib, ok := libraries[libraryAlias]
+	lib, ok := libraries[ref.Alias]
 	if !ok {
 		return sdkstate.BackendType{}, fmt.Errorf(
-			"state: backend %s: import %q not found", refLabel(ref), libraryAlias)
+			"state: backend %s: import %q not found", refLabel(ref), ref.Alias)
 	}
 	bt, ok := lib.StateBackends[ref.Name]
 	if !ok {
 		return sdkstate.BackendType{}, fmt.Errorf(
 			"state: backend %s: library %q registers no backend named %q",
-			refLabel(ref), libraryAlias, ref.Name)
+			refLabel(ref), ref.Alias, ref.Name)
 	}
 	return bt, nil
 }
@@ -220,20 +213,16 @@ func lookupEncrypterType(
 	libraries map[string]*runtime.Library,
 	ref *resolverRef,
 ) (sdkencrypt.EncrypterType, error) {
-	libraryAlias := ref.Alias
-	if libraryAlias == "" {
-		libraryAlias = "core"
-	}
-	lib, ok := libraries[libraryAlias]
+	lib, ok := libraries[ref.Alias]
 	if !ok {
 		return sdkencrypt.EncrypterType{}, fmt.Errorf(
-			"encryption: key-source %s: import %q not found", refLabel(ref), libraryAlias)
+			"encryption: key-source %s: import %q not found", refLabel(ref), ref.Alias)
 	}
 	et, ok := lib.Encrypters[ref.Name]
 	if !ok {
 		return sdkencrypt.EncrypterType{}, fmt.Errorf(
 			"encryption: key-source %s: library %q registers no encrypter named %q",
-			refLabel(ref), libraryAlias, ref.Name)
+			refLabel(ref), ref.Alias, ref.Name)
 	}
 	return et, nil
 }

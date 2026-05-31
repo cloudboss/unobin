@@ -1,1 +1,7 @@
+state: {
+  @backend: core.local
+  path: '.unobin/state'
+  encryption: { @key-source: core.noop }
+}
+
 inputs: { message: 'Hello from a UB library!', path: '/tmp/unobin-hello-library.txt' }

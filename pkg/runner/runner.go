@@ -543,12 +543,12 @@ func parsedFile(info Info) (*lang.File, error) {
 	return f, nil
 }
 
-// loadStore resolves a state backend from the `state:` block of a
-// pre-parsed config. With a nil file, the resolver falls back to the
-// local backend at `.unobin/state`. deploymentID is the per-deployment
-// directory name (the basename of config.ub for plan/refresh, or the
-// plan file's embedded value for apply). configPath is preserved only
-// for error messages.
+// loadStore resolves a state backend from the state: block of a
+// pre-parsed config. A config without a state: block is an error; a
+// backend must be configured explicitly. deploymentID is the
+// per-deployment directory name (the basename of config.ub for
+// plan/refresh, or the plan file's embedded value for apply). configPath
+// is preserved only for error messages.
 func loadStore(
 	info Info,
 	f *lang.File,

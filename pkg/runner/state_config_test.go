@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"os"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
@@ -43,15 +42,14 @@ func TestParseStateConfigAbsentBlock(t *testing.T) {
 	assert.Nil(t, sc.Encrypter)
 }
 
-func TestParseStateConfigBareBackend(t *testing.T) {
-	f := parseConfig(t, "state: { @backend: local, path: '.unobin/state' }\n")
-	sc, err := parseStateConfig(f, "config.ub")
+func TestValidateRejectsBareBackend(t *testing.T) {
+	f, err := lang.ParseSource(
+		"config.ub", []byte("state: { @backend: local, path: '.unobin/state' }\n"))
 	require.NoError(t, err)
-	require.NotNil(t, sc.Backend)
-	assert.Equal(t, "", sc.Backend.Alias)
-	assert.Equal(t, "local", sc.Backend.Name)
-	assert.Equal(t, map[string]any{"path": ".unobin/state"}, sc.Backend.Body)
-	assert.Nil(t, sc.Encrypter)
+	f.Kind = lang.FileConfig
+	errs := lang.ValidateFile(f)
+	require.NotZero(t, errs.Len())
+	require.Contains(t, errs.Err().Error(), "fully qualified")
 }
 
 func TestParseStateConfigAliasedBackendAndEncryption(t *testing.T) {
@@ -134,21 +132,15 @@ func resolverInfo() Info {
 	}
 }
 
-func TestResolveBackendNilRefFallsBackToCoreLocal(t *testing.T) {
-	dir := t.TempDir()
-	wd, err := os.Getwd()
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.Chdir(wd) })
-	require.NoError(t, os.Chdir(dir))
-
-	b, err := resolveBackend(resolverInfo(), nil, "test-stack", "default", envencrypt.Noop{})
-	require.NoError(t, err)
-	require.NotNil(t, b)
+func TestResolveBackendNilRefIsError(t *testing.T) {
+	_, err := resolveBackend(resolverInfo(), nil, "test-stack", "default", envencrypt.Noop{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must be configured")
 }
 
 func TestResolveBackendCoreLocal(t *testing.T) {
 	dir := t.TempDir()
-	ref := &resolverRef{Name: "local", Body: map[string]any{"path": dir}}
+	ref := &resolverRef{Alias: "core", Name: "local", Body: map[string]any{"path": dir}}
 	b, err := resolveBackend(resolverInfo(), ref, "test-stack", "default", envencrypt.Noop{})
 	require.NoError(t, err)
 	require.NotNil(t, b)

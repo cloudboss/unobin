@@ -859,11 +859,10 @@ func checkBareIdentKey(f *Field, seen map[string]Position, what string, errs *Er
 	return true
 }
 
-// ValidateStateConfig checks the structure of a `state:` block in a
-// config file. The block must carry exactly one `@backend:` meta-key
-// whose value is a bare identifier (`local`) or a two-segment
-// alias-qualified reference (`aws.s3`). It may carry a nested
-// `encryption:` object of the same form with `@key-source:`, plus any
+// ValidateStateConfig checks the structure of a state: block in a config
+// file. The block must have exactly one @backend: meta-key whose value is
+// a fully-qualified alias.name reference such as core.local. It may include
+// a nested encryption: object of the same form with @key-source:, plus any
 // number of body fields keyed by bare identifiers. Body values are not
 // type-checked here; the resolver decodes them against each backend's
 // declared configuration.
@@ -938,14 +937,14 @@ func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
 
 func validateResolverRefValue(expr Expr) error {
 	switch v := expr.(type) {
-	case *Ident:
-		return nil
 	case *DotPath:
 		if v.Root == nil || len(v.Segments) != 1 || v.Segments[0].Name == "" {
-			return errors.New("expected `name` or `alias.name`")
+			return errors.New("expected a fully-qualified reference like core.local")
 		}
 		return nil
+	case *Ident:
+		return fmt.Errorf("reference must be fully qualified, e.g. core.%s", v.Name)
 	default:
-		return fmt.Errorf("expected `name` or `alias.name`, got %s", exprKind(expr))
+		return fmt.Errorf("expected a fully-qualified reference like core.local, got %s", exprKind(expr))
 	}
 }
