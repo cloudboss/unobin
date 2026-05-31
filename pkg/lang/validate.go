@@ -8,7 +8,7 @@ import (
 
 // allowedTopLevelKeys is the set of identifier keys permitted at the
 // top level of each file kind. A factory and an exported type body are
-// identical. A config holds deployment identity, state config, input
+// identical. A config holds factory identity, state config, input
 // values, and library configurations.
 var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	FileFactory: {

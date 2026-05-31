@@ -127,8 +127,8 @@ func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
 		maxRevAttempts)
 }
 
-// Lock acquires the deployment's exclusive lock by creating a marker
-// file under the deployment directory. Lock blocks until the marker
+// Lock acquires the stack's exclusive lock by creating a marker
+// file under the stack directory. Lock blocks until the marker
 // can be created or ctx is canceled. The marker file holds the
 // holder's pid so an operator can identify a stuck lock.
 func (s *LocalStore) Lock(ctx context.Context) (sdkstate.Lock, error) {

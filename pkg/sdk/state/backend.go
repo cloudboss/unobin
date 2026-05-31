@@ -7,7 +7,7 @@ import (
 
 // Backend is the contract a state backend satisfies. The runtime reads
 // and writes snapshots through it; concrete implementations decide
-// where the bytes live. Apply and refresh acquire the deployment's
+// where the bytes live. Apply and refresh acquire the stack's
 // lock through Lock and release it through the returned Lock value.
 // Plan is read-only and never locks. ForceUnlock is the escape hatch
 // for a leaked lock.
@@ -24,7 +24,7 @@ type Backend interface {
 	ForceUnlock() error
 }
 
-// Lock is a held exclusion on one deployment. Callers must invoke
+// Lock is a held exclusion on one stack. Callers must invoke
 // Unlock; a leaked lock blocks future apply and refresh runs until an
 // operator calls ForceUnlock.
 type Lock interface {
@@ -32,5 +32,5 @@ type Lock interface {
 }
 
 // ErrNoCurrent is returned by Backend.Current and Backend.CurrentRev when
-// no snapshot has been written for the deployment yet.
+// no snapshot has been written for the stack yet.
 var ErrNoCurrent = errors.New("no current snapshot")

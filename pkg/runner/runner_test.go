@@ -107,7 +107,7 @@ const stateConfigBody = `state: {
 `
 
 // writeStateConfig writes a config with the required state block plus body
-// and returns its path. The file is named default.ub so its deployment
+// and returns its path. The file is named default.ub so its stack
 // name matches the "default" a missing -c used to produce, which the state
 // tests' hand-built stores also use.
 func writeStateConfig(t *testing.T, body string) string {
@@ -120,7 +120,7 @@ func writeStateConfig(t *testing.T, body string) string {
 // runCfg runs a factory command with a fresh -c state config appended, for
 // commands that resolve a backend (plan, output, refresh, state). Every
 // config basename is default.ub, so each command in a test maps to the same
-// deployment and shares state.
+// stack and shares state.
 func runCfg(t *testing.T, info Info, args ...string) (string, error) {
 	t.Helper()
 	return runRoot(t, info, append(args, "-c", writeStateConfig(t, ""))...)
@@ -361,7 +361,7 @@ outputs: {
 	out = applyVia(t, info, staging)
 	require.Contains(t, out, "said: 'hello-staging'")
 
-	// Both deployments now have their own snapshot directory.
+	// Both stacks now have their own snapshot directory.
 	prodSnap := filepath.Join(".unobin/state", info.FactoryName, "prod")
 	stagingSnap := filepath.Join(".unobin/state", info.FactoryName, "staging")
 	_, err := os.Stat(prodSnap)

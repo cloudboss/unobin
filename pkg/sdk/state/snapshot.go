@@ -66,19 +66,19 @@ type FactoryInfo struct {
 // one after each successful resource action.
 type Snapshot struct {
 	FormatVersion int            `json:"format-version"`
-	Factory       FactoryInfo    `json:"stack"`
-	Stack         string         `json:"deployment-id"`
+	Factory       FactoryInfo    `json:"factory"`
+	Stack         string         `json:"stack"`
 	GeneratedAt   time.Time      `json:"generated-at"`
 	Entries       []*Entry       `json:"entries"`
 	Outputs       map[string]any `json:"outputs,omitempty"`
 }
 
 // NewSnapshot returns an empty snapshot at the current schema version.
-func NewSnapshot(stack FactoryInfo, deploymentID string) *Snapshot {
+func NewSnapshot(factory FactoryInfo, stack string) *Snapshot {
 	return &Snapshot{
 		FormatVersion: CurrentFormatVersion,
-		Factory:       stack,
-		Stack:         deploymentID,
+		Factory:       factory,
+		Stack:         stack,
 		GeneratedAt:   time.Now().UTC(),
 		Entries:       nil,
 	}

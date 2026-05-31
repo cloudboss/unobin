@@ -23,7 +23,7 @@ type RefreshResult struct {
 // fresh snapshot whose leaf outputs reflect the observation. Resources
 // that are no longer present are dropped. Action and library-call
 // entries, plus stack-level outputs, carry forward unchanged. No
-// resource writes happen. The deployment's lock is held for the
+// resource writes happen. The stack's lock is held for the
 // duration.
 func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	if e.Store == nil {

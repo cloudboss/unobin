@@ -1729,7 +1729,7 @@ actions: {
 }
 
 func TestDecodePlanRejectsBadFormatVersion(t *testing.T) {
-	bad := []byte(`{"format-version": 99, "stack": {"name": "x"}, "steps": []}`)
+	bad := []byte(`{"format-version": 99, "factory": {"name": "x"}, "steps": []}`)
 	_, err := DecodePlan(bad)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported format-version")

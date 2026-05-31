@@ -13,7 +13,7 @@ import (
 // Executor is used for output expressions, while resource and action
 // bodies come from the plan. The plan's stack identity must match the
 // Executor's, and the prior state's rev must match what the plan was
-// computed against. The deployment's lock is held for the duration.
+// computed against. The stack's lock is held for the duration.
 func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")

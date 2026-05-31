@@ -110,7 +110,7 @@ func newPlanCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub for inputs and per-deployment configuration.")
+		"Path to a config.ub for inputs and per-stack configuration.")
 	cmd.Flags().StringVarP(&outPath, "out", "o", "",
 		"Write the plan to this file so apply can consume it.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
@@ -335,7 +335,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub for inputs and per-deployment configuration.")
+		"Path to a config.ub for inputs and per-stack configuration.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
 		"Run even when the config does not pin this binary's version.")
 	return cmd
@@ -519,7 +519,7 @@ func newOutputCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub identifying the deployment.")
+		"Path to a config.ub identifying the stack.")
 	cmd.Flags().BoolVar(&asJSON, "json", false,
 		"Emit outputs as JSON instead of plain text.")
 	return cmd
@@ -545,24 +545,24 @@ func parsedFile(info Info) (*lang.File, error) {
 
 // loadStore resolves a state backend from the state: block of a
 // pre-parsed config. A config without a state: block is an error; a
-// backend must be configured explicitly. deploymentID is the
-// per-deployment directory name (the basename of config.ub for
-// plan/refresh, or the plan file's embedded value for apply). configPath
-// is preserved only for error messages.
+// backend must be configured explicitly. stack is the per-stack
+// directory name (the basename of config.ub for plan/refresh, or the
+// plan file's embedded value for apply). configPath is preserved only
+// for error messages.
 func loadStore(
 	info Info,
 	f *lang.File,
-	configPath, deploymentID string,
+	configPath, stack string,
 	enc sdkencrypt.Encrypter,
 ) (state.Backend, error) {
 	sc, err := parseStateConfig(f, configPath)
 	if err != nil {
 		return nil, err
 	}
-	return resolveBackend(info, sc.Backend, info.FactoryName, deploymentID, enc)
+	return resolveBackend(info, sc.Backend, info.FactoryName, stack, enc)
 }
 
-// stackName derives a deployment id from the config file path. The
+// stackName derives a stack name from the config file path. The
 // basename minus any extension is the id, so `prod.ub` becomes "prod"
 // and `staging.ub` becomes "staging". A missing config path falls back
 // to "default" to keep the tests and dev workflows that pass no config

@@ -14,7 +14,7 @@ import (
 func newStateCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "state",
-		Short: "Inspect the deployment's state",
+		Short: "Inspect the stack's state",
 	}
 	cmd.AddCommand(newStateListCmd(info))
 	cmd.AddCommand(newStateShowCmd(info))
@@ -26,11 +26,11 @@ func newStateCmd(info Info) *cobra.Command {
 }
 
 // addConfigFlag attaches a -c flag to a state subcommand. The flag is
-// the only way to select which deployment the command operates on
-// once deployment id comes from the config filename.
+// the only way to select which stack the command operates on
+// once stack name comes from the config filename.
 func addConfigFlag(cmd *cobra.Command, dst *string) {
 	cmd.Flags().StringVarP(dst, "config", "c", "",
-		"Path to a config.ub identifying the deployment.")
+		"Path to a config.ub identifying the stack.")
 }
 
 func newStateGCCmd(info Info) *cobra.Command {
@@ -251,9 +251,9 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
 		Use:   "force-unlock",
-		Short: "Remove the deployment's lock without checking who holds it",
+		Short: "Remove the stack's lock without checking who holds it",
 		Long: "Use this only when a previous run died without releasing the lock. " +
-			"Make sure no apply or refresh is running against this deployment first.",
+			"Make sure no apply or refresh is running against this stack first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseConfigFile(configPath)
 			if err != nil {

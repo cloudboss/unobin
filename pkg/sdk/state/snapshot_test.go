@@ -69,7 +69,7 @@ func TestSnapshotFind(t *testing.T) {
 }
 
 func TestSnapshotRejectsBadFormatVersion(t *testing.T) {
-	b := []byte(`{"format-version": 99, "stack": {"name": "x"}, "entries": []}`)
+	b := []byte(`{"format-version": 99, "factory": {"name": "x"}, "entries": []}`)
 	_, err := DecodeSnapshot(b)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported format-version")

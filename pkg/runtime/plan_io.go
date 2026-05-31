@@ -19,8 +19,8 @@ const PlanFormatVersion = 1
 // re-reading config.ub.
 type PlanFile struct {
 	FormatVersion     int                       `json:"format-version"`
-	Factory           FactoryRef                `json:"stack"`
-	Stack             string                    `json:"deployment-id"`
+	Factory           FactoryRef                `json:"factory"`
+	Stack             string                    `json:"stack"`
 	StateRev          string                    `json:"state-rev"`
 	GeneratedAt       time.Time                 `json:"generated-at"`
 	Inputs            map[string]any            `json:"inputs,omitempty"`

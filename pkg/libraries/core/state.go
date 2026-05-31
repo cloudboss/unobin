@@ -17,12 +17,12 @@ type LocalBackendConfig struct {
 
 func newLocalBackend(
 	config any,
-	stack, deploymentID string,
+	factory, stack string,
 	enc sdkencrypt.Encrypter,
 ) (sdkstate.Backend, error) {
 	c, ok := config.(*LocalBackendConfig)
 	if !ok {
 		return nil, fmt.Errorf("local backend: missing or wrong configuration (got %T)", config)
 	}
-	return localstate.NewLocalStore(c.Path.Value, stack, deploymentID, enc)
+	return localstate.NewLocalStore(c.Path.Value, factory, stack, enc)
 }

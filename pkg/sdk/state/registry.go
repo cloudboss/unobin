@@ -15,5 +15,5 @@ type BackendType struct {
 	Name          string
 	Description   string
 	Configuration *cfg.ConfigurationType
-	New           func(config any, stack, deploymentID string, enc encrypt.Encrypter) (Backend, error)
+	New           func(config any, factory, stack string, enc encrypt.Encrypter) (Backend, error)
 }
