@@ -64,6 +64,32 @@ outputs: {
 	require.Contains(t, got[0], `unknown local "nope"`)
 }
 
+func TestCheckReferencesFunctionExists(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{Functions: map[string]bool{"format": true}}},
+	}
+	errs := CheckReferences(parseStack(t, `
+actions: {
+  core: { command: { x: { argv: [core.format('%s', 'hi')] } } }
+}
+`), libs)
+	require.Empty(t, checkRefMessages(t, errs))
+}
+
+func TestCheckReferencesUnknownFunction(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{Functions: map[string]bool{"format": true}}},
+	}
+	errs := CheckReferences(parseStack(t, `
+actions: {
+  core: { command: { x: { argv: [core.formatt('%s', 'hi')] } } }
+}
+`), libs)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], `library "core" has no function "formatt"`)
+}
+
 func TestCheckReferencesLocalReadsUnknownInput(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 locals: { x: var.missing }

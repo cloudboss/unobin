@@ -13,6 +13,11 @@ type LibrarySchema struct {
 	Resources   map[string]*TypeSchema
 	DataSources map[string]*TypeSchema
 	Actions     map[string]*TypeSchema
+	// Functions is the set of function names the library exports. Only
+	// the names are known at compile (the implementations live in the
+	// compiled Go), but the names alone let the reference checker reject
+	// a call to a function the library does not declare.
+	Functions map[string]bool
 }
 
 // TypeSchema describes the input and output fields of one resource,

@@ -131,6 +131,8 @@ func TestReadSamePackage(t *testing.T) {
 	require.Contains(t, schema.Actions, "do2")
 	require.Equal(t, do.Outputs, schema.Actions["do2"].Outputs,
 		"the alias should resolve to the same field set")
+
+	require.Equal(t, map[string]bool{"shout": true, "reverse": true}, schema.Functions)
 }
 
 func TestReadSubpackage(t *testing.T) {

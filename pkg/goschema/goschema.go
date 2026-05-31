@@ -42,6 +42,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 		Resources:   map[string]*runtime.TypeSchema{},
 		DataSources: map[string]*runtime.TypeSchema{},
 		Actions:     map[string]*runtime.TypeSchema{},
+		Functions:   map[string]bool{},
 	}
 	var warnings []string
 
@@ -74,6 +75,9 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 		case "Actions":
 			schema.Actions[reg.Name] = ts
 		}
+	}
+	for _, name := range extractFunctionNames(libraryFunc) {
+		schema.Functions[name] = true
 	}
 	if len(*errs) > 0 {
 		return nil, warnings, errors.Join(*errs...)
@@ -505,6 +509,52 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 					InputRef:  inputRef,
 					OutputRef: outputRef,
 				})
+			}
+		}
+	}
+	return out
+}
+
+// extractFunctionNames returns the keys of the Functions map in the
+// Library() return literal. Only the names are needed -- the FunctionType
+// values hold a Go func the dev CLI cannot run, but the names alone let
+// the reference checker reject a call to a function the library does not
+// declare.
+func extractFunctionNames(fn *ast.FuncDecl) []string {
+	var out []string
+	if fn.Body == nil {
+		return out
+	}
+	for _, stmt := range fn.Body.List {
+		ret, ok := stmt.(*ast.ReturnStmt)
+		if !ok || len(ret.Results) != 1 {
+			continue
+		}
+		composite := unwrapModuleLiteral(ret.Results[0])
+		if composite == nil {
+			continue
+		}
+		for _, el := range composite.Elts {
+			kv, ok := el.(*ast.KeyValueExpr)
+			if !ok {
+				continue
+			}
+			fieldName, ok := identName(kv.Key)
+			if !ok || fieldName != "Functions" {
+				continue
+			}
+			mapLit, ok := kv.Value.(*ast.CompositeLit)
+			if !ok {
+				continue
+			}
+			for _, entry := range mapLit.Elts {
+				ekv, ok := entry.(*ast.KeyValueExpr)
+				if !ok {
+					continue
+				}
+				if name, ok := stringLit(ekv.Key); ok {
+					out = append(out, name)
+				}
 			}
 		}
 	}

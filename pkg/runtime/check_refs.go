@@ -151,21 +151,47 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 
 func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) {
 	lang.Walk(expr, func(node lang.Expr) {
-		dp, ok := node.(*lang.DotPath)
-		if !ok {
-			return
-		}
-		switch dp.Root.Name {
-		case "var":
-			c.checkVar(dp, scope)
-		case "resource", "data", "action":
-			c.checkNode(dp, scope)
-		case "local":
-			c.checkLocal(dp, scope)
-		case "@each":
-			c.checkEach(dp, eachOK)
+		switch n := node.(type) {
+		case *lang.DotPath:
+			switch n.Root.Name {
+			case "var":
+				c.checkVar(n, scope)
+			case "resource", "data", "action":
+				c.checkNode(n, scope)
+			case "local":
+				c.checkLocal(n, scope)
+			case "@each":
+				c.checkEach(n, eachOK)
+			}
+		case *lang.Call:
+			c.checkCall(n, scope)
 		}
 	})
+}
+
+// checkCall reports a library-qualified function call whose function is
+// not declared by the imported library. Bare calls and unimported
+// aliases are rejected earlier by lang.ValidateCalls; this adds the
+// existence check against the library's Go function set. A library with
+// no schema (a UB library, or one whose source the dev CLI could not
+// read) is left alone, since its function set is not known here.
+func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
+	if call.Library == nil || call.Func == nil {
+		return
+	}
+	libs := c.libraries[scope]
+	if libs == nil {
+		return
+	}
+	lib := libs[call.Library.Name]
+	if lib == nil || lib.Schema == nil {
+		return
+	}
+	if lib.Schema.Functions[call.Func.Name] {
+		return
+	}
+	c.addf(call.Func.S.Start, `library %q has no function %q`,
+		call.Library.Name, call.Func.Name)
 }
 
 func (c *referenceChecker) checkVar(dp *lang.DotPath, scope string) {
