@@ -60,7 +60,7 @@ func processTripleQuoteBody(text []byte, startCol int, sigil string) (string, er
 			lines = append(lines, contentLine{blank: true})
 			continue
 		}
-		for j := 0; j < stripN; j++ {
+		for j := range stripN {
 			if ln[j] == '\t' {
 				return "", fmt.Errorf("triple-quoted string: indent prefix must be spaces only, no tabs")
 			}

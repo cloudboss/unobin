@@ -48,7 +48,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	results := make(chan stepResult)
 
 	var wg sync.WaitGroup
-	for i := 0; i < parallelism; i++ {
+	for range parallelism {
 		wg.Go(func() {
 			for step := range ready {
 				err := e.applyStep(ctx, rs, step)

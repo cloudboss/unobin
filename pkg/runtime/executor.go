@@ -795,8 +795,8 @@ func ubFieldKey(field reflect.StructField) (key string, skip bool) {
 		return "", true
 	}
 	name := tag
-	if i := strings.IndexByte(tag, ','); i >= 0 {
-		name = tag[:i]
+	if before, _, ok := strings.Cut(tag, ","); ok {
+		name = before
 	}
 	if name == "" {
 		name = lang.PascalToKebab(field.Name)

@@ -115,7 +115,7 @@ func withDefaultScheme(url string) string {
 		return url
 	}
 	if _, after, ok := strings.Cut(url, "@"); ok {
-		if colon := strings.Index(after, ":"); colon >= 0 {
+		if strings.Contains(after, ":") {
 			return url
 		}
 	}
@@ -124,12 +124,12 @@ func withDefaultScheme(url string) string {
 
 func normalizeURL(url string) string {
 	u := url
-	if i := strings.Index(u, "://"); i >= 0 {
-		u = u[i+3:]
+	if _, after, ok := strings.Cut(u, "://"); ok {
+		u = after
 	}
-	if at := strings.Index(u, "@"); at >= 0 {
-		if colon := strings.Index(u[at+1:], ":"); colon >= 0 {
-			u = u[at+1:at+1+colon] + "/" + u[at+1+colon+1:]
+	if _, after, ok := strings.Cut(u, "@"); ok {
+		if before, rest, ok := strings.Cut(after, ":"); ok {
+			u = before + "/" + rest
 		}
 	}
 	return strings.Trim(u, "/")

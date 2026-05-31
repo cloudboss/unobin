@@ -12,7 +12,7 @@ func hasInternalSegment(subdir string) bool {
 	if subdir == "" {
 		return false
 	}
-	for _, seg := range strings.Split(subdir, "/") {
+	for seg := range strings.SplitSeq(subdir, "/") {
 		if seg == "internal" {
 			return true
 		}
