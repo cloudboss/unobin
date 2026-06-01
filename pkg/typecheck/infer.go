@@ -476,6 +476,19 @@ func traverseSegments(
 		if !current.IsKnown() {
 			return TUnknown()
 		}
+		if seg.Splat {
+			var elem Type
+			switch current.Kind {
+			case List:
+				elem = elemOr(current)
+			case Any:
+				elem = TAny()
+			default:
+				errs.Addf(lang.ErrType, seg.S.Start, "splat [*] needs a list, got %s", current)
+				return TUnknown()
+			}
+			return TList(traverseSegments(elem, segs[i+1:], errs, false))
+		}
 		if seg.Index != nil && seg.Name == "" {
 			switch current.Kind {
 			case List, Set, Map:

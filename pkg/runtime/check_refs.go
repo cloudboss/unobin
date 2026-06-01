@@ -153,6 +153,7 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 	lang.Walk(expr, func(node lang.Expr) {
 		switch n := node.(type) {
 		case *lang.DotPath:
+			c.checkSplat(n)
 			switch n.Root.Name {
 			case "var":
 				c.checkVar(n, scope)
@@ -167,6 +168,19 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 			c.checkCall(n, scope)
 		}
 	})
+}
+
+// checkSplat reports a splat that ends a path. A trailing `[*]` projects
+// the segments to its right, of which there are none, so it reduces to
+// the list itself; the author meant to read a field from each element.
+func (c *referenceChecker) checkSplat(dp *lang.DotPath) {
+	n := len(dp.Segments)
+	if n == 0 {
+		return
+	}
+	if dp.Segments[n-1].Splat {
+		c.addf(dp.Segments[n-1].S.Start, "splat [*] must be followed by a field, like list[*].id")
+	}
 }
 
 // checkCall reports a library-qualified function call whose function is

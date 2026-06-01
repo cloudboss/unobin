@@ -269,11 +269,11 @@ func (n *Ident) Span() Span { return n.S }
 func (n *Ident) exprNode()  {}
 
 // DotPath is a dot-separated address like `var.region`,
-// `resource.aws.vpc.main.id`, or `data.aws.ami.ubuntu.id`. Index segments
-// (`["alpha"]`) are part of the path; the parser admits any expression
-// inside the brackets but the schema only allows quoted string keys (no
-// bare names, no integer indices). The first segment (Root) is one of
-// the reserved address roots: var, data, resource, action, @each.
+// `resource.aws.vpc.main.id`, or `data.aws.ami.ubuntu.id`. Segments after
+// the root navigate by name (`.id`), by a string key or integer position
+// (`["alpha"]`, `[0]`), or project over a list with a splat (`[*]`). The
+// first segment (Root) is one of the reserved address roots: var, data,
+// resource, action, @each.
 type DotPath struct {
 	S        Span
 	Root     *Ident
@@ -283,12 +283,14 @@ type DotPath struct {
 func (n *DotPath) Span() Span { return n.S }
 func (n *DotPath) exprNode()  {}
 
-// DotSegment is one piece of a DotPath following the root. Either a name
-// (`.foo`) or a string-keyed index (`["alpha"]`).
+// DotSegment is one piece of a DotPath following the root: a name
+// (`.foo`), an index (`["alpha"]` or `[0]`), or a splat (`[*]`) that
+// projects the segments to its right over each element of a list.
 type DotSegment struct {
 	S     Span
-	Name  string // When this segment is `.name`.
-	Index Expr   // When this segment is `[expr]`, otherwise nil.
+	Name  string // Set when this segment is `.name`.
+	Index Expr   // Set when this segment is `[expr]`, otherwise nil.
+	Splat bool   // Set when this segment is `[*]`.
 }
 
 // Call is a function call: `format('%s-%s' a b)`. Args are whitespace-

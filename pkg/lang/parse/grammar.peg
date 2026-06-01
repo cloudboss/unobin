@@ -593,6 +593,8 @@ DotPath <- root:IdentText segs:DotSegmentRule+ {
 
 DotSegmentRule <- "." name:IdentText {
 	return DotSegment{S: c.span(), Name: name.(string)}, nil
+} / "[" _ "*" _ "]" {
+	return DotSegment{S: c.span(), Splat: true}, nil
 } / "[" _ key:Value _ "]" {
 	return DotSegment{S: c.span(), Index: key.(Expr)}, nil
 }

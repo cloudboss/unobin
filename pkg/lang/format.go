@@ -421,6 +421,10 @@ func (w *formatter) dotPathWidth(dp *DotPath) int {
 		total += len(dp.Root.Name)
 	}
 	for _, seg := range dp.Segments {
+		if seg.Splat {
+			total += 3
+			continue
+		}
 		if seg.Index != nil {
 			iw := w.singleLineWidth(seg.Index)
 			if iw < 0 {
@@ -1415,6 +1419,10 @@ func (w *formatter) writeDotPath(dp *DotPath, indent string) error {
 		w.buf.WriteString(dp.Root.Name)
 	}
 	for _, seg := range dp.Segments {
+		if seg.Splat {
+			w.buf.WriteString("[*]")
+			continue
+		}
 		if seg.Index != nil {
 			w.buf.WriteByte('[')
 			if err := w.writeExpr(seg.Index, indent); err != nil {

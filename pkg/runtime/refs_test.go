@@ -211,6 +211,11 @@ func TestDeferredRefsPreservesFieldThroughDotPathLocal(t *testing.T) {
 	require.Equal(t, []string{"resource.aws.lb.main.endpoint.host"}, got)
 }
 
+func TestDeferredRefsRendersSplat(t *testing.T) {
+	got := deferredRefs(parseValue(t, "resource.aws.vpc.main.subnets[*].cidr"), nil)
+	require.Equal(t, []string{"resource.aws.vpc.main.subnets[*].cidr"}, got)
+}
+
 // Navigating into an object-valued local shows only the navigated
 // field's source path in the placeholder.
 func TestDeferredRefsNarrowsObjectField(t *testing.T) {

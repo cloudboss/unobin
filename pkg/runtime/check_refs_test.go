@@ -64,6 +64,53 @@ outputs: {
 	require.Contains(t, got[0], `unknown local "nope"`)
 }
 
+func TestCheckReferencesSplat(t *testing.T) {
+	const bare = "splat [*] must be followed by a field, like list[*].id"
+	cases := []struct {
+		name  string
+		stack string
+		want  []string
+	}{
+		{
+			name: "bare splat on a var",
+			stack: "inputs: { things: { type: list(string) } }\n" +
+				"outputs: { bad: { value: var.things[*] } }\n",
+			want: []string{bare},
+		},
+		{
+			name: "bare splat on a deep var field",
+			stack: "inputs: { net: { type: object({ subnets: list(string) }) } }\n" +
+				"outputs: { bad: { value: var.net.subnets[*] } }\n",
+			want: []string{bare},
+		},
+		{
+			name: "bare splat on a resource output",
+			stack: "inputs: { p: { type: string } }\n" +
+				"resources: { local: { file: { one: { path: var.p } } } }\n" +
+				"outputs: { bad: { value: resource.local.file.one.path[*] } }\n",
+			want: []string{bare},
+		},
+		{
+			name: "splat with a field is fine",
+			stack: "inputs: { subnets: { type: list(object({ id: string })) } }\n" +
+				"outputs: { ids: { value: var.subnets[*].id } }\n",
+			want: nil,
+		},
+		{
+			name: "splat followed by an index is fine",
+			stack: "inputs: { matrix: { type: list(list(string)) } }\n" +
+				"outputs: { first: { value: var.matrix[*][0] } }\n",
+			want: nil,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, c.stack), nil)
+			require.Equal(t, c.want, checkRefMessages(t, errs))
+		})
+	}
+}
+
 func TestCheckReferencesFunctionExists(t *testing.T) {
 	libs := map[string]*Library{
 		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{

@@ -618,36 +618,7 @@ func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	default:
 		return nil, fmt.Errorf("eval: @each.%s: only @each.key and @each.value are valid", first)
 	}
-	path := "@each." + first
-	for _, seg := range p.Segments[1:] {
-		var step string
-		switch {
-		case seg.Name != "":
-			step = seg.Name
-		case seg.Index != nil:
-			idx, err := Eval(seg.Index, ctx)
-			if err != nil {
-				return nil, err
-			}
-			s, ok := idx.(string)
-			if !ok {
-				return nil, fmt.Errorf("eval: index must be a string, got %s", lang.TypeMessage(idx))
-			}
-			step = s
-		}
-		path = path + "." + step
-		m, ok := cur.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf(
-				"eval: cannot navigate into %s at %s", lang.TypeMessage(cur), path)
-		}
-		next, exists := m[step]
-		if !exists {
-			return nil, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
-		}
-		cur = next
-	}
-	return cur, nil
+	return navigateSegments(cur, "@each."+first, p.Segments[1:], ctx)
 }
 
 func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
@@ -681,14 +652,17 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 func navigateSegments(
 	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
 ) (any, error) {
-	for _, seg := range segs {
+	for i, seg := range segs {
+		if seg.Splat {
+			return splatProject(cur, path, segs[i+1:], ctx)
+		}
 		if seg.Name == "" && seg.Index != nil {
 			idx, err := Eval(seg.Index, ctx)
 			if err != nil {
 				return nil, err
 			}
-			if i, ok := idx.(int64); ok {
-				cur, path, err = indexElement(cur, i, path)
+			if n, ok := idx.(int64); ok {
+				cur, path, err = indexElement(cur, n, path)
 				if err != nil {
 					return nil, err
 				}
@@ -712,6 +686,25 @@ func navigateSegments(
 		}
 	}
 	return cur, nil
+}
+
+// splatProject applies the remaining segments to each element of a list
+// and collects the results, so `list[*].id` reads the id of every
+// element. A non-list value cannot be projected.
+func splatProject(cur any, path string, rest []lang.DotSegment, ctx *EvalContext) (any, error) {
+	lst, ok := cur.([]any)
+	if !ok {
+		return nil, fmt.Errorf("eval: cannot splat %s at %s", lang.TypeMessage(cur), path+"[*]")
+	}
+	out := make([]any, 0, len(lst))
+	for n, el := range lst {
+		elem, err := navigateSegments(el, fmt.Sprintf("%s[%d]", path, n), rest, ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, elem)
+	}
+	return out, nil
 }
 
 // mapStep steps into a map by key, extending path for diagnostics. A

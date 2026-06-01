@@ -177,6 +177,8 @@ func dotPathString(p *lang.DotPath) string {
 	b.WriteString(p.Root.Name)
 	for _, seg := range p.Segments {
 		switch {
+		case seg.Splat:
+			b.WriteString("[*]")
 		case seg.Name != "":
 			b.WriteByte('.')
 			b.WriteString(seg.Name)
