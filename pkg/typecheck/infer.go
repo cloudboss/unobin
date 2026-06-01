@@ -178,8 +178,7 @@ func inferComprehension(
 	}
 	srcT := Infer(c.Source, TUnknown(), scope, errs)
 	if srcT.Unwrap().Kind == Set {
-		errs.Addf(lang.ErrType, c.Source.Span().Start,
-			"comprehension source cannot be a set; convert it with to-list first")
+		errs.Addf(lang.ErrType, c.Source.Span().Start, "comprehension source cannot be a set")
 	}
 	key, elem := comprehensionBindingTypes(srcT)
 	child := scope.withBindings(c.Names, key, elem)

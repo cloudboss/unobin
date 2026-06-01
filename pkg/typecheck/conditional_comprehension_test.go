@@ -141,7 +141,7 @@ func TestInferComprehensionRejectsSetSource(t *testing.T) {
 	errs := lang.NewErrorList(0)
 	Infer(parseExpr(t, "[ for x in var.things : x ]"), TUnknown(), subnetScope(), errs)
 	require.Len(t, errs.Errors(), 1)
-	assert.Contains(t, errs.Errors()[0].Msg, "cannot be a set")
+	require.Equal(t, "comprehension source cannot be a set", errs.Errors()[0].Msg)
 }
 
 func TestInferComprehensionElementAgainstTarget(t *testing.T) {
