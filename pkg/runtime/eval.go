@@ -682,32 +682,68 @@ func navigateSegments(
 	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
 ) (any, error) {
 	for _, seg := range segs {
-		var step string
-		switch {
-		case seg.Name != "":
-			step = seg.Name
-		case seg.Index != nil:
+		if seg.Name == "" && seg.Index != nil {
 			idx, err := Eval(seg.Index, ctx)
 			if err != nil {
 				return nil, err
 			}
-			s, ok := idx.(string)
-			if !ok {
-				return nil, fmt.Errorf("eval: index must be a string, got %s", lang.TypeMessage(idx))
+			if i, ok := idx.(int64); ok {
+				cur, path, err = indexElement(cur, i, path)
+				if err != nil {
+					return nil, err
+				}
+				continue
 			}
-			step = s
+			key, ok := idx.(string)
+			if !ok {
+				return nil, fmt.Errorf(
+					"eval: index must be a string or integer, got %s", lang.TypeMessage(idx))
+			}
+			cur, path, err = mapStep(cur, key, path)
+			if err != nil {
+				return nil, err
+			}
+			continue
 		}
-		path = path + "." + step
-		m, ok := cur.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf(
-				"eval: cannot navigate into %s at %s", lang.TypeMessage(cur), path)
+		var err error
+		cur, path, err = mapStep(cur, seg.Name, path)
+		if err != nil {
+			return nil, err
 		}
-		next, exists := m[step]
-		if !exists {
-			return nil, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
-		}
-		cur = next
 	}
 	return cur, nil
+}
+
+// mapStep steps into a map by key, extending path for diagnostics. A
+// non-map value or a missing key fails; a missing key reports
+// ErrEvalNotFound so plan can treat it as known after apply.
+func mapStep(cur any, key, path string) (any, string, error) {
+	path = path + "." + key
+	m, ok := cur.(map[string]any)
+	if !ok {
+		return nil, path, fmt.Errorf(
+			"eval: cannot navigate into %s at %s", lang.TypeMessage(cur), path)
+	}
+	next, exists := m[key]
+	if !exists {
+		return nil, path, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
+	}
+	return next, path, nil
+}
+
+// indexElement steps into a list by position, extending path for
+// diagnostics. A non-list value fails; an out-of-range index, negative
+// included, reports ErrEvalNotFound so plan can treat a list that is
+// still filling in as known after apply.
+func indexElement(cur any, i int64, path string) (any, string, error) {
+	path = fmt.Sprintf("%s[%d]", path, i)
+	lst, ok := cur.([]any)
+	if !ok {
+		return nil, path, fmt.Errorf(
+			"eval: cannot index into %s at %s", lang.TypeMessage(cur), path)
+	}
+	if i < 0 || i >= int64(len(lst)) {
+		return nil, path, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
+	}
+	return lst[i], path, nil
 }

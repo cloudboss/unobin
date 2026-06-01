@@ -124,6 +124,90 @@ func TestEvalIndexedAddress(t *testing.T) {
 	require.Equal(t, "i-abc", got)
 }
 
+func TestEvalPositionalIndex(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{
+		"names": []any{"alpha", "beta", "gamma"},
+		"subnets": []any{
+			map[string]any{"id": "s-1", "az": "a"},
+			map[string]any{"id": "s-2", "az": "b"},
+		},
+		"matrix": []any{
+			[]any{int64(1), int64(2)},
+			[]any{int64(3), int64(4)},
+		},
+		"region": map[string]any{"zones": []any{"z-1", "z-2"}},
+		"regions": []any{
+			map[string]any{"subnets": []any{
+				map[string]any{"id": "s-1-0"},
+				map[string]any{"id": "s-1-1"},
+			}},
+		},
+		"grid": []any{
+			[]any{map[string]any{"name": "a"}, map[string]any{"name": "b"}},
+			[]any{map[string]any{"name": "c"}, map[string]any{"name": "d"}},
+		},
+		"i": int64(1),
+	}}
+	cases := []struct {
+		name string
+		src  string
+		want any
+	}{
+		{name: "first element", src: "var.names[0]", want: "alpha"},
+		{name: "last element", src: "var.names[2]", want: "gamma"},
+		{name: "index then field", src: "var.subnets[0].id", want: "s-1"},
+		{name: "field after later element", src: "var.subnets[1].az", want: "b"},
+		{name: "nested list", src: "var.matrix[0][1]", want: int64(2)},
+		{name: "nested list other", src: "var.matrix[1][0]", want: int64(3)},
+		{name: "computed index", src: "var.names[var.i]", want: "beta"},
+		{name: "arithmetic index", src: "var.names[1 + 1]", want: "gamma"},
+		{name: "map field then index", src: "var.region.zones[1]", want: "z-2"},
+		{name: "deep alternating list and map", src: "var.regions[0].subnets[1].id", want: "s-1-1"},
+		{name: "list of lists of maps", src: "var.grid[1][0].name", want: "c"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := Eval(parseValue(t, c.src), ctx)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestEvalNavigateErrors(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{
+		"names":    []any{"alpha", "beta"},
+		"region":   map[string]any{"zone": "z-1"},
+		"empty":    []any{},
+		"emptymap": map[string]any{},
+		"scalar":   "hello",
+		"sparse":   []any{nil},
+	}}
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{name: "out of range", src: "var.names[5]", want: "not found"},
+		{name: "negative index", src: "var.names[-1]", want: "not found"},
+		{name: "empty list", src: "var.empty[0]", want: "not found"},
+		{name: "empty map field", src: "var.emptymap.missing", want: "not found"},
+		{name: "empty map string key", src: "var.emptymap['missing']", want: "not found"},
+		{name: "integer index into map", src: "var.region[0]", want: "cannot index into"},
+		{name: "index into scalar", src: "var.scalar[0]", want: "cannot index into"},
+		{name: "string key into list", src: "var.names['x']", want: "cannot navigate into"},
+		{name: "field into list", src: "var.names.field", want: "cannot navigate into"},
+		{name: "null element then field", src: "var.sparse[0].x", want: "cannot navigate into"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := Eval(parseValue(t, c.src), ctx)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), c.want)
+		})
+	}
+}
+
 func TestEvalConditional(t *testing.T) {
 	ctx := &EvalContext{Vars: map[string]any{"prod": true, "n": int64(5)}}
 	tests := []struct {
