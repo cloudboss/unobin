@@ -1,0 +1,49 @@
+description: '''>-
+  Demonstrates splat expressions. list[*].field reads one field from every element of a list, the
+  short form of a for-comprehension, and the splats chain so a list of lists projects in one step.
+  '''
+
+inputs: {
+  subnets: {
+    type: list(object({ id: string, cidr: string, az: string, public: boolean }))
+
+    description: 'The subnets to summarize'
+  }
+  zones: {
+    type: list(object({ name: string, hosts: list(object({ ip: string })) }))
+
+    description: 'Availability zones, each holding a list of hosts'
+  }
+  path: { type: string, description: 'Where to write the summary file' }
+}
+
+imports: {
+  core:  'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+}
+
+resources: {
+  local: {
+    file: { summary: { path: var.path, content: core.format('subnet ids: %s', var.subnets[*].id) } }
+  }
+}
+
+actions: {
+  core: {
+    command: {
+      read-back: { @trigger: resource.local.file.summary.sha256, argv: ['cat', var.path] }
+    }
+  }
+}
+
+outputs: {
+  ids:    { value: var.subnets[*].id }
+  cidrs:  { value: var.subnets[*].cidr }
+  public: { value: var.subnets[*].public }
+
+  # The same list of ids written the long way, for contrast.
+  ids-the-long-way: { value: [ for s in var.subnets : s.id ] }
+
+  # Nested splat: every host ip under every zone, grouped by zone.
+  host-ips: { value: var.zones[*].hosts[*].ip }
+}
