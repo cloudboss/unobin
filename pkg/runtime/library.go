@@ -5,8 +5,6 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
-	"github.com/cloudboss/unobin/pkg/sdk/encrypt"
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 // Library is the registration record a library exports for its types,
@@ -32,8 +30,6 @@ type Library struct {
 	DataComposites     map[string]*CompositeType
 	ActionComposites   map[string]*CompositeType
 	Functions          map[string]FunctionType
-	StateBackends      map[string]state.BackendType
-	Encrypters         map[string]encrypt.EncrypterType
 	// Schema carries the library's resource, data source, and action
 	// output field sets. Populated by the dev CLI from a fetched Go
 	// library's source for compile-time reference checking; nil at

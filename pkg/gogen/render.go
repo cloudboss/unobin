@@ -171,9 +171,7 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 // sources. It lives in the root package and imports the resources/ and
 // data/ sub-packages (only the ones that have content). configuration
 // may be nil; when present and non-empty, the registration references
-// the ProviderConfig struct declared in configuration.go. StateBackends
-// and Encrypters are always emitted as empty maps with a TODO comment
-// so a library author has a visible place to fill them in.
+// the ProviderConfig struct declared in configuration.go.
 func LibraryFile(
 	packageName string,
 	resources []ResourceSchema,
@@ -200,8 +198,6 @@ func LibraryFile(
 	if hasConfig {
 		b.WriteString(`	"github.com/cloudboss/unobin/pkg/sdk/cfg"` + "\n")
 	}
-	b.WriteString(`	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"` + "\n")
-	b.WriteString(`	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"` + "\n")
 	b.WriteString(")\n\n")
 
 	b.WriteString("func Library() *runtime.Library {\n")
@@ -252,11 +248,6 @@ func LibraryFile(
 		}
 		b.WriteString("\t\t},\n")
 	}
-
-	b.WriteString("\t\t// TODO: register state backends here.\n")
-	b.WriteString("\t\tStateBackends: map[string]sdkstate.BackendType{},\n")
-	b.WriteString("\t\t// TODO: register encrypters here.\n")
-	b.WriteString("\t\tEncrypters: map[string]sdkencrypt.EncrypterType{},\n")
 
 	b.WriteString("\t}\n")
 	b.WriteString("}\n")

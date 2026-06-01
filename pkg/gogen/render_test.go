@@ -154,10 +154,6 @@ func TestLibraryFileProducesParseableGo(t *testing.T) {
 		"func Library() *runtime.Library",
 		"Resources: map[string]runtime.ResourceRegistration",
 		`"s3-bucket": runtime.MakeResource[resources.S3Bucket, *resources.S3BucketOutput]()`,
-		"// TODO: register state backends here.",
-		"StateBackends: map[string]sdkstate.BackendType{}",
-		"// TODO: register encrypters here.",
-		"Encrypters: map[string]sdkencrypt.EncrypterType{}",
 	}
 	for _, c := range checks {
 		if !strings.Contains(s, c) {
