@@ -1,7 +1,7 @@
 state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
-  encryption: { @key-source: core.noop }
+  encryption: { @key-source: noop }
 }
 
 inputs: { message: 'Hello from unobin!', path: '/tmp/unobin-hello.txt' }

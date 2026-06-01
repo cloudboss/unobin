@@ -35,13 +35,12 @@ func samplePlan() *Plan {
 }
 
 func TestSealPlanOpenPlanRoundTrip(t *testing.T) {
-	encRef := &StateRef{Alias: "aws", Name: "kms", Body: map[string]any{"key-id": "alias/p"}}
+	encRef := &StateRef{Name: "kms", Body: map[string]any{"key-id": "alias/p"}}
 	sealed, err := SealPlan(samplePlan(), encRef, reversingEncrypter{})
 	require.NoError(t, err)
 
 	pf, err := OpenPlan(sealed, func(ref *StateRef) (encrypt.Encrypter, error) {
-		require.NotNil(t, ref, "envelope should carry the encrypter ref")
-		assert.Equal(t, "aws", ref.Alias)
+		require.NotNil(t, ref, "envelope should include the encrypter ref")
 		assert.Equal(t, "kms", ref.Name)
 		assert.Equal(t, "alias/p", ref.Body["key-id"])
 		return reversingEncrypter{}, nil

@@ -35,13 +35,12 @@ func reverseBytes(b []byte) []byte {
 }
 
 func TestSealOpenRoundTrip(t *testing.T) {
-	ref := &Ref{Alias: "aws", Name: "kms", Body: map[string]any{"key-id": "alias/p"}}
+	ref := &Ref{Name: "kms", Body: map[string]any{"key-id": "alias/p"}}
 	sealed, err := Seal([]byte("the body"), ref, reversingEncrypter{})
 	require.NoError(t, err)
 
 	body, err := Open(sealed, func(got *Ref) (encrypt.Encrypter, error) {
 		require.NotNil(t, got, "envelope should include the encrypter ref")
-		assert.Equal(t, "aws", got.Alias)
 		assert.Equal(t, "kms", got.Name)
 		assert.Equal(t, "alias/p", got.Body["key-id"])
 		return reversingEncrypter{}, nil

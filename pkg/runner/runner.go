@@ -159,7 +159,7 @@ func doApplyPlan(
 	}
 	var enc sdkencrypt.Encrypter
 	pf, err := runtime.OpenPlan(sealed, func(ref *runtime.StateRef) (sdkencrypt.Encrypter, error) {
-		e, err := resolveEncrypter(info, fromRuntimeStateRef(ref))
+		e, err := resolveEncrypter(fromRuntimeStateRef(ref))
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	store, err := resolveBackend(info, fromRuntimeStateRef(pf.Backend),
+	store, err := resolveBackend(fromRuntimeStateRef(pf.Backend),
 		info.FactoryName, pf.Stack, enc)
 	if err != nil {
 		return err
@@ -355,7 +355,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, config, configPath)
+	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	if _, _, err := loadConfigurations(config, configPath, info.Libraries); err != nil {
 		return err
 	}
-	if err := validateStateRefs(info, config, configPath); err != nil {
+	if err := validateStateRefs(config, configPath); err != nil {
 		return err
 	}
 	if _, err := runtime.BuildDAG(f, info.Libraries).TopologicalOrder(); err != nil {
@@ -442,13 +442,13 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 // configuration schema. It stops short of constructing either object,
 // so validate does no filesystem or network work. Unset refs are not
 // checked; the resolver's defaults are always available.
-func validateStateRefs(info Info, config *lang.File, configPath string) error {
+func validateStateRefs(config *lang.File, configPath string) error {
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return err
 	}
 	if sc.Backend != nil {
-		bt, err := lookupBackendType(info.Libraries, sc.Backend)
+		bt, err := lookupBackendType(sc.Backend)
 		if err != nil {
 			return err
 		}
@@ -457,7 +457,7 @@ func validateStateRefs(info Info, config *lang.File, configPath string) error {
 		}
 	}
 	if sc.Encrypter != nil {
-		et, err := lookupEncrypterType(info.Libraries, sc.Encrypter)
+		et, err := lookupEncrypterType(sc.Encrypter)
 		if err != nil {
 			return err
 		}
@@ -559,7 +559,7 @@ func loadStore(
 	if err != nil {
 		return nil, err
 	}
-	return resolveBackend(info, sc.Backend, info.FactoryName, stack, enc)
+	return resolveBackend(sc.Backend, info.FactoryName, stack, enc)
 }
 
 // stackName derives a stack name from the config file path. The
@@ -583,12 +583,12 @@ func stackName(configPath string) string {
 // present, the resolver falls back to the env-key encrypter against
 // `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
 // configPath is preserved only for error messages.
-func loadEncrypter(info Info, f *lang.File, configPath string) (sdkencrypt.Encrypter, error) {
+func loadEncrypter(f *lang.File, configPath string) (sdkencrypt.Encrypter, error) {
 	sc, err := parseStateConfig(f, configPath)
 	if err != nil {
 		return nil, err
 	}
-	return resolveEncrypter(info, sc.Encrypter)
+	return resolveEncrypter(sc.Encrypter)
 }
 
 func doPlan(
@@ -608,7 +608,7 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, config, configPath)
+	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
 	}
@@ -810,7 +810,7 @@ func doOutput(
 	cmd *cobra.Command, info Info, config *lang.File, configPath string,
 	args []string, asJSON bool,
 ) error {
-	enc, err := loadEncrypter(info, config, configPath)
+	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
 	}

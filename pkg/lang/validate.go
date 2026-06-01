@@ -691,11 +691,6 @@ func ValidateConfigurations(block *ObjectLit) *ErrorList {
 // to resolve against. Literals, operators, conditionals, and comprehensions
 // over literals are allowed; a comprehension's own bound names are in scope
 // inside its body.
-//
-// This is a deliberate static-data rule, not a no-imports limitation: the
-// state: block's @backend / @key-source meta-keys do name a library (core
-// or a factory import) and resolve fine, because they select a registered
-// backend rather than evaluate a value.
 func checkStaticConfigBlock(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	for _, f := range block.Fields {
@@ -1128,15 +1123,12 @@ func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
 }
 
 func validateResolverRefValue(expr Expr) error {
-	switch v := expr.(type) {
-	case *DotPath:
-		if v.Root == nil || len(v.Segments) != 1 || v.Segments[0].Name == "" {
-			return errors.New("expected a fully-qualified reference like core.local")
-		}
-		return nil
+	switch expr.(type) {
 	case *Ident:
-		return fmt.Errorf("reference must be fully qualified, e.g. core.%s", v.Name)
+		return nil
+	case *DotPath:
+		return errors.New("use a bare name like local, not a qualified reference")
 	default:
-		return fmt.Errorf("expected a fully-qualified reference like core.local, got %s", exprKind(expr))
+		return fmt.Errorf("expected a bare name like local, got %s", exprKind(expr))
 	}
 }

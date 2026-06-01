@@ -60,7 +60,7 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, config, configPath)
+	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr str
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, config, configPath)
+	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(info, config, configPath)
+	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			enc, err := loadEncrypter(info, config, configPath)
+			enc, err := loadEncrypter(config, configPath)
 			if err != nil {
 				return err
 			}
@@ -288,7 +288,7 @@ func newStateListCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			enc, err := loadEncrypter(info, config, configPath)
+			enc, err := loadEncrypter(config, configPath)
 			if err != nil {
 				return err
 			}
@@ -327,7 +327,7 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			enc, err := loadEncrypter(info, config, configPath)
+			enc, err := loadEncrypter(config, configPath)
 			if err != nil {
 				return err
 			}

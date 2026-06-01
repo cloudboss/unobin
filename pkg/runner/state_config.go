@@ -3,8 +3,12 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
+	"strings"
 
+	"github.com/cloudboss/unobin/pkg/backends"
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -13,13 +17,12 @@ import (
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
-// resolverRef names one entry in a library's StateBackends or
-// Encrypters map. Alias is the import alias from imports: (for example
-// core), and Name is the entry within that library (local, noop).
+// resolverRef names one entry in the fixed backend or encrypter registry.
+// Name is the bare name an operator selects with @backend or @key-source;
+// Body is the operator-provided configuration for it.
 type resolverRef struct {
-	Alias string
-	Name  string
-	Body  map[string]any
+	Name string
+	Body map[string]any
 }
 
 // stateConfig captures the parsed state: block from config.ub. A nil
@@ -50,13 +53,13 @@ func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, error) {
 	sc := &stateConfig{}
 	body := map[string]any{}
-	var alias, name string
+	var name string
 	var errs []error
 
 	for _, fld := range block.Fields {
 		if fld.Key.IsMeta() {
 			if fld.Key.Name == "@backend" {
-				alias, name = resolverRefValue(fld.Value)
+				name = resolverRefValue(fld.Value)
 			}
 			continue
 		}
@@ -85,7 +88,7 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 		body[fld.Key.Name] = val
 	}
 	if name != "" {
-		sc.Backend = &resolverRef{Alias: alias, Name: name, Body: body}
+		sc.Backend = &resolverRef{Name: name, Body: body}
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
@@ -95,13 +98,13 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 
 func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef, error) {
 	body := map[string]any{}
-	var alias, name string
+	var name string
 	var errs []error
 
 	for _, fld := range block.Fields {
 		if fld.Key.IsMeta() {
 			if fld.Key.Name == "@key-source" {
-				alias, name = resolverRefValue(fld.Value)
+				name = resolverRefValue(fld.Value)
 			}
 			continue
 		}
@@ -122,40 +125,32 @@ func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef
 	if name == "" {
 		return nil, nil
 	}
-	return &resolverRef{Alias: alias, Name: name, Body: body}, nil
+	return &resolverRef{Name: name, Body: body}, nil
 }
 
-// resolverRefValue extracts the (alias, name) pair from a `@backend:`
-// or `@key-source:` value. The caller relies on lang.ValidateStateConfig
-// to have rejected anything other than an Ident or a two-segment DotPath
-// upstream; this helper returns ("", "") for any other value so callers
-// fall back to defaults.
-func resolverRefValue(expr lang.Expr) (alias, name string) {
-	switch v := expr.(type) {
-	case *lang.Ident:
-		return "", v.Name
-	case *lang.DotPath:
-		if v.Root == nil || len(v.Segments) != 1 {
-			return "", ""
-		}
-		return v.Root.Name, v.Segments[0].Name
-	default:
-		return "", ""
+// resolverRefValue extracts the bare name from a `@backend:` or
+// `@key-source:` value. lang.ValidateStateConfig has already rejected
+// anything but a bare identifier upstream; this returns "" for any other
+// value so callers fall back to defaults.
+func resolverRefValue(expr lang.Expr) string {
+	if id, ok := expr.(*lang.Ident); ok {
+		return id.Name
 	}
+	return ""
 }
 
 // resolveEncrypter constructs the encrypter named by the parsed state
 // config. A nil ref means the operator omitted the encryption block;
 // the resolver falls back to env-key against UB_STATE_KEY, or the
 // no-op if that env var is unset.
-func resolveEncrypter(info Info, ref *resolverRef) (sdkencrypt.Encrypter, error) {
+func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
 	if ref == nil {
 		if os.Getenv("UB_STATE_KEY") == "" {
 			return envencrypt.Noop{}, nil
 		}
 		return envencrypt.NewEnvKey("UB_STATE_KEY")
 	}
-	rt, err := lookupEncrypterType(info.Libraries, ref)
+	rt, err := lookupEncrypterType(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +165,6 @@ func resolveEncrypter(info Info, ref *resolverRef) (sdkencrypt.Encrypter, error)
 // config. A nil ref means the config has no state: block, which is an
 // error: a state backend must be configured explicitly.
 func resolveBackend(
-	info Info,
 	ref *resolverRef,
 	factory, stack string,
 	enc sdkencrypt.Encrypter,
@@ -180,7 +174,7 @@ func resolveBackend(
 			"state: a state backend must be configured; add a state: block to config.ub " +
 				"(run 'schema template' for a starter)")
 	}
-	bt, err := lookupBackendType(info.Libraries, ref)
+	bt, err := lookupBackendType(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -191,38 +185,26 @@ func resolveBackend(
 	return bt.New(decoded, factory, stack, enc)
 }
 
-func lookupBackendType(
-	libraries map[string]*runtime.Library,
-	ref *resolverRef,
-) (sdkstate.BackendType, error) {
-	lib, ok := libraries[ref.Alias]
+// lookupBackendType finds the named backend in the fixed registry, or
+// reports the available names.
+func lookupBackendType(ref *resolverRef) (sdkstate.BackendType, error) {
+	registry := backends.Backends()
+	bt, ok := registry[ref.Name]
 	if !ok {
 		return sdkstate.BackendType{}, fmt.Errorf(
-			"state: backend %s: import %q not found", refLabel(ref), ref.Alias)
-	}
-	bt, ok := lib.StateBackends[ref.Name]
-	if !ok {
-		return sdkstate.BackendType{}, fmt.Errorf(
-			"state: backend %s: library %q registers no backend named %q",
-			refLabel(ref), ref.Alias, ref.Name)
+			"state: no backend named %q; available: %s", ref.Name, sortedNames(registry))
 	}
 	return bt, nil
 }
 
-func lookupEncrypterType(
-	libraries map[string]*runtime.Library,
-	ref *resolverRef,
-) (sdkencrypt.EncrypterType, error) {
-	lib, ok := libraries[ref.Alias]
+// lookupEncrypterType finds the named encrypter in the fixed registry, or
+// reports the available names.
+func lookupEncrypterType(ref *resolverRef) (sdkencrypt.EncrypterType, error) {
+	registry := backends.Encrypters()
+	et, ok := registry[ref.Name]
 	if !ok {
 		return sdkencrypt.EncrypterType{}, fmt.Errorf(
-			"encryption: key-source %s: import %q not found", refLabel(ref), ref.Alias)
-	}
-	et, ok := lib.Encrypters[ref.Name]
-	if !ok {
-		return sdkencrypt.EncrypterType{}, fmt.Errorf(
-			"encryption: key-source %s: library %q registers no encrypter named %q",
-			refLabel(ref), ref.Alias, ref.Name)
+			"encryption: no key-source named %q; available: %s", ref.Name, sortedNames(registry))
 	}
 	return et, nil
 }
@@ -230,35 +212,34 @@ func lookupEncrypterType(
 func decodeRefConfig(ct *cfg.ConfigurationType, ref *resolverRef) (any, error) {
 	if ct == nil {
 		if len(ref.Body) > 0 {
-			return nil, fmt.Errorf("%s accepts no configuration fields", refLabel(ref))
+			return nil, fmt.Errorf("%q accepts no configuration fields", ref.Name)
 		}
 		return nil, nil
 	}
 	return cfg.Decode(ct, ref.Body)
 }
 
-func refLabel(ref *resolverRef) string {
-	if ref.Alias == "" {
-		return ref.Name
-	}
-	return ref.Alias + "." + ref.Name
+// sortedNames renders the registry keys in sorted order for an error that
+// lists the available backends or encrypters.
+func sortedNames[V any](m map[string]V) string {
+	return strings.Join(slices.Sorted(maps.Keys(m)), ", ")
 }
 
-// toRuntimeStateRef copies a resolverRef into the public runtime
-// type used inside the plan file. Returns nil when ref is nil so
-// the plan field stays omit-empty.
+// toRuntimeStateRef copies a resolverRef into the public runtime type used
+// inside the plan file. Returns nil when ref is nil so the plan field stays
+// omit-empty.
 func toRuntimeStateRef(ref *resolverRef) *runtime.StateRef {
 	if ref == nil {
 		return nil
 	}
-	return &runtime.StateRef{Alias: ref.Alias, Name: ref.Name, Body: ref.Body}
+	return &runtime.StateRef{Name: ref.Name, Body: ref.Body}
 }
 
-// fromRuntimeStateRef is the inverse of toRuntimeStateRef. Apply uses
-// it to feed pf.Backend back through the resolver.
+// fromRuntimeStateRef is the inverse of toRuntimeStateRef. Apply uses it to
+// feed pf.Backend back through the resolver.
 func fromRuntimeStateRef(ref *runtime.StateRef) *resolverRef {
 	if ref == nil {
 		return nil
 	}
-	return &resolverRef{Alias: ref.Alias, Name: ref.Name, Body: ref.Body}
+	return &resolverRef{Name: ref.Name, Body: ref.Body}
 }

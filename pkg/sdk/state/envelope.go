@@ -12,19 +12,17 @@ import (
 // body keeps its own format version, which moves independently.
 const EnvelopeVersion = 1
 
-// Ref names one entry in a library's StateBackends or Encrypters map.
-// Alias is empty for the bare names registered under the built-in core
-// library (`local`, `env-key`); otherwise it is the import alias from
-// `imports:`. Body holds the operator-provided configuration the
-// resolver decodes against the backend or encrypter type's schema.
+// Ref names an entry in the fixed backend or encrypter registry. Name is
+// the bare name an operator selects with @backend or @key-source; Body is
+// the operator-provided configuration the resolver decodes against that
+// entry's schema.
 //
 // A plan file records a Backend ref so apply can reconstruct the same
 // backend without re-reading config.ub, and an Encrypter ref rides in the
 // envelope so a reader can build the encrypter before opening the body.
 type Ref struct {
-	Alias string         `json:"alias,omitempty"`
-	Name  string         `json:"name"`
-	Body  map[string]any `json:"body,omitempty"`
+	Name string         `json:"name"`
+	Body map[string]any `json:"body,omitempty"`
 }
 
 // Envelope is the on-disk container for a plan or a state snapshot. The

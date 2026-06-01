@@ -100,9 +100,9 @@ func applyVia(t *testing.T, info Info, configPath string) string {
 // stateConfigBody is the state: block every test config needs, now that a
 // backend must be configured explicitly.
 const stateConfigBody = `state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
-  encryption: { @key-source: core.noop }
+  encryption: { @key-source: noop }
 }
 `
 
@@ -129,7 +129,7 @@ func runCfg(t *testing.T, info Info, args ...string) (string, error) {
 // backendConfigBody is a state block with a backend but no encryption, so
 // the encrypter falls back to env-key or noop based on UB_STATE_KEY.
 const backendConfigBody = `state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
 }
 `
@@ -150,14 +150,13 @@ func runBackend(t *testing.T, info Info, args ...string) (string, error) {
 }
 
 // openPlanFile reads a plan file from disk and returns its inner
-// PlanFile. The envelope's encrypter ref is resolved against
-// info.Libraries, the same path apply uses.
-func openPlanFile(t *testing.T, info Info, path string) *runtime.PlanFile {
+// PlanFile, resolving the envelope's encrypter ref the same way apply does.
+func openPlanFile(t *testing.T, path string) *runtime.PlanFile {
 	t.Helper()
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 	pf, err := runtime.OpenPlan(body, func(ref *runtime.StateRef) (sdkenc.Encrypter, error) {
-		return resolveEncrypter(info, fromRuntimeStateRef(ref))
+		return resolveEncrypter(fromRuntimeStateRef(ref))
 	})
 	require.NoError(t, err)
 	return pf
@@ -227,7 +226,7 @@ resources: {
 	_, err = runCfg(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
-	pf := openPlanFile(t, info, planFile)
+	pf := openPlanFile(t, planFile)
 	require.True(t, pf.Destroy)
 	require.Len(t, pf.Steps, 1)
 	require.Equal(t, runtime.DecisionDestroy, pf.Steps[0].Decision)
@@ -1050,10 +1049,10 @@ inputs: {
 }
 
 state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
   encryption: {
-    @key-source: core.noop
+    @key-source: noop
   }
 }
 
@@ -1079,10 +1078,10 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 }
 
 state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
   encryption: {
-    @key-source: core.noop
+    @key-source: noop
   }
 }
 `
@@ -1102,10 +1101,10 @@ func TestTemplateIncludesLibraryPathWhenSet(t *testing.T) {
 }
 
 state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
   encryption: {
-    @key-source: core.noop
+    @key-source: noop
   }
 }
 `
@@ -1128,10 +1127,10 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 }
 
 state: {
-  @backend: core.local
+  @backend: local
   path: '.unobin/state'
   encryption: {
-    @key-source: core.noop
+    @key-source: noop
   }
 }
 
@@ -1152,12 +1151,12 @@ func TestSchemaTemplateScaffoldResolves(t *testing.T) {
 	sc, err := parseStateConfig(f, "config.ub")
 	require.NoError(t, err)
 
-	enc, err := resolveEncrypter(info, sc.Encrypter)
+	enc, err := resolveEncrypter(sc.Encrypter)
 	require.NoError(t, err)
 	_, isNoop := enc.(envencrypt.Noop)
 	require.True(t, isNoop, "scaffold should resolve to the noop encrypter, got %T", enc)
 
-	be, err := resolveBackend(info, sc.Backend, info.FactoryName, "default", enc)
+	be, err := resolveBackend(sc.Backend, info.FactoryName, "default", enc)
 	require.NoError(t, err)
 	require.NotNil(t, be)
 }
@@ -1181,7 +1180,7 @@ actions: {
 	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
-	pf := openPlanFile(t, info, planFile)
+	pf := openPlanFile(t, planFile)
 	require.Equal(t, 1, pf.FormatVersion)
 	addresses := make([]string, len(pf.Steps))
 	for i, s := range pf.Steps {
@@ -1290,54 +1289,44 @@ actions: { core: { echo: { hi: { echo: var.greeting } } } }
 	require.Error(t, err)
 }
 
-func TestValidateRejectsUnknownBackendAlias(t *testing.T) {
+func TestValidateRejectsUnknownBackend(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: missing.bucket }\n"), 0o644))
+		"state: { @backend: ghost }\n"), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `import "missing" not found`)
-}
-
-func TestValidateRejectsUnknownBackendName(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: core.ghost }\n"), 0o644))
-	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `registers no backend named "ghost"`)
+	require.Contains(t, err.Error(), `no backend named "ghost"`)
 }
 
 func TestValidateRejectsBadBackendBody(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: core.local, unknown-field: 1 }\n"), 0o644))
+		"state: { @backend: local, unknown-field: 1 }\n"), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown key")
 }
 
-func TestValidateRejectsUnknownEncrypterAlias(t *testing.T) {
+func TestValidateRejectsUnknownEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: core.local, path: '.unobin/state',"+
-			" encryption: { @key-source: missing.kms } }\n"),
+		"state: { @backend: local, path: '.unobin/state',"+
+			" encryption: { @key-source: ghost } }\n"),
 		0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `import "missing" not found`)
+	require.Contains(t, err.Error(), `no key-source named "ghost"`)
 }
 
 func TestValidateAcceptsCoreBackendAndEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: core.local, path: '.unobin/state',"+
-			" encryption: { @key-source: core.env-key, env-var: 'UB_STATE_KEY' } }\n"),
+		"state: { @backend: local, path: '.unobin/state',"+
+			" encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' } }\n"),
 		0o644))
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.NoError(t, err)
@@ -1785,7 +1774,7 @@ func TestStateShowFailsWithWrongKey(t *testing.T) {
 
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", "not-base64!!")
-	_, err := loadEncrypter(testInfo(t, ""), nil, "")
+	_, err := loadEncrypter(nil, "")
 	require.Error(t, err)
 }
 
@@ -1838,7 +1827,7 @@ inputs: {}
 		"-c", cfg, "-o", planFile, "--parallelism", "7")
 	require.NoError(t, err)
 
-	pf := openPlanFile(t, info, planFile)
+	pf := openPlanFile(t, planFile)
 	require.Equal(t, 7, pf.Parallelism)
 }
 
@@ -1854,7 +1843,7 @@ inputs: {}
 		"-c", cfg, "-o", planFile)
 	require.NoError(t, err)
 
-	pf := openPlanFile(t, info, planFile)
+	pf := openPlanFile(t, planFile)
 	require.Equal(t, 4, pf.Parallelism)
 }
 
