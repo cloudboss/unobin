@@ -36,6 +36,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	resetFlags(depsSyncCmd)
 	resetFlags(depsListCmd)
 	resetFlags(depsVerifyCmd)
+	resetFlags(depsGetCmd)
 	root := &cobra.Command{
 		Use:          "unobin",
 		SilenceUsage: true,
@@ -208,6 +209,61 @@ func TestDepsClean(t *testing.T) {
 	require.Contains(t, out, "Removed the import cache")
 	_, statErr := os.Stat(filepath.Join(cache, "unobin", "imports"))
 	require.True(t, os.IsNotExist(statErr))
+}
+
+func stubListTags(t *testing.T, tags map[string][]string) {
+	t.Helper()
+	prev := depsListTags
+	depsListTags = func(url string) ([]string, error) { return tags[url], nil }
+	t.Cleanup(func() { depsListTags = prev })
+}
+
+func writeGetProject(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "proj")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib@v1.0.0' }\n"), 0o644))
+	stubListTags(t, map[string][]string{
+		"github.com/x/core": {"v1.0.0", "v1.2.0", "v2.0.0"},
+	})
+	return root
+}
+
+func goLibRemotes(version, commit string) map[string]*resolve.Source {
+	return map[string]*resolve.Source{
+		"github.com/x/core@" + version: {FS: fstest.MapFS{}},
+		"github.com/x/core//lib@" + version: {
+			Commit: commit,
+			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		},
+	}
+}
+
+func TestDepsGetExactVersion(t *testing.T) {
+	root := writeGetProject(t)
+	out, err := runCommandWithRemotes(t, goLibRemotes("v1.2.0", "c12"),
+		"deps", "get", "github.com/x/core@v1.2.0", "-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+	require.Contains(t, out, "github.com/x/core v1.2.0")
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, "requires: {\n  'github.com/x/core': 'v1.2.0'\n}\n", string(manifestBytes))
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, "v1.2.0", lock.Deps["github.com/x/core//lib"].Version)
+}
+
+func TestDepsGetLatest(t *testing.T) {
+	root := writeGetProject(t)
+	_, err := runCommandWithRemotes(t, goLibRemotes("v2.0.0", "c20"),
+		"deps", "get", "github.com/x/core", "-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, "v2.0.0", lock.Deps["github.com/x/core//lib"].Version)
 }
 
 func TestCompileToStdout(t *testing.T) {

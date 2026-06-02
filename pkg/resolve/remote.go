@@ -47,7 +47,7 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	}
 	ctx := context.Background()
 
-	cloneURL := withDefaultScheme(ri.URL)
+	cloneURL := WithDefaultScheme(ri.URL)
 	commit, err := git.LsRemote(ctx, cloneURL, ri.Version)
 	if err != nil {
 		return nil, err
@@ -118,12 +118,12 @@ func dirExists(p string) bool {
 	return err == nil && info.IsDir()
 }
 
-// withDefaultScheme prepends `https://` to a bare URL like
+// WithDefaultScheme prepends `https://` to a bare URL like
 // `github.com/owner/repo` so go-git knows to fetch it over HTTPS.
-// URLs that already carry a scheme (`https://`, `http://`, `ssh://`,
+// URLs that already include a scheme (`https://`, `http://`, `ssh://`,
 // `file://`, ...) or look like SCP-style ssh (`user@host:path`) or
 // look like a filesystem path are left alone.
-func withDefaultScheme(url string) string {
+func WithDefaultScheme(url string) string {
 	if strings.Contains(url, "://") {
 		return url
 	}

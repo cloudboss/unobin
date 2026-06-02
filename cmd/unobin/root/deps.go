@@ -1,6 +1,7 @@
 package root
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/git"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 )
@@ -54,7 +56,23 @@ var (
 			return runDepsClean(cmd)
 		},
 	}
+
+	depsGetCfg = &depsSyncConfig{}
+	depsGetCmd = &cobra.Command{
+		Use:   "get <repo>[@version]",
+		Short: "Add or update a dependency floor and re-pin",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDepsGet(cmd, depsGetCfg, args[0])
+		},
+	}
 )
+
+// depsListTags lists a repository's tags. It is a package var so tests can
+// resolve versions without a network round trip.
+var depsListTags = func(url string) ([]string, error) {
+	return git.ListTags(context.Background(), resolve.WithDefaultScheme(url))
+}
 
 type depsSyncConfig struct {
 	stackPath     string
@@ -73,7 +91,9 @@ func init() {
 	depsListCmd.Flags().StringVarP(&depsListCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
 	depsVerifyCmd.Flags().StringVarP(&depsVerifyCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
 	depsVerifyCmd.Flags().StringVar(&depsVerifyCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
-	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd)
+	depsGetCmd.Flags().StringVarP(&depsGetCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
+	depsGetCmd.Flags().StringVar(&depsGetCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
+	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd, depsGetCmd)
 }
 
 // runDepsSync rebuilds unobin.manifest and unobin.lock from the project's
@@ -82,12 +102,54 @@ func init() {
 // remote library, and writes both files at the project root.
 func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	root := filepath.Dir(cfg.stackPath)
-
 	manifest, err := deps.ManifestFromImports(root)
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin)
+	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
+}
+
+// runDepsGet resolves a version for one dependency, sets its floor in the
+// manifest, and re-pins. The query may be empty or "latest" (the highest
+// tag), an exact version, or a partial one (v1, v1.2).
+func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
+	root := filepath.Dir(cfg.stackPath)
+	dep, query, err := parseGetArg(arg)
+	if err != nil {
+		return err
+	}
+	tags, err := depsListTags(dep.URL)
+	if err != nil {
+		return err
+	}
+	version, err := deps.ResolveVersion(dep, query, tags)
+	if err != nil {
+		return err
+	}
+	manifest, err := deps.ManifestFromImports(root)
+	if err != nil {
+		return err
+	}
+	manifest.Requires[dep] = version
+	fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n", dep, version)
+	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
+}
+
+func parseGetArg(arg string) (deps.Dependency, string, error) {
+	repoPart, query := arg, ""
+	if at := strings.LastIndex(arg, "@"); at >= 0 {
+		repoPart, query = arg[:at], arg[at+1:]
+	}
+	dep, err := deps.ParseDependency(repoPart)
+	return dep, query, err
+}
+
+// resolveAndWrite selects versions across manifest's dependency graph,
+// walks the imports to build the lock, and writes both files at root.
+func resolveAndWrite(
+	cmd *cobra.Command, root string, manifest *deps.Manifest, replaceUnobin string,
+) error {
+	resolver, err := newDepsResolver(root, replaceUnobin)
 	if err != nil {
 		return err
 	}

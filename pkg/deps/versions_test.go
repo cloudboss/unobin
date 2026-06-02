@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDependencyTagPrefix(t *testing.T) {
@@ -109,6 +110,52 @@ func TestHighest(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			assert.Equal(t, c.want, Highest(c.vs))
+		})
+	}
+}
+
+func TestResolveVersion(t *testing.T) {
+	root := Dependency{URL: "github.com/x/y"}
+	sub := Dependency{URL: "github.com/x/y", Subdir: "net"}
+	cases := []struct {
+		name    string
+		dep     Dependency
+		query   string
+		tags    []string
+		want    string
+		wantErr bool
+	}{
+		{name: "empty picks latest", dep: root, query: "",
+			tags: []string{"v1.0.0", "v1.2.0", "v2.0.0"}, want: "v2.0.0"},
+		{name: "latest keyword", dep: root, query: "latest",
+			tags: []string{"v1.0.0", "v2.0.0"}, want: "v2.0.0"},
+		{name: "exact present", dep: root, query: "v1.2.0",
+			tags: []string{"v1.0.0", "v1.2.0", "v2.0.0"}, want: "v1.2.0"},
+		{name: "exact absent", dep: root, query: "v1.5.0",
+			tags: []string{"v1.0.0", "v2.0.0"}, wantErr: true},
+		{name: "partial major", dep: root, query: "v1",
+			tags: []string{"v1.0.0", "v1.9.0", "v2.0.0"}, want: "v1.9.0"},
+		{name: "partial major-minor", dep: root, query: "v1.2",
+			tags: []string{"v1.2.0", "v1.2.5", "v1.3.0"}, want: "v1.2.5"},
+		{name: "partial excludes adjacent major", dep: root, query: "v1",
+			tags: []string{"v1.0.0", "v10.0.0"}, want: "v1.0.0"},
+		{name: "partial no match", dep: root, query: "v3",
+			tags: []string{"v1.0.0", "v2.0.0"}, wantErr: true},
+		{name: "no versions available", dep: root, query: "", tags: nil, wantErr: true},
+		{name: "invalid query", dep: root, query: "garbage",
+			tags: []string{"v1.0.0"}, wantErr: true},
+		{name: "subdir dep uses only its tags", dep: sub, query: "latest",
+			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v1.1.0"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := ResolveVersion(c.dep, c.query, c.tags)
+			if c.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, c.want, got)
 		})
 	}
 }
