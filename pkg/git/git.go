@@ -1,12 +1,13 @@
 // Package git wraps the go-git operations the resolver needs:
-// resolving a ref to a commit SHA without fetching, and cloning a
-// repo at a specific ref into a directory.
+// resolving a ref to a commit SHA without fetching, listing a repo's
+// tags, and cloning a repo at a specific ref into a directory.
 package git
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -38,6 +39,35 @@ func LsRemote(ctx context.Context, url, ref string) (string, error) {
 		return ref, nil
 	}
 	return "", fmt.Errorf("ls-remote %s: no ref matches %q", url, ref)
+}
+
+// ListTags returns the tag names defined on the remote at url, without
+// the `refs/tags/` prefix. Peeled annotated-tag refs (the `^{}` entries)
+// are excluded so each tag appears once. No local clone is created.
+// Order is whatever the remote reports; callers that need ordering sort
+// the result themselves.
+func ListTags(ctx context.Context, url string) ([]string, error) {
+	rem := gogit.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{url},
+	})
+	refs, err := rem.ListContext(ctx, &gogit.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("ls-remote %s: %w", url, err)
+	}
+	var tags []string
+	for _, r := range refs {
+		name := r.Name()
+		if !name.IsTag() {
+			continue
+		}
+		short := name.Short()
+		if strings.HasSuffix(short, "^{}") {
+			continue
+		}
+		tags = append(tags, short)
+	}
+	return tags, nil
 }
 
 // Clone clones the repo at url into dest and checks out ref. dest
