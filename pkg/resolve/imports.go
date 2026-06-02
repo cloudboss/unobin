@@ -70,7 +70,7 @@ func parseRemote(raw string) (*RemoteImport, error) {
 	if version == "" {
 		return nil, fmt.Errorf("import %q: empty version after `@`", raw)
 	}
-	url, subdir, err := splitRepoSubdir(body)
+	url, subdir, err := SplitRepoSubdir(body)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +88,10 @@ func splitVersion(s string) (body, version string, ok bool) {
 	return s[:at], s[at+1:], true
 }
 
-// splitRepoSubdir separates a repo URL from its optional subdir at the
+// SplitRepoSubdir separates a repo URL from its optional subdir at the
 // `//` separator. Without `//`, the whole input is the URL and there is
 // no subdir.
-func splitRepoSubdir(s string) (url, subdir string, err error) {
+func SplitRepoSubdir(s string) (url, subdir string, err error) {
 	left, right, ok := strings.Cut(s, "//")
 	if !ok {
 		return s, "", nil
