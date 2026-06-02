@@ -233,8 +233,8 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 // library's dedup key to the local alias of the first site that
 // reached it (used as the `internal/<dir>/` package name). packages
 // holds the generated Go source per key. importVersions pins each
-// Go-library path to its version for the stack's go.mod, and reports a
-// conflict when two sites disagree on a version.
+// Go-library path to its version for the stack's go.mod; the lock
+// already gives every site of a path the same version.
 type compileVisitor struct {
 	stackName        string
 	canonicalAlias   map[string]string
@@ -256,10 +256,6 @@ func newCompileVisitor(stackName string, warnOut io.Writer) *compileVisitor {
 }
 
 func (c *compileVisitor) OnGoImport(_, path, version string) error {
-	if existing, ok := c.importVersions[path]; ok && existing != version {
-		return fmt.Errorf("conflicting versions for %s: %s vs %s",
-			path, existing, version)
-	}
 	c.importVersions[path] = version
 	return nil
 }

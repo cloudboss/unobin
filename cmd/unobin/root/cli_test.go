@@ -961,45 +961,6 @@ imports: {
 		"the Go library imported deep inside a composite is pinned in the stack go.mod")
 }
 
-func TestCompileRejectsConflictingGoVersions(t *testing.T) {
-	// The stack root pins github.com/cloudboss/unobin at v0.1.0 via a
-	// Go-library import. The composite body pins the same library at
-	// v0.2.0. The stack ends up with two incompatible pins for the same
-	// Go library path, which compile must reject up front rather than
-	// letting `go build` discover it later.
-	innerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "resource-cluster.ub"), []byte(`
-description: 'a cluster'
-imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.2.0'
-}
-resources: { local: { file: { x: { path: '/tmp/x', content: 'hi' } } } }
-`), 0o644))
-
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
-imports: {
-  net:   'github.com/example/net//libraries/network@v1'
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
-}
-`), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	remotes := map[string]*resolve.Source{
-		"github.com/example/net//libraries/network@v1": {
-			FS: os.DirFS(innerDir), Commit: "abc123",
-		},
-	}
-	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "conflicting versions")
-	require.Contains(t, err.Error(), "v0.1.0")
-	require.Contains(t, err.Error(), "v0.2.0")
-}
-
 func TestCompileDetectsUBImportCycle(t *testing.T) {
 	// Library A's body imports library B; library B's body imports library
 	// A. Compile must report the cycle rather than recurse forever.
