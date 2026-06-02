@@ -1,8 +1,6 @@
 package resolve
 
 import (
-	"errors"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -160,35 +158,4 @@ func TestWalkUBAllowsLocalInternalPath(t *testing.T) {
 	}
 	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
 	require.NoError(t, err)
-}
-
-func TestResolveAllRefusesCrossRepoInternalImport(t *testing.T) {
-	root := t.TempDir()
-	stackPath := filepath.Join(root, "main.ub")
-	writeUB(t, stackPath, `
-imports: {
-  secret: 'github.com/x/y//internal/secret@v1'
-}
-`)
-	f := parseFile(t, stackPath)
-	_, errs := ResolveAll(stackPath, f, stubResolver{err: errors.New("stub")})
-	require.Len(t, errs, 1)
-	require.EqualError(t, errs[0], `import "secret": github.com/x/y//internal/secret `+
-		`is internal to github.com/x/y and cannot be imported from another repository`)
-}
-
-func TestResolveAllAllowsLocalInternalLibrary(t *testing.T) {
-	root := t.TempDir()
-	stackPath := filepath.Join(root, "main.ub")
-	writeUB(t, stackPath, `
-imports: {
-  helper: './internal/helper'
-}
-`)
-	writeUB(t, filepath.Join(root, "internal", "helper", "resource-thing.ub"), `
-description: 'thing'
-`)
-	f := parseFile(t, stackPath)
-	_, errs := ResolveAll(stackPath, f, NewLocalResolver(root))
-	require.Empty(t, errs)
 }

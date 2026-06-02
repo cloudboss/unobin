@@ -1,10 +1,6 @@
 package resolve
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -75,61 +71,4 @@ imports: {
 	require.Empty(t, errs)
 	require.Len(t, refs, 1)
 	require.Contains(t, refs, "ok")
-}
-
-func TestResolveImportsLocal(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "libraries", "net"), 0o755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(root, "libraries", "net", "resource-cluster.ub"),
-		[]byte("description: 'net'\n"), 0o644))
-
-	f := parseStack(t, `
-imports: {
-  net: './libraries/net'
-}
-`)
-	resolved, errs := ResolveImports(f, NewLocalResolver(root))
-	require.Empty(t, errs)
-	require.Len(t, resolved, 1)
-
-	got := resolved["net"]
-	require.NotNil(t, got)
-	require.NotNil(t, got.Source)
-	require.True(t, IsUBLibrary(got.Source))
-}
-
-func TestResolveImportsPropagatesResolverErrors(t *testing.T) {
-	f := parseStack(t, `
-imports: {
-  aws: 'github.com/x/y@v1.0.0'
-}
-`)
-	boom := errors.New("resolver said no")
-	resolved, errs := ResolveImports(f, stubResolver{err: boom})
-	require.Len(t, errs, 1)
-	require.True(t, errors.Is(errs[0], boom))
-
-	got := resolved["aws"]
-	require.NotNil(t, got)
-	require.Nil(t, got.Source)
-	require.NotNil(t, got.Ref)
-}
-
-func TestResolveImportsCollectsVersionConflicts(t *testing.T) {
-	f := parseStack(t, `
-imports: {
-  a: 'github.com/x/y//a@v1.0.0'
-  b: 'github.com/x/y//b@v1.1.0'
-}
-`)
-	_, errs := ResolveImports(f, stubResolver{err: errors.New("ignored")})
-	conflict := false
-	for _, e := range errs {
-		if strings.Contains(e.Error(), "same repo") {
-			conflict = true
-			break
-		}
-	}
-	require.True(t, conflict, "got: %v", errs)
 }

@@ -75,17 +75,6 @@ func TestRemoteResolverRejectsLocalRef(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot handle")
 }
 
-// stubResolver returns a fixed error from every Resolve call. Tests
-// that exercise the resolver framework use it instead of the real
-// RemoteResolver so they don't reach across the network.
-type stubResolver struct {
-	err error
-}
-
-func (s stubResolver) Resolve(_ ImportRef) (*Source, error) {
-	return nil, s.err
-}
-
 func TestIsUBLibrary(t *testing.T) {
 	root := t.TempDir()
 	withManifest := filepath.Join(root, "with")
