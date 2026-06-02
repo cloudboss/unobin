@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -31,6 +33,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	resetFlags(CompileCmd)
 	resetFlags(FetchCmd)
 	resetFlags(PrintGraphCmd)
+	resetFlags(depsSyncCmd)
 	root := &cobra.Command{
 		Use:          "unobin",
 		SilenceUsage: true,
@@ -39,6 +42,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	root.AddCommand(CompileCmd)
 	root.AddCommand(FetchCmd)
 	root.AddCommand(PrintGraphCmd)
+	root.AddCommand(DepsCmd)
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	root.SetErr(out)
@@ -79,7 +83,9 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	if src, found := r.remotes[key]; found {
 		return src, nil
 	}
-	return &resolve.Source{Commit: "fakecommit"}, nil
+	// A non-nil empty FS so callers that inspect it (a manifest read, a
+	// UB-library check) see an empty Go-library source rather than nil.
+	return &resolve.Source{Commit: "fakecommit", FS: fstest.MapFS{}}, nil
 }
 
 func resetFlags(cmd *cobra.Command) {
@@ -101,6 +107,38 @@ func TestVersionPrintsVersion(t *testing.T) {
 	out, err := runCommand(t, "version")
 	require.NoError(t, err)
 	require.Contains(t, out, "v1.2.3")
+}
+
+func TestDepsSync(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib@v1.0.0' }\n"), 0o644))
+
+	remotes := map[string]*resolve.Source{
+		// the repo root, read by the version walk: no manifest, so a leaf.
+		"github.com/x/core@v1.0.0": {FS: fstest.MapFS{}},
+		// the imported library, pinned in the lock as a Go library.
+		"github.com/x/core//lib@v1.0.0": {
+			Commit: "abc123",
+			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		},
+	}
+	out, err := runCommandWithRemotes(t, remotes, "deps", "sync",
+		"-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+	require.Contains(t, out, "Wrote unobin.manifest")
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t,
+		"requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n", string(manifestBytes))
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+	}, lock.Deps)
 }
 
 func TestCompileToStdout(t *testing.T) {
