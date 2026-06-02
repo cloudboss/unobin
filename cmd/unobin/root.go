@@ -18,7 +18,6 @@ func init() {
 		root.VersionCmd,
 		root.CompileCmd,
 		root.GenerateCmd,
-		root.FetchCmd,
 		root.FmtCmd,
 		root.PrintGraphCmd,
 		root.DepsCmd,

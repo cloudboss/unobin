@@ -41,9 +41,9 @@ func runCLI(cmd *cobra.Command) error {
 		unobinroot.VersionCmd,
 		unobinroot.CompileCmd,
 		unobinroot.GenerateCmd,
-		unobinroot.FetchCmd,
 		unobinroot.FmtCmd,
 		unobinroot.PrintGraphCmd,
+		unobinroot.DepsCmd,
 	)
 	content := []byte(docgen.CLIReference(unobinCmd))
 	path := filepath.Join(cliOut, "cli.md")

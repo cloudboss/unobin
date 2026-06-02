@@ -31,7 +31,6 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	t.Helper()
 	stubCompileResolver(t, remotes)
 	resetFlags(CompileCmd)
-	resetFlags(FetchCmd)
 	resetFlags(PrintGraphCmd)
 	resetFlags(depsSyncCmd)
 	resetFlags(depsListCmd)
@@ -43,7 +42,6 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	}
 	root.AddCommand(VersionCmd)
 	root.AddCommand(CompileCmd)
-	root.AddCommand(FetchCmd)
 	root.AddCommand(PrintGraphCmd)
 	root.AddCommand(DepsCmd)
 	out := &bytes.Buffer{}
@@ -1201,41 +1199,6 @@ imports: {
 		"--version", "v0.1.0")
 	require.NoError(t, err)
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/local"`)
-}
-
-func TestFetchResolvesLocalUBLibrary(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
-imports: {
-  net: './libraries/net'
-}
-`), 0o644))
-
-	netDir := filepath.Join(dir, "libraries", "net")
-	require.NoError(t, os.MkdirAll(netDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(netDir, "resource-cluster.ub"), []byte(`
-description: 'a cluster'
-`), 0o644))
-
-	out, err := runCommand(t, "fetch", "-p", stackPath)
-	require.NoError(t, err)
-	require.Contains(t, out, "net -> ./libraries/net (local)")
-}
-
-func TestFetchEmptyImports(t *testing.T) {
-	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`description: 'x'`), 0o644))
-	out, err := runCommand(t, "fetch", "-p", stackPath)
-	require.NoError(t, err)
-	require.Contains(t, out, "No imports")
-}
-
-func TestFetchMissingStack(t *testing.T) {
-	_, err := runCommand(t, "fetch", "-p", "/no/such/path/main.ub")
-	require.Error(t, err)
 }
 
 func TestCompileLocalNonUBLibraryFails(t *testing.T) {
