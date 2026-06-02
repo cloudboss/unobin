@@ -11,39 +11,82 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-// LockFromImports builds the lock for the factory whose source is rooted
-// at rootFS. It walks the import graph from main.ub: the factory's own
-// files, and through remote UB libraries their imports too. Each remote
-// library becomes one lock entry, keyed by `repo//subdir`; local imports
-// are followed but never locked. A library's version is its repository's
-// selected version; a repository the selection does not cover is an error
-// (it is imported but no floor reached it). Kind and content hash come
-// from the fetched library subtree, so a Go library and a UB library in
-// the same repo are recorded distinctly.
+// LockFromImports builds the lock for the project rooted at rootFS. It
+// walks every .ub file under the root -- a factory's main.ub, library
+// bodies at the root, or libraries in subdirectories -- and through remote
+// UB libraries their imports too. Each remote library becomes one lock
+// entry, keyed by `repo//subdir`. Local imports are not locked and need no
+// following: the walk already visits every file under the root, so a local
+// library's own imports are reached directly. A library's version is its
+// repository's selected version; a repository the selection does not cover
+// is an error (it is imported but no floor reached it). Kind and content
+// hash come from the fetched library subtree, so a Go library and a UB
+// library in the same repo are recorded distinctly.
 func LockFromImports(
 	rootFS fs.FS, selection map[Dependency]string, resolver resolve.Resolver,
 ) (*Lock, error) {
-	b, err := fs.ReadFile(rootFS, "main.ub")
-	if err != nil {
-		return nil, err
-	}
-	main, err := lang.ParseSource("main.ub", b)
-	if err != nil {
-		return nil, err
-	}
 	w := &lockWalker{
 		resolver:   resolver,
 		selection:  selection,
 		lock:       NewLock(),
 		inProgress: map[string]bool{},
 	}
-	if err := w.walkFile(main, &resolve.Source{FS: rootFS}); err != nil {
+	err := fs.WalkDir(rootFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path != "." && strings.HasPrefix(d.Name(), ".") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".ub") {
+			return nil
+		}
+		return w.lockFileImports(rootFS, path)
+	})
+	if err != nil {
 		return nil, err
 	}
 	if err := validateLockedDeps(w.lock); err != nil {
 		return nil, fmt.Errorf("lock: %w", err)
 	}
 	return w.lock, nil
+}
+
+// lockFileImports reads one of the project's own .ub files and locks the
+// remote libraries it imports. Local imports are skipped: the project walk
+// visits every .ub file under the root, so a local library's files are
+// reached on their own.
+func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
+	b, err := fs.ReadFile(rootFS, path)
+	if err != nil {
+		return err
+	}
+	f, err := lang.ParseSource(path, b)
+	if err != nil {
+		return err
+	}
+	refs, errs := resolve.ExtractImports(f)
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	aliases := make([]string, 0, len(refs))
+	for a := range refs {
+		aliases = append(aliases, a)
+	}
+	sort.Strings(aliases)
+	for _, alias := range aliases {
+		r, ok := refs[alias].(*resolve.RemoteImport)
+		if !ok {
+			continue
+		}
+		if err := w.walkRemote(r); err != nil {
+			return fmt.Errorf("import %q: %w", alias, err)
+		}
+	}
+	return nil
 }
 
 type lockWalker struct {

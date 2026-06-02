@@ -143,6 +143,26 @@ func TestDepsSync(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestDepsSyncLibraryProject(t *testing.T) {
+	// A library project: body files, no main.ub. Its dependencies are
+	// managed the same way a factory's are.
+	root := filepath.Join(t.TempDir(), "greeter")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "resource-greeting.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+
+	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+	}, lock.Deps)
+}
+
 func TestDepsSyncRejectsMissingFloor(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))

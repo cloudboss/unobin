@@ -46,6 +46,44 @@ func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestLockFromImportsLibraryProject(t *testing.T) {
+	// A library project has no main.ub; its imports live in the
+	// <kind>-<type>.ub body files at the project root.
+	root := mapFS(map[string]string{
+		"resource-greeting.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.1.0"}
+	lock, err := LockFromImports(root, sel, r)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/scratch/repo//ub/helloer": {
+			Kind: LockKindGo, Version: "v0.1.0", Commit: "c1",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsMultiLibraryRepo(t *testing.T) {
+	// A repo whose libraries live in subdirectories, with no main.ub or
+	// root-level body files; the walk must descend into the subdirs.
+	root := mapFS(map[string]string{
+		"ub/helloer/resource-hello.ub": "imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.5.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.5.0"}
+	lock, err := LockFromImports(root, sel, r)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/cloudboss/unobin//pkg/libraries/local": {
+			Kind: LockKindGo, Version: "v0.5.0", Commit: "c1",
+		},
+	}, lock.Deps)
+}
+
 func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
 		"main.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
