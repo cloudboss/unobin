@@ -34,6 +34,8 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	resetFlags(FetchCmd)
 	resetFlags(PrintGraphCmd)
 	resetFlags(depsSyncCmd)
+	resetFlags(depsListCmd)
+	resetFlags(depsVerifyCmd)
 	root := &cobra.Command{
 		Use:          "unobin",
 		SilenceUsage: true,
@@ -139,6 +141,60 @@ func TestDepsSync(t *testing.T) {
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
+}
+
+func writeProjectLock(t *testing.T, root string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	lock := deps.NewLock()
+	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
+		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
+	}
+	lock.Deps["github.com/x/hello//ub"] = &deps.LockedDep{
+		Kind: deps.LockKindUB, Version: "v2.0.0", Commit: "c2", Hash: "h2",
+	}
+	require.NoError(t, deps.WriteLock(filepath.Join(root, deps.LockFileName), lock))
+}
+
+func TestDepsList(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	writeProjectLock(t, root)
+	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+	require.Equal(t,
+		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)
+}
+
+func TestDepsListNoLock(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	_, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "main.ub"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "run `unobin deps sync`")
+}
+
+func TestDepsVerifyMatches(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	writeProjectLock(t, root)
+	remotes := map[string]*resolve.Source{
+		"github.com/x/hello//ub@c2": {Hash: "h2"},
+	}
+	out, err := runCommandWithRemotes(t, remotes, "deps", "verify",
+		"-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+	require.Contains(t, out, "all dependencies verified")
+}
+
+func TestDepsVerifyDetectsMismatch(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	writeProjectLock(t, root)
+	remotes := map[string]*resolve.Source{
+		"github.com/x/hello//ub@c2": {Hash: "tampered"},
+	}
+	_, err := runCommandWithRemotes(t, remotes, "deps", "verify",
+		"-p", filepath.Join(root, "main.ub"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "hash mismatch")
 }
 
 func TestCompileToStdout(t *testing.T) {

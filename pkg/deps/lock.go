@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"sort"
 )
 
 // LockFileName is the standard filename for a factory's dependency lock.
@@ -48,6 +49,16 @@ type LockedDep struct {
 // NewLock returns an empty lock at the current schema version.
 func NewLock() *Lock {
 	return &Lock{Version: CurrentLockVersion, Deps: map[string]*LockedDep{}}
+}
+
+// SortedIDs returns the lock's dependency ids in sorted order.
+func (l *Lock) SortedIDs() []string {
+	ids := make([]string, 0, len(l.Deps))
+	for id := range l.Deps {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // ReadLock reads and parses unobin.lock from fsys. A missing file returns
