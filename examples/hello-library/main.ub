@@ -6,9 +6,9 @@ inputs: {
 }
 
 imports: {
-  core:    'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  core:    'github.com/cloudboss/unobin//pkg/libraries/core'
   greeter: './greeter'
-  local:   'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local:   'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 
 resources: { greeter: { greeting: { welcome: { message: var.message, path: var.path } } } }

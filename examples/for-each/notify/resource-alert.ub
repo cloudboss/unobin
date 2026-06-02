@@ -3,8 +3,8 @@ description: 'Writes an alert file announcing a topic.'
 inputs: { topic: { type: string }, body: { type: string }, path: { type: string } }
 
 imports: {
-  core:  'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  core:  'github.com/cloudboss/unobin//pkg/libraries/core'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 
 resources: {

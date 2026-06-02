@@ -2,7 +2,7 @@ description: 'A thin wrapper around greet.say.'
 
 inputs: { message: { type: string, description: 'Text passed to greet.say' } }
 
-imports: { greet: 'github.com/cloudboss/unobin//examples/configurations/greet@v0.1.0' }
+imports: { greet: 'github.com/cloudboss/unobin//examples/configurations/greet' }
 
 actions: { greet: { say: { this: { message: var.message } } } }
 
