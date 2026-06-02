@@ -10,24 +10,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fakeResolver serves canned sources keyed by a remote ref's url, subdir,
+// and version, and records the last ref it was asked for.
 type fakeResolver struct {
-	sources map[string]*resolve.Source // keyed by "<url>@<tag>"
+	sources map[string]*resolve.Source
 	lastRef *resolve.RemoteImport
+}
+
+func srcKey(url, subdir, version string) string {
+	return url + "|" + subdir + "|" + version
 }
 
 func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	ri := ref.(*resolve.RemoteImport)
 	r.lastRef = ri
-	src, ok := r.sources[ri.URL+"@"+ri.Version]
+	src, ok := r.sources[srcKey(ri.URL, ri.Subdir, ri.Version)]
 	if !ok {
-		return nil, fmt.Errorf("no source for %s@%s", ri.URL, ri.Version)
+		return nil, fmt.Errorf("no source for %s//%s@%s", ri.URL, ri.Subdir, ri.Version)
 	}
 	return src, nil
 }
 
 func TestFetchReadsManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		"github.com/x/y@v1.0.0": {FS: fstest.MapFS{
+		srcKey("github.com/x/y", "", "v1.0.0"): {FS: fstest.MapFS{
 			ManifestFileName: &fstest.MapFile{
 				Data: []byte("requires: { 'github.com/x/dep': 'v2.0.0' }\n"),
 			},
@@ -42,7 +48,9 @@ func TestFetchReadsManifest(t *testing.T) {
 
 func TestFetchLeafHasNoManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		"github.com/x/y@v1.0.0": {FS: fstest.MapFS{"y.go": &fstest.MapFile{Data: []byte("package y")}}},
+		srcKey("github.com/x/y", "", "v1.0.0"): {
+			FS: fstest.MapFS{"y.go": &fstest.MapFile{Data: []byte("package y")}},
+		},
 	}}
 	got, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y"}, "v1.0.0")
 	require.NoError(t, err)
@@ -51,7 +59,7 @@ func TestFetchLeafHasNoManifest(t *testing.T) {
 
 func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		"github.com/x/y@v1.0.0": {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "", "v1.0.0"): {FS: fstest.MapFS{}},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y"}, "v1.0.0")
 	require.NoError(t, err)
@@ -62,7 +70,7 @@ func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 
 func TestFetchUsesPrefixedTagForSubdirProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		"github.com/x/y@net/v1.0.0": {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "net", "net/v1.0.0"): {FS: fstest.MapFS{}},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y", Subdir: "net"}, "v1.0.0")
 	require.NoError(t, err)
