@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -139,8 +141,12 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		}
 	}
 
+	repoVersions, err := lockedVersions(stackDir)
+	if err != nil {
+		return err
+	}
 	v := newCompileVisitor(name, cmd.ErrOrStderr())
-	top, err := resolve.WalkUB(refs, resolver, v)
+	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
 	if err != nil {
 		return err
 	}
@@ -352,6 +358,20 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName, version string) error {
 	fmt.Fprintf(cmd.ErrOrStderr(), "Built %s %s (content-revision %s)\n",
 		binaryName, version, revision)
 	return nil
+}
+
+// lockedVersions reads unobin.lock from dir and returns each repository's
+// selected version, or nil when no lock is present, in which case the walk
+// uses the version on each import string.
+func lockedVersions(dir string) (map[string]string, error) {
+	lock, err := deps.ReadLock(os.DirFS(dir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return lock.RepoVersions()
 }
 
 // newCompileResolver returns the resolver compile uses to fetch

@@ -95,7 +95,7 @@ func TestWalkUBRefusesCrossRepoInternalImport(t *testing.T) {
 	refs := map[string]ImportRef{
 		"secret": &RemoteImport{URL: "github.com/x/y", Subdir: "internal/secret", Version: "v1"},
 	}
-	_, err := WalkUB(refs, &fakeUBResolver{}, newRecordingVisitor())
+	_, err := WalkUB(refs, &fakeUBResolver{}, newRecordingVisitor(), nil)
 	require.EqualError(t, err, `import "secret": github.com/x/y//internal/secret `+
 		`is internal to github.com/x/y and cannot be imported from another repository`)
 }
@@ -118,7 +118,7 @@ inputs: { x: { type: string } }
 		"a": &RemoteImport{URL: "github.com/x/y", Subdir: "pkg/a", Version: "v1"},
 	}
 	v := newRecordingVisitor()
-	_, err := WalkUB(refs, r, v)
+	_, err := WalkUB(refs, r, v, nil)
 	require.NoError(t, err)
 	// The internal library must actually be walked, not skipped: a same-repo
 	// importer reaches it and the walk proceeds into it. shared is recorded
@@ -142,7 +142,7 @@ inputs: { x: { type: string } }
 	refs := map[string]ImportRef{
 		"a": &RemoteImport{URL: "github.com/x/y", Subdir: "pkg/a", Version: "v1"},
 	}
-	_, err := WalkUB(refs, r, newRecordingVisitor())
+	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
 	require.EqualError(t, err, `import "a": composite "widget": `+
 		`import "secret": github.com/other/z//internal/secret `+
 		`is internal to github.com/other/z and cannot be imported from another repository`)
@@ -158,7 +158,7 @@ func TestWalkUBAllowsLocalInternalPath(t *testing.T) {
 	refs := map[string]ImportRef{
 		"helper": &LocalImport{Path: "./internal/helper"},
 	}
-	_, err := WalkUB(refs, r, newRecordingVisitor())
+	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
 	require.NoError(t, err)
 }
 

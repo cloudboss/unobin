@@ -80,7 +80,7 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 		"core": &RemoteImport{URL: "github.com/x/unobin", Subdir: "core", Version: "v0.1.0"},
 	}
 	v := newRecordingVisitor()
-	top, err := WalkUB(refs, &fakeUBResolver{}, v)
+	top, err := WalkUB(refs, &fakeUBResolver{}, v, nil)
 	require.NoError(t, err)
 	require.Len(t, top, 1)
 	require.Equal(t, ResolutionGo, top[0].Kind)
@@ -103,7 +103,7 @@ inputs: { name: { type: string } }
 		"github.com/x/hello@v1.0.0": src,
 	}}
 	v := newRecordingVisitor()
-	top, err := WalkUB(refs, r, v)
+	top, err := WalkUB(refs, r, v, nil)
 	require.NoError(t, err)
 	require.Len(t, top, 1)
 	require.Equal(t, ResolutionUB, top[0].Kind)
@@ -132,7 +132,7 @@ func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 		"github.com/x/y@v1.0.0": src,
 	}}
 	v := newRecordingVisitor()
-	top, err := WalkUB(refs, r, v)
+	top, err := WalkUB(refs, r, v, nil)
 	require.NoError(t, err)
 	require.Len(t, top, 2)
 	require.Equal(t, top[0].CanonicalKey, top[1].CanonicalKey)
@@ -161,7 +161,7 @@ inputs: { y: { type: string } }
 	refs := map[string]ImportRef{
 		"a": &RemoteImport{URL: "github.com/x/a", Version: "v1"},
 	}
-	_, err := WalkUB(refs, r, newRecordingVisitor())
+	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "import cycle")
 }
@@ -172,7 +172,7 @@ func TestWalkUBPropagatesVisitorError(t *testing.T) {
 	}
 	v := newRecordingVisitor()
 	v.failOn = "go:core"
-	_, err := WalkUB(refs, &fakeUBResolver{}, v)
+	_, err := WalkUB(refs, &fakeUBResolver{}, v, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "forced failure")
 }

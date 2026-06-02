@@ -90,12 +90,19 @@ type UBVisitor interface {
 // refs in resolved form, alias-sorted, so callers can build their own
 // alias-to-resolution map without per-site visitor callbacks. Cycles
 // through UB libraries are reported as errors.
+//
+// versions maps a repository URL to the version selected for it in the
+// lock; every remote import to a repository in the map is walked at that
+// version, overriding any version on the import string. A nil or empty
+// map walks each import at its own version, the behavior before a lock is
+// consulted.
 func WalkUB(
-	refs map[string]ImportRef, resolver Resolver, v UBVisitor,
+	refs map[string]ImportRef, resolver Resolver, v UBVisitor, versions map[string]string,
 ) ([]Resolution, error) {
 	w := &ubWalker{
 		resolver:   resolver,
 		visitor:    v,
+		versions:   versions,
 		parsed:     map[string]*UBLibrary{},
 		inProgress: map[string]bool{},
 	}
@@ -105,8 +112,26 @@ func WalkUB(
 type ubWalker struct {
 	resolver   Resolver
 	visitor    UBVisitor
+	versions   map[string]string
 	parsed     map[string]*UBLibrary
 	inProgress map[string]bool
+}
+
+// lockedVersion returns ref with its version replaced by the lock's
+// selection for its repository, when the map has one. Local imports and
+// repositories absent from the map are returned unchanged.
+func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
+	r, ok := ref.(*RemoteImport)
+	if !ok {
+		return ref
+	}
+	v, found := w.versions[r.URL]
+	if !found {
+		return ref
+	}
+	clone := *r
+	clone.Version = v
+	return &clone
 }
 
 // walkRefs walks each ref in alias order. repo is the repository the
@@ -126,6 +151,7 @@ func (w *ubWalker) walkRefs(refs map[string]ImportRef, repo string) ([]Resolutio
 }
 
 func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution, error) {
+	ref = w.lockedVersion(ref)
 	if r, ok := crossRepoInternal(repo, ref); ok {
 		return Resolution{}, internalImportError(alias, r)
 	}

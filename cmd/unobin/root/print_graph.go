@@ -89,7 +89,11 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		}
 	}
 
-	libs, err := buildLibraryMap(refs, resolver, cmd.ErrOrStderr())
+	repoVersions, err := lockedVersions(filepath.Dir(cfg.stackPath))
+	if err != nil {
+		return err
+	}
+	libs, err := buildLibraryMap(refs, resolver, repoVersions, cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}
@@ -116,10 +120,10 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 // tell "imported but not a composite" apart from "not imported at all". Each
 // composite carries its own Libraries map so composite-internal lookups stay
 // self-contained.
-func buildLibraryMap(refs map[string]resolve.ImportRef,
-	resolver resolve.Resolver, warnOut io.Writer) (map[string]*runtime.Library, error) {
+func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolver,
+	versions map[string]string, warnOut io.Writer) (map[string]*runtime.Library, error) {
 	v := &graphVisitor{byKey: map[string]*runtime.Library{}, warnOut: warnOut}
-	top, err := resolve.WalkUB(refs, resolver, v)
+	top, err := resolve.WalkUB(refs, resolver, v, versions)
 	if err != nil {
 		return nil, err
 	}

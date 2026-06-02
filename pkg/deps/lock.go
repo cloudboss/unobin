@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"sort"
+
+	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 // LockFileName is the standard filename for a factory's dependency lock.
@@ -59,6 +61,22 @@ func (l *Lock) SortedIDs() []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+// RepoVersions maps each repository to its selected version, derived from
+// the per-library entries (every library of a repo shares its version).
+// Compile feeds this to the import walk so versionless imports resolve at
+// the locked version.
+func (l *Lock) RepoVersions() (map[string]string, error) {
+	out := make(map[string]string, len(l.Deps))
+	for id, entry := range l.Deps {
+		url, _, err := resolve.SplitRepoSubdir(id)
+		if err != nil {
+			return nil, fmt.Errorf("lock id %q: %w", id, err)
+		}
+		out[url] = entry.Version
+	}
+	return out, nil
 }
 
 // ReadLock reads and parses unobin.lock from fsys. A missing file returns

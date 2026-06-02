@@ -315,6 +315,34 @@ imports: {
 	require.Contains(t, string(goModBytes), "github.com/cloudboss/unobin v0.1.0")
 }
 
+// TestCompileUsesLockVersion compiles a factory whose import carries no
+// @version: the version must come from unobin.lock. The fake resolver only
+// serves the locked version, and the generated go.mod must record it.
+func TestCompileUsesLockVersion(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	lock := deps.NewLock()
+	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
+		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
+	}
+	require.NoError(t, deps.WriteLock(filepath.Join(dir, deps.LockFileName), lock))
+
+	remotes := map[string]*resolve.Source{
+		"github.com/x/core//lib@v1.0.0": {
+			FS: fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		},
+	}
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.NoError(t, err)
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(goMod), "github.com/x/core/lib v1.0.0")
+}
+
 // TestCompileBuildStampsVersion compiles a minimal factory with --build
 // and then runs the resulting binary's `version` subcommand to confirm
 // that the factory version and content-revision were actually written

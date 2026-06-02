@@ -120,7 +120,7 @@ func walkOneUB(t *testing.T, src *Source) (*UBLibrary, error) {
 	}
 	r := &fakeUBResolver{remotes: map[string]*Source{"github.com/x/y@v1": src}}
 	v := newRecordingVisitor()
-	if _, err := WalkUB(refs, r, v); err != nil {
+	if _, err := WalkUB(refs, r, v, nil); err != nil {
 		return nil, err
 	}
 	return v.ubLibs["remote:github.com/x/y@v1"], nil
