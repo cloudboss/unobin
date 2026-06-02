@@ -37,9 +37,10 @@ func (*RemoteImport) isImportRef() {}
 var ErrEmptyImportRef = errors.New("empty import reference")
 
 // ParseImportRef parses a string from an `imports:` block. Local imports
-// start with `.` or `/`; remote imports name a repo URL plus a required
-// `@version` suffix and use the Terraform-style `//` separator to denote
-// a subdirectory within the repo. Without `//` the whole path before `@`
+// start with `.` or `/`; remote imports name a repo URL with an optional
+// `@version` suffix (a versionless import takes its version from
+// unobin.lock) and use the Terraform-style `//` separator to denote a
+// subdirectory within the repo. Without `//` the whole path before `@`
 // is the repo URL and the import has no subdir.
 func ParseImportRef(raw string) (ImportRef, error) {
 	if raw == "" {
@@ -65,9 +66,10 @@ func isLocalPath(s string) bool {
 func parseRemote(raw string) (*RemoteImport, error) {
 	body, version, ok := splitVersion(raw)
 	if !ok {
-		return nil, fmt.Errorf("import %q: missing required `@version` suffix", raw)
-	}
-	if version == "" {
+		// A versionless import: the version comes from unobin.lock, not
+		// the import string.
+		body = raw
+	} else if version == "" {
 		return nil, fmt.Errorf("import %q: empty version after `@`", raw)
 	}
 	url, subdir, err := SplitRepoSubdir(body)

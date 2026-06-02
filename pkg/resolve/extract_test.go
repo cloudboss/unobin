@@ -52,13 +52,13 @@ func TestExtractImportsAbsentBlock(t *testing.T) {
 func TestExtractImportsRejectsBadRef(t *testing.T) {
 	f := parseStack(t, `
 imports: {
-  bad: 'github.com/x/y'
+  bad: 'github.com'
 }
 `)
 	refs, errs := ExtractImports(f)
 	require.Empty(t, refs)
 	require.Len(t, errs, 1)
-	require.Contains(t, errs[0].Error(), "missing required `@version`")
+	require.Contains(t, errs[0].Error(), "host and a path")
 }
 
 func TestExtractImportsSkipsShapeErrors(t *testing.T) {

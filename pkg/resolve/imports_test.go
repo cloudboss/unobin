@@ -95,7 +95,6 @@ func TestParseImportRefRejects(t *testing.T) {
 		wantSub string
 	}{
 		{"", "empty"},
-		{"github.com/owner/repo", "missing required `@version`"},
 		{"github.com/owner/repo@", "empty version"},
 		{"github.com@v1.0.0", "host and a path"},
 	}
@@ -116,4 +115,26 @@ func TestParseImportRefVersionWithAtSign(t *testing.T) {
 	require.NoError(t, err)
 	rem := ref.(*RemoteImport)
 	require.Equal(t, "v1.0.0-beta", rem.Version)
+}
+
+func TestParseImportRefVersionless(t *testing.T) {
+	cases := []struct {
+		in     string
+		url    string
+		subdir string
+	}{
+		{"github.com/cloudboss/unobin", "github.com/cloudboss/unobin", ""},
+		{"github.com/cloudboss/unobin//pkg/libraries/core",
+			"github.com/cloudboss/unobin", "pkg/libraries/core"},
+	}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			ref, err := ParseImportRef(c.in)
+			require.NoError(t, err)
+			rem := ref.(*RemoteImport)
+			require.Equal(t, c.url, rem.URL)
+			require.Equal(t, c.subdir, rem.Subdir)
+			require.Empty(t, rem.Version)
+		})
+	}
 }
