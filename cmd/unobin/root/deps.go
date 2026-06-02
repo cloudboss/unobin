@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -108,14 +109,23 @@ func projectRoot(stackPath string) string {
 	return filepath.Dir(stackPath)
 }
 
-// runDepsSync rebuilds unobin.manifest and unobin.lock from the project's
-// imports: it collects the direct requirements into the manifest, selects
-// versions across the dependency graph, walks the imports to pin every
-// remote library, and writes both files at the project root.
+// runDepsSync reconciles unobin.manifest and unobin.lock with the
+// project's imports. The manifest holds the floors; sync reads it,
+// requires a floor for every imported repository, removes floors for
+// repositories no longer imported, then selects versions across the
+// dependency graph, walks the imports to pin every remote library, and
+// writes both files at the project root.
 func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	root := projectRoot(cfg.stackPath)
-	manifest, err := deps.ManifestFromImports(root)
+	manifest, err := readManifestOrEmpty(root)
 	if err != nil {
+		return err
+	}
+	imported, err := deps.ImportedRepos(root)
+	if err != nil {
+		return err
+	}
+	if err := reconcileManifest(manifest, imported); err != nil {
 		return err
 	}
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
@@ -138,13 +148,53 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := deps.ManifestFromImports(root)
+	manifest, err := readManifestOrEmpty(root)
 	if err != nil {
 		return err
 	}
 	manifest.Requires[dep] = version
 	fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n", dep, version)
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
+}
+
+// readManifestOrEmpty reads unobin.manifest from root, returning an empty
+// manifest when the file does not exist yet. There is no `deps init`: the
+// manifest is created the first time get or sync writes it.
+func readManifestOrEmpty(root string) (*deps.Manifest, error) {
+	manifest, err := deps.ReadManifest(os.DirFS(root))
+	if errors.Is(err, fs.ErrNotExist) {
+		return &deps.Manifest{Requires: map[deps.Dependency]string{}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+// reconcileManifest makes the manifest's floors match the set of imported
+// repositories. An imported repository with no floor is an error that
+// points the author at `deps get`; a floor whose repository is no longer
+// imported is removed.
+func reconcileManifest(m *deps.Manifest, imported map[deps.Dependency]bool) error {
+	var missing []string
+	for dep := range imported {
+		if _, ok := m.Requires[dep]; !ok {
+			missing = append(missing, dep.String())
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf(
+			"imported but missing from %s: %s\n"+
+				"add a floor with `unobin deps get <repo>@<version>`",
+			deps.ManifestFileName, strings.Join(missing, ", "))
+	}
+	for dep := range m.Requires {
+		if !imported[dep] {
+			delete(m.Requires, dep)
+		}
+	}
+	return nil
 }
 
 func parseGetArg(arg string) (deps.Dependency, string, error) {

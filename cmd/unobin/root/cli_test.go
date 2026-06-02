@@ -110,13 +110,8 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
-func TestDepsSync(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "myfactory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib@v1.0.0' }\n"), 0o644))
-
-	remotes := map[string]*resolve.Source{
+func goCoreRemotes() map[string]*resolve.Source {
+	return map[string]*resolve.Source{
 		// the repo root, read by the version walk: no manifest, so a leaf.
 		"github.com/x/core@v1.0.0": {FS: fstest.MapFS{}},
 		// the imported library, pinned in the lock as a Go library.
@@ -125,21 +120,60 @@ func TestDepsSync(t *testing.T) {
 			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
 		},
 	}
-	out, err := runCommandWithRemotes(t, remotes, "deps", "sync",
+}
+
+func TestDepsSync(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	// The floor lives in the manifest; sync rebuilds the lock from it.
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+
+	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "main.ub"))
 	require.NoError(t, err)
 	require.Contains(t, out, "Wrote unobin.manifest")
-
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
-	require.NoError(t, err)
-	require.Equal(t,
-		"requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n", string(manifestBytes))
 
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
+}
+
+func TestDepsSyncRejectsMissingFloor(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+
+	// No manifest, so the imported repo has no floor.
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "github.com/x/core")
+	require.Contains(t, err.Error(), "deps get")
+}
+
+func TestDepsSyncPrunesStaleFloor(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	// gone/repo is listed but no longer imported; sync must remove it.
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
+			"  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+
+	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
+		"-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t,
+		"requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n", string(manifestBytes))
 }
 
 func writeProjectLock(t *testing.T, root string) {
@@ -235,7 +269,7 @@ func writeGetProject(t *testing.T) string {
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib@v1.0.0' }\n"), 0o644))
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	stubListTags(t, map[string][]string{
 		"github.com/x/core": {"v1.0.0", "v1.2.0", "v2.0.0"},
 	})

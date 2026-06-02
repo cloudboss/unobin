@@ -15,71 +15,49 @@ func writeUB(t *testing.T, path, body string) {
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 }
 
-func TestManifestFromImportsGroupsByRepo(t *testing.T) {
+func TestImportedReposGroupsByRepo(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "main.ub"), `
 imports: {
-  core:    'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
-  local:   'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  core:    'github.com/cloudboss/unobin//pkg/libraries/core'
+  local:   'github.com/cloudboss/unobin//pkg/libraries/local'
   greeter: './greeter'
 }
 `)
-	m, err := ManifestFromImports(root)
+	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]string{
-		{URL: "github.com/cloudboss/unobin"}: "v0.1.0",
-	}, m.Requires)
+	assert.Equal(t, map[Dependency]bool{
+		{URL: "github.com/cloudboss/unobin"}: true,
+	}, repos)
 }
 
-func TestManifestFromImportsTakesHighestVersion(t *testing.T) {
-	root := t.TempDir()
-	writeUB(t, filepath.Join(root, "main.ub"), `
-imports: {
-  a: 'github.com/x/y//liba@v1.0.0'
-  b: 'github.com/x/y//libb@v2.0.0'
-}
-`)
-	m, err := ManifestFromImports(root)
-	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]string{{URL: "github.com/x/y"}: "v2.0.0"}, m.Requires)
-}
-
-func TestManifestFromImportsScansLocalLibraries(t *testing.T) {
+func TestImportedReposScansLocalLibraries(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "main.ub"), "imports: { greeter: './greeter' }\n")
 	writeUB(t, filepath.Join(root, "greeter", "resource-greeting.ub"),
-		"imports: { helloer: 'github.com/scratch/repo//ub/helloer@v0.3.0' }\n")
-	m, err := ManifestFromImports(root)
+		"imports: { helloer: 'github.com/scratch/repo//ub/helloer' }\n")
+	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]string{
-		{URL: "github.com/scratch/repo"}: "v0.3.0",
-	}, m.Requires)
+	assert.Equal(t, map[Dependency]bool{
+		{URL: "github.com/scratch/repo"}: true,
+	}, repos)
 }
 
-func TestManifestFromImportsNoRemoteDeps(t *testing.T) {
+func TestImportedReposNoRemoteDeps(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "main.ub"), "imports: { greeter: './greeter' }\n")
-	m, err := ManifestFromImports(root)
+	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
-	assert.Empty(t, m.Requires)
+	assert.Empty(t, repos)
 }
 
-func TestManifestFromImportsRejectsNonVersionRef(t *testing.T) {
+func TestImportedReposSkipsHiddenDirs(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "main.ub"),
-		"imports: { x: 'github.com/x/y//lib@main' }\n")
-	_, err := ManifestFromImports(root)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "needs a version tag")
-}
-
-func TestManifestFromImportsSkipsHiddenDirs(t *testing.T) {
-	root := t.TempDir()
-	writeUB(t, filepath.Join(root, "main.ub"),
-		"imports: { core: 'github.com/x/y//core@v1.0.0' }\n")
+		"imports: { core: 'github.com/x/y//core' }\n")
 	writeUB(t, filepath.Join(root, ".git", "hooks", "stray.ub"),
-		"imports: { bad: 'github.com/other/repo//lib@v9.9.9' }\n")
-	m, err := ManifestFromImports(root)
+		"imports: { bad: 'github.com/other/repo//lib' }\n")
+	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"}, m.Requires)
+	assert.Equal(t, map[Dependency]bool{{URL: "github.com/x/y"}: true}, repos)
 }
