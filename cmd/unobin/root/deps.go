@@ -96,12 +96,24 @@ func init() {
 	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd, depsGetCmd)
 }
 
+// projectRoot resolves the project root from a --path value. The path
+// normally names the factory source file, whose directory is the root,
+// but a directory works too: `unobin deps list -p mydir` and `-p mydir/`
+// both mean the project in mydir. Without this, filepath.Dir("mydir")
+// would treat mydir as a filename and return ".".
+func projectRoot(stackPath string) string {
+	if info, err := os.Stat(stackPath); err == nil && info.IsDir() {
+		return stackPath
+	}
+	return filepath.Dir(stackPath)
+}
+
 // runDepsSync rebuilds unobin.manifest and unobin.lock from the project's
 // imports: it collects the direct requirements into the manifest, selects
 // versions across the dependency graph, walks the imports to pin every
 // remote library, and writes both files at the project root.
 func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
-	root := filepath.Dir(cfg.stackPath)
+	root := projectRoot(cfg.stackPath)
 	manifest, err := deps.ManifestFromImports(root)
 	if err != nil {
 		return err
@@ -113,7 +125,7 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 // manifest, and re-pins. The query may be empty or "latest" (the highest
 // tag), an exact version, or a partial one (v1, v1.2).
 func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
-	root := filepath.Dir(cfg.stackPath)
+	root := projectRoot(cfg.stackPath)
 	dep, query, err := parseGetArg(arg)
 	if err != nil {
 		return err
@@ -193,7 +205,7 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(filepath.Dir(cfg.stackPath), cfg.replaceUnobin)
+	resolver, err := newDepsResolver(projectRoot(cfg.stackPath), cfg.replaceUnobin)
 	if err != nil {
 		return err
 	}
@@ -211,7 +223,7 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 // readProjectLock reads unobin.lock from the project rooted at the
 // directory of stackPath, with a clear error when it is missing.
 func readProjectLock(stackPath string) (*deps.Lock, error) {
-	lock, err := deps.ReadLock(os.DirFS(filepath.Dir(stackPath)))
+	lock, err := deps.ReadLock(os.DirFS(projectRoot(stackPath)))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first", deps.LockFileName)

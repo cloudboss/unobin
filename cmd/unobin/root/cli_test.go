@@ -164,6 +164,20 @@ func TestDepsList(t *testing.T) {
 		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)
 }
 
+func TestDepsListAcceptsDirectory(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	writeProjectLock(t, root)
+	want := "github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n"
+
+	out, err := runCommand(t, "deps", "list", "-p", root)
+	require.NoError(t, err)
+	require.Equal(t, want, out)
+
+	out, err = runCommand(t, "deps", "list", "-p", root+string(filepath.Separator))
+	require.NoError(t, err)
+	require.Equal(t, want, out)
+}
+
 func TestDepsListNoLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))
