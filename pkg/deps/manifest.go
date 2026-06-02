@@ -5,6 +5,7 @@ import (
 	"io/fs"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"golang.org/x/mod/semver"
 )
 
 // ManifestFileName is the standard filename for a factory's dependency
@@ -54,6 +55,10 @@ func ReadManifest(fsys fs.FS) (*Manifest, error) {
 			val, ok := req.Value.(*lang.StringLit)
 			if !ok {
 				continue
+			}
+			if !semver.IsValid(val.Value) {
+				return nil, fmt.Errorf("manifest: dependency %q: %q is not a valid version",
+					req.Key.String, val.Value)
 			}
 			m.Requires[dep] = val.Value
 		}

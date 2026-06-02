@@ -112,3 +112,12 @@ func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "repo URL must contain a host and a path")
 }
+
+func TestReadManifestRejectsBadFloor(t *testing.T) {
+	fsys := fstest.MapFS{
+		ManifestFileName: &fstest.MapFile{Data: []byte("requires: { 'github.com/x/y': 'latest' }\n")},
+	}
+	_, err := ReadManifest(fsys)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is not a valid version")
+}
