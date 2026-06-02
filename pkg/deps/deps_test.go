@@ -149,3 +149,47 @@ func TestManifestRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, m.Requires, got.Requires)
 }
+
+func TestReadManifestWithReplace(t *testing.T) {
+	fsys := fstest.MapFS{
+		ManifestFileName: &fstest.MapFile{Data: []byte(`
+requires: { 'github.com/x/y': 'v1.0.0' }
+replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
+`)},
+	}
+	m, err := ReadManifest(fsys)
+	require.NoError(t, err)
+	assert.Equal(t, map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"}, m.Requires)
+	assert.Equal(t, map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
+	}, m.Replace)
+}
+
+func TestEncodeManifestWithReplace(t *testing.T) {
+	m := &Manifest{
+		Requires: map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"},
+		Replace: map[Dependency]string{
+			{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
+		},
+	}
+	want := `requires: {
+  'github.com/x/y': 'v1.0.0'
+}
+replace: {
+  'github.com/cloudboss/unobin-library-aws': '../../../..'
+}
+`
+	assert.Equal(t, want, string(EncodeManifest(m)))
+}
+
+func TestReplaceRoundTrip(t *testing.T) {
+	m := &Manifest{
+		Requires: map[Dependency]string{{URL: "github.com/a/b"}: "v0.1.0"},
+		Replace:  map[Dependency]string{{URL: "github.com/c/d"}: "../local/d"},
+	}
+	fsys := fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: EncodeManifest(m)}}
+	got, err := ReadManifest(fsys)
+	require.NoError(t, err)
+	assert.Equal(t, m.Requires, got.Requires)
+	assert.Equal(t, m.Replace, got.Replace)
+}

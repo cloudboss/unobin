@@ -18,9 +18,13 @@ const ManifestFileName = "unobin.manifest"
 // Manifest is a parsed unobin.manifest. Requires maps each direct
 // dependency to the lowest version (a git tag) the factory accepts for
 // it; resolution may select a higher one to satisfy the whole set. The
-// factory's own version is its git tag, not recorded here.
+// factory's own version is its git tag, not recorded here. Replace maps a
+// dependency's URL to a local path: the resolver reads that dependency
+// from the path instead of fetching it, and the dependency needs no
+// floor or lock entry.
 type Manifest struct {
 	Requires map[Dependency]string
+	Replace  map[Dependency]string
 }
 
 // ReadManifest reads and parses unobin.manifest from fsys. A missing
@@ -41,27 +45,36 @@ func ReadManifest(fsys fs.FS) (*Manifest, error) {
 	return parseManifestBody(f)
 }
 
-// EncodeManifest renders a manifest as unobin.manifest source. The
-// requires entries are sorted by dependency id for stable diffs.
+// EncodeManifest renders a manifest as unobin.manifest source. Entries in
+// each block are sorted by dependency id for stable diffs. An empty
+// requires block is still written; an empty replace block is omitted.
 func EncodeManifest(m *Manifest) []byte {
-	byID := make(map[string]string, len(m.Requires))
-	ids := make([]string, 0, len(m.Requires))
-	for dep, version := range m.Requires {
+	var b strings.Builder
+	encodeManifestBlock(&b, "requires", m.Requires)
+	if len(m.Replace) > 0 {
+		encodeManifestBlock(&b, "replace", m.Replace)
+	}
+	return []byte(b.String())
+}
+
+func encodeManifestBlock(b *strings.Builder, name string, entries map[Dependency]string) {
+	byID := make(map[string]string, len(entries))
+	ids := make([]string, 0, len(entries))
+	for dep, val := range entries {
 		id := dep.String()
 		ids = append(ids, id)
-		byID[id] = version
+		byID[id] = val
 	}
 	sort.Strings(ids)
 	if len(ids) == 0 {
-		return []byte("requires: {}\n")
+		fmt.Fprintf(b, "%s: {}\n", name)
+		return
 	}
-	var b strings.Builder
-	b.WriteString("requires: {\n")
+	fmt.Fprintf(b, "%s: {\n", name)
 	for _, id := range ids {
-		fmt.Fprintf(&b, "  '%s': '%s'\n", id, byID[id])
+		fmt.Fprintf(b, "  '%s': '%s'\n", id, byID[id])
 	}
 	b.WriteString("}\n")
-	return []byte(b.String())
 }
 
 // WriteManifest serializes m and atomically replaces the file at path.
@@ -74,33 +87,60 @@ func WriteManifest(path string, m *Manifest) error {
 }
 
 func parseManifestBody(f *lang.File) (*Manifest, error) {
-	m := &Manifest{Requires: map[Dependency]string{}}
+	m := &Manifest{Requires: map[Dependency]string{}, Replace: map[Dependency]string{}}
 	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "requires" {
+		if fld.Key.Kind != lang.FieldIdent {
 			continue
 		}
 		obj, ok := fld.Value.(*lang.ObjectLit)
 		if !ok {
 			continue
 		}
-		for _, req := range obj.Fields {
-			if req.Key.Kind != lang.FieldString {
-				continue
-			}
-			dep, err := ParseDependency(req.Key.String)
-			if err != nil {
-				return nil, fmt.Errorf("manifest: %w", err)
-			}
-			val, ok := req.Value.(*lang.StringLit)
-			if !ok {
-				continue
-			}
-			if !semver.IsValid(val.Value) {
-				return nil, fmt.Errorf("manifest: dependency %q: %q is not a valid version",
-					req.Key.String, val.Value)
-			}
-			m.Requires[dep] = val.Value
+		var err error
+		switch fld.Key.Name {
+		case "requires":
+			m.Requires, err = parseManifestMap(obj, requireSemver)
+		case "replace":
+			m.Replace, err = parseManifestMap(obj, nil)
+		}
+		if err != nil {
+			return nil, err
 		}
 	}
 	return m, nil
+}
+
+// parseManifestMap reads a manifest block's entries into a map keyed by
+// dependency. checkValue, when non-nil, validates each value string.
+func parseManifestMap(
+	obj *lang.ObjectLit, checkValue func(id, val string) error,
+) (map[Dependency]string, error) {
+	out := map[Dependency]string{}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldString {
+			continue
+		}
+		dep, err := ParseDependency(fld.Key.String)
+		if err != nil {
+			return nil, fmt.Errorf("manifest: %w", err)
+		}
+		val, ok := fld.Value.(*lang.StringLit)
+		if !ok {
+			continue
+		}
+		if checkValue != nil {
+			if err := checkValue(fld.Key.String, val.Value); err != nil {
+				return nil, err
+			}
+		}
+		out[dep] = val.Value
+	}
+	return out, nil
+}
+
+func requireSemver(id, val string) error {
+	if !semver.IsValid(val) {
+		return fmt.Errorf("manifest: dependency %q: %q is not a valid version", id, val)
+	}
+	return nil
 }
