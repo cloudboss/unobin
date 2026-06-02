@@ -37,8 +37,47 @@ func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.1.0"}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/cloudboss/unobin//pkg/libraries/core": {
+			Kind: LockKindGo, Version: "v0.1.0", Commit: "c1",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsSkipsReplaced(t *testing.T) {
+	root := mapFS(map[string]string{
+		"main.ub": "imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n",
+	})
+	// The replaced repo resolves locally (no version), and it's a Go library.
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/cloudboss/unobin-library-aws", "", ""): goSrc("local"),
+	}}
+	replace := map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
+	}
+	// Empty selection: a replaced dependency needs no floor.
+	lock, err := LockFromImports(root, map[Dependency]string{}, r, replace)
+	require.NoError(t, err)
+	assert.Empty(t, lock.Deps)
+}
+
+func TestLockFromImportsReplacedUBLocksTransitive(t *testing.T) {
+	root := mapFS(map[string]string{
+		"main.ub": "imports: { mylib: 'github.com/me/mylib' }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/me/mylib", "", ""): ubSrc("local", "", map[string]string{
+			"resource-thing.ub": "imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }\n",
+		}),
+		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
+	}}
+	replace := map[Dependency]string{{URL: "github.com/me/mylib"}: "../mylib"}
+	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.1.0"}
+	lock, err := LockFromImports(root, sel, r, replace)
+	require.NoError(t, err)
+	// The replaced library is not locked; its transitive remote dep is.
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/cloudboss/unobin//pkg/libraries/core": {
 			Kind: LockKindGo, Version: "v0.1.0", Commit: "c1",
@@ -56,7 +95,7 @@ func TestLockFromImportsLibraryProject(t *testing.T) {
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): goSrc("c1"),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.1.0"}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
@@ -75,7 +114,7 @@ func TestLockFromImportsMultiLibraryRepo(t *testing.T) {
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.5.0"): goSrc("c1"),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.5.0"}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/cloudboss/unobin//pkg/libraries/local": {
@@ -98,7 +137,7 @@ func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 		{URL: "github.com/scratch/repo"}:     "v0.1.0",
 		{URL: "github.com/cloudboss/unobin"}: "v0.1.0",
 	}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
@@ -121,7 +160,7 @@ func TestLockFromImportsFollowsLocalWithoutLocking(t *testing.T) {
 		}),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.1.0"}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
@@ -138,7 +177,7 @@ func TestLockFromImportsDedups(t *testing.T) {
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c"),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Len(t, lock.Deps, 1)
 }
@@ -151,7 +190,7 @@ func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 		srcKey("github.com/x/y", "lib", "v2.0.0"): goSrc("c2"),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/x/y"}: "v2.0.0"}
-	lock, err := LockFromImports(root, sel, r)
+	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "v2.0.0", lock.Deps["github.com/x/y//lib"].Version)
 }
@@ -164,7 +203,7 @@ func TestLockFromImportsRejectsRepoWithoutFloor(t *testing.T) {
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c1"),
 	}}
 	// Empty selection: nothing covers github.com/x/y.
-	_, err := LockFromImports(root, map[Dependency]string{}, r)
+	_, err := LockFromImports(root, map[Dependency]string{}, r, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "github.com/x/y")
 	assert.Contains(t, err.Error(), "deps get")
@@ -186,7 +225,7 @@ func TestLockFromImportsDetectsCycle(t *testing.T) {
 		{URL: "github.com/x/a"}: "v1.0.0",
 		{URL: "github.com/x/b"}: "v1.0.0",
 	}
-	_, err := LockFromImports(root, sel, r)
+	_, err := LockFromImports(root, sel, r, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cycle")
 }

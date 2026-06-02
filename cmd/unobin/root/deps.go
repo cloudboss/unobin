@@ -178,9 +178,13 @@ func readManifestOrEmpty(root string) (*deps.Manifest, error) {
 func reconcileManifest(m *deps.Manifest, imported map[deps.Dependency]bool) error {
 	var missing []string
 	for dep := range imported {
-		if _, ok := m.Requires[dep]; !ok {
-			missing = append(missing, dep.String())
+		if _, ok := m.Requires[dep]; ok {
+			continue
 		}
+		if _, ok := m.Replace[dep]; ok {
+			continue // a replaced dependency reads from a local path, no floor
+		}
+		missing = append(missing, dep.String())
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
@@ -211,7 +215,7 @@ func parseGetArg(arg string) (deps.Dependency, string, error) {
 func resolveAndWrite(
 	cmd *cobra.Command, root string, manifest *deps.Manifest, replaceUnobin string,
 ) error {
-	resolver, err := newDepsResolver(root, replaceUnobin)
+	resolver, err := newDepsResolver(root, replaceUnobin, manifest.Replace)
 	if err != nil {
 		return err
 	}
@@ -219,7 +223,7 @@ func resolveAndWrite(
 	if err != nil {
 		return err
 	}
-	lock, err := deps.LockFromImports(os.DirFS(root), selection, resolver)
+	lock, err := deps.LockFromImports(os.DirFS(root), selection, resolver, manifest.Replace)
 	if err != nil {
 		return err
 	}
@@ -255,7 +259,7 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(projectRoot(cfg.stackPath), cfg.replaceUnobin)
+	resolver, err := newDepsResolver(projectRoot(cfg.stackPath), cfg.replaceUnobin, nil)
 	if err != nil {
 		return err
 	}
@@ -298,11 +302,22 @@ func runDepsClean(cmd *cobra.Command) error {
 	return nil
 }
 
-func newDepsResolver(root, replaceUnobin string) (resolve.Resolver, error) {
+func newDepsResolver(
+	root, replaceUnobin string, replace map[deps.Dependency]string,
+) (resolve.Resolver, error) {
 	resolver, err := newCompileResolver(root)
 	if err != nil {
 		return nil, err
 	}
+	return wrapReplaces(resolver, root, replaceUnobin, replace)
+}
+
+// wrapReplaces wraps resolver so that --replace-unobin and each manifest
+// replace entry resolve to a local directory instead of fetching. Replace
+// paths are taken relative to the project root.
+func wrapReplaces(
+	resolver resolve.Resolver, root, replaceUnobin string, replace map[deps.Dependency]string,
+) (resolve.Resolver, error) {
 	if replaceUnobin != "" {
 		abs, err := filepath.Abs(replaceUnobin)
 		if err != nil {
@@ -313,6 +328,17 @@ func newDepsResolver(root, replaceUnobin string) (resolve.Resolver, error) {
 			local:   abs,
 			wrapped: resolver,
 		}
+	}
+	for dep, path := range replace {
+		target := path
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(root, target)
+		}
+		abs, err := filepath.Abs(target)
+		if err != nil {
+			return nil, err
+		}
+		resolver = &replaceResolver{prefix: dep.URL, local: abs, wrapped: resolver}
 	}
 	return resolver, nil
 }

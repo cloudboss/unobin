@@ -21,13 +21,17 @@ import (
 // repository's selected version; a repository the selection does not cover
 // is an error (it is imported but no floor reached it). Kind and content
 // hash come from the fetched library subtree, so a Go library and a UB
-// library in the same repo are recorded distinctly.
+// library in the same repo are recorded distinctly. A repository named in
+// replace is read from its local path and never locked; a replaced UB
+// library's own remote dependencies are still walked.
 func LockFromImports(
 	rootFS fs.FS, selection map[Dependency]string, resolver resolve.Resolver,
+	replace map[Dependency]string,
 ) (*Lock, error) {
 	w := &lockWalker{
 		resolver:   resolver,
 		selection:  selection,
+		replace:    replace,
 		lock:       NewLock(),
 		inProgress: map[string]bool{},
 	}
@@ -92,6 +96,7 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 type lockWalker struct {
 	resolver   resolve.Resolver
 	selection  map[Dependency]string
+	replace    map[Dependency]string
 	lock       *Lock
 	inProgress map[string]bool
 }
@@ -134,6 +139,9 @@ func (w *lockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.Source) e
 }
 
 func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
+	if _, replaced := w.replace[Dependency{URL: r.URL}]; replaced {
+		return w.walkReplaced(r)
+	}
 	id := r.URL
 	if r.Subdir != "" {
 		id += "//" + r.Subdir
@@ -178,6 +186,21 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	// Recorded after recursing, so a back-edge into a library still being
 	// walked is caught as a cycle rather than treated as already done.
 	w.lock.Deps[id] = entry
+	return nil
+}
+
+// walkReplaced handles an import whose repository the manifest replaces
+// with a local path. The resolver serves it from disk; like a local
+// import it is not locked (its content is whatever is on disk), but a UB
+// library's own remote dependencies are still walked and locked.
+func (w *lockWalker) walkReplaced(r *resolve.RemoteImport) error {
+	src, err := w.resolver.Resolve(&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir})
+	if err != nil {
+		return err
+	}
+	if resolve.IsUBLibrary(src) {
+		return w.walkBodies(src)
+	}
 	return nil
 }
 

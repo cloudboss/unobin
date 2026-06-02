@@ -163,6 +163,28 @@ func TestDepsSyncLibraryProject(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestDepsSyncWithReplace(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "factory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
+
+	// A local Go library the manifest replaces in (no remote, no floor).
+	awsDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
+		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
+			awsDir+"' }\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Empty(t, lock.Deps, "a replaced dependency is not locked")
+}
+
 func TestDepsSyncRejectsMissingFloor(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
