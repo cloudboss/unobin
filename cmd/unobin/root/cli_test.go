@@ -389,6 +389,22 @@ func TestCompileUsesLockVersion(t *testing.T) {
 	require.Contains(t, string(goMod), "github.com/x/core/lib v1.0.0")
 }
 
+// TestCompileRequiresLockedVersion compiles a factory whose import is
+// versionless and has no unobin.lock. Compile never selects a version on
+// its own, so it must fail and point at deps sync.
+func TestCompileRequiresLockedVersion(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "github.com/x/core")
+	require.Contains(t, err.Error(), "deps sync")
+}
+
 // TestCompileBuildStampsVersion compiles a minimal factory with --build
 // and then runs the resulting binary's `version` subcommand to confirm
 // that the factory version and content-revision were actually written

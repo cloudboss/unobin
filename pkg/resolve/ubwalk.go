@@ -93,9 +93,9 @@ type UBVisitor interface {
 //
 // versions maps a repository URL to the version selected for it in the
 // lock; every remote import to a repository in the map is walked at that
-// version, overriding any version on the import string. A nil or empty
-// map walks each import at its own version, the behavior before a lock is
-// consulted.
+// version, overriding any version on the import string. A remote import
+// left without a version (absent from the map and unpinned on the import
+// string) is an error: the lock must supply it.
 func WalkUB(
 	refs map[string]ImportRef, resolver Resolver, v UBVisitor, versions map[string]string,
 ) ([]Resolution, error) {
@@ -152,6 +152,10 @@ func (w *ubWalker) walkRefs(refs map[string]ImportRef, repo string) ([]Resolutio
 
 func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution, error) {
 	ref = w.lockedVersion(ref)
+	if r, ok := ref.(*RemoteImport); ok && r.Version == "" {
+		return Resolution{}, fmt.Errorf(
+			"import %q: no version for %s in unobin.lock; run `unobin deps sync`", alias, r.URL)
+	}
 	if r, ok := crossRepoInternal(repo, ref); ok {
 		return Resolution{}, internalImportError(alias, r)
 	}
