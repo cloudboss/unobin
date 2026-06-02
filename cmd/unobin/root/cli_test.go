@@ -197,6 +197,19 @@ func TestDepsVerifyDetectsMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), "hash mismatch")
 }
 
+func TestDepsClean(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
+	imports := filepath.Join(cache, "unobin", "imports", "github.com", "x", "y")
+	require.NoError(t, os.MkdirAll(imports, 0o755))
+
+	out, err := runCommand(t, "deps", "clean")
+	require.NoError(t, err)
+	require.Contains(t, out, "Removed the import cache")
+	_, statErr := os.Stat(filepath.Join(cache, "unobin", "imports"))
+	require.True(t, os.IsNotExist(statErr))
+}
+
 func TestCompileToStdout(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

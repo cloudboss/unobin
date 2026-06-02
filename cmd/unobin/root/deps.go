@@ -46,6 +46,14 @@ var (
 			return runDepsVerify(cmd, depsVerifyCfg)
 		},
 	}
+
+	depsCleanCmd = &cobra.Command{
+		Use:   "clean",
+		Short: "Remove the cached dependency sources",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDepsClean(cmd)
+		},
+	}
 )
 
 type depsSyncConfig struct {
@@ -65,7 +73,7 @@ func init() {
 	depsListCmd.Flags().StringVarP(&depsListCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
 	depsVerifyCmd.Flags().StringVarP(&depsVerifyCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
 	depsVerifyCmd.Flags().StringVar(&depsVerifyCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
-	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd)
+	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd)
 }
 
 // runDepsSync rebuilds unobin.manifest and unobin.lock from the project's
@@ -149,6 +157,21 @@ func readProjectLock(stackPath string) (*deps.Lock, error) {
 		return nil, err
 	}
 	return lock, nil
+}
+
+// runDepsClean removes the cached dependency sources, which are shared
+// across projects.
+func runDepsClean(cmd *cobra.Command) error {
+	resolver, err := resolve.NewRemoteResolver()
+	if err != nil {
+		return err
+	}
+	dir, err := resolver.CleanImports()
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Removed the import cache at %s\n", dir)
+	return nil
 }
 
 func newDepsResolver(root, replaceUnobin string) (resolve.Resolver, error) {

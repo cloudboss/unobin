@@ -94,7 +94,23 @@ func (r *RemoteResolver) fetchInto(ctx context.Context, url, ref, dir string) er
 }
 
 func (r *RemoteResolver) cacheDir(url, commit string) string {
-	return filepath.Join(r.CacheRoot, "imports", normalizeURL(url), commit)
+	return filepath.Join(r.ImportsDir(), normalizeURL(url), commit)
+}
+
+// ImportsDir is the directory holding cached import sources, a sibling of
+// the toolchain cache under CacheRoot.
+func (r *RemoteResolver) ImportsDir() string {
+	return filepath.Join(r.CacheRoot, "imports")
+}
+
+// CleanImports removes the cached import sources and returns the directory
+// that was removed. It is a no-op when nothing is cached.
+func (r *RemoteResolver) CleanImports() (string, error) {
+	dir := r.ImportsDir()
+	if err := os.RemoveAll(dir); err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 func dirExists(p string) bool {
