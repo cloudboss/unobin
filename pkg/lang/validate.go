@@ -43,6 +43,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	},
 	FileManifest: {
 		"requires": {},
+		"replace":  {},
 	},
 }
 
@@ -555,6 +556,9 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["requires"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateManifestRequires(obj))
 		}
+		if obj, ok := blocks["replace"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateManifestReplace(obj))
+		}
 	}
 	return errs
 }
@@ -855,26 +859,41 @@ func ValidateImports(block *ObjectLit) *ErrorList {
 // `//subdir`) to a quoted version floor. The id and version strings are
 // not parsed here; resolution validates the URL and the semver floor.
 func ValidateManifestRequires(block *ObjectLit) *ErrorList {
+	return validateManifestEntries(block, "requires", "version")
+}
+
+// ValidateManifestReplace checks a manifest `replace:` block: every entry
+// binds a quoted dependency id (a repo URL) to a quoted local path. The
+// id and path strings are not parsed here; resolution validates the URL
+// and that the path holds a library.
+func ValidateManifestReplace(block *ObjectLit) *ErrorList {
+	return validateManifestEntries(block, "replace", "local path")
+}
+
+// validateManifestEntries checks a manifest block whose entries bind a
+// quoted dependency id to a quoted string value. blockName names the block
+// and valueDesc names the value in error messages.
+func validateManifestEntries(block *ObjectLit, blockName, valueDesc string) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != FieldString {
 			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"requires: dependency id must be a quoted string, got bare identifier %q",
-				fld.Key.Name)
+				"%s: dependency id must be a quoted string, got bare identifier %q",
+				blockName, fld.Key.Name)
 			continue
 		}
 		id := fld.Key.String
 		if prev, dup := seen[id]; dup {
 			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"requires: duplicate dependency %q (first defined at %s)", id, prev)
+				"%s: duplicate dependency %q (first defined at %s)", blockName, id, prev)
 			continue
 		}
 		seen[id] = fld.Key.S.Start
 		if _, ok := fld.Value.(*StringLit); !ok {
 			errs.Addf(ErrSchema, fld.Value.Span().Start,
-				"requires: dependency %q: version must be a quoted string, got %s",
-				id, exprKind(fld.Value))
+				"%s: dependency %q: %s must be a quoted string, got %s",
+				blockName, id, valueDesc, exprKind(fld.Value))
 		}
 	}
 	return errs

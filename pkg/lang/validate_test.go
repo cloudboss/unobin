@@ -181,6 +181,23 @@ requires: {
 `,
 			wantErr: "duplicate dependency",
 		},
+		{
+			name: "replace maps a url to a local path",
+			src: `
+requires: { 'github.com/x/y': 'v1.0.0' }
+replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
+`,
+		},
+		{
+			name:    "replace key is a bare identifier",
+			src:     "replace: { aws: '../aws' }\n",
+			wantErr: "replace: dependency id must be a quoted string",
+		},
+		{
+			name:    "replace value is not a string",
+			src:     "replace: { 'github.com/x/y': 1 }\n",
+			wantErr: "replace: dependency \"github.com/x/y\": local path must be a quoted string",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
