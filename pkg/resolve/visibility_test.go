@@ -101,7 +101,7 @@ func TestWalkUBRefusesCrossRepoInternalImport(t *testing.T) {
 func TestWalkUBAllowsSameRepoInternalImport(t *testing.T) {
 	aSrc := newUBSource(t, map[string]string{
 		"resource-widget.ub": `description: 'widget'
-imports: { shared: 'github.com/x/y//internal/shared@v1' }
+imports: { shared: 'github.com/x/y//internal/shared' }
 inputs: { x: { type: string } }
 `,
 	})
@@ -113,10 +113,10 @@ inputs: { x: { type: string } }
 		"github.com/x/y//internal/shared@v1": sharedSrc,
 	}}
 	refs := map[string]ImportRef{
-		"a": &RemoteImport{URL: "github.com/x/y", Subdir: "pkg/a", Version: "v1"},
+		"a": &RemoteImport{URL: "github.com/x/y", Subdir: "pkg/a"},
 	}
 	v := newRecordingVisitor()
-	_, err := WalkUB(refs, r, v, nil)
+	_, err := WalkUB(refs, r, v, map[string]string{"github.com/x/y": "v1"})
 	require.NoError(t, err)
 	// The internal library must actually be walked, not skipped: a same-repo
 	// importer reaches it and the walk proceeds into it. shared is recorded
@@ -130,7 +130,7 @@ inputs: { x: { type: string } }
 func TestWalkUBRefusesInternalImportInCompositeBody(t *testing.T) {
 	aSrc := newUBSource(t, map[string]string{
 		"resource-widget.ub": `description: 'widget'
-imports: { secret: 'github.com/other/z//internal/secret@v1' }
+imports: { secret: 'github.com/other/z//internal/secret' }
 inputs: { x: { type: string } }
 `,
 	})
@@ -138,9 +138,13 @@ inputs: { x: { type: string } }
 		"github.com/x/y//pkg/a@v1": aSrc,
 	}}
 	refs := map[string]ImportRef{
-		"a": &RemoteImport{URL: "github.com/x/y", Subdir: "pkg/a", Version: "v1"},
+		"a": &RemoteImport{URL: "github.com/x/y", Subdir: "pkg/a"},
 	}
-	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
+	versions := map[string]string{
+		"github.com/x/y":     "v1",
+		"github.com/other/z": "v1",
+	}
+	_, err := WalkUB(refs, r, newRecordingVisitor(), versions)
 	require.EqualError(t, err, `import "a": composite "widget": `+
 		`import "secret": github.com/other/z//internal/secret `+
 		`is internal to github.com/other/z and cannot be imported from another repository`)

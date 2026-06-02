@@ -27,8 +27,8 @@ constraints: [
 ]
 
 imports: {
-  aws: 'github.com/cloudboss/unobin-libraries/aws@v0.5.0'
-  net: 'github.com/me/libraries/network@v1.2.3'
+  aws: 'github.com/cloudboss/unobin-libraries/aws'
+  net: 'github.com/me/libraries/network'
 }
 
 outputs: {

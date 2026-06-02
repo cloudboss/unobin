@@ -21,10 +21,9 @@ type LocalImport struct {
 
 func (*LocalImport) isImportRef() {}
 
-// RemoteImport names an importable repo by host + owner/name, optional
-// subdir within the repo, and a version constraint. Constraint format is
-// not parsed here (semver tags, branch names, etc. all flow through as
-// strings) and the resolver enforces what's allowed.
+// RemoteImport names an importable repo by host + owner/name and an
+// optional subdir within the repo. The import string carries no version;
+// Version is filled in from unobin.lock as the walk descends.
 type RemoteImport struct {
 	URL     string
 	Subdir  string
@@ -37,11 +36,10 @@ func (*RemoteImport) isImportRef() {}
 var ErrEmptyImportRef = errors.New("empty import reference")
 
 // ParseImportRef parses a string from an `imports:` block. Local imports
-// start with `.` or `/`; remote imports name a repo URL with an optional
-// `@version` suffix (a versionless import takes its version from
-// unobin.lock) and use the Terraform-style `//` separator to denote a
-// subdirectory within the repo. Without `//` the whole path before `@`
-// is the repo URL and the import has no subdir.
+// start with `.` or `/`; remote imports name a repo URL and use the
+// Terraform-style `//` separator to denote a subdirectory within the
+// repo. Without `//` the whole string is the repo URL and the import has
+// no subdir.
 func ParseImportRef(raw string) (ImportRef, error) {
 	if raw == "" {
 		return nil, ErrEmptyImportRef
@@ -64,30 +62,33 @@ func isLocalPath(s string) bool {
 }
 
 func parseRemote(raw string) (*RemoteImport, error) {
-	body, version, ok := splitVersion(raw)
-	if !ok {
-		// A versionless import: the version comes from unobin.lock, not
-		// the import string.
-		body = raw
-	} else if version == "" {
-		return nil, fmt.Errorf("import %q: empty version after `@`", raw)
+	for _, r := range raw {
+		if !validImportRune(r) {
+			return nil, fmt.Errorf("import %q: invalid character %q", raw, r)
+		}
 	}
-	url, subdir, err := SplitRepoSubdir(body)
+	url, subdir, err := SplitRepoSubdir(raw)
 	if err != nil {
 		return nil, err
 	}
 	if !strings.ContainsRune(url, '/') {
 		return nil, fmt.Errorf("import %q: repo URL must contain a host and a path", raw)
 	}
-	return &RemoteImport{URL: url, Subdir: subdir, Version: version}, nil
+	return &RemoteImport{URL: url, Subdir: subdir}, nil
 }
 
-func splitVersion(s string) (body, version string, ok bool) {
-	at := strings.LastIndex(s, "@")
-	if at < 0 {
-		return "", "", false
+// validImportRune reports whether r may appear in a remote import string:
+// the letters, digits, and punctuation that make up a host, a path, and
+// the `//` subdir separator.
+func validImportRune(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		return true
+	case r == '.', r == '-', r == '_', r == '/':
+		return true
+	default:
+		return false
 	}
-	return s[:at], s[at+1:], true
 }
 
 // SplitRepoSubdir separates a repo URL from its optional subdir at the

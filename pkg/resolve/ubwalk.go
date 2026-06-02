@@ -92,10 +92,9 @@ type UBVisitor interface {
 // through UB libraries are reported as errors.
 //
 // versions maps a repository URL to the version selected for it in the
-// lock; every remote import to a repository in the map is walked at that
-// version, overriding any version on the import string. A remote import
-// left without a version (absent from the map and unpinned on the import
-// string) is an error: the lock must supply it.
+// lock; every remote import is walked at its repository's selected
+// version. A remote import whose repository is not in the map has no
+// version and is an error: the lock must supply it.
 func WalkUB(
 	refs map[string]ImportRef, resolver Resolver, v UBVisitor, versions map[string]string,
 ) ([]Resolution, error) {
@@ -117,8 +116,8 @@ type ubWalker struct {
 	inProgress map[string]bool
 }
 
-// lockedVersion returns ref with its version replaced by the lock's
-// selection for its repository, when the map has one. Local imports and
+// lockedVersion returns ref with the version the lock selected for its
+// repository filled in, when the map has one. Local imports and
 // repositories absent from the map are returned unchanged.
 func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
 	r, ok := ref.(*RemoteImport)

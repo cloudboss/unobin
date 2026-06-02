@@ -16,11 +16,10 @@ import (
 // files, and through remote UB libraries their imports too. Each remote
 // library becomes one lock entry, keyed by `repo//subdir`; local imports
 // are followed but never locked. A library's version is its repository's
-// selected version, falling back to the version pinned on the import when
-// the selection does not cover that repository (a transitive dependency
-// not yet on a manifest). Kind and content hash come from the fetched
-// library subtree, so a Go library and a UB library in the same repo are
-// recorded distinctly.
+// selected version; a repository the selection does not cover is an error
+// (it is imported but no floor reached it). Kind and content hash come
+// from the fetched library subtree, so a Go library and a UB library in
+// the same repo are recorded distinctly.
 func LockFromImports(
 	rootFS fs.FS, selection map[Dependency]string, resolver resolve.Resolver,
 ) (*Lock, error) {
@@ -106,9 +105,12 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	defer delete(w.inProgress, id)
 
 	repo := Dependency{URL: r.URL}
-	version := w.selection[repo]
-	if version == "" {
-		version = r.Version
+	version, ok := w.selection[repo]
+	if !ok {
+		return fmt.Errorf(
+			"%s is imported but has no version floor in %s; "+
+				"add one with `unobin deps get %s@<version>`",
+			r.URL, ManifestFileName, r.URL)
 	}
 	src, err := w.resolver.Resolve(
 		&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir, Version: repo.Tag(version)})

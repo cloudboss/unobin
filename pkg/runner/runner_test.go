@@ -427,7 +427,7 @@ inputs: {
   subnets:  { type: list(string) }
 }
 imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
 }
 actions: {
   core: {
@@ -502,7 +502,7 @@ inputs: {
   size: { type: optional(integer, 3) }
 }
 imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
 }
 actions: {
   core: {

@@ -200,7 +200,7 @@ requires: {
 
 func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
 	src := `
-imports: { core: 'github.com/x/core@v0.1.0' }
+imports: { core: 'github.com/x/core' }
 outputs: {
   shout: { value: lib.upper(var.name) }
 }
@@ -216,7 +216,7 @@ outputs: {
 
 func TestValidateAcceptsCallToImportedModule(t *testing.T) {
 	src := `
-imports: { lib: 'github.com/x/lib@v0.1.0' }
+imports: { lib: 'github.com/x/lib' }
 outputs: {
   shout: { value: lib.upper(var.name) }
 }
@@ -229,7 +229,7 @@ outputs: {
 
 func TestValidateChecksCallsInNestedExpressions(t *testing.T) {
 	src := `
-imports: { core: 'github.com/x/core@v0.1.0' }
+imports: { core: 'github.com/x/core' }
 resources: {
   core: {
     thing: {
@@ -279,7 +279,7 @@ func TestValidateCallsTypePositions(t *testing.T) {
 		{"tuple elements", `inputs: { a: { type: tuple([string, integer]) } }`, ok},
 		{
 			"qualified call in optional default",
-			"imports: { core: 'github.com/x/core@v0.1.0' }\n" +
+			"imports: { core: 'github.com/x/core' }\n" +
 				"inputs: { a: { type: optional(string, core.format('hi')) } }",
 			ok,
 		},
@@ -818,9 +818,9 @@ func parseObjectBlock(t *testing.T, src, key string) *ObjectLit {
 func TestValidateImportsHappy(t *testing.T) {
 	src := `
 imports: {
-  aws:   'github.com/cloudboss/unobin-libraries/aws@v0.5.0'
-  net:   'github.com/me/libraries/network@v1.2.3'
-  utils: 'github.com/me/utils@v0.3.0'
+  aws:   'github.com/cloudboss/unobin-libraries/aws'
+  net:   'github.com/me/libraries/network'
+  utils: 'github.com/me/utils'
   local: './local-libraries/foo'
 }
 `
@@ -1049,7 +1049,7 @@ constraints: [
   { kind: required-together, fields: [region] },
 ]
 imports: {
-  aws: 'github.com/x/y@v1.0.0'
+  aws: 'github.com/x/y'
 }
 outputs: {
   out: { value: var.region }

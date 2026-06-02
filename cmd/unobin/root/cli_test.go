@@ -286,6 +286,19 @@ func goLibRemotes(version, commit string) map[string]*resolve.Source {
 	}
 }
 
+// writeCompileLock writes a unobin.lock into dir pinning each id (a
+// repo//subdir or bare Go path) to a version. Compile takes versions from
+// the lock, so a fixture with versionless imports needs one. Each entry is
+// recorded as a Go library, which is all compile reads from the lock.
+func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
+	t.Helper()
+	lock := deps.NewLock()
+	for id, version := range pins {
+		lock.Deps[id] = &deps.LockedDep{Kind: deps.LockKindGo, Version: version, Commit: "c"}
+	}
+	require.NoError(t, deps.WriteLock(filepath.Join(dir, deps.LockFileName), lock))
+}
+
 func TestDepsGetExactVersion(t *testing.T) {
 	root := writeGetProject(t)
 	out, err := runCommandWithRemotes(t, goLibRemotes("v1.2.0", "c12"),
@@ -318,13 +331,16 @@ func TestCompileToStdout(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	src := `
 imports: {
-  core: 'github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin/pkg/libraries/core'
 }
 actions: {
   core: { command: { hi: { argv: ['echo', 'hi'] } } }
 }
 `
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
+	})
 
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.NoError(t, err)
@@ -341,10 +357,13 @@ func TestCompileWriteOut(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	src := `
 imports: {
-  core: 'github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin/pkg/libraries/core'
 }
 `
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
+	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", outDir,
@@ -519,7 +538,7 @@ func TestCompileUnimportedResourceModuleFails(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 resources: {
   greeter: {
@@ -529,6 +548,9 @@ resources: {
   }
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+	})
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.Error(t, err)
@@ -542,7 +564,7 @@ func TestCompileUnknownTrailingFieldFails(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  fake: 'example.com/fake@v0.1.0'
+  fake: 'example.com/fake'
 }
 resources: {
   fake: {
@@ -555,6 +577,7 @@ outputs: {
   bad: { value: resource.fake.thing.x.nonexistent }
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{"example.com/fake": "v0.1.0"})
 
 	remotes := map[string]*resolve.Source{
 		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: goModDir},
@@ -573,7 +596,7 @@ func TestCompileAcceptsKnownTrailingField(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  fake: 'example.com/fake@v0.1.0'
+  fake: 'example.com/fake'
 }
 resources: {
   fake: {
@@ -586,6 +609,7 @@ outputs: {
   good: { value: resource.fake.thing.x.id }
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{"example.com/fake": "v0.1.0"})
 
 	remotes := map[string]*resolve.Source{
 		"example.com/fake@v0.1.0": {Commit: "fakecommit", Path: goModDir},
@@ -651,7 +675,7 @@ type Thing struct{}
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  partial: 'example.com/partial@v0.1.0'
+  partial: 'example.com/partial'
 }
 resources: {
   partial: {
@@ -661,6 +685,7 @@ resources: {
   }
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{"example.com/partial": "v0.1.0"})
 
 	remotes := map[string]*resolve.Source{
 		"example.com/partial@v0.1.0": {Commit: "fakecommit", Path: goModDir},
@@ -686,9 +711,10 @@ func TestCompileMalformedGoModuleFails(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  broken: 'example.com/broken@v0.1.0'
+  broken: 'example.com/broken'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{"example.com/broken": "v0.1.0"})
 
 	remotes := map[string]*resolve.Source{
 		"example.com/broken@v0.1.0": {Commit: "fakecommit", Path: goModDir},
@@ -905,9 +931,12 @@ resources: {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  net: 'github.com/example/net//libraries/network@v1'
+  net: 'github.com/example/net//libraries/network'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/example/net//libraries/network": "v1",
+	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	remotes := map[string]*resolve.Source{
@@ -944,7 +973,7 @@ func TestCompileNestedUBLibraries(t *testing.T) {
 description: 'inner hello'
 inputs: { path: { type: string } }
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 resources: {
   local: { file: { this: { path: var.path, content: 'hi' } } }
@@ -958,7 +987,7 @@ outputs: { path: { value: resource.local.file.this.path } }
 description: 'outer greeting'
 inputs: { path: { type: string } }
 imports: {
-  inner: 'github.com/example/inner//ub/inner@v1'
+  inner: 'github.com/example/inner//ub/inner'
 }
 resources: {
   inner: { hello: { x: { path: var.path } } }
@@ -971,9 +1000,14 @@ outputs: { path: { value: resource.inner.hello.x.path } }
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  outer: 'github.com/example/outer//ub/outer@v1'
+  outer: 'github.com/example/outer//ub/outer'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/example/outer//ub/outer":               "v1",
+		"github.com/example/inner//ub/inner":               "v1",
+		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	remotes := map[string]*resolve.Source{
@@ -1031,14 +1065,14 @@ func TestCompileDetectsUBImportCycle(t *testing.T) {
 	aDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(aDir, "resource-type-a.ub"), []byte(`
 description: 'a body'
-imports: { b: 'github.com/example/b//ub/b@v1' }
+imports: { b: 'github.com/example/b//ub/b' }
 resources: { b: { type-b: { y: {} } } }
 `), 0o644))
 
 	bDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(bDir, "resource-type-b.ub"), []byte(`
 description: 'b body'
-imports: { a: 'github.com/example/a//ub/a@v1' }
+imports: { a: 'github.com/example/a//ub/a' }
 resources: { a: { type-a: { z: {} } } }
 `), 0o644))
 
@@ -1047,9 +1081,13 @@ resources: { a: { type-a: { z: {} } } }
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  a: 'github.com/example/a//ub/a@v1'
+  a: 'github.com/example/a//ub/a'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/example/a//ub/a": "v1",
+		"github.com/example/b//ub/b": "v1",
+	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	remotes := map[string]*resolve.Source{
@@ -1079,7 +1117,7 @@ outputs: { path: { value: resource.local.file.x.path } }
 description: 'wrap greeting'
 inputs: { path: { type: string } }
 imports: {
-  inside: 'github.com/example/shared//ub/shared@v1'
+  inside: 'github.com/example/shared//ub/shared'
 }
 resources: { inside: { hello: { x: { path: var.path } } } }
 outputs: { path: { value: resource.inside.hello.x.path } }
@@ -1092,10 +1130,14 @@ outputs: { path: { value: resource.inside.hello.x.path } }
 	// alias "inside" for the same URL.
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  shared: 'github.com/example/shared//ub/shared@v1'
-  wrap:   'github.com/example/wrap//ub/wrap@v1'
+  shared: 'github.com/example/shared//ub/shared'
+  wrap:   'github.com/example/wrap//ub/wrap'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/example/shared//ub/shared": "v1",
+		"github.com/example/wrap//ub/wrap":     "v1",
+	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	remotes := map[string]*resolve.Source{
@@ -1152,9 +1194,12 @@ resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } 
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  some: 'github.com/cloudboss/unobin//some-lib@v0.1.0'
+  some: 'github.com/cloudboss/unobin//some-lib'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//some-lib": "v0.1.0",
+	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommand(t, "compile",
@@ -1181,9 +1226,12 @@ func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+	})
 
 	out, err := runCommand(t, "compile",
 		"-p", stackPath, "-o", "-",
@@ -1199,9 +1247,12 @@ func TestCompileReplaceUnobinMissingPath(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+	})
 
 	_, err := runCommand(t, "compile",
 		"-p", stackPath, "-o", "-",
@@ -1216,9 +1267,12 @@ func TestCompileWithRemoteGoSubpath(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 `), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+	})
 
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
 		"--version", "v0.1.0")

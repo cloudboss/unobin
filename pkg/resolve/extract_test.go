@@ -17,8 +17,8 @@ func parseStack(t *testing.T, src string) *lang.File {
 func TestExtractImportsHappy(t *testing.T) {
 	f := parseStack(t, `
 imports: {
-  aws:   'github.com/x/y@v1.0.0'
-  net:   'github.com/x/y//net@v1.0.0'
+  aws:   'github.com/x/y'
+  net:   'github.com/x/y//net'
   local: './local-lib'
 }
 `)
@@ -29,7 +29,7 @@ imports: {
 	aws := refs["aws"].(*RemoteImport)
 	require.Equal(t, "github.com/x/y", aws.URL)
 	require.Equal(t, "", aws.Subdir)
-	require.Equal(t, "v1.0.0", aws.Version)
+	require.Empty(t, aws.Version)
 
 	net := refs["net"].(*RemoteImport)
 	require.Equal(t, "net", net.Subdir)
@@ -62,9 +62,9 @@ func TestExtractImportsSkipsShapeErrors(t *testing.T) {
 	// not by ExtractImports.
 	f := parseStack(t, `
 imports: {
-  ok:    'github.com/x/y@v1.0.0'
+  ok:    'github.com/x/y'
   bad:   42
-  @bogus: 'github.com/x/z@v1.0.0'
+  @bogus: 'github.com/x/z'
 }
 `)
 	refs, errs := ExtractImports(f)

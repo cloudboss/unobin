@@ -21,7 +21,7 @@ func TestPrintGraphPlain(t *testing.T) {
 	stackPath := writeStack(t, dir, `
 inputs: { msg: { type: string } }
 imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
 }
 actions: {
   core: {
@@ -32,6 +32,9 @@ actions: {
   }
 }
 `)
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/core": "v0.1.0",
+	})
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
@@ -49,7 +52,7 @@ func TestPrintGraphDOT(t *testing.T) {
 	stackPath := writeStack(t, dir, `
 inputs: { msg: { type: string } }
 imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0'
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
 }
 actions: {
   core: {
@@ -60,6 +63,9 @@ actions: {
   }
 }
 `)
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/core": "v0.1.0",
+	})
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath, "--format", "dot")
 	require.NoError(t, err)
@@ -113,7 +119,7 @@ inputs: {
 }
 
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0'
+  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
 
 resources: {
@@ -148,6 +154,9 @@ resources: {
   }
 }
 `)
+	writeCompileLock(t, stackDir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+	})
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)

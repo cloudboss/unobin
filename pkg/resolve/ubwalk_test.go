@@ -92,18 +92,22 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 func TestWalkUBRecordsUBLibrary(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"resource-greeter.ub": `description: 'g'
-imports: { core: 'github.com/x/unobin//core@v0.1.0' }
+imports: { core: 'github.com/x/unobin//core' }
 inputs: { name: { type: string } }
 `,
 	})
 	refs := map[string]ImportRef{
-		"hello": &RemoteImport{URL: "github.com/x/hello", Version: "v1.0.0"},
+		"hello": &RemoteImport{URL: "github.com/x/hello"},
 	}
 	r := &fakeUBResolver{remotes: map[string]*Source{
 		"github.com/x/hello@v1.0.0": src,
 	}}
+	versions := map[string]string{
+		"github.com/x/hello":  "v1.0.0",
+		"github.com/x/unobin": "v0.1.0",
+	}
 	v := newRecordingVisitor()
-	top, err := WalkUB(refs, r, v, nil)
+	top, err := WalkUB(refs, r, v, versions)
 	require.NoError(t, err)
 	require.Len(t, top, 1)
 	require.Equal(t, ResolutionUB, top[0].Kind)
@@ -144,13 +148,13 @@ func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 func TestWalkUBDetectsCycle(t *testing.T) {
 	a := newUBSource(t, map[string]string{
 		"resource-thing.ub": `description: 't'
-imports: { b: 'github.com/x/b@v1' }
+imports: { b: 'github.com/x/b' }
 inputs: { x: { type: string } }
 `,
 	})
 	b := newUBSource(t, map[string]string{
 		"resource-other.ub": `description: 'o'
-imports: { a: 'github.com/x/a@v1' }
+imports: { a: 'github.com/x/a' }
 inputs: { y: { type: string } }
 `,
 	})
@@ -159,9 +163,13 @@ inputs: { y: { type: string } }
 		"github.com/x/b@v1": b,
 	}}
 	refs := map[string]ImportRef{
-		"a": &RemoteImport{URL: "github.com/x/a", Version: "v1"},
+		"a": &RemoteImport{URL: "github.com/x/a"},
 	}
-	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
+	versions := map[string]string{
+		"github.com/x/a": "v1",
+		"github.com/x/b": "v1",
+	}
+	_, err := WalkUB(refs, r, newRecordingVisitor(), versions)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "import cycle")
 }
