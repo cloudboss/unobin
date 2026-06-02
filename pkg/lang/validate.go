@@ -41,6 +41,9 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 		"inputs":         {},
 		"configurations": {},
 	},
+	FileManifest: {
+		"requires": {},
+	},
 }
 
 // ValidateTopLevelKeys checks that every top-level field in f.Body uses
@@ -548,6 +551,10 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
 		}
+	case FileManifest:
+		if obj, ok := blocks["requires"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateManifestRequires(obj))
+		}
 	}
 	return errs
 }
@@ -841,6 +848,36 @@ func mergeErrors(dst, src *ErrorList) {
 // identifier alias bound to a quoted string source URL or local path.
 func ValidateImports(block *ObjectLit) *ErrorList {
 	return validateAliasToString(block, "import", "source URL or local path")
+}
+
+// ValidateManifestRequires checks a manifest `requires:` block: every
+// entry binds a quoted dependency id (a repo URL with an optional
+// `//subdir`) to a quoted version floor. The id and version strings are
+// not parsed here; resolution validates the URL and the semver floor.
+func ValidateManifestRequires(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: dependency id must be a quoted string, got bare identifier %q",
+				fld.Key.Name)
+			continue
+		}
+		id := fld.Key.String
+		if prev, dup := seen[id]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: duplicate dependency %q (first defined at %s)", id, prev)
+			continue
+		}
+		seen[id] = fld.Key.S.Start
+		if _, ok := fld.Value.(*StringLit); !ok {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"requires: dependency %q: version must be a quoted string, got %s",
+				id, exprKind(fld.Value))
+		}
+	}
+	return errs
 }
 
 func validateAliasToString(block *ObjectLit, what, valueDesc string) *ErrorList {

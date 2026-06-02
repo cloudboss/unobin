@@ -50,6 +50,7 @@ const (
 	FileFactory      = parse.FileFactory
 	FileExportedType = parse.FileExportedType
 	FileConfig       = parse.FileConfig
+	FileManifest     = parse.FileManifest
 
 	FieldIdent  = parse.FieldIdent
 	FieldString = parse.FieldString

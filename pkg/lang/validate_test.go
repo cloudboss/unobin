@@ -132,6 +132,72 @@ state:      { backend: local }
 		strings.Join(errsToStrings(errs), "; "))
 }
 
+func TestValidateManifest(t *testing.T) {
+	cases := []struct {
+		name    string
+		src     string
+		wantErr string // a substring of the expected error; "" expects none
+	}{
+		{
+			name: "requires with multiple deps",
+			src: `
+requires: {
+  'github.com/cloudboss/unobin//pkg/libraries/core': 'v0.1.0'
+  'github.com/me/net//vpc':                          'v2.0.0'
+}
+`,
+		},
+		{
+			name: "empty requires",
+			src:  "requires: {}\n",
+		},
+		{
+			name:    "version is not allowed",
+			src:     "version: 'v1.0.0'\n",
+			wantErr: "is not a valid top level key for a manifest file",
+		},
+		{
+			name:    "unknown top-level key",
+			src:     "imports: {}\n",
+			wantErr: "is not a valid top level key for a manifest file",
+		},
+		{
+			name:    "requires key is a bare identifier",
+			src:     "requires: { core: 'v0.1.0' }\n",
+			wantErr: "dependency id must be a quoted string",
+		},
+		{
+			name:    "requires value is not a string",
+			src:     "requires: { 'github.com/x/y': 1 }\n",
+			wantErr: "version must be a quoted string",
+		},
+		{
+			name: "duplicate dependency",
+			src: `
+requires: {
+  'github.com/x/y': 'v1.0.0'
+  'github.com/x/y': 'v2.0.0'
+}
+`,
+			wantErr: "duplicate dependency",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f, err := ParseSource("unobin.manifest", []byte(c.src))
+			require.NoError(t, err)
+			require.Equal(t, FileManifest, f.Kind)
+			errs := ValidateFile(f)
+			if c.wantErr == "" {
+				require.Equal(t, 0, errs.Len(), "unexpected errors: %v", errs.Errors())
+				return
+			}
+			require.Positive(t, errs.Len())
+			require.Contains(t, errs.Err().Error(), c.wantErr)
+		})
+	}
+}
+
 func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
 	src := `
 imports: { core: 'github.com/x/core@v0.1.0' }

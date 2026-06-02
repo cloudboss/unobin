@@ -39,6 +39,7 @@ const (
 	FileFactory
 	FileExportedType // A kind-prefixed <kind>-<type>.ub inside a library.
 	FileConfig       // The config .ub file for a factory.
+	FileManifest     // The unobin.manifest file declaring dependency floors.
 )
 
 func (k FileKind) String() string {
@@ -49,6 +50,8 @@ func (k FileKind) String() string {
 		return "exported-type"
 	case FileConfig:
 		return "config"
+	case FileManifest:
+		return "manifest"
 	default:
 		return "unknown"
 	}

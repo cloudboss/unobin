@@ -13,6 +13,8 @@ func TestClassifyByFilename(t *testing.T) {
 	}{
 		{"main.ub", FileFactory},
 		{"deep/path/main.ub", FileFactory},
+		{"unobin.manifest", FileManifest},
+		{"deep/path/unobin.manifest", FileManifest},
 		{"library.ub", FileUnknown},
 		{"resource-greeting.ub", FileUnknown},
 		{"config.ub", FileUnknown},
@@ -32,6 +34,7 @@ func TestParseSourceSetsKind(t *testing.T) {
 		want FileKind
 	}{
 		{"main.ub", FileFactory},
+		{"unobin.manifest", FileManifest},
 		{"resource-greeting.ub", FileUnknown},
 		{"", FileUnknown},
 	}
