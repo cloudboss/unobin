@@ -121,3 +121,31 @@ func TestReadManifestRejectsBadFloor(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "is not a valid version")
 }
+
+func TestEncodeManifest(t *testing.T) {
+	m := &Manifest{Requires: map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin"}:        "v0.1.2",
+		{URL: "github.com/cloudboss/helloer-stuff"}: "v0.1.0",
+	}}
+	want := `requires: {
+  'github.com/cloudboss/helloer-stuff': 'v0.1.0'
+  'github.com/cloudboss/unobin': 'v0.1.2'
+}
+`
+	assert.Equal(t, want, string(EncodeManifest(m)))
+}
+
+func TestEncodeManifestEmpty(t *testing.T) {
+	assert.Equal(t, "requires: {}\n", string(EncodeManifest(&Manifest{})))
+}
+
+func TestManifestRoundTrip(t *testing.T) {
+	m := &Manifest{Requires: map[Dependency]string{
+		{URL: "github.com/x/y", Subdir: "sub"}: "v1.2.3",
+		{URL: "github.com/a/b"}:                "v0.1.0",
+	}}
+	fsys := fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: EncodeManifest(m)}}
+	got, err := ReadManifest(fsys)
+	require.NoError(t, err)
+	assert.Equal(t, m.Requires, got.Requires)
+}

@@ -3,6 +3,9 @@ package deps
 import (
 	"fmt"
 	"io/fs"
+	"os"
+	"sort"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"golang.org/x/mod/semver"
@@ -35,6 +38,42 @@ func ReadManifest(fsys fs.FS) (*Manifest, error) {
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
+	return parseManifestBody(f)
+}
+
+// EncodeManifest renders a manifest as unobin.manifest source. The
+// requires entries are sorted by dependency id for stable diffs.
+func EncodeManifest(m *Manifest) []byte {
+	byID := make(map[string]string, len(m.Requires))
+	ids := make([]string, 0, len(m.Requires))
+	for dep, version := range m.Requires {
+		id := dep.String()
+		ids = append(ids, id)
+		byID[id] = version
+	}
+	sort.Strings(ids)
+	if len(ids) == 0 {
+		return []byte("requires: {}\n")
+	}
+	var b strings.Builder
+	b.WriteString("requires: {\n")
+	for _, id := range ids {
+		fmt.Fprintf(&b, "  '%s': '%s'\n", id, byID[id])
+	}
+	b.WriteString("}\n")
+	return []byte(b.String())
+}
+
+// WriteManifest serializes m and atomically replaces the file at path.
+func WriteManifest(path string, m *Manifest) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, EncodeManifest(m), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+func parseManifestBody(f *lang.File) (*Manifest, error) {
 	m := &Manifest{Requires: map[Dependency]string{}}
 	for _, fld := range f.Body.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "requires" {
