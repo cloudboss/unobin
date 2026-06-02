@@ -13,11 +13,11 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
-	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/spf13/cobra"
 )
 
@@ -322,7 +322,7 @@ func (c *compileVisitor) OnUBLibrary(
 }
 
 func runGoBuild(cmd *cobra.Command, dir, binaryName, version string) error {
-	goBin, err := deps.Ensure(deps.Go)
+	goBin, err := toolchain.Ensure(cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}

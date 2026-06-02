@@ -1,8 +1,9 @@
 module github.com/cloudboss/unobin
 
-go 1.26
+go 1.26.2
 
 require (
+	github.com/cloudboss/cachedeps v0.2.1
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/spf13/cobra v1.10.2
