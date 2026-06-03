@@ -124,6 +124,35 @@ inputs: { name: { type: string } }
 	require.Equal(t, "core", bodyImports[0].LocalAlias)
 }
 
+func TestWalkUBLocalGoLibraryGuidesToReplace(t *testing.T) {
+	// A local-path import that resolves to a Go module (it has a go.mod)
+	// cannot work; the error shows how to import by module path and replace.
+	goLib := newUBSource(t, map[string]string{
+		"go.mod": "module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n",
+	})
+	r := &fakeUBResolver{locals: map[string]*Source{"../../../..": goLib}}
+	refs := map[string]ImportRef{"aws": &LocalImport{Path: "../../../.."}}
+	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
+	require.Error(t, err)
+	msg := err.Error()
+	require.Contains(t, msg, "is a Go library (module github.com/cloudboss/unobin-library-aws)")
+	require.Contains(t, msg, "in the .ub file:")
+	require.Contains(t, msg, "imports: { aws: 'github.com/cloudboss/unobin-library-aws' }")
+	require.Contains(t, msg, "in unobin.manifest:")
+	require.Contains(t, msg,
+		"replace: { 'github.com/cloudboss/unobin-library-aws': '../../../..' }")
+}
+
+func TestWalkUBLocalNonLibraryReports(t *testing.T) {
+	// A local source that is neither a UB library nor a Go module.
+	bare := newUBSource(t, map[string]string{"README.md": "hi"})
+	r := &fakeUBResolver{locals: map[string]*Source{"./bare": bare}}
+	refs := map[string]ImportRef{"bare": &LocalImport{Path: "./bare"}}
+	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "is not a UB library")
+}
+
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"resource-thing.ub": "description: 'thing'\ninputs: { x: { type: string } }\n",

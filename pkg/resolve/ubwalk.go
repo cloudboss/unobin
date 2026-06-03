@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"golang.org/x/mod/modfile"
 )
 
 // UBKey is the dedup key for a UB-library import. Remote imports key on
@@ -177,8 +178,7 @@ func (w *ubWalker) handleGoImport(
 ) (Resolution, error) {
 	r, ok := ref.(*RemoteImport)
 	if !ok {
-		return Resolution{}, fmt.Errorf(
-			"import %q: local source is not a UB library", alias)
+		return Resolution{}, localGoImportError(alias, ref.(*LocalImport).Path, source)
 	}
 	path := r.URL
 	if r.Subdir != "" {
@@ -195,6 +195,33 @@ func (w *ubWalker) handleGoImport(
 		Version:    r.Version,
 		SourcePath: source.Path,
 	}, nil
+}
+
+// localGoImportError explains why a local import did not resolve to a UB
+// library. When the local source is a Go module (it has a go.mod), a path
+// import cannot work -- a Go library becomes a go.mod require, which needs
+// a module path -- so the error shows how to import it by module path and
+// replace it with the local path, naming the file each entry belongs in.
+func localGoImportError(alias, path string, source *Source) error {
+	module := localModulePath(source)
+	if module == "" {
+		return fmt.Errorf("import %q: %s is not a UB library", alias, path)
+	}
+	return fmt.Errorf("import %q: %s is a Go library (module %s), which cannot be "+
+		"imported by path. Import it by its module path and replace it locally:\n"+
+		"  in the .ub file:    imports: { %s: '%s' }\n"+
+		"  in unobin.manifest: replace: { '%s': '%s' }",
+		alias, path, module, alias, module, module, path)
+}
+
+// localModulePath returns the module path declared in the source's go.mod,
+// or an empty string when there is none.
+func localModulePath(source *Source) string {
+	b, err := fs.ReadFile(source.FS, "go.mod")
+	if err != nil {
+		return ""
+	}
+	return modfile.ModulePath(b)
 }
 
 func (w *ubWalker) handleUBImport(
