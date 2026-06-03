@@ -215,9 +215,9 @@ var fieldsBasedConstraintKinds = map[string]struct{}{
 
 // ValidateConstraints walks a `constraints:` array and checks each entry
 // per its declared `kind:`. Field-based kinds take a nonempty `fields:`
-// list of input names, dotted to reach a field inside a nested input;
-// the `predicate` kind takes `when:` and `require:` expressions plus an
-// optional `message:`.
+// list of var references, dotted to reach a field inside a nested
+// input; the `predicate` kind takes `when:` and `require:` expressions
+// plus an optional `message:`.
 func ValidateConstraints(arr *ArrayLit) *ErrorList {
 	errs := NewErrorList(0)
 	for i, e := range arr.Elements {
@@ -292,7 +292,7 @@ func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorL
 	arr, ok := fieldsField.Value.(*ArrayLit)
 	if !ok {
 		errs.Addf(ErrSchema, fieldsField.Value.Span().Start,
-			"constraints[%d]: `fields:` must be an array of input names", idx)
+			"constraints[%d]: `fields:` must be an array of var references", idx)
 		return
 	}
 	if len(arr.Elements) == 0 {
@@ -322,32 +322,41 @@ func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorL
 }
 
 // fieldNameProblem describes why a `fields:` element does not render to
-// an input name, with a pointed message for the splat and index
-// mistakes a list constraint invites.
+// a var reference, with a pointed message for the bare-name, splat, and
+// index mistakes a constraint invites.
 func fieldNameProblem(e Expr) string {
-	dp, ok := e.(*DotPath)
-	if !ok {
-		return "must be an input name or a dotted path to a nested field"
-	}
-	splats := 0
-	for i, seg := range dp.Segments {
-		if seg.Splat {
-			splats++
-			if splats > 1 {
-				return "only one [*] is allowed in a field"
-			}
-			if i == len(dp.Segments)-1 {
-				return "splat [*] must be followed by a field, like replicas[*].host"
-			}
-			continue
+	const generic = "must be a var reference to an input, like var.vpc-id"
+	switch v := e.(type) {
+	case *Ident:
+		return fmt.Sprintf("must be a var reference: write var.%s", v.Name)
+	case *DotPath:
+		if v.Root == nil {
+			return generic
 		}
-		if seg.Index != nil {
-			if _, ok := literalIndex(seg.Index); !ok {
-				return "a list index in a field must be a whole number, like listeners[0]"
+		if v.Root.Name != "var" {
+			return fmt.Sprintf("must be a var reference: write var.%s", dotPathString(v))
+		}
+		splats := 0
+		for i, seg := range v.Segments {
+			if seg.Splat {
+				splats++
+				if splats > 1 {
+					return "only one [*] is allowed in a field"
+				}
+				if i == len(v.Segments)-1 {
+					return "splat [*] must be followed by a field, like var.replicas[*].host"
+				}
+				continue
+			}
+			if seg.Index != nil {
+				if _, ok := literalIndex(seg.Index); !ok {
+					return "a list index in a field must be a whole number, like var.listeners[0]"
+				}
 			}
 		}
+		return generic
 	}
-	return "must be an input name or a dotted path to a nested field"
+	return generic
 }
 
 func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
@@ -500,11 +509,10 @@ func ValidateLocals(block *ObjectLit) *ErrorList {
 	return errs
 }
 
-// ValidateConstraintReferences checks that every name in the `fields:`
-// list of each constraint corresponds to a declared input. A dotted
-// name is checked by its first segment, the input the path starts
-// from, with any [N] or [*] suffix set aside. Malformed entries are
-// skipped.
+// ValidateConstraintReferences checks that every var reference in the
+// `fields:` list of each constraint names a declared input. A reference
+// is checked by the segment after var, the input the path starts from,
+// with any [N] or [*] suffix set aside. Malformed entries are skipped.
 func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	known := make(map[string]struct{}, len(inputs.Fields))
@@ -537,7 +545,11 @@ func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *Err
 			if !ok {
 				continue
 			}
-			root, _, _ := strings.Cut(name, ".")
+			rest, ok := strings.CutPrefix(name, "var.")
+			if !ok {
+				continue
+			}
+			root, _, _ := strings.Cut(rest, ".")
 			root, _, _ = strings.Cut(root, "[")
 			if _, exists := known[root]; !exists {
 				errs.Addf(ErrResolve, el.Span().Start,

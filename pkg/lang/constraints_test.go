@@ -58,7 +58,7 @@ func evalLeaf(e Expr, values map[string]any) (any, error) {
 func TestCheckExactlyOneOf(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: exactly-one-of, fields: [a, b, c] },
+  { kind: exactly-one-of, fields: [var.a, var.b, var.c] },
 ]
 `)
 
@@ -84,7 +84,7 @@ constraints: [
 func TestCheckAtLeastOneOf(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: at-least-one-of, fields: [a, b] },
+  { kind: at-least-one-of, fields: [var.a, var.b] },
 ]
 `)
 
@@ -103,7 +103,7 @@ constraints: [
 func TestCheckAtMostOneOf(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: at-most-one-of, fields: [a, b, c] },
+  { kind: at-most-one-of, fields: [var.a, var.b, var.c] },
 ]
 `)
 
@@ -127,7 +127,7 @@ constraints: [
 func TestCheckMutuallyExclusive(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: mutually-exclusive, fields: [a, b] },
+  { kind: mutually-exclusive, fields: [var.a, var.b] },
 ]
 `)
 
@@ -141,7 +141,7 @@ constraints: [
 func TestCheckRequiredTogether(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: required-together, fields: [vpc-id, subnet-ids] },
+  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
 ]
 `)
 
@@ -165,7 +165,7 @@ constraints: [
 func TestCheckRequiredWith(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: required-with, fields: [trigger, dep1, dep2] },
+  { kind: required-with, fields: [var.trigger, var.dep1, var.dep2] },
 ]
 `)
 
@@ -184,13 +184,13 @@ constraints: [
 	}, nil)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "required-with")
-	require.Contains(t, errs.Err().Error(), "missing dep2")
+	require.Contains(t, errs.Err().Error(), "missing var.dep2")
 }
 
 func TestCheckForbiddenWith(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: forbidden-with, fields: [use-spot, reserved-capacity] },
+  { kind: forbidden-with, fields: [var.use-spot, var.reserved-capacity] },
 ]
 `)
 
@@ -209,7 +209,7 @@ constraints: [
 func TestCheckConstraintsNestedFields(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: exactly-one-of, fields: [code.inline, code.from-file] },
+  { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] },
 ]
 `)
 
@@ -234,7 +234,7 @@ constraints: [
 func TestCheckConstraintsSplatFields(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: exactly-one-of, fields: [replicas[*].inline, replicas[*].from-file] },
+  { kind: exactly-one-of, fields: [var.replicas[*].inline, var.replicas[*].from-file] },
 ]
 `)
 	errs := CheckConstraints(block, map[string]any{
@@ -244,13 +244,13 @@ constraints: [
 		},
 	}, nil)
 	require.Equal(t, 1, errs.Len(), errs.Err())
-	require.Contains(t, errs.Err().Error(), "replicas[1].inline")
+	require.Contains(t, errs.Err().Error(), "var.replicas[1].inline")
 }
 
 func TestCheckConstraintsIndexedFields(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: required-together, fields: [listeners[0].cert, listeners[0].key] },
+  { kind: required-together, fields: [var.listeners[0].cert, var.listeners[0].key] },
 ]
 `)
 	errs := CheckConstraints(block, map[string]any{
@@ -259,7 +259,7 @@ constraints: [
 		},
 	}, nil)
 	require.Equal(t, 1, errs.Len(), errs.Err())
-	require.Contains(t, errs.Err().Error(), "got 1 set (listeners[0].cert)")
+	require.Contains(t, errs.Err().Error(), "got 1 set (var.listeners[0].cert)")
 }
 
 func TestCheckPredicateWhenFalseSkipsRequire(t *testing.T) {
@@ -336,7 +336,7 @@ constraints: [
 }
 
 func TestCheckConstraintEntries(t *testing.T) {
-	ab := []string{"a", "b"}
+	ab := []string{"var.a", "var.b"}
 	tests := []struct {
 		name    string
 		entry   ConstraintEntry
@@ -391,7 +391,7 @@ func TestCheckConstraintEntries(t *testing.T) {
 }
 
 func TestCheckConstraintEntriesNestedFields(t *testing.T) {
-	io := []string{"code.inline", "code.from-file"}
+	io := []string{"var.code.inline", "var.code.from-file"}
 	tests := []struct {
 		name    string
 		entry   ConstraintEntry
@@ -432,17 +432,17 @@ func TestCheckConstraintEntriesNestedFields(t *testing.T) {
 			ConstraintEntry{Kind: "forbidden-with", Fields: io},
 			map[string]any{"code": map[string]any{"inline": "x"}}, false},
 		{"mixed flat and nested both set",
-			ConstraintEntry{Kind: "required-together", Fields: []string{"name", "code.inline"}},
+			ConstraintEntry{Kind: "required-together", Fields: []string{"var.name", "var.code.inline"}},
 			map[string]any{"name": "db", "code": map[string]any{"inline": "x"}}, false},
 		{"mixed flat set nested unset",
-			ConstraintEntry{Kind: "required-together", Fields: []string{"name", "code.inline"}},
+			ConstraintEntry{Kind: "required-together", Fields: []string{"var.name", "var.code.inline"}},
 			map[string]any{"name": "db", "code": map[string]any{}}, true},
 		{"three-level nested set",
-			ConstraintEntry{Kind: "at-least-one-of", Fields: []string{"code.signing.key-arn"}},
+			ConstraintEntry{Kind: "at-least-one-of", Fields: []string{"var.code.signing.key-arn"}},
 			map[string]any{"code": map[string]any{
 				"signing": map[string]any{"key-arn": "arn"}}}, false},
 		{"three-level nested unset",
-			ConstraintEntry{Kind: "at-least-one-of", Fields: []string{"code.signing.key-arn"}},
+			ConstraintEntry{Kind: "at-least-one-of", Fields: []string{"var.code.signing.key-arn"}},
 			map[string]any{"code": map[string]any{"signing": map[string]any{}}}, true},
 	}
 	for _, tt := range tests {
@@ -472,28 +472,28 @@ func TestCheckConstraintEntriesIndexedFields(t *testing.T) {
 	}{
 		{"together both set",
 			ConstraintEntry{Kind: "required-together",
-				Fields: []string{"listeners[0].cert", "listeners[0].key"}}, false},
+				Fields: []string{"var.listeners[0].cert", "var.listeners[0].key"}}, false},
 		{"together partial",
 			ConstraintEntry{Kind: "required-together",
-				Fields: []string{"listeners[1].cert", "listeners[1].key"}}, true},
+				Fields: []string{"var.listeners[1].cert", "var.listeners[1].key"}}, true},
 		{"exactly-one one set",
 			ConstraintEntry{Kind: "exactly-one-of",
-				Fields: []string{"listeners[1].cert", "listeners[1].key"}}, false},
+				Fields: []string{"var.listeners[1].cert", "var.listeners[1].key"}}, false},
 		{"exactly-one out of range reads null",
 			ConstraintEntry{Kind: "exactly-one-of",
-				Fields: []string{"listeners[5].cert", "listeners[5].key"}}, true},
+				Fields: []string{"var.listeners[5].cert", "var.listeners[5].key"}}, true},
 		{"together out of range all null",
 			ConstraintEntry{Kind: "required-together",
-				Fields: []string{"listeners[5].cert", "listeners[5].key"}}, false},
+				Fields: []string{"var.listeners[5].cert", "var.listeners[5].key"}}, false},
 		{"at-most two set",
 			ConstraintEntry{Kind: "at-most-one-of",
-				Fields: []string{"listeners[0].cert", "listeners[0].key"}}, true},
+				Fields: []string{"var.listeners[0].cert", "var.listeners[0].key"}}, true},
 		{"mixed indexed trigger with flat dep",
 			ConstraintEntry{Kind: "required-with",
-				Fields: []string{"listeners[0].cert", "name"}}, false},
+				Fields: []string{"var.listeners[0].cert", "var.name"}}, false},
 		{"mixed indexed trigger forbids flat",
 			ConstraintEntry{Kind: "forbidden-with",
-				Fields: []string{"listeners[0].cert", "name"}}, true},
+				Fields: []string{"var.listeners[0].cert", "var.name"}}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -521,9 +521,9 @@ func errorText(errs *ErrorList) string {
 }
 
 func TestCheckConstraintEntriesSplatFields(t *testing.T) {
-	io := []string{"replicas[*].inline", "replicas[*].from-file"}
-	ab := []string{"replicas[*].a", "replicas[*].b"}
-	certKey := []string{"replicas[*].cert", "replicas[*].key"}
+	io := []string{"var.replicas[*].inline", "var.replicas[*].from-file"}
+	ab := []string{"var.replicas[*].a", "var.replicas[*].b"}
+	certKey := []string{"var.replicas[*].cert", "var.replicas[*].key"}
 	tests := []struct {
 		name     string
 		entry    ConstraintEntry
@@ -544,9 +544,9 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{"inline": "a", "from-file": "f"},
 			}},
 			[]string{
-				"constraints[0] (exactly-one-of [replicas[1].inline, replicas[1].from-file]): " +
+				"constraints[0] (exactly-one-of [var.replicas[1].inline, var.replicas[1].from-file]): " +
 					"expected exactly one to be set, got 2 " +
-					"(replicas[1].inline, replicas[1].from-file)",
+					"(var.replicas[1].inline, var.replicas[1].from-file)",
 			}},
 		{"exactly-one element neither set",
 			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
@@ -555,7 +555,7 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{"inline": "a"},
 			}},
 			[]string{
-				"constraints[0] (exactly-one-of [replicas[0].inline, replicas[0].from-file]): " +
+				"constraints[0] (exactly-one-of [var.replicas[0].inline, var.replicas[0].from-file]): " +
 					"expected exactly one to be set, got 0 ()",
 			}},
 		{"exactly-one multiple elements fail",
@@ -566,11 +566,11 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{"inline": "x"},
 			}},
 			[]string{
-				"constraints[0] (exactly-one-of [replicas[0].inline, replicas[0].from-file]): " +
+				"constraints[0] (exactly-one-of [var.replicas[0].inline, var.replicas[0].from-file]): " +
 					"expected exactly one to be set, got 0 ()",
-				"constraints[0] (exactly-one-of [replicas[1].inline, replicas[1].from-file]): " +
+				"constraints[0] (exactly-one-of [var.replicas[1].inline, var.replicas[1].from-file]): " +
 					"expected exactly one to be set, got 2 " +
-					"(replicas[1].inline, replicas[1].from-file)",
+					"(var.replicas[1].inline, var.replicas[1].from-file)",
 			}},
 		{"at-least per element all pass",
 			ConstraintEntry{Kind: "at-least-one-of", Fields: ab},
@@ -586,7 +586,7 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{},
 			}},
 			[]string{
-				"constraints[0] (at-least-one-of [replicas[1].a, replicas[1].b]): " +
+				"constraints[0] (at-least-one-of [var.replicas[1].a, var.replicas[1].b]): " +
 					"expected at least one to be set, got none",
 			}},
 		{"at-most element two set",
@@ -595,8 +595,8 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{"a": int64(1), "b": int64(2)},
 			}},
 			[]string{
-				"constraints[0] (at-most-one-of [replicas[0].a, replicas[0].b]): " +
-					"expected at most one to be set, got 2 (replicas[0].a, replicas[0].b)",
+				"constraints[0] (at-most-one-of [var.replicas[0].a, var.replicas[0].b]): " +
+					"expected at most one to be set, got 2 (var.replicas[0].a, var.replicas[0].b)",
 			}},
 		{"mutually-exclusive element two set",
 			ConstraintEntry{Kind: "mutually-exclusive", Fields: ab},
@@ -604,8 +604,8 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{"a": int64(1), "b": int64(2)},
 			}},
 			[]string{
-				"constraints[0] (mutually-exclusive [replicas[0].a, replicas[0].b]): " +
-					"expected at most one to be set, got 2 (replicas[0].a, replicas[0].b)",
+				"constraints[0] (mutually-exclusive [var.replicas[0].a, var.replicas[0].b]): " +
+					"expected at most one to be set, got 2 (var.replicas[0].a, var.replicas[0].b)",
 			}},
 		{"together element partial",
 			ConstraintEntry{Kind: "required-together", Fields: certKey},
@@ -614,8 +614,8 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				map[string]any{"cert": "c"},
 			}},
 			[]string{
-				"constraints[0] (required-together [replicas[1].cert, replicas[1].key]): " +
-					"expected all set or all null, got 1 set (replicas[1].cert)",
+				"constraints[0] (required-together [var.replicas[1].cert, var.replicas[1].key]): " +
+					"expected all set or all null, got 1 set (var.replicas[1].cert)",
 			}},
 		{"together element empty passes",
 			ConstraintEntry{Kind: "required-together", Fields: certKey},
@@ -626,18 +626,18 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 			nil},
 		{"with splat trigger missing global dep",
 			ConstraintEntry{Kind: "required-with",
-				Fields: []string{"replicas[*].tls", "ca-cert"}},
+				Fields: []string{"var.replicas[*].tls", "var.ca-cert"}},
 			map[string]any{"replicas": []any{
 				map[string]any{"tls": true},
 				map[string]any{},
 			}},
 			[]string{
-				`constraints[0] (required-with): "replicas[0].tls" is set, ` +
-					"so [ca-cert] must also be set; missing ca-cert",
+				`constraints[0] (required-with): "var.replicas[0].tls" is set, ` +
+					"so [var.ca-cert] must also be set; missing var.ca-cert",
 			}},
 		{"with global trigger missing splat dep",
 			ConstraintEntry{Kind: "required-with",
-				Fields: []string{"ca-cert", "replicas[*].tls"}},
+				Fields: []string{"var.ca-cert", "var.replicas[*].tls"}},
 			map[string]any{
 				"ca-cert": "pem",
 				"replicas": []any{
@@ -646,12 +646,12 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				},
 			},
 			[]string{
-				`constraints[0] (required-with): "ca-cert" is set, ` +
-					"so [replicas[1].tls] must also be set; missing replicas[1].tls",
+				`constraints[0] (required-with): "var.ca-cert" is set, ` +
+					"so [var.replicas[1].tls] must also be set; missing var.replicas[1].tls",
 			}},
 		{"forbidden splat trigger with global set",
 			ConstraintEntry{Kind: "forbidden-with",
-				Fields: []string{"replicas[*].insecure", "ca-cert"}},
+				Fields: []string{"var.replicas[*].insecure", "var.ca-cert"}},
 			map[string]any{
 				"ca-cert": "pem",
 				"replicas": []any{
@@ -660,8 +660,8 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				},
 			},
 			[]string{
-				`constraints[0] (forbidden-with): "replicas[1].insecure" is set, ` +
-					"so [ca-cert] must be null; got ca-cert",
+				`constraints[0] (forbidden-with): "var.replicas[1].insecure" is set, ` +
+					"so [var.ca-cert] must be null; got var.ca-cert",
 			}},
 		{"root absent checks nothing",
 			ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
@@ -679,33 +679,33 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 			ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
 			map[string]any{"replicas": "oops"},
 			[]string{
-				"constraints[0] (exactly-one-of [replicas[*].a, replicas[*].b]): " +
-					"cannot splat a string at replicas[*]",
+				"constraints[0] (exactly-one-of [var.replicas[*].a, var.replicas[*].b]): " +
+					"cannot splat a string at var.replicas[*]",
 			}},
 		{"different lists rejected",
 			ConstraintEntry{Kind: "required-together",
-				Fields: []string{"replicas[*].x", "volumes[*].y"}},
+				Fields: []string{"var.replicas[*].x", "var.volumes[*].y"}},
 			map[string]any{
 				"replicas": []any{map[string]any{"x": int64(1)}},
 				"volumes":  []any{map[string]any{"y": int64(2)}},
 			},
 			[]string{
-				"constraints[0] (required-together [replicas[*].x, volumes[*].y]): " +
-					"[*] fields must splat the same list, got replicas[*] and volumes[*]",
+				"constraints[0] (required-together [var.replicas[*].x, var.volumes[*].y]): " +
+					"[*] fields must splat the same list, got var.replicas[*] and var.volumes[*]",
 			}},
 		{"single splat field rejected",
 			ConstraintEntry{Kind: "at-most-one-of",
-				Fields: []string{"replicas[*].primary"}},
+				Fields: []string{"var.replicas[*].primary"}},
 			map[string]any{"replicas": []any{
 				map[string]any{"primary": true},
 			}},
 			[]string{
-				"constraints[0] (at-most-one-of [replicas[*].primary]): " +
+				"constraints[0] (at-most-one-of [var.replicas[*].primary]): " +
 					"a [*] constraint needs at least two fields",
 			}},
 		{"nested splat per inner element",
 			ConstraintEntry{Kind: "required-together",
-				Fields: []string{"clusters[*].nodes[*].a", "clusters[*].nodes[*].b"}},
+				Fields: []string{"var.clusters[*].nodes[*].a", "var.clusters[*].nodes[*].b"}},
 			map[string]any{"clusters": []any{
 				map[string]any{"nodes": []any{
 					map[string]any{"a": int64(1), "b": int64(2)},
@@ -715,29 +715,29 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				}},
 			}},
 			[]string{
-				"constraints[0] (required-together [clusters[1].nodes[0].a, " +
-					"clusters[1].nodes[0].b]): " +
-					"expected all set or all null, got 1 set (clusters[1].nodes[0].a)",
+				"constraints[0] (required-together [var.clusters[1].nodes[0].a, " +
+					"var.clusters[1].nodes[0].b]): " +
+					"expected all set or all null, got 1 set (var.clusters[1].nodes[0].a)",
 			}},
 		{"splat root under nested map",
 			ConstraintEntry{Kind: "exactly-one-of",
-				Fields: []string{"config.replicas[*].a", "config.replicas[*].b"}},
+				Fields: []string{"var.config.replicas[*].a", "var.config.replicas[*].b"}},
 			map[string]any{"config": map[string]any{
 				"replicas": []any{
 					map[string]any{"a": int64(1), "b": int64(2)},
 				},
 			}},
 			[]string{
-				"constraints[0] (exactly-one-of [config.replicas[0].a, config.replicas[0].b]): " +
+				"constraints[0] (exactly-one-of [var.config.replicas[0].a, var.config.replicas[0].b]): " +
 					"expected exactly one to be set, got 2 " +
-					"(config.replicas[0].a, config.replicas[0].b)",
+					"(var.config.replicas[0].a, var.config.replicas[0].b)",
 			}},
 		{"scalar elements read null",
 			ConstraintEntry{Kind: "exactly-one-of",
-				Fields: []string{"nums[*].a", "nums[*].b"}},
+				Fields: []string{"var.nums[*].a", "var.nums[*].b"}},
 			map[string]any{"nums": []any{int64(1)}},
 			[]string{
-				"constraints[0] (exactly-one-of [nums[0].a, nums[0].b]): " +
+				"constraints[0] (exactly-one-of [var.nums[0].a, var.nums[0].b]): " +
 					"expected exactly one to be set, got 0 ()",
 			}},
 	}
@@ -776,30 +776,33 @@ func TestLookupPath(t *testing.T) {
 		wantVal   any
 		wantFound bool
 	}{
-		{"flat present", "name", "db", true},
-		{"flat absent", "region", nil, false},
-		{"nested present", "code.inline", "x", true},
-		{"present null leaf", "code.empty", nil, true},
-		{"nested leaf absent", "code.missing", nil, false},
-		{"nested parent absent", "config.inline", nil, false},
-		{"step into null parent", "code.empty.deeper", nil, false},
-		{"three-level present", "code.signing.key-arn", "arn", true},
-		{"three-level leaf absent", "code.signing.profile", nil, false},
-		{"step into scalar", "name.suffix", nil, false},
-		{"indexed map field", "listeners[0].cert", "c0", true},
-		{"indexed null leaf", "listeners[0].key", nil, true},
-		{"indexed leaf absent", "listeners[1].cert", nil, false},
-		{"index out of range", "listeners[2].cert", nil, false},
-		{"trailing index", "listeners[1]", map[string]any{}, true},
-		{"double index", "matrix[0][1]", "b", true},
-		{"double index out of range", "matrix[1][1]", nil, false},
-		{"index into map", "code[0]", nil, false},
-		{"index into scalar", "name[0]", nil, false},
-		{"index into scalar element", "nums[0].x", nil, false},
-		{"splat is not an index", "listeners[*].cert", nil, false},
-		{"unclosed index", "listeners[0.cert", nil, false},
-		{"negative index", "listeners[-1]", nil, false},
-		{"empty index", "listeners[]", nil, false},
+		{"flat present", "var.name", "db", true},
+		{"flat absent", "var.region", nil, false},
+		{"nested present", "var.code.inline", "x", true},
+		{"present null leaf", "var.code.empty", nil, true},
+		{"nested leaf absent", "var.code.missing", nil, false},
+		{"nested parent absent", "var.config.inline", nil, false},
+		{"step into null parent", "var.code.empty.deeper", nil, false},
+		{"three-level present", "var.code.signing.key-arn", "arn", true},
+		{"three-level leaf absent", "var.code.signing.profile", nil, false},
+		{"step into scalar", "var.name.suffix", nil, false},
+		{"indexed map field", "var.listeners[0].cert", "c0", true},
+		{"indexed null leaf", "var.listeners[0].key", nil, true},
+		{"indexed leaf absent", "var.listeners[1].cert", nil, false},
+		{"index out of range", "var.listeners[2].cert", nil, false},
+		{"trailing index", "var.listeners[1]", map[string]any{}, true},
+		{"double index", "var.matrix[0][1]", "b", true},
+		{"double index out of range", "var.matrix[1][1]", nil, false},
+		{"index into map", "var.code[0]", nil, false},
+		{"index into scalar", "var.name[0]", nil, false},
+		{"index into scalar element", "var.nums[0].x", nil, false},
+		{"splat is not an index", "var.listeners[*].cert", nil, false},
+		{"unclosed index", "var.listeners[0.cert", nil, false},
+		{"negative index", "var.listeners[-1]", nil, false},
+		{"empty index", "var.listeners[]", nil, false},
+		{"bare name not found", "name", nil, false},
+		{"non-var root not found", "code.inline", nil, false},
+		{"var alone not found", "var", nil, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -814,7 +817,7 @@ func TestLookupPath(t *testing.T) {
 
 func TestParseSpecs(t *testing.T) {
 	specs := []ConstraintSpec{
-		{Kind: "exactly-one-of", Fields: []string{"a", "b"}},
+		{Kind: "exactly-one-of", Fields: []string{"var.a", "var.b"}},
 		{Kind: "predicate", When: "var.tier == 'prod'",
 			Require: "var.backups == true", Message: "m"},
 	}
@@ -823,7 +826,7 @@ func TestParseSpecs(t *testing.T) {
 	require.Len(t, entries, 2)
 
 	require.Equal(t, "exactly-one-of", entries[0].Kind)
-	require.Equal(t, []string{"a", "b"}, entries[0].Fields)
+	require.Equal(t, []string{"var.a", "var.b"}, entries[0].Fields)
 	require.Nil(t, entries[0].When, "a set constraint has no when expression")
 	require.Nil(t, entries[0].Require)
 
@@ -845,8 +848,8 @@ func TestParseSpecsReportsBadExpression(t *testing.T) {
 func TestCheckConstraintsCollectsMultiple(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
-  { kind: exactly-one-of, fields: [a, b] },
-  { kind: required-together, fields: [c, d] },
+  { kind: exactly-one-of, fields: [var.a, var.b] },
+  { kind: required-together, fields: [var.c, var.d] },
 ]
 `)
 	errs := CheckConstraints(block, map[string]any{

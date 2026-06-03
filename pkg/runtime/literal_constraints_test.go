@@ -15,7 +15,7 @@ func constrainedLibs() map[string]*Library {
 		"core": {Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
 				"thing": {Constraints: []lang.ConstraintSpec{
-					{Kind: "exactly-one-of", Fields: []string{"name", "size"}},
+					{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}},
 				}},
 				"plain": {},
 			},
@@ -36,7 +36,7 @@ func TestCheckLiteralConstraints(t *testing.T) {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[name, size]): expected exactly one to be set, got 2 (name, size)",
+					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestCheckLiteralConstraints(t *testing.T) {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[name, size]): expected exactly one to be set, got 0 ()",
+					"[var.name, var.size]): expected exactly one to be set, got 0 ()",
 			},
 		},
 		{
@@ -104,9 +104,9 @@ resources: {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[name, size]): expected exactly one to be set, got 2 (name, size)",
+					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
 				"resource.core.thing.y: constraints[0] (exactly-one-of " +
-					"[name, size]): expected exactly one to be set, got 2 (name, size)",
+					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
 			},
 		},
 		{
@@ -124,7 +124,7 @@ resources: {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[name, size]): expected exactly one to be set, got 2 (name, size)",
+					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
 			},
 		},
 	}
@@ -256,18 +256,20 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "at-least-one-of with none set is reported",
-			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of", Fields: []string{"name", "size"}}},
-			body:  `{ region: 'us' }`,
-			want: []string{addr + "constraints[0] (at-least-one-of [name, size]): " +
+			name: "at-least-one-of with none set is reported",
+			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of",
+				Fields: []string{"var.name", "var.size"}}},
+			body: `{ region: 'us' }`,
+			want: []string{addr + "constraints[0] (at-least-one-of [var.name, var.size]): " +
 				"expected at least one to be set, got none"},
 		},
 		{
-			name:  "required-together with one set is reported",
-			specs: []lang.ConstraintSpec{{Kind: "required-together", Fields: []string{"name", "size"}}},
-			body:  `{ name: 'a' }`,
-			want: []string{addr + "constraints[0] (required-together [name, size]): " +
-				"expected all set or all null, got 1 set (name)"},
+			name: "required-together with one set is reported",
+			specs: []lang.ConstraintSpec{{Kind: "required-together",
+				Fields: []string{"var.name", "var.size"}}},
+			body: `{ name: 'a' }`,
+			want: []string{addr + "constraints[0] (required-together [var.name, var.size]): " +
+				"expected all set or all null, got 1 set (var.name)"},
 		},
 		{
 			name:  "predicate with unmet requirement is reported",
@@ -290,15 +292,15 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 		{
 			name: "splat constraint names the violating element",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"items[*].a", "items[*].b"}}},
+				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
 			body: `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
-			want: []string{addr + "constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
-				"expected exactly one to be set, got 2 (items[1].a, items[1].b)"},
+			want: []string{addr + "constraints[0] (exactly-one-of [var.items[1].a, var.items[1].b]): " +
+				"expected exactly one to be set, got 2 (var.items[1].a, var.items[1].b)"},
 		},
 		{
 			name: "splat constraint passes when every element conforms",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"items[*].a", "items[*].b"}}},
+				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
 			body: `{ items: [{ a: 1 }, { b: 2 }] }`,
 			want: nil,
 		},

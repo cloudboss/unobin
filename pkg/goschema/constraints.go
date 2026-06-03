@@ -57,7 +57,7 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	}
 	scope := constraintScope{}
 	if name, ok := receiverName(method); ok {
-		scope[name] = scopeRoot{w: w, typeName: typeName}
+		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "var"}
 	}
 	var out []lang.ConstraintSpec
 	for _, call := range constraintCalls(method.Body) {
@@ -84,8 +84,8 @@ type constraintScope map[string]scopeRoot
 
 // scopeRoot is the type behind one scope identifier, with the walker
 // positioned at the package the type lives in. prefix is what the
-// identifier stands for in a rendered path: empty for the receiver, the
-// splatted list path (replicas[*]) for an Each element.
+// identifier stands for in a rendered reference: var for the receiver,
+// the splatted list reference (var.replicas[*]) for an Each element.
 type scopeRoot struct {
 	w        *walker
 	typeName string
@@ -255,8 +255,8 @@ func (w *walker) eachSpecs(call *ast.CallExpr, scope constraintScope) []lang.Con
 	return out
 }
 
-// listField resolves Each's list argument to its rendered input path
-// and the scope root of the list's element type.
+// listField resolves Each's list argument to its rendered var reference
+// (var.replicas) and the scope root of the list's element type.
 func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRoot, bool) {
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
@@ -278,6 +278,7 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRo
 		w.addErrf("Each list references unknown field %q", hopNames(hops))
 		return "", scopeRoot{}, false
 	}
+	path = entry.prefix + "." + path
 	cw, typeName := entry.w, entry.typeName
 	for _, hop := range hops[:len(hops)-1] {
 		cw, typeName, ok = cw.nestedStruct(typeName, hop)
@@ -456,7 +457,7 @@ func (w *walker) compareCond(
 	if len(call.Args) != 2 {
 		return "", false
 	}
-	field, ok := w.selectorVar(call.Args[0], scope)
+	field, ok := w.selectorField(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -476,7 +477,7 @@ func (w *walker) orderedCond(
 	if len(call.Args) != 2 {
 		return "", false
 	}
-	field, ok := w.selectorVar(call.Args[0], scope)
+	field, ok := w.selectorField(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -495,7 +496,7 @@ func (w *walker) boolCond(call *ast.CallExpr, lit string, scope constraintScope)
 	if len(call.Args) != 1 {
 		return "", false
 	}
-	field, ok := w.selectorVar(call.Args[0], scope)
+	field, ok := w.selectorField(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -506,7 +507,7 @@ func (w *walker) nullCond(call *ast.CallExpr, op string, scope constraintScope) 
 	if len(call.Args) != 1 {
 		return "", false
 	}
-	field, ok := w.selectorVar(call.Args[0], scope)
+	field, ok := w.selectorField(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -517,7 +518,7 @@ func (w *walker) oneOfCond(call *ast.CallExpr, scope constraintScope) (string, b
 	if len(call.Args) < 2 {
 		return "", false
 	}
-	field, ok := w.selectorVar(call.Args[0], scope)
+	field, ok := w.selectorField(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -558,22 +559,12 @@ func (w *walker) notCond(call *ast.CallExpr, scope constraintScope) (string, boo
 	return "!" + s, true
 }
 
-// selectorVar renders a v.Field argument as a var.<input-name> reference,
-// the form the constraint checker resolves against the input values.
-func (w *walker) selectorVar(arg ast.Expr, scope constraintScope) (string, bool) {
-	kebab, ok := w.selectorField(arg, scope)
-	if !ok {
-		return "", false
-	}
-	return "var." + kebab, true
-}
-
 // valueString renders a comparison operand: a v.Field selector becomes a
 // var reference, and a literal becomes its unobin form.
 func (w *walker) valueString(arg ast.Expr, scope constraintScope) (string, bool) {
 	switch v := arg.(type) {
 	case *ast.SelectorExpr:
-		return w.selectorVar(v, scope)
+		return w.selectorField(v, scope)
 	case *ast.BasicLit:
 		return basicLitString(v)
 	case *ast.Ident:
@@ -628,11 +619,13 @@ func peelMessage(call *ast.CallExpr) (*ast.CallExpr, string) {
 	return inner, msg
 }
 
-// selectorField reads a v.Field argument and returns the field's dotted
-// kebab input path. The selector's root identifier must be in scope; the
-// hops walk from its type into nested struct types, joining each hop's
-// kebab name with a dot. A non-selector argument, an out-of-scope root,
-// or a chain naming a field that does not exist records an error and
+// selectorField reads a v.Field argument and returns the field's var
+// reference (var.code.inline), the one spelling a constraint uses for a
+// field whether it sits in a fields list or a predicate. The selector's
+// root identifier must be in scope; the hops walk from its type into
+// nested struct types, joining each hop's kebab name with a dot under
+// the root's prefix. A non-selector argument, an out-of-scope root, or
+// a chain naming a field that does not exist records an error and
 // returns ok=false.
 func (w *walker) selectorField(arg ast.Expr, scope constraintScope) (string, bool) {
 	sel, ok := arg.(*ast.SelectorExpr)
@@ -655,10 +648,7 @@ func (w *walker) selectorField(arg ast.Expr, scope constraintScope) (string, boo
 		w.addErrf("constraint references unknown field %q", hopNames(hops))
 		return "", false
 	}
-	if entry.prefix != "" {
-		return entry.prefix + "." + path, true
-	}
-	return path, true
+	return entry.prefix + "." + path, true
 }
 
 // hopNames joins the Go field names of a selector chain for an error

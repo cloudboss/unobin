@@ -21,12 +21,12 @@ func TestReadExtractsSetConstraints(t *testing.T) {
 	require.Contains(t, schema.Resources, "cert")
 
 	want := []lang.ConstraintSpec{
-		{Kind: "exactly-one-of", Fields: []string{"self-signed", "acm-arn", "pem-bundle"}},
-		{Kind: "at-least-one-of", Fields: []string{"self-signed", "acm-arn"}},
-		{Kind: "at-most-one-of", Fields: []string{"acm-arn", "pem-bundle"}},
-		{Kind: "required-together", Fields: []string{"pem-bundle", "private-key"}},
-		{Kind: "required-with", Fields: []string{"pem-bundle", "private-key"}},
-		{Kind: "forbidden-with", Fields: []string{"acm-arn", "renew-before"}},
+		{Kind: "exactly-one-of", Fields: []string{"var.self-signed", "var.acm-arn", "var.pem-bundle"}},
+		{Kind: "at-least-one-of", Fields: []string{"var.self-signed", "var.acm-arn"}},
+		{Kind: "at-most-one-of", Fields: []string{"var.acm-arn", "var.pem-bundle"}},
+		{Kind: "required-together", Fields: []string{"var.pem-bundle", "var.private-key"}},
+		{Kind: "required-with", Fields: []string{"var.pem-bundle", "var.private-key"}},
+		{Kind: "forbidden-with", Fields: []string{"var.acm-arn", "var.renew-before"}},
 	}
 	require.Equal(t, want, schema.Resources["cert"].Constraints)
 }
@@ -242,16 +242,16 @@ func TestReadExtractsNestedConstraints(t *testing.T) {
 	require.Contains(t, schema.Resources, "db")
 
 	want := []lang.ConstraintSpec{
-		{Kind: "exactly-one-of", Fields: []string{"code.inline", "code.from-file"}},
+		{Kind: "exactly-one-of", Fields: []string{"var.code.inline", "var.code.from-file"}},
 		{
 			Kind:    "predicate",
 			When:    "(var.code.signing != null)",
 			Require: "(var.code.signing.key-arn != null)",
 			Message: "signing requires a key arn",
 		},
-		{Kind: "required-together", Fields: []string{"listeners[0].cert", "listeners[0].key"}},
-		{Kind: "exactly-one-of", Fields: []string{"replicas[*].inline", "replicas[*].from-file"}},
-		{Kind: "required-with", Fields: []string{"replicas[*].tls", "ca-cert"}},
+		{Kind: "required-together", Fields: []string{"var.listeners[0].cert", "var.listeners[0].key"}},
+		{Kind: "exactly-one-of", Fields: []string{"var.replicas[*].inline", "var.replicas[*].from-file"}},
+		{Kind: "required-with", Fields: []string{"var.replicas[*].tls", "var.ca-cert"}},
 	}
 	require.Equal(t, want, schema.Resources["db"].Constraints)
 }
@@ -301,8 +301,8 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 	}
 	got = lang.CheckConstraintEntries(entries, badReplicas, eval(badReplicas))
 	require.Equal(t, 2, got.Len(), "two replica violations expected: %v", got.Err())
-	require.Contains(t, got.Err().Error(), "replicas[1].inline")
-	require.Contains(t, got.Err().Error(), `"replicas[2].tls" is set`)
+	require.Contains(t, got.Err().Error(), "var.replicas[1].inline")
+	require.Contains(t, got.Err().Error(), `"var.replicas[2].tls" is set`)
 }
 
 func TestFlattenSelector(t *testing.T) {

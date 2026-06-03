@@ -23,7 +23,7 @@ inputs: {
 }
 
 constraints: [
-  { kind: required-together, fields: [vpc-id, subnet-ids] },
+  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
 ]
 
 imports: {

@@ -699,9 +699,9 @@ func parseConstraintsBlock(t *testing.T, src string) *ArrayLit {
 func TestValidateConstraintsHappy(t *testing.T) {
 	src := `
 constraints: [
-  { kind: exactly-one-of,    fields: [encryption-key, encryption-key-arn] },
-  { kind: required-together, fields: [vpc-id, subnet-ids] },
-  { kind: mutually-exclusive, fields: [use-spot, reserved-capacity] },
+  { kind: exactly-one-of,    fields: [var.encryption-key, var.encryption-key-arn] },
+  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
+  { kind: mutually-exclusive, fields: [var.use-spot, var.reserved-capacity] },
   {
     kind:    predicate
     when:    'var.region == \'us-gov-east-1\''
@@ -770,7 +770,7 @@ constraints: [
 func TestValidateConstraintFieldsNotIdent(t *testing.T) {
 	src := `
 constraints: [
-  { kind: required-together, fields: ['quoted-name', 42, valid-name] },
+  { kind: required-together, fields: ['quoted-name', 42, var.valid-name] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
@@ -780,8 +780,8 @@ constraints: [
 func TestValidateConstraintFieldsNested(t *testing.T) {
 	src := `
 constraints: [
-  { kind: exactly-one-of, fields: [code.inline, code.from-file] },
-  { kind: required-with,  fields: [code.signing.key-arn, name] },
+  { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] },
+  { kind: required-with,  fields: [var.code.signing.key-arn, var.name] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
@@ -791,10 +791,10 @@ constraints: [
 func TestValidateConstraintFieldsAcceptsSplatAndIndex(t *testing.T) {
 	src := `
 constraints: [
-  { kind: exactly-one-of,     fields: [replicas[*].inline, replicas[*].from-file] },
-  { kind: required-together,  fields: [listeners[0].cert, listeners[0].key] },
-  { kind: required-with,      fields: [replicas[*].tls, ca-cert] },
-  { kind: at-least-one-of,    fields: [config.replicas[*].a, config.replicas[*].b] },
+  { kind: exactly-one-of,     fields: [var.replicas[*].inline, var.replicas[*].from-file] },
+  { kind: required-together,  fields: [var.listeners[0].cert, var.listeners[0].key] },
+  { kind: required-with,      fields: [var.replicas[*].tls, var.ca-cert] },
+  { kind: at-least-one-of,    fields: [var.config.replicas[*].a, var.config.replicas[*].b] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
@@ -804,41 +804,45 @@ constraints: [
 func TestValidateConstraintFieldsRejectsBadSegments(t *testing.T) {
 	src := `
 constraints: [
-  { kind: required-together, fields: [code['k'], a] },
-  { kind: required-together, fields: [replicas[*], a] },
-  { kind: required-together, fields: [a[*].b[*].x, a] },
-  { kind: required-together, fields: [code[var.i], a] },
+  { kind: required-together, fields: [var.code['k'], var.a] },
+  { kind: required-together, fields: [var.replicas[*], var.a] },
+  { kind: required-together, fields: [var.a[*].b[*].x, var.a] },
+  { kind: required-together, fields: [var.code[i], var.a] },
+  { kind: required-together, fields: [vpc-id, var.a] },
+  { kind: required-together, fields: [code.inline, var.a] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 4, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 6, errs.Len(), "got: %v", errsToStrings(errs))
 	require.Contains(t, errs.Errors()[0].Msg,
-		"a list index in a field must be a whole number, like listeners[0]")
+		"a list index in a field must be a whole number, like var.listeners[0]")
 	require.Contains(t, errs.Errors()[1].Msg,
-		"splat [*] must be followed by a field, like replicas[*].host")
+		"splat [*] must be followed by a field, like var.replicas[*].host")
 	require.Contains(t, errs.Errors()[2].Msg, "only one [*] is allowed in a field")
 	require.Contains(t, errs.Errors()[3].Msg,
-		"a list index in a field must be a whole number, like listeners[0]")
+		"a list index in a field must be a whole number, like var.listeners[0]")
+	require.Contains(t, errs.Errors()[4].Msg, "must be a var reference: write var.vpc-id")
+	require.Contains(t, errs.Errors()[5].Msg, "must be a var reference: write var.code.inline")
 }
 
 func TestValidateConstraintSplatRules(t *testing.T) {
 	src := `
 constraints: [
-  { kind: at-most-one-of,    fields: [replicas[*].primary] },
-  { kind: required-together, fields: [replicas[*].x, volumes[*].y] },
+  { kind: at-most-one-of,    fields: [var.replicas[*].primary] },
+  { kind: required-together, fields: [var.replicas[*].x, var.volumes[*].y] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
 	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
 	require.Contains(t, errs.Errors()[0].Msg, "a [*] constraint needs at least two fields")
 	require.Contains(t, errs.Errors()[1].Msg,
-		"[*] fields must splat the same list, got replicas[*] and volumes[*]")
+		"[*] fields must splat the same list, got var.replicas[*] and var.volumes[*]")
 }
 
 func TestValidateConstraintUnknownKeyForFieldsKind(t *testing.T) {
 	src := `
 constraints: [
-  { kind: required-together, fields: [a, b], message: 'x' },
+  { kind: required-together, fields: [var.a, var.b], message: 'x' },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
@@ -871,7 +875,7 @@ constraints: [
 func TestValidateConstraintDuplicateKey(t *testing.T) {
 	src := `
 constraints: [
-  { kind: required-together, fields: [a], fields: [b] },
+  { kind: required-together, fields: [var.a], fields: [var.b] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
@@ -1082,7 +1086,7 @@ inputs: {
   subnet-ids: { type: list(string) }
 }
 constraints: [
-  { kind: required-together, fields: [vpc-id, subnet-ids] },
+  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
 ]
 `
 	f, err := ParseSource("", []byte(src))
@@ -1100,7 +1104,7 @@ inputs: {
   vpc-id: { type: string }
 }
 constraints: [
-  { kind: required-together, fields: [vpc-id, missing-name] },
+  { kind: required-together, fields: [var.vpc-id, var.missing-name] },
 ]
 `
 	f, err := ParseSource("", []byte(src))
@@ -1120,7 +1124,7 @@ inputs: {
   code: { type: optional(object({ inline: optional(string) })) }
 }
 constraints: [
-  { kind: at-least-one-of, fields: [code.inline, bogus.inline] },
+  { kind: at-least-one-of, fields: [var.code.inline, var.bogus.inline] },
 ]
 `
 	f, err := ParseSource("", []byte(src))
@@ -1141,7 +1145,10 @@ inputs: {
   listeners: { type: list(object({ cert: optional(string) })) }
 }
 constraints: [
-  { kind: required-together, fields: [replicas[*].host, listeners[0].cert, volumes[*].id] },
+  {
+    kind: required-together
+    fields: [var.replicas[*].host, var.listeners[0].cert, var.volumes[*].id]
+  },
 ]
 `
 	f, err := ParseSource("", []byte(src))
@@ -1162,7 +1169,7 @@ inputs: {
   region: { type: string }
 }
 constraints: [
-  { kind: required-together, fields: [region] },
+  { kind: required-together, fields: [var.region] },
 ]
 imports: {
   aws: 'github.com/x/y'
@@ -1186,7 +1193,7 @@ inputs: {
   bad:    { description: 'no type' }
 }
 constraints: [
-  { kind: required-together, fields: [region, missing] },
+  { kind: required-together, fields: [var.region, var.missing] },
 ]
 imports: {
   aws: 42

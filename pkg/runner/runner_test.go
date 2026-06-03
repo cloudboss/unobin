@@ -525,7 +525,7 @@ inputs: {
   subnet-ids: { type: optional(list(string)) }
 }
 constraints: [
-  { kind: required-together, fields: [vpc-id, subnet-ids] },
+  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
 ]
 `
 	info := testInfo(t, src)
@@ -545,14 +545,14 @@ inputs: {
   }
 }
 constraints: [
-  { kind: exactly-one-of, fields: [replicas[*].inline, replicas[*].from-file] },
+  { kind: exactly-one-of, fields: [var.replicas[*].inline, var.replicas[*].from-file] },
 ]
 `
 	info := testInfo(t, src)
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"expected exactly one to be set, got 2 (replicas[0].inline, replicas[0].from-file)")
+		"expected exactly one to be set, got 2 (var.replicas[0].inline, var.replicas[0].from-file)")
 }
 
 func TestPlanRejectsPredicate(t *testing.T) {
