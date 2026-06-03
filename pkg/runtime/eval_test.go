@@ -89,6 +89,99 @@ func TestEvalVarMissingKey(t *testing.T) {
 	require.Contains(t, err.Error(), "not found")
 }
 
+// outcome is the expected result of one evaluation: a value, or an
+// error when err is set. It lets a case state a different expectation
+// for strict and lenient navigation of the same input.
+type outcome struct {
+	val any
+	err bool
+}
+
+func TestEvalMissingAsNull(t *testing.T) {
+	code := func(m map[string]any) map[string]any {
+		return map[string]any{"code": m}
+	}
+	cases := []struct {
+		name    string
+		src     string
+		vars    map[string]any
+		strict  outcome
+		lenient outcome
+	}{
+		{
+			name: "nested leaf present resolves in either mode",
+			src:  "var.code.inline", vars: code(map[string]any{"inline": "x"}),
+			strict:  outcome{val: "x"},
+			lenient: outcome{val: "x"},
+		},
+		{
+			name: "nested leaf missing under a present parent",
+			src:  "var.code.inline", vars: code(map[string]any{}),
+			strict:  outcome{err: true},
+			lenient: outcome{val: nil},
+		},
+		{
+			name: "nested parent missing",
+			src:  "var.code.inline", vars: map[string]any{},
+			strict:  outcome{err: true},
+			lenient: outcome{val: nil},
+		},
+		{
+			name: "nested parent null",
+			src:  "var.code.inline", vars: map[string]any{"code": nil},
+			strict:  outcome{err: true},
+			lenient: outcome{val: nil},
+		},
+		{
+			name: "nested scalar parent errors in either mode",
+			src:  "var.code.inline", vars: map[string]any{"code": "oops"},
+			strict:  outcome{err: true},
+			lenient: outcome{err: true},
+		},
+		{
+			name: "predicate over a missing nested field",
+			src:  "var.code.inline != null", vars: map[string]any{},
+			strict:  outcome{err: true},
+			lenient: outcome{val: false},
+		},
+		{
+			name: "flat present resolves in either mode",
+			src:  "var.region", vars: map[string]any{"region": "us-east-1"},
+			strict:  outcome{val: "us-east-1"},
+			lenient: outcome{val: "us-east-1"},
+		},
+		{
+			name: "flat missing",
+			src:  "var.region", vars: map[string]any{},
+			strict:  outcome{err: true},
+			lenient: outcome{val: nil},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			for _, m := range []struct {
+				label   string
+				lenient bool
+				want    outcome
+			}{
+				{"strict", false, c.strict},
+				{"lenient", true, c.lenient},
+			} {
+				t.Run(m.label, func(t *testing.T) {
+					ctx := &EvalContext{Vars: c.vars, MissingAsNull: m.lenient}
+					got, err := Eval(parseValue(t, c.src), ctx)
+					if m.want.err {
+						require.Error(t, err)
+						return
+					}
+					require.NoError(t, err)
+					require.Equal(t, m.want.val, got)
+				})
+			}
+		})
+	}
+}
+
 func TestEvalVarReferencedInArray(t *testing.T) {
 	ctx := &EvalContext{Vars: map[string]any{"greeting": "world"}}
 	got, err := Eval(parseValue(t, "['echo', var.greeting]"), ctx)

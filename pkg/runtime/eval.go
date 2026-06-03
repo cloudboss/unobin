@@ -40,6 +40,17 @@ type EvalContext struct {
 	EachValue any
 	ForEach   bool
 
+	// MissingAsNull makes path navigation yield null instead of
+	// ErrEvalNotFound, or a hard error, when a key is absent or a parent
+	// is itself null. The constraint checkers set it so a predicate over
+	// an unset optional input, including a nested one, reduces to a
+	// boolean rather than collapsing the whole expression to null or
+	// failing on a null parent. Navigating into a non-null scalar is
+	// still an error. It stays false everywhere else, because the planner
+	// relies on ErrEvalNotFound to detect forward references to upstreams
+	// that have not run yet.
+	MissingAsNull bool
+
 	// locals holds the scope's `locals:` declarations and folds them
 	// lazily as `local.<name>` references are evaluated. Shared with
 	// child contexts so a comprehension inside the scope sees the
@@ -648,11 +659,15 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 // navigateSegments walks a dot path's segments from cur, stepping into
 // nested maps. path accumulates the source form for error messages. A
 // missing key yields ErrEvalNotFound so plan can treat it as known
-// after apply.
+// after apply, unless the context set MissingAsNull, in which case a
+// missing key or a null parent reads as null instead.
 func navigateSegments(
 	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
 ) (any, error) {
 	for i, seg := range segs {
+		if cur == nil && ctx != nil && ctx.MissingAsNull {
+			return nil, nil
+		}
 		if seg.Splat {
 			return splatProject(cur, path, segs[i+1:], ctx)
 		}
@@ -664,7 +679,7 @@ func navigateSegments(
 			if n, ok := idx.(int64); ok {
 				cur, path, err = indexElement(cur, n, path)
 				if err != nil {
-					return nil, err
+					return softenMissing(err, ctx)
 				}
 				continue
 			}
@@ -675,17 +690,28 @@ func navigateSegments(
 			}
 			cur, path, err = mapStep(cur, key, path)
 			if err != nil {
-				return nil, err
+				return softenMissing(err, ctx)
 			}
 			continue
 		}
 		var err error
 		cur, path, err = mapStep(cur, seg.Name, path)
 		if err != nil {
-			return nil, err
+			return softenMissing(err, ctx)
 		}
 	}
 	return cur, nil
+}
+
+// softenMissing converts a not-found navigation error into a null
+// result when the context asked for lenient navigation, so a missing
+// key or out-of-range index reads as null. Every other error, and the
+// strict default, propagate unchanged.
+func softenMissing(err error, ctx *EvalContext) (any, error) {
+	if ctx != nil && ctx.MissingAsNull && errors.Is(err, ErrEvalNotFound) {
+		return nil, nil
+	}
+	return nil, err
 }
 
 // splatProject applies the remaining segments to each element of a list

@@ -648,12 +648,9 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	}
 	entries, perr := lang.ParseSpecs(specs)
 	values := make(map[string]any, len(step.Inputs))
-	for _, f := range constraintFieldNames(entries) {
-		values[f] = nil
-	}
 	maps.Copy(values, step.Inputs)
 	eval := func(ex lang.Expr) (any, error) {
-		v, err := Eval(ex, &EvalContext{Vars: values})
+		v, err := Eval(ex, &EvalContext{Vars: values, MissingAsNull: true})
 		if errors.Is(err, ErrEvalNotFound) {
 			return nil, nil
 		}
@@ -667,28 +664,6 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	return out
-}
-
-// constraintFieldNames returns the input field names a set of constraints
-// reads: the listed fields of set constraints, plus the var.<name> targets
-// inside predicate when and require expressions. The plan fills any of
-// these the node body left out with null before checking, so a predicate
-// that reads an unset optional input compares against null rather than
-// failing to evaluate. The runtime has no per-type input schema (it is
-// compile-only), so the constraints themselves name the fields to fill.
-func constraintFieldNames(entries []lang.ConstraintEntry) []string {
-	var names []string
-	for _, entry := range entries {
-		names = append(names, entry.Fields...)
-		for _, expr := range []lang.Expr{entry.When, entry.Require} {
-			for _, ref := range Refs(expr) {
-				if field, ok := strings.CutPrefix(ref, "var."); ok {
-					names = append(names, field)
-				}
-			}
-		}
-	}
-	return names
 }
 
 // checkCompositeConstraints validates a composite boundary's own

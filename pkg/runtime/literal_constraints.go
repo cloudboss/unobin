@@ -44,16 +44,11 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 		}
 		pos := n.Body.Span().Start
 		entries, perr := lang.ParseSpecs(schema.Constraints)
-		for _, f := range constraintFieldNames(entries) {
-			if _, set := values[f]; !set {
-				values[f] = nil
-			}
-		}
 		for _, e := range perr.Errors() {
 			errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
 		}
 		eval := func(ex lang.Expr) (any, error) {
-			v, err := Eval(ex, &EvalContext{Vars: values})
+			v, err := Eval(ex, &EvalContext{Vars: values, MissingAsNull: true})
 			if errors.Is(err, ErrEvalNotFound) {
 				return nil, nil
 			}
