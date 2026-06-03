@@ -3,6 +3,7 @@ package goschema
 import (
 	"go/ast"
 	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"testing"
@@ -113,6 +114,34 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	require.Equal(t, 1, check(badRegion), "a region outside the set fails")
 }
 
+func TestConstraintRootMustBeTheReceiver(t *testing.T) {
+	src := `package x
+
+import "github.com/cloudboss/unobin/pkg/constraint"
+
+type T struct {
+	A *string
+	B *string
+}
+
+var q T
+
+func (v T) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.RequiredTogether(v.A, q.B),
+	}
+}
+`
+	f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
+	require.NoError(t, err)
+	errs := &[]error{}
+	w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs)
+	specs := w.constraintsFromType("T")
+	require.Empty(t, specs)
+	require.NotEmpty(t, *errs)
+	require.Contains(t, (*errs)[0].Error(), `"q"`)
+}
+
 func TestReadExtractsNestedConstraints(t *testing.T) {
 	schema, warnings, err := Read("testdata/nested")
 	require.NoError(t, err)
@@ -167,15 +196,16 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 
 func TestFlattenSelector(t *testing.T) {
 	tests := []struct {
-		src  string
-		want []string
-		ok   bool
+		src      string
+		wantRoot string
+		want     []string
+		ok       bool
 	}{
-		{"v.Field", []string{"Field"}, true},
-		{"v.Code.Inline", []string{"Code", "Inline"}, true},
-		{"v.Code.Signing.KeyArn", []string{"Code", "Signing", "KeyArn"}, true},
-		{"foo().Bar", nil, false},
-		{"a[0].B", nil, false},
+		{"v.Field", "v", []string{"Field"}, true},
+		{"v.Code.Inline", "v", []string{"Code", "Inline"}, true},
+		{"v.Code.Signing.KeyArn", "v", []string{"Code", "Signing", "KeyArn"}, true},
+		{"foo().Bar", "", nil, false},
+		{"a[0].B", "", nil, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -183,9 +213,10 @@ func TestFlattenSelector(t *testing.T) {
 			require.NoError(t, err)
 			sel, ok := expr.(*ast.SelectorExpr)
 			require.True(t, ok)
-			hops, ok := flattenSelector(sel)
+			root, hops, ok := flattenSelector(sel)
 			require.Equal(t, tt.ok, ok)
 			if tt.ok {
+				require.Equal(t, tt.wantRoot, root)
 				require.Equal(t, tt.want, hops)
 			}
 		})

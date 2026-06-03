@@ -150,11 +150,6 @@ type walker struct {
 	importPath string
 	files      []*ast.File
 	imports    map[string]string
-
-	// receiverType is the type whose Constraints method is being read.
-	// A nested field selector in a constraint resolves its dotted path
-	// by walking from this type. Set per constraint extraction.
-	receiverType string
 }
 
 func newWalker(
