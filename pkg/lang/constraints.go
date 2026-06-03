@@ -99,8 +99,8 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 		case "fields":
 			if arr, ok := f.Value.(*ArrayLit); ok {
 				for _, el := range arr.Elements {
-					if id, ok := el.(*Ident); ok {
-						c.Fields = append(c.Fields, id.Name)
+					if name, ok := constraintFieldName(el); ok {
+						c.Fields = append(c.Fields, name)
 					}
 				}
 			}
@@ -118,6 +118,30 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 		return c, false
 	}
 	return c, true
+}
+
+// constraintFieldName renders a `fields:` element to its input name. A
+// bare ident is the name itself; a dotted path names a field inside a
+// nested input (code.inline). ok is false for anything else, including
+// indexed or splat segments.
+func constraintFieldName(e Expr) (string, bool) {
+	switch v := e.(type) {
+	case *Ident:
+		return v.Name, true
+	case *DotPath:
+		if v.Root == nil || v.Root.Name == "" {
+			return "", false
+		}
+		parts := []string{v.Root.Name}
+		for _, seg := range v.Segments {
+			if seg.Name == "" {
+				return "", false
+			}
+			parts = append(parts, seg.Name)
+		}
+		return strings.Join(parts, "."), true
+	}
+	return "", false
 }
 
 // lookupPath reads a field value by its dotted name, stepping into

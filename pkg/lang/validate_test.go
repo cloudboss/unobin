@@ -777,6 +777,27 @@ constraints: [
 	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
 }
 
+func TestValidateConstraintFieldsNested(t *testing.T) {
+	src := `
+constraints: [
+  { kind: exactly-one-of, fields: [code.inline, code.from-file] },
+  { kind: required-with,  fields: [code.signing.key-arn, name] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintFieldsRejectsIndexedAndSplat(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together, fields: [code['k'], code[*].x, valid-name] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
 func TestValidateConstraintUnknownKeyForFieldsKind(t *testing.T) {
 	src := `
 constraints: [

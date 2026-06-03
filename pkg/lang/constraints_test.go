@@ -206,6 +206,31 @@ constraints: [
 	require.Contains(t, errs.Err().Error(), "forbidden-with")
 }
 
+func TestCheckConstraintsNestedFields(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  { kind: exactly-one-of, fields: [code.inline, code.from-file] },
+]
+`)
+
+	errs := CheckConstraints(block, map[string]any{
+		"code": map[string]any{"inline": "x"},
+	}, nil)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+
+	errs = CheckConstraints(block, map[string]any{
+		"code": map[string]any{"inline": "x", "from-file": "y"},
+	}, nil)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), "got 2")
+
+	errs = CheckConstraints(block, map[string]any{
+		"code": map[string]any{},
+	}, nil)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), "got 0")
+}
+
 func TestCheckPredicateWhenFalseSkipsRequire(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [

@@ -213,10 +213,11 @@ var fieldsBasedConstraintKinds = map[string]struct{}{
 	"forbidden-with":     {},
 }
 
-// ValidateConstraints walks a `constraints:` array and checks each entry's
-// shape per its declared `kind:`. Field-based kinds carry a nonempty
-// `fields:` list of input names; the `predicate` kind carries `when:` and
-// `require:` expressions plus an optional `message:`.
+// ValidateConstraints walks a `constraints:` array and checks each entry
+// per its declared `kind:`. Field-based kinds take a nonempty `fields:`
+// list of input names, dotted to reach a field inside a nested input;
+// the `predicate` kind takes `when:` and `require:` expressions plus an
+// optional `message:`.
 func ValidateConstraints(arr *ArrayLit) *ErrorList {
 	errs := NewErrorList(0)
 	for i, e := range arr.Elements {
@@ -300,9 +301,9 @@ func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorL
 		return
 	}
 	for j, el := range arr.Elements {
-		if _, ok := el.(*Ident); !ok {
+		if _, ok := constraintFieldName(el); !ok {
 			errs.Addf(ErrSchema, el.Span().Start,
-				"constraints[%d].fields[%d]: must be an identifier referencing an input name",
+				"constraints[%d].fields[%d]: must be an input name or a dotted path to a nested field",
 				idx, j)
 		}
 	}
