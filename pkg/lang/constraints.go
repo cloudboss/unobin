@@ -1,6 +1,9 @@
 package lang
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // CheckConstraints evaluates the value-level cross-field constraints
 // in a stack's `constraints:` block against the validated input
@@ -145,24 +148,71 @@ func constraintFieldName(e Expr) (string, bool) {
 }
 
 // lookupPath reads a field value by its dotted name, stepping into
-// nested maps for a name like "code.inline". A name with no dot is a
+// nested maps for a name like "code.inline" and into list elements for
+// an indexed segment like "listeners[0].cert". A name with no dot is a
 // single lookup, identical to the flat form. found is false when any
-// segment is absent or a parent value is not a map, so an unset nested
-// field reads the same as an unset top-level one.
+// segment is absent, an index is out of range, or a parent value is not
+// the right container, so an unset nested field reads the same as an
+// unset top-level one.
 func lookupPath(values map[string]any, name string) (any, bool) {
 	cur := any(values)
 	for seg := range strings.SplitSeq(name, ".") {
+		base, indexes, ok := splitIndexes(seg)
+		if !ok {
+			return nil, false
+		}
 		m, ok := cur.(map[string]any)
 		if !ok {
 			return nil, false
 		}
-		v, ok := m[seg]
+		v, ok := m[base]
 		if !ok {
 			return nil, false
 		}
 		cur = v
+		for _, idx := range indexes {
+			lst, ok := cur.([]any)
+			if !ok || idx >= len(lst) {
+				return nil, false
+			}
+			cur = lst[idx]
+		}
 	}
 	return cur, true
+}
+
+// splitIndexes splits one path segment into its field name and any
+// trailing [N] indexes, so "matrix[0][1]" yields ("matrix", [0, 1]).
+// ok is false for a malformed segment: an empty name, an unclosed
+// bracket, or a non-numeric index, [*] included, since expansion
+// replaces every splat with a concrete index before lookup.
+func splitIndexes(seg string) (string, []int, bool) {
+	base, rest, found := strings.Cut(seg, "[")
+	if !found {
+		return seg, nil, true
+	}
+	if base == "" {
+		return "", nil, false
+	}
+	var indexes []int
+	for {
+		num, after, found := strings.Cut(rest, "]")
+		if !found {
+			return "", nil, false
+		}
+		n, err := strconv.Atoi(num)
+		if err != nil || n < 0 {
+			return "", nil, false
+		}
+		indexes = append(indexes, n)
+		if after == "" {
+			return base, indexes, true
+		}
+		rest, found = strings.CutPrefix(after, "[")
+		if !found {
+			return "", nil, false
+		}
+	}
 }
 
 // nonNullFields returns the names of the listed fields whose values

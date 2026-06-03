@@ -426,6 +426,69 @@ func TestCheckConstraintEntriesNestedFields(t *testing.T) {
 	}
 }
 
+func TestCheckConstraintEntriesIndexedFields(t *testing.T) {
+	values := map[string]any{
+		"name": "lb",
+		"listeners": []any{
+			map[string]any{"cert": "c", "key": "k"},
+			map[string]any{"cert": "c"},
+		},
+	}
+	tests := []struct {
+		name    string
+		entry   ConstraintEntry
+		wantErr bool
+	}{
+		{"together both set",
+			ConstraintEntry{Kind: "required-together",
+				Fields: []string{"listeners[0].cert", "listeners[0].key"}}, false},
+		{"together partial",
+			ConstraintEntry{Kind: "required-together",
+				Fields: []string{"listeners[1].cert", "listeners[1].key"}}, true},
+		{"exactly-one one set",
+			ConstraintEntry{Kind: "exactly-one-of",
+				Fields: []string{"listeners[1].cert", "listeners[1].key"}}, false},
+		{"exactly-one out of range reads null",
+			ConstraintEntry{Kind: "exactly-one-of",
+				Fields: []string{"listeners[5].cert", "listeners[5].key"}}, true},
+		{"together out of range all null",
+			ConstraintEntry{Kind: "required-together",
+				Fields: []string{"listeners[5].cert", "listeners[5].key"}}, false},
+		{"at-most two set",
+			ConstraintEntry{Kind: "at-most-one-of",
+				Fields: []string{"listeners[0].cert", "listeners[0].key"}}, true},
+		{"mixed indexed trigger with flat dep",
+			ConstraintEntry{Kind: "required-with",
+				Fields: []string{"listeners[0].cert", "name"}}, false},
+		{"mixed indexed trigger forbids flat",
+			ConstraintEntry{Kind: "forbidden-with",
+				Fields: []string{"listeners[0].cert", "name"}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var outputs []string
+			for range 3 {
+				errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, values, nil)
+				outputs = append(outputs, errorText(errs))
+			}
+			require.Equal(t, outputs[0], outputs[1], "output must be deterministic")
+			require.Equal(t, outputs[0], outputs[2], "output must be deterministic")
+			if tt.wantErr {
+				require.NotEmpty(t, outputs[0])
+			} else {
+				require.Empty(t, outputs[0])
+			}
+		})
+	}
+}
+
+func errorText(errs *ErrorList) string {
+	if errs.Len() == 0 {
+		return ""
+	}
+	return errs.Err().Error()
+}
+
 func TestLookupPath(t *testing.T) {
 	values := map[string]any{
 		"name": "db",
@@ -434,6 +497,12 @@ func TestLookupPath(t *testing.T) {
 			"signing": map[string]any{"key-arn": "arn"},
 			"empty":   nil,
 		},
+		"listeners": []any{
+			map[string]any{"cert": "c0", "key": nil},
+			map[string]any{},
+		},
+		"matrix": []any{[]any{"a", "b"}, []any{"c"}},
+		"nums":   []any{int64(1), int64(2)},
 	}
 	tests := []struct {
 		name      string
@@ -451,6 +520,20 @@ func TestLookupPath(t *testing.T) {
 		{"three-level present", "code.signing.key-arn", "arn", true},
 		{"three-level leaf absent", "code.signing.profile", nil, false},
 		{"step into scalar", "name.suffix", nil, false},
+		{"indexed map field", "listeners[0].cert", "c0", true},
+		{"indexed null leaf", "listeners[0].key", nil, true},
+		{"indexed leaf absent", "listeners[1].cert", nil, false},
+		{"index out of range", "listeners[2].cert", nil, false},
+		{"trailing index", "listeners[1]", map[string]any{}, true},
+		{"double index", "matrix[0][1]", "b", true},
+		{"double index out of range", "matrix[1][1]", nil, false},
+		{"index into map", "code[0]", nil, false},
+		{"index into scalar", "name[0]", nil, false},
+		{"index into scalar element", "nums[0].x", nil, false},
+		{"splat is not an index", "listeners[*].cert", nil, false},
+		{"unclosed index", "listeners[0.cert", nil, false},
+		{"negative index", "listeners[-1]", nil, false},
+		{"empty index", "listeners[]", nil, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
