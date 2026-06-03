@@ -460,8 +460,9 @@ func ValidateLocals(block *ObjectLit) *ErrorList {
 }
 
 // ValidateConstraintReferences checks that every name in the `fields:`
-// list of each constraint corresponds to a declared input. Constraint
-// entries with the wrong shape are skipped.
+// list of each constraint corresponds to a declared input. A dotted
+// name is checked by its first segment, the input the path starts
+// from. Malformed entries are skipped.
 func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	known := make(map[string]struct{}, len(inputs.Fields))
@@ -490,14 +491,15 @@ func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *Err
 			continue
 		}
 		for j, el := range arr.Elements {
-			id, ok := el.(*Ident)
+			name, ok := constraintFieldName(el)
 			if !ok {
 				continue
 			}
-			if _, exists := known[id.Name]; !exists {
-				errs.Addf(ErrResolve, id.S.Start,
+			root, _, _ := strings.Cut(name, ".")
+			if _, exists := known[root]; !exists {
+				errs.Addf(ErrResolve, el.Span().Start,
 					"constraints[%d].fields[%d]: input %q not declared in `inputs:`",
-					i, j, id.Name)
+					i, j, root)
 			}
 		}
 	}

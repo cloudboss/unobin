@@ -1077,6 +1077,26 @@ constraints: [
 	require.Contains(t, errs.Errors()[0].Msg, "missing-name")
 }
 
+func TestValidateConstraintReferencesNested(t *testing.T) {
+	src := `
+inputs: {
+  code: { type: optional(object({ inline: optional(string) })) }
+}
+constraints: [
+  { kind: at-least-one-of, fields: [code.inline, bogus.inline] },
+]
+`
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	inputs := f.Body.Fields[0].Value.(*ObjectLit)
+	constraints := f.Body.Fields[1].Value.(*ArrayLit)
+
+	errs := ValidateConstraintReferences(constraints, inputs)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
+	require.Contains(t, errs.Errors()[0].Msg, "bogus")
+}
+
 func TestValidateFileStack(t *testing.T) {
 	src := `
 description: 'a stack'
