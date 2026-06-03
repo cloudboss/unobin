@@ -300,13 +300,54 @@ func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorL
 			"constraints[%d]: `fields:` must not be empty", idx)
 		return
 	}
+	names := make([]string, 0, len(arr.Elements))
+	hasSplat := false
 	for j, el := range arr.Elements {
-		if _, ok := constraintFieldName(el); !ok {
+		name, ok := constraintFieldName(el)
+		if !ok {
 			errs.Addf(ErrSchema, el.Span().Start,
-				"constraints[%d].fields[%d]: must be an input name or a dotted path to a nested field",
-				idx, j)
+				"constraints[%d].fields[%d]: %s", idx, j, fieldNameProblem(el))
+			continue
+		}
+		if strings.Contains(name, splatMarker) {
+			hasSplat = true
+		}
+		names = append(names, name)
+	}
+	if hasSplat && len(names) == len(arr.Elements) {
+		if msg := splatRuleViolation(names); msg != "" {
+			errs.Addf(ErrSchema, arr.S.Start, "constraints[%d]: %s", idx, msg)
 		}
 	}
+}
+
+// fieldNameProblem describes why a `fields:` element does not render to
+// an input name, with a pointed message for the splat and index
+// mistakes a list constraint invites.
+func fieldNameProblem(e Expr) string {
+	dp, ok := e.(*DotPath)
+	if !ok {
+		return "must be an input name or a dotted path to a nested field"
+	}
+	splats := 0
+	for i, seg := range dp.Segments {
+		if seg.Splat {
+			splats++
+			if splats > 1 {
+				return "only one [*] is allowed in a field"
+			}
+			if i == len(dp.Segments)-1 {
+				return "splat [*] must be followed by a field, like replicas[*].host"
+			}
+			continue
+		}
+		if seg.Index != nil {
+			if _, ok := literalIndex(seg.Index); !ok {
+				return "a list index in a field must be a whole number, like listeners[0]"
+			}
+		}
+	}
+	return "must be an input name or a dotted path to a nested field"
 }
 
 func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
@@ -462,7 +503,8 @@ func ValidateLocals(block *ObjectLit) *ErrorList {
 // ValidateConstraintReferences checks that every name in the `fields:`
 // list of each constraint corresponds to a declared input. A dotted
 // name is checked by its first segment, the input the path starts
-// from. Malformed entries are skipped.
+// from, with any [N] or [*] suffix set aside. Malformed entries are
+// skipped.
 func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	known := make(map[string]struct{}, len(inputs.Fields))
@@ -496,6 +538,7 @@ func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *Err
 				continue
 			}
 			root, _, _ := strings.Cut(name, ".")
+			root, _, _ = strings.Cut(root, "[")
 			if _, exists := known[root]; !exists {
 				errs.Addf(ErrResolve, el.Span().Start,
 					"constraints[%d].fields[%d]: input %q not declared in `inputs:`",

@@ -92,6 +92,42 @@ func hasSplatField(fields []string) bool {
 	return false
 }
 
+// splatRuleViolation reports why a fields list that uses [*] is
+// malformed: fewer than two fields, or splats of two different lists.
+// Empty when the list is fine. Shared by the compile-time validation
+// and the checker so both report the same wording.
+func splatRuleViolation(fields []string) string {
+	if len(fields) < 2 {
+		return "a [*] constraint needs at least two fields"
+	}
+	prefix, found := "", false
+	for _, f := range fields {
+		before, _, ok := strings.Cut(f, splatMarker)
+		if !ok {
+			continue
+		}
+		switch {
+		case !found:
+			prefix, found = before, true
+		case before != prefix:
+			return "[*] fields must splat the same list, got " +
+				prefix + splatMarker + " and " + before + splatMarker
+		}
+	}
+	return ""
+}
+
+// splatPrefix returns the path of the list the fields splat, the part
+// before the first [*] of the first splatted field.
+func splatPrefix(fields []string) string {
+	for _, f := range fields {
+		if before, _, ok := strings.Cut(f, splatMarker); ok {
+			return before
+		}
+	}
+	return ""
+}
+
 // checkSplatEntry runs a set constraint whose fields splat a list once
 // per element, with the leftmost [*] replaced by the element's index, so
 // a failure names the element that broke the rule (replicas[1].host).
@@ -107,28 +143,12 @@ func checkSplatEntry(
 	evalAgainstInputs EvalFunc,
 	errs *ErrorList,
 ) {
-	if len(c.Fields) < 2 {
+	if msg := splatRuleViolation(c.Fields); msg != "" {
 		errs.Addf(ErrSchema, Position{},
-			"constraints[%d] (%s [%s]): a [*] constraint needs at least two fields",
-			idx, c.Kind, joinNames(c.Fields))
+			"constraints[%d] (%s [%s]): %s", idx, c.Kind, joinNames(c.Fields), msg)
 		return
 	}
-	prefix, found := "", false
-	for _, f := range c.Fields {
-		before, _, ok := strings.Cut(f, splatMarker)
-		if !ok {
-			continue
-		}
-		switch {
-		case !found:
-			prefix, found = before, true
-		case before != prefix:
-			errs.Addf(ErrSchema, Position{},
-				"constraints[%d] (%s [%s]): [*] fields must splat the same list, got %s and %s",
-				idx, c.Kind, joinNames(c.Fields), prefix+splatMarker, before+splatMarker)
-			return
-		}
-	}
+	prefix := splatPrefix(c.Fields)
 	root, ok := lookupPath(values, prefix)
 	if !ok || root == nil {
 		return
@@ -201,8 +221,10 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 
 // constraintFieldName renders a `fields:` element to its input name. A
 // bare ident is the name itself; a dotted path names a field inside a
-// nested input (code.inline). ok is false for anything else, including
-// indexed or splat segments.
+// nested input (code.inline). A segment may index a list element with a
+// whole-number literal (listeners[0].cert) or splat every element
+// (replicas[*].host); a splat must be followed by a field and may
+// appear once per path. ok is false for anything else.
 func constraintFieldName(e Expr) (string, bool) {
 	switch v := e.(type) {
 	case *Ident:
@@ -211,16 +233,41 @@ func constraintFieldName(e Expr) (string, bool) {
 		if v.Root == nil || v.Root.Name == "" {
 			return "", false
 		}
-		parts := []string{v.Root.Name}
-		for _, seg := range v.Segments {
-			if seg.Name == "" {
+		var b strings.Builder
+		b.WriteString(v.Root.Name)
+		splats := 0
+		for i, seg := range v.Segments {
+			switch {
+			case seg.Splat:
+				if splats > 0 || i == len(v.Segments)-1 {
+					return "", false
+				}
+				splats++
+				b.WriteString(splatMarker)
+			case seg.Index != nil:
+				n, ok := literalIndex(seg.Index)
+				if !ok {
+					return "", false
+				}
+				b.WriteString("[" + strconv.Itoa(n) + "]")
+			case seg.Name != "":
+				b.WriteString("." + seg.Name)
+			default:
 				return "", false
 			}
-			parts = append(parts, seg.Name)
 		}
-		return strings.Join(parts, "."), true
+		return b.String(), true
 	}
 	return "", false
+}
+
+// literalIndex reads an index expression as a whole-number literal.
+func literalIndex(e Expr) (int, bool) {
+	n, ok := e.(*NumberLit)
+	if !ok || n.IsFloat || n.ParsedInt < 0 {
+		return 0, false
+	}
+	return int(n.ParsedInt), true
 }
 
 // lookupPath reads a field value by its dotted name, stepping into

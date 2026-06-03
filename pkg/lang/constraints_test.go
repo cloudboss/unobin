@@ -231,6 +231,37 @@ constraints: [
 	require.Contains(t, errs.Err().Error(), "got 0")
 }
 
+func TestCheckConstraintsSplatFields(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  { kind: exactly-one-of, fields: [replicas[*].inline, replicas[*].from-file] },
+]
+`)
+	errs := CheckConstraints(block, map[string]any{
+		"replicas": []any{
+			map[string]any{"inline": "a"},
+			map[string]any{"inline": "a", "from-file": "f"},
+		},
+	}, nil)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "replicas[1].inline")
+}
+
+func TestCheckConstraintsIndexedFields(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  { kind: required-together, fields: [listeners[0].cert, listeners[0].key] },
+]
+`)
+	errs := CheckConstraints(block, map[string]any{
+		"listeners": []any{
+			map[string]any{"cert": "c"},
+		},
+	}, nil)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "got 1 set (listeners[0].cert)")
+}
+
 func TestCheckPredicateWhenFalseSkipsRequire(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [

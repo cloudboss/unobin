@@ -788,14 +788,51 @@ constraints: [
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
 }
 
-func TestValidateConstraintFieldsRejectsIndexedAndSplat(t *testing.T) {
+func TestValidateConstraintFieldsAcceptsSplatAndIndex(t *testing.T) {
 	src := `
 constraints: [
-  { kind: required-together, fields: [code['k'], code[*].x, valid-name] },
+  { kind: exactly-one-of,     fields: [replicas[*].inline, replicas[*].from-file] },
+  { kind: required-together,  fields: [listeners[0].cert, listeners[0].key] },
+  { kind: required-with,      fields: [replicas[*].tls, ca-cert] },
+  { kind: at-least-one-of,    fields: [config.replicas[*].a, config.replicas[*].b] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintFieldsRejectsBadSegments(t *testing.T) {
+	src := `
+constraints: [
+  { kind: required-together, fields: [code['k'], a] },
+  { kind: required-together, fields: [replicas[*], a] },
+  { kind: required-together, fields: [a[*].b[*].x, a] },
+  { kind: required-together, fields: [code[var.i], a] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 4, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg,
+		"a list index in a field must be a whole number, like listeners[0]")
+	require.Contains(t, errs.Errors()[1].Msg,
+		"splat [*] must be followed by a field, like replicas[*].host")
+	require.Contains(t, errs.Errors()[2].Msg, "only one [*] is allowed in a field")
+	require.Contains(t, errs.Errors()[3].Msg,
+		"a list index in a field must be a whole number, like listeners[0]")
+}
+
+func TestValidateConstraintSplatRules(t *testing.T) {
+	src := `
+constraints: [
+  { kind: at-most-one-of,    fields: [replicas[*].primary] },
+  { kind: required-together, fields: [replicas[*].x, volumes[*].y] },
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
 	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, "a [*] constraint needs at least two fields")
+	require.Contains(t, errs.Errors()[1].Msg,
+		"[*] fields must splat the same list, got replicas[*] and volumes[*]")
 }
 
 func TestValidateConstraintUnknownKeyForFieldsKind(t *testing.T) {
@@ -1095,6 +1132,27 @@ constraints: [
 	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
 	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
 	require.Contains(t, errs.Errors()[0].Msg, "bogus")
+}
+
+func TestValidateConstraintReferencesSplatAndIndexRoots(t *testing.T) {
+	src := `
+inputs: {
+  replicas:  { type: list(object({ host: optional(string) })) }
+  listeners: { type: list(object({ cert: optional(string) })) }
+}
+constraints: [
+  { kind: required-together, fields: [replicas[*].host, listeners[0].cert, volumes[*].id] },
+]
+`
+	f, err := ParseSource("", []byte(src))
+	require.NoError(t, err)
+	inputs := f.Body.Fields[0].Value.(*ObjectLit)
+	constraints := f.Body.Fields[1].Value.(*ArrayLit)
+
+	errs := ValidateConstraintReferences(constraints, inputs)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
+	require.Contains(t, errs.Errors()[0].Msg, `input "volumes" not declared`)
 }
 
 func TestValidateFileStack(t *testing.T) {
