@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -53,6 +54,7 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	if method == nil {
 		return nil
 	}
+	w.receiverType = typeName
 	names := w.fieldKebabByGoName(typeName)
 	var out []lang.ConstraintSpec
 	for _, call := range constraintCalls(method) {
@@ -472,25 +474,140 @@ func peelMessage(call *ast.CallExpr) (*ast.CallExpr, string) {
 	return inner, msg
 }
 
-// selectorField reads a v.Field argument and returns the field's kebab
-// input name. A non-selector argument, or a field absent from names,
-// records an error and returns ok=false.
+// selectorField reads a v.Field argument and returns the field's dotted
+// kebab input path. A single-hop selector (v.Field) maps through the
+// top-level names. A multi-hop selector (v.Code.Inline) walks the
+// receiver type hop by hop into nested struct types, joining each hop's
+// kebab name with a dot. A non-selector argument, or a chain naming a
+// field that does not exist, records an error and returns ok=false.
 func (w *walker) selectorField(arg ast.Expr, names map[string]string) (string, bool) {
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
-		if w.errs != nil {
-			*w.errs = append(*w.errs,
-				fmt.Errorf("constraint field must be a struct field selector, got %T", arg))
-		}
+		w.addErrf("constraint field must be a struct field selector, got %T", arg)
 		return "", false
 	}
-	kebab, ok := names[sel.Sel.Name]
+	if _, rootIsIdent := sel.X.(*ast.Ident); rootIsIdent {
+		kebab, ok := names[sel.Sel.Name]
+		if !ok {
+			w.addErrf("constraint references unknown field %q", sel.Sel.Name)
+			return "", false
+		}
+		return kebab, true
+	}
+	hops, ok := flattenSelector(sel)
 	if !ok {
-		if w.errs != nil {
-			*w.errs = append(*w.errs,
-				fmt.Errorf("constraint references unknown field %q", sel.Sel.Name))
-		}
+		w.addErrf("constraint field must be a chain of struct fields, got %T", arg)
 		return "", false
 	}
-	return kebab, true
+	path, ok := w.fieldPath(w.receiverType, hops)
+	if !ok {
+		w.addErrf("constraint references unknown field %q", strings.Join(hops, "."))
+		return "", false
+	}
+	return path, true
+}
+
+// addErrf records a formatted extraction error when the walker is
+// collecting them.
+func (w *walker) addErrf(format string, args ...any) {
+	if w.errs != nil {
+		*w.errs = append(*w.errs, fmt.Errorf(format, args...))
+	}
+}
+
+// flattenSelector unwinds a selector chain such as v.Code.Inline into
+// the field hops in source order (["Code", "Inline"]). ok is false for
+// anything that is not an ident-rooted chain of field selections.
+func flattenSelector(sel *ast.SelectorExpr) ([]string, bool) {
+	hops := []string{sel.Sel.Name}
+	for cur := sel.X; ; {
+		switch x := cur.(type) {
+		case *ast.Ident:
+			slices.Reverse(hops)
+			return hops, true
+		case *ast.SelectorExpr:
+			hops = append(hops, x.Sel.Name)
+			cur = x.X
+		default:
+			return nil, false
+		}
+	}
+}
+
+// fieldPath walks the field hops from receiverType, mapping each Go name
+// to its kebab name and descending into the nested struct type for the
+// next hop, and returns the dotted input path (code.inline). ok is false
+// when a hop names no field, or a non-final hop is not a struct.
+func (w *walker) fieldPath(receiverType string, hops []string) (string, bool) {
+	cw, typeName := w, receiverType
+	kebabs := make([]string, 0, len(hops))
+	for i, hop := range hops {
+		kebab, ok := cw.fieldKebabByGoName(typeName)[hop]
+		if !ok {
+			return "", false
+		}
+		kebabs = append(kebabs, kebab)
+		if i == len(hops)-1 {
+			break
+		}
+		cw, typeName, ok = cw.nestedStruct(typeName, hop)
+		if !ok {
+			return "", false
+		}
+	}
+	return strings.Join(kebabs, "."), true
+}
+
+// nestedStruct resolves the struct type of field goName within typeName,
+// following a pointer and a subpackage selector the way the schema walk
+// does. The returned walker is positioned at the package the struct
+// lives in. ok is false when the field's type is not an in-library
+// struct.
+func (w *walker) nestedStruct(typeName, goName string) (*walker, string, bool) {
+	spec := findTypeSpec(w.files, typeName)
+	if spec == nil {
+		return nil, "", false
+	}
+	st, ok := spec.Type.(*ast.StructType)
+	if !ok {
+		return nil, "", false
+	}
+	ft := fieldTypeByGoName(st, goName)
+	if ft == nil {
+		return nil, "", false
+	}
+	if star, ok := ft.(*ast.StarExpr); ok {
+		ft = star.X
+	}
+	switch t := ft.(type) {
+	case *ast.Ident:
+		return w, t.Name, true
+	case *ast.SelectorExpr:
+		pkg, ok := identName(t.X)
+		if !ok {
+			return nil, "", false
+		}
+		sub := w.sub(w.imports[pkg])
+		if sub == nil {
+			return nil, "", false
+		}
+		return sub, t.Sel.Name, true
+	}
+	return nil, "", false
+}
+
+// fieldTypeByGoName returns the AST type of the struct field with the
+// given Go name, or nil when no such field is declared.
+func fieldTypeByGoName(st *ast.StructType, goName string) ast.Expr {
+	if st.Fields == nil {
+		return nil
+	}
+	for _, fld := range st.Fields.List {
+		for _, n := range fld.Names {
+			if n.Name == goName {
+				return fld.Type
+			}
+		}
+	}
+	return nil
 }

@@ -1,6 +1,8 @@
 package goschema
 
 import (
+	"go/ast"
+	"go/parser"
 	"os"
 	"path/filepath"
 	"testing"
@@ -109,6 +111,118 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	badRegion := base()
 	badRegion["region"] = "eu-west-1"
 	require.Equal(t, 1, check(badRegion), "a region outside the set fails")
+}
+
+func TestReadExtractsNestedConstraints(t *testing.T) {
+	schema, warnings, err := Read("testdata/nested")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Contains(t, schema.Resources, "db")
+
+	want := []lang.ConstraintSpec{
+		{Kind: "exactly-one-of", Fields: []string{"code.inline", "code.from-file"}},
+		{
+			Kind:    "predicate",
+			When:    "(var.code.signing != null)",
+			Require: "(var.code.signing.key-arn != null)",
+			Message: "signing requires a key arn",
+		},
+	}
+	require.Equal(t, want, schema.Resources["db"].Constraints)
+}
+
+func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
+	schema, _, err := Read("testdata/nested")
+	require.NoError(t, err)
+	entries, perr := lang.ParseSpecs(schema.Resources["db"].Constraints)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	eval := func(values map[string]any) lang.EvalFunc {
+		return func(e lang.Expr) (any, error) {
+			return runtime.Eval(e, &runtime.EvalContext{Vars: values, MissingAsNull: true})
+		}
+	}
+
+	// One code source set, signing present with a key arn: all hold.
+	good := map[string]any{
+		"code": map[string]any{
+			"inline":  "echo hi",
+			"signing": map[string]any{"key-arn": "arn"},
+		},
+	}
+	ok := lang.CheckConstraintEntries(entries, good, eval(good))
+	require.Equal(t, 0, ok.Len(), "valid nested input should pass: %v", ok.Err())
+
+	// Both sources set, and signing present without a key arn: both fail.
+	bad := map[string]any{
+		"code": map[string]any{
+			"inline":    "echo hi",
+			"from-file": "build.sh",
+			"signing":   map[string]any{},
+		},
+	}
+	got := lang.CheckConstraintEntries(entries, bad, eval(bad))
+	require.Equal(t, 2, got.Len(), "two violations expected: %v", got.Err())
+}
+
+func TestFlattenSelector(t *testing.T) {
+	tests := []struct {
+		src  string
+		want []string
+		ok   bool
+	}{
+		{"v.Field", []string{"Field"}, true},
+		{"v.Code.Inline", []string{"Code", "Inline"}, true},
+		{"v.Code.Signing.KeyArn", []string{"Code", "Signing", "KeyArn"}, true},
+		{"foo().Bar", nil, false},
+		{"a[0].B", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			expr, err := parser.ParseExpr(tt.src)
+			require.NoError(t, err)
+			sel, ok := expr.(*ast.SelectorExpr)
+			require.True(t, ok)
+			hops, ok := flattenSelector(sel)
+			require.Equal(t, tt.ok, ok)
+			if tt.ok {
+				require.Equal(t, tt.want, hops)
+			}
+		})
+	}
+}
+
+func TestFieldPath(t *testing.T) {
+	files, err := parsePackageDir("testdata/nested")
+	require.NoError(t, err)
+	errs := &[]error{}
+	w := newWalker("testdata/nested", "", files, map[string][]*ast.File{}, errs)
+
+	tests := []struct {
+		name string
+		hops []string
+		want string
+		ok   bool
+	}{
+		{"single hop", []string{"Name"}, "name", true},
+		{"two hop", []string{"Code", "Inline"}, "code.inline", true},
+		{"two hop other", []string{"Code", "FromFile"}, "code.from-file", true},
+		{"three hop through pointer", []string{"Code", "Signing", "KeyArn"},
+			"code.signing.key-arn", true},
+		{"unknown top field", []string{"Bogus"}, "", false},
+		{"unknown nested leaf", []string{"Code", "Bogus"}, "", false},
+		{"descend into non-struct", []string{"Code", "Inline", "X"}, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := w.fieldPath("DB", tt.hops)
+			require.Equal(t, tt.ok, ok)
+			if tt.ok {
+				require.Equal(t, tt.want, got)
+			}
+		})
+	}
+	require.Empty(t, *errs, "fieldPath records no errors itself")
 }
 
 func TestReadSamePackage(t *testing.T) {

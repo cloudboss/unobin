@@ -3,6 +3,7 @@ package nested
 import (
 	"context"
 
+	"github.com/cloudboss/unobin/pkg/constraint"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -18,6 +19,15 @@ func Library() *runtime.Library {
 type DB struct {
 	Name string
 	Code DBCode
+}
+
+func (d DB) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ExactlyOneOf(d.Code.Inline, d.Code.FromFile),
+		constraint.When(constraint.Present(d.Code.Signing)).
+			Require(constraint.Present(d.Code.Signing.KeyArn)).
+			Message("signing requires a key arn"),
+	}
 }
 
 type DBCode struct {
