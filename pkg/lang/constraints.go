@@ -57,6 +57,10 @@ func checkEntry(
 	evalAgainstInputs EvalFunc,
 	errs *ErrorList,
 ) {
+	if c.Kind != "predicate" && hasSplatField(c.Fields) {
+		checkSplatEntry(idx, c, values, evalAgainstInputs, errs)
+		return
+	}
 	switch c.Kind {
 	case "exactly-one-of":
 		checkExactlyOneOf(idx, c.Fields, values, errs)
@@ -75,10 +79,82 @@ func checkEntry(
 	}
 }
 
+// splatMarker is the reserved segment suffix that stands for every
+// element of a list in a constraint field name.
+const splatMarker = "[*]"
+
+func hasSplatField(fields []string) bool {
+	for _, f := range fields {
+		if strings.Contains(f, splatMarker) {
+			return true
+		}
+	}
+	return false
+}
+
+// checkSplatEntry runs a set constraint whose fields splat a list once
+// per element, with the leftmost [*] replaced by the element's index, so
+// a failure names the element that broke the rule (replicas[1].host).
+// Every [*] field must splat the same list, and a splatted entry must
+// relate at least two fields: a per-element rule over one field only
+// restates whether that field is set. An absent or null list checks
+// nothing, matching how an unset field reads as null, and each element
+// of a nested splat expands recursively.
+func checkSplatEntry(
+	idx int,
+	c ConstraintEntry,
+	values map[string]any,
+	evalAgainstInputs EvalFunc,
+	errs *ErrorList,
+) {
+	if len(c.Fields) < 2 {
+		errs.Addf(ErrSchema, Position{},
+			"constraints[%d] (%s [%s]): a [*] constraint needs at least two fields",
+			idx, c.Kind, joinNames(c.Fields))
+		return
+	}
+	prefix, found := "", false
+	for _, f := range c.Fields {
+		before, _, ok := strings.Cut(f, splatMarker)
+		if !ok {
+			continue
+		}
+		switch {
+		case !found:
+			prefix, found = before, true
+		case before != prefix:
+			errs.Addf(ErrSchema, Position{},
+				"constraints[%d] (%s [%s]): [*] fields must splat the same list, got %s and %s",
+				idx, c.Kind, joinNames(c.Fields), prefix+splatMarker, before+splatMarker)
+			return
+		}
+	}
+	root, ok := lookupPath(values, prefix)
+	if !ok || root == nil {
+		return
+	}
+	lst, ok := root.([]any)
+	if !ok {
+		errs.Addf(ErrSchema, Position{},
+			"constraints[%d] (%s [%s]): cannot splat %s at %s%s",
+			idx, c.Kind, joinNames(c.Fields), TypeMessage(root), prefix, splatMarker)
+		return
+	}
+	for i := range lst {
+		elem := c
+		elem.Fields = make([]string, len(c.Fields))
+		for j, f := range c.Fields {
+			elem.Fields[j] = strings.Replace(f, splatMarker, "["+strconv.Itoa(i)+"]", 1)
+		}
+		checkEntry(idx, elem, values, evalAgainstInputs, errs)
+	}
+}
+
 // ConstraintEntry is one resolved cross-field constraint, independent of
 // whether it was parsed from a UB constraints block or derived from a Go
 // type at compile time. The set kinds use Fields; a predicate uses When
-// and Require (and an optional Message). goschema builds these directly
+// and Require (and an optional Message). A Fields name may splat a list
+// ([*]) to run the rule once per element. goschema builds these directly
 // for Go library types so they run through the same check as UB ones.
 type ConstraintEntry struct {
 	Kind    string

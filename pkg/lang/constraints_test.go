@@ -489,6 +489,241 @@ func errorText(errs *ErrorList) string {
 	return errs.Err().Error()
 }
 
+func TestCheckConstraintEntriesSplatFields(t *testing.T) {
+	io := []string{"replicas[*].inline", "replicas[*].from-file"}
+	ab := []string{"replicas[*].a", "replicas[*].b"}
+	certKey := []string{"replicas[*].cert", "replicas[*].key"}
+	tests := []struct {
+		name     string
+		entry    ConstraintEntry
+		values   map[string]any
+		wantMsgs []string
+	}{
+		{"exactly-one per element all pass",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"replicas": []any{
+				map[string]any{"inline": "a"},
+				map[string]any{"from-file": "f"},
+			}},
+			nil},
+		{"exactly-one element both set",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"replicas": []any{
+				map[string]any{"inline": "a"},
+				map[string]any{"inline": "a", "from-file": "f"},
+			}},
+			[]string{
+				"constraints[0] (exactly-one-of [replicas[1].inline, replicas[1].from-file]): " +
+					"expected exactly one to be set, got 2 " +
+					"(replicas[1].inline, replicas[1].from-file)",
+			}},
+		{"exactly-one element neither set",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"replicas": []any{
+				map[string]any{},
+				map[string]any{"inline": "a"},
+			}},
+			[]string{
+				"constraints[0] (exactly-one-of [replicas[0].inline, replicas[0].from-file]): " +
+					"expected exactly one to be set, got 0 ()",
+			}},
+		{"exactly-one multiple elements fail",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"replicas": []any{
+				map[string]any{},
+				map[string]any{"inline": "a", "from-file": "f"},
+				map[string]any{"inline": "x"},
+			}},
+			[]string{
+				"constraints[0] (exactly-one-of [replicas[0].inline, replicas[0].from-file]): " +
+					"expected exactly one to be set, got 0 ()",
+				"constraints[0] (exactly-one-of [replicas[1].inline, replicas[1].from-file]): " +
+					"expected exactly one to be set, got 2 " +
+					"(replicas[1].inline, replicas[1].from-file)",
+			}},
+		{"at-least per element all pass",
+			ConstraintEntry{Kind: "at-least-one-of", Fields: ab},
+			map[string]any{"replicas": []any{
+				map[string]any{"a": int64(1)},
+				map[string]any{"b": int64(2)},
+			}},
+			nil},
+		{"at-least element none set",
+			ConstraintEntry{Kind: "at-least-one-of", Fields: ab},
+			map[string]any{"replicas": []any{
+				map[string]any{"a": int64(1)},
+				map[string]any{},
+			}},
+			[]string{
+				"constraints[0] (at-least-one-of [replicas[1].a, replicas[1].b]): " +
+					"expected at least one to be set, got none",
+			}},
+		{"at-most element two set",
+			ConstraintEntry{Kind: "at-most-one-of", Fields: ab},
+			map[string]any{"replicas": []any{
+				map[string]any{"a": int64(1), "b": int64(2)},
+			}},
+			[]string{
+				"constraints[0] (at-most-one-of [replicas[0].a, replicas[0].b]): " +
+					"expected at most one to be set, got 2 (replicas[0].a, replicas[0].b)",
+			}},
+		{"mutually-exclusive element two set",
+			ConstraintEntry{Kind: "mutually-exclusive", Fields: ab},
+			map[string]any{"replicas": []any{
+				map[string]any{"a": int64(1), "b": int64(2)},
+			}},
+			[]string{
+				"constraints[0] (mutually-exclusive [replicas[0].a, replicas[0].b]): " +
+					"expected at most one to be set, got 2 (replicas[0].a, replicas[0].b)",
+			}},
+		{"together element partial",
+			ConstraintEntry{Kind: "required-together", Fields: certKey},
+			map[string]any{"replicas": []any{
+				map[string]any{"cert": "c", "key": "k"},
+				map[string]any{"cert": "c"},
+			}},
+			[]string{
+				"constraints[0] (required-together [replicas[1].cert, replicas[1].key]): " +
+					"expected all set or all null, got 1 set (replicas[1].cert)",
+			}},
+		{"together element empty passes",
+			ConstraintEntry{Kind: "required-together", Fields: certKey},
+			map[string]any{"replicas": []any{
+				map[string]any{"cert": "c", "key": "k"},
+				map[string]any{},
+			}},
+			nil},
+		{"with splat trigger missing global dep",
+			ConstraintEntry{Kind: "required-with",
+				Fields: []string{"replicas[*].tls", "ca-cert"}},
+			map[string]any{"replicas": []any{
+				map[string]any{"tls": true},
+				map[string]any{},
+			}},
+			[]string{
+				`constraints[0] (required-with): "replicas[0].tls" is set, ` +
+					"so [ca-cert] must also be set; missing ca-cert",
+			}},
+		{"with global trigger missing splat dep",
+			ConstraintEntry{Kind: "required-with",
+				Fields: []string{"ca-cert", "replicas[*].tls"}},
+			map[string]any{
+				"ca-cert": "pem",
+				"replicas": []any{
+					map[string]any{"tls": true},
+					map[string]any{},
+				},
+			},
+			[]string{
+				`constraints[0] (required-with): "ca-cert" is set, ` +
+					"so [replicas[1].tls] must also be set; missing replicas[1].tls",
+			}},
+		{"forbidden splat trigger with global set",
+			ConstraintEntry{Kind: "forbidden-with",
+				Fields: []string{"replicas[*].insecure", "ca-cert"}},
+			map[string]any{
+				"ca-cert": "pem",
+				"replicas": []any{
+					map[string]any{},
+					map[string]any{"insecure": true},
+				},
+			},
+			[]string{
+				`constraints[0] (forbidden-with): "replicas[1].insecure" is set, ` +
+					"so [ca-cert] must be null; got ca-cert",
+			}},
+		{"root absent checks nothing",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{},
+			nil},
+		{"root null checks nothing",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{"replicas": nil},
+			nil},
+		{"empty list checks nothing",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{"replicas": []any{}},
+			nil},
+		{"root not a list",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: ab},
+			map[string]any{"replicas": "oops"},
+			[]string{
+				"constraints[0] (exactly-one-of [replicas[*].a, replicas[*].b]): " +
+					"cannot splat a string at replicas[*]",
+			}},
+		{"different lists rejected",
+			ConstraintEntry{Kind: "required-together",
+				Fields: []string{"replicas[*].x", "volumes[*].y"}},
+			map[string]any{
+				"replicas": []any{map[string]any{"x": int64(1)}},
+				"volumes":  []any{map[string]any{"y": int64(2)}},
+			},
+			[]string{
+				"constraints[0] (required-together [replicas[*].x, volumes[*].y]): " +
+					"[*] fields must splat the same list, got replicas[*] and volumes[*]",
+			}},
+		{"single splat field rejected",
+			ConstraintEntry{Kind: "at-most-one-of",
+				Fields: []string{"replicas[*].primary"}},
+			map[string]any{"replicas": []any{
+				map[string]any{"primary": true},
+			}},
+			[]string{
+				"constraints[0] (at-most-one-of [replicas[*].primary]): " +
+					"a [*] constraint needs at least two fields",
+			}},
+		{"nested splat per inner element",
+			ConstraintEntry{Kind: "required-together",
+				Fields: []string{"clusters[*].nodes[*].a", "clusters[*].nodes[*].b"}},
+			map[string]any{"clusters": []any{
+				map[string]any{"nodes": []any{
+					map[string]any{"a": int64(1), "b": int64(2)},
+				}},
+				map[string]any{"nodes": []any{
+					map[string]any{"a": int64(1)},
+				}},
+			}},
+			[]string{
+				"constraints[0] (required-together [clusters[1].nodes[0].a, " +
+					"clusters[1].nodes[0].b]): " +
+					"expected all set or all null, got 1 set (clusters[1].nodes[0].a)",
+			}},
+		{"splat root under nested map",
+			ConstraintEntry{Kind: "exactly-one-of",
+				Fields: []string{"config.replicas[*].a", "config.replicas[*].b"}},
+			map[string]any{"config": map[string]any{
+				"replicas": []any{
+					map[string]any{"a": int64(1), "b": int64(2)},
+				},
+			}},
+			[]string{
+				"constraints[0] (exactly-one-of [config.replicas[0].a, config.replicas[0].b]): " +
+					"expected exactly one to be set, got 2 " +
+					"(config.replicas[0].a, config.replicas[0].b)",
+			}},
+		{"scalar elements read null",
+			ConstraintEntry{Kind: "exactly-one-of",
+				Fields: []string{"nums[*].a", "nums[*].b"}},
+			map[string]any{"nums": []any{int64(1)}},
+			[]string{
+				"constraints[0] (exactly-one-of [nums[0].a, nums[0].b]): " +
+					"expected exactly one to be set, got 0 ()",
+			}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for range 3 {
+				errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil)
+				var msgs []string
+				for _, e := range errs.Errors() {
+					msgs = append(msgs, e.Msg)
+				}
+				require.Equal(t, tt.wantMsgs, msgs)
+			}
+		})
+	}
+}
+
 func TestLookupPath(t *testing.T) {
 	values := map[string]any{
 		"name": "db",
