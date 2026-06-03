@@ -49,6 +49,18 @@ func Library() *runtime.Library {
 				ArgCount:    1,
 				Func:        fnLength,
 			},
+			"all": {
+				Name:        "all",
+				Description: "Report whether every element of a list of booleans is true.",
+				ArgCount:    1,
+				Func:        fnAll,
+			},
+			"any": {
+				Name:        "any",
+				Description: "Report whether at least one element of a list of booleans is true.",
+				ArgCount:    1,
+				Func:        fnAny,
+			},
 		},
 	}
 }

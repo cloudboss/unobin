@@ -144,3 +144,66 @@ func TestFunctionFormatComposites(t *testing.T) {
 		})
 	}
 }
+
+func TestFunctionAll(t *testing.T) {
+	cases := []struct {
+		src  string
+		want any
+	}{
+		{"core.all([true, true])", true},
+		{"core.all([true, false])", false},
+		{"core.all([])", true},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionAny(t *testing.T) {
+	cases := []struct {
+		src  string
+		want any
+	}{
+		{"core.any([false, true])", true},
+		{"core.any([false, false])", false},
+		{"core.any([])", false},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionAllOverComprehension(t *testing.T) {
+	vars := map[string]any{"replicas": []any{
+		map[string]any{"port": int64(443)},
+		map[string]any{"port": int64(8080)},
+	}}
+	got, err := evalCore(t, "core.all([for r in var.replicas: r.port > 0])", vars)
+	require.NoError(t, err)
+	require.Equal(t, true, got)
+
+	vars["replicas"] = []any{map[string]any{"port": int64(0)}}
+	got, err = evalCore(t, "core.all([for r in var.replicas: r.port > 0])", vars)
+	require.NoError(t, err)
+	require.Equal(t, false, got)
+}
+
+func TestFunctionAllNonBooleanElement(t *testing.T) {
+	_, err := evalCore(t, "core.all([true, 1])", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "element 1 is an integer, expected a boolean")
+}
+
+func TestFunctionAnyNonList(t *testing.T) {
+	_, err := evalCore(t, "core.any('x')", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected a list of booleans, got a string")
+}

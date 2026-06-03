@@ -91,6 +91,56 @@ func fnLength(args []any) (any, error) {
 		"length: argument must be a string, list, or map, got %s", lang.TypeMessage(args[0]))
 }
 
+// fnAll reports whether every element of a list of booleans is true.
+// An empty list is true: no element is false. Pairs with a boolean
+// comprehension to quantify over a list, as a constraint predicate
+// does: core.all([for r in var.replicas: r.port > 0]).
+func fnAll(args []any) (any, error) {
+	list, err := boolListArg("all", args)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range list {
+		if !b {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// fnAny reports whether at least one element of a list of booleans is
+// true. An empty list is false: no element is true.
+func fnAny(args []any) (any, error) {
+	list, err := boolListArg("any", args)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range list {
+		if b {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func boolListArg(name string, args []any) ([]bool, error) {
+	lst, ok := args[0].([]any)
+	if !ok {
+		return nil, fmt.Errorf(
+			"%s: expected a list of booleans, got %s", name, lang.TypeMessage(args[0]))
+	}
+	out := make([]bool, 0, len(lst))
+	for i, el := range lst {
+		b, ok := el.(bool)
+		if !ok {
+			return nil, fmt.Errorf(
+				"%s: element %d is %s, expected a boolean", name, i, lang.TypeMessage(el))
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
 func singleStringArg(name string, args []any) (string, error) {
 	s, ok := args[0].(string)
 	if !ok {
