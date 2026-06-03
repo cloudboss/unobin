@@ -110,6 +110,24 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
+func TestDepsSyncRejectsLocalGoImport(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "factory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { aws: '../aws' }\n"), 0o644))
+
+	awsDir := filepath.Join(base, "aws")
+	require.NoError(t, os.MkdirAll(awsDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
+		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "is a Go library")
+	require.Contains(t, err.Error(), "in unobin.manifest:")
+}
+
 func goCoreRemotes() map[string]*resolve.Source {
 	return map[string]*resolve.Source{
 		// the repo root, read by the version walk: no manifest, so a leaf.

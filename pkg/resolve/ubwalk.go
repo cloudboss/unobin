@@ -178,7 +178,7 @@ func (w *ubWalker) handleGoImport(
 ) (Resolution, error) {
 	r, ok := ref.(*RemoteImport)
 	if !ok {
-		return Resolution{}, localGoImportError(alias, ref.(*LocalImport).Path, source)
+		return Resolution{}, LocalGoImportError(alias, ref.(*LocalImport).Path, source)
 	}
 	path := r.URL
 	if r.Subdir != "" {
@@ -197,12 +197,12 @@ func (w *ubWalker) handleGoImport(
 	}, nil
 }
 
-// localGoImportError explains why a local import did not resolve to a UB
+// LocalGoImportError explains why a local import did not resolve to a UB
 // library. When the local source is a Go module (it has a go.mod), a path
 // import cannot work -- a Go library becomes a go.mod require, which needs
 // a module path -- so the error shows how to import it by module path and
 // replace it with the local path, naming the file each entry belongs in.
-func localGoImportError(alias, path string, source *Source) error {
+func LocalGoImportError(alias, path string, source *Source) error {
 	module := localModulePath(source)
 	if module == "" {
 		return fmt.Errorf("import %q: %s is not a UB library", alias, path)

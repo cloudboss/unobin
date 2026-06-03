@@ -59,10 +59,11 @@ func LockFromImports(
 	return w.lock, nil
 }
 
-// lockFileImports reads one of the project's own .ub files and locks the
-// remote libraries it imports. Local imports are skipped: the project walk
-// visits every .ub file under the root, so a local library's files are
-// reached on their own.
+// lockFileImports reads one of the project's own .ub files, locks the
+// remote libraries it imports, and checks each local import. A local
+// import's UB library is not locked -- the project walk visits its files
+// on their own -- but a local import that points to a Go library is
+// rejected, the same as at compile.
 func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	b, err := fs.ReadFile(rootFS, path)
 	if err != nil {
@@ -82,10 +83,13 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	}
 	sort.Strings(aliases)
 	for _, alias := range aliases {
-		r, ok := refs[alias].(*resolve.RemoteImport)
-		if !ok {
+		if local, ok := refs[alias].(*resolve.LocalImport); ok {
+			if err := w.checkLocalImport(alias, local); err != nil {
+				return err
+			}
 			continue
 		}
+		r := refs[alias].(*resolve.RemoteImport)
 		if err := w.walkRemote(r); err != nil {
 			return fmt.Errorf("import %q: %w", alias, err)
 		}
@@ -186,6 +190,20 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	// Recorded after recursing, so a back-edge into a library still being
 	// walked is caught as a cycle rather than treated as already done.
 	w.lock.Deps[id] = entry
+	return nil
+}
+
+// checkLocalImport resolves a local import and rejects it when it points
+// to a Go library, which cannot be imported by path. A UB library is fine:
+// the project walk visits its files directly, so nothing more is recorded.
+func (w *lockWalker) checkLocalImport(alias string, r *resolve.LocalImport) error {
+	src, err := w.resolver.Resolve(r)
+	if err != nil {
+		return fmt.Errorf("import %q: %w", alias, err)
+	}
+	if !resolve.IsUBLibrary(src) {
+		return resolve.LocalGoImportError(alias, r.Path, src)
+	}
 	return nil
 }
 

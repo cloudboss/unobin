@@ -154,11 +154,17 @@ func TestLockFromImportsFollowsLocalWithoutLocking(t *testing.T) {
 		"main.ub":                      "imports: { greeter: './greeter' }\n",
 		"greeter/resource-greeting.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
 	})
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2", map[string]string{
-			"resource-greeting.ub": "outputs: { greeting: { value: 'hi' } }\n",
-		}),
-	}}
+	r := &fakeResolver{
+		sources: map[string]*resolve.Source{
+			srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2",
+				map[string]string{"resource-greeting.ub": "outputs: { greeting: { value: 'hi' } }\n"}),
+		},
+		locals: map[string]*resolve.Source{
+			"./greeter": ubSrc("", "", map[string]string{
+				"resource-greeting.ub": "description: 'greeter'\n",
+			}),
+		},
+	}
 	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.1.0"}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
@@ -167,6 +173,22 @@ func TestLockFromImportsFollowsLocalWithoutLocking(t *testing.T) {
 			Kind: LockKindUB, Version: "v0.1.0", Commit: "c2", Hash: "h2",
 		},
 	}, lock.Deps)
+}
+
+func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
+	root := mapFS(map[string]string{
+		"main.ub": "imports: { aws: '../../../..' }\n",
+	})
+	r := &fakeResolver{locals: map[string]*resolve.Source{
+		"../../../..": {FS: mapFS(map[string]string{
+			"go.mod": "module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n",
+		})},
+	}}
+	_, err := LockFromImports(root, map[Dependency]string{}, r, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(),
+		"is a Go library (module github.com/cloudboss/unobin-library-aws)")
+	assert.Contains(t, err.Error(), "in unobin.manifest:")
 }
 
 func TestLockFromImportsDedups(t *testing.T) {

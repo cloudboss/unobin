@@ -11,9 +11,11 @@ import (
 )
 
 // fakeResolver serves canned sources keyed by a remote ref's url, subdir,
-// and version, and records the last ref it was asked for.
+// and version (or by path for local refs), and records the last remote ref
+// it was asked for.
 type fakeResolver struct {
 	sources map[string]*resolve.Source
+	locals  map[string]*resolve.Source
 	lastRef *resolve.RemoteImport
 }
 
@@ -22,6 +24,13 @@ func srcKey(url, subdir, version string) string {
 }
 
 func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	if li, ok := ref.(*resolve.LocalImport); ok {
+		src, found := r.locals[li.Path]
+		if !found {
+			return nil, fmt.Errorf("no local source for %s", li.Path)
+		}
+		return src, nil
+	}
 	ri := ref.(*resolve.RemoteImport)
 	r.lastRef = ri
 	src, ok := r.sources[srcKey(ri.URL, ri.Subdir, ri.Version)]
