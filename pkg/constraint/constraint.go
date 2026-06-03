@@ -33,6 +33,7 @@ const (
 	KindRequiredWith
 	KindForbiddenWith
 	KindPredicate
+	KindEach
 )
 
 // Constraint is one declared rule, built by one of the constructors below.
@@ -74,6 +75,27 @@ func ForbiddenWith(field any, forbids ...any) Constraint {
 
 // Must is an unconditional predicate: every condition must hold.
 func Must(require ...Condition) Constraint { return Constraint{kind: KindPredicate} }
+
+// Each applies per-element rules to a list field. The body receives one
+// element and returns the set constraints that must hold for every
+// element of the list; a field reference inside the body names the
+// element's field (replicas[*].host), and a reference to the receiver
+// names a top-level field as usual. A null or empty list checks
+// nothing.
+//
+// As with every constructor in this package, Each is read from source
+// and never called: the body declares rules and must be a single
+// return of a constraint list.
+//
+//	constraint.Each(v.Replicas, func(r Replica) []constraint.Constraint {
+//		return []constraint.Constraint{
+//			constraint.ExactlyOneOf(r.Inline, r.FromFile),
+//			constraint.RequiredWith(r.TLS, v.CACert),
+//		}
+//	})
+func Each[T any](list []T, body func(T) []Constraint) Constraint {
+	return Constraint{kind: KindEach}
+}
 
 // Clause is a predicate whose condition has been stated with When; call
 // Require on it to give the requirement that must hold when the condition

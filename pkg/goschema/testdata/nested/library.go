@@ -20,6 +20,8 @@ type DB struct {
 	Name      string
 	Code      DBCode
 	Listeners []DBListener
+	Replicas  []DBReplica
+	CACert    *string
 }
 
 func (d DB) Constraints() []constraint.Constraint {
@@ -29,12 +31,24 @@ func (d DB) Constraints() []constraint.Constraint {
 			Require(constraint.Present(d.Code.Signing.KeyArn)).
 			Message("signing requires a key arn"),
 		constraint.RequiredTogether(d.Listeners[0].Cert, d.Listeners[0].Key),
+		constraint.Each(d.Replicas, func(r DBReplica) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ExactlyOneOf(r.Inline, r.FromFile),
+				constraint.RequiredWith(r.TLS, d.CACert),
+			}
+		}),
 	}
 }
 
 type DBListener struct {
 	Cert *string
 	Key  *string
+}
+
+type DBReplica struct {
+	Inline   *string
+	FromFile *string
+	TLS      *bool
 }
 
 type DBCode struct {

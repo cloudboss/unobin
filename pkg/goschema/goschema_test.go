@@ -142,6 +142,99 @@ func (v T) Constraints() []constraint.Constraint {
 	require.Contains(t, (*errs)[0].Error(), `"q"`)
 }
 
+func TestEachRejectsUnsupportedForms(t *testing.T) {
+	const prologue = `package x
+
+import "github.com/cloudboss/unobin/pkg/constraint"
+
+type T struct {
+	Items []Item
+	Name  *string
+}
+
+type Item struct {
+	A *string
+	B *string
+}
+`
+	tests := []struct {
+		name    string
+		method  string
+		wantErr string
+	}{
+		{"predicate inside Each",
+			`func (v T) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Each(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			"Each does not support predicate constraints"},
+		{"Each inside Each",
+			`func (v T) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Each(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Each(v.Items, func(in Item) []constraint.Constraint {
+					return nil
+				}),
+			}
+		}),
+	}
+}`,
+			"an Each inside an Each is not supported"},
+		{"message on Each",
+			`func (v T) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Each(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.RequiredTogether(it.A, it.B),
+			}
+		}).Message("m"),
+	}
+}`,
+			"Message applies to the constraints inside Each"},
+		{"list argument not a field",
+			`func (v T) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Each([]Item{}, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.RequiredTogether(it.A, it.B),
+			}
+		}),
+	}
+}`,
+			"Each list must be a struct field selector"},
+		{"list field not a list",
+			`func (v T) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Each(v.Name, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.RequiredTogether(it.A, it.B),
+			}
+		}),
+	}
+}`,
+			"must be a slice of in-library structs"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := prologue + "\n" + tt.method + "\n"
+			f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
+			require.NoError(t, err)
+			errs := &[]error{}
+			w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs)
+			specs := w.constraintsFromType("T")
+			require.Empty(t, specs)
+			require.NotEmpty(t, *errs)
+			require.Contains(t, (*errs)[0].Error(), tt.wantErr)
+		})
+	}
+}
+
 func TestReadExtractsNestedConstraints(t *testing.T) {
 	schema, warnings, err := Read("testdata/nested")
 	require.NoError(t, err)
@@ -157,6 +250,8 @@ func TestReadExtractsNestedConstraints(t *testing.T) {
 			Message: "signing requires a key arn",
 		},
 		{Kind: "required-together", Fields: []string{"listeners[0].cert", "listeners[0].key"}},
+		{Kind: "exactly-one-of", Fields: []string{"replicas[*].inline", "replicas[*].from-file"}},
+		{Kind: "required-with", Fields: []string{"replicas[*].tls", "ca-cert"}},
 	}
 	require.Equal(t, want, schema.Resources["db"].Constraints)
 }
@@ -193,6 +288,21 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 	}
 	got := lang.CheckConstraintEntries(entries, bad, eval(bad))
 	require.Equal(t, 2, got.Len(), "two violations expected: %v", got.Err())
+
+	// Each(replicas): the second replica sets both code sources, and the
+	// third turns on tls without the ca-cert the rule requires.
+	badReplicas := map[string]any{
+		"code": map[string]any{"inline": "echo hi"},
+		"replicas": []any{
+			map[string]any{"inline": "a"},
+			map[string]any{"inline": "a", "from-file": "f"},
+			map[string]any{"inline": "a", "tls": true},
+		},
+	}
+	got = lang.CheckConstraintEntries(entries, badReplicas, eval(badReplicas))
+	require.Equal(t, 2, got.Len(), "two replica violations expected: %v", got.Err())
+	require.Contains(t, got.Err().Error(), "replicas[1].inline")
+	require.Contains(t, got.Err().Error(), `"replicas[2].tls" is set`)
 }
 
 func TestFlattenSelector(t *testing.T) {
