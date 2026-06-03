@@ -120,15 +120,35 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 	return c, true
 }
 
+// lookupPath reads a field value by its dotted name, stepping into
+// nested maps for a name like "code.inline". A name with no dot is a
+// single lookup, identical to the flat form. found is false when any
+// segment is absent or a parent value is not a map, so an unset nested
+// field reads the same as an unset top-level one.
+func lookupPath(values map[string]any, name string) (any, bool) {
+	cur := any(values)
+	for seg := range strings.SplitSeq(name, ".") {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		v, ok := m[seg]
+		if !ok {
+			return nil, false
+		}
+		cur = v
+	}
+	return cur, true
+}
+
 // nonNullFields returns the names of the listed fields whose values
-// are present and not null. A field absent from the map counts as
-// null; ValidateInputs always populates every declared input, so
-// missing keys here mean the constraint references an input the
-// stack does not declare (caught by ValidateConstraintReferences).
+// are present and not null. A field that resolves to no value, whether
+// a missing top-level key or an unset segment of a nested path, counts
+// as null.
 func nonNullFields(fields []string, values map[string]any) []string {
 	var nn []string
 	for _, f := range fields {
-		if v, ok := values[f]; ok && v != nil {
+		if v, ok := lookupPath(values, f); ok && v != nil {
 			nn = append(nn, f)
 		}
 	}
@@ -183,7 +203,7 @@ func checkRequiredWith(idx int, fields []string, values map[string]any, errs *Er
 	}
 	trigger := fields[0]
 	rest := fields[1:]
-	tv, ok := values[trigger]
+	tv, ok := lookupPath(values, trigger)
 	if !ok || tv == nil {
 		return
 	}
@@ -203,7 +223,7 @@ func checkForbiddenWith(idx int, fields []string, values map[string]any, errs *E
 	}
 	trigger := fields[0]
 	rest := fields[1:]
-	tv, ok := values[trigger]
+	tv, ok := lookupPath(values, trigger)
 	if !ok || tv == nil {
 		return
 	}
@@ -218,7 +238,7 @@ func checkForbiddenWith(idx int, fields []string, values map[string]any, errs *E
 func nonNullMissing(fields []string, values map[string]any) []string {
 	var miss []string
 	for _, f := range fields {
-		v, ok := values[f]
+		v, ok := lookupPath(values, f)
 		if !ok || v == nil {
 			miss = append(miss, f)
 		}

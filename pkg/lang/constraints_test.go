@@ -334,6 +334,110 @@ func TestCheckConstraintEntries(t *testing.T) {
 	}
 }
 
+func TestCheckConstraintEntriesNestedFields(t *testing.T) {
+	io := []string{"code.inline", "code.from-file"}
+	tests := []struct {
+		name    string
+		entry   ConstraintEntry
+		values  map[string]any
+		wantErr bool
+	}{
+		{"exactly-one nested one set",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x"}}, false},
+		{"exactly-one nested none set",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"code": map[string]any{}}, true},
+		{"exactly-one nested two set",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x", "from-file": "y"}}, true},
+		{"exactly-one nested parent absent",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{}, true},
+		{"exactly-one nested parent null",
+			ConstraintEntry{Kind: "exactly-one-of", Fields: io},
+			map[string]any{"code": nil}, true},
+		{"at-least nested one set",
+			ConstraintEntry{Kind: "at-least-one-of", Fields: io},
+			map[string]any{"code": map[string]any{"from-file": "y"}}, false},
+		{"at-most nested two set",
+			ConstraintEntry{Kind: "at-most-one-of", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x", "from-file": "y"}}, true},
+		{"required-with nested trigger and dep",
+			ConstraintEntry{Kind: "required-with", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x", "from-file": "y"}}, false},
+		{"required-with nested trigger no dep",
+			ConstraintEntry{Kind: "required-with", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x"}}, true},
+		{"forbidden-with nested both set",
+			ConstraintEntry{Kind: "forbidden-with", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x", "from-file": "y"}}, true},
+		{"forbidden-with nested trigger only",
+			ConstraintEntry{Kind: "forbidden-with", Fields: io},
+			map[string]any{"code": map[string]any{"inline": "x"}}, false},
+		{"mixed flat and nested both set",
+			ConstraintEntry{Kind: "required-together", Fields: []string{"name", "code.inline"}},
+			map[string]any{"name": "db", "code": map[string]any{"inline": "x"}}, false},
+		{"mixed flat set nested unset",
+			ConstraintEntry{Kind: "required-together", Fields: []string{"name", "code.inline"}},
+			map[string]any{"name": "db", "code": map[string]any{}}, true},
+		{"three-level nested set",
+			ConstraintEntry{Kind: "at-least-one-of", Fields: []string{"code.signing.key-arn"}},
+			map[string]any{"code": map[string]any{
+				"signing": map[string]any{"key-arn": "arn"}}}, false},
+		{"three-level nested unset",
+			ConstraintEntry{Kind: "at-least-one-of", Fields: []string{"code.signing.key-arn"}},
+			map[string]any{"code": map[string]any{"signing": map[string]any{}}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil)
+			if tt.wantErr {
+				require.Positive(t, errs.Len())
+			} else {
+				require.Equal(t, 0, errs.Len(), "unexpected: %v", errs.Err())
+			}
+		})
+	}
+}
+
+func TestLookupPath(t *testing.T) {
+	values := map[string]any{
+		"name": "db",
+		"code": map[string]any{
+			"inline":  "x",
+			"signing": map[string]any{"key-arn": "arn"},
+			"empty":   nil,
+		},
+	}
+	tests := []struct {
+		name      string
+		path      string
+		wantVal   any
+		wantFound bool
+	}{
+		{"flat present", "name", "db", true},
+		{"flat absent", "region", nil, false},
+		{"nested present", "code.inline", "x", true},
+		{"present null leaf", "code.empty", nil, true},
+		{"nested leaf absent", "code.missing", nil, false},
+		{"nested parent absent", "config.inline", nil, false},
+		{"step into null parent", "code.empty.deeper", nil, false},
+		{"three-level present", "code.signing.key-arn", "arn", true},
+		{"three-level leaf absent", "code.signing.profile", nil, false},
+		{"step into scalar", "name.suffix", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, found := lookupPath(values, tt.path)
+			require.Equal(t, tt.wantFound, found)
+			if tt.wantFound {
+				require.Equal(t, tt.wantVal, val)
+			}
+		})
+	}
+}
+
 func TestParseSpecs(t *testing.T) {
 	specs := []ConstraintSpec{
 		{Kind: "exactly-one-of", Fields: []string{"a", "b"}},
