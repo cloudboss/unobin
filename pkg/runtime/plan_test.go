@@ -193,6 +193,19 @@ func goConstraintCases() []struct {
 				`constraints[1] (forbidden-with): ` +
 				`"name" is set, so [size] must be null; got size`,
 		},
+		{
+			name:  "splat constraint names the violating element",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "items[*].a", "items[*].b")},
+			body:  `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
+			wantErr: goConstraintPrefix +
+				"constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
+				"expected exactly one to be set, got 2 (items[1].a, items[1].b)",
+		},
+		{
+			name:  "splat constraint passes when every element conforms",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "items[*].a", "items[*].b")},
+			body:  `{ items: [{ a: 1 }, { b: 2 }] }`,
+		},
 	}
 }
 
@@ -483,6 +496,50 @@ func TestPlanCompositeNestedConstraints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := planCompositeConstraintErr(t, inputs, tt.constraints, tt.callArgs)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPlanCompositeSplatConstraints(t *testing.T) {
+	const inputs = `{
+  replicas: {
+    type: optional(list(object({ inline: optional(string), from-file: optional(string) })))
+  }
+}`
+	const oneOf = `[ { kind: exactly-one-of, fields: [replicas[*].inline, replicas[*].from-file] } ]`
+	tests := []struct {
+		name     string
+		callArgs string
+		wantErr  string
+	}{
+		{
+			name:     "every element conforming passes",
+			callArgs: `{ replicas: [{ inline: 'x' }, { from-file: 'y' }] }`,
+		},
+		{
+			name:     "a violating element is named by index",
+			callArgs: `{ replicas: [{ inline: 'x' }, { inline: 'x', from-file: 'y' }] }`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+				"[replicas[1].inline, replicas[1].from-file]): expected exactly one " +
+				"to be set, got 2 (replicas[1].inline, replicas[1].from-file)",
+		},
+		{
+			name:     "an unset list checks nothing",
+			callArgs: `{}`,
+		},
+		{
+			name:     "an empty list checks nothing",
+			callArgs: `{ replicas: [] }`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := planCompositeConstraintErr(t, inputs, oneOf, tt.callArgs)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 			} else {

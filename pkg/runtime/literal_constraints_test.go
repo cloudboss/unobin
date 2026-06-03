@@ -287,6 +287,21 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 			body:  `{ size: 1 }`,
 			want:  nil,
 		},
+		{
+			name: "splat constraint names the violating element",
+			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
+				Fields: []string{"items[*].a", "items[*].b"}}},
+			body: `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
+			want: []string{addr + "constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
+				"expected exactly one to be set, got 2 (items[1].a, items[1].b)"},
+		},
+		{
+			name: "splat constraint passes when every element conforms",
+			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
+				Fields: []string{"items[*].a", "items[*].b"}}},
+			body: `{ items: [{ a: 1 }, { b: 2 }] }`,
+			want: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -535,6 +535,26 @@ constraints: [
 	require.Contains(t, err.Error(), "required-together")
 }
 
+func TestPlanRejectsSplatConstraintViolation(t *testing.T) {
+	src := `
+inputs: {
+  replicas: {
+    type: optional(
+      list(object({ inline: optional(string), from-file: optional(string) })),
+      [{ inline: 'a', from-file: 'f' }])
+  }
+}
+constraints: [
+  { kind: exactly-one-of, fields: [replicas[*].inline, replicas[*].from-file] },
+]
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(),
+		"expected exactly one to be set, got 2 (replicas[0].inline, replicas[0].from-file)")
+}
+
 func TestPlanRejectsPredicate(t *testing.T) {
 	src := `
 inputs: {
