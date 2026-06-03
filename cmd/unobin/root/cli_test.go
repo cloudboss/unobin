@@ -453,6 +453,44 @@ func TestCompileUsesLockVersion(t *testing.T) {
 // TestCompileRequiresLockedVersion compiles a factory whose import is
 // versionless and has no unobin.lock. Compile never selects a version on
 // its own, so it must fail and point at deps sync.
+// TestCompileWithReplacedGoLibrary compiles a factory that imports a Go
+// library by URL while the manifest replaces it with a local checkout. The
+// import needs no locked version, and the generated go.mod requires the
+// module and replaces it with the local path.
+func TestCompileWithReplacedGoLibrary(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
+
+	awsDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
+		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "library.go"), []byte(`package aws
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{Name: "aws"}
+}
+`), 0o644))
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+		[]byte("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
+			awsDir+"' }\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"),
+		"-o", outDir, "--unobin-version", "v0.1.0")
+	require.NoError(t, err)
+
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin-library-aws v0.0.0")
+	require.Contains(t, string(goMod),
+		"github.com/cloudboss/unobin-library-aws => "+awsDir)
+}
+
 func TestCompileRequiresLockedVersion(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

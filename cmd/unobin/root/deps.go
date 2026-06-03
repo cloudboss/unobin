@@ -330,11 +330,7 @@ func wrapReplaces(
 		}
 	}
 	for dep, path := range replace {
-		target := path
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(root, target)
-		}
-		abs, err := filepath.Abs(target)
+		abs, err := absReplacePath(root, path)
 		if err != nil {
 			return nil, err
 		}

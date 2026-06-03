@@ -118,6 +118,10 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	stackDir := filepath.Dir(cfg.stackPath)
+	replaceMap, err := manifestReplace(stackDir)
+	if err != nil {
+		return err
+	}
 	resolver, err := newCompileResolver(stackDir)
 	if err != nil {
 		return err
@@ -140,11 +144,16 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 			wrapped: resolver,
 		}
 	}
+	resolver, err = wrapReplaces(resolver, stackDir, "", replaceMap)
+	if err != nil {
+		return err
+	}
 
 	repoVersions, err := lockedVersions(stackDir)
 	if err != nil {
 		return err
 	}
+	repoVersions = withReplacedVersions(repoVersions, replaceMap)
 	v := newCompileVisitor(name, cmd.ErrOrStderr())
 	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
 	if err != nil {
@@ -206,6 +215,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		replaces["github.com/cloudboss/unobin"] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, extraReplaces)
+	if err := addManifestReplaces(replaces, stackDir, replaceMap, v.importVersions); err != nil {
+		return err
+	}
 
 	err = codegen.WriteSource(cfg.outDir, in,
 		cfg.goVersion, cfg.unobinVersion, v.importVersions, replaces)
@@ -428,6 +440,82 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
 	}
 	return &resolve.Source{Commit: "replace", Path: target, FS: os.DirFS(target)}, nil
+}
+
+// replacedVersion is the placeholder version a replaced dependency carries
+// in the generated go.mod; the replace directive serves it from a local
+// path, so the version is never used to fetch anything.
+const replacedVersion = "v0.0.0"
+
+// manifestReplace reads the replace block from the project's
+// unobin.manifest, returning nil when there is no manifest.
+func manifestReplace(dir string) (map[deps.Dependency]string, error) {
+	m, err := deps.ReadManifest(os.DirFS(dir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return m.Replace, nil
+}
+
+// withReplacedVersions gives each replaced repository a placeholder version
+// so the walk treats its import as pinned; the replace resolver serves it
+// locally regardless.
+func withReplacedVersions(
+	versions map[string]string, replace map[deps.Dependency]string,
+) map[string]string {
+	if len(replace) == 0 {
+		return versions
+	}
+	if versions == nil {
+		versions = map[string]string{}
+	}
+	for dep := range replace {
+		versions[dep.URL] = replacedVersion
+	}
+	return versions
+}
+
+// addManifestReplaces records a go.mod replace for every replaced
+// repository that resolved to a Go library, pointing its module at the
+// local path. UB libraries are compiled in, so they need no go.mod entry.
+func addManifestReplaces(
+	replaces codegen.Replaces, root string,
+	replace map[deps.Dependency]string, importVersions map[string]string,
+) error {
+	for dep, path := range replace {
+		if !goModuleImported(dep.URL, importVersions) {
+			continue
+		}
+		abs, err := absReplacePath(root, path)
+		if err != nil {
+			return err
+		}
+		replaces[dep.URL] = abs
+	}
+	return nil
+}
+
+// goModuleImported reports whether url, or a package under it, appears as a
+// Go import path the generated go.mod requires.
+func goModuleImported(url string, importVersions map[string]string) bool {
+	for path := range importVersions {
+		if path == url || strings.HasPrefix(path, url+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// absReplacePath resolves a replace target to an absolute path; a relative
+// path is taken relative to root (the project root).
+func absReplacePath(root, path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	return filepath.Abs(path)
 }
 
 // constraintsFromSchema flattens a Go library's per-type constraints into
