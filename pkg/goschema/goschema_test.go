@@ -156,6 +156,7 @@ func TestReadExtractsNestedConstraints(t *testing.T) {
 			Require: "(var.code.signing.key-arn != null)",
 			Message: "signing requires a key arn",
 		},
+		{Kind: "required-together", Fields: []string{"listeners[0].cert", "listeners[0].key"}},
 	}
 	require.Equal(t, want, schema.Resources["db"].Constraints)
 }
@@ -198,14 +199,21 @@ func TestFlattenSelector(t *testing.T) {
 	tests := []struct {
 		src      string
 		wantRoot string
-		want     []string
+		want     []selectorHop
 		ok       bool
 	}{
-		{"v.Field", "v", []string{"Field"}, true},
-		{"v.Code.Inline", "v", []string{"Code", "Inline"}, true},
-		{"v.Code.Signing.KeyArn", "v", []string{"Code", "Signing", "KeyArn"}, true},
+		{"v.Field", "v", []selectorHop{{name: "Field"}}, true},
+		{"v.Code.Inline", "v", []selectorHop{{name: "Code"}, {name: "Inline"}}, true},
+		{"v.Code.Signing.KeyArn", "v",
+			[]selectorHop{{name: "Code"}, {name: "Signing"}, {name: "KeyArn"}}, true},
+		{"v.Listeners[0].Cert", "v",
+			[]selectorHop{{name: "Listeners", indexes: []int{0}}, {name: "Cert"}}, true},
+		{"v.Matrix[0][2].X", "v",
+			[]selectorHop{{name: "Matrix", indexes: []int{0, 2}}, {name: "X"}}, true},
 		{"foo().Bar", "", nil, false},
 		{"a[0].B", "", nil, false},
+		{"v.Listeners[i].Cert", "", nil, false},
+		{"v.Listeners[-1].Cert", "", nil, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -231,18 +239,26 @@ func TestFieldPath(t *testing.T) {
 
 	tests := []struct {
 		name string
-		hops []string
+		hops []selectorHop
 		want string
 		ok   bool
 	}{
-		{"single hop", []string{"Name"}, "name", true},
-		{"two hop", []string{"Code", "Inline"}, "code.inline", true},
-		{"two hop other", []string{"Code", "FromFile"}, "code.from-file", true},
-		{"three hop through pointer", []string{"Code", "Signing", "KeyArn"},
+		{"single hop", []selectorHop{{name: "Name"}}, "name", true},
+		{"two hop", []selectorHop{{name: "Code"}, {name: "Inline"}}, "code.inline", true},
+		{"two hop other", []selectorHop{{name: "Code"}, {name: "FromFile"}},
+			"code.from-file", true},
+		{"three hop through pointer",
+			[]selectorHop{{name: "Code"}, {name: "Signing"}, {name: "KeyArn"}},
 			"code.signing.key-arn", true},
-		{"unknown top field", []string{"Bogus"}, "", false},
-		{"unknown nested leaf", []string{"Code", "Bogus"}, "", false},
-		{"descend into non-struct", []string{"Code", "Inline", "X"}, "", false},
+		{"indexed hop into element field",
+			[]selectorHop{{name: "Listeners", indexes: []int{0}}, {name: "Cert"}},
+			"listeners[0].cert", true},
+		{"index on a non-list field",
+			[]selectorHop{{name: "Code", indexes: []int{0}}, {name: "Inline"}}, "", false},
+		{"unknown top field", []selectorHop{{name: "Bogus"}}, "", false},
+		{"unknown nested leaf", []selectorHop{{name: "Code"}, {name: "Bogus"}}, "", false},
+		{"descend into non-struct",
+			[]selectorHop{{name: "Code"}, {name: "Inline"}, {name: "X"}}, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

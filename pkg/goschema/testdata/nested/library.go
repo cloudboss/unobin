@@ -17,8 +17,9 @@ func Library() *runtime.Library {
 }
 
 type DB struct {
-	Name string
-	Code DBCode
+	Name      string
+	Code      DBCode
+	Listeners []DBListener
 }
 
 func (d DB) Constraints() []constraint.Constraint {
@@ -27,7 +28,13 @@ func (d DB) Constraints() []constraint.Constraint {
 		constraint.When(constraint.Present(d.Code.Signing)).
 			Require(constraint.Present(d.Code.Signing.KeyArn)).
 			Message("signing requires a key arn"),
+		constraint.RequiredTogether(d.Listeners[0].Cert, d.Listeners[0].Key),
 	}
+}
+
+type DBListener struct {
+	Cert *string
+	Key  *string
 }
 
 type DBCode struct {

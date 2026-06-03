@@ -521,10 +521,20 @@ func (w *walker) selectorField(arg ast.Expr, scope constraintScope) (string, boo
 	}
 	path, ok := entry.w.fieldPath(entry.typeName, hops)
 	if !ok {
-		w.addErrf("constraint references unknown field %q", strings.Join(hops, "."))
+		w.addErrf("constraint references unknown field %q", hopNames(hops))
 		return "", false
 	}
 	return path, true
+}
+
+// hopNames joins the Go field names of a selector chain for an error
+// message, indexes left out.
+func hopNames(hops []selectorHop) string {
+	names := make([]string, 0, len(hops))
+	for _, hop := range hops {
+		names = append(names, hop.name)
+	}
+	return strings.Join(names, ".")
 }
 
 // addErrf records a formatted extraction error when the walker is
@@ -535,19 +545,42 @@ func (w *walker) addErrf(format string, args ...any) {
 	}
 }
 
+// selectorHop is one field selection in a constraint selector chain,
+// with any whole-number indexes applied to it, so the Listeners[0] of
+// v.Listeners[0].Cert is {name: "Listeners", indexes: [0]}.
+type selectorHop struct {
+	name    string
+	indexes []int
+}
+
 // flattenSelector unwinds a selector chain such as v.Code.Inline into
 // its root identifier and the field hops in source order ("v",
-// ["Code", "Inline"]). ok is false for anything that is not an
-// ident-rooted chain of field selections.
-func flattenSelector(sel *ast.SelectorExpr) (string, []string, bool) {
-	hops := []string{sel.Sel.Name}
+// [Code, Inline]). A hop may be indexed by whole-number literals
+// (v.Listeners[0].Cert). ok is false for anything that is not an
+// ident-rooted chain of field selections, an index on the root
+// included.
+func flattenSelector(sel *ast.SelectorExpr) (string, []selectorHop, bool) {
+	hops := []selectorHop{{name: sel.Sel.Name}}
+	var pending []int
 	for cur := sel.X; ; {
 		switch x := cur.(type) {
 		case *ast.Ident:
+			if len(pending) > 0 {
+				return "", nil, false
+			}
 			slices.Reverse(hops)
 			return x.Name, hops, true
 		case *ast.SelectorExpr:
-			hops = append(hops, x.Sel.Name)
+			slices.Reverse(pending)
+			hops = append(hops, selectorHop{name: x.Sel.Name, indexes: pending})
+			pending = nil
+			cur = x.X
+		case *ast.IndexExpr:
+			n, ok := intLiteral(x.Index)
+			if !ok {
+				return "", nil, false
+			}
+			pending = append(pending, n)
 			cur = x.X
 		default:
 			return "", nil, false
@@ -555,20 +588,36 @@ func flattenSelector(sel *ast.SelectorExpr) (string, []string, bool) {
 	}
 }
 
+// intLiteral reads an index expression as a whole-number literal.
+func intLiteral(e ast.Expr) (int, bool) {
+	bl, ok := e.(*ast.BasicLit)
+	if !ok || bl.Kind != token.INT {
+		return 0, false
+	}
+	n, err := strconv.Atoi(bl.Value)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
 // fieldPath walks the field hops from a scope root's type, mapping each
 // Go name to its kebab name and descending into the nested struct type
-// for the next hop, and returns the dotted input path (code.inline). ok
-// is false when a hop names no field, or a non-final hop is not a
-// struct.
-func (w *walker) fieldPath(rootType string, hops []string) (string, bool) {
+// for the next hop, and returns the dotted input path (code.inline,
+// listeners[0].cert). ok is false when a hop names no field, or a
+// non-final hop does not reach a struct.
+func (w *walker) fieldPath(rootType string, hops []selectorHop) (string, bool) {
 	cw, typeName := w, rootType
-	kebabs := make([]string, 0, len(hops))
+	parts := make([]string, 0, len(hops))
 	for i, hop := range hops {
-		kebab, ok := cw.fieldKebabByGoName(typeName)[hop]
+		kebab, ok := cw.fieldKebabByGoName(typeName)[hop.name]
 		if !ok {
 			return "", false
 		}
-		kebabs = append(kebabs, kebab)
+		for _, idx := range hop.indexes {
+			kebab += "[" + strconv.Itoa(idx) + "]"
+		}
+		parts = append(parts, kebab)
 		if i == len(hops)-1 {
 			break
 		}
@@ -577,15 +626,15 @@ func (w *walker) fieldPath(rootType string, hops []string) (string, bool) {
 			return "", false
 		}
 	}
-	return strings.Join(kebabs, "."), true
+	return strings.Join(parts, "."), true
 }
 
-// nestedStruct resolves the struct type of field goName within typeName,
-// following a pointer and a subpackage selector the way the schema walk
-// does. The returned walker is positioned at the package the struct
-// lives in. ok is false when the field's type is not an in-library
-// struct.
-func (w *walker) nestedStruct(typeName, goName string) (*walker, string, bool) {
+// nestedStruct resolves the struct type a hop descends into, following
+// a pointer and a subpackage selector the way the schema walk does, and
+// stepping into a list's element type once per index on the hop. The
+// returned walker is positioned at the package the struct lives in. ok
+// is false when the hop does not reach an in-library struct.
+func (w *walker) nestedStruct(typeName string, hop selectorHop) (*walker, string, bool) {
 	spec := findTypeSpec(w.files, typeName)
 	if spec == nil {
 		return nil, "", false
@@ -594,9 +643,19 @@ func (w *walker) nestedStruct(typeName, goName string) (*walker, string, bool) {
 	if !ok {
 		return nil, "", false
 	}
-	ft := fieldTypeByGoName(st, goName)
+	ft := fieldTypeByGoName(st, hop.name)
 	if ft == nil {
 		return nil, "", false
+	}
+	for range hop.indexes {
+		if star, ok := ft.(*ast.StarExpr); ok {
+			ft = star.X
+		}
+		arr, ok := ft.(*ast.ArrayType)
+		if !ok {
+			return nil, "", false
+		}
+		ft = arr.Elt
 	}
 	if star, ok := ft.(*ast.StarExpr); ok {
 		ft = star.X
