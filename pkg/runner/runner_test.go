@@ -557,6 +557,42 @@ constraints: [
 	require.Contains(t, err.Error(), "GovCloud regions require FIPS mode enabled")
 }
 
+func TestPlanChecksPredicateOverNestedInput(t *testing.T) {
+	src := `
+inputs: {
+  code: { type: optional(object({ inline: optional(string) })) }
+}
+constraints: [
+  {
+    kind:    predicate
+    when:    true
+    require: var.code.inline != null
+    message: 'code must be inline'
+  },
+]
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "code must be inline")
+}
+
+func TestPlanAllowsPredicateOverUnsetNestedInput(t *testing.T) {
+	src := `
+inputs: {
+  code: { type: optional(object({ inline: optional(string) })) }
+  size: { type: optional(integer) }
+}
+constraints: [
+  { kind: predicate, when: var.code.inline != null, require: var.size != null },
+]
+`
+	info := testInfo(t, src)
+	configPath := writeStateConfig(t, "")
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-c", configPath)
+	require.NoError(t, err)
+}
+
 func TestPlanRejectsValueOutsideMinimum(t *testing.T) {
 	src := `
 inputs: {

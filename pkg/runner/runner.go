@@ -693,9 +693,9 @@ func defaultEval(e lang.Expr) (any, error) {
 
 // predicateEval reduces a constraint's `when:` or `require:` expression
 // against the validated inputs, so a predicate can read var.X for any
-// declared input.
+// declared input, and a field under an unset nested input reads as null.
 func predicateEval(values map[string]any) lang.EvalFunc {
-	ctx := &runtime.EvalContext{Vars: values}
+	ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
 	return func(e lang.Expr) (any, error) {
 		return runtime.Eval(e, ctx)
 	}

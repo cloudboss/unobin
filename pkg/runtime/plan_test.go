@@ -315,18 +315,14 @@ func stepFor(plan *Plan, addr string) *PlanStep {
 }
 
 // planCompositeConstraintErr plans a stack with a single composite whose
-// body carries the given `constraints:` block, instantiated with the
-// given call-site args, and returns the plan error (nil when the plan
-// succeeds). The composite declares name and size inputs the constraints
-// reference; its one internal resource uses literals so internal planning
-// never depends on an unset input.
-func planCompositeConstraintErr(t *testing.T, constraints, callArgs string) error {
+// body declares the given `inputs:` and `constraints:` blocks,
+// instantiated with the given call-site args, and returns the plan error
+// (nil when the plan succeeds). The composite's one internal resource
+// uses literals so internal planning never depends on an unset input.
+func planCompositeConstraintErr(t *testing.T, inputs, constraints, callArgs string) error {
 	t.Helper()
 	composite := parseStack(t, `
-inputs: {
-  name: { type: optional(string) }
-  size: { type: optional(integer) }
-}
+inputs: `+inputs+`
 constraints: `+constraints+`
 resources: {
   core: { thing: { one: { name: 'fixed', size: 1 } } }
@@ -355,6 +351,10 @@ resources: {
 }
 
 func TestPlanCompositeConstraints(t *testing.T) {
+	const inputs = `{
+  name: { type: optional(string) }
+  size: { type: optional(integer) }
+}`
 	const oneOf = `[ { kind: exactly-one-of, fields: [name, size] } ]`
 	const together = `[ { kind: required-together, fields: [name, size] } ]`
 	const predicate = `[ { kind: predicate, when: var.name != null, require: var.size != null } ]`
@@ -413,7 +413,76 @@ func TestPlanCompositeConstraints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := planCompositeConstraintErr(t, tt.constraints, tt.callArgs)
+			err := planCompositeConstraintErr(t, inputs, tt.constraints, tt.callArgs)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPlanCompositeNestedConstraints(t *testing.T) {
+	const inputs = `{
+  code: { type: optional(object({ inline: optional(string), from-file: optional(string) })) }
+  size: { type: optional(integer) }
+}`
+	const oneOf = `[ { kind: exactly-one-of, fields: [code.inline, code.from-file] } ]`
+	const predicate = `[ { kind: predicate, when: var.code.inline != null,` +
+		` require: var.size != null } ]`
+	tests := []struct {
+		name        string
+		constraints string
+		callArgs    string
+		wantErr     string
+	}{
+		{
+			name:        "exactly-one-of nested with one set passes",
+			constraints: oneOf,
+			callArgs:    `{ code: { inline: 'x' } }`,
+		},
+		{
+			name:        "exactly-one-of nested with two set is rejected",
+			constraints: oneOf,
+			callArgs:    `{ code: { inline: 'x', from-file: 'y' } }`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+				"[code.inline, code.from-file]): expected exactly one to be set, " +
+				"got 2 (code.inline, code.from-file)",
+		},
+		{
+			name:        "exactly-one-of nested with parent unset is rejected",
+			constraints: oneOf,
+			callArgs:    `{}`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+				"[code.inline, code.from-file]): expected exactly one to be set, got 0 ()",
+		},
+		{
+			name:        "predicate over nested with requirement met passes",
+			constraints: predicate,
+			callArgs:    `{ code: { inline: 'x' }, size: 1 }`,
+		},
+		{
+			name:        "predicate over nested with unmet requirement is rejected",
+			constraints: predicate,
+			callArgs:    `{ code: { inline: 'x' } }`,
+			wantErr: "resource.w.pair.x: schema: constraints[0] (predicate): " +
+				"predicate requirement not satisfied",
+		},
+		{
+			name:        "predicate over unset nested parent passes",
+			constraints: predicate,
+			callArgs:    `{}`,
+		},
+		{
+			name:        "predicate over present parent with unset leaf passes",
+			constraints: predicate,
+			callArgs:    `{ code: {} }`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := planCompositeConstraintErr(t, inputs, tt.constraints, tt.callArgs)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 			} else {
