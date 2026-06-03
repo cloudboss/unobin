@@ -699,7 +699,8 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 	}
 	maps.Copy(values, scope.Vars)
 	eval := func(ex lang.Expr) (any, error) {
-		return Eval(ex, &EvalContext{Vars: values, MissingAsNull: true})
+		ctx := &EvalContext{Vars: values, Libraries: node.Libraries, MissingAsNull: true}
+		return Eval(ex, ctx)
 	}
 	var out []error
 	for _, er := range lang.CheckConstraints(arr, values, eval).Errors() {

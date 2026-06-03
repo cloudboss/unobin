@@ -347,7 +347,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 		return err
 	}
 	inputs, err := buildInputs(config, configPath,
-		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 		return err
 	}
 	_, err = buildInputs(config, configPath,
-		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -600,7 +600,7 @@ func doPlan(
 		return err
 	}
 	inputs, err := buildInputs(config, configPath,
-		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"))
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -666,6 +666,7 @@ func buildInputs(
 	configPath string,
 	decl *lang.ObjectLit,
 	constraints *lang.ArrayLit,
+	libs map[string]*runtime.Library,
 ) (map[string]any, error) {
 	inputs, err := loadConfigInputs(f, configPath)
 	if err != nil {
@@ -676,7 +677,7 @@ func buildInputs(
 	if errs.Len() > 0 {
 		return nil, errs.Err()
 	}
-	cerrs := lang.CheckConstraints(constraints, validated, predicateEval(validated))
+	cerrs := lang.CheckConstraints(constraints, validated, predicateEval(validated, libs))
 	if cerrs.Len() > 0 {
 		return nil, cerrs.Err()
 	}
@@ -693,9 +694,10 @@ func defaultEval(e lang.Expr) (any, error) {
 
 // predicateEval reduces a constraint's `when:` or `require:` expression
 // against the validated inputs, so a predicate can read var.X for any
-// declared input, and a field under an unset nested input reads as null.
-func predicateEval(values map[string]any) lang.EvalFunc {
-	ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+// declared input, call functions from the factory's imported libraries,
+// and read a field under an unset nested input as null.
+func predicateEval(values map[string]any, libs map[string]*runtime.Library) lang.EvalFunc {
+	ctx := &runtime.EvalContext{Vars: values, Libraries: libs, MissingAsNull: true}
 	return func(e lang.Expr) (any, error) {
 		return runtime.Eval(e, ctx)
 	}

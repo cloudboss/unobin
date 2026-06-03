@@ -550,6 +550,27 @@ func TestPlanCompositeSplatConstraints(t *testing.T) {
 	}
 }
 
+func TestPlanCompositeConstraintCallsFunction(t *testing.T) {
+	const inputs = `{
+  replicas: { type: optional(list(object({ port: optional(integer) }))) }
+}`
+	const predicate = `[ {
+  kind:    predicate
+  when:    var.replicas != null
+  require: core.all([for r in var.replicas: r.port > 0])
+  message: 'every replica needs a positive port'
+} ]`
+
+	err := planCompositeConstraintErr(t, inputs, predicate,
+		`{ replicas: [{ port: 443 }, { port: 0 }] }`)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "every replica needs a positive port")
+
+	err = planCompositeConstraintErr(t, inputs, predicate,
+		`{ replicas: [{ port: 443 }, { port: 8080 }] }`)
+	require.NoError(t, err)
+}
+
 func TestPlanForEachResourceEmitsOneStepPerInstance(t *testing.T) {
 	src := `
 resources: {

@@ -555,6 +555,33 @@ constraints: [
 		"expected exactly one to be set, got 2 (var.replicas[0].inline, var.replicas[0].from-file)")
 }
 
+func TestPlanChecksPredicateCallingFunction(t *testing.T) {
+	src := `
+inputs: {
+  replicas: {
+    type: optional(
+      list(object({ port: optional(integer) })),
+      [{ port: 443 }, { port: 0 }])
+  }
+}
+imports: {
+  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
+}
+constraints: [
+  {
+    kind:    predicate
+    when:    var.replicas != null
+    require: core.all([for r in var.replicas: r.port > 0])
+    message: 'every replica needs a positive port'
+  },
+]
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "every replica needs a positive port")
+}
+
 func TestPlanRejectsPredicate(t *testing.T) {
 	src := `
 inputs: {

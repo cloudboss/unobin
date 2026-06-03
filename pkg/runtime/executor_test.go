@@ -290,8 +290,30 @@ func resourceModules(c *resourceCounters) map[string]*Library {
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},
+			Functions: map[string]FunctionType{
+				"all": {Name: "all", ArgCount: 1, Func: fnAllBools},
+			},
 		},
 	}
+}
+
+// fnAllBools mirrors core's all function so tests can call a function
+// from a constraint predicate without importing the real library.
+func fnAllBools(args []any) (any, error) {
+	lst, ok := args[0].([]any)
+	if !ok {
+		return nil, fmt.Errorf("all: expected a list, got %T", args[0])
+	}
+	for _, el := range lst {
+		b, ok := el.(bool)
+		if !ok {
+			return nil, fmt.Errorf("all: expected booleans, got %T", el)
+		}
+		if !b {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func TestExecutorRunsComposite(t *testing.T) {
