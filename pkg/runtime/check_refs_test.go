@@ -714,3 +714,45 @@ actions: {
 	require.Contains(t, got[0],
 		`library "w" is implemented in unobin and exports no functions`)
 }
+
+func TestCheckReferencesConstraintRootsLimitedToVar(t *testing.T) {
+	strT := typecheck.TString()
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{
+			Resources: map[string]*TypeSchema{"thing": {
+				Outputs: map[string]typecheck.Type{"id": strT},
+			}},
+			Functions: map[string]typecheck.FuncSig{
+				"all": {Params: []typecheck.Type{typecheck.TList(typecheck.TBoolean())},
+					Result: typecheck.TBoolean()},
+			},
+		}},
+	}
+	src := `
+inputs: {
+  replicas: { type: optional(list(object({ port: optional(integer) }))) }
+}
+locals: { limit: 3 }
+resources: {
+  core: { thing: { x: { name: 'a' } } }
+}
+constraints: [
+  { kind: predicate, when: true, require: resource.core.thing.x.id != null },
+  { kind: predicate, when: true, require: local.limit > 0 },
+  {
+    kind:    predicate
+    when:    var.replicas != null
+    require: core.all([for r in var.replicas: r.port > 0])
+  },
+]
+`
+	errs := CheckReferences(parseStack(t, src), libs)
+	var got []string
+	for _, e := range errs.Errors() {
+		got = append(got, e.Msg)
+	}
+	require.Len(t, got, 2, "got: %v", got)
+	require.Contains(t, got[0],
+		"a constraint may read inputs only, not resource.core.thing.x.id")
+	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
+}

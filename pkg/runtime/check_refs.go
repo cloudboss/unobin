@@ -109,9 +109,47 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 			if fld.Key.Name != "when" && fld.Key.Name != "require" {
 				continue
 			}
-			c.checkExpr(fld.Value, scope, false)
+			c.checkConstraintExpr(fld.Value, scope)
 		}
 	}
+}
+
+// checkConstraintExpr walks a constraint's when or require expression.
+// A constraint checks input values, so var is the only address root in
+// scope; a resource, data, action, or local reference has no value
+// where constraints evaluate, so it is rejected at compile instead of
+// reading as null and silently passing the predicate. Comprehension
+// bindings and library calls resolve as anywhere else.
+func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string) {
+	lang.Walk(expr, func(node lang.Expr) {
+		switch n := node.(type) {
+		case *lang.DotPath:
+			c.checkSplat(n)
+			switch n.Root.Name {
+			case "var":
+				c.checkVar(n, scope)
+			case "resource", "data", "action", "local":
+				c.addf(n.S.Start,
+					"a constraint may read inputs only, not %s", namedPathText(n))
+			case "@each":
+				c.checkEach(n, false)
+			}
+		case *lang.Call:
+			c.checkCall(n, scope)
+		}
+	})
+}
+
+// namedPathText renders a dot path's root and named segments for a
+// diagnostic, indexes left out.
+func namedPathText(dp *lang.DotPath) string {
+	parts := []string{dp.Root.Name}
+	for _, seg := range dp.Segments {
+		if seg.Name != "" {
+			parts = append(parts, seg.Name)
+		}
+	}
+	return strings.Join(parts, ".")
 }
 
 func (c *referenceChecker) checkCompositeOutputs(n *Node) {
