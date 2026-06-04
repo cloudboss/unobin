@@ -35,6 +35,9 @@ func (d DB) Constraints() []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.ExactlyOneOf(r.Inline, r.FromFile),
 				constraint.RequiredWith(r.TLS, d.CACert),
+				constraint.When(constraint.IsTrue(r.TLS)).
+					Require(constraint.Present(r.Cert)).
+					Message("tls requires a cert"),
 			}
 		}),
 	}
@@ -49,6 +52,7 @@ type DBReplica struct {
 	Inline   *string
 	FromFile *string
 	TLS      *bool
+	Cert     *string
 }
 
 type DBCode struct {

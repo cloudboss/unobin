@@ -168,17 +168,6 @@ type Item struct {
 		method  string
 		wantErr string
 	}{
-		{"predicate inside ForEach",
-			`func (v T) Constraints() []constraint.Constraint {
-	return []constraint.Constraint{
-		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
-			return []constraint.Constraint{
-				constraint.Must(constraint.Present(it.A)),
-			}
-		}),
-	}
-}`,
-			"ForEach does not support predicate constraints"},
 		{"ForEach inside ForEach",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
@@ -258,6 +247,13 @@ func TestReadExtractsNestedConstraints(t *testing.T) {
 		{Kind: "required-together", Fields: []string{"var.listeners[0].cert", "var.listeners[0].key"}},
 		{Kind: "exactly-one-of", Fields: []string{"var.replicas[*].inline", "var.replicas[*].from-file"}},
 		{Kind: "required-with", Fields: []string{"var.replicas[*].tls", "var.ca-cert"}},
+		{
+			Kind:    "predicate",
+			When:    "(@each.value.tls == true)",
+			Require: "(@each.value.cert != null)",
+			Message: "tls requires a cert",
+			ForEach: "var.replicas",
+		},
 	}
 	require.Equal(t, want, schema.Resources["db"].Constraints)
 }
@@ -311,9 +307,10 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 	}
 	got = lang.CheckConstraintEntries(entries, badReplicas,
 		eval(badReplicas), lang.DisplayNodeRelative)
-	require.Equal(t, 2, got.Len(), "two replica violations expected: %v", got.Err())
+	require.Equal(t, 3, got.Len(), "three replica violations expected: %v", got.Err())
 	require.Contains(t, got.Err().Error(), "got 2 (replicas[1].inline, replicas[1].from-file)")
 	require.Contains(t, got.Err().Error(), `"replicas[2].tls" is set`)
+	require.Contains(t, got.Err().Error(), "tls requires a cert (replicas[2])")
 }
 
 func TestFlattenSelector(t *testing.T) {

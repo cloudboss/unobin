@@ -208,11 +208,13 @@ func (w *walker) isForEachCall(call *ast.CallExpr) bool {
 	return ok && w.imports[pkg] == constraintPkgPath
 }
 
-// forEachSpecs renders a constraint.ForEach call into the specs of its body,
-// every element field rooted under the list with [*]. The body's
-// element parameter joins the scope, so references to the receiver
-// still name top-level fields. Set constraints only: a predicate or a
-// nested ForEach inside the body records an error.
+// forEachSpecs renders a constraint.ForEach call into the specs of its
+// body. A set constraint's element fields root under the list with
+// [*], running through the per-element field expansion; a predicate
+// renders the element as @each.value with the list as the spec's
+// @for-each, running through the iterating predicate check. References
+// to the receiver still name top-level fields either way. A nested
+// ForEach records an error.
 func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.ConstraintSpec {
 	if len(call.Args) != 2 {
 		w.addErrf("ForEach takes a list field and a function")
@@ -232,27 +234,50 @@ func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.
 		w.addErrf("the ForEach body must take the element as its one named parameter")
 		return nil
 	}
-	inner := make(constraintScope, len(scope)+1)
-	maps.Copy(inner, scope)
-	elem.prefix = listPath + "[*]"
-	inner[param] = elem
+	innerSet := make(constraintScope, len(scope)+1)
+	maps.Copy(innerSet, scope)
+	splatted := elem
+	splatted.prefix = listPath + "[*]"
+	innerSet[param] = splatted
+
+	innerEach := make(constraintScope, len(scope)+1)
+	maps.Copy(innerEach, scope)
+	bound := elem
+	bound.prefix = "@each.value"
+	innerEach[param] = bound
+
 	var out []lang.ConstraintSpec
 	for _, c := range constraintCalls(fl.Body) {
 		if w.isForEachCall(c) {
 			w.addErrf("a ForEach inside a ForEach is not supported")
 			continue
 		}
+		inner := innerSet
+		if isPredicateCall(c) {
+			inner = innerEach
+		}
 		spec, ok := w.specFromCall(c, inner)
 		if !ok {
 			continue
 		}
 		if spec.Kind == "predicate" {
-			w.addErrf("ForEach does not support predicate constraints")
-			continue
+			spec.ForEach = listPath
 		}
 		out = append(out, spec)
 	}
 	return out
+}
+
+// isPredicateCall reports whether a constructor call builds a
+// predicate: Must, or a When chain completed by Require, with any
+// trailing Message peeled first.
+func isPredicateCall(call *ast.CallExpr) bool {
+	base, _ := peelMessage(call)
+	sel, ok := base.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	return sel.Sel.Name == "Must" || sel.Sel.Name == "Require"
 }
 
 // listField resolves ForEach's list argument to its rendered var reference

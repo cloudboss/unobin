@@ -149,6 +149,9 @@ func specLiteral(s lang.ConstraintSpec) string {
 	if s.Message != "" {
 		parts = append(parts, fmt.Sprintf("Message: %q", s.Message))
 	}
+	if s.ForEach != "" {
+		parts = append(parts, fmt.Sprintf("ForEach: %q", s.ForEach))
+	}
 	return "{" + strings.Join(parts, ", ") + "}"
 }
 
