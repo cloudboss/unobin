@@ -756,3 +756,58 @@ constraints: [
 		"a constraint may read inputs only, not resource.core.thing.x.id")
 	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
 }
+
+func TestCheckReferencesConstraintForEach(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"each allowed under for-each", `
+inputs: {
+  replicas: { type: optional(list(object({ tls: optional(boolean) }))) }
+}
+constraints: [
+  { kind: predicate, @for-each: var.replicas, when: true, require: @each.value.tls == true },
+]
+`, ""},
+		{"each outside for-each rejected", `
+inputs: {
+  replicas: { type: optional(list(object({ tls: optional(boolean) }))) }
+}
+constraints: [
+  { kind: predicate, when: true, require: @each.value.tls == true },
+]
+`, "@each"},
+		{"for-each iterable reads inputs only", `
+resources: {
+  core: { thing: { x: { name: 'a' } } }
+}
+constraints: [
+  { kind: predicate, @for-each: resource.core.thing.x.id, when: true, require: true },
+]
+`, "a constraint may read inputs only, not resource.core.thing.x.id"},
+	}
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{
+			Resources: map[string]*TypeSchema{"thing": {
+				Outputs: map[string]typecheck.Type{"id": typecheck.TString()},
+			}},
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, c.src), libs)
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			if c.want == "" {
+				require.Empty(t, got, "got: %v", got)
+				return
+			}
+			require.Len(t, got, 1, "got: %v", got)
+			require.Contains(t, got[0], c.want)
+		})
+	}
+}

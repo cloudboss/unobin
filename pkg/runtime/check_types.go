@@ -393,6 +393,13 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 		if !ok {
 			continue
 		}
+		entryScope := s
+		if forEach := constraintForEach(obj); forEach != nil {
+			withEach := *s
+			withEach.Each = eachBindingFor(typecheck.Infer(
+				forEach, typecheck.TUnknown(), s, c.errs))
+			entryScope = &withEach
+		}
 		for _, fld := range obj.Fields {
 			if fld.Key.Kind != lang.FieldIdent {
 				continue
@@ -400,7 +407,25 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 			if fld.Key.Name != "when" && fld.Key.Name != "require" {
 				continue
 			}
-			typecheck.Check(fld.Value, typecheck.TBoolean(), s, c.errs)
+			typecheck.Check(fld.Value, typecheck.TBoolean(), entryScope, c.errs)
 		}
 	}
+}
+
+// eachBindingFor maps an @for-each iterable's inferred type onto the
+// @each binding: a list binds an integer key and the element type, a
+// map binds a string key and the value type, anything else binds
+// Unknown so the entry still checks without claiming a type.
+func eachBindingFor(iterable typecheck.Type) *typecheck.EachBinding {
+	switch iterable.Kind {
+	case typecheck.List:
+		if iterable.Elem != nil {
+			return &typecheck.EachBinding{Key: typecheck.TInteger(), Value: *iterable.Elem}
+		}
+	case typecheck.Map:
+		if iterable.Elem != nil {
+			return &typecheck.EachBinding{Key: typecheck.TString(), Value: *iterable.Elem}
+		}
+	}
+	return &typecheck.EachBinding{Key: typecheck.TUnknown(), Value: typecheck.TUnknown()}
 }

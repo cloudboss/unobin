@@ -1975,3 +1975,28 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 // Ensure t.TempDir is visible to the loadStore call (which writes to
 // `.unobin/state` relative to cwd) by chdir-ing in testInfo.
 var _ = filepath.Join
+
+func TestPlanChecksForEachPredicate(t *testing.T) {
+	src := `
+inputs: {
+  replicas: {
+    type: optional(
+      list(object({ tls: optional(boolean) })),
+      [{ tls: true }, { tls: false }])
+  }
+}
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.replicas
+    when:      true
+    require:   @each.value.tls == true
+    message:   'tls is required'
+  },
+]
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tls is required (var.replicas[1])")
+}

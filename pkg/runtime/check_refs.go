@@ -102,6 +102,10 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 		if !ok {
 			continue
 		}
+		forEach := constraintForEach(obj)
+		if forEach != nil {
+			c.checkConstraintExpr(forEach, scope, false)
+		}
 		for _, fld := range obj.Fields {
 			if fld.Key.Kind != lang.FieldIdent {
 				continue
@@ -109,18 +113,31 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 			if fld.Key.Name != "when" && fld.Key.Name != "require" {
 				continue
 			}
-			c.checkConstraintExpr(fld.Value, scope)
+			c.checkConstraintExpr(fld.Value, scope, forEach != nil)
 		}
 	}
 }
 
-// checkConstraintExpr walks a constraint's when or require expression.
-// A constraint checks input values, so var is the only address root in
-// scope; a resource, data, action, or local reference has no value
-// where constraints evaluate, so it is rejected at compile instead of
-// reading as null and silently passing the predicate. Comprehension
-// bindings and library calls resolve as anywhere else.
-func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string) {
+// constraintForEach returns a constraint entry's @for-each expression,
+// or nil when the entry does not iterate.
+func constraintForEach(obj *lang.ObjectLit) lang.Expr {
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "@for-each" {
+			return fld.Value
+		}
+	}
+	return nil
+}
+
+// checkConstraintExpr walks a constraint's when, require, or @for-each
+// expression. A constraint checks input values, so var is the only
+// address root in scope; a resource, data, action, or local reference
+// has no value where constraints evaluate, so it is rejected at
+// compile instead of reading as null and silently passing the
+// predicate. eachOK admits @each inside an entry that iterates with
+// @for-each. Comprehension bindings and library calls resolve as
+// anywhere else.
+func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, eachOK bool) {
 	lang.Walk(expr, func(node lang.Expr) {
 		switch n := node.(type) {
 		case *lang.DotPath:
@@ -132,7 +149,7 @@ func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string) {
 				c.addf(n.S.Start,
 					"a constraint may read inputs only, not %s", namedPathText(n))
 			case "@each":
-				c.checkEach(n, false)
+				c.checkEach(n, eachOK)
 			}
 		case *lang.Call:
 			c.checkCall(n, scope)
