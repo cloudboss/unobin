@@ -241,25 +241,20 @@ func TestPlanGoTypeConstraintsDeterministic(t *testing.T) {
 	}
 }
 
-// TestPlanGoTypeConstraintSkipsForwardRef proves the check defers a node
-// whose field is not yet known: thing requires exactly one of name or
-// size, and node b sets only name to a's apply-time output. Were the node
-// not skipped, name would read as unset and the constraint would fail.
-func TestPlanGoTypeConstraintSkipsForwardRef(t *testing.T) {
-	libs := resourceModules(&resourceCounters{})
-	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
-		"resource.thing": {{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}}},
-	}
-	src := `
-resources: {
-  core: {
-    thing: {
-      a: { name: 'a' }
-      b: { name: resource.core.thing.a.id }
-    }
-  }
-}
-`
+// planForwardRefConstraintErr plans a stack of two nodes where thing b's
+// body holds the given fields, at least one referencing the output of an
+// upstream node of a constraint-free type, so b plans with an unresolved
+// input. specs attach to the thing type alone, so any error is b's.
+func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body string) error {
+	t.Helper()
+	c := &resourceCounters{}
+	libs := resourceModules(c)
+	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, any](
+		func() *countingResource { return &countingResource{counters: c} },
+	)
+	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
+	src := "resources: {\n  core: {\n    plain: { a: { name: 'a' } }\n" +
+		"    thing: { b: " + body + " }\n  }\n}\n"
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
@@ -267,7 +262,214 @@ resources: {
 		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
 	}
 	_, err := exec.Plan(context.Background())
-	require.NoError(t, err)
+	return err
+}
+
+const forwardConstraintPrefix = "resource.core.thing.b: schema: "
+
+// forwardRefConstraintCases drives the per-rule deferral table and its
+// determinism pass. In every deferred case the rule would report a
+// violation if it ran against the pending field's null placeholder, so
+// a missing error proves the rule waited; in every reported case the
+// violated rule reads only resolved fields beside the pending one. A
+// rule reading a pending field defers even when its known fields alone
+// already violate it (the at-most-one-of and forbidden-with cases): a
+// rule is judged only on complete values.
+func forwardRefConstraintCases() []struct {
+	name    string
+	specs   []lang.ConstraintSpec
+	body    string
+	wantErr string
+} {
+	ref := "resource.core.plain.a.id"
+	return []struct {
+		name    string
+		specs   []lang.ConstraintSpec
+		body    string
+		wantErr string
+	}{
+		{
+			name:  "exactly-one-of defers on a pending field",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
+			body:  `{ name: ` + ref + ` }`,
+		},
+		{
+			name:  "at-least-one-of defers on a pending field",
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.name", "var.zone")},
+			body:  `{ name: ` + ref + ` }`,
+		},
+		{
+			name: "at-most-one-of defers although known fields violate",
+			specs: []lang.ConstraintSpec{
+				setSpec("at-most-one-of", "var.name", "var.region", "var.zone"),
+			},
+			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+		},
+		{
+			name: "mutually-exclusive defers although known fields violate",
+			specs: []lang.ConstraintSpec{
+				setSpec("mutually-exclusive", "var.name", "var.region", "var.zone"),
+			},
+			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+		},
+		{
+			name:  "required-together defers on a pending field",
+			specs: []lang.ConstraintSpec{setSpec("required-together", "var.name", "var.region")},
+			body:  `{ name: ` + ref + `, region: 'us' }`,
+		},
+		{
+			name:  "required-with defers on a pending dependent",
+			specs: []lang.ConstraintSpec{setSpec("required-with", "var.region", "var.name")},
+			body:  `{ name: ` + ref + `, region: 'us' }`,
+		},
+		{
+			name: "forbidden-with defers although a known field violates",
+			specs: []lang.ConstraintSpec{
+				setSpec("forbidden-with", "var.region", "var.name", "var.zone"),
+			},
+			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+		},
+		{
+			name:  "predicate defers when require reads the pending field",
+			specs: []lang.ConstraintSpec{predSpec("true", "var.name != null")},
+			body:  `{ name: ` + ref + ` }`,
+		},
+		{
+			name:  "predicate defers when when reads the pending field",
+			specs: []lang.ConstraintSpec{predSpec("var.name == null", "var.region != null")},
+			body:  `{ name: ` + ref + ` }`,
+		},
+		{
+			name: "iterating predicate defers when require reads the pending field",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", ForEach: "var.regions",
+				When: "true", Require: "var.name != null",
+			}},
+			body: `{ name: ` + ref + `, regions: ['us', 'eu'] }`,
+		},
+		{
+			name:  "exactly-one-of reports beside a pending field",
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.region", "var.zone")},
+			body:  `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (exactly-one-of [region, zone]): " +
+				"expected exactly one to be set, got 2 (region, zone)",
+		},
+		{
+			name:  "at-least-one-of reports beside a pending field",
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.region", "var.zone")},
+			body:  `{ name: ` + ref + ` }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (at-least-one-of [region, zone]): " +
+				"expected at least one to be set, got none",
+		},
+		{
+			name:  "at-most-one-of reports beside a pending field",
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.region", "var.zone")},
+			body:  `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (at-most-one-of [region, zone]): " +
+				"expected at most one to be set, got 2 (region, zone)",
+		},
+		{
+			name:  "required-together reports beside a pending field",
+			specs: []lang.ConstraintSpec{setSpec("required-together", "var.region", "var.zone")},
+			body:  `{ name: ` + ref + `, region: 'us' }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (required-together [region, zone]): " +
+				"expected all set or all null, got 1 set (region)",
+		},
+		{
+			name:  "required-with reports beside a pending field",
+			specs: []lang.ConstraintSpec{setSpec("required-with", "var.region", "var.zone")},
+			body:  `{ name: ` + ref + `, region: 'us' }`,
+			wantErr: forwardConstraintPrefix +
+				`constraints[0] (required-with): ` +
+				`"region" is set, so [zone] must also be set; missing zone`,
+		},
+		{
+			name:  "forbidden-with reports beside a pending field",
+			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "var.region", "var.zone")},
+			body:  `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+			wantErr: forwardConstraintPrefix +
+				`constraints[0] (forbidden-with): ` +
+				`"region" is set, so [zone] must be null; got zone`,
+		},
+		{
+			name:  "predicate reports beside a pending field",
+			specs: []lang.ConstraintSpec{predSpec("var.region != null", "var.zone != null")},
+			body:  `{ name: ` + ref + `, region: 'us' }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (predicate): predicate requirement not satisfied",
+		},
+		{
+			name: "splat rule reports when its list resolved",
+			specs: []lang.ConstraintSpec{
+				setSpec("exactly-one-of", "var.items[*].a", "var.items[*].b"),
+			},
+			body: `{ name: ` + ref + `, items: [{ a: 1, b: 2 }] }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (exactly-one-of [items[0].a, items[0].b]): " +
+				"expected exactly one to be set, got 2 (items[0].a, items[0].b)",
+		},
+		{
+			name: "indexed rule reports when its list resolved",
+			specs: []lang.ConstraintSpec{
+				setSpec("required-together", "var.items[0].a", "var.items[0].b"),
+			},
+			body: `{ name: ` + ref + `, items: [{ a: 1 }] }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (required-together [items[0].a, items[0].b]): " +
+				"expected all set or all null, got 1 set (items[0].a)",
+		},
+		{
+			name: "one rule reports while the others defer",
+			specs: []lang.ConstraintSpec{
+				setSpec("exactly-one-of", "var.region", "var.zone"),
+				setSpec("exactly-one-of", "var.name", "var.size"),
+				predSpec("true", "var.name != null"),
+			},
+			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
+			wantErr: forwardConstraintPrefix +
+				"constraints[0] (exactly-one-of [region, zone]): " +
+				"expected exactly one to be set, got 2 (region, zone)",
+		},
+	}
+}
+
+// TestPlanGoTypeConstraintForwardRef proves the deferral is per rule,
+// not per node: a node with a pending input still has every rule over
+// resolved fields checked, and no rule reading the pending field runs.
+func TestPlanGoTypeConstraintForwardRef(t *testing.T) {
+	for _, tt := range forwardRefConstraintCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			err := planForwardRefConstraintErr(t, tt.specs, tt.body)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestPlanGoTypeConstraintForwardRefDeterministic re-plans each case
+// many times and requires the same outcome, so map iteration over the
+// unresolved set cannot flip a rule between deferred and checked.
+func TestPlanGoTypeConstraintForwardRefDeterministic(t *testing.T) {
+	for _, tt := range forwardRefConstraintCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			first := planForwardRefConstraintErr(t, tt.specs, tt.body)
+			for range 10 {
+				got := planForwardRefConstraintErr(t, tt.specs, tt.body)
+				if tt.wantErr == "" {
+					require.NoError(t, got)
+				} else {
+					require.EqualError(t, got, first.Error())
+				}
+			}
+		})
+	}
 }
 
 // TestPlanGoTypeConstraintChecksActions confirms the check routes by node

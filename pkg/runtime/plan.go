@@ -616,11 +616,12 @@ func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
 
 // checkStepConstraints validates a leaf node's evaluated args against its
 // Go type's constraints, returning one error per violation prefixed with
-// the node address. It runs only when every arg resolved at plan, so a
-// forward-reference arg (unknown until apply) never causes a false
-// violation; a missing optional arg evaluates to null in a predicate
-// rather than erroring. Composite boundaries and types that declare no
-// constraint contribute nothing.
+// the node address. Each rule runs as soon as every field it reads
+// resolved at plan, so a forward-reference arg (unknown until apply)
+// never causes a false violation: only the rules that read a pending
+// field wait for apply. A missing optional arg evaluates to null in a
+// predicate rather than erroring. Composite boundaries and types that
+// declare no constraint contribute nothing.
 func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	if step.Composite {
 		return nil
@@ -628,9 +629,6 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	switch step.Kind {
 	case NodeResource, NodeData, NodeAction:
 	default:
-		return nil
-	}
-	if len(step.UnresolvedInputs) > 0 {
 		return nil
 	}
 	tmpl := templateAddress(step.Address)
@@ -645,6 +643,10 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	specs := lib.Constraints[string(kind)+"."+typeName]
 	if len(specs) == 0 {
 		return nil
+	}
+	deferred := make(map[string]bool, len(step.UnresolvedInputs))
+	for name := range step.UnresolvedInputs {
+		deferred[name] = true
 	}
 	entries, perr := lang.ParseSpecs(specs)
 	values := make(map[string]any, len(step.Inputs))
@@ -662,9 +664,14 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	for _, er := range perr.Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
-	entryErrs := lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative)
-	for _, er := range entryErrs.Errors() {
-		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+	for i, c := range entries {
+		if readsDeferred(c, deferred) {
+			continue
+		}
+		checked := lang.CheckConstraintEntry(i, c, values, eval, lang.DisplayNodeRelative)
+		for _, er := range checked.Errors() {
+			out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+		}
 	}
 	return out
 }
