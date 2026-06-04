@@ -18,10 +18,26 @@ type Scope struct {
 	Each        *EachBinding
 	LookupNode  LookupNodeFn
 	LookupLocal LookupLocalFn
+	// LookupFunction resolves a library-qualified function to its
+	// signature so a call's arguments and result type-check. Nil, or a
+	// false return, leaves the call inferring Unknown; existence and
+	// argument count are the reference checker's to enforce.
+	LookupFunction func(library, name string) (FuncSig, bool)
 	// Bindings holds comprehension-bound names. They resolve as bare
 	// values and as dot-path roots ahead of var/resource/data/action,
 	// so an inner binding shadows an outer one.
 	Bindings map[string]Type
+}
+
+// FuncSig describes a library function to the inferrer: the fixed
+// parameter types in order, the element type of a variadic tail (nil
+// when the function is not variadic), and the result type. A function
+// registered without declared types reads as all-Unknown, which checks
+// nothing and infers nothing.
+type FuncSig struct {
+	Params   []Type
+	Variadic *Type
+	Result   Type
 }
 
 // withBindings returns a child scope that adds the comprehension
@@ -102,7 +118,7 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	case *lang.DotPath:
 		return inferDotPath(v, scope, errs)
 	case *lang.Call:
-		return TUnknown()
+		return inferCall(v, scope, errs)
 	case *lang.Infix:
 		return inferInfix(v, scope, errs)
 	case *lang.Prefix:
@@ -113,6 +129,33 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return inferComprehension(v, target, scope, errs)
 	}
 	return TUnknown()
+}
+
+// inferCall types a library function call when the scope can describe
+// the function. Each argument checks against its parameter type and a
+// variadic tail against the tail's element type; the call's type is
+// the declared result. An argument past a fixed signature checks
+// freely, since the argument count is the reference checker's to
+// report. An unresolvable call infers Unknown.
+func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
+	if scope == nil || scope.LookupFunction == nil || c.Library == nil || c.Func == nil {
+		return TUnknown()
+	}
+	sig, ok := scope.LookupFunction(c.Library.Name, c.Func.Name)
+	if !ok {
+		return TUnknown()
+	}
+	for i, arg := range c.Args {
+		target := TUnknown()
+		switch {
+		case i < len(sig.Params):
+			target = sig.Params[i]
+		case sig.Variadic != nil:
+			target = *sig.Variadic
+		}
+		Check(arg, target, scope, errs)
+	}
+	return sig.Result
 }
 
 // inferConditional types `if cond then a else b`. The condition must be
