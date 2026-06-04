@@ -186,9 +186,12 @@ func (c *referenceChecker) checkSplat(dp *lang.DotPath) {
 // checkCall reports a library-qualified function call whose function is
 // not declared by the imported library. Bare calls and unimported
 // aliases are rejected earlier by lang.ValidateCalls; this adds the
-// existence check against the library's Go function set. A library with
-// no schema (a UB library, or one whose source the dev CLI could not
-// read) is left alone, since its function set is not known here.
+// existence and argument-count checks against the library's declared
+// function set. A library with no schema is left alone: schemas exist
+// only at compile, so the runtime's own re-check of the embedded
+// source sees none, and a UB library has no Go function set to check.
+// An unreadable Go library never reaches here; its schema read fails
+// the compile first.
 func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 	if call.Library == nil || call.Func == nil {
 		return
