@@ -201,24 +201,26 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 	if lib == nil || lib.Schema == nil {
 		return
 	}
-	arity, ok := lib.Schema.Functions[call.Func.Name]
+	sig, ok := lib.Schema.Functions[call.Func.Name]
 	if !ok {
 		c.addf(call.Func.S.Start, `library %q has no function %q`,
 			call.Library.Name, call.Func.Name)
 		return
 	}
 	n := len(call.Args)
-	if (arity.Variadic && n < arity.ArgCount) || (!arity.Variadic && n != arity.ArgCount) {
+	fixed := len(sig.Params)
+	variadic := sig.Variadic != nil
+	if (variadic && n < fixed) || (!variadic && n != fixed) {
 		c.addf(call.Func.S.Start, "%s",
-			arityMessage(call.Library.Name, call.Func.Name, arity, n))
+			arityMessage(call.Library.Name, call.Func.Name, fixed, variadic, n))
 	}
 }
 
 // arityMessage describes the argument count a function expects against the
 // count it was given, for a call the reference checker rejected.
-func arityMessage(library, function string, arity FunctionArity, got int) string {
-	want := argCount(arity.ArgCount)
-	if arity.Variadic {
+func arityMessage(library, function string, fixed int, variadic bool, got int) string {
+	want := argCount(fixed)
+	if variadic {
 		want = "at least " + want
 	}
 	return fmt.Sprintf("%s.%s takes %s, got %d", library, function, want, got)

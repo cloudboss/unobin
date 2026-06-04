@@ -90,11 +90,33 @@ func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
 func (c *referenceChecker) scopeFor(n *Node) *typecheck.Scope {
 	inputs := c.scopeInputs(n.Composite)
 	scope := &typecheck.Scope{
-		Inputs:     inputs,
-		LookupNode: c.lookupNodeFor(n.Composite),
+		Inputs:         inputs,
+		LookupNode:     c.lookupNodeFor(n.Composite),
+		LookupFunction: c.lookupFunctionFor(n.Composite),
 	}
 	scope.LookupLocal = c.lookupLocalFor(n.Composite, scope)
 	return scope
+}
+
+// lookupFunctionFor resolves a library-qualified function call in the
+// given scope to its declared signature, so the inferrer can check
+// argument types and use the result type. A missing library or schema
+// resolves nothing, leaving the call to infer Unknown.
+func (c *referenceChecker) lookupFunctionFor(
+	scope string,
+) func(library, name string) (typecheck.FuncSig, bool) {
+	return func(library, name string) (typecheck.FuncSig, bool) {
+		libs := c.libraries[scope]
+		if libs == nil {
+			return typecheck.FuncSig{}, false
+		}
+		lib := libs[library]
+		if lib == nil || lib.Schema == nil {
+			return typecheck.FuncSig{}, false
+		}
+		sig, ok := lib.Schema.Functions[name]
+		return sig, ok
+	}
 }
 
 // lookupLocalFor returns a resolver that infers the type of a local in
@@ -328,8 +350,9 @@ func (c *referenceChecker) checkOutputsBlock(f *lang.File, scope string) {
 		return
 	}
 	s := &typecheck.Scope{
-		Inputs:     c.scopeInputs(scope),
-		LookupNode: c.lookupNodeFor(scope),
+		Inputs:         c.scopeInputs(scope),
+		LookupNode:     c.lookupNodeFor(scope),
+		LookupFunction: c.lookupFunctionFor(scope),
 	}
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
@@ -361,8 +384,9 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 		return
 	}
 	s := &typecheck.Scope{
-		Inputs:     c.scopeInputs(scope),
-		LookupNode: c.lookupNodeFor(scope),
+		Inputs:         c.scopeInputs(scope),
+		LookupNode:     c.lookupNodeFor(scope),
+		LookupFunction: c.lookupFunctionFor(scope),
 	}
 	for _, e := range arr.Elements {
 		obj, ok := e.(*lang.ObjectLit)

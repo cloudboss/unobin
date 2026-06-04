@@ -111,10 +111,28 @@ func TestCheckReferencesSplat(t *testing.T) {
 	}
 }
 
+// fixedSig builds an untyped signature taking exactly n arguments, the
+// view a FunctionType literal registration produces.
+func fixedSig(n int) typecheck.FuncSig {
+	sig := typecheck.FuncSig{Result: typecheck.TUnknown()}
+	for range n {
+		sig.Params = append(sig.Params, typecheck.TUnknown())
+	}
+	return sig
+}
+
+// variadicSig builds an untyped signature taking n or more arguments.
+func variadicSig(n int) typecheck.FuncSig {
+	sig := fixedSig(n)
+	unknown := typecheck.TUnknown()
+	sig.Variadic = &unknown
+	return sig
+}
+
 func TestCheckReferencesFunctionExists(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{
-			"format": {ArgCount: 1, Variadic: true},
+		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
+			"format": variadicSig(1),
 		}}},
 	}
 	errs := CheckReferences(parseStack(t, `
@@ -127,8 +145,8 @@ actions: {
 
 func TestCheckReferencesUnknownFunction(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{
-			"format": {ArgCount: 1, Variadic: true},
+		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
+			"format": variadicSig(1),
 		}}},
 	}
 	errs := CheckReferences(parseStack(t, `
@@ -143,9 +161,9 @@ actions: {
 
 func TestCheckReferencesFunctionArity(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]FunctionArity{
-			"format": {ArgCount: 1, Variadic: true},
-			"length": {ArgCount: 1},
+		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
+			"format": variadicSig(1),
+			"length": fixedSig(1),
 		}}},
 	}
 	cases := []struct {
@@ -629,4 +647,47 @@ func checkRefMessages(t *testing.T, errs *lang.ErrorList) []string {
 		out = append(out, err.Msg)
 	}
 	return out
+}
+
+func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
+	strT := typecheck.TString()
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{
+			Actions: map[string]*TypeSchema{"command": {
+				Inputs: map[string]typecheck.Type{
+					"argv": typecheck.TList(typecheck.TString()),
+				},
+			}},
+			Functions: map[string]typecheck.FuncSig{
+				"b64-encode": {Params: []typecheck.Type{strT}, Result: strT},
+				"length": {Params: []typecheck.Type{typecheck.TAny()},
+					Result: typecheck.TInteger()},
+			},
+		}},
+	}
+	cases := []struct {
+		name string
+		call string
+		want string
+	}{
+		{"argument type matches", "core.b64-encode('x')", ""},
+		{"argument type mismatch", "core.b64-encode(5)", "expected string"},
+		{"result type feeds the field", "core.length('x')", "expected string"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := "actions: {\n  core: { command: { x: { argv: [" + c.call + "] } } }\n}\n"
+			errs := CheckReferences(parseStack(t, src), libs)
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			if c.want == "" {
+				require.Empty(t, got)
+				return
+			}
+			require.Len(t, got, 1)
+			require.Contains(t, got[0], c.want)
+		})
+	}
 }

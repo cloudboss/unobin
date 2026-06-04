@@ -14,20 +14,14 @@ type LibrarySchema struct {
 	DataSources map[string]*TypeSchema
 	Actions     map[string]*TypeSchema
 	// Functions maps each function name the library exports to its
-	// declared argument count. The implementations live in the compiled
-	// Go and cannot run at compile time, but the name and arity let the
-	// reference checker reject a call to an unknown function, or one given
-	// the wrong number of arguments.
-	Functions map[string]FunctionArity
-}
-
-// FunctionArity is the declared argument count of a library function: a
-// non-variadic function takes exactly ArgCount arguments, a variadic one
-// takes ArgCount or more. The reference checker reports a call whose
-// argument count does not satisfy it.
-type FunctionArity struct {
-	ArgCount int
-	Variadic bool
+	// declared signature. The implementations live in the compiled Go
+	// and cannot run at compile time, but the signature lets the
+	// reference checker reject a call to an unknown function or one
+	// given the wrong number of arguments, and the inferrer check each
+	// argument's type and use the result type. A function registered
+	// without declared types reads as all-Unknown, which counts
+	// arguments but checks no types.
+	Functions map[string]typecheck.FuncSig
 }
 
 // TypeSchema describes the input and output fields of one resource,

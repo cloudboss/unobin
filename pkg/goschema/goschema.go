@@ -44,7 +44,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 		Resources:   map[string]*runtime.TypeSchema{},
 		DataSources: map[string]*runtime.TypeSchema{},
 		Actions:     map[string]*runtime.TypeSchema{},
-		Functions:   map[string]runtime.FunctionArity{},
+		Functions:   map[string]typecheck.FuncSig{},
 	}
 	var warnings []string
 
@@ -522,8 +522,8 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 // unknown function or one given the wrong number of arguments.
 func extractFunctions(
 	fn *ast.FuncDecl, files []*ast.File, errs *[]error,
-) map[string]runtime.FunctionArity {
-	out := map[string]runtime.FunctionArity{}
+) map[string]typecheck.FuncSig {
+	out := map[string]typecheck.FuncSig{}
 	if fn.Body == nil {
 		return out
 	}
@@ -555,7 +555,7 @@ func extractFunctions(
 					continue
 				}
 				if name, ok := stringLit(ekv.Key); ok {
-					out[name] = functionArity(name, ekv.Value, files, errs)
+					out[name] = functionSig(name, ekv.Value, files, errs)
 				}
 			}
 		}
@@ -563,54 +563,59 @@ func extractFunctions(
 	return out
 }
 
-// functionArity reads a function registration's arity. A MakeFunc call
-// takes it from the registered function's declared signature; a
-// FunctionType composite literal declares it in ArgCount and Variadic
-// fields. An omitted field keeps its zero value, so a function declared
+// functionSig reads a function registration's signature. A MakeFunc
+// call takes parameter and result types from the registered function's
+// declaration; a FunctionType composite literal declares only ArgCount
+// and Variadic fields, so its signature counts arguments and types
+// nothing. An omitted field keeps its zero value, so a literal declared
 // with neither reads as taking exactly zero arguments.
-func functionArity(
+func functionSig(
 	name string, e ast.Expr, files []*ast.File, errs *[]error,
-) runtime.FunctionArity {
-	var arity runtime.FunctionArity
+) typecheck.FuncSig {
 	if call, ok := e.(*ast.CallExpr); ok {
-		return makeFuncArity(name, call, files, errs)
+		return makeFuncSig(name, call, files, errs)
 	}
+	var sig typecheck.FuncSig
+	sig.Result = typecheck.TUnknown()
 	lit, ok := e.(*ast.CompositeLit)
 	if !ok {
-		return arity
+		return sig
 	}
 	for _, el := range lit.Elts {
 		kv, ok := el.(*ast.KeyValueExpr)
 		if !ok {
 			continue
 		}
-		name, ok := identName(kv.Key)
+		field, ok := identName(kv.Key)
 		if !ok {
 			continue
 		}
-		switch name {
+		switch field {
 		case "ArgCount":
 			if n, ok := intLit(kv.Value); ok {
-				arity.ArgCount = n
+				for range n {
+					sig.Params = append(sig.Params, typecheck.TUnknown())
+				}
 			}
 		case "Variadic":
-			if b, ok := boolLit(kv.Value); ok {
-				arity.Variadic = b
+			if b, ok := boolLit(kv.Value); ok && b {
+				unknown := typecheck.TUnknown()
+				sig.Variadic = &unknown
 			}
 		}
 	}
-	return arity
+	return sig
 }
 
-// makeFuncArity resolves a runtime.MakeFunc registration to its arity
-// by reading the registered function's declared signature: the fn
+// makeFuncSig resolves a runtime.MakeFunc registration to its full
+// signature by reading the registered function's declaration: the fn
 // argument must name a function in the package or be a function
 // literal. A registration outside that form, an unresolvable name,
 // results other than (value, error), or an unsupported parameter type
 // records an error, so a malformed registration fails the compile.
-func makeFuncArity(
+func makeFuncSig(
 	name string, call *ast.CallExpr, files []*ast.File, errs *[]error,
-) runtime.FunctionArity {
+) typecheck.FuncSig {
 	addErr := func(format string, args ...any) {
 		if errs != nil {
 			*errs = append(*errs, fmt.Errorf(format, args...))
@@ -619,11 +624,11 @@ func makeFuncArity(
 	if calleeName(call.Fun) != "MakeFunc" {
 		addErr("function %q: register a FunctionType literal or a runtime.MakeFunc call",
 			name)
-		return runtime.FunctionArity{}
+		return typecheck.FuncSig{Result: typecheck.TUnknown()}
 	}
 	if len(call.Args) != 3 {
 		addErr("function %q: MakeFunc takes a name, a description, and a function", name)
-		return runtime.FunctionArity{}
+		return typecheck.FuncSig{Result: typecheck.TUnknown()}
 	}
 	var ft *ast.FuncType
 	switch f := call.Args[2].(type) {
@@ -632,7 +637,7 @@ func makeFuncArity(
 		if decl == nil {
 			addErr("function %q: MakeFunc references %s, which is not a function in the package",
 				name, f.Name)
-			return runtime.FunctionArity{}
+			return typecheck.FuncSig{Result: typecheck.TUnknown()}
 		}
 		ft = decl.Type
 	case *ast.FuncLit:
@@ -640,10 +645,10 @@ func makeFuncArity(
 	default:
 		addErr("function %q: the MakeFunc function must be a package function name"+
 			" or a function literal", name)
-		return runtime.FunctionArity{}
+		return typecheck.FuncSig{Result: typecheck.TUnknown()}
 	}
 	validateFuncDecl(name, ft, addErr)
-	return funcTypeArity(ft)
+	return funcTypeSig(ft)
 }
 
 // calleeName returns the bare name a call invokes, the selector's last
@@ -735,22 +740,65 @@ func supportedParamType(e ast.Expr) bool {
 	return false
 }
 
-// funcTypeArity counts a declared signature's fixed parameters, every
-// name of a shared type spec included; a final ellipsis parameter
-// marks the function variadic and stays out of the fixed count.
-func funcTypeArity(ft *ast.FuncType) runtime.FunctionArity {
-	var arity runtime.FunctionArity
+// funcTypeSig maps a declared signature onto the inferrer's view of
+// it: one parameter type per declared name (a shared type spec counts
+// each), the element type of a final ellipsis as the variadic tail,
+// and the first result as the result type.
+func funcTypeSig(ft *ast.FuncType) typecheck.FuncSig {
+	var sig typecheck.FuncSig
+	sig.Result = typecheck.TUnknown()
+	if ft.Results != nil && len(ft.Results.List) > 0 {
+		sig.Result = astValueType(ft.Results.List[0].Type)
+	}
 	if ft.Params == nil {
-		return arity
+		return sig
 	}
 	for _, fld := range ft.Params.List {
-		if _, ok := fld.Type.(*ast.Ellipsis); ok {
-			arity.Variadic = true
+		if ell, ok := fld.Type.(*ast.Ellipsis); ok {
+			elem := astValueType(ell.Elt)
+			sig.Variadic = &elem
 			continue
 		}
-		arity.ArgCount += max(len(fld.Names), 1)
+		t := astValueType(fld.Type)
+		for range max(len(fld.Names), 1) {
+			sig.Params = append(sig.Params, t)
+		}
 	}
-	return arity
+	return sig
+}
+
+// astValueType maps a declared parameter or result type onto the
+// language type it converts to and from. A spelling outside the
+// supported set reads as Unknown, which checks nothing.
+func astValueType(e ast.Expr) typecheck.Type {
+	switch t := e.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "bool":
+			return typecheck.TBoolean()
+		case "int64":
+			return typecheck.TInteger()
+		case "float64":
+			return typecheck.TNumber()
+		case "string":
+			return typecheck.TString()
+		case "any":
+			return typecheck.TAny()
+		}
+	case *ast.InterfaceType:
+		if t.Methods == nil || len(t.Methods.List) == 0 {
+			return typecheck.TAny()
+		}
+	case *ast.ArrayType:
+		if t.Len == nil {
+			return typecheck.TList(astValueType(t.Elt))
+		}
+	case *ast.MapType:
+		if key, ok := t.Key.(*ast.Ident); ok && key.Name == "string" {
+			return typecheck.TMap(astValueType(t.Value))
+		}
+	}
+	return typecheck.TUnknown()
 }
 
 // refsFromMakeCall extracts the input and output type references

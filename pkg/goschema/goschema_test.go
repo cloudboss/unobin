@@ -405,13 +405,30 @@ func TestReadSamePackage(t *testing.T) {
 	require.Equal(t, do.Outputs, schema.Actions["do2"].Outputs,
 		"the alias should resolve to the same field set")
 
-	require.Equal(t, map[string]runtime.FunctionArity{
-		"shout":   {ArgCount: 1},
-		"reverse": {ArgCount: 1},
-		"upper":   {ArgCount: 1},
-		"pair":    {ArgCount: 2},
-		"join":    {ArgCount: 1, Variadic: true},
-	}, schema.Functions)
+	fns := schema.Functions
+	require.Len(t, fns, 5)
+
+	require.Len(t, fns["shout"].Params, 1)
+	require.True(t, fns["shout"].Params[0].Equal(typecheck.TUnknown()),
+		"a literal registration declares no types")
+	require.Nil(t, fns["shout"].Variadic)
+	require.Len(t, fns["reverse"].Params, 1)
+
+	require.Len(t, fns["upper"].Params, 1)
+	require.True(t, fns["upper"].Params[0].Equal(typecheck.TString()))
+	require.True(t, fns["upper"].Result.Equal(typecheck.TString()))
+	require.Nil(t, fns["upper"].Variadic)
+
+	require.Len(t, fns["pair"].Params, 2)
+	require.True(t, fns["pair"].Params[0].Equal(typecheck.TString()))
+	require.True(t, fns["pair"].Params[1].Equal(typecheck.TString()))
+	require.Nil(t, fns["pair"].Variadic)
+
+	require.Len(t, fns["join"].Params, 1)
+	require.True(t, fns["join"].Params[0].Equal(typecheck.TString()))
+	require.NotNil(t, fns["join"].Variadic)
+	require.True(t, fns["join"].Variadic.Equal(typecheck.TString()))
+	require.True(t, fns["join"].Result.Equal(typecheck.TString()))
 }
 
 func TestReadSubpackage(t *testing.T) {
@@ -670,5 +687,10 @@ func Library() *runtime.Library {
 	errs := &[]error{}
 	out := extractFunctions(fn, []*ast.File{f}, errs)
 	require.Empty(t, *errs)
-	require.Equal(t, runtime.FunctionArity{ArgCount: 2}, out["flag"])
+	flag := out["flag"]
+	require.Len(t, flag.Params, 2)
+	require.True(t, flag.Params[0].Equal(typecheck.TList(typecheck.TString())))
+	require.True(t, flag.Params[1].Equal(typecheck.TBoolean()))
+	require.Nil(t, flag.Variadic)
+	require.True(t, flag.Result.Equal(typecheck.TBoolean()))
 }
