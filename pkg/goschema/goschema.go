@@ -25,8 +25,9 @@ import (
 )
 
 // Read parses the Go library rooted at dir and returns its schema
-// plus any warnings about registered types whose sibling Output
-// struct could not be located. Returns an error when no `Library()`
+// plus any warnings: registered types whose sibling Output struct
+// could not be located, and constraints whose pieces could not be
+// extracted from source. Returns an error when no `Library()`
 // function is found in dir's root package, or when the directory
 // cannot be read.
 func Read(dir string) (*runtime.LibrarySchema, []string, error) {
@@ -51,16 +52,16 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 	cache := map[string][]*ast.File{}
 	errs := &[]error{}
 	for _, reg := range extractRegistrations(libraryFunc) {
-		w := newWalker(dir, modulePath, rootPkg, cache, errs)
+		w := newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
 		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
-		w = newWalker(dir, modulePath, rootPkg, cache, errs)
+		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
 				"%s %q: %s not found in the library's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
-		w = newWalker(dir, modulePath, rootPkg, cache, errs)
+		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
 		constraints := w.lookupConstraints(reg.InputRef)
 		ts := &runtime.TypeSchema{
 			Inputs:           inputs,
@@ -146,6 +147,11 @@ type walker struct {
 	packageCache map[string][]*ast.File
 	visiting     map[string]bool
 	errs         *[]error
+	warns        *[]string
+
+	// subject names what the walker is extracting for diagnostics, the
+	// input type whose Constraints method is being read.
+	subject string
 
 	importPath string
 	files      []*ast.File
@@ -157,6 +163,7 @@ func newWalker(
 	rootFiles []*ast.File,
 	cache map[string][]*ast.File,
 	errs *[]error,
+	warns *[]string,
 ) *walker {
 	if modulePath != "" {
 		cache[modulePath] = rootFiles
@@ -167,6 +174,7 @@ func newWalker(
 		packageCache: cache,
 		visiting:     map[string]bool{},
 		errs:         errs,
+		warns:        warns,
 		importPath:   modulePath,
 		files:        rootFiles,
 		imports:      buildImportMap(rootFiles),

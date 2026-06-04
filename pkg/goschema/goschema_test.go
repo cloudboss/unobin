@@ -141,7 +141,7 @@ func (v T) Constraints() []constraint.Constraint {
 	f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
 	require.NoError(t, err)
 	errs := &[]error{}
-	w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs)
+	w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
 	specs := w.constraintsFromType("T")
 	require.Empty(t, specs)
 	require.NotEmpty(t, *errs)
@@ -221,7 +221,7 @@ type Item struct {
 			f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
 			require.NoError(t, err)
 			errs := &[]error{}
-			w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs)
+			w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
 			specs := w.constraintsFromType("T")
 			require.Empty(t, specs)
 			require.NotEmpty(t, *errs)
@@ -353,7 +353,7 @@ func TestFieldPath(t *testing.T) {
 	files, err := parsePackageDir("testdata/nested")
 	require.NoError(t, err)
 	errs := &[]error{}
-	w := newWalker("testdata/nested", "", files, map[string][]*ast.File{}, errs)
+	w := newWalker("testdata/nested", "", files, map[string][]*ast.File{}, errs, nil)
 
 	tests := []struct {
 		name string

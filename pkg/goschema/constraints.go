@@ -3,6 +3,7 @@ package goschema
 import (
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
 	"maps"
 	"slices"
@@ -55,13 +56,14 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	if method == nil {
 		return nil
 	}
+	w.subject = typeName
 	scope := constraintScope{}
 	if name, ok := receiverName(method); ok {
 		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "var"}
 	}
 	var out []lang.ConstraintSpec
-	for _, call := range constraintCalls(method.Body) {
-		base, message := peelMessage(call)
+	for _, call := range w.constraintCalls(method.Body, "Constraints method") {
+		base, message, _ := peelMessage(call)
 		if w.isForEachCall(base) {
 			if message != "" {
 				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
@@ -168,11 +170,16 @@ func receiverType(fn *ast.FuncDecl) string {
 
 // constraintCalls returns the constructor call expressions in the
 // returned slice literal of a function body, whether the body is a
-// Constraints method's or a ForEach body's. A body that is not a single
-// return of a composite literal yields none.
-func constraintCalls(body *ast.BlockStmt) []*ast.CallExpr {
+// Constraints method's or a ForEach body's. context names the body for
+// diagnostics. A body that is not a single return of a composite
+// literal yields only what its conforming returns hold, with a warning;
+// an element that is not a constructor call warns and is skipped.
+func (w *walker) constraintCalls(body *ast.BlockStmt, context string) []*ast.CallExpr {
 	if body == nil {
 		return nil
+	}
+	if !isSingleConstraintReturn(body) {
+		w.addWarnf("the %s must be a single return of a constraint list", context)
 	}
 	var calls []*ast.CallExpr
 	for _, stmt := range body.List {
@@ -185,12 +192,30 @@ func constraintCalls(body *ast.BlockStmt) []*ast.CallExpr {
 			continue
 		}
 		for _, el := range lit.Elts {
-			if call, ok := el.(*ast.CallExpr); ok {
-				calls = append(calls, call)
+			call, ok := el.(*ast.CallExpr)
+			if !ok {
+				w.addWarnf("a constraint must be a pkg/constraint constructor call, got %s",
+					renderExpr(el))
+				continue
 			}
+			calls = append(calls, call)
 		}
 	}
 	return calls
+}
+
+// isSingleConstraintReturn reports whether a body is exactly one return
+// of a composite literal, the only form extraction reads in full.
+func isSingleConstraintReturn(body *ast.BlockStmt) bool {
+	if len(body.List) != 1 {
+		return false
+	}
+	ret, ok := body.List[0].(*ast.ReturnStmt)
+	if !ok || len(ret.Results) != 1 {
+		return false
+	}
+	_, ok = ret.Results[0].(*ast.CompositeLit)
+	return ok
 }
 
 // isForEachCall reports whether a call is constraint.ForEach, with an
@@ -247,7 +272,7 @@ func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.
 	innerEach[param] = bound
 
 	var out []lang.ConstraintSpec
-	for _, c := range constraintCalls(fl.Body) {
+	for _, c := range w.constraintCalls(fl.Body, "ForEach body") {
 		if w.isForEachCall(c) {
 			w.addErrf("a ForEach inside a ForEach is not supported")
 			continue
@@ -272,7 +297,7 @@ func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.
 // predicate: Must, or a When chain completed by Require, with any
 // trailing Message peeled first.
 func isPredicateCall(call *ast.CallExpr) bool {
-	base, _ := peelMessage(call)
+	base, _, _ := peelMessage(call)
 	sel, ok := base.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return false
@@ -340,19 +365,27 @@ func singleParamName(fl *ast.FuncLit) (string, bool) {
 // peels a trailing .Message("...") for the message, then matches the base
 // constructor against the set-constraint kinds; predicate constructors
 // render through predicateSpec instead. Each argument is read as a
-// v.Field selector and mapped to its input name.
+// v.Field selector and mapped to its input name. A constructor that
+// cannot be extracted warns and returns ok=false.
 func (w *walker) specFromCall(
 	call *ast.CallExpr, scope constraintScope,
 ) (lang.ConstraintSpec, bool) {
-	base, message := peelMessage(call)
+	base, message, badMessage := peelMessage(call)
+	if badMessage != nil {
+		w.addWarnf("Message must be a string literal, got %s", renderExpr(badMessage))
+	}
 	sel, ok := base.Fun.(*ast.SelectorExpr)
 	if !ok {
+		w.addWarnf("a constraint must be a pkg/constraint constructor call, got %s",
+			renderExpr(base))
 		return lang.ConstraintSpec{}, false
 	}
 	// When(cond).Require(reqs...): the base call is .Require on a When call.
 	if sel.Sel.Name == "Require" {
 		when, ok := sel.X.(*ast.CallExpr)
 		if !ok {
+			w.addWarnf("a Require chain must start with constraint.When, got %s",
+				renderExpr(sel.X))
 			return lang.ConstraintSpec{}, false
 		}
 		whenStr, ok := w.whenCondition(when, scope)
@@ -363,6 +396,8 @@ func (w *walker) specFromCall(
 	}
 	pkg, ok := identName(sel.X)
 	if !ok || w.imports[pkg] != constraintPkgPath {
+		w.addWarnf("a constraint must be a pkg/constraint constructor call, got %s",
+			renderExpr(base))
 		return lang.ConstraintSpec{}, false
 	}
 	// Must(reqs...) is an unconditional predicate: its when is always true.
@@ -371,6 +406,7 @@ func (w *walker) specFromCall(
 	}
 	kind, ok := setConstraintKinds[sel.Sel.Name]
 	if !ok {
+		w.addWarnf("unsupported constraint constructor %q", sel.Sel.Name)
 		return lang.ConstraintSpec{}, false
 	}
 	fields := make([]string, 0, len(base.Args))
@@ -389,13 +425,16 @@ func (w *walker) specFromCall(
 func (w *walker) whenCondition(when *ast.CallExpr, scope constraintScope) (string, bool) {
 	sel, ok := when.Fun.(*ast.SelectorExpr)
 	if !ok {
+		w.addWarnf("a Require chain must start with constraint.When, got %s", renderExpr(when))
 		return "", false
 	}
 	pkg, ok := identName(sel.X)
 	if !ok || w.imports[pkg] != constraintPkgPath || sel.Sel.Name != "When" {
+		w.addWarnf("a Require chain must start with constraint.When, got %s", renderExpr(when))
 		return "", false
 	}
 	if len(when.Args) != 1 {
+		w.addWarnf("When takes exactly one condition")
 		return "", false
 	}
 	return w.condString(when.Args[0], scope)
@@ -417,6 +456,7 @@ func (w *walker) predicateSpec(
 		reqs = append(reqs, s)
 	}
 	if len(reqs) == 0 {
+		w.addWarnf("a predicate needs at least one condition")
 		return lang.ConstraintSpec{}, false
 	}
 	return lang.ConstraintSpec{
@@ -429,18 +469,24 @@ func (w *walker) predicateSpec(
 
 // condString renders one condition builder call into a parenthesized
 // unobin expression. Nested All/Any/Not recurse. An unrecognized or
-// malformed call returns ok=false.
+// malformed call warns and returns ok=false.
 func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) {
 	call, ok := arg.(*ast.CallExpr)
 	if !ok {
+		w.addWarnf("a condition must be a pkg/constraint condition call, got %s",
+			renderExpr(arg))
 		return "", false
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
+		w.addWarnf("a condition must be a pkg/constraint condition call, got %s",
+			renderExpr(arg))
 		return "", false
 	}
 	pkg, ok := identName(sel.X)
 	if !ok || w.imports[pkg] != constraintPkgPath {
+		w.addWarnf("a condition must be a pkg/constraint condition call, got %s",
+			renderExpr(arg))
 		return "", false
 	}
 	switch sel.Sel.Name {
@@ -473,6 +519,7 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 	case "Not":
 		return w.notCond(call, scope)
 	}
+	w.addWarnf("unsupported condition %q", sel.Sel.Name)
 	return "", false
 }
 
@@ -480,6 +527,7 @@ func (w *walker) compareCond(
 	call *ast.CallExpr, op string, scope constraintScope,
 ) (string, bool) {
 	if len(call.Args) != 2 {
+		w.addWarnf("%s takes a field and a value", condName(call))
 		return "", false
 	}
 	field, ok := w.selectorField(call.Args[0], scope)
@@ -500,6 +548,7 @@ func (w *walker) orderedCond(
 	call *ast.CallExpr, op string, scope constraintScope,
 ) (string, bool) {
 	if len(call.Args) != 2 {
+		w.addWarnf("%s takes a field and a value", condName(call))
 		return "", false
 	}
 	field, ok := w.selectorField(call.Args[0], scope)
@@ -519,6 +568,7 @@ func (w *walker) orderedCond(
 
 func (w *walker) boolCond(call *ast.CallExpr, lit string, scope constraintScope) (string, bool) {
 	if len(call.Args) != 1 {
+		w.addWarnf("%s takes one field", condName(call))
 		return "", false
 	}
 	field, ok := w.selectorField(call.Args[0], scope)
@@ -530,6 +580,7 @@ func (w *walker) boolCond(call *ast.CallExpr, lit string, scope constraintScope)
 
 func (w *walker) nullCond(call *ast.CallExpr, op string, scope constraintScope) (string, bool) {
 	if len(call.Args) != 1 {
+		w.addWarnf("%s takes one field", condName(call))
 		return "", false
 	}
 	field, ok := w.selectorField(call.Args[0], scope)
@@ -541,6 +592,7 @@ func (w *walker) nullCond(call *ast.CallExpr, op string, scope constraintScope) 
 
 func (w *walker) oneOfCond(call *ast.CallExpr, scope constraintScope) (string, bool) {
 	if len(call.Args) < 2 {
+		w.addWarnf("OneOf needs a field and at least one value")
 		return "", false
 	}
 	field, ok := w.selectorField(call.Args[0], scope)
@@ -560,6 +612,7 @@ func (w *walker) oneOfCond(call *ast.CallExpr, scope constraintScope) (string, b
 
 func (w *walker) joinCond(call *ast.CallExpr, op string, scope constraintScope) (string, bool) {
 	if len(call.Args) == 0 {
+		w.addWarnf("%s needs at least one condition", condName(call))
 		return "", false
 	}
 	parts := make([]string, 0, len(call.Args))
@@ -575,6 +628,7 @@ func (w *walker) joinCond(call *ast.CallExpr, op string, scope constraintScope) 
 
 func (w *walker) notCond(call *ast.CallExpr, scope constraintScope) (string, bool) {
 	if len(call.Args) != 1 {
+		w.addWarnf("Not takes one condition")
 		return "", false
 	}
 	s, ok := w.condString(call.Args[0], scope)
@@ -585,13 +639,17 @@ func (w *walker) notCond(call *ast.CallExpr, scope constraintScope) (string, boo
 }
 
 // valueString renders a comparison operand: a v.Field selector becomes a
-// var reference, and a literal becomes its unobin form.
+// var reference, and a literal becomes its unobin form. Anything else,
+// a named constant or a conversion included, has no value in the
+// source, so it warns and returns ok=false.
 func (w *walker) valueString(arg ast.Expr, scope constraintScope) (string, bool) {
 	switch v := arg.(type) {
 	case *ast.SelectorExpr:
 		return w.selectorField(v, scope)
 	case *ast.BasicLit:
-		return basicLitString(v)
+		if s, ok := basicLitString(v); ok {
+			return s, true
+		}
 	case *ast.Ident:
 		if v.Name == "true" || v.Name == "false" {
 			return v.Name, true
@@ -604,6 +662,7 @@ func (w *walker) valueString(arg ast.Expr, scope constraintScope) (string, bool)
 			}
 		}
 	}
+	w.addWarnf("a condition value must be a literal or a field, got %s", renderExpr(arg))
 	return "", false
 }
 
@@ -624,24 +683,54 @@ func basicLitString(bl *ast.BasicLit) (string, bool) {
 	return "", false
 }
 
-// peelMessage unwraps a trailing .Message("...") call, returning the inner
-// constructor call and the message text (empty when absent).
-func peelMessage(call *ast.CallExpr) (*ast.CallExpr, string) {
+// peelMessage unwraps a trailing .Message("...") call, returning the
+// inner constructor call and the message text (empty when absent). The
+// argument may concatenate string literals; the constant fold joins
+// them. An argument with no constant value comes back as bad, so the
+// caller can warn; the message is then empty and the rule still
+// extracts.
+func peelMessage(call *ast.CallExpr) (inner *ast.CallExpr, msg string, bad ast.Expr) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || sel.Sel.Name != "Message" {
-		return call, ""
+		return call, "", nil
 	}
-	inner, ok := sel.X.(*ast.CallExpr)
+	inner, ok = sel.X.(*ast.CallExpr)
 	if !ok {
-		return call, ""
+		return call, "", nil
 	}
-	msg := ""
-	if len(call.Args) == 1 {
-		if s, ok := stringLit(call.Args[0]); ok {
-			msg = s
+	if len(call.Args) != 1 {
+		return inner, "", call
+	}
+	if s, ok := stringConstant(call.Args[0]); ok {
+		return inner, s, nil
+	}
+	return inner, "", call.Args[0]
+}
+
+// stringConstant folds an expression to its constant string value: a
+// string literal, a parenthesized constant, or a + concatenation of
+// constants. ok is false for anything the fold cannot reduce.
+func stringConstant(e ast.Expr) (string, bool) {
+	switch v := e.(type) {
+	case *ast.BasicLit:
+		return stringLit(v)
+	case *ast.ParenExpr:
+		return stringConstant(v.X)
+	case *ast.BinaryExpr:
+		if v.Op != token.ADD {
+			return "", false
 		}
+		left, ok := stringConstant(v.X)
+		if !ok {
+			return "", false
+		}
+		right, ok := stringConstant(v.Y)
+		if !ok {
+			return "", false
+		}
+		return left + right, true
 	}
-	return inner, msg
+	return "", false
 }
 
 // selectorField reads a v.Field argument and returns the field's var
@@ -692,6 +781,39 @@ func (w *walker) addErrf(format string, args ...any) {
 	if w.errs != nil {
 		*w.errs = append(*w.errs, fmt.Errorf(format, args...))
 	}
+}
+
+// addWarnf records a formatted extraction warning, prefixed with the
+// subject under extraction, when the walker is collecting them. A
+// warning marks a rule the library's source declares but the schema
+// will not enforce, so a library's tests can assert there are none.
+func (w *walker) addWarnf(format string, args ...any) {
+	if w.warns == nil {
+		return
+	}
+	msg := fmt.Sprintf(format, args...)
+	if w.subject != "" {
+		msg = w.subject + ": " + msg
+	}
+	*w.warns = append(*w.warns, msg)
+}
+
+// condName returns the constructor name of a condition call for a
+// diagnostic, or "condition" when the call has no selector form.
+func condName(call *ast.CallExpr) string {
+	if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+		return sel.Sel.Name
+	}
+	return "condition"
+}
+
+// renderExpr prints an expression as source for a diagnostic.
+func renderExpr(e ast.Expr) string {
+	var b strings.Builder
+	if err := printer.Fprint(&b, token.NewFileSet(), e); err != nil {
+		return fmt.Sprintf("%T", e)
+	}
+	return b.String()
 }
 
 // selectorHop is one field selection in a constraint selector chain,
