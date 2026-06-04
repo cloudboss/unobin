@@ -1030,3 +1030,138 @@ constraints: [
 	require.Contains(t, errs.Errors()[0].Msg,
 		"@for-each must iterate a list or map, got a string")
 }
+
+// rootsOfSpec parses one spec and returns its entry's field roots.
+func rootsOfSpec(t *testing.T, spec ConstraintSpec) []string {
+	t.Helper()
+	entries, errs := ParseSpecs([]ConstraintSpec{spec})
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Len(t, entries, 1)
+	return ConstraintFieldRoots(entries[0])
+}
+
+func TestConstraintFieldRoots(t *testing.T) {
+	tests := []struct {
+		name string
+		spec ConstraintSpec
+		want []string
+	}{
+		{
+			name: "plain set fields",
+			spec: ConstraintSpec{Kind: "exactly-one-of",
+				Fields: []string{"var.name", "var.size"}},
+			want: []string{"name", "size"},
+		},
+		{
+			name: "nested field path keeps only the root",
+			spec: ConstraintSpec{Kind: "predicate",
+				Fields: []string{"var.code.inline"}},
+			want: []string{"code"},
+		},
+		{
+			name: "indexed field path keeps only the root",
+			spec: ConstraintSpec{Kind: "required-together",
+				Fields: []string{"var.listeners[0].cert", "var.listeners[0].key"}},
+			want: []string{"listeners"},
+		},
+		{
+			name: "splat field path keeps only the root",
+			spec: ConstraintSpec{Kind: "exactly-one-of",
+				Fields: []string{"var.replicas[*].a", "var.replicas[*].b"}},
+			want: []string{"replicas"},
+		},
+		{
+			name: "duplicate roots collapse",
+			spec: ConstraintSpec{Kind: "at-most-one-of",
+				Fields: []string{"var.code.inline", "var.code.from-file"}},
+			want: []string{"code"},
+		},
+		{
+			name: "roots come out sorted",
+			spec: ConstraintSpec{Kind: "at-least-one-of",
+				Fields: []string{"var.zeta", "var.alpha", "var.mid"}},
+			want: []string{"alpha", "mid", "zeta"},
+		},
+		{
+			name: "field without a var prefix is skipped",
+			spec: ConstraintSpec{Kind: "exactly-one-of",
+				Fields: []string{"name", "var.size"}},
+			want: []string{"size"},
+		},
+		{
+			name: "predicate when reference",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "var.tier == 'prod'", Require: "true"},
+			want: []string{"tier"},
+		},
+		{
+			name: "predicate require reference",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "true", Require: "var.size != null"},
+			want: []string{"size"},
+		},
+		{
+			name: "for-each reference",
+			spec: ConstraintSpec{Kind: "predicate", ForEach: "var.items",
+				When: "true", Require: "@each.value.a != null"},
+			want: []string{"items"},
+		},
+		{
+			name: "references across when, require, and for-each combine",
+			spec: ConstraintSpec{Kind: "predicate", ForEach: "var.items",
+				When: "var.tier == 'prod'", Require: "var.size > 0"},
+			want: []string{"items", "size", "tier"},
+		},
+		{
+			name: "each references add no roots beyond the iterable",
+			spec: ConstraintSpec{Kind: "predicate", ForEach: "var.items",
+				When: "@each.value.tls == true", Require: "@each.value.cert != null"},
+			want: []string{"items"},
+		},
+		{
+			name: "no references yields nothing",
+			spec: ConstraintSpec{Kind: "predicate", When: "true", Require: "1 > 0"},
+			want: nil,
+		},
+		{
+			name: "reference inside a call argument",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "true", Require: "core.length(var.replicas) >= 2"},
+			want: []string{"replicas"},
+		},
+		{
+			name: "references on both sides of an infix",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "true", Require: "var.min-size <= var.max-size"},
+			want: []string{"max-size", "min-size"},
+		},
+		{
+			name: "reference inside a comprehension",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "true", Require: "core.all([for r in var.replicas: r.port > 0])"},
+			want: []string{"replicas"},
+		},
+		{
+			name: "comprehension binding is not a root",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "true", Require: "core.all([for r in var.items: r.a != var.floor])"},
+			want: []string{"floor", "items"},
+		},
+		{
+			name: "reference inside a conditional",
+			spec: ConstraintSpec{Kind: "predicate",
+				When: "true", Require: "if var.tier == 'prod' then var.size > 1 else true"},
+			want: []string{"size", "tier"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := rootsOfSpec(t, tt.spec)
+			if tt.want == nil {
+				require.Empty(t, got)
+				return
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

@@ -57,7 +57,7 @@ func TestCheckLiteralConstraints(t *testing.T) {
 			},
 		},
 		{
-			name: "input reference defers to plan",
+			name: "input reference in a constrained field defers to plan",
 			src: `inputs: {
   who: { type: string }
 }
@@ -65,6 +65,19 @@ resources: {
   core: { thing: { x: { name: var.who, size: 1 } } }
 }`,
 			want: nil,
+		},
+		{
+			name: "literal violation is reported despite an unrelated input reference",
+			src: `inputs: {
+  who: { type: string }
+}
+resources: {
+  core: { thing: { x: { name: 'x', size: 1, region: var.who } } }
+}`,
+			want: []string{
+				"resource.core.thing.x: constraints[0] (exactly-one-of " +
+					"[name, size]): expected exactly one to be set, got 2 (name, size)",
+			},
 		},
 		{
 			name: "output reference defers to plan",
@@ -159,60 +172,72 @@ func TestCheckLiteralConstraintsDeterministic(t *testing.T) {
 
 func TestLiteralValues(t *testing.T) {
 	tests := []struct {
-		name string
-		src  string
-		want map[string]any
-		ok   bool
+		name         string
+		src          string
+		want         map[string]any
+		wantDeferred map[string]bool
 	}{
 		{
 			name: "all scalar literals",
 			src:  `{ name: 'x', size: 1, on: true }`,
 			want: map[string]any{"name": "x", "size": int64(1), "on": true},
-			ok:   true,
 		},
 		{
 			name: "arithmetic reduces",
 			src:  `{ size: 1 + 2 }`,
 			want: map[string]any{"size": int64(3)},
-			ok:   true,
 		},
 		{
 			name: "empty body",
 			src:  `{}`,
 			want: map[string]any{},
-			ok:   true,
 		},
 		{
 			name: "meta field is skipped",
 			src:  `{ name: 'x', @lock: 'shared' }`,
 			want: map[string]any{"name": "x"},
-			ok:   true,
 		},
 		{
-			name: "input reference is not literal",
-			src:  `{ name: var.who }`,
-			ok:   false,
+			name:         "input reference defers its field",
+			src:          `{ name: var.who }`,
+			want:         map[string]any{},
+			wantDeferred: map[string]bool{"name": true},
 		},
 		{
-			name: "output reference is not literal",
-			src:  `{ name: resource.core.thing.a.id }`,
-			ok:   false,
+			name:         "output reference defers its field",
+			src:          `{ name: resource.core.thing.a.id }`,
+			want:         map[string]any{},
+			wantDeferred: map[string]bool{"name": true},
 		},
 		{
-			name: "nested reference is not literal",
-			src:  `{ tags: { owner: var.who } }`,
-			ok:   false,
+			name:         "nested reference defers its field",
+			src:          `{ tags: { owner: var.who } }`,
+			want:         map[string]any{},
+			wantDeferred: map[string]bool{"tags": true},
+		},
+		{
+			name:         "literal fields reduce alongside a deferred one",
+			src:          `{ name: 'x', size: var.n }`,
+			want:         map[string]any{"name": "x"},
+			wantDeferred: map[string]bool{"size": true},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := literalValues(parseValue(t, tt.src))
-			require.Equal(t, tt.ok, ok)
-			if tt.ok {
-				require.Equal(t, tt.want, got)
+			values, deferred, ok := literalValues(parseValue(t, tt.src))
+			require.True(t, ok)
+			require.Equal(t, tt.want, values)
+			if tt.wantDeferred == nil {
+				tt.wantDeferred = map[string]bool{}
 			}
+			require.Equal(t, tt.wantDeferred, deferred)
 		})
 	}
+}
+
+func TestLiteralValuesNonObjectBody(t *testing.T) {
+	_, _, ok := literalValues(parseValue(t, `'not an object'`))
+	require.False(t, ok)
 }
 
 // constraintMessages strips the file:line:col and `schema:` prefixes from
@@ -303,6 +328,109 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
 			body: `{ items: [{ a: 1 }, { b: 2 }] }`,
 			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, checkLiteralMsgs(t, tt.specs, tt.body))
+		})
+	}
+}
+
+// TestCheckLiteralConstraintsPartialBody covers bodies that mix literal
+// and deferred fields: a constraint checks at compile when every field
+// it references is literal, defers when any is not, and keeps its
+// position in the type's constraint list either way.
+func TestCheckLiteralConstraintsPartialBody(t *testing.T) {
+	const addr = "resource.core.thing.x: "
+	tests := []struct {
+		name  string
+		specs []lang.ConstraintSpec
+		body  string
+		want  []string
+	}{
+		{
+			name: "set constraint referencing a deferred field defers",
+			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
+				Fields: []string{"var.name", "var.size"}}},
+			body: `{ name: var.who, size: 1 }`,
+			want: nil,
+		},
+		{
+			name: "deferred entry keeps the next entry's index",
+			specs: []lang.ConstraintSpec{
+				{Kind: "required-together", Fields: []string{"var.region", "var.zone"}},
+				{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}},
+			},
+			body: `{ name: 'a', size: 1, region: var.who }`,
+			want: []string{addr + "constraints[1] (exactly-one-of [name, size]): " +
+				"expected exactly one to be set, got 2 (name, size)"},
+		},
+		{
+			name: "predicate over literal fields checks despite a deferred field",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", When: "var.name != null", Require: "var.size != null",
+			}},
+			body: `{ name: 'a', region: var.who }`,
+			want: []string{addr + "constraints[0] (predicate): predicate requirement not satisfied"},
+		},
+		{
+			name: "predicate reading a deferred field in when defers",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", When: "var.name != null", Require: "var.size != null",
+			}},
+			body: `{ name: var.who, size: 1 }`,
+			want: nil,
+		},
+		{
+			name: "predicate reading a deferred field in require defers",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", When: "true", Require: "var.size != null",
+			}},
+			body: `{ size: var.n }`,
+			want: nil,
+		},
+		{
+			name: "iterating predicate over a literal list checks despite a deferred field",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", ForEach: "var.items",
+				When: "true", Require: "@each.value.a != null",
+				Message: "a is required",
+			}},
+			body: `{ items: [{ a: 1 }, { b: 2 }], region: var.who }`,
+			want: []string{addr + "constraints[0] (predicate): a is required (items[1])"},
+		},
+		{
+			name: "iterating predicate over a deferred list defers",
+			specs: []lang.ConstraintSpec{{
+				Kind: "predicate", ForEach: "var.items",
+				When: "true", Require: "@each.value.a != null",
+			}},
+			body: `{ items: var.who }`,
+			want: nil,
+		},
+		{
+			name: "splat constraint over a literal list checks despite a deferred field",
+			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
+				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
+			body: `{ items: [{ a: 1, b: 2 }], region: var.who }`,
+			want: []string{addr + "constraints[0] (exactly-one-of [items[0].a, items[0].b]): " +
+				"expected exactly one to be set, got 2 (items[0].a, items[0].b)"},
+		},
+		{
+			name: "splat constraint over a deferred list defers",
+			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
+				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
+			body: `{ items: var.who }`,
+			want: nil,
+		},
+		{
+			name: "constraint over absent fields checks despite a deferred field",
+			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of",
+				Fields: []string{"var.name", "var.size"}}},
+			body: `{ region: var.who }`,
+			want: []string{addr + "constraints[0] (at-least-one-of [name, size]): " +
+				"expected at least one to be set, got none"},
 		},
 	}
 	for _, tt := range tests {

@@ -97,6 +97,57 @@ func CheckConstraintEntries(
 	return errs
 }
 
+// CheckConstraintEntry checks one resolved constraint entry against the
+// values, reporting any failure under index idx, the entry's position
+// in its type's constraint list, so a diagnostic names the same entry
+// no matter which entries the caller checks.
+func CheckConstraintEntry(
+	idx int,
+	c ConstraintEntry,
+	values map[string]any,
+	evalAgainstInputs ConstraintEvalFunc,
+	display FieldDisplay,
+) *ErrorList {
+	errs := NewErrorList(0)
+	checkEntry(idx, c, values, evalAgainstInputs, display, errs)
+	return errs
+}
+
+// ConstraintFieldRoots returns the names of the inputs a constraint
+// reads: the first path segment of each fields: entry for a set
+// constraint, and of every var reference in the when, require, and
+// @for-each expressions for a predicate. The names are sorted and
+// unique.
+func ConstraintFieldRoots(c ConstraintEntry) []string {
+	roots := map[string]struct{}{}
+	for _, f := range c.Fields {
+		rest, ok := strings.CutPrefix(f, "var.")
+		if !ok {
+			continue
+		}
+		root, _, _ := strings.Cut(rest, ".")
+		root, _, _ = strings.Cut(root, "[")
+		roots[root] = struct{}{}
+	}
+	for _, e := range []Expr{c.When, c.Require, c.ForEach} {
+		Walk(e, func(x Expr) {
+			dp, ok := x.(*DotPath)
+			if !ok || dp.Root == nil || dp.Root.Name != "var" || len(dp.Segments) == 0 {
+				return
+			}
+			if name := dp.Segments[0].Name; name != "" {
+				roots[name] = struct{}{}
+			}
+		})
+	}
+	out := make([]string, 0, len(roots))
+	for r := range roots {
+		out = append(out, r)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func checkEntry(
 	idx int,
 	c ConstraintEntry,

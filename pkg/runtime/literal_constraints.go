@@ -6,12 +6,14 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// CheckLiteralConstraints reports cross-field constraint violations on
-// library nodes whose every field is known at compile time. It evaluates
-// each such node's fields with no inputs or upstream outputs in scope; a
-// node that reads either is left for plan, which checks it once those
-// values are known. Only Go libraries carry constraints in their schema,
-// so UB composite nodes never match here, and their bodies check at plan.
+// CheckLiteralConstraints reports cross-field constraint violations
+// that are decidable at compile time. It evaluates each library node's
+// fields with no inputs or upstream outputs in scope and checks every
+// constraint whose referenced fields all reduce that way (an absent
+// field reads as null); a constraint that reads a deferred field is
+// left for plan, which checks it once the value is known. Only Go
+// libraries declare constraints in their schema, so UB composite nodes
+// never match here, and their bodies check at plan.
 func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.ErrorList {
 	errs := lang.NewErrorList(0)
 	dag := BuildDAG(f, libs)
@@ -38,7 +40,7 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 		if schema == nil || len(schema.Constraints) == 0 {
 			continue
 		}
-		values, ok := literalValues(n.Body)
+		values, deferred, ok := literalValues(n.Body)
 		if !ok {
 			continue
 		}
@@ -56,35 +58,54 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 			}
 			return v, err
 		}
-		checked := lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative)
-		for _, e := range checked.Errors() {
-			errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
+		for i, c := range entries {
+			if readsDeferred(c, deferred) {
+				continue
+			}
+			checked := lang.CheckConstraintEntry(i, c, values, eval, lang.DisplayNodeRelative)
+			for _, e := range checked.Errors() {
+				errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
+			}
 		}
 	}
 	return errs
 }
 
 // literalValues evaluates every non-meta field of a node body with an
-// empty context. It returns the field map and true only when every field
-// reduces without reading an input or another node's output; otherwise it
-// returns false so the caller defers the node to plan.
-func literalValues(body lang.Expr) (map[string]any, bool) {
+// empty context. values holds each field that reduces without reading
+// an input or another node's output; deferred names the fields that do
+// not, whose values are only known at plan. ok is false when the body
+// is not an object.
+func literalValues(body lang.Expr) (map[string]any, map[string]bool, bool) {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
-	out := make(map[string]any, len(obj.Fields))
+	values := make(map[string]any, len(obj.Fields))
+	deferred := map[string]bool{}
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
 		val, err := Eval(fld.Value, &EvalContext{})
 		if err != nil {
-			return nil, false
+			deferred[fld.Key.Name] = true
+			continue
 		}
-		out[fld.Key.Name] = val
+		values[fld.Key.Name] = val
 	}
-	return out, true
+	return values, deferred, true
+}
+
+// readsDeferred reports whether the constraint references a field whose
+// value is not known until plan.
+func readsDeferred(c lang.ConstraintEntry, deferred map[string]bool) bool {
+	for _, r := range lang.ConstraintFieldRoots(c) {
+		if deferred[r] {
+			return true
+		}
+	}
+	return false
 }
 
 // typeSchema returns the schema for a node kind's type, or nil when the
