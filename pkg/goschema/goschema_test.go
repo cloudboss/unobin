@@ -408,6 +408,9 @@ func TestReadSamePackage(t *testing.T) {
 	require.Equal(t, map[string]runtime.FunctionArity{
 		"shout":   {ArgCount: 1},
 		"reverse": {ArgCount: 1},
+		"upper":   {ArgCount: 1},
+		"pair":    {ArgCount: 2},
+		"join":    {ArgCount: 1, Variadic: true},
 	}, schema.Functions)
 }
 
@@ -589,4 +592,83 @@ func TestReadRejectsUnknownUBOption(t *testing.T) {
 	_, _, err := Read("testdata/badoption")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "sensitiv")
+}
+
+func TestMakeFuncRegistrationErrors(t *testing.T) {
+	const prologue = `package x
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Functions: map[string]runtime.FunctionType{
+`
+	tests := []struct {
+		name    string
+		entry   string
+		extra   string
+		wantErr string
+	}{
+		{"unknown function name",
+			`"x": runtime.MakeFunc("x", "d", nosuch),`, "",
+			`function "x": MakeFunc references nosuch, which is not a function in the package`},
+		{"one result",
+			`"x": runtime.MakeFunc("x", "d", oneResult),`,
+			"func oneResult(s string) string { return s }",
+			`function "x" must return (value, error), got 1 result`},
+		{"second result not error",
+			`"x": runtime.MakeFunc("x", "d", twoStrings),`,
+			`func twoStrings(s string) (string, string) { return s, s }`,
+			`function "x" must return (value, error)`},
+		{"unsupported parameter",
+			`"x": runtime.MakeFunc("x", "d", badParam),`,
+			"func badParam(ch chan int) (bool, error) { return true, nil }",
+			`function "x" parameter 1 has an unsupported type`},
+		{"int parameter is not the currency",
+			`"x": runtime.MakeFunc("x", "d", intParam),`,
+			"func intParam(n int) (bool, error) { return true, nil }",
+			`function "x" parameter 1 has an unsupported type`},
+		{"some other call",
+			`"x": helper(),`,
+			"func helper() runtime.FunctionType { return runtime.FunctionType{} }",
+			`function "x": register a FunctionType literal or a runtime.MakeFunc call`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := prologue + "\t\t\t" + tt.entry + "\n\t\t},\n\t}\n}\n\n" + tt.extra + "\n"
+			f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
+			require.NoError(t, err)
+			fn := findModuleFunc([]*ast.File{f})
+			require.NotNil(t, fn)
+			errs := &[]error{}
+			extractFunctions(fn, []*ast.File{f}, errs)
+			require.NotEmpty(t, *errs)
+			require.Contains(t, (*errs)[0].Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestMakeFuncRegistrationFromLiteral(t *testing.T) {
+	src := `package x
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Functions: map[string]runtime.FunctionType{
+			"flag": runtime.MakeFunc("flag", "d", func(names []string, on bool) (bool, error) {
+				return on, nil
+			}),
+		},
+	}
+}
+`
+	f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
+	require.NoError(t, err)
+	fn := findModuleFunc([]*ast.File{f})
+	require.NotNil(t, fn)
+	errs := &[]error{}
+	out := extractFunctions(fn, []*ast.File{f}, errs)
+	require.Empty(t, *errs)
+	require.Equal(t, runtime.FunctionArity{ArgCount: 2}, out["flag"])
 }

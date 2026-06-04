@@ -1,6 +1,8 @@
 package samepkg
 
 import (
+	"strings"
+
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -14,6 +16,17 @@ func Library() *runtime.Library {
 		Functions: map[string]runtime.FunctionType{
 			"shout":   {Name: "shout", ArgCount: 1},
 			"reverse": {Name: "reverse", ArgCount: 1},
+			"upper":   runtime.MakeFunc("upper", "Uppercase a string.", fnUpper),
+			"pair":    runtime.MakeFunc("pair", "Pair two strings.", fnPair),
+			"join":    runtime.MakeFunc("join", "Join strings.", fnJoin),
 		},
 	}
+}
+
+func fnUpper(s string) (string, error) { return strings.ToUpper(s), nil }
+
+func fnPair(a, b string) (string, error) { return a + b, nil }
+
+func fnJoin(sep string, parts ...string) (string, error) {
+	return strings.Join(parts, sep), nil
 }

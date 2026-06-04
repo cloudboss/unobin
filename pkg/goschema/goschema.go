@@ -78,7 +78,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 			schema.Actions[reg.Name] = ts
 		}
 	}
-	maps.Copy(schema.Functions, extractFunctions(libraryFunc))
+	maps.Copy(schema.Functions, extractFunctions(libraryFunc, rootPkg, errs))
 	if len(*errs) > 0 {
 		return nil, warnings, errors.Join(*errs...)
 	}
@@ -520,7 +520,9 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 // values hold a Go func the dev CLI cannot run, but the name and the
 // ArgCount/Variadic fields let the reference checker reject a call to an
 // unknown function or one given the wrong number of arguments.
-func extractFunctions(fn *ast.FuncDecl) map[string]runtime.FunctionArity {
+func extractFunctions(
+	fn *ast.FuncDecl, files []*ast.File, errs *[]error,
+) map[string]runtime.FunctionArity {
 	out := map[string]runtime.FunctionArity{}
 	if fn.Body == nil {
 		return out
@@ -553,7 +555,7 @@ func extractFunctions(fn *ast.FuncDecl) map[string]runtime.FunctionArity {
 					continue
 				}
 				if name, ok := stringLit(ekv.Key); ok {
-					out[name] = functionArity(ekv.Value)
+					out[name] = functionArity(name, ekv.Value, files, errs)
 				}
 			}
 		}
@@ -561,11 +563,18 @@ func extractFunctions(fn *ast.FuncDecl) map[string]runtime.FunctionArity {
 	return out
 }
 
-// functionArity reads the ArgCount and Variadic fields from a FunctionType
-// composite literal. An omitted field keeps its zero value, so a function
-// declared with neither reads as taking exactly zero arguments.
-func functionArity(e ast.Expr) runtime.FunctionArity {
+// functionArity reads a function registration's arity. A MakeFunc call
+// takes it from the registered function's declared signature; a
+// FunctionType composite literal declares it in ArgCount and Variadic
+// fields. An omitted field keeps its zero value, so a function declared
+// with neither reads as taking exactly zero arguments.
+func functionArity(
+	name string, e ast.Expr, files []*ast.File, errs *[]error,
+) runtime.FunctionArity {
 	var arity runtime.FunctionArity
+	if call, ok := e.(*ast.CallExpr); ok {
+		return makeFuncArity(name, call, files, errs)
+	}
 	lit, ok := e.(*ast.CompositeLit)
 	if !ok {
 		return arity
@@ -589,6 +598,157 @@ func functionArity(e ast.Expr) runtime.FunctionArity {
 				arity.Variadic = b
 			}
 		}
+	}
+	return arity
+}
+
+// makeFuncArity resolves a runtime.MakeFunc registration to its arity
+// by reading the registered function's declared signature: the fn
+// argument must name a function in the package or be a function
+// literal. A registration outside that form, an unresolvable name,
+// results other than (value, error), or an unsupported parameter type
+// records an error, so a malformed registration fails the compile.
+func makeFuncArity(
+	name string, call *ast.CallExpr, files []*ast.File, errs *[]error,
+) runtime.FunctionArity {
+	addErr := func(format string, args ...any) {
+		if errs != nil {
+			*errs = append(*errs, fmt.Errorf(format, args...))
+		}
+	}
+	if calleeName(call.Fun) != "MakeFunc" {
+		addErr("function %q: register a FunctionType literal or a runtime.MakeFunc call",
+			name)
+		return runtime.FunctionArity{}
+	}
+	if len(call.Args) != 3 {
+		addErr("function %q: MakeFunc takes a name, a description, and a function", name)
+		return runtime.FunctionArity{}
+	}
+	var ft *ast.FuncType
+	switch f := call.Args[2].(type) {
+	case *ast.Ident:
+		decl := findFuncDecl(files, f.Name)
+		if decl == nil {
+			addErr("function %q: MakeFunc references %s, which is not a function in the package",
+				name, f.Name)
+			return runtime.FunctionArity{}
+		}
+		ft = decl.Type
+	case *ast.FuncLit:
+		ft = f.Type
+	default:
+		addErr("function %q: the MakeFunc function must be a package function name"+
+			" or a function literal", name)
+		return runtime.FunctionArity{}
+	}
+	validateFuncDecl(name, ft, addErr)
+	return funcTypeArity(ft)
+}
+
+// calleeName returns the bare name a call invokes, the selector's last
+// segment for a qualified call.
+func calleeName(fun ast.Expr) string {
+	switch f := fun.(type) {
+	case *ast.Ident:
+		return f.Name
+	case *ast.SelectorExpr:
+		return f.Sel.Name
+	}
+	return ""
+}
+
+// findFuncDecl returns the package-level function with the given name,
+// or nil. Methods do not match.
+func findFuncDecl(files []*ast.File, name string) *ast.FuncDecl {
+	for _, f := range files {
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if ok && fn.Recv == nil && fn.Name.Name == name {
+				return fn
+			}
+		}
+	}
+	return nil
+}
+
+// validateFuncDecl records an error unless the declared signature
+// returns (value, error) and every parameter is a type the evaluator's
+// values convert to, mirroring what MakeFunc enforces at registration
+// so the mistake fails the compile first.
+func validateFuncDecl(name string, ft *ast.FuncType, addErr func(string, ...any)) {
+	results := 0
+	if ft.Results != nil {
+		for _, f := range ft.Results.List {
+			results += max(len(f.Names), 1)
+		}
+	}
+	if results != 2 {
+		word := "results"
+		if results == 1 {
+			word = "result"
+		}
+		addErr("function %q must return (value, error), got %d %s", name, results, word)
+	} else {
+		last := ft.Results.List[len(ft.Results.List)-1]
+		if id, ok := last.Type.(*ast.Ident); !ok || id.Name != "error" {
+			addErr("function %q must return (value, error)", name)
+		}
+	}
+	if ft.Params == nil {
+		return
+	}
+	pos := 0
+	for _, fld := range ft.Params.List {
+		typ := fld.Type
+		if ell, ok := typ.(*ast.Ellipsis); ok {
+			typ = ell.Elt
+		}
+		for range max(len(fld.Names), 1) {
+			pos++
+			if !supportedParamType(typ) {
+				addErr("function %q parameter %d has an unsupported type", name, pos)
+			}
+		}
+	}
+}
+
+// supportedParamType mirrors MakeFunc's parameter rule over the AST:
+// bool, int64, float64, string, any, or a slice or string-keyed map of
+// those.
+func supportedParamType(e ast.Expr) bool {
+	switch t := e.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "bool", "int64", "float64", "string", "any":
+			return true
+		}
+		return false
+	case *ast.InterfaceType:
+		return t.Methods == nil || len(t.Methods.List) == 0
+	case *ast.ArrayType:
+		return t.Len == nil && supportedParamType(t.Elt)
+	case *ast.MapType:
+		key, ok := t.Key.(*ast.Ident)
+		return ok && key.Name == "string" && supportedParamType(t.Value)
+	}
+	return false
+}
+
+// funcTypeArity counts a declared signature's fixed parameters, every
+// name of a shared type spec included; a final ellipsis parameter
+// marks the function variadic and stays out of the fixed count.
+func funcTypeArity(ft *ast.FuncType) runtime.FunctionArity {
+	var arity runtime.FunctionArity
+	if ft.Params == nil {
+		return arity
+	}
+	for _, fld := range ft.Params.List {
+		if _, ok := fld.Type.(*ast.Ellipsis); ok {
+			arity.Variadic = true
+			continue
+		}
+		arity.ArgCount += max(len(fld.Names), 1)
 	}
 	return arity
 }
