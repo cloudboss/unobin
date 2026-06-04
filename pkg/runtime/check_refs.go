@@ -187,11 +187,11 @@ func (c *referenceChecker) checkSplat(dp *lang.DotPath) {
 // not declared by the imported library. Bare calls and unimported
 // aliases are rejected earlier by lang.ValidateCalls; this adds the
 // existence and argument-count checks against the library's declared
-// function set. A library with no schema is left alone: schemas exist
-// only at compile, so the runtime's own re-check of the embedded
-// source sees none, and a UB library has no Go function set to check.
-// An unreadable Go library never reaches here; its schema read fails
-// the compile first.
+// function set. A call against a UB library is always an error: only
+// Go libraries export functions. A Go library with no schema is left
+// alone, since schemas exist only at compile and the runtime's own
+// re-check of the embedded source sees none. An unreadable Go library
+// never reaches here; its schema read fails the compile first.
 func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 	if call.Library == nil || call.Func == nil {
 		return
@@ -201,7 +201,15 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 		return
 	}
 	lib := libs[call.Library.Name]
-	if lib == nil || lib.Schema == nil {
+	if lib == nil {
+		return
+	}
+	if lib.Schema == nil {
+		if hasComposites(lib) && len(lib.Functions) == 0 {
+			c.addf(call.Func.S.Start,
+				"library %q is implemented in unobin and exports no functions",
+				call.Library.Name)
+		}
 		return
 	}
 	sig, ok := lib.Schema.Functions[call.Func.Name]
@@ -217,6 +225,12 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 		c.addf(call.Func.S.Start, "%s",
 			arityMessage(call.Library.Name, call.Func.Name, fixed, variadic, n))
 	}
+}
+
+// hasComposites reports whether the library exports any UB-implemented
+// types, the mark of a UB library when no schema is present.
+func hasComposites(l *Library) bool {
+	return len(l.ResourceComposites)+len(l.DataComposites)+len(l.ActionComposites) > 0
 }
 
 // arityMessage describes the argument count a function expects against the

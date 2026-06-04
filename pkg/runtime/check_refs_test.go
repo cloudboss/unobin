@@ -691,3 +691,26 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckReferencesFunctionOnUBLibrary(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
+			"format": variadicSig(1),
+		}}},
+		"w": {
+			Name: "w",
+			ResourceComposites: map[string]*CompositeType{
+				"pair": {Name: "pair"},
+			},
+		},
+	}
+	errs := CheckReferences(parseStack(t, `
+actions: {
+  core: { command: { x: { argv: [w.fn('hi')] } } }
+}
+`), libs)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0],
+		`library "w" is implemented in unobin and exports no functions`)
+}
