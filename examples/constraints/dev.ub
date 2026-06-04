@@ -1,0 +1,18 @@
+state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+
+inputs: {
+  base-path: '/tmp/unobin-constraints'
+  tier:      'prod'
+  registry:  'registry.example.com'
+  image:     'app:1.4.2'
+  replicas: [
+    {
+      host: 'replica-1.internal'
+      port: 8443
+      tls:  true
+      cert: '/etc/ssl/app.pem'
+      key:  '/etc/ssl/app.key'
+    },
+    { host: 'replica-2.internal', port: 9090 },
+  ]
+}
