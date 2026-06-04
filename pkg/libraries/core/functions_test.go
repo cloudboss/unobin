@@ -40,7 +40,7 @@ func TestFunctionFormat(t *testing.T) {
 func TestFunctionFormatNonStringFirst(t *testing.T) {
 	_, err := evalCore(t, "core.format(1, 'x')", nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "first argument must be a string")
+	require.Contains(t, err.Error(), "format: argument 1 must be a string, got an integer")
 }
 
 func TestFunctionB64Encode(t *testing.T) {
@@ -199,11 +199,11 @@ func TestFunctionAllOverComprehension(t *testing.T) {
 func TestFunctionAllNonBooleanElement(t *testing.T) {
 	_, err := evalCore(t, "core.all([true, 1])", nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "element 1 is an integer, expected a boolean")
+	require.Contains(t, err.Error(), "all: argument 1: element 1 must be a boolean, got an integer")
 }
 
 func TestFunctionAnyNonList(t *testing.T) {
 	_, err := evalCore(t, "core.any('x')", nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "expected a list of booleans, got a string")
+	require.Contains(t, err.Error(), "any: argument 1 must be a list, got a string")
 }

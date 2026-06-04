@@ -12,14 +12,9 @@ import (
 // verbs, so %s accepts a string and %d an integer. Lists and maps are
 // pre-rendered as UB literals so an operator sees ['a', 'b'] instead of
 // Go's space-separated [a b] form.
-func fnFormat(args []any) (any, error) {
-	f, ok := args[0].(string)
-	if !ok {
-		return nil, fmt.Errorf(
-			"format: first argument must be a string, got %s", lang.TypeMessage(args[0]))
-	}
-	rendered := make([]any, len(args)-1)
-	for i, a := range args[1:] {
+func fnFormat(f string, args ...any) (string, error) {
+	rendered := make([]any, len(args))
+	for i, a := range args {
 		rendered[i] = renderForFormat(a)
 	}
 	return fmt.Sprintf(f, rendered...), nil
@@ -36,22 +31,14 @@ func renderForFormat(v any) any {
 	return v
 }
 
-func fnB64Encode(args []any) (any, error) {
-	s, err := singleStringArg("b64-encode", args)
-	if err != nil {
-		return nil, err
-	}
+func fnB64Encode(s string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(s)), nil
 }
 
-func fnB64Decode(args []any) (any, error) {
-	s, err := singleStringArg("b64-decode", args)
-	if err != nil {
-		return nil, err
-	}
+func fnB64Decode(s string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		return nil, fmt.Errorf("b64-decode: %w", err)
+		return "", fmt.Errorf("b64-decode: %w", err)
 	}
 	return string(decoded), nil
 }
@@ -59,16 +46,11 @@ func fnB64Decode(args []any) (any, error) {
 // fnRange returns the integers [0, n) as a list. The result is a list,
 // so it is not a valid @for-each iterable; callers wanting fan-out write
 // a map literal with intentional keys.
-func fnRange(args []any) (any, error) {
-	n, ok := args[0].(int64)
-	if !ok {
-		return nil, fmt.Errorf(
-			"range: argument must be an integer, got %s", lang.TypeMessage(args[0]))
-	}
+func fnRange(n int64) ([]int64, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("range: argument must be non-negative, got %d", n)
 	}
-	out := make([]any, n)
+	out := make([]int64, n)
 	for i := range n {
 		out[i] = i
 	}
@@ -78,29 +60,25 @@ func fnRange(args []any) (any, error) {
 // fnLength returns the size of a string, list, or map. String length is
 // in bytes; UTF-8 rune counting belongs in a separate helper if it is
 // ever asked for.
-func fnLength(args []any) (any, error) {
-	switch v := args[0].(type) {
+func fnLength(v any) (int64, error) {
+	switch x := v.(type) {
 	case string:
-		return int64(len(v)), nil
+		return int64(len(x)), nil
 	case []any:
-		return int64(len(v)), nil
+		return int64(len(x)), nil
 	case map[string]any:
-		return int64(len(v)), nil
+		return int64(len(x)), nil
 	}
-	return nil, fmt.Errorf(
-		"length: argument must be a string, list, or map, got %s", lang.TypeMessage(args[0]))
+	return 0, fmt.Errorf(
+		"length: argument must be a string, list, or map, got %s", lang.TypeMessage(v))
 }
 
 // fnAll reports whether every element of a list of booleans is true.
 // An empty list is true: no element is false. Pairs with a boolean
 // comprehension to quantify over a list, as a constraint predicate
 // does: core.all([for r in var.replicas: r.port > 0]).
-func fnAll(args []any) (any, error) {
-	list, err := boolListArg("all", args)
-	if err != nil {
-		return nil, err
-	}
-	for _, b := range list {
+func fnAll(bools []bool) (bool, error) {
+	for _, b := range bools {
 		if !b {
 			return false, nil
 		}
@@ -110,42 +88,11 @@ func fnAll(args []any) (any, error) {
 
 // fnAny reports whether at least one element of a list of booleans is
 // true. An empty list is false: no element is true.
-func fnAny(args []any) (any, error) {
-	list, err := boolListArg("any", args)
-	if err != nil {
-		return nil, err
-	}
-	for _, b := range list {
+func fnAny(bools []bool) (bool, error) {
+	for _, b := range bools {
 		if b {
 			return true, nil
 		}
 	}
 	return false, nil
-}
-
-func boolListArg(name string, args []any) ([]bool, error) {
-	lst, ok := args[0].([]any)
-	if !ok {
-		return nil, fmt.Errorf(
-			"%s: expected a list of booleans, got %s", name, lang.TypeMessage(args[0]))
-	}
-	out := make([]bool, 0, len(lst))
-	for i, el := range lst {
-		b, ok := el.(bool)
-		if !ok {
-			return nil, fmt.Errorf(
-				"%s: element %d is %s, expected a boolean", name, i, lang.TypeMessage(el))
-		}
-		out = append(out, b)
-	}
-	return out, nil
-}
-
-func singleStringArg(name string, args []any) (string, error) {
-	s, ok := args[0].(string)
-	if !ok {
-		return "", fmt.Errorf(
-			"%s: argument must be a string, got %s", name, lang.TypeMessage(args[0]))
-	}
-	return s, nil
 }
