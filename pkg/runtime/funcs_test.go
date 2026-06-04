@@ -213,3 +213,26 @@ func TestMakeFuncRejectsBadSignatures(t *testing.T) {
 		})
 	}
 }
+
+func TestMakeFuncRejectsBadResults(t *testing.T) {
+	type named string
+	tests := []struct {
+		name    string
+		fn      any
+		wantMsg string
+	}{
+		{"named scalar result", func(s string) (named, error) { return named(s), nil },
+			"function x result has unsupported type runtime.named"},
+		{"chan result", func(s string) (chan int, error) { return nil, nil },
+			"function x result has unsupported type chan int"},
+		{"named element result", func(s string) ([]named, error) { return nil, nil },
+			"function x result has unsupported type []runtime.named"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.PanicsWithValue(t, tt.wantMsg, func() {
+				MakeFunc("x", "d", tt.fn)
+			})
+		})
+	}
+}

@@ -61,9 +61,10 @@ func MakeFunc(name, description string, fn any) FunctionType {
 }
 
 // validateFuncSignature panics unless t is a function returning (value,
-// error) whose every parameter is a supported language value type. The
-// message names the function so a registration mistake reads clearly
-// from a test failure or factory start.
+// error) whose every parameter and value result is a supported
+// language value type. The message names the function so a
+// registration mistake reads clearly from a test failure or factory
+// start.
 func validateFuncSignature(name string, t reflect.Type) {
 	if t.Kind() != reflect.Func {
 		panic(fmt.Sprintf("function %s must be a Go function, got %s", name, t))
@@ -80,6 +81,9 @@ func validateFuncSignature(name string, t reflect.Type) {
 		panic(fmt.Sprintf("function %s must return (value, error); the second result is %s",
 			name, t.Out(1)))
 	}
+	if !supportedParam(t.Out(0)) {
+		panic(fmt.Sprintf("function %s result has unsupported type %s", name, t.Out(0)))
+	}
 	for i := range t.NumIn() {
 		p := t.In(i)
 		if t.IsVariadic() && i == t.NumIn()-1 {
@@ -92,11 +96,11 @@ func validateFuncSignature(name string, t reflect.Type) {
 	}
 }
 
-// supportedParam reports whether a parameter type is one the
-// evaluator's values convert to exactly: bool, int64, float64, string,
-// any, or a slice or string-keyed map of those. Other kinds, named
-// types included, are rejected so a registration cannot validate and
-// then fail every call.
+// supportedParam reports whether a parameter or result type is one the
+// evaluator's values convert to and from exactly: bool, int64, float64,
+// string, any, or a slice or string-keyed map of those. Other kinds,
+// named types included, are rejected so a registration cannot validate
+// and then leak values the language cannot hold.
 func supportedParam(t reflect.Type) bool {
 	switch t {
 	case reflect.TypeFor[bool](), reflect.TypeFor[int64](),
