@@ -697,9 +697,14 @@ func defaultEval(e lang.Expr) (any, error) {
 // against the validated inputs, so a predicate can read var.X for any
 // declared input, call functions from the factory's imported libraries,
 // and read a field under an unset nested input as null.
-func predicateEval(values map[string]any, libs map[string]*runtime.Library) lang.EvalFunc {
-	ctx := &runtime.EvalContext{Vars: values, Libraries: libs, MissingAsNull: true}
-	return func(e lang.Expr) (any, error) {
+func predicateEval(
+	values map[string]any, libs map[string]*runtime.Library,
+) lang.ConstraintEvalFunc {
+	return func(e lang.Expr, each *lang.EachValue) (any, error) {
+		ctx := &runtime.EvalContext{Vars: values, Libraries: libs, MissingAsNull: true}
+		if each != nil {
+			ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+		}
 		return runtime.Eval(e, ctx)
 	}
 }

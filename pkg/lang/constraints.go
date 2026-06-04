@@ -1,6 +1,8 @@
 package lang
 
 import (
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -35,6 +37,19 @@ func (d FieldDisplay) names(fields []string) []string {
 	return out
 }
 
+// EachValue is one iteration's @each binding, handed to the evaluator
+// alongside a constraint expression when the entry iterates with
+// @for-each: the element index or map key, and the element itself.
+type EachValue struct {
+	Key   any
+	Value any
+}
+
+// ConstraintEvalFunc reduces a constraint's when, require, or
+// @for-each expression against the input values. each carries the
+// current @for-each binding and is nil outside one.
+type ConstraintEvalFunc func(e Expr, each *EachValue) (any, error)
+
 // CheckConstraints evaluates the value-level cross-field constraints
 // in a stack's `constraints:` block against the validated input
 // values. Predicate constraints use evalAgainstInputs to reduce their
@@ -44,7 +59,7 @@ func (d FieldDisplay) names(fields []string) []string {
 func CheckConstraints(
 	block *ArrayLit,
 	values map[string]any,
-	evalAgainstInputs EvalFunc,
+	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 ) *ErrorList {
 	errs := NewErrorList(0)
@@ -72,7 +87,7 @@ func CheckConstraints(
 func CheckConstraintEntries(
 	entries []ConstraintEntry,
 	values map[string]any,
-	evalAgainstInputs EvalFunc,
+	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 ) *ErrorList {
 	errs := NewErrorList(0)
@@ -86,7 +101,7 @@ func checkEntry(
 	idx int,
 	c ConstraintEntry,
 	values map[string]any,
-	evalAgainstInputs EvalFunc,
+	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 	errs *ErrorList,
 ) {
@@ -108,7 +123,7 @@ func checkEntry(
 	case "forbidden-with":
 		checkForbiddenWith(idx, c.Fields, values, display, errs)
 	case "predicate":
-		checkPredicate(idx, c, values, evalAgainstInputs, errs)
+		checkPredicate(idx, c, values, evalAgainstInputs, display, errs)
 	}
 }
 
@@ -173,7 +188,7 @@ func checkSplatEntry(
 	idx int,
 	c ConstraintEntry,
 	values map[string]any,
-	evalAgainstInputs EvalFunc,
+	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 	errs *ErrorList,
 ) {
@@ -210,14 +225,19 @@ func checkSplatEntry(
 // whether it was parsed from a UB constraints block or derived from a Go
 // type at compile time. The set kinds use Fields; a predicate uses When
 // and Require (and an optional Message). A Fields name may splat a list
-// ([*]) to run the rule once per element. goschema builds these directly
-// for Go library types so they run through the same check as UB ones.
+// ([*]) to run the rule once per element. A predicate may iterate with
+// ForEach, checking when and require once per element with the @each
+// binding set; ForEachText is the iterable's source form for the
+// element a failure names. goschema builds these directly for Go
+// library types so they run through the same check as UB ones.
 type ConstraintEntry struct {
-	Kind    string
-	Fields  []string
-	When    Expr
-	Require Expr
-	Message string
+	Kind        string
+	Fields      []string
+	When        Expr
+	Require     Expr
+	Message     string
+	ForEach     Expr
+	ForEachText string
 }
 
 func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
@@ -227,6 +247,9 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 			continue
 		}
 		switch f.Key.Name {
+		case "@for-each":
+			c.ForEach = f.Value
+			c.ForEachText = forEachText(f.Value)
 		case "kind":
 			if id, ok := f.Value.(*Ident); ok {
 				c.Kind = id.Name
@@ -503,7 +526,8 @@ func checkPredicate(
 	idx int,
 	c ConstraintEntry,
 	values map[string]any,
-	evalAgainstInputs EvalFunc,
+	evalAgainstInputs ConstraintEvalFunc,
+	display FieldDisplay,
 	errs *ErrorList,
 ) {
 	if c.When == nil || c.Require == nil {
@@ -514,7 +538,55 @@ func checkPredicate(
 			"constraints[%d] (predicate): cannot evaluate (no evaluator provided)", idx)
 		return
 	}
-	whenVal, err := evalAgainstInputs(c.When)
+	if c.ForEach == nil {
+		checkPredicateOnce(idx, c, evalAgainstInputs, nil, "", errs)
+		return
+	}
+	iterable, err := evalAgainstInputs(c.ForEach, nil)
+	if err != nil {
+		errs.Addf(ErrSchema, c.ForEach.Span().Start,
+			"constraints[%d] (predicate): @for-each: %v", idx, err)
+		return
+	}
+	listName := display.name(c.ForEachText)
+	switch it := iterable.(type) {
+	case nil:
+	case []any:
+		for i, el := range it {
+			each := &EachValue{Key: int64(i), Value: el}
+			at := fmt.Sprintf(" (%s[%d])", listName, i)
+			checkPredicateOnce(idx, c, evalAgainstInputs, each, at, errs)
+		}
+	case map[string]any:
+		keys := make([]string, 0, len(it))
+		for k := range it {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			each := &EachValue{Key: k, Value: it[k]}
+			at := fmt.Sprintf(" (%s['%s'])", listName, k)
+			checkPredicateOnce(idx, c, evalAgainstInputs, each, at, errs)
+		}
+	default:
+		errs.Addf(ErrSchema, c.ForEach.Span().Start,
+			"constraints[%d] (predicate): @for-each must iterate a list or map, got %s",
+			idx, TypeMessage(iterable))
+	}
+}
+
+// checkPredicateOnce runs one when/require evaluation, with the @each
+// binding and a failure suffix naming the element when the predicate
+// iterates.
+func checkPredicateOnce(
+	idx int,
+	c ConstraintEntry,
+	evalAgainstInputs ConstraintEvalFunc,
+	each *EachValue,
+	at string,
+	errs *ErrorList,
+) {
+	whenVal, err := evalAgainstInputs(c.When, each)
 	if err != nil {
 		errs.Addf(ErrSchema, c.When.Span().Start,
 			"constraints[%d] (predicate): when: %v", idx, err)
@@ -530,7 +602,7 @@ func checkPredicate(
 	if !whenBool {
 		return
 	}
-	requireVal, err := evalAgainstInputs(c.Require)
+	requireVal, err := evalAgainstInputs(c.Require, each)
 	if err != nil {
 		errs.Addf(ErrSchema, c.Require.Span().Start,
 			"constraints[%d] (predicate): require: %v", idx, err)
@@ -548,8 +620,18 @@ func checkPredicate(
 		if msg == "" {
 			msg = "predicate requirement not satisfied"
 		}
-		errs.Addf(ErrSchema, Position{}, "constraints[%d] (predicate): %s", idx, msg)
+		errs.Addf(ErrSchema, Position{},
+			"constraints[%d] (predicate): %s%s", idx, msg, at)
 	}
+}
+
+// forEachText renders an @for-each iterable for the element a failure
+// names: a dotted path renders as written, anything else as @for-each.
+func forEachText(e Expr) string {
+	if dp, ok := e.(*DotPath); ok {
+		return dotPathString(dp)
+	}
+	return "@for-each"
 }
 
 func joinNames(names []string) string {
@@ -557,16 +639,18 @@ func joinNames(names []string) string {
 }
 
 // ConstraintSpec is the embeddable, string-only form of a constraint. The
-// predicate When and Require are kept as unobin source so the whole set
-// can be generated into a factory and parsed back at plan time; a set
-// constraint leaves both empty and uses Fields. goschema produces these
-// from a Go type, and codegen bakes them into the factory.
+// predicate When, Require, and ForEach are kept as unobin source so the
+// whole set can be generated into a factory and parsed back at plan
+// time; a set constraint leaves them empty and uses Fields. goschema
+// produces these from a Go type, and codegen bakes them into the
+// factory.
 type ConstraintSpec struct {
 	Kind    string
 	Fields  []string
 	When    string
 	Require string
 	Message string
+	ForEach string
 }
 
 // ParseSpecs parses each spec's When and Require source into expressions
@@ -586,8 +670,14 @@ func ParseSpecs(specs []ConstraintSpec) ([]ConstraintEntry, *ErrorList) {
 		if !ok {
 			continue
 		}
+		forEach, ok := parseSpecExpr(s.ForEach, "@for-each", errs)
+		if !ok {
+			continue
+		}
 		e.When = when
 		e.Require = require
+		e.ForEach = forEach
+		e.ForEachText = s.ForEach
 		entries = append(entries, e)
 	}
 	return entries, errs

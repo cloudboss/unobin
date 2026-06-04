@@ -1445,3 +1445,46 @@ actions: {
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
 }
+
+func TestValidateConstraintPredicateForEach(t *testing.T) {
+	src := `
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.replicas
+    when:      true
+    require:   @each.value.tls == true
+  },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintForEachOnSetKindRejected(t *testing.T) {
+	src := `
+constraints: [
+  { kind: exactly-one-of, @for-each: var.replicas, fields: [var.a, var.b] },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, `meta key "@for-each" not allowed`)
+}
+
+func TestValidateConstraintDuplicateForEach(t *testing.T) {
+	src := `
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.a
+    @for-each: var.b
+    when:      true
+    require:   true
+  },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Msg, "duplicate key")
+}

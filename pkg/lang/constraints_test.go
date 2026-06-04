@@ -7,20 +7,23 @@ import (
 )
 
 // boolExprEval evaluates a tiny set of expressions used by the
-// predicate tests: bool literals, equality and inequality between
-// var.X and a literal. Real wiring uses runtime.Eval against an
-// EvalContext seeded with the validated inputs.
-func boolExprEval(values map[string]any) EvalFunc {
-	return func(e Expr) (any, error) {
+// predicate tests: bool literals, equality and inequality between a
+// reference and a literal, plus @each reads under an iterating
+// predicate. The real checks use runtime.Eval against an EvalContext
+// seeded with the validated inputs.
+func boolExprEval(values map[string]any) ConstraintEvalFunc {
+	return func(e Expr, each *EachValue) (any, error) {
 		switch v := e.(type) {
 		case *BoolLit:
 			return v.Value, nil
+		case *DotPath:
+			return evalLeaf(v, values, each)
 		case *Infix:
-			left, err := evalLeaf(v.Left, values)
+			left, err := evalLeaf(v.Left, values, each)
 			if err != nil {
 				return nil, err
 			}
-			right, err := evalLeaf(v.Right, values)
+			right, err := evalLeaf(v.Right, values, each)
 			if err != nil {
 				return nil, err
 			}
@@ -35,7 +38,7 @@ func boolExprEval(values map[string]any) EvalFunc {
 	}
 }
 
-func evalLeaf(e Expr, values map[string]any) (any, error) {
+func evalLeaf(e Expr, values map[string]any, each *EachValue) (any, error) {
 	switch v := e.(type) {
 	case *StringLit:
 		return v.Value, nil
@@ -47,6 +50,23 @@ func evalLeaf(e Expr, values map[string]any) (any, error) {
 	case *BoolLit:
 		return v.Value, nil
 	case *DotPath:
+		if v.Root.Name == "@each" && each != nil && len(v.Segments) > 0 {
+			switch v.Segments[0].Name {
+			case "key":
+				return each.Key, nil
+			case "value":
+				cur := each.Value
+				for _, seg := range v.Segments[1:] {
+					m, ok := cur.(map[string]any)
+					if !ok {
+						return nil, nil
+					}
+					cur = m[seg.Name]
+				}
+				return cur, nil
+			}
+			return nil, nil
+		}
 		if v.Root.Name != "var" || len(v.Segments) != 1 {
 			return nil, nil
 		}
@@ -911,4 +931,102 @@ constraints: [
 		"c": "x", "d": nil,
 	}, nil, DisplayRooted)
 	require.Equal(t, 2, errs.Len())
+}
+
+func TestCheckPredicateForEachList(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.replicas
+    when:      true
+    require:   @each.value.tls == true
+    message:   'tls required'
+  },
+]
+`)
+	values := map[string]any{"replicas": []any{
+		map[string]any{"tls": true},
+		map[string]any{"tls": false},
+		map[string]any{},
+	}}
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
+	require.Equal(t, 2, errs.Len(), errs.Err())
+	require.Contains(t, errs.Errors()[0].Msg,
+		"constraints[0] (predicate): tls required (var.replicas[1])")
+	require.Contains(t, errs.Errors()[1].Msg,
+		"constraints[0] (predicate): tls required (var.replicas[2])")
+
+	relative := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
+	require.Contains(t, relative.Errors()[0].Msg, "tls required (replicas[1])")
+}
+
+func TestCheckPredicateForEachWhenGatesPerElement(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.replicas
+    when:      @each.value.enabled == true
+    require:   @each.value.tls == true
+  },
+]
+`)
+	values := map[string]any{"replicas": []any{
+		map[string]any{"enabled": true, "tls": true},
+		map[string]any{"enabled": false, "tls": false},
+		map[string]any{"enabled": true, "tls": false},
+	}}
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Errors()[0].Msg, "(var.replicas[2])")
+}
+
+func TestCheckPredicateForEachMap(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.configs
+    when:      true
+    require:   @each.value.on == true
+    message:   'must be on'
+  },
+]
+`)
+	values := map[string]any{"configs": map[string]any{
+		"b": map[string]any{"on": false},
+		"a": map[string]any{"on": true},
+		"c": map[string]any{"on": false},
+	}}
+	for range 3 {
+		errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
+		require.Equal(t, 2, errs.Len(), errs.Err())
+		require.Contains(t, errs.Errors()[0].Msg, "must be on (var.configs['b'])")
+		require.Contains(t, errs.Errors()[1].Msg, "must be on (var.configs['c'])")
+	}
+}
+
+func TestCheckPredicateForEachUnsetIterable(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  { kind: predicate, @for-each: var.replicas, when: true, require: false },
+]
+`)
+	errs := CheckConstraints(block, map[string]any{},
+		boolExprEval(map[string]any{}), DisplayRooted)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+}
+
+func TestCheckPredicateForEachNotIterable(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  { kind: predicate, @for-each: var.replicas, when: true, require: false },
+]
+`)
+	values := map[string]any{"replicas": "oops"}
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Errors()[0].Msg,
+		"@for-each must iterate a list or map, got a string")
 }

@@ -83,8 +83,13 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	// Evaluate the rendered when/require through the real evaluator, the
 	// same path a UB predicate takes at plan.
 	check := func(values map[string]any) int {
-		ctx := &runtime.EvalContext{Vars: values}
-		eval := func(e lang.Expr) (any, error) { return runtime.Eval(e, ctx) }
+		eval := func(e lang.Expr, each *lang.EachValue) (any, error) {
+			ctx := &runtime.EvalContext{Vars: values}
+			if each != nil {
+				ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+			}
+			return runtime.Eval(e, ctx)
+		}
 		return lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative).Len()
 	}
 	base := func() map[string]any {
@@ -263,9 +268,13 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 	entries, perr := lang.ParseSpecs(schema.Resources["db"].Constraints)
 	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
 
-	eval := func(values map[string]any) lang.EvalFunc {
-		return func(e lang.Expr) (any, error) {
-			return runtime.Eval(e, &runtime.EvalContext{Vars: values, MissingAsNull: true})
+	eval := func(values map[string]any) lang.ConstraintEvalFunc {
+		return func(e lang.Expr, each *lang.EachValue) (any, error) {
+			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			if each != nil {
+				ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+			}
+			return runtime.Eval(e, ctx)
 		}
 	}
 

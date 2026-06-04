@@ -363,6 +363,18 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 	var hasWhen, hasRequire bool
 	seen := make(map[string]Position, len(obj.Fields))
 	for _, f := range obj.Fields {
+		// @for-each is the one meta key a predicate takes: it iterates
+		// the when/require pair per element with @each bound.
+		if f.Key.Kind == FieldIdent && f.Key.Name == "@for-each" {
+			if prev, dup := seen[f.Key.Name]; dup {
+				errs.Addf(ErrSchema, f.Key.S.Start,
+					"constraints[%d]: duplicate key %q (first defined at %s)",
+					idx, f.Key.Name, prev)
+				continue
+			}
+			seen[f.Key.Name] = f.Key.S.Start
+			continue
+		}
 		if !validateConstraintCommonKey(idx, f, seen, errs) {
 			continue
 		}

@@ -649,8 +649,10 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	entries, perr := lang.ParseSpecs(specs)
 	values := make(map[string]any, len(step.Inputs))
 	maps.Copy(values, step.Inputs)
-	eval := func(ex lang.Expr) (any, error) {
-		v, err := Eval(ex, &EvalContext{Vars: values, MissingAsNull: true})
+	eval := func(ex lang.Expr, each *lang.EachValue) (any, error) {
+		ctx := &EvalContext{Vars: values, MissingAsNull: true}
+		applyEach(ctx, each)
+		v, err := Eval(ex, ctx)
 		if errors.Is(err, ErrEvalNotFound) {
 			return nil, nil
 		}
@@ -699,8 +701,9 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 		values[name] = nil
 	}
 	maps.Copy(values, scope.Vars)
-	eval := func(ex lang.Expr) (any, error) {
+	eval := func(ex lang.Expr, each *lang.EachValue) (any, error) {
 		ctx := &EvalContext{Vars: values, Libraries: node.Libraries, MissingAsNull: true}
+		applyEach(ctx, each)
 		return Eval(ex, ctx)
 	}
 	var out []error
