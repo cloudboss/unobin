@@ -38,14 +38,15 @@ func TestExtractedConstraintsCheckAgainstValues(t *testing.T) {
 	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
 
 	// One source set, nothing forbidden: every constraint holds.
-	ok := lang.CheckConstraintEntries(entries, map[string]any{"self-signed": true}, nil)
+	ok := lang.CheckConstraintEntries(entries,
+		map[string]any{"self-signed": true}, nil, lang.DisplayNodeRelative)
 	require.Equal(t, 0, ok.Len(), "a valid input set should pass: %v", ok.Err())
 
 	// Two sources set, and a pem bundle without its key: several fail.
 	bad := lang.CheckConstraintEntries(entries, map[string]any{
 		"acm-arn":    "arn",
 		"pem-bundle": "pem",
-	}, nil)
+	}, nil, lang.DisplayNodeRelative)
 	require.Greater(t, bad.Len(), 0, "a conflicting input set should fail")
 }
 
@@ -84,7 +85,7 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	check := func(values map[string]any) int {
 		ctx := &runtime.EvalContext{Vars: values}
 		eval := func(e lang.Expr) (any, error) { return runtime.Eval(e, ctx) }
-		return lang.CheckConstraintEntries(entries, values, eval).Len()
+		return lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative).Len()
 	}
 	base := func() map[string]any {
 		return map[string]any{
@@ -275,7 +276,7 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 			"signing": map[string]any{"key-arn": "arn"},
 		},
 	}
-	ok := lang.CheckConstraintEntries(entries, good, eval(good))
+	ok := lang.CheckConstraintEntries(entries, good, eval(good), lang.DisplayNodeRelative)
 	require.Equal(t, 0, ok.Len(), "valid nested input should pass: %v", ok.Err())
 
 	// Both sources set, and signing present without a key arn: both fail.
@@ -286,7 +287,7 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 			"signing":   map[string]any{},
 		},
 	}
-	got := lang.CheckConstraintEntries(entries, bad, eval(bad))
+	got := lang.CheckConstraintEntries(entries, bad, eval(bad), lang.DisplayNodeRelative)
 	require.Equal(t, 2, got.Len(), "two violations expected: %v", got.Err())
 
 	// Each(replicas): the second replica sets both code sources, and the
@@ -299,10 +300,11 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 			map[string]any{"inline": "a", "tls": true},
 		},
 	}
-	got = lang.CheckConstraintEntries(entries, badReplicas, eval(badReplicas))
+	got = lang.CheckConstraintEntries(entries, badReplicas,
+		eval(badReplicas), lang.DisplayNodeRelative)
 	require.Equal(t, 2, got.Len(), "two replica violations expected: %v", got.Err())
-	require.Contains(t, got.Err().Error(), "var.replicas[1].inline")
-	require.Contains(t, got.Err().Error(), `"var.replicas[2].tls" is set`)
+	require.Contains(t, got.Err().Error(), "got 2 (replicas[1].inline, replicas[1].from-file)")
+	require.Contains(t, got.Err().Error(), `"replicas[2].tls" is set`)
 }
 
 func TestFlattenSelector(t *testing.T) {

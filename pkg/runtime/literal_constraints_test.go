@@ -36,7 +36,7 @@ func TestCheckLiteralConstraints(t *testing.T) {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
+					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestCheckLiteralConstraints(t *testing.T) {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[var.name, var.size]): expected exactly one to be set, got 0 ()",
+					"[name, size]): expected exactly one to be set, got 0 ()",
 			},
 		},
 		{
@@ -104,9 +104,9 @@ resources: {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
+					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 				"resource.core.thing.y: constraints[0] (exactly-one-of " +
-					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
+					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 		{
@@ -124,7 +124,7 @@ resources: {
 }`,
 			want: []string{
 				"resource.core.thing.x: constraints[0] (exactly-one-of " +
-					"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
+					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 	}
@@ -260,7 +260,7 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of",
 				Fields: []string{"var.name", "var.size"}}},
 			body: `{ region: 'us' }`,
-			want: []string{addr + "constraints[0] (at-least-one-of [var.name, var.size]): " +
+			want: []string{addr + "constraints[0] (at-least-one-of [name, size]): " +
 				"expected at least one to be set, got none"},
 		},
 		{
@@ -268,8 +268,8 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 			specs: []lang.ConstraintSpec{{Kind: "required-together",
 				Fields: []string{"var.name", "var.size"}}},
 			body: `{ name: 'a' }`,
-			want: []string{addr + "constraints[0] (required-together [var.name, var.size]): " +
-				"expected all set or all null, got 1 set (var.name)"},
+			want: []string{addr + "constraints[0] (required-together [name, size]): " +
+				"expected all set or all null, got 1 set (name)"},
 		},
 		{
 			name:  "predicate with unmet requirement is reported",
@@ -294,8 +294,8 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
 				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
 			body: `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
-			want: []string{addr + "constraints[0] (exactly-one-of [var.items[1].a, var.items[1].b]): " +
-				"expected exactly one to be set, got 2 (var.items[1].a, var.items[1].b)"},
+			want: []string{addr + "constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
+				"expected exactly one to be set, got 2 (items[1].a, items[1].b)"},
 		},
 		{
 			name: "splat constraint passes when every element conforms",

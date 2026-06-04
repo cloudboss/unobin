@@ -660,7 +660,8 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	for _, er := range perr.Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
-	for _, er := range lang.CheckConstraintEntries(entries, values, eval).Errors() {
+	entryErrs := lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative)
+	for _, er := range entryErrs.Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	return out
@@ -703,7 +704,7 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 		return Eval(ex, ctx)
 	}
 	var out []error
-	for _, er := range lang.CheckConstraints(arr, values, eval).Errors() {
+	for _, er := range lang.CheckConstraints(arr, values, eval, lang.DisplayNodeRelative).Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	return out

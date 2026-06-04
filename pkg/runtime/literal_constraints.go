@@ -54,7 +54,8 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 			}
 			return v, err
 		}
-		for _, e := range lang.CheckConstraintEntries(entries, values, eval).Errors() {
+		checked := lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative)
+		for _, e := range checked.Errors() {
 			errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
 		}
 	}

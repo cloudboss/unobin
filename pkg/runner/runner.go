@@ -677,7 +677,8 @@ func buildInputs(
 	if errs.Len() > 0 {
 		return nil, errs.Err()
 	}
-	cerrs := lang.CheckConstraints(constraints, validated, predicateEval(validated, libs))
+	cerrs := lang.CheckConstraints(constraints, validated,
+		predicateEval(validated, libs), lang.DisplayRooted)
 	if cerrs.Len() > 0 {
 		return nil, cerrs.Err()
 	}

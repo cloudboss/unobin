@@ -62,8 +62,8 @@ func goConstraintCases() []struct {
 			name:  "exactly-one-of with two set is rejected",
 			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
 			body:  `{ name: 'a', size: 1 }`,
-			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [var.name, var.size]): " +
-				"expected exactly one to be set, got 2 (var.name, var.size)",
+			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [name, size]): " +
+				"expected exactly one to be set, got 2 (name, size)",
 		},
 		{
 			name:  "exactly-one-of with one set passes",
@@ -74,14 +74,14 @@ func goConstraintCases() []struct {
 			name:  "exactly-one-of with none set is rejected",
 			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
 			body:  `{ region: 'us' }`,
-			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [var.name, var.size]): " +
+			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [name, size]): " +
 				"expected exactly one to be set, got 0 ()",
 		},
 		{
 			name:  "at-least-one-of with none set is rejected",
 			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.name", "var.size")},
 			body:  `{ region: 'us' }`,
-			wantErr: goConstraintPrefix + "constraints[0] (at-least-one-of [var.name, var.size]): " +
+			wantErr: goConstraintPrefix + "constraints[0] (at-least-one-of [name, size]): " +
 				"expected at least one to be set, got none",
 		},
 		{
@@ -93,8 +93,8 @@ func goConstraintCases() []struct {
 			name:  "at-most-one-of with two set is rejected",
 			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.name", "var.size")},
 			body:  `{ name: 'a', size: 1 }`,
-			wantErr: goConstraintPrefix + "constraints[0] (at-most-one-of [var.name, var.size]): " +
-				"expected at most one to be set, got 2 (var.name, var.size)",
+			wantErr: goConstraintPrefix + "constraints[0] (at-most-one-of [name, size]): " +
+				"expected at most one to be set, got 2 (name, size)",
 		},
 		{
 			name:  "at-most-one-of with none set passes",
@@ -105,15 +105,15 @@ func goConstraintCases() []struct {
 			name:  "mutually-exclusive with two set is rejected",
 			specs: []lang.ConstraintSpec{setSpec("mutually-exclusive", "var.name", "var.size")},
 			body:  `{ name: 'a', size: 1 }`,
-			wantErr: goConstraintPrefix + "constraints[0] (mutually-exclusive [var.name, var.size]): " +
-				"expected at most one to be set, got 2 (var.name, var.size)",
+			wantErr: goConstraintPrefix + "constraints[0] (mutually-exclusive [name, size]): " +
+				"expected at most one to be set, got 2 (name, size)",
 		},
 		{
 			name:  "required-together with one set is rejected",
 			specs: []lang.ConstraintSpec{setSpec("required-together", "var.name", "var.size")},
 			body:  `{ name: 'a' }`,
-			wantErr: goConstraintPrefix + "constraints[0] (required-together [var.name, var.size]): " +
-				"expected all set or all null, got 1 set (var.name)",
+			wantErr: goConstraintPrefix + "constraints[0] (required-together [name, size]): " +
+				"expected all set or all null, got 1 set (name)",
 		},
 		{
 			name:  "required-together with both set passes",
@@ -130,7 +130,7 @@ func goConstraintCases() []struct {
 			specs: []lang.ConstraintSpec{setSpec("required-with", "var.name", "var.size")},
 			body:  `{ name: 'a' }`,
 			wantErr: goConstraintPrefix + `constraints[0] (required-with): ` +
-				`"var.name" is set, so [var.size] must also be set; missing var.size`,
+				`"name" is set, so [size] must also be set; missing size`,
 		},
 		{
 			name:  "required-with trigger with dependent passes",
@@ -147,7 +147,7 @@ func goConstraintCases() []struct {
 			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "var.name", "var.size")},
 			body:  `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix + `constraints[0] (forbidden-with): ` +
-				`"var.name" is set, so [var.size] must be null; got var.size`,
+				`"name" is set, so [size] must be null; got size`,
 		},
 		{
 			name:  "forbidden-with trigger alone passes",
@@ -187,19 +187,19 @@ func goConstraintCases() []struct {
 			},
 			body: `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix +
-				"constraints[0] (exactly-one-of [var.name, var.size]): " +
-				"expected exactly one to be set, got 2 (var.name, var.size)\n" +
+				"constraints[0] (exactly-one-of [name, size]): " +
+				"expected exactly one to be set, got 2 (name, size)\n" +
 				goConstraintPrefix +
 				`constraints[1] (forbidden-with): ` +
-				`"var.name" is set, so [var.size] must be null; got var.size`,
+				`"name" is set, so [size] must be null; got size`,
 		},
 		{
 			name:  "splat constraint names the violating element",
 			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.items[*].a", "var.items[*].b")},
 			body:  `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
 			wantErr: goConstraintPrefix +
-				"constraints[0] (exactly-one-of [var.items[1].a, var.items[1].b]): " +
-				"expected exactly one to be set, got 2 (var.items[1].a, var.items[1].b)",
+				"constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
+				"expected exactly one to be set, got 2 (items[1].a, items[1].b)",
 		},
 		{
 			name:  "splat constraint passes when every element conforms",
@@ -292,8 +292,8 @@ actions: {
 	}
 	_, err := exec.Plan(context.Background())
 	require.EqualError(t, err,
-		"action.core.echo.x: schema: constraints[0] (exactly-one-of [var.name, var.size]): "+
-			"expected exactly one to be set, got 2 (var.name, var.size)")
+		"action.core.echo.x: schema: constraints[0] (exactly-one-of [name, size]): "+
+			"expected exactly one to be set, got 2 (name, size)")
 }
 
 func runPlan(
@@ -382,7 +382,7 @@ func TestPlanCompositeConstraints(t *testing.T) {
 			constraints: oneOf,
 			callArgs:    `{ name: 'a', size: 1 }`,
 			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
-				"[var.name, var.size]): expected exactly one to be set, got 2 (var.name, var.size)",
+				"[name, size]): expected exactly one to be set, got 2 (name, size)",
 		},
 		{
 			name:        "exactly-one-of with one set passes",
@@ -411,7 +411,7 @@ func TestPlanCompositeConstraints(t *testing.T) {
 			constraints: together,
 			callArgs:    `{ name: 'a' }`,
 			wantErr: "resource.w.pair.x: schema: constraints[0] (required-together " +
-				"[var.name, var.size]): expected all set or all null, got 1 set (var.name)",
+				"[name, size]): expected all set or all null, got 1 set (name)",
 		},
 		{
 			name:        "required-together with both set passes",
@@ -460,15 +460,15 @@ func TestPlanCompositeNestedConstraints(t *testing.T) {
 			constraints: oneOf,
 			callArgs:    `{ code: { inline: 'x', from-file: 'y' } }`,
 			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
-				"[var.code.inline, var.code.from-file]): expected exactly one to be set, " +
-				"got 2 (var.code.inline, var.code.from-file)",
+				"[code.inline, code.from-file]): expected exactly one to be set, " +
+				"got 2 (code.inline, code.from-file)",
 		},
 		{
 			name:        "exactly-one-of nested with parent unset is rejected",
 			constraints: oneOf,
 			callArgs:    `{}`,
 			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
-				"[var.code.inline, var.code.from-file]): expected exactly one to be set, got 0 ()",
+				"[code.inline, code.from-file]): expected exactly one to be set, got 0 ()",
 		},
 		{
 			name:        "predicate over nested with requirement met passes",
@@ -526,8 +526,8 @@ func TestPlanCompositeSplatConstraints(t *testing.T) {
 			name:     "a violating element is named by index",
 			callArgs: `{ replicas: [{ inline: 'x' }, { inline: 'x', from-file: 'y' }] }`,
 			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
-				"[var.replicas[1].inline, var.replicas[1].from-file]): expected exactly one " +
-				"to be set, got 2 (var.replicas[1].inline, var.replicas[1].from-file)",
+				"[replicas[1].inline, replicas[1].from-file]): expected exactly one " +
+				"to be set, got 2 (replicas[1].inline, replicas[1].from-file)",
 		},
 		{
 			name:     "an unset list checks nothing",

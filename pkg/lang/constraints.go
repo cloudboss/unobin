@@ -5,6 +5,36 @@ import (
 	"strings"
 )
 
+// FieldDisplay selects how a constraint diagnostic spells field names.
+// A factory-level check keeps the var root, the name an operator sets;
+// a node-scoped check (a Go type's spec, a composite's own block)
+// prints names relative to the node, matching the keys its body is
+// written with. Lookup always uses the rooted name; only the message
+// changes.
+type FieldDisplay int
+
+const (
+	DisplayRooted FieldDisplay = iota
+	DisplayNodeRelative
+)
+
+// name renders one field reference for a diagnostic.
+func (d FieldDisplay) name(f string) string {
+	if d == DisplayNodeRelative {
+		return strings.TrimPrefix(f, "var.")
+	}
+	return f
+}
+
+// names renders a field list for a diagnostic.
+func (d FieldDisplay) names(fields []string) []string {
+	out := make([]string, len(fields))
+	for i, f := range fields {
+		out[i] = d.name(f)
+	}
+	return out
+}
+
 // CheckConstraints evaluates the value-level cross-field constraints
 // in a stack's `constraints:` block against the validated input
 // values. Predicate constraints use evalAgainstInputs to reduce their
@@ -15,6 +45,7 @@ func CheckConstraints(
 	block *ArrayLit,
 	values map[string]any,
 	evalAgainstInputs EvalFunc,
+	display FieldDisplay,
 ) *ErrorList {
 	errs := NewErrorList(0)
 	if block == nil {
@@ -29,7 +60,7 @@ func CheckConstraints(
 		if !ok {
 			continue
 		}
-		checkEntry(i, c, values, evalAgainstInputs, errs)
+		checkEntry(i, c, values, evalAgainstInputs, display, errs)
 	}
 	return errs
 }
@@ -42,10 +73,11 @@ func CheckConstraintEntries(
 	entries []ConstraintEntry,
 	values map[string]any,
 	evalAgainstInputs EvalFunc,
+	display FieldDisplay,
 ) *ErrorList {
 	errs := NewErrorList(0)
 	for i, c := range entries {
-		checkEntry(i, c, values, evalAgainstInputs, errs)
+		checkEntry(i, c, values, evalAgainstInputs, display, errs)
 	}
 	return errs
 }
@@ -55,25 +87,26 @@ func checkEntry(
 	c ConstraintEntry,
 	values map[string]any,
 	evalAgainstInputs EvalFunc,
+	display FieldDisplay,
 	errs *ErrorList,
 ) {
 	if c.Kind != "predicate" && hasSplatField(c.Fields) {
-		checkSplatEntry(idx, c, values, evalAgainstInputs, errs)
+		checkSplatEntry(idx, c, values, evalAgainstInputs, display, errs)
 		return
 	}
 	switch c.Kind {
 	case "exactly-one-of":
-		checkExactlyOneOf(idx, c.Fields, values, errs)
+		checkExactlyOneOf(idx, c.Fields, values, display, errs)
 	case "at-least-one-of":
-		checkAtLeastOneOf(idx, c.Fields, values, errs)
+		checkAtLeastOneOf(idx, c.Fields, values, display, errs)
 	case "at-most-one-of", "mutually-exclusive":
-		checkAtMostOneOf(idx, c.Kind, c.Fields, values, errs)
+		checkAtMostOneOf(idx, c.Kind, c.Fields, values, display, errs)
 	case "required-together":
-		checkRequiredTogether(idx, c.Fields, values, errs)
+		checkRequiredTogether(idx, c.Fields, values, display, errs)
 	case "required-with":
-		checkRequiredWith(idx, c.Fields, values, errs)
+		checkRequiredWith(idx, c.Fields, values, display, errs)
 	case "forbidden-with":
-		checkForbiddenWith(idx, c.Fields, values, errs)
+		checkForbiddenWith(idx, c.Fields, values, display, errs)
 	case "predicate":
 		checkPredicate(idx, c, values, evalAgainstInputs, errs)
 	}
@@ -141,11 +174,13 @@ func checkSplatEntry(
 	c ConstraintEntry,
 	values map[string]any,
 	evalAgainstInputs EvalFunc,
+	display FieldDisplay,
 	errs *ErrorList,
 ) {
-	if msg := splatRuleViolation(c.Fields); msg != "" {
+	if msg := splatRuleViolation(display.names(c.Fields)); msg != "" {
 		errs.Addf(ErrSchema, Position{},
-			"constraints[%d] (%s [%s]): %s", idx, c.Kind, joinNames(c.Fields), msg)
+			"constraints[%d] (%s [%s]): %s",
+			idx, c.Kind, joinNames(display.names(c.Fields)), msg)
 		return
 	}
 	prefix := splatPrefix(c.Fields)
@@ -157,7 +192,8 @@ func checkSplatEntry(
 	if !ok {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (%s [%s]): cannot splat %s at %s%s",
-			idx, c.Kind, joinNames(c.Fields), TypeMessage(root), prefix, splatMarker)
+			idx, c.Kind, joinNames(display.names(c.Fields)), TypeMessage(root),
+			display.name(prefix), splatMarker)
 		return
 	}
 	for i := range lst {
@@ -166,7 +202,7 @@ func checkSplatEntry(
 		for j, f := range c.Fields {
 			elem.Fields[j] = strings.Replace(f, splatMarker, "["+strconv.Itoa(i)+"]", 1)
 		}
-		checkEntry(idx, elem, values, evalAgainstInputs, errs)
+		checkEntry(idx, elem, values, evalAgainstInputs, display, errs)
 	}
 }
 
@@ -359,41 +395,48 @@ func nonNullFields(fields []string, values map[string]any) []string {
 	return nn
 }
 
-func checkExactlyOneOf(idx int, fields []string, values map[string]any, errs *ErrorList) {
+func checkExactlyOneOf(
+	idx int, fields []string, values map[string]any, display FieldDisplay, errs *ErrorList,
+) {
 	nn := nonNullFields(fields, values)
 	if len(nn) != 1 {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (exactly-one-of [%s]): expected exactly one to be set, got %d (%s)",
-			idx, joinNames(fields), len(nn), joinNames(nn))
+			idx, joinNames(display.names(fields)), len(nn), joinNames(display.names(nn)))
 	}
 }
 
-func checkAtLeastOneOf(idx int, fields []string, values map[string]any, errs *ErrorList) {
+func checkAtLeastOneOf(
+	idx int, fields []string, values map[string]any, display FieldDisplay, errs *ErrorList,
+) {
 	nn := nonNullFields(fields, values)
 	if len(nn) == 0 {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (at-least-one-of [%s]): expected at least one to be set, got none",
-			idx, joinNames(fields))
+			idx, joinNames(display.names(fields)))
 	}
 }
 
 func checkAtMostOneOf(
-	idx int, kind string, fields []string, values map[string]any, errs *ErrorList,
+	idx int, kind string, fields []string, values map[string]any,
+	display FieldDisplay, errs *ErrorList,
 ) {
 	nn := nonNullFields(fields, values)
 	if len(nn) > 1 {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (%s [%s]): expected at most one to be set, got %d (%s)",
-			idx, kind, joinNames(fields), len(nn), joinNames(nn))
+			idx, kind, joinNames(display.names(fields)), len(nn), joinNames(display.names(nn)))
 	}
 }
 
-func checkRequiredTogether(idx int, fields []string, values map[string]any, errs *ErrorList) {
+func checkRequiredTogether(
+	idx int, fields []string, values map[string]any, display FieldDisplay, errs *ErrorList,
+) {
 	nn := nonNullFields(fields, values)
 	if len(nn) != 0 && len(nn) != len(fields) {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (required-together [%s]): expected all set or all null, got %d set (%s)",
-			idx, joinNames(fields), len(nn), joinNames(nn))
+			idx, joinNames(display.names(fields)), len(nn), joinNames(display.names(nn)))
 	}
 }
 
@@ -401,7 +444,9 @@ func checkRequiredTogether(idx int, fields []string, values map[string]any, errs
 // set, every other field must also be set. The semantics match TF's
 // RequiredWith and let an author say "if A is provided, B and C must
 // be too" without coupling B and C to each other.
-func checkRequiredWith(idx int, fields []string, values map[string]any, errs *ErrorList) {
+func checkRequiredWith(
+	idx int, fields []string, values map[string]any, display FieldDisplay, errs *ErrorList,
+) {
 	if len(fields) < 2 {
 		return
 	}
@@ -415,13 +460,16 @@ func checkRequiredWith(idx int, fields []string, values map[string]any, errs *Er
 	if len(missing) > 0 {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (required-with): %q is set, so [%s] must also be set; missing %s",
-			idx, trigger, joinNames(rest), joinNames(missing))
+			idx, display.name(trigger), joinNames(display.names(rest)),
+			joinNames(display.names(missing)))
 	}
 }
 
 // checkForbiddenWith reads the first field as the trigger; if it is
 // set, every other field must be null. The mirror of required-with.
-func checkForbiddenWith(idx int, fields []string, values map[string]any, errs *ErrorList) {
+func checkForbiddenWith(
+	idx int, fields []string, values map[string]any, display FieldDisplay, errs *ErrorList,
+) {
 	if len(fields) < 2 {
 		return
 	}
@@ -435,7 +483,8 @@ func checkForbiddenWith(idx int, fields []string, values map[string]any, errs *E
 	if len(present) > 0 {
 		errs.Addf(ErrSchema, Position{},
 			"constraints[%d] (forbidden-with): %q is set, so [%s] must be null; got %s",
-			idx, trigger, joinNames(rest), joinNames(present))
+			idx, display.name(trigger), joinNames(display.names(rest)),
+			joinNames(display.names(present)))
 	}
 }
 

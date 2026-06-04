@@ -64,19 +64,19 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": "x", "b": nil, "c": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"a": nil, "b": nil, "c": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "exactly-one-of")
 	require.Contains(t, errs.Err().Error(), "got 0")
 
 	errs = CheckConstraints(block, map[string]any{
 		"a": "x", "b": "y", "c": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "got 2")
 }
@@ -90,12 +90,12 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": nil, "b": "x",
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"a": nil, "b": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "at-least-one-of")
 }
@@ -109,17 +109,17 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": nil, "b": nil, "c": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"a": "x", "b": nil, "c": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"a": "x", "b": "y", "c": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "at most one")
 }
@@ -133,7 +133,7 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": "x", "b": "y",
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "mutually-exclusive")
 }
@@ -147,17 +147,17 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"vpc-id": "vpc-abc", "subnet-ids": []any{"a"},
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"vpc-id": nil, "subnet-ids": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"vpc-id": "vpc-abc", "subnet-ids": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "required-together")
 }
@@ -171,17 +171,17 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"trigger": nil, "dep1": nil, "dep2": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"trigger": "x", "dep1": "a", "dep2": "b",
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"trigger": "x", "dep1": "a", "dep2": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "required-with")
 	require.Contains(t, errs.Err().Error(), "missing var.dep2")
@@ -196,12 +196,12 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"use-spot": true, "reserved-capacity": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"use-spot": true, "reserved-capacity": int64(10),
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "forbidden-with")
 }
@@ -215,18 +215,18 @@ constraints: [
 
 	errs := CheckConstraints(block, map[string]any{
 		"code": map[string]any{"inline": "x"},
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 
 	errs = CheckConstraints(block, map[string]any{
 		"code": map[string]any{"inline": "x", "from-file": "y"},
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "got 2")
 
 	errs = CheckConstraints(block, map[string]any{
 		"code": map[string]any{},
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "got 0")
 }
@@ -242,7 +242,7 @@ constraints: [
 			map[string]any{"inline": "a"},
 			map[string]any{"inline": "a", "from-file": "f"},
 		},
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len(), errs.Err())
 	require.Contains(t, errs.Err().Error(), "var.replicas[1].inline")
 }
@@ -257,7 +257,7 @@ constraints: [
 		"listeners": []any{
 			map[string]any{"cert": "c"},
 		},
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 1, errs.Len(), errs.Err())
 	require.Contains(t, errs.Err().Error(), "got 1 set (var.listeners[0].cert)")
 }
@@ -277,7 +277,7 @@ constraints: [
 		"region":    "us-east-1",
 		"fips-mode": false,
 	}
-	errs := CheckConstraints(block, values, boolExprEval(values))
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 }
 
@@ -296,7 +296,7 @@ constraints: [
 		"region":    "us-gov-east-1",
 		"fips-mode": false,
 	}
-	errs := CheckConstraints(block, values, boolExprEval(values))
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(),
 		"GovCloud regions require FIPS mode enabled")
@@ -316,7 +316,7 @@ constraints: [
 		"region":    "us-gov-east-1",
 		"fips-mode": true,
 	}
-	errs := CheckConstraints(block, values, boolExprEval(values))
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 }
 
@@ -330,7 +330,7 @@ constraints: [
   },
 ]
 `)
-	errs := CheckConstraints(block, map[string]any{}, boolExprEval(nil))
+	errs := CheckConstraints(block, map[string]any{}, boolExprEval(nil), DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "predicate requirement not satisfied")
 }
@@ -380,7 +380,7 @@ func TestCheckConstraintEntries(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil)
+			errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil, DisplayRooted)
 			if tt.wantErr {
 				require.Positive(t, errs.Len())
 			} else {
@@ -447,7 +447,7 @@ func TestCheckConstraintEntriesNestedFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil)
+			errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil, DisplayRooted)
 			if tt.wantErr {
 				require.Positive(t, errs.Len())
 			} else {
@@ -499,7 +499,7 @@ func TestCheckConstraintEntriesIndexedFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var outputs []string
 			for range 3 {
-				errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, values, nil)
+				errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, values, nil, DisplayRooted)
 				outputs = append(outputs, errorText(errs))
 			}
 			require.Equal(t, outputs[0], outputs[1], "output must be deterministic")
@@ -744,13 +744,67 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for range 3 {
-				errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil)
+				errs := CheckConstraintEntries([]ConstraintEntry{tt.entry}, tt.values, nil, DisplayRooted)
 				var msgs []string
 				for _, e := range errs.Errors() {
 					msgs = append(msgs, e.Msg)
 				}
 				require.Equal(t, tt.wantMsgs, msgs)
 			}
+		})
+	}
+}
+
+func TestCheckConstraintEntriesNodeRelativeDisplay(t *testing.T) {
+	values := map[string]any{
+		"code": map[string]any{"zip-file": "a.zip", "image-uri": "img"},
+		"replicas": []any{
+			map[string]any{"tls": true},
+		},
+	}
+	tests := []struct {
+		name     string
+		entry    ConstraintEntry
+		wantMsgs []string
+	}{
+		{"set kind names fields relative to the node",
+			ConstraintEntry{Kind: "exactly-one-of",
+				Fields: []string{"var.code.zip-file", "var.code.image-uri"}},
+			[]string{
+				"constraints[0] (exactly-one-of [code.zip-file, code.image-uri]): " +
+					"expected exactly one to be set, got 2 (code.zip-file, code.image-uri)",
+			}},
+		{"trigger kinds quote relative names",
+			ConstraintEntry{Kind: "required-with",
+				Fields: []string{"var.code.zip-file", "var.signing-profile"}},
+			[]string{
+				`constraints[0] (required-with): "code.zip-file" is set, ` +
+					"so [signing-profile] must also be set; missing signing-profile",
+			}},
+		{"splat rules name the relative list",
+			ConstraintEntry{Kind: "at-most-one-of",
+				Fields: []string{"var.replicas[*].primary"}},
+			[]string{
+				"constraints[0] (at-most-one-of [replicas[*].primary]): " +
+					"a [*] constraint needs at least two fields",
+			}},
+		{"splat expansion names the relative element",
+			ConstraintEntry{Kind: "required-together",
+				Fields: []string{"var.replicas[*].tls", "var.replicas[*].cert"}},
+			[]string{
+				"constraints[0] (required-together [replicas[0].tls, replicas[0].cert]): " +
+					"expected all set or all null, got 1 set (replicas[0].tls)",
+			}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckConstraintEntries(
+				[]ConstraintEntry{tt.entry}, values, nil, DisplayNodeRelative)
+			var msgs []string
+			for _, e := range errs.Errors() {
+				msgs = append(msgs, e.Msg)
+			}
+			require.Equal(t, tt.wantMsgs, msgs)
 		})
 	}
 }
@@ -855,6 +909,6 @@ constraints: [
 	errs := CheckConstraints(block, map[string]any{
 		"a": nil, "b": nil,
 		"c": "x", "d": nil,
-	}, nil)
+	}, nil, DisplayRooted)
 	require.Equal(t, 2, errs.Len())
 }
