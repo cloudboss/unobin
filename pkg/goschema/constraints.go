@@ -62,12 +62,12 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	var out []lang.ConstraintSpec
 	for _, call := range constraintCalls(method.Body) {
 		base, message := peelMessage(call)
-		if w.isEachCall(base) {
+		if w.isForEachCall(base) {
 			if message != "" {
-				w.addErrf("Message applies to the constraints inside Each, not Each itself")
+				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
 				continue
 			}
-			out = append(out, w.eachSpecs(base, scope)...)
+			out = append(out, w.forEachSpecs(base, scope)...)
 			continue
 		}
 		if spec, ok := w.specFromCall(call, scope); ok {
@@ -85,7 +85,7 @@ type constraintScope map[string]scopeRoot
 // scopeRoot is the type behind one scope identifier, with the walker
 // positioned at the package the type lives in. prefix is what the
 // identifier stands for in a rendered reference: var for the receiver,
-// the splatted list reference (var.replicas[*]) for an Each element.
+// the splatted list reference (var.replicas[*]) for a ForEach element.
 type scopeRoot struct {
 	w        *walker
 	typeName string
@@ -168,7 +168,7 @@ func receiverType(fn *ast.FuncDecl) string {
 
 // constraintCalls returns the constructor call expressions in the
 // returned slice literal of a function body, whether the body is a
-// Constraints method's or an Each body's. A body that is not a single
+// Constraints method's or a ForEach body's. A body that is not a single
 // return of a composite literal yields none.
 func constraintCalls(body *ast.BlockStmt) []*ast.CallExpr {
 	if body == nil {
@@ -193,29 +193,29 @@ func constraintCalls(body *ast.BlockStmt) []*ast.CallExpr {
 	return calls
 }
 
-// isEachCall reports whether a call is constraint.Each, with an
-// explicit type instantiation (constraint.Each[T]) unwrapped.
-func (w *walker) isEachCall(call *ast.CallExpr) bool {
+// isForEachCall reports whether a call is constraint.ForEach, with an
+// explicit type instantiation (constraint.ForEach[T]) unwrapped.
+func (w *walker) isForEachCall(call *ast.CallExpr) bool {
 	fun := call.Fun
 	if idx, ok := fun.(*ast.IndexExpr); ok {
 		fun = idx.X
 	}
 	sel, ok := fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "Each" {
+	if !ok || sel.Sel.Name != "ForEach" {
 		return false
 	}
 	pkg, ok := identName(sel.X)
 	return ok && w.imports[pkg] == constraintPkgPath
 }
 
-// eachSpecs renders a constraint.Each call into the specs of its body,
+// forEachSpecs renders a constraint.ForEach call into the specs of its body,
 // every element field rooted under the list with [*]. The body's
 // element parameter joins the scope, so references to the receiver
 // still name top-level fields. Set constraints only: a predicate or a
-// nested Each inside the body records an error.
-func (w *walker) eachSpecs(call *ast.CallExpr, scope constraintScope) []lang.ConstraintSpec {
+// nested ForEach inside the body records an error.
+func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.ConstraintSpec {
 	if len(call.Args) != 2 {
-		w.addErrf("Each takes a list field and a function")
+		w.addErrf("ForEach takes a list field and a function")
 		return nil
 	}
 	listPath, elem, ok := w.listField(call.Args[0], scope)
@@ -224,12 +224,12 @@ func (w *walker) eachSpecs(call *ast.CallExpr, scope constraintScope) []lang.Con
 	}
 	fl, ok := call.Args[1].(*ast.FuncLit)
 	if !ok {
-		w.addErrf("the Each body must be a function literal, got %T", call.Args[1])
+		w.addErrf("the ForEach body must be a function literal, got %T", call.Args[1])
 		return nil
 	}
 	param, ok := singleParamName(fl)
 	if !ok {
-		w.addErrf("the Each body must take the element as its one named parameter")
+		w.addErrf("the ForEach body must take the element as its one named parameter")
 		return nil
 	}
 	inner := make(constraintScope, len(scope)+1)
@@ -238,8 +238,8 @@ func (w *walker) eachSpecs(call *ast.CallExpr, scope constraintScope) []lang.Con
 	inner[param] = elem
 	var out []lang.ConstraintSpec
 	for _, c := range constraintCalls(fl.Body) {
-		if w.isEachCall(c) {
-			w.addErrf("an Each inside an Each is not supported")
+		if w.isForEachCall(c) {
+			w.addErrf("a ForEach inside a ForEach is not supported")
 			continue
 		}
 		spec, ok := w.specFromCall(c, inner)
@@ -247,7 +247,7 @@ func (w *walker) eachSpecs(call *ast.CallExpr, scope constraintScope) []lang.Con
 			continue
 		}
 		if spec.Kind == "predicate" {
-			w.addErrf("Each does not support predicate constraints")
+			w.addErrf("ForEach does not support predicate constraints")
 			continue
 		}
 		out = append(out, spec)
@@ -255,27 +255,27 @@ func (w *walker) eachSpecs(call *ast.CallExpr, scope constraintScope) []lang.Con
 	return out
 }
 
-// listField resolves Each's list argument to its rendered var reference
+// listField resolves ForEach's list argument to its rendered var reference
 // (var.replicas) and the scope root of the list's element type.
 func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRoot, bool) {
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
-		w.addErrf("Each list must be a struct field selector, got %T", arg)
+		w.addErrf("ForEach list must be a struct field selector, got %T", arg)
 		return "", scopeRoot{}, false
 	}
 	root, hops, ok := flattenSelector(sel)
 	if !ok {
-		w.addErrf("Each list must be a chain of struct fields, got %T", arg)
+		w.addErrf("ForEach list must be a chain of struct fields, got %T", arg)
 		return "", scopeRoot{}, false
 	}
 	entry, ok := scope[root]
 	if !ok {
-		w.addErrf("Each list references unknown name %q", root)
+		w.addErrf("ForEach list references unknown name %q", root)
 		return "", scopeRoot{}, false
 	}
 	path, ok := entry.w.fieldPath(entry.typeName, hops)
 	if !ok {
-		w.addErrf("Each list references unknown field %q", hopNames(hops))
+		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
 		return "", scopeRoot{}, false
 	}
 	path = entry.prefix + "." + path
@@ -283,7 +283,7 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRo
 	for _, hop := range hops[:len(hops)-1] {
 		cw, typeName, ok = cw.nestedStruct(typeName, hop)
 		if !ok {
-			w.addErrf("Each list %q must be a slice of in-library structs", path)
+			w.addErrf("ForEach list %q must be a slice of in-library structs", path)
 			return "", scopeRoot{}, false
 		}
 	}
@@ -291,7 +291,7 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRo
 	last.indexes = append(slices.Clone(last.indexes), 0)
 	cw, elemType, ok := cw.nestedStruct(typeName, last)
 	if !ok {
-		w.addErrf("Each list %q must be a slice of in-library structs", path)
+		w.addErrf("ForEach list %q must be a slice of in-library structs", path)
 		return "", scopeRoot{}, false
 	}
 	return path, scopeRoot{w: cw, typeName: elemType}, true

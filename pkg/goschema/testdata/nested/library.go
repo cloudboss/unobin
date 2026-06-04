@@ -31,7 +31,7 @@ func (d DB) Constraints() []constraint.Constraint {
 			Require(constraint.Present(d.Code.Signing.KeyArn)).
 			Message("signing requires a key arn"),
 		constraint.RequiredTogether(d.Listeners[0].Cert, d.Listeners[0].Key),
-		constraint.Each(d.Replicas, func(r DBReplica) []constraint.Constraint {
+		constraint.ForEach(d.Replicas, func(r DBReplica) []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.ExactlyOneOf(r.Inline, r.FromFile),
 				constraint.RequiredWith(r.TLS, d.CACert),

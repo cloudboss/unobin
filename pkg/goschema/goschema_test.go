@@ -148,7 +148,7 @@ func (v T) Constraints() []constraint.Constraint {
 	require.Contains(t, (*errs)[0].Error(), `"q"`)
 }
 
-func TestEachRejectsUnsupportedForms(t *testing.T) {
+func TestForEachRejectsUnsupportedForms(t *testing.T) {
 	const prologue = `package x
 
 import "github.com/cloudboss/unobin/pkg/constraint"
@@ -168,56 +168,56 @@ type Item struct {
 		method  string
 		wantErr string
 	}{
-		{"predicate inside Each",
+		{"predicate inside ForEach",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Each(v.Items, func(it Item) []constraint.Constraint {
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.Must(constraint.Present(it.A)),
 			}
 		}),
 	}
 }`,
-			"Each does not support predicate constraints"},
-		{"Each inside Each",
+			"ForEach does not support predicate constraints"},
+		{"ForEach inside ForEach",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Each(v.Items, func(it Item) []constraint.Constraint {
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
 			return []constraint.Constraint{
-				constraint.Each(v.Items, func(in Item) []constraint.Constraint {
+				constraint.ForEach(v.Items, func(in Item) []constraint.Constraint {
 					return nil
 				}),
 			}
 		}),
 	}
 }`,
-			"an Each inside an Each is not supported"},
-		{"message on Each",
+			"a ForEach inside a ForEach is not supported"},
+		{"message on ForEach",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Each(v.Items, func(it Item) []constraint.Constraint {
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.RequiredTogether(it.A, it.B),
 			}
 		}).Message("m"),
 	}
 }`,
-			"Message applies to the constraints inside Each"},
+			"Message applies to the constraints inside ForEach"},
 		{"list argument not a field",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Each([]Item{}, func(it Item) []constraint.Constraint {
+		constraint.ForEach([]Item{}, func(it Item) []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.RequiredTogether(it.A, it.B),
 			}
 		}),
 	}
 }`,
-			"Each list must be a struct field selector"},
+			"ForEach list must be a struct field selector"},
 		{"list field not a list",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Each(v.Name, func(it Item) []constraint.Constraint {
+		constraint.ForEach(v.Name, func(it Item) []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.RequiredTogether(it.A, it.B),
 			}
@@ -299,7 +299,7 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 	got := lang.CheckConstraintEntries(entries, bad, eval(bad), lang.DisplayNodeRelative)
 	require.Equal(t, 2, got.Len(), "two violations expected: %v", got.Err())
 
-	// Each(replicas): the second replica sets both code sources, and the
+	// ForEach(replicas): the second replica sets both code sources, and the
 	// third turns on tls without the ca-cert the rule requires.
 	badReplicas := map[string]any{
 		"code": map[string]any{"inline": "echo hi"},
