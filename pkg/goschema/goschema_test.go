@@ -537,6 +537,62 @@ func TestReadExpandsNestedStructTypes(t *testing.T) {
 		db.Outputs["self"])
 }
 
+// TestReadEmitsNestedFieldsInDeclarationOrder pins the field order of
+// an expanded nested object to the struct's declaration order, looping
+// because a map-driven order can be right by luck once. Equality is on
+// the Fields slice itself; Type.Equal compares order-insensitively.
+func TestReadEmitsNestedFieldsInDeclarationOrder(t *testing.T) {
+	src := `package lib
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name: "lib",
+		Resources: map[string]runtime.ResourceRegistration{
+			"thing": runtime.MakeResource[Thing, *ThingOutput](),
+		},
+	}
+}
+
+type Thing struct {
+	Settings Settings
+}
+
+type Settings struct {
+	Zeta         string
+	Alpha        string
+	Mid          *int64
+	Beta         bool
+	Omega        int64
+	Gamma        string
+	Pair1, Pair2 string
+}
+
+type ThingOutput struct {
+	ID string
+}
+`
+	want := []typecheck.ObjectField{
+		{Name: "zeta", Type: typecheck.TString()},
+		{Name: "alpha", Type: typecheck.TString()},
+		{Name: "mid", Type: typecheck.TInteger(), Optional: true},
+		{Name: "beta", Type: typecheck.TBoolean()},
+		{Name: "omega", Type: typecheck.TInteger()},
+		{Name: "gamma", Type: typecheck.TString()},
+		{Name: "pair1", Type: typecheck.TString()},
+		{Name: "pair2", Type: typecheck.TString()},
+	}
+	for range 10 {
+		schema, warnings, err := readConstraintLibrary(t, src)
+		require.NoError(t, err)
+		require.Empty(t, warnings)
+		settings := schema.Resources["thing"].Inputs["settings"]
+		require.Equal(t, typecheck.Object, settings.Kind)
+		require.Equal(t, want, settings.Fields)
+	}
+}
+
 func TestReadMarksPointerStructFieldsOptional(t *testing.T) {
 	schema, warnings, err := Read("testdata/nested")
 	require.NoError(t, err)

@@ -298,8 +298,30 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 	}
 	out := map[string]typecheck.Type{}
 	var sensitive map[string]bool
+	w.eachStructField(st, func(kebab string, fld *ast.Field, isSensitive bool) {
+		out[kebab] = w.typeFromAST(fld.Type)
+		if isSensitive {
+			if sensitive == nil {
+				sensitive = map[string]bool{}
+			}
+			sensitive[kebab] = true
+		}
+	})
+	return out, sensitive
+}
+
+// eachStructField calls fn for every declared, unskipped field of st
+// in declaration order, with the field's kebab input name and its
+// sensitivity. A field declaring several names is visited once per
+// name, in order. Unknown ub tag options are reported as errors here,
+// once per field.
+func (w *walker) eachStructField(
+	st *ast.StructType, fn func(kebab string, fld *ast.Field, sensitive bool),
+) {
+	if st.Fields == nil {
+		return
+	}
 	for _, fld := range st.Fields.List {
-		t := w.typeFromAST(fld.Type)
 		name, skip, isSensitive, unknown := parseUBFieldTag(fld.Tag)
 		if skip {
 			continue
@@ -311,20 +333,13 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 			}
 		}
 		for _, fieldName := range fld.Names {
-			key := name
-			if key == "" {
-				key = lang.PascalToKebab(fieldName.Name)
+			kebab := name
+			if kebab == "" {
+				kebab = lang.PascalToKebab(fieldName.Name)
 			}
-			out[key] = t
-			if isSensitive {
-				if sensitive == nil {
-					sensitive = map[string]bool{}
-				}
-				sensitive[key] = true
-			}
+			fn(kebab, fld, isSensitive)
 		}
 	}
-	return out, sensitive
 }
 
 // typeFromAST converts a Go AST type expression to a typecheck.Type.
@@ -413,11 +428,10 @@ func (w *walker) namedTypeFromIdent(name string) typecheck.Type {
 	}
 	w.visiting[key] = true
 	defer delete(w.visiting, key)
-	fields, _ := w.fieldsFromStruct(st)
-	out := make([]typecheck.ObjectField, 0, len(fields))
-	for fname, ft := range fields {
-		out = append(out, objectField(fname, ft))
-	}
+	var out []typecheck.ObjectField
+	w.eachStructField(st, func(kebab string, fld *ast.Field, _ bool) {
+		out = append(out, objectField(kebab, w.typeFromAST(fld.Type)))
+	})
 	return typecheck.TObject(out)
 }
 
