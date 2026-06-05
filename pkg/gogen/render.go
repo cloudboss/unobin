@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/mod/semver"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -327,15 +329,20 @@ func cfgWrapperType(goType string) string {
 	return "cfg.Any"
 }
 
-// GoMod renders a go.mod file for a generated library. When replaceUnobin is
-// non-empty, its absolute path is used to add a replace directive for the
-// unobin dependency.
-func GoMod(modulePath, replaceUnobin string) ([]byte, error) {
+// GoMod renders a go.mod file for a generated library. unobinVersion
+// pins the unobin requirement when it is a release version; otherwise
+// the v0.0.0 placeholder stands in, which only resolves with a
+// replace. When replaceUnobin is non-empty, its absolute path is used
+// to add a replace directive for the unobin dependency.
+func GoMod(modulePath, replaceUnobin, unobinVersion string) ([]byte, error) {
+	if !semver.IsValid(unobinVersion) {
+		unobinVersion = "v0.0.0"
+	}
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "module %s\n\n", modulePath)
 	b.WriteString("go 1.26\n\n")
 	b.WriteString("require (\n")
-	b.WriteString("\tgithub.com/cloudboss/unobin v0.0.0\n")
+	fmt.Fprintf(&b, "\tgithub.com/cloudboss/unobin %s\n", unobinVersion)
 	b.WriteString(")\n")
 	if replaceUnobin != "" {
 		b.WriteString("\n")

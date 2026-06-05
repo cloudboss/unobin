@@ -40,7 +40,7 @@ inputs: {
 }
 
 imports: {
-  # TODO: declare imports
+  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
 }
 
 resources: {
@@ -52,6 +52,39 @@ outputs: {
 }
 `
 	require.Equal(t, want, string(got))
+}
+
+// TestFactoryWritesManifestWithToolchainPin proves a release CLI
+// records its own version as the project's unobin pin, so a compile
+// by any other version says so up front.
+func TestFactoryWritesManifestWithToolchainPin(t *testing.T) {
+	prev := CLIVersion
+	CLIVersion = func() string { return "v0.3.0" }
+	t.Cleanup(func() { CLIVersion = prev })
+
+	dir := filepath.Join(t.TempDir(), "my-factory")
+	_, err := runFactoryCmd(t, "-o", dir)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(filepath.Join(dir, "unobin.manifest"))
+	require.NoError(t, err)
+	require.Equal(t, "unobin: 'v0.3.0'\nrequires: {}\n", string(got))
+}
+
+// TestFactoryDevManifestOmitsPin proves a dev build writes the
+// manifest without a pin: there is no release version to record.
+func TestFactoryDevManifestOmitsPin(t *testing.T) {
+	prev := CLIVersion
+	CLIVersion = func() string { return "dev" }
+	t.Cleanup(func() { CLIVersion = prev })
+
+	dir := filepath.Join(t.TempDir(), "my-factory")
+	_, err := runFactoryCmd(t, "-o", dir)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(filepath.Join(dir, "unobin.manifest"))
+	require.NoError(t, err)
+	require.Equal(t, "requires: {}\n", string(got))
 }
 
 func TestFactoryGeneratedFileParsesAndValidates(t *testing.T) {

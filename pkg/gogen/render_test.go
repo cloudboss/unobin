@@ -291,7 +291,7 @@ func TestCfgWrapperType(t *testing.T) {
 }
 
 func TestGoMod(t *testing.T) {
-	src, err := GoMod("example.com/libraries/testmod", "")
+	src, err := GoMod("example.com/libraries/testmod", "", "v0.6.0")
 	if err != nil {
 		t.Fatalf("GoMod: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestGoMod(t *testing.T) {
 }
 
 func TestGoModWithReplace(t *testing.T) {
-	src, err := GoMod("example.com/libraries/testmod", "/home/user/unobin")
+	src, err := GoMod("example.com/libraries/testmod", "/home/user/unobin", "dev")
 	if err != nil {
 		t.Fatalf("GoMod: %v", err)
 	}
@@ -321,5 +321,25 @@ func TestGoModWithReplace(t *testing.T) {
 	s := string(src)
 	if !strings.Contains(s, "replace github.com/cloudboss/unobin => /home/user/unobin") {
 		t.Errorf("expected replace directive, got:\n%s", s)
+	}
+}
+
+func TestGoModPinsUnobinVersion(t *testing.T) {
+	src, err := GoMod("example.com/libraries/testmod", "", "v0.6.0")
+	if err != nil {
+		t.Fatalf("GoMod: %v", err)
+	}
+	if !strings.Contains(string(src), "github.com/cloudboss/unobin v0.6.0") {
+		t.Errorf("expected the CLI's unobin version, got:\n%s", string(src))
+	}
+}
+
+func TestGoModDevFallsBackToPlaceholder(t *testing.T) {
+	src, err := GoMod("example.com/libraries/testmod", "/home/user/unobin", "dev")
+	if err != nil {
+		t.Fatalf("GoMod: %v", err)
+	}
+	if !strings.Contains(string(src), "github.com/cloudboss/unobin v0.0.0") {
+		t.Errorf("expected the v0.0.0 placeholder for a dev build, got:\n%s", string(src))
 	}
 }

@@ -64,6 +64,7 @@ type Input struct {
 	ModulePath    string
 	From          string
 	ReplaceUnobin string // local path to github.com/cloudboss/unobin for go.mod replace
+	UnobinVersion string // the CLI's own unobin version, pinned in the generated go.mod
 }
 
 // Output reports what was generated.
@@ -160,7 +161,7 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 		return nil, fmt.Errorf("write library.go: %w", err)
 	}
 
-	goModSrc, err := GoMod(in.ModulePath, in.ReplaceUnobin)
+	goModSrc, err := GoMod(in.ModulePath, in.ReplaceUnobin, in.UnobinVersion)
 	if err != nil {
 		return nil, fmt.Errorf("render go.mod: %w", err)
 	}

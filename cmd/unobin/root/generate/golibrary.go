@@ -81,6 +81,7 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 		OutDir:        cfg.output,
 		ModulePath:    cfg.goModulePath,
 		ReplaceUnobin: replaceUnobin,
+		UnobinVersion: CLIVersion(),
 		From:          cfg.from,
 	})
 	if err != nil {

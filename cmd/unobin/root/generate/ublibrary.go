@@ -87,7 +87,7 @@ inputs: {
 }
 
 imports: {
-  # TODO: declare imports
+  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
 }
 
 resources: {

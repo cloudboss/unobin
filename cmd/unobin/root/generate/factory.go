@@ -6,7 +6,15 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/mod/semver"
+
+	"github.com/cloudboss/unobin/pkg/deps"
 )
+
+// CLIVersion reports the running CLI's own version; the root command
+// assigns it at startup. A release version becomes the toolchain pin
+// scaffolds record.
+var CLIVersion = func() string { return "dev" }
 
 var (
 	factoryCfg = &factoryConfig{}
@@ -66,7 +74,17 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 		return err
 	}
 
+	manifest := &deps.Manifest{}
+	if v := CLIVersion(); semver.IsValid(v) {
+		manifest.UnobinVersion = v
+	}
+	manifestPath := filepath.Join(cfg.output, deps.ManifestFileName)
+	if err := os.WriteFile(manifestPath, deps.EncodeManifest(manifest), 0o644); err != nil {
+		return err
+	}
+
 	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", factoryPath)
+	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", manifestPath)
 	return nil
 }
 
@@ -78,7 +96,7 @@ inputs: {
 }
 
 imports: {
-  # TODO: declare imports
+  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
 }
 
 resources: {
