@@ -71,15 +71,15 @@ resources: {
         build:    var.build
         replicas: @core.length(var.replicas)
         ports:    [ for r in var.replicas : { number: r.port, tls: r.tls, cert: r.cert } ]
-        path:     @core.format('%s/app.service', var.base-path)
+        path:     $'{{ var.base-path }}/app.service'
       }
     }
   }
   std: {
     fs-file: {
       summary: {
-        path:             @core.format('%s/replicas.txt', var.base-path)
-        content:          @core.format('replicas: %s\n', var.replicas[*].host)
+        path:             $'{{ var.base-path }}/replicas.txt'
+        content:          $'replicas: {{ @core.join(var.replicas[*].host, ', ') }}\n'
         create-directory: true
       }
     }

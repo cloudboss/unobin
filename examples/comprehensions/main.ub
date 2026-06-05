@@ -18,17 +18,20 @@ imports: {
   std: 'github.com/cloudboss/unobin-library-std'
 }
 
+locals: {
+  replicas:     if var.environment == 'prod' then 3 else 1
+  public-names: [ for s in var.services : s.name when s.public ]
+}
+
 resources: {
   std: {
     fs-file: {
       summary: {
         path: var.path
-        content: @core.format(
-          'environment=%s replicas=%d public=%s',
-          var.environment,
-          if var.environment == 'prod' then 3 else 1,
-          [ for s in var.services : s.name when s.public ],
-        )
+        content: $'''\-
+          environment={{ var.environment }} replicas=
+          {{ local.replicas }} public={{ @core.join(local.public-names, ',') }}
+          '''
       }
     }
   }
@@ -43,9 +46,9 @@ actions: {
 }
 
 outputs: {
-  replicas: { value: if var.environment == 'prod' then 3 else 1 }
+  replicas: { value: local.replicas }
 
-  public-names: { value: [ for s in var.services : s.name when s.public ] }
+  public-names: { value: local.public-names }
 
   ports-by-name: { value: { for s in var.services : s.name => s.port } }
 

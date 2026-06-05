@@ -9,7 +9,7 @@ resources: {
     fs-file: {
       this: {
         path:             var.path
-        content:          @core.format('ALERT %s: %s\n', var.topic, var.body)
+        content:          $'ALERT {{ var.topic }}: {{ var.body }}\n'
         create-directory: true
       }
     }

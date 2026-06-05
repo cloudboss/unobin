@@ -12,7 +12,7 @@ resources: {
     fs-file: {
       many: {
         @for-each:        var.files
-        path:             @core.format('%s/%s.txt', var.base-path, @each.key)
+        path:             $'{{ var.base-path }}/{{ @each.key }}.txt'
         content:          @each.value
         create-directory: true
       }
@@ -24,7 +24,7 @@ resources: {
         @for-each: var.files
         topic:     @each.key
         body:      @each.value
-        path:      @core.format('%s/%s.alert', var.base-path, @each.key)
+        path:      $'{{ var.base-path }}/{{ @each.key }}.alert'
       }
     }
   }
@@ -38,11 +38,10 @@ actions: {
         @trigger:  resource.std.fs-file.many[@each.key].sha256
         argv: [
           'echo',
-          @core.format(
-            'wrote %s (sha %s)',
-            resource.std.fs-file.many[@each.key].path,
-            resource.std.fs-file.many[@each.key].sha256,
-          ),
+          $'''\-
+            wrote {{ resource.std.fs-file.many[@each.key].path }} (
+            sha {{ resource.std.fs-file.many[@each.key].sha256 }})
+            ''',
         ]
       }
     }

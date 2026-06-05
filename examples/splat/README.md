@@ -18,7 +18,7 @@ What each piece demonstrates:
 - **nested splat** — `host-ips` projects twice: every zone, and within
   each zone every host's `ip`, giving a list of lists.
 
-The resource `content` also feeds a splat through `format` to list the
+The resource `content` also joins a splat with `@core.join` to list the
 subnet ids in the summary file. A splat must end in a field; a bare
 `var.subnets[*]` is rejected, since it would just be the list itself.
 

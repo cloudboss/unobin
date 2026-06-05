@@ -21,8 +21,9 @@ What each piece demonstrates:
 - **comprehension inside an if-expression** — `prod-names` returns every
   name in prod and an empty list elsewhere.
 
-The resource `content` also combines an if-expression and a filtered
-comprehension through `format`.
+A `locals:` block computes `replicas` and `public-names` once for the
+resource `content` and the outputs to share; the content splices them
+into an interpolated string, joining the names with `@core.join`.
 
 ## Compile
 
