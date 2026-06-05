@@ -53,6 +53,7 @@ const (
 var (
 	factoryVersion  string
 	contentRevision string
+	unobinVersion   string
 )
 
 func main() {
@@ -72,6 +73,7 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }
 `
@@ -116,6 +118,7 @@ const (
 var (
 	factoryVersion  string
 	contentRevision string
+	unobinVersion   string
 )
 
 func main() {
@@ -135,6 +138,7 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }
 `
@@ -185,6 +189,7 @@ const (
 var (
 	factoryVersion  string
 	contentRevision string
+	unobinVersion   string
 )
 
 func main() {
@@ -208,6 +213,7 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }
 `
@@ -254,7 +260,8 @@ func TestGenerateDeclaresStampVars(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, "var (\n\tfactoryVersion  string\n\tcontentRevision string\n)")
+	require.Contains(t, s,
+		"var (\n\tfactoryVersion  string\n\tcontentRevision string\n\tunobinVersion   string\n)")
 }
 
 func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
@@ -335,6 +342,7 @@ const (
 var (
 	factoryVersion  string
 	contentRevision string
+	unobinVersion   string
 )
 
 func main() {
@@ -349,6 +357,7 @@ func main() {
 			"cluster": lib_cluster.Library(),
 			"net":     lib_net.Library(),
 		},
+		UnobinVersion: unobinVersion,
 	})
 }
 `

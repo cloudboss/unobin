@@ -23,10 +23,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// unobinModulePath is the unobin module's path, the one requirement
-// every generated go.mod pins to the compiling CLI's version.
-const unobinModulePath = "github.com/cloudboss/unobin"
-
 var (
 	compileCfg = &compileConfig{}
 	CompileCmd = &cobra.Command{
@@ -123,7 +119,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		return err
 	}
 	if replaceUnobinAbs == "" {
-		if local, ok := replaceMap[deps.Dependency{URL: unobinModulePath}]; ok {
+		if local, ok := replaceMap[deps.Dependency{URL: toolchain.UnobinModulePath}]; ok {
 			abs, err := absReplacePath(stackDir, local)
 			if err != nil {
 				return err
@@ -144,7 +140,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 				"this unobin is a development build with no version to pin; compile with\n" +
 					"  --replace-unobin <path-to-unobin-source>\n" +
 					"or add to unobin.manifest:\n" +
-					"  replace: { '" + unobinModulePath + "': '<path-to-unobin-source>' }")
+					"  replace: { '" + toolchain.UnobinModulePath + "': '<path-to-unobin-source>' }")
 		}
 		unobinVersion = replacedVersion
 	}
@@ -155,7 +151,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 	if replaceUnobinAbs != "" {
 		resolver = &replaceResolver{
-			prefix:  unobinModulePath,
+			prefix:  toolchain.UnobinModulePath,
 			local:   replaceUnobinAbs,
 			wrapped: resolver,
 		}
@@ -244,7 +240,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 
 	replaces := codegen.Replaces{}
 	if replaceUnobinAbs != "" {
-		replaces[unobinModulePath] = replaceUnobinAbs
+		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, extraReplaces)
 	if err := addManifestReplaces(replaces, stackDir, replaceMap, v.importVersions); err != nil {
@@ -377,19 +373,19 @@ func (c *compileVisitor) OnUBLibrary(
 func decideSelectedUnobin(listOutput, expected string) (string, error) {
 	fields := strings.Fields(listOutput)
 	if len(fields) == 0 {
-		return "", fmt.Errorf("cannot read the selected version of %s", unobinModulePath)
+		return "", fmt.Errorf("cannot read the selected version of %s", toolchain.UnobinModulePath)
 	}
 	selected := fields[0]
 	if len(fields) > 1 && fields[1] == "replaced" {
 		return fmt.Sprintf(
 			"notice: %s is replaced; the factory runs the replacement, not %s",
-			unobinModulePath, expected), nil
+			toolchain.UnobinModulePath, expected), nil
 	}
 	if selected != expected {
 		return "", fmt.Errorf(
 			"the build selected %s %s but this unobin is %s; a dependency requires"+
 				" the newer runtime, so upgrade unobin to %s or replace the repo locally",
-			unobinModulePath, selected, expected, selected)
+			toolchain.UnobinModulePath, selected, expected, selected)
 	}
 	return "", nil
 }
@@ -399,11 +395,11 @@ func decideSelectedUnobin(listOutput, expected string) (string, error) {
 // writing any notice to the command's error stream.
 func verifySelectedUnobin(cmd *cobra.Command, goBin, dir, expected string) error {
 	list := exec.Command(goBin, "list", "-m",
-		"-f", "{{.Version}}{{if .Replace}} replaced{{end}}", unobinModulePath)
+		"-f", "{{.Version}}{{if .Replace}} replaced{{end}}", toolchain.UnobinModulePath)
 	list.Dir = dir
 	out, err := list.Output()
 	if err != nil {
-		return fmt.Errorf("go list -m %s failed: %w", unobinModulePath, err)
+		return fmt.Errorf("go list -m %s failed: %w", toolchain.UnobinModulePath, err)
 	}
 	notice, err := decideSelectedUnobin(string(out), expected)
 	if err != nil {
@@ -438,8 +434,9 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName, version, expectedUnobin str
 		return err
 	}
 
-	ldflags := fmt.Sprintf("-X main.factoryVersion=%s -X main.contentRevision=%s",
-		version, revision)
+	ldflags := fmt.Sprintf(
+		"-X main.factoryVersion=%s -X main.contentRevision=%s -X main.unobinVersion=%s",
+		version, revision, expectedUnobin)
 	build := exec.Command(goBin, "build", "-ldflags", ldflags, "-o", binaryName, ".")
 	build.Dir = dir
 	build.Stdout = cmd.OutOrStdout()

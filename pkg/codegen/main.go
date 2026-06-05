@@ -234,6 +234,7 @@ const (
 var (
 	factoryVersion  string
 	contentRevision string
+	unobinVersion   string
 )
 
 func main() {
@@ -251,6 +252,7 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 {{else -}}
 	runner.Run(runner.Info{
@@ -263,6 +265,7 @@ func main() {
 {{range .Aliases}}			{{quote .}}: lib_{{.}}.Library(),
 {{end}}{{range .UBAliases}}			{{quote .}}: lib_{{.}}.Library(),
 {{end}}		},
+		UnobinVersion: unobinVersion,
 	})
 {{end -}}
 }

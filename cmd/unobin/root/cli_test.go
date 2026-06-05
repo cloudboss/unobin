@@ -416,7 +416,8 @@ actions: {
 
 	require.Contains(t, out, "package main")
 	require.Contains(t, out, `factoryName        = "demo-factory"`)
-	require.Contains(t, out, "var (\n\tfactoryVersion  string\n\tcontentRevision string\n)")
+	require.Contains(t, out,
+		"var (\n\tfactoryVersion  string\n\tcontentRevision string\n\tunobinVersion   string\n)")
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/core"`)
 }
 
@@ -1152,6 +1153,7 @@ const (
 var (
 	factoryVersion  string
 	contentRevision string
+	unobinVersion   string
 )
 
 func main() {
@@ -1164,6 +1166,7 @@ func main() {
 		Libraries: map[string]*runtime.Library{
 			"net": lib_net.Library(),
 		},
+		UnobinVersion: unobinVersion,
 	})
 }
 `

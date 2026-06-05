@@ -43,11 +43,21 @@ type Info struct {
 	FactoryBody     string
 	LibraryPath     string
 	Libraries       map[string]*runtime.Library
+
+	// UnobinVersion is the unobin version the factory was compiled
+	// against, stamped at link time the way FactoryVersion is. Run
+	// refuses to start when the binary links a different one; empty
+	// (built outside the CLI) checks nothing.
+	UnobinVersion string
 }
 
 // Run builds the cobra command tree and executes it. The process exits
 // with status code 1 on error.
 func Run(info Info) {
+	if err := verifyLinkedUnobin(info.UnobinVersion); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	root := newRootCmd(info)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

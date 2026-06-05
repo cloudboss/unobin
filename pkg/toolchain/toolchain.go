@@ -10,6 +10,11 @@ import (
 	"github.com/cloudboss/cachedeps"
 )
 
+// UnobinModulePath is the unobin module's path: the one requirement
+// every generated go.mod pins to the compiling CLI's version, and the
+// dependency a factory checks its own build info for at startup.
+const UnobinModulePath = "github.com/cloudboss/unobin"
+
 // Go is the pinned Go toolchain `unobin compile` invokes when building
 // factory binaries. Bumping the version means updating both the URL and
 // the SHA256 for every supported platform.
