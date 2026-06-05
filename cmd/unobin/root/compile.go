@@ -163,6 +163,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	goImports := make(map[string]string, len(top))
 	ubImports := make(map[string]string, len(top))
 	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(top))
+	goDefaults := make(map[string]map[string][]lang.DefaultSpec, len(top))
 	libs := make(map[string]*ubruntime.Library, len(top))
 	for _, res := range top {
 		switch res.Kind {
@@ -176,6 +177,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 			libs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
 			if c := constraintsFromSchema(schema); len(c) > 0 {
 				goConstraints[res.LocalAlias] = c
+			}
+			if d := defaultsFromSchema(schema); len(d) > 0 {
+				goDefaults[res.LocalAlias] = d
 			}
 		case resolve.ResolutionUB:
 			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
@@ -196,6 +200,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		GoImports:     goImports,
 		UBImports:     ubImports,
 		GoConstraints: goConstraints,
+		GoDefaults:    goDefaults,
 	}
 
 	if cfg.outDir == "-" {
@@ -522,14 +527,32 @@ func absReplacePath(root, path string) (string, error) {
 // one map keyed by "<kind>.<type>", the form codegen embeds and the plan
 // looks up. Returns nil when no type in the library declares a constraint.
 func constraintsFromSchema(schema *ubruntime.LibrarySchema) map[string][]lang.ConstraintSpec {
+	return typeSpecsFromSchema(schema, func(ts *ubruntime.TypeSchema) []lang.ConstraintSpec {
+		return ts.Constraints
+	})
+}
+
+// defaultsFromSchema flattens a Go library's per-type declared defaults
+// the same way constraintsFromSchema flattens constraints.
+func defaultsFromSchema(schema *ubruntime.LibrarySchema) map[string][]lang.DefaultSpec {
+	return typeSpecsFromSchema(schema, func(ts *ubruntime.TypeSchema) []lang.DefaultSpec {
+		return ts.Defaults
+	})
+}
+
+// typeSpecsFromSchema flattens one kind of per-type spec into a map
+// keyed by "<kind>.<type>". Returns nil when no type declares any.
+func typeSpecsFromSchema[T any](
+	schema *ubruntime.LibrarySchema, pick func(*ubruntime.TypeSchema) []T,
+) map[string][]T {
 	if schema == nil {
 		return nil
 	}
-	out := map[string][]lang.ConstraintSpec{}
+	out := map[string][]T{}
 	add := func(kind ubruntime.NodeKind, types map[string]*ubruntime.TypeSchema) {
 		for typ, ts := range types {
-			if len(ts.Constraints) > 0 {
-				out[string(kind)+"."+typ] = ts.Constraints
+			if specs := pick(ts); len(specs) > 0 {
+				out[string(kind)+"."+typ] = specs
 			}
 		}
 	}
