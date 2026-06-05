@@ -267,7 +267,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		}
 	}
 	if cfg.build {
-		return runGoBuild(cmd, cfg.outDir, name, cfg.version)
+		return runGoBuild(cmd, cfg.outDir, name, cfg.version, unobinVersion)
 	}
 	return nil
 }
@@ -367,7 +367,55 @@ func (c *compileVisitor) OnUBLibrary(
 	return nil
 }
 
-func runGoBuild(cmd *cobra.Command, dir, binaryName, version string) error {
+// decideSelectedUnobin reads `go list -m` output for the unobin module
+// after tidy and decides whether the build may proceed. A replaced
+// module is the development escape: the build proceeds and the notice
+// says the binary runs the replacement. Otherwise the selected version
+// must equal the version this CLI pinned; a dependency's go.mod can
+// raise the selection above it, and that build would link a runtime
+// the compile checks never saw.
+func decideSelectedUnobin(listOutput, expected string) (string, error) {
+	fields := strings.Fields(listOutput)
+	if len(fields) == 0 {
+		return "", fmt.Errorf("cannot read the selected version of %s", unobinModulePath)
+	}
+	selected := fields[0]
+	if len(fields) > 1 && fields[1] == "replaced" {
+		return fmt.Sprintf(
+			"notice: %s is replaced; the factory runs the replacement, not %s",
+			unobinModulePath, expected), nil
+	}
+	if selected != expected {
+		return "", fmt.Errorf(
+			"the build selected %s %s but this unobin is %s; a dependency requires"+
+				" the newer runtime, so upgrade unobin to %s or replace the repo locally",
+			unobinModulePath, selected, expected, selected)
+	}
+	return "", nil
+}
+
+// verifySelectedUnobin asks the Go toolchain which unobin version the
+// tidied module graph selected and applies decideSelectedUnobin to it,
+// writing any notice to the command's error stream.
+func verifySelectedUnobin(cmd *cobra.Command, goBin, dir, expected string) error {
+	list := exec.Command(goBin, "list", "-m",
+		"-f", "{{.Version}}{{if .Replace}} replaced{{end}}", unobinModulePath)
+	list.Dir = dir
+	out, err := list.Output()
+	if err != nil {
+		return fmt.Errorf("go list -m %s failed: %w", unobinModulePath, err)
+	}
+	notice, err := decideSelectedUnobin(string(out), expected)
+	if err != nil {
+		return err
+	}
+	if notice != "" {
+		fmt.Fprintln(cmd.ErrOrStderr(), notice)
+	}
+	return nil
+}
+
+func runGoBuild(cmd *cobra.Command, dir, binaryName, version, expectedUnobin string) error {
 	goBin, err := toolchain.Ensure(cmd.ErrOrStderr())
 	if err != nil {
 		return err
@@ -379,6 +427,10 @@ func runGoBuild(cmd *cobra.Command, dir, binaryName, version string) error {
 	tidy.Stderr = cmd.ErrOrStderr()
 	if err := tidy.Run(); err != nil {
 		return fmt.Errorf("go mod tidy failed: %w", err)
+	}
+
+	if err := verifySelectedUnobin(cmd, goBin, dir, expectedUnobin); err != nil {
+		return err
 	}
 
 	revision, err := codegen.ContentRevision(dir)

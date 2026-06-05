@@ -668,6 +668,88 @@ func TestCompileBuildStampsVersion(t *testing.T) {
 		got)
 }
 
+func TestDecideSelectedUnobin(t *testing.T) {
+	tests := []struct {
+		name       string
+		listOutput string
+		expected   string
+		wantNotice string
+		wantErr    string
+	}{
+		{
+			name:       "selected equals expected",
+			listOutput: "v0.1.0\n",
+			expected:   "v0.1.0",
+		},
+		{
+			name:       "replaced module proceeds with a notice",
+			listOutput: "v0.0.0 replaced\n",
+			expected:   "v0.0.0",
+			wantNotice: "replaced",
+		},
+		{
+			name:       "replaced module proceeds even when the version differs",
+			listOutput: "v0.2.0 replaced\n",
+			expected:   "v0.1.0",
+			wantNotice: "replaced",
+		},
+		{
+			name:       "newer selection without replace is refused",
+			listOutput: "v0.2.0\n",
+			expected:   "v0.1.0",
+			wantErr:    "upgrade unobin to v0.2.0",
+		},
+		{
+			name:       "unreadable output is refused",
+			listOutput: "",
+			expected:   "v0.1.0",
+			wantErr:    "selected version",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notice, err := decideSelectedUnobin(tt.listOutput, tt.expected)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantNotice == "" {
+				require.Empty(t, notice)
+			} else {
+				require.Contains(t, notice, tt.wantNotice)
+			}
+		})
+	}
+}
+
+// TestCompileBuildNoticesReplacedUnobin proves the post-tidy version
+// check runs on the build path and reports the replacement rather than
+// failing, since a replaced unobin is the development escape.
+func TestCompileBuildNoticesReplacedUnobin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipped: spawns `go build` and is slow")
+	}
+	rootDir := findUnobinRoot(t)
+
+	srcDir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(srcDir, 0o755))
+	factoryPath := filepath.Join(srcDir, "main.ub")
+	require.NoError(t, os.WriteFile(factoryPath,
+		[]byte("description: 'minimal'\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	out, err := runCommand(t, "compile",
+		"-p", factoryPath,
+		"-o", outDir,
+		"--build",
+		"--replace-unobin", rootDir,
+	)
+	require.NoError(t, err)
+	require.Contains(t, out, "github.com/cloudboss/unobin is replaced")
+}
+
 // findUnobinRoot walks up from the test's working directory looking
 // for a go.mod naming the unobin module. The compile --build path
 // needs this so it can pin the runtime via a local replace directive
