@@ -501,8 +501,10 @@ actions: {
   core: {
     echo: {
       summary: {
-        echo: @core.format('size=%d spot=%v ratio=%v subnets=%v',
-          var.size, var.use-spot, var.ratio, var.subnets)
+        echo: $'''\-
+          size={{ var.size }} spot={{ var.use-spot }} ratio={{ var.ratio }}
+           subnets={{ @core.join(var.subnets, ',') }}
+          '''
       }
     }
   }
@@ -520,7 +522,7 @@ outputs: {
 
 	out := applyVia(t, info, "")
 	require.Contains(t, out,
-		`said: 'size=5 spot=true ratio=1.5 subnets=[\'subnet-a\', \'subnet-b\']'`)
+		"said: 'size=5 spot=true ratio=1.5 subnets=subnet-a,subnet-b'")
 }
 
 func TestPlanRejectsTypeMismatch(t *testing.T) {
@@ -574,7 +576,7 @@ imports: {
 }
 actions: {
   core: {
-    echo: { hi: { echo: @core.format('size=%d', var.size) } }
+    echo: { hi: { echo: $'size={{ var.size }}' } }
   }
 }
 outputs: {

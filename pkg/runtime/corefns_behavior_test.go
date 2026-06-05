@@ -16,29 +16,6 @@ func evalCore(t *testing.T, src string, vars map[string]any) (any, error) {
 	return Eval(f.Body.Fields[0].Value, &EvalContext{Vars: vars})
 }
 
-func TestFunctionFormat(t *testing.T) {
-	vars := map[string]any{"region": "us-east-1", "name": "web"}
-	cases := []struct{ src, want string }{
-		{"@core.format('hello')", "hello"},
-		{"@core.format('%s', 'world')", "world"},
-		{"@core.format('%s-%s', var.region, var.name)", "us-east-1-web"},
-		{"@core.format('%d items', 3)", "3 items"},
-	}
-	for _, c := range cases {
-		t.Run(c.src, func(t *testing.T) {
-			got, err := evalCore(t, c.src, vars)
-			require.NoError(t, err)
-			require.Equal(t, c.want, got)
-		})
-	}
-}
-
-func TestFunctionFormatNonStringFirst(t *testing.T) {
-	_, err := evalCore(t, "@core.format(1, 'x')", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "format: argument 1 must be a string, got an integer")
-}
-
 func TestFunctionB64Encode(t *testing.T) {
 	got, err := evalCore(t, "@core.b64-encode('hello')", nil)
 	require.NoError(t, err)
@@ -119,26 +96,9 @@ func TestFunctionLengthTypeError(t *testing.T) {
 }
 
 func TestFunctionNested(t *testing.T) {
-	got, err := evalCore(t, "@core.format('%s', @core.b64-encode('plain'))", nil)
+	got, err := evalCore(t, "@core.join(['x', @core.b64-encode('plain')], '-')", nil)
 	require.NoError(t, err)
-	require.Equal(t, "cGxhaW4=", got)
-}
-
-func TestFunctionFormatComposites(t *testing.T) {
-	cases := []struct{ src, want string }{
-		{"@core.format('%s', [1, 2, 3])", "[1, 2, 3]"},
-		{"@core.format('%s', ['a', 'b'])", "['a', 'b']"},
-		{"@core.format('%s', { a: 1, b: 2 })", "{ a: 1, b: 2 }"},
-		{"@core.format('list=%s', [])", "list=[]"},
-		{"@core.format('subnets=%v', ['subnet-a', 'subnet-b'])", "subnets=['subnet-a', 'subnet-b']"},
-	}
-	for _, c := range cases {
-		t.Run(c.src, func(t *testing.T) {
-			got, err := evalCore(t, c.src, nil)
-			require.NoError(t, err)
-			require.Equal(t, c.want, got)
-		})
-	}
+	require.Equal(t, "x-cGxhaW4=", got)
 }
 
 func TestFunctionJoin(t *testing.T) {

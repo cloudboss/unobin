@@ -282,7 +282,7 @@ outputs: {
 func TestValidateAdmitsCoreNamespaceCall(t *testing.T) {
 	src := `
 outputs: {
-  shout: { value: @core.format('%s', 'hi') }
+  shout: { value: @core.b64-encode('hi') }
 }
 `
 	f, err := ParseSource("main.ub", []byte(src))

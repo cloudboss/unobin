@@ -23,9 +23,6 @@ var coreRegistrations = []struct {
 	description string
 	fn          any
 }{
-	{"format",
-		"Printf-style string formatting; the first argument is the format string.",
-		fnFormat},
 	{"join",
 		"Join a list's elements into one string with a separator between elements.",
 		fnJoin},
@@ -105,30 +102,6 @@ func typeFromReflect(t reflect.Type) typecheck.Type {
 		return typecheck.TMap(typeFromReflect(t.Elem()))
 	}
 	return typecheck.TUnknown()
-}
-
-// fnFormat is the canonical interpolation helper: a printf-style format
-// string followed by zero or more values. Verbs are Go's fmt package
-// verbs, so %s accepts a string and %d an integer. Lists and maps are
-// pre-rendered as UB literals so an operator sees ['a', 'b'] instead of
-// Go's space-separated [a b] form.
-func fnFormat(f string, args ...any) (string, error) {
-	rendered := make([]any, len(args))
-	for i, a := range args {
-		rendered[i] = renderForFormat(a)
-	}
-	return fmt.Sprintf(f, rendered...), nil
-}
-
-// renderForFormat returns lists and maps as UB literal strings so they
-// print readably, and leaves primitives alone so type-specific verbs
-// like %d still work.
-func renderForFormat(v any) any {
-	switch v.(type) {
-	case []any, map[string]any:
-		return lang.Render(v)
-	}
-	return v
 }
 
 // fnJoin joins a list's elements with sep between them. Elements render

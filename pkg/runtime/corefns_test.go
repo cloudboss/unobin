@@ -26,8 +26,6 @@ func TestEvalCoreNamespace(t *testing.T) {
 		src  string
 		want any
 	}{
-		{"format", `@core.format('%s-%d', 'a', 2)`, "a-2"},
-		{"format renders a list as a literal", `@core.format('%s', ['a', 'b'])`, "['a', 'b']"},
 		{"join", `@core.join(['a', 'b'], '-')`, "a-b"},
 		{"to-json", `@core.to-json({ b: 2, a: 1 })`, `{"a":1,"b":2}`},
 		{"length of a string", `@core.length('abc')`, int64(3)},
@@ -78,19 +76,14 @@ func TestCoreFunctionSet(t *testing.T) {
 	}
 	sort.Strings(names)
 	require.Equal(t, []string{
-		"all", "any", "b64-decode", "b64-encode", "format", "join", "length",
-		"range", "to-json",
+		"all", "any", "b64-decode", "b64-encode", "join", "length", "range",
+		"to-json",
 	}, names)
 
 	sigs := CoreFunctionSigs()
 	require.Len(t, sigs["length"].Params, 1)
 	require.Nil(t, sigs["length"].Variadic)
 	require.True(t, sigs["length"].Result.Equal(typecheck.TInteger()))
-
-	require.Len(t, sigs["format"].Params, 1)
-	require.True(t, sigs["format"].Params[0].Equal(typecheck.TString()))
-	require.NotNil(t, sigs["format"].Variadic)
-	require.True(t, sigs["format"].Result.Equal(typecheck.TString()))
 
 	require.Len(t, sigs["join"].Params, 2)
 	require.True(t, sigs["join"].Params[0].Equal(typecheck.TList(typecheck.TAny())))

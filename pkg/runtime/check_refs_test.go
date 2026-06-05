@@ -171,10 +171,9 @@ func TestCheckReferencesCoreNamespace(t *testing.T) {
 		call string
 		want string
 	}{
-		{"known function", "@core.format('%s', 'hi')", ""},
+		{"known function", "@core.join(['hi'], ',')", ""},
 		{"unknown function", "@core.frobnicate('x')", `@core has no function "frobnicate"`},
 		{"fixed arity violation", "@core.length('a', 'b')", "@core.length takes 1 argument, got 2"},
-		{"variadic arity violation", "@core.format()", "@core.format takes at least 1 argument, got 0"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
