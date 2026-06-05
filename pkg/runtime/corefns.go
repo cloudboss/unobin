@@ -2,8 +2,10 @@ package runtime
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
@@ -24,6 +26,10 @@ var coreRegistrations = []struct {
 	{"format",
 		"Printf-style string formatting; the first argument is the format string.",
 		fnFormat},
+	{"join",
+		"Join a list's elements into one string with a separator between elements.",
+		fnJoin},
+	{"to-json", "Render a value as compact JSON.", fnToJSON},
 	{"b64-encode", "Base64-encode a string.", fnB64Encode},
 	{"b64-decode", "Base64-decode a string.", fnB64Decode},
 	{"range", "Return the integers [0, n) as a list.", fnRange},
@@ -123,6 +129,38 @@ func renderForFormat(v any) any {
 		return lang.Render(v)
 	}
 	return v
+}
+
+// fnJoin joins a list's elements with sep between them. Elements render
+// with the same rules as an interpolation slot, so a null or composite
+// element is an error naming its index.
+func fnJoin(elems []any, sep string) (string, error) {
+	parts := make([]string, len(elems))
+	for i, el := range elems {
+		switch el.(type) {
+		case nil:
+			return "", fmt.Errorf("join: element %d is null", i)
+		case []any, map[string]any:
+			return "", fmt.Errorf(
+				"join: element %d must be a scalar, got %s", i, lang.TypeMessage(el))
+		}
+		parts[i] = renderScalar(el)
+	}
+	return strings.Join(parts, sep), nil
+}
+
+// fnToJSON renders a value as compact JSON on one line. Object keys
+// come out sorted, so the result is deterministic. HTML escaping is
+// off so < > & pass through untouched; the output goes into rendered
+// configuration, not web pages.
+func fnToJSON(v any) (string, error) {
+	var b strings.Builder
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return "", fmt.Errorf("to-json: %w", err)
+	}
+	return strings.TrimSuffix(b.String(), "\n"), nil
 }
 
 func fnB64Encode(s string) (string, error) {

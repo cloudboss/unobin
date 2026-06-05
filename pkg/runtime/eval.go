@@ -314,17 +314,25 @@ func interpolatedSlot(v any, verb string) (string, error) {
 	if verb != "" {
 		return fmt.Sprintf(verb, v), nil
 	}
+	return renderScalar(v), nil
+}
+
+// renderScalar returns a scalar value as text, the rendering an
+// interpolation slot without a verb uses. @core.join renders elements
+// through it too, so a joined element and a slot agree on what a value
+// looks like as text.
+func renderScalar(v any) string {
 	switch x := v.(type) {
 	case string:
-		return x, nil
+		return x
 	case bool:
-		return strconv.FormatBool(x), nil
+		return strconv.FormatBool(x)
 	case int64:
-		return strconv.FormatInt(x, 10), nil
+		return strconv.FormatInt(x, 10)
 	case float64:
-		return strconv.FormatFloat(x, 'g', -1, 64), nil
+		return strconv.FormatFloat(x, 'g', -1, 64)
 	default:
-		return fmt.Sprintf("%v", v), nil
+		return fmt.Sprintf("%v", v)
 	}
 }
 

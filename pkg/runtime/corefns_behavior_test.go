@@ -141,6 +141,115 @@ func TestFunctionFormatComposites(t *testing.T) {
 	}
 }
 
+func TestFunctionJoin(t *testing.T) {
+	vars := map[string]any{
+		"hosts": []any{"web-1", "web-2", "web-3"},
+		"ports": []any{int64(80), int64(443)},
+	}
+	cases := []struct{ src, want string }{
+		{"@core.join(['a', 'b', 'c'], ', ')", "a, b, c"},
+		{"@core.join(['only'], ', ')", "only"},
+		{"@core.join([], ', ')", ""},
+		{"@core.join(['a', 'b'], '')", "ab"},
+		{"@core.join(['a', 'b'], ' -> ')", "a -> b"},
+		{"@core.join([1, 2, 3], '-')", "1-2-3"},
+		{"@core.join([true, false], ' ')", "true false"},
+		{"@core.join([1.5, 2.0], ',')", "1.5,2"},
+		{"@core.join(['a', 1, true], ' ')", "a 1 true"},
+		{"@core.join(var.hosts, ', ')", "web-1, web-2, web-3"},
+		{"@core.join(var.ports, ':')", "80:443"},
+		{"@core.join(@core.range(3), '+')", "0+1+2"},
+		{"@core.join([for h in var.hosts: h when h != 'web-2'], '/')", "web-1/web-3"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, vars)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+// TestFunctionJoinMatchesSlotRendering proves a joined element and an
+// interpolation slot turn the same scalar into the same text.
+func TestFunctionJoinMatchesSlotRendering(t *testing.T) {
+	scalars := []any{"text", true, false, int64(42), 1.25, 2.0}
+	for _, v := range scalars {
+		vars := map[string]any{"x": v}
+		joined, err := evalCore(t, "@core.join([var.x], '')", vars)
+		require.NoError(t, err)
+		slotted, err := evalCore(t, "$'{{ var.x }}'", vars)
+		require.NoError(t, err)
+		require.Equal(t, slotted, joined)
+	}
+}
+
+func TestFunctionJoinNullElement(t *testing.T) {
+	_, err := evalCore(t, "@core.join(['a', null, 'c'], ',')", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "join: element 1 is null")
+}
+
+func TestFunctionJoinCompositeElement(t *testing.T) {
+	vars := map[string]any{"xs": []any{"a", []any{"b"}}}
+	_, err := evalCore(t, "@core.join(var.xs, ',')", vars)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "join: element 1 must be a scalar, got a list")
+}
+
+func TestFunctionJoinNonListFirst(t *testing.T) {
+	_, err := evalCore(t, "@core.join('a', ',')", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "join: argument 1 must be a list, got a string")
+}
+
+func TestFunctionJoinNonStringSeparator(t *testing.T) {
+	_, err := evalCore(t, "@core.join(['a'], 1)", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "join: argument 2 must be a string, got an integer")
+}
+
+func TestFunctionToJSON(t *testing.T) {
+	vars := map[string]any{"missing": nil}
+	cases := []struct{ src, want string }{
+		{"@core.to-json('hi')", `"hi"`},
+		{`@core.to-json('with \'quote\'')`, `"with 'quote'"`},
+		{`@core.to-json('a\nb')`, `"a\nb"`},
+		{"@core.to-json('a<b>&c')", `"a<b>&c"`},
+		{"@core.to-json(1)", "1"},
+		{"@core.to-json(1.5)", "1.5"},
+		{"@core.to-json(true)", "true"},
+		{"@core.to-json(null)", "null"},
+		{"@core.to-json(var.missing)", "null"},
+		{"@core.to-json([])", "[]"},
+		{"@core.to-json(['a', 'b'])", `["a","b"]`},
+		{"@core.to-json([1, [2, 3]])", "[1,[2,3]]"},
+		{"@core.to-json({})", "{}"},
+		{"@core.to-json({ b: 2, a: 1 })", `{"a":1,"b":2}`},
+		{"@core.to-json({ a: [1, 2], b: { c: true } })", `{"a":[1,2],"b":{"c":true}}`},
+		{"@core.to-json({ note: null })", `{"note":null}`},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, vars)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+// TestFunctionToJSONDeterministic proves object keys come out sorted,
+// so repeated rendering of the same value is byte-identical.
+func TestFunctionToJSONDeterministic(t *testing.T) {
+	src := "@core.to-json({ e: 5, a: 1, d: { z: 26, m: 13 }, c: [3], b: 2 })"
+	want := `{"a":1,"b":2,"c":[3],"d":{"m":13,"z":26},"e":5}`
+	for range 20 {
+		got, err := evalCore(t, src, nil)
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
+}
+
 func TestFunctionAll(t *testing.T) {
 	cases := []struct {
 		src  string
