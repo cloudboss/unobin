@@ -36,8 +36,14 @@ type Thing struct {
 }
 
 type Item struct {
-	A *string
-	B *string
+	A    *string
+	B    *string
+	Subs []Sub
+}
+
+type Sub struct {
+	C *string
+	D *string
 }
 
 type ThingOutput struct {
@@ -475,6 +481,117 @@ func (v Thing) Constraints() []constraint.Constraint {
 	_, _, err := readConstraintLibrary(t, src)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "scalar")
+}
+
+// TestReadExtractsNestedForEachSetConstraints proves an inner ForEach
+// lowers its set constraints to fields splatting both lists, which the
+// checker expands element by element at each level. A reference to the
+// receiver still names a top-level field.
+func TestReadExtractsNestedForEachSetConstraints(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Subs, func(s Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.ExactlyOneOf(s.C, s.D).Message("pick one"),
+						constraint.RequiredWith(s.C, v.Name),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind: "exactly-one-of",
+			Fields: []string{
+				"var.items[*].subs[*].c",
+				"var.items[*].subs[*].d",
+			},
+			Message: "pick one",
+		},
+		{
+			Kind: "required-with",
+			Fields: []string{
+				"var.items[*].subs[*].c",
+				"var.name",
+			},
+		},
+	}, schema.Resources["thing"].Constraints)
+}
+
+// TestReadRejectsPredicateInNestedForEach proves a predicate cannot
+// iterate two lists yet: only set constraints lower through a nested
+// ForEach.
+func TestReadRejectsPredicateInNestedForEach(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Subs, func(s Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.Must(constraint.Present(s.C)),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	_, _, err := readConstraintLibrary(t, src)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "a predicate inside a nested ForEach is not supported")
+}
+
+// TestNestedForEachChecksAgainstValues proves the multi-splat fields
+// judge real nested values, naming the failing element at both levels.
+func TestNestedForEachChecksAgainstValues(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Subs, func(s Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.ExactlyOneOf(s.C, s.D).Message("pick one"),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	schema, _, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	entries, perr := lang.ParseSpecs(schema.Resources["thing"].Constraints)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	good := map[string]any{"items": []any{
+		map[string]any{"subs": []any{map[string]any{"c": "x"}}},
+		map[string]any{"subs": []any{}},
+		map[string]any{},
+	}}
+	ok := lang.CheckConstraintEntries(entries, good, nil, lang.DisplayNodeRelative)
+	require.Equal(t, 0, ok.Len(), "valid nested values pass: %v", ok.Err())
+
+	bad := map[string]any{"items": []any{
+		map[string]any{"subs": []any{map[string]any{"c": "x"}}},
+		map[string]any{"subs": []any{
+			map[string]any{"c": "x"},
+			map[string]any{"c": "x", "d": "y"},
+		}},
+	}}
+	got := lang.CheckConstraintEntries(entries, bad, nil, lang.DisplayNodeRelative)
+	require.Equal(t, 1, got.Len(), "one violation expected: %v", got.Err())
+	require.Contains(t, got.Err().Error(),
+		"got 2 (items[1].subs[1].c, items[1].subs[1].d)")
 }
 
 func TestReadKeepsUnknownConstraintFieldAsError(t *testing.T) {

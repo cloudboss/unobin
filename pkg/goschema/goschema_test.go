@@ -168,19 +168,6 @@ type Item struct {
 		method  string
 		wantErr string
 	}{
-		{"ForEach inside ForEach",
-			`func (v T) Constraints() []constraint.Constraint {
-	return []constraint.Constraint{
-		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
-			return []constraint.Constraint{
-				constraint.ForEach(v.Items, func(in Item) []constraint.Constraint {
-					return nil
-				}),
-			}
-		}),
-	}
-}`,
-			"a ForEach inside a ForEach is not supported"},
 		{"message on ForEach",
 			`func (v T) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{

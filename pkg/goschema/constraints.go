@@ -245,9 +245,18 @@ func (w *walker) isForEachCall(call *ast.CallExpr) bool {
 // [*], running through the per-element field expansion; a predicate
 // renders the element as @each.value with the list as the spec's
 // @for-each, running through the iterating predicate check. References
-// to the receiver still name top-level fields either way. A nested
-// ForEach records an error.
+// to the receiver still name top-level fields either way. An inner
+// ForEach lowers its set constraints with every enclosing list
+// splatted, which the checker expands level by level; a predicate
+// cannot iterate two lists, so one inside an inner ForEach is an
+// error.
 func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.ConstraintSpec {
+	return w.forEachSpecsAt(call, scope, false)
+}
+
+func (w *walker) forEachSpecsAt(
+	call *ast.CallExpr, scope constraintScope, nested bool,
+) []lang.ConstraintSpec {
 	if len(call.Args) != 2 {
 		w.addErrf("ForEach takes a list field and a function")
 		return nil
@@ -280,26 +289,41 @@ func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.
 
 	var out []lang.ConstraintSpec
 	for _, c := range w.listReturnCalls(fl.Body, "ForEach body", "constraint", "pkg/constraint") {
-		if w.isForEachCall(c) {
-			w.addErrf("a ForEach inside a ForEach is not supported")
+		base, message, _ := peelMessage(c)
+		if w.isForEachCall(base) {
+			if message != "" {
+				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
+				continue
+			}
+			if elem.scalar {
+				w.addErrf("cannot iterate inside %q; its elements are scalars", listPath)
+				continue
+			}
+			out = append(out, w.forEachSpecsAt(base, innerSet, true)...)
 			continue
 		}
-		if elem.scalar && !isPredicateCall(c) {
+		if isPredicateCall(c) {
+			if nested {
+				w.addErrf("a predicate inside a nested ForEach is not supported")
+				continue
+			}
+			spec, ok := w.specFromCall(c, innerEach)
+			if !ok {
+				continue
+			}
+			spec.ForEach = listPath
+			out = append(out, spec)
+			continue
+		}
+		if elem.scalar {
 			w.addErrf(
 				"a set constraint cannot iterate %q; its elements are scalars with no fields",
 				listPath)
 			continue
 		}
-		inner := innerSet
-		if isPredicateCall(c) {
-			inner = innerEach
-		}
-		spec, ok := w.specFromCall(c, inner)
+		spec, ok := w.specFromCall(c, innerSet)
 		if !ok {
 			continue
-		}
-		if spec.Kind == "predicate" {
-			spec.ForEach = listPath
 		}
 		out = append(out, spec)
 	}
