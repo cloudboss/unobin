@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -77,19 +78,12 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	if cfg.replaceUnobin != "" {
-		abs, err := filepath.Abs(cfg.replaceUnobin)
-		if err != nil {
-			return err
-		}
-		resolver = &replaceResolver{
-			prefix:  "github.com/cloudboss/unobin",
-			local:   abs,
-			wrapped: resolver,
-		}
+	resolver, err = compile.WrapReplaces(resolver, "", cfg.replaceUnobin, nil)
+	if err != nil {
+		return err
 	}
 
-	repoVersions, err := lockedVersions(filepath.Dir(cfg.stackPath))
+	repoVersions, err := compile.LockedVersions(filepath.Dir(cfg.stackPath))
 	if err != nil {
 		return err
 	}
@@ -107,7 +101,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	case "plain":
 		graphprint.Plain(out, dag)
 	case "dot":
-		graphprint.DOT(out, dag, deriveStackName(cfg.stackPath))
+		graphprint.DOT(out, dag, compile.DeriveStackName(cfg.stackPath))
 	default:
 		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", cfg.format)
 	}
@@ -131,11 +125,11 @@ func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolve
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
-			schema, warnings, err := readGoSchema(res.SourcePath)
+			schema, warnings, err := compile.ReadGoSchema(res.SourcePath)
 			if err != nil {
 				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
-			printSchemaWarnings(warnOut, res.LocalAlias, warnings)
+			compile.PrintSchemaWarnings(warnOut, res.LocalAlias, warnings)
 			out[res.LocalAlias] = &runtime.Library{Schema: schema}
 		case resolve.ResolutionUB:
 			out[res.LocalAlias] = v.byKey[res.CanonicalKey]
@@ -166,13 +160,13 @@ func (g *graphVisitor) OnUBLibrary(
 		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, warnings, err := readGoSchema(res.SourcePath)
+				schema, warnings, err := compile.ReadGoSchema(res.SourcePath)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",
 						name, res.LocalAlias, err)
 				}
-				printSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
+				compile.PrintSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
 				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
 			case resolve.ResolutionUB:
 				bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]

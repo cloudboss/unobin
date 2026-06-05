@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/git"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -324,32 +325,5 @@ func newDepsResolver(
 	if err != nil {
 		return nil, err
 	}
-	return wrapReplaces(resolver, root, replaceUnobin, replace)
-}
-
-// wrapReplaces wraps resolver so that --replace-unobin and each manifest
-// replace entry resolve to a local directory instead of fetching. Replace
-// paths are taken relative to the project root.
-func wrapReplaces(
-	resolver resolve.Resolver, root, replaceUnobin string, replace map[deps.Dependency]string,
-) (resolve.Resolver, error) {
-	if replaceUnobin != "" {
-		abs, err := filepath.Abs(replaceUnobin)
-		if err != nil {
-			return nil, err
-		}
-		resolver = &replaceResolver{
-			prefix:  "github.com/cloudboss/unobin",
-			local:   abs,
-			wrapped: resolver,
-		}
-	}
-	for dep, path := range replace {
-		abs, err := absReplacePath(root, path)
-		if err != nil {
-			return nil, err
-		}
-		resolver = &replaceResolver{prefix: dep.URL, local: abs, wrapped: resolver}
-	}
-	return resolver, nil
+	return compile.WrapReplaces(resolver, root, replaceUnobin, replace)
 }
