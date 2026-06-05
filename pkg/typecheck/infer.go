@@ -458,7 +458,9 @@ func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 		return TUnknown()
 	}
 	t := field.Type
-	if field.Optional {
+	// A defaulted optional reads as its inner type: the default
+	// replaces a missing or null value before anything reads it.
+	if field.Optional && !field.Defaulted {
 		t = TOptional(t)
 	}
 	return traverseSegments(t, dp.Segments[1:], errs, false)

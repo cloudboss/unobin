@@ -56,11 +56,14 @@ type Type struct {
 
 // ObjectField is one named field of an Object type. Optional is
 // true when the field may be absent (e.g. it came from a *T Go
-// field or an optional() declaration).
+// field or an optional() declaration). Defaulted is true when an
+// input declaration provides a default, so a missing or null value
+// is replaced before anything reads it.
 type ObjectField struct {
-	Name     string
-	Type     Type
-	Optional bool
+	Name      string
+	Type      Type
+	Optional  bool
+	Defaulted bool
 }
 
 func TUnknown() Type { return Type{Kind: Unknown} }

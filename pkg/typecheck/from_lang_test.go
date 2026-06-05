@@ -68,6 +68,7 @@ func TestInputsFromBlockHandlesOptional(t *testing.T) {
 inputs: {
   region: { type: string }
   count: { type: optional(integer, 1) }
+  label: { type: optional(string) }
 }
 `
 	f, err := lang.ParseSource("main.ub", []byte(src))
@@ -75,15 +76,22 @@ inputs: {
 
 	inputs := topLevelInputs(t, f)
 	got := InputsFromBlock(inputs)
-	require.Len(t, got, 2)
+	require.Len(t, got, 3)
 
 	assert.Equal(t, "region", got[0].Name)
 	assert.True(t, got[0].Type.Equal(TString()))
 	assert.False(t, got[0].Optional)
+	assert.False(t, got[0].Defaulted)
 
 	assert.Equal(t, "count", got[1].Name)
 	assert.True(t, got[1].Type.Equal(TInteger()))
 	assert.True(t, got[1].Optional)
+	assert.True(t, got[1].Defaulted)
+
+	assert.Equal(t, "label", got[2].Name)
+	assert.True(t, got[2].Type.Equal(TString()))
+	assert.True(t, got[2].Optional)
+	assert.False(t, got[2].Defaulted)
 }
 
 func topLevelInputs(t *testing.T, f *lang.File) *lang.ObjectLit {

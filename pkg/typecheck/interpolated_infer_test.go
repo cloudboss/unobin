@@ -19,6 +19,7 @@ func interpolatedScope() *Scope {
 			{Name: "tags", Type: TMap(TString())},
 			{Name: "cfg", Type: TObject([]ObjectField{{Name: "k", Type: TString()}})},
 			{Name: "maybe", Type: TString(), Optional: true},
+			{Name: "sized", Type: TInteger(), Optional: true, Defaulted: true},
 			{Name: "anything", Type: TAny()},
 		},
 	}
@@ -51,6 +52,9 @@ func TestInferInterpolatedScalarSlotsAccepted(t *testing.T) {
 		`$'{{if var.flag then var.region else 'other'}}'`,
 		`$'{{var.anything}}'`,
 		`$'{{resource.aws.vpc.main.id}}'`,
+		// A defaulted optional reads as its inner type: the default
+		// replaces a missing or null value before anything sees it.
+		`$'{{var.sized}}'`,
 	}
 	for _, src := range srcs {
 		t.Run(src, func(t *testing.T) {

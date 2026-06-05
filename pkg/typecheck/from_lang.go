@@ -68,7 +68,10 @@ func objectFieldFromLang(f *lang.TypeObjectField) ObjectField {
 	case f.Type != nil:
 		inner, optional = peelOptional(f.Type)
 	case f.Decl != nil:
-		inner, optional = typeFromInputDecl(f.Decl)
+		// The default, if any, is dropped: defaults replace values at
+		// the input boundary only, so a nested optional field stays
+		// nullable for readers.
+		inner, optional, _ = typeFromInputDecl(f.Decl)
 	}
 	if inner == nil {
 		return ObjectField{Name: f.Name, Type: TUnknown(), Optional: optional}
@@ -89,11 +92,12 @@ func peelOptional(t lang.TypeExpr) (lang.TypeExpr, bool) {
 
 // typeFromInputDecl walks an input declaration object literal (the
 // `{ type: ...  description: ...  ... }` form) and pulls out the
-// `type:` field, promoting it to a TypeExpr. The boolean reports
-// whether the declaration is wrapped in `optional()`.
-func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool) {
+// `type:` field, promoting it to a TypeExpr. The booleans report
+// whether the declaration is wrapped in `optional()` and whether the
+// wrapper provides a default.
+func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool, bool) {
 	if decl == nil {
-		return nil, false
+		return nil, false, false
 	}
 	for _, fld := range decl.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "type" {
@@ -101,23 +105,22 @@ func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool) {
 		}
 		t, err := lang.PromoteType(fld.Value)
 		if err != nil {
-			return nil, false
+			return nil, false, false
 		}
 		if opt, ok := t.(*lang.TypeOptional); ok {
-			return opt.Elem, true
+			return opt.Elem, true, opt.Default != nil
 		}
-		return t, false
+		return t, false, false
 	}
-	return nil, false
+	return nil, false, false
 }
 
 // InputsFromBlock walks an `inputs:` block object literal and
-// returns each input's name to its semantic type. Inputs declared
-// with `optional()` carry the inner type and are marked optional on
-// the resulting ObjectField; the caller decides what to do with
-// that (typically: treat var.X as the inner type when optional,
-// since missing inputs default to null and unobin treats null as
-// the missing case).
+// returns each input's name to its semantic type. An input declared
+// with `optional()` holds the inner type with Optional set; Defaulted
+// is set too when the wrapper provides a default. A reader treats a
+// defaulted input as its inner type (the default replaces a missing
+// or null value), while a writer may still omit it or pass null.
 func InputsFromBlock(decl *lang.ObjectLit) []ObjectField {
 	if decl == nil {
 		return nil
@@ -131,7 +134,7 @@ func InputsFromBlock(decl *lang.ObjectLit) []ObjectField {
 		if !ok {
 			continue
 		}
-		inner, optional := typeFromInputDecl(obj)
+		inner, optional, defaulted := typeFromInputDecl(obj)
 		var t Type
 		if inner == nil {
 			t = TUnknown()
@@ -139,9 +142,10 @@ func InputsFromBlock(decl *lang.ObjectLit) []ObjectField {
 			t = FromLang(inner)
 		}
 		fields = append(fields, ObjectField{
-			Name:     fld.Key.Name,
-			Type:     t,
-			Optional: optional,
+			Name:      fld.Key.Name,
+			Type:      t,
+			Optional:  optional,
+			Defaulted: defaulted,
 		})
 	}
 	return fields
