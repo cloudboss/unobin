@@ -3,7 +3,7 @@
 Hello-world stack that exercises nested UB libraries. The stack imports
 only `greeter` (a local library), and `greeter.greeting` itself imports
 the remote `helloer` library from `cloudboss/unobin-libraries-scratch`.
-The deepest write goes through `local.file`, which `helloer` brings in
+The deepest write goes through `std.fs-file`, which `helloer` brings in
 behind its boundary. Each composite's own `imports:` block resolves
 its libraries; the stack does not redeclare what its composites use.
 
@@ -35,7 +35,7 @@ cd /tmp/hello-nested-library-build
 * `resource.greeter.greeting.welcome` (the outer library-call record)
 * `resource.greeter.greeting.welcome/helloer.hello.file` (the inner
   library-call record)
-* `resource.greeter.greeting.welcome/helloer.hello.file/local.file.this`
+* `resource.greeter.greeting.welcome/helloer.hello.file/std.fs-file.this`
   (the deepest leaf)
 
 `--allow-version-mismatch` is needed for the dev workflow because

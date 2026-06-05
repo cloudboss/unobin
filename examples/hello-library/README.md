@@ -1,7 +1,7 @@
 # hello-library
 
 Hello-world stack that calls a composite from a local UB library. The
-`greeter` library exports a `greeting` type that wraps `local.file`,
+`greeter` library exports a `greeting` type that wraps `std.fs-file`,
 and the stack instantiates it as `greeter.greeting.welcome`.
 
 ## Compile
@@ -33,4 +33,4 @@ deployments the operator pins the binary's version+commit in
 
 `state list` shows two entries: the library-call record at
 `resource.greeter.greeting.welcome` and the internal leaf at
-`resource.greeter.greeting.welcome/local.file.this`.
+`resource.greeter.greeting.welcome/std.fs-file.this`.

@@ -6,20 +6,19 @@ inputs: {
 }
 
 imports: {
-  core:  'github.com/cloudboss/unobin//pkg/libraries/core'
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  std: 'github.com/cloudboss/unobin-library-std'
 }
 
-resources: { local: { file: { hello: { path: var.path, content: var.message } } } }
+resources: { std: { fs-file: { hello: { path: var.path, content: var.message } } } }
 
 actions: {
-  core: {
-    command: { read-back: { @trigger: resource.local.file.hello.sha256, argv: ['cat', var.path] } }
+  std: {
+    exec-command: { read-back: { @trigger: resource.std.fs-file.hello.sha256, argv: ['cat', var.path] } }
   }
 }
 
 outputs: {
-  written-path: { value: resource.local.file.hello.path }
-  size:         { value: resource.local.file.hello.size }
-  read-back:    { value: action.core.command.read-back.stdout }
+  written-path: { value: resource.std.fs-file.hello.path }
+  size:         { value: resource.std.fs-file.hello.size }
+  read-back:    { value: action.std.exec-command.read-back.stdout }
 }

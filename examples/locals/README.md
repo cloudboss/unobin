@@ -17,7 +17,7 @@ What each local demonstrates:
   sha256. It is not computed up front; it resolves only after the file
   exists, and the `read-back` action uses it as its `@trigger`.
 
-Because the action reads `local.file-hash` and `local.summary-path`, it
+Because the action reads `std.fs-file-hash` and `local.summary-path`, it
 depends on the file through the locals even though it never names the
 resource directly, so it runs after the file is written.
 

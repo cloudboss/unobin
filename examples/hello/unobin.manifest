@@ -1,3 +1,5 @@
-requires: {
-  'github.com/cloudboss/unobin': 'v0.5.0'
+requires: {}
+replace: {
+  'github.com/cloudboss/unobin': '../..'
+  'github.com/cloudboss/unobin-library-std': '../../../unobin-library-std'
 }

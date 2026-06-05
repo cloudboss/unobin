@@ -2,13 +2,13 @@ package runtime_test
 
 import (
 	"context"
+	"errors"
+	osexec "os/exec"
 	"sync/atomic"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
-	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -46,7 +46,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	require.NoError(t, err)
 
 	libs := map[string]*runtime.Library{
-		"core": coreLibraryWithDefaults(t),
+		"core": testCommandLibrary(),
 	}
 	exec := &runtime.Executor{
 		DAG:       runtime.BuildDAG(f, libs),
@@ -59,28 +59,50 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	return applyOnce(t, exec)
 }
 
-// coreLibraryWithDefaults builds the core library record the way a
-// compiled factory gets it: the registrations from Library() plus the
-// declared defaults read from the library's source, which codegen
-// embeds into a real binary.
-func coreLibraryWithDefaults(t *testing.T) *runtime.Library {
-	t.Helper()
-	lib := core.Library()
-	schema, warnings, err := goschema.Read("../libraries/core")
-	require.NoError(t, err)
-	require.Empty(t, warnings)
-	lib.Defaults = map[string][]lang.DefaultSpec{}
-	add := func(kind string, types map[string]*runtime.TypeSchema) {
-		for name, ts := range types {
-			if len(ts.Defaults) > 0 {
-				lib.Defaults[kind+"."+name] = ts.Defaults
-			}
-		}
+// testCommandLibrary builds the action library the integration stacks
+// run against: a process runner and a script runner returning raw
+// stdout, so plan-and-apply cycles execute real commands without
+// depending on a published library.
+func testCommandLibrary() *runtime.Library {
+	return &runtime.Library{
+		Name: "core",
+		Actions: map[string]runtime.ActionRegistration{
+			"command": runtime.MakeAction[commandAction, any](),
+			"script":  runtime.MakeAction[scriptAction, any](),
+		},
 	}
-	add("resource", schema.Resources)
-	add("data", schema.DataSources)
-	add("action", schema.Actions)
-	return lib
+}
+
+// commandAction execs argv and captures raw stdout.
+type commandAction struct {
+	Argv []string
+}
+
+func (a *commandAction) Run(ctx context.Context, _ any) (any, error) {
+	if len(a.Argv) == 0 {
+		return nil, errors.New("argv is required")
+	}
+	out, err := osexec.CommandContext(ctx, a.Argv[0], a.Argv[1:]...).Output()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"stdout": string(out)}, nil
+}
+
+// scriptAction runs a script through sh -c and captures raw stdout.
+type scriptAction struct {
+	Script string
+}
+
+func (a *scriptAction) Run(ctx context.Context, _ any) (any, error) {
+	if a.Script == "" {
+		return nil, errors.New("script is required")
+	}
+	out, err := osexec.CommandContext(ctx, "sh", "-c", a.Script).Output()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"stdout": string(out)}, nil
 }
 
 func errsAsStrings(l *lang.ErrorList) []string {

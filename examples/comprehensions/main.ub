@@ -15,13 +15,12 @@ inputs: {
 }
 
 imports: {
-  core:  'github.com/cloudboss/unobin//pkg/libraries/core'
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  std: 'github.com/cloudboss/unobin-library-std'
 }
 
 resources: {
-  local: {
-    file: {
+  std: {
+    fs-file: {
       summary: {
         path: var.path
         content: @core.format(
@@ -36,9 +35,9 @@ resources: {
 }
 
 actions: {
-  core: {
-    command: {
-      read-back: { @trigger: resource.local.file.summary.sha256, argv: ['cat', var.path] }
+  std: {
+    exec-command: {
+      read-back: { @trigger: resource.std.fs-file.summary.sha256, argv: ['cat', var.path] }
     }
   }
 }

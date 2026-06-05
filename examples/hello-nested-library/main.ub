@@ -5,7 +5,7 @@ inputs: {
   path:    { type: string, description: 'Filesystem path for the greeting file' }
 }
 
-imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core', greeter: './greeter' }
+imports: { greeter: './greeter' }
 
 resources: { greeter: { greeting: { welcome: { message: var.message, path: var.path } } } }
 

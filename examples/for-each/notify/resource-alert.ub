@@ -3,12 +3,12 @@ description: 'Writes an alert file announcing a topic.'
 inputs: { topic: { type: string }, body: { type: string }, path: { type: string } }
 
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  std: 'github.com/cloudboss/unobin-library-std'
 }
 
 resources: {
-  local: {
-    file: {
+  std: {
+    fs-file: {
       this: {
         path:             var.path
         content:          @core.format('ALERT %s: %s\n', var.topic, var.body)
@@ -19,6 +19,6 @@ resources: {
 }
 
 outputs: {
-  path:   { value: resource.local.file.this.path }
-  sha256: { value: resource.local.file.this.sha256 }
+  path:   { value: resource.std.fs-file.this.path }
+  sha256: { value: resource.std.fs-file.this.sha256 }
 }

@@ -1,7 +1,7 @@
 # hello
 
-Hello-world stack. Writes a file via `local.file`, reads it back via
-`core.command`, and exposes the captured output.
+Hello-world stack. Writes a file via `std.fs-file`, reads it back via
+`std.exec-command`, and exposes the captured output.
 
 ## Compile
 

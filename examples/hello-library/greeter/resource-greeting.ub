@@ -2,12 +2,12 @@ description: 'Writes a greeting file at the chosen path.'
 
 inputs: { message: { type: string }, path: { type: string } }
 
-imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
-resources: { local: { file: { this: { path: var.path, content: var.message } } } }
+resources: { std: { fs-file: { this: { path: var.path, content: var.message } } } }
 
 outputs: {
-  path:   { value: resource.local.file.this.path }
-  size:   { value: resource.local.file.this.size }
-  sha256: { value: resource.local.file.this.sha256 }
+  path:   { value: resource.std.fs-file.this.path }
+  size:   { value: resource.std.fs-file.this.size }
+  sha256: { value: resource.std.fs-file.this.sha256 }
 }

@@ -57,7 +57,7 @@ constraints: [
 ]
 
 imports: {
-  local:   'github.com/cloudboss/unobin//pkg/libraries/local'
+  std:    'github.com/cloudboss/unobin-library-std'
   deploy: 'github.com/cloudboss/unobin//examples/constraints/deploy'
 }
 
@@ -75,8 +75,8 @@ resources: {
       }
     }
   }
-  local: {
-    file: {
+  std: {
+    fs-file: {
       summary: {
         path:             @core.format('%s/replicas.txt', var.base-path)
         content:          @core.format('replicas: %s\n', var.replicas[*].host)
@@ -89,6 +89,6 @@ resources: {
 outputs: {
   spec-sha256:  { value: resource.deploy.service.app.sha256 }
   spec-size:    { value: resource.deploy.service.app.size }
-  summary-path: { value: resource.local.file.summary.path }
+  summary-path: { value: resource.std.fs-file.summary.path }
   hosts:        { value: var.replicas[*].host }
 }

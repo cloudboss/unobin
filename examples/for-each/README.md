@@ -6,14 +6,14 @@ composite call site, all iterating the same `var.files` map.
 The stack imports a local UB library `notify` that exports a single
 composite type `alert`. Each iteration produces:
 
-- a `local.file` resource carrying the message text
+- a `std.fs-file` resource holding the message text
 - a `notify.alert` composite that writes a second file with an
-  `ALERT topic: body` line (the composite itself wraps `local.file`)
-- a `core.command` action that echoes the per-instance file path
+  `ALERT topic: body` line (the composite itself wraps `std.fs-file`)
+- a `std.exec-command` action that echoes the per-instance file path
   and its sha256
 
 The action references the resource's per-instance output through
-`resource.local.file.many[@each.key]`. On a fresh apply that
+`resource.std.fs-file.many[@each.key]`. On a fresh apply that
 reference is unknown at plan time, so the plan shows the action
 with empty inputs and apply re-evaluates the body against the live
 scope.
@@ -46,10 +46,10 @@ cd /tmp/for-each-build
 The plan output groups the leaf instances under their template:
 
 ```
-> action.core.command.announce  (for-each, 2 instances)
+> action.std.exec-command.announce  (for-each, 2 instances)
   > ['alpha']
   > ['beta']
-+ resource.local.file.many  (for-each, 2 instances)
++ resource.std.fs-file.many  (for-each, 2 instances)
   + ['alpha']
       content: "first message"
       path: "/tmp/unobin-for-each/alpha.txt"
@@ -60,7 +60,7 @@ The plan output groups the leaf instances under their template:
     body: "first message"
     path: "/tmp/unobin-for-each/alpha.alert"
     topic: "alpha"
-  + local.file.this
+  + std.fs-file.this
       content: "ALERT alpha: first message\n"
       path: "/tmp/unobin-for-each/alpha.alert"
 + resource.notify.alert.many['beta']  (library notify.alert)
@@ -74,12 +74,12 @@ and the action) group under one template header.
 
 State after apply contains, per instance:
 
-- `resource.local.file.many['<key>']` — a leaf entry per file
+- `resource.std.fs-file.many['<key>']` — a leaf entry per file
 - `resource.notify.alert.many['<key>']` — a library-call entry per
   composite instance
-- `resource.notify.alert.many['<key>']/local.file.this` — the leaf
+- `resource.notify.alert.many['<key>']/std.fs-file.this` — the leaf
   inside each composite instance
-- `action.core.command.announce['<key>']` — an action entry per
+- `action.std.exec-command.announce['<key>']` — an action entry per
   echo
 
 Removing a key from `files:` in `dev.ub` and re-planning destroys

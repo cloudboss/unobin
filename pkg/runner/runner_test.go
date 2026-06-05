@@ -14,8 +14,6 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/libraries/core"
-	"github.com/cloudboss/unobin/pkg/libraries/local"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
@@ -56,21 +54,25 @@ func testInfo(t *testing.T, src string) Info {
 	t.Cleanup(func() { _ = os.Chdir(cwd) })
 	require.NoError(t, os.Chdir(t.TempDir()))
 
-	coreMod := core.Library()
-	coreMod.Actions["echo"] = runtime.MakeAction[echoAction, any]()
-	// A library-exported function, so tests can cover calls against an
-	// imported library's own function set, distinct from @core.
-	coreMod.Functions = map[string]runtime.FunctionType{
-		"all": runtime.MakeFunc("all",
-			"Report whether every element of a list of booleans is true.",
-			func(bools []bool) (bool, error) {
-				for _, b := range bools {
-					if !b {
-						return false, nil
+	coreMod := &runtime.Library{
+		Name: "core",
+		Actions: map[string]runtime.ActionRegistration{
+			"echo": runtime.MakeAction[echoAction, any](),
+		},
+		// A library-exported function, so tests can cover calls against
+		// an imported library's own function set, distinct from @core.
+		Functions: map[string]runtime.FunctionType{
+			"all": runtime.MakeFunc("all",
+				"Report whether every element of a list of booleans is true.",
+				func(bools []bool) (bool, error) {
+					for _, b := range bools {
+						if !b {
+							return false, nil
+						}
 					}
-				}
-				return true, nil
-			}),
+					return true, nil
+				}),
+		},
 	}
 	return Info{
 		FactoryName:     "test-stack",
@@ -80,6 +82,58 @@ func testInfo(t *testing.T, src string) Info {
 		Libraries:       map[string]*runtime.Library{"core": coreMod},
 	}
 }
+
+// testFileLibrary registers a minimal file-on-disk resource so the
+// destroy lifecycle runs against something real: Create writes the
+// file, Read reports absence, and Delete removes it.
+func testFileLibrary() *runtime.Library {
+	return &runtime.Library{
+		Name: "local",
+		Resources: map[string]runtime.ResourceRegistration{
+			"file": runtime.MakeResource[fileResource, any](),
+		},
+	}
+}
+
+type fileResource struct {
+	Path    string
+	Content string
+	Mode    int64
+}
+
+func (f *fileResource) Create(_ context.Context, _ any) (any, error) {
+	if err := os.WriteFile(f.Path, []byte(f.Content), os.FileMode(f.Mode)); err != nil {
+		return nil, err
+	}
+	return map[string]any{"path": f.Path}, nil
+}
+
+func (f *fileResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	if _, err := os.Stat(f.Path); err != nil {
+		if os.IsNotExist(err) {
+			return nil, runtime.ErrNotFound
+		}
+		return nil, err
+	}
+	return prior, nil
+}
+
+func (f *fileResource) Update(
+	_ context.Context, _ any, _ runtime.Prior[fileResource, any],
+) (any, error) {
+	return f.Create(context.Background(), nil)
+}
+
+func (f *fileResource) Delete(_ context.Context, _ any, _ any) error {
+	err := os.Remove(f.Path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (f *fileResource) SchemaVersion() int      { return 1 }
+func (f *fileResource) ReplaceFields() []string { return []string{"path"} }
 
 func runRoot(t *testing.T, info Info, args ...string) (string, error) {
 	t.Helper()
@@ -222,7 +276,7 @@ resources: {
 }
 `, path)
 	info := testInfo(t, src)
-	info.Libraries["local"] = local.Library()
+	info.Libraries["local"] = testFileLibrary()
 
 	// Create the file with a normal apply.
 	_ = applyVia(t, info, "")

@@ -5,7 +5,7 @@ Example that shows cross-field constraints at both layers: a UB
 constraints on a library resource type.
 
 The stack imports a local Go library `deploy` whose `service`
-resource renders a service spec to a file. A `local.file` resource
+resource renders a service spec to a file. A `std.fs-file` resource
 writes a summary alongside it.
 
 ## The UB constraints block
