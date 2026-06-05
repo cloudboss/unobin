@@ -1,8 +1,4 @@
-state: {
-  @backend: local
-  path: '.unobin/state'
-  encryption: { @key-source: noop }
-}
+state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
 
 inputs: {
   environment: 'prod'

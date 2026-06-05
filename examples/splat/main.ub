@@ -17,9 +17,7 @@ inputs: {
   path: { type: string, description: 'Where to write the summary file' }
 }
 
-imports: {
-  std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
 resources: {
   std: {

@@ -5,15 +5,15 @@ inputs: {
   path:    { type: string, description: 'Filesystem path for the greeting file' }
 }
 
-imports: {
-  std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
 resources: { std: { fs-file: { hello: { path: var.path, content: var.message } } } }
 
 actions: {
   std: {
-    exec-command: { read-back: { @trigger: resource.std.fs-file.hello.sha256, argv: ['cat', var.path] } }
+    exec-command: {
+      read-back: { @trigger: resource.std.fs-file.hello.sha256, argv: ['cat', var.path] }
+    }
   }
 }
 

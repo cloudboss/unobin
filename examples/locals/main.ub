@@ -10,9 +10,7 @@ inputs: {
   message: { type: string, description: 'Text to put in the banner' }
 }
 
-imports: {
-  std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
 locals: {
   cluster:      $'{{ var.env }}-{{ var.region }}'
@@ -25,7 +23,9 @@ locals: {
 resources: { std: { fs-file: { summary: { path: local.summary-path, content: local.banner } } } }
 
 actions: {
-  std: { exec-command: { read-back: { @trigger: local.file-hash, argv: ['cat', local.summary-path] } } }
+  std: {
+    exec-command: { read-back: { @trigger: local.file-hash, argv: ['cat', local.summary-path] } }
+  }
 }
 
 outputs: {
