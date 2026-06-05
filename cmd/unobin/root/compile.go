@@ -23,6 +23,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// unobinModulePath is the unobin module's path, the one requirement
+// every generated go.mod pins to the compiling CLI's version.
+const unobinModulePath = "github.com/cloudboss/unobin"
+
 var (
 	compileCfg = &compileConfig{}
 	CompileCmd = &cobra.Command{
@@ -41,7 +45,6 @@ type compileConfig struct {
 	libraryPath     string
 	outDir          string
 	goVersion       string
-	unobinVersion   string
 	replaceUnobin   string
 	replaceGoModule []string
 	build           bool
@@ -67,9 +70,6 @@ func init() {
 
 	CompileCmd.Flags().StringVar(&compileCfg.goVersion, "go-version", goMajorMinor(),
 		"Go toolchain version to declare in the generated go.mod.")
-
-	CompileCmd.Flags().StringVar(&compileCfg.unobinVersion, "unobin-version", "v0.0.0",
-		"Version of github.com/cloudboss/unobin to require in the generated go.mod.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive.")
@@ -122,13 +122,40 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if err != nil {
 		return err
 	}
+	if replaceUnobinAbs == "" {
+		if local, ok := replaceMap[deps.Dependency{URL: unobinModulePath}]; ok {
+			abs, err := absReplacePath(stackDir, local)
+			if err != nil {
+				return err
+			}
+			replaceUnobinAbs = abs
+		}
+	}
+
+	// The generated go.mod requires unobin at this CLI's own version, so
+	// the runtime a factory links is the one its compile checks ran
+	// with. A development build has no version to pin; the replace is
+	// what supplies the runtime then, and the requirement stays at the
+	// placeholder the replace serves.
+	unobinVersion := cliVersion()
+	if unobinVersion == "dev" {
+		if replaceUnobinAbs == "" {
+			return errors.New(
+				"this unobin is a development build with no version to pin; compile with\n" +
+					"  --replace-unobin <path-to-unobin-source>\n" +
+					"or add to unobin.manifest:\n" +
+					"  replace: { '" + unobinModulePath + "': '<path-to-unobin-source>' }")
+		}
+		unobinVersion = replacedVersion
+	}
+
 	resolver, err := newCompileResolver(stackDir)
 	if err != nil {
 		return err
 	}
 	if replaceUnobinAbs != "" {
 		resolver = &replaceResolver{
-			prefix:  "github.com/cloudboss/unobin",
+			prefix:  unobinModulePath,
 			local:   replaceUnobinAbs,
 			wrapped: resolver,
 		}
@@ -217,7 +244,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 
 	replaces := codegen.Replaces{}
 	if replaceUnobinAbs != "" {
-		replaces["github.com/cloudboss/unobin"] = replaceUnobinAbs
+		replaces[unobinModulePath] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, extraReplaces)
 	if err := addManifestReplaces(replaces, stackDir, replaceMap, v.importVersions); err != nil {
@@ -225,7 +252,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	err = codegen.WriteSource(cfg.outDir, in,
-		cfg.goVersion, cfg.unobinVersion, v.importVersions, replaces)
+		cfg.goVersion, unobinVersion, v.importVersions, replaces)
 	if err != nil {
 		return err
 	}

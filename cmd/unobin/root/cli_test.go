@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -16,6 +17,14 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 )
+
+// TestMain stamps a release version the way a real build's ldflags
+// would, so tests model a released CLI; a test about development
+// builds opts in with setCLIVersion(t, "dev").
+func TestMain(m *testing.M) {
+	Version = "v0.1.0"
+	os.Exit(m.Run())
+}
 
 func runCommand(t *testing.T, args ...string) (string, error) {
 	return runCommandWithRemotes(t, nil, args...)
@@ -426,8 +435,7 @@ imports: {
 	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", stackPath, "-o", outDir,
-		"--unobin-version", "v0.1.0")
+	_, err := runCommand(t, "compile", "-p", stackPath, "-o", outDir)
 	require.NoError(t, err)
 
 	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
@@ -499,7 +507,7 @@ func Library() *runtime.Library {
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"),
-		"-o", outDir, "--unobin-version", "v0.1.0")
+		"-o", outDir)
 	require.NoError(t, err)
 
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
@@ -520,6 +528,100 @@ func TestCompileRequiresLockedVersion(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "github.com/x/core")
 	require.Contains(t, err.Error(), "deps sync")
+}
+
+// setCLIVersion stamps the CLI version for one test, the way a release
+// build's ldflags would.
+func setCLIVersion(t *testing.T, v string) {
+	t.Helper()
+	prev := Version
+	Version = v
+	t.Cleanup(func() { Version = prev })
+}
+
+// TestCompilePinsGoModToCLIVersion proves the generated go.mod requires
+// unobin at the version of the compiling CLI itself, so the runtime a
+// factory links is the one its compile checks ran with.
+func TestCompilePinsGoModToCLIVersion(t *testing.T) {
+	setCLIVersion(t, "v9.9.9")
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("description: 'minimal'\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.NoError(t, err)
+
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin v9.9.9")
+}
+
+// TestCompileDevVersionNeedsReplace proves a development CLI, which has
+// no release version to pin, refuses to compile unless the unobin repo
+// is replaced.
+func TestCompileDevVersionNeedsReplace(t *testing.T) {
+	setCLIVersion(t, "dev")
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("description: 'minimal'\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--replace-unobin")
+	require.Contains(t, err.Error(), "unobin.manifest")
+}
+
+// TestCompileDevVersionAcceptsManifestReplace proves the manifest's
+// replace of the unobin repo satisfies the development gate the same
+// way --replace-unobin does, and appears in the generated go.mod.
+func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
+	setCLIVersion(t, "dev")
+	rootDir := findUnobinRoot(t)
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("description: 'minimal'\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+		[]byte("requires: {}\nreplace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n"),
+		0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.NoError(t, err)
+
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin v0.0.0")
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
+}
+
+// TestCLIVersionFallsBackToBuildInfo proves an unstamped binary
+// identifies by the module version Go recorded at install time, and a
+// source build stays dev.
+func TestCLIVersionFallsBackToBuildInfo(t *testing.T) {
+	setCLIVersion(t, "dev")
+	prev := readBuildInfo
+	t.Cleanup(func() { readBuildInfo = prev })
+
+	readBuildInfo = func() (*debug.BuildInfo, bool) {
+		return &debug.BuildInfo{Main: debug.Module{Version: "v0.4.2"}}, true
+	}
+	require.Equal(t, "v0.4.2", cliVersion())
+
+	readBuildInfo = func() (*debug.BuildInfo, bool) {
+		return &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, true
+	}
+	require.Equal(t, "dev", cliVersion())
+
+	readBuildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+	require.Equal(t, "dev", cliVersion())
+
+	setCLIVersion(t, "v1.0.0")
+	require.Equal(t, "v1.0.0", cliVersion())
 }
 
 // TestCompileBuildStampsVersion compiles a minimal factory with --build
@@ -546,7 +648,6 @@ func TestCompileBuildStampsVersion(t *testing.T) {
 		"-p", factoryPath,
 		"-o", outDir,
 		"--build",
-		"--unobin-version", "v0.0.0",
 		"--replace-unobin", rootDir,
 	)
 	require.NoError(t, err)
@@ -838,7 +939,7 @@ func compileLibrary(t *testing.T, files map[string]string) error {
 	}
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"),
-		"-o", outDir, "--unobin-version", "v0.1.0")
+		"-o", outDir)
 	return err
 }
 
@@ -947,8 +1048,7 @@ resources: {
 `), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", stackPath, "-o", outDir,
-		"--unobin-version", "v0.1.0")
+	_, err := runCommand(t, "compile", "-p", stackPath, "-o", outDir)
 	require.NoError(t, err)
 
 	wantMain := `// Code generated by unobin. DO NOT EDIT.
@@ -1045,7 +1145,7 @@ imports: {
 		},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+		"-p", stackPath, "-o", outDir)
 	require.NoError(t, err)
 
 	pkgBytes, err := os.ReadFile(filepath.Join(outDir, "internal", "net", "net.go"))
@@ -1117,7 +1217,7 @@ imports: {
 		},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+		"-p", stackPath, "-o", outDir)
 	require.NoError(t, err)
 
 	// Both packages were emitted.
@@ -1193,7 +1293,7 @@ imports: {
 		"github.com/example/b//ub/b@v1": {FS: os.DirFS(bDir), Commit: "b"},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+		"-p", stackPath, "-o", outDir)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "import cycle")
 }
@@ -1247,7 +1347,7 @@ imports: {
 		},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", stackPath, "-o", outDir, "--unobin-version", "v0.1.0")
+		"-p", stackPath, "-o", outDir)
 	require.NoError(t, err)
 
 	// The shared library appears once under its first-seen alias.
@@ -1302,7 +1402,6 @@ imports: {
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommand(t, "compile",
 		"-p", stackPath, "-o", outDir,
-		"--unobin-version", "v0.1.0",
 		"--replace-unobin", fakeUnobin)
 	require.NoError(t, err)
 
