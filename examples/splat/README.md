@@ -31,7 +31,6 @@ go run ./cmd/unobin compile \
   -p examples/splat/main.ub \
   -o /tmp/splat-build \
   --replace-unobin="$(pwd)" \
-  --unobin-version=v0.0.0 \
   --build
 ```
 

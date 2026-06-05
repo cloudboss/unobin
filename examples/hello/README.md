@@ -12,14 +12,13 @@ go run ./cmd/unobin compile \
   -p examples/hello/main.ub \
   -o /tmp/hello-build \
   --replace-unobin="$(pwd)" \
-  --unobin-version=v0.0.0 \
   --build
 ```
 
-The `--replace-unobin` and `--unobin-version` flags plug the local
-checkout into the generated `go.mod`; once unobin is published they
-won't be needed. `--build` runs `go mod tidy` and `go build` against
-the pinned Go toolchain at `~/.cache/unobin/bin/go-<version>`.
+The `--replace-unobin` flag plugs the local checkout into the
+generated `go.mod`; once unobin is published it won't be needed.
+`--build` runs `go mod tidy` and `go build` against the pinned Go
+toolchain at `~/.cache/unobin/bin/go-<version>`.
 
 ## Run
 

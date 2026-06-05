@@ -14,7 +14,6 @@ go run ./cmd/unobin compile \
   -p examples/hello-nested-library/main.ub \
   -o /tmp/hello-nested-library-build \
   --replace-unobin="$(pwd)" \
-  --unobin-version=v0.0.0 \
   --build
 ```
 

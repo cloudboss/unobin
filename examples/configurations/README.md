@@ -16,7 +16,6 @@ go run ./cmd/unobin compile \
   -p examples/configurations/main.ub \
   -o /tmp/configurations-build \
   --replace-unobin="$(pwd)" \
-  --unobin-version=v0.0.0 \
   --build
 
 cd /tmp/configurations-build
