@@ -114,9 +114,13 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	}
 
 	stackDir := filepath.Dir(cfg.stackPath)
-	replaceMap, err := manifestReplace(stackDir)
+	manifest, err := projectManifest(stackDir)
 	if err != nil {
 		return err
+	}
+	var replaceMap map[deps.Dependency]string
+	if manifest != nil {
+		replaceMap = manifest.Replace
 	}
 	if replaceUnobinAbs == "" {
 		if local, ok := replaceMap[deps.Dependency{URL: toolchain.UnobinModulePath}]; ok {
@@ -143,6 +147,21 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 					"  replace: { '" + toolchain.UnobinModulePath + "': '<path-to-unobin-source>' }")
 		}
 		unobinVersion = replacedVersion
+	}
+
+	// The manifest's unobin line pins which CLI compiles the project. A
+	// replaced unobin runs the replacement no matter what the line says,
+	// so it proceeds with a notice instead.
+	if manifest != nil && manifest.UnobinVersion != "" {
+		if replaceUnobinAbs != "" {
+			fmt.Fprintf(cmd.ErrOrStderr(),
+				"notice: unobin.manifest pins unobin %s; the replacement at %s runs instead\n",
+				manifest.UnobinVersion, replaceUnobinAbs)
+		} else if manifest.UnobinVersion != unobinVersion {
+			return fmt.Errorf(
+				"this project pins unobin %s but this CLI is %s; install unobin %s",
+				manifest.UnobinVersion, unobinVersion, manifest.UnobinVersion)
+		}
 	}
 
 	resolver, err := newCompileResolver(stackDir)
@@ -528,9 +547,9 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 // path, so the version is never used to fetch anything.
 const replacedVersion = "v0.0.0"
 
-// manifestReplace reads the replace block from the project's
-// unobin.manifest, returning nil when there is no manifest.
-func manifestReplace(dir string) (map[deps.Dependency]string, error) {
+// projectManifest reads the project's unobin.manifest, returning nil
+// when there is no manifest.
+func projectManifest(dir string) (*deps.Manifest, error) {
 	m, err := deps.ReadManifest(os.DirFS(dir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -538,7 +557,7 @@ func manifestReplace(dir string) (map[deps.Dependency]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return m.Replace, nil
+	return m, nil
 }
 
 // withReplacedVersions gives each replaced repository a placeholder version

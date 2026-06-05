@@ -600,6 +600,114 @@ func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
 	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
 }
 
+// TestCompileManifestToolchainLine proves the manifest's unobin line
+// pins which CLI may compile the project: a match proceeds, a mismatch
+// stops with the version to install, and a replaced unobin proceeds
+// with a notice since the replacement runs regardless.
+func TestCompileManifestToolchainLine(t *testing.T) {
+	write := func(t *testing.T, manifest string) string {
+		t.Helper()
+		dir := filepath.Join(t.TempDir(), "demo-factory")
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+			[]byte("description: 'minimal'\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+			[]byte(manifest), 0o644))
+		return dir
+	}
+
+	t.Run("matching line proceeds", func(t *testing.T) {
+		dir := write(t, "unobin: 'v0.1.0'\nrequires: {}\n")
+		outDir := filepath.Join(t.TempDir(), "build")
+		_, err := runCommand(t, "compile",
+			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+		require.NoError(t, err)
+	})
+
+	t.Run("mismatched line is refused", func(t *testing.T) {
+		dir := write(t, "unobin: 'v0.9.9'\nrequires: {}\n")
+		outDir := filepath.Join(t.TempDir(), "build")
+		_, err := runCommand(t, "compile",
+			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "pins unobin v0.9.9")
+		require.Contains(t, err.Error(), "v0.1.0")
+	})
+
+	t.Run("replaced unobin proceeds with a notice", func(t *testing.T) {
+		rootDir := findUnobinRoot(t)
+		dir := write(t, "unobin: 'v0.9.9'\nrequires: {}\n"+
+			"replace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n")
+		outDir := filepath.Join(t.TempDir(), "build")
+		out, err := runCommand(t, "compile",
+			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+		require.NoError(t, err)
+		require.Contains(t, out, "notice:")
+		require.Contains(t, out, "v0.9.9")
+	})
+}
+
+// TestCompileOfflineLocalLibraries proves the local-testing workflow
+// under version pinning: a development CLI, the unobin repo replaced in
+// the manifest, a UB library imported by relative path, and a Go
+// library imported by module path and replaced to a local directory.
+// Nothing is fetched, and the generated go.mod replaces both modules.
+func TestCompileOfflineLocalLibraries(t *testing.T) {
+	setCLIVersion(t, "dev")
+	rootDir := findUnobinRoot(t)
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"), []byte(`
+imports: {
+  net: './libraries/net'
+  aws: 'github.com/cloudboss/unobin-library-aws'
+}
+`), 0o644))
+
+	netDir := filepath.Join(dir, "libraries", "net")
+	require.NoError(t, os.MkdirAll(netDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(netDir, "resource-cluster.ub"), []byte(`
+description: 'a cluster'
+resources: {
+  local: {
+    file: {
+      x: { path: '/tmp/x', content: 'hi', mode: 420 }
+    }
+  }
+}
+`), 0o644))
+
+	awsDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
+		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "library.go"), []byte(`package aws
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{Name: "aws"}
+}
+`), 0o644))
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+		[]byte("requires: {}\nreplace: {\n"+
+			"  'github.com/cloudboss/unobin': '"+rootDir+"'\n"+
+			"  'github.com/cloudboss/unobin-library-aws': '"+awsDir+"'\n"+
+			"}\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.NoError(t, err)
+
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin v0.0.0")
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
+	require.Contains(t, string(goMod), "github.com/cloudboss/unobin-library-aws => "+awsDir)
+	require.FileExists(t, filepath.Join(outDir, "internal", "net", "net.go"))
+}
+
 // TestCLIVersionFallsBackToBuildInfo proves an unstamped binary
 // identifies by the module version Go recorded at install time, and a
 // source build stays dev.

@@ -21,10 +21,13 @@ const ManifestFileName = "unobin.manifest"
 // factory's own version is its git tag, not recorded here. Replace maps a
 // dependency's URL to a local path: the resolver reads that dependency
 // from the path instead of fetching it, and the dependency needs no
-// floor or lock entry.
+// floor or lock entry. UnobinVersion, when set, pins the toolchain:
+// only a CLI of exactly that version compiles the project, since the
+// unobin runtime is not a dependency whose version resolution selects.
 type Manifest struct {
-	Requires map[Dependency]string
-	Replace  map[Dependency]string
+	UnobinVersion string
+	Requires      map[Dependency]string
+	Replace       map[Dependency]string
 }
 
 // ReadManifest reads and parses unobin.manifest from fsys. A missing
@@ -50,6 +53,9 @@ func ReadManifest(fsys fs.FS) (*Manifest, error) {
 // requires block is still written; an empty replace block is omitted.
 func EncodeManifest(m *Manifest) []byte {
 	var b strings.Builder
+	if m.UnobinVersion != "" {
+		fmt.Fprintf(&b, "unobin: '%s'\n", m.UnobinVersion)
+	}
 	encodeManifestBlock(&b, "requires", m.Requires)
 	if len(m.Replace) > 0 {
 		encodeManifestBlock(&b, "replace", m.Replace)
@@ -90,6 +96,18 @@ func parseManifestBody(f *lang.File) (*Manifest, error) {
 	m := &Manifest{Requires: map[Dependency]string{}, Replace: map[Dependency]string{}}
 	for _, fld := range f.Body.Fields {
 		if fld.Key.Kind != lang.FieldIdent {
+			continue
+		}
+		if fld.Key.Name == "unobin" {
+			s, ok := fld.Value.(*lang.StringLit)
+			if !ok {
+				return nil, fmt.Errorf("manifest: unobin must be a version string")
+			}
+			if !semver.IsValid(s.Value) {
+				return nil, fmt.Errorf(
+					"manifest: unobin: %q is not a valid version", s.Value)
+			}
+			m.UnobinVersion = s.Value
 			continue
 		}
 		obj, ok := fld.Value.(*lang.ObjectLit)
