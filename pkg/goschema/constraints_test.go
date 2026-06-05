@@ -28,10 +28,11 @@ func Library() *runtime.Library {
 }
 
 type Thing struct {
-	Name  *string
-	Kind  *string
-	Port  *int
-	Items []Item
+	Name    *string
+	Kind    *string
+	Port    *int
+	Items   []Item
+	Methods []string
 }
 
 type Item struct {
@@ -377,6 +378,103 @@ const maxTargets = 5
 		[]string{"Thing: MinItems takes a field and a whole-number literal"},
 		warnings)
 	require.Empty(t, schema.Resources["thing"].Constraints)
+}
+
+// TestReadExtractsScalarForEach proves a ForEach over a list of
+// scalars binds the body parameter to @each.value itself: conditions
+// compare the element directly, with no field selection.
+func TestReadExtractsScalarForEach(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Methods, func(m string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.OneOf(m, "GET", "PUT")).
+					Message("methods must be supported verbs"),
+				constraint.Must(constraint.NotEmpty(m)),
+			}
+		}),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@each.value == 'GET' || @each.value == 'PUT')",
+			Message: "methods must be supported verbs",
+			ForEach: "var.methods",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "((@each.value != null) && (@core.length(@each.value) >= 1))",
+			ForEach: "var.methods",
+		},
+	}, schema.Resources["thing"].Constraints)
+}
+
+// TestScalarForEachChecksAgainstValues proves the extracted specs
+// iterate and judge real values through the constraint checker.
+func TestScalarForEachChecksAgainstValues(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Methods, func(m string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.OneOf(m, "GET", "PUT")).
+					Message("methods must be supported verbs"),
+			}
+		}),
+	}
+}
+`
+	schema, _, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	entries, perr := lang.ParseSpecs(schema.Resources["thing"].Constraints)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	eval := func(values map[string]any) lang.ConstraintEvalFunc {
+		return func(e lang.Expr, each *lang.EachValue) (any, error) {
+			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			if each != nil {
+				ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+			}
+			return runtime.Eval(e, ctx)
+		}
+	}
+
+	good := map[string]any{"methods": []any{"GET", "PUT"}}
+	ok := lang.CheckConstraintEntries(entries, good, eval(good), lang.DisplayNodeRelative)
+	require.Equal(t, 0, ok.Len(), "supported verbs pass: %v", ok.Err())
+
+	bad := map[string]any{"methods": []any{"GET", "DELETE"}}
+	got := lang.CheckConstraintEntries(entries, bad, eval(bad), lang.DisplayNodeRelative)
+	require.Equal(t, 1, got.Len(), "one violation expected: %v", got.Err())
+	require.Contains(t, got.Err().Error(), "methods must be supported verbs (methods[1])")
+}
+
+// TestReadRejectsSetConstraintOverScalars proves a set kind inside a
+// scalar ForEach is an error: with no element fields to relate, the
+// rule cannot mean anything.
+func TestReadRejectsSetConstraintOverScalars(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Methods, func(m string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.RequiredTogether(m, v.Name),
+			}
+		}),
+	}
+}
+`
+	_, _, err := readConstraintLibrary(t, src)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "scalar")
 }
 
 func TestReadKeepsUnknownConstraintFieldAsError(t *testing.T) {

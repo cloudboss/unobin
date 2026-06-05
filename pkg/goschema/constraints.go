@@ -89,10 +89,13 @@ type constraintScope map[string]scopeRoot
 // positioned at the package the type lives in. prefix is what the
 // identifier stands for in a rendered reference: var for the receiver,
 // the splatted list reference (var.replicas[*]) for a ForEach element.
+// A scalar root has no type to select fields from; the identifier
+// renders as its prefix alone, the element itself.
 type scopeRoot struct {
 	w        *walker
 	typeName string
 	prefix   string
+	scalar   bool
 }
 
 // receiverName returns the name a method binds its receiver to. ok is
@@ -281,6 +284,12 @@ func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.
 			w.addErrf("a ForEach inside a ForEach is not supported")
 			continue
 		}
+		if elem.scalar && !isPredicateCall(c) {
+			w.addErrf(
+				"a set constraint cannot iterate %q; its elements are scalars with no fields",
+				listPath)
+			continue
+		}
 		inner := innerSet
 		if isPredicateCall(c) {
 			inner = innerEach
@@ -342,13 +351,17 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRo
 		}
 	}
 	last := hops[len(hops)-1]
-	last.indexes = append(slices.Clone(last.indexes), 0)
-	cw, elemType, ok := cw.nestedStruct(typeName, last)
+	elemHop := last
+	elemHop.indexes = append(slices.Clone(last.indexes), 0)
+	structWalker, elemType, ok := cw.nestedStruct(typeName, elemHop)
 	if !ok {
-		w.addErrf("ForEach list %q must be a slice of in-library structs", path)
+		w.addErrf("ForEach list %q must be a slice of in-library structs or scalars", path)
 		return "", scopeRoot{}, false
 	}
-	return path, scopeRoot{w: cw, typeName: elemType}, true
+	if _, isScalar := primitiveFromName(elemType); isScalar {
+		return path, scopeRoot{w: cw, scalar: true}, true
+	}
+	return path, scopeRoot{w: structWalker, typeName: elemType}, true
 }
 
 // singleParamName returns the name of a function literal's one
@@ -699,6 +712,9 @@ func (w *walker) valueString(arg ast.Expr, scope constraintScope) (string, bool)
 		if v.Name == "true" || v.Name == "false" {
 			return v.Name, true
 		}
+		if entry, found := scope[v.Name]; found && entry.scalar {
+			return entry.prefix, true
+		}
 	case *ast.UnaryExpr:
 		if v.Op == token.SUB {
 			if bl, ok := v.X.(*ast.BasicLit); ok &&
@@ -787,6 +803,11 @@ func stringConstant(e ast.Expr) (string, bool) {
 // a chain naming a field that does not exist records an error and
 // returns ok=false.
 func (w *walker) selectorField(arg ast.Expr, scope constraintScope) (string, bool) {
+	if id, ok := arg.(*ast.Ident); ok {
+		if entry, found := scope[id.Name]; found && entry.scalar {
+			return entry.prefix, true
+		}
+	}
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
 		w.addErrf("constraint field must be a struct field selector, got %T", arg)
