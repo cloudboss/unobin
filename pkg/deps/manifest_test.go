@@ -35,6 +35,17 @@ func TestReadManifestRejectsNonStringToolchainLine(t *testing.T) {
 	require.Contains(t, err.Error(), "version string")
 }
 
+// TestReadManifestRejectsUnobinInRequires proves the unobin repo
+// cannot be a floored dependency: its version is the toolchain's to
+// pin, through the manifest's unobin line.
+func TestReadManifestRejectsUnobinInRequires(t *testing.T) {
+	_, err := ReadManifest(manifestFS(
+		"requires: {\n  'github.com/cloudboss/unobin': 'v0.5.0'\n}\n"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "toolchain-versioned")
+	require.Contains(t, err.Error(), "unobin line")
+}
+
 func TestEncodeManifestWritesToolchainLine(t *testing.T) {
 	m := &Manifest{
 		UnobinVersion: "v0.2.0",

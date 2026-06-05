@@ -168,6 +168,9 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if err != nil {
 		return err
 	}
+	// The guard sits under every replace layer, so a replaced import
+	// never reaches it and an unreplaced one is refused.
+	resolver = &unobinImportGuard{wrapped: resolver}
 	if replaceUnobinAbs != "" {
 		resolver = &replaceResolver{
 			prefix:  toolchain.UnobinModulePath,
@@ -546,6 +549,25 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 // in the generated go.mod; the replace directive serves it from a local
 // path, so the version is never used to fetch anything.
 const replacedVersion = "v0.0.0"
+
+// unobinImportGuard refuses an import from the unobin repository when
+// no replace serves it. The repo is toolchain-versioned: a
+// dependency-versioned import of it could skew from the runtime the
+// generated go.mod pins.
+type unobinImportGuard struct {
+	wrapped resolve.Resolver
+}
+
+func (g *unobinImportGuard) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	if ri, ok := ref.(*resolve.RemoteImport); ok && ri.URL == toolchain.UnobinModulePath {
+		return nil, fmt.Errorf(
+			"the unobin repository is toolchain-versioned and cannot be imported at a"+
+				" dependency version; replace it locally for development:\n"+
+				"  in unobin.manifest: replace: { '%s': '<path-to-unobin>' }",
+			toolchain.UnobinModulePath)
+	}
+	return g.wrapped.Resolve(ref)
+}
 
 // projectManifest reads the project's unobin.manifest, returning nil
 // when there is no manifest.

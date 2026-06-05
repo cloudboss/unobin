@@ -708,6 +708,54 @@ func Library() *runtime.Library {
 	require.FileExists(t, filepath.Join(outDir, "internal", "net", "net.go"))
 }
 
+// TestCompileRefusesUnreplacedUnobinImport proves an import from the
+// unobin repository must be served by a replace: its source version
+// may not float free of the toolchain that compiles against it.
+func TestCompileRefusesUnreplacedUnobinImport(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin": "v0.5.0",
+	})
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "toolchain-versioned")
+	require.Contains(t, err.Error(), "replace")
+}
+
+// TestDepsGetRefusesUnobin proves a floor cannot be added for the
+// unobin repository.
+func TestDepsGetRefusesUnobin(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("description: 'x'\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "get", "github.com/cloudboss/unobin@v0.5.0",
+		"-p", filepath.Join(dir, "main.ub"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "toolchain-versioned")
+}
+
+// TestDepsSyncTeachesReplaceForUnobinImport proves sync does not ask
+// for a floor on an unobin-repo import; the fix it teaches is the
+// replace.
+func TestDepsSyncTeachesReplaceForUnobinImport(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		[]byte("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(dir, "main.ub"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "toolchain-versioned")
+	require.NotContains(t, err.Error(), "deps get")
+}
+
 // TestCLIVersionFallsBackToBuildInfo proves an unstamped binary
 // identifies by the module version Go recorded at install time, and a
 // source build stays dev.
@@ -928,7 +976,7 @@ func TestCompileUnimportedResourceModuleFails(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  std: 'github.com/cloudboss/unobin-library-std'
 }
 resources: {
   greeter: {
@@ -939,7 +987,7 @@ resources: {
 }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{
-		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+		"github.com/cloudboss/unobin-library-std": "v0.1.0",
 	})
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
@@ -1364,12 +1412,12 @@ func TestCompileNestedUBLibraries(t *testing.T) {
 description: 'inner hello'
 inputs: { path: { type: string } }
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  std: 'github.com/cloudboss/unobin-library-std'
 }
 resources: {
-  local: { file: { this: { path: var.path, content: 'hi' } } }
+  std: { file: { this: { path: var.path, content: 'hi' } } }
 }
-outputs: { path: { value: resource.local.file.this.path } }
+outputs: { path: { value: resource.std.file.this.path } }
 `), 0o644))
 
 	// outer library: imports inner under a different alias and wraps it.
@@ -1395,9 +1443,9 @@ imports: {
 }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{
-		"github.com/example/outer//ub/outer":               "v1",
-		"github.com/example/inner//ub/inner":               "v1",
-		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+		"github.com/example/outer//ub/outer":      "v1",
+		"github.com/example/inner//ub/inner":      "v1",
+		"github.com/cloudboss/unobin-library-std": "v0.1.0",
 	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
@@ -1428,12 +1476,12 @@ imports: {
 		`"inner": lib_inner.Library()`,
 		"outer's composite carries inner in its Libraries map")
 
-	// Inner's generated source binds "local" to the unobin local
-	// primitives package.
+	// Inner's generated source binds "std" to the standard library
+	// package.
 	require.Contains(t, string(innerBytes),
-		`lib_local "github.com/cloudboss/unobin/pkg/libraries/local"`)
+		`lib_unobin_library_std "github.com/cloudboss/unobin-library-std"`)
 	require.Contains(t, string(innerBytes),
-		`"local": lib_local.Library()`)
+		`"std": lib_unobin_library_std.Library()`)
 
 	// Stack root only imports outer; main.go does not see inner.
 	mainBytes, err := os.ReadFile(filepath.Join(outDir, "main.go"))
@@ -1641,7 +1689,7 @@ imports: {
 }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{
-		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+		"github.com/cloudboss/unobin": "v0.1.0",
 	})
 
 	_, err := runCommand(t, "compile",
@@ -1657,17 +1705,17 @@ func TestCompileWithRemoteGoSubpath(t *testing.T) {
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
 imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  std: 'github.com/cloudboss/unobin-library-std//fs'
 }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{
-		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
+		"github.com/cloudboss/unobin-library-std": "v0.1.0",
 	})
 
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
 		"--version", "v0.1.0")
 	require.NoError(t, err)
-	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/local"`)
+	require.Contains(t, out, `"github.com/cloudboss/unobin-library-std/fs"`)
 }
 
 func TestCompileLocalNonUBLibraryFails(t *testing.T) {

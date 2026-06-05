@@ -7,8 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"golang.org/x/mod/semver"
+
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/toolchain"
 )
 
 // ManifestFileName is the standard filename for a factory's dependency
@@ -123,6 +125,13 @@ func parseManifestBody(f *lang.File) (*Manifest, error) {
 		}
 		if err != nil {
 			return nil, err
+		}
+	}
+	for dep := range m.Requires {
+		if dep.URL == toolchain.UnobinModulePath {
+			return nil, fmt.Errorf(
+				"manifest: %s is toolchain-versioned; pin it with the manifest's"+
+					" unobin line, not requires", dep.URL)
 		}
 	}
 	return m, nil

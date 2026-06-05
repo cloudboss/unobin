@@ -67,7 +67,7 @@ func TestReadManifest(t *testing.T) {
 	fsys := fstest.MapFS{
 		ManifestFileName: &fstest.MapFile{Data: []byte(`
 requires: {
-  'github.com/cloudboss/unobin//pkg/libraries/core': 'v0.1.0'
+  'github.com/cloudboss/unobin-library-std//x':       'v0.1.0'
   'github.com/me/net//vpc':                          'v2.0.0'
 }
 `)},
@@ -75,8 +75,8 @@ requires: {
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]string{
-		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}: "v0.1.0",
-		{URL: "github.com/me/net", Subdir: "vpc"}:                          "v2.0.0",
+		{URL: "github.com/cloudboss/unobin-library-std", Subdir: "x"}: "v0.1.0",
+		{URL: "github.com/me/net", Subdir: "vpc"}:                     "v2.0.0",
 	}, m.Requires)
 }
 

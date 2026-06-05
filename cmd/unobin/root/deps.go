@@ -13,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/git"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/spf13/cobra"
 )
 
@@ -140,6 +141,11 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
+	if dep.URL == toolchain.UnobinModulePath {
+		return fmt.Errorf(
+			"%s is toolchain-versioned; pin it with the manifest's unobin line",
+			dep.URL)
+	}
 	tags, err := depsListTags(dep.URL)
 	if err != nil {
 		return err
@@ -174,15 +180,24 @@ func readManifestOrEmpty(root string) (*deps.Manifest, error) {
 // reconcileManifest makes the manifest's floors match the set of imported
 // repositories. An imported repository with no floor is an error that
 // points the author at `deps get`; a floor whose repository is no longer
-// imported is removed.
+// imported is removed. The unobin repository takes no floor at all: an
+// import from it must be served by a replace, since its source version
+// may not float free of the toolchain.
 func reconcileManifest(m *deps.Manifest, imported map[deps.Dependency]bool) error {
 	var missing []string
 	for dep := range imported {
-		if _, ok := m.Requires[dep]; ok {
-			continue
-		}
 		if _, ok := m.Replace[dep]; ok {
 			continue // a replaced dependency reads from a local path, no floor
+		}
+		if dep.URL == toolchain.UnobinModulePath {
+			return fmt.Errorf(
+				"%s is toolchain-versioned and cannot be imported at a dependency"+
+					" version; replace it locally:\n"+
+					"  in unobin.manifest: replace: { '%s': '<path-to-unobin>' }",
+				dep.URL, dep.URL)
+		}
+		if _, ok := m.Requires[dep]; ok {
+			continue
 		}
 		missing = append(missing, dep.String())
 	}
