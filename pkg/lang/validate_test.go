@@ -1508,6 +1508,64 @@ constraints: [
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
 }
 
+func TestValidateConstraintChainedForEach(t *testing.T) {
+	src := `
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.rules },
+      { @t:    @rule.value.transitions },
+    ]
+    when:    true
+    require: @t.value.days != null
+  },
+]
+`
+	errs := ValidateConstraints(parseConstraintsBlock(t, src))
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+func TestValidateConstraintChainedForEachRejectsBadLevels(t *testing.T) {
+	cases := []struct {
+		name   string
+		levels string
+		want   string
+	}{
+		{"empty chain", ``,
+			"a chained @for-each needs at least one level"},
+		{"non-object level", `var.rules,`,
+			"a chain level binds one @-name"},
+		{"two keys", `{ @a: var.rules, @b: var.rules },`,
+			"a chain level binds one @-name"},
+		{"bare name", `{ rule: var.rules },`,
+			"binding must be @-named"},
+		{"each declared", `{ @each: var.rules },`,
+			"@each is the bare form's binding"},
+		{"core declared", `{ @core: var.rules },`,
+			"reserved"},
+		{"duplicate", `{ @a: var.rules }, { @a: var.rules },`,
+			"duplicate binding \"@a\""},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			src := `
+constraints: [
+  {
+    kind: predicate
+    @for-each: [ ` + tt.levels + ` ]
+    when:    true
+    require: true
+  },
+]
+`
+			errs := ValidateConstraints(parseConstraintsBlock(t, src))
+			require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+			require.Contains(t, errs.Errors()[0].Msg, tt.want)
+		})
+	}
+}
+
 func TestValidateConstraintForEachOnSetKindRejected(t *testing.T) {
 	src := `
 constraints: [

@@ -365,7 +365,8 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 	seen := make(map[string]Position, len(obj.Fields))
 	for _, f := range obj.Fields {
 		// @for-each is the one meta key a predicate takes: it iterates
-		// the when/require pair per element with @each bound.
+		// the when/require pair per element, binding @each in the bare
+		// form or the named level bindings in the chained one.
 		if f.Key.Kind == FieldIdent && f.Key.Name == "@for-each" {
 			if prev, dup := seen[f.Key.Name]; dup {
 				errs.Addf(ErrSchema, f.Key.S.Start,
@@ -374,6 +375,9 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 				continue
 			}
 			seen[f.Key.Name] = f.Key.S.Start
+			if arr, ok := f.Value.(*ArrayLit); ok {
+				validateForEachChain(idx, arr, errs)
+			}
 			continue
 		}
 		if !validateConstraintCommonKey(idx, f, seen, errs) {
@@ -400,6 +404,49 @@ func validatePredicateConstraint(idx int, obj *ObjectLit, errs *ErrorList) {
 	if !hasRequire {
 		errs.Addf(ErrSchema, obj.S.Start,
 			"constraints[%d]: predicate requires a `require:` expression", idx)
+	}
+}
+
+// validateForEachChain checks the chained @for-each form: one level
+// after another, each binding one fresh @-name to an iterable.
+func validateForEachChain(idx int, arr *ArrayLit, errs *ErrorList) {
+	if len(arr.Elements) == 0 {
+		errs.Addf(ErrSchema, arr.S.Start,
+			"constraints[%d]: a chained @for-each needs at least one level", idx)
+		return
+	}
+	declared := make(map[string]Position, len(arr.Elements))
+	for _, el := range arr.Elements {
+		obj, ok := el.(*ObjectLit)
+		if !ok || len(obj.Fields) != 1 || obj.Fields[0].Key.Kind != FieldIdent {
+			errs.Addf(ErrSchema, el.Span().Start,
+				"constraints[%d]: a chain level binds one @-name to an iterable,"+
+					" like { @rule: var.rules }", idx)
+			continue
+		}
+		key := obj.Fields[0].Key
+		switch {
+		case !strings.HasPrefix(key.Name, "@"):
+			errs.Addf(ErrSchema, key.S.Start,
+				"constraints[%d]: a chain level's binding must be @-named, like @%s",
+				idx, key.Name)
+		case key.Name == "@each":
+			errs.Addf(ErrSchema, key.S.Start,
+				"constraints[%d]: @each is the bare form's binding; give this level"+
+					" its own name", idx)
+		case key.Name == CoreNamespace:
+			errs.Addf(ErrSchema, key.S.Start,
+				"constraints[%d]: %s is reserved; choose another binding name",
+				idx, CoreNamespace)
+		default:
+			if prev, dup := declared[key.Name]; dup {
+				errs.Addf(ErrSchema, key.S.Start,
+					"constraints[%d]: duplicate binding %q (first defined at %s)",
+					idx, key.Name, prev)
+				continue
+			}
+			declared[key.Name] = key.S.Start
+		}
 	}
 }
 

@@ -822,6 +822,77 @@ constraints: [
   { kind: predicate, @for-each: resource.core.thing.x.id, when: true, require: true },
 ]
 `, "a constraint may read inputs only, not resource.core.thing.x.id"},
+		{"chained bindings resolve", `
+inputs: {
+  rules: { type: optional(list(object({ max: optional(number) }))) }
+}
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.rules },
+      { @t:    @rule.value.transitions },
+    ]
+    when:    true
+    require: @t.value.days != null && @rule.value.max != null
+  },
+]
+`, ""},
+		{"undeclared binding rejected", `
+inputs: {
+  rules: { type: optional(list(string)) }
+}
+constraints: [
+  {
+    kind: predicate
+    @for-each: [ { @rule: var.rules } ]
+    when:    true
+    require: @x.value != null
+  },
+]
+`, "@x is not bound"},
+		{"each in a chained entry rejected", `
+inputs: {
+  rules: { type: optional(list(string)) }
+}
+constraints: [
+  {
+    kind: predicate
+    @for-each: [ { @rule: var.rules } ]
+    when:    true
+    require: @each.value != null
+  },
+]
+`, "@each is not bound in a chained @for-each"},
+		{"level reads only earlier bindings", `
+inputs: {
+  rules: { type: optional(list(string)) }
+}
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @a: @b.value.items },
+      { @b: var.rules },
+    ]
+    when:    true
+    require: true
+  },
+]
+`, "@b is not bound"},
+		{"level iterable reads inputs only", `
+resources: {
+  core: { thing: { x: { name: 'a' } } }
+}
+constraints: [
+  {
+    kind: predicate
+    @for-each: [ { @a: resource.core.thing.x.id } ]
+    when:    true
+    require: true
+  },
+]
+`, "a constraint may read inputs only, not resource.core.thing.x.id"},
 	}
 	libs := map[string]*Library{
 		"core": {Schema: &LibrarySchema{

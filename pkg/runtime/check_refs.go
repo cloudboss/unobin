@@ -102,10 +102,7 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 		if !ok {
 			continue
 		}
-		forEach := constraintForEach(obj)
-		if forEach != nil {
-			c.checkConstraintExpr(forEach, scope, false)
-		}
+		it := c.checkConstraintIteration(constraintForEach(obj), scope)
 		for _, fld := range obj.Fields {
 			if fld.Key.Kind != lang.FieldIdent {
 				continue
@@ -113,8 +110,48 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 			if fld.Key.Name != "when" && fld.Key.Name != "require" {
 				continue
 			}
-			c.checkConstraintExpr(fld.Value, scope, forEach != nil)
+			c.checkConstraintExpr(fld.Value, scope, it)
 		}
+	}
+}
+
+// iterScope is the iteration context a constraint expression is
+// checked in: the bare form binds @each, the chained form binds the
+// declared level names, and outside @for-each nothing is bound.
+type iterScope struct {
+	bare  bool
+	names map[string]bool
+}
+
+// checkConstraintIteration checks an entry's @for-each value and
+// returns the bindings its when and require are checked under. Each
+// chain level's iterable is checked with only the earlier levels in
+// scope; malformed levels are skipped, with validation the place that
+// reports them.
+func (c *referenceChecker) checkConstraintIteration(
+	forEach lang.Expr, scope string,
+) iterScope {
+	switch fe := forEach.(type) {
+	case nil:
+		return iterScope{}
+	case *lang.ArrayLit:
+		it := iterScope{names: make(map[string]bool, len(fe.Elements))}
+		for _, el := range fe.Elements {
+			obj, ok := el.(*lang.ObjectLit)
+			if !ok || len(obj.Fields) != 1 || obj.Fields[0].Key.Kind != lang.FieldIdent {
+				continue
+			}
+			f := obj.Fields[0]
+			if !strings.HasPrefix(f.Key.Name, "@") || f.Key.Name == "@each" {
+				continue
+			}
+			c.checkConstraintExpr(f.Value, scope, it)
+			it.names[f.Key.Name] = true
+		}
+		return it
+	default:
+		c.checkConstraintExpr(forEach, scope, iterScope{})
+		return iterScope{bare: true}
 	}
 }
 
@@ -137,19 +174,20 @@ func constraintForEach(obj *lang.ObjectLit) lang.Expr {
 // predicate. eachOK admits @each inside an entry that iterates with
 // @for-each. Comprehension bindings and library calls resolve as
 // anywhere else.
-func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, eachOK bool) {
+func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it iterScope) {
 	lang.Walk(expr, func(node lang.Expr) {
 		switch n := node.(type) {
 		case *lang.DotPath:
 			c.checkSplat(n)
-			switch n.Root.Name {
-			case "var":
+			switch {
+			case n.Root.Name == "var":
 				c.checkVar(n, scope)
-			case "resource", "data", "action", "local":
+			case n.Root.Name == "resource", n.Root.Name == "data",
+				n.Root.Name == "action", n.Root.Name == "local":
 				c.addf(n.S.Start,
 					"a constraint may read inputs only, not %s", namedPathText(n))
-			case "@each":
-				c.checkEach(n, eachOK)
+			case strings.HasPrefix(n.Root.Name, "@"):
+				c.checkBindingPath(n, it)
 			}
 		case *lang.Call:
 			c.checkCall(n, scope)
@@ -217,7 +255,7 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 			case "local":
 				c.checkLocal(n, scope)
 			case "@each":
-				c.checkEach(n, eachOK)
+				c.checkBindingPath(n, iterScope{bare: eachOK})
 			}
 		case *lang.Call:
 			c.checkCall(n, scope)
@@ -570,19 +608,34 @@ func trailingField(dp *lang.DotPath) string {
 	return seg.Name
 }
 
-func (c *referenceChecker) checkEach(dp *lang.DotPath, eachOK bool) {
-	if !eachOK {
+func (c *referenceChecker) checkBindingPath(dp *lang.DotPath, it iterScope) {
+	name := dp.Root.Name
+	switch {
+	case name == lang.CoreNamespace:
+		c.addf(dp.S.Start, "%s names functions; call one, e.g. %s.length(...)",
+			lang.CoreNamespace, lang.CoreNamespace)
+		return
+	case name == "@each" && it.bare:
+	case name == "@each" && it.names != nil:
+		c.addf(dp.S.Start,
+			"@each is not bound in a chained @for-each; reference a declared level")
+		return
+	case name == "@each":
 		c.addf(dp.S.Start, "@each is only available inside @for-each")
+		return
+	case it.names[name]:
+	default:
+		c.addf(dp.S.Start, "%s is not bound; declare it as a chain level", name)
 		return
 	}
 	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
-		c.addf(dp.S.Start, "@each requires .key or .value")
+		c.addf(dp.S.Start, "%s requires .key or .value", name)
 		return
 	}
 	switch dp.Segments[0].Name {
 	case "key", "value":
 	default:
-		c.addf(dp.S.Start, "@each.%s is not available", dp.Segments[0].Name)
+		c.addf(dp.S.Start, "%s.%s is not available", name, dp.Segments[0].Name)
 	}
 }
 
