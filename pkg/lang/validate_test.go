@@ -277,6 +277,53 @@ outputs: {
 	require.Contains(t, msg, "format")
 }
 
+// TestValidateAdmitsCoreNamespaceCall proves a @core call needs no
+// import: the namespace is part of the language.
+func TestValidateAdmitsCoreNamespaceCall(t *testing.T) {
+	src := `
+outputs: {
+  shout: { value: @core.format('%s', 'hi') }
+}
+`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+}
+
+// TestValidateRejectsUnknownNamespaceCall proves @core is the only
+// language namespace a call may use.
+func TestValidateRejectsUnknownNamespaceCall(t *testing.T) {
+	src := `
+outputs: {
+  shout: { value: @std.format('%s', 'hi') }
+}
+`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	msg := errs.Errors()[0].Error()
+	require.Contains(t, msg, "@std")
+	require.Contains(t, msg, "@core")
+}
+
+// TestValidateRejectsAtPrefixedImportAlias proves the @ namespace stays
+// the language's: an import cannot claim a name there.
+func TestValidateRejectsAtPrefixedImportAlias(t *testing.T) {
+	src := `
+imports: {
+  @core: 'github.com/x/y'
+}
+`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Contains(t, errs.Errors()[0].Error(),
+		`@-prefixed key "@core" is not a valid import name`)
+}
+
 func TestValidateCallsTypePositions(t *testing.T) {
 	const ok = "" // no error expected
 	cases := []struct {

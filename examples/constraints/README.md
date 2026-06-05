@@ -20,7 +20,7 @@ plan time, before any work happens:
   replica's `cert` and `key` come together. A failure names the
   element that broke the rule (`var.replicas[0].cert`).
 - A `predicate` checks a `when:`/`require:` pair and may call
-  imported functions (`core.length`).
+  functions from the language namespace (`@core.length`).
 - A predicate with `@for-each:` checks once per element, with
   `@each.key` and `@each.value` bound; a failure names the element
   (`var.replicas[1]`).

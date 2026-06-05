@@ -159,6 +159,41 @@ actions: {
 	require.Contains(t, got[0], `library "core" has no function "formatt"`)
 }
 
+// TestCheckReferencesCoreNamespace proves the @core namespace checks at
+// compile with no import at all: the set is fixed, so an unknown name
+// or a wrong argument count is always an error.
+func TestCheckReferencesCoreNamespace(t *testing.T) {
+	libs := map[string]*Library{"ext": {Schema: &LibrarySchema{
+		Actions: map[string]*TypeSchema{"thing": {}},
+	}}}
+	cases := []struct {
+		name string
+		call string
+		want string
+	}{
+		{"known function", "@core.format('%s', 'hi')", ""},
+		{"unknown function", "@core.frobnicate('x')", `@core has no function "frobnicate"`},
+		{"fixed arity violation", "@core.length('a', 'b')", "@core.length takes 1 argument, got 2"},
+		{"variadic arity violation", "@core.format()", "@core.format takes at least 1 argument, got 0"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, `
+actions: {
+  ext: { thing: { x: { argv: [`+tt.call+`] } } }
+}
+`), libs)
+			got := checkRefMessages(t, errs)
+			if tt.want == "" {
+				require.Empty(t, got)
+			} else {
+				require.Len(t, got, 1)
+				require.Contains(t, got[0], tt.want)
+			}
+		})
+	}
+}
+
 func TestCheckReferencesFunctionArity(t *testing.T) {
 	libs := map[string]*Library{
 		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{

@@ -41,7 +41,7 @@ constraints: [
   {
     kind:    predicate
     when:    var.tier == 'prod'
-    require: core.length(var.replicas) >= 2
+    require: @core.length(var.replicas) >= 2
     message: 'prod runs at least two replicas'
   },
 
@@ -57,8 +57,7 @@ constraints: [
 ]
 
 imports: {
-  core:   'github.com/cloudboss/unobin//pkg/libraries/core'
-  local:  'github.com/cloudboss/unobin//pkg/libraries/local'
+  local:   'github.com/cloudboss/unobin//pkg/libraries/local'
   deploy: 'github.com/cloudboss/unobin//examples/constraints/deploy'
 }
 
@@ -70,17 +69,17 @@ resources: {
         tier:     var.tier
         image:    var.image
         build:    var.build
-        replicas: core.length(var.replicas)
+        replicas: @core.length(var.replicas)
         ports:    [ for r in var.replicas : { number: r.port, tls: r.tls, cert: r.cert } ]
-        path:     core.format('%s/app.service', var.base-path)
+        path:     @core.format('%s/app.service', var.base-path)
       }
     }
   }
   local: {
     file: {
       summary: {
-        path:             core.format('%s/replicas.txt', var.base-path)
-        content:          core.format('replicas: %s\n', var.replicas[*].host)
+        path:             @core.format('%s/replicas.txt', var.base-path)
+        content:          @core.format('replicas: %s\n', var.replicas[*].host)
         create-directory: true
       }
     }

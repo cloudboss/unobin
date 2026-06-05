@@ -634,16 +634,23 @@ func ValidateFile(f *File) *ErrorList {
 	return errs
 }
 
+// CoreNamespace is the language's function namespace: a call qualified
+// with it resolves against the functions the toolchain provides, with
+// no import. The @ keeps it outside the alias namespace, so an import
+// can never collide with it or stand in for it.
+const CoreNamespace = "@core"
+
 // ValidateCalls walks every expression in f and rejects two kinds of
-// function call: a bare call with no library qualifier (every function
-// lives in a library, so a call must name one, e.g. core.format), and a
-// qualified call whose alias is missing from the file's imports block.
+// function call: a bare call with no qualifier (a call names either an
+// imported library or @core), and a qualified call whose alias is
+// missing from the file's imports block. @core needs no import; any
+// other @-name is rejected, since the language provides only @core.
 // The type constructors in an input declaration's type (list(string),
 // optional(integer, 0)) are left alone: they share call syntax but denote
 // types; a default inside such a type stays a value and is still checked.
-// Whether a named function exists
-// is not checked here; that is a runtime concern, since a library's
-// function set lives in compiled Go code.
+// Whether a named library function exists is not checked here; that is
+// a runtime concern, since a library's function set lives in compiled
+// Go code. The @core set is fixed and the reference checker enforces it.
 func ValidateCalls(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	imports := importedAliases(f)
@@ -664,8 +671,18 @@ func ValidateCalls(f *File) *ErrorList {
 				name = c.Callee.Name
 			}
 			errs.Addf(ErrResolve, pos,
-				"function %q must be qualified with a library, e.g. core.%s(...)",
-				name, name)
+				"function %q must be qualified with %s or an imported library,"+
+					" e.g. %s.%s(...)",
+				name, CoreNamespace, CoreNamespace, name)
+			return
+		}
+		if c.Library.Name == CoreNamespace {
+			return
+		}
+		if strings.HasPrefix(c.Library.Name, "@") {
+			errs.Addf(ErrResolve, c.Library.S.Start,
+				"%q is not a namespace; the language provides only %s",
+				c.Library.Name, CoreNamespace)
 			return
 		}
 		if _, declared := imports[c.Library.Name]; !declared {

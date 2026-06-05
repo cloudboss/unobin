@@ -167,14 +167,19 @@ func (c *referenceChecker) scopeFor(n *Node) *typecheck.Scope {
 	return scope
 }
 
-// lookupFunctionFor resolves a library-qualified function call in the
-// given scope to its declared signature, so the inferrer can check
-// argument types and use the result type. A missing library or schema
-// resolves nothing, leaving the call to infer Unknown.
+// lookupFunctionFor resolves a qualified function call in the given
+// scope to its declared signature, so the inferrer can check argument
+// types and use the result type. @core resolves against the language's
+// own table; a missing library or schema resolves nothing, leaving the
+// call to infer Unknown.
 func (c *referenceChecker) lookupFunctionFor(
 	scope string,
 ) func(library, name string) (typecheck.FuncSig, bool) {
 	return func(library, name string) (typecheck.FuncSig, bool) {
+		if library == lang.CoreNamespace {
+			sig, ok := CoreFunctionSigs()[name]
+			return sig, ok
+		}
 		libs := c.libraries[scope]
 		if libs == nil {
 			return typecheck.FuncSig{}, false

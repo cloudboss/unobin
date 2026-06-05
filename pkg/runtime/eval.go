@@ -352,9 +352,9 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 	return out, nil
 }
 
-// evalCall evaluates a function call. Every function lives in a library,
-// so a call must be library-qualified (core.format(...)); a bare call has
-// no library to resolve against and is rejected.
+// evalCall evaluates a function call. A call is qualified by @core,
+// the language's own namespace, or by an imported library's alias; a
+// bare call has nothing to resolve against and is rejected.
 func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if c.Library != nil {
 		return evalLibraryCall(c, ctx)
@@ -364,10 +364,14 @@ func evalCall(c *lang.Call, ctx *EvalContext) (any, error) {
 		name = c.Callee.Name
 	}
 	return nil, fmt.Errorf(
-		"eval: function %q must be qualified with a library, e.g. core.%s(...)", name, name)
+		"eval: function %q must be qualified with %s or an imported library, e.g. %s.%s(...)",
+		name, lang.CoreNamespace, lang.CoreNamespace, name)
 }
 
 func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
+	if c.Library.Name == lang.CoreNamespace {
+		return evalCoreCall(c, ctx)
+	}
 	lib, ok := ctx.Libraries[c.Library.Name]
 	if !ok {
 		return nil, fmt.Errorf("eval: library %q is not imported", c.Library.Name)
@@ -378,6 +382,21 @@ func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
 			c.Library.Name, c.Func.Name)
 	}
 	args, err := evalArgs(c.Library.Name+"."+c.Func.Name, c.Args, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return fn.Func(args)
+}
+
+// evalCoreCall resolves a @core call against the language's own
+// function table, in scope in every context with no import.
+func evalCoreCall(c *lang.Call, ctx *EvalContext) (any, error) {
+	fn, ok := coreFunctions[c.Func.Name]
+	if !ok {
+		return nil, fmt.Errorf("eval: %s has no function %q",
+			lang.CoreNamespace, c.Func.Name)
+	}
+	args, err := evalArgs(lang.CoreNamespace+"."+c.Func.Name, c.Args, ctx)
 	if err != nil {
 		return nil, err
 	}

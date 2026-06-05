@@ -58,6 +58,20 @@ func testInfo(t *testing.T, src string) Info {
 
 	coreMod := core.Library()
 	coreMod.Actions["echo"] = runtime.MakeAction[echoAction, any]()
+	// A library-exported function, so tests can cover calls against an
+	// imported library's own function set, distinct from @core.
+	coreMod.Functions = map[string]runtime.FunctionType{
+		"all": runtime.MakeFunc("all",
+			"Report whether every element of a list of booleans is true.",
+			func(bools []bool) (bool, error) {
+				for _, b := range bools {
+					if !b {
+						return false, nil
+					}
+				}
+				return true, nil
+			}),
+	}
 	return Info{
 		FactoryName:     "test-stack",
 		FactoryVersion:  "v0.1.0",
@@ -433,7 +447,7 @@ actions: {
   core: {
     echo: {
       summary: {
-        echo: core.format('size=%d spot=%v ratio=%v subnets=%v',
+        echo: @core.format('size=%d spot=%v ratio=%v subnets=%v',
           var.size, var.use-spot, var.ratio, var.subnets)
       }
     }
@@ -506,7 +520,7 @@ imports: {
 }
 actions: {
   core: {
-    echo: { hi: { echo: core.format('size=%d', var.size) } }
+    echo: { hi: { echo: @core.format('size=%d', var.size) } }
   }
 }
 outputs: {
@@ -572,6 +586,33 @@ constraints: [
     kind:    predicate
     when:    var.replicas != null
     require: core.all([for r in var.replicas: r.port > 0])
+    message: 'every replica needs a positive port'
+  },
+]
+`
+	info := testInfo(t, src)
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "every replica needs a positive port")
+}
+
+// TestPlanChecksPredicateCallingCoreNamespace proves a constraint
+// predicate can call @core with no import at all: the namespace is
+// part of the language, in scope everywhere expressions evaluate.
+func TestPlanChecksPredicateCallingCoreNamespace(t *testing.T) {
+	src := `
+inputs: {
+  replicas: {
+    type: optional(
+      list(object({ port: optional(integer) })),
+      [{ port: 443 }, { port: 0 }])
+  }
+}
+constraints: [
+  {
+    kind:    predicate
+    when:    var.replicas != null
+    require: @core.all([for r in var.replicas: r.port > 0])
     message: 'every replica needs a positive port'
   },
 ]

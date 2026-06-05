@@ -5,34 +5,17 @@ import (
 )
 
 // Library returns the registration record for the builtin `core` library.
-// Stacks reach its actions as `actions: { core: { command: { ... } } }` and
-// its functions as `core.format(...)`.
+// Stacks reach its actions as `actions: { core: { command: { ... } } }`.
+// Functions live in the language's @core namespace, not here.
 func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "core",
-		Description: "Built-in actions and functions",
+		Description: "Built-in actions",
 		Actions: map[string]runtime.ActionRegistration{
 			"command":  runtime.MakeAction[CommandAction, *CommandActionOutput](),
 			"script":   runtime.MakeAction[ScriptAction, *ScriptActionOutput](),
 			"http":     runtime.MakeAction[HTTPAction, *HTTPActionOutput](),
 			"wait-for": runtime.MakeAction[WaitForAction, *WaitForActionOutput](),
-		},
-		Functions: map[string]runtime.FunctionType{
-			"format": runtime.MakeFunc("format",
-				"Printf-style string formatting; the first argument is the format string.",
-				fnFormat),
-			"b64-encode": runtime.MakeFunc("b64-encode",
-				"Base64-encode a string.", fnB64Encode),
-			"b64-decode": runtime.MakeFunc("b64-decode",
-				"Base64-decode a string.", fnB64Decode),
-			"range": runtime.MakeFunc("range",
-				"Return the integers [0, n) as a list.", fnRange),
-			"length": runtime.MakeFunc("length",
-				"Return the number of elements in a string, list, or map.", fnLength),
-			"all": runtime.MakeFunc("all",
-				"Report whether every element of a list of booleans is true.", fnAll),
-			"any": runtime.MakeFunc("any",
-				"Report whether at least one element of a list of booleans is true.", fnAny),
 		},
 	}
 }

@@ -251,6 +251,16 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 	if call.Library == nil || call.Func == nil {
 		return
 	}
+	if call.Library.Name == lang.CoreNamespace {
+		sig, ok := CoreFunctionSigs()[call.Func.Name]
+		if !ok {
+			c.addf(call.Func.S.Start, `%s has no function %q`,
+				lang.CoreNamespace, call.Func.Name)
+			return
+		}
+		c.checkCallArity(call, sig)
+		return
+	}
 	libs := c.libraries[scope]
 	if libs == nil {
 		return
@@ -273,6 +283,12 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 			call.Library.Name, call.Func.Name)
 		return
 	}
+	c.checkCallArity(call, sig)
+}
+
+// checkCallArity reports a call whose argument count does not fit the
+// function's signature.
+func (c *referenceChecker) checkCallArity(call *lang.Call, sig typecheck.FuncSig) {
 	n := len(call.Args)
 	fixed := len(sig.Params)
 	variadic := sig.Variadic != nil
