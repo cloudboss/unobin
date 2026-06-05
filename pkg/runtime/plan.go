@@ -775,6 +775,9 @@ func (e *Executor) planOneAction(
 	if err != nil {
 		return nil, err
 	}
+	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
+		return nil, err
+	}
 	trigger, err := ComputeTrigger(n, inputs, scope)
 	if err != nil {
 		return nil, err
@@ -848,6 +851,9 @@ func (e *Executor) planOneResource(
 ) (*PlanStep, error) {
 	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
+		return nil, err
+	}
+	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
 		return nil, err
 	}
 	var prior *state.Entry
@@ -981,6 +987,9 @@ func upgradeActionRerun(steps []*PlanStep, dag *DAG, sl *scopeLocals) {
 func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanStep, error) {
 	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
+		return nil, err
+	}
+	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
 		return nil, err
 	}
 	return &PlanStep{

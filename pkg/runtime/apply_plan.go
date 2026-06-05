@@ -388,6 +388,9 @@ func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := e.applyInputDefaults(node, inputs, nil); err != nil {
+		return nil, err
+	}
 	return &stepPrep{
 		node:    node,
 		parent:  parent,
