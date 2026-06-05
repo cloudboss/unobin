@@ -1,6 +1,9 @@
 package runtime
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -23,9 +26,75 @@ func (c *referenceChecker) checkTypes() {
 		targets := c.bodyTargets(n)
 		scope := c.scopeFor(n)
 		c.checkBodyTypes(n.Body, targets, scope, n)
+		c.checkRequiredPresence(n, targets)
 	}
 	c.checkOutputBodyTypes()
 	c.checkConstraintTypes()
+}
+
+// checkRequiredPresence reports body fields a node's schema requires
+// but the body leaves out. A field is required when its declared type
+// is not optional and no default is declared for it; an Unknown type
+// stays unchecked, since it may stand for a type the schema cannot
+// describe. Nodes whose schema cannot be located check nothing, so a
+// missing-schema library does not block compile.
+func (c *referenceChecker) checkRequiredPresence(n *Node, targets map[string]typecheck.Type) {
+	if len(targets) == 0 {
+		return
+	}
+	obj, ok := n.Body.(*lang.ObjectLit)
+	if !ok {
+		return
+	}
+	present := make(map[string]bool, len(obj.Fields))
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		present[fld.Key.Name] = true
+	}
+	defaulted := c.defaultedInputs(n)
+	names := make([]string, 0, len(targets))
+	for name := range targets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		t := targets[name]
+		if t.Kind == typecheck.Optional || t.Kind == typecheck.Unknown {
+			continue
+		}
+		if present[name] || defaulted[name] {
+			continue
+		}
+		c.addf(n.Body.Span().Start,
+			"missing required input %q on %s.%s", name, n.Alias, n.Type)
+	}
+}
+
+// defaultedInputs returns the top-level input names the node's Go type
+// declares a default for, Optional markers included. A nested default
+// does not excuse its top-level parent. A composite declares
+// optionality in its inputs block instead, so its set is empty.
+func (c *referenceChecker) defaultedInputs(n *Node) map[string]bool {
+	if n.IsComposite() {
+		return nil
+	}
+	ts := c.lookupTypeSchema(n)
+	if ts == nil {
+		return nil
+	}
+	out := make(map[string]bool, len(ts.Defaults))
+	for _, d := range ts.Defaults {
+		rest, ok := strings.CutPrefix(d.Field, "var.")
+		if !ok {
+			continue
+		}
+		if !strings.Contains(rest, ".") {
+			out[rest] = true
+		}
+	}
+	return out
 }
 
 // bodyTargets returns the per-field type targets for a node body.

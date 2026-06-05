@@ -9,8 +9,8 @@ import (
 )
 
 // localFileModule mirrors the input and output fields of the real
-// `local.file` resource so the tests don't pull the libraries
-// package as a dependency.
+// `local.file` resource, declared defaults included, so the tests
+// don't pull the libraries package as a dependency.
 func localFileLibrary() *Library {
 	return &Library{
 		Schema: &LibrarySchema{
@@ -27,10 +27,153 @@ func localFileLibrary() *Library {
 						"sha256": typecheck.TString(),
 						"size":   typecheck.TInteger(),
 					},
+					Defaults: []lang.DefaultSpec{
+						{Field: "var.mode", Value: "420"},
+						{Field: "var.create-directory", Optional: true},
+					},
 				},
 			},
 		},
 	}
+}
+
+// TestCheckTypesRequiresMissingInput proves a body that leaves out a
+// required input fails at compile: content has no default and is not
+// optional, while mode and create-directory are excused by their
+// declared defaults.
+func TestCheckTypesRequiresMissingInput(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  local: {
+    file: {
+      one: { path: 'p' }
+    }
+  }
+}
+`), map[string]*Library{"local": localFileLibrary()})
+
+	require.Equal(t,
+		[]string{`missing required input "content" on local.file`},
+		checkErrorMessages(t, errs))
+}
+
+// TestCheckTypesReportsEveryMissingInput proves the check reports each
+// missing required input by name, in sorted order.
+func TestCheckTypesReportsEveryMissingInput(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  local: {
+    file: {
+      one: { create-directory: true }
+    }
+  }
+}
+`), map[string]*Library{"local": localFileLibrary()})
+
+	require.Equal(t, []string{
+		`missing required input "content" on local.file`,
+		`missing required input "path" on local.file`,
+	}, checkErrorMessages(t, errs))
+}
+
+// TestCheckTypesSkipsUnknownTypedInput proves an input whose type the
+// schema could not describe is not required, since its optionality is
+// unknowable.
+func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
+	lib := &Library{
+		Schema: &LibrarySchema{
+			Resources: map[string]*TypeSchema{
+				"thing": {
+					Inputs: map[string]typecheck.Type{
+						"name":   typecheck.TString(),
+						"opaque": typecheck.TUnknown(),
+					},
+				},
+			},
+		},
+	}
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  ext: {
+    thing: {
+      one: { name: 'a' }
+    }
+  }
+}
+`), map[string]*Library{"ext": lib})
+
+	require.Empty(t, checkErrorMessages(t, errs))
+}
+
+// TestCheckTypesSkipsSchemalessLibrary proves a library without a
+// schema blocks nothing, matching how the rest of the checker treats
+// missing schemas.
+func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  ext: {
+    thing: {
+      one: { name: 'a' }
+    }
+  }
+}
+`), map[string]*Library{"ext": {}})
+
+	require.Empty(t, checkErrorMessages(t, errs))
+}
+
+// TestCheckTypesRequiresCompositeInput proves a composite call site
+// must provide the composite's required inputs; a declared optional
+// input may stay absent.
+func TestCheckTypesRequiresCompositeInput(t *testing.T) {
+	composite := parseStack(t, `
+inputs: {
+  name: { type: string }
+  note: { type: optional(string) }
+}
+resources: {
+  local: {
+    file: {
+      one: { path: var.name, content: 'x' }
+    }
+  }
+}
+`)
+	libs := map[string]*Library{
+		"bundle": {
+			ResourceComposites: map[string]*CompositeType{
+				"pair": {
+					Name:      "pair",
+					Body:      composite,
+					Libraries: map[string]*Library{"local": localFileLibrary()},
+				},
+			},
+		},
+	}
+
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  bundle: {
+    pair: {
+      demo: { }
+    }
+  }
+}
+`), libs)
+	require.Equal(t,
+		[]string{`missing required input "name" on bundle.pair`},
+		checkErrorMessages(t, errs))
+
+	clean := CheckReferences(parseStack(t, `
+resources: {
+  bundle: {
+    pair: {
+      demo: { name: 'n' }
+    }
+  }
+}
+`), libs)
+	require.Empty(t, checkErrorMessages(t, clean))
 }
 
 func TestCheckTypesAcceptsMatchingBody(t *testing.T) {
@@ -316,8 +459,9 @@ resources: {
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `unknown field "paht" on local.file`)
+	require.Len(t, got, 2)
+	require.Contains(t, got[0], `missing required input "path" on local.file`)
+	require.Contains(t, got[1], `unknown field "paht" on local.file`)
 }
 
 func TestCheckTypesRejectsUnknownFieldOnNestedResourceOutput(t *testing.T) {
