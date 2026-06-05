@@ -62,7 +62,8 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "var"}
 	}
 	var out []lang.ConstraintSpec
-	for _, call := range w.constraintCalls(method.Body, "Constraints method") {
+	for _, call := range w.listReturnCalls(
+		method.Body, "Constraints method", "constraint", "pkg/constraint") {
 		base, message, _ := peelMessage(call)
 		if w.isForEachCall(base) {
 			if message != "" {
@@ -168,18 +169,21 @@ func receiverType(fn *ast.FuncDecl) string {
 	return ""
 }
 
-// constraintCalls returns the constructor call expressions in the
-// returned slice literal of a function body, whether the body is a
-// Constraints method's or a ForEach body's. context names the body for
-// diagnostics. A body that is not a single return of a composite
-// literal yields only what its conforming returns hold, with a warning;
-// an element that is not a constructor call warns and is skipped.
-func (w *walker) constraintCalls(body *ast.BlockStmt, context string) []*ast.CallExpr {
+// listReturnCalls returns the constructor call expressions in the
+// returned slice literal of a function body. context names the body and
+// elem the kind of element it declares (with pkgLabel its constructor
+// package) for diagnostics. A body that is not a single return of a
+// composite literal yields only what its conforming returns hold, with
+// a warning; an element that is not a constructor call warns and is
+// skipped.
+func (w *walker) listReturnCalls(
+	body *ast.BlockStmt, context, elem, pkgLabel string,
+) []*ast.CallExpr {
 	if body == nil {
 		return nil
 	}
-	if !isSingleConstraintReturn(body) {
-		w.addWarnf("the %s must be a single return of a constraint list", context)
+	if !isSingleListReturn(body) {
+		w.addWarnf("the %s must be a single return of a %s list", context, elem)
 	}
 	var calls []*ast.CallExpr
 	for _, stmt := range body.List {
@@ -194,8 +198,8 @@ func (w *walker) constraintCalls(body *ast.BlockStmt, context string) []*ast.Cal
 		for _, el := range lit.Elts {
 			call, ok := el.(*ast.CallExpr)
 			if !ok {
-				w.addWarnf("a constraint must be a pkg/constraint constructor call, got %s",
-					renderExpr(el))
+				w.addWarnf("a %s must be a %s constructor call, got %s",
+					elem, pkgLabel, renderExpr(el))
 				continue
 			}
 			calls = append(calls, call)
@@ -204,9 +208,9 @@ func (w *walker) constraintCalls(body *ast.BlockStmt, context string) []*ast.Cal
 	return calls
 }
 
-// isSingleConstraintReturn reports whether a body is exactly one return
+// isSingleListReturn reports whether a body is exactly one return
 // of a composite literal, the only form extraction reads in full.
-func isSingleConstraintReturn(body *ast.BlockStmt) bool {
+func isSingleListReturn(body *ast.BlockStmt) bool {
 	if len(body.List) != 1 {
 		return false
 	}
@@ -272,7 +276,7 @@ func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.
 	innerEach[param] = bound
 
 	var out []lang.ConstraintSpec
-	for _, c := range w.constraintCalls(fl.Body, "ForEach body") {
+	for _, c := range w.listReturnCalls(fl.Body, "ForEach body", "constraint", "pkg/constraint") {
 		if w.isForEachCall(c) {
 			w.addErrf("a ForEach inside a ForEach is not supported")
 			continue

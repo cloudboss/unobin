@@ -63,12 +63,15 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 		}
 		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
 		constraints := w.lookupConstraints(reg.InputRef)
+		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		defaultSpecs := w.lookupDefaults(reg.InputRef)
 		ts := &runtime.TypeSchema{
 			Inputs:           inputs,
 			Outputs:          outputs,
 			SensitiveInputs:  sortedKeys(sensitiveIn),
 			SensitiveOutputs: sortedKeys(sensitiveOut),
 			Constraints:      constraints,
+			Defaults:         defaultSpecs,
 		}
 		switch reg.Field {
 		case "Resources":

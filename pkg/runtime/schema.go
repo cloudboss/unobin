@@ -47,4 +47,10 @@ type TypeSchema struct {
 	// form. A check parses them with lang.ParseSpecs and runs them through
 	// lang.CheckConstraintEntries, the same path UB constraints take.
 	Constraints []lang.ConstraintSpec
+
+	// Defaults holds the type's declared input defaults, derived from
+	// its Defaults method at compile time. A field with a Value default
+	// is filled in when a body leaves it out; an Optional marker only
+	// declares that absence is fine. Any other input is required.
+	Defaults []lang.DefaultSpec
 }
