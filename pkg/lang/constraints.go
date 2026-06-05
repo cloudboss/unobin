@@ -2,6 +2,7 @@ package lang
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,10 +46,38 @@ type EachValue struct {
 	Value any
 }
 
+// EachBinding is one named iteration binding in scope for a constraint
+// expression: @each for the bare @for-each form, or a declared name
+// like @rule for a level of a chained one. Either way the binding is a
+// key/value record, read as @name.key and @name.value.
+type EachBinding struct {
+	Name  string
+	Key   any
+	Value any
+}
+
 // ConstraintEvalFunc reduces a constraint's when, require, or
-// @for-each expression against the input values. each carries the
-// current @for-each binding and is nil outside one.
-type ConstraintEvalFunc func(e Expr, each *EachValue) (any, error)
+// @for-each expression against the input values. binds holds the
+// iteration bindings in scope, outermost first; it is empty outside
+// iteration.
+type ConstraintEvalFunc func(e Expr, binds []EachBinding) (any, error)
+
+// ForEachLevel is one link of a chained @for-each: the binding name,
+// @-spelled, and the iterable its elements come from. InText is the
+// iterable's source form, used to name the element a failure is about.
+// The bare form is a single level binding @each.
+type ForEachLevel struct {
+	Name   string
+	In     Expr
+	InText string
+}
+
+// ForEachSpecLevel is the embeddable form of one chain level, with the
+// iterable kept as unobin source the way a spec's when and require are.
+type ForEachSpecLevel struct {
+	Name string
+	In   string
+}
 
 // CheckConstraints evaluates the value-level cross-field constraints
 // in a stack's `constraints:` block against the validated input
@@ -129,7 +158,11 @@ func ConstraintFieldRoots(c ConstraintEntry) []string {
 		root, _, _ = strings.Cut(root, "[")
 		roots[root] = struct{}{}
 	}
-	for _, e := range []Expr{c.When, c.Require, c.ForEach} {
+	exprs := []Expr{c.When, c.Require}
+	for _, lv := range c.Levels {
+		exprs = append(exprs, lv.In)
+	}
+	for _, e := range exprs {
 		Walk(e, func(x Expr) {
 			dp, ok := x.(*DotPath)
 			if !ok || dp.Root == nil || dp.Root.Name != "var" || len(dp.Segments) == 0 {
@@ -277,18 +310,18 @@ func checkSplatEntry(
 // type at compile time. The set kinds use Fields; a predicate uses When
 // and Require (and an optional Message). A Fields name may splat a list
 // ([*]) to run the rule once per element. A predicate may iterate with
-// ForEach, checking when and require once per element with the @each
-// binding set; ForEachText is the iterable's source form for the
-// element a failure names. goschema builds these directly for Go
-// library types so they run through the same check as UB ones.
+// Levels, checking when and require once per element of each level's
+// iterable with the level's binding set: a single @each level for the
+// bare @for-each form, named levels for a chained one. goschema builds
+// these directly for Go library types so they run through the same
+// check as UB ones.
 type ConstraintEntry struct {
-	Kind        string
-	Fields      []string
-	When        Expr
-	Require     Expr
-	Message     string
-	ForEach     Expr
-	ForEachText string
+	Kind    string
+	Fields  []string
+	When    Expr
+	Require Expr
+	Message string
+	Levels  []ForEachLevel
 }
 
 func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
@@ -299,8 +332,11 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 		}
 		switch f.Key.Name {
 		case "@for-each":
-			c.ForEach = f.Value
-			c.ForEachText = forEachText(f.Value)
+			levels, ok := readForEachLevels(f.Value)
+			if !ok {
+				return c, false
+			}
+			c.Levels = levels
 		case "kind":
 			if id, ok := f.Value.(*Ident); ok {
 				c.Kind = id.Name
@@ -589,24 +625,49 @@ func checkPredicate(
 			"constraints[%d] (predicate): cannot evaluate (no evaluator provided)", idx)
 		return
 	}
-	if c.ForEach == nil {
-		checkPredicateOnce(idx, c, evalAgainstInputs, nil, "", errs)
+	checkPredicateLevels(idx, c, c.Levels, nil, "", evalAgainstInputs, display, errs)
+}
+
+// checkPredicateLevels iterates the remaining levels depth-first,
+// accumulating bindings and the element text a failure names. With no
+// levels left, the when/require pair runs once with every enclosing
+// binding in scope.
+func checkPredicateLevels(
+	idx int,
+	c ConstraintEntry,
+	levels []ForEachLevel,
+	binds []EachBinding,
+	at string,
+	evalAgainstInputs ConstraintEvalFunc,
+	display FieldDisplay,
+	errs *ErrorList,
+) {
+	if len(levels) == 0 {
+		checkPredicateOnce(idx, c, evalAgainstInputs, binds, at, errs)
 		return
 	}
-	iterable, err := evalAgainstInputs(c.ForEach, nil)
+	lv := levels[0]
+	iterable, err := evalAgainstInputs(lv.In, binds)
 	if err != nil {
-		errs.Addf(ErrSchema, c.ForEach.Span().Start,
+		errs.Addf(ErrSchema, lv.In.Span().Start,
 			"constraints[%d] (predicate): @for-each: %v", idx, err)
 		return
 	}
-	listName := display.name(c.ForEachText)
+	levelText := levelElementText(lv.InText, at, binds, display)
+	descend := func(key any, element any, elementAt string) {
+		child := append(slices.Clip(binds), EachBinding{
+			Name:  lv.Name,
+			Key:   key,
+			Value: element,
+		})
+		checkPredicateLevels(idx, c, levels[1:], child, elementAt,
+			evalAgainstInputs, display, errs)
+	}
 	switch it := iterable.(type) {
 	case nil:
 	case []any:
 		for i, el := range it {
-			each := &EachValue{Key: int64(i), Value: el}
-			at := fmt.Sprintf(" (%s[%d])", listName, i)
-			checkPredicateOnce(idx, c, evalAgainstInputs, each, at, errs)
+			descend(int64(i), el, fmt.Sprintf("%s[%d]", levelText, i))
 		}
 	case map[string]any:
 		keys := make([]string, 0, len(it))
@@ -615,29 +676,50 @@ func checkPredicate(
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			each := &EachValue{Key: k, Value: it[k]}
-			at := fmt.Sprintf(" (%s['%s'])", listName, k)
-			checkPredicateOnce(idx, c, evalAgainstInputs, each, at, errs)
+			descend(k, it[k], fmt.Sprintf("%s['%s']", levelText, k))
 		}
 	default:
-		errs.Addf(ErrSchema, c.ForEach.Span().Start,
+		errs.Addf(ErrSchema, lv.In.Span().Start,
 			"constraints[%d] (predicate): @for-each must iterate a list or map, got %s",
 			idx, TypeMessage(iterable))
 	}
 }
 
-// checkPredicateOnce runs one when/require evaluation, with the @each
-// binding and a failure suffix naming the element when the predicate
-// iterates.
+// levelElementText renders the indexed source text a level's elements
+// are named by. A level rooted at an enclosing binding substitutes
+// that binding's own indexed text, so the failing element reads as one
+// path from the input down: var.rules[1].transitions[0].
+func levelElementText(
+	inText, at string, binds []EachBinding, display FieldDisplay,
+) string {
+	for i := len(binds) - 1; i >= 0; i-- {
+		name := binds[i].Name
+		if rest, ok := strings.CutPrefix(inText, name+".value"); ok {
+			return at + rest
+		}
+		if rest, ok := strings.CutPrefix(inText, name); ok {
+			return at + rest
+		}
+	}
+	return display.name(inText)
+}
+
+// checkPredicateOnce runs one when/require evaluation, with the
+// iteration bindings in scope and a failure suffix naming the element
+// when the predicate iterates.
 func checkPredicateOnce(
 	idx int,
 	c ConstraintEntry,
 	evalAgainstInputs ConstraintEvalFunc,
-	each *EachValue,
+	binds []EachBinding,
 	at string,
 	errs *ErrorList,
 ) {
-	whenVal, err := evalAgainstInputs(c.When, each)
+	suffix := ""
+	if at != "" {
+		suffix = " (" + at + ")"
+	}
+	whenVal, err := evalAgainstInputs(c.When, binds)
 	if err != nil {
 		errs.Addf(ErrSchema, c.When.Span().Start,
 			"constraints[%d] (predicate): when: %v", idx, err)
@@ -653,7 +735,7 @@ func checkPredicateOnce(
 	if !whenBool {
 		return
 	}
-	requireVal, err := evalAgainstInputs(c.Require, each)
+	requireVal, err := evalAgainstInputs(c.Require, binds)
 	if err != nil {
 		errs.Addf(ErrSchema, c.Require.Span().Start,
 			"constraints[%d] (predicate): require: %v", idx, err)
@@ -672,7 +754,7 @@ func checkPredicateOnce(
 			msg = "predicate requirement not satisfied"
 		}
 		errs.Addf(ErrSchema, Position{},
-			"constraints[%d] (predicate): %s%s", idx, msg, at)
+			"constraints[%d] (predicate): %s%s", idx, msg, suffix)
 	}
 }
 
@@ -685,23 +767,64 @@ func forEachText(e Expr) string {
 	return "@for-each"
 }
 
+// readForEachLevels reads an @for-each value into its levels. The bare
+// form, any non-array expression, is one level binding @each. The
+// chained form is an array of level objects, each exactly one @-named
+// key bound to an iterable; the names must be unique and may not take
+// a reserved name. ok is false for a malformed chain, which skips the
+// entry the way other malformed pieces do; compile validation reports
+// the mistake.
+func readForEachLevels(v Expr) ([]ForEachLevel, bool) {
+	arr, ok := v.(*ArrayLit)
+	if !ok {
+		return []ForEachLevel{{Name: "@each", In: v, InText: forEachText(v)}}, true
+	}
+	if len(arr.Elements) == 0 {
+		return nil, false
+	}
+	levels := make([]ForEachLevel, 0, len(arr.Elements))
+	seen := map[string]bool{"@each": true, CoreNamespace: true}
+	for _, el := range arr.Elements {
+		obj, ok := el.(*ObjectLit)
+		if !ok || len(obj.Fields) != 1 {
+			return nil, false
+		}
+		f := obj.Fields[0]
+		if f.Key.Kind != FieldIdent || !strings.HasPrefix(f.Key.Name, "@") {
+			return nil, false
+		}
+		if seen[f.Key.Name] {
+			return nil, false
+		}
+		seen[f.Key.Name] = true
+		levels = append(levels, ForEachLevel{
+			Name:   f.Key.Name,
+			In:     f.Value,
+			InText: forEachText(f.Value),
+		})
+	}
+	return levels, true
+}
+
 func joinNames(names []string) string {
 	return strings.Join(names, ", ")
 }
 
-// ConstraintSpec is the embeddable, string-only form of a constraint. The
-// predicate When, Require, and ForEach are kept as unobin source so the
-// whole set can be generated into a factory and parsed back at plan
-// time; a set constraint leaves them empty and uses Fields. goschema
-// produces these from a Go type, and codegen bakes them into the
-// factory.
+// ConstraintSpec is the embeddable, string-only form of a constraint.
+// The predicate When, Require, and iterables are kept as unobin source
+// so the whole set can be generated into a factory and parsed back at
+// plan time; a set constraint leaves them empty and uses Fields. A
+// bare iteration uses ForEach; a chained one uses ForEachLevels, named
+// levels in order. goschema produces these from a Go type, and codegen
+// bakes them into the factory.
 type ConstraintSpec struct {
-	Kind    string
-	Fields  []string
-	When    string
-	Require string
-	Message string
-	ForEach string
+	Kind          string
+	Fields        []string
+	When          string
+	Require       string
+	Message       string
+	ForEach       string
+	ForEachLevels []ForEachSpecLevel
 }
 
 // ParseSpecs parses each spec's When and Require source into expressions
@@ -721,17 +844,41 @@ func ParseSpecs(specs []ConstraintSpec) ([]ConstraintEntry, *ErrorList) {
 		if !ok {
 			continue
 		}
-		forEach, ok := parseSpecExpr(s.ForEach, "@for-each", errs)
+		levels, ok := parseSpecLevels(s, errs)
 		if !ok {
 			continue
 		}
 		e.When = when
 		e.Require = require
-		e.ForEach = forEach
-		e.ForEachText = s.ForEach
+		e.Levels = levels
 		entries = append(entries, e)
 	}
 	return entries, errs
+}
+
+// parseSpecLevels reads a spec's iteration into entry levels: the bare
+// ForEach source as a single @each level, or each named chain level in
+// order.
+func parseSpecLevels(s ConstraintSpec, errs *ErrorList) ([]ForEachLevel, bool) {
+	if s.ForEach != "" {
+		in, ok := parseSpecExpr(s.ForEach, "@for-each", errs)
+		if !ok {
+			return nil, false
+		}
+		return []ForEachLevel{{Name: "@each", In: in, InText: s.ForEach}}, true
+	}
+	if len(s.ForEachLevels) == 0 {
+		return nil, true
+	}
+	levels := make([]ForEachLevel, 0, len(s.ForEachLevels))
+	for _, lv := range s.ForEachLevels {
+		in, ok := parseSpecExpr(lv.In, "@for-each", errs)
+		if !ok {
+			return nil, false
+		}
+		levels = append(levels, ForEachLevel{Name: lv.Name, In: in, InText: lv.In})
+	}
+	return levels, true
 }
 
 func parseSpecExpr(src, label string, errs *ErrorList) (Expr, bool) {

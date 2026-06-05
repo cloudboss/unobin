@@ -346,10 +346,13 @@ func (v Thing) Constraints() []constraint.Constraint {
 	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
 
 	check := func(values map[string]any) int {
-		eval := func(e lang.Expr, each *lang.EachValue) (any, error) {
+		eval := func(e lang.Expr, binds []lang.EachBinding) (any, error) {
 			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
-			if each != nil {
-				ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+			for _, b := range binds {
+				if ctx.Each == nil {
+					ctx.Each = map[string]lang.EachValue{}
+				}
+				ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
 			}
 			return runtime.Eval(e, ctx)
 		}
@@ -444,10 +447,13 @@ func (v Thing) Constraints() []constraint.Constraint {
 	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
 
 	eval := func(values map[string]any) lang.ConstraintEvalFunc {
-		return func(e lang.Expr, each *lang.EachValue) (any, error) {
+		return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
 			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
-			if each != nil {
-				ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+			for _, b := range binds {
+				if ctx.Each == nil {
+					ctx.Each = map[string]lang.EachValue{}
+				}
+				ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
 			}
 			return runtime.Eval(e, ctx)
 		}

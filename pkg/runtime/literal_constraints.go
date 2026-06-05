@@ -49,9 +49,9 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 		for _, e := range perr.Errors() {
 			errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
 		}
-		eval := func(ex lang.Expr, each *lang.EachValue) (any, error) {
+		eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
 			ctx := &EvalContext{Vars: values, MissingAsNull: true}
-			applyEach(ctx, each)
+			applyBindings(ctx, binds)
 			v, err := Eval(ex, ctx)
 			if errors.Is(err, ErrEvalNotFound) {
 				return nil, nil
@@ -123,11 +123,15 @@ func (s *LibrarySchema) typeSchema(kind NodeKind, typ string) *TypeSchema {
 	}
 }
 
-// applyEach copies a constraint @for-each binding onto the context so
-// @each.key and @each.value resolve during the element's evaluation.
-func applyEach(ctx *EvalContext, each *lang.EachValue) {
-	if each == nil {
+// applyBindings copies a constraint's iteration bindings onto the
+// context so @each and any chained level name resolve during the
+// element's evaluation.
+func applyBindings(ctx *EvalContext, binds []lang.EachBinding) {
+	if len(binds) == 0 {
 		return
 	}
-	ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+	ctx.Each = make(map[string]lang.EachValue, len(binds))
+	for _, b := range binds {
+		ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
+	}
 }

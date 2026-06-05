@@ -8,22 +8,22 @@ import (
 
 // boolExprEval evaluates a tiny set of expressions used by the
 // predicate tests: bool literals, equality and inequality between a
-// reference and a literal, plus @each reads under an iterating
-// predicate. The real checks use runtime.Eval against an EvalContext
-// seeded with the validated inputs.
+// reference and a literal, plus iteration binding reads under an
+// iterating predicate. The real checks use runtime.Eval against an
+// EvalContext seeded with the validated inputs.
 func boolExprEval(values map[string]any) ConstraintEvalFunc {
-	return func(e Expr, each *EachValue) (any, error) {
+	return func(e Expr, binds []EachBinding) (any, error) {
 		switch v := e.(type) {
 		case *BoolLit:
 			return v.Value, nil
 		case *DotPath:
-			return evalLeaf(v, values, each)
+			return evalLeaf(v, values, binds)
 		case *Infix:
-			left, err := evalLeaf(v.Left, values, each)
+			left, err := evalLeaf(v.Left, values, binds)
 			if err != nil {
 				return nil, err
 			}
-			right, err := evalLeaf(v.Right, values, each)
+			right, err := evalLeaf(v.Right, values, binds)
 			if err != nil {
 				return nil, err
 			}
@@ -38,7 +38,17 @@ func boolExprEval(values map[string]any) ConstraintEvalFunc {
 	}
 }
 
-func evalLeaf(e Expr, values map[string]any, each *EachValue) (any, error) {
+// lookupBinding finds one named iteration binding among those in scope.
+func lookupBinding(binds []EachBinding, name string) (EachBinding, bool) {
+	for _, b := range binds {
+		if b.Name == name {
+			return b, true
+		}
+	}
+	return EachBinding{}, false
+}
+
+func evalLeaf(e Expr, values map[string]any, binds []EachBinding) (any, error) {
 	switch v := e.(type) {
 	case *StringLit:
 		return v.Value, nil
@@ -50,12 +60,12 @@ func evalLeaf(e Expr, values map[string]any, each *EachValue) (any, error) {
 	case *BoolLit:
 		return v.Value, nil
 	case *DotPath:
-		if v.Root.Name == "@each" && each != nil && len(v.Segments) > 0 {
+		if bound, ok := lookupBinding(binds, v.Root.Name); ok && len(v.Segments) > 0 {
 			switch v.Segments[0].Name {
 			case "key":
-				return each.Key, nil
+				return bound.Key, nil
 			case "value":
-				cur := each.Value
+				cur := bound.Value
 				for _, seg := range v.Segments[1:] {
 					m, ok := cur.(map[string]any)
 					if !ok {
@@ -931,6 +941,143 @@ constraints: [
 		"c": "x", "d": nil,
 	}, nil, DisplayRooted)
 	require.Equal(t, 2, errs.Len())
+}
+
+// TestCheckPredicateChainedForEach proves a chained @for-each iterates
+// level under level with every binding in scope: the inner element is
+// judged against the outer one, and a failure names the element as one
+// path from the input down through both levels.
+func TestCheckPredicateChainedForEach(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.items },
+      { @t:    @rule.value.subs }
+    ]
+    when:    true
+    require: @t.value.n == @rule.value.n
+    message: 'sub must match its rule'
+  },
+]
+`)
+	values := map[string]any{"items": []any{
+		map[string]any{"n": "a", "subs": []any{
+			map[string]any{"n": "a"},
+		}},
+		map[string]any{"n": "b", "subs": []any{
+			map[string]any{"n": "b"},
+			map[string]any{"n": "x"},
+		}},
+		map[string]any{"n": "c"},
+	}}
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Errors()[0].Msg,
+		"constraints[0] (predicate): sub must match its rule (items[1].subs[1])")
+}
+
+// TestCheckPredicateChainedForEachMapLevel proves a map level iterates
+// in sorted key order and names the element by its key.
+func TestCheckPredicateChainedForEachMapLevel(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @env: var.envs },
+      { @s:   @env.value.subnets }
+    ]
+    when:    true
+    require: @s.value.az == 'set'
+    message: 'subnet needs an az'
+  },
+]
+`)
+	values := map[string]any{"envs": map[string]any{
+		"prod": map[string]any{"subnets": []any{
+			map[string]any{"az": "set"},
+			map[string]any{},
+		}},
+		"dev": map[string]any{},
+	}}
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Errors()[0].Msg,
+		"subnet needs an az (envs['prod'].subnets[1])")
+}
+
+// TestCheckPredicateChainedForEachNonList proves a level whose iterable
+// is not a list or map reports rather than judging garbage.
+func TestCheckPredicateChainedForEachNonList(t *testing.T) {
+	block := parseConstraintsBlock(t, `
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.items },
+      { @t:    @rule.value.subs }
+    ]
+    when:    true
+    require: true
+  },
+]
+`)
+	values := map[string]any{"items": []any{
+		map[string]any{"subs": "not-a-list"},
+	}}
+	errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Errors()[0].Msg, "@for-each must iterate a list or map")
+}
+
+// TestCheckPredicateChainedForEachMalformedSkips pins the division of
+// labor: a malformed chain is skipped here, with compile validation
+// the place that reports it.
+func TestCheckPredicateChainedForEachMalformedSkips(t *testing.T) {
+	cases := []string{
+		`{ kind: predicate, @for-each: [], when: true, require: false }`,
+		`{ kind: predicate, @for-each: [ { @each: var.items } ], when: true, require: false }`,
+		`{ kind: predicate, @for-each: [ { rule: var.items } ], when: true, require: false }`,
+		`{ kind: predicate, @for-each: [ { @a: var.items }, { @a: var.items } ],` +
+			` when: true, require: false }`,
+		`{ kind: predicate, @for-each: [ { @a: var.items, @b: var.items } ],` +
+			` when: true, require: false }`,
+	}
+	values := map[string]any{"items": []any{map[string]any{}}}
+	for _, src := range cases {
+		block := parseConstraintsBlock(t, "constraints: [\n  "+src+",\n]\n")
+		errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
+		require.Equal(t, 0, errs.Len(), "malformed chain should skip: %s", src)
+	}
+}
+
+// TestParseSpecsChainedLevels proves the embeddable level form round
+// trips into a checkable entry, the path a Go-derived chained
+// constraint takes through the factory.
+func TestParseSpecsChainedLevels(t *testing.T) {
+	specs := []ConstraintSpec{{
+		Kind:    "predicate",
+		When:    "true",
+		Require: "@t.value.n == @rule.value.n",
+		Message: "sub must match its rule",
+		ForEachLevels: []ForEachSpecLevel{
+			{Name: "@rule", In: "var.items"},
+			{Name: "@t", In: "@rule.value.subs"},
+		},
+	}}
+	entries, perr := ParseSpecs(specs)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+	require.Len(t, entries, 1)
+	require.Len(t, entries[0].Levels, 2)
+
+	values := map[string]any{"items": []any{
+		map[string]any{"n": "a", "subs": []any{map[string]any{"n": "x"}}},
+	}}
+	errs := CheckConstraintEntries(entries, values, boolExprEval(values), DisplayNodeRelative)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "sub must match its rule (items[0].subs[0])")
 }
 
 func TestCheckPredicateForEachList(t *testing.T) {

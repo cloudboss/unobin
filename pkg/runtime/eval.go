@@ -40,6 +40,13 @@ type EvalContext struct {
 	EachValue any
 	ForEach   bool
 
+	// Each holds named iteration bindings, @each for the bare
+	// @for-each form and declared names like @rule for a chained one,
+	// each a key/value record read as @name.key and @name.value. The
+	// EachKey/EachValue/ForEach trio is the older spelling of the
+	// @each entry and still resolves when Each has no @each binding.
+	Each map[string]lang.EachValue
+
 	// MissingAsNull makes path navigation yield null instead of
 	// ErrEvalNotFound, or a hard error, when a key is absent or a parent
 	// is itself null. The constraint checkers set it so a predicate over
@@ -628,27 +635,37 @@ func evalPrefix(n *lang.Prefix, ctx *EvalContext) (any, error) {
 	return nil, fmt.Errorf("eval: unknown prefix operator %q", n.Op)
 }
 
-// evalEach resolves an `@each.key` / `@each.value` reference against
-// the current iteration scope. Reading @each outside a `@for-each`
-// body is an error.
+// evalEach resolves an iteration binding reference, @each.key or
+// @rule.value.port, against the current iteration scope. Reading a
+// name with no binding in scope is an error.
 func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
-	if !ctx.ForEach {
-		return nil, fmt.Errorf("eval: @each is only valid inside a @for-each body")
+	name := p.Root.Name
+	binding, bound := ctx.Each[name]
+	if !bound {
+		if name == "@each" && ctx.ForEach {
+			binding = lang.EachValue{Key: ctx.EachKey, Value: ctx.EachValue}
+		} else if name == "@each" {
+			return nil, fmt.Errorf("eval: @each is only valid inside a @for-each body")
+		} else {
+			return nil, fmt.Errorf(
+				"eval: %s is not bound; declare it in a chained @for-each", name)
+		}
 	}
 	if len(p.Segments) == 0 {
-		return nil, fmt.Errorf("eval: @each requires .key or .value")
+		return nil, fmt.Errorf("eval: %s requires .key or .value", name)
 	}
 	first := p.Segments[0].Name
 	var cur any
 	switch first {
 	case "key":
-		cur = ctx.EachKey
+		cur = binding.Key
 	case "value":
-		cur = ctx.EachValue
+		cur = binding.Value
 	default:
-		return nil, fmt.Errorf("eval: @each.%s: only @each.key and @each.value are valid", first)
+		return nil, fmt.Errorf(
+			"eval: %s.%s: only %s.key and %s.value are valid", name, first, name, name)
 	}
-	return navigateSegments(cur, "@each."+first, p.Segments[1:], ctx)
+	return navigateSegments(cur, name+"."+first, p.Segments[1:], ctx)
 }
 
 func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
@@ -667,9 +684,14 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		root = ctx.Actions
 	case "local":
 		return evalLocal(p, ctx)
-	case "@each":
-		return evalEach(p, ctx)
+	case lang.CoreNamespace:
+		return nil, fmt.Errorf(
+			"eval: %s names functions; call one, e.g. %s.length(...)",
+			lang.CoreNamespace, lang.CoreNamespace)
 	default:
+		if strings.HasPrefix(p.Root.Name, "@") {
+			return evalEach(p, ctx)
+		}
 		return nil, fmt.Errorf("eval: unknown address root %q", p.Root.Name)
 	}
 	return navigateSegments(root, p.Root.Name, p.Segments, ctx)

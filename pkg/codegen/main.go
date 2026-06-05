@@ -196,6 +196,14 @@ func specLiteral(s lang.ConstraintSpec) string {
 	if s.ForEach != "" {
 		parts = append(parts, fmt.Sprintf("ForEach: %q", s.ForEach))
 	}
+	if len(s.ForEachLevels) > 0 {
+		levels := make([]string, len(s.ForEachLevels))
+		for i, lv := range s.ForEachLevels {
+			levels[i] = fmt.Sprintf("{Name: %q, In: %q}", lv.Name, lv.In)
+		}
+		parts = append(parts, "ForEachLevels: []lang.ForEachSpecLevel{"+
+			strings.Join(levels, ", ")+"}")
+	}
 	return "{" + strings.Join(parts, ", ") + "}"
 }
 

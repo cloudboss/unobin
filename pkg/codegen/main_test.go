@@ -27,6 +27,15 @@ func TestGenerateInjectsGoConstraints(t *testing.T) {
 						Require: "(var.backups == true)",
 						Message: "prod needs backups",
 					},
+					{
+						Kind:    "predicate",
+						When:    "true",
+						Require: "(@t.value.weight <= 999)",
+						ForEachLevels: []lang.ForEachSpecLevel{
+							{Name: "@rule", In: "var.rules"},
+							{Name: "@t", In: "@rule.value.targets"},
+						},
+					},
 				},
 			},
 		},
@@ -64,6 +73,7 @@ func main() {
 		"resource.vpc": {
 			{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}},
 			{Kind: "predicate", When: "(var.tier == 'prod')", Require: "(var.backups == true)", Message: "prod needs backups"},
+			{Kind: "predicate", When: "true", Require: "(@t.value.weight <= 999)", ForEachLevels: []lang.ForEachSpecLevel{{Name: "@rule", In: "var.rules"}, {Name: "@t", In: "@rule.value.targets"}}},
 		},
 	}
 	runner.Run(runner.Info{

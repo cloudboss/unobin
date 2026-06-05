@@ -754,3 +754,29 @@ func TestEvalNestedExpr(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, got)
 }
+
+// TestEvalNamedBindings proves a chained @for-each binding resolves
+// through the real evaluator as a key/value record, beside the bare
+// @each form.
+func TestEvalNamedBindings(t *testing.T) {
+	ctx := &EvalContext{Each: map[string]lang.EachValue{
+		"@rule": {Key: int64(1), Value: map[string]any{"max": int64(5)}},
+		"@t":    {Key: int64(0), Value: map[string]any{"n": int64(7)}},
+	}}
+
+	got, err := Eval(parseValue(t, "@t.value.n > @rule.value.max"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, true, got)
+
+	got, err = Eval(parseValue(t, "@rule.key"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), got)
+
+	_, err = Eval(parseValue(t, "@missing.value"), ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "@missing is not bound")
+
+	_, err = Eval(parseValue(t, "@core.length"), ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "@core names functions")
+}

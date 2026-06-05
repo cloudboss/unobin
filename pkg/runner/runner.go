@@ -710,10 +710,13 @@ func defaultEval(e lang.Expr) (any, error) {
 func predicateEval(
 	values map[string]any, libs map[string]*runtime.Library,
 ) lang.ConstraintEvalFunc {
-	return func(e lang.Expr, each *lang.EachValue) (any, error) {
+	return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
 		ctx := &runtime.EvalContext{Vars: values, Libraries: libs, MissingAsNull: true}
-		if each != nil {
-			ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+		for _, b := range binds {
+			if ctx.Each == nil {
+				ctx.Each = map[string]lang.EachValue{}
+			}
+			ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
 		}
 		return runtime.Eval(e, ctx)
 	}

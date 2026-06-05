@@ -437,6 +437,37 @@ func forwardRefConstraintCases() []struct {
 	}
 }
 
+// TestPlanChecksChainedForEachSpec proves a chained spec checks at the
+// plan site through the real evaluator: the inner element is judged
+// against its outer one, and the failure names the element through
+// both levels.
+func TestPlanChecksChainedForEachSpec(t *testing.T) {
+	specs := []lang.ConstraintSpec{{
+		Kind:    "predicate",
+		When:    "true",
+		Require: "@t.value.weight <= @rule.value.max-weight",
+		Message: "a target cannot outweigh its rule",
+		ForEachLevels: []lang.ForEachSpecLevel{
+			{Name: "@rule", In: "var.rules"},
+			{Name: "@t", In: "@rule.value.targets"},
+		},
+	}}
+	err := planThingConstraintErr(t, specs, `{
+    rules: [
+      { max-weight: 10, targets: [{ weight: 5 }] },
+      { max-weight: 10, targets: [{ weight: 5 }, { weight: 11 }] },
+    ]
+  }`)
+	require.EqualError(t, err,
+		"resource.core.thing.x: schema: constraints[0] (predicate): "+
+			"a target cannot outweigh its rule (rules[1].targets[1])")
+
+	ok := planThingConstraintErr(t, specs, `{
+    rules: [{ max-weight: 10, targets: [{ weight: 10 }] }]
+  }`)
+	require.NoError(t, ok)
+}
+
 // TestPlanGoTypeConstraintForwardRef proves the deferral is per rule,
 // not per node: a node with a pending input still has every rule over
 // resolved fields checked, and no rule reading the pending field runs.
