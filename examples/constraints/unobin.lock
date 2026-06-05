@@ -1,4 +1,10 @@
 {
   "version": 1,
-  "deps": {}
+  "deps": {
+    "github.com/cloudboss/unobin-library-std": {
+      "kind": "go",
+      "version": "v0.1.0",
+      "commit": "141599239b686418f2864469a9acb77e8890f226"
+    }
+  }
 }

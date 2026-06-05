@@ -5,10 +5,7 @@ inputs: {
   base-path: { type: string, description: 'Directory where files and alerts are written' }
 }
 
-imports: {
-  std:    'github.com/cloudboss/unobin-library-std'
-  notify: './notify'
-}
+imports: { std: 'github.com/cloudboss/unobin-library-std', notify: './notify' }
 
 resources: {
   std: {

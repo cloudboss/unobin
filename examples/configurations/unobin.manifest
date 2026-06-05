@@ -1,2 +1,2 @@
 requires: {}
-replace: { 'github.com/cloudboss/unobin': '../..' }
+replace:  { 'github.com/cloudboss/unobin': '../..' }

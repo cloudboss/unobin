@@ -3,19 +3,14 @@
   "deps": {
     "github.com/cloudboss/unobin-libraries-scratch//ub/helloer": {
       "kind": "ub",
-      "version": "v0.5.0",
-      "commit": "ba48f3c71c984bfa6fd83856be001cbbce90c391",
-      "hash": "sha256:ffedd8c4ae59c0f97b0fd5dd962f044908a5b5ac3f326c79f73905ee92890f95"
+      "version": "v0.6.0",
+      "commit": "305837feaa1d1259d386761a956a539f25c02f3d",
+      "hash": "sha256:0065d06c5d69299838dde3304d00e77cca969f03463cb13a8b17e54b1396678d"
     },
-    "github.com/cloudboss/unobin//pkg/libraries/core": {
+    "github.com/cloudboss/unobin-library-std": {
       "kind": "go",
-      "version": "v0.5.0",
-      "commit": "bdc347bff792dfe2fe40a422ed32fbbd99c72952"
-    },
-    "github.com/cloudboss/unobin//pkg/libraries/local": {
-      "kind": "go",
-      "version": "v0.5.0",
-      "commit": "bdc347bff792dfe2fe40a422ed32fbbd99c72952"
+      "version": "v0.1.0",
+      "commit": "141599239b686418f2864469a9acb77e8890f226"
     }
   }
 }

@@ -2,9 +2,7 @@ description: 'Writes an alert file announcing a topic.'
 
 inputs: { topic: { type: string }, body: { type: string }, path: { type: string } }
 
-imports: {
-  std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
 resources: {
   std: {

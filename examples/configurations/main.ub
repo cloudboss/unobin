@@ -12,9 +12,6 @@ actions: {
       formal: { @configuration: greet.formal, message: 'world' }
     }
   }
-}
-
-resources: {
   greeter: {
     greeting: {
       casual-wrap: { message: 'wrapped' }
@@ -26,6 +23,6 @@ resources: {
 outputs: {
   casual:      { value: action.greet.say.casual.output }
   formal:      { value: action.greet.say.formal.output }
-  casual-wrap: { value: resource.greeter.greeting.casual-wrap.output }
-  formal-wrap: { value: resource.greeter.greeting.formal-wrap.output }
+  casual-wrap: { value: action.greeter.greeting.casual-wrap.output }
+  formal-wrap: { value: action.greeter.greeting.formal-wrap.output }
 }

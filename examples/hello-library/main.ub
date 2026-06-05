@@ -5,9 +5,7 @@ inputs: {
   path:    { type: string, description: 'Filesystem path for the greeting file' }
 }
 
-imports: {
-  greeter: './greeter'
-}
+imports: { greeter: './greeter' }
 
 resources: { greeter: { greeting: { welcome: { message: var.message, path: var.path } } } }
 
