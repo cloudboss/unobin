@@ -19,7 +19,11 @@ func runWaitFor(t *testing.T, a *WaitForAction) *WaitForActionOutput {
 }
 
 func TestWaitForSucceedsImmediately(t *testing.T) {
-	wr := runWaitFor(t, &WaitForAction{Argv: []string{"true"}})
+	wr := runWaitFor(t, &WaitForAction{
+		Argv:     []string{"true"},
+		Interval: 10 * time.Millisecond,
+		Timeout:  2 * time.Second,
+	})
 	require.Equal(t, 1, wr.Attempts)
 	require.True(t, wr.Duration > 0)
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/cloudboss/unobin/pkg/defaults"
 )
 
 // CommandAction execs a single process and captures its output.
@@ -12,6 +14,16 @@ type CommandAction struct {
 	Argv        []string
 	Environment map[string]string
 	WorkingDir  string
+}
+
+// Defaults declares the inputs a body may leave out: an absent
+// environment adds nothing to the parent's, and an absent working-dir
+// inherits the process directory.
+func (a CommandAction) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Optional(a.Environment),
+		defaults.Optional(a.WorkingDir),
+	}
 }
 
 // CommandActionOutput carries the captured output of a command run. Run returns

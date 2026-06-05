@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cloudboss/unobin/pkg/defaults"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -36,6 +37,15 @@ type FileOutput struct {
 
 func (f *File) SchemaVersion() int      { return 1 }
 func (f *File) ReplaceFields() []string { return []string{"path"} }
+
+// Defaults declares the inputs a body may leave out: mode defaults to
+// 0o644, and create-directory to its zero value, false.
+func (f File) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Mode, 0o644),
+		defaults.Optional(f.CreateDirectory),
+	}
+}
 
 func (f *File) Create(_ context.Context, _ any) (*FileOutput, error) {
 	return f.write()
@@ -79,9 +89,6 @@ func (f *File) write() (*FileOutput, error) {
 		return nil, errors.New("local.file: path is required")
 	}
 	mode := os.FileMode(f.Mode)
-	if mode == 0 {
-		mode = 0o644
-	}
 	if f.CreateDirectory {
 		if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
 			return nil, err

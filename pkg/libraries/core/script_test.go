@@ -15,19 +15,23 @@ func runScript(t *testing.T, a *ScriptAction) *CommandActionOutput {
 	return res
 }
 
-func TestScriptDefaultsToSh(t *testing.T) {
-	cr := runScript(t, &ScriptAction{Script: "echo hello"})
+func TestScriptRunsThroughShell(t *testing.T) {
+	cr := runScript(t, &ScriptAction{Shell: "sh", Script: "echo hello"})
 	require.Equal(t, "hello\n", cr.Stdout)
 	require.Equal(t, 0, cr.ExitCode)
 }
 
 func TestScriptMultiline(t *testing.T) {
-	cr := runScript(t, &ScriptAction{Script: "echo one\necho two\necho three\n"})
+	cr := runScript(t, &ScriptAction{
+		Shell:  "sh",
+		Script: "echo one\necho two\necho three\n",
+	})
 	require.Equal(t, "one\ntwo\nthree\n", cr.Stdout)
 }
 
 func TestScriptExpandsEnvironment(t *testing.T) {
 	cr := runScript(t, &ScriptAction{
+		Shell:       "sh",
 		Script:      "echo \"$UNOBIN_TEST_KEY\"",
 		Environment: map[string]string{"UNOBIN_TEST_KEY": "abc123"},
 	})
@@ -43,7 +47,7 @@ func TestScriptCustomShell(t *testing.T) {
 }
 
 func TestScriptReportsExitCode(t *testing.T) {
-	cr := runScript(t, &ScriptAction{Script: "exit 9"})
+	cr := runScript(t, &ScriptAction{Shell: "sh", Script: "exit 9"})
 	require.Equal(t, 9, cr.ExitCode)
 }
 

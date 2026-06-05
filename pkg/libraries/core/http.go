@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/cloudboss/unobin/pkg/defaults"
 )
 
 // HTTPAction issues an HTTP request and captures the response.
@@ -16,6 +18,18 @@ type HTTPAction struct {
 	Headers map[string]string
 	Body    string
 	Timeout time.Duration
+}
+
+// Defaults declares the inputs a body may leave out: the method
+// defaults to GET; absent headers and body send nothing extra, and an
+// absent timeout leaves the round trip unbounded.
+func (a HTTPAction) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(a.Method, "GET"),
+		defaults.Optional(a.Headers),
+		defaults.Optional(a.Body),
+		defaults.Optional(a.Timeout),
+	}
 }
 
 // HTTPActionOutput is the captured response. The action returns an error only
@@ -35,15 +49,11 @@ func (a *HTTPAction) Run(ctx context.Context, _ any) (*HTTPActionOutput, error) 
 	if a.URL == "" {
 		return nil, errors.New("url is required")
 	}
-	method := a.Method
-	if method == "" {
-		method = http.MethodGet
-	}
 	var body io.Reader
 	if a.Body != "" {
 		body = strings.NewReader(a.Body)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, a.URL, body)
+	req, err := http.NewRequestWithContext(ctx, a.Method, a.URL, body)
 	if err != nil {
 		return nil, err
 	}

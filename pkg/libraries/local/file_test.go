@@ -15,7 +15,7 @@ func TestFileCreate(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hello.txt")
 
-	f := &File{Path: path, Content: "hi there"}
+	f := &File{Path: path, Content: "hi there", Mode: 0o644}
 	out, err := f.Create(context.Background(), nil)
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -34,7 +34,7 @@ func TestFileCreatesMissingParentDirsWhenOptedIn(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "deep", "hello.txt")
 
-	_, err := (&File{Path: path, Content: "deep", CreateDirectory: true}).
+	_, err := (&File{Path: path, Content: "deep", Mode: 0o644, CreateDirectory: true}).
 		Create(context.Background(), nil)
 	require.NoError(t, err)
 
@@ -69,7 +69,7 @@ func TestFileUpdate(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "u.txt")
 
-	f := &File{Path: path, Content: "first"}
+	f := &File{Path: path, Content: "first", Mode: 0o644}
 	first, err := f.Create(context.Background(), nil)
 	require.NoError(t, err)
 

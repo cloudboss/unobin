@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/cloudboss/unobin/pkg/defaults"
 )
 
 // WaitForAction polls a command until it exits 0 or the deadline is reached.
@@ -16,6 +18,19 @@ type WaitForAction struct {
 	Timeout     time.Duration
 	Environment map[string]string
 	WorkingDir  string
+}
+
+// Defaults declares the inputs a body may leave out: one attempt per
+// second for up to five minutes, an absent environment adding nothing
+// to the parent's, and an absent working-dir inheriting the process
+// directory.
+func (a WaitForAction) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(a.Interval, time.Second),
+		defaults.Value(a.Timeout, 5*time.Minute),
+		defaults.Optional(a.Environment),
+		defaults.Optional(a.WorkingDir),
+	}
 }
 
 // WaitForActionOutput records how many attempts ran, the elapsed time, and the
@@ -34,24 +49,15 @@ func (a *WaitForAction) Run(ctx context.Context, _ any) (*WaitForActionOutput, e
 	if len(a.Argv) == 0 {
 		return nil, errors.New("argv is required")
 	}
-	interval := a.Interval
-	if interval <= 0 {
-		interval = time.Second
-	}
-	timeout := a.Timeout
-	if timeout <= 0 {
-		timeout = 5 * time.Minute
-	}
-
 	start := time.Now()
-	deadline := start.Add(timeout)
+	deadline := start.Add(a.Timeout)
 	var attempts int
 
 	for {
 		attempts++
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
-			return nil, fmt.Errorf("wait-for timed out after %d attempts (%v)", attempts-1, timeout)
+			return nil, fmt.Errorf("wait-for timed out after %d attempts (%v)", attempts-1, a.Timeout)
 		}
 		attemptCtx, cancel := context.WithTimeout(ctx, remaining)
 		result, err := runProcess(attemptCtx, processSpec{
@@ -66,7 +72,7 @@ func (a *WaitForAction) Run(ctx context.Context, _ any) (*WaitForActionOutput, e
 				return nil, ctx.Err()
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, fmt.Errorf("wait-for timed out after %d attempts (%v)", attempts, timeout)
+				return nil, fmt.Errorf("wait-for timed out after %d attempts (%v)", attempts, a.Timeout)
 			}
 			return nil, err
 		}
@@ -80,7 +86,7 @@ func (a *WaitForAction) Run(ctx context.Context, _ any) (*WaitForActionOutput, e
 		}
 
 		select {
-		case <-time.After(interval):
+		case <-time.After(a.Interval):
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}

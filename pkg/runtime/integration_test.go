@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/localstate"
@@ -45,7 +46,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	require.NoError(t, err)
 
 	libs := map[string]*runtime.Library{
-		"core": core.Library(),
+		"core": coreLibraryWithDefaults(t),
 	}
 	exec := &runtime.Executor{
 		DAG:       runtime.BuildDAG(f, libs),
@@ -56,6 +57,30 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 		Factory:   state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return applyOnce(t, exec)
+}
+
+// coreLibraryWithDefaults builds the core library record the way a
+// compiled factory gets it: the registrations from Library() plus the
+// declared defaults read from the library's source, which codegen
+// embeds into a real binary.
+func coreLibraryWithDefaults(t *testing.T) *runtime.Library {
+	t.Helper()
+	lib := core.Library()
+	schema, warnings, err := goschema.Read("../libraries/core")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	lib.Defaults = map[string][]lang.DefaultSpec{}
+	add := func(kind string, types map[string]*runtime.TypeSchema) {
+		for name, ts := range types {
+			if len(ts.Defaults) > 0 {
+				lib.Defaults[kind+"."+name] = ts.Defaults
+			}
+		}
+	}
+	add("resource", schema.Resources)
+	add("data", schema.DataSources)
+	add("action", schema.Actions)
+	return lib
 }
 
 func errsAsStrings(l *lang.ErrorList) []string {
