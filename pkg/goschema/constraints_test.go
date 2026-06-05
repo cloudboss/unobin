@@ -39,6 +39,7 @@ type Item struct {
 	A    *string
 	B    *string
 	Subs []Sub
+	Tags []string
 }
 
 type Sub struct {
@@ -532,10 +533,11 @@ func (v Thing) Constraints() []constraint.Constraint {
 	}, schema.Resources["thing"].Constraints)
 }
 
-// TestReadRejectsPredicateInNestedForEach proves a predicate cannot
-// iterate two lists yet: only set constraints lower through a nested
-// ForEach.
-func TestReadRejectsPredicateInNestedForEach(t *testing.T) {
+// TestReadExtractsChainedForEachPredicate proves a predicate inside a
+// nested ForEach lowers to a chained @for-each: each Go parameter
+// becomes a level binding, conditions reference the bindings, and an
+// outer element stays reachable from the inner body.
+func TestReadExtractsChainedForEachPredicate(t *testing.T) {
 	src := constraintLibrary + `
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
@@ -543,7 +545,134 @@ func (v Thing) Constraints() []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.ForEach(it.Subs, func(s Sub) []constraint.Constraint {
 					return []constraint.Constraint{
-						constraint.Must(constraint.Present(s.C)),
+						constraint.When(constraint.Present(s.C)).
+							Require(constraint.Present(it.A)).
+							Message("a sub with c needs its item's a"),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{{
+		Kind:    "predicate",
+		When:    "(@s.value.c != null)",
+		Require: "(@it.value.a != null)",
+		Message: "a sub with c needs its item's a",
+		ForEachLevels: []lang.ForEachSpecLevel{
+			{Name: "@it", In: "var.items"},
+			{Name: "@s", In: "@it.value.subs"},
+		},
+	}}, schema.Resources["thing"].Constraints)
+}
+
+// TestChainedForEachChecksAgainstValues proves the lowered chain runs
+// through the real evaluator with both bindings live, naming a failure
+// through both levels.
+func TestChainedForEachChecksAgainstValues(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Subs, func(s Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.When(constraint.Present(s.C)).
+							Require(constraint.Present(it.A)).
+							Message("a sub with c needs its item's a"),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	schema, _, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	entries, perr := lang.ParseSpecs(schema.Resources["thing"].Constraints)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	eval := func(values map[string]any) lang.ConstraintEvalFunc {
+		return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
+			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			for _, b := range binds {
+				if ctx.Each == nil {
+					ctx.Each = map[string]lang.EachValue{}
+				}
+				ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
+			}
+			return runtime.Eval(e, ctx)
+		}
+	}
+
+	good := map[string]any{"items": []any{
+		map[string]any{"a": "x", "subs": []any{map[string]any{"c": "y"}}},
+		map[string]any{"subs": []any{map[string]any{}}},
+	}}
+	ok := lang.CheckConstraintEntries(entries, good, eval(good), lang.DisplayNodeRelative)
+	require.Equal(t, 0, ok.Len(), "valid values pass: %v", ok.Err())
+
+	bad := map[string]any{"items": []any{
+		map[string]any{"a": "x", "subs": []any{map[string]any{"c": "y"}}},
+		map[string]any{"subs": []any{
+			map[string]any{},
+			map[string]any{"c": "y"},
+		}},
+	}}
+	got := lang.CheckConstraintEntries(entries, bad, eval(bad), lang.DisplayNodeRelative)
+	require.Equal(t, 1, got.Len(), "one violation expected: %v", got.Err())
+	require.Contains(t, got.Err().Error(),
+		"a sub with c needs its item's a (items[1].subs[1])")
+}
+
+// TestReadExtractsChainedScalarForEach proves a scalar inner list
+// chains too: the inner binding's value is the element itself.
+func TestReadExtractsChainedScalarForEach(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Tags, func(tag string) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.Must(constraint.OneOf(tag, "a", "b")),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{{
+		Kind:    "predicate",
+		When:    "true",
+		Require: "(@tag.value == 'a' || @tag.value == 'b')",
+		ForEachLevels: []lang.ForEachSpecLevel{
+			{Name: "@it", In: "var.items"},
+			{Name: "@tag", In: "@it.value.tags"},
+		},
+	}}, schema.Resources["thing"].Constraints)
+}
+
+// TestReadRejectsShadowedForEachParameter proves a nested parameter
+// reusing an enclosing name is an error: the chain's bindings must be
+// distinct.
+func TestReadRejectsShadowedForEachParameter(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Subs, func(it Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.Must(constraint.Present(it.C)),
 					}
 				}),
 			}
@@ -553,7 +682,50 @@ func (v Thing) Constraints() []constraint.Constraint {
 `
 	_, _, err := readConstraintLibrary(t, src)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "a predicate inside a nested ForEach is not supported")
+	require.Contains(t, err.Error(), "shadows")
+}
+
+// TestReadMixedNestedForEachBody proves a set constraint and a
+// predicate in the same nested body each lower their own way: the set
+// kind to multi-splat fields, the predicate to a chain.
+func TestReadMixedNestedForEachBody(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.Subs, func(s Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.ExactlyOneOf(s.C, s.D),
+						constraint.Must(constraint.Present(s.C)),
+					}
+				}),
+			}
+		}),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind: "exactly-one-of",
+			Fields: []string{
+				"var.items[*].subs[*].c",
+				"var.items[*].subs[*].d",
+			},
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@s.value.c != null)",
+			ForEachLevels: []lang.ForEachSpecLevel{
+				{Name: "@it", In: "var.items"},
+				{Name: "@s", In: "@it.value.subs"},
+			},
+		},
+	}, schema.Resources["thing"].Constraints)
 }
 
 // TestNestedForEachChecksAgainstValues proves the multi-splat fields

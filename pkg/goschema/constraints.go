@@ -248,14 +248,17 @@ func (w *walker) isForEachCall(call *ast.CallExpr) bool {
 // to the receiver still name top-level fields either way. An inner
 // ForEach lowers its set constraints with every enclosing list
 // splatted, which the checker expands level by level; a predicate
-// cannot iterate two lists, so one inside an inner ForEach is an
-// error.
+// inside lowers to a chained @for-each, each Go parameter a level
+// binding read as @param.value.
 func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.ConstraintSpec {
-	return w.forEachSpecsAt(call, scope, false)
+	return w.forEachSpecsAt(call, scope, scope, nil)
 }
 
 func (w *walker) forEachSpecsAt(
-	call *ast.CallExpr, scope constraintScope, nested bool,
+	call *ast.CallExpr,
+	scope constraintScope,
+	chainScope constraintScope,
+	chain []lang.ForEachSpecLevel,
 ) []lang.ConstraintSpec {
 	if len(call.Args) != 2 {
 		w.addErrf("ForEach takes a list field and a function")
@@ -275,11 +278,24 @@ func (w *walker) forEachSpecsAt(
 		w.addErrf("the ForEach body must take the element as its one named parameter")
 		return nil
 	}
+	if _, exists := scope[param]; exists {
+		w.addErrf("ForEach parameter %q shadows an enclosing name; rename it", param)
+		return nil
+	}
+	levels := append(slices.Clip(chain),
+		lang.ForEachSpecLevel{Name: "@" + param, In: chainPath(listPath, scope, chainScope)})
+
 	innerSet := make(constraintScope, len(scope)+1)
 	maps.Copy(innerSet, scope)
 	splatted := elem
 	splatted.prefix = listPath + "[*]"
 	innerSet[param] = splatted
+
+	innerChain := make(constraintScope, len(chainScope)+1)
+	maps.Copy(innerChain, chainScope)
+	chained := elem
+	chained.prefix = "@" + param + ".value"
+	innerChain[param] = chained
 
 	innerEach := make(constraintScope, len(scope)+1)
 	maps.Copy(innerEach, scope)
@@ -299,12 +315,17 @@ func (w *walker) forEachSpecsAt(
 				w.addErrf("cannot iterate inside %q; its elements are scalars", listPath)
 				continue
 			}
-			out = append(out, w.forEachSpecsAt(base, innerSet, true)...)
+			out = append(out, w.forEachSpecsAt(base, innerSet, innerChain, levels)...)
 			continue
 		}
 		if isPredicateCall(c) {
-			if nested {
-				w.addErrf("a predicate inside a nested ForEach is not supported")
+			if len(chain) > 0 {
+				spec, ok := w.specFromCall(c, innerChain)
+				if !ok {
+					continue
+				}
+				spec.ForEachLevels = levels
+				out = append(out, spec)
 				continue
 			}
 			spec, ok := w.specFromCall(c, innerEach)
@@ -328,6 +349,23 @@ func (w *walker) forEachSpecsAt(
 		out = append(out, spec)
 	}
 	return out
+}
+
+// chainPath renders a level's iterable for the chained form. A list
+// rooted at an enclosing parameter swaps that parameter's splatted
+// prefix for its binding (@it.value.subs); one rooted at the receiver
+// reads as written.
+func chainPath(listPath string, scope, chainScope constraintScope) string {
+	for name, chained := range chainScope {
+		set, ok := scope[name]
+		if !ok || set.prefix == chained.prefix {
+			continue
+		}
+		if rest, ok := strings.CutPrefix(listPath, set.prefix); ok {
+			return chained.prefix + rest
+		}
+	}
+	return listPath
 }
 
 // isPredicateCall reports whether a constructor call builds a
