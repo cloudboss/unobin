@@ -13,6 +13,20 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
+// GoLibrarySpecs holds one Go library's compile-extracted spec data,
+// keyed by "<kind>.<type>" the way runtime.Library stores it. The dev
+// CLI gathers it from the library's source; codegen embeds it in
+// generated code so the runtime can look it up at plan and apply.
+type GoLibrarySpecs struct {
+	Constraints map[string][]lang.ConstraintSpec
+	Defaults    map[string][]lang.DefaultSpec
+}
+
+// Empty reports whether the specs hold no data at all.
+func (s GoLibrarySpecs) Empty() bool {
+	return len(s.Constraints) == 0 && len(s.Defaults) == 0
+}
+
 // GenerateUBLibrary produces the Go source for a UB library's
 // generated package. The package's name is alias; it exports a
 // `Library()` function returning a `*runtime.Library` whose composites
@@ -28,10 +42,17 @@ import (
 // renders a per-composite `Libraries` map binding each composite-local
 // alias to the corresponding package's `Library()`. Pass nil or an
 // empty map when a composite has no imports.
+//
+// goSpecs maps a Go import path to the specs its types declare. A
+// bound library with specs is constructed once in `Library()`, has its
+// Constraints and Defaults attached, and every binding of that path
+// shares the instance, so a composite-internal node resolves the same
+// spec data a root import of the library would.
 func GenerateUBLibrary(alias string,
 	bodies map[string]*lang.File,
 	kinds map[string]string,
-	imports map[string]map[string]string) ([]byte, error) {
+	imports map[string]map[string]string,
+	goSpecs map[string]GoLibrarySpecs) ([]byte, error) {
 	if alias == "" {
 		return nil, fmt.Errorf("ublibrary: alias is required")
 	}
@@ -60,10 +81,11 @@ func GenerateUBLibrary(alias string,
 		}
 		entry := compositeEntry{Name: name, Symbol: group.Symbol, Body: encoded}
 		for _, localAlias := range sortedAliases(imports[name]) {
-			ident := idents.identFor(imports[name][localAlias])
+			p := imports[name][localAlias]
 			entry.Libraries = append(entry.Libraries, libraryBinding{
 				LocalAlias: localAlias,
-				GoIdent:    ident,
+				Path:       p,
+				GoIdent:    idents.identFor(p),
 			})
 		}
 		group.Entries = append(group.Entries, entry)
@@ -76,13 +98,28 @@ func GenerateUBLibrary(alias string,
 		}
 	}
 
+	specVars, varOf := specVarsFor(idents, goSpecs)
+	for _, g := range orderedGroups {
+		for _, entry := range g.Entries {
+			for i, b := range entry.Libraries {
+				if name, ok := varOf[b.Path]; ok {
+					entry.Libraries[i].Value = name
+				} else {
+					entry.Libraries[i].Value = b.GoIdent + ".Library()"
+				}
+			}
+		}
+	}
+
 	var buf bytes.Buffer
 	data := struct {
 		Alias     string
+		SpecVars  []specVar
 		Groups    []*compositeGroup
 		GoImports []goImport
 	}{
 		Alias:     alias,
+		SpecVars:  specVars,
 		Groups:    orderedGroups,
 		GoImports: idents.imports(),
 	}
@@ -124,7 +161,55 @@ type compositeEntry struct {
 
 type libraryBinding struct {
 	LocalAlias string
+	Path       string
 	GoIdent    string
+	// Value is the expression the binding renders: the shared spec
+	// variable when the path declares specs, otherwise an inline
+	// `<ident>.Library()` call.
+	Value string
+}
+
+// specVar is one local variable the generated Library() declares for a
+// Go library whose types declare specs: the library is constructed
+// once, the rendered assignments attach its Constraints and Defaults,
+// and every binding of the path shares the variable.
+type specVar struct {
+	Name        string
+	GoIdent     string
+	Constraints string
+	Defaults    string
+}
+
+// specVarsFor returns the spec variables for every bound import path
+// with declared specs, ordered by import path, plus the path-to-name
+// map bindings resolve against. The variable name derives from the
+// import ident, so it stays unique and never collides with a package
+// name or keyword.
+func specVarsFor(
+	idents *identTable, goSpecs map[string]GoLibrarySpecs,
+) ([]specVar, map[string]string) {
+	paths := append([]string(nil), idents.order...)
+	sort.Strings(paths)
+	vars := make([]specVar, 0, len(goSpecs))
+	varOf := make(map[string]string, len(goSpecs))
+	for _, p := range paths {
+		specs := goSpecs[p]
+		if specs.Empty() {
+			continue
+		}
+		ident := idents.byPath[p]
+		name := strings.TrimPrefix(ident, "lib_") + "Lib"
+		v := specVar{Name: name, GoIdent: ident}
+		if len(specs.Constraints) > 0 {
+			v.Constraints = constraintsAssign(name, specs.Constraints)
+		}
+		if len(specs.Defaults) > 0 {
+			v.Defaults = defaultsAssign(name, specs.Defaults)
+		}
+		vars = append(vars, v)
+		varOf[p] = name
+	}
+	return vars, varOf
 }
 
 type goImport struct {
@@ -219,7 +304,14 @@ import (
 {{end}})
 
 func Library() *runtime.Library {
-	return &runtime.Library{
+{{range .SpecVars}}	{{.Name}} := {{.GoIdent}}.Library()
+{{- if .Constraints}}
+	{{.Constraints}}
+{{- end}}
+{{- if .Defaults}}
+	{{.Defaults}}
+{{- end}}
+{{end}}	return &runtime.Library{
 		Name: {{quote .Alias}},
 {{range .Groups}}		{{.MapField}}: map[string]*runtime.CompositeType{
 {{range .Entries}}			{{quote .Name}}: {
@@ -228,7 +320,7 @@ func Library() *runtime.Library {
 				Body:     {{.Body}},
 {{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{
-{{range .Libraries}}					{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
+{{range .Libraries}}					{{quote .LocalAlias}}: {{.Value}},
 {{end}}				},
 {{- end}}
 			},

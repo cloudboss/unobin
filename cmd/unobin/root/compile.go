@@ -334,6 +334,7 @@ func (c *compileVisitor) OnUBLibrary(
 		return errors.Join(violations...)
 	}
 	composites := make(map[string]map[string]string, len(lib.BodyImports))
+	goSpecs := map[string]codegen.GoLibrarySpecs{}
 	runtimeLib := &ubruntime.Library{Name: alias}
 	for name, body := range lib.Bodies {
 		bodyLibs := make(map[string]*ubruntime.Library, len(lib.BodyImports[name]))
@@ -348,6 +349,13 @@ func (c *compileVisitor) OnUBLibrary(
 				}
 				printSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
 				bodyLibs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
+				specs := codegen.GoLibrarySpecs{
+					Constraints: constraintsFromSchema(schema),
+					Defaults:    defaultsFromSchema(schema),
+				}
+				if !specs.Empty() {
+					goSpecs[res.Path] = specs
+				}
 			case resolve.ResolutionUB:
 				bodyLibs[res.LocalAlias] = c.runtimeLibraries[res.CanonicalKey]
 			}
@@ -375,7 +383,7 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, lib.Kinds, composites)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, lib.Kinds, composites, goSpecs)
 	if err != nil {
 		return err
 	}

@@ -123,12 +123,23 @@ func injectedAliases[T any](m map[string]map[string][]T) []string {
 }
 
 // injectConstraints renders the assignment that attaches one Go library's
-// constraints to its entry in the libraries map: a map literal with one
-// spec per line. format.Source aligns and indents the result.
+// constraints to its entry in the libraries map.
 func injectConstraints(alias string, all map[string]map[string][]lang.ConstraintSpec) string {
-	byType := all[alias]
+	return constraintsAssign(fmt.Sprintf("libraries[%q]", alias), all[alias])
+}
+
+// injectDefaults renders the assignment that attaches one Go library's
+// declared input defaults to its entry in the libraries map.
+func injectDefaults(alias string, all map[string]map[string][]lang.DefaultSpec) string {
+	return defaultsAssign(fmt.Sprintf("libraries[%q]", alias), all[alias])
+}
+
+// constraintsAssign renders the statement attaching constraint specs to
+// target: a map literal with one spec per line. format.Source aligns
+// and indents the result.
+func constraintsAssign(target string, byType map[string][]lang.ConstraintSpec) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "libraries[%q].Constraints = map[string][]lang.ConstraintSpec{\n", alias)
+	fmt.Fprintf(&b, "%s.Constraints = map[string][]lang.ConstraintSpec{\n", target)
 	for _, typ := range sortedSpecKeys(byType) {
 		fmt.Fprintf(&b, "%q: {\n", typ)
 		for _, s := range byType[typ] {
@@ -141,13 +152,11 @@ func injectConstraints(alias string, all map[string]map[string][]lang.Constraint
 	return b.String()
 }
 
-// injectDefaults renders the assignment that attaches one Go library's
-// declared input defaults to its entry in the libraries map, in the
-// same style injectConstraints uses.
-func injectDefaults(alias string, all map[string]map[string][]lang.DefaultSpec) string {
-	byType := all[alias]
+// defaultsAssign renders the statement attaching declared input
+// defaults to target, in the same style constraintsAssign uses.
+func defaultsAssign(target string, byType map[string][]lang.DefaultSpec) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "libraries[%q].Defaults = map[string][]lang.DefaultSpec{\n", alias)
+	fmt.Fprintf(&b, "%s.Defaults = map[string][]lang.DefaultSpec{\n", target)
 	for _, typ := range sortedSpecKeys(byType) {
 		fmt.Fprintf(&b, "%q: {\n", typ)
 		for _, s := range byType[typ] {
