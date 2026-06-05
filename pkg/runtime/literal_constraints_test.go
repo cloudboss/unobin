@@ -149,6 +149,36 @@ resources: {
 	}
 }
 
+// TestCheckLiteralConstraintsLengthPredicate proves a lowered length
+// condition runs at the compile site: the predicate calls @core.length
+// with no import table in the evaluation context, and an explicitly
+// empty list literal is caught before plan.
+func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{
+			Resources: map[string]*TypeSchema{
+				"thing": {Constraints: []lang.ConstraintSpec{{
+					Kind:    "predicate",
+					When:    "true",
+					Require: "((var.items != null) && (@core.length(var.items) >= 1))",
+					Message: "items must list at least one entry",
+				}}},
+			},
+		}},
+	}
+	f := parseStack(t, `resources: {
+  core: { thing: { x: { items: [] } } }
+}`)
+	errs := CheckLiteralConstraints(f, libs)
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Err())
+	require.Contains(t, errs.Errors()[0].Error(), "items must list at least one entry")
+
+	ok := CheckLiteralConstraints(parseStack(t, `resources: {
+  core: { thing: { x: { items: ['a'] } } }
+}`), libs)
+	require.Equal(t, 0, ok.Len(), "got: %v", ok.Err())
+}
+
 // TestCheckLiteralConstraintsDeterministic runs each case repeatedly and
 // requires byte-identical messages, so map iteration order cannot leak
 // into the reported diagnostics.

@@ -150,6 +150,18 @@ func AtMost(field, value any) Condition { return Condition{} }
 // OneOf holds when field's value is one of the given values.
 func OneOf(field any, values ...any) Condition { return Condition{} }
 
+// NotEmpty holds when field is set and has at least one element, so an
+// explicitly empty list fails it. Strings and maps count the same way.
+func NotEmpty(field any) Condition { return Condition{} }
+
+// MinItems holds when field has at least n elements. A null field
+// passes, since presence is Present's job.
+func MinItems(field any, n int) Condition { return Condition{} }
+
+// MaxItems holds when field has at most n elements. A null field
+// passes, since presence is Present's job.
+func MaxItems(field any, n int) Condition { return Condition{} }
+
 // All holds when every condition holds.
 func All(conds ...Condition) Condition { return Condition{} }
 

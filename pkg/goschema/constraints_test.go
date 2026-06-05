@@ -285,6 +285,100 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 	}
 }
 
+// TestReadExtractsLengthConditions proves the three length conditions
+// lower to @core.length with their null guards: a missing list passes
+// MinItems and MaxItems, presence staying Present's job, while
+// NotEmpty requires the field set and non-empty.
+func TestReadExtractsLengthConditions(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.NotEmpty(v.Items)).
+			Message("items must list at least one entry"),
+		constraint.When(constraint.Present(v.Items)).
+			Require(constraint.MinItems(v.Items, 1), constraint.MaxItems(v.Items, 5)),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "((var.items != null) && (@core.length(var.items) >= 1))",
+			Message: "items must list at least one entry",
+		},
+		{
+			Kind: "predicate",
+			When: "(var.items != null)",
+			Require: "(var.items == null || @core.length(var.items) >= 1)" +
+				" && (var.items == null || @core.length(var.items) <= 5)",
+		},
+	}, schema.Resources["thing"].Constraints)
+}
+
+// TestReadLengthConditionsCheckWithoutImports proves the lowered
+// conditions evaluate through the same no-import evaluator the
+// compile-time and plan-time constraint checks use.
+func TestReadLengthConditionsCheckWithoutImports(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.NotEmpty(v.Items)),
+		constraint.When(constraint.Present(v.Items)).
+			Require(constraint.MaxItems(v.Items, 2)),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	entries, perr := lang.ParseSpecs(schema.Resources["thing"].Constraints)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	check := func(values map[string]any) int {
+		eval := func(e lang.Expr, each *lang.EachValue) (any, error) {
+			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			if each != nil {
+				ctx.EachKey, ctx.EachValue, ctx.ForEach = each.Key, each.Value, true
+			}
+			return runtime.Eval(e, ctx)
+		}
+		return lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative).Len()
+	}
+
+	require.Equal(t, 0, check(map[string]any{"items": []any{"a"}}),
+		"one item passes both rules")
+	require.Equal(t, 1, check(map[string]any{"items": []any{}}),
+		"an explicitly empty list fails NotEmpty")
+	require.Equal(t, 1, check(map[string]any{}),
+		"an absent list fails NotEmpty but passes MaxItems")
+	require.Equal(t, 1, check(map[string]any{"items": []any{"a", "b", "c"}}),
+		"three items fail MaxItems(2)")
+}
+
+// TestReadRejectsNonLiteralLengthCount proves the count argument must
+// be a whole-number literal the schema can embed.
+func TestReadRejectsNonLiteralLengthCount(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.MinItems(v.Items, maxTargets)),
+	}
+}
+
+const maxTargets = 5
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Equal(t,
+		[]string{"Thing: MinItems takes a field and a whole-number literal"},
+		warnings)
+	require.Empty(t, schema.Resources["thing"].Constraints)
+}
+
 func TestReadKeepsUnknownConstraintFieldAsError(t *testing.T) {
 	src := constraintLibrary + `
 func (v Thing) Constraints() []constraint.Constraint {

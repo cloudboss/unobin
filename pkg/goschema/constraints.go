@@ -516,6 +516,12 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 		return w.nullCond(call, "==", scope)
 	case "OneOf":
 		return w.oneOfCond(call, scope)
+	case "NotEmpty":
+		return w.notEmptyCond(call, scope)
+	case "MinItems":
+		return w.itemsCond(call, ">=", scope)
+	case "MaxItems":
+		return w.itemsCond(call, "<=", scope)
 	case "All":
 		return w.joinCond(call, "&&", scope)
 	case "Any":
@@ -612,6 +618,41 @@ func (w *walker) oneOfCond(call *ast.CallExpr, scope constraintScope) (string, b
 		parts = append(parts, field+" == "+val)
 	}
 	return "(" + strings.Join(parts, " || ") + ")", true
+}
+
+// notEmptyCond renders NotEmpty: the field must be set and hold at
+// least one element, so an explicitly empty list fails.
+func (w *walker) notEmptyCond(call *ast.CallExpr, scope constraintScope) (string, bool) {
+	if len(call.Args) != 1 {
+		w.addWarnf("NotEmpty takes one field")
+		return "", false
+	}
+	field, ok := w.selectorField(call.Args[0], scope)
+	if !ok {
+		return "", false
+	}
+	return "((" + field + " != null) && (@core.length(" + field + ") >= 1))", true
+}
+
+// itemsCond renders MinItems (>=) and MaxItems (<=). A null field
+// passes, since presence is Present's job; only the count argument is
+// embedded, so it must be a whole-number literal.
+func (w *walker) itemsCond(call *ast.CallExpr, op string, scope constraintScope) (string, bool) {
+	if len(call.Args) != 2 {
+		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
+		return "", false
+	}
+	field, ok := w.selectorField(call.Args[0], scope)
+	if !ok {
+		return "", false
+	}
+	n, ok := intLiteral(call.Args[1])
+	if !ok {
+		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
+		return "", false
+	}
+	return "(" + field + " == null || @core.length(" + field + ") " + op + " " +
+		strconv.Itoa(n) + ")", true
 }
 
 func (w *walker) joinCond(call *ast.CallExpr, op string, scope constraintScope) (string, bool) {
