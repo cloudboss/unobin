@@ -28,7 +28,6 @@ func splatScope() *Scope {
 			}))},
 			{Name: "nums", Type: TList(TInteger())},
 			{Name: "m", Type: TMap(TString())},
-			{Name: "things", Type: TSet(TString())},
 			{Name: "maybe", Type: TOptional(TList(TString()))},
 			{Name: "whatever", Type: TList(TAny())},
 		},
@@ -73,7 +72,6 @@ func TestInferSplatRejectsNonList(t *testing.T) {
 		src  string
 		want string
 	}{
-		{name: "set", src: "var.things[*]", want: "splat [*] needs a list, got set(string)"},
 		{name: "map", src: "var.m[*]", want: "splat [*] needs a list, got map(string)"},
 		{name: "scalar field", src: "var.subnets[*].id[*]", want: "splat [*] needs a list, got string"},
 		{

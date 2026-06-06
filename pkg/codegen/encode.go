@@ -63,8 +63,6 @@ func encodeNode(b *strings.Builder, n lang.Node) error {
 		return encodeTypeAtomic(b, x)
 	case *lang.TypeList:
 		return encodeTypeList(b, x)
-	case *lang.TypeSet:
-		return encodeTypeSet(b, x)
 	case *lang.TypeMap:
 		return encodeTypeMap(b, x)
 	case *lang.TypeObject:
@@ -397,15 +395,6 @@ func encodeTypeAtomic(b *strings.Builder, n *lang.TypeAtomic) error {
 
 func encodeTypeList(b *strings.Builder, n *lang.TypeList) error {
 	b.WriteString("&lang.TypeList{Elem: ")
-	if err := encodeNode(b, n.Elem); err != nil {
-		return err
-	}
-	b.WriteString("}")
-	return nil
-}
-
-func encodeTypeSet(b *strings.Builder, n *lang.TypeSet) error {
-	b.WriteString("&lang.TypeSet{Elem: ")
 	if err := encodeNode(b, n.Elem); err != nil {
 		return err
 	}

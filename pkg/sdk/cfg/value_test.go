@@ -35,11 +35,6 @@ func TestCollectionsHoldWrapperElements(t *testing.T) {
 		},
 	}
 	require.EqualValues(t, 1, m.Value["x"].Value)
-
-	s := Set[String]{
-		Value: []String{{Value: "a"}, {Value: "b"}},
-	}
-	require.Len(t, s.Value, 2)
 }
 
 func TestObjectWrapsUserStructInsideCollection(t *testing.T) {
@@ -84,6 +79,5 @@ func TestEveryWrapperSatisfiesValue(t *testing.T) {
 	var _ Value = Any{}
 	var _ Value = List[String]{}
 	var _ Value = Map[String]{}
-	var _ Value = Set[String]{}
 	var _ Value = Object[struct{}]{}
 }

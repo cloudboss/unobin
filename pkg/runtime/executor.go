@@ -592,9 +592,8 @@ func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, 
 }
 
 // evalForEach reduces a `@for-each:` expression to the iterable's
-// key-value pairs. A map literal evaluates to map[string]any directly.
-// A list evaluates to []any and is rejected per the language design
-// (sets are the only sequence form; lists are not a valid iterable).
+// key-value pairs. Only a map iterates: each instance needs a stable
+// key, which a list's positions cannot provide.
 func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 	v, err := Eval(expr, scope)
 	if err != nil {
@@ -604,7 +603,7 @@ func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 	case map[string]any:
 		return x, nil
 	case []any:
-		return nil, fmt.Errorf("@for-each: lists are not a valid iterable; use a map or a set")
+		return nil, fmt.Errorf("@for-each: lists are not a valid iterable; use a map")
 	}
 	return nil, fmt.Errorf("@for-each: expected a map, got %s", lang.TypeMessage(v))
 }

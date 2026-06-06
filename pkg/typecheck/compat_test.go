@@ -49,12 +49,6 @@ func TestAssignableLists(t *testing.T) {
 	assert.False(t, Assignable(TList(TString()), TTuple([]Type{TString(), TInteger()})))
 }
 
-func TestAssignableSets(t *testing.T) {
-	assert.True(t, Assignable(TSet(TString()), TList(TString())))
-	assert.True(t, Assignable(TSet(TString()), TSet(TString())))
-	assert.False(t, Assignable(TSet(TString()), TMap(TString())))
-}
-
 func TestAssignableMaps(t *testing.T) {
 	assert.True(t, Assignable(TMap(TString()), TMap(TString())))
 	assert.False(t, Assignable(TMap(TString()), TMap(TInteger())))

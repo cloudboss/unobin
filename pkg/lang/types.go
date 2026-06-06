@@ -41,7 +41,10 @@ func promoteAtomic(id *Ident) (TypeExpr, error) {
 }
 
 // typeConstructorNames are the call-form type constructors. promoteCall
-// below dispatches each one; keep the two in sync when adding a constructor.
+// below dispatches each one; keep the two in sync when adding a
+// constructor. set is reserved: it dispatches to an error so a future
+// set type arrives without breaking programs that would otherwise have
+// bound the name.
 var typeConstructorNames = map[string]struct{}{
 	"list":     {},
 	"set":      {},
@@ -69,7 +72,8 @@ func promoteCall(c *Call) (TypeExpr, error) {
 	case "list":
 		return promoteContainer(c, name, func(t TypeExpr) TypeExpr { return &TypeList{S: c.S, Elem: t} })
 	case "set":
-		return promoteContainer(c, name, func(t TypeExpr) TypeExpr { return &TypeSet{S: c.S, Elem: t} })
+		return nil, Errorf(ErrType, c.S.Start,
+			"set is not available yet; use list, or a map for fan-out")
 	case "map":
 		return promoteContainer(c, name, func(t TypeExpr) TypeExpr { return &TypeMap{S: c.S, Elem: t} })
 	case "tuple":

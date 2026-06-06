@@ -60,8 +60,8 @@ func (s *Scope) withBindings(names []string, key, elem Type) *Scope {
 }
 
 // EachBinding is the type pair bound by an enclosing @for-each.
-// Key is the index type (integer for lists, string for maps,
-// element type for sets). Value is the iterated element type.
+// Key is the index type (integer for lists, string for maps).
+// Value is the iterated element type.
 type EachBinding struct {
 	Key   Type
 	Value Type
@@ -256,9 +256,6 @@ func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList)
 	switch src.Unwrap().Kind {
 	case Unknown, Any, List, Map, Object, Tuple:
 		return
-	case Set:
-		errs.Addf(lang.ErrType, pos, "comprehension source cannot be a set")
-		return
 	}
 	errs.Addf(lang.ErrType, pos,
 		"comprehension source must be a list or map, got %s", src)
@@ -271,7 +268,7 @@ func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList)
 func comprehensionBindingTypes(src Type) (key, elem Type) {
 	src = src.Unwrap()
 	switch src.Kind {
-	case List, Set:
+	case List:
 		return TInteger(), elemOr(src)
 	case Map:
 		return TString(), elemOr(src)
@@ -301,7 +298,7 @@ func elemOr(t Type) Type {
 }
 
 func listElemTarget(target Type) (Type, bool) {
-	if (target.Kind == List || target.Kind == Set) && target.Elem != nil {
+	if target.Kind == List && target.Elem != nil {
 		return *target.Elem, true
 	}
 	return Type{}, false
@@ -354,7 +351,7 @@ func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 func literalEnforced(e lang.Expr, target Type) bool {
 	switch e.(type) {
 	case *lang.ArrayLit:
-		return target.Kind == List || target.Kind == Set || target.Kind == Tuple
+		return target.Kind == List || target.Kind == Tuple
 	case *lang.ObjectLit:
 		return target.Kind == Object || target.Kind == Map
 	}
@@ -365,7 +362,7 @@ func inferArray(
 	a *lang.ArrayLit, target Type, scope *Scope, errs *lang.ErrorList,
 ) Type {
 	switch target.Kind {
-	case List, Set:
+	case List:
 		if target.Elem == nil {
 			return inferArrayFree(a, scope, errs)
 		}
@@ -655,7 +652,7 @@ func traverseSegments(
 // a tuple) or Unknown (for an object).
 func indexSegmentType(current Type, seg lang.DotSegment, scope *Scope, errs *lang.ErrorList) Type {
 	switch current.Kind {
-	case List, Set:
+	case List:
 		Check(seg.Index, TInteger(), scope, errs)
 		return elemOr(current)
 	case Map:
@@ -956,7 +953,7 @@ func join(a, b Type) (Type, bool) {
 	// side, so `if c then [strings] else []` is a list of strings.
 	if a.Kind == b.Kind && a.Elem != nil && b.Elem != nil {
 		switch a.Kind {
-		case List, Set, Map:
+		case List, Map:
 			j, ok := join(*a.Elem, *b.Elem)
 			if !ok {
 				return Type{}, false

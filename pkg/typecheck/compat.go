@@ -13,7 +13,7 @@ package typecheck
 //     before comparing, so an optional value flows into a non-
 //     optional slot when the underlying types match (the runtime
 //     enforces non-nullness at decode time).
-//   - list/set/map/tuple compare element-wise.
+//   - list/map/tuple compare element-wise.
 //   - object types compare structurally: every required dst field
 //     must have a compatible src field; extra src fields are
 //     allowed (open against the source) and missing-optional dst
@@ -55,8 +55,6 @@ func Assignable(dst, src Type) bool {
 		return src.Kind == Integer || src.Kind == Number
 	case List:
 		return listAssignable(dst, src)
-	case Set:
-		return setAssignable(dst, src)
 	case Map:
 		return mapAssignable(dst, src)
 	case Tuple:
@@ -71,7 +69,7 @@ func listAssignable(dst, src Type) bool {
 	if dst.Elem == nil {
 		return true
 	}
-	if src.Kind == List || src.Kind == Set {
+	if src.Kind == List {
 		if src.Elem == nil {
 			return true
 		}
@@ -86,16 +84,6 @@ func listAssignable(dst, src Type) bool {
 		return true
 	}
 	return false
-}
-
-func setAssignable(dst, src Type) bool {
-	if dst.Elem == nil {
-		return true
-	}
-	if src.Kind != List && src.Kind != Set && src.Kind != Tuple {
-		return false
-	}
-	return listAssignable(dst, src)
 }
 
 func mapAssignable(dst, src Type) bool {

@@ -215,6 +215,16 @@ replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
 	}
 }
 
+func TestValidateReservesSetType(t *testing.T) {
+	src := `inputs: { a: { type: set(string) } }`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t,
+		[]string{"main.ub:1:22: type: set is not available yet; use list, or a map for fan-out"},
+		errsToStrings(errs))
+}
+
 func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
 	src := `
 imports: { core: 'github.com/x/core' }
@@ -333,7 +343,7 @@ func TestValidateCallsTypePositions(t *testing.T) {
 	}{
 		{"atomic type", `inputs: { a: { type: string } }`, ok},
 		{"list", `inputs: { a: { type: list(string) } }`, ok},
-		{"set", `inputs: { a: { type: set(string) } }`, ok},
+		{"set skips call checking", `inputs: { a: { type: set(string) } }`, ok},
 		{"map", `inputs: { a: { type: map(integer) } }`, ok},
 		{"nested list", `inputs: { a: { type: list(list(string)) } }`, ok},
 		{"optional no default", `inputs: { a: { type: optional(integer) } }`, ok},

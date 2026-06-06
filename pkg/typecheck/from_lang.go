@@ -16,8 +16,6 @@ func FromLang(t lang.TypeExpr) Type {
 		return atomicFromLang(v.Name)
 	case *lang.TypeList:
 		return TList(FromLang(v.Elem))
-	case *lang.TypeSet:
-		return TSet(FromLang(v.Elem))
 	case *lang.TypeMap:
 		return TMap(FromLang(v.Elem))
 	case *lang.TypeTuple:

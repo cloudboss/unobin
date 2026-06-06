@@ -9,7 +9,6 @@ atomic-null:    null
 atomic-any:     any
 
 list-strings: list(string)
-set-strings:  set(string)
 map-strings:  map(string)
 
 nested-list-of-list: list(list(integer))

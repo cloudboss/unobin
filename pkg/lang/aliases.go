@@ -31,7 +31,6 @@ type (
 	TypeExpr           = parse.TypeExpr
 	TypeAtomic         = parse.TypeAtomic
 	TypeList           = parse.TypeList
-	TypeSet            = parse.TypeSet
 	TypeMap            = parse.TypeMap
 	TypeObject         = parse.TypeObject
 	TypeObjectField    = parse.TypeObjectField

@@ -27,7 +27,6 @@ func TestNodeImplementations(t *testing.T) {
 
 	var _ TypeExpr = (*TypeAtomic)(nil)
 	var _ TypeExpr = (*TypeList)(nil)
-	var _ TypeExpr = (*TypeSet)(nil)
 	var _ TypeExpr = (*TypeMap)(nil)
 	var _ TypeExpr = (*TypeObject)(nil)
 	var _ TypeExpr = (*TypeTuple)(nil)

@@ -66,7 +66,6 @@ func subnetScope() *Scope {
 			}))},
 			{Name: "nums", Type: TList(TInteger())},
 			{Name: "m", Type: TMap(TString())},
-			{Name: "things", Type: TSet(TString())},
 		},
 	}
 }
@@ -135,13 +134,6 @@ func TestInferComprehensionMapKeyValueBinding(t *testing.T) {
 	got := Infer(parseExpr(t, "{ for k, v in var.m : k => v }"), TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TMap(TString())), "got %s", got)
 	assert.Empty(t, errs.Errors())
-}
-
-func TestInferComprehensionRejectsSetSource(t *testing.T) {
-	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "[ for x in var.things : x ]"), TUnknown(), subnetScope(), errs)
-	require.Len(t, errs.Errors(), 1)
-	require.Equal(t, "comprehension source cannot be a set", errs.Errors()[0].Msg)
 }
 
 func TestInferComprehensionRejectsScalarSources(t *testing.T) {

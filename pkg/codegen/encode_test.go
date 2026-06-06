@@ -270,14 +270,6 @@ func TestEncodeTypeList(t *testing.T) {
 	parsesAsGoExpr(t, got)
 }
 
-func TestEncodeTypeSet(t *testing.T) {
-	got, err := EncodeNode(&lang.TypeSet{Elem: &lang.TypeAtomic{Name: "integer"}})
-	require.NoError(t, err)
-	require.Contains(t, got, "&lang.TypeSet{Elem: ")
-	require.Contains(t, got, `&lang.TypeAtomic{Name: "integer"}`)
-	parsesAsGoExpr(t, got)
-}
-
 func TestEncodeTypeMap(t *testing.T) {
 	got, err := EncodeNode(&lang.TypeMap{Elem: &lang.TypeAtomic{Name: "string"}})
 	require.NoError(t, err)

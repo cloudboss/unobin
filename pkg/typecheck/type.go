@@ -30,7 +30,6 @@ const (
 	Boolean
 	Null
 	List
-	Set
 	Map
 	Object
 	Tuple
@@ -75,7 +74,6 @@ func TBoolean() Type { return Type{Kind: Boolean} }
 func TNull() Type    { return Type{Kind: Null} }
 
 func TList(elem Type) Type { return Type{Kind: List, Elem: &elem} }
-func TSet(elem Type) Type  { return Type{Kind: Set, Elem: &elem} }
 func TMap(elem Type) Type  { return Type{Kind: Map, Elem: &elem} }
 func TOptional(elem Type) Type {
 	if elem.Kind == Optional {
@@ -152,8 +150,6 @@ func (t Type) String() string {
 		return "null"
 	case List:
 		return "list(" + t.elemString() + ")"
-	case Set:
-		return "set(" + t.elemString() + ")"
 	case Map:
 		return "map(" + t.elemString() + ")"
 	case Optional:
@@ -190,7 +186,7 @@ func (t Type) Equal(other Type) bool {
 		return false
 	}
 	switch t.Kind {
-	case List, Set, Map, Optional:
+	case List, Map, Optional:
 		if t.Elem == nil || other.Elem == nil {
 			return t.Elem == other.Elem
 		}

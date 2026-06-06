@@ -59,10 +59,6 @@ func TestPromoteContainers(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "string", listStrings.Elem.(*TypeAtomic).Name)
 
-	setStrings, ok := mustPromote(t, fields["set-strings"]).(*TypeSet)
-	require.True(t, ok)
-	require.Equal(t, "string", setStrings.Elem.(*TypeAtomic).Name)
-
 	mapStrings, ok := mustPromote(t, fields["map-strings"]).(*TypeMap)
 	require.True(t, ok)
 	require.Equal(t, "string", mapStrings.Elem.(*TypeAtomic).Name)

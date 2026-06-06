@@ -420,16 +420,6 @@ func (n *TypeList) Span() Span    { return n.S }
 func (n *TypeList) exprNode()     {}
 func (n *TypeList) typeExprNode() {}
 
-// TypeSet is `set(T)`.
-type TypeSet struct {
-	S    Span
-	Elem TypeExpr
-}
-
-func (n *TypeSet) Span() Span    { return n.S }
-func (n *TypeSet) exprNode()     {}
-func (n *TypeSet) typeExprNode() {}
-
 // TypeMap is `map(T)`. Keys are always strings.
 type TypeMap struct {
 	S    Span

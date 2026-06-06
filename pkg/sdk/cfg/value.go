@@ -87,19 +87,6 @@ type Map[T Value] struct {
 func (Map[T]) isUbValue() {}
 func (Map[T]) isUbMap()   {}
 
-// Set is backed by a slice rather than a map so element types need
-// not be comparable; the decoder rejects duplicates.
-type Set[T Value] struct {
-	Value       []T
-	Description string
-	Default     []T
-	Element     T
-	Validate    Validator
-}
-
-func (Set[T]) isUbValue() {}
-func (Set[T]) isUbSet()   {}
-
 // Object wraps a user struct in a position that requires a Value,
 // such as the element type of a List or Map. T must be a struct
 // whose fields are wrapper types or nested structs; the schema

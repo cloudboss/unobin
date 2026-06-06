@@ -469,12 +469,6 @@ func (w *formatter) typeExprWidth(t TypeExpr) int {
 			return -1
 		}
 		return len("list(") + i + 1
-	case *TypeSet:
-		i := w.typeExprWidth(x.Elem)
-		if i < 0 {
-			return -1
-		}
-		return len("set(") + i + 1
 	case *TypeMap:
 		i := w.typeExprWidth(x.Elem)
 		if i < 0 {
@@ -1564,12 +1558,6 @@ func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
 		w.buf.WriteString(x.Name)
 	case *TypeList:
 		w.buf.WriteString("list(")
-		if err := w.writeTypeExpr(x.Elem, indent); err != nil {
-			return err
-		}
-		w.buf.WriteByte(')')
-	case *TypeSet:
-		w.buf.WriteString("set(")
 		if err := w.writeTypeExpr(x.Elem, indent); err != nil {
 			return err
 		}

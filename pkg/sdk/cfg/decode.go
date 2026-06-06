@@ -130,10 +130,6 @@ func decodeWrapper(
 		decodeMap(v, raw, present, optional, path, errs)
 		return
 	}
-	if t.Implements(setKindType) {
-		decodeSet(v, raw, present, optional, path, errs)
-		return
-	}
 	switch t {
 	case stringType:
 		decodeString(v, raw, present, optional, path, errs)
@@ -149,14 +145,13 @@ func decodeWrapper(
 	}
 }
 
-// objectKind, listKind, mapKind, and setKind let the decoder
-// identify generic wrappers at runtime; each generic instantiation
-// has a distinct reflect.Type that direct equality cannot catch.
+// objectKind, listKind, and mapKind let the decoder identify generic
+// wrappers at runtime; each generic instantiation has a distinct
+// reflect.Type that direct equality cannot catch.
 type (
 	objectKind interface{ isUbObject() }
 	listKind   interface{ isUbList() }
 	mapKind    interface{ isUbMap() }
-	setKind    interface{ isUbSet() }
 )
 
 var (
@@ -167,7 +162,6 @@ var (
 	objectKindType = reflect.TypeFor[objectKind]()
 	listKindType   = reflect.TypeFor[listKind]()
 	mapKindType    = reflect.TypeFor[mapKind]()
-	setKindType    = reflect.TypeFor[setKind]()
 )
 
 func decodeObject(
@@ -414,73 +408,6 @@ func runValidate(v Validator, value any, path string, errs *errList) {
 	}
 	if err := v.Check(value); err != nil {
 		errs.addf("field %s: %s", path, err)
-	}
-}
-
-// decodeSet copies the list decode flow plus a duplicate check
-// against each element's Value field. The element type's Value must
-// be comparable; non-scalar element types like Object[T] or List[T]
-// produce a clear load-time error rather than a panic.
-func decodeSet(
-	v reflect.Value,
-	raw any,
-	present, optional bool,
-	path string,
-	errs *errList,
-) {
-	valueField := v.FieldByName("Value")
-	defaultField := v.FieldByName("Default")
-	element := v.FieldByName("Element")
-	if !present {
-		if !optional {
-			errs.addf("field %s: required", path)
-			return
-		}
-		if defaultField.Len() > 0 {
-			valueField.Set(defaultField)
-		}
-		return
-	}
-	arr, ok := raw.([]any)
-	if !ok {
-		errs.addf("field %s: expected a list, got %s", path, lang.TypeMessage(raw))
-		return
-	}
-	innerField, ok := element.Type().FieldByName("Value")
-	if !ok {
-		errs.addf(
-			"field %s: set element type %s has no Value field",
-			path, element.Type())
-		return
-	}
-	if !innerField.Type.Comparable() {
-		errs.addf(
-			"field %s: set element value type %s is not comparable; "+
-				"only sets of scalar wrappers are supported",
-			path, innerField.Type)
-		return
-	}
-	out := reflect.MakeSlice(valueField.Type(), 0, len(arr))
-	seen := make(map[any]struct{}, len(arr))
-	for i, item := range arr {
-		elem := reflect.New(element.Type()).Elem()
-		elem.Set(element)
-		itemPath := fmt.Sprintf("%s[%d]", path, i)
-		decodeField(elem, element.Type(), item, true, false, itemPath, errs)
-		key := elem.FieldByName("Value").Interface()
-		if _, dup := seen[key]; dup {
-			errs.addf("field %s: duplicate element %v", itemPath, key)
-			continue
-		}
-		seen[key] = struct{}{}
-		out = reflect.Append(out, elem)
-	}
-	valueField.Set(out)
-
-	validate := v.FieldByName("Validate")
-	if !validate.IsNil() {
-		runValidate(
-			validate.Interface().(Validator), valueField.Interface(), path, errs)
 	}
 }
 

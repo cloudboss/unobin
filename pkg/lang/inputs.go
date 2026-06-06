@@ -139,8 +139,6 @@ func checkValue(t TypeExpr, v any) (any, error) {
 		return checkAtomic(tt, v)
 	case *TypeList:
 		return checkList(tt, v)
-	case *TypeSet:
-		return checkList(&TypeList{S: tt.S, Elem: tt.Elem}, v)
 	case *TypeMap:
 		return checkMap(tt, v)
 	case *TypeObject:

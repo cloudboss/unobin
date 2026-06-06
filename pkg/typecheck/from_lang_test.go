@@ -36,7 +36,7 @@ func TestFromLangContainers(t *testing.T) {
 	intT := &lang.TypeAtomic{Name: "integer"}
 
 	assert.True(t, FromLang(&lang.TypeList{Elem: str}).Equal(TList(TString())))
-	assert.True(t, FromLang(&lang.TypeSet{Elem: intT}).Equal(TSet(TInteger())))
+	assert.True(t, FromLang(&lang.TypeList{Elem: intT}).Equal(TList(TInteger())))
 	assert.True(t, FromLang(&lang.TypeMap{Elem: str}).Equal(TMap(TString())))
 	assert.True(
 		t,

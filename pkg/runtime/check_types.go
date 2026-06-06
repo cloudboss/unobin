@@ -498,12 +498,6 @@ func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
 			value = *t.Elem
 		}
 		return &typecheck.EachBinding{Key: typecheck.TString(), Value: value}
-	case typecheck.Set:
-		elem := typecheck.TUnknown()
-		if t.Elem != nil {
-			elem = *t.Elem
-		}
-		return &typecheck.EachBinding{Key: elem, Value: elem}
 	case typecheck.Object:
 		return &typecheck.EachBinding{
 			Key:   typecheck.TString(),
@@ -624,7 +618,7 @@ func bareConstraintIterable(forEach lang.Expr) bool {
 // iterates.
 func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
 	switch t.Unwrap().Kind {
-	case typecheck.Unknown, typecheck.Any, typecheck.List, typecheck.Set,
+	case typecheck.Unknown, typecheck.Any, typecheck.List,
 		typecheck.Map, typecheck.Object, typecheck.Tuple:
 		return
 	}
