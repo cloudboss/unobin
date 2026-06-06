@@ -20,6 +20,10 @@ inputs: {
     type:        optional(list(object({ host: string, port: optional(integer) })))
     description: 'Upstream services; the port is optional per upstream'
   }
+  tls: {
+    type:        optional(object({ cert: optional(string) }))
+    description: 'TLS settings; the cert is optional within them'
+  }
 }
 
 imports: { std: 'github.com/cloudboss/unobin-library-std' }
@@ -39,16 +43,23 @@ constraints: [
 locals: {
   # suffix has a declared default, so it reads as a plain string with
   # no test. greeting has none: the null test supplies the fallback,
-  # and in the else branch the checker knows greeting is a string.
+  # and in the else branch the checker knows greeting is a string. A
+  # conditional fits here because the branches differ; for a plain
+  # fallback, ?? below is shorter.
   banner: if var.greeting == null then $'Hello, {{ var.name }}{{ var.suffix }}' else var.greeting
 
-  # One test discharges the list for everything built from it.
-  upstreams: if var.upstreams == null then [] else var.upstreams
+  # ?? supplies a fallback in one step, discharging the list for
+  # everything built from it.
+  upstreams: var.upstreams ?? []
 
-  # A comprehension filter narrows too: u.port is a plain integer in
-  # the value expression, because elements that fail the test never
+  # A comprehension filter narrows: u.port is a plain integer in the
+  # value expression, because elements that fail the test never
   # reach it.
   ports: [ for u in local.upstreams : u.port when u.port != null ]
+
+  # ?. rides a maybe: each nullable level wears its own marker, the
+  # chain's result is optional, and ?? lands it.
+  cert: var.tls?.cert ?? 'self-signed'
 }
 
 resources: {
@@ -56,9 +67,9 @@ resources: {
     fs-file: {
       banner: { path: $'{{ var.base-path }}/banner.txt', content: local.banner }
       label: {
-        # A possibly-null map cannot fan out; the test supplies the
-        # empty case, so omitting the input means no instances.
-        @for-each: if var.labels == null then {} else var.labels
+        # A possibly-null map cannot fan out; the fallback supplies
+        # the empty case, so omitting the input means no instances.
+        @for-each: var.labels ?? {}
         path:      $'{{ var.base-path }}/label-{{ @each.key }}.txt'
         content:   @each.value
       }
@@ -66,4 +77,8 @@ resources: {
   }
 }
 
-outputs: { banner: { value: local.banner }, ports: { value: local.ports } }
+outputs: {
+  banner: { value: local.banner }
+  ports:  { value: local.ports }
+  cert:   { value: local.cert }
+}

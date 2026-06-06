@@ -476,8 +476,8 @@ func eachBindingFromBody(
 
 // checkFanOutIterable reports a node @for-each whose iterable can
 // never fan out. The runtime iterates maps only, so each instance
-// gets a stable key; a list teaches the comprehension that builds
-// the map it needs, and a possibly-null iterable wants a null test,
+// gets a stable key; the list error names the comprehension that
+// builds the map, and a possibly-null iterable wants a fallback,
 // since the runtime rejects null.
 func checkFanOutIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
 	switch t.Kind {

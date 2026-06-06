@@ -11,22 +11,23 @@ What each piece demonstrates:
   checker treats it as a plain string.
 - **the null test as the discharge** — `greeting` has no default, so the
   `banner` local tests it; in the else branch the checker knows the
-  value is a string and lets it through.
-- **one test for a whole branch** — the `upstreams` local turns a
-  possibly-null list into a sure one, and everything built from it
-  needs no further tests.
+  value is a string and lets it through. A conditional fits when the
+  branches differ; for a plain fallback `??` is shorter.
+- **`??` supplies a fallback** — the `upstreams` local lands a
+  possibly-null list in one step, and the `label` fan-out iterates
+  `var.labels ?? {}` so omitting the input means no instances.
+- **`?.` rides a maybe** — `var.tls?.cert ?? 'self-signed'` reads
+  through two optional levels and lands the result; each nullable
+  level wears its own `?.`.
 - **a filter narrows** — `ports` keeps each upstream's port only where
   `u.port != null` held, so the element type is integer, not
   optional(integer).
-- **fanning out over a possibly-null map** — `@for-each` only iterates
-  maps, so the test supplies the empty case: omitting `labels` means no
-  instances.
 - **a constraint's when guards its require** — constraints read missing
   values as null, and the `when: var.upstreams != null` test narrows
   what `require` reads.
 
-Try removing one of the null tests and recompiling: the error shows the
-test to put back.
+Try removing one of the discharges and recompiling: the error shows
+the form to put back.
 
 ## Compile
 
@@ -53,4 +54,6 @@ export UB_STATE_KEY=$(head -c 32 /dev/urandom | base64)
 
 The `label` resource fans out per entry of `labels`; rerun with the
 `labels` line removed from `dev.ub` and the plan removes those files,
-since the empty case made fan-out produce no instances.
+since the `?? {}` fallback made fan-out produce no instances. With no
+`tls` in the config, the `cert` output reads 'self-signed' straight
+through the `?.` chain.
