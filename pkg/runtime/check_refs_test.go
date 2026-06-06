@@ -1035,6 +1035,45 @@ constraints: [
 ]
 `,
 		},
+		{
+			name: "node fan-out over bare opaque",
+			src: `
+inputs: { blob: { type: opaque } }
+resources: { local: { file: { one: { @for-each: var.blob, path: @each.key } } } }
+`,
+			want: []string{
+				"@for-each: iterable is opaque; declare its type, like map(...)",
+			},
+		},
+		{
+			name: "node fan-out over optional opaque",
+			src: `
+inputs: { blob: { type: optional(opaque) } }
+resources: { local: { file: { one: { @for-each: var.blob, path: @each.key } } } }
+`,
+			want: []string{
+				"@for-each: iterable is opaque; declare its type, like map(...)",
+			},
+		},
+		{
+			name: "node fan-out over a map of opaque",
+			src: `
+inputs: { blobs: { type: map(opaque) } }
+resources: { local: { file: { one: { @for-each: var.blobs, path: @each.key } } } }
+`,
+		},
+		{
+			name: "constraint fan-out over bare opaque",
+			src: `
+inputs: { blob: { type: opaque } }
+constraints: [
+  { kind: predicate, @for-each: var.blob, when: true, require: true },
+]
+`,
+			want: []string{
+				"@for-each: iterable is opaque; declare its type, like list(...) or map(...)",
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

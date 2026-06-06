@@ -164,6 +164,32 @@ func TestInferComprehensionRejectsScalarSources(t *testing.T) {
 	}
 }
 
+func TestInferComprehensionRejectsOpaqueSource(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "blob", Type: TOpaque()},
+			{Name: "maybe", Type: TOptional(TOpaque())},
+			{Name: "items", Type: TList(TOpaque())},
+		},
+	}
+	want := "comprehension source is opaque; declare its type, like list(...) or map(...)"
+
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "[ for x in var.blob : x ]"), TUnknown(), scope, errs)
+	require.Equal(t, []string{want}, errorMessages(errs))
+
+	errs = lang.NewErrorList(0)
+	Infer(parseExpr(t, "{ for k, v in var.maybe : k => v }"), TUnknown(), scope, errs)
+	require.Equal(t, []string{want}, errorMessages(errs))
+
+	// Elements may be opaque when the container is declared: each
+	// binding holds a whole value.
+	errs = lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "[ for x in var.items : x ]"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TList(TOpaque())), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
 func TestInferComprehensionTupleSource(t *testing.T) {
 	scope := &Scope{
 		Inputs: []ObjectField{

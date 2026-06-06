@@ -270,14 +270,20 @@ func inferComprehension(
 // that has no elements to iterate, or that may be null, since the
 // evaluator rejects a null source. Tuples and objects pass: at
 // runtime they are the same lists and maps every comprehension
-// consumes.
+// consumes. An opaque source is closed off: iterating would read
+// into a value that passes through unread.
 func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList) {
+	if src.Unwrap().Kind == Opaque {
+		errs.Addf(lang.ErrType, pos,
+			"comprehension source is opaque; declare its type, like list(...) or map(...)")
+		return
+	}
 	switch src.Kind {
-	case Unknown, Opaque, List, Map, Object, Tuple:
+	case Unknown, List, Map, Object, Tuple:
 		return
 	case Optional:
 		switch src.Unwrap().Kind {
-		case Unknown, Opaque, List, Map, Object, Tuple:
+		case Unknown, List, Map, Object, Tuple:
 			errs.Addf(lang.ErrType, pos,
 				"comprehension source may be null; supply a fallback, like "+
 					"xs ?? [] (got %s)", src)

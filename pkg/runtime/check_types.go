@@ -478,13 +478,19 @@ func eachBindingFromBody(
 // never fan out. The runtime iterates maps only, so each instance
 // gets a stable key; the list error names the comprehension that
 // builds the map, and a possibly-null iterable wants a fallback,
-// since the runtime rejects null.
+// since the runtime rejects null. An opaque iterable is closed off:
+// iterating would read into a value that passes through unread.
 func checkFanOutIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
+	if t.Unwrap().Kind == typecheck.Opaque {
+		errs.Addf(lang.ErrType, pos,
+			"@for-each: iterable is opaque; declare its type, like map(...)")
+		return
+	}
 	switch t.Kind {
-	case typecheck.Unknown, typecheck.Opaque, typecheck.Map, typecheck.Object:
+	case typecheck.Unknown, typecheck.Map, typecheck.Object:
 	case typecheck.Optional:
 		switch t.Unwrap().Kind {
-		case typecheck.Unknown, typecheck.Opaque, typecheck.Map, typecheck.Object,
+		case typecheck.Unknown, typecheck.Map, typecheck.Object,
 			typecheck.List, typecheck.Tuple:
 			errs.Addf(lang.ErrType, pos,
 				"@for-each: iterable may be null; supply a fallback, like "+
@@ -646,10 +652,17 @@ func bareConstraintIterable(forEach lang.Expr) bool {
 // checkConstraintIterable reports a bare constraint @for-each whose
 // iterable is not a list or a map, the kinds the predicate runtime
 // iterates. An optional iterable stays legal: the predicate runtime
-// skips a null iterable, so the entry is vacuously satisfied.
+// skips a null iterable, so the entry is vacuously satisfied. An
+// opaque iterable is closed off: iterating would read into a value
+// that passes through unread.
 func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
+	if t.Unwrap().Kind == typecheck.Opaque {
+		errs.Addf(lang.ErrType, pos,
+			"@for-each: iterable is opaque; declare its type, like list(...) or map(...)")
+		return
+	}
 	switch t.Unwrap().Kind {
-	case typecheck.Unknown, typecheck.Opaque, typecheck.List,
+	case typecheck.Unknown, typecheck.List,
 		typecheck.Map, typecheck.Object, typecheck.Tuple:
 		return
 	}
