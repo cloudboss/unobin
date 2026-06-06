@@ -36,7 +36,9 @@ func TestAssignableAtomics(t *testing.T) {
 func TestAssignableOptionalAndNull(t *testing.T) {
 	assert.True(t, Assignable(TOptional(TString()), TString()))
 	assert.True(t, Assignable(TOptional(TString()), TNull()))
-	assert.True(t, Assignable(TString(), TOptional(TString())))
+	assert.False(t, Assignable(TString(), TOptional(TString())),
+		"a possibly-null value does not flow into a slot that wants a value")
+	assert.True(t, Assignable(TOptional(TString()), TOptional(TString())))
 	assert.False(t, Assignable(TString(), TNull()))
 	assert.False(t, Assignable(TOptional(TInteger()), TString()))
 }

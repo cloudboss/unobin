@@ -364,6 +364,13 @@ func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return got
 	}
 	if !Assignable(target, got) {
+		if got.Kind == Optional && Assignable(target, got.Unwrap()) {
+			errs.Addf(lang.ErrType, e.Span().Start,
+				"type mismatch: expected %s, got %s; "+
+					"test it first, like if x != null then x else <fallback>",
+				target, got)
+			return got
+		}
 		errs.Addf(lang.ErrType, e.Span().Start,
 			"type mismatch: expected %s, got %s", target, got)
 	}
@@ -473,7 +480,13 @@ func inferObjectAgainstObject(
 			})
 			continue
 		}
-		got := Check(fld.Value, spec.Type, scope, errs)
+		// An optional field's value slot takes null too: absence and
+		// null mean the same thing at the decode boundary.
+		want := spec.Type
+		if spec.Optional {
+			want = TOptional(want)
+		}
+		got := Check(fld.Value, want, scope, errs)
 		fields = append(fields, ObjectField{Name: name, Type: got})
 	}
 	for _, f := range target.Fields {
@@ -826,14 +839,17 @@ func inferPlus(in *lang.Infix, left, right Type, errs *lang.ErrorList) Type {
 }
 
 // operandKind reduces a type to the kind the operator checks reason
-// about. Optional unwraps, matching Assignable's pre-decode leniency;
-// Unknown and any return ok=false so partial information fails open.
+// about. Unknown and any return ok=false so partial information fails
+// open. Optional stays as it is: an operand that may be null wants a
+// null test, the same as a navigation.
 func operandKind(t Type) (Kind, bool) {
-	k := t.Unwrap().Kind
-	if k == Unknown || k == Any {
-		return k, false
+	if t.Kind == Unknown || t.Kind == Any {
+		return t.Kind, false
 	}
-	return k, true
+	if t.Kind == Optional && !t.IsKnown() {
+		return Unknown, false
+	}
+	return t.Kind, true
 }
 
 func isNumericKind(k Kind) bool {

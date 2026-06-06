@@ -409,7 +409,7 @@ func TestInferOperandLeniency(t *testing.T) {
 		"var.nope + 1",
 		"var.anything + 1",
 		"var.anything && true",
-		"var.opt-count + 1",
+		"if var.opt-count != null then var.opt-count + 1 else 0",
 		"var.maybe == null",
 		"null == var.maybe",
 		"var.count == null",
@@ -418,13 +418,41 @@ func TestInferOperandLeniency(t *testing.T) {
 		"var.maybe != 'a'",
 		"'a' + var.nope",
 		"!var.anything",
-		"-var.opt-count",
 	}
 	for _, src := range tests {
 		t.Run(src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, src), TUnknown(), scope, errs)
 			assert.Empty(t, errs.Errors())
+		})
+	}
+}
+
+// An operand that may be null is the same deferred dereference as a
+// navigation: the operators reject it until a null test discharges
+// it.
+func TestInferOperandsRejectOptionals(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "opt-count", Type: TInteger(), Optional: true},
+		},
+	}
+	tests := []struct {
+		src  string
+		want []string
+	}{
+		{"var.opt-count + 1", []string{
+			"+: operand must be a number or a string, got optional(integer)",
+		}},
+		{"-var.opt-count", []string{
+			"-: operand must be a number, got optional(integer)",
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
+			require.Equal(t, tt.want, errorMessages(errs))
 		})
 	}
 }

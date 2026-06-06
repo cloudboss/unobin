@@ -250,6 +250,64 @@ func TestStrictOptionalNavigation(t *testing.T) {
 	}
 }
 
+// An optional object field accepts an optional or null value: the
+// field's absence and a null value mean the same thing to the
+// decoder, so a possibly-null source is at home there.
+func TestOptionalFieldsAcceptOptionalValues(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "maybe-tls", Type: TBoolean(), Optional: true},
+		},
+	}
+	target := TObject([]ObjectField{
+		{Name: "number", Type: TInteger()},
+		{Name: "tls", Type: TBoolean(), Optional: true},
+	})
+	for _, src := range []string{
+		"{ number: 1, tls: var.maybe-tls }",
+		"{ number: 1, tls: null }",
+		"{ number: 1 }",
+	} {
+		t.Run(src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Check(parseExpr(t, src), target, scope, errs)
+			require.Equal(t, []string(nil), errorMessages(errs))
+		})
+	}
+
+	errs := lang.NewErrorList(0)
+	Check(parseExpr(t, "{ number: var.maybe-tls }"), target, scope, errs)
+	require.Equal(t, []string{
+		"type mismatch: expected integer, got optional(boolean)",
+	}, errorMessages(errs))
+}
+
+func TestAssignableOptionalObjectFields(t *testing.T) {
+	dst := TObject([]ObjectField{
+		{Name: "tls", Type: TBoolean(), Optional: true},
+	})
+	src := TObject([]ObjectField{
+		{Name: "tls", Type: TOptional(TBoolean())},
+	})
+	assert.True(t, Assignable(dst, src))
+}
+
+// The flip itself: a possibly-null value no longer flows into a slot
+// that wants a value, and the error shows the test that fixes it.
+func TestCheckRejectsOptionalIntoRequiredSlot(t *testing.T) {
+	scope := narrowScope()
+	errs := lang.NewErrorList(0)
+	Check(parseExpr(t, "var.x"), TString(), scope, errs)
+	require.Equal(t, []string{
+		"type mismatch: expected string, got optional(string); " +
+			"test it first, like if x != null then x else <fallback>",
+	}, errorMessages(errs))
+
+	errs = lang.NewErrorList(0)
+	Check(parseExpr(t, "if var.x != null then var.x else 'd'"), TString(), scope, errs)
+	require.Equal(t, []string(nil), errorMessages(errs))
+}
+
 // No narrowing without a null test, and none through an index: the
 // slot complaints stay.
 func TestNarrowDoesNotInvent(t *testing.T) {

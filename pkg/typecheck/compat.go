@@ -9,10 +9,10 @@ package typecheck
 //   - any accepts anything; null is assignable only into a slot
 //     that includes null (an optional() wrapper or the null atom).
 //   - integer widens into number but not the other way.
-//   - optional(T) accepts T or null; the source side is unwrapped
-//     before comparing, so an optional value flows into a non-
-//     optional slot when the underlying types match (the runtime
-//     enforces non-nullness at decode time).
+//   - optional(T) accepts T, null, or optional(T); a possibly-null
+//     source never flows into a slot that wants a value, so null
+//     handling is settled at compile and a null can only appear
+//     where the program wrote down what happens then.
 //   - list/map/tuple compare element-wise.
 //   - object types compare structurally: every required dst field
 //     must have a compatible src field; extra src fields are
@@ -40,7 +40,7 @@ func Assignable(dst, src Type) bool {
 		return Assignable(*inner, src.Unwrap())
 	}
 	if src.Kind == Optional {
-		return Assignable(dst, src.Unwrap())
+		return false
 	}
 	if src.Kind == Null {
 		return dst.Kind == Null
@@ -149,7 +149,11 @@ func objectAssignable(dst, src Type) bool {
 			}
 			return false
 		}
-		if !Assignable(f.Type, got.Type) {
+		want := f.Type
+		if f.Optional {
+			want = TOptional(want)
+		}
+		if !Assignable(want, got.Type) {
 			return false
 		}
 	}

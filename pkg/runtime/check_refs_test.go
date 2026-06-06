@@ -776,7 +776,7 @@ constraints: [
   {
     kind:    predicate
     when:    var.replicas != null
-    require: core.all([for r in var.replicas: r.port > 0])
+    require: core.all([for r in var.replicas: r.port != null && r.port > 0])
   },
 ]
 `
