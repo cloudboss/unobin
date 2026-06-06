@@ -456,10 +456,46 @@ func TestEvalArithmeticDivByZero(t *testing.T) {
 	require.Contains(t, err.Error(), "division by zero")
 }
 
+func TestEvalStringConcat(t *testing.T) {
+	cases := []struct {
+		src  string
+		want string
+	}{
+		{"'a' + 'b'", "ab"},
+		{"'a' + ''", "a"},
+		{"'' + ''", ""},
+		{"'a' + 'b' + 'c'", "abc"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := Eval(parseValue(t, c.src), &EvalContext{})
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
 func TestEvalArithmeticTypeError(t *testing.T) {
-	_, err := Eval(parseValue(t, "'a' + 1"), &EvalContext{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "must be numbers")
+	cases := []struct {
+		src  string
+		want string
+	}{
+		{"'a' + 1", "eval: +: operands must both be numbers or both be strings, " +
+			"got a string and an integer"},
+		{"1 + 'a'", "eval: +: operands must both be numbers or both be strings, " +
+			"got an integer and a string"},
+		{"'a' + null", "eval: +: operands must both be numbers or both be strings, " +
+			"got a string and null"},
+		{"'a' - 'b'", "eval: -: operands must be numbers, got a string and a string"},
+		{"'a' * 2", "eval: *: operands must be numbers, got a string and an integer"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			_, err := Eval(parseValue(t, c.src), &EvalContext{})
+			require.Error(t, err)
+			require.Equal(t, c.want, err.Error())
+		})
+	}
 }
 
 func TestEvalComparisonNumeric(t *testing.T) {

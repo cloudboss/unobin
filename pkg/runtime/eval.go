@@ -492,12 +492,22 @@ func evalLogical(n *lang.Infix, ctx *EvalContext) (any, error) {
 	return rb, nil
 }
 
-// evalArith evaluates the four arithmetic operators. Both operands must
-// be numbers (int64 or float64). When both are int64 the result stays
-// int64 with no float round trip; any float operand promotes the pair
-// and the result is float64. Division by zero returns an error in both
-// modes; integer division truncates toward zero (Go's `/` semantics).
+// evalArith evaluates the four arithmetic operators. `+` also
+// concatenates two strings; a string mixed with anything else is an
+// error, so a value is never silently rendered into text (that is
+// interpolation's job). Otherwise both operands must be numbers (int64
+// or float64). When both are int64 the result stays int64 with no
+// float round trip; any float operand promotes the pair and the result
+// is float64. Division by zero returns an error in both modes; integer
+// division truncates toward zero (Go's `/` semantics).
 func evalArith(op string, a, b any) (any, error) {
+	if op == "+" {
+		as, aStr := a.(string)
+		bs, bStr := b.(string)
+		if aStr && bStr {
+			return as + bs, nil
+		}
+	}
 	if ai, ok := a.(int64); ok {
 		if bi, ok := b.(int64); ok {
 			return arithInt(op, ai, bi)
@@ -506,6 +516,11 @@ func evalArith(op string, a, b any) (any, error) {
 	af, aOK := numericFloat(a)
 	bf, bOK := numericFloat(b)
 	if !aOK || !bOK {
+		if op == "+" {
+			return nil, fmt.Errorf(
+				"eval: +: operands must both be numbers or both be strings, got %s and %s",
+				lang.TypeMessage(a), lang.TypeMessage(b))
+		}
 		return nil, fmt.Errorf(
 			"eval: %s: operands must be numbers, got %s and %s",
 			op, lang.TypeMessage(a), lang.TypeMessage(b))
