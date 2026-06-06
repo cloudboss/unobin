@@ -27,6 +27,12 @@ type Scope struct {
 	// values and as dot-path roots ahead of var/resource/data/action,
 	// so an inner binding shadows an outer one.
 	Bindings map[string]Type
+	// Narrowed overrides reference types inside a region guarded by a
+	// null test, keyed by the canonical dot path ("var.x.y"). A lookup
+	// takes the longest matching prefix and resumes traversal from the
+	// narrowed type. Sound because values never change between the
+	// test and the read.
+	Narrowed map[string]Type
 }
 
 // FuncSig describes a library function to the inferrer: the fixed
@@ -106,6 +112,9 @@ func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return TNull()
 	case *lang.Ident:
 		if scope != nil {
+			if t, ok := scope.Narrowed[v.Name]; ok {
+				return t
+			}
 			if t, ok := scope.Bindings[v.Name]; ok {
 				return t
 			}
@@ -166,8 +175,9 @@ func inferConditional(
 	c *lang.Conditional, target Type, scope *Scope, errs *lang.ErrorList,
 ) Type {
 	Check(c.Cond, TBoolean(), scope, errs)
-	thenT := Infer(c.Then, target, scope, errs)
-	elseT := Infer(c.Else, target, scope, errs)
+	tFacts, fFacts := nullFacts(c.Cond, scope)
+	thenT := Infer(c.Then, target, scope.narrowed(tFacts), errs)
+	elseT := Infer(c.Else, target, scope.narrowed(fFacts), errs)
 	if j, ok := join(thenT, elseT); ok {
 		return j
 	}
@@ -225,6 +235,8 @@ func inferComprehension(
 	child := scope.withBindings(c.Names, key, elem)
 	if c.Filter != nil {
 		Check(c.Filter, TBoolean(), child, errs)
+		facts, _ := nullFacts(c.Filter, child)
+		child = child.narrowed(facts)
 	}
 	if c.Kind == lang.CompMap {
 		Check(c.Key, TString(), child, errs)
@@ -479,6 +491,9 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if dp.Root == nil {
 		return TUnknown()
 	}
+	if t, rest, ok := narrowedLookup(scope, dp); ok {
+		return traverseSegments(t, rest, scope, errs, false)
+	}
 	if scope != nil {
 		if t, ok := scope.Bindings[dp.Root.Name]; ok {
 			return traverseSegments(t, dp.Segments, scope, errs, false)
@@ -702,7 +717,19 @@ func indexSegmentType(current Type, seg lang.DotSegment, scope *Scope, errs *lan
 
 func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 	left := Infer(in.Left, TUnknown(), scope, errs)
-	right := Infer(in.Right, TUnknown(), scope, errs)
+	// The right operand of a short-circuit operator only evaluates
+	// when the left decided nothing, so a null test on the left is in
+	// force on the right: proven for &&, refuted for ||.
+	rightScope := scope
+	switch in.Op {
+	case "&&":
+		facts, _ := nullFacts(in.Left, scope)
+		rightScope = scope.narrowed(facts)
+	case "||":
+		_, facts := nullFacts(in.Left, scope)
+		rightScope = scope.narrowed(facts)
+	}
+	right := Infer(in.Right, TUnknown(), rightScope, errs)
 	switch in.Op {
 	case "&&", "||":
 		checkBooleanOperand(in.Op, in.Left, left, errs)

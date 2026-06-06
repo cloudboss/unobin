@@ -622,6 +622,35 @@ resources: {
 // regardless of kind. Used by the type-check tests because their
 // errors come back as ErrType while reference checks produce
 // ErrResolve.
+func TestCheckTypesConstraintWhenNarrowsRequire(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: {
+  note: { type: optional(string) }
+}
+constraints: [
+  {
+    kind: predicate
+    require: $'{{var.note}}' != ''
+    when: var.note != null
+  },
+]
+`), nil)
+	require.Equal(t, []string(nil), checkErrorMessages(t, errs))
+
+	control := CheckReferences(parseStack(t, `
+inputs: {
+  note: { type: optional(string) }
+}
+constraints: [
+  { kind: predicate, when: true, require: $'{{var.note}}' != '' },
+]
+`), nil)
+	require.Equal(t, []string{
+		"interpolation slot may be null; narrow it before interpolating " +
+			"(got optional(string))",
+	}, checkErrorMessages(t, control))
+}
+
 func TestCheckTypesReportsLocalsBodyErrors(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 locals: {

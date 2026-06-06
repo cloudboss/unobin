@@ -586,14 +586,29 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 			withEach.Each = eachBindingFor(t)
 			entryScope = &withEach
 		}
+		// The runtime only evaluates require when when held, so a null
+		// test in when narrows the references require reads.
+		var whenExpr, requireExpr lang.Expr
 		for _, fld := range obj.Fields {
 			if fld.Key.Kind != lang.FieldIdent {
 				continue
 			}
-			if fld.Key.Name != "when" && fld.Key.Name != "require" {
-				continue
+			switch fld.Key.Name {
+			case "when":
+				whenExpr = fld.Value
+			case "require":
+				requireExpr = fld.Value
 			}
-			typecheck.Check(fld.Value, typecheck.TBoolean(), entryScope, c.errs)
+		}
+		if whenExpr != nil {
+			typecheck.Check(whenExpr, typecheck.TBoolean(), entryScope, c.errs)
+		}
+		if requireExpr != nil {
+			requireScope := entryScope
+			if whenExpr != nil {
+				requireScope = typecheck.NarrowedWhere(entryScope, whenExpr)
+			}
+			typecheck.Check(requireExpr, typecheck.TBoolean(), requireScope, c.errs)
 		}
 	}
 }
