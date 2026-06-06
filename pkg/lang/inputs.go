@@ -516,8 +516,6 @@ func literalValue(e Expr) (any, error) {
 		return v.Value, nil
 	case *NullLit:
 		return nil, nil
-	case *Ident:
-		return v.Name, nil
 	}
 	return nil, fmt.Errorf("expected a literal")
 }

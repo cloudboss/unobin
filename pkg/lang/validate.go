@@ -200,7 +200,8 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 			continue
 		}
 		innerSeen[keyName] = df.Key.S.Start
-		if keyName == "type" {
+		switch keyName {
+		case "type":
 			hasType = true
 			t, err := PromoteType(df.Value)
 			if err != nil {
@@ -212,8 +213,13 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 				}
 				continue
 			}
+			if opt, ok := t.(*TypeOptional); ok && opt.Default != nil {
+				checkDefaultIdents(name, opt.Default, nil, errs)
+			}
 			checkDeclaredDefault(name, decl, t, errs)
 			validateNestedDecls(name, t, errs)
+		case "enum":
+			checkEnumMembers(name, df.Value, errs)
 		}
 	}
 	if !hasType {
@@ -278,6 +284,87 @@ func staticDefaultEval(e Expr) (any, error) {
 		return nil, fmt.Errorf("default is not a literal")
 	}
 	return v, nil
+}
+
+// checkEnumMembers requires every enum member to be a quoted string,
+// number, boolean, or null. Enum members are user data, so a bare
+// identifier is the unknown-name mistake, not vocabulary.
+func checkEnumMembers(name string, e Expr, errs *ErrorList) {
+	arr, ok := e.(*ArrayLit)
+	if !ok {
+		errs.Addf(ErrSchema, e.Span().Start,
+			"input %q: enum: must be an array of allowed values", name)
+		return
+	}
+	for _, el := range arr.Elements {
+		switch v := el.(type) {
+		case *StringLit, *NumberLit, *BoolLit, *NullLit:
+		case *Ident:
+			errs.Addf(ErrSchema, v.S.Start,
+				"input %q: enum: unknown name %q; write '%s' for a string", name, v.Name, v.Name)
+		default:
+			errs.Addf(ErrSchema, el.Span().Start,
+				"input %q: enum: members must be literal values", name)
+		}
+	}
+}
+
+// checkDefaultIdents reports bare identifiers in a default
+// expression. A default evaluates against an empty scope, so a bare
+// name can only be a comprehension binding; anything else would have
+// become a string by accident.
+func checkDefaultIdents(name string, e Expr, bound map[string]bool, errs *ErrorList) {
+	switch v := e.(type) {
+	case *Ident:
+		if !bound[v.Name] {
+			errs.Addf(ErrSchema, v.S.Start,
+				"input %q: default: unknown name %q; write '%s' for a string",
+				name, v.Name, v.Name)
+		}
+	case *ArrayLit:
+		for _, el := range v.Elements {
+			checkDefaultIdents(name, el, bound, errs)
+		}
+	case *ObjectLit:
+		for _, fld := range v.Fields {
+			checkDefaultIdents(name, fld.Value, bound, errs)
+		}
+	case *Call:
+		for _, a := range v.Args {
+			checkDefaultIdents(name, a, bound, errs)
+		}
+	case *Infix:
+		checkDefaultIdents(name, v.Left, bound, errs)
+		checkDefaultIdents(name, v.Right, bound, errs)
+	case *Prefix:
+		checkDefaultIdents(name, v.Expr, bound, errs)
+	case *Conditional:
+		checkDefaultIdents(name, v.Cond, bound, errs)
+		checkDefaultIdents(name, v.Then, bound, errs)
+		checkDefaultIdents(name, v.Else, bound, errs)
+	case *Comprehension:
+		checkDefaultIdents(name, v.Source, bound, errs)
+		inner := make(map[string]bool, len(bound)+len(v.Names))
+		for n := range bound {
+			inner[n] = true
+		}
+		for _, n := range v.Names {
+			inner[n] = true
+		}
+		checkDefaultIdents(name, v.Key, inner, errs)
+		checkDefaultIdents(name, v.Value, inner, errs)
+		checkDefaultIdents(name, v.Filter, inner, errs)
+	case *InterpolatedString:
+		for _, part := range v.Parts {
+			checkDefaultIdents(name, part.Expr, bound, errs)
+		}
+	case *DotPath:
+		for _, seg := range v.Segments {
+			checkDefaultIdents(name, seg.Index, bound, errs)
+		}
+	case nil:
+		return
+	}
 }
 
 // staticLiteral reduces a literal expression to its value: scalars,

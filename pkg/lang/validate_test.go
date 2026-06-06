@@ -742,6 +742,106 @@ inputs: {
 	}
 }
 
+func TestValidateLiteralSlots(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "bare enum members",
+			src: `
+inputs: {
+  proto: { type: string, enum: [tcp, udp] }
+}
+`,
+			want: []string{
+				`input "proto": enum: unknown name "tcp"; write 'tcp' for a string`,
+				`input "proto": enum: unknown name "udp"; write 'udp' for a string`,
+			},
+		},
+		{
+			name: "quoted enum members",
+			src: `
+inputs: {
+  proto: { type: string, enum: ['tcp', 'udp'] }
+}
+`,
+		},
+		{
+			name: "enum member that is not a literal",
+			src: `
+inputs: {
+  proto: { type: string, enum: [['a']] }
+}
+`,
+			want: []string{`input "proto": enum: members must be literal values`},
+		},
+		{
+			name: "bare identifier default",
+			src: `
+inputs: {
+  mode: { type: optional(string, tcp) }
+}
+`,
+			want: []string{`input "mode": default: unknown name "tcp"; write 'tcp' for a string`},
+		},
+		{
+			name: "kebab name default stays traceable",
+			src: `
+inputs: {
+  mode: { type: optional(string, count-1) }
+}
+`,
+			want: []string{
+				`input "mode": default: unknown name "count-1"; write 'count-1' for a string`,
+			},
+		},
+		{
+			name: "bare identifier inside a composite default",
+			src: `
+inputs: {
+  protos: { type: optional(list(string), [tcp]) }
+}
+`,
+			want: []string{`input "protos": default: unknown name "tcp"; write 'tcp' for a string`},
+		},
+		{
+			name: "comprehension binding in a default",
+			src: `
+inputs: {
+  nums: { type: optional(list(integer), [for x in [1, 2]: x]) }
+}
+`,
+		},
+		{
+			name: "nested enum members",
+			src: `
+inputs: {
+  spec: {
+    type: object({
+      proto: { type: string, enum: [tcp] },
+    })
+  }
+}
+`,
+			want: []string{
+				`input "spec.proto": enum: unknown name "tcp"; write 'tcp' for a string`,
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateInputDeclarations(parseInputsBlock(t, tt.src))
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestValidateInputMissingType(t *testing.T) {
 	src := `
 inputs: {
