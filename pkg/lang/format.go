@@ -274,17 +274,18 @@ func (w *formatter) singleLineWidth(e Expr) int {
 	case *Call:
 		return w.callInlineWidth(x)
 	case *Infix:
-		l := w.singleLineWidth(x.Left)
+		prec := opPrec(x.Op)
+		l := w.parenWidth(x.Left, operandParens(x.Left, prec, false))
 		if l < 0 {
 			return -1
 		}
-		r := w.singleLineWidth(x.Right)
+		r := w.parenWidth(x.Right, operandParens(x.Right, prec, true))
 		if r < 0 {
 			return -1
 		}
 		return l + 1 + len(x.Op) + 1 + r
 	case *Prefix:
-		i := w.singleLineWidth(x.Expr)
+		i := w.parenWidth(x.Expr, prefixParens(x.Expr))
 		if i < 0 {
 			return -1
 		}
@@ -301,10 +302,20 @@ func (w *formatter) singleLineWidth(e Expr) int {
 	return -1
 }
 
+// parenWidth measures e with the parens its position adds, or -1
+// when e forces a multi-line form.
+func (w *formatter) parenWidth(e Expr, parens bool) int {
+	width := w.singleLineWidth(e)
+	if width < 0 || !parens {
+		return width
+	}
+	return width + 2
+}
+
 // conditionalInlineWidth returns the single-line width of `if cond then
 // a else b`, or -1 when any part forces a multi-line form.
 func (w *formatter) conditionalInlineWidth(c *Conditional) int {
-	cw := w.singleLineWidth(c.Cond)
+	cw := w.parenWidth(c.Cond, exprLevelParens(c.Cond))
 	if cw < 0 {
 		return -1
 	}
@@ -325,7 +336,7 @@ func (w *formatter) comprehensionInlineWidth(c *Comprehension) int {
 	if w.hasCommentInSpan(c.S.Start.Offset, c.S.End.Offset) {
 		return -1
 	}
-	srcW := w.singleLineWidth(c.Source)
+	srcW := w.parenWidth(c.Source, exprLevelParens(c.Source))
 	if srcW < 0 {
 		return -1
 	}
@@ -336,7 +347,7 @@ func (w *formatter) comprehensionInlineWidth(c *Comprehension) int {
 	// open + " for " + names + " in " + source + " : "
 	total := 1 + len(" for ") + len(strings.Join(c.Names, ", ")) + len(" in ") + srcW + len(" : ")
 	if c.Kind == CompMap {
-		keyW := w.singleLineWidth(c.Key)
+		keyW := w.parenWidth(c.Key, exprLevelParens(c.Key))
 		if keyW < 0 {
 			return -1
 		}
@@ -347,7 +358,7 @@ func (w *formatter) comprehensionInlineWidth(c *Comprehension) int {
 		total += len("...")
 	}
 	if c.Filter != nil {
-		fw := w.singleLineWidth(c.Filter)
+		fw := w.parenWidth(c.Filter, exprLevelParens(c.Filter))
 		if fw < 0 {
 			return -1
 		}
@@ -819,7 +830,7 @@ func (w *formatter) writeConditional(c *Conditional, indent string) error {
 	}
 	inner := indent + fmtStep
 	w.buf.WriteString("if ")
-	if err := w.writeExpr(c.Cond, indent); err != nil {
+	if err := w.writeParens(c.Cond, exprLevelParens(c.Cond), indent); err != nil {
 		return err
 	}
 	w.buf.WriteByte('\n')
@@ -836,7 +847,7 @@ func (w *formatter) writeConditional(c *Conditional, indent string) error {
 
 func (w *formatter) writeConditionalInline(c *Conditional) error {
 	w.buf.WriteString("if ")
-	if err := w.writeExpr(c.Cond, ""); err != nil {
+	if err := w.writeParens(c.Cond, exprLevelParens(c.Cond), ""); err != nil {
 		return err
 	}
 	w.buf.WriteString(" then ")
@@ -871,7 +882,7 @@ func (w *formatter) writeComprehension(c *Comprehension, indent string) error {
 		w.buf.WriteByte('\n')
 		w.buf.WriteString(inner)
 		w.buf.WriteString("when ")
-		if err := w.writeExpr(c.Filter, inner); err != nil {
+		if err := w.writeParens(c.Filter, exprLevelParens(c.Filter), inner); err != nil {
 			return err
 		}
 	}
@@ -894,7 +905,7 @@ func (w *formatter) writeComprehensionInline(c *Comprehension) error {
 	}
 	if c.Filter != nil {
 		w.buf.WriteString(" when ")
-		if err := w.writeExpr(c.Filter, ""); err != nil {
+		if err := w.writeParens(c.Filter, exprLevelParens(c.Filter), ""); err != nil {
 			return err
 		}
 	}
@@ -908,7 +919,7 @@ func (w *formatter) writeComprehensionHeader(c *Comprehension, indent string) er
 	w.buf.WriteString("for ")
 	w.buf.WriteString(strings.Join(c.Names, ", "))
 	w.buf.WriteString(" in ")
-	if err := w.writeExpr(c.Source, indent); err != nil {
+	if err := w.writeParens(c.Source, exprLevelParens(c.Source), indent); err != nil {
 		return err
 	}
 	w.buf.WriteString(" :")
@@ -919,7 +930,7 @@ func (w *formatter) writeComprehensionHeader(c *Comprehension, indent string) er
 // list, `key => value` for a map, with a trailing `...` when grouping.
 func (w *formatter) writeComprehensionBody(c *Comprehension, indent string) error {
 	if c.Kind == CompMap {
-		if err := w.writeExpr(c.Key, indent); err != nil {
+		if err := w.writeParens(c.Key, exprLevelParens(c.Key), indent); err != nil {
 			return err
 		}
 		w.buf.WriteString(" => ")
@@ -1544,18 +1555,90 @@ func (w *formatter) writeCallArgsPacked(c *Call, indent, inner string) error {
 }
 
 func (w *formatter) writeInfix(i *Infix, indent string) error {
-	if err := w.writeExpr(i.Left, indent); err != nil {
+	prec := opPrec(i.Op)
+	if err := w.writeParens(i.Left, operandParens(i.Left, prec, false), indent); err != nil {
 		return err
 	}
 	w.buf.WriteByte(' ')
 	w.buf.WriteString(i.Op)
 	w.buf.WriteByte(' ')
-	return w.writeExpr(i.Right, indent)
+	return w.writeParens(i.Right, operandParens(i.Right, prec, true), indent)
 }
 
 func (w *formatter) writePrefix(p *Prefix, indent string) error {
 	w.buf.WriteString(p.Op)
-	return w.writeExpr(p.Expr, indent)
+	return w.writeParens(p.Expr, prefixParens(p.Expr), indent)
+}
+
+// writeParens writes e, wrapped in the parens its position requires.
+// The parser consumes grouping parens, so the writers put back every
+// pair the grammar needs to rebuild the same tree.
+func (w *formatter) writeParens(e Expr, parens bool, indent string) error {
+	if !parens {
+		return w.writeExpr(e, indent)
+	}
+	w.buf.WriteByte('(')
+	if err := w.writeExpr(e, indent); err != nil {
+		return err
+	}
+	w.buf.WriteByte(')')
+	return nil
+}
+
+// opPrec mirrors the grammar's operator ladder; a larger number binds
+// tighter, and ?? binds loosest of all.
+func opPrec(op string) int {
+	switch op {
+	case "*", "/":
+		return 6
+	case "+", "-":
+		return 5
+	case "<", "<=", ">", ">=":
+		return 4
+	case "==", "!=":
+		return 3
+	case "&&":
+		return 2
+	case "||":
+		return 1
+	}
+	return 0
+}
+
+// operandParens reports whether e needs parens as an operand of an
+// infix operator with precedence parent. A looser operator re-binds
+// without them; an equally tight one re-binds on the right, since the
+// ladder folds left; a conditional parses at operand position only
+// inside parens.
+func operandParens(e Expr, parent int, right bool) bool {
+	switch x := e.(type) {
+	case *Infix:
+		p := opPrec(x.Op)
+		return p < parent || (p == parent && right)
+	case *Conditional:
+		return true
+	}
+	return false
+}
+
+// prefixParens reports whether e needs parens under a prefix
+// operator, which binds tighter than every infix operator.
+func prefixParens(e Expr) bool {
+	switch e.(type) {
+	case *Infix, *Conditional:
+		return true
+	}
+	return false
+}
+
+// exprLevelParens reports whether e needs parens at a position the
+// grammar parses as Expr rather than Value: an operator chain is
+// fine bare, a conditional is not. These positions are a
+// conditional's condition, a comprehension's source and map key, and
+// a when filter.
+func exprLevelParens(e Expr) bool {
+	_, ok := e.(*Conditional)
+	return ok
 }
 
 func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
