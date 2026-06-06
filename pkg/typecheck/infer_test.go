@@ -332,3 +332,99 @@ func TestInferUnknownSkipsCheck(t *testing.T) {
 	assert.True(t, got.Equal(TString()))
 	assert.Empty(t, errs.Errors())
 }
+
+func TestInferOperandErrors(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "count", Type: TInteger()},
+		},
+	}
+	tests := []struct {
+		src      string
+		wantErrs []string
+	}{
+		{"true && 1", []string{"&&: operand must be a boolean, got integer"}},
+		{"1 || false", []string{"||: operand must be a boolean, got integer"}},
+		{"!5", []string{"!: operand must be a boolean, got integer"}},
+		{"-'a'", []string{"-: operand must be a number, got string"}},
+		{"'a' - 'b'", []string{
+			"-: operand must be a number, got string",
+			"-: operand must be a number, got string",
+		}},
+		{"2 * true", []string{"*: operand must be a number, got boolean"}},
+		{"null / 2", []string{"/: operand must be a number, got null"}},
+		{"'a' + true", []string{"+: operand must be a number or a string, got boolean"}},
+		{"'a' + 1", []string{
+			"+: operands must both be numbers or both be strings, got string and integer",
+		}},
+		{"1 + 'a'", []string{
+			"+: operands must both be numbers or both be strings, got integer and string",
+		}},
+		{"1 < 'a'", []string{
+			"<: operands must both be numbers or both be strings, got integer and string",
+		}},
+		{"true < 1", []string{"<: operand must be a number or a string, got boolean"}},
+		{"[1] >= 2", []string{">=: operand must be a number or a string, got list(integer)"}},
+		{"1 < 2 < 3", []string{"<: comparisons do not chain; combine two comparisons with &&"}},
+		{"1 == 2 == 3", []string{"==: comparisons do not chain; combine two comparisons with &&"}},
+		{"1 == 'a'", []string{"==: comparing integer with string is always false"}},
+		{"1 != 'a'", []string{"!=: comparing integer with string is always true"}},
+		{"true == 1", []string{"==: comparing boolean with integer is always false"}},
+		{"[1] == 'a'", []string{"==: comparing list(integer) with string is always false"}},
+		{"var.count + 'a'", []string{
+			"+: operands must both be numbers or both be strings, got integer and string",
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
+			require.Len(t, errs.Errors(), len(tt.wantErrs))
+			for i, want := range tt.wantErrs {
+				assert.Contains(t, errs.Errors()[i].Msg, want)
+			}
+		})
+	}
+}
+
+func TestInferOperandLeniency(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "count", Type: TInteger()},
+			{Name: "maybe", Type: TString(), Optional: true},
+			{Name: "opt-count", Type: TInteger(), Optional: true},
+			{Name: "anything", Type: TAny()},
+		},
+	}
+	tests := []string{
+		"var.count + 1",
+		"var.nope + 1",
+		"var.anything + 1",
+		"var.anything && true",
+		"var.opt-count + 1",
+		"var.maybe == null",
+		"null == var.maybe",
+		"var.count == null",
+		"1 == 1.0",
+		"1.5 > var.count",
+		"var.maybe != 'a'",
+		"'a' + var.nope",
+		"!var.anything",
+		"-var.opt-count",
+	}
+	for _, src := range tests {
+		t.Run(src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Infer(parseExpr(t, src), TUnknown(), scope, errs)
+			assert.Empty(t, errs.Errors())
+		})
+	}
+}
+
+func TestInferPlusPartialString(t *testing.T) {
+	scope := &Scope{}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "'a' + var.nope"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TString()), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}

@@ -578,29 +578,179 @@ func traverseSegments(
 	return current
 }
 
+// inferInfix types a binary operator expression and checks the
+// operands the same way the evaluator will: logical operators want
+// booleans, arithmetic wants numbers (`+` also takes two strings),
+// orderings want two numbers or two strings, and equality wants types
+// that could ever match. An operand the inferrer cannot type passes
+// unchecked, so the checks mirror the runtime without false positives.
 func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 	left := Infer(in.Left, TUnknown(), scope, errs)
 	right := Infer(in.Right, TUnknown(), scope, errs)
 	switch in.Op {
-	case "==", "!=", "<", "<=", ">", ">=", "&&", "||":
+	case "&&", "||":
+		checkBooleanOperand(in.Op, in.Left, left, errs)
+		checkBooleanOperand(in.Op, in.Right, right, errs)
+		return TBoolean()
+	case "==", "!=":
+		checkEqualityOperands(in, left, right, errs)
+		return TBoolean()
+	case "<", "<=", ">", ">=":
+		checkOrderingOperand(in.Op, in.Left, left, errs)
+		checkOrderingOperand(in.Op, in.Right, right, errs)
+		checkOperandFamilies(in, left, right, errs)
 		return TBoolean()
 	case "+":
-		if left.Kind == String || right.Kind == String {
-			return TString()
-		}
-		return numericResult(left, right)
-	case "-", "*", "/", "%":
+		return inferPlus(in, left, right, errs)
+	case "-", "*", "/":
+		checkNumericOperand(in.Op, in.Left, left, errs)
+		checkNumericOperand(in.Op, in.Right, right, errs)
 		return numericResult(left, right)
 	}
 	return TUnknown()
+}
+
+// inferPlus types `+`, which adds two numbers or concatenates two
+// strings. A known string on either side fixes the result to string;
+// mixing the two families is an error at compile, as it is at eval.
+func inferPlus(in *lang.Infix, left, right Type, errs *lang.ErrorList) Type {
+	lk, lok := operandKind(left)
+	rk, rok := operandKind(right)
+	if lok && !isNumericKind(lk) && lk != String {
+		errs.Addf(lang.ErrType, in.Left.Span().Start,
+			"+: operand must be a number or a string, got %s", left)
+		return TUnknown()
+	}
+	if rok && !isNumericKind(rk) && rk != String {
+		errs.Addf(lang.ErrType, in.Right.Span().Start,
+			"+: operand must be a number or a string, got %s", right)
+		return TUnknown()
+	}
+	checkOperandFamilies(in, left, right, errs)
+	if (lok && lk == String) || (rok && rk == String) {
+		if lok && rok && lk != rk {
+			return TUnknown()
+		}
+		return TString()
+	}
+	return numericResult(left, right)
+}
+
+// operandKind reduces a type to the kind the operator checks reason
+// about. Optional unwraps, matching Assignable's pre-decode leniency;
+// Unknown and any return ok=false so partial information fails open.
+func operandKind(t Type) (Kind, bool) {
+	k := t.Unwrap().Kind
+	if k == Unknown || k == Any {
+		return k, false
+	}
+	return k, true
+}
+
+func isNumericKind(k Kind) bool {
+	return k == Integer || k == Number
+}
+
+func checkBooleanOperand(op string, e lang.Expr, t Type, errs *lang.ErrorList) {
+	if k, ok := operandKind(t); ok && k != Boolean {
+		errs.Addf(lang.ErrType, e.Span().Start,
+			"%s: operand must be a boolean, got %s", op, t)
+	}
+}
+
+func checkNumericOperand(op string, e lang.Expr, t Type, errs *lang.ErrorList) {
+	if k, ok := operandKind(t); ok && !isNumericKind(k) {
+		errs.Addf(lang.ErrType, e.Span().Start,
+			"%s: operand must be a number, got %s", op, t)
+	}
+}
+
+// checkOrderingOperand reports an ordering operand that is neither a
+// number nor a string. An operand that is itself a comparison gets the
+// chained-comparison message, since `a < b < c` is the mistake being
+// made; `(a < b) < c` is equally meaningless either way.
+func checkOrderingOperand(op string, e lang.Expr, t Type, errs *lang.ErrorList) {
+	k, ok := operandKind(t)
+	if !ok || isNumericKind(k) || k == String {
+		return
+	}
+	if isComparison(e) {
+		errs.Addf(lang.ErrType, e.Span().Start,
+			"%s: comparisons do not chain; combine two comparisons with &&", op)
+		return
+	}
+	errs.Addf(lang.ErrType, e.Span().Start,
+		"%s: operand must be a number or a string, got %s", op, t)
+}
+
+// checkOperandFamilies reports two known operands that are each valid
+// for `+` or an ordering but do not belong to the same family: one
+// string and one number never combine.
+func checkOperandFamilies(in *lang.Infix, left, right Type, errs *lang.ErrorList) {
+	lk, lok := operandKind(left)
+	rk, rok := operandKind(right)
+	if !lok || !rok {
+		return
+	}
+	lValid := isNumericKind(lk) || lk == String
+	rValid := isNumericKind(rk) || rk == String
+	if !lValid || !rValid {
+		return
+	}
+	if (lk == String) != (rk == String) {
+		errs.Addf(lang.ErrType, in.S.Start,
+			"%s: operands must both be numbers or both be strings, got %s and %s",
+			in.Op, left, right)
+	}
+}
+
+// checkEqualityOperands reports an equality whose operand types can
+// never match, which makes the whole expression a constant. Null on
+// either side stays legal: comparing against null is how a program
+// tests an optional value.
+func checkEqualityOperands(in *lang.Infix, left, right Type, errs *lang.ErrorList) {
+	if !left.IsKnown() || !right.IsKnown() {
+		return
+	}
+	if left.Unwrap().Kind == Null || right.Unwrap().Kind == Null {
+		return
+	}
+	if Assignable(left, right) || Assignable(right, left) {
+		return
+	}
+	if isComparison(in.Left) || isComparison(in.Right) {
+		errs.Addf(lang.ErrType, in.S.Start,
+			"%s: comparisons do not chain; combine two comparisons with &&", in.Op)
+		return
+	}
+	verdict := "false"
+	if in.Op == "!=" {
+		verdict = "true"
+	}
+	errs.Addf(lang.ErrType, in.S.Start,
+		"%s: comparing %s with %s is always %s", in.Op, left, right, verdict)
+}
+
+func isComparison(e lang.Expr) bool {
+	in, ok := e.(*lang.Infix)
+	if !ok {
+		return false
+	}
+	switch in.Op {
+	case "==", "!=", "<", "<=", ">", ">=":
+		return true
+	}
+	return false
 }
 
 func inferPrefix(p *lang.Prefix, scope *Scope, errs *lang.ErrorList) Type {
 	inner := Infer(p.Expr, TUnknown(), scope, errs)
 	switch p.Op {
 	case "!":
+		checkBooleanOperand(p.Op, p.Expr, inner, errs)
 		return TBoolean()
-	case "-", "+":
+	case "-":
+		checkNumericOperand(p.Op, p.Expr, inner, errs)
 		if inner.Kind == Integer {
 			return TInteger()
 		}
