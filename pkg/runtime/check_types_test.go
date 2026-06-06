@@ -408,7 +408,7 @@ constraints: [
 	require.Contains(t, got[0], "expected boolean, got string")
 }
 
-func TestCheckTypesAcceptsForEachOverSet(t *testing.T) {
+func TestCheckTypesRejectsForEachOverSet(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: { names: { type: set(string) } }
 resources: {
@@ -423,7 +423,9 @@ resources: {
   }
 }
 `), map[string]*Library{"local": localFileLibrary()})
-	require.Empty(t, checkErrorMessages(t, errs))
+	got := checkErrorMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "@for-each: iterable must be a map, got set(string)")
 }
 
 func TestCheckTypesRejectsForEachValueIntoWrongSlot(t *testing.T) {

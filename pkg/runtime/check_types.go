@@ -375,9 +375,26 @@ func eachBindingFromBody(
 			continue
 		}
 		t := typecheck.Infer(fld.Value, typecheck.TUnknown(), scope, errs)
+		checkFanOutIterable(t, fld.Value.Span().Start, errs)
 		return eachBindingFromType(t)
 	}
 	return nil
+}
+
+// checkFanOutIterable reports a node @for-each whose iterable can
+// never fan out. The runtime iterates maps only, so each instance
+// gets a stable key; a list teaches the comprehension that builds
+// the map it needs.
+func checkFanOutIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
+	switch t.Unwrap().Kind {
+	case typecheck.Unknown, typecheck.Any, typecheck.Map, typecheck.Object:
+	case typecheck.List, typecheck.Tuple:
+		errs.Addf(lang.ErrType, pos,
+			"@for-each: iterable must be a map, got %s; "+
+				"turn a list into a map with { for n in ns : n => n }", t)
+	default:
+		errs.Addf(lang.ErrType, pos, "@for-each: iterable must be a map, got %s", t)
+	}
 }
 
 func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
@@ -394,6 +411,11 @@ func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
 			elem = *t.Elem
 		}
 		return &typecheck.EachBinding{Key: elem, Value: elem}
+	case typecheck.Object:
+		return &typecheck.EachBinding{
+			Key:   typecheck.TString(),
+			Value: typecheck.TUnknown(),
+		}
 	}
 	return &typecheck.EachBinding{
 		Key:   typecheck.TUnknown(),
@@ -470,8 +492,11 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 		entryScope := s
 		if forEach := constraintForEach(obj); forEach != nil {
 			withEach := *s
-			withEach.Each = eachBindingFor(typecheck.Infer(
-				forEach, typecheck.TUnknown(), s, c.errs))
+			t := typecheck.Infer(forEach, typecheck.TUnknown(), s, c.errs)
+			if bareConstraintIterable(forEach) {
+				checkConstraintIterable(t, forEach.Span().Start, c.errs)
+			}
+			withEach.Each = eachBindingFor(t)
 			entryScope = &withEach
 		}
 		for _, fld := range obj.Fields {
@@ -484,6 +509,33 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 			typecheck.Check(fld.Value, typecheck.TBoolean(), entryScope, c.errs)
 		}
 	}
+}
+
+// bareConstraintIterable reports whether a constraint @for-each value
+// gets the iterable kind check. The chained form (an array of level
+// objects) validates its levels elsewhere, and a dot path rooted
+// outside var already failed the inputs-only rule, so typing it on
+// top would report the same mistake twice.
+func bareConstraintIterable(forEach lang.Expr) bool {
+	switch fe := forEach.(type) {
+	case *lang.ArrayLit:
+		return false
+	case *lang.DotPath:
+		return fe.Root == nil || fe.Root.Name == "var"
+	}
+	return true
+}
+
+// checkConstraintIterable reports a bare constraint @for-each whose
+// iterable is not a list or a map, the kinds the predicate runtime
+// iterates.
+func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
+	switch t.Unwrap().Kind {
+	case typecheck.Unknown, typecheck.Any, typecheck.List, typecheck.Set,
+		typecheck.Map, typecheck.Object, typecheck.Tuple:
+		return
+	}
+	errs.Addf(lang.ErrType, pos, "@for-each: iterable must be a list or a map, got %s", t)
 }
 
 // eachBindingFor maps an @for-each iterable's inferred type onto the
@@ -500,6 +552,10 @@ func eachBindingFor(iterable typecheck.Type) *typecheck.EachBinding {
 		if iterable.Elem != nil {
 			return &typecheck.EachBinding{Key: typecheck.TString(), Value: *iterable.Elem}
 		}
+	case typecheck.Object:
+		return &typecheck.EachBinding{Key: typecheck.TString(), Value: typecheck.TUnknown()}
+	case typecheck.Tuple:
+		return &typecheck.EachBinding{Key: typecheck.TInteger(), Value: typecheck.TUnknown()}
 	}
 	return &typecheck.EachBinding{Key: typecheck.TUnknown(), Value: typecheck.TUnknown()}
 }

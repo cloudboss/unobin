@@ -588,7 +588,7 @@ outputs: {
 func TestCheckReferencesForEachInstanceFieldMustExist(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: {
-  names: { type: set(string) }
+  names: { type: map(string) }
 }
 resources: {
   local: {
@@ -643,7 +643,7 @@ outputs: {
 func TestCheckReferencesEachScope(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: {
-  files: { type: list(string) }
+  files: { type: map(string) }
 }
 resources: {
   local: {
@@ -789,6 +789,88 @@ constraints: [
 	require.Contains(t, got[0],
 		"a constraint may read inputs only, not resource.core.thing.x.id")
 	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
+}
+
+func TestCheckReferencesForEachKinds(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "node fan-out over a list",
+			src: `
+inputs: { names: { type: list(string) } }
+resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
+`,
+			want: []string{
+				"@for-each: iterable must be a map, got list(string); " +
+					"turn a list into a map with { for n in ns : n => n }",
+			},
+		},
+		{
+			name: "node fan-out over an optional list",
+			src: `
+inputs: { names: { type: optional(list(string)) } }
+resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
+`,
+			want: []string{"turn a list into a map with"},
+		},
+		{
+			name: "node fan-out over a scalar",
+			src: `
+inputs: { name: { type: string } }
+resources: { local: { file: { one: { @for-each: var.name, path: @each.value } } } }
+`,
+			want: []string{"@for-each: iterable must be a map, got string"},
+		},
+		{
+			name: "node fan-out over a map",
+			src: `
+inputs: { tags: { type: map(string) } }
+resources: { local: { file: { one: { @for-each: var.tags, path: @each.value } } } }
+`,
+		},
+		{
+			name: "node fan-out over an object",
+			src: `
+inputs: { cfg: { type: object({ a: string }) } }
+resources: { local: { file: { one: { @for-each: var.cfg, path: @each.key } } } }
+`,
+		},
+		{
+			name: "constraint fan-out over a scalar",
+			src: `
+inputs: { port: { type: integer } }
+constraints: [
+  { kind: predicate, @for-each: var.port, when: true, require: true },
+]
+`,
+			want: []string{"@for-each: iterable must be a list or a map, got integer"},
+		},
+		{
+			name: "chained levels skip the kind check",
+			src: `
+inputs: { port: { type: integer } }
+constraints: [
+  { kind: predicate, @for-each: [ { @r: var.port } ], when: true, require: true },
+]
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, tt.src), nil)
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			require.Len(t, got, len(tt.want), "got: %v", got)
+			for i, want := range tt.want {
+				require.Contains(t, got[i], want)
+			}
+		})
+	}
 }
 
 func TestCheckReferencesConstraintForEach(t *testing.T) {
