@@ -176,6 +176,98 @@ resources: {
 	require.Empty(t, checkErrorMessages(t, clean))
 }
 
+func TestCheckTypesCompositeOutputTypes(t *testing.T) {
+	composite := parseStack(t, `
+inputs: { name: { type: string } }
+resources: {
+  local: { file: { one: { path: var.name, content: 'x' } } }
+}
+outputs: {
+  path:  { value: resource.local.file.one.path }
+  size:  { value: resource.local.file.one.size }
+  info:  { value: { host: var.name } }
+  names: { value: [var.name] }
+}
+`)
+	libs := func() map[string]*Library {
+		return map[string]*Library{
+			"local": localFileLibrary(),
+			"bundle": {ResourceComposites: map[string]*CompositeType{"pair": {
+				Name:      "pair",
+				Body:      composite,
+				Libraries: map[string]*Library{"local": localFileLibrary()},
+			}}},
+		}
+	}
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "deep field beyond an object output",
+			src: `
+resources: {
+  bundle: { pair: { demo: { name: 'n' } } }
+  local: { file: { logs: {
+    path: 'p'
+    content: resource.bundle.pair.demo.info.bogus
+  } } }
+}
+`,
+			want: []string{`unknown field "bogus" on object({ host: string })`},
+		},
+		{
+			name: "composite output type mismatches a field",
+			src: `
+resources: {
+  bundle: { pair: { demo: { name: 'n' } } }
+  local: { file: { logs: {
+    path: resource.bundle.pair.demo.names
+    content: 'c'
+  } } }
+}
+`,
+			want: []string{"type mismatch: expected string, got list(string)"},
+		},
+		{
+			name: "composite output in an operator",
+			src: `
+resources: {
+  bundle: { pair: { demo: { name: 'n' } } }
+  local: { file: { logs: {
+    path: 'p'
+    content: 'c'
+    mode: resource.bundle.pair.demo.size + 'x'
+  } } }
+}
+`,
+			want: []string{
+				"+: operands must both be numbers or both be strings, got integer and string",
+			},
+		},
+		{
+			name: "matching composite outputs pass",
+			src: `
+resources: {
+  bundle: { pair: { demo: { name: 'n' } } }
+  local: { file: { logs: {
+    path: resource.bundle.pair.demo.path
+    content: resource.bundle.pair.demo.info.host
+    mode: resource.bundle.pair.demo.size
+  } } }
+}
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, tt.src), libs())
+			require.Equal(t, tt.want, checkErrorMessages(t, errs))
+		})
+	}
+}
+
 func TestCheckTypesAcceptsMatchingBody(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 inputs: { path: { type: string } }

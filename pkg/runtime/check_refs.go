@@ -39,6 +39,10 @@ type referenceChecker struct {
 	locals    map[string]map[string]bool
 	libraries map[string]map[string]*Library
 	seen      map[string]bool
+	// compositeOutputs memoizes each composite node's inferred output
+	// types; forcingComposite guards a lookup that re-enters itself.
+	compositeOutputs map[*Node]map[string]typecheck.Type
+	forcingComposite map[*Node]bool
 }
 
 func (c *referenceChecker) collectCompositeScopes() {

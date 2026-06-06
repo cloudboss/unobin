@@ -298,26 +298,83 @@ func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 	}
 }
 
+// compositeOutputTypes infers the types of a composite node's
+// declared outputs in the composite's own scope, memoized per node.
+// Inference runs with a discarded error list: the outputs block is
+// already checked with the real one by checkOutputBodyTypes, so a
+// reference to a broken output does not repeat the mistake at every
+// read. A re-entrant lookup returns nil rather than recursing.
+func (c *referenceChecker) compositeOutputTypes(node *Node) map[string]typecheck.Type {
+	if c.compositeOutputs == nil {
+		c.compositeOutputs = map[*Node]map[string]typecheck.Type{}
+		c.forcingComposite = map[*Node]bool{}
+	}
+	if types, done := c.compositeOutputs[node]; done {
+		return types
+	}
+	if c.forcingComposite[node] {
+		return nil
+	}
+	c.forcingComposite[node] = true
+	types := c.inferCompositeOutputs(node)
+	delete(c.forcingComposite, node)
+	c.compositeOutputs[node] = types
+	return types
+}
+
+func (c *referenceChecker) inferCompositeOutputs(node *Node) map[string]typecheck.Type {
+	if node.CompositeBody == nil || node.CompositeBody.Body == nil {
+		return nil
+	}
+	outputs, ok := topLevelMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	s := &typecheck.Scope{
+		Inputs:         c.scopeInputs(node.Address),
+		LookupNode:     c.lookupNodeFor(node.Address),
+		LookupFunction: c.lookupFunctionFor(node.Address),
+	}
+	s.LookupLocal = c.lookupLocalFor(node.Address, s)
+	discard := lang.NewErrorList(0)
+	out := make(map[string]typecheck.Type, len(outputs.Fields))
+	for _, fld := range outputs.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		expr := lang.OutputValueExpr(fld.Value)
+		if expr == nil {
+			out[fld.Key.Name] = typecheck.TUnknown()
+			continue
+		}
+		out[fld.Key.Name] = typecheck.Infer(expr, typecheck.TUnknown(), s, discard)
+	}
+	return out
+}
+
 // nodeAttrType builds an Object Type describing what a node exposes to
 // references: for a Go-backed leaf, its inputs laid under its outputs,
 // matching the runtime merge so a reference to a plain input type-checks
 // without the resource echoing it into its output struct. Outputs win on
 // a name collision. goschema has already expanded nested struct types so
-// the descender can walk through them. Composite nodes contribute an
-// Object whose fields are all Unknown; the field-existence check still
-// catches typos but the type checker stops descending past a composite
-// output until composite-output typing is implemented.
+// the descender can walk through them. A composite node contributes an
+// Object of its declared outputs with their inferred types.
 func (c *referenceChecker) nodeAttrType(node *Node) typecheck.Type {
 	if node == nil {
 		return typecheck.TUnknown()
 	}
 	if node.IsComposite() {
-		names := compositeOutputNames(node)
+		types := c.compositeOutputTypes(node)
+		names := make([]string, 0, len(types))
+		for name := range types {
+			names = append(names, name)
+		}
+		sort.Strings(names)
 		fields := make([]typecheck.ObjectField, 0, len(names))
-		for name := range names {
+		for _, name := range names {
 			fields = append(fields, typecheck.ObjectField{
 				Name: name,
-				Type: typecheck.TUnknown(),
+				Type: types[name],
 			})
 		}
 		return typecheck.TObject(fields)
