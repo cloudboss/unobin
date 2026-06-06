@@ -437,6 +437,9 @@ func evalInfix(n *lang.Infix, ctx *EvalContext) (any, error) {
 	if n.Op == "&&" || n.Op == "||" {
 		return evalLogical(n, ctx)
 	}
+	if n.Op == "??" {
+		return evalCoalesce(n, ctx)
+	}
 	left, err := Eval(n.Left, ctx)
 	if err != nil {
 		return nil, err
@@ -490,6 +493,19 @@ func evalLogical(n *lang.Infix, ctx *EvalContext) (any, error) {
 			n.Op, lang.TypeMessage(right))
 	}
 	return rb, nil
+}
+
+// evalCoalesce evaluates `??` with a short circuit: the right side
+// only evaluates when the left is null.
+func evalCoalesce(n *lang.Infix, ctx *EvalContext) (any, error) {
+	left, err := Eval(n.Left, ctx)
+	if err != nil {
+		return nil, err
+	}
+	if left != nil {
+		return left, nil
+	}
+	return Eval(n.Right, ctx)
 }
 
 // evalArith evaluates the four arithmetic operators. `+` also

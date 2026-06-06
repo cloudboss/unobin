@@ -487,8 +487,8 @@ func checkFanOutIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorLi
 		case typecheck.Unknown, typecheck.Any, typecheck.Map, typecheck.Object,
 			typecheck.List, typecheck.Tuple:
 			errs.Addf(lang.ErrType, pos,
-				"@for-each: iterable may be null; test it first, like "+
-					"if m == null then {} else m (got %s)", t)
+				"@for-each: iterable may be null; supply a fallback, like "+
+					"m ?? {} (got %s)", t)
 		default:
 			errs.Addf(lang.ErrType, pos, "@for-each: iterable must be a map, got %s", t)
 		}

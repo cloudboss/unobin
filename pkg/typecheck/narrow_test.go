@@ -188,6 +188,9 @@ func strictScope() *Scope {
 				{Name: "host", Type: TString()},
 			}), Optional: true},
 		}), Optional: true},
+		ObjectField{Name: "opt-count", Type: TInteger(), Optional: true},
+		ObjectField{Name: "opt-tags", Type: TMap(TString()), Optional: true},
+		ObjectField{Name: "opt-flag", Type: TBoolean(), Optional: true},
 	)
 	return s
 }
@@ -230,6 +233,110 @@ func TestGuardedNavigation(t *testing.T) {
 			want: TUnknown(),
 			wantErrs: []string{
 				"var is never null; write var.y",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
+			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
+		})
+	}
+}
+
+// ?? supplies the fallback that lands a possibly-null value: the
+// result joins the discharged left with the right.
+func TestCoalesce(t *testing.T) {
+	tests := []struct {
+		src      string
+		want     Type
+		wantErrs []string
+	}{
+		{src: "var.x ?? 'd'", want: TString()},
+		{src: "var.opt-count ?? 0", want: TInteger()},
+		{src: "var.opt-count ?? 1.5", want: TNumber()},
+		{src: "var.opt-flag ?? false", want: TBoolean()},
+		{src: "var.cfg?.db?.host ?? 'none'", want: TString()},
+		{src: "var.tls?.port ?? 0", want: TInteger()},
+		{src: "var.x ?? null", want: TOptional(TString())},
+		{src: "var.x ?? var.x", want: TOptional(TString())},
+		{src: "var.x ?? var.x ?? 'd'", want: TString()},
+		{src: "null ?? 'd'", want: TString()},
+		{src: "var.maybe-list ?? []", want: TList(TString())},
+		{src: "var.opt-tags ?? {}", want: TMap(TString())},
+		{src: "var.tls ?? { port: 1 }", want: TObject([]ObjectField{
+			{Name: "port", Type: TInteger()},
+		})},
+		{src: "var.nope ?? 'd'", want: TString()},
+		{src: "$'{{ var.x ?? '-' }}'", want: TString()},
+		{src: "$'{{ var.cfg?.db?.host ?? '-' }}-{{ var.opt-count ?? 0 }}'", want: TString()},
+		{
+			src:  "var.y ?? 'd'",
+			want: TString(),
+			wantErrs: []string{
+				"left of ?? is never null; write it without the fallback (got string)",
+			},
+		},
+		{
+			src:  "var.tls ?? { port: 1 } ?? { port: 2 }",
+			want: TObject([]ObjectField{{Name: "port", Type: TInteger()}}),
+			wantErrs: []string{
+				"left of ?? is never null; write it without the fallback " +
+					"(got object({ port: integer }))",
+			},
+		},
+		{
+			src:  "var.x ?? 5",
+			want: TUnknown(),
+			wantErrs: []string{
+				"?? sides have different types: string and integer",
+			},
+		},
+		{
+			src:  "var.opt-count ?? 'd'",
+			want: TUnknown(),
+			wantErrs: []string{
+				"?? sides have different types: integer and string",
+			},
+		},
+		{
+			src:  "var.maybe-list ?? {}",
+			want: TUnknown(),
+			wantErrs: []string{
+				"?? sides have different types: list(string) and object({  })",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
+			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
+		})
+	}
+}
+
+// ?? binds loosest: everything to its right down to the next ?? is
+// the fallback, so a comparison or || on the right belongs to the
+// fallback, and parentheses pull the coalesce inside.
+func TestCoalescePrecedence(t *testing.T) {
+	tests := []struct {
+		src      string
+		want     Type
+		wantErrs []string
+	}{
+		{src: "var.opt-flag ?? var.y == 'a'", want: TBoolean()},
+		{src: "var.opt-flag ?? true || false", want: TBoolean()},
+		{src: "(var.x ?? 'd') == 'a'", want: TBoolean()},
+		{src: "var.opt-count ?? 1 + 2", want: TInteger()},
+		{
+			src:  "var.x ?? 'd' == 'a'",
+			want: TUnknown(),
+			wantErrs: []string{
+				"?? sides have different types: string and boolean",
 			},
 		},
 	}
@@ -297,9 +404,8 @@ func TestStrictOptionalNavigation(t *testing.T) {
 			src:  "[ for s in var.maybe-list : s ]",
 			want: TList(TString()),
 			wantErrs: []string{
-				"comprehension source may be null; test it first, like " +
-					"if xs == null then [] else [ for x in xs : x ] " +
-					"(got optional(list(string)))",
+				"comprehension source may be null; supply a fallback, like " +
+					"xs ?? [] (got optional(list(string)))",
 			},
 		},
 		{
@@ -386,8 +492,8 @@ func TestNarrowDoesNotInvent(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, src), TUnknown(), narrowScope(), errs)
 			require.Equal(t, []string{
-				"interpolation slot may be null; test it first, like " +
-					"{{ if x == null then '-' else x }} (got optional(string))",
+				"interpolation slot may be null; supply a fallback, like " +
+					"{{ x ?? '-' }} (got optional(string))",
 			}, errorMessages(errs))
 		})
 	}

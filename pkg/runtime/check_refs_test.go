@@ -971,8 +971,8 @@ inputs: { names: { type: optional(list(string)) } }
 resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
 `,
 			want: []string{
-				"@for-each: iterable may be null; test it first, like " +
-					"if m == null then {} else m (got optional(list(string)))",
+				"@for-each: iterable may be null; supply a fallback, like " +
+					"m ?? {} (got optional(list(string)))",
 			},
 		},
 		{

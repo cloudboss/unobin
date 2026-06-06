@@ -400,6 +400,30 @@ func TestEvalGuardedNavigation(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot navigate into null")
 }
 
+func TestEvalCoalesce(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{
+		"set":   "v",
+		"unset": nil,
+	}}
+	got, err := Eval(parseValue(t, "var.set ?? 'd'"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "v", got)
+
+	got, err = Eval(parseValue(t, "var.unset ?? 'd'"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "d", got)
+
+	// The right side only evaluates when the left is null: this
+	// fallback would fail if it ran.
+	got, err = Eval(parseValue(t, "var.set ?? var.set.bogus.deep"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "v", got)
+
+	got, err = Eval(parseValue(t, "var.unset ?? null"), ctx)
+	require.NoError(t, err)
+	require.Nil(t, got)
+}
+
 func TestEvalArithmeticInt(t *testing.T) {
 	cases := []struct {
 		src  string

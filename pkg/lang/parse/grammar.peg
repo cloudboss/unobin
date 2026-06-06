@@ -490,7 +490,15 @@ Conditional <- "if" !IdentChar _ cond:Expr _ "then" !IdentChar _ then:Value _ "e
 	}, nil
 }
 
-Expr <- left:AndExpr rest:OrTail* {
+Expr <- left:OrExpr rest:CoalesceTail* {
+	return foldInfix(left.(Expr), rest), nil
+}
+
+CoalesceTail <- _ "??" _ right:OrExpr {
+	return infixTail{op: "??", right: right.(Expr)}, nil
+}
+
+OrExpr <- left:AndExpr rest:OrTail* {
 	return foldInfix(left.(Expr), rest), nil
 }
 

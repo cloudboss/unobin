@@ -216,8 +216,8 @@ func checkInterpolatedSlot(t Type, pos lang.Position, errs *lang.ErrorList) {
 		return
 	case Null, Optional:
 		errs.Addf(lang.ErrType, pos,
-			"interpolation slot may be null; test it first, like "+
-				"{{ if x == null then '-' else x }} (got %s)", t)
+			"interpolation slot may be null; supply a fallback, like "+
+				"{{ x ?? '-' }} (got %s)", t)
 	default:
 		errs.Addf(lang.ErrType, pos,
 			"interpolation slot must be a scalar, got %s", t)
@@ -279,8 +279,8 @@ func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList)
 		switch src.Unwrap().Kind {
 		case Unknown, Any, List, Map, Object, Tuple:
 			errs.Addf(lang.ErrType, pos,
-				"comprehension source may be null; test it first, like "+
-					"if xs == null then [] else [ for x in xs : x ] (got %s)", src)
+				"comprehension source may be null; supply a fallback, like "+
+					"xs ?? [] (got %s)", src)
 			return
 		}
 	}
@@ -858,6 +858,8 @@ func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 		checkBooleanOperand(in.Op, in.Left, left, errs)
 		checkBooleanOperand(in.Op, in.Right, right, errs)
 		return TBoolean()
+	case "??":
+		return inferCoalesce(in, left, right, errs)
 	case "==", "!=":
 		checkEqualityOperands(in, left, right, errs)
 		return TBoolean()
@@ -872,6 +874,31 @@ func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 		checkNumericOperand(in.Op, in.Left, left, errs)
 		checkNumericOperand(in.Op, in.Right, right, errs)
 		return numericResult(left, right)
+	}
+	return TUnknown()
+}
+
+// inferCoalesce types `left ?? right`, the fallback for a
+// possibly-null left side: the result is the join of the discharged
+// left and the right. A left side that can never be null makes the
+// fallback dead, which is an error the way a dead ?. is.
+func inferCoalesce(in *lang.Infix, left, right Type, errs *lang.ErrorList) Type {
+	if lk, ok := operandKind(left); ok && lk != Optional && lk != Null {
+		errs.Addf(lang.ErrType, in.Left.Span().Start,
+			"left of ?? is never null; write it without the fallback (got %s)", left)
+		return left
+	}
+	// An always-null left side contributes nothing; the result is the
+	// fallback alone.
+	if left.Kind == Null {
+		return right
+	}
+	if j, ok := join(left.Unwrap(), right); ok {
+		return j
+	}
+	if left.IsKnown() && right.IsKnown() {
+		errs.Addf(lang.ErrType, in.S.Start,
+			"?? sides have different types: %s and %s", left.Unwrap(), right)
 	}
 	return TUnknown()
 }
