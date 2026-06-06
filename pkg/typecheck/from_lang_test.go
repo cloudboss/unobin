@@ -31,6 +31,32 @@ func TestFromLangAtomics(t *testing.T) {
 	}
 }
 
+func TestInputsFromBlockNestedDefaults(t *testing.T) {
+	f, err := lang.ParseSource("x.ub", []byte(`
+inputs: {
+  spec: {
+    type: object({
+      port:    { type: optional(integer, 8080) },
+      retries: optional(integer, 3),
+      note:    { type: optional(string) },
+    })
+  }
+}
+`))
+	require.NoError(t, err)
+	inputs := InputsFromBlock(f.Body.Fields[0].Value.(*lang.ObjectLit))
+	scope := &Scope{Inputs: inputs}
+	errs := lang.NewErrorList(0)
+
+	got := Infer(parseExpr(t, "var.spec.port"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TInteger()), "port reads defaulted, got %s", got)
+	got = Infer(parseExpr(t, "var.spec.retries"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TInteger()), "retries reads defaulted, got %s", got)
+	got = Infer(parseExpr(t, "var.spec.note"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOptional(TString())), "note stays optional, got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
 func TestFromLangContainers(t *testing.T) {
 	str := &lang.TypeAtomic{Name: "string"}
 	intT := &lang.TypeAtomic{Name: "integer"}

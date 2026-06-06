@@ -8,7 +8,7 @@ import (
 
 // litEval reduces literal expressions used as defaults in the tests.
 // It is intentionally tiny: only the shapes the tests pass as defaults
-// need to evaluate. Real wiring uses runtime.Eval.
+// need to evaluate. The real flow passes runtime.Eval.
 func litEval(e Expr) (any, error) {
 	switch v := e.(type) {
 	case *StringLit:
@@ -180,6 +180,93 @@ inputs: {
 	out, errs := ValidateInputs(decl, map[string]any{"size": int64(7)}, litEval)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 	require.Equal(t, int64(7), out["size"])
+}
+
+func TestValidateInputsNestedDefaultsApplied(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  spec: {
+    type: object({
+      host:    string,
+      port:    { type: optional(integer, 8080) },
+      retries: optional(integer, 3),
+    })
+  }
+}
+`)
+	out, errs := ValidateInputs(decl, map[string]any{
+		"spec": map[string]any{"host": "h", "port": nil},
+	}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Equal(t, map[string]any{
+		"spec": map[string]any{
+			"host":    "h",
+			"port":    int64(8080),
+			"retries": int64(3),
+		},
+	}, out)
+}
+
+func TestValidateInputsNestedOptionalNoDefaultStaysNull(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  spec: {
+    type: object({
+      host: string,
+      note: { type: optional(string) },
+    })
+  }
+}
+`)
+	out, errs := ValidateInputs(decl, map[string]any{
+		"spec": map[string]any{"host": "h"},
+	}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Equal(t, map[string]any{
+		"spec": map[string]any{"host": "h", "note": nil},
+	}, out)
+}
+
+func TestValidateInputsNestedModifierEnforced(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  spec: {
+    type: object({
+      host: { type: string, min-length: 3 },
+    })
+  }
+}
+`)
+	_, errs := ValidateInputs(decl, map[string]any{
+		"spec": map[string]any{"host": "ab"},
+	}, litEval)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), `field "host"`)
+	require.Contains(t, errs.Err().Error(), "below min-length")
+
+	_, errs = ValidateInputs(decl, map[string]any{
+		"spec": map[string]any{"host": "abc"},
+	}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+}
+
+func TestValidateInputsNestedDefaultSatisfiesType(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  spec: {
+    type: object({
+      port: { type: optional(integer, 8080), minimum: 1024 },
+    })
+  }
+}
+`)
+	out, errs := ValidateInputs(decl, map[string]any{
+		"spec": map[string]any{},
+	}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Equal(t, map[string]any{
+		"spec": map[string]any{"port": int64(8080)},
+	}, out)
 }
 
 func TestValidateInputsUnknownKey(t *testing.T) {

@@ -621,7 +621,9 @@ func traverseSegments(
 				return TUnknown()
 			}
 			current = field.Type
-			if field.Optional {
+			// A defaulted field reads as its inner type: the default
+			// replaces a missing or null value before anything reads it.
+			if field.Optional && !field.Defaulted {
 				current = TOptional(current)
 			}
 		case Map:

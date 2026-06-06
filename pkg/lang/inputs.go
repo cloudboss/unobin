@@ -96,7 +96,7 @@ func validateOneInput(
 		return
 	}
 
-	coerced, err := checkValue(typeExpr, raw)
+	coerced, err := checkValue(typeExpr, raw, evalDefault)
 	if err != nil {
 		errs.Addf(ErrType, fld.Key.S.Start, "input %q: %v", name, err)
 		return
@@ -133,23 +133,27 @@ func extractTypeAndDefault(
 	return nil, nil, false, false
 }
 
-func checkValue(t TypeExpr, v any) (any, error) {
+// checkValue validates v against the declared type and returns the
+// coerced value. ev evaluates `optional(T, default)` defaults on
+// nested object fields; nil refuses any nested default that would
+// need it.
+func checkValue(t TypeExpr, v any, ev EvalFunc) (any, error) {
 	switch tt := t.(type) {
 	case *TypeAtomic:
 		return checkAtomic(tt, v)
 	case *TypeList:
-		return checkList(tt, v)
+		return checkList(tt, v, ev)
 	case *TypeMap:
-		return checkMap(tt, v)
+		return checkMap(tt, v, ev)
 	case *TypeObject:
-		return checkObject(tt, v)
+		return checkObject(tt, v, ev)
 	case *TypeTuple:
-		return checkTuple(tt, v)
+		return checkTuple(tt, v, ev)
 	case *TypeOptional:
 		if v == nil {
 			return nil, nil
 		}
-		return checkValue(tt.Elem, v)
+		return checkValue(tt.Elem, v, ev)
 	}
 	return nil, fmt.Errorf("unsupported type %T", t)
 }
@@ -194,14 +198,14 @@ func checkAtomic(t *TypeAtomic, v any) (any, error) {
 	return nil, fmt.Errorf("unknown atomic type %q", t.Name)
 }
 
-func checkList(t *TypeList, v any) (any, error) {
+func checkList(t *TypeList, v any, ev EvalFunc) (any, error) {
 	xs, ok := v.([]any)
 	if !ok {
 		return nil, fmt.Errorf("expected list, got %s", typeName(v))
 	}
 	out := make([]any, len(xs))
 	for i, el := range xs {
-		coerced, err := checkValue(t.Elem, el)
+		coerced, err := checkValue(t.Elem, el, ev)
 		if err != nil {
 			return nil, fmt.Errorf("element %d: %w", i, err)
 		}
@@ -210,14 +214,14 @@ func checkList(t *TypeList, v any) (any, error) {
 	return out, nil
 }
 
-func checkMap(t *TypeMap, v any) (any, error) {
+func checkMap(t *TypeMap, v any, ev EvalFunc) (any, error) {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("expected map, got %s", typeName(v))
 	}
 	out := make(map[string]any, len(m))
 	for k, val := range m {
-		coerced, err := checkValue(t.Elem, val)
+		coerced, err := checkValue(t.Elem, val, ev)
 		if err != nil {
 			return nil, fmt.Errorf("key %q: %w", k, err)
 		}
@@ -226,7 +230,7 @@ func checkMap(t *TypeMap, v any) (any, error) {
 	return out, nil
 }
 
-func checkObject(t *TypeObject, v any) (any, error) {
+func checkObject(t *TypeObject, v any, ev EvalFunc) (any, error) {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("expected object, got %s", typeName(v))
@@ -236,18 +240,21 @@ func checkObject(t *TypeObject, v any) (any, error) {
 	for _, f := range t.Fields {
 		declared[f.Name] = true
 		raw, present := m[f.Name]
-		ft := f.Type
-		if ft == nil && f.Decl != nil {
-			te, _, _, ok := extractTypeAndDefault(f.Decl)
-			if !ok {
-				continue
-			}
-			ft = te
-		}
-		if ft == nil {
+		ft, defaultExpr, isOpt, ok := fieldTypeAndDefault(f)
+		if !ok {
 			continue
 		}
-		_, isOpt := ft.(*TypeOptional)
+		if (!present || raw == nil) && isOpt && defaultExpr != nil {
+			if ev == nil {
+				return nil, fmt.Errorf(
+					"field %q: cannot evaluate default (no evaluator provided)", f.Name)
+			}
+			def, err := ev(defaultExpr)
+			if err != nil {
+				return nil, fmt.Errorf("field %q: invalid default: %v", f.Name, err)
+			}
+			raw, present = def, true
+		}
 		if !present {
 			if isOpt {
 				out[f.Name] = nil
@@ -262,9 +269,14 @@ func checkObject(t *TypeObject, v any) (any, error) {
 			}
 			return nil, fmt.Errorf("field %q: required but is null", f.Name)
 		}
-		coerced, err := checkValue(ft, raw)
+		coerced, err := checkValue(ft, raw, ev)
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", f.Name, err)
+		}
+		if f.Decl != nil {
+			if err := checkModifiers(f.Decl, coerced); err != nil {
+				return nil, fmt.Errorf("field %q: %v", f.Name, err)
+			}
 		}
 		out[f.Name] = coerced
 	}
@@ -276,7 +288,24 @@ func checkObject(t *TypeObject, v any) (any, error) {
 	return out, nil
 }
 
-func checkTuple(t *TypeTuple, v any) (any, error) {
+// fieldTypeAndDefault resolves an object field to its value type,
+// default expression, and optionality, whichever declaration form it
+// used: a full declaration object, a bare optional(T, default), or a
+// bare type.
+func fieldTypeAndDefault(f *TypeObjectField) (TypeExpr, Expr, bool, bool) {
+	if f.Decl != nil {
+		return extractTypeAndDefault(f.Decl)
+	}
+	if f.Type == nil {
+		return nil, nil, false, false
+	}
+	if opt, ok := f.Type.(*TypeOptional); ok {
+		return opt.Elem, opt.Default, true, true
+	}
+	return f.Type, nil, false, true
+}
+
+func checkTuple(t *TypeTuple, v any, ev EvalFunc) (any, error) {
 	xs, ok := v.([]any)
 	if !ok {
 		return nil, fmt.Errorf("expected tuple, got %s", typeName(v))
@@ -286,7 +315,7 @@ func checkTuple(t *TypeTuple, v any) (any, error) {
 	}
 	out := make([]any, len(xs))
 	for i, el := range xs {
-		coerced, err := checkValue(t.Elements[i], el)
+		coerced, err := checkValue(t.Elements[i], el, ev)
 		if err != nil {
 			return nil, fmt.Errorf("element %d: %w", i, err)
 		}

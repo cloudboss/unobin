@@ -54,38 +54,38 @@ func atomicFromLang(name string) Type {
 	return TUnknown()
 }
 
-// objectFieldFromLang converts a TypeObjectField, which may carry
+// objectFieldFromLang converts a TypeObjectField, which may use
 // either a bare type or a full input declaration. An input
 // declaration is unwrapped through typeFromInputDecl below; the
 // resulting Optional wrapper becomes the field's `optional()`
-// marker on ObjectField.Optional.
+// marker on ObjectField.Optional, and a declared default sets
+// Defaulted so readers see the inner type, the way a defaulted
+// top-level input reads.
 func objectFieldFromLang(f *lang.TypeObjectField) ObjectField {
 	var inner lang.TypeExpr
-	var optional bool
+	var optional, defaulted bool
 	switch {
 	case f.Type != nil:
-		inner, optional = peelOptional(f.Type)
+		inner, optional, defaulted = peelOptional(f.Type)
 	case f.Decl != nil:
-		// The default, if any, is dropped: defaults replace values at
-		// the input boundary only, so a nested optional field stays
-		// nullable for readers.
-		inner, optional, _ = typeFromInputDecl(f.Decl)
+		inner, optional, defaulted = typeFromInputDecl(f.Decl)
 	}
 	if inner == nil {
 		return ObjectField{Name: f.Name, Type: TUnknown(), Optional: optional}
 	}
 	return ObjectField{
-		Name:     f.Name,
-		Type:     FromLang(inner),
-		Optional: optional,
+		Name:      f.Name,
+		Type:      FromLang(inner),
+		Optional:  optional,
+		Defaulted: defaulted,
 	}
 }
 
-func peelOptional(t lang.TypeExpr) (lang.TypeExpr, bool) {
+func peelOptional(t lang.TypeExpr) (lang.TypeExpr, bool, bool) {
 	if opt, ok := t.(*lang.TypeOptional); ok {
-		return opt.Elem, true
+		return opt.Elem, true, opt.Default != nil
 	}
-	return t, false
+	return t, false, false
 }
 
 // typeFromInputDecl walks an input declaration object literal (the
