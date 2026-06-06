@@ -28,8 +28,44 @@ func (c *referenceChecker) checkTypes() {
 		c.checkBodyTypes(n.Body, targets, scope, n)
 		c.checkRequiredPresence(n, targets)
 	}
+	c.checkLocalsBodyTypes()
 	c.checkOutputBodyTypes()
 	c.checkConstraintTypes()
+}
+
+// checkLocalsBodyTypes infers every local's expression with the real
+// error list. Lazy lookups elsewhere infer a local with a discarded
+// list, so a mistake inside a local is reported here, once, at its
+// declaration.
+func (c *referenceChecker) checkLocalsBodyTypes() {
+	c.checkLocalsBlockTypes("")
+	for _, n := range c.dag.Nodes {
+		if !n.IsComposite() {
+			continue
+		}
+		c.checkLocalsBlockTypes(n.Address)
+	}
+}
+
+func (c *referenceChecker) checkLocalsBlockTypes(scope string) {
+	exprs := c.localExprsFor(scope)
+	if len(exprs) == 0 {
+		return
+	}
+	s := &typecheck.Scope{
+		Inputs:         c.scopeInputs(scope),
+		LookupNode:     c.lookupNodeFor(scope),
+		LookupFunction: c.lookupFunctionFor(scope),
+	}
+	s.LookupLocal = c.lookupLocalFor(scope, s)
+	names := make([]string, 0, len(exprs))
+	for name := range exprs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		typecheck.Infer(exprs[name], typecheck.TUnknown(), s, c.errs)
+	}
 }
 
 // checkRequiredPresence reports body fields a node's schema requires

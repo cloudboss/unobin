@@ -550,6 +550,46 @@ resources: {
 // regardless of kind. Used by the type-check tests because their
 // errors come back as ErrType while reference checks produce
 // ErrResolve.
+func TestCheckTypesReportsLocalsBodyErrors(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: {
+  bad: 'a' - 'b'
+}
+`), nil)
+	want := []string{
+		"-: operand must be a number, got string",
+		"-: operand must be a number, got string",
+	}
+	require.Equal(t, want, checkErrorMessages(t, errs))
+}
+
+func TestCheckTypesReportsLocalsDeepFieldError(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: { cfg: { type: object({ host: string }) } }
+locals: {
+  h: var.cfg.bogus
+}
+`), nil)
+	want := []string{`unknown field "bogus" on object({ host: string })`}
+	require.Equal(t, want, checkErrorMessages(t, errs))
+}
+
+func TestCheckTypesLocalsErrorsReportOnce(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+locals: {
+  bad: 'a' - 'b'
+}
+resources: {
+  local: { file: { one: { path: local.bad, content: local.bad } } }
+}
+`), nil)
+	want := []string{
+		"-: operand must be a number, got string",
+		"-: operand must be a number, got string",
+	}
+	require.Equal(t, want, checkErrorMessages(t, errs))
+}
+
 func checkErrorMessages(t *testing.T, errs *lang.ErrorList) []string {
 	t.Helper()
 	require.NotNil(t, errs)
