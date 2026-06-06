@@ -1,8 +1,7 @@
 description: '''>-
-  Shows the two types for data the stack does not fully describe: an
-  opaque value that passes through whole and exits as JSON text, and an
-  open object that declares only the fields the stack reads while the
-  rest of the value rides along.
+  Shows the two types for data the stack does not fully describe: an opaque value
+  that passes through whole and exits as JSON text, and an open object that
+  declares only the fields the stack reads while the rest of the value rides along.
   '''
 
 inputs: {
@@ -12,10 +11,7 @@ inputs: {
     description: 'A policy document forwarded as it came; the stack never reads inside it'
   }
   event: {
-    type: open(object({
-      kind: string
-      id:   string
-    }))
+    type:        open(object({ kind: string, id: string }))
     description: 'An event envelope; fields beyond kind and id pass through'
   }
 }
@@ -50,5 +46,5 @@ resources: {
 outputs: {
   event-name: { value: local.event-name }
   # An opaque value may be held and passed on whole.
-  policy: { value: var.policy }
+  policy:     { value: var.policy }
 }
