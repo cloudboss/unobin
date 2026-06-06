@@ -472,8 +472,12 @@ func inferObjectAgainstObject(
 		seen[name] = true
 		spec, ok := declared[name]
 		if !ok {
-			errs.Addf(lang.ErrType, fld.Key.S.Start,
-				"unknown field %q on %s", name, target)
+			// An open target admits fields beyond the declared ones, so
+			// an extra literal field is not the typo it is elsewhere.
+			if !target.Open {
+				errs.Addf(lang.ErrType, fld.Key.S.Start,
+					"unknown field %q on %s", name, target)
+			}
 			fields = append(fields, ObjectField{
 				Name: name,
 				Type: Infer(fld.Value, TUnknown(), scope, errs),
@@ -721,7 +725,8 @@ func traverseSegments(
 			if !ok {
 				if !(skipFirst && i == 0) {
 					errs.Addf(lang.ErrType, seg.S.Start,
-						"unknown field %q on %s", seg.Name, current)
+						"unknown field %q on %s%s", seg.Name, current,
+						openFieldHint(current))
 				}
 				return TUnknown()
 			}
@@ -756,6 +761,16 @@ func traverseSegments(
 		return TOptional(current)
 	}
 	return current
+}
+
+// openFieldHint explains an unknown field on an open object: the
+// field may well be present, but open admits fields without making
+// them readable.
+func openFieldHint(t Type) string {
+	if t.Open {
+		return "; declare the field to read it"
+	}
+	return ""
 }
 
 // segIndexText renders an index segment for a diagnostic: literal
@@ -817,7 +832,8 @@ func indexSegmentType(
 		field, ok := current.Field(lit.Value)
 		if !ok {
 			errs.Addf(lang.ErrType, seg.S.Start,
-				"unknown field %q on %s", lit.Value, current)
+				"unknown field %q on %s%s", lit.Value, current,
+				openFieldHint(current))
 			return TUnknown()
 		}
 		if field.Optional {

@@ -987,7 +987,7 @@ func collectTypeConstructors(e Expr, skip map[Expr]struct{}) {
 		return
 	}
 	switch c.Callee.Name {
-	case "list", "set", "map", "optional":
+	case "list", "set", "map", "optional", "open":
 		// The element or inner type is the first argument; optional's second
 		// argument is a default value and is left for the call checker.
 		collectTypeConstructors(c.Args[0], skip)

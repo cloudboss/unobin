@@ -434,9 +434,12 @@ func (n *TypeMap) Span() Span    { return n.S }
 func (n *TypeMap) exprNode()     {}
 func (n *TypeMap) typeExprNode() {}
 
-// TypeObject is `object({ field1: T1  field2: T2  ... })`.
+// TypeObject is `object({ field1: T1  field2: T2  ... })`. Open is
+// true when the type is wrapped in `open(...)`: a value may then hold
+// fields beyond the declared ones, which pass through unread.
 type TypeObject struct {
 	S      Span
+	Open   bool
 	Fields []*TypeObjectField
 }
 

@@ -28,6 +28,20 @@ object-of-object: object({
   }),
 })
 
+open-object: open(object({
+  url: string,
+}))
+
+open-nested: open(object({
+  inner: open(object({
+    flag: boolean,
+  })),
+}))
+
+optional-open: optional(open(object({
+  retries: integer,
+})), {})
+
 optional-bare:         optional(string)
 optional-with-default: optional(integer, 3)
 optional-list:         optional(list(string), [])

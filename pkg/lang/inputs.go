@@ -275,9 +275,16 @@ func checkObject(t *TypeObject, v any, ev EvalFunc) (any, error) {
 		out[f.Name] = coerced
 	}
 	for k := range m {
-		if !declared[k] {
-			return nil, fmt.Errorf("unknown field %q", k)
+		if declared[k] {
+			continue
 		}
+		// An open object keeps undeclared fields as they came in; they
+		// pass through unread, so there is nothing to check them against.
+		if t.Open {
+			out[k] = m[k]
+			continue
+		}
+		return nil, fmt.Errorf("unknown field %q", k)
 	}
 	return out, nil
 }

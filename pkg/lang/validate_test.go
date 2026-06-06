@@ -225,6 +225,14 @@ func TestValidateReservesSetType(t *testing.T) {
 		errsToStrings(errs))
 }
 
+func TestValidateAcceptsOpenObjectType(t *testing.T) {
+	src := `inputs: { p: { type: optional(open(object({ a: optional(list(string)) })), {}) } }`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "unexpected errors: %v", errsToStrings(errs))
+}
+
 func TestValidateRejectsAnyType(t *testing.T) {
 	src := `inputs: { a: { type: any } }`
 	f, err := ParseSource("main.ub", []byte(src))

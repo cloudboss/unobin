@@ -139,6 +139,86 @@ func TestPromoteObjectWithDecl(t *testing.T) {
 	require.IsType(t, &Call{}, size.Decl.Fields[0].Value)
 }
 
+func TestPromoteOpen(t *testing.T) {
+	fields := promoteFixture(t)
+
+	obj, ok := mustPromote(t, fields["open-object"]).(*TypeObject)
+	require.True(t, ok)
+	require.True(t, obj.Open)
+	require.Len(t, obj.Fields, 1)
+	require.Equal(t, "url", obj.Fields[0].Name)
+	require.Equal(t, "string", obj.Fields[0].Type.(*TypeAtomic).Name)
+
+	nested, ok := mustPromote(t, fields["open-nested"]).(*TypeObject)
+	require.True(t, ok)
+	require.True(t, nested.Open)
+	inner, ok := nested.Fields[0].Type.(*TypeObject)
+	require.True(t, ok)
+	require.True(t, inner.Open)
+
+	opt, ok := mustPromote(t, fields["optional-open"]).(*TypeOptional)
+	require.True(t, ok)
+	optInner, ok := opt.Elem.(*TypeObject)
+	require.True(t, ok)
+	require.True(t, optInner.Open)
+	require.NotNil(t, opt.Default)
+
+	closed, ok := mustPromote(t, fields["simple-object"]).(*TypeObject)
+	require.True(t, ok)
+	require.False(t, closed.Open)
+}
+
+func TestPromoteOpenErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			"no args",
+			`t: open()`,
+			"open takes exactly 1 type argument, got 0",
+		},
+		{
+			"two args",
+			`t: open(object({ a: string }), 1)`,
+			"open takes exactly 1 type argument, got 2",
+		},
+		{
+			"atomic",
+			`t: open(string)`,
+			"open applies to object types, got string",
+		},
+		{
+			"list",
+			`t: open(list(string))`,
+			"open applies to object types, got list",
+		},
+		{
+			"optional",
+			`t: open(optional(object({ a: string })))`,
+			"open applies to object types, got optional; " +
+				"write optional(open(object({ ... })))",
+		},
+		{
+			"double open",
+			`t: open(open(object({ a: string })))`,
+			"open(open(...)) is redundant; write open once",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := ParseSource("main.ub", []byte(tt.src))
+			require.NoError(t, err)
+			_, err = PromoteType(f.Body.Fields[0].Value)
+			require.Error(t, err)
+			var pe *Error
+			require.True(t, errors.As(err, &pe))
+			require.Equal(t, tt.want, pe.Msg)
+		})
+	}
+}
+
 func TestPromoteOptional(t *testing.T) {
 	fields := promoteFixture(t)
 

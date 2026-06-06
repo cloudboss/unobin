@@ -124,6 +124,19 @@ func TestAssignableObjects(t *testing.T) {
 		"extra src fields are tolerated; dst declares its own fields")
 }
 
+func TestAssignableOpennessIsIrrelevant(t *testing.T) {
+	closed := TObject([]ObjectField{{Name: "a", Type: TString()}})
+	open := TOpenObject([]ObjectField{{Name: "a", Type: TString()}})
+	wider := TObject([]ObjectField{
+		{Name: "a", Type: TString()},
+		{Name: "b", Type: TInteger()},
+	})
+	assert.True(t, Assignable(open, closed))
+	assert.True(t, Assignable(closed, open))
+	assert.True(t, Assignable(open, wider))
+	assert.True(t, Assignable(closed, wider))
+}
+
 func TestAssignableObjectFromMap(t *testing.T) {
 	dst := TObject([]ObjectField{
 		{Name: "id", Type: TString()},

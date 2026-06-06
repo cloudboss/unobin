@@ -31,6 +31,19 @@ func TestFromLangAtomics(t *testing.T) {
 	}
 }
 
+func TestFromLangOpenObject(t *testing.T) {
+	in := &lang.TypeObject{
+		Open: true,
+		Fields: []*lang.TypeObjectField{
+			{Name: "a", Type: &lang.TypeAtomic{Name: "string"}},
+		},
+	}
+	got := FromLang(in)
+	want := TOpenObject([]ObjectField{{Name: "a", Type: TString()}})
+	assert.True(t, got.Equal(want), "got %s want %s", got, want)
+	assert.True(t, got.Open)
+}
+
 func TestInputsFromBlockNestedDefaults(t *testing.T) {
 	f, err := lang.ParseSource("x.ub", []byte(`
 inputs: {

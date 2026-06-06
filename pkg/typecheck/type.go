@@ -46,8 +46,13 @@ const (
 // Pass Type around by value; the recursive children live on the
 // pointer fields so a deeply nested type still copies in constant
 // time at the top level.
+//
+// Open applies to Object only: an open object may hold fields beyond
+// the declared ones. Open changes what may be present, never what may
+// be read - dotting into an undeclared field stays an error.
 type Type struct {
 	Kind   Kind
+	Open   bool
 	Elem   *Type
 	Elems  []Type
 	Fields []ObjectField
@@ -88,6 +93,10 @@ func TTuple(elems []Type) Type {
 
 func TObject(fields []ObjectField) Type {
 	return Type{Kind: Object, Fields: fields}
+}
+
+func TOpenObject(fields []ObjectField) Type {
+	return Type{Kind: Object, Open: true, Fields: fields}
 }
 
 // IsKnown returns false when the Type is Unknown or wraps Unknown
@@ -165,7 +174,11 @@ func (t Type) String() string {
 		for i, f := range t.Fields {
 			parts[i] = fmt.Sprintf("%s: %s", f.Name, f.Type.String())
 		}
-		return "object({ " + strings.Join(parts, "  ") + " })"
+		s := "object({ " + strings.Join(parts, "  ") + " })"
+		if t.Open {
+			return "open(" + s + ")"
+		}
+		return s
 	}
 	return fmt.Sprintf("type#%d", t.Kind)
 }
@@ -202,6 +215,9 @@ func (t Type) Equal(other Type) bool {
 		}
 		return true
 	case Object:
+		if t.Open != other.Open {
+			return false
+		}
 		if len(t.Fields) != len(other.Fields) {
 			return false
 		}

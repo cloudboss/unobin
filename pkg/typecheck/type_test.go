@@ -31,6 +31,11 @@ func TestTypeString(t *testing.T) {
 			}),
 			"object({ a: string  b: integer })",
 		},
+		{
+			"open object",
+			TOpenObject([]ObjectField{{Name: "a", Type: TString()}}),
+			"open(object({ a: string }))",
+		},
 		{"unknown", TUnknown(), "unknown"},
 	}
 	for _, tt := range tests {
@@ -38,6 +43,14 @@ func TestTypeString(t *testing.T) {
 			assert.Equal(t, tt.want, tt.typ.String())
 		})
 	}
+}
+
+func TestEqualDistinguishesOpenObjects(t *testing.T) {
+	closed := TObject([]ObjectField{{Name: "a", Type: TString()}})
+	open := TOpenObject([]ObjectField{{Name: "a", Type: TString()}})
+	assert.False(t, closed.Equal(open))
+	assert.False(t, open.Equal(closed))
+	assert.True(t, open.Equal(TOpenObject([]ObjectField{{Name: "a", Type: TString()}})))
 }
 
 func TestOptionalCollapsesDouble(t *testing.T) {

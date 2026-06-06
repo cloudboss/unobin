@@ -3,8 +3,8 @@ package lang
 // PromoteType interprets e as a type expression and returns the corresponding
 // TypeExpr tree. Type expressions are syntactically a subset of plain
 // expressions: a bare identifier names an atomic type; a bare call names a
-// constructor (list, set, map, tuple, object, optional). Anything outside
-// that subset is rejected with an ErrType diagnostic.
+// constructor (list, set, map, tuple, object, optional, open). Anything
+// outside that subset is rejected with an ErrType diagnostic.
 //
 // Default values inside optional(T, default) are not promoted; they remain
 // plain Expr because TypeOptional.Default is a value, not a type.
@@ -58,6 +58,7 @@ var typeConstructorNames = map[string]struct{}{
 	"tuple":    {},
 	"object":   {},
 	"optional": {},
+	"open":     {},
 }
 
 // isTypeConstructor reports whether name is a call-form type constructor
@@ -88,9 +89,62 @@ func promoteCall(c *Call) (TypeExpr, error) {
 		return promoteObject(c)
 	case "optional":
 		return promoteOptional(c)
+	case "open":
+		return promoteOpen(c)
 	default:
 		return nil, Errorf(ErrType, c.S.Start, "unknown type constructor %q", name)
 	}
+}
+
+// promoteOpen handles `open(object({...}))`, which marks the object
+// type as open: a value may hold fields beyond the declared ones, and
+// they pass through unread. Open applies to object types only; an
+// optional open object is written optional(open(object({ ... }))).
+func promoteOpen(c *Call) (TypeExpr, error) {
+	if len(c.Args) != 1 {
+		return nil, Errorf(ErrType, c.S.Start,
+			"open takes exactly 1 type argument, got %d", len(c.Args))
+	}
+	elem, err := PromoteType(c.Args[0])
+	if err != nil {
+		return nil, err
+	}
+	obj, ok := elem.(*TypeObject)
+	if !ok {
+		if _, isOpt := elem.(*TypeOptional); isOpt {
+			return nil, Errorf(ErrType, exprPos(c.Args[0]),
+				"open applies to object types, got optional; "+
+					"write optional(open(object({ ... })))")
+		}
+		return nil, Errorf(ErrType, exprPos(c.Args[0]),
+			"open applies to object types, got %s", typeExprName(elem))
+	}
+	if obj.Open {
+		return nil, Errorf(ErrType, c.S.Start,
+			"open(open(...)) is redundant; write open once")
+	}
+	obj.Open = true
+	return obj, nil
+}
+
+// typeExprName names a TypeExpr variant for an error message, the way
+// the author would have written it.
+func typeExprName(t TypeExpr) string {
+	switch v := t.(type) {
+	case *TypeAtomic:
+		return v.Name
+	case *TypeList:
+		return "list"
+	case *TypeMap:
+		return "map"
+	case *TypeTuple:
+		return "tuple"
+	case *TypeObject:
+		return "object"
+	case *TypeOptional:
+		return "optional"
+	}
+	return "type"
 }
 
 func promoteContainer(c *Call, name string, build func(TypeExpr) TypeExpr) (TypeExpr, error) {

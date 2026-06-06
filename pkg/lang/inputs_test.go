@@ -354,6 +354,42 @@ inputs: {
 	require.Contains(t, errs.Err().Error(), `unknown field "surprise"`)
 }
 
+func TestValidateInputsOpenObjectKeepsExtraFields(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  payload: { type: open(object({ kind: string })) }
+}
+`)
+	out, errs := ValidateInputs(decl,
+		map[string]any{"payload": map[string]any{
+			"kind":  "deploy",
+			"extra": int64(7),
+			"deep":  map[string]any{"a": true},
+		}}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Equal(t, map[string]any{
+		"kind":  "deploy",
+		"extra": int64(7),
+		"deep":  map[string]any{"a": true},
+	}, out["payload"])
+}
+
+func TestValidateInputsOpenObjectChecksDeclaredFields(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  payload: { type: open(object({ kind: string })) }
+}
+`)
+	_, errs := ValidateInputs(decl,
+		map[string]any{"payload": map[string]any{
+			"kind":  int64(1),
+			"extra": "kept",
+		}}, litEval)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), `field "kind"`)
+	require.Contains(t, errs.Err().Error(), "expected string")
+}
+
 func TestValidateInputsTuple(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {

@@ -29,6 +29,9 @@ func FromLang(t lang.TypeExpr) Type {
 		for _, f := range v.Fields {
 			fields = append(fields, objectFieldFromLang(f))
 		}
+		if v.Open {
+			return TOpenObject(fields)
+		}
 		return TObject(fields)
 	case *lang.TypeOptional:
 		return TOptional(FromLang(v.Elem))

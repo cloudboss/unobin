@@ -303,6 +303,70 @@ func TestInferEachValueUnknownField(t *testing.T) {
 		errorMessages(errs))
 }
 
+func TestInferObjectLiteralAgainstOpenTarget(t *testing.T) {
+	target := TOpenObject([]ObjectField{{Name: "url", Type: TString()}})
+	errs := lang.NewErrorList(0)
+	Check(parseExpr(t, "{ url: 'x', extra: 1 }"), target, &Scope{}, errs)
+	assert.Empty(t, errs.Errors())
+
+	// The same extra field against a closed target stays the typo catch.
+	closed := TObject([]ObjectField{{Name: "url", Type: TString()}})
+	Check(parseExpr(t, "{ url: 'x', extra: 1 }"), closed, &Scope{}, errs)
+	require.Equal(t,
+		[]string{`unknown field "extra" on object({ url: string })`},
+		errorMessages(errs))
+}
+
+func TestInferObjectLiteralOpenTargetStillRequiresFields(t *testing.T) {
+	target := TOpenObject([]ObjectField{{Name: "url", Type: TString()}})
+	errs := lang.NewErrorList(0)
+	Check(parseExpr(t, "{ extra: 1 }"), target, &Scope{}, errs)
+	require.Equal(t,
+		[]string{`missing required field "url" on open(object({ url: string }))`},
+		errorMessages(errs))
+}
+
+func TestInferObjectLiteralOpenTargetChecksDeclaredFields(t *testing.T) {
+	target := TOpenObject([]ObjectField{{Name: "url", Type: TString()}})
+	errs := lang.NewErrorList(0)
+	Check(parseExpr(t, "{ url: 7 }"), target, &Scope{}, errs)
+	require.Equal(t,
+		[]string{"type mismatch: expected string, got integer"},
+		errorMessages(errs))
+}
+
+func TestNavigateOpenObjectFields(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{{
+		Name: "payload",
+		Type: TOpenObject([]ObjectField{{Name: "url", Type: TString()}}),
+	}}}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "var.payload.url"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TString()), "got %s", got)
+	assert.Empty(t, errs.Errors())
+
+	got = Infer(parseExpr(t, "var.payload.token"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TUnknown()))
+	require.Equal(t,
+		[]string{`unknown field "token" on open(object({ url: string })); ` +
+			"declare the field to read it"},
+		errorMessages(errs))
+}
+
+func TestIndexOpenObjectUndeclaredField(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{{
+		Name: "payload",
+		Type: TOpenObject([]ObjectField{{Name: "url", Type: TString()}}),
+	}}}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "var.payload['token']"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TUnknown()))
+	require.Equal(t,
+		[]string{`unknown field "token" on open(object({ url: string })); ` +
+			"declare the field to read it"},
+		errorMessages(errs))
+}
+
 func TestInferInfixOperators(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)
