@@ -220,9 +220,7 @@ func inferComprehension(
 		scope = &Scope{}
 	}
 	srcT := Infer(c.Source, TUnknown(), scope, errs)
-	if srcT.Unwrap().Kind == Set {
-		errs.Addf(lang.ErrType, c.Source.Span().Start, "comprehension source cannot be a set")
-	}
+	checkComprehensionSource(srcT, c.Source.Span().Start, errs)
 	key, elem := comprehensionBindingTypes(srcT)
 	child := scope.withBindings(c.Names, key, elem)
 	if c.Filter != nil {
@@ -250,9 +248,26 @@ func inferComprehension(
 	return TList(Infer(c.Value, TUnknown(), child, errs))
 }
 
+// checkComprehensionSource reports a comprehension over something
+// that has no elements to iterate. Tuples and objects pass: at
+// runtime they are the same lists and maps every comprehension
+// consumes.
+func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList) {
+	switch src.Unwrap().Kind {
+	case Unknown, Any, List, Map, Object, Tuple:
+		return
+	case Set:
+		errs.Addf(lang.ErrType, pos, "comprehension source cannot be a set")
+		return
+	}
+	errs.Addf(lang.ErrType, pos,
+		"comprehension source must be a list or map, got %s", src)
+}
+
 // comprehensionBindingTypes derives the binding types from the source.
 // key is the first binding (index for a list, key for a map); elem is
-// the iterated element or value.
+// the iterated element or value. A tuple or object binds the join of
+// its element types, since any element may be the one in hand.
 func comprehensionBindingTypes(src Type) (key, elem Type) {
 	src = src.Unwrap()
 	switch src.Kind {
@@ -260,6 +275,20 @@ func comprehensionBindingTypes(src Type) (key, elem Type) {
 		return TInteger(), elemOr(src)
 	case Map:
 		return TString(), elemOr(src)
+	case Tuple:
+		if j, ok := joinAll(src.Elems); ok {
+			return TInteger(), j
+		}
+		return TInteger(), TUnknown()
+	case Object:
+		types := make([]Type, len(src.Fields))
+		for i, f := range src.Fields {
+			types[i] = f.Type
+		}
+		if j, ok := joinAll(types); ok {
+			return TString(), j
+		}
+		return TString(), TUnknown()
 	}
 	return TUnknown(), TUnknown()
 }

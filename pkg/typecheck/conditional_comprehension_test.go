@@ -144,6 +144,62 @@ func TestInferComprehensionRejectsSetSource(t *testing.T) {
 	require.Equal(t, "comprehension source cannot be a set", errs.Errors()[0].Msg)
 }
 
+func TestInferComprehensionRejectsScalarSources(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "count", Type: TInteger()},
+			{Name: "name", Type: TString()},
+			{Name: "on", Type: TBoolean(), Optional: true},
+		},
+	}
+	tests := []struct {
+		src  string
+		want string
+	}{
+		{"[ for x in var.count : x ]",
+			"comprehension source must be a list or map, got integer"},
+		{"[ for x in var.name : x ]",
+			"comprehension source must be a list or map, got string"},
+		{"{ for k, v in var.on : k => v }",
+			"comprehension source must be a list or map, got optional(boolean)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
+			require.Len(t, errs.Errors(), 1)
+			assert.Equal(t, tt.want, errs.Errors()[0].Msg)
+		})
+	}
+}
+
+func TestInferComprehensionTupleSource(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "pair", Type: TTuple([]Type{TInteger(), TNumber()})},
+		},
+	}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "[ for x in var.pair : x ]"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TList(TNumber())), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
+func TestInferComprehensionObjectSource(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "cfg", Type: TObject([]ObjectField{
+				{Name: "a", Type: TString()},
+				{Name: "b", Type: TString()},
+			})},
+		},
+	}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "{ for k, v in var.cfg : k => v }"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TMap(TString())), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
 func TestInferComprehensionElementAgainstTarget(t *testing.T) {
 	errs := lang.NewErrorList(0)
 	Check(parseExpr(t, "[ for s in var.subnets : s.cidr ]"), TList(TInteger()), subnetScope(), errs)
