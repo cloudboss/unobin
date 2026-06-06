@@ -34,6 +34,10 @@ const (
 	Object
 	Tuple
 	Optional
+	// Union appears only in builtin function signatures, constructed
+	// by their registrations; inference never produces it and no
+	// source syntax writes it.
+	Union
 )
 
 // Type is a structural type description. The Kind field discrim-
@@ -97,6 +101,10 @@ func TObject(fields []ObjectField) Type {
 
 func TOpenObject(fields []ObjectField) Type {
 	return Type{Kind: Object, Open: true, Fields: fields}
+}
+
+func TUnion(members []Type) Type {
+	return Type{Kind: Union, Elems: members}
 }
 
 // IsKnown returns false when the Type is Unknown or wraps Unknown
@@ -192,6 +200,12 @@ func (t Type) String() string {
 			parts[i] = e.String()
 		}
 		return "tuple([" + strings.Join(parts, " ") + "])"
+	case Union:
+		parts := make([]string, len(t.Elems))
+		for i, e := range t.Elems {
+			parts[i] = e.String()
+		}
+		return strings.Join(parts, " | ")
 	case Object:
 		parts := make([]string, len(t.Fields))
 		for i, f := range t.Fields {
@@ -227,7 +241,7 @@ func (t Type) Equal(other Type) bool {
 			return t.Elem == other.Elem
 		}
 		return t.Elem.Equal(*other.Elem)
-	case Tuple:
+	case Tuple, Union:
 		if len(t.Elems) != len(other.Elems) {
 			return false
 		}

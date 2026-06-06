@@ -82,6 +82,11 @@ func TestCoreFunctionSet(t *testing.T) {
 
 	sigs := CoreFunctionSigs()
 	require.Len(t, sigs["length"].Params, 1)
+	require.True(t, sigs["length"].Params[0].Equal(typecheck.TUnion([]typecheck.Type{
+		typecheck.TString(),
+		typecheck.TList(typecheck.TOpaque()),
+		typecheck.TMap(typecheck.TOpaque()),
+	})), "got %s", sigs["length"].Params[0])
 	require.Nil(t, sigs["length"].Variadic)
 	require.True(t, sigs["length"].Result.Equal(typecheck.TInteger()))
 
@@ -95,4 +100,38 @@ func TestCoreFunctionSet(t *testing.T) {
 	require.True(t, sigs["to-json"].Params[0].Equal(typecheck.TOpaque()))
 	require.Nil(t, sigs["to-json"].Variadic)
 	require.True(t, sigs["to-json"].Result.Equal(typecheck.TString()))
+}
+
+// TestLengthUnionMatchesRuntime locks length's declared union to the
+// implementation: every member kind's value is accepted by the
+// runtime function, every non-member rejected by both the runtime
+// and the static face, and the rejection text is the same word for
+// word on both sides.
+func TestLengthUnionMatchesRuntime(t *testing.T) {
+	union := CoreFunctionSigs()["length"].Params[0]
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{"string", typecheck.TString(), "ab"},
+		{"list", typecheck.TList(typecheck.TOpaque()), []any{int64(1)}},
+		{"map", typecheck.TMap(typecheck.TOpaque()), map[string]any{"a": int64(1)}},
+		{"integer", typecheck.TInteger(), int64(1)},
+		{"number", typecheck.TNumber(), 1.5},
+		{"boolean", typecheck.TBoolean(), true},
+		{"null", typecheck.TNull(), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnLength(c.val)
+			staticOK := typecheck.Assignable(union, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
+
+	_, err := fnLength(int64(1))
+	require.EqualError(t, err,
+		"length: argument must be a string, list, or map, got an integer")
 }

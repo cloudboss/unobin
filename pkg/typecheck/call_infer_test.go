@@ -5,14 +5,16 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func callScope() *Scope {
 	strT := TString()
 	anyT := TOpaque()
+	lengthUnion := TUnion([]Type{TString(), TList(TOpaque()), TMap(TOpaque())})
 	sigs := map[string]FuncSig{
 		"b64-encode": {Params: []Type{TString()}, Result: TString()},
-		"length":     {Params: []Type{TOpaque()}, Result: TInteger()},
+		"length":     {Params: []Type{lengthUnion}, Result: TInteger()},
 		"all":        {Params: []Type{TList(TBoolean())}, Result: TBoolean()},
 		"format":     {Params: []Type{TString()}, Variadic: &anyT, Result: TString()},
 		"join":       {Params: []Type{TString()}, Variadic: &strT, Result: TString()},
@@ -35,6 +37,35 @@ func TestInferCallResultType(t *testing.T) {
 	got := Infer(parseExpr(t, "core.length('abc')"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TInteger()), "got %s", got)
 	assert.Empty(t, errs.Errors())
+}
+
+func TestInferCallUnionParameter(t *testing.T) {
+	scope := callScope()
+
+	for _, src := range []string{
+		"core.length('abc')",
+		"core.length([1, 2])",
+		"core.length({ a: 1 })",
+	} {
+		errs := lang.NewErrorList(0)
+		got := Infer(parseExpr(t, src), TUnknown(), scope, errs)
+		assert.True(t, got.Equal(TInteger()), "%s -> %s", src, got)
+		assert.Empty(t, errs.Errors(), "%s should not error: %v", src, errs.Errors())
+	}
+
+	// The rejection reuses the runtime function's own wording, so a
+	// compile failure and a plan failure read the same.
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "core.length(5)"), TUnknown(), scope, errs)
+	require.Equal(t,
+		[]string{"length: argument must be a string, list, or map, got an integer"},
+		errorMessages(errs))
+
+	errs = lang.NewErrorList(0)
+	Infer(parseExpr(t, "core.length(true)"), TUnknown(), scope, errs)
+	require.Equal(t,
+		[]string{"length: argument must be a string, list, or map, got a boolean"},
+		errorMessages(errs))
 }
 
 func TestInferCallChecksArguments(t *testing.T) {

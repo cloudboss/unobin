@@ -18,21 +18,35 @@ import (
 // The set is part of the language's compatibility promise: behavior
 // never changes, the set only grows, and a semantic change takes a
 // new name.
+//
+// sig, when set, replaces the reflected signature: a function whose
+// Go parameter is wider than its language face (length takes any but
+// accepts three kinds) declares the face here, and a parity test
+// holds the declaration to the implementation.
 var coreRegistrations = []struct {
 	name        string
 	description string
 	fn          any
+	sig         *typecheck.FuncSig
 }{
 	{"join",
 		"Join a list's elements into one string with a separator between elements.",
-		fnJoin},
-	{"to-json", "Render a value as compact JSON.", fnToJSON},
-	{"b64-encode", "Base64-encode a string.", fnB64Encode},
-	{"b64-decode", "Base64-decode a string.", fnB64Decode},
-	{"range", "Return the integers [0, n) as a list.", fnRange},
-	{"length", "Return the number of elements in a string, list, or map.", fnLength},
-	{"all", "Report whether every element of a list of booleans is true.", fnAll},
-	{"any", "Report whether at least one element of a list of booleans is true.", fnAny},
+		fnJoin, nil},
+	{"to-json", "Render a value as compact JSON.", fnToJSON, nil},
+	{"b64-encode", "Base64-encode a string.", fnB64Encode, nil},
+	{"b64-decode", "Base64-decode a string.", fnB64Decode, nil},
+	{"range", "Return the integers [0, n) as a list.", fnRange, nil},
+	{"length", "Return the number of elements in a string, list, or map.", fnLength,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(),
+				typecheck.TList(typecheck.TOpaque()),
+				typecheck.TMap(typecheck.TOpaque()),
+			})},
+			Result: typecheck.TInteger(),
+		}},
+	{"all", "Report whether every element of a list of booleans is true.", fnAll, nil},
+	{"any", "Report whether at least one element of a list of booleans is true.", fnAny, nil},
 }
 
 // coreFunctions is the language's function namespace: what a call
@@ -47,10 +61,15 @@ var coreFunctions = func() map[string]FunctionType {
 }()
 
 // coreSigs holds each @core function's compile-time signature, read
-// from the same implementations the runtime executes.
+// from the same implementations the runtime executes unless the
+// registration declares an explicit face.
 var coreSigs = func() map[string]typecheck.FuncSig {
 	out := make(map[string]typecheck.FuncSig, len(coreRegistrations))
 	for _, reg := range coreRegistrations {
+		if reg.sig != nil {
+			out[reg.name] = *reg.sig
+			continue
+		}
 		out[reg.name] = sigFromFunc(reg.fn)
 	}
 	return out

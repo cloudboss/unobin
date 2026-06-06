@@ -49,6 +49,13 @@ func Assignable(dst, src Type) bool {
 	}
 
 	switch dst.Kind {
+	case Union:
+		for _, m := range dst.Elems {
+			if Assignable(m, src) {
+				return true
+			}
+		}
+		return false
 	case String, Boolean, Null:
 		return dst.Kind == src.Kind
 	case Integer:

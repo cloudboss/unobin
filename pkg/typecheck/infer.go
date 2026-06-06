@@ -167,9 +167,89 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 		case sig.Variadic != nil:
 			target = *sig.Variadic
 		}
+		if target.Kind == Union {
+			checkUnionArg(c.Func.Name, arg, target, scope, errs)
+			continue
+		}
 		Check(arg, target, scope, errs)
 	}
 	return sig.Result
+}
+
+// checkUnionArg checks an argument against a builtin's union-typed
+// parameter. The diagnostic reuses the runtime function's own prose,
+// so a compile rejection and a plan rejection read the same.
+func checkUnionArg(
+	fnName string, arg lang.Expr, target Type, scope *Scope, errs *lang.ErrorList,
+) {
+	got := Infer(arg, TUnknown(), scope, errs)
+	if !got.IsKnown() || Assignable(target, got) {
+		return
+	}
+	errs.Addf(lang.ErrType, arg.Span().Start,
+		"%s: argument must be %s, got %s", fnName, unionProse(target), typeProse(got))
+}
+
+// unionProse names a union's members the way the runtime functions
+// do in their errors: "a string, list, or map".
+func unionProse(t Type) string {
+	nouns := make([]string, len(t.Elems))
+	for i, m := range t.Elems {
+		nouns[i] = kindNoun(m.Kind)
+	}
+	if len(nouns) > 2 {
+		return "a " + strings.Join(nouns[:len(nouns)-1], ", ") + ", or " + nouns[len(nouns)-1]
+	}
+	return "a " + strings.Join(nouns, " or ")
+}
+
+func kindNoun(k Kind) string {
+	switch k {
+	case String:
+		return "string"
+	case Integer:
+		return "integer"
+	case Number:
+		return "number"
+	case Boolean:
+		return "boolean"
+	case List:
+		return "list"
+	case Map:
+		return "map"
+	case Object:
+		return "object"
+	case Tuple:
+		return "tuple"
+	}
+	return "value"
+}
+
+// typeProse renders a type for prose the way the runtime's
+// TypeMessage names values: plain kinds get their article, anything
+// richer prints structurally.
+func typeProse(t Type) string {
+	switch t.Kind {
+	case String:
+		return "a string"
+	case Integer:
+		return "an integer"
+	case Number:
+		return "a number"
+	case Boolean:
+		return "a boolean"
+	case List:
+		return "a list"
+	case Map:
+		return "a map"
+	case Tuple:
+		return "a tuple"
+	case Object:
+		return "an object"
+	case Null:
+		return "null"
+	}
+	return t.String()
 }
 
 // inferConditional types `if cond then a else b`. The condition must be

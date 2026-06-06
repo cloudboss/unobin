@@ -156,6 +156,26 @@ func TestAssignableOpennessIsIrrelevant(t *testing.T) {
 	assert.True(t, Assignable(closed, wider))
 }
 
+func TestAssignableUnion(t *testing.T) {
+	union := TUnion([]Type{TString(), TList(TOpaque()), TMap(TOpaque())})
+
+	assert.True(t, Assignable(union, TString()))
+	assert.True(t, Assignable(union, TList(TString())))
+	assert.True(t, Assignable(union, TList(TOpaque())))
+	assert.True(t, Assignable(union, TMap(TInteger())))
+	assert.True(t, Assignable(union, TTuple([]Type{TString(), TInteger()})),
+		"a tuple is a list at runtime")
+	assert.True(t, Assignable(union, TUnknown()))
+
+	assert.False(t, Assignable(union, TInteger()))
+	assert.False(t, Assignable(union, TBoolean()))
+	assert.False(t, Assignable(union, TNull()))
+	assert.False(t, Assignable(union, TOpaque()),
+		"an opaque value flows only into opaque slots")
+	assert.False(t, Assignable(union, TOptional(TString())),
+		"a possibly-null value wants a null test first")
+}
+
 func TestAssignableObjectFromMap(t *testing.T) {
 	dst := TObject([]ObjectField{
 		{Name: "id", Type: TString()},

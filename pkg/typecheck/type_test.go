@@ -36,6 +36,11 @@ func TestTypeString(t *testing.T) {
 			TOpenObject([]ObjectField{{Name: "a", Type: TString()}}),
 			"open(object({ a: string }))",
 		},
+		{
+			"union",
+			TUnion([]Type{TString(), TList(TOpaque()), TMap(TOpaque())}),
+			"string | list(opaque) | map(opaque)",
+		},
 		{"unknown", TUnknown(), "unknown"},
 	}
 	for _, tt := range tests {
