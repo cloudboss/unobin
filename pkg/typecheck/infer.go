@@ -38,6 +38,10 @@ type Scope struct {
 	// failing, so the result of such a path is optional. Constraint
 	// expressions check in this mode; everything else is strict.
 	MissingAsNull bool
+	// Observe, when set, receives every inferred expression with its
+	// type. The residual-Unknown harness reads the stream to find
+	// positions the checker cannot type.
+	Observe func(e lang.Expr, t Type)
 }
 
 // FuncSig describes a library function to the inferrer: the fixed
@@ -98,6 +102,14 @@ type LookupLocalFn func(name string) (Type, bool)
 // to errs; the return value is best-effort and may be Unknown when
 // nothing useful can be determined.
 func Infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
+	t := infer(e, target, scope, errs)
+	if scope != nil && scope.Observe != nil && e != nil {
+		scope.Observe(e, t)
+	}
+	return t
+}
+
+func infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	if e == nil {
 		return TUnknown()
 	}

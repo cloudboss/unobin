@@ -56,6 +56,7 @@ func (c *referenceChecker) checkLocalsBlockTypes(scope string) {
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
+		Observe:        c.observe,
 	}
 	s.LookupLocal = c.lookupLocalFor(scope, s)
 	names := make([]string, 0, len(exprs))
@@ -198,6 +199,7 @@ func (c *referenceChecker) scopeFor(n *Node) *typecheck.Scope {
 		Inputs:         inputs,
 		LookupNode:     c.lookupNodeFor(n.Composite),
 		LookupFunction: c.lookupFunctionFor(n.Composite),
+		Observe:        c.observe,
 	}
 	scope.LookupLocal = c.lookupLocalFor(n.Composite, scope)
 	return scope
@@ -553,6 +555,7 @@ func (c *referenceChecker) checkOutputsBlock(f *lang.File, scope string) {
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
+		Observe:        c.observe,
 	}
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
@@ -591,6 +594,7 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 		LookupNode:     c.lookupNodeFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
 		MissingAsNull:  true,
+		Observe:        c.observe,
 	}
 	for _, e := range arr.Elements {
 		obj, ok := e.(*lang.ObjectLit)

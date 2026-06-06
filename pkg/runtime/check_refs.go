@@ -12,6 +12,17 @@ import (
 // CheckReferences reports references that cannot resolve to an input binding,
 // node address, or active for-each binding.
 func CheckReferences(f *lang.File, libs map[string]*Library) *lang.ErrorList {
+	return CheckReferencesObserved(f, libs, nil)
+}
+
+// CheckReferencesObserved runs the same checks as CheckReferences and
+// additionally streams every inferred expression and its type to
+// observe. The residual-Unknown harness reads the stream; a nil
+// observe checks without recording.
+func CheckReferencesObserved(
+	f *lang.File, libs map[string]*Library,
+	observe func(e lang.Expr, t typecheck.Type),
+) *lang.ErrorList {
 	c := &referenceChecker{
 		root:      f,
 		dag:       BuildDAG(f, libs),
@@ -20,6 +31,7 @@ func CheckReferences(f *lang.File, libs map[string]*Library) *lang.ErrorList {
 		locals:    map[string]map[string]bool{"": localNames(f)},
 		libraries: map[string]map[string]*Library{"": libs},
 		seen:      map[string]bool{},
+		observe:   observe,
 	}
 	c.collectCompositeScopes()
 	c.checkDeclarations()
@@ -43,6 +55,9 @@ type referenceChecker struct {
 	// types; forcingComposite guards a lookup that re-enters itself.
 	compositeOutputs map[*Node]map[string]typecheck.Type
 	forcingComposite map[*Node]bool
+	// observe, when set, rides the real checking walks' scopes so
+	// every inferred expression streams out with its type.
+	observe func(e lang.Expr, t typecheck.Type)
 }
 
 func (c *referenceChecker) collectCompositeScopes() {

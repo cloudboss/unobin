@@ -25,6 +25,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/toolchain"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 // Options configures one compile run.
@@ -61,6 +62,10 @@ type Options struct {
 	// process streams.
 	Stdout io.Writer
 	Stderr io.Writer
+	// TypeObserver, when set, receives every expression the stack's
+	// type checks infer, with its type. The residual-Unknown harness
+	// uses it; nil compiles without recording.
+	TypeObserver func(e lang.Expr, t typecheck.Type)
 }
 
 func (o Options) stdout() io.Writer {
@@ -231,7 +236,7 @@ func Run(opts Options) error {
 			libs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
 		}
 	}
-	if errs := ubruntime.CheckReferences(f, libs); errs.Len() > 0 {
+	if errs := ubruntime.CheckReferencesObserved(f, libs, opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}
 	if errs := ubruntime.CheckLiteralConstraints(f, libs); errs.Len() > 0 {
