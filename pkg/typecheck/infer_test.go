@@ -367,6 +367,76 @@ func TestIndexOpenObjectUndeclaredField(t *testing.T) {
 		errorMessages(errs))
 }
 
+func TestNavigateIntoOpaque(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{
+		{Name: "blob", Type: TOpaque()},
+		{Name: "cfg", Type: TObject([]ObjectField{{Name: "inner", Type: TOpaque()}})},
+		{Name: "tags", Type: TMap(TOpaque())},
+	}}
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			"dot",
+			"var.blob.url",
+			[]string{"var.blob is opaque; declare the fields you read, " +
+				"like open(object({ url: ... }))"},
+		},
+		{
+			"guarded dot",
+			"var.blob?.url",
+			[]string{"var.blob is opaque; declare the fields you read, " +
+				"like open(object({ url: ... }))"},
+		},
+		{
+			"string index",
+			"var.blob['url']",
+			[]string{"var.blob is opaque; declare the fields you read, " +
+				"like open(object({ url: ... }))"},
+		},
+		{
+			"integer index",
+			"var.blob[0]",
+			[]string{"var.blob is opaque; declare its type to index into it"},
+		},
+		{
+			"deep field",
+			"var.cfg.inner.url",
+			[]string{"var.cfg.inner is opaque; declare the fields you read, " +
+				"like open(object({ url: ... }))"},
+		},
+		{
+			"map element",
+			"var.tags['a'].x",
+			[]string{"var.tags['a'] is opaque; declare the fields you read, " +
+				"like open(object({ x: ... }))"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, c.src), TUnknown(), scope, errs)
+			assert.True(t, got.Equal(TUnknown()), "got %s", got)
+			require.Equal(t, c.want, errorMessages(errs))
+		})
+	}
+}
+
+func TestOpaqueReadsWholeValue(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{
+		{Name: "blob", Type: TOpaque()},
+		{Name: "tags", Type: TMap(TOpaque())},
+	}}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "var.blob"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOpaque()), "got %s", got)
+	got = Infer(parseExpr(t, "var.tags['a']"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOpaque()), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
 func TestInferInfixOperators(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)
@@ -662,12 +732,14 @@ func TestInferIndexSegments(t *testing.T) {
 		{src: "var.count[0]", want: unknown, wantErrs: []string{
 			"cannot index into integer",
 		}},
+		{src: "var.anything[0]", want: unknown, wantErrs: []string{
+			"var.anything is opaque; declare its type to index into it",
+		}},
 		{src: "var.ports[1 + 1]", want: TInteger()},
 		{src: "var.pair[0]", want: TString()},
 		{src: "var.pair[1]", want: TInteger()},
 		{src: "var.cfg['host']", want: TString()},
 		{src: "var.tags[var.name]", want: TString()},
-		{src: "var.anything[0]", want: TOpaque()},
 		{src: "[ for i, p in var.ports : var.ports[i] ]", want: TList(TInteger())},
 	}
 	for _, tt := range tests {

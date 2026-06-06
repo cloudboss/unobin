@@ -30,6 +30,7 @@ func splatScope() *Scope {
 			{Name: "m", Type: TMap(TString())},
 			{Name: "maybe", Type: TOptional(TList(TString()))},
 			{Name: "whatever", Type: TList(TOpaque())},
+			{Name: "blob", Type: TOpaque()},
 		},
 	}
 }
@@ -57,8 +58,7 @@ func TestInferSplat(t *testing.T) {
 			src:  "if var.maybe == null then [] else var.maybe[*]",
 			want: TList(TString()),
 		},
-		{name: "splat over list of any", src: "var.whatever[*]", want: TList(TOpaque())},
-		{name: "splat then field on any", src: "var.whatever[*].foo", want: TList(TOpaque())},
+		{name: "splat over list of opaque", src: "var.whatever[*]", want: TList(TOpaque())},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -88,6 +88,17 @@ func TestInferSplatRejectsNonList(t *testing.T) {
 			name: "double splat on int list",
 			src:  "var.nums[*][*]",
 			want: "splat [*] needs a list, got integer",
+		},
+		{
+			name: "splat over bare opaque",
+			src:  "var.blob[*]",
+			want: "var.blob is opaque; declare its type, like list(object({ ... }))",
+		},
+		{
+			name: "field on opaque elements",
+			src:  "var.whatever[*].foo",
+			want: "var.whatever[*] is opaque; declare the fields you read, " +
+				"like open(object({ foo: ... }))",
 		},
 	}
 	for _, c := range cases {

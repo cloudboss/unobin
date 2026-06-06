@@ -687,7 +687,9 @@ func traverseSegments(
 			case List:
 				elem = elemOr(current)
 			case Opaque:
-				elem = TOpaque()
+				errs.Addf(lang.ErrType, seg.S.Start,
+					"%s is opaque; declare its type, like list(object({ ... }))", at)
+				return TUnknown()
 			case Optional:
 				if current.Unwrap().Kind == List {
 					errs.Addf(lang.ErrType, seg.S.Start,
@@ -747,7 +749,10 @@ func traverseSegments(
 				at, at, seg.Name, current)
 			return TUnknown()
 		case Opaque:
-			return TOpaque()
+			errs.Addf(lang.ErrType, seg.S.Start,
+				"%s is opaque; declare the fields you read, like open(object({ %s: ... }))",
+				at, seg.Name)
+			return TUnknown()
 		default:
 			return TUnknown()
 		}
@@ -848,7 +853,15 @@ func indexSegmentType(
 		return TUnknown()
 	case Opaque:
 		Infer(seg.Index, TUnknown(), scope, errs)
-		return TOpaque()
+		if lit, ok := seg.Index.(*lang.StringLit); ok {
+			errs.Addf(lang.ErrType, seg.S.Start,
+				"%s is opaque; declare the fields you read, like open(object({ %s: ... }))",
+				at, lit.Value)
+			return TUnknown()
+		}
+		errs.Addf(lang.ErrType, seg.S.Start,
+			"%s is opaque; declare its type to index into it", at)
+		return TUnknown()
 	}
 	errs.Addf(lang.ErrType, seg.S.Start, "cannot index into %s", current)
 	return TUnknown()
