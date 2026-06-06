@@ -791,6 +791,97 @@ constraints: [
 	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
 }
 
+func TestCheckReferencesConfigurationRefs(t *testing.T) {
+	greetLib := func() *Library {
+		return &Library{Schema: &LibrarySchema{
+			Actions: map[string]*TypeSchema{
+				"say": {Inputs: map[string]typecheck.Type{
+					"message": typecheck.TString(),
+				}},
+			},
+		}}
+	}
+	composite := parseStack(t, `
+inputs: { name: { type: string } }
+actions: {
+  greet: { say: { hello: { message: var.name } } }
+}
+`)
+	libs := func() map[string]*Library {
+		return map[string]*Library{
+			"greet": greetLib(),
+			"bundle": {ActionComposites: map[string]*CompositeType{"wrap": {
+				Name:      "wrap",
+				Kind:      NodeAction,
+				Body:      composite,
+				Libraries: map[string]*Library{"greet": greetLib()},
+			}}},
+		}
+	}
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "leaf configuration reference",
+			src: `
+actions: {
+  greet: { say: { formal: { @configuration: greet.formal, message: 'w' } } }
+}
+`,
+		},
+		{
+			name: "composite configurations map",
+			src: `
+actions: {
+  bundle: { wrap: { formal: {
+    @configurations: { greet: greet.formal }
+    name: 'w'
+  } } }
+}
+`,
+		},
+		{
+			name: "unknown alias in a configuration reference",
+			src: `
+actions: {
+  greet: { say: { formal: { @configuration: nope.formal, message: 'w' } } }
+}
+`,
+			want: []string{`library "nope" is not imported`},
+		},
+		{
+			name: "bare name is not a configuration reference",
+			src: `
+actions: {
+  greet: { say: { formal: { @configuration: formal, message: 'w' } } }
+}
+`,
+			want: []string{"@configuration takes <import>.<name>"},
+		},
+		{
+			name: "string is not a configuration reference",
+			src: `
+actions: {
+  greet: { say: { formal: { @configuration: 'greet.formal', message: 'w' } } }
+}
+`,
+			want: []string{"@configuration takes <import>.<name>"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, tt.src), libs())
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestCheckReferencesUnknownPathRoots(t *testing.T) {
 	cases := []struct {
 		name string

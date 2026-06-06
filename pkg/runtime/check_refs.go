@@ -235,11 +235,49 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 		return
 	}
 	for _, fld := range obj.Fields {
+		if fld.Key.Kind == lang.FieldIdent {
+			switch fld.Key.Name {
+			case "@configuration":
+				c.checkConfigurationRef(fld.Value, scope)
+				continue
+			case "@configurations":
+				c.checkConfigurationsMap(fld.Value, scope)
+				continue
+			}
+		}
 		fieldEachOK := eachOK
 		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "@for-each" {
 			fieldEachOK = false
 		}
 		c.checkExpr(fld.Value, scope, fieldEachOK)
+	}
+}
+
+// checkConfigurationRef checks a configuration reference, the
+// greet.formal of `@configuration: greet.formal`. It is a name in
+// configuration space, not an expression: the root must be an
+// imported library, and whether that library declares the named
+// configuration is the executor's check, made at plan against the
+// decoded configurations.
+func (c *referenceChecker) checkConfigurationRef(v lang.Expr, scope string) {
+	dp, ok := v.(*lang.DotPath)
+	if !ok || dp.Root == nil || len(dp.Segments) != 1 || dp.Segments[0].Name == "" {
+		c.addf(v.Span().Start, "@configuration takes <import>.<name>")
+		return
+	}
+	libs := c.libraries[scope]
+	if libs != nil && libs[dp.Root.Name] == nil {
+		c.addf(dp.S.Start, `library %q is not imported`, dp.Root.Name)
+	}
+}
+
+func (c *referenceChecker) checkConfigurationsMap(v lang.Expr, scope string) {
+	obj, ok := v.(*lang.ObjectLit)
+	if !ok {
+		return
+	}
+	for _, fld := range obj.Fields {
+		c.checkConfigurationRef(fld.Value, scope)
 	}
 }
 
