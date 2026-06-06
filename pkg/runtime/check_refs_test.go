@@ -971,9 +971,28 @@ inputs: { names: { type: optional(list(string)) } }
 resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
 `,
 			want: []string{
-				"@for-each: iterable must be a map, got optional(list(string)); " +
-					"turn a list into a map with { for n in ns : n => n }",
+				"@for-each: iterable may be null; test it first, like " +
+					"if m == null then {} else m (got optional(list(string)))",
 			},
+		},
+		{
+			name: "node fan-out over a narrowed optional map",
+			src: `
+inputs: { tags: { type: optional(map(string)) } }
+resources: { local: { file: { one: {
+  @for-each: if var.tags == null then {} else var.tags
+  path: @each.value
+} } } }
+`,
+		},
+		{
+			name: "constraint fan-out over an optional list is vacuous when null",
+			src: `
+inputs: { names: { type: optional(list(string)) } }
+constraints: [
+  { kind: predicate, @for-each: var.names, when: true, require: true },
+]
+`,
 		},
 		{
 			name: "node fan-out over a scalar",

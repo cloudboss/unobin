@@ -646,8 +646,8 @@ constraints: [
 ]
 `), nil)
 	require.Equal(t, []string{
-		"interpolation slot may be null; narrow it before interpolating " +
-			"(got optional(string))",
+		"interpolation slot may be null; test it first, like " +
+			"{{ if x == null then '-' else x }} (got optional(string))",
 	}, checkErrorMessages(t, control))
 }
 

@@ -33,6 +33,11 @@ type Scope struct {
 	// narrowed type. Sound because values never change between the
 	// test and the read.
 	Narrowed map[string]Type
+	// MissingAsNull mirrors the evaluation mode of the same name:
+	// navigating into a possibly-null value reads as null instead of
+	// failing, so the result of such a path is optional. Constraint
+	// expressions check in this mode; everything else is strict.
+	MissingAsNull bool
 }
 
 // FuncSig describes a library function to the inferrer: the fixed
@@ -211,7 +216,8 @@ func checkInterpolatedSlot(t Type, pos lang.Position, errs *lang.ErrorList) {
 		return
 	case Null, Optional:
 		errs.Addf(lang.ErrType, pos,
-			"interpolation slot may be null; narrow it before interpolating (got %s)", t)
+			"interpolation slot may be null; test it first, like "+
+				"{{ if x == null then '-' else x }} (got %s)", t)
 	default:
 		errs.Addf(lang.ErrType, pos,
 			"interpolation slot must be a scalar, got %s", t)
@@ -261,13 +267,22 @@ func inferComprehension(
 }
 
 // checkComprehensionSource reports a comprehension over something
-// that has no elements to iterate. Tuples and objects pass: at
+// that has no elements to iterate, or that may be null, since the
+// evaluator rejects a null source. Tuples and objects pass: at
 // runtime they are the same lists and maps every comprehension
 // consumes.
 func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList) {
-	switch src.Unwrap().Kind {
+	switch src.Kind {
 	case Unknown, Any, List, Map, Object, Tuple:
 		return
+	case Optional:
+		switch src.Unwrap().Kind {
+		case Unknown, Any, List, Map, Object, Tuple:
+			errs.Addf(lang.ErrType, pos,
+				"comprehension source may be null; test it first, like "+
+					"if xs == null then [] else [ for x in xs : x ] (got %s)", src)
+			return
+		}
 	}
 	errs.Addf(lang.ErrType, pos,
 		"comprehension source must be a list or map, got %s", src)
@@ -597,8 +612,12 @@ func traverseSegments(
 	t Type, segs []lang.DotSegment, scope *Scope, errs *lang.ErrorList, skipFirst bool,
 ) Type {
 	current := t
+	mayBeNull := false
 	for i, seg := range segs {
-		current = current.Unwrap()
+		if current.Kind == Optional && scope != nil && scope.MissingAsNull {
+			mayBeNull = true
+			current = current.Unwrap()
+		}
 		if !current.IsKnown() {
 			return TUnknown()
 		}
@@ -609,11 +628,25 @@ func traverseSegments(
 				elem = elemOr(current)
 			case Any:
 				elem = TAny()
+			case Optional:
+				if current.Unwrap().Kind == List {
+					errs.Addf(lang.ErrType, seg.S.Start,
+						"value may be null; test it first, like "+
+							"if xs != null then xs[*].field else [] (got %s)", current)
+				} else {
+					errs.Addf(lang.ErrType, seg.S.Start,
+						"splat [*] needs a list, got %s", current)
+				}
+				return TUnknown()
 			default:
 				errs.Addf(lang.ErrType, seg.S.Start, "splat [*] needs a list, got %s", current)
 				return TUnknown()
 			}
-			return TList(traverseSegments(elem, segs[i+1:], scope, errs, false))
+			out := TList(traverseSegments(elem, segs[i+1:], scope, errs, false))
+			if mayBeNull {
+				return TOptional(out)
+			}
+			return out
 		}
 		if seg.Index != nil && seg.Name == "" {
 			current = indexSegmentType(current, seg, scope, errs)
@@ -646,11 +679,19 @@ func traverseSegments(
 				return TUnknown()
 			}
 			current = *current.Elem
+		case Optional:
+			errs.Addf(lang.ErrType, seg.S.Start,
+				"value may be null; test it first, like "+
+					"if x != null then x.%s else <fallback> (got %s)", seg.Name, current)
+			return TUnknown()
 		case Any:
 			return TAny()
 		default:
 			return TUnknown()
 		}
+	}
+	if mayBeNull {
+		return TOptional(current)
 	}
 	return current
 }
@@ -707,6 +748,11 @@ func indexSegmentType(current Type, seg lang.DotSegment, scope *Scope, errs *lan
 			return TOptional(field.Type)
 		}
 		return field.Type
+	case Optional:
+		errs.Addf(lang.ErrType, seg.S.Start,
+			"value may be null; test it first, like "+
+				"if xs != null then xs[0] else <fallback> (got %s)", current)
+		return TUnknown()
 	case Any:
 		Infer(seg.Index, TUnknown(), scope, errs)
 		return TAny()
@@ -989,6 +1035,15 @@ func join(a, b Type) (Type, bool) {
 			}
 			return Type{Kind: a.Kind, Elem: &j}, true
 		}
+	}
+	// An object literal joins with a map when its fields fit the
+	// map's elements; `if x == null then {} else x` discharging an
+	// optional map is the common case.
+	if a.Kind == Map && b.Kind == Object && Assignable(a, b) {
+		return a, true
+	}
+	if b.Kind == Map && a.Kind == Object && Assignable(b, a) {
+		return b, true
 	}
 	return Type{}, false
 }

@@ -178,6 +178,78 @@ func TestNarrowComprehensionFilter(t *testing.T) {
 	require.Equal(t, []string(nil), errorMessages(errs))
 }
 
+func strictScope() *Scope {
+	s := narrowScope()
+	s.Inputs = append(s.Inputs,
+		ObjectField{Name: "maybe-list", Type: TList(TString()), Optional: true},
+	)
+	return s
+}
+
+// Navigating into a value that may be null is the deferred null
+// dereference; the checker wants the test first. A narrowed prefix
+// reads straight through.
+func TestStrictOptionalNavigation(t *testing.T) {
+	tests := []struct {
+		src      string
+		want     Type
+		wantErrs []string
+	}{
+		{
+			src:  "var.tls.port",
+			want: TUnknown(),
+			wantErrs: []string{
+				"value may be null; test it first, like " +
+					"if x != null then x.port else <fallback> " +
+					"(got optional(object({ port: integer })))",
+			},
+		},
+		{
+			src:  "if var.tls != null then var.tls.port else 0",
+			want: TInteger(),
+		},
+		{
+			src:  "var.maybe-list[0]",
+			want: TUnknown(),
+			wantErrs: []string{
+				"value may be null; test it first, like " +
+					"if xs != null then xs[0] else <fallback> " +
+					"(got optional(list(string)))",
+			},
+		},
+		{
+			src:  "var.maybe-list[*]",
+			want: TUnknown(),
+			wantErrs: []string{
+				"value may be null; test it first, like " +
+					"if xs != null then xs[*].field else [] " +
+					"(got optional(list(string)))",
+			},
+		},
+		{
+			src:  "[ for s in var.maybe-list : s ]",
+			want: TList(TString()),
+			wantErrs: []string{
+				"comprehension source may be null; test it first, like " +
+					"if xs == null then [] else [ for x in xs : x ] " +
+					"(got optional(list(string)))",
+			},
+		},
+		{
+			src:  "if var.maybe-list == null then [] else [ for s in var.maybe-list : s ]",
+			want: TList(TString()),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
+			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
+		})
+	}
+}
+
 // No narrowing without a null test, and none through an index: the
 // slot complaints stay.
 func TestNarrowDoesNotInvent(t *testing.T) {
@@ -189,8 +261,8 @@ func TestNarrowDoesNotInvent(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, src), TUnknown(), narrowScope(), errs)
 			require.Equal(t, []string{
-				"interpolation slot may be null; narrow it before interpolating " +
-					"(got optional(string))",
+				"interpolation slot may be null; test it first, like " +
+					"{{ if x == null then '-' else x }} (got optional(string))",
 			}, errorMessages(errs))
 		})
 	}

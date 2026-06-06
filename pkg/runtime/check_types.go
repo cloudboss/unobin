@@ -477,10 +477,21 @@ func eachBindingFromBody(
 // checkFanOutIterable reports a node @for-each whose iterable can
 // never fan out. The runtime iterates maps only, so each instance
 // gets a stable key; a list teaches the comprehension that builds
-// the map it needs.
+// the map it needs, and a possibly-null iterable wants a null test,
+// since the runtime rejects null.
 func checkFanOutIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
-	switch t.Unwrap().Kind {
+	switch t.Kind {
 	case typecheck.Unknown, typecheck.Any, typecheck.Map, typecheck.Object:
+	case typecheck.Optional:
+		switch t.Unwrap().Kind {
+		case typecheck.Unknown, typecheck.Any, typecheck.Map, typecheck.Object,
+			typecheck.List, typecheck.Tuple:
+			errs.Addf(lang.ErrType, pos,
+				"@for-each: iterable may be null; test it first, like "+
+					"if m == null then {} else m (got %s)", t)
+		default:
+			errs.Addf(lang.ErrType, pos, "@for-each: iterable must be a map, got %s", t)
+		}
 	case typecheck.List, typecheck.Tuple:
 		errs.Addf(lang.ErrType, pos,
 			"@for-each: iterable must be a map, got %s; "+
@@ -566,10 +577,14 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 	if !ok {
 		return
 	}
+	// Constraints evaluate with MissingAsNull, so navigating into a
+	// possibly-null input reads as null there instead of failing; the
+	// checker mirrors that mode.
 	s := &typecheck.Scope{
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
+		MissingAsNull:  true,
 	}
 	for _, e := range arr.Elements {
 		obj, ok := e.(*lang.ObjectLit)
@@ -630,7 +645,8 @@ func bareConstraintIterable(forEach lang.Expr) bool {
 
 // checkConstraintIterable reports a bare constraint @for-each whose
 // iterable is not a list or a map, the kinds the predicate runtime
-// iterates.
+// iterates. An optional iterable stays legal: the predicate runtime
+// skips a null iterable, so the entry is vacuously satisfied.
 func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
 	switch t.Unwrap().Kind {
 	case typecheck.Unknown, typecheck.Any, typecheck.List,

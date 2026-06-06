@@ -52,7 +52,11 @@ func TestInferSplat(t *testing.T) {
 			want: TList(TList(TString())),
 		},
 		{name: "bare splat types as the list", src: "var.nums[*]", want: TList(TInteger())},
-		{name: "splat over optional list", src: "var.maybe[*]", want: TList(TString())},
+		{
+			name: "splat over a narrowed optional list",
+			src:  "if var.maybe == null then [] else var.maybe[*]",
+			want: TList(TString()),
+		},
 		{name: "splat over list of any", src: "var.whatever[*]", want: TList(TAny())},
 		{name: "splat then field on any", src: "var.whatever[*].foo", want: TList(TAny())},
 	}
@@ -73,6 +77,12 @@ func TestInferSplatRejectsNonList(t *testing.T) {
 		want string
 	}{
 		{name: "map", src: "var.m[*]", want: "splat [*] needs a list, got map(string)"},
+		{
+			name: "optional list",
+			src:  "var.maybe[*]",
+			want: "value may be null; test it first, like " +
+				"if xs != null then xs[*].field else [] (got optional(list(string)))",
+		},
 		{name: "scalar field", src: "var.subnets[*].id[*]", want: "splat [*] needs a list, got string"},
 		{
 			name: "double splat on int list",
