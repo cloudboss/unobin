@@ -688,9 +688,28 @@ func (c *referenceChecker) checkBindingPath(dp *lang.DotPath, it iterScope) {
 // constraint kinds, format names) are schema positions, not
 // expressions, and are never walked here.
 func (c *referenceChecker) checkExprIdents(expr lang.Expr) {
-	walkFreeIdents(expr, nil, func(id *lang.Ident, bound map[string]bool) {
+	walkFreeIdents(expr, nil, func(id *lang.Ident, bound map[string]bool, isRoot bool) {
+		if isRoot {
+			c.checkPathRoot(id, bound)
+			return
+		}
 		c.checkIdent(id, bound)
 	})
+}
+
+// checkPathRoot reports a dot path whose root names nothing: not an
+// address root, not a comprehension binding. Eval would fail on the
+// same path at plan, with less to say about it.
+func (c *referenceChecker) checkPathRoot(root *lang.Ident, bound map[string]bool) {
+	name := root.Name
+	known := func(s string) bool { return bound[s] }
+	if prefix, rest, ok := hyphenSubtraction(name, known); ok {
+		c.addf(root.S.Start, "unknown name %q; write %s - %s to subtract",
+			name, prefix, subtrahendText("", rest))
+		return
+	}
+	c.addf(root.S.Start,
+		"unknown name %q; references start with var, local, resource, data, or action", name)
 }
 
 func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
@@ -715,17 +734,19 @@ func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
 // walkFreeIdents visits every bare identifier in e that no enclosing
 // comprehension binds, passing the binding names in scope at that
 // identifier. A comprehension's source reads the outer scope; its
-// key, value, and filter see the comprehension's own names too. Dot
-// path roots and call names are not bare identifiers and stay with
-// their own checks.
-func walkFreeIdents(e lang.Expr, bound map[string]bool, visit func(*lang.Ident, map[string]bool)) {
+// key, value, and filter see the comprehension's own names too. A dot
+// path root that is neither bound nor an address root visits with
+// isRoot set; call names stay with their own checks.
+func walkFreeIdents(
+	e lang.Expr, bound map[string]bool, visit func(*lang.Ident, map[string]bool, bool),
+) {
 	if e == nil {
 		return
 	}
 	switch v := e.(type) {
 	case *lang.Ident:
 		if !bound[v.Name] {
-			visit(v, bound)
+			visit(v, bound, false)
 		}
 	case *lang.ObjectLit:
 		for _, fld := range v.Fields {
@@ -745,6 +766,9 @@ func walkFreeIdents(e lang.Expr, bound map[string]bool, visit func(*lang.Ident, 
 	case *lang.Prefix:
 		walkFreeIdents(v.Expr, bound, visit)
 	case *lang.DotPath:
+		if v.Root != nil && !bound[v.Root.Name] && !addressRoot(v.Root.Name) {
+			visit(v.Root, bound, true)
+		}
 		for _, seg := range v.Segments {
 			walkFreeIdents(seg.Index, bound, visit)
 		}
@@ -767,6 +791,17 @@ func walkFreeIdents(e lang.Expr, bound map[string]bool, visit func(*lang.Ident, 
 			walkFreeIdents(part.Expr, bound, visit)
 		}
 	}
+}
+
+// addressRoot reports whether a dot path root has its own checker:
+// the address roots, and any @-named binding, whose validity depends
+// on the iteration context enclosing the expression.
+func addressRoot(name string) bool {
+	switch name {
+	case "var", "resource", "data", "action", "local":
+		return true
+	}
+	return strings.HasPrefix(name, "@")
 }
 
 // hyphenSubtraction splits an unknown kebab-case name at the hyphen

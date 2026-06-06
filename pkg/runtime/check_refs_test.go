@@ -791,6 +791,68 @@ constraints: [
 	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
 }
 
+func TestCheckReferencesUnknownPathRoots(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "dotted unknown root",
+			src:  `outputs: { bad: { value: foo.bar } }`,
+			want: []string{
+				`unknown name "foo"; references start with var, local, ` +
+					"resource, data, or action",
+			},
+		},
+		{
+			name: "typo of an address root",
+			src: `
+inputs: { thing: { type: string } }
+outputs: { bad: { value: vars.thing } }
+`,
+			want: []string{`unknown name "vars"`},
+		},
+		{
+			name: "unknown root in a constraint",
+			src: `
+constraints: [
+  { kind: predicate, when: foo.bar == null, require: true },
+]
+`,
+			want: []string{`unknown name "foo"`},
+		},
+		{
+			name: "binding root with hyphen suggests subtraction",
+			src: `
+inputs: { xs: { type: list(integer) } }
+outputs: { bad: { value: [ for x in var.xs : x-1.value ] } }
+`,
+			want: []string{`unknown name "x-1"; write x - 1 to subtract`},
+		},
+		{
+			name: "comprehension binding is a legal root",
+			src: `
+inputs: { subnets: { type: list(object({ cidr: string })) } }
+outputs: { ok: { value: [ for s in var.subnets : s.cidr ] } }
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, tt.src), nil)
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			require.Len(t, got, len(tt.want), "got: %v", got)
+			for i, want := range tt.want {
+				require.Contains(t, got[i], want)
+			}
+		})
+	}
+}
+
 func TestCheckReferencesForEachKinds(t *testing.T) {
 	cases := []struct {
 		name string
