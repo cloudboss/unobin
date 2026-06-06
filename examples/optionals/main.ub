@@ -1,0 +1,69 @@
+description: '''>-
+  Shows how optional inputs work under strict null checking: a declared
+  default reads as a plain value, an optional without one needs a null test
+  before use, and the test narrows the value for the region it guards.
+  '''
+
+inputs: {
+  base-path: { type: string, description: 'Directory the files are written under' }
+  name:      { type: string, description: 'Who the banner greets' }
+  greeting: {
+    type:        optional(string)
+    description: 'Custom banner text; omitted, the stack builds one'
+  }
+  suffix: {
+    type:        optional(string, '!')
+    description: 'Banner punctuation, with a declared default'
+  }
+  labels: { type: optional(map(string)), description: 'Extra files to write, name to content' }
+  upstreams: {
+    type:        optional(list(object({ host: string, port: optional(integer) })))
+    description: 'Upstream services; the port is optional per upstream'
+  }
+}
+
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
+
+constraints: [
+  # A constraint reads a missing value as null, and the null test in
+  # `when` narrows what `require` reads, so the guard is the whole
+  # discharge here. Each upstream's optional port needs its own test.
+  {
+    kind:    predicate
+    when:    var.upstreams != null
+    require: @core.all([ for u in var.upstreams : u.port == null || u.port > 0 ])
+    message: 'upstream ports must be positive'
+  },
+]
+
+locals: {
+  # suffix has a declared default, so it reads as a plain string with
+  # no test. greeting has none: the null test supplies the fallback,
+  # and in the else branch the checker knows greeting is a string.
+  banner: if var.greeting == null then $'Hello, {{ var.name }}{{ var.suffix }}' else var.greeting
+
+  # One test discharges the list for everything built from it.
+  upstreams: if var.upstreams == null then [] else var.upstreams
+
+  # A comprehension filter narrows too: u.port is a plain integer in
+  # the value expression, because elements that fail the test never
+  # reach it.
+  ports: [ for u in local.upstreams : u.port when u.port != null ]
+}
+
+resources: {
+  std: {
+    fs-file: {
+      banner: { path: $'{{ var.base-path }}/banner.txt', content: local.banner }
+      label: {
+        # A possibly-null map cannot fan out; the test supplies the
+        # empty case, so omitting the input means no instances.
+        @for-each: if var.labels == null then {} else var.labels
+        path:      $'{{ var.base-path }}/label-{{ @each.key }}.txt'
+        content:   @each.value
+      }
+    }
+  }
+}
+
+outputs: { banner: { value: local.banner }, ports: { value: local.ports } }

@@ -1,0 +1,8 @@
+state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+
+inputs: {
+  base-path: '/tmp'
+  name:      'world'
+  labels:    { motd: 'have a nice day', team: 'platform' }
+  upstreams: [{ host: 'a.internal', port: 8080 }, { host: 'b.internal' }]
+}
