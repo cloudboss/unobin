@@ -2,21 +2,3 @@
 # contains Unknown, one per line as <file>:<line>:<col> <type>.
 # Empty is the goal: an addition is a regression to explain, a
 # removal is progress to record here.
-examples/comprehensions/main.ub:47:13 object({ value: unknown })
-examples/comprehensions/main.ub:47:22 unknown
-examples/comprehensions/main.ub:49:17 object({ value: unknown })
-examples/comprehensions/main.ub:49:26 unknown
-examples/locals/main.ub:32:14 object({ value: unknown })
-examples/locals/main.ub:32:23 unknown
-examples/locals/main.ub:33:14 object({ value: unknown })
-examples/locals/main.ub:33:23 unknown
-examples/locals/main.ub:34:14 object({ value: unknown })
-examples/locals/main.ub:34:23 unknown
-examples/optionals/main.ub:81:11 object({ value: unknown })
-examples/optionals/main.ub:81:20 unknown
-examples/optionals/main.ub:82:11 object({ value: unknown })
-examples/optionals/main.ub:82:20 unknown
-examples/optionals/main.ub:83:11 object({ value: unknown })
-examples/optionals/main.ub:83:20 unknown
-examples/payloads/main.ub:47:15 object({ value: unknown })
-examples/payloads/main.ub:47:24 unknown

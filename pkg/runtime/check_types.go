@@ -557,6 +557,7 @@ func (c *referenceChecker) checkOutputsBlock(f *lang.File, scope string) {
 		LookupFunction: c.lookupFunctionFor(scope),
 		Observe:        c.observe,
 	}
+	s.LookupLocal = c.lookupLocalFor(scope, s)
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue

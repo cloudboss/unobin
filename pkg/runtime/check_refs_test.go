@@ -501,6 +501,25 @@ outputs: {
 	require.Contains(t, got[0], `unknown field "nope"`)
 }
 
+func TestCheckReferencesOutputsReadLocals(t *testing.T) {
+	src := `
+inputs: { count: { type: integer } }
+locals: { doubled: var.count * 2 }
+outputs: {
+  ok:  { value: local.doubled + 1 }
+  bad: { value: local.doubled + 'x' }
+}
+`
+	errs := CheckReferences(parseStack(t, src), nil)
+	var got []string
+	for _, e := range errs.Errors() {
+		got = append(got, e.Msg)
+	}
+	require.Equal(t, []string{
+		"+: operands must both be numbers or both be strings, got integer and string",
+	}, got)
+}
+
 func TestCheckReferencesCompositeOutputMustBeDeclared(t *testing.T) {
 	composite := parseStack(t, `
 resources: {
