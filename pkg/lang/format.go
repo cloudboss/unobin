@@ -433,6 +433,9 @@ func (w *formatter) dotPathWidth(dp *DotPath) int {
 			total += 2 + iw
 			continue
 		}
+		if seg.Guarded {
+			total++
+		}
 		total += 1 + len(seg.Name)
 	}
 	return total
@@ -1424,6 +1427,9 @@ func (w *formatter) writeDotPath(dp *DotPath, indent string) error {
 			}
 			w.buf.WriteByte(']')
 			continue
+		}
+		if seg.Guarded {
+			w.buf.WriteByte('?')
 		}
 		w.buf.WriteByte('.')
 		w.buf.WriteString(seg.Name)

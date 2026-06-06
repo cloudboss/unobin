@@ -372,6 +372,34 @@ func TestEvalCallArgError(t *testing.T) {
 	require.Contains(t, err.Error(), "arg 0")
 }
 
+func TestEvalGuardedNavigation(t *testing.T) {
+	ctx := &EvalContext{Vars: map[string]any{
+		"tls": nil,
+		"cfg": map[string]any{"db": map[string]any{"host": "h"}},
+		"bad": map[string]any{"db": nil},
+	}}
+	cases := []struct {
+		src  string
+		want any
+	}{
+		{"var.tls?.port", nil},
+		{"var.cfg?.db?.host", "h"},
+		{"var.cfg?.db.host", "h"},
+		{"var.bad?.db?.host", nil},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := Eval(parseValue(t, c.src), ctx)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+
+	_, err := Eval(parseValue(t, "var.tls.port"), ctx)
+	require.Error(t, err, "an unguarded read of null still fails")
+	require.Contains(t, err.Error(), "cannot navigate into null")
+}
+
 func TestEvalArithmeticInt(t *testing.T) {
 	cases := []struct {
 		src  string

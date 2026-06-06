@@ -249,6 +249,12 @@ func encodeDotPath(b *strings.Builder, n *lang.DotPath) error {
 					return err
 				}
 			}
+			if s.Splat {
+				b.WriteString("Splat: true")
+			}
+			if s.Guarded {
+				b.WriteString(", Guarded: true")
+			}
 			b.WriteString("}")
 		}
 		b.WriteString("}")

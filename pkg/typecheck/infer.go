@@ -519,12 +519,12 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if dp.Root == nil {
 		return TUnknown()
 	}
-	if t, rest, ok := narrowedLookup(scope, dp); ok {
-		return traverseSegments(t, rest, scope, errs, false)
+	if t, rest, at, ok := narrowedLookup(scope, dp); ok {
+		return traverseSegments(t, rest, at, scope, errs, false)
 	}
 	if scope != nil {
 		if t, ok := scope.Bindings[dp.Root.Name]; ok {
-			return traverseSegments(t, dp.Segments, scope, errs, false)
+			return traverseSegments(t, dp.Segments, dp.Root.Name, scope, errs, false)
 		}
 	}
 	switch dp.Root.Name {
@@ -540,8 +540,25 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	return TUnknown()
 }
 
+// rejectGuardedRoot reports a `?.` used where the navigation cannot
+// be null: the var, local, and @each tables always exist, and a node
+// address is a name, not a value.
+func rejectGuardedRoot(root string, segs []lang.DotSegment, n int, errs *lang.ErrorList) bool {
+	for i := 0; i < n && i < len(segs); i++ {
+		if segs[i].Guarded {
+			errs.Addf(lang.ErrType, segs[i].S.Start,
+				"%s is never null; write %s.%s", root, root, segs[i].Name)
+			return true
+		}
+	}
+	return false
+}
+
 func inferLocal(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || scope.LookupLocal == nil || len(dp.Segments) == 0 {
+		return TUnknown()
+	}
+	if rejectGuardedRoot("local", dp.Segments, 1, errs) {
 		return TUnknown()
 	}
 	name := dp.Segments[0].Name
@@ -552,11 +569,14 @@ func inferLocal(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if !ok {
 		return TUnknown()
 	}
-	return traverseSegments(t, dp.Segments[1:], scope, errs, false)
+	return traverseSegments(t, dp.Segments[1:], "local."+name, scope, errs, false)
 }
 
 func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || len(dp.Segments) == 0 {
+		return TUnknown()
+	}
+	if rejectGuardedRoot("var", dp.Segments, 1, errs) {
 		return TUnknown()
 	}
 	name := dp.Segments[0].Name
@@ -570,11 +590,14 @@ func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if field.Optional && !field.Defaulted {
 		t = TOptional(t)
 	}
-	return traverseSegments(t, dp.Segments[1:], scope, errs, false)
+	return traverseSegments(t, dp.Segments[1:], "var."+name, scope, errs, false)
 }
 
 func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || scope.LookupNode == nil || len(dp.Segments) < 3 {
+		return TUnknown()
+	}
+	if rejectGuardedRoot(dp.Root.Name, dp.Segments, 3, errs) {
 		return TUnknown()
 	}
 	alias := dp.Segments[0].Name
@@ -587,15 +610,20 @@ func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if !ok {
 		return TUnknown()
 	}
+	at := dp.Root.Name + "." + alias + "." + typ + "." + name
 	rest := dp.Segments[3:]
 	if len(rest) > 0 && rest[0].Index != nil && rest[0].Name == "" {
+		at += segIndexText(rest[0])
 		rest = rest[1:]
 	}
-	return traverseSegments(t, rest, scope, errs, true)
+	return traverseSegments(t, rest, at, scope, errs, true)
 }
 
 func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || scope.Each == nil || len(dp.Segments) == 0 {
+		return TUnknown()
+	}
+	if rejectGuardedRoot("@each", dp.Segments, 1, errs) {
 		return TUnknown()
 	}
 	var t Type
@@ -607,14 +635,15 @@ func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	default:
 		return TUnknown()
 	}
-	return traverseSegments(t, dp.Segments[1:], scope, errs, false)
+	return traverseSegments(t, dp.Segments[1:], "@each."+dp.Segments[0].Name, scope, errs, false)
 }
 
 // traverseSegments walks the trailing field segments after a root
 // reference, narrowing the type as it descends. Each .name segment
 // looks up an object field; each [expr] segment indexes a list, set,
 // map, tuple, or object element. Returns Unknown when a segment
-// cannot be resolved.
+// cannot be resolved. at is the source form of the path consumed so
+// far, grown per segment so diagnostics name the exact read.
 //
 // skipFirst suppresses the unknown-field diagnostic at segs[0] so
 // callers whose first segment is already checked elsewhere (the
@@ -622,12 +651,26 @@ func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 // for resource/data/action paths) do not report twice. Deeper
 // segments always report.
 func traverseSegments(
-	t Type, segs []lang.DotSegment, scope *Scope, errs *lang.ErrorList, skipFirst bool,
+	t Type, segs []lang.DotSegment, at string, scope *Scope, errs *lang.ErrorList,
+	skipFirst bool,
 ) Type {
 	current := t
 	mayBeNull := false
 	for i, seg := range segs {
-		if current.Kind == Optional && scope != nil && scope.MissingAsNull {
+		if seg.Guarded {
+			switch current.Kind {
+			case Optional:
+				mayBeNull = true
+				current = current.Unwrap()
+			case Unknown, Any:
+				// Nullability is unknowable here; the guard is allowed
+				// and decides nothing.
+			default:
+				errs.Addf(lang.ErrType, seg.S.Start,
+					"%s is never null; write %s.%s (got %s)", at, at, seg.Name, current)
+				return TUnknown()
+			}
+		} else if current.Kind == Optional && scope != nil && scope.MissingAsNull {
 			mayBeNull = true
 			current = current.Unwrap()
 		}
@@ -644,28 +687,29 @@ func traverseSegments(
 			case Optional:
 				if current.Unwrap().Kind == List {
 					errs.Addf(lang.ErrType, seg.S.Start,
-						"value may be null; test it first, like "+
-							"if xs != null then xs[*].field else [] (got %s)", current)
+						"%s may be null; test it first, like "+
+							"if %s != null then %s[*]... else [] (got %s)",
+						at, at, at, current)
 				} else {
-					errs.Addf(lang.ErrType, seg.S.Start,
-						"splat [*] needs a list, got %s", current)
+					errs.Addf(lang.ErrType, seg.S.Start, "splat [*] needs a list, got %s", current)
 				}
 				return TUnknown()
 			default:
 				errs.Addf(lang.ErrType, seg.S.Start, "splat [*] needs a list, got %s", current)
 				return TUnknown()
 			}
-			out := TList(traverseSegments(elem, segs[i+1:], scope, errs, false))
+			out := TList(traverseSegments(elem, segs[i+1:], at+"[*]", scope, errs, false))
 			if mayBeNull {
 				return TOptional(out)
 			}
 			return out
 		}
 		if seg.Index != nil && seg.Name == "" {
-			current = indexSegmentType(current, seg, scope, errs)
+			current = indexSegmentType(current, seg, at, scope, errs)
 			if !current.IsKnown() {
 				return TUnknown()
 			}
+			at += segIndexText(seg)
 			continue
 		}
 		if seg.Name == "" {
@@ -694,19 +738,36 @@ func traverseSegments(
 			current = *current.Elem
 		case Optional:
 			errs.Addf(lang.ErrType, seg.S.Start,
-				"value may be null; test it first, like "+
-					"if x != null then x.%s else <fallback> (got %s)", seg.Name, current)
+				"%s may be null; read it with %s?.%s, or test it first (got %s)",
+				at, at, seg.Name, current)
 			return TUnknown()
 		case Any:
 			return TAny()
 		default:
 			return TUnknown()
 		}
+		if seg.Guarded {
+			at += "?." + seg.Name
+		} else {
+			at += "." + seg.Name
+		}
 	}
 	if mayBeNull {
 		return TOptional(current)
 	}
 	return current
+}
+
+// segIndexText renders an index segment for a diagnostic: literal
+// indexes exactly, anything computed as [..].
+func segIndexText(seg lang.DotSegment) string {
+	switch v := seg.Index.(type) {
+	case *lang.NumberLit:
+		return "[" + v.Value + "]"
+	case *lang.StringLit:
+		return "['" + v.Value + "']"
+	}
+	return "[..]"
 }
 
 // inferInfix types a binary operator expression and checks the
@@ -721,7 +782,9 @@ func traverseSegments(
 // type, since its elements differ by position or name; a computed
 // index still has its type checked but yields the elements' join (for
 // a tuple) or Unknown (for an object).
-func indexSegmentType(current Type, seg lang.DotSegment, scope *Scope, errs *lang.ErrorList) Type {
+func indexSegmentType(
+	current Type, seg lang.DotSegment, at string, scope *Scope, errs *lang.ErrorList,
+) Type {
 	switch current.Kind {
 	case List:
 		Check(seg.Index, TInteger(), scope, errs)
@@ -763,8 +826,9 @@ func indexSegmentType(current Type, seg lang.DotSegment, scope *Scope, errs *lan
 		return field.Type
 	case Optional:
 		errs.Addf(lang.ErrType, seg.S.Start,
-			"value may be null; test it first, like "+
-				"if xs != null then xs[0] else <fallback> (got %s)", current)
+			"%s may be null; test it first, like "+
+				"if %s != null then %s%s else <fallback> (got %s)",
+			at, at, at, segIndexText(seg), current)
 		return TUnknown()
 	case Any:
 		Infer(seg.Index, TUnknown(), scope, errs)

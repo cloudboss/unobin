@@ -127,6 +127,22 @@ func TestEncodeDotPath(t *testing.T) {
 	parsesAsGoExpr(t, out)
 }
 
+func TestEncodeDotPathSplat(t *testing.T) {
+	src := "outputs: { x: { value: var.subnets[*].id } }"
+	out := encodeBody(t, src)
+	require.Contains(t, out, `{Splat: true}`)
+	require.Contains(t, out, `{Name: "id"}`)
+	parsesAsGoExpr(t, out)
+}
+
+func TestEncodeDotPathGuarded(t *testing.T) {
+	src := "outputs: { x: { value: var.cfg?.db?.host } }"
+	out := encodeBody(t, src)
+	require.Contains(t, out, `{Name: "db", Guarded: true}`)
+	require.Contains(t, out, `{Name: "host", Guarded: true}`)
+	parsesAsGoExpr(t, out)
+}
+
 func TestEncodeDotPathWithIndex(t *testing.T) {
 	src := "outputs: { x: { value: resource.aws.subnet.public['us-east-1a'].id } }"
 	out := encodeBody(t, src)

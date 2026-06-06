@@ -80,8 +80,8 @@ func TestInferSplatRejectsNonList(t *testing.T) {
 		{
 			name: "optional list",
 			src:  "var.maybe[*]",
-			want: "value may be null; test it first, like " +
-				"if xs != null then xs[*].field else [] (got optional(list(string)))",
+			want: "var.maybe may be null; test it first, like " +
+				"if var.maybe != null then var.maybe[*]... else [] (got optional(list(string)))",
 		},
 		{name: "scalar field", src: "var.subnets[*].id[*]", want: "splat [*] needs a list, got string"},
 		{

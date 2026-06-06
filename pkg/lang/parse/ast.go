@@ -291,9 +291,13 @@ func (n *DotPath) exprNode()  {}
 // projects the segments to its right over each element of a list.
 type DotSegment struct {
 	S     Span
-	Name  string // Set when this segment is `.name`.
+	Name  string // Set when this segment is `.name` or `?.name`.
 	Index Expr   // Set when this segment is `[expr]`, otherwise nil.
 	Splat bool   // Set when this segment is `[*]`.
+	// Guarded is set when this segment is `?.name`: a null value
+	// stops the navigation and the whole path reads as null, so the
+	// path's type is optional.
+	Guarded bool
 }
 
 // Call is a function call: `format('%s-%s' a b)`. Args are whitespace-

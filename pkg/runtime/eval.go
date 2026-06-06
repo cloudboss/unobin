@@ -724,11 +724,15 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 // nested maps. path accumulates the source form for error messages. A
 // missing key yields ErrEvalNotFound so plan can treat it as known
 // after apply, unless the context set MissingAsNull, in which case a
-// missing key or a null parent reads as null instead.
+// missing key or a null parent reads as null instead. A `?.` segment
+// reads a null value as the whole path's result instead of failing.
 func navigateSegments(
 	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
 ) (any, error) {
 	for i, seg := range segs {
+		if cur == nil && seg.Guarded {
+			return nil, nil
+		}
 		if cur == nil && ctx != nil && ctx.MissingAsNull {
 			return nil, nil
 		}

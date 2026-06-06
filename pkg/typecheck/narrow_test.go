@@ -76,20 +76,21 @@ func TestNarrowedLookupPrefixes(t *testing.T) {
 	scope := &Scope{Narrowed: map[string]Type{"var.tls": tlsObject}}
 
 	dp := parseExpr(t, "var.tls.port").(*lang.DotPath)
-	got, rest, ok := narrowedLookup(scope, dp)
+	got, rest, at, ok := narrowedLookup(scope, dp)
 	require.True(t, ok)
 	assert.True(t, got.Equal(tlsObject), "got %s", got)
 	require.Len(t, rest, 1)
 	require.Equal(t, "port", rest[0].Name)
+	require.Equal(t, "var.tls", at)
 
 	dp = parseExpr(t, "var.tls[0].port").(*lang.DotPath)
-	got, rest, ok = narrowedLookup(scope, dp)
+	got, rest, _, ok = narrowedLookup(scope, dp)
 	require.True(t, ok, "an index past the narrowed prefix still matches the prefix")
 	assert.True(t, got.Equal(tlsObject), "got %s", got)
 	require.Len(t, rest, 2)
 
 	dp = parseExpr(t, "var.other.port").(*lang.DotPath)
-	_, _, ok = narrowedLookup(scope, dp)
+	_, _, _, ok = narrowedLookup(scope, dp)
 	require.False(t, ok)
 }
 
@@ -182,8 +183,75 @@ func strictScope() *Scope {
 	s := narrowScope()
 	s.Inputs = append(s.Inputs,
 		ObjectField{Name: "maybe-list", Type: TList(TString()), Optional: true},
+		ObjectField{Name: "cfg", Type: TObject([]ObjectField{
+			{Name: "db", Type: TObject([]ObjectField{
+				{Name: "host", Type: TString()},
+			}), Optional: true},
+		}), Optional: true},
 	)
 	return s
+}
+
+// Guarded navigation: ?. requires a possibly-null value, reads it
+// when present, and makes the whole path optional. Every nullable
+// level wears its own marker.
+func TestGuardedNavigation(t *testing.T) {
+	tests := []struct {
+		src      string
+		want     Type
+		wantErrs []string
+	}{
+		{src: "var.tls?.port", want: TOptional(TInteger())},
+		{src: "var.cfg?.db?.host", want: TOptional(TString())},
+		{
+			src:  "var.cfg?.db.host",
+			want: TUnknown(),
+			wantErrs: []string{
+				"var.cfg?.db may be null; read it with var.cfg?.db?.host, " +
+					"or test it first (got optional(object({ host: string })))",
+			},
+		},
+		{
+			src:  "var.y?.anything",
+			want: TUnknown(),
+			wantErrs: []string{
+				"var.y is never null; write var.y.anything (got string)",
+			},
+		},
+		{
+			src:  "if var.tls != null then var.tls?.port else 0",
+			want: TInteger(),
+			wantErrs: []string{
+				"var.tls is never null; write var.tls.port (got object({ port: integer }))",
+			},
+		},
+		{
+			src:  "var?.y",
+			want: TUnknown(),
+			wantErrs: []string{
+				"var is never null; write var.y",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
+			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
+		})
+	}
+}
+
+// In constraint scope a guard means the same thing it means anywhere
+// else; the lenient dot just makes it rarely necessary.
+func TestGuardedNavigationUnderMissingAsNull(t *testing.T) {
+	scope := strictScope()
+	scope.MissingAsNull = true
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "var.cfg?.db?.host"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOptional(TString())), "got %s", got)
+	require.Equal(t, []string(nil), errorMessages(errs))
 }
 
 // Navigating into a value that may be null is the deferred null
@@ -199,8 +267,7 @@ func TestStrictOptionalNavigation(t *testing.T) {
 			src:  "var.tls.port",
 			want: TUnknown(),
 			wantErrs: []string{
-				"value may be null; test it first, like " +
-					"if x != null then x.port else <fallback> " +
+				"var.tls may be null; read it with var.tls?.port, or test it first " +
 					"(got optional(object({ port: integer })))",
 			},
 		},
@@ -212,8 +279,8 @@ func TestStrictOptionalNavigation(t *testing.T) {
 			src:  "var.maybe-list[0]",
 			want: TUnknown(),
 			wantErrs: []string{
-				"value may be null; test it first, like " +
-					"if xs != null then xs[0] else <fallback> " +
+				"var.maybe-list may be null; test it first, like " +
+					"if var.maybe-list != null then var.maybe-list[0] else <fallback> " +
 					"(got optional(list(string)))",
 			},
 		},
@@ -221,8 +288,8 @@ func TestStrictOptionalNavigation(t *testing.T) {
 			src:  "var.maybe-list[*]",
 			want: TUnknown(),
 			wantErrs: []string{
-				"value may be null; test it first, like " +
-					"if xs != null then xs[*].field else [] " +
+				"var.maybe-list may be null; test it first, like " +
+					"if var.maybe-list != null then var.maybe-list[*]... else [] " +
 					"(got optional(list(string)))",
 			},
 		},

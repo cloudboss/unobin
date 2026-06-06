@@ -118,10 +118,11 @@ func narrowKey(e lang.Expr) (string, bool) {
 
 // narrowedLookup finds the longest narrowed prefix of a dot path and
 // returns the narrowed type with the segments remaining past the
-// prefix. Prefixes run through named segments only.
-func narrowedLookup(scope *Scope, dp *lang.DotPath) (Type, []lang.DotSegment, bool) {
+// prefix, plus the prefix's source form for diagnostics. Prefixes run
+// through named segments only.
+func narrowedLookup(scope *Scope, dp *lang.DotPath) (Type, []lang.DotSegment, string, bool) {
 	if scope == nil || len(scope.Narrowed) == 0 || dp.Root == nil {
-		return Type{}, nil, false
+		return Type{}, nil, "", false
 	}
 	keys := []string{dp.Root.Name}
 	consumed := []int{0}
@@ -137,10 +138,10 @@ func narrowedLookup(scope *Scope, dp *lang.DotPath) (Type, []lang.DotSegment, bo
 	}
 	for j := len(keys) - 1; j >= 0; j-- {
 		if t, ok := scope.Narrowed[keys[j]]; ok {
-			return t, dp.Segments[consumed[j]:], true
+			return t, dp.Segments[consumed[j]:], keys[j], true
 		}
 	}
-	return Type{}, nil, false
+	return Type{}, nil, "", false
 }
 
 func mergeFacts(a, b map[string]Type) map[string]Type {
