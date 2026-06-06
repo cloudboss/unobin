@@ -151,6 +151,15 @@ func validateInputDecl(name string, fld *Field, errs *ErrorList) {
 			"input %q must be an object declaration with a `type:` key", name)
 		return
 	}
+	validateDeclObject(name, decl, true, errs)
+}
+
+// validateDeclObject checks one declaration object, top level or
+// nested inside an object() type: the key greenlist, duplicates, the
+// promoted type, the declared default against the declaration's own
+// type and modifiers, and every nested declaration the type contains.
+// topLevel admits @sensitive, which has no meaning below the top.
+func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *ErrorList) {
 	var hasType bool
 	innerSeen := make(map[string]Position, len(decl.Fields))
 	for _, df := range decl.Fields {
@@ -163,6 +172,11 @@ func validateInputDecl(name string, fld *Field, errs *ErrorList) {
 		keyName := df.Key.Name
 		if df.Key.IsMeta() {
 			if keyName == "@sensitive" {
+				if !topLevel {
+					errs.Addf(ErrSchema, df.Key.S.Start,
+						"input %q: @sensitive applies to top-level inputs only", name)
+					continue
+				}
 				if prev, dup := innerSeen[keyName]; dup {
 					errs.Addf(ErrSchema, df.Key.S.Start,
 						"input %q: duplicate key %q (first defined at %s)", name, keyName, prev)
@@ -188,19 +202,129 @@ func validateInputDecl(name string, fld *Field, errs *ErrorList) {
 		innerSeen[keyName] = df.Key.S.Start
 		if keyName == "type" {
 			hasType = true
-			if _, err := PromoteType(df.Value); err != nil {
+			t, err := PromoteType(df.Value)
+			if err != nil {
 				var pe *Error
 				if errors.As(err, &pe) {
 					errs.Add(pe)
 				} else {
 					errs.Addf(ErrType, df.Value.Span().Start, "input %q: %v", name, err)
 				}
+				continue
 			}
+			checkDeclaredDefault(name, decl, t, errs)
+			validateNestedDecls(name, t, errs)
 		}
 	}
 	if !hasType {
 		errs.Addf(ErrSchema, decl.S.Start, "input %q: missing required `type:` key", name)
 	}
+}
+
+// validateNestedDecls walks a promoted type for object fields written
+// as full declarations and validates each one, named by its dotted
+// path from the input.
+func validateNestedDecls(name string, t TypeExpr, errs *ErrorList) {
+	switch v := t.(type) {
+	case *TypeList:
+		validateNestedDecls(name, v.Elem, errs)
+	case *TypeMap:
+		validateNestedDecls(name, v.Elem, errs)
+	case *TypeOptional:
+		validateNestedDecls(name, v.Elem, errs)
+	case *TypeTuple:
+		for _, e := range v.Elements {
+			validateNestedDecls(name, e, errs)
+		}
+	case *TypeObject:
+		for _, f := range v.Fields {
+			if f.Decl != nil {
+				validateDeclObject(name+"."+f.Name, f.Decl, false, errs)
+				continue
+			}
+			if f.Type != nil {
+				validateNestedDecls(name+"."+f.Name, f.Type, errs)
+			}
+		}
+	}
+}
+
+// checkDeclaredDefault verifies a literal optional() default against
+// the declaration's own type and modifiers, so a self-contradictory
+// declaration fails at compile instead of on the first omission. A
+// computed default is checked when it is applied.
+func checkDeclaredDefault(name string, decl *ObjectLit, t TypeExpr, errs *ErrorList) {
+	opt, ok := t.(*TypeOptional)
+	if !ok || opt.Default == nil {
+		return
+	}
+	val, ok := staticLiteral(opt.Default)
+	if !ok || val == nil {
+		return
+	}
+	coerced, err := checkValue(opt.Elem, val, staticDefaultEval)
+	if err != nil {
+		errs.Addf(ErrSchema, opt.Default.Span().Start, "input %q: default: %v", name, err)
+		return
+	}
+	if err := checkModifiers(decl, coerced); err != nil {
+		errs.Addf(ErrSchema, opt.Default.Span().Start, "input %q: default: %v", name, err)
+	}
+}
+
+func staticDefaultEval(e Expr) (any, error) {
+	v, ok := staticLiteral(e)
+	if !ok {
+		return nil, fmt.Errorf("default is not a literal")
+	}
+	return v, nil
+}
+
+// staticLiteral reduces a literal expression to its value: scalars,
+// and arrays or objects of literals. ok is false for anything that
+// needs evaluation, including bare identifiers, which name things
+// rather than hold values.
+func staticLiteral(e Expr) (any, bool) {
+	switch v := e.(type) {
+	case *StringLit:
+		return v.Value, true
+	case *NumberLit:
+		if v.IsFloat {
+			return v.ParsedFloat, true
+		}
+		return v.ParsedInt, true
+	case *BoolLit:
+		return v.Value, true
+	case *NullLit:
+		return nil, true
+	case *ArrayLit:
+		out := make([]any, len(v.Elements))
+		for i, el := range v.Elements {
+			val, ok := staticLiteral(el)
+			if !ok {
+				return nil, false
+			}
+			out[i] = val
+		}
+		return out, true
+	case *ObjectLit:
+		out := make(map[string]any, len(v.Fields))
+		for _, fld := range v.Fields {
+			key := fld.Key.Name
+			if fld.Key.Kind == FieldString {
+				key = fld.Key.String
+			} else if fld.Key.IsMeta() {
+				return nil, false
+			}
+			val, ok := staticLiteral(fld.Value)
+			if !ok {
+				return nil, false
+			}
+			out[key] = val
+		}
+		return out, true
+	}
+	return nil, false
 }
 
 // fieldsBasedConstraintKinds carries a list of input names under `fields:`.

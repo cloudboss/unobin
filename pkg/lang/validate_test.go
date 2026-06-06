@@ -641,6 +641,107 @@ inputs: {
 	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
 }
 
+func TestValidateInputDeclaredDefaults(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "default below its own minimum",
+			src: `
+inputs: {
+  size: { type: optional(integer, 0), minimum: 1 }
+}
+`,
+			want: []string{`input "size": default: value 0 is below minimum 1`},
+		},
+		{
+			name: "default has the wrong type",
+			src: `
+inputs: {
+  size: { type: optional(integer, 'x') }
+}
+`,
+			want: []string{`input "size": default: expected integer, got string`},
+		},
+		{
+			name: "composite default checked per element",
+			src: `
+inputs: {
+  names: { type: optional(list(string), [1]) }
+}
+`,
+			want: []string{`input "names": default: element 0: expected string, got integer`},
+		},
+		{
+			name: "nested default below its own minimum",
+			src: `
+inputs: {
+  spec: {
+    type: object({
+      port: { type: optional(integer, 0), minimum: 1 },
+    })
+  }
+}
+`,
+			want: []string{`input "spec.port": default: value 0 is below minimum 1`},
+		},
+		{
+			name: "nested unknown modifier",
+			src: `
+inputs: {
+  spec: {
+    type: object({
+      port: { type: integer, bogus: 1 },
+    })
+  }
+}
+`,
+			want: []string{`input "spec.port": unknown modifier "bogus"`},
+		},
+		{
+			name: "nested sensitive rejected",
+			src: `
+inputs: {
+  spec: {
+    type: object({
+      token: { type: string, @sensitive: true },
+    })
+  }
+}
+`,
+			want: []string{`input "spec.token": @sensitive applies to top-level inputs only`},
+		},
+		{
+			name: "computed default skips the static check",
+			src: `
+inputs: {
+  greeting: { type: optional(string, core.format('hi')), min-length: 99 }
+}
+`,
+		},
+		{
+			name: "valid default within modifiers",
+			src: `
+inputs: {
+  size: { type: optional(integer, 5), minimum: 1, maximum: 10 }
+}
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateInputDeclarations(parseInputsBlock(t, tt.src))
+			var got []string
+			for _, e := range errs.Errors() {
+				got = append(got, e.Msg)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestValidateInputMissingType(t *testing.T) {
 	src := `
 inputs: {
