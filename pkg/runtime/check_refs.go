@@ -370,6 +370,12 @@ func (c *referenceChecker) checkVar(dp *lang.DotPath, scope string) {
 	if c.inputs[scope][name] {
 		return
 	}
+	known := func(s string) bool { return c.inputs[scope][s] }
+	if prefix, rest, ok := hyphenSubtraction(name, known); ok {
+		c.addf(dp.S.Start, `unknown input %q; write var.%s - %s to subtract`,
+			name, prefix, subtrahendText("var.", rest))
+		return
+	}
 	c.addf(dp.S.Start, `unknown input %q`, name)
 }
 
@@ -381,7 +387,23 @@ func (c *referenceChecker) checkLocal(dp *lang.DotPath, scope string) {
 	if c.locals[scope][name] {
 		return
 	}
+	known := func(s string) bool { return c.locals[scope][s] }
+	if prefix, rest, ok := hyphenSubtraction(name, known); ok {
+		c.addf(dp.S.Start, `unknown local %q; write local.%s - %s to subtract`,
+			name, prefix, subtrahendText("local.", rest))
+		return
+	}
 	c.addf(dp.S.Start, `unknown local %q`, name)
+}
+
+// subtrahendText renders the right side of a suggested subtraction: a
+// number stays bare, a known name takes the same reference root as
+// the left side.
+func subtrahendText(root, rest string) string {
+	if allDigits(rest) {
+		return rest
+	}
+	return root + rest
 }
 
 // checkLocals walks every local's value expression so references made
@@ -516,7 +538,7 @@ func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
 // path has no trailing field, when no schema is available, or when
 // the field is present.
 func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string) {
-	field := trailingField(dp)
+	field, idx := trailingField(dp)
 	if field == "" {
 		return
 	}
@@ -525,6 +547,16 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 		return
 	}
 	if _, ok := attrs[field]; ok {
+		return
+	}
+	known := func(s string) bool {
+		_, ok := attrs[s]
+		return ok
+	}
+	if prefix, rest, ok := hyphenSubtraction(field, known); ok && allDigits(rest) {
+		head := dotPathString(&lang.DotPath{Root: dp.Root, Segments: dp.Segments[:idx]})
+		c.addf(dp.S.Start, `unknown field %q on %s.%s; write %s.%s - %s to subtract`,
+			field, node.Alias, node.Type, head, prefix, rest)
 		return
 	}
 	c.addf(dp.S.Start, `unknown field %q on %s.%s`, field, node.Alias, node.Type)
@@ -591,23 +623,24 @@ func compositeOutputNames(node *Node) map[string]typecheck.Type {
 }
 
 // trailingField extracts the field segment from a resource, data,
-// or action reference. For `resource.<alias>.<type>.<name>.<field>` it
-// returns `<field>`. For
-// `resource.<alias>.<type>.<name>['key'].<field>` it skips the index
-// segment and returns `<field>`. Returns "" when the path has no
-// trailing field segment.
-func trailingField(dp *lang.DotPath) string {
+// or action reference, returning its name and segment index. For
+// resource.<alias>.<type>.<name>.<field> it returns <field> at 3; an
+// index segment after the name, as in
+// resource.<alias>.<type>.<name>['key'].<field>, is skipped and the
+// field sits at 4. Returns "" when the path has no trailing field
+// segment.
+func trailingField(dp *lang.DotPath) (string, int) {
 	if len(dp.Segments) < 4 {
-		return ""
+		return "", -1
 	}
-	seg := dp.Segments[3]
-	if seg.Index != nil {
+	idx := 3
+	if dp.Segments[idx].Index != nil {
 		if len(dp.Segments) < 5 {
-			return ""
+			return "", -1
 		}
-		seg = dp.Segments[4]
+		idx = 4
 	}
-	return seg.Name
+	return dp.Segments[idx].Name, idx
 }
 
 func (c *referenceChecker) checkBindingPath(dp *lang.DotPath, it iterScope) {
@@ -634,10 +667,16 @@ func (c *referenceChecker) checkBindingPath(dp *lang.DotPath, it iterScope) {
 		c.addf(dp.S.Start, "%s requires .key or .value", name)
 		return
 	}
-	switch dp.Segments[0].Name {
+	switch seg := dp.Segments[0].Name; seg {
 	case "key", "value":
 	default:
-		c.addf(dp.S.Start, "%s.%s is not available", name, dp.Segments[0].Name)
+		known := func(s string) bool { return s == "key" || s == "value" }
+		if prefix, rest, ok := hyphenSubtraction(seg, known); ok && allDigits(rest) {
+			c.addf(dp.S.Start, "%s.%s is not available; write %s.%s - %s to subtract",
+				name, seg, name, prefix, rest)
+			return
+		}
+		c.addf(dp.S.Start, "%s.%s is not available", name, seg)
 	}
 }
 

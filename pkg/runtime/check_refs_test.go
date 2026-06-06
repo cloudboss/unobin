@@ -1041,3 +1041,93 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckReferencesHyphenHints(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {Schema: &LibrarySchema{
+			Resources: map[string]*TypeSchema{"thing": {
+				Outputs: map[string]typecheck.Type{"size": typecheck.TInteger()},
+			}},
+		}},
+	}
+	cases := []struct {
+		name  string
+		stack string
+		want  []string
+	}{
+		{
+			name: "input minus number",
+			stack: "inputs: { count: { type: integer } }\n" +
+				"outputs: { x: { value: var.count-1 } }\n",
+			want: []string{
+				`unknown input "count-1"; write var.count - 1 to subtract`,
+			},
+		},
+		{
+			name: "input minus input",
+			stack: "inputs: { count: { type: integer }, other: { type: integer } }\n" +
+				"outputs: { x: { value: var.count-other } }\n",
+			want: []string{
+				`unknown input "count-other"; write var.count - var.other to subtract`,
+			},
+		},
+		{
+			name:  "unknown input without a known prefix",
+			stack: "outputs: { x: { value: var.cidr-block } }\n",
+			want:  []string{`unknown input "cidr-block"`},
+		},
+		{
+			name: "longest known input prefix wins",
+			stack: "inputs: { a-b: { type: integer } }\n" +
+				"outputs: { x: { value: var.a-b-1 } }\n",
+			want: []string{
+				`unknown input "a-b-1"; write var.a-b - 1 to subtract`,
+			},
+		},
+		{
+			name: "local minus number",
+			stack: "locals: { retries: 3 }\n" +
+				"outputs: { x: { value: local.retries-1 } }\n",
+			want: []string{
+				`unknown local "retries-1"; write local.retries - 1 to subtract`,
+			},
+		},
+		{
+			name: "field minus number",
+			stack: "resources: { core: { thing: { one: { name: 'a' } } } }\n" +
+				"outputs: { x: { value: resource.core.thing.one.size-1 } }\n",
+			want: []string{
+				`unknown field "size-1" on core.thing;` +
+					` write resource.core.thing.one.size - 1 to subtract`,
+			},
+		},
+		{
+			name: "unknown field without a known prefix",
+			stack: "resources: { core: { thing: { one: { name: 'a' } } } }\n" +
+				"outputs: { x: { value: resource.core.thing.one.nope } }\n",
+			want: []string{`unknown field "nope" on core.thing`},
+		},
+		{
+			name: "each value minus number",
+			stack: "inputs: { files: { type: map(string) } }\n" +
+				"resources: { core: { thing: { many: " +
+				"{ @for-each: var.files, name: @each.value-1 } } } }\n",
+			want: []string{
+				`@each.value-1 is not available; write @each.value - 1 to subtract`,
+			},
+		},
+		{
+			name: "each segment without a known prefix",
+			stack: "inputs: { files: { type: map(string) } }\n" +
+				"resources: { core: { thing: { many: " +
+				"{ @for-each: var.files, name: @each.foo } } } }\n",
+			want: []string{`@each.foo is not available`},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, c.stack), libs)
+			require.Equal(t, c.want, checkRefMessages(t, errs))
+		})
+	}
+}
