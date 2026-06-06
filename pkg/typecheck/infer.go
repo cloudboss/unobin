@@ -208,11 +208,18 @@ func inferInterpolated(s *lang.InterpolatedString, scope *Scope, errs *lang.Erro
 }
 
 // checkInterpolatedSlot reports when a slot type is not a scalar or may
-// be null. Unknown and opaque fail open, so a value the inferrer cannot
-// reason about is left to the runtime guard in evalInterpolated.
+// be null. Unknown fails open, so a value the inferrer cannot reason
+// about is left to the runtime guard in evalInterpolated. An opaque
+// value does not splice into text directly; serializing it is the way
+// to spell that.
 func checkInterpolatedSlot(t Type, pos lang.Position, errs *lang.ErrorList) {
+	if t.Unwrap().Kind == Opaque {
+		errs.Addf(lang.ErrType, pos,
+			"interpolation slot is opaque; render it as text with @core.to-json(x)")
+		return
+	}
 	switch t.Kind {
-	case Unknown, Opaque, String, Integer, Number, Boolean:
+	case Unknown, String, Integer, Number, Boolean:
 		return
 	case Null, Optional:
 		errs.Addf(lang.ErrType, pos,
@@ -370,6 +377,21 @@ func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return got
 	}
 	if !Assignable(target, got) {
+		if got.Unwrap().Kind == Opaque {
+			if target.Unwrap().Kind == String {
+				errs.Addf(lang.ErrType, e.Span().Start,
+					"type mismatch: expected %s, got %s; "+
+						"pass it as JSON text with @core.to-json(x), "+
+						"or declare the value's type where it enters",
+					target, got)
+				return got
+			}
+			errs.Addf(lang.ErrType, e.Span().Start,
+				"type mismatch: expected %s, got %s; "+
+					"declare the value's type where it enters",
+				target, got)
+			return got
+		}
 		if got.Kind == Optional && Assignable(target, got.Unwrap()) {
 			errs.Addf(lang.ErrType, e.Span().Start,
 				"type mismatch: expected %s, got %s; "+
@@ -916,9 +938,11 @@ func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 // inferCoalesce types `left ?? right`, the fallback for a
 // possibly-null left side: the result is the join of the discharged
 // left and the right. A left side that can never be null makes the
-// fallback dead, which is an error the way a dead ?. is.
+// fallback dead, which is an error the way a dead ?. is. An opaque
+// left stays legal: opaque includes null, and the fallback tests for
+// it without reading inside.
 func inferCoalesce(in *lang.Infix, left, right Type, errs *lang.ErrorList) Type {
-	if lk, ok := operandKind(left); ok && lk != Optional && lk != Null {
+	if lk, ok := operandKind(left); ok && lk != Optional && lk != Null && lk != Opaque {
 		errs.Addf(lang.ErrType, in.Left.Span().Start,
 			"left of ?? is never null; write it without the fallback (got %s)", left)
 		return left
@@ -965,11 +989,12 @@ func inferPlus(in *lang.Infix, left, right Type, errs *lang.ErrorList) Type {
 }
 
 // operandKind reduces a type to the kind the operator checks reason
-// about. Unknown and opaque return ok=false so partial information fails
-// open. Optional stays as it is: an operand that may be null wants a
-// null test, the same as a navigation.
+// about. Unknown returns ok=false so partial information fails open.
+// Optional stays as it is: an operand that may be null wants a null
+// test, the same as a navigation. Opaque is a real kind here: an
+// operator reads its operands, which an opaque value forbids.
 func operandKind(t Type) (Kind, bool) {
-	if t.Kind == Unknown || t.Kind == Opaque {
+	if t.Kind == Unknown {
 		return t.Kind, false
 	}
 	if t.Kind == Optional && !t.IsKnown() {
@@ -1140,6 +1165,11 @@ func join(a, b Type) (Type, bool) {
 	}
 	if a.Equal(b) {
 		return a, true
+	}
+	// Anything joined with opaque is opaque: the result may be the
+	// opaque side, so nothing could be read from it either way.
+	if a.Kind == Opaque || b.Kind == Opaque {
+		return TOpaque(), true
 	}
 	if (a.Kind == Integer && b.Kind == Number) ||
 		(a.Kind == Number && b.Kind == Integer) {

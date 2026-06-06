@@ -437,6 +437,82 @@ func TestOpaqueReadsWholeValue(t *testing.T) {
 	assert.Empty(t, errs.Errors())
 }
 
+func TestOpaqueOperandsRejected(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{{Name: "blob", Type: TOpaque()}}}
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{"plus", "var.blob + 1",
+			[]string{"+: operand must be a number or a string, got opaque"}},
+		{"minus", "1 - var.blob",
+			[]string{"-: operand must be a number, got opaque"}},
+		{"and", "var.blob && true",
+			[]string{"&&: operand must be a boolean, got opaque"}},
+		{"not", "!var.blob",
+			[]string{"!: operand must be a boolean, got opaque"}},
+		{"negate", "-var.blob",
+			[]string{"-: operand must be a number, got opaque"}},
+		{"ordering", "var.blob < 3",
+			[]string{"<: operand must be a number or a string, got opaque"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Infer(parseExpr(t, c.src), TUnknown(), scope, errs)
+			require.Equal(t, c.want, errorMessages(errs))
+		})
+	}
+}
+
+func TestOpaqueNullTestsAndCoalesceStayLegal(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{{Name: "blob", Type: TOpaque()}}}
+	errs := lang.NewErrorList(0)
+
+	got := Infer(parseExpr(t, "var.blob == null"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TBoolean()), "got %s", got)
+
+	got = Infer(parseExpr(t, "var.blob != 'x'"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TBoolean()), "got %s", got)
+
+	// An opaque value includes null, so a fallback is dischargeable;
+	// the result may be the opaque side, so the join is opaque.
+	got = Infer(parseExpr(t, "var.blob ?? {}"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOpaque()), "got %s", got)
+
+	got = Infer(parseExpr(t, "if var.blob == null then {} else var.blob"),
+		TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOpaque()), "got %s", got)
+
+	assert.Empty(t, errs.Errors())
+}
+
+func TestCheckTeachesOpaqueMismatch(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{{Name: "blob", Type: TOpaque()}}}
+
+	errs := lang.NewErrorList(0)
+	Check(parseExpr(t, "var.blob"), TString(), scope, errs)
+	require.Equal(t,
+		[]string{"type mismatch: expected string, got opaque; " +
+			"pass it as JSON text with @core.to-json(x), " +
+			"or declare the value's type where it enters"},
+		errorMessages(errs))
+
+	errs = lang.NewErrorList(0)
+	Check(parseExpr(t, "var.blob"), TInteger(), scope, errs)
+	require.Equal(t,
+		[]string{"type mismatch: expected integer, got opaque; " +
+			"declare the value's type where it enters"},
+		errorMessages(errs))
+
+	// Opaque slots remain the legal home for an opaque value.
+	errs = lang.NewErrorList(0)
+	Check(parseExpr(t, "var.blob"), TOpaque(), scope, errs)
+	Check(parseExpr(t, "var.blob"), TOptional(TOpaque()), scope, errs)
+	assert.Empty(t, errs.Errors())
+}
+
 func TestInferInfixOperators(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)
@@ -535,14 +611,11 @@ func TestInferOperandLeniency(t *testing.T) {
 			{Name: "count", Type: TInteger()},
 			{Name: "maybe", Type: TString(), Optional: true},
 			{Name: "opt-count", Type: TInteger(), Optional: true},
-			{Name: "anything", Type: TOpaque()},
 		},
 	}
 	tests := []string{
 		"var.count + 1",
 		"var.nope + 1",
-		"var.anything + 1",
-		"var.anything && true",
 		"if var.opt-count != null then var.opt-count + 1 else 0",
 		"var.maybe == null",
 		"null == var.maybe",
@@ -551,7 +624,6 @@ func TestInferOperandLeniency(t *testing.T) {
 		"1.5 > var.count",
 		"var.maybe != 'a'",
 		"'a' + var.nope",
-		"!var.anything",
 	}
 	for _, src := range tests {
 		t.Run(src, func(t *testing.T) {

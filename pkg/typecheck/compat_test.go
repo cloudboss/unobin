@@ -21,8 +21,8 @@ func TestAssignableAtomics(t *testing.T) {
 		{"number<-number", TNumber(), TNumber(), true},
 		{"boolean<-boolean", TBoolean(), TBoolean(), true},
 		{"boolean<-string", TBoolean(), TString(), false},
-		{"any<-anything", TOpaque(), TList(TString()), true},
-		{"string<-any", TString(), TOpaque(), true},
+		{"opaque<-anything", TOpaque(), TList(TString()), true},
+		{"string<-opaque", TString(), TOpaque(), false},
 		{"string<-unknown", TString(), TUnknown(), true},
 		{"unknown<-string", TUnknown(), TString(), true},
 	}
@@ -31,6 +31,25 @@ func TestAssignableAtomics(t *testing.T) {
 			assert.Equal(t, tt.want, Assignable(tt.dst, tt.src))
 		})
 	}
+}
+
+func TestAssignableOpaque(t *testing.T) {
+	// In-flow stays free: anything may become opaque.
+	assert.True(t, Assignable(TOpaque(), TString()))
+	assert.True(t, Assignable(TOpaque(), TNull()))
+	assert.True(t, Assignable(TOpaque(), TOptional(TString())))
+	assert.True(t, Assignable(TOpaque(), TObject([]ObjectField{{Name: "a", Type: TString()}})))
+	assert.True(t, Assignable(TOpaque(), TOpaque()))
+	assert.True(t, Assignable(TOptional(TOpaque()), TOpaque()))
+	assert.True(t, Assignable(TList(TOpaque()), TList(TString())))
+	assert.True(t, Assignable(TMap(TOpaque()), TMap(TInteger())))
+
+	// Out-flow closes: an opaque value flows only into an opaque slot.
+	assert.False(t, Assignable(TString(), TOpaque()))
+	assert.False(t, Assignable(TBoolean(), TOpaque()))
+	assert.False(t, Assignable(TMap(TString()), TOpaque()))
+	assert.False(t, Assignable(TList(TString()), TList(TOpaque())))
+	assert.False(t, Assignable(TOptional(TString()), TOpaque()))
 }
 
 func TestAssignableOptionalAndNull(t *testing.T) {

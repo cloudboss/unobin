@@ -6,7 +6,9 @@ package typecheck
 // producing spurious errors.
 //
 // Rules in plain terms:
-//   - opaque accepts anything; null is assignable only into a slot
+//   - opaque accepts anything, and an opaque source flows only into
+//     an opaque slot: the value passes through unread, and a typed
+//     slot is a promise to read. null is assignable only into a slot
 //     that includes null (an optional() wrapper or the null atom).
 //   - integer widens into number but not the other way.
 //   - optional(T) accepts T, null, or optional(T); a possibly-null
@@ -25,9 +27,6 @@ func Assignable(dst, src Type) bool {
 	if dst.Kind == Opaque {
 		return true
 	}
-	if src.Kind == Opaque {
-		return true
-	}
 
 	if dst.Kind == Optional {
 		if src.Kind == Null {
@@ -38,6 +37,9 @@ func Assignable(dst, src Type) bool {
 			return true
 		}
 		return Assignable(*inner, src.Unwrap())
+	}
+	if src.Kind == Opaque {
+		return false
 	}
 	if src.Kind == Optional {
 		return false

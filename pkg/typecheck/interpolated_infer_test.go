@@ -40,8 +40,8 @@ func TestInferInterpolatedResultIsString(t *testing.T) {
 }
 
 func TestInferInterpolatedScalarSlotsAccepted(t *testing.T) {
-	// Scalars are fine; any and an unresolved node fail open so the
-	// runtime guard handles them rather than the type checker.
+	// Scalars are fine; an unresolved node fails open so the runtime
+	// guard handles it rather than the type checker.
 	srcs := []string{
 		`$'{{var.region}}'`,
 		`$'{{var.count}}'`,
@@ -50,7 +50,6 @@ func TestInferInterpolatedScalarSlotsAccepted(t *testing.T) {
 		`$'{{var.count:%03d}}'`,
 		`$'{{var.count + 1}}'`,
 		`$'{{if var.flag then var.region else 'other'}}'`,
-		`$'{{var.anything}}'`,
 		`$'{{resource.aws.vpc.main.id}}'`,
 		// A defaulted optional reads as its inner type: the default
 		// replaces a missing or null value before anything sees it.
@@ -76,6 +75,10 @@ func TestInferInterpolatedRejectsBadSlot(t *testing.T) {
 		{"object", `$'{{var.cfg}}'`, "must be a scalar"},
 		{"optional", `$'{{var.maybe}}'`, "may be null"},
 		{"null literal", `$'{{null}}'`, "may be null"},
+		{
+			"opaque", `$'{{var.anything}}'`,
+			"interpolation slot is opaque; render it as text with @core.to-json(x)",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
