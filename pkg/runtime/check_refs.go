@@ -175,6 +175,7 @@ func constraintForEach(obj *lang.ObjectLit) lang.Expr {
 // @for-each. Comprehension bindings and library calls resolve as
 // anywhere else.
 func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it iterScope) {
+	c.checkExprIdents(expr)
 	lang.Walk(expr, func(node lang.Expr) {
 		switch n := node.(type) {
 		case *lang.DotPath:
@@ -243,6 +244,7 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 }
 
 func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) {
+	c.checkExprIdents(expr)
 	lang.Walk(expr, func(node lang.Expr) {
 		switch n := node.(type) {
 		case *lang.DotPath:
@@ -637,6 +639,127 @@ func (c *referenceChecker) checkBindingPath(dp *lang.DotPath, it iterScope) {
 	default:
 		c.addf(dp.S.Start, "%s.%s is not available", name, dp.Segments[0].Name)
 	}
+}
+
+// checkExprIdents reports bare identifiers in an expression that no
+// enclosing comprehension binds. In an expression a bare word is
+// either a binding or a mistake: unquoted string data, or arithmetic
+// swallowed by greedy kebab-case lexing (n-1 is one identifier).
+// Slots whose vocabulary is bare words by design (type expressions,
+// constraint kinds, format names) are schema positions, not
+// expressions, and are never walked here.
+func (c *referenceChecker) checkExprIdents(expr lang.Expr) {
+	walkFreeIdents(expr, nil, func(id *lang.Ident, bound map[string]bool) {
+		c.checkIdent(id, bound)
+	})
+}
+
+func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
+	name := id.Name
+	if name == lang.CoreNamespace {
+		c.addf(id.S.Start, "%s names functions; call one, e.g. %s.length(...)",
+			lang.CoreNamespace, lang.CoreNamespace)
+		return
+	}
+	if strings.HasPrefix(name, "@") {
+		c.addf(id.S.Start, "%s cannot stand alone; read %s.key or %s.value", name, name, name)
+		return
+	}
+	known := func(s string) bool { return bound[s] }
+	if prefix, rest, ok := hyphenSubtraction(name, known); ok {
+		c.addf(id.S.Start, "unknown name %q; write %s - %s to subtract", name, prefix, rest)
+		return
+	}
+	c.addf(id.S.Start, "unknown name %q; write '%s' for a string", name, name)
+}
+
+// walkFreeIdents visits every bare identifier in e that no enclosing
+// comprehension binds, passing the binding names in scope at that
+// identifier. A comprehension's source reads the outer scope; its
+// key, value, and filter see the comprehension's own names too. Dot
+// path roots and call names are not bare identifiers and stay with
+// their own checks.
+func walkFreeIdents(e lang.Expr, bound map[string]bool, visit func(*lang.Ident, map[string]bool)) {
+	if e == nil {
+		return
+	}
+	switch v := e.(type) {
+	case *lang.Ident:
+		if !bound[v.Name] {
+			visit(v, bound)
+		}
+	case *lang.ObjectLit:
+		for _, fld := range v.Fields {
+			walkFreeIdents(fld.Value, bound, visit)
+		}
+	case *lang.ArrayLit:
+		for _, el := range v.Elements {
+			walkFreeIdents(el, bound, visit)
+		}
+	case *lang.Call:
+		for _, a := range v.Args {
+			walkFreeIdents(a, bound, visit)
+		}
+	case *lang.Infix:
+		walkFreeIdents(v.Left, bound, visit)
+		walkFreeIdents(v.Right, bound, visit)
+	case *lang.Prefix:
+		walkFreeIdents(v.Expr, bound, visit)
+	case *lang.DotPath:
+		for _, seg := range v.Segments {
+			walkFreeIdents(seg.Index, bound, visit)
+		}
+	case *lang.Conditional:
+		walkFreeIdents(v.Cond, bound, visit)
+		walkFreeIdents(v.Then, bound, visit)
+		walkFreeIdents(v.Else, bound, visit)
+	case *lang.Comprehension:
+		walkFreeIdents(v.Source, bound, visit)
+		inner := make(map[string]bool, len(bound)+len(v.Names))
+		maps.Copy(inner, bound)
+		for _, n := range v.Names {
+			inner[n] = true
+		}
+		walkFreeIdents(v.Key, inner, visit)
+		walkFreeIdents(v.Value, inner, visit)
+		walkFreeIdents(v.Filter, inner, visit)
+	case *lang.InterpolatedString:
+		for _, part := range v.Parts {
+			walkFreeIdents(part.Expr, bound, visit)
+		}
+	}
+}
+
+// hyphenSubtraction splits an unknown kebab-case name at the hyphen
+// that reads as subtraction: the prefix must be a known name and the
+// rest a whole number or another known name. Splits are tried from
+// the rightmost hyphen so the longest known prefix wins.
+func hyphenSubtraction(name string, known func(string) bool) (string, string, bool) {
+	for i := len(name) - 1; i > 0; i-- {
+		if name[i] != '-' {
+			continue
+		}
+		prefix, rest := name[:i], name[i+1:]
+		if !known(prefix) {
+			continue
+		}
+		if allDigits(rest) || known(rest) {
+			return prefix, rest, true
+		}
+	}
+	return "", "", false
+}
+
+func allDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *referenceChecker) addf(pos lang.Position, format string, args ...any) {

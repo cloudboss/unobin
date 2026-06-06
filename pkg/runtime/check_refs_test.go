@@ -916,3 +916,128 @@ constraints: [
 		})
 	}
 }
+
+func TestCheckReferencesBareIdents(t *testing.T) {
+	cases := []struct {
+		name  string
+		stack string
+		want  []string
+	}{
+		{
+			name:  "body field",
+			stack: "resources: { local: { file: { one: { path: tcp } } } }\n",
+			want:  []string{`unknown name "tcp"; write 'tcp' for a string`},
+		},
+		{
+			name: "array element",
+			stack: "resources: { local: { file: { one: " +
+				"{ args: ['echo', verbose] } } } }\n",
+			want: []string{`unknown name "verbose"; write 'verbose' for a string`},
+		},
+		{
+			name:  "root output",
+			stack: "outputs: { mode: { value: fast } }\n",
+			want:  []string{`unknown name "fast"; write 'fast' for a string`},
+		},
+		{
+			name:  "local value",
+			stack: "locals: { mode: fast }\n",
+			want:  []string{`unknown name "fast"; write 'fast' for a string`},
+		},
+		{
+			name: "comprehension body subtraction",
+			stack: "inputs: { nums: { type: list(number) } }\n" +
+				"outputs: { dec: { value: [ for n in var.nums : n-1 ] } }\n",
+			want: []string{`unknown name "n-1"; write n - 1 to subtract`},
+		},
+		{
+			name: "comprehension binding is bound",
+			stack: "inputs: { nums: { type: list(number) } }\n" +
+				"outputs: { same: { value: [ for n in var.nums : n ] } }\n",
+			want: nil,
+		},
+		{
+			name: "two-name binding is bound",
+			stack: "inputs: { tags: { type: map(string) } }\n" +
+				"outputs: { copy: { value: { for k, v in var.tags : k => v } } }\n",
+			want: nil,
+		},
+		{
+			name: "comprehension source is outside the binding",
+			stack: "inputs: { nums: { type: list(number) } }\n" +
+				"outputs: { bad: { value: [ for n in n : n ] } }\n",
+			want: []string{`unknown name "n"; write 'n' for a string`},
+		},
+		{
+			name: "nested comprehension sees the outer binding",
+			stack: "inputs: { xs: { type: list(object({ ys: list(number) })) } }\n" +
+				"outputs: { d: { value: [ for a in var.xs : [ for b in a.ys : a-b ] ] } }\n",
+			want: []string{`unknown name "a-b"; write a - b to subtract`},
+		},
+		{
+			name: "filter",
+			stack: "inputs: { nums: { type: list(number) } }\n" +
+				"outputs: { f: { value: [ for n in var.nums : n when active ] } }\n",
+			want: []string{`unknown name "active"; write 'active' for a string`},
+		},
+		{
+			name: "conditional branches",
+			stack: "inputs: { on: { type: boolean } }\n" +
+				"outputs: { pick: { value: if var.on then fast else slow } }\n",
+			want: []string{
+				`unknown name "fast"; write 'fast' for a string`,
+				`unknown name "slow"; write 'slow' for a string`,
+			},
+		},
+		{
+			name: "interpolation slot",
+			stack: "inputs: { nums: { type: list(number) } }\n" +
+				"outputs: { s: { value: [ for n in var.nums : $'{{ n-1 }}' ] } }\n",
+			want: []string{`unknown name "n-1"; write n - 1 to subtract`},
+		},
+		{
+			name: "index expression",
+			stack: "inputs: { tags: { type: map(string) } }\n" +
+				"outputs: { v: { value: var.tags[env] } }\n",
+			want: []string{`unknown name "env"; write 'env' for a string`},
+		},
+		{
+			name: "bare each",
+			stack: "inputs: { files: { type: map(string) } }\n" +
+				"resources: { local: { file: { many: " +
+				"{ @for-each: var.files, path: @each } } } }\n",
+			want: []string{`@each cannot stand alone; read @each.key or @each.value`},
+		},
+		{
+			name:  "bare core",
+			stack: "outputs: { x: { value: @core } }\n",
+			want:  []string{`@core names functions; call one, e.g. @core.length(...)`},
+		},
+		{
+			name: "constraint require",
+			stack: "inputs: { tier: { type: string } }\n" +
+				"constraints: [ { kind: predicate, when: true, require: ready, " +
+				"message: 'm' } ]\n",
+			want: []string{`unknown name "ready"; write 'ready' for a string`},
+		},
+		{
+			name: "chain level iterable",
+			stack: "constraints: [ { kind: predicate, " +
+				"@for-each: [ { @rule: rules } ], " +
+				"when: true, require: @rule.value != null, message: 'm' } ]\n",
+			want: []string{`unknown name "rules"; write 'rules' for a string`},
+		},
+		{
+			name: "kebab binding keeps the longest prefix",
+			stack: "inputs: { nums: { type: list(number) } }\n" +
+				"outputs: { d: { value: [ for a-b in var.nums : a-b-1 ] } }\n",
+			want: []string{`unknown name "a-b-1"; write a-b - 1 to subtract`},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, c.stack), nil)
+			require.Equal(t, c.want, checkRefMessages(t, errs))
+		})
+	}
+}
