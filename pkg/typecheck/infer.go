@@ -428,7 +428,7 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	case "local":
 		return inferLocal(dp, scope, errs)
 	case "@each":
-		return inferEach(dp, scope)
+		return inferEach(dp, scope, errs)
 	}
 	return TUnknown()
 }
@@ -487,17 +487,20 @@ func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	return traverseSegments(t, rest, errs, true)
 }
 
-func inferEach(dp *lang.DotPath, scope *Scope) Type {
+func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || scope.Each == nil || len(dp.Segments) == 0 {
 		return TUnknown()
 	}
+	var t Type
 	switch dp.Segments[0].Name {
 	case "key":
-		return scope.Each.Key
+		t = scope.Each.Key
 	case "value":
-		return scope.Each.Value
+		t = scope.Each.Value
+	default:
+		return TUnknown()
 	}
-	return TUnknown()
+	return traverseSegments(t, dp.Segments[1:], errs, false)
 }
 
 // traverseSegments walks the trailing field segments after a root

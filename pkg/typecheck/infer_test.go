@@ -270,6 +270,38 @@ func TestInferEachKeyValue(t *testing.T) {
 	assert.Empty(t, errs.Errors())
 }
 
+func TestInferEachValueFieldTraversal(t *testing.T) {
+	scope := &Scope{
+		Each: &EachBinding{
+			Key: TString(),
+			Value: TObject([]ObjectField{
+				{Name: "tls", Type: TBoolean(), Optional: true},
+				{Name: "port", Type: TInteger()},
+			}),
+		},
+	}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "@each.value.tls"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TOptional(TBoolean())), "got %s", got)
+	got = Infer(parseExpr(t, "@each.value.port"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TInteger()), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
+func TestInferEachValueUnknownField(t *testing.T) {
+	scope := &Scope{
+		Each: &EachBinding{
+			Key:   TString(),
+			Value: TObject([]ObjectField{{Name: "port", Type: TInteger()}}),
+		},
+	}
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "@each.value.bogus"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TUnknown()))
+	require.Len(t, errs.Errors(), 1)
+	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "bogus" on object(`)
+}
+
 func TestInferInfixOperators(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)
