@@ -694,7 +694,7 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 			}},
 			Functions: map[string]typecheck.FuncSig{
 				"b64-encode": {Params: []typecheck.Type{strT}, Result: strT},
-				"length": {Params: []typecheck.Type{typecheck.TAny()},
+				"length": {Params: []typecheck.Type{typecheck.TOpaque()},
 					Result: typecheck.TInteger()},
 			},
 		}},

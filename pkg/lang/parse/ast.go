@@ -404,7 +404,7 @@ type TypeExpr interface {
 	typeExprNode()
 }
 
-// TypeAtomic names a primitive: string, number, integer, boolean, null, any.
+// TypeAtomic names a primitive: string, number, integer, boolean, null, opaque.
 type TypeAtomic struct {
 	S    Span
 	Name string

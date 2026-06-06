@@ -29,13 +29,19 @@ var atomicTypeNames = map[string]struct{}{
 	"integer": {},
 	"boolean": {},
 	"null":    {},
-	"any":     {},
+	"opaque":  {},
 }
 
 func promoteAtomic(id *Ident) (TypeExpr, error) {
+	if id.Name == "any" {
+		return nil, Errorf(ErrType, id.S.Start,
+			"any is not a type; use opaque for a value passed along unread, "+
+				"or declare the value's type")
+	}
 	if _, ok := atomicTypeNames[id.Name]; !ok {
 		return nil, Errorf(ErrType, id.S.Start,
-			"unknown atomic type %q (expected string, number, integer, boolean, null, any)", id.Name)
+			"unknown atomic type %q (expected string, number, integer, boolean, null, opaque)",
+			id.Name)
 	}
 	return &TypeAtomic{S: id.S, Name: id.Name}, nil
 }

@@ -9,10 +9,10 @@ import (
 
 func callScope() *Scope {
 	strT := TString()
-	anyT := TAny()
+	anyT := TOpaque()
 	sigs := map[string]FuncSig{
 		"b64-encode": {Params: []Type{TString()}, Result: TString()},
-		"length":     {Params: []Type{TAny()}, Result: TInteger()},
+		"length":     {Params: []Type{TOpaque()}, Result: TInteger()},
 		"all":        {Params: []Type{TList(TBoolean())}, Result: TBoolean()},
 		"format":     {Params: []Type{TString()}, Variadic: &anyT, Result: TString()},
 		"join":       {Params: []Type{TString()}, Variadic: &strT, Result: TString()},

@@ -95,7 +95,7 @@ func typeFromReflect(t reflect.Type) typecheck.Type {
 	}
 	switch t.Kind() {
 	case reflect.Interface:
-		return typecheck.TAny()
+		return typecheck.TOpaque()
 	case reflect.Slice:
 		return typecheck.TList(typeFromReflect(t.Elem()))
 	case reflect.Map:

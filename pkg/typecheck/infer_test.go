@@ -401,7 +401,7 @@ func TestInferOperandLeniency(t *testing.T) {
 			{Name: "count", Type: TInteger()},
 			{Name: "maybe", Type: TString(), Optional: true},
 			{Name: "opt-count", Type: TInteger(), Optional: true},
-			{Name: "anything", Type: TAny()},
+			{Name: "anything", Type: TOpaque()},
 		},
 	}
 	tests := []string{
@@ -533,7 +533,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 			},
 		},
 		{name: "matching list reference", src: "var.ports", target: TList(TInteger())},
-		{name: "widening into any elements", src: "var.ports", target: TList(TAny())},
+		{name: "widening into any elements", src: "var.ports", target: TList(TOpaque())},
 		{name: "tuple into list", src: "var.pair", target: TList(TInteger())},
 		{name: "object into map", src: "var.cfg", target: TMap(TString())},
 		{
@@ -565,7 +565,7 @@ func TestInferIndexSegments(t *testing.T) {
 			})},
 			{Name: "name", Type: TString()},
 			{Name: "count", Type: TInteger()},
-			{Name: "anything", Type: TAny()},
+			{Name: "anything", Type: TOpaque()},
 		},
 	}
 	unknown := TUnknown()
@@ -603,7 +603,7 @@ func TestInferIndexSegments(t *testing.T) {
 		{src: "var.pair[1]", want: TInteger()},
 		{src: "var.cfg['host']", want: TString()},
 		{src: "var.tags[var.name]", want: TString()},
-		{src: "var.anything[0]", want: TAny()},
+		{src: "var.anything[0]", want: TOpaque()},
 		{src: "[ for i, p in var.ports : var.ports[i] ]", want: TList(TInteger())},
 	}
 	for _, tt := range tests {

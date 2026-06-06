@@ -21,8 +21,8 @@ func TestAssignableAtomics(t *testing.T) {
 		{"number<-number", TNumber(), TNumber(), true},
 		{"boolean<-boolean", TBoolean(), TBoolean(), true},
 		{"boolean<-string", TBoolean(), TString(), false},
-		{"any<-anything", TAny(), TList(TString()), true},
-		{"string<-any", TString(), TAny(), true},
+		{"any<-anything", TOpaque(), TList(TString()), true},
+		{"string<-any", TString(), TOpaque(), true},
 		{"string<-unknown", TString(), TUnknown(), true},
 		{"unknown<-string", TUnknown(), TString(), true},
 	}

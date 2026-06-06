@@ -39,7 +39,7 @@ func TestPromoteAtomic(t *testing.T) {
 		{"atomic-integer", "integer"},
 		{"atomic-boolean", "boolean"},
 		{"atomic-null", "null"},
-		{"atomic-any", "any"},
+		{"atomic-opaque", "opaque"},
 	}
 	for _, w := range wants {
 		t.Run(w.key, func(t *testing.T) {

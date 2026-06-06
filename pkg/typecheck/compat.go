@@ -6,7 +6,7 @@ package typecheck
 // producing spurious errors.
 //
 // Rules in plain terms:
-//   - any accepts anything; null is assignable only into a slot
+//   - opaque accepts anything; null is assignable only into a slot
 //     that includes null (an optional() wrapper or the null atom).
 //   - integer widens into number but not the other way.
 //   - optional(T) accepts T, null, or optional(T); a possibly-null
@@ -22,10 +22,10 @@ func Assignable(dst, src Type) bool {
 	if !dst.IsKnown() || !src.IsKnown() {
 		return true
 	}
-	if dst.Kind == Any {
+	if dst.Kind == Opaque {
 		return true
 	}
-	if src.Kind == Any {
+	if src.Kind == Opaque {
 		return true
 	}
 

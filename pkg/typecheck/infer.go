@@ -208,11 +208,11 @@ func inferInterpolated(s *lang.InterpolatedString, scope *Scope, errs *lang.Erro
 }
 
 // checkInterpolatedSlot reports when a slot type is not a scalar or may
-// be null. Unknown and any fail open, so a value the inferrer cannot
+// be null. Unknown and opaque fail open, so a value the inferrer cannot
 // reason about is left to the runtime guard in evalInterpolated.
 func checkInterpolatedSlot(t Type, pos lang.Position, errs *lang.ErrorList) {
 	switch t.Kind {
-	case Unknown, Any, String, Integer, Number, Boolean:
+	case Unknown, Opaque, String, Integer, Number, Boolean:
 		return
 	case Null, Optional:
 		errs.Addf(lang.ErrType, pos,
@@ -273,11 +273,11 @@ func inferComprehension(
 // consumes.
 func checkComprehensionSource(src Type, pos lang.Position, errs *lang.ErrorList) {
 	switch src.Kind {
-	case Unknown, Any, List, Map, Object, Tuple:
+	case Unknown, Opaque, List, Map, Object, Tuple:
 		return
 	case Optional:
 		switch src.Unwrap().Kind {
-		case Unknown, Any, List, Map, Object, Tuple:
+		case Unknown, Opaque, List, Map, Object, Tuple:
 			errs.Addf(lang.ErrType, pos,
 				"comprehension source may be null; supply a fallback, like "+
 					"xs ?? [] (got %s)", src)
@@ -380,7 +380,7 @@ func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 // literalEnforced reports whether Infer already checked e against
 // target at the element or field level: an array literal against a
 // list, set, or tuple target, or an object literal against an object
-// or map target. Any other pairing falls back to free inference, so
+// or map target. Opaque other pairing falls back to free inference, so
 // Check must compare the result itself.
 func literalEnforced(e lang.Expr, target Type) bool {
 	switch e.(type) {
@@ -662,7 +662,7 @@ func traverseSegments(
 			case Optional:
 				mayBeNull = true
 				current = current.Unwrap()
-			case Unknown, Any:
+			case Unknown, Opaque:
 				// Nullability is unknowable here; the guard is allowed
 				// and decides nothing.
 			default:
@@ -682,8 +682,8 @@ func traverseSegments(
 			switch current.Kind {
 			case List:
 				elem = elemOr(current)
-			case Any:
-				elem = TAny()
+			case Opaque:
+				elem = TOpaque()
 			case Optional:
 				if current.Unwrap().Kind == List {
 					errs.Addf(lang.ErrType, seg.S.Start,
@@ -741,8 +741,8 @@ func traverseSegments(
 				"%s may be null; read it with %s?.%s, or test it first (got %s)",
 				at, at, seg.Name, current)
 			return TUnknown()
-		case Any:
-			return TAny()
+		case Opaque:
+			return TOpaque()
 		default:
 			return TUnknown()
 		}
@@ -830,9 +830,9 @@ func indexSegmentType(
 				"if %s != null then %s%s else <fallback> (got %s)",
 			at, at, at, segIndexText(seg), current)
 		return TUnknown()
-	case Any:
+	case Opaque:
 		Infer(seg.Index, TUnknown(), scope, errs)
-		return TAny()
+		return TOpaque()
 	}
 	errs.Addf(lang.ErrType, seg.S.Start, "cannot index into %s", current)
 	return TUnknown()
@@ -930,11 +930,11 @@ func inferPlus(in *lang.Infix, left, right Type, errs *lang.ErrorList) Type {
 }
 
 // operandKind reduces a type to the kind the operator checks reason
-// about. Unknown and any return ok=false so partial information fails
+// about. Unknown and opaque return ok=false so partial information fails
 // open. Optional stays as it is: an operand that may be null wants a
 // null test, the same as a navigation.
 func operandKind(t Type) (Kind, bool) {
-	if t.Kind == Unknown || t.Kind == Any {
+	if t.Kind == Unknown || t.Kind == Opaque {
 		return t.Kind, false
 	}
 	if t.Kind == Optional && !t.IsKnown() {

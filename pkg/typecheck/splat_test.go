@@ -29,7 +29,7 @@ func splatScope() *Scope {
 			{Name: "nums", Type: TList(TInteger())},
 			{Name: "m", Type: TMap(TString())},
 			{Name: "maybe", Type: TOptional(TList(TString()))},
-			{Name: "whatever", Type: TList(TAny())},
+			{Name: "whatever", Type: TList(TOpaque())},
 		},
 	}
 }
@@ -57,8 +57,8 @@ func TestInferSplat(t *testing.T) {
 			src:  "if var.maybe == null then [] else var.maybe[*]",
 			want: TList(TString()),
 		},
-		{name: "splat over list of any", src: "var.whatever[*]", want: TList(TAny())},
-		{name: "splat then field on any", src: "var.whatever[*].foo", want: TList(TAny())},
+		{name: "splat over list of any", src: "var.whatever[*]", want: TList(TOpaque())},
+		{name: "splat then field on any", src: "var.whatever[*].foo", want: TList(TOpaque())},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

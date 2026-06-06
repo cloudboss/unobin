@@ -14,7 +14,7 @@ func TestTypeString(t *testing.T) {
 	}{
 		{"string", TString(), "string"},
 		{"integer", TInteger(), "integer"},
-		{"any", TAny(), "any"},
+		{"opaque", TOpaque(), "opaque"},
 		{"list of string", TList(TString()), "list(string)"},
 		{"map of string", TMap(TString()), "map(string)"},
 		{"optional string", TOptional(TString()), "optional(string)"},

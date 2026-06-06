@@ -160,7 +160,7 @@ func checkValue(t TypeExpr, v any, ev EvalFunc) (any, error) {
 
 func checkAtomic(t *TypeAtomic, v any) (any, error) {
 	switch t.Name {
-	case "any":
+	case "opaque":
 		return v, nil
 	case "string":
 		if s, ok := v.(string); ok {

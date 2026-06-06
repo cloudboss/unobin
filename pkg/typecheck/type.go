@@ -23,7 +23,7 @@ type Kind int
 
 const (
 	Unknown Kind = iota
-	Any
+	Opaque
 	String
 	Integer
 	Number
@@ -66,7 +66,7 @@ type ObjectField struct {
 }
 
 func TUnknown() Type { return Type{Kind: Unknown} }
-func TAny() Type     { return Type{Kind: Any} }
+func TOpaque() Type  { return Type{Kind: Opaque} }
 func TString() Type  { return Type{Kind: String} }
 func TInteger() Type { return Type{Kind: Integer} }
 func TNumber() Type  { return Type{Kind: Number} }
@@ -136,8 +136,8 @@ func (t Type) String() string {
 	switch t.Kind {
 	case Unknown:
 		return "unknown"
-	case Any:
-		return "any"
+	case Opaque:
+		return "opaque"
 	case String:
 		return "string"
 	case Integer:

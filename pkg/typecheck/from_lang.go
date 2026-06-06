@@ -48,8 +48,8 @@ func atomicFromLang(name string) Type {
 		return TBoolean()
 	case "null":
 		return TNull()
-	case "any":
-		return TAny()
+	case "opaque":
+		return TOpaque()
 	}
 	return TUnknown()
 }

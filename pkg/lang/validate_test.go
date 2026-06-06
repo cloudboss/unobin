@@ -225,6 +225,17 @@ func TestValidateReservesSetType(t *testing.T) {
 		errsToStrings(errs))
 }
 
+func TestValidateRejectsAnyType(t *testing.T) {
+	src := `inputs: { a: { type: any } }`
+	f, err := ParseSource("main.ub", []byte(src))
+	require.NoError(t, err)
+	errs := ValidateFile(f)
+	require.Equal(t,
+		[]string{"main.ub:1:22: type: any is not a type; " +
+			"use opaque for a value passed along unread, or declare the value's type"},
+		errsToStrings(errs))
+}
+
 func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
 	src := `
 imports: { core: 'github.com/x/core' }

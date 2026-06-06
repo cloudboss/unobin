@@ -20,7 +20,7 @@ func interpolatedScope() *Scope {
 			{Name: "cfg", Type: TObject([]ObjectField{{Name: "k", Type: TString()}})},
 			{Name: "maybe", Type: TString(), Optional: true},
 			{Name: "sized", Type: TInteger(), Optional: true, Defaulted: true},
-			{Name: "anything", Type: TAny()},
+			{Name: "anything", Type: TOpaque()},
 		},
 	}
 }

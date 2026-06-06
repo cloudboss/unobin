@@ -481,10 +481,10 @@ func eachBindingFromBody(
 // since the runtime rejects null.
 func checkFanOutIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
 	switch t.Kind {
-	case typecheck.Unknown, typecheck.Any, typecheck.Map, typecheck.Object:
+	case typecheck.Unknown, typecheck.Opaque, typecheck.Map, typecheck.Object:
 	case typecheck.Optional:
 		switch t.Unwrap().Kind {
-		case typecheck.Unknown, typecheck.Any, typecheck.Map, typecheck.Object,
+		case typecheck.Unknown, typecheck.Opaque, typecheck.Map, typecheck.Object,
 			typecheck.List, typecheck.Tuple:
 			errs.Addf(lang.ErrType, pos,
 				"@for-each: iterable may be null; supply a fallback, like "+
@@ -649,7 +649,7 @@ func bareConstraintIterable(forEach lang.Expr) bool {
 // skips a null iterable, so the entry is vacuously satisfied.
 func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
 	switch t.Unwrap().Kind {
-	case typecheck.Unknown, typecheck.Any, typecheck.List,
+	case typecheck.Unknown, typecheck.Opaque, typecheck.List,
 		typecheck.Map, typecheck.Object, typecheck.Tuple:
 		return
 	}

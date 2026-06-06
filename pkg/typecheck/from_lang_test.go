@@ -19,7 +19,7 @@ func TestFromLangAtomics(t *testing.T) {
 		{"number", &lang.TypeAtomic{Name: "number"}, TNumber()},
 		{"boolean", &lang.TypeAtomic{Name: "boolean"}, TBoolean()},
 		{"null", &lang.TypeAtomic{Name: "null"}, TNull()},
-		{"any", &lang.TypeAtomic{Name: "any"}, TAny()},
+		{"opaque", &lang.TypeAtomic{Name: "opaque"}, TOpaque()},
 		{"unrecognized", &lang.TypeAtomic{Name: "bogus"}, TUnknown()},
 		{"nil", nil, TUnknown()},
 	}

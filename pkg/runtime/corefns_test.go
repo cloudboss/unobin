@@ -86,13 +86,13 @@ func TestCoreFunctionSet(t *testing.T) {
 	require.True(t, sigs["length"].Result.Equal(typecheck.TInteger()))
 
 	require.Len(t, sigs["join"].Params, 2)
-	require.True(t, sigs["join"].Params[0].Equal(typecheck.TList(typecheck.TAny())))
+	require.True(t, sigs["join"].Params[0].Equal(typecheck.TList(typecheck.TOpaque())))
 	require.True(t, sigs["join"].Params[1].Equal(typecheck.TString()))
 	require.Nil(t, sigs["join"].Variadic)
 	require.True(t, sigs["join"].Result.Equal(typecheck.TString()))
 
 	require.Len(t, sigs["to-json"].Params, 1)
-	require.True(t, sigs["to-json"].Params[0].Equal(typecheck.TAny()))
+	require.True(t, sigs["to-json"].Params[0].Equal(typecheck.TOpaque()))
 	require.Nil(t, sigs["to-json"].Variadic)
 	require.True(t, sigs["to-json"].Result.Equal(typecheck.TString()))
 }

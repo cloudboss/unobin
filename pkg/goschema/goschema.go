@@ -382,7 +382,7 @@ func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
 		}
 		return typecheck.TMap(w.typeFromAST(v.Value))
 	case *ast.InterfaceType:
-		return typecheck.TAny()
+		return typecheck.TOpaque()
 	}
 	return typecheck.TUnknown()
 }
@@ -399,7 +399,7 @@ func primitiveFromName(name string) (typecheck.Type, bool) {
 	case "float32", "float64":
 		return typecheck.TNumber(), true
 	case "any":
-		return typecheck.TAny(), true
+		return typecheck.TOpaque(), true
 	}
 	return typecheck.Type{}, false
 }
@@ -808,11 +808,11 @@ func astValueType(e ast.Expr) typecheck.Type {
 		case "string":
 			return typecheck.TString()
 		case "any":
-			return typecheck.TAny()
+			return typecheck.TOpaque()
 		}
 	case *ast.InterfaceType:
 		if t.Methods == nil || len(t.Methods.List) == 0 {
-			return typecheck.TAny()
+			return typecheck.TOpaque()
 		}
 	case *ast.ArrayType:
 		if t.Len == nil {
