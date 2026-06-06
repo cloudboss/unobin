@@ -167,8 +167,7 @@ func TestInferComprehensionRejectsScalarSources(t *testing.T) {
 		t.Run(tt.src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
-			require.Len(t, errs.Errors(), 1)
-			assert.Equal(t, tt.want, errs.Errors()[0].Msg)
+			require.Equal(t, []string{tt.want}, errorMessages(errs))
 		})
 	}
 }

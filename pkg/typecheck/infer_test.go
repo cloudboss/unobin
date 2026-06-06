@@ -298,8 +298,9 @@ func TestInferEachValueUnknownField(t *testing.T) {
 	errs := lang.NewErrorList(0)
 	got := Infer(parseExpr(t, "@each.value.bogus"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TUnknown()))
-	require.Len(t, errs.Errors(), 1)
-	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "bogus" on object(`)
+	require.Equal(t,
+		[]string{`unknown field "bogus" on object({ port: integer })`},
+		errorMessages(errs))
 }
 
 func TestInferInfixOperators(t *testing.T) {
@@ -379,12 +380,19 @@ func TestInferOperandErrors(t *testing.T) {
 		t.Run(tt.src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
-			require.Len(t, errs.Errors(), len(tt.wantErrs))
-			for i, want := range tt.wantErrs {
-				assert.Contains(t, errs.Errors()[i].Msg, want)
-			}
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
 		})
 	}
+}
+
+// errorMessages collects an error list's messages for exact-content
+// assertions against the full expected slice.
+func errorMessages(errs *lang.ErrorList) []string {
+	var out []string
+	for _, e := range errs.Errors() {
+		out = append(out, e.Msg)
+	}
+	return out
 }
 
 func TestInferOperandLeniency(t *testing.T) {
@@ -469,7 +477,10 @@ func TestCheckCompositeTargets(t *testing.T) {
 				{Name: "host", Type: TString()},
 				{Name: "port", Type: TInteger()},
 			}),
-			wantErrs: []string{"type mismatch: expected object("},
+			wantErrs: []string{
+				"type mismatch: expected object({ host: string  port: integer }), " +
+					"got object({ host: string })",
+			},
 		},
 		{
 			name:     "atom literal against list target",
@@ -510,10 +521,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Check(parseExpr(t, tt.src), tt.target, scope, errs)
-			require.Len(t, errs.Errors(), len(tt.wantErrs))
-			for i, want := range tt.wantErrs {
-				assert.Contains(t, errs.Errors()[i].Msg, want)
-			}
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
 		})
 	}
 }
@@ -554,7 +562,7 @@ func TestInferIndexSegments(t *testing.T) {
 			"type mismatch: expected string, got integer",
 		}},
 		{src: "var.cfg['bogus']", want: unknown, wantErrs: []string{
-			`unknown field "bogus" on object(`,
+			`unknown field "bogus" on object({ host: string })`,
 		}},
 		{src: "var.name[0]", want: unknown, wantErrs: []string{
 			"cannot index into string",
@@ -575,10 +583,7 @@ func TestInferIndexSegments(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
 			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
-			require.Len(t, errs.Errors(), len(tt.wantErrs))
-			for i, want := range tt.wantErrs {
-				assert.Contains(t, errs.Errors()[i].Msg, want)
-			}
+			require.Equal(t, tt.wantErrs, errorMessages(errs))
 		})
 	}
 }

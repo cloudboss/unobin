@@ -902,7 +902,10 @@ func TestCheckReferencesUnknownPathRoots(t *testing.T) {
 inputs: { thing: { type: string } }
 outputs: { bad: { value: vars.thing } }
 `,
-			want: []string{`unknown name "vars"`},
+			want: []string{
+				`unknown name "vars"; references start with var, local, ` +
+					"resource, data, or action",
+			},
 		},
 		{
 			name: "unknown root in a constraint",
@@ -911,7 +914,10 @@ constraints: [
   { kind: predicate, when: foo.bar == null, require: true },
 ]
 `,
-			want: []string{`unknown name "foo"`},
+			want: []string{
+				`unknown name "foo"; references start with var, local, ` +
+					"resource, data, or action",
+			},
 		},
 		{
 			name: "binding root with hyphen suggests subtraction",
@@ -936,10 +942,7 @@ outputs: { ok: { value: [ for s in var.subnets : s.cidr ] } }
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
 			}
-			require.Len(t, got, len(tt.want), "got: %v", got)
-			for i, want := range tt.want {
-				require.Contains(t, got[i], want)
-			}
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -967,7 +970,10 @@ resources: { local: { file: { one: { @for-each: var.names, path: @each.value } }
 inputs: { names: { type: optional(list(string)) } }
 resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
 `,
-			want: []string{"turn a list into a map with"},
+			want: []string{
+				"@for-each: iterable must be a map, got optional(list(string)); " +
+					"turn a list into a map with { for n in ns : n => n }",
+			},
 		},
 		{
 			name: "node fan-out over a scalar",
@@ -1018,10 +1024,7 @@ constraints: [
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
 			}
-			require.Len(t, got, len(tt.want), "got: %v", got)
-			for i, want := range tt.want {
-				require.Contains(t, got[i], want)
-			}
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
