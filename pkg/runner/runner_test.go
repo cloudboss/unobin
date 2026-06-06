@@ -525,6 +525,32 @@ outputs: {
 		"said: 'size=5 spot=true ratio=1.5 subnets=subnet-a,subnet-b'")
 }
 
+func TestEnvVarStringInputTakesRawValue(t *testing.T) {
+	src := `
+inputs: {
+  answer:  { type: string }
+  comment: { type: optional(string) }
+}
+actions: {
+  core: {
+    echo: { hi: { echo: var.answer } }
+  }
+}
+outputs: {
+  said: { value: action.core.echo.hi.echo }
+  note: { value: var.comment ?? 'none' }
+}
+`
+	info := testInfo(t, src)
+	// Each value parses as a UB literal, but the declared type is
+	// string, so the raw text arrives untouched.
+	t.Setenv("UB_VAR_answer", "true")
+	t.Setenv("UB_VAR_comment", "42")
+	out := applyVia(t, info, "")
+	require.Contains(t, out, "said: 'true'")
+	require.Contains(t, out, "note: '42'")
+}
+
 func TestPlanRejectsTypeMismatch(t *testing.T) {
 	src := `
 inputs: {
@@ -772,7 +798,7 @@ outputs: {
 	require.Contains(t, out, "said: 'https://example.com/health'")
 }
 
-func TestEnvVarQuotedStringStillWorks(t *testing.T) {
+func TestEnvVarStringInputKeepsQuoteCharacters(t *testing.T) {
 	src := `
 inputs: {
   greeting: { type: string }
@@ -787,9 +813,11 @@ outputs: {
 }
 `
 	info := testInfo(t, src)
+	// A string input takes the raw text, so UB-style quotes are data,
+	// not syntax.
 	t.Setenv("UB_VAR_greeting", "'hello world'")
 	out := applyVia(t, info, "")
-	require.Contains(t, out, "said: 'hello world'")
+	require.Contains(t, out, `said: '\'hello world\''`)
 }
 
 func TestPlanShowsCreateBeforeApply(t *testing.T) {

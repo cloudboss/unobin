@@ -22,6 +22,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/spf13/cobra"
 )
 
@@ -682,7 +683,7 @@ func buildInputs(
 	if err != nil {
 		return nil, err
 	}
-	applyEnvOverrides(inputs)
+	applyEnvOverrides(inputs, decl)
 	validated, errs := lang.ValidateInputs(decl, inputs, defaultEval)
 	if errs.Len() > 0 {
 		return nil, errs.Err()
@@ -784,12 +785,15 @@ func loadConfigInputs(f *lang.File, path string) (map[string]any, error) {
 
 // applyEnvOverrides reads UB_VAR_<name> environment variables and writes
 // them into inputs. Underscores in the env name become hyphens to match
-// kebab case input names. Each value is parsed as a UB literal:
-// `UB_VAR_size=5` arrives as int64, `UB_VAR_use_spot=true` as bool,
-// `UB_VAR_subnets=['a', 'b']` as a list. Values that do not parse fall
-// through to a plain string, so URLs, paths, and names with special
-// characters work without shell-escaped quotes.
-func applyEnvOverrides(inputs map[string]any) {
+// kebab case input names. The declared input type directs the parse: a
+// string input takes the raw text exactly as given, so a value that
+// happens to look like another literal (true, 42) arrives unmangled,
+// while every other type reads its value as a UB literal, so
+// `UB_VAR_size=5` arrives as int64 and `UB_VAR_subnets=['a', 'b']` as
+// a list. A value that does not parse falls through to the raw string
+// and input validation reports it against the declaration.
+func applyEnvOverrides(inputs map[string]any, decl *lang.ObjectLit) {
+	declared := typecheck.InputsFromBlock(decl)
 	for _, env := range os.Environ() {
 		if !strings.HasPrefix(env, EnvVarPrefix) {
 			continue
@@ -802,8 +806,24 @@ func applyEnvOverrides(inputs map[string]any) {
 		if name == "" {
 			continue
 		}
+		if stringDeclared(declared, name) {
+			inputs[name] = env[eq+1:]
+			continue
+		}
 		inputs[name] = parseEnvValue(env[eq+1:])
 	}
+}
+
+// stringDeclared reports whether the named input is declared as a
+// string, an optional() wrapper included; its env value then needs no
+// literal parse.
+func stringDeclared(declared []typecheck.ObjectField, name string) bool {
+	for _, f := range declared {
+		if f.Name == name {
+			return f.Type.Kind == typecheck.String
+		}
+	}
+	return false
 }
 
 // parseEnvValue tries to read raw as a single UB literal expression. A
