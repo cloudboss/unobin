@@ -518,6 +518,71 @@ func TestCheckCompositeTargets(t *testing.T) {
 	}
 }
 
+func TestInferIndexSegments(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "ports", Type: TList(TInteger())},
+			{Name: "tags", Type: TMap(TString())},
+			{Name: "pair", Type: TTuple([]Type{TString(), TInteger()})},
+			{Name: "cfg", Type: TObject([]ObjectField{
+				{Name: "host", Type: TString()},
+			})},
+			{Name: "name", Type: TString()},
+			{Name: "count", Type: TInteger()},
+			{Name: "anything", Type: TAny()},
+		},
+	}
+	unknown := TUnknown()
+	tests := []struct {
+		src      string
+		want     Type
+		wantErrs []string
+	}{
+		{src: "var.tags[0]", want: TString(), wantErrs: []string{
+			"type mismatch: expected string, got integer",
+		}},
+		{src: "var.ports['a']", want: TInteger(), wantErrs: []string{
+			"type mismatch: expected integer, got string",
+		}},
+		{src: "var.pair[5]", want: unknown, wantErrs: []string{
+			"index 5 out of range for tuple([string integer])",
+		}},
+		{src: "var.pair['a']", want: unknown, wantErrs: []string{
+			"type mismatch: expected integer, got string",
+		}},
+		{src: "var.cfg[0]", want: unknown, wantErrs: []string{
+			"type mismatch: expected string, got integer",
+		}},
+		{src: "var.cfg['bogus']", want: unknown, wantErrs: []string{
+			`unknown field "bogus" on object(`,
+		}},
+		{src: "var.name[0]", want: unknown, wantErrs: []string{
+			"cannot index into string",
+		}},
+		{src: "var.count[0]", want: unknown, wantErrs: []string{
+			"cannot index into integer",
+		}},
+		{src: "var.ports[1 + 1]", want: TInteger()},
+		{src: "var.pair[0]", want: TString()},
+		{src: "var.pair[1]", want: TInteger()},
+		{src: "var.cfg['host']", want: TString()},
+		{src: "var.tags[var.name]", want: TString()},
+		{src: "var.anything[0]", want: TAny()},
+		{src: "[ for i, p in var.ports : var.ports[i] ]", want: TList(TInteger())},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
+			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
+			require.Len(t, errs.Errors(), len(tt.wantErrs))
+			for i, want := range tt.wantErrs {
+				assert.Contains(t, errs.Errors()[i].Msg, want)
+			}
+		})
+	}
+}
+
 func TestCheckMapComprehensionValueTarget(t *testing.T) {
 	scope := &Scope{
 		Inputs: []ObjectField{

@@ -455,7 +455,7 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	}
 	if scope != nil {
 		if t, ok := scope.Bindings[dp.Root.Name]; ok {
-			return traverseSegments(t, dp.Segments, errs, false)
+			return traverseSegments(t, dp.Segments, scope, errs, false)
 		}
 	}
 	switch dp.Root.Name {
@@ -483,7 +483,7 @@ func inferLocal(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if !ok {
 		return TUnknown()
 	}
-	return traverseSegments(t, dp.Segments[1:], errs, false)
+	return traverseSegments(t, dp.Segments[1:], scope, errs, false)
 }
 
 func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
@@ -501,7 +501,7 @@ func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if field.Optional && !field.Defaulted {
 		t = TOptional(t)
 	}
-	return traverseSegments(t, dp.Segments[1:], errs, false)
+	return traverseSegments(t, dp.Segments[1:], scope, errs, false)
 }
 
 func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
@@ -522,7 +522,7 @@ func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if len(rest) > 0 && rest[0].Index != nil && rest[0].Name == "" {
 		rest = rest[1:]
 	}
-	return traverseSegments(t, rest, errs, true)
+	return traverseSegments(t, rest, scope, errs, true)
 }
 
 func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
@@ -538,14 +538,14 @@ func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	default:
 		return TUnknown()
 	}
-	return traverseSegments(t, dp.Segments[1:], errs, false)
+	return traverseSegments(t, dp.Segments[1:], scope, errs, false)
 }
 
 // traverseSegments walks the trailing field segments after a root
 // reference, narrowing the type as it descends. Each .name segment
-// looks up an object field; each [expr] segment unwraps a list,
-// set, or map element. Returns Unknown when a segment cannot be
-// resolved.
+// looks up an object field; each [expr] segment indexes a list, set,
+// map, tuple, or object element. Returns Unknown when a segment
+// cannot be resolved.
 //
 // skipFirst suppresses the unknown-field diagnostic at segs[0] so
 // callers whose first segment is already checked elsewhere (the
@@ -553,7 +553,7 @@ func inferEach(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 // for resource/data/action paths) do not report twice. Deeper
 // segments always report.
 func traverseSegments(
-	t Type, segs []lang.DotSegment, errs *lang.ErrorList, skipFirst bool,
+	t Type, segs []lang.DotSegment, scope *Scope, errs *lang.ErrorList, skipFirst bool,
 ) Type {
 	current := t
 	for i, seg := range segs {
@@ -572,18 +572,14 @@ func traverseSegments(
 				errs.Addf(lang.ErrType, seg.S.Start, "splat [*] needs a list, got %s", current)
 				return TUnknown()
 			}
-			return TList(traverseSegments(elem, segs[i+1:], errs, false))
+			return TList(traverseSegments(elem, segs[i+1:], scope, errs, false))
 		}
 		if seg.Index != nil && seg.Name == "" {
-			switch current.Kind {
-			case List, Set, Map:
-				if current.Elem == nil {
-					return TUnknown()
-				}
-				current = *current.Elem
-				continue
+			current = indexSegmentType(current, seg, scope, errs)
+			if !current.IsKnown() {
+				return TUnknown()
 			}
-			return TUnknown()
+			continue
 		}
 		if seg.Name == "" {
 			return TUnknown()
@@ -622,6 +618,60 @@ func traverseSegments(
 // orderings want two numbers or two strings, and equality wants types
 // that could ever match. An operand the inferrer cannot type passes
 // unchecked, so the checks mirror the runtime without false positives.
+// indexSegmentType resolves a bare [expr] segment against the type
+// being navigated. Lists and sets index by integer, maps by string. A
+// tuple or object needs a literal index to pick a precise element
+// type, since its elements differ by position or name; a computed
+// index still has its type checked but yields the elements' join (for
+// a tuple) or Unknown (for an object).
+func indexSegmentType(current Type, seg lang.DotSegment, scope *Scope, errs *lang.ErrorList) Type {
+	switch current.Kind {
+	case List, Set:
+		Check(seg.Index, TInteger(), scope, errs)
+		return elemOr(current)
+	case Map:
+		Check(seg.Index, TString(), scope, errs)
+		return elemOr(current)
+	case Tuple:
+		Check(seg.Index, TInteger(), scope, errs)
+		lit, ok := seg.Index.(*lang.NumberLit)
+		if !ok || lit.IsFloat {
+			if j, ok := joinAll(current.Elems); ok {
+				return j
+			}
+			return TUnknown()
+		}
+		i := lit.ParsedInt
+		if i < 0 || i >= int64(len(current.Elems)) {
+			errs.Addf(lang.ErrType, seg.S.Start,
+				"index %d out of range for %s", i, current)
+			return TUnknown()
+		}
+		return current.Elems[i]
+	case Object:
+		Check(seg.Index, TString(), scope, errs)
+		lit, ok := seg.Index.(*lang.StringLit)
+		if !ok {
+			return TUnknown()
+		}
+		field, ok := current.Field(lit.Value)
+		if !ok {
+			errs.Addf(lang.ErrType, seg.S.Start,
+				"unknown field %q on %s", lit.Value, current)
+			return TUnknown()
+		}
+		if field.Optional {
+			return TOptional(field.Type)
+		}
+		return field.Type
+	case Any:
+		Infer(seg.Index, TUnknown(), scope, errs)
+		return TAny()
+	}
+	errs.Addf(lang.ErrType, seg.S.Start, "cannot index into %s", current)
+	return TUnknown()
+}
+
 func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 	left := Infer(in.Left, TUnknown(), scope, errs)
 	right := Infer(in.Right, TUnknown(), scope, errs)
