@@ -874,6 +874,10 @@ func traverseSegments(
 				at, seg.Name)
 			return TUnknown()
 		default:
+			if !(skipFirst && i == 0) {
+				errs.Addf(lang.ErrType, seg.S.Start,
+					"cannot read field %q of %s", seg.Name, current)
+			}
 			return TUnknown()
 		}
 		if seg.Guarded {

@@ -367,6 +367,49 @@ func TestIndexOpenObjectUndeclaredField(t *testing.T) {
 		errorMessages(errs))
 }
 
+func TestNavigateIntoScalar(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{
+		{Name: "name", Type: TString()},
+		{Name: "count", Type: TInteger()},
+		{Name: "ports", Type: TList(TInteger())},
+		{Name: "cfg", Type: TObject([]ObjectField{{Name: "tag", Type: TString()}})},
+	}}
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			"string field",
+			"var.name.length",
+			[]string{`cannot read field "length" of string`},
+		},
+		{
+			"integer field",
+			"var.count.value",
+			[]string{`cannot read field "value" of integer`},
+		},
+		{
+			"list field",
+			"var.ports.first",
+			[]string{`cannot read field "first" of list(integer)`},
+		},
+		{
+			"deep scalar field",
+			"var.cfg.tag.upper",
+			[]string{`cannot read field "upper" of string`},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			got := Infer(parseExpr(t, c.src), TUnknown(), scope, errs)
+			assert.True(t, got.Equal(TUnknown()), "got %s", got)
+			require.Equal(t, c.want, errorMessages(errs))
+		})
+	}
+}
+
 func TestNavigateIntoOpaque(t *testing.T) {
 	scope := &Scope{Inputs: []ObjectField{
 		{Name: "blob", Type: TOpaque()},
