@@ -168,14 +168,8 @@ func checkAtomic(t *TypeAtomic, v any) (any, error) {
 		}
 		return nil, fmt.Errorf("expected string, got %s", typeName(v))
 	case "integer":
-		switch x := v.(type) {
-		case int64:
+		if x, ok := v.(int64); ok {
 			return x, nil
-		case float64:
-			if x == float64(int64(x)) {
-				return int64(x), nil
-			}
-			return nil, fmt.Errorf("expected integer, got %v (number with fraction)", x)
 		}
 		return nil, fmt.Errorf("expected integer, got %s", typeName(v))
 	case "number":

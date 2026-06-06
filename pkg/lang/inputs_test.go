@@ -82,26 +82,20 @@ inputs: {
 	require.Contains(t, errs.Err().Error(), "expected integer, got string")
 }
 
-func TestValidateInputsIntegerFromFloatNoFraction(t *testing.T) {
+func TestValidateInputsIntegerRejectsNumber(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
   size: { type: integer }
 }
 `)
-	out, errs := ValidateInputs(decl, map[string]any{"size": 5.0}, litEval)
-	require.Equal(t, 0, errs.Len(), errs.Err())
-	require.Equal(t, int64(5), out["size"])
-}
-
-func TestValidateInputsIntegerFromFloatWithFractionRejected(t *testing.T) {
-	decl := parseInputsBlock(t, `
-inputs: {
-  size: { type: integer }
-}
-`)
-	_, errs := ValidateInputs(decl, map[string]any{"size": 5.5}, litEval)
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Err().Error(), "fraction")
+	for _, v := range []float64{5.0, 5.5} {
+		_, errs := ValidateInputs(decl, map[string]any{"size": v}, litEval)
+		var got []string
+		for _, e := range errs.Errors() {
+			got = append(got, e.Msg)
+		}
+		require.Equal(t, []string{`input "size": expected integer, got number`}, got)
+	}
 }
 
 func TestValidateInputsRequiredMissing(t *testing.T) {
