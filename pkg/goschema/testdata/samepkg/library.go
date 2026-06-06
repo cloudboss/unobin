@@ -14,11 +14,9 @@ func Library() *runtime.Library {
 			"do2": runtime.MakeAction[Do2Action, *Do2ActionOutput](),
 		},
 		Functions: map[string]runtime.FunctionType{
-			"shout":   {Name: "shout", ArgCount: 1},
-			"reverse": {Name: "reverse", ArgCount: 1},
-			"upper":   runtime.MakeFunc("upper", "Uppercase a string.", fnUpper),
-			"pair":    runtime.MakeFunc("pair", "Pair two strings.", fnPair),
-			"join":    runtime.MakeFunc("join", "Join strings.", fnJoin),
+			"upper": runtime.MakeFunc("upper", "Uppercase a string.", fnUpper),
+			"pair":  runtime.MakeFunc("pair", "Pair two strings.", fnPair),
+			"join":  runtime.MakeFunc("join", "Join strings.", fnJoin),
 		},
 	}
 }

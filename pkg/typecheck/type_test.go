@@ -45,6 +45,47 @@ func TestTypeString(t *testing.T) {
 	}
 }
 
+func TestContainsUnknown(t *testing.T) {
+	tests := []struct {
+		name string
+		typ  Type
+		want bool
+	}{
+		{"unknown itself", TUnknown(), true},
+		{"string", TString(), false},
+		{"opaque", TOpaque(), false},
+		{"list of unknown", TList(TUnknown()), true},
+		{"list of string", TList(TString()), false},
+		{"optional of unknown", TOptional(TUnknown()), true},
+		{"deep map", TMap(TList(TUnknown())), true},
+		{"tuple with unknown member", TTuple([]Type{TString(), TUnknown()}), true},
+		{"tuple of knowns", TTuple([]Type{TString(), TInteger()}), false},
+		{
+			"object with unknown field",
+			TObject([]ObjectField{{Name: "a", Type: TUnknown()}}),
+			true,
+		},
+		{
+			"object of knowns",
+			TObject([]ObjectField{{Name: "a", Type: TString()}}),
+			false,
+		},
+		{
+			"nested object unknown",
+			TObject([]ObjectField{{
+				Name: "a",
+				Type: TObject([]ObjectField{{Name: "b", Type: TUnknown()}}),
+			}}),
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.typ.ContainsUnknown())
+		})
+	}
+}
+
 func TestEqualDistinguishesOpenObjects(t *testing.T) {
 	closed := TObject([]ObjectField{{Name: "a", Type: TString()}})
 	open := TOpenObject([]ObjectField{{Name: "a", Type: TString()}})

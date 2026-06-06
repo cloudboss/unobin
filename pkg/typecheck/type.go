@@ -112,6 +112,29 @@ func (t Type) IsKnown() bool {
 	return true
 }
 
+// ContainsUnknown reports whether t or any type nested inside it is
+// Unknown. IsKnown looks only through Optional; this walks every
+// element, tuple member, and object field.
+func (t Type) ContainsUnknown() bool {
+	if t.Kind == Unknown {
+		return true
+	}
+	if t.Elem != nil && t.Elem.ContainsUnknown() {
+		return true
+	}
+	for _, e := range t.Elems {
+		if e.ContainsUnknown() {
+			return true
+		}
+	}
+	for _, f := range t.Fields {
+		if f.Type.ContainsUnknown() {
+			return true
+		}
+	}
+	return false
+}
+
 // Unwrap returns the inner type when t is Optional, else t itself.
 // The checker peels optionality before comparing the underlying
 // types.

@@ -14,6 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// The nested and crosspkg fixtures' DBOutput refers to itself through
+// its Self field, which no language type expresses; every Read of
+// either fixture reports that one warning.
+const nestedSelfWarning = `resource "db" output: field self: Go type *DBOutput does not ` +
+	`fully map to language types, so reads of it are unchecked`
+
 func TestReadExtractsSetConstraints(t *testing.T) {
 	schema, warnings, err := Read("testdata/constraints")
 	require.NoError(t, err)
@@ -223,7 +229,7 @@ type Item struct {
 func TestReadExtractsNestedConstraints(t *testing.T) {
 	schema, warnings, err := Read("testdata/nested")
 	require.NoError(t, err)
-	require.Empty(t, warnings)
+	require.Equal(t, []string{nestedSelfWarning}, warnings)
 	require.Contains(t, schema.Resources, "db")
 
 	want := []lang.ConstraintSpec{
@@ -405,13 +411,7 @@ func TestReadSamePackage(t *testing.T) {
 		"the alias should resolve to the same field set")
 
 	fns := schema.Functions
-	require.Len(t, fns, 5)
-
-	require.Len(t, fns["shout"].Params, 1)
-	require.True(t, fns["shout"].Params[0].Equal(typecheck.TUnknown()),
-		"a literal registration declares no types")
-	require.Nil(t, fns["shout"].Variadic)
-	require.Len(t, fns["reverse"].Params, 1)
+	require.Len(t, fns, 3)
 
 	require.Len(t, fns["upper"].Params, 1)
 	require.True(t, fns["upper"].Params[0].Equal(typecheck.TString()))
@@ -504,7 +504,7 @@ type Thing struct{}
 func TestReadExpandsNestedStructTypes(t *testing.T) {
 	schema, warnings, err := Read("testdata/nested")
 	require.NoError(t, err)
-	require.Empty(t, warnings)
+	require.Equal(t, []string{nestedSelfWarning}, warnings)
 
 	require.Contains(t, schema.Resources, "db")
 	db := schema.Resources["db"]
@@ -589,7 +589,7 @@ type ThingOutput struct {
 func TestReadMarksPointerStructFieldsOptional(t *testing.T) {
 	schema, warnings, err := Read("testdata/nested")
 	require.NoError(t, err)
-	require.Empty(t, warnings)
+	require.Equal(t, []string{nestedSelfWarning}, warnings)
 
 	require.Contains(t, schema.Resources, "db")
 	code := schema.Resources["db"].Inputs["code"]
@@ -612,7 +612,7 @@ func TestReadMarksPointerStructFieldsOptional(t *testing.T) {
 func TestReadExpandsCrossPackageStructTypes(t *testing.T) {
 	schema, warnings, err := Read("testdata/crosspkg")
 	require.NoError(t, err)
-	require.Empty(t, warnings)
+	require.Equal(t, []string{nestedSelfWarning}, warnings)
 
 	require.Contains(t, schema.Resources, "db")
 	db := schema.Resources["db"]
@@ -666,6 +666,24 @@ func TestReadRejectsUnknownUBOption(t *testing.T) {
 	require.Contains(t, err.Error(), "sensitiv")
 }
 
+func TestReadWarnsOnUnmappableFieldTypes(t *testing.T) {
+	schema, warnings, err := Read("testdata/unmappable")
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		`resource "thing" input: field updates: Go type chan string does not fully map ` +
+			`to language types, so reads of it are unchecked`,
+		`resource "thing" output: field seen: Go type time.Time does not fully map ` +
+			`to language types, so reads of it are unchecked`,
+	}, warnings)
+
+	thing := schema.Resources["thing"]
+	require.NotNil(t, thing)
+	require.True(t, thing.Inputs["updates"].Equal(typecheck.TUnknown()))
+	require.True(t, thing.Outputs["seen"].Equal(typecheck.TUnknown()))
+	require.True(t, thing.Inputs["name"].Equal(typecheck.TString()),
+		"mappable fields extract as usual")
+}
+
 func TestMakeFuncRegistrationErrors(t *testing.T) {
 	const prologue = `package x
 
@@ -700,10 +718,18 @@ func Library() *runtime.Library {
 			`"x": runtime.MakeFunc("x", "d", intParam),`,
 			"func intParam(n int) (bool, error) { return true, nil }",
 			`function "x" parameter 1 has an unsupported type`},
+		{"unsupported result",
+			`"x": runtime.MakeFunc("x", "d", badResult),`,
+			"func badResult(s string) (chan int, error) { return nil, nil }",
+			`function "x" result has an unsupported type`},
+		{"function type literal",
+			`"x": runtime.FunctionType{Name: "x", ArgCount: 1},`, "",
+			`function "x": register with runtime.MakeFunc; ` +
+				`a FunctionType literal declares no types`},
 		{"some other call",
 			`"x": helper(),`,
 			"func helper() runtime.FunctionType { return runtime.FunctionType{} }",
-			`function "x": register a FunctionType literal or a runtime.MakeFunc call`},
+			`function "x": register with runtime.MakeFunc`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

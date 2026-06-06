@@ -11,6 +11,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"maps"
 	"os"
 	"path/filepath"
@@ -52,9 +53,12 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 	cache := map[string][]*ast.File{}
 	errs := &[]error{}
 	for _, reg := range extractRegistrations(libraryFunc) {
+		kind := registrationKindLabel(reg.Field)
 		w := newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		w.subject = fmt.Sprintf("%s %q input", kind, reg.Name)
 		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
 		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		w.subject = fmt.Sprintf("%s %q output", kind, reg.Name)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
@@ -299,7 +303,12 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 	out := map[string]typecheck.Type{}
 	var sensitive map[string]bool
 	w.eachStructField(st, func(kebab string, fld *ast.Field, isSensitive bool) {
-		out[kebab] = w.typeFromAST(fld.Type)
+		t := w.typeFromAST(fld.Type)
+		if t.ContainsUnknown() {
+			w.addWarnf("field %s: Go type %s does not fully map to language types, "+
+				"so reads of it are unchecked", kebab, types.ExprString(fld.Type))
+		}
+		out[kebab] = t
 		if isSensitive {
 			if sensitive == nil {
 				sensitive = map[string]bool{}
@@ -590,46 +599,24 @@ func extractFunctions(
 
 // functionSig reads a function registration's signature. A MakeFunc
 // call takes parameter and result types from the registered function's
-// declaration; a FunctionType composite literal declares only ArgCount
-// and Variadic fields, so its signature counts arguments and types
-// nothing. An omitted field keeps its zero value, so a literal declared
-// with neither reads as taking exactly zero arguments.
+// declaration; that is the only registration form, since anything else
+// gives the checker a function it cannot type.
 func functionSig(
 	name string, e ast.Expr, files []*ast.File, errs *[]error,
 ) typecheck.FuncSig {
 	if call, ok := e.(*ast.CallExpr); ok {
 		return makeFuncSig(name, call, files, errs)
 	}
-	var sig typecheck.FuncSig
-	sig.Result = typecheck.TUnknown()
-	lit, ok := e.(*ast.CompositeLit)
-	if !ok {
-		return sig
+	msg := fmt.Errorf("function %q: register with runtime.MakeFunc", name)
+	if _, ok := e.(*ast.CompositeLit); ok {
+		msg = fmt.Errorf(
+			"function %q: register with runtime.MakeFunc; "+
+				"a FunctionType literal declares no types", name)
 	}
-	for _, el := range lit.Elts {
-		kv, ok := el.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		field, ok := identName(kv.Key)
-		if !ok {
-			continue
-		}
-		switch field {
-		case "ArgCount":
-			if n, ok := intLit(kv.Value); ok {
-				for range n {
-					sig.Params = append(sig.Params, typecheck.TUnknown())
-				}
-			}
-		case "Variadic":
-			if b, ok := boolLit(kv.Value); ok && b {
-				unknown := typecheck.TUnknown()
-				sig.Variadic = &unknown
-			}
-		}
+	if errs != nil {
+		*errs = append(*errs, msg)
 	}
-	return sig
+	return typecheck.FuncSig{Result: typecheck.TUnknown()}
 }
 
 // makeFuncSig resolves a runtime.MakeFunc registration to its full
@@ -647,8 +634,7 @@ func makeFuncSig(
 		}
 	}
 	if calleeName(call.Fun) != "MakeFunc" {
-		addErr("function %q: register a FunctionType literal or a runtime.MakeFunc call",
-			name)
+		addErr("function %q: register with runtime.MakeFunc", name)
 		return typecheck.FuncSig{Result: typecheck.TUnknown()}
 	}
 	if len(call.Args) != 3 {
@@ -723,6 +709,9 @@ func validateFuncDecl(name string, ft *ast.FuncType, addErr func(string, ...any)
 		last := ft.Results.List[len(ft.Results.List)-1]
 		if id, ok := last.Type.(*ast.Ident); !ok || id.Name != "error" {
 			addErr("function %q must return (value, error)", name)
+		}
+		if !supportedParamType(ft.Results.List[0].Type) {
+			addErr("function %q result has an unsupported type", name)
 		}
 	}
 	if ft.Params == nil {
