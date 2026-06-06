@@ -428,3 +428,108 @@ func TestInferPlusPartialString(t *testing.T) {
 	assert.True(t, got.Equal(TString()), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
+
+func TestCheckCompositeTargets(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "ports", Type: TList(TInteger())},
+			{Name: "tags", Type: TMap(TString())},
+			{Name: "cfg", Type: TObject([]ObjectField{
+				{Name: "host", Type: TString()},
+			})},
+			{Name: "pair", Type: TTuple([]Type{TInteger(), TInteger()})},
+		},
+	}
+	tests := []struct {
+		name     string
+		src      string
+		target   Type
+		wantErrs []string
+	}{
+		{
+			name:   "list element mismatch",
+			src:    "var.ports",
+			target: TList(TString()),
+			wantErrs: []string{
+				"type mismatch: expected list(string), got list(integer)",
+			},
+		},
+		{
+			name:   "map element mismatch",
+			src:    "var.tags",
+			target: TMap(TInteger()),
+			wantErrs: []string{
+				"type mismatch: expected map(integer), got map(string)",
+			},
+		},
+		{
+			name: "object missing required field",
+			src:  "var.cfg",
+			target: TObject([]ObjectField{
+				{Name: "host", Type: TString()},
+				{Name: "port", Type: TInteger()},
+			}),
+			wantErrs: []string{"type mismatch: expected object("},
+		},
+		{
+			name:     "atom literal against list target",
+			src:      "'a'",
+			target:   TList(TString()),
+			wantErrs: []string{"type mismatch: expected list(string), got string"},
+		},
+		{
+			name:   "conditional of references against list target",
+			src:    "if true then var.ports else var.ports",
+			target: TList(TString()),
+			wantErrs: []string{
+				"type mismatch: expected list(string), got list(integer)",
+			},
+		},
+		{
+			name:   "list comprehension against map target",
+			src:    "[ for p in var.ports : p ]",
+			target: TMap(TString()),
+			wantErrs: []string{
+				"type mismatch: expected map(string), got list(integer)",
+			},
+		},
+		{name: "matching list reference", src: "var.ports", target: TList(TInteger())},
+		{name: "widening into any elements", src: "var.ports", target: TList(TAny())},
+		{name: "tuple into list", src: "var.pair", target: TList(TInteger())},
+		{name: "object into map", src: "var.cfg", target: TMap(TString())},
+		{
+			name:   "literal still enforced at elements only",
+			src:    "['a', 5]",
+			target: TList(TString()),
+			wantErrs: []string{
+				"type mismatch: expected string, got integer",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Check(parseExpr(t, tt.src), tt.target, scope, errs)
+			require.Len(t, errs.Errors(), len(tt.wantErrs))
+			for i, want := range tt.wantErrs {
+				assert.Contains(t, errs.Errors()[i].Msg, want)
+			}
+		})
+	}
+}
+
+func TestCheckMapComprehensionValueTarget(t *testing.T) {
+	scope := &Scope{
+		Inputs: []ObjectField{
+			{Name: "tags", Type: TMap(TString())},
+		},
+	}
+	errs := lang.NewErrorList(0)
+	got := Check(
+		parseExpr(t, "{ for k, v in var.tags : k => 1 }"),
+		TMap(TString()), scope, errs,
+	)
+	assert.True(t, got.Equal(TMap(TString())), "got %s", got)
+	require.Len(t, errs.Errors(), 1)
+	assert.Contains(t, errs.Errors()[0].Msg, "expected string, got integer")
+}

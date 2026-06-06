@@ -230,6 +230,13 @@ func inferComprehension(
 	}
 	if c.Kind == lang.CompMap {
 		Check(c.Key, TString(), child, errs)
+		if valTarget, ok := mapValueTarget(target, c.Group); ok {
+			Check(c.Value, valTarget, child, errs)
+			if c.Group {
+				return TMap(TList(valTarget))
+			}
+			return TMap(valTarget)
+		}
 		valT := Infer(c.Value, TUnknown(), child, errs)
 		if c.Group {
 			return TMap(TList(valT))
@@ -271,20 +278,36 @@ func listElemTarget(target Type) (Type, bool) {
 	return Type{}, false
 }
 
+// mapValueTarget extracts the type a map comprehension's value
+// expression should check against. A grouped comprehension collects
+// values into a list per key, so the value target is the element of
+// a map-of-lists target.
+func mapValueTarget(target Type, group bool) (Type, bool) {
+	if target.Kind != Map || target.Elem == nil {
+		return Type{}, false
+	}
+	if !group {
+		return *target.Elem, true
+	}
+	if target.Elem.Kind == List && target.Elem.Elem != nil {
+		return *target.Elem.Elem, true
+	}
+	return Type{}, false
+}
+
 // Check infers the type of e and verifies it is assignable to the
-// declared target. Returns the inferred type and appends a
-// mismatch diagnostic to errs when the types are incompatible.
-// Container and object targets are already enforced bidirectionally
-// inside Infer (mismatches are reported at the element or field
-// level); Check's own Assignable comparison runs only for atomic
-// targets so the same mistake is not reported twice.
+// declared target. Returns the inferred type and appends a mismatch
+// diagnostic to errs when the types are incompatible. An array or
+// object literal matching a container target is enforced element by
+// element inside Infer, so Check's own Assignable comparison skips
+// exactly those pairings and the same mistake is not reported twice;
+// everything else, references and calls included, is compared here.
 func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	got := Infer(e, target, scope, errs)
 	if !target.IsKnown() || !got.IsKnown() {
 		return got
 	}
-	switch target.Kind {
-	case List, Set, Map, Tuple, Object:
+	if literalEnforced(e, target) {
 		return got
 	}
 	if !Assignable(target, got) {
@@ -292,6 +315,21 @@ func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 			"type mismatch: expected %s, got %s", target, got)
 	}
 	return got
+}
+
+// literalEnforced reports whether Infer already checked e against
+// target at the element or field level: an array literal against a
+// list, set, or tuple target, or an object literal against an object
+// or map target. Any other pairing falls back to free inference, so
+// Check must compare the result itself.
+func literalEnforced(e lang.Expr, target Type) bool {
+	switch e.(type) {
+	case *lang.ArrayLit:
+		return target.Kind == List || target.Kind == Set || target.Kind == Tuple
+	case *lang.ObjectLit:
+		return target.Kind == Object || target.Kind == Map
+	}
+	return false
 }
 
 func inferArray(
