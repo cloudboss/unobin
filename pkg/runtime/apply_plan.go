@@ -2,8 +2,12 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
@@ -449,8 +453,9 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	// plan's premises no longer hold, so the answer is a fresh plan,
 	// not a quiet apply of something never shown.
 	if step.ObservedOutputs != nil && !sameInputs(step.ObservedOutputs, outputs) {
-		return fmt.Errorf("data source %s changed since the plan was computed; plan again",
-			step.Address)
+		return fmt.Errorf("data source %s changed since the plan was computed; plan again\n%s",
+			step.Address,
+			diffFields(step.ObservedOutputs, outputs, step.SensitiveOutputs))
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -472,6 +477,49 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 		DependsOn:        rs.dependsOn[step.Address],
 	})
 	return nil
+}
+
+// diffFields renders the fields whose value differs between two maps,
+// one per line as `name: planned -> applied`, with sensitive fields
+// masked and long values shortened. Field names are sorted so the
+// report reads stably.
+func diffFields(planned, applied map[string]any, sensitive []string) string {
+	names := map[string]bool{}
+	for k := range planned {
+		names[k] = true
+	}
+	for k := range applied {
+		names[k] = true
+	}
+	masked := map[string]bool{}
+	for _, k := range sensitive {
+		masked[k] = true
+	}
+	var lines []string
+	for _, k := range slices.Sorted(maps.Keys(names)) {
+		if sameValue(planned[k], applied[k]) {
+			continue
+		}
+		if masked[k] {
+			lines = append(lines, fmt.Sprintf("  %s: (sensitive)", k))
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("  %s: %s -> %s",
+			k, shortValue(planned[k]), shortValue(applied[k])))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func shortValue(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	const max = 120
+	if len(b) > max {
+		return string(b[:max]) + "..."
+	}
+	return string(b)
 }
 
 // evalPlanOutputs evaluates each output node from the source against the

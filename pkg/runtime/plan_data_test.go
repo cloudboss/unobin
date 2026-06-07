@@ -234,6 +234,8 @@ func TestApplyErrorsWhenDataChangedSincePlan(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "data.core.dial.cfg")
 	require.Contains(t, err.Error(), "changed since the plan")
+	require.Contains(t, err.Error(), `value: "a:k" -> "b:k"`,
+		"the error names each differing field with both values")
 }
 
 // Data reads are recorded in state, like Terraform's data entries, so
