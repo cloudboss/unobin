@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
@@ -306,6 +307,73 @@ data: {
 	require.Equal(t, map[string]any{"value": "v:y"},
 		findStep(t, plan, `data.core.dial.cfg['b']`).ObservedOutputs)
 	require.Equal(t, int64(2), reads)
+}
+
+// amiOut mimics a cloud data source's richer output: a nested struct
+// list whose field order is not alphabetical, an optional field left
+// nil, an empty list, and a timestamp.
+type amiDevice struct {
+	Name string
+	Size int64
+}
+
+type amiOut struct {
+	ID      string
+	Devices []amiDevice
+	Alias   *string
+	Tags    []string
+	Created time.Time
+}
+
+type amiDataSource struct {
+	Key string
+}
+
+func (d *amiDataSource) Read(_ context.Context, _ any) (*amiOut, error) {
+	return &amiOut{
+		ID:      "ami-1",
+		Devices: []amiDevice{{Name: "xvda", Size: 8}},
+		Tags:    []string{},
+		Created: time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
+	}, nil
+}
+
+// The values a data source returns survive the plan file as plain
+// JSON, while a fresh read holds live Go structs; the two must
+// compare equal at apply, or an unchanged world fails as changed.
+func TestApplyAcceptsUnchangedStructOutputs(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			DataSources: map[string]DataSourceRegistration{
+				"ami": MakeDataSource[amiDataSource, *amiOut](),
+			},
+		},
+	}
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, `
+data: {
+  core: { ami: { al: { key: 'k' } } }
+}
+outputs: {
+  id:   { value: data.core.ami.al.id }
+  name: { value: data.core.ami.al.devices[0].name }
+}
+`), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+	}
+	res, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, "ami-1", res.Outputs["id"])
+	require.Equal(t, "xvda", res.Outputs["name"])
+
+	// A second cycle compares state-decoded values against a fresh
+	// read; an unchanged world must still agree with itself.
+	res, err = planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, "ami-1", res.Outputs["id"])
 }
 
 // A destroy plan removes the data record like the other state-only

@@ -767,20 +767,8 @@ func mapify(v any) map[string]any {
 	if rv.Kind() != reflect.Struct {
 		return nil
 	}
-	rt := rv.Type()
-	out := make(map[string]any, rt.NumField())
-	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
-		if !field.IsExported() {
-			continue
-		}
-		name, skip := ubFieldKey(field)
-		if skip {
-			continue
-		}
-		out[name] = canonicalize(rv.Field(i))
-	}
-	return out
+	m, _ := canonicalize(rv).(map[string]any)
+	return m
 }
 
 // ubFieldKey returns the map key for a struct field under the ub tag
@@ -843,6 +831,27 @@ func canonicalize(v reflect.Value) any {
 			return nil
 		}
 		return canonicalize(v.Elem())
+	case reflect.Struct:
+		// A timestamp canonicalizes to the same text encoding/json
+		// writes, so a value compares equal whether it came fresh from
+		// a library or back out of a plan or state file.
+		if t, ok := v.Interface().(time.Time); ok {
+			return t.Format(time.RFC3339Nano)
+		}
+		rt := v.Type()
+		out := make(map[string]any, rt.NumField())
+		for i := range rt.NumField() {
+			field := rt.Field(i)
+			if !field.IsExported() {
+				continue
+			}
+			name, skip := ubFieldKey(field)
+			if skip {
+				continue
+			}
+			out[name] = canonicalize(v.Field(i))
+		}
+		return out
 	}
 	return v.Interface()
 }
