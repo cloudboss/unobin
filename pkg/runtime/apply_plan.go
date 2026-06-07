@@ -216,6 +216,17 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if err != nil {
 		return err
 	}
+	// The plan diffed these inputs and showed the result; apply holds
+	// the live evaluation to them. A concrete field that re-evaluates
+	// differently means the decision was computed from a premise that
+	// no longer holds, and the answer is a fresh plan.
+	planned := knownFields(step, step.Inputs)
+	applied := knownFields(step, prep.inputs)
+	if !sameInputs(planned, applied) {
+		return fmt.Errorf(
+			"resource %s inputs changed since the plan was computed; plan again\n%s",
+			step.Address, diffFields(planned, applied, step.SensitiveInputs))
+	}
 	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
 	if !ok {
 		return fmt.Errorf("library %q is not imported", prep.node.Alias)

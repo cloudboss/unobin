@@ -516,7 +516,7 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	if step.recomputesOutputs {
 		outputs = nil
 	}
-	attrs := mergeAttrs(knownInputs(step), outputs)
+	attrs := mergeAttrs(knownFields(step, step.Inputs), outputs)
 	if instKey == "" {
 		seedNested(target, alias, typeName, name, attrs)
 	} else {
@@ -525,17 +525,16 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	return nil
 }
 
-// knownInputs returns the step's input fields whose value is settled at
-// plan time, dropping any field still waiting on an upstream node. A
-// pending field left in would seed a nil that a downstream reader would
-// take for a real value; left out, the reader sees unknown-until-apply
-// and resolves once the upstream runs.
-func knownInputs(step *PlanStep) map[string]any {
+// knownFields returns inputs minus the fields the step left
+// unresolved at plan time. Seeding omits them so a reader sees
+// unknown-until-apply instead of a misleading nil, and the apply
+// premise check skips them since they are expected to settle there.
+func knownFields(step *PlanStep, inputs map[string]any) map[string]any {
 	if len(step.UnresolvedInputs) == 0 {
-		return step.Inputs
+		return inputs
 	}
-	known := make(map[string]any, len(step.Inputs))
-	for name, value := range step.Inputs {
+	known := make(map[string]any, len(inputs))
+	for name, value := range inputs {
 		if _, pending := step.UnresolvedInputs[name]; pending {
 			continue
 		}
