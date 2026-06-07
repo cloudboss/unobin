@@ -923,6 +923,60 @@ func TestPrintPlanShowsUnresolvedInputRefs(t *testing.T) {
 	require.Contains(t, out, "size: 2")
 }
 
+func TestPrintPlanBracketsUnresolvedList(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "action.std.exec-command.run",
+				Kind:     runtime.NodeAction,
+				Decision: runtime.DecisionRerun,
+				Inputs: map[string]any{
+					"argv": []any{
+						runtime.PendingValue{Refs: []string{"resource.std.fs-file.many[...].path"}},
+						runtime.PendingValue{Refs: []string{"resource.std.fs-file.many[...].sha256"}},
+					},
+				},
+				UnresolvedInputs: map[string][]string{
+					"argv": {
+						"resource.std.fs-file.many[...].path",
+						"resource.std.fs-file.many[...].sha256",
+					},
+				},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan, false)
+	out := buf.String()
+	require.Contains(t, out,
+		`argv: [<resource.std.fs-file.many[...].path>, <resource.std.fs-file.many[...].sha256>]`)
+}
+
+func TestPrintPlanBracketsPartiallyKnownList(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:  "action.std.exec-command.run",
+				Kind:     runtime.NodeAction,
+				Decision: runtime.DecisionRerun,
+				Inputs: map[string]any{
+					"argv": []any{
+						"echo",
+						runtime.PendingValue{Refs: []string{"resource.std.fs-file.one.path"}},
+					},
+				},
+				UnresolvedInputs: map[string][]string{
+					"argv": {"resource.std.fs-file.one.path"},
+				},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan, false)
+	out := buf.String()
+	require.Contains(t, out, `argv: ["echo", <resource.std.fs-file.one.path>]`)
+}
+
 func TestPrintPlanShowsDriftSection(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{

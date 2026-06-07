@@ -12,15 +12,25 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
-// planEvalBody evaluates a body field by field against the plan-time
-// scope. A field that resolves cleanly contributes its evaluated value
-// to inputs. A field whose evaluation hits ErrEvalNotFound (because an
-// upstream resource, action, or data source has not run yet) gets nil
-// in inputs and its referenced source addresses are recorded in
-// unresolved so the renderer can show `<resource.X.field>` rather than
-// a misleading null. Apply re-evaluates the body against the live
-// scope and returns a real error if the reference is genuinely
-// invalid.
+// PendingValue marks a position in a plan step's recorded inputs where a
+// forward reference kept the value from resolving at plan time. It holds the
+// upstream source addresses the expression reads, so the plan renderer shows
+// `<resource.X.field>` at the value's real position, including inside a list
+// or object, rather than collapsing the whole field to one marker. It is
+// recorded for display only: withoutPending resets every unresolved field for
+// the plan walk's decisions, and knownFields removes it before seeding or the
+// apply premise check, so a PendingValue never reaches a resource.
+type PendingValue struct {
+	Refs []string
+}
+
+// planEvalBody evaluates a body field by field against the plan-time scope. A
+// field that resolves cleanly contributes its evaluated value to inputs. A
+// field whose evaluation hits ErrEvalNotFound (because an upstream resource,
+// action, or data source has not run yet) keeps its partial structure with a
+// PendingValue at each unresolved position, and its referenced source
+// addresses are recorded in unresolved. Apply re-evaluates the body against
+// the live scope and returns a real error if a reference is genuinely invalid.
 func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][]string, error) {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
@@ -44,16 +54,71 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 		if !errors.Is(err, ErrEvalNotFound) {
 			return nil, nil, fmt.Errorf("field %q: %w", fld.Key.Name, err)
 		}
-		inputs[fld.Key.Name] = nil
 		refs := deferredRefs(fld.Value, locals)
-		if len(refs) > 0 {
-			if unresolved == nil {
-				unresolved = map[string][]string{}
-			}
-			unresolved[fld.Key.Name] = refs
+		if len(refs) == 0 {
+			inputs[fld.Key.Name] = nil
+			continue
 		}
+		inputs[fld.Key.Name] = partialValue(fld.Value, ec, locals)
+		if unresolved == nil {
+			unresolved = map[string][]string{}
+		}
+		unresolved[fld.Key.Name] = refs
 	}
 	return inputs, unresolved, nil
+}
+
+// partialValue rebuilds a body field whose full evaluation hit a forward
+// reference, descending array and object literals so a resolved element keeps
+// its value and an unresolved one becomes a PendingValue at its real position.
+// A non-literal expression that cannot resolve becomes a single PendingValue
+// holding the addresses it reads. The result is recorded for display only;
+// withoutPending discards the whole field for every plan-walk decision.
+func partialValue(e lang.Expr, ec *EvalContext, locals map[string]lang.Expr) any {
+	switch v := e.(type) {
+	case *lang.ArrayLit:
+		out := make([]any, len(v.Elements))
+		for i, el := range v.Elements {
+			out[i] = partialElement(el, ec, locals)
+		}
+		return out
+	case *lang.ObjectLit:
+		out := make(map[string]any, len(v.Fields))
+		for _, fld := range v.Fields {
+			if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+				continue
+			}
+			out[fld.Key.Name] = partialElement(fld.Value, ec, locals)
+		}
+		return out
+	default:
+		return PendingValue{Refs: deferredRefs(e, locals)}
+	}
+}
+
+// partialElement evaluates one element of a partially-resolved literal: the
+// real value when it resolves, otherwise its own partial structure.
+func partialElement(e lang.Expr, ec *EvalContext, locals map[string]lang.Expr) any {
+	if val, err := Eval(e, ec); err == nil {
+		return val
+	}
+	return partialValue(e, ec, locals)
+}
+
+// withoutPending returns inputs with every still-unresolved field reset to
+// nil, the form the plan walk's decisions, decode, and trigger hashing expect.
+// Display placeholders live only in a step's recorded Inputs; a field waiting
+// on an upstream reads as nil here, exactly as a wholly unevaluated field did
+// before partial structure was kept.
+func withoutPending(inputs map[string]any, unresolved map[string][]string) map[string]any {
+	if len(unresolved) == 0 {
+		return inputs
+	}
+	out := maps.Clone(inputs)
+	for name := range unresolved {
+		out[name] = nil
+	}
+	return out
 }
 
 // Decision tags one node's planned action.
@@ -898,13 +963,14 @@ func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
 func (e *Executor) planOneAction(
 	rs *runState, n *Node, scope *EvalContext, addr string,
 ) (*PlanStep, error) {
-	inputs, unresolved, err := planEvalBody(n.Body, scope)
+	display, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
-	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
+	if err := e.applyInputDefaults(n, display, unresolved); err != nil {
 		return nil, err
 	}
+	inputs := withoutPending(display, unresolved)
 	trigger, err := ComputeTrigger(n, inputs, scope)
 	if err != nil {
 		return nil, err
@@ -927,7 +993,7 @@ func (e *Executor) planOneAction(
 		Address:            addr,
 		Kind:               n.Kind,
 		Decision:           dec,
-		Inputs:             inputs,
+		Inputs:             display,
 		UnresolvedInputs:   unresolved,
 		PriorOutputs:       priorOut,
 		TriggerHash:        trigger.Hash,
@@ -977,11 +1043,11 @@ func (e *Executor) planOneResource(
 	rs *runState, n *Node, rt ResourceRegistration,
 	scope *EvalContext, addr string,
 ) (*PlanStep, error) {
-	inputs, unresolved, err := planEvalBody(n.Body, scope)
+	display, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
 	}
-	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
+	if err := e.applyInputDefaults(n, display, unresolved); err != nil {
 		return nil, err
 	}
 	var prior *state.Entry
@@ -991,13 +1057,14 @@ func (e *Executor) planOneResource(
 	step := &PlanStep{
 		Address:          addr,
 		Kind:             n.Kind,
-		Inputs:           inputs,
+		Inputs:           display,
 		UnresolvedInputs: unresolved,
 	}
 	if prior == nil {
 		step.Decision = DecisionCreate
 		return step, nil
 	}
+	inputs := withoutPending(display, unresolved)
 	priorOutputs, err := migrateOutputs(rt, prior.SchemaVersion, prior.Outputs)
 	if err != nil {
 		return nil, err

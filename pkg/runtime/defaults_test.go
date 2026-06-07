@@ -184,7 +184,7 @@ func TestPlanDefaultDoesNotMaskForwardRef(t *testing.T) {
 			continue
 		}
 		require.Contains(t, step.UnresolvedInputs, "size")
-		require.Nil(t, step.Inputs["size"])
+		require.Equal(t, PendingValue{Refs: []string{"resource.core.thing.a.id"}}, step.Inputs["size"])
 		return
 	}
 	t.Fatal("no step for resource.core.thing.b")

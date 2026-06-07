@@ -132,10 +132,13 @@ func renderInputValue(step *runtime.PlanStep, field string) string {
 	if stringSetContains(step.SensitiveInputs, field) {
 		return sensitivePlaceholder
 	}
-	if refs := step.UnresolvedInputs[field]; len(refs) > 0 {
-		return "<" + strings.Join(refs, ", ") + ">"
+	v := step.Inputs[field]
+	if v == nil {
+		if refs := step.UnresolvedInputs[field]; len(refs) > 0 {
+			return formatPending(runtime.PendingValue{Refs: refs})
+		}
 	}
-	return formatValue(step.Inputs[field])
+	return formatValue(v)
 }
 
 // renderForEachGroup renders all per-instance steps that share the
@@ -370,11 +373,23 @@ func formatValue(v any) string {
 			parts = append(parts, fmt.Sprintf("%s: %s", lang.RenderKey(k), formatValue(x[k])))
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
+	case runtime.PendingValue:
+		return formatPending(x)
 	case nil:
 		return "null"
 	default:
 		return fmt.Sprintf("%v", x)
 	}
+}
+
+// formatPending renders an unresolved value as the upstream sources it waits
+// on, in angle brackets, so a list of pending elements reads as
+// `[<a>, <b>]`. A pending value with no recorded source reads as <unknown>.
+func formatPending(p runtime.PendingValue) string {
+	if len(p.Refs) == 0 {
+		return "<unknown>"
+	}
+	return "<" + strings.Join(p.Refs, ", ") + ">"
 }
 
 func sortedMapKeys(m map[string]any) []string {

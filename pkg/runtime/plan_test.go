@@ -1238,9 +1238,27 @@ resources: {
 	require.Equal(t, []string{"resource.core.thing.one.id"}, two.UnresolvedInputs["name"])
 	require.NotContains(t, two.UnresolvedInputs, "size",
 		"resolved fields should not appear in UnresolvedInputs")
-	require.Nil(t, two.Inputs["name"],
-		"the unresolved field's value should be nil so the renderer can spot it")
+	require.Equal(t, PendingValue{Refs: []string{"resource.core.thing.one.id"}}, two.Inputs["name"],
+		"an unresolved field keeps a placeholder the renderer shows in place")
 	require.Equal(t, int64(2), two.Inputs["size"])
+}
+
+func TestPartialValueKeepsListStructure(t *testing.T) {
+	expr := parseValue(t, "['lit', resource.core.thing.one.id]")
+	got := partialValue(expr, &EvalContext{}, nil)
+	require.Equal(t, []any{
+		"lit",
+		PendingValue{Refs: []string{"resource.core.thing.one.id"}},
+	}, got)
+}
+
+func TestPartialValueKeepsObjectStructure(t *testing.T) {
+	expr := parseValue(t, "{ ready: true, id: resource.core.thing.one.id }")
+	got := partialValue(expr, &EvalContext{}, nil)
+	require.Equal(t, map[string]any{
+		"ready": true,
+		"id":    PendingValue{Refs: []string{"resource.core.thing.one.id"}},
+	}, got)
 }
 
 func TestPlanResolvesInputRefAtPlanTime(t *testing.T) {
@@ -1284,7 +1302,8 @@ resources: {
 	require.NotNil(t, three)
 	require.Equal(t, []string{"resource.core.thing.two.name"}, three.UnresolvedInputs["name"],
 		"two.name is itself waiting on one.id, so reading it stays unknown at plan")
-	require.Nil(t, three.Inputs["name"])
+	require.Equal(t,
+		PendingValue{Refs: []string{"resource.core.thing.two.name"}}, three.Inputs["name"])
 }
 
 func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
@@ -1319,7 +1338,7 @@ resources: {
 	require.Equal(t, DecisionCreate, two.Decision)
 	require.Equal(t, []string{"resource.core.thing.one.id"}, two.UnresolvedInputs["name"],
 		"a field reading a local should show the resource the local waits on")
-	require.Nil(t, two.Inputs["name"])
+	require.Equal(t, PendingValue{Refs: []string{"resource.core.thing.one.id"}}, two.Inputs["name"])
 }
 
 func TestUpgradeActionRerunFollowsLocal(t *testing.T) {
