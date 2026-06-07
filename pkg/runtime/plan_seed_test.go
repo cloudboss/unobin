@@ -206,3 +206,171 @@ resources: {
 	require.NotNil(t, ent)
 	require.Equal(t, map[string]any{"ref": "gen-2"}, ent.Inputs)
 }
+
+// A composite's outputs are evaluated during the walk from what its
+// internals seeded, so a reader of a composite output diffs a real
+// value: an unchanged stack plans no-op instead of replacing the
+// reader on every plan.
+func TestCompositeOutputsSeedAtPlan(t *testing.T) {
+	composite := parseStack(t, `
+inputs: { tag: { type: string } }
+resources: {
+  core: { subnet: { s: { tag: var.tag } } }
+}
+outputs: {
+  id: { value: resource.core.subnet.s.id }
+}
+`)
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"subnet":   MakeResource[subnetLike, any](),
+				"instance": MakeResource[instanceLike, any](),
+			},
+		},
+		"w": {
+			Name: "w",
+			ResourceComposites: map[string]*CompositeType{
+				"net": {Name: "net", Body: composite},
+			},
+		},
+	}
+	src := `
+resources: {
+  w:    { net: { x: { tag: 'fixed' } } }
+  core: { instance: { it: { ref: resource.w.net.x.id } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+
+	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionNoOp, inst.Decision)
+	require.Empty(t, inst.UnresolvedInputs)
+	require.Equal(t, "subnet-1", inst.Inputs["ref"])
+}
+
+// A composite output reading an internal about to be replaced stays
+// pending: the suppression of the internal's prior outputs reaches
+// through the boundary, so the reader plans its own replace and
+// applies with the fresh value.
+func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
+	var gen int64
+	composite := parseStack(t, `
+inputs: { t: { type: string } }
+resources: {
+  core: { pinned: { p: { tag: var.t } } }
+}
+outputs: {
+  id: { value: resource.core.pinned.p.id }
+}
+`)
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"pinned": MakeResourceWith[pinnedResource, any](
+					func() *pinnedResource { return &pinnedResource{gen: &gen} },
+				),
+				"instance": MakeResource[instanceLike, any](),
+			},
+		},
+		"w": {
+			Name: "w",
+			ResourceComposites: map[string]*CompositeType{
+				"net": {Name: "net", Body: composite},
+			},
+		},
+	}
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  w:    { net: { x: { t: var.t } } }
+  core: { instance: { it: { ref: resource.w.net.x.id } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionReplace,
+		findStep(t, plan, "resource.w.net.x/resource.core.pinned.p").Decision)
+	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionReplace, inst.Decision)
+	require.Contains(t, inst.UnresolvedInputs, "ref")
+
+	_, err = planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.instance.it")
+	require.NotNil(t, ent)
+	require.Equal(t, map[string]any{"ref": "gen-2"}, ent.Inputs)
+}
+
+// Each instance of a @for-each composite seeds its own outputs at its
+// keyed address, so a reader of one instance's output diffs a real
+// value on the second plan.
+func TestForEachCompositeOutputsSeedAtPlan(t *testing.T) {
+	composite := parseStack(t, `
+inputs: { tag: { type: string } }
+resources: {
+  core: { subnet: { s: { tag: var.tag } } }
+}
+outputs: {
+  id: { value: resource.core.subnet.s.id }
+}
+`)
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"subnet":   MakeResource[subnetLike, any](),
+				"instance": MakeResource[instanceLike, any](),
+			},
+		},
+		"w": {
+			Name: "w",
+			ResourceComposites: map[string]*CompositeType{
+				"net": {Name: "net", Body: composite},
+			},
+		},
+	}
+	src := `
+resources: {
+  w: { net: { x: {
+    @for-each: { a: 'one', b: 'two' }
+    tag: @each.value
+  } } }
+  core: { instance: { it: { ref: resource.w.net.x['a'].id } } }
+}
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+
+	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionNoOp, inst.Decision)
+	require.Empty(t, inst.UnresolvedInputs)
+	require.Equal(t, "subnet-1", inst.Inputs["ref"])
+}

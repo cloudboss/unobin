@@ -492,12 +492,14 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 // under any prior outputs, matching the apply-time merge. Only inputs
 // that are actually known are seeded: a field still waiting on an
 // upstream is left out so a reader sees it as unknown-until-apply
-// rather than a misleading nil. A composite boundary is opaque except
-// its declared outputs and is left to finalizeComposite; a destroy
-// seeds nothing.
+// rather than a misleading nil. A composite boundary seeds its
+// declared outputs as far as they evaluate; a destroy seeds nothing.
 func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
-	if step.Composite || step.Decision == DecisionDestroy {
+	if step.Decision == DecisionDestroy {
 		return nil
+	}
+	if step.Composite {
+		return e.seedCompositeOutputs(rs, step)
 	}
 	switch step.Kind {
 	case NodeResource, NodeData, NodeAction:
@@ -538,6 +540,76 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		seedInstance(target, alias, typeName, name, instKey, attrs)
 	}
 	return nil
+}
+
+// seedCompositeOutputs makes a composite boundary's outputs visible
+// to the nodes that follow it in the walk. The boundary plans after
+// its internals, so its scope already holds what each internal
+// seeded; the outputs block is reduced against that scope and the
+// result seeded at the call site in the boundary's enclosing scope.
+// A field reading a value not yet known is left out, so a reader of
+// it waits for apply exactly as it would for the internal itself.
+func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
+	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
+	if !ok || node.CompositeBody == nil {
+		return nil
+	}
+	scope, ok := rs.composites[step.Address]
+	if !ok || scope == nil {
+		return nil
+	}
+	outputs, err := planCompositeOutputs(node.CompositeBody, scope)
+	if err != nil {
+		return err
+	}
+	if outputs == nil {
+		return nil
+	}
+	parent := rs.eval
+	if parentAddr := DirectParent(step.Address); parentAddr != "" {
+		parent, err = e.ensureCompositeScope(rs, parentAddr)
+		if err != nil {
+			return err
+		}
+	}
+	target := scopeMapForKind(parent, node.Kind)
+	_, instKey := splitInstanceAddress(step.Address)
+	if instKey == "" {
+		seedNested(target, node.Alias, node.Type, node.Name, outputs)
+	} else {
+		seedInstance(target, node.Alias, node.Type, node.Name, instKey, outputs)
+	}
+	return nil
+}
+
+// planCompositeOutputs reduces the composite body's outputs block
+// field by field against the plan-time scope, leaving out any field
+// whose expression reads a value not yet known so it stays pending
+// for readers. Returns nil when the body declares no outputs.
+func planCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, error) {
+	outBlock, err := outputsBlock(body)
+	if err != nil || outBlock == nil {
+		return nil, err
+	}
+	out := make(map[string]any, len(outBlock.Fields))
+	for _, fld := range outBlock.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		inner := lang.OutputValueExpr(fld.Value)
+		if inner == nil {
+			return nil, fmt.Errorf("composite output %q: missing wrapper", fld.Key.Name)
+		}
+		val, err := Eval(inner, scope)
+		if errors.Is(err, ErrEvalNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("composite output %q: %w", fld.Key.Name, err)
+		}
+		out[fld.Key.Name] = val
+	}
+	return out, nil
 }
 
 // withoutDeclared returns outputs minus the fields the body declares.
