@@ -830,7 +830,7 @@ actions: {
 	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "↺ action.core.echo.hi")
-	require.Contains(t, out, `echo: "hello"`)
+	require.Contains(t, out, `echo: 'hello'`)
 	require.Contains(t, out, "Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.")
 }
 
@@ -870,7 +870,7 @@ func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 	printPlan(buf, plan, false)
 	out := buf.String()
 	require.Contains(t, out,
-		`tags: {clean: "yes", 'has space': "true", with-dashes: "ok", 'with.dots': "x"}`,
+		`tags: {clean: 'yes', 'has space': 'true', with-dashes: 'ok', 'with.dots': 'x'}`,
 		"map keys that are not bare kebab identifiers must be quoted")
 }
 
@@ -974,7 +974,7 @@ func TestPrintPlanBracketsPartiallyKnownList(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	out := buf.String()
-	require.Contains(t, out, `argv: ["echo", <resource.std.fs-file.one.path>]`)
+	require.Contains(t, out, `argv: ['echo', <resource.std.fs-file.one.path>]`)
 }
 
 func TestPrintPlanShowsInputDiffForUpdate(t *testing.T) {
@@ -992,9 +992,9 @@ func TestPrintPlanShowsInputDiffForUpdate(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	out := buf.String()
-	require.Contains(t, out, `instance-type: "t2.micro" -> "t2.small"`)
-	require.Contains(t, out, `ami: "ami-1"`)
-	require.NotContains(t, out, `ami: "ami-1" -> "ami-1"`,
+	require.Contains(t, out, `instance-type: 't2.micro' -> 't2.small'`)
+	require.Contains(t, out, `ami: 'ami-1'`)
+	require.NotContains(t, out, `ami: 'ami-1' -> 'ami-1'`,
 		"an unchanged field should not show an arrow")
 }
 
@@ -1014,8 +1014,8 @@ func TestPrintPlanTagsReplaceTrigger(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	out := buf.String()
-	require.Contains(t, out, `ami: "ami-1" -> "ami-2"  (forces replacement)`)
-	require.NotContains(t, out, `instance-type: "t2.micro"  (forces replacement)`,
+	require.Contains(t, out, `ami: 'ami-1' -> 'ami-2'  (forces replacement)`)
+	require.NotContains(t, out, `instance-type: 't2.micro'  (forces replacement)`,
 		"only the replace-forcing field is tagged")
 }
 
@@ -1037,7 +1037,7 @@ func TestPrintPlanShowsDriftSection(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, "Drift detected (1)")
 	require.Contains(t, out, "  ~ resource.local.file.x")
-	require.Contains(t, out, `sha256: "old" -> "new"`)
+	require.Contains(t, out, `sha256: 'old' -> 'new'`)
 	driftSection := strings.SplitN(out, "\n\n", 2)[0]
 	require.NotContains(t, driftSection, "path: ",
 		"non-drifted fields should not appear in the drift section")
@@ -1061,7 +1061,7 @@ func TestPrintPlanMasksSensitiveInput(t *testing.T) {
 	out := buf.String()
 	require.Contains(t, out, "password: ***")
 	require.NotContains(t, out, "shh")
-	require.Contains(t, out, `name: "tok"`)
+	require.Contains(t, out, `name: 'tok'`)
 }
 
 func TestPrintPlanMasksSensitiveDrift(t *testing.T) {
@@ -1127,10 +1127,10 @@ func TestPrintPlanGroupsForEachInstances(t *testing.T) {
 	printPlan(buf, plan, false)
 	expected := `  + resource.core.thing.many  (for-each, 2 instances)
     + ['alpha']
-        name: "alpha"
+        name: 'alpha'
         size: 1
     + ['beta']
-        name: "beta"
+        name: 'beta'
         size: 2
 
 Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
@@ -1165,12 +1165,12 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	expected := `  + resource.greeter.greeting.welcome  (composite)
-      path: "/tmp/x"
+      path: '/tmp/x'
     + resource.local.file.many  (for-each, 2 instances)
       + ['a']
-          path: "/tmp/a"
+          path: '/tmp/a'
       + ['b']
-          path: "/tmp/b"
+          path: '/tmp/b'
 
 Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 `
@@ -1204,11 +1204,11 @@ func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	expected := `  + resource.greeter.greeting.welcome  (composite)
-      message: "Hello"
-      path: "/tmp/x"
+      message: 'Hello'
+      path: '/tmp/x'
     + resource.local.file.this
-        content: "Hello"
-        path: "/tmp/x"
+        content: 'Hello'
+        path: '/tmp/x'
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 `
@@ -1252,14 +1252,14 @@ func TestPrintPlanRendersNestedComposites(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	expected := `  + resource.greeter.greeting.welcome  (composite)
-      message: "Hello"
-      path: "/tmp/x"
+      message: 'Hello'
+      path: '/tmp/x'
     + resource.helloer.hello.file  (composite)
-        message: "Hello"
-        path: "/tmp/x"
+        message: 'Hello'
+        path: '/tmp/x'
       + resource.local.file.this
-          content: "Hello"
-          path: "/tmp/x"
+          content: 'Hello'
+          path: '/tmp/x'
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 `

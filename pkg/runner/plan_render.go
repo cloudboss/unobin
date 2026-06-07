@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -385,10 +384,14 @@ func summarize(steps []*runtime.PlanStep) planCounts {
 	return c
 }
 
+// formatValue renders v as a one-line UB literal: strings single-quoted, keys
+// as bare idents where they can be, nested lists and maps inline. A
+// PendingValue inside a list or map renders as its `<source>` placeholder so a
+// value still settling at plan time stays readable; every other scalar routes
+// through the canonical UB renderer, so the plan shows the same syntax the
+// source is written in.
 func formatValue(v any) string {
 	switch x := v.(type) {
-	case string:
-		return strconv.Quote(x)
 	case []any:
 		parts := make([]string, len(x))
 		for i, el := range x {
@@ -407,7 +410,7 @@ func formatValue(v any) string {
 	case nil:
 		return "null"
 	default:
-		return fmt.Sprintf("%v", x)
+		return lang.Render(v)
 	}
 }
 
