@@ -1174,14 +1174,21 @@ func (e *Executor) planOneData(
 // do not express and even a small update can move what the dependent
 // reads. A data source then defers its read the way an unresolved
 // input does, since the read is only meaningful against the world
-// after the target has run. The walk is topological, so every target
-// is planned before its dependents ask.
+// after the target has run. A composite target covers everything
+// inside it, whose step addresses extend the call site's. The walk is
+// topological, so every target is planned before its dependents ask.
 func (e *Executor) dependsOnPending(rs *runState, n *Node) bool {
 	for _, dep := range explicitDeps(n.Body) {
-		for _, s := range rs.plannedByTemplate[scopeRef(dep, n.Composite)] {
-			if s.Decision == DecisionCreate || s.Decision == DecisionRerun ||
-				s.mayChangeOutputs {
-				return true
+		target := scopeRef(dep, n.Composite)
+		for tmpl, steps := range rs.plannedByTemplate {
+			if tmpl != target && !strings.HasPrefix(tmpl, target+"/") {
+				continue
+			}
+			for _, s := range steps {
+				if s.Decision == DecisionCreate || s.Decision == DecisionRerun ||
+					s.mayChangeOutputs {
+					return true
+				}
 			}
 		}
 	}

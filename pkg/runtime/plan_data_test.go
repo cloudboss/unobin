@@ -570,6 +570,75 @@ outputs: {
 		findStep(t, plan, "data.core.dial.cfg").ObservedOutputs)
 }
 
+// An explicit @depends-on naming a composite defers the data read
+// while anything inside the composite has changes pending; once the
+// internals settle, the read returns to plan time.
+func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
+	composite := parseStack(t, `
+inputs: { t: { type: string } }
+resources: {
+  core: { versioned: { one: { tag: var.t } } }
+}
+`)
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  w: { box: { x: { t: var.t } } }
+}
+data: {
+  core: { dial: { cfg: {
+    @depends-on: [resource.w.box.x]
+    key: 'fixed'
+  } } }
+}
+outputs: {
+  v: { value: data.core.dial.cfg.value }
+}
+`
+	value := "a"
+	var reads int64
+	libs := dataPlanModules(&value, &reads)
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	libs["w"] = &Library{
+		Name: "w",
+		ResourceComposites: map[string]*CompositeType{
+			"box": {Name: "box", Body: composite},
+		},
+	}
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate,
+		findStep(t, plan, "resource.w.box.x/resource.core.versioned.one").Decision)
+	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Nil(t, ds.ObservedOutputs,
+		"a pending change inside the @depends-on composite defers the read")
+	res, err := planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+	require.Equal(t, "a:fixed", res.Outputs["v"])
+
+	third := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err = third.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"value": "a:fixed"},
+		findStep(t, plan, "data.core.dial.cfg").ObservedOutputs)
+}
+
 // amiOut mimics a cloud data source's richer output: a nested struct
 // list whose field order is not alphabetical, an optional field left
 // nil, an empty list, and a timestamp.
