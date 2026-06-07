@@ -8,23 +8,14 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-// consumeApplyEvents reads events until the channel closes and
-// renders each to out in the requested format. Events that represent
-// no observable work, such as a composite boundary's output
-// evaluation, a no-op resource, or a skipped action, are filtered so
-// the stream shows only steps the operator cares about.
+// consumeApplyEvents reads events until the channel closes and renders each
+// to out in the requested format. Events that represent no observable work,
+// such as a composite boundary's output evaluation, a no-op resource, or a
+// skipped action, are filtered so the stream shows only steps the operator
+// cares about. The text renderer keeps a live board of in-flight steps on a
+// terminal and falls back to plain lines with a heartbeat elsewhere.
 func consumeApplyEvents(events <-chan runtime.ApplyEvent, out io.Writer, format Format) {
-	for ev := range events {
-		if isSilentEvent(ev) {
-			continue
-		}
-		switch format {
-		case FormatJSON, FormatUnobin:
-			_ = writeEnvelope(out, format, applyEventFrom(ev))
-		default:
-			writeApplyEventHuman(out, ev)
-		}
-	}
+	newApplyRenderer(out, format).run(events)
 }
 
 func isSilentEvent(ev runtime.ApplyEvent) bool {
