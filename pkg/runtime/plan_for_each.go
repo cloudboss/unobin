@@ -197,20 +197,19 @@ func rewriteAddress(addr, boundary, instAddr string) string {
 }
 
 // planInternalUnder plans an internal node of a `@for-each`
-// composite at its per-instance address. The internal's scope comes
-// from the cached per-instance composite scope (built lazily via
-// scopeForAddress when its body is evaluated).
+// composite at its per-instance address. A leaf's scope comes from
+// the cached per-instance composite scope (built lazily via
+// scopeForAddress when its body is evaluated); a nested boundary
+// builds its own scope, whose Vars are its call args evaluated
+// against the enclosing instance.
 func (e *Executor) planInternalUnder(
 	ctx context.Context, rs *runState, n *Node, addr, instCallSite string,
 ) ([]*PlanStep, error) {
-	scope, err := e.scopeForAddress(rs, addr)
-	if err != nil {
-		return nil, err
-	}
-	if scope == nil {
-		return nil, fmt.Errorf("internal %q: no scope", addr)
-	}
 	if n.IsComposite() {
+		own, err := e.ensureCompositeScope(rs, addr)
+		if err != nil {
+			return nil, err
+		}
 		var priorOut map[string]any
 		if rs.prior != nil {
 			if prior := rs.prior.Find(addr); prior != nil {
@@ -222,9 +221,16 @@ func (e *Executor) planInternalUnder(
 			Kind:         n.Kind,
 			Composite:    true,
 			Decision:     DecisionEval,
-			Inputs:       scope.Vars,
+			Inputs:       own.Vars,
 			PriorOutputs: priorOut,
 		}}, nil
+	}
+	scope, err := e.scopeForAddress(rs, addr)
+	if err != nil {
+		return nil, err
+	}
+	if scope == nil {
+		return nil, fmt.Errorf("internal %q: no scope", addr)
 	}
 	switch n.Kind {
 	case NodeResource:

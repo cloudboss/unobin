@@ -421,16 +421,11 @@ func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
 // segments before the last `/` survive into the parent address so
 // composite-internal nodes pick the right per-instance scope.
 func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext, error) {
-	tmpl := templateAddress(addr)
-	node, ok := e.DAG.Nodes[tmpl]
+	node, ok := e.DAG.Nodes[templateAddress(addr)]
 	if !ok {
 		return nil, nil, fmt.Errorf("address %q not in DAG", addr)
 	}
-	parentAddr := DirectParent(addr)
-	if parentAddr == "" {
-		return node, rs.eval, nil
-	}
-	scope, err := e.ensureCompositeScope(rs, parentAddr)
+	scope, err := e.enclosingScope(rs, addr)
 	if err != nil {
 		return nil, nil, err
 	}

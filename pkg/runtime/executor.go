@@ -304,19 +304,33 @@ func (e *Executor) librariesForAddress(addr string) map[string]*Library {
 	return e.Libraries
 }
 
+// enclosingScope returns the scope enclosing a step or call-site
+// address: the root scope for a top-level address, otherwise the
+// composite scope named by everything before the last `/`. Deriving
+// the parent from the address rather than from the node keeps
+// `['key']` segments, so an address inside a `@for-each` composite
+// resolves to its own instance's scope, not the template's.
+func (e *Executor) enclosingScope(rs *runState, addr string) (*EvalContext, error) {
+	parentAddr := DirectParent(addr)
+	if parentAddr == "" {
+		return rs.eval, nil
+	}
+	return e.ensureCompositeScope(rs, parentAddr)
+}
+
 func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalContext, error) {
 	if scope, ok := rs.composites[callSite]; ok {
 		return scope, nil
 	}
-	tmpl, instKey := splitInstanceAddress(callSite)
-	boundary, ok := e.DAG.Nodes[tmpl]
+	boundary, ok := e.DAG.Nodes[templateAddress(callSite)]
 	if !ok {
 		return nil, fmt.Errorf("composite %s: boundary node not in DAG", callSite)
 	}
-	parent, err := e.scopeFor(rs, boundary)
+	parent, err := e.enclosingScope(rs, callSite)
 	if err != nil {
 		return nil, fmt.Errorf("composite %s: build parent scope: %w", callSite, err)
 	}
+	_, instKey := splitInstanceAddress(callSite)
 	bodyScope := parent
 	if instKey != "" {
 		instances, err := evalForEach(boundary.ForEach, parent)
@@ -534,7 +548,7 @@ func (e *Executor) finalizeComposite(
 	if err != nil {
 		return err
 	}
-	parent, err := e.scopeFor(rs, n)
+	parent, err := e.enclosingScope(rs, instAddr)
 	if err != nil {
 		return err
 	}

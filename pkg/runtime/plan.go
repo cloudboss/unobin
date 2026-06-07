@@ -565,12 +565,9 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 	if outputs == nil {
 		return nil
 	}
-	parent := rs.eval
-	if parentAddr := DirectParent(step.Address); parentAddr != "" {
-		parent, err = e.ensureCompositeScope(rs, parentAddr)
-		if err != nil {
-			return err
-		}
+	parent, err := e.enclosingScope(rs, step.Address)
+	if err != nil {
+		return err
 	}
 	target := scopeMapForKind(parent, node.Kind)
 	_, instKey := splitInstanceAddress(step.Address)
