@@ -10,13 +10,17 @@ import (
 // for snapshots. Older versions error on read.
 const CurrentFormatVersion = 1
 
-// EntryType discriminates the three records a snapshot can hold.
+// EntryType discriminates the records a snapshot can hold.
 type EntryType string
 
 const (
 	EntryLeaf        EntryType = "leaf"
 	EntryLibraryCall EntryType = "library-call"
 	EntryAction      EntryType = "action"
+	// EntryData records what a data source read during the last
+	// apply. Nothing in the world belongs to it, so removing the node
+	// removes the record without a destroy.
+	EntryData EntryType = "data"
 )
 
 // Entry is one record in a snapshot. Type discriminates the fields used:
@@ -166,6 +170,10 @@ func (e *Entry) validate() error {
 	case EntryAction:
 		if e.Kind == "" {
 			return fmt.Errorf("snapshot: action entry %q missing kind", e.Address)
+		}
+	case EntryData:
+		if e.Kind == "" {
+			return fmt.Errorf("snapshot: data entry %q missing kind", e.Address)
 		}
 	case "":
 		return fmt.Errorf("snapshot: entry %q missing type", e.Address)

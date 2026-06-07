@@ -475,7 +475,7 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 			continue
 		}
 		switch step.Kind {
-		case NodeAction, NodeResource:
+		case NodeAction, NodeResource, NodeData:
 			keep[step.Address] = true
 		}
 	}

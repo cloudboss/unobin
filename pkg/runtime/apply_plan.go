@@ -443,15 +443,34 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
+	outputs := mapify(result)
+	// The plan read this data source and showed those values; apply
+	// holds the world to them. A value that moved in between means the
+	// plan's premises no longer hold, so the answer is a fresh plan,
+	// not a quiet apply of something never shown.
+	if step.ObservedOutputs != nil && !sameInputs(step.ObservedOutputs, outputs) {
+		return fmt.Errorf("data source %s changed since the plan was computed; plan again",
+			step.Address)
+	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	attrs := mergeAttrs(prep.inputs, mapify(result))
+	attrs := mergeAttrs(prep.inputs, outputs)
 	if prep.instKey == "" {
 		storeNested(prep.parent.Data, prep.node, attrs)
 	} else {
 		seedInstance(prep.parent.Data, prep.node.Alias, prep.node.Type, prep.node.Name,
 			prep.instKey, attrs)
 	}
+	upsertEntry(rs.next, &state.Entry{
+		Address:          step.Address,
+		Type:             state.EntryData,
+		Kind:             prep.node.Type,
+		Inputs:           prep.inputs,
+		Outputs:          outputs,
+		SensitiveInputs:  step.SensitiveInputs,
+		SensitiveOutputs: step.SensitiveOutputs,
+		DependsOn:        rs.dependsOn[step.Address],
+	})
 	return nil
 }
 

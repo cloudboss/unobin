@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -57,7 +58,9 @@ func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error)
 }
 
 // planForEachData plans one data source step per iterable key.
-func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
+func (e *Executor) planForEachData(
+	ctx context.Context, rs *runState, n *Node,
+) ([]*PlanStep, error) {
 	lib, ok := e.librariesFor(n)[n.Alias]
 	if !ok {
 		return nil, fmt.Errorf("library %q is not imported", n.Alias)
@@ -77,7 +80,7 @@ func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
 	for _, key := range sortedKeys(instances) {
 		inst := childScopeWithEach(scope, key, instances[key])
 		addr := instanceAddress(n.Address, key)
-		step, err := e.planOneData(n, inst, addr)
+		step, err := e.planOneData(ctx, n, inst, addr)
 		if err != nil {
 			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
 		}
@@ -97,7 +100,9 @@ func (e *Executor) planForEachData(rs *runState, n *Node) ([]*PlanStep, error) {
 // internals first, boundary last, so subsequent apply lookups find
 // the per-instance scope populated by the time the boundary
 // finalizes its outputs.
-func (e *Executor) planForEachComposite(rs *runState, boundary *Node) ([]*PlanStep, error) {
+func (e *Executor) planForEachComposite(
+	ctx context.Context, rs *runState, boundary *Node,
+) ([]*PlanStep, error) {
 	parent, err := e.scopeFor(rs, boundary)
 	if err != nil {
 		return nil, err
@@ -115,7 +120,7 @@ func (e *Executor) planForEachComposite(rs *runState, boundary *Node) ([]*PlanSt
 		}
 		for _, internal := range internals {
 			rewritten := rewriteAddress(internal.Address, boundary.Address, instAddr)
-			subSteps, err := e.planInternalUnder(rs, internal, rewritten, instAddr)
+			subSteps, err := e.planInternalUnder(ctx, rs, internal, rewritten, instAddr)
 			if err != nil {
 				return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
 			}
@@ -196,7 +201,7 @@ func rewriteAddress(addr, boundary, instAddr string) string {
 // from the cached per-instance composite scope (built lazily via
 // scopeForAddress when its body is evaluated).
 func (e *Executor) planInternalUnder(
-	rs *runState, n *Node, addr, instCallSite string,
+	ctx context.Context, rs *runState, n *Node, addr, instCallSite string,
 ) ([]*PlanStep, error) {
 	scope, err := e.scopeForAddress(rs, addr)
 	if err != nil {
@@ -243,7 +248,7 @@ func (e *Executor) planInternalUnder(
 		}
 		return []*PlanStep{step}, nil
 	case NodeData:
-		step, err := e.planOneData(n, scope, addr)
+		step, err := e.planOneData(ctx, n, scope, addr)
 		if err != nil {
 			return nil, err
 		}

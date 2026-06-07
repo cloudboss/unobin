@@ -227,7 +227,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if !e.Destroy {
 		for _, addr := range order {
 			node := e.DAG.Nodes[addr]
-			steps, err := e.planNodeSteps(rs, node)
+			steps, err := e.planNodeSteps(ctx, rs, node)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", addr, err)
 			}
@@ -305,6 +305,8 @@ func destroyEntryKind(t state.EntryType) (kind NodeKind, composite, ok bool) {
 		return NodeResource, false, true
 	case state.EntryAction:
 		return NodeAction, false, true
+	case state.EntryData:
+		return NodeData, false, true
 	case state.EntryLibraryCall:
 		return "", true, true
 	}
@@ -386,13 +388,15 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 // everything else returns a one-element slice (or nil to skip the
 // node). Nodes inside a `@for-each` composite are skipped here: their
 // boundary's planner emits per-instance subtrees for them.
-func (e *Executor) planNodeSteps(rs *runState, n *Node) ([]*PlanStep, error) {
+func (e *Executor) planNodeSteps(
+	ctx context.Context, rs *runState, n *Node,
+) ([]*PlanStep, error) {
 	if e.insideForEachComposite(n) {
 		return nil, nil
 	}
 	if n.ForEach != nil {
 		if n.IsComposite() {
-			return e.planForEachComposite(rs, n)
+			return e.planForEachComposite(ctx, rs, n)
 		}
 		switch n.Kind {
 		case NodeResource:
@@ -400,10 +404,10 @@ func (e *Executor) planNodeSteps(rs *runState, n *Node) ([]*PlanStep, error) {
 		case NodeAction:
 			return e.planForEachAction(rs, n)
 		case NodeData:
-			return e.planForEachData(rs, n)
+			return e.planForEachData(ctx, rs, n)
 		}
 	}
-	step, err := e.planNode(rs, n)
+	step, err := e.planNode(ctx, rs, n)
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +493,14 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		return nil
 	}
 	target := scopeMapForKind(scope, step.Kind)
-	attrs := mergeAttrs(knownInputs(step), step.PriorOutputs)
+	// A data source read during the plan seeds what it observed; at
+	// this point in the walk a resource's drift read has not run yet,
+	// so resources still seed their prior outputs.
+	outputs := step.PriorOutputs
+	if step.ObservedOutputs != nil {
+		outputs = step.ObservedOutputs
+	}
+	attrs := mergeAttrs(knownInputs(step), outputs)
 	if instKey == "" {
 		seedNested(target, alias, typeName, name, attrs)
 	} else {
@@ -592,7 +603,7 @@ func isUpstreamChange(d Decision) bool {
 	return false
 }
 
-func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
+func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
 	if n.IsComposite() {
 		return e.planComposite(rs, n)
 	}
@@ -606,7 +617,7 @@ func (e *Executor) planNode(rs *runState, n *Node) (*PlanStep, error) {
 		if err != nil {
 			return nil, err
 		}
-		return e.planOneData(n, scope, n.Address)
+		return e.planOneData(ctx, n, scope, n.Address)
 	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
 	default:
@@ -983,8 +994,15 @@ func upgradeActionRerun(steps []*PlanStep, dag *DAG, sl *scopeLocals) {
 }
 
 // planOneData plans a single data source instance against the given
-// scope and state address.
-func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanStep, error) {
+// scope and state address. A data source whose inputs all resolved is
+// read here, during the plan, so everything downstream of it diffs a
+// real value instead of a pending one; the result rides the step as
+// ObservedOutputs and apply verifies the world still agrees. Inputs
+// still waiting on an upstream node defer the read to apply, as
+// before.
+func (e *Executor) planOneData(
+	ctx context.Context, n *Node, scope *EvalContext, addr string,
+) (*PlanStep, error) {
 	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
 		return nil, err
@@ -992,13 +1010,34 @@ func (e *Executor) planOneData(n *Node, scope *EvalContext, addr string) (*PlanS
 	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
 		return nil, err
 	}
-	return &PlanStep{
+	step := &PlanStep{
 		Address:          addr,
 		Kind:             n.Kind,
 		Decision:         DecisionRead,
 		Inputs:           inputs,
 		UnresolvedInputs: unresolved,
-	}, nil
+	}
+	if len(unresolved) > 0 {
+		return step, nil
+	}
+	lib, ok := e.librariesFor(n)[n.Alias]
+	if !ok {
+		return nil, fmt.Errorf("library %q is not imported", n.Alias)
+	}
+	dt, ok := lib.DataSources[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("library %s has no data source %q", n.Alias, n.Type)
+	}
+	receiver := dt.NewReceiver()
+	if err := Decode(receiver, inputs); err != nil {
+		return nil, err
+	}
+	result, err := dt.Read(ctx, receiver, e.configFor(n))
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	step.ObservedOutputs = mapify(result)
+	return step, nil
 }
 
 // readObserved decodes inputs onto a fresh resource and asks the
