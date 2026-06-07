@@ -162,9 +162,20 @@ type PlanStep struct {
 	Decision         Decision            `json:"decision"`
 	Inputs           map[string]any      `json:"inputs,omitempty"`
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
-	PriorOutputs     map[string]any      `json:"prior-outputs,omitempty"`
-	ObservedOutputs  map[string]any      `json:"observed-outputs,omitempty"`
-	TriggerHash      string              `json:"trigger-hash,omitempty"`
+
+	// PriorInputs is the body the last apply evaluated, recorded so the plan
+	// can show a changed field as `old -> new` rather than the new value
+	// alone. Nil for a create, where there is no prior to compare against.
+	PriorInputs map[string]any `json:"prior-inputs,omitempty"`
+
+	PriorOutputs    map[string]any `json:"prior-outputs,omitempty"`
+	ObservedOutputs map[string]any `json:"observed-outputs,omitempty"`
+	TriggerHash     string         `json:"trigger-hash,omitempty"`
+
+	// ReplaceTriggers names the replace-forcing fields whose value changed,
+	// the reason a step replaces rather than updates. The renderer tags each
+	// with `(forces replacement)`. Empty unless Decision is replace.
+	ReplaceTriggers []string `json:"replace-triggers,omitempty"`
 
 	// Configuration carries a destroy step's recorded library
 	// configuration ref ("<alias>.<configuration>") from prior state, so
@@ -1070,6 +1081,7 @@ func (e *Executor) planOneResource(
 		return nil, err
 	}
 	step.PriorOutputs = priorOutputs
+	step.PriorInputs = prior.Inputs
 	step.mayChangeOutputs = !sameInputs(prior.Inputs, inputs)
 	// Whether changed inputs force a replace is decided here, mid-walk,
 	// from inputs alone: downstream nodes plan next and need to know
@@ -1081,7 +1093,8 @@ func (e *Executor) planOneResource(
 		if err := Decode(probe, inputs); err != nil {
 			return nil, err
 		}
-		step.regeneratesOutputs = needsReplace(rt.ReplaceFields(probe), prior.Inputs, inputs)
+		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), prior.Inputs, inputs)
+		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
 		step:         step,

@@ -118,17 +118,38 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 	}
 }
 
-// renderStepInputs writes one line per input field of step. Fields
-// whose plan-time evaluation hit a forward reference render as
-// `<source.address>` so operators see which upstream node will fill
-// the value; the alternative was a misleading literal `null`.
+// renderStepInputs writes one line per input field of step. A field that
+// changed from the prior apply reads as `old -> new`; one still waiting on an
+// upstream shows the source addresses in angle brackets; a field that forces a
+// replacement is tagged so the reason for the replace is visible.
 func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
 	for _, key := range sortedMapKeys(step.Inputs) {
-		fmt.Fprintf(out, "%s%s: %s\n", pad, key, renderInputValue(step, key))
+		fmt.Fprintf(out, "%s%s: %s%s\n",
+			pad, key, renderInputValue(step, key), replaceNote(step, key))
 	}
 }
 
+// renderInputValue renders a field's planned value. When the step records the
+// inputs a prior apply saw and this field's value changed, it reads as
+// `old -> new`; an unchanged field, or a create with no prior, shows the new
+// value alone.
 func renderInputValue(step *runtime.PlanStep, field string) string {
+	newVal := newInputValue(step, field)
+	prior, ok := step.PriorInputs[field]
+	if !ok || sameJSONValue(prior, step.Inputs[field]) {
+		return newVal
+	}
+	priorVal := formatValue(prior)
+	if stringSetContains(step.SensitiveInputs, field) {
+		priorVal = sensitivePlaceholder
+	}
+	return priorVal + " -> " + newVal
+}
+
+// newInputValue renders the field's new value: a masked placeholder for a
+// sensitive field, the upstream sources for one still waiting on an upstream,
+// otherwise the formatted value.
+func newInputValue(step *runtime.PlanStep, field string) string {
 	if stringSetContains(step.SensitiveInputs, field) {
 		return sensitivePlaceholder
 	}
@@ -139,6 +160,14 @@ func renderInputValue(step *runtime.PlanStep, field string) string {
 		}
 	}
 	return formatValue(v)
+}
+
+// replaceNote tags a field the plan flagged as forcing a replacement.
+func replaceNote(step *runtime.PlanStep, field string) string {
+	if stringSetContains(step.ReplaceTriggers, field) {
+		return "  (forces replacement)"
+	}
+	return ""
 }
 
 // renderForEachGroup renders all per-instance steps that share the

@@ -1019,7 +1019,11 @@ resources: {
 	})
 
 	plan := runPlan(t, second, libs, store)
-	require.Equal(t, DecisionUpdate, decisionFor(plan, "resource.core.thing.one"))
+	one := stepFor(plan, "resource.core.thing.one")
+	require.Equal(t, DecisionUpdate, one.Decision)
+	require.Empty(t, one.ReplaceTriggers)
+	require.Equal(t, float64(1), one.PriorInputs["size"],
+		"the prior body is recorded (state round trip renders numbers as float)")
 }
 
 func TestPlanReplaceForReplaceFieldChange(t *testing.T) {
@@ -1042,7 +1046,10 @@ resources: {
 	})
 
 	plan := runPlan(t, second, libs, store)
-	require.Equal(t, DecisionReplace, decisionFor(plan, "resource.core.thing.one"))
+	one := stepFor(plan, "resource.core.thing.one")
+	require.Equal(t, DecisionReplace, one.Decision)
+	require.Equal(t, []string{"name"}, one.ReplaceTriggers, "the changed replace field is named")
+	require.Equal(t, "alpha", one.PriorInputs["name"])
 }
 
 func TestPlanUpdateRevertsDrift(t *testing.T) {

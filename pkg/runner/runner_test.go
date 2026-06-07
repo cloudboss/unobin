@@ -977,6 +977,48 @@ func TestPrintPlanBracketsPartiallyKnownList(t *testing.T) {
 	require.Contains(t, out, `argv: ["echo", <resource.std.fs-file.one.path>]`)
 }
 
+func TestPrintPlanShowsInputDiffForUpdate(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:     "resource.aws.instance.web",
+				Kind:        runtime.NodeResource,
+				Decision:    runtime.DecisionUpdate,
+				Inputs:      map[string]any{"instance-type": "t2.small", "ami": "ami-1"},
+				PriorInputs: map[string]any{"instance-type": "t2.micro", "ami": "ami-1"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan, false)
+	out := buf.String()
+	require.Contains(t, out, `instance-type: "t2.micro" -> "t2.small"`)
+	require.Contains(t, out, `ami: "ami-1"`)
+	require.NotContains(t, out, `ami: "ami-1" -> "ami-1"`,
+		"an unchanged field should not show an arrow")
+}
+
+func TestPrintPlanTagsReplaceTrigger(t *testing.T) {
+	plan := &runtime.Plan{
+		Steps: []*runtime.PlanStep{
+			{
+				Address:         "resource.aws.instance.api",
+				Kind:            runtime.NodeResource,
+				Decision:        runtime.DecisionReplace,
+				Inputs:          map[string]any{"ami": "ami-2", "instance-type": "t2.micro"},
+				PriorInputs:     map[string]any{"ami": "ami-1", "instance-type": "t2.micro"},
+				ReplaceTriggers: []string{"ami"},
+			},
+		},
+	}
+	buf := &bytes.Buffer{}
+	printPlan(buf, plan, false)
+	out := buf.String()
+	require.Contains(t, out, `ami: "ami-1" -> "ami-2"  (forces replacement)`)
+	require.NotContains(t, out, `instance-type: "t2.micro"  (forces replacement)`,
+		"only the replace-forcing field is tagged")
+}
+
 func TestPrintPlanShowsDriftSection(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
