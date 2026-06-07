@@ -207,24 +207,32 @@ func scopeRef(ref, callSite string) string {
 }
 
 func bodyDeps(body lang.Expr, locals map[string]lang.Expr) []string {
-	deps := refsWithLocals(body, locals)
-	if obj, ok := body.(*lang.ObjectLit); ok {
-		for _, fld := range obj.Fields {
-			if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@depends-on" {
-				continue
-			}
-			arr, ok := fld.Value.(*lang.ArrayLit)
+	return append(refsWithLocals(body, locals), explicitDeps(body)...)
+}
+
+// explicitDeps returns the addresses a body's @depends-on entry
+// names, unscoped.
+func explicitDeps(body lang.Expr) []string {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	var deps []string
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@depends-on" {
+			continue
+		}
+		arr, ok := fld.Value.(*lang.ArrayLit)
+		if !ok {
+			continue
+		}
+		for _, el := range arr.Elements {
+			dp, ok := el.(*lang.DotPath)
 			if !ok {
 				continue
 			}
-			for _, el := range arr.Elements {
-				dp, ok := el.(*lang.DotPath)
-				if !ok {
-					continue
-				}
-				if addr := refAddress(dp); addr != "" {
-					deps = append(deps, addr)
-				}
+			if addr := refAddress(dp); addr != "" {
+				deps = append(deps, addr)
 			}
 		}
 	}

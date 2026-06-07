@@ -309,6 +309,233 @@ data: {
 	require.Equal(t, int64(2), reads)
 }
 
+// versionedResource computes a fresh id on every create and update, so
+// a reader of its id sees a value the next change invalidates.
+type versionedResource struct {
+	Tag string
+}
+
+func (r *versionedResource) SchemaVersion() int { return 1 }
+
+func (r *versionedResource) Create(_ context.Context, _ any) (any, error) {
+	return map[string]any{"tag": r.Tag, "id": "id-" + r.Tag}, nil
+}
+
+func (r *versionedResource) Read(_ context.Context, _, prior any) (any, error) {
+	if prior == nil {
+		return nil, ErrNotFound
+	}
+	return prior, nil
+}
+
+func (r *versionedResource) Update(
+	_ context.Context, _ any, _ Prior[versionedResource, any],
+) (any, error) {
+	return map[string]any{"tag": r.Tag, "id": "id-" + r.Tag}, nil
+}
+
+func (r *versionedResource) Delete(_ context.Context, _, _ any) error { return nil }
+func (r *versionedResource) ReplaceFields() []string                  { return nil }
+
+// A data source reading a computed output of a resource the plan is
+// about to change must defer to apply: the prior output is exactly the
+// value the update invalidates, so a plan-time read against it would
+// disagree with the apply-time read and fail the contract check.
+func TestDataDefersWhenUpstreamOutputWillChange(t *testing.T) {
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  core: { versioned: { one: { tag: var.t } } }
+}
+data: {
+  core: { dial: { cfg: { key: resource.core.versioned.one.id } } }
+}
+outputs: {
+  v: { value: data.core.dial.cfg.value }
+}
+`
+	value := "a"
+	var reads int64
+	libs := dataPlanModules(&value, &reads)
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+
+	first := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	}
+	res := applyOnce(t, first)
+	require.Equal(t, "a:id-1", res.Outputs["v"])
+
+	// The changed input updates the resource, which recomputes its id;
+	// the data source must wait for the new one rather than reading
+	// against the prior.
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate,
+		findStep(t, plan, "resource.core.versioned.one").Decision)
+	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Nil(t, ds.ObservedOutputs)
+	require.Contains(t, ds.UnresolvedInputs, "key")
+
+	res2, err := planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+	require.Equal(t, "a:id-2", res2.Outputs["v"])
+}
+
+// A data source reading a plain input field of an updating resource
+// sees the new value at plan, since the body declares it; the read
+// happens at plan and apply agrees with it.
+func TestDataReadsNewInputFieldOfUpdatingResource(t *testing.T) {
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  core: { versioned: { one: { tag: var.t } } }
+}
+data: {
+  core: { dial: { cfg: { key: resource.core.versioned.one.tag } } }
+}
+outputs: {
+  v: { value: data.core.dial.cfg.value }
+}
+`
+	value := "a"
+	var reads int64
+	libs := dataPlanModules(&value, &reads)
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Equal(t, map[string]any{"value": "a:2"}, ds.ObservedOutputs)
+
+	res, err := planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+	require.Equal(t, "a:2", res.Outputs["v"])
+}
+
+// A resource reading a computed output of a changing upstream plans
+// an update with that field pending, and applies with the fresh value
+// once the upstream has run.
+func TestDownstreamResourceWaitsForRecomputedOutput(t *testing.T) {
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  core: {
+    versioned: { one: { tag: var.t } }
+    thing:     { two: { tag: resource.core.versioned.one.id } }
+  }
+}
+outputs: {
+  fed: { value: resource.core.thing.two.tag }
+}
+`
+	value := "a"
+	var reads int64
+	libs := dataPlanModules(&value, &reads)
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.core.thing.two")
+	require.Equal(t, DecisionUpdate, step.Decision)
+	require.Contains(t, step.UnresolvedInputs, "tag")
+
+	res, err := planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+	require.Equal(t, "id-2", res.Outputs["fed"])
+}
+
+// An explicit @depends-on defers the data read past a target with
+// changes pending, even when the data source's own inputs are settled;
+// once the target is settled again, the read happens at plan.
+func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  core: { versioned: { one: { tag: var.t } } }
+}
+data: {
+  core: { dial: { cfg: {
+    @depends-on: [resource.core.versioned.one]
+    key: 'fixed'
+  } } }
+}
+outputs: {
+  v: { value: data.core.dial.cfg.value }
+}
+`
+	value := "a"
+	var reads int64
+	libs := dataPlanModules(&value, &reads)
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate,
+		findStep(t, plan, "resource.core.versioned.one").Decision)
+	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Nil(t, ds.ObservedOutputs,
+		"a pending @depends-on target defers the read")
+	res, err := planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+	require.Equal(t, "a:fixed", res.Outputs["v"])
+
+	// With the target settled, the read returns to plan time.
+	third := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err = third.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp,
+		findStep(t, plan, "resource.core.versioned.one").Decision)
+	require.Equal(t, map[string]any{"value": "a:fixed"},
+		findStep(t, plan, "data.core.dial.cfg").ObservedOutputs)
+}
+
 // amiOut mimics a cloud data source's richer output: a nested struct
 // list whose field order is not alphabetical, an optional field left
 // nil, an empty list, and a timestamp.

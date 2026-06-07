@@ -80,7 +80,7 @@ func (e *Executor) planForEachData(
 	for _, key := range sortedKeys(instances) {
 		inst := childScopeWithEach(scope, key, instances[key])
 		addr := instanceAddress(n.Address, key)
-		step, err := e.planOneData(ctx, n, inst, addr)
+		step, err := e.planOneData(ctx, rs, n, inst, addr)
 		if err != nil {
 			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
 		}
@@ -248,7 +248,7 @@ func (e *Executor) planInternalUnder(
 		}
 		return []*PlanStep{step}, nil
 	case NodeData:
-		step, err := e.planOneData(ctx, n, scope, addr)
+		step, err := e.planOneData(ctx, rs, n, scope, addr)
 		if err != nil {
 			return nil, err
 		}

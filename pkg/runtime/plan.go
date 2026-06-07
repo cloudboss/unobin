@@ -128,6 +128,14 @@ type PlanStep struct {
 	// comes from the composite type's `@sensitive` markers and from
 	// propagation through its body.
 	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
+
+	// recomputesOutputs marks a step whose planned action produces
+	// fresh outputs (changed resource inputs, an action rerun), so the
+	// plan walk must not seed its prior outputs: a downstream reader
+	// sees those fields as unknown-until-apply instead of values the
+	// apply is about to invalidate. Plan-walk state only; not part of
+	// the plan file.
+	recomputesOutputs bool
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -225,6 +233,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	liveAddresses := make(map[string]bool)
 	var constraintErrs []error
 	if !e.Destroy {
+		rs.plannedByTemplate = map[string][]*PlanStep{}
 		for _, addr := range order {
 			node := e.DAG.Nodes[addr]
 			steps, err := e.planNodeSteps(ctx, rs, node)
@@ -235,6 +244,8 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
 				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
 				plan.Steps = append(plan.Steps, step)
+				tmpl := templateAddress(step.Address)
+				rs.plannedByTemplate[tmpl] = append(rs.plannedByTemplate[tmpl], step)
 				liveAddresses[step.Address] = true
 				if err := e.seedStepAttrs(rs, step); err != nil {
 					return nil, fmt.Errorf("%s: %w", step.Address, err)
@@ -495,10 +506,15 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	target := scopeMapForKind(scope, step.Kind)
 	// A data source read during the plan seeds what it observed; at
 	// this point in the walk a resource's drift read has not run yet,
-	// so resources still seed their prior outputs.
+	// so resources still seed their prior outputs. A step whose apply
+	// recomputes its outputs seeds none: the prior values are exactly
+	// the ones the apply invalidates, so readers wait instead.
 	outputs := step.PriorOutputs
 	if step.ObservedOutputs != nil {
 		outputs = step.ObservedOutputs
+	}
+	if step.recomputesOutputs {
+		outputs = nil
 	}
 	attrs := mergeAttrs(knownInputs(step), outputs)
 	if instKey == "" {
@@ -617,7 +633,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		if err != nil {
 			return nil, err
 		}
-		return e.planOneData(ctx, n, scope, n.Address)
+		return e.planOneData(ctx, rs, n, scope, n.Address)
 	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
 	default:
@@ -808,13 +824,14 @@ func (e *Executor) planOneAction(
 		dec = DecisionSkip
 	}
 	return &PlanStep{
-		Address:          addr,
-		Kind:             n.Kind,
-		Decision:         dec,
-		Inputs:           inputs,
-		UnresolvedInputs: unresolved,
-		PriorOutputs:     priorOut,
-		TriggerHash:      trigger.Hash,
+		Address:           addr,
+		Kind:              n.Kind,
+		Decision:          dec,
+		Inputs:            inputs,
+		UnresolvedInputs:  unresolved,
+		PriorOutputs:      priorOut,
+		TriggerHash:       trigger.Hash,
+		recomputesOutputs: dec == DecisionRerun,
 	}, nil
 }
 
@@ -886,6 +903,7 @@ func (e *Executor) planOneResource(
 		return nil, err
 	}
 	step.PriorOutputs = priorOutputs
+	step.recomputesOutputs = !sameInputs(prior.Inputs, inputs)
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
 		step:         step,
 		rt:           rt,
@@ -1001,7 +1019,7 @@ func upgradeActionRerun(steps []*PlanStep, dag *DAG, sl *scopeLocals) {
 // still waiting on an upstream node defer the read to apply, as
 // before.
 func (e *Executor) planOneData(
-	ctx context.Context, n *Node, scope *EvalContext, addr string,
+	ctx context.Context, rs *runState, n *Node, scope *EvalContext, addr string,
 ) (*PlanStep, error) {
 	inputs, unresolved, err := planEvalBody(n.Body, scope)
 	if err != nil {
@@ -1017,7 +1035,7 @@ func (e *Executor) planOneData(
 		Inputs:           inputs,
 		UnresolvedInputs: unresolved,
 	}
-	if len(unresolved) > 0 {
+	if len(unresolved) > 0 || e.dependsOnPending(rs, n) {
 		return step, nil
 	}
 	lib, ok := e.librariesFor(n)[n.Alias]
@@ -1038,6 +1056,25 @@ func (e *Executor) planOneData(
 	}
 	step.ObservedOutputs = mapify(result)
 	return step, nil
+}
+
+// dependsOnPending reports whether a target named by the node's
+// @depends-on has changes pending in the plan so far: a create, a
+// rerun, or an update that recomputes outputs. A data source then
+// defers its read the way an unresolved input does, since the read is
+// only meaningful against the world after the target has run. The
+// walk is topological, so every target is planned before its
+// dependents ask.
+func (e *Executor) dependsOnPending(rs *runState, n *Node) bool {
+	for _, dep := range explicitDeps(n.Body) {
+		for _, s := range rs.plannedByTemplate[scopeRef(dep, n.Composite)] {
+			if s.Decision == DecisionCreate || s.Decision == DecisionRerun ||
+				s.recomputesOutputs {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // readObserved decodes inputs onto a fresh resource and asks the

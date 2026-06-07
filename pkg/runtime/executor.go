@@ -189,6 +189,13 @@ type runState struct {
 	// before finalizing decisions. Apply and Refresh leave this nil.
 	pendingReads []*pendingRead
 
+	// plannedByTemplate indexes the steps Plan's walk has emitted so
+	// far by template address, so a later node can ask whether an
+	// upstream it names has changes pending. The walk is topological,
+	// so a node's upstreams are always indexed before it plans. Apply
+	// and Refresh leave this nil.
+	plannedByTemplate map[string][]*PlanStep
+
 	// dependsOn maps each persisted step address to the addresses of
 	// the other entries it depends on, in instance form. ApplyPlan
 	// computes it once before dispatch and each apply method copies the
