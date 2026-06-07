@@ -10,18 +10,7 @@ import (
 // n's ancestry is itself a `@for-each` template. Such nodes are
 // planned per-instance by their boundary's planner, not on their own.
 func (e *Executor) insideForEachComposite(n *Node) bool {
-	cur := n.Composite
-	for cur != "" {
-		b, ok := e.DAG.Nodes[cur]
-		if !ok {
-			return false
-		}
-		if b.IsComposite() && b.ForEach != nil {
-			return true
-		}
-		cur = b.Composite
-	}
-	return false
+	return underForEachComposite(e.DAG.Nodes, n)
 }
 
 // planForEachAction plans one action step per iterable key. Mirrors

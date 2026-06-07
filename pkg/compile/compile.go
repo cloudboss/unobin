@@ -242,6 +242,9 @@ func Run(opts Options) error {
 	if errs := ubruntime.CheckLiteralConstraints(f, libs); errs.Len() > 0 {
 		return errs.Err()
 	}
+	if errs := ubruntime.CheckForEachNesting(f, libs); errs.Len() > 0 {
+		return errs.Err()
+	}
 
 	in := codegen.Input{
 		Body:          string(src),
