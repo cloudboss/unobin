@@ -1,0 +1,208 @@
+package runtime
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+)
+
+// subnetLike has a tag input and a stable id output; updating it
+// never changes the id, like a cloud subnet whose tags are synced.
+type subnetLike struct {
+	Tag string
+}
+
+func (r *subnetLike) SchemaVersion() int { return 1 }
+
+func (r *subnetLike) Create(_ context.Context, _ any) (any, error) {
+	return map[string]any{"tag": r.Tag, "id": "subnet-1"}, nil
+}
+
+func (r *subnetLike) Read(_ context.Context, _, prior any) (any, error) {
+	if prior == nil {
+		return nil, ErrNotFound
+	}
+	return prior, nil
+}
+
+func (r *subnetLike) Update(_ context.Context, _ any, _ Prior[subnetLike, any]) (any, error) {
+	return map[string]any{"tag": r.Tag, "id": "subnet-1"}, nil
+}
+
+func (r *subnetLike) Delete(_ context.Context, _, _ any) error { return nil }
+func (r *subnetLike) ReplaceFields() []string                  { return nil }
+
+// instanceLike replace-marks its ref field, like an instance pinned
+// to a subnet id.
+type instanceLike struct {
+	Ref string
+}
+
+func (r *instanceLike) SchemaVersion() int { return 1 }
+
+func (r *instanceLike) Create(_ context.Context, _ any) (any, error) {
+	return map[string]any{"ref": r.Ref, "id": "inst-1"}, nil
+}
+
+func (r *instanceLike) Read(_ context.Context, _, prior any) (any, error) {
+	if prior == nil {
+		return nil, ErrNotFound
+	}
+	return prior, nil
+}
+
+func (r *instanceLike) Update(_ context.Context, _ any, _ Prior[instanceLike, any]) (any, error) {
+	return map[string]any{"ref": r.Ref, "id": "inst-1"}, nil
+}
+
+func (r *instanceLike) Delete(_ context.Context, _, _ any) error { return nil }
+func (r *instanceLike) ReplaceFields() []string                  { return []string{"ref"} }
+
+// pinnedResource replace-marks its tag and mints a fresh id on every
+// create, so replacing it hands downstream readers a new value. Its
+// update never runs: any input change forces a replace.
+type pinnedResource struct {
+	Tag string
+
+	gen *int64
+}
+
+func (r *pinnedResource) SchemaVersion() int { return 1 }
+
+func (r *pinnedResource) Create(_ context.Context, _ any) (any, error) {
+	*r.gen++
+	return map[string]any{"tag": r.Tag, "id": fmt.Sprintf("gen-%d", *r.gen)}, nil
+}
+
+func (r *pinnedResource) Read(_ context.Context, _, prior any) (any, error) {
+	if prior == nil {
+		return nil, ErrNotFound
+	}
+	return prior, nil
+}
+
+func (r *pinnedResource) Update(
+	_ context.Context, _ any, _ Prior[pinnedResource, any],
+) (any, error) {
+	return nil, errors.New("pinnedResource update should never run")
+}
+
+func (r *pinnedResource) Delete(_ context.Context, _, _ any) error { return nil }
+func (r *pinnedResource) ReplaceFields() []string                  { return []string{"tag"} }
+
+const cascadeSrc = `
+inputs: { t: { type: string } }
+resources: {
+  core: {
+    subnet:   { a:  { tag: var.t } }
+    instance: { it: { ref: resource.core.subnet.a.id } }
+  }
+}
+`
+
+// An update preserves the object, so its prior outputs stay readable
+// during the plan: a tag sync upstream diffs the downstream against
+// the still-valid id and plans no-op instead of a replace.
+func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"subnet":   MakeResource[subnetLike, any](),
+				"instance": MakeResource[instanceLike, any](),
+			},
+		},
+	}
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, cascadeSrc), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.core.subnet.a").Decision)
+	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionNoOp, inst.Decision)
+	require.Empty(t, inst.UnresolvedInputs)
+	require.Equal(t, "subnet-1", inst.Inputs["ref"])
+
+	_, err = planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+
+	third := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err = third.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.subnet.a").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.instance.it").Decision)
+}
+
+// A replace regenerates the object, so its prior outputs are not
+// seeded: a downstream reader of a replace-marked field stays pending
+// and plans its own replace, then applies with the fresh value.
+func TestReplaceSuppressesPriorOutputs(t *testing.T) {
+	var gen int64
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"pinned": MakeResourceWith[pinnedResource, any](
+					func() *pinnedResource { return &pinnedResource{gen: &gen} },
+				),
+				"instance": MakeResource[instanceLike, any](),
+			},
+		},
+	}
+	src := `
+inputs: { t: { type: string } }
+resources: {
+  core: {
+    pinned:   { a:  { tag: var.t } }
+    instance: { it: { ref: resource.core.pinned.a.id } }
+  }
+}
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g := BuildDAG(parseStack(t, src), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "1"},
+	})
+
+	second := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionReplace, findStep(t, plan, "resource.core.pinned.a").Decision)
+	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionReplace, inst.Decision)
+	require.Contains(t, inst.UnresolvedInputs, "ref")
+
+	_, err = planAndApplyExisting(second, plan)
+	require.NoError(t, err)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.instance.it")
+	require.NotNil(t, ent)
+	require.Equal(t, map[string]any{"ref": "gen-2"}, ent.Inputs)
+}

@@ -339,11 +339,11 @@ func (r *versionedResource) Update(
 func (r *versionedResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *versionedResource) ReplaceFields() []string                  { return nil }
 
-// A data source reading a computed output of a resource the plan is
-// about to change must defer to apply: the prior output is exactly the
-// value the update invalidates, so a plan-time read against it would
-// disagree with the apply-time read and fail the contract check.
-func TestDataDefersWhenUpstreamOutputWillChange(t *testing.T) {
+// A data source reading a computed output of an updating resource
+// reads the seeded prior value at plan. When the update then changes
+// that output, the apply-time data check refuses loudly and one
+// re-plan converges on the fresh value.
+func TestDataCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	src := `
 inputs: { t: { type: string } }
 resources: {
@@ -371,9 +371,9 @@ outputs: {
 	res := applyOnce(t, first)
 	require.Equal(t, "a:id-1", res.Outputs["v"])
 
-	// The changed input updates the resource, which recomputes its id;
-	// the data source must wait for the new one rather than reading
-	// against the prior.
+	// The update preserves the resource, so the data source reads the
+	// seeded prior id at plan; the update then recomputes the id and
+	// the apply-time re-read disagrees with what the plan showed.
 	second := &Executor{
 		DAG: g, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
@@ -383,10 +383,25 @@ outputs: {
 	require.Equal(t, DecisionUpdate,
 		findStep(t, plan, "resource.core.versioned.one").Decision)
 	ds := findStep(t, plan, "data.core.dial.cfg")
-	require.Nil(t, ds.ObservedOutputs)
-	require.Contains(t, ds.UnresolvedInputs, "key")
+	require.Equal(t, map[string]any{"value": "a:id-1"}, ds.ObservedOutputs)
+	require.Empty(t, ds.UnresolvedInputs)
 
-	res2, err := planAndApplyExisting(second, plan)
+	_, err = planAndApplyExisting(second, plan)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "data.core.dial.cfg")
+	require.Contains(t, err.Error(), "changed since the plan")
+
+	// The update persisted before the failure, so a fresh plan reads
+	// the new id and the apply goes through.
+	third := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err = third.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp,
+		findStep(t, plan, "resource.core.versioned.one").Decision)
+	res2, err := planAndApplyExisting(third, plan)
 	require.NoError(t, err)
 	require.Equal(t, "a:id-2", res2.Outputs["v"])
 }
@@ -434,10 +449,11 @@ outputs: {
 	require.Equal(t, "a:2", res.Outputs["v"])
 }
 
-// A resource reading a computed output of a changing upstream plans
-// an update with that field pending, and applies with the fresh value
-// once the upstream has run.
-func TestDownstreamResourceWaitsForRecomputedOutput(t *testing.T) {
+// A resource reading a computed output of an updating upstream diffs
+// the seeded prior value at plan. When the update then changes that
+// output, the apply-time premise check refuses loudly and one re-plan
+// converges on the fresh value.
+func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	src := `
 inputs: { t: { type: string } }
 resources: {
@@ -470,10 +486,26 @@ outputs: {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	step := findStep(t, plan, "resource.core.thing.two")
-	require.Equal(t, DecisionUpdate, step.Decision)
-	require.Contains(t, step.UnresolvedInputs, "tag")
+	require.Equal(t, DecisionNoOp, step.Decision)
+	require.Empty(t, step.UnresolvedInputs)
+	require.Equal(t, "id-1", step.Inputs["tag"])
 
-	res, err := planAndApplyExisting(second, plan)
+	_, err = planAndApplyExisting(second, plan)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "resource.core.thing.two")
+	require.Contains(t, err.Error(), "inputs changed since the plan was computed; plan again")
+	require.Contains(t, err.Error(), `tag: "id-1" -> "id-2"`)
+
+	// The update persisted before the failure, so a fresh plan diffs
+	// the downstream against the new id and converges.
+	third := &Executor{
+		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		Inputs: map[string]any{"t": "2"},
+	}
+	plan, err = third.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.core.thing.two").Decision)
+	res, err := planAndApplyExisting(third, plan)
 	require.NoError(t, err)
 	require.Equal(t, "id-2", res.Outputs["fed"])
 }

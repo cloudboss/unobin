@@ -129,13 +129,23 @@ type PlanStep struct {
 	// propagation through its body.
 	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
 
-	// recomputesOutputs marks a step whose planned action produces
-	// fresh outputs (changed resource inputs, an action rerun), so the
-	// plan walk must not seed its prior outputs: a downstream reader
-	// sees those fields as unknown-until-apply instead of values the
-	// apply is about to invalidate. Plan-walk state only; not part of
-	// the plan file.
-	recomputesOutputs bool
+	// regeneratesOutputs marks a step whose planned action produces a
+	// new object (a resource replace, an action rerun), so every prior
+	// output dies with the old one. The plan walk must not seed them: a
+	// downstream reader sees those fields as unknown-until-apply
+	// instead of values the apply is about to invalidate. An update is
+	// not marked: it preserves the object, so its prior outputs stay
+	// readable, and one that changes an output anyway is caught by the
+	// apply-time premise check. Plan-walk state only; not part of the
+	// plan file.
+	regeneratesOutputs bool
+
+	// mayChangeOutputs marks a step whose planned action could leave
+	// any output different from prior state (changed resource inputs,
+	// an action rerun). A data source reading behind an @depends-on
+	// target waits for apply while this is set, even with settled
+	// inputs. Plan-walk state only; not part of the plan file.
+	mayChangeOutputs bool
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -507,14 +517,19 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	// A data source read during the plan seeds what it observed; at
 	// this point in the walk a resource's drift read has not run yet,
 	// so resources still seed their prior outputs. A step whose apply
-	// recomputes its outputs seeds none: the prior values are exactly
-	// the ones the apply invalidates, so readers wait instead.
+	// regenerates the object seeds none: every prior output dies with
+	// it, so readers wait instead. An update preserves the object, so
+	// its computed-only outputs stay readable; its declared fields come
+	// from the body, since a same-named prior output echoes exactly the
+	// value the update is about to set.
 	outputs := step.PriorOutputs
 	if step.ObservedOutputs != nil {
 		outputs = step.ObservedOutputs
 	}
-	if step.recomputesOutputs {
+	if step.regeneratesOutputs {
 		outputs = nil
+	} else if step.mayChangeOutputs {
+		outputs = withoutDeclared(outputs, step.Inputs)
 	}
 	attrs := mergeAttrs(knownFields(step, step.Inputs), outputs)
 	if instKey == "" {
@@ -523,6 +538,23 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		seedInstance(target, alias, typeName, name, instKey, attrs)
 	}
 	return nil
+}
+
+// withoutDeclared returns outputs minus the fields the body declares.
+// A declared field's plan-time value is the body's, whether settled or
+// pending, so a stale same-named output must not be read in its place.
+func withoutDeclared(outputs, declared map[string]any) map[string]any {
+	if len(outputs) == 0 {
+		return outputs
+	}
+	out := make(map[string]any, len(outputs))
+	for name, value := range outputs {
+		if _, ok := declared[name]; ok {
+			continue
+		}
+		out[name] = value
+	}
+	return out
 }
 
 // knownFields returns inputs minus the fields the step left
@@ -823,14 +855,15 @@ func (e *Executor) planOneAction(
 		dec = DecisionSkip
 	}
 	return &PlanStep{
-		Address:           addr,
-		Kind:              n.Kind,
-		Decision:          dec,
-		Inputs:            inputs,
-		UnresolvedInputs:  unresolved,
-		PriorOutputs:      priorOut,
-		TriggerHash:       trigger.Hash,
-		recomputesOutputs: dec == DecisionRerun,
+		Address:            addr,
+		Kind:               n.Kind,
+		Decision:           dec,
+		Inputs:             inputs,
+		UnresolvedInputs:   unresolved,
+		PriorOutputs:       priorOut,
+		TriggerHash:        trigger.Hash,
+		regeneratesOutputs: dec == DecisionRerun,
+		mayChangeOutputs:   dec == DecisionRerun,
 	}, nil
 }
 
@@ -859,7 +892,6 @@ type pendingRead struct {
 	rt           ResourceRegistration
 	cfg          any
 	inputs       map[string]any
-	priorInputs  map[string]any
 	priorOutputs map[string]any
 	observed     map[string]any
 	err          error
@@ -902,13 +934,24 @@ func (e *Executor) planOneResource(
 		return nil, err
 	}
 	step.PriorOutputs = priorOutputs
-	step.recomputesOutputs = !sameInputs(prior.Inputs, inputs)
+	step.mayChangeOutputs = !sameInputs(prior.Inputs, inputs)
+	// Whether changed inputs force a replace is decided here, mid-walk,
+	// from inputs alone: downstream nodes plan next and need to know
+	// whether this node's outputs survive. A replace-marked field still
+	// waiting on an upstream compares as changed, since the value it
+	// settles to cannot be assumed equal to the prior one.
+	if step.mayChangeOutputs {
+		probe := rt.NewReceiver()
+		if err := Decode(probe, inputs); err != nil {
+			return nil, err
+		}
+		step.regeneratesOutputs = needsReplace(rt.ReplaceFields(probe), prior.Inputs, inputs)
+	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
 		step:         step,
 		rt:           rt,
 		cfg:          e.configFor(n),
 		inputs:       inputs,
-		priorInputs:  prior.Inputs,
 		priorOutputs: priorOutputs,
 	})
 	return step, nil
@@ -959,12 +1002,8 @@ func finalizeResourceRead(pr *pendingRead) error {
 		return fmt.Errorf("read: %w", pr.err)
 	}
 	pr.step.ObservedOutputs = pr.observed
-	if !sameInputs(pr.priorInputs, pr.inputs) {
-		probe := pr.rt.NewReceiver()
-		if err := Decode(probe, pr.inputs); err != nil {
-			return err
-		}
-		if needsReplace(pr.rt.ReplaceFields(probe), pr.priorInputs, pr.inputs) {
+	if pr.step.mayChangeOutputs {
+		if pr.step.regeneratesOutputs {
 			pr.step.Decision = DecisionReplace
 		} else {
 			pr.step.Decision = DecisionUpdate
@@ -1059,16 +1098,17 @@ func (e *Executor) planOneData(
 
 // dependsOnPending reports whether a target named by the node's
 // @depends-on has changes pending in the plan so far: a create, a
-// rerun, or an update that recomputes outputs. A data source then
-// defers its read the way an unresolved input does, since the read is
-// only meaningful against the world after the target has run. The
-// walk is topological, so every target is planned before its
-// dependents ask.
+// rerun, or any update, since @depends-on names a coupling the inputs
+// do not express and even a small update can move what the dependent
+// reads. A data source then defers its read the way an unresolved
+// input does, since the read is only meaningful against the world
+// after the target has run. The walk is topological, so every target
+// is planned before its dependents ask.
 func (e *Executor) dependsOnPending(rs *runState, n *Node) bool {
 	for _, dep := range explicitDeps(n.Body) {
 		for _, s := range rs.plannedByTemplate[scopeRef(dep, n.Composite)] {
 			if s.Decision == DecisionCreate || s.Decision == DecisionRerun ||
-				s.recomputesOutputs {
+				s.mayChangeOutputs {
 				return true
 			}
 		}
