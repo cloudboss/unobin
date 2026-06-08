@@ -1,0 +1,1 @@
+inputs: { p: { type: optional(open(object({ a: optional(list(string)) })), {}) } }

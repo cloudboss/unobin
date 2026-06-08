@@ -1,0 +1,4 @@
+imports: { lib: 'github.com/x/lib' }
+outputs: {
+  shout: { value: lib.upper(var.name) }
+}

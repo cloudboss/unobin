@@ -124,138 +124,21 @@ replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
 	}
 }
 
-func TestValidateReservesSetType(t *testing.T) {
-	src := `inputs: { a: { type: set(string) } }`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t,
-		[]string{"main.ub:1:22: type: set is not available yet; use list, or a map for fan-out"},
-		errs.Strings())
+// fileDriver runs ValidateFile over a whole fixture parsed as the given kind,
+// reporting positioned diagnostics so the goldens pin file:line:col.
+func fileDriver(kind FileKind) ubtest.Driver {
+	return func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("main.ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		f.Kind = kind
+		return "", ValidateFile(f).Strings()
+	}
 }
 
-func TestValidateAcceptsOpenObjectType(t *testing.T) {
-	src := `inputs: { p: { type: optional(open(object({ a: optional(list(string)) })), {}) } }`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "unexpected errors: %v", errs.Strings())
-}
-
-func TestValidateRejectsAnyType(t *testing.T) {
-	src := `inputs: { a: { type: any } }`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t,
-		[]string{"main.ub:1:22: type: any is not a type; " +
-			"use opaque for a value passed along unread, or declare the value's type"},
-		errs.Strings())
-}
-
-func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
-	src := `
-imports: { core: 'github.com/x/core' }
-outputs: {
-  shout: { value: lib.upper(var.name) }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	msg := errs.Errors()[0].Error()
-	require.Contains(t, msg, `"lib"`)
-	require.Contains(t, msg, "not imported")
-}
-
-func TestValidateAcceptsCallToImportedModule(t *testing.T) {
-	src := `
-imports: { lib: 'github.com/x/lib' }
-outputs: {
-  shout: { value: lib.upper(var.name) }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateChecksCallsInNestedExpressions(t *testing.T) {
-	src := `
-imports: { core: 'github.com/x/core' }
-resources: {
-  core.thing.one: { name: lib.upper('hi') }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Error(), `"lib"`)
-}
-
-func TestValidateRejectsBareCall(t *testing.T) {
-	src := `
-outputs: {
-  shout: { value: format('%s', var.name) }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	msg := errs.Errors()[0].Error()
-	require.Contains(t, msg, "must be qualified")
-	require.Contains(t, msg, "format")
-}
-
-// TestValidateAdmitsCoreNamespaceCall proves a @core call needs no
-// import: the namespace is part of the language.
-func TestValidateAdmitsCoreNamespaceCall(t *testing.T) {
-	src := `
-outputs: {
-  shout: { value: @core.b64-encode('hi') }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-// TestValidateRejectsUnknownNamespaceCall proves @core is the only
-// language namespace a call may use.
-func TestValidateRejectsUnknownNamespaceCall(t *testing.T) {
-	src := `
-outputs: {
-  shout: { value: @std.format('%s', 'hi') }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	msg := errs.Errors()[0].Error()
-	require.Contains(t, msg, "@std")
-	require.Contains(t, msg, "@core")
-}
-
-// TestValidateRejectsAtPrefixedImportAlias proves the @ namespace stays
-// the language's: an import cannot claim a name there.
-func TestValidateRejectsAtPrefixedImportAlias(t *testing.T) {
-	src := `
-imports: {
-  @core: 'github.com/x/y'
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Error(),
-		`@-prefixed key "@core" is not a valid import name`)
+func TestValidateFileFactoryFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/file/factory", fileDriver(FileFactory))
 }
 
 func TestValidateCallsTypePositions(t *testing.T) {

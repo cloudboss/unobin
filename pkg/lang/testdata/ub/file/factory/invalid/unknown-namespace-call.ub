@@ -1,0 +1,3 @@
+outputs: {
+  shout: { value: @std.format('%s', 'hi') }
+}

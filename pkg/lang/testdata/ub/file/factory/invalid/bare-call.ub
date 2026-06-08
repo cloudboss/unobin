@@ -1,0 +1,3 @@
+outputs: {
+  shout: { value: format('%s', var.name) }
+}

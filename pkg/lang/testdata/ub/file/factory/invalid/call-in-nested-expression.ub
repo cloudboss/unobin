@@ -1,0 +1,4 @@
+imports: { core: 'github.com/x/core' }
+resources: {
+  core.thing.one: { name: lib.upper('hi') }
+}
