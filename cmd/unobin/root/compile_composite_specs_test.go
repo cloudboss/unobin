@@ -14,8 +14,9 @@ import (
 // Go library (disk) twice: directly at the root, and again inside a UB
 // composite (files.archive). The disk library's file resource declares
 // an input default and a constraint, so both import paths must end up
-// with the same embedded specs. Returns the stack path and a build
-// output directory.
+// with the same embedded specs. The disk library also registers a volume
+// resource that nothing uses, whose specs must reach neither output.
+// Returns the stack path and a build output directory.
 func writeCompositeGoSpecsFixture(t *testing.T) (string, string) {
 	t.Helper()
 	setCLIVersion(t, "dev")
@@ -58,7 +59,8 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "disk",
 		Resources: map[string]runtime.ResourceRegistration{
-			"file": runtime.MakeResource[File, *FileOutput](),
+			"file":   runtime.MakeResource[File, *FileOutput](),
+			"volume": runtime.MakeResource[Volume, *VolumeOutput](),
 		},
 	}
 }
@@ -105,6 +107,48 @@ func (f *File) Update(
 }
 
 func (f *File) Delete(_ context.Context, _ any, _ *FileOutput) error {
+	return nil
+}
+
+type Volume struct {
+	Zone string
+	Size int64
+}
+
+func (v Volume) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(v.Size, 100),
+	}
+}
+
+func (v Volume) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.Present(v.Zone)).
+			Message("a volume needs a zone"),
+	}
+}
+
+type VolumeOutput struct {
+	ID string
+}
+
+func (v *Volume) SchemaVersion() int { return 1 }
+
+func (v *Volume) Create(_ context.Context, _ any) (*VolumeOutput, error) {
+	return &VolumeOutput{}, nil
+}
+
+func (v *Volume) Read(_ context.Context, _ any, _ *VolumeOutput) (*VolumeOutput, error) {
+	return &VolumeOutput{}, nil
+}
+
+func (v *Volume) Update(
+	_ context.Context, _ any, _ runtime.Prior[Volume, *VolumeOutput],
+) (*VolumeOutput, error) {
+	return &VolumeOutput{}, nil
+}
+
+func (v *Volume) Delete(_ context.Context, _ any, _ *VolumeOutput) error {
 	return nil
 }
 `), 0o644))
@@ -175,4 +219,23 @@ func TestCompileEmbedsGoConstraintsForCompositeImport(t *testing.T) {
 	require.Contains(t, filesSrc, "lang.ConstraintSpec",
 		"the generated UB-library package embeds no constraints at all")
 	require.Contains(t, filesSrc, "a file needs a path")
+}
+
+// TestCompilePrunesUnusedLibrarySpecs proves the compiler embeds specs
+// only for the library types a factory and its composites declare. The
+// disk library registers a volume resource nothing uses, so its
+// constraint and default reach neither the generated main.go nor the
+// composite package.
+func TestCompilePrunesUnusedLibrarySpecs(t *testing.T) {
+	mainSrc, filesSrc := compileCompositeGoSpecsFixture(t)
+
+	// The used file type keeps its specs.
+	require.Contains(t, mainSrc, "a file needs a path")
+	require.Contains(t, mainSrc, `{Field: "var.mode", Value: "420"}`)
+
+	// The unused volume type contributes nothing to either output.
+	for _, src := range []string{mainSrc, filesSrc} {
+		require.NotContains(t, src, "a volume needs a zone")
+		require.NotContains(t, src, `{Field: "var.size", Value: "100"}`)
+	}
 }

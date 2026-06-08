@@ -236,6 +236,12 @@ func Run(opts Options) error {
 			libs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
 		}
 	}
+	// Embed only the specs for types the factory declares; a node hits
+	// the rules and defaults for its own type alone, so an imported
+	// library's other types are dead weight in the generated code.
+	used := usedLibraryTypes(f)
+	pruneUnusedSpecs(goConstraints, used)
+	pruneUnusedSpecs(goDefaults, used)
 	if errs := ubruntime.CheckReferencesObserved(f, libs, opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}
@@ -347,6 +353,7 @@ func (c *compileVisitor) OnUBLibrary(
 	runtimeLib := &ubruntime.Library{Name: alias}
 	for name, body := range lib.Bodies {
 		bodyLibs := make(map[string]*ubruntime.Library, len(lib.BodyImports[name]))
+		bodyUsed := usedLibraryTypes(body)
 		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
@@ -358,9 +365,10 @@ func (c *compileVisitor) OnUBLibrary(
 				}
 				PrintSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
 				bodyLibs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
+				used := bodyUsed[res.LocalAlias]
 				specs := codegen.GoLibrarySpecs{
-					Constraints: constraintsFromSchema(schema),
-					Defaults:    defaultsFromSchema(schema),
+					Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
+					Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
 				}
 				if !specs.Empty() {
 					goSpecs[res.Path] = specs
@@ -719,6 +727,87 @@ func typeSpecsFromSchema[T any](
 	add(ubruntime.NodeResource, schema.Resources)
 	add(ubruntime.NodeData, schema.DataSources)
 	add(ubruntime.NodeAction, schema.Actions)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// usedLibraryTypes returns, per import alias, the set of "<kind>.<type>"
+// keys the factory body declares in its resources, data, and actions
+// blocks. The keys match the form typeSpecsFromSchema produces, so the
+// compiler can omit specs for types the factory never declares.
+func usedLibraryTypes(f *lang.File) map[string]map[string]bool {
+	used := map[string]map[string]bool{}
+	if f == nil || f.Body == nil {
+		return used
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind != lang.FieldIdent {
+			continue
+		}
+		kind := blockKind(fld.Key.Name)
+		if kind == "" {
+			continue
+		}
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		for _, entry := range obj.Fields {
+			if entry.Key.Kind != lang.FieldPath || len(entry.Key.Path) != 3 {
+				continue
+			}
+			alias := entry.Key.Path[0]
+			if used[alias] == nil {
+				used[alias] = map[string]bool{}
+			}
+			used[alias][kind+"."+entry.Key.Path[1]] = true
+		}
+	}
+	return used
+}
+
+// blockKind maps a factory declaration block name to the node kind it
+// holds, or "" for any other top-level key.
+func blockKind(block string) string {
+	switch block {
+	case "resources":
+		return "resource"
+	case "data":
+		return "data"
+	case "actions":
+		return "action"
+	}
+	return ""
+}
+
+// pruneUnusedSpecs removes, per alias, the spec entries whose
+// "<kind>.<type>" key the factory does not declare, and removes an alias
+// left with no entries.
+func pruneUnusedSpecs[T any](
+	specs map[string]map[string][]T, used map[string]map[string]bool,
+) {
+	for alias, byType := range specs {
+		if kept := keepUsedTypes(byType, used[alias]); kept != nil {
+			specs[alias] = kept
+		} else {
+			delete(specs, alias)
+		}
+	}
+}
+
+// keepUsedTypes returns the entries of m whose "<kind>.<type>" key is in
+// used, or nil when none remain. Nil mirrors how typeSpecsFromSchema
+// reports an empty result, so the codegen input stays absent rather than
+// an empty map.
+func keepUsedTypes[T any](m map[string][]T, used map[string]bool) map[string][]T {
+	out := map[string][]T{}
+	for key, specs := range m {
+		if used[key] {
+			out[key] = specs
+		}
+	}
 	if len(out) == 0 {
 		return nil
 	}

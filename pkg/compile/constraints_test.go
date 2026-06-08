@@ -36,3 +36,61 @@ func TestConstraintsFromSchemaEmpty(t *testing.T) {
 	require.Nil(t, constraintsFromSchema(nil))
 	require.Nil(t, constraintsFromSchema(&ubruntime.LibrarySchema{}))
 }
+
+func TestUsedLibraryTypes(t *testing.T) {
+	f, err := lang.ParseSource("main.ub", []byte(`
+inputs: { path: { type: string } }
+resources: {
+  aws.vpc.main: { cidr-block: '10.0.0.0/16' }
+  aws.subnet.a: { vpc-id: resource.aws.vpc.main.id }
+}
+data:    { aws.ami.ubuntu: { most-recent: true } }
+actions: { core.command.hi: { argv: ['echo'] } }
+`))
+	require.NoError(t, err)
+	require.Equal(t, map[string]map[string]bool{
+		"aws":  {"resource.vpc": true, "resource.subnet": true, "data.ami": true},
+		"core": {"action.command": true},
+	}, usedLibraryTypes(f))
+}
+
+func TestUsedLibraryTypesNoDeclarations(t *testing.T) {
+	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(nil))
+	f, err := lang.ParseSource("main.ub", []byte("inputs: { x: { type: string } }\n"))
+	require.NoError(t, err)
+	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(f))
+}
+
+func TestPruneUnusedSpecs(t *testing.T) {
+	specs := map[string]map[string][]lang.ConstraintSpec{
+		"aws": {
+			"resource.vpc":    {{Kind: "exactly-one-of"}},
+			"resource.subnet": {{Kind: "predicate"}},
+			"data.ami":        {{Kind: "predicate"}},
+		},
+		"unused": {
+			"resource.thing": {{Kind: "predicate"}},
+		},
+	}
+	pruneUnusedSpecs(specs, map[string]map[string]bool{
+		"aws": {"resource.vpc": true, "data.ami": true},
+	})
+	require.Equal(t, map[string]map[string][]lang.ConstraintSpec{
+		"aws": {
+			"resource.vpc": {{Kind: "exactly-one-of"}},
+			"data.ami":     {{Kind: "predicate"}},
+		},
+	}, specs)
+}
+
+func TestKeepUsedTypes(t *testing.T) {
+	m := map[string][]lang.ConstraintSpec{
+		"resource.vpc": {{Kind: "exactly-one-of"}},
+		"data.ami":     {{Kind: "predicate"}},
+	}
+	require.Equal(t, map[string][]lang.ConstraintSpec{
+		"resource.vpc": {{Kind: "exactly-one-of"}},
+	}, keepUsedTypes(m, map[string]bool{"resource.vpc": true}))
+	require.Nil(t, keepUsedTypes(m, map[string]bool{"resource.absent": true}))
+	require.Nil(t, keepUsedTypes(m, nil))
+}
