@@ -17,121 +17,28 @@ func parseWithKind(t *testing.T, src string, kind FileKind) *File {
 	return f
 }
 
-func TestValidateTopLevelKeysStack(t *testing.T) {
-	src := `
-description: 'test'
-inputs:      {}
-locals:      {}
-constraints: []
-imports:     {}
-data:        {}
-resources:   {}
-actions:     {}
-outputs:     {}
-`
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
-	require.Equal(t, 0, errs.Len(), "expected no errors, got: %v", errs.Errors())
-}
-
-func TestValidateTopLevelKeysConfig(t *testing.T) {
-	src := `
-factory:        { source: 'github.com/x/y' }
-parallelism:    10
-state:          { backend: local }
-inputs:         { region: 'us-east-1' }
-configurations: { aws: { default: {} } }
-`
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileConfig))
-	require.Equal(t, 0, errs.Len())
-}
-
-func TestValidateTopLevelKeysConfigRejectsStackName(t *testing.T) {
-	// The stack name comes from the config filename basename, so
-	// `stack:` is not a permitted top-level key in a config.
-	src := `
-stack: 'prod'
-`
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileConfig))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Err().Error(), `"stack"`)
-}
-
-func TestValidateRejectsForeignKeys(t *testing.T) {
-	cases := []struct {
-		name   string
-		kind   FileKind
-		src    string
-		badKey string
-	}{
-		{
-			name:   "stack-with-exports",
-			kind:   FileFactory,
-			src:    "exports: { x: 'y.ub' }\n",
-			badKey: "exports",
-		},
-		{
-			name:   "config-with-resources",
-			kind:   FileConfig,
-			src:    "resources: {}\n",
-			badKey: "resources",
-		},
-		{
-			name:   "stack-with-state",
-			kind:   FileFactory,
-			src:    "state: { backend: local }\n",
-			badKey: "state",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			errs := ValidateTopLevelKeys(parseWithKind(t, c.src, c.kind))
-			require.Equal(t, 1, errs.Len())
-			require.Contains(t, errs.Errors()[0].Msg, c.badKey)
-		})
+// topLevelDriver checks a fixture's top-level keys as the given file kind.
+func topLevelDriver(kind FileKind) ubtest.Driver {
+	return func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		f.Kind = kind
+		return "", ValidateTopLevelKeys(f).Messages()
 	}
 }
 
-func TestValidateRejectsMetaKey(t *testing.T) {
-	src := "@library: 'aws'\n"
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "@-prefixed")
+func TestValidateTopLevelKeysFactoryFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/toplevel/factory", topLevelDriver(FileFactory))
 }
 
-func TestValidateRejectsStringKey(t *testing.T) {
-	src := "'description': 'x'\n"
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "top level key must be an identifier")
+func TestValidateTopLevelKeysConfigFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/toplevel/config", topLevelDriver(FileConfig))
 }
 
-func TestValidateRejectsDuplicateKey(t *testing.T) {
-	src := `
-description: 'first'
-description: 'second'
-`
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
-}
-
-func TestValidateUnknownKindRefuses(t *testing.T) {
-	src := "description: 'x'\n"
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileUnknown))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "unknown")
-}
-
-func TestValidateCollectsMultiple(t *testing.T) {
-	src := `
-exports:    { x: 'y.ub' }
-state:      { backend: local }
-@bad:       1
-'quoted':   2
-`
-	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
-	require.Equal(t, 4, errs.Len(), "expected 4 errors, got: %s",
-		strings.Join(errs.Strings(), "; "))
+func TestValidateTopLevelKeysUnknownFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/toplevel/unknown", topLevelDriver(FileUnknown))
 }
 
 func TestValidateManifest(t *testing.T) {

@@ -1,0 +1,5 @@
+factory:        { source: 'github.com/x/y' }
+parallelism:    10
+state:          { backend: local }
+inputs:         { region: 'us-east-1' }
+configurations: { aws: { default: {} } }

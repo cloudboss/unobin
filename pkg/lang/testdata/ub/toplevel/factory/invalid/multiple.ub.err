@@ -1,0 +1,4 @@
+"exports" is not a valid top level key for a factory file
+"state" is not a valid top level key for a factory file
+@-prefixed key "@bad" is not allowed at top level
+top level key must be an identifier, got quoted string "quoted"
