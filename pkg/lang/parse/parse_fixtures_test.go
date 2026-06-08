@@ -2,10 +2,11 @@ package parse
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func loadFixture(t *testing.T, path string) *File {
@@ -744,44 +745,16 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "field", di.Segments[3].Name)
 }
 
-func TestParseTripleQuoteInvalidReasons(t *testing.T) {
-	tests := []struct {
-		file string
-		want string
-	}{
-		{"triple-missing-sigil.ub", "no match found"},
-		{"triple-sigil-then-content.ub", "no match found"},
-		{"triple-tab-in-baseline.ub", "no tabs"},
-		{"triple-less-indented.ub", "less indented"},
-		{"triple-trailing-after-close.ub", "no match found"},
-		{"multiline-bad-indent.ub", "less indented"},
-		{"multiline-content-on-close-line.ub", "no match found"},
-		{"unclosed-multiline.ub", "no match found"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.file, func(t *testing.T) {
-			path := filepath.Join("testdata/invalid", tt.file)
-			b, err := os.ReadFile(path)
-			require.NoError(t, err)
-			_, err = ParseSource(path, b)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.want,
-				"expected error containing %q, got %v", tt.want, err)
-		})
-	}
-}
-
-func TestParseInvalidFixtures(t *testing.T) {
-	matches, err := filepath.Glob("testdata/invalid/*.ub")
-	require.NoError(t, err)
-	require.NotEmpty(t, matches)
-
-	for _, path := range matches {
-		t.Run(filepath.Base(path), func(t *testing.T) {
-			b, err := os.ReadFile(path)
-			require.NoError(t, err)
-			_, err = ParseSource(path, b)
-			require.Error(t, err)
-		})
-	}
+// TestParseInvalid runs every fixture under testdata/ub/invalid through the
+// parser and matches the produced error against its .ub.err golden. Parser
+// messages are verbose and version-sensitive, so each golden holds a stable
+// fragment matched as a substring rather than the whole message.
+func TestParseInvalid(t *testing.T) {
+	ubtest.Run(t, "testdata/ub", func(name string, src []byte) (string, []string) {
+		_, err := ParseSource(name+".ub", src)
+		if err == nil {
+			return "", nil
+		}
+		return "", []string{err.Error()}
+	}, ubtest.Substring())
 }
