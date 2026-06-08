@@ -169,6 +169,58 @@ inputs: {
 `,
 			action: pinActionAlreadyPinned,
 		},
+		{
+			name: "inline supported-versions with one entry",
+			src: `factory: {
+  library-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }]
+}
+`,
+			want: `factory: {
+  library-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
+  ]
+}
+`,
+			action: pinActionAppendedEntry,
+		},
+		{
+			name: "inline supported-versions with multiple entries",
+			src: `factory: {
+  library-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }, { version: 'v0.2.0', content-revision: 'bbb' }]
+}
+`,
+			want: `factory: {
+  library-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.2.0', content-revision: 'bbb' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
+  ]
+}
+`,
+			action: pinActionAppendedEntry,
+		},
+		{
+			name: "inline supported-versions beside an aligned, comma-terminated field",
+			src: `factory: {
+  library-path:       'github.com/cloudboss/cluster-deploy',
+  supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }]
+}
+`,
+			want: `factory: {
+  library-path:       'github.com/cloudboss/cluster-deploy',
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'aaa' },
+    { version: 'v0.3.0', content-revision: 'fedcba' },
+  ]
+}
+`,
+			action: pinActionAppendedEntry,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

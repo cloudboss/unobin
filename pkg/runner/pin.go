@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -163,15 +164,26 @@ func fillFactoryBlock(
 func appendVersionEntry(
 	src []byte, svField *lang.Field, svArr *lang.ArrayLit, version, revision string,
 ) ([]byte, string, error) {
-	closeIdx := findMatchingClose(src, svArr.S.Start.Offset)
+	openIdx := svArr.S.Start.Offset
+	closeIdx := findMatchingClose(src, openIdx)
 	if closeIdx < 0 {
 		return nil, "", fmt.Errorf("could not locate closing `]` of supported-versions")
 	}
 	entry := fmt.Sprintf("{ version: '%s', content-revision: '%s' }", version, revision)
-	if len(svArr.Elements) == 0 {
-		base := lineIndent(src, svField.S.Start.Offset)
-		body := fmt.Sprintf("\n%s  %s,\n%s", base, entry, base)
-		return spliceReplace(src, svArr.S.Start.Offset+1, closeIdx, body),
+	base := lineIndent(src, svField.S.Start.Offset)
+	// An empty or inline list is rewritten to the canonical multi-line
+	// form. Inserting before the `]` of a single-line list would leave the
+	// new entry as a bare object beside the field. Each existing entry
+	// keeps its own source text.
+	if len(svArr.Elements) == 0 || bytes.IndexByte(src[openIdx:closeIdx], '\n') < 0 {
+		var b strings.Builder
+		b.WriteByte('\n')
+		for _, el := range svArr.Elements {
+			sp := el.Span()
+			fmt.Fprintf(&b, "%s  %s,\n", base, src[sp.Start.Offset:sp.End.Offset])
+		}
+		fmt.Fprintf(&b, "%s  %s,\n%s", base, entry, base)
+		return spliceReplace(src, openIdx+1, closeIdx, b.String()),
 			pinActionAppendedEntry, nil
 	}
 	entryIndent := lineIndent(src, svArr.Elements[0].Span().Start.Offset)
