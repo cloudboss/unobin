@@ -1,0 +1,7 @@
+inputs: {
+  vpc-id:     { type: string }
+  subnet-ids: { type: list(string) }
+}
+constraints: [
+  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
+]

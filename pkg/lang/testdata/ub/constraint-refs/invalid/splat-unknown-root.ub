@@ -1,0 +1,10 @@
+inputs: {
+  replicas:  { type: list(object({ host: optional(string) })) }
+  listeners: { type: list(object({ cert: optional(string) })) }
+}
+constraints: [
+  {
+    kind: required-together
+    fields: [var.replicas[*].host, var.listeners[0].cert, var.volumes[*].id]
+  },
+]

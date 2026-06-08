@@ -214,87 +214,29 @@ func TestValidateInputsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/inputs", objectBlockDriver("inputs", ValidateInputDeclarations))
 }
 
-func TestValidateConstraintReferencesHappy(t *testing.T) {
-	src := `
-inputs: {
-  vpc-id:     { type: string }
-  subnet-ids: { type: list(string) }
-}
-constraints: [
-  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
-]
-`
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	inputs := f.Body.Fields[0].Value.(*ObjectLit)
-	constraints := f.Body.Fields[1].Value.(*ArrayLit)
-
-	errs := ValidateConstraintReferences(constraints, inputs)
-	require.Equal(t, 0, errs.Len())
-}
-
-func TestValidateConstraintReferencesUnknown(t *testing.T) {
-	src := `
-inputs: {
-  vpc-id: { type: string }
-}
-constraints: [
-  { kind: required-together, fields: [var.vpc-id, var.missing-name] },
-]
-`
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	inputs := f.Body.Fields[0].Value.(*ObjectLit)
-	constraints := f.Body.Fields[1].Value.(*ArrayLit)
-
-	errs := ValidateConstraintReferences(constraints, inputs)
-	require.Equal(t, 1, errs.Len())
-	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
-	require.Contains(t, errs.Errors()[0].Msg, "missing-name")
-}
-
-func TestValidateConstraintReferencesNested(t *testing.T) {
-	src := `
-inputs: {
-  code: { type: optional(object({ inline: optional(string) })) }
-}
-constraints: [
-  { kind: at-least-one-of, fields: [var.code.inline, var.bogus.inline] },
-]
-`
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	inputs := f.Body.Fields[0].Value.(*ObjectLit)
-	constraints := f.Body.Fields[1].Value.(*ArrayLit)
-
-	errs := ValidateConstraintReferences(constraints, inputs)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
-	require.Contains(t, errs.Errors()[0].Msg, "bogus")
-}
-
-func TestValidateConstraintReferencesSplatAndIndexRoots(t *testing.T) {
-	src := `
-inputs: {
-  replicas:  { type: list(object({ host: optional(string) })) }
-  listeners: { type: list(object({ cert: optional(string) })) }
-}
-constraints: [
-  {
-    kind: required-together
-    fields: [var.replicas[*].host, var.listeners[0].cert, var.volumes[*].id]
-  },
-]
-`
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	inputs := f.Body.Fields[0].Value.(*ObjectLit)
-	constraints := f.Body.Fields[1].Value.(*ArrayLit)
-
-	errs := ValidateConstraintReferences(constraints, inputs)
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
-	require.Contains(t, errs.Errors()[0].Msg, `input "volumes" not declared`)
+// TestValidateConstraintReferencesFixtures checks that constraint fields
+// resolve against the declared inputs of the same fixture.
+func TestValidateConstraintReferencesFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/constraint-refs", func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		var inputs *ObjectLit
+		var constraints *ArrayLit
+		for _, fld := range f.Body.Fields {
+			switch fld.Key.Name {
+			case "inputs":
+				inputs, _ = fld.Value.(*ObjectLit)
+			case "constraints":
+				constraints, _ = fld.Value.(*ArrayLit)
+			}
+		}
+		if inputs == nil || constraints == nil {
+			return "", []string{"fixture needs inputs: and constraints: blocks"}
+		}
+		return "", ValidateConstraintReferences(constraints, inputs).Strings()
+	})
 }
 
 func TestValidateBodyMetaKeys(t *testing.T) {
