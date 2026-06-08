@@ -46,7 +46,12 @@ func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf
 		sem <- struct{}{}
 		go func(i int, ent *state.Entry) {
 			defer func() { <-sem; wg.Done() }()
-			updated, gone, err := e.refreshLeaf(ctx, ent)
+			var gone bool
+			updated, err := guard("reconciling this resource", true, func() (*state.Entry, error) {
+				u, g, rerr := e.refreshLeaf(ctx, ent)
+				gone = g
+				return u, rerr
+			})
 			results[i] = reread{ent: updated, gone: gone, err: err}
 		}(i, ent)
 	}

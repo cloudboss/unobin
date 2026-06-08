@@ -51,7 +51,12 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	for range parallelism {
 		wg.Go(func() {
 			for step := range ready {
-				err := e.applyStep(ctx, rs, step)
+				// Library calls recover their own panics; this guard is the
+				// backstop for a panic in the runtime's own step handling,
+				// so a defect there fails the step instead of the process.
+				err := guardErr("applying this step", true, func() error {
+					return e.applyStep(ctx, rs, step)
+				})
 				results <- stepResult{step: step, err: err}
 			}
 		})

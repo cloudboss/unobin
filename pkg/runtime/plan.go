@@ -438,7 +438,9 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 		sem <- struct{}{}
 		go func(i int, s *PlanStep) {
 			defer func() { <-sem; wg.Done() }()
-			gone[i], errs[i] = e.readDestroyTarget(ctx, s)
+			gone[i], errs[i] = guard("reading this resource", true, func() (bool, error) {
+				return e.readDestroyTarget(ctx, s)
+			})
 		}(i, s)
 	}
 	wg.Wait()
@@ -1123,7 +1125,9 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 		sem <- struct{}{}
 		go func(pr *pendingRead) {
 			defer func() { <-sem; wg.Done() }()
-			pr.observed, pr.err = readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
+			pr.observed, pr.err = guard("reading this resource", true, func() (map[string]any, error) {
+				return readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
+			})
 		}(pr)
 	}
 	wg.Wait()

@@ -70,7 +70,12 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 		sem <- struct{}{}
 		go func(i int, ent *state.Entry) {
 			defer func() { <-sem; wg.Done() }()
-			updated, dropped, err := e.refreshLeaf(ctx, ent)
+			var dropped bool
+			updated, err := guard("refreshing this resource", true, func() (*state.Entry, error) {
+				u, d, rerr := e.refreshLeaf(ctx, ent)
+				dropped = d
+				return u, rerr
+			})
 			results[i] = leafResult{idx: i, updated: updated, dropped: dropped, err: err}
 		}(i, ent)
 	}

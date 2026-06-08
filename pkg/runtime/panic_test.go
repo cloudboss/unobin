@@ -89,6 +89,31 @@ func (r *migratePanicResource) Migrate(int, map[string]any) (map[string]any, err
 	panic("boom in migrate")
 }
 
+// schemaPanicResource creates cleanly but panics in SchemaVersion, an
+// accessor the library-call guard does not cover. The panic escapes
+// into the apply worker goroutine, where the backstop catches it.
+type schemaPanicResource struct {
+	Name string
+}
+
+func (r *schemaPanicResource) SchemaVersion() int { panic("boom in schema-version") }
+func (r *schemaPanicResource) Create(context.Context, any) (any, error) {
+	return map[string]any{"name": r.Name}, nil
+}
+
+func (r *schemaPanicResource) Read(context.Context, any, any) (any, error) {
+	return nil, ErrNotFound
+}
+
+func (r *schemaPanicResource) Update(
+	context.Context, any, Prior[schemaPanicResource, any],
+) (any, error) {
+	return nil, nil
+}
+
+func (r *schemaPanicResource) Delete(context.Context, any, any) error { return nil }
+func (r *schemaPanicResource) ReplaceFields() []string                { return nil }
+
 type panicAction struct{}
 
 func (a *panicAction) Run(context.Context, any) (any, error) {
@@ -259,4 +284,39 @@ resources: { boom.it.x: { name: 'x' } }
 	assert.Contains(t, pe.Error(), "boom in create")
 	assert.Contains(t, pe.Error(),
 		"panic in the boom library while creating this resource")
+}
+
+// TestApplyRuntimePanicHitsBackstop proves the worker-goroutine backstop:
+// a panic that escapes the library-call guards (here SchemaVersion, an
+// unguarded accessor) is recovered in the apply worker instead of
+// crashing, and is reported as an ApplyError attributed to unobin.
+func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
+	libs := map[string]*Library{
+		"boom": {
+			Name: "boom",
+			Resources: map[string]ResourceRegistration{
+				"it": MakeResource[schemaPanicResource, any](),
+			},
+		},
+	}
+	src := `
+resources: { boom.it.x: { name: 'x' } }
+`
+	exec := &Executor{
+		DAG:         BuildDAG(parseStack(t, src), libs),
+		Libraries:   libs,
+		Store:       newStateStore(t),
+		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism: 1,
+	}
+	_, err := planAndApply(exec)
+	require.Error(t, err)
+
+	var ae *ApplyError
+	require.True(t, errors.As(err, &ae), "want *ApplyError, got %T", err)
+
+	var pe *PanicError
+	require.True(t, errors.As(err, &pe), "ApplyError should unwrap to *PanicError")
+	require.True(t, pe.Core, "a panic outside the library calls is attributed to unobin")
+	assert.Contains(t, pe.Error(), "boom in schema-version")
 }
