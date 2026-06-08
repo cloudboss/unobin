@@ -1,0 +1,1 @@
+config.ub:1:14: resolve: config values must be static, but somename is a reference

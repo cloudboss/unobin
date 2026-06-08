@@ -1,0 +1,1 @@
+inputs: { x: resource.a.b.c }

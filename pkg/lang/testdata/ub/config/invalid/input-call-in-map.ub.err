@@ -1,0 +1,1 @@
+config.ub:1:19: resolve: config values must be static, but pick is a function call

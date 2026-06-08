@@ -1,0 +1,1 @@
+config.ub:1:20: resolve: config values must be static, but var.x is a reference
