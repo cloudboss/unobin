@@ -1,0 +1,2 @@
+input "proto": enum: unknown name "tcp"; write 'tcp' for a string
+input "proto": enum: unknown name "udp"; write 'udp' for a string

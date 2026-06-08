@@ -1,0 +1,1 @@
+input "region": duplicate key "pattern" (first defined at 4:5)

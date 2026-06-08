@@ -1,0 +1,1 @@
+input "spec.port": default: value 0 is below minimum 1

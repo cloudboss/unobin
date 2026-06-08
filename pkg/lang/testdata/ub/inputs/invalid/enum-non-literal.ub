@@ -1,0 +1,3 @@
+inputs: {
+  proto: { type: string, enum: [['a']] }
+}

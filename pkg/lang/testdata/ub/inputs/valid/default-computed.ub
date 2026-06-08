@@ -1,0 +1,3 @@
+inputs: {
+  greeting: { type: optional(string, core.format('hi')), min-length: 99 }
+}

@@ -1,0 +1,7 @@
+inputs: {
+  spec: {
+    type: object({
+      token: { type: string, @sensitive: true },
+    })
+  }
+}

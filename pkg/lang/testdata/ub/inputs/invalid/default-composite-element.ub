@@ -1,0 +1,3 @@
+inputs: {
+  names: { type: optional(list(string), [1]) }
+}

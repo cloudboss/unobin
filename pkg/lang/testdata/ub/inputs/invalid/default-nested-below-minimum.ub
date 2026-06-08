@@ -1,0 +1,7 @@
+inputs: {
+  spec: {
+    type: object({
+      port: { type: optional(integer, 0), minimum: 1 },
+    })
+  }
+}

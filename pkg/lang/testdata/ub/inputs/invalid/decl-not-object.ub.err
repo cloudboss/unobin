@@ -1,0 +1,1 @@
+input "region" must be an object declaration with a `type:` key

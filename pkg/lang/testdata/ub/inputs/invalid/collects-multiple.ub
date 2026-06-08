@@ -1,0 +1,5 @@
+inputs: {
+  one: { description: 'no type' }
+  two: { type: weird-atomic, bogus: 1 }
+  three: 'not an object'
+}

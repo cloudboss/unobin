@@ -1,0 +1,6 @@
+inputs: {
+  region: {
+    type:    string
+    bogus:   'x'
+  }
+}

@@ -1,0 +1,7 @@
+inputs: {
+  region: {
+    type:    string
+    pattern: '^a'
+    pattern: '^b'
+  }
+}

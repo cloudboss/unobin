@@ -1,0 +1,21 @@
+inputs: {
+  region: {
+    type:        string
+    description: 'AWS region'
+    pattern:     '^[a-z]+'
+  }
+  size: {
+    type:    optional(integer, 3)
+    minimum: 1
+    maximum: 100
+  }
+  subnets: {
+    type:      list(string)
+    min-items: 1
+  }
+  tags: {
+    type:        optional(map(string), {})
+    description: 'Resource tags'
+    @sensitive:  true
+  }
+}

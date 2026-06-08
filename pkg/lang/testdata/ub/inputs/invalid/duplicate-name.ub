@@ -1,0 +1,4 @@
+inputs: {
+  region: { type: string }
+  region: { type: integer }
+}

@@ -1,0 +1,3 @@
+inputs: {
+  nums: { type: optional(list(integer), [for x in [1, 2]: x]) }
+}

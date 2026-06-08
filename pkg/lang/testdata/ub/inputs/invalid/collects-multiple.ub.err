@@ -1,0 +1,4 @@
+input "one": missing required `type:` key
+unknown atomic type "weird-atomic" (expected string, number, integer, boolean, null, opaque)
+input "two": unknown modifier "bogus"
+input "three" must be an object declaration with a `type:` key

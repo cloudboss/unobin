@@ -1,0 +1,3 @@
+inputs: {
+  mode: { type: optional(string, tcp) }
+}

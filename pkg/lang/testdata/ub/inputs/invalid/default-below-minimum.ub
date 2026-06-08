@@ -1,0 +1,3 @@
+inputs: {
+  size: { type: optional(integer, 0), minimum: 1 }
+}
