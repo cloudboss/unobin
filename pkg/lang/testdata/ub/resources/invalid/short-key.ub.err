@@ -1,0 +1,1 @@
+resource key aws.vpc must have three segments: alias.type.name

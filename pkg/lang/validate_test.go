@@ -1027,6 +1027,18 @@ func TestValidateLocalsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/locals", objectBlockDriver("locals", ValidateLocals))
 }
 
+func TestValidateResourcesFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/resources", objectBlockDriver("resources", ValidateResources))
+}
+
+func TestValidateDataSourcesFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/data", objectBlockDriver("data", ValidateDataSources))
+}
+
+func TestValidateActionsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/actions", objectBlockDriver("actions", ValidateActions))
+}
+
 func TestValidateConstraintReferencesHappy(t *testing.T) {
 	src := `
 inputs: {
@@ -1177,97 +1189,6 @@ func TestValidateFileUnknownKind(t *testing.T) {
 	errs := ValidateFile(f)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Errors()[0].Msg, "unknown")
-}
-
-func TestValidateResourcesHappy(t *testing.T) {
-	src := `
-resources: {
-  aws.vpc.main: {
-    cidr-block: '10.0.0.0/16'
-    tags: { Name: 'prod' }
-  }
-  aws.security-group.web: {
-    @depends-on: [resource.aws.vpc.main]
-    vpc-id:      resource.aws.vpc.main.id
-  }
-  net.cluster.web: {
-    size: 3
-  }
-}
-`
-	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateResourcesRejectsBadShape(t *testing.T) {
-	src := `
-resources: {
-  aws.vpc.main: 'not-an-object'
-}
-`
-	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "body must be an object")
-}
-
-func TestValidateResourcesRejectsNonDottedKey(t *testing.T) {
-	src := `
-resources: {
-  aws: { vpc: { main: {} } }
-}
-`
-	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "dotted alias.type.name key")
-}
-
-func TestValidateResourcesDuplicateName(t *testing.T) {
-	src := `
-resources: {
-  aws.vpc.main: { cidr: '10.0.0.0/16' }
-  aws.vpc.main: { cidr: '10.1.0.0/16' }
-}
-`
-	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
-}
-
-func TestValidateResourcesRejectsShortKey(t *testing.T) {
-	src := `
-resources: {
-  aws.vpc: { main: {} }
-}
-`
-	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "three segments")
-}
-
-func TestValidateDataSourcesHappy(t *testing.T) {
-	src := `
-data: {
-  aws.ami.ubuntu: {
-    most-recent: true
-    owners:      ['099720109477']
-  }
-}
-`
-	errs := ValidateDataSources(parseObjectBlock(t, src, "data"))
-	require.Equal(t, 0, errs.Len())
-}
-
-func TestValidateActionsHappy(t *testing.T) {
-	src := `
-actions: {
-  core.command.smoke-test: {
-    @trigger: 'always'
-    execute:  'curl -fsS https://example/health'
-  }
-}
-`
-	errs := ValidateActions(parseObjectBlock(t, src, "actions"))
-	require.Equal(t, 0, errs.Len())
 }
 
 func TestValidateBodyMetaKeys(t *testing.T) {
