@@ -88,10 +88,12 @@ type Field struct {
 
 func (n *Field) Span() Span { return n.S }
 
-// FieldKey distinguishes the two key forms an object field can have.
+// FieldKey distinguishes the key forms an object field can have.
 //
 // Kind == FieldIdent: bare identifier (possibly @-prefixed).
 // Kind == FieldString: quoted string literal.
+// Kind == FieldPath: dotted identifier path, such as aws.iam-role.it. Only
+// a resource, data, or action declaration head uses this form.
 //
 // The post-parse pass is responsible for deciding whether a given key is
 // permitted at its position (e.g., closed set enum identifier vs free form
@@ -99,8 +101,9 @@ func (n *Field) Span() Span { return n.S }
 type FieldKey struct {
 	S      Span
 	Kind   FieldKeyKind
-	Name   string // Identifier text, including any leading `@`.
-	String string // Raw string content, when Kind == FieldString.
+	Name   string   // Identifier text, including any leading `@`.
+	String string   // Raw string content, when Kind == FieldString.
+	Path   []string // Dotted segments, when Kind == FieldPath.
 }
 
 // IsMeta reports whether the key is a `@`-prefixed meta key.
@@ -113,6 +116,7 @@ type FieldKeyKind int
 const (
 	FieldIdent FieldKeyKind = iota
 	FieldString
+	FieldPath
 )
 
 // ArrayLit is a bracket-delimited list: `[ v1 v2 v3 ]`. Elements are

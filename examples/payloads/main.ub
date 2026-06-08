@@ -25,21 +25,17 @@ locals: {
 }
 
 resources: {
-  std: {
-    fs-file: {
-      policy: {
-        # to-json is the text exit for an opaque value: the document
-        # serializes whole, without the stack reading inside it.
-        path:    $'{{ var.base-path }}/policy.json'
-        content: @core.to-json(var.policy)
-      }
-      event: {
-        # Serializing the open object keeps the undeclared fields:
-        # decode preserved them, so they reach the file too.
-        path:    $'{{ var.base-path }}/event-{{ local.event-name }}.json'
-        content: @core.to-json(var.event)
-      }
-    }
+  std.fs-file.policy: {
+    # to-json is the text exit for an opaque value: the document
+    # serializes whole, without the stack reading inside it.
+    path:    $'{{ var.base-path }}/policy.json'
+    content: @core.to-json(var.policy)
+  }
+  std.fs-file.event: {
+    # Serializing the open object keeps the undeclared fields:
+    # decode preserved them, so they reach the file too.
+    path:    $'{{ var.base-path }}/event-{{ local.event-name }}.json'
+    content: @core.to-json(var.event)
   }
 }
 

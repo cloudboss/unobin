@@ -53,6 +53,7 @@ const (
 
 	FieldIdent  = parse.FieldIdent
 	FieldString = parse.FieldString
+	FieldPath   = parse.FieldPath
 
 	CompList = parse.CompList
 	CompMap  = parse.CompMap

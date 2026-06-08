@@ -116,19 +116,9 @@ func errsAsStrings(l *lang.ErrorList) []string {
 
 func TestStackRunsCoreCommand(t *testing.T) {
 	src := `
-inputs: {
-  greeting: { type: string }
-}
-actions: {
-  core: {
-    command: {
-      hello: { argv: ['echo', var.greeting] }
-    }
-  }
-}
-outputs: {
-  said: { value: action.core.command.hello.stdout }
-}
+inputs:  { greeting: { type: string } }
+actions: { core.command.hello: { argv: ['echo', var.greeting] } }
+outputs: { said: { value: action.core.command.hello.stdout } }
 `
 	res := runStack(t, src, map[string]any{"greeting": "world"})
 	require.Equal(t, "world\n", res.Outputs["said"])
@@ -136,25 +126,10 @@ outputs: {
 
 func TestStackUsesLocals(t *testing.T) {
 	src := `
-inputs: {
-  env:    { type: string }
-  region: { type: string }
-}
-locals: {
-  cluster:  $'{{var.env}}-{{var.region}}'
-  greeting: $'hello from {{local.cluster}}'
-}
-actions: {
-  core: {
-    command: {
-      hello: { argv: ['echo', local.greeting] }
-    }
-  }
-}
-outputs: {
-  said:    { value: action.core.command.hello.stdout }
-  cluster: { value: local.cluster }
-}
+inputs:  { env: { type: string }, region: { type: string } }
+locals:  { cluster: $'{{ var.env }}-{{ var.region }}', greeting: $'hello from {{ local.cluster }}' }
+actions: { core.command.hello: { argv: ['echo', local.greeting] } }
+outputs: { said: { value: action.core.command.hello.stdout }, cluster: { value: local.cluster } }
 `
 	res := runStack(t, src, map[string]any{"env": "prod", "region": "us-east-1"})
 	require.Equal(t, "hello from prod-us-east-1\n", res.Outputs["said"])
@@ -163,20 +138,12 @@ outputs: {
 
 func TestStackLocalReadsActionOutput(t *testing.T) {
 	src := `
-locals: {
-  echoed: action.core.command.first.stdout
-}
+locals: { echoed: action.core.command.first.stdout }
 actions: {
-  core: {
-    command: {
-      first:  { argv: ['echo', 'one'] }
-      second: { argv: ['echo', local.echoed] }
-    }
-  }
+  core.command.first:  { argv: ['echo', 'one'] }
+  core.command.second: { argv: ['echo', local.echoed] }
 }
-outputs: {
-  result: { value: action.core.command.second.stdout }
-}
+outputs: { result: { value: action.core.command.second.stdout } }
 `
 	res := runStack(t, src, nil)
 	require.Equal(t, "one\n\n", res.Outputs["result"])
@@ -185,16 +152,10 @@ outputs: {
 func TestStackChainsActions(t *testing.T) {
 	src := `
 actions: {
-  core: {
-    command: {
-      first:  { argv: ['echo', 'one'] }
-      second: { argv: ['echo', action.core.command.first.stdout] }
-    }
-  }
+  core.command.first:  { argv: ['echo', 'one'] }
+  core.command.second: { argv: ['echo', action.core.command.first.stdout] }
 }
-outputs: {
-  result: { value: action.core.command.second.stdout }
-}
+outputs: { result: { value: action.core.command.second.stdout } }
 `
 	res := runStack(t, src, nil)
 	require.Equal(t, "one\n\n", res.Outputs["result"])
@@ -202,18 +163,8 @@ outputs: {
 
 func TestStackHTTPAndScript(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    script: {
-      compute: {
-        script: 'echo computed-value'
-      }
-    }
-  }
-}
-outputs: {
-  result: { value: action.core.script.compute.stdout }
-}
+actions: { core.script.compute: { script: 'echo computed-value' } }
+outputs: { result: { value: action.core.script.compute.stdout } }
 `
 	res := runStack(t, src, nil)
 	require.Equal(t, "computed-value\n", res.Outputs["result"])
@@ -263,11 +214,7 @@ func (c *counter) Run(_ context.Context, _ any) (any, error) {
 
 func TestStackSkipsUnchangedActionAcrossRuns(t *testing.T) {
 	src := `
-actions: {
-  test: {
-    counter: { it: { tag: 'fixed' } }
-  }
-}
+actions: { test.counter.it: { tag: 'fixed' } }
 `
 	count, _, _ := stackTwiceCounts(t, src)
 	require.Equal(t, int64(1), count)

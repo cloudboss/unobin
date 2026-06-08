@@ -63,17 +63,13 @@ locals: {
 }
 
 resources: {
-  std: {
-    fs-file: {
-      banner: { path: $'{{ var.base-path }}/banner.txt', content: local.banner }
-      label: {
-        # A possibly-null map cannot fan out; the fallback supplies
-        # the empty case, so omitting the input means no instances.
-        @for-each: var.labels ?? {}
-        path:      $'{{ var.base-path }}/label-{{ @each.key }}.txt'
-        content:   @each.value
-      }
-    }
+  std.fs-file.banner: { path: $'{{ var.base-path }}/banner.txt', content: local.banner }
+  std.fs-file.label: {
+    # A possibly-null map cannot fan out; the fallback supplies
+    # the empty case, so omitting the input means no instances.
+    @for-each: var.labels ?? {}
+    path:      $'{{ var.base-path }}/label-{{ @each.key }}.txt'
+    content:   @each.value
   }
 }
 

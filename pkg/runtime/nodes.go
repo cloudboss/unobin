@@ -157,50 +157,31 @@ func extractKind(
 	block *lang.ObjectLit, kind NodeKind, parent string, libs map[string]*Library,
 ) []*Node {
 	var out []*Node
-	for _, alias := range block.Fields {
-		if alias.Key.Kind != lang.FieldIdent || alias.Key.IsMeta() {
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 3 {
 			continue
 		}
-		aliasObj, ok := alias.Value.(*lang.ObjectLit)
-		if !ok {
+		alias, typ, name := fld.Key.Path[0], fld.Key.Path[1], fld.Key.Path[2]
+		addr := composeAddress(parent, kind, alias, typ, name)
+		if composite := lookupComposite(libs, alias, kind, typ); composite != nil {
+			out = append(out, expandComposite(addr, parent,
+				alias, typ, name, kind, fld.Value, composite, libs)...)
 			continue
 		}
-		for _, t := range aliasObj.Fields {
-			if t.Key.Kind != lang.FieldIdent || t.Key.IsMeta() {
-				continue
-			}
-			tObj, ok := t.Value.(*lang.ObjectLit)
-			if !ok {
-				continue
-			}
-			composite := lookupComposite(libs, alias.Key.Name, kind, t.Key.Name)
-			for _, n := range tObj.Fields {
-				if n.Key.Kind != lang.FieldIdent || n.Key.IsMeta() {
-					continue
-				}
-				addr := composeAddress(parent, kind, alias.Key.Name, t.Key.Name, n.Key.Name)
-				if composite != nil {
-					out = append(out, expandComposite(addr, parent,
-						alias.Key.Name, t.Key.Name, n.Key.Name, kind,
-						n.Value, composite, libs)...)
-					continue
-				}
-				node := &Node{
-					Address:       addr,
-					Kind:          kind,
-					Alias:         alias.Key.Name,
-					Type:          t.Key.Name,
-					Name:          n.Key.Name,
-					Body:          n.Value,
-					Composite:     parent,
-					ForEach:       extractForEach(n.Value),
-					Configuration: extractConfiguration(n.Value, alias.Key.Name),
-					LockName:      extractLockName(n.Value),
-					Timeout:       extractTimeout(n.Value),
-				}
-				out = append(out, node)
-			}
+		node := &Node{
+			Address:       addr,
+			Kind:          kind,
+			Alias:         alias,
+			Type:          typ,
+			Name:          name,
+			Body:          fld.Value,
+			Composite:     parent,
+			ForEach:       extractForEach(fld.Value),
+			Configuration: extractConfiguration(fld.Value, alias),
+			LockName:      extractLockName(fld.Value),
+			Timeout:       extractTimeout(fld.Value),
 		}
+		out = append(out, node)
 	}
 	return out
 }

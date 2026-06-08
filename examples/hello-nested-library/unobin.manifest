@@ -1,2 +1,6 @@
-requires: { 'github.com/cloudboss/unobin-libraries-scratch': 'v0.6.0' }
-replace:  { 'github.com/cloudboss/unobin': '../..' }
+requires: {
+  'github.com/cloudboss/unobin-libraries-scratch': 'v0.7.0'
+}
+replace: {
+  'github.com/cloudboss/unobin': '../..'
+}

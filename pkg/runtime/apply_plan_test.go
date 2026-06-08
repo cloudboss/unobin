@@ -74,12 +74,8 @@ func TestDestroyDeletesDependentsFirst(t *testing.T) {
 
 	withBoth := `
 resources: {
-  core: {
-    thing: {
-      a: { name: 'a' }
-      b: { name: 'b', dep: resource.core.thing.a.id }
-    }
-  }
+  core.thing.a: { name: 'a' }
+  core.thing.b: { name: 'b', dep: resource.core.thing.a.id }
 }
 `
 	exec := &Executor{
@@ -165,16 +161,7 @@ func TestDestroyUsesRecordedConfiguration(t *testing.T) {
 	}
 
 	withResource := `
-resources: {
-  aws: {
-    thing: {
-      x: {
-        @configuration: aws.east2
-        name:           'x'
-      }
-    }
-  }
-}
+resources: { aws.thing.x: { @configuration: aws.east2, name: 'x' } }
 `
 	exec := &Executor{
 		DAG:            BuildDAG(parseStack(t, withResource), libs),
@@ -335,16 +322,10 @@ func TestPlanDestroyTearsDownEverything(t *testing.T) {
 
 	src := `
 resources: {
-  core: {
-    thing: {
-      a: { name: 'a' }
-      b: { name: 'b', dep: resource.core.thing.a.id }
-    }
-  }
+  core.thing.a: { name: 'a' }
+  core.thing.b: { name: 'b', dep: resource.core.thing.a.id }
 }
-outputs: {
-  a-id: { value: resource.core.thing.a.id }
-}
+outputs: { a-id: { value: resource.core.thing.a.id } }
 `
 	build := func(destroy bool) *Executor {
 		return &Executor{
@@ -413,15 +394,7 @@ func TestPlanDestroyMarksEveryEntryForDeletion(t *testing.T) {
 	libs := orderModules(rec)
 	store := newStateStore(t)
 	src := `
-resources: {
-  core: {
-    thing: {
-      a: { name: 'a' }
-      b: { name: 'b' }
-      c: { name: 'c' }
-    }
-  }
-}
+resources: { core.thing.a: { name: 'a' }, core.thing.b: { name: 'b' }, core.thing.c: { name: 'c' } }
 `
 	applyStack(t, store, libs, src, nil)
 
@@ -445,7 +418,7 @@ func TestPlanDestroyWithNoPriorStateIsEmpty(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	src := `resources: { core: { thing: { a: { name: 'a' } } } }`
+	src := `resources: { core.thing.a: { name: 'a' } }`
 
 	res, err := destroyStack(t, store, libs, src)
 	require.NoError(t, err)
@@ -457,13 +430,9 @@ func TestPlanDestroyWithNoPriorStateIsEmpty(t *testing.T) {
 func TestDestroyChainDeletesInReverseOrder(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    thing: {
-      a: { name: 'a' }
-      b: { name: 'b', dep: resource.core.thing.a.id }
-      c: { name: 'c', dep: resource.core.thing.b.id }
-    }
-  }
+  core.thing.a: { name: 'a' }
+  core.thing.b: { name: 'b', dep: resource.core.thing.a.id }
+  core.thing.c: { name: 'c', dep: resource.core.thing.b.id }
 }
 `
 	// Run the whole cycle several times; the reverse order must be
@@ -485,16 +454,7 @@ func TestDestroyForEachDeletesAllInstances(t *testing.T) {
 	libs := orderModules(rec)
 	store := newStateStore(t)
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.names
-        name:      @each.key
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.names, name: @each.key } }
 `
 	applyStack(t, store, libs, src,
 		map[string]any{"names": map[string]any{"alpha": "a", "beta": "b"}})
@@ -508,23 +468,15 @@ func TestDestroyComposite(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	composite := parseStack(t, `
-resources: {
-  core: {
-    thing: {
-      one: { name: var.name }
-    }
-  }
-}
-outputs: {
-  id: { value: resource.core.thing.one.id }
-}
+resources: { core.thing.one: { name: var.name } }
+outputs:   { id: { value: resource.core.thing.one.id } }
 `)
 	libs["w"] = &Library{
 		Name:               "w",
 		ResourceComposites: map[string]*CompositeType{"box": {Name: "box", Body: composite}},
 	}
 	store := newStateStore(t)
-	src := `resources: { w: { box: { x: { name: 'alpha' } } } }`
+	src := `resources: { w.box.x: { name: 'alpha' } }`
 	applyStack(t, store, libs, src, nil)
 
 	// Before destroy there is the library-call record plus its internal leaf.
@@ -558,8 +510,8 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 	}
 	store := newStateStore(t)
 	src := `
-resources: { core: { thing: { r: { name: 'r' } } } }
-actions: { core: { echo: { e: { echo: 'hi' } } } }
+resources: { core.thing.r: { name: 'r' } }
+actions:   { core.echo.e: { echo: 'hi' } }
 `
 	applyStack(t, store, libs, src, nil)
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
@@ -576,7 +528,7 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	src := `resources: { core: { thing: { a: { name: 'a' } } } }`
+	src := `resources: { core.thing.a: { name: 'a' } }`
 	applyStack(t, store, libs, src, nil)
 
 	exec := &Executor{
@@ -599,8 +551,8 @@ func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
 
 func TestDestroyClearsActionAndLibraryCallRecords(t *testing.T) {
 	compositeBody := parseStack(t, `
-inputs: { msg: { type: string } }
-actions: { core: { echo: { inner: { echo: var.msg } } } }
+inputs:  { msg: { type: string } }
+actions: { core.echo.inner: { echo: var.msg } }
 outputs: { said: { value: action.core.echo.inner.echo } }
 `)
 	libs := testModules()
@@ -614,8 +566,8 @@ outputs: { said: { value: action.core.echo.inner.echo } }
 	// the composite's internal action. This is the shape that used to
 	// plan as "No changes".
 	src := `
-actions: { core: { echo: { top: { echo: 'hi' } } } }
-resources: { w: { box: { x: { msg: 'wrapped' } } } }
+actions:   { core.echo.top: { echo: 'hi' } }
+resources: { w.box.x: { msg: 'wrapped' } }
 `
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -659,7 +611,7 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	libs := resourceModules(&c)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	src := `resources: { core: { thing: { a: { name: 'a', size: 1 } } } }`
+	src := `resources: { core.thing.a: { name: 'a', size: 1 } }`
 
 	create := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -700,12 +652,8 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 func TestApplyPersistsDependsOn(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    thing: {
-      base:      { name: 'base', size: 1 }
-      dependent: { name: resource.core.thing.base.id, size: 2 }
-    }
-  }
+  core.thing.base:      { name: 'base', size: 1 }
+  core.thing.dependent: { name: resource.core.thing.base.id, size: 2 }
 }
 `
 	var c resourceCounters
@@ -736,17 +684,7 @@ resources: {
 
 func TestApplyPlanForEachResource(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-        size:      @each.value
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
 outputs: {
   alpha-id: { value: resource.core.thing.many['alpha'].id }
   beta-id:  { value: resource.core.thing.many['beta'].id }
@@ -789,16 +727,7 @@ outputs: {
 
 func TestApplyPlanForEachAction(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: {
-      many: {
-        @for-each: var.names
-        echo:      @each.value
-      }
-    }
-  }
-}
+actions: { core.echo.many: { @for-each: var.names, echo: @each.value } }
 outputs: {
   alpha-said: { value: action.core.echo.many['alpha'].echo }
   beta-said:  { value: action.core.echo.many['beta'].echo }
@@ -833,16 +762,7 @@ outputs: {
 
 func TestApplyPlanForEachActionSkipsUnchanged(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: {
-      many: {
-        @for-each: var.names
-        echo:      @each.value
-      }
-    }
-  }
-}
+actions: { core.echo.many: { @for-each: var.names, echo: @each.value } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -869,16 +789,7 @@ actions: {
 
 func TestApplyPlanForEachData(t *testing.T) {
 	src := `
-data: {
-  core: {
-    lookup: {
-      many: {
-        @for-each: var.keys
-        key:       @each.value
-      }
-    }
-  }
-}
+data: { core.lookup.many: { @for-each: var.keys, key: @each.value } }
 outputs: {
   alpha-value: { value: data.core.lookup.many['alpha'].value }
   beta-value:  { value: data.core.lookup.many['beta'].value }
@@ -904,12 +815,8 @@ outputs: {
 
 func TestApplyPlanCreatesResource(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
-outputs: {
-  id: { value: resource.core.thing.one.id }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
+outputs:   { id: { value: resource.core.thing.one.id } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -939,16 +846,8 @@ outputs: {
 func TestApplyPlanPersistsCreateBeforeLaterFailure(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    inc: {
-      first: { name: 'first', size: 1 }
-      later: {
-        @depends-on: [resource.core.inc.first]
-        name:        'fail-create'
-        size:        1
-      }
-    }
-  }
+  core.inc.first: { name: 'first', size: 1 }
+  core.inc.later: { @depends-on: [resource.core.inc.first], name: 'fail-create', size: 1 }
 }
 `
 	store := newStateStore(t)
@@ -967,16 +866,8 @@ resources: {
 func TestApplyPlanPersistsUpdateBeforeLaterFailure(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    inc: {
-      first: { name: 'first', size: 2 }
-      later: {
-        @depends-on: [resource.core.inc.first]
-        name:        'fail-create'
-        size:        1
-      }
-    }
-  }
+  core.inc.first: { name: 'first', size: 2 }
+  core.inc.later: { @depends-on: [resource.core.inc.first], name: 'fail-create', size: 1 }
 }
 `
 	store := newStateStore(t)
@@ -999,16 +890,8 @@ resources: {
 func TestApplyPlanPersistsReplaceBeforeLaterFailure(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    inc: {
-      first: { name: 'new', size: 1 }
-      later: {
-        @depends-on: [resource.core.inc.first]
-        name:        'fail-create'
-        size:        1
-      }
-    }
-  }
+  core.inc.first: { name: 'new', size: 1 }
+  core.inc.later: { @depends-on: [resource.core.inc.first], name: 'fail-create', size: 1 }
 }
 `
 	store := newStateStore(t)
@@ -1047,16 +930,9 @@ func TestApplyPlanPersistsDestroyBeforeLaterFailure(t *testing.T) {
 
 func TestApplyPlanForEachComposite(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  name: { type: string }
-  size: { type: integer }
-}
-resources: {
-  core: { thing: { only: { name: var.name, size: var.size } } }
-}
-outputs: {
-  id: { value: resource.core.thing.only.id }
-}
+inputs:    { name: { type: string }, size: { type: integer } }
+resources: { core.thing.only: { name: var.name, size: var.size } }
+outputs:   { id: { value: resource.core.thing.only.id } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1067,17 +943,7 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w: {
-    box: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-        size:      @each.value
-      }
-    }
-  }
-}
+resources: { w.box.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
 outputs: {
   alpha-id: { value: resource.w.box.many['alpha'].id }
   beta-id:  { value: resource.w.box.many['beta'].id }
@@ -1115,12 +981,8 @@ outputs: {
 
 func TestApplyPlanForEachCompositeOrphan(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  name: { type: string }
-}
-resources: {
-  core: { thing: { only: { name: var.name, size: 1 } } }
-}
+inputs:    { name: { type: string } }
+resources: { core.thing.only: { name: var.name, size: 1 } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1131,16 +993,7 @@ resources: {
 		},
 	}
 	src := `
-resources: {
-  w: {
-    box: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-      }
-    }
-  }
-}
+resources: { w.box.many: { @for-each: var.configs, name: @each.key } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1173,12 +1026,8 @@ resources: {
 
 func TestApplyPlanComposite(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  core: { thing: { one: { name: var.name, size: 1 } } }
-}
-outputs: {
-  id: { value: resource.core.thing.one.id }
-}
+resources: { core.thing.one: { name: var.name, size: 1 } }
+outputs:   { id: { value: resource.core.thing.one.id } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1189,12 +1038,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w: { box: { x: { name: 'alpha' } } }
-}
-outputs: {
-  out: { value: resource.w.box.x.id }
-}
+resources: { w.box.x: { name: 'alpha' } }
+outputs:   { out: { value: resource.w.box.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1233,32 +1078,18 @@ outputs: {
 
 func TestApplyPlanNestedComposite(t *testing.T) {
 	clusterBody := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
+inputs: { path: { type: string } }
 
-resources: {
-  core: { thing: { x: { name: var.path, size: 1 } } }
-}
+resources: { core.thing.x: { name: var.path, size: 1 } }
 
-outputs: {
-  path: { value: resource.core.thing.x.name }
-}
+outputs: { path: { value: resource.core.thing.x.name } }
 `)
 	layerBody := parseStack(t, `
-inputs: {
-  target: { type: string }
-}
+inputs: { target: { type: string } }
 
-resources: {
-  inner-lib: {
-    cluster: { only: { path: var.target } }
-  }
-}
+resources: { inner-lib.cluster.only: { path: var.target } }
 
-outputs: {
-  path: { value: resource.inner-lib.cluster.only.path }
-}
+outputs: { path: { value: resource.inner-lib.cluster.only.path } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1275,12 +1106,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  outer-lib: { layer: { mine: { target: 'alpha' } } }
-}
-outputs: {
-  out: { value: resource.outer-lib.layer.mine.path }
-}
+resources: { outer-lib.layer.mine: { target: 'alpha' } }
+outputs:   { out: { value: resource.outer-lib.layer.mine.path } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1332,12 +1159,8 @@ outputs: {
 func TestApplyPlanCompositeOrphan(t *testing.T) {
 	composite := parseStack(t, `
 resources: {
-  core: {
-    thing: {
-      one: { name: var.name, size: 1 }
-      two: { name: var.name, size: 2 }
-    }
-  }
+  core.thing.one: { name: var.name, size: 1 }
+  core.thing.two: { name: var.name, size: 2 }
 }
 `)
 	var c resourceCounters
@@ -1349,15 +1172,10 @@ resources: {
 		},
 	}
 	first := `
-resources: {
-  core: { thing: { keep: { name: 'kept', size: 7 } } }
-  w:    { box:   { x:    { name: 'alpha' } } }
-}
+resources: { core.thing.keep: { name: 'kept', size: 7 }, w.box.x: { name: 'alpha' } }
 `
 	second := `
-resources: {
-  core: { thing: { keep: { name: 'kept', size: 7 } } }
-}
+resources: { core.thing.keep: { name: 'kept', size: 7 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1419,12 +1237,8 @@ func TestApplyPlanCompositeWithRootVarArgs(t *testing.T) {
 	// boundary's args are evaluated at plan time and must seed the
 	// composite scope at apply time so internals can read them.
 	composite := parseStack(t, `
-inputs: {
-  who: { type: string }
-}
-resources: {
-  core: { thing: { greet: { name: var.who, size: 1 } } }
-}
+inputs:    { who: { type: string } }
+resources: { core.thing.greet: { name: var.who, size: 1 } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1435,12 +1249,8 @@ resources: {
 		},
 	}
 	src := `
-inputs: {
-  who: { type: string }
-}
-resources: {
-  w: { hello: { x: { who: var.who } } }
-}
+inputs:    { who: { type: string } }
+resources: { w.hello.x: { who: var.who } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1489,9 +1299,7 @@ func findEntryByAddr(snap *state.Snapshot, addr string) *state.Entry {
 
 func TestApplyPlanCompositeUpdateInPlace(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  core: { thing: { one: { name: var.name, size: 1 } } }
-}
+resources: { core.thing.one: { name: var.name, size: 1 } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1502,14 +1310,10 @@ resources: {
 		},
 	}
 	first := `
-resources: {
-  w: { box: { x: { name: 'alpha' } } }
-}
+resources: { w.box.x: { name: 'alpha' } }
 `
 	second := `
-resources: {
-  w: { box: { x: { name: 'alpha' } } }
-}
+resources: { w.box.x: { name: 'alpha' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1542,9 +1346,7 @@ resources: {
 
 func TestApplyPlanRefusesOnStateRevDrift(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1573,9 +1375,7 @@ resources: {
 
 func TestApplyPlanWaitsForLock(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1655,16 +1455,12 @@ func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 	src := func(name string) string {
 		return `
 resources: {
-  core: { thing: { one: { name: '` + name + `', size: 1 } } }
+  core.thing.one: { name: '` + name + `', size: 1 }
 }
 actions: {
-  core: {
-    echo: {
-      observe: {
-        @trigger: resource.core.thing.one.id
-        echo:     'observed'
-      }
-    }
+  core.echo.observe: {
+    @trigger: resource.core.thing.one.id
+    echo:     'observed'
   }
 }
 `

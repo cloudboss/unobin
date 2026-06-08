@@ -6,18 +6,10 @@ imports: {
 }
 
 actions: {
-  greet: {
-    say: {
-      casual: { message: 'world' }
-      formal: { @configuration: greet.formal, message: 'world' }
-    }
-  }
-  greeter: {
-    greeting: {
-      casual-wrap: { message: 'wrapped' }
-      formal-wrap: { @configurations: { greet: greet.formal }, message: 'wrapped' }
-    }
-  }
+  greet.say.casual:             { message: 'world' }
+  greet.say.formal:             { @configuration: greet.formal, message: 'world' }
+  greeter.greeting.casual-wrap: { message: 'wrapped' }
+  greeter.greeting.formal-wrap: { @configurations: { greet: greet.formal }, message: 'wrapped' }
 }
 
 outputs: {

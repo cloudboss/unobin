@@ -20,12 +20,10 @@ locals: {
   file-hash:    resource.std.fs-file.summary.sha256
 }
 
-resources: { std: { fs-file: { summary: { path: local.summary-path, content: local.banner } } } }
+resources: { std.fs-file.summary: { path: local.summary-path, content: local.banner } }
 
 actions: {
-  std: {
-    exec-command: { read-back: { @trigger: local.file-hash, argv: ['cat', local.summary-path] } }
-  }
+  std.exec-command.read-back: { @trigger: local.file-hash, argv: ['cat', local.summary-path] }
 }
 
 outputs: {

@@ -10,24 +10,9 @@ import (
 
 func TestSensitivityRecognizesSensitiveVar(t *testing.T) {
 	src := `
-inputs: {
-  region: { type: string }
-  password: {
-    type: string
-    @sensitive: true
-  }
-}
+inputs: { region: { type: string }, password: { type: string, @sensitive: true } }
 
-resources: {
-  local: {
-    secret: {
-      one: {
-        name: var.region
-        password: var.password
-      }
-    }
-  }
-}
+resources: { local.secret.one: { name: var.region, password: var.password } }
 `
 	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
@@ -42,23 +27,9 @@ resources: {
 
 func TestSensitivityFollowsLocalToSensitiveVar(t *testing.T) {
 	src := `
-inputs: {
-  region:   { type: string }
-  password: { type: string  @sensitive: true }
-}
-locals: {
-  pw: var.password
-}
-resources: {
-  local: {
-    secret: {
-      one: {
-        name:     var.region
-        password: local.pw
-      }
-    }
-  }
-}
+inputs:    { region: { type: string }, password: { type: string, @sensitive: true } }
+locals:    { pw: var.password }
+resources: { local.secret.one: { name: var.region, password: local.pw } }
 `
 	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
@@ -72,25 +43,9 @@ resources: {
 
 func TestSensitivityFollowsChainedLocal(t *testing.T) {
 	src := `
-inputs: {
-  plain:  { type: string }
-  secret: { type: string  @sensitive: true }
-}
-locals: {
-  a: var.secret
-  b: local.a
-  c: var.plain
-}
-resources: {
-  local: {
-    secret: {
-      one: {
-        name:     local.c
-        password: local.b
-      }
-    }
-  }
-}
+inputs:    { plain: { type: string }, secret: { type: string, @sensitive: true } }
+locals:    { a: var.secret, b: local.a, c: var.plain }
+resources: { local.secret.one: { name: local.c, password: local.b } }
 `
 	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
@@ -104,19 +59,10 @@ resources: {
 
 func TestSensitivityFollowsLocalToSensitiveOutput(t *testing.T) {
 	src := `
-locals: {
-  tok: resource.vault.secret.s.value
-}
+locals: { tok: resource.vault.secret.s.value }
 resources: {
-  vault: { secret: { s: { name: 'token' } } }
-  local: {
-    file: {
-      f: {
-        path:    'out.txt'
-        content: local.tok
-      }
-    }
-  }
+  vault.secret.s: { name: 'token' }
+  local.file.f:   { path: 'out.txt', content: local.tok }
 }
 `
 	f := parseStack(t, src)
@@ -139,11 +85,9 @@ resources: {
 
 func TestSensitivityLocalNonSensitive(t *testing.T) {
 	src := `
-inputs: { region: { type: string } }
-locals: { r: var.region }
-resources: {
-  local: { file: { f: { path: local.r } } }
-}
+inputs:    { region: { type: string } }
+locals:    { r: var.region }
+resources: { local.file.f: { path: local.r } }
 `
 	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
@@ -157,13 +101,8 @@ resources: {
 
 func TestSensitivityLocalCycleTerminates(t *testing.T) {
 	src := `
-locals: {
-  a: local.b
-  b: local.a
-}
-resources: {
-  local: { file: { f: { path: local.a } } }
-}
+locals:    { a: local.b, b: local.a }
+resources: { local.file.f: { path: local.a } }
 `
 	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
@@ -180,26 +119,9 @@ resources: {
 // not sensitive; reading the sensitive field is.
 func TestSensitivityNarrowsObjectLocalToNavigatedField(t *testing.T) {
 	src := `
-inputs: {
-  user:     { type: string }
-  password: { type: string  @sensitive: true }
-}
-locals: {
-  creds: {
-    name:   var.user
-    secret: var.password
-  }
-}
-resources: {
-  local: {
-    file: {
-      f: {
-        path:    local.creds.name
-        content: local.creds.secret
-      }
-    }
-  }
-}
+inputs:    { user: { type: string }, password: { type: string, @sensitive: true } }
+locals:    { creds: { name: var.user, secret: var.password } }
+resources: { local.file.f: { path: local.creds.name, content: local.creds.secret } }
 `
 	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
@@ -214,19 +136,8 @@ resources: {
 func TestSensitivityRecognizesSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {
-  vault: {
-    secret: {
-      s: { name: 'token' }
-    }
-  }
-  local: {
-    file: {
-      f: {
-        path: 'out.txt'
-        content: resource.vault.secret.s.value
-      }
-    }
-  }
+  vault.secret.s: { name: 'token' }
+  local.file.f:   { path: 'out.txt', content: resource.vault.secret.s.value }
 }
 `
 	f := parseStack(t, src)
@@ -251,19 +162,8 @@ resources: {
 func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
 	src := `
 resources: {
-  vault: {
-    secret: {
-      s: { token: 'shh' }
-    }
-  }
-  local: {
-    file: {
-      f: {
-        path: 'out.txt'
-        content: resource.vault.secret.s.token
-      }
-    }
-  }
+  vault.secret.s: { token: 'shh' }
+  local.file.f:   { path: 'out.txt', content: resource.vault.secret.s.token }
 }
 `
 	f := parseStack(t, src)
@@ -289,17 +189,8 @@ resources: {
 func TestSensitivityRecognizesNonSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {
-  vault: {
-    secret: { s: { name: 'token' } }
-  }
-  local: {
-    file: {
-      f: {
-        path: 'out.txt'
-        content: resource.vault.secret.s.arn
-      }
-    }
-  }
+  vault.secret.s: { name: 'token' }
+  local.file.f:   { path: 'out.txt', content: resource.vault.secret.s.arn }
 }
 `
 	f := parseStack(t, src)
@@ -322,20 +213,11 @@ resources: {
 
 func TestSensitivityPropagatesCompositeOutputDeclared(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  message: { type: string }
-}
+inputs: { message: { type: string } }
 
-resources: {
-  local: { file: { this: { path: 'x.txt' content: var.message } } }
-}
+resources: { local.file.this: { path: 'x.txt', content: var.message } }
 
-outputs: {
-  token: {
-    value: resource.local.file.this.sha256
-    @sensitive: true
-  }
-}
+outputs: { token: { value: resource.local.file.this.sha256, @sensitive: true } }
 `)
 	libs := map[string]*Library{
 		"wrap": {
@@ -350,13 +232,8 @@ outputs: {
 	}
 	stack := parseStack(t, `
 resources: {
-  wrap: { box: { one: { message: 'hi' } } }
-  local: { file: {
-    f: {
-      path: 'out.txt'
-      content: resource.wrap.box.one.token
-    }
-  } }
+  wrap.box.one: { message: 'hi' }
+  local.file.f: { path: 'out.txt', content: resource.wrap.box.one.token }
 }
 `)
 	dag := BuildDAG(stack, libs)
@@ -370,15 +247,9 @@ resources: {
 
 func TestSensitivityPropagatesThroughCompositeOutputFromGoField(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  vault: { secret: { this: { name: 'x' } } }
-}
+resources: { vault.secret.this: { name: 'x' } }
 
-outputs: {
-  forwarded: {
-    value: resource.vault.secret.this.value
-  }
-}
+outputs: { forwarded: { value: resource.vault.secret.this.value } }
 `)
 	libs := map[string]*Library{
 		"wrap": {
@@ -404,13 +275,8 @@ outputs: {
 	}
 	stack := parseStack(t, `
 resources: {
-  wrap: { box: { one: {} } }
-  local: { file: {
-    f: {
-      path: 'out.txt'
-      content: resource.wrap.box.one.forwarded
-    }
-  } }
+  wrap.box.one: {}
+  local.file.f: { path: 'out.txt', content: resource.wrap.box.one.forwarded }
 }
 `)
 	dag := BuildDAG(stack, libs)
@@ -425,13 +291,9 @@ resources: {
 
 func TestSensitivityNoFalsePositiveOnPlainComposite(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  vault: { secret: { this: { name: 'x' } } }
-}
+resources: { vault.secret.this: { name: 'x' } }
 
-outputs: {
-  arn: { value: resource.vault.secret.this.arn }
-}
+outputs: { arn: { value: resource.vault.secret.this.arn } }
 `)
 	libs := map[string]*Library{
 		"wrap": {
@@ -457,13 +319,8 @@ outputs: {
 	}
 	stack := parseStack(t, `
 resources: {
-  wrap: { box: { one: {} } }
-  local: { file: {
-    f: {
-      path: 'out.txt'
-      content: resource.wrap.box.one.arn
-    }
-  } }
+  wrap.box.one: {}
+  local.file.f: { path: 'out.txt', content: resource.wrap.box.one.arn }
 }
 `)
 	dag := BuildDAG(stack, libs)
@@ -476,20 +333,11 @@ resources: {
 
 func TestSensitivityInsideCompositeUsesCompositeInputs(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  password: {
-    type: string
-    @sensitive: true
-  }
-}
+inputs: { password: { type: string, @sensitive: true } }
 
-resources: {
-  local: { file: { this: { path: 'x.txt' content: var.password } } }
-}
+resources: { local.file.this: { path: 'x.txt', content: var.password } }
 
-outputs: {
-  sha: { value: resource.local.file.this.sha256 }
-}
+outputs: { sha: { value: resource.local.file.this.sha256 } }
 `)
 	libs := map[string]*Library{
 		"wrap": {
@@ -503,9 +351,7 @@ outputs: {
 		"local": {Name: "local"},
 	}
 	stack := parseStack(t, `
-resources: {
-  wrap: { box: { one: { password: 'shh' } } }
-}
+resources: { wrap.box.one: { password: 'shh' } }
 `)
 	dag := BuildDAG(stack, libs)
 	an := newSensitivityAnalyzer(stack, libs, dag)
@@ -527,20 +373,9 @@ func TestSensitivityHandlesNilSource(t *testing.T) {
 
 func TestSensitivityPersistsOntoStateEntry(t *testing.T) {
 	src := `
-inputs: {
-  message: {
-    type: string
-    @sensitive: true
-  }
-}
+inputs: { message: { type: string, @sensitive: true } }
 
-actions: {
-  core: {
-    echo: {
-      hi: { echo: var.message }
-    }
-  }
-}
+actions: { core.echo.hi: { echo: var.message } }
 `
 	libs := testModules()
 	libs["core"].Schema = &LibrarySchema{

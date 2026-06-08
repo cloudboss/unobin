@@ -157,17 +157,8 @@ func TestBuildStepGraphOrphanHasNoPredecessors(t *testing.T) {
 func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
 	src := `
 resources: {
-  aws: {
-    instance: {
-      nodes: { @for-each: var.cfgs, name: @each.value }
-    }
-    volume: {
-      vols: {
-        @for-each: var.cfgs
-        instance:  resource.aws.instance.nodes[@each.key].name
-      }
-    }
-  }
+  aws.instance.nodes: { @for-each: var.cfgs, name: @each.value }
+  aws.volume.vols:    { @for-each: var.cfgs, instance: resource.aws.instance.nodes[@each.key].name }
 }
 `
 	libs := map[string]*Library{

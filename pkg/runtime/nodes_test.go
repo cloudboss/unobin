@@ -22,15 +22,9 @@ func TestExtractNodesEmpty(t *testing.T) {
 func TestExtractNodesResources(t *testing.T) {
 	src := `
 resources: {
-  aws: {
-    vpc: {
-      main:    { cidr-block: '10.0.0.0/16' }
-      backup:  { cidr-block: '10.1.0.0/16' }
-    }
-    security-group: {
-      web: { name: 'web' }
-    }
-  }
+  aws.vpc.main:           { cidr-block: '10.0.0.0/16' }
+  aws.vpc.backup:         { cidr-block: '10.1.0.0/16' }
+  aws.security-group.web: { name: 'web' }
 }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
@@ -48,19 +42,10 @@ resources: {
 
 func TestExtractNodesAllKinds(t *testing.T) {
 	src := `
-resources: {
-  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
-}
-data: {
-  aws: { ami: { ubuntu: { most-recent: true } } }
-}
-actions: {
-  core: { command: { hello: { argv: ['echo'] } } }
-}
-outputs: {
-  vpc-id: { value: resource.aws.vpc.main.id }
-  static: { value: 'literal' }
-}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
+data:      { aws.ami.ubuntu: { most-recent: true } }
+actions:   { core.command.hello: { argv: ['echo'] } }
+outputs:   { vpc-id: { value: resource.aws.vpc.main.id }, static: { value: 'literal' } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	addresses := make([]string, len(got))
@@ -94,13 +79,7 @@ outputs: {
 
 func TestExtractNodesResourceBody(t *testing.T) {
 	src := `
-resources: {
-  aws: {
-    vpc: {
-      main: { cidr-block: '10.0.0.0/16' }
-    }
-  }
-}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
@@ -112,14 +91,8 @@ resources: {
 
 func TestExtractNodesExpandsComposite(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: {
-    file: { greeting: { path: 'hello.txt', content: 'hi' } }
-  }
-}
-outputs: {
-  greeting-path: { value: resource.local.file.greeting.path }
-}
+resources: { local.file.greeting: { path: 'hello.txt', content: 'hi' } }
+outputs:   { greeting-path: { value: resource.local.file.greeting.path } }
 `)
 	libs := map[string]*Library{
 		"net": {
@@ -130,11 +103,7 @@ outputs: {
 		},
 	}
 	stack := parseStack(t, `
-resources: {
-  net: {
-    cluster: { web: { name: 'web' } }
-  }
-}
+resources: { net.cluster.web: { name: 'web' } }
 `)
 	got := ExtractNodes(stack, libs)
 	require.Len(t, got, 2)
@@ -155,12 +124,8 @@ resources: {
 
 func TestExtractNodesCompositeDropsInternalOutputs(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: { file: { x: { path: 'x.txt' } } }
-}
-outputs: {
-  path: { value: resource.local.file.x.path }
-}
+resources: { local.file.x: { path: 'x.txt' } }
+outputs:   { path: { value: resource.local.file.x.path } }
 `)
 	libs := map[string]*Library{
 		"m": {
@@ -169,9 +134,7 @@ outputs: {
 		},
 	}
 	stack := parseStack(t, `
-resources: {
-  m: { t: { one: {} } }
-}
+resources: { m.t.one: {} }
 `)
 	got := ExtractNodes(stack, libs)
 	for _, n := range got {
@@ -186,39 +149,21 @@ func TestExtractNodesNestedComposite(t *testing.T) {
 	// would live in `cluster.ub`, listed in inner-lib's `library.ub`
 	// manifest as `exports: { cluster: 'cluster.ub' }`.
 	clusterBody := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
+inputs: { path: { type: string } }
 
-resources: {
-  local: {
-    file: { x: { path: var.path } }
-  }
-}
+resources: { local.file.x: { path: var.path } }
 
-outputs: {
-  path: { value: resource.local.file.x.path }
-}
+outputs: { path: { value: resource.local.file.x.path } }
 `)
 	// layerBody is the body file for the `layer` composite type registered
 	// under library alias `outer-lib`. Its body calls inner-lib's `cluster`
 	// composite, which is what makes this a nested composite.
 	layerBody := parseStack(t, `
-inputs: {
-  target: { type: string }
-}
+inputs: { target: { type: string } }
 
-resources: {
-  inner-lib: {
-    cluster: {
-      only: { path: var.target }
-    }
-  }
-}
+resources: { inner-lib.cluster.only: { path: var.target } }
 
-outputs: {
-  path: { value: resource.inner-lib.cluster.only.path }
-}
+outputs: { path: { value: resource.inner-lib.cluster.only.path } }
 `)
 	libs := map[string]*Library{
 		"outer-lib": {
@@ -235,9 +180,7 @@ outputs: {
 		},
 	}
 	stack := parseStack(t, `
-resources: {
-  outer-lib: { layer: { mine: { target: '/tmp/x' } } }
-}
+resources: { outer-lib.layer.mine: { target: '/tmp/x' } }
 `)
 	got := ExtractNodes(stack, libs)
 
@@ -269,16 +212,7 @@ resources: {
 
 func TestExtractNodesResourceForEach(t *testing.T) {
 	src := `
-resources: {
-  aws: {
-    instance: {
-      nodes: {
-        @for-each:     var.configs
-        instance-type: @each.value.size
-      }
-    }
-  }
-}
+resources: { aws.instance.nodes: { @for-each: var.configs, instance-type: @each.value.size } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
@@ -292,16 +226,7 @@ resources: {
 
 func TestExtractNodesActionForEach(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    command: {
-      many: {
-        @for-each: var.targets
-        argv:      ['echo', @each.value]
-      }
-    }
-  }
-}
+actions: { core.command.many: { @for-each: var.targets, argv: ['echo', @each.value] } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
@@ -311,9 +236,7 @@ actions: {
 
 func TestExtractNodesNoForEachLeavesFieldNil(t *testing.T) {
 	src := `
-resources: {
-  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
-}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
@@ -322,15 +245,7 @@ resources: {
 
 func TestExtractNodesSkipsMalformed(t *testing.T) {
 	src := `
-resources: {
-  aws: 'not an object'
-  net: {
-    cluster: 'also not an object'
-    real: {
-      web: { size: 3 }
-    }
-  }
-}
+resources: { aws: 'not an object', net.real.web: { size: 3 } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
@@ -340,36 +255,11 @@ resources: {
 func TestExtractNodesReadsConfigurationAlias(t *testing.T) {
 	src := `
 resources: {
-  aws: {
-    instance: {
-      web: { ami: 'ami-1' }
-      mirror: {
-        @configuration: aws.east2
-        ami: 'ami-2'
-      }
-    }
-  }
+  aws.instance.web:    { ami: 'ami-1' }
+  aws.instance.mirror: { @configuration: aws.east2, ami: 'ami-2' }
 }
-data: {
-  aws: {
-    ami: {
-      ubuntu: {
-        @configuration: aws.east2
-        most-recent: true
-      }
-    }
-  }
-}
-actions: {
-  core: {
-    command: {
-      probe: {
-        @configuration: core.alt
-        argv: ['echo']
-      }
-    }
-  }
-}
+data:    { aws.ami.ubuntu: { @configuration: aws.east2, most-recent: true } }
+actions: { core.command.probe: { @configuration: core.alt, argv: ['echo'] } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 4)
@@ -389,19 +279,8 @@ actions: {
 
 func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {
 	src := `
-imports: {
-  net: 'github.com/example/net'
-}
-resources: {
-  net: {
-    cluster: {
-      east: {
-        @configurations: { aws: aws.east2 }
-        name: 'east'
-      }
-    }
-  }
-}
+imports:   { net: 'github.com/example/net' }
+resources: { net.cluster.east: { @configurations: { aws: aws.east2 }, name: 'east' } }
 `
 	composite := &CompositeType{
 		Body: parseStack(t, `description: 'noop'`),
@@ -423,16 +302,7 @@ resources: {
 
 func TestExtractConfigurationsRemapKeepsMismatchedAliasForValidation(t *testing.T) {
 	src := `
-resources: {
-  net: {
-    cluster: {
-      east: {
-        @configurations: { aws: gcp.east2 }
-        name: 'east'
-      }
-    }
-  }
-}
+resources: { net.cluster.east: { @configurations: { aws: gcp.east2 }, name: 'east' } }
 `
 	composite := &CompositeType{
 		Body: parseStack(t, `description: 'noop'`),
@@ -453,16 +323,7 @@ resources: {
 
 func TestExtractConfigurationIgnoresMismatchedAlias(t *testing.T) {
 	src := `
-resources: {
-  aws: {
-    instance: {
-      web: {
-        @configuration: gcp.something
-        ami: 'ami-1'
-      }
-    }
-  }
-}
+resources: { aws.instance.web: { @configuration: gcp.something, ami: 'ami-1' } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 1)
@@ -472,12 +333,8 @@ resources: {
 
 func TestExtractNodesExpandsDataComposite(t *testing.T) {
 	composite := parseStack(t, `
-data: {
-  aws: { ami: { ubuntu: { most-recent: true } } }
-}
-outputs: {
-  id: { value: data.aws.ami.ubuntu.id }
-}
+data:    { aws.ami.ubuntu: { most-recent: true } }
+outputs: { id: { value: data.aws.ami.ubuntu.id } }
 `)
 	libs := map[string]*Library{
 		"img": {
@@ -488,11 +345,7 @@ outputs: {
 		},
 	}
 	stack := parseStack(t, `
-data: {
-  img: {
-    lookup: { latest: { family: 'ubuntu' } }
-  }
-}
+data: { img.lookup.latest: { family: 'ubuntu' } }
 `)
 	got := ExtractNodes(stack, libs)
 	require.Len(t, got, 2)
@@ -510,9 +363,7 @@ data: {
 
 func TestExtractNodesExpandsActionComposite(t *testing.T) {
 	composite := parseStack(t, `
-actions: {
-  core: { command: { run: { argv: ['echo'] } } }
-}
+actions: { core.command.run: { argv: ['echo'] } }
 `)
 	libs := map[string]*Library{
 		"ops": {
@@ -523,11 +374,7 @@ actions: {
 		},
 	}
 	stack := parseStack(t, `
-actions: {
-  ops: {
-    deploy: { go: { target: 'prod' } }
-  }
-}
+actions: { ops.deploy.go: { target: 'prod' } }
 `)
 	got := ExtractNodes(stack, libs)
 	require.Len(t, got, 2)

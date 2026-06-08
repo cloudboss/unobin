@@ -43,13 +43,7 @@ func localFileLibrary() *Library {
 // declared defaults.
 func TestCheckTypesRequiresMissingInput(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { path: 'p' }
-    }
-  }
-}
+resources: { local.file.one: { path: 'p' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	require.Equal(t,
@@ -61,13 +55,7 @@ resources: {
 // missing required input by name, in sorted order.
 func TestCheckTypesReportsEveryMissingInput(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { create-directory: true }
-    }
-  }
-}
+resources: { local.file.one: { create-directory: true } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	require.Equal(t, []string{
@@ -93,13 +81,7 @@ func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
 		},
 	}
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  ext: {
-    thing: {
-      one: { name: 'a' }
-    }
-  }
-}
+resources: { ext.thing.one: { name: 'a' } }
 `), map[string]*Library{"ext": lib})
 
 	require.Empty(t, checkErrorMessages(t, errs))
@@ -110,13 +92,7 @@ resources: {
 // missing schemas.
 func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  ext: {
-    thing: {
-      one: { name: 'a' }
-    }
-  }
-}
+resources: { ext.thing.one: { name: 'a' } }
 `), map[string]*Library{"ext": {}})
 
 	require.Empty(t, checkErrorMessages(t, errs))
@@ -127,17 +103,8 @@ resources: {
 // input may stay absent.
 func TestCheckTypesRequiresCompositeInput(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  name: { type: string }
-  note: { type: optional(string) }
-}
-resources: {
-  local: {
-    file: {
-      one: { path: var.name, content: 'x' }
-    }
-  }
-}
+inputs:    { name: { type: string }, note: { type: optional(string) } }
+resources: { local.file.one: { path: var.name, content: 'x' } }
 `)
 	libs := map[string]*Library{
 		"bundle": {
@@ -152,36 +119,22 @@ resources: {
 	}
 
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  bundle: {
-    pair: {
-      demo: { }
-    }
-  }
-}
+resources: { bundle.pair.demo: {} }
 `), libs)
 	require.Equal(t,
 		[]string{`missing required input "name" on bundle.pair`},
 		checkErrorMessages(t, errs))
 
 	clean := CheckReferences(parseStack(t, `
-resources: {
-  bundle: {
-    pair: {
-      demo: { name: 'n' }
-    }
-  }
-}
+resources: { bundle.pair.demo: { name: 'n' } }
 `), libs)
 	require.Empty(t, checkErrorMessages(t, clean))
 }
 
 func TestCheckTypesCompositeOutputTypes(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { name: { type: string } }
-resources: {
-  local: { file: { one: { path: var.name, content: 'x' } } }
-}
+inputs:    { name: { type: string } }
+resources: { local.file.one: { path: var.name, content: 'x' } }
 outputs: {
   path:  { value: resource.local.file.one.path }
   size:  { value: resource.local.file.one.size }
@@ -208,11 +161,8 @@ outputs: {
 			name: "deep field beyond an object output",
 			src: `
 resources: {
-  bundle: { pair: { demo: { name: 'n' } } }
-  local: { file: { logs: {
-    path: 'p'
-    content: resource.bundle.pair.demo.info.bogus
-  } } }
+  bundle.pair.demo: { name: 'n' }
+  local.file.logs:  { path: 'p', content: resource.bundle.pair.demo.info.bogus }
 }
 `,
 			want: []string{`unknown field "bogus" on object({ host: string })`},
@@ -221,11 +171,8 @@ resources: {
 			name: "composite output type mismatches a field",
 			src: `
 resources: {
-  bundle: { pair: { demo: { name: 'n' } } }
-  local: { file: { logs: {
-    path: resource.bundle.pair.demo.names
-    content: 'c'
-  } } }
+  bundle.pair.demo: { name: 'n' }
+  local.file.logs:  { path: resource.bundle.pair.demo.names, content: 'c' }
 }
 `,
 			want: []string{"type mismatch: expected string, got list(string)"},
@@ -234,12 +181,8 @@ resources: {
 			name: "composite output in an operator",
 			src: `
 resources: {
-  bundle: { pair: { demo: { name: 'n' } } }
-  local: { file: { logs: {
-    path: 'p'
-    content: 'c'
-    mode: resource.bundle.pair.demo.size + 'x'
-  } } }
+  bundle.pair.demo: { name: 'n' }
+  local.file.logs:  { path: 'p', content: 'c', mode: resource.bundle.pair.demo.size + 'x' }
 }
 `,
 			want: []string{
@@ -250,12 +193,12 @@ resources: {
 			name: "matching composite outputs pass",
 			src: `
 resources: {
-  bundle: { pair: { demo: { name: 'n' } } }
-  local: { file: { logs: {
-    path: resource.bundle.pair.demo.path
+  bundle.pair.demo: { name: 'n' }
+  local.file.logs: {
+    path:    resource.bundle.pair.demo.path
     content: resource.bundle.pair.demo.info.host
-    mode: resource.bundle.pair.demo.size
-  } } }
+    mode:    resource.bundle.pair.demo.size
+  }
 }
 `,
 		},
@@ -270,14 +213,8 @@ resources: {
 
 func TestCheckTypesAcceptsMatchingBody(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: { path: { type: string } }
-resources: {
-  local: {
-    file: {
-      one: { path: var.path, content: 'hi' }
-    }
-  }
-}
+inputs:    { path: { type: string } }
+resources: { local.file.one: { path: var.path, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkRefMessages(t, errs))
@@ -285,13 +222,7 @@ resources: {
 
 func TestCheckTypesRejectsLiteralIntoStringField(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { path: 5, content: 'hi' }
-    }
-  }
-}
+resources: { local.file.one: { path: 5, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -301,14 +232,8 @@ resources: {
 
 func TestCheckTypesRejectsVarWithWrongType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: { mode: { type: integer } }
-resources: {
-  local: {
-    file: {
-      one: { path: var.mode, content: 'hi' }
-    }
-  }
-}
+inputs:    { mode: { type: integer } }
+resources: { local.file.one: { path: var.mode, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -318,14 +243,8 @@ resources: {
 
 func TestCheckTypesAcceptsLocalMatchingField(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-locals: { p: 'somewhere' }
-resources: {
-  local: {
-    file: {
-      one: { path: local.p, content: 'hi' }
-    }
-  }
-}
+locals:    { p: 'somewhere' }
+resources: { local.file.one: { path: local.p, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkErrorMessages(t, errs))
@@ -333,14 +252,8 @@ resources: {
 
 func TestCheckTypesRejectsLocalWithWrongType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-locals: { m: 5 }
-resources: {
-  local: {
-    file: {
-      one: { path: local.m, content: 'hi' }
-    }
-  }
-}
+locals:    { m: 5 }
+resources: { local.file.one: { path: local.m, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -350,17 +263,8 @@ resources: {
 
 func TestCheckTypesRejectsChainedLocalWithWrongType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-locals: {
-  raw:     5
-  derived: local.raw
-}
-resources: {
-  local: {
-    file: {
-      one: { path: local.derived, content: 'hi' }
-    }
-  }
-}
+locals:    { raw: 5, derived: local.raw }
+resources: { local.file.one: { path: local.derived, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -371,12 +275,8 @@ resources: {
 func TestCheckTypesRejectsResourceFieldWithWrongType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 resources: {
-  local: {
-    file: {
-      one: { path: 'one', content: 'hi' }
-      two: { path: resource.local.file.one.size, content: 'hi' }
-    }
-  }
+  local.file.one: { path: 'one', content: 'hi' }
+  local.file.two: { path: resource.local.file.one.size, content: 'hi' }
 }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -388,12 +288,8 @@ resources: {
 func TestCheckTypesAcceptsInputFieldReference(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 resources: {
-  local: {
-    file: {
-      one: { path: 'one', content: 'hi' }
-      two: { path: resource.local.file.one.content, content: 'hi' }
-    }
-  }
+  local.file.one: { path: 'one', content: 'hi' }
+  local.file.two: { path: resource.local.file.one.content, content: 'hi' }
 }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -404,12 +300,8 @@ resources: {
 func TestCheckTypesRejectsInputFieldReferenceWithWrongType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
 resources: {
-  local: {
-    file: {
-      one: { path: 'one', content: 'hi' }
-      two: { path: resource.local.file.one.mode, content: 'hi' }
-    }
-  }
+  local.file.one: { path: 'one', content: 'hi' }
+  local.file.two: { path: resource.local.file.one.mode, content: 'hi' }
 }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -421,14 +313,8 @@ resources: {
 
 func TestCheckTypesAcceptsOptionalIntoRequired(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: { p: { type: optional(string, 'x') } }
-resources: {
-  local: {
-    file: {
-      one: { path: var.p, content: 'hi' }
-    }
-  }
-}
+inputs:    { p: { type: optional(string, 'x') } }
+resources: { local.file.one: { path: var.p, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkErrorMessages(t, errs))
@@ -436,13 +322,7 @@ resources: {
 
 func TestCheckTypesRejectsListWithWrongElementType(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-actions: {
-  core: {
-    command: {
-      x: { argv: ['echo', 5] }
-    }
-  }
-}
+actions: { core.command.x: { argv: ['echo', 5] } }
 `), map[string]*Library{
 		"core": {Schema: &LibrarySchema{
 			Actions: map[string]*TypeSchema{
@@ -462,13 +342,7 @@ actions: {
 
 func TestCheckTypesAcceptsListLiteralMatchingTarget(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-actions: {
-  core: {
-    command: {
-      x: { argv: ['echo', 'hi'] }
-    }
-  }
-}
+actions: { core.command.x: { argv: ['echo', 'hi'] } }
 `), map[string]*Library{
 		"core": {Schema: &LibrarySchema{
 			Actions: map[string]*TypeSchema{
@@ -502,18 +376,8 @@ constraints: [
 
 func TestCheckTypesRejectsForEachValueIntoWrongSlot(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: { counts: { type: map(integer) } }
-resources: {
-  local: {
-    file: {
-      many: {
-        @for-each: var.counts
-        path: @each.value
-        content: 'hi'
-      }
-    }
-  }
-}
+inputs:    { counts: { type: map(integer) } }
+resources: { local.file.many: { @for-each: var.counts, path: @each.value, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -523,13 +387,7 @@ resources: {
 
 func TestCheckTypesRejectsUnknownBodyField(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { paht: 'x', content: 'hi' }
-    }
-  }
-}
+resources: { local.file.one: { paht: 'x', content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -545,19 +403,8 @@ func TestCheckTypesRejectsUnknownFieldOnNestedResourceOutput(t *testing.T) {
 	})
 	errs := CheckReferences(parseStack(t, `
 resources: {
-  aws: {
-    rds: {
-      main: { name: 'one' }
-    }
-  }
-  local: {
-    file: {
-      one: {
-        path: resource.aws.rds.main.endpoint.bogus
-        content: 'hi'
-      }
-    }
-  }
+  aws.rds.main:   { name: 'one' }
+  local.file.one: { path: resource.aws.rds.main.endpoint.bogus, content: 'hi' }
 }
 `), map[string]*Library{
 		"local": localFileLibrary(),
@@ -582,16 +429,8 @@ resources: {
 
 func TestCheckTypesRejectsUnknownNestedObjectField(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: {
-  cfg: { type: object({ host: string  port: integer }) }
-}
-resources: {
-  local: {
-    file: {
-      one: { path: var.cfg.bogus, content: 'hi' }
-    }
-  }
-}
+inputs:    { cfg: { type: object({ host: string, port: integer }) } }
+resources: { local.file.one: { path: var.cfg.bogus, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
 	got := checkErrorMessages(t, errs)
@@ -601,13 +440,7 @@ resources: {
 
 func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { path: 5, content: 'hi' }
-    }
-  }
-}
+resources: { local.file.one: { path: 5, content: 'hi' } }
 `), map[string]*Library{
 		"local": {Schema: &LibrarySchema{
 			Resources: map[string]*TypeSchema{
@@ -677,12 +510,8 @@ locals: {
 
 func TestCheckTypesLocalsErrorsReportOnce(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-locals: {
-  bad: 'a' - 'b'
-}
-resources: {
-  local: { file: { one: { path: local.bad, content: local.bad } } }
-}
+locals:    { bad: 'a' - 'b' }
+resources: { local.file.one: { path: local.bad, content: local.bad } }
 `), nil)
 	want := []string{
 		"-: operand must be a number, got string",

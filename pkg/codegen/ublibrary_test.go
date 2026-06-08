@@ -33,13 +33,7 @@ func allResource(bodies map[string]*lang.File) map[string]string {
 func TestGenerateUBLibraryProducesValidGo(t *testing.T) {
 	body := parseUB(t, "resource-cluster.ub", `description: 'a cluster'
 
-resources: {
-  local: {
-    file: {
-      x: { path: '/tmp/x', content: 'hi', mode: 420 }
-    }
-  }
-}
+resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `)
 	bodies := map[string]*lang.File{"cluster": body}
 
@@ -108,9 +102,7 @@ func TestGenerateUBLibraryRejectsUnknownKind(t *testing.T) {
 func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
 	body := parseUB(t, "resource-greeting.ub", `description: 'a greeting'
 
-resources: {
-  helloer: { hello: { file: { message: var.message, path: var.path } } }
-}
+resources: { helloer.hello.file: { message: var.message, path: var.path } }
 `)
 	bodies := map[string]*lang.File{"greeting": body}
 	imports := map[string]map[string]string{
@@ -297,13 +289,7 @@ func TestGenerateUBLibraryCompilesWithCaller(t *testing.T) {
 
 	body := parseUB(t, "resource-cluster.ub", `description: 'a cluster'
 
-resources: {
-  local: {
-    file: {
-      x: { path: '/tmp/x', content: 'hi', mode: 420 }
-    }
-  }
-}
+resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `)
 	bodies := map[string]*lang.File{"cluster": body}
 

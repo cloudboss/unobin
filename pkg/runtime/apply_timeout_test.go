@@ -17,22 +17,22 @@ func TestExtractTimeout(t *testing.T) {
 	}{
 		{
 			name: "action",
-			src:  `actions: { core: { slow: { x: { @timeout: '30s', delay-ms: 1 } } } }`,
+			src:  `actions: { core.slow.x: { @timeout: '30s', delay-ms: 1 } }`,
 			want: 30 * time.Second,
 		},
 		{
 			name: "resource",
-			src:  `resources: { aws: { vpc: { x: { @timeout: '5m', cidr: '10.0.0.0/16' } } } }`,
+			src:  `resources: { aws.vpc.x: { @timeout: '5m', cidr: '10.0.0.0/16' } }`,
 			want: 5 * time.Minute,
 		},
 		{
 			name: "data",
-			src:  `data: { aws: { ami: { x: { @timeout: '1h30m', most-recent: true } } } }`,
+			src:  `data: { aws.ami.x: { @timeout: '1h30m', most-recent: true } }`,
 			want: 90 * time.Minute,
 		},
 		{
 			name: "none",
-			src:  `resources: { aws: { vpc: { x: { cidr: '10.0.0.0/16' } } } }`,
+			src:  `resources: { aws.vpc.x: { cidr: '10.0.0.0/16' } }`,
 			want: 0,
 		},
 	}
@@ -58,13 +58,7 @@ func timeoutExecutor(t *testing.T, src string) *Executor {
 
 func TestApplyTimeoutFailsAnOverrunningStep(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    slow: {
-      x: { @timeout: '20ms', delay-ms: 500 }
-    }
-  }
-}
+actions: { core.slow.x: { @timeout: '20ms', delay-ms: 500 } }
 `
 	_, err := planAndApply(timeoutExecutor(t, src))
 	require.Error(t, err)
@@ -73,13 +67,7 @@ actions: {
 
 func TestApplyTimeoutAllowsAStepThatFinishesInTime(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    slow: {
-      x: { @timeout: '5s', delay-ms: 5 }
-    }
-  }
-}
+actions: { core.slow.x: { @timeout: '5s', delay-ms: 5 } }
 `
 	_, err := planAndApply(timeoutExecutor(t, src))
 	require.NoError(t, err)

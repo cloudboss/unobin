@@ -19,13 +19,7 @@ func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 		},
 	}
 	src := `
-resources: {
-  slow: {
-    fail: {
-      boom: { name: 'boom', delay-ms: 5 }
-    }
-  }
-}
+resources: { slow.fail.boom: { name: 'boom', delay-ms: 5 } }
 `
 	exec := &Executor{
 		DAG:         BuildDAG(parseStack(t, src), libs),
@@ -59,18 +53,9 @@ func TestApplyErrorCountsSkippedAndSucceeded(t *testing.T) {
 	}
 	src := `
 resources: {
-  slow: {
-    fail: {
-      upstream: { name: 'upstream', delay-ms: 5 }
-    }
-    r: {
-      sibling: { name: 'sibling', delay-ms: 5 }
-      after-upstream: {
-        name:     resource.slow.fail.upstream.name
-        delay-ms: 5
-      }
-    }
-  }
+  slow.fail.upstream:    { name: 'upstream', delay-ms: 5 }
+  slow.r.sibling:        { name: 'sibling', delay-ms: 5 }
+  slow.r.after-upstream: { name: resource.slow.fail.upstream.name, delay-ms: 5 }
 }
 `
 	exec := &Executor{

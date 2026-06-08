@@ -62,27 +62,19 @@ imports: {
 }
 
 resources: {
-  deploy: {
-    service: {
-      app: {
-        name:     'app'
-        tier:     var.tier
-        image:    var.image
-        build:    var.build
-        replicas: @core.length(var.replicas)
-        ports:    [ for r in var.replicas : { number: r.port, tls: r.tls, cert: r.cert } ]
-        path:     $'{{ var.base-path }}/app.service'
-      }
-    }
+  deploy.service.app: {
+    name:     'app'
+    tier:     var.tier
+    image:    var.image
+    build:    var.build
+    replicas: @core.length(var.replicas)
+    ports:    [ for r in var.replicas : { number: r.port, tls: r.tls, cert: r.cert } ]
+    path:     $'{{ var.base-path }}/app.service'
   }
-  std: {
-    fs-file: {
-      summary: {
-        path:             $'{{ var.base-path }}/replicas.txt'
-        content:          $'replicas: {{ @core.join(var.replicas[*].host, ', ') }}\n'
-        create-directory: true
-      }
-    }
+  std.fs-file.summary: {
+    path:             $'{{ var.base-path }}/replicas.txt'
+    content:          $'replicas: {{ @core.join(var.replicas[*].host, ', ') }}\n'
+    create-directory: true
   }
 }
 

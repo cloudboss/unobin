@@ -461,7 +461,22 @@ Pair <- key:Key _ ":" _ value:Value _ ","? _ {
 }
 
 
-Key <- IdentKey / StringKey
+Key <- DottedKey / IdentKey / StringKey
+
+// A dotted key names a resource, data, or action declaration by its
+// address tail: alias.type.name. A bare identifier has no dot, so it
+// falls through to IdentKey.
+DottedKey <- root:IdentText segs:DottedKeyTail+ {
+	parts := []string{root.(string)}
+	for _, s := range segs.([]any) {
+		parts = append(parts, s.(string))
+	}
+	return FieldKey{S: c.span(), Kind: FieldPath, Path: parts}, nil
+}
+
+DottedKeyTail <- "." name:IdentText {
+	return name, nil
+}
 
 IdentKey <- name:IdentText {
 	return FieldKey{S: c.span(), Kind: FieldIdent, Name: name.(string)}, nil

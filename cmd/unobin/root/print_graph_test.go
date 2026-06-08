@@ -19,17 +19,11 @@ func writeStack(t *testing.T, dir, body string) string {
 func TestPrintGraphPlain(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-plain")
 	stackPath := writeStack(t, dir, `
-inputs: { msg: { type: string } }
-imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
-}
+inputs:  { msg: { type: string } }
+imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: {
-  core: {
-    command: {
-      first:  { argv: ['echo', var.msg] }
-      second: { argv: ['echo', action.core.command.first.stdout] }
-    }
-  }
+  core.command.first:  { argv: ['echo', var.msg] }
+  core.command.second: { argv: ['echo', action.core.command.first.stdout] }
 }
 `)
 	writeCompileLock(t, dir, map[string]string{
@@ -50,17 +44,11 @@ action.core.command.second
 func TestPrintGraphDOT(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-dot")
 	stackPath := writeStack(t, dir, `
-inputs: { msg: { type: string } }
-imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
-}
+inputs:  { msg: { type: string } }
+imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: {
-  core: {
-    command: {
-      first:  { argv: ['echo', var.msg] }
-      second: { argv: ['echo', action.core.command.first.stdout] }
-    }
-  }
+  core.command.first:  { argv: ['echo', var.msg] }
+  core.command.second: { argv: ['echo', action.core.command.first.stdout] }
 }
 `)
 	writeCompileLock(t, dir, map[string]string{
@@ -114,45 +102,20 @@ func TestPrintGraphExpandsLocalUBLibraryComposite(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "resource-greeting.ub"), []byte(`
 description: 'Greeting composite'
 
-inputs: {
-  message: { type: string }
-}
+inputs: { message: { type: string } }
 
-imports: {
-  local: 'github.com/cloudboss/unobin//pkg/libraries/local'
-}
+imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
 
-resources: {
-  local: {
-    file: {
-      this: {
-        path:    '/tmp/greeting'
-        content: var.message
-      }
-    }
-  }
-}
+resources: { local.file.this: { path: '/tmp/greeting', content: var.message } }
 
-outputs: {
-  path: { value: resource.local.file.this.path }
-}
+outputs: { path: { value: resource.local.file.this.path } }
 `), 0o644))
 
 	stackDir := filepath.Join(root, "stack")
 	stackPath := writeStack(t, stackDir, `
-inputs: { who: { type: string } }
-imports: {
-  greeter: '../greeter'
-}
-resources: {
-  greeter: {
-    greeting: {
-      hello: {
-        message: var.who
-      }
-    }
-  }
-}
+inputs:    { who: { type: string } }
+imports:   { greeter: '../greeter' }
+resources: { greeter.greeting.hello: { message: var.who } }
 `)
 	writeCompileLock(t, stackDir, map[string]string{
 		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",

@@ -277,11 +277,7 @@ func TestValidateChecksCallsInNestedExpressions(t *testing.T) {
 	src := `
 imports: { core: 'github.com/x/core' }
 resources: {
-  core: {
-    thing: {
-      one: { name: lib.upper('hi') }
-    }
-  }
+  core.thing.one: { name: lib.upper('hi') }
 }
 `
 	f, err := ParseSource("main.ub", []byte(src))
@@ -388,12 +384,12 @@ func TestValidateCallsTypePositions(t *testing.T) {
 		},
 		{
 			"type attribute in a resource body",
-			`resources: { core: { thing: { it: { type: pick() } } } }`,
+			`resources: { core.thing.it: { type: pick() } }`,
 			"must be qualified",
 		},
 		{
 			"type attribute in a data body",
-			`data: { core: { lookup: { it: { type: pick() } } } }`,
+			`data: { core.lookup.it: { type: pick() } }`,
 			"must be qualified",
 		},
 		{"constructor name in value position", `outputs: { o: { value: list(1) } }`, "must be qualified"},
@@ -1511,26 +1507,16 @@ func TestValidateFileUnknownKind(t *testing.T) {
 func TestValidateResourcesHappy(t *testing.T) {
 	src := `
 resources: {
-  aws: {
-    vpc: {
-      main: {
-        cidr-block: '10.0.0.0/16'
-        tags: { Name: 'prod' }
-      }
-    }
-    security-group: {
-      web: {
-        @depends-on: [resource.aws.vpc.main]
-        vpc-id:      resource.aws.vpc.main.id
-      }
-    }
+  aws.vpc.main: {
+    cidr-block: '10.0.0.0/16'
+    tags: { Name: 'prod' }
   }
-  net: {
-    cluster: {
-      web: {
-        size: 3
-      }
-    }
+  aws.security-group.web: {
+    @depends-on: [resource.aws.vpc.main]
+    vpc-id:      resource.aws.vpc.main.id
+  }
+  net.cluster.web: {
+    size: 3
   }
 }
 `
@@ -1541,11 +1527,7 @@ resources: {
 func TestValidateResourcesRejectsBadShape(t *testing.T) {
 	src := `
 resources: {
-  aws: {
-    vpc: {
-      main: 'not-an-object'
-    }
-  }
+  aws.vpc.main: 'not-an-object'
 }
 `
 	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
@@ -1553,26 +1535,22 @@ resources: {
 	require.Contains(t, errs.Errors()[0].Msg, "body must be an object")
 }
 
-func TestValidateResourcesRejectsMetaAtAlias(t *testing.T) {
+func TestValidateResourcesRejectsNonDottedKey(t *testing.T) {
 	src := `
 resources: {
-  @bad: { vpc: { main: {} } }
+  aws: { vpc: { main: {} } }
 }
 `
 	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
 	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "@bad")
+	require.Contains(t, errs.Errors()[0].Msg, "dotted alias.type.name key")
 }
 
 func TestValidateResourcesDuplicateName(t *testing.T) {
 	src := `
 resources: {
-  aws: {
-    vpc: {
-      main: { cidr: '10.0.0.0/16' }
-      main: { cidr: '10.1.0.0/16' }
-    }
-  }
+  aws.vpc.main: { cidr: '10.0.0.0/16' }
+  aws.vpc.main: { cidr: '10.1.0.0/16' }
 }
 `
 	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
@@ -1580,27 +1558,23 @@ resources: {
 	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
 }
 
-func TestValidateResourcesAliasNotObject(t *testing.T) {
+func TestValidateResourcesRejectsShortKey(t *testing.T) {
 	src := `
 resources: {
-  aws: 'oops'
+  aws.vpc: { main: {} }
 }
 `
 	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
 	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "must be an object of type names")
+	require.Contains(t, errs.Errors()[0].Msg, "three segments")
 }
 
 func TestValidateDataSourcesHappy(t *testing.T) {
 	src := `
 data: {
-  aws: {
-    ami: {
-      ubuntu: {
-        most-recent: true
-        owners:      ['099720109477']
-      }
-    }
+  aws.ami.ubuntu: {
+    most-recent: true
+    owners:      ['099720109477']
   }
 }
 `
@@ -1611,13 +1585,9 @@ data: {
 func TestValidateActionsHappy(t *testing.T) {
 	src := `
 actions: {
-  core: {
-    command: {
-      smoke-test: {
-        @trigger: 'always'
-        execute:  'curl -fsS https://example/health'
-      }
-    }
+  core.command.smoke-test: {
+    @trigger: 'always'
+    execute:  'curl -fsS https://example/health'
   }
 }
 `
@@ -1673,13 +1643,13 @@ func TestValidateBodyMetaKeys(t *testing.T) {
 			var errs *ErrorList
 			switch tt.block {
 			case "resources":
-				src := "resources: { aws: { vpc: { this: { " + tt.body + " } } } }\n"
+				src := "resources: { aws.vpc.this: { " + tt.body + " } }\n"
 				errs = ValidateResources(parseObjectBlock(t, src, "resources"))
 			case "data":
-				src := "data: { aws: { ami: { this: { " + tt.body + " } } } }\n"
+				src := "data: { aws.ami.this: { " + tt.body + " } }\n"
 				errs = ValidateDataSources(parseObjectBlock(t, src, "data"))
 			case "actions":
-				src := "actions: { core: { command: { run: { " + tt.body + " } } } }\n"
+				src := "actions: { core.command.run: { " + tt.body + " } }\n"
 				errs = ValidateActions(parseObjectBlock(t, src, "actions"))
 			}
 			var got []string
@@ -1702,18 +1672,10 @@ inputs: {
   size: { type: optional(integer, 3) }
 }
 resources: {
-  aws: {
-    vpc: {
-      main: { cidr-block: '10.0.0.0/16' }
-    }
-  }
+  aws.vpc.main: { cidr-block: '10.0.0.0/16' }
 }
 actions: {
-  core: {
-    command: {
-      smoke: { @trigger: 'always', execute: 'echo' }
-    }
-  }
+  core.command.smoke: { @trigger: 'always', execute: 'echo' }
 }
 `
 	f, err := ParseSource("main.ub", []byte(src))

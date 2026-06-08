@@ -25,7 +25,7 @@ func TestValidateCompositeBody(t *testing.T) {
 			name: "data with output and a data source",
 			kind: "data",
 			src: `
-data: { aws: { ami: { x: { most-recent: true } } } }
+data:    { aws.ami.x: { most-recent: true } }
 outputs: { id: { value: data.aws.ami.x.id } }
 `,
 		},
@@ -37,15 +37,15 @@ outputs: { id: { value: data.aws.ami.x.id } }
 		{
 			name: "data without output",
 			kind: "data",
-			src:  `data: { aws: { ami: { x: { most-recent: true } } } }`,
+			src:  `data: { aws.ami.x: { most-recent: true } }`,
 			want: []string{`composite "thing" (data): a data composite must declare at least one output`},
 		},
 		{
 			name: "data with a resource",
 			kind: "data",
 			src: `
-resources: { aws: { vpc: { m: {} } } }
-outputs: { id: { value: 'x' } }
+resources: { aws.vpc.m: {} }
+outputs:   { id: { value: 'x' } }
 `,
 			want: []string{`composite "thing" (data): a data composite must not contain resources`},
 		},
@@ -53,7 +53,7 @@ outputs: { id: { value: 'x' } }
 			name: "data with an action",
 			kind: "data",
 			src: `
-actions: { core: { command: { c: { argv: ['x'] } } } }
+actions: { core.command.c: { argv: ['x'] } }
 outputs: { id: { value: 'x' } }
 `,
 			want: []string{`composite "thing" (data): a data composite must not contain actions`},
@@ -62,8 +62,8 @@ outputs: { id: { value: 'x' } }
 			name: "data with every violation",
 			kind: "data",
 			src: `
-resources: { aws: { vpc: { m: {} } } }
-actions: { core: { command: { c: { argv: ['x'] } } } }
+resources: { aws.vpc.m: {} }
+actions:   { core.command.c: { argv: ['x'] } }
 `,
 			want: []string{
 				`composite "thing" (data): a data composite must declare at least one output`,
@@ -80,14 +80,14 @@ actions: { core: { command: { c: { argv: ['x'] } } } }
 		{
 			name: "action with an action",
 			kind: "action",
-			src:  `actions: { core: { command: { c: { argv: ['x'] } } } }`,
+			src:  `actions: { core.command.c: { argv: ['x'] } }`,
 		},
 		{
 			name: "action with data is allowed",
 			kind: "action",
 			src: `
-data: { aws: { ami: { x: {} } } }
-actions: { core: { command: { c: { argv: ['x'] } } } }
+data:    { aws.ami.x: {} }
+actions: { core.command.c: { argv: ['x'] } }
 `,
 		},
 		{
@@ -100,15 +100,15 @@ actions: { core: { command: { c: { argv: ['x'] } } } }
 			name: "action with a resource",
 			kind: "action",
 			src: `
-resources: { aws: { vpc: { m: {} } } }
-actions: { core: { command: { c: { argv: ['x'] } } } }
+resources: { aws.vpc.m: {} }
+actions:   { core.command.c: { argv: ['x'] } }
 `,
 			want: []string{`composite "thing" (action): an action composite must not contain resources`},
 		},
 		{
 			name: "action with a resource and no action",
 			kind: "action",
-			src:  `resources: { aws: { vpc: { m: {} } } }`,
+			src:  `resources: { aws.vpc.m: {} }`,
 			want: []string{
 				`composite "thing" (action): an action composite must contain at least one action`,
 				`composite "thing" (action): an action composite must not contain resources`,
@@ -117,21 +117,21 @@ actions: { core: { command: { c: { argv: ['x'] } } } }
 		{
 			name: "resource with a resource",
 			kind: "resource",
-			src:  `resources: { aws: { vpc: { m: {} } } }`,
+			src:  `resources: { aws.vpc.m: {} }`,
 		},
 		{
 			name: "resource with data and actions is allowed",
 			kind: "resource",
 			src: `
-resources: { aws: { vpc: { m: {} } } }
-data: { aws: { ami: { x: {} } } }
-actions: { core: { command: { c: { argv: ['x'] } } } }
+resources: { aws.vpc.m: {} }
+data:      { aws.ami.x: {} }
+actions:   { core.command.c: { argv: ['x'] } }
 `,
 		},
 		{
 			name: "resource without a resource",
 			kind: "resource",
-			src:  `data: { aws: { ami: { x: {} } } }`,
+			src:  `data: { aws.ami.x: {} }`,
 			want: []string{`composite "thing" (resource): a resource composite must contain at least one resource`},
 		},
 		{

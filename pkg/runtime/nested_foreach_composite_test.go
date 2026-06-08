@@ -13,22 +13,14 @@ import (
 // resource inside and outputs chained through both boundaries.
 func TestForEachCompositeCallingComposite(t *testing.T) {
 	inner := parseStack(t, `
-inputs: { tag: { type: string } }
-resources: {
-  core: { subnet: { s: { tag: var.tag } } }
-}
-outputs: {
-  id: { value: resource.core.subnet.s.id }
-}
+inputs:    { tag: { type: string } }
+resources: { core.subnet.s: { tag: var.tag } }
+outputs:   { id: { value: resource.core.subnet.s.id } }
 `)
 	outer := parseStack(t, `
-inputs: { t: { type: string } }
-resources: {
-  w: { inner: { i: { tag: var.t } } }
-}
-outputs: {
-  id: { value: resource.w.inner.i.id }
-}
+inputs:    { t: { type: string } }
+resources: { w.inner.i: { tag: var.t } }
+outputs:   { id: { value: resource.w.inner.i.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -46,16 +38,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w: { outer: { x: {
-    @for-each: { a: 'one', b: 'two' }
-    t: @each.value
-  } } }
-}
-outputs: {
-  ida: { value: resource.w.outer.x['a'].id }
-  idb: { value: resource.w.outer.x['b'].id }
-}
+resources: { w.outer.x: { @for-each: { a: 'one', b: 'two' }, t: @each.value } }
+outputs: { ida: { value: resource.w.outer.x['a'].id }, idb: { value: resource.w.outer.x['b'].id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -89,17 +73,8 @@ outputs: {
 // the compile check refuses it, naming the node.
 func TestForEachLeafInsideForEachCompositeRejected(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { tags: { type: map(string) } }
-resources: {
-  core: {
-    subnet: {
-      it: {
-        @for-each: var.tags
-        tag:       @each.value
-      }
-    }
-  }
-}
+inputs:    { tags: { type: map(string) } }
+resources: { core.subnet.it: { @for-each: var.tags, tag: @each.value } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -116,12 +91,7 @@ resources: {
 		},
 	}
 	src := `
-resources: {
-  w: { outer: { x: {
-    @for-each: { a: 'one' }
-    tags: { t1: 'one' }
-  } } }
-}
+resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
 `
 	errs := CheckForEachNesting(parseStack(t, src), libs)
 	require.Equal(t, 1, errs.Len())
@@ -134,23 +104,12 @@ resources: {
 // the same way.
 func TestForEachCompositeInsideForEachCompositeRejected(t *testing.T) {
 	inner := parseStack(t, `
-inputs: { tag: { type: string } }
-resources: {
-  core: { subnet: { s: { tag: var.tag } } }
-}
+inputs:    { tag: { type: string } }
+resources: { core.subnet.s: { tag: var.tag } }
 `)
 	outer := parseStack(t, `
-inputs: { tags: { type: map(string) } }
-resources: {
-  w: {
-    inner: {
-      i: {
-        @for-each: var.tags
-        tag:       @each.value
-      }
-    }
-  }
-}
+inputs:    { tags: { type: map(string) } }
+resources: { w.inner.i: { @for-each: var.tags, tag: @each.value } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -168,12 +127,7 @@ resources: {
 		},
 	}
 	src := `
-resources: {
-  w: { outer: { x: {
-    @for-each: { a: 'one' }
-    tags: { t1: 'one' }
-  } } }
-}
+resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
 `
 	errs := CheckForEachNesting(parseStack(t, src), libs)
 	require.Equal(t, 1, errs.Len())
@@ -186,23 +140,12 @@ resources: {
 // plain internals, and a plain composite holding a @for-each leaf.
 func TestForEachWithoutNestingPasses(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { tag: { type: string } }
-resources: {
-  core: { subnet: { s: { tag: var.tag } } }
-}
+inputs:    { tag: { type: string } }
+resources: { core.subnet.s: { tag: var.tag } }
 `)
 	plainWithForEach := parseStack(t, `
-inputs: { tags: { type: map(string) } }
-resources: {
-  core: {
-    subnet: {
-      it: {
-        @for-each: var.tags
-        tag:       @each.value
-      }
-    }
-  }
-}
+inputs:    { tags: { type: map(string) } }
+resources: { core.subnet.it: { @for-each: var.tags, tag: @each.value } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -221,13 +164,8 @@ resources: {
 	}
 	src := `
 resources: {
-  w: {
-    slice: { x: {
-      @for-each: { a: 'one' }
-      tag: @each.value
-    } }
-    plain: { y: { tags: { t1: 'one' } } }
-  }
+  w.slice.x: { @for-each: { a: 'one' }, tag: @each.value }
+  w.plain.y: { tags: { t1: 'one' } }
 }
 `
 	errs := CheckForEachNesting(parseStack(t, src), libs)
@@ -246,16 +184,10 @@ outputs: {
 }
 `)
 	outer := parseStack(t, `
-inputs: { t: { type: string } }
-data: {
-  w: { label: { i: { note: var.t } } }
-}
-resources: {
-  core: { subnet: { s: { tag: var.t } } }
-}
-outputs: {
-  marker: { value: data.w.label.i.marker }
-}
+inputs:    { t: { type: string } }
+data:      { w.label.i: { note: var.t } }
+resources: { core.subnet.s: { tag: var.t } }
+outputs:   { marker: { value: data.w.label.i.marker } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -275,15 +207,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w: { outer: { x: {
-    @for-each: { a: 'one' }
-    t: @each.value
-  } } }
-}
-outputs: {
-  m: { value: resource.w.outer.x['a'].marker }
-}
+resources: { w.outer.x: { @for-each: { a: 'one' }, t: @each.value } }
+outputs:   { m: { value: resource.w.outer.x['a'].marker } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}

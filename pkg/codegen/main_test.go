@@ -232,7 +232,7 @@ func main() {
 
 func TestGenerateValidGo(t *testing.T) {
 	out, err := Generate(Input{
-		Body:        "actions: { core: { command: { hi: { argv: ['echo', 'world'] } } } }\n",
+		Body:        "actions: { core.command.hi: { argv: ['echo', 'world'] } }\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
@@ -275,7 +275,7 @@ func TestGenerateDeclaresStampVars(t *testing.T) {
 }
 
 func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
-	src := "actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"
+	src := "actions: { core.command.x: { argv: ['echo', \"with quotes\"] } }"
 	out, err := Generate(Input{
 		Body:        src,
 		FactoryName: "x",
@@ -283,7 +283,7 @@ func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Contains(t, string(out), `"actions: { core: { command: { x: { argv: ['echo', \"with quotes\"] } } } }"`)
+	require.Contains(t, string(out), `"actions: { core.command.x: { argv: ['echo', \"with quotes\"] } }"`)
 }
 
 func TestGenerateOrdersImports(t *testing.T) {

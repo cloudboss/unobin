@@ -60,14 +60,7 @@ func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 		},
 	}
 	src := `
-resources: {
-  r: {
-    thing: {
-      one: { name: 'one' }
-      two: { name: 'two' }
-    }
-  }
-}
+resources: { r.thing.one: { name: 'one' }, r.thing.two: { name: 'two' } }
 `
 	events := make(chan ApplyEvent, 32)
 	exec := &Executor{
@@ -110,13 +103,7 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 		},
 	}
 	src := `
-resources: {
-  r: {
-    thing: {
-      bad: { name: 'bad' }
-    }
-  }
-}
+resources: { r.thing.bad: { name: 'bad' } }
 `
 	events := make(chan ApplyEvent, 8)
 	exec := &Executor{

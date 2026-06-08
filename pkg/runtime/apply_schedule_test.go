@@ -87,12 +87,12 @@ func TestApplyScheduleRunsIndependentLeavesInParallel(t *testing.T) {
 		serialUB = 7 * delay
 	)
 	var src strings.Builder
-	src.WriteString("resources: {\n  slow: {\n    r: {\n")
+	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: %d }\n",
+		src.WriteString(fmt.Sprintf("  slow.r.n%d: { name: 'n%d', delay-ms: %d }\n",
 			i, i, delay.Milliseconds()))
 	}
-	src.WriteString("    }\n  }\n}\n")
+	src.WriteString("}\n")
 
 	libs := slowLibraries()
 	exec := &Executor{
@@ -117,12 +117,12 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 		delay = 100 * time.Millisecond
 	)
 	var src strings.Builder
-	src.WriteString("resources: {\n  slow: {\n    r: {\n")
+	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: %d }\n",
+		src.WriteString(fmt.Sprintf("  slow.r.n%d: { name: 'n%d', delay-ms: %d }\n",
 			i, i, delay.Milliseconds()))
 	}
-	src.WriteString("    }\n  }\n}\n")
+	src.WriteString("}\n")
 
 	libs := slowLibraries()
 	exec := &Executor{
@@ -185,15 +185,9 @@ func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 	}
 	src := `
 resources: {
-  slow: {
-    fail: {
-      boom: { name: 'boom', delay-ms: 50 }
-    }
-    r: {
-      a: { name: 'a', delay-ms: 300 }
-      b: { name: 'b', delay-ms: 300 }
-    }
-  }
+  slow.fail.boom: { name: 'boom', delay-ms: 50 }
+  slow.r.a:       { name: 'a', delay-ms: 300 }
+  slow.r.b:       { name: 'b', delay-ms: 300 }
 }
 `
 	exec := &Executor{
@@ -225,17 +219,8 @@ func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 	}
 	src := `
 resources: {
-  slow: {
-    fail: {
-      upstream: { name: 'upstream', delay-ms: 10 }
-    }
-    r: {
-      downstream: {
-        name:     resource.slow.fail.upstream.name
-        delay-ms: 100
-      }
-    }
-  }
+  slow.fail.upstream: { name: 'upstream', delay-ms: 10 }
+  slow.r.downstream:  { name: resource.slow.fail.upstream.name, delay-ms: 100 }
 }
 `
 	exec := &Executor{

@@ -111,6 +111,8 @@ func encodeFieldKey(b *strings.Builder, k lang.FieldKey) {
 	switch k.Kind {
 	case lang.FieldString:
 		b.WriteString("lang.FieldString")
+	case lang.FieldPath:
+		b.WriteString("lang.FieldPath")
 	default:
 		b.WriteString("lang.FieldIdent")
 	}
@@ -119,6 +121,16 @@ func encodeFieldKey(b *strings.Builder, k lang.FieldKey) {
 	}
 	if k.String != "" {
 		fmt.Fprintf(b, ", String: %s", strconv.Quote(k.String))
+	}
+	if len(k.Path) > 0 {
+		b.WriteString(", Path: []string{")
+		for i, seg := range k.Path {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(strconv.Quote(seg))
+		}
+		b.WriteString("}")
 	}
 	b.WriteString("}")
 }

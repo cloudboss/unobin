@@ -101,17 +101,8 @@ outputs: {
 
 func TestExecutorActionRuns(t *testing.T) {
 	res, err := runExecutor(t, `
-actions: {
-  core: {
-    echo: {
-      hi: { echo: 'hello' }
-    }
-  }
-}
-outputs: {
-  said:    { value: action.core.echo.hi.echo }
-  letters: { value: action.core.echo.hi.len }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
+outputs: { said: { value: action.core.echo.hi.echo }, letters: { value: action.core.echo.hi.len } }
 `, nil)
 	require.NoError(t, err)
 	require.Equal(t, "hello", res.Outputs["said"])
@@ -120,16 +111,8 @@ outputs: {
 
 func TestExecutorInputFlowsToAction(t *testing.T) {
 	res, err := runExecutor(t, `
-actions: {
-  core: {
-    echo: {
-      greet: { echo: var.name }
-    }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.greet.echo }
-}
+actions: { core.echo.greet: { echo: var.name } }
+outputs: { said: { value: action.core.echo.greet.echo } }
 `, map[string]any{"name": "world"})
 	require.NoError(t, err)
 	require.Equal(t, "world", res.Outputs["said"])
@@ -137,16 +120,8 @@ outputs: {
 
 func TestExecutorDataSource(t *testing.T) {
 	res, err := runExecutor(t, `
-data: {
-  core: {
-    lookup: {
-      it: { key: var.key }
-    }
-  }
-}
-outputs: {
-  found: { value: data.core.lookup.it.value }
-}
+data:    { core.lookup.it: { key: var.key } }
+outputs: { found: { value: data.core.lookup.it.value } }
 `, map[string]any{"key": "abc"})
 	require.NoError(t, err)
 	require.Equal(t, "looked-up:abc", res.Outputs["found"])
@@ -155,16 +130,10 @@ outputs: {
 func TestExecutorActionDependsOnAction(t *testing.T) {
 	res, err := runExecutor(t, `
 actions: {
-  core: {
-    echo: {
-      first:  { echo: 'one' }
-      second: { echo: action.core.echo.first.echo }
-    }
-  }
+  core.echo.first:  { echo: 'one' }
+  core.echo.second: { echo: action.core.echo.first.echo }
 }
-outputs: {
-  result: { value: action.core.echo.second.echo }
-}
+outputs: { result: { value: action.core.echo.second.echo } }
 `, nil)
 	require.NoError(t, err)
 	require.Equal(t, "one", res.Outputs["result"])
@@ -172,13 +141,7 @@ outputs: {
 
 func TestExecutorPropagatesActionError(t *testing.T) {
 	_, err := runExecutor(t, `
-actions: {
-  core: {
-    fail: {
-      f: {}
-    }
-  }
-}
+actions: { core.fail.f: {} }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "action.core.fail.f")
@@ -318,16 +281,8 @@ func fnAllBools(args []any) (any, error) {
 
 func TestExecutorRunsComposite(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  core: {
-    thing: {
-      one: { name: var.name, size: 1 }
-    }
-  }
-}
-outputs: {
-  id: { value: resource.core.thing.one.id }
-}
+resources: { core.thing.one: { name: var.name, size: 1 } }
+outputs:   { id: { value: resource.core.thing.one.id } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -338,12 +293,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w: { box: { x: { name: 'alpha' } } }
-}
-outputs: {
-  out: { value: resource.w.box.x.id }
-}
+resources: { w.box.x: { name: 'alpha' } }
+outputs:   { out: { value: resource.w.box.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -384,14 +335,8 @@ outputs: {
 
 func TestExecutorAppliesDataComposite(t *testing.T) {
 	composite := parseStack(t, `
-data: {
-  core: {
-    lookup: { it: { key: var.key } }
-  }
-}
-outputs: {
-  value: { value: data.core.lookup.it.value }
-}
+data:    { core.lookup.it: { key: var.key } }
+outputs: { value: { value: data.core.lookup.it.value } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
@@ -401,12 +346,8 @@ outputs: {
 		},
 	}
 	src := `
-data: {
-  w: { box: { x: { key: 'abc' } } }
-}
-outputs: {
-  out: { value: data.w.box.x.value }
-}
+data:    { w.box.x: { key: 'abc' } }
+outputs: { out: { value: data.w.box.x.value } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -443,14 +384,8 @@ outputs: {
 
 func TestExecutorAppliesActionComposite(t *testing.T) {
 	composite := parseStack(t, `
-actions: {
-  core: {
-    echo: { it: { echo: var.msg } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.it.echo }
-}
+actions: { core.echo.it: { echo: var.msg } }
+outputs: { said: { value: action.core.echo.it.echo } }
 `)
 	libs := testModules()
 	libs["ops"] = &Library{
@@ -460,12 +395,8 @@ outputs: {
 		},
 	}
 	src := `
-actions: {
-  ops: { greet: { hello: { msg: 'hi' } } }
-}
-outputs: {
-  out: { value: action.ops.greet.hello.said }
-}
+actions: { ops.greet.hello: { msg: 'hi' } }
+outputs: { out: { value: action.ops.greet.hello.said } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -495,17 +426,7 @@ outputs: {
 
 func TestExecutorForEachResourceCreatesPerInstance(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-        size:      @each.value
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
 outputs: {
   alpha-id: { value: resource.core.thing.many['alpha'].id }
   beta-id:  { value: resource.core.thing.many['beta'].id }
@@ -544,17 +465,7 @@ outputs: {
 
 func TestExecutorForEachOrphanInstanceDeleted(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-        size:      @each.value
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -588,16 +499,7 @@ resources: {
 
 func TestExecutorForEachRejectsList(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.items
-        name:      @each.value
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.items, name: @each.value } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -639,8 +541,8 @@ outputs: { shout: { value: core.uppercase(var.name) } }
 		},
 	}
 	src := `
-resources: { wrapper: { layer: { x: { name: 'hi' } } } }
-outputs: { out: { value: resource.wrapper.layer.x.shout } }
+resources: { wrapper.layer.x: { name: 'hi' } }
+outputs:   { out: { value: resource.wrapper.layer.x.shout } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -661,17 +563,11 @@ func TestExecutorCompositeUsesItsOwnModules(t *testing.T) {
 	// is the encapsulation that lets a composite be reusable without the
 	// caller needing to import everything the composite uses transitively.
 	layerBody := parseStack(t, `
-inputs: {
-  name: { type: string }
-}
+inputs: { name: { type: string } }
 
-resources: {
-  core: { thing: { y: { name: var.name, size: 1 } } }
-}
+resources: { core.thing.y: { name: var.name, size: 1 } }
 
-outputs: {
-  id: { value: resource.core.thing.y.id }
-}
+outputs: { id: { value: resource.core.thing.y.id } }
 `)
 	var c resourceCounters
 	// "core" is registered only in the composite's Libraries, never in
@@ -690,12 +586,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  outer-lib: { layer: { x: { name: 'alpha' } } }
-}
-outputs: {
-  out: { value: resource.outer-lib.layer.x.id }
-}
+resources: { outer-lib.layer.x: { name: 'alpha' } }
+outputs:   { out: { value: resource.outer-lib.layer.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -714,34 +606,18 @@ outputs: {
 
 func TestExecutorRunsNestedComposite(t *testing.T) {
 	clusterBody := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
+inputs: { path: { type: string } }
 
-resources: {
-  core: {
-    thing: { x: { name: var.path, size: 1 } }
-  }
-}
+resources: { core.thing.x: { name: var.path, size: 1 } }
 
-outputs: {
-  path: { value: resource.core.thing.x.name }
-}
+outputs: { path: { value: resource.core.thing.x.name } }
 `)
 	layerBody := parseStack(t, `
-inputs: {
-  target: { type: string }
-}
+inputs: { target: { type: string } }
 
-resources: {
-  inner-lib: {
-    cluster: { only: { path: var.target } }
-  }
-}
+resources: { inner-lib.cluster.only: { path: var.target } }
 
-outputs: {
-  path: { value: resource.inner-lib.cluster.only.path }
-}
+outputs: { path: { value: resource.inner-lib.cluster.only.path } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -758,12 +634,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  outer-lib: { layer: { mine: { target: 'alpha' } } }
-}
-outputs: {
-  out: { value: resource.outer-lib.layer.mine.path }
-}
+resources: { outer-lib.layer.mine: { target: 'alpha' } }
+outputs:   { out: { value: resource.outer-lib.layer.mine.path } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -811,34 +683,18 @@ func TestExecutorNestedCompositeEncapsulation(t *testing.T) {
 	// {path}. Outer's outputs reference the boundary's published
 	// outputs, not the leaf's internals.
 	clusterBody := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
+inputs: { path: { type: string } }
 
-resources: {
-  core: {
-    thing: { x: { name: var.path, size: 7 } }
-  }
-}
+resources: { core.thing.x: { name: var.path, size: 7 } }
 
-outputs: {
-  path: { value: resource.core.thing.x.name }
-}
+outputs: { path: { value: resource.core.thing.x.name } }
 `)
 	layerBody := parseStack(t, `
-inputs: {
-  target: { type: string }
-}
+inputs: { target: { type: string } }
 
-resources: {
-  inner-lib: {
-    cluster: { only: { path: var.target } }
-  }
-}
+resources: { inner-lib.cluster.only: { path: var.target } }
 
-outputs: {
-  exposed: { value: resource.inner-lib.cluster.only.path }
-}
+outputs: { exposed: { value: resource.inner-lib.cluster.only.path } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -857,12 +713,8 @@ outputs: {
 
 	t.Run("only published outputs cross the boundary", func(t *testing.T) {
 		src := `
-resources: {
-  outer-lib: { layer: { mine: { target: 'beta' } } }
-}
-outputs: {
-  out: { value: resource.outer-lib.layer.mine.exposed }
-}
+resources: { outer-lib.layer.mine: { target: 'beta' } }
+outputs:   { out: { value: resource.outer-lib.layer.mine.exposed } }
 `
 		store := newStateStore(t)
 		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -899,12 +751,8 @@ outputs: {
 		// The reference must fail at eval time because outer scope holds
 		// only the boundary's published map.
 		src := `
-resources: {
-  outer-lib: { layer: { mine: { target: 'gamma' } } }
-}
-outputs: {
-  leak: { value: resource.outer-lib.layer.mine.size }
-}
+resources: { outer-lib.layer.mine: { target: 'gamma' } }
+outputs:   { leak: { value: resource.outer-lib.layer.mine.size } }
 `
 		store := newStateStore(t)
 		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -923,22 +771,10 @@ outputs: {
 
 func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  key: { type: string }
-}
-data: {
-  core: {
-    lookup: { found: { key: var.key } }
-  }
-}
-actions: {
-  core: {
-    echo: { say: { echo: data.core.lookup.found.value } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.say.echo }
-}
+inputs:  { key: { type: string } }
+data:    { core.lookup.found: { key: var.key } }
+actions: { core.echo.say: { echo: data.core.lookup.found.value } }
+outputs: { said: { value: action.core.echo.say.echo } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
@@ -948,12 +784,8 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w: { box: { x: { key: 'banana' } } }
-}
-outputs: {
-  result: { value: resource.w.box.x.said }
-}
+resources: { w.box.x: { key: 'banana' } }
+outputs:   { result: { value: resource.w.box.x.said } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -988,14 +820,8 @@ outputs: {
 
 func TestExecutorCreatesResource(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: { one: { name: 'alpha', size: 1 } }
-  }
-}
-outputs: {
-  id: { value: resource.core.thing.one.id }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
+outputs:   { id: { value: resource.core.thing.one.id } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1015,11 +841,7 @@ outputs: {
 
 func TestExecutorSameInputsNoCreateOrUpdate(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: { one: { name: 'alpha', size: 1 } }
-  }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	runExecutorTwice(t, src, resourceModules(&c))
@@ -1029,18 +851,10 @@ resources: {
 
 func TestExecutorChangedInputsTriggersUpdate(t *testing.T) {
 	first := `
-resources: {
-  core: {
-    thing: { one: { name: 'alpha', size: 1 } }
-  }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: {
-  core: {
-    thing: { one: { name: 'alpha', size: 9 } }
-  }
-}
+resources: { core.thing.one: { name: 'alpha', size: 9 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1060,18 +874,10 @@ resources: {
 
 func TestExecutorReplaceFieldChangeTriggersDeleteAndCreate(t *testing.T) {
 	first := `
-resources: {
-  core: {
-    thing: { one: { name: 'alpha', size: 1 } }
-  }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: {
-  core: {
-    thing: { one: { name: 'beta', size: 1 } }
-  }
-}
+resources: { core.thing.one: { name: 'beta', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1095,23 +901,10 @@ resources: {
 
 func TestExecutorOrphanResourceDeleted(t *testing.T) {
 	first := `
-resources: {
-  core: {
-    thing: {
-      keep:  { name: 'a', size: 1 }
-      orph:  { name: 'b', size: 2 }
-    }
-  }
-}
+resources: { core.thing.keep: { name: 'a', size: 1 }, core.thing.orph: { name: 'b', size: 2 } }
 `
 	second := `
-resources: {
-  core: {
-    thing: {
-      keep: { name: 'a', size: 1 }
-    }
-  }
-}
+resources: { core.thing.keep: { name: 'a', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1141,9 +934,7 @@ resources: {
 
 func TestExecutorResourceMissingType(t *testing.T) {
 	_, err := runExecutor(t, `
-resources: {
-  core: { not-a-thing: { x: {} } }
-}
+resources: { core.not-a-thing.x: {} }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not-a-thing")
@@ -1151,9 +942,7 @@ resources: {
 
 func TestExecutorUnknownModule(t *testing.T) {
 	_, err := runExecutor(t, `
-actions: {
-  unknown: { echo: { x: { echo: 'hi' } } }
-}
+actions: { unknown.echo.x: { echo: 'hi' } }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown")
@@ -1161,9 +950,7 @@ actions: {
 
 func TestExecutorUnknownActionType(t *testing.T) {
 	_, err := runExecutor(t, `
-actions: {
-  core: { not-a-type: { x: {} } }
-}
+actions: { core.not-a-type.x: {} }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not-a-type")
@@ -1223,11 +1010,7 @@ func TestExecutorPersistsSnapshot(t *testing.T) {
 	libs := testModules()
 	exec := &Executor{
 		DAG: BuildDAG(parseStack(t, `
-actions: {
-  core: {
-    echo: { hi: { echo: 'hello' } }
-  }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `), libs),
 		Libraries: libs,
 		Store:     store,
@@ -1250,11 +1033,7 @@ actions: {
 
 func TestExecutorSkipsActionWhenInputsUnchanged(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: { hi: { echo: 'hello' } }
-  }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
@@ -1264,16 +1043,7 @@ actions: {
 
 func TestExecutorAlwaysTriggerReruns(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: {
-      hi: {
-        @trigger: 'always'
-        echo:     'hello'
-      }
-    }
-  }
-}
+actions: { core.echo.hi: { @trigger: 'always', echo: 'hello' } }
 `
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
@@ -1283,16 +1053,7 @@ actions: {
 
 func TestExecutorExplicitTriggerSkipsWhenSame(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: {
-      hi: {
-        @trigger: 'fixed-key'
-        echo:     'hello'
-      }
-    }
-  }
-}
+actions: { core.echo.hi: { @trigger: 'fixed-key', echo: 'hello' } }
 `
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
@@ -1450,14 +1211,8 @@ func TestConfigRefString(t *testing.T) {
 
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: { hi: { echo: 'cached-value' } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+actions: { core.echo.hi: { echo: 'cached-value' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	var runs int64
 	first, second := runExecutorTwice(t, src, countingModules(&runs))

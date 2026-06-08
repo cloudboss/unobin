@@ -182,7 +182,7 @@ func (w *formatter) hasBlankLineBetween(prev, next *Field) bool {
 // starts at the same column as every other field in the group.
 func (w *formatter) writeField(field *Field, indent string, keyCol int) error {
 	w.buf.WriteString(indent)
-	rendered := RenderKey(fieldKeyString(field.Key))
+	rendered := renderFieldKey(field.Key)
 	w.buf.WriteString(rendered)
 	w.buf.WriteByte(':')
 	for n := keyCol - len(rendered) + 1; n > 0; n-- {
@@ -230,7 +230,18 @@ func (w *formatter) isSingleLineField(field *Field) bool {
 }
 
 func keyWidth(k FieldKey) int {
-	return len(RenderKey(fieldKeyString(k)))
+	return len(renderFieldKey(k))
+}
+
+// renderFieldKey renders a field key as its source text. A dotted path
+// key joins its segments, each already a bare identifier; the other
+// forms defer to RenderKey, which quotes text that is not a bare
+// identifier.
+func renderFieldKey(k FieldKey) string {
+	if k.Kind == FieldPath {
+		return strings.Join(k.Path, ".")
+	}
+	return RenderKey(fieldKeyString(k))
 }
 
 func fieldKeyString(k FieldKey) string {
@@ -1251,7 +1262,7 @@ func (w *formatter) writeObjectInline(o *ObjectLit) error {
 		if i > 0 {
 			w.buf.WriteString(", ")
 		}
-		w.buf.WriteString(RenderKey(fieldKeyString(f.Key)))
+		w.buf.WriteString(renderFieldKey(f.Key))
 		w.buf.WriteString(": ")
 		if err := w.writeExpr(f.Value, ""); err != nil {
 			return err

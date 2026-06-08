@@ -22,24 +22,19 @@ locals: {
 }
 
 resources: {
-  std: {
-    fs-file: {
-      summary: {
-        path: var.path
-        content: $'''\-
-          environment={{ var.environment }} replicas=
-          {{ local.replicas }} public={{ @core.join(local.public-names, ',') }}
-          '''
-      }
-    }
+  std.fs-file.summary: {
+    path: var.path
+    content: $'''>-
+      environment={{ var.environment }} replicas={{ local.replicas }}
+      public={{ @core.join(local.public-names, ',') }}
+      '''
   }
 }
 
 actions: {
-  std: {
-    exec-command: {
-      read-back: { @trigger: resource.std.fs-file.summary.sha256, argv: ['cat', var.path] }
-    }
+  std.exec-command.read-back: {
+    @trigger: resource.std.fs-file.summary.sha256
+    argv:     ['cat', var.path]
   }
 }
 

@@ -399,12 +399,8 @@ func TestCompileToStdout(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	stackPath := filepath.Join(dir, "main.ub")
 	src := `
-imports: {
-  core: 'github.com/cloudboss/unobin/pkg/libraries/core'
-}
-actions: {
-  core: { command: { hi: { argv: ['echo', 'hi'] } } }
-}
+imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }
+actions: { core.command.hi: { argv: ['echo', 'hi'] } }
 `
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
 	writeCompileLock(t, dir, map[string]string{
@@ -669,13 +665,7 @@ imports: {
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(netDir, "resource-cluster.ub"), []byte(`
 description: 'a cluster'
-resources: {
-  local: {
-    file: {
-      x: { path: '/tmp/x', content: 'hi', mode: 420 }
-    }
-  }
-}
+resources:   { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `), 0o644))
 
 	awsDir := t.TempDir()
@@ -901,13 +891,7 @@ func TestCompileInvalidReferenceFails(t *testing.T) {
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
-resources: {
-  local: {
-    file: {
-      bad: { path: var.missing }
-    }
-  }
-}
+resources: { local.file.bad: { path: var.missing } }
 `), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
@@ -919,16 +903,8 @@ func TestCompileUnimportedResourceModuleFails(t *testing.T) {
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
-imports: {
-  std: 'github.com/cloudboss/unobin-library-std'
-}
-resources: {
-  greeter: {
-    greeting: {
-      welcome: { message: 'hello' }
-    }
-  }
-}
+imports:   { std: 'github.com/cloudboss/unobin-library-std' }
+resources: { greeter.greeting.welcome: { message: 'hello' } }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin-library-std": "v0.1.0",
@@ -945,19 +921,9 @@ func TestCompileUnknownTrailingFieldFails(t *testing.T) {
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
-imports: {
-  fake: 'example.com/fake'
-}
-resources: {
-  fake: {
-    thing: {
-      x: {}
-    }
-  }
-}
-outputs: {
-  bad: { value: resource.fake.thing.x.nonexistent }
-}
+imports:   { fake: 'example.com/fake' }
+resources: { fake.thing.x: {} }
+outputs:   { bad: { value: resource.fake.thing.x.nonexistent } }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{"example.com/fake": "v0.1.0"})
 
@@ -977,19 +943,9 @@ func TestCompileAcceptsKnownTrailingField(t *testing.T) {
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
-imports: {
-  fake: 'example.com/fake'
-}
-resources: {
-  fake: {
-    thing: {
-      x: {}
-    }
-  }
-}
-outputs: {
-  good: { value: resource.fake.thing.x.id }
-}
+imports:   { fake: 'example.com/fake' }
+resources: { fake.thing.x: {} }
+outputs:   { good: { value: resource.fake.thing.x.id } }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{"example.com/fake": "v0.1.0"})
 
@@ -1056,16 +1012,8 @@ type Thing struct{}
 	dir := t.TempDir()
 	stackPath := filepath.Join(dir, "main.ub")
 	require.NoError(t, os.WriteFile(stackPath, []byte(`
-imports: {
-  partial: 'example.com/partial'
-}
-resources: {
-  partial: {
-    thing: {
-      x: {}
-    }
-  }
-}
+imports:   { partial: 'example.com/partial' }
+resources: { partial.thing.x: {} }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{"example.com/partial": "v0.1.0"})
 
@@ -1141,24 +1089,24 @@ func TestCompileEnforcesCompositeFloors(t *testing.T) {
 		{
 			name: "valid action composite",
 			file: "action-deploy.ub",
-			body: "actions: { core: { command: { c: { argv: ['echo'] } } } }\n",
+			body: "actions: { core.command.c: { argv: ['echo'] } }\n",
 		},
 		{
 			name: "valid resource composite",
 			file: "resource-box.ub",
-			body: "resources: { local: { file: { x: { path: '/tmp/x' } } } }\n",
+			body: "resources: { local.file.x: { path: '/tmp/x' } }\n",
 		},
 		{
 			name: "data without output",
 			file: "data-lookup.ub",
-			body: "data: { aws: { ami: { x: { most-recent: true } } } }\n",
+			body: "data: { aws.ami.x: { most-recent: true } }\n",
 			wantErr: `import "lib": composite "lookup" (data): ` +
 				`a data composite must declare at least one output`,
 		},
 		{
 			name: "data with a resource",
 			file: "data-lookup.ub",
-			body: "resources: { local: { file: { x: {} } } }\n" +
+			body: "resources: { local.file.x: {} }\n" +
 				"outputs: { id: { value: 'x' } }\n",
 			wantErr: `import "lib": composite "lookup" (data): ` +
 				`a data composite must not contain resources`,
@@ -1173,7 +1121,7 @@ func TestCompileEnforcesCompositeFloors(t *testing.T) {
 		{
 			name: "resource without a resource",
 			file: "resource-box.ub",
-			body: "data: { aws: { ami: { x: {} } } }\n",
+			body: "data: { aws.ami.x: {} }\n",
 			wantErr: `import "lib": composite "box" (resource): ` +
 				`a resource composite must contain at least one resource`,
 		},
@@ -1192,8 +1140,8 @@ func TestCompileEnforcesCompositeFloors(t *testing.T) {
 
 func TestCompileReportsAllCompositeViolationsInOrder(t *testing.T) {
 	files := map[string]string{
-		"data-a.ub":     "data: { aws: { ami: { x: {} } } }\n",
-		"resource-b.ub": "data: { aws: { ami: { x: {} } } }\n",
+		"data-a.ub":     "data: { aws.ami.x: {} }\n",
+		"resource-b.ub": "data: { aws.ami.x: {} }\n",
 	}
 	want := `import "lib": composite "a" (data): a data composite must declare at least one output
 composite "b" (resource): a resource composite must contain at least one resource`
@@ -1221,13 +1169,7 @@ imports: {
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(netDir, "resource-cluster.ub"), []byte(`
 description: 'a cluster'
-resources: {
-  local: {
-    file: {
-      x: { path: '/tmp/x', content: 'hi', mode: 420 }
-    }
-  }
-}
+resources:   { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
@@ -1289,7 +1231,7 @@ func Library() *runtime.Library {
 			"cluster": {
 				Name: "cluster",
 				Kind: runtime.NodeResource,
-				Body: &lang.File{Kind: lang.FileExportedType, Path: "resource-cluster.ub", Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "description"}, Value: &lang.StringLit{Value: "a cluster"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "resources"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "local"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "file"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "x"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}}}}}}}}}}}},
+				Body: &lang.File{Kind: lang.FileExportedType, Path: "resource-cluster.ub", Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "description"}, Value: &lang.StringLit{Value: "a cluster"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "resources"}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldPath, Path: []string{"local", "file", "x"}}, Value: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}}}}}},
 			},
 		},
 	}
@@ -1304,9 +1246,7 @@ func TestCompileWithRemoteUBLibrary(t *testing.T) {
 	libraryDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "resource-cluster.ub"), []byte(`
 description: 'a cluster'
-resources: {
-  local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } }
-}
+resources:   { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
@@ -1354,28 +1294,20 @@ func TestCompileNestedUBLibraries(t *testing.T) {
 	innerDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "resource-hello.ub"), []byte(`
 description: 'inner hello'
-inputs: { path: { type: string } }
-imports: {
-  std: 'github.com/cloudboss/unobin-library-std'
-}
-resources: {
-  std: { file: { this: { path: var.path, content: 'hi' } } }
-}
-outputs: { path: { value: resource.std.file.this.path } }
+inputs:      { path: { type: string } }
+imports:     { std: 'github.com/cloudboss/unobin-library-std' }
+resources:   { std.file.this: { path: var.path, content: 'hi' } }
+outputs:     { path: { value: resource.std.file.this.path } }
 `), 0o644))
 
 	// outer library: imports inner under a different alias and wraps it.
 	outerDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(outerDir, "resource-greeting.ub"), []byte(`
 description: 'outer greeting'
-inputs: { path: { type: string } }
-imports: {
-  inner: 'github.com/example/inner//ub/inner'
-}
-resources: {
-  inner: { hello: { x: { path: var.path } } }
-}
-outputs: { path: { value: resource.inner.hello.x.path } }
+inputs:      { path: { type: string } }
+imports:     { inner: 'github.com/example/inner//ub/inner' }
+resources:   { inner.hello.x: { path: var.path } }
+outputs:     { path: { value: resource.inner.hello.x.path } }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
@@ -1448,15 +1380,15 @@ func TestCompileDetectsUBImportCycle(t *testing.T) {
 	aDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(aDir, "resource-type-a.ub"), []byte(`
 description: 'a body'
-imports: { b: 'github.com/example/b//ub/b' }
-resources: { b: { type-b: { y: {} } } }
+imports:     { b: 'github.com/example/b//ub/b' }
+resources:   { b.type-b.y: {} }
 `), 0o644))
 
 	bDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(bDir, "resource-type-b.ub"), []byte(`
 description: 'b body'
-imports: { a: 'github.com/example/a//ub/a' }
-resources: { a: { type-a: { z: {} } } }
+imports:     { a: 'github.com/example/a//ub/a' }
+resources:   { a.type-a.z: {} }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
@@ -1490,20 +1422,18 @@ func TestCompileSharesPackageAcrossAliases(t *testing.T) {
 	innerDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(innerDir, "resource-hello.ub"), []byte(`
 description: 'inner hello'
-inputs: { path: { type: string } }
-resources: { local: { file: { x: { path: var.path, content: 'hi' } } } }
-outputs: { path: { value: resource.local.file.x.path } }
+inputs:      { path: { type: string } }
+resources:   { local.file.x: { path: var.path, content: 'hi' } }
+outputs:     { path: { value: resource.local.file.x.path } }
 `), 0o644))
 
 	wrapDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(wrapDir, "resource-greeting.ub"), []byte(`
 description: 'wrap greeting'
-inputs: { path: { type: string } }
-imports: {
-  inside: 'github.com/example/shared//ub/shared'
-}
-resources: { inside: { hello: { x: { path: var.path } } } }
-outputs: { path: { value: resource.inside.hello.x.path } }
+inputs:      { path: { type: string } }
+imports:     { inside: 'github.com/example/shared//ub/shared' }
+resources:   { inside.hello.x: { path: var.path } }
+outputs:     { path: { value: resource.inside.hello.x.path } }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
@@ -1569,7 +1499,7 @@ func TestCompileReplaceUnobinUBSubdir(t *testing.T) {
 	require.NoError(t, os.WriteFile(
 		filepath.Join(fakeUnobin, "some-lib", "resource-foo.ub"), []byte(`
 description: 'a foo'
-resources: { local: { file: { x: { path: '/tmp/x', content: 'hi', mode: 420 } } } }
+resources:   { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `), 0o644))
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")

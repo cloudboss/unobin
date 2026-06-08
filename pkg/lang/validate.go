@@ -1332,76 +1332,66 @@ func metaKeySet(keys ...string) map[string]bool {
 	return set
 }
 
-// ValidateResources checks a `resources:` block level by level: alias,
-// type name, instance name, body.
+// ValidateResources checks a `resources:` block: every entry is keyed by
+// a dotted alias.type.name and its body is an object.
 func ValidateResources(block *ObjectLit) *ErrorList {
-	return validateNestedTypeBlock(block, "resource", resourceBodyGreenlist)
+	return validateDeclBlock(block, "resource", resourceBodyGreenlist)
 }
 
 // ValidateDataSources checks the shape of a `data:` block.
 func ValidateDataSources(block *ObjectLit) *ErrorList {
-	return validateNestedTypeBlock(block, "data source", dataBodyGreenlist)
+	return validateDeclBlock(block, "data source", dataBodyGreenlist)
 }
 
 // ValidateActions checks the shape of an `actions:` block.
 func ValidateActions(block *ObjectLit) *ErrorList {
-	return validateNestedTypeBlock(block, "action", actionBodyGreenlist)
+	return validateDeclBlock(block, "action", actionBodyGreenlist)
 }
 
-func validateNestedTypeBlock(block *ObjectLit, what string, greenlist map[string]bool) *ErrorList {
+// validateDeclBlock checks one declaration block. Every entry is keyed by
+// a dotted alias.type.name path and carries an object body whose only meta
+// keys are those in greenlist. A bare or quoted key reports that the
+// dotted form is required.
+func validateDeclBlock(block *ObjectLit, what string, greenlist map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
-	seenAlias := make(map[string]Position, len(block.Fields))
-	for _, aliasFld := range block.Fields {
-		if !checkBareIdentKey(aliasFld, seenAlias, what+" alias", errs) {
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != FieldPath {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s must be declared with a dotted alias.type.name key", what)
 			continue
 		}
-		aliasObj, ok := aliasFld.Value.(*ObjectLit)
+		if len(fld.Key.Path) != 3 {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s key %s must have three segments: alias.type.name",
+				what, strings.Join(fld.Key.Path, "."))
+			continue
+		}
+		key := strings.Join(fld.Key.Path, ".")
+		if prev, dup := seen[key]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate %s %s (first defined at %s)", what, key, prev)
+			continue
+		}
+		seen[key] = fld.Key.S.Start
+		body, ok := fld.Value.(*ObjectLit)
 		if !ok {
-			errs.Addf(ErrSchema, aliasFld.Value.Span().Start,
-				"%s alias %q: must be an object of type names",
-				what, aliasFld.Key.Name)
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"%s %s: body must be an object", what, key)
 			continue
 		}
-		seenType := make(map[string]Position, len(aliasObj.Fields))
-		for _, typeFld := range aliasObj.Fields {
-			if !checkBareIdentKey(typeFld, seenType, what+" type", errs) {
+		for _, bodyFld := range body.Fields {
+			if bodyFld.Key.Kind != FieldIdent || !bodyFld.Key.IsMeta() {
 				continue
 			}
-			typeObj, ok := typeFld.Value.(*ObjectLit)
-			if !ok {
-				errs.Addf(ErrSchema, typeFld.Value.Span().Start,
-					"%s %s.%s: must be an object of instance names",
-					what, aliasFld.Key.Name, typeFld.Key.Name)
+			if !greenlist[bodyFld.Key.Name] {
+				errs.Addf(ErrSchema, bodyFld.Key.S.Start,
+					"%s %s: meta key %q is not allowed",
+					what, key, bodyFld.Key.Name)
 				continue
 			}
-			seenName := make(map[string]Position, len(typeObj.Fields))
-			for _, nameFld := range typeObj.Fields {
-				if !checkBareIdentKey(nameFld, seenName, what+" name", errs) {
-					continue
-				}
-				body, ok := nameFld.Value.(*ObjectLit)
-				if !ok {
-					errs.Addf(ErrSchema, nameFld.Value.Span().Start,
-						"%s %s.%s.%s: body must be an object",
-						what, aliasFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name)
-					continue
-				}
-				for _, bodyFld := range body.Fields {
-					if bodyFld.Key.Kind != FieldIdent || !bodyFld.Key.IsMeta() {
-						continue
-					}
-					if !greenlist[bodyFld.Key.Name] {
-						errs.Addf(ErrSchema, bodyFld.Key.S.Start,
-							"%s %s.%s.%s: meta key %q is not allowed",
-							what, aliasFld.Key.Name, typeFld.Key.Name, nameFld.Key.Name,
-							bodyFld.Key.Name)
-						continue
-					}
-					if bodyFld.Key.Name == "@timeout" {
-						checkTimeoutValue(bodyFld, what, aliasFld.Key.Name,
-							typeFld.Key.Name, nameFld.Key.Name, errs)
-					}
-				}
+			if bodyFld.Key.Name == "@timeout" {
+				checkTimeoutValue(bodyFld, what, key, errs)
 			}
 		}
 	}
@@ -1411,41 +1401,19 @@ func validateNestedTypeBlock(block *ObjectLit, what string, greenlist map[string
 // checkTimeoutValue reports an error when a body's `@timeout:` value is not
 // a duration string like '30s'. A malformed timeout is caught here rather
 // than silently becoming no limit at apply.
-func checkTimeoutValue(fld *Field, what, alias, typ, name string, errs *ErrorList) {
+func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
 	s, ok := fld.Value.(*StringLit)
 	if !ok {
 		errs.Addf(ErrSchema, fld.Value.Span().Start,
-			"%s %s.%s.%s: @timeout must be a duration string like '30s'",
-			what, alias, typ, name)
+			"%s %s: @timeout must be a duration string like '30s'",
+			what, key)
 		return
 	}
 	if _, err := time.ParseDuration(s.Value); err != nil {
 		errs.Addf(ErrSchema, fld.Value.Span().Start,
-			"%s %s.%s.%s: @timeout %q is not a valid duration",
-			what, alias, typ, name, s.Value)
+			"%s %s: @timeout %q is not a valid duration",
+			what, key, s.Value)
 	}
-}
-
-func checkBareIdentKey(f *Field, seen map[string]Position, what string, errs *ErrorList) bool {
-	if f.Key.Kind == FieldString {
-		errs.Addf(ErrSchema, f.Key.S.Start,
-			"%s key must be a bare identifier, got quoted string %q",
-			what, f.Key.String)
-		return false
-	}
-	name := f.Key.Name
-	if f.Key.IsMeta() {
-		errs.Addf(ErrSchema, f.Key.S.Start,
-			"@-prefixed key %q is not a valid %s key", name, what)
-		return false
-	}
-	if prev, dup := seen[name]; dup {
-		errs.Addf(ErrSchema, f.Key.S.Start,
-			"duplicate %s %q (first defined at %s)", what, name, prev)
-		return false
-	}
-	seen[name] = f.Key.S.Start
-	return true
 }
 
 // ValidateStateConfig checks the structure of a state: block in a config

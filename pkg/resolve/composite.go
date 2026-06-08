@@ -54,30 +54,18 @@ func ValidateCompositeBody(kind, typeName string, f *lang.File) []error {
 }
 
 // kindLeafCount counts the leaf entries in a resources, data, or
-// actions block: one per `<alias>.<type>.<name>` path. Meta keys and
-// malformed nesting contribute nothing, so an empty or absent block is
-// zero.
+// actions block: one per `alias.type.name` dotted key. A key that is not
+// a three-segment path contributes nothing, so an empty or absent block
+// is zero.
 func kindLeafCount(f *lang.File, block string) int {
 	obj := topLevelBlock(f, block)
 	if obj == nil {
 		return 0
 	}
 	count := 0
-	for _, alias := range obj.Fields {
-		aliasObj := childObject(alias)
-		if aliasObj == nil {
-			continue
-		}
-		for _, typ := range aliasObj.Fields {
-			typObj := childObject(typ)
-			if typObj == nil {
-				continue
-			}
-			for _, name := range typObj.Fields {
-				if name.Key.Kind == lang.FieldIdent && !name.Key.IsMeta() {
-					count++
-				}
-			}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind == lang.FieldPath && len(fld.Key.Path) == 3 {
+			count++
 		}
 	}
 	return count
@@ -96,19 +84,6 @@ func outputCount(f *lang.File) int {
 		}
 	}
 	return count
-}
-
-// childObject returns fld's value as an object when fld has a plain
-// identifier key, or nil otherwise (a meta key or a non-object value).
-func childObject(fld *lang.Field) *lang.ObjectLit {
-	if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-		return nil
-	}
-	obj, ok := fld.Value.(*lang.ObjectLit)
-	if !ok {
-		return nil
-	}
-	return obj
 }
 
 // topLevelBlock returns the named top-level block as an object, or nil

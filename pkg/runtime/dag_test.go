@@ -14,13 +14,7 @@ func TestBuildDAGEmpty(t *testing.T) {
 
 func TestBuildDAGSingleResourceNoDeps(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: {
-  aws: {
-    vpc: {
-      main: { cidr-block: '10.0.0.0/16' }
-    }
-  }
-}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 `), nil)
 	require.Len(t, g.Nodes, 1)
 	require.Empty(t, g.Edges["resource.aws.vpc.main"])
@@ -29,16 +23,8 @@ resources: {
 func TestBuildDAGImplicitDependency(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: {
-    vpc: {
-      main: { cidr-block: '10.0.0.0/16' }
-    }
-    security-group: {
-      web: {
-        vpc-id: resource.aws.vpc.main.id
-      }
-    }
-  }
+  aws.vpc.main:           { cidr-block: '10.0.0.0/16' }
+  aws.security-group.web: { vpc-id: resource.aws.vpc.main.id }
 }
 `), nil)
 	require.Equal(t,
@@ -49,17 +35,8 @@ resources: {
 func TestBuildDAGExplicitDependsOn(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: {
-    vpc: {
-      main: { cidr-block: '10.0.0.0/16' }
-    }
-    security-group: {
-      web: {
-        @depends-on: [resource.aws.vpc.main]
-        name:        'web'
-      }
-    }
-  }
+  aws.vpc.main:           { cidr-block: '10.0.0.0/16' }
+  aws.security-group.web: { @depends-on: [resource.aws.vpc.main], name: 'web' }
 }
 `), nil)
 	require.Equal(t,
@@ -69,15 +46,9 @@ resources: {
 
 func TestBuildDAGLocalCarriesEdge(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-locals: {
-  endpoint: resource.aws.lb.main.dns-name
-}
-resources: {
-  aws: { lb: { main: { name: 'main' } } }
-}
-actions: {
-  core: { command: { notify: { argv: ['echo', local.endpoint] } } }
-}
+locals:    { endpoint: resource.aws.lb.main.dns-name }
+resources: { aws.lb.main: { name: 'main' } }
+actions:   { core.command.notify: { argv: ['echo', local.endpoint] } }
 `), nil)
 	require.Equal(t,
 		[]string{"resource.aws.lb.main"},
@@ -86,16 +57,9 @@ actions: {
 
 func TestBuildDAGLocalChainCarriesEdge(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-locals: {
-  raw:   resource.aws.lb.main.dns-name
-  url:   local.raw
-}
-resources: {
-  aws: { lb: { main: { name: 'main' } } }
-}
-actions: {
-  core: { command: { notify: { argv: ['echo', local.url] } } }
-}
+locals:    { raw: resource.aws.lb.main.dns-name, url: local.raw }
+resources: { aws.lb.main: { name: 'main' } }
+actions:   { core.command.notify: { argv: ['echo', local.url] } }
 `), nil)
 	require.Equal(t,
 		[]string{"resource.aws.lb.main"},
@@ -104,18 +68,12 @@ actions: {
 
 func TestBuildDAGLocalMergesMultipleUpstreams(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-locals: {
-  pair: { a: resource.aws.vpc.main.id  b: resource.aws.subnet.web.id }
-}
+locals: { pair: { a: resource.aws.vpc.main.id, b: resource.aws.subnet.web.id } }
 resources: {
-  aws: {
-    vpc:    { main: { cidr-block: '10.0.0.0/16' } }
-    subnet: { web: { cidr-block: '10.0.1.0/24' } }
-  }
+  aws.vpc.main:   { cidr-block: '10.0.0.0/16' }
+  aws.subnet.web: { cidr-block: '10.0.1.0/24' }
 }
-actions: {
-  core: { command: { go: { argv: ['echo', local.pair] } } }
-}
+actions: { core.command.go: { argv: ['echo', local.pair] } }
 `), nil)
 	require.ElementsMatch(t,
 		[]string{"resource.aws.vpc.main", "resource.aws.subnet.web"},
@@ -124,12 +82,8 @@ actions: {
 
 func TestBuildDAGLiteralLocalAddsNoEdge(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-locals: {
-  greeting: 'hello'
-}
-actions: {
-  core: { command: { go: { argv: ['echo', local.greeting] } } }
-}
+locals:  { greeting: 'hello' }
+actions: { core.command.go: { argv: ['echo', local.greeting] } }
 `), nil)
 	require.Empty(t, g.Edges["action.core.command.go"])
 }
@@ -137,15 +91,11 @@ actions: {
 func TestBuildDAGMergesImplicitAndExplicit(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: {
-    vpc: { main: { cidr-block: '10.0.0.0/16' } }
-    subnet: { public: { vpc-id: resource.aws.vpc.main.id } }
-    security-group: {
-      web: {
-        @depends-on: [resource.aws.subnet.public]
-        vpc-id:      resource.aws.vpc.main.id
-      }
-    }
+  aws.vpc.main:      { cidr-block: '10.0.0.0/16' }
+  aws.subnet.public: { vpc-id: resource.aws.vpc.main.id }
+  aws.security-group.web: {
+    @depends-on: [resource.aws.subnet.public]
+    vpc-id:      resource.aws.vpc.main.id
   }
 }
 `), nil)
@@ -156,12 +106,8 @@ resources: {
 
 func TestBuildDAGOutputReferencesResource(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: {
-  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
-}
-outputs: {
-  vpc-id: { value: resource.aws.vpc.main.id }
-}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
+outputs:   { vpc-id: { value: resource.aws.vpc.main.id } }
 `), nil)
 	require.Equal(t,
 		[]string{"resource.aws.vpc.main"},
@@ -170,16 +116,8 @@ outputs: {
 
 func TestBuildDAGActionDependsOnResource(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: {
-  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
-}
-actions: {
-  core: {
-    command: {
-      log: { argv: ['echo', resource.aws.vpc.main.id] }
-    }
-  }
-}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
+actions:   { core.command.log: { argv: ['echo', resource.aws.vpc.main.id] } }
 `), nil)
 	require.Equal(t,
 		[]string{"resource.aws.vpc.main"},
@@ -188,11 +126,7 @@ actions: {
 
 func TestBuildDAGVarReferenceCreatesEdge(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: {
-  aws: {
-    vpc: { main: { cidr-block: var.cidr } }
-  }
-}
+resources: { aws.vpc.main: { cidr-block: var.cidr } }
 `), nil)
 	require.Equal(t,
 		[]string{"var.cidr"},
@@ -201,14 +135,7 @@ resources: {
 
 func TestBuildDAGCompositeBoundaryDependsOnInternals(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: {
-    file: {
-      a: { path: 'a.txt' }
-      b: { path: 'b.txt' }
-    }
-  }
-}
+resources: { local.file.a: { path: 'a.txt' }, local.file.b: { path: 'b.txt' } }
 `)
 	libs := map[string]*Library{
 		"net": {
@@ -217,9 +144,7 @@ resources: {
 		},
 	}
 	g := BuildDAG(parseStack(t, `
-resources: {
-  net: { cluster: { web: { name: 'web' } } }
-}
+resources: { net.cluster.web: { name: 'web' } }
 `), libs)
 	require.ElementsMatch(t,
 		[]string{
@@ -231,14 +156,7 @@ resources: {
 
 func TestBuildDAGCompositeInternalRewritesSiblingRef(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: {
-    file: {
-      a: { path: 'a.txt' }
-      b: { path: resource.local.file.a.path }
-    }
-  }
-}
+resources: { local.file.a: { path: 'a.txt' }, local.file.b: { path: resource.local.file.a.path } }
 `)
 	libs := map[string]*Library{
 		"net": {
@@ -247,9 +165,7 @@ resources: {
 		},
 	}
 	g := BuildDAG(parseStack(t, `
-resources: {
-  net: { cluster: { web: {} } }
-}
+resources: { net.cluster.web: {} }
 `), libs)
 	require.Equal(t,
 		[]string{"resource.net.cluster.web/resource.local.file.a"},
@@ -258,9 +174,7 @@ resources: {
 
 func TestBuildDAGCompositeInternalDropsCompositeScopedVars(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: { file: { x: { path: var.path, content: var.message } } }
-}
+resources: { local.file.x: { path: var.path, content: var.message } }
 `)
 	libs := map[string]*Library{
 		"net": {
@@ -271,13 +185,7 @@ resources: {
 		},
 	}
 	g := BuildDAG(parseStack(t, `
-resources: {
-  net: {
-    cluster: {
-      web: { path: var.target-path, message: var.target-message }
-    }
-  }
-}
+resources: { net.cluster.web: { path: var.target-path, message: var.target-message } }
 `), libs)
 	deps := g.Edges["resource.net.cluster.web/resource.local.file.x"]
 	require.NotContains(t, deps, "var.path",
@@ -292,24 +200,12 @@ resources: {
 
 func TestBuildDAGCompositeInternalRewritesDataAndActionRefs(t *testing.T) {
 	composite := parseStack(t, `
-data: {
-  aws: { ami: { ubuntu: { most-recent: true } } }
-}
+data: { aws.ami.ubuntu: { most-recent: true } }
 actions: {
-  core: {
-    command: {
-      lookup: { argv: ['echo', data.aws.ami.ubuntu.id] }
-      verify: { argv: ['check', action.core.command.lookup.stdout] }
-    }
-  }
+  core.command.lookup: { argv: ['echo', data.aws.ami.ubuntu.id] }
+  core.command.verify: { argv: ['check', action.core.command.lookup.stdout] }
 }
-resources: {
-  local: {
-    file: {
-      x: { content: action.core.command.lookup.stdout }
-    }
-  }
-}
+resources: { local.file.x: { content: action.core.command.lookup.stdout } }
 `)
 	libs := map[string]*Library{
 		"net": {
@@ -320,9 +216,7 @@ resources: {
 		},
 	}
 	g := BuildDAG(parseStack(t, `
-resources: {
-  net: { cluster: { web: {} } }
-}
+resources: { net.cluster.web: {} }
 `), libs)
 	require.Contains(t,
 		g.Edges["resource.net.cluster.web/action.core.command.lookup"],
@@ -340,9 +234,7 @@ resources: {
 
 func TestBuildDAGCompositeInternalInheritsCallSiteArgsRefs(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: { file: { x: { path: var.target } } }
-}
+resources: { local.file.x: { path: var.target } }
 `)
 	libs := map[string]*Library{
 		"net": {
@@ -352,12 +244,8 @@ resources: {
 	}
 	g := BuildDAG(parseStack(t, `
 resources: {
-  local: { file: { src: { path: 'src.txt' } } }
-  net: {
-    cluster: {
-      web: { target: resource.local.file.src.path }
-    }
-  }
+  local.file.src:  { path: 'src.txt' }
+  net.cluster.web: { target: resource.local.file.src.path }
 }
 `), libs)
 	require.Contains(t,
@@ -368,26 +256,14 @@ resources: {
 
 func TestBuildDAGNestedComposite(t *testing.T) {
 	clusterBody := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
+inputs: { path: { type: string } }
 
-resources: {
-  local: {
-    file: { x: { path: var.path } }
-  }
-}
+resources: { local.file.x: { path: var.path } }
 `)
 	layerBody := parseStack(t, `
-inputs: {
-  target: { type: string }
-}
+inputs: { target: { type: string } }
 
-resources: {
-  inner-lib: {
-    cluster: { only: { path: var.target } }
-  }
-}
+resources: { inner-lib.cluster.only: { path: var.target } }
 `)
 	libs := map[string]*Library{
 		"outer-lib": {
@@ -405,12 +281,8 @@ resources: {
 	}
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } }
-  outer-lib: {
-    layer: {
-      mine: { target: resource.aws.vpc.main.id }
-    }
-  }
+  aws.vpc.main:         { cidr-block: '10.0.0.0/16' }
+  outer-lib.layer.mine: { target: resource.aws.vpc.main.id }
 }
 `), libs)
 
@@ -440,7 +312,7 @@ func TestTopologicalOrderEmpty(t *testing.T) {
 
 func TestTopologicalOrderSingle(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: { aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } } }
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 `), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
@@ -450,13 +322,9 @@ resources: { aws: { vpc: { main: { cidr-block: '10.0.0.0/16' } } } }
 func TestTopologicalOrderLinearChain(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: {
-    vpc:    { main: { cidr-block: '10.0.0.0/16' } }
-    subnet: { public: { vpc-id: resource.aws.vpc.main.id } }
-    security-group: {
-      web: { vpc-id: resource.aws.subnet.public.vpc-id }
-    }
-  }
+  aws.vpc.main:           { cidr-block: '10.0.0.0/16' }
+  aws.subnet.public:      { vpc-id: resource.aws.vpc.main.id }
+  aws.security-group.web: { vpc-id: resource.aws.subnet.public.vpc-id }
 }
 `), nil)
 	got, err := g.TopologicalOrder()
@@ -471,18 +339,10 @@ resources: {
 func TestTopologicalOrderDiamond(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: {
-    vpc:    { main: { cidr-block: '10.0.0.0/16' } }
-    subnet: {
-      a: { vpc-id: resource.aws.vpc.main.id }
-      b: { vpc-id: resource.aws.vpc.main.id }
-    }
-    cluster: {
-      web: {
-        @depends-on: [resource.aws.subnet.a, resource.aws.subnet.b]
-      }
-    }
-  }
+  aws.vpc.main:    { cidr-block: '10.0.0.0/16' }
+  aws.subnet.a:    { vpc-id: resource.aws.vpc.main.id }
+  aws.subnet.b:    { vpc-id: resource.aws.vpc.main.id }
+  aws.cluster.web: { @depends-on: [resource.aws.subnet.a, resource.aws.subnet.b] }
 }
 `), nil)
 	got, err := g.TopologicalOrder()
@@ -503,11 +363,7 @@ resources: {
 
 func TestTopologicalOrderVarsDontBlock(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: {
-  aws: {
-    vpc: { main: { cidr-block: var.cidr } }
-  }
-}
+resources: { aws.vpc.main: { cidr-block: var.cidr } }
 `), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
@@ -517,18 +373,8 @@ resources: {
 func TestTopologicalOrderReportsCycle(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 resources: {
-  aws: {
-    a: {
-      x: {
-        @depends-on: [resource.aws.b.y]
-      }
-    }
-    b: {
-      y: {
-        @depends-on: [resource.aws.a.x]
-      }
-    }
-  }
+  aws.a.x: { @depends-on: [resource.aws.b.y] }
+  aws.b.y: { @depends-on: [resource.aws.a.x] }
 }
 `), nil)
 	_, err := g.TopologicalOrder()
@@ -540,13 +386,7 @@ resources: {
 
 func TestTopologicalOrderDeterministic(t *testing.T) {
 	src := `
-resources: {
-  aws: {
-    a: { x: {} }
-    b: { y: {} }
-    c: { z: {} }
-  }
-}
+resources: { aws.a.x: {}, aws.b.y: {}, aws.c.z: {} }
 `
 	g := BuildDAG(parseStack(t, src), nil)
 	first, err := g.TopologicalOrder()
@@ -564,20 +404,11 @@ resources: {
 // spurious cycle.
 func TestBuildDAGNarrowsObjectLocalAvoidingSpuriousCycle(t *testing.T) {
 	src := `
-locals: {
-  net: {
-    vpc:   resource.local.file.vpcfile.path
-    other: resource.local.file.b.path
-  }
-}
+locals: { net: { vpc: resource.local.file.vpcfile.path, other: resource.local.file.b.path } }
 resources: {
-  local: {
-    file: {
-      vpcfile: { path: 'vpc.txt' }
-      a:       { path: local.net.vpc }
-      b:       { path: resource.local.file.a.path }
-    }
-  }
+  local.file.vpcfile: { path: 'vpc.txt' }
+  local.file.a:       { path: local.net.vpc }
+  local.file.b:       { path: resource.local.file.a.path }
 }
 `
 	f := parseStack(t, src)

@@ -14,9 +14,7 @@ import (
 
 func TestRefreshUpdatesLeafOutputs(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -52,9 +50,7 @@ resources: {
 
 func TestRefreshDropsResourceThatIsGone(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -81,9 +77,7 @@ resources: {
 
 func TestRefreshCarriesActionEntriesForward(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -113,9 +107,7 @@ actions: {
 
 func TestRefreshWaitsForLock(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -141,15 +133,9 @@ resources: {
 
 func TestRefreshUpdatesCompositeInternalLeaf(t *testing.T) {
 	compositeBody := parseStack(t, `
-inputs: {
-  name: { type: string }
-}
+inputs: { name: { type: string } }
 
-resources: {
-  core: {
-    thing: { inside: { name: var.name, size: 1 } }
-  }
-}
+resources: { core.thing.inside: { name: var.name, size: 1 } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -160,9 +146,7 @@ resources: {
 		},
 	}
 	src := `
-resources: {
-  w: { box: { x: { name: 'alpha' } } }
-}
+resources: { w.box.x: { name: 'alpha' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -202,11 +186,11 @@ resources: {
 func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	const n = 6
 	var src strings.Builder
-	src.WriteString("resources: {\n  core: {\n    thing: {\n")
+	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i))
+		src.WriteString(fmt.Sprintf("  core.thing.r%d: { name: 'r%d', size: %d }\n", i, i, i))
 	}
-	src.WriteString("    }\n  }\n}\n")
+	src.WriteString("}\n")
 
 	var c resourceCounters
 	store := newStateStore(t)

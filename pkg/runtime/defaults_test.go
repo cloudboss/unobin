@@ -135,7 +135,7 @@ func defaultsExecutor(t *testing.T, body string) (*Executor, *localstate.LocalSt
 			{Field: "var.region", Optional: true},
 		},
 	}
-	src := "resources: {\n  core: { thing: { x: " + body + " } }\n}\n"
+	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
 	store := newStateStore(t)
 	return &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -217,12 +217,8 @@ func planTwoThingsWithSizeDefault(t *testing.T) *Plan {
 	}
 	src := `
 resources: {
-  core: {
-    thing: {
-      a: { name: 'a' }
-      b: { name: resource.core.thing.a.size, size: resource.core.thing.a.id }
-    }
-  }
+  core.thing.a: { name: 'a' }
+  core.thing.b: { name: resource.core.thing.a.size, size: resource.core.thing.a.id }
 }
 `
 	exec := &Executor{

@@ -88,15 +88,9 @@ func stepAddresses(p *Plan) []string {
 }
 
 const dataConsumerSrc = `
-data: {
-  core: { dial: { cfg: { key: 'k' } } }
-}
-resources: {
-  core: { thing: { one: { tag: data.core.dial.cfg.value } } }
-}
-outputs: {
-  v: { value: data.core.dial.cfg.value }
-}
+data:      { core.dial.cfg: { key: 'k' } }
+resources: { core.thing.one: { tag: data.core.dial.cfg.value } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
 `
 
 // A data source whose inputs resolve at plan is read during the plan,
@@ -173,15 +167,9 @@ func TestSecondPlanUpdatesWhenDataChanged(t *testing.T) {
 // downstream of it stays pending. The apply still resolves end to end.
 func TestPlanDefersDataWithPendingInputs(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { tag: 'fixed' } } }
-}
-data: {
-  core: { dial: { cfg: { key: resource.core.thing.one.id } } }
-}
-outputs: {
-  v: { value: data.core.dial.cfg.value }
-}
+resources: { core.thing.one: { tag: 'fixed' } }
+data:      { core.dial.cfg: { key: resource.core.thing.one.id } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -260,9 +248,7 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	require.Equal(t, map[string]any{"value": "a:k"}, ent.Outputs)
 
 	withoutData := `
-resources: {
-  core: { thing: { one: { tag: 'fixed' } } }
-}
+resources: { core.thing.one: { tag: 'fixed' } }
 `
 	second := &Executor{
 		DAG:       BuildDAG(parseStack(t, withoutData), libs),
@@ -286,12 +272,7 @@ resources: {
 // Each @for-each instance reads at plan with its own key.
 func TestForEachDataReadsAtPlan(t *testing.T) {
 	src := `
-data: {
-  core: { dial: { cfg: {
-    @for-each: { a: 'x', b: 'y' }
-    key: @each.value
-  } } }
-}
+data: { core.dial.cfg: { @for-each: { a: 'x', b: 'y' }, key: @each.value } }
 `
 	value := "v"
 	var reads int64
@@ -345,16 +326,10 @@ func (r *versionedResource) ReplaceFields() []string                  { return n
 // re-plan converges on the fresh value.
 func TestDataCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	src := `
-inputs: { t: { type: string } }
-resources: {
-  core: { versioned: { one: { tag: var.t } } }
-}
-data: {
-  core: { dial: { cfg: { key: resource.core.versioned.one.id } } }
-}
-outputs: {
-  v: { value: data.core.dial.cfg.value }
-}
+inputs:    { t: { type: string } }
+resources: { core.versioned.one: { tag: var.t } }
+data:      { core.dial.cfg: { key: resource.core.versioned.one.id } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -411,16 +386,10 @@ outputs: {
 // happens at plan and apply agrees with it.
 func TestDataReadsNewInputFieldOfUpdatingResource(t *testing.T) {
 	src := `
-inputs: { t: { type: string } }
-resources: {
-  core: { versioned: { one: { tag: var.t } } }
-}
-data: {
-  core: { dial: { cfg: { key: resource.core.versioned.one.tag } } }
-}
-outputs: {
-  v: { value: data.core.dial.cfg.value }
-}
+inputs:    { t: { type: string } }
+resources: { core.versioned.one: { tag: var.t } }
+data:      { core.dial.cfg: { key: resource.core.versioned.one.tag } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -457,14 +426,10 @@ func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	src := `
 inputs: { t: { type: string } }
 resources: {
-  core: {
-    versioned: { one: { tag: var.t } }
-    thing:     { two: { tag: resource.core.versioned.one.id } }
-  }
+  core.versioned.one: { tag: var.t }
+  core.thing.two:     { tag: resource.core.versioned.one.id }
 }
-outputs: {
-  fed: { value: resource.core.thing.two.tag }
-}
+outputs: { fed: { value: resource.core.thing.two.tag } }
 `
 	value := "a"
 	var reads int64
@@ -515,19 +480,10 @@ outputs: {
 // once the target is settled again, the read happens at plan.
 func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
 	src := `
-inputs: { t: { type: string } }
-resources: {
-  core: { versioned: { one: { tag: var.t } } }
-}
-data: {
-  core: { dial: { cfg: {
-    @depends-on: [resource.core.versioned.one]
-    key: 'fixed'
-  } } }
-}
-outputs: {
-  v: { value: data.core.dial.cfg.value }
-}
+inputs:    { t: { type: string } }
+resources: { core.versioned.one: { tag: var.t } }
+data:      { core.dial.cfg: { @depends-on: [resource.core.versioned.one], key: 'fixed' } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -575,25 +531,14 @@ outputs: {
 // internals settle, the read returns to plan time.
 func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { t: { type: string } }
-resources: {
-  core: { versioned: { one: { tag: var.t } } }
-}
+inputs:    { t: { type: string } }
+resources: { core.versioned.one: { tag: var.t } }
 `)
 	src := `
-inputs: { t: { type: string } }
-resources: {
-  w: { box: { x: { t: var.t } } }
-}
-data: {
-  core: { dial: { cfg: {
-    @depends-on: [resource.w.box.x]
-    key: 'fixed'
-  } } }
-}
-outputs: {
-  v: { value: data.core.dial.cfg.value }
-}
+inputs:    { t: { type: string } }
+resources: { w.box.x: { t: var.t } }
+data:      { core.dial.cfg: { @depends-on: [resource.w.box.x], key: 'fixed' } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -682,13 +627,8 @@ func TestApplyAcceptsUnchangedStructOutputs(t *testing.T) {
 	}
 	exec := &Executor{
 		DAG: BuildDAG(parseStack(t, `
-data: {
-  core: { ami: { al: { key: 'k' } } }
-}
-outputs: {
-  id:   { value: data.core.ami.al.id }
-  name: { value: data.core.ami.al.devices[0].name }
-}
+data:    { core.ami.al: { key: 'k' } }
+outputs: { id: { value: data.core.ami.al.id }, name: { value: data.core.ami.al.devices[0].name } }
 `), libs),
 		Libraries: libs,
 		Store:     newStateStore(t),

@@ -10,22 +10,11 @@ import (
 
 func TestCheckReferencesRootScope(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: {
-  path: { type: string }
-}
-resources: {
-  local: {
-    file: {
-      one: {
-        path: var.missing
-        content: resource.local.file.absent.content
-      }
-    }
-  }
-}
+inputs:    { path: { type: string } }
+resources: { local.file.one: { path: var.missing, content: resource.local.file.absent.content } }
 outputs: {
   good: { value: resource.local.file.one.path }
-  bad: { value: data.core.lookup.missing.value }
+  bad:  { value: data.core.lookup.missing.value }
 }
 `), nil)
 
@@ -38,17 +27,10 @@ outputs: {
 
 func TestCheckReferencesLocalsValid(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: { env: { type: string } }
-locals: {
-  base:    var.env
-  derived: local.base
-}
-resources: {
-  local: { file: { one: { path: local.derived } } }
-}
-outputs: {
-  p: { value: resource.local.file.one.path }
-}
+inputs:    { env: { type: string } }
+locals:    { base: var.env, derived: local.base }
+resources: { local.file.one: { path: local.derived } }
+outputs:   { p: { value: resource.local.file.one.path } }
 `), nil)
 	require.Empty(t, checkRefMessages(t, errs))
 }
@@ -86,7 +68,7 @@ func TestCheckReferencesSplat(t *testing.T) {
 		{
 			name: "bare splat on a resource output",
 			stack: "inputs: { p: { type: string } }\n" +
-				"resources: { local: { file: { one: { path: var.p } } } }\n" +
+				"resources: { local.file.one: { path: var.p } }\n" +
 				"outputs: { bad: { value: resource.local.file.one.path[*] } }\n",
 			want: []string{bare},
 		},
@@ -136,9 +118,7 @@ func TestCheckReferencesFunctionExists(t *testing.T) {
 		}}},
 	}
 	errs := CheckReferences(parseStack(t, `
-actions: {
-  core: { command: { x: { argv: [core.format('%s', 'hi')] } } }
-}
+actions: { core.command.x: { argv: [core.format('%s', 'hi')] } }
 `), libs)
 	require.Empty(t, checkRefMessages(t, errs))
 }
@@ -150,9 +130,7 @@ func TestCheckReferencesUnknownFunction(t *testing.T) {
 		}}},
 	}
 	errs := CheckReferences(parseStack(t, `
-actions: {
-  core: { command: { x: { argv: [core.formatt('%s', 'hi')] } } }
-}
+actions: { core.command.x: { argv: [core.formatt('%s', 'hi')] } }
 `), libs)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -179,7 +157,7 @@ func TestCheckReferencesCoreNamespace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := CheckReferences(parseStack(t, `
 actions: {
-  ext: { thing: { x: { argv: [`+tt.call+`] } } }
+  ext.thing.x: { argv: [`+tt.call+`] }
 }
 `), libs)
 			got := checkRefMessages(t, errs)
@@ -214,7 +192,7 @@ func TestCheckReferencesFunctionArity(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src := "actions: {\n  core: { command: { x: { argv: [" + c.call + "] } } }\n}\n"
+			src := "actions: {\n  core.command.x: { argv: [" + c.call + "] }\n}\n"
 			got := checkRefMessages(t, CheckReferences(parseStack(t, src), libs))
 			if c.want == "" {
 				require.Empty(t, got)
@@ -251,15 +229,7 @@ outputs: { o: { value: local.a } }
 
 func TestCheckReferencesResourceModuleMustBeImported(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  greeter: {
-    greeting: {
-      welcome: {
-        message: 'hello'
-      }
-    }
-  }
-}
+resources: { greeter.greeting.welcome: { message: 'hello' } }
 `), map[string]*Library{
 		"local": {},
 	})
@@ -271,26 +241,12 @@ resources: {
 
 func TestCheckReferencesCompositeScope(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
+inputs: { path: { type: string } }
 resources: {
-  local: {
-    file: {
-      one: {
-        path: var.path
-        content: 'hello'
-      }
-      two: {
-        path: resource.local.file.one.path
-        content: 'world'
-      }
-    }
-  }
+  local.file.one: { path: var.path, content: 'hello' }
+  local.file.two: { path: resource.local.file.one.path, content: 'world' }
 }
-outputs: {
-  path: { value: resource.local.file.two.path }
-}
+outputs: { path: { value: resource.local.file.two.path } }
 `)
 	libs := map[string]*Library{
 		"bundle": {
@@ -305,19 +261,9 @@ outputs: {
 	}
 
 	errs := CheckReferences(parseStack(t, `
-inputs: {
-  target: { type: string }
-}
-resources: {
-  bundle: {
-    file-pair: {
-      demo: { path: var.target }
-    }
-  }
-}
-outputs: {
-  path: { value: resource.bundle.file-pair.demo.path }
-}
+inputs:    { target: { type: string } }
+resources: { bundle.file-pair.demo: { path: var.target } }
+outputs:   { path: { value: resource.bundle.file-pair.demo.path } }
 `), libs)
 
 	require.Empty(t, checkRefMessages(t, errs))
@@ -325,22 +271,9 @@ outputs: {
 
 func TestCheckReferencesCompositeUnknownsUseCompositeScope(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  path: { type: string }
-}
-resources: {
-  local: {
-    file: {
-      one: {
-        path: var.missing
-        content: resource.local.file.absent.content
-      }
-    }
-  }
-}
-outputs: {
-  path: { value: resource.local.file.one.path }
-}
+inputs:    { path: { type: string } }
+resources: { local.file.one: { path: var.missing, content: resource.local.file.absent.content } }
+outputs:   { path: { value: resource.local.file.one.path } }
 `)
 	libs := map[string]*Library{
 		"bundle": {
@@ -355,13 +288,7 @@ outputs: {
 	}
 
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  bundle: {
-    file-pair: {
-      demo: { path: 'x.txt' }
-    }
-  }
-}
+resources: { bundle.file-pair.demo: { path: 'x.txt' } }
 `), libs)
 
 	got := checkRefMessages(t, errs)
@@ -393,26 +320,10 @@ constraints: [
 
 func TestCheckReferencesConstraintPredicateCompositeScope(t *testing.T) {
 	composite := parseStack(t, `
-inputs: {
-  region: { type: string }
-}
-constraints: [
-  {
-    kind: predicate
-    when: var.bogus == 'x'
-    require: var.region == 'y'
-  }
-]
-resources: {
-  local: {
-    file: {
-      one: { path: var.region content: 'hi' }
-    }
-  }
-}
-outputs: {
-  path: { value: resource.local.file.one.path }
-}
+inputs:      { region: { type: string } }
+constraints: [{ kind: predicate, when: var.bogus == 'x', require: var.region == 'y' }]
+resources:   { local.file.one: { path: var.region, content: 'hi' } }
+outputs:     { path: { value: resource.local.file.one.path } }
 `)
 	libs := map[string]*Library{
 		"bundle": {
@@ -427,13 +338,7 @@ outputs: {
 	}
 
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  bundle: {
-    thing: {
-      demo: { region: 'us-east-1' }
-    }
-  }
-}
+resources: { bundle.thing.demo: { region: 'us-east-1' } }
 `), libs)
 
 	got := checkRefMessages(t, errs)
@@ -443,14 +348,8 @@ resources: {
 
 func TestCheckReferencesUnknownTrailingField(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: { path: { type: string } }
-resources: {
-  local: {
-    file: {
-      one: { path: var.path, content: 'hi' }
-    }
-  }
-}
+inputs:    { path: { type: string } }
+resources: { local.file.one: { path: var.path, content: 'hi' } }
 outputs: {
   ok:  { value: resource.local.file.one.path }
   bad: { value: resource.local.file.one.bogus }
@@ -475,16 +374,8 @@ outputs: {
 
 func TestCheckReferencesActionFieldMustExist(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-actions: {
-  core: {
-    command: {
-      x: { argv: ['true'] }
-    }
-  }
-}
-outputs: {
-  bad: { value: action.core.command.x.nope }
-}
+actions: { core.command.x: { argv: ['true'] } }
+outputs: { bad: { value: action.core.command.x.nope } }
 `), map[string]*Library{
 		"core": {Schema: &LibrarySchema{
 			Actions: map[string]*TypeSchema{
@@ -522,16 +413,8 @@ outputs: {
 
 func TestCheckReferencesCompositeOutputMustBeDeclared(t *testing.T) {
 	composite := parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { path: 'x.txt', content: 'hi' }
-    }
-  }
-}
-outputs: {
-  path: { value: resource.local.file.one.path }
-}
+resources: { local.file.one: { path: 'x.txt', content: 'hi' } }
+outputs:   { path: { value: resource.local.file.one.path } }
 `)
 	libs := map[string]*Library{
 		"bundle": {
@@ -556,13 +439,7 @@ outputs: {
 	}
 
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  bundle: {
-    thing: {
-      demo: {}
-    }
-  }
-}
+resources: { bundle.thing.demo: {} }
 outputs: {
   ok:  { value: resource.bundle.thing.demo.path }
   bad: { value: resource.bundle.thing.demo.bogus }
@@ -576,17 +453,8 @@ outputs: {
 
 func TestCheckReferencesDataSourceFieldMustExist(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-data: {
-  aws: {
-    ami: {
-      ubuntu: { most-recent: true }
-    }
-  }
-}
-outputs: {
-  ok:  { value: data.aws.ami.ubuntu.id }
-  bad: { value: data.aws.ami.ubuntu.misspelled }
-}
+data:    { aws.ami.ubuntu: { most-recent: true } }
+outputs: { ok: { value: data.aws.ami.ubuntu.id }, bad: { value: data.aws.ami.ubuntu.misspelled } }
 `), map[string]*Library{
 		"aws": {Schema: &LibrarySchema{
 			DataSources: map[string]*TypeSchema{
@@ -606,20 +474,8 @@ outputs: {
 
 func TestCheckReferencesForEachInstanceFieldMustExist(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: {
-  names: { type: map(string) }
-}
-resources: {
-  local: {
-    file: {
-      many: {
-        @for-each: var.names
-        path:      @each.value
-        content:   'hello'
-      }
-    }
-  }
-}
+inputs:    { names: { type: map(string) } }
+resources: { local.file.many: { @for-each: var.names, path: @each.value, content: 'hello' } }
 outputs: {
   ok:  { value: resource.local.file.many['greet'].path }
   bad: { value: resource.local.file.many['greet'].whatever }
@@ -642,16 +498,8 @@ outputs: {
 
 func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-resources: {
-  local: {
-    file: {
-      one: { path: 'x.txt' }
-    }
-  }
-}
-outputs: {
-  anything: { value: resource.local.file.one.whatever }
-}
+resources: { local.file.one: { path: 'x.txt' } }
+outputs:   { anything: { value: resource.local.file.one.whatever } }
 `), map[string]*Library{
 		"local": {},
 	})
@@ -661,28 +509,15 @@ outputs: {
 
 func TestCheckReferencesEachScope(t *testing.T) {
 	errs := CheckReferences(parseStack(t, `
-inputs: {
-  files: { type: map(string) }
-}
+inputs: { files: { type: map(string) } }
 resources: {
-  local: {
-    file: {
-      many: {
-        @for-each: var.files
-        path: @each.key
-        content: @each.value
-      }
-      mirror: {
-        @for-each: var.files
-        path: resource.local.file.many[@each.key].path
-        content: @each.value
-      }
-      bad: {
-        path: @each.key
-        content: 'no loop'
-      }
-    }
+  local.file.many: { @for-each: var.files, path: @each.key, content: @each.value }
+  local.file.mirror: {
+    @for-each: var.files
+    path:      resource.local.file.many[@each.key].path
+    content:   @each.value
   }
+  local.file.bad: { path: @each.key, content: 'no loop' }
 }
 `), nil)
 
@@ -729,7 +564,7 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src := "actions: {\n  core: { command: { x: { argv: [" + c.call + "] } } }\n}\n"
+			src := "actions: {\n  core.command.x: { argv: [" + c.call + "] }\n}\n"
 			errs := CheckReferences(parseStack(t, src), libs)
 			var got []string
 			for _, e := range errs.Errors() {
@@ -758,9 +593,7 @@ func TestCheckReferencesFunctionOnUBLibrary(t *testing.T) {
 		},
 	}
 	errs := CheckReferences(parseStack(t, `
-actions: {
-  core: { command: { x: { argv: [w.fn('hi')] } } }
-}
+actions: { core.command.x: { argv: [w.fn('hi')] } }
 `), libs)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -782,20 +615,16 @@ func TestCheckReferencesConstraintRootsLimitedToVar(t *testing.T) {
 		}},
 	}
 	src := `
-inputs: {
-  replicas: { type: optional(list(object({ port: optional(integer) }))) }
-}
-locals: { limit: 3 }
-resources: {
-  core: { thing: { x: { name: 'a' } } }
-}
+inputs:    { replicas: { type: optional(list(object({ port: optional(integer) }))) } }
+locals:    { limit: 3 }
+resources: { core.thing.x: { name: 'a' } }
 constraints: [
   { kind: predicate, when: true, require: resource.core.thing.x.id != null },
   { kind: predicate, when: true, require: local.limit > 0 },
   {
     kind:    predicate
     when:    var.replicas != null
-    require: core.all([for r in var.replicas: r.port != null && r.port > 0])
+    require: core.all([ for r in var.replicas : r.port != null && r.port > 0 ])
   },
 ]
 `
@@ -821,10 +650,8 @@ func TestCheckReferencesConfigurationRefs(t *testing.T) {
 		}}
 	}
 	composite := parseStack(t, `
-inputs: { name: { type: string } }
-actions: {
-  greet: { say: { hello: { message: var.name } } }
-}
+inputs:  { name: { type: string } }
+actions: { greet.say.hello: { message: var.name } }
 `)
 	libs := func() map[string]*Library {
 		return map[string]*Library{
@@ -845,46 +672,33 @@ actions: {
 		{
 			name: "leaf configuration reference",
 			src: `
-actions: {
-  greet: { say: { formal: { @configuration: greet.formal, message: 'w' } } }
-}
+actions: { greet.say.formal: { @configuration: greet.formal, message: 'w' } }
 `,
 		},
 		{
 			name: "composite configurations map",
 			src: `
-actions: {
-  bundle: { wrap: { formal: {
-    @configurations: { greet: greet.formal }
-    name: 'w'
-  } } }
-}
+actions: { bundle.wrap.formal: { @configurations: { greet: greet.formal }, name: 'w' } }
 `,
 		},
 		{
 			name: "unknown alias in a configuration reference",
 			src: `
-actions: {
-  greet: { say: { formal: { @configuration: nope.formal, message: 'w' } } }
-}
+actions: { greet.say.formal: { @configuration: nope.formal, message: 'w' } }
 `,
 			want: []string{`library "nope" is not imported`},
 		},
 		{
 			name: "bare name is not a configuration reference",
 			src: `
-actions: {
-  greet: { say: { formal: { @configuration: formal, message: 'w' } } }
-}
+actions: { greet.say.formal: { @configuration: formal, message: 'w' } }
 `,
 			want: []string{"@configuration takes <import>.<name>"},
 		},
 		{
 			name: "string is not a configuration reference",
 			src: `
-actions: {
-  greet: { say: { formal: { @configuration: 'greet.formal', message: 'w' } } }
-}
+actions: { greet.say.formal: { @configuration: 'greet.formal', message: 'w' } }
 `,
 			want: []string{"@configuration takes <import>.<name>"},
 		},
@@ -975,8 +789,8 @@ func TestCheckReferencesForEachKinds(t *testing.T) {
 		{
 			name: "node fan-out over a list",
 			src: `
-inputs: { names: { type: list(string) } }
-resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
+inputs:    { names: { type: list(string) } }
+resources: { local.file.one: { @for-each: var.names, path: @each.value } }
 `,
 			want: []string{
 				"@for-each: iterable must be a map, got list(string); " +
@@ -986,8 +800,8 @@ resources: { local: { file: { one: { @for-each: var.names, path: @each.value } }
 		{
 			name: "node fan-out over an optional list",
 			src: `
-inputs: { names: { type: optional(list(string)) } }
-resources: { local: { file: { one: { @for-each: var.names, path: @each.value } } } }
+inputs:    { names: { type: optional(list(string)) } }
+resources: { local.file.one: { @for-each: var.names, path: @each.value } }
 `,
 			want: []string{
 				"@for-each: iterable may be null; supply a fallback, like " +
@@ -998,10 +812,9 @@ resources: { local: { file: { one: { @for-each: var.names, path: @each.value } }
 			name: "node fan-out over a narrowed optional map",
 			src: `
 inputs: { tags: { type: optional(map(string)) } }
-resources: { local: { file: { one: {
-  @for-each: if var.tags == null then {} else var.tags
-  path: @each.value
-} } } }
+resources: {
+  local.file.one: { @for-each: if var.tags == null then {} else var.tags, path: @each.value }
+}
 `,
 		},
 		{
@@ -1016,23 +829,23 @@ constraints: [
 		{
 			name: "node fan-out over a scalar",
 			src: `
-inputs: { name: { type: string } }
-resources: { local: { file: { one: { @for-each: var.name, path: @each.value } } } }
+inputs:    { name: { type: string } }
+resources: { local.file.one: { @for-each: var.name, path: @each.value } }
 `,
 			want: []string{"@for-each: iterable must be a map, got string"},
 		},
 		{
 			name: "node fan-out over a map",
 			src: `
-inputs: { tags: { type: map(string) } }
-resources: { local: { file: { one: { @for-each: var.tags, path: @each.value } } } }
+inputs:    { tags: { type: map(string) } }
+resources: { local.file.one: { @for-each: var.tags, path: @each.value } }
 `,
 		},
 		{
 			name: "node fan-out over an object",
 			src: `
-inputs: { cfg: { type: object({ a: string }) } }
-resources: { local: { file: { one: { @for-each: var.cfg, path: @each.key } } } }
+inputs:    { cfg: { type: object({ a: string }) } }
+resources: { local.file.one: { @for-each: var.cfg, path: @each.key } }
 `,
 		},
 		{
@@ -1057,8 +870,8 @@ constraints: [
 		{
 			name: "node fan-out over bare opaque",
 			src: `
-inputs: { blob: { type: opaque } }
-resources: { local: { file: { one: { @for-each: var.blob, path: @each.key } } } }
+inputs:    { blob: { type: opaque } }
+resources: { local.file.one: { @for-each: var.blob, path: @each.key } }
 `,
 			want: []string{
 				"@for-each: iterable is opaque; declare its type, like map(...)",
@@ -1067,8 +880,8 @@ resources: { local: { file: { one: { @for-each: var.blob, path: @each.key } } } 
 		{
 			name: "node fan-out over optional opaque",
 			src: `
-inputs: { blob: { type: optional(opaque) } }
-resources: { local: { file: { one: { @for-each: var.blob, path: @each.key } } } }
+inputs:    { blob: { type: optional(opaque) } }
+resources: { local.file.one: { @for-each: var.blob, path: @each.key } }
 `,
 			want: []string{
 				"@for-each: iterable is opaque; declare its type, like map(...)",
@@ -1077,8 +890,8 @@ resources: { local: { file: { one: { @for-each: var.blob, path: @each.key } } } 
 		{
 			name: "node fan-out over a map of opaque",
 			src: `
-inputs: { blobs: { type: map(opaque) } }
-resources: { local: { file: { one: { @for-each: var.blobs, path: @each.key } } } }
+inputs:    { blobs: { type: map(opaque) } }
+resources: { local.file.one: { @for-each: var.blobs, path: @each.key } }
 `,
 		},
 		{
@@ -1129,12 +942,8 @@ constraints: [
 ]
 `, "@each"},
 		{"for-each iterable reads inputs only", `
-resources: {
-  core: { thing: { x: { name: 'a' } } }
-}
-constraints: [
-  { kind: predicate, @for-each: resource.core.thing.x.id, when: true, require: true },
-]
+resources:   { core.thing.x: { name: 'a' } }
+constraints: [{ kind: predicate, @for-each: resource.core.thing.x.id, when: true, require: true }]
 `, "a constraint may read inputs only, not resource.core.thing.x.id"},
 		{"chained bindings resolve", `
 inputs: {
@@ -1195,16 +1004,9 @@ constraints: [
 ]
 `, "@b is not bound"},
 		{"level iterable reads inputs only", `
-resources: {
-  core: { thing: { x: { name: 'a' } } }
-}
+resources: { core.thing.x: { name: 'a' } }
 constraints: [
-  {
-    kind: predicate
-    @for-each: [ { @a: resource.core.thing.x.id } ]
-    when:    true
-    require: true
-  },
+  { kind: predicate, @for-each: [{ @a: resource.core.thing.x.id }], when: true, require: true },
 ]
 `, "a constraint may read inputs only, not resource.core.thing.x.id"},
 	}
@@ -1240,14 +1042,13 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 	}{
 		{
 			name:  "body field",
-			stack: "resources: { local: { file: { one: { path: tcp } } } }\n",
+			stack: "resources: { local.file.one: { path: tcp } }\n",
 			want:  []string{`unknown name "tcp"; write 'tcp' for a string`},
 		},
 		{
-			name: "array element",
-			stack: "resources: { local: { file: { one: " +
-				"{ args: ['echo', verbose] } } } }\n",
-			want: []string{`unknown name "verbose"; write 'verbose' for a string`},
+			name:  "array element",
+			stack: "resources: { local.file.one: { args: ['echo', verbose] } }\n",
+			want:  []string{`unknown name "verbose"; write 'verbose' for a string`},
 		},
 		{
 			name:  "root output",
@@ -1319,8 +1120,7 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 		{
 			name: "bare each",
 			stack: "inputs: { files: { type: map(string) } }\n" +
-				"resources: { local: { file: { many: " +
-				"{ @for-each: var.files, path: @each } } } }\n",
+				"resources: { local.file.many: { @for-each: var.files, path: @each } }\n",
 			want: []string{`@each cannot stand alone; read @each.key or @each.value`},
 		},
 		{
@@ -1409,7 +1209,7 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		},
 		{
 			name: "field minus number",
-			stack: "resources: { core: { thing: { one: { name: 'a' } } } }\n" +
+			stack: "resources: { core.thing.one: { name: 'a' } }\n" +
 				"outputs: { x: { value: resource.core.thing.one.size-1 } }\n",
 			want: []string{
 				`unknown field "size-1" on core.thing;` +
@@ -1418,15 +1218,14 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		},
 		{
 			name: "unknown field without a known prefix",
-			stack: "resources: { core: { thing: { one: { name: 'a' } } } }\n" +
+			stack: "resources: { core.thing.one: { name: 'a' } }\n" +
 				"outputs: { x: { value: resource.core.thing.one.nope } }\n",
 			want: []string{`unknown field "nope" on core.thing`},
 		},
 		{
 			name: "each value minus number",
 			stack: "inputs: { files: { type: map(string) } }\n" +
-				"resources: { core: { thing: { many: " +
-				"{ @for-each: var.files, name: @each.value-1 } } } }\n",
+				"resources: { core.thing.many: { @for-each: var.files, name: @each.value-1 } }\n",
 			want: []string{
 				`@each.value-1 is not available; write @each.value - 1 to subtract`,
 			},
@@ -1434,8 +1233,7 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		{
 			name: "each segment without a known prefix",
 			stack: "inputs: { files: { type: map(string) } }\n" +
-				"resources: { core: { thing: { many: " +
-				"{ @for-each: var.files, name: @each.foo } } } }\n",
+				"resources: { core.thing.many: { @for-each: var.files, name: @each.foo } }\n",
 			want: []string{`@each.foo is not available`},
 		},
 	}

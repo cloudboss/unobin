@@ -96,13 +96,8 @@ func (r *pinnedResource) Delete(_ context.Context, _, _ any) error { return nil 
 func (r *pinnedResource) ReplaceFields() []string                  { return []string{"tag"} }
 
 const cascadeSrc = `
-inputs: { t: { type: string } }
-resources: {
-  core: {
-    subnet:   { a:  { tag: var.t } }
-    instance: { it: { ref: resource.core.subnet.a.id } }
-  }
-}
+inputs:    { t: { type: string } }
+resources: { core.subnet.a: { tag: var.t }, core.instance.it: { ref: resource.core.subnet.a.id } }
 `
 
 // An update preserves the object, so its prior outputs stay readable
@@ -169,13 +164,8 @@ func TestReplaceSuppressesPriorOutputs(t *testing.T) {
 		},
 	}
 	src := `
-inputs: { t: { type: string } }
-resources: {
-  core: {
-    pinned:   { a:  { tag: var.t } }
-    instance: { it: { ref: resource.core.pinned.a.id } }
-  }
-}
+inputs:    { t: { type: string } }
+resources: { core.pinned.a: { tag: var.t }, core.instance.it: { ref: resource.core.pinned.a.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -213,13 +203,9 @@ resources: {
 // reader on every plan.
 func TestCompositeOutputsSeedAtPlan(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { tag: { type: string } }
-resources: {
-  core: { subnet: { s: { tag: var.tag } } }
-}
-outputs: {
-  id: { value: resource.core.subnet.s.id }
-}
+inputs:    { tag: { type: string } }
+resources: { core.subnet.s: { tag: var.tag } }
+outputs:   { id: { value: resource.core.subnet.s.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -237,10 +223,7 @@ outputs: {
 		},
 	}
 	src := `
-resources: {
-  w:    { net: { x: { tag: 'fixed' } } }
-  core: { instance: { it: { ref: resource.w.net.x.id } } }
-}
+resources: { w.net.x: { tag: 'fixed' }, core.instance.it: { ref: resource.w.net.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -263,13 +246,9 @@ resources: {
 func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
 	var gen int64
 	composite := parseStack(t, `
-inputs: { t: { type: string } }
-resources: {
-  core: { pinned: { p: { tag: var.t } } }
-}
-outputs: {
-  id: { value: resource.core.pinned.p.id }
-}
+inputs:    { t: { type: string } }
+resources: { core.pinned.p: { tag: var.t } }
+outputs:   { id: { value: resource.core.pinned.p.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -289,11 +268,8 @@ outputs: {
 		},
 	}
 	src := `
-inputs: { t: { type: string } }
-resources: {
-  w:    { net: { x: { t: var.t } } }
-  core: { instance: { it: { ref: resource.w.net.x.id } } }
-}
+inputs:    { t: { type: string } }
+resources: { w.net.x: { t: var.t }, core.instance.it: { ref: resource.w.net.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -329,13 +305,9 @@ resources: {
 // value on the second plan.
 func TestForEachCompositeOutputsSeedAtPlan(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { tag: { type: string } }
-resources: {
-  core: { subnet: { s: { tag: var.tag } } }
-}
-outputs: {
-  id: { value: resource.core.subnet.s.id }
-}
+inputs:    { tag: { type: string } }
+resources: { core.subnet.s: { tag: var.tag } }
+outputs:   { id: { value: resource.core.subnet.s.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -354,11 +326,8 @@ outputs: {
 	}
 	src := `
 resources: {
-  w: { net: { x: {
-    @for-each: { a: 'one', b: 'two' }
-    tag: @each.value
-  } } }
-  core: { instance: { it: { ref: resource.w.net.x['a'].id } } }
+  w.net.x:          { @for-each: { a: 'one', b: 'two' }, tag: @each.value }
+  core.instance.it: { ref: resource.w.net.x['a'].id }
 }
 `
 	store := newStateStore(t)

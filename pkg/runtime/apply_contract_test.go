@@ -65,12 +65,7 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 		},
 	}
 	src := `
-resources: {
-  core: {
-    ghost: { one: { tag: 'x' } }
-    thing: { two: { tag: resource.core.ghost.one.id } }
-  }
-}
+resources: { core.ghost.one: { tag: 'x' }, core.thing.two: { tag: resource.core.ghost.one.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -131,12 +126,7 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 		},
 	}
 	src := `
-resources: {
-  core: {
-    ghost: { one: { tag: 'x' } }
-    thing: { two: { tag: resource.core.ghost.one.id } }
-  }
-}
+resources: { core.ghost.one: { tag: 'x' }, core.thing.two: { tag: resource.core.ghost.one.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}

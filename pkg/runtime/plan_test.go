@@ -22,7 +22,7 @@ func planThingConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body stri
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
-	src := "resources: {\n  core: { thing: { x: " + body + " } }\n}\n"
+	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
@@ -253,8 +253,8 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
-	src := "resources: {\n  core: {\n    plain: { a: { name: 'a' } }\n" +
-		"    thing: { b: " + body + " }\n  }\n}\n"
+	src := "resources: {\n  core.plain.a: { name: 'a' }\n" +
+		"  core.thing.b: " + body + "\n}\n"
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
@@ -513,9 +513,7 @@ func TestPlanGoTypeConstraintChecksActions(t *testing.T) {
 		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}}},
 	}
 	src := `
-actions: {
-  core: { echo: { x: { name: 'a', size: 1 } } }
-}
+actions: { core.echo.x: { name: 'a', size: 1 } }
 `
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
@@ -570,9 +568,7 @@ func planCompositeConstraintErr(t *testing.T, inputs, constraints, callArgs stri
 	composite := parseStack(t, `
 inputs: `+inputs+`
 constraints: `+constraints+`
-resources: {
-  core: { thing: { one: { name: 'fixed', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'fixed', size: 1 } }
 `)
 	libs := resourceModules(&resourceCounters{})
 	libs["w"] = &Library{
@@ -583,7 +579,7 @@ resources: {
 	}
 	src := `
 resources: {
-  w: { pair: { x: ` + callArgs + ` } }
+  w.pair.x: ` + callArgs + `
 }
 `
 	exec := &Executor{
@@ -806,17 +802,7 @@ func TestPlanCompositeConstraintCallsFunction(t *testing.T) {
 
 func TestPlanForEachResourceEmitsOneStepPerInstance(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-        size:      @each.value
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
 `
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -848,17 +834,7 @@ resources: {
 
 func TestPlanForEachOrphanInstanceDestroyed(t *testing.T) {
 	src := `
-resources: {
-  core: {
-    thing: {
-      many: {
-        @for-each: var.configs
-        name:      @each.key
-        size:      @each.value
-      }
-    }
-  }
-}
+resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
 `
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -885,12 +861,8 @@ resources: {
 func TestPlanComposite(t *testing.T) {
 	composite := parseStack(t, `
 resources: {
-  core: {
-    thing: {
-      one: { name: var.name, size: 1 }
-      two: { name: var.name, size: 2 }
-    }
-  }
+  core.thing.one: { name: var.name, size: 1 }
+  core.thing.two: { name: var.name, size: 2 }
 }
 `)
 	var c resourceCounters
@@ -902,9 +874,7 @@ resources: {
 		},
 	}
 	stackSrc := `
-resources: {
-  w: { pair: { x: { name: 'alpha' } } }
-}
+resources: { w.pair.x: { name: 'alpha' } }
 `
 	plan := runPlan(t, stackSrc, libs, newStateStore(t))
 
@@ -928,15 +898,9 @@ resources: {
 
 func TestPlanCompositeInternalActionSkipsAfterRun(t *testing.T) {
 	composite := parseStack(t, `
-inputs: { phrase: { type: string } }
-actions: {
-  core: {
-    echo: { say: { echo: var.phrase } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.say.echo }
-}
+inputs:  { phrase: { type: string } }
+actions: { core.echo.say: { echo: var.phrase } }
+outputs: { said: { value: action.core.echo.say.echo } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
@@ -946,9 +910,7 @@ outputs: {
 		},
 	}
 	stackSrc := `
-resources: {
-  w: { box: { x: { phrase: 'hello' } } }
-}
+resources: { w.box.x: { phrase: 'hello' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -971,9 +933,7 @@ resources: {
 
 func TestPlanCreateForFreshResource(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
@@ -983,9 +943,7 @@ resources: {
 
 func TestPlanNoOpForUnchanged(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1001,14 +959,10 @@ resources: {
 
 func TestPlanUpdateForNonReplaceFieldChange(t *testing.T) {
 	first := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 99 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 99 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1028,14 +982,10 @@ resources: {
 
 func TestPlanReplaceForReplaceFieldChange(t *testing.T) {
 	first := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: {
-  core: { thing: { one: { name: 'beta', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'beta', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1054,9 +1004,7 @@ resources: {
 
 func TestPlanUpdateRevertsDrift(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1085,9 +1033,7 @@ resources: {
 
 func TestUpdateSeesObservedDriftAtApply(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1120,9 +1066,7 @@ resources: {
 
 func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1178,9 +1122,7 @@ resources: {
 
 func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1228,12 +1170,8 @@ resources: {
 func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    thing: {
-      one: { name: 'alpha', size: 1 }
-      two: { name: resource.core.thing.one.id, size: 2 }
-    }
-  }
+  core.thing.one: { name: 'alpha', size: 1 }
+  core.thing.two: { name: resource.core.thing.one.id, size: 2 }
 }
 `
 	var c resourceCounters
@@ -1271,12 +1209,8 @@ func TestPartialValueKeepsObjectStructure(t *testing.T) {
 func TestPlanResolvesInputRefAtPlanTime(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    thing: {
-      one: { name: 'alpha', size: 1 }
-      two: { name: resource.core.thing.one.name, size: 2 }
-    }
-  }
+  core.thing.one: { name: 'alpha', size: 1 }
+  core.thing.two: { name: resource.core.thing.one.name, size: 2 }
 }
 `
 	var c resourceCounters
@@ -1293,13 +1227,9 @@ resources: {
 func TestPlanDoesNotResolveAPendingInput(t *testing.T) {
 	src := `
 resources: {
-  core: {
-    thing: {
-      one:   { name: 'alpha', size: 1 }
-      two:   { name: resource.core.thing.one.id, size: 2 }
-      three: { name: resource.core.thing.two.name, size: 3 }
-    }
-  }
+  core.thing.one:   { name: 'alpha', size: 1 }
+  core.thing.two:   { name: resource.core.thing.one.id, size: 2 }
+  core.thing.three: { name: resource.core.thing.two.name, size: 3 }
 }
 `
 	var c resourceCounters
@@ -1315,16 +1245,10 @@ resources: {
 
 func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
 	src := `
-locals: {
-  one-id: resource.core.thing.one.id
-}
+locals: { one-id: resource.core.thing.one.id }
 resources: {
-  core: {
-    thing: {
-      one: { name: 'alpha', size: 1 }
-      two: { name: local.one-id, size: 2 }
-    }
-  }
+  core.thing.one: { name: 'alpha', size: 1 }
+  core.thing.two: { name: local.one-id, size: 2 }
 }
 `
 	f := parseStack(t, src)
@@ -1350,15 +1274,9 @@ resources: {
 
 func TestUpgradeActionRerunFollowsLocal(t *testing.T) {
 	src := `
-locals: {
-  thing-id: resource.core.thing.one.id
-}
-resources: {
-  core: { thing: { one: { name: 'a' } } }
-}
-actions: {
-  core: { command: { notify: { argv: ['echo', local.thing-id] } } }
-}
+locals:    { thing-id: resource.core.thing.one.id }
+resources: { core.thing.one: { name: 'a' } }
+actions:   { core.command.notify: { argv: ['echo', local.thing-id] } }
 `
 	f := parseStack(t, src)
 	dag := BuildDAG(f, nil)
@@ -1386,9 +1304,7 @@ actions: {
 
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1411,19 +1327,10 @@ resources: {
 
 func TestPlanDestroyForOrphan(t *testing.T) {
 	first := `
-resources: {
-  core: {
-    thing: {
-      keep: { name: 'a', size: 1 }
-      orph: { name: 'b', size: 2 }
-    }
-  }
-}
+resources: { core.thing.keep: { name: 'a', size: 1 }, core.thing.orph: { name: 'b', size: 2 } }
 `
 	second := `
-resources: {
-  core: { thing: { keep: { name: 'a', size: 1 } } }
-}
+resources: { core.thing.keep: { name: 'a', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1440,14 +1347,10 @@ resources: {
 
 func TestPlanRerunForChangedAction(t *testing.T) {
 	first := `
-actions: {
-  core: { echo: { hi: { echo: 'one' } } }
-}
+actions: { core.echo.hi: { echo: 'one' } }
 `
 	second := `
-actions: {
-  core: { echo: { hi: { echo: 'two' } } }
-}
+actions: { core.echo.hi: { echo: 'two' } }
 `
 	libs := map[string]*Library{
 		"core": {
@@ -1469,9 +1372,7 @@ actions: {
 
 func TestPlanSkipForUnchangedAction(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'same' } } }
-}
+actions: { core.echo.hi: { echo: 'same' } }
 `
 	libs := map[string]*Library{
 		"core": {
@@ -1510,11 +1411,11 @@ func TestPlanRecordsStateRev(t *testing.T) {
 // r0..r(n-1) so the parallel-read tests can dial the fan-out.
 func planResourcesSrc(n int) string {
 	var src strings.Builder
-	src.WriteString("resources: {\n  core: {\n    thing: {\n")
+	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("      r%d: { name: 'r%d', size: %d }\n", i, i, i))
+		src.WriteString(fmt.Sprintf("  core.thing.r%d: { name: 'r%d', size: %d }\n", i, i, i))
 	}
-	src.WriteString("    }\n  }\n}\n")
+	src.WriteString("}\n")
 	return src.String()
 }
 
@@ -1588,9 +1489,7 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 
 func TestPlanPropagatesReadError(t *testing.T) {
 	src := `
-resources: {
-  core: { thing: { one: { name: 'alpha', size: 1 } } }
-}
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)

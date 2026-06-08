@@ -4,6 +4,6 @@ inputs: { message: { type: string, description: 'Text passed to greet.say' } }
 
 imports: { greet: 'github.com/cloudboss/unobin//examples/configurations/greet' }
 
-actions: { greet: { say: { this: { message: var.message } } } }
+actions: { greet.say.this: { message: var.message } }
 
 outputs: { output: { value: action.greet.say.this.output } }

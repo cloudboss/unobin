@@ -239,14 +239,8 @@ func TestVersion(t *testing.T) {
 
 func TestApplyAndOutput(t *testing.T) {
 	info := testInfo(t, `
-actions: {
-  core: {
-    echo: { hi: { echo: 'hello world' } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+actions: { core.echo.hi: { echo: 'hello world' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `)
 	apply := applyVia(t, info, "")
 	require.Contains(t, apply, "said: 'hello world'")
@@ -263,17 +257,7 @@ outputs: {
 func TestPlanDestroyRemovesResources(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "managed.txt")
 	src := fmt.Sprintf(`
-resources: {
-  local: {
-    file: {
-      x: {
-        path:    '%s'
-        content: 'hello'
-        mode:    420
-      }
-    }
-  }
-}
+resources: { local.file.x: { path: '%s', content: 'hello', mode: 420 } }
 `, path)
 	info := testInfo(t, src)
 	info.Libraries["local"] = testFileLibrary()
@@ -312,15 +296,8 @@ resources: {
 
 func TestOutputJSON(t *testing.T) {
 	info := testInfo(t, `
-actions: {
-  core: {
-    echo: { hi: { echo: 'hello world' } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-  count: { value: 7 }
-}
+actions: { core.echo.hi: { echo: 'hello world' } }
+outputs: { said: { value: action.core.echo.hi.echo }, count: { value: 7 } }
 `)
 	_ = applyVia(t, info, "")
 
@@ -355,17 +332,9 @@ func TestPlanParseError(t *testing.T) {
 
 func TestApplyWithConfigInputs(t *testing.T) {
 	src := `
-inputs: {
-  greeting: { type: string }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.greeting } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { greeting: { type: string } }
+actions: { core.echo.hi: { echo: var.greeting } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -402,17 +371,9 @@ func TestDeploymentID(t *testing.T) {
 
 func TestPlanIsolatesDeploymentsByConfigName(t *testing.T) {
 	src := `
-inputs: {
-  greeting: { type: string }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.greeting } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { greeting: { type: string } }
+actions: { core.echo.hi: { echo: var.greeting } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -439,17 +400,9 @@ outputs: {
 
 func TestEnvVarOverridesConfig(t *testing.T) {
 	src := `
-inputs: {
-  greeting: { type: string }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.greeting } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { greeting: { type: string } }
+actions: { core.echo.hi: { echo: var.greeting } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -467,17 +420,9 @@ inputs: {
 
 func TestEnvVarUnderscoreToHyphen(t *testing.T) {
 	src := `
-inputs: {
-  cluster-name: { type: string }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.cluster-name } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { cluster-name: { type: string } }
+actions: { core.echo.hi: { echo: var.cluster-name } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -494,24 +439,16 @@ inputs: {
   ratio:    { type: number }
   subnets:  { type: list(string) }
 }
-imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
-}
+imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: {
-  core: {
-    echo: {
-      summary: {
-        echo: $'''\-
-          size={{ var.size }} spot={{ var.use-spot }} ratio={{ var.ratio }}
-           subnets={{ @core.join(var.subnets, ',') }}
-          '''
-      }
-    }
+  core.echo.summary: {
+    echo: $'''\-
+      size={{ var.size }} spot={{ var.use-spot }} ratio=
+      {{ var.ratio }} subnets={{ @core.join(var.subnets, ',') }}
+      '''
   }
 }
-outputs: {
-  said: { value: action.core.echo.summary.echo }
-}
+outputs: { said: { value: action.core.echo.summary.echo } }
 `
 	info := testInfo(t, src)
 
@@ -527,19 +464,9 @@ outputs: {
 
 func TestEnvVarStringInputTakesRawValue(t *testing.T) {
 	src := `
-inputs: {
-  answer:  { type: string }
-  comment: { type: optional(string) }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.answer } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-  note: { value: var.comment ?? 'none' }
-}
+inputs:  { answer: { type: string }, comment: { type: optional(string) } }
+actions: { core.echo.hi: { echo: var.answer } }
+outputs: { said: { value: action.core.echo.hi.echo }, note: { value: var.comment ?? 'none' } }
 `
 	info := testInfo(t, src)
 	// Each value parses as a UB literal, but the declared type is
@@ -594,20 +521,10 @@ inputs: {
 
 func TestPlanAppliesOptionalDefault(t *testing.T) {
 	src := `
-inputs: {
-  size: { type: optional(integer, 3) }
-}
-imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
-}
-actions: {
-  core: {
-    echo: { hi: { echo: $'size={{ var.size }}' } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { size: { type: optional(integer, 3) } }
+imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
+actions: { core.echo.hi: { echo: $'size={{ var.size }}' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	out := applyVia(t, info, "")
@@ -780,17 +697,9 @@ func TestEnvVarUnparseableFallsBackToString(t *testing.T) {
 	// URLs, paths, and names with special characters do not parse as UB
 	// literals; they arrive as plain strings without shell-escape ceremony.
 	src := `
-inputs: {
-  endpoint: { type: string }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.endpoint } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { endpoint: { type: string } }
+actions: { core.echo.hi: { echo: var.endpoint } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	t.Setenv("UB_VAR_endpoint", "https://example.com/health")
@@ -800,17 +709,9 @@ outputs: {
 
 func TestEnvVarStringInputKeepsQuoteCharacters(t *testing.T) {
 	src := `
-inputs: {
-  greeting: { type: string }
-}
-actions: {
-  core: {
-    echo: { hi: { echo: var.greeting } }
-  }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+inputs:  { greeting: { type: string } }
+actions: { core.echo.hi: { echo: var.greeting } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	// A string input takes the raw text, so UB-style quotes are data,
@@ -822,9 +723,7 @@ outputs: {
 
 func TestPlanShowsCreateBeforeApply(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `
 	info := testInfo(t, src)
 	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
@@ -836,9 +735,7 @@ actions: {
 
 func TestPlanHidesSkipAfterApply(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
@@ -1474,9 +1371,7 @@ func TestPlanEmpty(t *testing.T) {
 
 func TestPlanWritesPlanFile(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
@@ -1495,12 +1390,8 @@ actions: {
 
 func TestApplyConsumesPlanFile(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello world' } } }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+actions: { core.echo.hi: { echo: 'hello world' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
@@ -1552,9 +1443,7 @@ func TestRootIsCobraTree(t *testing.T) {
 
 func TestValidateAcceptsCleanSource(t *testing.T) {
 	info := testInfo(t, `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
 `)
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.NoError(t, err)
@@ -1569,13 +1458,7 @@ func TestValidateRejectsBadSource(t *testing.T) {
 
 func TestValidateRejectsInvalidReference(t *testing.T) {
 	info := testInfo(t, `
-actions: {
-  core: {
-    echo: {
-      bad: { echo: var.missing }
-    }
-  }
-}
+actions: { core.echo.bad: { echo: var.missing } }
 `)
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.Error(t, err)
@@ -1584,8 +1467,8 @@ actions: {
 
 func TestValidateChecksConfig(t *testing.T) {
 	info := testInfo(t, `
-inputs: { greeting: { type: string } }
-actions: { core: { echo: { hi: { echo: var.greeting } } } }
+inputs:  { greeting: { type: string } }
+actions: { core.echo.hi: { echo: var.greeting } }
 `)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(`bogus { not valid`), 0o644))
@@ -1641,12 +1524,8 @@ func TestPrintGraphPlain(t *testing.T) {
 	src := `
 inputs: { msg: { type: string } }
 actions: {
-  core: {
-    echo: {
-      first:  { echo: var.msg }
-      second: { echo: action.core.echo.first.echo }
-    }
-  }
+  core.echo.first:  { echo: var.msg }
+  core.echo.second: { echo: action.core.echo.first.echo }
 }
 `
 	info := testInfo(t, src)
@@ -1665,12 +1544,8 @@ func TestPrintGraphDot(t *testing.T) {
 	src := `
 inputs: { msg: { type: string } }
 actions: {
-  core: {
-    echo: {
-      first:  { echo: var.msg }
-      second: { echo: action.core.echo.first.echo }
-    }
-  }
+  core.echo.first:  { echo: var.msg }
+  core.echo.second: { echo: action.core.echo.first.echo }
 }
 `
 	info := testInfo(t, src)
@@ -1694,7 +1569,7 @@ func TestPrintGraphRejectsUnknownFormat(t *testing.T) {
 
 func TestStateMoveRelocatesEntry(t *testing.T) {
 	src := `
-actions: { core: { echo: { hi: { echo: 'hello' } } } }
+actions: { core.echo.hi: { echo: 'hello' } }
 outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
@@ -1711,7 +1586,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 }
 
 func TestStateMoveRejectsMissingSource(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -1722,14 +1597,7 @@ func TestStateMoveRejectsMissingSource(t *testing.T) {
 
 func TestStateMoveRejectsCollision(t *testing.T) {
 	src := `
-actions: {
-  core: {
-    echo: {
-      hi:  { echo: 'hello' }
-      bye: { echo: 'bye' }
-    }
-  }
-}
+actions: { core.echo.hi: { echo: 'hello' }, core.echo.bye: { echo: 'bye' } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
@@ -1740,7 +1608,7 @@ actions: {
 }
 
 func TestStateRemoveDropsEntry(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -1754,7 +1622,7 @@ func TestStateRemoveDropsEntry(t *testing.T) {
 }
 
 func TestStateRemoveRejectsMissing(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -1890,7 +1758,7 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 }
 
 func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
-	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
+	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 
 	store, err := localstate.NewLocalStore(
@@ -1920,7 +1788,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 }
 
 func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
-	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
+	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 	out, err := runCfg(t, info, "state", "gc", "--keep", "10")
 	require.NoError(t, err)
@@ -1928,7 +1796,7 @@ func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
 }
 
 func TestStateForceUnlockReleasesLock(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -1948,7 +1816,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 }
 
 func TestRefreshNoStateIsOK(t *testing.T) {
-	info := testInfo(t, `actions: { core: { echo: { hi: { echo: 'hello' } } } }`)
+	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
 	out, err := runCfg(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
@@ -1956,7 +1824,7 @@ func TestRefreshNoStateIsOK(t *testing.T) {
 
 func TestRefreshCarriesActionsForward(t *testing.T) {
 	info := testInfo(t, `
-actions: { core: { echo: { hi: { echo: 'hello' } } } }
+actions: { core.echo.hi: { echo: 'hello' } }
 outputs: { said: { value: action.core.echo.hi.echo } }
 `)
 	_ = applyVia(t, info, "")
@@ -1972,12 +1840,8 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 func TestStateListAndShow(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
@@ -2029,12 +1893,8 @@ func TestSchemaEmpty(t *testing.T) {
 
 func TestStateEncryptedWithEnvKey(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello' } } }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+actions: { core.echo.hi: { echo: 'hello' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
@@ -2065,7 +1925,7 @@ outputs: {
 }
 
 func TestStateShowFailsWithWrongKey(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hello' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hello' } }`
 	info := testInfo(t, src)
 
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
@@ -2084,12 +1944,8 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 
 func TestPlanFileEncryptedWithEnvKey(t *testing.T) {
 	src := `
-actions: {
-  core: { echo: { hi: { echo: 'hello world' } } }
-}
-outputs: {
-  said: { value: action.core.echo.hi.echo }
-}
+actions: { core.echo.hi: { echo: 'hello world' } }
+outputs: { said: { value: action.core.echo.hi.echo } }
 `
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
@@ -2120,7 +1976,7 @@ outputs: {
 }
 
 func TestPlanFlagOverridesConfigParallelism(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hi' } }`
 	info := testInfo(t, src)
 	cfg := writeStateConfig(t, `
 parallelism: 3
@@ -2136,7 +1992,7 @@ inputs: {}
 }
 
 func TestPlanFallsBackToConfigParallelism(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hi' } }`
 	info := testInfo(t, src)
 	cfg := writeStateConfig(t, `
 parallelism: 4
@@ -2152,7 +2008,7 @@ inputs: {}
 }
 
 func TestApplyTamperedPlanFile(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hi' } }`
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
@@ -2176,7 +2032,7 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 }
 
 func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
-	src := `actions: { core: { echo: { hi: { echo: 'hi' } } } }`
+	src := `actions: { core.echo.hi: { echo: 'hi' } }`
 	info := testInfo(t, src)
 
 	planFile := filepath.Join(t.TempDir(), "plan.json")

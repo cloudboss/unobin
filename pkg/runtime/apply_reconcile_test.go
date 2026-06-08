@@ -161,12 +161,8 @@ func TestReconcileTargets(t *testing.T) {
 // a. After apply b is a sink (nothing depends on it).
 const reconcileSrc = `
 resources: {
-  core: {
-    thing: {
-      a: { name: 'a', size: 1 }
-      b: { name: 'b', size: resource.core.thing.a.size }
-    }
-  }
+  core.thing.a: { name: 'a', size: 1 }
+  core.thing.b: { name: 'b', size: resource.core.thing.a.size }
 }
 `
 
@@ -220,16 +216,10 @@ func TestApplyReconciledValueReachesOutputs(t *testing.T) {
 
 	src := `
 resources: {
-  core: {
-    thing: {
-      a: { name: 'a', size: 1 }
-      b: { name: 'b', size: resource.core.thing.a.size }
-    }
-  }
+  core.thing.a: { name: 'a', size: 1 }
+  core.thing.b: { name: 'b', size: resource.core.thing.a.size }
 }
-outputs: {
-  a-size: { value: resource.core.thing.a.size }
-}
+outputs: { a-size: { value: resource.core.thing.a.size } }
 `
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
@@ -255,9 +245,7 @@ func TestApplyReconcilesPreExistingDependency(t *testing.T) {
 
 	// Apply one resource on its own.
 	srcA := `
-resources: {
-  core: { thing: { a: { name: 'a', size: 1 } } }
-}
+resources: { core.thing.a: { name: 'a', size: 1 } }
 `
 	applyOnce(t, &Executor{
 		DAG: BuildDAG(parseStack(t, srcA), libs), Libraries: libs, Store: store, Factory: stack,

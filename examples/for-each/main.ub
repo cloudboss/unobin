@@ -8,43 +8,31 @@ inputs: {
 imports: { std: 'github.com/cloudboss/unobin-library-std', notify: './notify' }
 
 resources: {
-  std: {
-    fs-file: {
-      many: {
-        @for-each:        var.files
-        path:             $'{{ var.base-path }}/{{ @each.key }}.txt'
-        content:          @each.value
-        create-directory: true
-      }
-    }
+  std.fs-file.many: {
+    @for-each:        var.files
+    path:             $'{{ var.base-path }}/{{ @each.key }}.txt'
+    content:          @each.value
+    create-directory: true
   }
-  notify: {
-    alert: {
-      many: {
-        @for-each: var.files
-        topic:     @each.key
-        body:      @each.value
-        path:      $'{{ var.base-path }}/{{ @each.key }}.alert'
-      }
-    }
+  notify.alert.many: {
+    @for-each: var.files
+    topic:     @each.key
+    body:      @each.value
+    path:      $'{{ var.base-path }}/{{ @each.key }}.alert'
   }
 }
 
 actions: {
-  std: {
-    exec-command: {
-      announce: {
-        @for-each: var.files
-        @trigger:  resource.std.fs-file.many[@each.key].sha256
-        argv: [
-          'echo',
-          $'''\-
-            wrote {{ resource.std.fs-file.many[@each.key].path }} (
-            sha {{ resource.std.fs-file.many[@each.key].sha256 }})
-            ''',
-        ]
-      }
-    }
+  std.exec-command.announce: {
+    @for-each: var.files
+    @trigger:  resource.std.fs-file.many[@each.key].sha256
+    argv: [
+      'echo',
+      $'''>-
+        wrote {{ resource.std.fs-file.many[@each.key].path }}
+        (sha {{ resource.std.fs-file.many[@each.key].sha256 }})
+        ''',
+    ]
   }
 }
 

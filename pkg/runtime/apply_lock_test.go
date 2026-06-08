@@ -66,13 +66,9 @@ func TestApplyScheduleLockSerializesNamedActions(t *testing.T) {
 	var track concurrencyTracker
 	src := `
 actions: {
-  core: {
-    slow: {
-      a: { @lock: 'kubectl', delay-ms: 100 }
-      b: { @lock: 'kubectl', delay-ms: 100 }
-      c: { @lock: 'kubectl', delay-ms: 100 }
-    }
-  }
+  core.slow.a: { @lock: 'kubectl', delay-ms: 100 }
+  core.slow.b: { @lock: 'kubectl', delay-ms: 100 }
+  core.slow.c: { @lock: 'kubectl', delay-ms: 100 }
 }
 `
 	libs := slowActionModules(&track)
@@ -93,13 +89,9 @@ func TestApplyScheduleDistinctLocksRunInParallel(t *testing.T) {
 	var track concurrencyTracker
 	src := `
 actions: {
-  core: {
-    slow: {
-      a: { @lock: 'one', delay-ms: 100 }
-      b: { @lock: 'two', delay-ms: 100 }
-      c: { @lock: 'three', delay-ms: 100 }
-    }
-  }
+  core.slow.a: { @lock: 'one', delay-ms: 100 }
+  core.slow.b: { @lock: 'two', delay-ms: 100 }
+  core.slow.c: { @lock: 'three', delay-ms: 100 }
 }
 `
 	libs := slowActionModules(&track)
@@ -120,13 +112,9 @@ func TestApplyScheduleUnlockedActionRunsAlongsideLocked(t *testing.T) {
 	var track concurrencyTracker
 	src := `
 actions: {
-  core: {
-    slow: {
-      a: { @lock: 'kubectl', delay-ms: 100 }
-      b: { @lock: 'kubectl', delay-ms: 100 }
-      free: { delay-ms: 100 }
-    }
-  }
+  core.slow.a:    { @lock: 'kubectl', delay-ms: 100 }
+  core.slow.b:    { @lock: 'kubectl', delay-ms: 100 }
+  core.slow.free: { delay-ms: 100 }
 }
 `
 	libs := slowActionModules(&track)
@@ -151,22 +139,22 @@ func TestExtractLockName(t *testing.T) {
 	}{
 		{
 			name: "action",
-			src:  `actions: { core: { slow: { x: { @lock: 'kubectl', delay-ms: 50 } } } }`,
+			src:  `actions: { core.slow.x: { @lock: 'kubectl', delay-ms: 50 } }`,
 			want: "kubectl",
 		},
 		{
 			name: "resource",
-			src:  `resources: { aws: { sg-rule: { x: { @lock: 'sg', port: 80 } } } }`,
+			src:  `resources: { aws.sg-rule.x: { @lock: 'sg', port: 80 } }`,
 			want: "sg",
 		},
 		{
 			name: "data",
-			src:  `data: { aws: { ami: { x: { @lock: 'reads', most-recent: true } } } }`,
+			src:  `data: { aws.ami.x: { @lock: 'reads', most-recent: true } }`,
 			want: "reads",
 		},
 		{
 			name: "no lock",
-			src:  `resources: { aws: { vpc: { x: { cidr: '10.0.0.0/16' } } } }`,
+			src:  `resources: { aws.vpc.x: { cidr: '10.0.0.0/16' } }`,
 			want: "",
 		},
 	}

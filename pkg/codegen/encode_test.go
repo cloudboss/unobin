@@ -170,21 +170,11 @@ func TestEncodeInfixAndPrefix(t *testing.T) {
 func TestEncodeFile(t *testing.T) {
 	src := `description: 'test stack'
 
-inputs: {
-  name: { type: string }
-}
+inputs: { name: { type: string } }
 
-resources: {
-  core: {
-    thing: {
-      one: { name: var.name }
-    }
-  }
-}
+resources: { core.thing.one: { name: var.name } }
 
-outputs: {
-  id: { value: resource.core.thing.one.id }
-}
+outputs: { id: { value: resource.core.thing.one.id } }
 `
 	out := encodeBody(t, src)
 	require.True(t, strings.HasPrefix(out, "&lang.File{"))
@@ -199,22 +189,9 @@ func TestEncodeFileExpressionTypechecks(t *testing.T) {
 	// full file. This catches any obvious imbalance in braces or
 	// commas that ParseExpr alone might miss.
 	src := `
-inputs: {
-  size:  { type: optional(integer, 3) }
-  hosts: { type: list(string) }
-}
+inputs: { size: { type: optional(integer, 3) }, hosts: { type: list(string) } }
 
-resources: {
-  local: {
-    file: {
-      one: {
-        path:    '/tmp/x'
-        content: 'hello'
-        mode:    420
-      }
-    }
-  }
-}
+resources: { local.file.one: { path: '/tmp/x', content: 'hello', mode: 420 } }
 `
 	got := encodeBody(t, src)
 	wrapped := "package x\n\nimport \"github.com/cloudboss/unobin/pkg/lang\"\n\nvar _ = " + got + "\n"
@@ -242,16 +219,7 @@ func TestEncodeCallModuleQualified(t *testing.T) {
 }
 
 func TestEncodeMetaKey(t *testing.T) {
-	src := `actions: {
-  core: {
-    command: {
-      hi: {
-        @trigger: 'always'
-        argv:     ['echo']
-      }
-    }
-  }
-}`
+	src := `actions: { core.command.hi: { @trigger: 'always', argv: ['echo'] } }`
 	out := encodeBody(t, src)
 	require.Contains(t, out, `Name: "@trigger"`)
 	parsesAsGoExpr(t, out)

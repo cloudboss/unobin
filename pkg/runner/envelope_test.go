@@ -223,10 +223,8 @@ func TestVerifyFactoryEnvelopeComparesAgainstLibraryPathNotBody(t *testing.T) {
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/cluster-deploy",
 		FactoryBody: `
-inputs: { region: { type: string } }
-resources: {
-  local: { file: { x: { path: '/tmp/x', content: 'hi' } } }
-}
+inputs:    { region: { type: string } }
+resources: { local.file.x: { path: '/tmp/x', content: 'hi' } }
 `,
 	}
 	path := writeConfig(t, `

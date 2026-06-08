@@ -60,11 +60,11 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 		},
 	}
 	var src strings.Builder
-	src.WriteString("resources: {\n  slow: {\n    r: {\n")
+	src.WriteString("resources: {\n")
 	for i := range 6 {
-		src.WriteString(fmt.Sprintf("      n%d: { name: 'n%d', delay-ms: 200 }\n", i, i))
+		src.WriteString(fmt.Sprintf("  slow.r.n%d: { name: 'n%d', delay-ms: 200 }\n", i, i))
 	}
-	src.WriteString("    }\n  }\n}\n")
+	src.WriteString("}\n")
 
 	drain := make(chan struct{})
 	exec := &Executor{
@@ -98,13 +98,7 @@ func TestApplyScheduleDrainBeforeDispatchSkipsEverything(t *testing.T) {
 		},
 	}
 	src := `
-resources: {
-  slow: {
-    r: {
-      n0: { name: 'n0', delay-ms: 100 }
-    }
-  }
-}
+resources: { slow.r.n0: { name: 'n0', delay-ms: 100 } }
 `
 	drain := make(chan struct{})
 	close(drain)
