@@ -1,0 +1,1 @@
+unobin.manifest:1:12: schema: replace: dependency id must be a quoted string, got bare identifier "aws"

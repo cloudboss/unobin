@@ -1,0 +1,2 @@
+requires: { 'github.com/x/y': 'v1.0.0' }
+replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }

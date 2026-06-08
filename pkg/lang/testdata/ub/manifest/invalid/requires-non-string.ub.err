@@ -1,0 +1,1 @@
+unobin.manifest:1:31: schema: requires: dependency "github.com/x/y": version must be a quoted string, got number literal
