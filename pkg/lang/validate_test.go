@@ -141,6 +141,14 @@ func TestValidateFileFactoryFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/file/factory", fileDriver(FileFactory))
 }
 
+func TestValidateFileExportedTypeFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/file/exported-type", fileDriver(FileExportedType))
+}
+
+func TestValidateFileUnknownFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/file/unknown", fileDriver(FileUnknown))
+}
+
 func TestValidateCallsTypePositions(t *testing.T) {
 	const ok = "" // no error expected
 	cases := []struct {
@@ -597,75 +605,6 @@ constraints: [
 	require.Contains(t, errs.Errors()[0].Msg, `input "volumes" not declared`)
 }
 
-func TestValidateFileStack(t *testing.T) {
-	src := `
-description: 'a stack'
-inputs: {
-  region: { type: string }
-}
-constraints: [
-  { kind: required-together, fields: [var.region] },
-]
-imports: {
-  aws: 'github.com/x/y'
-}
-outputs: {
-  out: { value: var.region }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-	require.Equal(t, FileFactory, f.Kind)
-
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateFileStackCollectsCrossErrors(t *testing.T) {
-	src := `
-inputs: {
-  region: { type: string }
-  bad:    { description: 'no type' }
-}
-constraints: [
-  { kind: required-together, fields: [var.region, var.missing] },
-]
-imports: {
-  aws: 42
-}
-exports: {
-  x: 'y.ub'
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-
-	errs := ValidateFile(f)
-	require.GreaterOrEqual(t, errs.Len(), 4, "got: %v", errs.Strings())
-}
-
-func TestValidateFileExportedType(t *testing.T) {
-	src := `
-description: 'a composite'
-inputs:  { name: { type: string } }
-outputs: { name: { value: var.name } }
-`
-	f := parseWithKind(t, src, FileExportedType)
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateFileUnknownKind(t *testing.T) {
-	src := `description: 'x'`
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	require.Equal(t, FileUnknown, f.Kind)
-
-	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "unknown")
-}
-
 func TestValidateBodyMetaKeys(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -734,24 +673,4 @@ func TestValidateBodyMetaKeys(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
-}
-
-func TestValidateFileWithResourcesAndActions(t *testing.T) {
-	src := `
-description: 'a stack'
-inputs: {
-  size: { type: optional(integer, 3) }
-}
-resources: {
-  aws.vpc.main: { cidr-block: '10.0.0.0/16' }
-}
-actions: {
-  core.command.smoke: { @trigger: 'always', execute: 'echo' }
-}
-`
-	f, err := ParseSource("main.ub", []byte(src))
-	require.NoError(t, err)
-
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }

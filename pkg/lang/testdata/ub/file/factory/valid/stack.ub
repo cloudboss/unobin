@@ -1,0 +1,13 @@
+description: 'a stack'
+inputs: {
+  region: { type: string }
+}
+constraints: [
+  { kind: required-together, fields: [var.region] },
+]
+imports: {
+  aws: 'github.com/x/y'
+}
+outputs: {
+  out: { value: var.region }
+}

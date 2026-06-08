@@ -1,0 +1,13 @@
+inputs: {
+  region: { type: string }
+  bad:    { description: 'no type' }
+}
+constraints: [
+  { kind: required-together, fields: [var.region, var.missing] },
+]
+imports: {
+  aws: 42
+}
+exports: {
+  x: 'y.ub'
+}

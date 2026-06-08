@@ -1,0 +1,10 @@
+description: 'a stack'
+inputs: {
+  size: { type: optional(integer, 3) }
+}
+resources: {
+  aws.vpc.main: { cidr-block: '10.0.0.0/16' }
+}
+actions: {
+  core.command.smoke: { @trigger: 'always', execute: 'echo' }
+}
