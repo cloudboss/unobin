@@ -10,6 +10,8 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+# ubtest golden files end in .ub.out and must be tracked.
+!*.ub.out
 
 _output/
 dist/
