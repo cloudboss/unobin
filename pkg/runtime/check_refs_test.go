@@ -113,9 +113,12 @@ func variadicSig(n int) typecheck.FuncSig {
 
 func TestCheckReferencesFunctionExists(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
-			"format": variadicSig(1),
-		}}},
+		"core": {Schema: &LibrarySchema{
+			Actions: map[string]*TypeSchema{"command": {}},
+			Functions: map[string]typecheck.FuncSig{
+				"format": variadicSig(1),
+			},
+		}},
 	}
 	errs := CheckReferences(parseStack(t, `
 actions: { core.command.x: { argv: [core.format('%s', 'hi')] } }
@@ -125,9 +128,12 @@ actions: { core.command.x: { argv: [core.format('%s', 'hi')] } }
 
 func TestCheckReferencesUnknownFunction(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
-			"format": variadicSig(1),
-		}}},
+		"core": {Schema: &LibrarySchema{
+			Actions: map[string]*TypeSchema{"command": {}},
+			Functions: map[string]typecheck.FuncSig{
+				"format": variadicSig(1),
+			},
+		}},
 	}
 	errs := CheckReferences(parseStack(t, `
 actions: { core.command.x: { argv: [core.formatt('%s', 'hi')] } }
@@ -173,10 +179,13 @@ actions: {
 
 func TestCheckReferencesFunctionArity(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
-			"format": variadicSig(1),
-			"length": fixedSig(1),
-		}}},
+		"core": {Schema: &LibrarySchema{
+			Actions: map[string]*TypeSchema{"command": {}},
+			Functions: map[string]typecheck.FuncSig{
+				"format": variadicSig(1),
+				"length": fixedSig(1),
+			},
+		}},
 	}
 	cases := []struct {
 		name string
@@ -237,6 +246,64 @@ resources: { greeter.greeting.welcome: { message: 'hello' } }
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `library "greeter" is not imported`)
+}
+
+func TestCheckReferencesDeclarationCategory(t *testing.T) {
+	greeting := parseStack(t, `
+inputs:  { message: { type: string } }
+outputs: { said: { value: var.message } }
+`)
+	libs := func() map[string]*Library {
+		return map[string]*Library{
+			"greeter": {ActionComposites: map[string]*CompositeType{
+				"greeting": {Name: "greeting", Kind: NodeAction, Body: greeting},
+			}},
+			"cloud": {Schema: &LibrarySchema{
+				Resources: map[string]*TypeSchema{"vpc": {}},
+				Actions:   map[string]*TypeSchema{"ping": {}},
+			}},
+		}
+	}
+	cases := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "action composite used as a resource",
+			src:  "resources: { greeter.greeting.x: { message: 'hi' } }\n",
+			want: []string{`library "greeter" has no resource "greeting"`},
+		},
+		{
+			name: "action composite used as an action",
+			src:  "actions: { greeter.greeting.x: { message: 'hi' } }\n",
+		},
+		{
+			name: "go action used as a resource",
+			src:  "resources: { cloud.ping.x: {} }\n",
+			want: []string{`library "cloud" has no resource "ping"`},
+		},
+		{
+			name: "go resource used as data",
+			src:  "data: { cloud.vpc.x: {} }\n",
+			want: []string{`library "cloud" has no data "vpc"`},
+		},
+		{
+			name: "go resource used as a resource",
+			src:  "resources: { cloud.vpc.x: {} }\n",
+		},
+		{
+			name: "unknown type",
+			src:  "resources: { cloud.nope.x: {} }\n",
+			want: []string{`library "cloud" has no resource "nope"`},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			errs := CheckReferences(parseStack(t, c.src), libs())
+			require.Equal(t, c.want, checkRefMessages(t, errs))
+		})
+	}
 }
 
 func TestCheckReferencesCompositeScope(t *testing.T) {
@@ -579,9 +646,12 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 
 func TestCheckReferencesFunctionOnUBLibrary(t *testing.T) {
 	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{Functions: map[string]typecheck.FuncSig{
-			"format": variadicSig(1),
-		}}},
+		"core": {Schema: &LibrarySchema{
+			Actions: map[string]*TypeSchema{"command": {}},
+			Functions: map[string]typecheck.FuncSig{
+				"format": variadicSig(1),
+			},
+		}},
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*CompositeType{

@@ -82,11 +82,59 @@ func (c *referenceChecker) checkDeclarations() {
 		if !found || libs == nil {
 			continue
 		}
-		if _, ok := libs[n.Alias]; ok {
+		lib, ok := libs[n.Alias]
+		if !ok {
+			c.addf(n.Body.Span().Start, `library %q is not imported`, n.Alias)
 			continue
 		}
-		c.addf(n.Body.Span().Start, `library %q is not imported`, n.Alias)
+		// A composite call site already matched a type of this kind. A
+		// leaf must name a type the library declares under this kind;
+		// using an action as a resource, or a misspelled type, arrives
+		// here as a leaf the library does not back. A library that
+		// exposes nothing to judge by is left alone, the same way a
+		// schemaless Go library is elsewhere.
+		if !n.IsComposite() && libraryKnown(lib) && !libraryDeclares(lib, n.Kind, n.Type) {
+			c.addf(n.Body.Span().Start, `library %q has no %s %q`,
+				n.Alias, string(n.Kind), n.Type)
+		}
 	}
+}
+
+// libraryKnown reports whether lib exposes enough to judge which types
+// it declares: a compile-time schema, Go registrations the stack binary
+// holds, or UB composites. A library with none of these is opaque, so a
+// leaf against it is not judged, matching how a schemaless Go library is
+// left alone elsewhere.
+func libraryKnown(lib *Library) bool {
+	return lib.Schema != nil ||
+		len(lib.Resources)+len(lib.DataSources)+len(lib.Actions) > 0 ||
+		hasComposites(lib)
+}
+
+// libraryDeclares reports whether lib declares a type of the given kind
+// and name. A UB library backs it with a composite; a Go library backs
+// it with a registration the stack binary holds, or, at compile, with a
+// schema entry. The reference checker runs in both, so all three are
+// consulted.
+func libraryDeclares(lib *Library, kind NodeKind, typ string) bool {
+	if lib.Composite(kind, typ) != nil {
+		return true
+	}
+	switch kind {
+	case NodeResource:
+		if _, ok := lib.Resources[typ]; ok {
+			return true
+		}
+	case NodeData:
+		if _, ok := lib.DataSources[typ]; ok {
+			return true
+		}
+	case NodeAction:
+		if _, ok := lib.Actions[typ]; ok {
+			return true
+		}
+	}
+	return lib.Schema != nil && lib.Schema.typeSchema(kind, typ) != nil
 }
 
 func (c *referenceChecker) checkNodes() {
