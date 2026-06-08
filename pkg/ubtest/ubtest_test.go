@@ -39,6 +39,11 @@ func TestRunSubstring(t *testing.T) {
 	Run(t, "testdata/substr", fakeDriver, Substring())
 }
 
+// fakeDriver uppercases its output, so feeding that output back is stable.
+func TestRunIdempotent(t *testing.T) {
+	Run(t, "testdata/exact", fakeDriver, Idempotent())
+}
+
 func TestUpdateWritesAndRemovesGoldens(t *testing.T) {
 	dir := t.TempDir()
 	writeFixture := func(rel, content string) {

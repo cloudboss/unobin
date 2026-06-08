@@ -41,7 +41,8 @@ type Driver func(name string, src []byte) (output string, diags []string)
 type Option func(*config)
 
 type config struct {
-	substring bool
+	substring  bool
+	idempotent bool
 }
 
 // Substring matches each line of a .ub.err golden as a substring of the
@@ -50,6 +51,13 @@ type config struct {
 // and version-sensitive; prefer exact matching everywhere else.
 func Substring() Option {
 	return func(c *config) { c.substring = true }
+}
+
+// Idempotent re-runs the driver on its own output and checks the result is
+// unchanged. Use it for formatters and renderers, where format(format(x)) must
+// equal format(x).
+func Idempotent() Option {
+	return func(c *config) { c.idempotent = true }
 }
 
 type fixture struct {
@@ -79,6 +87,12 @@ func Run(t *testing.T, dir string, drive Driver, opts ...Option) {
 			again, diagsAgain := drive(fx.name, fx.src)
 			require.Equal(t, output, again, "driver output is not deterministic")
 			require.Equal(t, diags, diagsAgain, "driver diagnostics are not deterministic")
+
+			if cfg.idempotent && output != "" {
+				reformatted, _ := drive(fx.name, []byte(output))
+				require.Equal(t, output, reformatted,
+					"driver is not idempotent: output changes when fed back in")
+			}
 
 			if *update {
 				writeOrRemove(t, fx.errPath, appendNL(formatDiags(diags)))
