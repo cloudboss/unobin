@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func parseWithKind(t *testing.T, src string, kind FileKind) *File {
@@ -949,202 +951,35 @@ inputs: {
 		"got: %v", errs.Strings())
 }
 
+func constraintsBlock(f *File) (*ArrayLit, bool) {
+	if len(f.Body.Fields) == 0 || f.Body.Fields[0].Key.Name != "constraints" {
+		return nil, false
+	}
+	a, ok := f.Body.Fields[0].Value.(*ArrayLit)
+	return a, ok
+}
+
 func parseConstraintsBlock(t *testing.T, src string) *ArrayLit {
 	t.Helper()
 	f, err := ParseSource("", []byte(src))
 	require.NoError(t, err)
-	require.NotEmpty(t, f.Body.Fields)
-	require.Equal(t, "constraints", f.Body.Fields[0].Key.Name)
-	a, ok := f.Body.Fields[0].Value.(*ArrayLit)
+	block, ok := constraintsBlock(f)
 	require.True(t, ok, "expected `constraints:` to be an array literal")
-	return a
+	return block
 }
 
-func TestValidateConstraintsHappy(t *testing.T) {
-	src := `
-constraints: [
-  { kind: exactly-one-of,    fields: [var.encryption-key, var.encryption-key-arn] },
-  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
-  { kind: mutually-exclusive, fields: [var.use-spot, var.reserved-capacity] },
-  {
-    kind:    predicate
-    when:    'var.region == \'us-gov-east-1\''
-    require: 'var.fips-mode == true'
-    message: 'GovCloud regions require FIPS mode enabled'
-  },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintEntryNotObject(t *testing.T) {
-	src := `
-constraints: ['bogus']
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "must be an object")
-}
-
-func TestValidateConstraintMissingKind(t *testing.T) {
-	src := `
-constraints: [
-  { fields: [a, b] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "missing required `kind:`")
-}
-
-func TestValidateConstraintUnknownKind(t *testing.T) {
-	src := `
-constraints: [
-  { kind: weird-thing, fields: [a] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "unknown constraint kind")
-}
-
-func TestValidateConstraintFieldsRequired(t *testing.T) {
-	src := `
-constraints: [
-  { kind: required-together },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "requires a `fields:` list")
-}
-
-func TestValidateConstraintFieldsEmpty(t *testing.T) {
-	src := `
-constraints: [
-  { kind: required-together, fields: [] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "must not be empty")
-}
-
-func TestValidateConstraintFieldsNotIdent(t *testing.T) {
-	src := `
-constraints: [
-  { kind: required-together, fields: ['quoted-name', 42, var.valid-name] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 2, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintFieldsNested(t *testing.T) {
-	src := `
-constraints: [
-  { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] },
-  { kind: required-with,  fields: [var.code.signing.key-arn, var.name] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintFieldsAcceptsSplatAndIndex(t *testing.T) {
-	src := `
-constraints: [
-  { kind: exactly-one-of,     fields: [var.replicas[*].inline, var.replicas[*].from-file] },
-  { kind: required-together,  fields: [var.listeners[0].cert, var.listeners[0].key] },
-  { kind: required-with,      fields: [var.replicas[*].tls, var.ca-cert] },
-  { kind: at-least-one-of,    fields: [var.config.replicas[*].a, var.config.replicas[*].b] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintFieldsRejectsBadSegments(t *testing.T) {
-	src := `
-constraints: [
-  { kind: required-together, fields: [var.code['k'], var.a] },
-  { kind: required-together, fields: [var.replicas[*], var.a] },
-  { kind: required-together, fields: [var.a[*].b[*].x, var.a] },
-  { kind: required-together, fields: [var.code[i], var.a] },
-  { kind: required-together, fields: [vpc-id, var.a] },
-  { kind: required-together, fields: [code.inline, var.a] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 6, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg,
-		"a list index in a field must be a whole number, like var.listeners[0]")
-	require.Contains(t, errs.Errors()[1].Msg,
-		"splat [*] must be followed by a field, like var.replicas[*].host")
-	require.Contains(t, errs.Errors()[2].Msg, "only one [*] is allowed in a field")
-	require.Contains(t, errs.Errors()[3].Msg,
-		"a list index in a field must be a whole number, like var.listeners[0]")
-	require.Contains(t, errs.Errors()[4].Msg, "must be a var reference: write var.vpc-id")
-	require.Contains(t, errs.Errors()[5].Msg, "must be a var reference: write var.code.inline")
-}
-
-func TestValidateConstraintSplatRules(t *testing.T) {
-	src := `
-constraints: [
-  { kind: at-most-one-of,    fields: [var.replicas[*].primary] },
-  { kind: required-together, fields: [var.replicas[*].x, var.volumes[*].y] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 2, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, "a [*] constraint needs at least two fields")
-	require.Contains(t, errs.Errors()[1].Msg,
-		"[*] fields must splat the same list, got var.replicas[*] and var.volumes[*]")
-}
-
-func TestValidateConstraintUnknownKeyForFieldsKind(t *testing.T) {
-	src := `
-constraints: [
-  { kind: required-together, fields: [var.a, var.b], message: 'x' },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "unknown key")
-}
-
-func TestValidateConstraintPredicateMissingWhen(t *testing.T) {
-	src := `
-constraints: [
-  { kind: predicate, require: 'true' },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "`when:`")
-}
-
-func TestValidateConstraintPredicateMissingRequire(t *testing.T) {
-	src := `
-constraints: [
-  { kind: predicate, when: 'true' },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "`require:`")
-}
-
-func TestValidateConstraintDuplicateKey(t *testing.T) {
-	src := `
-constraints: [
-  { kind: required-together, fields: [var.a], fields: [var.b] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "duplicate")
+func TestValidateConstraintsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/constraints", func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		block, ok := constraintsBlock(f)
+		if !ok {
+			return "", []string{"fixture must begin with a constraints: array"}
+		}
+		return "", ValidateConstraints(block).Messages()
+	})
 }
 
 func parseObjectBlock(t *testing.T, src, key string) *ObjectLit {
@@ -1674,105 +1509,4 @@ actions: {
 
 	errs := ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintPredicateForEach(t *testing.T) {
-	src := `
-constraints: [
-  {
-    kind:      predicate
-    @for-each: var.replicas
-    when:      true
-    require:   @each.value.tls == true
-  },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintChainedForEach(t *testing.T) {
-	src := `
-constraints: [
-  {
-    kind: predicate
-    @for-each: [
-      { @rule: var.rules },
-      { @t:    @rule.value.transitions },
-    ]
-    when:    true
-    require: @t.value.days != null
-  },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateConstraintChainedForEachRejectsBadLevels(t *testing.T) {
-	cases := []struct {
-		name   string
-		levels string
-		want   string
-	}{
-		{"empty chain", ``,
-			"a chained @for-each needs at least one level"},
-		{"non-object level", `var.rules,`,
-			"a chain level binds one @-name"},
-		{"two keys", `{ @a: var.rules, @b: var.rules },`,
-			"a chain level binds one @-name"},
-		{"bare name", `{ rule: var.rules },`,
-			"binding must be @-named"},
-		{"each declared", `{ @each: var.rules },`,
-			"@each is the bare form's binding"},
-		{"core declared", `{ @core: var.rules },`,
-			"reserved"},
-		{"duplicate", `{ @a: var.rules }, { @a: var.rules },`,
-			"duplicate binding \"@a\""},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			src := `
-constraints: [
-  {
-    kind: predicate
-    @for-each: [ ` + tt.levels + ` ]
-    when:    true
-    require: true
-  },
-]
-`
-			errs := ValidateConstraints(parseConstraintsBlock(t, src))
-			require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-			require.Contains(t, errs.Errors()[0].Msg, tt.want)
-		})
-	}
-}
-
-func TestValidateConstraintForEachOnSetKindRejected(t *testing.T) {
-	src := `
-constraints: [
-  { kind: exactly-one-of, @for-each: var.replicas, fields: [var.a, var.b] },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, `meta key "@for-each" not allowed`)
-}
-
-func TestValidateConstraintDuplicateForEach(t *testing.T) {
-	src := `
-constraints: [
-  {
-    kind:      predicate
-    @for-each: var.a
-    @for-each: var.b
-    when:      true
-    require:   true
-  },
-]
-`
-	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, "duplicate key")
 }

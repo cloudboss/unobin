@@ -1,0 +1,11 @@
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.rules },
+      { @t:    @rule.value.transitions },
+    ]
+    when:    true
+    require: @t.value.days != null
+  },
+]

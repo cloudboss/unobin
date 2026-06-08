@@ -1,0 +1,3 @@
+constraints: [
+  { kind: exactly-one-of, @for-each: var.replicas, fields: [var.a, var.b] },
+]

@@ -1,0 +1,6 @@
+constraints[0].fields[0]: a list index in a field must be a whole number, like var.listeners[0]
+constraints[1].fields[0]: splat [*] must be followed by a field, like var.replicas[*].host
+constraints[2].fields[0]: only one [*] is allowed in a field
+constraints[3].fields[0]: a list index in a field must be a whole number, like var.listeners[0]
+constraints[4].fields[0]: must be a var reference: write var.vpc-id
+constraints[5].fields[0]: must be a var reference: write var.code.inline

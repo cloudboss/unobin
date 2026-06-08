@@ -1,0 +1,8 @@
+constraints: [
+  { kind: required-together, fields: [var.code['k'], var.a] },
+  { kind: required-together, fields: [var.replicas[*], var.a] },
+  { kind: required-together, fields: [var.a[*].b[*].x, var.a] },
+  { kind: required-together, fields: [var.code[i], var.a] },
+  { kind: required-together, fields: [vpc-id, var.a] },
+  { kind: required-together, fields: [code.inline, var.a] },
+]

@@ -1,0 +1,8 @@
+constraints: [
+  {
+    kind: predicate
+    @for-each: [ { rule: var.rules }, ]
+    when:    true
+    require: true
+  },
+]
