@@ -1,0 +1,6 @@
+outputs: {
+  bad: {
+    value: 1
+    @bogus: true
+  }
+}

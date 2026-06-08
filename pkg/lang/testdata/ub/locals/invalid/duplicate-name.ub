@@ -1,0 +1,4 @@
+locals: {
+  dup: var.x
+  dup: var.y
+}

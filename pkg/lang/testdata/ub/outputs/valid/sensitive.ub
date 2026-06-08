@@ -1,0 +1,6 @@
+outputs: {
+  password: {
+    value: var.p
+    @sensitive: true
+  }
+}

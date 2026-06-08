@@ -1,0 +1,1 @@
+output "bad": unknown meta key "@bogus"

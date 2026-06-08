@@ -1,0 +1,7 @@
+locals: {
+  cluster-name: $'{{var.env}}-{{var.region}}'
+  endpoint:     resource.aws.lb.main.dns-name
+  is-prod:      var.env == 'prod'
+  static:       'literal'
+  derived:      local.cluster-name
+}

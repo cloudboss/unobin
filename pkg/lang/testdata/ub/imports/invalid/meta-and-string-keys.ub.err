@@ -1,0 +1,2 @@
+@-prefixed key "@bad" is not a valid import name
+import name must be a bare identifier, got quoted string "aws"

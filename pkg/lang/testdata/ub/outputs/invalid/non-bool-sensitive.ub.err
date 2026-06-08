@@ -1,0 +1,1 @@
+output "bad": @sensitive must be a boolean literal

@@ -1,0 +1,1 @@
+import "aws": value must be a quoted-string source URL or local path, got object literal

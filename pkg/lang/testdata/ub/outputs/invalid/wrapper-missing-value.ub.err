@@ -1,0 +1,2 @@
+output "bad": wrapper missing required `value:` key
+output "bad": unknown wrapper key "extra" (allowed: value)

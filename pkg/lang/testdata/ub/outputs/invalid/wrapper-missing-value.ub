@@ -1,0 +1,3 @@
+outputs: {
+  bad: { extra: 1 }
+}

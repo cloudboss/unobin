@@ -1,0 +1,6 @@
+outputs: {
+  ok:        { value: var.x }
+  ok:        { value: var.y }
+  @bad:      { value: var.z }
+  'quoted':  { value: var.q }
+}

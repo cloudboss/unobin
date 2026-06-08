@@ -1,0 +1,4 @@
+imports: {
+  @bad:   'x'
+  'aws':  'github.com/a/y'
+}

@@ -982,200 +982,49 @@ func TestValidateConstraintsFixtures(t *testing.T) {
 	})
 }
 
+func namedObjectBlock(f *File, key string) (*ObjectLit, bool) {
+	if len(f.Body.Fields) == 0 || f.Body.Fields[0].Key.Name != key {
+		return nil, false
+	}
+	o, ok := f.Body.Fields[0].Value.(*ObjectLit)
+	return o, ok
+}
+
 func parseObjectBlock(t *testing.T, src, key string) *ObjectLit {
 	t.Helper()
 	f, err := ParseSource("", []byte(src))
 	require.NoError(t, err)
-	require.NotEmpty(t, f.Body.Fields)
-	require.Equal(t, key, f.Body.Fields[0].Key.Name)
-	o, ok := f.Body.Fields[0].Value.(*ObjectLit)
+	o, ok := namedObjectBlock(f, key)
 	require.True(t, ok, "expected `%s:` to be an object literal", key)
 	return o
 }
 
-func TestValidateImportsHappy(t *testing.T) {
-	src := `
-imports: {
-  aws:   'github.com/cloudboss/unobin-libraries/aws'
-  net:   'github.com/me/libraries/network'
-  utils: 'github.com/me/utils'
-  local: './local-libraries/foo'
-}
-`
-	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateImportsNotString(t *testing.T) {
-	src := `
-imports: {
-  aws: { url: 'github.com/x/y' }
-}
-`
-	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "quoted-string")
+// objectBlockDriver runs the named top-level object block through validate,
+// reporting its diagnostics as the fixture's expected errors.
+func objectBlockDriver(key string, validate func(*ObjectLit) *ErrorList) ubtest.Driver {
+	return func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		o, ok := namedObjectBlock(f, key)
+		if !ok {
+			return "", []string{"fixture must begin with a " + key + ": object"}
+		}
+		return "", validate(o).Messages()
+	}
 }
 
-func TestValidateImportsDuplicate(t *testing.T) {
-	src := `
-imports: {
-  aws: 'github.com/a/x'
-  aws: 'github.com/a/y'
-}
-`
-	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Errors()[0].Msg, "duplicate import")
+func TestValidateImportsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/imports", objectBlockDriver("imports", ValidateImports))
 }
 
-func TestValidateImportsRejectsMetaAndStringKeys(t *testing.T) {
-	src := `
-imports: {
-  @bad:   'x'
-  'aws':  'github.com/a/y'
-}
-`
-	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
-	require.Equal(t, 2, errs.Len())
+func TestValidateOutputsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/outputs", objectBlockDriver("outputs", ValidateOutputs))
 }
 
-func TestValidateOutputsHappy(t *testing.T) {
-	src := `
-outputs: {
-  cluster-id:  { value: resource.net.cluster.web.id }
-  cluster-arn: { value: resource.net.cluster.web.arn }
-  region:      { value: var.region }
-  static:      { value: 'literal' }
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateOutputsRejectsBadKeys(t *testing.T) {
-	src := `
-outputs: {
-  ok:        { value: var.x }
-  ok:        { value: var.y }
-  @bad:      { value: var.z }
-  'quoted':  { value: var.q }
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 3, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateOutputsRejectsBareForm(t *testing.T) {
-	src := `
-outputs: {
-  bare: var.x
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, "wrapper object")
-}
-
-func TestValidateOutputsRejectsWrapperMissingValue(t *testing.T) {
-	src := `
-outputs: {
-  bad: { extra: 1 }
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	joined := strings.Join(errs.Strings(), "; ")
-	require.Contains(t, joined, "unknown wrapper key")
-	require.Contains(t, joined, "missing required `value:`")
-}
-
-func TestValidateOutputsAcceptsSensitive(t *testing.T) {
-	src := `
-outputs: {
-  password: {
-    value: var.p
-    @sensitive: true
-  }
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateOutputsRejectsUnknownMetaKey(t *testing.T) {
-	src := `
-outputs: {
-  bad: {
-    value: 1
-    @bogus: true
-  }
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	joined := strings.Join(errs.Strings(), "; ")
-	require.Contains(t, joined, `unknown meta key "@bogus"`)
-}
-
-func TestValidateOutputsRejectsNonBoolSensitive(t *testing.T) {
-	src := `
-outputs: {
-  bad: {
-    value: 1
-    @sensitive: 'yes'
-  }
-}
-`
-	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	joined := strings.Join(errs.Strings(), "; ")
-	require.Contains(t, joined, "must be a boolean literal")
-}
-
-func TestValidateLocalsHappy(t *testing.T) {
-	src := `
-locals: {
-  cluster-name: $'{{var.env}}-{{var.region}}'
-  endpoint:     resource.aws.lb.main.dns-name
-  is-prod:      var.env == 'prod'
-  static:       'literal'
-  derived:      local.cluster-name
-}
-`
-	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
-}
-
-func TestValidateLocalsRejectsQuotedName(t *testing.T) {
-	src := `
-locals: {
-  'quoted': var.x
-}
-`
-	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, "bare identifier")
-}
-
-func TestValidateLocalsRejectsMetaKey(t *testing.T) {
-	src := `
-locals: {
-  @bad: var.x
-}
-`
-	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, "@-prefixed")
-}
-
-func TestValidateLocalsRejectsDuplicateName(t *testing.T) {
-	src := `
-locals: {
-  dup: var.x
-  dup: var.y
-}
-`
-	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
-	require.Contains(t, errs.Errors()[0].Msg, "duplicate local")
+func TestValidateLocalsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/locals", objectBlockDriver("locals", ValidateLocals))
 }
 
 func TestValidateConstraintReferencesHappy(t *testing.T) {

@@ -1,0 +1,1 @@
+output "bare": value must be a wrapper object of the form { value: <expr> }

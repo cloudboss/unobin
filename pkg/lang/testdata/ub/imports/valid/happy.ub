@@ -1,0 +1,6 @@
+imports: {
+  aws:   'github.com/cloudboss/unobin-libraries/aws'
+  net:   'github.com/me/libraries/network'
+  utils: 'github.com/me/utils'
+  local: './local-libraries/foo'
+}

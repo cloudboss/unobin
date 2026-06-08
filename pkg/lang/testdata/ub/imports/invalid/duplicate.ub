@@ -1,0 +1,4 @@
+imports: {
+  aws: 'github.com/a/x'
+  aws: 'github.com/a/y'
+}
