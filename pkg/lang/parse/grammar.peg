@@ -776,7 +776,7 @@ CloseFollower <- "\n" / !. / [ \t,)}\]#]
 
 Indent <- "\n" [ \t]*
 
-SingleLineContent <- ( !"'''" !"\n" . )*
+SingleLineContent <- ( !("'''" !"'") !"\n" . )*
 
 NumberLitNode <- ( "-"? [0-9]+ ( "." [0-9]+ )? ) {
 	raw := string(c.text)

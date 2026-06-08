@@ -79,6 +79,30 @@ func TestTripleQuoteSigilDispatch(t *testing.T) {
 			val:  "hello world",
 			form: StringTripleQuoteSingleLine,
 		},
+		{
+			name: "single-line triple-quote ending in a quote",
+			src:  "k: '''hey''''\n",
+			val:  "hey'",
+			form: StringTripleQuoteSingleLine,
+		},
+		{
+			name: "single-line triple-quote ending in two quotes",
+			src:  "k: '''hey'''''\n",
+			val:  "hey''",
+			form: StringTripleQuoteSingleLine,
+		},
+		{
+			name: "single-line triple-quote with embedded double quote",
+			src:  "k: '''a''b'''\n",
+			val:  "a''b",
+			form: StringTripleQuoteSingleLine,
+		},
+		{
+			name: "single-line triple-quote with inner and trailing single quotes",
+			src:  "k: '''Environment must be 'dev' or 'prod''''\n",
+			val:  "Environment must be 'dev' or 'prod'",
+			form: StringTripleQuoteSingleLine,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
