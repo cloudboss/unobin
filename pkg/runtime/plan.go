@@ -468,7 +468,7 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 	if !ok {
 		return false, fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
-	_, err := readObserved(ctx, rt,
+	_, err := readObserved(ctx, rt, alias,
 		e.configForRef(step.Configuration, alias), step.Inputs, step.PriorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return true, nil
@@ -1036,6 +1036,7 @@ func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
 type pendingRead struct {
 	step         *PlanStep
 	rt           ResourceRegistration
+	alias        string
 	cfg          any
 	inputs       map[string]any
 	priorOutputs map[string]any
@@ -1076,7 +1077,7 @@ func (e *Executor) planOneResource(
 		return step, nil
 	}
 	inputs := withoutPending(display, unresolved)
-	priorOutputs, err := migrateOutputs(rt, prior.SchemaVersion, prior.Outputs)
+	priorOutputs, err := migrateOutputs(rt, n.Alias, prior.SchemaVersion, prior.Outputs)
 	if err != nil {
 		return nil, err
 	}
@@ -1099,6 +1100,7 @@ func (e *Executor) planOneResource(
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
 		step:         step,
 		rt:           rt,
+		alias:        n.Alias,
 		cfg:          e.configFor(n),
 		inputs:       inputs,
 		priorOutputs: priorOutputs,
@@ -1121,7 +1123,7 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 		sem <- struct{}{}
 		go func(pr *pendingRead) {
 			defer func() { <-sem; wg.Done() }()
-			pr.observed, pr.err = readObserved(ctx, pr.rt, pr.cfg, pr.inputs, pr.priorOutputs)
+			pr.observed, pr.err = readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
 		}(pr)
 	}
 	wg.Wait()
@@ -1239,6 +1241,7 @@ func (e *Executor) planOneData(
 	}
 	result, err := dt.Read(ctx, receiver, e.configFor(n))
 	if err != nil {
+		blameLibrary(err, n.Alias)
 		return nil, fmt.Errorf("read: %w", err)
 	}
 	step.ObservedOutputs = mapify(result)
@@ -1279,6 +1282,7 @@ func (e *Executor) dependsOnPending(rs *runState, n *Node) bool {
 func readObserved(
 	ctx context.Context,
 	rt ResourceRegistration,
+	alias string,
 	cfg any,
 	inputs, priorOutputs map[string]any,
 ) (map[string]any, error) {
@@ -1288,6 +1292,7 @@ func readObserved(
 	}
 	result, err := rt.Read(ctx, receiver, cfg, priorOutputs)
 	if err != nil {
+		blameLibrary(err, alias)
 		return nil, err
 	}
 	return mapify(result), nil

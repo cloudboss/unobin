@@ -177,10 +177,13 @@ func (typedResourceReg[T, Out, PT]) SchemaVersion() int {
 func (typedResourceReg[T, Out, PT]) Migrate(
 	old int, oldState map[string]any,
 ) (map[string]any, error) {
-	if m, ok := any(PT(new(T))).(Migrator); ok {
-		return m.Migrate(old, oldState)
+	m, ok := any(PT(new(T))).(Migrator)
+	if !ok {
+		return nil, fmt.Errorf("no migration registered for version %d", old)
 	}
-	return nil, fmt.Errorf("no migration registered for version %d", old)
+	return guard("migrating this resource's state", false, func() (map[string]any, error) {
+		return m.Migrate(old, oldState)
+	})
 }
 
 func (r typedResourceReg[T, Out, PT]) NewReceiver() any {
@@ -193,7 +196,9 @@ func (r typedResourceReg[T, Out, PT]) NewReceiver() any {
 func (typedResourceReg[T, Out, PT]) Create(
 	ctx context.Context, receiver, cfg any,
 ) (any, error) {
-	return PT(receiver.(*T)).Create(ctx, cfg)
+	return guard("creating this resource", false, func() (Out, error) {
+		return PT(receiver.(*T)).Create(ctx, cfg)
+	})
 }
 
 func (typedResourceReg[T, Out, PT]) Read(
@@ -203,7 +208,9 @@ func (typedResourceReg[T, Out, PT]) Read(
 	if err != nil {
 		return nil, err
 	}
-	return PT(receiver.(*T)).Read(ctx, cfg, p)
+	return guard("reading this resource", false, func() (Out, error) {
+		return PT(receiver.(*T)).Read(ctx, cfg, p)
+	})
 }
 
 func (typedResourceReg[T, Out, PT]) Update(
@@ -222,7 +229,9 @@ func (typedResourceReg[T, Out, PT]) Update(
 		Outputs:  out,
 		Observed: obs,
 	}
-	return PT(receiver.(*T)).Update(ctx, cfg, prior)
+	return guard("updating this resource", false, func() (Out, error) {
+		return PT(receiver.(*T)).Update(ctx, cfg, prior)
+	})
 }
 
 func (typedResourceReg[T, Out, PT]) Delete(
@@ -232,7 +241,9 @@ func (typedResourceReg[T, Out, PT]) Delete(
 	if err != nil {
 		return err
 	}
-	return PT(receiver.(*T)).Delete(ctx, cfg, p)
+	return guardErr("deleting this resource", false, func() error {
+		return PT(receiver.(*T)).Delete(ctx, cfg, p)
+	})
 }
 
 func (typedResourceReg[T, Out, PT]) ReplaceFields(receiver any) []string {
@@ -258,7 +269,9 @@ func (r typedActionReg[T, Out, PT]) NewReceiver() any {
 func (typedActionReg[T, Out, PT]) Run(
 	ctx context.Context, receiver, cfg any,
 ) (any, error) {
-	return PT(receiver.(*T)).Run(ctx, cfg)
+	return guard("running this action", false, func() (Out, error) {
+		return PT(receiver.(*T)).Run(ctx, cfg)
+	})
 }
 
 func (typedActionReg[T, Out, PT]) OutputType() reflect.Type {
@@ -280,7 +293,9 @@ func (r typedDataSourceReg[T, Out, PT]) NewReceiver() any {
 func (typedDataSourceReg[T, Out, PT]) Read(
 	ctx context.Context, receiver, cfg any,
 ) (any, error) {
-	return PT(receiver.(*T)).Read(ctx, cfg)
+	return guard("reading this data source", false, func() (Out, error) {
+		return PT(receiver.(*T)).Read(ctx, cfg)
+	})
 }
 
 func (typedDataSourceReg[T, Out, PT]) OutputType() reflect.Type {

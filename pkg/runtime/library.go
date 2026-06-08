@@ -137,11 +137,16 @@ var ErrNotFound = errors.New("resource not found")
 // registration's Migrate. Returns the outputs unchanged when versions
 // match.
 func migrateOutputs(
-	reg ResourceRegistration, priorVersion int, outputs map[string]any,
+	reg ResourceRegistration, alias string, priorVersion int, outputs map[string]any,
 ) (map[string]any, error) {
 	current := reg.SchemaVersion()
 	if priorVersion >= current {
 		return outputs, nil
 	}
-	return reg.Migrate(priorVersion, outputs)
+	out, err := reg.Migrate(priorVersion, outputs)
+	if err != nil {
+		blameLibrary(err, alias)
+		return nil, err
+	}
+	return out, nil
 }

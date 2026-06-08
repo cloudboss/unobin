@@ -396,11 +396,16 @@ func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
 		return nil, fmt.Errorf("eval: library %s has no function %q",
 			c.Library.Name, c.Func.Name)
 	}
-	args, err := evalArgs(c.Library.Name+"."+c.Func.Name, c.Args, ctx)
+	name := c.Library.Name + "." + c.Func.Name
+	args, err := evalArgs(name, c.Args, ctx)
 	if err != nil {
 		return nil, err
 	}
-	return fn.Func(args)
+	out, err := guard("calling "+name, false, func() (any, error) {
+		return fn.Func(args)
+	})
+	blameLibrary(err, c.Library.Name)
+	return out, err
 }
 
 // evalCoreCall resolves a @core call against the language's own
@@ -411,11 +416,14 @@ func evalCoreCall(c *lang.Call, ctx *EvalContext) (any, error) {
 		return nil, fmt.Errorf("eval: %s has no function %q",
 			lang.CoreNamespace, c.Func.Name)
 	}
-	args, err := evalArgs(lang.CoreNamespace+"."+c.Func.Name, c.Args, ctx)
+	name := lang.CoreNamespace + "." + c.Func.Name
+	args, err := evalArgs(name, c.Args, ctx)
 	if err != nil {
 		return nil, err
 	}
-	return fn.Func(args)
+	return guard("calling "+name, true, func() (any, error) {
+		return fn.Func(args)
+	})
 }
 
 func evalArgs(name string, exprs []lang.Expr, ctx *EvalContext) ([]any, error) {
