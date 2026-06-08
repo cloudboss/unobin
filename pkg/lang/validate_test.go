@@ -149,64 +149,14 @@ func TestValidateFileUnknownFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/file/unknown", fileDriver(FileUnknown))
 }
 
-func TestValidateCallsTypePositions(t *testing.T) {
-	const ok = "" // no error expected
-	cases := []struct {
-		name string
-		src  string
-		want string
-	}{
-		{"atomic type", `inputs: { a: { type: string } }`, ok},
-		{"list", `inputs: { a: { type: list(string) } }`, ok},
-		{"set skips call checking", `inputs: { a: { type: set(string) } }`, ok},
-		{"map", `inputs: { a: { type: map(integer) } }`, ok},
-		{"nested list", `inputs: { a: { type: list(list(string)) } }`, ok},
-		{"optional no default", `inputs: { a: { type: optional(integer) } }`, ok},
-		{"optional literal default", `inputs: { a: { type: optional(string, 'x') } }`, ok},
-		{"optional map default", `inputs: { a: { type: optional(map(string), {}) } }`, ok},
-		{"object fields", `inputs: { a: { type: object({ p: { type: integer }, q: string }) } }`, ok},
-		{"tuple elements", `inputs: { a: { type: tuple([string, integer]) } }`, ok},
-		{
-			"qualified call in optional default",
-			"imports: { core: 'github.com/x/core' }\n" +
-				"inputs: { a: { type: optional(string, core.format('hi')) } }",
-			ok,
-		},
-		{
-			"bare call in optional default",
-			`inputs: { a: { type: optional(integer, pick()) } }`,
-			"must be qualified",
-		},
-		{
-			"bare call in object field default",
-			`inputs: { a: { type: object({ p: { type: integer, default: pick() } }) } }`,
-			"must be qualified",
-		},
-		{
-			"type attribute in a resource body",
-			`resources: { core.thing.it: { type: pick() } }`,
-			"must be qualified",
-		},
-		{
-			"type attribute in a data body",
-			`data: { core.lookup.it: { type: pick() } }`,
-			"must be qualified",
-		},
-		{"constructor name in value position", `outputs: { o: { value: list(1) } }`, "must be qualified"},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			f, err := ParseSource("main.ub", []byte(c.src))
-			require.NoError(t, err)
-			got := ValidateCalls(f).Strings()
-			if c.want == "" {
-				require.Empty(t, got)
-				return
-			}
-			require.Len(t, got, 1)
-			require.Contains(t, got[0], c.want)
-		})
-	}
+func TestValidateCallsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/calls", func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("main.ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return "", ValidateCalls(f).Strings()
+	})
 }
 
 func TestValidateConfigInputs(t *testing.T) {

@@ -1,0 +1,1 @@
+resources: { core.thing.it: { type: pick() } }

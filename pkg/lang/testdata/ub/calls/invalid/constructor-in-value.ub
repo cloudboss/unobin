@@ -1,0 +1,1 @@
+outputs: { o: { value: list(1) } }
