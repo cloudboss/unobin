@@ -1,0 +1,1 @@
+state: { @backend: local, path: '.unobin/state' }

@@ -1,0 +1,2 @@
+config.ub:2:13: schema: state block: @backend: use a bare name like local, not a qualified reference
+config.ub:3:30: schema: encryption block: @key-source: use a bare name like local, not a qualified reference

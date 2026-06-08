@@ -1,7 +1,6 @@
 package lang
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -258,104 +257,18 @@ func TestValidateConfigurations(t *testing.T) {
 	}
 }
 
-func TestValidateStateConfigAcceptsBareBackend(t *testing.T) {
-	src := `
-state: { @backend: local, path: '.unobin/state' }
-`
-	f := parseWithKind(t, src, FileConfig)
-	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
+// configDriver runs ValidateFile over a whole fixture parsed as a config file.
+func configDriver(name string, src []byte) (string, []string) {
+	f, err := ParseSource("config.ub", src)
+	if err != nil {
+		return "", []string{err.Error()}
+	}
+	f.Kind = FileConfig
+	return "", ValidateFile(f).Strings()
 }
 
-func TestValidateStateConfigRejectsDottedBackend(t *testing.T) {
-	src := `
-state: {
-  @backend: aws.s3
-  encryption: { @key-source: aws.kms }
-}
-`
-	f := parseWithKind(t, src, FileConfig)
-	errs := ValidateFile(f)
-	require.NotZero(t, errs.Len())
-	require.Contains(t, strings.Join(errs.Strings(), "; "), "not a qualified reference")
-}
-
-func TestValidateStateConfigRejects(t *testing.T) {
-	cases := []struct {
-		name string
-		src  string
-		want string
-	}{
-		{
-			name: "missing-backend",
-			src:  "state: { path: '.unobin/state' }\n",
-			want: "state block: missing required @backend",
-		},
-		{
-			name: "duplicate-backend",
-			src:  "state: { @backend: local, @backend: local }\n",
-			want: "state block: duplicate @backend",
-		},
-		{
-			name: "unknown-meta-key",
-			src:  "state: { @backend: local, @lock-timeout: '30s' }\n",
-			want: `state block: unknown meta-key "@lock-timeout"`,
-		},
-		{
-			name: "backend-string-value",
-			src:  "state: { @backend: 'local' }\n",
-			want: "state block: @backend: expected a bare name like local",
-		},
-		{
-			name: "backend-too-many-segments",
-			src:  "state: { @backend: a.b.c }\n",
-			want: "state block: @backend: use a bare name like local, not a qualified reference",
-		},
-		{
-			name: "quoted-body-key",
-			src:  "state: { @backend: local, 'path': '.unobin/state' }\n",
-			want: "state block key must be a bare identifier",
-		},
-		{
-			name: "duplicate-body-key",
-			src:  "state: { @backend: local, path: 'a', path: 'b' }\n",
-			want: `state block: duplicate key "path"`,
-		},
-		{
-			name: "encryption-not-an-object",
-			src:  "state: { @backend: local, encryption: 'oops' }\n",
-			want: "encryption must be an object",
-		},
-		{
-			name: "encryption-missing-key-source",
-			src:  "state: { @backend: local, encryption: { env-var: 'X' } }\n",
-			want: "encryption block: missing required @key-source",
-		},
-		{
-			name: "encryption-duplicate-key-source",
-			src:  "state: { @backend: local, encryption: { @key-source: env-key, @key-source: env-key } }\n",
-			want: "encryption block: duplicate @key-source",
-		},
-		{
-			name: "encryption-unknown-meta-key",
-			src:  "state: { @backend: local, encryption: { @key-source: env-key, @bogus: 1 } }\n",
-			want: `encryption block: unknown meta-key "@bogus"`,
-		},
-		{
-			name: "encryption-bad-key-source-value",
-			src:  "state: { @backend: local, encryption: { @key-source: 'env-key' } }\n",
-			want: "encryption block: @key-source: expected a bare name like local",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			f := parseWithKind(t, c.src, FileConfig)
-			errs := ValidateFile(f)
-			require.GreaterOrEqual(t, errs.Len(), 1, "expected an error")
-			joined := strings.Join(errs.Strings(), "; ")
-			require.Contains(t, joined, c.want)
-		})
-	}
+func TestValidateConfigFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/config", configDriver)
 }
 
 func parseInputsBlock(t *testing.T, src string) *ObjectLit {
