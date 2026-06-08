@@ -528,13 +528,10 @@ resources: {
 
 func checkRefMessages(t *testing.T, errs *lang.ErrorList) []string {
 	t.Helper()
-	require.NotNil(t, errs)
-	var out []string
 	for _, err := range errs.Errors() {
 		require.Equal(t, lang.ErrResolve, err.Kind)
-		out = append(out, err.Msg)
 	}
-	return out
+	return errs.Messages()
 }
 
 func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {

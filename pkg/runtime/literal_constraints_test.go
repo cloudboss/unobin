@@ -106,7 +106,7 @@ resources: { core.thing.x: { name: 'x', size: 1 }, core.thing.y: { name: var.who
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := CheckLiteralConstraints(parseStack(t, tt.src), constrainedLibs())
-			require.Equal(t, tt.want, constraintMessages(errs))
+			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
 }
@@ -147,10 +147,10 @@ func TestCheckLiteralConstraintsDeterministic(t *testing.T) {
   core.thing.z: { other: 'z' }
 }`
 	libs := constrainedLibs()
-	first := constraintMessages(CheckLiteralConstraints(parseStack(t, src), libs))
+	first := CheckLiteralConstraints(parseStack(t, src), libs).Messages()
 	require.Len(t, first, 3)
 	for range 20 {
-		require.Equal(t, first, constraintMessages(CheckLiteralConstraints(parseStack(t, src), libs)))
+		require.Equal(t, first, CheckLiteralConstraints(parseStack(t, src), libs).Messages())
 	}
 }
 
@@ -224,17 +224,6 @@ func TestLiteralValuesNonObjectBody(t *testing.T) {
 	require.False(t, ok)
 }
 
-// constraintMessages strips the file:line:col and `schema:` prefixes from
-// each diagnostic, leaving the address-and-constraint detail the tests
-// pin, so they need not track exact source positions.
-func constraintMessages(errs *lang.ErrorList) []string {
-	var out []string
-	for _, e := range errs.Errors() {
-		out = append(out, e.Msg)
-	}
-	return out
-}
-
 // checkLiteralMsgs runs the compile-time check against one core.thing
 // resource whose type carries specs and whose body is the given literal,
 // returning the address-and-constraint messages.
@@ -246,7 +235,7 @@ func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []
 		}},
 	}
 	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
-	return constraintMessages(CheckLiteralConstraints(parseStack(t, src), libs))
+	return CheckLiteralConstraints(parseStack(t, src), libs).Messages()
 }
 
 // TestCheckLiteralConstraintKinds covers the constraint kinds and the

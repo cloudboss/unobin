@@ -59,13 +59,13 @@ func TestInferCallUnionParameter(t *testing.T) {
 	Infer(parseExpr(t, "core.length(5)"), TUnknown(), scope, errs)
 	require.Equal(t,
 		[]string{"length: argument must be a string, list, or map, got an integer"},
-		errorMessages(errs))
+		errs.Messages())
 
 	errs = lang.NewErrorList(0)
 	Infer(parseExpr(t, "core.length(true)"), TUnknown(), scope, errs)
 	require.Equal(t,
 		[]string{"length: argument must be a string, list, or map, got a boolean"},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestInferCallChecksArguments(t *testing.T) {

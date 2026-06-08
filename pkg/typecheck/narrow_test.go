@@ -108,7 +108,7 @@ func TestNarrowConditionalDischargesSlot(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, src), TUnknown(), narrowScope(), errs)
 			assert.True(t, got.Equal(TString()), "got %s", got)
-			require.Equal(t, []string(nil), errorMessages(errs))
+			require.Equal(t, []string(nil), errs.Messages())
 		})
 	}
 }
@@ -120,7 +120,7 @@ func TestNarrowConditionalJoinsToInner(t *testing.T) {
 	got := Infer(parseExpr(t, "if var.x != null then var.x else 'd'"),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TString()), "got %s", got)
-	require.Equal(t, []string(nil), errorMessages(errs))
+	require.Equal(t, []string(nil), errs.Messages())
 }
 
 func TestNarrowThenBranchSeesNull(t *testing.T) {
@@ -128,7 +128,7 @@ func TestNarrowThenBranchSeesNull(t *testing.T) {
 	got := Infer(parseExpr(t, "if var.x == null then var.x else var.x"),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TOptional(TString())), "got %s", got)
-	require.Equal(t, []string(nil), errorMessages(errs))
+	require.Equal(t, []string(nil), errs.Messages())
 }
 
 // Each conjunct's narrowing is visible in the branch type it decides:
@@ -148,7 +148,7 @@ func TestNarrowConjunctionFacts(t *testing.T) {
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(tlsObject), "right conjunct narrows, got %s", got)
 
-	require.Equal(t, []string(nil), errorMessages(errs))
+	require.Equal(t, []string(nil), errs.Messages())
 }
 
 // The right operand of && only evaluates when the left held, so a
@@ -163,7 +163,7 @@ func TestNarrowShortCircuitOperands(t *testing.T) {
 		t.Run(src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, src), TUnknown(), narrowScope(), errs)
-			require.Equal(t, []string(nil), errorMessages(errs))
+			require.Equal(t, []string(nil), errs.Messages())
 		})
 	}
 }
@@ -176,7 +176,7 @@ func TestNarrowComprehensionFilter(t *testing.T) {
 		parseExpr(t, `[ for s in var.subnets : s.cert when s.cert != null ]`),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TList(TString())), "got %s", got)
-	require.Equal(t, []string(nil), errorMessages(errs))
+	require.Equal(t, []string(nil), errs.Messages())
 }
 
 func strictScope() *Scope {
@@ -241,7 +241,7 @@ func TestGuardedNavigation(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
 			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
 }
@@ -314,7 +314,7 @@ func TestCoalesce(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
 			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
 }
@@ -345,7 +345,7 @@ func TestCoalescePrecedence(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
 			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
 }
@@ -358,7 +358,7 @@ func TestGuardedNavigationUnderMissingAsNull(t *testing.T) {
 	errs := lang.NewErrorList(0)
 	got := Infer(parseExpr(t, "var.cfg?.db?.host"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOptional(TString())), "got %s", got)
-	require.Equal(t, []string(nil), errorMessages(errs))
+	require.Equal(t, []string(nil), errs.Messages())
 }
 
 // Navigating into a value that may be null is the deferred null
@@ -418,7 +418,7 @@ func TestStrictOptionalNavigation(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, tt.src), TUnknown(), strictScope(), errs)
 			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
 }
@@ -444,7 +444,7 @@ func TestOptionalFieldsAcceptOptionalValues(t *testing.T) {
 		t.Run(src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Check(parseExpr(t, src), target, scope, errs)
-			require.Equal(t, []string(nil), errorMessages(errs))
+			require.Equal(t, []string(nil), errs.Messages())
 		})
 	}
 
@@ -452,7 +452,7 @@ func TestOptionalFieldsAcceptOptionalValues(t *testing.T) {
 	Check(parseExpr(t, "{ number: var.maybe-tls }"), target, scope, errs)
 	require.Equal(t, []string{
 		"type mismatch: expected integer, got optional(boolean)",
-	}, errorMessages(errs))
+	}, errs.Messages())
 }
 
 func TestAssignableOptionalObjectFields(t *testing.T) {
@@ -474,11 +474,11 @@ func TestCheckRejectsOptionalIntoRequiredSlot(t *testing.T) {
 	require.Equal(t, []string{
 		"type mismatch: expected string, got optional(string); " +
 			"test it first, like if x != null then x else <fallback>",
-	}, errorMessages(errs))
+	}, errs.Messages())
 
 	errs = lang.NewErrorList(0)
 	Check(parseExpr(t, "if var.x != null then var.x else 'd'"), TString(), scope, errs)
-	require.Equal(t, []string(nil), errorMessages(errs))
+	require.Equal(t, []string(nil), errs.Messages())
 }
 
 // No narrowing without a null test, and none through an index: the
@@ -494,7 +494,7 @@ func TestNarrowDoesNotInvent(t *testing.T) {
 			require.Equal(t, []string{
 				"interpolation slot may be null; supply a fallback, like " +
 					"{{ x ?? '-' }} (got optional(string))",
-			}, errorMessages(errs))
+			}, errs.Messages())
 		})
 	}
 }

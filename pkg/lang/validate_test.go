@@ -129,7 +129,7 @@ state:      { backend: local }
 `
 	errs := ValidateTopLevelKeys(parseWithKind(t, src, FileFactory))
 	require.Equal(t, 4, errs.Len(), "expected 4 errors, got: %s",
-		strings.Join(errsToStrings(errs), "; "))
+		strings.Join(errs.Strings(), "; "))
 }
 
 func TestValidateManifest(t *testing.T) {
@@ -222,7 +222,7 @@ func TestValidateReservesSetType(t *testing.T) {
 	errs := ValidateFile(f)
 	require.Equal(t,
 		[]string{"main.ub:1:22: type: set is not available yet; use list, or a map for fan-out"},
-		errsToStrings(errs))
+		errs.Strings())
 }
 
 func TestValidateAcceptsOpenObjectType(t *testing.T) {
@@ -230,7 +230,7 @@ func TestValidateAcceptsOpenObjectType(t *testing.T) {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "unexpected errors: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "unexpected errors: %v", errs.Strings())
 }
 
 func TestValidateRejectsAnyType(t *testing.T) {
@@ -241,7 +241,7 @@ func TestValidateRejectsAnyType(t *testing.T) {
 	require.Equal(t,
 		[]string{"main.ub:1:22: type: any is not a type; " +
 			"use opaque for a value passed along unread, or declare the value's type"},
-		errsToStrings(errs))
+		errs.Strings())
 }
 
 func TestValidateRejectsCallToUnimportedModule(t *testing.T) {
@@ -254,7 +254,7 @@ outputs: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	msg := errs.Errors()[0].Error()
 	require.Contains(t, msg, `"lib"`)
 	require.Contains(t, msg, "not imported")
@@ -270,7 +270,7 @@ outputs: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateChecksCallsInNestedExpressions(t *testing.T) {
@@ -283,7 +283,7 @@ resources: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Error(), `"lib"`)
 }
 
@@ -296,7 +296,7 @@ outputs: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	msg := errs.Errors()[0].Error()
 	require.Contains(t, msg, "must be qualified")
 	require.Contains(t, msg, "format")
@@ -313,7 +313,7 @@ outputs: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 // TestValidateRejectsUnknownNamespaceCall proves @core is the only
@@ -327,7 +327,7 @@ outputs: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	msg := errs.Errors()[0].Error()
 	require.Contains(t, msg, "@std")
 	require.Contains(t, msg, "@core")
@@ -344,7 +344,7 @@ imports: {
 	f, err := ParseSource("main.ub", []byte(src))
 	require.NoError(t, err)
 	errs := ValidateFile(f)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Error(),
 		`@-prefixed key "@core" is not a valid import name`)
 }
@@ -398,7 +398,7 @@ func TestValidateCallsTypePositions(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f, err := ParseSource("main.ub", []byte(c.src))
 			require.NoError(t, err)
-			got := errsToStrings(ValidateCalls(f))
+			got := ValidateCalls(f).Strings()
 			if c.want == "" {
 				require.Empty(t, got)
 				return
@@ -407,15 +407,6 @@ func TestValidateCallsTypePositions(t *testing.T) {
 			require.Contains(t, got[0], c.want)
 		})
 	}
-}
-
-func errsToStrings(l *ErrorList) []string {
-	es := l.Errors()
-	out := make([]string, len(es))
-	for i, e := range es {
-		out[i] = e.Error()
-	}
-	return out
 }
 
 func TestValidateConfigInputs(t *testing.T) {
@@ -450,7 +441,7 @@ func TestValidateConfigInputs(t *testing.T) {
 			f, err := ParseSource("config.ub", []byte(c.src))
 			require.NoError(t, err)
 			f.Kind = FileConfig
-			got := errsToStrings(ValidateFile(f))
+			got := ValidateFile(f).Strings()
 			if c.want == "" {
 				require.Empty(t, got)
 				return
@@ -506,7 +497,7 @@ func TestValidateConfigurations(t *testing.T) {
 			f, err := ParseSource("config.ub", []byte(c.src))
 			require.NoError(t, err)
 			f.Kind = FileConfig
-			got := errsToStrings(ValidateFile(f))
+			got := ValidateFile(f).Strings()
 			if c.want == "" {
 				require.Empty(t, got)
 				return
@@ -523,7 +514,7 @@ state: { @backend: local, path: '.unobin/state' }
 `
 	f := parseWithKind(t, src, FileConfig)
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateStateConfigRejectsDottedBackend(t *testing.T) {
@@ -536,7 +527,7 @@ state: {
 	f := parseWithKind(t, src, FileConfig)
 	errs := ValidateFile(f)
 	require.NotZero(t, errs.Len())
-	require.Contains(t, strings.Join(errsToStrings(errs), "; "), "not a qualified reference")
+	require.Contains(t, strings.Join(errs.Strings(), "; "), "not a qualified reference")
 }
 
 func TestValidateStateConfigRejects(t *testing.T) {
@@ -611,7 +602,7 @@ func TestValidateStateConfigRejects(t *testing.T) {
 			f := parseWithKind(t, c.src, FileConfig)
 			errs := ValidateFile(f)
 			require.GreaterOrEqual(t, errs.Len(), 1, "expected an error")
-			joined := strings.Join(errsToStrings(errs), "; ")
+			joined := strings.Join(errs.Strings(), "; ")
 			require.Contains(t, joined, c.want)
 		})
 	}
@@ -653,7 +644,7 @@ inputs: {
 }
 `
 	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateInputDeclaredDefaults(t *testing.T) {
@@ -955,7 +946,7 @@ inputs: {
 `
 	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
 	require.GreaterOrEqual(t, errs.Len(), 3,
-		"got: %v", errsToStrings(errs))
+		"got: %v", errs.Strings())
 }
 
 func parseConstraintsBlock(t *testing.T, src string) *ArrayLit {
@@ -984,7 +975,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintEntryNotObject(t *testing.T) {
@@ -1047,7 +1038,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 2, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintFieldsNested(t *testing.T) {
@@ -1058,7 +1049,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintFieldsAcceptsSplatAndIndex(t *testing.T) {
@@ -1071,7 +1062,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintFieldsRejectsBadSegments(t *testing.T) {
@@ -1086,7 +1077,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 6, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 6, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg,
 		"a list index in a field must be a whole number, like var.listeners[0]")
 	require.Contains(t, errs.Errors()[1].Msg,
@@ -1106,7 +1097,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 2, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 2, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, "a [*] constraint needs at least two fields")
 	require.Contains(t, errs.Errors()[1].Msg,
 		"[*] fields must splat the same list, got var.replicas[*] and var.volumes[*]")
@@ -1177,7 +1168,7 @@ imports: {
 }
 `
 	errs := ValidateImports(parseObjectBlock(t, src, "imports"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateImportsNotString(t *testing.T) {
@@ -1224,7 +1215,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateOutputsRejectsBadKeys(t *testing.T) {
@@ -1237,7 +1228,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 3, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 3, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateOutputsRejectsBareForm(t *testing.T) {
@@ -1247,7 +1238,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, "wrapper object")
 }
 
@@ -1258,7 +1249,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	joined := strings.Join(errsToStrings(errs), "; ")
+	joined := strings.Join(errs.Strings(), "; ")
 	require.Contains(t, joined, "unknown wrapper key")
 	require.Contains(t, joined, "missing required `value:`")
 }
@@ -1273,7 +1264,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateOutputsRejectsUnknownMetaKey(t *testing.T) {
@@ -1286,7 +1277,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	joined := strings.Join(errsToStrings(errs), "; ")
+	joined := strings.Join(errs.Strings(), "; ")
 	require.Contains(t, joined, `unknown meta key "@bogus"`)
 }
 
@@ -1300,7 +1291,7 @@ outputs: {
 }
 `
 	errs := ValidateOutputs(parseObjectBlock(t, src, "outputs"))
-	joined := strings.Join(errsToStrings(errs), "; ")
+	joined := strings.Join(errs.Strings(), "; ")
 	require.Contains(t, joined, "must be a boolean literal")
 }
 
@@ -1315,7 +1306,7 @@ locals: {
 }
 `
 	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateLocalsRejectsQuotedName(t *testing.T) {
@@ -1325,7 +1316,7 @@ locals: {
 }
 `
 	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, "bare identifier")
 }
 
@@ -1336,7 +1327,7 @@ locals: {
 }
 `
 	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, "@-prefixed")
 }
 
@@ -1348,7 +1339,7 @@ locals: {
 }
 `
 	errs := ValidateLocals(parseObjectBlock(t, src, "locals"))
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, "duplicate local")
 }
 
@@ -1406,7 +1397,7 @@ constraints: [
 	constraints := f.Body.Fields[1].Value.(*ArrayLit)
 
 	errs := ValidateConstraintReferences(constraints, inputs)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
 	require.Contains(t, errs.Errors()[0].Msg, "bogus")
 }
@@ -1430,7 +1421,7 @@ constraints: [
 	constraints := f.Body.Fields[1].Value.(*ArrayLit)
 
 	errs := ValidateConstraintReferences(constraints, inputs)
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Equal(t, ErrResolve, errs.Errors()[0].Kind)
 	require.Contains(t, errs.Errors()[0].Msg, `input "volumes" not declared`)
 }
@@ -1456,7 +1447,7 @@ outputs: {
 	require.Equal(t, FileFactory, f.Kind)
 
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateFileStackCollectsCrossErrors(t *testing.T) {
@@ -1479,7 +1470,7 @@ exports: {
 	require.NoError(t, err)
 
 	errs := ValidateFile(f)
-	require.GreaterOrEqual(t, errs.Len(), 4, "got: %v", errsToStrings(errs))
+	require.GreaterOrEqual(t, errs.Len(), 4, "got: %v", errs.Strings())
 }
 
 func TestValidateFileExportedType(t *testing.T) {
@@ -1490,7 +1481,7 @@ outputs: { name: { value: var.name } }
 `
 	f := parseWithKind(t, src, FileExportedType)
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateFileUnknownKind(t *testing.T) {
@@ -1521,7 +1512,7 @@ resources: {
 }
 `
 	errs := ValidateResources(parseObjectBlock(t, src, "resources"))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateResourcesRejectsBadShape(t *testing.T) {
@@ -1682,7 +1673,7 @@ actions: {
 	require.NoError(t, err)
 
 	errs := ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintPredicateForEach(t *testing.T) {
@@ -1697,7 +1688,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintChainedForEach(t *testing.T) {
@@ -1715,7 +1706,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 0, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Strings())
 }
 
 func TestValidateConstraintChainedForEachRejectsBadLevels(t *testing.T) {
@@ -1752,7 +1743,7 @@ constraints: [
 ]
 `
 			errs := ValidateConstraints(parseConstraintsBlock(t, src))
-			require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+			require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 			require.Contains(t, errs.Errors()[0].Msg, tt.want)
 		})
 	}
@@ -1765,7 +1756,7 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, `meta key "@for-each" not allowed`)
 }
 
@@ -1782,6 +1773,6 @@ constraints: [
 ]
 `
 	errs := ValidateConstraints(parseConstraintsBlock(t, src))
-	require.Equal(t, 1, errs.Len(), "got: %v", errsToStrings(errs))
+	require.Equal(t, 1, errs.Len(), "got: %v", errs.Strings())
 	require.Contains(t, errs.Errors()[0].Msg, "duplicate key")
 }

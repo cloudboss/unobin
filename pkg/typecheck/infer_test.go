@@ -300,7 +300,7 @@ func TestInferEachValueUnknownField(t *testing.T) {
 	assert.True(t, got.Equal(TUnknown()))
 	require.Equal(t,
 		[]string{`unknown field "bogus" on object({ port: integer })`},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestInferObjectLiteralAgainstOpenTarget(t *testing.T) {
@@ -314,7 +314,7 @@ func TestInferObjectLiteralAgainstOpenTarget(t *testing.T) {
 	Check(parseExpr(t, "{ url: 'x', extra: 1 }"), closed, &Scope{}, errs)
 	require.Equal(t,
 		[]string{`unknown field "extra" on object({ url: string })`},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestInferObjectLiteralOpenTargetStillRequiresFields(t *testing.T) {
@@ -323,7 +323,7 @@ func TestInferObjectLiteralOpenTargetStillRequiresFields(t *testing.T) {
 	Check(parseExpr(t, "{ extra: 1 }"), target, &Scope{}, errs)
 	require.Equal(t,
 		[]string{`missing required field "url" on open(object({ url: string }))`},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestInferObjectLiteralOpenTargetChecksDeclaredFields(t *testing.T) {
@@ -332,7 +332,7 @@ func TestInferObjectLiteralOpenTargetChecksDeclaredFields(t *testing.T) {
 	Check(parseExpr(t, "{ url: 7 }"), target, &Scope{}, errs)
 	require.Equal(t,
 		[]string{"type mismatch: expected string, got integer"},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestNavigateOpenObjectFields(t *testing.T) {
@@ -350,7 +350,7 @@ func TestNavigateOpenObjectFields(t *testing.T) {
 	require.Equal(t,
 		[]string{`unknown field "token" on open(object({ url: string })); ` +
 			"declare the field to read it"},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestIndexOpenObjectUndeclaredField(t *testing.T) {
@@ -364,7 +364,7 @@ func TestIndexOpenObjectUndeclaredField(t *testing.T) {
 	require.Equal(t,
 		[]string{`unknown field "token" on open(object({ url: string })); ` +
 			"declare the field to read it"},
-		errorMessages(errs))
+		errs.Messages())
 }
 
 func TestNavigateIntoScalar(t *testing.T) {
@@ -405,7 +405,7 @@ func TestNavigateIntoScalar(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, c.src), TUnknown(), scope, errs)
 			assert.True(t, got.Equal(TUnknown()), "got %s", got)
-			require.Equal(t, c.want, errorMessages(errs))
+			require.Equal(t, c.want, errs.Messages())
 		})
 	}
 }
@@ -462,7 +462,7 @@ func TestNavigateIntoOpaque(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, c.src), TUnknown(), scope, errs)
 			assert.True(t, got.Equal(TUnknown()), "got %s", got)
-			require.Equal(t, c.want, errorMessages(errs))
+			require.Equal(t, c.want, errs.Messages())
 		})
 	}
 }
@@ -504,7 +504,7 @@ func TestOpaqueOperandsRejected(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, c.src), TUnknown(), scope, errs)
-			require.Equal(t, c.want, errorMessages(errs))
+			require.Equal(t, c.want, errs.Messages())
 		})
 	}
 }
@@ -540,14 +540,14 @@ func TestCheckTeachesOpaqueMismatch(t *testing.T) {
 		[]string{"type mismatch: expected string, got opaque; " +
 			"pass it as JSON text with @core.to-json(x), " +
 			"or declare the value's type where it enters"},
-		errorMessages(errs))
+		errs.Messages())
 
 	errs = lang.NewErrorList(0)
 	Check(parseExpr(t, "var.blob"), TInteger(), scope, errs)
 	require.Equal(t,
 		[]string{"type mismatch: expected integer, got opaque; " +
 			"declare the value's type where it enters"},
-		errorMessages(errs))
+		errs.Messages())
 
 	// Opaque slots remain the legal home for an opaque value.
 	errs = lang.NewErrorList(0)
@@ -633,19 +633,9 @@ func TestInferOperandErrors(t *testing.T) {
 		t.Run(tt.src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
-}
-
-// errorMessages collects an error list's messages for exact-content
-// assertions against the full expected slice.
-func errorMessages(errs *lang.ErrorList) []string {
-	var out []string
-	for _, e := range errs.Errors() {
-		out = append(out, e.Msg)
-	}
-	return out
 }
 
 func TestInferOperandLeniency(t *testing.T) {
@@ -701,7 +691,7 @@ func TestInferOperandsRejectOptionals(t *testing.T) {
 		t.Run(tt.src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
-			require.Equal(t, tt.want, errorMessages(errs))
+			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
 }
@@ -798,7 +788,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Check(parseExpr(t, tt.src), tt.target, scope, errs)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
 }
@@ -862,7 +852,7 @@ func TestInferIndexSegments(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			got := Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
 			assert.True(t, got.Equal(tt.want), "got %s want %s", got, tt.want)
-			require.Equal(t, tt.wantErrs, errorMessages(errs))
+			require.Equal(t, tt.wantErrs, errs.Messages())
 		})
 	}
 }

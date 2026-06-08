@@ -159,7 +159,7 @@ func TestInferComprehensionRejectsScalarSources(t *testing.T) {
 		t.Run(tt.src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
 			Infer(parseExpr(t, tt.src), TUnknown(), scope, errs)
-			require.Equal(t, []string{tt.want}, errorMessages(errs))
+			require.Equal(t, []string{tt.want}, errs.Messages())
 		})
 	}
 }
@@ -176,11 +176,11 @@ func TestInferComprehensionRejectsOpaqueSource(t *testing.T) {
 
 	errs := lang.NewErrorList(0)
 	Infer(parseExpr(t, "[ for x in var.blob : x ]"), TUnknown(), scope, errs)
-	require.Equal(t, []string{want}, errorMessages(errs))
+	require.Equal(t, []string{want}, errs.Messages())
 
 	errs = lang.NewErrorList(0)
 	Infer(parseExpr(t, "{ for k, v in var.maybe : k => v }"), TUnknown(), scope, errs)
-	require.Equal(t, []string{want}, errorMessages(errs))
+	require.Equal(t, []string{want}, errs.Messages())
 
 	// Elements may be opaque when the container is declared: each
 	// binding holds a whole value.

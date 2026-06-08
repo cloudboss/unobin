@@ -48,7 +48,7 @@ resources: { local.file.one: { path: 'p' } }
 
 	require.Equal(t,
 		[]string{`missing required input "content" on local.file`},
-		checkErrorMessages(t, errs))
+		errs.Messages())
 }
 
 // TestCheckTypesReportsEveryMissingInput proves the check reports each
@@ -61,7 +61,7 @@ resources: { local.file.one: { create-directory: true } }
 	require.Equal(t, []string{
 		`missing required input "content" on local.file`,
 		`missing required input "path" on local.file`,
-	}, checkErrorMessages(t, errs))
+	}, errs.Messages())
 }
 
 // TestCheckTypesSkipsUnknownTypedInput proves an input whose type the
@@ -84,7 +84,7 @@ func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
 resources: { ext.thing.one: { name: 'a' } }
 `), map[string]*Library{"ext": lib})
 
-	require.Empty(t, checkErrorMessages(t, errs))
+	require.Empty(t, errs.Messages())
 }
 
 // TestCheckTypesSkipsSchemalessLibrary proves a library without a
@@ -95,7 +95,7 @@ func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
 resources: { ext.thing.one: { name: 'a' } }
 `), map[string]*Library{"ext": {}})
 
-	require.Empty(t, checkErrorMessages(t, errs))
+	require.Empty(t, errs.Messages())
 }
 
 // TestCheckTypesRequiresCompositeInput proves a composite call site
@@ -123,12 +123,12 @@ resources: { bundle.pair.demo: {} }
 `), libs)
 	require.Equal(t,
 		[]string{`missing required input "name" on bundle.pair`},
-		checkErrorMessages(t, errs))
+		errs.Messages())
 
 	clean := CheckReferences(parseStack(t, `
 resources: { bundle.pair.demo: { name: 'n' } }
 `), libs)
-	require.Empty(t, checkErrorMessages(t, clean))
+	require.Empty(t, clean.Messages())
 }
 
 func TestCheckTypesCompositeOutputTypes(t *testing.T) {
@@ -206,7 +206,7 @@ resources: {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := CheckReferences(parseStack(t, tt.src), libs())
-			require.Equal(t, tt.want, checkErrorMessages(t, errs))
+			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
 }
@@ -225,7 +225,7 @@ func TestCheckTypesRejectsLiteralIntoStringField(t *testing.T) {
 resources: { local.file.one: { path: 5, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -236,7 +236,7 @@ inputs:    { mode: { type: integer } }
 resources: { local.file.one: { path: var.mode, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -247,7 +247,7 @@ locals:    { p: 'somewhere' }
 resources: { local.file.one: { path: local.p, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	require.Empty(t, checkErrorMessages(t, errs))
+	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesRejectsLocalWithWrongType(t *testing.T) {
@@ -256,7 +256,7 @@ locals:    { m: 5 }
 resources: { local.file.one: { path: local.m, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -267,7 +267,7 @@ locals:    { raw: 5, derived: local.raw }
 resources: { local.file.one: { path: local.derived, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -280,7 +280,7 @@ resources: {
 }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -293,7 +293,7 @@ resources: {
 }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	require.Empty(t, checkErrorMessages(t, errs),
+	require.Empty(t, errs.Messages(),
 		"content is an input-only field and is readable like an output")
 }
 
@@ -305,7 +305,7 @@ resources: {
 }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer",
 		"an input field keeps its declared type through the reference")
@@ -317,7 +317,7 @@ inputs:    { p: { type: optional(string, 'x') } }
 resources: { local.file.one: { path: var.p, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	require.Empty(t, checkErrorMessages(t, errs))
+	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesRejectsListWithWrongElementType(t *testing.T) {
@@ -335,7 +335,7 @@ actions: { core.command.x: { argv: ['echo', 5] } }
 		}},
 	})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -354,7 +354,7 @@ actions: { core.command.x: { argv: ['echo', 'hi'] } }
 			},
 		}},
 	})
-	require.Empty(t, checkErrorMessages(t, errs))
+	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesRejectsConstraintWithNonBooleanPredicate(t *testing.T) {
@@ -369,7 +369,7 @@ constraints: [
 ]
 `), nil)
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected boolean, got string")
 }
@@ -380,7 +380,7 @@ inputs:    { counts: { type: map(integer) } }
 resources: { local.file.many: { @for-each: var.counts, path: @each.value, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "expected string, got integer")
 }
@@ -390,7 +390,7 @@ func TestCheckTypesRejectsUnknownBodyField(t *testing.T) {
 resources: { local.file.one: { paht: 'x', content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 2)
 	require.Contains(t, got[0], `missing required input "path" on local.file`)
 	require.Contains(t, got[1], `unknown field "paht" on local.file`)
@@ -422,7 +422,7 @@ resources: {
 		}},
 	})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `unknown field "bogus" on object(`)
 }
@@ -433,7 +433,7 @@ inputs:    { cfg: { type: object({ host: string, port: integer }) } }
 resources: { local.file.one: { path: var.cfg.bogus, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
-	got := checkErrorMessages(t, errs)
+	got := errs.Messages()
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `unknown field "bogus" on object(`)
 }
@@ -448,7 +448,7 @@ resources: { local.file.one: { path: 5, content: 'hi' } }
 			},
 		}},
 	})
-	require.Empty(t, checkErrorMessages(t, errs))
+	require.Empty(t, errs.Messages())
 }
 
 // checkErrorMessages returns the messages of every diagnostic
@@ -468,7 +468,7 @@ constraints: [
   },
 ]
 `), nil)
-	require.Equal(t, []string(nil), checkErrorMessages(t, errs))
+	require.Equal(t, []string(nil), errs.Messages())
 
 	control := CheckReferences(parseStack(t, `
 inputs: {
@@ -481,7 +481,7 @@ constraints: [
 	require.Equal(t, []string{
 		"interpolation slot may be null; supply a fallback, like " +
 			"{{ x ?? '-' }} (got optional(string))",
-	}, checkErrorMessages(t, control))
+	}, control.Messages())
 }
 
 func TestCheckTypesReportsLocalsBodyErrors(t *testing.T) {
@@ -494,7 +494,7 @@ locals: {
 		"-: operand must be a number, got string",
 		"-: operand must be a number, got string",
 	}
-	require.Equal(t, want, checkErrorMessages(t, errs))
+	require.Equal(t, want, errs.Messages())
 }
 
 func TestCheckTypesReportsLocalsDeepFieldError(t *testing.T) {
@@ -505,7 +505,7 @@ locals: {
 }
 `), nil)
 	want := []string{`unknown field "bogus" on object({ host: string })`}
-	require.Equal(t, want, checkErrorMessages(t, errs))
+	require.Equal(t, want, errs.Messages())
 }
 
 func TestCheckTypesLocalsErrorsReportOnce(t *testing.T) {
@@ -517,7 +517,7 @@ resources: { local.file.one: { path: local.bad, content: local.bad } }
 		"-: operand must be a number, got string",
 		"-: operand must be a number, got string",
 	}
-	require.Equal(t, want, checkErrorMessages(t, errs))
+	require.Equal(t, want, errs.Messages())
 }
 
 func checkErrorMessages(t *testing.T, errs *lang.ErrorList) []string {

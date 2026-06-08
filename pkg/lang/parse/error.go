@@ -115,6 +115,28 @@ func (l *ErrorList) Errors() []*Error {
 	return l.errs
 }
 
+// Messages returns the bare Msg of each error in source order, without the
+// file:line:col prefix. Use it when a test pins message content but not exact
+// positions. The result is nil when there are no errors.
+func (l *ErrorList) Messages() []string {
+	var out []string
+	for _, e := range l.Errors() {
+		out = append(out, e.Msg)
+	}
+	return out
+}
+
+// Strings returns the fully rendered form of each error in source order,
+// including the file:line:col prefix, kind, and any hint. The result is nil
+// when there are no errors.
+func (l *ErrorList) Strings() []string {
+	var out []string
+	for _, e := range l.Errors() {
+		out = append(out, e.Error())
+	}
+	return out
+}
+
 // Err returns nil if there are no errors, the single error if exactly one,
 // and an aggregate error otherwise. Useful as the return value of a
 // compilation step that wants to surface its accumulated diagnostics.
