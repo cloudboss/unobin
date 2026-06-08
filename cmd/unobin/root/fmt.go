@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +23,7 @@ var (
 With no path arguments, fmt reads from stdin and writes the
 formatted bytes to stdout. With one or more paths, each file is
 formatted in turn; directory arguments are walked recursively for
-*.ub files.
+*.ub files and unobin.manifest.
 
 Flags:
   -w / --write   overwrite each file in place instead of writing to
@@ -151,9 +152,10 @@ func formatBytes(name string, src []byte, cfg *fmtConfig) ([]byte, error) {
 }
 
 // expandFmtPaths walks each argument and returns the list of files to
-// format. A directory expands to its descendant *.ub files; a file
-// argument is returned as-is regardless of its extension so the
-// operator can format a specifically-named file.
+// format. A directory expands to its descendant *.ub files and any
+// unobin.manifest, which is itself .ub syntax; a file argument is
+// returned as-is regardless of its extension so the operator can format
+// a specifically-named file.
 func expandFmtPaths(args []string) ([]string, error) {
 	var out []string
 	for _, arg := range args {
@@ -172,7 +174,7 @@ func expandFmtPaths(args []string) ([]string, error) {
 			if d.IsDir() {
 				return nil
 			}
-			if strings.HasSuffix(path, ".ub") {
+			if strings.HasSuffix(path, ".ub") || d.Name() == deps.ManifestFileName {
 				out = append(out, path)
 			}
 			return nil
