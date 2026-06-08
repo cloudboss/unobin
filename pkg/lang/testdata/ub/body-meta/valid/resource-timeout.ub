@@ -1,0 +1,1 @@
+resources: { aws.vpc.this: { @timeout: '5m' } }

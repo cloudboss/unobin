@@ -239,72 +239,30 @@ func TestValidateConstraintReferencesFixtures(t *testing.T) {
 	})
 }
 
-func TestValidateBodyMetaKeys(t *testing.T) {
-	tests := []struct {
-		name  string
-		block string // resources, data, or actions
-		body  string
-		want  []string
-	}{
-		{name: "resource plain inputs", block: "resources", body: "path: '/x'"},
-		{name: "resource for-each", block: "resources", body: "@for-each: ['a']"},
-		{name: "resource configuration", block: "resources", body: "@configuration: aws.east"},
-		{name: "resource configurations", block: "resources",
-			body: "@configurations: { aws: aws.east }"},
-		{name: "resource depends-on", block: "resources", body: "@depends-on: ['x']"},
-		{name: "resource lock", block: "resources", body: "@lock: 'x'"},
-		{name: "resource rejects trigger", block: "resources", body: "@trigger: 'always'",
-			want: []string{`resource aws.vpc.this: meta key "@trigger" is not allowed`}},
-		{name: "resource rejects unknown", block: "resources", body: "@bogus: 1",
-			want: []string{`resource aws.vpc.this: meta key "@bogus" is not allowed`}},
-		{name: "resource reports every bad key", block: "resources",
-			body: "@bogus: 1, @nope: 2",
-			want: []string{
-				`resource aws.vpc.this: meta key "@bogus" is not allowed`,
-				`resource aws.vpc.this: meta key "@nope" is not allowed`,
-			}},
-		{name: "data for-each", block: "data", body: "@for-each: ['a']"},
-		{name: "data configurations", block: "data", body: "@configurations: { aws: aws.east }"},
-		{name: "data lock", block: "data", body: "@lock: 'x'"},
-		{name: "data rejects trigger", block: "data", body: "@trigger: 'always'",
-			want: []string{`data source aws.ami.this: meta key "@trigger" is not allowed`}},
-		{name: "action lock", block: "actions", body: "@lock: 'x'"},
-		{name: "action trigger", block: "actions", body: "@trigger: 'always'"},
-		{name: "action common keys", block: "actions",
-			body: "@for-each: ['a'], @configurations: { aws: aws.east }, @depends-on: ['x']"},
-		{name: "action timeout", block: "actions", body: "@timeout: '30s'"},
-		{name: "resource timeout", block: "resources", body: "@timeout: '5m'"},
-		{name: "data timeout", block: "data", body: "@timeout: '1h30m'"},
-		{name: "timeout rejects non-string", block: "resources", body: "@timeout: 30",
-			want: []string{`resource aws.vpc.this: @timeout must be a duration string like '30s'`}},
-		{name: "timeout rejects bad duration", block: "actions", body: "@timeout: 'banana'",
-			want: []string{`action core.command.run: @timeout "banana" is not a valid duration`}},
-		{name: "action rejects unknown", block: "actions", body: "@bogus: 1",
-			want: []string{`action core.command.run: meta key "@bogus" is not allowed`}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var errs *ErrorList
-			switch tt.block {
-			case "resources":
-				src := "resources: { aws.vpc.this: { " + tt.body + " } }\n"
-				errs = ValidateResources(parseObjectBlock(t, src, "resources"))
-			case "data":
-				src := "data: { aws.ami.this: { " + tt.body + " } }\n"
-				errs = ValidateDataSources(parseObjectBlock(t, src, "data"))
-			case "actions":
-				src := "actions: { core.command.run: { " + tt.body + " } }\n"
-				errs = ValidateActions(parseObjectBlock(t, src, "actions"))
-			}
-			var got []string
-			for _, e := range errs.Errors() {
-				got = append(got, e.Msg)
-			}
-			if tt.want == nil {
-				require.Empty(t, got)
-				return
-			}
-			require.Equal(t, tt.want, got)
-		})
-	}
+// TestValidateBodyMetaKeysFixtures checks the meta keys allowed in a resource,
+// data, or action body. The fixture's first key picks which block to validate.
+func TestValidateBodyMetaKeysFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/body-meta", func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		if len(f.Body.Fields) == 0 {
+			return "", []string{"fixture needs a resources, data, or actions block"}
+		}
+		fld := f.Body.Fields[0]
+		block, ok := fld.Value.(*ObjectLit)
+		if !ok {
+			return "", []string{"block must be an object"}
+		}
+		switch fld.Key.Name {
+		case "resources":
+			return "", ValidateResources(block).Messages()
+		case "data":
+			return "", ValidateDataSources(block).Messages()
+		case "actions":
+			return "", ValidateActions(block).Messages()
+		}
+		return "", []string{"unknown block " + fld.Key.Name}
+	})
 }

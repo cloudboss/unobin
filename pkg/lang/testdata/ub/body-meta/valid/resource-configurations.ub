@@ -1,0 +1,1 @@
+resources: { aws.vpc.this: { @configurations: { aws: aws.east } } }

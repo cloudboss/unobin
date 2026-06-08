@@ -1,0 +1,1 @@
+resources: { aws.vpc.this: { @depends-on: ['x'] } }

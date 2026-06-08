@@ -1,0 +1,1 @@
+actions: { core.command.run: { @for-each: ['a'], @configurations: { aws: aws.east }, @depends-on: ['x'] } }

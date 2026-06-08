@@ -1,0 +1,1 @@
+resources: { aws.vpc.this: { @bogus: 1, @nope: 2 } }

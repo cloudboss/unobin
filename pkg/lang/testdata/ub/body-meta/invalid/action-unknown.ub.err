@@ -1,0 +1,1 @@
+action core.command.run: meta key "@bogus" is not allowed

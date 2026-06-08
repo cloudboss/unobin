@@ -1,0 +1,1 @@
+resource aws.vpc.this: @timeout must be a duration string like '30s'
