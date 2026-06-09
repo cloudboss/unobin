@@ -20,6 +20,9 @@ func (c *referenceChecker) checkTypes() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
 		case NodeResource, NodeData, NodeAction:
+		case NodeConfiguration:
+			c.checkConfigurationNode(n)
+			continue
 		default:
 			continue
 		}
@@ -31,6 +34,65 @@ func (c *referenceChecker) checkTypes() {
 	c.checkLocalsBodyTypes()
 	c.checkOutputBodyTypes()
 	c.checkConstraintTypes()
+}
+
+// checkConfigurationNode validates one internal configuration. The
+// alias must name an imported library that declares a configuration.
+// When the configuration's field schema is known, every body field
+// must be one the schema declares with an assignable type, and every
+// required field must be present; at factory runtime the schema is
+// absent and only the import and declaration checks run, the same
+// split every Go-type body check follows.
+func (c *referenceChecker) checkConfigurationNode(n *Node) {
+	lib := c.libraries[""][n.Alias]
+	if lib == nil {
+		c.addf(n.Body.Span().Start,
+			"configurations.%s: library %q is not imported", n.Alias, n.Alias)
+		return
+	}
+	if !libraryKnown(lib) {
+		return
+	}
+	if lib.Configuration == nil && (lib.Schema == nil || !lib.Schema.HasConfiguration) {
+		c.addf(n.Body.Span().Start,
+			"configurations.%s: library declares no configuration", n.Alias)
+		return
+	}
+	if lib.Schema == nil || lib.Schema.Configuration == nil {
+		return
+	}
+	obj, ok := n.Body.(*lang.ObjectLit)
+	if !ok {
+		return
+	}
+	schema := lib.Schema.Configuration
+	scope := c.scopeFor(n)
+	present := make(map[string]bool, len(obj.Fields))
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		present[fld.Key.Name] = true
+		target, ok := schema[fld.Key.Name]
+		if !ok {
+			c.addf(fld.Key.S.Start, "configurations.%s.%s: unknown field %q",
+				n.Alias, n.Name, fld.Key.Name)
+			continue
+		}
+		typecheck.Check(fld.Value, target, scope, c.errs)
+	}
+	missing := make([]string, 0, len(schema))
+	for name, t := range schema {
+		if t.Kind == typecheck.Optional || present[name] {
+			continue
+		}
+		missing = append(missing, name)
+	}
+	sort.Strings(missing)
+	for _, name := range missing {
+		c.addf(obj.Span().Start, "configurations.%s.%s: missing required field %q",
+			n.Alias, n.Name, name)
+	}
 }
 
 // checkLocalsBodyTypes infers every local's expression with the real

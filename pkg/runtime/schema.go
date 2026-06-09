@@ -27,7 +27,11 @@ type LibrarySchema struct {
 	// struct, keyed by kebab-case field name. Nil when the library
 	// declares no configuration or when the struct behind the
 	// ConfigurationType's New function cannot be read from source.
-	Configuration map[string]typecheck.Type
+	// HasConfiguration distinguishes the two: it is true whenever the
+	// library declares a configuration, readable or not, so checks can
+	// tell "no configuration" from "fields unknowable".
+	Configuration    map[string]typecheck.Type
+	HasConfiguration bool
 }
 
 // TypeSchema describes the input and output fields of one resource,

@@ -87,6 +87,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 		}
 	}
 	if ref, found, ok := extractConfigurationRef(libraryFunc); found {
+		schema.HasConfiguration = true
 		if !ok {
 			warnings = append(warnings,
 				"library configuration: cannot read the struct behind New from source "+

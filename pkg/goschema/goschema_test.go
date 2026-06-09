@@ -44,12 +44,14 @@ func TestReadExtractsConfigurationSchema(t *testing.T) {
 		"assume-role": typecheck.TOptional(assumeRole),
 	}
 	require.Equal(t, want, schema.Configuration)
+	require.True(t, schema.HasConfiguration)
 }
 
 func TestReadWarnsWhenConfigurationNewIsNotALiteral(t *testing.T) {
 	schema, warnings, err := Read("testdata/badnew")
 	require.NoError(t, err)
 	require.Nil(t, schema.Configuration)
+	require.True(t, schema.HasConfiguration)
 	require.Len(t, warnings, 1)
 	require.Contains(t, warnings[0], "library configuration")
 }
@@ -58,6 +60,7 @@ func TestReadLeavesConfigurationNilWhenAbsent(t *testing.T) {
 	schema, _, err := Read("testdata/samepkg")
 	require.NoError(t, err)
 	require.Nil(t, schema.Configuration)
+	require.False(t, schema.HasConfiguration)
 }
 
 func TestReadExtractsSetConstraints(t *testing.T) {

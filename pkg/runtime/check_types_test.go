@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
@@ -528,4 +529,82 @@ func checkErrorMessages(t *testing.T, errs *lang.ErrorList) []string {
 		out = append(out, err.Msg)
 	}
 	return out
+}
+
+// configuredLibrary returns a library whose compile-time schema
+// declares a configuration with one required and one optional field.
+func configuredLibrary() *Library {
+	return &Library{
+		Schema: &LibrarySchema{
+			HasConfiguration: true,
+			Configuration: map[string]typecheck.Type{
+				"region":  typecheck.TString(),
+				"profile": typecheck.TOptional(typecheck.TString()),
+			},
+		},
+	}
+}
+
+func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+configurations: { ghost: { default: { region: 'r' } } }
+`), map[string]*Library{})
+	require.Equal(t,
+		[]string{`configurations.ghost: library "ghost" is not imported`},
+		errs.Messages())
+}
+
+func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+configurations: { local: { default: { region: 'r' } } }
+`), map[string]*Library{"local": localFileLibrary()})
+	require.Equal(t,
+		[]string{`configurations.local: library declares no configuration`},
+		errs.Messages())
+}
+
+func TestCheckTypesConfigurationUnknownField(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
+`), map[string]*Library{"aws": configuredLibrary()})
+	require.Equal(t,
+		[]string{`configurations.aws.default: unknown field "regin"`},
+		errs.Messages())
+}
+
+func TestCheckTypesConfigurationFieldTypeMismatch(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+configurations: { aws: { default: { region: 5 } } }
+`), map[string]*Library{"aws": configuredLibrary()})
+	require.Equal(t,
+		[]string{`type mismatch: expected string, got integer`},
+		errs.Messages())
+}
+
+func TestCheckTypesConfigurationMissingRequiredField(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+configurations: { aws: { default: { profile: 'p' } } }
+`), map[string]*Library{"aws": configuredLibrary()})
+	require.Equal(t,
+		[]string{`configurations.aws.default: missing required field "region"`},
+		errs.Messages())
+}
+
+func TestCheckTypesConfigurationValidPasses(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+inputs: { region: { type: string } }
+configurations: { aws: { default: { region: var.region } } }
+`), map[string]*Library{"aws": configuredLibrary()})
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesConfigurationDeclaredOnlyAtRuntime(t *testing.T) {
+	lib := &Library{
+		Configuration: &cfg.ConfigurationType{New: func() any { return nil }},
+		Schema:        &LibrarySchema{},
+	}
+	errs := CheckReferences(parseStack(t, `
+configurations: { aws: { default: { anything: 'goes' } } }
+`), map[string]*Library{"aws": lib})
+	require.Empty(t, errs.Messages())
 }
