@@ -80,6 +80,33 @@ type Executor struct {
 	// closing it after ApplyPlan returns. A nil channel disables
 	// event emission.
 	Events chan<- ApplyEvent
+
+	// internalConfigurations holds the decoded value of each internal
+	// configuration once its node evaluates, keyed by node address.
+	// Apply evaluates configurations on worker goroutines while
+	// consumers read concurrently, so access goes through internalMu.
+	internalConfigurations map[string]any
+	internalMu             sync.Mutex
+}
+
+// storeInternalConfiguration records the decoded value of an internal
+// configuration under its node address.
+func (e *Executor) storeInternalConfiguration(addr string, value any) {
+	e.internalMu.Lock()
+	defer e.internalMu.Unlock()
+	if e.internalConfigurations == nil {
+		e.internalConfigurations = map[string]any{}
+	}
+	e.internalConfigurations[addr] = value
+}
+
+// internalConfiguration returns the decoded value of an internal
+// configuration, or false when its node has not evaluated.
+func (e *Executor) internalConfiguration(addr string) (any, bool) {
+	e.internalMu.Lock()
+	defer e.internalMu.Unlock()
+	v, ok := e.internalConfigurations[addr]
+	return v, ok
 }
 
 // effectiveParallelism returns the in-flight cap apply should honor.
@@ -123,9 +150,18 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
-// on the given node.
+// on the given node. A selection the factory defines internally reads
+// from the evaluated configuration table; anything else reads from
+// the operator's decoded config.ub table.
 func (e *Executor) configFor(n *Node) any {
 	alias, configuration := e.resolvedConfigRef(n)
+	if e.DAG != nil {
+		addr := configurationAddress(alias, configuration)
+		if _, internal := e.DAG.Nodes[addr]; internal {
+			v, _ := e.internalConfiguration(addr)
+			return v
+		}
+	}
 	return e.lookupConfiguration(alias, configuration)
 }
 

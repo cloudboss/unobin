@@ -43,12 +43,23 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 			"%s: @configuration %s.%s: library declares no configuration",
 			n.Address, n.Alias, n.Configuration)}
 	}
-	if _, ok := e.Configurations[n.Alias][n.Configuration]; !ok {
+	if !e.configurationDeclared(n.Alias, n.Configuration) {
 		return []error{fmt.Errorf(
 			"%s: @configuration %s.%s: configuration not declared",
 			n.Address, n.Alias, n.Configuration)}
 	}
 	return nil
+}
+
+// configurationDeclared reports whether a configuration name resolves
+// for an alias: either the operator supplied it in config.ub or the
+// factory defines it internally.
+func (e *Executor) configurationDeclared(alias, name string) bool {
+	if _, ok := e.Configurations[alias][name]; ok {
+		return true
+	}
+	_, ok := e.DAG.Nodes[configurationAddress(alias, name)]
+	return ok
 }
 
 func (e *Executor) checkCompositeRemap(n *Node) []error {
@@ -69,7 +80,7 @@ func (e *Executor) checkCompositeRemap(n *Node) []error {
 				n.Address, innerAlias, ref.Alias))
 			continue
 		}
-		if _, ok := e.Configurations[ref.Alias][ref.Configuration]; !ok {
+		if !e.configurationDeclared(ref.Alias, ref.Configuration) {
 			errs = append(errs, fmt.Errorf(
 				"%s: @configurations.%s: configuration %s.%s not declared",
 				n.Address, innerAlias, ref.Alias, ref.Configuration))

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -144,11 +145,42 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return e.applyResource(ctx, rs, step)
 	case NodeData:
 		return e.applyData(ctx, rs, step)
-	case NodeOutput, NodeConfiguration:
+	case NodeOutput:
 		return nil
+	case NodeConfiguration:
+		return e.applyConfiguration(rs, step)
 	default:
 		return fmt.Errorf("unknown step kind %q", step.Kind)
 	}
+}
+
+// applyConfiguration evaluates an internal configuration's fields and
+// decodes them into the library's configuration struct, making the
+// value available to every consumer that selects it. The scheduler
+// dispatches it after the nodes its expressions read, so evaluation
+// sees settled values.
+func (e *Executor) applyConfiguration(rs *runState, step *PlanStep) error {
+	node, ok := e.DAG.Nodes[step.Address]
+	if !ok {
+		return fmt.Errorf("%s: not in the graph", step.Address)
+	}
+	rs.mu.Lock()
+	raw, err := evalBody(node.Body, rs.eval)
+	rs.mu.Unlock()
+	if err != nil {
+		return fmt.Errorf("%s: %w", step.Address, err)
+	}
+	lib, ok := e.librariesFor(node)[node.Alias]
+	if !ok || lib.Configuration == nil {
+		return fmt.Errorf("%s: library %q declares no configuration",
+			step.Address, node.Alias)
+	}
+	decoded, err := cfg.Decode(lib.Configuration, raw)
+	if err != nil {
+		return fmt.Errorf("%s: %w", step.Address, err)
+	}
+	e.storeInternalConfiguration(step.Address, decoded)
+	return nil
 }
 
 func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep) error {

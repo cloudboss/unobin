@@ -380,6 +380,13 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 	return out
 }
 
+// configurationAddress returns the node address of an internal
+// configuration: the `configuration.` root, the import alias, and the
+// configuration name.
+func configurationAddress(alias, name string) string {
+	return "configuration." + alias + "." + name
+}
+
 // extractConfigurations walks a factory's configurations: block and
 // returns one node per defined configuration. The node's Body is the
 // configuration's object of fields; Alias and Name record which
@@ -404,7 +411,7 @@ func extractConfigurations(block *lang.ObjectLit) []*Node {
 				continue
 			}
 			out = append(out, &Node{
-				Address: "configuration." + alias + "." + nameFld.Key.Name,
+				Address: configurationAddress(alias, nameFld.Key.Name),
 				Kind:    NodeConfiguration,
 				Alias:   alias,
 				Name:    nameFld.Key.Name,

@@ -188,7 +188,7 @@ func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
 		return "", false
 	}
 	alias, configuration := resolvedConfigRef(n, nodes)
-	addr := "configuration." + alias + "." + configuration
+	addr := configurationAddress(alias, configuration)
 	if _, ok := nodes[addr]; !ok {
 		return "", false
 	}
