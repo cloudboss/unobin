@@ -282,3 +282,37 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	require.NotContains(t, ent.Outputs, "id")
 	require.Equal(t, "fake-alpha", ent.Outputs["name-id"])
 }
+
+func TestRefreshDoesNotInventDefaults(t *testing.T) {
+	// The defaults overlay is a plan-time concern. Refresh keeps prior
+	// inputs as they were read, so a field that exists only as a declared
+	// default is not invented into refreshed state.
+	src := `
+resources: { core.thing.one: { name: 'alpha' } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack, &state.Entry{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+	})
+
+	var c resourceCounters
+	libs := defaultingLibs(&c)
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	_, err := exec.Refresh(context.Background())
+	require.NoError(t, err)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.thing.one")
+	require.NotNil(t, ent)
+	require.NotContains(t, ent.Inputs, "size",
+		"refresh keeps prior inputs as read; it does not apply defaults")
+}

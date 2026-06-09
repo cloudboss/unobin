@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
@@ -319,6 +320,25 @@ func inputMigratingLibs(c *resourceCounters) map[string]*Library {
 						}
 					},
 				),
+			},
+		},
+	}
+}
+
+// defaultingLibs registers core.thing (a countingResource) with a Value
+// default of 7 for `size`, so tests can exercise the plan-time overlay of
+// declared defaults onto prior inputs.
+func defaultingLibs(c *resourceCounters) map[string]*Library {
+	return map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResource, any](
+					func() *countingResource { return &countingResource{counters: c} },
+				),
+			},
+			Defaults: map[string][]lang.DefaultSpec{
+				"resource.thing": {{Field: "var.size", Value: "7"}},
 			},
 		},
 	}

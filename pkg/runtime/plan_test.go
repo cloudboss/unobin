@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1252,6 +1253,202 @@ resources: { core.thing.one: { name: 'alpha', size: 2 } }
 	require.NotContains(t, ent.Inputs, "label")
 	require.Equal(t, "alpha", ent.Inputs["name"])
 	require.EqualValues(t, 2, ent.Inputs["size"])
+}
+
+// seedPrior writes entries as store's current snapshot, so a test can
+// start a plan or apply from existing state.
+func seedPrior(
+	t *testing.T, store *localstate.LocalStore, stack state.FactoryInfo, entries ...*state.Entry,
+) {
+	t.Helper()
+	snap := state.NewSnapshot(stack, store.Stack())
+	snap.Entries = entries
+	rev, err := store.Write(snap)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+}
+
+func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
+	// `size` gained a Value default after this resource was created, so the
+	// prior entry has none. The default fills into the current body; the
+	// overlay fills it into the prior too, so the diff sees them equal and
+	// the plan stays a no-op instead of a vacuous update.
+	src := `
+resources: { core.thing.one: { name: 'alpha' } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack, &state.Entry{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+	})
+
+	var c resourceCounters
+	plan := runPlan(t, src, defaultingLibs(&c), store)
+	step := stepFor(plan, "resource.core.thing.one")
+	require.NotNil(t, step)
+	require.Equal(t, DecisionNoOp, step.Decision)
+	require.EqualValues(t, 7, step.PriorInputs["size"],
+		"the declared default should be overlaid onto the prior inputs")
+}
+
+func TestPlanDefaultsOverlayKeepsExplicitPriorValue(t *testing.T) {
+	// The prior set size explicitly to 3. The body now omits size, so the
+	// default 7 is the desired value -- a real update. The overlay fills
+	// only missing fields, so the prior is still seen as 3 and the change
+	// is genuine, not invented.
+	src := `
+resources: { core.thing.one: { name: 'alpha' } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack, &state.Entry{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha", "size": float64(3)},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(3)},
+	})
+
+	var c resourceCounters
+	plan := runPlan(t, src, defaultingLibs(&c), store)
+	step := stepFor(plan, "resource.core.thing.one")
+	require.NotNil(t, step)
+	require.Equal(t, DecisionUpdate, step.Decision)
+	require.EqualValues(t, 3, step.PriorInputs["size"],
+		"a value the prior actually set must survive the overlay")
+	require.EqualValues(t, 7, step.Inputs["size"])
+}
+
+func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
+	// End to end: a defaulted field added after creation should not provoke
+	// a cloud update. The plan is a no-op, Update is never called, and the
+	// apply records the resolved default so the next plan agrees.
+	src := `
+resources: { core.thing.one: { name: 'alpha' } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack, &state.Entry{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+	})
+
+	var c resourceCounters
+	libs := defaultingLibs(&c)
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates), "no cloud update")
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.creates))
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.thing.one")
+	require.NotNil(t, ent)
+	require.EqualValues(t, 7, ent.Inputs["size"], "apply records the resolved default")
+
+	plan2, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp, stepFor(plan2, "resource.core.thing.one").Decision)
+}
+
+func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
+	// The prior predates `size`, and the body now sets it to 9. The plan is
+	// an update, and the overlay means Update sees a prior of 7 (the
+	// declared default), not a zero value from an absent field.
+	src := `
+resources: { core.thing.one: { name: 'alpha', size: 9 } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack, &state.Entry{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+	})
+
+	var c resourceCounters
+	libs := defaultingLibs(&c)
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), atomic.LoadInt64(&c.updates))
+	require.NotNil(t, c.gotUpdatePrior)
+	require.EqualValues(t, 7, c.gotUpdatePrior.Inputs.Size,
+		"Update should see the overlaid default as the prior, not zero")
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.thing.one")
+	require.NotNil(t, ent)
+	require.EqualValues(t, 9, ent.Inputs["size"])
+}
+
+func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
+	// The overlay also covers @for-each instances: each prior instance
+	// predates `size`, so each is a no-op once the default is overlaid.
+	src := `
+resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		&state.Entry{
+			Address:       "resource.core.thing.many['alpha']",
+			Type:          state.EntryLeaf,
+			Kind:          "thing",
+			SchemaVersion: 1,
+			Inputs:        map[string]any{"name": "alpha"},
+			Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+		},
+		&state.Entry{
+			Address:       "resource.core.thing.many['beta']",
+			Type:          state.EntryLeaf,
+			Kind:          "thing",
+			SchemaVersion: 1,
+			Inputs:        map[string]any{"name": "beta"},
+			Outputs:       map[string]any{"id": "fake-beta", "name": "beta"},
+		},
+	)
+
+	var c resourceCounters
+	libs := defaultingLibs(&c)
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
+		Store:     store,
+		Factory:   stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp, stepFor(plan, "resource.core.thing.many['alpha']").Decision)
+	require.Equal(t, DecisionNoOp, stepFor(plan, "resource.core.thing.many['beta']").Decision)
+
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	_, err = exec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates), "for-each instances are no-ops")
 }
 
 func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {

@@ -1084,9 +1084,22 @@ func (e *Executor) planOneResource(
 	if err != nil {
 		return nil, err
 	}
+	// Overlay the type's current declared defaults onto the prior inputs so
+	// a field given a default since the prior was written is compared as
+	// that default rather than as absent. Without this, the addition reads
+	// as a change and forces a vacuous update on every existing instance.
+	// Copy first: with no schema bump the migrated inputs alias the prior
+	// snapshot's own map.
+	priorInputs := cloneMap(migrated.Inputs)
+	if priorInputs == nil {
+		priorInputs = map[string]any{}
+	}
+	if err := e.applyInputDefaults(n, priorInputs, nil); err != nil {
+		return nil, err
+	}
 	step.PriorOutputs = migrated.Outputs
-	step.PriorInputs = migrated.Inputs
-	step.mayChangeOutputs = !sameInputs(migrated.Inputs, inputs)
+	step.PriorInputs = priorInputs
+	step.mayChangeOutputs = !sameInputs(priorInputs, inputs)
 	// Whether changed inputs force a replace is decided here, mid-walk,
 	// from inputs alone: downstream nodes plan next and need to know
 	// whether this node's outputs survive. A replace-marked field still
@@ -1097,7 +1110,7 @@ func (e *Executor) planOneResource(
 		if err := Decode(probe, inputs); err != nil {
 			return nil, err
 		}
-		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), migrated.Inputs, inputs)
+		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), priorInputs, inputs)
 		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
