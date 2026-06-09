@@ -12,7 +12,7 @@ import (
 // endpointConfiguration is the configuration struct of the fake
 // configured library.
 type endpointConfiguration struct {
-	Endpoint cfg.String
+	Endpoint *cfg.String
 }
 
 // echoResource exposes its input as an output, plus a computed id the
@@ -43,7 +43,7 @@ type configEchoResource struct {
 
 func endpointOf(c any) string {
 	conf, _ := c.(*endpointConfiguration)
-	if conf == nil {
+	if conf == nil || conf.Endpoint == nil {
 		return ""
 	}
 	return conf.Endpoint.Value
@@ -89,7 +89,7 @@ func configuredLibrariesRecording(readSeen *[]string) map[string]*Library {
 }
 
 const internalConfigSrc = `
-configurations: { fix: { cluster: { endpoint: resource.fix.echo.src.value } } }
+configurations: { fix: { default: {}, cluster: { endpoint: resource.fix.echo.src.value } } }
 resources: {
   fix.echo.src:        { value: 'https://cluster.example' }
   fix.config-echo.app: { @configuration: fix.cluster }
@@ -155,7 +155,7 @@ func (d *configProbeData) Read(_ context.Context, c any) (any, error) {
 }
 
 const internalConfigDataSrc = `
-configurations: { fix: { cluster: { endpoint: resource.fix.echo.src.id } } }
+configurations: { fix: { default: {}, cluster: { endpoint: resource.fix.echo.src.id } } }
 resources: { fix.echo.src: { value: 'https://cluster.example' } }
 data:      { fix.probe.p: { @configuration: fix.cluster } }
 `
@@ -195,7 +195,7 @@ func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 }
 
 const internalConfigVarSrc = `
-configurations: { fix: { cluster: { endpoint: resource.fix.echo.src.id } } }
+configurations: { fix: { default: {}, cluster: { endpoint: resource.fix.echo.src.id } } }
 resources: {
   fix.echo.src:        { value: var.url }
   fix.config-echo.app: { @configuration: fix.cluster }

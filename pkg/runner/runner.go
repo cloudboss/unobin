@@ -362,7 +362,8 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
-	configurations, _, err := loadConfigurations(config, configPath, info.Libraries, inputs)
+	configurations, _, err := loadConfigurations(config, configPath, info.Libraries,
+		inputs, runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}
@@ -435,13 +436,24 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	if err != nil {
 		return err
 	}
-	if _, _, err := loadConfigurations(config, configPath, info.Libraries, inputs); err != nil {
+	configurations, _, err := loadConfigurations(config, configPath, info.Libraries,
+		inputs, runtime.InternalConfigurationNames(f))
+	if err != nil {
 		return err
 	}
 	if err := validateStateRefs(config, configPath); err != nil {
 		return err
 	}
-	if _, err := runtime.BuildDAG(f, info.Libraries).TopologicalOrder(); err != nil {
+	dag := runtime.BuildDAG(f, info.Libraries)
+	if _, err := dag.TopologicalOrder(); err != nil {
+		return err
+	}
+	demand := &runtime.Executor{
+		DAG:            dag,
+		Libraries:      info.Libraries,
+		Configurations: configurations,
+	}
+	if err := demand.CheckConfigurations(); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "OK")
@@ -616,7 +628,7 @@ func doPlan(
 		return err
 	}
 	configurations, rawConfigurations, err := loadConfigurations(
-		config, configPath, info.Libraries, inputs)
+		config, configPath, info.Libraries, inputs, runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}

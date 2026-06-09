@@ -44,7 +44,7 @@ configurations: {
 `)
 	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
+	}, nil, nil)
 	require.NoError(t, err)
 	got := out["aws"]["default"].(*awsConfig)
 	require.Equal(t, "us-east-1", got.Region.Value)
@@ -63,33 +63,35 @@ configurations: {
 `)
 	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
+	}, nil, nil)
 	require.NoError(t, err)
 	got := out["aws"]["default"].(*awsConfig)
 	require.Equal(t, "default-profile", got.Profile.Value)
 }
 
-func TestLoadConfigurationsErrorsWhenModuleRequiresOneAndConfigIsAbsent(t *testing.T) {
-	_, _, err := loadConfigurations(nil, "", map[string]*runtime.Library{
+func TestLoadConfigurationsAllowsAbsentConfigurations(t *testing.T) {
+	out, _, err := loadConfigurations(nil, "", map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "configurations.aws")
+	}, nil, nil)
+	require.NoError(t, err)
+	require.Empty(t, out["aws"])
 }
 
-func TestLoadConfigurationsErrorsWhenBlockMissingForModule(t *testing.T) {
+func TestLoadConfigurationsAllowsBlockMissingForModule(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
   other: {
-    default: {}
+    default: { region: 'us-west-2' }
   }
 }
 `)
-	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
-		"aws": awsModuleWithConfig(),
-	}, nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "configurations.aws")
+	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+		"aws":   awsModuleWithConfig(),
+		"other": awsModuleWithConfig(),
+	}, nil, nil)
+	require.NoError(t, err)
+	require.Empty(t, out["aws"])
+	require.Equal(t, "us-west-2", out["other"]["default"].(*awsConfig).Region.Value)
 }
 
 func TestLoadConfigurationsErrorsOnUnknownImportAlias(t *testing.T) {
@@ -101,7 +103,7 @@ configurations: {
 }
 `)
 	_, _, err := loadConfigurations(
-		parseTestConfig(t, path), path, map[string]*runtime.Library{}, nil)
+		parseTestConfig(t, path), path, map[string]*runtime.Library{}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ghost")
 	require.Contains(t, err.Error(), "unknown import alias")
@@ -117,12 +119,12 @@ configurations: {
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleNoConfig(),
-	}, nil)
+	}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no configuration")
 }
 
-func TestLoadConfigurationsErrorsWhenDefaultMissing(t *testing.T) {
+func TestLoadConfigurationsAllowsMissingDefault(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
   aws: {
@@ -132,11 +134,11 @@ configurations: {
   }
 }
 `)
-	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "default")
+	}, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, "us-east-2", out["aws"]["east2"].(*awsConfig).Region.Value)
 }
 
 func TestLoadConfigurationsErrorsOnInvalidValues(t *testing.T) {
@@ -151,7 +153,7 @@ configurations: {
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
+	}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "region")
 }
@@ -159,7 +161,7 @@ configurations: {
 func TestLoadConfigurationsReturnsNilWhenNoModuleNeedsOne(t *testing.T) {
 	out, _, err := loadConfigurations(nil, "", map[string]*runtime.Library{
 		"core": awsModuleNoConfig(),
-	}, nil)
+	}, nil, nil)
 	require.NoError(t, err)
 	require.Empty(t, out)
 }
@@ -181,7 +183,7 @@ configurations: {
 `)
 	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
+	}, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, out["aws"], 2)
 	require.Equal(t, "us-east-1", out["aws"]["default"].(*awsConfig).Region.Value)
@@ -205,7 +207,7 @@ configurations: {
 `)
 	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, map[string]any{"region": "us-east-1", "env": "prod"})
+	}, map[string]any{"region": "us-east-1", "env": "prod"}, nil)
 	require.NoError(t, err)
 	got := out["aws"]["default"].(*awsConfig)
 	require.Equal(t, "us-east-1", got.Region.Value)
@@ -226,7 +228,7 @@ configurations: {
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, map[string]any{"region": "us-east-1"})
+	}, map[string]any{"region": "us-east-1"}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "configurations.aws.default")
 	require.Contains(t, err.Error(), "var.missing")
@@ -247,7 +249,24 @@ configurations: {
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, nil)
+	}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "configurations.aws.bad")
+}
+
+func TestLoadConfigurationsRejectsInternalName(t *testing.T) {
+	path := writeConfig(t, `
+configurations: {
+  aws: {
+    default: { region: 'us-east-1' }
+    cluster: { region: 'us-east-1' }
+  }
+}
+`)
+	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+		"aws": awsModuleWithConfig(),
+	}, nil, map[string]map[string]bool{"aws": {"cluster": true}})
+	require.Error(t, err)
+	require.Equal(t, path+": configurations.aws.cluster: defined internally by the factory; "+
+		"remove this entry from config.ub", err.Error())
 }

@@ -40,7 +40,7 @@ func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x", "east2": "y"}},
 	)
-	require.NoError(t, e.checkConfigurations())
+	require.NoError(t, e.CheckConfigurations())
 }
 
 func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
@@ -55,7 +55,7 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
-	err := e.checkConfigurations()
+	err := e.CheckConfigurations()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "@configuration aws.ghost")
 	require.Contains(t, err.Error(), "configuration not declared")
@@ -73,7 +73,7 @@ func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) 
 		map[string]*Library{"core": {Name: "core"}},
 		nil,
 	)
-	err := e.checkConfigurations()
+	err := e.CheckConfigurations()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "library declares no configuration")
 }
@@ -93,7 +93,7 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x", "east2": "y"}},
 	)
-	require.NoError(t, e.checkConfigurations())
+	require.NoError(t, e.CheckConfigurations())
 }
 
 func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
@@ -111,7 +111,7 @@ func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
-	err := e.checkConfigurations()
+	err := e.CheckConfigurations()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "@configurations.aws")
 	require.Contains(t, err.Error(), `import "gcp" must match the key`)
@@ -132,7 +132,7 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
-	err := e.checkConfigurations()
+	err := e.CheckConfigurations()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "configuration aws.ghost not declared")
 }
@@ -161,8 +161,47 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 		map[string]*Library{"aws": libraryWithConfig()},
 		map[string]map[string]any{"aws": {"default": "x"}},
 	)
-	err := e.checkConfigurations()
+	err := e.CheckConfigurations()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "@configuration aws.ghost")
 	require.Contains(t, err.Error(), "@configurations.aws")
+}
+
+func TestCheckConfigurationsRequiresImplicitDefault(t *testing.T) {
+	leaf := &Node{
+		Address: "resource.aws.instance.web",
+		Kind:    NodeResource,
+		Alias:   "aws",
+	}
+	e := newExecutorForConfigCheck(
+		map[string]*Node{leaf.Address: leaf},
+		map[string]*Library{"aws": libraryWithConfig()},
+		nil,
+	)
+	err := e.CheckConfigurations()
+	require.Error(t, err)
+	require.Equal(t,
+		`resource.aws.instance.web: library "aws" requires a configuration; `+
+			`define configurations.aws.default in config.ub or in the factory`,
+		err.Error())
+}
+
+func TestCheckConfigurationsAcceptsInternalDefault(t *testing.T) {
+	leaf := &Node{
+		Address: "resource.aws.instance.web",
+		Kind:    NodeResource,
+		Alias:   "aws",
+	}
+	internal := &Node{
+		Address: "configuration.aws.default",
+		Kind:    NodeConfiguration,
+		Alias:   "aws",
+		Name:    "default",
+	}
+	e := newExecutorForConfigCheck(
+		map[string]*Node{leaf.Address: leaf, internal.Address: internal},
+		map[string]*Library{"aws": libraryWithConfig()},
+		nil,
+	)
+	require.NoError(t, e.CheckConfigurations())
 }

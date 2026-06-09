@@ -387,6 +387,30 @@ func configurationAddress(alias, name string) string {
 	return "configuration." + alias + "." + name
 }
 
+// InternalConfigurationNames returns the configuration names a factory
+// defines internally, keyed by import alias. The runner consults it
+// when loading config.ub so an operator entry cannot collide with a
+// name the factory owns.
+func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	if f == nil || f.Body == nil {
+		return out
+	}
+	block, ok := topLevelMap(f.Body)["configurations"].(*lang.ObjectLit)
+	if !ok {
+		return out
+	}
+	for _, n := range extractConfigurations(block) {
+		set := out[n.Alias]
+		if set == nil {
+			set = map[string]bool{}
+			out[n.Alias] = set
+		}
+		set[n.Name] = true
+	}
+	return out
+}
+
 // extractConfigurations walks a factory's configurations: block and
 // returns one node per defined configuration. The node's Body is the
 // configuration's object of fields; Alias and Name record which

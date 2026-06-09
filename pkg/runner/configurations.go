@@ -3,6 +3,7 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -16,14 +17,17 @@ import (
 // key is the configuration alias name. Values may reference inputs
 // (var.x); inputs holds the effective values they resolve against, so
 // the raw form is already concrete by the time it reaches a plan file.
-// Every library that declares a Configuration must have at least a
-// `default` entry in config.ub. path is preserved only for error
-// messages.
+// internal names the configurations the factory defines in source; an
+// operator entry under one of those names is rejected, since the
+// factory owns it. Whether every configuration a node selects exists
+// is the executor's demand-driven check, not enforced here. path is
+// preserved only for error messages.
 func loadConfigurations(
 	f *lang.File,
 	path string,
 	libraries map[string]*runtime.Library,
 	inputs map[string]any,
+	internal map[string]map[string]bool,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
@@ -38,6 +42,9 @@ func loadConfigurations(
 		}
 	}
 
+	if err := rejectInternalNames(path, rawByImport, internal); err != nil {
+		return nil, nil, err
+	}
 	decoded, err = decodeConfigurations(rawByImport, libraries)
 	if err != nil {
 		return nil, nil, err
@@ -48,11 +55,44 @@ func loadConfigurations(
 	return decoded, raw, nil
 }
 
+// rejectInternalNames reports every config.ub configuration entry
+// whose name the factory defines internally. The factory owns those
+// names; an operator value for one would be ignored or fought over,
+// so it is an error instead.
+func rejectInternalNames(
+	path string,
+	rawByImport map[string]map[string]any,
+	internal map[string]map[string]bool,
+) error {
+	var errs []error
+	aliases := make([]string, 0, len(rawByImport))
+	for alias := range rawByImport {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+	for _, alias := range aliases {
+		names := make([]string, 0, len(rawByImport[alias]))
+		for name := range rawByImport[alias] {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			if internal[alias][name] {
+				errs = append(errs, fmt.Errorf(
+					"%s: configurations.%s.%s: defined internally by the factory; "+
+						"remove this entry from config.ub", path, alias, name))
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // decodeConfigurations runs cfg.Decode for each configuration alias
-// under each library. It errors when a library requires configuration
-// but none was given, when an alias targets a library that has no
-// Configuration, when an import is unknown, or when the `default`
-// entry is missing for a library that needs one.
+// under each library. It errors when an alias targets a library that
+// has no Configuration, when an import is unknown, or when an entry
+// fails to decode. Whether a library's nodes have the configurations
+// they select is checked demand-driven by the executor, so a library
+// may legitimately appear here with any subset of names, or none.
 func decodeConfigurations(
 	rawByImport map[string]map[string]any,
 	libraries map[string]*runtime.Library,
@@ -60,23 +100,15 @@ func decodeConfigurations(
 	out := map[string]map[string]any{}
 	var errs []error
 	for importAlias, lib := range libraries {
+		aliases, supplied := rawByImport[importAlias]
 		if lib.Configuration == nil {
-			if _, supplied := rawByImport[importAlias]; supplied {
+			if supplied {
 				errs = append(errs, fmt.Errorf(
 					"configurations.%s: library declares no configuration", importAlias))
 			}
 			continue
 		}
-		aliases, supplied := rawByImport[importAlias]
-		if !supplied || len(aliases) == 0 {
-			errs = append(errs, fmt.Errorf(
-				"configurations.%s: library requires a configuration but none was given",
-				importAlias))
-			continue
-		}
-		if _, hasDefault := aliases["default"]; !hasDefault {
-			errs = append(errs, fmt.Errorf(
-				"configurations.%s: missing `default` entry", importAlias))
+		if !supplied {
 			continue
 		}
 		decodedAliases := map[string]any{}
