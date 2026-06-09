@@ -214,6 +214,11 @@ func TestValidateInputsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/inputs", objectBlockDriver("inputs", ValidateInputDeclarations))
 }
 
+func TestValidateFactoryConfigurationsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/configurations",
+		objectBlockDriver("configurations", ValidateFactoryConfigurations))
+}
+
 // TestValidateConstraintReferencesFixtures checks that constraint fields
 // resolve against the declared inputs of the same fixture.
 func TestValidateConstraintReferencesFixtures(t *testing.T) {

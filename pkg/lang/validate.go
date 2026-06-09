@@ -8,20 +8,22 @@ import (
 )
 
 // allowedTopLevelKeys is the set of identifier keys permitted at the
-// top level of each file kind. A factory and an exported type body are
-// identical. A config holds factory identity, state config, input
-// values, and library configurations.
+// top level of each file kind. An exported type body matches a factory
+// except for `configurations`, which only the factory root may define.
+// A config holds factory identity, state config, input values, and
+// library configurations.
 var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 	FileFactory: {
-		"description": {},
-		"inputs":      {},
-		"locals":      {},
-		"constraints": {},
-		"imports":     {},
-		"data":        {},
-		"resources":   {},
-		"actions":     {},
-		"outputs":     {},
+		"description":    {},
+		"inputs":         {},
+		"locals":         {},
+		"constraints":    {},
+		"imports":        {},
+		"data":           {},
+		"resources":      {},
+		"actions":        {},
+		"outputs":        {},
+		"configurations": {},
 	},
 	FileExportedType: {
 		"description": {},
@@ -870,6 +872,11 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["outputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateOutputs(obj))
 		}
+		if f.Kind == FileFactory {
+			if obj, ok := blocks["configurations"].(*ObjectLit); ok {
+				mergeErrors(errs, ValidateFactoryConfigurations(obj))
+			}
+		}
 		mergeErrors(errs, ValidateCalls(f))
 	case FileConfig:
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
@@ -1026,6 +1033,76 @@ func fieldValue(o *ObjectLit, name string) Expr {
 		}
 	}
 	return nil
+}
+
+// ValidateFactoryConfigurations checks the structure of a factory's
+// configurations: block: import alias, then configuration name, then an
+// object literal of fields. Field values are ordinary expressions and
+// are not constrained here.
+func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"configurations import alias must be a bare identifier, got quoted string %q",
+				fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"@-prefixed key %q is not a valid import alias", fld.Key.Name)
+			continue
+		}
+		alias := fld.Key.Name
+		if prev, dup := seen[alias]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate configurations entry %q (first defined at %s)", alias, prev)
+			continue
+		}
+		seen[alias] = fld.Key.S.Start
+		obj, ok := fld.Value.(*ObjectLit)
+		if !ok {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"configurations.%s: must be an object of named configurations", alias)
+			continue
+		}
+		validateConfigurationNames(alias, obj, errs)
+	}
+	return errs
+}
+
+// validateConfigurationNames checks one alias entry of a factory's
+// configurations: block: every key names a configuration and binds an
+// object literal of fields.
+func validateConfigurationNames(alias string, obj *ObjectLit, errs *ErrorList) {
+	seen := make(map[string]Position, len(obj.Fields))
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind == FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"configurations.%s: configuration name must be a bare identifier, "+
+					"got quoted string %q", alias, fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"configurations.%s: @-prefixed key %q is not a valid configuration name",
+				alias, fld.Key.Name)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"configurations.%s: duplicate configuration %q (first defined at %s)",
+				alias, name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		if _, ok := fld.Value.(*ObjectLit); !ok {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"configurations.%s.%s: a configuration must be an object of fields", alias, name)
+		}
+	}
 }
 
 // ValidateConfigInputs checks that every value in a config file's inputs:

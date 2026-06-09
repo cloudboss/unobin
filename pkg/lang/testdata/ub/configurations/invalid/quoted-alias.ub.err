@@ -1,0 +1,1 @@
+configurations import alias must be a bare identifier, got quoted string "aws"

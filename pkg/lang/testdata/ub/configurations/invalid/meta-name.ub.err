@@ -1,0 +1,1 @@
+configurations.aws: @-prefixed key "@default" is not a valid configuration name

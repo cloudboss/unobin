@@ -1,0 +1,1 @@
+configurations.aws: configuration name must be a bare identifier, got quoted string "default"

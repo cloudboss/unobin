@@ -1,0 +1,12 @@
+configurations: {
+  aws: {
+    default: { region: var.region }
+    admin: {
+      region:   var.region
+      role-arn: resource.aws.iam-role.admin.arn
+    }
+  }
+  k8s: {
+    cluster: { host: local.endpoint, token: @core.b64-decode(var.token) }
+  }
+}

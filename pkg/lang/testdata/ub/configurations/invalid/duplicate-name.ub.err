@@ -1,0 +1,1 @@
+configurations.aws: duplicate configuration "default" (first defined at 3:5)

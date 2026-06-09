@@ -1,0 +1,9 @@
+configurations: {
+  k8s: {
+    cluster: {
+      host:    resource.aws.eks-cluster.main.endpoint
+      ca-data: resource.aws.eks-cluster.main.certificate-authority
+      token:   data.aws.eks-cluster-auth.main.token
+    }
+  }
+}
