@@ -813,7 +813,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 			return nil, err
 		}
 		return e.planOneData(ctx, rs, n, scope, n.Address)
-	case NodeOutput:
+	case NodeOutput, NodeConfiguration:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
 	default:
 		return nil, fmt.Errorf("unknown node kind %q", n.Kind)

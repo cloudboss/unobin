@@ -11,10 +11,11 @@ import (
 type NodeKind string
 
 const (
-	NodeResource NodeKind = "resource"
-	NodeData     NodeKind = "data"
-	NodeAction   NodeKind = "action"
-	NodeOutput   NodeKind = "output"
+	NodeResource      NodeKind = "resource"
+	NodeData          NodeKind = "data"
+	NodeAction        NodeKind = "action"
+	NodeOutput        NodeKind = "output"
+	NodeConfiguration NodeKind = "configuration"
 )
 
 // Node is one addressable element of a stack: a single resource instance,
@@ -136,6 +137,9 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 		nodes = append(nodes, extractKind(obj, NodeAction, parent, libs)...)
 	}
 	if parent == "" {
+		if obj, ok := blocks["configurations"].(*lang.ObjectLit); ok {
+			nodes = append(nodes, extractConfigurations(obj)...)
+		}
 		if obj, ok := blocks["outputs"].(*lang.ObjectLit); ok {
 			nodes = append(nodes, extractOutputs(obj)...)
 		}
@@ -373,6 +377,41 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 		ConfigurationsRemap: extractConfigurationsRemap(args),
 	}}
 	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
+	return out
+}
+
+// extractConfigurations walks a factory's configurations: block and
+// returns one node per defined configuration. The node's Body is the
+// configuration's object of fields; Alias and Name record which
+// import it configures and the configuration's name. Like outputs,
+// configurations are defined only at the factory root.
+func extractConfigurations(block *lang.ObjectLit) []*Node {
+	var out []*Node
+	for _, aliasFld := range block.Fields {
+		if aliasFld.Key.Kind != lang.FieldIdent || aliasFld.Key.IsMeta() {
+			continue
+		}
+		obj, ok := aliasFld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		alias := aliasFld.Key.Name
+		for _, nameFld := range obj.Fields {
+			if nameFld.Key.Kind != lang.FieldIdent || nameFld.Key.IsMeta() {
+				continue
+			}
+			if _, ok := nameFld.Value.(*lang.ObjectLit); !ok {
+				continue
+			}
+			out = append(out, &Node{
+				Address: "configuration." + alias + "." + nameFld.Key.Name,
+				Kind:    NodeConfiguration,
+				Alias:   alias,
+				Name:    nameFld.Key.Name,
+				Body:    nameFld.Value,
+			})
+		}
+	}
 	return out
 }
 

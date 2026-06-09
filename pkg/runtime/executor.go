@@ -91,18 +91,24 @@ func (e *Executor) effectiveParallelism() int {
 }
 
 // resolvedConfigRef returns the (alias, configuration) pair the runtime
-// resolves for a node. The walk goes from the node up the composite
+// resolves for a node; see the package function of the same name.
+func (e *Executor) resolvedConfigRef(n *Node) (alias, configuration string) {
+	return resolvedConfigRef(n, e.DAG.Nodes)
+}
+
+// resolvedConfigRef returns the (alias, configuration) pair a node's
+// selection resolves to. The walk goes from the node up the composite
 // chain, taking the first `@configurations:` entry that covers the
 // node's import. If none does, the node's own `@configuration:`
 // selection (or "default") applies.
-func (e *Executor) resolvedConfigRef(n *Node) (alias, configuration string) {
+func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration string) {
 	alias = n.Alias
 	configuration = n.Configuration
 	if configuration == "" {
 		configuration = "default"
 	}
 	for parent := n.Composite; parent != ""; {
-		c, ok := e.DAG.Nodes[parent]
+		c, ok := nodes[parent]
 		if !ok {
 			break
 		}

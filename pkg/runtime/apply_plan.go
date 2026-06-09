@@ -144,7 +144,7 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return e.applyResource(ctx, rs, step)
 	case NodeData:
 		return e.applyData(ctx, rs, step)
-	case NodeOutput:
+	case NodeOutput, NodeConfiguration:
 		return nil
 	default:
 		return fmt.Errorf("unknown step kind %q", step.Kind)

@@ -419,3 +419,52 @@ resources: {
 	require.NoError(t, err)
 	require.Len(t, order, 3)
 }
+
+func TestBuildDAGConfigurationNodeFromBlock(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+configurations: {
+  k8s: { cluster: { host: resource.aws.eks.main.endpoint } }
+}
+resources: {
+  aws.eks.main:       { name: 'web' }
+  k8s.namespace.apps: { @configuration: k8s.cluster, name: 'apps' }
+}
+`), nil)
+	cfg, ok := g.Nodes["configuration.k8s.cluster"]
+	require.True(t, ok, "configuration node should exist")
+	require.Equal(t, NodeConfiguration, cfg.Kind)
+	require.Equal(t, "k8s", cfg.Alias)
+	require.Equal(t, "cluster", cfg.Name)
+	require.Equal(t, []string{"resource.aws.eks.main"},
+		g.Edges["configuration.k8s.cluster"])
+	require.Contains(t, g.Edges["resource.k8s.namespace.apps"],
+		"configuration.k8s.cluster")
+}
+
+func TestBuildDAGDefaultSelectionEdgesToInternalDefault(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+configurations: {
+  aws: { default: { region: var.region } }
+}
+resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
+`), nil)
+	require.Contains(t, g.Edges["resource.aws.vpc.main"], "configuration.aws.default")
+}
+
+func TestBuildDAGNoEdgeWhenConfigurationNotInternal(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+resources: { aws.vpc.main: { @configuration: aws.east2, cidr-block: '10.0.0.0/16' } }
+`), nil)
+	require.Empty(t, g.Edges["resource.aws.vpc.main"])
+}
+
+func TestBuildDAGConfigurationCycleDetected(t *testing.T) {
+	g := BuildDAG(parseStack(t, `
+configurations: {
+  aws: { default: { token: resource.aws.sts.session.token } }
+}
+resources: { aws.sts.session: { name: 's' } }
+`), nil)
+	_, err := g.TopologicalOrder()
+	require.ErrorContains(t, err, "cycle")
+}

@@ -171,7 +171,28 @@ func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
 		}
 		current = boundary.Composite
 	}
+	if dep, ok := configurationDep(n, nodes); ok {
+		deps = append(deps, dep)
+	}
 	return dedupe(deps)
+}
+
+// configurationDep returns the address of the configuration node a
+// leaf's resolved selection names, when the factory defines that
+// configuration internally. The edge orders every consumer after the
+// values its configuration derives from.
+func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
+	switch n.Kind {
+	case NodeResource, NodeData, NodeAction:
+	default:
+		return "", false
+	}
+	alias, configuration := resolvedConfigRef(n, nodes)
+	addr := "configuration." + alias + "." + configuration
+	if _, ok := nodes[addr]; !ok {
+		return "", false
+	}
+	return addr, true
 }
 
 func internalsOf(callSite string, nodes map[string]*Node) []string {
