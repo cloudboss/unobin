@@ -194,6 +194,40 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	require.Equal(t, "a:id-1", res.Outputs["v"])
 }
 
+// A data source reading a declared input of a resource created this
+// plan must defer its read: the object the read would query does not
+// exist until apply builds it, even though the input value is already
+// known. The known input let the read fire at plan against a resource
+// that was not there yet, and the cloud returned not-found.
+func TestDataDefersWhenUpstreamResourceCreated(t *testing.T) {
+	src := `
+resources: { core.thing.one: { tag: 'fixed' } }
+data:      { core.dial.cfg: { key: resource.core.thing.one.tag } }
+outputs:   { v: { value: data.core.dial.cfg.value } }
+`
+	value := "a"
+	var reads int64
+	libs := dataPlanModules(&value, &reads)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Equal(t, DecisionRead, ds.Decision)
+	require.Nil(t, ds.ObservedOutputs,
+		"a data source reading a to-be-created resource defers its read to apply")
+	require.Equal(t, int64(0), reads, "a deferred data source is not read at plan")
+
+	res := applyOnce(t, exec)
+	require.Equal(t, "a:fixed", res.Outputs["v"])
+}
+
 // Apply re-reads a plan-read data source and refuses to proceed when
 // the value moved: the plan is a contract, and a drifted premise means
 // re-plan rather than silently applying something that was never shown.
@@ -321,10 +355,11 @@ func (r *versionedResource) Delete(_ context.Context, _, _ any) error { return n
 func (r *versionedResource) ReplaceFields() []string                  { return nil }
 
 // A data source reading a computed output of an updating resource
-// reads the seeded prior value at plan. When the update then changes
-// that output, the apply-time data check refuses loudly and one
-// re-plan converges on the fresh value.
-func TestDataCheckCatchesChangedUpstreamOutput(t *testing.T) {
+// defers rather than reading the seeded prior value at plan. The
+// update recomputes the output and the deferred read sees the fresh
+// value at apply, so one apply converges with no plan-versus-apply
+// disagreement to re-plan around.
+func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	src := `
 inputs:    { t: { type: string } }
 resources: { core.versioned.one: { tag: var.t } }
@@ -346,9 +381,8 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	res := applyOnce(t, first)
 	require.Equal(t, "a:id-1", res.Outputs["v"])
 
-	// The update preserves the resource, so the data source reads the
-	// seeded prior id at plan; the update then recomputes the id and
-	// the apply-time re-read disagrees with what the plan showed.
+	// The id is a known prior output, so the read's input resolves at
+	// plan; it defers anyway because the resource it reads is updating.
 	second := &Executor{
 		DAG: g, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
@@ -358,33 +392,20 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	require.Equal(t, DecisionUpdate,
 		findStep(t, plan, "resource.core.versioned.one").Decision)
 	ds := findStep(t, plan, "data.core.dial.cfg")
-	require.Equal(t, map[string]any{"value": "a:id-1"}, ds.ObservedOutputs)
+	require.Nil(t, ds.ObservedOutputs,
+		"an updating upstream defers the read past the stale prior id")
 	require.Empty(t, ds.UnresolvedInputs)
 
-	_, err = planAndApplyExisting(second, plan)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "data.core.dial.cfg")
-	require.Contains(t, err.Error(), "changed since the plan")
-
-	// The update persisted before the failure, so a fresh plan reads
-	// the new id and the apply goes through.
-	third := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
-		Inputs: map[string]any{"t": "2"},
-	}
-	plan, err = third.Plan(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp,
-		findStep(t, plan, "resource.core.versioned.one").Decision)
-	res2, err := planAndApplyExisting(third, plan)
+	res2, err := planAndApplyExisting(second, plan)
 	require.NoError(t, err)
 	require.Equal(t, "a:id-2", res2.Outputs["v"])
 }
 
-// A data source reading a plain input field of an updating resource
-// sees the new value at plan, since the body declares it; the read
-// happens at plan and apply agrees with it.
-func TestDataReadsNewInputFieldOfUpdatingResource(t *testing.T) {
+// A data source reading an input field of a resource being updated
+// defers its read: the resource is changing, so the value the read
+// would see at plan is not the one apply settles on. The read happens
+// at apply, against the updated resource, and picks up the new value.
+func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	src := `
 inputs:    { t: { type: string } }
 resources: { core.versioned.one: { tag: var.t } }
@@ -411,7 +432,9 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	ds := findStep(t, plan, "data.core.dial.cfg")
-	require.Equal(t, map[string]any{"value": "a:2"}, ds.ObservedOutputs)
+	require.Equal(t, DecisionRead, ds.Decision)
+	require.Nil(t, ds.ObservedOutputs,
+		"an updating upstream defers the read until apply")
 
 	res, err := planAndApplyExisting(second, plan)
 	require.NoError(t, err)

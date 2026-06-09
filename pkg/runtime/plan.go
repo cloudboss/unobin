@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 
@@ -1242,7 +1243,7 @@ func (e *Executor) planOneData(
 		Inputs:           inputs,
 		UnresolvedInputs: unresolved,
 	}
-	if len(unresolved) > 0 || e.dependsOnPending(rs, n) {
+	if len(unresolved) > 0 || e.dependsOnChange(rs, n) {
 		return step, nil
 	}
 	lib, ok := e.librariesFor(n)[n.Alias]
@@ -1266,31 +1267,38 @@ func (e *Executor) planOneData(
 	return step, nil
 }
 
-// dependsOnPending reports whether a target named by the node's
-// @depends-on has changes pending in the plan so far: a create, a
-// rerun, or any update, since @depends-on names a coupling the inputs
-// do not express and even a small update can move what the dependent
-// reads. A data source then defers its read the way an unresolved
-// input does, since the read is only meaningful against the world
-// after the target has run. A composite target covers everything
-// inside it, whose step addresses extend the call site's. The walk is
-// topological, so every target is planned before its dependents ask.
-func (e *Executor) dependsOnPending(rs *runState, n *Node) bool {
-	for _, dep := range explicitDeps(n.Body) {
-		target := scopeRef(dep, n.Composite)
+// dependsOnChange reports whether the data source reads from a node
+// with changes pending this plan: a create, an in-place update, a
+// replace, or an action rerun. The read then defers to apply, the same
+// way an unresolved input does, because the value it would observe only
+// settles once that node has run; reading a node mid-change yields a
+// stale plan the apply-time premise check would reject. A node merely
+// read or left untouched is not pending, so a steady-state plan still
+// reads its data sources and diffs real values. The reference set is
+// the resolved DAG edges, which hold both body references and
+// @depends-on targets, scoped through any composite call site; a target
+// naming a composite covers every step inside it. The walk is
+// topological, so each target is planned before the read asks.
+func (e *Executor) dependsOnChange(rs *runState, n *Node) bool {
+	for _, target := range e.DAG.Edges[n.Address] {
 		for tmpl, steps := range rs.plannedByTemplate {
 			if tmpl != target && !strings.HasPrefix(tmpl, target+"/") {
 				continue
 			}
-			for _, s := range steps {
-				if s.Decision == DecisionCreate || s.Decision == DecisionRerun ||
-					s.mayChangeOutputs {
-					return true
-				}
+			if slices.ContainsFunc(steps, changesOutputs) {
+				return true
 			}
 		}
 	}
 	return false
+}
+
+// changesOutputs reports whether a step's object will move once it
+// runs, so a value read from it before apply may go stale: a create, an
+// action rerun, or any in-place update or replace, both of which flag
+// mayChangeOutputs.
+func changesOutputs(s *PlanStep) bool {
+	return s.Decision == DecisionCreate || s.Decision == DecisionRerun || s.mayChangeOutputs
 }
 
 // readObserved decodes inputs onto a fresh resource and asks the
