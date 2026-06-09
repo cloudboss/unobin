@@ -596,8 +596,8 @@ func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
 	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
 }
 
-// TestCompileManifestToolchainLine proves the manifest's unobin line
-// pins which CLI may compile the project: a match proceeds, a mismatch
+// TestCompileManifestToolchainLine proves the manifest's unobin-version
+// line pins which CLI may compile the project: a match proceeds, a mismatch
 // stops with the version to install, and a replaced unobin proceeds
 // with a notice since the replacement runs regardless.
 func TestCompileManifestToolchainLine(t *testing.T) {
@@ -613,7 +613,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 	}
 
 	t.Run("matching line proceeds", func(t *testing.T) {
-		dir := write(t, "unobin: 'v0.1.0'\nrequires: {}\n")
+		dir := write(t, "unobin-version: 'v0.1.0'\nrequires: {}\n")
 		outDir := filepath.Join(t.TempDir(), "build")
 		_, err := runCommand(t, "compile",
 			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
@@ -621,7 +621,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 	})
 
 	t.Run("mismatched line is refused", func(t *testing.T) {
-		dir := write(t, "unobin: 'v0.9.9'\nrequires: {}\n")
+		dir := write(t, "unobin-version: 'v0.9.9'\nrequires: {}\n")
 		outDir := filepath.Join(t.TempDir(), "build")
 		_, err := runCommand(t, "compile",
 			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
@@ -632,7 +632,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 
 	t.Run("replaced unobin proceeds with a notice", func(t *testing.T) {
 		rootDir := findUnobinRoot(t)
-		dir := write(t, "unobin: 'v0.9.9'\nrequires: {}\n"+
+		dir := write(t, "unobin-version: 'v0.9.9'\nrequires: {}\n"+
 			"replace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n")
 		outDir := filepath.Join(t.TempDir(), "build")
 		out, err := runCommand(t, "compile",

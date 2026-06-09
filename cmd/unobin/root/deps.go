@@ -144,7 +144,7 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	}
 	if dep.URL == toolchain.UnobinModulePath {
 		return fmt.Errorf(
-			"%s is toolchain-versioned; pin it with the manifest's unobin line",
+			"%s is toolchain-versioned; pin it with the manifest's unobin-version line",
 			dep.URL)
 	}
 	tags, err := depsListTags(dep.URL)

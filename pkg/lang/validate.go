@@ -42,9 +42,9 @@ var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
 		"configurations": {},
 	},
 	FileManifest: {
-		"unobin":   {},
-		"requires": {},
-		"replace":  {},
+		"unobin-version": {},
+		"requires":       {},
+		"replace":        {},
 	},
 }
 

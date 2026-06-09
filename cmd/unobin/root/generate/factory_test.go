@@ -68,7 +68,7 @@ func TestFactoryWritesManifestWithToolchainPin(t *testing.T) {
 
 	got, err := os.ReadFile(filepath.Join(dir, "unobin.manifest"))
 	require.NoError(t, err)
-	require.Equal(t, "unobin: 'v0.3.0'\nrequires: {}\n", string(got))
+	require.Equal(t, "unobin-version: 'v0.3.0'\nrequires: {}\n", string(got))
 }
 
 // TestFactoryDevManifestOmitsPin proves a dev build writes the

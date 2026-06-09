@@ -56,7 +56,7 @@ func ReadManifest(fsys fs.FS) (*Manifest, error) {
 func EncodeManifest(m *Manifest) []byte {
 	var b strings.Builder
 	if m.UnobinVersion != "" {
-		fmt.Fprintf(&b, "unobin: '%s'\n", m.UnobinVersion)
+		fmt.Fprintf(&b, "unobin-version: '%s'\n", m.UnobinVersion)
 	}
 	encodeManifestBlock(&b, "requires", m.Requires)
 	if len(m.Replace) > 0 {
@@ -100,14 +100,14 @@ func parseManifestBody(f *lang.File) (*Manifest, error) {
 		if fld.Key.Kind != lang.FieldIdent {
 			continue
 		}
-		if fld.Key.Name == "unobin" {
+		if fld.Key.Name == "unobin-version" {
 			s, ok := fld.Value.(*lang.StringLit)
 			if !ok {
-				return nil, fmt.Errorf("manifest: unobin must be a version string")
+				return nil, fmt.Errorf("manifest: unobin-version must be a version string")
 			}
 			if !semver.IsValid(s.Value) {
 				return nil, fmt.Errorf(
-					"manifest: unobin: %q is not a valid version", s.Value)
+					"manifest: unobin-version: %q is not a valid version", s.Value)
 			}
 			m.UnobinVersion = s.Value
 			continue
@@ -131,7 +131,7 @@ func parseManifestBody(f *lang.File) (*Manifest, error) {
 		if dep.URL == toolchain.UnobinModulePath {
 			return nil, fmt.Errorf(
 				"manifest: %s is toolchain-versioned; pin it with the manifest's"+
-					" unobin line, not requires", dep.URL)
+					" unobin-version line, not requires", dep.URL)
 		}
 	}
 	return m, nil

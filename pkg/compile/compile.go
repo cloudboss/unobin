@@ -154,9 +154,9 @@ func Run(opts Options) error {
 		unobinVersion = replacedVersion
 	}
 
-	// The manifest's unobin line pins which CLI compiles the project. A
-	// replaced unobin runs the replacement no matter what the line says,
-	// so it proceeds with a notice instead.
+	// The manifest's unobin-version line pins which CLI compiles the
+	// project. A replaced unobin runs the replacement no matter what
+	// the line says, so it proceeds with a notice instead.
 	if manifest != nil && manifest.UnobinVersion != "" {
 		if replaceUnobinAbs != "" {
 			fmt.Fprintf(opts.stderr(),
