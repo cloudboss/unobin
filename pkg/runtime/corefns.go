@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
@@ -181,13 +182,13 @@ func fnRange(n int64) ([]int64, error) {
 	return out, nil
 }
 
-// fnLength returns the size of a string, list, or map. String length is
-// in bytes; UTF-8 rune counting belongs in a separate helper if it is
-// ever asked for.
+// fnLength returns the size of a string, list, or map. A string's
+// length is its number of characters (Unicode code points), not its
+// byte count.
 func fnLength(v any) (int64, error) {
 	switch x := v.(type) {
 	case string:
-		return int64(len(x)), nil
+		return int64(utf8.RuneCountInString(x)), nil
 	case []any:
 		return int64(len(x)), nil
 	case map[string]any:

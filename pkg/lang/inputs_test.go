@@ -484,6 +484,18 @@ inputs: {
 	require.Equal(t, 0, errs.Len(), errs.Err())
 }
 
+func TestValidateInputsLengthCountsRunes(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  name: { type: string, min-length: 2, max-length: 5 }
+}
+`)
+	// Five characters, six bytes: counting characters keeps it within
+	// the max-length of five.
+	_, errs := ValidateInputs(decl, map[string]any{"name": "naïve"}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+}
+
 func TestValidateInputsMinMaxItems(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {

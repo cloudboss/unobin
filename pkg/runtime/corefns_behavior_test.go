@@ -95,6 +95,26 @@ func TestFunctionLengthTypeError(t *testing.T) {
 	require.Contains(t, err.Error(), "string, list, or map")
 }
 
+func TestFunctionLengthCountsRunes(t *testing.T) {
+	// Characters that take more than one byte each: length counts
+	// characters, not bytes.
+	cases := []struct {
+		src  string
+		want int64
+	}{
+		{"@core.length('café')", 4},
+		{"@core.length('日本語')", 3},
+		{"@core.length('😀')", 1},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
 func TestFunctionNested(t *testing.T) {
 	got, err := evalCore(t, "@core.join(['x', @core.b64-encode('plain')], '-')", nil)
 	require.NoError(t, err)

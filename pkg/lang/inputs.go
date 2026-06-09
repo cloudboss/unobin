@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // EvalFunc reduces an expression to a Go value against an empty
@@ -402,6 +403,9 @@ func checkBound(name string, expr Expr, v any, isMin bool) error {
 	return nil
 }
 
+// checkLengthBound checks a string against a min-length or max-length
+// bound, counting characters (Unicode code points) the way @core.length
+// does, not bytes.
 func checkLengthBound(name string, expr Expr, v any, isMin bool) error {
 	bound, err := intLiteral(expr)
 	if err != nil {
@@ -411,7 +415,7 @@ func checkLengthBound(name string, expr Expr, v any, isMin bool) error {
 	if !ok {
 		return fmt.Errorf("%s: only applies to string values, got %s", name, typeName(v))
 	}
-	n := int64(len(s))
+	n := int64(utf8.RuneCountInString(s))
 	if isMin && n < bound {
 		return fmt.Errorf("string length %d is below %s %d", n, name, bound)
 	}
