@@ -13,20 +13,24 @@ import (
 // parsed config, decodes every alias under each import, and returns
 // both the decoded table (for the executor) and the raw form (for
 // plan-file storage). The outer key is the import alias; the inner
-// key is the configuration alias name. Every library that declares a
-// Configuration must have at least a `default` entry in config.ub.
-// path is preserved only for error messages.
+// key is the configuration alias name. Values may reference inputs
+// (var.x); inputs holds the effective values they resolve against, so
+// the raw form is already concrete by the time it reaches a plan file.
+// Every library that declares a Configuration must have at least a
+// `default` entry in config.ub. path is preserved only for error
+// messages.
 func loadConfigurations(
 	f *lang.File,
 	path string,
 	libraries map[string]*runtime.Library,
+	inputs map[string]any,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
 	if f != nil {
 		block := topLevelObject(f, "configurations")
 		if block != nil {
-			loaded, err := readConfigurationsBlock(path, block)
+			loaded, err := readConfigurationsBlock(path, block, inputs)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -119,10 +123,13 @@ func decodeConfigurationsFromPlan(
 // readConfigurationsBlock walks the `configurations:` body and pulls
 // every alias entry under each import into a raw form ready for
 // decoding. The outer key is the import alias; the inner key is the
-// configuration alias name; the value is the raw map of fields.
+// configuration alias name; the value is the raw map of fields,
+// evaluated with the effective inputs in scope so var.x references
+// resolve here.
 func readConfigurationsBlock(
 	configPath string,
 	block *lang.ObjectLit,
+	inputs map[string]any,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
 	var errs []error
@@ -145,7 +152,7 @@ func readConfigurationsBlock(
 				continue
 			}
 			aliasName := aliasFld.Key.Name
-			val, err := runtime.Eval(aliasFld.Value, &runtime.EvalContext{})
+			val, err := runtime.Eval(aliasFld.Value, &runtime.EvalContext{Vars: inputs})
 			if err != nil {
 				errs = append(errs, fmt.Errorf(
 					"%s: configurations.%s.%s: %w",

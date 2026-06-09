@@ -1,1 +1,1 @@
-config.ub:1:45: resolve: config values must be static, but resource.a.b.c is a reference
+config.ub:1:45: resolve: configuration values may reference only inputs, but resource.a.b.c is not an input

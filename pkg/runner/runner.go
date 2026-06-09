@@ -362,7 +362,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
-	configurations, _, err := loadConfigurations(config, configPath, info.Libraries)
+	configurations, _, err := loadConfigurations(config, configPath, info.Libraries, inputs)
 	if err != nil {
 		return err
 	}
@@ -430,12 +430,12 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	if err != nil {
 		return err
 	}
-	_, err = buildInputs(config, configPath,
+	inputs, err := buildInputs(config, configPath,
 		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries)
 	if err != nil {
 		return err
 	}
-	if _, _, err := loadConfigurations(config, configPath, info.Libraries); err != nil {
+	if _, _, err := loadConfigurations(config, configPath, info.Libraries, inputs); err != nil {
 		return err
 	}
 	if err := validateStateRefs(config, configPath); err != nil {
@@ -615,7 +615,8 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	configurations, rawConfigurations, err := loadConfigurations(config, configPath, info.Libraries)
+	configurations, rawConfigurations, err := loadConfigurations(
+		config, configPath, info.Libraries, inputs)
 	if err != nil {
 		return err
 	}

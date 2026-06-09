@@ -1031,34 +1031,38 @@ func fieldValue(o *ObjectLit, name string) Expr {
 // ValidateConfigInputs checks that every value in a config file's inputs:
 // block is a static value; see checkStaticConfigBlock.
 func ValidateConfigInputs(block *ObjectLit) *ErrorList {
-	return checkStaticConfigBlock(block)
+	return checkStaticConfigBlock(block, false)
 }
 
-// ValidateConfigurations applies the same static-value rule to a config
-// file's configurations: block. The block nests by import alias and then
-// configuration name; the walk recurses through both to the leaf values.
+// ValidateConfigurations applies the static-value rule to a config file's
+// configurations: block, with one widening: values may reference inputs
+// (var.x), which the runner resolves against the effective inputs before
+// decoding. The block nests by import alias and then configuration name;
+// the walk recurses through both to the leaf values.
 func ValidateConfigurations(block *ObjectLit) *ErrorList {
-	return checkStaticConfigBlock(block)
+	return checkStaticConfigBlock(block, true)
 }
 
 // checkStaticConfigBlock reports calls and free references in a config
-// block's values. Config values are static data; the runner evaluates the
-// inputs and configurations blocks with no scope or library table, so a
-// function call or a reference (var.x, resource.x, a bare name) has nothing
-// to resolve against. Literals, operators, conditionals, and comprehensions
+// block's values. Config values are static data: the runner evaluates them
+// before any cloud or state I/O, with no library table in scope, so a
+// function call or a reference to anything but an input has nothing to
+// resolve against. Literals, operators, conditionals, and comprehensions
 // over literals are allowed; a comprehension's own bound names are in scope
-// inside its body.
-func checkStaticConfigBlock(block *ObjectLit) *ErrorList {
+// inside its body. allowVar additionally admits var.x references, which
+// resolve against the effective inputs; the inputs block itself stays
+// literal-only, so an input cannot reference another input.
+func checkStaticConfigBlock(block *ObjectLit, allowVar bool) *ErrorList {
 	errs := NewErrorList(0)
 	for _, f := range block.Fields {
-		checkConfigValue(f.Value, map[string]bool{}, errs)
+		checkConfigValue(f.Value, map[string]bool{}, allowVar, errs)
 	}
 	return errs
 }
 
 // checkConfigValue reports calls and free references in a config value.
 // bound is the set of names a surrounding comprehension brought into scope.
-func checkConfigValue(e Expr, bound map[string]bool, errs *ErrorList) {
+func checkConfigValue(e Expr, bound map[string]bool, allowVar bool, errs *ErrorList) {
 	if e == nil {
 		return
 	}
@@ -1067,46 +1071,48 @@ func checkConfigValue(e Expr, bound map[string]bool, errs *ErrorList) {
 		// A literal is always a valid config value.
 	case *ArrayLit:
 		for _, el := range v.Elements {
-			checkConfigValue(el, bound, errs)
+			checkConfigValue(el, bound, allowVar, errs)
 		}
 	case *ObjectLit:
 		for _, f := range v.Fields {
-			checkConfigValue(f.Value, bound, errs)
+			checkConfigValue(f.Value, bound, allowVar, errs)
 		}
 	case *InterpolatedString:
 		for _, p := range v.Parts {
-			checkConfigValue(p.Expr, bound, errs)
+			checkConfigValue(p.Expr, bound, allowVar, errs)
 		}
 	case *Infix:
-		checkConfigValue(v.Left, bound, errs)
-		checkConfigValue(v.Right, bound, errs)
+		checkConfigValue(v.Left, bound, allowVar, errs)
+		checkConfigValue(v.Right, bound, allowVar, errs)
 	case *Prefix:
-		checkConfigValue(v.Expr, bound, errs)
+		checkConfigValue(v.Expr, bound, allowVar, errs)
 	case *Conditional:
-		checkConfigValue(v.Cond, bound, errs)
-		checkConfigValue(v.Then, bound, errs)
-		checkConfigValue(v.Else, bound, errs)
+		checkConfigValue(v.Cond, bound, allowVar, errs)
+		checkConfigValue(v.Then, bound, allowVar, errs)
+		checkConfigValue(v.Else, bound, allowVar, errs)
 	case *Comprehension:
 		// The source is evaluated before the binding exists; the key, value,
 		// and filter see the bound names.
-		checkConfigValue(v.Source, bound, errs)
+		checkConfigValue(v.Source, bound, allowVar, errs)
 		inner := withBound(bound, v.Names)
-		checkConfigValue(v.Key, inner, errs)
-		checkConfigValue(v.Value, inner, errs)
-		checkConfigValue(v.Filter, inner, errs)
+		checkConfigValue(v.Key, inner, allowVar, errs)
+		checkConfigValue(v.Value, inner, allowVar, errs)
+		checkConfigValue(v.Filter, inner, allowVar, errs)
 	case *Ident:
 		if !bound[v.Name] {
-			errs.Addf(ErrResolve, v.S.Start,
-				"config values must be static, but %s is a reference", v.Name)
+			errs.Addf(ErrResolve, v.S.Start, staticConfigRefError(allowVar), v.Name)
 		}
 	case *DotPath:
-		if v.Root == nil || !bound[v.Root.Name] {
-			errs.Addf(ErrResolve, v.S.Start,
-				"config values must be static, but %s is a reference", dotPathString(v))
+		rooted := v.Root != nil && bound[v.Root.Name]
+		if allowVar && v.Root != nil && v.Root.Name == "var" {
+			rooted = true
+		}
+		if !rooted {
+			errs.Addf(ErrResolve, v.S.Start, staticConfigRefError(allowVar), dotPathString(v))
 			return
 		}
 		for _, seg := range v.Segments {
-			checkConfigValue(seg.Index, bound, errs)
+			checkConfigValue(seg.Index, bound, allowVar, errs)
 		}
 	case *Call:
 		errs.Addf(ErrResolve, v.S.Start,
@@ -1114,6 +1120,16 @@ func checkConfigValue(e Expr, bound map[string]bool, errs *ErrorList) {
 	default:
 		errs.Addf(ErrResolve, e.Span().Start, "config inputs must be static values")
 	}
+}
+
+// staticConfigRefError picks the rejection wording for a reference in a
+// config block: the inputs block admits no references at all, while the
+// configurations block admits var.x and nothing else.
+func staticConfigRefError(allowVar bool) string {
+	if allowVar {
+		return "configuration values may reference only inputs, but %s is not an input"
+	}
+	return "config values must be static, but %s is a reference"
 }
 
 // withBound returns bound extended with names. It copies so a sibling

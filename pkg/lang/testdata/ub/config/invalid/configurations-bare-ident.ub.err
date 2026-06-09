@@ -1,0 +1,1 @@
+config.ub:1:45: resolve: configuration values may reference only inputs, but region is not an input
