@@ -1079,13 +1079,14 @@ func (e *Executor) planOneResource(
 		return step, nil
 	}
 	inputs := withoutPending(display, unresolved)
-	priorOutputs, err := migrateOutputs(rt, n.Alias, prior.SchemaVersion, prior.Outputs)
+	migrated, err := migrateEntry(rt, n.Alias, prior.SchemaVersion,
+		MigrationState{Inputs: prior.Inputs, Outputs: prior.Outputs})
 	if err != nil {
 		return nil, err
 	}
-	step.PriorOutputs = priorOutputs
-	step.PriorInputs = prior.Inputs
-	step.mayChangeOutputs = !sameInputs(prior.Inputs, inputs)
+	step.PriorOutputs = migrated.Outputs
+	step.PriorInputs = migrated.Inputs
+	step.mayChangeOutputs = !sameInputs(migrated.Inputs, inputs)
 	// Whether changed inputs force a replace is decided here, mid-walk,
 	// from inputs alone: downstream nodes plan next and need to know
 	// whether this node's outputs survive. A replace-marked field still
@@ -1096,7 +1097,7 @@ func (e *Executor) planOneResource(
 		if err := Decode(probe, inputs); err != nil {
 			return nil, err
 		}
-		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), prior.Inputs, inputs)
+		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), migrated.Inputs, inputs)
 		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
@@ -1105,7 +1106,7 @@ func (e *Executor) planOneResource(
 		alias:        n.Alias,
 		cfg:          e.configFor(n),
 		inputs:       inputs,
-		priorOutputs: priorOutputs,
+		priorOutputs: migrated.Outputs,
 	})
 	return step, nil
 }

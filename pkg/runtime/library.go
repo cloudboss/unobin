@@ -132,21 +132,23 @@ func (l *Library) AddComposite(ct *CompositeType) {
 // request to recreate.
 var ErrNotFound = errors.New("resource not found")
 
-// migrateOutputs upgrades a state entry's outputs from an older schema
-// version to the resource type's current one by calling the
-// registration's Migrate. Returns the outputs unchanged when versions
-// match.
-func migrateOutputs(
-	reg ResourceRegistration, alias string, priorVersion int, outputs map[string]any,
-) (map[string]any, error) {
+// migrateEntry upgrades a prior state entry from an older schema version
+// to the resource type's current one by calling the registration's
+// Migrate. Both halves -- inputs and outputs -- are upgraded together so
+// the rewritten entry can be stamped at the current version without
+// leaving the inputs at the old version. Returns the entry unchanged
+// when versions match.
+func migrateEntry(
+	reg ResourceRegistration, alias string, priorVersion int, prior MigrationState,
+) (MigrationState, error) {
 	current := reg.SchemaVersion()
 	if priorVersion >= current {
-		return outputs, nil
+		return prior, nil
 	}
-	out, err := reg.Migrate(priorVersion, outputs)
+	out, err := reg.Migrate(priorVersion, prior)
 	if err != nil {
 		blameLibrary(err, alias)
-		return nil, err
+		return MigrationState{}, err
 	}
 	return out, nil
 }

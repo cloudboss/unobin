@@ -63,11 +63,25 @@ type TypedDataSource[Out any] interface {
 	Read(ctx context.Context, cfg any) (Out, error)
 }
 
-// Migrator is an optional add-on a TypedResource may implement when
-// its SchemaVersion has incremented past 1 and older state values
-// need to be upgraded.
+// MigrationState is the pair of persisted maps a Migrator upgrades: the
+// inputs the body evaluated to on the last apply and the outputs the
+// resource returned then. Observed (see Prior) is plan-time only and is
+// never persisted, so a migration covers inputs and outputs alone.
+type MigrationState struct {
+	Inputs  map[string]any
+	Outputs map[string]any
+}
+
+// Migrator is an optional add-on a TypedResource may implement when its
+// SchemaVersion has incremented past 1 and an older state entry needs
+// upgrading. Migrate receives the whole recorded entry at the version it
+// was written and returns it at the current version. Upgrading both
+// halves together keeps the entry's single SchemaVersion stamp correct:
+// were only the outputs upgraded, the entry would be stamped current
+// while its inputs stayed at the old version, and a later input
+// migration would never run.
 type Migrator interface {
-	Migrate(oldVersion int, oldState map[string]any) (map[string]any, error)
+	Migrate(oldVersion int, prior MigrationState) (MigrationState, error)
 }
 
 // ResourceRegistration is the type-erased registration the runtime's
@@ -76,7 +90,7 @@ type Migrator interface {
 // caring about the typed Out parameter.
 type ResourceRegistration interface {
 	SchemaVersion() int
-	Migrate(oldVersion int, oldState map[string]any) (map[string]any, error)
+	Migrate(oldVersion int, prior MigrationState) (MigrationState, error)
 	NewReceiver() any
 	Create(ctx context.Context, receiver, cfg any) (any, error)
 	Read(ctx context.Context, receiver, cfg, prior any) (any, error)
@@ -175,14 +189,14 @@ func (typedResourceReg[T, Out, PT]) SchemaVersion() int {
 }
 
 func (typedResourceReg[T, Out, PT]) Migrate(
-	old int, oldState map[string]any,
-) (map[string]any, error) {
+	old int, prior MigrationState,
+) (MigrationState, error) {
 	m, ok := any(PT(new(T))).(Migrator)
 	if !ok {
-		return nil, fmt.Errorf("no migration registered for version %d", old)
+		return MigrationState{}, fmt.Errorf("no migration registered for version %d", old)
 	}
-	return guard("migrating this resource's state", false, func() (map[string]any, error) {
-		return m.Migrate(old, oldState)
+	return guard("migrating this resource's state", false, func() (MigrationState, error) {
+		return m.Migrate(old, prior)
 	})
 }
 

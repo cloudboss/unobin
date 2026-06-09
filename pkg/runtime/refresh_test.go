@@ -237,3 +237,48 @@ func TestRefreshNoPriorState(t *testing.T) {
 	require.Equal(t, 0, res.Dropped)
 	require.Empty(t, res.WrittenRev)
 }
+
+func TestRefreshMigratesPriorEntry(t *testing.T) {
+	// A v1 entry is refreshed under a v2 resource whose Migrate renames
+	// the input `label` to `name` and the output `id` to `name-id`. The
+	// rewritten entry must hold the migrated inputs stamped at the current
+	// version, not the old inputs stamped current, which would strand a
+	// later input migration.
+	src := `
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	prior := state.NewSnapshot(stack, store.Stack())
+	prior.Entries = []*state.Entry{{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
+	}}
+	rev, err := store.Write(prior)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	var c resourceCounters
+	libs := inputMigratingLibs(&c)
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	res, err := exec.Refresh(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, res.Refreshed)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.thing.one")
+	require.NotNil(t, ent)
+	require.Equal(t, 2, ent.SchemaVersion)
+	require.NotContains(t, ent.Inputs, "label")
+	require.Equal(t, "alpha", ent.Inputs["name"])
+	require.NotContains(t, ent.Outputs, "id")
+	require.Equal(t, "fake-alpha", ent.Outputs["name-id"])
+}

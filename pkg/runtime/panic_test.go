@@ -85,7 +85,7 @@ func (r *migratePanicResource) Update(
 func (r *migratePanicResource) Delete(context.Context, any, any) error { return nil }
 func (r *migratePanicResource) ReplaceFields() []string                { return nil }
 
-func (r *migratePanicResource) Migrate(int, map[string]any) (map[string]any, error) {
+func (r *migratePanicResource) Migrate(int, MigrationState) (MigrationState, error) {
 	panic("boom in migrate")
 }
 
@@ -240,9 +240,9 @@ func TestReadObservedPanicNamesLibrary(t *testing.T) {
 	require.Equal(t, "boom", pe.Library)
 }
 
-func TestMigrateOutputsPanicNamesLibrary(t *testing.T) {
+func TestMigrateEntryPanicNamesLibrary(t *testing.T) {
 	reg := MakeResource[migratePanicResource, any]()
-	_, err := migrateOutputs(reg, "boom", 1, map[string]any{})
+	_, err := migrateEntry(reg, "boom", 1, MigrationState{})
 	pe := requirePanicError(t, err, "boom in migrate")
 	require.Equal(t, "boom", pe.Library)
 }

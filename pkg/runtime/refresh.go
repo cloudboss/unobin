@@ -118,12 +118,13 @@ func (e *Executor) refreshLeaf(
 	if !ok {
 		return nil, false, fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
-	priorOutputs, err := migrateOutputs(rt, alias, ent.SchemaVersion, ent.Outputs)
+	migrated, err := migrateEntry(rt, alias, ent.SchemaVersion,
+		MigrationState{Inputs: ent.Inputs, Outputs: ent.Outputs})
 	if err != nil {
 		return nil, false, err
 	}
 	observed, err := readObserved(ctx, rt, alias,
-		e.configForRef(ent.Configuration, alias), ent.Inputs, priorOutputs)
+		e.configForRef(ent.Configuration, alias), migrated.Inputs, migrated.Outputs)
 	if errors.Is(err, ErrNotFound) {
 		return nil, true, nil
 	}
@@ -139,7 +140,7 @@ func (e *Executor) refreshLeaf(
 		SensitiveInputs:  ent.SensitiveInputs,
 		SensitiveOutputs: ent.SensitiveOutputs,
 		TriggerHash:      ent.TriggerHash,
-		Inputs:           ent.Inputs,
+		Inputs:           migrated.Inputs,
 		Outputs:          observed,
 		DependsOn:        ent.DependsOn,
 	}, false, nil

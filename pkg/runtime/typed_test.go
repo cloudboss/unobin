@@ -65,7 +65,7 @@ func TestMakeResourceProducesWorkingRegistration(t *testing.T) {
 
 func TestResourceMigrateErrorsWhenNoMigratorImplemented(t *testing.T) {
 	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
-	_, err := reg.Migrate(0, map[string]any{"old": "state"})
+	_, err := reg.Migrate(0, MigrationState{Outputs: map[string]any{"old": "state"}})
 	require.Error(t, err)
 }
 
@@ -79,17 +79,23 @@ func (v *migratingVpc) Update(
 	return v.Create(ctx, cfg)
 }
 
-func (v *migratingVpc) Migrate(old int, oldState map[string]any) (map[string]any, error) {
-	oldState["migrated-from-version"] = old
-	return oldState, nil
+func (v *migratingVpc) Migrate(old int, prior MigrationState) (MigrationState, error) {
+	prior.Inputs["migrated-from-version"] = old
+	prior.Outputs["migrated-from-version"] = old
+	return prior, nil
 }
 
 func TestResourceMigrateCallsMigratorWhenImplemented(t *testing.T) {
 	reg := MakeResource[migratingVpc, *fakeVpcOutput]()
-	out, err := reg.Migrate(0, map[string]any{"original": "value"})
+	out, err := reg.Migrate(0, MigrationState{
+		Inputs:  map[string]any{"cidr-block": "10.0.0.0/8"},
+		Outputs: map[string]any{"original": "value"},
+	})
 	require.NoError(t, err)
-	require.Equal(t, 0, out["migrated-from-version"])
-	require.Equal(t, "value", out["original"])
+	require.Equal(t, 0, out.Inputs["migrated-from-version"])
+	require.Equal(t, "10.0.0.0/8", out.Inputs["cidr-block"])
+	require.Equal(t, 0, out.Outputs["migrated-from-version"])
+	require.Equal(t, "value", out.Outputs["original"])
 }
 
 // capturingVpc records the Prior its Update receives so a test can

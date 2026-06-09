@@ -158,6 +158,9 @@ type resourceCounters struct {
 	// gotUpdatePrior captures the Prior the last Update received, so a
 	// test can assert what reached the resource through plan and apply.
 	gotUpdatePrior *Prior[countingResource, any]
+	// gotInputMigratePrior captures the Prior an inputMigratingResource's
+	// Update received, so a test can assert the migrated inputs reached it.
+	gotInputMigratePrior *Prior[inputMigratingResource, any]
 }
 
 type countingResource struct {
@@ -234,14 +237,55 @@ func (r *migratingCountingResource) Update(
 	return r.countingResource.Update(ctx, cfg, Prior[countingResource, any]{Outputs: prior.Outputs})
 }
 
-func (r *migratingCountingResource) Migrate(_ int, st map[string]any) (map[string]any, error) {
-	out := map[string]any{}
-	maps.Copy(out, st)
-	if v, ok := out["id"]; ok {
-		out["name-id"] = v
-		delete(out, "id")
+func (r *migratingCountingResource) Migrate(_ int, prior MigrationState) (MigrationState, error) {
+	return MigrationState{
+		Inputs:  prior.Inputs,
+		Outputs: renamedKey(prior.Outputs, "id", "name-id"),
+	}, nil
+}
+
+// inputMigratingResource bumps SchemaVersion to 2 and migrates both
+// halves of a prior entry: the input field `label` becomes `name` and
+// the output `id` becomes `name-id`. Its Update records the Prior it
+// receives so a test can assert the migrated inputs reached the resource
+// through plan and apply.
+type inputMigratingResource struct {
+	countingResource `ub:",squash"`
+}
+
+func (r *inputMigratingResource) SchemaVersion() int { return 2 }
+
+func (r *inputMigratingResource) Update(
+	_ context.Context, _ any, prior Prior[inputMigratingResource, any],
+) (any, error) {
+	atomic.AddInt64(&r.counters.updates, 1)
+	r.counters.gotInputMigratePrior = &prior
+	m, _ := prior.Outputs.(map[string]any)
+	if m == nil {
+		m = map[string]any{}
 	}
-	return out, nil
+	m["name"] = r.Name
+	m["size"] = r.Size
+	return m, nil
+}
+
+func (r *inputMigratingResource) Migrate(_ int, prior MigrationState) (MigrationState, error) {
+	return MigrationState{
+		Inputs:  renamedKey(prior.Inputs, "label", "name"),
+		Outputs: renamedKey(prior.Outputs, "id", "name-id"),
+	}, nil
+}
+
+// renamedKey returns a copy of m with the value at from moved to to,
+// modeling a renamed field across a schema bump.
+func renamedKey(m map[string]any, from, to string) map[string]any {
+	out := map[string]any{}
+	maps.Copy(out, m)
+	if v, ok := out[from]; ok {
+		out[to] = v
+		delete(out, from)
+	}
+	return out
 }
 
 func resourceModules(c *resourceCounters) map[string]*Library {
@@ -255,6 +299,26 @@ func resourceModules(c *resourceCounters) map[string]*Library {
 			},
 			Functions: map[string]FunctionType{
 				"all": {Name: "all", ArgCount: 1, Func: fnAllBools},
+			},
+		},
+	}
+}
+
+// inputMigratingLibs registers core.thing as an inputMigratingResource so
+// schema-bump tests can drive plan, apply, and refresh against a resource
+// whose Migrate upgrades both halves of a prior entry.
+func inputMigratingLibs(c *resourceCounters) map[string]*Library {
+	return map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[inputMigratingResource, any](
+					func() *inputMigratingResource {
+						return &inputMigratingResource{
+							countingResource: countingResource{counters: c},
+						}
+					},
+				),
 			},
 		},
 	}

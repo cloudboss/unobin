@@ -1167,6 +1167,93 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	require.Contains(t, err.Error(), "no migration registered")
 }
 
+func TestPlanMigratesPriorInputsOnSchemaBump(t *testing.T) {
+	// The prior entry was written at v1 with the old input field name
+	// `label`. The current resource is v2 and its Migrate renames `label`
+	// to `name`. After migration the prior inputs match the source, so the
+	// plan is a no-op rather than a spurious update from diffing inputs
+	// recorded under two different schema versions.
+	src := `
+resources: { core.thing.one: { name: 'alpha', size: 1 } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	prior := state.NewSnapshot(stack, store.Stack())
+	prior.Entries = []*state.Entry{{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
+	}}
+	rev, err := store.Write(prior)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	var c resourceCounters
+	plan := runPlan(t, src, inputMigratingLibs(&c), store)
+	step := stepFor(plan, "resource.core.thing.one")
+	require.NotNil(t, step)
+	require.Equal(t, DecisionNoOp, step.Decision)
+	require.NotContains(t, step.PriorInputs, "label",
+		"PriorInputs on the plan step should be the migrated inputs")
+	require.Equal(t, "alpha", step.PriorInputs["name"])
+}
+
+func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
+	// A schema bump renamed the input `label` to `name`. The prior entry
+	// is v1; the source changes size, so the plan is an update. The Update
+	// must see the migrated prior inputs (name set), not the raw v1 entry,
+	// where the field was still `label` and would decode to the zero value.
+	// The rewritten entry ends at the current version with current
+	// inputs.
+	src := `
+resources: { core.thing.one: { name: 'alpha', size: 2 } }
+`
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	prior := state.NewSnapshot(stack, store.Stack())
+	prior.Entries = []*state.Entry{{
+		Address:       "resource.core.thing.one",
+		Type:          state.EntryLeaf,
+		Kind:          "thing",
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
+	}}
+	rev, err := store.Write(prior)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	var c resourceCounters
+	libs := inputMigratingLibs(&c)
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   stack,
+	}
+	_, err = planAndApply(exec)
+	require.NoError(t, err)
+
+	require.NotNil(t, c.gotInputMigratePrior)
+	require.Equal(t, "alpha", c.gotInputMigratePrior.Inputs.Name,
+		"Update should see the migrated prior input name, not the raw v1 entry")
+	require.EqualValues(t, 1, c.gotInputMigratePrior.Inputs.Size)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.core.thing.one")
+	require.NotNil(t, ent)
+	require.Equal(t, 2, ent.SchemaVersion)
+	require.NotContains(t, ent.Inputs, "label")
+	require.Equal(t, "alpha", ent.Inputs["name"])
+	require.EqualValues(t, 2, ent.Inputs["size"])
+}
+
 func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
 	src := `
 resources: {
