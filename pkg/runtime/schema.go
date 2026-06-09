@@ -22,6 +22,12 @@ type LibrarySchema struct {
 	// without declared types reads as all-Unknown, which counts
 	// arguments but checks no types.
 	Functions map[string]typecheck.FuncSig
+
+	// Configuration describes the fields of the library's Configuration
+	// struct, keyed by kebab-case field name. Nil when the library
+	// declares no configuration or when the struct behind the
+	// ConfigurationType's New function cannot be read from source.
+	Configuration map[string]typecheck.Type
 }
 
 // TypeSchema describes the input and output fields of one resource,

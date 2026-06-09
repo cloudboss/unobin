@@ -86,6 +86,25 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 			schema.Actions[reg.Name] = ts
 		}
 	}
+	if ref, found, ok := extractConfigurationRef(libraryFunc); found {
+		if !ok {
+			warnings = append(warnings,
+				"library configuration: cannot read the struct behind New from source "+
+					"(write `New: func() any { return &T{} }`), so configuration fields "+
+					"are unchecked")
+		} else {
+			w := newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+			w.subject = "library configuration"
+			fields, _ := w.lookupFields(ref)
+			if fields == nil {
+				warnings = append(warnings, fmt.Sprintf(
+					"library configuration: %s not found in the library's source",
+					ref.TypeName))
+			} else {
+				schema.Configuration = fields
+			}
+		}
+	}
 	maps.Copy(schema.Functions, extractFunctions(libraryFunc, rootPkg, errs))
 	if len(*errs) > 0 {
 		return nil, warnings, errors.Join(*errs...)
@@ -375,11 +394,19 @@ func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
 		if !ok {
 			return typecheck.TUnknown()
 		}
+		if importPath == cfgPkgPath {
+			if t, ok := cfgScalarType(v.Sel.Name); ok {
+				return t
+			}
+			return typecheck.TUnknown()
+		}
 		sub := w.sub(importPath)
 		if sub == nil {
 			return typecheck.TUnknown()
 		}
 		return sub.namedTypeFromIdent(v.Sel.Name)
+	case *ast.IndexExpr:
+		return w.genericTypeFromAST(v.X, v.Index)
 	case *ast.StarExpr:
 		return typecheck.TOptional(w.typeFromAST(v.X))
 	case *ast.ArrayType:
@@ -392,6 +419,56 @@ func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
 		return typecheck.TMap(w.typeFromAST(v.Value))
 	case *ast.InterfaceType:
 		return typecheck.TOpaque()
+	}
+	return typecheck.TUnknown()
+}
+
+// cfgPkgPath is the import path of the SDK's configuration value
+// types. Struct fields of these types map directly to language types,
+// unlike other out-of-library types, which stay Unknown.
+const cfgPkgPath = "github.com/cloudboss/unobin/pkg/sdk/cfg"
+
+// cfgScalarType maps a named scalar type in the cfg package to its
+// language type. List, Map, and Object are generic and resolve in
+// genericTypeFromAST, where the type argument is in hand.
+func cfgScalarType(name string) (typecheck.Type, bool) {
+	switch name {
+	case "String":
+		return typecheck.TString(), true
+	case "Integer":
+		return typecheck.TInteger(), true
+	case "Number":
+		return typecheck.TNumber(), true
+	case "Boolean":
+		return typecheck.TBoolean(), true
+	case "Null":
+		return typecheck.TNull(), true
+	case "Any":
+		return typecheck.TOpaque(), true
+	}
+	return typecheck.Type{}, false
+}
+
+// genericTypeFromAST maps a generic instantiation like cfg.List[T].
+// Only the cfg package's containers are known: List and Map take
+// their element type from the type argument, and Object stands for
+// the argument struct itself. Anything else stays Unknown.
+func (w *walker) genericTypeFromAST(fn ast.Expr, arg ast.Expr) typecheck.Type {
+	sel, ok := fn.(*ast.SelectorExpr)
+	if !ok {
+		return typecheck.TUnknown()
+	}
+	pkg, ok := identName(sel.X)
+	if !ok || w.imports[pkg] != cfgPkgPath {
+		return typecheck.TUnknown()
+	}
+	switch sel.Sel.Name {
+	case "List":
+		return typecheck.TList(w.typeFromAST(arg))
+	case "Map":
+		return typecheck.TMap(w.typeFromAST(arg))
+	case "Object":
+		return w.typeFromAST(arg)
 	}
 	return typecheck.TUnknown()
 }
@@ -547,6 +624,76 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 		}
 	}
 	return out
+}
+
+// extractConfigurationRef finds the Configuration entry of the
+// Library() return literal and returns the type behind its New
+// function. found reports whether the library declares a
+// Configuration at all; ok reports whether the struct type could be
+// read from source, which requires the direct form
+// `New: func() any { return &T{} }` (a `&pkg.T{}` works too).
+func extractConfigurationRef(fn *ast.FuncDecl) (ref typeRef, found, ok bool) {
+	if fn.Body == nil {
+		return typeRef{}, false, false
+	}
+	for _, stmt := range fn.Body.List {
+		ret, retOk := stmt.(*ast.ReturnStmt)
+		if !retOk || len(ret.Results) != 1 {
+			continue
+		}
+		composite := unwrapModuleLiteral(ret.Results[0])
+		if composite == nil {
+			continue
+		}
+		for _, el := range composite.Elts {
+			kv, kvOk := el.(*ast.KeyValueExpr)
+			if !kvOk {
+				continue
+			}
+			if name, nameOk := identName(kv.Key); !nameOk || name != "Configuration" {
+				continue
+			}
+			ctLit := unwrapModuleLiteral(kv.Value)
+			if ctLit == nil {
+				return typeRef{}, true, false
+			}
+			for _, cel := range ctLit.Elts {
+				ckv, ckvOk := cel.(*ast.KeyValueExpr)
+				if !ckvOk {
+					continue
+				}
+				if name, nameOk := identName(ckv.Key); !nameOk || name != "New" {
+					continue
+				}
+				return configurationNewRef(ckv.Value)
+			}
+			return typeRef{}, true, false
+		}
+	}
+	return typeRef{}, false, false
+}
+
+// configurationNewRef reads the struct type behind a ConfigurationType
+// New field. Only a function literal whose single return is an
+// address-of composite literal names the type in source.
+func configurationNewRef(e ast.Expr) (ref typeRef, found, ok bool) {
+	lit, litOk := e.(*ast.FuncLit)
+	if !litOk || lit.Body == nil {
+		return typeRef{}, true, false
+	}
+	for _, stmt := range lit.Body.List {
+		ret, retOk := stmt.(*ast.ReturnStmt)
+		if !retOk || len(ret.Results) != 1 {
+			continue
+		}
+		cl := unwrapModuleLiteral(ret.Results[0])
+		if cl == nil {
+			return typeRef{}, true, false
+		}
+		r, refOk := outputTypeRef(cl.Type)
+		return r, true, refOk
+	}
+	return typeRef{}, true, false
 }
 
 // extractFunctions returns each function in the Functions map of the

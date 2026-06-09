@@ -20,6 +20,46 @@ import (
 const nestedSelfWarning = `resource "db" output: field self: Go type *DBOutput does not ` +
 	`fully map to language types, so reads of it are unchecked`
 
+func TestReadExtractsConfigurationSchema(t *testing.T) {
+	schema, warnings, err := Read("testdata/configuration")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	assumeRole := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "role-arn", Type: typecheck.TString()},
+		{Name: "external", Type: typecheck.TString(), Optional: true},
+	})
+	endpoint := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "host", Type: typecheck.TString()},
+	})
+	want := map[string]typecheck.Type{
+		"region":      typecheck.TString(),
+		"profile":     typecheck.TOptional(typecheck.TString()),
+		"retries":     typecheck.TInteger(),
+		"ratio":       typecheck.TOptional(typecheck.TNumber()),
+		"verbose":     typecheck.TBoolean(),
+		"tags":        typecheck.TMap(typecheck.TString()),
+		"subnets":     typecheck.TList(typecheck.TString()),
+		"extra":       typecheck.TOpaque(),
+		"endpoint":    endpoint,
+		"assume-role": typecheck.TOptional(assumeRole),
+	}
+	require.Equal(t, want, schema.Configuration)
+}
+
+func TestReadWarnsWhenConfigurationNewIsNotALiteral(t *testing.T) {
+	schema, warnings, err := Read("testdata/badnew")
+	require.NoError(t, err)
+	require.Nil(t, schema.Configuration)
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "library configuration")
+}
+
+func TestReadLeavesConfigurationNilWhenAbsent(t *testing.T) {
+	schema, _, err := Read("testdata/samepkg")
+	require.NoError(t, err)
+	require.Nil(t, schema.Configuration)
+}
+
 func TestReadExtractsSetConstraints(t *testing.T) {
 	schema, warnings, err := Read("testdata/constraints")
 	require.NoError(t, err)
