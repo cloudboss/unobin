@@ -656,6 +656,12 @@ func sortedKeys(m map[string]any) []string {
 // state round trip, which renders integers as floats, doesn't show up as
 // a change.
 func sameInputs(a, b map[string]any) bool {
+	// A nil map and an empty map are the same input set, but they
+	// marshal differently (null vs {}), so the byte compare below
+	// would call an empty body changed after a plan-file round trip.
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
 	aj, err := json.Marshal(a)
 	if err != nil {
 		return false
