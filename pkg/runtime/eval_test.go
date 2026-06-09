@@ -706,17 +706,60 @@ func TestEvalPrefixDoubleNot(t *testing.T) {
 	require.Equal(t, false, got)
 }
 
-func TestEvalEqualityCollectionNoPromote(t *testing.T) {
-	// Element-wise numeric promotion is intentionally NOT done for
-	// collections; pinning the behavior so a future change is a
-	// deliberate choice, not a silent shift.
-	got, err := Eval(parseValue(t, "[1] == [1.0]"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, false, got)
+func TestEvalEqualityCollectionPromotes(t *testing.T) {
+	// Numeric promotion reaches inside collections, so [1] == [1.0]
+	// the same way 1 == 1.0; comparison is element-wise and recurses
+	// through nesting.
+	cases := []struct {
+		src  string
+		want bool
+	}{
+		{"[1] == [1.0]", true},
+		{"{ a: 1 } == { a: 1.0 }", true},
+		{"[1, 2] == [1.0, 2.0]", true},
+		{"[[1]] == [[1.0]]", true},
+		{"{ a: [1] } == { a: [1.0] }", true},
+		{"[1] == [2]", false},
+		{"[1, 2] == [1]", false},
+		{"{ a: 1 } == { a: 1, b: 2 }", false},
+		{"{ a: 1 } == { b: 1 }", false},
+		{"[1] == [1.5]", false},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := Eval(parseValue(t, c.src), &EvalContext{})
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
 
-	got, err = Eval(parseValue(t, "{ a: 1 } == { a: 1.0 }"), &EvalContext{})
-	require.NoError(t, err)
-	require.Equal(t, false, got)
+func TestEvalEqualityBigIntPrecision(t *testing.T) {
+	// 2^53 and 2^53+1 are distinct int64 but collapse to the same
+	// float64; comparing in the integer domain keeps them apart, in
+	// equality and ordering alike, inside collections too.
+	ctx := &EvalContext{Vars: map[string]any{
+		"a": int64(1 << 53),
+		"b": int64(1<<53 + 1),
+	}}
+	cases := []struct {
+		src  string
+		want bool
+	}{
+		{"var.a == var.b", false},
+		{"var.a != var.b", true},
+		{"var.b > var.a", true},
+		{"var.a < var.b", true},
+		{"var.a >= var.b", false},
+		{"[var.a] == [var.b]", false},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := Eval(parseValue(t, c.src), ctx)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
 }
 
 func TestEvalPrefixTypeError(t *testing.T) {

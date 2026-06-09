@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"maps"
@@ -590,16 +591,16 @@ func arithFloat(op string, a, b float64) (any, error) {
 // numeric promotion; strings compare lexicographically. Any other
 // combination is a type error.
 func evalCmp(op string, a, b any) (any, error) {
-	if af, bf, ok := numericPair(a, b); ok {
+	if c, ok := numericCmp(a, b); ok {
 		switch op {
 		case "<":
-			return af < bf, nil
+			return c < 0, nil
 		case "<=":
-			return af <= bf, nil
+			return c <= 0, nil
 		case ">":
-			return af > bf, nil
+			return c > 0, nil
 		case ">=":
-			return af >= bf, nil
+			return c >= 0, nil
 		}
 	}
 	if as, aok := a.(string); aok {
@@ -621,29 +622,59 @@ func evalCmp(op string, a, b any) (any, error) {
 		op, lang.TypeMessage(a), lang.TypeMessage(b))
 }
 
-// evalEq reports value equality. Numeric operands compare after
-// promotion (so 1 == 1.0 is true). Everything else falls through to
-// reflect.DeepEqual, which gives the expected element-wise comparison
-// for lists and maps and a false answer for cross-type comparisons
-// outside the numeric pair.
+// evalEq reports value equality with numeric promotion at every
+// position: a pair of numbers compares by value (1 == 1.0), and the
+// promotion reaches inside lists and maps, so [1] == [1.0] too. Lists
+// compare element-wise and maps key-wise; anything else falls to
+// reflect.DeepEqual.
 func evalEq(a, b any) bool {
-	if af, bf, ok := numericPair(a, b); ok {
-		return af == bf
+	if c, ok := numericCmp(a, b); ok {
+		return c == 0
+	}
+	switch av := a.(type) {
+	case []any:
+		bv, ok := b.([]any)
+		if !ok || len(av) != len(bv) {
+			return false
+		}
+		for i := range av {
+			if !evalEq(av[i], bv[i]) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		bv, ok := b.(map[string]any)
+		if !ok || len(av) != len(bv) {
+			return false
+		}
+		for k, v := range av {
+			w, ok := bv[k]
+			if !ok || !evalEq(v, w) {
+				return false
+			}
+		}
+		return true
 	}
 	return reflect.DeepEqual(a, b)
 }
 
-// numericPair coerces a and b to a common float64 form for ordering
-// and equality tests. ok is false when either input is not numeric.
-// Arithmetic stays in the int64 domain on its own path; this helper is
-// only used where the two values are about to be compared.
-func numericPair(a, b any) (af, bf float64, ok bool) {
+// numericCmp orders two numeric values, returning -1, 0, or 1 with ok
+// true. A pair of int64 compares in the integer domain so values past
+// float64's exact range stay distinct; a mixed int64/float64 pair
+// promotes to float64. ok is false when either value is not numeric.
+func numericCmp(a, b any) (int, bool) {
+	ai, aInt := a.(int64)
+	bi, bInt := b.(int64)
+	if aInt && bInt {
+		return cmp.Compare(ai, bi), true
+	}
 	af, aOK := numericFloat(a)
 	bf, bOK := numericFloat(b)
 	if !aOK || !bOK {
-		return 0, 0, false
+		return 0, false
 	}
-	return af, bf, true
+	return cmp.Compare(af, bf), true
 }
 
 func numericFloat(v any) (float64, bool) {
