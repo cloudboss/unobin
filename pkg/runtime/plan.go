@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -798,6 +799,39 @@ func isUpstreamChange(d Decision) bool {
 	return false
 }
 
+// planConfiguration evaluates an internal configuration during the
+// plan when everything it reads has settled, so consumer drift reads
+// run with a real configuration on an unchanged world. A field whose
+// upstream is pending leaves the configuration unevaluated, recorded
+// on the step's UnresolvedInputs; apply computes it from live values.
+func (e *Executor) planConfiguration(rs *runState, n *Node) (*PlanStep, error) {
+	step := &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}
+	scope, err := e.scopeForAddress(rs, n.Address)
+	if err != nil {
+		return nil, err
+	}
+	inputs, unresolved, err := planEvalBody(n.Body, scope)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", n.Address, err)
+	}
+	step.Inputs = inputs
+	if len(unresolved) > 0 {
+		step.UnresolvedInputs = unresolved
+		return step, nil
+	}
+	lib, ok := e.librariesFor(n)[n.Alias]
+	if !ok || lib.Configuration == nil {
+		return nil, fmt.Errorf("%s: library %q declares no configuration",
+			n.Address, n.Alias)
+	}
+	decoded, err := cfg.Decode(lib.Configuration, inputs)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", n.Address, err)
+	}
+	e.storeInternalConfiguration(n.Address, decoded)
+	return step, nil
+}
+
 func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanStep, error) {
 	if n.IsComposite() {
 		return e.planComposite(rs, n)
@@ -813,8 +847,10 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 			return nil, err
 		}
 		return e.planOneData(ctx, rs, n, scope, n.Address)
-	case NodeOutput, NodeConfiguration:
+	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
+	case NodeConfiguration:
+		return e.planConfiguration(rs, n)
 	default:
 		return nil, fmt.Errorf("unknown node kind %q", n.Kind)
 	}

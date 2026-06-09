@@ -32,29 +32,43 @@ func (r *echoResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *echoResource) ReplaceFields() []string                  { return nil }
 
 // configEchoResource records the configuration the runtime handed it,
-// so a test can prove which value reached the CRUD call.
-type configEchoResource struct{}
+// so a test can prove which value reached each CRUD call. readSeen,
+// when non-nil, collects the endpoint every Read receives.
+type configEchoResource struct {
+	readSeen *[]string
+}
+
+func endpointOf(c any) string {
+	conf, _ := c.(*endpointConfiguration)
+	if conf == nil {
+		return ""
+	}
+	return conf.Endpoint.Value
+}
 
 func (r *configEchoResource) SchemaVersion() int { return 1 }
 func (r *configEchoResource) Create(_ context.Context, c any) (any, error) {
-	conf, _ := c.(*endpointConfiguration)
-	if conf == nil {
-		return map[string]any{"endpoint": ""}, nil
-	}
-	return map[string]any{"endpoint": conf.Endpoint.Value}, nil
+	return map[string]any{"endpoint": endpointOf(c)}, nil
 }
-func (r *configEchoResource) Read(_ context.Context, _, prior any) (any, error) {
+func (r *configEchoResource) Read(_ context.Context, c any, prior any) (any, error) {
+	if r.readSeen != nil {
+		*r.readSeen = append(*r.readSeen, endpointOf(c))
+	}
 	return prior, nil
 }
 func (r *configEchoResource) Update(
 	_ context.Context, c any, _ Prior[configEchoResource, any],
 ) (any, error) {
-	return (&configEchoResource{}).Create(context.Background(), c)
+	return map[string]any{"endpoint": endpointOf(c)}, nil
 }
 func (r *configEchoResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *configEchoResource) ReplaceFields() []string                  { return nil }
 
 func configuredLibraries() map[string]*Library {
+	return configuredLibrariesRecording(nil)
+}
+
+func configuredLibrariesRecording(readSeen *[]string) map[string]*Library {
 	return map[string]*Library{
 		"fix": {
 			Name: "fix",
@@ -62,8 +76,10 @@ func configuredLibraries() map[string]*Library {
 				New: func() any { return &endpointConfiguration{} },
 			},
 			Resources: map[string]ResourceRegistration{
-				"echo":        MakeResource[echoResource, any](),
-				"config-echo": MakeResource[configEchoResource, any](),
+				"echo": MakeResource[echoResource, any](),
+				"config-echo": MakeResourceWith[configEchoResource, any](
+					func() *configEchoResource { return &configEchoResource{readSeen: readSeen} },
+				),
 			},
 		},
 	}
@@ -91,4 +107,34 @@ func TestApplyEvaluatesInternalConfiguration(t *testing.T) {
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://cluster.example", res.Outputs["got"])
+}
+
+// On an unchanged world, the internal configuration evaluates from
+// prior state during the plan, so the consumer's drift read runs with
+// the real decoded configuration and the plan is a no-op. The second
+// plan uses a fresh Executor, the way a separate invocation would.
+func TestPlanEvaluatesInternalConfigurationFromState(t *testing.T) {
+	var seen []string
+	libs := configuredLibrariesRecording(&seen)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	applyOnce(t, &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+	})
+
+	seen = nil
+	fresh := &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+	}
+	plan, err := fresh.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{"https://cluster.example"}, seen)
+	require.Equal(t, DecisionNoOp,
+		findStep(t, plan, "resource.fix.config-echo.app").Decision)
 }
