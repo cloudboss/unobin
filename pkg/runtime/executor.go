@@ -149,6 +149,23 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 	return alias, configuration
 }
 
+// pendingInternalConfig reports whether n's resolved selection names
+// an internal configuration that has not evaluated this run, with the
+// selection in alias.name form for step records. Reads gate on it at
+// plan: a consumer must not reach its API with a nil configuration
+// just because the configuration's own upstream is mid-change.
+func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
+	alias, configuration := e.resolvedConfigRef(n)
+	addr := configurationAddress(alias, configuration)
+	if _, internal := e.DAG.Nodes[addr]; !internal {
+		return "", false
+	}
+	if _, ok := e.internalConfiguration(addr); ok {
+		return "", false
+	}
+	return alias + "." + configuration, true
+}
+
 // configFor returns the decoded configuration to pass to a CRUD call
 // on the given node. A selection the factory defines internally reads
 // from the evaluated configuration table; anything else reads from

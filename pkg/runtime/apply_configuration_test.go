@@ -15,21 +15,24 @@ type endpointConfiguration struct {
 	Endpoint cfg.String
 }
 
-// echoResource exposes its input as an output for other nodes to read.
+// echoResource exposes its input as an output, plus a computed id the
+// create produces, so a test can derive a value that is never
+// knowable from inputs alone. A changed value forces a replace, which
+// regenerates the id.
 type echoResource struct {
 	Value string
 }
 
 func (r *echoResource) SchemaVersion() int { return 1 }
 func (r *echoResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"value": r.Value}, nil
+	return map[string]any{"value": r.Value, "id": "id-" + r.Value}, nil
 }
 func (r *echoResource) Read(_ context.Context, _, prior any) (any, error) { return prior, nil }
 func (r *echoResource) Update(_ context.Context, _ any, _ Prior[echoResource, any]) (any, error) {
-	return map[string]any{"value": r.Value}, nil
+	return map[string]any{"value": r.Value, "id": "id-" + r.Value}, nil
 }
 func (r *echoResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *echoResource) ReplaceFields() []string                  { return nil }
+func (r *echoResource) ReplaceFields() []string                  { return []string{"value"} }
 
 // configEchoResource records the configuration the runtime handed it,
 // so a test can prove which value reached each CRUD call. readSeen,
@@ -137,4 +140,97 @@ func TestPlanEvaluatesInternalConfigurationFromState(t *testing.T) {
 	require.Equal(t, []string{"https://cluster.example"}, seen)
 	require.Equal(t, DecisionNoOp,
 		findStep(t, plan, "resource.fix.config-echo.app").Decision)
+}
+
+// configProbeData records the configuration its Read receives.
+type configProbeData struct {
+	readSeen *[]string
+}
+
+func (d *configProbeData) Read(_ context.Context, c any) (any, error) {
+	if d.readSeen != nil {
+		*d.readSeen = append(*d.readSeen, endpointOf(c))
+	}
+	return map[string]any{"value": "v"}, nil
+}
+
+const internalConfigDataSrc = `
+configurations: { fix: { cluster: { endpoint: resource.fix.echo.src.id } } }
+resources: { fix.echo.src: { value: 'https://cluster.example' } }
+data:      { fix.probe.p: { @configuration: fix.cluster } }
+`
+
+// A data source whose configuration is still pending at plan defers
+// its read to apply instead of reading with a nil configuration; the
+// apply-time read then sees the real decoded value.
+func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
+	var seen []string
+	libs := configuredLibrariesRecording(&seen)
+	libs["fix"].DataSources = map[string]DataSourceRegistration{
+		"probe": MakeDataSourceWith[configProbeData, any](
+			func() *configProbeData { return &configProbeData{readSeen: &seen} },
+		),
+	}
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigDataSrc), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, seen, "no read should run while the configuration is pending")
+	ds := findStep(t, plan, "data.fix.probe.p")
+	require.Equal(t, "fix.cluster", ds.DeferredRead)
+
+	fresh := &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigDataSrc), libs),
+		Libraries: libs,
+		Store:     exec.Store,
+		Factory:   exec.Factory,
+	}
+	_, err = planAndApply(fresh)
+	require.NoError(t, err)
+	require.Equal(t, []string{"id-https://cluster.example"}, seen)
+}
+
+const internalConfigVarSrc = `
+configurations: { fix: { cluster: { endpoint: resource.fix.echo.src.id } } }
+resources: {
+  fix.echo.src:        { value: var.url }
+  fix.config-echo.app: { @configuration: fix.cluster }
+}
+`
+
+// When the node a configuration reads is changing this plan, the
+// configuration is pending and consumer drift reads are skipped, not
+// run with a nil configuration. The decision falls back to the
+// stored state.
+func TestDriftReadSkippedWhileConfigurationPending(t *testing.T) {
+	var seen []string
+	libs := configuredLibrariesRecording(&seen)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	applyOnce(t, &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigVarSrc), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"url": "https://a"},
+		Store:     store,
+		Factory:   factory,
+	})
+
+	seen = nil
+	fresh := &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigVarSrc), libs),
+		Libraries: libs,
+		Inputs:    map[string]any{"url": "https://b"},
+		Store:     store,
+		Factory:   factory,
+	}
+	plan, err := fresh.Plan(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, seen, "no read should run while the configuration is pending")
+	step := findStep(t, plan, "resource.fix.config-echo.app")
+	require.Equal(t, "fix.cluster", step.DeferredRead)
+	require.Equal(t, DecisionNoOp, step.Decision)
 }

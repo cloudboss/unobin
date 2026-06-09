@@ -165,6 +165,12 @@ type PlanStep struct {
 	Inputs           map[string]any      `json:"inputs,omitempty"`
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
 
+	// DeferredRead names the configuration selection (alias.name form)
+	// whose pending evaluation kept this node's read from running at
+	// plan. The stored state is taken as current for the decision;
+	// apply and the next plan see real values.
+	DeferredRead string `json:"deferred-read,omitempty"`
+
 	// PriorInputs is the body the last apply evaluated, recorded so the plan
 	// can show a changed field as `old -> new` rather than the new value
 	// alone. Nil for a create, where there is no prior to compare against.
@@ -1150,6 +1156,22 @@ func (e *Executor) planOneResource(
 		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), priorInputs, inputs)
 		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	}
+	// A pending internal configuration means the read cannot run: there
+	// is nothing valid to hand the API client. The stored state stands
+	// in for the observed world, so drift goes unchecked this plan and
+	// the decision comes from the input diff alone.
+	if ref, pending := e.pendingInternalConfig(n); pending {
+		step.DeferredRead = ref
+		switch {
+		case step.regeneratesOutputs:
+			step.Decision = DecisionReplace
+		case step.mayChangeOutputs:
+			step.Decision = DecisionUpdate
+		default:
+			step.Decision = DecisionNoOp
+		}
+		return step, nil
+	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
 		step:         step,
 		rt:           rt,
@@ -1280,6 +1302,10 @@ func (e *Executor) planOneData(
 		UnresolvedInputs: unresolved,
 	}
 	if len(unresolved) > 0 || e.dependsOnChange(rs, n) {
+		return step, nil
+	}
+	if ref, pending := e.pendingInternalConfig(n); pending {
+		step.DeferredRead = ref
 		return step, nil
 	}
 	lib, ok := e.librariesFor(n)[n.Alias]
