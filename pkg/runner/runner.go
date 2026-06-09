@@ -788,10 +788,12 @@ func loadConfigInputs(f *lang.File, path string) (map[string]any, error) {
 // kebab case input names. The declared input type directs the parse: a
 // string input takes the raw text exactly as given, so a value that
 // happens to look like another literal (true, 42) arrives unmangled,
-// while every other type reads its value as a UB literal, so
-// `UB_VAR_size=5` arrives as int64 and `UB_VAR_subnets=['a', 'b']` as
-// a list. A value that does not parse falls through to the raw string
-// and input validation reports it against the declaration.
+// while every other type reads its value as a UB literal and, failing
+// that, as JSON, so `UB_VAR_size=5` arrives as int64,
+// `UB_VAR_subnets=['a', 'b']` as a list, and a value written as JSON --
+// double-quoted, which UB does not accept -- as a map or list. A value
+// that parses as neither falls through to the raw string and input
+// validation reports it against the declaration.
 func applyEnvOverrides(inputs map[string]any, decl *lang.ObjectLit) {
 	declared := typecheck.InputsFromBlock(decl)
 	for _, env := range os.Environ() {
@@ -826,25 +828,79 @@ func stringDeclared(declared []typecheck.ObjectField, name string) bool {
 	return false
 }
 
-// parseEnvValue tries to read raw as a single UB literal expression. A
-// successful parse and Eval returns the typed value; any failure
-// (parse error, multi-expression, eval error) falls through to the
-// raw string so values that look like URLs or paths still arrive as
-// strings without shell-escape ceremony.
+// parseEnvValue reads raw as a value for a non-string input. It tries a
+// single UB literal first, then JSON. UB strings are single-quoted, so
+// a value written as JSON -- double-quoted, the way another tool emits
+// it -- does not parse as UB; the JSON pass accepts it as is. A value
+// that parses as neither falls through to the raw string, so a URL or
+// path arrives without shell-escape ceremony, and input validation
+// reports it against the declaration.
 func parseEnvValue(raw string) any {
-	src := []byte("v: " + raw + "\n")
-	f, err := lang.ParseSource("env", src)
-	if err != nil {
-		return raw
+	if v, ok := parseUBValue(raw); ok {
+		return v
 	}
-	if f.Body == nil || len(f.Body.Fields) != 1 {
-		return raw
+	if v, ok := parseJSONValue(raw); ok {
+		return v
+	}
+	return raw
+}
+
+// parseUBValue reads raw as a single UB literal expression, returning ok
+// false when it does not parse to exactly one expression or fails to
+// evaluate.
+func parseUBValue(raw string) (any, bool) {
+	f, err := lang.ParseSource("env", []byte("v: "+raw+"\n"))
+	if err != nil || f.Body == nil || len(f.Body.Fields) != 1 {
+		return nil, false
 	}
 	val, err := runtime.Eval(f.Body.Fields[0].Value, &runtime.EvalContext{})
 	if err != nil {
-		return raw
+		return nil, false
 	}
-	return val
+	return val, true
+}
+
+// parseJSONValue reads raw as one JSON value. UB strings are
+// single-quoted, so JSON's double-quoted form does not parse as UB;
+// this accepts a value supplied as JSON. Trailing tokens make the parse
+// fail, so "1 2" is not a value.
+func parseJSONValue(raw string) (any, bool) {
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, false
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return nil, false
+	}
+	return normalizeJSONNumbers(v), true
+}
+
+// normalizeJSONNumbers replaces every json.Number with the int64 or
+// float64 a UB literal would produce -- an integral number is an int64,
+// everything else a float64 -- and recurses through arrays and objects,
+// so a decoded value matches its UB-literal equivalent.
+func normalizeJSONNumbers(v any) any {
+	switch x := v.(type) {
+	case json.Number:
+		if i, err := x.Int64(); err == nil {
+			return i
+		}
+		f, _ := x.Float64()
+		return f
+	case []any:
+		for i, e := range x {
+			x[i] = normalizeJSONNumbers(e)
+		}
+		return x
+	case map[string]any:
+		for k, e := range x {
+			x[k] = normalizeJSONNumbers(e)
+		}
+		return x
+	}
+	return v
 }
 
 func doOutput(

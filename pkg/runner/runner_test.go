@@ -478,6 +478,74 @@ outputs: { said: { value: action.core.echo.hi.echo }, note: { value: var.comment
 	require.Contains(t, out, "note: '42'")
 }
 
+func TestParseEnvValueJSON(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want any
+	}{
+		{"json object", `{"host": "web", "port": 8080}`,
+			map[string]any{"host": "web", "port": int64(8080)}},
+		{"json array", `["a", "b"]`, []any{"a", "b"}},
+		{"json array of integers", `[1, 2, 3]`,
+			[]any{int64(1), int64(2), int64(3)}},
+		{"nested integers stay integers", `{"a": {"b": 1}, "c": [2, 3]}`,
+			map[string]any{
+				"a": map[string]any{"b": int64(1)},
+				"c": []any{int64(2), int64(3)},
+			}},
+		{"fractional json number is a number", `{"r": 1.5}`,
+			map[string]any{"r": 1.5}},
+		{"json number with an exponent is a number", `{"e": 2e3}`,
+			map[string]any{"e": 2000.0}},
+		{"json integer at the int64 ceiling", `{"big": 9223372036854775807}`,
+			map[string]any{"big": int64(9223372036854775807)}},
+		{"json bool inside an object", `{"on": true}`,
+			map[string]any{"on": true}},
+		{"json null inside an object", `{"x": null}`,
+			map[string]any{"x": nil}},
+		{"ub scalar literal", `42`, int64(42)},
+		{"ub list literal", `['x', 'y']`, []any{"x", "y"}},
+		{"ub boolean", `true`, true},
+		{"bareword falls through to the raw string", `web-prod`, "web-prod"},
+		{"path falls through to the raw string", `/etc/hosts`, "/etc/hosts"},
+		{"malformed json falls through to the raw string", `{not json`, "{not json"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			require.Equal(t, c.want, parseEnvValue(c.raw))
+		})
+	}
+}
+
+func TestEnvVarParsesJSON(t *testing.T) {
+	// JSON uses double quotes for strings and keys, which UB does not,
+	// so a JSON object or array is not valid UB and reaches inputs only
+	// through the JSON fallback. The integer 8080 must decode as an
+	// integer to satisfy the declared field; a JSON float would fail
+	// input validation.
+	src := `
+inputs: {
+  config: { type: object({ host: string, port: integer }) }
+  tags:   { type: list(string) }
+}
+imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
+actions: { core.echo.hi: { echo: 'x' } }
+outputs: {
+  result: {
+    value: @core.to-json({ host: var.config.host, port: var.config.port, tags: var.tags })
+  }
+}
+`
+	info := testInfo(t, src)
+
+	t.Setenv("UB_VAR_config", `{"host": "web", "port": 8080}`)
+	t.Setenv("UB_VAR_tags", `["a", "b"]`)
+
+	out := applyVia(t, info, "")
+	require.Contains(t, out, `{"host":"web","port":8080,"tags":["a","b"]}`)
+}
+
 func TestPlanRejectsTypeMismatch(t *testing.T) {
 	src := `
 inputs: {
