@@ -292,3 +292,145 @@ func TestFunctionAnyNonList(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "any: argument 1 must be a list, got a string")
 }
+
+func TestFunctionToInteger(t *testing.T) {
+	cases := []struct {
+		src  string
+		want int64
+	}{
+		{"@core.to-integer(5)", 5},
+		{"@core.to-integer(2.9)", 2},
+		{"@core.to-integer(-2.9)", -2},
+		{"@core.to-integer(2.0)", 2},
+		{"@core.to-integer('42')", 42},
+		{"@core.to-integer('-7')", -7},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionToIntegerErrors(t *testing.T) {
+	cases := []struct{ src, msg string }{
+		{"@core.to-integer('abc')", `to-integer: "abc" is not an integer`},
+		{"@core.to-integer('2.5')", `to-integer: "2.5" is not an integer`},
+		{"@core.to-integer(true)", "to-integer: argument must be a number or a string, got a boolean"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			_, err := evalCore(t, c.src, nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), c.msg)
+		})
+	}
+}
+
+func TestFunctionToNumber(t *testing.T) {
+	cases := []struct {
+		src  string
+		want float64
+	}{
+		{"@core.to-number(5)", 5.0},
+		{"@core.to-number(1.5)", 1.5},
+		{"@core.to-number('3.14')", 3.14},
+		{"@core.to-number('42')", 42.0},
+		{"@core.to-number('-0.5')", -0.5},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionToNumberErrors(t *testing.T) {
+	cases := []struct{ src, msg string }{
+		{"@core.to-number('abc')", `to-number: "abc" is not a number`},
+		{"@core.to-number(true)", "to-number: argument must be a number or a string, got a boolean"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			_, err := evalCore(t, c.src, nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), c.msg)
+		})
+	}
+}
+
+func TestFunctionToString(t *testing.T) {
+	cases := []struct {
+		src  string
+		want string
+	}{
+		{"@core.to-string('hi')", "hi"},
+		{"@core.to-string(42)", "42"},
+		{"@core.to-string(1.5)", "1.5"},
+		{"@core.to-string(2.0)", "2"},
+		{"@core.to-string(true)", "true"},
+		{"@core.to-string(false)", "false"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionToStringErrors(t *testing.T) {
+	cases := []struct{ src, msg string }{
+		{"@core.to-string([1])", "to-string: argument must be a string, number, or boolean, got a list"},
+		{
+			"@core.to-string({ a: 1 })",
+			"to-string: argument must be a string, number, or boolean, got an object",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			_, err := evalCore(t, c.src, nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), c.msg)
+		})
+	}
+}
+
+func TestFunctionToBoolean(t *testing.T) {
+	cases := []struct {
+		src  string
+		want bool
+	}{
+		{"@core.to-boolean('true')", true},
+		{"@core.to-boolean('false')", false},
+		{"@core.to-boolean(true)", true},
+		{"@core.to-boolean(false)", false},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionToBooleanErrors(t *testing.T) {
+	cases := []struct{ src, msg string }{
+		{"@core.to-boolean('yes')", `to-boolean: "yes" is not true or false`},
+		{"@core.to-boolean('True')", `to-boolean: "True" is not true or false`},
+		{"@core.to-boolean(1)", "to-boolean: argument must be a string or a boolean, got an integer"},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			_, err := evalCore(t, c.src, nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), c.msg)
+		})
+	}
+}

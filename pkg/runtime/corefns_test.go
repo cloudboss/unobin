@@ -77,7 +77,7 @@ func TestCoreFunctionSet(t *testing.T) {
 	sort.Strings(names)
 	require.Equal(t, []string{
 		"all", "any", "b64-decode", "b64-encode", "join", "length", "range",
-		"to-json",
+		"to-boolean", "to-integer", "to-json", "to-number", "to-string",
 	}, names)
 
 	sigs := CoreFunctionSigs()
@@ -100,6 +100,24 @@ func TestCoreFunctionSet(t *testing.T) {
 	require.True(t, sigs["to-json"].Params[0].Equal(typecheck.TOpaque()))
 	require.Nil(t, sigs["to-json"].Variadic)
 	require.True(t, sigs["to-json"].Result.Equal(typecheck.TString()))
+
+	requireSig := func(name string, params []typecheck.Type, result typecheck.Type) {
+		t.Helper()
+		require.Len(t, sigs[name].Params, 1)
+		require.True(t, sigs[name].Params[0].Equal(typecheck.TUnion(params)),
+			"%s param: got %s", name, sigs[name].Params[0])
+		require.Nil(t, sigs[name].Variadic)
+		require.True(t, sigs[name].Result.Equal(result), "%s result", name)
+	}
+	requireSig("to-integer",
+		[]typecheck.Type{typecheck.TString(), typecheck.TNumber()}, typecheck.TInteger())
+	requireSig("to-number",
+		[]typecheck.Type{typecheck.TString(), typecheck.TNumber()}, typecheck.TNumber())
+	requireSig("to-string",
+		[]typecheck.Type{typecheck.TString(), typecheck.TNumber(), typecheck.TBoolean()},
+		typecheck.TString())
+	requireSig("to-boolean",
+		[]typecheck.Type{typecheck.TString(), typecheck.TBoolean()}, typecheck.TBoolean())
 }
 
 // TestLengthUnionMatchesRuntime locks length's declared union to the

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -48,6 +49,34 @@ var coreRegistrations = []struct {
 		}},
 	{"all", "Report whether every element of a list of booleans is true.", fnAll, nil},
 	{"any", "Report whether at least one element of a list of booleans is true.", fnAny, nil},
+	{"to-integer", "Convert a number or a numeric string to an integer.", fnToInteger,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(), typecheck.TNumber(),
+			})},
+			Result: typecheck.TInteger(),
+		}},
+	{"to-number", "Convert an integer or a numeric string to a number.", fnToNumber,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(), typecheck.TNumber(),
+			})},
+			Result: typecheck.TNumber(),
+		}},
+	{"to-string", "Render a string, number, or boolean as text.", fnToString,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(), typecheck.TNumber(), typecheck.TBoolean(),
+			})},
+			Result: typecheck.TString(),
+		}},
+	{"to-boolean", `Convert the string "true" or "false" to a boolean.`, fnToBoolean,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(), typecheck.TBoolean(),
+			})},
+			Result: typecheck.TBoolean(),
+		}},
 }
 
 // coreFunctions is the language's function namespace: what a call
@@ -220,4 +249,74 @@ func fnAny(bools []bool) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// fnToInteger converts a number or a numeric string to an integer. A
+// number is truncated toward zero -- the lossy direction the implicit
+// widening from integer to number will not take -- and a string must
+// spell an integer in base ten.
+func fnToInteger(v any) (int64, error) {
+	switch x := v.(type) {
+	case int64:
+		return x, nil
+	case float64:
+		return int64(x), nil
+	case string:
+		n, err := strconv.ParseInt(x, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("to-integer: %q is not an integer", x)
+		}
+		return n, nil
+	}
+	return 0, fmt.Errorf(
+		"to-integer: argument must be a number or a string, got %s", lang.TypeMessage(v))
+}
+
+// fnToNumber converts an integer or a numeric string to a number.
+func fnToNumber(v any) (float64, error) {
+	switch x := v.(type) {
+	case float64:
+		return x, nil
+	case int64:
+		return float64(x), nil
+	case string:
+		n, err := strconv.ParseFloat(x, 64)
+		if err != nil {
+			return 0, fmt.Errorf("to-number: %q is not a number", x)
+		}
+		return n, nil
+	}
+	return 0, fmt.Errorf(
+		"to-number: argument must be a number or a string, got %s", lang.TypeMessage(v))
+}
+
+// fnToString renders a string, number, or boolean as text, the same
+// rendering an interpolation slot uses. A list or map is an error;
+// render those as JSON with @core.to-json.
+func fnToString(v any) (string, error) {
+	switch v.(type) {
+	case string, bool, int64, float64:
+		return renderScalar(v), nil
+	}
+	return "", fmt.Errorf(
+		"to-string: argument must be a string, number, or boolean, got %s", lang.TypeMessage(v))
+}
+
+// fnToBoolean converts the string "true" or "false" to a boolean, and
+// returns a boolean unchanged.
+func fnToBoolean(v any) (bool, error) {
+	switch x := v.(type) {
+	case bool:
+		return x, nil
+	case string:
+		switch x {
+		case "true":
+			return true, nil
+		case "false":
+			return false, nil
+		}
+		return false, fmt.Errorf("to-boolean: %q is not true or false", x)
+	}
+	return false, fmt.Errorf(
+		"to-boolean: argument must be a string or a boolean, got %s", lang.TypeMessage(v))
 }
