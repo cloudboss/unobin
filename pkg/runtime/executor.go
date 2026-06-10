@@ -360,6 +360,13 @@ type runState struct {
 	// hold sibling outputs as the internals complete.
 	composites map[string]*EvalContext
 
+	// forEachInstances memoizes each `@for-each` node's evaluated
+	// iterable by template address, so sibling instances share one
+	// evaluation per run. Sound because the iterable's references are
+	// dependencies of every instance: their values settle before the
+	// first instance needs them and cannot change within the run.
+	forEachInstances map[string]map[string]any
+
 	// pendingReads queues per-resource Read calls collected during
 	// Plan's serial walk so Plan can fan them out across workers
 	// before finalizing decisions. Apply and Refresh leave this nil.
@@ -402,10 +409,11 @@ func (e *Executor) initRun() (*runState, error) {
 			Libraries: e.Libraries,
 			locals:    newLocalScope(localsBlock(e.Source)),
 		},
-		order:      order,
-		outputs:    make(map[string]any),
-		composites: make(map[string]*EvalContext),
-		next:       state.NewSnapshot(e.Factory, e.Store.Stack()),
+		order:            order,
+		outputs:          make(map[string]any),
+		composites:       make(map[string]*EvalContext),
+		forEachInstances: make(map[string]map[string]any),
+		next:             state.NewSnapshot(e.Factory, e.Store.Stack()),
 	}
 	prior, err := e.Store.Current()
 	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
@@ -496,10 +504,10 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	if err != nil {
 		return nil, fmt.Errorf("composite %s: build parent scope: %w", callSite, err)
 	}
-	_, instKey := splitInstanceAddress(callSite)
+	setAddr, instKey := splitInstanceAddress(callSite)
 	bodyScope := parent
 	if instKey != "" {
-		instances, err := evalForEach(boundary.ForEach, parent)
+		instances, err := forEachInstancesFor(rs, setAddr, boundary.ForEach, parent)
 		if err != nil {
 			return nil, fmt.Errorf("composite %s: eval @for-each: %w", callSite, err)
 		}
@@ -781,6 +789,23 @@ func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, 
 		out[fld.Key.Name] = val
 	}
 	return out, nil
+}
+
+// forEachInstancesFor returns a `@for-each` node's evaluated iterable,
+// memoized in rs by template address so every instance of the node
+// shares one evaluation per run.
+func forEachInstancesFor(
+	rs *runState, templateAddr string, expr lang.Expr, scope *EvalContext,
+) (map[string]any, error) {
+	if instances, ok := rs.forEachInstances[templateAddr]; ok {
+		return instances, nil
+	}
+	instances, err := evalForEach(expr, scope)
+	if err != nil {
+		return nil, err
+	}
+	rs.forEachInstances[templateAddr] = instances
+	return instances, nil
 }
 
 // evalForEach reduces a `@for-each:` expression to the iterable's

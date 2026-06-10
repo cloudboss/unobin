@@ -338,14 +338,16 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 
 // instanceScope returns the scope a step body should be evaluated
 // against. For a non-for-each step it returns parent unchanged. For a
-// for-each instance it re-evaluates the iterable, looks up the bound
-// value for instKey, and returns a child scope with `@each.key` and
-// `@each.value` set.
-func instanceScope(node *Node, parent *EvalContext, instKey string) (*EvalContext, error) {
+// for-each instance it evaluates the iterable (shared across the
+// node's instances via rs), looks up the bound value for instKey, and
+// returns a child scope with `@each.key` and `@each.value` set.
+func instanceScope(
+	rs *runState, node *Node, parent *EvalContext, instKey string,
+) (*EvalContext, error) {
 	if instKey == "" {
 		return parent, nil
 	}
-	instances, err := evalForEach(node.ForEach, parent)
+	instances, err := forEachInstancesFor(rs, node.Address, node.ForEach, parent)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +434,7 @@ func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
 	if err != nil {
 		return nil, err
 	}
-	scope, err := instanceScope(node, parent, instKey)
+	scope, err := instanceScope(rs, node, parent, instKey)
 	if err != nil {
 		return nil, err
 	}

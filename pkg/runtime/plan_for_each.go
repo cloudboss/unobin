@@ -29,7 +29,7 @@ func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error)
 	if err != nil {
 		return nil, err
 	}
-	instances, err := evalForEach(n.ForEach, scope)
+	instances, err := forEachInstancesFor(rs, n.Address, n.ForEach, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (e *Executor) planForEachData(
 	if err != nil {
 		return nil, err
 	}
-	instances, err := evalForEach(n.ForEach, scope)
+	instances, err := forEachInstancesFor(rs, n.Address, n.ForEach, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (e *Executor) planForEachComposite(
 	if err != nil {
 		return nil, err
 	}
-	instances, err := evalForEach(boundary.ForEach, parent)
+	instances, err := forEachInstancesFor(rs, boundary.Address, boundary.ForEach, parent)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (e *Executor) planForEachResource(rs *runState, n *Node) ([]*PlanStep, erro
 	if err != nil {
 		return nil, err
 	}
-	instances, err := evalForEach(n.ForEach, scope)
+	instances, err := forEachInstancesFor(rs, n.Address, n.ForEach, scope)
 	if err != nil {
 		return nil, err
 	}
