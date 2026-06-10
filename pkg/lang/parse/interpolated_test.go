@@ -83,6 +83,50 @@ func TestInterpolatedSlotExprTypes(t *testing.T) {
 	})
 }
 
+// TestSlotFormParity locks the two interpolation forms to one slot
+// behavior: the same slot text in the single- and triple-quoted forms
+// either parses in both or fails in both with the same message.
+func TestSlotFormParity(t *testing.T) {
+	tests := []struct {
+		name    string
+		slot    string
+		wantErr string // "" means both forms parse
+	}{
+		{"plain", "{{ var.x }}", ""},
+		{"verb", "{{ var.n : %03d }}", ""},
+		{"colon inside index string", "{{ var.m['a:b'] }}", ""},
+		{"closer inside string", "{{ 'a}}b' }}", ""},
+		{"nested braces", "{{ {a: {b: 1}} }}", ""},
+		{"conditional", "{{ if var.p then var.a else var.b }}", ""},
+		{"empty", "{{}}", "empty interpolation slot"},
+		{"empty spaces", "{{   }}", "empty interpolation slot"},
+		{"bad verb", "{{ var.x : bad }}",
+			"interpolation directive must be a printf verb like %03d"},
+		{"quoted closer in directive", "{{ var.x : '}}' }}",
+			"interpolation directive must be a printf verb like %03d"},
+		{"newline in slot", "{{ 1 +\n2 }}", "interpolation slot must be on one line"},
+		{"newline only slot", "{{\n}}", "interpolation slot must be on one line"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			forms := []struct{ label, src string }{
+				{"single", "x: $'pre " + tt.slot + " post'\n"},
+				{"triple", "x: $'''|\n  pre " + tt.slot + " post\n  '''\n"},
+			}
+			for _, form := range forms {
+				_, err := ParseSource("test.ub", []byte(form.src))
+				if tt.wantErr == "" {
+					assert.NoError(t, err, form.label)
+					continue
+				}
+				if assert.Error(t, err, form.label) {
+					assert.Contains(t, err.Error(), tt.wantErr, form.label)
+				}
+			}
+		})
+	}
+}
+
 func TestInterpolatedInvalid(t *testing.T) {
 	tests := []struct {
 		name string

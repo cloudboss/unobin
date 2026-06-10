@@ -738,7 +738,11 @@ DoubleQuotedKey <- s:DoubleQuotedString {
 // quoted (single- and multi-line). The triple forms are tried first so
 // `$'''` is not mistaken for `$'` followed by content; the !"''" guard on
 // the single form is the matching backstop. A `{{` opens a slot, a single
-// `{` is literal, and `\{{` is a literal `{{`.
+// `{` is literal, and `\{{` is a literal `{{`. Both forms enforce the
+// same slot rules - a non-empty expression on one line, with an optional
+// `%`-led printf directive after a top-level colon - the single-quoted
+// form here, the triple-quoted form in the slot scanner;
+// TestSlotFormParity holds the two together.
 InterpolatedStringNode <- InterpolatedMultiTriple / InterpolatedSingleTriple / InterpolatedSingleQuote
 
 InterpolatedMultiTriple <- "$'''" s:Sigil "\n" MultiLineContent Indent "'''" {
@@ -755,7 +759,10 @@ InterpolatedSingleQuote <- "$'" !"''" parts:InterpolatedSinglePart* "'" {
 
 InterpolatedSinglePart <- InterpolatedSlot / InterpolatedSingleLiteral
 
-InterpolatedSlot <- "{{" _ e:Value v:InterpolatedVerb? _ "}}" {
+InterpolatedSlot <- EmptySlot / "{{" _ e:Value v:( InterpolatedVerb / InterpolatedBadVerb )? _ "}}" {
+	if bytes.ContainsRune(c.text, '\n') {
+		return InterpolatedPart{S: c.span()}, fmt.Errorf("interpolation slot must be on one line")
+	}
 	part := InterpolatedPart{S: c.span(), Expr: e.(Expr)}
 	if v != nil {
 		part.Verb = v.(string)
@@ -763,8 +770,19 @@ InterpolatedSlot <- "{{" _ e:Value v:InterpolatedVerb? _ "}}" {
 	return part, nil
 }
 
+EmptySlot <- "{{" _ "}}" {
+	if bytes.ContainsRune(c.text, '\n') {
+		return InterpolatedPart{S: c.span()}, fmt.Errorf("interpolation slot must be on one line")
+	}
+	return InterpolatedPart{S: c.span()}, fmt.Errorf("empty interpolation slot")
+}
+
 InterpolatedVerb <- _ ":" _ v:VerbBody {
 	return v, nil
+}
+
+InterpolatedBadVerb <- _ ":" ( "'" ( "\\" . / !"'" !"\n" . )* "'" / !"}}" !"\n" . )* {
+	return "", fmt.Errorf("interpolation directive must be a printf verb like %%03d")
 }
 
 VerbBody <- "%" ( !"}}" !"\n" !"'" . )* {
