@@ -13,50 +13,13 @@ func (e *Executor) insideForEachComposite(n *Node) bool {
 	return underForEachComposite(e.DAG.Nodes, n)
 }
 
-// planForEachAction plans one action step per iterable key. Mirrors
-// planForEachResource: each instance evaluates against a child scope
-// with `@each.key` / `@each.value` bound, and its state address gets
-// a `['<key>']` suffix.
-func (e *Executor) planForEachAction(rs *runState, n *Node) ([]*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.Alias]
-	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.Alias)
-	}
-	if _, ok := lib.Actions[n.Type]; !ok {
-		return nil, fmt.Errorf("library %s has no action %q", n.Alias, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
-	if err != nil {
-		return nil, err
-	}
-	instances, err := forEachInstancesFor(rs, n.Address, n.ForEach, scope)
-	if err != nil {
-		return nil, err
-	}
-	var steps []*PlanStep
-	for _, key := range sortedKeys(instances) {
-		inst := childScopeWithEach(scope, key, instances[key])
-		addr := instanceAddress(n.Address, key)
-		step, err := e.planOneAction(rs, n, inst, addr)
-		if err != nil {
-			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
-		}
-		steps = append(steps, step)
-	}
-	return steps, nil
-}
-
-// planForEachData plans one data source step per iterable key.
-func (e *Executor) planForEachData(
+// planForEachLeaf plans one step per iterable key of a leaf node.
+// Each instance evaluates against a child scope with `@each.key` /
+// `@each.value` bound, and its state address gets a `['<key>']`
+// suffix.
+func (e *Executor) planForEachLeaf(
 	ctx context.Context, rs *runState, n *Node,
 ) ([]*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.Alias]
-	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.Alias)
-	}
-	if _, ok := lib.DataSources[n.Type]; !ok {
-		return nil, fmt.Errorf("library %s has no data source %q", n.Alias, n.Type)
-	}
 	scope, err := e.scopeFor(rs, n)
 	if err != nil {
 		return nil, err
@@ -69,7 +32,7 @@ func (e *Executor) planForEachData(
 	for _, key := range sortedKeys(instances) {
 		inst := childScopeWithEach(scope, key, instances[key])
 		addr := instanceAddress(n.Address, key)
-		step, err := e.planOneData(ctx, rs, n, inst, addr)
+		step, err := e.planOneInstance(ctx, rs, n, inst, addr)
 		if err != nil {
 			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
 		}
@@ -217,67 +180,9 @@ func (e *Executor) planInternalUnder(
 	if scope == nil {
 		return nil, fmt.Errorf("internal %q: no scope", addr)
 	}
-	switch n.Kind {
-	case NodeResource:
-		lib, ok := e.librariesFor(n)[n.Alias]
-		if !ok {
-			return nil, fmt.Errorf("library %q is not imported", n.Alias)
-		}
-		rt, ok := lib.Resources[n.Type]
-		if !ok {
-			return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
-		}
-		step, err := e.planOneResource(rs, n, rt, scope, addr)
-		if err != nil {
-			return nil, err
-		}
-		return []*PlanStep{step}, nil
-	case NodeAction:
-		step, err := e.planOneAction(rs, n, scope, addr)
-		if err != nil {
-			return nil, err
-		}
-		return []*PlanStep{step}, nil
-	case NodeData:
-		step, err := e.planOneData(ctx, rs, n, scope, addr)
-		if err != nil {
-			return nil, err
-		}
-		return []*PlanStep{step}, nil
-	}
-	return nil, fmt.Errorf("internal %q: unsupported kind %s", addr, n.Kind)
-}
-
-// planForEachResource plans one step per iterable key. The iterable is
-// evaluated against the node's natural scope; each instance is planned
-// against a child scope carrying its `@each.key` / `@each.value`
-// binding, with its own state address.
-func (e *Executor) planForEachResource(rs *runState, n *Node) ([]*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.Alias]
-	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.Alias)
-	}
-	rt, ok := lib.Resources[n.Type]
-	if !ok {
-		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
+	step, err := e.planOneInstance(ctx, rs, n, scope, addr)
 	if err != nil {
 		return nil, err
 	}
-	instances, err := forEachInstancesFor(rs, n.Address, n.ForEach, scope)
-	if err != nil {
-		return nil, err
-	}
-	var steps []*PlanStep
-	for _, key := range sortedKeys(instances) {
-		inst := childScopeWithEach(scope, key, instances[key])
-		addr := instanceAddress(n.Address, key)
-		step, err := e.planOneResource(rs, n, rt, inst, addr)
-		if err != nil {
-			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
-		}
-		steps = append(steps, step)
-	}
-	return steps, nil
+	return []*PlanStep{step}, nil
 }

@@ -191,13 +191,9 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if err != nil {
 		return err
 	}
-	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
-	if !ok {
-		return fmt.Errorf("library %q is not imported", prep.node.Alias)
-	}
-	at, ok := lib.Actions[prep.node.Type]
-	if !ok {
-		return fmt.Errorf("library %s has no action %q", prep.node.Alias, prep.node.Type)
+	at, err := e.actionRegistration(prep.node)
+	if err != nil {
+		return err
 	}
 	var outputs map[string]any
 	switch step.Decision {
@@ -264,13 +260,9 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			"resource %s inputs changed since the plan was computed; plan again\n%s",
 			step.Address, diffFields(planned, applied, step.SensitiveInputs))
 	}
-	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
-	if !ok {
-		return fmt.Errorf("library %q is not imported", prep.node.Alias)
-	}
-	rt, ok := lib.Resources[prep.node.Type]
-	if !ok {
-		return fmt.Errorf("library %s has no resource %q", prep.node.Alias, prep.node.Type)
+	rt, err := e.resourceRegistration(prep.node)
+	if err != nil {
+		return err
 	}
 
 	receiver := rt.NewReceiver()
@@ -476,13 +468,9 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err != nil {
 		return err
 	}
-	lib, ok := e.librariesFor(prep.node)[prep.node.Alias]
-	if !ok {
-		return fmt.Errorf("library %q is not imported", prep.node.Alias)
-	}
-	dt, ok := lib.DataSources[prep.node.Type]
-	if !ok {
-		return fmt.Errorf("library %s has no data source %q", prep.node.Alias, prep.node.Type)
+	dt, err := e.dataRegistration(prep.node)
+	if err != nil {
+		return err
 	}
 	receiver := dt.NewReceiver()
 	if err := Decode(receiver, prep.inputs); err != nil {

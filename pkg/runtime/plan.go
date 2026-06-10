@@ -514,14 +514,7 @@ func (e *Executor) planNodeSteps(
 		if n.IsComposite() {
 			return e.planForEachComposite(ctx, rs, n)
 		}
-		switch n.Kind {
-		case NodeResource:
-			return e.planForEachResource(rs, n)
-		case NodeAction:
-			return e.planForEachAction(rs, n)
-		case NodeData:
-			return e.planForEachData(ctx, rs, n)
-		}
+		return e.planForEachLeaf(ctx, rs, n)
 	}
 	step, err := e.planNode(ctx, rs, n)
 	if err != nil {
@@ -531,6 +524,74 @@ func (e *Executor) planNodeSteps(
 		return nil, nil
 	}
 	return []*PlanStep{step}, nil
+}
+
+// resourceRegistration returns the registration backing a resource
+// node, with an error naming a missing import or type.
+func (e *Executor) resourceRegistration(n *Node) (ResourceRegistration, error) {
+	lib, ok := e.librariesFor(n)[n.Alias]
+	if !ok {
+		return nil, fmt.Errorf("library %q is not imported", n.Alias)
+	}
+	rt, ok := lib.Resources[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
+	}
+	return rt, nil
+}
+
+// actionRegistration mirrors resourceRegistration for actions.
+func (e *Executor) actionRegistration(n *Node) (ActionRegistration, error) {
+	lib, ok := e.librariesFor(n)[n.Alias]
+	if !ok {
+		return nil, fmt.Errorf("library %q is not imported", n.Alias)
+	}
+	at, ok := lib.Actions[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("library %s has no action %q", n.Alias, n.Type)
+	}
+	return at, nil
+}
+
+// dataRegistration mirrors resourceRegistration for data sources.
+func (e *Executor) dataRegistration(n *Node) (DataSourceRegistration, error) {
+	lib, ok := e.librariesFor(n)[n.Alias]
+	if !ok {
+		return nil, fmt.Errorf("library %q is not imported", n.Alias)
+	}
+	dt, ok := lib.DataSources[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("library %s has no data source %q", n.Alias, n.Type)
+	}
+	return dt, nil
+}
+
+// planOneInstance plans one instance of a leaf node against scope at
+// addr, resolving the node's registration by kind. The plain path
+// passes the node's own address; the for-each path passes a child
+// scope with `@each` bound and a `['<key>']` address.
+func (e *Executor) planOneInstance(
+	ctx context.Context, rs *runState, n *Node, scope *EvalContext, addr string,
+) (*PlanStep, error) {
+	switch n.Kind {
+	case NodeResource:
+		rt, err := e.resourceRegistration(n)
+		if err != nil {
+			return nil, err
+		}
+		return e.planOneResource(rs, n, rt, scope, addr)
+	case NodeAction:
+		if _, err := e.actionRegistration(n); err != nil {
+			return nil, err
+		}
+		return e.planOneAction(rs, n, scope, addr)
+	case NodeData:
+		if _, err := e.dataRegistration(n); err != nil {
+			return nil, err
+		}
+		return e.planOneData(ctx, rs, n, scope, addr)
+	}
+	return nil, fmt.Errorf("%s: unsupported node kind %q", addr, n.Kind)
 }
 
 func (e *Executor) seedFromPriorState(rs *runState) error {
@@ -852,16 +913,12 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		return e.planComposite(rs, n)
 	}
 	switch n.Kind {
-	case NodeAction:
-		return e.planAction(rs, n)
-	case NodeResource:
-		return e.planResource(rs, n)
-	case NodeData:
+	case NodeResource, NodeAction, NodeData:
 		scope, err := e.scopeFor(rs, n)
 		if err != nil {
 			return nil, err
 		}
-		return e.planOneData(ctx, rs, n, scope, n.Address)
+		return e.planOneInstance(ctx, rs, n, scope, n.Address)
 	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
 	case NodeConfiguration:
@@ -1006,21 +1063,6 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 	}, nil
 }
 
-func (e *Executor) planAction(rs *runState, n *Node) (*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.Alias]
-	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.Alias)
-	}
-	if _, ok := lib.Actions[n.Type]; !ok {
-		return nil, fmt.Errorf("library %s has no action %q", n.Alias, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
-	if err != nil {
-		return nil, err
-	}
-	return e.planOneAction(rs, n, scope, n.Address)
-}
-
 // planOneAction plans a single action instance against the given scope
 // and state address. Used both by the plain action path
 // (scope == parent, addr == n.Address) and by the for-each path
@@ -1065,22 +1107,6 @@ func (e *Executor) planOneAction(
 		regeneratesOutputs: dec == DecisionRerun,
 		mayChangeOutputs:   dec == DecisionRerun,
 	}, nil
-}
-
-func (e *Executor) planResource(rs *runState, n *Node) (*PlanStep, error) {
-	lib, ok := e.librariesFor(n)[n.Alias]
-	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.Alias)
-	}
-	rt, ok := lib.Resources[n.Type]
-	if !ok {
-		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
-	}
-	scope, err := e.scopeFor(rs, n)
-	if err != nil {
-		return nil, err
-	}
-	return e.planOneResource(rs, n, rt, scope, n.Address)
 }
 
 // pendingRead is the per-resource read job queued by planOneResource
@@ -1317,13 +1343,9 @@ func (e *Executor) planOneData(
 		step.DeferredRead = ref
 		return step, nil
 	}
-	lib, ok := e.librariesFor(n)[n.Alias]
-	if !ok {
-		return nil, fmt.Errorf("library %q is not imported", n.Alias)
-	}
-	dt, ok := lib.DataSources[n.Type]
-	if !ok {
-		return nil, fmt.Errorf("library %s has no data source %q", n.Alias, n.Type)
+	dt, err := e.dataRegistration(n)
+	if err != nil {
+		return nil, err
 	}
 	receiver := dt.NewReceiver()
 	if err := Decode(receiver, inputs); err != nil {
