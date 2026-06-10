@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/spf13/cobra"
 )
 
@@ -38,9 +41,11 @@ func doSchema(cmd *cobra.Command, info Info) error {
 	if err != nil {
 		return err
 	}
+	out := cmd.OutOrStdout()
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
-		fmt.Fprintln(cmd.OutOrStdout(), "No inputs declared.")
+		fmt.Fprintln(out, "No inputs declared.")
+		printConfigurationSchema(out, f, info)
 		return nil
 	}
 	for _, fld := range inputs.Fields {
@@ -66,13 +71,85 @@ func doSchema(cmd *cobra.Command, info Info) error {
 				}
 			}
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s: %s", fld.Key.Name, typeStr)
+		fmt.Fprintf(out, "%s: %s", fld.Key.Name, typeStr)
 		if description != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "  -- %s", description)
+			fmt.Fprintf(out, "  -- %s", description)
 		}
-		fmt.Fprintln(cmd.OutOrStdout())
+		fmt.Fprintln(out)
 	}
+	printConfigurationSchema(out, f, info)
 	return nil
+}
+
+// printConfigurationSchema lists each configured library: the names
+// the factory defines internally, the names config.ub must supply
+// (every selection some node makes that is not internal), and the
+// configuration's fields.
+func printConfigurationSchema(out io.Writer, f *lang.File, info Info) {
+	var aliases []string
+	for alias, lib := range info.Libraries {
+		if lib.Configuration != nil {
+			aliases = append(aliases, alias)
+		}
+	}
+	if len(aliases) == 0 {
+		return
+	}
+	sort.Strings(aliases)
+	used := runtime.BuildDAG(f, info.Libraries).ConfigurationSelections(info.Libraries)
+	internal := runtime.InternalConfigurationNames(f)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "configurations:")
+	for _, alias := range aliases {
+		lib := info.Libraries[alias]
+		fmt.Fprintf(out, "  %s:", alias)
+		if d := lib.Configuration.Description; d != "" {
+			fmt.Fprintf(out, "  -- %s", d)
+		}
+		fmt.Fprintln(out)
+		if names := sortedSetKeys(internal[alias]); len(names) > 0 {
+			fmt.Fprintf(out, "    internal: %s\n", strings.Join(names, ", "))
+		}
+		if owed := owedNames(used[alias], internal[alias]); len(owed) > 0 {
+			fmt.Fprintf(out, "    needed from config.ub: %s\n", strings.Join(owed, ", "))
+		}
+		for _, fl := range cfg.Describe(lib.Configuration) {
+			fmt.Fprintf(out, "      %s: %s", fl.Name, fieldTypeLabel(fl))
+			if fl.Description != "" {
+				fmt.Fprintf(out, "  -- %s", fl.Description)
+			}
+			fmt.Fprintln(out)
+		}
+	}
+}
+
+// owedNames returns the selections in used that the factory does not
+// define internally, sorted: the names config.ub must supply.
+func owedNames(used, internal map[string]bool) []string {
+	var owed []string
+	for name := range used {
+		if !internal[name] {
+			owed = append(owed, name)
+		}
+	}
+	sort.Strings(owed)
+	return owed
+}
+
+func sortedSetKeys(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func fieldTypeLabel(f cfg.Field) string {
+	if f.Optional {
+		return "optional(" + f.Type + ")"
+	}
+	return f.Type
 }
 
 func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
@@ -106,41 +183,98 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
 	fmt.Fprintln(out, "  }")
 	fmt.Fprintln(out, "}")
 	inputs := topLevelObject(f, "inputs")
-	if inputs == nil || len(inputs.Fields) == 0 {
-		return
-	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "inputs: {")
-	for _, fld := range inputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent {
-			continue
-		}
-		decl, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		var typeExpr lang.Expr
-		var description string
-		for _, df := range decl.Fields {
-			if df.Key.Kind != lang.FieldIdent {
+	if inputs != nil && len(inputs.Fields) > 0 {
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "inputs: {")
+		for _, fld := range inputs.Fields {
+			if fld.Key.Kind != lang.FieldIdent {
 				continue
 			}
-			switch df.Key.Name {
-			case "type":
-				typeExpr = df.Value
-			case "description":
-				if s, ok := df.Value.(*lang.StringLit); ok {
-					description = s.Value
+			decl, ok := fld.Value.(*lang.ObjectLit)
+			if !ok {
+				continue
+			}
+			var typeExpr lang.Expr
+			var description string
+			for _, df := range decl.Fields {
+				if df.Key.Kind != lang.FieldIdent {
+					continue
+				}
+				switch df.Key.Name {
+				case "type":
+					typeExpr = df.Value
+				case "description":
+					if s, ok := df.Value.(*lang.StringLit); ok {
+						description = s.Value
+					}
 				}
 			}
+			if description != "" {
+				fmt.Fprintf(out, "  # %s\n", description)
+			}
+			fmt.Fprintf(out, "  %s: %s  # type: %s\n",
+				fld.Key.Name, placeholderForType(typeExpr), printType(typeExpr))
 		}
-		if description != "" {
-			fmt.Fprintf(out, "  # %s\n", description)
+		fmt.Fprintln(out, "}")
+	}
+	renderConfigurationsTemplate(out, f, info)
+}
+
+// renderConfigurationsTemplate scaffolds the configurations the
+// operator owes: every selection some node makes that the factory
+// does not define internally, with a placeholder per field.
+func renderConfigurationsTemplate(out io.Writer, f *lang.File, info Info) {
+	used := runtime.BuildDAG(f, info.Libraries).ConfigurationSelections(info.Libraries)
+	internal := runtime.InternalConfigurationNames(f)
+	owedByAlias := map[string][]string{}
+	var aliases []string
+	for alias, names := range used {
+		if owed := owedNames(names, internal[alias]); len(owed) > 0 {
+			owedByAlias[alias] = owed
+			aliases = append(aliases, alias)
 		}
-		fmt.Fprintf(out, "  %s: %s  # type: %s\n",
-			fld.Key.Name, placeholderForType(typeExpr), printType(typeExpr))
+	}
+	if len(aliases) == 0 {
+		return
+	}
+	sort.Strings(aliases)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "configurations: {")
+	for _, alias := range aliases {
+		fmt.Fprintf(out, "  %s: {\n", alias)
+		fields := cfg.Describe(info.Libraries[alias].Configuration)
+		for _, name := range owedByAlias[alias] {
+			fmt.Fprintf(out, "    %s: {\n", name)
+			for _, fl := range fields {
+				if fl.Description != "" {
+					fmt.Fprintf(out, "      # %s\n", fl.Description)
+				}
+				fmt.Fprintf(out, "      %s: %s  # type: %s\n",
+					fl.Name, placeholderForFieldType(fl.Type), fieldTypeLabel(fl))
+			}
+			fmt.Fprintln(out, "    }")
+		}
+		fmt.Fprintln(out, "  }")
 	}
 	fmt.Fprintln(out, "}")
+}
+
+// placeholderForFieldType picks a starter value for one configuration
+// field by its language type label.
+func placeholderForFieldType(t string) string {
+	switch {
+	case t == "string":
+		return "''"
+	case t == "integer" || t == "number":
+		return "0"
+	case t == "boolean":
+		return "false"
+	case strings.HasPrefix(t, "list("):
+		return "[]"
+	case strings.HasPrefix(t, "map(") || t == "object":
+		return "{}"
+	}
+	return "null"
 }
 
 func placeholderForType(e lang.Expr) string {
