@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/spf13/cobra"
 )
@@ -65,7 +64,7 @@ func doPin(
 			"%s already pins %s (content-revision %s).\n", configPath, version, revision)
 		return nil
 	}
-	if err := ufs.WriteFileAtomic(configPath, updated, 0o644); err != nil {
+	if err := lang.WriteCanonical(configPath, updated); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(),

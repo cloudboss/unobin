@@ -1,11 +1,16 @@
 package runner
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 func TestPinFile(t *testing.T) {
@@ -243,6 +248,33 @@ func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
 	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "library-path")
+}
+
+// TestPinWritesCanonicalFile proves the written config is reformatted as a
+// whole, not just the spliced entry: an operator's odd indentation in an
+// untouched block comes out canonical too.
+func TestPinWritesCanonicalFile(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.ub")
+	require.NoError(t, os.WriteFile(configPath,
+		[]byte("inputs: {\n    message:   'hi'\n}\n"), 0o644))
+
+	info := Info{
+		LibraryPath:     "github.com/cloudboss/cluster-deploy",
+		FactoryVersion:  "v0.3.0",
+		ContentRevision: "fedcba",
+	}
+	cmd := &cobra.Command{}
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	require.NoError(t, doPin(cmd, info, configPath, "", ""))
+
+	got, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	canonical, err := lang.Canonicalize("config.ub", got)
+	require.NoError(t, err)
+	assert.Equal(t, string(canonical), string(got), "pinned config should be canonical")
+	assert.NotContains(t, string(got), "    message", "operator indentation should be normalized")
 }
 
 func TestPinFilePreservesTrailingContent(t *testing.T) {
