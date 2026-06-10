@@ -31,3 +31,11 @@ func TestLibraryDeclaresConfiguration(t *testing.T) {
 	require.NotNil(t, lib.Configuration)
 	require.NoError(t, cfg.ValidateConfigurationType(lib.Configuration))
 }
+
+func TestPhraseDecorates(t *testing.T) {
+	r := &PhraseResource{Text: "Salutations"}
+	out, err := r.Create(context.Background(), nil)
+	require.NoError(t, err)
+	require.Equal(t, "** Salutations **", out.Decorated)
+	require.Equal(t, "Salutations", out.Text)
+}

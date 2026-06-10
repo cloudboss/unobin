@@ -1,13 +1,21 @@
-description: 'Exercises @configuration on leaves and @configurations on composite call sites.'
+description: '''>-
+  Exercises @configuration on leaves, @configurations on composite
+  call sites, and a configuration the factory derives from a resource.
+  '''
 
 imports: {
   greet:   'github.com/cloudboss/unobin//examples/configurations/greet'
   greeter: './greeter'
 }
 
+configurations: { greet: { fancy: { prefix: resource.greet.phrase.flourish.decorated } } }
+
+resources: { greet.phrase.flourish: { text: 'Salutations' } }
+
 actions: {
   greet.say.casual:             { message: 'world' }
   greet.say.formal:             { @configuration: greet.formal, message: 'world' }
+  greet.say.fancy:              { @configuration: greet.fancy, message: 'world' }
   greeter.greeting.casual-wrap: { message: 'wrapped' }
   greeter.greeting.formal-wrap: { @configurations: { greet: greet.formal }, message: 'wrapped' }
 }
@@ -15,6 +23,7 @@ actions: {
 outputs: {
   casual:      { value: action.greet.say.casual.output }
   formal:      { value: action.greet.say.formal.output }
+  fancy:       { value: action.greet.say.fancy.output }
   casual-wrap: { value: action.greeter.greeting.casual-wrap.output }
   formal-wrap: { value: action.greeter.greeting.formal-wrap.output }
 }
