@@ -159,10 +159,11 @@ func buildStepGraphWithPairKey(
 	return g
 }
 
-// entryPersisted reports whether a step's apply writes a state entry
-// that survives in the snapshot. Resources (unless being destroyed),
-// actions, and composite call sites persist; data sources and outputs
-// do not.
+// entryPersisted reports whether a step's entry is a destroy-ordering
+// target: resources (unless being destroyed), actions, and composite
+// call sites. Data reads, output values, and configuration
+// evaluations are not ordering targets, so dependencies through them
+// collapse to their persisted predecessors.
 func entryPersisted(s *PlanStep) bool {
 	if s.Composite {
 		return true
@@ -180,10 +181,11 @@ func entryPersisted(s *PlanStep) bool {
 // persistedDependsOn computes, for each plan step that becomes a state
 // entry, the addresses of the other entries it depends on. The step
 // graph's edges run from a dependency to its dependents, so they are
-// inverted here. A predecessor that is not itself persisted (a data
-// source or output) is collapsed through to its own persisted
-// predecessors, so every recorded address names an entry that will
-// exist in state. Destroy ordering reverses these edges.
+// inverted here. A predecessor that is not itself persisted (a
+// configuration evaluation, data read, or output) is collapsed through
+// to its own persisted predecessors, so every recorded address names
+// an entry destroy can sequence against. Destroy ordering reverses
+// these edges.
 func persistedDependsOn(g *stepGraph, steps []PlanStep) map[string][]string {
 	persisted := make(map[string]bool, len(steps))
 	for i := range steps {

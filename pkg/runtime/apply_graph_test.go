@@ -271,6 +271,18 @@ func TestPersistedDependsOn(t *testing.T) {
 			want:       map[string][]string{"a": {"r"}},
 		},
 		{
+			name: "collapse through a configuration",
+			steps: []PlanStep{
+				{Address: "a", Kind: NodeAction, Decision: DecisionCreate},
+				{Address: "cfg", Kind: NodeConfiguration, Decision: DecisionEval},
+				leafStep("r"),
+			},
+			// a -> cfg -> r; the configuration evaluation is not an
+			// entry, so a records r and destroy sequences a before r.
+			dependents: map[string][]string{"r": {"cfg"}, "cfg": {"a"}},
+			want:       map[string][]string{"a": {"r"}},
+		},
+		{
 			name: "library-call stays a node",
 			steps: []PlanStep{
 				leafStep("r"),
@@ -340,6 +352,48 @@ func TestPersistedDependsOn(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// TestPersistedDependsOnCollapsesConfigurations pins the recorded
+// depends-on for every consumer form that reaches a resource only
+// through an internal configuration node: a plain leaf, @for-each
+// instances, and a composite-internal leaf. Each must record the
+// resource the configuration reads, since destroy ordering has no
+// configuration entry to sequence against.
+func TestPersistedDependsOnCollapsesConfigurations(t *testing.T) {
+	dag := newDAG(map[string][]string{
+		"configuration.greet.fancy":                       {"resource.greet.phrase.flourish"},
+		"action.greet.say.solo":                           {"configuration.greet.fancy"},
+		"action.greet.say.many":                           {"configuration.greet.fancy"},
+		"resource.net.cluster.web/action.greet.say.inner": {"configuration.greet.fancy"},
+		"resource.greet.phrase.flourish":                  nil,
+	})
+	steps := []PlanStep{
+		{Address: "resource.greet.phrase.flourish", Kind: NodeResource, Decision: DecisionCreate},
+		{Address: "configuration.greet.fancy", Kind: NodeConfiguration, Decision: DecisionEval},
+		{Address: "action.greet.say.solo", Kind: NodeAction, Decision: DecisionCreate},
+		{Address: "action.greet.say.many['k1']", Kind: NodeAction, Decision: DecisionCreate},
+		{Address: "action.greet.say.many['k2']", Kind: NodeAction, Decision: DecisionCreate},
+		{
+			Address:  "resource.net.cluster.web/action.greet.say.inner",
+			Kind:     NodeAction,
+			Decision: DecisionCreate,
+		},
+	}
+	addrs := make([]string, len(steps))
+	for i := range steps {
+		addrs[i] = steps[i].Address
+	}
+	g := buildStepGraphFromAddresses(addrs, dag)
+	got := persistedDependsOn(g, steps)
+	assert.Equal(t, map[string][]string{
+		"action.greet.say.solo":       {"resource.greet.phrase.flourish"},
+		"action.greet.say.many['k1']": {"resource.greet.phrase.flourish"},
+		"action.greet.say.many['k2']": {"resource.greet.phrase.flourish"},
+		"resource.net.cluster.web/action.greet.say.inner": {
+			"resource.greet.phrase.flourish",
+		},
+	}, got)
 }
 
 func destroyStep(addr string, dependsOn ...string) PlanStep {
