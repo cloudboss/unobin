@@ -1,1 +1,0 @@
-state: { @backend: local, encryption: { @key-source: env-key, @key-source: env-key } }

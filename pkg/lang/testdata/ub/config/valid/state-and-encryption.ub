@@ -1,0 +1,6 @@
+state: {
+  @backend: local
+  path: '.unobin/state'
+}
+
+encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' }

@@ -1,1 +1,0 @@
-config.ub:1:54: schema: encryption block: @key-source: expected a bare name like local, got string literal

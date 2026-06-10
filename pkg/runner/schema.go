@@ -210,9 +210,10 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info In
 	fmt.Fprintln(out, "state: {")
 	fmt.Fprintln(out, "  @backend: local")
 	fmt.Fprintln(out, "  path: '.unobin/state'")
-	fmt.Fprintln(out, "  encryption: {")
-	fmt.Fprintln(out, "    @key-source: noop")
-	fmt.Fprintln(out, "  }")
+	fmt.Fprintln(out, "}")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "encryption: {")
+	fmt.Fprintln(out, "  @key-source: noop")
 	fmt.Fprintln(out, "}")
 	inputs := topLevelObject(f, "inputs")
 	if inputs != nil && len(inputs.Fields) > 0 {

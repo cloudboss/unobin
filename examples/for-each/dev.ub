@@ -1,4 +1,6 @@
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+state: { @backend: local, path: '.unobin/state' }
+
+encryption: { @key-source: noop }
 
 inputs: {
   base-path: '/tmp/unobin-for-each'

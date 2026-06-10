@@ -608,8 +608,8 @@ func stackName(configPath string) string {
 	return base
 }
 
-// loadEncrypter resolves the encrypter from the `encryption:` sub-block
-// of a pre-parsed config. With a nil file, or no encryption block
+// loadEncrypter resolves the encrypter from the `encryption:` block of
+// a pre-parsed config. With a nil file, or no encryption block
 // present, the resolver falls back to the env-key encrypter against
 // `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
 // configPath is preserved only for error messages.

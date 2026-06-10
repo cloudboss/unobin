@@ -165,13 +165,14 @@ func applyVia(t *testing.T, info Info, configPath string) string {
 	return out
 }
 
-// stateConfigBody is the state: block every test config needs, now that a
-// backend must be configured explicitly.
+// stateConfigBody is the state: and encryption: blocks every test config
+// needs, now that a backend must be configured explicitly.
 const stateConfigBody = `state: {
   @backend: local
   path: '.unobin/state'
-  encryption: { @key-source: noop }
 }
+
+encryption: { @key-source: noop }
 `
 
 // writeStateConfig writes a config with the required state block plus body
@@ -1320,9 +1321,10 @@ inputs: {
 state: {
   @backend: local
   path:     '.unobin/state'
-  encryption: {
-    @key-source: noop
-  }
+}
+
+encryption: {
+  @key-source: noop
 }
 
 inputs: {
@@ -1349,9 +1351,10 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 state: {
   @backend: local
   path:     '.unobin/state'
-  encryption: {
-    @key-source: noop
-  }
+}
+
+encryption: {
+  @key-source: noop
 }
 `
 	require.Equal(t, expected, out)
@@ -1372,9 +1375,10 @@ func TestTemplateIncludesLibraryPathWhenSet(t *testing.T) {
 state: {
   @backend: local
   path:     '.unobin/state'
-  encryption: {
-    @key-source: noop
-  }
+}
+
+encryption: {
+  @key-source: noop
 }
 `
 	require.Equal(t, expected, out)
@@ -1398,9 +1402,10 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 state: {
   @backend: local
   path:     '.unobin/state'
-  encryption: {
-    @key-source: noop
-  }
+}
+
+encryption: {
+  @key-source: noop
 }
 
 inputs: {
@@ -1568,8 +1573,8 @@ func TestValidateRejectsUnknownEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, path: '.unobin/state',"+
-			" encryption: { @key-source: ghost } }\n"),
+		"state: { @backend: local, path: '.unobin/state' }\n\n"+
+			"encryption: { @key-source: ghost }\n"),
 		0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
@@ -1580,8 +1585,8 @@ func TestValidateAcceptsCoreBackendAndEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, path: '.unobin/state',"+
-			" encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' } }\n"),
+		"state: { @backend: local, path: '.unobin/state' }\n\n"+
+			"encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' }\n"),
 		0o644))
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.NoError(t, err)

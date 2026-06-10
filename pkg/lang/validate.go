@@ -42,6 +42,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]topLevelValueKind{
 		"factory":        topLevelObject,
 		"parallelism":    topLevelNumber,
 		"state":          topLevelObject,
+		"encryption":     topLevelObject,
 		"inputs":         topLevelObject,
 		"configurations": topLevelObject,
 	},
@@ -939,6 +940,9 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
 		}
+		if obj, ok := blocks["encryption"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateEncryptionConfig(obj))
+		}
 	case FileManifest:
 		if obj, ok := blocks["requires"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateManifestRequires(obj))
@@ -1639,19 +1643,16 @@ func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
 
 // ValidateStateConfig checks the structure of a state: block in a config
 // file. The block must have exactly one @backend: meta-key whose value is
-// a fully-qualified alias.name reference such as core.local. It may include
-// a nested encryption: object of the same form with @key-source:, plus any
-// number of body fields keyed by bare identifiers. Body values are not
-// type-checked here; the resolver decodes them against each backend's
-// declared configuration.
+// a bare backend name such as local, plus any number of body fields keyed
+// by bare identifiers. Body values are not type-checked here; the
+// resolver decodes them against each backend's declared configuration.
 func ValidateStateConfig(block *ObjectLit) *ErrorList {
 	return validateBackendBlock(block, "state", "@backend")
 }
 
-// ValidateEncryptionConfig checks the structure of an `encryption:`
-// sub-block nested inside a `state:` block. Same rules as
-// ValidateStateConfig but with `@key-source:` in place of `@backend:`
-// and no further nested blocks.
+// ValidateEncryptionConfig checks the structure of an `encryption:` block
+// in a config file. Same rules as ValidateStateConfig but with
+// `@key-source:` in place of `@backend:`.
 func ValidateEncryptionConfig(block *ObjectLit) *ErrorList {
 	return validateBackendBlock(block, "encryption", "@key-source")
 }
@@ -1696,14 +1697,8 @@ func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
 		}
 		seen[name] = fld.Key.S.Start
 		if what == "state" && name == "encryption" {
-			sub, ok := fld.Value.(*ObjectLit)
-			if !ok {
-				errs.Addf(ErrSchema, fld.Value.Span().Start,
-					"state block: encryption must be an object, got %s",
-					exprKind(fld.Value))
-				continue
-			}
-			mergeErrors(errs, ValidateEncryptionConfig(sub))
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"state block: encryption is its own top-level block; move it out of state")
 		}
 	}
 	if !metaSet {

@@ -33,25 +33,32 @@ type stateConfig struct {
 	Encrypter *resolverRef
 }
 
-// parseStateConfig extracts the `state:` block from a pre-parsed
-// config. A nil file or an absent block returns an empty stateConfig
-// and the caller falls back to defaults. The block is expected to be
-// structurally validated by lang.ValidateStateConfig before this runs;
-// this function evaluates body expressions and packages them for the
-// resolver. path is preserved only for error messages from Eval.
+// parseStateConfig extracts the `state:` and `encryption:` blocks from
+// a pre-parsed config. A nil file or an absent block leaves the matching
+// field nil and the caller falls back to defaults. The blocks are
+// expected to be structurally validated by lang.ValidateStateConfig and
+// lang.ValidateEncryptionConfig before this runs; this function
+// evaluates body expressions and packages them for the resolver. path
+// is preserved only for error messages from Eval.
 func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 	if f == nil {
 		return &stateConfig{}, nil
 	}
-	block := topLevelObject(f, "state")
-	if block == nil {
-		return &stateConfig{}, nil
+	sc := &stateConfig{}
+	var stateErr, encErr error
+	if block := topLevelObject(f, "state"); block != nil {
+		sc.Backend, stateErr = readStateBlock(path, block)
 	}
-	return readStateBlock(path, block)
+	if block := topLevelObject(f, "encryption"); block != nil {
+		sc.Encrypter, encErr = readEncryptionBlock(path, block)
+	}
+	if err := errors.Join(stateErr, encErr); err != nil {
+		return nil, err
+	}
+	return sc, nil
 }
 
-func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, error) {
-	sc := &stateConfig{}
+func readStateBlock(configPath string, block *lang.ObjectLit) (*resolverRef, error) {
 	body := map[string]any{}
 	var name string
 	var errs []error
@@ -66,19 +73,6 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 		if fld.Key.Kind != lang.FieldIdent {
 			continue
 		}
-		if fld.Key.Name == "encryption" {
-			obj, ok := fld.Value.(*lang.ObjectLit)
-			if !ok {
-				continue
-			}
-			ref, perr := readEncryptionBlock(configPath, obj)
-			if perr != nil {
-				errs = append(errs, perr)
-				continue
-			}
-			sc.Encrypter = ref
-			continue
-		}
 		val, err := runtime.Eval(fld.Value, &runtime.EvalContext{})
 		if err != nil {
 			errs = append(errs, fmt.Errorf(
@@ -87,13 +81,13 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*stateConfig, err
 		}
 		body[fld.Key.Name] = val
 	}
-	if name != "" {
-		sc.Backend = &resolverRef{Name: name, Body: body}
-	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
-	return sc, nil
+	if name == "" {
+		return nil, nil
+	}
+	return &resolverRef{Name: name, Body: body}, nil
 }
 
 func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef, error) {

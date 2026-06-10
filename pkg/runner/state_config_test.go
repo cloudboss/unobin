@@ -52,8 +52,9 @@ func TestParseStateConfigBackendAndEncryption(t *testing.T) {
 state: {
   @backend: local
   path:     '/tmp/state'
-  encryption: { @key-source: noop }
 }
+
+encryption: { @key-source: noop }
 `
 	f := parseConfig(t, src)
 	sc, err := parseStateConfig(f, "config.ub")
@@ -63,6 +64,25 @@ state: {
 	assert.Equal(t, "/tmp/state", sc.Backend.Body["path"])
 	require.NotNil(t, sc.Encrypter)
 	assert.Equal(t, "noop", sc.Encrypter.Name)
+}
+
+func TestParseStateConfigEncryptionOnly(t *testing.T) {
+	f := parseConfig(t, "encryption: { @key-source: noop }\n")
+	sc, err := parseStateConfig(f, "config.ub")
+	require.NoError(t, err)
+	assert.Nil(t, sc.Backend)
+	require.NotNil(t, sc.Encrypter)
+	assert.Equal(t, "noop", sc.Encrypter.Name)
+}
+
+func TestValidateRejectsEncryptionInsideState(t *testing.T) {
+	f, err := lang.ParseSource("config.ub", []byte(
+		"state: { @backend: local, encryption: { @key-source: noop } }\n"))
+	require.NoError(t, err)
+	f.Kind = lang.FileConfig
+	errs := lang.ValidateFile(f)
+	require.NotZero(t, errs.Len())
+	require.Contains(t, errs.Err().Error(), "its own top-level block")
 }
 
 func TestResolveBackendNilRefIsError(t *testing.T) {
