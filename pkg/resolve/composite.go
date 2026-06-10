@@ -58,7 +58,7 @@ func ValidateCompositeBody(kind, typeName string, f *lang.File) []error {
 // a three-segment path contributes nothing, so an empty or absent block
 // is zero.
 func kindLeafCount(f *lang.File, block string) int {
-	obj := topLevelBlock(f, block)
+	obj := lang.TopLevelBlock(f, block)
 	if obj == nil {
 		return 0
 	}
@@ -73,7 +73,7 @@ func kindLeafCount(f *lang.File, block string) int {
 
 // outputCount counts the named fields in the outputs block.
 func outputCount(f *lang.File) int {
-	obj := topLevelBlock(f, "outputs")
+	obj := lang.TopLevelBlock(f, "outputs")
 	if obj == nil {
 		return 0
 	}
@@ -84,20 +84,4 @@ func outputCount(f *lang.File) int {
 		}
 	}
 	return count
-}
-
-// topLevelBlock returns the named top-level block as an object, or nil
-// when it is absent or not an object.
-func topLevelBlock(f *lang.File, name string) *lang.ObjectLit {
-	if f == nil || f.Body == nil {
-		return nil
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind == lang.FieldIdent && !fld.Key.IsMeta() && fld.Key.Name == name {
-			if obj, ok := fld.Value.(*lang.ObjectLit); ok {
-				return obj
-			}
-		}
-	}
-	return nil
 }

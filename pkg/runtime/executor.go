@@ -747,31 +747,13 @@ func (e *Executor) finalizeComposite(
 	return nil
 }
 
-// outputsBlock returns the composite body's `outputs:` object, or nil
-// when the body declares none.
-func outputsBlock(body *lang.File) (*lang.ObjectLit, error) {
-	if body == nil || body.Body == nil {
-		return nil, nil
-	}
-	for _, fld := range body.Body.Fields {
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "outputs" {
-			obj, ok := fld.Value.(*lang.ObjectLit)
-			if !ok {
-				return nil, fmt.Errorf("composite outputs: expected an object")
-			}
-			return obj, nil
-		}
-	}
-	return nil, nil
-}
-
 // evalCompositeOutputs reads the composite body's `outputs:` block
 // and reduces each field against the given scope. Returns nil when
 // the body has no outputs block.
 func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, error) {
-	outBlock, err := outputsBlock(body)
-	if err != nil || outBlock == nil {
-		return nil, err
+	outBlock := lang.TopLevelBlock(body, "outputs")
+	if outBlock == nil {
+		return nil, nil
 	}
 	out := make(map[string]any, len(outBlock.Fields))
 	for _, fld := range outBlock.Fields {

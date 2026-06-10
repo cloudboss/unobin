@@ -48,19 +48,7 @@ func localExprs(block *lang.ObjectLit) map[string]lang.Expr {
 // localsBlock returns the `locals:` object from a parsed file, or nil
 // when the file is absent or declares no locals.
 func localsBlock(f *lang.File) *lang.ObjectLit {
-	if f == nil || f.Body == nil {
-		return nil
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "locals" {
-			continue
-		}
-		if obj, ok := fld.Value.(*lang.ObjectLit); ok {
-			return obj
-		}
-		return nil
-	}
-	return nil
+	return lang.TopLevelBlock(f, "locals")
 }
 
 // force evaluates the named local against ctx and returns its value. A

@@ -20,18 +20,5 @@ func stringSetContains(slice []string, s string) bool {
 // Returns an empty set for a nil file or a file with no outputs
 // block.
 func rootSensitiveOutputs(f *lang.File) map[string]bool {
-	if f == nil || f.Body == nil {
-		return map[string]bool{}
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "outputs" {
-			continue
-		}
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			return map[string]bool{}
-		}
-		return lang.SensitiveOutputs(obj)
-	}
-	return map[string]bool{}
+	return lang.SensitiveOutputs(lang.TopLevelBlock(f, "outputs"))
 }

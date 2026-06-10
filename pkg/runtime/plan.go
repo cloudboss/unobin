@@ -740,9 +740,9 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 // whose expression reads a value not yet known so it stays pending
 // for readers. Returns nil when the body declares no outputs.
 func planCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, error) {
-	outBlock, err := outputsBlock(body)
-	if err != nil || outBlock == nil {
-		return nil, err
+	outBlock := lang.TopLevelBlock(body, "outputs")
+	if outBlock == nil {
+		return nil, nil
 	}
 	out := make(map[string]any, len(outBlock.Fields))
 	for _, fld := range outBlock.Fields {
