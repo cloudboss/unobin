@@ -9,6 +9,7 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 // CLIVersion reports the running CLI's own version; the root command
@@ -70,7 +71,7 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 	}
 
 	factoryPath := filepath.Join(cfg.output, "main.ub")
-	if err := os.WriteFile(factoryPath, []byte(renderFactoryStub()), 0o644); err != nil {
+	if err := lang.WriteCanonical(factoryPath, []byte(renderFactoryStub())); err != nil {
 		return err
 	}
 
@@ -91,20 +92,16 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 func renderFactoryStub() string {
 	return `description: 'TODO: describe this factory'
 
-inputs: {
-  # TODO: declare inputs
-}
+inputs: {}
 
-imports: {
-  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: {}
 
-resources: {
-  # TODO: declare resources
-}
+data: {}
 
-outputs: {
-  # TODO: declare outputs
-}
+resources: {}
+
+actions: {}
+
+outputs: {}
 `
 }

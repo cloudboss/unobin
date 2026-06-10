@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 var (
@@ -70,7 +72,7 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 
 	typePath := filepath.Join(cfg.output, "resource-"+cfg.typeName+".ub")
 
-	if err := os.WriteFile(typePath, []byte(renderCompositeStub()), 0o644); err != nil {
+	if err := lang.WriteCanonical(typePath, []byte(renderCompositeStub())); err != nil {
 		return err
 	}
 
@@ -82,20 +84,16 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 func renderCompositeStub() string {
 	return `description: 'TODO: describe this composite type'
 
-inputs: {
-  # TODO: declare inputs
-}
+inputs: {}
 
-imports: {
-  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: {}
 
-resources: {
-  # TODO: declare resources
-}
+data: {}
 
-outputs: {
-  # TODO: declare outputs
-}
+resources: {}
+
+actions: {}
+
+outputs: {}
 `
 }

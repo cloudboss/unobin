@@ -35,21 +35,17 @@ func TestFactoryWritesStarterFile(t *testing.T) {
 	require.NoError(t, err)
 	want := `description: 'TODO: describe this factory'
 
-inputs: {
-  # TODO: declare inputs
-}
+inputs: {}
 
-imports: {
-  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: {}
 
-resources: {
-  # TODO: declare resources
-}
+data: {}
 
-outputs: {
-  # TODO: declare outputs
-}
+resources: {}
+
+actions: {}
+
+outputs: {}
 `
 	require.Equal(t, want, string(got))
 }

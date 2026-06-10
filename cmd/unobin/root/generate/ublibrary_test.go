@@ -43,21 +43,17 @@ func TestUblibraryDefaultTypeName(t *testing.T) {
 	require.NoError(t, err)
 	wantStub := `description: 'TODO: describe this composite type'
 
-inputs: {
-  # TODO: declare inputs
-}
+inputs: {}
 
-imports: {
-  # TODO: declare imports, e.g. std: 'github.com/cloudboss/unobin-library-std'
-}
+imports: {}
 
-resources: {
-  # TODO: declare resources
-}
+data: {}
 
-outputs: {
-  # TODO: declare outputs
-}
+resources: {}
+
+actions: {}
+
+outputs: {}
 `
 	require.Equal(t, wantStub, string(stub))
 }
