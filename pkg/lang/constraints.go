@@ -198,8 +198,8 @@ func checkEntry(
 		checkExactlyOneOf(idx, c.Fields, values, display, errs)
 	case "at-least-one-of":
 		checkAtLeastOneOf(idx, c.Fields, values, display, errs)
-	case "at-most-one-of", "mutually-exclusive":
-		checkAtMostOneOf(idx, c.Kind, c.Fields, values, display, errs)
+	case "at-most-one-of":
+		checkAtMostOneOf(idx, c.Fields, values, display, errs)
 	case "required-together":
 		checkRequiredTogether(idx, c.Fields, values, display, errs)
 	case "required-with":
@@ -528,14 +528,14 @@ func checkAtLeastOneOf(
 }
 
 func checkAtMostOneOf(
-	idx int, kind string, fields []string, values map[string]any,
+	idx int, fields []string, values map[string]any,
 	display FieldDisplay, errs *ErrorList,
 ) {
 	nn := nonNullFields(fields, values)
 	if len(nn) > 1 {
 		errs.Addf(ErrSchema, Position{},
-			"constraints[%d] (%s [%s]): expected at most one to be set, got %d (%s)",
-			idx, kind, joinNames(display.names(fields)), len(nn), joinNames(display.names(nn)))
+			"constraints[%d] (at-most-one-of [%s]): expected at most one to be set, got %d (%s)",
+			idx, joinNames(display.names(fields)), len(nn), joinNames(display.names(nn)))
 	}
 }
 

@@ -103,10 +103,10 @@ func goConstraintCases() []struct {
 			body:  `{ region: 'us' }`,
 		},
 		{
-			name:  "mutually-exclusive with two set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("mutually-exclusive", "var.name", "var.size")},
+			name:  "at-most-one-of with two set is rejected",
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.name", "var.size")},
 			body:  `{ name: 'a', size: 1 }`,
-			wantErr: goConstraintPrefix + "constraints[0] (mutually-exclusive [name, size]): " +
+			wantErr: goConstraintPrefix + "constraints[0] (at-most-one-of [name, size]): " +
 				"expected at most one to be set, got 2 (name, size)",
 		},
 		{
@@ -307,9 +307,9 @@ func forwardRefConstraintCases() []struct {
 			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 		},
 		{
-			name: "mutually-exclusive defers although known fields violate",
+			name: "at-most-one-of defers although known fields violate",
 			specs: []lang.ConstraintSpec{
-				setSpec("mutually-exclusive", "var.name", "var.region", "var.zone"),
+				setSpec("at-most-one-of", "var.name", "var.region", "var.zone"),
 			},
 			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 		},

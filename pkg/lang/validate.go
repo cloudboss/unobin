@@ -416,15 +416,15 @@ func staticLiteral(e Expr) (any, bool) {
 	return nil, false
 }
 
-// fieldsBasedConstraintKinds carries a list of input names under `fields:`.
+// fieldsBasedConstraintKinds is the set of kinds that take a list of
+// input names under `fields:`.
 var fieldsBasedConstraintKinds = map[string]struct{}{
-	"exactly-one-of":     {},
-	"at-least-one-of":    {},
-	"at-most-one-of":     {},
-	"mutually-exclusive": {},
-	"required-together":  {},
-	"required-with":      {},
-	"forbidden-with":     {},
+	"exactly-one-of":    {},
+	"at-least-one-of":   {},
+	"at-most-one-of":    {},
+	"required-together": {},
+	"required-with":     {},
+	"forbidden-with":    {},
 }
 
 // ValidateConstraints walks a `constraints:` array and checks each entry
@@ -470,6 +470,9 @@ func validateConstraint(idx int, e Expr, errs *ErrorList) {
 		validatePredicateConstraint(idx, obj, errs)
 	case isFieldsBasedKind(kind):
 		validateFieldsConstraint(idx, kind, obj, errs)
+	case kind == "mutually-exclusive":
+		errs.Addf(ErrSchema, kindIdent.S.Start,
+			"constraints[%d]: unknown constraint kind %q; write at-most-one-of", idx, kind)
 	default:
 		errs.Addf(ErrSchema, kindIdent.S.Start,
 			"constraints[%d]: unknown constraint kind %q", idx, kind)

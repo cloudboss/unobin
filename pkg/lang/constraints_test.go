@@ -154,20 +154,6 @@ constraints: [
 	require.Contains(t, errs.Err().Error(), "at most one")
 }
 
-func TestCheckMutuallyExclusive(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: mutually-exclusive, fields: [var.a, var.b] },
-]
-`)
-
-	errs := CheckConstraints(block, map[string]any{
-		"a": "x", "b": "y",
-	}, nil, DisplayRooted)
-	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Err().Error(), "mutually-exclusive")
-}
-
 func TestCheckRequiredTogether(t *testing.T) {
 	block := parseConstraintsBlock(t, `
 constraints: [
@@ -628,13 +614,13 @@ func TestCheckConstraintEntriesSplatFields(t *testing.T) {
 				"constraints[0] (at-most-one-of [var.replicas[0].a, var.replicas[0].b]): " +
 					"expected at most one to be set, got 2 (var.replicas[0].a, var.replicas[0].b)",
 			}},
-		{"mutually-exclusive element two set",
-			ConstraintEntry{Kind: "mutually-exclusive", Fields: ab},
+		{"at-most-one-of element two set",
+			ConstraintEntry{Kind: "at-most-one-of", Fields: ab},
 			map[string]any{"replicas": []any{
 				map[string]any{"a": int64(1), "b": int64(2)},
 			}},
 			[]string{
-				"constraints[0] (mutually-exclusive [var.replicas[0].a, var.replicas[0].b]): " +
+				"constraints[0] (at-most-one-of [var.replicas[0].a, var.replicas[0].b]): " +
 					"expected at most one to be set, got 2 (var.replicas[0].a, var.replicas[0].b)",
 			}},
 		{"together element partial",
