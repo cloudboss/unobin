@@ -594,6 +594,24 @@ resources: {
 	require.Contains(t, got[0], `@each is only available inside @for-each`)
 }
 
+func TestCheckReferencesUnknownAtRoots(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+inputs: { files: { type: map(string) } }
+locals: { greeting: @core.greeting }
+resources: {
+  local.file.many: { @for-each: var.files, path: @eech.key, content: @each.value }
+  local.file.one:  { path: @rule.value, content: 'x' }
+}
+`), nil)
+
+	got := checkRefMessages(t, errs)
+	require.Equal(t, []string{
+		"@core names functions; call one, e.g. @core.length(...)",
+		"@eech is not bound",
+		"@rule is not bound",
+	}, got)
+}
+
 func checkRefMessages(t *testing.T, errs *lang.ErrorList) []string {
 	t.Helper()
 	for _, err := range errs.Errors() {

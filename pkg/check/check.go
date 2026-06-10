@@ -382,8 +382,10 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 				c.checkNode(n, scope)
 			case "local":
 				c.checkLocal(n, scope)
-			case "@each":
-				c.checkBindingPath(n, iterScope{bare: eachOK})
+			default:
+				if strings.HasPrefix(n.Root.Name, "@") {
+					c.checkBindingPath(n, iterScope{bare: eachOK})
+				}
 			}
 		case *lang.Call:
 			c.checkCall(n, scope)
@@ -825,8 +827,11 @@ func (c *referenceChecker) checkBindingPath(dp *lang.DotPath, it iterScope) {
 		c.addf(dp.S.Start, "@each is only available inside @for-each")
 		return
 	case it.names[name]:
-	default:
+	case it.names != nil:
 		c.addf(dp.S.Start, "%s is not bound; declare it as a chain level", name)
+		return
+	default:
+		c.addf(dp.S.Start, "%s is not bound", name)
 		return
 	}
 	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
