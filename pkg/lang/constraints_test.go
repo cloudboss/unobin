@@ -1298,3 +1298,14 @@ func TestConstraintFieldRoots(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSpecsRejectsUnknownKind(t *testing.T) {
+	entries, errs := ParseSpecs([]ConstraintSpec{
+		{Kind: "bogus-kind", Fields: []string{"var.a"}},
+		{Kind: "exactly-one-of", Fields: []string{"var.a", "var.b"}},
+	})
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), `unknown constraint kind "bogus-kind"`)
+	require.Len(t, entries, 1)
+	require.Equal(t, "exactly-one-of", entries[0].Kind)
+}

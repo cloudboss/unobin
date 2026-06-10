@@ -843,11 +843,19 @@ type ConstraintSpec struct {
 // ParseSpecs parses each spec's When and Require source into expressions
 // and returns entries ready for CheckConstraintEntries. A set constraint
 // (empty When and Require) yields an entry with nil expressions. Parse
-// errors are collected; a spec that fails to parse is skipped.
+// errors and unknown kinds are collected; a spec with either is
+// skipped. The kind guard matters because the checker silently passes
+// a kind it does not know, so a misspelled kind would otherwise
+// disable its rule without a word.
 func ParseSpecs(specs []ConstraintSpec) ([]ConstraintEntry, *ErrorList) {
 	errs := NewErrorList(0)
 	entries := make([]ConstraintEntry, 0, len(specs))
 	for _, s := range specs {
+		if _, ok := fieldsConstraintCheckers[s.Kind]; !ok && s.Kind != "predicate" {
+			errs.Addf(ErrSchema, Position{},
+				"constraint: unknown constraint kind %q", s.Kind)
+			continue
+		}
 		e := ConstraintEntry{Kind: s.Kind, Fields: s.Fields, Message: s.Message}
 		when, ok := parseSpecExpr(s.When, "when", errs)
 		if !ok {
