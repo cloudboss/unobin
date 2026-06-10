@@ -32,7 +32,7 @@ func TestReadManifestRejectsBadToolchainVersion(t *testing.T) {
 func TestReadManifestRejectsNonStringToolchainLine(t *testing.T) {
 	_, err := ReadManifest(manifestFS("unobin-version: {}\nrequires: {}\n"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "version string")
+	require.Contains(t, err.Error(), "`unobin-version:` must be a string")
 }
 
 // TestReadManifestRejectsUnobinInRequires proves the unobin repo

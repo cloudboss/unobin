@@ -12,42 +12,86 @@ import (
 // except for `configurations`, which only the factory root may define.
 // A config holds factory identity, state config, input values, and
 // library configurations.
-var allowedTopLevelKeys = map[FileKind]map[string]struct{}{
+var allowedTopLevelKeys = map[FileKind]map[string]topLevelValueKind{
 	FileFactory: {
-		"description":    {},
-		"inputs":         {},
-		"locals":         {},
-		"constraints":    {},
-		"imports":        {},
-		"data":           {},
-		"resources":      {},
-		"actions":        {},
-		"outputs":        {},
-		"configurations": {},
+		"description":    topLevelString,
+		"inputs":         topLevelObject,
+		"locals":         topLevelObject,
+		"constraints":    topLevelArray,
+		"imports":        topLevelObject,
+		"data":           topLevelObject,
+		"resources":      topLevelObject,
+		"actions":        topLevelObject,
+		"outputs":        topLevelObject,
+		"configurations": topLevelObject,
 	},
 	FileExportedType: {
-		"description": {},
-		"inputs":      {},
-		"locals":      {},
-		"constraints": {},
-		"imports":     {},
-		"data":        {},
-		"resources":   {},
-		"actions":     {},
-		"outputs":     {},
+		"description": topLevelString,
+		"inputs":      topLevelObject,
+		"locals":      topLevelObject,
+		"constraints": topLevelArray,
+		"imports":     topLevelObject,
+		"data":        topLevelObject,
+		"resources":   topLevelObject,
+		"actions":     topLevelObject,
+		"outputs":     topLevelObject,
 	},
 	FileConfig: {
-		"factory":        {},
-		"parallelism":    {},
-		"state":          {},
-		"inputs":         {},
-		"configurations": {},
+		"factory":        topLevelObject,
+		"parallelism":    topLevelNumber,
+		"state":          topLevelObject,
+		"inputs":         topLevelObject,
+		"configurations": topLevelObject,
 	},
 	FileManifest: {
-		"unobin-version": {},
-		"requires":       {},
-		"replace":        {},
+		"unobin-version": topLevelString,
+		"requires":       topLevelObject,
+		"replace":        topLevelObject,
 	},
+}
+
+// topLevelValueKind is the value form a top-level key requires. The
+// block validators assume their block's form, so a key whose value
+// has the wrong form is an error here rather than a silent skip.
+type topLevelValueKind int
+
+const (
+	topLevelObject topLevelValueKind = iota
+	topLevelArray
+	topLevelString
+	topLevelNumber
+)
+
+func (k topLevelValueKind) matches(e Expr) bool {
+	switch k {
+	case topLevelObject:
+		_, ok := e.(*ObjectLit)
+		return ok
+	case topLevelArray:
+		_, ok := e.(*ArrayLit)
+		return ok
+	case topLevelString:
+		_, ok := e.(*StringLit)
+		return ok
+	case topLevelNumber:
+		_, ok := e.(*NumberLit)
+		return ok
+	}
+	return true
+}
+
+func (k topLevelValueKind) String() string {
+	switch k {
+	case topLevelObject:
+		return "an object"
+	case topLevelArray:
+		return "an array"
+	case topLevelString:
+		return "a string"
+	case topLevelNumber:
+		return "a number"
+	}
+	return "a value"
 }
 
 // ValidateTopLevelKeys checks that every top-level field in f.Body uses
@@ -81,7 +125,8 @@ func ValidateTopLevelKeys(f *File) *ErrorList {
 				"@-prefixed key %q is not allowed at top level", name)
 			continue
 		}
-		if _, ok := allowed[name]; !ok {
+		want, ok := allowed[name]
+		if !ok {
 			errs.Addf(ErrSchema, fld.Key.S.Start,
 				"%q is not a valid top level key for a %s file", name, f.Kind)
 			continue
@@ -92,6 +137,10 @@ func ValidateTopLevelKeys(f *File) *ErrorList {
 			continue
 		}
 		seen[name] = fld.Key.S.Start
+		if !want.matches(fld.Value) {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"`%s:` must be %s, got %s", name, want, exprKind(fld.Value))
+		}
 	}
 	return errs
 }

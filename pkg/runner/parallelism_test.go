@@ -53,9 +53,7 @@ func TestLoadParallelismRejectsNonInt(t *testing.T) {
 	path := parseForTest(t, `parallelism: 'lots'
 inputs: { region: 'us-east-1' }
 `)
-	f, err := parseConfigFile(path)
-	require.NoError(t, err)
-	_, err = loadParallelism(f, path)
+	_, err := parseConfigFile(path)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "positive integer")
+	assert.Contains(t, err.Error(), "`parallelism:` must be a number")
 }
