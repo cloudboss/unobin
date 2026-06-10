@@ -32,10 +32,12 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 
 	if !anyChangeRecursive(tree, "") {
 		fmt.Fprintln(out, "No changes.")
+		printDeferredReads(out, plan.Steps)
 		return
 	}
 
 	renderPlanTree(out, tree, "", 0, ascii)
+	printDeferredReads(out, plan.Steps)
 
 	var leaves []*runtime.PlanStep
 	collectChangedLeaves(tree, "", &leaves)
@@ -44,6 +46,35 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 	fmt.Fprintf(out,
 		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
 		c.create, c.update, c.replace, c.destroy, c.rerun)
+}
+
+// printDeferredReads lists every step whose read was held back by a
+// pending configuration, so a plan that checked no drift for a node
+// says so instead of staying silent. Resources fall back to stored
+// state for their decision; data sources read at apply.
+func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
+	var deferred []*runtime.PlanStep
+	for _, s := range steps {
+		if s.DeferredRead != "" {
+			deferred = append(deferred, s)
+		}
+	}
+	if len(deferred) == 0 {
+		return
+	}
+	sort.Slice(deferred, func(i, j int) bool {
+		return deferred[i].Address < deferred[j].Address
+	})
+	fmt.Fprintln(out)
+	fmt.Fprintf(out, "Deferred reads (%d):\n", len(deferred))
+	for _, s := range deferred {
+		reason := "drift unchecked this plan"
+		if s.Kind == runtime.NodeData {
+			reason = "read deferred to apply"
+		}
+		fmt.Fprintf(out, "  %s    @configuration: %s pending; %s\n",
+			s.Address, s.DeferredRead, reason)
+	}
 }
 
 // planTree groups plan steps by their direct enclosing composite call
@@ -122,6 +153,10 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 // upstream shows the source addresses in angle brackets; a field that forces a
 // replacement is tagged so the reason for the replace is visible.
 func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
+	if step.Configuration != "" && step.Decision != runtime.DecisionDestroy {
+		fmt.Fprintf(out, "%s@configuration: %s\n", pad,
+			formatPending(runtime.PendingValue{Refs: []string{step.Configuration}}))
+	}
 	for _, key := range sortedMapKeys(step.Inputs) {
 		fmt.Fprintf(out, "%s%s: %s%s\n",
 			pad, key, renderInputValue(step, key), replaceNote(step, key))

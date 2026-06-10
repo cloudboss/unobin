@@ -185,10 +185,12 @@ type PlanStep struct {
 	// with `(forces replacement)`. Empty unless Decision is replace.
 	ReplaceTriggers []string `json:"replace-triggers,omitempty"`
 
-	// Configuration carries a destroy step's recorded library
-	// configuration ref ("<alias>.<configuration>") from prior state, so
-	// apply deletes against the same credentials the resource was created
-	// with.
+	// Configuration is the step's library configuration ref
+	// ("<alias>.<configuration>"). A destroy step records it from prior
+	// state, so apply deletes against the same credentials the resource
+	// was created with. A live step records it only when the selection
+	// names an internal configuration still pending this plan, which is
+	// how the renderer knows to show the selection on the step.
 	Configuration string `json:"configuration,omitempty"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
@@ -340,6 +342,14 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			for _, step := range steps {
 				step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
 				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
+				if !step.Composite {
+					switch step.Kind {
+					case NodeResource, NodeData, NodeAction:
+						if ref, pending := e.pendingInternalConfig(node); pending {
+							step.Configuration = ref
+						}
+					}
+				}
 				plan.Steps = append(plan.Steps, step)
 				tmpl := templateAddress(step.Address)
 				rs.plannedByTemplate[tmpl] = append(rs.plannedByTemplate[tmpl], step)

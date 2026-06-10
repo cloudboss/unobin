@@ -191,6 +191,7 @@ func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 	require.Empty(t, seen, "no read should run while the configuration is pending")
 	ds := findStep(t, plan, "data.fix.probe.p")
 	require.Equal(t, "fix.cluster", ds.DeferredRead)
+	require.Equal(t, "fix.cluster", ds.Configuration)
 
 	fresh := &Executor{
 		DAG:       BuildDAG(parseStack(t, internalConfigDataSrc), libs),
@@ -241,6 +242,7 @@ func TestDriftReadSkippedWhileConfigurationPending(t *testing.T) {
 	require.Empty(t, seen, "no read should run while the configuration is pending")
 	step := findStep(t, plan, "resource.fix.config-echo.app")
 	require.Equal(t, "fix.cluster", step.DeferredRead)
+	require.Equal(t, "fix.cluster", step.Configuration)
 	require.Equal(t, DecisionNoOp, step.Decision)
 }
 
