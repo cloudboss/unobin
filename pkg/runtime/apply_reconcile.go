@@ -42,10 +42,9 @@ func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf
 	sem := make(chan struct{}, e.effectiveParallelism())
 	var wg sync.WaitGroup
 	for i, ent := range entries {
-		wg.Add(1)
 		sem <- struct{}{}
-		go func(i int, ent *state.Entry) {
-			defer func() { <-sem; wg.Done() }()
+		wg.Go(func() {
+			defer func() { <-sem }()
 			var gone bool
 			updated, err := guard("reconciling this resource", true, func() (*state.Entry, error) {
 				u, g, rerr := e.refreshLeaf(ctx, ent)
@@ -53,7 +52,7 @@ func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf
 				return u, rerr
 			})
 			results[i] = reread{ent: updated, gone: gone, err: err}
-		}(i, ent)
+		})
 	}
 	wg.Wait()
 	for _, r := range results {

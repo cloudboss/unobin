@@ -256,8 +256,7 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 			hasType = true
 			t, err := PromoteType(df.Value)
 			if err != nil {
-				var pe *Error
-				if errors.As(err, &pe) {
+				if pe, ok := errors.AsType[*Error](err); ok {
 					errs.Add(pe)
 				} else {
 					errs.Addf(ErrType, df.Value.Span().Start, "input %q: %v", name, err)

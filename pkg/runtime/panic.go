@@ -65,8 +65,7 @@ func guardErr(op string, core bool, fn func() error) (err error) {
 // itself. It is a no-op for any error that is not a PanicError, so a
 // caller can hand it the raw error from a library call.
 func blameLibrary(err error, alias string) {
-	var pe *PanicError
-	if errors.As(err, &pe) && pe.Library == "" && !pe.Core {
+	if pe, ok := errors.AsType[*PanicError](err); ok && pe.Library == "" && !pe.Core {
 		pe.Library = alias
 	}
 }

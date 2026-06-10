@@ -69,10 +69,9 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	sem := make(chan struct{}, e.effectiveParallelism())
 	var wg sync.WaitGroup
 	for i, ent := range leaves {
-		wg.Add(1)
 		sem <- struct{}{}
-		go func(i int, ent *state.Entry) {
-			defer func() { <-sem; wg.Done() }()
+		wg.Go(func() {
+			defer func() { <-sem }()
 			var dropped bool
 			updated, err := guard("refreshing this resource", true, func() (*state.Entry, error) {
 				u, d, rerr := e.refreshLeaf(ctx, ent)
@@ -80,7 +79,7 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 				return u, rerr
 			})
 			results[i] = leafResult{idx: i, updated: updated, dropped: dropped, err: err}
-		}(i, ent)
+		})
 	}
 	wg.Wait()
 	rs.next.Entries = append(rs.next.Entries, carry...)

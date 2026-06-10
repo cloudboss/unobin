@@ -224,8 +224,7 @@ func doApplyPlan(
 	close(events)
 	<-rendererDone
 	if err != nil {
-		var ae *runtime.ApplyError
-		if errors.As(err, &ae) {
+		if ae, ok := errors.AsType[*runtime.ApplyError](err); ok {
 			renderApplyError(cmd.ErrOrStderr(), ae, format)
 		}
 		return err

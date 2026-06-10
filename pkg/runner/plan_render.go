@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 
@@ -174,7 +175,7 @@ func renderInputValue(step *runtime.PlanStep, field string) string {
 		return newVal
 	}
 	priorVal := formatValue(prior)
-	if stringSetContains(step.SensitiveInputs, field) {
+	if slices.Contains(step.SensitiveInputs, field) {
 		priorVal = sensitivePlaceholder
 	}
 	return priorVal + " -> " + newVal
@@ -184,7 +185,7 @@ func renderInputValue(step *runtime.PlanStep, field string) string {
 // sensitive field, the upstream sources for one still waiting on an upstream,
 // otherwise the formatted value.
 func newInputValue(step *runtime.PlanStep, field string) string {
-	if stringSetContains(step.SensitiveInputs, field) {
+	if slices.Contains(step.SensitiveInputs, field) {
 		return sensitivePlaceholder
 	}
 	v := step.Inputs[field]
@@ -198,7 +199,7 @@ func newInputValue(step *runtime.PlanStep, field string) string {
 
 // replaceNote tags a field the plan flagged as forcing a replacement.
 func replaceNote(step *runtime.PlanStep, field string) string {
-	if stringSetContains(step.ReplaceTriggers, field) {
+	if slices.Contains(step.ReplaceTriggers, field) {
 		return "  (forces replacement)"
 	}
 	return ""
@@ -358,7 +359,7 @@ func printDriftStep(out io.Writer, s *runtime.PlanStep) {
 	for _, key := range driftedFields(s) {
 		prior := formatValue(s.PriorOutputs[key])
 		observed := formatValue(s.ObservedOutputs[key])
-		if stringSetContains(s.SensitiveOutputs, key) {
+		if slices.Contains(s.SensitiveOutputs, key) {
 			prior = sensitivePlaceholder
 			observed = sensitivePlaceholder
 		}

@@ -451,14 +451,13 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 	sem := make(chan struct{}, e.effectiveParallelism())
 	var wg sync.WaitGroup
 	for i, s := range jobs {
-		wg.Add(1)
 		sem <- struct{}{}
-		go func(i int, s *PlanStep) {
-			defer func() { <-sem; wg.Done() }()
+		wg.Go(func() {
+			defer func() { <-sem }()
 			gone[i], errs[i] = guard("reading this resource", true, func() (bool, error) {
 				return e.readDestroyTarget(ctx, s)
 			})
-		}(i, s)
+		})
 	}
 	wg.Wait()
 	for i, s := range jobs {
@@ -1229,14 +1228,13 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 	sem := make(chan struct{}, e.effectiveParallelism())
 	var wg sync.WaitGroup
 	for _, pr := range rs.pendingReads {
-		wg.Add(1)
 		sem <- struct{}{}
-		go func(pr *pendingRead) {
-			defer func() { <-sem; wg.Done() }()
+		wg.Go(func() {
+			defer func() { <-sem }()
 			pr.observed, pr.err = guard("reading this resource", true, func() (map[string]any, error) {
 				return readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
 			})
-		}(pr)
+		})
 	}
 	wg.Wait()
 	return nil
