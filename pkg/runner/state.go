@@ -344,7 +344,7 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			source, err := parsedFile(info)
+			source, _, err := parsedFile(info)
 			if err != nil {
 				return err
 			}

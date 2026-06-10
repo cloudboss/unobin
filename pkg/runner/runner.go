@@ -180,7 +180,7 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	f, err := parsedFile(info)
+	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func doApplyPlan(
 	}()
 	exec := &runtime.Executor{
 		Source:         f,
-		DAG:            runtime.BuildDAG(f, info.Libraries),
+		DAG:            dag,
 		Libraries:      info.Libraries,
 		Configurations: configurations,
 		Store:          store,
@@ -352,7 +352,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 }
 
 func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
-	f, err := parsedFile(info)
+	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
@@ -376,7 +376,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	}
 	exec := &runtime.Executor{
 		Source:         f,
-		DAG:            runtime.BuildDAG(f, info.Libraries),
+		DAG:            dag,
 		Libraries:      info.Libraries,
 		Inputs:         inputs,
 		Configurations: configurations,
@@ -426,7 +426,7 @@ func newValidateCmd(info Info) *cobra.Command {
 }
 
 func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
-	f, err := parsedFile(info)
+	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,6 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	if err := validateStateRefs(config, configPath); err != nil {
 		return err
 	}
-	dag := runtime.BuildDAG(f, info.Libraries)
 	if _, err := dag.TopologicalOrder(); err != nil {
 		return err
 	}
@@ -506,11 +505,10 @@ func newPrintGraphCmd(info Info) *cobra.Command {
 }
 
 func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
-	f, err := parsedFile(info)
+	_, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
-	dag := runtime.BuildDAG(f, info.Libraries)
 	out := cmd.OutOrStdout()
 	switch format {
 	case "plain":
@@ -548,21 +546,24 @@ func newOutputCmd(info Info) *cobra.Command {
 }
 
 // parsedFile parses the factory source baked into the binary at compile
-// time. The "main.ub" filename labels error positions; the original
-// source filename is not preserved across compile, so this label is
-// the convention regardless of what the file was called on disk.
-func parsedFile(info Info) (*lang.File, error) {
+// time and returns it with its dependency graph, built once here and
+// shared by every command. The "main.ub" filename labels error
+// positions; the original source filename is not preserved across
+// compile, so this label is the convention regardless of what the
+// file was called on disk.
+func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
 	f, err := lang.ParseSource("main.ub", []byte(info.FactoryBody))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, errs.Err()
+		return nil, nil, errs.Err()
 	}
-	if errs := runtime.NewChecker(f, info.Libraries).References(nil); errs.Len() > 0 {
-		return nil, errs.Err()
+	checker := runtime.NewChecker(f, info.Libraries)
+	if errs := checker.References(nil); errs.Len() > 0 {
+		return nil, nil, errs.Err()
 	}
-	return f, nil
+	return f, checker.DAG(), nil
 }
 
 // loadStore resolves a state backend from the state: block of a
@@ -617,7 +618,7 @@ func doPlan(
 	cmd *cobra.Command, info Info, config *lang.File,
 	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
 ) error {
-	f, err := parsedFile(info)
+	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
@@ -648,7 +649,7 @@ func doPlan(
 	}
 	exec := &runtime.Executor{
 		Source:         f,
-		DAG:            runtime.BuildDAG(f, info.Libraries),
+		DAG:            dag,
 		Libraries:      info.Libraries,
 		Inputs:         inputs,
 		Configurations: configurations,
@@ -931,7 +932,7 @@ func doOutput(
 	if err != nil {
 		return err
 	}
-	source, err := parsedFile(info)
+	source, _, err := parsedFile(info)
 	if err != nil {
 		return err
 	}

@@ -37,7 +37,7 @@ func newSchemaCmd(info Info) *cobra.Command {
 }
 
 func doSchema(cmd *cobra.Command, info Info) error {
-	f, err := parsedFile(info)
+	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		fmt.Fprintln(out, "No inputs declared.")
-		printConfigurationSchema(out, f, info)
+		printConfigurationSchema(out, f, dag, info)
 		return nil
 	}
 	for _, fld := range inputs.Fields {
@@ -77,7 +77,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 		}
 		fmt.Fprintln(out)
 	}
-	printConfigurationSchema(out, f, info)
+	printConfigurationSchema(out, f, dag, info)
 	return nil
 }
 
@@ -85,7 +85,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 // the factory defines internally, the names config.ub must supply
 // (every selection some node makes that is not internal), and the
 // configuration's fields.
-func printConfigurationSchema(out io.Writer, f *lang.File, info Info) {
+func printConfigurationSchema(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
 	var aliases []string
 	for alias, lib := range info.Libraries {
 		if lib.Configuration != nil {
@@ -96,7 +96,7 @@ func printConfigurationSchema(out io.Writer, f *lang.File, info Info) {
 		return
 	}
 	slices.Sort(aliases)
-	used := runtime.BuildDAG(f, info.Libraries).ConfigurationSelections(info.Libraries)
+	used := dag.ConfigurationSelections(info.Libraries)
 	internal := runtime.InternalConfigurationNames(f)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "configurations:")
@@ -153,12 +153,12 @@ func fieldTypeLabel(f cfg.Field) string {
 }
 
 func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
-	f, err := parsedFile(info)
+	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
 	var buf bytes.Buffer
-	renderSchemaTemplate(&buf, f, info)
+	renderSchemaTemplate(&buf, f, dag, info)
 	if outPath == "" {
 		_, err := cmd.OutOrStdout().Write(buf.Bytes())
 		return err
@@ -166,7 +166,7 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 	return ufs.WriteFileAtomic(outPath, buf.Bytes(), 0o644)
 }
 
-func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
+func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
 	fmt.Fprintln(out, "factory: {")
 	if info.LibraryPath != "" {
 		fmt.Fprintf(out, "  library-path: '%s'\n", info.LibraryPath)
@@ -217,14 +217,14 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, info Info) {
 		}
 		fmt.Fprintln(out, "}")
 	}
-	renderConfigurationsTemplate(out, f, info)
+	renderConfigurationsTemplate(out, f, dag, info)
 }
 
 // renderConfigurationsTemplate scaffolds the configurations the
 // operator owes: every selection some node makes that the factory
 // does not define internally, with a placeholder per field.
-func renderConfigurationsTemplate(out io.Writer, f *lang.File, info Info) {
-	used := runtime.BuildDAG(f, info.Libraries).ConfigurationSelections(info.Libraries)
+func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
+	used := dag.ConfigurationSelections(info.Libraries)
 	internal := runtime.InternalConfigurationNames(f)
 	owedByAlias := map[string][]string{}
 	var aliases []string
