@@ -46,6 +46,34 @@ func TestReadManifestRejectsUnobinInRequires(t *testing.T) {
 	require.Contains(t, err.Error(), "unobin-version line")
 }
 
+// TestEncodeManifestRoundTrips pins the encoder as stable: its output
+// parses, reading it back recovers the manifest, and re-encoding is
+// byte-identical. The manifest deliberately stays on this encoder rather
+// than the formatter, whose value alignment would reflow every line when a
+// longer dependency is added.
+func TestEncodeManifestRoundTrips(t *testing.T) {
+	m := &Manifest{
+		UnobinVersion: "v0.2.0",
+		Requires: map[Dependency]string{
+			{URL: "github.com/cloudboss/unobin-library-aws"}:         "v1.2.0",
+			{URL: "github.com/cloudboss/unobin-library-std"}:         "v0.4.1",
+			{URL: "github.com/example/mono", Subdir: "libs/network"}: "v2.0.0",
+		},
+		Replace: map[Dependency]string{
+			{URL: "github.com/cloudboss/unobin-library-std"}: "../local-std",
+		},
+	}
+	encoded := EncodeManifest(m)
+
+	back, err := ReadManifest(manifestFS(string(encoded)))
+	require.NoError(t, err)
+	require.Equal(t, m.UnobinVersion, back.UnobinVersion)
+	require.Equal(t, m.Requires, back.Requires)
+	require.Equal(t, m.Replace, back.Replace)
+	require.Equal(t, string(encoded), string(EncodeManifest(back)),
+		"re-encoding a read-back manifest should be byte-stable")
+}
+
 func TestEncodeManifestWritesToolchainLine(t *testing.T) {
 	m := &Manifest{
 		UnobinVersion: "v0.2.0",
