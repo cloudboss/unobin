@@ -1,0 +1,4 @@
+locals: {
+  xs: [1, 2]
+  ys: [ for x in local.xs : x when @core.length([ for x in local.xs : x ]) > 0 ]
+}

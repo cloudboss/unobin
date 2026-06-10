@@ -1,0 +1,4 @@
+locals: {
+  svcs: { web: 8080 }
+  out: [ for name in [1] : { for name, port in local.svcs : name => port } ]
+}

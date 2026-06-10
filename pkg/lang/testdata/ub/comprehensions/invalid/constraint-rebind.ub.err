@@ -1,0 +1,1 @@
+main.ub:3:44: schema: binding x shadows an enclosing comprehension binding (bound at main.ub:3:27); rename it

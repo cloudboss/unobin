@@ -26,8 +26,8 @@ var ErrEvalNotFound = errors.New("not found")
 // Libraries is the import table the scope's `<alias>.<func>(...)` calls
 // resolve against; nil disables library-qualified calls. Bindings holds
 // comprehension-bound names, which resolve as bare values and as
-// dot-path roots ahead of the reserved roots, so an inner binding
-// shadows an outer one.
+// dot-path roots ahead of the reserved roots; validation keeps the
+// names distinct across nesting.
 type EvalContext struct {
 	Vars      map[string]any
 	Resources map[string]any

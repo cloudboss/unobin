@@ -24,8 +24,9 @@ type Scope struct {
 	// argument count are the reference checker's to enforce.
 	LookupFunction func(library, name string) (FuncSig, bool)
 	// Bindings holds comprehension-bound names. They resolve as bare
-	// values and as dot-path roots ahead of var/resource/data/action,
-	// so an inner binding shadows an outer one.
+	// values and as dot-path roots ahead of var/resource/data/action.
+	// Names are distinct across nesting; validation rejects an inner
+	// comprehension that rebinds an enclosing name.
 	Bindings map[string]Type
 	// Narrowed overrides reference types inside a region guarded by a
 	// null test, keyed by the canonical dot path ("var.x.y"). A lookup

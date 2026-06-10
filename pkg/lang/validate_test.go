@@ -87,6 +87,16 @@ func TestValidateCallsFixtures(t *testing.T) {
 	})
 }
 
+func TestValidateComprehensionBindingsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/comprehensions", func(name string, src []byte) (string, []string) {
+		f, err := ParseSource("main.ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return "", ValidateComprehensionBindings(f).Strings()
+	})
+}
+
 func configDriver(name string, src []byte) (string, []string) {
 	f, err := ParseSource("config.ub", src)
 	if err != nil {

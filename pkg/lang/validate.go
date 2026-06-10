@@ -3,6 +3,8 @@ package lang
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 )
@@ -883,6 +885,7 @@ func ValidateFile(f *File) *ErrorList {
 		return errs
 	}
 	blocks := indexTopLevelBlocks(f)
+	mergeErrors(errs, ValidateComprehensionBindings(f))
 	switch f.Kind {
 	case FileFactory, FileExportedType:
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
@@ -997,6 +1000,74 @@ func ValidateCalls(f *File) *ErrorList {
 		}
 	})
 	return errs
+}
+
+// ValidateComprehensionBindings walks every expression in f and
+// requires each comprehension to introduce fresh binding names: a name
+// may not repeat within one comprehension, and a nested comprehension
+// may not rebind a name bound by an enclosing one. A rebound name
+// would silently hide the outer value for the rest of the inner body.
+// A comprehension in source position binds nothing for its own source,
+// so reusing a name there is not shadowing.
+func ValidateComprehensionBindings(f *File) *ErrorList {
+	errs := NewErrorList(0)
+	checkComprehensionBindings(f.Body, map[string]Position{}, errs)
+	return errs
+}
+
+// checkComprehensionBindings recurses through e with the comprehension
+// bindings in scope, each keyed to the position that bound it.
+func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorList) {
+	switch v := e.(type) {
+	case *ObjectLit:
+		for _, fld := range v.Fields {
+			checkComprehensionBindings(fld.Value, bound, errs)
+		}
+	case *ArrayLit:
+		for _, el := range v.Elements {
+			checkComprehensionBindings(el, bound, errs)
+		}
+	case *Call:
+		for _, a := range v.Args {
+			checkComprehensionBindings(a, bound, errs)
+		}
+	case *Infix:
+		checkComprehensionBindings(v.Left, bound, errs)
+		checkComprehensionBindings(v.Right, bound, errs)
+	case *Prefix:
+		checkComprehensionBindings(v.Expr, bound, errs)
+	case *DotPath:
+		for _, seg := range v.Segments {
+			checkComprehensionBindings(seg.Index, bound, errs)
+		}
+	case *Conditional:
+		checkComprehensionBindings(v.Cond, bound, errs)
+		checkComprehensionBindings(v.Then, bound, errs)
+		checkComprehensionBindings(v.Else, bound, errs)
+	case *Comprehension:
+		checkComprehensionBindings(v.Source, bound, errs)
+		inner := make(map[string]Position, len(bound)+len(v.Names))
+		maps.Copy(inner, bound)
+		for i, n := range v.Names {
+			if slices.Contains(v.Names[:i], n) {
+				errs.Addf(ErrSchema, v.S.Start, "comprehension binds %s twice", n)
+				continue
+			}
+			if prev, dup := bound[n]; dup {
+				errs.Addf(ErrSchema, v.S.Start,
+					"binding %s shadows an enclosing comprehension binding"+
+						" (bound at %s); rename it", n, prev)
+			}
+			inner[n] = v.S.Start
+		}
+		checkComprehensionBindings(v.Key, inner, errs)
+		checkComprehensionBindings(v.Value, inner, errs)
+		checkComprehensionBindings(v.Filter, inner, errs)
+	case *InterpolatedString:
+		for _, part := range v.Parts {
+			checkComprehensionBindings(part.Expr, bound, errs)
+		}
+	}
 }
 
 // typeConstructorCalls returns the Call nodes that name a type constructor

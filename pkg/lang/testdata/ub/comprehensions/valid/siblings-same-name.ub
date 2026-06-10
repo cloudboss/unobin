@@ -1,0 +1,5 @@
+locals: {
+  xs: [1, 2]
+  a:  [ for x in local.xs : x ]
+  b:  [ for x in local.xs : x + 1 ]
+}

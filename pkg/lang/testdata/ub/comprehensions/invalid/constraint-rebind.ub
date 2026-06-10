@@ -1,0 +1,6 @@
+constraints: [
+  {
+    when:    @core.length([ for x in [1] : [ for x in [2] : x ] ]) > 0
+    require: true
+  }
+]

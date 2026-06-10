@@ -1,0 +1,4 @@
+locals: {
+  m: { a: 1 }
+  out: { for k, v in local.m : k => v }
+}

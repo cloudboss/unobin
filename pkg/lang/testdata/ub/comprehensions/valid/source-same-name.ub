@@ -1,0 +1,4 @@
+locals: {
+  xs: [1, 2]
+  ys: [ for x in [ for x in local.xs : x ] : x ]
+}
