@@ -396,11 +396,11 @@ func stringInlineWidth(s *StringLit) int {
 }
 
 func (w *formatter) objectInlineWidth(o *ObjectLit) int {
-	if len(o.Fields) == 0 {
-		return 2
-	}
 	if w.hasCommentInSpan(o.S.Start.Offset, o.S.End.Offset) {
 		return -1
+	}
+	if len(o.Fields) == 0 {
+		return 2
 	}
 	total := 4
 	for i, f := range o.Fields {
@@ -417,11 +417,11 @@ func (w *formatter) objectInlineWidth(o *ObjectLit) int {
 }
 
 func (w *formatter) arrayInlineWidth(a *ArrayLit) int {
-	if len(a.Elements) == 0 {
-		return 2
-	}
 	if w.hasCommentInSpan(a.S.Start.Offset, a.S.End.Offset) {
 		return -1
+	}
+	if len(a.Elements) == 0 {
+		return 2
 	}
 	total := 2
 	for i, el := range a.Elements {
@@ -1236,7 +1236,7 @@ func isJoinedBreakChar(b byte) bool {
 
 func (w *formatter) writeObject(o *ObjectLit, indent string) error {
 	if len(o.Fields) == 0 {
-		w.buf.WriteString("{}")
+		w.writeEmptyDelimited(o.S, indent, '{', '}')
 		return nil
 	}
 	if w.fitsOnLine(o, w.column()) {
@@ -1272,9 +1272,28 @@ func (w *formatter) writeObjectInline(o *ObjectLit) error {
 	return nil
 }
 
+// writeEmptyDelimited renders a collection with no elements. A comment
+// kept between the delimiters stays on its own indented line so its
+// placement is preserved; with nothing inside, the empty pair is written
+// inline.
+func (w *formatter) writeEmptyDelimited(s Span, indent string, opening, closing byte) {
+	if !w.hasCommentInSpan(s.Start.Offset, s.End.Offset) {
+		w.buf.WriteByte(opening)
+		w.buf.WriteByte(closing)
+		return
+	}
+	w.buf.WriteByte(opening)
+	w.buf.WriteByte('\n')
+	w.lastLine = s.Start.Line
+	w.flushBefore(s.End.Offset, indent+fmtStep)
+	w.buf.WriteString(indent)
+	w.buf.WriteByte(closing)
+	w.lastLine = s.End.Line
+}
+
 func (w *formatter) writeArray(a *ArrayLit, indent string) error {
 	if len(a.Elements) == 0 {
-		w.buf.WriteString("[]")
+		w.writeEmptyDelimited(a.S, indent, '[', ']')
 		return nil
 	}
 	if w.fitsOnLine(a, w.column()) {

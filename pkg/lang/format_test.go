@@ -47,6 +47,44 @@ list: []
 	require.Equal(t, src, formatString(t, src))
 }
 
+// TestFormatEmptyBlockKeepsComment proves a comment is not ejected from a
+// block that holds nothing else: the block stays multi-line so the comment
+// keeps its place inside. A block with no comment still collapses inline.
+func TestFormatEmptyBlockKeepsComment(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "object with only a comment stays multi-line",
+			src: `inputs: {
+  # declared later
+}
+`,
+		},
+		{
+			name: "array with only a comment stays multi-line",
+			src: `items: [
+  # none yet
+]
+`,
+		},
+		{
+			name: "empty object with no comment stays inline",
+			src:  "inputs: {}\n",
+		},
+		{
+			name: "empty array with no comment stays inline",
+			src:  "items: []\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.src, formatString(t, tt.src))
+		})
+	}
+}
+
 func TestFormatArray(t *testing.T) {
 	tests := []struct {
 		name string
