@@ -113,17 +113,16 @@ func TestFmtDirectoryWalksRecursively(t *testing.T) {
 	require.Equal(t, messySource, string(onDisk), "non-ub files must be ignored")
 }
 
-func TestFmtDirectoryIncludesManifestSkipsLock(t *testing.T) {
+func TestFmtDirectorySkipsManifestAndLock(t *testing.T) {
 	dir := t.TempDir()
-	manifest := writeUBFile(t, dir, deps.ManifestFileName, messySource)
-	// The lock is JSON, which would fail to parse as .ub; including it
-	// would error rather than silently format it.
+	ub := writeUBFile(t, dir, "main.ub", messySource)
+	writeUBFile(t, dir, deps.ManifestFileName, messySource)
 	writeUBFile(t, dir, deps.LockFileName, `{"deps": []}`)
 
 	got, err := runFmtCommand(t, nil, "-l", dir)
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
-	require.ElementsMatch(t, []string{manifest}, lines)
+	require.ElementsMatch(t, []string{ub}, lines)
 }
 
 func TestFmtReadsStdinAndWritesStdout(t *testing.T) {
