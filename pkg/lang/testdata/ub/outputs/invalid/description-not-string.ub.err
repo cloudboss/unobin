@@ -1,0 +1,2 @@
+output "a": description must be a string literal
+output "b": description must be a string literal

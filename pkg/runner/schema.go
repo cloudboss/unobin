@@ -45,6 +45,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 	inputs := topLevelObject(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		fmt.Fprintln(out, "No inputs declared.")
+		printOutputSchema(out, f)
 		printConfigurationSchema(out, f, dag, info)
 		return nil
 	}
@@ -77,8 +78,35 @@ func doSchema(cmd *cobra.Command, info Info) error {
 		}
 		fmt.Fprintln(out)
 	}
+	printOutputSchema(out, f)
 	printConfigurationSchema(out, f, dag, info)
 	return nil
+}
+
+// printOutputSchema lists the factory's declared outputs: each name
+// with its sensitivity marker and declared description. Values are
+// runtime results, so only the metadata prints here.
+func printOutputSchema(out io.Writer, f *lang.File) {
+	outputs := topLevelObject(f, "outputs")
+	if outputs == nil || len(outputs.Fields) == 0 {
+		return
+	}
+	sensitive := lang.SensitiveOutputs(outputs)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "outputs:")
+	for _, fld := range outputs.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		fmt.Fprintf(out, "  %s", fld.Key.Name)
+		if sensitive[fld.Key.Name] {
+			fmt.Fprint(out, " (sensitive)")
+		}
+		if d := lang.OutputDescription(fld.Value); d != "" {
+			fmt.Fprintf(out, "  -- %s", d)
+		}
+		fmt.Fprintln(out)
+	}
 }
 
 // printConfigurationSchema lists each configured library: the names

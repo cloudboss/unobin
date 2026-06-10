@@ -17,7 +17,10 @@ actions: {
 }
 
 outputs: {
-  written-path: { value: resource.std.fs-file.hello.path }
-  size:         { value: resource.std.fs-file.hello.size }
-  read-back:    { value: action.std.exec-command.read-back.stdout }
+  written-path: {
+    value:       resource.std.fs-file.hello.path
+    description: 'Where the greeting was written'
+  }
+  size:      { value: resource.std.fs-file.hello.size }
+  read-back: { value: action.std.exec-command.read-back.stdout }
 }

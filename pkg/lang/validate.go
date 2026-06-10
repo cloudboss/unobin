@@ -707,9 +707,9 @@ func validateForEachChain(idx int, arr *ArrayLit, errs *ErrorList) {
 
 // ValidateOutputs checks an `outputs:` block. Every entry is a
 // bare identifier name bound to an object wrapper of the form
-// `{ value: expr }`, optionally carrying `@sensitive: true`. The
-// wrapper exists so per-output metadata keys can ride alongside
-// the value without ambiguity.
+// `{ value: expr }`, optionally carrying `description: '...'` and
+// `@sensitive: true`. The wrapper exists so per-output metadata
+// keys can ride alongside the value without ambiguity.
 func ValidateOutputs(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
@@ -738,7 +738,8 @@ func ValidateOutputs(block *ObjectLit) *ErrorList {
 
 // validateOutputEntry enforces the wrapper shape on one output
 // entry's value. The value must be an object literal carrying a
-// `value:` key plus, optionally, `@sensitive: true`.
+// `value:` key plus, optionally, a string-literal `description:`
+// and `@sensitive: true`.
 func validateOutputEntry(name string, value Expr, errs *ErrorList) {
 	obj, ok := value.(*ObjectLit)
 	if !ok {
@@ -774,9 +775,9 @@ func validateOutputEntry(name string, value Expr, errs *ErrorList) {
 				name, df.Key.String)
 			continue
 		}
-		if keyName != "value" {
+		if keyName != "value" && keyName != "description" {
 			errs.Addf(ErrSchema, df.Key.S.Start,
-				"output %q: unknown wrapper key %q (allowed: value)", name, keyName)
+				"output %q: unknown wrapper key %q (allowed: value, description)", name, keyName)
 			continue
 		}
 		if prev, dup := innerSeen[keyName]; dup {
@@ -785,6 +786,13 @@ func validateOutputEntry(name string, value Expr, errs *ErrorList) {
 			continue
 		}
 		innerSeen[keyName] = df.Key.S.Start
+		if keyName == "description" {
+			if _, ok := df.Value.(*StringLit); !ok {
+				errs.Addf(ErrType, df.Value.Span().Start,
+					"output %q: description must be a string literal", name)
+			}
+			continue
+		}
 		hasValue = true
 	}
 	if !hasValue {

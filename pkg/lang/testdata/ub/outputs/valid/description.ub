@@ -1,0 +1,4 @@
+outputs: {
+  endpoint: { value: var.x, description: 'Public endpoint URL' }
+  token:    { value: var.x, @sensitive: true, description: 'Bootstrap token' }
+}

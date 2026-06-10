@@ -1,0 +1,3 @@
+outputs: {
+  a: { value: var.x, description: 'one', description: 'two' }
+}
