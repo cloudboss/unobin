@@ -45,6 +45,9 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	if rs.prior == nil {
 		return &RefreshResult{}, nil
 	}
+	if err := e.seedPriorInternalConfigurations(rs.prior, e.Inputs); err != nil {
+		return nil, err
+	}
 
 	res := &RefreshResult{}
 	type leafResult struct {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -87,6 +88,13 @@ type Executor struct {
 	// consumers read concurrently, so access goes through internalMu.
 	internalConfigurations map[string]any
 	internalMu             sync.Mutex
+
+	// priorInternalConfigurations holds internal configurations
+	// evaluated against the prior snapshot instead of the live run.
+	// The state-entry paths read it: refresh, destroy deletes, and
+	// orphan reads all operate on objects the last apply recorded, so
+	// they use the configuration those objects were written with.
+	priorInternalConfigurations map[string]any
 }
 
 // storeInternalConfiguration records the decoded value of an internal
@@ -107,6 +115,100 @@ func (e *Executor) internalConfiguration(addr string) (any, bool) {
 	defer e.internalMu.Unlock()
 	v, ok := e.internalConfigurations[addr]
 	return v, ok
+}
+
+func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
+	e.internalMu.Lock()
+	defer e.internalMu.Unlock()
+	v, ok := e.priorInternalConfigurations[addr]
+	return v, ok
+}
+
+// stateScope builds an evaluation context whose resource, data, and
+// action values come from a prior snapshot, for evaluating internal
+// configurations against what the last apply recorded. Only root
+// entries seed it: configurations are defined at the factory root and
+// cannot reference composite internals.
+func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalContext {
+	scope := &EvalContext{
+		Vars:      vars,
+		Resources: make(map[string]any),
+		Data:      make(map[string]any),
+		Actions:   make(map[string]any),
+		Libraries: e.Libraries,
+		locals:    newLocalScope(localsBlock(e.Source)),
+	}
+	if prior == nil {
+		return scope
+	}
+	for _, ent := range prior.Entries {
+		if strings.Contains(ent.Address, "/") {
+			continue
+		}
+		tmpl, instKey := splitInstanceAddress(ent.Address)
+		kind, alias, typeName, name, ok := parseAddress(tmpl)
+		if !ok {
+			continue
+		}
+		target := scopeMapForKind(scope, NodeKind(kind))
+		if target == nil {
+			continue
+		}
+		attrs := mergeAttrs(ent.Inputs, ent.Outputs)
+		if instKey == "" {
+			seedNested(target, alias, typeName, name, attrs)
+		} else {
+			seedInstance(target, alias, typeName, name, instKey, attrs)
+		}
+	}
+	return scope
+}
+
+// seedPriorInternalConfigurations evaluates every internal
+// configuration against the prior snapshot and keeps the decoded
+// values for the state-entry paths. A configuration whose sources are
+// not all in state is skipped: a consumer that needs it sees a nil
+// configuration, the same as an operator-side name that was never
+// supplied. Live consumers never read these values; the plan walk and
+// apply evaluate their own.
+func (e *Executor) seedPriorInternalConfigurations(
+	prior *state.Snapshot, vars map[string]any,
+) error {
+	if prior == nil || e.DAG == nil {
+		return nil
+	}
+	var scope *EvalContext
+	for _, n := range e.DAG.Nodes {
+		if n.Kind != NodeConfiguration {
+			continue
+		}
+		if scope == nil {
+			scope = e.stateScope(prior, vars)
+		}
+		raw, err := evalBody(n.Body, scope)
+		if err != nil {
+			if errors.Is(err, ErrEvalNotFound) {
+				continue
+			}
+			return fmt.Errorf("%s: %w", n.Address, err)
+		}
+		lib, ok := e.librariesFor(n)[n.Alias]
+		if !ok || lib.Configuration == nil {
+			return fmt.Errorf("%s: library %q declares no configuration",
+				n.Address, n.Alias)
+		}
+		decoded, err := cfg.Decode(lib.Configuration, raw)
+		if err != nil {
+			return fmt.Errorf("%s: %w", n.Address, err)
+		}
+		e.internalMu.Lock()
+		if e.priorInternalConfigurations == nil {
+			e.priorInternalConfigurations = map[string]any{}
+		}
+		e.priorInternalConfigurations[n.Address] = decoded
+		e.internalMu.Unlock()
+	}
+	return nil
 }
 
 // effectiveParallelism returns the in-flight cap apply should honor.
@@ -198,14 +300,25 @@ func (e *Executor) configRefString(n *Node) string {
 // configForRef returns the configuration named by a state entry's
 // recorded ref of the form "<alias>.<configuration>". An empty ref
 // means the entry used its import's default configuration, so the
-// entry's own import alias with the default applies.
+// entry's own import alias with the default applies. A ref naming an
+// internal configuration reads the value evaluated from prior state,
+// falling back to the live table when prior state had nothing for it.
 func (e *Executor) configForRef(ref, fallbackAlias string) any {
-	if ref == "" {
-		return e.lookupConfiguration(fallbackAlias, "default")
+	alias, configuration := fallbackAlias, "default"
+	if ref != "" {
+		if a, c, ok := strings.Cut(ref, "."); ok {
+			alias, configuration = a, c
+		}
 	}
-	alias, configuration, ok := strings.Cut(ref, ".")
-	if !ok {
-		return e.lookupConfiguration(fallbackAlias, "default")
+	if e.DAG != nil {
+		addr := configurationAddress(alias, configuration)
+		if _, internal := e.DAG.Nodes[addr]; internal {
+			if v, ok := e.priorInternalConfiguration(addr); ok {
+				return v
+			}
+			v, _ := e.internalConfiguration(addr)
+			return v
+		}
 	}
 	return e.lookupConfiguration(alias, configuration)
 }

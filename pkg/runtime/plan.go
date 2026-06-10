@@ -302,6 +302,9 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := e.seedPriorInternalConfigurations(rs.prior, e.Inputs); err != nil {
+		return nil, err
+	}
 	stateRev, _ := e.Store.CurrentRev()
 
 	plan := &Plan{

@@ -35,10 +35,12 @@ func (r *echoResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *echoResource) ReplaceFields() []string                  { return []string{"value"} }
 
 // configEchoResource records the configuration the runtime handed it,
-// so a test can prove which value reached each CRUD call. readSeen,
-// when non-nil, collects the endpoint every Read receives.
+// so a test can prove which value reached each CRUD call. readSeen
+// and deleteSeen, when non-nil, collect the endpoint every Read and
+// Delete receive.
 type configEchoResource struct {
-	readSeen *[]string
+	readSeen   *[]string
+	deleteSeen *[]string
 }
 
 func endpointOf(c any) string {
@@ -64,14 +66,19 @@ func (r *configEchoResource) Update(
 ) (any, error) {
 	return map[string]any{"endpoint": endpointOf(c)}, nil
 }
-func (r *configEchoResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *configEchoResource) ReplaceFields() []string                  { return nil }
+func (r *configEchoResource) Delete(_ context.Context, c any, _ any) error {
+	if r.deleteSeen != nil {
+		*r.deleteSeen = append(*r.deleteSeen, endpointOf(c))
+	}
+	return nil
+}
+func (r *configEchoResource) ReplaceFields() []string { return nil }
 
 func configuredLibraries() map[string]*Library {
-	return configuredLibrariesRecording(nil)
+	return configuredLibrariesRecording(nil, nil)
 }
 
-func configuredLibrariesRecording(readSeen *[]string) map[string]*Library {
+func configuredLibrariesRecording(readSeen, deleteSeen *[]string) map[string]*Library {
 	return map[string]*Library{
 		"fix": {
 			Name: "fix",
@@ -81,7 +88,9 @@ func configuredLibrariesRecording(readSeen *[]string) map[string]*Library {
 			Resources: map[string]ResourceRegistration{
 				"echo": MakeResource[echoResource, any](),
 				"config-echo": MakeResourceWith[configEchoResource, any](
-					func() *configEchoResource { return &configEchoResource{readSeen: readSeen} },
+					func() *configEchoResource {
+						return &configEchoResource{readSeen: readSeen, deleteSeen: deleteSeen}
+					},
 				),
 			},
 		},
@@ -118,7 +127,7 @@ func TestApplyEvaluatesInternalConfiguration(t *testing.T) {
 // plan uses a fresh Executor, the way a separate invocation would.
 func TestPlanEvaluatesInternalConfigurationFromState(t *testing.T) {
 	var seen []string
-	libs := configuredLibrariesRecording(&seen)
+	libs := configuredLibrariesRecording(&seen, nil)
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
@@ -165,7 +174,7 @@ data:      { fix.probe.p: { @configuration: fix.cluster } }
 // apply-time read then sees the real decoded value.
 func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 	var seen []string
-	libs := configuredLibrariesRecording(&seen)
+	libs := configuredLibrariesRecording(&seen, nil)
 	libs["fix"].DataSources = map[string]DataSourceRegistration{
 		"probe": MakeDataSourceWith[configProbeData, any](
 			func() *configProbeData { return &configProbeData{readSeen: &seen} },
@@ -208,7 +217,7 @@ resources: {
 // stored state.
 func TestDriftReadSkippedWhileConfigurationPending(t *testing.T) {
 	var seen []string
-	libs := configuredLibrariesRecording(&seen)
+	libs := configuredLibrariesRecording(&seen, nil)
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, &Executor{
@@ -233,4 +242,56 @@ func TestDriftReadSkippedWhileConfigurationPending(t *testing.T) {
 	step := findStep(t, plan, "resource.fix.config-echo.app")
 	require.Equal(t, "fix.cluster", step.DeferredRead)
 	require.Equal(t, DecisionNoOp, step.Decision)
+}
+
+// Destroy deletes run with the configuration the entries were created
+// under, evaluated from prior state, since nothing applies this run.
+func TestDestroyUsesInternalConfigurationFromState(t *testing.T) {
+	var deletes []string
+	libs := configuredLibrariesRecording(nil, &deletes)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	applyOnce(t, &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+	})
+
+	down := &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+		Destroy:   true,
+	}
+	_, err := planAndApply(down)
+	require.NoError(t, err)
+	require.Equal(t, []string{"https://cluster.example"}, deletes)
+}
+
+// Refresh reads every entry with the configuration recorded for it,
+// evaluated from prior state.
+func TestRefreshUsesInternalConfigurationFromState(t *testing.T) {
+	var reads []string
+	libs := configuredLibrariesRecording(&reads, nil)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	applyOnce(t, &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+	})
+
+	reads = nil
+	fresh := &Executor{
+		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+	}
+	_, err := fresh.Refresh(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{"https://cluster.example"}, reads)
 }
