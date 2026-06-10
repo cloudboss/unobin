@@ -30,7 +30,7 @@ func NewChecker(f *lang.File, libs map[string]*Library) *Checker {
 	c := &Checker{
 		root:      f,
 		dag:       BuildDAG(f, libs),
-		inputs:    map[string]map[string]bool{"": inputNames(f)},
+		inputs:    map[string]map[string]bool{"": InputNames(f)},
 		locals:    map[string]map[string]bool{"": localNames(f)},
 		libraries: map[string]map[string]*Library{"": libs},
 	}
@@ -85,7 +85,7 @@ func (c *Checker) collectCompositeScopes() {
 		if !n.IsComposite() {
 			continue
 		}
-		c.inputs[n.Address] = inputNames(n.CompositeBody)
+		c.inputs[n.Address] = InputNames(n.CompositeBody)
 		c.locals[n.Address] = localNames(n.CompositeBody)
 		c.libraries[n.Address] = n.Libraries
 	}
@@ -154,7 +154,7 @@ func libraryDeclares(lib *Library, kind NodeKind, typ string) bool {
 			return true
 		}
 	}
-	return lib.Schema != nil && lib.Schema.typeSchema(kind, typ) != nil
+	return lib.Schema != nil && lib.Schema.ForType(kind, typ) != nil
 }
 
 func (c *referenceChecker) checkNodes() {
@@ -180,7 +180,7 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 	if f == nil || f.Body == nil {
 		return
 	}
-	arr, ok := topLevelMap(f.Body)["constraints"].(*lang.ArrayLit)
+	arr, ok := lang.FieldMap(f.Body)["constraints"].(*lang.ArrayLit)
 	if !ok {
 		return
 	}
@@ -299,7 +299,7 @@ func (c *referenceChecker) checkCompositeOutputs(n *Node) {
 	if n.CompositeBody == nil || n.CompositeBody.Body == nil {
 		return
 	}
-	outputs, ok := topLevelMap(n.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
+	outputs, ok := lang.FieldMap(n.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
 	if !ok {
 		return
 	}
@@ -545,7 +545,7 @@ func (c *referenceChecker) checkLocals() {
 }
 
 func (c *referenceChecker) checkLocalsBlock(f *lang.File, scope string) {
-	block := localsBlock(f)
+	block := lang.TopLevelBlock(f, "locals")
 	if block == nil {
 		return
 	}
@@ -571,7 +571,7 @@ func (c *referenceChecker) checkLocalCycles() {
 }
 
 func (c *referenceChecker) checkLocalCyclesBlock(f *lang.File, scope string) {
-	block := localsBlock(f)
+	block := lang.TopLevelBlock(f, "locals")
 	if block == nil {
 		return
 	}
@@ -661,7 +661,7 @@ func (c *referenceChecker) checkNodeCycles() {
 // block.
 func localNames(f *lang.File) map[string]bool {
 	out := map[string]bool{}
-	for name := range localExprs(localsBlock(f)) {
+	for name := range lang.FieldMap(lang.TopLevelBlock(f, "locals")) {
 		out[name] = true
 	}
 	return out
@@ -773,7 +773,7 @@ func compositeOutputNames(node *Node) map[string]typecheck.Type {
 	if node.CompositeBody == nil {
 		return nil
 	}
-	outputs, ok := topLevelMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
+	outputs, ok := lang.FieldMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
 	if !ok {
 		return nil
 	}
@@ -1009,22 +1009,4 @@ func (c *referenceChecker) addf(pos lang.Position, format string, args ...any) {
 	}
 	c.seen[key] = true
 	c.errs.Add(&lang.Error{Kind: lang.ErrResolve, Pos: pos, Msg: msg})
-}
-
-func inputNames(f *lang.File) map[string]bool {
-	names := map[string]bool{}
-	if f == nil || f.Body == nil {
-		return names
-	}
-	inputs, ok := topLevelMap(f.Body)["inputs"].(*lang.ObjectLit)
-	if !ok {
-		return names
-	}
-	for _, fld := range inputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		names[fld.Key.Name] = true
-	}
-	return names
 }

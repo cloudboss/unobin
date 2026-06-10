@@ -126,7 +126,7 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 		return nil
 	}
 	var nodes []*Node
-	blocks := topLevelMap(f.Body)
+	blocks := lang.FieldMap(f.Body)
 	if obj, ok := blocks["resources"].(*lang.ObjectLit); ok {
 		nodes = append(nodes, extractKind(obj, NodeResource, parent, libs)...)
 	}
@@ -396,7 +396,7 @@ func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 	if f == nil || f.Body == nil {
 		return out
 	}
-	block, ok := topLevelMap(f.Body)["configurations"].(*lang.ObjectLit)
+	block, ok := lang.FieldMap(f.Body)["configurations"].(*lang.ObjectLit)
 	if !ok {
 		return out
 	}
@@ -466,16 +466,6 @@ func extractOutputs(block *lang.ObjectLit) []*Node {
 	return out
 }
 
-func topLevelMap(body *lang.ObjectLit) map[string]lang.Expr {
-	out := make(map[string]lang.Expr, len(body.Fields))
-	for _, f := range body.Fields {
-		if f.Key.Kind == lang.FieldIdent && !f.Key.IsMeta() {
-			out[f.Key.Name] = f.Value
-		}
-	}
-	return out
-}
-
 // composeAddress builds a node's address. Every segment has its own
 // kind root: at root it is `<kind>.<alias>.<type>.<name>`, and
 // inside a composite it is `<call-site>/<kind>.<alias>.<type>.<name>`. The
@@ -486,4 +476,16 @@ func composeAddress(parent string, kind NodeKind, alias, typ, name string) strin
 		return fmt.Sprintf("%s.%s.%s.%s", kind, alias, typ, name)
 	}
 	return fmt.Sprintf("%s/%s.%s.%s.%s", parent, kind, alias, typ, name)
+}
+
+// InputNames returns the set of input names a file declares.
+func InputNames(f *lang.File) map[string]bool {
+	names := map[string]bool{}
+	if f == nil || f.Body == nil {
+		return names
+	}
+	for name := range lang.FieldMap(lang.TopLevelBlock(f, "inputs")) {
+		names[name] = true
+	}
+	return names
 }

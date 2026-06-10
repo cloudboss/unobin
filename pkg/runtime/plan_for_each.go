@@ -10,7 +10,7 @@ import (
 // n's ancestry is itself a `@for-each` template. Such nodes are
 // planned per-instance by their boundary's planner, not on their own.
 func (e *Executor) insideForEachComposite(n *Node) bool {
-	return underForEachComposite(e.DAG.Nodes, n)
+	return e.DAG.UnderForEachComposite(n)
 }
 
 // planForEachLeaf plans one step per iterable key of a leaf node.

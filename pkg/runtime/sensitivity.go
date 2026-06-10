@@ -55,7 +55,7 @@ func newSensitivityAnalyzer(
 ) *sensitivityAnalyzer {
 	return &sensitivityAnalyzer{
 		rootInputs: inputsBlockSensitive(rootSource),
-		rootLocals: localExprs(localsBlock(rootSource)),
+		rootLocals: lang.FieldMap(localsBlock(rootSource)),
 		rootMods:   rootMods,
 		dag:        dag,
 		cache:      map[*lang.File]*compositeSensitivity{},
@@ -167,7 +167,7 @@ func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) *sensScope {
 	if libs == nil {
 		libs = s.rootMods
 	}
-	return newSensScope(cs.inputs, libs, localExprs(localsBlock(boundary.CompositeBody)))
+	return newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(boundary.CompositeBody)))
 }
 
 // compositeSensitivity returns the analyzed sensitivity facts for
@@ -193,7 +193,7 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	if body.Body == nil {
 		return cs
 	}
-	outputs, ok := topLevelMap(body.Body)["outputs"].(*lang.ObjectLit)
+	outputs, ok := lang.FieldMap(body.Body)["outputs"].(*lang.ObjectLit)
 	if !ok {
 		return cs
 	}
@@ -204,7 +204,7 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	if libs == nil {
 		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, libs, localExprs(localsBlock(body)))
+	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(body)))
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -350,7 +350,7 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	if ct.Body.Body == nil {
 		return cs.outputs
 	}
-	outputs, ok := topLevelMap(ct.Body.Body)["outputs"].(*lang.ObjectLit)
+	outputs, ok := lang.FieldMap(ct.Body.Body)["outputs"].(*lang.ObjectLit)
 	if !ok {
 		return cs.outputs
 	}
@@ -361,7 +361,7 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	if libs == nil {
 		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, libs, localExprs(localsBlock(ct.Body)))
+	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(ct.Body)))
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -388,7 +388,7 @@ func inputsBlockSensitive(f *lang.File) map[string]bool {
 	if f == nil || f.Body == nil {
 		return map[string]bool{}
 	}
-	inputs, ok := topLevelMap(f.Body)["inputs"].(*lang.ObjectLit)
+	inputs, ok := lang.FieldMap(f.Body)["inputs"].(*lang.ObjectLit)
 	if !ok {
 		return map[string]bool{}
 	}

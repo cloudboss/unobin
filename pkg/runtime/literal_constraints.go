@@ -29,7 +29,7 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 		if lib == nil || lib.Schema == nil {
 			continue
 		}
-		schema := lib.Schema.typeSchema(n.Kind, n.Type)
+		schema := lib.Schema.ForType(n.Kind, n.Type)
 		if schema == nil || len(schema.Constraints) == 0 {
 			continue
 		}
@@ -44,7 +44,7 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 		}
 		eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
 			ctx := &EvalContext{Vars: values, MissingAsNull: true}
-			applyBindings(ctx, binds)
+			ApplyBindings(ctx, binds)
 			v, err := Eval(ex, ctx)
 			if errors.Is(err, ErrEvalNotFound) {
 				return nil, nil
@@ -99,32 +99,4 @@ func readsDeferred(c lang.ConstraintEntry, deferred map[string]bool) bool {
 		}
 	}
 	return false
-}
-
-// typeSchema returns the schema for a node kind's type, or nil when the
-// kind is not a resource, data, or action or the type is absent.
-func (s *LibrarySchema) typeSchema(kind NodeKind, typ string) *TypeSchema {
-	switch kind {
-	case NodeResource:
-		return s.Resources[typ]
-	case NodeData:
-		return s.DataSources[typ]
-	case NodeAction:
-		return s.Actions[typ]
-	default:
-		return nil
-	}
-}
-
-// applyBindings copies a constraint's iteration bindings onto the
-// context so @each and any chained level name resolve during the
-// element's evaluation.
-func applyBindings(ctx *EvalContext, binds []lang.EachBinding) {
-	if len(binds) == 0 {
-		return
-	}
-	ctx.Each = make(map[string]lang.EachValue, len(binds))
-	for _, b := range binds {
-		ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
-	}
 }

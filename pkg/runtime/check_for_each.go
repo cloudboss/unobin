@@ -18,27 +18,11 @@ func (c *Checker) ForEachNesting() *lang.ErrorList {
 	errs := lang.NewErrorList(0)
 	for _, addr := range slices.Sorted(maps.Keys(c.dag.Nodes)) {
 		n := c.dag.Nodes[addr]
-		if n.ForEach == nil || !underForEachComposite(c.dag.Nodes, n) {
+		if n.ForEach == nil || !c.dag.UnderForEachComposite(n) {
 			continue
 		}
 		errs.Addf(lang.ErrSchema, n.Body.Span().Start,
 			"%s: @for-each inside a @for-each composite is not supported", n.Address)
 	}
 	return errs
-}
-
-// underForEachComposite reports whether any composite call site in
-// n's ancestry is itself a `@for-each` template.
-func underForEachComposite(nodes map[string]*Node, n *Node) bool {
-	for cur := n.Composite; cur != ""; {
-		b, ok := nodes[cur]
-		if !ok {
-			return false
-		}
-		if b.IsComposite() && b.ForEach != nil {
-			return true
-		}
-		cur = b.Composite
-	}
-	return false
 }

@@ -50,7 +50,7 @@ type scopeLocals struct {
 
 func newScopeLocals(f *lang.File, nodes map[string]*Node) *scopeLocals {
 	return &scopeLocals{
-		stack: localExprs(localsBlock(f)),
+		stack: lang.FieldMap(localsBlock(f)),
 		nodes: nodes,
 		cache: map[string]map[string]lang.Expr{},
 	}
@@ -68,7 +68,7 @@ func (s *scopeLocals) forScope(callSite string) map[string]lang.Expr {
 	}
 	var m map[string]lang.Expr
 	if boundary, ok := s.nodes[tmpl]; ok {
-		m = localExprs(localsBlock(boundary.CompositeBody))
+		m = lang.FieldMap(localsBlock(boundary.CompositeBody))
 	}
 	s.cache[tmpl] = m
 	return m
@@ -175,6 +175,22 @@ func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
 		deps = append(deps, dep)
 	}
 	return dedupe(deps)
+}
+
+// UnderForEachComposite reports whether any composite call site in
+// n's ancestry is itself a `@for-each` template.
+func (g *DAG) UnderForEachComposite(n *Node) bool {
+	for cur := n.Composite; cur != ""; {
+		b, ok := g.Nodes[cur]
+		if !ok {
+			return false
+		}
+		if b.IsComposite() && b.ForEach != nil {
+			return true
+		}
+		cur = b.Composite
+	}
+	return false
 }
 
 // ConfigurationSelections returns every configuration selection the

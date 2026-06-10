@@ -23,26 +23,10 @@ type localScope struct {
 // block yields a usable empty scope, so every EvalContext can carry one.
 func newLocalScope(block *lang.ObjectLit) *localScope {
 	return &localScope{
-		exprs:   localExprs(block),
+		exprs:   lang.FieldMap(block),
 		values:  map[string]any{},
 		forcing: map[string]bool{},
 	}
-}
-
-// localExprs maps each declared local name to its expression. A nil
-// block yields an empty map.
-func localExprs(block *lang.ObjectLit) map[string]lang.Expr {
-	out := map[string]lang.Expr{}
-	if block == nil {
-		return out
-	}
-	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		out[fld.Key.Name] = fld.Value
-	}
-	return out
 }
 
 // localsBlock returns the `locals:` object from a parsed file, or nil

@@ -889,3 +889,16 @@ func indexElement(cur any, i int64, path string) (any, string, error) {
 	}
 	return lst[i], path, nil
 }
+
+// ApplyBindings copies a constraint's iteration bindings onto the
+// context so @each and any chained level name resolve during the
+// element's evaluation.
+func ApplyBindings(ctx *EvalContext, binds []lang.EachBinding) {
+	if len(binds) == 0 {
+		return
+	}
+	ctx.Each = make(map[string]lang.EachValue, len(binds))
+	for _, b := range binds {
+		ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
+	}
+}

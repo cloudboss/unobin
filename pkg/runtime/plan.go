@@ -966,7 +966,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	maps.Copy(values, step.Inputs)
 	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
 		ctx := &EvalContext{Vars: values, MissingAsNull: true}
-		applyBindings(ctx, binds)
+		ApplyBindings(ctx, binds)
 		v, err := Eval(ex, ctx)
 		if errors.Is(err, ErrEvalNotFound) {
 			return nil, nil
@@ -1008,7 +1008,7 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 	if !ok || node.CompositeBody == nil {
 		return nil
 	}
-	arr, ok := topLevelMap(node.CompositeBody.Body)["constraints"].(*lang.ArrayLit)
+	arr, ok := lang.FieldMap(node.CompositeBody.Body)["constraints"].(*lang.ArrayLit)
 	if !ok || len(arr.Elements) == 0 {
 		return nil
 	}
@@ -1017,13 +1017,13 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 		return nil
 	}
 	values := make(map[string]any, len(scope.Vars))
-	for name := range inputNames(node.CompositeBody) {
+	for name := range InputNames(node.CompositeBody) {
 		values[name] = nil
 	}
 	maps.Copy(values, scope.Vars)
 	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
 		ctx := &EvalContext{Vars: values, Libraries: node.Libraries, MissingAsNull: true}
-		applyBindings(ctx, binds)
+		ApplyBindings(ctx, binds)
 		return Eval(ex, ctx)
 	}
 	var out []error

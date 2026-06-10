@@ -17,3 +17,20 @@ func TopLevelBlock(f *File, name string) *ObjectLit {
 	}
 	return nil
 }
+
+// FieldMap returns an object's plain fields by name: every field with
+// an identifier key that is not a meta key. A nil object yields an
+// empty map.
+func FieldMap(obj *ObjectLit) map[string]Expr {
+	out := map[string]Expr{}
+	if obj == nil {
+		return out
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		out[fld.Key.Name] = fld.Value
+	}
+	return out
+}

@@ -64,3 +64,18 @@ type TypeSchema struct {
 	// declares that absence is fine. Any other input is required.
 	Defaults []lang.DefaultSpec
 }
+
+// ForType returns the schema for a node kind's type, or nil when the
+// kind is not a resource, data, or action or the type is absent.
+func (s *LibrarySchema) ForType(kind NodeKind, typ string) *TypeSchema {
+	switch kind {
+	case NodeResource:
+		return s.Resources[typ]
+	case NodeData:
+		return s.DataSources[typ]
+	case NodeAction:
+		return s.Actions[typ]
+	default:
+		return nil
+	}
+}

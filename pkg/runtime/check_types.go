@@ -211,7 +211,7 @@ func compositeInputTargets(n *Node) map[string]typecheck.Type {
 	if n.CompositeBody == nil {
 		return nil
 	}
-	inputs, ok := topLevelMap(n.CompositeBody.Body)["inputs"].(*lang.ObjectLit)
+	inputs, ok := lang.FieldMap(n.CompositeBody.Body)["inputs"].(*lang.ObjectLit)
 	if !ok {
 		return nil
 	}
@@ -326,27 +326,27 @@ func (c *referenceChecker) lookupLocalFor(
 
 func (c *referenceChecker) localExprsFor(scope string) map[string]lang.Expr {
 	if scope == "" {
-		return localExprs(localsBlock(c.root))
+		return lang.FieldMap(lang.TopLevelBlock(c.root, "locals"))
 	}
 	node, ok := c.dag.Nodes[scope]
 	if !ok {
 		return nil
 	}
-	return localExprs(localsBlock(node.CompositeBody))
+	return lang.FieldMap(lang.TopLevelBlock(node.CompositeBody, "locals"))
 }
 
 func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 	var inputsBlock *lang.ObjectLit
 	if scope == "" {
 		if c.root != nil && c.root.Body != nil {
-			inputsBlock, _ = topLevelMap(c.root.Body)["inputs"].(*lang.ObjectLit)
+			inputsBlock, _ = lang.FieldMap(c.root.Body)["inputs"].(*lang.ObjectLit)
 		}
 	} else {
 		node, ok := c.dag.Nodes[scope]
 		if !ok || node.CompositeBody == nil || node.CompositeBody.Body == nil {
 			return nil
 		}
-		inputsBlock, _ = topLevelMap(node.CompositeBody.Body)["inputs"].(*lang.ObjectLit)
+		inputsBlock, _ = lang.FieldMap(node.CompositeBody.Body)["inputs"].(*lang.ObjectLit)
 	}
 	return typecheck.InputsFromBlock(inputsBlock)
 }
@@ -390,7 +390,7 @@ func (c *referenceChecker) inferCompositeOutputs(node *Node) map[string]typechec
 	if node.CompositeBody == nil || node.CompositeBody.Body == nil {
 		return nil
 	}
-	outputs, ok := topLevelMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
+	outputs, ok := lang.FieldMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
 	if !ok {
 		return nil
 	}
@@ -609,7 +609,7 @@ func (c *referenceChecker) checkOutputsBlock(f *lang.File, scope string) {
 	if f == nil || f.Body == nil {
 		return
 	}
-	obj, ok := topLevelMap(f.Body)["outputs"].(*lang.ObjectLit)
+	obj, ok := lang.FieldMap(f.Body)["outputs"].(*lang.ObjectLit)
 	if !ok {
 		return
 	}
@@ -645,7 +645,7 @@ func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string)
 	if f == nil || f.Body == nil {
 		return
 	}
-	arr, ok := topLevelMap(f.Body)["constraints"].(*lang.ArrayLit)
+	arr, ok := lang.FieldMap(f.Body)["constraints"].(*lang.ArrayLit)
 	if !ok {
 		return
 	}
