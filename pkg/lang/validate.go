@@ -1098,9 +1098,18 @@ func validateConfigurationNames(alias string, obj *ObjectLit, errs *ErrorList) {
 			continue
 		}
 		seen[name] = fld.Key.S.Start
-		if _, ok := fld.Value.(*ObjectLit); !ok {
+		obj, ok := fld.Value.(*ObjectLit)
+		if !ok {
 			errs.Addf(ErrSchema, fld.Value.Span().Start,
 				"configurations.%s.%s: a configuration must be an object of fields", alias, name)
+			continue
+		}
+		for _, cf := range obj.Fields {
+			if cf.Key.IsMeta() {
+				errs.Addf(ErrSchema, cf.Key.S.Start,
+					"configurations.%s.%s: @-prefixed key %q is not valid in a configuration",
+					alias, name, cf.Key.Name)
+			}
 		}
 	}
 }
