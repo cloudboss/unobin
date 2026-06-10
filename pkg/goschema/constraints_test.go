@@ -784,3 +784,14 @@ func (v Thing) Constraints() []constraint.Constraint {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `"Bogus"`)
 }
+
+// Every kind the constructor table renders must be one the language
+// validates and dispatches; the checker silently skips a kind it does
+// not know, so a drifted name would otherwise disable a constraint
+// without a word.
+func TestSetConstraintKindsMatchLanguage(t *testing.T) {
+	known := lang.FieldsConstraintKinds()
+	for ctor, kind := range setConstraintKinds {
+		require.Contains(t, known, kind, "constructor %s", ctor)
+	}
+}

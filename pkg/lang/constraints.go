@@ -2,6 +2,7 @@ package lang
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -193,22 +194,35 @@ func checkEntry(
 		checkSplatEntry(idx, c, values, evalAgainstInputs, display, errs)
 		return
 	}
-	switch c.Kind {
-	case "exactly-one-of":
-		checkExactlyOneOf(idx, c.Fields, values, display, errs)
-	case "at-least-one-of":
-		checkAtLeastOneOf(idx, c.Fields, values, display, errs)
-	case "at-most-one-of":
-		checkAtMostOneOf(idx, c.Fields, values, display, errs)
-	case "required-together":
-		checkRequiredTogether(idx, c.Fields, values, display, errs)
-	case "required-with":
-		checkRequiredWith(idx, c.Fields, values, display, errs)
-	case "forbidden-with":
-		checkForbiddenWith(idx, c.Fields, values, display, errs)
-	case "predicate":
+	if check, ok := fieldsConstraintCheckers[c.Kind]; ok {
+		check(idx, c.Fields, values, display, errs)
+		return
+	}
+	if c.Kind == "predicate" {
 		checkPredicate(idx, c, values, evalAgainstInputs, display, errs)
 	}
+}
+
+// fieldsConstraintCheckers binds each `fields:`-based constraint kind
+// to its checker. Validation accepts exactly these kinds plus
+// predicate, so the accepted vocabulary and the dispatch cannot
+// drift apart.
+var fieldsConstraintCheckers = map[string]func(
+	int, []string, map[string]any, FieldDisplay, *ErrorList,
+){
+	"exactly-one-of":    checkExactlyOneOf,
+	"at-least-one-of":   checkAtLeastOneOf,
+	"at-most-one-of":    checkAtMostOneOf,
+	"required-together": checkRequiredTogether,
+	"required-with":     checkRequiredWith,
+	"forbidden-with":    checkForbiddenWith,
+}
+
+// FieldsConstraintKinds returns the kinds a `fields:`-based constraint
+// entry may declare, sorted. goschema's constructor table is held to
+// this set by test.
+func FieldsConstraintKinds() []string {
+	return slices.Sorted(maps.Keys(fieldsConstraintCheckers))
 }
 
 // splatMarker is the reserved segment suffix that stands for every

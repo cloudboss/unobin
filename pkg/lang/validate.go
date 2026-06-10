@@ -416,17 +416,6 @@ func staticLiteral(e Expr) (any, bool) {
 	return nil, false
 }
 
-// fieldsBasedConstraintKinds is the set of kinds that take a list of
-// input names under `fields:`.
-var fieldsBasedConstraintKinds = map[string]struct{}{
-	"exactly-one-of":    {},
-	"at-least-one-of":   {},
-	"at-most-one-of":    {},
-	"required-together": {},
-	"required-with":     {},
-	"forbidden-with":    {},
-}
-
 // ValidateConstraints walks a `constraints:` array and checks each entry
 // per its declared `kind:`. Field-based kinds take a nonempty `fields:`
 // list of var references, dotted to reach a field inside a nested
@@ -480,7 +469,7 @@ func validateConstraint(idx int, e Expr, errs *ErrorList) {
 }
 
 func isFieldsBasedKind(s string) bool {
-	_, ok := fieldsBasedConstraintKinds[s]
+	_, ok := fieldsConstraintCheckers[s]
 	return ok
 }
 
