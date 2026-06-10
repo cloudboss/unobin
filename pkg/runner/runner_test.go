@@ -1311,9 +1311,19 @@ inputs: {
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
 
-	expected := `factory: { supported-versions: [{ version: 'v0.1.0', content-revision: 'abcdef' }] }
+	expected := `factory: {
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'abcdef' },
+  ]
+}
 
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+state: {
+  @backend: local
+  path:     '.unobin/state'
+  encryption: {
+    @key-source: noop
+  }
+}
 
 inputs: {
   # Text to write
@@ -1330,9 +1340,19 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
-	expected := `factory: { supported-versions: [{ version: 'v0.1.0', content-revision: 'abcdef' }] }
+	expected := `factory: {
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'abcdef' },
+  ]
+}
 
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+state: {
+  @backend: local
+  path:     '.unobin/state'
+  encryption: {
+    @key-source: noop
+  }
+}
 `
 	require.Equal(t, expected, out)
 }
@@ -1343,11 +1363,19 @@ func TestTemplateIncludesLibraryPathWhenSet(t *testing.T) {
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
 	expected := `factory: {
-  library-path:       'github.com/cloudboss/cluster-deploy'
-  supported-versions: [{ version: 'v0.1.0', content-revision: 'abcdef' }]
+  library-path: 'github.com/cloudboss/cluster-deploy'
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'abcdef' },
+  ]
 }
 
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+state: {
+  @backend: local
+  path:     '.unobin/state'
+  encryption: {
+    @key-source: noop
+  }
+}
 `
 	require.Equal(t, expected, out)
 }
@@ -1361,9 +1389,19 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 
 	written, err := os.ReadFile(dst)
 	require.NoError(t, err)
-	expected := `factory: { supported-versions: [{ version: 'v0.1.0', content-revision: 'abcdef' }] }
+	expected := `factory: {
+  supported-versions: [
+    { version: 'v0.1.0', content-revision: 'abcdef' },
+  ]
+}
 
-state: { @backend: local, path: '.unobin/state', encryption: { @key-source: noop } }
+state: {
+  @backend: local
+  path:     '.unobin/state'
+  encryption: {
+    @key-source: noop
+  }
+}
 
 inputs: {
   greeting: ''  # type: string

@@ -112,9 +112,9 @@ func TestFormatArray(t *testing.T) {
 			want: "items: [1, 2, 3]\n",
 		},
 		{
-			name: "short_atoms_multi_line_collapses_to_inline",
+			name: "short_atoms_multi_line_stays_packed",
 			src:  "items: [\n  1,\n  2,\n  3,\n]\n",
-			want: "items: [1, 2, 3]\n",
+			want: "items: [\n  1, 2, 3,\n]\n",
 		},
 		{
 			name: "trailing_comma_dropped_in_inline_form",
@@ -290,9 +290,9 @@ func TestFormatObject(t *testing.T) {
 			want: "outer: { inner: 'x' }\n",
 		},
 		{
-			name: "single_field_multi_line_collapses_to_inline",
+			name: "single_field_multi_line_preserved",
 			src:  "outer: {\n  inner: 'x'\n}\n",
-			want: "outer: { inner: 'x' }\n",
+			want: "outer: {\n  inner: 'x'\n}\n",
 		},
 		{
 			name: "two_fields_inline_with_commas",
@@ -300,9 +300,9 @@ func TestFormatObject(t *testing.T) {
 			want: "outer: { a: 1, b: 2 }\n",
 		},
 		{
-			name: "two_fields_multi_line_collapses_to_inline_with_commas",
+			name: "two_fields_multi_line_preserved",
 			src:  "outer: {\n  a: 1\n  b: 2\n}\n",
-			want: "outer: { a: 1, b: 2 }\n",
+			want: "outer: {\n  a: 1\n  b: 2\n}\n",
 		},
 		{
 			name: "messy_whitespace_normalized_inline",

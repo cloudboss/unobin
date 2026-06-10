@@ -395,8 +395,26 @@ func stringInlineWidth(s *StringLit) int {
 	return len(renderString(s.Value))
 }
 
+// authorExpandedObject reports whether the source placed the first field
+// on a line below the opening brace. The formatter keeps such an object
+// multi-line even when it would fit, so the layout an author chose for a
+// block survives a reformat.
+func authorExpandedObject(o *ObjectLit) bool {
+	return len(o.Fields) > 0 && o.Fields[0].S.Start.Line > o.S.Start.Line
+}
+
+// authorExpandedArray is the array counterpart of authorExpandedObject:
+// an array whose first element starts below the opening bracket stays
+// multi-line, which keeps record-style lists one entry per line.
+func authorExpandedArray(a *ArrayLit) bool {
+	return len(a.Elements) > 0 && a.Elements[0].Span().Start.Line > a.S.Start.Line
+}
+
 func (w *formatter) objectInlineWidth(o *ObjectLit) int {
 	if w.hasCommentInSpan(o.S.Start.Offset, o.S.End.Offset) {
+		return -1
+	}
+	if authorExpandedObject(o) {
 		return -1
 	}
 	if len(o.Fields) == 0 {
@@ -418,6 +436,9 @@ func (w *formatter) objectInlineWidth(o *ObjectLit) int {
 
 func (w *formatter) arrayInlineWidth(a *ArrayLit) int {
 	if w.hasCommentInSpan(a.S.Start.Offset, a.S.End.Offset) {
+		return -1
+	}
+	if authorExpandedArray(a) {
 		return -1
 	}
 	if len(a.Elements) == 0 {
