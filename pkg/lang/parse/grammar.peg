@@ -148,6 +148,13 @@ func unquoteSingle(s string) (string, error) {
 	return b.String(), nil
 }
 
+// escapeSingle renders s as the body of a single-quoted string
+// suggestion, escaping backslashes and quotes so the suggested
+// literal is valid source.
+func escapeSingle(s string) string {
+	return strings.NewReplacer(`\`, `\\`, "'", `\'`).Replace(s)
+}
+
 // unquoteInterpolated decodes a literal run inside an interpolated string. It
 // extends the strict single-quote escape set with \{{ -> {{ (the only
 // brace escape needed); \}} and every other unrecognized escape are
@@ -462,7 +469,7 @@ Pair <- key:Key _ ":" _ value:Value _ ","? _ {
 }
 
 
-Key <- DottedKey / IdentKey / StringKey
+Key <- DottedKey / IdentKey / StringKey / DoubleQuotedKey
 
 // A dotted key names a resource, data, or action declaration by its
 // address tail: alias.type.name. A bare identifier has no dot, so it
@@ -566,7 +573,7 @@ UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
 	return &Prefix{S: c.span(), Op: string(op.([]byte)), Expr: inner.(Expr)}, nil
 }
 
-Primary <- ParenExpr / MapComp / ListComp / ObjectLitNode / ArrayLitNode / InterpolatedStringNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression
+Primary <- ParenExpr / MapComp / ListComp / ObjectLitNode / ArrayLitNode / InterpolatedStringNode / TripleQuoteStringLitNode / StringLitNode / NumberLitNode / BoolLitNode / NullLitNode / NameExpression / DoubleQuotedString
 
 ParenExpr <- "(" _ e:Value _ ")" {
 	return e, nil
@@ -705,6 +712,26 @@ StringLitNode <- "'" body:StringBody "'" {
 
 StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 	return unquoteSingle(string(c.text))
+}
+
+// Double quotes never delimit a UB string; matching them anyway turns
+// the highest-frequency JSON habit into a teaching error instead of an
+// expectation dump. The typed placeholder keeps enclosing rules from
+// panicking before the recorded error surfaces; an unterminated opener
+// still matches so the hint fires either way.
+DoubleQuotedString <- "\"" body:DoubleQuotedBody "\""? {
+	s := body.(string)
+	return &StringLit{S: c.span(), Value: s},
+		fmt.Errorf("strings are single-quoted; write '%s'", escapeSingle(s))
+}
+
+DoubleQuotedBody <- ( !"\"" !"\n" !"\r" . )* {
+	return string(c.text), nil
+}
+
+DoubleQuotedKey <- s:DoubleQuotedString {
+	sl := s.(*StringLit)
+	return FieldKey{S: sl.S, Kind: FieldString, String: sl.Value}, nil
 }
 
 // Interpolated strings: `$'...'` single-quoted and `$'''...'''` triple-
