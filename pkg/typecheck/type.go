@@ -9,8 +9,9 @@
 package typecheck
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -274,6 +275,6 @@ func (t Type) Equal(other Type) bool {
 
 func sortFields(fs []ObjectField) []ObjectField {
 	out := append([]ObjectField(nil), fs...)
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	slices.SortFunc(out, func(a, b ObjectField) int { return cmp.Compare(a.Name, b.Name) })
 	return out
 }

@@ -5,8 +5,9 @@ package parse
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -435,8 +436,8 @@ func collectComments(c *current) []Comment {
 	for _, cm := range store {
 		out = append(out, cm)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].S.Start.Offset < out[j].S.Start.Offset
+	slices.SortFunc(out, func(a, b Comment) int {
+		return cmp.Compare(a.S.Start.Offset, b.S.Start.Offset)
 	})
 	return out
 }

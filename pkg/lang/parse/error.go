@@ -1,8 +1,9 @@
 package parse
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -102,15 +103,15 @@ func (l *ErrorList) Len() int { return len(l.errs) }
 // then column). The returned slice aliases internal storage; callers should
 // treat it as readonly.
 func (l *ErrorList) Errors() []*Error {
-	sort.SliceStable(l.errs, func(i, j int) bool {
-		a, b := l.errs[i].Pos, l.errs[j].Pos
-		if a.File != b.File {
-			return a.File < b.File
+	slices.SortStableFunc(l.errs, func(x, y *Error) int {
+		a, b := x.Pos, y.Pos
+		if c := cmp.Compare(a.File, b.File); c != 0 {
+			return c
 		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
+		if c := cmp.Compare(a.Line, b.Line); c != 0 {
+			return c
 		}
-		return a.Column < b.Column
+		return cmp.Compare(a.Column, b.Column)
 	})
 	return l.errs
 }

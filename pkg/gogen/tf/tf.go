@@ -1,12 +1,13 @@
 package tf
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/gogen"
@@ -171,7 +172,7 @@ func (a *Adapter) FetchConfiguration(ctx context.Context) (*gogen.ConfigurationS
 		return nil, nil
 	}
 
-	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	slices.SortFunc(fields, func(a, b gogen.Field) int { return cmp.Compare(a.Name, b.Name) })
 
 	return &gogen.ConfigurationSchema{
 		GoName:      "ProviderConfig",

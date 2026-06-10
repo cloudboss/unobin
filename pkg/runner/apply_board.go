@@ -1,11 +1,11 @@
 package runner
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"os"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -211,7 +211,9 @@ func renderBoard(running []boardEntry) []string {
 	if len(running) == 0 {
 		return nil
 	}
-	sort.Slice(running, func(i, j int) bool { return running[i].address < running[j].address })
+	slices.SortFunc(running, func(a, b boardEntry) int {
+		return cmp.Compare(a.address, b.address)
+	})
 	lines := make([]string, 0, len(running)+2)
 	lines = append(lines, "", fmt.Sprintf("Still running (%d):", len(running)))
 	for _, e := range running {

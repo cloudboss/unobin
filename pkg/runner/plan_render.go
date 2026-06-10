@@ -2,11 +2,11 @@ package runner
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -63,8 +63,8 @@ func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 	if len(deferred) == 0 {
 		return
 	}
-	sort.Slice(deferred, func(i, j int) bool {
-		return deferred[i].Address < deferred[j].Address
+	slices.SortFunc(deferred, func(a, b *runtime.PlanStep) int {
+		return cmp.Compare(a.Address, b.Address)
 	})
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "Deferred reads (%d):\n", len(deferred))
@@ -111,7 +111,9 @@ func buildPlanTree(steps []*runtime.PlanStep) *planTree {
 
 func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii bool) {
 	children := append([]*runtime.PlanStep{}, t.children[parent]...)
-	sort.Slice(children, func(i, j int) bool { return children[i].Address < children[j].Address })
+	slices.SortFunc(children, func(a, b *runtime.PlanStep) int {
+		return cmp.Compare(a.Address, b.Address)
+	})
 
 	symPad := strings.Repeat("  ", depth+1)
 	fieldPad := strings.Repeat("  ", depth+3)

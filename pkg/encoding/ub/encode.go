@@ -1,10 +1,11 @@
 package ub
 
 import (
+	"cmp"
 	"encoding/base64"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -213,7 +214,7 @@ func (e *encoder) encodeMap(v reflect.Value) error {
 	for iter.Next() {
 		pairs = append(pairs, kv{key: iter.Key().String(), val: iter.Value()})
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].key < pairs[j].key })
+	slices.SortFunc(pairs, func(a, b kv) int { return cmp.Compare(a.key, b.key) })
 
 	if e.pretty {
 		e.buf = append(e.buf, '{', '\n')

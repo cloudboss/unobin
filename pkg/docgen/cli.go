@@ -3,8 +3,9 @@
 package docgen
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -65,7 +66,9 @@ func visibleSubcommands(cmd *cobra.Command) []*cobra.Command {
 		}
 		cmds = append(cmds, c)
 	}
-	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Name() < cmds[j].Name() })
+	slices.SortFunc(cmds, func(a, b *cobra.Command) int {
+		return cmp.Compare(a.Name(), b.Name())
+	})
 	return cmds
 }
 

@@ -2,9 +2,10 @@ package gogen
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"go/format"
-	"sort"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/semver"
@@ -220,10 +221,8 @@ func LibraryFile(
 	}
 
 	if len(resources) > 0 {
-		sort.Slice(resources, func(i, j int) bool {
-			identI := lang.PascalToKebab(resources[i].GoName)
-			identJ := lang.PascalToKebab(resources[j].GoName)
-			return identI < identJ
+		slices.SortFunc(resources, func(a, b ResourceSchema) int {
+			return cmp.Compare(lang.PascalToKebab(a.GoName), lang.PascalToKebab(b.GoName))
 		})
 		b.WriteString("\t\tResources: map[string]runtime.ResourceRegistration{\n")
 		for _, rs := range resources {
@@ -236,10 +235,8 @@ func LibraryFile(
 	}
 
 	if len(dataSources) > 0 {
-		sort.Slice(dataSources, func(i, j int) bool {
-			identI := lang.PascalToKebab(dataSources[i].GoName)
-			identJ := lang.PascalToKebab(dataSources[j].GoName)
-			return identI < identJ
+		slices.SortFunc(dataSources, func(a, b DataSourceSchema) int {
+			return cmp.Compare(lang.PascalToKebab(a.GoName), lang.PascalToKebab(b.GoName))
 		})
 		b.WriteString("\t\tDataSources: map[string]runtime.DataSourceRegistration{\n")
 		for _, ds := range dataSources {
