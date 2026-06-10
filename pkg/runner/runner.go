@@ -426,10 +426,18 @@ func newValidateCmd(info Info) *cobra.Command {
 }
 
 func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
-	f, dag, err := parsedFile(info)
+	f, _, err := parsedFile(info)
 	if err != nil {
 		return err
 	}
+	// Validation is the one command whose job is to re-prove the
+	// stack, so it runs the deep checks the other commands leave to
+	// the compiler.
+	checker := runtime.NewChecker(f, info.Libraries)
+	if errs := checker.References(nil); errs.Len() > 0 {
+		return errs.Err()
+	}
+	dag := checker.DAG()
 	inputs, err := buildInputs(config, configPath,
 		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries)
 	if err != nil {
@@ -547,10 +555,12 @@ func newOutputCmd(info Info) *cobra.Command {
 
 // parsedFile parses the factory source baked into the binary at compile
 // time and returns it with its dependency graph, built once here and
-// shared by every command. The "main.ub" filename labels error
-// positions; the original source filename is not preserved across
-// compile, so this label is the convention regardless of what the
-// file was called on disk.
+// shared by every command. The compiler proved the source's references
+// and types before the binary existed, so the binary trusts them;
+// validation re-checks only the schema shape the graph build assumes.
+// The "main.ub" filename labels error positions; the original source
+// filename is not preserved across compile, so this label is the
+// convention regardless of what the file was called on disk.
 func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
 	f, err := lang.ParseSource("main.ub", []byte(info.FactoryBody))
 	if err != nil {
@@ -559,11 +569,7 @@ func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, nil, errs.Err()
 	}
-	checker := runtime.NewChecker(f, info.Libraries)
-	if errs := checker.References(nil); errs.Len() > 0 {
-		return nil, nil, errs.Err()
-	}
-	return f, checker.DAG(), nil
+	return f, runtime.BuildDAG(f, info.Libraries), nil
 }
 
 // loadStore resolves a state backend from the state: block of a
