@@ -296,10 +296,6 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if err := e.CheckConfigurations(); err != nil {
 		return nil, err
 	}
-	order, err := e.DAG.TopologicalOrder()
-	if err != nil {
-		return nil, err
-	}
 	rs, err := e.initRun()
 	if err != nil {
 		return nil, err
@@ -333,7 +329,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	var constraintErrs []error
 	if !e.Destroy {
 		rs.plannedByTemplate = map[string][]*PlanStep{}
-		for _, addr := range order {
+		for _, addr := range rs.order {
 			node := e.DAG.Nodes[addr]
 			steps, err := e.planNodeSteps(ctx, rs, node)
 			if err != nil {

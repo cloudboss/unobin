@@ -100,7 +100,7 @@ func (e *Executor) planForEachComposite(
 	if err != nil {
 		return nil, err
 	}
-	internals := e.compositeInternalsInOrder(boundary.Address)
+	internals := e.compositeInternalsInOrder(rs, boundary.Address)
 	var steps []*PlanStep
 	for _, key := range sortedKeys(instances) {
 		instAddr := instanceAddress(boundary.Address, key)
@@ -135,15 +135,11 @@ func (e *Executor) planForEachComposite(
 }
 
 // compositeInternalsInOrder returns every DAG node whose Composite
-// chain transitively contains the named boundary, sorted by
+// chain transitively contains the named boundary, in the run's
 // topological order. Nested composites are included.
-func (e *Executor) compositeInternalsInOrder(boundary string) []*Node {
-	order, err := e.DAG.TopologicalOrder()
-	if err != nil {
-		return nil
-	}
+func (e *Executor) compositeInternalsInOrder(rs *runState, boundary string) []*Node {
 	included := map[string]bool{}
-	for _, addr := range order {
+	for _, addr := range rs.order {
 		n := e.DAG.Nodes[addr]
 		if n == nil {
 			continue
@@ -162,7 +158,7 @@ func (e *Executor) compositeInternalsInOrder(boundary string) []*Node {
 		}
 	}
 	out := make([]*Node, 0, len(included))
-	for _, addr := range order {
+	for _, addr := range rs.order {
 		if included[addr] {
 			out = append(out, e.DAG.Nodes[addr])
 		}

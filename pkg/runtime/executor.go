@@ -350,6 +350,10 @@ type runState struct {
 	prior   *state.Snapshot
 	next    *state.Snapshot
 
+	// order is the DAG's topological order, computed once per run.
+	// Plan's walk and per-instance composite expansion both follow it.
+	order []string
+
 	// composites holds one EvalContext per composite call site. Lazily
 	// built when a node inside a composite first needs evaluation. Vars
 	// in each scope are the call site args; Resources, Data, Actions
@@ -385,6 +389,10 @@ type runState struct {
 }
 
 func (e *Executor) initRun() (*runState, error) {
+	order, err := e.DAG.TopologicalOrder()
+	if err != nil {
+		return nil, err
+	}
 	rs := &runState{
 		eval: &EvalContext{
 			Vars:      e.Inputs,
@@ -394,6 +402,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Libraries: e.Libraries,
 			locals:    newLocalScope(localsBlock(e.Source)),
 		},
+		order:      order,
 		outputs:    make(map[string]any),
 		composites: make(map[string]*EvalContext),
 		next:       state.NewSnapshot(e.Factory, e.Store.Stack()),
