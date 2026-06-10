@@ -95,6 +95,9 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 			inDegree[from]++
 		}
 	}
+	for _, next := range dependents {
+		slices.Sort(next)
+	}
 
 	var ready []string
 	for addr, d := range inDegree {
@@ -104,20 +107,21 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 	}
 	slices.Sort(ready)
 
+	// The queue stays sorted by inserting each newly ready address in
+	// place, so the head is always the smallest and the order is
+	// deterministic without re-sorting per iteration.
 	order := make([]string, 0, len(g.Nodes))
 	for len(ready) > 0 {
 		cur := ready[0]
 		ready = ready[1:]
 		order = append(order, cur)
-		next := dependents[cur]
-		slices.Sort(next)
-		for _, dep := range next {
+		for _, dep := range dependents[cur] {
 			inDegree[dep]--
 			if inDegree[dep] == 0 {
-				ready = append(ready, dep)
+				i, _ := slices.BinarySearch(ready, dep)
+				ready = slices.Insert(ready, i, dep)
 			}
 		}
-		slices.Sort(ready)
 	}
 
 	if len(order) != len(g.Nodes) {
