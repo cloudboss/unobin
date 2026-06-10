@@ -7,6 +7,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestOperatorSpacingForms pins which operator spacings parse and as
+// what: tight forms are one name (hyphen after an identifier) or
+// arithmetic (every other pairing), evenly spaced forms are
+// arithmetic, and half-spaced forms are errors.
+func TestOperatorSpacingForms(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"tight hyphen after ident is a name", "x-1", "ident"},
+		{"tight hyphen after number subtracts", "5-1", "infix"},
+		{"tight plus", "x+1", "infix"},
+		{"tight comparison", "x==2", "infix"},
+		{"spaced minus", "x - 1", "infix"},
+		{"newline after spaced operator", "x -\n1", "infix"},
+		{"unary minus at value position", "-1", "number"},
+		{"unary minus after comma", "[1, -2]", "array"},
+		{"half minus glued left", "x- 1", "error"},
+		{"half minus glued right", "x -1", "error"},
+		{"half plus glued left", "x+ 1", "error"},
+		{"half comparison glued right", "x ==2", "error"},
+		{"half coalesce glued right", "x ??y", "error"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := ParseSource("test.ub", []byte("a: "+tt.src+"\n"))
+			if tt.want == "error" {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			switch tt.want {
+			case "ident":
+				require.IsType(t, &Ident{}, f.Body.Fields[0].Value)
+			case "infix":
+				require.IsType(t, &Infix{}, f.Body.Fields[0].Value)
+			case "number":
+				require.IsType(t, &NumberLit{}, f.Body.Fields[0].Value)
+			case "array":
+				arr := f.Body.Fields[0].Value.(*ArrayLit)
+				require.Len(t, arr.Elements, 2)
+			}
+		})
+	}
+}
+
 func TestParseExprAtoms(t *testing.T) {
 	tests := []struct {
 		name string

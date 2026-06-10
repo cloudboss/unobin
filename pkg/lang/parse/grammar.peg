@@ -82,22 +82,110 @@ func exprSlice(v any) []Expr {
 
 // infixTail carries one (op, right) tail produced by an operator-level
 // rule. The leftmost operand is the head; foldInfix combines a head with
-// any number of tails into a left-associated Infix tree.
+// any number of tails into a left-associated Infix tree. half marks an
+// operator with whitespace on exactly one side, which foldInfix rejects.
 type infixTail struct {
 	op    string
 	right Expr
+	half  bool
 }
 
-func foldInfix(left Expr, rest any) Expr {
+// halfTail builds the tail for op and right, marking it half when the
+// operator has whitespace on exactly one side. text is the tail's whole
+// match: optional whitespace, the operator, optional whitespace, then
+// the right operand's text.
+func halfTail(text, op string, right Expr) infixTail {
+	i := skipSpace(text, 0)
+	before := i > 0
+	after := skipSpace(text, i+len(op)) > i+len(op)
+	return infixTail{op: op, right: right, half: before != after}
+}
+
+// skipSpace returns the index after the whitespace-and-comment run
+// starting at i, consuming the same set the grammar's `_` rule does.
+func skipSpace(s string, i int) int {
+	for i < len(s) {
+		switch {
+		case s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n':
+			i++
+		case s[i] == '#':
+			for i < len(s) && s[i] != '\n' {
+				i++
+			}
+		default:
+			return i
+		}
+	}
+	return i
+}
+
+func foldInfix(left Expr, rest any) (Expr, error) {
 	if rest == nil {
-		return left
+		return left, nil
 	}
 	cur := left
+	prev := left
+	var halfErr error
 	for _, t := range rest.([]any) {
 		tail := t.(infixTail)
+		if tail.half && halfErr == nil {
+			halfErr = halfSpacedError(tail.op, prev, tail.right)
+		}
+		prev = tail.right
 		cur = &Infix{S: cur.Span(), Op: tail.op, Left: cur, Right: tail.right}
 	}
-	return cur
+	return cur, halfErr
+}
+
+// halfSpacedError reports an operator spaced on one side only. A
+// half-spaced minus whose operands could spell a kebab name also reads
+// as one, so that case offers both spellings; everything else gets the
+// plain spacing rule.
+func halfSpacedError(op string, left, right Expr) error {
+	if op == "-" {
+		l := nameHeadText(left)
+		r := nameTailText(right)
+		if l != "" && r != "" {
+			return fmt.Errorf(
+				"write %s-%s to reference the name, or %s - %s to subtract", l, r, l, r)
+		}
+	}
+	return fmt.Errorf("put a space on both sides of %s, or none", op)
+}
+
+// nameHeadText renders left when a kebab name could begin with it: a
+// bare identifier, or a dotted path of plain name segments.
+func nameHeadText(e Expr) string {
+	switch v := e.(type) {
+	case *Ident:
+		return v.Name
+	case *DotPath:
+		var b strings.Builder
+		b.WriteString(v.Root.Name)
+		for _, seg := range v.Segments {
+			if seg.Name == "" || seg.Index != nil || seg.Splat {
+				return ""
+			}
+			b.WriteByte('.')
+			b.WriteString(seg.Name)
+		}
+		return b.String()
+	}
+	return ""
+}
+
+// nameTailText renders right when it could continue a kebab name after
+// a hyphen: a bare identifier or a whole number.
+func nameTailText(e Expr) string {
+	switch v := e.(type) {
+	case *Ident:
+		return v.Name
+	case *NumberLit:
+		if !v.IsFloat {
+			return v.Value
+		}
+	}
+	return ""
 }
 
 func dotSegments(v any) []DotSegment {
@@ -513,60 +601,66 @@ Conditional <- "if" !IdentChar _ cond:Expr _ "then" !IdentChar _ then:Value _ "e
 	}, nil
 }
 
+// Infix operators are spaced evenly: whitespace on both sides or on
+// neither. A half-spaced operator is an error, because `-` doubles as
+// an identifier character (`x-1` is a name, `x - 1` subtracts) and a
+// stray operator line would otherwise splice silently into the
+// expression above it. Each tail records its spacing; foldInfix
+// rejects the first half-spaced one.
 Expr <- left:OrExpr rest:CoalesceTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 CoalesceTail <- _ "??" _ right:OrExpr {
-	return infixTail{op: "??", right: right.(Expr)}, nil
+	return halfTail(string(c.text), "??", right.(Expr)), nil
 }
 
 OrExpr <- left:AndExpr rest:OrTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 OrTail <- _ "||" _ right:AndExpr {
-	return infixTail{op: "||", right: right.(Expr)}, nil
+	return halfTail(string(c.text), "||", right.(Expr)), nil
 }
 
 AndExpr <- left:EqualityExpr rest:AndTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 AndTail <- _ "&&" _ right:EqualityExpr {
-	return infixTail{op: "&&", right: right.(Expr)}, nil
+	return halfTail(string(c.text), "&&", right.(Expr)), nil
 }
 
 EqualityExpr <- left:ComparisonExpr rest:EqualityTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 EqualityTail <- _ op:( "==" / "!=" ) _ right:ComparisonExpr {
-	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+	return halfTail(string(c.text), string(op.([]byte)), right.(Expr)), nil
 }
 
 ComparisonExpr <- left:AdditiveExpr rest:ComparisonTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 ComparisonTail <- _ op:( "<=" / ">=" / "<" / ">" ) _ right:AdditiveExpr {
-	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+	return halfTail(string(c.text), string(op.([]byte)), right.(Expr)), nil
 }
 
 AdditiveExpr <- left:MultiplicativeExpr rest:AdditiveTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 AdditiveTail <- _ op:( "+" / "-" ) _ right:MultiplicativeExpr {
-	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+	return halfTail(string(c.text), string(op.([]byte)), right.(Expr)), nil
 }
 
 MultiplicativeExpr <- left:UnaryExpr rest:MultiplicativeTail* {
-	return foldInfix(left.(Expr), rest), nil
+	return foldInfix(left.(Expr), rest)
 }
 
 MultiplicativeTail <- _ op:( "*" / "/" ) _ right:UnaryExpr {
-	return infixTail{op: string(op.([]byte)), right: right.(Expr)}, nil
+	return halfTail(string(c.text), string(op.([]byte)), right.(Expr)), nil
 }
 
 UnaryExpr <- Primary / op:( "!" / "-" ) _ inner:UnaryExpr {
@@ -715,10 +809,10 @@ StringBody <- ( !"'" !"\\" !"\n" !"\r" . / "\\" . )* {
 }
 
 // Double quotes never delimit a UB string; matching them anyway turns
-// the highest-frequency JSON habit into a teaching error instead of an
-// expectation dump. The typed placeholder keeps enclosing rules from
-// panicking before the recorded error surfaces; an unterminated opener
-// still matches so the hint fires either way.
+// the highest-frequency JSON habit into an error that names the fix
+// instead of an expectation dump. The typed placeholder keeps enclosing
+// rules from panicking before the recorded error is reported; an
+// unterminated opener still matches so the hint fires either way.
 DoubleQuotedString <- "\"" body:DoubleQuotedBody "\""? {
 	s := body.(string)
 	return &StringLit{S: c.span(), Value: s},
