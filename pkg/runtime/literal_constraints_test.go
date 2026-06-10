@@ -105,7 +105,7 @@ resources: { core.thing.x: { name: 'x', size: 1 }, core.thing.y: { name: var.who
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckLiteralConstraints(parseStack(t, tt.src), constrainedLibs())
+			errs := checkLiteralConstraints(parseStack(t, tt.src), constrainedLibs())
 			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
@@ -129,11 +129,11 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 		}},
 	}
 	f := parseStack(t, `resources: { core.thing.x: { items: [] } }`)
-	errs := CheckLiteralConstraints(f, libs)
+	errs := checkLiteralConstraints(f, libs)
 	require.Equal(t, 1, errs.Len(), "got: %v", errs.Err())
 	require.Contains(t, errs.Errors()[0].Error(), "items must list at least one entry")
 
-	ok := CheckLiteralConstraints(parseStack(t, `resources: { core.thing.x: { items: ['a'] } }`), libs)
+	ok := checkLiteralConstraints(parseStack(t, `resources: { core.thing.x: { items: ['a'] } }`), libs)
 	require.Equal(t, 0, ok.Len(), "got: %v", ok.Err())
 }
 
@@ -147,10 +147,10 @@ func TestCheckLiteralConstraintsDeterministic(t *testing.T) {
   core.thing.z: { other: 'z' }
 }`
 	libs := constrainedLibs()
-	first := CheckLiteralConstraints(parseStack(t, src), libs).Messages()
+	first := checkLiteralConstraints(parseStack(t, src), libs).Messages()
 	require.Len(t, first, 3)
 	for range 20 {
-		require.Equal(t, first, CheckLiteralConstraints(parseStack(t, src), libs).Messages())
+		require.Equal(t, first, checkLiteralConstraints(parseStack(t, src), libs).Messages())
 	}
 }
 
@@ -235,7 +235,7 @@ func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []
 		}},
 	}
 	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
-	return CheckLiteralConstraints(parseStack(t, src), libs).Messages()
+	return checkLiteralConstraints(parseStack(t, src), libs).Messages()
 }
 
 // TestCheckLiteralConstraintKinds covers the constraint kinds and the

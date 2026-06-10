@@ -246,7 +246,7 @@ func Run(opts Options) error {
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}
-	if errs := ubruntime.CheckLiteralConstraints(f, libs); errs.Len() > 0 {
+	if errs := checker.LiteralConstraints(); errs.Len() > 0 {
 		return errs.Err()
 	}
 	if errs := ubruntime.CheckForEachNesting(f, libs); errs.Len() > 0 {

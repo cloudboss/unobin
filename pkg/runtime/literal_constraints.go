@@ -6,24 +6,17 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// CheckLiteralConstraints reports cross-field constraint violations
-// that are decidable at compile time. It evaluates each library node's
+// LiteralConstraints reports cross-field constraint violations that
+// are decidable at compile time. It evaluates each library node's
 // fields with no inputs or upstream outputs in scope and checks every
 // constraint whose referenced fields all reduce that way (an absent
 // field reads as null); a constraint that reads a deferred field is
 // left for plan, which checks it once the value is known. Only Go
 // libraries declare constraints in their schema, so UB composite nodes
 // never match here, and their bodies check at plan.
-func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.ErrorList {
+func (c *Checker) LiteralConstraints() *lang.ErrorList {
 	errs := lang.NewErrorList(0)
-	dag := BuildDAG(f, libs)
-	scopes := map[string]map[string]*Library{"": libs}
-	for _, n := range dag.Nodes {
-		if n.IsComposite() {
-			scopes[n.Address] = n.Libraries
-		}
-	}
-	for _, n := range dag.Nodes {
+	for _, n := range c.dag.Nodes {
 		if n.IsComposite() {
 			continue
 		}
@@ -32,7 +25,7 @@ func CheckLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.Error
 		default:
 			continue
 		}
-		lib := scopes[n.Composite][n.Alias]
+		lib := c.libraries[n.Composite][n.Alias]
 		if lib == nil || lib.Schema == nil {
 			continue
 		}

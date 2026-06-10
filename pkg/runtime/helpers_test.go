@@ -44,3 +44,9 @@ func applyOnce(t *testing.T, exec *Executor) *ExecResult {
 func checkReferences(f *lang.File, libs map[string]*Library) *lang.ErrorList {
 	return NewChecker(f, libs).References(nil)
 }
+
+// checkLiteralConstraints mirrors checkReferences for the literal
+// constraint check.
+func checkLiteralConstraints(f *lang.File, libs map[string]*Library) *lang.ErrorList {
+	return NewChecker(f, libs).LiteralConstraints()
+}
