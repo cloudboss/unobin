@@ -1311,3 +1311,26 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckReferencesNodeCycle(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: {
+  local.file.a: { path: resource.local.file.b.path }
+  local.file.b: { path: resource.local.file.a.path }
+}
+`), nil)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0], "reference cycle: "+
+		"resource.local.file.a -> resource.local.file.b -> resource.local.file.a")
+}
+
+func TestCheckReferencesNodeSelfCycle(t *testing.T) {
+	errs := CheckReferences(parseStack(t, `
+resources: { local.file.a: { path: resource.local.file.a.path } }
+`), nil)
+	got := checkRefMessages(t, errs)
+	require.Len(t, got, 1)
+	require.Contains(t, got[0],
+		"reference cycle: resource.local.file.a -> resource.local.file.a")
+}

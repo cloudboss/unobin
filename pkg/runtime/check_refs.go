@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -38,6 +39,7 @@ func CheckReferencesObserved(
 	c.checkNodes()
 	c.checkLocals()
 	c.checkLocalCycles()
+	c.checkNodeCycles()
 	c.checkConstraints()
 	c.checkTypes()
 	return c.errs
@@ -593,6 +595,46 @@ func (c *referenceChecker) checkLocalCyclesBlock(f *lang.File, scope string) {
 	for _, name := range order {
 		if visiting[name] == unvisited && visit(name) {
 			c.addf(pos[name], `local %q is part of a cycle`, name)
+		}
+	}
+}
+
+// checkNodeCycles reports nodes whose references loop back to
+// themselves through other nodes, directly or via `@depends-on`. A
+// cycle can never be ordered for execution, so it is a compile error;
+// the message spells out the loop one hop at a time. Each cycle is
+// reported once, at the node where the walk closes the loop.
+func (c *referenceChecker) checkNodeCycles() {
+	const (
+		unvisited = 0
+		active    = 1
+		done      = 2
+	)
+	visiting := map[string]int{}
+	var path []string
+	var visit func(string)
+	visit = func(addr string) {
+		visiting[addr] = active
+		path = append(path, addr)
+		for _, dep := range c.dag.Edges[addr] {
+			if _, isNode := c.dag.Nodes[dep]; !isNode {
+				continue
+			}
+			switch visiting[dep] {
+			case active:
+				cycle := append(slices.Clone(path[slices.Index(path, dep):]), dep)
+				c.addf(c.dag.Nodes[dep].Body.Span().Start,
+					"reference cycle: %s", strings.Join(cycle, " -> "))
+			case unvisited:
+				visit(dep)
+			}
+		}
+		path = path[:len(path)-1]
+		visiting[addr] = done
+	}
+	for _, addr := range slices.Sorted(maps.Keys(c.dag.Nodes)) {
+		if visiting[addr] == unvisited {
+			visit(addr)
 		}
 	}
 }
