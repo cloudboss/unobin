@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 func splatEvalContext() *EvalContext {
@@ -189,14 +191,13 @@ func TestEvalSplatErrors(t *testing.T) {
 }
 
 func TestEvalEachNavigatesLikeOtherRefs(t *testing.T) {
-	ctx := &EvalContext{
-		EachKey: "k",
-		EachValue: []any{
+	ctx := &EvalContext{Each: map[string]lang.EachValue{"@each": {
+		Key: "k",
+		Value: []any{
 			map[string]any{"id": "a", "ports": []any{int64(1)}},
 			map[string]any{"id": "b", "ports": []any{int64(2)}},
 		},
-		ForEach: true,
-	}
+	}}}
 	cases := []struct {
 		name string
 		src  string

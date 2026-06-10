@@ -773,25 +773,24 @@ func TestEvalPrefixTypeError(t *testing.T) {
 }
 
 func TestEvalEachKey(t *testing.T) {
-	ctx := &EvalContext{EachKey: "alpha", EachValue: "v", ForEach: true}
+	ctx := &EvalContext{Each: map[string]lang.EachValue{"@each": {Key: "alpha", Value: "v"}}}
 	got, err := Eval(parseValue(t, "@each.key"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "alpha", got)
 }
 
 func TestEvalEachValueScalar(t *testing.T) {
-	ctx := &EvalContext{EachKey: "alpha", EachValue: "v", ForEach: true}
+	ctx := &EvalContext{Each: map[string]lang.EachValue{"@each": {Key: "alpha", Value: "v"}}}
 	got, err := Eval(parseValue(t, "@each.value"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "v", got)
 }
 
 func TestEvalEachValueNested(t *testing.T) {
-	ctx := &EvalContext{
-		EachKey:   "alpha",
-		EachValue: map[string]any{"size": int64(3), "subnet": "s-1"},
-		ForEach:   true,
-	}
+	ctx := &EvalContext{Each: map[string]lang.EachValue{"@each": {
+		Key:   "alpha",
+		Value: map[string]any{"size": int64(3), "subnet": "s-1"},
+	}}}
 	got, err := Eval(parseValue(t, "@each.value.size"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), got)

@@ -24,9 +24,7 @@ var ErrEvalNotFound = errors.New("not found")
 // overrides. Resources, Data, and Actions hold the outputs of nodes
 // that have already executed, indexed by their source address path.
 // Libraries is the import table the scope's `<alias>.<func>(...)` calls
-// resolve against; nil disables library-qualified calls. EachKey and
-// EachValue carry the current iteration binding inside a `@for-each`
-// body; ForEach reports whether they are valid to read. Bindings holds
+// resolve against; nil disables library-qualified calls. Bindings holds
 // comprehension-bound names, which resolve as bare values and as
 // dot-path roots ahead of the reserved roots, so an inner binding
 // shadows an outer one.
@@ -37,15 +35,10 @@ type EvalContext struct {
 	Actions   map[string]any
 	Libraries map[string]*Library
 	Bindings  map[string]any
-	EachKey   any
-	EachValue any
-	ForEach   bool
 
-	// Each holds named iteration bindings, @each for the bare
-	// @for-each form and declared names like @rule for a chained one,
-	// each a key/value record read as @name.key and @name.value. The
-	// EachKey/EachValue/ForEach trio is the older spelling of the
-	// @each entry and still resolves when Each has no @each binding.
+	// Each holds named iteration bindings, @each for a @for-each body
+	// and declared names like @rule for a chained constraint form,
+	// each a key/value record read as @name.key and @name.value.
 	Each map[string]lang.EachValue
 
 	// MissingAsNull makes path navigation yield null instead of
@@ -720,14 +713,11 @@ func evalEach(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	name := p.Root.Name
 	binding, bound := ctx.Each[name]
 	if !bound {
-		if name == "@each" && ctx.ForEach {
-			binding = lang.EachValue{Key: ctx.EachKey, Value: ctx.EachValue}
-		} else if name == "@each" {
+		if name == "@each" {
 			return nil, fmt.Errorf("eval: @each is only valid inside a @for-each body")
-		} else {
-			return nil, fmt.Errorf(
-				"eval: %s is not bound; declare it in a chained @for-each", name)
 		}
+		return nil, fmt.Errorf(
+			"eval: %s is not bound; declare it in a chained @for-each", name)
 	}
 	if len(p.Segments) == 0 {
 		return nil, fmt.Errorf("eval: %s requires .key or .value", name)

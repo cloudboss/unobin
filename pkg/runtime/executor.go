@@ -813,9 +813,7 @@ func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 // shared by reference.
 func childScopeWithEach(parent *EvalContext, key string, value any) *EvalContext {
 	child := *parent
-	child.EachKey = key
-	child.EachValue = value
-	child.ForEach = true
+	child.Each = map[string]lang.EachValue{"@each": {Key: key, Value: value}}
 	return &child
 }
 
