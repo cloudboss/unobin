@@ -31,8 +31,9 @@ func BuildDAG(f *lang.File, libs map[string]*Library) *DAG {
 		g.Nodes[n.Address] = n
 	}
 	sl := newScopeLocals(f, g.Nodes)
+	boundaryRefs := map[string][]string{}
 	for _, n := range nodes {
-		g.Edges[n.Address] = computeDeps(n, g.Nodes, sl)
+		g.Edges[n.Address] = computeDeps(n, g.Nodes, sl, boundaryRefs)
 	}
 	return g
 }
@@ -145,7 +146,9 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 // resolve to call-site args, not anything in parent scope. Top-level
 // nodes keep the original behavior: body refs and any `@depends-on`
 // entries.
-func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
+func computeDeps(
+	n *Node, nodes map[string]*Node, sl *scopeLocals, boundaryRefs map[string][]string,
+) []string {
 	if n.IsComposite() {
 		return internalsOf(n.Address, nodes)
 	}
@@ -166,7 +169,12 @@ func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
 		if !ok {
 			break
 		}
-		for _, ref := range refsWithLocals(boundary.Body, sl.forScope(boundary.Composite)) {
+		refs, ok := boundaryRefs[current]
+		if !ok {
+			refs = refsWithLocals(boundary.Body, sl.forScope(boundary.Composite))
+			boundaryRefs[current] = refs
+		}
+		for _, ref := range refs {
 			deps = append(deps, ScopeRef(ref, boundary.Composite))
 		}
 		current = boundary.Composite
