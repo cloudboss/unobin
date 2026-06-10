@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -74,7 +74,7 @@ func TestCoreFunctionSet(t *testing.T) {
 	for name := range CoreFunctionSigs() {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	require.Equal(t, []string{
 		"all", "any", "b64-decode", "b64-encode", "join", "length", "range",
 		"to-boolean", "to-integer", "to-json", "to-number", "to-string",

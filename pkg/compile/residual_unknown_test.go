@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -40,7 +40,7 @@ func TestExamplesResidualUnknowns(t *testing.T) {
 		}
 		residuals = append(residuals, exampleResiduals(t, repoRoot, name, stack)...)
 	}
-	sort.Strings(residuals)
+	slices.Sort(residuals)
 
 	want := fixtureLines(t, filepath.Join("testdata", "residual-unknowns.txt"))
 	require.Equal(t, want, residuals)

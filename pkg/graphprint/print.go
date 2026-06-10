@@ -8,7 +8,7 @@ package graphprint
 import (
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -24,7 +24,7 @@ func Plain(out io.Writer, dag *runtime.DAG) {
 		}
 		fmt.Fprintln(out, a)
 		deps := append([]string{}, dag.Edges[a]...)
-		sort.Strings(deps)
+		slices.Sort(deps)
 		for _, d := range deps {
 			fmt.Fprintf(out, "  -> %s\n", d)
 		}
@@ -42,7 +42,7 @@ func DOT(out io.Writer, dag *runtime.DAG, name string) {
 	}
 	for _, from := range addrs {
 		deps := append([]string{}, dag.Edges[from]...)
-		sort.Strings(deps)
+		slices.Sort(deps)
 		for _, dep := range deps {
 			if _, ok := dag.Nodes[dep]; !ok {
 				continue
@@ -58,6 +58,6 @@ func sortedNodeAddresses(dag *runtime.DAG) []string {
 	for a := range dag.Nodes {
 		addrs = append(addrs, a)
 	}
-	sort.Strings(addrs)
+	slices.Sort(addrs)
 	return addrs
 }

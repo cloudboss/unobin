@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"strings"
 
 	ufs "github.com/cloudboss/unobin/pkg/fs"
@@ -95,7 +95,7 @@ func printConfigurationSchema(out io.Writer, f *lang.File, info Info) {
 	if len(aliases) == 0 {
 		return
 	}
-	sort.Strings(aliases)
+	slices.Sort(aliases)
 	used := runtime.BuildDAG(f, info.Libraries).ConfigurationSelections(info.Libraries)
 	internal := runtime.InternalConfigurationNames(f)
 	fmt.Fprintln(out)
@@ -132,7 +132,7 @@ func owedNames(used, internal map[string]bool) []string {
 			owed = append(owed, name)
 		}
 	}
-	sort.Strings(owed)
+	slices.Sort(owed)
 	return owed
 }
 
@@ -141,7 +141,7 @@ func sortedSetKeys(m map[string]bool) []string {
 	for k := range m {
 		out = append(out, k)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
@@ -237,7 +237,7 @@ func renderConfigurationsTemplate(out io.Writer, f *lang.File, info Info) {
 	if len(aliases) == 0 {
 		return
 	}
-	sort.Strings(aliases)
+	slices.Sort(aliases)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "configurations: {")
 	for _, alias := range aliases {

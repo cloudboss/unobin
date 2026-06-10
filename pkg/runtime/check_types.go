@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -88,7 +88,7 @@ func (c *referenceChecker) checkConfigurationNode(n *Node) {
 		}
 		missing = append(missing, name)
 	}
-	sort.Strings(missing)
+	slices.Sort(missing)
 	for _, name := range missing {
 		c.addf(obj.Span().Start, "configurations.%s.%s: missing required field %q",
 			n.Alias, n.Name, name)
@@ -125,7 +125,7 @@ func (c *referenceChecker) checkLocalsBlockTypes(scope string) {
 	for name := range exprs {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	for _, name := range names {
 		typecheck.Infer(exprs[name], typecheck.TUnknown(), s, c.errs)
 	}
@@ -157,7 +157,7 @@ func (c *referenceChecker) checkRequiredPresence(n *Node, targets map[string]typ
 	for name := range targets {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	for _, name := range names {
 		t := targets[name]
 		if t.Kind == typecheck.Optional || t.Kind == typecheck.Unknown {
@@ -433,7 +433,7 @@ func (c *referenceChecker) nodeAttrType(node *Node) typecheck.Type {
 		for name := range types {
 			names = append(names, name)
 		}
-		sort.Strings(names)
+		slices.Sort(names)
 		fields := make([]typecheck.ObjectField, 0, len(names))
 		for _, name := range names {
 			fields = append(fields, typecheck.ObjectField{

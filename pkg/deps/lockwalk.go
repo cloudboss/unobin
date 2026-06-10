@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -81,7 +81,7 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	for a := range refs {
 		aliases = append(aliases, a)
 	}
-	sort.Strings(aliases)
+	slices.Sort(aliases)
 	for _, alias := range aliases {
 		if local, ok := refs[alias].(*resolve.LocalImport); ok {
 			if err := w.checkLocalImport(alias, local); err != nil {
@@ -114,7 +114,7 @@ func (w *lockWalker) walkFile(f *lang.File, parent *resolve.Source) error {
 	for a := range refs {
 		aliases = append(aliases, a)
 	}
-	sort.Strings(aliases)
+	slices.Sort(aliases)
 	for _, alias := range aliases {
 		var err error
 		switch r := refs[alias].(type) {
@@ -227,7 +227,7 @@ func (w *lockWalker) walkBodies(src *resolve.Source) error {
 	if err != nil {
 		return err
 	}
-	sort.Strings(matches)
+	slices.Sort(matches)
 	for _, name := range matches {
 		b, err := fs.ReadFile(src.FS, name)
 		if err != nil {

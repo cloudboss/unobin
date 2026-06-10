@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"go/format"
 	"path"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -62,7 +62,7 @@ func GenerateUBLibrary(alias string,
 	for name := range bodies {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	groups := map[string]*compositeGroup{}
 	for _, c := range compositeKinds {
@@ -189,7 +189,7 @@ func specVarsFor(
 	idents *identTable, goSpecs map[string]GoLibrarySpecs,
 ) ([]specVar, map[string]string) {
 	paths := append([]string(nil), idents.order...)
-	sort.Strings(paths)
+	slices.Sort(paths)
 	vars := make([]specVar, 0, len(goSpecs))
 	varOf := make(map[string]string, len(goSpecs))
 	for _, p := range paths {
@@ -253,7 +253,7 @@ func (t *identTable) identFor(p string) string {
 func (t *identTable) imports() []goImport {
 	out := make([]goImport, 0, len(t.order))
 	paths := append([]string(nil), t.order...)
-	sort.Strings(paths)
+	slices.Sort(paths)
 	for _, p := range paths {
 		out = append(out, goImport{GoIdent: t.byPath[p], Path: p})
 	}
@@ -288,7 +288,7 @@ func sortedAliases(m map[string]string) []string {
 	for k := range m {
 		out = append(out, k)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 

@@ -3,7 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 )
 
 // CheckConfigurations walks the DAG and reports every
@@ -18,7 +18,7 @@ func (e *Executor) CheckConfigurations() error {
 	for a := range e.DAG.Nodes {
 		addrs = append(addrs, a)
 	}
-	sort.Strings(addrs)
+	slices.Sort(addrs)
 	for _, addr := range addrs {
 		n := e.DAG.Nodes[addr]
 		errs = append(errs, e.checkLeafConfiguration(n)...)
@@ -76,7 +76,7 @@ func (e *Executor) checkCompositeRemap(n *Node) []error {
 	for k := range n.ConfigurationsRemap {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	var errs []error
 	for _, innerAlias := range keys {
 		ref := n.ConfigurationsRemap[innerAlias]

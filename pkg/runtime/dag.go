@@ -2,7 +2,7 @@ package runtime
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -101,7 +101,7 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 			ready = append(ready, addr)
 		}
 	}
-	sort.Strings(ready)
+	slices.Sort(ready)
 
 	order := make([]string, 0, len(g.Nodes))
 	for len(ready) > 0 {
@@ -109,14 +109,14 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 		ready = ready[1:]
 		order = append(order, cur)
 		next := dependents[cur]
-		sort.Strings(next)
+		slices.Sort(next)
 		for _, dep := range next {
 			inDegree[dep]--
 			if inDegree[dep] == 0 {
 				ready = append(ready, dep)
 			}
 		}
-		sort.Strings(ready)
+		slices.Sort(ready)
 	}
 
 	if len(order) != len(g.Nodes) {
@@ -126,7 +126,7 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 				stuck = append(stuck, addr)
 			}
 		}
-		sort.Strings(stuck)
+		slices.Sort(stuck)
 		return nil, fmt.Errorf("cycle detected among: %v", stuck)
 	}
 	return order, nil
@@ -233,7 +233,7 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 			out = append(out, m.Address)
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 

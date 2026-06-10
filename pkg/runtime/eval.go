@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -157,7 +157,7 @@ func comprehensionBindings(src any, names []string) ([]map[string]any, error) {
 		for k := range s {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 		out := make([]map[string]any, 0, len(s))
 		for _, k := range keys {
 			out = append(out, bindNames(names, k, s[k]))

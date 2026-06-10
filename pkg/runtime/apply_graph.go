@@ -2,7 +2,7 @@ package runtime
 
 import (
 	"maps"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -216,7 +216,7 @@ func persistedDependsOn(g *stepGraph, steps []PlanStep) map[string][]string {
 			stack = append(stack, preds[p]...)
 		}
 		if len(collapsed) > 0 {
-			sort.Strings(collapsed)
+			slices.Sort(collapsed)
 			out[addr] = collapsed
 		}
 	}

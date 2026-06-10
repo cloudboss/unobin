@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"sort"
+	"slices"
 
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
@@ -59,7 +59,7 @@ func (l *Lock) SortedIDs() []string {
 	for id := range l.Deps {
 		ids = append(ids, id)
 	}
-	sort.Strings(ids)
+	slices.Sort(ids)
 	return ids
 }
 

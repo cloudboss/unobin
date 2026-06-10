@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/compile"
@@ -203,7 +203,7 @@ func reconcileManifest(m *deps.Manifest, imported map[deps.Dependency]bool) erro
 		missing = append(missing, dep.String())
 	}
 	if len(missing) > 0 {
-		sort.Strings(missing)
+		slices.Sort(missing)
 		return fmt.Errorf(
 			"imported but missing from %s: %s\n"+
 				"add a floor with `unobin deps get <repo>@<version>`",

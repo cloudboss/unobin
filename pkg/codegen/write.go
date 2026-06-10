@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 )
 
 // Replaces maps a library path to a local filesystem path to substitute
@@ -80,7 +80,7 @@ func renderGoMod(
 			seen[p] = true
 		}
 	}
-	sort.Strings(paths)
+	slices.Sort(paths)
 
 	for _, p := range paths {
 		if p == "github.com/cloudboss/unobin" || hasPrefix(p, "github.com/cloudboss/unobin/") {
@@ -95,7 +95,7 @@ func renderGoMod(
 		for k := range replaces {
 			replaceKeys = append(replaceKeys, k)
 		}
-		sort.Strings(replaceKeys)
+		slices.Sort(replaceKeys)
 		b = append(b, "\nreplace (\n"...)
 		for _, k := range replaceKeys {
 			b = append(b, "\t"+k+" => "+replaces[k]+"\n"...)

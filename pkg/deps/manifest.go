@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/semver"
@@ -73,7 +73,7 @@ func encodeManifestBlock(b *strings.Builder, name string, entries map[Dependency
 		ids = append(ids, id)
 		byID[id] = val
 	}
-	sort.Strings(ids)
+	slices.Sort(ids)
 	if len(ids) == 0 {
 		fmt.Fprintf(b, "%s: {}\n", name)
 		return

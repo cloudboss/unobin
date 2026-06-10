@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -270,7 +270,7 @@ func decodeMap(
 	for k := range m {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, k := range keys {
 		elem := reflect.New(element.Type()).Elem()
 		elem.Set(element)

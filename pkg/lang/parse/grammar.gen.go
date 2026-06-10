@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -4964,7 +4965,7 @@ func (p *parser) parse(g *grammar) (val any, err error) {
 			for k := range maxFailExpectedMap {
 				expected = append(expected, k)
 			}
-			sort.Strings(expected)
+			slices.Sort(expected)
 			if eof {
 				expected = append(expected, "EOF")
 			}

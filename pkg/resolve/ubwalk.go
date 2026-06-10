@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"sort"
+	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"golang.org/x/mod/modfile"
@@ -282,7 +282,7 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	if err != nil {
 		return nil, err
 	}
-	sort.Strings(matches)
+	slices.Sort(matches)
 	bodies := make(map[string]*lang.File, len(matches))
 	kinds := make(map[string]string, len(matches))
 	for _, filename := range matches {
@@ -327,7 +327,7 @@ func sortedAliases(refs map[string]ImportRef) []string {
 	for a := range refs {
 		out = append(out, a)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
@@ -336,6 +336,6 @@ func sortedBodyNames(bodies map[string]*lang.File) []string {
 	for n := range bodies {
 		out = append(out, n)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }

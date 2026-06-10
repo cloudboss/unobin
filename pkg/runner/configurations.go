@@ -3,7 +3,7 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -69,13 +69,13 @@ func rejectInternalNames(
 	for alias := range rawByImport {
 		aliases = append(aliases, alias)
 	}
-	sort.Strings(aliases)
+	slices.Sort(aliases)
 	for _, alias := range aliases {
 		names := make([]string, 0, len(rawByImport[alias]))
 		for name := range rawByImport[alias] {
 			names = append(names, name)
 		}
-		sort.Strings(names)
+		slices.Sort(names)
 		for _, name := range names {
 			if internal[alias][name] {
 				errs = append(errs, fmt.Errorf(

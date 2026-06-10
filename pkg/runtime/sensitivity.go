@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"slices"
-	"sort"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -86,7 +85,7 @@ func (s *sensitivityAnalyzer) sensitiveInputs(body lang.Expr, compositeAddr stri
 	if len(names) == 0 {
 		return nil
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 
@@ -105,7 +104,7 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 		for name := range cs.outputs {
 			names = append(names, name)
 		}
-		sort.Strings(names)
+		slices.Sort(names)
 		return names
 	}
 	switch n.Kind {

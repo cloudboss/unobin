@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -38,7 +38,7 @@ func ContentRevision(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sort.Strings(paths)
+	slices.Sort(paths)
 
 	h := sha256.New()
 	for _, rel := range paths {

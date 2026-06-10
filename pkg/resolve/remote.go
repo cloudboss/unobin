@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/git"
@@ -170,7 +170,7 @@ func hashTree(fsys fs.FS) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sort.Strings(paths)
+	slices.Sort(paths)
 
 	h := sha256.New()
 	for _, p := range paths {

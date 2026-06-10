@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -178,7 +177,7 @@ func ConstraintFieldRoots(c ConstraintEntry) []string {
 	for r := range roots {
 		out = append(out, r)
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
@@ -688,7 +687,7 @@ func checkPredicateLevels(
 		for k := range it {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 		for _, k := range keys {
 			descend(k, it[k], fmt.Sprintf("%s['%s']", levelText, k))
 		}

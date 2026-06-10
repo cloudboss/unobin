@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ func newDAG(edges map[string][]string) *DAG {
 
 func sortDependents(g *stepGraph) {
 	for k := range g.dependents {
-		sort.Strings(g.dependents[k])
+		slices.Sort(g.dependents[k])
 	}
 }
 

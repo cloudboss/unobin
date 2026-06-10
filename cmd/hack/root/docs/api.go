@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/docgen"
@@ -50,7 +50,7 @@ func runAPI(cmd *cobra.Command, roots []string) error {
 	for dir := range byDir {
 		dirs = append(dirs, dir)
 	}
-	sort.Strings(dirs)
+	slices.Sort(dirs)
 	var summary strings.Builder
 	for _, dir := range dirs {
 		target, wrote, err := renderPackage(modPath, dir, byDir[dir])
