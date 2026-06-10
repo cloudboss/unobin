@@ -249,7 +249,7 @@ func Run(opts Options) error {
 	if errs := checker.LiteralConstraints(); errs.Len() > 0 {
 		return errs.Err()
 	}
-	if errs := ubruntime.CheckForEachNesting(f, libs); errs.Len() > 0 {
+	if errs := checker.ForEachNesting(); errs.Len() > 0 {
 		return errs.Err()
 	}
 

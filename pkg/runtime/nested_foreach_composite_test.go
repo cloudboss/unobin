@@ -93,7 +93,7 @@ resources: { core.subnet.it: { @for-each: var.tags, tag: @each.value } }
 	src := `
 resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
 `
-	errs := CheckForEachNesting(parseStack(t, src), libs)
+	errs := NewChecker(parseStack(t, src), libs).ForEachNesting()
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "resource.w.outer.x/resource.core.subnet.it")
 	require.Contains(t, errs.Err().Error(),
@@ -129,7 +129,7 @@ resources: { w.inner.i: { @for-each: var.tags, tag: @each.value } }
 	src := `
 resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
 `
-	errs := CheckForEachNesting(parseStack(t, src), libs)
+	errs := NewChecker(parseStack(t, src), libs).ForEachNesting()
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "resource.w.outer.x/resource.w.inner.i")
 	require.Contains(t, errs.Err().Error(),
@@ -168,7 +168,7 @@ resources: {
   w.plain.y: { tags: { t1: 'one' } }
 }
 `
-	errs := CheckForEachNesting(parseStack(t, src), libs)
+	errs := NewChecker(parseStack(t, src), libs).ForEachNesting()
 	require.Equal(t, 0, errs.Len())
 }
 

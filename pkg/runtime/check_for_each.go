@@ -7,19 +7,18 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// CheckForEachNesting reports any node declaring @for-each whose
-// enclosing composite chain already iterates: no fan-out exists for an
+// ForEachNesting reports any node declaring @for-each whose enclosing
+// composite chain already iterates: no fan-out exists for an
 // iteration nested inside another, and a body that never reads @each
 // would otherwise quietly plan a single instance where several were
 // declared. The compile command runs this with every composite body
 // the stack reaches expanded, so the factory binary never holds the
 // construct.
-func CheckForEachNesting(f *lang.File, libs map[string]*Library) *lang.ErrorList {
+func (c *Checker) ForEachNesting() *lang.ErrorList {
 	errs := lang.NewErrorList(0)
-	dag := BuildDAG(f, libs)
-	for _, addr := range slices.Sorted(maps.Keys(dag.Nodes)) {
-		n := dag.Nodes[addr]
-		if n.ForEach == nil || !underForEachComposite(dag.Nodes, n) {
+	for _, addr := range slices.Sorted(maps.Keys(c.dag.Nodes)) {
+		n := c.dag.Nodes[addr]
+		if n.ForEach == nil || !underForEachComposite(c.dag.Nodes, n) {
 			continue
 		}
 		errs.Addf(lang.ErrSchema, n.Body.Span().Start,
