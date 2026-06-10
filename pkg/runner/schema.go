@@ -187,11 +187,15 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 	}
 	var buf bytes.Buffer
 	renderSchemaTemplate(&buf, f, dag, info)
-	if outPath == "" {
-		_, err := cmd.OutOrStdout().Write(buf.Bytes())
+	formatted, err := lang.Canonicalize("config.ub", buf.Bytes())
+	if err != nil {
 		return err
 	}
-	return ufs.WriteFileAtomic(outPath, buf.Bytes(), 0o644)
+	if outPath == "" {
+		_, err := cmd.OutOrStdout().Write(formatted)
+		return err
+	}
+	return ufs.WriteFileAtomic(outPath, formatted, 0o644)
 }
 
 func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {

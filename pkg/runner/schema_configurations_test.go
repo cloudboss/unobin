@@ -46,6 +46,6 @@ func TestSchemaTemplateScaffoldsOwedConfigurations(t *testing.T) {
 	require.Contains(t, out, "    default: {")
 	require.Contains(t, out, "    east2: {")
 	require.NotContains(t, out, "    admin: {")
-	require.Contains(t, out, "      region: ''  # type: string")
+	require.Contains(t, out, "      region:  ''  # type: string")
 	require.Contains(t, out, "      profile: ''  # type: optional(string)")
 }
