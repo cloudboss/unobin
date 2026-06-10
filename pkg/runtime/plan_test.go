@@ -1794,3 +1794,12 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	require.ErrorIs(t, err, wantErr)
 	require.Contains(t, err.Error(), "resource.core.thing.one")
 }
+
+func TestPartialValueKeepsStringKeyedFields(t *testing.T) {
+	expr := parseValue(t, "{ 'app/role': 'web', id: resource.core.thing.one.id }")
+	got := partialValue(expr, &EvalContext{}, nil)
+	require.Equal(t, map[string]any{
+		"app/role": "web",
+		"id":       PendingValue{Refs: []string{"resource.core.thing.one.id"}},
+	}, got)
+}

@@ -87,10 +87,16 @@ func partialValue(e lang.Expr, ec *EvalContext, locals map[string]lang.Expr) any
 	case *lang.ObjectLit:
 		out := make(map[string]any, len(v.Fields))
 		for _, fld := range v.Fields {
-			if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			var key string
+			switch {
+			case fld.Key.Kind == lang.FieldIdent && !fld.Key.IsMeta():
+				key = fld.Key.Name
+			case fld.Key.Kind == lang.FieldString:
+				key = fld.Key.String
+			default:
 				continue
 			}
-			out[fld.Key.Name] = partialElement(fld.Value, ec, locals)
+			out[key] = partialElement(fld.Value, ec, locals)
 		}
 		return out
 	default:
