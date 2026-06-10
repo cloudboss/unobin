@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 // planAndApply runs Plan and ApplyPlan back to back and returns the
@@ -35,4 +37,10 @@ func applyOnce(t *testing.T, exec *Executor) *ExecResult {
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
 	return res
+}
+
+// checkReferences runs the reference check the way production callers
+// do, for the many tests that need only the diagnostics.
+func checkReferences(f *lang.File, libs map[string]*Library) *lang.ErrorList {
+	return NewChecker(f, libs).References(nil)
 }

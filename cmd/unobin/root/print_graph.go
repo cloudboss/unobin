@@ -91,11 +91,12 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	if errs := runtime.CheckReferences(f, libs); errs.Len() > 0 {
+	checker := runtime.NewChecker(f, libs)
+	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}
 
-	dag := runtime.BuildDAG(f, libs)
+	dag := checker.DAG()
 	out := cmd.OutOrStdout()
 	switch cfg.format {
 	case "plain":

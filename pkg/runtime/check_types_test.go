@@ -43,7 +43,7 @@ func localFileLibrary() *Library {
 // optional, while mode and create-directory are excused by their
 // declared defaults.
 func TestCheckTypesRequiresMissingInput(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 'p' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -55,7 +55,7 @@ resources: { local.file.one: { path: 'p' } }
 // TestCheckTypesReportsEveryMissingInput proves the check reports each
 // missing required input by name, in sorted order.
 func TestCheckTypesReportsEveryMissingInput(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { create-directory: true } }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -81,7 +81,7 @@ func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
 			},
 		},
 	}
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { ext.thing.one: { name: 'a' } }
 `), map[string]*Library{"ext": lib})
 
@@ -92,7 +92,7 @@ resources: { ext.thing.one: { name: 'a' } }
 // schema blocks nothing, matching how the rest of the checker treats
 // missing schemas.
 func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { ext.thing.one: { name: 'a' } }
 `), map[string]*Library{"ext": {}})
 
@@ -119,14 +119,14 @@ resources: { local.file.one: { path: var.name, content: 'x' } }
 		},
 	}
 
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { bundle.pair.demo: {} }
 `), libs)
 	require.Equal(t,
 		[]string{`missing required input "name" on bundle.pair`},
 		errs.Messages())
 
-	clean := CheckReferences(parseStack(t, `
+	clean := checkReferences(parseStack(t, `
 resources: { bundle.pair.demo: { name: 'n' } }
 `), libs)
 	require.Empty(t, clean.Messages())
@@ -206,14 +206,14 @@ resources: {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, tt.src), libs())
+			errs := checkReferences(parseStack(t, tt.src), libs())
 			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
 }
 
 func TestCheckTypesAcceptsMatchingBody(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { path: { type: string } }
 resources: { local.file.one: { path: var.path, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -222,7 +222,7 @@ resources: { local.file.one: { path: var.path, content: 'hi' } }
 }
 
 func TestCheckTypesRejectsLiteralIntoStringField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 5, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -232,7 +232,7 @@ resources: { local.file.one: { path: 5, content: 'hi' } }
 }
 
 func TestCheckTypesRejectsVarWithWrongType(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { mode: { type: integer } }
 resources: { local.file.one: { path: var.mode, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -243,7 +243,7 @@ resources: { local.file.one: { path: var.mode, content: 'hi' } }
 }
 
 func TestCheckTypesAcceptsLocalMatchingField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals:    { p: 'somewhere' }
 resources: { local.file.one: { path: local.p, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -252,7 +252,7 @@ resources: { local.file.one: { path: local.p, content: 'hi' } }
 }
 
 func TestCheckTypesRejectsLocalWithWrongType(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals:    { m: 5 }
 resources: { local.file.one: { path: local.m, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -263,7 +263,7 @@ resources: { local.file.one: { path: local.m, content: 'hi' } }
 }
 
 func TestCheckTypesRejectsChainedLocalWithWrongType(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals:    { raw: 5, derived: local.raw }
 resources: { local.file.one: { path: local.derived, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -274,7 +274,7 @@ resources: { local.file.one: { path: local.derived, content: 'hi' } }
 }
 
 func TestCheckTypesRejectsResourceFieldWithWrongType(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: {
   local.file.one: { path: 'one', content: 'hi' }
   local.file.two: { path: resource.local.file.one.size, content: 'hi' }
@@ -287,7 +287,7 @@ resources: {
 }
 
 func TestCheckTypesAcceptsInputFieldReference(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: {
   local.file.one: { path: 'one', content: 'hi' }
   local.file.two: { path: resource.local.file.one.content, content: 'hi' }
@@ -299,7 +299,7 @@ resources: {
 }
 
 func TestCheckTypesRejectsInputFieldReferenceWithWrongType(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: {
   local.file.one: { path: 'one', content: 'hi' }
   local.file.two: { path: resource.local.file.one.mode, content: 'hi' }
@@ -313,7 +313,7 @@ resources: {
 }
 
 func TestCheckTypesAcceptsOptionalIntoRequired(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { p: { type: optional(string, 'x') } }
 resources: { local.file.one: { path: var.p, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -322,7 +322,7 @@ resources: { local.file.one: { path: var.p, content: 'hi' } }
 }
 
 func TestCheckTypesRejectsListWithWrongElementType(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: ['echo', 5] } }
 `), map[string]*Library{
 		"core": {Schema: &LibrarySchema{
@@ -342,7 +342,7 @@ actions: { core.command.x: { argv: ['echo', 5] } }
 }
 
 func TestCheckTypesAcceptsListLiteralMatchingTarget(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: ['echo', 'hi'] } }
 `), map[string]*Library{
 		"core": {Schema: &LibrarySchema{
@@ -359,7 +359,7 @@ actions: { core.command.x: { argv: ['echo', 'hi'] } }
 }
 
 func TestCheckTypesRejectsConstraintWithNonBooleanPredicate(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs: { region: { type: string } }
 constraints: [
   {
@@ -376,7 +376,7 @@ constraints: [
 }
 
 func TestCheckTypesRejectsForEachValueIntoWrongSlot(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { counts: { type: map(integer) } }
 resources: { local.file.many: { @for-each: var.counts, path: @each.value, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -387,7 +387,7 @@ resources: { local.file.many: { @for-each: var.counts, path: @each.value, conten
 }
 
 func TestCheckTypesRejectsUnknownBodyField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { paht: 'x', content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
 
@@ -402,7 +402,7 @@ func TestCheckTypesRejectsUnknownFieldOnNestedResourceOutput(t *testing.T) {
 		{Name: "host", Type: typecheck.TString()},
 		{Name: "port", Type: typecheck.TInteger()},
 	})
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: {
   aws.rds.main:   { name: 'one' }
   local.file.one: { path: resource.aws.rds.main.endpoint.bogus, content: 'hi' }
@@ -429,7 +429,7 @@ resources: {
 }
 
 func TestCheckTypesRejectsUnknownNestedObjectField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { cfg: { type: object({ host: string, port: integer }) } }
 resources: { local.file.one: { path: var.cfg.bogus, content: 'hi' } }
 `), map[string]*Library{"local": localFileLibrary()})
@@ -440,7 +440,7 @@ resources: { local.file.one: { path: var.cfg.bogus, content: 'hi' } }
 }
 
 func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 5, content: 'hi' } }
 `), map[string]*Library{
 		"local": {Schema: &LibrarySchema{
@@ -457,7 +457,7 @@ resources: { local.file.one: { path: 5, content: 'hi' } }
 // errors come back as ErrType while reference checks produce
 // ErrResolve.
 func TestCheckTypesConstraintWhenNarrowsRequire(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs: {
   note: { type: optional(string) }
 }
@@ -471,7 +471,7 @@ constraints: [
 `), nil)
 	require.Equal(t, []string(nil), errs.Messages())
 
-	control := CheckReferences(parseStack(t, `
+	control := checkReferences(parseStack(t, `
 inputs: {
   note: { type: optional(string) }
 }
@@ -486,7 +486,7 @@ constraints: [
 }
 
 func TestCheckTypesReportsLocalsBodyErrors(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals: {
   bad: 'a' - 'b'
 }
@@ -499,7 +499,7 @@ locals: {
 }
 
 func TestCheckTypesReportsLocalsDeepFieldError(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs: { cfg: { type: object({ host: string }) } }
 locals: {
   h: var.cfg.bogus
@@ -510,7 +510,7 @@ locals: {
 }
 
 func TestCheckTypesLocalsErrorsReportOnce(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals:    { bad: 'a' - 'b' }
 resources: { local.file.one: { path: local.bad, content: local.bad } }
 `), nil)
@@ -546,7 +546,7 @@ func configuredLibrary() *Library {
 }
 
 func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 configurations: { ghost: { default: { region: 'r' } } }
 `), map[string]*Library{})
 	require.Equal(t,
@@ -555,7 +555,7 @@ configurations: { ghost: { default: { region: 'r' } } }
 }
 
 func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 configurations: { local: { default: { region: 'r' } } }
 `), map[string]*Library{"local": localFileLibrary()})
 	require.Equal(t,
@@ -564,7 +564,7 @@ configurations: { local: { default: { region: 'r' } } }
 }
 
 func TestCheckTypesConfigurationUnknownField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
 `), map[string]*Library{"aws": configuredLibrary()})
 	require.Equal(t,
@@ -573,7 +573,7 @@ configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
 }
 
 func TestCheckTypesConfigurationFieldTypeMismatch(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { region: 5 } } }
 `), map[string]*Library{"aws": configuredLibrary()})
 	require.Equal(t,
@@ -582,7 +582,7 @@ configurations: { aws: { default: { region: 5 } } }
 }
 
 func TestCheckTypesConfigurationMissingRequiredField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { profile: 'p' } } }
 `), map[string]*Library{"aws": configuredLibrary()})
 	require.Equal(t,
@@ -591,7 +591,7 @@ configurations: { aws: { default: { profile: 'p' } } }
 }
 
 func TestCheckTypesConfigurationValidPasses(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs: { region: { type: string } }
 configurations: { aws: { default: { region: var.region } } }
 `), map[string]*Library{"aws": configuredLibrary()})
@@ -603,7 +603,7 @@ func TestCheckTypesConfigurationDeclaredOnlyAtRuntime(t *testing.T) {
 		Configuration: &cfg.ConfigurationType{New: func() any { return nil }},
 		Schema:        &LibrarySchema{},
 	}
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { anything: 'goes' } } }
 `), map[string]*Library{"aws": lib})
 	require.Empty(t, errs.Messages())

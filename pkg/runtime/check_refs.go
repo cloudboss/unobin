@@ -10,49 +10,67 @@ import (
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
-// CheckReferences reports references that cannot resolve to an input binding,
-// node address, or active for-each binding.
-func CheckReferences(f *lang.File, libs map[string]*Library) *lang.ErrorList {
-	return CheckReferencesObserved(f, libs, nil)
-}
-
-// CheckReferencesObserved runs the same checks as CheckReferences and
-// additionally streams every inferred expression and its type to
-// observe. The residual-Unknown harness reads the stream; a nil
-// observe checks without recording.
-func CheckReferencesObserved(
-	f *lang.File, libs map[string]*Library,
-	observe func(e lang.Expr, t typecheck.Type),
-) *lang.ErrorList {
-	c := &referenceChecker{
-		root:      f,
-		dag:       BuildDAG(f, libs),
-		errs:      lang.NewErrorList(0),
-		inputs:    map[string]map[string]bool{"": inputNames(f)},
-		locals:    map[string]map[string]bool{"": localNames(f)},
-		libraries: map[string]map[string]*Library{"": libs},
-		seen:      map[string]bool{},
-		observe:   observe,
-	}
-	c.collectCompositeScopes()
-	c.checkDeclarations()
-	c.checkNodes()
-	c.checkLocals()
-	c.checkLocalCycles()
-	c.checkNodeCycles()
-	c.checkConstraints()
-	c.checkTypes()
-	return c.errs
-}
-
-type referenceChecker struct {
+// Checker runs the compile-time checks over a parsed, validated
+// stack file. Construction builds the stack's dependency graph and
+// the scope tables for every composite call site once; each check
+// method walks them and returns its own diagnostics. The graph is
+// exposed so callers executing the stack share the structure the
+// checks ran against.
+type Checker struct {
 	root      *lang.File
 	dag       *DAG
-	errs      *lang.ErrorList
 	inputs    map[string]map[string]bool
 	locals    map[string]map[string]bool
 	libraries map[string]map[string]*Library
-	seen      map[string]bool
+}
+
+// NewChecker builds the check state for a parsed stack file. libs is
+// the imported-library table resolved for the file.
+func NewChecker(f *lang.File, libs map[string]*Library) *Checker {
+	c := &Checker{
+		root:      f,
+		dag:       BuildDAG(f, libs),
+		inputs:    map[string]map[string]bool{"": inputNames(f)},
+		locals:    map[string]map[string]bool{"": localNames(f)},
+		libraries: map[string]map[string]*Library{"": libs},
+	}
+	c.collectCompositeScopes()
+	return c
+}
+
+// DAG returns the stack's dependency graph.
+func (c *Checker) DAG() *DAG {
+	return c.dag
+}
+
+// References reports references that cannot resolve to an input
+// binding, node address, or active for-each binding, along with the
+// type errors the resolved schemas expose. A non-nil observe receives
+// every inferred expression with its type; the residual-Unknown
+// harness reads the stream.
+func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.ErrorList {
+	r := &referenceChecker{
+		Checker: c,
+		errs:    lang.NewErrorList(0),
+		seen:    map[string]bool{},
+		observe: observe,
+	}
+	r.checkDeclarations()
+	r.checkNodes()
+	r.checkLocals()
+	r.checkLocalCycles()
+	r.checkNodeCycles()
+	r.checkConstraints()
+	r.checkTypes()
+	return r.errs
+}
+
+// referenceChecker is the state of one References run: the shared
+// Checker tables plus the run's accumulating diagnostics and memos.
+type referenceChecker struct {
+	*Checker
+	errs *lang.ErrorList
+	seen map[string]bool
 	// compositeOutputs memoizes each composite node's inferred output
 	// types; forcingComposite guards a lookup that re-enters itself.
 	compositeOutputs map[*Node]map[string]typecheck.Type
@@ -62,7 +80,7 @@ type referenceChecker struct {
 	observe func(e lang.Expr, t typecheck.Type)
 }
 
-func (c *referenceChecker) collectCompositeScopes() {
+func (c *Checker) collectCompositeScopes() {
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
 			continue

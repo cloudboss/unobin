@@ -559,7 +559,7 @@ func parsedFile(info Info) (*lang.File, error) {
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
-	if errs := runtime.CheckReferences(f, info.Libraries); errs.Len() > 0 {
+	if errs := runtime.NewChecker(f, info.Libraries).References(nil); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
 	return f, nil

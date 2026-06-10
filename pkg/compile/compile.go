@@ -242,7 +242,8 @@ func Run(opts Options) error {
 	used := usedLibraryTypes(f)
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
-	if errs := ubruntime.CheckReferencesObserved(f, libs, opts.TypeObserver); errs.Len() > 0 {
+	checker := ubruntime.NewChecker(f, libs)
+	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}
 	if errs := ubruntime.CheckLiteralConstraints(f, libs); errs.Len() > 0 {

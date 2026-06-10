@@ -9,7 +9,7 @@ import (
 )
 
 func TestCheckReferencesRootScope(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { path: { type: string } }
 resources: { local.file.one: { path: var.missing, content: resource.local.file.absent.content } }
 outputs: {
@@ -26,7 +26,7 @@ outputs: {
 }
 
 func TestCheckReferencesLocalsValid(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { env: { type: string } }
 locals:    { base: var.env, derived: local.base }
 resources: { local.file.one: { path: local.derived } }
@@ -36,7 +36,7 @@ outputs:   { p: { value: resource.local.file.one.path } }
 }
 
 func TestCheckReferencesUnknownLocal(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 outputs: {
   bad: { value: local.nope }
 }
@@ -87,7 +87,7 @@ func TestCheckReferencesSplat(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, c.stack), nil)
+			errs := checkReferences(parseStack(t, c.stack), nil)
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
@@ -120,7 +120,7 @@ func TestCheckReferencesFunctionExists(t *testing.T) {
 			},
 		}},
 	}
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: [core.format('%s', 'hi')] } }
 `), libs)
 	require.Empty(t, checkRefMessages(t, errs))
@@ -135,7 +135,7 @@ func TestCheckReferencesUnknownFunction(t *testing.T) {
 			},
 		}},
 	}
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: [core.formatt('%s', 'hi')] } }
 `), libs)
 	got := checkRefMessages(t, errs)
@@ -161,7 +161,7 @@ func TestCheckReferencesCoreNamespace(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, `
+			errs := checkReferences(parseStack(t, `
 actions: {
   ext.thing.x: { argv: [`+tt.call+`] }
 }
@@ -202,7 +202,7 @@ func TestCheckReferencesFunctionArity(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			src := "actions: {\n  core.command.x: { argv: [" + c.call + "] }\n}\n"
-			got := checkRefMessages(t, CheckReferences(parseStack(t, src), libs))
+			got := checkRefMessages(t, checkReferences(parseStack(t, src), libs))
 			if c.want == "" {
 				require.Empty(t, got)
 				return
@@ -214,7 +214,7 @@ func TestCheckReferencesFunctionArity(t *testing.T) {
 }
 
 func TestCheckReferencesLocalReadsUnknownInput(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals: { x: var.missing }
 outputs: { o: { value: local.x } }
 `), nil)
@@ -224,7 +224,7 @@ outputs: { o: { value: local.x } }
 }
 
 func TestCheckReferencesLocalCycle(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 locals: {
   a: local.b
   b: local.a
@@ -237,7 +237,7 @@ outputs: { o: { value: local.a } }
 }
 
 func TestCheckReferencesResourceModuleMustBeImported(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { greeter.greeting.welcome: { message: 'hello' } }
 `), map[string]*Library{
 		"local": {},
@@ -300,7 +300,7 @@ outputs: { said: { value: var.message } }
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, c.src), libs())
+			errs := checkReferences(parseStack(t, c.src), libs())
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
@@ -327,7 +327,7 @@ outputs: { path: { value: resource.local.file.two.path } }
 		},
 	}
 
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { target: { type: string } }
 resources: { bundle.file-pair.demo: { path: var.target } }
 outputs:   { path: { value: resource.bundle.file-pair.demo.path } }
@@ -354,7 +354,7 @@ outputs:   { path: { value: resource.local.file.one.path } }
 		},
 	}
 
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { bundle.file-pair.demo: { path: 'x.txt' } }
 `), libs)
 
@@ -365,7 +365,7 @@ resources: { bundle.file-pair.demo: { path: 'x.txt' } }
 }
 
 func TestCheckReferencesConstraintPredicateRootScope(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs: {
   region: { type: string }
 }
@@ -404,7 +404,7 @@ outputs:     { path: { value: resource.local.file.one.path } }
 		},
 	}
 
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { bundle.thing.demo: { region: 'us-east-1' } }
 `), libs)
 
@@ -414,7 +414,7 @@ resources: { bundle.thing.demo: { region: 'us-east-1' } }
 }
 
 func TestCheckReferencesUnknownTrailingField(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { path: { type: string } }
 resources: { local.file.one: { path: var.path, content: 'hi' } }
 outputs: {
@@ -440,7 +440,7 @@ outputs: {
 }
 
 func TestCheckReferencesActionFieldMustExist(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: ['true'] } }
 outputs: { bad: { value: action.core.command.x.nope } }
 `), map[string]*Library{
@@ -468,7 +468,7 @@ outputs: {
   bad: { value: local.doubled + 'x' }
 }
 `
-	errs := CheckReferences(parseStack(t, src), nil)
+	errs := checkReferences(parseStack(t, src), nil)
 	var got []string
 	for _, e := range errs.Errors() {
 		got = append(got, e.Msg)
@@ -505,7 +505,7 @@ outputs:   { path: { value: resource.local.file.one.path } }
 		},
 	}
 
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { bundle.thing.demo: {} }
 outputs: {
   ok:  { value: resource.bundle.thing.demo.path }
@@ -519,7 +519,7 @@ outputs: {
 }
 
 func TestCheckReferencesDataSourceFieldMustExist(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 data:    { aws.ami.ubuntu: { most-recent: true } }
 outputs: { ok: { value: data.aws.ami.ubuntu.id }, bad: { value: data.aws.ami.ubuntu.misspelled } }
 `), map[string]*Library{
@@ -540,7 +540,7 @@ outputs: { ok: { value: data.aws.ami.ubuntu.id }, bad: { value: data.aws.ami.ubu
 }
 
 func TestCheckReferencesForEachInstanceFieldMustExist(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs:    { names: { type: map(string) } }
 resources: { local.file.many: { @for-each: var.names, path: @each.value, content: 'hello' } }
 outputs: {
@@ -564,7 +564,7 @@ outputs: {
 }
 
 func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 'x.txt' } }
 outputs:   { anything: { value: resource.local.file.one.whatever } }
 `), map[string]*Library{
@@ -575,7 +575,7 @@ outputs:   { anything: { value: resource.local.file.one.whatever } }
 }
 
 func TestCheckReferencesEachScope(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 inputs: { files: { type: map(string) } }
 resources: {
   local.file.many: { @for-each: var.files, path: @each.key, content: @each.value }
@@ -629,7 +629,7 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			src := "actions: {\n  core.command.x: { argv: [" + c.call + "] }\n}\n"
-			errs := CheckReferences(parseStack(t, src), libs)
+			errs := checkReferences(parseStack(t, src), libs)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -659,7 +659,7 @@ func TestCheckReferencesFunctionOnUBLibrary(t *testing.T) {
 			},
 		},
 	}
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: [w.fn('hi')] } }
 `), libs)
 	got := checkRefMessages(t, errs)
@@ -695,7 +695,7 @@ constraints: [
   },
 ]
 `
-	errs := CheckReferences(parseStack(t, src), libs)
+	errs := checkReferences(parseStack(t, src), libs)
 	var got []string
 	for _, e := range errs.Errors() {
 		got = append(got, e.Msg)
@@ -772,7 +772,7 @@ actions: { greet.say.formal: { @configuration: 'greet.formal', message: 'w' } }
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, tt.src), libs())
+			errs := checkReferences(parseStack(t, tt.src), libs())
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -837,7 +837,7 @@ outputs: { ok: { value: [ for s in var.subnets : s.cidr ] } }
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, tt.src), nil)
+			errs := checkReferences(parseStack(t, tt.src), nil)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -976,7 +976,7 @@ constraints: [
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, tt.src), nil)
+			errs := checkReferences(parseStack(t, tt.src), nil)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -1086,7 +1086,7 @@ constraints: [
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, c.src), libs)
+			errs := checkReferences(parseStack(t, c.src), libs)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -1218,7 +1218,7 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, c.stack), nil)
+			errs := checkReferences(parseStack(t, c.stack), nil)
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
@@ -1306,14 +1306,14 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := CheckReferences(parseStack(t, c.stack), libs)
+			errs := checkReferences(parseStack(t, c.stack), libs)
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
 }
 
 func TestCheckReferencesNodeCycle(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: {
   local.file.a: { path: resource.local.file.b.path }
   local.file.b: { path: resource.local.file.a.path }
@@ -1326,7 +1326,7 @@ resources: {
 }
 
 func TestCheckReferencesNodeSelfCycle(t *testing.T) {
-	errs := CheckReferences(parseStack(t, `
+	errs := checkReferences(parseStack(t, `
 resources: { local.file.a: { path: resource.local.file.a.path } }
 `), nil)
 	got := checkRefMessages(t, errs)
