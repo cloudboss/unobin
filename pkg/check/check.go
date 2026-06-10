@@ -1,4 +1,4 @@
-package runtime
+package check
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
@@ -18,28 +19,28 @@ import (
 // checks ran against.
 type Checker struct {
 	root      *lang.File
-	dag       *DAG
+	dag       *runtime.DAG
 	inputs    map[string]map[string]bool
 	locals    map[string]map[string]bool
-	libraries map[string]map[string]*Library
+	libraries map[string]map[string]*runtime.Library
 }
 
-// NewChecker builds the check state for a parsed stack file. libs is
-// the imported-library table resolved for the file.
-func NewChecker(f *lang.File, libs map[string]*Library) *Checker {
+// New builds the check state for a parsed stack file. libs is the
+// imported-library table resolved for the file.
+func New(f *lang.File, libs map[string]*runtime.Library) *Checker {
 	c := &Checker{
 		root:      f,
-		dag:       BuildDAG(f, libs),
-		inputs:    map[string]map[string]bool{"": InputNames(f)},
+		dag:       runtime.BuildDAG(f, libs),
+		inputs:    map[string]map[string]bool{"": runtime.InputNames(f)},
 		locals:    map[string]map[string]bool{"": localNames(f)},
-		libraries: map[string]map[string]*Library{"": libs},
+		libraries: map[string]map[string]*runtime.Library{"": libs},
 	}
 	c.collectCompositeScopes()
 	return c
 }
 
 // DAG returns the stack's dependency graph.
-func (c *Checker) DAG() *DAG {
+func (c *Checker) DAG() *runtime.DAG {
 	return c.dag
 }
 
@@ -73,8 +74,8 @@ type referenceChecker struct {
 	seen map[string]bool
 	// compositeOutputs memoizes each composite node's inferred output
 	// types; forcingComposite guards a lookup that re-enters itself.
-	compositeOutputs map[*Node]map[string]typecheck.Type
-	forcingComposite map[*Node]bool
+	compositeOutputs map[*runtime.Node]map[string]typecheck.Type
+	forcingComposite map[*runtime.Node]bool
 	// observe, when set, rides the real checking walks' scopes so
 	// every inferred expression streams out with its type.
 	observe func(e lang.Expr, t typecheck.Type)
@@ -85,7 +86,7 @@ func (c *Checker) collectCompositeScopes() {
 		if !n.IsComposite() {
 			continue
 		}
-		c.inputs[n.Address] = InputNames(n.CompositeBody)
+		c.inputs[n.Address] = runtime.InputNames(n.CompositeBody)
 		c.locals[n.Address] = localNames(n.CompositeBody)
 		c.libraries[n.Address] = n.Libraries
 	}
@@ -94,7 +95,7 @@ func (c *Checker) collectCompositeScopes() {
 func (c *referenceChecker) checkDeclarations() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
-		case NodeResource, NodeData, NodeAction:
+		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
 		default:
 			continue
 		}
@@ -125,7 +126,7 @@ func (c *referenceChecker) checkDeclarations() {
 // holds, or UB composites. A library with none of these is opaque, so a
 // leaf against it is not judged, matching how a schemaless Go library is
 // left alone elsewhere.
-func libraryKnown(lib *Library) bool {
+func libraryKnown(lib *runtime.Library) bool {
 	return lib.Schema != nil ||
 		len(lib.Resources)+len(lib.DataSources)+len(lib.Actions) > 0 ||
 		hasComposites(lib)
@@ -136,20 +137,20 @@ func libraryKnown(lib *Library) bool {
 // it with a registration the stack binary holds, or, at compile, with a
 // schema entry. The reference checker runs in both, so all three are
 // consulted.
-func libraryDeclares(lib *Library, kind NodeKind, typ string) bool {
+func libraryDeclares(lib *runtime.Library, kind runtime.NodeKind, typ string) bool {
 	if lib.Composite(kind, typ) != nil {
 		return true
 	}
 	switch kind {
-	case NodeResource:
+	case runtime.NodeResource:
 		if _, ok := lib.Resources[typ]; ok {
 			return true
 		}
-	case NodeData:
+	case runtime.NodeData:
 		if _, ok := lib.DataSources[typ]; ok {
 			return true
 		}
-	case NodeAction:
+	case runtime.NodeAction:
 		if _, ok := lib.Actions[typ]; ok {
 			return true
 		}
@@ -295,7 +296,7 @@ func namedPathText(dp *lang.DotPath) string {
 	return strings.Join(parts, ".")
 }
 
-func (c *referenceChecker) checkCompositeOutputs(n *Node) {
+func (c *referenceChecker) checkCompositeOutputs(n *runtime.Node) {
 	if n.CompositeBody == nil || n.CompositeBody.Body == nil {
 		return
 	}
@@ -417,7 +418,7 @@ func (c *referenceChecker) checkCall(call *lang.Call, scope string) {
 		return
 	}
 	if call.Library.Name == lang.CoreNamespace {
-		sig, ok := CoreFunctionSigs()[call.Func.Name]
+		sig, ok := runtime.CoreFunctionSigs()[call.Func.Name]
 		if !ok {
 			c.addf(call.Func.S.Start, `%s has no function %q`,
 				lang.CoreNamespace, call.Func.Name)
@@ -465,7 +466,7 @@ func (c *referenceChecker) checkCallArity(call *lang.Call, sig typecheck.FuncSig
 
 // hasComposites reports whether the library exports any UB-implemented
 // types, the mark of a UB library when no schema is present.
-func hasComposites(l *Library) bool {
+func hasComposites(l *runtime.Library) bool {
 	return len(l.ResourceComposites)+len(l.DataComposites)+len(l.ActionComposites) > 0
 }
 
@@ -685,11 +686,11 @@ func localRefNames(e lang.Expr) []string {
 }
 
 func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
-	ref := refAddress(dp)
+	ref := runtime.RefAddress(dp)
 	if ref == "" {
 		return
 	}
-	node, ok := c.dag.Nodes[scopeRef(ref, scope)]
+	node, ok := c.dag.Nodes[runtime.ScopeRef(ref, scope)]
 	if !ok {
 		kind, _, _ := strings.Cut(ref, ".")
 		c.addf(dp.S.Start, `unknown %s %q`, kind, ref)
@@ -702,7 +703,7 @@ func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
 // declared in the node's output schema. Returns silently when the
 // path has no trailing field, when no schema is available, or when
 // the field is present.
-func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string) {
+func (c *referenceChecker) checkField(dp *lang.DotPath, node *runtime.Node, scope string) {
 	field, idx := trailingField(dp)
 	if field == "" {
 		return
@@ -719,7 +720,7 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 		return ok
 	}
 	if prefix, rest, ok := hyphenSubtraction(field, known); ok && allDigits(rest) {
-		head := dotPathString(&lang.DotPath{Root: dp.Root, Segments: dp.Segments[:idx]})
+		head := runtime.DotPathString(&lang.DotPath{Root: dp.Root, Segments: dp.Segments[:idx]})
 		c.addf(dp.S.Start, `unknown field %q on %s.%s; write %s.%s - %s to subtract`,
 			field, node.Alias, node.Type, head, prefix, rest)
 		return
@@ -731,7 +732,7 @@ func (c *referenceChecker) checkField(dp *lang.DotPath, node *Node, scope string
 // Go-backed leaf exposes its inputs as well as its outputs, so a plain
 // input is readable without being echoed into the output struct. A
 // composite stays opaque except its declared outputs.
-func (c *referenceChecker) attrsFor(node *Node, scope string) map[string]typecheck.Type {
+func (c *referenceChecker) attrsFor(node *runtime.Node, scope string) map[string]typecheck.Type {
 	if node.IsComposite() {
 		return compositeOutputNames(node)
 	}
@@ -743,13 +744,13 @@ func (c *referenceChecker) attrsFor(node *Node, scope string) map[string]typeche
 	if lib == nil || lib.Schema == nil {
 		return nil
 	}
-	var ts *TypeSchema
+	var ts *runtime.TypeSchema
 	switch node.Kind {
-	case NodeResource:
+	case runtime.NodeResource:
 		ts = lib.Schema.Resources[node.Type]
-	case NodeData:
+	case runtime.NodeData:
 		ts = lib.Schema.DataSources[node.Type]
-	case NodeAction:
+	case runtime.NodeAction:
 		ts = lib.Schema.Actions[node.Type]
 	}
 	if ts == nil {
@@ -769,7 +770,7 @@ func (c *referenceChecker) attrsFor(node *Node, scope string) map[string]typeche
 // since the V1 checker validates field-name existence only; the
 // returned map shape matches the Go-side schema so callers do not
 // branch.
-func compositeOutputNames(node *Node) map[string]typecheck.Type {
+func compositeOutputNames(node *runtime.Node) map[string]typecheck.Type {
 	if node.CompositeBody == nil {
 		return nil
 	}

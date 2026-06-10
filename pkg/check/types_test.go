@@ -1,9 +1,10 @@
-package runtime
+package check
 
 import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
@@ -12,10 +13,10 @@ import (
 // localFileModule mirrors the input and output fields of the real
 // `local.file` resource, declared defaults included, so the tests
 // don't pull the libraries package as a dependency.
-func localFileLibrary() *Library {
-	return &Library{
-		Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+func localFileLibrary() *runtime.Library {
+	return &runtime.Library{
+		Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"file": {
 					Inputs: map[string]typecheck.Type{
 						"path":             typecheck.TString(),
@@ -45,7 +46,7 @@ func localFileLibrary() *Library {
 func TestCheckTypesRequiresMissingInput(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 'p' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	require.Equal(t,
 		[]string{`missing required input "content" on local.file`},
@@ -57,7 +58,7 @@ resources: { local.file.one: { path: 'p' } }
 func TestCheckTypesReportsEveryMissingInput(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { create-directory: true } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	require.Equal(t, []string{
 		`missing required input "content" on local.file`,
@@ -69,9 +70,9 @@ resources: { local.file.one: { create-directory: true } }
 // schema could not describe is not required, since its optionality is
 // unknowable.
 func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
-	lib := &Library{
-		Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+	lib := &runtime.Library{
+		Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"thing": {
 					Inputs: map[string]typecheck.Type{
 						"name":   typecheck.TString(),
@@ -83,7 +84,7 @@ func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
 	}
 	errs := checkReferences(parseStack(t, `
 resources: { ext.thing.one: { name: 'a' } }
-`), map[string]*Library{"ext": lib})
+`), map[string]*runtime.Library{"ext": lib})
 
 	require.Empty(t, errs.Messages())
 }
@@ -94,7 +95,7 @@ resources: { ext.thing.one: { name: 'a' } }
 func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { ext.thing.one: { name: 'a' } }
-`), map[string]*Library{"ext": {}})
+`), map[string]*runtime.Library{"ext": {}})
 
 	require.Empty(t, errs.Messages())
 }
@@ -107,13 +108,13 @@ func TestCheckTypesRequiresCompositeInput(t *testing.T) {
 inputs:    { name: { type: string }, note: { type: optional(string) } }
 resources: { local.file.one: { path: var.name, content: 'x' } }
 `)
-	libs := map[string]*Library{
+	libs := map[string]*runtime.Library{
 		"bundle": {
-			ResourceComposites: map[string]*CompositeType{
+			ResourceComposites: map[string]*runtime.CompositeType{
 				"pair": {
 					Name:      "pair",
 					Body:      composite,
-					Libraries: map[string]*Library{"local": localFileLibrary()},
+					Libraries: map[string]*runtime.Library{"local": localFileLibrary()},
 				},
 			},
 		},
@@ -143,13 +144,13 @@ outputs: {
   names: { value: [var.name] }
 }
 `)
-	libs := func() map[string]*Library {
-		return map[string]*Library{
+	libs := func() map[string]*runtime.Library {
+		return map[string]*runtime.Library{
 			"local": localFileLibrary(),
-			"bundle": {ResourceComposites: map[string]*CompositeType{"pair": {
+			"bundle": {ResourceComposites: map[string]*runtime.CompositeType{"pair": {
 				Name:      "pair",
 				Body:      composite,
-				Libraries: map[string]*Library{"local": localFileLibrary()},
+				Libraries: map[string]*runtime.Library{"local": localFileLibrary()},
 			}}},
 		}
 	}
@@ -216,7 +217,7 @@ func TestCheckTypesAcceptsMatchingBody(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs:    { path: { type: string } }
 resources: { local.file.one: { path: var.path, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	require.Empty(t, checkRefMessages(t, errs))
 }
@@ -224,7 +225,7 @@ resources: { local.file.one: { path: var.path, content: 'hi' } }
 func TestCheckTypesRejectsLiteralIntoStringField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 5, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -235,7 +236,7 @@ func TestCheckTypesRejectsVarWithWrongType(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs:    { mode: { type: integer } }
 resources: { local.file.one: { path: var.mode, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -246,7 +247,7 @@ func TestCheckTypesAcceptsLocalMatchingField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 locals:    { p: 'somewhere' }
 resources: { local.file.one: { path: local.p, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	require.Empty(t, errs.Messages())
 }
@@ -255,7 +256,7 @@ func TestCheckTypesRejectsLocalWithWrongType(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 locals:    { m: 5 }
 resources: { local.file.one: { path: local.m, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -266,7 +267,7 @@ func TestCheckTypesRejectsChainedLocalWithWrongType(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 locals:    { raw: 5, derived: local.raw }
 resources: { local.file.one: { path: local.derived, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -279,7 +280,7 @@ resources: {
   local.file.one: { path: 'one', content: 'hi' }
   local.file.two: { path: resource.local.file.one.size, content: 'hi' }
 }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -292,7 +293,7 @@ resources: {
   local.file.one: { path: 'one', content: 'hi' }
   local.file.two: { path: resource.local.file.one.content, content: 'hi' }
 }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	require.Empty(t, errs.Messages(),
 		"content is an input-only field and is readable like an output")
@@ -304,7 +305,7 @@ resources: {
   local.file.one: { path: 'one', content: 'hi' }
   local.file.two: { path: resource.local.file.one.mode, content: 'hi' }
 }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -316,7 +317,7 @@ func TestCheckTypesAcceptsOptionalIntoRequired(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs:    { p: { type: optional(string, 'x') } }
 resources: { local.file.one: { path: var.p, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	require.Empty(t, errs.Messages())
 }
@@ -324,9 +325,9 @@ resources: { local.file.one: { path: var.p, content: 'hi' } }
 func TestCheckTypesRejectsListWithWrongElementType(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: ['echo', 5] } }
-`), map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{
 				"command": {
 					Inputs: map[string]typecheck.Type{
 						"argv": typecheck.TList(typecheck.TString()),
@@ -344,9 +345,9 @@ actions: { core.command.x: { argv: ['echo', 5] } }
 func TestCheckTypesAcceptsListLiteralMatchingTarget(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: ['echo', 'hi'] } }
-`), map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{
 				"command": {
 					Inputs: map[string]typecheck.Type{
 						"argv": typecheck.TList(typecheck.TString()),
@@ -379,7 +380,7 @@ func TestCheckTypesRejectsForEachValueIntoWrongSlot(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs:    { counts: { type: map(integer) } }
 resources: { local.file.many: { @for-each: var.counts, path: @each.value, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -389,7 +390,7 @@ resources: { local.file.many: { @for-each: var.counts, path: @each.value, conten
 func TestCheckTypesRejectsUnknownBodyField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { paht: 'x', content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 2)
@@ -407,10 +408,10 @@ resources: {
   aws.rds.main:   { name: 'one' }
   local.file.one: { path: resource.aws.rds.main.endpoint.bogus, content: 'hi' }
 }
-`), map[string]*Library{
+`), map[string]*runtime.Library{
 		"local": localFileLibrary(),
-		"aws": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+		"aws": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"rds": {
 					Inputs: map[string]typecheck.Type{
 						"name": typecheck.TString(),
@@ -432,7 +433,7 @@ func TestCheckTypesRejectsUnknownNestedObjectField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs:    { cfg: { type: object({ host: string, port: integer }) } }
 resources: { local.file.one: { path: var.cfg.bogus, content: 'hi' } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 
 	got := errs.Messages()
 	require.Len(t, got, 1)
@@ -442,9 +443,9 @@ resources: { local.file.one: { path: var.cfg.bogus, content: 'hi' } }
 func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 5, content: 'hi' } }
-`), map[string]*Library{
-		"local": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"local": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{"path": typecheck.TString()}},
 			},
 		}},
@@ -533,9 +534,9 @@ func checkErrorMessages(t *testing.T, errs *lang.ErrorList) []string {
 
 // configuredLibrary returns a library whose compile-time schema
 // declares a configuration with one required and one optional field.
-func configuredLibrary() *Library {
-	return &Library{
-		Schema: &LibrarySchema{
+func configuredLibrary() *runtime.Library {
+	return &runtime.Library{
+		Schema: &runtime.LibrarySchema{
 			HasConfiguration: true,
 			Configuration: map[string]typecheck.Type{
 				"region":  typecheck.TString(),
@@ -548,7 +549,7 @@ func configuredLibrary() *Library {
 func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { ghost: { default: { region: 'r' } } }
-`), map[string]*Library{})
+`), map[string]*runtime.Library{})
 	require.Equal(t,
 		[]string{`configurations.ghost: library "ghost" is not imported`},
 		errs.Messages())
@@ -557,7 +558,7 @@ configurations: { ghost: { default: { region: 'r' } } }
 func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { local: { default: { region: 'r' } } }
-`), map[string]*Library{"local": localFileLibrary()})
+`), map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Equal(t,
 		[]string{`configurations.local: library declares no configuration`},
 		errs.Messages())
@@ -566,7 +567,7 @@ configurations: { local: { default: { region: 'r' } } }
 func TestCheckTypesConfigurationUnknownField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
-`), map[string]*Library{"aws": configuredLibrary()})
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
 		[]string{`configurations.aws.default: unknown field "regin"`},
 		errs.Messages())
@@ -575,7 +576,7 @@ configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
 func TestCheckTypesConfigurationFieldTypeMismatch(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { region: 5 } } }
-`), map[string]*Library{"aws": configuredLibrary()})
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
 		[]string{`type mismatch: expected string, got integer`},
 		errs.Messages())
@@ -584,7 +585,7 @@ configurations: { aws: { default: { region: 5 } } }
 func TestCheckTypesConfigurationMissingRequiredField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { profile: 'p' } } }
-`), map[string]*Library{"aws": configuredLibrary()})
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
 		[]string{`configurations.aws.default: missing required field "region"`},
 		errs.Messages())
@@ -594,17 +595,17 @@ func TestCheckTypesConfigurationValidPasses(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs: { region: { type: string } }
 configurations: { aws: { default: { region: var.region } } }
-`), map[string]*Library{"aws": configuredLibrary()})
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesConfigurationDeclaredOnlyAtRuntime(t *testing.T) {
-	lib := &Library{
+	lib := &runtime.Library{
 		Configuration: &cfg.ConfigurationType{New: func() any { return nil }},
-		Schema:        &LibrarySchema{},
+		Schema:        &runtime.LibrarySchema{},
 	}
 	errs := checkReferences(parseStack(t, `
 configurations: { aws: { default: { anything: 'goes' } } }
-`), map[string]*Library{"aws": lib})
+`), map[string]*runtime.Library{"aws": lib})
 	require.Empty(t, errs.Messages())
 }

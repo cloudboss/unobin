@@ -158,7 +158,7 @@ func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
 			if strings.HasPrefix(ref, "var.") {
 				continue
 			}
-			deps = append(deps, scopeRef(ref, n.Composite))
+			deps = append(deps, ScopeRef(ref, n.Composite))
 		}
 	}
 	for current := n.Composite; current != ""; {
@@ -167,7 +167,7 @@ func computeDeps(n *Node, nodes map[string]*Node, sl *scopeLocals) []string {
 			break
 		}
 		for _, ref := range refsWithLocals(boundary.Body, sl.forScope(boundary.Composite)) {
-			deps = append(deps, scopeRef(ref, boundary.Composite))
+			deps = append(deps, ScopeRef(ref, boundary.Composite))
 		}
 		current = boundary.Composite
 	}
@@ -262,7 +262,7 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 // skips them. An empty callSite means the ref is already in its target
 // scope (a top-level boundary's body refs, or a no-op when walking up
 // past the outermost scope) and the ref returns unchanged.
-func scopeRef(ref, callSite string) string {
+func ScopeRef(ref, callSite string) string {
 	if callSite == "" {
 		return ref
 	}
@@ -299,7 +299,7 @@ func explicitDeps(body lang.Expr) []string {
 			if !ok {
 				continue
 			}
-			if addr := refAddress(dp); addr != "" {
+			if addr := RefAddress(dp); addr != "" {
 				deps = append(deps, addr)
 			}
 		}

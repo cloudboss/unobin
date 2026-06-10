@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -91,7 +92,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	checker := runtime.NewChecker(f, libs)
+	checker := check.New(f, libs)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}

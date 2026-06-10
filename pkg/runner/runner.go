@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/check"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -433,7 +434,7 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 	// Validation is the one command whose job is to re-prove the
 	// stack, so it runs the deep checks the other commands leave to
 	// the compiler.
-	checker := runtime.NewChecker(f, info.Libraries)
+	checker := check.New(f, info.Libraries)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}

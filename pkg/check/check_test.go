@@ -1,9 +1,10 @@
-package runtime
+package check
 
 import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
@@ -112,9 +113,9 @@ func variadicSig(n int) typecheck.FuncSig {
 }
 
 func TestCheckReferencesFunctionExists(t *testing.T) {
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{"command": {}},
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{"command": {}},
 			Functions: map[string]typecheck.FuncSig{
 				"format": variadicSig(1),
 			},
@@ -127,9 +128,9 @@ actions: { core.command.x: { argv: [core.format('%s', 'hi')] } }
 }
 
 func TestCheckReferencesUnknownFunction(t *testing.T) {
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{"command": {}},
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{"command": {}},
 			Functions: map[string]typecheck.FuncSig{
 				"format": variadicSig(1),
 			},
@@ -147,8 +148,8 @@ actions: { core.command.x: { argv: [core.formatt('%s', 'hi')] } }
 // compile with no import at all: the set is fixed, so an unknown name
 // or a wrong argument count is always an error.
 func TestCheckReferencesCoreNamespace(t *testing.T) {
-	libs := map[string]*Library{"ext": {Schema: &LibrarySchema{
-		Actions: map[string]*TypeSchema{"thing": {}},
+	libs := map[string]*runtime.Library{"ext": {Schema: &runtime.LibrarySchema{
+		Actions: map[string]*runtime.TypeSchema{"thing": {}},
 	}}}
 	cases := []struct {
 		name string
@@ -178,9 +179,9 @@ actions: {
 }
 
 func TestCheckReferencesFunctionArity(t *testing.T) {
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{"command": {}},
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{"command": {}},
 			Functions: map[string]typecheck.FuncSig{
 				"format": variadicSig(1),
 				"length": fixedSig(1),
@@ -239,7 +240,7 @@ outputs: { o: { value: local.a } }
 func TestCheckReferencesResourceModuleMustBeImported(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { greeter.greeting.welcome: { message: 'hello' } }
-`), map[string]*Library{
+`), map[string]*runtime.Library{
 		"local": {},
 	})
 
@@ -253,14 +254,14 @@ func TestCheckReferencesDeclarationCategory(t *testing.T) {
 inputs:  { message: { type: string } }
 outputs: { said: { value: var.message } }
 `)
-	libs := func() map[string]*Library {
-		return map[string]*Library{
-			"greeter": {ActionComposites: map[string]*CompositeType{
-				"greeting": {Name: "greeting", Kind: NodeAction, Body: greeting},
+	libs := func() map[string]*runtime.Library {
+		return map[string]*runtime.Library{
+			"greeter": {ActionComposites: map[string]*runtime.CompositeType{
+				"greeting": {Name: "greeting", Kind: runtime.NodeAction, Body: greeting},
 			}},
-			"cloud": {Schema: &LibrarySchema{
-				Resources: map[string]*TypeSchema{"vpc": {}},
-				Actions:   map[string]*TypeSchema{"ping": {}},
+			"cloud": {Schema: &runtime.LibrarySchema{
+				Resources: map[string]*runtime.TypeSchema{"vpc": {}},
+				Actions:   map[string]*runtime.TypeSchema{"ping": {}},
 			}},
 		}
 	}
@@ -315,13 +316,13 @@ resources: {
 }
 outputs: { path: { value: resource.local.file.two.path } }
 `)
-	libs := map[string]*Library{
+	libs := map[string]*runtime.Library{
 		"bundle": {
-			ResourceComposites: map[string]*CompositeType{
+			ResourceComposites: map[string]*runtime.CompositeType{
 				"file-pair": {
 					Name:      "file-pair",
 					Body:      composite,
-					Libraries: map[string]*Library{"local": {}},
+					Libraries: map[string]*runtime.Library{"local": {}},
 				},
 			},
 		},
@@ -342,13 +343,13 @@ inputs:    { path: { type: string } }
 resources: { local.file.one: { path: var.missing, content: resource.local.file.absent.content } }
 outputs:   { path: { value: resource.local.file.one.path } }
 `)
-	libs := map[string]*Library{
+	libs := map[string]*runtime.Library{
 		"bundle": {
-			ResourceComposites: map[string]*CompositeType{
+			ResourceComposites: map[string]*runtime.CompositeType{
 				"file-pair": {
 					Name:      "file-pair",
 					Body:      composite,
-					Libraries: map[string]*Library{"local": {}},
+					Libraries: map[string]*runtime.Library{"local": {}},
 				},
 			},
 		},
@@ -392,13 +393,13 @@ constraints: [{ kind: predicate, when: var.bogus == 'x', require: var.region == 
 resources:   { local.file.one: { path: var.region, content: 'hi' } }
 outputs:     { path: { value: resource.local.file.one.path } }
 `)
-	libs := map[string]*Library{
+	libs := map[string]*runtime.Library{
 		"bundle": {
-			ResourceComposites: map[string]*CompositeType{
+			ResourceComposites: map[string]*runtime.CompositeType{
 				"thing": {
 					Name:      "thing",
 					Body:      composite,
-					Libraries: map[string]*Library{"local": {}},
+					Libraries: map[string]*runtime.Library{"local": {}},
 				},
 			},
 		},
@@ -421,9 +422,9 @@ outputs: {
   ok:  { value: resource.local.file.one.path }
   bad: { value: resource.local.file.one.bogus }
 }
-`), map[string]*Library{
-		"local": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"local": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{
 					"path":   typecheck.TString(),
 					"sha256": typecheck.TString(),
@@ -443,9 +444,9 @@ func TestCheckReferencesActionFieldMustExist(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 actions: { core.command.x: { argv: ['true'] } }
 outputs: { bad: { value: action.core.command.x.nope } }
-`), map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{
 				"command": {Outputs: map[string]typecheck.Type{
 					"stdout":    typecheck.TString(),
 					"exit-code": typecheck.TInteger(),
@@ -483,15 +484,15 @@ func TestCheckReferencesCompositeOutputMustBeDeclared(t *testing.T) {
 resources: { local.file.one: { path: 'x.txt', content: 'hi' } }
 outputs:   { path: { value: resource.local.file.one.path } }
 `)
-	libs := map[string]*Library{
+	libs := map[string]*runtime.Library{
 		"bundle": {
-			ResourceComposites: map[string]*CompositeType{
+			ResourceComposites: map[string]*runtime.CompositeType{
 				"thing": {
 					Name: "thing",
 					Body: composite,
-					Libraries: map[string]*Library{"local": {
-						Schema: &LibrarySchema{
-							Resources: map[string]*TypeSchema{
+					Libraries: map[string]*runtime.Library{"local": {
+						Schema: &runtime.LibrarySchema{
+							Resources: map[string]*runtime.TypeSchema{
 								"file": {
 									Outputs: map[string]typecheck.Type{
 										"path": typecheck.TString(),
@@ -522,9 +523,9 @@ func TestCheckReferencesDataSourceFieldMustExist(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 data:    { aws.ami.ubuntu: { most-recent: true } }
 outputs: { ok: { value: data.aws.ami.ubuntu.id }, bad: { value: data.aws.ami.ubuntu.misspelled } }
-`), map[string]*Library{
-		"aws": {Schema: &LibrarySchema{
-			DataSources: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"aws": {Schema: &runtime.LibrarySchema{
+			DataSources: map[string]*runtime.TypeSchema{
 				"ami": {Outputs: map[string]typecheck.Type{
 					"id":           typecheck.TString(),
 					"architecture": typecheck.TString(),
@@ -547,9 +548,9 @@ outputs: {
   ok:  { value: resource.local.file.many['greet'].path }
   bad: { value: resource.local.file.many['greet'].whatever }
 }
-`), map[string]*Library{
-		"local": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+`), map[string]*runtime.Library{
+		"local": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{
 					"path":   typecheck.TString(),
 					"sha256": typecheck.TString(),
@@ -567,7 +568,7 @@ func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 resources: { local.file.one: { path: 'x.txt' } }
 outputs:   { anything: { value: resource.local.file.one.whatever } }
-`), map[string]*Library{
+`), map[string]*runtime.Library{
 		"local": {},
 	})
 
@@ -603,9 +604,9 @@ func checkRefMessages(t *testing.T, errs *lang.ErrorList) []string {
 
 func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 	strT := typecheck.TString()
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{"command": {
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{"command": {
 				Inputs: map[string]typecheck.Type{
 					"argv": typecheck.TList(typecheck.TString()),
 				},
@@ -645,16 +646,16 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 }
 
 func TestCheckReferencesFunctionOnUBLibrary(t *testing.T) {
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{"command": {}},
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{"command": {}},
 			Functions: map[string]typecheck.FuncSig{
 				"format": variadicSig(1),
 			},
 		}},
 		"w": {
 			Name: "w",
-			ResourceComposites: map[string]*CompositeType{
+			ResourceComposites: map[string]*runtime.CompositeType{
 				"pair": {Name: "pair"},
 			},
 		},
@@ -670,9 +671,9 @@ actions: { core.command.x: { argv: [w.fn('hi')] } }
 
 func TestCheckReferencesConstraintRootsLimitedToVar(t *testing.T) {
 	strT := typecheck.TString()
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{"thing": {
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{"thing": {
 				Outputs: map[string]typecheck.Type{"id": strT},
 			}},
 			Functions: map[string]typecheck.FuncSig{
@@ -707,9 +708,9 @@ constraints: [
 }
 
 func TestCheckReferencesConfigurationRefs(t *testing.T) {
-	greetLib := func() *Library {
-		return &Library{Schema: &LibrarySchema{
-			Actions: map[string]*TypeSchema{
+	greetLib := func() *runtime.Library {
+		return &runtime.Library{Schema: &runtime.LibrarySchema{
+			Actions: map[string]*runtime.TypeSchema{
 				"say": {Inputs: map[string]typecheck.Type{
 					"message": typecheck.TString(),
 				}},
@@ -720,14 +721,14 @@ func TestCheckReferencesConfigurationRefs(t *testing.T) {
 inputs:  { name: { type: string } }
 actions: { greet.say.hello: { message: var.name } }
 `)
-	libs := func() map[string]*Library {
-		return map[string]*Library{
+	libs := func() map[string]*runtime.Library {
+		return map[string]*runtime.Library{
 			"greet": greetLib(),
-			"bundle": {ActionComposites: map[string]*CompositeType{"wrap": {
+			"bundle": {ActionComposites: map[string]*runtime.CompositeType{"wrap": {
 				Name:      "wrap",
-				Kind:      NodeAction,
+				Kind:      runtime.NodeAction,
 				Body:      composite,
-				Libraries: map[string]*Library{"greet": greetLib()},
+				Libraries: map[string]*runtime.Library{"greet": greetLib()},
 			}}},
 		}
 	}
@@ -1077,9 +1078,9 @@ constraints: [
 ]
 `, "a constraint may read inputs only, not resource.core.thing.x.id"},
 	}
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{"thing": {
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{"thing": {
 				Outputs: map[string]typecheck.Type{"id": typecheck.TString()},
 			}},
 		}},
@@ -1225,9 +1226,9 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 }
 
 func TestCheckReferencesHyphenHints(t *testing.T) {
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{"thing": {
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{"thing": {
 				Outputs: map[string]typecheck.Type{"size": typecheck.TInteger()},
 			}},
 		}},

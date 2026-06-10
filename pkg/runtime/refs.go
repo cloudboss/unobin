@@ -28,7 +28,7 @@ func Refs(e lang.Expr) []string {
 		if !ok {
 			return
 		}
-		if addr := refAddress(dp); addr != "" {
+		if addr := RefAddress(dp); addr != "" {
 			out = append(out, addr)
 		}
 	})
@@ -140,7 +140,7 @@ func objectField(obj *lang.ObjectLit, name string) lang.Expr {
 func refsWithLocals(e lang.Expr, locals map[string]lang.Expr) []string {
 	var out []string
 	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
-		if addr := refAddress(dp); addr != "" {
+		if addr := RefAddress(dp); addr != "" {
 			out = append(out, addr)
 		}
 	})
@@ -160,7 +160,7 @@ func deferredRefs(e lang.Expr, locals map[string]lang.Expr) []string {
 	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
 		switch dp.Root.Name {
 		case "var", "resource", "data", "action":
-			if path := dotPathString(dp); path != "" {
+			if path := DotPathString(dp); path != "" {
 				out = append(out, path)
 			}
 		}
@@ -172,7 +172,7 @@ func deferredRefs(e lang.Expr, locals map[string]lang.Expr) []string {
 // Named segments are joined with `.`; indexed segments preserve the
 // `['<key>']` form when the index is a string literal, and otherwise
 // collapse to `[...]` so the path stays readable.
-func dotPathString(p *lang.DotPath) string {
+func DotPathString(p *lang.DotPath) string {
 	var b strings.Builder
 	b.WriteString(p.Root.Name)
 	for _, seg := range p.Segments {
@@ -195,7 +195,7 @@ func dotPathString(p *lang.DotPath) string {
 	return b.String()
 }
 
-func refAddress(p *lang.DotPath) string {
+func RefAddress(p *lang.DotPath) string {
 	switch p.Root.Name {
 	case "var":
 		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
@@ -238,7 +238,7 @@ func pairKeyDeps(e lang.Expr) map[string]bool {
 		if !ok {
 			return
 		}
-		addr := refAddress(dp)
+		addr := RefAddress(dp)
 		if addr == "" {
 			return
 		}

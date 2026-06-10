@@ -978,7 +978,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	for i, c := range entries {
-		if readsDeferred(c, deferred) {
+		if c.ReadsAny(deferred) {
 			continue
 		}
 		checked := lang.CheckConstraintEntry(i, c, values, eval, lang.DisplayNodeRelative)

@@ -1,9 +1,10 @@
-package runtime
+package check
 
 import (
 	"errors"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 // LiteralConstraints reports cross-field constraint violations that
@@ -21,7 +22,7 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 			continue
 		}
 		switch n.Kind {
-		case NodeResource, NodeData, NodeAction:
+		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
 		default:
 			continue
 		}
@@ -43,16 +44,16 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 			errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
 		}
 		eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &EvalContext{Vars: values, MissingAsNull: true}
-			ApplyBindings(ctx, binds)
-			v, err := Eval(ex, ctx)
-			if errors.Is(err, ErrEvalNotFound) {
+			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			runtime.ApplyBindings(ctx, binds)
+			v, err := runtime.Eval(ex, ctx)
+			if errors.Is(err, runtime.ErrEvalNotFound) {
 				return nil, nil
 			}
 			return v, err
 		}
 		for i, c := range entries {
-			if readsDeferred(c, deferred) {
+			if c.ReadsAny(deferred) {
 				continue
 			}
 			checked := lang.CheckConstraintEntry(i, c, values, eval, lang.DisplayNodeRelative)
@@ -80,7 +81,7 @@ func literalValues(body lang.Expr) (map[string]any, map[string]bool, bool) {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
-		val, err := Eval(fld.Value, &EvalContext{})
+		val, err := runtime.Eval(fld.Value, &runtime.EvalContext{})
 		if err != nil {
 			deferred[fld.Key.Name] = true
 			continue
@@ -88,15 +89,4 @@ func literalValues(body lang.Expr) (map[string]any, map[string]bool, bool) {
 		values[fld.Key.Name] = val
 	}
 	return values, deferred, true
-}
-
-// readsDeferred reports whether the constraint references a field whose
-// value is not known until plan.
-func readsDeferred(c lang.ConstraintEntry, deferred map[string]bool) bool {
-	for _, r := range lang.ConstraintFieldRoots(c) {
-		if deferred[r] {
-			return true
-		}
-	}
-	return false
 }

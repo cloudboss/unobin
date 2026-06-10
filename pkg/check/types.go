@@ -1,10 +1,11 @@
-package runtime
+package check
 
 import (
 	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
@@ -19,8 +20,8 @@ import (
 func (c *referenceChecker) checkTypes() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
-		case NodeResource, NodeData, NodeAction:
-		case NodeConfiguration:
+		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
+		case runtime.NodeConfiguration:
 			c.checkConfigurationNode(n)
 			continue
 		default:
@@ -43,7 +44,7 @@ func (c *referenceChecker) checkTypes() {
 // required field must be present; at factory runtime the schema is
 // absent and only the import and declaration checks run, the same
 // split every Go-type body check follows.
-func (c *referenceChecker) checkConfigurationNode(n *Node) {
+func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
 	lib := c.libraries[""][n.Alias]
 	if lib == nil {
 		c.addf(n.Body.Span().Start,
@@ -137,7 +138,9 @@ func (c *referenceChecker) checkLocalsBlockTypes(scope string) {
 // stays unchecked, since it may stand for a type the schema cannot
 // describe. Nodes whose schema cannot be located check nothing, so a
 // missing-schema library does not block compile.
-func (c *referenceChecker) checkRequiredPresence(n *Node, targets map[string]typecheck.Type) {
+func (c *referenceChecker) checkRequiredPresence(
+	n *runtime.Node, targets map[string]typecheck.Type,
+) {
 	if len(targets) == 0 {
 		return
 	}
@@ -175,7 +178,7 @@ func (c *referenceChecker) checkRequiredPresence(n *Node, targets map[string]typ
 // declares a default for, Optional markers included. A nested default
 // does not excuse its top-level parent. A composite declares
 // optionality in its inputs block instead, so its set is empty.
-func (c *referenceChecker) defaultedInputs(n *Node) map[string]bool {
+func (c *referenceChecker) defaultedInputs(n *runtime.Node) map[string]bool {
 	if n.IsComposite() {
 		return nil
 	}
@@ -200,14 +203,14 @@ func (c *referenceChecker) defaultedInputs(n *Node) map[string]bool {
 // Returns nil when the node's schema cannot be located; the caller
 // then runs the body's expressions with no target (free inference)
 // so missing-schema libraries do not block compile.
-func (c *referenceChecker) bodyTargets(n *Node) map[string]typecheck.Type {
+func (c *referenceChecker) bodyTargets(n *runtime.Node) map[string]typecheck.Type {
 	if n.IsComposite() {
 		return compositeInputTargets(n)
 	}
 	return c.goInputTargets(n)
 }
 
-func compositeInputTargets(n *Node) map[string]typecheck.Type {
+func compositeInputTargets(n *runtime.Node) map[string]typecheck.Type {
 	if n.CompositeBody == nil {
 		return nil
 	}
@@ -227,7 +230,7 @@ func compositeInputTargets(n *Node) map[string]typecheck.Type {
 	return out
 }
 
-func (c *referenceChecker) goInputTargets(n *Node) map[string]typecheck.Type {
+func (c *referenceChecker) goInputTargets(n *runtime.Node) map[string]typecheck.Type {
 	ts := c.lookupTypeSchema(n)
 	if ts == nil || ts.Inputs == nil {
 		return nil
@@ -235,7 +238,7 @@ func (c *referenceChecker) goInputTargets(n *Node) map[string]typecheck.Type {
 	return ts.Inputs
 }
 
-func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
+func (c *referenceChecker) lookupTypeSchema(n *runtime.Node) *runtime.TypeSchema {
 	libs := c.libraries[n.Composite]
 	if libs == nil {
 		return nil
@@ -245,17 +248,17 @@ func (c *referenceChecker) lookupTypeSchema(n *Node) *TypeSchema {
 		return nil
 	}
 	switch n.Kind {
-	case NodeResource:
+	case runtime.NodeResource:
 		return lib.Schema.Resources[n.Type]
-	case NodeData:
+	case runtime.NodeData:
 		return lib.Schema.DataSources[n.Type]
-	case NodeAction:
+	case runtime.NodeAction:
 		return lib.Schema.Actions[n.Type]
 	}
 	return nil
 }
 
-func (c *referenceChecker) scopeFor(n *Node) *typecheck.Scope {
+func (c *referenceChecker) scopeFor(n *runtime.Node) *typecheck.Scope {
 	inputs := c.scopeInputs(n.Composite)
 	scope := &typecheck.Scope{
 		Inputs:         inputs,
@@ -277,7 +280,7 @@ func (c *referenceChecker) lookupFunctionFor(
 ) func(library, name string) (typecheck.FuncSig, bool) {
 	return func(library, name string) (typecheck.FuncSig, bool) {
 		if library == lang.CoreNamespace {
-			sig, ok := CoreFunctionSigs()[name]
+			sig, ok := runtime.CoreFunctionSigs()[name]
 			return sig, ok
 		}
 		libs := c.libraries[scope]
@@ -354,7 +357,7 @@ func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 	return func(kind, alias, typ, name string) (typecheck.Type, bool) {
 		ref := kind + "." + alias + "." + typ + "." + name
-		node, ok := c.dag.Nodes[scopeRef(ref, scope)]
+		node, ok := c.dag.Nodes[runtime.ScopeRef(ref, scope)]
 		if !ok {
 			return typecheck.Type{}, false
 		}
@@ -368,10 +371,10 @@ func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 // already checked with the real one by checkOutputBodyTypes, so a
 // reference to a broken output does not repeat the mistake at every
 // read. A re-entrant lookup returns nil rather than recursing.
-func (c *referenceChecker) compositeOutputTypes(node *Node) map[string]typecheck.Type {
+func (c *referenceChecker) compositeOutputTypes(node *runtime.Node) map[string]typecheck.Type {
 	if c.compositeOutputs == nil {
-		c.compositeOutputs = map[*Node]map[string]typecheck.Type{}
-		c.forcingComposite = map[*Node]bool{}
+		c.compositeOutputs = map[*runtime.Node]map[string]typecheck.Type{}
+		c.forcingComposite = map[*runtime.Node]bool{}
 	}
 	if types, done := c.compositeOutputs[node]; done {
 		return types
@@ -386,7 +389,7 @@ func (c *referenceChecker) compositeOutputTypes(node *Node) map[string]typecheck
 	return types
 }
 
-func (c *referenceChecker) inferCompositeOutputs(node *Node) map[string]typecheck.Type {
+func (c *referenceChecker) inferCompositeOutputs(node *runtime.Node) map[string]typecheck.Type {
 	if node.CompositeBody == nil || node.CompositeBody.Body == nil {
 		return nil
 	}
@@ -423,7 +426,7 @@ func (c *referenceChecker) inferCompositeOutputs(node *Node) map[string]typechec
 // a name collision. goschema has already expanded nested struct types so
 // the descender can walk through them. A composite node contributes an
 // Object of its declared outputs with their inferred types.
-func (c *referenceChecker) nodeAttrType(node *Node) typecheck.Type {
+func (c *referenceChecker) nodeAttrType(node *runtime.Node) typecheck.Type {
 	if node == nil {
 		return typecheck.TUnknown()
 	}
@@ -451,13 +454,13 @@ func (c *referenceChecker) nodeAttrType(node *Node) typecheck.Type {
 	if lib == nil || lib.Schema == nil {
 		return typecheck.TUnknown()
 	}
-	var ts *TypeSchema
+	var ts *runtime.TypeSchema
 	switch node.Kind {
-	case NodeResource:
+	case runtime.NodeResource:
 		ts = lib.Schema.Resources[node.Type]
-	case NodeData:
+	case runtime.NodeData:
 		ts = lib.Schema.DataSources[node.Type]
-	case NodeAction:
+	case runtime.NodeAction:
 		ts = lib.Schema.Actions[node.Type]
 	}
 	if ts == nil {
@@ -486,7 +489,7 @@ func (c *referenceChecker) checkBodyTypes(
 	body lang.Expr,
 	targets map[string]typecheck.Type,
 	scope *typecheck.Scope,
-	owner *Node,
+	owner *runtime.Node,
 ) {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {

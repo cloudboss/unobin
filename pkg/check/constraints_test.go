@@ -1,19 +1,20 @@
-package runtime
+package check
 
 import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/stretchr/testify/require"
 )
 
 // constrainedLibs returns a single Go library whose `thing` resource
 // requires exactly one of name or size, the same constraint the plan-time
 // tests use, so a literal node can be checked against it at compile.
-func constrainedLibs() map[string]*Library {
-	return map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+func constrainedLibs() map[string]*runtime.Library {
+	return map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"thing": {Constraints: []lang.ConstraintSpec{
 					{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}},
 				}},
@@ -116,9 +117,9 @@ resources: { core.thing.x: { name: 'x', size: 1 }, core.thing.y: { name: var.who
 // with no import table in the evaluation context, and an explicitly
 // empty list literal is caught before plan.
 func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
 				"thing": {Constraints: []lang.ConstraintSpec{{
 					Kind:    "predicate",
 					When:    "true",
@@ -229,9 +230,9 @@ func TestLiteralValuesNonObjectBody(t *testing.T) {
 // returning the address-and-constraint messages.
 func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []string {
 	t.Helper()
-	libs := map[string]*Library{
-		"core": {Schema: &LibrarySchema{
-			Resources: map[string]*TypeSchema{"thing": {Constraints: specs}},
+	libs := map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{"thing": {Constraints: specs}},
 		}},
 	}
 	src := "resources: {\n  core.thing.x: " + body + "\n}\n"

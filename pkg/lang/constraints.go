@@ -905,3 +905,14 @@ func parseSpecExpr(src, label string, errs *ErrorList) (Expr, bool) {
 	}
 	return expr, true
 }
+
+// ReadsAny reports whether any field the entry's rules read, by root
+// input name, is in names.
+func (c ConstraintEntry) ReadsAny(names map[string]bool) bool {
+	for _, r := range ConstraintFieldRoots(c) {
+		if names[r] {
+			return true
+		}
+	}
+	return false
+}

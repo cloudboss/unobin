@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/goschema"
@@ -242,7 +243,7 @@ func Run(opts Options) error {
 	used := usedLibraryTypes(f)
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
-	checker := ubruntime.NewChecker(f, libs)
+	checker := check.New(f, libs)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}
