@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unobin run</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header id="banner">
+  <div id="title">connecting...</div>
+  <div id="status"></div>
+</header>
+<main>
+  <div id="graph-pane">
+    <svg id="graph" role="img" aria-label="run graph"></svg>
+  </div>
+  <aside id="detail" hidden>
+    <button id="detail-close" type="button">close</button>
+    <h2 id="detail-address"></h2>
+    <dl>
+      <dt>kind</dt><dd id="detail-kind"></dd>
+      <dt>decision</dt><dd id="detail-decision"></dd>
+      <dt>state</dt><dd id="detail-state"></dd>
+      <dt>elapsed</dt><dd id="detail-elapsed"></dd>
+    </dl>
+    <pre id="detail-error" hidden></pre>
+  </aside>
+</main>
+<script src="assets/app.js"></script>
+</body>
+</html>

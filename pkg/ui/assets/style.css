@@ -1,0 +1,193 @@
+:root {
+  --bg: #15181b;
+  --panel: #1c2024;
+  --line: #2b3138;
+  --text: #c8d0d7;
+  --text-dim: #79838d;
+  --pending-fill: #1d2126;
+  --pending-stroke: #3a4148;
+  --running-fill: #2a2415;
+  --running-stroke: #e0a93e;
+  --done-fill: #16241b;
+  --done-stroke: #3fa35f;
+  --fail-fill: #2a1517;
+  --fail-stroke: #d2494e;
+  --quiet-fill: #191d21;
+  --quiet-stroke: #2c3338;
+  --edge: #39424a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#banner {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5rem;
+  padding: 0.7rem 1.2rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+#title {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#status { color: var(--text-dim); }
+#status.running  { color: var(--running-stroke); }
+#status.complete { color: var(--done-stroke); }
+#status.failed   { color: var(--fail-stroke); }
+
+main {
+  display: flex;
+  height: calc(100% - 45px);
+}
+
+#graph-pane {
+  flex: 1;
+  overflow: auto;
+  padding: 1.5rem;
+}
+
+#graph { display: block; }
+
+#detail {
+  width: 340px;
+  flex: none;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: 1rem 1.2rem;
+  overflow: auto;
+}
+
+#detail h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0.2rem 0 1rem;
+  word-break: break-all;
+}
+
+#detail dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0;
+}
+
+#detail dt { color: var(--text-dim); }
+#detail dd { margin: 0; word-break: break-all; }
+
+#detail-close {
+  float: right;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0.1rem 0.5rem;
+}
+
+#detail-error {
+  margin-top: 1rem;
+  padding: 0.6rem;
+  background: var(--fail-fill);
+  border: 1px solid var(--fail-stroke);
+  border-radius: 4px;
+  color: #e4b6b8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+
+/* Step cards. */
+
+.step { cursor: pointer; }
+
+.step rect.card {
+  fill: var(--pending-fill);
+  stroke: var(--pending-stroke);
+  stroke-width: 1.2;
+}
+
+.step text { fill: var(--text-dim); }
+.step text.label { font-size: 13px; fill: var(--text); }
+.step text.tag, .step text.badge { font-size: 11px; }
+
+.step.composite rect.card { stroke-dasharray: 6 3; }
+
+.step.configuration rect.card { rx: 14; }
+
+.step.running rect.card {
+  fill: var(--running-fill);
+  stroke: var(--running-stroke);
+  stroke-width: 1.8;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.step.running text.label { fill: #ead9ae; }
+.step.running text.badge { fill: var(--running-stroke); }
+
+.step.done rect.card {
+  fill: var(--done-fill);
+  stroke: var(--done-stroke);
+}
+.step.done text.label { fill: #bcd9c5; }
+.step.done text.badge { fill: var(--done-stroke); }
+
+.step.done.decision-destroy rect.card,
+.step.done.decision-no-op rect.card,
+.step.done.decision-skip rect.card {
+  fill: var(--quiet-fill);
+  stroke: var(--quiet-stroke);
+}
+.step.done.decision-destroy text.label,
+.step.done.decision-no-op text.label,
+.step.done.decision-skip text.label { fill: var(--text-dim); }
+.step.done.decision-destroy text.badge,
+.step.done.decision-no-op text.badge,
+.step.done.decision-skip text.badge { fill: var(--text-dim); }
+
+.step.fail rect.card {
+  fill: var(--fail-fill);
+  stroke: var(--fail-stroke);
+  stroke-width: 1.8;
+}
+.step.fail text.label { fill: #e4b6b8; }
+.step.fail text.badge { fill: var(--fail-stroke); }
+
+.step.blocked rect.card {
+  fill: url(#hatch);
+  stroke: #4a3f33;
+}
+.step.blocked text { fill: #6f655a; }
+.step.blocked text.label { fill: #857a6d; }
+
+.step.selected rect.card { stroke-width: 2.4; }
+
+@keyframes pulse {
+  0%   { stroke-opacity: 1; }
+  50%  { stroke-opacity: 0.45; }
+  100% { stroke-opacity: 1; }
+}
+
+path.edge {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.4;
+}
+
+#empty-note {
+  color: var(--text-dim);
+  padding: 2rem;
+}
