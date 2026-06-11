@@ -10,10 +10,12 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
 	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/kmsencrypt"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/s3state"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
@@ -59,6 +61,15 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 				New:         func() any { return &EnvKeyConfig{} },
 			},
 			New: newEnvKey,
+		},
+		"kms": {
+			Name:        "kms",
+			Description: "AES-256-GCM with data keys wrapped by AWS KMS.",
+			Configuration: &cfg.ConfigurationType{
+				Description: "KMS encrypter configuration.",
+				New:         func() any { return &KMSConfig{} },
+			},
+			New: newKMSEncrypter,
 		},
 		"noop": {
 			Name:        "noop",
@@ -152,4 +163,32 @@ func newEnvKey(config any) (sdkencrypt.Encrypter, error) {
 // config's encryption block.
 func newNoop(_ any) (sdkencrypt.Encrypter, error) {
 	return envencrypt.Noop{}, nil
+}
+
+// KMSConfig is the operator-facing body under
+// `encryption: { @key-source: kms ... }`. The aws object holds the
+// shared AWS connection settings from pkg/awscfg.
+type KMSConfig struct {
+	KeyID cfg.String
+	AWS   *awscfg.Configuration
+}
+
+func newKMSEncrypter(config any) (sdkencrypt.Encrypter, error) {
+	c, ok := config.(*KMSConfig)
+	if !ok {
+		return nil, fmt.Errorf("kms encrypter: missing or wrong configuration (got %T)", config)
+	}
+	if c.KeyID.Value == "" {
+		return nil, errors.New("kms encrypter: key-id is required")
+	}
+	awsCfg, err := awscfg.Load(context.Background(), c.AWS)
+	if err != nil {
+		return nil, fmt.Errorf("kms encrypter: %w", err)
+	}
+	client := kms.NewFromConfig(awsCfg, func(o *kms.Options) {
+		if ep := c.AWS.KMSEndpoint(); ep != "" {
+			o.BaseEndpoint = aws.String(ep)
+		}
+	})
+	return kmsencrypt.New(client, c.KeyID.Value)
 }

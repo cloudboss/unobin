@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/kmsencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/s3state"
 	"github.com/stretchr/testify/assert"
@@ -177,5 +178,19 @@ func TestResolveEncrypterRejectsUnknownName(t *testing.T) {
 	_, err := resolveEncrypter(ref)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `no key-source named "ghost"`)
-	assert.Contains(t, err.Error(), "available: env-key, noop")
+	assert.Contains(t, err.Error(), "available: env-key, kms, noop")
+}
+
+func TestResolveEncrypterKMS(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(dir, "credentials"))
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	ref := &resolverRef{Name: "kms", Body: map[string]any{
+		"key-id": "alias/unobin-state",
+		"aws":    map[string]any{"region": "us-east-1"},
+	}}
+	enc, err := resolveEncrypter(ref)
+	require.NoError(t, err)
+	require.IsType(t, &kmsencrypt.KMS{}, enc)
 }

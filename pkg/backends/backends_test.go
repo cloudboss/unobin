@@ -36,6 +36,34 @@ func TestS3BackendConfigKebabNames(t *testing.T) {
 	assert.Equal(t, expected, got)
 }
 
+func TestEncryptersRegistersKMS(t *testing.T) {
+	et, ok := Encrypters()["kms"]
+	require.True(t, ok, "expected a kms encrypter")
+	require.NotNil(t, et.Configuration)
+	assert.Equal(t, "kms", et.Name)
+}
+
+func TestKMSConfigKebabNames(t *testing.T) {
+	expected := []string{"key-id", "aws"}
+	var got []string
+	for f := range reflect.TypeFor[KMSConfig]().Fields() {
+		got = append(got, lang.PascalToKebab(f.Name))
+	}
+	assert.Equal(t, expected, got)
+}
+
+func TestNewKMSEncrypterRequiresKeyID(t *testing.T) {
+	_, err := newKMSEncrypter(&KMSConfig{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "key-id is required")
+}
+
+func TestNewKMSEncrypterRejectsWrongConfigType(t *testing.T) {
+	_, err := newKMSEncrypter(&EnvKeyConfig{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing or wrong configuration")
+}
+
 func TestNewS3BackendRequiresBucket(t *testing.T) {
 	_, err := newS3Backend(&S3BackendConfig{}, "factory", "stack", nil)
 	require.Error(t, err)
