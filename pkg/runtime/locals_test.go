@@ -240,3 +240,36 @@ func TestEvalLocalDeterministic(t *testing.T) {
 		}
 	}
 }
+
+func TestNewEvalContextResolvesFileLocals(t *testing.T) {
+	src := `
+locals: {
+  region: 'us-east-1'
+  arn:    'arn:aws:iam::123456789012:role/unobin-state'
+  aws-config: {
+    assume-role: { role-arn: local.arn }
+  }
+}
+
+inputs: {
+  role: local.aws-config.assume-role.role-arn
+  name: $'app-{{local.region}}'
+}
+`
+	f, err := lang.ParseSource("config.ub", []byte(src))
+	require.NoError(t, err)
+	ctx := NewEvalContext(f)
+	got, err := Eval(lang.TopLevelBlock(f, "inputs"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"role": "arn:aws:iam::123456789012:role/unobin-state",
+		"name": "app-us-east-1",
+	}, got)
+}
+
+func TestNewEvalContextNilFile(t *testing.T) {
+	ctx := NewEvalContext(nil)
+	_, err := Eval(parseValue(t, "local.region"), ctx)
+	require.ErrorIs(t, err, ErrEvalNotFound)
+	require.ErrorContains(t, err, `local "region" is not declared`)
+}

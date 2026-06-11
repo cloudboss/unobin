@@ -35,6 +35,14 @@ func localsBlock(f *lang.File) *lang.ObjectLit {
 	return lang.TopLevelBlock(f, "locals")
 }
 
+// NewEvalContext returns an EvalContext whose local.<name> references
+// resolve against f's locals: block. Callers fill the remaining fields
+// for their scope. A nil file, or one without locals, yields a context
+// where any local reference reports the local as not declared.
+func NewEvalContext(f *lang.File) *EvalContext {
+	return &EvalContext{locals: newLocalScope(localsBlock(f))}
+}
+
 // force evaluates the named local against ctx and returns its value. A
 // local that reads an upstream that has not run yet propagates
 // ErrEvalNotFound unchanged so the caller can defer it. A local that
