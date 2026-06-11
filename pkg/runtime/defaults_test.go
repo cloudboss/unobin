@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
 )
 
 func TestOverlayDefaults(t *testing.T) {
@@ -126,7 +126,7 @@ func TestOverlayDefaults(t *testing.T) {
 // defaultsExecutor plans one thing node with the given body and the
 // thing type declaring a Value default for size and an Optional marker
 // for region.
-func defaultsExecutor(t *testing.T, body string) (*Executor, *localstate.LocalStore) {
+func defaultsExecutor(t *testing.T, body string) (*Executor, *local.Store) {
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Defaults = map[string][]lang.DefaultSpec{

@@ -14,10 +14,10 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -1707,9 +1707,9 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 // stateMoveFixture builds a snapshot that mixes a library call site
 // (boundary + one internal) with one unrelated leaf so the move tests
 // can exercise both shapes against the same state.
-func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
+func stateMoveFixture(t *testing.T, info Info) *local.Store {
 	t.Helper()
-	store, err := localstate.NewLocalStore(
+	store, err := local.NewStore(
 		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.FactoryInfo{
@@ -1740,7 +1740,7 @@ func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 	return store
 }
 
-func snapshotAddresses(t *testing.T, store *localstate.LocalStore) []string {
+func snapshotAddresses(t *testing.T, store *local.Store) []string {
 	t.Helper()
 	snap, err := store.Current()
 	require.NoError(t, err)
@@ -1789,7 +1789,7 @@ func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 
 func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
-	store, err := localstate.NewLocalStore(
+	store, err := local.NewStore(
 		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.FactoryInfo{
@@ -1834,7 +1834,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 
-	store, err := localstate.NewLocalStore(
+	store, err := local.NewStore(
 		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
 	require.NoError(t, err)
 	currentRev, err := store.CurrentRev()
@@ -1873,7 +1873,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	store, err := localstate.NewLocalStore(".unobin/state", info.FactoryName, "default",
+	store, err := local.NewStore(".unobin/state", info.FactoryName, "default",
 		encrypters.Noop{})
 	require.NoError(t, err)
 	_, err = store.Lock(context.Background())

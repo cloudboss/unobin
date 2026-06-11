@@ -1,4 +1,4 @@
-package localstate
+package local
 
 import (
 	"context"
@@ -21,9 +21,9 @@ const maxRevAttempts = 100
 // and force the rev allocator to disambiguate collisions structurally.
 var now = time.Now
 
-var _ sdkstate.Backend = (*LocalStore)(nil)
+var _ sdkstate.Backend = (*Store)(nil)
 
-// LocalStore reads and writes snapshots under a per-stack directory.
+// Store reads and writes snapshots under a per-stack directory.
 // Layout is as follows:
 //
 //	<Root>/<Factory>/<Stack>/
@@ -31,7 +31,7 @@ var _ sdkstate.Backend = (*LocalStore)(nil)
 //	  snapshots/
 //	    <rev>.json.enc    // rev is an RFC3339Nano timestamp
 //	    ...
-type LocalStore struct {
+type Store struct {
 	Root    string
 	Factory string
 
@@ -42,16 +42,16 @@ type LocalStore struct {
 
 // Stack returns the stack name this store was constructed
 // for. Required by the Backend interface.
-func (s *LocalStore) Stack() string { return s.stack }
+func (s *Store) Stack() string { return s.stack }
 
-// NewLocalStore returns a LocalStore for the given factory and stack
+// NewStore returns a Store for the given factory and stack
 // under root, creating the directory tree if it doesn't exist. The
 // Encrypter is required, but a pass-through (encrypters.Noop) can be
 // passed for tests.
-func NewLocalStore(
+func NewStore(
 	root, factory, stack string,
 	enc sdkencrypt.Encrypter,
-) (*LocalStore, error) {
+) (*Store, error) {
 	if factory == "" {
 		return nil, errors.New("local store: factory is required")
 	}
@@ -65,7 +65,7 @@ func NewLocalStore(
 	if err := os.MkdirAll(filepath.Join(dir, "snapshots"), 0o755); err != nil {
 		return nil, err
 	}
-	return &LocalStore{
+	return &Store{
 		Root:    root,
 		Factory: factory,
 		stack:   stack,
@@ -76,7 +76,7 @@ func NewLocalStore(
 
 // Current returns the snapshot named by the current pointer. Returns
 // sdkstate.ErrNoCurrent when no snapshot has been written yet.
-func (s *LocalStore) Current() (*sdkstate.Snapshot, error) {
+func (s *Store) Current() (*sdkstate.Snapshot, error) {
 	rev, err := s.currentRev()
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (s *LocalStore) Current() (*sdkstate.Snapshot, error) {
 }
 
 // CurrentRev returns the rev the current pointer names, or sdkstate.ErrNoCurrent.
-func (s *LocalStore) CurrentRev() (string, error) {
+func (s *Store) CurrentRev() (string, error) {
 	return s.currentRev()
 }
 
@@ -95,7 +95,7 @@ func (s *LocalStore) CurrentRev() (string, error) {
 // (because two writes share the same nanosecond), a numeric suffix
 // is appended until the path is fresh, so uniqueness does not depend
 // on the clock advancing between writes.
-func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
+func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	body, err := sdkstate.EncodeSnapshot(snap)
 	if err != nil {
 		return "", err
@@ -131,7 +131,7 @@ func (s *LocalStore) Write(snap *sdkstate.Snapshot) (string, error) {
 // file under the stack directory. Lock blocks until the marker
 // can be created or ctx is canceled. The marker file holds the
 // holder's pid so an operator can identify a stuck lock.
-func (s *LocalStore) Lock(ctx context.Context) (sdkstate.Lock, error) {
+func (s *Store) Lock(ctx context.Context) (sdkstate.Lock, error) {
 	path := filepath.Join(s.dir, "lock")
 	for {
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -157,7 +157,7 @@ func (s *LocalStore) Lock(ctx context.Context) (sdkstate.Lock, error) {
 // ForceUnlock removes the lock marker without checking who holds it.
 // Operators run this to recover after a leaked lock and must ensure
 // no concurrent run is in progress.
-func (s *LocalStore) ForceUnlock() error {
+func (s *Store) ForceUnlock() error {
 	err := os.Remove(filepath.Join(s.dir, "lock"))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
@@ -179,7 +179,7 @@ func (l *fileLock) Unlock() error {
 
 // SetCurrent atomically points "current" at the named rev. The snapshot
 // must already exist.
-func (s *LocalStore) SetCurrent(rev string) error {
+func (s *Store) SetCurrent(rev string) error {
 	if _, err := os.Stat(s.snapshotPath(rev)); err != nil {
 		return fmt.Errorf("set-current %s: %w", rev, err)
 	}
@@ -187,7 +187,7 @@ func (s *LocalStore) SetCurrent(rev string) error {
 }
 
 // Get returns the snapshot with the given rev.
-func (s *LocalStore) Get(rev string) (*sdkstate.Snapshot, error) {
+func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
 	sealed, err := os.ReadFile(s.snapshotPath(rev))
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func (s *LocalStore) Get(rev string) (*sdkstate.Snapshot, error) {
 }
 
 // List returns the revs of every stored snapshot in chronological order.
-func (s *LocalStore) List() ([]string, error) {
+func (s *Store) List() ([]string, error) {
 	entries, err := os.ReadDir(filepath.Join(s.dir, "snapshots"))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -223,7 +223,7 @@ func (s *LocalStore) List() ([]string, error) {
 
 // Delete removes the snapshot with the given rev. Removing a rev that
 // does not exist is not an error.
-func (s *LocalStore) Delete(rev string) error {
+func (s *Store) Delete(rev string) error {
 	err := os.Remove(s.snapshotPath(rev))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
@@ -231,11 +231,11 @@ func (s *LocalStore) Delete(rev string) error {
 	return nil
 }
 
-func (s *LocalStore) snapshotPath(rev string) string {
+func (s *Store) snapshotPath(rev string) string {
 	return filepath.Join(s.dir, "snapshots", rev+".json.enc")
 }
 
-func (s *LocalStore) currentRev() (string, error) {
+func (s *Store) currentRev() (string, error) {
 	b, err := os.ReadFile(filepath.Join(s.dir, "current"))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {

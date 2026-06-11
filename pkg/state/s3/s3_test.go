@@ -1,4 +1,4 @@
-package s3state
+package s3
 
 import (
 	"context"
@@ -80,19 +80,19 @@ func testClient(t *testing.T, url string) *s3.Client {
 	})
 }
 
-func testStoreKMS(t *testing.T, kmsKeyID string) (*S3Store, *fakeS3) {
+func testStoreKMS(t *testing.T, kmsKeyID string) (*Store, *fakeS3) {
 	t.Helper()
 	fake := newFakeS3()
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
 	client := testClient(t, srv.URL)
-	store, err := NewS3Store(
+	store, err := NewStore(
 		client, testBucket, testPrefix, kmsKeyID, testFactory, testStack, encrypters.Noop{})
 	require.NoError(t, err)
 	return store, fake
 }
 
-func testStore(t *testing.T) (*S3Store, *fakeS3) {
+func testStore(t *testing.T) (*Store, *fakeS3) {
 	t.Helper()
 	return testStoreKMS(t, "")
 }
@@ -103,7 +103,7 @@ func freezeClock(t *testing.T, at time.Time) {
 	t.Cleanup(func() { now = time.Now })
 }
 
-func TestS3StoreRequiredArguments(t *testing.T) {
+func TestStoreRequiredArguments(t *testing.T) {
 	client := &s3.Client{}
 	enc := encrypters.Noop{}
 	tests := []struct {
@@ -128,14 +128,14 @@ func TestS3StoreRequiredArguments(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewS3Store(tt.client, tt.bucket, "", "", tt.factory, tt.stack, tt.enc)
+			_, err := NewStore(tt.client, tt.bucket, "", "", tt.factory, tt.stack, tt.enc)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.want)
 		})
 	}
 }
 
-func TestS3StorePathLayout(t *testing.T) {
+func TestStorePathLayout(t *testing.T) {
 	store, fake := testStore(t)
 	rev, err := store.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -145,11 +145,11 @@ func TestS3StorePathLayout(t *testing.T) {
 	assert.Contains(t, keys, stackDir+"/snapshots/"+rev+".json.enc")
 }
 
-func TestS3StoreEmptyPrefix(t *testing.T) {
+func TestStoreEmptyPrefix(t *testing.T) {
 	fake := newFakeS3()
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
-	store, err := NewS3Store(
+	store, err := NewStore(
 		testClient(t, srv.URL), testBucket, "", "", testFactory, testStack, encrypters.Noop{})
 	require.NoError(t, err)
 	rev, err := store.Write(sampleSnapshot())
@@ -158,7 +158,7 @@ func TestS3StoreEmptyPrefix(t *testing.T) {
 		testFactory+"/"+testStack+"/snapshots/"+rev+".json.enc")
 }
 
-func TestS3StoreCurrentEmpty(t *testing.T) {
+func TestStoreCurrentEmpty(t *testing.T) {
 	store, _ := testStore(t)
 	_, err := store.Current()
 	require.ErrorIs(t, err, sdkstate.ErrNoCurrent)
@@ -166,7 +166,7 @@ func TestS3StoreCurrentEmpty(t *testing.T) {
 	require.ErrorIs(t, err, sdkstate.ErrNoCurrent)
 }
 
-func TestS3StoreWriteAndRead(t *testing.T) {
+func TestStoreWriteAndRead(t *testing.T) {
 	store, _ := testStore(t)
 	snap := sampleSnapshot()
 	rev, err := store.Write(snap)
@@ -178,7 +178,7 @@ func TestS3StoreWriteAndRead(t *testing.T) {
 	assert.Equal(t, snap, got)
 }
 
-func TestS3StoreSetCurrent(t *testing.T) {
+func TestStoreSetCurrent(t *testing.T) {
 	store, _ := testStore(t)
 	snap := sampleSnapshot()
 	rev, err := store.Write(snap)
@@ -194,14 +194,14 @@ func TestS3StoreSetCurrent(t *testing.T) {
 	assert.Equal(t, snap, got)
 }
 
-func TestS3StoreSetCurrentRejectsUnknownRev(t *testing.T) {
+func TestStoreSetCurrentRejectsUnknownRev(t *testing.T) {
 	store, _ := testStore(t)
 	err := store.SetCurrent("2026-01-01T00:00:00Z")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "set-current")
 }
 
-func TestS3StoreDelete(t *testing.T) {
+func TestStoreDelete(t *testing.T) {
 	store, _ := testStore(t)
 	rev, err := store.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -211,7 +211,7 @@ func TestS3StoreDelete(t *testing.T) {
 	require.NoError(t, store.Delete(rev))
 }
 
-func TestS3StoreDistinctRevsWhenClockStandsStill(t *testing.T) {
+func TestStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 	store, _ := testStore(t)
 	freezeClock(t, time.Date(2026, 5, 1, 10, 0, 0, 123456789, time.UTC))
 	first, err := store.Write(sampleSnapshot())
@@ -224,7 +224,7 @@ func TestS3StoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 	assert.Equal(t, first+"_2", third)
 }
 
-func TestS3StoreListChronological(t *testing.T) {
+func TestStoreListChronological(t *testing.T) {
 	store, _ := testStore(t)
 	base := time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC)
 	var want []string
@@ -239,7 +239,7 @@ func TestS3StoreListChronological(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-func TestS3StoreCurrentSurvivesNewWrites(t *testing.T) {
+func TestStoreCurrentSurvivesNewWrites(t *testing.T) {
 	store, _ := testStore(t)
 	first, err := store.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -252,14 +252,14 @@ func TestS3StoreCurrentSurvivesNewWrites(t *testing.T) {
 	assert.Equal(t, first, rev)
 }
 
-func TestS3StoreWithEnvKeyEncrypter(t *testing.T) {
+func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 	setKey(t, "TEST_S3_STATE_KEY")
 	enc, err := encrypters.NewEnvKey("TEST_S3_STATE_KEY")
 	require.NoError(t, err)
 	fake := newFakeS3()
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
-	store, err := NewS3Store(
+	store, err := NewStore(
 		testClient(t, srv.URL), testBucket, testPrefix, "", testFactory, testStack, enc)
 	require.NoError(t, err)
 
@@ -275,7 +275,7 @@ func TestS3StoreWithEnvKeyEncrypter(t *testing.T) {
 	assert.NotContains(t, string(body), "vpc-abc")
 }
 
-func TestS3StoreLockExcludesSecondHolder(t *testing.T) {
+func TestStoreLockExcludesSecondHolder(t *testing.T) {
 	store, _ := testStore(t)
 	lock, err := store.Lock(context.Background())
 	require.NoError(t, err)
@@ -293,7 +293,7 @@ func TestS3StoreLockExcludesSecondHolder(t *testing.T) {
 	require.NoError(t, relock.Unlock())
 }
 
-func TestS3StoreLockBlocksUntilReleased(t *testing.T) {
+func TestStoreLockBlocksUntilReleased(t *testing.T) {
 	store, _ := testStore(t)
 	lock, err := store.Lock(context.Background())
 	require.NoError(t, err)
@@ -313,7 +313,7 @@ func TestS3StoreLockBlocksUntilReleased(t *testing.T) {
 	require.NoError(t, second.Unlock())
 }
 
-func TestS3StoreLockHolderInfo(t *testing.T) {
+func TestStoreLockHolderInfo(t *testing.T) {
 	store, fake := testStore(t)
 	lock, err := store.Lock(context.Background())
 	require.NoError(t, err)
@@ -332,7 +332,7 @@ func TestS3StoreLockHolderInfo(t *testing.T) {
 	assert.False(t, info.Created.IsZero())
 }
 
-func TestS3StoreForceUnlockClearsLock(t *testing.T) {
+func TestStoreForceUnlockClearsLock(t *testing.T) {
 	store, _ := testStore(t)
 	_, err := store.Lock(context.Background())
 	require.NoError(t, err)
@@ -342,12 +342,12 @@ func TestS3StoreForceUnlockClearsLock(t *testing.T) {
 	require.NoError(t, lock.Unlock())
 }
 
-func TestS3StoreForceUnlockNoLockIsOK(t *testing.T) {
+func TestStoreForceUnlockNoLockIsOK(t *testing.T) {
 	store, _ := testStore(t)
 	require.NoError(t, store.ForceUnlock())
 }
 
-func TestS3StoreKMSHeadersOnEveryPut(t *testing.T) {
+func TestStoreKMSHeadersOnEveryPut(t *testing.T) {
 	keyID := "arn:aws:kms:us-east-1:123456789012:key/abc"
 	store, fake := testStoreKMS(t, keyID)
 	rev, err := store.Write(sampleSnapshot())
@@ -365,7 +365,7 @@ func TestS3StoreKMSHeadersOnEveryPut(t *testing.T) {
 	}
 }
 
-func TestS3StoreNoSSEHeadersWithoutKey(t *testing.T) {
+func TestStoreNoSSEHeadersWithoutKey(t *testing.T) {
 	store, fake := testStore(t)
 	_, err := store.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -375,7 +375,7 @@ func TestS3StoreNoSSEHeadersWithoutKey(t *testing.T) {
 	}
 }
 
-func TestS3StoreSnapshotsCreatedConditionally(t *testing.T) {
+func TestStoreSnapshotsCreatedConditionally(t *testing.T) {
 	store, fake := testStore(t)
 	_, err := store.Write(sampleSnapshot())
 	require.NoError(t, err)

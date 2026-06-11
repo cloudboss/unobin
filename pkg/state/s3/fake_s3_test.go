@@ -1,4 +1,4 @@
-package s3state
+package s3
 
 import (
 	"crypto/md5"

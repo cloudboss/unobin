@@ -1,4 +1,4 @@
-package localstate
+package local
 
 import (
 	"context"
@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newStore(t *testing.T) *LocalStore {
+func newStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := NewLocalStore(t.TempDir(), "cluster-deploy", "prod-east-alpha", encrypters.Noop{})
+	s, err := NewStore(t.TempDir(), "cluster-deploy", "prod-east-alpha", encrypters.Noop{})
 	require.NoError(t, err)
 	return s
 }
 
-func TestLocalStorePathLayout(t *testing.T) {
+func TestStorePathLayout(t *testing.T) {
 	root := t.TempDir()
-	s, err := NewLocalStore(root, "cluster-deploy", "prod", encrypters.Noop{})
+	s, err := NewStore(root, "cluster-deploy", "prod", encrypters.Noop{})
 	require.NoError(t, err)
 	require.Equal(t, root, s.Root)
 	require.Equal(t, "cluster-deploy", s.Factory)
@@ -35,25 +35,25 @@ func TestLocalStorePathLayout(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLocalStoreRequiresStackAndDeployment(t *testing.T) {
+func TestStoreRequiresStackAndDeployment(t *testing.T) {
 	root := t.TempDir()
-	_, err := NewLocalStore(root, "", "prod", encrypters.Noop{})
+	_, err := NewStore(root, "", "prod", encrypters.Noop{})
 	require.Error(t, err)
-	_, err = NewLocalStore(root, "stack", "", encrypters.Noop{})
+	_, err = NewStore(root, "stack", "", encrypters.Noop{})
 	require.Error(t, err)
 }
 
-func TestLocalStoreRequiresEncrypter(t *testing.T) {
-	_, err := NewLocalStore(t.TempDir(), "stack", "prod", nil)
+func TestStoreRequiresEncrypter(t *testing.T) {
+	_, err := NewStore(t.TempDir(), "stack", "prod", nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "encrypter")
 }
 
-func TestLocalStoreSiblingDeploymentsIsolated(t *testing.T) {
+func TestStoreSiblingDeploymentsIsolated(t *testing.T) {
 	root := t.TempDir()
-	a, err := NewLocalStore(root, "stack", "prod", encrypters.Noop{})
+	a, err := NewStore(root, "stack", "prod", encrypters.Noop{})
 	require.NoError(t, err)
-	b, err := NewLocalStore(root, "stack", "staging", encrypters.Noop{})
+	b, err := NewStore(root, "stack", "staging", encrypters.Noop{})
 	require.NoError(t, err)
 
 	prodSnap := sampleSnapshot()
@@ -66,13 +66,13 @@ func TestLocalStoreSiblingDeploymentsIsolated(t *testing.T) {
 	require.True(t, errors.Is(err, sdkstate.ErrNoCurrent))
 }
 
-func TestLocalStoreCurrentEmpty(t *testing.T) {
+func TestStoreCurrentEmpty(t *testing.T) {
 	s := newStore(t)
 	_, err := s.Current()
 	require.True(t, errors.Is(err, sdkstate.ErrNoCurrent))
 }
 
-func TestLocalStoreWriteAndRead(t *testing.T) {
+func TestStoreWriteAndRead(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()
 
@@ -85,7 +85,7 @@ func TestLocalStoreWriteAndRead(t *testing.T) {
 	require.Equal(t, snap, got)
 }
 
-func TestLocalStoreSetCurrent(t *testing.T) {
+func TestStoreSetCurrent(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()
 
@@ -102,13 +102,13 @@ func TestLocalStoreSetCurrent(t *testing.T) {
 	require.Equal(t, snap, got)
 }
 
-func TestLocalStoreSetCurrentRejectsUnknownRev(t *testing.T) {
+func TestStoreSetCurrentRejectsUnknownRev(t *testing.T) {
 	s := newStore(t)
 	err := s.SetCurrent("2026-05-01T00:00:00Z")
 	require.Error(t, err)
 }
 
-func TestLocalStoreDelete(t *testing.T) {
+func TestStoreDelete(t *testing.T) {
 	s := newStore(t)
 	rev, err := s.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestLocalStoreDelete(t *testing.T) {
 	require.NoError(t, s.Delete(rev), "deleting an absent rev should be a no-op")
 }
 
-func TestLocalStoreSameContentDistinctRevs(t *testing.T) {
+func TestStoreSameContentDistinctRevs(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()
 
@@ -131,7 +131,7 @@ func TestLocalStoreSameContentDistinctRevs(t *testing.T) {
 	require.NotEqual(t, a, b, "two writes should yield two distinct revs")
 }
 
-func TestLocalStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
+func TestStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 	frozen := time.Date(2026, 5, 12, 15, 30, 0, 0, time.UTC)
 	t.Cleanup(func() { now = time.Now })
 	now = func() time.Time { return frozen }
@@ -154,7 +154,7 @@ func TestLocalStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 	}, mustList(t, s))
 }
 
-func TestLocalStoreListChronological(t *testing.T) {
+func TestStoreListChronological(t *testing.T) {
 	s := newStore(t)
 	require.Empty(t, mustList(t, s))
 
@@ -172,7 +172,7 @@ func TestLocalStoreListChronological(t *testing.T) {
 	require.Equal(t, []string{a, b}, got, "List should return revs in chronological order")
 }
 
-func TestLocalStoreCurrentSurvivesNewWrites(t *testing.T) {
+func TestStoreCurrentSurvivesNewWrites(t *testing.T) {
 	s := newStore(t)
 
 	first := sampleSnapshot()
@@ -191,19 +191,19 @@ func TestLocalStoreCurrentSurvivesNewWrites(t *testing.T) {
 	require.Equal(t, "first", got.Stack)
 }
 
-func mustList(t *testing.T, s *LocalStore) []string {
+func mustList(t *testing.T, s *Store) []string {
 	t.Helper()
 	got, err := s.List()
 	require.NoError(t, err)
 	return got
 }
 
-func TestLocalStoreWithEnvKeyEncrypter(t *testing.T) {
+func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 	setKey(t, "UB_TEST_KEY")
 	enc, err := encrypters.NewEnvKey("UB_TEST_KEY")
 	require.NoError(t, err)
 
-	s, err := NewLocalStore(t.TempDir(), "stack", "prod", enc)
+	s, err := NewStore(t.TempDir(), "stack", "prod", enc)
 	require.NoError(t, err)
 
 	snap := sampleSnapshot()
@@ -220,7 +220,7 @@ func TestLocalStoreWithEnvKeyEncrypter(t *testing.T) {
 	require.Equal(t, snap, got)
 }
 
-func TestLocalStoreLockExcludesSecondHolder(t *testing.T) {
+func TestStoreLockExcludesSecondHolder(t *testing.T) {
 	s := newStore(t)
 	first, err := s.Lock(context.Background())
 	require.NoError(t, err)
@@ -233,7 +233,7 @@ func TestLocalStoreLockExcludesSecondHolder(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
-func TestLocalStoreLockReacquiresAfterUnlock(t *testing.T) {
+func TestStoreLockReacquiresAfterUnlock(t *testing.T) {
 	s := newStore(t)
 	first, err := s.Lock(context.Background())
 	require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestLocalStoreLockReacquiresAfterUnlock(t *testing.T) {
 	require.NoError(t, second.Unlock())
 }
 
-func TestLocalStoreLockBlocksUntilReleased(t *testing.T) {
+func TestStoreLockBlocksUntilReleased(t *testing.T) {
 	s := newStore(t)
 	first, err := s.Lock(context.Background())
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestLocalStoreLockBlocksUntilReleased(t *testing.T) {
 	}
 }
 
-func TestLocalStoreForceUnlockClearsLock(t *testing.T) {
+func TestStoreForceUnlockClearsLock(t *testing.T) {
 	s := newStore(t)
 	_, err := s.Lock(context.Background())
 	require.NoError(t, err)
@@ -283,18 +283,18 @@ func TestLocalStoreForceUnlockClearsLock(t *testing.T) {
 	require.NoError(t, again.Unlock())
 }
 
-func TestLocalStoreForceUnlockNoLockIsOK(t *testing.T) {
+func TestStoreForceUnlockNoLockIsOK(t *testing.T) {
 	s := newStore(t)
 	require.NoError(t, s.ForceUnlock())
 }
 
-func TestLocalStoreWrongKeyCantDecrypt(t *testing.T) {
+func TestStoreWrongKeyCantDecrypt(t *testing.T) {
 	root := t.TempDir()
 
 	setKey(t, "UB_TEST_KEY_A")
 	encA, err := encrypters.NewEnvKey("UB_TEST_KEY_A")
 	require.NoError(t, err)
-	a, err := NewLocalStore(root, "stack", "prod", encA)
+	a, err := NewStore(root, "stack", "prod", encA)
 	require.NoError(t, err)
 	rev, err := a.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -302,7 +302,7 @@ func TestLocalStoreWrongKeyCantDecrypt(t *testing.T) {
 	setKey(t, "UB_TEST_KEY_B")
 	encB, err := encrypters.NewEnvKey("UB_TEST_KEY_B")
 	require.NoError(t, err)
-	b, err := NewLocalStore(root, "stack", "prod", encB)
+	b, err := NewStore(root, "stack", "prod", encB)
 	require.NoError(t, err)
 
 	_, err = b.Get(rev)

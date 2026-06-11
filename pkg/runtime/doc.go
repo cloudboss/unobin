@@ -11,6 +11,6 @@
 //
 // Companion packages:
 //   - pkg/sdk/state - Backend contract that provider libraries implement
-//   - pkg/localstate - the local filesystem backend (the only one in core)
+//   - pkg/state/local and pkg/state/s3 - the filesystem and S3 backends
 //   - pkg/runner - the factory CLI that invokes runtime entry points
 package runtime

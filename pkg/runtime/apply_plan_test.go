@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/stretchr/testify/require"
 )
 
@@ -286,7 +286,7 @@ func requireIncrementalOutputs(t *testing.T, ent *state.Entry, name string, size
 	require.EqualValues(t, size, ent.Outputs["size"])
 }
 
-func seedIncrementalState(t *testing.T, store *localstate.LocalStore, entries ...*state.Entry) {
+func seedIncrementalState(t *testing.T, store *local.Store, entries ...*state.Entry) {
 	t.Helper()
 	snap := state.NewSnapshot(state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 		store.Stack())
@@ -298,7 +298,7 @@ func seedIncrementalState(t *testing.T, store *localstate.LocalStore, entries ..
 
 func applyIncrementalPlan(
 	t *testing.T,
-	store *localstate.LocalStore,
+	store *local.Store,
 	counters *incrementalResourceCounters,
 	src string,
 ) error {
@@ -352,7 +352,7 @@ outputs: { a-id: { value: resource.core.thing.a.id } }
 }
 
 func applyStack(
-	t *testing.T, store *localstate.LocalStore, libs map[string]*Library,
+	t *testing.T, store *local.Store, libs map[string]*Library,
 	src string, inputs map[string]any,
 ) *ExecResult {
 	t.Helper()
@@ -369,7 +369,7 @@ func applyStack(
 }
 
 func destroyStack(
-	t *testing.T, store *localstate.LocalStore, libs map[string]*Library, src string,
+	t *testing.T, store *local.Store, libs map[string]*Library, src string,
 ) (*ExecResult, error) {
 	t.Helper()
 	exec := &Executor{
@@ -382,7 +382,7 @@ func destroyStack(
 	return planAndApply(exec)
 }
 
-func requireEmptyState(t *testing.T, store *localstate.LocalStore) {
+func requireEmptyState(t *testing.T, store *local.Store) {
 	t.Helper()
 	snap, err := store.Current()
 	require.NoError(t, err)

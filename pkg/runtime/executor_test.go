@@ -11,8 +11,8 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1056,9 +1056,9 @@ func (a *countingAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo}, nil
 }
 
-func newStateStore(t *testing.T) *localstate.LocalStore {
+func newStateStore(t *testing.T) *local.Store {
 	t.Helper()
-	s, err := localstate.NewLocalStore(t.TempDir(), "test-stack", "prod", encrypters.Noop{})
+	s, err := local.NewStore(t.TempDir(), "test-stack", "prod", encrypters.Noop{})
 	require.NoError(t, err)
 	return s
 }

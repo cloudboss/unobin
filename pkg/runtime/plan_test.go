@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/stretchr/testify/require"
 )
 
@@ -529,7 +529,7 @@ actions: { core.echo.x: { name: 'a', size: 1 } }
 }
 
 func runPlan(
-	t *testing.T, src string, libraries map[string]*Library, store *localstate.LocalStore,
+	t *testing.T, src string, libraries map[string]*Library, store *local.Store,
 ) *Plan {
 	t.Helper()
 	exec := &Executor{
@@ -1258,7 +1258,7 @@ resources: { core.thing.one: { name: 'alpha', size: 2 } }
 // seedPrior writes entries as store's current snapshot, so a test can
 // start a plan or apply from existing state.
 func seedPrior(
-	t *testing.T, store *localstate.LocalStore, stack state.FactoryInfo, entries ...*state.Entry,
+	t *testing.T, store *local.Store, stack state.FactoryInfo, entries ...*state.Entry,
 ) {
 	t.Helper()
 	snap := state.NewSnapshot(stack, store.Stack())

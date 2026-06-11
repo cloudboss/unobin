@@ -13,11 +13,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
-	"github.com/cloudboss/unobin/pkg/localstate"
-	"github.com/cloudboss/unobin/pkg/s3state"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
+	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 )
 
 // Backends returns the state backends keyed by the bare name an operator
@@ -61,7 +61,7 @@ func newLocalBackend(
 	if !ok {
 		return nil, fmt.Errorf("local backend: missing or wrong configuration (got %T)", config)
 	}
-	return localstate.NewLocalStore(c.Path.Value, factory, stack, enc)
+	return local.NewStore(c.Path.Value, factory, stack, enc)
 }
 
 // S3BackendConfig is the operator-facing body under
@@ -100,7 +100,7 @@ func newS3Backend(
 			o.UsePathStyle = c.UsePathStyle.Value
 		}
 	})
-	return s3state.NewS3Store(client, c.Bucket.Value, optString(c.Prefix),
+	return s3store.NewStore(client, c.Bucket.Value, optString(c.Prefix),
 		optString(c.KMSKeyID), factory, stack, enc)
 }
 

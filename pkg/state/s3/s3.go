@@ -1,4 +1,4 @@
-// Package s3state stores state snapshots in an S3 bucket. The layout
+// Package s3 stores state snapshots in an S3 bucket. The layout
 // under the configured prefix mirrors the local store's directory
 // layout, one object per snapshot plus a current pointer and a lock
 // marker:
@@ -14,7 +14,7 @@
 // loses with a precondition failure instead of clobbering. Stores
 // without conditional-write support cannot hold the lock safely and
 // fail at Lock with the store's own error.
-package s3state
+package s3
 
 import (
 	"bytes"
@@ -51,13 +51,13 @@ const (
 // and force the rev allocator to disambiguate collisions structurally.
 var now = time.Now
 
-var _ sdkstate.Backend = (*S3Store)(nil)
+var _ sdkstate.Backend = (*Store)(nil)
 
-// S3Store reads and writes snapshots under a per-stack key prefix in
+// Store reads and writes snapshots under a per-stack key prefix in
 // one bucket. KMSKeyID, when set, requests SSE-KMS with that key on
 // every object written, the lock marker and current pointer included,
 // so bucket policies that deny unencrypted puts hold.
-type S3Store struct {
+type Store struct {
 	Bucket   string
 	Prefix   string
 	KMSKeyID string
@@ -68,15 +68,15 @@ type S3Store struct {
 	dir    string
 }
 
-// NewS3Store returns an S3Store for the given factory and stack in
+// NewStore returns an Store for the given factory and stack in
 // bucket, with all objects under prefix when it is not empty. The
 // encrypter is required, but a pass-through (encrypters.Noop) can be
 // passed for tests.
-func NewS3Store(
+func NewStore(
 	client *s3.Client,
 	bucket, prefix, kmsKeyID, factory, stack string,
 	enc sdkencrypt.Encrypter,
-) (*S3Store, error) {
+) (*Store, error) {
 	if client == nil {
 		return nil, errors.New("s3 store: client is required")
 	}
@@ -92,7 +92,7 @@ func NewS3Store(
 	if enc == nil {
 		return nil, errors.New("s3 store: encrypter is required")
 	}
-	return &S3Store{
+	return &Store{
 		Bucket:   bucket,
 		Prefix:   prefix,
 		KMSKeyID: kmsKeyID,
@@ -105,11 +105,11 @@ func NewS3Store(
 
 // Stack returns the stack name this store was constructed
 // for. Required by the Backend interface.
-func (s *S3Store) Stack() string { return s.stack }
+func (s *Store) Stack() string { return s.stack }
 
 // Current returns the snapshot named by the current pointer. Returns
 // sdkstate.ErrNoCurrent when no snapshot has been written yet.
-func (s *S3Store) Current() (*sdkstate.Snapshot, error) {
+func (s *Store) Current() (*sdkstate.Snapshot, error) {
 	rev, err := s.currentRev()
 	if err != nil {
 		return nil, err
@@ -119,12 +119,12 @@ func (s *S3Store) Current() (*sdkstate.Snapshot, error) {
 
 // CurrentRev returns the rev the current pointer names, or
 // sdkstate.ErrNoCurrent.
-func (s *S3Store) CurrentRev() (string, error) {
+func (s *Store) CurrentRev() (string, error) {
 	return s.currentRev()
 }
 
 // Get returns the snapshot with the given rev.
-func (s *S3Store) Get(rev string) (*sdkstate.Snapshot, error) {
+func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
 	sealed, err := s.getObject(s.snapshotKey(rev))
 	if err != nil {
 		return nil, fmt.Errorf("s3 store: get %s: %w", rev, err)
@@ -145,7 +145,7 @@ func (s *S3Store) Get(rev string) (*sdkstate.Snapshot, error) {
 // the same nanosecond) a numeric suffix is appended until the create
 // wins, so uniqueness does not depend on the clock advancing between
 // writes.
-func (s *S3Store) Write(snap *sdkstate.Snapshot) (string, error) {
+func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	body, err := sdkstate.EncodeSnapshot(snap)
 	if err != nil {
 		return "", err
@@ -175,7 +175,7 @@ func (s *S3Store) Write(snap *sdkstate.Snapshot) (string, error) {
 
 // SetCurrent atomically points "current" at the named rev. The
 // snapshot must already exist.
-func (s *S3Store) SetCurrent(rev string) error {
+func (s *Store) SetCurrent(rev string) error {
 	key := s.snapshotKey(rev)
 	_, err := s.client.HeadObject(context.Background(), &s3.HeadObjectInput{
 		Bucket: aws.String(s.Bucket),
@@ -193,7 +193,7 @@ func (s *S3Store) SetCurrent(rev string) error {
 // List returns the revs of every stored snapshot in chronological
 // order. S3 lists keys lexically, which is chronological for
 // RFC3339Nano revs.
-func (s *S3Store) List() ([]string, error) {
+func (s *Store) List() ([]string, error) {
 	prefix := s.key("snapshots") + "/"
 	var out []string
 	p := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
@@ -217,7 +217,7 @@ func (s *S3Store) List() ([]string, error) {
 
 // Delete removes the snapshot with the given rev. Removing a rev that
 // does not exist is not an error.
-func (s *S3Store) Delete(rev string) error {
+func (s *Store) Delete(rev string) error {
 	_, err := s.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(s.snapshotKey(rev)),
@@ -240,7 +240,7 @@ type lockInfo struct {
 // marker with If-None-Match. Lock blocks until the create wins or ctx
 // is canceled; while blocked it polls on the same cadence as the
 // local store. A canceled wait names the holder in its error.
-func (s *S3Store) Lock(ctx context.Context) (sdkstate.Lock, error) {
+func (s *Store) Lock(ctx context.Context) (sdkstate.Lock, error) {
 	info := lockInfo{ID: randomID(), Who: whoAmI(), Created: now().UTC()}
 	body, err := json.Marshal(info)
 	if err != nil {
@@ -269,7 +269,7 @@ func (s *S3Store) Lock(ctx context.Context) (sdkstate.Lock, error) {
 // holderDescription reads the lock marker for an error message. Best
 // effort: contention errors stay useful even when the marker vanished
 // or does not parse.
-func (s *S3Store) holderDescription() string {
+func (s *Store) holderDescription() string {
 	body, err := s.getObject(s.key("lock"))
 	if err != nil {
 		return ""
@@ -286,7 +286,7 @@ func (s *S3Store) holderDescription() string {
 // ForceUnlock removes the lock marker without checking who holds it.
 // Operators run this to recover after a leaked lock and must ensure
 // no concurrent run is in progress.
-func (s *S3Store) ForceUnlock() error {
+func (s *Store) ForceUnlock() error {
 	_, err := s.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(s.key("lock")),
@@ -295,7 +295,7 @@ func (s *S3Store) ForceUnlock() error {
 }
 
 type s3Lock struct {
-	store *S3Store
+	store *Store
 	key   string
 }
 
@@ -307,15 +307,15 @@ func (l *s3Lock) Unlock() error {
 	return err
 }
 
-func (s *S3Store) key(parts ...string) string {
+func (s *Store) key(parts ...string) string {
 	return path.Join(append([]string{s.dir}, parts...)...)
 }
 
-func (s *S3Store) snapshotKey(rev string) string {
+func (s *Store) snapshotKey(rev string) string {
 	return s.key("snapshots", rev+snapshotSuffix)
 }
 
-func (s *S3Store) getObject(key string) ([]byte, error) {
+func (s *Store) getObject(key string) ([]byte, error) {
 	out, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(key),
@@ -330,7 +330,7 @@ func (s *S3Store) getObject(key string) ([]byte, error) {
 // putObject writes one object, with If-None-Match when create is
 // true so an existing object wins, and with SSE-KMS headers when the
 // store has a key configured.
-func (s *S3Store) putObject(key string, body []byte, create bool) error {
+func (s *Store) putObject(key string, body []byte, create bool) error {
 	in := &s3.PutObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(key),
@@ -347,7 +347,7 @@ func (s *S3Store) putObject(key string, body []byte, create bool) error {
 	return err
 }
 
-func (s *S3Store) currentRev() (string, error) {
+func (s *Store) currentRev() (string, error) {
 	body, err := s.getObject(s.key("current"))
 	if err != nil {
 		if isNotFound(err) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/s3state"
+	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -121,7 +121,7 @@ func TestResolveBackendS3(t *testing.T) {
 	}}
 	b, err := resolveBackend(ref, "test-factory", "default", encrypters.Noop{})
 	require.NoError(t, err)
-	require.IsType(t, &s3state.S3Store{}, b)
+	require.IsType(t, &s3store.Store{}, b)
 }
 
 func TestResolveBackendS3RejectsUnknownKey(t *testing.T) {
