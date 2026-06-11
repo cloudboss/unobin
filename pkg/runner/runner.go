@@ -24,6 +24,7 @@ import (
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/typecheck"
+	"github.com/cloudboss/unobin/pkg/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -141,6 +142,7 @@ func newApplyCmd(info Info) *cobra.Command {
 	var (
 		parallelism int
 		outputStr   string
+		withUI      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "apply <plan-file>",
@@ -151,7 +153,7 @@ func newApplyCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return doApplyPlan(cmd, info, args[0], parallelism, format)
+			return doApplyPlan(cmd, info, args[0], parallelism, format, withUI)
 		},
 	}
 	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
@@ -159,11 +161,14 @@ func newApplyCmd(info Info) *cobra.Command {
 			" Zero (the default) uses the value the plan was computed with.")
 	cmd.Flags().StringVar(&outputStr, "output", "text",
 		"Output format: text (human), json (NDJSON envelopes), unobin (one UB literal per line).")
+	cmd.Flags().BoolVar(&withUI, "ui", false,
+		"Serve a live view of the run and open it in a browser.")
 	return cmd
 }
 
 func doApplyPlan(
 	cmd *cobra.Command, info Info, planPath string, parallelismOverride int, format Format,
+	withUI bool,
 ) error {
 	sealed, err := os.ReadFile(planPath)
 	if err != nil {
@@ -201,10 +206,23 @@ func doApplyPlan(
 		parallelism = parallelismOverride
 	}
 	events := make(chan runtime.ApplyEvent, len(pf.Steps)*3+16)
+	rendererEvents := events
+	var view *ui.Server
+	if withUI {
+		if view, err = startRunView(cmd, info, pf, dag); err != nil {
+			return err
+		}
+		defer func() {
+			view.WaitServed(uiLingerTimeout)
+			view.Close()
+		}()
+		rendererEvents = make(chan runtime.ApplyEvent, cap(events))
+		go teeApplyEvents(events, rendererEvents, view)
+	}
 	rendererDone := make(chan struct{})
 	go func() {
 		defer close(rendererDone)
-		consumeApplyEvents(events, cmd.ErrOrStderr(), format)
+		consumeApplyEvents(rendererEvents, cmd.ErrOrStderr(), format)
 	}()
 	exec := &runtime.Executor{
 		Source:         f,
@@ -224,6 +242,9 @@ func doApplyPlan(
 	res, err := exec.ApplyPlan(ctx, pf)
 	close(events)
 	<-rendererDone
+	if view != nil {
+		view.Complete(err == nil, runViewMessage(err))
+	}
 	if err != nil {
 		if ae, ok := errors.AsType[*runtime.ApplyError](err); ok {
 			renderApplyError(cmd.ErrOrStderr(), ae, format)
@@ -231,6 +252,62 @@ func doApplyPlan(
 		return err
 	}
 	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs, rootSensitiveOutputs(f))
+}
+
+// uiLingerTimeout is how long apply keeps the run view up after the
+// run ends when no browser has received the result yet, so a tab
+// that is still opening can load the final state.
+var uiLingerTimeout = 10 * time.Second
+
+// startRunView serves the live browser view for an apply, announcing
+// its URL on stderr and opening a browser in the background so the
+// run is not delayed.
+func startRunView(
+	cmd *cobra.Command, info Info, pf *runtime.PlanFile, dag *runtime.DAG,
+) (*ui.Server, error) {
+	view, err := ui.Start(ui.Config{
+		Factory: info.FactoryName,
+		Stack:   pf.Stack,
+		Graph:   runtime.PlanGraph(pf, dag),
+	})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Run view: %s\n", view.URL())
+	go func() {
+		if !ui.OpenBrowser(view.URL()) {
+			fmt.Fprintln(cmd.ErrOrStderr(),
+				"No browser opened; use the run view URL to watch.")
+		}
+	}()
+	return view, nil
+}
+
+// teeApplyEvents forwards each event to the run view before passing
+// it along to the renderer. The view never blocks, so the renderer
+// stays the only consumer that can slow the stream down.
+func teeApplyEvents(
+	in <-chan runtime.ApplyEvent, out chan<- runtime.ApplyEvent, view *ui.Server,
+) {
+	defer close(out)
+	for ev := range in {
+		view.Observe(ev)
+		out <- ev
+	}
+}
+
+// runViewMessage is the failure text the run view shows when an
+// apply ends without a failed step, such as an interrupt or a state
+// write problem. A step failure already reached the view as a fail
+// event, so it needs no extra message.
+func runViewMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if _, ok := errors.AsType[*runtime.ApplyError](err); ok {
+		return ""
+	}
+	return err.Error()
 }
 
 // writeApplyOutputs prints the final outputs in the requested

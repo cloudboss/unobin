@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -2183,4 +2184,22 @@ factory: {
 		"name":   "app-us-east-1",
 		"tags":   map[string]any{"team": "core"},
 	}, got)
+}
+
+func TestApplyUIServesRunView(t *testing.T) {
+	t.Setenv("BROWSER", "true")
+	old := uiLingerTimeout
+	uiLingerTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { uiLingerTimeout = old })
+
+	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello world' } }`)
+	configPath := writeStateConfig(t, "")
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+	_, err := runRoot(t, info,
+		"plan", "--allow-version-mismatch", "-o", planFile, "-c", configPath)
+	require.NoError(t, err)
+
+	out, err := runRoot(t, info, "apply", "--ui", planFile)
+	require.NoError(t, err)
+	require.Regexp(t, `Run view: http://127\.0\.0\.1:\d+/[0-9a-f]{32}/`, out)
 }
