@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/backends"
-	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
@@ -140,9 +140,9 @@ func resolverRefValue(expr lang.Expr) string {
 func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
 	if ref == nil {
 		if os.Getenv("UB_STATE_KEY") == "" {
-			return envencrypt.Noop{}, nil
+			return encrypters.Noop{}, nil
 		}
-		return envencrypt.NewEnvKey("UB_STATE_KEY")
+		return encrypters.NewEnvKey("UB_STATE_KEY")
 	}
 	rt, err := lookupEncrypterType(ref)
 	if err != nil {
@@ -194,7 +194,7 @@ func lookupBackendType(ref *resolverRef) (sdkstate.BackendType, error) {
 // lookupEncrypterType finds the named encrypter in the fixed registry, or
 // reports the available names.
 func lookupEncrypterType(ref *resolverRef) (sdkencrypt.EncrypterType, error) {
-	registry := backends.Encrypters()
+	registry := encrypters.Encrypters()
 	et, ok := registry[ref.Name]
 	if !ok {
 		return sdkencrypt.EncrypterType{}, fmt.Errorf(

@@ -4,8 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/envencrypt"
-	"github.com/cloudboss/unobin/pkg/kmsencrypt"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/s3state"
 	"github.com/stretchr/testify/assert"
@@ -89,7 +88,7 @@ func TestValidateRejectsEncryptionInsideState(t *testing.T) {
 }
 
 func TestResolveBackendNilRefIsError(t *testing.T) {
-	_, err := resolveBackend(nil, "test-stack", "default", envencrypt.Noop{})
+	_, err := resolveBackend(nil, "test-stack", "default", encrypters.Noop{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must be configured")
 }
@@ -97,14 +96,14 @@ func TestResolveBackendNilRefIsError(t *testing.T) {
 func TestResolveBackendLocal(t *testing.T) {
 	dir := t.TempDir()
 	ref := &resolverRef{Name: "local", Body: map[string]any{"path": dir}}
-	b, err := resolveBackend(ref, "test-stack", "default", envencrypt.Noop{})
+	b, err := resolveBackend(ref, "test-stack", "default", encrypters.Noop{})
 	require.NoError(t, err)
 	require.NotNil(t, b)
 }
 
 func TestResolveBackendRejectsUnknownName(t *testing.T) {
 	ref := &resolverRef{Name: "ghost"}
-	_, err := resolveBackend(ref, "test-stack", "default", envencrypt.Noop{})
+	_, err := resolveBackend(ref, "test-stack", "default", encrypters.Noop{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `no backend named "ghost"`)
 	assert.Contains(t, err.Error(), "available: local, s3")
@@ -120,7 +119,7 @@ func TestResolveBackendS3(t *testing.T) {
 		"prefix": "unobin",
 		"aws":    map[string]any{"region": "us-east-1"},
 	}}
-	b, err := resolveBackend(ref, "test-factory", "default", envencrypt.Noop{})
+	b, err := resolveBackend(ref, "test-factory", "default", encrypters.Noop{})
 	require.NoError(t, err)
 	require.IsType(t, &s3state.S3Store{}, b)
 }
@@ -130,14 +129,14 @@ func TestResolveBackendS3RejectsUnknownKey(t *testing.T) {
 		"bucket": "acme-state",
 		"region": "us-east-1",
 	}}
-	_, err := resolveBackend(ref, "test-factory", "default", envencrypt.Noop{})
+	_, err := resolveBackend(ref, "test-factory", "default", encrypters.Noop{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown key region")
 }
 
 func TestResolveBackendRejectsBadConfig(t *testing.T) {
 	ref := &resolverRef{Name: "local", Body: map[string]any{"unknown": 1}}
-	_, err := resolveBackend(ref, "test-stack", "default", envencrypt.Noop{})
+	_, err := resolveBackend(ref, "test-stack", "default", encrypters.Noop{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "state:")
 }
@@ -146,7 +145,7 @@ func TestResolveEncrypterNilNoEnvKey(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", "")
 	enc, err := resolveEncrypter(nil)
 	require.NoError(t, err)
-	_, ok := enc.(envencrypt.Noop)
+	_, ok := enc.(encrypters.Noop)
 	assert.True(t, ok, "expected Noop, got %T", enc)
 }
 
@@ -154,7 +153,7 @@ func TestResolveEncrypterNilUsesEnvKey(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=")
 	enc, err := resolveEncrypter(nil)
 	require.NoError(t, err)
-	_, isNoop := enc.(envencrypt.Noop)
+	_, isNoop := enc.(encrypters.Noop)
 	assert.False(t, isNoop, "expected an env-key encrypter, got Noop")
 
 	probe := []byte("hello")
@@ -169,7 +168,7 @@ func TestResolveEncrypterNamed(t *testing.T) {
 	ref := &resolverRef{Name: "noop"}
 	enc, err := resolveEncrypter(ref)
 	require.NoError(t, err)
-	_, ok := enc.(envencrypt.Noop)
+	_, ok := enc.(encrypters.Noop)
 	assert.True(t, ok, "expected Noop, got %T", enc)
 }
 
@@ -192,5 +191,5 @@ func TestResolveEncrypterKMS(t *testing.T) {
 	}}
 	enc, err := resolveEncrypter(ref)
 	require.NoError(t, err)
-	require.IsType(t, &kmsencrypt.KMS{}, enc)
+	require.IsType(t, &encrypters.KMS{}, enc)
 }

@@ -1,4 +1,4 @@
-package envencrypt
+package encrypters
 
 import (
 	"crypto/rand"

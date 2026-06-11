@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
-	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
@@ -87,7 +87,7 @@ func testStoreKMS(t *testing.T, kmsKeyID string) (*S3Store, *fakeS3) {
 	t.Cleanup(srv.Close)
 	client := testClient(t, srv.URL)
 	store, err := NewS3Store(
-		client, testBucket, testPrefix, kmsKeyID, testFactory, testStack, envencrypt.Noop{})
+		client, testBucket, testPrefix, kmsKeyID, testFactory, testStack, encrypters.Noop{})
 	require.NoError(t, err)
 	return store, fake
 }
@@ -105,7 +105,7 @@ func freezeClock(t *testing.T, at time.Time) {
 
 func TestS3StoreRequiredArguments(t *testing.T) {
 	client := &s3.Client{}
-	enc := envencrypt.Noop{}
+	enc := encrypters.Noop{}
 	tests := []struct {
 		name    string
 		client  *s3.Client
@@ -150,7 +150,7 @@ func TestS3StoreEmptyPrefix(t *testing.T) {
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
 	store, err := NewS3Store(
-		testClient(t, srv.URL), testBucket, "", "", testFactory, testStack, envencrypt.Noop{})
+		testClient(t, srv.URL), testBucket, "", "", testFactory, testStack, encrypters.Noop{})
 	require.NoError(t, err)
 	rev, err := store.Write(sampleSnapshot())
 	require.NoError(t, err)
@@ -254,7 +254,7 @@ func TestS3StoreCurrentSurvivesNewWrites(t *testing.T) {
 
 func TestS3StoreWithEnvKeyEncrypter(t *testing.T) {
 	setKey(t, "TEST_S3_STATE_KEY")
-	enc, err := envencrypt.NewEnvKey("TEST_S3_STATE_KEY")
+	enc, err := encrypters.NewEnvKey("TEST_S3_STATE_KEY")
 	require.NoError(t, err)
 	fake := newFakeS3()
 	srv := httptest.NewServer(fake)

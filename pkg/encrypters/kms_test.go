@@ -1,4 +1,4 @@
-package kmsencrypt
+package encrypters
 
 import (
 	"context"
@@ -38,17 +38,17 @@ func testEncrypter(t *testing.T) (*KMS, *fakeKMS) {
 	fake := newFakeKMS()
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
-	enc, err := New(testClient(t, srv.URL), "alias/unobin-state")
+	enc, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state")
 	require.NoError(t, err)
 	return enc, fake
 }
 
 func TestNewRequiredArguments(t *testing.T) {
-	_, err := New(nil, "alias/x")
+	_, err := NewKMS(nil, "alias/x")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "client is required")
 
-	_, err = New(&kms.Client{}, "")
+	_, err = NewKMS(&kms.Client{}, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "key-id is required")
 }

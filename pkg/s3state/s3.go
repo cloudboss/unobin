@@ -70,7 +70,7 @@ type S3Store struct {
 
 // NewS3Store returns an S3Store for the given factory and stack in
 // bucket, with all objects under prefix when it is not empty. The
-// encrypter is required, but a pass-through (envencrypt.Noop) can be
+// encrypter is required, but a pass-through (encrypters.Noop) can be
 // passed for tests.
 func NewS3Store(
 	client *s3.Client,

@@ -46,7 +46,7 @@ func (s *LocalStore) Stack() string { return s.stack }
 
 // NewLocalStore returns a LocalStore for the given factory and stack
 // under root, creating the directory tree if it doesn't exist. The
-// Encrypter is required, but a pass-through (envencrypt.Noop) can be
+// Encrypter is required, but a pass-through (encrypters.Noop) can be
 // passed for tests.
 func NewLocalStore(
 	root, factory, stack string,

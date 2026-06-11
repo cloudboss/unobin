@@ -1,11 +1,4 @@
-// Package kmsencrypt seals state and plan bytes with envelope
-// encryption through AWS KMS. Each Encrypt call has KMS generate a
-// fresh 256-bit data key under the configured key, seals the payload
-// locally with AES-256-GCM, and stores the KMS-wrapped data key
-// beside the sealed bytes. Decrypt has KMS unwrap the stored data key
-// and opens the payload locally, so data keys are the only thing that
-// crosses the wire, never the payload.
-package kmsencrypt
+package encrypters
 
 import (
 	"context"
@@ -25,15 +18,20 @@ import (
 
 var _ sdkencrypt.Encrypter = (*KMS)(nil)
 
-// KMS seals and unseals bytes with data keys wrapped by one KMS key,
-// named by id, ARN, or alias.
+// KMS seals and unseals bytes with envelope encryption through AWS
+// KMS: each Encrypt call has KMS generate a fresh 256-bit data key
+// under one KMS key (named by id, ARN, or alias), seals the payload
+// locally with AES-256-GCM, and stores the KMS-wrapped data key
+// beside the sealed bytes. Decrypt has KMS unwrap the stored data key
+// and opens the payload locally, so data keys are the only thing that
+// crosses the wire, never the payload.
 type KMS struct {
 	client *kms.Client
 	keyID  string
 }
 
-// New returns a KMS encrypter using client and the given key.
-func New(client *kms.Client, keyID string) (*KMS, error) {
+// NewKMS returns a KMS encrypter using client and the given key.
+func NewKMS(client *kms.Client, keyID string) (*KMS, error) {
 	if client == nil {
 		return nil, errors.New("kms encrypter: client is required")
 	}

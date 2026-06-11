@@ -1,4 +1,4 @@
-package envencrypt
+package encrypters
 
 import (
 	"crypto/aes"
@@ -9,13 +9,6 @@ import (
 	"fmt"
 	"os"
 )
-
-// Noop passes bytes through unchanged. Useful in tests and for dev
-// workflows where the operator has explicitly opted out of encryption.
-type Noop struct{}
-
-func (Noop) Encrypt(p []byte) ([]byte, error) { return p, nil }
-func (Noop) Decrypt(p []byte) ([]byte, error) { return p, nil }
 
 // EnvKey uses AES-256-GCM with a 32 byte symmetric key read from a
 // named environment variable. The env value must be the base64-encoded

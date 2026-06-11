@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -1058,7 +1058,7 @@ func (a *countingAction) Run(_ context.Context, _ any) (any, error) {
 
 func newStateStore(t *testing.T) *localstate.LocalStore {
 	t.Helper()
-	s, err := localstate.NewLocalStore(t.TempDir(), "test-stack", "prod", envencrypt.Noop{})
+	s, err := localstate.NewLocalStore(t.TempDir(), "test-stack", "prod", encrypters.Noop{})
 	require.NoError(t, err)
 	return s
 }

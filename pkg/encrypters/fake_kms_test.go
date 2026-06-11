@@ -1,4 +1,4 @@
-package kmsencrypt
+package encrypters
 
 import (
 	"crypto/rand"

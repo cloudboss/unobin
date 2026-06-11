@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/envencrypt"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/localstate"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -1427,7 +1427,7 @@ func TestSchemaTemplateScaffoldResolves(t *testing.T) {
 
 	enc, err := resolveEncrypter(sc.Encrypter)
 	require.NoError(t, err)
-	_, isNoop := enc.(envencrypt.Noop)
+	_, isNoop := enc.(encrypters.Noop)
 	require.True(t, isNoop, "scaffold should resolve to the noop encrypter, got %T", enc)
 
 	be, err := resolveBackend(sc.Backend, info.FactoryName, "default", enc)
@@ -1710,7 +1710,7 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 func stateMoveFixture(t *testing.T, info Info) *localstate.LocalStore {
 	t.Helper()
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.FactoryName, "default", envencrypt.Noop{})
+		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.FactoryInfo{
 		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
@@ -1790,7 +1790,7 @@ func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.FactoryName, "default", envencrypt.Noop{})
+		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
 	require.NoError(t, err)
 	stackInfo := state.FactoryInfo{
 		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
@@ -1835,7 +1835,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	_ = applyVia(t, info, "")
 
 	store, err := localstate.NewLocalStore(
-		".unobin/state", info.FactoryName, "default", envencrypt.Noop{})
+		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
 	require.NoError(t, err)
 	currentRev, err := store.CurrentRev()
 	require.NoError(t, err)
@@ -1874,7 +1874,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	_ = applyVia(t, info, "")
 
 	store, err := localstate.NewLocalStore(".unobin/state", info.FactoryName, "default",
-		envencrypt.Noop{})
+		encrypters.Noop{})
 	require.NoError(t, err)
 	_, err = store.Lock(context.Background())
 	require.NoError(t, err)
@@ -1979,7 +1979,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	require.NoError(t, err)
 	require.NotEmpty(t, entries)
 
-	enc, err := envencrypt.NewEnvKey("UB_STATE_KEY")
+	enc, err := encrypters.NewEnvKey("UB_STATE_KEY")
 	require.NoError(t, err)
 	for _, e := range entries {
 		body, err := os.ReadFile(filepath.Join(snapDir, e.Name()))
@@ -2036,7 +2036,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	require.False(t, isJSON(env.Ciphertext),
 		"ciphertext should not parse as JSON when an encrypter is in use")
 
-	enc, err := envencrypt.NewEnvKey("UB_STATE_KEY")
+	enc, err := encrypters.NewEnvKey("UB_STATE_KEY")
 	require.NoError(t, err)
 	plaintext, err := enc.Decrypt(env.Ciphertext)
 	require.NoError(t, err)
