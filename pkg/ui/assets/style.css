@@ -127,6 +127,25 @@ main {
 
 .step.composite rect.card { stroke-dasharray: 6 3; }
 
+/* A pending step whose subject already exists (destroy, update,
+   replace, no-op) starts green; the run turns it amber and then
+   grey or back to green. */
+.step.pending.decision-destroy rect.card,
+.step.pending.decision-update rect.card,
+.step.pending.decision-replace rect.card,
+.step.pending.decision-no-op rect.card {
+  fill: var(--done-fill);
+  stroke: var(--done-stroke);
+}
+.step.pending.decision-destroy text.label,
+.step.pending.decision-update text.label,
+.step.pending.decision-replace text.label,
+.step.pending.decision-no-op text.label { fill: #bcd9c5; }
+.step.pending.decision-destroy text.badge,
+.step.pending.decision-update text.badge,
+.step.pending.decision-replace text.badge,
+.step.pending.decision-no-op text.badge { fill: var(--done-stroke); }
+
 .step.configuration rect.card { rx: 14; }
 
 .step.running rect.card {

@@ -227,6 +227,16 @@ const pastWord = {
   'skip': 'skipped',
 };
 
+// Decisions whose subject already exists when the run starts. Their
+// cards begin green: a pending destroy is a live resource, and only
+// the destroy turns it grey.
+const existsAtStart = {
+  'destroy': true,
+  'update': true,
+  'replace': true,
+  'no-op': true,
+};
+
 function fmtDur(ms) {
   if (ms < 1000) return ms + 'ms';
   const s = ms / 1000;
@@ -252,7 +262,7 @@ function badgeText(st) {
     case 'blocked':
       return 'blocked';
     default:
-      return '';
+      return existsAtStart[st.decision] ? 'exists' : '';
   }
 }
 
