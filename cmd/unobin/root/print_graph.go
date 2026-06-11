@@ -9,6 +9,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/compile"
+	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -88,7 +89,9 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	libs, err := buildLibraryMap(refs, resolver, repoVersions, cmd.ErrOrStderr())
+	schemaRoots := compile.UnobinSchemaRoots(
+		cmd.ErrOrStderr(), cfg.replaceUnobin, cliVersion())
+	libs, err := buildLibraryMap(refs, resolver, repoVersions, cmd.ErrOrStderr(), schemaRoots)
 	if err != nil {
 		return err
 	}
@@ -117,8 +120,13 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 // composite carries its own Libraries map so composite-internal lookups stay
 // self-contained.
 func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolver,
-	versions map[string]string, warnOut io.Writer) (map[string]*runtime.Library, error) {
-	v := &graphVisitor{byKey: map[string]*runtime.Library{}, warnOut: warnOut}
+	versions map[string]string, warnOut io.Writer,
+	schemaRoots []goschema.ModuleRoot) (map[string]*runtime.Library, error) {
+	v := &graphVisitor{
+		byKey:       map[string]*runtime.Library{},
+		warnOut:     warnOut,
+		schemaRoots: schemaRoots,
+	}
 	top, err := resolve.WalkUB(refs, resolver, v, versions)
 	if err != nil {
 		return nil, err
@@ -127,7 +135,7 @@ func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolve
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
-			schema, warnings, err := compile.ReadGoSchema(res.SourcePath)
+			schema, warnings, err := compile.ReadGoSchema(res.SourcePath, schemaRoots...)
 			if err != nil {
 				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
@@ -145,8 +153,9 @@ func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolve
 // doesn't model their types; the consumer fills in an empty
 // *runtime.Library per top-level Go alias.
 type graphVisitor struct {
-	byKey   map[string]*runtime.Library
-	warnOut io.Writer
+	byKey       map[string]*runtime.Library
+	warnOut     io.Writer
+	schemaRoots []goschema.ModuleRoot
 }
 
 func (g *graphVisitor) OnGoImport(_, _, _ string) error {
@@ -162,7 +171,7 @@ func (g *graphVisitor) OnUBLibrary(
 		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, warnings, err := compile.ReadGoSchema(res.SourcePath)
+				schema, warnings, err := compile.ReadGoSchema(res.SourcePath, g.schemaRoots...)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",

@@ -1,17 +1,41 @@
 package compile
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"golang.org/x/mod/module"
 
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/toolchain"
 )
+
+// UnobinSchemaRoots returns the module roots schema extraction should
+// read beyond a library's own: the unobin module when its source is
+// reachable, otherwise nothing. replaceUnobin may be a relative path.
+// stderr receives toolchain progress when a cache miss downloads the
+// module.
+func UnobinSchemaRoots(stderr io.Writer, replaceUnobin, version string) []goschema.ModuleRoot {
+	replaceAbs := replaceUnobin
+	if replaceAbs != "" {
+		if abs, err := filepath.Abs(replaceAbs); err == nil {
+			replaceAbs = abs
+		}
+	}
+	root, ok := unobinModuleRoot(replaceAbs, version, func(v string) error {
+		return downloadUnobinModule(stderr, v)
+	})
+	if !ok {
+		return nil
+	}
+	return []goschema.ModuleRoot{root}
+}
 
 // unobinModuleRoot locates the unobin source a factory build will
 // link, so schema extraction can read types that live in unobin's own
@@ -74,10 +98,38 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+// failedDownloads remembers versions whose module download failed, so
+// a process probes the network at most once per version. A failed
+// download is a degrade, not an error: schema extraction proceeds
+// without the unobin root and warns per affected library.
+var failedDownloads = struct {
+	mu   sync.Mutex
+	seen map[string]bool
+}{seen: map[string]bool{}}
+
 // downloadUnobinModule fetches the unobin module into the module
 // cache. The go command resolves an explicit module@version download
 // only from inside a module, so the command runs in a throwaway one.
+// The command's own output stays out of the user's terminal; callers
+// treat failure as the module being unreachable.
 func downloadUnobinModule(stderr io.Writer, version string) error {
+	failedDownloads.mu.Lock()
+	failed := failedDownloads.seen[version]
+	failedDownloads.mu.Unlock()
+	if failed {
+		return fmt.Errorf("download of %s@%s already failed in this process",
+			toolchain.UnobinModulePath, version)
+	}
+	err := runUnobinDownload(stderr, version)
+	if err != nil {
+		failedDownloads.mu.Lock()
+		failedDownloads.seen[version] = true
+		failedDownloads.mu.Unlock()
+	}
+	return err
+}
+
+func runUnobinDownload(stderr io.Writer, version string) error {
 	goBin, err := toolchain.Ensure(stderr)
 	if err != nil {
 		return err
@@ -93,6 +145,12 @@ func downloadUnobinModule(stderr io.Writer, version string) error {
 	}
 	cmd := exec.Command(goBin, "mod", "download", toolchain.UnobinModulePath+"@"+version)
 	cmd.Dir = dir
-	cmd.Stderr = stderr
-	return cmd.Run()
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go mod download %s@%s: %w: %s",
+			toolchain.UnobinModulePath, version, err, strings.TrimSpace(out.String()))
+	}
+	return nil
 }

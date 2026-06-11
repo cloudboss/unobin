@@ -170,6 +170,8 @@ func Run(opts Options) error {
 		}
 	}
 
+	schemaRoots := UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)
+
 	newResolver := opts.NewResolver
 	if newResolver == nil {
 		newResolver = NewProjectResolver
@@ -205,7 +207,7 @@ func Run(opts Options) error {
 		return err
 	}
 	repoVersions = withReplacedVersions(repoVersions, replaceMap)
-	v := newCompileVisitor(name, opts.stderr())
+	v := newCompileVisitor(name, opts.stderr(), schemaRoots)
 	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
 	if err != nil {
 		return err
@@ -220,7 +222,7 @@ func Run(opts Options) error {
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			goImports[res.LocalAlias] = res.Path
-			schema, warnings, err := ReadGoSchema(res.SourcePath)
+			schema, warnings, err := ReadGoSchema(res.SourcePath, schemaRoots...)
 			if err != nil {
 				return fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
@@ -321,9 +323,12 @@ type compileVisitor struct {
 	importVersions   map[string]string
 	runtimeLibraries map[string]*ubruntime.Library
 	warnOut          io.Writer
+	schemaRoots      []goschema.ModuleRoot
 }
 
-func newCompileVisitor(stackName string, warnOut io.Writer) *compileVisitor {
+func newCompileVisitor(
+	stackName string, warnOut io.Writer, schemaRoots []goschema.ModuleRoot,
+) *compileVisitor {
 	return &compileVisitor{
 		stackName:        stackName,
 		canonicalAlias:   map[string]string{},
@@ -331,6 +336,7 @@ func newCompileVisitor(stackName string, warnOut io.Writer) *compileVisitor {
 		importVersions:   map[string]string{},
 		runtimeLibraries: map[string]*ubruntime.Library{},
 		warnOut:          warnOut,
+		schemaRoots:      schemaRoots,
 	}
 }
 
@@ -359,7 +365,7 @@ func (c *compileVisitor) OnUBLibrary(
 		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, warnings, err := ReadGoSchema(res.SourcePath)
+				schema, warnings, err := ReadGoSchema(res.SourcePath, c.schemaRoots...)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",
@@ -823,12 +829,15 @@ func keepUsedTypes[T any](m map[string][]T, used map[string]bool) map[string][]T
 // tests fall through without having to write a real library to disk.
 // Any other failure mode (missing Library() function, parse error,
 // malformed source) is propagated so a broken import fails the
-// compile.
-func ReadGoSchema(sourcePath string) (*ubruntime.LibrarySchema, []string, error) {
+// compile. extra lists module roots beyond the library's own that
+// the schema walker may read source from.
+func ReadGoSchema(
+	sourcePath string, extra ...goschema.ModuleRoot,
+) (*ubruntime.LibrarySchema, []string, error) {
 	if sourcePath == "" {
 		return nil, nil, nil
 	}
-	return goschema.Read(sourcePath)
+	return goschema.Read(sourcePath, extra...)
 }
 
 // PrintSchemaWarnings emits each warning string to out prefixed with

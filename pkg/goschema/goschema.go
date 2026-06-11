@@ -64,8 +64,8 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s %q: %s not found in the library's source",
-				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
+				"%s %q: %s not found in reachable source",
+				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef))
 		}
 		w = newWalker(roots, rootPkg, cache, errs, &warnings)
 		constraints := w.lookupConstraints(reg.InputRef)
@@ -101,8 +101,8 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 			fields, _ := w.lookupFields(ref)
 			if fields == nil {
 				warnings = append(warnings, fmt.Sprintf(
-					"library configuration: %s not found in the library's source",
-					ref.TypeName))
+					"library configuration: %s not found in reachable source, "+
+						"so configuration fields are unchecked", ref))
 			} else {
 				schema.Configuration = fields
 			}
@@ -156,6 +156,15 @@ type registration struct {
 type typeRef struct {
 	PkgAlias string
 	TypeName string
+}
+
+// String renders the ref the way the library's source spells it, with
+// the package qualifier when the type lives in another package.
+func (r typeRef) String() string {
+	if r.PkgAlias == "" {
+		return r.TypeName
+	}
+	return r.PkgAlias + "." + r.TypeName
 }
 
 // ModuleRoot names a module's source on disk: Path is the module's
