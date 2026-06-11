@@ -144,6 +144,13 @@ func TestServerPaths(t *testing.T) {
 			contains:    "EventSource",
 		},
 		{
+			name:        "layout library",
+			url:         base + "assets/dagre.min.js",
+			status:      http.StatusOK,
+			contentType: "text/javascript; charset=utf-8",
+			contains:    "dagre",
+		},
+		{
 			name:   "missing asset",
 			url:    base + "assets/nope.js",
 			status: http.StatusNotFound,

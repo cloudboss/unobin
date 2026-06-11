@@ -105,87 +105,43 @@ function visibleDeps(addr, hidden, depsOf) {
   return out;
 }
 
-// Layered layout: rank by longest path from the roots, reduce
-// crossings with a few barycenter sweeps, then pull each card toward
-// the average of its neighbors while keeping cards in a column from
-// overlapping.
+// Layout via dagre: ranks flow left to right. Dagre reports node
+// centers and per-edge waypoints whose endpoints already sit on the
+// card borders, with long edges routed around the cards in between.
 function layout() {
-  const addrs = [...state.steps.keys()];
-  const deps = new Map(addrs.map((a) => [a, []]));
-  for (const e of state.edges) deps.get(e.to).push(e.from);
-
-  const rank = new Map();
-  const rankOf = (a) => {
-    if (rank.has(a)) return rank.get(a);
-    rank.set(a, 0);
-    const ds = deps.get(a);
-    const r = ds.length ? Math.max(...ds.map(rankOf)) + 1 : 0;
-    rank.set(a, r);
-    return r;
-  };
-  addrs.forEach(rankOf);
-
-  const maxRank = Math.max(0, ...rank.values());
-  const cols = Array.from({ length: maxRank + 1 }, () => []);
-  for (const a of addrs) cols[rank.get(a)].push(a);
-  for (const c of cols) c.sort();
-
-  const pos = new Map();
-  for (const c of cols) c.forEach((a, i) => pos.set(a, i));
-  const bary = (a, neighbors) => {
-    const ns = neighbors.get(a).filter((n) => pos.has(n));
-    if (!ns.length) return pos.get(a);
-    return ns.reduce((s, n) => s + pos.get(n), 0) / ns.length;
-  };
-  for (let sweep = 0; sweep < 4; sweep++) {
-    const neighbors = sweep % 2 === 0 ? deps : state.dependents;
-    for (const c of cols) {
-      c.sort((x, y) =>
-        bary(x, neighbors) - bary(y, neighbors) || (x < y ? -1 : 1));
-      c.forEach((a, i) => pos.set(a, i));
-    }
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({
+    rankdir: 'LR',
+    nodesep: ROW_GAP,
+    ranksep: COL_GAP,
+    marginx: PAD,
+    marginy: PAD,
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const addr of state.steps.keys()) {
+    g.setNode(addr, { width: NODE_W, height: NODE_H });
   }
-
-  const y = new Map();
-  for (const c of cols) c.forEach((a, i) => y.set(a, i * (NODE_H + ROW_GAP)));
-  for (let pass = 0; pass < 3; pass++) {
-    for (const c of cols) {
-      const desired = new Map(c.map((a) => {
-        const ns = [...deps.get(a), ...state.dependents.get(a)];
-        const ys = ns.filter((n) => y.has(n)).map((n) => y.get(n));
-        const d = ys.length ? ys.reduce((s, v) => s + v, 0) / ys.length : y.get(a);
-        return [a, d];
-      }));
-      const sorted = [...c].sort((a, b) =>
-        desired.get(a) - desired.get(b) || (a < b ? -1 : 1));
-      let floor = 0;
-      for (const a of sorted) {
-        const yy = Math.max(desired.get(a), floor);
-        y.set(a, yy);
-        floor = yy + NODE_H + ROW_GAP;
-      }
-    }
-  }
-
+  for (const e of state.edges) g.setEdge(e.from, e.to);
+  dagre.layout(g);
   const coords = new Map();
-  for (const a of addrs) {
-    coords.set(a, {
-      x: PAD + rank.get(a) * (NODE_W + COL_GAP),
-      y: PAD + y.get(a),
-    });
+  for (const addr of state.steps.keys()) {
+    const n = g.node(addr);
+    coords.set(addr, { x: n.x - NODE_W / 2, y: n.y - NODE_H / 2 });
   }
-  return coords;
+  const edgePoints = state.edges.map((e) => g.edge(e.from, e.to).points);
+  const size = g.graph();
+  return { coords, edgePoints, width: size.width, height: size.height };
 }
 
-function edgePath(from, to) {
-  const x1 = from.x + NODE_W;
-  const y1 = from.y + NODE_H / 2;
-  const x2 = to.x;
-  const y2 = to.y + NODE_H / 2;
-  const c = Math.min(COL_GAP / 2, (x2 - x1) / 2);
-  return 'M' + x1 + ' ' + y1 +
-    ' C' + (x1 + c) + ' ' + y1 + ', ' + (x2 - c) + ' ' + y2 +
-    ', ' + x2 + ' ' + y2;
+function edgePath(points) {
+  let d = 'M' + points[0].x + ' ' + points[0].y;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const mx = a.x + (b.x - a.x) / 2;
+    d += ' C' + mx + ' ' + a.y + ', ' + mx + ' ' + b.y + ', ' + b.x + ' ' + b.y;
+  }
+  return d;
 }
 
 function el(name, attrs) {
@@ -219,22 +175,18 @@ function render() {
   defs.appendChild(hatch);
   svg.appendChild(defs);
 
-  const coords = layout();
+  const { coords, edgePoints, width, height } = layout();
   const edgeLayer = el('g', {});
-  for (const e of state.edges) {
+  state.edges.forEach((e, i) => {
     edgeLayer.appendChild(el('path', {
       class: 'edge',
-      d: edgePath(coords.get(e.from), coords.get(e.to)),
+      d: edgePath(edgePoints[i]),
     }));
-  }
+  });
   svg.appendChild(edgeLayer);
 
-  let w = 0;
-  let h = 0;
   for (const [addr, st] of state.steps) {
     const { x, y } = coords.get(addr);
-    w = Math.max(w, x + NODE_W);
-    h = Math.max(h, y + NODE_H);
     const g = el('g', { transform: 'translate(' + x + ',' + y + ')' });
     g.appendChild(el('rect', {
       class: 'card', width: NODE_W, height: NODE_H,
@@ -259,8 +211,8 @@ function render() {
     svg.appendChild(g);
     updateStep(addr);
   }
-  svg.setAttribute('width', w + PAD);
-  svg.setAttribute('height', h + PAD);
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
 }
 
 const pastWord = {
