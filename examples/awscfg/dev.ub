@@ -1,0 +1,17 @@
+locals: {
+  assume-role: {
+    role-arn:    'arn:aws:iam::123456789012:role/unobin-example'
+    external-id: 'unobin-example'
+  }
+}
+
+configurations: {
+  aws: {
+    default: { region: 'us-east-1', assume-role: local.assume-role }
+    east:    { region: 'us-east-2', assume-role: local.assume-role }
+  }
+}
+
+state: { @backend: local, path: '.unobin/state' }
+
+encryption: { @key-source: noop }

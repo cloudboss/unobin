@@ -1,0 +1,24 @@
+description: '''>-
+  Configures a library with awscfg.Configuration, the same AWS
+  connection schema unobin's s3 state backend and kms encrypter read,
+  so one vocabulary serves operator configurations, internal
+  configurations, and the state blocks.
+  '''
+
+inputs: { region: { type: optional(string, 'us-west-2') } }
+
+imports: { aws: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
+
+configurations: { aws: { scoped: { region: var.region } } }
+
+actions: {
+  aws.describe.default: { label: 'default' }
+  aws.describe.east:    { @configuration: aws.east, label: 'east' }
+  aws.describe.scoped:  { @configuration: aws.scoped, label: 'scoped' }
+}
+
+outputs: {
+  default-role:  { value: action.aws.describe.default.role-arn }
+  east-region:   { value: action.aws.describe.east.region }
+  scoped-region: { value: action.aws.describe.scoped.region }
+}

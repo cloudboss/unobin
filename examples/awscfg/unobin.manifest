@@ -1,0 +1,2 @@
+requires: {}
+replace:  { 'github.com/cloudboss/unobin': '../..' }
