@@ -3,6 +3,7 @@ package lang
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
 	"slices"
 	"strings"
@@ -1165,82 +1166,12 @@ func fieldValue(o *ObjectLit, name string) Expr {
 }
 
 // ValidateFactoryConfigurations checks the structure of a factory's
-// configurations: block: import alias, then configuration name, then an
-// object literal of fields. Field values are ordinary expressions and
-// are not constrained here.
+// configurations: block: every entry is keyed by a dotted alias.name
+// path and binds an object literal of fields. No meta keys are valid in
+// a configuration body. Field values are ordinary expressions and are
+// not constrained here.
 func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
-	errs := NewErrorList(0)
-	seen := make(map[string]Position, len(block.Fields))
-	for _, fld := range block.Fields {
-		if fld.Key.Kind == FieldString {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"configurations import alias must be a bare identifier, got quoted string %q",
-				fld.Key.String)
-			continue
-		}
-		if fld.Key.IsMeta() {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"@-prefixed key %q is not a valid import alias", fld.Key.Name)
-			continue
-		}
-		alias := fld.Key.Name
-		if prev, dup := seen[alias]; dup {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"duplicate configurations entry %q (first defined at %s)", alias, prev)
-			continue
-		}
-		seen[alias] = fld.Key.S.Start
-		obj, ok := fld.Value.(*ObjectLit)
-		if !ok {
-			errs.Addf(ErrSchema, fld.Value.Span().Start,
-				"configurations.%s: must be an object of named configurations", alias)
-			continue
-		}
-		validateConfigurationNames(alias, obj, errs)
-	}
-	return errs
-}
-
-// validateConfigurationNames checks one alias entry of a factory's
-// configurations: block: every key names a configuration and binds an
-// object literal of fields.
-func validateConfigurationNames(alias string, obj *ObjectLit, errs *ErrorList) {
-	seen := make(map[string]Position, len(obj.Fields))
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind == FieldString {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"configurations.%s: configuration name must be a bare identifier, "+
-					"got quoted string %q", alias, fld.Key.String)
-			continue
-		}
-		if fld.Key.IsMeta() {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"configurations.%s: @-prefixed key %q is not a valid configuration name",
-				alias, fld.Key.Name)
-			continue
-		}
-		name := fld.Key.Name
-		if prev, dup := seen[name]; dup {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"configurations.%s: duplicate configuration %q (first defined at %s)",
-				alias, name, prev)
-			continue
-		}
-		seen[name] = fld.Key.S.Start
-		obj, ok := fld.Value.(*ObjectLit)
-		if !ok {
-			errs.Addf(ErrSchema, fld.Value.Span().Start,
-				"configurations.%s.%s: a configuration must be an object of fields", alias, name)
-			continue
-		}
-		for _, cf := range obj.Fields {
-			if cf.Key.IsMeta() {
-				errs.Addf(ErrSchema, cf.Key.S.Start,
-					"configurations.%s.%s: @-prefixed key %q is not valid in a configuration",
-					alias, name, cf.Key.Name)
-			}
-		}
-	}
+	return validateDeclBlock(block, "configuration", "alias.name", nil)
 }
 
 // ValidateConfigInputs checks that every value in a config file's inputs:
@@ -1251,14 +1182,24 @@ func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
 }
 
-// ValidateConfigurations applies the static-value rule to a config file's
-// configurations: block, with one widening: values may reference inputs
-// (var.x), which the runner resolves against the effective inputs before
-// decoding. The block nests by import alias and then configuration name;
-// the walk recurses through both to the leaf values. locals holds the
-// names declared by the file's locals: block.
+// ValidateConfigurations checks a config file's configurations: block.
+// Every entry is keyed by a dotted alias.name path, the same key form a
+// factory's block has. Unlike a factory's, a body here may be any
+// expression: the runner evaluates it at load and requires a map, so a
+// whole body can come from a local. Values follow the static-value rule
+// with one widening: they may reference inputs (var.x), which the
+// runner resolves against the effective inputs before decoding. locals
+// holds the names declared by the file's locals: block.
 func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList {
-	return checkStaticConfigBlock(block, staticConfigRules{locals: locals, allowVar: true})
+	errs := NewErrorList(0)
+	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
+		if body, ok := fld.Value.(*ObjectLit); ok {
+			checkBodyMetaKeys(body, "configuration", key, nil, errs)
+		}
+	}
+	mergeErrors(errs, checkStaticConfigBlock(block,
+		staticConfigRules{locals: locals, allowVar: true}))
+	return errs
 }
 
 // ValidateConfigLocals checks the values of a config file's locals:
@@ -1694,67 +1635,103 @@ func metaKeySet(keys ...string) map[string]bool {
 // ValidateResources checks a `resources:` block: every entry is keyed by
 // a dotted alias.type.name and its body is an object.
 func ValidateResources(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "resource", resourceBodyGreenlist)
+	return validateDeclBlock(block, "resource", "alias.type.name", resourceBodyGreenlist)
 }
 
 // ValidateDataSources checks the shape of a `data:` block.
 func ValidateDataSources(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "data source", dataBodyGreenlist)
+	return validateDeclBlock(block, "data source", "alias.type.name", dataBodyGreenlist)
 }
 
 // ValidateActions checks the shape of an `actions:` block.
 func ValidateActions(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "action", actionBodyGreenlist)
+	return validateDeclBlock(block, "action", "alias.type.name", actionBodyGreenlist)
 }
 
-// validateDeclBlock checks one declaration block. Every entry is keyed by
-// a dotted alias.type.name path and carries an object body whose only meta
-// keys are those in greenlist. A bare or quoted key reports that the
-// dotted form is required.
-func validateDeclBlock(block *ObjectLit, what string, greenlist map[string]bool) *ErrorList {
+// validateDeclBlock checks one declaration block. Every entry is keyed
+// by a dotted path with form's segments (alias.type.name for resources,
+// alias.name for configurations) and binds an object body whose only
+// meta keys are those in greenlist. A bare or quoted key reports that
+// the dotted form is required.
+func validateDeclBlock(block *ObjectLit, what, form string, greenlist map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
-	seen := make(map[string]Position, len(block.Fields))
-	for _, fld := range block.Fields {
-		if fld.Key.Kind != FieldPath {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"%s must be declared with a dotted alias.type.name key", what)
-			continue
-		}
-		if len(fld.Key.Path) != 3 {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"%s key %s must have three segments: alias.type.name",
-				what, strings.Join(fld.Key.Path, "."))
-			continue
-		}
-		key := strings.Join(fld.Key.Path, ".")
-		if prev, dup := seen[key]; dup {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"duplicate %s %s (first defined at %s)", what, key, prev)
-			continue
-		}
-		seen[key] = fld.Key.S.Start
+	for key, fld := range declEntries(block, what, form, errs) {
 		body, ok := fld.Value.(*ObjectLit)
 		if !ok {
 			errs.Addf(ErrSchema, fld.Value.Span().Start,
 				"%s %s: body must be an object", what, key)
 			continue
 		}
-		for _, bodyFld := range body.Fields {
-			if bodyFld.Key.Kind != FieldIdent || !bodyFld.Key.IsMeta() {
+		checkBodyMetaKeys(body, what, key, greenlist, errs)
+	}
+	return errs
+}
+
+// declEntries walks a declaration-style block, reporting key errors
+// (non-dotted form, wrong segment count, duplicates) to errs and
+// yielding the joined key and field of every well-keyed entry.
+func declEntries(block *ObjectLit, what, form string, errs *ErrorList) iter.Seq2[string, *Field] {
+	segments := strings.Count(form, ".") + 1
+	return func(yield func(string, *Field) bool) {
+		seen := make(map[string]Position, len(block.Fields))
+		for _, fld := range block.Fields {
+			if fld.Key.Kind != FieldPath {
+				errs.Addf(ErrSchema, fld.Key.S.Start,
+					"%s must be declared with a dotted %s key", what, form)
 				continue
 			}
-			if !greenlist[bodyFld.Key.Name] {
-				errs.Addf(ErrSchema, bodyFld.Key.S.Start,
-					"%s %s: meta key %q is not allowed",
-					what, key, bodyFld.Key.Name)
+			if len(fld.Key.Path) != segments {
+				errs.Addf(ErrSchema, fld.Key.S.Start,
+					"%s key %s must have %s segments: %s",
+					what, strings.Join(fld.Key.Path, "."), numberWord(segments), form)
 				continue
 			}
-			if bodyFld.Key.Name == "@timeout" {
-				checkTimeoutValue(bodyFld, what, key, errs)
+			key := strings.Join(fld.Key.Path, ".")
+			if prev, dup := seen[key]; dup {
+				errs.Addf(ErrSchema, fld.Key.S.Start,
+					"duplicate %s %s (first defined at %s)", what, key, prev)
+				continue
+			}
+			seen[key] = fld.Key.S.Start
+			if !yield(key, fld) {
+				return
 			}
 		}
 	}
-	return errs
+}
+
+// checkBodyMetaKeys reports any meta key in a declaration body that is
+// not in greenlist, and checks @timeout values where the greenlist
+// admits them.
+func checkBodyMetaKeys(
+	body *ObjectLit, what, key string, greenlist map[string]bool, errs *ErrorList,
+) {
+	for _, bodyFld := range body.Fields {
+		if bodyFld.Key.Kind != FieldIdent || !bodyFld.Key.IsMeta() {
+			continue
+		}
+		if !greenlist[bodyFld.Key.Name] {
+			errs.Addf(ErrSchema, bodyFld.Key.S.Start,
+				"%s %s: meta key %q is not allowed",
+				what, key, bodyFld.Key.Name)
+			continue
+		}
+		if bodyFld.Key.Name == "@timeout" {
+			checkTimeoutValue(bodyFld, what, key, errs)
+		}
+	}
+}
+
+// numberWord spells out the segment counts the dotted-key validators
+// quote in error messages.
+func numberWord(n int) string {
+	switch n {
+	case 2:
+		return "two"
+	case 3:
+		return "three"
+	}
+	return fmt.Sprintf("%d", n)
 }
 
 // checkTimeoutValue reports an error when a body's `@timeout:` value is not

@@ -1,1 +1,1 @@
-configurations.aws: duplicate configuration "default" (first defined at 3:5)
+duplicate configuration aws.default (first defined at 2:3)

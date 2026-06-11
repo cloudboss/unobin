@@ -1,1 +1,1 @@
-config.ub:1:45: resolve: config values must be static, but core.format is a function call
+config.ub:1:42: resolve: config values must be static, but core.format is a function call

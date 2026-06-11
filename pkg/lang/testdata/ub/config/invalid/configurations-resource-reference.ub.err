@@ -1,1 +1,1 @@
-config.ub:1:45: resolve: configuration values may reference only inputs and locals, but resource.a.b.c is neither
+config.ub:1:42: resolve: configuration values may reference only inputs and locals, but resource.a.b.c is neither

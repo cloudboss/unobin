@@ -1,1 +1,1 @@
-configurations: { aws: { default: { @for-each: var.tags } } }
+configurations: { aws.default: { @for-each: var.tags } }

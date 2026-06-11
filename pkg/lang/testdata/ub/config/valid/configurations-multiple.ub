@@ -1,1 +1,4 @@
-configurations: { aws: { default: { region: 'us-east-1' }, formal: { region: 'eu-west-1', profile: 'prod' } } }
+configurations: {
+  aws.default: { region: 'us-east-1' }
+  aws.formal:  { region: 'eu-west-1', profile: 'prod' }
+}

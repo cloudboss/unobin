@@ -40,11 +40,9 @@ func awsModuleNoConfig() *runtime.Library {
 func TestLoadConfigurationsDecodesDefault(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region:  'us-east-1'
-      profile: 'prod'
-    }
+  aws.default: {
+    region:  'us-east-1'
+    profile: 'prod'
   }
 }
 `)
@@ -60,10 +58,8 @@ configurations: {
 func TestLoadConfigurationsAppliesDefaultsWhenAbsent(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region: 'us-east-1'
-    }
+  aws.default: {
+    region: 'us-east-1'
   }
 }
 `)
@@ -86,9 +82,7 @@ func TestLoadConfigurationsAllowsAbsentConfigurations(t *testing.T) {
 func TestLoadConfigurationsAllowsBlockMissingForModule(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  other: {
-    default: { region: 'us-west-2' }
-  }
+  other.default: { region: 'us-west-2' }
 }
 `)
 	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
@@ -103,9 +97,7 @@ configurations: {
 func TestLoadConfigurationsErrorsOnUnknownImportAlias(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  ghost: {
-    default: {}
-  }
+  ghost.default: {}
 }
 `)
 	_, _, err := loadConfigurations(
@@ -118,9 +110,7 @@ configurations: {
 func TestLoadConfigurationsErrorsWhenModuleHasNoConfiguration(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {}
-  }
+  aws.default: {}
 }
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
@@ -133,10 +123,8 @@ configurations: {
 func TestLoadConfigurationsAllowsMissingDefault(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    east2: {
-      region: 'us-east-2'
-    }
+  aws.east2: {
+    region: 'us-east-2'
   }
 }
 `)
@@ -150,10 +138,8 @@ configurations: {
 func TestLoadConfigurationsErrorsOnInvalidValues(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region: 12345
-    }
+  aws.default: {
+    region: 12345
   }
 }
 `)
@@ -175,15 +161,13 @@ func TestLoadConfigurationsReturnsNilWhenNoModuleNeedsOne(t *testing.T) {
 func TestLoadConfigurationsDecodesMultipleAliases(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region:  'us-east-1'
-      profile: 'prod'
-    }
-    east2: {
-      region:  'us-east-2'
-      profile: 'prod'
-    }
+  aws.default: {
+    region:  'us-east-1'
+    profile: 'prod'
+  }
+  aws.east2: {
+    region:  'us-east-2'
+    profile: 'prod'
   }
 }
 `)
@@ -203,11 +187,9 @@ configurations: {
 func TestLoadConfigurationsResolvesInputReferences(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region:  var.region
-      profile: $'{{var.env}}-profile'
-    }
+  aws.default: {
+    region:  var.region
+    profile: $'{{var.env}}-profile'
   }
 }
 `)
@@ -225,10 +207,8 @@ configurations: {
 func TestLoadConfigurationsErrorsOnUnknownInput(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region: var.missing
-    }
+  aws.default: {
+    region: var.missing
   }
 }
 `)
@@ -243,13 +223,11 @@ configurations: {
 func TestLoadConfigurationsErrorsWhenAnyAliasFailsToDecode(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: {
-      region: 'us-east-1'
-    }
-    bad: {
-      region: 12345
-    }
+  aws.default: {
+    region: 'us-east-1'
+  }
+  aws.bad: {
+    region: 12345
   }
 }
 `)
@@ -263,10 +241,8 @@ configurations: {
 func TestLoadConfigurationsRejectsInternalName(t *testing.T) {
 	path := writeConfig(t, `
 configurations: {
-  aws: {
-    default: { region: 'us-east-1' }
-    cluster: { region: 'us-east-1' }
-  }
+  aws.default: { region: 'us-east-1' }
+  aws.cluster: { region: 'us-east-1' }
 }
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
@@ -282,11 +258,9 @@ func TestLoadConfigurationsResolvesLocals(t *testing.T) {
 locals: { region: 'us-east-1' }
 
 configurations: {
-  aws: {
-    default: {
-      region:  local.region
-      profile: var.team
-    }
+  aws.default: {
+    region:  local.region
+    profile: var.team
   }
 }
 `)

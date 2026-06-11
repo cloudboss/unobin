@@ -273,7 +273,7 @@ func ConfigurationFile(cs ConfigurationSchema, packageName, from string) ([]byte
 		}
 	}
 	fmt.Fprintf(&b, "// %s is the operator-facing body of "+
-		"`configurations: { %s: { default: ... } }`.\n",
+		"`configurations: { %s.default: ... }`.\n",
 		cs.GoName, packageName)
 	fmt.Fprintf(&b, "type %s struct {\n", cs.GoName)
 	for _, f := range cs.Fields {

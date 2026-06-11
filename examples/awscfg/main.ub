@@ -9,7 +9,7 @@ inputs: { region: { type: optional(string, 'us-west-2') } }
 
 imports: { aws: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
 
-configurations: { aws: { scoped: { region: var.region } } }
+configurations: { aws.scoped: { region: var.region } }
 
 actions: {
   aws.describe.default: { label: 'default' }

@@ -26,10 +26,8 @@ func writeUnobinConfigurationFixture(t *testing.T, configBody string) string {
 inputs:  { name: { type: string } }
 imports: { aws: 'github.com/example/cloudlib' }
 configurations: {
-  aws: {
-    default: {
+  aws.default: {
 `+configBody+`
-    }
   }
 }
 resources: { aws.thing.this: { name: var.name } }

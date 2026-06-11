@@ -1,0 +1,3 @@
+configurations: {
+  aws.default: 'us-east-1'
+}

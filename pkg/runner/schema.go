@@ -281,14 +281,12 @@ func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG,
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "configurations: {")
 	for _, alias := range aliases {
-		fmt.Fprintf(out, "  %s: {\n", alias)
 		fields := cfg.Describe(info.Libraries[alias].Configuration)
 		for _, name := range owedByAlias[alias] {
-			fmt.Fprintf(out, "    %s: {\n", name)
-			writeTemplateFields(out, fields, "      ")
-			fmt.Fprintln(out, "    }")
+			fmt.Fprintf(out, "  %s.%s: {\n", alias, name)
+			writeTemplateFields(out, fields, "    ")
+			fmt.Fprintln(out, "  }")
 		}
-		fmt.Fprintln(out, "  }")
 	}
 	fmt.Fprintln(out, "}")
 }

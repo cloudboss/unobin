@@ -156,9 +156,9 @@ func decodeConfigurationsFromPlan(
 }
 
 // readConfigurationsBlock walks the `configurations:` body and pulls
-// every alias entry under each import into a raw form ready for
-// decoding. The outer key is the import alias; the inner key is the
-// configuration alias name; the value is the raw map of fields,
+// every dotted alias.name entry into a raw form ready for decoding.
+// The outer key of the result is the import alias; the inner key is
+// the configuration name; the value is the raw map of fields,
 // evaluated against ctx, which holds the effective inputs so var.x
 // references resolve here, plus the file's locals.
 func readConfigurationsBlock(
@@ -169,41 +169,29 @@ func readConfigurationsBlock(
 	out := map[string]map[string]any{}
 	var errs []error
 	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldIdent {
+		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
 			errs = append(errs, fmt.Errorf(
-				"%s: configurations key must be an identifier", configPath))
+				"%s: configurations entries must be keyed by a dotted alias.name path",
+				configPath))
 			continue
 		}
-		importAlias := fld.Key.Name
-		obj, ok := fld.Value.(*lang.ObjectLit)
+		importAlias, name := fld.Key.Path[0], fld.Key.Path[1]
+		val, err := runtime.Eval(fld.Value, ctx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf(
+				"%s: configurations.%s.%s: %w", configPath, importAlias, name, err))
+			continue
+		}
+		m, ok := val.(map[string]any)
 		if !ok {
 			errs = append(errs, fmt.Errorf(
-				"%s: configurations.%s must be an object", configPath, importAlias))
+				"%s: configurations.%s.%s must be a map", configPath, importAlias, name))
 			continue
 		}
-		aliases := map[string]any{}
-		for _, aliasFld := range obj.Fields {
-			if aliasFld.Key.Kind != lang.FieldIdent {
-				continue
-			}
-			aliasName := aliasFld.Key.Name
-			val, err := runtime.Eval(aliasFld.Value, ctx)
-			if err != nil {
-				errs = append(errs, fmt.Errorf(
-					"%s: configurations.%s.%s: %w",
-					configPath, importAlias, aliasName, err))
-				continue
-			}
-			m, ok := val.(map[string]any)
-			if !ok {
-				errs = append(errs, fmt.Errorf(
-					"%s: configurations.%s.%s must be a map",
-					configPath, importAlias, aliasName))
-				continue
-			}
-			aliases[aliasName] = m
+		if out[importAlias] == nil {
+			out[importAlias] = map[string]any{}
 		}
-		out[importAlias] = aliases
+		out[importAlias][name] = m
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err

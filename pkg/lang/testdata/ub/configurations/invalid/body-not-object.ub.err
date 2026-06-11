@@ -1,0 +1,1 @@
+configuration aws.default: body must be an object

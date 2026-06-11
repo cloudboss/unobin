@@ -1,4 +1,0 @@
-configurations: {
-  aws: { default: { region: 'a' } }
-  aws: { default: { region: 'b' } }
-}

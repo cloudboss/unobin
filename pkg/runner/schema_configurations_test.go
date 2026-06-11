@@ -10,7 +10,7 @@ import (
 
 const configuredFactorySrc = `
 inputs: { region: { type: string } }
-configurations: { aws: { admin: { region: var.region } } }
+configurations: { aws.admin: { region: var.region } }
 resources: {
   aws.thing.a: {}
   aws.thing.b: { @configuration: aws.east2 }
@@ -45,14 +45,13 @@ func TestSchemaTemplateScaffoldsOwedConfigurations(t *testing.T) {
 	out, err := runRoot(t, configuredSchemaInfo(), "schema", "template")
 	require.NoError(t, err)
 	require.Contains(t, out, "configurations: {")
-	require.Contains(t, out, "  aws: {")
-	require.Contains(t, out, "    default: {")
-	require.Contains(t, out, "    east2: {")
-	require.NotContains(t, out, "    admin: {")
-	require.Contains(t, out, "      region:  ''  # type: string")
-	require.Contains(t, out, "      profile: ''  # type: optional(string)")
-	require.Contains(t, out, "      # type: optional(object)")
-	require.Contains(t, out, "      assume-role: {")
-	require.Contains(t, out, "        role-arn:    ''  # type: string")
-	require.Contains(t, out, "        external-id: ''  # type: optional(string)")
+	require.Contains(t, out, "  aws.default: {")
+	require.Contains(t, out, "  aws.east2: {")
+	require.NotContains(t, out, "  aws.admin: {")
+	require.Contains(t, out, "    region:  ''  # type: string")
+	require.Contains(t, out, "    profile: ''  # type: optional(string)")
+	require.Contains(t, out, "    # type: optional(object)")
+	require.Contains(t, out, "    assume-role: {")
+	require.Contains(t, out, "      role-arn:    ''  # type: string")
+	require.Contains(t, out, "      external-id: ''  # type: optional(string)")
 }

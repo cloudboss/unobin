@@ -1,1 +1,1 @@
-configurations: { aws: { default: { region: region } } }
+configurations: { aws.default: { region: region } }

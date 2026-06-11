@@ -548,7 +548,7 @@ func configuredLibrary() *runtime.Library {
 
 func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { ghost: { default: { region: 'r' } } }
+configurations: { ghost.default: { region: 'r' } }
 `), map[string]*runtime.Library{})
 	require.Equal(t,
 		[]string{`configurations.ghost: library "ghost" is not imported`},
@@ -557,7 +557,7 @@ configurations: { ghost: { default: { region: 'r' } } }
 
 func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { local: { default: { region: 'r' } } }
+configurations: { local.default: { region: 'r' } }
 `), map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Equal(t,
 		[]string{`configurations.local: library declares no configuration`},
@@ -566,7 +566,7 @@ configurations: { local: { default: { region: 'r' } } }
 
 func TestCheckTypesConfigurationUnknownField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
+configurations: { aws.default: { region: 'r', regin: 'oops' } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
 		[]string{`configurations.aws.default: unknown field "regin"`},
@@ -575,7 +575,7 @@ configurations: { aws: { default: { region: 'r', regin: 'oops' } } }
 
 func TestCheckTypesConfigurationFieldTypeMismatch(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { aws: { default: { region: 5 } } }
+configurations: { aws.default: { region: 5 } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
 		[]string{`type mismatch: expected string, got integer`},
@@ -584,7 +584,7 @@ configurations: { aws: { default: { region: 5 } } }
 
 func TestCheckTypesConfigurationMissingRequiredField(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { aws: { default: { profile: 'p' } } }
+configurations: { aws.default: { profile: 'p' } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
 		[]string{`configurations.aws.default: missing required field "region"`},
@@ -594,7 +594,7 @@ configurations: { aws: { default: { profile: 'p' } } }
 func TestCheckTypesConfigurationValidPasses(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs: { region: { type: string } }
-configurations: { aws: { default: { region: var.region } } }
+configurations: { aws.default: { region: var.region } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Empty(t, errs.Messages())
 }
@@ -605,7 +605,7 @@ func TestCheckTypesConfigurationDeclaredOnlyAtRuntime(t *testing.T) {
 		Schema:        &runtime.LibrarySchema{},
 	}
 	errs := checkReferences(parseStack(t, `
-configurations: { aws: { default: { anything: 'goes' } } }
+configurations: { aws.default: { anything: 'goes' } }
 `), map[string]*runtime.Library{"aws": lib})
 	require.Empty(t, errs.Messages())
 }

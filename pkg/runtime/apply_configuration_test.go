@@ -98,7 +98,7 @@ func configuredLibrariesRecording(readSeen, deleteSeen *[]string) map[string]*Li
 }
 
 const internalConfigSrc = `
-configurations: { fix: { default: {}, cluster: { endpoint: resource.fix.echo.src.value } } }
+configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.value } }
 resources: {
   fix.echo.src:        { value: 'https://cluster.example' }
   fix.config-echo.app: { @configuration: fix.cluster }
@@ -164,7 +164,7 @@ func (d *configProbeData) Read(_ context.Context, c any) (any, error) {
 }
 
 const internalConfigDataSrc = `
-configurations: { fix: { default: {}, cluster: { endpoint: resource.fix.echo.src.id } } }
+configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.id } }
 resources: { fix.echo.src: { value: 'https://cluster.example' } }
 data:      { fix.probe.p: { @configuration: fix.cluster } }
 `
@@ -205,7 +205,7 @@ func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 }
 
 const internalConfigVarSrc = `
-configurations: { fix: { default: {}, cluster: { endpoint: resource.fix.echo.src.id } } }
+configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.id } }
 resources: {
   fix.echo.src:        { value: var.url }
   fix.config-echo.app: { @configuration: fix.cluster }

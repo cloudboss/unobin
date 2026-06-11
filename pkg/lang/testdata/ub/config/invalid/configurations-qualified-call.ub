@@ -1,1 +1,1 @@
-configurations: { aws: { default: { region: core.format('x') } } }
+configurations: { aws.default: { region: core.format('x') } }

@@ -8,8 +8,6 @@ locals: {
 }
 
 configurations: {
-  aws: {
-    default: local.aws-config
-    east:    { assume-role: local.aws-config.assume-role }
-  }
+  aws.default: local.aws-config
+  aws.east:    { assume-role: local.aws-config.assume-role }
 }

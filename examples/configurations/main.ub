@@ -8,7 +8,7 @@ imports: {
   greeter: './greeter'
 }
 
-configurations: { greet: { fancy: { prefix: resource.greet.phrase.flourish.decorated } } }
+configurations: { greet.fancy: { prefix: resource.greet.phrase.flourish.decorated } }
 
 resources: { greet.phrase.flourish: { text: 'Salutations' } }
 

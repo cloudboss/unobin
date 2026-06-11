@@ -1,1 +1,1 @@
-configurations.aws.default: @-prefixed key "@for-each" is not valid in a configuration
+configuration aws.default: meta key "@for-each" is not allowed

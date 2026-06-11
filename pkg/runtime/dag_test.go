@@ -423,7 +423,7 @@ resources: {
 func TestBuildDAGConfigurationNodeFromBlock(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 configurations: {
-  k8s: { cluster: { host: resource.aws.eks.main.endpoint } }
+  k8s.cluster: { host: resource.aws.eks.main.endpoint }
 }
 resources: {
   aws.eks.main:       { name: 'web' }
@@ -444,7 +444,7 @@ resources: {
 func TestBuildDAGDefaultSelectionEdgesToInternalDefault(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 configurations: {
-  aws: { default: { region: var.region } }
+  aws.default: { region: var.region }
 }
 resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 `), nil)
@@ -461,7 +461,7 @@ resources: { aws.vpc.main: { @configuration: aws.east2, cidr-block: '10.0.0.0/16
 func TestBuildDAGConfigurationCycleDetected(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 configurations: {
-  aws: { default: { token: resource.aws.sts.session.token } }
+  aws.default: { token: resource.aws.sts.session.token }
 }
 resources: { aws.sts.session: { name: 's' } }
 `), nil)

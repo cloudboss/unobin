@@ -412,36 +412,28 @@ func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 }
 
 // extractConfigurations walks a factory's configurations: block and
-// returns one node per defined configuration. The node's Body is the
-// configuration's object of fields; Alias and Name record which
-// import it configures and the configuration's name. Like outputs,
+// returns one node per defined configuration. Every entry is keyed by
+// a dotted alias.name path; the node's Body is the configuration's
+// object of fields, and Alias and Name record which import it
+// configures and the configuration's name. Like outputs,
 // configurations are defined only at the factory root.
 func extractConfigurations(block *lang.ObjectLit) []*Node {
 	var out []*Node
-	for _, aliasFld := range block.Fields {
-		if aliasFld.Key.Kind != lang.FieldIdent || aliasFld.Key.IsMeta() {
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
 			continue
 		}
-		obj, ok := aliasFld.Value.(*lang.ObjectLit)
-		if !ok {
+		if _, ok := fld.Value.(*lang.ObjectLit); !ok {
 			continue
 		}
-		alias := aliasFld.Key.Name
-		for _, nameFld := range obj.Fields {
-			if nameFld.Key.Kind != lang.FieldIdent || nameFld.Key.IsMeta() {
-				continue
-			}
-			if _, ok := nameFld.Value.(*lang.ObjectLit); !ok {
-				continue
-			}
-			out = append(out, &Node{
-				Address: configurationAddress(alias, nameFld.Key.Name),
-				Kind:    NodeConfiguration,
-				Alias:   alias,
-				Name:    nameFld.Key.Name,
-				Body:    nameFld.Value,
-			})
-		}
+		alias, name := fld.Key.Path[0], fld.Key.Path[1]
+		out = append(out, &Node{
+			Address: configurationAddress(alias, name),
+			Kind:    NodeConfiguration,
+			Alias:   alias,
+			Name:    name,
+			Body:    fld.Value,
+		})
 	}
 	return out
 }
