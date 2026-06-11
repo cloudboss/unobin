@@ -3,8 +3,10 @@ package encrypters
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -72,11 +74,11 @@ func TestEncryptUsesConfiguredKey(t *testing.T) {
 	assert.Equal(t, []string{"alias/unobin-state"}, fake.generated())
 }
 
-func TestEncryptFreshDataKeyPerCall(t *testing.T) {
-	enc, _ := testEncrypter(t)
+func TestEncryptReusesDataKeyAcrossCalls(t *testing.T) {
+	enc, fake := testEncrypter(t)
 	first, err := enc.Encrypt([]byte("x"))
 	require.NoError(t, err)
-	second, err := enc.Encrypt([]byte("x"))
+	second, err := enc.Encrypt([]byte("y"))
 	require.NoError(t, err)
 
 	var a, b struct {
@@ -84,7 +86,65 @@ func TestEncryptFreshDataKeyPerCall(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(first, &a))
 	require.NoError(t, json.Unmarshal(second, &b))
-	assert.NotEqual(t, a.EncryptedKey, b.EncryptedKey)
+	assert.Equal(t, a.EncryptedKey, b.EncryptedKey)
+	assert.Len(t, fake.generated(), 1)
+
+	got, err := enc.Decrypt(first)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("x"), got)
+	got, err = enc.Decrypt(second)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("y"), got)
+}
+
+func TestEncryptOneGenerateUnderConcurrency(t *testing.T) {
+	enc, fake := testEncrypter(t)
+	const writers = 8
+	sealed := make([][]byte, writers)
+	errs := make([]error, writers)
+	var wg sync.WaitGroup
+	for i := range writers {
+		wg.Go(func() {
+			sealed[i], errs[i] = enc.Encrypt(fmt.Appendf(nil, "payload-%d", i))
+		})
+	}
+	wg.Wait()
+	for i := range writers {
+		require.NoError(t, errs[i])
+		got, err := enc.Decrypt(sealed[i])
+		require.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("payload-%d", i), string(got))
+	}
+	assert.Len(t, fake.generated(), 1)
+}
+
+func TestDecryptOfOwnWritesNeedsNoKMSCall(t *testing.T) {
+	enc, fake := testEncrypter(t)
+	sealed, err := enc.Encrypt([]byte("payload"))
+	require.NoError(t, err)
+	_, err = enc.Decrypt(sealed)
+	require.NoError(t, err)
+	assert.Zero(t, fake.decryptCalls())
+}
+
+func TestDecryptMemoizesUnwraps(t *testing.T) {
+	writer, fake := testEncrypter(t)
+	var blobs [][]byte
+	for range 3 {
+		sealed, err := writer.Encrypt([]byte("payload"))
+		require.NoError(t, err)
+		blobs = append(blobs, sealed)
+	}
+
+	srv := httptest.NewServer(fake)
+	t.Cleanup(srv.Close)
+	reader, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state")
+	require.NoError(t, err)
+	for _, sealed := range blobs {
+		_, err := reader.Decrypt(sealed)
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, fake.decryptCalls())
 }
 
 func TestDecryptTamperedPayload(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -19,15 +20,28 @@ import (
 var _ sdkencrypt.Encrypter = (*KMS)(nil)
 
 // KMS seals and unseals bytes with envelope encryption through AWS
-// KMS: each Encrypt call has KMS generate a fresh 256-bit data key
-// under one KMS key (named by id, ARN, or alias), seals the payload
-// locally with AES-256-GCM, and stores the KMS-wrapped data key
-// beside the sealed bytes. Decrypt has KMS unwrap the stored data key
-// and opens the payload locally, so data keys are the only thing that
-// crosses the wire, never the payload.
+// KMS: payloads are sealed locally with AES-256-GCM under a 256-bit
+// data key that KMS generates and wraps with one KMS key (named by
+// id, ARN, or alias), and each blob stores its wrapped data key, so
+// data keys are the only thing that crosses the wire, never the
+// payload.
+//
+// An encrypter generates one data key on first use and seals every
+// write with it. An encrypter lives for one command, so the key's
+// exposure is bounded by the run, GCM with random nonces stays safe
+// for far more messages than a run writes, and readers never depend
+// on the reuse because every blob is self-describing. Unwrapped data
+// keys are memoized by their wrapped bytes for the same reason in
+// the other direction: a run re-reading blobs it wrote, or several
+// blobs sealed under one data key, costs one KMS call at most.
 type KMS struct {
 	client *kms.Client
 	keyID  string
+
+	mu        sync.Mutex
+	sealer    cipher.AEAD
+	wrapped   []byte
+	unwrapped map[string]cipher.AEAD
 }
 
 // NewKMS returns a KMS encrypter using client and the given key.
@@ -38,7 +52,11 @@ func NewKMS(client *kms.Client, keyID string) (*KMS, error) {
 	if keyID == "" {
 		return nil, errors.New("kms encrypter: key-id is required")
 	}
-	return &KMS{client: client, keyID: keyID}, nil
+	return &KMS{
+		client:    client,
+		keyID:     keyID,
+		unwrapped: map[string]cipher.AEAD{},
+	}, nil
 }
 
 const sealedVersion = 1
@@ -52,17 +70,10 @@ type sealed struct {
 	Payload      []byte `json:"payload"`
 }
 
-// Encrypt seals plaintext under a fresh KMS data key.
+// Encrypt seals plaintext under the run's KMS data key, generating
+// it on first use.
 func (k *KMS) Encrypt(plaintext []byte) ([]byte, error) {
-	out, err := k.client.GenerateDataKey(context.Background(), &kms.GenerateDataKeyInput{
-		KeyId:   aws.String(k.keyID),
-		KeySpec: kmstypes.DataKeySpecAes256,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("kms encrypter: generate data key: %w", err)
-	}
-	defer clear(out.Plaintext)
-	aead, err := newAEAD(out.Plaintext)
+	aead, wrapped, err := k.sealKey()
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +83,37 @@ func (k *KMS) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 	blob := sealed{
 		Version:      sealedVersion,
-		EncryptedKey: out.CiphertextBlob,
+		EncryptedKey: wrapped,
 		Payload:      aead.Seal(nonce, nonce, plaintext, nil),
 	}
 	return json.Marshal(blob)
+}
+
+// sealKey returns the data key every Encrypt seals with, asking KMS
+// to generate it the first time. The wrapped form is also memoized
+// for Decrypt, so re-reading a blob this run wrote needs no KMS call.
+func (k *KMS) sealKey() (cipher.AEAD, []byte, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.sealer != nil {
+		return k.sealer, k.wrapped, nil
+	}
+	out, err := k.client.GenerateDataKey(context.Background(), &kms.GenerateDataKeyInput{
+		KeyId:   aws.String(k.keyID),
+		KeySpec: kmstypes.DataKeySpecAes256,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("kms encrypter: generate data key: %w", err)
+	}
+	defer clear(out.Plaintext)
+	aead, err := newAEAD(out.Plaintext)
+	if err != nil {
+		return nil, nil, err
+	}
+	k.sealer = aead
+	k.wrapped = out.CiphertextBlob
+	k.unwrapped[string(out.CiphertextBlob)] = aead
+	return k.sealer, k.wrapped, nil
 }
 
 // Decrypt opens a value produced by Encrypt. Errors on tampered or
@@ -90,14 +128,7 @@ func (k *KMS) Decrypt(ciphertext []byte) ([]byte, error) {
 			"kms encrypter: unsupported version %d (this build expects %d)",
 			blob.Version, sealedVersion)
 	}
-	out, err := k.client.Decrypt(context.Background(), &kms.DecryptInput{
-		CiphertextBlob: blob.EncryptedKey,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("kms encrypter: decrypt data key: %w", err)
-	}
-	defer clear(out.Plaintext)
-	aead, err := newAEAD(out.Plaintext)
+	aead, err := k.openKey(blob.EncryptedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +141,31 @@ func (k *KMS) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, fmt.Errorf("kms encrypter: %w", err)
 	}
 	return opened, nil
+}
+
+// openKey returns the data key a blob was sealed with, asking KMS to
+// unwrap it on first sight. The memo is keyed by the wrapped bytes
+// and holds one entry per distinct data key seen, which a
+// command-scoped process keeps to a handful.
+func (k *KMS) openKey(wrapped []byte) (cipher.AEAD, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if aead, ok := k.unwrapped[string(wrapped)]; ok {
+		return aead, nil
+	}
+	out, err := k.client.Decrypt(context.Background(), &kms.DecryptInput{
+		CiphertextBlob: wrapped,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("kms encrypter: decrypt data key: %w", err)
+	}
+	defer clear(out.Plaintext)
+	aead, err := newAEAD(out.Plaintext)
+	if err != nil {
+		return nil, err
+	}
+	k.unwrapped[string(wrapped)] = aead
+	return aead, nil
 }
 
 func newAEAD(key []byte) (cipher.AEAD, error) {

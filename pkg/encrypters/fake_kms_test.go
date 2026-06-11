@@ -18,6 +18,7 @@ type fakeKMS struct {
 	mu   sync.Mutex
 	keys map[string][]byte
 	gens []string
+	decs int
 }
 
 func newFakeKMS() *fakeKMS {
@@ -80,6 +81,7 @@ func (f *fakeKMS) decrypt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.mu.Lock()
+	f.decs++
 	plaintext, ok := f.keys[hex.EncodeToString(wrapped)]
 	f.mu.Unlock()
 	if !ok {
@@ -107,4 +109,11 @@ func (f *fakeKMS) generated() []string {
 	out := make([]string, len(f.gens))
 	copy(out, f.gens)
 	return out
+}
+
+// decryptCalls returns how many Decrypt requests the fake has served.
+func (f *fakeKMS) decryptCalls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.decs
 }
