@@ -5,10 +5,17 @@
 package backends
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/cloudboss/unobin/pkg/awscfg"
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/localstate"
+	"github.com/cloudboss/unobin/pkg/s3state"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
@@ -27,6 +34,15 @@ func Backends() map[string]sdkstate.BackendType {
 				New:         func() any { return &LocalBackendConfig{} },
 			},
 			New: newLocalBackend,
+		},
+		"s3": {
+			Name:        "s3",
+			Description: "S3 state backend with conditional-write locking.",
+			Configuration: &cfg.ConfigurationType{
+				Description: "S3 state backend configuration.",
+				New:         func() any { return &S3BackendConfig{} },
+			},
+			New: newS3Backend,
 		},
 	}
 }
@@ -68,6 +84,53 @@ func newLocalBackend(
 		return nil, fmt.Errorf("local backend: missing or wrong configuration (got %T)", config)
 	}
 	return localstate.NewLocalStore(c.Path.Value, factory, stack, enc)
+}
+
+// S3BackendConfig is the operator-facing body under
+// `state: { @backend: s3 ... }`. The aws object holds the shared AWS
+// connection settings from pkg/awscfg; bucket, prefix, kms-key-id,
+// and use-path-style are the backend's own.
+type S3BackendConfig struct {
+	Bucket       cfg.String
+	Prefix       *cfg.String
+	KMSKeyID     *cfg.String
+	UsePathStyle *cfg.Boolean
+	AWS          *awscfg.Configuration
+}
+
+func newS3Backend(
+	config any,
+	factory, stack string,
+	enc sdkencrypt.Encrypter,
+) (sdkstate.Backend, error) {
+	c, ok := config.(*S3BackendConfig)
+	if !ok {
+		return nil, fmt.Errorf("s3 backend: missing or wrong configuration (got %T)", config)
+	}
+	if c.Bucket.Value == "" {
+		return nil, errors.New("s3 backend: bucket is required")
+	}
+	awsCfg, err := awscfg.Load(context.Background(), c.AWS)
+	if err != nil {
+		return nil, fmt.Errorf("s3 backend: %w", err)
+	}
+	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		if ep := c.AWS.S3Endpoint(); ep != "" {
+			o.BaseEndpoint = aws.String(ep)
+		}
+		if c.UsePathStyle != nil {
+			o.UsePathStyle = c.UsePathStyle.Value
+		}
+	})
+	return s3state.NewS3Store(client, c.Bucket.Value, optString(c.Prefix),
+		optString(c.KMSKeyID), factory, stack, enc)
+}
+
+func optString(p *cfg.String) string {
+	if p == nil {
+		return ""
+	}
+	return p.Value
 }
 
 // EnvKeyConfig is the operator-facing body under

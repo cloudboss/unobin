@@ -1,10 +1,12 @@
 package runner
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/envencrypt"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/s3state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,7 +106,32 @@ func TestResolveBackendRejectsUnknownName(t *testing.T) {
 	_, err := resolveBackend(ref, "test-stack", "default", envencrypt.Noop{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `no backend named "ghost"`)
-	assert.Contains(t, err.Error(), "available: local")
+	assert.Contains(t, err.Error(), "available: local, s3")
+}
+
+func TestResolveBackendS3(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(dir, "credentials"))
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	ref := &resolverRef{Name: "s3", Body: map[string]any{
+		"bucket": "acme-state",
+		"prefix": "unobin",
+		"aws":    map[string]any{"region": "us-east-1"},
+	}}
+	b, err := resolveBackend(ref, "test-factory", "default", envencrypt.Noop{})
+	require.NoError(t, err)
+	require.IsType(t, &s3state.S3Store{}, b)
+}
+
+func TestResolveBackendS3RejectsUnknownKey(t *testing.T) {
+	ref := &resolverRef{Name: "s3", Body: map[string]any{
+		"bucket": "acme-state",
+		"region": "us-east-1",
+	}}
+	_, err := resolveBackend(ref, "test-factory", "default", envencrypt.Noop{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown key region")
 }
 
 func TestResolveBackendRejectsBadConfig(t *testing.T) {
