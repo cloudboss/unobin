@@ -1,5 +1,7 @@
+factory: {
+  inputs: { message: 'Hello from a UB library!', path: '/tmp/unobin-hello-library.txt' }
+}
+
 state: { @backend: local, path: '.unobin/state' }
 
 encryption: { @key-source: noop }
-
-inputs: { message: 'Hello from a UB library!', path: '/tmp/unobin-hello-library.txt' }

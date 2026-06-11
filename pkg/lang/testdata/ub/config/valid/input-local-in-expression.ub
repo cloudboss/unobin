@@ -3,8 +3,10 @@ locals: {
   count:  2
 }
 
-inputs: {
-  name:  $'app-{{local.region}}'
-  total: local.count + 1
-  big:   if local.count > 1 then 'yes' else 'no'
+factory: {
+  inputs: {
+    name:  $'app-{{local.region}}'
+    total: local.count + 1
+    big:   if local.count > 1 then 'yes' else 'no'
+  }
 }

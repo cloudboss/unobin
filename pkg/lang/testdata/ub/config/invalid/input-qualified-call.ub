@@ -1,1 +1,3 @@
-inputs: { x: core.format('hi') }
+factory: {
+  inputs: { x: core.format('hi') }
+}

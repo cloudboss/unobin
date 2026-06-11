@@ -32,7 +32,7 @@ func TestParseStateConfigNilFile(t *testing.T) {
 }
 
 func TestParseStateConfigAbsentBlock(t *testing.T) {
-	f := parseConfig(t, "inputs: { x: 1 }\n")
+	f := parseConfig(t, "factory: { inputs: { x: 1 } }\n")
 	sc, err := parseStateConfig(f, "config.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)

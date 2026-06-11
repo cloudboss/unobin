@@ -1,1 +1,3 @@
-inputs: { x: pick() }
+factory: {
+  inputs: { x: pick() }
+}

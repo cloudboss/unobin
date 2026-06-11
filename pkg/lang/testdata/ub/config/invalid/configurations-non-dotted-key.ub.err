@@ -1,1 +1,1 @@
-config.ub:1:19: schema: configuration must be declared with a dotted alias.name key
+config.ub:2:21: schema: configuration must be declared with a dotted alias.name key

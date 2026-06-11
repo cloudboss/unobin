@@ -1,0 +1,1 @@
+config.ub:1:40: schema: supported-versions entries are objects with version and content-revision, got string literal

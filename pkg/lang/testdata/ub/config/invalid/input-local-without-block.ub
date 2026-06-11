@@ -1,1 +1,3 @@
-inputs: { region: local.region }
+factory: {
+  inputs: { region: local.region }
+}

@@ -1,0 +1,3 @@
+locals: { lib: 'github.com/me/lib' }
+
+factory: { pin: { library-path: local.lib } }

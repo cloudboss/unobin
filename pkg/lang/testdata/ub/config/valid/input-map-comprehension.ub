@@ -1,1 +1,3 @@
-inputs: { m: { for n in [1, 2]: n => n } }
+factory: {
+  inputs: { m: { for n in [1, 2]: n => n } }
+}

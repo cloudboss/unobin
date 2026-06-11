@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -81,6 +80,10 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	if err != nil {
 		return nil, "", err
 	}
+	f.Kind = lang.FileConfig
+	if errs := lang.ValidateFile(f); errs.Len() > 0 {
+		return nil, "", errs.Err()
+	}
 	factoryField := findField(f.Body, "factory")
 	if factoryField == nil {
 		return prependFactoryBlock(src, libraryPath, version, revision)
@@ -89,31 +92,44 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	if !ok {
 		return nil, "", fmt.Errorf("`factory:` must be an object")
 	}
-	if mp := findField(factoryObj, "library-path"); mp != nil {
+	pinField := findField(factoryObj, "pin")
+	if pinField == nil {
+		out, err := spliceIntoBlock(src, factoryObj,
+			renderPinBlock(libraryPath, version, revision), "factory block")
+		if err != nil {
+			return nil, "", err
+		}
+		return out, pinActionAddedPin, nil
+	}
+	pinObj, ok := pinField.Value.(*lang.ObjectLit)
+	if !ok {
+		return nil, "", fmt.Errorf("`factory.pin:` must be an object")
+	}
+	if mp := findField(pinObj, "library-path"); mp != nil {
 		existing, ok := mp.Value.(*lang.StringLit)
 		if !ok {
-			return nil, "", fmt.Errorf("`factory.library-path` must be a string")
+			return nil, "", fmt.Errorf("`factory.pin.library-path` must be a string")
 		}
 		if libraryPath != "" && existing.Value != libraryPath {
 			return nil, "", fmt.Errorf(
-				"factory.library-path %q does not match this binary %q",
+				"factory.pin.library-path %q does not match this binary %q",
 				existing.Value, libraryPath)
 		}
 	}
-	svField := findField(factoryObj, "supported-versions")
+	svField := findField(pinObj, "supported-versions")
 	if svField == nil {
-		return fillFactoryBlock(src, factoryObj, libraryPath, version, revision)
+		return fillPinBlock(src, pinObj, libraryPath, version, revision)
 	}
 	svArr, ok := svField.Value.(*lang.ArrayLit)
 	if !ok {
-		return nil, "", fmt.Errorf("`factory.supported-versions` must be a list")
+		return nil, "", fmt.Errorf("`factory.pin.supported-versions` must be a list")
 	}
 	for _, el := range svArr.Elements {
 		if entryMatches(el, version, revision) {
 			return src, pinActionAlreadyPinned, nil
 		}
 	}
-	return appendVersionEntry(src, svField, svArr, version, revision)
+	return appendVersionEntry(src, svArr, version, revision)
 }
 
 func prependFactoryBlock(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
@@ -128,89 +144,73 @@ func prependFactoryBlock(src []byte, libraryPath, version, revision string) ([]b
 	return out, pinActionAddedFactoryBlock, nil
 }
 
-// fillFactoryBlock inserts the missing `supported-versions:` (and
+// fillPinBlock inserts the missing `supported-versions:` (and
 // `library-path:` if the binary has one and the block does not declare
-// it) into an existing `factory:` block. An empty block is rewritten to
-// canonical multi-line form so the new fields do not sit on the same
-// line as the opening brace.
-func fillFactoryBlock(
-	src []byte, factoryObj *lang.ObjectLit, libraryPath, version, revision string,
+// it) into an existing `factory.pin:` block.
+func fillPinBlock(
+	src []byte, pinObj *lang.ObjectLit, libraryPath, version, revision string,
 ) ([]byte, string, error) {
-	openIdx := factoryObj.S.Start.Offset
-	closeIdx := findMatchingClose(src, openIdx)
-	if closeIdx < 0 {
-		return nil, "", fmt.Errorf("could not locate closing `}` of factory block")
-	}
-	parentIndent := lineIndent(src, openIdx)
-	childInd := parentIndent + "  "
-	if len(factoryObj.Fields) > 0 {
-		childInd = lineIndent(src, factoryObj.Fields[0].S.Start.Offset)
-	}
 	var b strings.Builder
-	if libraryPath != "" && findField(factoryObj, "library-path") == nil {
-		fmt.Fprintf(&b, "%slibrary-path: '%s'\n", childInd, libraryPath)
+	if libraryPath != "" && findField(pinObj, "library-path") == nil {
+		fmt.Fprintf(&b, "library-path: '%s'\n", libraryPath)
 	}
-	fmt.Fprintf(&b, "%ssupported-versions: [\n%s  { version: '%s', content-revision: '%s' },\n%s]\n",
-		childInd, childInd, version, revision, childInd)
-	if len(factoryObj.Fields) == 0 {
-		return spliceReplace(src, openIdx+1, closeIdx, "\n"+b.String()+parentIndent),
-			pinActionAddedSupportedVersions, nil
+	fmt.Fprintf(&b, "supported-versions: [\n{ version: '%s', content-revision: '%s' },\n]\n",
+		version, revision)
+	out, err := spliceIntoBlock(src, pinObj, b.String(), "pin block")
+	if err != nil {
+		return nil, "", err
 	}
-	return spliceBefore(src, closeIdx, b.String()),
-		pinActionAddedSupportedVersions, nil
+	return out, pinActionAddedSupportedVersions, nil
 }
 
+// spliceIntoBlock inserts body on a new line after the object
+// literal's last content byte (the opening brace when the block is
+// empty). The result is parseable, not pretty: splice output reaches
+// disk through WriteCanonical, so the formatter owns indentation and
+// alignment, and the body's own line breaks are what keep its blocks
+// expanded. Inserting after the content rather than before the closing
+// brace avoids leaving a blank line, which the formatter would keep.
+// closeName names the block in the error when the closing brace cannot
+// be found.
+func spliceIntoBlock(src []byte, obj *lang.ObjectLit, body, closeName string) ([]byte, error) {
+	openIdx := obj.S.Start.Offset
+	closeIdx := findMatchingClose(src, openIdx)
+	if closeIdx < 0 {
+		return nil, fmt.Errorf("could not locate closing `}` of %s", closeName)
+	}
+	prev := closeIdx - 1
+	for prev > openIdx && isBlank(src[prev]) {
+		prev--
+	}
+	return spliceBefore(src, prev+1, "\n"+strings.TrimSuffix(body, "\n")), nil
+}
+
+func isBlank(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n'
+}
+
+// appendVersionEntry adds one entry to an existing supported-versions
+// list, giving the preceding entry the comma the array grammar needs
+// when its source text lacks one. The entry goes on its own new line
+// directly after the last content byte, so an empty list comes out
+// author-expanded and no blank line is left for the formatter to keep.
 func appendVersionEntry(
-	src []byte, svField *lang.Field, svArr *lang.ArrayLit, version, revision string,
+	src []byte, svArr *lang.ArrayLit, version, revision string,
 ) ([]byte, string, error) {
 	openIdx := svArr.S.Start.Offset
 	closeIdx := findMatchingClose(src, openIdx)
 	if closeIdx < 0 {
 		return nil, "", fmt.Errorf("could not locate closing `]` of supported-versions")
 	}
-	entry := fmt.Sprintf("{ version: '%s', content-revision: '%s' }", version, revision)
-	base := lineIndent(src, svField.S.Start.Offset)
-	// An empty or inline list is rewritten to the canonical multi-line
-	// form. Inserting before the `]` of a single-line list would leave the
-	// new entry as a bare object beside the field. Each existing entry
-	// keeps its own source text.
-	if len(svArr.Elements) == 0 || bytes.IndexByte(src[openIdx:closeIdx], '\n') < 0 {
-		var b strings.Builder
-		b.WriteByte('\n')
-		for _, el := range svArr.Elements {
-			sp := el.Span()
-			fmt.Fprintf(&b, "%s  %s,\n", base, src[sp.Start.Offset:sp.End.Offset])
-		}
-		fmt.Fprintf(&b, "%s  %s,\n%s", base, entry, base)
-		return spliceReplace(src, openIdx+1, closeIdx, b.String()),
-			pinActionAppendedEntry, nil
+	prev := closeIdx - 1
+	for prev > openIdx && isBlank(src[prev]) {
+		prev--
 	}
-	entryIndent := lineIndent(src, svArr.Elements[0].Span().Start.Offset)
-	// Walk back from `]` to the start of its line.
-	closeLineStart := closeIdx
-	for closeLineStart > 0 && src[closeLineStart-1] != '\n' {
-		closeLineStart--
+	insert := fmt.Sprintf("\n{ version: '%s', content-revision: '%s' },", version, revision)
+	if src[prev] != '[' && src[prev] != ',' {
+		insert = "," + insert
 	}
-	// Find the previous non-whitespace byte; if it is not a comma, the
-	// preceding entry needs one before we add ours.
-	prev := closeLineStart - 1
-	for prev > 0 {
-		c := src[prev]
-		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
-			prev--
-			continue
-		}
-		break
-	}
-	out := src
-	insertAt := closeLineStart
-	if prev >= 0 && src[prev] != ',' {
-		out = spliceBefore(out, prev+1, ",")
-		insertAt++
-	}
-	insert := fmt.Sprintf("%s%s,\n", entryIndent, entry)
-	out = spliceBefore(out, insertAt, insert)
-	return out, pinActionAppendedEntry, nil
+	return spliceBefore(src, prev+1, insert), pinActionAppendedEntry, nil
 }
 
 // entryMatches reports whether el is an object literal whose `version`
@@ -259,6 +259,7 @@ func spliceReplace(src []byte, start, end int, text string) []byte {
 
 const (
 	pinActionAddedFactoryBlock      = "added factory block"
+	pinActionAddedPin               = "added pin block"
 	pinActionAddedSupportedVersions = "added supported-versions"
 	pinActionAppendedEntry          = "appended entry"
 	pinActionAlreadyPinned          = "already pinned"
@@ -326,33 +327,23 @@ func findMatchingClose(src []byte, openIdx int) int {
 	return -1
 }
 
-// lineIndent returns the run of spaces and tabs at the start of the
-// line containing offset.
-func lineIndent(src []byte, offset int) string {
-	start := offset
-	for start > 0 && src[start-1] != '\n' {
-		start--
+// renderPinBlock returns the `pin:` sub-block as a draft for the
+// formatter: line breaks mark the blocks that stay expanded, and
+// indentation is left to Canonicalize.
+func renderPinBlock(libraryPath, version, revision string) string {
+	var b strings.Builder
+	b.WriteString("pin: {\n")
+	if libraryPath != "" {
+		fmt.Fprintf(&b, "library-path: '%s'\n", libraryPath)
 	}
-	end := start
-	for end < len(src) && (src[end] == ' ' || src[end] == '\t') {
-		end++
-	}
-	return string(src[start:end])
+	fmt.Fprintf(&b, "supported-versions: [\n{ version: '%s', content-revision: '%s' },\n]\n",
+		version, revision)
+	b.WriteString("}\n")
+	return b.String()
 }
 
-// renderFactoryBlock returns the canonical full `factory:` block. The
-// closing newline is included; callers append their own separator if
-// they want a blank line between this block and the rest of the file.
-// Entries always carry a trailing comma so the canonical shape matches
-// the form `pin` produces when it appends later.
+// renderFactoryBlock returns a draft `factory:` block with its pin
+// sub-block, in the same formatter-bound form as renderPinBlock.
 func renderFactoryBlock(libraryPath, version, revision string) string {
-	var b strings.Builder
-	b.WriteString("factory: {\n")
-	if libraryPath != "" {
-		fmt.Fprintf(&b, "  library-path: '%s'\n", libraryPath)
-	}
-	fmt.Fprintf(&b,
-		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",
-		version, revision)
-	return b.String()
+	return "factory: {\n" + renderPinBlock(libraryPath, version, revision) + "}\n"
 }

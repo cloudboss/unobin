@@ -1,1 +1,3 @@
-inputs: { size: 5, spot: true }
+factory: {
+  inputs: { size: 5, spot: true }
+}

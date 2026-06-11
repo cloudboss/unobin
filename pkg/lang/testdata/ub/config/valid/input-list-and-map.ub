@@ -1,1 +1,3 @@
-inputs: { ports: [80, 443], tags: { env: 'prod' } }
+factory: {
+  inputs: { ports: [80, 443], tags: { env: 'prod' } }
+}

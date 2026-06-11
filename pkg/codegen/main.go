@@ -16,8 +16,8 @@ import (
 // `main.go`. Body is the literal factory source the binary embeds and
 // parses on each invocation. LibraryPath is the binary's library-path
 // identity, the same form Go libraries use; the operator's `config.ub`
-// asserts the same value under `factory.library-path` and plan, refresh,
-// and validate refuse on mismatch. An empty LibraryPath disables that
+// asserts the same value under `factory.pin.library-path` and plan,
+// refresh, and validate refuse on mismatch. An empty LibraryPath disables that
 // identity check. The version and content-revision are not generated
 // here; compile stamps them into the built binary with -ldflags so the
 // generated source stays a pure function of the factory content.

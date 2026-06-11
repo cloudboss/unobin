@@ -1,1 +1,3 @@
-inputs: { s: $'n={{1}}' }
+factory: {
+  inputs: { s: $'n={{1}}' }
+}

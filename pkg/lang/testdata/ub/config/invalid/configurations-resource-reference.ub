@@ -1,1 +1,3 @@
-configurations: { aws.default: { region: resource.a.b.c } }
+factory: {
+  configurations: { aws.default: { region: resource.a.b.c } }
+}

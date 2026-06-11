@@ -8,4 +8,6 @@ locals: {
   }
 }
 
-inputs: { region: 'us-east-1' }
+factory: {
+  inputs: { region: 'us-east-1' }
+}

@@ -1,1 +1,3 @@
-configurations: { aws: { default: { region: 'x' } } }
+factory: {
+  configurations: { aws: { default: { region: 'x' } } }
+}

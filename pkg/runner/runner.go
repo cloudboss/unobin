@@ -774,32 +774,27 @@ func loadParallelism(f *lang.File, path string) (int, error) {
 	return 0, nil
 }
 
-// loadConfigInputs extracts the `inputs:` block from a pre-parsed
-// config. A nil file returns an empty map with no error. path is
-// preserved only for error messages.
+// loadConfigInputs extracts the `factory.inputs:` block from a
+// pre-parsed config. A nil file returns an empty map with no error.
+// path is preserved only for error messages.
 func loadConfigInputs(f *lang.File, path string) (map[string]any, error) {
-	if f == nil {
+	obj, err := factoryChildObject(f, path, "inputs")
+	if err != nil {
+		return nil, err
+	}
+	if obj == nil {
 		return map[string]any{}, nil
 	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "inputs" {
-			continue
-		}
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			return nil, fmt.Errorf("config %s: `inputs:` must be an object", path)
-		}
-		val, err := runtime.Eval(obj, runtime.NewEvalContext(f))
-		if err != nil {
-			return nil, fmt.Errorf("config %s: %w", path, err)
-		}
-		out, ok := val.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("config %s: `inputs:` evaluated to %T, want map", path, val)
-		}
-		return out, nil
+	val, err := runtime.Eval(obj, runtime.NewEvalContext(f))
+	if err != nil {
+		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
-	return map[string]any{}, nil
+	out, ok := val.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf(
+			"config %s: `factory.inputs:` evaluated to %T, want map", path, val)
+	}
+	return out, nil
 }
 
 // applyEnvOverrides reads UB_VAR_<name> environment variables and writes

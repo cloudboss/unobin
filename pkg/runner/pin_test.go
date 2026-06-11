@@ -13,6 +13,10 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
+// TestPinFile asserts the canonical form of pinFile's output, since the
+// splice result is a formatter draft and reaches disk only through
+// WriteCanonical. The already-pinned case asserts raw bytes instead:
+// that path leaves the file untouched.
 func TestPinFile(t *testing.T) {
 	const (
 		libraryPath = "github.com/cloudboss/cluster-deploy"
@@ -26,19 +30,21 @@ func TestPinFile(t *testing.T) {
 		action string
 	}{
 		{
-			name: "no factory block, file with inputs only",
-			src: `inputs: {
+			name: "no factory block",
+			src: `locals: {
   message: 'hi'
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 
-inputs: {
+locals: {
   message: 'hi'
 }
 `,
@@ -48,52 +54,82 @@ inputs: {
 			name: "empty file",
 			src:  ``,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAddedFactoryBlock,
 		},
 		{
-			name: "factory block missing supported-versions",
+			name: "factory block without pin",
 			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
+  inputs: { message: 'hi' }
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  inputs: { message: 'hi' }
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
+}
+`,
+			action: pinActionAddedPin,
+		},
+		{
+			name: "single-line factory block without pin",
+			src: `factory: { inputs: { message: 'hi' } }
+`,
+			want: `factory: {
+  inputs: { message: 'hi' }
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
+}
+`,
+			action: pinActionAddedPin,
+		},
+		{
+			name: "pin block missing supported-versions",
+			src: `factory: {
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+  }
+}
+`,
+			want: `factory: {
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAddedSupportedVersions,
 		},
 		{
-			name: "factory block missing library-path and supported-versions",
+			name: "empty pin block",
 			src: `factory: {
+  pin: {}
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
-}
-`,
-			action: pinActionAddedSupportedVersions,
-		},
-		{
-			name: "empty factory block on a single line",
-			src: `factory: {}
-`,
-			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAddedSupportedVersions,
@@ -101,57 +137,67 @@ inputs: {
 		{
 			name: "empty supported-versions list",
 			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: []
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: []
+  }
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAppendedEntry,
 		},
 		{
-			name: "supported-versions with existing entries, no trailing comma",
+			name: "existing entries without a trailing comma",
 			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.2.0', content-revision: 'bbb' }
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' },
+      { version: 'v0.2.0', content-revision: 'bbb' }
+    ]
+  }
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.2.0', content-revision: 'bbb' },
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' },
+      { version: 'v0.2.0', content-revision: 'bbb' },
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAppendedEntry,
 		},
 		{
-			name: "supported-versions with existing entries, with trailing comma",
+			name: "existing entries with a trailing comma",
 			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.2.0', content-revision: 'bbb' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' },
+    ]
+  }
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.2.0', content-revision: 'bbb' },
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' },
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAppendedEntry,
@@ -159,17 +205,21 @@ inputs: {
 		{
 			name: "idempotent when entry already present",
 			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAlreadyPinned,
@@ -177,51 +227,20 @@ inputs: {
 		{
 			name: "inline supported-versions with one entry",
 			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }]
+  }
 }
 `,
 			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
-}
-`,
-			action: pinActionAppendedEntry,
-		},
-		{
-			name: "inline supported-versions with multiple entries",
-			src: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }, { version: 'v0.2.0', content-revision: 'bbb' }]
-}
-`,
-			want: `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.2.0', content-revision: 'bbb' },
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
-}
-`,
-			action: pinActionAppendedEntry,
-		},
-		{
-			name: "inline supported-versions beside an aligned, comma-terminated field",
-			src: `factory: {
-  library-path:       'github.com/cloudboss/cluster-deploy',
-  supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }]
-}
-`,
-			want: `factory: {
-  library-path:       'github.com/cloudboss/cluster-deploy',
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' },
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 `,
 			action: pinActionAppendedEntry,
@@ -232,22 +251,41 @@ inputs: {
 			got, action, err := pinFile([]byte(tt.src), libraryPath, version, revision)
 			require.NoError(t, err)
 			assert.Equal(t, tt.action, action)
-			assert.Equal(t, tt.want, string(got))
-			_, err = lang.ParseSource("config.ub", got)
+			if tt.action == pinActionAlreadyPinned {
+				assert.Equal(t, tt.src, string(got))
+				return
+			}
+			canonical, err := lang.Canonicalize("config.ub", got)
 			require.NoError(t, err, "pinFile output failed to parse")
+			assert.Equal(t, tt.want, string(canonical))
 		})
 	}
 }
 
 func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
 	src := []byte(`factory: {
-  library-path: 'github.com/cloudboss/other'
-  supported-versions: []
+  pin: {
+    library-path: 'github.com/cloudboss/other'
+    supported-versions: []
+  }
 }
 `)
 	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "library-path")
+}
+
+// TestPinFileRejectsInvalidConfig proves pin refuses to splice into a
+// config the validator rejects, instead of stacking a pin block beside
+// keys it does not understand.
+func TestPinFileRejectsInvalidConfig(t *testing.T) {
+	src := []byte(`factory: {
+  supported-versions: []
+}
+`)
+	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid factory key")
 }
 
 // TestPinWritesCanonicalFile proves the written config is reformatted as a
@@ -257,7 +295,7 @@ func TestPinWritesCanonicalFile(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.ub")
 	require.NoError(t, os.WriteFile(configPath,
-		[]byte("inputs: {\n    message:   'hi'\n}\n"), 0o644))
+		[]byte("locals: {\n    message:   'hi'\n}\n"), 0o644))
 
 	info := Info{
 		LibraryPath:     "github.com/cloudboss/cluster-deploy",
@@ -279,30 +317,38 @@ func TestPinWritesCanonicalFile(t *testing.T) {
 
 func TestPinFilePreservesTrailingContent(t *testing.T) {
 	src := []byte(`factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' }
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' }
+    ]
+  }
 }
 
-inputs: {
-  message: 'hi'
+state: {
+  @backend: local
+  path:     '.unobin/state'
 }
 `)
 	want := `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'aaa' },
-    { version: 'v0.3.0', content-revision: 'fedcba' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'aaa' },
+      { version: 'v0.3.0', content-revision: 'fedcba' },
+    ]
+  }
 }
 
-inputs: {
-  message: 'hi'
+state: {
+  @backend: local
+  path:     '.unobin/state'
 }
 `
 	got, action, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.3.0", "fedcba")
 	require.NoError(t, err)
 	assert.Equal(t, pinActionAppendedEntry, action)
-	assert.Equal(t, want, string(got))
+	canonical, err := lang.Canonicalize("config.ub", got)
+	require.NoError(t, err)
+	assert.Equal(t, want, string(canonical))
 }

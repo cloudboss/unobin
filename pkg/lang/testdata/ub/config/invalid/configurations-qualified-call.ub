@@ -1,1 +1,3 @@
-configurations: { aws.default: { region: core.format('x') } }
+factory: {
+  configurations: { aws.default: { region: core.format('x') } }
+}

@@ -1,8 +1,10 @@
+factory: {
+  inputs: {
+    base-path: '/tmp/unobin-for-each'
+    files:     { alpha: 'first message', beta: 'second message' }
+  }
+}
+
 state: { @backend: local, path: '.unobin/state' }
 
 encryption: { @key-source: noop }
-
-inputs: {
-  base-path: '/tmp/unobin-for-each'
-  files:     { alpha: 'first message', beta: 'second message' }
-}

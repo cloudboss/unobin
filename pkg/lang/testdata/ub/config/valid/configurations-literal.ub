@@ -1,1 +1,3 @@
-configurations: { aws.default: { region: 'us-east-1' } }
+factory: {
+  configurations: { aws.default: { region: 'us-east-1' } }
+}

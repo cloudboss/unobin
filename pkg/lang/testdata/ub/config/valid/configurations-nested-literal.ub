@@ -1,1 +1,3 @@
-configurations: { aws.default: { zones: ['a', 'b'], tags: { env: 'prod' } } }
+factory: {
+  configurations: { aws.default: { zones: ['a', 'b'], tags: { env: 'prod' } } }
+}

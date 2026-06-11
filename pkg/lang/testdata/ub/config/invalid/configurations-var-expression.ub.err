@@ -1,3 +1,3 @@
-config.ub:3:18: resolve: config values must be static, but var.region is a reference
-config.ub:4:17: resolve: config values must be static, but var.prod is a reference
-config.ub:5:14: resolve: config values must be static, but var.tags is a reference
+config.ub:4:20: resolve: config values must be static, but var.region is a reference
+config.ub:5:19: resolve: config values must be static, but var.prod is a reference
+config.ub:6:16: resolve: config values must be static, but var.tags is a reference

@@ -205,53 +205,66 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 	return ufs.WriteFileAtomic(outPath, formatted, 0o644)
 }
 
+// renderSchemaTemplate emits a draft config for the formatter:
+// Canonicalize owns indentation and alignment, so the draft spells only
+// the structure, with line breaks marking the blocks that stay
+// expanded.
 func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
-	fmt.Fprint(out, renderFactoryBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
+	fmt.Fprintln(out, "factory: {")
+	fmt.Fprint(out, renderPinBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
+	renderConfigurationsTemplate(out, f, dag, info)
+	renderInputsTemplate(out, f)
+	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "state: {")
-	fmt.Fprintln(out, "  @backend: local")
-	fmt.Fprintln(out, "  path: '.unobin/state'")
+	fmt.Fprintln(out, "@backend: local")
+	fmt.Fprintln(out, "path: '.unobin/state'")
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "encryption: {")
-	fmt.Fprintln(out, "  @key-source: noop")
+	fmt.Fprintln(out, "@key-source: noop")
 	fmt.Fprintln(out, "}")
+}
+
+// renderInputsTemplate scaffolds the factory.inputs block: one
+// placeholder line per declared input, with its description and type
+// alongside.
+func renderInputsTemplate(out io.Writer, f *lang.File) {
 	inputs := topLevelObject(f, "inputs")
-	if inputs != nil && len(inputs.Fields) > 0 {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, "inputs: {")
-		for _, fld := range inputs.Fields {
-			if fld.Key.Kind != lang.FieldIdent {
-				continue
-			}
-			decl, ok := fld.Value.(*lang.ObjectLit)
-			if !ok {
-				continue
-			}
-			var typeExpr lang.Expr
-			var description string
-			for _, df := range decl.Fields {
-				if df.Key.Kind != lang.FieldIdent {
-					continue
-				}
-				switch df.Key.Name {
-				case "type":
-					typeExpr = df.Value
-				case "description":
-					if s, ok := df.Value.(*lang.StringLit); ok {
-						description = s.Value
-					}
-				}
-			}
-			if description != "" {
-				fmt.Fprintf(out, "  # %s\n", description)
-			}
-			fmt.Fprintf(out, "  %s: %s  # type: %s\n",
-				fld.Key.Name, placeholderForType(typeExpr), printType(typeExpr))
-		}
-		fmt.Fprintln(out, "}")
+	if inputs == nil || len(inputs.Fields) == 0 {
+		return
 	}
-	renderConfigurationsTemplate(out, f, dag, info)
+	fmt.Fprintln(out, "inputs: {")
+	for _, fld := range inputs.Fields {
+		if fld.Key.Kind != lang.FieldIdent {
+			continue
+		}
+		decl, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		var typeExpr lang.Expr
+		var description string
+		for _, df := range decl.Fields {
+			if df.Key.Kind != lang.FieldIdent {
+				continue
+			}
+			switch df.Key.Name {
+			case "type":
+				typeExpr = df.Value
+			case "description":
+				if s, ok := df.Value.(*lang.StringLit); ok {
+					description = s.Value
+				}
+			}
+		}
+		if description != "" {
+			fmt.Fprintf(out, "# %s\n", description)
+		}
+		fmt.Fprintf(out, "%s: %s  # type: %s\n",
+			fld.Key.Name, placeholderForType(typeExpr), printType(typeExpr))
+	}
+	fmt.Fprintln(out, "}")
 }
 
 // renderConfigurationsTemplate scaffolds the configurations the
@@ -272,14 +285,13 @@ func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG,
 		return
 	}
 	slices.Sort(aliases)
-	fmt.Fprintln(out)
 	fmt.Fprintln(out, "configurations: {")
 	for _, alias := range aliases {
 		fields := cfg.Describe(info.Libraries[alias].Configuration)
 		for _, name := range owedByAlias[alias] {
-			fmt.Fprintf(out, "  %s.%s: {\n", alias, name)
-			writeTemplateFields(out, fields, "    ")
-			fmt.Fprintln(out, "  }")
+			fmt.Fprintf(out, "%s.%s: {\n", alias, name)
+			writeTemplateFields(out, fields)
+			fmt.Fprintln(out, "}")
 		}
 	}
 	fmt.Fprintln(out, "}")
@@ -290,20 +302,20 @@ func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG,
 // its own fields inside; its type comment goes on its own line above
 // the field, so optionality stays visible where the canonical form
 // keeps it.
-func writeTemplateFields(out io.Writer, fields []cfg.Field, indent string) {
+func writeTemplateFields(out io.Writer, fields []cfg.Field) {
 	for _, fl := range fields {
 		if fl.Description != "" {
-			fmt.Fprintf(out, "%s# %s\n", indent, fl.Description)
+			fmt.Fprintf(out, "# %s\n", fl.Description)
 		}
 		if len(fl.Fields) > 0 {
-			fmt.Fprintf(out, "%s# type: %s\n", indent, fieldTypeLabel(fl))
-			fmt.Fprintf(out, "%s%s: {\n", indent, fl.Name)
-			writeTemplateFields(out, fl.Fields, indent+"  ")
-			fmt.Fprintf(out, "%s}\n", indent)
+			fmt.Fprintf(out, "# type: %s\n", fieldTypeLabel(fl))
+			fmt.Fprintf(out, "%s: {\n", fl.Name)
+			writeTemplateFields(out, fl.Fields)
+			fmt.Fprintln(out, "}")
 			continue
 		}
-		fmt.Fprintf(out, "%s%s: %s  # type: %s\n",
-			indent, fl.Name, placeholderForFieldType(fl.Type), fieldTypeLabel(fl))
+		fmt.Fprintf(out, "%s: %s  # type: %s\n",
+			fl.Name, placeholderForFieldType(fl.Type), fieldTypeLabel(fl))
 	}
 }
 

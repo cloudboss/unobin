@@ -1,1 +1,3 @@
-inputs: { x: somename }
+factory: {
+  inputs: { x: somename }
+}

@@ -10,11 +10,11 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
-// loadConfigurations extracts the `configurations:` block from a pre-
-// parsed config, decodes every alias under each import, and returns
-// both the decoded table (for the executor) and the raw form (for
-// plan-file storage). The outer key is the import alias; the inner
-// key is the configuration alias name. Values may reference the
+// loadConfigurations extracts the `factory.configurations:` block from
+// a pre-parsed config, decodes every alias under each import, and
+// returns both the decoded table (for the executor) and the raw form
+// (for plan-file storage). The outer key is the import alias; the
+// inner key is the configuration alias name. Values may reference the
 // file's locals, which resolve at load, so the raw form is already
 // concrete by the time it reaches a plan file.
 // internal names the configurations the factory defines in source; an
@@ -30,15 +30,16 @@ func loadConfigurations(
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
-	if f != nil {
-		block := topLevelObject(f, "configurations")
-		if block != nil {
-			loaded, err := readConfigurationsBlock(path, block, runtime.NewEvalContext(f))
-			if err != nil {
-				return nil, nil, err
-			}
-			rawByImport = loaded
+	block, err := factoryChildObject(f, path, "configurations")
+	if err != nil {
+		return nil, nil, err
+	}
+	if block != nil {
+		loaded, err := readConfigurationsBlock(path, block, runtime.NewEvalContext(f))
+		if err != nil {
+			return nil, nil, err
 		}
+		rawByImport = loaded
 	}
 
 	if err := rejectInternalNames(path, rawByImport, internal); err != nil {
@@ -78,7 +79,7 @@ func rejectInternalNames(
 		for _, name := range names {
 			if internal[alias][name] {
 				errs = append(errs, fmt.Errorf(
-					"%s: configurations.%s.%s: defined internally by the factory; "+
+					"%s: factory.configurations.%s.%s: defined internally by the factory; "+
 						"remove this entry from config.ub", path, alias, name))
 			}
 		}
@@ -166,7 +167,7 @@ func readConfigurationsBlock(
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
 			errs = append(errs, fmt.Errorf(
-				"%s: configurations entries must be keyed by a dotted alias.name path",
+				"%s: factory.configurations entries must be keyed by a dotted alias.name path",
 				configPath))
 			continue
 		}
@@ -174,13 +175,13 @@ func readConfigurationsBlock(
 		val, err := runtime.Eval(fld.Value, ctx)
 		if err != nil {
 			errs = append(errs, fmt.Errorf(
-				"%s: configurations.%s.%s: %w", configPath, importAlias, name, err))
+				"%s: factory.configurations.%s.%s: %w", configPath, importAlias, name, err))
 			continue
 		}
 		m, ok := val.(map[string]any)
 		if !ok {
 			errs = append(errs, fmt.Errorf(
-				"%s: configurations.%s.%s must be a map", configPath, importAlias, name))
+				"%s: factory.configurations.%s.%s must be a map", configPath, importAlias, name))
 			continue
 		}
 		if out[importAlias] == nil {

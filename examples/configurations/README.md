@@ -54,9 +54,10 @@ The plan-time validator catches misuse before any work happens:
   `@configuration greet.formel: configuration not declared`.
 - Remove the `default` entry while something still uses it: the node that
   does reports `library "greet" requires a configuration; define
-  configurations.greet.default in config.ub or in the factory`.
-- Supply a value for an internal name: `configurations.greet.fancy` in
-  config.ub produces `defined internally by the factory; remove this entry
-  from config.ub`.
+  greet.default under factory.configurations in config.ub or under
+  configurations in the factory`.
+- Supply a value for an internal name: `factory.configurations.greet.fancy`
+  in config.ub produces `defined internally by the factory; remove this
+  entry from config.ub`.
 - Cross-import remap: `@configurations: { greet: aws.formal }` produces
   `@configurations.greet: right-hand side import "aws" must match the key`.

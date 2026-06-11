@@ -1,1 +1,3 @@
-configurations: { aws.default: { region: if true then 'a' else 'b' } }
+factory: {
+  configurations: { aws.default: { region: if true then 'a' else 'b' } }
+}

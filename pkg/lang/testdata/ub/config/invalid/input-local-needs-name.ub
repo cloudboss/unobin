@@ -1,3 +1,5 @@
 locals: { region: 'us-east-1' }
 
-inputs: { region: local['region'] }
+factory: {
+  inputs: { region: local['region'] }
+}

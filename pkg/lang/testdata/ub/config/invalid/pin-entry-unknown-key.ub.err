@@ -1,0 +1,2 @@
+config.ub:1:40: schema: a supported-versions entry must have a content-revision
+config.ub:1:57: schema: a supported-versions entry holds only version and content-revision

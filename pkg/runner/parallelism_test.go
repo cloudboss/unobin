@@ -19,7 +19,7 @@ func TestLoadParallelismNilFile(t *testing.T) {
 }
 
 func TestLoadParallelismAbsentField(t *testing.T) {
-	path := parseForTest(t, `inputs: { region: 'us-east-1' }`)
+	path := parseForTest(t, `factory: { inputs: { region: 'us-east-1' } }`)
 	f, err := parseConfigFile(path)
 	require.NoError(t, err)
 	got, err := loadParallelism(f, path)
@@ -29,7 +29,7 @@ func TestLoadParallelismAbsentField(t *testing.T) {
 
 func TestLoadParallelismValid(t *testing.T) {
 	path := parseForTest(t, `parallelism: 5
-inputs: { region: 'us-east-1' }
+factory: { inputs: { region: 'us-east-1' } }
 `)
 	f, err := parseConfigFile(path)
 	require.NoError(t, err)
@@ -40,7 +40,7 @@ inputs: { region: 'us-east-1' }
 
 func TestLoadParallelismRejectsZero(t *testing.T) {
 	path := parseForTest(t, `parallelism: 0
-inputs: { region: 'us-east-1' }
+factory: { inputs: { region: 'us-east-1' } }
 `)
 	f, err := parseConfigFile(path)
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ inputs: { region: 'us-east-1' }
 
 func TestLoadParallelismRejectsNonInt(t *testing.T) {
 	path := parseForTest(t, `parallelism: 'lots'
-inputs: { region: 'us-east-1' }
+factory: { inputs: { region: 'us-east-1' } }
 `)
 	_, err := parseConfigFile(path)
 	require.Error(t, err)

@@ -39,10 +39,12 @@ func awsModuleNoConfig() *runtime.Library {
 
 func TestLoadConfigurationsDecodesDefault(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {
-    region:  'us-east-1'
-    profile: 'prod'
+factory: {
+  configurations: {
+    aws.default: {
+      region:  'us-east-1'
+      profile: 'prod'
+    }
   }
 }
 `)
@@ -57,9 +59,11 @@ configurations: {
 
 func TestLoadConfigurationsAppliesDefaultsWhenAbsent(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {
-    region: 'us-east-1'
+factory: {
+  configurations: {
+    aws.default: {
+      region: 'us-east-1'
+    }
   }
 }
 `)
@@ -81,8 +85,10 @@ func TestLoadConfigurationsAllowsAbsentConfigurations(t *testing.T) {
 
 func TestLoadConfigurationsAllowsBlockMissingForModule(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  other.default: { region: 'us-west-2' }
+factory: {
+  configurations: {
+    other.default: { region: 'us-west-2' }
+  }
 }
 `)
 	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
@@ -96,8 +102,10 @@ configurations: {
 
 func TestLoadConfigurationsErrorsOnUnknownImportAlias(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  ghost.default: {}
+factory: {
+  configurations: {
+    ghost.default: {}
+  }
 }
 `)
 	_, _, err := loadConfigurations(
@@ -109,8 +117,10 @@ configurations: {
 
 func TestLoadConfigurationsErrorsWhenModuleHasNoConfiguration(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {}
+factory: {
+  configurations: {
+    aws.default: {}
+  }
 }
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
@@ -122,9 +132,11 @@ configurations: {
 
 func TestLoadConfigurationsAllowsMissingDefault(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.east2: {
-    region: 'us-east-2'
+factory: {
+  configurations: {
+    aws.east2: {
+      region: 'us-east-2'
+    }
   }
 }
 `)
@@ -137,9 +149,11 @@ configurations: {
 
 func TestLoadConfigurationsErrorsOnInvalidValues(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {
-    region: 12345
+factory: {
+  configurations: {
+    aws.default: {
+      region: 12345
+    }
   }
 }
 `)
@@ -160,14 +174,16 @@ func TestLoadConfigurationsReturnsNilWhenNoModuleNeedsOne(t *testing.T) {
 
 func TestLoadConfigurationsDecodesMultipleAliases(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {
-    region:  'us-east-1'
-    profile: 'prod'
-  }
-  aws.east2: {
-    region:  'us-east-2'
-    profile: 'prod'
+factory: {
+  configurations: {
+    aws.default: {
+      region:  'us-east-1'
+      profile: 'prod'
+    }
+    aws.east2: {
+      region:  'us-east-2'
+      profile: 'prod'
+    }
   }
 }
 `)
@@ -186,9 +202,11 @@ configurations: {
 
 func TestParseConfigRejectsInputReferenceInConfigurations(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {
-    region: var.region
+factory: {
+  configurations: {
+    aws.default: {
+      region: var.region
+    }
   }
 }
 `)
@@ -200,12 +218,14 @@ configurations: {
 
 func TestLoadConfigurationsErrorsWhenAnyAliasFailsToDecode(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: {
-    region: 'us-east-1'
-  }
-  aws.bad: {
-    region: 12345
+factory: {
+  configurations: {
+    aws.default: {
+      region: 'us-east-1'
+    }
+    aws.bad: {
+      region: 12345
+    }
   }
 }
 `)
@@ -218,16 +238,18 @@ configurations: {
 
 func TestLoadConfigurationsRejectsInternalName(t *testing.T) {
 	path := writeConfig(t, `
-configurations: {
-  aws.default: { region: 'us-east-1' }
-  aws.cluster: { region: 'us-east-1' }
+factory: {
+  configurations: {
+    aws.default: { region: 'us-east-1' }
+    aws.cluster: { region: 'us-east-1' }
+  }
 }
 `)
 	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, map[string]map[string]bool{"aws": {"cluster": true}})
 	require.Error(t, err)
-	require.Equal(t, path+": configurations.aws.cluster: defined internally by the factory; "+
+	require.Equal(t, path+": factory.configurations.aws.cluster: defined internally by the factory; "+
 		"remove this entry from config.ub", err.Error())
 }
 
@@ -235,10 +257,12 @@ func TestLoadConfigurationsResolvesLocals(t *testing.T) {
 	path := writeConfig(t, `
 locals: { region: 'us-east-1', team: 'core' }
 
-configurations: {
-  aws.default: {
-    region:  local.region
-    profile: local.team
+factory: {
+  configurations: {
+    aws.default: {
+      region:  local.region
+      profile: local.team
+    }
   }
 }
 `)

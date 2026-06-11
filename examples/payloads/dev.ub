@@ -1,16 +1,18 @@
+factory: {
+  inputs: {
+    base-path: '/tmp'
+    policy: { version: '2012-10-17', statements: [{ effect: 'allow', actions: ['s3:GetObject'] }] }
+    event: {
+      kind:    'deploy'
+      id:      'rollout-7'
+      # Neither field below is declared in the stack: open keeps them,
+      # and they reach the event file.
+      region:  'us-east-1'
+      attempt: 2
+    }
+  }
+}
+
 state: { @backend: local, path: '.unobin/state' }
 
 encryption: { @key-source: noop }
-
-inputs: {
-  base-path: '/tmp'
-  policy:    { version: '2012-10-17', statements: [{ effect: 'allow', actions: ['s3:GetObject'] }] }
-  event: {
-    kind:    'deploy'
-    id:      'rollout-7'
-    # Neither field below is declared in the stack: open keeps them,
-    # and they reach the event file.
-    region:  'us-east-1'
-    attempt: 2
-  }
-}

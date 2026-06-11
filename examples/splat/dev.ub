@@ -1,16 +1,18 @@
+factory: {
+  inputs: {
+    path: '/tmp/unobin-splat.txt'
+    subnets: [
+      { id: 'subnet-a', cidr: '10.0.0.0/24', az: 'us-east-1a', public: true },
+      { id: 'subnet-b', cidr: '10.0.1.0/24', az: 'us-east-1b', public: false },
+      { id: 'subnet-c', cidr: '10.0.2.0/24', az: 'us-east-1a', public: true },
+    ]
+    zones: [
+      { name: 'us-east-1a', hosts: [{ ip: '10.0.0.10' }, { ip: '10.0.0.11' }] },
+      { name: 'us-east-1b', hosts: [{ ip: '10.0.1.10' }] },
+    ]
+  }
+}
+
 state: { @backend: local, path: '.unobin/state' }
 
 encryption: { @key-source: noop }
-
-inputs: {
-  path: '/tmp/unobin-splat.txt'
-  subnets: [
-    { id: 'subnet-a', cidr: '10.0.0.0/24', az: 'us-east-1a', public: true },
-    { id: 'subnet-b', cidr: '10.0.1.0/24', az: 'us-east-1b', public: false },
-    { id: 'subnet-c', cidr: '10.0.2.0/24', az: 'us-east-1a', public: true },
-  ]
-  zones: [
-    { name: 'us-east-1a', hosts: [{ ip: '10.0.0.10' }, { ip: '10.0.0.11' }] },
-    { name: 'us-east-1b', hosts: [{ ip: '10.0.1.10' }] },
-  ]
-}

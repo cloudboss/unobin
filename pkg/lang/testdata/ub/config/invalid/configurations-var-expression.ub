@@ -1,7 +1,9 @@
-configurations: {
-  aws.default: {
-    region:  $'{{var.region}}-x'
-    profile: if var.prod then 'prod' else 'dev'
-    team:    var.tags['team']
+factory: {
+  configurations: {
+    aws.default: {
+      region:  $'{{var.region}}-x'
+      profile: if var.prod then 'prod' else 'dev'
+      team:    var.tags['team']
+    }
   }
 }

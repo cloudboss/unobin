@@ -1,5 +1,7 @@
 locals: { region: 'us-east-1' }
 
-inputs: {
-  names: [ for n in ['a', 'b'] : $'{{n}}.{{local.region}}' ]
+factory: {
+  inputs: {
+    names: [ for n in ['a', 'b'] : $'{{n}}.{{local.region}}' ]
+  }
 }

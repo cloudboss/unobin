@@ -40,13 +40,11 @@ var allowedTopLevelKeys = map[FileKind]map[string]topLevelValueKind{
 		"outputs":     topLevelObject,
 	},
 	FileConfig: {
-		"factory":        topLevelObject,
-		"parallelism":    topLevelNumber,
-		"state":          topLevelObject,
-		"encryption":     topLevelObject,
-		"locals":         topLevelObject,
-		"inputs":         topLevelObject,
-		"configurations": topLevelObject,
+		"locals":      topLevelObject,
+		"factory":     topLevelObject,
+		"parallelism": topLevelNumber,
+		"state":       topLevelObject,
+		"encryption":  topLevelObject,
 	},
 	FileManifest: {
 		"unobin-version": topLevelString,
@@ -938,11 +936,8 @@ func ValidateFile(f *File) *ErrorList {
 			mergeErrors(errs, ValidateLocals(obj))
 			mergeErrors(errs, ValidateConfigLocals(obj))
 		}
-		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateConfigInputs(obj, locals))
-		}
-		if obj, ok := blocks["configurations"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateConfigurations(obj, locals))
+		if obj, ok := blocks["factory"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateConfigFactory(obj, locals))
 		}
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj, locals))
@@ -1174,17 +1169,162 @@ func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
 	return validateDeclBlock(block, "configuration", "alias.name", nil)
 }
 
-// ValidateConfigInputs checks that every value in a config file's inputs:
-// block is a static value; see checkStaticConfigBlock. locals holds the
-// names declared by the file's locals: block, referenceable from any
-// config value.
+// factoryChildKeys lists the keys a config file's factory: block may
+// hold.
+var factoryChildKeys = map[string]bool{
+	"pin":            true,
+	"configurations": true,
+	"inputs":         true,
+}
+
+// ValidateConfigFactory checks the structure of a config file's
+// factory: block, which names the factory to run and the values it
+// receives. Each child is a literal object: pin holds the identity
+// entries `unobin pin` manages, configurations holds per-import
+// configuration values, and inputs holds the input values. locals
+// holds the names declared by the file's locals: block.
+func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList {
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != FieldIdent {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"factory keys are plain identifiers: pin, configurations, inputs")
+			continue
+		}
+		name := fld.Key.Name
+		if fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"@-prefixed key %s is not allowed in the factory block", name)
+			continue
+		}
+		if !factoryChildKeys[name] {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s is not a valid factory key; the factory block holds"+
+					" pin, configurations, and inputs", name)
+			continue
+		}
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate factory key %s (first defined at %s)", name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		obj, ok := fld.Value.(*ObjectLit)
+		if !ok {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"`factory.%s:` must be an object, got %s", name, exprKind(fld.Value))
+			continue
+		}
+		switch name {
+		case "pin":
+			validateFactoryPin(obj, errs)
+		case "configurations":
+			mergeErrors(errs, ValidateConfigurations(obj, locals))
+		case "inputs":
+			mergeErrors(errs, ValidateConfigInputs(obj, locals))
+		}
+	}
+	return errs
+}
+
+// pinChildKeys lists the keys a factory.pin: block may hold.
+var pinChildKeys = map[string]bool{
+	"library-path":       true,
+	"supported-versions": true,
+}
+
+// validateFactoryPin checks the factory.pin: block. `unobin pin` owns
+// this block and splices entries into it textually, so its values must
+// be literal: a string library-path and a supported-versions list of
+// version/content-revision string pairs.
+func validateFactoryPin(block *ObjectLit, errs *ErrorList) {
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"pin keys are plain identifiers: library-path, supported-versions")
+			continue
+		}
+		name := fld.Key.Name
+		if !pinChildKeys[name] {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"%s is not a valid pin key; the pin block holds"+
+					" library-path and supported-versions", name)
+			continue
+		}
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"duplicate pin key %s (first defined at %s)", name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		switch name {
+		case "library-path":
+			if _, ok := fld.Value.(*StringLit); !ok {
+				errs.Addf(ErrSchema, fld.Value.Span().Start,
+					"`factory.pin.library-path:` must be a string literal, got %s",
+					exprKind(fld.Value))
+			}
+		case "supported-versions":
+			arr, ok := fld.Value.(*ArrayLit)
+			if !ok {
+				errs.Addf(ErrSchema, fld.Value.Span().Start,
+					"`factory.pin.supported-versions:` must be an array, got %s",
+					exprKind(fld.Value))
+				continue
+			}
+			for _, el := range arr.Elements {
+				validatePinEntry(el, errs)
+			}
+		}
+	}
+}
+
+// validatePinEntry checks one supported-versions element: an object
+// holding a version and a content-revision, both string literals.
+func validatePinEntry(el Expr, errs *ErrorList) {
+	obj, ok := el.(*ObjectLit)
+	if !ok {
+		errs.Addf(ErrSchema, el.Span().Start,
+			"supported-versions entries are objects with version and"+
+				" content-revision, got %s", exprKind(el))
+		return
+	}
+	found := map[string]bool{}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.IsMeta() ||
+			(fld.Key.Name != "version" && fld.Key.Name != "content-revision") {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"a supported-versions entry holds only version and content-revision")
+			continue
+		}
+		found[fld.Key.Name] = true
+		if _, ok := fld.Value.(*StringLit); !ok {
+			errs.Addf(ErrSchema, fld.Value.Span().Start,
+				"%s in a supported-versions entry must be a string literal, got %s",
+				fld.Key.Name, exprKind(fld.Value))
+		}
+	}
+	for _, want := range []string{"version", "content-revision"} {
+		if !found[want] {
+			errs.Addf(ErrSchema, el.Span().Start,
+				"a supported-versions entry must have a %s", want)
+		}
+	}
+}
+
+// ValidateConfigInputs checks that every value in a config file's
+// factory.inputs block is a static value; see checkStaticConfigBlock.
+// locals holds the names declared by the file's locals: block,
+// referenceable from any config value.
 func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
 }
 
-// ValidateConfigurations checks a config file's configurations: block.
-// Every entry is keyed by a dotted alias.name path, the same key form a
-// factory's block has. Unlike a factory's, a body here may be any
+// ValidateConfigurations checks a config file's factory.configurations
+// block. Every entry is keyed by a dotted alias.name path, the same key
+// form a factory source's block has. Unlike that one, a body here may be any
 // expression: the runner evaluates it at load and requires a map, so a
 // whole body can come from a local. Values follow the static-value rule;
 // locals holds the names declared by the file's locals: block.

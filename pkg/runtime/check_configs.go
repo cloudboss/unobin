@@ -53,8 +53,9 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 			n.Address, n.Alias, n.Configuration)}
 	}
 	return []error{fmt.Errorf(
-		"%s: library %q requires a configuration; define configurations.%s.default "+
-			"in config.ub or in the factory", n.Address, n.Alias, alias)}
+		"%s: library %q requires a configuration; define %s.default under "+
+			"factory.configurations in config.ub or under configurations in the factory",
+		n.Address, n.Alias, alias)}
 }
 
 // configurationDeclared reports whether a configuration name resolves

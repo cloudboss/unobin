@@ -1,1 +1,3 @@
-inputs: { s: $'v={{var.x}}' }
+factory: {
+  inputs: { s: $'v={{var.x}}' }
+}

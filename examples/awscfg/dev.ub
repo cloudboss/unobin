@@ -5,9 +5,11 @@ locals: {
   }
 }
 
-configurations: {
-  aws.default: { region: 'us-east-1', assume-role: local.assume-role }
-  aws.east:    { region: 'us-east-2', assume-role: local.assume-role }
+factory: {
+  configurations: {
+    aws.default: { region: 'us-east-1', assume-role: local.assume-role }
+    aws.east:    { region: 'us-east-2', assume-role: local.assume-role }
+  }
 }
 
 state: { @backend: local, path: '.unobin/state' }

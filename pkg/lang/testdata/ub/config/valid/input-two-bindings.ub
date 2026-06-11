@@ -1,1 +1,3 @@
-inputs: { xs: [for i, n in [10, 20]: n] }
+factory: {
+  inputs: { xs: [for i, n in [10, 20]: n] }
+}

@@ -1,0 +1,1 @@
+factory: { pin: { supported-versions: [{ version: 1, content-revision: 'abc' }] } }

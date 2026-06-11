@@ -1,0 +1,4 @@
+factory: {
+  inputs: { a: 'x' }
+  inputs: { b: 'y' }
+}

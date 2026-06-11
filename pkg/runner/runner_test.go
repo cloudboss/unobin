@@ -341,8 +341,10 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+`
-inputs: {
-  greeting: 'from-config'
+factory: {
+  inputs: {
+    greeting: 'from-config'
+  }
 }
 `), 0o644))
 
@@ -380,10 +382,10 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 	prod := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(prod,
-		[]byte(stateConfigBody+`inputs: { greeting: 'hello-prod' }`), 0o644))
+		[]byte(stateConfigBody+`factory: { inputs: { greeting: 'hello-prod' } }`), 0o644))
 	staging := filepath.Join(filepath.Dir(prod), "staging.ub")
 	require.NoError(t, os.WriteFile(staging,
-		[]byte(stateConfigBody+`inputs: { greeting: 'hello-staging' }`), 0o644))
+		[]byte(stateConfigBody+`factory: { inputs: { greeting: 'hello-staging' } }`), 0o644))
 
 	out := applyVia(t, info, prod)
 	require.Contains(t, out, "said: 'hello-prod'")
@@ -409,8 +411,10 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+`
-inputs: {
-  greeting: 'from-config'
+factory: {
+  inputs: {
+    greeting: 'from-config'
+  }
 }
 `), 0o644))
 
@@ -1313,9 +1317,18 @@ inputs: {
 	require.NoError(t, err)
 
 	expected := `factory: {
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'abcdef' },
-  ]
+  pin: {
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'abcdef' },
+    ]
+  }
+  inputs: {
+    # Text to write
+    greeting: ''  # type: string
+    count:    0  # type: integer
+    enabled:  false  # type: boolean
+    tags:     []  # type: list(string)
+  }
 }
 
 state: {
@@ -1326,14 +1339,6 @@ state: {
 encryption: {
   @key-source: noop
 }
-
-inputs: {
-  # Text to write
-  greeting: ''  # type: string
-  count:    0  # type: integer
-  enabled:  false  # type: boolean
-  tags:     []  # type: list(string)
-}
 `
 	require.Equal(t, expected, out)
 }
@@ -1343,9 +1348,11 @@ func TestSchemaTemplateNoInputs(t *testing.T) {
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
 	expected := `factory: {
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'abcdef' },
-  ]
+  pin: {
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'abcdef' },
+    ]
+  }
 }
 
 state: {
@@ -1366,10 +1373,12 @@ func TestTemplateIncludesLibraryPathWhenSet(t *testing.T) {
 	out, err := runRoot(t, info, "schema", "template")
 	require.NoError(t, err)
 	expected := `factory: {
-  library-path: 'github.com/cloudboss/cluster-deploy'
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'abcdef' },
-  ]
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'abcdef' },
+    ]
+  }
 }
 
 state: {
@@ -1394,9 +1403,14 @@ func TestSchemaTemplateWritesToFile(t *testing.T) {
 	written, err := os.ReadFile(dst)
 	require.NoError(t, err)
 	expected := `factory: {
-  supported-versions: [
-    { version: 'v0.1.0', content-revision: 'abcdef' },
-  ]
+  pin: {
+    supported-versions: [
+      { version: 'v0.1.0', content-revision: 'abcdef' },
+    ]
+  }
+  inputs: {
+    greeting: ''  # type: string
+  }
 }
 
 state: {
@@ -1406,10 +1420,6 @@ state: {
 
 encryption: {
   @key-source: noop
-}
-
-inputs: {
-  greeting: ''  # type: string
 }
 `
 	require.Equal(t, expected, string(written))
@@ -2053,7 +2063,7 @@ func TestPlanFlagOverridesConfigParallelism(t *testing.T) {
 	info := testInfo(t, src)
 	cfg := writeStateConfig(t, `
 parallelism: 3
-inputs: {}
+factory: { inputs: {} }
 `)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch",
@@ -2069,7 +2079,7 @@ func TestPlanFallsBackToConfigParallelism(t *testing.T) {
 	info := testInfo(t, src)
 	cfg := writeStateConfig(t, `
 parallelism: 4
-inputs: {}
+factory: { inputs: {} }
 `)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch",
@@ -2158,10 +2168,12 @@ locals: {
   tags:   { team: 'core' }
 }
 
-inputs: {
-  region: local.region
-  name:   $'app-{{local.region}}'
-  tags:   local.tags
+factory: {
+  inputs: {
+    region: local.region
+    name:   $'app-{{local.region}}'
+    tags:   local.tags
+  }
 }
 `)
 	got, err := loadConfigInputs(parseTestConfig(t, path), path)

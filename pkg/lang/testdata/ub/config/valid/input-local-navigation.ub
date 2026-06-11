@@ -7,4 +7,6 @@ locals: {
   }
 }
 
-inputs: { role: local.aws-config.assume-role.role-arn }
+factory: {
+  inputs: { role: local.aws-config.assume-role.role-arn }
+}

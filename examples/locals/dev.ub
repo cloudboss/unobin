@@ -1,5 +1,7 @@
+factory: {
+  inputs: { env: 'prod', region: 'us-east-1', message: 'Hello from unobin locals!' }
+}
+
 state: { @backend: local, path: '.unobin/state' }
 
 encryption: { @key-source: noop }
-
-inputs: { env: 'prod', region: 'us-east-1', message: 'Hello from unobin locals!' }
