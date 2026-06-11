@@ -1,0 +1,15 @@
+locals: {
+  aws-config: {
+    assume-role: {
+      role-arn:    'arn:aws:iam::123456789012:role/unobin-state'
+      external-id: 'unobin-test'
+    }
+  }
+}
+
+configurations: {
+  aws: {
+    default: local.aws-config
+    east:    { assume-role: local.aws-config.assume-role }
+  }
+}

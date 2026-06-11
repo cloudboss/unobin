@@ -1,0 +1,1 @@
+locals: { encoded: @core.b64-encode('hello') }

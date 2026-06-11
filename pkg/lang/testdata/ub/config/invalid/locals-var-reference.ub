@@ -1,0 +1,3 @@
+locals: { region: var.region }
+
+inputs: { region: 'us-east-1' }

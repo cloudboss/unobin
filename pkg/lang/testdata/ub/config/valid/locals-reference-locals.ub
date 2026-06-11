@@ -1,0 +1,6 @@
+locals: {
+  aws-config: { assume-role: { role-arn: local.role-arn } }
+  role-arn:   'arn:aws:iam::123456789012:role/unobin-state'
+}
+
+inputs: { config: local.aws-config }

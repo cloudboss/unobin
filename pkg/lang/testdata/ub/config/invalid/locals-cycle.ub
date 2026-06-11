@@ -1,0 +1,4 @@
+locals: {
+  a: local.b
+  b: local.a
+}

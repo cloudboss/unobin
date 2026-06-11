@@ -932,14 +932,16 @@ func ValidateFile(f *File) *ErrorList {
 		}
 		mergeErrors(errs, ValidateCalls(f))
 	case FileConfig:
+		locals := configLocalNames(blocks["locals"])
 		if obj, ok := blocks["locals"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateLocals(obj))
+			mergeErrors(errs, ValidateConfigLocals(obj))
 		}
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateConfigInputs(obj))
+			mergeErrors(errs, ValidateConfigInputs(obj, locals))
 		}
 		if obj, ok := blocks["configurations"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateConfigurations(obj))
+			mergeErrors(errs, ValidateConfigurations(obj, locals))
 		}
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateStateConfig(obj))
@@ -1242,40 +1244,99 @@ func validateConfigurationNames(alias string, obj *ObjectLit, errs *ErrorList) {
 }
 
 // ValidateConfigInputs checks that every value in a config file's inputs:
-// block is a static value; see checkStaticConfigBlock.
-func ValidateConfigInputs(block *ObjectLit) *ErrorList {
-	return checkStaticConfigBlock(block, false)
+// block is a static value; see checkStaticConfigBlock. locals holds the
+// names declared by the file's locals: block, referenceable from any
+// config value.
+func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
+	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
 }
 
 // ValidateConfigurations applies the static-value rule to a config file's
 // configurations: block, with one widening: values may reference inputs
 // (var.x), which the runner resolves against the effective inputs before
 // decoding. The block nests by import alias and then configuration name;
-// the walk recurses through both to the leaf values.
-func ValidateConfigurations(block *ObjectLit) *ErrorList {
-	return checkStaticConfigBlock(block, true)
+// the walk recurses through both to the leaf values. locals holds the
+// names declared by the file's locals: block.
+func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList {
+	return checkStaticConfigBlock(block, staticConfigRules{locals: locals, allowVar: true})
+}
+
+// ValidateConfigLocals checks the values of a config file's locals:
+// block. A config local is the file's own scope: a static value that may
+// reference other locals, but never inputs. The config supplies input
+// values to the factory without being able to read them back, so a var.x
+// here is rejected with wording that says why. Locals referencing each
+// other in a loop are reported as cycles.
+func ValidateConfigLocals(block *ObjectLit) *ErrorList {
+	errs := NewErrorList(0)
+	rules := staticConfigRules{locals: configLocalNames(block), inLocals: true}
+	for _, f := range block.Fields {
+		checkConfigValue(f.Value, map[string]bool{}, rules, errs)
+	}
+	checkConfigLocalCycles(block, errs)
+	return errs
+}
+
+// configLocalNames collects the declared local names from a locals:
+// block expression, tolerating a nil or non-object value so callers can
+// pass whatever the top-level index holds.
+func configLocalNames(e Expr) map[string]bool {
+	obj, ok := e.(*ObjectLit)
+	if !ok {
+		return nil
+	}
+	names := make(map[string]bool, len(obj.Fields))
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind == FieldIdent && !fld.Key.IsMeta() {
+			names[fld.Key.Name] = true
+		}
+	}
+	return names
+}
+
+// staticConfigRules selects what a config block's values may reference
+// beyond literals. locals holds the file's declared local names, which
+// any config value may reference. allowVar admits var.x references (the
+// configurations block). inLocals marks the locals block itself, which
+// rewords a var.x rejection around scope: a local cannot read inputs.
+type staticConfigRules struct {
+	locals   map[string]bool
+	allowVar bool
+	inLocals bool
+}
+
+// refError picks the rejection wording for a reference that no rule
+// admits. root is the dot-path root, or empty for a bare identifier.
+func (r staticConfigRules) refError(root string) string {
+	if r.inLocals && root == "var" {
+		return "a local may not reference %s: inputs are supplied by the config, not in its scope"
+	}
+	if r.allowVar {
+		return "configuration values may reference only inputs and locals, but %s is neither"
+	}
+	return "config values must be static, but %s is a reference"
 }
 
 // checkStaticConfigBlock reports calls and free references in a config
-// block's values. Config values are static data: the runner evaluates them
-// before any cloud or state I/O, with no library table in scope, so a
-// function call or a reference to anything but an input has nothing to
-// resolve against. Literals, operators, conditionals, and comprehensions
-// over literals are allowed; a comprehension's own bound names are in scope
-// inside its body. allowVar additionally admits var.x references, which
-// resolve against the effective inputs; the inputs block itself stays
-// literal-only, so an input cannot reference another input.
-func checkStaticConfigBlock(block *ObjectLit, allowVar bool) *ErrorList {
+// block's values. Config values are static data: the runner evaluates
+// them before any cloud or state I/O, with no library table in scope, so
+// a function call or a reference to anything but an input or a local has
+// nothing to resolve against. Literals, operators, conditionals, and
+// comprehensions over literals are allowed; a comprehension's own bound
+// names are in scope inside its body, and the file's declared locals are
+// in scope everywhere.
+func checkStaticConfigBlock(block *ObjectLit, rules staticConfigRules) *ErrorList {
 	errs := NewErrorList(0)
 	for _, f := range block.Fields {
-		checkConfigValue(f.Value, map[string]bool{}, allowVar, errs)
+		checkConfigValue(f.Value, map[string]bool{}, rules, errs)
 	}
 	return errs
 }
 
 // checkConfigValue reports calls and free references in a config value.
-// bound is the set of names a surrounding comprehension brought into scope.
-func checkConfigValue(e Expr, bound map[string]bool, allowVar bool, errs *ErrorList) {
+// bound is the set of names a surrounding comprehension brought into
+// scope; a bound name shadows the local root, matching evaluation order.
+func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, errs *ErrorList) {
 	if e == nil {
 		return
 	}
@@ -1284,48 +1345,64 @@ func checkConfigValue(e Expr, bound map[string]bool, allowVar bool, errs *ErrorL
 		// A literal is always a valid config value.
 	case *ArrayLit:
 		for _, el := range v.Elements {
-			checkConfigValue(el, bound, allowVar, errs)
+			checkConfigValue(el, bound, rules, errs)
 		}
 	case *ObjectLit:
 		for _, f := range v.Fields {
-			checkConfigValue(f.Value, bound, allowVar, errs)
+			checkConfigValue(f.Value, bound, rules, errs)
 		}
 	case *InterpolatedString:
 		for _, p := range v.Parts {
-			checkConfigValue(p.Expr, bound, allowVar, errs)
+			checkConfigValue(p.Expr, bound, rules, errs)
 		}
 	case *Infix:
-		checkConfigValue(v.Left, bound, allowVar, errs)
-		checkConfigValue(v.Right, bound, allowVar, errs)
+		checkConfigValue(v.Left, bound, rules, errs)
+		checkConfigValue(v.Right, bound, rules, errs)
 	case *Prefix:
-		checkConfigValue(v.Expr, bound, allowVar, errs)
+		checkConfigValue(v.Expr, bound, rules, errs)
 	case *Conditional:
-		checkConfigValue(v.Cond, bound, allowVar, errs)
-		checkConfigValue(v.Then, bound, allowVar, errs)
-		checkConfigValue(v.Else, bound, allowVar, errs)
+		checkConfigValue(v.Cond, bound, rules, errs)
+		checkConfigValue(v.Then, bound, rules, errs)
+		checkConfigValue(v.Else, bound, rules, errs)
 	case *Comprehension:
 		// The source is evaluated before the binding exists; the key, value,
 		// and filter see the bound names.
-		checkConfigValue(v.Source, bound, allowVar, errs)
+		checkConfigValue(v.Source, bound, rules, errs)
 		inner := withBound(bound, v.Names)
-		checkConfigValue(v.Key, inner, allowVar, errs)
-		checkConfigValue(v.Value, inner, allowVar, errs)
-		checkConfigValue(v.Filter, inner, allowVar, errs)
+		checkConfigValue(v.Key, inner, rules, errs)
+		checkConfigValue(v.Value, inner, rules, errs)
+		checkConfigValue(v.Filter, inner, rules, errs)
 	case *Ident:
 		if !bound[v.Name] {
-			errs.Addf(ErrResolve, v.S.Start, staticConfigRefError(allowVar), v.Name)
+			errs.Addf(ErrResolve, v.S.Start, rules.refError(""), v.Name)
 		}
 	case *DotPath:
-		rooted := v.Root != nil && bound[v.Root.Name]
-		if allowVar && v.Root != nil && v.Root.Name == "var" {
-			rooted = true
+		root := ""
+		if v.Root != nil {
+			root = v.Root.Name
 		}
-		if !rooted {
-			errs.Addf(ErrResolve, v.S.Start, staticConfigRefError(allowVar), dotPathString(v))
+		switch {
+		case bound[root]:
+		case rules.allowVar && root == "var":
+		case root == "local":
+			name := ""
+			if len(v.Segments) > 0 {
+				name = v.Segments[0].Name
+			}
+			if name == "" {
+				errs.Addf(ErrResolve, v.S.Start, "local reference needs a name")
+				return
+			}
+			if !rules.locals[name] {
+				errs.Addf(ErrResolve, v.S.Start, "unknown local %s", name)
+				return
+			}
+		default:
+			errs.Addf(ErrResolve, v.S.Start, rules.refError(root), dotPathString(v))
 			return
 		}
 		for _, seg := range v.Segments {
-			checkConfigValue(seg.Index, bound, allowVar, errs)
+			checkConfigValue(seg.Index, bound, rules, errs)
 		}
 	case *Call:
 		errs.Addf(ErrResolve, v.S.Start,
@@ -1335,14 +1412,67 @@ func checkConfigValue(e Expr, bound map[string]bool, allowVar bool, errs *ErrorL
 	}
 }
 
-// staticConfigRefError picks the rejection wording for a reference in a
-// config block: the inputs block admits no references at all, while the
-// configurations block admits var.x and nothing else.
-func staticConfigRefError(allowVar bool) string {
-	if allowVar {
-		return "configuration values may reference only inputs, but %s is not an input"
+// checkConfigLocalCycles reports locals that reference themselves
+// through the locals block, directly or via other locals. The walk
+// mirrors the factory-side check: a depth-first visit over the
+// local-to-local edges, reporting at the entry whose visit found the
+// loop.
+func checkConfigLocalCycles(block *ObjectLit, errs *ErrorList) {
+	graph := map[string][]string{}
+	pos := map[string]Position{}
+	var order []string
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		name := fld.Key.Name
+		graph[name] = configLocalRefs(fld.Value)
+		pos[name] = fld.Key.S.Start
+		order = append(order, name)
 	}
-	return "config values must be static, but %s is a reference"
+	const (
+		unvisited = 0
+		active    = 1
+		done      = 2
+	)
+	visiting := map[string]int{}
+	var visit func(string) bool
+	visit = func(name string) bool {
+		visiting[name] = active
+		for _, ref := range graph[name] {
+			if _, isLocal := graph[ref]; !isLocal {
+				continue
+			}
+			if visiting[ref] == active {
+				return true
+			}
+			if visiting[ref] == unvisited && visit(ref) {
+				return true
+			}
+		}
+		visiting[name] = done
+		return false
+	}
+	for _, name := range order {
+		if visiting[name] == unvisited && visit(name) {
+			errs.Addf(ErrResolve, pos[name], "local %s is part of a cycle", name)
+		}
+	}
+}
+
+// configLocalRefs collects the local names an expression references.
+func configLocalRefs(e Expr) []string {
+	var names []string
+	Walk(e, func(x Expr) {
+		dp, ok := x.(*DotPath)
+		if !ok || dp.Root == nil || dp.Root.Name != "local" {
+			return
+		}
+		if len(dp.Segments) > 0 && dp.Segments[0].Name != "" {
+			names = append(names, dp.Segments[0].Name)
+		}
+	})
+	return names
 }
 
 // withBound returns bound extended with names. It copies so a sibling
