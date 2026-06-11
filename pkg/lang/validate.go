@@ -12,8 +12,8 @@ import (
 // allowedTopLevelKeys is the set of identifier keys permitted at the
 // top level of each file kind. An exported type body matches a factory
 // except for `configurations`, which only the factory root may define.
-// A config holds factory identity, state config, input values, and
-// library configurations.
+// A config holds factory identity, state config, locals, input values,
+// and library configurations.
 var allowedTopLevelKeys = map[FileKind]map[string]topLevelValueKind{
 	FileFactory: {
 		"description":    topLevelString,
@@ -43,6 +43,7 @@ var allowedTopLevelKeys = map[FileKind]map[string]topLevelValueKind{
 		"parallelism":    topLevelNumber,
 		"state":          topLevelObject,
 		"encryption":     topLevelObject,
+		"locals":         topLevelObject,
 		"inputs":         topLevelObject,
 		"configurations": topLevelObject,
 	},
@@ -931,6 +932,9 @@ func ValidateFile(f *File) *ErrorList {
 		}
 		mergeErrors(errs, ValidateCalls(f))
 	case FileConfig:
+		if obj, ok := blocks["locals"].(*ObjectLit); ok {
+			mergeErrors(errs, ValidateLocals(obj))
+		}
 		if obj, ok := blocks["inputs"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateConfigInputs(obj))
 		}

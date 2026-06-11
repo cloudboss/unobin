@@ -1,0 +1,11 @@
+locals: {
+  region:     'us-east-1'
+  aws-config: {
+    assume-role: {
+      role-arn:    'arn:aws:iam::123456789012:role/unobin-state'
+      external-id: 'unobin-test'
+    }
+  }
+}
+
+inputs: { region: 'us-east-1' }
