@@ -15,9 +15,11 @@ import (
 // to a wrapper is optional and falls back to the wrapper's Default
 // when the key is absent. An unknown key in raw is an error.
 //
-// This first cut supports atomic wrappers (String, Integer, Number,
-// Boolean) and nested struct recursion. Collection and Object
-// wrappers are not yet handled.
+// Atomic wrappers (String, Integer, Number, Boolean), List, Map,
+// Object, and nested struct recursion are supported. A struct
+// composes another configuration through a named field only; an
+// anonymous field is an error, so a field is never silently keyed by
+// its type name.
 func Decode(ct *ConfigurationType, raw map[string]any) (any, error) {
 	if ct == nil || ct.New == nil {
 		return nil, errors.New("Decode: ConfigurationType has no New")
@@ -55,6 +57,12 @@ func decodeStruct(s reflect.Value, raw map[string]any, path string, errs *errLis
 	seen := make(map[string]bool)
 	for f := range t.Fields() {
 		if !f.IsExported() {
+			continue
+		}
+		if f.Anonymous {
+			errs.addf(
+				"field %s: anonymous field %s is not supported; use a named field",
+				joinPath(path, lang.PascalToKebab(f.Name)), f.Type)
 			continue
 		}
 		name := lang.PascalToKebab(f.Name)

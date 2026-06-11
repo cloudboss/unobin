@@ -19,6 +19,7 @@ type Field struct {
 // declaration order, walking the value New returns the same way the
 // decoder does: kebab-case names, a pointer field is optional, and a
 // nested struct reads as an object without flattening its fields.
+// Anonymous fields are skipped here; Decode rejects them.
 // Descriptions come from whatever the zero value sets. Returns nil
 // when there is no configuration to describe.
 func Describe(ct *ConfigurationType) []Field {
@@ -41,7 +42,7 @@ func Describe(ct *ConfigurationType) []Field {
 	t := v.Type()
 	var out []Field
 	for f := range t.Fields() {
-		if !f.IsExported() {
+		if !f.IsExported() || f.Anonymous {
 			continue
 		}
 		ft, optional := f.Type, false

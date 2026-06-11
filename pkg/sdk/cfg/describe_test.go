@@ -49,3 +49,10 @@ func TestDescribeNilConfiguration(t *testing.T) {
 	require.Nil(t, Describe(nil))
 	require.Nil(t, Describe(&ConfigurationType{New: func() any { return nil }}))
 }
+
+func TestDescribeSkipsAnonymousField(t *testing.T) {
+	ct := &ConfigurationType{New: func() any { return &hostWithEmbedded{} }}
+	fields := Describe(ct)
+	require.Len(t, fields, 1)
+	require.Equal(t, "name", fields[0].Name)
+}

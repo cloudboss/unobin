@@ -600,3 +600,20 @@ func TestDecodeNestedMapOfMaps(t *testing.T) {
 	require.Equal(t, "prod", regions["east"].Value["profile"].Value)
 	require.Equal(t, "dev", regions["west"].Value["profile"].Value)
 }
+
+type EmbeddedPart struct {
+	Region String
+}
+
+type hostWithEmbedded struct {
+	EmbeddedPart
+	Name String
+}
+
+func TestDecodeRejectsAnonymousField(t *testing.T) {
+	ct := &ConfigurationType{New: func() any { return &hostWithEmbedded{} }}
+	_, err := Decode(ct, map[string]any{"name": "x"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "anonymous field")
+	require.Contains(t, err.Error(), "use a named field")
+}
