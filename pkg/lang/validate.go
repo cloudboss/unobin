@@ -944,10 +944,10 @@ func ValidateFile(f *File) *ErrorList {
 			mergeErrors(errs, ValidateConfigurations(obj, locals))
 		}
 		if obj, ok := blocks["state"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateStateConfig(obj))
+			mergeErrors(errs, ValidateStateConfig(obj, locals))
 		}
 		if obj, ok := blocks["encryption"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateEncryptionConfig(obj))
+			mergeErrors(errs, ValidateEncryptionConfig(obj, locals))
 		}
 	case FileManifest:
 		if obj, ok := blocks["requires"].(*ObjectLit); ok {
@@ -1775,23 +1775,26 @@ func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
 	}
 }
 
-// ValidateStateConfig checks the structure of a state: block in a config
-// file. The block must have exactly one @backend: meta-key whose value is
-// a bare backend name such as local, plus any number of body fields keyed
-// by bare identifiers. Body values are not type-checked here; the
+// ValidateStateConfig checks a state: block in a config file. The block
+// must have exactly one @backend: meta-key whose value is a bare backend
+// name such as s3, plus any number of body fields keyed by bare
+// identifiers. Body values must be static config values, with the file's
+// locals referenceable; they are not type-checked here, since the
 // resolver decodes them against each backend's declared configuration.
-func ValidateStateConfig(block *ObjectLit) *ErrorList {
-	return validateBackendBlock(block, "state", "@backend")
+func ValidateStateConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
+	return validateBackendBlock(block, "state", "@backend", "s3", locals)
 }
 
-// ValidateEncryptionConfig checks the structure of an `encryption:` block
-// in a config file. Same rules as ValidateStateConfig but with
-// `@key-source:` in place of `@backend:`.
-func ValidateEncryptionConfig(block *ObjectLit) *ErrorList {
-	return validateBackendBlock(block, "encryption", "@key-source")
+// ValidateEncryptionConfig checks an `encryption:` block in a config
+// file. Same rules as ValidateStateConfig but with `@key-source:` in
+// place of `@backend:`.
+func ValidateEncryptionConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
+	return validateBackendBlock(block, "encryption", "@key-source", "kms", locals)
 }
 
-func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
+func validateBackendBlock(
+	block *ObjectLit, what, metaKey, example string, locals map[string]bool,
+) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
 	var metaPos Position
@@ -1813,7 +1816,7 @@ func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
 				}
 				metaSet = true
 				metaPos = fld.Key.S.Start
-				if err := validateResolverRefValue(fld.Value); err != nil {
+				if err := validateResolverRefValue(fld.Value, example); err != nil {
 					errs.Addf(ErrSchema, fld.Value.Span().Start,
 						"%s block: %s: %s", what, metaKey, err.Error())
 				}
@@ -1834,6 +1837,7 @@ func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
 			errs.Addf(ErrSchema, fld.Key.S.Start,
 				"state block: encryption is its own top-level block; move it out of state")
 		}
+		checkConfigValue(fld.Value, map[string]bool{}, staticConfigRules{locals: locals}, errs)
 	}
 	if !metaSet {
 		errs.Addf(ErrSchema, block.S.Start,
@@ -1842,13 +1846,13 @@ func validateBackendBlock(block *ObjectLit, what, metaKey string) *ErrorList {
 	return errs
 }
 
-func validateResolverRefValue(expr Expr) error {
+func validateResolverRefValue(expr Expr, example string) error {
 	switch expr.(type) {
 	case *Ident:
 		return nil
 	case *DotPath:
-		return errors.New("use a bare name like local, not a qualified reference")
+		return fmt.Errorf("use a bare name like %s, not a qualified reference", example)
 	default:
-		return fmt.Errorf("expected a bare name like local, got %s", exprKind(expr))
+		return fmt.Errorf("expected a bare name like %s, got %s", example, exprKind(expr))
 	}
 }

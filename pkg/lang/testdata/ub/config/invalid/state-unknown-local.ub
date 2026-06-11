@@ -1,0 +1,7 @@
+locals: { aws-config: { region: 'us-east-1' } }
+
+state: {
+  @backend: s3
+  bucket:   'cloudboss'
+  aws:      local.aws-cfg
+}

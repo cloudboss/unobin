@@ -1,0 +1,1 @@
+config.ub:3:16: resolve: config values must be static, but @core.b64-decode is a function call

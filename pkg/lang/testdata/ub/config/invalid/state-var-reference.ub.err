@@ -1,0 +1,1 @@
+config.ub:3:13: resolve: config values must be static, but var.bucket is a reference

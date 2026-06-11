@@ -1,1 +1,2 @@
 config.ub:1:27: schema: state block: encryption is its own top-level block; move it out of state
+config.ub:1:54: resolve: config values must be static, but noop is a reference
