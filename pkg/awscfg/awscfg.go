@@ -35,12 +35,13 @@ type Configuration struct {
 }
 
 // Endpoints overrides the endpoint of one service at a time, for
-// S3-compatible object stores and private STS endpoints. A service
-// without an entry falls back to endpoint-url, then to the SDK's own
-// resolution, including the AWS_ENDPOINT_URL_* env vars.
+// S3-compatible object stores and private STS or KMS endpoints. A
+// service without an entry falls back to endpoint-url, then to the
+// SDK's own resolution, including the AWS_ENDPOINT_URL_* env vars.
 type Endpoints struct {
 	S3  *cfg.String
 	STS *cfg.String
+	KMS *cfg.String
 }
 
 // AssumeRole assumes an IAM role using the chain's credentials as the
@@ -91,6 +92,20 @@ func (c *Configuration) STSEndpoint() string {
 	}
 	if c.Endpoints != nil {
 		if v := stringValue(c.Endpoints.STS); v != "" {
+			return v
+		}
+	}
+	return stringValue(c.EndpointURL)
+}
+
+// KMSEndpoint returns the endpoint override a KMS client should use:
+// endpoints.kms when set, else endpoint-url, else empty.
+func (c *Configuration) KMSEndpoint() string {
+	if c == nil {
+		return ""
+	}
+	if c.Endpoints != nil {
+		if v := stringValue(c.Endpoints.KMS); v != "" {
 			return v
 		}
 	}
