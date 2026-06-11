@@ -206,13 +206,7 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 }
 
 func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
-	fmt.Fprintln(out, "factory: {")
-	if info.LibraryPath != "" {
-		fmt.Fprintf(out, "  library-path: '%s'\n", info.LibraryPath)
-	}
-	fmt.Fprintf(out,
-		"  supported-versions: [\n    { version: '%s', content-revision: '%s' },\n  ]\n}\n",
-		info.FactoryVersion, info.ContentRevision)
+	fmt.Fprint(out, renderFactoryBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "state: {")
 	fmt.Fprintln(out, "  @backend: local")
