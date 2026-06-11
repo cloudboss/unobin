@@ -70,6 +70,36 @@ func TestDescribeExpandsNestedObjects(t *testing.T) {
 	require.Equal(t, want, Describe(ct))
 }
 
+type describedDeepLeaf struct {
+	Arn String
+}
+
+type describedDeepInner struct {
+	Leaf describedDeepLeaf
+}
+
+type describedDeepOuter struct {
+	Inner Object[describedDeepInner]
+}
+
+func TestDescribeExpandsDeepNesting(t *testing.T) {
+	type root struct {
+		Outer *describedDeepOuter
+	}
+	ct := &ConfigurationType{New: func() any { return &root{} }}
+	want := []Field{{
+		Name: "outer", Type: "object", Optional: true,
+		Fields: []Field{{
+			Name: "inner", Type: "object",
+			Fields: []Field{{
+				Name: "leaf", Type: "object",
+				Fields: []Field{{Name: "arn", Type: "string"}},
+			}},
+		}},
+	}}
+	require.Equal(t, want, Describe(ct))
+}
+
 type describedSelf struct {
 	Name  String
 	Child *describedSelf
