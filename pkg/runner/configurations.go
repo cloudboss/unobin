@@ -14,10 +14,9 @@ import (
 // parsed config, decodes every alias under each import, and returns
 // both the decoded table (for the executor) and the raw form (for
 // plan-file storage). The outer key is the import alias; the inner
-// key is the configuration alias name. Values may reference inputs
-// (var.x) and the file's locals; inputs holds the effective values
-// var.x resolves against, so the raw form is already concrete by the
-// time it reaches a plan file.
+// key is the configuration alias name. Values may reference the
+// file's locals, which resolve at load, so the raw form is already
+// concrete by the time it reaches a plan file.
 // internal names the configurations the factory defines in source; an
 // operator entry under one of those names is rejected, since the
 // factory owns it. Whether every configuration a node selects exists
@@ -27,7 +26,6 @@ func loadConfigurations(
 	f *lang.File,
 	path string,
 	libraries map[string]*runtime.Library,
-	inputs map[string]any,
 	internal map[string]map[string]bool,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
@@ -35,9 +33,7 @@ func loadConfigurations(
 	if f != nil {
 		block := topLevelObject(f, "configurations")
 		if block != nil {
-			ctx := runtime.NewEvalContext(f)
-			ctx.Vars = inputs
-			loaded, err := readConfigurationsBlock(path, block, ctx)
+			loaded, err := readConfigurationsBlock(path, block, runtime.NewEvalContext(f))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -159,8 +155,7 @@ func decodeConfigurationsFromPlan(
 // every dotted alias.name entry into a raw form ready for decoding.
 // The outer key of the result is the import alias; the inner key is
 // the configuration name; the value is the raw map of fields,
-// evaluated against ctx, which holds the effective inputs so var.x
-// references resolve here, plus the file's locals.
+// evaluated against ctx, which binds the file's locals.
 func readConfigurationsBlock(
 	configPath string,
 	block *lang.ObjectLit,

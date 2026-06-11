@@ -363,7 +363,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 		return err
 	}
 	configurations, _, err := loadConfigurations(config, configPath, info.Libraries,
-		inputs, runtime.InternalConfigurationNames(f))
+		runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}
@@ -439,13 +439,12 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 		return errs.Err()
 	}
 	dag := checker.DAG()
-	inputs, err := buildInputs(config, configPath,
-		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries)
-	if err != nil {
+	if _, err := buildInputs(config, configPath,
+		topLevelObject(f, "inputs"), topLevelArray(f, "constraints"), info.Libraries); err != nil {
 		return err
 	}
 	configurations, _, err := loadConfigurations(config, configPath, info.Libraries,
-		inputs, runtime.InternalConfigurationNames(f))
+		runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}
@@ -635,7 +634,7 @@ func doPlan(
 		return err
 	}
 	configurations, rawConfigurations, err := loadConfigurations(
-		config, configPath, info.Libraries, inputs, runtime.InternalConfigurationNames(f))
+		config, configPath, info.Libraries, runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}

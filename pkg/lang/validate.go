@@ -1186,10 +1186,8 @@ func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 // Every entry is keyed by a dotted alias.name path, the same key form a
 // factory's block has. Unlike a factory's, a body here may be any
 // expression: the runner evaluates it at load and requires a map, so a
-// whole body can come from a local. Values follow the static-value rule
-// with one widening: they may reference inputs (var.x), which the
-// runner resolves against the effective inputs before decoding. locals
-// holds the names declared by the file's locals: block.
+// whole body can come from a local. Values follow the static-value rule;
+// locals holds the names declared by the file's locals: block.
 func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
 	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
@@ -1197,8 +1195,7 @@ func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList
 			checkBodyMetaKeys(body, "configuration", key, nil, errs)
 		}
 	}
-	mergeErrors(errs, checkStaticConfigBlock(block,
-		staticConfigRules{locals: locals, allowVar: true}))
+	mergeErrors(errs, checkStaticConfigBlock(block, staticConfigRules{locals: locals}))
 	return errs
 }
 
@@ -1237,12 +1234,11 @@ func configLocalNames(e Expr) map[string]bool {
 
 // staticConfigRules selects what a config block's values may reference
 // beyond literals. locals holds the file's declared local names, which
-// any config value may reference. allowVar admits var.x references (the
-// configurations block). inLocals marks the locals block itself, which
-// rewords a var.x rejection around scope: a local cannot read inputs.
+// any config value may reference. inLocals marks the locals block
+// itself, which rewords a var.x rejection around scope: a local cannot
+// read inputs.
 type staticConfigRules struct {
 	locals   map[string]bool
-	allowVar bool
 	inLocals bool
 }
 
@@ -1251,9 +1247,6 @@ type staticConfigRules struct {
 func (r staticConfigRules) refError(root string) string {
 	if r.inLocals && root == "var" {
 		return "a local may not reference %s: inputs are supplied by the config, not in its scope"
-	}
-	if r.allowVar {
-		return "configuration values may reference only inputs and locals, but %s is neither"
 	}
 	return "config values must be static, but %s is a reference"
 }
@@ -1324,7 +1317,6 @@ func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, er
 		}
 		switch {
 		case bound[root]:
-		case rules.allowVar && root == "var":
 		case root == "local":
 			name := ""
 			if len(v.Segments) > 0 {
