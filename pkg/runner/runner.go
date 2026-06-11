@@ -790,7 +790,7 @@ func loadConfigInputs(f *lang.File, path string) (map[string]any, error) {
 		if !ok {
 			return nil, fmt.Errorf("config %s: `inputs:` must be an object", path)
 		}
-		val, err := runtime.Eval(obj, &runtime.EvalContext{})
+		val, err := runtime.Eval(obj, runtime.NewEvalContext(f))
 		if err != nil {
 			return nil, fmt.Errorf("config %s: %w", path, err)
 		}

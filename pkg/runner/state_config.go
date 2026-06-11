@@ -38,19 +38,21 @@ type stateConfig struct {
 // field nil and the caller falls back to defaults. The blocks are
 // expected to be structurally validated by lang.ValidateStateConfig and
 // lang.ValidateEncryptionConfig before this runs; this function
-// evaluates body expressions and packages them for the resolver. path
-// is preserved only for error messages from Eval.
+// evaluates body expressions, with the file's locals in scope, and
+// packages the values for the resolver. path is preserved only for
+// error messages from Eval.
 func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 	if f == nil {
 		return &stateConfig{}, nil
 	}
 	sc := &stateConfig{}
+	ctx := runtime.NewEvalContext(f)
 	var stateErr, encErr error
 	if block := topLevelObject(f, "state"); block != nil {
-		sc.Backend, stateErr = readStateBlock(path, block)
+		sc.Backend, stateErr = readStateBlock(path, block, ctx)
 	}
 	if block := topLevelObject(f, "encryption"); block != nil {
-		sc.Encrypter, encErr = readEncryptionBlock(path, block)
+		sc.Encrypter, encErr = readEncryptionBlock(path, block, ctx)
 	}
 	if err := errors.Join(stateErr, encErr); err != nil {
 		return nil, err
@@ -58,7 +60,9 @@ func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 	return sc, nil
 }
 
-func readStateBlock(configPath string, block *lang.ObjectLit) (*resolverRef, error) {
+func readStateBlock(
+	configPath string, block *lang.ObjectLit, ctx *runtime.EvalContext,
+) (*resolverRef, error) {
 	body := map[string]any{}
 	var name string
 	var errs []error
@@ -73,7 +77,7 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*resolverRef, err
 		if fld.Key.Kind != lang.FieldIdent {
 			continue
 		}
-		val, err := runtime.Eval(fld.Value, &runtime.EvalContext{})
+		val, err := runtime.Eval(fld.Value, ctx)
 		if err != nil {
 			errs = append(errs, fmt.Errorf(
 				"%s: state.%s: %w", configPath, fld.Key.Name, err))
@@ -90,7 +94,9 @@ func readStateBlock(configPath string, block *lang.ObjectLit) (*resolverRef, err
 	return &resolverRef{Name: name, Body: body}, nil
 }
 
-func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef, error) {
+func readEncryptionBlock(
+	configPath string, block *lang.ObjectLit, ctx *runtime.EvalContext,
+) (*resolverRef, error) {
 	body := map[string]any{}
 	var name string
 	var errs []error
@@ -105,7 +111,7 @@ func readEncryptionBlock(configPath string, block *lang.ObjectLit) (*resolverRef
 		if fld.Key.Kind != lang.FieldIdent {
 			continue
 		}
-		val, err := runtime.Eval(fld.Value, &runtime.EvalContext{})
+		val, err := runtime.Eval(fld.Value, ctx)
 		if err != nil {
 			errs = append(errs, fmt.Errorf(
 				"%s: encryption.%s: %w", configPath, fld.Key.Name, err))

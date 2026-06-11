@@ -236,3 +236,15 @@ factory: {
 }`)
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false))
 }
+
+func TestLoadFactoryEnvelopeResolvesLocals(t *testing.T) {
+	path := writeConfig(t, `
+locals: { repo: 'github.com/cloudboss/cluster-deploy' }
+
+factory: { library-path: local.repo }
+`)
+	env, err := loadFactoryEnvelope(parseTestConfig(t, path), path)
+	require.NoError(t, err)
+	assert.True(t, env.Present)
+	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.LibraryPath)
+}

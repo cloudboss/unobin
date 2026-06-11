@@ -270,3 +270,28 @@ configurations: {
 	require.Equal(t, path+": configurations.aws.cluster: defined internally by the factory; "+
 		"remove this entry from config.ub", err.Error())
 }
+
+func TestLoadConfigurationsResolvesLocals(t *testing.T) {
+	path := writeConfig(t, `
+locals: { region: 'us-east-1' }
+
+configurations: {
+  aws: {
+    default: {
+      region:  local.region
+      profile: var.team
+    }
+  }
+}
+`)
+	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+		"aws": awsModuleWithConfig(),
+	}, map[string]any{"team": "core"}, nil)
+	require.NoError(t, err)
+	got := out["aws"]["default"].(*awsConfig)
+	require.Equal(t, "us-east-1", got.Region.Value)
+	require.Equal(t, "core", got.Profile.Value)
+	require.Equal(t, map[string]map[string]any{
+		"aws": {"default": map[string]any{"region": "us-east-1", "profile": "core"}},
+	}, raw)
+}

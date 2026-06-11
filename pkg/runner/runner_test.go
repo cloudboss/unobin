@@ -2150,3 +2150,25 @@ constraints: [
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "tls is required (var.replicas[1])")
 }
+
+func TestLoadConfigInputsResolvesLocals(t *testing.T) {
+	path := writeConfig(t, `
+locals: {
+  region: 'us-east-1'
+  tags:   { team: 'core' }
+}
+
+inputs: {
+  region: local.region
+  name:   $'app-{{local.region}}'
+  tags:   local.tags
+}
+`)
+	got, err := loadConfigInputs(parseTestConfig(t, path), path)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"region": "us-east-1",
+		"name":   "app-us-east-1",
+		"tags":   map[string]any{"team": "core"},
+	}, got)
+}

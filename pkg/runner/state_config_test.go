@@ -193,3 +193,45 @@ func TestResolveEncrypterKMS(t *testing.T) {
 	require.NoError(t, err)
 	require.IsType(t, &encrypters.KMS{}, enc)
 }
+
+func TestParseStateConfigResolvesLocals(t *testing.T) {
+	src := `
+locals: {
+  aws-config: {
+    assume-role: {
+      role-arn:    'arn:aws:iam::123456789012:role/unobin-state'
+      external-id: 'unobin-test'
+    }
+  }
+}
+
+state: {
+  @backend: s3
+  bucket:   'cloudboss'
+  aws:      local.aws-config
+}
+
+encryption: {
+  @key-source: kms
+  key-id:      'alias/cloudboss'
+  aws:         local.aws-config
+}
+`
+	f := parseConfig(t, src)
+	sc, err := parseStateConfig(f, "config.ub")
+	require.NoError(t, err)
+	want := map[string]any{
+		"assume-role": map[string]any{
+			"role-arn":    "arn:aws:iam::123456789012:role/unobin-state",
+			"external-id": "unobin-test",
+		},
+	}
+	require.NotNil(t, sc.Backend)
+	assert.Equal(t, "s3", sc.Backend.Name)
+	assert.Equal(t, "cloudboss", sc.Backend.Body["bucket"])
+	assert.Equal(t, want, sc.Backend.Body["aws"])
+	require.NotNil(t, sc.Encrypter)
+	assert.Equal(t, "kms", sc.Encrypter.Name)
+	assert.Equal(t, "alias/cloudboss", sc.Encrypter.Body["key-id"])
+	assert.Equal(t, want, sc.Encrypter.Body["aws"])
+}

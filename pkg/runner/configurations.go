@@ -15,8 +15,9 @@ import (
 // both the decoded table (for the executor) and the raw form (for
 // plan-file storage). The outer key is the import alias; the inner
 // key is the configuration alias name. Values may reference inputs
-// (var.x); inputs holds the effective values they resolve against, so
-// the raw form is already concrete by the time it reaches a plan file.
+// (var.x) and the file's locals; inputs holds the effective values
+// var.x resolves against, so the raw form is already concrete by the
+// time it reaches a plan file.
 // internal names the configurations the factory defines in source; an
 // operator entry under one of those names is rejected, since the
 // factory owns it. Whether every configuration a node selects exists
@@ -34,7 +35,9 @@ func loadConfigurations(
 	if f != nil {
 		block := topLevelObject(f, "configurations")
 		if block != nil {
-			loaded, err := readConfigurationsBlock(path, block, inputs)
+			ctx := runtime.NewEvalContext(f)
+			ctx.Vars = inputs
+			loaded, err := readConfigurationsBlock(path, block, ctx)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -156,12 +159,12 @@ func decodeConfigurationsFromPlan(
 // every alias entry under each import into a raw form ready for
 // decoding. The outer key is the import alias; the inner key is the
 // configuration alias name; the value is the raw map of fields,
-// evaluated with the effective inputs in scope so var.x references
-// resolve here.
+// evaluated against ctx, which holds the effective inputs so var.x
+// references resolve here, plus the file's locals.
 func readConfigurationsBlock(
 	configPath string,
 	block *lang.ObjectLit,
-	inputs map[string]any,
+	ctx *runtime.EvalContext,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
 	var errs []error
@@ -184,7 +187,7 @@ func readConfigurationsBlock(
 				continue
 			}
 			aliasName := aliasFld.Key.Name
-			val, err := runtime.Eval(aliasFld.Value, &runtime.EvalContext{Vars: inputs})
+			val, err := runtime.Eval(aliasFld.Value, ctx)
 			if err != nil {
 				errs = append(errs, fmt.Errorf(
 					"%s: configurations.%s.%s: %w",
