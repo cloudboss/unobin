@@ -193,7 +193,7 @@ func (v T) Constraints() []constraint.Constraint {
 	f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
 	require.NoError(t, err)
 	errs := &[]error{}
-	w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
+	w := newWalker([]ModuleRoot{{}}, []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
 	specs := w.constraintsFromType("T")
 	require.Empty(t, specs)
 	require.NotEmpty(t, *errs)
@@ -260,7 +260,7 @@ type Item struct {
 			f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
 			require.NoError(t, err)
 			errs := &[]error{}
-			w := newWalker("", "", []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
+			w := newWalker([]ModuleRoot{{}}, []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
 			specs := w.constraintsFromType("T")
 			require.Empty(t, specs)
 			require.NotEmpty(t, *errs)
@@ -395,7 +395,7 @@ func TestFieldPath(t *testing.T) {
 	files, err := parsePackageDir("testdata/nested")
 	require.NoError(t, err)
 	errs := &[]error{}
-	w := newWalker("testdata/nested", "", files, map[string][]*ast.File{}, errs, nil)
+	w := newWalker([]ModuleRoot{{Dir: "testdata/nested"}}, files, map[string][]*ast.File{}, errs, nil)
 
 	tests := []struct {
 		name string
@@ -817,4 +817,37 @@ func Library() *runtime.Library {
 	require.True(t, flag.Params[1].Equal(typecheck.TBoolean()))
 	require.Nil(t, flag.Variadic)
 	require.True(t, flag.Result.Equal(typecheck.TBoolean()))
+}
+
+func TestReadConfigurationFromExtraRoot(t *testing.T) {
+	schema, warnings, err := Read("testdata/extroot/library", ModuleRoot{
+		Path: "example.com/shared",
+		Dir:  filepath.Join("testdata", "extroot", "shared"),
+	})
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	assumeRole := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "role-arn", Type: typecheck.TString()},
+		{Name: "external-id", Type: typecheck.TString(), Optional: true},
+	})
+	tuning := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "max-attempts", Type: typecheck.TInteger()},
+	})
+	want := map[string]typecheck.Type{
+		"region":      typecheck.TString(),
+		"endpoint":    typecheck.TOptional(typecheck.TString()),
+		"assume-role": typecheck.TOptional(assumeRole),
+		"tuning":      tuning,
+	}
+	require.Equal(t, want, schema.Configuration)
+	require.True(t, schema.HasConfiguration)
+}
+
+func TestReadWarnsWhenExtraRootAbsent(t *testing.T) {
+	schema, warnings, err := Read("testdata/extroot/library")
+	require.NoError(t, err)
+	require.Nil(t, schema.Configuration)
+	require.True(t, schema.HasConfiguration)
+	require.Len(t, warnings, 1)
+	require.Contains(t, warnings[0], "library configuration")
 }

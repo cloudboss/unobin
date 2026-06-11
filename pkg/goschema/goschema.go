@@ -30,8 +30,10 @@ import (
 // could not be located, and constraints whose pieces could not be
 // extracted from source. Returns an error when no `Library()`
 // function is found in dir's root package, or when the directory
-// cannot be read.
-func Read(dir string) (*runtime.LibrarySchema, []string, error) {
+// cannot be read. extra lists further module roots the walker may
+// read source from when a referenced type lives outside the
+// library's own module.
+func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, error) {
 	rootPkg, err := parsePackageDir(dir)
 	if err != nil {
 		return nil, nil, err
@@ -40,7 +42,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 	if libraryFunc == nil {
 		return nil, nil, fmt.Errorf("no Library() function in %s", dir)
 	}
-	modulePath := readGoModPath(dir)
+	roots := append([]ModuleRoot{{Path: readGoModPath(dir), Dir: dir}}, extra...)
 
 	schema := &runtime.LibrarySchema{
 		Resources:   map[string]*runtime.TypeSchema{},
@@ -54,10 +56,10 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 	errs := &[]error{}
 	for _, reg := range extractRegistrations(libraryFunc) {
 		kind := registrationKindLabel(reg.Field)
-		w := newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		w := newWalker(roots, rootPkg, cache, errs, &warnings)
 		w.subject = fmt.Sprintf("%s %q input", kind, reg.Name)
 		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
-		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		w = newWalker(roots, rootPkg, cache, errs, &warnings)
 		w.subject = fmt.Sprintf("%s %q output", kind, reg.Name)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
@@ -65,9 +67,9 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 				"%s %q: %s not found in the library's source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef.TypeName))
 		}
-		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		w = newWalker(roots, rootPkg, cache, errs, &warnings)
 		constraints := w.lookupConstraints(reg.InputRef)
-		w = newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+		w = newWalker(roots, rootPkg, cache, errs, &warnings)
 		defaultSpecs := w.lookupDefaults(reg.InputRef)
 		ts := &runtime.TypeSchema{
 			Inputs:           inputs,
@@ -94,7 +96,7 @@ func Read(dir string) (*runtime.LibrarySchema, []string, error) {
 					"(write `New: func() any { return &T{} }`), so configuration fields "+
 					"are unchecked")
 		} else {
-			w := newWalker(dir, modulePath, rootPkg, cache, errs, &warnings)
+			w := newWalker(roots, rootPkg, cache, errs, &warnings)
 			w.subject = "library configuration"
 			fields, _ := w.lookupFields(ref)
 			if fields == nil {
@@ -156,21 +158,28 @@ type typeRef struct {
 	TypeName string
 }
 
-// walker carries the state needed to resolve a Go type expression
-// into a typecheck.Type, including the cross-package recursion that
-// follows selector types into sibling packages within the same
-// library.
+// ModuleRoot names a module's source on disk: Path is the module's
+// import path and Dir is the directory holding its source. The walker
+// resolves a selector into any root whose Path contains the selector's
+// import path.
+type ModuleRoot struct {
+	Path string
+	Dir  string
+}
+
+// walker holds the state needed to resolve a Go type expression into
+// a typecheck.Type, including the cross-package recursion that follows
+// selector types into other packages under the walker's module roots.
 //
 // Per-package fields (importPath, files, imports) describe the
 // package the walker is currently resolving inside. Cross-package
 // recursion clones the walker via sub(), swapping these fields to
 // point at the target package while keeping the shared fields
-// (rootDir, modulePath, packageCache, visiting) intact. visiting
-// is keyed `<importPath>.<typeName>` so a recursive type that runs
-// through two packages is still broken at re-entry.
+// (roots, packageCache, visiting) intact. visiting is keyed
+// `<importPath>.<typeName>` so a recursive type that runs through
+// two packages is still broken at re-entry.
 type walker struct {
-	rootDir      string
-	modulePath   string
+	roots        []ModuleRoot
 	packageCache map[string][]*ast.File
 	visiting     map[string]bool
 	errs         *[]error
@@ -185,32 +194,34 @@ type walker struct {
 	imports    map[string]string
 }
 
+// newWalker positions a walker at the first root's package, the
+// library being read. Packages under the other roots become readable
+// through cross-package recursion.
 func newWalker(
-	rootDir, modulePath string,
+	roots []ModuleRoot,
 	rootFiles []*ast.File,
 	cache map[string][]*ast.File,
 	errs *[]error,
 	warns *[]string,
 ) *walker {
-	if modulePath != "" {
-		cache[modulePath] = rootFiles
+	if roots[0].Path != "" {
+		cache[roots[0].Path] = rootFiles
 	}
 	return &walker{
-		rootDir:      rootDir,
-		modulePath:   modulePath,
+		roots:        roots,
 		packageCache: cache,
 		visiting:     map[string]bool{},
 		errs:         errs,
 		warns:        warns,
-		importPath:   modulePath,
+		importPath:   roots[0].Path,
 		files:        rootFiles,
 		imports:      buildImportMap(rootFiles),
 	}
 }
 
-// sub returns a walker positioned at the named in-library package, or
-// nil when the import path lives outside the library or the
-// subpackage cannot be parsed. The shared maps (packageCache,
+// sub returns a walker positioned at the named package under one of
+// the module roots, or nil when the import path lives outside every
+// root or the package cannot be parsed. The shared maps (packageCache,
 // visiting) are aliased into the returned walker so cycle detection
 // and cache hits span the whole walk.
 func (w *walker) sub(importPath string) *walker {
@@ -225,24 +236,46 @@ func (w *walker) sub(importPath string) *walker {
 	return &cp
 }
 
-// loadPackage returns the AST files for an in-library import path,
-// parsing the directory lazily and caching the result. Imports
-// outside the library return (nil, false).
+// loadPackage returns the AST files for an import path under one of
+// the module roots, parsing the directory lazily and caching the
+// result. Imports outside every root return (nil, false).
 func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
 	if files, ok := w.packageCache[importPath]; ok {
 		return files, true
 	}
-	if w.modulePath == "" || !strings.HasPrefix(importPath, w.modulePath) {
+	root, ok := w.rootFor(importPath)
+	if !ok {
 		return nil, false
 	}
-	rel := strings.TrimPrefix(importPath, w.modulePath)
-	rel = strings.TrimPrefix(rel, "/")
-	files, err := parsePackageDir(filepath.Join(w.rootDir, rel))
+	rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
+	files, err := parsePackageDir(filepath.Join(root.Dir, rel))
 	if err != nil {
 		return nil, false
 	}
 	w.packageCache[importPath] = files
 	return files, true
+}
+
+// rootFor finds the module root containing importPath, preferring the
+// longest matching path so a nested module wins over one whose path
+// contains it. A root matches when its path equals the import path or
+// is a path-segment prefix of it.
+func (w *walker) rootFor(importPath string) (ModuleRoot, bool) {
+	var best ModuleRoot
+	found := false
+	for _, root := range w.roots {
+		if root.Path == "" {
+			continue
+		}
+		if importPath != root.Path && !strings.HasPrefix(importPath, root.Path+"/") {
+			continue
+		}
+		if !found || len(root.Path) > len(best.Path) {
+			best = root
+			found = true
+		}
+	}
+	return best, found
 }
 
 // lookupFields resolves a typeRef from a registration's type
