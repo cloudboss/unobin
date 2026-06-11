@@ -9,9 +9,15 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
+type awsAssumeRole struct {
+	RoleArn    cfg.String
+	ExternalId *cfg.String
+}
+
 type awsConfig struct {
-	Region  cfg.String
-	Profile *cfg.String
+	Region     cfg.String
+	Profile    *cfg.String
+	AssumeRole *awsAssumeRole
 }
 
 func awsModuleWithConfig() *runtime.Library {

@@ -31,6 +31,7 @@ func TestDescribeListsConfigurationFields(t *testing.T) {
 			}
 		},
 	}
+	nested := []Field{{Name: "host", Type: "string"}}
 	want := []Field{
 		{Name: "region", Type: "string", Description: "AWS region."},
 		{Name: "profile", Type: "string", Optional: true, Description: "Shared config profile."},
@@ -39,8 +40,46 @@ func TestDescribeListsConfigurationFields(t *testing.T) {
 		{Name: "verbose", Type: "boolean"},
 		{Name: "tags", Type: "map(string)"},
 		{Name: "subnets", Type: "list(string)"},
-		{Name: "endpoint", Type: "object"},
-		{Name: "assume-role", Type: "object", Optional: true},
+		{Name: "endpoint", Type: "object", Fields: nested},
+		{Name: "assume-role", Type: "object", Optional: true, Fields: nested},
+	}
+	require.Equal(t, want, Describe(ct))
+}
+
+type describedLeaf struct {
+	Arn String
+}
+
+type describedMiddle struct {
+	Leaf  describedLeaf
+	Label *String
+}
+
+func TestDescribeExpandsNestedObjects(t *testing.T) {
+	type root struct {
+		Middle *describedMiddle
+	}
+	ct := &ConfigurationType{New: func() any { return &root{} }}
+	want := []Field{{
+		Name: "middle", Type: "object", Optional: true,
+		Fields: []Field{
+			{Name: "leaf", Type: "object", Fields: []Field{{Name: "arn", Type: "string"}}},
+			{Name: "label", Type: "string", Optional: true},
+		},
+	}}
+	require.Equal(t, want, Describe(ct))
+}
+
+type describedSelf struct {
+	Name  String
+	Child *describedSelf
+}
+
+func TestDescribeStopsOnSelfReference(t *testing.T) {
+	ct := &ConfigurationType{New: func() any { return &describedSelf{} }}
+	want := []Field{
+		{Name: "name", Type: "string"},
+		{Name: "child", Type: "object", Optional: true},
 	}
 	require.Equal(t, want, Describe(ct))
 }

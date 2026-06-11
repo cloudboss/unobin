@@ -13,12 +13,17 @@ type Field struct {
 	Type        string
 	Optional    bool
 	Description string
+
+	// Fields lists an object-typed field's own fields in declaration
+	// order, so help output can show nested structure. Empty for any
+	// other type.
+	Fields []Field
 }
 
 // Describe lists the fields of the configuration struct behind ct in
 // declaration order, walking the value New returns the same way the
 // decoder does: kebab-case names, a pointer field is optional, and a
-// nested struct reads as an object without flattening its fields.
+// nested struct reads as an object whose own fields fill Fields.
 // Anonymous fields are skipped here; Decode rejects them.
 // Descriptions come from whatever the zero value sets. Returns nil
 // when there is no configuration to describe.
@@ -36,10 +41,22 @@ func Describe(ct *ConfigurationType) []Field {
 		}
 		v = v.Elem()
 	}
+	return describeFields(v, map[reflect.Type]bool{})
+}
+
+// describeFields walks one struct value's fields. visiting holds the
+// struct types on the current path, so a type that nests itself
+// through a pointer stops expanding instead of recursing without end.
+func describeFields(v reflect.Value, visiting map[reflect.Type]bool) []Field {
 	if v.Kind() != reflect.Struct {
 		return nil
 	}
 	t := v.Type()
+	if visiting[t] {
+		return nil
+	}
+	visiting[t] = true
+	defer delete(visiting, t)
 	var out []Field
 	for f := range t.Fields() {
 		if !f.IsExported() || f.Anonymous {
@@ -61,9 +78,41 @@ func Describe(ct *ConfigurationType) []Field {
 			Type:        typeLabel(ft),
 			Optional:    optional,
 			Description: descriptionOf(fv),
+			Fields:      objectFields(ft, fv, visiting),
 		})
 	}
 	return out
+}
+
+// objectFields expands an object-typed field into its own fields: a
+// plain nested struct directly, or the Value an Object wrapper holds.
+// An unallocated optional struct expands from a fresh zero value, so
+// the structure shows even when New leaves the pointer nil.
+func objectFields(t reflect.Type, v reflect.Value, visiting map[reflect.Type]bool) []Field {
+	if implementsValue(t) {
+		if !t.Implements(objectKindType) {
+			return nil
+		}
+		inner, ok := t.FieldByName("Value")
+		if !ok || inner.Type.Kind() != reflect.Struct {
+			return nil
+		}
+		iv := reflect.Value{}
+		if v.IsValid() {
+			iv = v.FieldByName("Value")
+		}
+		if !iv.IsValid() {
+			iv = reflect.New(inner.Type).Elem()
+		}
+		return describeFields(iv, visiting)
+	}
+	if t.Kind() != reflect.Struct {
+		return nil
+	}
+	if !v.IsValid() {
+		v = reflect.New(t).Elem()
+	}
+	return describeFields(v, visiting)
 }
 
 // typeLabel renders a configuration field's type the way the language

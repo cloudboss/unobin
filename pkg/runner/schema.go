@@ -141,13 +141,20 @@ func printConfigurationSchema(out io.Writer, f *lang.File, dag *runtime.DAG, inf
 		if owed := owedNames(used[alias], internal[alias]); len(owed) > 0 {
 			fmt.Fprintf(out, "    needed from config.ub: %s\n", strings.Join(owed, ", "))
 		}
-		for _, fl := range cfg.Describe(lib.Configuration) {
-			fmt.Fprintf(out, "      %s: %s", fl.Name, fieldTypeLabel(fl))
-			if fl.Description != "" {
-				fmt.Fprintf(out, "  -- %s", fl.Description)
-			}
-			fmt.Fprintln(out)
+		writeShowFields(out, cfg.Describe(lib.Configuration), "      ")
+	}
+}
+
+// writeShowFields prints configuration fields one per line, indenting
+// an object field's own fields beneath it.
+func writeShowFields(out io.Writer, fields []cfg.Field, indent string) {
+	for _, fl := range fields {
+		fmt.Fprintf(out, "%s%s: %s", indent, fl.Name, fieldTypeLabel(fl))
+		if fl.Description != "" {
+			fmt.Fprintf(out, "  -- %s", fl.Description)
 		}
+		fmt.Fprintln(out)
+		writeShowFields(out, fl.Fields, indent+"  ")
 	}
 }
 
@@ -278,18 +285,34 @@ func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG,
 		fields := cfg.Describe(info.Libraries[alias].Configuration)
 		for _, name := range owedByAlias[alias] {
 			fmt.Fprintf(out, "    %s: {\n", name)
-			for _, fl := range fields {
-				if fl.Description != "" {
-					fmt.Fprintf(out, "      # %s\n", fl.Description)
-				}
-				fmt.Fprintf(out, "      %s: %s  # type: %s\n",
-					fl.Name, placeholderForFieldType(fl.Type), fieldTypeLabel(fl))
-			}
+			writeTemplateFields(out, fields, "      ")
 			fmt.Fprintln(out, "    }")
 		}
 		fmt.Fprintln(out, "  }")
 	}
 	fmt.Fprintln(out, "}")
+}
+
+// writeTemplateFields scaffolds one placeholder line per
+// configuration field. An object field opens a block and scaffolds
+// its own fields inside; its type comment goes on its own line above
+// the field, so optionality stays visible where the canonical form
+// keeps it.
+func writeTemplateFields(out io.Writer, fields []cfg.Field, indent string) {
+	for _, fl := range fields {
+		if fl.Description != "" {
+			fmt.Fprintf(out, "%s# %s\n", indent, fl.Description)
+		}
+		if len(fl.Fields) > 0 {
+			fmt.Fprintf(out, "%s# type: %s\n", indent, fieldTypeLabel(fl))
+			fmt.Fprintf(out, "%s%s: {\n", indent, fl.Name)
+			writeTemplateFields(out, fl.Fields, indent+"  ")
+			fmt.Fprintf(out, "%s}\n", indent)
+			continue
+		}
+		fmt.Fprintf(out, "%s%s: %s  # type: %s\n",
+			indent, fl.Name, placeholderForFieldType(fl.Type), fieldTypeLabel(fl))
+	}
 }
 
 // placeholderForFieldType picks a starter value for one configuration

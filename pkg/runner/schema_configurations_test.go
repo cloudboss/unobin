@@ -36,6 +36,9 @@ func TestSchemaShowsConfigurations(t *testing.T) {
 	require.Contains(t, out, "    needed from config.ub: default, east2")
 	require.Contains(t, out, "      region: string")
 	require.Contains(t, out, "      profile: optional(string)")
+	require.Contains(t, out, "      assume-role: optional(object)")
+	require.Contains(t, out, "        role-arn: string")
+	require.Contains(t, out, "        external-id: optional(string)")
 }
 
 func TestSchemaTemplateScaffoldsOwedConfigurations(t *testing.T) {
@@ -48,4 +51,8 @@ func TestSchemaTemplateScaffoldsOwedConfigurations(t *testing.T) {
 	require.NotContains(t, out, "    admin: {")
 	require.Contains(t, out, "      region:  ''  # type: string")
 	require.Contains(t, out, "      profile: ''  # type: optional(string)")
+	require.Contains(t, out, "      # type: optional(object)")
+	require.Contains(t, out, "      assume-role: {")
+	require.Contains(t, out, "        role-arn:    ''  # type: string")
+	require.Contains(t, out, "        external-id: ''  # type: optional(string)")
 }
