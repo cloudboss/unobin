@@ -151,6 +151,13 @@ func TestServerPaths(t *testing.T) {
 			contains:    "dagre",
 		},
 		{
+			name:        "logo",
+			url:         base + "assets/unobin.svg",
+			status:      http.StatusOK,
+			contentType: "image/svg+xml",
+			contains:    "<svg",
+		},
+		{
 			name:   "missing asset",
 			url:    base + "assets/nope.js",
 			status: http.StatusNotFound,

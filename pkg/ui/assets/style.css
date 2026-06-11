@@ -39,6 +39,18 @@ html, body {
   z-index: 2;
 }
 
+/* The logo is a watermark in the lower left, under the graph:
+   cards and edges paint over it and clicks pass through it. */
+#logo {
+  position: fixed;
+  left: 1.2rem;
+  bottom: 1.2rem;
+  width: 110px;
+  height: 110px;
+  pointer-events: none;
+  z-index: 0;
+}
+
 #title {
   font-size: 15px;
   font-weight: 600;
@@ -53,6 +65,8 @@ html, body {
 main {
   display: flex;
   height: calc(100% - 45px);
+  position: relative;
+  z-index: 1;
 }
 
 #graph-pane {

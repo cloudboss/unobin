@@ -253,6 +253,8 @@ func (s *Server) handleAsset(w http.ResponseWriter, r *http.Request) {
 		contentType = "text/javascript; charset=utf-8"
 	case ".html":
 		contentType = "text/html; charset=utf-8"
+	case ".svg":
+		contentType = "image/svg+xml"
 	default:
 		contentType = "application/octet-stream"
 	}
