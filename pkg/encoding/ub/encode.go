@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/cloudboss/unobin/pkg/lang/parse"
 )
 
 // Marshaler is implemented by types that supply their own unobin
@@ -260,15 +258,15 @@ func (e *encoder) encodeStruct(v reflect.Value) error {
 		if !sf.IsExported() {
 			continue
 		}
-		name, omitempty, skip := parseTag(sf.Tag.Get("ub"), sf.Name)
-		if skip {
+		tag := ParseTag(sf.Tag.Get("ub"))
+		if tag.Skip {
 			continue
 		}
 		fv := v.Field(i)
-		if omitempty && isEmptyValue(fv) {
+		if tag.Omitempty && isEmptyValue(fv) {
 			continue
 		}
-		pairs = append(pairs, pair{name: name, val: fv})
+		pairs = append(pairs, pair{name: tag.FieldName(sf.Name), val: fv})
 	}
 	if len(pairs) == 0 {
 		e.buf = append(e.buf, "{}"...)
@@ -311,23 +309,6 @@ func (e *encoder) writeIndent() {
 	for i := 0; i < e.depth; i++ {
 		e.buf = append(e.buf, e.indent...)
 	}
-}
-
-func parseTag(tag, fieldName string) (name string, omitempty bool, skip bool) {
-	if tag == "-" {
-		return "", false, true
-	}
-	parts := strings.Split(tag, ",")
-	name = parts[0]
-	if name == "" {
-		name = parse.PascalToKebab(fieldName)
-	}
-	for _, opt := range parts[1:] {
-		if opt == "omitempty" {
-			omitempty = true
-		}
-	}
-	return name, omitempty, false
 }
 
 func isEmptyValue(v reflect.Value) bool {

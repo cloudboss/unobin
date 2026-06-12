@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -977,23 +978,15 @@ func mapify(v any) map[string]any {
 }
 
 // ubFieldKey returns the map key for a struct field under the ub tag
-// convention, plus whether the field is skipped (`ub:"-"`). The key is
-// the tag's name, or the kebab-cased field name when the tag omits a
-// name. This mirrors how the decoder matches keys, so a value mapify
-// writes out reads back into the same field.
+// convention, plus whether the field is skipped (`ub:"-"`). The
+// decoder matches keys by the same rule, so a value mapify writes out
+// reads back into the same field.
 func ubFieldKey(field reflect.StructField) (key string, skip bool) {
-	tag := field.Tag.Get("ub")
-	if tag == "-" {
+	tag := ub.ParseTag(field.Tag.Get("ub"))
+	if tag.Skip {
 		return "", true
 	}
-	name := tag
-	if before, _, ok := strings.Cut(tag, ","); ok {
-		name = before
-	}
-	if name == "" {
-		name = lang.PascalToKebab(field.Name)
-	}
-	return name, false
+	return tag.FieldName(field.Name), false
 }
 
 // canonicalize collapses a reflect.Value to one of the runtime's

@@ -245,11 +245,11 @@ func structFieldsByName(t reflect.Type) map[string]int {
 		if !sf.IsExported() {
 			continue
 		}
-		name, _, skip := parseTag(sf.Tag.Get("ub"), sf.Name)
-		if skip {
+		tag := ParseTag(sf.Tag.Get("ub"))
+		if tag.Skip {
 			continue
 		}
-		out[name] = i
+		out[tag.FieldName(sf.Name)] = i
 	}
 	return out
 }

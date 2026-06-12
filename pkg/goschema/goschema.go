@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
@@ -1130,34 +1131,17 @@ func buildImportMap(files []*ast.File) map[string]string {
 	return out
 }
 
-// parseUBFieldTag reads a field's `ub` struct tag and returns its
-// name (empty means use the kebab-cased field name), whether the
-// field is skipped (`ub:"-"`), whether it is marked sensitive, and
-// any options that are not part of the library-field contract.
-// sensitive is the only option the schema acts on; omitempty and
-// squash are valid codec options and pass silently; anything else is
-// reported so a typo like "sensitiv" cannot quietly leave a secret
-// unmasked.
+// parseUBFieldTag reads a field's `ub` struct tag from its source
+// form, through the same parser the codec uses at run time. name is
+// empty when the field falls back to its kebab-cased Go name. unknown
+// options are returned for warning, so a typo like "sensitiv" cannot
+// quietly leave a secret unmasked.
 func parseUBFieldTag(tag *ast.BasicLit) (name string, skip, sensitive bool, unknown []string) {
 	if tag == nil {
 		return "", false, false, nil
 	}
-	val := reflect.StructTag(strings.Trim(tag.Value, "`")).Get("ub")
-	if val == "-" {
-		return "", true, false, nil
-	}
-	parts := strings.Split(val, ",")
-	name = strings.TrimSpace(parts[0])
-	for _, opt := range parts[1:] {
-		switch strings.TrimSpace(opt) {
-		case "sensitive":
-			sensitive = true
-		case "omitempty", "squash", "":
-		default:
-			unknown = append(unknown, strings.TrimSpace(opt))
-		}
-	}
-	return name, false, sensitive, unknown
+	t := ub.ParseTag(reflect.StructTag(strings.Trim(tag.Value, "`")).Get("ub"))
+	return t.Name, t.Skip, t.Sensitive, t.Unknown
 }
 
 // fieldLabel names a struct field for an error message, using the
