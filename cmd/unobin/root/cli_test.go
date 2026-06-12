@@ -417,6 +417,10 @@ actions: { core.command.hi: { argv: ['echo', 'hi'] } }
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/core"`)
 }
 
+// TestCompileWriteOut compiles to an output directory and checks the
+// files written there. The import deliberately lives under the unobin
+// module path: such a library is served by the unobin require the
+// generated go.mod always pins, with no require line of its own.
 func TestCompileWriteOut(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
@@ -443,6 +447,7 @@ imports: {
 	require.NoError(t, err)
 	require.Contains(t, string(goModBytes), "module demo-factory")
 	require.Contains(t, string(goModBytes), "github.com/cloudboss/unobin v0.1.0")
+	require.NotContains(t, string(goModBytes), "github.com/cloudboss/unobin/pkg/libraries/core")
 }
 
 // TestCompileUsesLockVersion compiles a factory whose import carries no
