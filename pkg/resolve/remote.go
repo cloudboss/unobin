@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -183,7 +182,3 @@ func hashTree(fsys fs.FS) (string, error) {
 	}
 	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
 }
-
-// ErrRemoteNotImplemented is retained for callers that switched on it
-// while the resolver was a stub. New callers should not depend on it.
-var ErrRemoteNotImplemented = errors.New("remote resolver not implemented")
