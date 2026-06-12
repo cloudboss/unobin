@@ -42,7 +42,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 		return err
 	}
 	out := cmd.OutOrStdout()
-	inputs := topLevelObject(f, "inputs")
+	inputs := lang.TopLevelBlock(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		fmt.Fprintln(out, "No inputs declared.")
 		printOutputSchema(out, f)
@@ -87,7 +87,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 // with its sensitivity marker and declared description. Values are
 // runtime results, so only the metadata prints here.
 func printOutputSchema(out io.Writer, f *lang.File) {
-	outputs := topLevelObject(f, "outputs")
+	outputs := lang.TopLevelBlock(f, "outputs")
 	if outputs == nil || len(outputs.Fields) == 0 {
 		return
 	}
@@ -230,7 +230,7 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info In
 // placeholder line per declared input, with its description and type
 // alongside.
 func renderInputsTemplate(out io.Writer, f *lang.File) {
-	inputs := topLevelObject(f, "inputs")
+	inputs := lang.TopLevelBlock(f, "inputs")
 	if inputs == nil || len(inputs.Fields) == 0 {
 		return
 	}
@@ -359,36 +359,6 @@ func placeholderForType(e lang.Expr) string {
 		}
 	}
 	return "null"
-}
-
-func topLevelArray(f *lang.File, name string) *lang.ArrayLit {
-	if f == nil || f.Body == nil {
-		return nil
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == name {
-			if arr, ok := fld.Value.(*lang.ArrayLit); ok {
-				return arr
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
-func topLevelObject(f *lang.File, name string) *lang.ObjectLit {
-	if f == nil || f.Body == nil {
-		return nil
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == name {
-			if obj, ok := fld.Value.(*lang.ObjectLit); ok {
-				return obj
-			}
-			return nil
-		}
-	}
-	return nil
 }
 
 // printType renders a parsed type expression back to its source form

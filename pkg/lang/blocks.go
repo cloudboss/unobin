@@ -18,6 +18,24 @@ func TopLevelBlock(f *File, name string) *ObjectLit {
 	return nil
 }
 
+// TopLevelArray returns the array value of a file's top-level field
+// with the given name. A nil file, an absent field, or a value of
+// another form yields nil; ValidateFile reports the wrong-form case,
+// so callers may treat nil as absence.
+func TopLevelArray(f *File, name string) *ArrayLit {
+	if f == nil || f.Body == nil {
+		return nil
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.Name != name {
+			continue
+		}
+		arr, _ := fld.Value.(*ArrayLit)
+		return arr
+	}
+	return nil
+}
+
 // FieldMap returns an object's plain fields by name: every field with
 // an identifier key that is not a meta key. A nil object yields an
 // empty map.

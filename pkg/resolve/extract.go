@@ -12,7 +12,7 @@ import (
 // `lang.ValidateImports` and silently skipped here so the two passes
 // don't both report the same errors.
 func ExtractImports(f *lang.File) (map[string]ImportRef, []error) {
-	obj := topLevelObject(f, "imports")
+	obj := lang.TopLevelBlock(f, "imports")
 	if obj == nil {
 		return nil, nil
 	}
@@ -34,19 +34,4 @@ func ExtractImports(f *lang.File) (map[string]ImportRef, []error) {
 		out[fld.Key.Name] = ref
 	}
 	return out, errs
-}
-
-func topLevelObject(f *lang.File, key string) *lang.ObjectLit {
-	if f == nil || f.Body == nil {
-		return nil
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == key {
-			if obj, ok := fld.Value.(*lang.ObjectLit); ok {
-				return obj
-			}
-			return nil
-		}
-	}
-	return nil
 }

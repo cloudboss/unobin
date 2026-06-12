@@ -48,10 +48,10 @@ func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 	sc := &stateConfig{}
 	ctx := runtime.NewEvalContext(f)
 	var stateErr, encErr error
-	if block := topLevelObject(f, "state"); block != nil {
+	if block := lang.TopLevelBlock(f, "state"); block != nil {
 		sc.Backend, stateErr = readStateBlock(path, block, ctx)
 	}
-	if block := topLevelObject(f, "encryption"); block != nil {
+	if block := lang.TopLevelBlock(f, "encryption"); block != nil {
 		sc.Encrypter, encErr = readEncryptionBlock(path, block, ctx)
 	}
 	if err := errors.Join(stateErr, encErr); err != nil {
