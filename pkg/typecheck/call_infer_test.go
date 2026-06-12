@@ -31,6 +31,65 @@ func callScope() *Scope {
 	}
 }
 
+// hookScope describes one function whose signature computes its
+// result from the argument types, recording what the hook receives.
+func hookScope(param Type, hook func(args []Type) Type) (*Scope, *[][]Type) {
+	var seen [][]Type
+	sig := FuncSig{
+		Variadic: &param,
+		Result:   TUnknown(),
+		Infer: func(args []Type) Type {
+			seen = append(seen, args)
+			return hook(args)
+		},
+	}
+	return &Scope{
+		LookupFunction: func(library, name string) (FuncSig, bool) {
+			if library != "core" || name != "hooked" {
+				return FuncSig{}, false
+			}
+			return sig, true
+		},
+	}, &seen
+}
+
+func TestInferCallHookComputesResult(t *testing.T) {
+	scope, _ := hookScope(TOptional(TObject(nil)), func([]Type) Type { return TString() })
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "core.hooked({ a: 1 })"), TUnknown(), scope, errs)
+	assert.True(t, got.Equal(TString()), "got %s", got)
+	assert.Empty(t, errs.Errors())
+}
+
+// TestInferCallHookSeesNaturalArgTypes proves hook arguments are
+// inferred without the parameter as a target: an object literal
+// reaches the hook as the precise object it spells, not as the
+// parameter's own type.
+func TestInferCallHookSeesNaturalArgTypes(t *testing.T) {
+	scope, seen := hookScope(TOptional(TObject(nil)), func([]Type) Type { return TUnknown() })
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "core.hooked({ a: 1, b: 'x' }, null)"), TUnknown(), scope, errs)
+	require.Empty(t, errs.Errors())
+	require.Len(t, *seen, 1)
+	args := (*seen)[0]
+	require.Len(t, args, 2)
+	want := TObject([]ObjectField{
+		{Name: "a", Type: TInteger()},
+		{Name: "b", Type: TString()},
+	})
+	assert.True(t, args[0].Equal(want), "got %s", args[0])
+	assert.True(t, args[1].Equal(TNull()), "got %s", args[1])
+}
+
+func TestInferCallHookChecksArguments(t *testing.T) {
+	scope, _ := hookScope(TOptional(TObject(nil)), func([]Type) Type { return TUnknown() })
+	errs := lang.NewErrorList(0)
+	Infer(parseExpr(t, "core.hooked('nope')"), TUnknown(), scope, errs)
+	require.Equal(t,
+		[]string{"type mismatch: expected optional(object({  })), got string"},
+		errs.Messages())
+}
+
 func TestInferCallResultType(t *testing.T) {
 	scope := callScope()
 	errs := lang.NewErrorList(0)

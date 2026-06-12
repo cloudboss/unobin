@@ -50,10 +50,16 @@ type Scope struct {
 // when the function is not variadic), and the result type. A function
 // registered without declared types reads as all-Unknown, which checks
 // nothing and infers nothing.
+//
+// Infer, when set, computes the call's type from the argument types in
+// place of Result. Arguments of such a call are inferred without a
+// target so the hook sees their natural types: an object literal stays
+// the precise object it spells, not the parameter type it flowed into.
 type FuncSig struct {
 	Params   []Type
 	Variadic *Type
 	Result   Type
+	Infer    func(args []Type) Type
 }
 
 // withBindings returns a child scope that adds the comprehension
@@ -161,7 +167,8 @@ func infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 // inferCall types a library function call when the scope can describe
 // the function. Each argument checks against its parameter type and a
 // variadic tail against the tail's element type; the call's type is
-// the declared result. An argument past a fixed signature checks
+// the declared result, or what the signature's Infer hook computes
+// from the argument types. An argument past a fixed signature checks
 // freely, since the argument count is the reference checker's to
 // report. An unresolvable call infers Unknown.
 func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
@@ -172,6 +179,10 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 	if !ok {
 		return TUnknown()
 	}
+	var argTypes []Type
+	if sig.Infer != nil {
+		argTypes = make([]Type, 0, len(c.Args))
+	}
 	for i, arg := range c.Args {
 		target := TUnknown()
 		switch {
@@ -180,11 +191,21 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 		case sig.Variadic != nil:
 			target = *sig.Variadic
 		}
-		if target.Kind == Union {
+		switch {
+		case sig.Infer != nil:
+			got := Infer(arg, TUnknown(), scope, errs)
+			if target.IsKnown() && got.IsKnown() && !Assignable(target, got) {
+				reportMismatch(arg, target, got, errs)
+			}
+			argTypes = append(argTypes, got)
+		case target.Kind == Union:
 			checkUnionArg(c.Func.Name, arg, target, scope, errs)
-			continue
+		default:
+			Check(arg, target, scope, errs)
 		}
-		Check(arg, target, scope, errs)
+	}
+	if sig.Infer != nil {
+		return sig.Infer(argTypes)
 	}
 	return sig.Result
 }
@@ -470,32 +491,40 @@ func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		return got
 	}
 	if !Assignable(target, got) {
-		if got.Unwrap().Kind == Opaque {
-			if target.Unwrap().Kind == String {
-				errs.Addf(lang.ErrType, e.Span().Start,
-					"type mismatch: expected %s, got %s; "+
-						"pass it as JSON text with @core.to-json(x), "+
-						"or declare the value's type where it enters",
-					target, got)
-				return got
-			}
-			errs.Addf(lang.ErrType, e.Span().Start,
-				"type mismatch: expected %s, got %s; "+
-					"declare the value's type where it enters",
-				target, got)
-			return got
-		}
-		if got.Kind == Optional && Assignable(target, got.Unwrap()) {
-			errs.Addf(lang.ErrType, e.Span().Start,
-				"type mismatch: expected %s, got %s; "+
-					"test it first, like if x != null then x else <fallback>",
-				target, got)
-			return got
-		}
-		errs.Addf(lang.ErrType, e.Span().Start,
-			"type mismatch: expected %s, got %s", target, got)
+		reportMismatch(e, target, got, errs)
 	}
 	return got
+}
+
+// reportMismatch appends the diagnostic for a value of type got in a
+// slot of type target, with the hint matching how the mismatch can be
+// fixed: an opaque value wants its type declared at its entry point,
+// and a possibly-null value wants a null test.
+func reportMismatch(e lang.Expr, target, got Type, errs *lang.ErrorList) {
+	if got.Unwrap().Kind == Opaque {
+		if target.Unwrap().Kind == String {
+			errs.Addf(lang.ErrType, e.Span().Start,
+				"type mismatch: expected %s, got %s; "+
+					"pass it as JSON text with @core.to-json(x), "+
+					"or declare the value's type where it enters",
+				target, got)
+			return
+		}
+		errs.Addf(lang.ErrType, e.Span().Start,
+			"type mismatch: expected %s, got %s; "+
+				"declare the value's type where it enters",
+			target, got)
+		return
+	}
+	if got.Kind == Optional && Assignable(target, got.Unwrap()) {
+		errs.Addf(lang.ErrType, e.Span().Start,
+			"type mismatch: expected %s, got %s; "+
+				"test it first, like if x != null then x else <fallback>",
+			target, got)
+		return
+	}
+	errs.Addf(lang.ErrType, e.Span().Start,
+		"type mismatch: expected %s, got %s", target, got)
 }
 
 // literalEnforced reports whether Infer already checked e against
