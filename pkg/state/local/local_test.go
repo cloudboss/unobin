@@ -315,4 +315,6 @@ func TestStoreWrongKeyCantDecrypt(t *testing.T) {
 	_, err = b.Get(rev)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "decrypt")
+	require.Contains(t, err.Error(), "sealed with env-key env-var UB_TEST_KEY_A",
+		"the error should say which key sealed the snapshot")
 }

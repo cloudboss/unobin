@@ -83,7 +83,25 @@ func Open(b []byte, resolveEnc func(*Ref) (encrypt.Encrypter, error)) ([]byte, e
 	}
 	body, err := enc.Decrypt(env.Ciphertext)
 	if err != nil {
-		return nil, fmt.Errorf("open: decrypt: %w", err)
+		return nil, fmt.Errorf("open: decrypt: %w%s", err, refHint(env.Encrypter))
 	}
 	return body, nil
+}
+
+// refHint renders the envelope's encrypter ref for a decrypt error,
+// pointing the operator at the key source that sealed the file and,
+// when recorded, the key that can open it. The two field names cover
+// the fixed encrypter set; an encrypter recording neither still gets
+// its name reported.
+func refHint(ref *Ref) string {
+	if ref == nil {
+		return ""
+	}
+	hint := " (sealed with " + ref.Name
+	if v, ok := ref.Body["key-id"].(string); ok && v != "" {
+		hint += " key-id " + v
+	} else if v, ok := ref.Body["env-var"].(string); ok && v != "" {
+		hint += " env-var " + v
+	}
+	return hint + ")"
 }

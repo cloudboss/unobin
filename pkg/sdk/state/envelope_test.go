@@ -24,17 +24,18 @@ func (reversingEncrypter) Describe() encrypt.Description {
 	}
 }
 
-// failingEncrypter stands in for a wrong key: its Decrypt always errors.
-// Its description has no configuration.
-type failingEncrypter struct{}
+// failingEncrypter stands in for a wrong key: its Decrypt always
+// errors. The configurable description exercises how decrypt errors
+// report what sealed the envelope.
+type failingEncrypter struct {
+	desc encrypt.Description
+}
 
 func (failingEncrypter) Encrypt(b []byte) ([]byte, error) { return b, nil }
 func (failingEncrypter) Decrypt([]byte) ([]byte, error) {
 	return nil, errors.New("authentication failed")
 }
-func (failingEncrypter) Describe() encrypt.Description {
-	return encrypt.Description{KeySource: "failing"}
-}
+func (e failingEncrypter) Describe() encrypt.Description { return e.desc }
 
 func reverseBytes(b []byte) []byte {
 	out := make([]byte, len(b))
@@ -71,7 +72,9 @@ func TestSealRecordsEncrypterDescription(t *testing.T) {
 }
 
 func TestSealOmitsBodyForEmptyConfig(t *testing.T) {
-	sealed, err := Seal([]byte("body"), failingEncrypter{})
+	sealed, err := Seal([]byte("body"), failingEncrypter{
+		desc: encrypt.Description{KeySource: "failing"},
+	})
 	require.NoError(t, err)
 
 	var raw map[string]json.RawMessage
@@ -109,13 +112,64 @@ func TestOpenRejectsUnknownEnvelopeVersion(t *testing.T) {
 	require.Contains(t, err.Error(), "envelope-version 99")
 }
 
-func TestOpenReportsDecryptFailure(t *testing.T) {
-	sealed, err := Seal([]byte("body"), failingEncrypter{})
+func TestOpenDecryptFailureNamesKeySource(t *testing.T) {
+	tests := []struct {
+		name string
+		desc encrypt.Description
+		hint string
+	}{
+		{
+			name: "key-id",
+			desc: encrypt.Description{
+				KeySource: "kms",
+				Config: map[string]any{
+					"key-id": "arn:aws:kms:us-east-1:000000000000:key/abc",
+					"aws":    map[string]any{"region": "us-east-1"},
+				},
+			},
+			hint: "sealed with kms key-id arn:aws:kms:us-east-1:000000000000:key/abc",
+		},
+		{
+			name: "env-var",
+			desc: encrypt.Description{
+				KeySource: "env-key",
+				Config:    map[string]any{"env-var": "UB_STATE_KEY"},
+			},
+			hint: "sealed with env-key env-var UB_STATE_KEY",
+		},
+		{
+			name: "name only",
+			desc: encrypt.Description{KeySource: "failing"},
+			hint: "sealed with failing",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enc := failingEncrypter{desc: tt.desc}
+			sealed, err := Seal([]byte("body"), enc)
+			require.NoError(t, err)
+
+			_, err = Open(sealed, func(*Ref) (encrypt.Encrypter, error) {
+				return enc, nil
+			})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "decrypt")
+			require.Contains(t, err.Error(), tt.hint)
+		})
+	}
+}
+
+func TestOpenDecryptFailureWithoutRefStaysPlain(t *testing.T) {
+	raw, err := json.Marshal(Envelope{
+		EnvelopeVersion: EnvelopeVersion,
+		Ciphertext:      []byte("x"),
+	})
 	require.NoError(t, err)
 
-	_, err = Open(sealed, func(*Ref) (encrypt.Encrypter, error) {
+	_, err = Open(raw, func(*Ref) (encrypt.Encrypter, error) {
 		return failingEncrypter{}, nil
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "decrypt")
+	require.NotContains(t, err.Error(), "sealed with")
 }
