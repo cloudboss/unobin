@@ -555,6 +555,29 @@ configurations: { ghost.default: { region: 'r' } }
 		errs.Messages())
 }
 
+// TestCheckTypesMergeInfersPreciseObject proves @core.merge of object
+// literals reaches a typed field as the precise merged object through
+// the full compile pipeline, not as an unknown that checks nothing.
+func TestCheckTypesMergeInfersPreciseObject(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+resources: { local.file.one: { path: @core.merge({ a: 1 }, { b: 'x' }), content: 'c' } }
+`), map[string]*runtime.Library{"local": localFileLibrary()})
+	require.Equal(t,
+		[]string{"type mismatch: expected string, got object({ a: integer  b: string })"},
+		errs.Messages())
+}
+
+// TestCheckTypesMergeOfMapChecksNothing proves a merge holding an
+// argument whose keys the checker cannot know infers Unknown, so the
+// call checks nothing instead of guessing.
+func TestCheckTypesMergeOfMapChecksNothing(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+inputs: { tags: { type: map(string) } }
+resources: { local.file.one: { path: @core.merge(var.tags, { a: 'x' }), content: 'c' } }
+`), map[string]*runtime.Library{"local": localFileLibrary()})
+	require.Empty(t, errs.Messages())
+}
+
 func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { local.default: { region: 'r' } }

@@ -293,6 +293,56 @@ func TestFunctionAnyNonList(t *testing.T) {
 	require.Contains(t, err.Error(), "any: argument 1 must be a list, got a string")
 }
 
+func TestFunctionMerge(t *testing.T) {
+	cases := []struct {
+		src  string
+		want map[string]any
+	}{
+		{"@core.merge()", map[string]any{}},
+		{"@core.merge({ a: 1 })", map[string]any{"a": int64(1)}},
+		{"@core.merge({ a: 1 }, { b: 2 })", map[string]any{"a": int64(1), "b": int64(2)}},
+		{"@core.merge({ a: 1 }, { a: 2 })", map[string]any{"a": int64(2)}},
+		{
+			"@core.merge({ a: 1, b: 2 }, { b: 3 }, { a: 4 })",
+			map[string]any{"a": int64(4), "b": int64(3)},
+		},
+		{"@core.merge({ a: [1, 2] }, { a: [3] })", map[string]any{"a": []any{int64(3)}}},
+		{
+			"@core.merge({ a: { x: 1, y: 2 } }, { a: { z: 3 } })",
+			map[string]any{"a": map[string]any{"z": int64(3)}},
+		},
+		{"@core.merge(null, { a: 1 })", map[string]any{"a": int64(1)}},
+		{"@core.merge({ a: 1 }, null)", map[string]any{"a": int64(1)}},
+		{"@core.merge({ a: null })", map[string]any{"a": nil}},
+	}
+	for _, c := range cases {
+		t.Run(c.src, func(t *testing.T) {
+			got, err := evalCore(t, c.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFunctionMergeNonObjectArgument(t *testing.T) {
+	_, err := evalCore(t, "@core.merge({ a: 1 }, 'x')", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "merge: argument 2 must be an object, got a string")
+}
+
+// TestFunctionMergeResultIsFresh proves the merged object is a new
+// container: writing to it must not reach the arguments.
+func TestFunctionMergeResultIsFresh(t *testing.T) {
+	base := map[string]any{"a": int64(1)}
+	overlay := map[string]any{"b": int64(2)}
+	out, err := fnMerge(base, overlay)
+	require.NoError(t, err)
+	out["a"] = int64(99)
+	out["c"] = int64(3)
+	require.Equal(t, map[string]any{"a": int64(1)}, base)
+	require.Equal(t, map[string]any{"b": int64(2)}, overlay)
+}
+
 func TestFunctionToInteger(t *testing.T) {
 	cases := []struct {
 		src  string

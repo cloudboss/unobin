@@ -99,6 +99,11 @@ func TestCoreFunctionSet(t *testing.T) {
 			})},
 			Result: integer,
 		},
+		"merge": {
+			Variadic: &mergeParam,
+			Result:   typecheck.TUnknown(),
+			Infer:    typecheck.MergeShallow,
+		},
 		"range": {
 			Params: []typecheck.Type{integer},
 			Result: typecheck.TList(integer),
@@ -147,6 +152,43 @@ func requireSigEqual(t *testing.T, name string, want, got typecheck.FuncSig) {
 	}
 	require.True(t, want.Result.Equal(got.Result),
 		"%s result: want %s, got %s", name, want.Result, got.Result)
+	require.Equal(t, want.Infer == nil, got.Infer == nil, "%s: result hook presence", name)
+}
+
+// TestMergeFaceMatchesRuntime locks merge's declared face to the
+// implementation the way the union faces are locked: kind by kind,
+// the runtime accepts a value exactly when the static face does.
+func TestMergeFaceMatchesRuntime(t *testing.T) {
+	face := *CoreFunctionSigs()["merge"].Variadic
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{
+			"object",
+			typecheck.TObject([]typecheck.ObjectField{{Name: "a", Type: typecheck.TInteger()}}),
+			map[string]any{"a": int64(1)},
+		},
+		{"map", typecheck.TMap(typecheck.TString()), map[string]any{"a": "x"}},
+		{"null", typecheck.TNull(), nil},
+		{"string", typecheck.TString(), "x"},
+		{"integer", typecheck.TInteger(), int64(1)},
+		{"number", typecheck.TNumber(), 1.5},
+		{"boolean", typecheck.TBoolean(), true},
+		{"list", typecheck.TList(typecheck.TOpaque()), []any{int64(1)}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnMerge(c.val)
+			staticOK := typecheck.Assignable(face, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
+
+	_, err := fnMerge("x")
+	require.EqualError(t, err, "merge: argument 1 must be an object, got a string")
 }
 
 // TestLengthUnionMatchesRuntime locks length's declared union to the

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,6 +13,10 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
+
+// mergeParam is merge's declared face for every argument: any object,
+// or null for an argument that adds nothing.
+var mergeParam = typecheck.TOptional(typecheck.TObject(nil))
 
 // coreRegistrations binds each @core function to its typed
 // implementation. The runtime registration and the compile-time
@@ -49,6 +54,14 @@ var coreRegistrations = []struct {
 		}},
 	{"all", "Report whether every element of a list of booleans is true.", fnAll, nil},
 	{"any", "Report whether at least one element of a list of booleans is true.", fnAny, nil},
+	{"merge",
+		"Merge objects left to right; under the same key a later value replaces an earlier one.",
+		fnMerge,
+		&typecheck.FuncSig{
+			Variadic: &mergeParam,
+			Result:   typecheck.TUnknown(),
+			Infer:    typecheck.MergeShallow,
+		}},
 	{"to-integer", "Convert a number or a numeric string to an integer.", fnToInteger,
 		&typecheck.FuncSig{
 			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
@@ -249,6 +262,27 @@ func fnAny(bools []bool) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// fnMerge merges objects left to right into one: under the same key a
+// later value replaces an earlier one whatever its type, and keys the
+// later objects do not name pass through. A null argument adds
+// nothing. The result is a fresh object; nested values are shared,
+// not copied.
+func fnMerge(args ...any) (map[string]any, error) {
+	out := map[string]any{}
+	for i, arg := range args {
+		if arg == nil {
+			continue
+		}
+		obj, ok := arg.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf(
+				"merge: argument %d must be an object, got %s", i+1, lang.TypeMessage(arg))
+		}
+		maps.Copy(out, obj)
+	}
+	return out, nil
 }
 
 // fnToInteger converts a number or a numeric string to an integer. A
