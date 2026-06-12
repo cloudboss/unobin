@@ -186,7 +186,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 		if scope == nil {
 			scope = e.stateScope(prior, vars)
 		}
-		raw, err := evalBody(n.Body, scope)
+		raw, err := evalConfigurationBody(n.Body, scope)
 		if err != nil {
 			if errors.Is(err, ErrEvalNotFound) {
 				continue
@@ -917,6 +917,25 @@ func evalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
 		out[fld.Key.Name] = val
 	}
 	return out, nil
+}
+
+// evalConfigurationBody evaluates an internal configuration's body.
+// An object literal evaluates field by field; any other expression
+// evaluates whole and must produce an object.
+func evalConfigurationBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
+	if _, ok := body.(*lang.ObjectLit); ok {
+		return evalBody(body, ec)
+	}
+	val, err := Eval(body, ec)
+	if err != nil {
+		return nil, err
+	}
+	obj, ok := val.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("configuration body must evaluate to an object, got %s",
+			lang.TypeMessage(val))
+	}
+	return obj, nil
 }
 
 // mergeAttrs returns the attribute view the reference layer sees for a

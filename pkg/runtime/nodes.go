@@ -414,16 +414,14 @@ func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 // extractConfigurations walks a factory's configurations: block and
 // returns one node per defined configuration. Every entry is keyed by
 // a dotted alias.name path; the node's Body is the configuration's
-// object of fields, and Alias and Name record which import it
-// configures and the configuration's name. Like outputs,
-// configurations are defined only at the factory root.
+// object of fields or a whole expression that evaluates to one, and
+// Alias and Name record which import it configures and the
+// configuration's name. Like outputs, configurations are defined only
+// at the factory root.
 func extractConfigurations(block *lang.ObjectLit) []*Node {
 	var out []*Node
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
-			continue
-		}
-		if _, ok := fld.Value.(*lang.ObjectLit); !ok {
 			continue
 		}
 		alias, name := fld.Key.Path[0], fld.Key.Path[1]

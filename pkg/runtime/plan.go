@@ -885,20 +885,36 @@ func isUpstreamChange(d Decision) bool {
 // run with a real configuration on an unchanged world. A field whose
 // upstream is pending leaves the configuration unevaluated, recorded
 // on the step's UnresolvedInputs; apply computes it from live values.
+// A whole-expression body whose evaluation hits a pending upstream
+// defers the same way, with no field detail, since its field set is
+// unknowable until the sources settle.
 func (e *Executor) planConfiguration(rs *runState, n *Node) (*PlanStep, error) {
 	step := &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}
 	scope, err := e.scopeForAddress(rs, n.Address)
 	if err != nil {
 		return nil, err
 	}
-	inputs, unresolved, err := planEvalBody(n.Body, scope)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", n.Address, err)
-	}
-	step.Inputs = inputs
-	if len(unresolved) > 0 {
-		step.UnresolvedInputs = unresolved
-		return step, nil
+	var inputs map[string]any
+	if _, ok := n.Body.(*lang.ObjectLit); ok {
+		var unresolved map[string][]string
+		inputs, unresolved, err = planEvalBody(n.Body, scope)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", n.Address, err)
+		}
+		step.Inputs = inputs
+		if len(unresolved) > 0 {
+			step.UnresolvedInputs = unresolved
+			return step, nil
+		}
+	} else {
+		inputs, err = evalConfigurationBody(n.Body, scope)
+		if errors.Is(err, ErrEvalNotFound) {
+			return step, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", n.Address, err)
+		}
+		step.Inputs = inputs
 	}
 	lib, ok := e.librariesFor(n)[n.Alias]
 	if !ok || lib.Configuration == nil {

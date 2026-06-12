@@ -151,6 +151,79 @@ func TestPlanEvaluatesInternalConfigurationFromState(t *testing.T) {
 		findStep(t, plan, "resource.fix.config-echo.app").Decision)
 }
 
+const expressionConfigSrc = `
+configurations: {
+  fix.default: {}
+  fix.cluster: @core.merge({ endpoint: 'https://b.example' },
+    { endpoint: resource.fix.echo.src.value })
+}
+resources: {
+  fix.echo.src:        { value: 'https://cluster.example' }
+  fix.config-echo.app: { @configuration: fix.cluster }
+}
+outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
+`
+
+// An internal configuration body may be a whole expression. One
+// merging over a resource output is pending at first plan, defers
+// whole, and evaluates live during apply, reaching the consumer's
+// CRUD call like a literal body does.
+func TestApplyEvaluatesExpressionConfiguration(t *testing.T) {
+	libs := configuredLibraries()
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, expressionConfigSrc), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	res := applyOnce(t, exec)
+	require.Equal(t, "https://cluster.example", res.Outputs["got"])
+}
+
+// A static expression body evaluates during the plan like a literal
+// one, with the merged fields on the step.
+func TestPlanEvaluatesStaticExpressionConfiguration(t *testing.T) {
+	src := `
+configurations: {
+  fix.default: {}
+  fix.cluster: @core.merge({ endpoint: 'https://b.example' }, { endpoint: 'https://m.example' })
+}
+resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+`
+	libs := configuredLibraries()
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "configuration.fix.cluster")
+	require.Equal(t, map[string]any{"endpoint": "https://m.example"}, step.Inputs)
+	require.Empty(t, step.UnresolvedInputs)
+}
+
+// A body expression must produce an object; anything else is an error
+// naming the configuration.
+func TestExpressionConfigurationMustEvaluateToObject(t *testing.T) {
+	src := `
+configurations: { fix.default: {}, fix.cluster: 'nope' }
+resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+`
+	libs := configuredLibraries()
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(),
+		"configuration.fix.cluster: configuration body must evaluate to an object, got a string")
+}
+
 // configProbeData records the configuration its Read receives.
 type configProbeData struct {
 	readSeen *[]string

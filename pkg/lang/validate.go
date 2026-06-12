@@ -1162,11 +1162,18 @@ func fieldValue(o *ObjectLit, name string) Expr {
 
 // ValidateFactoryConfigurations checks the structure of a factory's
 // configurations: block: every entry is keyed by a dotted alias.name
-// path and binds an object literal of fields. No meta keys are valid in
-// a configuration body. Field values are ordinary expressions and are
-// not constrained here.
+// path and binds either an object literal of fields or a whole
+// expression that must evaluate to an object at run time. No meta keys
+// are valid in an object body. Field values are ordinary expressions
+// and are not constrained here.
 func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "configuration", "alias.name", nil)
+	errs := NewErrorList(0)
+	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
+		if body, ok := fld.Value.(*ObjectLit); ok {
+			checkBodyMetaKeys(body, "configuration", key, nil, errs)
+		}
+	}
+	return errs
 }
 
 // factoryChildKeys lists the keys a config file's factory: block may

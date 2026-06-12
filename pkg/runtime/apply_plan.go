@@ -168,7 +168,7 @@ func (e *Executor) applyConfiguration(rs *runState, step *PlanStep) error {
 		return fmt.Errorf("%s: not in the graph", step.Address)
 	}
 	rs.mu.Lock()
-	raw, err := evalBody(node.Body, rs.eval)
+	raw, err := evalConfigurationBody(node.Body, rs.eval)
 	rs.mu.Unlock()
 	if err != nil {
 		return fmt.Errorf("%s: %w", step.Address, err)
