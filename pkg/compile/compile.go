@@ -170,7 +170,7 @@ func Run(opts Options) error {
 		}
 	}
 
-	schemaRoots := UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)
+	schemas := NewSchemaCache(UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)...)
 
 	newResolver := opts.NewResolver
 	if newResolver == nil {
@@ -207,7 +207,7 @@ func Run(opts Options) error {
 		return err
 	}
 	repoVersions = withReplacedVersions(repoVersions, replaceMap)
-	v := newCompileVisitor(name, opts.stderr(), schemaRoots)
+	v := newCompileVisitor(name, opts.stderr(), schemas)
 	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
 	if err != nil {
 		return err
@@ -222,7 +222,7 @@ func Run(opts Options) error {
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			goImports[res.LocalAlias] = res.Path
-			schema, warnings, err := ReadGoSchema(res.SourcePath, schemaRoots...)
+			schema, warnings, err := schemas.Read(res.SourcePath)
 			if err != nil {
 				return fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
@@ -323,11 +323,11 @@ type compileVisitor struct {
 	importVersions   map[string]string
 	runtimeLibraries map[string]*ubruntime.Library
 	warnOut          io.Writer
-	schemaRoots      []goschema.ModuleRoot
+	schemas          *SchemaCache
 }
 
 func newCompileVisitor(
-	stackName string, warnOut io.Writer, schemaRoots []goschema.ModuleRoot,
+	stackName string, warnOut io.Writer, schemas *SchemaCache,
 ) *compileVisitor {
 	return &compileVisitor{
 		stackName:        stackName,
@@ -336,7 +336,7 @@ func newCompileVisitor(
 		importVersions:   map[string]string{},
 		runtimeLibraries: map[string]*ubruntime.Library{},
 		warnOut:          warnOut,
-		schemaRoots:      schemaRoots,
+		schemas:          schemas,
 	}
 }
 
@@ -365,7 +365,7 @@ func (c *compileVisitor) OnUBLibrary(
 		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, warnings, err := ReadGoSchema(res.SourcePath, c.schemaRoots...)
+				schema, warnings, err := c.schemas.Read(res.SourcePath)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",

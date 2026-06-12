@@ -122,10 +122,11 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolver,
 	versions map[string]string, warnOut io.Writer,
 	schemaRoots []goschema.ModuleRoot) (map[string]*runtime.Library, error) {
+	schemas := compile.NewSchemaCache(schemaRoots...)
 	v := &graphVisitor{
-		byKey:       map[string]*runtime.Library{},
-		warnOut:     warnOut,
-		schemaRoots: schemaRoots,
+		byKey:   map[string]*runtime.Library{},
+		warnOut: warnOut,
+		schemas: schemas,
 	}
 	top, err := resolve.WalkUB(refs, resolver, v, versions)
 	if err != nil {
@@ -135,7 +136,7 @@ func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolve
 	for _, res := range top {
 		switch res.Kind {
 		case resolve.ResolutionGo:
-			schema, warnings, err := compile.ReadGoSchema(res.SourcePath, schemaRoots...)
+			schema, warnings, err := schemas.Read(res.SourcePath)
 			if err != nil {
 				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
 			}
@@ -153,9 +154,9 @@ func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolve
 // doesn't model their types; the consumer fills in an empty
 // *runtime.Library per top-level Go alias.
 type graphVisitor struct {
-	byKey       map[string]*runtime.Library
-	warnOut     io.Writer
-	schemaRoots []goschema.ModuleRoot
+	byKey   map[string]*runtime.Library
+	warnOut io.Writer
+	schemas *compile.SchemaCache
 }
 
 func (g *graphVisitor) OnGoImport(_, _, _ string) error {
@@ -171,7 +172,7 @@ func (g *graphVisitor) OnUBLibrary(
 		for _, res := range lib.BodyImports[name] {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				schema, warnings, err := compile.ReadGoSchema(res.SourcePath, g.schemaRoots...)
+				schema, warnings, err := g.schemas.Read(res.SourcePath)
 				if err != nil {
 					return fmt.Errorf(
 						"composite %q import %q: %w",
