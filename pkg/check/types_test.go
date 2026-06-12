@@ -641,6 +641,36 @@ configurations: { aws.use1: @core.merge(configuration.aws, {}) }
 		errs.Messages())
 }
 
+// An expression configuration body checks whole against the schema's
+// object type, so a derived configuration with a wrongly typed field
+// fails at compile instead of at plan-time decode.
+func TestCheckTypesExpressionConfigurationFieldMismatch(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: @core.merge(configuration.aws.default, { region: 5 }) }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Len(t, errs.Messages(), 1)
+	require.Contains(t, errs.Messages()[0], "type mismatch")
+	require.Contains(t, errs.Messages()[0], "region: integer")
+}
+
+func TestCheckTypesExpressionConfigurationMissingRequired(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: @core.merge({ profile: 'p' }, {}) }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Len(t, errs.Messages(), 1)
+	require.Contains(t, errs.Messages()[0], "type mismatch")
+}
+
+// A merge holding an argument the checker cannot know infers Unknown
+// and the body check fails open; plan-time decode still validates.
+func TestCheckTypesExpressionConfigurationUnknownChecksNothing(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+inputs: { extra: { type: map(string) } }
+configurations: { aws.use1: @core.merge(configuration.aws.default, var.extra) }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Empty(t, errs.Messages())
+}
+
 // TestCheckTypesMergeInfersPreciseObject proves @core.merge of object
 // literals reaches a typed field as the precise merged object through
 // the full compile pipeline, not as an unknown that checks nothing.
