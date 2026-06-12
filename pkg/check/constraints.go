@@ -13,8 +13,9 @@ import (
 // constraint whose referenced fields all reduce that way (an absent
 // field reads as null); a constraint that reads a deferred field is
 // left for plan, which checks it once the value is known. Only Go
-// libraries declare constraints in their schema, so UB composite nodes
-// never match here, and their bodies check at plan.
+// libraries declare constraints, so a composite call site has none of
+// its own; the nodes inside a composite body are checked against the
+// libraries the body imports.
 func (c *Checker) LiteralConstraints() *lang.ErrorList {
 	errs := lang.NewErrorList(0)
 	for _, n := range c.dag.Nodes {

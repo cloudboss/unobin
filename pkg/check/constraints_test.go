@@ -138,6 +138,41 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 	require.Equal(t, 0, ok.Len(), "got: %v", ok.Err())
 }
 
+// TestCheckLiteralConstraintsInsideComposite proves the check reaches
+// the nodes inside a composite body: a literal violation there is
+// reported under the call site's address, and a conforming body
+// passes.
+func TestCheckLiteralConstraintsInsideComposite(t *testing.T) {
+	compositeLibs := func(node string) map[string]*runtime.Library {
+		body := parseStack(t, `
+inputs:    { path: { type: string } }
+resources: { core.thing.inner: `+node+` }
+outputs:   { id: { value: resource.core.thing.inner.id } }
+`)
+		return map[string]*runtime.Library{
+			"bundle": {ResourceComposites: map[string]*runtime.CompositeType{
+				"file-pair": {
+					Name:      "file-pair",
+					Body:      body,
+					Libraries: constrainedLibs(),
+				},
+			}},
+		}
+	}
+	root := `resources: { bundle.file-pair.demo: { path: 'x.txt' } }`
+
+	errs := checkLiteralConstraints(parseStack(t, root),
+		compositeLibs(`{ name: 'x', size: 1 }`))
+	require.Equal(t, []string{
+		"resource.bundle.file-pair.demo/resource.core.thing.inner: " +
+			"constraints[0] (exactly-one-of [name, size]): " +
+			"expected exactly one to be set, got 2 (name, size)",
+	}, errs.Messages())
+
+	ok := checkLiteralConstraints(parseStack(t, root), compositeLibs(`{ name: 'x' }`))
+	require.Empty(t, ok.Messages())
+}
+
 // TestCheckLiteralConstraintsDeterministic runs each case repeatedly and
 // requires byte-identical messages, so map iteration order cannot leak
 // into the reported diagnostics.
