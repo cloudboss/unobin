@@ -43,6 +43,7 @@ type KMS struct {
 	mu        sync.Mutex
 	sealer    cipher.AEAD
 	wrapped   []byte
+	keyARN    string
 	unwrapped map[string]cipher.AEAD
 }
 
@@ -65,14 +66,29 @@ func NewKMS(client *kms.Client, keyID string, config map[string]any) (*KMS, erro
 }
 
 // Describe names the kms key source and the operator configuration
-// that selects the key.
+// that selects the key, with key-id replaced by the key ARN once the
+// first Encrypt has resolved it.
 func (k *KMS) Describe() sdkencrypt.Description {
 	config := maps.Clone(k.config)
 	if config == nil {
 		config = map[string]any{}
 	}
-	config["key-id"] = k.keyID
+	config["key-id"] = k.resolvedKeyID()
 	return sdkencrypt.Description{KeySource: "kms", Config: config}
+}
+
+// resolvedKeyID returns the key ARN KMS reported when generating the
+// run's data key, or the configured key id before the first Encrypt.
+// The ARN names the key absolutely, region and account included,
+// where the configured id may be an alias only meaningful in one
+// account and region.
+func (k *KMS) resolvedKeyID() string {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.keyARN != "" {
+		return k.keyARN
+	}
+	return k.keyID
 }
 
 const sealedVersion = 1
@@ -128,6 +144,7 @@ func (k *KMS) sealKey() (cipher.AEAD, []byte, error) {
 	}
 	k.sealer = aead
 	k.wrapped = out.CiphertextBlob
+	k.keyARN = aws.ToString(out.KeyId)
 	k.unwrapped[string(out.CiphertextBlob)] = aead
 	return k.sealer, k.wrapped, nil
 }

@@ -9,6 +9,11 @@ import (
 	"sync"
 )
 
+// fakeKeyARN is the KeyId the fake returns from GenerateDataKey. The
+// real service returns the key ARN there no matter how the request
+// named the key.
+const fakeKeyARN = "arn:aws:kms:us-east-1:000000000000:key/00000000-0000-0000-0000-000000000000"
+
 // fakeKMS is an in-process KMS speaking just enough of the awsjson
 // protocol for the encrypter: GenerateDataKey hands out a fresh
 // 32-byte key and remembers it under an opaque wrapped blob, and
@@ -60,7 +65,7 @@ func (f *fakeKMS) generateDataKey(w http.ResponseWriter, r *http.Request) {
 	f.gens = append(f.gens, req.KeyId)
 	f.mu.Unlock()
 	writeJSON(w, map[string]any{
-		"KeyId":          req.KeyId,
+		"KeyId":          fakeKeyARN,
 		"KeySpec":        req.KeySpec,
 		"CiphertextBlob": wrapped,
 		"Plaintext":      plaintext,

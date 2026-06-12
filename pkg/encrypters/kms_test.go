@@ -79,6 +79,16 @@ func TestDescribeWithoutConfigReportsKeyID(t *testing.T) {
 	assert.Equal(t, map[string]any{"key-id": "alias/unobin-state"}, d.Config)
 }
 
+func TestDescribeReportsKeyARNAfterEncrypt(t *testing.T) {
+	enc, _ := testEncrypter(t)
+	_, err := enc.Encrypt([]byte("payload"))
+	require.NoError(t, err)
+
+	d := enc.Describe()
+	assert.Equal(t, map[string]any{"key-id": fakeKeyARN}, d.Config,
+		"the configured alias should give way to the ARN the data key came from")
+}
+
 func TestEncryptDecrypt(t *testing.T) {
 	enc, _ := testEncrypter(t)
 	plaintext := []byte("state snapshot bytes")
