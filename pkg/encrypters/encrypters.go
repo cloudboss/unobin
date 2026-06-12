@@ -19,9 +19,9 @@ import (
 // Key source names; Describe reports the same name the registry uses
 // so a recorded ref resolves back to its type.
 const (
-	envKeyName = "env-key"
-	kmsName    = "kms"
-	noopName   = "noop"
+	EnvKeyName = "env-key"
+	KMSName    = "kms"
+	NoopName   = "noop"
 )
 
 // Encrypters returns the state encrypters keyed by the bare name an
@@ -30,8 +30,8 @@ const (
 // error.
 func Encrypters() map[string]sdkencrypt.EncrypterType {
 	return map[string]sdkencrypt.EncrypterType{
-		envKeyName: {
-			Name:        envKeyName,
+		EnvKeyName: {
+			Name:        EnvKeyName,
 			Description: "AES-256-GCM with a base64 key read from an env var.",
 			Configuration: &cfg.ConfigurationType{
 				Description: "Env-key encrypter configuration.",
@@ -39,8 +39,8 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 			},
 			New: newEnvKey,
 		},
-		kmsName: {
-			Name:        kmsName,
+		KMSName: {
+			Name:        KMSName,
 			Description: "AES-256-GCM with data keys wrapped by AWS KMS.",
 			Configuration: &cfg.ConfigurationType{
 				Description: "KMS encrypter configuration.",
@@ -48,8 +48,8 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 			},
 			New: newKMSEncrypter,
 		},
-		noopName: {
-			Name:        noopName,
+		NoopName: {
+			Name:        NoopName,
 			Description: "No encryption; state is written as plaintext.",
 			New:         newNoop,
 		},

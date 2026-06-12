@@ -20,13 +20,19 @@ import (
 	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 )
 
+// Backend names, the registry keys an operator selects with @backend.
+const (
+	LocalName = "local"
+	S3Name    = "s3"
+)
+
 // Backends returns the state backends keyed by the bare name an operator
 // selects with @backend. Names are unique by construction: this is one map
 // literal, so a duplicate is a compile error.
 func Backends() map[string]sdkstate.BackendType {
 	return map[string]sdkstate.BackendType{
-		"local": {
-			Name:        "local",
+		LocalName: {
+			Name:        LocalName,
 			Description: "Local filesystem state backend.",
 			Configuration: &cfg.ConfigurationType{
 				Description: "Local state backend configuration.",
@@ -34,8 +40,8 @@ func Backends() map[string]sdkstate.BackendType {
 			},
 			New: newLocalBackend,
 		},
-		"s3": {
-			Name:        "s3",
+		S3Name: {
+			Name:        S3Name,
 			Description: "S3 state backend with conditional-write locking.",
 			Configuration: &cfg.ConfigurationType{
 				Description: "S3 state backend configuration.",

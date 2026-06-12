@@ -74,7 +74,7 @@ func (k *KMS) Describe() sdkencrypt.Description {
 		config = map[string]any{}
 	}
 	config[sdkencrypt.ConfigKeyID] = k.resolvedKeyID()
-	return sdkencrypt.Description{KeySource: kmsName, Config: config}
+	return sdkencrypt.Description{KeySource: KMSName, Config: config}
 }
 
 // resolvedKeyID returns the key ARN KMS reported when generating the

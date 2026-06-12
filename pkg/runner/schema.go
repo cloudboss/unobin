@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/backends"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -217,12 +219,12 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info In
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "state: {")
-	fmt.Fprintln(out, "@backend: local")
+	fmt.Fprintln(out, "@backend: "+backends.LocalName)
 	fmt.Fprintln(out, "path: '.unobin/state'")
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "encryption: {")
-	fmt.Fprintln(out, "@key-source: noop")
+	fmt.Fprintln(out, "@key-source: "+encrypters.NoopName)
 	fmt.Fprintln(out, "}")
 }
 

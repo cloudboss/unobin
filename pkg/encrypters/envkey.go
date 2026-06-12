@@ -51,7 +51,7 @@ func NewEnvKey(envVar string) (*EnvKey, error) {
 // from.
 func (e *EnvKey) Describe() sdkencrypt.Description {
 	return sdkencrypt.Description{
-		KeySource: envKeyName,
+		KeySource: EnvKeyName,
 		Config:    map[string]any{sdkencrypt.ConfigEnvVar: e.envVar},
 	}
 }
