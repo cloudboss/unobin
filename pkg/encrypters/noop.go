@@ -12,5 +12,5 @@ func (Noop) Decrypt(p []byte) ([]byte, error) { return p, nil }
 // Describe names the noop key source. The empty Config marks the
 // sealed body as plaintext with nothing more to configure.
 func (Noop) Describe() sdkencrypt.Description {
-	return sdkencrypt.Description{KeySource: "noop"}
+	return sdkencrypt.Description{KeySource: noopName}
 }

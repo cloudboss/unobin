@@ -25,3 +25,10 @@ type Description struct {
 	KeySource string
 	Config    map[string]any
 }
+
+// Well-known Description config keys. Each must match the name the
+// config decoder derives from the key source's schema struct.
+const (
+	ConfigKeyID  = "key-id"
+	ConfigEnvVar = "env-var"
+)

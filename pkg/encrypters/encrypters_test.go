@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
 func TestEncryptersRegistersEnvKey(t *testing.T) {
@@ -40,12 +41,20 @@ func TestEncryptersRegistersKMS(t *testing.T) {
 // override, so every exported field must kebab to exactly the
 // operator-facing name.
 func TestKMSConfigKebabNames(t *testing.T) {
-	expected := []string{"key-id", "aws"}
-	var got []string
-	for f := range reflect.TypeFor[KMSConfig]().Fields() {
-		got = append(got, lang.PascalToKebab(f.Name))
+	assert.Equal(t, []string{"key-id", "aws"}, kebabFieldNames[KMSConfig]())
+}
+
+func TestConfigKeyConstantsMatchSchemas(t *testing.T) {
+	assert.Contains(t, kebabFieldNames[KMSConfig](), sdkencrypt.ConfigKeyID)
+	assert.Contains(t, kebabFieldNames[EnvKeyConfig](), sdkencrypt.ConfigEnvVar)
+}
+
+func kebabFieldNames[T any]() []string {
+	var names []string
+	for f := range reflect.TypeFor[T]().Fields() {
+		names = append(names, lang.PascalToKebab(f.Name))
 	}
-	assert.Equal(t, expected, got)
+	return names
 }
 
 func TestNewKMSEncrypterRequiresKeyID(t *testing.T) {

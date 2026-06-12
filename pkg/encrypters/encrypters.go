@@ -6,7 +6,6 @@ package encrypters
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,14 +16,22 @@ import (
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
+// Key source names; Describe reports the same name the registry uses
+// so a recorded ref resolves back to its type.
+const (
+	envKeyName = "env-key"
+	kmsName    = "kms"
+	noopName   = "noop"
+)
+
 // Encrypters returns the state encrypters keyed by the bare name an
 // operator selects with @key-source. Names are unique by
 // construction: this is one map literal, so a duplicate is a compile
 // error.
 func Encrypters() map[string]sdkencrypt.EncrypterType {
 	return map[string]sdkencrypt.EncrypterType{
-		"env-key": {
-			Name:        "env-key",
+		envKeyName: {
+			Name:        envKeyName,
 			Description: "AES-256-GCM with a base64 key read from an env var.",
 			Configuration: &cfg.ConfigurationType{
 				Description: "Env-key encrypter configuration.",
@@ -32,8 +39,8 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 			},
 			New: newEnvKey,
 		},
-		"kms": {
-			Name:        "kms",
+		kmsName: {
+			Name:        kmsName,
 			Description: "AES-256-GCM with data keys wrapped by AWS KMS.",
 			Configuration: &cfg.ConfigurationType{
 				Description: "KMS encrypter configuration.",
@@ -41,8 +48,8 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 			},
 			New: newKMSEncrypter,
 		},
-		"noop": {
-			Name:        "noop",
+		noopName: {
+			Name:        noopName,
 			Description: "No encryption; state is written as plaintext.",
 			New:         newNoop,
 		},
@@ -77,7 +84,7 @@ func newKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, err
 		return nil, fmt.Errorf("kms encrypter: missing or wrong configuration (got %T)", config)
 	}
 	if c.KeyID.Value == "" {
-		return nil, errors.New("kms encrypter: key-id is required")
+		return nil, fmt.Errorf("kms encrypter: %s is required", sdkencrypt.ConfigKeyID)
 	}
 	awsCfg, err := awscfg.Load(context.Background(), c.AWS)
 	if err != nil {

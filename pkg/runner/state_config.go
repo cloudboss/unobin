@@ -139,16 +139,20 @@ func resolverRefValue(expr lang.Expr) string {
 	return ""
 }
 
+// defaultKeyEnvVar is the env var the resolver falls back to when a
+// config has no encryption block.
+const defaultKeyEnvVar = "UB_STATE_KEY"
+
 // resolveEncrypter constructs the encrypter named by the parsed state
 // config. A nil ref means the operator omitted the encryption block;
-// the resolver falls back to env-key against UB_STATE_KEY, or the
-// no-op if that env var is unset.
+// the resolver falls back to env-key against the default key env var,
+// or the no-op if that env var is unset.
 func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
 	if ref == nil {
-		if os.Getenv("UB_STATE_KEY") == "" {
+		if os.Getenv(defaultKeyEnvVar) == "" {
 			return encrypters.Noop{}, nil
 		}
-		return encrypters.NewEnvKey("UB_STATE_KEY")
+		return encrypters.NewEnvKey(defaultKeyEnvVar)
 	}
 	rt, err := lookupEncrypterType(ref)
 	if err != nil {

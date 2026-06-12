@@ -55,7 +55,7 @@ func NewKMS(client *kms.Client, keyID string, config map[string]any) (*KMS, erro
 		return nil, errors.New("kms encrypter: client is required")
 	}
 	if keyID == "" {
-		return nil, errors.New("kms encrypter: key-id is required")
+		return nil, fmt.Errorf("kms encrypter: %s is required", sdkencrypt.ConfigKeyID)
 	}
 	return &KMS{
 		client:    client,
@@ -73,8 +73,8 @@ func (k *KMS) Describe() sdkencrypt.Description {
 	if config == nil {
 		config = map[string]any{}
 	}
-	config["key-id"] = k.resolvedKeyID()
-	return sdkencrypt.Description{KeySource: "kms", Config: config}
+	config[sdkencrypt.ConfigKeyID] = k.resolvedKeyID()
+	return sdkencrypt.Description{KeySource: kmsName, Config: config}
 }
 
 // resolvedKeyID returns the key ARN KMS reported when generating the
