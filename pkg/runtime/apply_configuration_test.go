@@ -325,6 +325,40 @@ resources: { fix.config-echo.app: { @configuration: fix.cluster } }
 			"which this factory defines; only operator-supplied configurations are referenceable")
 }
 
+// A state entry naming a configuration the running factory neither
+// defines nor receives must fail with both sides named, not reach the
+// library with a nil configuration.
+func TestDestroyReadUnknownConfigurationRefFails(t *testing.T) {
+	libs := configuredLibraries()
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	snap := state.NewSnapshot(factory, store.Stack())
+	snap.Entries = []*state.Entry{{
+		Address:       "resource.fix.config-echo.app",
+		Type:          state.EntryLeaf,
+		Kind:          "resource",
+		SchemaVersion: 1,
+		Configuration: "fix.ghost",
+		Inputs:        map[string]any{},
+		Outputs:       map[string]any{"endpoint": "x"},
+	}}
+	rev, err := store.Write(snap)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCurrent(rev))
+
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, `configurations: { fix.default: {} }`), libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   factory,
+		Destroy:   true,
+	}
+	_, err = exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "resource.fix.config-echo.app")
+	require.Contains(t, err.Error(), "fix.ghost")
+}
+
 // configProbeData records the configuration its Read receives.
 type configProbeData struct {
 	readSeen *[]string

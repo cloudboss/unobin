@@ -377,14 +377,17 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err := Decode(receiver, step.Inputs); err != nil {
 		return err
 	}
-	if err := rt.Delete(ctx, receiver, e.configForRef(step.Configuration, alias),
-		step.PriorOutputs); err != nil {
+	cfg, err := e.configForRef(step.Configuration, alias)
+	if err != nil {
+		return err
+	}
+	if err := rt.Delete(ctx, receiver, cfg, step.PriorOutputs); err != nil {
 		return err
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	removeEntry(rs.next, step.Address)
-	_, err := e.persist(rs)
+	_, err = e.persist(rs)
 	return err
 }
 

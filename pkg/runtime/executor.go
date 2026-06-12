@@ -311,7 +311,15 @@ func (e *Executor) configRefString(n *Node) string {
 // entry's own import alias with the default applies. A ref naming an
 // internal configuration reads the value evaluated from prior state,
 // falling back to the live table when prior state had nothing for it.
-func (e *Executor) configForRef(ref, fallbackAlias string) any {
+//
+// A recorded ref that resolves to nothing is an error rather than a
+// nil configuration: the entry was written by a factory that had the
+// configuration, so reaching the library without one means the
+// running factory does not match the state, usually because the
+// binary is older than the snapshot. An empty ref may still resolve
+// to nil, the normal case for a library that declares no
+// configuration.
+func (e *Executor) configForRef(ref, fallbackAlias string) (any, error) {
 	alias, configuration := fallbackAlias, "default"
 	if ref != "" {
 		if a, c, ok := strings.Cut(ref, "."); ok {
@@ -322,13 +330,23 @@ func (e *Executor) configForRef(ref, fallbackAlias string) any {
 		addr := configurationAddress(alias, configuration)
 		if _, internal := e.DAG.Nodes[addr]; internal {
 			if v, ok := e.priorInternalConfiguration(addr); ok {
-				return v
+				return v, nil
 			}
-			v, _ := e.internalConfiguration(addr)
-			return v
+			if v, ok := e.internalConfiguration(addr); ok {
+				return v, nil
+			}
+			return nil, fmt.Errorf(
+				"internal configuration %s.%s could not be evaluated from prior state",
+				alias, configuration)
 		}
 	}
-	return e.lookupConfiguration(alias, configuration)
+	v := e.lookupConfiguration(alias, configuration)
+	if v == nil && ref != "" {
+		return nil, fmt.Errorf(
+			"state records configuration %s, which this factory neither defines nor "+
+				"receives; the entry was written by a factory version that had it", ref)
+	}
+	return v, nil
 }
 
 func (e *Executor) lookupConfiguration(alias, configuration string) any {

@@ -125,8 +125,12 @@ func (e *Executor) refreshLeaf(
 	if err != nil {
 		return nil, false, err
 	}
+	cfg, err := e.configForRef(ent.Configuration, alias)
+	if err != nil {
+		return nil, false, err
+	}
 	observed, err := readObserved(ctx, rt, alias,
-		e.configForRef(ent.Configuration, alias), migrated.Inputs, migrated.Outputs)
+		cfg, migrated.Inputs, migrated.Outputs)
 	if errors.Is(err, ErrNotFound) {
 		return nil, true, nil
 	}

@@ -492,8 +492,12 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 	if !ok {
 		return false, fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
-	_, err := readObserved(ctx, rt, alias,
-		e.configForRef(step.Configuration, alias), step.Inputs, step.PriorOutputs)
+	cfg, err := e.configForRef(step.Configuration, alias)
+	if err != nil {
+		return false, err
+	}
+	_, err = readObserved(ctx, rt, alias,
+		cfg, step.Inputs, step.PriorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return true, nil
 	}
