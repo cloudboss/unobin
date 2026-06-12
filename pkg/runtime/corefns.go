@@ -269,7 +269,7 @@ func fnToInteger(v any) (int64, error) {
 		return n, nil
 	}
 	return 0, fmt.Errorf(
-		"to-integer: argument must be a number or a string, got %s", lang.TypeMessage(v))
+		"to-integer: argument must be a string or number, got %s", lang.TypeMessage(v))
 }
 
 // fnToNumber converts an integer or a numeric string to a number.
@@ -287,7 +287,7 @@ func fnToNumber(v any) (float64, error) {
 		return n, nil
 	}
 	return 0, fmt.Errorf(
-		"to-number: argument must be a number or a string, got %s", lang.TypeMessage(v))
+		"to-number: argument must be a string or number, got %s", lang.TypeMessage(v))
 }
 
 // fnToString renders a string, number, or boolean as text, the same
@@ -318,5 +318,5 @@ func fnToBoolean(v any) (bool, error) {
 		return false, fmt.Errorf("to-boolean: %q is not true or false", x)
 	}
 	return false, fmt.Errorf(
-		"to-boolean: argument must be a string or a boolean, got %s", lang.TypeMessage(v))
+		"to-boolean: argument must be a string or boolean, got %s", lang.TypeMessage(v))
 }

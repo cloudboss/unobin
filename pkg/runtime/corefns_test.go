@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"maps"
 	"slices"
 	"testing"
 
@@ -67,57 +68,85 @@ func TestEvalCoreNamespaceIgnoresImportTable(t *testing.T) {
 }
 
 // TestCoreFunctionSet locks the namespace's contents: the set only
-// grows, and a semantic change takes a new name, so this list and the
-// signature shapes are part of the language's compatibility promise.
+// grows, and a semantic change takes a new name, so this list and
+// every function's full signature are part of the language's
+// compatibility promise.
 func TestCoreFunctionSet(t *testing.T) {
-	names := make([]string, 0, len(CoreFunctionSigs()))
-	for name := range CoreFunctionSigs() {
-		names = append(names, name)
+	str := typecheck.TString()
+	integer := typecheck.TInteger()
+	number := typecheck.TNumber()
+	boolean := typecheck.TBoolean()
+	expected := map[string]typecheck.FuncSig{
+		"all": {
+			Params: []typecheck.Type{typecheck.TList(boolean)},
+			Result: boolean,
+		},
+		"any": {
+			Params: []typecheck.Type{typecheck.TList(boolean)},
+			Result: boolean,
+		},
+		"b64-decode": {Params: []typecheck.Type{str}, Result: str},
+		"b64-encode": {Params: []typecheck.Type{str}, Result: str},
+		"join": {
+			Params: []typecheck.Type{typecheck.TList(typecheck.TOpaque()), str},
+			Result: str,
+		},
+		"length": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				str,
+				typecheck.TList(typecheck.TOpaque()),
+				typecheck.TMap(typecheck.TOpaque()),
+			})},
+			Result: integer,
+		},
+		"range": {
+			Params: []typecheck.Type{integer},
+			Result: typecheck.TList(integer),
+		},
+		"to-boolean": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{str, boolean})},
+			Result: boolean,
+		},
+		"to-integer": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{str, number})},
+			Result: integer,
+		},
+		"to-json": {Params: []typecheck.Type{typecheck.TOpaque()}, Result: str},
+		"to-number": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{str, number})},
+			Result: number,
+		},
+		"to-string": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{str, number, boolean})},
+			Result: str,
+		},
 	}
-	slices.Sort(names)
-	require.Equal(t, []string{
-		"all", "any", "b64-decode", "b64-encode", "join", "length", "range",
-		"to-boolean", "to-integer", "to-json", "to-number", "to-string",
-	}, names)
 
 	sigs := CoreFunctionSigs()
-	require.Len(t, sigs["length"].Params, 1)
-	require.True(t, sigs["length"].Params[0].Equal(typecheck.TUnion([]typecheck.Type{
-		typecheck.TString(),
-		typecheck.TList(typecheck.TOpaque()),
-		typecheck.TMap(typecheck.TOpaque()),
-	})), "got %s", sigs["length"].Params[0])
-	require.Nil(t, sigs["length"].Variadic)
-	require.True(t, sigs["length"].Result.Equal(typecheck.TInteger()))
-
-	require.Len(t, sigs["join"].Params, 2)
-	require.True(t, sigs["join"].Params[0].Equal(typecheck.TList(typecheck.TOpaque())))
-	require.True(t, sigs["join"].Params[1].Equal(typecheck.TString()))
-	require.Nil(t, sigs["join"].Variadic)
-	require.True(t, sigs["join"].Result.Equal(typecheck.TString()))
-
-	require.Len(t, sigs["to-json"].Params, 1)
-	require.True(t, sigs["to-json"].Params[0].Equal(typecheck.TOpaque()))
-	require.Nil(t, sigs["to-json"].Variadic)
-	require.True(t, sigs["to-json"].Result.Equal(typecheck.TString()))
-
-	requireSig := func(name string, params []typecheck.Type, result typecheck.Type) {
-		t.Helper()
-		require.Len(t, sigs[name].Params, 1)
-		require.True(t, sigs[name].Params[0].Equal(typecheck.TUnion(params)),
-			"%s param: got %s", name, sigs[name].Params[0])
-		require.Nil(t, sigs[name].Variadic)
-		require.True(t, sigs[name].Result.Equal(result), "%s result", name)
+	require.Equal(t, slices.Sorted(maps.Keys(expected)), slices.Sorted(maps.Keys(sigs)))
+	for _, name := range slices.Sorted(maps.Keys(expected)) {
+		requireSigEqual(t, name, expected[name], sigs[name])
 	}
-	requireSig("to-integer",
-		[]typecheck.Type{typecheck.TString(), typecheck.TNumber()}, typecheck.TInteger())
-	requireSig("to-number",
-		[]typecheck.Type{typecheck.TString(), typecheck.TNumber()}, typecheck.TNumber())
-	requireSig("to-string",
-		[]typecheck.Type{typecheck.TString(), typecheck.TNumber(), typecheck.TBoolean()},
-		typecheck.TString())
-	requireSig("to-boolean",
-		[]typecheck.Type{typecheck.TString(), typecheck.TBoolean()}, typecheck.TBoolean())
+}
+
+// requireSigEqual compares a function's full compile-time face against
+// the expected one: parameter list, variadic tail, and result.
+func requireSigEqual(t *testing.T, name string, want, got typecheck.FuncSig) {
+	t.Helper()
+	require.Len(t, got.Params, len(want.Params), "%s: parameter count", name)
+	for i := range want.Params {
+		require.True(t, want.Params[i].Equal(got.Params[i]),
+			"%s parameter %d: want %s, got %s", name, i, want.Params[i], got.Params[i])
+	}
+	if want.Variadic == nil {
+		require.Nil(t, got.Variadic, "%s: unexpected variadic tail", name)
+	} else {
+		require.NotNil(t, got.Variadic, "%s: missing variadic tail", name)
+		require.True(t, want.Variadic.Equal(*got.Variadic),
+			"%s variadic: want %s, got %s", name, *want.Variadic, *got.Variadic)
+	}
+	require.True(t, want.Result.Equal(got.Result),
+		"%s result: want %s, got %s", name, want.Result, got.Result)
 }
 
 // TestLengthUnionMatchesRuntime locks length's declared union to the
@@ -152,4 +181,125 @@ func TestLengthUnionMatchesRuntime(t *testing.T) {
 	_, err := fnLength(int64(1))
 	require.EqualError(t, err,
 		"length: argument must be a string, list, or map, got an integer")
+}
+
+// The four conversion faces get the same treatment as length: kind by
+// kind, the runtime accepts a representative value exactly when the
+// static face does, and the union-mismatch text is identical on both
+// sides.
+
+func TestToIntegerUnionMatchesRuntime(t *testing.T) {
+	union := CoreFunctionSigs()["to-integer"].Params[0]
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{"string", typecheck.TString(), "42"},
+		{"list", typecheck.TList(typecheck.TOpaque()), []any{int64(1)}},
+		{"map", typecheck.TMap(typecheck.TOpaque()), map[string]any{"a": int64(1)}},
+		{"integer", typecheck.TInteger(), int64(1)},
+		{"number", typecheck.TNumber(), 1.5},
+		{"boolean", typecheck.TBoolean(), true},
+		{"null", typecheck.TNull(), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnToInteger(c.val)
+			staticOK := typecheck.Assignable(union, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
+
+	_, err := fnToInteger(true)
+	require.EqualError(t, err,
+		"to-integer: argument must be a string or number, got a boolean")
+}
+
+func TestToNumberUnionMatchesRuntime(t *testing.T) {
+	union := CoreFunctionSigs()["to-number"].Params[0]
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{"string", typecheck.TString(), "1.5"},
+		{"list", typecheck.TList(typecheck.TOpaque()), []any{int64(1)}},
+		{"map", typecheck.TMap(typecheck.TOpaque()), map[string]any{"a": int64(1)}},
+		{"integer", typecheck.TInteger(), int64(1)},
+		{"number", typecheck.TNumber(), 1.5},
+		{"boolean", typecheck.TBoolean(), true},
+		{"null", typecheck.TNull(), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnToNumber(c.val)
+			staticOK := typecheck.Assignable(union, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
+
+	_, err := fnToNumber(true)
+	require.EqualError(t, err,
+		"to-number: argument must be a string or number, got a boolean")
+}
+
+func TestToStringUnionMatchesRuntime(t *testing.T) {
+	union := CoreFunctionSigs()["to-string"].Params[0]
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{"string", typecheck.TString(), "x"},
+		{"list", typecheck.TList(typecheck.TOpaque()), []any{int64(1)}},
+		{"map", typecheck.TMap(typecheck.TOpaque()), map[string]any{"a": int64(1)}},
+		{"integer", typecheck.TInteger(), int64(1)},
+		{"number", typecheck.TNumber(), 1.5},
+		{"boolean", typecheck.TBoolean(), true},
+		{"null", typecheck.TNull(), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnToString(c.val)
+			staticOK := typecheck.Assignable(union, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
+
+	_, err := fnToString([]any{int64(1)})
+	require.EqualError(t, err,
+		"to-string: argument must be a string, number, or boolean, got a list")
+}
+
+func TestToBooleanUnionMatchesRuntime(t *testing.T) {
+	union := CoreFunctionSigs()["to-boolean"].Params[0]
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{"string", typecheck.TString(), "true"},
+		{"list", typecheck.TList(typecheck.TOpaque()), []any{int64(1)}},
+		{"map", typecheck.TMap(typecheck.TOpaque()), map[string]any{"a": int64(1)}},
+		{"integer", typecheck.TInteger(), int64(1)},
+		{"number", typecheck.TNumber(), 1.5},
+		{"boolean", typecheck.TBoolean(), true},
+		{"null", typecheck.TNull(), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnToBoolean(c.val)
+			staticOK := typecheck.Assignable(union, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
+
+	_, err := fnToBoolean(int64(1))
+	require.EqualError(t, err,
+		"to-boolean: argument must be a string or boolean, got an integer")
 }

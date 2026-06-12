@@ -318,7 +318,7 @@ func TestFunctionToIntegerErrors(t *testing.T) {
 	cases := []struct{ src, msg string }{
 		{"@core.to-integer('abc')", `to-integer: "abc" is not an integer`},
 		{"@core.to-integer('2.5')", `to-integer: "2.5" is not an integer`},
-		{"@core.to-integer(true)", "to-integer: argument must be a number or a string, got a boolean"},
+		{"@core.to-integer(true)", "to-integer: argument must be a string or number, got a boolean"},
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
@@ -352,7 +352,7 @@ func TestFunctionToNumber(t *testing.T) {
 func TestFunctionToNumberErrors(t *testing.T) {
 	cases := []struct{ src, msg string }{
 		{"@core.to-number('abc')", `to-number: "abc" is not a number`},
-		{"@core.to-number(true)", "to-number: argument must be a number or a string, got a boolean"},
+		{"@core.to-number(true)", "to-number: argument must be a string or number, got a boolean"},
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
@@ -424,7 +424,7 @@ func TestFunctionToBooleanErrors(t *testing.T) {
 	cases := []struct{ src, msg string }{
 		{"@core.to-boolean('yes')", `to-boolean: "yes" is not true or false`},
 		{"@core.to-boolean('True')", `to-boolean: "True" is not true or false`},
-		{"@core.to-boolean(1)", "to-boolean: argument must be a string or a boolean, got an integer"},
+		{"@core.to-boolean(1)", "to-boolean: argument must be a string or boolean, got an integer"},
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
