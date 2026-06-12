@@ -555,6 +555,92 @@ configurations: { ghost.default: { region: 'r' } }
 		errs.Messages())
 }
 
+// A configuration reference is legal in a configurations block body,
+// types from the library schema, and composes with merge into a
+// precisely typed derived configuration.
+func TestCheckConfigurationReferenceValid(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: {
+  aws.use1: @core.merge(configuration.aws.default, { region: 'us-east-1' })
+}
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckConfigurationReferenceNavigationTypes(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: { region: configuration.aws.default.region } }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckConfigurationReferenceUnknownFieldNavigation(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: { region: configuration.aws.default.regin } }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Len(t, errs.Messages(), 1)
+	require.Contains(t, errs.Messages()[0], "regin")
+}
+
+func TestCheckConfigurationReferenceOutsideConfigurationsBlock(t *testing.T) {
+	libs := map[string]*runtime.Library{
+		"aws":   configuredLibrary(),
+		"local": localFileLibrary(),
+	}
+	errs := checkReferences(parseStack(t, `
+resources: {
+  local.file.one: { path: configuration.aws.default.region, content: 'c' }
+}
+`), libs)
+	require.Equal(t,
+		[]string{"a configuration reference is valid only inside a configurations block body"},
+		errs.Messages())
+}
+
+func TestCheckConfigurationReferenceToInternal(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: {
+  aws.base: { region: 'r' }
+  aws.use1: @core.merge(configuration.aws.base, { region: 'us-east-1' })
+}
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Equal(t,
+		[]string{"configuration aws.base is defined by this factory; " +
+			"only operator-supplied configurations are referenceable"},
+		errs.Messages())
+}
+
+func TestCheckConfigurationReferenceUnimportedAlias(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: @core.merge(configuration.gcp.default, {}) }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Equal(t,
+		[]string{`library "gcp" is not imported`},
+		errs.Messages())
+}
+
+func TestCheckConfigurationReferenceUnconfiguredLibrary(t *testing.T) {
+	libs := map[string]*runtime.Library{
+		"aws":   configuredLibrary(),
+		"local": localFileLibrary(),
+	}
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: @core.merge(configuration.local.default, {}) }
+`), libs)
+	require.Equal(t,
+		[]string{`library "local" declares no configuration`},
+		errs.Messages())
+}
+
+func TestCheckConfigurationReferenceForm(t *testing.T) {
+	errs := checkReferences(parseStack(t, `
+configurations: { aws.use1: @core.merge(configuration.aws, {}) }
+`), map[string]*runtime.Library{"aws": configuredLibrary()})
+	require.Equal(t,
+		[]string{"a configuration reference takes configuration.<import>.<name>"},
+		errs.Messages())
+}
+
 // TestCheckTypesMergeInfersPreciseObject proves @core.merge of object
 // literals reaches a typed field as the precise merged object through
 // the full compile pipeline, not as an unknown that checks nothing.

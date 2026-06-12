@@ -23,6 +23,11 @@ type Scope struct {
 	// false return, leaves the call inferring Unknown; existence and
 	// argument count are the reference checker's to enforce.
 	LookupFunction func(library, name string) (FuncSig, bool)
+	// LookupConfiguration resolves an import alias to the object type
+	// of its library's configuration schema, for typing
+	// configuration.<alias>.<name> references. Nil, or a false return,
+	// leaves the reference inferring Unknown.
+	LookupConfiguration func(alias string) (Type, bool)
 	// Bindings holds comprehension-bound names. They resolve as bare
 	// values and as dot-path roots ahead of var/resource/data/action.
 	// Names are distinct across nesting; validation rejects an inner
@@ -688,10 +693,35 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 		return inferNode(dp, scope, errs)
 	case "local":
 		return inferLocal(dp, scope, errs)
+	case "configuration":
+		return inferConfiguration(dp, scope, errs)
 	case "@each":
 		return inferEach(dp, scope, errs)
 	}
 	return TUnknown()
+}
+
+// inferConfiguration types a configuration.<import>.<name> reference
+// from the library's configuration schema. The schema describes the
+// whole declared shape, so navigation past the name checks field by
+// field; an unknown schema infers Unknown.
+func inferConfiguration(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
+	if scope == nil || scope.LookupConfiguration == nil || len(dp.Segments) < 2 {
+		return TUnknown()
+	}
+	if rejectGuardedRoot("configuration", dp.Segments, 2, errs) {
+		return TUnknown()
+	}
+	alias, name := dp.Segments[0].Name, dp.Segments[1].Name
+	if alias == "" || name == "" {
+		return TUnknown()
+	}
+	t, ok := scope.LookupConfiguration(alias)
+	if !ok {
+		return TUnknown()
+	}
+	return traverseSegments(t, dp.Segments[2:],
+		"configuration."+alias+"."+name, scope, errs, false)
 }
 
 // rejectGuardedRoot reports a `?.` used where the navigation cannot

@@ -225,11 +225,12 @@ func doApplyPlan(
 		consumeApplyEvents(rendererEvents, cmd.ErrOrStderr(), format)
 	}()
 	exec := &runtime.Executor{
-		Source:         f,
-		DAG:            dag,
-		Libraries:      info.Libraries,
-		Configurations: configurations,
-		Store:          store,
+		Source:            f,
+		DAG:               dag,
+		Libraries:         info.Libraries,
+		Configurations:    configurations,
+		RawConfigurations: pf.RawConfigurations,
+		Store:             store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,
@@ -439,8 +440,8 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
-	configurations, _, err := loadConfigurations(config, configPath, info.Libraries,
-		runtime.InternalConfigurationNames(f))
+	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
+		info.Libraries, runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}
@@ -453,12 +454,13 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 		return err
 	}
 	exec := &runtime.Executor{
-		Source:         f,
-		DAG:            dag,
-		Libraries:      info.Libraries,
-		Inputs:         inputs,
-		Configurations: configurations,
-		Store:          store,
+		Source:            f,
+		DAG:               dag,
+		Libraries:         info.Libraries,
+		Inputs:            inputs,
+		Configurations:    configurations,
+		RawConfigurations: rawConfigurations,
+		Store:             store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,
@@ -521,8 +523,8 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 		info.Libraries); err != nil {
 		return err
 	}
-	configurations, _, err := loadConfigurations(config, configPath, info.Libraries,
-		runtime.InternalConfigurationNames(f))
+	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
+		info.Libraries, runtime.InternalConfigurationNames(f))
 	if err != nil {
 		return err
 	}
@@ -533,9 +535,10 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 		return err
 	}
 	demand := &runtime.Executor{
-		DAG:            dag,
-		Libraries:      info.Libraries,
-		Configurations: configurations,
+		DAG:               dag,
+		Libraries:         info.Libraries,
+		Configurations:    configurations,
+		RawConfigurations: rawConfigurations,
 	}
 	if err := demand.CheckConfigurations(); err != nil {
 		return err
@@ -732,12 +735,13 @@ func doPlan(
 		parallelism = parallelismOverride
 	}
 	exec := &runtime.Executor{
-		Source:         f,
-		DAG:            dag,
-		Libraries:      info.Libraries,
-		Inputs:         inputs,
-		Configurations: configurations,
-		Store:          store,
+		Source:            f,
+		DAG:               dag,
+		Libraries:         info.Libraries,
+		Inputs:            inputs,
+		Configurations:    configurations,
+		RawConfigurations: rawConfigurations,
+		Store:             store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,

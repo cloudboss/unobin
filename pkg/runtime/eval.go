@@ -36,6 +36,11 @@ type EvalContext struct {
 	Libraries map[string]*Library
 	Bindings  map[string]any
 
+	// Configurations holds the operator-supplied configuration bodies
+	// before decoding, keyed by import alias and configuration name,
+	// for configuration.<alias>.<name> references.
+	Configurations map[string]map[string]any
+
 	// Each holds named iteration bindings, @each for a @for-each body
 	// and declared names like @rule for a chained constraint form,
 	// each a key/value record read as @name.key and @name.value.
@@ -752,6 +757,8 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		root = ctx.Actions
 	case "local":
 		return evalLocal(p, ctx)
+	case "configuration":
+		return evalConfigurationRef(p, ctx)
 	case lang.CoreNamespace:
 		return nil, fmt.Errorf(
 			"eval: %s names functions; call one, e.g. %s.length(...)",
@@ -763,6 +770,22 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		return nil, fmt.Errorf("eval: unknown address root %q", p.Root.Name)
 	}
 	return navigateSegments(root, p.Root.Name, p.Segments, ctx)
+}
+
+// evalConfigurationRef resolves configuration.<alias>.<name> to the
+// operator-supplied configuration body of that name, then walks any
+// remaining segments into it.
+func evalConfigurationRef(p *lang.DotPath, ctx *EvalContext) (any, error) {
+	if len(p.Segments) < 2 || p.Segments[0].Name == "" || p.Segments[1].Name == "" {
+		return nil, fmt.Errorf(
+			"eval: a configuration reference has the form configuration.<import>.<name>")
+	}
+	alias, name := p.Segments[0].Name, p.Segments[1].Name
+	body, ok := ctx.Configurations[alias][name]
+	if !ok {
+		return nil, fmt.Errorf("eval: configuration %s.%s is not supplied", alias, name)
+	}
+	return navigateSegments(body, "configuration."+alias+"."+name, p.Segments[2:], ctx)
 }
 
 // navigateSegments walks a dot path's segments from cur, stepping into

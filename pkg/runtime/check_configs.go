@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 // CheckConfigurations walks the DAG and reports every
@@ -23,8 +25,46 @@ func (e *Executor) CheckConfigurations() error {
 		n := e.DAG.Nodes[addr]
 		errs = append(errs, e.checkLeafConfiguration(n)...)
 		errs = append(errs, e.checkCompositeRemap(n)...)
+		errs = append(errs, e.checkConfigurationBodyRefs(n)...)
 	}
 	return errors.Join(errs...)
+}
+
+// checkConfigurationBodyRefs reports every configuration reference in
+// an internal configuration's body that cannot be served: one naming
+// a configuration the factory itself defines, or one the operator did
+// not supply.
+func (e *Executor) checkConfigurationBodyRefs(n *Node) []error {
+	if n.Kind != NodeConfiguration {
+		return nil
+	}
+	var errs []error
+	lang.Walk(n.Body, func(expr lang.Expr) {
+		dp, ok := expr.(*lang.DotPath)
+		if !ok || dp.Root == nil || dp.Root.Name != "configuration" {
+			return
+		}
+		if len(dp.Segments) < 2 || dp.Segments[0].Name == "" || dp.Segments[1].Name == "" {
+			errs = append(errs, fmt.Errorf(
+				"%s: a configuration reference has the form configuration.<import>.<name>",
+				n.Address))
+			return
+		}
+		alias, name := dp.Segments[0].Name, dp.Segments[1].Name
+		if _, internal := e.DAG.Nodes[configurationAddress(alias, name)]; internal {
+			errs = append(errs, fmt.Errorf(
+				"%s: references configuration %s.%s, which this factory defines; "+
+					"only operator-supplied configurations are referenceable",
+				n.Address, alias, name))
+			return
+		}
+		if _, ok := e.RawConfigurations[alias][name]; !ok {
+			errs = append(errs, fmt.Errorf(
+				"%s: references configuration %s.%s, which is not supplied",
+				n.Address, alias, name))
+		}
+	})
+	return errs
 }
 
 func (e *Executor) checkLeafConfiguration(n *Node) []error {

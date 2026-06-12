@@ -51,10 +51,11 @@ func (c *Checker) DAG() *runtime.DAG {
 // harness reads the stream.
 func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.ErrorList {
 	r := &referenceChecker{
-		Checker: c,
-		errs:    lang.NewErrorList(0),
-		seen:    map[string]bool{},
-		observe: observe,
+		Checker:                c,
+		errs:                   lang.NewErrorList(0),
+		seen:                   map[string]bool{},
+		observe:                observe,
+		internalConfigurations: runtime.InternalConfigurationNames(c.root),
 	}
 	r.checkDeclarations()
 	r.checkNodes()
@@ -79,6 +80,13 @@ type referenceChecker struct {
 	// observe, when set, rides the real checking walks' scopes so
 	// every inferred expression streams out with its type.
 	observe func(e lang.Expr, t typecheck.Type)
+	// internalConfigurations holds the alias.name set the factory's
+	// own configurations block defines; a configuration reference
+	// naming one of these is rejected.
+	internalConfigurations map[string]map[string]bool
+	// inConfigurationBody is set while a configurations block body is
+	// being walked, the only place a configuration reference is valid.
+	inConfigurationBody bool
 }
 
 func (c *Checker) collectCompositeScopes() {
@@ -160,7 +168,9 @@ func libraryDeclares(lib *runtime.Library, kind runtime.NodeKind, typ string) bo
 
 func (c *referenceChecker) checkNodes() {
 	for _, n := range c.dag.Nodes {
+		c.inConfigurationBody = n.Kind == runtime.NodeConfiguration
 		c.checkBody(n.Body, n.Composite, n.ForEach != nil)
+		c.inConfigurationBody = false
 		if n.IsComposite() {
 			c.checkCompositeOutputs(n)
 		}
@@ -382,6 +392,8 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 				c.checkNode(n, scope)
 			case "local":
 				c.checkLocal(n, scope)
+			case "configuration":
+				c.checkConfigurationReference(n, scope)
 			default:
 				if strings.HasPrefix(n.Root.Name, "@") {
 					c.checkBindingPath(n, iterScope{bare: eachOK})
@@ -391,6 +403,41 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 			c.checkCall(n, scope)
 		}
 	})
+}
+
+// checkConfigurationReference checks a configuration.<import>.<name>
+// value reference. It is valid only inside a configurations block
+// body, must name an imported library that declares a configuration,
+// and must not name a configuration this factory defines: references
+// read operator-supplied bodies only. Whether the operator supplied
+// the name is checked at plan, when the supplied set is known.
+func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope string) {
+	if !c.inConfigurationBody {
+		c.addf(dp.S.Start,
+			"a configuration reference is valid only inside a configurations block body")
+		return
+	}
+	if len(dp.Segments) < 2 || dp.Segments[0].Name == "" || dp.Segments[1].Name == "" {
+		c.addf(dp.S.Start,
+			"a configuration reference takes configuration.<import>.<name>")
+		return
+	}
+	alias, name := dp.Segments[0].Name, dp.Segments[1].Name
+	lib := c.libraries[scope][alias]
+	if lib == nil {
+		c.addf(dp.S.Start, `library %q is not imported`, alias)
+		return
+	}
+	if libraryKnown(lib) && lib.Configuration == nil &&
+		(lib.Schema == nil || !lib.Schema.HasConfiguration) {
+		c.addf(dp.S.Start, "library %q declares no configuration", alias)
+		return
+	}
+	if c.internalConfigurations[alias][name] {
+		c.addf(dp.S.Start,
+			"configuration %s.%s is defined by this factory; "+
+				"only operator-supplied configurations are referenceable", alias, name)
+	}
 }
 
 // checkSplat reports a splat that ends a path. A trailing `[*]` projects
@@ -969,7 +1016,7 @@ func walkFreeIdents(
 // on the iteration context enclosing the expression.
 func addressRoot(name string) bool {
 	switch name {
-	case "var", "resource", "data", "action", "local":
+	case "var", "resource", "data", "action", "local", "configuration":
 		return true
 	}
 	return strings.HasPrefix(name, "@")

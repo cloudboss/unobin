@@ -54,6 +54,12 @@ type Executor struct {
 	// call sees a nil cfg argument.
 	Configurations map[string]map[string]any
 
+	// RawConfigurations holds the same operator-supplied bodies as
+	// Configurations before decoding, by operator-facing field name.
+	// A configuration.<alias>.<name> reference inside an internal
+	// configuration's body reads from here.
+	RawConfigurations map[string]map[string]any
+
 	Store   state.Backend
 	Factory state.FactoryInfo
 
@@ -132,12 +138,13 @@ func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
 // cannot reference composite internals.
 func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalContext {
 	scope := &EvalContext{
-		Vars:      vars,
-		Resources: make(map[string]any),
-		Data:      make(map[string]any),
-		Actions:   make(map[string]any),
-		Libraries: e.Libraries,
-		locals:    newLocalScope(localsBlock(e.Source)),
+		Vars:           vars,
+		Resources:      make(map[string]any),
+		Data:           make(map[string]any),
+		Actions:        make(map[string]any),
+		Libraries:      e.Libraries,
+		Configurations: e.RawConfigurations,
+		locals:         newLocalScope(localsBlock(e.Source)),
 	}
 	if prior == nil {
 		return scope
@@ -403,12 +410,13 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs := &runState{
 		eval: &EvalContext{
-			Vars:      e.Inputs,
-			Resources: make(map[string]any),
-			Data:      make(map[string]any),
-			Actions:   make(map[string]any),
-			Libraries: e.Libraries,
-			locals:    newLocalScope(localsBlock(e.Source)),
+			Vars:           e.Inputs,
+			Resources:      make(map[string]any),
+			Data:           make(map[string]any),
+			Actions:        make(map[string]any),
+			Libraries:      e.Libraries,
+			Configurations: e.RawConfigurations,
+			locals:         newLocalScope(localsBlock(e.Source)),
 		},
 		order:            order,
 		outputs:          make(map[string]any),
