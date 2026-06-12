@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -214,6 +215,12 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(onDisk), "cluster-deploy")
 	require.NotContains(t, string(onDisk), "vpc-abc")
+
+	var env sdkstate.Envelope
+	require.NoError(t, json.Unmarshal(onDisk, &env))
+	require.NotNil(t, env.Encrypter, "snapshot should record the key source that sealed it")
+	require.Equal(t, "env-key", env.Encrypter.Name)
+	require.Equal(t, "UB_TEST_KEY", env.Encrypter.Body["env-var"])
 
 	got, err := s.Get(rev)
 	require.NoError(t, err)

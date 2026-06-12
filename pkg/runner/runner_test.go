@@ -1998,6 +1998,10 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 		var env state.Envelope
 		require.NoError(t, json.Unmarshal(body, &env), "snapshot %s should be an envelope", e.Name())
 		require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
+		require.NotNil(t, env.Encrypter,
+			"snapshot %s should record the key source that sealed it", e.Name())
+		require.Equal(t, "env-key", env.Encrypter.Name)
+		require.Equal(t, "UB_STATE_KEY", env.Encrypter.Body["env-var"])
 		plaintext, err := enc.Decrypt(env.Ciphertext)
 		require.NoError(t, err, "snapshot %s should decrypt with the configured key", e.Name())
 		require.True(t, isJSON(plaintext), "decrypted snapshot %s should be JSON", e.Name())
@@ -2043,6 +2047,10 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	var env state.Envelope
 	require.NoError(t, json.Unmarshal(body, &env))
 	require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
+	require.NotNil(t, env.Encrypter,
+		"a plan sealed by the default chain should still record its encrypter")
+	require.Equal(t, "env-key", env.Encrypter.Name)
+	require.Equal(t, "UB_STATE_KEY", env.Encrypter.Body["env-var"])
 	require.NotEmpty(t, env.Ciphertext)
 	require.False(t, isJSON(env.Ciphertext),
 		"ciphertext should not parse as JSON when an encrypter is in use")
@@ -2115,6 +2123,21 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 	require.Contains(t, err.Error(), "decrypt")
 }
 
+func TestApplyPlanWithoutKeyNamesMissingEnvVar(t *testing.T) {
+	src := `actions: { core.echo.hi: { echo: 'hi' } }`
+	info := testInfo(t, src)
+	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
+
+	planFile := filepath.Join(t.TempDir(), "plan.enc")
+	_, err := runBackend(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	require.NoError(t, err)
+
+	t.Setenv("UB_STATE_KEY", "")
+	_, err = runRoot(t, info, "apply", planFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "UB_STATE_KEY is not set")
+}
+
 func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 	src := `actions: { core.echo.hi: { echo: 'hi' } }`
 	info := testInfo(t, src)
@@ -2128,6 +2151,9 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 	var env state.Envelope
 	require.NoError(t, json.Unmarshal(body, &env))
 	require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
+	require.NotNil(t, env.Encrypter, "an unencrypted plan should say so explicitly")
+	require.Equal(t, "noop", env.Encrypter.Name)
+	require.Empty(t, env.Encrypter.Body)
 	require.True(t, isJSON(env.Ciphertext),
 		"with no encrypter, ciphertext should be plain plan JSON")
 	require.Contains(t, string(env.Ciphertext), `"format-version": 1`)

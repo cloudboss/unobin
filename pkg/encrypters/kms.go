@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -37,6 +38,7 @@ var _ sdkencrypt.Encrypter = (*KMS)(nil)
 type KMS struct {
 	client *kms.Client
 	keyID  string
+	config map[string]any
 
 	mu        sync.Mutex
 	sealer    cipher.AEAD
@@ -45,7 +47,9 @@ type KMS struct {
 }
 
 // NewKMS returns a KMS encrypter using client and the given key.
-func NewKMS(client *kms.Client, keyID string) (*KMS, error) {
+// config, which may be nil, is the operator's evaluated encryption
+// block; Describe reports it so sealed files record how to decrypt.
+func NewKMS(client *kms.Client, keyID string, config map[string]any) (*KMS, error) {
 	if client == nil {
 		return nil, errors.New("kms encrypter: client is required")
 	}
@@ -55,8 +59,20 @@ func NewKMS(client *kms.Client, keyID string) (*KMS, error) {
 	return &KMS{
 		client:    client,
 		keyID:     keyID,
+		config:    config,
 		unwrapped: map[string]cipher.AEAD{},
 	}, nil
+}
+
+// Describe names the kms key source and the operator configuration
+// that selects the key.
+func (k *KMS) Describe() sdkencrypt.Description {
+	config := maps.Clone(k.config)
+	if config == nil {
+		config = map[string]any{}
+	}
+	config["key-id"] = k.keyID
+	return sdkencrypt.Description{KeySource: "kms", Config: config}
 }
 
 const sealedVersion = 1

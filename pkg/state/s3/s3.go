@@ -150,7 +150,7 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sealed, err := sdkstate.Seal(body, nil, s.enc)
+	sealed, err := sdkstate.Seal(body, s.enc)
 	if err != nil {
 		return "", err
 	}

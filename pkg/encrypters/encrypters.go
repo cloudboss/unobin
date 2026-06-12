@@ -55,7 +55,7 @@ type EnvKeyConfig struct {
 	EnvVar cfg.String
 }
 
-func newEnvKey(config any) (sdkencrypt.Encrypter, error) {
+func newEnvKey(config any, _ map[string]any) (sdkencrypt.Encrypter, error) {
 	c, ok := config.(*EnvKeyConfig)
 	if !ok {
 		return nil, fmt.Errorf("env-key encrypter: missing or wrong configuration (got %T)", config)
@@ -71,7 +71,7 @@ type KMSConfig struct {
 	AWS   *awscfg.Configuration
 }
 
-func newKMSEncrypter(config any) (sdkencrypt.Encrypter, error) {
+func newKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, error) {
 	c, ok := config.(*KMSConfig)
 	if !ok {
 		return nil, fmt.Errorf("kms encrypter: missing or wrong configuration (got %T)", config)
@@ -88,12 +88,12 @@ func newKMSEncrypter(config any) (sdkencrypt.Encrypter, error) {
 			o.BaseEndpoint = aws.String(ep)
 		}
 	})
-	return NewKMS(client, c.KeyID.Value)
+	return NewKMS(client, c.KeyID.Value, body)
 }
 
 // newNoop builds the no-op encrypter, which writes state as
 // plaintext. It is the explicit opt-out for unencrypted state,
 // selected as `noop` in a config's encryption block.
-func newNoop(_ any) (sdkencrypt.Encrypter, error) {
+func newNoop(_ any, _ map[string]any) (sdkencrypt.Encrypter, error) {
 	return Noop{}, nil
 }

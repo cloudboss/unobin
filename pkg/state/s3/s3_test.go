@@ -273,6 +273,12 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 	body, ok := fake.object(testBucket, stackDir+"/snapshots/"+rev+".json.enc")
 	require.True(t, ok)
 	assert.NotContains(t, string(body), "vpc-abc")
+
+	var env sdkstate.Envelope
+	require.NoError(t, json.Unmarshal(body, &env))
+	require.NotNil(t, env.Encrypter, "snapshot should record the key source that sealed it")
+	assert.Equal(t, "env-key", env.Encrypter.Name)
+	assert.Equal(t, "TEST_S3_STATE_KEY", env.Encrypter.Body["env-var"])
 }
 
 func TestStoreLockExcludesSecondHolder(t *testing.T) {

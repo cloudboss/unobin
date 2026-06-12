@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
 func setKey(t *testing.T, envVar string) []byte {
@@ -25,6 +27,24 @@ func TestNoopPassesThrough(t *testing.T) {
 	pt, err := e.Decrypt(ct)
 	require.NoError(t, err)
 	require.Equal(t, []byte("hello"), pt)
+}
+
+func TestNoopDescribe(t *testing.T) {
+	require.Equal(t,
+		sdkencrypt.Description{KeySource: "noop"},
+		Noop{}.Describe())
+}
+
+func TestEnvKeyDescribe(t *testing.T) {
+	setKey(t, "UB_TEST_KEY")
+	e, err := NewEnvKey("UB_TEST_KEY")
+	require.NoError(t, err)
+	require.Equal(t,
+		sdkencrypt.Description{
+			KeySource: "env-key",
+			Config:    map[string]any{"env-var": "UB_TEST_KEY"},
+		},
+		e.Describe())
 }
 
 func TestEnvKeyRoundTrip(t *testing.T) {

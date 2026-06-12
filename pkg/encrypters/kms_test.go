@@ -40,19 +40,43 @@ func testEncrypter(t *testing.T) (*KMS, *fakeKMS) {
 	fake := newFakeKMS()
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
-	enc, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state")
+	enc, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state", nil)
 	require.NoError(t, err)
 	return enc, fake
 }
 
 func TestNewRequiredArguments(t *testing.T) {
-	_, err := NewKMS(nil, "alias/x")
+	_, err := NewKMS(nil, "alias/x", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "client is required")
 
-	_, err = NewKMS(&kms.Client{}, "")
+	_, err = NewKMS(&kms.Client{}, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "key-id is required")
+}
+
+func TestDescribeMergesKeyIDIntoConfig(t *testing.T) {
+	fake := newFakeKMS()
+	srv := httptest.NewServer(fake)
+	t.Cleanup(srv.Close)
+	config := map[string]any{
+		"key-id": "alias/unobin-state",
+		"aws":    map[string]any{"region": "us-east-1"},
+	}
+	enc, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state", config)
+	require.NoError(t, err)
+
+	d := enc.Describe()
+	assert.Equal(t, "kms", d.KeySource)
+	assert.Equal(t, "alias/unobin-state", d.Config["key-id"])
+	assert.Equal(t, map[string]any{"region": "us-east-1"}, d.Config["aws"])
+}
+
+func TestDescribeWithoutConfigReportsKeyID(t *testing.T) {
+	enc, _ := testEncrypter(t)
+	d := enc.Describe()
+	assert.Equal(t, "kms", d.KeySource)
+	assert.Equal(t, map[string]any{"key-id": "alias/unobin-state"}, d.Config)
 }
 
 func TestEncryptDecrypt(t *testing.T) {
@@ -138,7 +162,7 @@ func TestDecryptMemoizesUnwraps(t *testing.T) {
 
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
-	reader, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state")
+	reader, err := NewKMS(testClient(t, srv.URL), "alias/unobin-state", nil)
 	require.NoError(t, err)
 	for _, sealed := range blobs {
 		_, err := reader.Decrypt(sealed)

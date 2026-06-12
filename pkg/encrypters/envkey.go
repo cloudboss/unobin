@@ -8,13 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
 // EnvKey uses AES-256-GCM with a 32 byte symmetric key read from a
 // named environment variable. The env value must be the base64-encoded
 // key.
 type EnvKey struct {
-	aead cipher.AEAD
+	envVar string
+	aead   cipher.AEAD
 }
 
 // NewEnvKey reads the env var, decodes the key, and returns an
@@ -41,7 +44,16 @@ func NewEnvKey(envVar string) (*EnvKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EnvKey{aead: aead}, nil
+	return &EnvKey{envVar: envVar, aead: aead}, nil
+}
+
+// Describe names the env-key source and the env var the key is read
+// from.
+func (e *EnvKey) Describe() sdkencrypt.Description {
+	return sdkencrypt.Description{
+		KeySource: "env-key",
+		Config:    map[string]any{"env-var": e.envVar},
+	}
 }
 
 // Encrypt seals plaintext with a fresh random nonce. Output bytes are

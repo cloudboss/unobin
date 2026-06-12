@@ -758,7 +758,7 @@ func doPlan(
 	plan.Backend = toRuntimeStateRef(sc.Backend)
 	printPlan(cmd.OutOrStdout(), plan, ascii)
 	if outPath != "" {
-		sealed, err := runtime.SealPlan(plan, toRuntimeStateRef(sc.Encrypter), enc)
+		sealed, err := runtime.SealPlan(plan, enc)
 		if err != nil {
 			return err
 		}

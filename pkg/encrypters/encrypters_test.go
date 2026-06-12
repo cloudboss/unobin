@@ -22,7 +22,7 @@ func TestEncryptersRegistersNoop(t *testing.T) {
 	require.True(t, ok, "expected a noop encrypter")
 	require.Nil(t, et.Configuration, "noop takes no configuration")
 
-	enc, err := et.New(nil)
+	enc, err := et.New(nil, nil)
 	require.NoError(t, err)
 	ciphertext, err := enc.Encrypt([]byte("secret"))
 	require.NoError(t, err)
@@ -49,13 +49,13 @@ func TestKMSConfigKebabNames(t *testing.T) {
 }
 
 func TestNewKMSEncrypterRequiresKeyID(t *testing.T) {
-	_, err := newKMSEncrypter(&KMSConfig{})
+	_, err := newKMSEncrypter(&KMSConfig{}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "key-id is required")
 }
 
 func TestNewKMSEncrypterRejectsWrongConfigType(t *testing.T) {
-	_, err := newKMSEncrypter(&EnvKeyConfig{})
+	_, err := newKMSEncrypter(&EnvKeyConfig{}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing or wrong configuration")
 }

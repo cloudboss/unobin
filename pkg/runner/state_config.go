@@ -158,7 +158,7 @@ func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("encryption: %w", err)
 	}
-	return rt.New(decoded)
+	return rt.New(decoded, ref.Body)
 }
 
 // resolveBackend constructs the backend named by the parsed state
