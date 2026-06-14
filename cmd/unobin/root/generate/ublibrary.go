@@ -17,10 +17,10 @@ var (
 		Short: "Scaffold a new UB library",
 		Long: `Scaffold a new UB library directory.
 
-The generated directory contains one starter composite type file named
-resource-<type>.ub. The directory listing is the manifest, so there is
-no separate manifest file. Blocks are empty with TODO comment markers;
-the author fills them in.
+The generated directory contains one starter resource composite export
+file named resource-<type>.ub. The directory listing is the manifest,
+so there is no separate manifest file. Blocks are empty for the author
+to fill in.
 
 Examples:
   unobin generate ublibrary -o ./greeter
@@ -72,7 +72,7 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 
 	typePath := filepath.Join(cfg.output, "resource-"+cfg.typeName+".ub")
 
-	if err := lang.WriteCanonical(typePath, []byte(renderCompositeStub())); err != nil {
+	if err := lang.WriteCanonical(typePath, []byte(renderCompositeStub(cfg.typeName))); err != nil {
 		return err
 	}
 
@@ -81,19 +81,7 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 	return nil
 }
 
-func renderCompositeStub() string {
-	return `description: 'TODO: describe this composite type'
-
-inputs: {}
-
-imports: {}
-
-data: {}
-
-resources: {}
-
-actions: {}
-
-outputs: {}
-`
+func renderCompositeStub(name string) string {
+	return fmt.Sprintf("%s: resource {description: 'TODO: describe this composite type' "+
+		"inputs: {} imports: {} data: {} resources: {} actions: {} outputs: {}}\n", name)
 }

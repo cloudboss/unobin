@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -41,19 +41,15 @@ func TestUblibraryDefaultTypeName(t *testing.T) {
 
 	stub, err := os.ReadFile(filepath.Join(dir, "resource-main.ub"))
 	require.NoError(t, err)
-	wantStub := `description: 'TODO: describe this composite type'
-
-inputs: {}
-
-imports: {}
-
-data: {}
-
-resources: {}
-
-actions: {}
-
-outputs: {}
+	wantStub := `main: resource {
+  description: 'TODO: describe this composite type'
+  inputs:      {}
+  imports:     {}
+  data:        {}
+  resources:   {}
+  actions:     {}
+  outputs:     {}
+}
 `
 	require.Equal(t, wantStub, string(stub))
 }
@@ -79,10 +75,9 @@ func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
 	path := filepath.Join(dir, "resource-main.ub")
 	src, err := os.ReadFile(path)
 	require.NoError(t, err)
-	f, err := lang.ParseSource(path, src)
+	f, err := syntax.ParseSource(path, src)
 	require.NoError(t, err)
-	f.Kind = lang.FileExportedType
-	errs := lang.ValidateFile(f)
+	errs := syntax.ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Err())
 }
 
