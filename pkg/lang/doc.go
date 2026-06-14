@@ -1,8 +1,7 @@
 // Package lang holds the unobin source language: PEG grammar, lexer, AST.
 //
-// Scope: parsing of main.ub, kind-prefixed library type bodies, and
-// config.ub into a typed AST. Multi-error reporting with line/column from
-// the parser.
+// Scope: parsing factory, stack, manifest, lock, and library export files
+// into a typed AST. Multi-error reporting with line/column from the parser.
 //
 // Companion packages:
 //   - pkg/types - type system and type-expression evaluation

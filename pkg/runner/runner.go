@@ -639,11 +639,11 @@ func newOutputCmd(info Info) *cobra.Command {
 // shared by every command. The compiler proved the source's references
 // and types before the binary existed, so the binary trusts them;
 // validation re-checks only the schema shape the graph build assumes.
-// The "main.ub" filename labels error positions; the original source
+// The "factory.ub" filename labels error positions; the original source
 // filename is not preserved across compile, so this label is the
 // convention regardless of what the file was called on disk.
 func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
-	f, err := lang.ParseSource("main.ub", []byte(info.FactoryBody))
+	f, err := lang.ParseSource("factory.ub", []byte(info.FactoryBody))
 	if err != nil {
 		return nil, nil, err
 	}
