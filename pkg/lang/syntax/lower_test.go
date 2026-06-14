@@ -611,8 +611,23 @@ lock: {
 	require.NotEqual(t, 0, errs.Len())
 	got := errs.Error()
 	assert.Contains(t, got, "lock version must be an integer")
+	assert.Contains(t, got, "lock: missing toolchain")
 	assert.Contains(t, got, "lock dependency github.com/cloudboss/example: ub kind requires hash")
 	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-go: go kind forbids hash")
 	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-bad: unknown kind")
 	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-bad: missing version")
+}
+
+func TestLowerReportsLockToolchainSchemaErrors(t *testing.T) {
+	f := parseFile(t, "lock.ub", `
+lock: {
+  version: 1
+  toolchain: {}
+  deps: {}
+}
+`, parse.FileUnknown)
+
+	_, errs := LowerFile(f)
+	require.NotEqual(t, 0, errs.Len())
+	assert.Contains(t, errs.Error(), "lock toolchain: missing unobin-version")
 }

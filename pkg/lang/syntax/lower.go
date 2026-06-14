@@ -394,6 +394,9 @@ func lowerLockFile(span parse.Span, block *parse.ObjectLit, errs *parse.ErrorLis
 	if _, ok := seen["version"]; !ok {
 		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing version")
 	}
+	if _, ok := seen["toolchain"]; !ok {
+		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing toolchain")
+	}
 	if _, ok := seen["deps"]; !ok {
 		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing deps")
 	}
@@ -406,11 +409,18 @@ func lowerLockToolchain(
 	errs *parse.ErrorList,
 ) *LockToolchain {
 	toolchain := &LockToolchain{S: span}
+	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
 		name, ok := fieldName(fld, "lock toolchain field", errs)
 		if !ok {
 			continue
 		}
+		if prev, dup := seen[name.Name]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"lock toolchain: duplicate key %q (first defined at %s)", name.Name, prev)
+			continue
+		}
+		seen[name.Name] = fld.Key.S.Start
 		switch name.Name {
 		case "unobin-version":
 			toolchain.UnobinVersion = stringValue(fld, "lock toolchain unobin-version", errs)
@@ -418,6 +428,10 @@ func lowerLockToolchain(
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"%q is not a valid lock toolchain field", name.Name)
 		}
+	}
+	if _, ok := seen["unobin-version"]; !ok {
+		errs.Addf(parse.ErrSchema, block.S.Start,
+			"lock toolchain: missing unobin-version")
 	}
 	return toolchain
 }
