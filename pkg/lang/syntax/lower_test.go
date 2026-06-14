@@ -387,6 +387,57 @@ outputs: {
 	require.Len(t, got.Library.Exports[0].Body.Outputs, 1)
 }
 
+func TestRuntimeFactoryBodyObjectExpandsConfigurationRefs(t *testing.T) {
+	f := parseFile(t, "factory.ub", `
+factory: {
+  configurations: {
+    greet {}
+    formal: greet {
+      prefix: configuration.formal.prefix
+    }
+  }
+
+  actions: {
+    say: greet.say {
+      @configuration: configuration.formal
+      message: configuration.formal.prefix
+    }
+    wrapped: greeter.greeting {
+      @configurations: { greet: configuration.formal }
+      message: 'wrapped'
+    }
+  }
+}
+`, parse.FileUnknown)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	body := RuntimeFactoryBodyObject(got.Factory.Body)
+	out := &parse.File{S: body.S, Kind: parse.FileFactory, Body: body}
+	require.Equal(t, 0, lang.ValidateFile(out).Len())
+	formatted, err := lang.Format(out)
+	require.NoError(t, err)
+	want := `configurations: {
+  greet.default: {}
+  greet.formal: {
+    prefix: configuration.greet.formal.prefix
+  }
+}
+
+actions: {
+  greet.say.say: {
+    @configuration: greet.formal
+    message:        configuration.greet.formal.prefix
+  }
+  greeter.greeting.wrapped: {
+    @configurations: { greet: greet.formal }
+    message:         'wrapped'
+  }
+}
+`
+	assert.Equal(t, want, string(formatted))
+}
+
 func TestLowerSelectorBodyFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/valid/selector-body", func(name string, src []byte) (string, []string) {
 		kind, path := selectorBodyFixtureKind(name)
