@@ -180,10 +180,10 @@ func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
 }
 
 func manifestFileName(root string) string {
-	if _, err := os.Stat(filepath.Join(root, deps.SourceManifestFileName)); err == nil {
-		return deps.SourceManifestFileName
+	if _, err := os.Stat(filepath.Join(root, deps.ManifestFileName)); err == nil {
+		return deps.ManifestFileName
 	}
-	return deps.ManifestFileName
+	return deps.SourceManifestFileName
 }
 
 // reconcileManifest makes the manifest's floors match the set of imported
@@ -275,8 +275,13 @@ func writeProjectManifest(root string, manifest *deps.Manifest) (string, error) 
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return "", err
 	}
-	path := filepath.Join(root, deps.ManifestFileName)
-	return deps.ManifestFileName, deps.WriteManifest(path, manifest)
+	legacyPath := filepath.Join(root, deps.ManifestFileName)
+	if _, err := os.Stat(legacyPath); err == nil {
+		return deps.ManifestFileName, deps.WriteManifest(legacyPath, manifest)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	return deps.SourceManifestFileName, deps.WriteSourceManifest(sourcePath, manifest)
 }
 
 // runDepsList prints the locked dependencies, one per line, sorted by id.

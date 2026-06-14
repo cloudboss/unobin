@@ -438,9 +438,16 @@ func TestDepsGetExactVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, out, "github.com/x/core v1.2.0")
 
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	_, err = os.Stat(filepath.Join(root, deps.ManifestFileName))
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.SourceManifestFileName))
 	require.NoError(t, err)
-	require.Equal(t, "requires: {\n  'github.com/x/core': 'v1.2.0'\n}\n", string(manifestBytes))
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/core': 'v1.2.0'
+  }
+}
+`, string(manifestBytes))
 
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
