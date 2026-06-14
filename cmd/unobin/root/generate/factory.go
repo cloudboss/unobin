@@ -83,6 +83,10 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 	if err := deps.WriteSourceManifest(manifestPath, manifest); err != nil {
 		return err
 	}
+	legacyManifestPath := filepath.Join(cfg.output, deps.ManifestFileName)
+	if err := os.Remove(legacyManifestPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", factoryPath)
 	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", manifestPath)
