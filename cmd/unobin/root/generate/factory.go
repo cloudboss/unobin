@@ -24,7 +24,7 @@ var (
 		Short: "Scaffold a new factory",
 		Long: `Scaffold a new factory directory.
 
-The generated directory contains a main.ub source file with empty
+The generated directory contains a factory.ub source file with empty
 placeholder blocks the author fills in. The config.ub is operator
 supplied per stack; use init-config (when available) or write
 it by hand.
@@ -70,7 +70,7 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 		return err
 	}
 
-	factoryPath := filepath.Join(cfg.output, "main.ub")
+	factoryPath := filepath.Join(cfg.output, "factory.ub")
 	if err := lang.WriteCanonical(factoryPath, []byte(renderFactoryStub())); err != nil {
 		return err
 	}
@@ -90,18 +90,6 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 }
 
 func renderFactoryStub() string {
-	return `description: 'TODO: describe this factory'
-
-inputs: {}
-
-imports: {}
-
-data: {}
-
-resources: {}
-
-actions: {}
-
-outputs: {}
-`
+	return "factory: {description: 'TODO: describe this factory' inputs: {} imports: {} " +
+		"data: {} resources: {} actions: {} outputs: {}}\n"
 }
