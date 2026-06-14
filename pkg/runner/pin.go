@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/spf13/cobra"
 )
 
@@ -80,6 +81,9 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	if err != nil {
 		return nil, "", err
 	}
+	if stackField := findField(f.Body, "stack"); stackField != nil {
+		return pinSourceStackFile(src, f, stackField, libraryPath, version, revision)
+	}
 	f.Kind = lang.FileConfig
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, "", errs.Err()
@@ -88,6 +92,50 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	if factoryField == nil {
 		return prependFactoryBlock(src, libraryPath, version, revision)
 	}
+	return pinFactoryField(src, factoryField, libraryPath, version, revision)
+}
+
+func pinSourceStackFile(
+	src []byte,
+	f *lang.File,
+	stackField *lang.Field,
+	libraryPath string,
+	version string,
+	revision string,
+) ([]byte, string, error) {
+	sf, serrs := syntax.LowerFile(f)
+	if serrs.Len() > 0 {
+		return nil, "", serrs.Err()
+	}
+	if sf.Kind != syntax.FileStack {
+		return nil, "", fmt.Errorf("`stack:` must be the only top-level declaration")
+	}
+	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+		return nil, "", verrs.Err()
+	}
+	stackObj, ok := stackField.Value.(*lang.ObjectLit)
+	if !ok {
+		return nil, "", fmt.Errorf("`stack:` must be an object")
+	}
+	factoryField := findField(stackObj, "factory")
+	if factoryField == nil {
+		out, err := spliceIntoBlock(src, stackObj,
+			renderFactoryBlock(libraryPath, version, revision), "stack block")
+		if err != nil {
+			return nil, "", err
+		}
+		return out, pinActionAddedFactoryBlock, nil
+	}
+	return pinFactoryField(src, factoryField, libraryPath, version, revision)
+}
+
+func pinFactoryField(
+	src []byte,
+	factoryField *lang.Field,
+	libraryPath string,
+	version string,
+	revision string,
+) ([]byte, string, error) {
 	factoryObj, ok := factoryField.Value.(*lang.ObjectLit)
 	if !ok {
 		return nil, "", fmt.Errorf("`factory:` must be an object")
@@ -132,7 +180,12 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	return appendVersionEntry(src, svArr, version, revision)
 }
 
-func prependFactoryBlock(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
+func prependFactoryBlock(
+	src []byte,
+	libraryPath string,
+	version string,
+	revision string,
+) ([]byte, string, error) {
 	block := renderFactoryBlock(libraryPath, version, revision)
 	if len(src) == 0 {
 		return []byte(block), pinActionAddedFactoryBlock, nil

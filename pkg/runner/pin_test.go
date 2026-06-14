@@ -99,6 +99,36 @@ locals: {
 			action: pinActionAddedPin,
 		},
 		{
+			name: "source stack factory block without pin",
+			src: `stack: {
+  factory: {
+    inputs: { message: 'hi' }
+  }
+
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+}
+`,
+			want: `stack: {
+  factory: {
+    inputs: { message: 'hi' }
+    pin: {
+      library-path: 'github.com/cloudboss/cluster-deploy'
+      supported-versions: [
+        { version: 'v0.3.0', content-revision: 'fedcba' },
+      ]
+    }
+  }
+
+  state: local {
+    path: '.unobin/state'
+  }
+  encryption: noop {}
+}
+`,
+			action: pinActionAddedPin,
+		},
+		{
 			name: "pin block missing supported-versions",
 			src: `factory: {
   pin: {
