@@ -138,9 +138,9 @@ func TestWalkUBLocalGoLibraryGuidesToReplace(t *testing.T) {
 	require.Contains(t, msg, "is a Go library (module github.com/cloudboss/unobin-library-aws)")
 	require.Contains(t, msg, "in the .ub file:")
 	require.Contains(t, msg, "imports: { aws: 'github.com/cloudboss/unobin-library-aws' }")
-	require.Contains(t, msg, "in unobin.manifest:")
+	require.Contains(t, msg, "in manifest.ub:")
 	require.Contains(t, msg,
-		"replace: { 'github.com/cloudboss/unobin-library-aws': '../../../..' }")
+		"manifest: { replace: { 'github.com/cloudboss/unobin-library-aws': '../../../..' } }")
 }
 
 func TestWalkUBLocalNonLibraryReports(t *testing.T) {

@@ -135,7 +135,7 @@ func TestDepsSyncRejectsLocalGoImport(t *testing.T) {
 	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "is a Go library")
-	require.Contains(t, err.Error(), "in unobin.manifest:")
+	require.Contains(t, err.Error(), "in manifest.ub:")
 }
 
 func goCoreRemotes() map[string]*resolve.Source {
@@ -714,7 +714,7 @@ func TestCompileDevVersionNeedsReplace(t *testing.T) {
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "--replace-unobin")
-	require.Contains(t, err.Error(), "unobin.manifest")
+	require.Contains(t, err.Error(), "manifest.ub")
 }
 
 // TestCompileDevVersionAcceptsManifestReplace proves the manifest's

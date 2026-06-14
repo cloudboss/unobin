@@ -280,7 +280,7 @@ func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(),
 		"is a Go library (module github.com/cloudboss/unobin-library-aws)")
-	assert.Contains(t, err.Error(), "in unobin.manifest:")
+	assert.Contains(t, err.Error(), "in manifest.ub:")
 }
 
 func TestLockFromImportsDedups(t *testing.T) {

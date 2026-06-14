@@ -195,9 +195,9 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	version, ok := w.selection[repo]
 	if !ok {
 		return fmt.Errorf(
-			"%s is imported but has no version floor in %s; "+
+			"%s is imported but has no version floor in the dependency manifest; "+
 				"add one with `unobin deps get %s@<version>`",
-			r.URL, ManifestFileName, r.URL)
+			r.URL, r.URL)
 	}
 	src, err := w.resolver.Resolve(
 		&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir, Version: repo.Tag(version)})

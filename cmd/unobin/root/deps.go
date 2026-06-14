@@ -206,7 +206,7 @@ func reconcileManifest(
 			return fmt.Errorf(
 				"%s is toolchain-versioned and cannot be imported at a dependency"+
 					" version; replace it locally:\n"+
-					"  in unobin.manifest: replace: { '%s': '<path-to-unobin>' }",
+					"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
 				dep.URL, dep.URL)
 		}
 		if _, ok := m.Requires[dep]; ok {

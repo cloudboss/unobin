@@ -208,8 +208,8 @@ func LocalGoImportError(alias, path string, source *Source) error {
 	}
 	return fmt.Errorf("import %q: %s is a Go library (module %s), which cannot be "+
 		"imported by path. Import it by its module path and replace it locally:\n"+
-		"  in the .ub file:    imports: { %s: '%s' }\n"+
-		"  in unobin.manifest: replace: { '%s': '%s' }",
+		"  in the .ub file: imports: { %s: '%s' }\n"+
+		"  in manifest.ub:  manifest: { replace: { '%s': '%s' } }",
 		alias, path, module, alias, module, module, path)
 }
 

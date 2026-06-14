@@ -221,8 +221,9 @@ func Run(opts Options) error {
 			return errors.New(
 				"this unobin is a development build with no version to pin; compile with\n" +
 					"  --replace-unobin <path-to-unobin-source>\n" +
-					"or add to unobin.manifest:\n" +
-					"  replace: { '" + toolchain.UnobinModulePath + "': '<path-to-unobin-source>' }")
+					"or add to manifest.ub:\n" +
+					"  manifest: { replace: { '" + toolchain.UnobinModulePath +
+					"': '<path-to-unobin-source>' } }")
 		}
 		unobinVersion = replacedVersion
 	}
@@ -233,7 +234,7 @@ func Run(opts Options) error {
 	if manifest != nil && manifest.UnobinVersion != "" {
 		if replaceUnobinAbs != "" {
 			fmt.Fprintf(opts.stderr(),
-				"notice: unobin.manifest pins unobin %s; the replacement at %s runs instead\n",
+				"notice: the manifest pins unobin %s; the replacement at %s runs instead\n",
 				manifest.UnobinVersion, replaceUnobinAbs)
 		} else if manifest.UnobinVersion != unobinVersion {
 			return fmt.Errorf(
@@ -697,7 +698,7 @@ func (g *unobinImportGuard) Resolve(ref resolve.ImportRef) (*resolve.Source, err
 		return nil, fmt.Errorf(
 			"the unobin repository is toolchain-versioned and cannot be imported at a"+
 				" dependency version; replace it locally for development:\n"+
-				"  in unobin.manifest: replace: { '%s': '<path-to-unobin>' }",
+				"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
 			toolchain.UnobinModulePath)
 	}
 	return g.wrapped.Resolve(ref)
@@ -730,7 +731,7 @@ func WrapReplaces(
 	return resolver, nil
 }
 
-// projectManifest reads the project's unobin.manifest, returning nil
+// projectManifest reads the project's dependency manifest, returning nil
 // when there is no manifest.
 func projectManifest(dir string) (*deps.Manifest, error) {
 	m, err := deps.ReadManifest(os.DirFS(dir))
