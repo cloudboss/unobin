@@ -3,6 +3,7 @@ package resolve
 import (
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/require"
 )
 
@@ -125,6 +126,13 @@ func TestIsUBLibraryNilSource(t *testing.T) {
 
 // walkOneUB resolves a single remote import pointing at src and returns
 // the library the visitor recorded for it, or the walk error.
+func formattedBody(t *testing.T, f *lang.File) string {
+	t.Helper()
+	out, err := lang.Format(f)
+	require.NoError(t, err)
+	return string(out)
+}
+
 func walkOneUB(t *testing.T, src *Source) (*UBLibrary, error) {
 	t.Helper()
 	refs := map[string]ImportRef{
@@ -160,8 +168,11 @@ greeting: resource {
   imports: {
     core: 'github.com/x/unobin//core'
   }
+  resources: {
+    file: core.file { path: '/tmp/greeting' }
+  }
   outputs: {
-    message: { value: 'hello' }
+    path: { value: resource.file.path }
   }
 }
 
@@ -192,6 +203,8 @@ lookup: data {
 	require.NotNil(t, lib)
 	require.Contains(t, lib.Bodies["resource"], "greeting")
 	require.Contains(t, lib.Bodies["data"], "lookup")
+	body := lib.Bodies["resource"]["greeting"]
+	require.Contains(t, formattedBody(t, body), "resource.core.file.file.path")
 	bodyImports := lib.BodyImports["resource"]["greeting"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, "core", bodyImports[0].LocalAlias)

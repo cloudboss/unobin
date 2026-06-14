@@ -342,7 +342,7 @@ func addSourceDeclaredLibraryFile(
 			S:        export.S,
 			Kind:     lang.FileExportedType,
 			Path:     filename,
-			Body:     syntax.FactoryBodyObject(export.Body),
+			Body:     syntax.RuntimeFactoryBodyObject(export.Body),
 			Comments: sf.Comments,
 		}
 		if err := addLibraryBody(export.Name.Name, string(export.Kind), body, bodies); err != nil {

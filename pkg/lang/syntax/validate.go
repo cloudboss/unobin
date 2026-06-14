@@ -341,6 +341,13 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 	}
 }
 
+// RuntimeFactoryBodyObject returns the generic AST object current runtime code reads.
+func RuntimeFactoryBodyObject(body FactoryBody) *parse.ObjectLit {
+	obj := FactoryBodyObject(body)
+	expandShortNodeRefs(obj, body)
+	return obj
+}
+
 // FactoryBodyObject returns the generic AST object for a lowered factory body.
 func FactoryBodyObject(body FactoryBody) *parse.ObjectLit {
 	obj := &parse.ObjectLit{S: body.S}
@@ -536,6 +543,53 @@ func resolverConfigObject(
 	}))
 	if body != nil {
 		out.Fields = append(out.Fields, body.Fields...)
+	}
+	return out
+}
+
+func expandShortNodeRefs(obj *parse.ObjectLit, body FactoryBody) {
+	selectors := map[string]map[string][]string{
+		"resource": nodeSelectorRefs(body.Resources),
+		"data":     nodeSelectorRefs(body.Data),
+		"action":   nodeSelectorRefs(body.Actions),
+	}
+	lang.Walk(obj, func(expr parse.Expr) {
+		dp, ok := expr.(*parse.DotPath)
+		if !ok || dp.Root == nil || len(dp.Segments) == 0 {
+			return
+		}
+		byName := selectors[dp.Root.Name]
+		if len(byName) == 0 {
+			return
+		}
+		first := dp.Segments[0]
+		if first.Name == "" || first.Index != nil || first.Splat || first.Guarded {
+			return
+		}
+		prefix := byName[first.Name]
+		if len(prefix) == 0 {
+			return
+		}
+		dp.Segments = append(selectorSegments(first.S, prefix), dp.Segments[1:]...)
+	})
+}
+
+func nodeSelectorRefs(nodes []NodeDecl) map[string][]string {
+	out := make(map[string][]string, len(nodes))
+	for _, node := range nodes {
+		out[node.Name.Name] = []string{
+			node.Selector.Alias.Name,
+			node.Selector.Export.Name,
+			node.Name.Name,
+		}
+	}
+	return out
+}
+
+func selectorSegments(span parse.Span, names []string) []parse.DotSegment {
+	out := make([]parse.DotSegment, 0, len(names))
+	for _, name := range names {
+		out = append(out, parse.DotSegment{S: span, Name: name})
 	}
 	return out
 }
