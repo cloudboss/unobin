@@ -6,6 +6,6 @@
 // at resolve time and reports them as compile errors. Enforces same-repo
 // imports sharing a version.
 //
-// Reads and writes unobin.lock - pins git commits and content hashes per
+// Reads and writes dependency locks - pins git commits and content hashes per
 // import for reproducible compiles.
 package resolve

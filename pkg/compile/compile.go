@@ -606,7 +606,7 @@ func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnob
 	return nil
 }
 
-// LockedVersions reads unobin.lock from dir and returns each repository's
+// LockedVersions reads the dependency lock from dir and returns each repository's
 // selected version, or nil when no lock is present, in which case the walk
 // uses the version on each import string.
 func LockedVersions(dir string) (map[string]string, error) {

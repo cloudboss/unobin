@@ -163,9 +163,13 @@ func TestDepsSync(t *testing.T) {
 		"-p", filepath.Join(root, "main.ub"))
 	require.NoError(t, err)
 	require.Contains(t, out, "Wrote unobin.manifest")
+	require.Contains(t, out, "lock.ub")
 
+	_, err = os.Stat(filepath.Join(root, deps.LockFileName))
+	require.ErrorIs(t, err, fs.ErrNotExist)
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
+	require.Equal(t, cliVersion(), lock.ToolchainVersion)
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
@@ -188,9 +192,11 @@ factory: {
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync")
 	require.NoError(t, err)
 	require.Contains(t, out, "Wrote manifest.ub")
+	require.Contains(t, out, "lock.ub")
 
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
+	require.Equal(t, cliVersion(), lock.ToolchainVersion)
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
@@ -411,17 +417,18 @@ func goLibRemotes(version, commit string) map[string]*resolve.Source {
 	}
 }
 
-// writeCompileLock writes a unobin.lock into dir pinning each id (a
+// writeCompileLock writes a source lock into dir pinning each id (a
 // repo//subdir or bare Go path) to a version. Compile takes versions from
 // the lock, so a fixture with versionless imports needs one. Each entry is
 // recorded as a Go library, which is all compile reads from the lock.
 func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
 	t.Helper()
 	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
 	for id, version := range pins {
 		lock.Deps[id] = &deps.LockedDep{Kind: deps.LockKindGo, Version: version, Commit: "c"}
 	}
-	require.NoError(t, deps.WriteLock(filepath.Join(dir, deps.LockFileName), lock))
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
 }
 
 func TestDepsGetExactVersion(t *testing.T) {
@@ -584,10 +591,11 @@ func TestCompileUsesLockVersion(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
 		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
 	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
 		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
 	}
-	require.NoError(t, deps.WriteLock(filepath.Join(dir, deps.LockFileName), lock))
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
 
 	remotes := map[string]*resolve.Source{
 		"github.com/x/core//lib@v1.0.0": {
@@ -604,8 +612,8 @@ func TestCompileUsesLockVersion(t *testing.T) {
 }
 
 // TestCompileRequiresLockedVersion compiles a factory whose import is
-// versionless and has no unobin.lock. Compile never selects a version on
-// its own, so it must fail and point at deps sync.
+// versionless and has no lock. Compile never selects a version on its own,
+// so it must fail and point at deps sync.
 // TestCompileWithReplacedGoLibrary compiles a factory that imports a Go
 // library by URL while the manifest replaces it with a local checkout. The
 // import needs no locked version, and the generated go.mod requires the

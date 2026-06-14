@@ -28,7 +28,7 @@ var (
 	depsSyncCfg = &depsSyncConfig{}
 	depsSyncCmd = &cobra.Command{
 		Use:   "sync",
-		Short: "Reconcile unobin.manifest and unobin.lock with the imports",
+		Short: "Reconcile the manifest and lock with the imports",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsSync(cmd, depsSyncCfg)
 		},
@@ -111,7 +111,7 @@ func projectRoot(stackPath string) string {
 	return filepath.Dir(stackPath)
 }
 
-// runDepsSync reconciles the project manifest and unobin.lock with the
+// runDepsSync reconciles the project manifest and lock with the
 // project's imports. The manifest holds the floors; sync reads it,
 // requires a floor for every imported repository, removes floors for
 // repositories no longer imported, then selects versions across the
@@ -259,11 +259,12 @@ func resolveAndWrite(
 	if err != nil {
 		return err
 	}
-	if err := deps.WriteLock(filepath.Join(root, deps.LockFileName), lock); err != nil {
+	lock.ToolchainVersion = cliVersion()
+	if err := deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (%d direct) and %s (%d locked)\n",
-		manifestName, len(manifest.Requires), deps.LockFileName, len(lock.Deps))
+		manifestName, len(manifest.Requires), deps.SourceLockFileName, len(lock.Deps))
 	return nil
 }
 
@@ -314,13 +315,14 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	return nil
 }
 
-// readProjectLock reads unobin.lock from the project rooted at the
+// readProjectLock reads the lock from the project rooted at the
 // directory of stackPath, with a clear error when it is missing.
 func readProjectLock(stackPath string) (*deps.Lock, error) {
 	lock, err := deps.ReadLock(os.DirFS(projectRoot(stackPath)))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first", deps.LockFileName)
+			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first",
+				deps.SourceLockFileName)
 		}
 		return nil, err
 	}

@@ -154,7 +154,7 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution
 	ref = w.lockedVersion(ref)
 	if r, ok := ref.(*RemoteImport); ok && r.Version == "" {
 		return Resolution{}, fmt.Errorf(
-			"import %q: no version for %s in unobin.lock; run `unobin deps sync`", alias, r.URL)
+			"import %q: no version for %s in lock.ub; run `unobin deps sync`", alias, r.URL)
 	}
 	if r, ok := crossRepoInternal(repo, ref); ok {
 		return Resolution{}, internalImportError(alias, r)
