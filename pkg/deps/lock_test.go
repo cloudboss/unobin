@@ -84,6 +84,15 @@ func TestLockRoundTrip(t *testing.T) {
 	assert.Equal(t, b, b2, "encoding must be deterministic")
 }
 
+func TestEncodeSourceLockRejectsUnprefixedHash(t *testing.T) {
+	lock := sampleSourceLock()
+	lock.Deps["github.com/cloudboss/unobin//pkg/libraries/core"].Hash = "deadbeef"
+
+	_, err := EncodeSourceLock(lock)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "hash must include an algorithm prefix")
+}
+
 func TestSourceLockCodec(t *testing.T) {
 	b, err := EncodeSourceLock(sampleSourceLock())
 	require.NoError(t, err)

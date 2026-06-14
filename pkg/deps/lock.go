@@ -257,7 +257,24 @@ func validateSourceLock(l *Lock) error {
 	if l.ToolchainVersion == "" {
 		return fmt.Errorf("lock: missing toolchain unobin-version")
 	}
-	return validateLockedDeps(l)
+	if err := validateLockedDeps(l); err != nil {
+		return err
+	}
+	for id, dep := range l.Deps {
+		if dep.Kind == LockKindUB && !hasHashAlgorithm(dep.Hash) {
+			return fmt.Errorf("lock: dependency %q: hash must include an algorithm prefix", id)
+		}
+	}
+	return nil
+}
+
+func hasHashAlgorithm(hash string) bool {
+	for i, r := range hash {
+		if r == ':' {
+			return i > 0 && i < len(hash)-1
+		}
+	}
+	return false
 }
 
 func validateLockedDeps(l *Lock) error {
