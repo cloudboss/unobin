@@ -448,6 +448,29 @@ actions: { core.command.hi: { argv: ['echo', 'hi'] } }
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/core"`)
 }
 
+func TestCompileSourceDeclaredFactoryToStdout(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "factory.ub")
+	src := `
+factory: {
+  imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }
+  actions: { hi: core.command { argv: ['echo', 'hi'] } }
+}
+`
+	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
+	})
+
+	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
+	require.NoError(t, err)
+
+	require.Contains(t, out, "package main")
+	require.Contains(t, out, `core.command.hi:`)
+	require.NotContains(t, out, "factory: {")
+}
+
 // TestCompileWriteOut compiles to an output directory and checks the
 // files written there. The import deliberately lives under the unobin
 // module path: such a library is served by the unobin require the
