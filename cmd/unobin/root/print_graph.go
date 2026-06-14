@@ -167,29 +167,32 @@ func (g *graphVisitor) OnUBLibrary(
 	_, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
 	runtimeLib := &runtime.Library{}
-	for name, body := range lib.Bodies {
-		bodyLibs := make(map[string]*runtime.Library, len(lib.BodyImports[name]))
-		for _, res := range lib.BodyImports[name] {
-			switch res.Kind {
-			case resolve.ResolutionGo:
-				schema, warnings, err := g.schemas.Read(res.SourcePath)
-				if err != nil {
-					return fmt.Errorf(
-						"composite %q import %q: %w",
-						name, res.LocalAlias, err)
+	for kind, byName := range lib.Bodies {
+		for name, body := range byName {
+			resols := lib.BodyImports[kind][name]
+			bodyLibs := make(map[string]*runtime.Library, len(resols))
+			for _, res := range resols {
+				switch res.Kind {
+				case resolve.ResolutionGo:
+					schema, warnings, err := g.schemas.Read(res.SourcePath)
+					if err != nil {
+						return fmt.Errorf(
+							"%s composite %q import %q: %w",
+							kind, name, res.LocalAlias, err)
+					}
+					compile.PrintSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
+					bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
+				case resolve.ResolutionUB:
+					bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
 				}
-				compile.PrintSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
-				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
-			case resolve.ResolutionUB:
-				bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
 			}
+			runtimeLib.AddComposite(&runtime.CompositeType{
+				Name:      name,
+				Kind:      runtime.NodeKind(kind),
+				Body:      body,
+				Libraries: bodyLibs,
+			})
 		}
-		runtimeLib.AddComposite(&runtime.CompositeType{
-			Name:      name,
-			Kind:      runtime.NodeKind(lib.Kinds[name]),
-			Body:      body,
-			Libraries: bodyLibs,
-		})
 	}
 	g.byKey[canonicalKey] = runtimeLib
 	return nil

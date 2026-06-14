@@ -348,28 +348,30 @@ func (c *compileVisitor) OnGoImport(_, path, version string) error {
 func (c *compileVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
+	entries := sortedCompositeBodies(lib.Bodies)
 	var violations []error
-	for _, name := range slices.Sorted(maps.Keys(lib.Bodies)) {
+	for _, entry := range entries {
 		violations = append(violations,
-			resolve.ValidateCompositeBody(lib.Kinds[name], name, lib.Bodies[name])...)
+			resolve.ValidateCompositeBody(entry.kind, entry.name, entry.body)...)
 	}
 	if len(violations) > 0 {
 		return errors.Join(violations...)
 	}
-	composites := make(map[string]map[string]string, len(lib.BodyImports))
+	composites := make(map[string]map[string]map[string]string, len(lib.BodyImports))
 	goSpecs := map[string]codegen.GoLibrarySpecs{}
 	runtimeLib := &ubruntime.Library{Name: alias}
-	for name, body := range lib.Bodies {
-		bodyLibs := make(map[string]*ubruntime.Library, len(lib.BodyImports[name]))
-		bodyUsed := usedLibraryTypes(body)
-		for _, res := range lib.BodyImports[name] {
+	for _, entry := range entries {
+		resols := lib.BodyImports[entry.kind][entry.name]
+		bodyLibs := make(map[string]*ubruntime.Library, len(resols))
+		bodyUsed := usedLibraryTypes(entry.body)
+		for _, res := range resols {
 			switch res.Kind {
 			case resolve.ResolutionGo:
 				schema, warnings, err := c.schemas.Read(res.SourcePath)
 				if err != nil {
 					return fmt.Errorf(
-						"composite %q import %q: %w",
-						name, res.LocalAlias, err)
+						"%s composite %q import %q: %w",
+						entry.kind, entry.name, res.LocalAlias, err)
 				}
 				PrintSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
 				bodyLibs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
@@ -386,29 +388,34 @@ func (c *compileVisitor) OnUBLibrary(
 			}
 		}
 		runtimeLib.AddComposite(&ubruntime.CompositeType{
-			Name:      name,
-			Kind:      ubruntime.NodeKind(lib.Kinds[name]),
-			Body:      body,
+			Name:      entry.name,
+			Kind:      ubruntime.NodeKind(entry.kind),
+			Body:      entry.body,
 			Libraries: bodyLibs,
 		})
 	}
-	for name, resols := range lib.BodyImports {
-		composite := make(map[string]string, len(resols))
-		for _, res := range resols {
-			switch res.Kind {
-			case resolve.ResolutionGo:
-				composite[res.LocalAlias] = res.Path
-			case resolve.ResolutionUB:
-				composite[res.LocalAlias] = c.stackName +
-					"/internal/" + c.canonicalAlias[res.CanonicalKey]
+	for kind, byName := range lib.BodyImports {
+		for name, resols := range byName {
+			composite := make(map[string]string, len(resols))
+			for _, res := range resols {
+				switch res.Kind {
+				case resolve.ResolutionGo:
+					composite[res.LocalAlias] = res.Path
+				case resolve.ResolutionUB:
+					composite[res.LocalAlias] = c.stackName +
+						"/internal/" + c.canonicalAlias[res.CanonicalKey]
+				}
 			}
-		}
-		if len(composite) > 0 {
-			composites[name] = composite
+			if len(composite) > 0 {
+				if composites[kind] == nil {
+					composites[kind] = map[string]map[string]string{}
+				}
+				composites[kind][name] = composite
+			}
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, lib.Kinds, composites, goSpecs)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, composites, goSpecs)
 	if err != nil {
 		return err
 	}
@@ -416,6 +423,28 @@ func (c *compileVisitor) OnUBLibrary(
 	c.packages[canonicalKey] = src
 	c.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
+}
+
+type compositeBodyEntry struct {
+	kind string
+	name string
+	body *lang.File
+}
+
+func sortedCompositeBodies(bodies map[string]map[string]*lang.File) []compositeBodyEntry {
+	var entries []compositeBodyEntry
+	for kind, byName := range bodies {
+		for name, body := range byName {
+			entries = append(entries, compositeBodyEntry{kind: kind, name: name, body: body})
+		}
+	}
+	slices.SortFunc(entries, func(a, b compositeBodyEntry) int {
+		if a.name != b.name {
+			return strings.Compare(a.name, b.name)
+		}
+		return strings.Compare(a.kind, b.kind)
+	})
+	return entries
 }
 
 // decideSelectedUnobin reads `go list -m` output for the unobin module

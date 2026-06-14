@@ -21,13 +21,15 @@ func parseUB(t *testing.T, name, src string) *lang.File {
 	return f
 }
 
-// allResource labels every name in bodies as a resource composite.
-func allResource(bodies map[string]*lang.File) map[string]string {
-	cats := make(map[string]string, len(bodies))
-	for name := range bodies {
-		cats[name] = "resource"
-	}
-	return cats
+func resourceBodies(bodies map[string]*lang.File) map[string]map[string]*lang.File {
+	return map[string]map[string]*lang.File{"resource": bodies}
+}
+
+func compositeImports(
+	kind string,
+	imports map[string]map[string]string,
+) map[string]map[string]map[string]string {
+	return map[string]map[string]map[string]string{kind: imports}
 }
 
 func TestGenerateUBLibraryProducesValidGo(t *testing.T) {
@@ -37,7 +39,7 @@ resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `)
 	bodies := map[string]*lang.File{"cluster": body}
 
-	out, err := GenerateUBLibrary("net", bodies, allResource(bodies), nil, nil)
+	out, err := GenerateUBLibrary("net", resourceBodies(bodies), nil, nil)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -51,7 +53,7 @@ func TestGenerateUBLibraryHasExpectedShape(t *testing.T) {
 		"beta":  parseUB(t, "resource-beta.ub", "description: 'b'"),
 	}
 
-	out, err := GenerateUBLibrary("net", bodies, allResource(bodies), nil, nil)
+	out, err := GenerateUBLibrary("net", resourceBodies(bodies), nil, nil)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -69,14 +71,13 @@ func TestGenerateUBLibraryHasExpectedShape(t *testing.T) {
 }
 
 func TestGenerateUBLibrarySplitsByKind(t *testing.T) {
-	bodies := map[string]*lang.File{
-		"box":    parseUB(t, "resource-box.ub", "description: 'r'"),
-		"lookup": parseUB(t, "data-lookup.ub", "description: 'd'"),
-		"run":    parseUB(t, "action-run.ub", "description: 'a'"),
+	bodies := map[string]map[string]*lang.File{
+		"resource": {"box": parseUB(t, "resource-box.ub", "description: 'r'")},
+		"data":     {"lookup": parseUB(t, "data-lookup.ub", "description: 'd'")},
+		"action":   {"run": parseUB(t, "action-run.ub", "description: 'a'")},
 	}
-	kinds := map[string]string{"box": "resource", "lookup": "data", "run": "action"}
 
-	out, err := GenerateUBLibrary("mixed", bodies, kinds, nil, nil)
+	out, err := GenerateUBLibrary("mixed", bodies, nil, nil)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -94,9 +95,30 @@ func TestGenerateUBLibrarySplitsByKind(t *testing.T) {
 
 func TestGenerateUBLibraryRejectsUnknownKind(t *testing.T) {
 	bodies := map[string]*lang.File{"x": parseUB(t, "resource-x.ub", "description: 'x'")}
-	_, err := GenerateUBLibrary("net", bodies, map[string]string{"x": "widget"}, nil, nil)
+	_, err := GenerateUBLibrary("net", map[string]map[string]*lang.File{"widget": bodies}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown kind")
+}
+
+func TestGenerateUBLibraryAllowsSameNameAcrossKinds(t *testing.T) {
+	bodies := map[string]map[string]*lang.File{
+		"resource": {"vpc": parseUB(t, "library.ub", "description: 'r'")},
+		"data":     {"vpc": parseUB(t, "library.ub", "description: 'd'")},
+		"action":   {"vpc": parseUB(t, "library.ub", "description: 'a'")},
+	}
+
+	out, err := GenerateUBLibrary("net", bodies, nil, nil)
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "net.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", out)
+
+	s := string(out)
+	require.Equal(t, 3, strings.Count(s, `"vpc":`))
+	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeResource`, s)
+	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeData`, s)
+	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeAction`, s)
 }
 
 func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
@@ -112,7 +134,8 @@ resources: { helloer.hello.file: { message: var.message, path: var.path } }
 		},
 	}
 
-	out, err := GenerateUBLibrary("greeter", bodies, allResource(bodies), imports, nil)
+	out, err := GenerateUBLibrary(
+		"greeter", resourceBodies(bodies), compositeImports("resource", imports), nil)
 	require.NoError(t, err)
 
 	fset := token.NewFileSet()
@@ -141,7 +164,8 @@ func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
 		"alpha": {"local": "github.com/cloudboss/unobin/pkg/libraries/local"},
 		"beta":  {"thing": "github.com/cloudboss/unobin/pkg/libraries/local"},
 	}
-	out, err := GenerateUBLibrary("test", bodies, allResource(bodies), imports, nil)
+	out, err := GenerateUBLibrary(
+		"test", resourceBodies(bodies), compositeImports("resource", imports), nil)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -184,7 +208,8 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 		},
 	}
 
-	out, err := GenerateUBLibrary("files", bodies, allResource(bodies), imports, goSpecs)
+	out, err := GenerateUBLibrary(
+		"files", resourceBodies(bodies), compositeImports("resource", imports), goSpecs)
 	require.NoError(t, err)
 
 	want := `// Code generated by unobin. DO NOT EDIT.
@@ -249,7 +274,8 @@ func TestGenerateUBLibrarySharesSpecsAcrossComposites(t *testing.T) {
 		},
 	}
 
-	out, err := GenerateUBLibrary("files", bodies, allResource(bodies), imports, goSpecs)
+	out, err := GenerateUBLibrary(
+		"files", resourceBodies(bodies), compositeImports("resource", imports), goSpecs)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -262,7 +288,7 @@ func TestGenerateUBLibrarySharesSpecsAcrossComposites(t *testing.T) {
 }
 
 func TestGenerateUBLibraryEmptyBodies(t *testing.T) {
-	out, err := GenerateUBLibrary("empty", nil, nil, nil, nil)
+	out, err := GenerateUBLibrary("empty", nil, nil, nil)
 	require.NoError(t, err)
 
 	s := string(out)
@@ -272,7 +298,7 @@ func TestGenerateUBLibraryEmptyBodies(t *testing.T) {
 }
 
 func TestGenerateUBLibraryRejectsEmptyAlias(t *testing.T) {
-	_, err := GenerateUBLibrary("", nil, nil, nil, nil)
+	_, err := GenerateUBLibrary("", nil, nil, nil)
 	require.Error(t, err)
 }
 
@@ -293,7 +319,7 @@ resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
 `)
 	bodies := map[string]*lang.File{"cluster": body}
 
-	out, err := GenerateUBLibrary("net", bodies, allResource(bodies), nil, nil)
+	out, err := GenerateUBLibrary("net", resourceBodies(bodies), nil, nil)
 	require.NoError(t, err)
 
 	rootDir := findUnobinRoot(t)

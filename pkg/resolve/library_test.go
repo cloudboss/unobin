@@ -148,12 +148,9 @@ func TestWalkUBDerivesKindAndTypeFromFilenames(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, lib)
 
-	require.ElementsMatch(t, []string{"greeting", "ami", "notify"}, keysOf(lib.Bodies))
-	require.Equal(t, map[string]string{
-		"greeting": "resource",
-		"ami":      "data",
-		"notify":   "action",
-	}, lib.Kinds)
+	require.Contains(t, lib.Bodies["resource"], "greeting")
+	require.Contains(t, lib.Bodies["data"], "ami")
+	require.Contains(t, lib.Bodies["action"], "notify")
 }
 
 func TestWalkUBParsesSourceDeclaredLibraryExports(t *testing.T) {
@@ -193,12 +190,9 @@ lookup: data {
 	require.Len(t, top, 1)
 	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
 	require.NotNil(t, lib)
-	require.ElementsMatch(t, []string{"greeting", "lookup"}, keysOf(lib.Bodies))
-	require.Equal(t, map[string]string{
-		"greeting": "resource",
-		"lookup":   "data",
-	}, lib.Kinds)
-	bodyImports := lib.BodyImports["greeting"]
+	require.Contains(t, lib.Bodies["resource"], "greeting")
+	require.Contains(t, lib.Bodies["data"], "lookup")
+	bodyImports := lib.BodyImports["resource"]["greeting"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, "core", bodyImports[0].LocalAlias)
 	require.Equal(t, ResolutionGo, bodyImports[0].Kind)
@@ -210,8 +204,30 @@ func TestWalkUBKeepsMultiHyphenTypeName(t *testing.T) {
 	})
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
-	require.Contains(t, lib.Bodies, "vpc-wrapper")
-	require.Equal(t, "resource", lib.Kinds["vpc-wrapper"])
+	require.Contains(t, lib.Bodies["resource"], "vpc-wrapper")
+}
+
+func TestWalkUBAllowsSameExportNameAcrossKinds(t *testing.T) {
+	src := newUBSource(t, map[string]string{
+		"library.ub": `
+vpc: resource {
+  outputs: { id: { value: 'managed' } }
+}
+
+vpc: data {
+  outputs: { id: { value: 'existing' } }
+}
+
+vpc: action {
+  outputs: { id: { value: 'ran' } }
+}
+`,
+	})
+	lib, err := walkOneUB(t, src)
+	require.NoError(t, err)
+	require.Contains(t, lib.Bodies["resource"], "vpc")
+	require.Contains(t, lib.Bodies["data"], "vpc")
+	require.Contains(t, lib.Bodies["action"], "vpc")
 }
 
 func TestWalkUBRejectsMisnamedFiles(t *testing.T) {

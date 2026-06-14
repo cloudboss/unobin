@@ -61,16 +61,15 @@ type Resolution struct {
 }
 
 // UBLibrary has everything the visitor needs about a UB library the
-// first time the walker reaches it. Bodies maps composite type name to
-// the parsed body file; the type name comes from a kind-prefixed filename
-// (`<kind>-<type>.ub`) or a grammar-first composite declaration. Kinds maps
-// the same type name to its kind (`resource`, `data`, or `action`).
-// BodyImports maps the type name to the resolved imports declared by that
-// body, in alias-sorted order so callers see a stable view across runs.
+// first time the walker reaches it. Bodies maps node kind and composite
+// name to the parsed body file; the name comes from a kind-prefixed
+// filename (`<kind>-<type>.ub`) or a grammar-first composite declaration.
+// BodyImports maps the same kind and name to the resolved imports declared
+// by that body, in alias-sorted order so callers see a stable view across
+// runs.
 type UBLibrary struct {
-	Bodies      map[string]*lang.File
-	Kinds       map[string]string
-	BodyImports map[string][]Resolution
+	Bodies      map[string]map[string]*lang.File
+	BodyImports map[string]map[string][]Resolution
 }
 
 // UBVisitor is implemented by callers that want to consume the walked
@@ -246,19 +245,24 @@ func (w *ubWalker) handleUBImport(
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	lib.BodyImports = map[string][]Resolution{}
-	for _, name := range sortedBodyNames(lib.Bodies) {
-		body := lib.Bodies[name]
-		bodyRefs, errs := ExtractImports(body)
-		if len(errs) > 0 {
-			return Resolution{}, errors.Join(errs...)
+	lib.BodyImports = map[string]map[string][]Resolution{}
+	for _, kind := range sortedKinds(lib.Bodies) {
+		for _, name := range sortedBodyNames(lib.Bodies[kind]) {
+			body := lib.Bodies[kind][name]
+			bodyRefs, errs := ExtractImports(body)
+			if len(errs) > 0 {
+				return Resolution{}, errors.Join(errs...)
+			}
+			resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref))
+			if err != nil {
+				return Resolution{}, fmt.Errorf(
+					"import %q: composite %q: %w", alias, name, err)
+			}
+			if lib.BodyImports[kind] == nil {
+				lib.BodyImports[kind] = map[string][]Resolution{}
+			}
+			lib.BodyImports[kind][name] = resols
 		}
-		resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref))
-		if err != nil {
-			return Resolution{}, fmt.Errorf(
-				"import %q: composite %q: %w", alias, name, err)
-		}
-		lib.BodyImports[name] = resols
 	}
 	w.parsed[key] = lib
 	if err := w.visitor.OnUBLibrary(alias, key, ref, lib); err != nil {
@@ -280,8 +284,7 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		return nil, err
 	}
 	slices.Sort(matches)
-	bodies := make(map[string]*lang.File, len(matches))
-	kinds := make(map[string]string, len(matches))
+	bodies := make(map[string]map[string]*lang.File, len(matches))
 	for _, filename := range matches {
 		kind, typeName, ok := ubKindAndType(filename)
 		b, err := readSourceFile(source, filename)
@@ -289,7 +292,7 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
 		}
 		if !ok {
-			if err := addSourceDeclaredLibraryFile(filename, b, bodies, kinds); err != nil {
+			if err := addSourceDeclaredLibraryFile(filename, b, bodies); err != nil {
 				return nil, err
 			}
 			continue
@@ -302,18 +305,17 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		if errs := lang.ValidateFile(f); errs.Len() > 0 {
 			return nil, errs.Err()
 		}
-		if err := addLibraryBody(typeName, kind, f, bodies, kinds); err != nil {
+		if err := addLibraryBody(typeName, kind, f, bodies); err != nil {
 			return nil, err
 		}
 	}
-	return &UBLibrary{Bodies: bodies, Kinds: kinds}, nil
+	return &UBLibrary{Bodies: bodies}, nil
 }
 
 func addSourceDeclaredLibraryFile(
 	filename string,
 	src []byte,
-	bodies map[string]*lang.File,
-	kinds map[string]string,
+	bodies map[string]map[string]*lang.File,
 ) error {
 	f, err := lang.ParseSource(filename, src)
 	if err != nil {
@@ -343,7 +345,7 @@ func addSourceDeclaredLibraryFile(
 			Body:     syntax.FactoryBodyObject(export.Body),
 			Comments: sf.Comments,
 		}
-		if err := addLibraryBody(export.Name.Name, string(export.Kind), body, bodies, kinds); err != nil {
+		if err := addLibraryBody(export.Name.Name, string(export.Kind), body, bodies); err != nil {
 			return err
 		}
 	}
@@ -354,14 +356,15 @@ func addLibraryBody(
 	name string,
 	kind string,
 	body *lang.File,
-	bodies map[string]*lang.File,
-	kinds map[string]string,
+	bodies map[string]map[string]*lang.File,
 ) error {
-	if _, dup := bodies[name]; dup {
-		return fmt.Errorf("composite type %q is declared by more than one file", name)
+	if bodies[kind] == nil {
+		bodies[kind] = map[string]*lang.File{}
 	}
-	bodies[name] = body
-	kinds[name] = kind
+	if _, dup := bodies[kind][name]; dup {
+		return fmt.Errorf("%s composite %q is declared by more than one file", kind, name)
+	}
+	bodies[kind][name] = body
 	return nil
 }
 
@@ -383,7 +386,16 @@ func sortedAliases(refs map[string]ImportRef) []string {
 	return out
 }
 
-func sortedBodyNames(bodies map[string]*lang.File) []string {
+func sortedKinds[V any](m map[string]map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func sortedBodyNames[V any](bodies map[string]V) []string {
 	out := make([]string, 0, len(bodies))
 	for n := range bodies {
 		out = append(out, n)

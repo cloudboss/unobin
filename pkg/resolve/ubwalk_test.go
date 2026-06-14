@@ -117,8 +117,8 @@ inputs: { name: { type: string } }
 
 	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
 	require.NotNil(t, lib)
-	require.Contains(t, lib.Bodies, "greeter")
-	bodyImports := lib.BodyImports["greeter"]
+	require.Contains(t, lib.Bodies["resource"], "greeter")
+	bodyImports := lib.BodyImports["resource"]["greeter"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, ResolutionGo, bodyImports[0].Kind)
 	require.Equal(t, "core", bodyImports[0].LocalAlias)

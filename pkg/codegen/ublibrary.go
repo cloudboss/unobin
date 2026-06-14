@@ -31,11 +31,9 @@ func (s GoLibrarySpecs) Empty() bool {
 // generated package. The package's name is alias; it exports a
 // `Library()` function returning a `*runtime.Library` whose composites
 // are split into one map per kind (ResourceComposites, DataComposites,
-// ActionComposites). bodies and kinds are both keyed by composite type
-// name (derived from each file's `<kind>-<type>.ub` name); kinds gives
-// the kind.
+// ActionComposites). bodies is keyed by kind and then composite name.
 //
-// imports maps each composite's type name to its resolved import table:
+// imports maps each composite's kind and name to its resolved import table:
 // the composite's body's own imports block, with each declared alias
 // mapped to the Go import path of the package that supplies it. The
 // generated source emits one Go-level import per unique path and
@@ -49,46 +47,45 @@ func (s GoLibrarySpecs) Empty() bool {
 // shares the instance, so a composite-internal node resolves the same
 // spec data a root import of the library would.
 func GenerateUBLibrary(alias string,
-	bodies map[string]*lang.File,
-	kinds map[string]string,
-	imports map[string]map[string]string,
+	bodies map[string]map[string]*lang.File,
+	imports map[string]map[string]map[string]string,
 	goSpecs map[string]GoLibrarySpecs) ([]byte, error) {
 	if alias == "" {
 		return nil, fmt.Errorf("ublibrary: alias is required")
 	}
 
 	idents := newIdentTable()
-	names := make([]string, 0, len(bodies))
-	for name := range bodies {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-
 	groups := map[string]*compositeGroup{}
 	for _, c := range compositeKinds {
 		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
 	}
-	for _, name := range names {
-		kind := kinds[name]
+	for kind, byName := range bodies {
 		group, ok := groups[kind]
 		if !ok {
-			return nil, fmt.Errorf("ublibrary %q: composite %q has unknown kind %q",
-				alias, name, kind)
+			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", alias, kind)
 		}
-		encoded, err := EncodeNode(bodies[name])
-		if err != nil {
-			return nil, fmt.Errorf("ublibrary %q: encode %q body: %w", alias, name, err)
+		names := make([]string, 0, len(byName))
+		for name := range byName {
+			names = append(names, name)
 		}
-		entry := compositeEntry{Name: name, Symbol: group.Symbol, Body: encoded}
-		for _, localAlias := range sortedAliases(imports[name]) {
-			p := imports[name][localAlias]
-			entry.Libraries = append(entry.Libraries, libraryBinding{
-				LocalAlias: localAlias,
-				Path:       p,
-				GoIdent:    idents.identFor(p),
-			})
+		slices.Sort(names)
+		for _, name := range names {
+			encoded, err := EncodeNode(byName[name])
+			if err != nil {
+				return nil, fmt.Errorf("ublibrary %q: encode %s %q body: %w",
+					alias, kind, name, err)
+			}
+			entry := compositeEntry{Name: name, Symbol: group.Symbol, Body: encoded}
+			for _, localAlias := range sortedAliases(imports[kind][name]) {
+				p := imports[kind][name][localAlias]
+				entry.Libraries = append(entry.Libraries, libraryBinding{
+					LocalAlias: localAlias,
+					Path:       p,
+					GoIdent:    idents.identFor(p),
+				})
+			}
+			group.Entries = append(group.Entries, entry)
 		}
-		group.Entries = append(group.Entries, entry)
 	}
 
 	orderedGroups := make([]*compositeGroup, 0, len(compositeKinds))
