@@ -44,7 +44,7 @@ func init() {
 
 	CompileCmd.Flags().StringVar(&compileCfg.libraryPath, "library-path", "",
 		"Library path identity to embed in the binary. The operator's"+
-			" config.ub asserts the same value under factory.pin.library-path"+
+			" stack file asserts the same value under factory.pin.library-path"+
 			" and plan, refresh, and validate refuse on mismatch.")
 
 	CompileCmd.Flags().StringVarP(&compileCfg.outDir, "out", "o", "",

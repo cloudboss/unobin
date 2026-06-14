@@ -36,7 +36,7 @@ const EnvVarPrefix = "UB_VAR_"
 // Info bundles everything a generated factory binary passes into Run.
 // FactoryBody is the embedded factory source the binary parses on each
 // invocation. LibraryPath is the binary's library-path identity (the
-// same form Go libraries use); the operator's `config.ub` asserts the
+// same form Go libraries use); the operator's stack file asserts the
 // same value under `factory.library-path`. An empty LibraryPath disables
 // that identity check.
 type Info struct {
@@ -123,14 +123,14 @@ func newPlanCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub for inputs and per-stack configuration.")
+		"Path to a stack file for inputs and per-stack configuration.")
 	cmd.Flags().StringVarP(&outPath, "out", "o", "",
 		"Write the plan to this file so apply can consume it.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
-		"Run even when the config does not pin this binary's version.")
+		"Run even when the stack file does not pin this binary's version.")
 	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
 		"Override the in-flight cap baked into the plan."+
-			" Zero (the default) falls back to config.ub, then to the runtime default.")
+			" Zero (the default) falls back to the stack file, then to the runtime default.")
 	cmd.Flags().BoolVar(&destroy, "destroy", false,
 		"Plan to destroy every resource in state instead of converging on the source.")
 	cmd.Flags().BoolVar(&ascii, "ascii", false,
@@ -424,9 +424,9 @@ func newRefreshCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub for inputs and per-stack configuration.")
+		"Path to a stack file for inputs and per-stack configuration.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
-		"Run even when the config does not pin this binary's version.")
+		"Run even when the stack file does not pin this binary's version.")
 	return cmd
 }
 
@@ -486,7 +486,7 @@ func newValidateCmd(info Info) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "validate",
-		Short: "Check factory source and config without reading state or resources",
+		Short: "Check factory source and stack file without reading state or resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseConfigFile(configPath)
 			if err != nil {
@@ -499,9 +499,9 @@ func newValidateCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub to validate alongside the factory source.")
+		"Path to a stack file to validate alongside the factory source.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
-		"Validate even when the config does not pin this binary's version.")
+		"Validate even when the stack file does not pin this binary's version.")
 	return cmd
 }
 
@@ -628,7 +628,7 @@ func newOutputCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a config.ub identifying the stack.")
+		"Path to a stack file identifying the stack.")
 	cmd.Flags().BoolVar(&asJSON, "json", false,
 		"Emit outputs as JSON instead of plain text.")
 	return cmd
@@ -656,7 +656,7 @@ func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
 // loadStore resolves a state backend from the state: block of a
 // pre-parsed config. A config without a state: block is an error; a
 // backend must be configured explicitly. stack is the per-stack
-// directory name (the basename of config.ub for plan/refresh, or the
+// directory name (the stack file basename for plan/refresh, or the
 // plan file's embedded value for apply). configPath is preserved only
 // for error messages.
 func loadStore(

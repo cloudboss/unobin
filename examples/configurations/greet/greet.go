@@ -1,7 +1,7 @@
 // Package greet is a small demonstration library that exists so
 // examples and tests can exercise configuration routing. The library
-// carries a single configuration field (Prefix) and a single action
-// (say) that prepends the prefix to a caller-supplied message.
+// has a single configuration field (Prefix) and a single action (say)
+// that prepends the prefix to a caller-supplied message.
 package greet
 
 import (
@@ -12,8 +12,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
-// Configuration is the per-alias body operators fill out in
-// `configurations.greet.<alias>` in config.ub.
+// Configuration is the per-alias body operators fill out in the
+// stack file's configurations block.
 type Configuration struct {
 	Prefix cfg.String
 }

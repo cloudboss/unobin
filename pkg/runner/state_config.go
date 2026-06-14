@@ -25,8 +25,8 @@ type resolverRef struct {
 	Body map[string]any
 }
 
-// stateConfig captures the parsed state: block from config.ub. A nil
-// field means the operator omitted that section; the resolver fills
+// stateConfig captures the parsed state: block from the stack file. A
+// nil field means the operator omitted that section; the resolver fills
 // in defaults.
 type stateConfig struct {
 	Backend   *resolverRef
@@ -175,7 +175,7 @@ func resolveBackend(
 ) (sdkstate.Backend, error) {
 	if ref == nil {
 		return nil, errors.New(
-			"state: a state backend must be configured; add a state: block to config.ub " +
+			"state: a state backend must be configured; add a state: block to the stack file " +
 				"(run 'schema template' for a starter)")
 	}
 	bt, err := lookupBackendType(ref)

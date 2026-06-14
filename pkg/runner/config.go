@@ -8,7 +8,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
-// parseConfigFile reads, parses, and validates the config.ub at path.
+// parseConfigFile reads, parses, and validates the stack file at path.
 // An empty path returns a nil file with no error so callers can pass
 // it through the no-config branch of each section reader uniformly.
 // Each cobra command parses the config once at the top and threads

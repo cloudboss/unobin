@@ -25,9 +25,9 @@ var (
 		Long: `Scaffold a new factory directory.
 
 The generated directory contains a factory.ub source file with empty
-placeholder blocks the author fills in. The config.ub is operator
-supplied per stack; use init-config (when available) or write
-it by hand.
+placeholder blocks the author fills in. A stack file is operator supplied
+per stack; use the compiled factory's schema template command to create
+one.
 
 Examples:
   unobin generate factory -o ./my-factory`,

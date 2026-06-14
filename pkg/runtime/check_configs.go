@@ -94,13 +94,13 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	}
 	return []error{fmt.Errorf(
 		"%s: library %q requires a configuration; define %s.default under "+
-			"factory.configurations in config.ub or under configurations in the factory",
+			"factory.configurations in the stack file or under configurations in the factory",
 		n.Address, n.Alias, alias)}
 }
 
 // configurationDeclared reports whether a configuration name resolves
-// for an alias: either the operator supplied it in config.ub or the
-// factory defines it internally.
+// for an alias: either the operator supplied it in the stack file or
+// the factory defines it internally.
 func (e *Executor) configurationDeclared(alias, name string) bool {
 	if _, ok := e.Configurations[alias][name]; ok {
 		return true

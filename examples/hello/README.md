@@ -32,8 +32,8 @@ cd /tmp/hello-build
 
 `--allow-version-mismatch` is needed for the dev workflow because
 `dev.ub` does not declare `factory.supported-versions`. In real
-deployments the operator pins the binary's version+commit in
-`config.ub` and the flag is unnecessary.
+deployments the operator pins the binary's version+commit in the
+stack file and the flag is unnecessary.
 
 Set `UB_STATE_KEY` to a base64-encoded 32-byte key to encrypt
 state snapshots and plan files at rest:

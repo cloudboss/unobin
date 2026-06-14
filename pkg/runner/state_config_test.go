@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// parseConfig parses an in-memory config.ub-style source. Tests pass the
+// parseConfig parses an in-memory stack-file-style source. Tests pass the
 // result straight to parseStateConfig, so the file is classified as
 // FileConfig and ValidateFile runs the structural checks.
 func parseConfig(t *testing.T, src string) *lang.File {
 	t.Helper()
-	f, err := lang.ParseSource("config.ub", []byte(src))
+	f, err := lang.ParseSource("stack.ub", []byte(src))
 	require.NoError(t, err)
 	f.Kind = lang.FileConfig
 	errs := lang.ValidateFile(f)
@@ -33,7 +33,7 @@ func TestParseStateConfigNilFile(t *testing.T) {
 
 func TestParseStateConfigAbsentBlock(t *testing.T) {
 	f := parseConfig(t, "factory: { inputs: { x: 1 } }\n")
-	sc, err := parseStateConfig(f, "config.ub")
+	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
 	assert.Nil(t, sc.Encrypter)
@@ -41,7 +41,7 @@ func TestParseStateConfigAbsentBlock(t *testing.T) {
 
 func TestValidateRejectsDottedBackend(t *testing.T) {
 	f, err := lang.ParseSource(
-		"config.ub", []byte("state: { @backend: core.local, path: '.unobin/state' }\n"))
+		"stack.ub", []byte("state: { @backend: core.local, path: '.unobin/state' }\n"))
 	require.NoError(t, err)
 	f.Kind = lang.FileConfig
 	errs := lang.ValidateFile(f)
@@ -59,7 +59,7 @@ state: {
 encryption: { @key-source: noop }
 `
 	f := parseConfig(t, src)
-	sc, err := parseStateConfig(f, "config.ub")
+	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	require.NotNil(t, sc.Backend)
 	assert.Equal(t, "local", sc.Backend.Name)
@@ -106,7 +106,7 @@ stack: {
 
 func TestParseStateConfigEncryptionOnly(t *testing.T) {
 	f := parseConfig(t, "encryption: { @key-source: noop }\n")
-	sc, err := parseStateConfig(f, "config.ub")
+	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
 	require.NotNil(t, sc.Encrypter)
@@ -114,7 +114,7 @@ func TestParseStateConfigEncryptionOnly(t *testing.T) {
 }
 
 func TestValidateRejectsEncryptionInsideState(t *testing.T) {
-	f, err := lang.ParseSource("config.ub", []byte(
+	f, err := lang.ParseSource("stack.ub", []byte(
 		"state: { @backend: local, encryption: { @key-source: noop } }\n"))
 	require.NoError(t, err)
 	f.Kind = lang.FileConfig
@@ -254,7 +254,7 @@ encryption: {
 }
 `
 	f := parseConfig(t, src)
-	sc, err := parseStateConfig(f, "config.ub")
+	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	want := map[string]any{
 		"assume-role": map[string]any{

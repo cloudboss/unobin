@@ -12,7 +12,7 @@ import (
 
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "config.ub")
+	path := filepath.Join(t.TempDir(), "dev.ub")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 	return path
 }

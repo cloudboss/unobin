@@ -285,7 +285,7 @@ factory: {
 	}, map[string]map[string]bool{"aws": {"cluster": true}})
 	require.Error(t, err)
 	require.Equal(t, path+": factory.configurations.aws.cluster: defined internally by the factory; "+
-		"remove this entry from config.ub", err.Error())
+		"remove this entry from the stack file", err.Error())
 }
 
 func TestLoadConfigurationsResolvesLocals(t *testing.T) {

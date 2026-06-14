@@ -27,18 +27,19 @@ In the `appdeploy` directory, run:
 unobin compile -o ./appdeploy-compiled --build --library-path github.com/cloudboss/mystack
 ```
 
-Now there will be an executable called `./appdeploy-compiled/appdeploy`. You can use it to generate a configuration file from the stack's input schema:
+Now there will be an executable called `./appdeploy-compiled/appdeploy`. You
+can use it to generate a stack file from the factory's input schema:
 
 ```
-./appdeploy-compiled/appdeploy schema template -o config.ub
+./appdeploy-compiled/appdeploy schema template -o dev.ub
 ```
 
-Edit the generated `config.ub` if necessary.
+Edit the generated `dev.ub` if necessary.
 
 Then run plan and apply. A factory cannot apply without first planning.
 
 ```
-./appdeploy-compiled/appdeploy plan -o plan.json -c config.ub
+./appdeploy-compiled/appdeploy plan -o plan.json -c dev.ub
 ./appdeploy-compiled/appdeploy apply plan.json
 ```
 

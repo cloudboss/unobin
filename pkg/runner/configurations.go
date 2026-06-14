@@ -55,7 +55,7 @@ func loadConfigurations(
 	return decoded, raw, nil
 }
 
-// rejectInternalNames reports every config.ub configuration entry
+// rejectInternalNames reports every stack-file configuration entry
 // whose name the factory defines internally. The factory owns those
 // names; an operator value for one would be ignored or fought over,
 // so it is an error instead.
@@ -80,7 +80,7 @@ func rejectInternalNames(
 			if internal[alias][name] {
 				errs = append(errs, fmt.Errorf(
 					"%s: factory.configurations.%s.%s: defined internally by the factory; "+
-						"remove this entry from config.ub", path, alias, name))
+						"remove this entry from the stack file", path, alias, name))
 			}
 		}
 	}

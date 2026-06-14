@@ -285,7 +285,7 @@ locals: {
 				assert.Equal(t, tt.src, string(got))
 				return
 			}
-			canonical, err := lang.Canonicalize("config.ub", got)
+			canonical, err := lang.Canonicalize("stack.ub", got)
 			require.NoError(t, err, "pinFile output failed to parse")
 			assert.Equal(t, tt.want, string(canonical))
 		})
@@ -318,12 +318,12 @@ func TestPinFileRejectsInvalidConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "not a valid factory key")
 }
 
-// TestPinWritesCanonicalFile proves the written config is reformatted as a
+// TestPinWritesCanonicalFile proves the written stack file is reformatted as a
 // whole, not just the spliced entry: an operator's odd indentation in an
 // untouched block comes out canonical too.
 func TestPinWritesCanonicalFile(t *testing.T) {
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, "config.ub")
+	configPath := filepath.Join(dir, "dev.ub")
 	require.NoError(t, os.WriteFile(configPath,
 		[]byte("locals: {\n    message:   'hi'\n}\n"), 0o644))
 
@@ -339,9 +339,9 @@ func TestPinWritesCanonicalFile(t *testing.T) {
 
 	got, err := os.ReadFile(configPath)
 	require.NoError(t, err)
-	canonical, err := lang.Canonicalize("config.ub", got)
+	canonical, err := lang.Canonicalize("stack.ub", got)
 	require.NoError(t, err)
-	assert.Equal(t, string(canonical), string(got), "pinned config should be canonical")
+	assert.Equal(t, string(canonical), string(got), "pinned stack file should be canonical")
 	assert.NotContains(t, string(got), "    message", "operator indentation should be normalized")
 }
 
@@ -378,7 +378,7 @@ state: {
 	got, action, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.3.0", "fedcba")
 	require.NoError(t, err)
 	assert.Equal(t, pinActionAppendedEntry, action)
-	canonical, err := lang.Canonicalize("config.ub", got)
+	canonical, err := lang.Canonicalize("stack.ub", got)
 	require.NoError(t, err)
 	assert.Equal(t, want, string(canonical))
 }

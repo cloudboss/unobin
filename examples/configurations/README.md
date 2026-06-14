@@ -9,9 +9,9 @@ composite call sites. The leaves and call sites that omit a meta key use the
 default alias; others select the `formal` alias either directly with
 `@configuration:` or by remapping inside a composite with `@configurations:`.
 The `fancy` configuration is internal: the factory derives its prefix from the
-`greet.phrase.flourish` resource's computed output, so it never appears in
-config.ub (an operator entry for it is rejected), and the action that selects
-it runs after the resource it derives from. A real library would use the same
+`resource.flourish` computed output, so it never appears in the stack file (an
+operator entry for it is rejected), and the action that selects it runs after
+the resource it derives from. A real library would use the same
 mechanism to point one library at something another library created (a cluster
 created here, configuring its own client library). Prefer configuration fields
 that hold credential sources over short-lived secrets: the value is computed
@@ -54,10 +54,10 @@ The plan-time validator catches misuse before any work happens:
   `@configuration greet.formel: configuration not declared`.
 - Remove the `default` entry while something still uses it: the node that
   does reports `library "greet" requires a configuration; define
-  greet.default under factory.configurations in config.ub or under
+  greet.default under factory.configurations in the stack file or under
   configurations in the factory`.
 - Supply a value for an internal name: `factory.configurations.greet.fancy`
-  in config.ub produces `defined internally by the factory; remove this
-  entry from config.ub`.
+  in the stack file produces `defined internally by the factory; remove this
+  entry from the stack file`.
 - Cross-import remap: `@configurations: { greet: aws.formal }` produces
   `@configurations.greet: right-hand side import "aws" must match the key`.

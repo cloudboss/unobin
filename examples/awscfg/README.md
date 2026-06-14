@@ -3,8 +3,8 @@
 Shows a library whose configuration is `awscfg.Configuration`, the same AWS
 connection schema unobin's s3 state backend and kms encrypter read. One
 vocabulary then serves every place AWS settings appear: operator
-configurations in config.ub, internal configurations in factory source, and
-the `state:`/`encryption:` blocks. Because the type lives in unobin's own
+configurations in the stack file, internal configurations in factory source,
+and the `state:`/`encryption:` blocks. Because the type lives in unobin's own
 packages, the compiler reads its fields when checking the factory, and
 `schema show` lists them for operators.
 
@@ -47,8 +47,8 @@ scoped-region: 'us-west-2'
 ```
 
 `./awscfg schema show` lists the configuration's fields under the `aws`
-alias, with `scoped` marked internal and `default` and `east` owed from
-config.ub.
+alias, with `scoped` marked internal and `default` and `east` owed from the
+stack file.
 
 ## See the compile check
 
@@ -61,4 +61,4 @@ unknown field "regoin"
 ```
 
 The same fields are enforced for `dev.ub` entries when a command loads the
-config, at decode rather than compile.
+stack file, at decode rather than compile.

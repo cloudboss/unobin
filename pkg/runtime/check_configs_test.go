@@ -182,7 +182,7 @@ func TestCheckConfigurationsRequiresImplicitDefault(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t,
 		`resource.aws.instance.web: library "aws" requires a configuration; `+
-			`define aws.default under factory.configurations in config.ub`+
+			`define aws.default under factory.configurations in the stack file`+
 			` or under configurations in the factory`,
 		err.Error())
 }

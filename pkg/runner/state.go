@@ -27,10 +27,10 @@ func newStateCmd(info Info) *cobra.Command {
 
 // addConfigFlag attaches a -c flag to a state subcommand. The flag is
 // the only way to select which stack the command operates on
-// once stack name comes from the config filename.
+// once stack name comes from the stack file name.
 func addConfigFlag(cmd *cobra.Command, dst *string) {
 	cmd.Flags().StringVarP(dst, "config", "c", "",
-		"Path to a config.ub identifying the stack.")
+		"Path to a stack file identifying the stack.")
 }
 
 func newStateGCCmd(info Info) *cobra.Command {

@@ -1392,7 +1392,7 @@ func TestTemplateIncludesLibraryPathWhenSet(t *testing.T) {
 
 func TestSchemaTemplateWritesToFile(t *testing.T) {
 	info := testInfo(t, `inputs: { greeting: { type: string } }`)
-	dst := filepath.Join(t.TempDir(), "config.ub")
+	dst := filepath.Join(t.TempDir(), "dev.ub")
 	stdout, err := runRoot(t, info, "schema", "template", "-o", dst)
 	require.NoError(t, err)
 	require.Empty(t, stdout)

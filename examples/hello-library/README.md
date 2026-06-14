@@ -27,8 +27,8 @@ cd /tmp/hello-library-build
 
 `--allow-version-mismatch` is needed for the dev workflow because
 `dev.ub` does not declare `factory.supported-versions`. In real
-deployments the operator pins the binary's version+commit in
-`config.ub` and the flag is unnecessary.
+deployments the operator pins the binary's version+commit in the
+stack file and the flag is unnecessary.
 
 `state list` shows two entries: the library-call record at
 `resource.greeter.greeting.welcome` and the internal leaf at

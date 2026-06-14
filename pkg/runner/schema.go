@@ -27,7 +27,7 @@ func newSchemaCmd(info Info) *cobra.Command {
 	var outPath string
 	tmpl := &cobra.Command{
 		Use:   "template",
-		Short: "Print a starter config.ub for this factory",
+		Short: "Print a starter stack file for this factory",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doSchemaTemplate(cmd, info, outPath)
 		},
@@ -112,7 +112,7 @@ func printOutputSchema(out io.Writer, f *lang.File) {
 }
 
 // printConfigurationSchema lists each configured library: the names
-// the factory defines internally, the names config.ub must supply
+// the factory defines internally, the names the stack file must supply
 // (every selection some node makes that is not internal), and the
 // configuration's fields.
 func printConfigurationSchema(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
@@ -141,7 +141,7 @@ func printConfigurationSchema(out io.Writer, f *lang.File, dag *runtime.DAG, inf
 			fmt.Fprintf(out, "    internal: %s\n", strings.Join(names, ", "))
 		}
 		if owed := owedNames(used[alias], internal[alias]); len(owed) > 0 {
-			fmt.Fprintf(out, "    needed from config.ub: %s\n", strings.Join(owed, ", "))
+			fmt.Fprintf(out, "    needed from stack file: %s\n", strings.Join(owed, ", "))
 		}
 		writeShowFields(out, cfg.Describe(lib.Configuration), "      ")
 	}
@@ -161,7 +161,7 @@ func writeShowFields(out io.Writer, fields []cfg.Field, indent string) {
 }
 
 // owedNames returns the selections in used that the factory does not
-// define internally, sorted: the names config.ub must supply.
+// define internally, sorted: the names the stack file must supply.
 func owedNames(used, internal map[string]bool) []string {
 	var owed []string
 	for name := range used {
@@ -196,7 +196,7 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 	}
 	var buf bytes.Buffer
 	renderSchemaTemplate(&buf, f, dag, info)
-	formatted, err := lang.Canonicalize("config.ub", buf.Bytes())
+	formatted, err := lang.Canonicalize("stack.ub", buf.Bytes())
 	if err != nil {
 		return err
 	}

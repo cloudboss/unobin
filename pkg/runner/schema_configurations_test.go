@@ -33,7 +33,7 @@ func TestSchemaShowsConfigurations(t *testing.T) {
 	require.Contains(t, out, "configurations:")
 	require.Contains(t, out, "  aws:")
 	require.Contains(t, out, "    internal: admin")
-	require.Contains(t, out, "    needed from config.ub: default, east2")
+	require.Contains(t, out, "    needed from stack file: default, east2")
 	require.Contains(t, out, "      region: string")
 	require.Contains(t, out, "      profile: optional(string)")
 	require.Contains(t, out, "      assume-role: optional(object)")

@@ -18,13 +18,13 @@ func newPinCmd(info Info) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "pin",
-		Short: "Add this binary's identity to config.ub",
+		Short: "Add this binary's identity to a stack file",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doPin(cmd, info, configPath, versionOverride, contentRevisionOverride)
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to the config.ub to pin into.")
+		"Path to the stack file to pin into.")
 	cmd.Flags().StringVar(&versionOverride, "version", "",
 		"Pin this version instead of the binary's own.")
 	cmd.Flags().StringVar(&contentRevisionOverride, "content-revision", "",
@@ -77,7 +77,7 @@ func doPin(
 // action is pinActionAlreadyPinned when the entry was already present
 // and the source bytes are unchanged.
 func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string, error) {
-	f, err := lang.ParseSource("config.ub", src)
+	f, err := lang.ParseSource("stack.ub", src)
 	if err != nil {
 		return nil, "", err
 	}
