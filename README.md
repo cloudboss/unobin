@@ -16,7 +16,8 @@ To start a new factory, use the `unobin generate factory` command.
 unobin generate factory -o appdeploy
 ```
 
-Now you will have a new directory `appdeploy` (given by `-o`) containing a `main.ub` file. Edit `main.ub` to import libraries and add resources.
+Now you will have a new directory `appdeploy` (given by `-o`) containing a
+`factory.ub` file. Edit `factory.ub` to import libraries and add resources.
 
 When you compile, give it a library path with `--library-path`. This is similar to Go's `module-path` when running `go mod init`. It will normally be the git repo where your library will live.
 
