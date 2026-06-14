@@ -492,7 +492,8 @@ func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnob
 	ldflags := fmt.Sprintf(
 		"-X main.factoryVersion=%s -X main.contentRevision=%s -X main.unobinVersion=%s",
 		version, revision, expectedUnobin)
-	build := exec.Command(goBin, "build", "-ldflags", ldflags, "-o", binaryName, ".")
+	build := exec.Command(
+		goBin, "build", "-buildvcs=false", "-ldflags", ldflags, "-o", binaryName, ".")
 	build.Dir = dir
 	build.Stdout = stdout
 	build.Stderr = stderr
@@ -577,7 +578,7 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 	return &resolve.Source{Commit: "replace", Path: target, FS: os.DirFS(target)}, nil
 }
 
-// replacedVersion is the placeholder version a replaced dependency carries
+// replacedVersion is the placeholder version for a replaced dependency
 // in the generated go.mod; the replace directive serves it from a local
 // path, so the version is never used to fetch anything.
 const replacedVersion = "v0.0.0"
