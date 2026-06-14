@@ -1,7 +1,11 @@
-factory: {
-  inputs: { message: 'Hello from a nested UB library!', path: '/tmp/unobin-hello-nested.txt' }
+stack: {
+  factory: {
+    inputs: { message: 'Hello from a nested UB library!', path: '/tmp/unobin-hello-nested.txt' }
+  }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }

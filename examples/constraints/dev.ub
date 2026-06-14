@@ -1,22 +1,26 @@
-factory: {
-  inputs: {
-    base-path: '/tmp/unobin-constraints'
-    tier:      'prod'
-    registry:  'registry.example.com'
-    image:     'app:1.4.2'
-    replicas: [
-      {
-        host: 'replica-1.internal'
-        port: 8443
-        tls:  true
-        cert: '/etc/ssl/app.pem'
-        key:  '/etc/ssl/app.key'
-      },
-      { host: 'replica-2.internal', port: 9090 },
-    ]
+stack: {
+  factory: {
+    inputs: {
+      base-path: '/tmp/unobin-constraints'
+      tier:      'prod'
+      registry:  'registry.example.com'
+      image:     'app:1.4.2'
+      replicas: [
+        {
+          host: 'replica-1.internal'
+          port: 8443
+          tls:  true
+          cert: '/etc/ssl/app.pem'
+          key:  '/etc/ssl/app.key'
+        },
+        { host: 'replica-2.internal', port: 9090 },
+      ]
+    }
   }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }

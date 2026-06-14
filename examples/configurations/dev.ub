@@ -1,10 +1,18 @@
-factory: {
-  configurations: {
-    greet.default: { prefix: 'hello' }
-    greet.formal:  { prefix: 'Good day' }
+stack: {
+  factory: {
+    configurations: {
+      greet {
+        prefix: 'hello'
+      }
+      formal: greet {
+        prefix: 'Good day'
+      }
+    }
   }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }

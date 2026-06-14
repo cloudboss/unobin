@@ -1,12 +1,16 @@
-factory: {
-  inputs: {
-    base-path: '/tmp'
-    name:      'world'
-    labels:    { motd: 'have a nice day', team: 'platform' }
-    upstreams: [{ host: 'a.internal', port: 8080 }, { host: 'b.internal' }]
+stack: {
+  factory: {
+    inputs: {
+      base-path: '/tmp'
+      name:      'world'
+      labels:    { motd: 'have a nice day', team: 'platform' }
+      upstreams: [{ host: 'a.internal', port: 8080 }, { host: 'b.internal' }]
+    }
   }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }

@@ -1,17 +1,21 @@
-factory: {
-  inputs: {
-    environment: 'prod'
-    path:        '/tmp/unobin-comprehensions.txt'
-    regions:     ['us-east-1', 'us-west-2']
-    services: [
-      { name: 'web', port: 443, region: 'us-east-1', public: true },
-      { name: 'api', port: 8080, region: 'us-east-1', public: true },
-      { name: 'db', port: 5432, region: 'us-west-2', public: false },
-      { name: 'cache', port: 6379, region: 'us-west-2', public: false },
-    ]
+stack: {
+  factory: {
+    inputs: {
+      environment: 'prod'
+      path:        '/tmp/unobin-comprehensions.txt'
+      regions:     ['us-east-1', 'us-west-2']
+      services: [
+        { name: 'web', port: 443, region: 'us-east-1', public: true },
+        { name: 'api', port: 8080, region: 'us-east-1', public: true },
+        { name: 'db', port: 5432, region: 'us-west-2', public: false },
+        { name: 'cache', port: 6379, region: 'us-west-2', public: false },
+      ]
+    }
   }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }

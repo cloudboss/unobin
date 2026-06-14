@@ -1,7 +1,11 @@
-factory: {
-  inputs: { message: 'Hello from unobin!', path: '/tmp/unobin-hello.txt' }
+stack: {
+  factory: {
+    inputs: { message: 'Hello from unobin!', path: '/tmp/unobin-hello.txt' }
+  }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }

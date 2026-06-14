@@ -1,17 +1,27 @@
-locals: {
-  assume-role: {
-    role-arn:    'arn:aws:iam::123456789012:role/unobin-example'
-    external-id: 'unobin-example'
+stack: {
+  locals: {
+    assume-role: {
+      role-arn:    'arn:aws:iam::123456789012:role/unobin-example'
+      external-id: 'unobin-example'
+    }
   }
-}
 
-factory: {
-  configurations: {
-    aws.default: { region: 'us-east-1', assume-role: local.assume-role }
-    aws.east:    { region: 'us-east-2', assume-role: local.assume-role }
+  factory: {
+    configurations: {
+      aws {
+        region:      'us-east-1'
+        assume-role: local.assume-role
+      }
+      east: aws {
+        region:      'us-east-2'
+        assume-role: local.assume-role
+      }
+    }
   }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
 }
-
-state: { @backend: local, path: '.unobin/state' }
-
-encryption: { @key-source: noop }
