@@ -84,7 +84,7 @@ func (o Options) stderr() io.Writer {
 	return os.Stderr
 }
 
-func parseFactorySource(path string, src []byte) (*lang.File, string, error) {
+func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 	f, err := lang.ParseSource(path, src)
 	if err != nil {
 		return nil, "", err
@@ -140,7 +140,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	f, factoryBody, err := parseFactorySource(opts.StackPath, src)
+	f, factoryBody, err := ParseFactorySource(opts.StackPath, src)
 	if err != nil {
 		return err
 	}

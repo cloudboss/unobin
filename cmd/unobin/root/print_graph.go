@@ -11,7 +11,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/graphprint"
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/spf13/cobra"
@@ -62,13 +61,9 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	f, err := lang.ParseSource(cfg.stackPath, src)
+	f, _, err := compile.ParseFactorySource(cfg.stackPath, src)
 	if err != nil {
 		return err
-	}
-	f.Kind = lang.FileFactory
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return errs.Err()
 	}
 
 	refs, errs := resolve.ExtractImports(f)

@@ -41,6 +41,28 @@ action.core.command.second
 	require.Equal(t, want, out)
 }
 
+func TestPrintGraphSourceDeclaredFactory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "graph-source-declared")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, []byte(`
+factory: {
+  inputs:  { msg: { type: string } }
+  imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
+  actions: {
+    first: core.command { argv: ['echo', var.msg] }
+  }
+}
+`), 0o644))
+	writeCompileLock(t, dir, map[string]string{
+		"github.com/cloudboss/unobin//pkg/libraries/core": "v0.1.0",
+	})
+
+	out, err := runCommand(t, "print-graph", "-p", stackPath)
+	require.NoError(t, err)
+	require.Equal(t, "action.core.command.first\n  -> var.msg\n", out)
+}
+
 func TestPrintGraphDOT(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-dot")
 	stackPath := writeStack(t, dir, `
