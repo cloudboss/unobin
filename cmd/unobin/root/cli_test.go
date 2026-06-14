@@ -171,6 +171,31 @@ func TestDepsSync(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestDepsSyncDefaultPathUsesFactoryUB(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	t.Chdir(root)
+	require.NoError(t, os.WriteFile("factory.ub", []byte(`
+factory: {
+  imports: {
+    core: 'github.com/x/core//lib'
+  }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(deps.SourceManifestFileName,
+		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
+
+	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync")
+	require.NoError(t, err)
+	require.Contains(t, out, "Wrote manifest.ub")
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+	}, lock.Deps)
+}
+
 func TestDepsSyncSourceManifest(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))

@@ -83,18 +83,18 @@ type depsSyncConfig struct {
 }
 
 const (
-	depsPathHelp    = "Path to the factory source; its directory is the project root."
+	depsPathHelp    = "Path to the factory source file or project directory."
 	depsReplaceHelp = "Local path to substitute for github.com/cloudboss/unobin so the " +
 		"resolver reads from a working tree instead of fetching."
 )
 
 func init() {
-	depsSyncCmd.Flags().StringVarP(&depsSyncCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
+	depsSyncCmd.Flags().StringVarP(&depsSyncCfg.stackPath, "path", "p", ".", depsPathHelp)
 	depsSyncCmd.Flags().StringVar(&depsSyncCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
-	depsListCmd.Flags().StringVarP(&depsListCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
-	depsVerifyCmd.Flags().StringVarP(&depsVerifyCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
+	depsListCmd.Flags().StringVarP(&depsListCfg.stackPath, "path", "p", ".", depsPathHelp)
+	depsVerifyCmd.Flags().StringVarP(&depsVerifyCfg.stackPath, "path", "p", ".", depsPathHelp)
 	depsVerifyCmd.Flags().StringVar(&depsVerifyCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
-	depsGetCmd.Flags().StringVarP(&depsGetCfg.stackPath, "path", "p", "main.ub", depsPathHelp)
+	depsGetCmd.Flags().StringVarP(&depsGetCfg.stackPath, "path", "p", ".", depsPathHelp)
 	depsGetCmd.Flags().StringVar(&depsGetCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
 	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd, depsGetCmd)
 }
