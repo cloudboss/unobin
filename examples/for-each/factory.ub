@@ -1,0 +1,44 @@
+factory: {
+  description: 'Demonstrates @for-each on a resource, an action, and a composite call site.'
+
+  inputs: {
+    files:     { type: map(string), description: 'Map of file-name to message contents' }
+    base-path: { type: string, description: 'Directory where files and alerts are written' }
+  }
+
+  imports: { std: 'github.com/cloudboss/unobin-library-std', notify: './notify' }
+
+  resources: {
+    file: std.fs-file {
+      @for-each:        var.files
+      path:             $'{{ var.base-path }}/{{ @each.key }}.txt'
+      content:          @each.value
+      create-directory: true
+    }
+    alert: notify.alert {
+      @for-each: var.files
+      topic:     @each.key
+      body:      @each.value
+      path:      $'{{ var.base-path }}/{{ @each.key }}.alert'
+    }
+  }
+
+  actions: {
+    announce: std.exec-command {
+      @for-each: var.files
+      @trigger:  resource.file[@each.key].sha256
+      argv: [
+        'echo',
+        $'''>-
+          wrote {{ resource.file[@each.key].path }} (sha {{ resource.file[@each.key].sha256 }})
+          ''',
+      ]
+    }
+  }
+
+  outputs: {
+    files:         { value: resource.file }
+    alerts:        { value: resource.alert }
+    announcements: { value: action.announce }
+  }
+}

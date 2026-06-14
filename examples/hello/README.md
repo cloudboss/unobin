@@ -9,7 +9,7 @@ Hello-world stack. Writes a file via `std.fs-file`, reads it back via
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/hello/main.ub \
+  -p examples/hello/factory.ub \
   -o /tmp/hello-build \
   --replace-unobin="$(pwd)" \
   --build

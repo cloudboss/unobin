@@ -28,7 +28,7 @@ From the unobin repo root:
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/splat/main.ub \
+  -p examples/splat/factory.ub \
   -o /tmp/splat-build \
   --replace-unobin="$(pwd)" \
   --build

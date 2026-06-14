@@ -13,11 +13,11 @@ What each piece demonstrates:
   `banner` local tests it; in the else branch the checker knows the
   value is a string and lets it through. A conditional fits when the
   branches differ; for a plain fallback `??` is shorter.
-- **`??` supplies a fallback** — the `upstreams` local lands a
-  possibly-null list in one step, and the `label` fan-out iterates
+- **`??` supplies a fallback** — the `upstreams` local turns a
+  possibly-null list into a plain list, and the `label` fan-out iterates
   `var.labels ?? {}` so omitting the input means no instances.
 - **`?.` rides a maybe** — `var.tls?.cert ?? 'self-signed'` reads
-  through two optional levels and lands the result; each nullable
+  through two optional levels and supplies the result; each nullable
   level wears its own `?.`.
 - **a filter narrows** — `ports` keeps each upstream's port only where
   `u.port != null` held, so the element type is integer, not
@@ -35,7 +35,7 @@ From the unobin repo root:
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/optionals/main.ub \
+  -p examples/optionals/factory.ub \
   -o /tmp/optionals-build \
   --replace-unobin="$(pwd)" \
   --build

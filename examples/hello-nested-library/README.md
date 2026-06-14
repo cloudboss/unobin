@@ -11,7 +11,7 @@ its libraries; the stack does not redeclare what its composites use.
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/hello-nested-library/main.ub \
+  -p examples/hello-nested-library/factory.ub \
   -o /tmp/hello-nested-library-build \
   --replace-unobin="$(pwd)" \
   --build

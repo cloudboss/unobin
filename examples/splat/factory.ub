@@ -1,0 +1,48 @@
+factory: {
+  description: '''>-
+    Demonstrates splat expressions. list[*].field reads one field from every element of a list, the
+    short form of a for-comprehension, and the splats chain so a list of lists projects in one step.
+    '''
+
+  inputs: {
+    subnets: {
+      type: list(object({ id: string, cidr: string, az: string, public: boolean }))
+
+      description: 'The subnets to summarize'
+    }
+    zones: {
+      type: list(object({ name: string, hosts: list(object({ ip: string })) }))
+
+      description: 'Availability zones, each holding a list of hosts'
+    }
+    path: { type: string, description: 'Where to write the summary file' }
+  }
+
+  imports: { std: 'github.com/cloudboss/unobin-library-std' }
+
+  resources: {
+    summary: std.fs-file {
+      path:    var.path
+      content: $'subnet ids: {{ @core.join(var.subnets[*].id, ', ') }}'
+    }
+  }
+
+  actions: {
+    read-back: std.exec-command {
+      @trigger: resource.summary.sha256
+      argv:     ['cat', var.path]
+    }
+  }
+
+  outputs: {
+    ids:    { value: var.subnets[*].id }
+    cidrs:  { value: var.subnets[*].cidr }
+    public: { value: var.subnets[*].public }
+
+    # The same list of ids written the long way, for contrast.
+    ids-the-long-way: { value: [ for s in var.subnets : s.id ] }
+
+    # Nested splat: every host ip under every zone, grouped by zone.
+    host-ips: { value: var.zones[*].hosts[*].ip }
+  }
+}

@@ -1,0 +1,23 @@
+factory: {
+  description: 'Hello-world stack that uses a UB library composite.'
+
+  inputs: {
+    message: { type: string, description: 'Text to write to the greeting file' }
+    path:    { type: string, description: 'Filesystem path for the greeting file' }
+  }
+
+  imports: { greeter: './greeter' }
+
+  resources: {
+    welcome: greeter.greeting {
+      message: var.message
+      path:    var.path
+    }
+  }
+
+  outputs: {
+    greeting-path:   { value: resource.welcome.path }
+    greeting-size:   { value: resource.welcome.size }
+    greeting-sha256: { value: resource.welcome.sha256 }
+  }
+}

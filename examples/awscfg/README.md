@@ -17,7 +17,7 @@ Two things to notice in the sources:
 - `dev.ub` declares the assume-role object once in `locals:` and references
   it from both configuration aliases. Config locals are static values, the
   file's own scope.
-- `main.ub` defines the `scoped` configuration internally, deriving its
+- `factory.ub` defines the `scoped` configuration internally, deriving its
   region from the `region` input, so an operator parameterizes it without
   owning it.
 
@@ -25,7 +25,7 @@ Two things to notice in the sources:
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/awscfg/main.ub \
+  -p examples/awscfg/factory.ub \
   -o /tmp/awscfg-build \
   --replace-unobin="$(pwd)" \
   --build
@@ -52,11 +52,11 @@ config.ub.
 
 ## See the compile check
 
-Misspell a field in the internal configuration in `main.ub`, for example
+Misspell a field in the internal configuration in `factory.ub`, for example
 `region:` to `regoin:`, and recompile:
 
 ```
-Error: examples/awscfg/main.ub:12:36: resolve: configurations.aws.scoped:
+Error: examples/awscfg/factory.ub:14:7: resolve: configurations.aws.scoped:
 unknown field "regoin"
 ```
 

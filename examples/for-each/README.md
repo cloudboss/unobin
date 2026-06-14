@@ -13,19 +13,18 @@ composite type `alert`. Each iteration produces:
   and its sha256
 
 The action references the resource's per-instance output through
-`resource.std.fs-file.many[@each.key]`. On a fresh apply that
-reference is unknown at plan time, so the plan shows the action
-with empty inputs and apply re-evaluates the body against the live
-scope.
+`resource.file[@each.key]`. On a fresh apply that reference is unknown
+at plan time, so the plan shows the action with empty inputs and apply
+re-evaluates the body against the live scope.
 
-Data sources also support `@for-each` with the same semantics, but
-no built-in library ships one to wire up here.
+Data sources also support `@for-each` with the same semantics, but no
+built-in library ships one for this example.
 
 ## Compile
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/for-each/main.ub \
+  -p examples/for-each/factory.ub \
   -o /tmp/for-each-build \
   --replace-unobin="$(pwd)" \
   --build
@@ -48,21 +47,21 @@ The plan output groups the leaf instances under their template:
 > action.std.exec-command.announce  (for-each, 2 instances)
   > ['alpha']
   > ['beta']
-+ resource.std.fs-file.many  (for-each, 2 instances)
++ resource.std.fs-file.file  (for-each, 2 instances)
   + ['alpha']
       content: "first message"
       path: "/tmp/unobin-for-each/alpha.txt"
   + ['beta']
       content: "second message"
       path: "/tmp/unobin-for-each/beta.txt"
-+ resource.notify.alert.many['alpha']  (library notify.alert)
++ resource.notify.alert.alert['alpha']  (library notify.alert)
     body: "first message"
     path: "/tmp/unobin-for-each/alpha.alert"
     topic: "alpha"
   + std.fs-file.this
       content: "ALERT alpha: first message\n"
       path: "/tmp/unobin-for-each/alpha.alert"
-+ resource.notify.alert.many['beta']  (library notify.alert)
++ resource.notify.alert.alert['beta']  (library notify.alert)
     ...
 ```
 
@@ -73,10 +72,10 @@ and the action) group under one template header.
 
 State after apply contains, per instance:
 
-- `resource.std.fs-file.many['<key>']` — a leaf entry per file
-- `resource.notify.alert.many['<key>']` — a library-call entry per
+- `resource.std.fs-file.file['<key>']` — a leaf entry per file
+- `resource.notify.alert.alert['<key>']` — a library-call entry per
   composite instance
-- `resource.notify.alert.many['<key>']/std.fs-file.this` — the leaf
+- `resource.notify.alert.alert['<key>']/std.fs-file.this` — the leaf
   inside each composite instance
 - `action.std.exec-command.announce['<key>']` — an action entry per
   echo

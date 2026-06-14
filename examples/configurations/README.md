@@ -22,7 +22,7 @@ library exchanges per call.
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/configurations/main.ub \
+  -p examples/configurations/factory.ub \
   -o /tmp/configurations-build \
   --replace-unobin="$(pwd)" \
   --build

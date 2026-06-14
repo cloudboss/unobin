@@ -34,8 +34,8 @@ func TestExamplesResidualUnknowns(t *testing.T) {
 			continue
 		}
 		name := ent.Name()
-		stack := filepath.Join(exRoot, name, "main.ub")
-		if _, err := os.Stat(stack); err != nil {
+		stack, err := FactorySourcePath(filepath.Join(exRoot, name))
+		if err != nil {
 			continue
 		}
 		residuals = append(residuals, exampleResiduals(t, repoRoot, name, stack)...)

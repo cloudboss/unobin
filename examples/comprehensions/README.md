@@ -31,7 +31,7 @@ From the unobin repo root:
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/comprehensions/main.ub \
+  -p examples/comprehensions/factory.ub \
   -o /tmp/comprehensions-build \
   --replace-unobin="$(pwd)" \
   --build

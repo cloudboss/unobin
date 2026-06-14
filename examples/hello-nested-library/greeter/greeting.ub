@@ -1,0 +1,23 @@
+greeting: resource {
+  description: 'Greets by delegating the file write to the remote helloer library.'
+
+  inputs: {
+    message: { type: string }
+    path:    { type: string }
+  }
+
+  imports: { helloer: 'github.com/cloudboss/unobin-libraries-scratch//ub/helloer' }
+
+  resources: {
+    file: helloer.hello {
+      message: var.message
+      path:    var.path
+    }
+  }
+
+  outputs: {
+    path:   { value: resource.file.path }
+    size:   { value: resource.file.size }
+    sha256: { value: resource.file.sha256 }
+  }
+}

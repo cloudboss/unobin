@@ -62,7 +62,7 @@ care about (image or build, not both) can be declared at both.
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/constraints/main.ub \
+  -p examples/constraints/factory.ub \
   -o /tmp/constraints-build \
   --build
 ```
@@ -114,12 +114,12 @@ one way at a time:
   `resource.deploy.service.app: schema: constraints[1] (predicate):
   tier must be dev or prod`.
 
-A Go rule whose fields are written as literals in `main.ub` fails at
+A Go rule whose fields are written as literals in `factory.ub` fails at
 compile, before there is a binary to plan with. Hardcoding both
 `image: 'app:1.4.2'` and `build: './src'` in the `app` body:
 
 ```
-Error: examples/constraints/main.ub:68:12: schema: resource.deploy.service.app:
+Error: examples/constraints/factory.ub:66:25: schema: resource.deploy.service.app:
 constraints[0] (exactly-one-of [image, build]): expected exactly one to be set,
 got 2 (image, build)
 ```

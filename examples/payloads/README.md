@@ -30,7 +30,7 @@ From the unobin repo root:
 
 ```
 go run ./cmd/unobin compile \
-  -p examples/payloads/main.ub \
+  -p examples/payloads/factory.ub \
   -o /tmp/payloads-build \
   --replace-unobin="$(pwd)" \
   --build

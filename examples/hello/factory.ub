@@ -1,0 +1,33 @@
+factory: {
+  description: 'Hello-world stack: writes a file and reads it back.'
+
+  inputs: {
+    message: { type: string, description: 'Text to write to the greeting file' }
+    path:    { type: string, description: 'Filesystem path for the greeting file' }
+  }
+
+  imports: { std: 'github.com/cloudboss/unobin-library-std' }
+
+  resources: {
+    hello: std.fs-file {
+      path:    var.path
+      content: var.message
+    }
+  }
+
+  actions: {
+    read-back: std.exec-command {
+      @trigger: resource.hello.sha256
+      argv:     ['cat', var.path]
+    }
+  }
+
+  outputs: {
+    written-path: {
+      value:       resource.hello.path
+      description: 'Where the greeting was written'
+    }
+    size:      { value: resource.hello.size }
+    read-back: { value: action.read-back.stdout }
+  }
+}
