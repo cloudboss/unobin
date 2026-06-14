@@ -43,7 +43,7 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 		out.Kind = FileUnknown
 		errs.Addf(parse.ErrSchema, f.S.Start,
 			"cannot determine UB file role from %s; expected factory, stack, manifest, "+
-				"or exported library file",
+				"lock, or exported library file",
 			f.Kind)
 	}
 
@@ -74,7 +74,7 @@ func lowerSourceDeclaredFile(
 			continue
 		}
 		switch fld.Key.Name {
-		case "factory", "stack", "manifest":
+		case "factory", "stack", "manifest", "lock":
 			roles = append(roles, sourceFileRole{name: fld.Key.Name, fld: fld})
 		}
 	}
@@ -127,6 +127,9 @@ func lowerSourceDeclaredRole(
 	case "manifest":
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(first.fld.S, block, errs)
+	case "lock":
+		out.Kind = FileLock
+		out.Lock = lowerLockFile(first.fld.S, block, errs)
 	}
 }
 
@@ -292,6 +295,70 @@ func lowerManifestFile(
 		}
 	}
 	return manifest
+}
+
+func lowerLockFile(span parse.Span, block *parse.ObjectLit, errs *parse.ErrorList) *LockFile {
+	lock := &LockFile{S: span}
+	if block == nil {
+		return lock
+	}
+	seen := make(map[string]parse.Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		name, ok := fieldName(fld, "lock field", errs)
+		if !ok {
+			continue
+		}
+		if prev, dup := seen[name.Name]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"lock: duplicate key %q (first defined at %s)", name.Name, prev)
+			continue
+		}
+		seen[name.Name] = fld.Key.S.Start
+		switch name.Name {
+		case "version":
+			lock.Version = numberValue(fld, "lock version", errs)
+		case "toolchain":
+			if obj := objectValue(fld, "lock toolchain", errs); obj != nil {
+				lock.Toolchain = lowerLockToolchain(fld.S, obj, errs)
+			}
+		case "deps":
+			if obj := objectValue(fld, "lock deps", errs); obj != nil {
+				lock.Deps = lowerLockDeps(obj, errs)
+			}
+		default:
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"%q is not a valid lock field", name.Name)
+		}
+	}
+	if _, ok := seen["version"]; !ok {
+		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing version")
+	}
+	if _, ok := seen["deps"]; !ok {
+		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing deps")
+	}
+	return lock
+}
+
+func lowerLockToolchain(
+	span parse.Span,
+	block *parse.ObjectLit,
+	errs *parse.ErrorList,
+) *LockToolchain {
+	toolchain := &LockToolchain{S: span}
+	for _, fld := range block.Fields {
+		name, ok := fieldName(fld, "lock toolchain field", errs)
+		if !ok {
+			continue
+		}
+		switch name.Name {
+		case "unobin-version":
+			toolchain.UnobinVersion = stringValue(fld, "lock toolchain unobin-version", errs)
+		default:
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"%q is not a valid lock toolchain field", name.Name)
+		}
+	}
+	return toolchain
 }
 
 func lowerLibraryFile(f *parse.File, errs *parse.ErrorList) *LibraryFile {
@@ -904,6 +971,103 @@ func lowerManifestReplace(
 	return replacements
 }
 
+func lowerLockDeps(block *parse.ObjectLit, errs *parse.ErrorList) []LockDep {
+	deps := make([]LockDep, 0, len(block.Fields))
+	seen := make(map[string]parse.Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		id, ok := stringKey(fld, "lock dependency id", errs)
+		if !ok {
+			continue
+		}
+		if prev, dup := seen[id.Value]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"duplicate lock dependency %q (first defined at %s)", id.Value, prev)
+			continue
+		}
+		seen[id.Value] = fld.Key.S.Start
+		body := objectValue(fld, "lock dependency "+id.Value, errs)
+		if body == nil {
+			continue
+		}
+		deps = append(deps, lowerLockDep(fld.S, id, body, errs))
+	}
+	return deps
+}
+
+func lowerLockDep(
+	span parse.Span,
+	id StringKey,
+	block *parse.ObjectLit,
+	errs *parse.ErrorList,
+) LockDep {
+	dep := LockDep{S: span, ID: id}
+	seen := make(map[string]parse.Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		name, ok := fieldName(fld, "lock dependency field", errs)
+		if !ok {
+			continue
+		}
+		if prev, dup := seen[name.Name]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"lock dependency %s: duplicate key %q (first defined at %s)",
+				id.Value, name.Name, prev)
+			continue
+		}
+		seen[name.Name] = fld.Key.S.Start
+		switch name.Name {
+		case "kind":
+			dep.Kind = identValue(fld, "lock dependency "+id.Value+": kind", errs)
+		case "version":
+			dep.Version = stringValue(fld, "lock dependency "+id.Value+": version", errs)
+		case "commit":
+			dep.Commit = stringValue(fld, "lock dependency "+id.Value+": commit", errs)
+		case "hash":
+			dep.Hash = stringValue(fld, "lock dependency "+id.Value+": hash", errs)
+		default:
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"lock dependency %s: unknown key %q", id.Value, name.Name)
+		}
+	}
+	validateLockDep(dep, seen, block.S.Start, errs)
+	return dep
+}
+
+func validateLockDep(
+	dep LockDep,
+	seen map[string]parse.Position,
+	pos parse.Position,
+	errs *parse.ErrorList,
+) {
+	if _, ok := seen["kind"]; !ok {
+		errs.Addf(parse.ErrSchema, pos,
+			"lock dependency %s: missing kind", dep.ID.Value)
+		return
+	}
+	switch dep.Kind.Name {
+	case "go":
+		if dep.Hash != nil {
+			errs.Addf(parse.ErrSchema, dep.Hash.S.Start,
+				"lock dependency %s: go kind forbids hash", dep.ID.Value)
+		}
+	case "ub":
+		if dep.Hash == nil {
+			errs.Addf(parse.ErrSchema, pos,
+				"lock dependency %s: ub kind requires hash", dep.ID.Value)
+		}
+	default:
+		errs.Addf(parse.ErrSchema, dep.Kind.S.Start,
+			"lock dependency %s: unknown kind %q", dep.ID.Value, dep.Kind.Name)
+	}
+	if _, ok := seen["version"]; !ok {
+		errs.Addf(parse.ErrSchema, pos,
+			"lock dependency %s: missing version", dep.ID.Value)
+	}
+	if _, ok := seen["commit"]; !ok {
+		errs.Addf(parse.ErrSchema, pos,
+			"lock dependency %s: missing commit", dep.ID.Value)
+	}
+}
+
 func fieldName(fld *parse.Field, what string, errs *parse.ErrorList) (Ident, bool) {
 	if fld.Key.Kind != parse.FieldIdent {
 		errs.Addf(parse.ErrSchema, fld.Key.S.Start,
@@ -927,6 +1091,21 @@ func stringKey(fld *parse.Field, what string, errs *parse.ErrorList) (StringKey,
 	return StringKey{S: fld.Key.S, Value: fld.Key.String}, true
 }
 
+func identValue(fld *parse.Field, what string, errs *parse.ErrorList) Ident {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s must be a bare identifier", what)
+		return Ident{}
+	}
+	value, ok := fld.Value.(*parse.Ident)
+	if !ok {
+		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+			"%s must be a bare identifier", what)
+		return Ident{}
+	}
+	return Ident{S: value.S, Name: value.Name}
+}
+
 func stringValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.StringLit {
 	if fld.Value == nil {
 		errs.Addf(parse.ErrSchema, fld.S.Start,
@@ -937,6 +1116,21 @@ func stringValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.St
 	if !ok {
 		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
 			"%s must be a string literal", what)
+		return nil
+	}
+	return value
+}
+
+func numberValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.NumberLit {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s must be an integer", what)
+		return nil
+	}
+	value, ok := fld.Value.(*parse.NumberLit)
+	if !ok || value.IsFloat {
+		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+			"%s must be an integer", what)
 		return nil
 	}
 	return value

@@ -9,6 +9,7 @@ const (
 	FileFactory
 	FileStack
 	FileManifest
+	FileLock
 	FileLibrary
 )
 
@@ -37,6 +38,7 @@ type File struct {
 	Factory  *FactoryFile
 	Stack    *StackFile
 	Manifest *ManifestFile
+	Lock     *LockFile
 	Library  *LibraryFile
 	Comments []parse.Comment
 }
@@ -60,6 +62,18 @@ type ManifestFile struct {
 	UnobinVersion *parse.StringLit
 	Requires      []ManifestRequire
 	Replace       []ManifestReplace
+}
+
+type LockFile struct {
+	S         parse.Span
+	Version   *parse.NumberLit
+	Toolchain *LockToolchain
+	Deps      []LockDep
+}
+
+type LockToolchain struct {
+	S             parse.Span
+	UnobinVersion *parse.StringLit
 }
 
 type LibraryFile struct {
@@ -177,4 +191,13 @@ type ManifestReplace struct {
 	S    parse.Span
 	ID   StringKey
 	Path *parse.StringLit
+}
+
+type LockDep struct {
+	S       parse.Span
+	ID      StringKey
+	Kind    Ident
+	Version *parse.StringLit
+	Commit  *parse.StringLit
+	Hash    *parse.StringLit
 }

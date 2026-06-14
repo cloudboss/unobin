@@ -294,6 +294,50 @@ manifest: {
 	assert.Equal(t, "github.com/cloudboss/example", got.Manifest.Requires[0].ID.Value)
 }
 
+func TestLowerSourceDeclaredLockFile(t *testing.T) {
+	f := parseFile(t, "lock.ub", `
+lock: {
+  version: 1
+  toolchain: {
+    unobin-version: 'v0.4.2'
+  }
+  deps: {
+    'github.com/cloudboss/unobin-library-std': {
+      kind: go
+      version: 'v0.1.0'
+      commit: 'abc123'
+    }
+    'github.com/acme/ub-lib//network': {
+      kind: ub
+      version: 'v0.4.2'
+      commit: 'def456'
+      hash: 'sha256:789abc'
+    }
+  }
+}
+`, parse.FileUnknown)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	require.Equal(t, FileLock, got.Kind)
+	require.NotNil(t, got.Lock)
+	requireSpan(t, got.Lock.S)
+	require.NotNil(t, got.Lock.Version)
+	assert.Equal(t, int64(1), got.Lock.Version.ParsedInt)
+	require.NotNil(t, got.Lock.Toolchain)
+	assert.Equal(t, "v0.4.2", got.Lock.Toolchain.UnobinVersion.Value)
+
+	require.Len(t, got.Lock.Deps, 2)
+	assert.Equal(t, "github.com/cloudboss/unobin-library-std", got.Lock.Deps[0].ID.Value)
+	assert.Equal(t, "go", got.Lock.Deps[0].Kind.Name)
+	assert.Equal(t, "v0.1.0", got.Lock.Deps[0].Version.Value)
+	assert.Equal(t, "abc123", got.Lock.Deps[0].Commit.Value)
+	require.Nil(t, got.Lock.Deps[0].Hash)
+	assert.Equal(t, "github.com/acme/ub-lib//network", got.Lock.Deps[1].ID.Value)
+	assert.Equal(t, "ub", got.Lock.Deps[1].Kind.Name)
+	assert.Equal(t, "sha256:789abc", got.Lock.Deps[1].Hash.Value)
+}
+
 func TestLowerSourceDeclaredLibraryFile(t *testing.T) {
 	f := parseFile(t, "library.ub", `
 greeting: resource {
@@ -482,4 +526,38 @@ stack: {}
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
 	assert.Contains(t, errs.Error(), "file must not declare both factory and stack")
+}
+
+func TestLowerReportsLockSchemaErrors(t *testing.T) {
+	f := parseFile(t, "lock.ub", `
+lock: {
+  version: '1'
+  deps: {
+    'github.com/cloudboss/example': {
+      kind: ub
+      version: 'v0.1.0'
+      commit: 'abc123'
+    }
+    'github.com/cloudboss/example-go': {
+      kind: go
+      version: 'v0.1.0'
+      commit: 'def456'
+      hash: 'sha256:nope'
+    }
+    'github.com/cloudboss/example-bad': {
+      kind: other
+      commit: 'bad789'
+    }
+  }
+}
+`, parse.FileUnknown)
+
+	_, errs := LowerFile(f)
+	require.NotEqual(t, 0, errs.Len())
+	got := errs.Error()
+	assert.Contains(t, got, "lock version must be an integer")
+	assert.Contains(t, got, "lock dependency github.com/cloudboss/example: ub kind requires hash")
+	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-go: go kind forbids hash")
+	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-bad: unknown kind")
+	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-bad: missing version")
 }
