@@ -22,6 +22,9 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 		Path:     f.Path,
 		Comments: f.Comments,
 	}
+	if lowerSourceDeclaredFile(f, out, errs) {
+		return out, errs
+	}
 
 	switch f.Kind {
 	case parse.FileFactory:
@@ -45,6 +48,86 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 	}
 
 	return out, errs
+}
+
+type sourceFileRole struct {
+	name string
+	fld  *parse.Field
+}
+
+func lowerSourceDeclaredFile(
+	f *parse.File,
+	out *File,
+	errs *parse.ErrorList,
+) bool {
+	if f.Body == nil {
+		return false
+	}
+	var roles []sourceFileRole
+	var selectorBody bool
+	for _, fld := range f.Body.Fields {
+		if fld.Decl != nil {
+			selectorBody = true
+			continue
+		}
+		if fld.Key.Kind != parse.FieldIdent {
+			continue
+		}
+		switch fld.Key.Name {
+		case "factory", "stack", "manifest":
+			roles = append(roles, sourceFileRole{name: fld.Key.Name, fld: fld})
+		}
+	}
+	if len(roles) == 1 && len(f.Body.Fields) == 1 {
+		lowerSourceDeclaredRole(f, out, roles, errs)
+		return true
+	}
+	if len(roles) > 0 && f.Kind == parse.FileUnknown {
+		lowerSourceDeclaredRole(f, out, roles, errs)
+		return true
+	}
+	if selectorBody && f.Kind == parse.FileUnknown {
+		out.Kind = FileLibrary
+		out.Library = lowerLibraryFile(f, errs)
+		return true
+	}
+	return false
+}
+
+func lowerSourceDeclaredRole(
+	f *parse.File,
+	out *File,
+	roles []sourceFileRole,
+	errs *parse.ErrorList,
+) {
+	first := roles[0]
+	for _, role := range roles[1:] {
+		errs.Addf(parse.ErrSchema, role.fld.Key.S.Start,
+			"file must not declare both %s and %s", first.name, role.name)
+	}
+	if len(roles) > 1 {
+		return
+	}
+	if len(f.Body.Fields) != 1 {
+		errs.Addf(parse.ErrSchema, first.fld.Key.S.Start,
+			"%s must be the only top-level file declaration", first.name)
+		return
+	}
+	block := objectValue(first.fld, first.name, errs)
+	if block == nil {
+		return
+	}
+	switch first.name {
+	case "factory":
+		out.Kind = FileFactory
+		out.Factory = &FactoryFile{S: first.fld.S, Body: lowerFactoryBody(block, errs)}
+	case "stack":
+		out.Kind = FileStack
+		out.Stack = lowerStackFile(first.fld.S, block, errs)
+	case "manifest":
+		out.Kind = FileManifest
+		out.Manifest = lowerManifestFile(first.fld.S, block, errs)
+	}
 }
 
 func lowerFactoryBody(block *parse.ObjectLit, errs *parse.ErrorList) FactoryBody {

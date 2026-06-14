@@ -222,6 +222,102 @@ replace: {
 	assert.Equal(t, "../example", got.Manifest.Replace[0].Path.Value)
 }
 
+func TestLowerSourceDeclaredFactoryFile(t *testing.T) {
+	f := parseFile(t, "factory.ub", `
+factory: {
+  description: 'Example.'
+  resources: {
+    hello: std.fs-file {
+      path: '/tmp/hello.txt'
+    }
+  }
+}
+`, parse.FileUnknown)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	require.Equal(t, FileFactory, got.Kind)
+	require.NotNil(t, got.Factory)
+	assert.Equal(t, "Example.", got.Factory.Body.Description.Value)
+	require.Len(t, got.Factory.Body.Resources, 1)
+	assert.Equal(t, "hello", got.Factory.Body.Resources[0].Name.Name)
+	assert.Equal(t, "std", got.Factory.Body.Resources[0].Selector.Alias.Name)
+	assert.Equal(t, "fs-file", got.Factory.Body.Resources[0].Selector.Export.Name)
+}
+
+func TestLowerSourceDeclaredStackFile(t *testing.T) {
+	f := parseFile(t, "dev.ub", `
+stack: {
+  factory: {
+    inputs: {
+      message: 'hello'
+    }
+  }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+}
+`, parse.FileUnknown)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	require.Equal(t, FileStack, got.Kind)
+	require.NotNil(t, got.Stack)
+	require.NotNil(t, got.Stack.Factory)
+	require.NotNil(t, got.Stack.Factory.Inputs)
+	require.NotNil(t, got.Stack.State)
+	assert.Equal(t, "local", got.Stack.State.Selector.Name)
+	require.NotNil(t, got.Stack.Encryption)
+	assert.Equal(t, "noop", got.Stack.Encryption.Selector.Name)
+}
+
+func TestLowerSourceDeclaredManifestFile(t *testing.T) {
+	f := parseFile(t, "manifest.ub", `
+manifest: {
+  unobin-version: '0.2.0'
+  requires: {
+    'github.com/cloudboss/example': 'v1.2.3'
+  }
+}
+`, parse.FileUnknown)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	require.Equal(t, FileManifest, got.Kind)
+	require.NotNil(t, got.Manifest)
+	require.NotNil(t, got.Manifest.UnobinVersion)
+	assert.Equal(t, "0.2.0", got.Manifest.UnobinVersion.Value)
+	require.Len(t, got.Manifest.Requires, 1)
+	assert.Equal(t, "github.com/cloudboss/example", got.Manifest.Requires[0].ID.Value)
+}
+
+func TestLowerSourceDeclaredLibraryFile(t *testing.T) {
+	f := parseFile(t, "library.ub", `
+greeting: resource {
+  outputs: {
+    message: { value: 'hello' }
+  }
+}
+
+lookup: data {
+  outputs: {}
+}
+`, parse.FileUnknown)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	require.Equal(t, FileLibrary, got.Kind)
+	require.NotNil(t, got.Library)
+	require.Len(t, got.Library.Exports, 2)
+	assert.Equal(t, NodeResource, got.Library.Exports[0].Kind)
+	assert.Equal(t, "greeting", got.Library.Exports[0].Name.Name)
+	assert.Equal(t, NodeData, got.Library.Exports[1].Kind)
+	assert.Equal(t, "lookup", got.Library.Exports[1].Name.Name)
+}
+
 func TestLowerExportedTypeFile(t *testing.T) {
 	f := parseFile(t, "resource-greeting.ub", `
 inputs: {
@@ -375,4 +471,15 @@ func TestLowerReportsUserFacingFileRoleError(t *testing.T) {
 	got := errs.Error()
 	assert.Contains(t, got, "cannot determine UB file role")
 	assert.NotContains(t, got, "lower")
+}
+
+func TestLowerReportsMixedSourceDeclaredFileRoles(t *testing.T) {
+	f := parseFile(t, "mixed.ub", `
+factory: {}
+stack: {}
+`, parse.FileUnknown)
+
+	_, errs := LowerFile(f)
+	require.NotEqual(t, 0, errs.Len())
+	assert.Contains(t, errs.Error(), "file must not declare both factory and stack")
 }
