@@ -23,6 +23,12 @@ func sampleLock() *Lock {
 	return l
 }
 
+func sampleSourceLock() *Lock {
+	l := sampleLock()
+	l.ToolchainVersion = "v0.4.2"
+	return l
+}
+
 func TestEncodeLockWholeOutput(t *testing.T) {
 	want := `{
   "version": 1,
@@ -46,6 +52,26 @@ func TestEncodeLockWholeOutput(t *testing.T) {
 	assert.Equal(t, want, string(got))
 }
 
+func TestEncodeSourceLockWholeOutput(t *testing.T) {
+	want := `lock: {
+  version:   1
+  toolchain: { unobin-version: 'v0.4.2' }
+  deps: {
+    'github.com/aws/some-go-lib': { kind: go, version: 'v1.2.3', commit: 'def456' }
+    'github.com/cloudboss/unobin//pkg/libraries/core': {
+      kind:    ub
+      version: 'v0.1.0'
+      commit:  'abc123'
+      hash:    'sha256:deadbeef'
+    }
+  }
+}
+`
+	got, err := EncodeSourceLock(sampleSourceLock())
+	require.NoError(t, err)
+	assert.Equal(t, want, string(got))
+}
+
 func TestLockRoundTrip(t *testing.T) {
 	b, err := EncodeLock(sampleLock())
 	require.NoError(t, err)
@@ -54,6 +80,18 @@ func TestLockRoundTrip(t *testing.T) {
 	assert.Equal(t, sampleLock(), got)
 
 	b2, err := EncodeLock(sampleLock())
+	require.NoError(t, err)
+	assert.Equal(t, b, b2, "encoding must be deterministic")
+}
+
+func TestSourceLockCodec(t *testing.T) {
+	b, err := EncodeSourceLock(sampleSourceLock())
+	require.NoError(t, err)
+	got, err := DecodeSourceLock(b)
+	require.NoError(t, err)
+	assert.Equal(t, sampleSourceLock(), got)
+
+	b2, err := EncodeSourceLock(sampleSourceLock())
 	require.NoError(t, err)
 	assert.Equal(t, b, b2, "encoding must be deterministic")
 }
@@ -73,6 +111,11 @@ func TestDecodeLockRejects(t *testing.T) {
 			name: "nil entry",
 			json: `{"version":1,"deps":{"github.com/x/y":null}}`,
 			want: "nil entry",
+		},
+		{
+			name: "invalid id",
+			json: `{"version":1,"deps":{"github.com":{"kind":"go","version":"v1","commit":"a"}}}`,
+			want: "repo URL must contain a host and a path",
 		},
 		{
 			name: "missing kind",
@@ -120,6 +163,14 @@ func TestWriteAndReadLock(t *testing.T) {
 	got, err := ReadLock(os.DirFS(dir))
 	require.NoError(t, err)
 	assert.Equal(t, sampleLock(), got)
+}
+
+func TestWriteAndReadSourceLock(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, WriteSourceLock(filepath.Join(dir, SourceLockFileName), sampleSourceLock()))
+	got, err := ReadLock(os.DirFS(dir))
+	require.NoError(t, err)
+	assert.Equal(t, sampleSourceLock(), got)
 }
 
 func TestReadLockMissing(t *testing.T) {
