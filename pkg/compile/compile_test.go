@@ -15,7 +15,7 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
     hello: std.fs-file { path: var.path }
   }
   outputs: {
-    path: { value: resource.std.fs-file.hello.path }
+    path: { value: resource.hello.path }
   }
 }
 `)
@@ -26,6 +26,7 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
 	require.NotContains(t, body, "factory:")
 	require.Contains(t, body, "imports:")
 	require.Contains(t, body, "std.fs-file.hello:")
+	require.Contains(t, body, "resource.std.fs-file.hello.path")
 	require.NoError(t, lang.ValidateFile(f).Err())
 }
 

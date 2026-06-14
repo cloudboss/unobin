@@ -456,6 +456,7 @@ func TestCompileSourceDeclaredFactoryToStdout(t *testing.T) {
 factory: {
   imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }
   actions: { hi: core.command { argv: ['echo', 'hi'] } }
+  outputs: { stdout: { value: action.hi.stdout } }
 }
 `
 	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))

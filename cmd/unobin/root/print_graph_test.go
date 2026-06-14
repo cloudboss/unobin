@@ -50,7 +50,8 @@ factory: {
   inputs:  { msg: { type: string } }
   imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
   actions: {
-    first: core.command { argv: ['echo', var.msg] }
+    first:  core.command { argv: ['echo', var.msg] }
+    second: core.command { argv: ['echo', action.first.stdout] }
   }
 }
 `), 0o644))
@@ -60,7 +61,13 @@ factory: {
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
-	require.Equal(t, "action.core.command.first\n  -> var.msg\n", out)
+	want := `action.core.command.first
+  -> var.msg
+
+action.core.command.second
+  -> action.core.command.first
+`
+	require.Equal(t, want, out)
 }
 
 func TestPrintGraphDOT(t *testing.T) {

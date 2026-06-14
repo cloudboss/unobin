@@ -89,7 +89,7 @@ func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	if body := sourceDeclaredFactoryBody(f); body != nil {
+	if sourceDeclaredFactoryBody(f) != nil {
 		sf, serrs := syntax.LowerFile(f)
 		if serrs.Len() > 0 {
 			return nil, "", serrs.Err()
@@ -97,11 +97,13 @@ func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 		if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
 			return nil, "", verrs.Err()
 		}
+		obj := syntax.FactoryBodyObject(sf.Factory.Body)
+		expandShortNodeRefs(obj, sf.Factory.Body)
 		f = &lang.File{
 			S:        sf.S,
 			Kind:     lang.FileFactory,
 			Path:     path,
-			Body:     syntax.FactoryBodyObject(sf.Factory.Body),
+			Body:     obj,
 			Comments: sf.Comments,
 		}
 		if errs := lang.ValidateFile(f); errs.Len() > 0 {
@@ -129,6 +131,53 @@ func sourceDeclaredFactoryBody(f *lang.File) *lang.ObjectLit {
 	}
 	body, _ := fld.Value.(*lang.ObjectLit)
 	return body
+}
+
+func expandShortNodeRefs(obj *lang.ObjectLit, body syntax.FactoryBody) {
+	selectors := map[string]map[string][]string{
+		"resource": nodeSelectorRefs(body.Resources),
+		"data":     nodeSelectorRefs(body.Data),
+		"action":   nodeSelectorRefs(body.Actions),
+	}
+	lang.Walk(obj, func(expr lang.Expr) {
+		dp, ok := expr.(*lang.DotPath)
+		if !ok || dp.Root == nil || len(dp.Segments) == 0 {
+			return
+		}
+		byName := selectors[dp.Root.Name]
+		if len(byName) == 0 {
+			return
+		}
+		first := dp.Segments[0]
+		if first.Name == "" || first.Index != nil || first.Splat || first.Guarded {
+			return
+		}
+		prefix := byName[first.Name]
+		if len(prefix) == 0 {
+			return
+		}
+		dp.Segments = append(selectorSegments(first.S, prefix), dp.Segments[1:]...)
+	})
+}
+
+func nodeSelectorRefs(nodes []syntax.NodeDecl) map[string][]string {
+	out := make(map[string][]string, len(nodes))
+	for _, node := range nodes {
+		out[node.Name.Name] = []string{
+			node.Selector.Alias.Name,
+			node.Selector.Export.Name,
+			node.Name.Name,
+		}
+	}
+	return out
+}
+
+func selectorSegments(span lang.Span, names []string) []lang.DotSegment {
+	out := make([]lang.DotSegment, 0, len(names))
+	for _, name := range names {
+		out = append(out, lang.DotSegment{S: span, Name: name})
+	}
+	return out
 }
 
 // Run compiles a factory per the options.
