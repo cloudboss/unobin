@@ -79,8 +79,8 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 	if v := CLIVersion(); semver.IsValid(v) {
 		manifest.UnobinVersion = v
 	}
-	manifestPath := filepath.Join(cfg.output, deps.ManifestFileName)
-	if err := os.WriteFile(manifestPath, deps.EncodeManifest(manifest), 0o644); err != nil {
+	manifestPath := filepath.Join(cfg.output, deps.SourceManifestFileName)
+	if err := deps.WriteSourceManifest(manifestPath, manifest); err != nil {
 		return err
 	}
 

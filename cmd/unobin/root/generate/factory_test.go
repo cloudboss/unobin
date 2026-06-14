@@ -58,9 +58,14 @@ func TestFactoryWritesManifestWithToolchainPin(t *testing.T) {
 	_, err := runFactoryCmd(t, "-o", dir)
 	require.NoError(t, err)
 
-	got, err := os.ReadFile(filepath.Join(dir, "unobin.manifest"))
+	got, err := os.ReadFile(filepath.Join(dir, "manifest.ub"))
 	require.NoError(t, err)
-	require.Equal(t, "unobin-version: 'v0.3.0'\nrequires: {}\n", string(got))
+	want := `manifest: {
+  unobin-version: 'v0.3.0'
+  requires:       {}
+}
+`
+	require.Equal(t, want, string(got))
 }
 
 // TestFactoryDevManifestOmitsPin proves a dev build writes the
@@ -74,9 +79,13 @@ func TestFactoryDevManifestOmitsPin(t *testing.T) {
 	_, err := runFactoryCmd(t, "-o", dir)
 	require.NoError(t, err)
 
-	got, err := os.ReadFile(filepath.Join(dir, "unobin.manifest"))
+	got, err := os.ReadFile(filepath.Join(dir, "manifest.ub"))
 	require.NoError(t, err)
-	require.Equal(t, "requires: {}\n", string(got))
+	want := `manifest: {
+  requires: {}
+}
+`
+	require.Equal(t, want, string(got))
 }
 
 func TestFactoryGeneratedFileParsesAndValidates(t *testing.T) {
