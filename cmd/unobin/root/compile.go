@@ -33,8 +33,8 @@ type compileConfig struct {
 }
 
 func init() {
-	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", "main.ub",
-		"Path to the factory source.")
+	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", ".",
+		"Path to the factory source file or directory.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "v0.0.0",
 		"Release version to stamp into the built binary.")
