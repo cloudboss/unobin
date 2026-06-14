@@ -24,7 +24,7 @@ func goSrc(commit string) *resolve.Source {
 }
 
 // ubSrc is a fetched UB-library source: its body files (kind-prefixed
-// .ub) carry whatever imports the test needs for recursion.
+// .ub) hold whatever imports the test needs for recursion.
 func ubSrc(commit, hash string, files map[string]string) *resolve.Source {
 	return &resolve.Source{Commit: commit, Hash: hash, FS: mapFS(files)}
 }
@@ -32,6 +32,29 @@ func ubSrc(commit, hash string, files map[string]string) *resolve.Source {
 func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 	root := mapFS(map[string]string{
 		"main.ub": "imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.1.0"}
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/cloudboss/unobin//pkg/libraries/core": {
+			Kind: LockKindGo, Version: "v0.1.0", Commit: "c1",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsSourceDeclaredFactory(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": `
+factory: {
+  imports: {
+    core: 'github.com/cloudboss/unobin//pkg/libraries/core'
+  }
+}
+`,
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
@@ -108,7 +131,8 @@ func TestLockFromImportsMultiLibraryRepo(t *testing.T) {
 	// A repo whose libraries live in subdirectories, with no main.ub or
 	// root-level body files; the walk must descend into the subdirs.
 	root := mapFS(map[string]string{
-		"ub/helloer/resource-hello.ub": "imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
+		"ub/helloer/resource-hello.ub": "" +
+			"imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.5.0"): goSrc("c1"),
@@ -129,7 +153,8 @@ func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2", map[string]string{
-			"resource-greeting.ub": "imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
+			"resource-greeting.ub": "" +
+				"imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
 		}),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}

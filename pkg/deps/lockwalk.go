@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -73,25 +74,20 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	if err != nil {
 		return err
 	}
-	refs, errs := resolve.ExtractImports(f)
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	refs, err := lockFileImportRefs(f)
+	if err != nil {
+		return err
 	}
-	aliases := make([]string, 0, len(refs))
-	for a := range refs {
-		aliases = append(aliases, a)
-	}
-	slices.Sort(aliases)
-	for _, alias := range aliases {
-		if local, ok := refs[alias].(*resolve.LocalImport); ok {
-			if err := w.checkLocalImport(alias, local); err != nil {
+	for _, ref := range refs {
+		if local, ok := ref.Ref.(*resolve.LocalImport); ok {
+			if err := w.checkLocalImport(ref.Label, local); err != nil {
 				return err
 			}
 			continue
 		}
-		r := refs[alias].(*resolve.RemoteImport)
+		r := ref.Ref.(*resolve.RemoteImport)
 		if err := w.walkRemote(r); err != nil {
-			return fmt.Errorf("import %q: %w", alias, err)
+			return fmt.Errorf("import %q: %w", ref.Label, err)
 		}
 	}
 	return nil
@@ -105,26 +101,67 @@ type lockWalker struct {
 	inProgress map[string]bool
 }
 
-func (w *lockWalker) walkFile(f *lang.File, parent *resolve.Source) error {
+type lockImportRef struct {
+	Label string
+	Ref   resolve.ImportRef
+}
+
+func lockFileImportRefs(f *lang.File) ([]lockImportRef, error) {
 	refs, errs := resolve.ExtractImports(f)
 	if len(errs) > 0 {
-		return errors.Join(errs...)
+		return nil, errors.Join(errs...)
 	}
+	out := make([]lockImportRef, 0, len(refs))
 	aliases := make([]string, 0, len(refs))
 	for a := range refs {
 		aliases = append(aliases, a)
 	}
 	slices.Sort(aliases)
 	for _, alias := range aliases {
+		out = append(out, lockImportRef{Label: alias, Ref: refs[alias]})
+	}
+	if !hasSourceDeclaredImports(f) {
+		return out, nil
+	}
+	sf, serrs := syntax.LowerFile(f)
+	if serrs.Len() > 0 {
+		return nil, serrs.Err()
+	}
+	srefs, serrList := resolve.ExtractSyntaxImports(sf)
+	if len(serrList) > 0 {
+		return nil, errors.Join(serrList...)
+	}
+	for _, ref := range srefs {
+		out = append(out, lockImportRef{
+			Label: syntaxImportLabel(ref),
+			Ref:   ref.Ref,
+		})
+	}
+	return out, nil
+}
+
+func syntaxImportLabel(ref resolve.SyntaxImport) string {
+	if ref.Scope == "" {
+		return ref.Alias
+	}
+	return ref.Scope + "." + ref.Alias
+}
+
+func (w *lockWalker) walkFile(f *lang.File, parent *resolve.Source) error {
+	refs, err := lockFileImportRefs(f)
+	if err != nil {
+		return err
+	}
+	for _, ref := range refs {
 		var err error
-		switch r := refs[alias].(type) {
+		switch r := ref.Ref.(type) {
 		case *resolve.LocalImport:
 			err = w.walkLocal(r, parent)
 		case *resolve.RemoteImport:
 			err = w.walkRemote(r)
 		}
 		if err != nil {
-			return fmt.Errorf("import %q: %w", alias, err)
+			return fmt.Errorf("import %q: %w", ref.Label, err)
 		}
 	}
 	return nil
