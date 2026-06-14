@@ -116,6 +116,27 @@ func TestEncodeObjectLit(t *testing.T) {
 	parsesAsGoExpr(t, got)
 }
 
+func TestEncodeSelectorBodyField(t *testing.T) {
+	got, err := EncodeNode(&lang.Field{
+		Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "hello"},
+		Decl: &lang.SelectorBody{
+			Selector: lang.Selector{
+				Parts: []lang.Ident{{Name: "std"}, {Name: "fs-file"}},
+			},
+			Body: &lang.ObjectLit{Fields: []*lang.Field{{
+				Key:   lang.FieldKey{Kind: lang.FieldIdent, Name: "path"},
+				Value: &lang.Ident{Name: "path"},
+			}}},
+		},
+	})
+	require.NoError(t, err)
+	require.Contains(t, got, `Decl: &lang.SelectorBody{`)
+	require.Contains(t, got, `Selector: lang.Selector{Parts: []lang.Ident{`)
+	require.Contains(t, got, `lang.Ident{Name: "std"}`)
+	require.Contains(t, got, `Body: &lang.ObjectLit{`)
+	parsesAsGoExpr(t, got)
+}
+
 func TestEncodeDotPath(t *testing.T) {
 	src := "outputs: { x: { value: resource.aws.vpc.main.id } }"
 	out := encodeBody(t, src)

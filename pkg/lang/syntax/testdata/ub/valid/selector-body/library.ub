@@ -1,0 +1,15 @@
+greeting: resource {
+  outputs: {
+    message: {
+      value: var.message
+    }
+  }
+}
+
+lookup: data {
+  outputs: {
+    id: {
+      value: var.id
+    }
+  }
+}

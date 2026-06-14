@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func formatString(t *testing.T, src string) string {
@@ -45,6 +47,23 @@ func TestFormatEmptyCollectionsInline(t *testing.T) {
 list: []
 `
 	require.Equal(t, src, formatString(t, src))
+}
+
+func TestFormatSelectorBodyFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/format/valid",
+		func(name string, src []byte) (string, []string) {
+			f, err := ParseSource(name+".ub", src)
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			out, err := Format(f)
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return string(out), nil
+		},
+		ubtest.Idempotent(),
+	)
 }
 
 // TestFormatEmptyBlockKeepsComment proves a comment is not ejected from a

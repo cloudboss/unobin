@@ -1,0 +1,24 @@
+configurations: {
+  greet {
+    prefix: 'hello'
+  }
+  formal: greet {}
+}
+
+resources: {
+  hello: std.fs-file {
+    path: var.path
+  }
+}
+
+data: {
+  existing: std.file {
+    path: var.path
+  }
+}
+
+actions: {
+  run: std.exec {
+    command: 'echo hello'
+  }
+}

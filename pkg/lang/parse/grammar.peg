@@ -197,6 +197,18 @@ func dotSegments(v any) []DotSegment {
 	return out
 }
 
+func selectorKey(sel Selector) FieldKey {
+	if len(sel.Parts) == 1 {
+		part := sel.Parts[0]
+		return FieldKey{S: part.S, Kind: FieldIdent, Name: part.Name}
+	}
+	path := make([]string, 0, len(sel.Parts))
+	for _, part := range sel.Parts {
+		path = append(path, part.Name)
+	}
+	return FieldKey{S: sel.S, Kind: FieldPath, Path: path}
+}
+
 // unquoteSingle decodes a single-quoted string body under strict
 // escaping. Recognized escapes: \\ \' \n \t \r \0. Any other escape is a
 // parse error; backslash-heavy values use a raw triple-quoted string.
@@ -549,9 +561,28 @@ File <- _ pairs:Pair* EOF {
 	return f, nil
 }
 
-// A pair is `key: value` plus any trailing whitespace (including comments and
-// newlines). The trailing whitespace is what separates one pair from the next.
-Pair <- key:Key _ ":" _ value:Value _ ","? _ {
+// A pair is a selector-body declaration or `key: value`, plus any trailing
+// whitespace (including comments and newlines). The trailing whitespace is what
+// separates one pair from the next.
+Pair <- NamedSelectorBody / DefaultSelectorBody / ValuePair
+
+NamedSelectorBody <- key:PlainIdentKey _ ":" _ sel:Selector _ body:ObjectLitNode _ ","? _ {
+	fk := key.(FieldKey)
+	block := body.(*ObjectLit)
+	span := Span{Start: fk.S.Start, End: block.S.End}
+	decl := &SelectorBody{S: span, Selector: sel.(Selector), Body: block}
+	return &Field{S: span, Key: fk, Decl: decl}, nil
+}
+
+DefaultSelectorBody <- sel:Selector _ body:ObjectLitNode _ ","? _ {
+	selector := sel.(Selector)
+	block := body.(*ObjectLit)
+	span := Span{Start: selector.S.Start, End: block.S.End}
+	decl := &SelectorBody{S: span, Default: true, Selector: selector, Body: block}
+	return &Field{S: span, Key: selectorKey(selector), Decl: decl}, nil
+}
+
+ValuePair <- key:Key _ ":" _ value:Value _ ","? _ {
 	fk := key.(FieldKey)
 	return &Field{S: fk.S, Key: fk, Value: value.(Expr)}, nil
 }
@@ -575,6 +606,10 @@ DottedKeyTail <- "." name:IdentText {
 }
 
 IdentKey <- name:IdentText {
+	return FieldKey{S: c.span(), Kind: FieldIdent, Name: name.(string)}, nil
+}
+
+PlainIdentKey <- name:SelectorIdentText {
 	return FieldKey{S: c.span(), Kind: FieldIdent, Name: name.(string)}, nil
 }
 
@@ -728,6 +763,18 @@ DotSegmentRule <- "?." name:IdentText {
 
 IdentValue <- name:IdentText {
 	return &Ident{S: c.span(), Name: name.(string)}, nil
+}
+
+Selector <- first:SelectorIdent rest:( "." part:SelectorIdent { return part, nil } )* {
+	parts := []Ident{first.(Ident)}
+	for _, p := range rest.([]any) {
+		parts = append(parts, p.(Ident))
+	}
+	return Selector{S: c.rangeSpan(), Parts: parts}, nil
+}
+
+SelectorIdent <- name:SelectorIdentText {
+	return Ident{S: c.rangeSpan(), Name: name.(string)}, nil
 }
 
 ObjectLitNode <- "{" _ pairs:Pair* "}" {
@@ -954,6 +1001,10 @@ NullLitNode <- "null" !IdentChar {
 // are allowed). The PEG `*` is possessive, so we structure each iteration
 // to end on an alnum, ensuring the match never stops on a trailing hyphen.
 IdentText <- ( "@"? [a-zA-Z] ( "-"+ [a-zA-Z0-9] / [a-zA-Z0-9] )* ) {
+	return string(c.text), nil
+}
+
+SelectorIdentText <- ( [a-zA-Z] ( "-"+ [a-zA-Z0-9] / [a-zA-Z0-9] )* ) {
 	return string(c.text), nil
 }
 

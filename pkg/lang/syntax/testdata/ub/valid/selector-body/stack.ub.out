@@ -1,0 +1,3 @@
+state -> local fields=1
+encryption -> noop fields=0
+factory configuration <default> -> greet fields=1

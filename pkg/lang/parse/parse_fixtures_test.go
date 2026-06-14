@@ -2,6 +2,8 @@ package parse
 
 import (
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -750,11 +752,87 @@ func TestParseFixtureComplex(t *testing.T) {
 // messages are verbose and version-sensitive, so each golden holds a stable
 // fragment matched as a substring rather than the whole message.
 func TestParseInvalid(t *testing.T) {
-	ubtest.Run(t, "testdata/ub", func(name string, src []byte) (string, []string) {
+	ubtest.Run(t, "testdata/ub/invalid", func(name string, src []byte) (string, []string) {
 		_, err := ParseSource(name+".ub", src)
 		if err == nil {
 			return "", nil
 		}
 		return "", []string{err.Error()}
 	}, ubtest.Substring())
+}
+
+func TestParseSelectorBodyFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/valid/selector-body", func(name string, src []byte) (string, []string) {
+		f, err := ParseSource(name+".ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return selectorBodySummary(f), nil
+	})
+}
+
+func selectorBodySummary(f *File) string {
+	var b strings.Builder
+	writeSelectorBodySummary(&b, nil, f.Body)
+	return b.String()
+}
+
+func writeSelectorBodySummary(b *strings.Builder, prefix []string, obj *ObjectLit) {
+	if obj == nil {
+		return
+	}
+	for _, field := range obj.Fields {
+		name := fieldKeySummary(field.Key)
+		next := appendFieldPath(prefix, name)
+		if field.Decl != nil {
+			b.WriteString(strings.Join(next, "."))
+			b.WriteString(" -> ")
+			b.WriteString(selectorSummary(field.Decl.Selector))
+			if field.Decl.Default {
+				b.WriteString(" default=true")
+			} else {
+				b.WriteString(" default=false")
+			}
+			b.WriteString(" fields=")
+			b.WriteString(fieldCountSummary(field.Decl.Body))
+			b.WriteByte('\n')
+			continue
+		}
+		if child, ok := field.Value.(*ObjectLit); ok {
+			writeSelectorBodySummary(b, next, child)
+		}
+	}
+}
+
+func appendFieldPath(prefix []string, name string) []string {
+	next := make([]string, 0, len(prefix)+1)
+	next = append(next, prefix...)
+	next = append(next, name)
+	return next
+}
+
+func fieldKeySummary(key FieldKey) string {
+	switch key.Kind {
+	case FieldPath:
+		return strings.Join(key.Path, ".")
+	case FieldString:
+		return key.String
+	default:
+		return key.Name
+	}
+}
+
+func selectorSummary(sel Selector) string {
+	parts := make([]string, 0, len(sel.Parts))
+	for _, part := range sel.Parts {
+		parts = append(parts, part.Name)
+	}
+	return strings.Join(parts, ".")
+}
+
+func fieldCountSummary(obj *ObjectLit) string {
+	if obj == nil {
+		return "0"
+	}
+	return strconv.Itoa(len(obj.Fields))
 }

@@ -77,16 +77,35 @@ type ObjectLit struct {
 func (n *ObjectLit) Span() Span { return n.S }
 func (n *ObjectLit) exprNode()  {}
 
-// Field is one entry in an ObjectLit. The key is either a bare identifier
-// (the kebab-case kind, including `@`-prefixed meta keys) or a quoted
-// string. The Meta flag is true iff the key starts with `@`.
+// Field is one entry in an ObjectLit. It is either a value field (`key:
+// value`) or a selector-body declaration (`name: selector { ... }` or
+// `selector { ... }`).
 type Field struct {
-	S     Span
-	Key   FieldKey
+	S    Span
+	Key  FieldKey
 	Value Expr
+	Decl *SelectorBody
 }
 
 func (n *Field) Span() Span { return n.S }
+
+// SelectorBody is a declaration whose body is classified by a selector.
+// Default is true for selector defaults such as `greet { ... }`, where the
+// selector itself is the declaration head.
+type SelectorBody struct {
+	S        Span
+	Default  bool
+	Selector Selector
+	Body     *ObjectLit
+}
+
+func (n *SelectorBody) Span() Span { return n.S }
+
+// Selector is one or more identifier parts separated by dots.
+type Selector struct {
+	S     Span
+	Parts []Ident
+}
 
 // FieldKey distinguishes the key forms an object field can have.
 //

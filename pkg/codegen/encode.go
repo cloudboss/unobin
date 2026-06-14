@@ -30,7 +30,9 @@ func encodeNode(b *strings.Builder, n lang.Node) error {
 	case *lang.File:
 		return encodeFile(b, x)
 	case *lang.Field:
-		return encodeField(b, x)
+		return encodeField(b, x, true)
+	case *lang.SelectorBody:
+		return encodeSelectorBody(b, x)
 	case *lang.ObjectLit:
 		return encodeObjectLit(b, x)
 	case *lang.ArrayLit:
@@ -95,12 +97,22 @@ func encodeFile(b *strings.Builder, n *lang.File) error {
 	return nil
 }
 
-func encodeField(b *strings.Builder, n *lang.Field) error {
+func encodeField(b *strings.Builder, n *lang.Field, typed bool) error {
+	if typed {
+		b.WriteString("&lang.Field")
+	}
 	b.WriteString("{Key: ")
 	encodeFieldKey(b, n.Key)
-	b.WriteString(", Value: ")
-	if err := encodeNode(b, n.Value); err != nil {
-		return err
+	if n.Decl != nil {
+		b.WriteString(", Decl: ")
+		if err := encodeSelectorBody(b, n.Decl); err != nil {
+			return err
+		}
+	} else {
+		b.WriteString(", Value: ")
+		if err := encodeNode(b, n.Value); err != nil {
+			return err
+		}
 	}
 	b.WriteString("}")
 	return nil
@@ -135,13 +147,41 @@ func encodeFieldKey(b *strings.Builder, k lang.FieldKey) {
 	b.WriteString("}")
 }
 
+func encodeSelectorBody(b *strings.Builder, n *lang.SelectorBody) error {
+	b.WriteString("&lang.SelectorBody{")
+	if n.Default {
+		b.WriteString("Default: true, ")
+	}
+	b.WriteString("Selector: ")
+	encodeSelector(b, n.Selector)
+	if n.Body != nil {
+		b.WriteString(", Body: ")
+		if err := encodeObjectLit(b, n.Body); err != nil {
+			return err
+		}
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeSelector(b *strings.Builder, sel lang.Selector) {
+	b.WriteString("lang.Selector{Parts: []lang.Ident{")
+	for i, part := range sel.Parts {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		encodeIdentValue(b, part)
+	}
+	b.WriteString("}}")
+}
+
 func encodeObjectLit(b *strings.Builder, n *lang.ObjectLit) error {
 	b.WriteString("&lang.ObjectLit{Fields: []*lang.Field{")
 	for i, f := range n.Fields {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		if err := encodeField(b, f); err != nil {
+		if err := encodeField(b, f, false); err != nil {
 			return err
 		}
 	}
@@ -227,8 +267,13 @@ func encodeNullLit(b *strings.Builder, _ *lang.NullLit) error {
 }
 
 func encodeIdent(b *strings.Builder, n *lang.Ident) error {
-	fmt.Fprintf(b, "&lang.Ident{Name: %s}", strconv.Quote(n.Name))
+	b.WriteByte('&')
+	encodeIdentValue(b, *n)
 	return nil
+}
+
+func encodeIdentValue(b *strings.Builder, n lang.Ident) {
+	fmt.Fprintf(b, "lang.Ident{Name: %s}", strconv.Quote(n.Name))
 }
 
 func encodeDotPath(b *strings.Builder, n *lang.DotPath) error {

@@ -1,0 +1,13 @@
+factory: {
+  configurations: {
+    greet {
+      prefix: 'hello'
+    }
+  }
+}
+
+state: local {
+  bucket: 'unobin-state'
+}
+
+encryption: noop {}

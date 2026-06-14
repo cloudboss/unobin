@@ -1,6 +1,8 @@
 package syntax
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +10,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func parseFile(t *testing.T, path, src string, kind parse.FileKind) *parse.File {
@@ -242,6 +245,109 @@ outputs: {
 	assert.Equal(t, NodeResource, got.Library.Exports[0].Kind)
 	require.Len(t, got.Library.Exports[0].Body.Inputs, 1)
 	require.Len(t, got.Library.Exports[0].Body.Outputs, 1)
+}
+
+func TestLowerSelectorBodyFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/valid/selector-body", func(name string, src []byte) (string, []string) {
+		kind, path := selectorBodyFixtureKind(name)
+		f, err := lang.ParseSource(path, src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		f.Kind = kind
+		got, errs := LowerFile(f)
+		if errs.Len() > 0 {
+			return "", errs.Strings()
+		}
+		return lowerSelectorBodySummary(got), nil
+	})
+}
+
+func selectorBodyFixtureKind(name string) (parse.FileKind, string) {
+	switch name {
+	case "factory":
+		return parse.FileFactory, "main.ub"
+	case "stack":
+		return parse.FileConfig, "dev.ub"
+	case "library":
+		return parse.FileExportedType, "library.ub"
+	default:
+		return parse.FileUnknown, name + ".ub"
+	}
+}
+
+func lowerSelectorBodySummary(f *File) string {
+	var b strings.Builder
+	switch f.Kind {
+	case FileFactory:
+		writeConfigurationDecls(&b, f.Factory.Body.Configurations, "configuration")
+		writeNodeDecls(&b, f.Factory.Body.Resources)
+		writeNodeDecls(&b, f.Factory.Body.Data)
+		writeNodeDecls(&b, f.Factory.Body.Actions)
+	case FileStack:
+		if f.Stack.State != nil {
+			fmt.Fprintf(&b, "state -> %s fields=%d\n",
+				f.Stack.State.Selector.Name, objectFieldCount(f.Stack.State.Body))
+		}
+		if f.Stack.Encryption != nil {
+			fmt.Fprintf(&b, "encryption -> %s fields=%d\n",
+				f.Stack.Encryption.Selector.Name, objectFieldCount(f.Stack.Encryption.Body))
+		}
+		if f.Stack.Factory != nil {
+			writeConfigurationValues(&b, f.Stack.Factory.Configurations,
+				"factory configuration")
+		}
+	case FileLibrary:
+		for _, export := range f.Library.Exports {
+			fmt.Fprintf(&b, "export %s %s outputs=%d\n",
+				export.Kind, export.Name.Name, len(export.Body.Outputs))
+		}
+	}
+	return b.String()
+}
+
+func writeConfigurationDecls(
+	b *strings.Builder,
+	configurations []ConfigurationDecl,
+	prefix string,
+) {
+	for _, cfg := range configurations {
+		fmt.Fprintf(b, "%s %s -> %s fields=%d\n",
+			prefix, optionalName(cfg.Name), cfg.Selector.Name, objectFieldCount(cfg.Body))
+	}
+}
+
+func writeConfigurationValues(
+	b *strings.Builder,
+	configurations []ConfigurationValue,
+	prefix string,
+) {
+	for _, cfg := range configurations {
+		fmt.Fprintf(b, "%s %s -> %s fields=%d\n",
+			prefix, optionalName(cfg.Name), cfg.Selector.Name, objectFieldCount(cfg.Body))
+	}
+}
+
+func writeNodeDecls(b *strings.Builder, nodes []NodeDecl) {
+	for _, node := range nodes {
+		fmt.Fprintf(b, "%s %s -> %s.%s fields=%d\n",
+			node.Kind, node.Name.Name, node.Selector.Alias.Name,
+			node.Selector.Export.Name, objectFieldCount(node.Body))
+	}
+}
+
+func optionalName(name *Ident) string {
+	if name == nil {
+		return "<default>"
+	}
+	return name.Name
+}
+
+func objectFieldCount(obj *parse.ObjectLit) int {
+	if obj == nil {
+		return 0
+	}
+	return len(obj.Fields)
 }
 
 func TestLowerReportsSchemaErrors(t *testing.T) {

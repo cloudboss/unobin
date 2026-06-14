@@ -9,6 +9,8 @@ type (
 	Field              = parse.Field
 	FieldKey           = parse.FieldKey
 	FieldKeyKind       = parse.FieldKeyKind
+	SelectorBody       = parse.SelectorBody
+	Selector           = parse.Selector
 	StringForm         = parse.StringForm
 	Expr               = parse.Expr
 	ObjectLit          = parse.ObjectLit

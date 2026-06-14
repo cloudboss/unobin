@@ -92,7 +92,7 @@ func (w *formatter) writeFields(fields []*Field, indent string) error {
 			if err := w.writeField(field, indent, keyCol); err != nil {
 				return err
 			}
-			w.lastLine = valueEndLine(field.Value)
+			w.lastLine = fieldEndLine(field)
 			w.flushTrailingOnLine(w.lastLine)
 			w.buf.WriteByte('\n')
 		}
@@ -160,7 +160,7 @@ func (w *formatter) fitsAtColumn(e Expr, column int) bool {
 // fall between the two fields so a run of comment-only lines does not
 // look like a blank.
 func (w *formatter) hasBlankLineBetween(prev, next *Field) bool {
-	cursorLine := valueEndLine(prev.Value)
+	cursorLine := fieldEndLine(prev)
 	nextOff := next.S.Start.Offset
 	for k := w.cIdx; k < len(w.comments); k++ {
 		c := w.comments[k]
@@ -181,6 +181,9 @@ func (w *formatter) hasBlankLineBetween(prev, next *Field) bool {
 // writeField emits one field, padding the key column so the value
 // starts at the same column as every other field in the group.
 func (w *formatter) writeField(field *Field, indent string, keyCol int) error {
+	if field.Decl != nil {
+		return w.writeSelectorField(field, indent)
+	}
 	w.buf.WriteString(indent)
 	rendered := renderFieldKey(field.Key)
 	w.buf.WriteString(rendered)
@@ -189,6 +192,17 @@ func (w *formatter) writeField(field *Field, indent string, keyCol int) error {
 		w.buf.WriteByte(' ')
 	}
 	return w.writeExpr(field.Value, indent)
+}
+
+func (w *formatter) writeSelectorField(field *Field, indent string) error {
+	w.buf.WriteString(indent)
+	if !field.Decl.Default {
+		w.buf.WriteString(renderFieldKey(field.Key))
+		w.buf.WriteString(": ")
+	}
+	w.buf.WriteString(renderSelector(field.Decl.Selector))
+	w.buf.WriteByte(' ')
+	return w.writeSelectorBody(field.Decl.Body, indent)
 }
 
 // column returns the column of the next character to be written,
@@ -208,6 +222,9 @@ func (w *formatter) column() int {
 // Multi-line strings, calls with a forced-multi-line argument, and
 // non-empty type-object literals always expand onto multiple lines.
 func (w *formatter) isSingleLineField(field *Field) bool {
+	if field.Decl != nil {
+		return false
+	}
 	switch x := field.Value.(type) {
 	case *ObjectLit:
 		return w.singleLineWidth(x) >= 0
@@ -249,6 +266,14 @@ func fieldKeyString(k FieldKey) string {
 		return k.String
 	}
 	return k.Name
+}
+
+func renderSelector(sel Selector) string {
+	parts := make([]string, 0, len(sel.Parts))
+	for _, part := range sel.Parts {
+		parts = append(parts, part.Name)
+	}
+	return strings.Join(parts, ".")
 }
 
 // singleLineWidth returns the rendered width of e if it can be emitted
@@ -422,6 +447,9 @@ func (w *formatter) objectInlineWidth(o *ObjectLit) int {
 	}
 	total := 4
 	for i, f := range o.Fields {
+		if f.Decl != nil {
+			return -1
+		}
 		vw := w.singleLineWidth(f.Value)
 		if vw < 0 {
 			return -1
@@ -1283,6 +1311,9 @@ func (w *formatter) writeObjectInline(o *ObjectLit) error {
 		if i > 0 {
 			w.buf.WriteString(", ")
 		}
+		if f.Decl != nil {
+			return fmt.Errorf("format: selector-body declaration in inline object")
+		}
 		w.buf.WriteString(renderFieldKey(f.Key))
 		w.buf.WriteString(": ")
 		if err := w.writeExpr(f.Value, ""); err != nil {
@@ -1290,6 +1321,29 @@ func (w *formatter) writeObjectInline(o *ObjectLit) error {
 		}
 	}
 	w.buf.WriteString(" }")
+	return nil
+}
+
+func (w *formatter) writeSelectorBody(body *ObjectLit, indent string) error {
+	if body == nil {
+		w.buf.WriteString("{}")
+		return nil
+	}
+	if len(body.Fields) == 0 {
+		w.writeEmptyDelimited(body.S, indent, '{', '}')
+		return nil
+	}
+	inner := indent + fmtStep
+	w.buf.WriteByte('{')
+	w.buf.WriteByte('\n')
+	w.lastLine = body.S.Start.Line
+	if err := w.writeFields(body.Fields, inner); err != nil {
+		return err
+	}
+	w.flushBefore(body.S.End.Offset, inner)
+	w.buf.WriteString(indent)
+	w.buf.WriteByte('}')
+	w.lastLine = body.S.End.Line
 	return nil
 }
 
@@ -1804,7 +1858,27 @@ func (w *formatter) maybeBlankLine(nextLine int) {
 }
 
 func valueEndLine(e Expr) int {
+	if e == nil {
+		return 0
+	}
 	s := e.Span()
+	if s.End.Line > 0 {
+		return s.End.Line
+	}
+	return s.Start.Line
+}
+
+func fieldEndLine(field *Field) int {
+	if field.Decl == nil {
+		return valueEndLine(field.Value)
+	}
+	if field.Decl.Body != nil {
+		return spanEndLine(field.Decl.Body.S)
+	}
+	return spanEndLine(field.Decl.S)
+}
+
+func spanEndLine(s Span) int {
 	if s.End.Line > 0 {
 		return s.End.Line
 	}

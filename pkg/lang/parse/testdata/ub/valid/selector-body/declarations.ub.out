@@ -1,0 +1,5 @@
+resources.hello -> std.fs-file default=false fields=1
+configurations.greet -> greet default=true fields=1
+configurations.formal -> greet default=false fields=0
+state -> local default=false fields=1
+greeting -> resource default=false fields=1

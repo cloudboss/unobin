@@ -129,11 +129,15 @@ func lowerStackFile(
 				stack.Locals = lowerLocals(obj, "local", errs)
 			}
 		case "state":
-			if obj := objectValue(fld, "state", errs); obj != nil {
+			if fld.Decl != nil {
+				stack.State = lowerStateSelectorDecl(fld, errs)
+			} else if obj := objectValue(fld, "state", errs); obj != nil {
 				stack.State = lowerStateDecl(fld.S, obj, errs)
 			}
 		case "encryption":
-			if obj := objectValue(fld, "encryption", errs); obj != nil {
+			if fld.Decl != nil {
+				stack.Encryption = lowerEncryptionSelectorDecl(fld, errs)
+			} else if obj := objectValue(fld, "encryption", errs); obj != nil {
 				stack.Encryption = lowerEncryptionDecl(fld.S, obj, errs)
 			}
 		case "parallelism":
@@ -209,6 +213,10 @@ func lowerManifestFile(
 
 func lowerLibraryFile(f *parse.File, errs *parse.ErrorList) *LibraryFile {
 	library := &LibraryFile{S: f.S}
+	if hasSelectorBody(f.Body) {
+		library.Exports = lowerCompositeDecls(f.Body, errs)
+		return library
+	}
 	name, kind, ok := compositeNameFromPath(f.Path, f.S.Start, errs)
 	if !ok {
 		return library
@@ -220,6 +228,76 @@ func lowerLibraryFile(f *parse.File, errs *parse.ErrorList) *LibraryFile {
 		Body: lowerFactoryBody(f.Body, errs),
 	})
 	return library
+}
+
+func hasSelectorBody(block *parse.ObjectLit) bool {
+	if block == nil {
+		return false
+	}
+	for _, fld := range block.Fields {
+		if fld.Decl != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func lowerCompositeDecls(block *parse.ObjectLit, errs *parse.ErrorList) []CompositeDecl {
+	exports := make([]CompositeDecl, 0, len(block.Fields))
+	seen := make(map[string]parse.Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Decl == nil {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"library export must be written as name: resource { ... }")
+			continue
+		}
+		if fld.Decl.Default {
+			errs.Addf(parse.ErrSchema, fld.S.Start,
+				"library export must include a name before the selector")
+			continue
+		}
+		name, ok := fieldName(fld, "library export name", errs)
+		if !ok {
+			continue
+		}
+		kind, ok := compositeKind(fld.Decl.Selector, errs)
+		if !ok {
+			continue
+		}
+		key := string(kind) + "." + name.Name
+		if prev, dup := seen[key]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"duplicate library export %s (first defined at %s)", key, prev)
+			continue
+		}
+		seen[key] = fld.Key.S.Start
+		exports = append(exports, CompositeDecl{
+			S:    fld.S,
+			Name: name,
+			Kind: kind,
+			Body: lowerFactoryBody(fld.Decl.Body, errs),
+		})
+	}
+	return exports
+}
+
+func compositeKind(sel parse.Selector, errs *parse.ErrorList) (NodeKind, bool) {
+	id, ok := selectorIdent(sel, "library export selector", errs)
+	if !ok {
+		return "", false
+	}
+	switch id.Name {
+	case string(NodeResource):
+		return NodeResource, true
+	case string(NodeData):
+		return NodeData, true
+	case string(NodeAction):
+		return NodeAction, true
+	default:
+		errs.Addf(parse.ErrSchema, id.S.Start,
+			"library export selector must be resource, data, or action")
+		return "", false
+	}
 }
 
 func compositeNameFromPath(
@@ -370,6 +448,21 @@ func lowerConfigurationDecls(
 	entries := make([]ConfigurationDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
+		if fld.Decl != nil {
+			entry, ok := lowerConfigurationDecl(fld, errs)
+			if !ok {
+				continue
+			}
+			key := configurationDeclKey(entry)
+			if prev, dup := seen[key]; dup {
+				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+					"duplicate configuration %s (first defined at %s)", key, prev)
+				continue
+			}
+			seen[key] = fld.Key.S.Start
+			entries = append(entries, entry)
+			continue
+		}
 		selector, name, ok := configurationKey(fld, errs)
 		if !ok {
 			continue
@@ -393,6 +486,36 @@ func lowerConfigurationDecls(
 	return entries
 }
 
+func lowerConfigurationDecl(
+	fld *parse.Field,
+	errs *parse.ErrorList,
+) (ConfigurationDecl, bool) {
+	selector, ok := selectorIdent(fld.Decl.Selector, "configuration selector", errs)
+	if !ok {
+		return ConfigurationDecl{}, false
+	}
+	entry := ConfigurationDecl{
+		S:        fld.S,
+		Selector: selector,
+		Body:     fld.Decl.Body,
+	}
+	if !fld.Decl.Default {
+		name, ok := fieldName(fld, "configuration name", errs)
+		if !ok {
+			return ConfigurationDecl{}, false
+		}
+		entry.Name = &name
+	}
+	return entry, true
+}
+
+func configurationDeclKey(entry ConfigurationDecl) string {
+	if entry.Name == nil {
+		return entry.Selector.Name
+	}
+	return entry.Selector.Name + "." + entry.Name.Name
+}
+
 func lowerConfigurationValues(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
@@ -400,6 +523,21 @@ func lowerConfigurationValues(
 	entries := make([]ConfigurationValue, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
+		if fld.Decl != nil {
+			entry, ok := lowerConfigurationValue(fld, errs)
+			if !ok {
+				continue
+			}
+			key := configurationValueKey(entry)
+			if prev, dup := seen[key]; dup {
+				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+					"duplicate configuration %s (first defined at %s)", key, prev)
+				continue
+			}
+			seen[key] = fld.Key.S.Start
+			entries = append(entries, entry)
+			continue
+		}
 		selector, name, ok := configurationKey(fld, errs)
 		if !ok {
 			continue
@@ -421,6 +559,36 @@ func lowerConfigurationValues(
 		})
 	}
 	return entries
+}
+
+func lowerConfigurationValue(
+	fld *parse.Field,
+	errs *parse.ErrorList,
+) (ConfigurationValue, bool) {
+	selector, ok := selectorIdent(fld.Decl.Selector, "configuration selector", errs)
+	if !ok {
+		return ConfigurationValue{}, false
+	}
+	entry := ConfigurationValue{
+		S:        fld.S,
+		Selector: selector,
+		Body:     fld.Decl.Body,
+	}
+	if !fld.Decl.Default {
+		name, ok := fieldName(fld, "configuration name", errs)
+		if !ok {
+			return ConfigurationValue{}, false
+		}
+		entry.Name = &name
+	}
+	return entry, true
+}
+
+func configurationValueKey(entry ConfigurationValue) string {
+	if entry.Name == nil {
+		return entry.Selector.Name
+	}
+	return entry.Selector.Name + "." + entry.Name.Name
 }
 
 func configurationKey(
@@ -449,6 +617,20 @@ func lowerNodes(
 	nodes := make([]NodeDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
+		if fld.Decl != nil {
+			node, ok := lowerSelectorNode(fld, kind, errs)
+			if !ok {
+				continue
+			}
+			if prev, dup := seen[node.Name.Name]; dup {
+				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+					"duplicate %s %s (first defined at %s)", kind, node.Name.Name, prev)
+				continue
+			}
+			seen[node.Name.Name] = fld.Key.S.Start
+			nodes = append(nodes, node)
+			continue
+		}
 		if fld.Key.Kind != parse.FieldPath {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"%s must be declared with a dotted alias.export.name key", kind)
@@ -486,6 +668,33 @@ func lowerNodes(
 	return nodes
 }
 
+func lowerSelectorNode(
+	fld *parse.Field,
+	kind NodeKind,
+	errs *parse.ErrorList,
+) (NodeDecl, bool) {
+	if fld.Decl.Default {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s declaration must include a name before the selector", kind)
+		return NodeDecl{}, false
+	}
+	name, ok := fieldName(fld, string(kind)+" name", errs)
+	if !ok {
+		return NodeDecl{}, false
+	}
+	selector, ok := nodeSelector(fld.Decl.Selector, string(kind)+" selector", errs)
+	if !ok {
+		return NodeDecl{}, false
+	}
+	return NodeDecl{
+		S:        fld.S,
+		Kind:     kind,
+		Name:     name,
+		Selector: selector,
+		Body:     fld.Decl.Body,
+	}, true
+}
+
 func lowerOutputs(block *parse.ObjectLit, errs *parse.ErrorList) []OutputDecl {
 	outputs := make([]OutputDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
@@ -514,6 +723,14 @@ func lowerStateDecl(span parse.Span, block *parse.ObjectLit, errs *parse.ErrorLi
 	return &StateDecl{S: span, Selector: selector, Body: body}
 }
 
+func lowerStateSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *StateDecl {
+	selector, ok := selectorIdent(fld.Decl.Selector, "state selector", errs)
+	if !ok {
+		return &StateDecl{S: fld.S, Body: fld.Decl.Body}
+	}
+	return &StateDecl{S: fld.S, Selector: selector, Body: fld.Decl.Body}
+}
+
 func lowerEncryptionDecl(
 	span parse.Span,
 	block *parse.ObjectLit,
@@ -521,6 +738,14 @@ func lowerEncryptionDecl(
 ) *EncryptionDecl {
 	selector, body := lowerSelectorObject(block, "@key-source", "encryption", errs)
 	return &EncryptionDecl{S: span, Selector: selector, Body: body}
+}
+
+func lowerEncryptionSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *EncryptionDecl {
+	selector, ok := selectorIdent(fld.Decl.Selector, "encryption selector", errs)
+	if !ok {
+		return &EncryptionDecl{S: fld.S, Body: fld.Decl.Body}
+	}
+	return &EncryptionDecl{S: fld.S, Selector: selector, Body: fld.Decl.Body}
 }
 
 func lowerSelectorObject(
@@ -620,6 +845,11 @@ func stringKey(fld *parse.Field, what string, errs *parse.ErrorList) (StringKey,
 }
 
 func stringValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.StringLit {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s must be a string literal", what)
+		return nil
+	}
 	value, ok := fld.Value.(*parse.StringLit)
 	if !ok {
 		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
@@ -630,6 +860,11 @@ func stringValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.St
 }
 
 func objectValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.ObjectLit {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s must be an object", what)
+		return nil
+	}
 	value, ok := fld.Value.(*parse.ObjectLit)
 	if !ok {
 		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
@@ -640,6 +875,11 @@ func objectValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.Ob
 }
 
 func arrayValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.ArrayLit {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s must be an array", what)
+		return nil
+	}
 	value, ok := fld.Value.(*parse.ArrayLit)
 	if !ok {
 		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
@@ -651,4 +891,31 @@ func arrayValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.Arr
 
 func keyPart(key parse.FieldKey, name string) Ident {
 	return Ident{S: key.S, Name: name}
+}
+
+func selectorIdent(sel parse.Selector, what string, errs *parse.ErrorList) (Ident, bool) {
+	if len(sel.Parts) != 1 {
+		errs.Addf(parse.ErrSchema, sel.S.Start,
+			"%s must have one segment", what)
+		return Ident{}, false
+	}
+	part := sel.Parts[0]
+	return Ident{S: part.S, Name: part.Name}, true
+}
+
+func nodeSelector(
+	sel parse.Selector,
+	what string,
+	errs *parse.ErrorList,
+) (NodeSelector, bool) {
+	if len(sel.Parts) != 2 {
+		errs.Addf(parse.ErrSchema, sel.S.Start,
+			"%s must have two segments: alias.export", what)
+		return NodeSelector{}, false
+	}
+	return NodeSelector{
+		S:      sel.S,
+		Alias:  Ident{S: sel.Parts[0].S, Name: sel.Parts[0].Name},
+		Export: Ident{S: sel.Parts[1].S, Name: sel.Parts[1].Name},
+	}, true
 }
