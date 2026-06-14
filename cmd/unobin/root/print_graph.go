@@ -57,11 +57,15 @@ func init() {
 }
 
 func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
-	src, err := os.ReadFile(cfg.stackPath)
+	stackPath, err := compile.FactorySourcePath(cfg.stackPath)
 	if err != nil {
 		return err
 	}
-	f, _, err := compile.ParseFactorySource(cfg.stackPath, src)
+	src, err := os.ReadFile(stackPath)
+	if err != nil {
+		return err
+	}
+	f, _, err := compile.ParseFactorySource(stackPath, src)
 	if err != nil {
 		return err
 	}
@@ -71,7 +75,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		return errors.Join(errs...)
 	}
 
-	resolver, err := newCompileResolver(filepath.Dir(cfg.stackPath))
+	resolver, err := newCompileResolver(filepath.Dir(stackPath))
 	if err != nil {
 		return err
 	}
@@ -80,7 +84,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		return err
 	}
 
-	repoVersions, err := compile.LockedVersions(filepath.Dir(cfg.stackPath))
+	repoVersions, err := compile.LockedVersions(filepath.Dir(stackPath))
 	if err != nil {
 		return err
 	}
@@ -101,7 +105,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	case "plain":
 		graphprint.Plain(out, dag)
 	case "dot":
-		graphprint.DOT(out, dag, compile.DeriveStackName(cfg.stackPath))
+		graphprint.DOT(out, dag, compile.DeriveStackName(stackPath))
 	default:
 		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", cfg.format)
 	}

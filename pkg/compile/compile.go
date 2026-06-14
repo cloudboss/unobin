@@ -132,7 +132,8 @@ func sourceDeclaredFactoryBody(f *lang.File) *lang.ObjectLit {
 	return body
 }
 
-func factorySourcePath(path string) (string, error) {
+// FactorySourcePath returns the factory source file named by path.
+func FactorySourcePath(path string) (string, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return "", err
@@ -158,7 +159,7 @@ func Run(opts Options) error {
 	if opts.OutDir == "" {
 		return errors.New("--out is required (use `-` for stdout)")
 	}
-	stackPath, err := factorySourcePath(opts.StackPath)
+	stackPath, err := FactorySourcePath(opts.StackPath)
 	if err != nil {
 		return err
 	}
