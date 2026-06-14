@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,9 +19,8 @@ var (
 		Long: `Scaffold a new UB library directory.
 
 The generated directory contains one starter resource composite export
-file named resource-<type>.ub. The directory listing is the manifest,
-so there is no separate manifest file. Blocks are empty for the author
-to fill in.
+file named <type>.ub. The directory listing is the manifest, so there is
+no separate manifest file. Blocks are empty for the author to fill in.
 
 Examples:
   unobin generate ublibrary -o ./greeter
@@ -41,7 +41,7 @@ type ublibraryConfig struct {
 func init() {
 	UblibraryCmd.Flags().StringVarP(&ublibraryCfg.output, "output", "o", "",
 		"Output directory for the generated library")
-	UblibraryCmd.Flags().StringVar(&ublibraryCfg.typeName, "type", "main",
+	UblibraryCmd.Flags().StringVar(&ublibraryCfg.typeName, "type", "example",
 		"Name of the initial composite type to export")
 	UblibraryCmd.Flags().BoolVar(&ublibraryCfg.force, "force", false,
 		"Overwrite files if the output directory already exists")
@@ -53,8 +53,8 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 	if cfg.output == "" {
 		return fmt.Errorf("--output must not be empty")
 	}
-	if cfg.typeName == "" {
-		return fmt.Errorf("--type must not be empty")
+	if err := validateUblibraryTypeName(cfg.typeName); err != nil {
+		return err
 	}
 
 	if _, err := os.Stat(cfg.output); err == nil {
@@ -70,14 +70,32 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 		return err
 	}
 
-	typePath := filepath.Join(cfg.output, "resource-"+cfg.typeName+".ub")
+	typePath := filepath.Join(cfg.output, cfg.typeName+".ub")
+	legacyTypePath := filepath.Join(cfg.output, "resource-"+cfg.typeName+".ub")
 
 	if err := lang.WriteCanonical(typePath, []byte(renderCompositeStub(cfg.typeName))); err != nil {
+		return err
+	}
+	if err := os.Remove(legacyTypePath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Created %s\n", typePath)
+	return nil
+}
+
+func validateUblibraryTypeName(name string) error {
+	if name == "" {
+		return fmt.Errorf("--type must not be empty")
+	}
+	if strings.ContainsAny(name, `/\\`) {
+		return fmt.Errorf("--type must be a file name, got %q", name)
+	}
+	switch name {
+	case "factory", "lock", "main", "manifest":
+		return fmt.Errorf("--type %q is reserved; choose another type name", name)
+	}
 	return nil
 }
 

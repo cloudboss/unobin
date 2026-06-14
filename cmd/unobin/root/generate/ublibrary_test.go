@@ -37,11 +37,11 @@ func TestUblibraryDefaultTypeName(t *testing.T) {
 
 	out, err := runUblibraryCmd(t, "-o", dir)
 	require.NoError(t, err)
-	require.Contains(t, out, filepath.Join(dir, "resource-main.ub"))
+	require.Contains(t, out, filepath.Join(dir, "example.ub"))
 
-	stub, err := os.ReadFile(filepath.Join(dir, "resource-main.ub"))
+	stub, err := os.ReadFile(filepath.Join(dir, "example.ub"))
 	require.NoError(t, err)
-	wantStub := `main: resource {
+	wantStub := `example: resource {
   description: 'TODO: describe this composite type'
   inputs:      {}
   imports:     {}
@@ -60,11 +60,11 @@ func TestUblibraryCustomTypeName(t *testing.T) {
 	_, err := runUblibraryCmd(t, "-o", dir, "--type", "greeting")
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "resource-greeting.ub"))
+	_, err = os.Stat(filepath.Join(dir, "greeting.ub"))
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "resource-main.ub"))
-	require.True(t, os.IsNotExist(err), "resource-main.ub should not exist when --type=greeting")
+	_, err = os.Stat(filepath.Join(dir, "example.ub"))
+	require.True(t, os.IsNotExist(err), "example.ub should not exist when --type=greeting")
 }
 
 func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
@@ -72,13 +72,46 @@ func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
 	_, err := runUblibraryCmd(t, "-o", dir)
 	require.NoError(t, err)
 
-	path := filepath.Join(dir, "resource-main.ub")
+	path := filepath.Join(dir, "example.ub")
 	src, err := os.ReadFile(path)
 	require.NoError(t, err)
 	f, err := syntax.ParseSource(path, src)
 	require.NoError(t, err)
 	errs := syntax.ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Err())
+}
+
+func TestUblibraryForceRemovesLegacyPrefixedFile(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "greeter")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	legacy := filepath.Join(dir, "resource-greeting.ub")
+	require.NoError(t, os.WriteFile(legacy, []byte("stale content"), 0o644))
+
+	_, err := runUblibraryCmd(t, "-o", dir, "--type", "greeting", "--force")
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(dir, "greeting.ub"))
+	require.NoError(t, err)
+	_, err = os.Stat(legacy)
+	require.True(t, os.IsNotExist(err), "legacy prefixed file should be removed")
+}
+
+func TestUblibraryRefusesReservedTypeName(t *testing.T) {
+	for _, name := range []string{"factory", "lock", "main", "manifest"} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "greeter")
+			_, err := runUblibraryCmd(t, "-o", dir, "--type", name)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "reserved")
+		})
+	}
+}
+
+func TestUblibraryRefusesPathTypeName(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "greeter")
+	_, err := runUblibraryCmd(t, "-o", dir, "--type", "nested/name")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "file name")
 }
 
 func TestUblibraryRefusesExistingDir(t *testing.T) {
@@ -93,7 +126,7 @@ func TestUblibraryRefusesExistingDir(t *testing.T) {
 func TestUblibraryForceOverwritesExistingDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "greeter")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stale := filepath.Join(dir, "resource-main.ub")
+	stale := filepath.Join(dir, "example.ub")
 	require.NoError(t, os.WriteFile(stale, []byte("stale content"), 0o644))
 
 	_, err := runUblibraryCmd(t, "-o", dir, "--force")
