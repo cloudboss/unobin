@@ -29,8 +29,8 @@ print-graph subcommand does. The output is intended to match what
 the compiled binary would emit.
 
 Examples:
-  unobin print-graph -p main.ub
-  unobin print-graph -p main.ub --format dot | dot -Tsvg > graph.svg`,
+  unobin print-graph
+  unobin print-graph -p factory.ub --format dot | dot -Tsvg > graph.svg`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPrintGraph(cmd, printGraphCfg)
@@ -45,15 +45,13 @@ type printGraphConfig struct {
 }
 
 func init() {
-	PrintGraphCmd.Flags().StringVarP(&printGraphCfg.stackPath, "path", "p", "",
-		"Path to the stack source.")
+	PrintGraphCmd.Flags().StringVarP(&printGraphCfg.stackPath, "path", "p", ".",
+		"Path to the factory source file or directory.")
 	PrintGraphCmd.Flags().StringVar(&printGraphCfg.format, "format", "plain",
 		"Output format: 'plain' for an indented text listing, 'dot' for Graphviz.")
 	PrintGraphCmd.Flags().StringVar(&printGraphCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin so the "+
 			"resolver reads from a working tree.")
-
-	_ = PrintGraphCmd.MarkFlagRequired("path")
 }
 
 func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
