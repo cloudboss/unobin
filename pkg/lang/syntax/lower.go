@@ -78,6 +78,16 @@ func lowerSourceDeclaredFile(
 			roles = append(roles, sourceFileRole{name: fld.Key.Name, fld: fld})
 		}
 	}
+	if f.Kind != parse.FileUnknown && len(f.Body.Fields) != 1 {
+		return false
+	}
+	if len(roles) > 1 {
+		lowerSourceDeclaredRole(f, out, roles, errs)
+		return true
+	}
+	if !validateSourceDeclaredPath(f, roles, errs) {
+		return true
+	}
 	if len(roles) == 1 && len(f.Body.Fields) == 1 {
 		lowerSourceDeclaredRole(f, out, roles, errs)
 		return true
@@ -92,6 +102,57 @@ func lowerSourceDeclaredFile(
 		return true
 	}
 	return false
+}
+
+func validateSourceDeclaredPath(
+	f *parse.File,
+	roles []sourceFileRole,
+	errs *parse.ErrorList,
+) bool {
+	if want, ok := reservedSourceFileRole(f.Path); ok {
+		if len(roles) == 0 || roles[0].name != want {
+			errs.Addf(parse.ErrSchema, f.S.Start,
+				"%s must declare %s", filepath.Base(f.Path), want)
+			return false
+		}
+		return true
+	}
+	if len(roles) == 0 {
+		return true
+	}
+	name := roles[0].name
+	if filename, ok := sourceRoleFilename(name); ok {
+		errs.Addf(parse.ErrSchema, roles[0].fld.Key.S.Start,
+			"%s declaration must be in %s", name, filename)
+		return false
+	}
+	return true
+}
+
+func reservedSourceFileRole(path string) (string, bool) {
+	switch filepath.Base(path) {
+	case "factory.ub":
+		return "factory", true
+	case "manifest.ub":
+		return "manifest", true
+	case "lock.ub":
+		return "lock", true
+	default:
+		return "", false
+	}
+}
+
+func sourceRoleFilename(role string) (string, bool) {
+	switch role {
+	case "factory":
+		return "factory.ub", true
+	case "manifest":
+		return "manifest.ub", true
+	case "lock":
+		return "lock.ub", true
+	default:
+		return "", false
+	}
 }
 
 func lowerSourceDeclaredRole(

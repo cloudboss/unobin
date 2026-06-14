@@ -528,6 +528,61 @@ stack: {}
 	assert.Contains(t, errs.Error(), "file must not declare both factory and stack")
 }
 
+func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		src  string
+		want string
+	}{
+		{
+			name: "factory file without factory declaration",
+			path: "factory.ub",
+			src:  "greeting: resource {}\n",
+			want: "factory.ub must declare factory",
+		},
+		{
+			name: "manifest file with factory declaration",
+			path: "manifest.ub",
+			src:  "factory: {}\n",
+			want: "manifest.ub must declare manifest",
+		},
+		{
+			name: "lock file with manifest declaration",
+			path: "lock.ub",
+			src:  "manifest: {}\n",
+			want: "lock.ub must declare lock",
+		},
+		{
+			name: "factory declaration outside factory file",
+			path: "main.ub",
+			src:  "factory: {}\n",
+			want: "factory declaration must be in factory.ub",
+		},
+		{
+			name: "manifest declaration outside manifest file",
+			path: "unobin.manifest",
+			src:  "manifest: {}\n",
+			want: "manifest declaration must be in manifest.ub",
+		},
+		{
+			name: "lock declaration outside lock file",
+			path: "unobin.lock",
+			src:  "lock: {}\n",
+			want: "lock declaration must be in lock.ub",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := parseFile(t, c.path, c.src, parse.FileUnknown)
+
+			_, errs := LowerFile(f)
+			require.NotEqual(t, 0, errs.Len())
+			assert.Contains(t, errs.Error(), c.want)
+		})
+	}
+}
+
 func TestLowerReportsLockSchemaErrors(t *testing.T) {
 	f := parseFile(t, "lock.ub", `
 lock: {
