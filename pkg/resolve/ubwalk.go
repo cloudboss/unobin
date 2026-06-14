@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"golang.org/x/mod/modfile"
 )
 
@@ -35,10 +36,10 @@ type ResolutionKind int
 
 const (
 	// ResolutionGo names a Go-library import: a remote ref whose resolved
-	// source has no kind-prefixed body files at its root.
+	// source is not a UB library.
 	ResolutionGo ResolutionKind = iota + 1
 	// ResolutionUB names a UB-library import: a ref whose resolved source
-	// has kind-prefixed body files at its root.
+	// has importable UB files at its root.
 	ResolutionUB
 )
 
@@ -61,11 +62,11 @@ type Resolution struct {
 
 // UBLibrary has everything the visitor needs about a UB library the
 // first time the walker reaches it. Bodies maps composite type name to
-// the parsed body file; the type name comes from a kind-prefixed
-// filename (`<kind>-<type>.ub`). Kinds maps the same type name to its
-// kind (`resource`, `data`, or `action`). BodyImports maps the type
-// name to the resolved imports declared by that body, in alias-sorted
-// order so callers see a stable view across runs.
+// the parsed body file; the type name comes from a kind-prefixed filename
+// (`<kind>-<type>.ub`) or a grammar-first composite declaration. Kinds maps
+// the same type name to its kind (`resource`, `data`, or `action`).
+// BodyImports maps the type name to the resolved imports declared by that
+// body, in alias-sorted order so callers see a stable view across runs.
 type UBLibrary struct {
 	Bodies      map[string]*lang.File
 	Kinds       map[string]string
@@ -163,9 +164,8 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	if ContainsMainUB(source) {
-		return Resolution{}, fmt.Errorf(
-			"import %q: a factory (a directory with main.ub) cannot be imported", alias)
+	if ContainsFactorySource(source) {
+		return Resolution{}, fmt.Errorf("import %q: a factory cannot be imported", alias)
 	}
 	if !IsUBLibrary(source) {
 		return w.handleGoImport(alias, ref, source)
@@ -272,11 +272,8 @@ func (w *ubWalker) handleUBImport(
 	}, nil
 }
 
-// parseLibrary reads a UB library's composite bodies straight from its
-// directory listing: every kind-prefixed `.ub` file is one composite,
-// with the type name and kind taken from the filename. There is no
-// manifest. A `.ub` file whose name is not `<kind>-<type>.ub` is an
-// error, as is two files naming the same type.
+// parseLibrary reads a UB library's composite bodies from kind-prefixed body
+// files and source-declared composite export files.
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	matches, err := fs.Glob(source.FS, "*.ub")
 	if err != nil {
@@ -287,17 +284,15 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	kinds := make(map[string]string, len(matches))
 	for _, filename := range matches {
 		kind, typeName, ok := ubKindAndType(filename)
-		if !ok {
-			return nil, fmt.Errorf(
-				"library file %q must be named <resource|data|action>-<type>.ub", filename)
-		}
-		if _, dup := bodies[typeName]; dup {
-			return nil, fmt.Errorf(
-				"composite type %q is declared by more than one file", typeName)
-		}
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
+		}
+		if !ok {
+			if err := addSourceDeclaredLibraryFile(filename, b, bodies, kinds); err != nil {
+				return nil, err
+			}
+			continue
 		}
 		f, err := lang.ParseSource(filename, b)
 		if err != nil {
@@ -307,10 +302,67 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		if errs := lang.ValidateFile(f); errs.Len() > 0 {
 			return nil, errs.Err()
 		}
-		bodies[typeName] = f
-		kinds[typeName] = kind
+		if err := addLibraryBody(typeName, kind, f, bodies, kinds); err != nil {
+			return nil, err
+		}
 	}
 	return &UBLibrary{Bodies: bodies, Kinds: kinds}, nil
+}
+
+func addSourceDeclaredLibraryFile(
+	filename string,
+	src []byte,
+	bodies map[string]*lang.File,
+	kinds map[string]string,
+) error {
+	f, err := lang.ParseSource(filename, src)
+	if err != nil {
+		return err
+	}
+	sf, serrs := syntax.LowerFile(f)
+	if serrs.Len() > 0 {
+		return fmt.Errorf(
+			"library file %q must be named <resource|data|action>-<type>.ub "+
+				"or contain composite declarations",
+			filename)
+	}
+	if sf.Kind != syntax.FileLibrary || sf.Library == nil {
+		return fmt.Errorf(
+			"library file %q must be named <resource|data|action>-<type>.ub "+
+				"or contain composite declarations",
+			filename)
+	}
+	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+		return verrs.Err()
+	}
+	for _, export := range sf.Library.Exports {
+		body := &lang.File{
+			S:        export.S,
+			Kind:     lang.FileExportedType,
+			Path:     filename,
+			Body:     syntax.FactoryBodyObject(export.Body),
+			Comments: sf.Comments,
+		}
+		if err := addLibraryBody(export.Name.Name, string(export.Kind), body, bodies, kinds); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addLibraryBody(
+	name string,
+	kind string,
+	body *lang.File,
+	bodies map[string]*lang.File,
+	kinds map[string]string,
+) error {
+	if _, dup := bodies[name]; dup {
+		return fmt.Errorf("composite type %q is declared by more than one file", name)
+	}
+	bodies[name] = body
+	kinds[name] = kind
+	return nil
 }
 
 func readSourceFile(s *Source, name string) ([]byte, error) {

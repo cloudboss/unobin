@@ -111,7 +111,7 @@ func projectRoot(stackPath string) string {
 	return filepath.Dir(stackPath)
 }
 
-// runDepsSync reconciles unobin.manifest and unobin.lock with the
+// runDepsSync reconciles the project manifest and unobin.lock with the
 // project's imports. The manifest holds the floors; sync reads it,
 // requires a floor for every imported repository, removes floors for
 // repositories no longer imported, then selects versions across the
@@ -119,7 +119,7 @@ func projectRoot(stackPath string) string {
 // writes both files at the project root.
 func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	root := projectRoot(cfg.stackPath)
-	manifest, err := readManifestOrEmpty(root)
+	manifest, manifestName, err := readManifestOrEmpty(root)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := reconcileManifest(manifest, imported); err != nil {
+	if err := reconcileManifest(manifestName, manifest, imported); err != nil {
 		return err
 	}
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
@@ -155,7 +155,7 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := readManifestOrEmpty(root)
+	manifest, _, err := readManifestOrEmpty(root)
 	if err != nil {
 		return err
 	}
@@ -164,18 +164,26 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
 }
 
-// readManifestOrEmpty reads unobin.manifest from root, returning an empty
-// manifest when the file does not exist yet. There is no `deps init`: the
-// manifest is created the first time get or sync writes it.
-func readManifestOrEmpty(root string) (*deps.Manifest, error) {
+// readManifestOrEmpty reads the project manifest from root, returning an
+// empty manifest when the file does not exist yet. There is no `deps init`:
+// the manifest is created the first time get or sync writes it.
+func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
+	manifestName := manifestFileName(root)
 	manifest, err := deps.ReadManifest(os.DirFS(root))
 	if errors.Is(err, fs.ErrNotExist) {
-		return &deps.Manifest{Requires: map[deps.Dependency]string{}}, nil
+		return &deps.Manifest{Requires: map[deps.Dependency]string{}}, manifestName, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, manifestName, err
 	}
-	return manifest, nil
+	return manifest, manifestName, nil
+}
+
+func manifestFileName(root string) string {
+	if _, err := os.Stat(filepath.Join(root, deps.SourceManifestFileName)); err == nil {
+		return deps.SourceManifestFileName
+	}
+	return deps.ManifestFileName
 }
 
 // reconcileManifest makes the manifest's floors match the set of imported
@@ -184,7 +192,11 @@ func readManifestOrEmpty(root string) (*deps.Manifest, error) {
 // imported is removed. The unobin repository takes no floor at all: an
 // import from it must be served by a replace, since its source version
 // may not float free of the toolchain.
-func reconcileManifest(m *deps.Manifest, imported map[deps.Dependency]bool) error {
+func reconcileManifest(
+	manifestName string,
+	m *deps.Manifest,
+	imported map[deps.Dependency]bool,
+) error {
 	var missing []string
 	for dep := range imported {
 		if _, ok := m.Replace[dep]; ok {
@@ -207,7 +219,7 @@ func reconcileManifest(m *deps.Manifest, imported map[deps.Dependency]bool) erro
 		return fmt.Errorf(
 			"imported but missing from %s: %s\n"+
 				"add a floor with `unobin deps get <repo>@<version>`",
-			deps.ManifestFileName, strings.Join(missing, ", "))
+			manifestName, strings.Join(missing, ", "))
 	}
 	for dep := range m.Requires {
 		if !imported[dep] {
@@ -243,15 +255,27 @@ func resolveAndWrite(
 	if err != nil {
 		return err
 	}
-	if err := deps.WriteManifest(filepath.Join(root, deps.ManifestFileName), manifest); err != nil {
+	manifestName, err := writeProjectManifest(root, manifest)
+	if err != nil {
 		return err
 	}
 	if err := deps.WriteLock(filepath.Join(root, deps.LockFileName), lock); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (%d direct) and %s (%d locked)\n",
-		deps.ManifestFileName, len(manifest.Requires), deps.LockFileName, len(lock.Deps))
+		manifestName, len(manifest.Requires), deps.LockFileName, len(lock.Deps))
 	return nil
+}
+
+func writeProjectManifest(root string, manifest *deps.Manifest) (string, error) {
+	sourcePath := filepath.Join(root, deps.SourceManifestFileName)
+	if _, err := os.Stat(sourcePath); err == nil {
+		return deps.SourceManifestFileName, deps.WriteSourceManifest(sourcePath, manifest)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	path := filepath.Join(root, deps.ManifestFileName)
+	return deps.ManifestFileName, deps.WriteManifest(path, manifest)
 }
 
 // runDepsList prints the locked dependencies, one per line, sorted by id.

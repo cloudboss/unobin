@@ -40,10 +40,11 @@ func TestUBKindAndType(t *testing.T) {
 
 func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 	cases := []struct {
-		name      string
-		files     map[string]string
-		isLibrary bool
-		isFactory bool
+		name             string
+		files            map[string]string
+		isLibrary        bool
+		hasMain          bool
+		hasFactorySource bool
 	}{
 		{
 			name:      "resource composite",
@@ -74,9 +75,15 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 			isLibrary: true,
 		},
 		{
-			name:      "factory directory",
-			files:     map[string]string{"main.ub": "description: 'f'"},
-			isFactory: true,
+			name:             "factory directory",
+			files:            map[string]string{"main.ub": "description: 'f'"},
+			hasMain:          true,
+			hasFactorySource: true,
+		},
+		{
+			name:             "grammar-first factory directory",
+			files:            map[string]string{"factory.ub": "factory: {}"},
+			hasFactorySource: true,
 		},
 		{
 			name: "factory with stray composite is still a factory",
@@ -84,7 +91,8 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 				"main.ub":       "description: 'f'",
 				"resource-a.ub": "description: 'a'",
 			},
-			isFactory: true,
+			hasMain:          true,
+			hasFactorySource: true,
 		},
 		{
 			name:  "go library",
@@ -99,7 +107,9 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			src := newUBSource(t, c.files)
 			require.Equal(t, c.isLibrary, IsUBLibrary(src), "IsUBLibrary")
-			require.Equal(t, c.isFactory, ContainsMainUB(src), "ContainsMainUB")
+			require.Equal(t, c.hasMain, ContainsMainUB(src), "ContainsMainUB")
+			require.Equal(t, c.hasFactorySource, ContainsFactorySource(src),
+				"ContainsFactorySource")
 		})
 	}
 }
@@ -109,6 +119,8 @@ func TestIsUBLibraryNilSource(t *testing.T) {
 	require.False(t, IsUBLibrary(&Source{}))
 	require.False(t, ContainsMainUB(nil))
 	require.False(t, ContainsMainUB(&Source{}))
+	require.False(t, ContainsFactorySource(nil))
+	require.False(t, ContainsFactorySource(&Source{}))
 }
 
 // walkOneUB resolves a single remote import pointing at src and returns
@@ -142,6 +154,54 @@ func TestWalkUBDerivesKindAndTypeFromFilenames(t *testing.T) {
 		"ami":      "data",
 		"notify":   "action",
 	}, lib.Kinds)
+}
+
+func TestWalkUBParsesSourceDeclaredLibraryExports(t *testing.T) {
+	src := newUBSource(t, map[string]string{
+		"library.ub": `
+greeting: resource {
+  imports: {
+    core: 'github.com/x/unobin//core'
+  }
+  outputs: {
+    message: { value: 'hello' }
+  }
+}
+
+lookup: data {
+  outputs: {
+    id: { value: 'id-1' }
+  }
+}
+`,
+	})
+	refs := map[string]ImportRef{
+		"hello": &RemoteImport{URL: "github.com/x/hello"},
+	}
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"github.com/x/hello@v1.0.0": src,
+	}}
+	versions := map[string]string{
+		"github.com/x/hello":  "v1.0.0",
+		"github.com/x/unobin": "v0.1.0",
+	}
+	v := newRecordingVisitor()
+
+	top, err := WalkUB(refs, r, v, versions)
+
+	require.NoError(t, err)
+	require.Len(t, top, 1)
+	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
+	require.NotNil(t, lib)
+	require.ElementsMatch(t, []string{"greeting", "lookup"}, keysOf(lib.Bodies))
+	require.Equal(t, map[string]string{
+		"greeting": "resource",
+		"lookup":   "data",
+	}, lib.Kinds)
+	bodyImports := lib.BodyImports["greeting"]
+	require.Len(t, bodyImports, 1)
+	require.Equal(t, "core", bodyImports[0].LocalAlias)
+	require.Equal(t, ResolutionGo, bodyImports[0].Kind)
 }
 
 func TestWalkUBKeepsMultiHyphenTypeName(t *testing.T) {
@@ -197,6 +257,15 @@ func TestWalkUBRejectsFactoryImport(t *testing.T) {
 	_, err := walkOneUB(t, src)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "a factory")
+	require.Contains(t, err.Error(), "cannot be imported")
+}
+
+func TestWalkUBRejectsGrammarFirstFactoryImport(t *testing.T) {
+	src := newUBSource(t, map[string]string{
+		"factory.ub": "factory: {}",
+	})
+	_, err := walkOneUB(t, src)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot be imported")
 }
 

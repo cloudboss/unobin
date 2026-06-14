@@ -8,22 +8,21 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 // LockFromImports builds the lock for the project rooted at rootFS. It
-// walks every .ub file under the root -- a factory's main.ub, library
-// bodies at the root, or libraries in subdirectories -- and through remote
-// UB libraries their imports too. Each remote library becomes one lock
-// entry, keyed by `repo//subdir`. Local imports are not locked and need no
-// following: the walk already visits every file under the root, so a local
-// library's own imports are reached directly. A library's version is its
-// repository's selected version; a repository the selection does not cover
-// is an error (it is imported but no floor reached it). Kind and content
-// hash come from the fetched library subtree, so a Go library and a UB
-// library in the same repo are recorded distinctly. A repository named in
-// replace is read from its local path and never locked; a replaced UB
+// walks every .ub file under the root -- legacy main.ub, grammar-first
+// factory.ub, library bodies at the root, or libraries in subdirectories --
+// and through remote UB libraries their imports too. Each remote library
+// becomes one lock entry, keyed by `repo//subdir`. Local imports are not
+// locked and need no following: the walk already visits every file under the
+// root, so a local library's own imports are reached directly. A library's
+// version is its repository's selected version; a repository the selection
+// does not cover is an error (it is imported but no floor reached it). Kind
+// and content hash come from the fetched library subtree, so a Go library and
+// a UB library in the same repo are recorded distinctly. A repository named
+// in replace is read from its local path and never locked; a replaced UB
 // library's own remote dependencies are still walked.
 func LockFromImports(
 	rootFS fs.FS, selection map[Dependency]string, resolver resolve.Resolver,
@@ -123,13 +122,9 @@ func lockFileImportRefs(f *lang.File) ([]lockImportRef, error) {
 	if !hasSourceDeclaredImports(f) {
 		return out, nil
 	}
-	sf, serrs := syntax.LowerFile(f)
-	if serrs.Len() > 0 {
-		return nil, serrs.Err()
-	}
-	srefs, serrList := resolve.ExtractSyntaxImports(sf)
-	if len(serrList) > 0 {
-		return nil, errors.Join(serrList...)
+	srefs, err := extractSyntaxImportRefs(f)
+	if err != nil {
+		return nil, err
 	}
 	for _, ref := range srefs {
 		out = append(out, lockImportRef{
@@ -209,6 +204,9 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	if err != nil {
 		return err
 	}
+	if resolve.ContainsFactorySource(src) {
+		return fmt.Errorf("a factory cannot be imported")
+	}
 	kind := LockKindGo
 	if resolve.IsUBLibrary(src) {
 		kind = LockKindUB
@@ -238,6 +236,9 @@ func (w *lockWalker) checkLocalImport(alias string, r *resolve.LocalImport) erro
 	if err != nil {
 		return fmt.Errorf("import %q: %w", alias, err)
 	}
+	if resolve.ContainsFactorySource(src) {
+		return fmt.Errorf("import %q: a factory cannot be imported", alias)
+	}
 	if !resolve.IsUBLibrary(src) {
 		return resolve.LocalGoImportError(alias, r.Path, src)
 	}
@@ -252,6 +253,9 @@ func (w *lockWalker) walkReplaced(r *resolve.RemoteImport) error {
 	src, err := w.resolver.Resolve(&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir})
 	if err != nil {
 		return err
+	}
+	if resolve.ContainsFactorySource(src) {
+		return fmt.Errorf("a factory cannot be imported")
 	}
 	if resolve.IsUBLibrary(src) {
 		return w.walkBodies(src)

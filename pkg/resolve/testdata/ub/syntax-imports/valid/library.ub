@@ -1,0 +1,11 @@
+greeting: resource {
+  imports: {
+    helloer: 'github.com/scratch/repo//ub/helloer'
+  }
+}
+
+lookup: data {
+  imports: {
+    local: './local-data'
+  }
+}

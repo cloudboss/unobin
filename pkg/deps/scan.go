@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -58,13 +57,9 @@ func scanImports(path string, repos map[Dependency]bool) error {
 	if !hasSourceDeclaredImports(f) {
 		return nil
 	}
-	sf, serrs := syntax.LowerFile(f)
-	if serrs.Len() > 0 {
-		return serrs.Err()
-	}
-	srefs, errs := resolve.ExtractSyntaxImports(sf)
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	srefs, err := extractSyntaxImportRefs(f)
+	if err != nil {
+		return err
 	}
 	addSyntaxImportRefs(repos, srefs)
 	return nil

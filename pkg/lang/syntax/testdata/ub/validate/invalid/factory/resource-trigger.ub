@@ -1,0 +1,7 @@
+factory: {
+  resources: {
+    hello: std.fs-file {
+      @trigger: 'always'
+    }
+  }
+}

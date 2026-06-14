@@ -1,0 +1,38 @@
+factory: {
+  imports: {
+    std: 'github.com/cloudboss/unobin-library-std'
+  }
+
+  inputs: {
+    message: { type: string }
+    names: { type: list(string) }
+  }
+
+  locals: {
+    rendered: std.render('hello')
+  }
+
+  configurations: {
+    std {
+      region: 'us-east-1'
+    }
+  }
+
+  resources: {
+    hello: std.fs-file {
+      path: '/tmp/hello.txt'
+      content: var.message
+      @timeout: '30s'
+    }
+  }
+
+  actions: {
+    run: std.exec {
+      @trigger: 'always'
+    }
+  }
+
+  outputs: {
+    path: { value: resource.hello.path }
+  }
+}

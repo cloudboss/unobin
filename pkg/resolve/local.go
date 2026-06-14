@@ -13,14 +13,13 @@ type LocalResolver struct {
 }
 
 // NewLocalResolver returns a LocalResolver rooted at root. Pass the
-// directory containing the main.ub or library type bodies that own the
-// imports.
+// directory containing the factory or library files that own the imports.
 func NewLocalResolver(root string) *LocalResolver {
 	return &LocalResolver{Root: root}
 }
 
 // Resolve implements Resolver. The ref must be a *LocalImport; remote
-// refs return an error so a misrouted call surfaces clearly.
+// refs return an error so a misrouted call is reported clearly.
 func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 	li, ok := ref.(*LocalImport)
 	if !ok {

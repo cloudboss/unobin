@@ -1,0 +1,5 @@
+factory: {
+  imports: {
+    bad: 'github.com'
+  }
+}

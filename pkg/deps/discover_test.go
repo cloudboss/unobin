@@ -36,6 +36,21 @@ func TestFindManifestDir(t *testing.T) {
 	}
 }
 
+func TestFindManifestDirSourceManifest(t *testing.T) {
+	root := t.TempDir()
+	proj := filepath.Join(root, "proj")
+	deep := filepath.Join(proj, "sub", "deep")
+	require.NoError(t, os.MkdirAll(deep, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(proj, SourceManifestFileName),
+		[]byte("manifest: { requires: {} }\n"),
+		0o644))
+
+	got, err := FindManifestDir(deep)
+	require.NoError(t, err)
+	assert.Equal(t, proj, got)
+}
+
 func TestFindManifestDirFromFile(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(

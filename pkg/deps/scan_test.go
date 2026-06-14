@@ -60,6 +60,23 @@ factory: {
 	}, repos)
 }
 
+func TestImportedReposValidatesSourceDeclaredFactory(t *testing.T) {
+	root := t.TempDir()
+	writeUB(t, filepath.Join(root, "factory.ub"), `
+factory: {
+  resources: {
+    hello: std.fs-file {
+      @trigger: 'always'
+    }
+  }
+}
+`)
+	_, err := ImportedRepos(root)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `resource hello: meta key "@trigger" is not allowed`)
+}
+
 func TestImportedReposScansSourceDeclaredLibraryExports(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "library.ub"), `

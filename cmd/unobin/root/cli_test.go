@@ -3,6 +3,7 @@ package root
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -168,6 +169,36 @@ func TestDepsSync(t *testing.T) {
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
+}
+
+func TestDepsSyncSourceManifest(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: {
+    core: 'github.com/x/core//lib'
+  }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.SourceManifestFileName),
+		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
+
+	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
+		"-p", filepath.Join(root, "factory.ub"))
+	require.NoError(t, err)
+	require.Contains(t, out, "Wrote manifest.ub")
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.SourceManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/core': 'v1.0.0'
+  }
+}
+`, string(manifestBytes))
+	_, err = os.Stat(filepath.Join(root, deps.ManifestFileName))
+	require.ErrorIs(t, err, fs.ErrNotExist)
 }
 
 func TestDepsSyncLibraryProject(t *testing.T) {

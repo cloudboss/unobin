@@ -1,88 +1,66 @@
 package resolve
 
 import (
+	"fmt"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
-func parseSyntaxFile(t *testing.T, path, src string) *syntax.File {
-	t.Helper()
-	f, err := syntax.ParseSource(path, []byte(src))
-	require.NoError(t, err)
-	return f
+func TestExtractSyntaxImportsFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/syntax-imports",
+		func(name string, src []byte) (string, []string) {
+			f, err := syntax.ParseSource(syntaxImportFixturePath(name), src)
+			require.NoError(t, err)
+
+			refs, errs := ExtractSyntaxImports(f)
+			output := syntaxImportOutput(refs)
+			diags := make([]string, 0, len(errs))
+			for _, err := range errs {
+				diags = append(diags, err.Error())
+			}
+			return output, diags
+		})
 }
 
-func TestExtractSyntaxImportsFactory(t *testing.T) {
-	f := parseSyntaxFile(t, "factory.ub", `
-factory: {
-  imports: {
-    aws: 'github.com/cloudboss/unobin-library-aws'
-    local: './local-lib'
-  }
-}
-`)
-
-	refs, errs := ExtractSyntaxImports(f)
-	require.Empty(t, errs)
-	require.Len(t, refs, 2)
-
-	aws := refs[0]
-	require.Empty(t, aws.Scope)
-	require.Equal(t, "aws", aws.Alias)
-	require.Equal(t, "github.com/cloudboss/unobin-library-aws",
-		aws.Ref.(*RemoteImport).URL)
-
-	local := refs[1]
-	require.Empty(t, local.Scope)
-	require.Equal(t, "local", local.Alias)
-	require.Equal(t, "./local-lib", local.Ref.(*LocalImport).Path)
+func syntaxImportFixturePath(name string) string {
+	base := filepath.Base(name)
+	if strings.Contains(base, "library") {
+		return "library.ub"
+	}
+	return "factory.ub"
 }
 
-func TestExtractSyntaxImportsLibraryExports(t *testing.T) {
-	f := parseSyntaxFile(t, "library.ub", `
-greeting: resource {
-  imports: {
-    helloer: 'github.com/scratch/repo//ub/helloer'
-  }
+func syntaxImportOutput(refs []SyntaxImport) string {
+	if len(refs) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, ref := range refs {
+		scope := ref.Scope
+		if scope == "" {
+			scope = "-"
+		}
+		fmt.Fprintf(&b, "%s %s %s\n", scope, ref.Alias, syntaxImportRef(ref.Ref))
+	}
+	return b.String()
 }
 
-lookup: data {
-  imports: {
-    local: './local-data'
-  }
-}
-`)
-
-	refs, errs := ExtractSyntaxImports(f)
-	require.Empty(t, errs)
-	require.Len(t, refs, 2)
-
-	helloer := refs[0]
-	require.Equal(t, "resource.greeting", helloer.Scope)
-	require.Equal(t, "helloer", helloer.Alias)
-	require.Equal(t, "github.com/scratch/repo", helloer.Ref.(*RemoteImport).URL)
-	require.Equal(t, "ub/helloer", helloer.Ref.(*RemoteImport).Subdir)
-
-	local := refs[1]
-	require.Equal(t, "data.lookup", local.Scope)
-	require.Equal(t, "local", local.Alias)
-	require.Equal(t, "./local-data", local.Ref.(*LocalImport).Path)
-}
-
-func TestExtractSyntaxImportsReportsBadRefs(t *testing.T) {
-	f := parseSyntaxFile(t, "factory.ub", `
-factory: {
-  imports: {
-    bad: 'github.com'
-  }
-}
-`)
-
-	refs, errs := ExtractSyntaxImports(f)
-	require.Empty(t, refs)
-	require.Len(t, errs, 1)
-	require.Contains(t, errs[0].Error(), "host and a path")
+func syntaxImportRef(ref ImportRef) string {
+	switch r := ref.(type) {
+	case *RemoteImport:
+		if r.Subdir != "" {
+			return fmt.Sprintf("remote %s//%s", r.URL, r.Subdir)
+		}
+		return fmt.Sprintf("remote %s", r.URL)
+	case *LocalImport:
+		return fmt.Sprintf("local %s", r.Path)
+	default:
+		return fmt.Sprintf("%T", ref)
+	}
 }

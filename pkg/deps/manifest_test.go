@@ -5,6 +5,9 @@ import (
 	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func manifestFS(src string) fstest.MapFS {
@@ -21,6 +24,22 @@ func TestReadManifestWithoutToolchainLine(t *testing.T) {
 	m, err := ReadManifest(manifestFS("requires: {}\n"))
 	require.NoError(t, err)
 	require.Empty(t, m.UnobinVersion)
+}
+
+func TestReadSourceManifestFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/manifest", func(name string, src []byte) (string, []string) {
+		m, err := ReadManifest(fstest.MapFS{
+			SourceManifestFileName: &fstest.MapFile{Data: src},
+		})
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		out, err := lang.Canonicalize(SourceManifestFileName, EncodeSourceManifest(m))
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return string(out), nil
+	})
 }
 
 func TestReadManifestRejectsBadToolchainVersion(t *testing.T) {
@@ -44,6 +63,16 @@ func TestReadManifestRejectsUnobinInRequires(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "toolchain-versioned")
 	require.Contains(t, err.Error(), "unobin-version line")
+}
+
+func TestReadManifestRejectsBothManifestFiles(t *testing.T) {
+	_, err := ReadManifest(fstest.MapFS{
+		ManifestFileName:       &fstest.MapFile{Data: []byte("requires: {}\n")},
+		SourceManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), ManifestFileName)
+	require.Contains(t, err.Error(), SourceManifestFileName)
 }
 
 // TestEncodeManifestRoundTrips pins the encoder as stable: its output

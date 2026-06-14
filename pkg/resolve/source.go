@@ -27,28 +27,37 @@ type Resolver interface {
 }
 
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
-// holding at least one `.ub` file and no `main.ub` (a `main.ub` marks a
-// factory, which is not importable). Every `.ub` file in a library is
-// expected to be a kind-prefixed body (`resource-*.ub`, `data-*.ub`,
-// or `action-*.ub`); a misnamed one is caught when the library is parsed,
-// not here, so the author gets a clear error rather than having the whole
-// directory silently treated as a Go library. Sources with no `.ub` files
-// are Go libraries.
+// holding at least one `.ub` file and no factory source. Library files can
+// be legacy kind-prefixed bodies (`resource-*.ub`, `data-*.ub`,
+// `action-*.ub`) or grammar-first composite declarations. A bad `.ub` file
+// is caught when the library is parsed, not here, so the author gets a clear
+// error rather than having the whole directory silently treated as a Go
+// library. Sources with no `.ub` files are Go libraries.
 func IsUBLibrary(s *Source) bool {
-	if s == nil || s.FS == nil || ContainsMainUB(s) {
+	if s == nil || s.FS == nil || ContainsFactorySource(s) {
 		return false
 	}
 	matches, err := fs.Glob(s.FS, "*.ub")
 	return err == nil && len(matches) > 0
 }
 
+// ContainsFactorySource reports whether s has a root file that marks a
+// runnable factory instead of an importable library.
+func ContainsFactorySource(s *Source) bool {
+	return ContainsMainUB(s) || containsRootFile(s, "factory.ub")
+}
+
 // ContainsMainUB reports whether s has a `main.ub` at its root, which
 // marks the directory as a factory: runnable and not importable.
 func ContainsMainUB(s *Source) bool {
+	return containsRootFile(s, "main.ub")
+}
+
+func containsRootFile(s *Source, name string) bool {
 	if s == nil || s.FS == nil {
 		return false
 	}
-	_, err := fs.Stat(s.FS, "main.ub")
+	_, err := fs.Stat(s.FS, name)
 	return err == nil
 }
 

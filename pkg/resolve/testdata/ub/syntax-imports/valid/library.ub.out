@@ -1,0 +1,2 @@
+resource.greeting helloer remote github.com/scratch/repo//ub/helloer
+data.lookup local local ./local-data

@@ -1,0 +1,8 @@
+factory: {
+  resources: {
+    hello: std.fs-file {
+      @timeout: '30s'
+      @timeout: '1m'
+    }
+  }
+}

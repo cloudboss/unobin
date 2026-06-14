@@ -1,0 +1,5 @@
+manifest: {
+  requires: {
+    'github.com/cloudboss/unobin': 'v0.5.0'
+  }
+}

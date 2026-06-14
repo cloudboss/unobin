@@ -1,0 +1,6 @@
+factory: {
+  imports: {
+    aws: 'github.com/cloudboss/unobin-library-aws'
+    local: './local-lib'
+  }
+}

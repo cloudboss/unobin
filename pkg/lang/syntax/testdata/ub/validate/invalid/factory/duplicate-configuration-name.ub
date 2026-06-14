@@ -1,0 +1,6 @@
+factory: {
+  configurations: {
+    formal: greet {}
+    formal: aws {}
+  }
+}

@@ -1,0 +1,5 @@
+manifest: {
+  requires: {
+    'github.com/x/y': 'latest'
+  }
+}

@@ -1,0 +1,14 @@
+lock: {
+  version: 1
+  toolchain: {
+    unobin-version: 'v0.4.2'
+  }
+  deps: {
+    'github.com/acme/ub-lib//network': {
+      kind: ub
+      version: 'v0.1.0'
+      commit: 'abc123'
+      hash: 'abc123'
+    }
+  }
+}

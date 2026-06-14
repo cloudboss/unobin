@@ -69,6 +69,40 @@ factory: {
 	}, lock.Deps)
 }
 
+func TestLockFromImportsValidatesSourceDeclaredFactory(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": `
+factory: {
+  locals: {
+    message: text.render('hello')
+  }
+}
+`,
+	})
+
+	_, err := LockFromImports(root, map[Dependency]string{}, nil, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `library "text" is not imported`)
+}
+
+func TestLockFromImportsRejectsGrammarFirstFactoryImport(t *testing.T) {
+	root := mapFS(map[string]string{
+		"main.ub": "imports: { app: 'github.com/acme/app' }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/acme/app", "", "v0.1.0"): ubSrc("c1", "h1", map[string]string{
+			"factory.ub": "factory: {}\n",
+		}),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/acme/app"}: "v0.1.0"}
+
+	_, err := LockFromImports(root, sel, r, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be imported")
+}
+
 func TestLockFromImportsSkipsReplaced(t *testing.T) {
 	root := mapFS(map[string]string{
 		"main.ub": "imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n",
@@ -156,6 +190,39 @@ func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 			"resource-greeting.ub": "" +
 				"imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
 		}),
+		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
+	}}
+	sel := map[Dependency]string{
+		{URL: "github.com/scratch/repo"}:     "v0.1.0",
+		{URL: "github.com/cloudboss/unobin"}: "v0.1.0",
+	}
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/scratch/repo//ub/helloer": {
+			Kind: LockKindUB, Version: "v0.1.0", Commit: "c2", Hash: "h2",
+		},
+		"github.com/cloudboss/unobin//pkg/libraries/local": {
+			Kind: LockKindGo, Version: "v0.1.0", Commit: "c3",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsRecursesThroughSourceDeclaredRemoteUB(t *testing.T) {
+	root := mapFS(map[string]string{
+		"main.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2",
+			map[string]string{
+				"library.ub": `
+greeting: resource {
+  imports: {
+    local: 'github.com/cloudboss/unobin//pkg/libraries/local'
+  }
+}
+`,
+			}),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}
 	sel := map[Dependency]string{

@@ -1,0 +1,1 @@
+resource hello: meta key "@trigger" is not allowed
