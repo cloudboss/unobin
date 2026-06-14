@@ -3,8 +3,31 @@ package compile
 import (
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/require"
 )
+
+func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
+	src := []byte(`factory: {
+  imports: { std: 'github.com/example/std' }
+  inputs: { path: { type: string } }
+  resources: {
+    std.fs-file.hello: { path: var.path }
+  }
+  outputs: {
+    path: { value: resource.std.fs-file.hello.path }
+  }
+}
+`)
+
+	f, body, err := parseFactorySource("factory.ub", src)
+	require.NoError(t, err)
+	require.Equal(t, lang.FileFactory, f.Kind)
+	require.NotContains(t, body, "factory:")
+	require.Contains(t, body, "imports:")
+	require.Contains(t, body, "std.fs-file.hello:")
+	require.NoError(t, lang.ValidateFile(f).Err())
+}
 
 func TestDecideSelectedUnobin(t *testing.T) {
 	tests := []struct {

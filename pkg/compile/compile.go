@@ -23,6 +23,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/toolchain"
@@ -83,6 +84,53 @@ func (o Options) stderr() io.Writer {
 	return os.Stderr
 }
 
+func parseFactorySource(path string, src []byte) (*lang.File, string, error) {
+	f, err := lang.ParseSource(path, src)
+	if err != nil {
+		return nil, "", err
+	}
+	if body := sourceDeclaredFactoryBody(f); body != nil {
+		sf, serrs := syntax.LowerFile(f)
+		if serrs.Len() > 0 {
+			return nil, "", serrs.Err()
+		}
+		if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+			return nil, "", verrs.Err()
+		}
+		f = &lang.File{
+			S:        sf.S,
+			Kind:     lang.FileFactory,
+			Path:     path,
+			Body:     body,
+			Comments: sf.Comments,
+		}
+		if errs := lang.ValidateFile(f); errs.Len() > 0 {
+			return nil, "", errs.Err()
+		}
+		body, err := lang.Format(f)
+		if err != nil {
+			return nil, "", err
+		}
+		return f, string(body), nil
+	}
+	if errs := lang.ValidateFile(f); errs.Len() > 0 {
+		return nil, "", errs.Err()
+	}
+	return f, string(src), nil
+}
+
+func sourceDeclaredFactoryBody(f *lang.File) *lang.ObjectLit {
+	if f == nil || f.Body == nil || len(f.Body.Fields) != 1 {
+		return nil
+	}
+	fld := f.Body.Fields[0]
+	if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "factory" {
+		return nil
+	}
+	body, _ := fld.Value.(*lang.ObjectLit)
+	return body
+}
+
 // Run compiles a factory per the options.
 func Run(opts Options) error {
 	if opts.OutDir == "" {
@@ -92,12 +140,9 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	f, err := lang.ParseSource(opts.StackPath, src)
+	f, factoryBody, err := parseFactorySource(opts.StackPath, src)
 	if err != nil {
 		return err
-	}
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return errs.Err()
 	}
 
 	refs, errs := resolve.ExtractImports(f)
@@ -257,7 +302,7 @@ func Run(opts Options) error {
 	}
 
 	in := codegen.Input{
-		Body:          string(src),
+		Body:          factoryBody,
 		LibraryPath:   opts.LibraryPath,
 		FactoryName:   name,
 		GoImports:     goImports,
