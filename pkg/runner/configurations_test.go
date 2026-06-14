@@ -57,6 +57,41 @@ factory: {
 	require.Equal(t, "prod", got.Profile.Value)
 }
 
+func TestLoadConfigurationsAcceptsSourceStack(t *testing.T) {
+	path := writeConfig(t, `
+stack: {
+  locals: { default-region: 'us-east-1' }
+
+  factory: {
+    configurations: {
+      aws {
+        region: local.default-region
+      }
+      east2: aws {
+        region: 'us-east-2'
+      }
+    }
+  }
+
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+}
+`)
+
+	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+		"aws": awsModuleWithConfig(),
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "us-east-1", out["aws"]["default"].(*awsConfig).Region.Value)
+	require.Equal(t, "us-east-2", out["aws"]["east2"].(*awsConfig).Region.Value)
+	require.Equal(t, map[string]map[string]any{
+		"aws": {
+			"default": map[string]any{"region": "us-east-1"},
+			"east2":   map[string]any{"region": "us-east-2"},
+		},
+	}, raw)
+}
+
 func TestLoadConfigurationsAppliesDefaultsWhenAbsent(t *testing.T) {
 	path := writeConfig(t, `
 factory: {

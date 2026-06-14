@@ -68,6 +68,42 @@ encryption: { @key-source: noop }
 	assert.Equal(t, "noop", sc.Encrypter.Name)
 }
 
+func TestParseConfigFileAcceptsSourceStack(t *testing.T) {
+	path := writeConfig(t, `
+stack: {
+  locals: { state-path: '/tmp/state' }
+
+  factory: {
+    inputs: { region: 'us-east-1' }
+  }
+
+  state: local {
+    path: local.state-path
+  }
+
+  encryption: noop {}
+
+  parallelism: 3
+}
+`)
+
+	f, err := parseConfigFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, lang.FileConfig, f.Kind)
+
+	sc, err := parseStateConfig(f, path)
+	require.NoError(t, err)
+	require.NotNil(t, sc.Backend)
+	assert.Equal(t, "local", sc.Backend.Name)
+	assert.Equal(t, "/tmp/state", sc.Backend.Body["path"])
+	require.NotNil(t, sc.Encrypter)
+	assert.Equal(t, "noop", sc.Encrypter.Name)
+
+	parallelism, err := loadParallelism(f, path)
+	require.NoError(t, err)
+	assert.Equal(t, 3, parallelism)
+}
+
 func TestParseStateConfigEncryptionOnly(t *testing.T) {
 	f := parseConfig(t, "encryption: { @key-source: noop }\n")
 	sc, err := parseStateConfig(f, "config.ub")

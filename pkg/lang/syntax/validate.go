@@ -396,6 +396,61 @@ func FactoryBodyObject(body FactoryBody) *parse.ObjectLit {
 	return obj
 }
 
+// StackFileObject returns the generic AST object for a lowered stack file.
+func StackFileObject(stack *StackFile) *parse.ObjectLit {
+	if stack == nil {
+		return &parse.ObjectLit{}
+	}
+	obj := &parse.ObjectLit{S: stack.S}
+	if len(stack.Locals) > 0 {
+		locals := localDeclsObject(stack.Locals)
+		obj.Fields = append(obj.Fields, identField("locals", locals.S, locals))
+	}
+	if stack.Factory != nil {
+		factory := stackFactoryObject(stack.Factory)
+		obj.Fields = append(obj.Fields, identField("factory", factory.S, factory))
+	}
+	if stack.State != nil {
+		state := resolverConfigObject(
+			stack.State.S,
+			"@backend",
+			stack.State.Selector,
+			stack.State.Body,
+		)
+		obj.Fields = append(obj.Fields, identField("state", state.S, state))
+	}
+	if stack.Encryption != nil {
+		encryption := resolverConfigObject(
+			stack.Encryption.S,
+			"@key-source",
+			stack.Encryption.Selector,
+			stack.Encryption.Body,
+		)
+		obj.Fields = append(obj.Fields, identField("encryption", encryption.S, encryption))
+	}
+	if stack.Parallelism != nil {
+		obj.Fields = append(obj.Fields,
+			identField("parallelism", stack.Parallelism.Span(), stack.Parallelism))
+	}
+	return obj
+}
+
+func stackFactoryObject(factory *StackFactoryBlock) *parse.ObjectLit {
+	obj := &parse.ObjectLit{S: factory.S}
+	if factory.Pin != nil {
+		obj.Fields = append(obj.Fields, identField("pin", factory.Pin.S, factory.Pin))
+	}
+	if len(factory.Configurations) > 0 {
+		configurations := configurationValuesObject(factory.Configurations)
+		obj.Fields = append(obj.Fields,
+			identField("configurations", configurations.S, configurations))
+	}
+	if factory.Inputs != nil {
+		obj.Fields = append(obj.Fields, identField("inputs", factory.Inputs.S, factory.Inputs))
+	}
+	return obj
+}
+
 func inputDeclsObject(decls []InputDecl) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {

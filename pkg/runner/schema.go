@@ -212,19 +212,18 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 // the structure, with line breaks marking the blocks that stay
 // expanded.
 func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
+	fmt.Fprintln(out, "stack: {")
 	fmt.Fprintln(out, "factory: {")
 	fmt.Fprint(out, renderPinBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
 	renderConfigurationsTemplate(out, f, dag, info)
 	renderInputsTemplate(out, f)
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "state: {")
-	fmt.Fprintln(out, "@backend: "+backends.LocalName)
+	fmt.Fprintln(out, "state: "+backends.LocalName+" {")
 	fmt.Fprintln(out, "path: '.unobin/state'")
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "encryption: {")
-	fmt.Fprintln(out, "@key-source: "+encrypters.NoopName)
+	fmt.Fprintln(out, "encryption: "+encrypters.NoopName+" {}")
 	fmt.Fprintln(out, "}")
 }
 
@@ -291,7 +290,11 @@ func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG,
 	for _, alias := range aliases {
 		fields := cfg.Describe(info.Libraries[alias].Configuration)
 		for _, name := range owedByAlias[alias] {
-			fmt.Fprintf(out, "%s.%s: {\n", alias, name)
+			if name == "default" {
+				fmt.Fprintf(out, "%s {\n", alias)
+			} else {
+				fmt.Fprintf(out, "%s: %s {\n", name, alias)
+			}
 			writeTemplateFields(out, fields)
 			fmt.Fprintln(out, "}")
 		}
