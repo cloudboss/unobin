@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -53,12 +54,66 @@ func scanImports(path string, repos map[Dependency]bool) error {
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
+	addImportRefs(repos, refs)
+	if !hasSourceDeclaredImports(f) {
+		return nil
+	}
+	sf, serrs := syntax.LowerFile(f)
+	if serrs.Len() > 0 {
+		return serrs.Err()
+	}
+	srefs, errs := resolve.ExtractSyntaxImports(sf)
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	addSyntaxImportRefs(repos, srefs)
+	return nil
+}
+
+func addImportRefs(repos map[Dependency]bool, refs map[string]resolve.ImportRef) {
 	for _, ref := range refs {
 		rem, ok := ref.(*resolve.RemoteImport)
 		if !ok {
-			continue // local imports are intra-project
+			continue
 		}
 		repos[Dependency{URL: rem.URL}] = true
 	}
-	return nil
+}
+
+func addSyntaxImportRefs(repos map[Dependency]bool, refs []resolve.SyntaxImport) {
+	for _, ref := range refs {
+		rem, ok := ref.Ref.(*resolve.RemoteImport)
+		if !ok {
+			continue
+		}
+		repos[Dependency{URL: rem.URL}] = true
+	}
+}
+
+func hasSourceDeclaredImports(f *lang.File) bool {
+	if f == nil || f.Body == nil {
+		return false
+	}
+	switch filepath.Base(f.Path) {
+	case "factory.ub", "manifest.ub", "lock.ub":
+		return true
+	}
+	for _, fld := range f.Body.Fields {
+		if fld.Decl != nil {
+			return true
+		}
+	}
+	return len(f.Body.Fields) == 1 && isSourceDeclaredRole(f.Body.Fields[0])
+}
+
+func isSourceDeclaredRole(fld *lang.Field) bool {
+	if fld.Key.Kind != lang.FieldIdent {
+		return false
+	}
+	switch fld.Key.Name {
+	case "factory", "stack", "manifest", "lock":
+		return true
+	default:
+		return false
+	}
 }

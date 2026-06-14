@@ -43,6 +43,45 @@ func TestImportedReposScansLocalLibraries(t *testing.T) {
 	}, repos)
 }
 
+func TestImportedReposScansSourceDeclaredFactory(t *testing.T) {
+	root := t.TempDir()
+	writeUB(t, filepath.Join(root, "factory.ub"), `
+factory: {
+  imports: {
+    core: 'github.com/cloudboss/unobin//pkg/libraries/core'
+    greeter: './greeter'
+  }
+}
+`)
+	repos, err := ImportedRepos(root)
+	require.NoError(t, err)
+	assert.Equal(t, map[Dependency]bool{
+		{URL: "github.com/cloudboss/unobin"}: true,
+	}, repos)
+}
+
+func TestImportedReposScansSourceDeclaredLibraryExports(t *testing.T) {
+	root := t.TempDir()
+	writeUB(t, filepath.Join(root, "library.ub"), `
+greeting: resource {
+  imports: {
+    helloer: 'github.com/scratch/repo//ub/helloer'
+  }
+}
+
+lookup: data {
+  imports: {
+    local: './local-data'
+  }
+}
+`)
+	repos, err := ImportedRepos(root)
+	require.NoError(t, err)
+	assert.Equal(t, map[Dependency]bool{
+		{URL: "github.com/scratch/repo"}: true,
+	}, repos)
+}
+
 func TestImportedReposNoRemoteDeps(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "main.ub"), "imports: { greeter: './greeter' }\n")
