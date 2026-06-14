@@ -175,6 +175,32 @@ func TestDepsSync(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestDepsSyncReplacesLegacyLock(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
+		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("requires: { 'github.com/x/core': 'v1.0.0' }\n"), 0o644))
+	legacy := deps.NewLock()
+	legacy.Deps["github.com/old/lib"] = &deps.LockedDep{
+		Kind: deps.LockKindGo, Version: "v0.1.0", Commit: "old",
+	}
+	require.NoError(t, deps.WriteLock(filepath.Join(root, deps.LockFileName), legacy))
+
+	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
+		"-p", filepath.Join(root, "main.ub"))
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(root, deps.LockFileName))
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+	}, lock.Deps)
+}
+
 func TestDepsSyncDefaultPathUsesFactoryUB(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
