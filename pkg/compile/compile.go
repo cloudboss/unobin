@@ -132,16 +132,41 @@ func sourceDeclaredFactoryBody(f *lang.File) *lang.ObjectLit {
 	return body
 }
 
+func factorySourcePath(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return path, nil
+	}
+	for _, name := range []string{"factory.ub", "main.ub"} {
+		candidate := filepath.Join(path, name)
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
+			return candidate, nil
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+	}
+	return "", fmt.Errorf("compile: %s has no factory.ub or main.ub", path)
+}
+
 // Run compiles a factory per the options.
 func Run(opts Options) error {
 	if opts.OutDir == "" {
 		return errors.New("--out is required (use `-` for stdout)")
 	}
-	src, err := os.ReadFile(opts.StackPath)
+	stackPath, err := factorySourcePath(opts.StackPath)
 	if err != nil {
 		return err
 	}
-	f, factoryBody, err := ParseFactorySource(opts.StackPath, src)
+	src, err := os.ReadFile(stackPath)
+	if err != nil {
+		return err
+	}
+	f, factoryBody, err := ParseFactorySource(stackPath, src)
 	if err != nil {
 		return err
 	}
@@ -153,7 +178,7 @@ func Run(opts Options) error {
 
 	name := opts.StackName
 	if name == "" {
-		name = DeriveStackName(opts.StackPath)
+		name = DeriveStackName(stackPath)
 	}
 
 	var replaceUnobinAbs string
@@ -165,7 +190,7 @@ func Run(opts Options) error {
 		replaceUnobinAbs = abs
 	}
 
-	stackDir := filepath.Dir(opts.StackPath)
+	stackDir := filepath.Dir(stackPath)
 	manifest, err := projectManifest(stackDir)
 	if err != nil {
 		return err
