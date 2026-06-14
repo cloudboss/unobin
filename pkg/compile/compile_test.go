@@ -12,7 +12,7 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
   imports: { std: 'github.com/example/std' }
   inputs: { path: { type: string } }
   resources: {
-    std.fs-file.hello: { path: var.path }
+    hello: std.fs-file { path: var.path }
   }
   outputs: {
     path: { value: resource.std.fs-file.hello.path }

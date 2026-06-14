@@ -492,7 +492,11 @@ func nodeDeclsObject(decls []NodeDecl) *parse.ObjectLit {
 		obj.S = decls[0].S
 	}
 	for _, decl := range decls {
-		obj.Fields = append(obj.Fields, identField(decl.Name.Name, decl.Name.S, decl.Body))
+		obj.Fields = append(obj.Fields, pathField([]string{
+			decl.Selector.Alias.Name,
+			decl.Selector.Export.Name,
+			decl.Name.Name,
+		}, decl.S, decl.Body))
 	}
 	return obj
 }

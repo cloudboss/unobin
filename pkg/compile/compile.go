@@ -101,7 +101,7 @@ func parseFactorySource(path string, src []byte) (*lang.File, string, error) {
 			S:        sf.S,
 			Kind:     lang.FileFactory,
 			Path:     path,
-			Body:     body,
+			Body:     syntax.FactoryBodyObject(sf.Factory.Body),
 			Comments: sf.Comments,
 		}
 		if errs := lang.ValidateFile(f); errs.Len() > 0 {
