@@ -23,6 +23,12 @@ const (
 	EntryData EntryType = "data"
 )
 
+// Selector identifies the implementation selected for an entry.
+type Selector struct {
+	Alias  string `json:"alias"`
+	Export string `json:"export,omitempty"`
+}
+
 // Entry is one record in a snapshot. Type discriminates the fields used:
 // leaf entries hold a primitive resource's Kind, SchemaVersion, Inputs, and
 // Outputs; library-call entries hold a composite type's Library, LibraryType,
@@ -35,10 +41,11 @@ type Entry struct {
 	Address string    `json:"address"`
 	Type    EntryType `json:"type"`
 
-	Kind             string   `json:"kind,omitempty"`
-	SchemaVersion    int      `json:"schema-version,omitempty"`
-	SensitiveInputs  []string `json:"sensitive-inputs,omitempty"`
-	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
+	Kind             string    `json:"kind,omitempty"`
+	Selector         *Selector `json:"selector,omitempty"`
+	SchemaVersion    int       `json:"schema-version,omitempty"`
+	SensitiveInputs  []string  `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string  `json:"sensitive-outputs,omitempty"`
 
 	Library     string `json:"library,omitempty"`
 	LibraryType string `json:"library-type,omitempty"`
@@ -160,6 +167,9 @@ func (e *Entry) validate() error {
 		if e.Kind == "" {
 			return fmt.Errorf("snapshot: leaf entry %q missing kind", e.Address)
 		}
+		if err := e.validateGraphSelector(); err != nil {
+			return err
+		}
 	case EntryLibraryCall:
 		if e.Library == "" {
 			return fmt.Errorf("snapshot: library-call entry %q missing library", e.Address)
@@ -167,18 +177,40 @@ func (e *Entry) validate() error {
 		if e.LibraryType == "" {
 			return fmt.Errorf("snapshot: library-call entry %q missing library-type", e.Address)
 		}
+		if err := e.validateGraphSelector(); err != nil {
+			return err
+		}
 	case EntryAction:
 		if e.Kind == "" {
 			return fmt.Errorf("snapshot: action entry %q missing kind", e.Address)
+		}
+		if err := e.validateGraphSelector(); err != nil {
+			return err
 		}
 	case EntryData:
 		if e.Kind == "" {
 			return fmt.Errorf("snapshot: data entry %q missing kind", e.Address)
 		}
+		if err := e.validateGraphSelector(); err != nil {
+			return err
+		}
 	case "":
 		return fmt.Errorf("snapshot: entry %q missing type", e.Address)
 	default:
 		return fmt.Errorf("snapshot: entry %q has unknown type %q", e.Address, e.Type)
+	}
+	return nil
+}
+
+func (e *Entry) validateGraphSelector() error {
+	if e.Selector == nil {
+		return nil
+	}
+	if e.Selector.Alias == "" {
+		return fmt.Errorf("snapshot: entry %q selector missing alias", e.Address)
+	}
+	if e.Selector.Export == "" {
+		return fmt.Errorf("snapshot: entry %q selector missing export", e.Address)
 	}
 	return nil
 }

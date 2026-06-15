@@ -108,9 +108,9 @@ func (e *Executor) refreshLeaf(
 	ctx context.Context,
 	ent *state.Entry,
 ) (*state.Entry, bool, error) {
-	_, alias, typeName, _, ok := parseAddress(ent.Address)
+	alias, typeName, ok := entrySelectorParts(ent)
 	if !ok {
-		return nil, false, fmt.Errorf("malformed resource address %q", ent.Address)
+		return nil, false, fmt.Errorf("missing selector for resource %q", ent.Address)
 	}
 	lib, ok := e.librariesForAddress(ent.Address)[alias]
 	if !ok {
@@ -141,6 +141,7 @@ func (e *Executor) refreshLeaf(
 		Address:          ent.Address,
 		Type:             state.EntryLeaf,
 		Kind:             ent.Kind,
+		Selector:         &state.Selector{Alias: alias, Export: typeName},
 		SchemaVersion:    rt.SchemaVersion(),
 		Configuration:    ent.Configuration,
 		SensitiveInputs:  ent.SensitiveInputs,

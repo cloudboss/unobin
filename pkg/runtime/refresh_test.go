@@ -48,6 +48,62 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	require.EqualValues(t, 99, snap.Entries[0].Outputs["size"])
 }
 
+func TestRefreshUsesShortAddressSelector(t *testing.T) {
+	src := `
+resources: { one: core.thing { name: 'alpha', size: 1 } }
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	libs := resourceModules(&c)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+
+	c.readFn = func(prior any) (any, error) {
+		m, _ := prior.(map[string]any)
+		out := map[string]any{}
+		maps.Copy(out, m)
+		out["size"] = int64(99)
+		return out, nil
+	}
+
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	res, err := exec.Refresh(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, res.Refreshed)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Len(t, snap.Entries, 1)
+	require.Equal(t, "resource.one", snap.Entries[0].Address)
+	require.EqualValues(t, 99, snap.Entries[0].Outputs["size"])
+}
+
+func TestDestroyUsesShortAddressSelector(t *testing.T) {
+	src := `
+resources: { one: core.thing { name: 'alpha', size: 1 } }
+`
+	var c resourceCounters
+	store := newStateStore(t)
+	libs := resourceModules(&c)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, ``), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+	require.EqualValues(t, 1, c.deletes)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Empty(t, snap.Entries)
+}
+
 func TestRefreshDropsResourceThatIsGone(t *testing.T) {
 	src := `
 resources: { core.thing.one: { name: 'alpha', size: 1 } }

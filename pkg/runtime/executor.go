@@ -791,6 +791,7 @@ func (e *Executor) finalizeComposite(
 		Type:             state.EntryLibraryCall,
 		Library:          n.Alias,
 		LibraryType:      n.Type,
+		Selector:         selectorForNode(n),
 		Inputs:           inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  sensitiveInputs,
@@ -964,6 +965,62 @@ func addressParts(addr string) ([]string, bool) {
 		return nil, false
 	}
 	return parts, true
+}
+
+func selectorForNode(n *Node) *state.Selector {
+	if n == nil || n.Alias == "" || n.Type == "" {
+		return nil
+	}
+	return &state.Selector{Alias: n.Alias, Export: n.Type}
+}
+
+func selectorFromEntry(ent *state.Entry) *state.Selector {
+	if ent == nil {
+		return nil
+	}
+	if ent.Selector != nil {
+		return cloneSelector(ent.Selector)
+	}
+	if ent.Library != "" && ent.LibraryType != "" {
+		return &state.Selector{Alias: ent.Library, Export: ent.LibraryType}
+	}
+	_, alias, typeName, _, ok := parseAddress(ent.Address)
+	if !ok {
+		return nil
+	}
+	return &state.Selector{Alias: alias, Export: typeName}
+}
+
+func cloneSelector(sel *state.Selector) *state.Selector {
+	if sel == nil {
+		return nil
+	}
+	return &state.Selector{Alias: sel.Alias, Export: sel.Export}
+}
+
+func selectorParts(sel *state.Selector) (alias, typeName string, ok bool) {
+	if sel == nil || sel.Alias == "" || sel.Export == "" {
+		return "", "", false
+	}
+	return sel.Alias, sel.Export, true
+}
+
+func entrySelectorParts(ent *state.Entry) (alias, typeName string, ok bool) {
+	if alias, typeName, ok := selectorParts(selectorFromEntry(ent)); ok {
+		return alias, typeName, true
+	}
+	return "", "", false
+}
+
+func stepSelectorParts(step *PlanStep) (alias, typeName string, ok bool) {
+	if step == nil {
+		return "", "", false
+	}
+	if alias, typeName, ok := selectorParts(step.Selector); ok {
+		return alias, typeName, true
+	}
+	_, alias, typeName, _, ok = parseAddress(step.Address)
+	return alias, typeName, ok
 }
 
 // evalBody evaluates an object literal body to a map[string]any of input

@@ -236,6 +236,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		Address:          step.Address,
 		Type:             state.EntryAction,
 		Kind:             prep.node.Type,
+		Selector:         selectorForNode(prep.node),
 		TriggerHash:      hash,
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
@@ -313,6 +314,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Address:          step.Address,
 		Type:             state.EntryLeaf,
 		Kind:             prep.node.Type,
+		Selector:         selectorForNode(prep.node),
 		SchemaVersion:    rt.SchemaVersion(),
 		Configuration:    e.configRefString(prep.node),
 		Inputs:           prep.inputs,
@@ -351,20 +353,18 @@ func instanceScope(
 	return childScopeWithEach(parent, instKey, value), nil
 }
 
-// applyDestroy deletes a resource and drops it from state. The library
-// is recovered by parsing the address, so this works whether the
-// resource was orphaned (removed from source) or is part of a full
-// teardown. Composite-internal addresses keep their call site prefix,
-// so the inner address is stripped first.
+// applyDestroy deletes a resource and drops it from state. The selector
+// identifies the library, so this works whether the resource was
+// orphaned (removed from source) or is part of a full teardown.
 func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanStep) error {
 	// The plan read this resource and found it already absent, so there
 	// is nothing to delete; just drop it from state.
 	if step.AlreadyGone {
 		return e.removeRecord(rs, step)
 	}
-	_, alias, typeName, _, ok := parseAddress(step.Address)
+	alias, typeName, ok := stepSelectorParts(step)
 	if !ok {
-		return fmt.Errorf("destroy: malformed address %q", step.Address)
+		return fmt.Errorf("destroy: missing selector for %q", step.Address)
 	}
 	lib, ok := e.librariesForAddress(step.Address)[alias]
 	if !ok {
@@ -506,6 +506,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 		Address:          step.Address,
 		Type:             state.EntryData,
 		Kind:             prep.node.Type,
+		Selector:         selectorForNode(prep.node),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,

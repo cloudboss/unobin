@@ -156,8 +156,9 @@ const (
 // entry maps the field name to the source-side dot paths the body
 // reads from. Apply re-evaluates these against the live scope.
 type PlanStep struct {
-	Address string   `json:"address"`
-	Kind    NodeKind `json:"kind"`
+	Address  string          `json:"address"`
+	Kind     NodeKind        `json:"kind"`
+	Selector *state.Selector `json:"selector,omitempty"`
 
 	// Composite marks a step whose apply finalizes a composite call
 	// site (a boundary) rather than a primitive leaf. A boundary's Kind
@@ -397,6 +398,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			plan.Steps = append(plan.Steps, &PlanStep{
 				Address:       prior.Address,
 				Kind:          kind,
+				Selector:      selectorFromEntry(prior),
 				Composite:     composite,
 				Decision:      DecisionDestroy,
 				Inputs:        prior.Inputs,
@@ -475,14 +477,14 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 	return nil
 }
 
-// readDestroyTarget resolves a destroy step's library from its address
+// readDestroyTarget resolves a destroy step's library from its selector
 // and reads the resource, reporting whether it is already gone. It
 // needs no DAG node, so it works for an orphan whose source has been
 // removed as well as for a full teardown.
 func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool, error) {
-	_, alias, typeName, _, ok := parseAddress(step.Address)
+	alias, typeName, ok := stepSelectorParts(step)
 	if !ok {
-		return false, fmt.Errorf("malformed address %q", step.Address)
+		return false, fmt.Errorf("missing selector for %q", step.Address)
 	}
 	lib, ok := e.librariesForAddress(step.Address)[alias]
 	if !ok {
@@ -992,7 +994,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 		return nil
 	}
 	tmpl := templateAddress(step.Address)
-	kind, alias, typeName, _, ok := parseAddress(tmpl)
+	alias, typeName, ok := stepSelectorParts(step)
 	if !ok {
 		return nil
 	}
@@ -1000,7 +1002,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	if !ok || lib == nil {
 		return nil
 	}
-	specs := lib.Constraints[string(kind)+"."+typeName]
+	specs := lib.Constraints[string(step.Kind)+"."+typeName]
 	if len(specs) == 0 {
 		return nil
 	}
@@ -1102,6 +1104,7 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 	return &PlanStep{
 		Address:      n.Address,
 		Kind:         n.Kind,
+		Selector:     selectorForNode(n),
 		Composite:    true,
 		Decision:     DecisionEval,
 		Inputs:       scope.Vars,
@@ -1145,6 +1148,7 @@ func (e *Executor) planOneAction(
 	return &PlanStep{
 		Address:            addr,
 		Kind:               n.Kind,
+		Selector:           selectorForNode(n),
 		Decision:           dec,
 		Inputs:             display,
 		UnresolvedInputs:   unresolved,
@@ -1195,6 +1199,7 @@ func (e *Executor) planOneResource(
 	step := &PlanStep{
 		Address:          addr,
 		Kind:             n.Kind,
+		Selector:         selectorForNode(n),
 		Inputs:           display,
 		UnresolvedInputs: unresolved,
 	}
@@ -1379,6 +1384,7 @@ func (e *Executor) planOneData(
 	step := &PlanStep{
 		Address:          addr,
 		Kind:             n.Kind,
+		Selector:         selectorForNode(n),
 		Decision:         DecisionRead,
 		Inputs:           inputs,
 		UnresolvedInputs: unresolved,
