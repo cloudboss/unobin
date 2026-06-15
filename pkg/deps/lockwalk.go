@@ -1,13 +1,11 @@
 package deps
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"slices"
 	"strings"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -69,11 +67,7 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	if err != nil {
 		return err
 	}
-	f, err := lang.ParseSource(path, b)
-	if err != nil {
-		return err
-	}
-	refs, err := lockFileImportRefs(f)
+	refs, err := lockFileImportRefs(path, b)
 	if err != nil {
 		return err
 	}
@@ -105,33 +99,21 @@ type lockImportRef struct {
 	Ref   resolve.ImportRef
 }
 
-func lockFileImportRefs(f *lang.File) ([]lockImportRef, error) {
-	refs, errs := resolve.ExtractImports(f)
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-	out := make([]lockImportRef, 0, len(refs))
-	aliases := make([]string, 0, len(refs))
-	for a := range refs {
-		aliases = append(aliases, a)
-	}
-	slices.Sort(aliases)
-	for _, alias := range aliases {
-		out = append(out, lockImportRef{Label: alias, Ref: refs[alias]})
-	}
-	if !hasSourceDeclaredImports(f) {
-		return out, nil
-	}
-	srefs, err := extractSyntaxImportRefs(f)
+func lockFileImportRefs(path string, src []byte) ([]lockImportRef, error) {
+	refs, err := extractSyntaxImportRefs(path, src)
 	if err != nil {
 		return nil, err
 	}
-	for _, ref := range srefs {
+	out := make([]lockImportRef, 0, len(refs))
+	for _, ref := range refs {
 		out = append(out, lockImportRef{
 			Label: syntaxImportLabel(ref),
 			Ref:   ref.Ref,
 		})
 	}
+	slices.SortFunc(out, func(a, b lockImportRef) int {
+		return strings.Compare(a.Label, b.Label)
+	})
 	return out, nil
 }
 
@@ -142,8 +124,8 @@ func syntaxImportLabel(ref resolve.SyntaxImport) string {
 	return ref.Scope + "." + ref.Alias
 }
 
-func (w *lockWalker) walkFile(f *lang.File, parent *resolve.Source) error {
-	refs, err := lockFileImportRefs(f)
+func (w *lockWalker) walkBodyFile(path string, src []byte, parent *resolve.Source) error {
+	refs, err := lockFileImportRefs(path, src)
 	if err != nil {
 		return err
 	}
@@ -274,11 +256,7 @@ func (w *lockWalker) walkBodies(src *resolve.Source) error {
 		if err != nil {
 			return err
 		}
-		f, err := lang.ParseSource(name, b)
-		if err != nil {
-			return err
-		}
-		if err := w.walkFile(f, src); err != nil {
+		if err := w.walkBodyFile(name, b, src); err != nil {
 			return err
 		}
 	}

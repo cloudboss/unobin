@@ -1,7 +1,6 @@
 package deps
 
 import (
-	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -13,9 +12,6 @@ import (
 func mapFS(files map[string]string) fstest.MapFS {
 	m := make(fstest.MapFS, len(files))
 	for name, body := range files {
-		if name == "factory.ub" && !strings.HasPrefix(strings.TrimSpace(body), "factory:") {
-			body = "factory: {\n" + body + "}\n"
-		}
 		m[name] = &fstest.MapFile{Data: []byte(body)}
 	}
 	return m
@@ -35,7 +31,7 @@ func ubSrc(commit, hash string, files map[string]string) *resolve.Source {
 
 func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }\n",
+		"factory.ub": "factory: { imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
@@ -90,9 +86,24 @@ factory: {
 	assert.Contains(t, err.Error(), `library "text" is not imported`)
 }
 
+func TestLockFromImportsRejectsUntypedUBFile(t *testing.T) {
+	root := fstest.MapFS{
+		"loose.ub": {Data: []byte("imports: { core: 'github.com/x/y' }\n")},
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/x/y", "", "v1.0.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"}
+
+	_, err := LockFromImports(root, sel, r, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot determine UB file role")
+}
+
 func TestLockFromImportsRejectsGrammarFirstFactoryImport(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { app: 'github.com/acme/app' }\n",
+		"factory.ub": "factory: { imports: { app: 'github.com/acme/app' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/acme/app", "", "v0.1.0"): ubSrc("c1", "h1", map[string]string{
@@ -109,7 +120,7 @@ func TestLockFromImportsRejectsGrammarFirstFactoryImport(t *testing.T) {
 
 func TestLockFromImportsSkipsReplaced(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n",
+		"factory.ub": "factory: { imports: { aws: 'github.com/cloudboss/unobin-library-aws' } }\n",
 	})
 	// The replaced repo resolves locally (no version), and it's a Go library.
 	r := &fakeResolver{sources: map[string]*resolve.Source{
@@ -126,7 +137,7 @@ func TestLockFromImportsSkipsReplaced(t *testing.T) {
 
 func TestLockFromImportsReplacedUBLocksTransitive(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { mylib: 'github.com/me/mylib' }\n",
+		"factory.ub": "factory: { imports: { mylib: 'github.com/me/mylib' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/me/mylib", "", ""): ubSrc("local", "", map[string]string{
@@ -198,7 +209,7 @@ hello: resource {
 
 func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
+		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2", map[string]string{
@@ -228,7 +239,7 @@ greeting: resource {
 
 func TestLockFromImportsRecursesThroughSourceDeclaredRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
+		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2",
@@ -261,7 +272,7 @@ greeting: resource {
 
 func TestLockFromImportsFollowsLocalWithoutLocking(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { greeter: './greeter' }\n",
+		"factory.ub": "factory: { imports: { greeter: './greeter' } }\n",
 		"greeter/library.ub": `
 greeting: resource {
   imports: { hello: 'github.com/scratch/repo//ub/helloer' }
@@ -295,7 +306,7 @@ greeting: resource {
 
 func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { aws: '../../../..' }\n",
+		"factory.ub": "factory: { imports: { aws: '../../../..' } }\n",
 	})
 	r := &fakeResolver{locals: map[string]*resolve.Source{
 		"../../../..": {FS: mapFS(map[string]string{
@@ -311,7 +322,7 @@ func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
 
 func TestLockFromImportsDedups(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { a: 'github.com/x/y//lib', b: 'github.com/x/y//lib' }\n",
+		"factory.ub": "factory: { imports: { a: 'github.com/x/y//lib', b: 'github.com/x/y//lib' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c"),
@@ -324,7 +335,7 @@ func TestLockFromImportsDedups(t *testing.T) {
 
 func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { core: 'github.com/x/y//lib' }\n",
+		"factory.ub": "factory: { imports: { core: 'github.com/x/y//lib' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v2.0.0"): goSrc("c2"),
@@ -337,7 +348,7 @@ func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 
 func TestLockFromImportsRejectsRepoWithoutFloor(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { core: 'github.com/x/y//lib' }\n",
+		"factory.ub": "factory: { imports: { core: 'github.com/x/y//lib' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c1"),
@@ -351,7 +362,7 @@ func TestLockFromImportsRejectsRepoWithoutFloor(t *testing.T) {
 
 func TestLockFromImportsDetectsCycle(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "imports: { a: 'github.com/x/a//lib' }\n",
+		"factory.ub": "factory: { imports: { a: 'github.com/x/a//lib' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/a", "lib", "v1.0.0"): ubSrc("ca", "ha", map[string]string{

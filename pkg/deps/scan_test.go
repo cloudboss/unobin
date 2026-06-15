@@ -3,7 +3,6 @@ package deps
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,9 +11,6 @@ import (
 
 func writeUB(t *testing.T, path, body string) {
 	t.Helper()
-	if filepath.Base(path) == "factory.ub" && !strings.HasPrefix(strings.TrimSpace(body), "factory:") {
-		body = "factory: {\n" + body + "}\n"
-	}
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 }
@@ -22,10 +18,12 @@ func writeUB(t *testing.T, path, body string) {
 func TestImportedReposGroupsByRepo(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"), `
-imports: {
-  core:    'github.com/cloudboss/unobin//pkg/libraries/core'
-  local:   'github.com/cloudboss/unobin//pkg/libraries/local'
-  greeter: './greeter'
+factory: {
+  imports: {
+    core:    'github.com/cloudboss/unobin//pkg/libraries/core'
+    local:   'github.com/cloudboss/unobin//pkg/libraries/local'
+    greeter: './greeter'
+  }
 }
 `)
 	repos, err := ImportedRepos(root)
@@ -37,7 +35,8 @@ imports: {
 
 func TestImportedReposScansLocalLibraries(t *testing.T) {
 	root := t.TempDir()
-	writeUB(t, filepath.Join(root, "factory.ub"), "imports: { greeter: './greeter' }\n")
+	writeUB(t, filepath.Join(root, "factory.ub"),
+		"factory: { imports: { greeter: './greeter' } }\n")
 	writeUB(t, filepath.Join(root, "greeter", "library.ub"), `
 greeting: resource {
   imports: { helloer: 'github.com/scratch/repo//ub/helloer' }
@@ -84,6 +83,18 @@ factory: {
 	assert.Contains(t, err.Error(), `resource hello: meta key "@trigger" is not allowed`)
 }
 
+func TestImportedReposRejectsUntypedUBFile(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "loose.ub"), []byte(`
+imports: { core: 'github.com/x/y' }
+`), 0o644))
+
+	_, err := ImportedRepos(root)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot determine UB file role")
+}
+
 func TestImportedReposScansSourceDeclaredLibraryExports(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "library.ub"), `
@@ -108,7 +119,8 @@ lookup: data {
 
 func TestImportedReposNoRemoteDeps(t *testing.T) {
 	root := t.TempDir()
-	writeUB(t, filepath.Join(root, "factory.ub"), "imports: { greeter: './greeter' }\n")
+	writeUB(t, filepath.Join(root, "factory.ub"),
+		"factory: { imports: { greeter: './greeter' } }\n")
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
 	assert.Empty(t, repos)
@@ -117,7 +129,7 @@ func TestImportedReposNoRemoteDeps(t *testing.T) {
 func TestImportedReposSkipsHiddenDirs(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"),
-		"imports: { core: 'github.com/x/y//core' }\n")
+		"factory: { imports: { core: 'github.com/x/y//core' } }\n")
 	writeUB(t, filepath.Join(root, ".git", "hooks", "stray.ub"),
 		"imports: { bad: 'github.com/other/repo//lib' }\n")
 	repos, err := ImportedRepos(root)

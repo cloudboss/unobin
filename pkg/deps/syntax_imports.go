@@ -3,15 +3,14 @@ package deps
 import (
 	"errors"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-func extractSyntaxImportRefs(f *lang.File) ([]resolve.SyntaxImport, error) {
-	sf, serrs := syntax.LowerFile(f)
-	if serrs.Len() > 0 {
-		return nil, serrs.Err()
+func extractSyntaxImportRefs(path string, src []byte) ([]resolve.SyntaxImport, error) {
+	sf, err := syntax.ParseSource(path, src)
+	if err != nil {
+		return nil, err
 	}
 	switch sf.Kind {
 	case syntax.FileFactory, syntax.FileLibrary:
