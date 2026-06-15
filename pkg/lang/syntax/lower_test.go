@@ -131,6 +131,34 @@ outputs: {
 	assert.Equal(t, "path", got.Factory.Body.Outputs[0].Name.Name)
 }
 
+func TestLowerInputTypeFieldsUseParsedTypes(t *testing.T) {
+	f := parseFile(t, "factory.ub", `
+factory: {
+  inputs: {
+    cfg: { type: object({ port: { type: integer, default: 8080 } }) }
+  }
+}
+`, parse.FileFactory)
+
+	got, errs := LowerFile(f)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	require.Len(t, got.Factory.Body.Inputs, 1)
+
+	input := got.Factory.Body.Inputs[0]
+	typeField := input.Body.Fields[0]
+	require.Equal(t, "type", typeField.Key.Name)
+	require.Same(t, input.Type, typeField.Value)
+
+	obj, ok := input.Type.(*parse.TypeObject)
+	require.True(t, ok, "got %T", input.Type)
+	require.Len(t, obj.Fields, 1)
+	nested := obj.Fields[0]
+	require.NotNil(t, nested.Decl)
+	nestedTypeField := nested.Decl.Fields[0]
+	require.Equal(t, "type", nestedTypeField.Key.Name)
+	require.IsType(t, &parse.TypeAtomic{}, nestedTypeField.Value)
+}
+
 func TestLowerStackFile(t *testing.T) {
 	f := parseFile(t, "dev.ub", `
 locals: {

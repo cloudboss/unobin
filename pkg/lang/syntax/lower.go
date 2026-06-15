@@ -603,13 +603,41 @@ func lowerInputType(name string, body *parse.ObjectLit, errs *parse.ErrorList) p
 			}
 			continue
 		}
+		fld.Value = t
 		out = t
+		storeNestedTypeFields(name, t, errs)
 	}
 	if !found {
 		errs.Addf(parse.ErrSchema, body.S.Start,
 			"input %q: missing required `type:` key", name)
 	}
 	return out
+}
+
+func storeNestedTypeFields(name string, t parse.TypeExpr, errs *parse.ErrorList) {
+	switch v := t.(type) {
+	case *parse.TypeList:
+		storeNestedTypeFields(name, v.Elem, errs)
+	case *parse.TypeMap:
+		storeNestedTypeFields(name, v.Elem, errs)
+	case *parse.TypeOptional:
+		storeNestedTypeFields(name, v.Elem, errs)
+	case *parse.TypeTuple:
+		for _, elem := range v.Elements {
+			storeNestedTypeFields(name, elem, errs)
+		}
+	case *parse.TypeObject:
+		for _, field := range v.Fields {
+			fieldName := name + "." + field.Name
+			if field.Decl != nil {
+				lowerInputType(fieldName, field.Decl, errs)
+				continue
+			}
+			if field.Type != nil {
+				storeNestedTypeFields(fieldName, field.Type, errs)
+			}
+		}
+	}
 }
 
 func lowerLocals(block *parse.ObjectLit, what string, errs *parse.ErrorList) []LocalDecl {
