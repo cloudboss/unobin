@@ -62,7 +62,7 @@ func sourceFileMayBeLibrary(fsys fs.FS, name string) bool {
 }
 
 func isMetadataFileName(name string) bool {
-	switch strings.TrimPrefix(name, "./") {
+	switch cleanSourceName(name) {
 	case "manifest.ub", "lock.ub":
 		return true
 	default:
@@ -70,16 +70,32 @@ func isMetadataFileName(name string) bool {
 	}
 }
 
-// ContainsFactorySource reports whether s has a root file that marks a
-// runnable factory instead of an importable library.
-func ContainsFactorySource(s *Source) bool {
-	return containsRootFile(s, "factory.ub")
+func isReservedSourceFileName(name string) bool {
+	switch cleanSourceName(name) {
+	case "factory.ub", "manifest.ub", "lock.ub":
+		return true
+	default:
+		return false
+	}
 }
 
-func containsRootFile(s *Source, name string) bool {
+func cleanSourceName(name string) string {
+	return strings.TrimPrefix(name, "./")
+}
+
+// ContainsFactorySource reports whether s has a root file that declares a
+// runnable factory instead of an importable library.
+func ContainsFactorySource(s *Source) bool {
 	if s == nil || s.FS == nil {
 		return false
 	}
-	_, err := fs.Stat(s.FS, name)
-	return err == nil
+	b, err := fs.ReadFile(s.FS, "factory.ub")
+	if err != nil {
+		return false
+	}
+	f, err := syntax.ParseSource("factory.ub", b)
+	if err != nil {
+		return false
+	}
+	return f.Kind == syntax.FileFactory && f.Factory != nil
 }

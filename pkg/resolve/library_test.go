@@ -60,9 +60,9 @@ func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 			isLibrary: true,
 		},
 		{
-			name:             "factory directory",
-			files:            map[string]string{"factory.ub": "description: 'f'"},
-			hasFactorySource: true,
+			name:      "factory file with wrong role is parsed later",
+			files:     map[string]string{"factory.ub": "description: 'f'"},
+			isLibrary: true,
 		},
 		{
 			name:             "grammar-first factory directory",
@@ -72,7 +72,7 @@ func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 		{
 			name: "factory with stray composite is still a factory",
 			files: map[string]string{
-				"factory.ub": "description: 'f'",
+				"factory.ub": "factory: {}",
 				"library.ub": "a: resource { description: 'a' }",
 			},
 			hasFactorySource: true,
@@ -258,15 +258,14 @@ func TestWalkUBRejectsLibraryFilesWithoutCompositeDeclarations(t *testing.T) {
 	}
 }
 
-func TestWalkUBRejectsFactoryImport(t *testing.T) {
+func TestWalkUBRejectsWrongFactoryFileRole(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"factory.ub": "description: 'a factory'",
 		"library.ub": "a: resource { description: 'a' }",
 	})
 	_, err := walkOneUB(t, src)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "a factory")
-	require.Contains(t, err.Error(), "cannot be imported")
+	require.Contains(t, err.Error(), "factory.ub must declare factory")
 }
 
 func TestWalkUBRejectsGrammarFirstFactoryImport(t *testing.T) {

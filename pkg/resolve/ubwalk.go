@@ -307,6 +307,9 @@ func addSourceDeclaredLibraryFile(
 	}
 	sf, serrs := syntax.LowerFile(f)
 	if serrs.Len() > 0 {
+		if isReservedSourceFileName(filename) {
+			return serrs.Err()
+		}
 		return fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if sf.Kind != syntax.FileLibrary || sf.Library == nil {
