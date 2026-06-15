@@ -60,7 +60,7 @@ type planStepJSON struct {
 	Decision         Decision                `json:"decision"`
 	Inputs           map[string]any          `json:"inputs,omitempty"`
 	UnresolvedInputs map[string][]string     `json:"unresolved-inputs,omitempty"`
-	DeferredRead     string                  `json:"deferred-read,omitempty"`
+	DeferredRead     *state.ConfigurationRef `json:"deferred-read,omitempty"`
 	PriorInputs      map[string]any          `json:"prior-inputs,omitempty"`
 	PriorSelector    *state.Selector         `json:"prior-selector,omitempty"`
 	PriorOutputs     map[string]any          `json:"prior-outputs,omitempty"`
@@ -79,6 +79,10 @@ func (s PlanStep) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	deferredRead, err := state.EncodeConfigurationRef(s.DeferredRead)
+	if err != nil {
+		return nil, err
+	}
 	return json.Marshal(planStepJSON{
 		Address:          s.Address,
 		Kind:             s.Kind,
@@ -87,7 +91,7 @@ func (s PlanStep) MarshalJSON() ([]byte, error) {
 		Decision:         s.Decision,
 		Inputs:           s.Inputs,
 		UnresolvedInputs: s.UnresolvedInputs,
-		DeferredRead:     s.DeferredRead,
+		DeferredRead:     deferredRead,
 		PriorInputs:      s.PriorInputs,
 		PriorSelector:    s.PriorSelector,
 		PriorOutputs:     s.PriorOutputs,
@@ -116,6 +120,10 @@ func (s *PlanStep) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
+	deferredRead, err := state.DecodeConfigurationRef(raw.DeferredRead)
+	if err != nil {
+		return err
+	}
 	*s = PlanStep{
 		Address:          raw.Address,
 		Kind:             raw.Kind,
@@ -124,7 +132,7 @@ func (s *PlanStep) UnmarshalJSON(b []byte) error {
 		Decision:         raw.Decision,
 		Inputs:           raw.Inputs,
 		UnresolvedInputs: raw.UnresolvedInputs,
-		DeferredRead:     raw.DeferredRead,
+		DeferredRead:     deferredRead,
 		PriorInputs:      raw.PriorInputs,
 		PriorSelector:    raw.PriorSelector,
 		PriorOutputs:     raw.PriorOutputs,

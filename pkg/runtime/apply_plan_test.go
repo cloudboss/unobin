@@ -1747,6 +1747,52 @@ func TestDecodePlanRejectsConfigurationString(t *testing.T) {
 	require.Contains(t, err.Error(), "configuration must be an object")
 }
 
+func TestEncodePlanUsesDeferredReadReference(t *testing.T) {
+	plan := &Plan{
+		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
+		Steps: []*PlanStep{{
+			Address:      "data.lookup",
+			Kind:         NodeData,
+			Decision:     DecisionNoOp,
+			DeferredRead: "aws.east",
+		}},
+	}
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+
+	var got struct {
+		Steps []map[string]any `json:"steps"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &got))
+	require.Equal(t, map[string]any{
+		"kind": "named",
+		"name": "east",
+		"selector": map[string]any{
+			"alias": "aws",
+		},
+	}, got.Steps[0]["deferred-read"])
+}
+
+func TestDecodePlanReadsDeferredReadReference(t *testing.T) {
+	b := []byte(`{
+  "format-version": 1,
+  "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
+  "steps": [{
+    "address": "data.lookup",
+    "node-kind": "data",
+    "decision": "no-op",
+    "deferred-read": {
+      "kind": "named",
+      "name": "east",
+      "selector": {"alias": "aws"}
+    }
+  }]
+}`)
+	pf, err := DecodePlan(b)
+	require.NoError(t, err)
+	require.Equal(t, "aws.east", pf.Steps[0].DeferredRead)
+}
+
 func TestDecodePlanReadsConfigurationSections(t *testing.T) {
 	b := []byte(`{
   "format-version": 1,

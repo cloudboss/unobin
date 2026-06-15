@@ -176,7 +176,7 @@ type PlanStep struct {
 	// whose pending evaluation kept this node's read from running at
 	// plan. The stored state is taken as current for the decision;
 	// apply and the next plan see real values.
-	DeferredRead string `json:"deferred-read,omitempty"`
+	DeferredRead string `json:"-"`
 
 	// PriorInputs is the body the last apply evaluated, recorded so the plan
 	// can show a changed field as `old -> new` rather than the new value
