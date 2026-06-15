@@ -186,6 +186,25 @@ func TestDepsSync(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestDepsSyncUsesAncestorManifest(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	child := filepath.Join(root, "services", "app")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+
+	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
+		"-p", filepath.Join(child, "factory.ub"))
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(root, deps.SourceLockFileName))
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(child, deps.SourceLockFileName))
+	require.True(t, os.IsNotExist(err))
+}
+
 func TestDepsSyncDefaultPathUsesFactoryUB(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -341,6 +360,22 @@ func TestDepsList(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	writeProjectLock(t, root)
 	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "factory.ub"))
+	require.NoError(t, err)
+	require.Equal(t,
+		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)
+}
+
+func TestDepsListUsesAncestorManifest(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	child := filepath.Join(root, "services", "app")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("manifest: { requires: {} }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"),
+		factorySource("description: 'x'\n"), 0o644))
+	writeProjectLock(t, root)
+
+	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(child, "factory.ub"))
 	require.NoError(t, err)
 	require.Equal(t,
 		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)

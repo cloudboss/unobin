@@ -99,16 +99,22 @@ func init() {
 	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd, depsGetCmd)
 }
 
-// projectRoot resolves the project root from a --path value. The path
-// normally names the factory source file, whose directory is the root,
-// but a directory works too: `unobin deps list -p mydir` and `-p mydir/`
-// both mean the project in mydir. Without this, filepath.Dir("mydir")
-// would treat mydir as a filename and return ".".
-func projectRoot(stackPath string) string {
-	if info, err := os.Stat(stackPath); err == nil && info.IsDir() {
-		return stackPath
+// projectRoot resolves the project root from a --path value. When an
+// ancestor has manifest.ub, that directory is the project root. Without a
+// manifest, the path itself is the root when it is a directory; otherwise its
+// parent is used so first-time deps sync can create manifest.ub there.
+func projectRoot(stackPath string) (string, error) {
+	root, err := deps.FindManifestDir(stackPath)
+	if err == nil {
+		return root, nil
 	}
-	return filepath.Dir(stackPath)
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	if info, err := os.Stat(stackPath); err == nil && info.IsDir() {
+		return stackPath, nil
+	}
+	return filepath.Dir(stackPath), nil
 }
 
 // runDepsSync reconciles the project manifest and lock with the
@@ -118,7 +124,10 @@ func projectRoot(stackPath string) string {
 // dependency graph, walks the imports to pin every remote library, and
 // writes both files at the project root.
 func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
-	root := projectRoot(cfg.stackPath)
+	root, err := projectRoot(cfg.stackPath)
+	if err != nil {
+		return err
+	}
 	manifest, manifestName, err := readManifestOrEmpty(root)
 	if err != nil {
 		return err
@@ -137,7 +146,10 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 // manifest, and re-pins. The query may be empty or "latest" (the highest
 // tag), an exact version, or a partial one (v1, v1.2).
 func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
-	root := projectRoot(cfg.stackPath)
+	root, err := projectRoot(cfg.stackPath)
+	if err != nil {
+		return err
+	}
 	dep, query, err := parseGetArg(arg)
 	if err != nil {
 		return err
@@ -286,7 +298,11 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(projectRoot(cfg.stackPath), cfg.replaceUnobin, nil)
+	root, err := projectRoot(cfg.stackPath)
+	if err != nil {
+		return err
+	}
+	resolver, err := newDepsResolver(root, cfg.replaceUnobin, nil)
 	if err != nil {
 		return err
 	}
@@ -301,10 +317,14 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	return nil
 }
 
-// readProjectLock reads the lock from the project rooted at the
-// directory of stackPath, with a clear error when it is missing.
+// readProjectLock reads the lock from stackPath's project root, with a
+// clear error when it is missing.
 func readProjectLock(stackPath string) (*deps.Lock, error) {
-	lock, err := deps.ReadLock(os.DirFS(projectRoot(stackPath)))
+	root, rootErr := projectRoot(stackPath)
+	if rootErr != nil {
+		return nil, rootErr
+	}
+	lock, err := deps.ReadLock(os.DirFS(root))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first",
