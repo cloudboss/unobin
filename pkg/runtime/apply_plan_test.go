@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -1652,6 +1653,75 @@ func TestEncodePlanUsesNodeKindKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(encoded), `"node-kind": "resource"`)
 	require.NotContains(t, string(encoded), `"kind": "resource"`)
+}
+
+func TestEncodePlanUsesConfigurationSections(t *testing.T) {
+	plan := &Plan{
+		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
+		RawConfigurations: map[string]map[string]any{
+			"fix": {
+				"default": map[string]any{"endpoint": "https://op.example"},
+				"cluster": map[string]any{"endpoint": "https://stack.example"},
+			},
+		},
+	}
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &got))
+	require.Equal(t, map[string]any{
+		"defaults": map[string]any{
+			"fix": map[string]any{
+				"body": map[string]any{"endpoint": "https://op.example"},
+			},
+		},
+		"named": map[string]any{
+			"cluster": map[string]any{
+				"selector": map[string]any{"alias": "fix"},
+				"body":     map[string]any{"endpoint": "https://stack.example"},
+			},
+		},
+	}, got["configurations"])
+}
+
+func TestDecodePlanReadsConfigurationSections(t *testing.T) {
+	b := []byte(`{
+  "format-version": 1,
+  "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
+  "configurations": {
+    "defaults": {
+      "fix": {"body": {"endpoint": "https://op.example"}}
+    },
+    "named": {
+      "cluster": {
+        "selector": {"alias": "fix"},
+        "body": {"endpoint": "https://stack.example"}
+      }
+    }
+  },
+  "steps": []
+}`)
+	pf, err := DecodePlan(b)
+	require.NoError(t, err)
+	require.Equal(t, map[string]map[string]any{
+		"fix": {
+			"default": map[string]any{"endpoint": "https://op.example"},
+			"cluster": map[string]any{"endpoint": "https://stack.example"},
+		},
+	}, pf.RawConfigurations)
+}
+
+func TestDecodePlanRejectsFlatConfigurations(t *testing.T) {
+	bad := []byte(`{
+  "format-version": 1,
+  "factory": {"name": "x"},
+  "configurations": {"fix": {"default": {}}},
+  "steps": []
+}`)
+	_, err := DecodePlan(bad)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `configurations: unknown field "fix"`)
 }
 
 func TestDecodePlanRejectsBadFormatVersion(t *testing.T) {
