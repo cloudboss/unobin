@@ -1,0 +1,11 @@
+factory: {
+  configurations: {
+    formal: greet {}
+  }
+
+  actions: {
+    say: aws.say {
+      @configuration: configuration.formal
+    }
+  }
+}

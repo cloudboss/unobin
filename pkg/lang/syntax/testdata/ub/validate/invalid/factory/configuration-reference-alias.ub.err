@@ -1,0 +1,1 @@
+configuration formal must use configuration.formal, not configuration.greet.formal

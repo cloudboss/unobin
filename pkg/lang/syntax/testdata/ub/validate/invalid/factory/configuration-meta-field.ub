@@ -1,0 +1,11 @@
+factory: {
+  configurations: {
+    formal: greet {}
+  }
+
+  actions: {
+    say: greet.say {
+      @configuration: configuration.formal.prefix
+    }
+  }
+}

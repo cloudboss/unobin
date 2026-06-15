@@ -72,6 +72,7 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	mergeErrors(errs, lang.ValidateConstraintReferences(constraints, inputs))
 	mergeErrors(errs, lang.ValidateImports(importDeclsObject(body.Imports)))
 	validateConfigurationDecls(body.Configurations, errs)
+	validateConfigurationRefs(body, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
 	validateNodeDecls(body.Data, "data", dataBodyMeta, errs)
 	validateNodeDecls(body.Actions, "action", actionBodyMeta, errs)
@@ -260,6 +261,168 @@ func configurationDeclLabel(decl ConfigurationDecl) string {
 		return decl.Name.Name
 	}
 	return decl.Selector.Name
+}
+
+func validateConfigurationRefs(body FactoryBody, errs *parse.ErrorList) {
+	refs := configurationRefs(body.Configurations)
+	for _, decl := range body.Configurations {
+		label := configurationDeclLabel(decl)
+		validateConfigurationBodyRefs(label, decl.Body, refs, errs)
+	}
+	validateConfigurationNodeRefs(body.Resources, refs, errs)
+	validateConfigurationNodeRefs(body.Data, refs, errs)
+	validateConfigurationNodeRefs(body.Actions, refs, errs)
+}
+
+func validateConfigurationBodyRefs(
+	label string,
+	body *parse.ObjectLit,
+	refs configurationRefIndex,
+	errs *parse.ErrorList,
+) {
+	if body == nil {
+		return
+	}
+	lang.Walk(body, func(expr parse.Expr) {
+		dp, ok := expr.(*parse.DotPath)
+		if !ok || dp.Root == nil || dp.Root.Name != "configuration" {
+			return
+		}
+		validateConfigurationPath(dp, refs, "configuration "+label, errs)
+	})
+}
+
+func validateConfigurationNodeRefs(
+	nodes []NodeDecl,
+	refs configurationRefIndex,
+	errs *parse.ErrorList,
+) {
+	for _, node := range nodes {
+		validateConfigurationNodeBodyRefs(node, refs, errs)
+	}
+}
+
+func validateConfigurationNodeBodyRefs(
+	node NodeDecl,
+	refs configurationRefIndex,
+	errs *parse.ErrorList,
+) {
+	if node.Body == nil {
+		return
+	}
+	for _, fld := range node.Body.Fields {
+		if fld.Key.Kind != parse.FieldIdent {
+			continue
+		}
+		switch fld.Key.Name {
+		case "@configuration":
+			ref, ok := validateConfigurationSelection(
+				fld.Value, refs, "@configuration", errs)
+			if ok && ref.alias != node.Selector.Alias.Name {
+				errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+					"@configuration %s: selector %q does not match node selector %q",
+					ref.name, ref.alias, node.Selector.Alias.Name)
+			}
+		case "@configurations":
+			validateConfigurationsSelection(fld.Value, refs, errs)
+		}
+	}
+}
+
+func validateConfigurationsSelection(
+	expr parse.Expr,
+	refs configurationRefIndex,
+	errs *parse.ErrorList,
+) {
+	obj, ok := expr.(*parse.ObjectLit)
+	if !ok {
+		return
+	}
+	for _, entry := range obj.Fields {
+		if entry.Key.Kind != parse.FieldIdent {
+			continue
+		}
+		ref, ok := validateConfigurationSelection(
+			entry.Value, refs, "@configurations."+entry.Key.Name, errs)
+		if ok && ref.alias != entry.Key.Name {
+			errs.Addf(parse.ErrSchema, entry.Value.Span().Start,
+				"@configurations.%s: selector %q does not match remap key",
+				entry.Key.Name, ref.alias)
+		}
+	}
+}
+
+func validateConfigurationSelection(
+	expr parse.Expr,
+	refs configurationRefIndex,
+	what string,
+	errs *parse.ErrorList,
+) (configurationRef, bool) {
+	dp, ok := expr.(*parse.DotPath)
+	if !ok || dp.Root == nil || dp.Root.Name != "configuration" {
+		errs.Addf(parse.ErrSchema, expr.Span().Start,
+			"%s takes configuration.<name>", what)
+		return configurationRef{}, false
+	}
+	if rejectConfigurationAliasPath(dp, refs, what, errs) {
+		return configurationRef{}, false
+	}
+	if len(dp.Segments) != 1 || !simpleDotSegment(dp.Segments[0]) {
+		errs.Addf(parse.ErrSchema, dp.S.Start,
+			"%s takes configuration.<name>", what)
+		return configurationRef{}, false
+	}
+	return namedConfigurationRef(dp, refs, what, errs)
+}
+
+func validateConfigurationPath(
+	dp *parse.DotPath,
+	refs configurationRefIndex,
+	what string,
+	errs *parse.ErrorList,
+) (configurationRef, bool) {
+	if len(dp.Segments) < 1 || !simpleDotSegment(dp.Segments[0]) {
+		errs.Addf(parse.ErrSchema, dp.S.Start,
+			"%s takes configuration.<name>", what)
+		return configurationRef{}, false
+	}
+	if rejectConfigurationAliasPath(dp, refs, what, errs) {
+		return configurationRef{}, false
+	}
+	return namedConfigurationRef(dp, refs, what, errs)
+}
+
+func rejectConfigurationAliasPath(
+	dp *parse.DotPath,
+	refs configurationRefIndex,
+	what string,
+	errs *parse.ErrorList,
+) bool {
+	if len(dp.Segments) < 2 || !simpleDotSegment(dp.Segments[1]) {
+		return false
+	}
+	if ref, ok := refs.named[dp.Segments[1].Name]; ok && ref.alias == dp.Segments[0].Name {
+		errs.Addf(parse.ErrSchema, dp.S.Start,
+			"%s must use configuration.%s, not configuration.%s.%s",
+			what, dp.Segments[1].Name, dp.Segments[0].Name, dp.Segments[1].Name)
+		return true
+	}
+	return false
+}
+
+func namedConfigurationRef(
+	dp *parse.DotPath,
+	refs configurationRefIndex,
+	what string,
+	errs *parse.ErrorList,
+) (configurationRef, bool) {
+	ref, ok := refs.named[dp.Segments[0].Name]
+	if !ok {
+		errs.Addf(parse.ErrSchema, dp.S.Start,
+			"%s names unknown configuration %q", what, dp.Segments[0].Name)
+		return configurationRef{}, false
+	}
+	return ref, true
 }
 
 func validateNodeDecls(

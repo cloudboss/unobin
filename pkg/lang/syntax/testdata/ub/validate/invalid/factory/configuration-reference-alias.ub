@@ -1,0 +1,7 @@
+factory: {
+  configurations: {
+    formal: greet {
+      prefix: configuration.greet.formal.prefix
+    }
+  }
+}
