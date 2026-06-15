@@ -16,7 +16,7 @@ const PlanFormatVersion = 1
 // the in-memory `Plan.Steps` but use `json` tags for stable
 // serialization. Inputs carries the validated root inputs the plan was
 // computed against, so apply can seed them into its eval scope without
-// re-reading config.ub.
+// re-reading the stack file.
 type PlanFile struct {
 	FormatVersion     int                       `json:"format-version"`
 	Factory           FactoryRef                `json:"factory"`

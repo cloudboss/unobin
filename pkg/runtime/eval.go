@@ -20,7 +20,7 @@ import (
 var ErrEvalNotFound = errors.New("not found")
 
 // EvalContext supplies the values that addresses resolve against. Vars
-// is the validated `inputs:` map after `config.ub` and `UB_VAR_*` env
+// is the validated `inputs:` map after the stack file and `UB_VAR_*` env
 // overrides. Resources, Data, and Actions hold the outputs of nodes
 // that have already executed, indexed by their source address path.
 // Libraries is the import table the scope's `<alias>.<func>(...)` calls

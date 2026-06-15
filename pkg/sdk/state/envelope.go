@@ -18,7 +18,7 @@ const EnvelopeVersion = 1
 // the configuration the resolver decodes against that entry's schema.
 //
 // A plan file records a Backend ref so apply can reconstruct the same
-// backend without re-reading config.ub, and every envelope records an
+// backend without re-reading the stack file, and every envelope records an
 // Encrypter ref naming the key source that sealed it.
 type Ref struct {
 	Name string         `json:"name"`
@@ -35,7 +35,7 @@ type Ref struct {
 //
 // The envelope is not authenticated, so a reader with its own
 // configuration must not let the file choose the key: state backends
-// decrypt with the encrypter resolved from config.ub and treat the
+// decrypt with the encrypter resolved from the stack file and treat the
 // recorded ref as information for operators and error messages.
 type Envelope struct {
 	EnvelopeVersion int    `json:"envelope-version"`

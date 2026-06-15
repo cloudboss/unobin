@@ -15,7 +15,7 @@ import (
 // Input bundles everything codegen needs to produce a factory binary's
 // `main.go`. Body is the literal factory source the binary embeds and
 // parses on each invocation. LibraryPath is the binary's library-path
-// identity, the same form Go libraries use; the operator's `config.ub`
+// identity, the same form Go libraries use; the operator's stack file
 // asserts the same value under `factory.pin.library-path` and plan,
 // refresh, and validate refuse on mismatch. An empty LibraryPath disables that
 // identity check. The version and content-revision are not generated

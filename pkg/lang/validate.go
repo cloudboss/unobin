@@ -165,14 +165,14 @@ var inputModifierKeys = map[string]struct{}{
 	"enum":        {},
 }
 
-// ValidateInputDeclarations checks the shape of an `inputs:` block as it
-// appears in a stack or exported-type body. Every entry must be an
-// identifier name bound to an object declaration carrying a `type:`
-// expression and any number of permitted modifiers; types are promoted
-// here so callers see syntactic and type level errors in one batch.
+// ValidateInputDeclarations checks an `inputs:` declaration block in a
+// factory or composite body. Every entry must be an identifier name bound to
+// an object declaration carrying a `type:` expression and any number of
+// permitted modifiers; types are promoted here so callers see syntactic and
+// type level errors in one batch.
 //
-// Config file `inputs:` blocks have a different shape (values, not
-// declarations) and are not validated by this function.
+// Stack file `inputs:` blocks contain values, not declarations, and are not
+// validated by this function.
 func ValidateInputDeclarations(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))

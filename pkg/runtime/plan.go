@@ -264,10 +264,10 @@ func (s *PlanStep) Gone() bool {
 // StateRev is the snapshot rev the plan was computed against. Apply
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
-// eval scope without re-reading config.ub. RawConfigurations carries
+// eval scope without re-reading the stack file. RawConfigurations carries
 // the raw per-library configuration maps (keyed by import alias then
 // alias name) so apply re-decodes them through the same code path
-// rather than re-reading the config file.
+// rather than re-reading the stack file.
 type Plan struct {
 	Factory           state.FactoryInfo
 	Stack             string
@@ -278,7 +278,7 @@ type Plan struct {
 
 	// Backend names the state backend the plan was computed against,
 	// so apply can reconstruct the same backend without re-reading
-	// config.ub. A nil value means the resolver's default (the local
+	// the stack file. A nil value means the resolver's default (the local
 	// backend under .unobin/state) was used.
 	Backend *StateRef
 

@@ -100,10 +100,10 @@ type ConfigRef struct {
 	Configuration string
 }
 
-// ExtractNodes walks a parsed stack or exported-type file and returns every
-// addressable node in source order. The file's shape is assumed to be
-// validated. Malformed subtrees are skipped silently rather than reported
-// as they should be validated with `lang.ValidateFile` first.
+// ExtractNodes walks a parsed factory or composite body and returns every
+// addressable node in source order. The file is assumed to be validated.
+// Malformed subtrees are skipped silently rather than reported as they should
+// be validated with `lang.ValidateFile` first.
 //
 // libs is the imported-library table keyed by alias. It is consulted to
 // distinguish primitive resource call sites from composite call sites;
@@ -428,7 +428,7 @@ func configurationAddress(alias, name string) string {
 
 // InternalConfigurationNames returns the configuration names a factory
 // defines internally, keyed by import alias. The runner consults it
-// when loading config.ub so an operator entry cannot collide with a
+// when loading the stack file so an operator entry cannot collide with a
 // name the factory owns.
 func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 	out := map[string]map[string]bool{}
