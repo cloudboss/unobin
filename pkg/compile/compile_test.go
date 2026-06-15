@@ -23,7 +23,7 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
 	f, body, err := ParseFactorySource("factory.ub", src)
 	require.NoError(t, err)
 	require.Equal(t, lang.FileFactory, f.Kind)
-	require.NotContains(t, body, "factory:")
+	require.Contains(t, body, "factory:")
 	require.Contains(t, body, "imports:")
 	require.Contains(t, body, "hello: std.fs-file")
 	require.Contains(t, body, "resource.hello.path")

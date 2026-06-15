@@ -523,7 +523,7 @@ factory: {
 
 	require.Contains(t, out, "package main")
 	require.Contains(t, out, `hi: core.command`)
-	require.NotContains(t, out, "factory: {")
+	require.Contains(t, out, "factory: {")
 }
 
 func TestCompileDirectoryUsesFactoryUB(t *testing.T) {
@@ -1352,7 +1352,7 @@ import (
 )
 
 const (
-	factoryBody        = "imports: { net: './libraries/net' }\n"
+	factoryBody        = "factory: {\n  imports: {\n    net: './libraries/net'\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )

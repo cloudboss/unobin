@@ -103,7 +103,7 @@ func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 		Body:     obj,
 		Comments: sf.Comments,
 	}
-	body, err := lang.Format(out)
+	body, err := lang.Canonicalize(path, src)
 	if err != nil {
 		return nil, "", err
 	}

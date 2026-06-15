@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
@@ -234,6 +235,20 @@ func TestVersion(t *testing.T) {
 	out, err := runRoot(t, info, "version")
 	require.NoError(t, err)
 	require.Contains(t, out, "test-stack v0.1.0 (content-revision abcdef)")
+}
+
+func TestParsedFileAcceptsCompilerFactoryBody(t *testing.T) {
+	_, body, err := compile.ParseFactorySource("factory.ub", []byte(`factory: {
+  imports: { std: 'github.com/example/std' }
+  resources: {
+    hello: std.fs-file { path: '/tmp/hello' }
+  }
+}
+`))
+	require.NoError(t, err)
+
+	_, _, err = parsedFile(Info{FactoryBody: body})
+	require.NoError(t, err)
 }
 
 func TestApplyAndOutput(t *testing.T) {
