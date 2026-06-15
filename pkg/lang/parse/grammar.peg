@@ -80,6 +80,31 @@ func exprSlice(v any) []Expr {
 	return out
 }
 
+// typeExprSlice converts pigeon's []any of type captures to []TypeExpr.
+func typeExprSlice(v any) []TypeExpr {
+	if v == nil {
+		return nil
+	}
+	in := v.([]any)
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]TypeExpr, len(in))
+	for i, x := range in {
+		out[i] = x.(TypeExpr)
+	}
+	return out
+}
+
+var atomicTypeNames = map[string]struct{}{
+	"string":  {},
+	"number":  {},
+	"integer": {},
+	"boolean": {},
+	"null":    {},
+	"opaque":  {},
+}
+
 // infixTail carries one (op, right) tail produced by an operator-level
 // rule. The leftmost operand is the head; foldInfix combines a head with
 // any number of tails into a left-associated Infix tree. half marks an
@@ -559,6 +584,122 @@ File <- _ pairs:Pair* EOF {
 	}
 	f.Comments = collectComments(c)
 	return f, nil
+}
+
+TypeFile <- _ t:TypeExprRule _ EOF {
+	return t, nil
+}
+
+TypeExprRule <- OpenType / OptionalType / ListType / MapType / TupleType / ObjectType / AtomicType
+
+ListType <- "list" "(" _ args:TypeArgs _ ")" {
+	span := c.span()
+	elems := typeExprSlice(args)
+	if len(elems) != 1 {
+		return nil, fmt.Errorf("list takes exactly 1 type argument, got %d", len(elems))
+	}
+	return &TypeList{S: span, Elem: elems[0]}, nil
+}
+
+MapType <- "map" "(" _ args:TypeArgs _ ")" {
+	span := c.span()
+	elems := typeExprSlice(args)
+	if len(elems) != 1 {
+		return nil, fmt.Errorf("map takes exactly 1 type argument, got %d", len(elems))
+	}
+	return &TypeMap{S: span, Elem: elems[0]}, nil
+}
+
+TupleType <- "tuple" "(" _ args:TypeArgs _ ")" {
+	span := c.span()
+	elems := typeExprSlice(args)
+	if len(elems) < 2 {
+		return nil, fmt.Errorf("tuple takes at least 2 type arguments, got %d", len(elems))
+	}
+	return &TypeTuple{S: span, Elements: elems}, nil
+}
+
+OptionalType <- "optional" "(" _ args:TypeArgs _ ")" {
+	span := c.span()
+	elems := typeExprSlice(args)
+	if len(elems) != 1 {
+		return nil, fmt.Errorf("optional takes exactly 1 type argument, got %d", len(elems))
+	}
+	return &TypeOptional{S: span, Elem: elems[0]}, nil
+}
+
+OpenType <- "open" "(" _ args:TypeArgs _ ")" {
+	span := c.span()
+	elems := typeExprSlice(args)
+	if len(elems) != 1 {
+		return nil, fmt.Errorf("open takes exactly 1 type argument, got %d", len(elems))
+	}
+	obj, ok := elems[0].(*TypeObject)
+	if !ok {
+		if _, isOpt := elems[0].(*TypeOptional); isOpt {
+			return nil, fmt.Errorf(
+				"open applies to object types, got optional; write optional(open(object({ ... })))")
+		}
+		return nil, fmt.Errorf("open applies to object types")
+	}
+	if obj.Open {
+		return nil, fmt.Errorf("open(open(...)) is redundant; write open once")
+	}
+	obj.Open = true
+	obj.S = span
+	return obj, nil
+}
+
+ObjectType <- "object" "(" _ fields:TypeObjectBody _ ")" {
+	return &TypeObject{S: c.span(), Fields: fields.([]*TypeObjectField)}, nil
+}
+
+TypeArgs <- args:( first:TypeExprRule rest:( _ "," _ t:TypeExprRule { return t, nil } )* _ ","? )? {
+	if args == nil {
+		return []any{}, nil
+	}
+	parts := args.([]any)
+	first := parts[0]
+	rest := parts[1].([]any)
+	out := make([]any, 0, 1+len(rest))
+	out = append(out, first)
+	out = append(out, rest...)
+	return out, nil
+}
+
+TypeObjectBody <- "{" _ fields:TypeObjectField* _ "}" {
+	in := fields.([]any)
+	out := make([]*TypeObjectField, len(in))
+	for i, x := range in {
+		out[i] = x.(*TypeObjectField)
+	}
+	return out, nil
+}
+
+TypeObjectField <- key:PlainIdentKey _ ":" _ value:( ObjectLitNode / TypeExprRule ) _ ","? _ {
+	fk := key.(FieldKey)
+	field := &TypeObjectField{S: fk.S, Name: fk.Name}
+	switch v := value.(type) {
+	case TypeExpr:
+		field.Type = v
+	case *ObjectLit:
+		field.Decl = v
+	}
+	return field, nil
+}
+
+AtomicType <- name:IdentText {
+	span := c.span()
+	n := name.(string)
+	if n == "any" {
+		return nil, fmt.Errorf(
+			"any is not a type; use opaque for a value passed along unread, or declare the value's type")
+	}
+	if _, ok := atomicTypeNames[n]; !ok {
+		return nil, fmt.Errorf(
+			"unknown atomic type %q (expected string, number, integer, boolean, null, opaque)", n)
+	}
+	return &TypeAtomic{S: span, Name: n}, nil
 }
 
 // A pair is a selector-body declaration or `key: value`, plus any trailing

@@ -102,3 +102,8 @@ func ParseSource(path string, b []byte) (*File, error) {
 func ParseExpr(path string, b []byte) (Expr, error) {
 	return parse.ParseExpr(path, b)
 }
+
+// ParseType parses a single unobin type expression from b.
+func ParseType(path string, b []byte) (TypeExpr, error) {
+	return parse.ParseType(path, b)
+}

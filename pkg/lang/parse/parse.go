@@ -43,3 +43,16 @@ func ParseExpr(path string, b []byte) (Expr, error) {
 	}
 	return f.Body.Fields[0].Value, nil
 }
+
+// ParseType parses b as a UB type expression and returns its AST.
+func ParseType(path string, b []byte) (TypeExpr, error) {
+	v, err := Parse(path, b,
+		Entrypoint("TypeFile"),
+		GlobalStore("file", path),
+		Recover(false),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return v.(TypeExpr), nil
+}
