@@ -518,12 +518,6 @@ func encodeTypeOptional(b *strings.Builder, n *lang.TypeOptional) error {
 	if err := encodeNode(b, n.Elem); err != nil {
 		return err
 	}
-	if n.Default != nil {
-		b.WriteString(", Default: ")
-		if err := encodeNode(b, n.Default); err != nil {
-			return err
-		}
-	}
 	b.WriteString("}")
 	return nil
 }

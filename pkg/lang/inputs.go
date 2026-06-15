@@ -135,9 +135,6 @@ func extractTypeAndDefault(
 		return nil, nil, false, false
 	}
 	if opt, ok := t.(*TypeOptional); ok {
-		if defaultField == nil {
-			defaultField = opt.Default
-		}
 		return opt.Elem, defaultField, true, true
 	}
 	return t, defaultField, false, true
@@ -309,7 +306,7 @@ func fieldTypeAndDefault(f *TypeObjectField) (TypeExpr, Expr, bool, bool) {
 		return nil, nil, false, false
 	}
 	if opt, ok := f.Type.(*TypeOptional); ok {
-		return opt.Elem, opt.Default, true, true
+		return opt.Elem, nil, true, true
 	}
 	return f.Type, nil, false, true
 }

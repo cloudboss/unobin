@@ -267,7 +267,7 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 				}
 				continue
 			}
-			if defaultExpr := declaredDefaultExpr(decl, t); defaultExpr != nil {
+			if defaultExpr := declaredDefaultExpr(decl); defaultExpr != nil {
 				checkDefaultIdents(name, defaultExpr, nil, errs)
 			}
 			checkDeclaredDefault(name, decl, t, errs)
@@ -309,14 +309,11 @@ func validateNestedDecls(name string, t TypeExpr, errs *ErrorList) {
 	}
 }
 
-func declaredDefaultExpr(decl *ObjectLit, t TypeExpr) Expr {
+func declaredDefaultExpr(decl *ObjectLit) Expr {
 	for _, df := range decl.Fields {
 		if df.Key.Kind == FieldIdent && df.Key.Name == "default" {
 			return df.Value
 		}
-	}
-	if opt, ok := t.(*TypeOptional); ok {
-		return opt.Default
 	}
 	return nil
 }
@@ -326,7 +323,7 @@ func declaredDefaultExpr(decl *ObjectLit, t TypeExpr) Expr {
 // declaration fails at compile instead of on the first omission. A
 // computed default is checked when it is applied.
 func checkDeclaredDefault(name string, decl *ObjectLit, t TypeExpr, errs *ErrorList) {
-	defaultExpr := declaredDefaultExpr(decl, t)
+	defaultExpr := declaredDefaultExpr(decl)
 	if defaultExpr == nil {
 		return
 	}

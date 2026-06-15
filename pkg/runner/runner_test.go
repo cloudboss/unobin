@@ -592,9 +592,9 @@ inputs: {
 	require.Contains(t, err.Error(), `unknown input "clustr-name"`)
 }
 
-func TestPlanAppliesOptionalDefault(t *testing.T) {
+func TestPlanAppliesDeclaredDefault(t *testing.T) {
 	src := `
-inputs:  { size: { type: optional(integer, 3) } }
+inputs:  { size: { type: integer, default: 3 } }
 imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: { core.echo.hi: { echo: $'size={{ var.size }}' } }
 outputs: { said: { value: action.core.echo.hi.echo } }
@@ -625,9 +625,8 @@ func TestPlanRejectsSplatConstraintViolation(t *testing.T) {
 	src := `
 inputs: {
   replicas: {
-    type: optional(
-      list(object({ inline: optional(string), from-file: optional(string) })),
-      [{ inline: 'a', from-file: 'f' }])
+    type: list(object({ inline: optional(string), from-file: optional(string) }))
+    default: [{ inline: 'a', from-file: 'f' }]
   }
 }
 constraints: [
@@ -645,9 +644,8 @@ func TestPlanChecksPredicateCallingFunction(t *testing.T) {
 	src := `
 inputs: {
   replicas: {
-    type: optional(
-      list(object({ port: optional(integer) })),
-      [{ port: 443 }, { port: 0 }])
+    type: optional(list(object({ port: optional(integer) })))
+    default: [{ port: 443 }, { port: 0 }]
   }
 }
 imports: {
@@ -675,9 +673,8 @@ func TestPlanChecksPredicateCallingCoreNamespace(t *testing.T) {
 	src := `
 inputs: {
   replicas: {
-    type: optional(
-      list(object({ port: optional(integer) })),
-      [{ port: 443 }, { port: 0 }])
+    type: optional(list(object({ port: optional(integer) })))
+    default: [{ port: 443 }, { port: 0 }]
   }
 }
 constraints: [
@@ -699,7 +696,7 @@ func TestPlanRejectsPredicate(t *testing.T) {
 	src := `
 inputs: {
   region:    { type: string }
-  fips-mode: { type: optional(boolean, false) }
+  fips-mode: { type: boolean, default: false }
 }
 constraints: [
   {
@@ -1946,7 +1943,8 @@ inputs: {
     description: 'a friendly word'
   }
   size: {
-    type:    optional(integer, 3)
+    type:    integer
+    default: 3
     minimum: 1
   }
   hosts: {
@@ -1960,7 +1958,8 @@ inputs: {
 
 	require.Contains(t, out, "greeting: string")
 	require.Contains(t, out, "a friendly word")
-	require.Contains(t, out, "size: optional(integer, 3)")
+	require.Contains(t, out, "size: integer")
+	require.Contains(t, out, "default: 3")
 	require.Contains(t, out, "hosts: list(string)")
 }
 
@@ -2163,9 +2162,8 @@ func TestPlanChecksForEachPredicate(t *testing.T) {
 	src := `
 inputs: {
   replicas: {
-    type: optional(
-      list(object({ tls: optional(boolean) })),
-      [{ tls: true }, { tls: false }])
+    type: list(object({ tls: optional(boolean) }))
+    default: [{ tls: true }, { tls: false }]
   }
 }
 constraints: [

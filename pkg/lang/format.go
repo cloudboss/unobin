@@ -572,15 +572,7 @@ func (w *formatter) typeExprWidth(t TypeExpr) int {
 		if i < 0 {
 			return -1
 		}
-		total := len("optional(") + i + 1
-		if x.Default != nil {
-			d := w.singleLineWidth(x.Default)
-			if d < 0 {
-				return -1
-			}
-			total += 2 + d
-		}
-		return total
+		return len("optional(") + i + 1
 	}
 	return -1
 }
@@ -1779,12 +1771,6 @@ func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
 		w.buf.WriteString("optional(")
 		if err := w.writeTypeExpr(x.Elem, indent); err != nil {
 			return err
-		}
-		if x.Default != nil {
-			w.buf.WriteByte(' ')
-			if err := w.writeExpr(x.Default, indent); err != nil {
-				return err
-			}
 		}
 		w.buf.WriteByte(')')
 	default:

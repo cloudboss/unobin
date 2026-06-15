@@ -1,1 +1,1 @@
-inputs: { a: { type: optional(string, 'x') } }
+inputs: { a: { type: string, default: 'x' } }

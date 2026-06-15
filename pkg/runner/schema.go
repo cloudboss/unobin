@@ -60,7 +60,7 @@ func doSchema(cmd *cobra.Command, info Info) error {
 			continue
 		}
 		typeStr := "?"
-		var description string
+		var description, defaultStr string
 		for _, df := range decl.Fields {
 			if df.Key.Kind != lang.FieldIdent {
 				continue
@@ -72,9 +72,14 @@ func doSchema(cmd *cobra.Command, info Info) error {
 				if s, ok := df.Value.(*lang.StringLit); ok {
 					description = s.Value
 				}
+			case "default":
+				defaultStr = printType(df.Value)
 			}
 		}
 		fmt.Fprintf(out, "%s: %s", fld.Key.Name, typeStr)
+		if defaultStr != "" {
+			fmt.Fprintf(out, "  default: %s", defaultStr)
+		}
 		if description != "" {
 			fmt.Fprintf(out, "  -- %s", description)
 		}

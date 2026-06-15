@@ -1,2 +1,2 @@
 imports: { core: 'github.com/x/core' }
-inputs: { a: { type: optional(string, core.format('hi')) } }
+inputs: { a: { type: string, default: core.format('hi') } }

@@ -494,16 +494,13 @@ func (n *TypeTuple) Span() Span    { return n.S }
 func (n *TypeTuple) exprNode()     {}
 func (n *TypeTuple) typeExprNode() {}
 
-// TypeOptional is optional(T), with an optional default argument accepted
-// by the generic expression parser.
+// TypeOptional is optional(T).
 //
 // Optionality implies nullability - wrapping with optional() allows null
-// values; bare types do not. Default is nil when no default argument was
-// written.
+// values; bare types do not.
 type TypeOptional struct {
-	S       Span
-	Elem    TypeExpr
-	Default Expr // Is nil if not provided.
+	S    Span
+	Elem TypeExpr
 }
 
 func (n *TypeOptional) Span() Span    { return n.S }

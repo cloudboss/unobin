@@ -133,10 +133,10 @@ func TestPromoteObjectWithDecl(t *testing.T) {
 	require.Equal(t, "size", size.Name)
 	require.Nil(t, size.Type)
 	require.NotNil(t, size.Decl)
-	// `type: optional(integer, 3)` inside the Decl is left as a Call - the
-	// schema validator promotes it later.
+	// The declaration object is left intact; the schema validator promotes
+	// its type field later.
 	require.Equal(t, "type", size.Decl.Fields[0].Key.Name)
-	require.IsType(t, &Call{}, size.Decl.Fields[0].Value)
+	require.Equal(t, "integer", size.Decl.Fields[0].Value.(*Ident).Name)
 }
 
 func TestPromoteOpen(t *testing.T) {
@@ -161,7 +161,6 @@ func TestPromoteOpen(t *testing.T) {
 	optInner, ok := opt.Elem.(*TypeObject)
 	require.True(t, ok)
 	require.True(t, optInner.Open)
-	require.NotNil(t, opt.Default)
 
 	closed, ok := mustPromote(t, fields["simple-object"]).(*TypeObject)
 	require.True(t, ok)
@@ -225,24 +224,16 @@ func TestPromoteOptional(t *testing.T) {
 	bare, ok := mustPromote(t, fields["optional-bare"]).(*TypeOptional)
 	require.True(t, ok)
 	require.Equal(t, "string", bare.Elem.(*TypeAtomic).Name)
-	require.Nil(t, bare.Default)
-
-	withInt, ok := mustPromote(t, fields["optional-with-default"]).(*TypeOptional)
-	require.True(t, ok)
-	require.Equal(t, "integer", withInt.Elem.(*TypeAtomic).Name)
-	require.Equal(t, int64(3), withInt.Default.(*NumberLit).ParsedInt)
 
 	withList, ok := mustPromote(t, fields["optional-list"]).(*TypeOptional)
 	require.True(t, ok)
 	innerList, ok := withList.Elem.(*TypeList)
 	require.True(t, ok)
 	require.Equal(t, "string", innerList.Elem.(*TypeAtomic).Name)
-	require.IsType(t, &ArrayLit{}, withList.Default)
 
 	withMap, ok := mustPromote(t, fields["optional-map"]).(*TypeOptional)
 	require.True(t, ok)
 	require.IsType(t, &TypeMap{}, withMap.Elem)
-	require.IsType(t, &ObjectLit{}, withMap.Default)
 }
 
 func TestPromoteDeepNested(t *testing.T) {
@@ -250,7 +241,6 @@ func TestPromoteDeepNested(t *testing.T) {
 
 	deep, ok := mustPromote(t, fields["deep"]).(*TypeOptional)
 	require.True(t, ok)
-	require.IsType(t, &ArrayLit{}, deep.Default)
 
 	list, ok := deep.Elem.(*TypeList)
 	require.True(t, ok)
@@ -272,7 +262,6 @@ func TestPromoteDeepNested(t *testing.T) {
 	desc, ok := obj.Fields[4].Type.(*TypeOptional)
 	require.True(t, ok)
 	require.Equal(t, "string", desc.Elem.(*TypeAtomic).Name)
-	require.Nil(t, desc.Default)
 }
 
 func TestPromoteInvalidFixtures(t *testing.T) {

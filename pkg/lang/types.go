@@ -5,9 +5,6 @@ package lang
 // expressions: a bare identifier names an atomic type; a bare call names a
 // constructor (list, set, map, tuple, object, optional, open). Anything
 // outside that subset is rejected with an ErrType diagnostic.
-//
-// If optional receives a default argument, that default stays a plain
-// Expr because TypeOptional.Default is a value, not a type.
 func PromoteType(e Expr) (TypeExpr, error) {
 	switch v := e.(type) {
 	case *Ident:
@@ -234,19 +231,15 @@ func hasTypeKey(o *ObjectLit) bool {
 }
 
 func promoteOptional(c *Call) (TypeExpr, error) {
-	if len(c.Args) < 1 || len(c.Args) > 2 {
+	if len(c.Args) != 1 {
 		return nil, Errorf(ErrType, c.S.Start,
-			"optional takes 1 or 2 arguments (type, [default]), got %d", len(c.Args))
+			"optional takes exactly 1 type argument, got %d", len(c.Args))
 	}
 	elem, err := PromoteType(c.Args[0])
 	if err != nil {
 		return nil, err
 	}
-	var dflt Expr
-	if len(c.Args) == 2 {
-		dflt = c.Args[1]
-	}
-	return &TypeOptional{S: c.S, Elem: elem, Default: dflt}, nil
+	return &TypeOptional{S: c.S, Elem: elem}, nil
 }
 
 func exprPos(e Expr) Position {

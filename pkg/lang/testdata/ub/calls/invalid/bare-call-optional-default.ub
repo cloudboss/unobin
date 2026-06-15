@@ -1,1 +1,1 @@
-inputs: { a: { type: optional(integer, pick()) } }
+inputs: { a: { type: integer, default: pick() } }

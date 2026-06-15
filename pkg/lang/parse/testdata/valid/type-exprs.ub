@@ -40,18 +40,17 @@ open-nested: open(object({
 
 optional-open: optional(open(object({
   retries: integer,
-})), {})
+})))
 
-optional-bare:         optional(string)
-optional-with-default: optional(integer, 3)
-optional-list:         optional(list(string), [])
-optional-map:          optional(map(string), {})
+optional-bare: optional(string)
+optional-list: optional(list(string))
+optional-map:  optional(map(string))
 
 # Realistic input-declaration shape: an object field whose value is a full
 # input declaration (carries `type:` plus modifier keys).
 object-with-decl: object({
   name: { type: string, pattern: '^[a-z]+$' },
-  size: { type: optional(integer, 3), minimum: 1 },
+  size: { type: integer, default: 3, minimum: 1 },
 })
 
 # A deeply nested combination matching the language reference example.
@@ -61,4 +60,4 @@ deep: optional(list(object({
   protocol:    string,
   cidr-blocks: list(string),
   description: optional(string),
-})), [])
+})))

@@ -210,7 +210,7 @@ func TestEncodeFileExpressionTypechecks(t *testing.T) {
 	// full file. This catches any obvious imbalance in braces or
 	// commas that ParseExpr alone might miss.
 	src := `
-inputs: { size: { type: optional(integer, 3) }, hosts: { type: list(string) } }
+inputs: { size: { type: integer, default: 3 }, hosts: { type: list(string) } }
 
 resources: { local.file.one: { path: '/tmp/x', content: 'hello', mode: 420 } }
 `
@@ -305,22 +305,9 @@ func TestEncodeTypeTuple(t *testing.T) {
 }
 
 func TestEncodeTypeOptional(t *testing.T) {
-	got, err := EncodeNode(&lang.TypeOptional{
-		Elem:    &lang.TypeAtomic{Name: "integer"},
-		Default: &lang.NumberLit{Value: "3", ParsedInt: 3},
-	})
-	require.NoError(t, err)
-	require.Contains(t, got, "&lang.TypeOptional{Elem: ")
-	require.Contains(t, got, "Default: ")
-	require.Contains(t, got, "ParsedInt: 3")
-	parsesAsGoExpr(t, got)
-}
-
-func TestEncodeTypeOptionalNoDefault(t *testing.T) {
 	got, err := EncodeNode(&lang.TypeOptional{Elem: &lang.TypeAtomic{Name: "string"}})
 	require.NoError(t, err)
 	require.Contains(t, got, "&lang.TypeOptional{Elem: ")
-	require.NotContains(t, got, "Default")
 	parsesAsGoExpr(t, got)
 }
 
