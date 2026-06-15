@@ -537,6 +537,29 @@ actions: { core.command.hi: { argv: ['echo', 'hi'] } }
 	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/core"`)
 }
 
+func TestCompileUsesAncestorLock(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "demo-factory")
+	child := filepath.Join(root, "services", "app")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("manifest: { requires: {} }\n"), 0o644))
+	stackPath := filepath.Join(child, "factory.ub")
+	src := `
+factory: {
+  imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }
+  actions: { hi: core.command { argv: ['echo', 'hi'] } }
+}
+`
+	require.NoError(t, os.WriteFile(stackPath, factorySource(src), 0o644))
+	writeCompileLock(t, root, map[string]string{
+		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
+	})
+
+	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
+	require.NoError(t, err)
+	require.Contains(t, out, "package main")
+}
+
 func TestCompileSourceDeclaredFactoryToStdout(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

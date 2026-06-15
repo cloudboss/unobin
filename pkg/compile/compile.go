@@ -57,9 +57,9 @@ type Options struct {
 	ReplaceGoModules map[string]string
 	// Build runs `go build` in OutDir after writing the source.
 	Build bool
-	// NewResolver constructs the import resolver for a stack directory;
+	// NewResolver constructs the import resolver for a project root;
 	// nil uses NewProjectResolver.
-	NewResolver func(stackDir string) (resolve.Resolver, error)
+	NewResolver func(projectDir string) (resolve.Resolver, error)
 	// Stdout and Stderr receive the run's output; nil defaults to the
 	// process streams.
 	Stdout io.Writer
@@ -167,8 +167,12 @@ func Run(opts Options) error {
 		replaceUnobinAbs = abs
 	}
 
-	stackDir := filepath.Dir(stackPath)
-	manifest, err := projectManifest(stackDir)
+	sourceDir := filepath.Dir(stackPath)
+	projectDir, err := projectRoot(sourceDir)
+	if err != nil {
+		return err
+	}
+	manifest, err := projectManifest(projectDir)
 	if err != nil {
 		return err
 	}
@@ -178,7 +182,7 @@ func Run(opts Options) error {
 	}
 	if replaceUnobinAbs == "" {
 		if local, ok := replaceMap[deps.Dependency{URL: toolchain.UnobinModulePath}]; ok {
-			abs, err := absReplacePath(stackDir, local)
+			abs, err := absReplacePath(projectDir, local)
 			if err != nil {
 				return err
 			}
@@ -225,7 +229,7 @@ func Run(opts Options) error {
 	if newResolver == nil {
 		newResolver = NewProjectResolver
 	}
-	resolver, err := newResolver(stackDir)
+	resolver, err := newResolver(projectDir)
 	if err != nil {
 		return err
 	}
@@ -246,12 +250,12 @@ func Run(opts Options) error {
 			wrapped: resolver,
 		}
 	}
-	resolver, err = WrapReplaces(resolver, stackDir, "", replaceMap)
+	resolver, err = WrapReplaces(resolver, projectDir, "", replaceMap)
 	if err != nil {
 		return err
 	}
 
-	repoVersions, err := LockedVersions(stackDir)
+	repoVersions, err := LockedVersions(projectDir)
 	if err != nil {
 		return err
 	}
@@ -332,7 +336,7 @@ func Run(opts Options) error {
 		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, opts.ReplaceGoModules)
-	if err := addManifestReplaces(replaces, stackDir, replaceMap, v.importVersions); err != nil {
+	if err := addManifestReplaces(replaces, projectDir, replaceMap, v.importVersions); err != nil {
 		return err
 	}
 
@@ -600,13 +604,13 @@ func LockedVersions(dir string) (map[string]string, error) {
 // NewProjectResolver returns the resolver compile uses to fetch import
 // sources: a local resolver for relative paths and a remote resolver
 // for everything else.
-func NewProjectResolver(stackDir string) (resolve.Resolver, error) {
+func NewProjectResolver(projectDir string) (resolve.Resolver, error) {
 	remote, err := resolve.NewRemoteResolver()
 	if err != nil {
 		return nil, err
 	}
 	return &dispatchResolver{
-		local:  resolve.NewLocalResolver(stackDir),
+		local:  resolve.NewLocalResolver(projectDir),
 		remote: remote,
 	}, nil
 }
@@ -705,6 +709,17 @@ func WrapReplaces(
 		resolver = &replaceResolver{prefix: dep.URL, local: abs, wrapped: resolver}
 	}
 	return resolver, nil
+}
+
+func projectRoot(dir string) (string, error) {
+	root, err := deps.FindManifestDir(dir)
+	if err == nil {
+		return root, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	return dir, nil
 }
 
 // projectManifest reads the project's dependency manifest, returning nil
