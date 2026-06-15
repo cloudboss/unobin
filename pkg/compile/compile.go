@@ -259,7 +259,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	repoVersions = withReplacedVersions(repoVersions, replaceMap)
+	repoVersions = withReplacedVersions(repoVersions, replaceUnobinAbs != "", replaceMap)
 	v := newCompileVisitor(name, opts.stderr(), schemas)
 	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
 	if err != nil {
@@ -739,13 +739,18 @@ func projectManifest(dir string) (*deps.Manifest, error) {
 // so the walk treats its import as pinned; the replace resolver serves it
 // locally regardless.
 func withReplacedVersions(
-	versions map[string]string, replace map[deps.Dependency]string,
+	versions map[string]string,
+	replaceUnobin bool,
+	replace map[deps.Dependency]string,
 ) map[string]string {
-	if len(replace) == 0 {
+	if !replaceUnobin && len(replace) == 0 {
 		return versions
 	}
 	if versions == nil {
 		versions = map[string]string{}
+	}
+	if replaceUnobin {
+		versions[toolchain.UnobinModulePath] = replacedVersion
 	}
 	for dep := range replace {
 		versions[dep.URL] = replacedVersion

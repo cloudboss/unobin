@@ -814,6 +814,22 @@ func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
 	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
 }
 
+func TestCompileReplaceUnobinDoesNotNeedLock(t *testing.T) {
+	rootDir := findUnobinRoot(t)
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
+factory: {
+  imports: { greet: 'github.com/cloudboss/unobin//examples/configurations/greet' }
+  actions: { say: greet.say { message: 'world' } }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
+		"-o", "-", "--replace-unobin", rootDir)
+	require.NoError(t, err)
+}
+
 // TestCompileManifestToolchainLine proves the manifest's unobin-version
 // line pins which CLI may compile the project: a match proceeds, a mismatch
 // stops with the version to install, and a replaced unobin proceeds
