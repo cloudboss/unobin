@@ -111,7 +111,7 @@ one way at a time:
   (var.replicas[0])`.
 - Set `tier: 'staging'`, which the stack rules allow but the Go
   rules reject, named relative to the resource body:
-  `resource.deploy.service.app: schema: constraints[1] (predicate):
+  `resource.app: schema: constraints[1] (predicate):
   tier must be dev or prod`.
 
 A Go rule whose fields are written as literals in `factory.ub` fails at
@@ -119,7 +119,7 @@ compile, before there is a binary to plan with. Hardcoding both
 `image: 'app:1.4.2'` and `build: './src'` in the `app` body:
 
 ```
-Error: examples/constraints/factory.ub:66:25: schema: resource.deploy.service.app:
+Error: examples/constraints/factory.ub:66:25: schema: resource.app:
 constraints[0] (exactly-one-of [image, build]): expected exactly one to be set,
 got 2 (image, build)
 ```

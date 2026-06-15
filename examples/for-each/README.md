@@ -44,25 +44,25 @@ cd /tmp/for-each-build
 The plan output groups the leaf instances under their template:
 
 ```
-> action.std.exec-command.announce  (for-each, 2 instances)
+> action.announce  (for-each, 2 instances)
   > ['alpha']
   > ['beta']
-+ resource.std.fs-file.file  (for-each, 2 instances)
++ resource.alert['alpha']  (composite)
+    body: "first message"
+    path: "/tmp/unobin-for-each/alpha.alert"
+    topic: "alpha"
+  + resource.this
+      content: "ALERT alpha: first message\n"
+      path: "/tmp/unobin-for-each/alpha.alert"
++ resource.alert['beta']  (composite)
+    ...
++ resource.file  (for-each, 2 instances)
   + ['alpha']
       content: "first message"
       path: "/tmp/unobin-for-each/alpha.txt"
   + ['beta']
       content: "second message"
       path: "/tmp/unobin-for-each/beta.txt"
-+ resource.notify.alert.alert['alpha']  (library notify.alert)
-    body: "first message"
-    path: "/tmp/unobin-for-each/alpha.alert"
-    topic: "alpha"
-  + std.fs-file.this
-      content: "ALERT alpha: first message\n"
-      path: "/tmp/unobin-for-each/alpha.alert"
-+ resource.notify.alert.alert['beta']  (library notify.alert)
-    ...
 ```
 
 Composite instances render as their own subtree per instance, with
@@ -72,13 +72,12 @@ and the action) group under one template header.
 
 State after apply contains, per instance:
 
-- `resource.std.fs-file.file['<key>']` — a leaf entry per file
-- `resource.notify.alert.alert['<key>']` — a library-call entry per
+- `resource.file['<key>']` - a leaf entry per file
+- `resource.alert['<key>']` - a library-call entry per composite
+  instance
+- `resource.alert['<key>']/resource.this` - the leaf inside each
   composite instance
-- `resource.notify.alert.alert['<key>']/std.fs-file.this` — the leaf
-  inside each composite instance
-- `action.std.exec-command.announce['<key>']` — an action entry per
-  echo
+- `action.announce['<key>']` - an action entry per echo
 
 Removing a key from `files:` in `dev.ub` and re-planning destroys
 both the leaf and the composite-internal leaf for the removed key.

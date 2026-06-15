@@ -31,11 +31,9 @@ cd /tmp/hello-nested-library-build
 
 `state show` lists three entries:
 
-* `resource.greeter.greeting.welcome` (the outer library-call record)
-* `resource.greeter.greeting.welcome/resource.file` (the inner
-  library-call record)
-* `resource.greeter.greeting.welcome/resource.file/resource.this`
-  (the deepest leaf)
+* `resource.welcome` (the outer library-call record)
+* `resource.welcome/resource.file` (the inner library-call record)
+* `resource.welcome/resource.file/resource.this` (the deepest leaf)
 
 `--allow-version-mismatch` is needed for the dev workflow because
 `dev.ub` does not declare `factory.supported-versions`. In real
