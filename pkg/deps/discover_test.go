@@ -65,3 +65,17 @@ func TestFindManifestDirIgnoresDirectoryNamedLikeManifest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, root, got)
 }
+
+func TestFindManifestDirRejectsWrongManifestRole(t *testing.T) {
+	root := t.TempDir()
+	child := filepath.Join(root, "child")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(root, ManifestFileName), []byte("manifest: { requires: {} }\n"), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(child, ManifestFileName), []byte("factory: {}\n"), 0o644))
+
+	_, err := FindManifestDir(child)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "manifest.ub must declare manifest")
+}

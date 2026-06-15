@@ -1,10 +1,13 @@
 package deps
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // FindManifestDir walks up from start to the nearest ancestor directory
@@ -21,7 +24,11 @@ func FindManifestDir(start string) (string, error) {
 		dir = filepath.Dir(dir)
 	}
 	for {
-		if hasManifestFile(dir) {
+		ok, err := hasManifestFile(dir)
+		if err != nil {
+			return "", err
+		}
+		if ok {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)
@@ -37,10 +44,31 @@ func FindManifestDir(start string) (string, error) {
 	}
 }
 
-func hasManifestFile(dir string) bool {
+func hasManifestFile(dir string) (bool, error) {
 	candidate := filepath.Join(dir, ManifestFileName)
-	if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-		return true
+	info, err := os.Stat(candidate)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
 	}
-	return false
+	if err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, nil
+	}
+	b, err := os.ReadFile(candidate)
+	if err != nil {
+		return false, err
+	}
+	f, err := syntax.ParseSource(ManifestFileName, b)
+	if err != nil {
+		return false, err
+	}
+	if f.Kind != syntax.FileManifest || f.Manifest == nil {
+		return false, fmt.Errorf("%s must declare manifest", ManifestFileName)
+	}
+	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
+		return false, errs.Err()
+	}
+	return true, nil
 }
