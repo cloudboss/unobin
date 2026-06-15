@@ -81,21 +81,6 @@ func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
 	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Err())
 }
 
-func TestUblibraryForceRemovesLegacyPrefixedFile(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "greeter")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	legacy := filepath.Join(dir, "resource-greeting.ub")
-	require.NoError(t, os.WriteFile(legacy, []byte("stale content"), 0o644))
-
-	_, err := runUblibraryCmd(t, "-o", dir, "--type", "greeting", "--force")
-	require.NoError(t, err)
-
-	_, err = os.Stat(filepath.Join(dir, "greeting.ub"))
-	require.NoError(t, err)
-	_, err = os.Stat(legacy)
-	require.True(t, os.IsNotExist(err), "legacy prefixed file should be removed")
-}
-
 func TestUblibraryRefusesReservedTypeName(t *testing.T) {
 	for _, name := range []string{"factory", "lock", "main", "manifest"} {
 		t.Run(name, func(t *testing.T) {

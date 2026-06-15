@@ -71,12 +71,7 @@ func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
 	}
 
 	typePath := filepath.Join(cfg.output, cfg.typeName+".ub")
-	legacyTypePath := filepath.Join(cfg.output, "resource-"+cfg.typeName+".ub")
-
 	if err := lang.WriteCanonical(typePath, []byte(renderCompositeStub(cfg.typeName))); err != nil {
-		return err
-	}
-	if err := os.Remove(legacyTypePath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
