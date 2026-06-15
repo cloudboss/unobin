@@ -1,0 +1,6 @@
+policy: $'''\-
+  {"Version":"2012-10-17","Statement":[{"Sid":"AllowSNSDelivery","Effect":
+  "Allow","Principal":{"Service":"sns.amazonaws.com"},"Action":"sqs:
+  SendMessage","Resource":"{{ resource.sqs-queue-it.arn }}","Condition":
+  {"ArnEquals":{"aws:SourceArn":"{{ resource.sns-topic-it.arn }}"}}}]}
+  '''

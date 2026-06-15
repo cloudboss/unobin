@@ -799,6 +799,10 @@ func substituteSentinels(s string, slotSrc []string) string {
 	}
 	var b strings.Builder
 	for i := 0; i < len(s); {
+		if s[i] == 1 {
+			i++
+			continue
+		}
 		if s[i] != 0 {
 			b.WriteByte(s[i])
 			i++
