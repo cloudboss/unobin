@@ -52,6 +52,94 @@ type PlanDefaultConfiguration struct {
 	Body map[string]any `json:"body"`
 }
 
+type planStepJSON struct {
+	Address          string                  `json:"address"`
+	Kind             NodeKind                `json:"node-kind"`
+	Selector         *state.Selector         `json:"selector,omitempty"`
+	Composite        bool                    `json:"composite,omitempty"`
+	Decision         Decision                `json:"decision"`
+	Inputs           map[string]any          `json:"inputs,omitempty"`
+	UnresolvedInputs map[string][]string     `json:"unresolved-inputs,omitempty"`
+	DeferredRead     string                  `json:"deferred-read,omitempty"`
+	PriorInputs      map[string]any          `json:"prior-inputs,omitempty"`
+	PriorSelector    *state.Selector         `json:"prior-selector,omitempty"`
+	PriorOutputs     map[string]any          `json:"prior-outputs,omitempty"`
+	ObservedOutputs  map[string]any          `json:"observed-outputs,omitempty"`
+	TriggerHash      string                  `json:"trigger-hash,omitempty"`
+	ReplaceTriggers  []string                `json:"replace-triggers,omitempty"`
+	Configuration    *state.ConfigurationRef `json:"configuration,omitempty"`
+	DependsOn        []string                `json:"depends-on,omitempty"`
+	AlreadyGone      bool                    `json:"already-gone,omitempty"`
+	SensitiveInputs  []string                `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string                `json:"sensitive-outputs,omitempty"`
+}
+
+func (s PlanStep) MarshalJSON() ([]byte, error) {
+	cfg, err := state.EncodeConfigurationRef(s.Configuration)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(planStepJSON{
+		Address:          s.Address,
+		Kind:             s.Kind,
+		Selector:         s.Selector,
+		Composite:        s.Composite,
+		Decision:         s.Decision,
+		Inputs:           s.Inputs,
+		UnresolvedInputs: s.UnresolvedInputs,
+		DeferredRead:     s.DeferredRead,
+		PriorInputs:      s.PriorInputs,
+		PriorSelector:    s.PriorSelector,
+		PriorOutputs:     s.PriorOutputs,
+		ObservedOutputs:  s.ObservedOutputs,
+		TriggerHash:      s.TriggerHash,
+		ReplaceTriggers:  s.ReplaceTriggers,
+		Configuration:    cfg,
+		DependsOn:        s.DependsOn,
+		AlreadyGone:      s.AlreadyGone,
+		SensitiveInputs:  s.SensitiveInputs,
+		SensitiveOutputs: s.SensitiveOutputs,
+	})
+}
+
+func (s *PlanStep) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		planStepJSON
+		Configuration json.RawMessage `json:"configuration"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	if err := dec.Decode(&raw); err != nil {
+		return err
+	}
+	cfg, err := state.DecodeConfigurationRefJSON(raw.Configuration)
+	if err != nil {
+		return err
+	}
+	*s = PlanStep{
+		Address:          raw.Address,
+		Kind:             raw.Kind,
+		Selector:         raw.Selector,
+		Composite:        raw.Composite,
+		Decision:         raw.Decision,
+		Inputs:           raw.Inputs,
+		UnresolvedInputs: raw.UnresolvedInputs,
+		DeferredRead:     raw.DeferredRead,
+		PriorInputs:      raw.PriorInputs,
+		PriorSelector:    raw.PriorSelector,
+		PriorOutputs:     raw.PriorOutputs,
+		ObservedOutputs:  raw.ObservedOutputs,
+		TriggerHash:      raw.TriggerHash,
+		ReplaceTriggers:  raw.ReplaceTriggers,
+		Configuration:    cfg,
+		DependsOn:        raw.DependsOn,
+		AlreadyGone:      raw.AlreadyGone,
+		SensitiveInputs:  raw.SensitiveInputs,
+		SensitiveOutputs: raw.SensitiveOutputs,
+	}
+	return nil
+}
+
 func (c *PlanConfigurations) UnmarshalJSON(b []byte) error {
 	trimmed := bytes.TrimSpace(b)
 	if bytes.Equal(trimmed, []byte("null")) {

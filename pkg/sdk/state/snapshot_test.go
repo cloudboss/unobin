@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -142,6 +143,29 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.NotContains(t, out, `"type":`)
 	require.NotContains(t, out, `"kind": "resource"`)
 	require.NotContains(t, out, `"library-type"`)
+}
+
+func TestSnapshotConfigurationRefJSON(t *testing.T) {
+	s := sampleSnapshot()
+	s.Entries[0].Configuration = "aws.east"
+	b, err := EncodeSnapshot(s)
+	require.NoError(t, err)
+
+	var raw struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	require.NoError(t, json.Unmarshal(b, &raw))
+	require.Equal(t, map[string]any{
+		"kind": "named",
+		"name": "east",
+		"selector": map[string]any{
+			"alias": "aws",
+		},
+	}, raw.Entries[0]["configuration"])
+
+	got, err := DecodeSnapshot(b)
+	require.NoError(t, err)
+	require.Equal(t, "aws.east", got.Entries[0].Configuration)
 }
 
 func TestSnapshotActionEntry(t *testing.T) {

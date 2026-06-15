@@ -199,7 +199,7 @@ type PlanStep struct {
 	// was created with. A live step records it only when the selection
 	// names an internal configuration still pending this plan, which is
 	// how the renderer knows to show the selection on the step.
-	Configuration string `json:"configuration,omitempty"`
+	Configuration string `json:"-"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
 	// prior state. Apply reverses these edges so a resource is deleted

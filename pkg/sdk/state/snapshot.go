@@ -1,9 +1,11 @@
 package state
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -30,6 +32,73 @@ type Selector struct {
 	Export string `json:"export,omitempty"`
 }
 
+// ConfigurationRef identifies a named or default library configuration.
+type ConfigurationRef struct {
+	Kind     string   `json:"kind"`
+	Name     string   `json:"name,omitempty"`
+	Selector Selector `json:"selector"`
+}
+
+func EncodeConfigurationRef(ref string) (*ConfigurationRef, error) {
+	if ref == "" {
+		return nil, nil
+	}
+	parts := strings.Split(ref, ".")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("configuration ref %q must be alias.name", ref)
+	}
+	out := &ConfigurationRef{Selector: Selector{Alias: parts[0]}}
+	if parts[1] == "default" {
+		out.Kind = "default"
+		return out, nil
+	}
+	out.Kind = "named"
+	out.Name = parts[1]
+	return out, nil
+}
+
+func DecodeConfigurationRef(ref *ConfigurationRef) (string, error) {
+	if ref == nil {
+		return "", nil
+	}
+	if ref.Selector.Alias == "" {
+		return "", fmt.Errorf("configuration selector missing alias")
+	}
+	if ref.Selector.Export != "" {
+		return "", fmt.Errorf("configuration selector must have only alias")
+	}
+	switch ref.Kind {
+	case "default":
+		if ref.Name != "" {
+			return "", fmt.Errorf("default configuration must not have name")
+		}
+		return ref.Selector.Alias + ".default", nil
+	case "named":
+		if ref.Name == "" {
+			return "", fmt.Errorf("named configuration missing name")
+		}
+		return ref.Selector.Alias + "." + ref.Name, nil
+	case "":
+		return "", fmt.Errorf("configuration missing kind")
+	default:
+		return "", fmt.Errorf("unknown configuration kind %q", ref.Kind)
+	}
+}
+
+func DecodeConfigurationRefJSON(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return "", nil
+	}
+	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte("\"")) {
+		return "", fmt.Errorf("configuration must be an object")
+	}
+	var ref ConfigurationRef
+	if err := json.Unmarshal(raw, &ref); err != nil {
+		return "", err
+	}
+	return DecodeConfigurationRef(&ref)
+}
+
 // Entry is one record in a snapshot. Type is the entry discriminator.
 // Kind is the graph node kind for resource, data, action, and composite
 // entries. Selector names the implementation used by that entry.
@@ -52,13 +121,78 @@ type Entry struct {
 	// when that differs from the import's own default, since destroy and
 	// refresh need it to find the right credentials once the resource is
 	// no longer described in source.
-	Configuration string `json:"configuration,omitempty"`
+	Configuration string `json:"-"`
 
 	TriggerHash string `json:"trigger-hash,omitempty"`
 
 	Inputs    map[string]any `json:"inputs,omitempty"`
 	Outputs   map[string]any `json:"outputs,omitempty"`
 	DependsOn []string       `json:"depends-on,omitempty"`
+}
+
+type entryJSON struct {
+	Address          string            `json:"address"`
+	Type             EntryType         `json:"entry-kind"`
+	Kind             string            `json:"node-kind,omitempty"`
+	Selector         *Selector         `json:"selector,omitempty"`
+	SchemaVersion    int               `json:"schema-version,omitempty"`
+	SensitiveInputs  []string          `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string          `json:"sensitive-outputs,omitempty"`
+	Configuration    *ConfigurationRef `json:"configuration,omitempty"`
+	TriggerHash      string            `json:"trigger-hash,omitempty"`
+	Inputs           map[string]any    `json:"inputs,omitempty"`
+	Outputs          map[string]any    `json:"outputs,omitempty"`
+	DependsOn        []string          `json:"depends-on,omitempty"`
+}
+
+func (e *Entry) MarshalJSON() ([]byte, error) {
+	cfg, err := EncodeConfigurationRef(e.Configuration)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(entryJSON{
+		Address:          e.Address,
+		Type:             e.Type,
+		Kind:             e.Kind,
+		Selector:         e.Selector,
+		SchemaVersion:    e.SchemaVersion,
+		SensitiveInputs:  e.SensitiveInputs,
+		SensitiveOutputs: e.SensitiveOutputs,
+		Configuration:    cfg,
+		TriggerHash:      e.TriggerHash,
+		Inputs:           e.Inputs,
+		Outputs:          e.Outputs,
+		DependsOn:        e.DependsOn,
+	})
+}
+
+func (e *Entry) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		entryJSON
+		Configuration json.RawMessage `json:"configuration"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	cfg, err := DecodeConfigurationRefJSON(raw.Configuration)
+	if err != nil {
+		return err
+	}
+	*e = Entry{
+		Address:          raw.Address,
+		Type:             raw.Type,
+		Kind:             raw.Kind,
+		Selector:         raw.Selector,
+		SchemaVersion:    raw.SchemaVersion,
+		SensitiveInputs:  raw.SensitiveInputs,
+		SensitiveOutputs: raw.SensitiveOutputs,
+		Configuration:    cfg,
+		TriggerHash:      raw.TriggerHash,
+		Inputs:           raw.Inputs,
+		Outputs:          raw.Outputs,
+		DependsOn:        raw.DependsOn,
+	}
+	return nil
 }
 
 // FactoryInfo identifies the stack a snapshot belongs to. ContentRevision
