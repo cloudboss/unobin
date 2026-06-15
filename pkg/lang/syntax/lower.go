@@ -32,7 +32,7 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 		out.Factory = &FactoryFile{S: f.S, Body: lowerFactoryBody(f.Body, errs)}
 	case parse.FileConfig:
 		out.Kind = FileStack
-		out.Stack = lowerStackFile(f.S, f.Body, errs)
+		out.Stack = lowerStackFile(f.S, f.Body, errs, lowerMode{})
 	case parse.FileManifest:
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(f.S, f.Body, errs)
@@ -48,6 +48,10 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 	}
 
 	return out, errs
+}
+
+type lowerMode struct {
+	sourceDeclared bool
 }
 
 type sourceFileRole struct {
@@ -195,7 +199,7 @@ func lowerSourceDeclaredRole(
 		out.Factory = &FactoryFile{S: first.fld.S, Body: lowerFactoryBody(block, errs)}
 	case "stack":
 		out.Kind = FileStack
-		out.Stack = lowerStackFile(first.fld.S, block, errs)
+		out.Stack = lowerStackFile(first.fld.S, block, errs, lowerMode{sourceDeclared: true})
 	case "manifest":
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(first.fld.S, block, errs)
@@ -267,6 +271,7 @@ func lowerStackFile(
 	span parse.Span,
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) *StackFile {
 	stack := &StackFile{S: span}
 	if block == nil {
@@ -289,12 +294,18 @@ func lowerStackFile(
 		case "state":
 			if fld.Decl != nil {
 				stack.State = lowerStateSelectorDecl(fld, errs)
+			} else if mode.sourceDeclared {
+				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+					"state must be written as state: <backend> { ... }")
 			} else if obj := objectValue(fld, "state", errs); obj != nil {
 				stack.State = lowerStateDecl(fld.S, obj, errs)
 			}
 		case "encryption":
 			if fld.Decl != nil {
 				stack.Encryption = lowerEncryptionSelectorDecl(fld, errs)
+			} else if mode.sourceDeclared {
+				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+					"encryption must be written as encryption: <key-source> { ... }")
 			} else if obj := objectValue(fld, "encryption", errs); obj != nil {
 				stack.Encryption = lowerEncryptionDecl(fld.S, obj, errs)
 			}

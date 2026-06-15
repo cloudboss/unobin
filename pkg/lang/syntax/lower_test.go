@@ -416,6 +416,19 @@ func TestLowerSelectorBodyFixtures(t *testing.T) {
 	})
 }
 
+func TestLowerInvalidSelectorBodyFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/invalid/selector-body", func(
+		name string, src []byte,
+	) (string, []string) {
+		f, err := lang.ParseSource(invalidSelectorBodyFixturePath(name), src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		_, errs := LowerFile(f)
+		return "", errs.Messages()
+	})
+}
+
 func selectorBodyFixtureKind(name string) (parse.FileKind, string) {
 	switch name {
 	case "factory":
@@ -426,6 +439,19 @@ func selectorBodyFixtureKind(name string) (parse.FileKind, string) {
 		return parse.FileExportedType, "library.ub"
 	default:
 		return parse.FileUnknown, name + ".ub"
+	}
+}
+
+func invalidSelectorBodyFixturePath(name string) string {
+	switch {
+	case strings.HasPrefix(name, "factory-"):
+		return "factory.ub"
+	case strings.HasPrefix(name, "stack-"):
+		return "dev.ub"
+	case strings.HasPrefix(name, "library-"):
+		return "library.ub"
+	default:
+		return name + ".ub"
 	}
 }
 

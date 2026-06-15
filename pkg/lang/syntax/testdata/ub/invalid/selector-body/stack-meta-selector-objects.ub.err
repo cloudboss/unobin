@@ -1,0 +1,2 @@
+state must be written as state: <backend> { ... }
+encryption must be written as encryption: <key-source> { ... }

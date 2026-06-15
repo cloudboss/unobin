@@ -1,0 +1,4 @@
+stack: {
+  state: { @backend: local }
+  encryption: { @key-source: noop }
+}
