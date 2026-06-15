@@ -15,7 +15,7 @@ or use ambient credentials), so the example runs anywhere.
 Two things to notice in the sources:
 
 - `dev.ub` declares the assume-role object once in `locals:` and references
-  it from both configuration aliases. Config locals are static values, the
+  it from both configuration bodies. Config locals are static values in the
   file's own scope.
 - `factory.ub` defines the `scoped` configuration internally, deriving its
   region from the `region` input, so an operator parameterizes it without
@@ -47,8 +47,8 @@ scoped-region: 'us-west-2'
 ```
 
 `./awscfg schema show` lists the configuration's fields under the `aws`
-alias, with `scoped` marked internal and `default` and `east` owed from the
-stack file.
+alias. The default body is selected by omission, while `east` and `scoped` are
+factory-declared names.
 
 ## See the compile check
 
@@ -56,7 +56,7 @@ Misspell a field in the internal configuration in `factory.ub`, for example
 `region:` to `regoin:`, and recompile:
 
 ```
-Error: examples/awscfg/factory.ub:14:7: resolve: configurations.aws.scoped:
+Error: examples/awscfg/factory.ub:15:7: resolve: configurations.aws.scoped:
 unknown field "regoin"
 ```
 

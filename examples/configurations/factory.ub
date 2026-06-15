@@ -10,6 +10,7 @@ factory: {
   }
 
   configurations: {
+    formal: greet {}
     fancy: greet {}
     derived: greet {
       prefix: resource.flourish.decorated
@@ -27,7 +28,7 @@ factory: {
       message: 'world'
     }
     formal: greet.say {
-      @configuration: greet.formal
+      @configuration: configuration.formal
       message:        'world'
     }
     fancy: greet.say {
@@ -42,7 +43,7 @@ factory: {
       message: 'wrapped'
     }
     formal-wrap: greeter.greeting {
-      @configurations: { greet: greet.formal }
+      @configurations: { greet: configuration.formal }
       message:         'wrapped'
     }
   }

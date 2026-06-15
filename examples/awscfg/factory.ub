@@ -10,6 +10,7 @@ factory: {
   imports: { aws: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
 
   configurations: {
+    east: aws {}
     scoped: aws {
       region: var.region
     }
@@ -20,7 +21,7 @@ factory: {
       label: 'default'
     }
     east: aws.describe {
-      @configuration: aws.east
+      @configuration: configuration.east
       label:          'east'
     }
     scoped: aws.describe {

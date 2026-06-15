@@ -5,15 +5,16 @@ configuration, how a stack file replaces a factory-declared configuration body,
 how a composite remaps the alias for everything inside its call, and how the
 factory defines a configuration of its own from a resource.
 
-The stack defines four `greet.say` actions and two `greeter.greeting` composite
-call sites. The leaves and call sites that omit a meta key use the default
-alias; others select the `formal` alias either directly with `@configuration:`
-or by remapping inside a composite with `@configurations:`.
+The factory defines four `greet.say` actions and two `greeter.greeting`
+composite call sites. The leaves and call sites that omit a meta key use the
+default configuration; others select `configuration.formal` either directly
+with `@configuration:` or by remapping inside a composite with
+`@configurations:`.
 
-The `fancy` configuration is declared in `factory.ub` with an empty body. The
-`dev.ub` stack file replaces that body and supplies the required `prefix`. If
-`dev.ub` removes the `fancy` entry, the factory body becomes effective and plan
-reports the missing required field.
+The `formal` and `fancy` configurations are declared in `factory.ub` with empty
+bodies. The `dev.ub` stack file replaces those bodies and supplies the required
+`prefix`. If `dev.ub` removes the `fancy` entry, the factory body becomes
+effective and plan reports the missing required field.
 
 The `derived` configuration stays in the factory: it derives its prefix from
 the `resource.flourish` computed output, and the action that selects it runs
@@ -56,7 +57,7 @@ formal-wrap: 'Good day: wrapped'
 
 The plan-time validator catches misuse before any work happens:
 
-- Mistype an alias: `@configuration: greet.formel` produces
+- Mistype a configuration name: `@configuration: configuration.formel` produces
   `@configuration greet.formel: configuration not declared`.
 - Remove the `default` entry while something still uses it: the node that
   does reports `library "greet" requires a configuration; define
@@ -64,5 +65,6 @@ The plan-time validator catches misuse before any work happens:
   configurations in the factory`.
 - Remove the `fancy` entry from `dev.ub`: the factory body is used and plan
   reports `field prefix: required`.
-- Cross-import remap: `@configurations: { greet: aws.formal }` produces
-  `@configurations.greet: right-hand side import "aws" must match the key`.
+- Cross-import remap: `@configurations: { greet: configuration.aws-formal }`
+  produces `@configurations.greet: right-hand side import "aws" must match the
+  key`.
