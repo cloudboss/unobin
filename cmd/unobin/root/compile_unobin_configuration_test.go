@@ -22,7 +22,7 @@ func writeUnobinConfigurationFixture(t *testing.T, configBody string) string {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
 inputs:  { name: { type: string } }
 imports: { aws: 'github.com/example/cloudlib' }
 configurations: {
@@ -95,7 +95,7 @@ func (t *Thing) Delete(_ context.Context, _ any, _ *ThingOutput) error {
 			"  'github.com/example/cloudlib': '"+libDir+"'\n"+
 			"}\n}\n"), 0o644))
 
-	return filepath.Join(dir, "main.ub")
+	return filepath.Join(dir, "factory.ub")
 }
 
 func TestCompileChecksConfigurationFromUnobinPackage(t *testing.T) {

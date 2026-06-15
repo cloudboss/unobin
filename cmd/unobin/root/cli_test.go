@@ -98,6 +98,14 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	return &resolve.Source{Commit: "fakecommit", FS: fstest.MapFS{}}, nil
 }
 
+func factorySource(body string) []byte {
+	trimmed := strings.TrimPrefix(body, "\n")
+	if strings.HasPrefix(strings.TrimSpace(trimmed), "factory:") {
+		return []byte(body)
+	}
+	return []byte("factory: {\n" + trimmed + "}\n")
+}
+
 func resetFlags(cmd *cobra.Command) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if sv, ok := f.Value.(pflag.SliceValue); ok {
@@ -123,15 +131,15 @@ func TestDepsSyncRejectsLocalGoImport(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "factory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { aws: '../aws' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { aws: '../aws' }\n"), 0o644))
 
 	awsDir := filepath.Join(base, "aws")
 	require.NoError(t, os.MkdirAll(awsDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
 		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
 
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "is a Go library")
 	require.Contains(t, err.Error(), "in manifest.ub:")
@@ -156,14 +164,14 @@ func goCoreRemotes() map[string]*resolve.Source {
 func TestDepsSync(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// The floor lives in the manifest; sync rebuilds the lock from it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
-		"-p", filepath.Join(root, "main.ub"))
+		"-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 	require.Contains(t, out, "Wrote manifest.ub")
 	require.Contains(t, out, "lock.ub")
@@ -234,7 +242,7 @@ factory: {
 }
 
 func TestDepsSyncLibraryProject(t *testing.T) {
-	// A library project: body files, no main.ub. Its dependencies are
+	// A library project: body files, no factory.ub. Its dependencies are
 	// managed the same way a factory's are.
 	root := filepath.Join(t.TempDir(), "greeter")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -259,8 +267,8 @@ greeting: resource {
 func TestDepsSyncWithReplace(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "factory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
 
 	// A local Go library the manifest replaces in (no remote, no floor).
 	awsDir := t.TempDir()
@@ -270,7 +278,7 @@ func TestDepsSyncWithReplace(t *testing.T) {
 		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
 			awsDir+"' }\n"), 0o644))
 
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 
 	lock, err := deps.ReadLock(os.DirFS(root))
@@ -281,11 +289,11 @@ func TestDepsSyncWithReplace(t *testing.T) {
 func TestDepsSyncRejectsMissingFloor(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 
 	// No manifest, so the imported repo has no floor.
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "github.com/x/core")
 	require.Contains(t, err.Error(), "deps get")
@@ -294,15 +302,15 @@ func TestDepsSyncRejectsMissingFloor(t *testing.T) {
 func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// gone/repo is listed but no longer imported; sync must remove it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
 			"  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
-		"-p", filepath.Join(root, "main.ub"))
+		"-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 
 	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
@@ -332,7 +340,7 @@ func writeProjectLock(t *testing.T, root string) {
 func TestDepsList(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	writeProjectLock(t, root)
-	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "main.ub"))
+	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 	require.Equal(t,
 		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)
@@ -355,7 +363,7 @@ func TestDepsListAcceptsDirectory(t *testing.T) {
 func TestDepsListNoLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	_, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "main.ub"))
+	_, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "factory.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "run `unobin deps sync`")
 }
@@ -367,7 +375,7 @@ func TestDepsVerifyMatches(t *testing.T) {
 		"github.com/x/hello//ub@c2": {Hash: "sha256:h2"},
 	}
 	out, err := runCommandWithRemotes(t, remotes, "deps", "verify",
-		"-p", filepath.Join(root, "main.ub"))
+		"-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 	require.Contains(t, out, "all dependencies verified")
 }
@@ -379,7 +387,7 @@ func TestDepsVerifyDetectsMismatch(t *testing.T) {
 		"github.com/x/hello//ub@c2": {Hash: "tampered"},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "deps", "verify",
-		"-p", filepath.Join(root, "main.ub"))
+		"-p", filepath.Join(root, "factory.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "hash mismatch")
 }
@@ -408,8 +416,8 @@ func writeGetProject(t *testing.T) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	stubListTags(t, map[string][]string{
 		"github.com/x/core": {"v1.0.0", "v1.2.0", "v2.0.0"},
 	})
@@ -443,7 +451,7 @@ func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
 func TestDepsGetExactVersion(t *testing.T) {
 	root := writeGetProject(t)
 	out, err := runCommandWithRemotes(t, goLibRemotes("v1.2.0", "c12"),
-		"deps", "get", "github.com/x/core@v1.2.0", "-p", filepath.Join(root, "main.ub"))
+		"deps", "get", "github.com/x/core@v1.2.0", "-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 	require.Contains(t, out, "github.com/x/core v1.2.0")
 
@@ -464,7 +472,7 @@ func TestDepsGetExactVersion(t *testing.T) {
 func TestDepsGetLatest(t *testing.T) {
 	root := writeGetProject(t)
 	_, err := runCommandWithRemotes(t, goLibRemotes("v2.0.0", "c20"),
-		"deps", "get", "github.com/x/core", "-p", filepath.Join(root, "main.ub"))
+		"deps", "get", "github.com/x/core", "-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
@@ -474,12 +482,12 @@ func TestDepsGetLatest(t *testing.T) {
 func TestCompileToStdout(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
+	stackPath := filepath.Join(dir, "factory.ub")
 	src := `
 imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }
 actions: { core.command.hi: { argv: ['echo', 'hi'] } }
 `
-	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
+	require.NoError(t, os.WriteFile(stackPath, factorySource(src), 0o644))
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
 	})
@@ -505,7 +513,7 @@ factory: {
   outputs: { stdout: { value: action.hi.stdout } }
 }
 `
-	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
+	require.NoError(t, os.WriteFile(stackPath, factorySource(src), 0o644))
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
 	})
@@ -570,13 +578,13 @@ factory: {
 func TestCompileWriteOut(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
+	stackPath := filepath.Join(dir, "factory.ub")
 	src := `
 imports: {
   core: 'github.com/cloudboss/unobin/pkg/libraries/core'
 }
 `
-	require.NoError(t, os.WriteFile(stackPath, []byte(src), 0o644))
+	require.NoError(t, os.WriteFile(stackPath, factorySource(src), 0o644))
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin/pkg/libraries/core": "v0.1.0",
 	})
@@ -602,8 +610,8 @@ imports: {
 func TestCompileUsesLockVersion(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	lock := deps.NewLock()
 	lock.ToolchainVersion = "dev"
 	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
@@ -618,7 +626,7 @@ func TestCompileUsesLockVersion(t *testing.T) {
 	}
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+		"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.NoError(t, err)
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
 	require.NoError(t, err)
@@ -635,8 +643,8 @@ func TestCompileUsesLockVersion(t *testing.T) {
 func TestCompileWithReplacedGoLibrary(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
 
 	awsDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
@@ -655,7 +663,7 @@ func Library() *runtime.Library {
 			awsDir+"' }\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"),
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
 		"-o", outDir)
 	require.NoError(t, err)
 
@@ -669,11 +677,11 @@ func Library() *runtime.Library {
 func TestCompileRequiresLockedVersion(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "github.com/x/core")
 	require.Contains(t, err.Error(), "deps sync")
@@ -695,11 +703,11 @@ func TestCompilePinsGoModToCLIVersion(t *testing.T) {
 	setCLIVersion(t, "v9.9.9")
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("description: 'minimal'\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("description: 'minimal'\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.NoError(t, err)
 
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
@@ -714,11 +722,11 @@ func TestCompileDevVersionNeedsReplace(t *testing.T) {
 	setCLIVersion(t, "dev")
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("description: 'minimal'\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("description: 'minimal'\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "--replace-unobin")
 	require.Contains(t, err.Error(), "manifest.ub")
@@ -732,14 +740,14 @@ func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
 	rootDir := findUnobinRoot(t)
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("description: 'minimal'\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("description: 'minimal'\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
 		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n"),
 		0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.NoError(t, err)
 
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
@@ -757,7 +765,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 		t.Helper()
 		dir := filepath.Join(t.TempDir(), "demo-factory")
 		require.NoError(t, os.MkdirAll(dir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
 			[]byte("description: 'minimal'\n"), 0o644))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
 			manifestSource(manifest), 0o644))
@@ -768,7 +776,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 		dir := write(t, "unobin-version: 'v0.1.0'\nrequires: {}\n")
 		outDir := filepath.Join(t.TempDir(), "build")
 		_, err := runCommand(t, "compile",
-			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+			"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 		require.NoError(t, err)
 	})
 
@@ -776,7 +784,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 		dir := write(t, "unobin-version: 'v0.9.9'\nrequires: {}\n")
 		outDir := filepath.Join(t.TempDir(), "build")
 		_, err := runCommand(t, "compile",
-			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+			"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pins unobin v0.9.9")
 		require.Contains(t, err.Error(), "v0.1.0")
@@ -788,7 +796,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 			"replace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n")
 		outDir := filepath.Join(t.TempDir(), "build")
 		out, err := runCommand(t, "compile",
-			"-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+			"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 		require.NoError(t, err)
 		require.Contains(t, out, "notice:")
 		require.Contains(t, out, "v0.9.9")
@@ -806,7 +814,7 @@ func TestCompileOfflineLocalLibraries(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), factorySource(`
 imports: {
   net: './libraries/net'
   aws: 'github.com/cloudboss/unobin-library-aws'
@@ -841,7 +849,7 @@ func Library() *runtime.Library {
 			"}\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.NoError(t, err)
 
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
@@ -858,14 +866,14 @@ func Library() *runtime.Library {
 func TestCompileRefusesUnreplacedUnobinImport(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin": "v0.5.0",
 	})
 
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"), "-o", outDir)
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "toolchain-versioned")
 	require.Contains(t, err.Error(), "replace")
@@ -876,11 +884,11 @@ func TestCompileRefusesUnreplacedUnobinImport(t *testing.T) {
 func TestDepsGetRefusesUnobin(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("description: 'x'\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("description: 'x'\n"), 0o644))
 
 	_, err := runCommand(t, "deps", "get", "github.com/cloudboss/unobin@v0.5.0",
-		"-p", filepath.Join(dir, "main.ub"))
+		"-p", filepath.Join(dir, "factory.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "toolchain-versioned")
 }
@@ -891,10 +899,10 @@ func TestDepsGetRefusesUnobin(t *testing.T) {
 func TestDepsSyncTeachesReplaceForUnobinImport(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
 
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(dir, "main.ub"))
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(dir, "factory.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "toolchain-versioned")
 	require.NotContains(t, err.Error(), "deps get")
@@ -940,7 +948,7 @@ func TestCompileBuildStampsVersion(t *testing.T) {
 
 	srcDir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(srcDir, 0o755))
-	factoryPath := filepath.Join(srcDir, "main.ub")
+	factoryPath := filepath.Join(srcDir, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath,
 		[]byte("description: 'minimal'\n"), 0o644))
 
@@ -980,7 +988,7 @@ func TestCompileBuildNoticesReplacedUnobin(t *testing.T) {
 
 	srcDir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(srcDir, 0o755))
-	factoryPath := filepath.Join(srcDir, "main.ub")
+	factoryPath := filepath.Join(srcDir, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath,
 		[]byte("description: 'minimal'\n"), 0o644))
 
@@ -1019,8 +1027,8 @@ func findUnobinRoot(t *testing.T) string {
 func TestCompileRequiresOut(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte("description: 'x'"), 0o644))
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource("description: 'x'"), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", stackPath)
 	require.Error(t, err)
@@ -1028,14 +1036,14 @@ func TestCompileRequiresOut(t *testing.T) {
 }
 
 func TestCompileMissingStackFile(t *testing.T) {
-	_, err := runCommand(t, "compile", "-p", "/no/such/path/main.ub", "-o", "-")
+	_, err := runCommand(t, "compile", "-p", "/no/such/path/factory.ub", "-o", "-")
 	require.Error(t, err)
 }
 
 func TestCompileInvalidStackFails(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte("exports: { x: 'y.ub' }\n"), 0o644))
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource("exports: { x: 'y.ub' }\n"), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.Error(t, err)
@@ -1043,9 +1051,9 @@ func TestCompileInvalidStackFails(t *testing.T) {
 
 func TestCompileInvalidReferenceFails(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
-resources: { local.file.bad: { path: var.missing } }
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
+resources: { bad: local.file { path: var.missing } }
 `), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
@@ -1055,10 +1063,10 @@ resources: { local.file.bad: { path: var.missing } }
 
 func TestCompileUnimportedResourceModuleFails(t *testing.T) {
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports:   { std: 'github.com/cloudboss/unobin-library-std' }
-resources: { greeter.greeting.welcome: { message: 'hello' } }
+resources: { welcome: greeter.greeting { message: 'hello' } }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin-library-std": "v0.1.0",
@@ -1073,11 +1081,11 @@ func TestCompileUnknownTrailingFieldFails(t *testing.T) {
 	goModDir := writeFakeGoModule(t)
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports:   { fake: 'example.com/fake' }
-resources: { fake.thing.x: {} }
-outputs:   { bad: { value: resource.fake.thing.x.nonexistent } }
+resources: { x: fake.thing {} }
+outputs:   { bad: { value: resource.x.nonexistent } }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{"example.com/fake": "v0.1.0"})
 
@@ -1095,11 +1103,11 @@ func TestCompileAcceptsKnownTrailingField(t *testing.T) {
 	goModDir := writeFakeGoModule(t)
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports:   { fake: 'example.com/fake' }
-resources: { fake.thing.x: {} }
-outputs:   { good: { value: resource.fake.thing.x.id } }
+resources: { x: fake.thing {} }
+outputs:   { good: { value: resource.x.id } }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{"example.com/fake": "v0.1.0"})
 
@@ -1164,8 +1172,8 @@ type Thing struct{}
 `), 0o644))
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports:   { partial: 'example.com/partial' }
 resources: { partial.thing.x: {} }
 `), 0o644))
@@ -1192,8 +1200,8 @@ func TestCompileMalformedGoModuleFails(t *testing.T) {
 `), 0o644))
 
 	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   broken: 'example.com/broken'
 }
@@ -1217,13 +1225,13 @@ func compileLibrary(t *testing.T, files map[string]string) error {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "lib"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
-		[]byte("imports: { lib: './lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { lib: './lib' }\n"), 0o644))
 	for name, body := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "lib", name), []byte(body), 0o644))
 	}
 	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "main.ub"),
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
 		"-o", outDir)
 	return err
 }
@@ -1318,8 +1326,8 @@ imports: {
   net: './libraries/net'
 }
 `
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(stackSrc), 0o644))
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(stackSrc), 0o644))
 
 	netDir := filepath.Join(dir, "libraries", "net")
 	require.NoError(t, os.MkdirAll(netDir, 0o755))
@@ -1344,7 +1352,7 @@ import (
 )
 
 const (
-	factoryBody        = "\nimports: {\n  net: './libraries/net'\n}\n"
+	factoryBody        = "imports: { net: './libraries/net' }\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -1397,8 +1405,8 @@ cluster: resource {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   net: 'github.com/example/net//libraries/network'
 }
@@ -1462,8 +1470,8 @@ greeting: resource {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   outer: 'github.com/example/outer//ub/outer'
 }
@@ -1547,8 +1555,8 @@ type-b: resource {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   a: 'github.com/example/a//ub/a'
 }
@@ -1596,10 +1604,10 @@ greeting: resource {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
+	stackPath := filepath.Join(dir, "factory.ub")
 	// Stack root uses alias "shared"; the wrapper composite uses
 	// alias "inside" for the same URL.
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   shared: 'github.com/example/shared//ub/shared'
   wrap:   'github.com/example/wrap//ub/wrap'
@@ -1664,8 +1672,8 @@ foo: resource {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   some: 'github.com/cloudboss/unobin//some-lib'
 }
@@ -1695,8 +1703,8 @@ func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
@@ -1716,8 +1724,8 @@ imports: {
 func TestCompileReplaceUnobinMissingPath(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   local: 'github.com/cloudboss/unobin//pkg/libraries/local'
 }
@@ -1736,8 +1744,8 @@ imports: {
 func TestCompileWithRemoteGoSubpath(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   std: 'github.com/cloudboss/unobin-library-std//fs'
 }
@@ -1756,8 +1764,8 @@ func TestCompileLocalNonUBLibraryFails(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
-	stackPath := filepath.Join(dir, "main.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(`
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports: {
   bare: './bare'
 }

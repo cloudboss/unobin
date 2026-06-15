@@ -1,1 +1,1 @@
-main.ub:2:19: resolve: function "format" must be qualified with @core or an imported library, e.g. @core.format(...)
+factory.ub:2:19: resolve: function "format" must be qualified with @core or an imported library, e.g. @core.format(...)

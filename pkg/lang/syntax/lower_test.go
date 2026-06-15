@@ -27,7 +27,7 @@ func requireSpan(t *testing.T, span parse.Span) {
 }
 
 func TestLowerFactoryFile(t *testing.T) {
-	f := parseFile(t, "main.ub", `
+	f := parseFile(t, "factory.ub", `
 description: 'Example.'
 
 imports: { std: 'github.com/cloudboss/unobin-library-std' }
@@ -417,7 +417,7 @@ func TestLowerSelectorBodyFixtures(t *testing.T) {
 func selectorBodyFixtureKind(name string) (parse.FileKind, string) {
 	switch name {
 	case "factory":
-		return parse.FileFactory, "main.ub"
+		return parse.FileFactory, "factory.ub"
 	case "stack":
 		return parse.FileConfig, "dev.ub"
 	case "library":
@@ -502,7 +502,7 @@ func objectFieldCount(obj *parse.ObjectLit) int {
 }
 
 func TestLowerReportsSchemaErrors(t *testing.T) {
-	f := parseFile(t, "main.ub", `
+	f := parseFile(t, "factory.ub", `
 inputs: {
   bad: { type: list(unknown) }
 }

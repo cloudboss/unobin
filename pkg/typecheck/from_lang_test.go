@@ -110,7 +110,7 @@ inputs: {
   label: { type: optional(string) }
 }
 `
-	f, err := lang.ParseSource("main.ub", []byte(src))
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	inputs := topLevelInputs(t, f)

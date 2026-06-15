@@ -7,12 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
+func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 	cases := []struct {
 		name             string
 		files            map[string]string
 		isLibrary        bool
-		hasMain          bool
 		hasFactorySource bool
 	}{
 		{
@@ -44,8 +43,7 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 		},
 		{
 			name:             "factory directory",
-			files:            map[string]string{"main.ub": "description: 'f'"},
-			hasMain:          true,
+			files:            map[string]string{"factory.ub": "description: 'f'"},
 			hasFactorySource: true,
 		},
 		{
@@ -56,10 +54,9 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 		{
 			name: "factory with stray composite is still a factory",
 			files: map[string]string{
-				"main.ub":    "description: 'f'",
+				"factory.ub": "description: 'f'",
 				"library.ub": "a: resource { description: 'a' }",
 			},
-			hasMain:          true,
 			hasFactorySource: true,
 		},
 		{
@@ -75,7 +72,6 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			src := newUBSource(t, c.files)
 			require.Equal(t, c.isLibrary, IsUBLibrary(src), "IsUBLibrary")
-			require.Equal(t, c.hasMain, ContainsMainUB(src), "ContainsMainUB")
 			require.Equal(t, c.hasFactorySource, ContainsFactorySource(src),
 				"ContainsFactorySource")
 		})
@@ -85,8 +81,6 @@ func TestIsUBLibraryAndContainsMainUB(t *testing.T) {
 func TestIsUBLibraryNilSource(t *testing.T) {
 	require.False(t, IsUBLibrary(nil))
 	require.False(t, IsUBLibrary(&Source{}))
-	require.False(t, ContainsMainUB(nil))
-	require.False(t, ContainsMainUB(&Source{}))
 	require.False(t, ContainsFactorySource(nil))
 	require.False(t, ContainsFactorySource(&Source{}))
 }
@@ -235,7 +229,7 @@ func TestWalkUBRejectsLibraryFilesWithoutCompositeDeclarations(t *testing.T) {
 
 func TestWalkUBRejectsFactoryImport(t *testing.T) {
 	src := newUBSource(t, map[string]string{
-		"main.ub":    "description: 'a factory'",
+		"factory.ub": "description: 'a factory'",
 		"library.ub": "a: resource { description: 'a' }",
 	})
 	_, err := walkOneUB(t, src)

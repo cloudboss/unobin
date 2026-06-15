@@ -44,7 +44,7 @@ func TestValidateTopLevelKeysUnknownFixtures(t *testing.T) {
 // reporting positioned diagnostics so the goldens pin file:line:col.
 func fileDriver(kind FileKind) ubtest.Driver {
 	return func(name string, src []byte) (string, []string) {
-		f, err := ParseSource("main.ub", src)
+		f, err := ParseSource("factory.ub", src)
 		if err != nil {
 			return "", []string{err.Error()}
 		}
@@ -67,7 +67,7 @@ func TestValidateFileUnknownFixtures(t *testing.T) {
 
 func TestValidateCallsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/calls", func(name string, src []byte) (string, []string) {
-		f, err := ParseSource("main.ub", src)
+		f, err := ParseSource("factory.ub", src)
 		if err != nil {
 			return "", []string{err.Error()}
 		}
@@ -77,7 +77,7 @@ func TestValidateCallsFixtures(t *testing.T) {
 
 func TestValidateComprehensionBindingsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/comprehensions", func(name string, src []byte) (string, []string) {
-		f, err := ParseSource("main.ub", src)
+		f, err := ParseSource("factory.ub", src)
 		if err != nil {
 			return "", []string{err.Error()}
 		}

@@ -38,7 +38,7 @@ func TestConstraintsFromSchemaEmpty(t *testing.T) {
 }
 
 func TestUsedLibraryTypes(t *testing.T) {
-	f, err := lang.ParseSource("main.ub", []byte(`
+	f, err := lang.ParseSource("factory.ub", []byte(`
 inputs: { path: { type: string } }
 resources: {
   aws.vpc.main: { cidr-block: '10.0.0.0/16' }
@@ -56,7 +56,7 @@ actions: { core.command.hi: { argv: ['echo'] } }
 
 func TestUsedLibraryTypesNoDeclarations(t *testing.T) {
 	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(nil))
-	f, err := lang.ParseSource("main.ub", []byte("inputs: { x: { type: string } }\n"))
+	f, err := lang.ParseSource("factory.ub", []byte("inputs: { x: { type: string } }\n"))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(f))
 }

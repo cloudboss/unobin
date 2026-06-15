@@ -1,1 +1,1 @@
-main.ub:1:24: resolve: function "list" must be qualified with @core or an imported library, e.g. @core.list(...)
+factory.ub:1:24: resolve: function "list" must be qualified with @core or an imported library, e.g. @core.list(...)

@@ -24,7 +24,7 @@ func writeCompositeGoSpecsFixture(t *testing.T) (string, string) {
 
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
 inputs:  { path: { type: string } }
 imports: { disk: 'github.com/example/disk', files: './libraries/files' }
 resources: {
@@ -161,7 +161,7 @@ func (v *Volume) Delete(_ context.Context, _ any, _ *VolumeOutput) error {
 			"  'github.com/example/disk': '"+diskDir+"'\n"+
 			"}\n}\n"), 0o644))
 
-	return filepath.Join(dir, "main.ub"), filepath.Join(t.TempDir(), "build")
+	return filepath.Join(dir, "factory.ub"), filepath.Join(t.TempDir(), "build")
 }
 
 // compileCompositeGoSpecsFixture compiles the fixture and returns the

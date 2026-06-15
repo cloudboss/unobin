@@ -1,1 +1,1 @@
-main.ub:1:60: resolve: function "pick" must be qualified with @core or an imported library, e.g. @core.pick(...)
+factory.ub:1:60: resolve: function "pick" must be qualified with @core or an imported library, e.g. @core.pick(...)

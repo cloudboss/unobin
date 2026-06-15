@@ -11,7 +11,7 @@ import (
 
 func parseStack(t *testing.T, src string) *lang.File {
 	t.Helper()
-	f, err := lang.ParseSource("main.ub", []byte(src))
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	return f
 }

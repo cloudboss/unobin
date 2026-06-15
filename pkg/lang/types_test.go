@@ -203,7 +203,7 @@ func TestPromoteOpenErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := ParseSource("main.ub", []byte(tt.src))
+			f, err := ParseSource("factory.ub", []byte(tt.src))
 			require.NoError(t, err)
 			_, err = PromoteType(f.Body.Fields[0].Value)
 			require.Error(t, err)

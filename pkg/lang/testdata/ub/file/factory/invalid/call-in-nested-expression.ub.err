@@ -1,1 +1,1 @@
-main.ub:3:27: resolve: library "lib" is not imported (called as lib.upper)
+factory.ub:3:27: resolve: library "lib" is not imported (called as lib.upper)

@@ -79,14 +79,14 @@ func TestCanonicalizeParseError(t *testing.T) {
 
 func TestWriteCanonical(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "main.ub")
+	path := filepath.Join(dir, "factory.ub")
 	draft := []byte("a: 'x'   \n\n\n\nb: 'y'\n")
 
 	require.NoError(t, WriteCanonical(path, draft))
 
 	got, err := os.ReadFile(path)
 	require.NoError(t, err)
-	want, err := Canonicalize("main.ub", draft)
+	want, err := Canonicalize("factory.ub", draft)
 	require.NoError(t, err)
 	require.Equal(t, string(want), string(got))
 

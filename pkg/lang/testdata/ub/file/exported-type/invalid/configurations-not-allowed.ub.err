@@ -1,1 +1,1 @@
-main.ub:1:1: schema: "configurations" is not a valid top level key for a exported-type file
+factory.ub:1:1: schema: "configurations" is not a valid top level key for a exported-type file

@@ -7,7 +7,7 @@ import (
 )
 
 func TestWalkVisitsNestedExpressions(t *testing.T) {
-	f, err := ParseSource("main.ub", []byte(`
+	f, err := ParseSource("factory.ub", []byte(`
 inputs:    { size: { type: integer } }
 resources: { a.b.c: { x: format('%d', var.size + 1) } }
 `))
@@ -29,7 +29,7 @@ func TestWalkNilIsSafe(t *testing.T) {
 }
 
 func TestWalkVisitsConditionalBranches(t *testing.T) {
-	f, err := ParseSource("main.ub", []byte(`
+	f, err := ParseSource("factory.ub", []byte(`
 resources: { a.b.c: { x: if var.prod then var.big else var.small } }
 `))
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ resources: { a.b.c: { x: if var.prod then var.big else var.small } }
 }
 
 func TestWalkVisitsComprehensionParts(t *testing.T) {
-	f, err := ParseSource("main.ub", []byte(`
+	f, err := ParseSource("factory.ub", []byte(`
 resources: { a.b.c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } }
 `))
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ resources: { a.b.c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } }
 }
 
 func TestWalkVisitsDotPathIndexExpr(t *testing.T) {
-	f, err := ParseSource("main.ub", []byte(`
+	f, err := ParseSource("factory.ub", []byte(`
 resources: { a.b.c: { x: resource.aws.thing.many['alpha'].id } }
 `))
 	require.NoError(t, err)

@@ -36,7 +36,7 @@ func applyOnce(t *testing.T, exec *runtime.Executor) *runtime.ExecResult {
 // Plan-and-ApplyPlan cycle through the executor.
 func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResult {
 	t.Helper()
-	f, err := lang.ParseSource("main.ub", []byte(src))
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	errs := lang.ValidateFile(f)
@@ -190,7 +190,7 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	}
 	stack := state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"}
 
-	f, err := lang.ParseSource("main.ub", []byte(src))
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 
 	first := applyOnce(t, &runtime.Executor{

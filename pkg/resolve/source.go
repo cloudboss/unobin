@@ -39,13 +39,7 @@ func IsUBLibrary(s *Source) bool {
 // ContainsFactorySource reports whether s has a root file that marks a
 // runnable factory instead of an importable library.
 func ContainsFactorySource(s *Source) bool {
-	return ContainsMainUB(s) || containsRootFile(s, "factory.ub")
-}
-
-// ContainsMainUB reports whether s has a `main.ub` at its root, which
-// marks the directory as a factory: runnable and not importable.
-func ContainsMainUB(s *Source) bool {
-	return containsRootFile(s, "main.ub")
+	return containsRootFile(s, "factory.ub")
 }
 
 func containsRootFile(s *Source, name string) bool {

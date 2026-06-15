@@ -164,17 +164,15 @@ func FactorySourcePath(path string) (string, error) {
 	if !info.IsDir() {
 		return path, nil
 	}
-	for _, name := range []string{"factory.ub", "main.ub"} {
-		candidate := filepath.Join(path, name)
-		info, err := os.Stat(candidate)
-		if err == nil && !info.IsDir() {
-			return candidate, nil
-		}
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return "", err
-		}
+	candidate := filepath.Join(path, "factory.ub")
+	info, err = os.Stat(candidate)
+	if err == nil && !info.IsDir() {
+		return candidate, nil
 	}
-	return "", fmt.Errorf("compile: %s has no factory.ub or main.ub", path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	return "", fmt.Errorf("compile: %s has no factory.ub", path)
 }
 
 // Run compiles a factory per the options.

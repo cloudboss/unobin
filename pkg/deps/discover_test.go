@@ -40,7 +40,7 @@ func TestFindManifestDirFromFile(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(root, ManifestFileName), []byte("manifest: { requires: {} }\n"), 0o644))
-	mainUB := filepath.Join(root, "main.ub")
+	mainUB := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(mainUB, []byte("description: 'x'\n"), 0o644))
 
 	got, err := FindManifestDir(mainUB)
