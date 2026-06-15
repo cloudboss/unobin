@@ -59,7 +59,7 @@ function initGraph(f) {
   const depsOf = new Map();
   for (const n of f.steps) {
     depsOf.set(n.address, n['depends-on'] || []);
-    if (n.kind === 'output') hidden.add(n.address);
+    if (nodeKind(n) === 'output') hidden.add(n.address);
   }
   for (const n of f.steps) {
     if (hidden.has(n.address)) continue;
@@ -156,6 +156,10 @@ function labelText(addr) {
   return '…' + addr.slice(addr.length - max + 1);
 }
 
+function nodeKind(node) {
+  return node['node-kind'];
+}
+
 function render() {
   const svg = $('graph');
   svg.textContent = '';
@@ -190,7 +194,7 @@ function render() {
     const g = el('g', { transform: 'translate(' + x + ',' + y + ')' });
     g.appendChild(el('rect', {
       class: 'card', width: NODE_W, height: NODE_H,
-      rx: st.node.kind === 'configuration' ? 14 : 6,
+      rx: nodeKind(st.node) === 'configuration' ? 14 : 6,
     }));
     const tag = el('text', { class: 'tag', x: 12, y: 19 });
     const badge = el('text', {
@@ -269,11 +273,12 @@ function badgeText(st) {
 function updateStep(addr) {
   const st = state.steps.get(addr);
   if (!st || !st.el) return;
-  const classes = ['step', st.node.kind, st.stage, 'decision-' + st.decision];
+  const kind = nodeKind(st.node);
+  const classes = ['step', kind, st.stage, 'decision-' + st.decision];
   if (st.node.composite) classes.push('composite');
   if (state.selected === addr) classes.push('selected');
   st.el.setAttribute('class', classes.join(' '));
-  st.tagEl.textContent = st.node.kind +
+  st.tagEl.textContent = kind +
     (st.node.composite ? ' · composite' : '') +
     ' · ' + st.decision;
   st.badgeEl.textContent = badgeText(st);
@@ -389,7 +394,8 @@ function updateStatus() {
 
 function fillDetail(st) {
   $('detail-address').textContent = st.node.address;
-  $('detail-kind').textContent = st.node.kind + (st.node.composite ? ' (composite)' : '');
+  $('detail-kind').textContent = nodeKind(st.node) +
+    (st.node.composite ? ' (composite)' : '');
   $('detail-decision').textContent = st.decision;
   $('detail-state').textContent = st.stage;
   const elapsed = st.stage === 'running'

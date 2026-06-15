@@ -192,6 +192,15 @@ func TestServerPaths(t *testing.T) {
 	}
 }
 
+func TestAppUsesStepNodeKindKey(t *testing.T) {
+	script, err := assetsFS.ReadFile("assets/app.js")
+	require.NoError(t, err)
+	text := string(script)
+	assert.Contains(t, text, "['node-kind']")
+	assert.NotContains(t, text, "n.kind === 'output'")
+	assert.NotContains(t, text, "st.node.kind")
+}
+
 func TestEventStream(t *testing.T) {
 	s := startTestServer(t)
 	br := connectSSE(t, s)
