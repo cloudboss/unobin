@@ -1,0 +1,1 @@
+configuration must be written as selector { ... } or name: selector { ... }

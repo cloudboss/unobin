@@ -1,0 +1,5 @@
+factory: {
+  configurations: {
+    std.default: {}
+  }
+}

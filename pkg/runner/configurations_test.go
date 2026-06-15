@@ -41,7 +41,7 @@ func TestLoadConfigurationsDecodesDefault(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region:  'us-east-1'
       profile: 'prod'
     }
@@ -96,7 +96,7 @@ func TestLoadConfigurationsAppliesDefaultsWhenAbsent(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region: 'us-east-1'
     }
   }
@@ -122,7 +122,7 @@ func TestLoadConfigurationsAllowsBlockMissingForModule(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    other.default: { region: 'us-west-2' }
+    other { region: 'us-west-2' }
   }
 }
 `)
@@ -139,7 +139,7 @@ func TestLoadConfigurationsErrorsOnUnknownImportAlias(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    ghost.default: {}
+    ghost {}
   }
 }
 `)
@@ -154,7 +154,7 @@ func TestLoadConfigurationsErrorsWhenModuleHasNoConfiguration(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {}
+    aws {}
   }
 }
 `)
@@ -169,7 +169,7 @@ func TestLoadConfigurationsAllowsMissingDefault(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.east2: {
+    east2: aws {
       region: 'us-east-2'
     }
   }
@@ -186,7 +186,7 @@ func TestLoadConfigurationsErrorsOnInvalidValues(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region: 12345
     }
   }
@@ -211,11 +211,11 @@ func TestLoadConfigurationsDecodesMultipleAliases(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region:  'us-east-1'
       profile: 'prod'
     }
-    aws.east2: {
+    east2: aws {
       region:  'us-east-2'
       profile: 'prod'
     }
@@ -239,7 +239,7 @@ func TestParseConfigRejectsInputReferenceInConfigurations(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region: var.region
     }
   }
@@ -255,10 +255,10 @@ func TestLoadConfigurationsErrorsWhenAnyAliasFailsToDecode(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region: 'us-east-1'
     }
-    aws.bad: {
+    bad: aws {
       region: 12345
     }
   }
@@ -275,8 +275,8 @@ func TestLoadConfigurationsAcceptsFactoryNameOverride(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
-    aws.default: { region: 'us-east-1' }
-    aws.cluster: { region: 'us-east-2' }
+    aws { region: 'us-east-1' }
+    cluster: aws { region: 'us-east-2' }
   }
 }
 `)
@@ -293,7 +293,7 @@ locals: { region: 'us-east-1', team: 'core' }
 
 factory: {
   configurations: {
-    aws.default: {
+    aws {
       region:  local.region
       profile: local.team
     }

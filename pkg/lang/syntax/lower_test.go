@@ -46,7 +46,7 @@ constraints: [
 ]
 
 configurations: {
-  std.default: {
+  std {
     region: 'us-east-1'
   }
 }
@@ -104,7 +104,7 @@ outputs: {
 	requireSpan(t, got.Factory.Body.Constraints[0].S)
 	require.Len(t, got.Factory.Body.Configurations, 1)
 	requireSpan(t, got.Factory.Body.Configurations[0].S)
-	assert.Equal(t, "default", got.Factory.Body.Configurations[0].Name.Name)
+	require.Nil(t, got.Factory.Body.Configurations[0].Name)
 	assert.Equal(t, "std", got.Factory.Body.Configurations[0].Selector.Name)
 
 	require.Len(t, got.Factory.Body.Resources, 1)

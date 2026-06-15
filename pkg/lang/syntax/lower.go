@@ -196,7 +196,10 @@ func lowerSourceDeclaredRole(
 	switch first.name {
 	case "factory":
 		out.Kind = FileFactory
-		out.Factory = &FactoryFile{S: first.fld.S, Body: lowerFactoryBody(block, errs)}
+		out.Factory = &FactoryFile{
+			S:    first.fld.S,
+			Body: lowerFactoryBodyWithMode(block, errs, lowerMode{sourceDeclared: true}),
+		}
 	case "stack":
 		out.Kind = FileStack
 		out.Stack = lowerStackFile(first.fld.S, block, errs, lowerMode{sourceDeclared: true})
@@ -210,6 +213,14 @@ func lowerSourceDeclaredRole(
 }
 
 func lowerFactoryBody(block *parse.ObjectLit, errs *parse.ErrorList) FactoryBody {
+	return lowerFactoryBodyWithMode(block, errs, lowerMode{})
+}
+
+func lowerFactoryBodyWithMode(
+	block *parse.ObjectLit,
+	errs *parse.ErrorList,
+	mode lowerMode,
+) FactoryBody {
 	var body FactoryBody
 	if block == nil {
 		return body
@@ -241,7 +252,7 @@ func lowerFactoryBody(block *parse.ObjectLit, errs *parse.ErrorList) FactoryBody
 			}
 		case "configurations":
 			if obj := objectValue(fld, "configurations", errs); obj != nil {
-				body.Configurations = lowerConfigurationDecls(obj, errs)
+				body.Configurations = lowerConfigurationDecls(obj, errs, mode)
 			}
 		case "resources":
 			if obj := objectValue(fld, "resources", errs); obj != nil {
@@ -285,7 +296,7 @@ func lowerStackFile(
 		switch name.Name {
 		case "factory":
 			if obj := objectValue(fld, "factory", errs); obj != nil {
-				stack.Factory = lowerStackFactory(fld.S, obj, errs)
+				stack.Factory = lowerStackFactory(fld.S, obj, errs, mode)
 			}
 		case "locals":
 			if obj := objectValue(fld, "locals", errs); obj != nil {
@@ -323,6 +334,7 @@ func lowerStackFactory(
 	span parse.Span,
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) *StackFactoryBlock {
 	factory := &StackFactoryBlock{S: span}
 	for _, fld := range block.Fields {
@@ -337,7 +349,7 @@ func lowerStackFactory(
 			factory.Inputs = objectValue(fld, "factory.inputs", errs)
 		case "configurations":
 			if obj := objectValue(fld, "factory.configurations", errs); obj != nil {
-				factory.Configurations = lowerConfigurationValues(obj, errs)
+				factory.Configurations = lowerConfigurationValues(obj, errs, mode)
 			}
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
@@ -513,7 +525,8 @@ func lowerCompositeDecls(block *parse.ObjectLit, errs *parse.ErrorList) []Compos
 			S:    fld.S,
 			Name: name,
 			Kind: kind,
-			Body: lowerFactoryBody(fld.Decl.Body, errs),
+			Body: lowerFactoryBodyWithMode(
+				fld.Decl.Body, errs, lowerMode{sourceDeclared: true}),
 		})
 	}
 	return exports
@@ -655,6 +668,7 @@ func lowerImports(block *parse.ObjectLit, errs *parse.ErrorList) []ImportDecl {
 func lowerConfigurationDecls(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) []ConfigurationDecl {
 	entries := make([]ConfigurationDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
@@ -672,6 +686,11 @@ func lowerConfigurationDecls(
 			}
 			seen[key] = fld.Key.S.Start
 			entries = append(entries, entry)
+			continue
+		}
+		if mode.sourceDeclared {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"configuration must be written as selector { ... } or name: selector { ... }")
 			continue
 		}
 		selector, name, ok := configurationKey(fld, errs)
@@ -730,6 +749,7 @@ func configurationDeclKey(entry ConfigurationDecl) string {
 func lowerConfigurationValues(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) []ConfigurationValue {
 	entries := make([]ConfigurationValue, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
@@ -747,6 +767,11 @@ func lowerConfigurationValues(
 			}
 			seen[key] = fld.Key.S.Start
 			entries = append(entries, entry)
+			continue
+		}
+		if mode.sourceDeclared {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"configuration must be written as selector { ... } or name: selector { ... }")
 			continue
 		}
 		selector, name, ok := configurationKey(fld, errs)
