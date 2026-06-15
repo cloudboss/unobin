@@ -259,7 +259,8 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	repoVersions = withReplacedVersions(repoVersions, replaceUnobinAbs != "", replaceMap)
+	repoVersions = withReplacedVersions(
+		repoVersions, replaceUnobinAbs != "", replaceMap, opts.ReplaceGoModules)
 	v := newCompileVisitor(name, opts.stderr(), schemas)
 	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
 	if err != nil {
@@ -742,8 +743,9 @@ func withReplacedVersions(
 	versions map[string]string,
 	replaceUnobin bool,
 	replace map[deps.Dependency]string,
+	replaceGoModules map[string]string,
 ) map[string]string {
-	if !replaceUnobin && len(replace) == 0 {
+	if !replaceUnobin && len(replace) == 0 && len(replaceGoModules) == 0 {
 		return versions
 	}
 	if versions == nil {
@@ -754,6 +756,9 @@ func withReplacedVersions(
 	}
 	for dep := range replace {
 		versions[dep.URL] = replacedVersion
+	}
+	for modulePath := range replaceGoModules {
+		versions[modulePath] = replacedVersion
 	}
 	return versions
 }

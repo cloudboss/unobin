@@ -830,6 +830,23 @@ factory: {
 	require.NoError(t, err)
 }
 
+func TestCompileReplaceGoModuleDoesNotNeedLock(t *testing.T) {
+	rootDir := findUnobinRoot(t)
+	libDir := filepath.Join(rootDir, "examples", "configurations", "greet")
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
+factory: {
+  imports: { greet: 'github.com/x/greet' }
+  actions: { say: greet.say { message: 'world' } }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
+		"-o", "-", "--replace-go-module", "github.com/x/greet="+libDir)
+	require.NoError(t, err)
+}
+
 // TestCompileManifestToolchainLine proves the manifest's unobin-version
 // line pins which CLI may compile the project: a match proceeds, a mismatch
 // stops with the version to install, and a replaced unobin proceeds
