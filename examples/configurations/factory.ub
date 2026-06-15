@@ -1,7 +1,7 @@
 factory: {
   description: '''>-
-    Exercises @configuration on leaves, @configurations on composite
-    call sites, and a configuration the factory derives from a resource.
+    Exercises @configuration on leaves, @configurations on composite call sites,
+    stack overrides, and a configuration the factory derives from a resource.
     '''
 
   imports: {
@@ -10,7 +10,8 @@ factory: {
   }
 
   configurations: {
-    fancy: greet {
+    fancy: greet {}
+    derived: greet {
       prefix: resource.flourish.decorated
     }
   }
@@ -33,6 +34,10 @@ factory: {
       @configuration: configuration.fancy
       message:        'world'
     }
+    derived: greet.say {
+      @configuration: configuration.derived
+      message:        'world'
+    }
     casual-wrap: greeter.greeting {
       message: 'wrapped'
     }
@@ -46,6 +51,7 @@ factory: {
     casual:      { value: action.casual.output }
     formal:      { value: action.formal.output }
     fancy:       { value: action.fancy.output }
+    derived:     { value: action.derived.output }
     casual-wrap: { value: action.casual-wrap.output }
     formal-wrap: { value: action.formal-wrap.output }
   }

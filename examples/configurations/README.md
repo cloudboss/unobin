@@ -1,22 +1,27 @@
 # configurations example
 
 Shows how an operator routes per-deployment values to a library that declares a
-configuration, how a composite remaps the alias for everything inside its
-call, and how the factory defines a configuration of its own from a resource.
+configuration, how a stack file replaces a factory-declared configuration body,
+how a composite remaps the alias for everything inside its call, and how the
+factory defines a configuration of its own from a resource.
 
-The stack defines three `greet.say` actions and two `greeter.greeting`
-composite call sites. The leaves and call sites that omit a meta key use the
-default alias; others select the `formal` alias either directly with
-`@configuration:` or by remapping inside a composite with `@configurations:`.
-The `fancy` configuration is internal: the factory derives its prefix from the
-`resource.flourish` computed output, so it never appears in the stack file (an
-operator entry for it is rejected), and the action that selects it runs after
-the resource it derives from. A real library would use the same
-mechanism to point one library at something another library created (a cluster
-created here, configuring its own client library). Prefer configuration fields
-that hold credential sources over short-lived secrets: the value is computed
-once per run, so a token that expires in minutes belongs behind a field the
-library exchanges per call.
+The stack defines four `greet.say` actions and two `greeter.greeting` composite
+call sites. The leaves and call sites that omit a meta key use the default
+alias; others select the `formal` alias either directly with `@configuration:`
+or by remapping inside a composite with `@configurations:`.
+
+The `fancy` configuration is declared in `factory.ub` with an empty body. The
+`dev.ub` stack file replaces that body and supplies the required `prefix`. If
+`dev.ub` removes the `fancy` entry, the factory body becomes effective and plan
+reports the missing required field.
+
+The `derived` configuration stays in the factory: it derives its prefix from
+the `resource.flourish` computed output, and the action that selects it runs
+after the resource it derives from. A real library would use the same mechanism
+to point one library at something another library created. Prefer configuration
+fields that hold credential sources over short-lived secrets: the value is
+computed once per run, so a token that expires in minutes belongs behind a field
+the library exchanges per call.
 
 ## Try it
 
@@ -39,11 +44,12 @@ export UB_STATE_KEY="$(head -c 32 /dev/urandom | base64)"
 Expected output:
 
 ```
-casual:      "hello: world"
-casual-wrap: "hello: wrapped"
-fancy:       "** Salutations **: world"
-formal:      "Good day: world"
-formal-wrap: "Good day: wrapped"
+casual:      'hello: world'
+casual-wrap: 'hello: wrapped'
+derived:     '** Salutations **: world'
+fancy:       'Stack says: world'
+formal:      'Good day: world'
+formal-wrap: 'Good day: wrapped'
 ```
 
 ## Failures
@@ -56,8 +62,7 @@ The plan-time validator catches misuse before any work happens:
   does reports `library "greet" requires a configuration; define
   greet.default under factory.configurations in the stack file or under
   configurations in the factory`.
-- Supply a value for an internal name: `factory.configurations.greet.fancy`
-  in the stack file produces `defined internally by the factory; remove this
-  entry from the stack file`.
+- Remove the `fancy` entry from `dev.ub`: the factory body is used and plan
+  reports `field prefix: required`.
 - Cross-import remap: `@configurations: { greet: aws.formal }` produces
   `@configurations.greet: right-hand side import "aws" must match the key`.
