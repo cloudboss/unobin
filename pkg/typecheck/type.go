@@ -199,7 +199,7 @@ func (t Type) String() string {
 		for i, e := range t.Elems {
 			parts[i] = e.String()
 		}
-		return "tuple([" + strings.Join(parts, " ") + "])"
+		return "tuple(" + strings.Join(parts, ", ") + ")"
 	case Union:
 		parts := make([]string, len(t.Elems))
 		for i, e := range t.Elems {

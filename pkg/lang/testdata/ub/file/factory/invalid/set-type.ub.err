@@ -1,1 +1,1 @@
-main.ub:1:22: type: set is not available yet; use list, or a map for fan-out
+main.ub:1:22: type: unknown type constructor "set"

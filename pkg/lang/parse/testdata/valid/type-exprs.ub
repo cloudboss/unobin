@@ -14,8 +14,7 @@ map-strings:  map(string)
 nested-list-of-list: list(list(integer))
 list-of-map:         list(map(string))
 
-tuple-mixed: tuple([string, integer, boolean])
-tuple-empty: tuple([])
+tuple-mixed: tuple(string, integer, boolean)
 
 simple-object: object({
   name:  string,

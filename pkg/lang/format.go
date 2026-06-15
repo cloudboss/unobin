@@ -555,7 +555,7 @@ func (w *formatter) typeExprWidth(t TypeExpr) int {
 		}
 		return -1
 	case *TypeTuple:
-		total := len("tuple([])")
+		total := len("tuple()")
 		for i, el := range x.Elements {
 			ew := w.typeExprWidth(el)
 			if ew < 0 {
@@ -1757,7 +1757,7 @@ func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
 	case *TypeObject:
 		return w.writeTypeObject(x, indent)
 	case *TypeTuple:
-		w.buf.WriteString("tuple([")
+		w.buf.WriteString("tuple(")
 		for i, elem := range x.Elements {
 			if i > 0 {
 				w.buf.WriteString(", ")
@@ -1766,7 +1766,7 @@ func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
 				return err
 			}
 		}
-		w.buf.WriteString("])")
+		w.buf.WriteByte(')')
 	case *TypeOptional:
 		w.buf.WriteString("optional(")
 		if err := w.writeTypeExpr(x.Elem, indent); err != nil {

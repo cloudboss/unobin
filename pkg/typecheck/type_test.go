@@ -21,7 +21,7 @@ func TestTypeString(t *testing.T) {
 		{
 			"tuple",
 			TTuple([]Type{TString(), TInteger(), TBoolean()}),
-			"tuple([string integer boolean])",
+			"tuple(string, integer, boolean)",
 		},
 		{
 			"object",

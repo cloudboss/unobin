@@ -484,7 +484,7 @@ type TypeObjectField struct {
 	Decl *ObjectLit
 }
 
-// TypeTuple is `tuple([T1 T2 T3])`.
+// TypeTuple is tuple(T1, T2, ...).
 type TypeTuple struct {
 	S        Span
 	Elements []TypeExpr

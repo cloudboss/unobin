@@ -820,7 +820,7 @@ func TestInferIndexSegments(t *testing.T) {
 			"type mismatch: expected integer, got string",
 		}},
 		{src: "var.pair[5]", want: unknown, wantErrs: []string{
-			"index 5 out of range for tuple([string integer])",
+			"index 5 out of range for tuple(string, integer)",
 		}},
 		{src: "var.pair['a']", want: unknown, wantErrs: []string{
 			"type mismatch: expected integer, got string",

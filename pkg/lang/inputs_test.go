@@ -414,7 +414,7 @@ inputs: {
 func TestValidateInputsTuple(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
-  pair: { type: tuple([string, integer]) }
+  pair: { type: tuple(string, integer) }
 }
 `)
 	out, errs := ValidateInputs(decl,
@@ -426,7 +426,7 @@ inputs: {
 func TestValidateInputsTupleWrongArity(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
-  pair: { type: tuple([string, integer]) }
+  pair: { type: tuple(string, integer) }
 }
 `)
 	_, errs := ValidateInputs(decl,

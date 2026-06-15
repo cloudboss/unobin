@@ -1101,13 +1101,13 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 	}
 }
 
-// typeConstructorCalls returns the Call nodes that name a type constructor
-// (list, map, optional, ...) rather than a function, so the call checker
-// leaves them alone. It starts only from input declarations, since that is
-// the one place a type can be written, and follows the type sub-grammar
-// from each declared type. Default values and object field declaration
-// values are not types, so their calls are not collected and stay subject
-// to the call checker.
+// typeConstructorCalls returns the Call nodes written inside type
+// positions, so the call checker leaves them to type validation. It
+// starts only from input declarations, since that is the one place a
+// type can be written, and follows the type sub-grammar from each
+// declared type. Default values and object field declaration values are
+// not types, so their calls are not collected and stay subject to the
+// call checker.
 func typeConstructorCalls(f *File) map[Expr]struct{} {
 	skip := map[Expr]struct{}{}
 	inputs, ok := indexTopLevelBlocks(f)["inputs"].(*ObjectLit)
@@ -1122,28 +1122,32 @@ func typeConstructorCalls(f *File) map[Expr]struct{} {
 	return skip
 }
 
-// collectTypeConstructors adds e to skip if it is a type constructor, then
-// recurses into its type arguments. It mirrors promoteCall's structure but
-// is tolerant: a malformed type just stops the descent and is reported by
-// ValidateInputDeclarations instead.
+// collectTypeConstructors adds e to skip when it is a call in type
+// position, then recurses into its type arguments. It mirrors
+// promoteCall's structure but is tolerant: a malformed type just stops
+// the descent and is reported by ValidateInputDeclarations instead.
 func collectTypeConstructors(e Expr, skip map[Expr]struct{}) {
 	c, ok := e.(*Call)
-	if !ok || c.Library != nil || c.Callee == nil || !isTypeConstructor(c.Callee.Name) {
+	if !ok || c.Library != nil || c.Callee == nil {
 		return
 	}
 	skip[c] = struct{}{}
 	if len(c.Args) == 0 {
 		return
 	}
+	if !isTypeConstructor(c.Callee.Name) {
+		for _, arg := range c.Args {
+			collectTypeConstructors(arg, skip)
+		}
+		return
+	}
 	switch c.Callee.Name {
-	case "list", "set", "map", "optional", "open":
+	case "list", "map", "optional", "open":
 		// The element or inner type is the first argument.
 		collectTypeConstructors(c.Args[0], skip)
 	case "tuple":
-		if arr, ok := c.Args[0].(*ArrayLit); ok {
-			for _, el := range arr.Elements {
-				collectTypeConstructors(el, skip)
-			}
+		for _, arg := range c.Args {
+			collectTypeConstructors(arg, skip)
 		}
 	case "object":
 		if obj, ok := c.Args[0].(*ObjectLit); ok {

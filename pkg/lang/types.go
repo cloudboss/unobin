@@ -45,12 +45,9 @@ func promoteAtomic(id *Ident) (TypeExpr, error) {
 
 // typeConstructorNames are the call-form type constructors. promoteCall
 // below dispatches each one; keep the two in sync when adding a
-// constructor. set is reserved: it dispatches to an error so a future
-// set type arrives without breaking programs that would otherwise have
-// bound the name.
+// constructor.
 var typeConstructorNames = map[string]struct{}{
 	"list":     {},
-	"set":      {},
 	"map":      {},
 	"tuple":    {},
 	"object":   {},
@@ -75,9 +72,6 @@ func promoteCall(c *Call) (TypeExpr, error) {
 	switch name {
 	case "list":
 		return promoteContainer(c, name, func(t TypeExpr) TypeExpr { return &TypeList{S: c.S, Elem: t} })
-	case "set":
-		return nil, Errorf(ErrType, c.S.Start,
-			"set is not available yet; use list, or a map for fan-out")
 	case "map":
 		return promoteContainer(c, name, func(t TypeExpr) TypeExpr { return &TypeMap{S: c.S, Elem: t} })
 	case "tuple":
@@ -157,17 +151,12 @@ func promoteContainer(c *Call, name string, build func(TypeExpr) TypeExpr) (Type
 }
 
 func promoteTuple(c *Call) (TypeExpr, error) {
-	if len(c.Args) != 1 {
+	if len(c.Args) < 2 {
 		return nil, Errorf(ErrType, c.S.Start,
-			"tuple takes exactly 1 array argument of types, got %d", len(c.Args))
+			"tuple takes at least 2 type arguments, got %d", len(c.Args))
 	}
-	arr, ok := c.Args[0].(*ArrayLit)
-	if !ok {
-		return nil, Errorf(ErrType, exprPos(c.Args[0]),
-			"tuple expects an array literal of types, got %s", exprKind(c.Args[0]))
-	}
-	elems := make([]TypeExpr, len(arr.Elements))
-	for i, e := range arr.Elements {
+	elems := make([]TypeExpr, len(c.Args))
+	for i, e := range c.Args {
 		t, err := PromoteType(e)
 		if err != nil {
 			return nil, err

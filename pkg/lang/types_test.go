@@ -85,10 +85,6 @@ func TestPromoteTuple(t *testing.T) {
 	require.Equal(t, "string", mixed.Elements[0].(*TypeAtomic).Name)
 	require.Equal(t, "integer", mixed.Elements[1].(*TypeAtomic).Name)
 	require.Equal(t, "boolean", mixed.Elements[2].(*TypeAtomic).Name)
-
-	empty, ok := mustPromote(t, fields["tuple-empty"]).(*TypeTuple)
-	require.True(t, ok)
-	require.Empty(t, empty.Elements)
 }
 
 func TestPromoteObject(t *testing.T) {

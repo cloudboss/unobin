@@ -1378,7 +1378,7 @@ func TestSingleLineWidthPromotedTypeExpressions(t *testing.T) {
 		{"optional", "optional(map(string))", len("optional(map(string))")},
 		{"empty type object", "object({})", len("object({})")},
 		{"non-empty type object forces break", "object({ a: integer })", -1},
-		{"tuple", "tuple([string, integer])", len("tuple([string, integer])")},
+		{"tuple", "tuple(string, integer)", len("tuple(string, integer)")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
