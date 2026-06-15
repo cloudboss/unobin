@@ -1,8 +1,6 @@
 package deps
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -14,13 +12,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-const (
-	// LockFileName is the legacy JSON dependency lock filename.
-	LockFileName = "unobin.lock"
-
-	// SourceLockFileName is the grammar-first dependency lock filename.
-	SourceLockFileName = "lock.ub"
-)
+// SourceLockFileName is the dependency lock filename.
+const SourceLockFileName = "lock.ub"
 
 // CurrentLockVersion is the schema version this package reads and writes.
 // A different version errors on read, since this build cannot guarantee a
@@ -43,19 +36,19 @@ const (
 // Deps is keyed by dependency id (a repo URL with an optional `//subdir`),
 // the same form a manifest `requires:` key uses.
 type Lock struct {
-	Version          int                   `json:"version"`
-	ToolchainVersion string                `json:"-"`
-	Deps             map[string]*LockedDep `json:"deps"`
+	Version          int
+	ToolchainVersion string
+	Deps             map[string]*LockedDep
 }
 
 // LockedDep is one resolved dependency. Version is the selected git tag;
 // the floor lives in the manifest and is never copied here. Hash is the
 // source-tree content hash for `ub` dependencies and is omitted for `go`.
 type LockedDep struct {
-	Kind    LockKind `json:"kind"`
-	Version string   `json:"version"`
-	Commit  string   `json:"commit"`
-	Hash    string   `json:"hash,omitempty"`
+	Kind    LockKind
+	Version string
+	Commit  string
+	Hash    string
 }
 
 // NewLock returns an empty lock at the current schema version.
@@ -89,42 +82,14 @@ func (l *Lock) RepoVersions() (map[string]string, error) {
 	return out, nil
 }
 
-// ReadLock reads and parses lock.ub or the legacy unobin.lock from fsys. A
-// missing file returns an error wrapping fs.ErrNotExist, which callers can
-// detect with errors.Is.
+// ReadLock reads and parses lock.ub from fsys. A missing file returns an
+// error wrapping fs.ErrNotExist, which callers can detect with errors.Is.
 func ReadLock(fsys fs.FS) (*Lock, error) {
-	source, sourceErr := fs.ReadFile(fsys, SourceLockFileName)
-	legacy, legacyErr := fs.ReadFile(fsys, LockFileName)
-	if sourceErr == nil && legacyErr == nil {
-		return nil, fmt.Errorf("lock: found both %s and %s; keep one lock file",
-			SourceLockFileName, LockFileName)
-	}
-	if sourceErr == nil {
-		return DecodeSourceLock(source)
-	}
-	if !errors.Is(sourceErr, fs.ErrNotExist) {
-		return nil, sourceErr
-	}
-	if legacyErr != nil {
-		return nil, legacyErr
-	}
-	return DecodeLock(legacy)
-}
-
-// DecodeLock parses a legacy JSON lock from bytes.
-func DecodeLock(b []byte) (*Lock, error) {
-	var l Lock
-	if err := json.Unmarshal(b, &l); err != nil {
-		return nil, fmt.Errorf("lock: %w", err)
-	}
-	if l.Version != CurrentLockVersion {
-		return nil, fmt.Errorf("lock: unsupported version %d (this build expects %d)",
-			l.Version, CurrentLockVersion)
-	}
-	if err := validateLockedDeps(&l); err != nil {
+	source, err := fs.ReadFile(fsys, SourceLockFileName)
+	if err != nil {
 		return nil, err
 	}
-	return &l, nil
+	return DecodeSourceLock(source)
 }
 
 // DecodeSourceLock parses a grammar-first lock.ub from bytes.
@@ -167,17 +132,6 @@ func parseSourceLockBody(f *syntax.File) (*Lock, error) {
 	return lock, nil
 }
 
-// WriteLock serializes a legacy JSON lock and atomically replaces the file
-// at path. The output is pretty-printed JSON with sorted keys for stable
-// diffs.
-func WriteLock(path string, lock *Lock) error {
-	b, err := EncodeLock(lock)
-	if err != nil {
-		return err
-	}
-	return writeLockBytes(path, b)
-}
-
 // WriteSourceLock serializes lock as canonical lock.ub source and
 // atomically replaces the file at path.
 func WriteSourceLock(path string, lock *Lock) error {
@@ -194,19 +148,6 @@ func writeLockBytes(path string, b []byte) error {
 		return err
 	}
 	return os.Rename(tmp, path)
-}
-
-// EncodeLock serializes a legacy JSON lock to bytes with a trailing
-// newline.
-func EncodeLock(lock *Lock) ([]byte, error) {
-	if err := validateLockedDeps(lock); err != nil {
-		return nil, err
-	}
-	b, err := json.MarshalIndent(lock, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("lock: %w", err)
-	}
-	return append(b, '\n'), nil
 }
 
 // EncodeSourceLock serializes lock as canonical lock.ub source.

@@ -165,37 +165,11 @@ func TestDepsSync(t *testing.T) {
 	require.Contains(t, out, "Wrote unobin.manifest")
 	require.Contains(t, out, "lock.ub")
 
-	_, err = os.Stat(filepath.Join(root, deps.LockFileName))
-	require.ErrorIs(t, err, fs.ErrNotExist)
+	_, err = os.Stat(filepath.Join(root, deps.SourceLockFileName))
+	require.NoError(t, err)
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, cliVersion(), lock.ToolchainVersion)
-	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
-	}, lock.Deps)
-}
-
-func TestDepsSyncReplacesLegacyLock(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "myfactory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "main.ub"),
-		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("requires: { 'github.com/x/core': 'v1.0.0' }\n"), 0o644))
-	legacy := deps.NewLock()
-	legacy.Deps["github.com/old/lib"] = &deps.LockedDep{
-		Kind: deps.LockKindGo, Version: "v0.1.0", Commit: "old",
-	}
-	require.NoError(t, deps.WriteLock(filepath.Join(root, deps.LockFileName), legacy))
-
-	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
-		"-p", filepath.Join(root, "main.ub"))
-	require.NoError(t, err)
-
-	_, err = os.Stat(filepath.Join(root, deps.LockFileName))
-	require.ErrorIs(t, err, fs.ErrNotExist)
-	lock, err := deps.ReadLock(os.DirFS(root))
-	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
@@ -337,13 +311,14 @@ func writeProjectLock(t *testing.T, root string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
 	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
 		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
 	}
 	lock.Deps["github.com/x/hello//ub"] = &deps.LockedDep{
-		Kind: deps.LockKindUB, Version: "v2.0.0", Commit: "c2", Hash: "h2",
+		Kind: deps.LockKindUB, Version: "v2.0.0", Commit: "c2", Hash: "sha256:h2",
 	}
-	require.NoError(t, deps.WriteLock(filepath.Join(root, deps.LockFileName), lock))
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock))
 }
 
 func TestDepsList(t *testing.T) {
@@ -381,7 +356,7 @@ func TestDepsVerifyMatches(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	writeProjectLock(t, root)
 	remotes := map[string]*resolve.Source{
-		"github.com/x/hello//ub@c2": {Hash: "h2"},
+		"github.com/x/hello//ub@c2": {Hash: "sha256:h2"},
 	}
 	out, err := runCommandWithRemotes(t, remotes, "deps", "verify",
 		"-p", filepath.Join(root, "main.ub"))
@@ -615,8 +590,8 @@ imports: {
 	require.NotContains(t, string(goModBytes), "github.com/cloudboss/unobin/pkg/libraries/core")
 }
 
-// TestCompileUsesLockVersion compiles a factory whose import carries no
-// @version: the version must come from unobin.lock. The fake resolver only
+// TestCompileUsesLockVersion compiles a factory whose import has no
+// @version: the version must come from lock.ub. The fake resolver only
 // serves the locked version, and the generated go.mod must record it.
 func TestCompileUsesLockVersion(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")

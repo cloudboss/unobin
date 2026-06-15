@@ -605,19 +605,19 @@ func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
 		},
 		{
 			name: "factory declaration outside factory file",
-			path: "main.ub",
+			path: "app.ub",
 			src:  "factory: {}\n",
 			want: "factory declaration must be in factory.ub",
 		},
 		{
 			name: "manifest declaration outside manifest file",
-			path: "unobin.manifest",
+			path: "app.ub",
 			src:  "manifest: {}\n",
 			want: "manifest declaration must be in manifest.ub",
 		},
 		{
 			name: "lock declaration outside lock file",
-			path: "unobin.lock",
+			path: "app.ub",
 			src:  "lock: {}\n",
 			want: "lock declaration must be in lock.ub",
 		},

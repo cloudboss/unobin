@@ -22,8 +22,8 @@ type LocalImport struct {
 func (*LocalImport) isImportRef() {}
 
 // RemoteImport names an importable repo by host + owner/name and an
-// optional subdir within the repo. The import string carries no version;
-// Version is filled in from unobin.lock as the walk descends.
+// optional subdir within the repo. The import string has no version;
+// Version is filled in from lock.ub as the walk descends.
 type RemoteImport struct {
 	URL     string
 	Subdir  string

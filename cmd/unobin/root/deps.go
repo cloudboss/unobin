@@ -263,10 +263,6 @@ func resolveAndWrite(
 	if err := deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock); err != nil {
 		return err
 	}
-	if err := os.Remove(filepath.Join(root, deps.LockFileName)); err != nil &&
-		!errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (%d direct) and %s (%d locked)\n",
 		manifestName, len(manifest.Requires), deps.SourceLockFileName, len(lock.Deps))
 	return nil
