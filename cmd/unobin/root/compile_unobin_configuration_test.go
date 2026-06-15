@@ -23,14 +23,16 @@ func writeUnobinConfigurationFixture(t *testing.T, configBody string) string {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
-inputs:  { name: { type: string } }
-imports: { aws: 'github.com/example/cloudlib' }
-configurations: {
-  aws.default: {
+factory: {
+  inputs:  { name: { type: string } }
+  imports: { aws: 'github.com/example/cloudlib' }
+  configurations: {
+    aws {
 `+configBody+`
+    }
   }
+  resources: { this: aws.thing { name: var.name } }
 }
-resources: { aws.thing.this: { name: var.name } }
 `), 0o644))
 
 	libDir := t.TempDir()

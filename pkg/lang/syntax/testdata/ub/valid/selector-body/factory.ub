@@ -1,24 +1,26 @@
-configurations: {
-  greet {
-    prefix: 'hello'
+factory: {
+  configurations: {
+    greet {
+      prefix: 'hello'
+    }
+    formal: greet {}
   }
-  formal: greet {}
-}
 
-resources: {
-  hello: std.fs-file {
-    path: var.path
+  resources: {
+    hello: std.fs-file {
+      path: var.path
+    }
   }
-}
 
-data: {
-  existing: std.file {
-    path: var.path
+  data: {
+    existing: std.file {
+      path: var.path
+    }
   }
-}
 
-actions: {
-  run: std.exec {
-    command: 'echo hello'
+  actions: {
+    run: std.exec {
+      command: 'echo hello'
+    }
   }
 }

@@ -30,6 +30,17 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
 	require.NotNil(t, f.Body)
 }
 
+func TestParseFactorySourceRejectsUnwrappedFactory(t *testing.T) {
+	src := []byte(`
+inputs: {}
+resources: {}
+`)
+
+	_, _, err := ParseFactorySource("factory.ub", src)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "factory.ub must declare factory")
+}
+
 func TestDecideSelectedUnobin(t *testing.T) {
 	tests := []struct {
 		name       string

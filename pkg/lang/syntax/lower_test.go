@@ -28,6 +28,7 @@ func requireSpan(t *testing.T, span parse.Span) {
 
 func TestLowerFactoryFile(t *testing.T) {
 	f := parseFile(t, "factory.ub", `
+factory: {
 description: 'Example.'
 
 imports: { std: 'github.com/cloudboss/unobin-library-std' }
@@ -71,6 +72,7 @@ actions: {
 
 outputs: {
   path: { value: resource.std.fs-file.hello.path }
+}
 }
 `, parse.FileFactory)
 
@@ -503,12 +505,14 @@ func objectFieldCount(obj *parse.ObjectLit) int {
 
 func TestLowerReportsSchemaErrors(t *testing.T) {
 	f := parseFile(t, "factory.ub", `
-inputs: {
-  bad: { type: list(unknown) }
-}
+factory: {
+  inputs: {
+    bad: { type: list(unknown) }
+  }
 
-resources: {
-  std.file: {}
+  resources: {
+    std.file: {}
+  }
 }
 `, parse.FileFactory)
 
@@ -516,6 +520,17 @@ resources: {
 	require.NotEqual(t, 0, errs.Len())
 	assert.Contains(t, errs.Error(), "unknown atomic type")
 	assert.Contains(t, errs.Error(), "resource key std.file must have three segments")
+}
+
+func TestLowerRejectsUnwrappedFactoryFile(t *testing.T) {
+	f := parseFile(t, "factory.ub", `
+inputs: {}
+resources: {}
+`, parse.FileFactory)
+
+	_, errs := LowerFile(f)
+	require.NotEqual(t, 0, errs.Len())
+	assert.Contains(t, errs.Error(), "factory.ub must declare factory")
 }
 
 func TestLowerReportsUserFacingFileRoleError(t *testing.T) {

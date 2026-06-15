@@ -766,7 +766,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "demo-factory")
 		require.NoError(t, os.MkdirAll(dir, 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-			[]byte("description: 'minimal'\n"), 0o644))
+			factorySource("description: 'minimal'\n"), 0o644))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
 			manifestSource(manifest), 0o644))
 		return dir
@@ -950,7 +950,7 @@ func TestCompileBuildStampsVersion(t *testing.T) {
 	require.NoError(t, os.MkdirAll(srcDir, 0o755))
 	factoryPath := filepath.Join(srcDir, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath,
-		[]byte("description: 'minimal'\n"), 0o644))
+		factorySource("description: 'minimal'\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	_, err := runCommand(t, "compile",
@@ -990,7 +990,7 @@ func TestCompileBuildNoticesReplacedUnobin(t *testing.T) {
 	require.NoError(t, os.MkdirAll(srcDir, 0o755))
 	factoryPath := filepath.Join(srcDir, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath,
-		[]byte("description: 'minimal'\n"), 0o644))
+		factorySource("description: 'minimal'\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
 	out, err := runCommand(t, "compile",

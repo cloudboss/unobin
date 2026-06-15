@@ -25,11 +25,13 @@ func writeCompositeGoSpecsFixture(t *testing.T) (string, string) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
-inputs:  { path: { type: string } }
-imports: { disk: 'github.com/example/disk', files: './libraries/files' }
-resources: {
-  disk.file.direct:   { path: var.path, content: 'direct' }
-  files.archive.this: { path: var.path, body: 'nested' }
+factory: {
+  inputs:  { path: { type: string } }
+  imports: { disk: 'github.com/example/disk', files: './libraries/files' }
+  resources: {
+    direct: disk.file { path: var.path, content: 'direct' }
+    this:   files.archive { path: var.path, body: 'nested' }
+  }
 }
 `), 0o644))
 

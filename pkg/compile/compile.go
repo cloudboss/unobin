@@ -85,23 +85,12 @@ func (o Options) stderr() io.Writer {
 }
 
 func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
-	f, err := lang.ParseSource(path, src)
+	sf, err := syntax.ParseSource(path, src)
 	if err != nil {
 		return nil, "", err
 	}
-	if usesSyntaxFactory(f) {
-		return parseSyntaxFactorySource(path, f)
-	}
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, "", errs.Err()
-	}
-	return f, string(src), nil
-}
-
-func parseSyntaxFactorySource(path string, f *lang.File) (*lang.File, string, error) {
-	sf, serrs := syntax.LowerFile(f)
-	if serrs.Len() > 0 {
-		return nil, "", serrs.Err()
+	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
+		return nil, "", fmt.Errorf("%s: expected factory declaration", path)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
 		return nil, "", verrs.Err()
@@ -119,40 +108,6 @@ func parseSyntaxFactorySource(path string, f *lang.File) (*lang.File, string, er
 		return nil, "", err
 	}
 	return out, string(body), nil
-}
-
-func usesSyntaxFactory(f *lang.File) bool {
-	if f == nil || f.Body == nil {
-		return false
-	}
-	if len(f.Body.Fields) == 1 {
-		fld := f.Body.Fields[0]
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "factory" {
-			return true
-		}
-	}
-	for _, fld := range f.Body.Fields {
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		switch fld.Key.Name {
-		case "resources", "data", "actions", "configurations":
-			if hasSelectorBody(obj) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func hasSelectorBody(obj *lang.ObjectLit) bool {
-	for _, fld := range obj.Fields {
-		if fld.Decl != nil {
-			return true
-		}
-	}
-	return false
 }
 
 // FactorySourcePath returns the factory source file named by path.

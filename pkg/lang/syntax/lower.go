@@ -78,6 +78,17 @@ func lowerSourceDeclaredFile(
 			roles = append(roles, sourceFileRole{name: fld.Key.Name, fld: fld})
 		}
 	}
+	if _, reserved := reservedSourceFileRole(f.Path); reserved {
+		if len(roles) > 1 {
+			lowerSourceDeclaredRole(f, out, roles, errs)
+			return true
+		}
+		if !validateSourceDeclaredPath(f, roles, errs) {
+			return true
+		}
+		lowerSourceDeclaredRole(f, out, roles, errs)
+		return true
+	}
 	if f.Kind != parse.FileUnknown && len(f.Body.Fields) != 1 {
 		return false
 	}

@@ -12,7 +12,7 @@ func writeStack(t *testing.T, dir, body string) string {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	stackPath := filepath.Join(dir, "factory.ub")
-	require.NoError(t, os.WriteFile(stackPath, []byte(body), 0o644))
+	require.NoError(t, os.WriteFile(stackPath, factorySource(body), 0o644))
 	return stackPath
 }
 
@@ -22,8 +22,8 @@ func TestPrintGraphPlain(t *testing.T) {
 inputs:  { msg: { type: string } }
 imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: {
-  core.command.first:  { argv: ['echo', var.msg] }
-  core.command.second: { argv: ['echo', action.core.command.first.stdout] }
+  first:  core.command { argv: ['echo', var.msg] }
+  second: core.command { argv: ['echo', action.first.stdout] }
 }
 `)
 	writeCompileLock(t, dir, map[string]string{
@@ -32,11 +32,11 @@ actions: {
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
-	want := `action.core.command.first
+	want := `action.first
   -> var.msg
 
-action.core.command.second
-  -> action.core.command.first
+action.second
+  -> action.first
 `
 	require.Equal(t, want, out)
 }
@@ -113,8 +113,8 @@ func TestPrintGraphDOT(t *testing.T) {
 inputs:  { msg: { type: string } }
 imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: {
-  core.command.first:  { argv: ['echo', var.msg] }
-  core.command.second: { argv: ['echo', action.core.command.first.stdout] }
+  first:  core.command { argv: ['echo', var.msg] }
+  second: core.command { argv: ['echo', action.first.stdout] }
 }
 `)
 	writeCompileLock(t, dir, map[string]string{
@@ -124,9 +124,9 @@ actions: {
 	out, err := runCommand(t, "print-graph", "-p", stackPath, "--format", "dot")
 	require.NoError(t, err)
 	want := `digraph "graph-dot" {
-  "action.core.command.first";
-  "action.core.command.second";
-  "action.core.command.second" -> "action.core.command.first";
+  "action.first";
+  "action.second";
+  "action.second" -> "action.first";
 }
 `
 	require.Equal(t, want, out)
@@ -146,12 +146,12 @@ func TestPrintGraphInvalidReferenceFails(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-invalid-ref")
 	stackPath := writeStack(t, dir, `
 outputs: {
-  bad: { value: resource.local.file.missing.path }
+  bad: { value: resource.missing.path }
 }
 `)
 	_, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `unknown resource "resource.local.file.missing"`)
+	require.Contains(t, err.Error(), `unknown resource "resource.missing"`)
 }
 
 func TestPrintGraphExpandsLocalUBLibraryComposite(t *testing.T) {
@@ -171,9 +171,9 @@ greeting: resource {
 
 	stackDir := filepath.Join(root, "stack")
 	stackPath := writeStack(t, stackDir, `
-inputs:    { who: { type: string } }
-imports:   { greeter: '../greeter' }
-resources: { greeter.greeting.hello: { message: var.who } }
+inputs:  { who: { type: string } }
+imports: { greeter: '../greeter' }
+resources: { hello: greeter.greeting { message: var.who } }
 `)
 	writeCompileLock(t, stackDir, map[string]string{
 		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
@@ -181,10 +181,10 @@ resources: { greeter.greeting.hello: { message: var.who } }
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
-	want := `resource.greeter.greeting.hello
-  -> resource.greeter.greeting.hello/resource.this
+	want := `resource.hello
+  -> resource.hello/resource.this
 
-resource.greeter.greeting.hello/resource.this
+resource.hello/resource.this
   -> var.who
 `
 	require.Equal(t, want, out)
