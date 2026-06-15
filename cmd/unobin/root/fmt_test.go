@@ -116,7 +116,7 @@ func TestFmtDirectoryWalksRecursively(t *testing.T) {
 func TestFmtDirectoryIncludesReservedSourceFiles(t *testing.T) {
 	dir := t.TempDir()
 	ub := writeUBFile(t, dir, "main.ub", messySource)
-	manifest := writeUBFile(t, dir, deps.SourceManifestFileName, messySource)
+	manifest := writeUBFile(t, dir, deps.ManifestFileName, messySource)
 	lock := writeUBFile(t, dir, deps.SourceLockFileName, "lock: { deps: {} }")
 
 	got, err := runFmtCommand(t, nil, "-l", dir)

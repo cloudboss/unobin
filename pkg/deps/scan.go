@@ -13,8 +13,8 @@ import (
 
 // ImportedRepos scans every .ub file under root and returns the set of
 // repositories named by remote imports. The version on an import is not
-// read here: a repository's version floor lives in unobin.manifest, not
-// in the import string. Local imports are intra-project and contribute no
+// read here: a repository's version floor lives in manifest.ub, not in
+// the import string. Local imports are intra-project and contribute no
 // repository. Hidden directories (a leading dot, such as .git) are
 // skipped.
 func ImportedRepos(root string) (map[Dependency]bool, error) {

@@ -1,4 +1,0 @@
-requires: {
-  'github.com/x/y': 'v1.0.0'
-  'github.com/x/y': 'v2.0.0'
-}

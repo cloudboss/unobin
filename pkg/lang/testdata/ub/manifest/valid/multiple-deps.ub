@@ -1,4 +1,0 @@
-requires: {
-  'github.com/cloudboss/unobin//pkg/libraries/core': 'v0.1.0'
-  'github.com/me/net//vpc':                          'v2.0.0'
-}

@@ -11,7 +11,8 @@ import (
 )
 
 func manifestFS(src string) fstest.MapFS {
-	return fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: []byte(src)}}
+	wrapped := "manifest: {\n" + src + "}\n"
+	return fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: []byte(wrapped)}}
 }
 
 func TestReadManifestToolchainLine(t *testing.T) {
@@ -26,15 +27,15 @@ func TestReadManifestWithoutToolchainLine(t *testing.T) {
 	require.Empty(t, m.UnobinVersion)
 }
 
-func TestReadSourceManifestFixtures(t *testing.T) {
+func TestReadManifestFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/manifest", func(name string, src []byte) (string, []string) {
 		m, err := ReadManifest(fstest.MapFS{
-			SourceManifestFileName: &fstest.MapFile{Data: src},
+			ManifestFileName: &fstest.MapFile{Data: src},
 		})
 		if err != nil {
 			return "", []string{err.Error()}
 		}
-		out, err := lang.Canonicalize(SourceManifestFileName, EncodeSourceManifest(m))
+		out, err := lang.Canonicalize(ManifestFileName, EncodeManifest(m))
 		if err != nil {
 			return "", []string{err.Error()}
 		}
@@ -51,7 +52,7 @@ func TestReadManifestRejectsBadToolchainVersion(t *testing.T) {
 func TestReadManifestRejectsNonStringToolchainLine(t *testing.T) {
 	_, err := ReadManifest(manifestFS("unobin-version: {}\nrequires: {}\n"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "`unobin-version:` must be a string")
+	require.Contains(t, err.Error(), "unobin-version must be a string literal")
 }
 
 // TestReadManifestRejectsUnobinInRequires proves the unobin repo
@@ -65,21 +66,9 @@ func TestReadManifestRejectsUnobinInRequires(t *testing.T) {
 	require.Contains(t, err.Error(), "unobin-version line")
 }
 
-func TestReadManifestRejectsBothManifestFiles(t *testing.T) {
-	_, err := ReadManifest(fstest.MapFS{
-		ManifestFileName:       &fstest.MapFile{Data: []byte("requires: {}\n")},
-		SourceManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), ManifestFileName)
-	require.Contains(t, err.Error(), SourceManifestFileName)
-}
-
 // TestEncodeManifestRoundTrips pins the encoder as stable: its output
 // parses, reading it back recovers the manifest, and re-encoding is
-// byte-identical. The manifest deliberately stays on this encoder rather
-// than the formatter, whose value alignment would reflow every line when a
-// longer dependency is added.
+// byte-identical.
 func TestEncodeManifestRoundTrips(t *testing.T) {
 	m := &Manifest{
 		UnobinVersion: "v0.2.0",
@@ -94,7 +83,9 @@ func TestEncodeManifestRoundTrips(t *testing.T) {
 	}
 	encoded := EncodeManifest(m)
 
-	back, err := ReadManifest(manifestFS(string(encoded)))
+	back, err := ReadManifest(fstest.MapFS{
+		ManifestFileName: &fstest.MapFile{Data: encoded},
+	})
 	require.NoError(t, err)
 	require.Equal(t, m.UnobinVersion, back.UnobinVersion)
 	require.Equal(t, m.Requires, back.Requires)
@@ -111,7 +102,9 @@ func TestEncodeManifestWritesToolchainLine(t *testing.T) {
 	encoded := EncodeManifest(m)
 	require.Contains(t, string(encoded), "unobin-version: 'v0.2.0'\n")
 
-	back, err := ReadManifest(manifestFS(string(encoded)))
+	back, err := ReadManifest(fstest.MapFS{
+		ManifestFileName: &fstest.MapFile{Data: encoded},
+	})
 	require.NoError(t, err)
 	require.Equal(t, m.UnobinVersion, back.UnobinVersion)
 }

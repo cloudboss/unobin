@@ -40,18 +40,6 @@ func TestValidateTopLevelKeysUnknownFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/toplevel/unknown", topLevelDriver(FileUnknown))
 }
 
-func manifestDriver(name string, src []byte) (string, []string) {
-	f, err := ParseSource("unobin.manifest", src)
-	if err != nil {
-		return "", []string{err.Error()}
-	}
-	return "", ValidateFile(f).Strings()
-}
-
-func TestValidateManifestFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/manifest", manifestDriver)
-}
-
 // fileDriver runs ValidateFile over a whole fixture parsed as the given kind,
 // reporting positioned diagnostics so the goldens pin file:line:col.
 func fileDriver(kind FileKind) ubtest.Driver {

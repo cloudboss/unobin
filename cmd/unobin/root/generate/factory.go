@@ -79,15 +79,10 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 	if v := CLIVersion(); semver.IsValid(v) {
 		manifest.UnobinVersion = v
 	}
-	manifestPath := filepath.Join(cfg.output, deps.SourceManifestFileName)
-	if err := deps.WriteSourceManifest(manifestPath, manifest); err != nil {
+	manifestPath := filepath.Join(cfg.output, deps.ManifestFileName)
+	if err := deps.WriteManifest(manifestPath, manifest); err != nil {
 		return err
 	}
-	legacyManifestPath := filepath.Join(cfg.output, deps.ManifestFileName)
-	if err := os.Remove(legacyManifestPath); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
 	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", factoryPath)
 	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", manifestPath)
 	return nil

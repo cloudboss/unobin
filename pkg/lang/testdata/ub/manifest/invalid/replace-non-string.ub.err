@@ -1,1 +1,0 @@
-unobin.manifest:1:30: schema: replace: dependency "github.com/x/y": local path must be a quoted string, got number literal

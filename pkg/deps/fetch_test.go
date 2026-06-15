@@ -44,7 +44,7 @@ func TestFetchReadsManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "", "v1.0.0"): {FS: fstest.MapFS{
 			ManifestFileName: &fstest.MapFile{
-				Data: []byte("requires: { 'github.com/x/dep': 'v2.0.0' }\n"),
+				Data: []byte("manifest: { requires: { 'github.com/x/dep': 'v2.0.0' } }\n"),
 			},
 		}},
 	}}

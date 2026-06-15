@@ -27,8 +27,7 @@ func FindManifestDir(start string) (string, error) {
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			return "", fmt.Errorf(
-				"no %s or %s found in %s or any parent directory: %w",
-				SourceManifestFileName,
+				"no %s found in %s or any parent directory: %w",
 				ManifestFileName,
 				start,
 				fs.ErrNotExist,
@@ -39,11 +38,9 @@ func FindManifestDir(start string) (string, error) {
 }
 
 func hasManifestFile(dir string) bool {
-	for _, name := range []string{SourceManifestFileName, ManifestFileName} {
-		candidate := filepath.Join(dir, name)
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return true
-		}
+	candidate := filepath.Join(dir, ManifestFileName)
+	if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+		return true
 	}
 	return false
 }

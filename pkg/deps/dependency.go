@@ -1,7 +1,6 @@
-// Package deps models a factory's dependencies. It reads the
-// unobin.manifest, which lists each direct dependency and the lowest
-// version the factory accepts for it, and drives pkg/resolve to fetch
-// them.
+// Package deps models a factory's dependencies. It reads manifest.ub,
+// which lists each direct dependency and the lowest version the factory
+// accepts for it, and drives pkg/resolve to fetch them.
 package deps
 
 import (

@@ -90,10 +90,10 @@ func (t *Thing) Delete(_ context.Context, _ any, _ *ThingOutput) error {
 `), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-		[]byte("requires: {}\nreplace: {\n"+
+		[]byte("manifest: {\nrequires: {}\nreplace: {\n"+
 			"  'github.com/cloudboss/unobin': '"+rootDir+"'\n"+
 			"  'github.com/example/cloudlib': '"+libDir+"'\n"+
-			"}\n"), 0o644))
+			"}\n}\n"), 0o644))
 
 	return filepath.Join(dir, "main.ub")
 }

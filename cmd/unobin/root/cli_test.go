@@ -3,7 +3,6 @@ package root
 import (
 	"bytes"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,6 +137,10 @@ func TestDepsSyncRejectsLocalGoImport(t *testing.T) {
 	require.Contains(t, err.Error(), "in manifest.ub:")
 }
 
+func manifestSource(body string) []byte {
+	return []byte("manifest: {\n" + body + "}\n")
+}
+
 func goCoreRemotes() map[string]*resolve.Source {
 	return map[string]*resolve.Source{
 		// the repo root, read by the version walk: no manifest, so a leaf.
@@ -157,12 +160,12 @@ func TestDepsSync(t *testing.T) {
 		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// The floor lives in the manifest; sync rebuilds the lock from it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "main.ub"))
 	require.NoError(t, err)
-	require.Contains(t, out, "Wrote unobin.manifest")
+	require.Contains(t, out, "Wrote manifest.ub")
 	require.Contains(t, out, "lock.ub")
 
 	_, err = os.Stat(filepath.Join(root, deps.SourceLockFileName))
@@ -186,7 +189,7 @@ factory: {
   }
 }
 `), 0o644))
-	require.NoError(t, os.WriteFile(deps.SourceManifestFileName,
+	require.NoError(t, os.WriteFile(deps.ManifestFileName,
 		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync")
@@ -202,7 +205,7 @@ factory: {
 	}, lock.Deps)
 }
 
-func TestDepsSyncSourceManifest(t *testing.T) {
+func TestDepsSyncManifest(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
@@ -212,7 +215,7 @@ factory: {
   }
 }
 `), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.SourceManifestFileName),
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
@@ -220,7 +223,7 @@ factory: {
 	require.NoError(t, err)
 	require.Contains(t, out, "Wrote manifest.ub")
 
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.SourceManifestFileName))
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
@@ -228,8 +231,6 @@ factory: {
   }
 }
 `, string(manifestBytes))
-	_, err = os.Stat(filepath.Join(root, deps.ManifestFileName))
-	require.ErrorIs(t, err, fs.ErrNotExist)
 }
 
 func TestDepsSyncLibraryProject(t *testing.T) {
@@ -240,7 +241,7 @@ func TestDepsSyncLibraryProject(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "resource-greeting.ub"),
 		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync", "-p", root)
 	require.NoError(t, err)
@@ -263,7 +264,7 @@ func TestDepsSyncWithReplace(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
 		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
+		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
 			awsDir+"' }\n"), 0o644))
 
 	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "main.ub"))
@@ -294,7 +295,7 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 		[]byte("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// gone/repo is listed but no longer imported; sync must remove it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
+		manifestSource("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
 			"  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
@@ -303,8 +304,12 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 
 	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
 	require.NoError(t, err)
-	require.Equal(t,
-		"requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n", string(manifestBytes))
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/core': 'v1.0.0'
+  }
+}
+`, string(manifestBytes))
 }
 
 func writeProjectLock(t *testing.T, root string) {
@@ -439,9 +444,7 @@ func TestDepsGetExactVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, out, "github.com/x/core v1.2.0")
 
-	_, err = os.Stat(filepath.Join(root, deps.ManifestFileName))
-	require.ErrorIs(t, err, fs.ErrNotExist)
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.SourceManifestFileName))
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
@@ -645,7 +648,7 @@ func Library() *runtime.Library {
 `), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-		[]byte("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
+		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
 			awsDir+"' }\n"), 0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
@@ -729,7 +732,7 @@ func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
 		[]byte("description: 'minimal'\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-		[]byte("requires: {}\nreplace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n"),
+		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n"),
 		0o644))
 
 	outDir := filepath.Join(t.TempDir(), "build")
@@ -754,7 +757,7 @@ func TestCompileManifestToolchainLine(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.ub"),
 			[]byte("description: 'minimal'\n"), 0o644))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-			[]byte(manifest), 0o644))
+			manifestSource(manifest), 0o644))
 		return dir
 	}
 
@@ -827,7 +830,7 @@ func Library() *runtime.Library {
 `), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-		[]byte("requires: {}\nreplace: {\n"+
+		manifestSource("requires: {}\nreplace: {\n"+
 			"  'github.com/cloudboss/unobin': '"+rootDir+"'\n"+
 			"  'github.com/cloudboss/unobin-library-aws': '"+awsDir+"'\n"+
 			"}\n"), 0o644))

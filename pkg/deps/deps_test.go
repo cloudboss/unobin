@@ -63,9 +63,13 @@ func TestDependencyStringRoundTrip(t *testing.T) {
 	}
 }
 
+func manifestData(body string) []byte {
+	return []byte("manifest: {\n" + body + "}\n")
+}
+
 func TestReadManifest(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: []byte(`
+		ManifestFileName: &fstest.MapFile{Data: manifestData(`
 requires: {
   'github.com/cloudboss/unobin-library-std//x':       'v0.1.0'
   'github.com/me/net//vpc':                          'v2.0.0'
@@ -82,7 +86,7 @@ requires: {
 
 func TestReadManifestEmptyRequires(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: []byte("requires: {}\n")},
+		ManifestFileName: &fstest.MapFile{Data: manifestData("requires: {}\n")},
 	}
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
@@ -97,16 +101,16 @@ func TestReadManifestMissingFile(t *testing.T) {
 
 func TestReadManifestRejectsBadVersionField(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: []byte("version: 'v1.0.0'\n")},
+		ManifestFileName: &fstest.MapFile{Data: manifestData("version: 'v1.0.0'\n")},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is not a valid top level key for a manifest file")
+	assert.Contains(t, err.Error(), "is not a valid manifest field")
 }
 
 func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: []byte("requires: { 'nohost': 'v1.0.0' }\n")},
+		ManifestFileName: &fstest.MapFile{Data: manifestData("requires: { 'nohost': 'v1.0.0' }\n")},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
@@ -115,7 +119,9 @@ func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 
 func TestReadManifestRejectsBadFloor(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: []byte("requires: { 'github.com/x/y': 'latest' }\n")},
+		ManifestFileName: &fstest.MapFile{
+			Data: manifestData("requires: { 'github.com/x/y': 'latest' }\n"),
+		},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
@@ -127,16 +133,18 @@ func TestEncodeManifest(t *testing.T) {
 		{URL: "github.com/cloudboss/unobin"}:        "v0.1.2",
 		{URL: "github.com/cloudboss/helloer-stuff"}: "v0.1.0",
 	}}
-	want := `requires: {
-  'github.com/cloudboss/helloer-stuff': 'v0.1.0'
-  'github.com/cloudboss/unobin': 'v0.1.2'
+	want := `manifest: {
+requires: {
+'github.com/cloudboss/helloer-stuff': 'v0.1.0'
+'github.com/cloudboss/unobin': 'v0.1.2'
+}
 }
 `
 	assert.Equal(t, want, string(EncodeManifest(m)))
 }
 
 func TestEncodeManifestEmpty(t *testing.T) {
-	assert.Equal(t, "requires: {}\n", string(EncodeManifest(&Manifest{})))
+	assert.Equal(t, "manifest: {\nrequires: {\n}\n}\n", string(EncodeManifest(&Manifest{})))
 }
 
 func TestManifestRoundTrip(t *testing.T) {
@@ -152,7 +160,7 @@ func TestManifestRoundTrip(t *testing.T) {
 
 func TestReadManifestWithReplace(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: []byte(`
+		ManifestFileName: &fstest.MapFile{Data: manifestData(`
 requires: { 'github.com/x/y': 'v1.0.0' }
 replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
 `)},
@@ -172,11 +180,13 @@ func TestEncodeManifestWithReplace(t *testing.T) {
 			{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
 		},
 	}
-	want := `requires: {
-  'github.com/x/y': 'v1.0.0'
+	want := `manifest: {
+requires: {
+'github.com/x/y': 'v1.0.0'
 }
 replace: {
-  'github.com/cloudboss/unobin-library-aws': '../../../..'
+'github.com/cloudboss/unobin-library-aws': '../../../..'
+}
 }
 `
 	assert.Equal(t, want, string(EncodeManifest(m)))

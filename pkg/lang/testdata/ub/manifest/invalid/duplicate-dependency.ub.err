@@ -1,1 +1,0 @@
-unobin.manifest:3:3: schema: requires: duplicate dependency "github.com/x/y" (first defined at unobin.manifest:2:3)

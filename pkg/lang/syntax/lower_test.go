@@ -192,36 +192,6 @@ parallelism: 4
 	require.NotNil(t, got.Stack.Parallelism)
 }
 
-func TestLowerManifestFile(t *testing.T) {
-	f := parseFile(t, "unobin.manifest", `
-unobin-version: '0.2.0'
-requires: {
-  'github.com/cloudboss/example': 'v1.2.3'
-}
-replace: {
-  'github.com/cloudboss/example': '../example'
-}
-`, parse.FileManifest)
-
-	got, errs := LowerFile(f)
-	require.Equal(t, 0, errs.Len(), errs.Error())
-	require.Equal(t, FileManifest, got.Kind)
-	require.NotNil(t, got.Manifest)
-	requireSpan(t, got.Manifest.S)
-	require.NotNil(t, got.Manifest.UnobinVersion)
-	assert.Equal(t, "0.2.0", got.Manifest.UnobinVersion.Value)
-
-	require.Len(t, got.Manifest.Requires, 1)
-	requireSpan(t, got.Manifest.Requires[0].S)
-	assert.Equal(t, "github.com/cloudboss/example", got.Manifest.Requires[0].ID.Value)
-	assert.Equal(t, "v1.2.3", got.Manifest.Requires[0].Version.Value)
-
-	require.Len(t, got.Manifest.Replace, 1)
-	requireSpan(t, got.Manifest.Replace[0].S)
-	assert.Equal(t, "github.com/cloudboss/example", got.Manifest.Replace[0].ID.Value)
-	assert.Equal(t, "../example", got.Manifest.Replace[0].Path.Value)
-}
-
 func TestLowerSourceDeclaredFactoryFile(t *testing.T) {
 	f := parseFile(t, "factory.ub", `
 factory: {

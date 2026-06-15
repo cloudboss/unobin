@@ -168,22 +168,14 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 // empty manifest when the file does not exist yet. There is no `deps init`:
 // the manifest is created the first time get or sync writes it.
 func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
-	manifestName := manifestFileName(root)
 	manifest, err := deps.ReadManifest(os.DirFS(root))
 	if errors.Is(err, fs.ErrNotExist) {
-		return &deps.Manifest{Requires: map[deps.Dependency]string{}}, manifestName, nil
+		return &deps.Manifest{Requires: map[deps.Dependency]string{}}, deps.ManifestFileName, nil
 	}
 	if err != nil {
-		return nil, manifestName, err
+		return nil, deps.ManifestFileName, err
 	}
-	return manifest, manifestName, nil
-}
-
-func manifestFileName(root string) string {
-	if _, err := os.Stat(filepath.Join(root, deps.ManifestFileName)); err == nil {
-		return deps.ManifestFileName
-	}
-	return deps.SourceManifestFileName
+	return manifest, deps.ManifestFileName, nil
 }
 
 // reconcileManifest makes the manifest's floors match the set of imported
@@ -269,19 +261,8 @@ func resolveAndWrite(
 }
 
 func writeProjectManifest(root string, manifest *deps.Manifest) (string, error) {
-	sourcePath := filepath.Join(root, deps.SourceManifestFileName)
-	if _, err := os.Stat(sourcePath); err == nil {
-		return deps.SourceManifestFileName, deps.WriteSourceManifest(sourcePath, manifest)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return "", err
-	}
-	legacyPath := filepath.Join(root, deps.ManifestFileName)
-	if _, err := os.Stat(legacyPath); err == nil {
-		return deps.ManifestFileName, deps.WriteManifest(legacyPath, manifest)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return "", err
-	}
-	return deps.SourceManifestFileName, deps.WriteSourceManifest(sourcePath, manifest)
+	path := filepath.Join(root, deps.ManifestFileName)
+	return deps.ManifestFileName, deps.WriteManifest(path, manifest)
 }
 
 // runDepsList prints the locked dependencies, one per line, sorted by id.

@@ -1,1 +1,0 @@
-unobin.manifest:1:13: schema: requires: dependency id must be a quoted string, got bare identifier "core"
