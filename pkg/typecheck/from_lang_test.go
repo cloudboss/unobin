@@ -57,7 +57,7 @@ inputs: {
 }
 `))
 	require.NoError(t, err)
-	inputs := InputsFromBlock(f.Body.Fields[0].Value.(*lang.ObjectLit))
+	inputs := InputsFromBlock(topLevelInputs(t, f))
 	scope := &Scope{Inputs: inputs}
 	errs := lang.NewErrorList(0)
 
@@ -140,6 +140,8 @@ func topLevelInputs(t *testing.T, f *lang.File) *lang.ObjectLit {
 		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "inputs" {
 			result, ok := fld.Value.(*lang.ObjectLit)
 			require.True(t, ok)
+			errs := lang.ValidateInputDeclarations(result)
+			require.Equal(t, 0, errs.Len(), errs.Error())
 			return result
 		}
 	}

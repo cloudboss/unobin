@@ -89,9 +89,8 @@ func peelOptional(t lang.TypeExpr) (lang.TypeExpr, bool, bool) {
 
 // typeFromInputDecl walks an input declaration object literal (the
 // `{ type: ...  description: ...  ... }` form) and pulls out the
-// `type:` field, promoting it to a TypeExpr. The booleans report
-// whether the field may be omitted and whether omission fills a
-// non-null default.
+// parsed `type:` field. The booleans report whether the field may be
+// omitted and whether omission fills a non-null default.
 func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool, bool) {
 	if decl == nil {
 		return nil, false, false
@@ -100,8 +99,8 @@ func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool, bool) {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "type" {
 			continue
 		}
-		t, err := lang.PromoteType(fld.Value)
-		if err != nil {
+		t, ok := fld.Value.(lang.TypeExpr)
+		if !ok {
 			return nil, false, false
 		}
 		if opt, ok := t.(*lang.TypeOptional); ok {

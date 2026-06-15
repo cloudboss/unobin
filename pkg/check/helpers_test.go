@@ -13,6 +13,10 @@ func parseStack(t *testing.T, src string) *lang.File {
 	t.Helper()
 	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
+	if inputs := lang.TopLevelBlock(f, "inputs"); inputs != nil {
+		errs := lang.ValidateInputDeclarations(inputs)
+		require.Equal(t, 0, errs.Len(), errs.Error())
+	}
 	return f
 }
 
