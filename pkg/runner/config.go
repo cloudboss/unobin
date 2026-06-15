@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -27,14 +28,10 @@ func parseConfigFile(path string) (*lang.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if hasStackDeclaration(f) {
-		return lowerStackConfig(f)
+	if !hasStackDeclaration(f) {
+		return nil, fmt.Errorf("%s must declare stack", filepath.Base(path))
 	}
-	f.Kind = lang.FileConfig
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
-	return f, nil
+	return lowerStackConfig(f)
 }
 
 func hasStackDeclaration(f *lang.File) bool {

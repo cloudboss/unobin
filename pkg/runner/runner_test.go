@@ -167,12 +167,11 @@ func applyVia(t *testing.T, info Info, configPath string) string {
 
 // stateConfigBody is the state: and encryption: blocks every test config
 // needs, now that a backend must be configured explicitly.
-const stateConfigBody = `state: {
-  @backend: local
+const stateConfigBody = `state: local {
   path: '.unobin/state'
 }
 
-encryption: { @key-source: noop }
+encryption: noop {}
 `
 
 // writeStateConfig writes a config with the required state block plus body
@@ -182,7 +181,7 @@ encryption: { @key-source: noop }
 func writeStateConfig(t *testing.T, body string) string {
 	t.Helper()
 	cfg := filepath.Join(t.TempDir(), "default.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+body), 0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateConfigBody+body)), 0o644))
 	return cfg
 }
 
@@ -195,20 +194,19 @@ func runCfg(t *testing.T, info Info, args ...string) (string, error) {
 	return runRoot(t, info, append(args, "-c", writeStateConfig(t, ""))...)
 }
 
-// backendConfigBody is a state block with a backend but no encryption, so
-// the encrypter falls back to env-key or noop based on UB_STATE_KEY.
-const backendConfigBody = `state: {
-  @backend: local
+const backendConfigBody = `state: local {
   path: '.unobin/state'
+}
+
+encryption: env-key {
+  env-var: 'UB_STATE_KEY'
 }
 `
 
-// writeBackendConfig writes a backend-only config (no encryption block) and
-// returns its path, for tests that exercise the env-key fallback.
 func writeBackendConfig(t *testing.T) string {
 	t.Helper()
 	cfg := filepath.Join(t.TempDir(), "default.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(backendConfigBody), 0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(backendConfigBody)), 0o644))
 	return cfg
 }
 
@@ -340,13 +338,13 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	info := testInfo(t, src)
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+`
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateConfigBody+`
 factory: {
   inputs: {
     greeting: 'from-config'
   }
 }
-`), 0o644))
+`)), 0o644))
 
 	out := applyVia(t, info, cfg)
 	require.Contains(t, out, "said: 'from-config'")
@@ -382,10 +380,12 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 	prod := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(prod,
-		[]byte(stateConfigBody+`factory: { inputs: { greeting: 'hello-prod' } }`), 0o644))
+		[]byte(sourceStack(stateConfigBody+`factory: { inputs: { greeting: 'hello-prod' } }`)),
+		0o644))
 	staging := filepath.Join(filepath.Dir(prod), "staging.ub")
 	require.NoError(t, os.WriteFile(staging,
-		[]byte(stateConfigBody+`factory: { inputs: { greeting: 'hello-staging' } }`), 0o644))
+		[]byte(sourceStack(stateConfigBody+`factory: { inputs: { greeting: 'hello-staging' } }`)),
+		0o644))
 
 	out := applyVia(t, info, prod)
 	require.Contains(t, out, "said: 'hello-prod'")
@@ -410,13 +410,13 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	info := testInfo(t, src)
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(stateConfigBody+`
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateConfigBody+`
 factory: {
   inputs: {
     greeting: 'from-config'
   }
 }
-`), 0o644))
+`)), 0o644))
 
 	t.Setenv("UB_VAR_greeting", "from-env")
 	out := applyVia(t, info, cfg)
@@ -1556,8 +1556,11 @@ actions: { core.echo.hi: { echo: var.greeting } }
 func TestValidateRejectsUnknownBackend(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: ghost }\n"), 0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
+state: ghost {}
+
+encryption: noop {}
+`)), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `no backend named "ghost"`)
@@ -1566,8 +1569,11 @@ func TestValidateRejectsUnknownBackend(t *testing.T) {
 func TestValidateRejectsBadBackendBody(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, unknown-field: 1 }\n"), 0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
+state: local { unknown-field: 1 }
+
+encryption: noop {}
+`)), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown key")
@@ -1576,10 +1582,11 @@ func TestValidateRejectsBadBackendBody(t *testing.T) {
 func TestValidateRejectsUnknownEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, path: '.unobin/state' }\n\n"+
-			"encryption: { @key-source: ghost }\n"),
-		0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
+state: local { path: '.unobin/state' }
+
+encryption: ghost {}
+`)), 0o644))
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `no key-source named "ghost"`)
@@ -1588,10 +1595,11 @@ func TestValidateRejectsUnknownEncrypter(t *testing.T) {
 func TestValidateAcceptsCoreBackendAndEncrypter(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(
-		"state: { @backend: local, path: '.unobin/state' }\n\n"+
-			"encryption: { @key-source: env-key, env-var: 'UB_STATE_KEY' }\n"),
-		0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
+state: local { path: '.unobin/state' }
+
+encryption: env-key { env-var: 'UB_STATE_KEY' }
+`)), 0o644))
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
 	require.NoError(t, err)
 	require.Contains(t, out, "OK")

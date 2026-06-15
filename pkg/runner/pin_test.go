@@ -278,26 +278,48 @@ locals: {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, action, err := pinFile([]byte(tt.src), libraryPath, version, revision)
+			src := sourceStackWithNoop(tt.src)
+			want := sourceStackWithNoop(tt.want)
+			got, action, err := pinFile([]byte(src), libraryPath, version, revision)
 			require.NoError(t, err)
 			assert.Equal(t, tt.action, action)
 			if tt.action == pinActionAlreadyPinned {
-				assert.Equal(t, tt.src, string(got))
+				assert.Equal(t, src, string(got))
 				return
 			}
 			canonical, err := lang.Canonicalize("stack.ub", got)
 			require.NoError(t, err, "pinFile output failed to parse")
-			assert.Equal(t, tt.want, string(canonical))
+			wantCanonical, err := lang.Canonicalize("stack.ub", []byte(want))
+			require.NoError(t, err, "pinFile expected output failed to parse")
+			assert.Equal(t, string(wantCanonical), string(canonical))
 		})
 	}
 }
 
-func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
+func TestPinFileRejectsUnwrappedStack(t *testing.T) {
 	src := []byte(`factory: {
   pin: {
-    library-path: 'github.com/cloudboss/other'
+    library-path: 'github.com/cloudboss/cluster-deploy'
     supported-versions: []
   }
+}
+`)
+
+	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stack file must declare stack")
+}
+
+func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
+	src := []byte(`stack: {
+  factory: {
+    pin: {
+      library-path: 'github.com/cloudboss/other'
+      supported-versions: []
+    }
+  }
+
+  encryption: noop {}
 }
 `)
 	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
@@ -309,13 +331,13 @@ func TestPinFileRejectsLibraryPathMismatch(t *testing.T) {
 // config the validator rejects, instead of stacking a pin block beside
 // keys it does not understand.
 func TestPinFileRejectsInvalidConfig(t *testing.T) {
-	src := []byte(`factory: {
+	src := []byte(sourceStackWithNoop(`factory: {
   supported-versions: []
 }
-`)
+`))
 	_, _, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.1.0", "aaa")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a valid factory key")
+	assert.Contains(t, err.Error(), "not a valid stack factory field")
 }
 
 // TestPinWritesCanonicalFile proves the written stack file is reformatted as a
@@ -324,8 +346,14 @@ func TestPinFileRejectsInvalidConfig(t *testing.T) {
 func TestPinWritesCanonicalFile(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "dev.ub")
-	require.NoError(t, os.WriteFile(configPath,
-		[]byte("locals: {\n    message:   'hi'\n}\n"), 0o644))
+	require.NoError(t, os.WriteFile(configPath, []byte(`stack: {
+locals: {
+    message:   'hi'
+}
+
+encryption: noop {}
+}
+`), 0o644))
 
 	info := Info{
 		LibraryPath:     "github.com/cloudboss/cluster-deploy",
@@ -342,11 +370,11 @@ func TestPinWritesCanonicalFile(t *testing.T) {
 	canonical, err := lang.Canonicalize("stack.ub", got)
 	require.NoError(t, err)
 	assert.Equal(t, string(canonical), string(got), "pinned stack file should be canonical")
-	assert.NotContains(t, string(got), "    message", "operator indentation should be normalized")
+	assert.NotContains(t, string(got), "message:   'hi'", "operator spacing should be normalized")
 }
 
 func TestPinFilePreservesTrailingContent(t *testing.T) {
-	src := []byte(`factory: {
+	src := []byte(sourceStackWithNoop(`factory: {
   pin: {
     library-path: 'github.com/cloudboss/cluster-deploy'
     supported-versions: [
@@ -355,12 +383,11 @@ func TestPinFilePreservesTrailingContent(t *testing.T) {
   }
 }
 
-state: {
-  @backend: local
-  path:     '.unobin/state'
+state: local {
+  path: '.unobin/state'
 }
-`)
-	want := `factory: {
+`))
+	want := sourceStackWithNoop(`factory: {
   pin: {
     library-path: 'github.com/cloudboss/cluster-deploy'
     supported-versions: [
@@ -370,15 +397,16 @@ state: {
   }
 }
 
-state: {
-  @backend: local
-  path:     '.unobin/state'
+state: local {
+  path: '.unobin/state'
 }
-`
+`)
 	got, action, err := pinFile(src, "github.com/cloudboss/cluster-deploy", "v0.3.0", "fedcba")
 	require.NoError(t, err)
 	assert.Equal(t, pinActionAppendedEntry, action)
 	canonical, err := lang.Canonicalize("stack.ub", got)
 	require.NoError(t, err)
-	assert.Equal(t, want, string(canonical))
+	wantCanonical, err := lang.Canonicalize("stack.ub", []byte(want))
+	require.NoError(t, err)
+	assert.Equal(t, string(wantCanonical), string(canonical))
 }

@@ -3,6 +3,7 @@ package runner
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -13,8 +14,25 @@ import (
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "dev.ub")
-	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte(sourceStackWithNoop(body)), 0o600))
 	return path
+}
+
+func sourceStack(body string) string {
+	if strings.HasPrefix(strings.TrimSpace(body), "stack:") {
+		return body
+	}
+	return "stack: {\n" + body + "\n}\n"
+}
+
+func sourceStackWithNoop(body string) string {
+	if strings.HasPrefix(strings.TrimSpace(body), "stack:") {
+		return body
+	}
+	if !strings.Contains(body, "encryption:") {
+		body += "\n\nencryption: noop {}\n"
+	}
+	return sourceStack(body)
 }
 
 func parseTestConfig(t *testing.T, path string) *lang.File {

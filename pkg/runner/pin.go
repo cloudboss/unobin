@@ -84,15 +84,7 @@ func pinFile(src []byte, libraryPath, version, revision string) ([]byte, string,
 	if stackField := findField(f.Body, "stack"); stackField != nil {
 		return pinSourceStackFile(src, f, stackField, libraryPath, version, revision)
 	}
-	f.Kind = lang.FileConfig
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, "", errs.Err()
-	}
-	factoryField := findField(f.Body, "factory")
-	if factoryField == nil {
-		return prependFactoryBlock(src, libraryPath, version, revision)
-	}
-	return pinFactoryField(src, factoryField, libraryPath, version, revision)
+	return nil, "", fmt.Errorf("stack file must declare stack")
 }
 
 func pinSourceStackFile(
@@ -119,7 +111,7 @@ func pinSourceStackFile(
 	}
 	factoryField := findField(stackObj, "factory")
 	if factoryField == nil {
-		out, err := spliceIntoBlock(src, stackObj,
+		out, err := prependIntoBlock(src, stackObj,
 			renderFactoryBlock(libraryPath, version, revision), "stack block")
 		if err != nil {
 			return nil, "", err
@@ -180,23 +172,6 @@ func pinFactoryField(
 	return appendVersionEntry(src, svArr, version, revision)
 }
 
-func prependFactoryBlock(
-	src []byte,
-	libraryPath string,
-	version string,
-	revision string,
-) ([]byte, string, error) {
-	block := renderFactoryBlock(libraryPath, version, revision)
-	if len(src) == 0 {
-		return []byte(block), pinActionAddedFactoryBlock, nil
-	}
-	out := make([]byte, 0, len(block)+1+len(src))
-	out = append(out, block...)
-	out = append(out, '\n')
-	out = append(out, src...)
-	return out, pinActionAddedFactoryBlock, nil
-}
-
 // fillPinBlock inserts the missing `supported-versions:` (and
 // `library-path:` if the binary has one and the block does not declare
 // it) into an existing `factory.pin:` block.
@@ -236,6 +211,14 @@ func spliceIntoBlock(src []byte, obj *lang.ObjectLit, body, closeName string) ([
 		prev--
 	}
 	return spliceBefore(src, prev+1, "\n"+strings.TrimSuffix(body, "\n")), nil
+}
+
+func prependIntoBlock(src []byte, obj *lang.ObjectLit, body, closeName string) ([]byte, error) {
+	openIdx := obj.S.Start.Offset
+	if findMatchingClose(src, openIdx) < 0 {
+		return nil, fmt.Errorf("could not locate closing `}` of %s", closeName)
+	}
+	return spliceBefore(src, openIdx+1, "\n"+strings.TrimSuffix(body, "\n")+"\n"), nil
 }
 
 func isBlank(c byte) bool {
