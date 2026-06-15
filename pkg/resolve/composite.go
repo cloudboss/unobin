@@ -53,10 +53,7 @@ func ValidateCompositeBody(kind, typeName string, f *lang.File) []error {
 	return errs
 }
 
-// kindLeafCount counts the leaf entries in a resources, data, or
-// actions block: one per `alias.type.name` dotted key. A key that is not
-// a three-segment path contributes nothing, so an empty or absent block
-// is zero.
+// kindLeafCount counts the leaf entries in a resources, data, or actions block.
 func kindLeafCount(f *lang.File, block string) int {
 	obj := lang.TopLevelBlock(f, block)
 	if obj == nil {
@@ -64,7 +61,10 @@ func kindLeafCount(f *lang.File, block string) int {
 	}
 	count := 0
 	for _, fld := range obj.Fields {
-		if fld.Key.Kind == lang.FieldPath && len(fld.Key.Path) == 3 {
+		switch {
+		case fld.Decl != nil && !fld.Decl.Default:
+			count++
+		case fld.Key.Kind == lang.FieldPath && len(fld.Key.Path) == 3:
 			count++
 		}
 	}

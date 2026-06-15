@@ -181,7 +181,7 @@ resources: {
 	pairKey := map[string]map[string]bool{}
 	for _, addr := range addresses {
 		if node, ok := dag.Nodes[templateAddress(addr)]; ok {
-			if pk := pairKeyDeps(node.Body); pk != nil {
+			if pk := pairKeyDeps(node.Body, dag.Nodes, node.Composite); pk != nil {
 				pairKey[addr] = pk
 			}
 		}

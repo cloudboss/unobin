@@ -44,7 +44,7 @@ func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
 		if !ok {
 			continue
 		}
-		if pk := pairKeyDeps(node.Body); pk != nil {
+		if pk := pairKeyDeps(node.Body, dag.Nodes, node.Composite); pk != nil {
 			pairKey[addr] = pk
 		}
 	}

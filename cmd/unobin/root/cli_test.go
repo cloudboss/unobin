@@ -533,7 +533,7 @@ factory: {
 	require.NoError(t, err)
 
 	require.Contains(t, out, "package main")
-	require.Contains(t, out, `core.command.hi:`)
+	require.Contains(t, out, `hi: core.command`)
 	require.NotContains(t, out, "factory: {")
 }
 
@@ -556,7 +556,7 @@ factory: {
 
 	require.Contains(t, out, "package main")
 	require.Contains(t, out, `factoryName        = "demo-factory"`)
-	require.Contains(t, out, `core.command.hi:`)
+	require.Contains(t, out, `hi: core.command`)
 }
 
 func TestCompileDefaultPathUsesFactoryUB(t *testing.T) {
@@ -579,7 +579,7 @@ factory: {
 
 	require.Contains(t, out, "package main")
 	require.Contains(t, out, `factoryName        = "demo-factory"`)
-	require.Contains(t, out, `core.command.hi:`)
+	require.Contains(t, out, `hi: core.command`)
 }
 
 // TestCompileWriteOut compiles to an output directory and checks the

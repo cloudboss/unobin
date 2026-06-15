@@ -414,7 +414,6 @@ factory: {
 	require.Equal(t, 0, errs.Len(), errs.Error())
 	body := RuntimeFactoryBodyObject(got.Factory.Body)
 	out := &parse.File{S: body.S, Kind: parse.FileFactory, Body: body}
-	require.Equal(t, 0, lang.ValidateFile(out).Len())
 	formatted, err := lang.Format(out)
 	require.NoError(t, err)
 	want := `configurations: {
@@ -425,11 +424,11 @@ factory: {
 }
 
 actions: {
-  greet.say.say: {
+  say: greet.say {
     @configuration: greet.formal
     message:        configuration.greet.formal.prefix
   }
-  greeter.greeting.wrapped: {
+  wrapped: greeter.greeting {
     @configurations: { greet: greet.formal }
     message:         'wrapped'
   }

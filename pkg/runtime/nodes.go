@@ -162,32 +162,71 @@ func extractKind(
 ) []*Node {
 	var out []*Node
 	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 3 {
+		decl, ok := nodeFieldDecl(fld)
+		if !ok {
 			continue
 		}
-		alias, typ, name := fld.Key.Path[0], fld.Key.Path[1], fld.Key.Path[2]
-		addr := composeAddress(parent, kind, alias, typ, name)
-		if composite := lookupComposite(libs, alias, kind, typ); composite != nil {
+		addr := decl.address(parent, kind)
+		if composite := lookupComposite(libs, decl.alias, kind, decl.typ); composite != nil {
 			out = append(out, expandComposite(addr, parent,
-				alias, typ, name, kind, fld.Value, composite, libs)...)
+				decl.alias, decl.typ, decl.name, kind, decl.body, composite, libs)...)
 			continue
 		}
 		node := &Node{
 			Address:       addr,
 			Kind:          kind,
-			Alias:         alias,
-			Type:          typ,
-			Name:          name,
-			Body:          fld.Value,
+			Alias:         decl.alias,
+			Type:          decl.typ,
+			Name:          decl.name,
+			Body:          decl.body,
 			Composite:     parent,
-			ForEach:       extractForEach(fld.Value),
-			Configuration: extractConfiguration(fld.Value, alias),
-			LockName:      extractLockName(fld.Value),
-			Timeout:       extractTimeout(fld.Value),
+			ForEach:       extractForEach(decl.body),
+			Configuration: extractConfiguration(decl.body, decl.alias),
+			LockName:      extractLockName(decl.body),
+			Timeout:       extractTimeout(decl.body),
 		}
 		out = append(out, node)
 	}
 	return out
+}
+
+type nodeField struct {
+	alias string
+	typ   string
+	name  string
+	body  lang.Expr
+	short bool
+}
+
+func nodeFieldDecl(fld *lang.Field) (nodeField, bool) {
+	if fld.Decl != nil {
+		if fld.Decl.Default || fld.Key.Kind != lang.FieldIdent || len(fld.Decl.Selector.Parts) != 2 {
+			return nodeField{}, false
+		}
+		return nodeField{
+			alias: fld.Decl.Selector.Parts[0].Name,
+			typ:   fld.Decl.Selector.Parts[1].Name,
+			name:  fld.Key.Name,
+			body:  fld.Decl.Body,
+			short: true,
+		}, true
+	}
+	if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 3 {
+		return nodeField{}, false
+	}
+	return nodeField{
+		alias: fld.Key.Path[0],
+		typ:   fld.Key.Path[1],
+		name:  fld.Key.Path[2],
+		body:  fld.Value,
+	}, true
+}
+
+func (d nodeField) address(parent string, kind NodeKind) string {
+	if d.short {
+		return composeNameAddress(parent, kind, d.name)
+	}
+	return composeAddress(parent, kind, d.alias, d.typ, d.name)
 }
 
 // extractLockName reads `@lock: 'name'` from a node body. The value
@@ -456,16 +495,19 @@ func extractOutputs(block *lang.ObjectLit) []*Node {
 	return out
 }
 
-// composeAddress builds a node's address. Every segment has its own
-// kind root: at root it is `<kind>.<alias>.<type>.<name>`, and
-// inside a composite it is `<call-site>/<kind>.<alias>.<type>.<name>`. The
-// resource, data, and action kinds all follow the same form, so a state
-// key reads the same at every depth.
 func composeAddress(parent string, kind NodeKind, alias, typ, name string) string {
+	return joinAddress(parent, fmt.Sprintf("%s.%s.%s.%s", kind, alias, typ, name))
+}
+
+func composeNameAddress(parent string, kind NodeKind, name string) string {
+	return joinAddress(parent, fmt.Sprintf("%s.%s", kind, name))
+}
+
+func joinAddress(parent, local string) string {
 	if parent == "" {
-		return fmt.Sprintf("%s.%s.%s.%s", kind, alias, typ, name)
+		return local
 	}
-	return fmt.Sprintf("%s/%s.%s.%s.%s", parent, kind, alias, typ, name)
+	return parent + "/" + local
 }
 
 // InputNames returns the set of input names a file declares.

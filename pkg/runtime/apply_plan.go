@@ -222,8 +222,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	if prep.instKey == "" {
 		storeNested(prep.parent.Actions, prep.node, attrs)
 	} else {
-		seedInstance(prep.parent.Actions, prep.node.Alias, prep.node.Type, prep.node.Name,
-			prep.instKey, attrs)
+		seedAddressInstance(prep.parent.Actions, prep.node.Address, prep.instKey, attrs)
 	}
 
 	// Recompute the trigger hash with the fresh upstream state so the
@@ -308,8 +307,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if prep.instKey == "" {
 		storeNested(prep.parent.Resources, prep.node, attrs)
 	} else {
-		seedInstance(prep.parent.Resources, prep.node.Alias, prep.node.Type, prep.node.Name,
-			prep.instKey, attrs)
+		seedAddressInstance(prep.parent.Resources, prep.node.Address, prep.instKey, attrs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          step.Address,
@@ -502,8 +500,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if prep.instKey == "" {
 		storeNested(prep.parent.Data, prep.node, attrs)
 	} else {
-		seedInstance(prep.parent.Data, prep.node.Alias, prep.node.Type, prep.node.Name,
-			prep.instKey, attrs)
+		seedAddressInstance(prep.parent.Data, prep.node.Address, prep.instKey, attrs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          step.Address,

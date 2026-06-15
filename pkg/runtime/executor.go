@@ -154,9 +154,13 @@ func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalC
 			continue
 		}
 		tmpl, instKey := splitInstanceAddress(ent.Address)
-		kind, alias, typeName, name, ok := parseAddress(tmpl)
+		kind, _, _, _, ok := parseAddress(tmpl)
 		if !ok {
-			continue
+			parts, found := addressParts(tmpl)
+			if !found {
+				continue
+			}
+			kind = NodeKind(parts[0])
 		}
 		target := scopeMapForKind(scope, NodeKind(kind))
 		if target == nil {
@@ -164,9 +168,9 @@ func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalC
 		}
 		attrs := mergeAttrs(ent.Inputs, ent.Outputs)
 		if instKey == "" {
-			seedNested(target, alias, typeName, name, attrs)
+			seedAddress(target, tmpl, attrs)
 		} else {
-			seedInstance(target, alias, typeName, name, instKey, attrs)
+			seedAddressInstance(target, tmpl, instKey, attrs)
 		}
 	}
 	return scope
@@ -780,7 +784,7 @@ func (e *Executor) finalizeComposite(
 	if instKey == "" {
 		storeNested(target, n, outputs)
 	} else {
-		seedInstance(target, n.Alias, n.Type, n.Name, instKey, outputs)
+		seedAddressInstance(target, n.Address, instKey, outputs)
 	}
 	upsertEntry(rs.next, &state.Entry{
 		Address:          instAddr,
@@ -934,16 +938,32 @@ func sameValue(a, b any) bool {
 // is read relative to its direct enclosing scope. A trailing `@for-each`
 // instance key on that segment is ignored.
 func parseAddress(addr string) (kind NodeKind, alias, typeName, name string, ok bool) {
+	parts, ok := addressParts(addr)
+	if !ok || len(parts) != 4 {
+		return "", "", "", "", false
+	}
+	return NodeKind(parts[0]), parts[1], parts[2], parts[3], true
+}
+
+func addressValuePath(addr string) ([]string, bool) {
+	parts, ok := addressParts(addr)
+	if !ok || len(parts) < 2 {
+		return nil, false
+	}
+	return parts[1:], true
+}
+
+func addressParts(addr string) ([]string, bool) {
 	seg := addr
 	if i := strings.LastIndex(seg, "/"); i >= 0 {
 		seg = seg[i+1:]
 	}
 	seg, _ = splitInstanceAddress(seg)
-	parts := strings.SplitN(seg, ".", 4)
-	if len(parts) != 4 {
-		return "", "", "", "", false
+	parts := strings.Split(seg, ".")
+	if len(parts) < 2 {
+		return nil, false
 	}
-	return NodeKind(parts[0]), parts[1], parts[2], parts[3], true
+	return parts, true
 }
 
 // evalBody evaluates an object literal body to a map[string]any of input
@@ -1000,12 +1020,9 @@ func mergeAttrs(inputs, outputs map[string]any) map[string]any {
 	return merged
 }
 
-// storeNested writes value at target[alias][type][name], creating intermediate
-// maps as needed.
+// storeNested writes value at the node's reference path.
 func storeNested(target map[string]any, n *Node, value map[string]any) {
-	alias := getOrCreate(target, n.Alias)
-	typeMap := getOrCreate(alias, n.Type)
-	typeMap[n.Name] = value
+	seedAddress(target, n.Address, value)
 }
 
 func getOrCreate(m map[string]any, key string) map[string]any {

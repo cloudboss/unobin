@@ -362,7 +362,8 @@ resources: { bundle.file-pair.demo: { path: 'x.txt' } }
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 2)
 	require.Contains(t, got[0], `unknown input "missing"`)
-	require.Contains(t, got[1], `unknown resource "resource.local.file.absent"`)
+	require.Contains(t, got[1],
+		`unknown resource "resource.bundle.file-pair.demo/resource.local.file.absent"`)
 }
 
 func TestCheckReferencesConstraintPredicateRootScope(t *testing.T) {

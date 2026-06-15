@@ -618,14 +618,10 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				continue
 			}
 			tmpl, instKey := splitInstanceAddress(ent.Address)
-			_, alias, typeName, name, ok := parseAddress(tmpl)
-			if !ok {
-				continue
-			}
 			if instKey == "" {
-				seedNested(scope.Actions, alias, typeName, name, ent.Outputs)
+				seedAddress(scope.Actions, tmpl, ent.Outputs)
 			} else {
-				seedInstance(scope.Actions, alias, typeName, name, instKey, ent.Outputs)
+				seedAddressInstance(scope.Actions, tmpl, instKey, ent.Outputs)
 			}
 		case state.EntryLeaf:
 			scope, err := e.scopeForAddress(rs, ent.Address)
@@ -636,14 +632,10 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				continue
 			}
 			tmpl, instKey := splitInstanceAddress(ent.Address)
-			_, alias, typeName, name, ok := parseAddress(tmpl)
-			if !ok {
-				continue
-			}
 			if instKey == "" {
-				seedNested(scope.Resources, alias, typeName, name, ent.Outputs)
+				seedAddress(scope.Resources, tmpl, ent.Outputs)
 			} else {
-				seedInstance(scope.Resources, alias, typeName, name, instKey, ent.Outputs)
+				seedAddressInstance(scope.Resources, tmpl, instKey, ent.Outputs)
 			}
 		}
 	}
@@ -676,10 +668,6 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		return err
 	}
 	tmpl, instKey := splitInstanceAddress(step.Address)
-	_, alias, typeName, name, ok := parseAddress(tmpl)
-	if !ok {
-		return nil
-	}
 	target := scopeMapForKind(scope, step.Kind)
 	// A data source read during the plan seeds what it observed; at
 	// this point in the walk a resource's drift read has not run yet,
@@ -700,9 +688,9 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	}
 	attrs := mergeAttrs(knownFields(step, step.Inputs), outputs)
 	if instKey == "" {
-		seedNested(target, alias, typeName, name, attrs)
+		seedAddress(target, tmpl, attrs)
 	} else {
-		seedInstance(target, alias, typeName, name, instKey, attrs)
+		seedAddressInstance(target, tmpl, instKey, attrs)
 	}
 	return nil
 }
@@ -735,11 +723,11 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 		return err
 	}
 	target := scopeMapForKind(parent, node.Kind)
-	_, instKey := splitInstanceAddress(step.Address)
+	tmpl, instKey := splitInstanceAddress(step.Address)
 	if instKey == "" {
-		seedNested(target, node.Alias, node.Type, node.Name, outputs)
+		seedAddress(target, tmpl, outputs)
 	} else {
-		seedInstance(target, node.Alias, node.Type, node.Name, instKey, outputs)
+		seedAddressInstance(target, tmpl, instKey, outputs)
 	}
 	return nil
 }
@@ -837,20 +825,50 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 }
 
 func seedNested(target map[string]any, alias, typeName, name string, value map[string]any) {
-	aliasMap := getOrCreate(target, alias)
-	typeMap := getOrCreate(aliasMap, typeName)
-	typeMap[name] = value
+	seedPath(target, []string{alias, typeName, name}, value)
 }
 
-// seedInstance writes one for-each instance's outputs into scope at
-// `target[alias][type][name][key] = value`, so that an expression like
-// `resource.<alias>.<type>.<name>['<key>'].<field>` resolves through
-// ordinary dot-path navigation.
+func seedAddress(target map[string]any, addr string, value map[string]any) {
+	path, ok := addressValuePath(addr)
+	if !ok {
+		return
+	}
+	seedPath(target, path, value)
+}
+
+// seedInstance writes one for-each instance's outputs into scope.
 func seedInstance(target map[string]any, alias, typeName, name, key string, value map[string]any) {
-	aliasMap := getOrCreate(target, alias)
-	typeMap := getOrCreate(aliasMap, typeName)
-	nameMap := getOrCreate(typeMap, name)
-	nameMap[key] = value
+	seedPathInstance(target, []string{alias, typeName, name}, key, value)
+}
+
+func seedAddressInstance(target map[string]any, addr, key string, value map[string]any) {
+	path, ok := addressValuePath(addr)
+	if !ok {
+		return
+	}
+	seedPathInstance(target, path, key, value)
+}
+
+func seedPath(target map[string]any, path []string, value map[string]any) {
+	if len(path) == 0 {
+		return
+	}
+	m := target
+	for _, part := range path[:len(path)-1] {
+		m = getOrCreate(m, part)
+	}
+	m[path[len(path)-1]] = value
+}
+
+func seedPathInstance(target map[string]any, path []string, key string, value map[string]any) {
+	if len(path) == 0 {
+		return
+	}
+	m := target
+	for _, part := range path {
+		m = getOrCreate(m, part)
+	}
+	m[key] = value
 }
 
 // SplitInstanceAddress separates a `<template>['<key>']` address into
@@ -1328,7 +1346,9 @@ func upgradeActionRerun(steps []*PlanStep, dag *DAG, sl *scopeLocals) {
 		if node == nil {
 			continue
 		}
-		for _, ref := range refsWithLocals(node.Body, sl.forScope(node.Composite)) {
+		for _, ref := range refsWithLocalsInScope(
+			node.Body, sl.forScope(node.Composite), dag.Nodes, node.Composite,
+		) {
 			if isUpstreamChange(addressDecision[ref]) {
 				step.Decision = DecisionRerun
 				step.TriggerHash = ""

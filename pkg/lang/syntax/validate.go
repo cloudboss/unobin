@@ -341,16 +341,22 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 	}
 }
 
-// RuntimeFactoryBodyObject returns the generic AST object current runtime code reads.
+// RuntimeFactoryBodyObject returns the generic AST object runtime code reads.
 func RuntimeFactoryBodyObject(body FactoryBody) *parse.ObjectLit {
-	obj := FactoryBodyObject(body)
-	expandShortNodeRefs(obj, body)
+	obj := factoryBodyObject(body, nodeDeclsSelectorObject)
 	expandConfigurationRefs(obj, body.Configurations)
 	return obj
 }
 
 // FactoryBodyObject returns the generic AST object for a lowered factory body.
 func FactoryBodyObject(body FactoryBody) *parse.ObjectLit {
+	return factoryBodyObject(body, nodeDeclsObject)
+}
+
+func factoryBodyObject(
+	body FactoryBody,
+	nodes func([]NodeDecl) *parse.ObjectLit,
+) *parse.ObjectLit {
 	obj := &parse.ObjectLit{S: body.S}
 	if body.Description != nil {
 		obj.Fields = append(obj.Fields,
@@ -379,15 +385,15 @@ func FactoryBodyObject(body FactoryBody) *parse.ObjectLit {
 			identField("configurations", configurations.S, configurations))
 	}
 	if len(body.Resources) > 0 {
-		resources := nodeDeclsObject(body.Resources)
+		resources := nodes(body.Resources)
 		obj.Fields = append(obj.Fields, identField("resources", resources.S, resources))
 	}
 	if len(body.Data) > 0 {
-		data := nodeDeclsObject(body.Data)
+		data := nodes(body.Data)
 		obj.Fields = append(obj.Fields, identField("data", data.S, data))
 	}
 	if len(body.Actions) > 0 {
-		actions := nodeDeclsObject(body.Actions)
+		actions := nodes(body.Actions)
 		obj.Fields = append(obj.Fields, identField("actions", actions.S, actions))
 	}
 	if len(body.Outputs) > 0 {
@@ -565,6 +571,39 @@ func nodeDeclsObject(decls []NodeDecl) *parse.ObjectLit {
 		}, decl.S, decl.Body))
 	}
 	return obj
+}
+
+func nodeDeclsSelectorObject(decls []NodeDecl) *parse.ObjectLit {
+	obj := &parse.ObjectLit{}
+	if len(decls) > 0 {
+		obj.S = decls[0].S
+	}
+	for _, decl := range decls {
+		obj.Fields = append(obj.Fields, selectorField(decl))
+	}
+	return obj
+}
+
+func selectorField(decl NodeDecl) *parse.Field {
+	return &parse.Field{
+		S: decl.S,
+		Key: parse.FieldKey{
+			S:    decl.Name.S,
+			Kind: parse.FieldIdent,
+			Name: decl.Name.Name,
+		},
+		Decl: &parse.SelectorBody{
+			S: decl.S,
+			Selector: parse.Selector{
+				S: decl.Selector.S,
+				Parts: []parse.Ident{
+					{S: decl.Selector.Alias.S, Name: decl.Selector.Alias.Name},
+					{S: decl.Selector.Export.S, Name: decl.Selector.Export.Name},
+				},
+			},
+			Body: decl.Body,
+		},
+	}
 }
 
 func manifestRequiresObject(decls []ManifestRequire) *parse.ObjectLit {

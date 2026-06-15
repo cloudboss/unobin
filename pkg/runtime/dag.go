@@ -156,17 +156,9 @@ func computeDeps(
 	if n.IsComposite() {
 		return internalsOf(n.Address, nodes)
 	}
-	var deps []string
-	bodyRefs := bodyDeps(n.Body, sl.forScope(n.Composite))
-	if n.Composite == "" {
-		deps = bodyRefs
-	} else {
-		for _, ref := range bodyRefs {
-			if strings.HasPrefix(ref, "var.") {
-				continue
-			}
-			deps = append(deps, ScopeRef(ref, n.Composite))
-		}
+	deps := bodyDeps(n.Body, sl.forScope(n.Composite), nodes, n.Composite)
+	if n.Composite != "" {
+		deps = withoutVars(deps)
 	}
 	for current := n.Composite; current != ""; {
 		boundary, ok := nodes[current]
@@ -175,18 +167,32 @@ func computeDeps(
 		}
 		refs, ok := boundaryRefs[current]
 		if !ok {
-			refs = refsWithLocals(boundary.Body, sl.forScope(boundary.Composite))
+			refs = refsWithLocalsInScope(
+				boundary.Body,
+				sl.forScope(boundary.Composite),
+				nodes,
+				boundary.Composite,
+			)
 			boundaryRefs[current] = refs
 		}
-		for _, ref := range refs {
-			deps = append(deps, ScopeRef(ref, boundary.Composite))
-		}
+		deps = append(deps, refs...)
 		current = boundary.Composite
 	}
 	if dep, ok := configurationDep(n, nodes); ok {
 		deps = append(deps, dep)
 	}
 	return dedupe(deps)
+}
+
+func withoutVars(refs []string) []string {
+	out := refs[:0]
+	for _, ref := range refs {
+		if strings.HasPrefix(ref, "var.") {
+			continue
+		}
+		out = append(out, ref)
+	}
+	return out
 }
 
 // UnderForEachComposite reports whether any composite call site in
@@ -286,13 +292,20 @@ func ScopeRef(ref, callSite string) string {
 	return ref
 }
 
-func bodyDeps(body lang.Expr, locals map[string]lang.Expr) []string {
-	return append(refsWithLocals(body, locals), explicitDeps(body)...)
+func bodyDeps(
+	body lang.Expr,
+	locals map[string]lang.Expr,
+	nodes map[string]*Node,
+	scope string,
+) []string {
+	return append(
+		refsWithLocalsInScope(body, locals, nodes, scope),
+		explicitDeps(body, nodes, scope)...,
+	)
 }
 
-// explicitDeps returns the addresses a body's @depends-on entry
-// names, unscoped.
-func explicitDeps(body lang.Expr) []string {
+// explicitDeps returns the addresses a body's @depends-on entry names.
+func explicitDeps(body lang.Expr, nodes map[string]*Node, scope string) []string {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
 		return nil
@@ -311,8 +324,8 @@ func explicitDeps(body lang.Expr) []string {
 			if !ok {
 				continue
 			}
-			if addr := RefAddress(dp); addr != "" {
-				deps = append(deps, addr)
+			if match, ok := RefMatchInScope(dp, nodes, scope); ok {
+				deps = append(deps, match.Address)
 			}
 		}
 	}

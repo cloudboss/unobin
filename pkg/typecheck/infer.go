@@ -778,24 +778,50 @@ func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 }
 
 func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
-	if scope == nil || scope.LookupNode == nil || len(dp.Segments) < 3 {
+	if scope == nil || scope.LookupNode == nil || len(dp.Segments) == 0 {
 		return TUnknown()
 	}
-	if rejectGuardedRoot(dp.Root.Name, dp.Segments, 3, errs) {
+	if len(dp.Segments) >= 3 && plainNodeSegments(dp.Segments[:3]) {
+		alias := dp.Segments[0].Name
+		typ := dp.Segments[1].Name
+		name := dp.Segments[2].Name
+		if t, ok := scope.LookupNode(dp.Root.Name, alias, typ, name); ok {
+			if rejectGuardedRoot(dp.Root.Name, dp.Segments, 3, errs) {
+				return TUnknown()
+			}
+			at := dp.Root.Name + "." + alias + "." + typ + "." + name
+			return inferNodeRest(t, at, dp.Segments[3:], scope, errs)
+		}
+	}
+	if dp.Segments[0].Name == "" {
 		return TUnknown()
 	}
-	alias := dp.Segments[0].Name
-	typ := dp.Segments[1].Name
-	name := dp.Segments[2].Name
-	if alias == "" || typ == "" || name == "" {
-		return TUnknown()
+	if t, ok := scope.LookupNode(dp.Root.Name, "", "", dp.Segments[0].Name); ok {
+		if rejectGuardedRoot(dp.Root.Name, dp.Segments, 1, errs) {
+			return TUnknown()
+		}
+		at := dp.Root.Name + "." + dp.Segments[0].Name
+		return inferNodeRest(t, at, dp.Segments[1:], scope, errs)
 	}
-	t, ok := scope.LookupNode(dp.Root.Name, alias, typ, name)
-	if !ok {
-		return TUnknown()
+	return TUnknown()
+}
+
+func plainNodeSegments(segs []lang.DotSegment) bool {
+	for _, seg := range segs {
+		if seg.Name == "" || seg.Index != nil || seg.Splat {
+			return false
+		}
 	}
-	at := dp.Root.Name + "." + alias + "." + typ + "." + name
-	rest := dp.Segments[3:]
+	return true
+}
+
+func inferNodeRest(
+	t Type,
+	at string,
+	rest []lang.DotSegment,
+	scope *Scope,
+	errs *lang.ErrorList,
+) Type {
 	if len(rest) > 0 && rest[0].Index != nil && rest[0].Name == "" {
 		at += segIndexText(rest[0])
 		rest = rest[1:]

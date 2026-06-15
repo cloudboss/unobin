@@ -147,6 +147,21 @@ func refsWithLocals(e lang.Expr, locals map[string]lang.Expr) []string {
 	return dedupe(out)
 }
 
+func refsWithLocalsInScope(
+	e lang.Expr,
+	locals map[string]lang.Expr,
+	nodes map[string]*Node,
+	scope string,
+) []string {
+	var out []string
+	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
+		if match, ok := RefMatchInScope(dp, nodes, scope); ok {
+			out = append(out, match.Address)
+		}
+	})
+	return dedupe(out)
+}
+
 // deferredRefs returns the full dotted source paths an expression
 // reads from. Unlike Refs, the trailing field segments are preserved
 // so the renderer can show `<resource.aws.vpc.main.id>` rather than
@@ -221,6 +236,97 @@ func RefAddress(p *lang.DotPath) string {
 	}
 }
 
+type RefMatch struct {
+	Address  string
+	Segments int
+}
+
+func RefMatchInScope(
+	p *lang.DotPath,
+	nodes map[string]*Node,
+	scope string,
+) (RefMatch, bool) {
+	if p == nil || p.Root == nil {
+		return RefMatch{}, false
+	}
+	if p.Root.Name == "var" {
+		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
+			return RefMatch{}, false
+		}
+		return RefMatch{Address: "var." + p.Segments[0].Name, Segments: 1}, true
+	}
+	if p.Root.Name != "resource" && p.Root.Name != "data" && p.Root.Name != "action" {
+		return RefMatch{}, false
+	}
+	for _, n := range []int{3, 1} {
+		if len(p.Segments) < n || !plainSegments(p.Segments[:n]) {
+			continue
+		}
+		addr := p.Root.Name + "." + segmentNames(p.Segments[:n])
+		addr = ScopeRef(addr, scope)
+		if _, ok := nodes[addr]; ok {
+			return RefMatch{Address: addr, Segments: n}, true
+		}
+	}
+	return RefMatch{}, false
+}
+
+func UnknownRefAddress(p *lang.DotPath, nodes map[string]*Node, scope string) string {
+	if p == nil || p.Root == nil {
+		return ""
+	}
+	if p.Root.Name != "resource" && p.Root.Name != "data" && p.Root.Name != "action" {
+		return ""
+	}
+	if scopeHasShortNodes(nodes, scope, p.Root.Name) {
+		if len(p.Segments) >= 1 && plainSegments(p.Segments[:1]) {
+			return ScopeRef(p.Root.Name+"."+p.Segments[0].Name, scope)
+		}
+	}
+	if len(p.Segments) >= 3 && plainSegments(p.Segments[:3]) {
+		return ScopeRef(p.Root.Name+"."+segmentNames(p.Segments[:3]), scope)
+	}
+	if len(p.Segments) >= 1 && plainSegments(p.Segments[:1]) {
+		return ScopeRef(p.Root.Name+"."+p.Segments[0].Name, scope)
+	}
+	return ""
+}
+
+func scopeHasShortNodes(nodes map[string]*Node, scope, root string) bool {
+	prefix := ""
+	if scope != "" {
+		prefix = scope + "/"
+	}
+	prefix += root + "."
+	for addr := range nodes {
+		if !strings.HasPrefix(addr, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(addr, prefix)
+		if !strings.Contains(rest, ".") && !strings.Contains(rest, "/") {
+			return true
+		}
+	}
+	return false
+}
+
+func plainSegments(segs []lang.DotSegment) bool {
+	for _, seg := range segs {
+		if seg.Name == "" || seg.Index != nil || seg.Splat || seg.Guarded {
+			return false
+		}
+	}
+	return true
+}
+
+func segmentNames(segs []lang.DotSegment) string {
+	parts := make([]string, 0, len(segs))
+	for _, seg := range segs {
+		parts = append(parts, seg.Name)
+	}
+	return strings.Join(parts, ".")
+}
+
 // pairKeyDeps returns the set of template addresses an expression
 // references with an `[@each.key]` index segment. For each entry in
 // the result, the body says "depend on a specific instance of this
@@ -228,7 +334,11 @@ func RefAddress(p *lang.DotPath) string {
 // which lets the apply scheduler narrow a cartesian fan-out down to
 // a same-key pair. Refs that do not carry an `[@each.key]` selector
 // are not included even if their template appears elsewhere indexed.
-func pairKeyDeps(e lang.Expr) map[string]bool {
+func pairKeyDeps(
+	e lang.Expr,
+	nodes map[string]*Node,
+	scope string,
+) map[string]bool {
 	if e == nil {
 		return nil
 	}
@@ -238,19 +348,19 @@ func pairKeyDeps(e lang.Expr) map[string]bool {
 		if !ok {
 			return
 		}
-		addr := RefAddress(dp)
-		if addr == "" {
+		match, ok := RefMatchInScope(dp, nodes, scope)
+		if !ok {
 			return
 		}
-		if !strings.HasPrefix(addr, "resource.") &&
-			!strings.HasPrefix(addr, "data.") &&
-			!strings.HasPrefix(addr, "action.") {
+		if !strings.HasPrefix(match.Address, "resource.") &&
+			!strings.HasPrefix(match.Address, "data.") &&
+			!strings.HasPrefix(match.Address, "action.") {
 			return
 		}
-		if len(dp.Segments) <= 3 {
+		if len(dp.Segments) <= match.Segments {
 			return
 		}
-		seg := dp.Segments[3]
+		seg := dp.Segments[match.Segments]
 		if seg.Index == nil {
 			return
 		}
@@ -261,7 +371,7 @@ func pairKeyDeps(e lang.Expr) map[string]bool {
 		if len(idx.Segments) != 1 || idx.Segments[0].Name != "key" {
 			return
 		}
-		out[addr] = true
+		out[match.Address] = true
 	})
 	if len(out) == 0 {
 		return nil

@@ -383,7 +383,10 @@ func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 
 func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
 	return func(kind, alias, typ, name string) (typecheck.Type, bool) {
-		ref := kind + "." + alias + "." + typ + "." + name
+		ref := kind + "." + name
+		if alias != "" || typ != "" {
+			ref = kind + "." + alias + "." + typ + "." + name
+		}
 		node, ok := c.dag.Nodes[runtime.ScopeRef(ref, scope)]
 		if !ok {
 			return typecheck.Type{}, false

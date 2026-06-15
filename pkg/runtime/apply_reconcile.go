@@ -126,16 +126,11 @@ func (e *Executor) seedReconciled(rs *runState, ent *state.Entry) {
 	if err != nil {
 		return
 	}
-	_, alias, typeName, name, ok := parseAddress(ent.Address)
-	if !ok {
-		return
-	}
+	tmpl, instKey := splitInstanceAddress(ent.Address)
 	attrs := mergeAttrs(ent.Inputs, ent.Outputs)
-	if _, instKey := splitInstanceAddress(ent.Address); instKey != "" {
-		seedInstance(parent.Resources, alias, typeName, name, instKey, attrs)
+	if instKey != "" {
+		seedAddressInstance(parent.Resources, tmpl, instKey, attrs)
 		return
 	}
-	aliasMap := getOrCreate(parent.Resources, alias)
-	typeMap := getOrCreate(aliasMap, typeName)
-	typeMap[name] = attrs
+	seedAddress(parent.Resources, tmpl, attrs)
 }

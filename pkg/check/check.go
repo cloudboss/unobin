@@ -735,25 +735,31 @@ func localRefNames(e lang.Expr) []string {
 }
 
 func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
-	ref := runtime.RefAddress(dp)
-	if ref == "" {
-		return
-	}
-	node, ok := c.dag.Nodes[runtime.ScopeRef(ref, scope)]
+	match, ok := runtime.RefMatchInScope(dp, c.dag.Nodes, scope)
 	if !ok {
+		ref := runtime.UnknownRefAddress(dp, c.dag.Nodes, scope)
+		if ref == "" {
+			return
+		}
 		kind, _, _ := strings.Cut(ref, ".")
 		c.addf(dp.S.Start, `unknown %s %q`, kind, ref)
 		return
 	}
-	c.checkField(dp, node, scope)
+	node := c.dag.Nodes[match.Address]
+	c.checkField(dp, node, scope, match.Segments)
 }
 
 // checkField reports a trailing field reference whose name is not
 // declared in the node's output schema. Returns silently when the
 // path has no trailing field, when no schema is available, or when
 // the field is present.
-func (c *referenceChecker) checkField(dp *lang.DotPath, node *runtime.Node, scope string) {
-	field, idx := trailingField(dp)
+func (c *referenceChecker) checkField(
+	dp *lang.DotPath,
+	node *runtime.Node,
+	scope string,
+	consumed int,
+) {
+	field, idx := trailingField(dp, consumed)
 	if field == "" {
 		return
 	}
@@ -838,22 +844,19 @@ func compositeOutputNames(node *runtime.Node) map[string]typecheck.Type {
 }
 
 // trailingField extracts the field segment from a resource, data,
-// or action reference, returning its name and segment index. For
-// resource.<alias>.<type>.<name>.<field> it returns <field> at 3; an
-// index segment after the name, as in
-// resource.<alias>.<type>.<name>['key'].<field>, is skipped and the
-// field sits at 4. Returns "" when the path has no trailing field
-// segment.
-func trailingField(dp *lang.DotPath) (string, int) {
-	if len(dp.Segments) < 4 {
+// or action reference, returning its name and segment index. An index
+// segment after the node identity is skipped. Returns "" when the path
+// has no trailing field segment.
+func trailingField(dp *lang.DotPath, consumed int) (string, int) {
+	if len(dp.Segments) <= consumed {
 		return "", -1
 	}
-	idx := 3
+	idx := consumed
 	if dp.Segments[idx].Index != nil {
-		if len(dp.Segments) < 5 {
+		if len(dp.Segments) <= idx+1 {
 			return "", -1
 		}
-		idx = 4
+		idx++
 	}
 	return dp.Segments[idx].Name, idx
 }

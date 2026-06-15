@@ -89,30 +89,8 @@ func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	if sourceDeclaredFactoryBody(f) != nil {
-		sf, serrs := syntax.LowerFile(f)
-		if serrs.Len() > 0 {
-			return nil, "", serrs.Err()
-		}
-		if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-			return nil, "", verrs.Err()
-		}
-		obj := syntax.RuntimeFactoryBodyObject(sf.Factory.Body)
-		f = &lang.File{
-			S:        sf.S,
-			Kind:     lang.FileFactory,
-			Path:     path,
-			Body:     obj,
-			Comments: sf.Comments,
-		}
-		if errs := lang.ValidateFile(f); errs.Len() > 0 {
-			return nil, "", errs.Err()
-		}
-		body, err := lang.Format(f)
-		if err != nil {
-			return nil, "", err
-		}
-		return f, string(body), nil
+	if usesSyntaxFactory(f) {
+		return parseSyntaxFactorySource(path, f)
 	}
 	if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, "", errs.Err()
@@ -120,16 +98,61 @@ func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 	return f, string(src), nil
 }
 
-func sourceDeclaredFactoryBody(f *lang.File) *lang.ObjectLit {
-	if f == nil || f.Body == nil || len(f.Body.Fields) != 1 {
-		return nil
+func parseSyntaxFactorySource(path string, f *lang.File) (*lang.File, string, error) {
+	sf, serrs := syntax.LowerFile(f)
+	if serrs.Len() > 0 {
+		return nil, "", serrs.Err()
 	}
-	fld := f.Body.Fields[0]
-	if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "factory" {
-		return nil
+	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+		return nil, "", verrs.Err()
 	}
-	body, _ := fld.Value.(*lang.ObjectLit)
-	return body
+	obj := syntax.RuntimeFactoryBodyObject(sf.Factory.Body)
+	out := &lang.File{
+		S:        sf.S,
+		Kind:     lang.FileFactory,
+		Path:     path,
+		Body:     obj,
+		Comments: sf.Comments,
+	}
+	body, err := lang.Format(out)
+	if err != nil {
+		return nil, "", err
+	}
+	return out, string(body), nil
+}
+
+func usesSyntaxFactory(f *lang.File) bool {
+	if f == nil || f.Body == nil {
+		return false
+	}
+	if len(f.Body.Fields) == 1 {
+		fld := f.Body.Fields[0]
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "factory" {
+			return true
+		}
+	}
+	for _, fld := range f.Body.Fields {
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		switch fld.Key.Name {
+		case "resources", "data", "actions", "configurations":
+			if hasSelectorBody(obj) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasSelectorBody(obj *lang.ObjectLit) bool {
+	for _, fld := range obj.Fields {
+		if fld.Decl != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // FactorySourcePath returns the factory source file named by path.
@@ -866,17 +889,30 @@ func usedLibraryTypes(f *lang.File) map[string]map[string]bool {
 			continue
 		}
 		for _, entry := range obj.Fields {
-			if entry.Key.Kind != lang.FieldPath || len(entry.Key.Path) != 3 {
+			alias, export, ok := usedEntrySelector(entry)
+			if !ok {
 				continue
 			}
-			alias := entry.Key.Path[0]
 			if used[alias] == nil {
 				used[alias] = map[string]bool{}
 			}
-			used[alias][kind+"."+entry.Key.Path[1]] = true
+			used[alias][kind+"."+export] = true
 		}
 	}
 	return used
+}
+
+func usedEntrySelector(entry *lang.Field) (alias, export string, ok bool) {
+	if entry.Decl != nil {
+		if len(entry.Decl.Selector.Parts) != 2 {
+			return "", "", false
+		}
+		return entry.Decl.Selector.Parts[0].Name, entry.Decl.Selector.Parts[1].Name, true
+	}
+	if entry.Key.Kind != lang.FieldPath || len(entry.Key.Path) != 3 {
+		return "", "", false
+	}
+	return entry.Key.Path[0], entry.Key.Path[1], true
 }
 
 // blockKind maps a factory declaration block name to the node kind it

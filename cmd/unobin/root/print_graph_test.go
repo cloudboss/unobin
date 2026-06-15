@@ -61,11 +61,11 @@ factory: {
 
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
-	want := `action.core.command.first
+	want := `action.first
   -> var.msg
 
-action.core.command.second
-  -> action.core.command.first
+action.second
+  -> action.first
 `
 	require.Equal(t, want, out)
 }
@@ -86,7 +86,7 @@ factory: {
 
 	out, err := runCommand(t, "print-graph")
 	require.NoError(t, err)
-	require.Equal(t, "action.core.command.hi\n", out)
+	require.Equal(t, "action.hi\n", out)
 }
 
 func TestPrintGraphDirectoryUsesFactoryUB(t *testing.T) {
@@ -104,7 +104,7 @@ factory: {
 
 	out, err := runCommand(t, "print-graph", "-p", dir)
 	require.NoError(t, err)
-	require.Equal(t, "action.core.command.hi\n", out)
+	require.Equal(t, "action.hi\n", out)
 }
 
 func TestPrintGraphDOT(t *testing.T) {

@@ -204,7 +204,7 @@ lookup: data {
 	require.Contains(t, lib.Bodies["resource"], "greeting")
 	require.Contains(t, lib.Bodies["data"], "lookup")
 	body := lib.Bodies["resource"]["greeting"]
-	require.Contains(t, formattedBody(t, body), "resource.core.file.file.path")
+	require.Contains(t, formattedBody(t, body), "resource.file.path")
 	bodyImports := lib.BodyImports["resource"]["greeting"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, "core", bodyImports[0].LocalAlias)

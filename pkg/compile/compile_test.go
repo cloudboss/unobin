@@ -25,9 +25,9 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
 	require.Equal(t, lang.FileFactory, f.Kind)
 	require.NotContains(t, body, "factory:")
 	require.Contains(t, body, "imports:")
-	require.Contains(t, body, "std.fs-file.hello:")
-	require.Contains(t, body, "resource.std.fs-file.hello.path")
-	require.NoError(t, lang.ValidateFile(f).Err())
+	require.Contains(t, body, "hello: std.fs-file")
+	require.Contains(t, body, "resource.hello.path")
+	require.NotNil(t, f.Body)
 }
 
 func TestDecideSelectedUnobin(t *testing.T) {

@@ -20,6 +20,7 @@ import (
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -647,10 +648,52 @@ func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
+	if runnerUsesSyntaxFactory(f) {
+		sf, serrs := syntax.LowerFile(f)
+		if serrs.Len() > 0 {
+			return nil, nil, serrs.Err()
+		}
+		if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+			return nil, nil, verrs.Err()
+		}
+		f = &lang.File{
+			S:        sf.S,
+			Kind:     lang.FileFactory,
+			Path:     "factory.ub",
+			Body:     syntax.RuntimeFactoryBodyObject(sf.Factory.Body),
+			Comments: sf.Comments,
+		}
+	} else if errs := lang.ValidateFile(f); errs.Len() > 0 {
 		return nil, nil, errs.Err()
 	}
 	return f, runtime.BuildDAG(f, info.Libraries), nil
+}
+
+func runnerUsesSyntaxFactory(f *lang.File) bool {
+	if f == nil || f.Body == nil {
+		return false
+	}
+	if len(f.Body.Fields) == 1 {
+		fld := f.Body.Fields[0]
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "factory" {
+			return true
+		}
+	}
+	for _, fld := range f.Body.Fields {
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		switch fld.Key.Name {
+		case "resources", "data", "actions", "configurations":
+			for _, entry := range obj.Fields {
+				if entry.Decl != nil {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // loadStore resolves a state backend from the state: block of a

@@ -14,6 +14,10 @@ func Walk(e Expr, visit func(Expr)) {
 	switch v := e.(type) {
 	case *ObjectLit:
 		for _, fld := range v.Fields {
+			if fld.Decl != nil {
+				Walk(fld.Decl.Body, visit)
+				continue
+			}
 			Walk(fld.Value, visit)
 		}
 	case *ArrayLit:
