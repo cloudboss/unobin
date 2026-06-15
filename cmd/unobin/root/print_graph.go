@@ -4,15 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/compile"
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/spf13/cobra"
 )
 
@@ -73,21 +76,40 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		return errors.Join(errs...)
 	}
 
-	resolver, err := newCompileResolver(filepath.Dir(stackPath))
+	projectDir, err := printGraphProjectDir(filepath.Dir(stackPath))
 	if err != nil {
 		return err
 	}
-	resolver, err = compile.WrapReplaces(resolver, "", cfg.replaceUnobin, nil)
+	manifest, err := printGraphManifest(projectDir)
+	if err != nil {
+		return err
+	}
+	var replaceMap map[deps.Dependency]string
+	if manifest != nil {
+		replaceMap = manifest.Replace
+	}
+
+	resolver, err := newCompileResolver(projectDir)
+	if err != nil {
+		return err
+	}
+	resolver, err = compile.WrapReplaces(resolver, projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
 		return err
 	}
 
-	repoVersions, err := compile.LockedVersions(filepath.Dir(stackPath))
+	repoVersions, err := compile.LockedVersions(projectDir)
+	if err != nil {
+		return err
+	}
+	repoVersions = printGraphReplacedVersions(
+		repoVersions, cfg.replaceUnobin != "", replaceMap)
+	replaceUnobin, err := printGraphUnobinReplace(projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
 		return err
 	}
 	schemaRoots := compile.UnobinSchemaRoots(
-		cmd.ErrOrStderr(), cfg.replaceUnobin, cliVersion())
+		cmd.ErrOrStderr(), replaceUnobin, cliVersion())
 	libs, err := buildLibraryMap(refs, resolver, repoVersions, cmd.ErrOrStderr(), schemaRoots)
 	if err != nil {
 		return err
@@ -108,6 +130,70 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", cfg.format)
 	}
 	return nil
+}
+
+func printGraphProjectDir(sourceDir string) (string, error) {
+	projectDir, err := deps.FindManifestDir(sourceDir)
+	if err == nil {
+		return projectDir, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return sourceDir, nil
+	}
+	return "", err
+}
+
+func printGraphManifest(projectDir string) (*deps.Manifest, error) {
+	manifest, err := deps.ReadManifest(os.DirFS(projectDir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+func printGraphReplacedVersions(
+	versions map[string]string,
+	replaceUnobin bool,
+	replace map[deps.Dependency]string,
+) map[string]string {
+	if !replaceUnobin && len(replace) == 0 {
+		return versions
+	}
+	if versions == nil {
+		versions = map[string]string{}
+	}
+	if replaceUnobin {
+		versions[toolchain.UnobinModulePath] = "v0.0.0"
+	}
+	for dep := range replace {
+		versions[dep.URL] = "v0.0.0"
+	}
+	return versions
+}
+
+func printGraphUnobinReplace(
+	projectDir string,
+	cliReplace string,
+	replace map[deps.Dependency]string,
+) (string, error) {
+	if cliReplace != "" {
+		return filepath.Abs(cliReplace)
+	}
+	path, ok := replace[deps.Dependency{URL: toolchain.UnobinModulePath}]
+	if !ok {
+		return "", nil
+	}
+	return printGraphAbsReplacePath(projectDir, path)
+}
+
+func printGraphAbsReplacePath(root, path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	return filepath.Abs(path)
 }
 
 // buildLibraryMap turns each top-level import alias into a *runtime.Library.

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,6 +104,49 @@ factory: {
 	})
 
 	out, err := runCommand(t, "print-graph", "-p", dir)
+	require.NoError(t, err)
+	require.Equal(t, "action.hi\n", out)
+}
+
+func TestPrintGraphUsesAncestorProjectFiles(t *testing.T) {
+	root := t.TempDir()
+	child := filepath.Join(root, "stacks", "demo")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: { 'github.com/x/core': 'v1.0.0' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"), []byte(`
+factory: {
+  imports: { core: 'github.com/x/core' }
+  actions: { hi: core.command { argv: ['echo', 'hi'] } }
+}
+`), 0o644))
+	writeCompileLock(t, root, map[string]string{"github.com/x/core": "v1.0.0"})
+
+	out, err := runCommand(t, "print-graph", "-p", child)
+	require.NoError(t, err)
+	require.Equal(t, "action.hi\n", out)
+}
+
+func TestPrintGraphUsesManifestReplace(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "demo-lib")
+	require.NoError(t, os.MkdirAll(repo, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "noop.ub"), []byte(`
+noop: action {
+  description: 'No-op action composite.'
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\nreplace: { 'github.com/x/demo': './demo-lib' }\n"),
+		0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { demo: 'github.com/x/demo' }
+  actions: { hi: demo.noop {} }
+}
+`), 0o644))
+
+	out, err := runCommand(t, "print-graph", "-p", root)
 	require.NoError(t, err)
 	require.Equal(t, "action.hi\n", out)
 }
