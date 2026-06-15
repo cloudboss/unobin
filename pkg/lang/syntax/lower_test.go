@@ -350,7 +350,7 @@ outputs: {
 	assert.Contains(t, errs.Error(), "library file must contain composite declarations")
 }
 
-func TestRuntimeFactoryBodyObjectExpandsConfigurationRefs(t *testing.T) {
+func TestRuntimeFactoryBodyObjectKeepsConfigurationDeclarations(t *testing.T) {
 	f := parseFile(t, "factory.ub", `
 factory: {
   configurations: {
@@ -380,8 +380,8 @@ factory: {
 	formatted, err := lang.Format(out)
 	require.NoError(t, err)
 	want := `configurations: {
-  greet.default: {}
-  greet.formal: {
+  greet {}
+  formal: greet {
     prefix: configuration.greet.formal.prefix
   }
 }

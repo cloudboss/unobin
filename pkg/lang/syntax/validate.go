@@ -506,18 +506,19 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 
 // RuntimeFactoryBodyObject returns the generic AST object runtime code reads.
 func RuntimeFactoryBodyObject(body FactoryBody) *parse.ObjectLit {
-	obj := factoryBodyObject(body, nodeDeclsSelectorObject)
+	obj := factoryBodyObject(body, configurationDeclsSelectorObject, nodeDeclsSelectorObject)
 	expandConfigurationRefs(obj, body.Configurations)
 	return obj
 }
 
 // FactoryBodyObject returns the generic AST object for a lowered factory body.
 func FactoryBodyObject(body FactoryBody) *parse.ObjectLit {
-	return factoryBodyObject(body, nodeDeclsObject)
+	return factoryBodyObject(body, configurationDeclsObject, nodeDeclsObject)
 }
 
 func factoryBodyObject(
 	body FactoryBody,
+	configurations func([]ConfigurationDecl) *parse.ObjectLit,
 	nodes func([]NodeDecl) *parse.ObjectLit,
 ) *parse.ObjectLit {
 	obj := &parse.ObjectLit{S: body.S}
@@ -543,9 +544,8 @@ func factoryBodyObject(
 		obj.Fields = append(obj.Fields, identField("imports", imports.S, imports))
 	}
 	if len(body.Configurations) > 0 {
-		configurations := configurationDeclsObject(body.Configurations)
-		obj.Fields = append(obj.Fields,
-			identField("configurations", configurations.S, configurations))
+		cfgs := configurations(body.Configurations)
+		obj.Fields = append(obj.Fields, identField("configurations", cfgs.S, cfgs))
 	}
 	if len(body.Resources) > 0 {
 		resources := nodes(body.Resources)
@@ -690,6 +690,38 @@ func configurationDeclsObject(decls []ConfigurationDecl) *parse.ObjectLit {
 			pathField(key, decl.Selector.S, configurationDeclValue(decl)))
 	}
 	return obj
+}
+
+func configurationDeclsSelectorObject(decls []ConfigurationDecl) *parse.ObjectLit {
+	obj := &parse.ObjectLit{}
+	if len(decls) > 0 {
+		obj.S = decls[0].S
+	}
+	for _, decl := range decls {
+		obj.Fields = append(obj.Fields, configurationSelectorField(decl))
+	}
+	return obj
+}
+
+func configurationSelectorField(decl ConfigurationDecl) *parse.Field {
+	fld := &parse.Field{
+		S: decl.S,
+		Decl: &parse.SelectorBody{
+			S: decl.S,
+			Selector: parse.Selector{
+				S:     decl.Selector.S,
+				Parts: []parse.Ident{{S: decl.Selector.S, Name: decl.Selector.Name}},
+			},
+			Body: decl.Body,
+		},
+	}
+	if decl.Name == nil {
+		fld.Key = parse.FieldKey{S: decl.Selector.S, Kind: parse.FieldIdent, Name: decl.Selector.Name}
+		fld.Decl.Default = true
+		return fld
+	}
+	fld.Key = parse.FieldKey{S: decl.Name.S, Kind: parse.FieldIdent, Name: decl.Name.Name}
+	return fld
 }
 
 func configurationDeclValue(decl ConfigurationDecl) parse.Expr {

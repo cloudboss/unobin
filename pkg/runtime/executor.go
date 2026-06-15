@@ -273,8 +273,8 @@ func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
 	if e.configurationOverridden(alias, configuration) {
 		return "", false
 	}
-	addr := configurationAddress(alias, configuration)
-	if _, internal := e.DAG.Nodes[addr]; !internal {
+	addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
+	if !internal {
 		return "", false
 	}
 	if _, ok := e.internalConfiguration(addr); ok {
@@ -294,8 +294,8 @@ func (e *Executor) configFor(n *Node) any {
 		return e.lookupConfiguration(alias, configuration)
 	}
 	if e.DAG != nil {
-		addr := configurationAddress(alias, configuration)
-		if _, internal := e.DAG.Nodes[addr]; internal {
+		addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
+		if internal {
 			v, _ := e.internalConfiguration(addr)
 			return v
 		}
@@ -341,8 +341,8 @@ func (e *Executor) configForRef(ref, fallbackAlias string) (any, error) {
 		return e.lookupConfiguration(alias, configuration), nil
 	}
 	if e.DAG != nil {
-		addr := configurationAddress(alias, configuration)
-		if _, internal := e.DAG.Nodes[addr]; internal {
+		addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
+		if internal {
 			if v, ok := e.priorInternalConfiguration(addr); ok {
 				return v, nil
 			}

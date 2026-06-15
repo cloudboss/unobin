@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,6 +13,21 @@ func parseStack(t *testing.T, src string) *lang.File {
 	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	return f
+}
+
+func parseSyntaxFactory(t *testing.T, src string) *lang.File {
+	t.Helper()
+	f, err := syntax.ParseSource("factory.ub", []byte(src))
+	require.NoError(t, err)
+	require.Equal(t, syntax.FileFactory, f.Kind)
+	require.NotNil(t, f.Factory)
+	return &lang.File{
+		S:        f.S,
+		Kind:     lang.FileFactory,
+		Path:     f.Path,
+		Body:     syntax.RuntimeFactoryBodyObject(f.Factory.Body),
+		Comments: f.Comments,
+	}
 }
 
 func TestExtractNodesEmpty(t *testing.T) {

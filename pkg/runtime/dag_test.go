@@ -441,6 +441,47 @@ resources: {
 		"configuration.k8s.cluster")
 }
 
+func TestBuildDAGSourceConfigurationNodeUsesNameAddress(t *testing.T) {
+	g := BuildDAG(parseSyntaxFactory(t, `
+factory: {
+  configurations: {
+    formal: k8s { host: resource.cluster.endpoint }
+  }
+  resources: {
+    cluster: aws.eks { name: 'web' }
+    apps: k8s.namespace { @configuration: configuration.formal, name: 'apps' }
+  }
+}
+`), nil)
+	cfg, ok := g.Nodes["configuration.formal"]
+	require.True(t, ok, "configuration node should exist")
+	require.Equal(t, NodeConfiguration, cfg.Kind)
+	require.Equal(t, "k8s", cfg.Alias)
+	require.Equal(t, "formal", cfg.Name)
+	require.NotContains(t, g.Nodes, "configuration.k8s.formal")
+	require.Equal(t, []string{"resource.cluster"}, g.Edges["configuration.formal"])
+	require.Contains(t, g.Edges["resource.apps"], "configuration.formal")
+}
+
+func TestBuildDAGSourceDefaultConfigurationUsesSelectorDefaultAddress(t *testing.T) {
+	g := BuildDAG(parseSyntaxFactory(t, `
+factory: {
+  configurations: {
+    aws { region: var.region }
+  }
+  resources: {
+    cluster: aws.eks { name: 'web' }
+  }
+}
+`), nil)
+	cfg, ok := g.Nodes["configuration.aws.default"]
+	require.True(t, ok, "configuration node should exist")
+	require.Equal(t, NodeConfiguration, cfg.Kind)
+	require.Equal(t, "aws", cfg.Alias)
+	require.Equal(t, "default", cfg.Name)
+	require.Contains(t, g.Edges["resource.cluster"], "configuration.aws.default")
+}
+
 func TestBuildDAGDefaultSelectionEdgesToInternalDefault(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
 configurations: {

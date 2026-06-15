@@ -419,11 +419,32 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 	return out
 }
 
-// configurationAddress returns the node address of an internal
-// configuration: the `configuration.` root, the import alias, and the
-// configuration name.
 func configurationAddress(alias, name string) string {
 	return "configuration." + alias + "." + name
+}
+
+func selectorConfigurationAddress(alias, name string) string {
+	if name == "default" {
+		return configurationAddress(alias, name)
+	}
+	return "configuration." + name
+}
+
+func configurationNodeAddress(
+	nodes map[string]*Node,
+	alias string,
+	name string,
+) (string, bool) {
+	legacy := configurationAddress(alias, name)
+	if _, ok := nodes[legacy]; ok {
+		return legacy, true
+	}
+	selector := selectorConfigurationAddress(alias, name)
+	n, ok := nodes[selector]
+	if ok && n.Alias == alias && n.Name == name {
+		return selector, true
+	}
+	return "", false
 }
 
 // InternalConfigurationNames returns the configuration names a factory
@@ -451,15 +472,17 @@ func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 }
 
 // extractConfigurations walks a factory's configurations: block and
-// returns one node per defined configuration. Every entry is keyed by
-// a dotted alias.name path; the node's Body is the configuration's
-// object of fields or a whole expression that evaluates to one, and
-// Alias and Name record which import it configures and the
-// configuration's name. Like outputs, configurations are defined only
-// at the factory root.
+// returns one node per defined configuration. Like outputs,
+// configurations are defined only at the factory root.
 func extractConfigurations(block *lang.ObjectLit) []*Node {
 	var out []*Node
 	for _, fld := range block.Fields {
+		if fld.Decl != nil {
+			if n := selectorConfigurationNode(fld); n != nil {
+				out = append(out, n)
+			}
+			continue
+		}
 		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
 			continue
 		}
@@ -473,6 +496,27 @@ func extractConfigurations(block *lang.ObjectLit) []*Node {
 		})
 	}
 	return out
+}
+
+func selectorConfigurationNode(fld *lang.Field) *Node {
+	if len(fld.Decl.Selector.Parts) != 1 {
+		return nil
+	}
+	alias := fld.Decl.Selector.Parts[0].Name
+	name := "default"
+	if !fld.Decl.Default {
+		if fld.Key.Kind != lang.FieldIdent {
+			return nil
+		}
+		name = fld.Key.Name
+	}
+	return &Node{
+		Address: selectorConfigurationAddress(alias, name),
+		Kind:    NodeConfiguration,
+		Alias:   alias,
+		Name:    name,
+		Body:    fld.Decl.Body,
+	}
 }
 
 func extractOutputs(block *lang.ObjectLit) []*Node {

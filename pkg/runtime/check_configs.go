@@ -51,7 +51,7 @@ func (e *Executor) checkConfigurationBodyRefs(n *Node) []error {
 			return
 		}
 		alias, name := dp.Segments[0].Name, dp.Segments[1].Name
-		if _, internal := e.DAG.Nodes[configurationAddress(alias, name)]; internal {
+		if _, internal := configurationNodeAddress(e.DAG.Nodes, alias, name); internal {
 			errs = append(errs, fmt.Errorf(
 				"%s: references configuration %s.%s, which this factory defines; "+
 					"only operator-supplied configurations are referenceable",
@@ -105,7 +105,7 @@ func (e *Executor) configurationDeclared(alias, name string) bool {
 	if _, ok := e.Configurations[alias][name]; ok {
 		return true
 	}
-	_, ok := e.DAG.Nodes[configurationAddress(alias, name)]
+	_, ok := configurationNodeAddress(e.DAG.Nodes, alias, name)
 	return ok
 }
 
