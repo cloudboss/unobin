@@ -27,8 +27,8 @@ func (e *Executor) applyInputDefaults(
 }
 
 // overlayDefaults fills declared Value defaults into a body's evaluated
-// inputs. A default applies when its field is left out or null and is
-// not still waiting on an upstream output; a value the body set stays,
+// inputs. A default applies when its field is left out and is not still
+// waiting on an upstream output; a value the body set stays, null and
 // the zero value included. A dotted field applies only when every
 // parent object is present, so an absent optional object is not
 // invented; an Optional marker fills nothing. The literal source in a
@@ -62,7 +62,7 @@ func overlayDefaults(
 			continue
 		}
 		leaf := segments[len(segments)-1]
-		if v, ok := target[leaf]; ok && v != nil {
+		if _, ok := target[leaf]; ok {
 			continue
 		}
 		val, err := evalDefaultLiteral(path, s.Value)

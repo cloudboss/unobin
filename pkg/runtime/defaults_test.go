@@ -30,10 +30,10 @@ func TestOverlayDefaults(t *testing.T) {
 			want:   map[string]any{"name": "a", "mode": int64(420)},
 		},
 		{
-			name:   "fills a null field",
+			name:   "keeps a null field",
 			inputs: map[string]any{"mode": nil},
 			specs:  []lang.DefaultSpec{value("var.mode", "420")},
-			want:   map[string]any{"mode": int64(420)},
+			want:   map[string]any{"mode": nil},
 		},
 		{
 			name:   "keeps a set value",
