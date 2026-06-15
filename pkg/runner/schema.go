@@ -349,6 +349,19 @@ func placeholderForFieldType(t string) string {
 
 func placeholderForType(e lang.Expr) string {
 	switch v := e.(type) {
+	case *lang.TypeAtomic:
+		switch v.Name {
+		case "string":
+			return "''"
+		case "integer", "number":
+			return "0"
+		case "boolean":
+			return "false"
+		}
+	case *lang.TypeList:
+		return "[]"
+	case *lang.TypeMap, *lang.TypeObject:
+		return "{}"
 	case *lang.Ident:
 		switch v.Name {
 		case "string":
@@ -376,6 +389,30 @@ func placeholderForType(e lang.Expr) string {
 // because Render formats evaluated Go values rather than AST nodes.
 func printType(e lang.Expr) string {
 	switch v := e.(type) {
+	case *lang.TypeAtomic:
+		return v.Name
+	case *lang.TypeList:
+		return "list(" + printType(v.Elem) + ")"
+	case *lang.TypeMap:
+		return "map(" + printType(v.Elem) + ")"
+	case *lang.TypeTuple:
+		args := make([]string, len(v.Elements))
+		for i, elem := range v.Elements {
+			args[i] = printType(elem)
+		}
+		return "tuple(" + strings.Join(args, ", ") + ")"
+	case *lang.TypeObject:
+		fields := make([]string, len(v.Fields))
+		for i, field := range v.Fields {
+			fields[i] = field.Name + ": " + printTypeObjectField(field)
+		}
+		out := "object({ " + strings.Join(fields, ", ") + " })"
+		if v.Open {
+			return "open(" + out + ")"
+		}
+		return out
+	case *lang.TypeOptional:
+		return "optional(" + printType(v.Elem) + ")"
 	case *lang.Ident:
 		return v.Name
 	case *lang.Call:
@@ -405,6 +442,30 @@ func printType(e lang.Expr) string {
 			args[i] = printType(el)
 		}
 		return "[" + strings.Join(args, ", ") + "]"
+	case *lang.ObjectLit:
+		fields := make([]string, 0, len(v.Fields))
+		for _, field := range v.Fields {
+			fields = append(fields, printTypeField(field))
+		}
+		return "{ " + strings.Join(fields, ", ") + " }"
+	}
+	return "?"
+}
+
+func printTypeField(field *lang.Field) string {
+	name := field.Key.Name
+	if field.Key.Kind == lang.FieldString {
+		name = "'" + field.Key.String + "'"
+	}
+	return name + ": " + printType(field.Value)
+}
+
+func printTypeObjectField(field *lang.TypeObjectField) string {
+	if field.Type != nil {
+		return printType(field.Type)
+	}
+	if field.Decl != nil {
+		return printType(field.Decl)
 	}
 	return "?"
 }

@@ -267,6 +267,7 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 				}
 				continue
 			}
+			df.Value = t
 			if defaultExpr := declaredDefaultExpr(decl); defaultExpr != nil {
 				checkDefaultIdents(name, defaultExpr, nil, errs)
 			}

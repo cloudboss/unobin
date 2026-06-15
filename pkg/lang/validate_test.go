@@ -120,6 +120,28 @@ inputs: {
 	require.Equal(t, ErrType, errs.Errors()[0].Kind)
 }
 
+func TestValidateInputDeclarationsStoresParsedTypes(t *testing.T) {
+	block := parseInputsBlock(t, `
+inputs: {
+  cfg: { type: object({ port: { type: integer, default: 8080 } }) }
+}
+`)
+
+	errs := ValidateInputDeclarations(block)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+
+	decl := block.Fields[0].Value.(*ObjectLit)
+	typeField := decl.Fields[0]
+	require.IsType(t, &TypeObject{}, typeField.Value)
+
+	obj := typeField.Value.(*TypeObject)
+	require.Len(t, obj.Fields, 1)
+	nested := obj.Fields[0]
+	require.NotNil(t, nested.Decl)
+	nestedTypeField := nested.Decl.Fields[0]
+	require.IsType(t, &TypeAtomic{}, nestedTypeField.Value)
+}
+
 func constraintsBlock(f *File) (*ArrayLit, bool) {
 	if len(f.Body.Fields) == 0 || f.Body.Fields[0].Key.Name != "constraints" {
 		return nil, false
