@@ -34,8 +34,11 @@ imports: {
 func TestImportedReposScansLocalLibraries(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "main.ub"), "imports: { greeter: './greeter' }\n")
-	writeUB(t, filepath.Join(root, "greeter", "resource-greeting.ub"),
-		"imports: { helloer: 'github.com/scratch/repo//ub/helloer' }\n")
+	writeUB(t, filepath.Join(root, "greeter", "library.ub"), `
+greeting: resource {
+  imports: { helloer: 'github.com/scratch/repo//ub/helloer' }
+}
+`)
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]bool{

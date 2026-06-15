@@ -12,8 +12,8 @@ import (
 )
 
 // LockFromImports builds the lock for the project rooted at rootFS. It
-// walks every .ub file under the root -- legacy main.ub, grammar-first
-// factory.ub, library bodies at the root, or libraries in subdirectories --
+// walks every .ub file under the root -- factory.ub, library files at the
+// root, or libraries in subdirectories --
 // and through remote UB libraries their imports too. Each remote library
 // becomes one lock entry, keyed by `repo//subdir`. Local imports are not
 // locked and need no following: the walk already visits every file under the

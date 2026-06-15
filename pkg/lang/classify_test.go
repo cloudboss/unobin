@@ -18,7 +18,7 @@ func TestClassifyByFilename(t *testing.T) {
 		{"manifest.ub", FileManifest},
 		{"deep/path/manifest.ub", FileManifest},
 		{"library.ub", FileUnknown},
-		{"resource-greeting.ub", FileUnknown},
+		{"greeting.ub", FileUnknown},
 		{"config.ub", FileUnknown},
 		{"prod.ub", FileUnknown},
 		{"", FileUnknown},
@@ -38,7 +38,7 @@ func TestParseSourceSetsKind(t *testing.T) {
 		{"factory.ub", FileFactory},
 		{"main.ub", FileFactory},
 		{"manifest.ub", FileManifest},
-		{"resource-greeting.ub", FileUnknown},
+		{"greeting.ub", FileUnknown},
 		{"", FileUnknown},
 	}
 	for _, c := range cases {

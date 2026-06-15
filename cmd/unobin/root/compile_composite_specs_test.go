@@ -35,11 +35,13 @@ resources: {
 
 	filesDir := filepath.Join(dir, "libraries", "files")
 	require.NoError(t, os.MkdirAll(filesDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(filesDir, "resource-archive.ub"), []byte(`
-description: 'writes one archive member file'
-inputs:      { path: { type: string }, body: { type: string } }
-imports:     { disk: 'github.com/example/disk' }
-resources:   { disk.file.this: { path: var.path, content: var.body } }
+	require.NoError(t, os.WriteFile(filepath.Join(filesDir, "library.ub"), []byte(`
+archive: resource {
+  description: 'writes one archive member file'
+  inputs: { path: { type: string }, body: { type: string } }
+  imports: { disk: 'github.com/example/disk' }
+  resources: { disk.file.this: { path: var.path, content: var.body } }
+}
 `), 0o644))
 
 	diskDir := t.TempDir()

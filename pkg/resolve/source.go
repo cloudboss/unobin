@@ -1,9 +1,6 @@
 package resolve
 
-import (
-	"io/fs"
-	"strings"
-)
+import "io/fs"
 
 // Source is the file tree of a resolved import, rooted at the import's
 // subdirectory, or the repo root when there is no subdir. For remote
@@ -27,10 +24,8 @@ type Resolver interface {
 }
 
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
-// holding at least one `.ub` file and no factory source. Library files can
-// be legacy kind-prefixed bodies (`resource-*.ub`, `data-*.ub`,
-// `action-*.ub`) or grammar-first composite declarations. A bad `.ub` file
-// is caught when the library is parsed, not here, so the author gets a clear
+// holding at least one `.ub` file and no factory source. A bad `.ub` file is
+// caught when the library is parsed, not here, so the author gets a clear
 // error rather than having the whole directory silently treated as a Go
 // library. Sources with no `.ub` files are Go libraries.
 func IsUBLibrary(s *Source) bool {
@@ -59,23 +54,4 @@ func containsRootFile(s *Source, name string) bool {
 	}
 	_, err := fs.Stat(s.FS, name)
 	return err == nil
-}
-
-// ubKindAndType splits a kind-prefixed body filename into its kind
-// (`resource`, `data`, or `action`) and the type name. It reports
-// ok=false for any name that is not `<kind>-<type>.ub`.
-func ubKindAndType(filename string) (kind, typeName string, ok bool) {
-	base, found := strings.CutSuffix(filename, ".ub")
-	if !found {
-		return "", "", false
-	}
-	prefix, rest, found := strings.Cut(base, "-")
-	if !found || rest == "" {
-		return "", "", false
-	}
-	switch prefix {
-	case "resource", "data", "action":
-		return prefix, rest, true
-	}
-	return "", "", false
 }

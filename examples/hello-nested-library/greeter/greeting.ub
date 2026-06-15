@@ -1,12 +1,12 @@
 greeting: resource {
-  description: 'Greets by delegating the file write to the remote helloer library.'
+  description: 'Greets by delegating the file write to the helloer library.'
 
   inputs: {
     message: { type: string }
     path:    { type: string }
   }
 
-  imports: { helloer: 'github.com/cloudboss/unobin-libraries-scratch//ub/helloer' }
+  imports: { helloer: './helloer' }
 
   resources: {
     file: helloer.hello {

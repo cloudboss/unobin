@@ -159,16 +159,14 @@ func TestPrintGraphExpandsLocalUBLibraryComposite(t *testing.T) {
 
 	greeterDir := filepath.Join(root, "greeter")
 	require.NoError(t, os.MkdirAll(greeterDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "resource-greeting.ub"), []byte(`
-description: 'Greeting composite'
-
-inputs: { message: { type: string } }
-
-imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
-
-resources: { local.file.this: { path: '/tmp/greeting', content: var.message } }
-
-outputs: { path: { value: resource.local.file.this.path } }
+	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "library.ub"), []byte(`
+greeting: resource {
+  description: 'Greeting composite'
+  inputs: { message: { type: string } }
+  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
+  resources: { this: local.file { path: '/tmp/greeting', content: var.message } }
+  outputs: { path: { value: resource.this.path } }
+}
 `), 0o644))
 
 	stackDir := filepath.Join(root, "stack")
@@ -184,9 +182,9 @@ resources: { greeter.greeting.hello: { message: var.who } }
 	out, err := runCommand(t, "print-graph", "-p", stackPath)
 	require.NoError(t, err)
 	want := `resource.greeter.greeting.hello
-  -> resource.greeter.greeting.hello/resource.local.file.this
+  -> resource.greeter.greeting.hello/resource.this
 
-resource.greeter.greeting.hello/resource.local.file.this
+resource.greeter.greeting.hello/resource.this
   -> var.who
 `
 	require.Equal(t, want, out)

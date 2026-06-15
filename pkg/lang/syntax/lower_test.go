@@ -332,8 +332,8 @@ lookup: data {
 	assert.Equal(t, "lookup", got.Library.Exports[1].Name.Name)
 }
 
-func TestLowerExportedTypeFile(t *testing.T) {
-	f := parseFile(t, "resource-greeting.ub", `
+func TestLowerExportedTypeFileRequiresDeclarations(t *testing.T) {
+	f := parseFile(t, "library.ub", `
 inputs: {
   message: { type: string }
 }
@@ -343,18 +343,9 @@ outputs: {
 }
 `, parse.FileExportedType)
 
-	got, errs := LowerFile(f)
-	require.Equal(t, 0, errs.Len(), errs.Error())
-	require.Equal(t, FileLibrary, got.Kind)
-	require.NotNil(t, got.Library)
-	requireSpan(t, got.Library.S)
-	require.Len(t, got.Library.Exports, 1)
-	requireSpan(t, got.Library.Exports[0].S)
-	requireSpan(t, got.Library.Exports[0].Body.S)
-	assert.Equal(t, "greeting", got.Library.Exports[0].Name.Name)
-	assert.Equal(t, NodeResource, got.Library.Exports[0].Kind)
-	require.Len(t, got.Library.Exports[0].Body.Inputs, 1)
-	require.Len(t, got.Library.Exports[0].Body.Outputs, 1)
+	_, errs := LowerFile(f)
+	require.Equal(t, 1, errs.Len(), errs.Error())
+	assert.Contains(t, errs.Error(), "library file must contain composite declarations")
 }
 
 func TestRuntimeFactoryBodyObjectExpandsConfigurationRefs(t *testing.T) {

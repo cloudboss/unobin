@@ -62,11 +62,10 @@ type Resolution struct {
 
 // UBLibrary has everything the visitor needs about a UB library the
 // first time the walker reaches it. Bodies maps node kind and composite
-// name to the parsed body file; the name comes from a kind-prefixed
-// filename (`<kind>-<type>.ub`) or a grammar-first composite declaration.
-// BodyImports maps the same kind and name to the resolved imports declared
-// by that body, in alias-sorted order so callers see a stable view across
-// runs.
+// name to the parsed body file; the name comes from a source-declared
+// composite declaration. BodyImports maps the same kind and name to the
+// resolved imports declared by that body, in alias-sorted order so callers
+// see a stable view across runs.
 type UBLibrary struct {
 	Bodies      map[string]map[string]*lang.File
 	BodyImports map[string]map[string][]Resolution
@@ -276,8 +275,8 @@ func (w *ubWalker) handleUBImport(
 	}, nil
 }
 
-// parseLibrary reads a UB library's composite bodies from kind-prefixed body
-// files and source-declared composite export files.
+// parseLibrary reads a UB library's composite bodies from source-declared
+// composite export files.
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	matches, err := fs.Glob(source.FS, "*.ub")
 	if err != nil {
@@ -286,26 +285,11 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	slices.Sort(matches)
 	bodies := make(map[string]map[string]*lang.File, len(matches))
 	for _, filename := range matches {
-		kind, typeName, ok := ubKindAndType(filename)
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
 		}
-		if !ok {
-			if err := addSourceDeclaredLibraryFile(filename, b, bodies); err != nil {
-				return nil, err
-			}
-			continue
-		}
-		f, err := lang.ParseSource(filename, b)
-		if err != nil {
-			return nil, err
-		}
-		f.Kind = lang.FileExportedType
-		if errs := lang.ValidateFile(f); errs.Len() > 0 {
-			return nil, errs.Err()
-		}
-		if err := addLibraryBody(typeName, kind, f, bodies); err != nil {
+		if err := addSourceDeclaredLibraryFile(filename, b, bodies); err != nil {
 			return nil, err
 		}
 	}
@@ -323,16 +307,10 @@ func addSourceDeclaredLibraryFile(
 	}
 	sf, serrs := syntax.LowerFile(f)
 	if serrs.Len() > 0 {
-		return fmt.Errorf(
-			"library file %q must be named <resource|data|action>-<type>.ub "+
-				"or contain composite declarations",
-			filename)
+		return fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if sf.Kind != syntax.FileLibrary || sf.Library == nil {
-		return fmt.Errorf(
-			"library file %q must be named <resource|data|action>-<type>.ub "+
-				"or contain composite declarations",
-			filename)
+		return fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
 		return verrs.Err()

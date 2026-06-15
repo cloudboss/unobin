@@ -37,7 +37,7 @@ type FileKind int
 const (
 	FileUnknown FileKind = iota
 	FileFactory
-	FileExportedType // A kind-prefixed <kind>-<type>.ub inside a library.
+	FileExportedType // A lowered composite body inside a library.
 	FileConfig       // The config .ub file for a factory.
 	FileManifest     // The manifest.ub file declaring dependency floors.
 )

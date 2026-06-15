@@ -442,16 +442,7 @@ func lowerLibraryFile(f *parse.File, errs *parse.ErrorList) *LibraryFile {
 		library.Exports = lowerCompositeDecls(f.Body, errs)
 		return library
 	}
-	name, kind, ok := compositeNameFromPath(f.Path, f.S.Start, errs)
-	if !ok {
-		return library
-	}
-	library.Exports = append(library.Exports, CompositeDecl{
-		S:    f.S,
-		Name: name,
-		Kind: kind,
-		Body: lowerFactoryBody(f.Body, errs),
-	})
+	errs.Addf(parse.ErrSchema, f.S.Start, "library file must contain composite declarations")
 	return library
 }
 
@@ -523,33 +514,6 @@ func compositeKind(sel parse.Selector, errs *parse.ErrorList) (NodeKind, bool) {
 			"library export selector must be resource, data, or action")
 		return "", false
 	}
-}
-
-func compositeNameFromPath(
-	path string,
-	pos parse.Position,
-	errs *parse.ErrorList,
-) (Ident, NodeKind, bool) {
-	base := filepath.Base(path)
-	if !strings.HasSuffix(base, ".ub") {
-		errs.Addf(parse.ErrSchema, pos,
-			"library export filename must end in .ub")
-		return Ident{}, "", false
-	}
-	stem := strings.TrimSuffix(base, ".ub")
-	for prefix, kind := range map[string]NodeKind{
-		"resource-": NodeResource,
-		"data-":     NodeData,
-		"action-":   NodeAction,
-	} {
-		if name, ok := strings.CutPrefix(stem, prefix); ok && name != "" {
-			return Ident{S: parse.Span{Start: pos, End: pos}, Name: name}, kind, true
-		}
-	}
-	errs.Addf(parse.ErrSchema, pos,
-		"library export filename must be resource-<name>.ub, data-<name>.ub, "+
-			"or action-<name>.ub")
-	return Ident{}, "", false
 }
 
 func lowerInputs(block *parse.ObjectLit, errs *parse.ErrorList) []InputDecl {

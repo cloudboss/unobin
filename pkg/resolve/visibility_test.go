@@ -100,13 +100,16 @@ func TestWalkUBRefusesCrossRepoInternalImport(t *testing.T) {
 
 func TestWalkUBAllowsSameRepoInternalImport(t *testing.T) {
 	aSrc := newUBSource(t, map[string]string{
-		"resource-widget.ub": `description: 'widget'
-imports: { shared: 'github.com/x/y//internal/shared' }
-inputs: { x: { type: string } }
+		"library.ub": `
+widget: resource {
+  description: 'widget'
+  imports: { shared: 'github.com/x/y//internal/shared' }
+  inputs: { x: { type: string } }
+}
 `,
 	})
 	sharedSrc := newUBSource(t, map[string]string{
-		"resource-shared.ub": "description: 'shared'\ninputs: { y: { type: string } }\n",
+		"library.ub": "shared: resource { description: 'shared' inputs: { y: { type: string } } }\n",
 	})
 	r := &fakeUBResolver{remotes: map[string]*Source{
 		"github.com/x/y//pkg/a@v1":           aSrc,
@@ -129,9 +132,12 @@ inputs: { x: { type: string } }
 
 func TestWalkUBRefusesInternalImportInCompositeBody(t *testing.T) {
 	aSrc := newUBSource(t, map[string]string{
-		"resource-widget.ub": `description: 'widget'
-imports: { secret: 'github.com/other/z//internal/secret' }
-inputs: { x: { type: string } }
+		"library.ub": `
+widget: resource {
+  description: 'widget'
+  imports: { secret: 'github.com/other/z//internal/secret' }
+  inputs: { x: { type: string } }
+}
 `,
 	})
 	r := &fakeUBResolver{remotes: map[string]*Source{
@@ -152,7 +158,7 @@ inputs: { x: { type: string } }
 
 func TestWalkUBAllowsLocalInternalPath(t *testing.T) {
 	localSrc := newUBSource(t, map[string]string{
-		"resource-thing.ub": "description: 't'\ninputs: { x: { type: string } }\n",
+		"library.ub": "thing: resource { description: 't' inputs: { x: { type: string } } }\n",
 	})
 	r := &fakeUBResolver{locals: map[string]*Source{
 		"./internal/helper": localSrc,

@@ -23,8 +23,8 @@ func goSrc(commit string) *resolve.Source {
 	return &resolve.Source{Commit: commit, FS: mapFS(map[string]string{"lib.go": "package lib"})}
 }
 
-// ubSrc is a fetched UB-library source: its body files (kind-prefixed
-// .ub) hold whatever imports the test needs for recursion.
+// ubSrc is a fetched UB-library source; its .ub files hold whatever
+// imports the test needs for recursion.
 func ubSrc(commit, hash string, files map[string]string) *resolve.Source {
 	return &resolve.Source{Commit: commit, Hash: hash, FS: mapFS(files)}
 }
@@ -126,7 +126,11 @@ func TestLockFromImportsReplacedUBLocksTransitive(t *testing.T) {
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/me/mylib", "", ""): ubSrc("local", "", map[string]string{
-			"resource-thing.ub": "imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }\n",
+			"library.ub": `
+thing: resource {
+  imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
+}
+`,
 		}),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
 	}}
@@ -143,10 +147,14 @@ func TestLockFromImportsReplacedUBLocksTransitive(t *testing.T) {
 }
 
 func TestLockFromImportsLibraryProject(t *testing.T) {
-	// A library project has no main.ub; its imports live in the
-	// <kind>-<type>.ub body files at the project root.
+	// A library project has no main.ub; its imports live in source-declared
+	// composite files at the project root.
 	root := mapFS(map[string]string{
-		"resource-greeting.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
+		"library.ub": `
+greeting: resource {
+  imports: { hello: 'github.com/scratch/repo//ub/helloer' }
+}
+`,
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): goSrc("c1"),
@@ -165,8 +173,11 @@ func TestLockFromImportsMultiLibraryRepo(t *testing.T) {
 	// A repo whose libraries live in subdirectories, with no main.ub or
 	// root-level body files; the walk must descend into the subdirs.
 	root := mapFS(map[string]string{
-		"ub/helloer/resource-hello.ub": "" +
-			"imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
+		"ub/helloer/library.ub": `
+hello: resource {
+  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
+}
+`,
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.5.0"): goSrc("c1"),
@@ -187,8 +198,11 @@ func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2", map[string]string{
-			"resource-greeting.ub": "" +
-				"imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }\n",
+			"library.ub": `
+greeting: resource {
+  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
+}
+`,
 		}),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}
@@ -243,17 +257,25 @@ greeting: resource {
 
 func TestLockFromImportsFollowsLocalWithoutLocking(t *testing.T) {
 	root := mapFS(map[string]string{
-		"main.ub":                      "imports: { greeter: './greeter' }\n",
-		"greeter/resource-greeting.ub": "imports: { hello: 'github.com/scratch/repo//ub/helloer' }\n",
+		"main.ub": "imports: { greeter: './greeter' }\n",
+		"greeter/library.ub": `
+greeting: resource {
+  imports: { hello: 'github.com/scratch/repo//ub/helloer' }
+}
+`,
 	})
 	r := &fakeResolver{
 		sources: map[string]*resolve.Source{
 			srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2",
-				map[string]string{"resource-greeting.ub": "outputs: { greeting: { value: 'hi' } }\n"}),
+				map[string]string{"library.ub": `
+greeting: resource {
+  outputs: { greeting: { value: 'hi' } }
+}
+`}),
 		},
 		locals: map[string]*resolve.Source{
 			"./greeter": ubSrc("", "", map[string]string{
-				"resource-greeting.ub": "description: 'greeter'\n",
+				"library.ub": "greeting: resource { description: 'greeter' }\n",
 			}),
 		},
 	}
@@ -329,10 +351,18 @@ func TestLockFromImportsDetectsCycle(t *testing.T) {
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/a", "lib", "v1.0.0"): ubSrc("ca", "ha", map[string]string{
-			"resource-a.ub": "imports: { b: 'github.com/x/b//lib' }\n",
+			"library.ub": `
+a: resource {
+  imports: { b: 'github.com/x/b//lib' }
+}
+`,
 		}),
 		srcKey("github.com/x/b", "lib", "v1.0.0"): ubSrc("cb", "hb", map[string]string{
-			"resource-b.ub": "imports: { a: 'github.com/x/a//lib' }\n",
+			"library.ub": `
+b: resource {
+  imports: { a: 'github.com/x/a//lib' }
+}
+`,
 		}),
 	}}
 	sel := map[Dependency]string{
