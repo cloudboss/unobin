@@ -1367,6 +1367,20 @@ func TestSingleLineWidthCommentInsideCollectionForcesBreak(t *testing.T) {
 	require.Equal(t, -1, w.singleLineWidth(f.Body.Fields[0].Value))
 }
 
+func TestFormatParsedOpenObjectType(t *testing.T) {
+	file := &File{Body: &ObjectLit{Fields: []*Field{{
+		Key: FieldKey{Kind: FieldIdent, Name: "t"},
+		Value: &TypeObject{Open: true, Fields: []*TypeObjectField{{
+			Name: "a",
+			Type: &TypeAtomic{Name: "string"},
+		}}},
+	}}}}
+
+	got, err := Format(file)
+	require.NoError(t, err)
+	require.Equal(t, "t: open(object({\n  a: string\n}))\n", string(got))
+}
+
 func TestSingleLineWidthPromotedTypeExpressions(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1377,6 +1391,7 @@ func TestSingleLineWidthPromotedTypeExpressions(t *testing.T) {
 		{"list", "list(string)", len("list(string)")},
 		{"optional", "optional(map(string))", len("optional(map(string))")},
 		{"empty type object", "object({})", len("object({})")},
+		{"empty open type object", "open(object({}))", len("open(object({}))")},
 		{"non-empty type object forces break", "object({ a: integer })", -1},
 		{"tuple", "tuple(string, integer)", len("tuple(string, integer)")},
 	}

@@ -551,6 +551,9 @@ func (w *formatter) typeExprWidth(t TypeExpr) int {
 		return len("map(") + i + 1
 	case *TypeObject:
 		if len(x.Fields) == 0 {
+			if x.Open {
+				return len("open(object({}))")
+			}
 			return len("object({})")
 		}
 		return -1
@@ -1759,6 +1762,16 @@ func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
 		}
 		w.buf.WriteByte(')')
 	case *TypeObject:
+		if x.Open {
+			w.buf.WriteString("open(")
+			closed := *x
+			closed.Open = false
+			if err := w.writeTypeObject(&closed, indent); err != nil {
+				return err
+			}
+			w.buf.WriteByte(')')
+			return nil
+		}
 		return w.writeTypeObject(x, indent)
 	case *TypeTuple:
 		w.buf.WriteString("tuple(")
