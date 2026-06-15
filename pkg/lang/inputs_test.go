@@ -50,8 +50,16 @@ func litEval(e Expr) (any, error) {
 	return nil, nil
 }
 
+func parseValidatedInputsBlock(t *testing.T, src string) *ObjectLit {
+	t.Helper()
+	block := parseInputsBlock(t, src)
+	errs := ValidateInputDeclarations(block)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+	return block
+}
+
 func TestValidateInputsAtomic(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: string }
   size:   { type: integer }
@@ -71,7 +79,7 @@ inputs: {
 }
 
 func TestValidateInputsTypeMismatch(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: integer }
 }
@@ -83,7 +91,7 @@ inputs: {
 }
 
 func TestValidateInputsIntegerRejectsNumber(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: integer }
 }
@@ -99,7 +107,7 @@ inputs: {
 }
 
 func TestValidateInputsRequiredMissing(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: string }
 }
@@ -110,7 +118,7 @@ inputs: {
 }
 
 func TestValidateInputsRequiredNull(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: string }
 }
@@ -121,7 +129,7 @@ inputs: {
 }
 
 func TestValidateInputsOptionalNoDefaultMissing(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: optional(string) }
 }
@@ -132,7 +140,7 @@ inputs: {
 }
 
 func TestValidateInputsOptionalNoDefaultExplicitNull(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: optional(string) }
 }
@@ -143,7 +151,7 @@ inputs: {
 }
 
 func TestValidateInputsOptionalDefaultAppliedOnMissing(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: optional(integer), default: 3 }
 }
@@ -154,7 +162,7 @@ inputs: {
 }
 
 func TestValidateInputsOptionalDefaultKeepsNull(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: optional(integer), default: 3 }
 }
@@ -165,7 +173,7 @@ inputs: {
 }
 
 func TestValidateInputsOptionalDefaultRespectsValue(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: optional(integer), default: 3 }
 }
@@ -176,7 +184,7 @@ inputs: {
 }
 
 func TestValidateInputsRequiredDefaultAppliedOnMissing(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: integer, default: 3 }
 }
@@ -187,7 +195,7 @@ inputs: {
 }
 
 func TestValidateInputsRequiredDefaultRejectsNull(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: integer, default: 3 }
 }
@@ -198,7 +206,7 @@ inputs: {
 }
 
 func TestValidateInputsNestedDefaultsApplied(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   spec: {
     type: object({
@@ -223,7 +231,7 @@ inputs: {
 }
 
 func TestValidateInputsNestedOptionalNoDefaultStaysNull(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   spec: {
     type: object({
@@ -243,7 +251,7 @@ inputs: {
 }
 
 func TestValidateInputsNestedModifierEnforced(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   spec: {
     type: object({
@@ -266,7 +274,7 @@ inputs: {
 }
 
 func TestValidateInputsNestedDefaultSatisfiesType(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   spec: {
     type: object({
@@ -285,7 +293,7 @@ inputs: {
 }
 
 func TestValidateInputsUnknownKey(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: string }
 }
@@ -297,7 +305,7 @@ inputs: {
 }
 
 func TestValidateInputsList(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   subnets: { type: list(string) }
 }
@@ -309,7 +317,7 @@ inputs: {
 }
 
 func TestValidateInputsListElementTypeMismatch(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   subnets: { type: list(string) }
 }
@@ -322,7 +330,7 @@ inputs: {
 }
 
 func TestValidateInputsMap(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   tags: { type: map(string) }
 }
@@ -334,7 +342,7 @@ inputs: {
 }
 
 func TestValidateInputsObject(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   rule: { type: object({ from-port: integer, to-port: integer }) }
 }
@@ -349,7 +357,7 @@ inputs: {
 }
 
 func TestValidateInputsObjectMissingField(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   rule: { type: object({ from-port: integer, to-port: integer }) }
 }
@@ -361,7 +369,7 @@ inputs: {
 }
 
 func TestValidateInputsObjectUnknownField(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   rule: { type: object({ from-port: integer }) }
 }
@@ -376,7 +384,7 @@ inputs: {
 }
 
 func TestValidateInputsOpenObjectKeepsExtraFields(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   payload: { type: open(object({ kind: string })) }
 }
@@ -396,7 +404,7 @@ inputs: {
 }
 
 func TestValidateInputsOpenObjectChecksDeclaredFields(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   payload: { type: open(object({ kind: string })) }
 }
@@ -412,7 +420,7 @@ inputs: {
 }
 
 func TestValidateInputsTuple(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   pair: { type: tuple(string, integer) }
 }
@@ -424,7 +432,7 @@ inputs: {
 }
 
 func TestValidateInputsTupleWrongArity(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   pair: { type: tuple(string, integer) }
 }
@@ -436,7 +444,7 @@ inputs: {
 }
 
 func TestValidateInputsListOptionalDefaultEmpty(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   subnets: { type: optional(list(string)), default: [] }
 }
@@ -447,7 +455,7 @@ inputs: {
 }
 
 func TestValidateInputsPattern(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   cluster-name: { type: string, pattern: '^[a-z][a-z0-9-]{0,30}$' }
 }
@@ -459,7 +467,7 @@ inputs: {
 }
 
 func TestValidateInputsPatternOK(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   cluster-name: { type: string, pattern: '^[a-z][a-z0-9-]{0,30}$' }
 }
@@ -470,7 +478,7 @@ inputs: {
 }
 
 func TestValidateInputsMinimumMaximum(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   size: { type: integer, minimum: 1, maximum: 100 }
 }
@@ -488,7 +496,7 @@ inputs: {
 }
 
 func TestValidateInputsMinMaxLength(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   name: { type: string, min-length: 2, max-length: 5 }
 }
@@ -506,7 +514,7 @@ inputs: {
 }
 
 func TestValidateInputsLengthCountsRunes(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   name: { type: string, min-length: 2, max-length: 5 }
 }
@@ -518,7 +526,7 @@ inputs: {
 }
 
 func TestValidateInputsMinMaxItems(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   subnets: { type: list(string), min-items: 1, max-items: 3 }
 }
@@ -538,7 +546,7 @@ inputs: {
 }
 
 func TestValidateInputsEnum(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: string, enum: ['us-east-1', 'us-west-2'] }
 }
@@ -552,7 +560,7 @@ inputs: {
 }
 
 func TestValidateInputsFormatDateTime(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   when: { type: string, format: date-time }
 }
@@ -567,7 +575,7 @@ inputs: {
 }
 
 func TestValidateInputsCollectsMultipleErrors(t *testing.T) {
-	decl := parseInputsBlock(t, `
+	decl := parseValidatedInputsBlock(t, `
 inputs: {
   region: { type: string }
   size:   { type: integer, minimum: 1 }

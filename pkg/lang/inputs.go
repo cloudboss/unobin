@@ -130,8 +130,8 @@ func extractTypeAndDefault(
 	if typeField == nil {
 		return nil, nil, false, false
 	}
-	t, err := PromoteType(typeField)
-	if err != nil {
+	t, ok := typeField.(TypeExpr)
+	if !ok {
 		return nil, nil, false, false
 	}
 	if opt, ok := t.(*TypeOptional); ok {
