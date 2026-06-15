@@ -1,6 +1,11 @@
 package resolve
 
-import "io/fs"
+import (
+	"io/fs"
+	"strings"
+
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
+)
 
 // Source is the file tree of a resolved import, rooted at the import's
 // subdirectory, or the repo root when there is no subdir. For remote
@@ -24,16 +29,45 @@ type Resolver interface {
 }
 
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
-// holding at least one `.ub` file and no factory source. A bad `.ub` file is
-// caught when the library is parsed, not here, so the author gets a clear
-// error rather than having the whole directory silently treated as a Go
-// library. Sources with no `.ub` files are Go libraries.
+// with at least one source-declared composite export and no factory source.
+// Manifest and lock files do not make a package importable by themselves.
+// A malformed non-metadata `.ub` file is treated as a UB library candidate
+// so the library parser can return the source diagnostic.
 func IsUBLibrary(s *Source) bool {
 	if s == nil || s.FS == nil || ContainsFactorySource(s) {
 		return false
 	}
 	matches, err := fs.Glob(s.FS, "*.ub")
-	return err == nil && len(matches) > 0
+	if err != nil {
+		return false
+	}
+	for _, name := range matches {
+		if sourceFileMayBeLibrary(s.FS, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func sourceFileMayBeLibrary(fsys fs.FS, name string) bool {
+	b, err := fs.ReadFile(fsys, name)
+	if err != nil {
+		return true
+	}
+	f, err := syntax.ParseSource(name, b)
+	if err != nil {
+		return !isMetadataFileName(name)
+	}
+	return f.Kind == syntax.FileLibrary
+}
+
+func isMetadataFileName(name string) bool {
+	switch strings.TrimPrefix(name, "./") {
+	case "manifest.ub", "lock.ub":
+		return true
+	default:
+		return false
+	}
 }
 
 // ContainsFactorySource reports whether s has a root file that marks a

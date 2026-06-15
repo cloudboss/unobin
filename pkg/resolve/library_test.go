@@ -37,6 +37,24 @@ func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 			isLibrary: true,
 		},
 		{
+			name: "library with manifest",
+			files: map[string]string{
+				"library.ub":  "greeting: resource { description: 'g' }",
+				"manifest.ub": "manifest: { requires: {} }",
+			},
+			isLibrary: true,
+		},
+		{
+			name:  "manifest only",
+			files: map[string]string{"manifest.ub": "manifest: { requires: {} }"},
+		},
+		{
+			name: "lock only",
+			files: map[string]string{
+				"lock.ub": "lock: { version: 1 toolchain: { unobin-version: 'dev' } deps: {} }",
+			},
+		},
+		{
 			name:      "misnamed-only directory is still a library so parse can flag it",
 			files:     map[string]string{"greeting.ub": "description: 'g'"},
 			isLibrary: true,
@@ -122,6 +140,19 @@ notify: action { description: 'n' }
 	require.Contains(t, lib.Bodies["resource"], "greeting")
 	require.Contains(t, lib.Bodies["data"], "ami")
 	require.Contains(t, lib.Bodies["action"], "notify")
+}
+
+func TestWalkUBSkipsPackageMetadataFiles(t *testing.T) {
+	src := newUBSource(t, map[string]string{
+		"manifest.ub": "manifest: { requires: {} }",
+		"lock.ub":     "lock: { version: 1 toolchain: { unobin-version: 'dev' } deps: {} }",
+		"library.ub":  "greeting: resource { outputs: { message: { value: 'hi' } } }",
+	})
+
+	lib, err := walkOneUB(t, src)
+	require.NoError(t, err)
+	require.NotNil(t, lib)
+	require.Contains(t, lib.Bodies["resource"], "greeting")
 }
 
 func TestWalkUBParsesSourceDeclaredLibraryExports(t *testing.T) {

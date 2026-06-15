@@ -310,6 +310,9 @@ func addSourceDeclaredLibraryFile(
 		return fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if sf.Kind != syntax.FileLibrary || sf.Library == nil {
+		if skippableLibraryPackageFile(sf.Kind) {
+			return nil
+		}
 		return fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
@@ -328,6 +331,15 @@ func addSourceDeclaredLibraryFile(
 		}
 	}
 	return nil
+}
+
+func skippableLibraryPackageFile(kind syntax.FileKind) bool {
+	switch kind {
+	case syntax.FileManifest, syntax.FileLock, syntax.FileStack:
+		return true
+	default:
+		return false
+	}
 }
 
 func addLibraryBody(
