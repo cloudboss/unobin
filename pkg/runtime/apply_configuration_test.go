@@ -15,6 +15,10 @@ type endpointConfiguration struct {
 	Endpoint *cfg.String
 }
 
+type requiredEndpointConfiguration struct {
+	Endpoint cfg.String
+}
+
 // echoResource exposes its input as an output, plus a computed id the
 // create produces, so a test can derive a value that is never
 // knowable from inputs alone. A changed value forces a replace, which
@@ -44,11 +48,20 @@ type configEchoResource struct {
 }
 
 func endpointOf(c any) string {
-	conf, _ := c.(*endpointConfiguration)
-	if conf == nil || conf.Endpoint == nil {
+	switch conf := c.(type) {
+	case *endpointConfiguration:
+		if conf == nil || conf.Endpoint == nil {
+			return ""
+		}
+		return conf.Endpoint.Value
+	case *requiredEndpointConfiguration:
+		if conf == nil {
+			return ""
+		}
+		return conf.Endpoint.Value
+	default:
 		return ""
 	}
-	return conf.Endpoint.Value
 }
 
 func (r *configEchoResource) SchemaVersion() int { return 1 }
@@ -79,11 +92,24 @@ func configuredLibraries() map[string]*Library {
 }
 
 func configuredLibrariesRecording(readSeen, deleteSeen *[]string) map[string]*Library {
+	return configuredLibrariesWithConfig(
+		func() any { return &endpointConfiguration{} }, readSeen, deleteSeen)
+}
+
+func requiredConfiguredLibraries() map[string]*Library {
+	return configuredLibrariesWithConfig(
+		func() any { return &requiredEndpointConfiguration{} }, nil, nil)
+}
+
+func configuredLibrariesWithConfig(
+	newConfig func() any,
+	readSeen, deleteSeen *[]string,
+) map[string]*Library {
 	return map[string]*Library{
 		"fix": {
 			Name: "fix",
 			Configuration: &cfg.ConfigurationType{
-				New: func() any { return &endpointConfiguration{} },
+				New: newConfig,
 			},
 			Resources: map[string]ResourceRegistration{
 				"echo": MakeResource[echoResource, any](),
@@ -119,6 +145,51 @@ func TestApplyEvaluatesInternalConfiguration(t *testing.T) {
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://cluster.example", res.Outputs["got"])
+}
+
+func TestStackConfigurationOverridesFactoryConfiguration(t *testing.T) {
+	src := `
+configurations: { fix.cluster: { endpoint: var.missing } }
+resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
+`
+	libs := requiredConfiguredLibraries()
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Configurations: map[string]map[string]any{
+			"fix": {
+				"cluster": &requiredEndpointConfiguration{
+					Endpoint: cfg.String{Value: "https://stack.example"},
+				},
+			},
+		},
+		RawConfigurations: map[string]map[string]any{
+			"fix": {"cluster": map[string]any{"endpoint": "https://stack.example"}},
+		},
+		Store:   newStateStore(t),
+		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	res := applyOnce(t, exec)
+	require.Equal(t, "https://stack.example", res.Outputs["got"])
+}
+
+func TestFactoryConfigurationErrorsWithoutStackOverride(t *testing.T) {
+	src := `
+configurations: { fix.cluster: {} }
+resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+`
+	libs := requiredConfiguredLibraries()
+	exec := &Executor{
+		DAG:       BuildDAG(parseStack(t, src), libs),
+		Libraries: libs,
+		Store:     newStateStore(t),
+		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "configuration.fix.cluster")
+	require.Contains(t, err.Error(), "endpoint")
 }
 
 // On an unchanged world, the internal configuration evaluates from

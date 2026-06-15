@@ -3,7 +3,6 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -17,16 +16,16 @@ import (
 // inner key is the configuration alias name. Values may reference the
 // file's locals, which resolve at load, so the raw form is already
 // concrete by the time it reaches a plan file.
-// internal names the configurations the factory defines in source; an
-// operator entry under one of those names is rejected, since the
-// factory owns it. Whether every configuration a node selects exists
-// is the executor's demand-driven check, not enforced here. path is
-// preserved only for error messages.
+// internal is accepted for callers that already compute the factory
+// names, but stack entries with the same names are valid overrides.
+// Whether every configuration a node selects exists is the executor's
+// demand-driven check, not enforced here. path is preserved only for
+// error messages.
 func loadConfigurations(
 	f *lang.File,
 	path string,
 	libraries map[string]*runtime.Library,
-	internal map[string]map[string]bool,
+	_ map[string]map[string]bool,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
@@ -42,9 +41,6 @@ func loadConfigurations(
 		rawByImport = loaded
 	}
 
-	if err := rejectInternalNames(path, rawByImport, internal); err != nil {
-		return nil, nil, err
-	}
 	decoded, err = decodeConfigurations(rawByImport, libraries)
 	if err != nil {
 		return nil, nil, err
@@ -53,38 +49,6 @@ func loadConfigurations(
 		raw = rawByImport
 	}
 	return decoded, raw, nil
-}
-
-// rejectInternalNames reports every stack-file configuration entry
-// whose name the factory defines internally. The factory owns those
-// names; an operator value for one would be ignored or fought over,
-// so it is an error instead.
-func rejectInternalNames(
-	path string,
-	rawByImport map[string]map[string]any,
-	internal map[string]map[string]bool,
-) error {
-	var errs []error
-	aliases := make([]string, 0, len(rawByImport))
-	for alias := range rawByImport {
-		aliases = append(aliases, alias)
-	}
-	slices.Sort(aliases)
-	for _, alias := range aliases {
-		names := make([]string, 0, len(rawByImport[alias]))
-		for name := range rawByImport[alias] {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		for _, name := range names {
-			if internal[alias][name] {
-				errs = append(errs, fmt.Errorf(
-					"%s: factory.configurations.%s.%s: defined internally by the factory; "+
-						"remove this entry from the stack file", path, alias, name))
-			}
-		}
-	}
-	return errors.Join(errs...)
 }
 
 // decodeConfigurations runs cfg.Decode for each configuration alias

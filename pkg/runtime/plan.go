@@ -893,6 +893,9 @@ func isUpstreamChange(d Decision) bool {
 // defers the same way, with no field detail, since its field set is
 // unknowable until the sources settle.
 func (e *Executor) planConfiguration(rs *runState, n *Node) (*PlanStep, error) {
+	if e.configurationOverridden(n.Alias, n.Name) {
+		return nil, nil
+	}
 	step := &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}
 	scope, err := e.scopeForAddress(rs, n.Address)
 	if err != nil {

@@ -721,13 +721,11 @@ configurations: { aws.default: { region: 5 } }
 		errs.Messages())
 }
 
-func TestCheckTypesConfigurationMissingRequiredField(t *testing.T) {
+func TestCheckTypesConfigurationMayLeaveRequiredFieldForStack(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { aws.default: { profile: 'p' } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{`configurations.aws.default: missing required field "region"`},
-		errs.Messages())
+	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesConfigurationValidPasses(t *testing.T) {

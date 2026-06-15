@@ -38,16 +38,14 @@ func (c *referenceChecker) checkTypes() {
 	c.checkConstraintTypes()
 }
 
-// checkConfigurationNode validates one internal configuration. The
+// checkConfigurationNode validates one factory configuration. The
 // alias must name an imported library that declares a configuration.
 // When the configuration's field schema is known, every body field
-// must be one the schema declares with an assignable type, and every
-// required field must be present; at factory runtime the schema is
-// absent and only the import and declaration checks run, the same
-// split every Go-type body check follows. A whole-expression body
-// checks against the schema as one object type; the comparison is
-// open, so an extra field the checker cannot rule out is left for
-// plan-time decode to reject.
+// must be one the schema declares with an assignable type. Missing
+// required fields are left to the runtime, where the stack file may
+// supply an override. A whole-expression body checks against the
+// schema as one object type; the comparison is open, so an extra field
+// the checker cannot rule out is left for plan-time decode to reject.
 func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
 	lib := c.libraries[""][n.Alias]
 	if lib == nil {
@@ -86,18 +84,6 @@ func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
 			continue
 		}
 		typecheck.Check(fld.Value, target, scope, c.errs)
-	}
-	missing := make([]string, 0, len(schema))
-	for name, t := range schema {
-		if t.Kind == typecheck.Optional || present[name] {
-			continue
-		}
-		missing = append(missing, name)
-	}
-	slices.Sort(missing)
-	for _, name := range missing {
-		c.addf(obj.Span().Start, "configurations.%s.%s: missing required field %q",
-			n.Alias, n.Name, name)
 	}
 }
 

@@ -271,21 +271,20 @@ factory: {
 	require.Contains(t, err.Error(), "configurations.aws.bad")
 }
 
-func TestLoadConfigurationsRejectsInternalName(t *testing.T) {
+func TestLoadConfigurationsAcceptsFactoryNameOverride(t *testing.T) {
 	path := writeConfig(t, `
 factory: {
   configurations: {
     aws.default: { region: 'us-east-1' }
-    aws.cluster: { region: 'us-east-1' }
+    aws.cluster: { region: 'us-east-2' }
   }
 }
 `)
-	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, map[string]map[string]bool{"aws": {"cluster": true}})
-	require.Error(t, err)
-	require.Equal(t, path+": factory.configurations.aws.cluster: defined internally by the factory; "+
-		"remove this entry from the stack file", err.Error())
+	require.NoError(t, err)
+	require.Equal(t, "us-east-2", out["aws"]["cluster"].(*awsConfig).Region.Value)
 }
 
 func TestLoadConfigurationsResolvesLocals(t *testing.T) {

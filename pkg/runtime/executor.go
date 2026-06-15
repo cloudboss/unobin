@@ -48,7 +48,7 @@ type Executor struct {
 	Source *lang.File
 
 	// Configurations is keyed first by the library's import alias and
-	// then by the configuration alias declared in config.ub. Entries
+	// then by the configuration alias declared in the stack file. Entries
 	// are the value returned by cfg.ConfigurationType.New populated
 	// by cfg.Decode. A nil map disables config routing and every CRUD
 	// call sees a nil cfg argument.
@@ -187,7 +187,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 	}
 	var scope *EvalContext
 	for _, n := range e.DAG.Nodes {
-		if n.Kind != NodeConfiguration {
+		if n.Kind != NodeConfiguration || e.configurationOverridden(n.Alias, n.Name) {
 			continue
 		}
 		if scope == nil {
@@ -266,6 +266,9 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 // just because the configuration's own upstream is mid-change.
 func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
 	alias, configuration := e.resolvedConfigRef(n)
+	if e.configurationOverridden(alias, configuration) {
+		return "", false
+	}
 	addr := configurationAddress(alias, configuration)
 	if _, internal := e.DAG.Nodes[addr]; !internal {
 		return "", false
@@ -277,11 +280,15 @@ func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
-// on the given node. A selection the factory defines internally reads
-// from the evaluated configuration table; anything else reads from
-// the operator's decoded config.ub table.
+// on the given node. A stack-file override wins first. Otherwise, a
+// selection the factory defines reads from the evaluated configuration
+// table, and the rest reads from the operator's decoded configuration
+// table.
 func (e *Executor) configFor(n *Node) any {
 	alias, configuration := e.resolvedConfigRef(n)
+	if e.configurationOverridden(alias, configuration) {
+		return e.lookupConfiguration(alias, configuration)
+	}
 	if e.DAG != nil {
 		addr := configurationAddress(alias, configuration)
 		if _, internal := e.DAG.Nodes[addr]; internal {
@@ -326,6 +333,9 @@ func (e *Executor) configForRef(ref, fallbackAlias string) (any, error) {
 			alias, configuration = a, c
 		}
 	}
+	if e.configurationOverridden(alias, configuration) {
+		return e.lookupConfiguration(alias, configuration), nil
+	}
 	if e.DAG != nil {
 		addr := configurationAddress(alias, configuration)
 		if _, internal := e.DAG.Nodes[addr]; internal {
@@ -347,6 +357,18 @@ func (e *Executor) configForRef(ref, fallbackAlias string) (any, error) {
 				"receives; the entry was written by a factory version that had it", ref)
 	}
 	return v, nil
+}
+
+func (e *Executor) configurationOverridden(alias, configuration string) bool {
+	if e.Configurations == nil {
+		return false
+	}
+	configurations, ok := e.Configurations[alias]
+	if !ok {
+		return false
+	}
+	_, ok = configurations[configuration]
+	return ok
 }
 
 func (e *Executor) lookupConfiguration(alias, configuration string) any {
