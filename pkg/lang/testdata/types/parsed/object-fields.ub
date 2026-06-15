@@ -1,0 +1,5 @@
+object({
+  name: string,
+  tags: map(string),
+  enabled: boolean,
+})

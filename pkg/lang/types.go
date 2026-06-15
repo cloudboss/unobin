@@ -7,6 +7,8 @@ package lang
 // outside that subset is rejected with an ErrType diagnostic.
 func PromoteType(e Expr) (TypeExpr, error) {
 	switch v := e.(type) {
+	case TypeExpr:
+		return v, nil
 	case *Ident:
 		return promoteAtomic(v)
 	case *NullLit:

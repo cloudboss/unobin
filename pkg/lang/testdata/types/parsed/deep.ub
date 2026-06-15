@@ -1,0 +1,7 @@
+optional(list(object({
+  endpoints: list(object({
+    host: string,
+    ports: tuple(integer, integer),
+  })),
+  metadata: map(string),
+})))

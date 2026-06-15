@@ -1,0 +1,3 @@
+open(object({
+  url: string,
+}))
