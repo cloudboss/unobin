@@ -42,7 +42,7 @@ archive: resource {
   description: 'writes one archive member file'
   inputs: { path: { type: string }, body: { type: string } }
   imports: { disk: 'github.com/example/disk' }
-  resources: { disk.file.this: { path: var.path, content: var.body } }
+  resources: { this: disk.file { path: var.path, content: var.body } }
 }
 `), 0o644))
 

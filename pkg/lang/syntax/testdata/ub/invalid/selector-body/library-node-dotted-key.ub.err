@@ -1,0 +1,1 @@
+resource must be written as name: alias.export { ... }

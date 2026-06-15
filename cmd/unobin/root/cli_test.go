@@ -520,7 +520,7 @@ func TestCompileToStdout(t *testing.T) {
 	stackPath := filepath.Join(dir, "factory.ub")
 	src := `
 imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }
-actions: { core.command.hi: { argv: ['echo', 'hi'] } }
+actions: { hi: core.command { argv: ['echo', 'hi'] } }
 `
 	require.NoError(t, os.WriteFile(stackPath, factorySource(src), 0o644))
 	writeCompileLock(t, dir, map[string]string{
@@ -884,7 +884,7 @@ imports: {
 	require.NoError(t, os.WriteFile(filepath.Join(netDir, "library.ub"), []byte(`
 cluster: resource {
   description: 'a cluster'
-  resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
+  resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
 }
 `), 0o644))
 
@@ -1233,7 +1233,7 @@ type Thing struct{}
 	stackPath := filepath.Join(dir, "factory.ub")
 	require.NoError(t, os.WriteFile(stackPath, factorySource(`
 imports:   { partial: 'example.com/partial' }
-resources: { partial.thing.x: {} }
+resources: { x: partial.thing {} }
 `), 0o644))
 	writeCompileLock(t, dir, map[string]string{"example.com/partial": "v0.1.0"})
 
@@ -1309,24 +1309,24 @@ func TestCompileEnforcesCompositeFloors(t *testing.T) {
 		{
 			name: "valid action composite",
 			file: "library.ub",
-			body: "deploy: action { actions: { core.command.c: { argv: ['echo'] } } }\n",
+			body: "deploy: action { actions: { c: core.command { argv: ['echo'] } } }\n",
 		},
 		{
 			name: "valid resource composite",
 			file: "library.ub",
-			body: "box: resource { resources: { local.file.x: { path: '/tmp/x' } } }\n",
+			body: "box: resource { resources: { x: local.file { path: '/tmp/x' } } }\n",
 		},
 		{
 			name: "data without output",
 			file: "library.ub",
-			body: "lookup: data { data: { aws.ami.x: { most-recent: true } } }\n",
+			body: "lookup: data { data: { x: aws.ami { most-recent: true } } }\n",
 			wantErr: `import "lib": composite "lookup" (data): ` +
 				`a data composite must declare at least one output`,
 		},
 		{
 			name: "data with a resource",
 			file: "library.ub",
-			body: "lookup: data { resources: { local.file.x: {} }\n" +
+			body: "lookup: data { resources: { x: local.file {} }\n" +
 				"outputs: { id: { value: 'x' } } }\n",
 			wantErr: `import "lib": composite "lookup" (data): ` +
 				`a data composite must not contain resources`,
@@ -1341,7 +1341,7 @@ func TestCompileEnforcesCompositeFloors(t *testing.T) {
 		{
 			name: "resource without a resource",
 			file: "library.ub",
-			body: "box: resource { data: { aws.ami.x: {} } }\n",
+			body: "box: resource { data: { x: aws.ami {} } }\n",
 			wantErr: `import "lib": composite "box" (resource): ` +
 				`a resource composite must contain at least one resource`,
 		},
@@ -1361,8 +1361,8 @@ func TestCompileEnforcesCompositeFloors(t *testing.T) {
 func TestCompileReportsAllCompositeViolationsInOrder(t *testing.T) {
 	files := map[string]string{
 		"library.ub": `
-a: data { data: { aws.ami.x: {} } }
-b: resource { data: { aws.ami.x: {} } }
+a: data { data: { x: aws.ami {} } }
+b: resource { data: { x: aws.ami {} } }
 `,
 	}
 	want := `import "lib": composite "a" (data): a data composite must declare at least one output
@@ -1392,7 +1392,7 @@ imports: {
 	require.NoError(t, os.WriteFile(filepath.Join(netDir, "library.ub"), []byte(`
 cluster: resource {
   description: 'a cluster'
-  resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
+  resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
 }
 `), 0o644))
 
@@ -1457,7 +1457,7 @@ func TestCompileWithRemoteUBLibrary(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(libraryDir, "library.ub"), []byte(`
 cluster: resource {
   description: 'a cluster'
-  resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
+  resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
 }
 `), 0o644))
 
@@ -1509,8 +1509,8 @@ hello: resource {
   description: 'inner hello'
   inputs: { path: { type: string } }
   imports: { std: 'github.com/cloudboss/unobin-library-std' }
-  resources: { std.file.this: { path: var.path, content: 'hi' } }
-  outputs: { path: { value: resource.std.file.this.path } }
+  resources: { this: std.file { path: var.path, content: 'hi' } }
+  outputs: { path: { value: resource.this.path } }
 }
 `), 0o644))
 
@@ -1521,8 +1521,8 @@ greeting: resource {
   description: 'outer greeting'
   inputs: { path: { type: string } }
   imports: { inner: 'github.com/example/inner//ub/inner' }
-  resources: { inner.hello.x: { path: var.path } }
-  outputs: { path: { value: resource.inner.hello.x.path } }
+  resources: { x: inner.hello { path: var.path } }
+  outputs: { path: { value: resource.x.path } }
 }
 `), 0o644))
 
@@ -1598,7 +1598,7 @@ func TestCompileDetectsUBImportCycle(t *testing.T) {
 type-a: resource {
   description: 'a body'
   imports: { b: 'github.com/example/b//ub/b' }
-  resources: { b.type-b.y: {} }
+  resources: { y: b.type-b {} }
 }
 `), 0o644))
 
@@ -1607,7 +1607,7 @@ type-a: resource {
 type-b: resource {
   description: 'b body'
   imports: { a: 'github.com/example/a//ub/a' }
-  resources: { a.type-a.z: {} }
+  resources: { z: a.type-a {} }
 }
 `), 0o644))
 
@@ -1644,8 +1644,8 @@ func TestCompileSharesPackageAcrossAliases(t *testing.T) {
 hello: resource {
   description: 'inner hello'
   inputs: { path: { type: string } }
-  resources: { local.file.x: { path: var.path, content: 'hi' } }
-  outputs: { path: { value: resource.local.file.x.path } }
+  resources: { x: local.file { path: var.path, content: 'hi' } }
+  outputs: { path: { value: resource.x.path } }
 }
 `), 0o644))
 
@@ -1655,8 +1655,8 @@ greeting: resource {
   description: 'wrap greeting'
   inputs: { path: { type: string } }
   imports: { inside: 'github.com/example/shared//ub/shared' }
-  resources: { inside.hello.x: { path: var.path } }
-  outputs: { path: { value: resource.inside.hello.x.path } }
+  resources: { x: inside.hello { path: var.path } }
+  outputs: { path: { value: resource.x.path } }
 }
 `), 0o644))
 
@@ -1724,7 +1724,7 @@ func TestCompileReplaceUnobinUBSubdir(t *testing.T) {
 		filepath.Join(fakeUnobin, "some-lib", "library.ub"), []byte(`
 foo: resource {
   description: 'a foo'
-  resources: { local.file.x: { path: '/tmp/x', content: 'hi', mode: 420 } }
+  resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
 }
 `), 0o644))
 

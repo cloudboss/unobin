@@ -1,0 +1,5 @@
+greeting: resource {
+  resources: {
+    std.file.this: {}
+  }
+}

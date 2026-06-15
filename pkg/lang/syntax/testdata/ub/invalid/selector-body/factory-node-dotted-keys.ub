@@ -1,0 +1,11 @@
+factory: {
+  resources: {
+    std.file.example: {}
+  }
+  data: {
+    std.lookup.current: {}
+  }
+  actions: {
+    std.run.now: {}
+  }
+}

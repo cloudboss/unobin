@@ -256,15 +256,15 @@ func lowerFactoryBodyWithMode(
 			}
 		case "resources":
 			if obj := objectValue(fld, "resources", errs); obj != nil {
-				body.Resources = lowerNodes(obj, NodeResource, errs)
+				body.Resources = lowerNodes(obj, NodeResource, errs, mode)
 			}
 		case "data":
 			if obj := objectValue(fld, "data", errs); obj != nil {
-				body.Data = lowerNodes(obj, NodeData, errs)
+				body.Data = lowerNodes(obj, NodeData, errs, mode)
 			}
 		case "actions":
 			if obj := objectValue(fld, "actions", errs); obj != nil {
-				body.Actions = lowerNodes(obj, NodeAction, errs)
+				body.Actions = lowerNodes(obj, NodeAction, errs, mode)
 			}
 		case "outputs":
 			if obj := objectValue(fld, "outputs", errs); obj != nil {
@@ -849,6 +849,7 @@ func lowerNodes(
 	block *parse.ObjectLit,
 	kind NodeKind,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) []NodeDecl {
 	nodes := make([]NodeDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
@@ -865,6 +866,11 @@ func lowerNodes(
 			}
 			seen[node.Name.Name] = fld.Key.S.Start
 			nodes = append(nodes, node)
+			continue
+		}
+		if mode.sourceDeclared {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"%s must be written as name: alias.export { ... }", kind)
 			continue
 		}
 		if fld.Key.Kind != parse.FieldPath {

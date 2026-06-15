@@ -52,26 +52,26 @@ configurations: {
 }
 
 resources: {
-  std.fs-file.hello: {
+  hello: std.fs-file {
     path: local.path
     content: var.message
   }
 }
 
 data: {
-  std.file.existing: {
+  existing: std.file {
     path: local.path
   }
 }
 
 actions: {
-  std.exec.run: {
+  run: std.exec {
     command: 'echo hello'
   }
 }
 
 outputs: {
-  path: { value: resource.std.fs-file.hello.path }
+  path: { value: resource.hello.path }
 }
 }
 `, parse.FileFactory)
@@ -545,7 +545,7 @@ factory: {
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
 	assert.Contains(t, errs.Error(), "unknown atomic type")
-	assert.Contains(t, errs.Error(), "resource key std.file must have three segments")
+	assert.Contains(t, errs.Error(), "resource must be written as name: alias.export { ... }")
 }
 
 func TestLowerRejectsUnwrappedFactoryFile(t *testing.T) {
