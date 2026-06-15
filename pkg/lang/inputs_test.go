@@ -145,7 +145,7 @@ inputs: {
 func TestValidateInputsOptionalDefaultAppliedOnMissing(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
-  size: { type: optional(integer, 3) }
+  size: { type: optional(integer), default: 3 }
 }
 `)
 	out, errs := ValidateInputs(decl, map[string]any{}, litEval)
@@ -153,27 +153,48 @@ inputs: {
 	require.Equal(t, int64(3), out["size"])
 }
 
-func TestValidateInputsOptionalDefaultAppliedOnNull(t *testing.T) {
-	// Per the missing-or-null decision: explicit null also triggers the default.
+func TestValidateInputsOptionalDefaultKeepsNull(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
-  size: { type: optional(integer, 3) }
+  size: { type: optional(integer), default: 3 }
 }
 `)
 	out, errs := ValidateInputs(decl, map[string]any{"size": nil}, litEval)
 	require.Equal(t, 0, errs.Len(), errs.Err())
-	require.Equal(t, int64(3), out["size"])
+	require.Nil(t, out["size"])
 }
 
 func TestValidateInputsOptionalDefaultRespectsValue(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
-  size: { type: optional(integer, 3) }
+  size: { type: optional(integer), default: 3 }
 }
 `)
 	out, errs := ValidateInputs(decl, map[string]any{"size": int64(7)}, litEval)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 	require.Equal(t, int64(7), out["size"])
+}
+
+func TestValidateInputsRequiredDefaultAppliedOnMissing(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  size: { type: integer, default: 3 }
+}
+`)
+	out, errs := ValidateInputs(decl, map[string]any{}, litEval)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Equal(t, int64(3), out["size"])
+}
+
+func TestValidateInputsRequiredDefaultRejectsNull(t *testing.T) {
+	decl := parseInputsBlock(t, `
+inputs: {
+  size: { type: integer, default: 3 }
+}
+`)
+	_, errs := ValidateInputs(decl, map[string]any{"size": nil}, litEval)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), "required but is null")
 }
 
 func TestValidateInputsNestedDefaultsApplied(t *testing.T) {
@@ -182,8 +203,8 @@ inputs: {
   spec: {
     type: object({
       host:    string,
-      port:    { type: optional(integer, 8080) },
-      retries: optional(integer, 3),
+      port:    { type: optional(integer), default: 8080 },
+      retries: { type: optional(integer), default: 3 },
     })
   }
 }
@@ -195,7 +216,7 @@ inputs: {
 	require.Equal(t, map[string]any{
 		"spec": map[string]any{
 			"host":    "h",
-			"port":    int64(8080),
+			"port":    nil,
 			"retries": int64(3),
 		},
 	}, out)
@@ -249,7 +270,7 @@ func TestValidateInputsNestedDefaultSatisfiesType(t *testing.T) {
 inputs: {
   spec: {
     type: object({
-      port: { type: optional(integer, 8080), minimum: 1024 },
+      port: { type: optional(integer), default: 8080, minimum: 1024 },
     })
   }
 }
@@ -417,7 +438,7 @@ inputs: {
 func TestValidateInputsListOptionalDefaultEmpty(t *testing.T) {
 	decl := parseInputsBlock(t, `
 inputs: {
-  subnets: { type: optional(list(string), []) }
+  subnets: { type: optional(list(string)), default: [] }
 }
 `)
 	out, errs := ValidateInputs(decl, map[string]any{}, litEval)

@@ -6,9 +6,9 @@ down what happens when it is null, and the compiler holds it to that.
 
 What each piece demonstrates:
 
-- **a declared default** — `suffix` is `optional(string, '!')`, so a
-  missing or null value becomes `'!'` before anything reads it, and the
-  checker treats it as a plain string.
+- **a declared default** - `suffix` is `string` with `default: '!'`, so
+  an omitted value becomes `'!'` before anything reads it. Explicit null
+  still fails the required string type.
 - **the null test as the discharge** — `greeting` has no default, so the
   `banner` local tests it; in the else branch the checker knows the
   value is a string and lets it through. A conditional fits when the

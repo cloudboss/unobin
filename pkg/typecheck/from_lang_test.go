@@ -49,8 +49,8 @@ func TestInputsFromBlockNestedDefaults(t *testing.T) {
 inputs: {
   spec: {
     type: object({
-      port:    { type: optional(integer, 8080) },
-      retries: optional(integer, 3),
+      port:    { type: integer, default: 8080 },
+      retries: { type: optional(integer), default: 3 },
       note:    { type: optional(string) },
     })
   }
@@ -64,7 +64,7 @@ inputs: {
 	got := Infer(parseExpr(t, "var.spec.port"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TInteger()), "port reads defaulted, got %s", got)
 	got = Infer(parseExpr(t, "var.spec.retries"), TUnknown(), scope, errs)
-	assert.True(t, got.Equal(TInteger()), "retries reads defaulted, got %s", got)
+	assert.True(t, got.Equal(TOptional(TInteger())), "retries stays optional, got %s", got)
 	got = Infer(parseExpr(t, "var.spec.note"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOptional(TString())), "note stays optional, got %s", got)
 	assert.Empty(t, errs.Errors())
@@ -106,7 +106,7 @@ func TestInputsFromBlockHandlesOptional(t *testing.T) {
 	src := `
 inputs: {
   region: { type: string }
-  count: { type: optional(integer, 1) }
+  count: { type: integer, default: 1 }
   label: { type: optional(string) }
 }
 `

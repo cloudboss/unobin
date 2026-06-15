@@ -64,10 +64,9 @@ type Type struct {
 }
 
 // ObjectField is one named field of an Object type. Optional is
-// true when the field may be absent (e.g. it came from a *T Go
-// field or an optional() declaration). Defaulted is true when an
-// input declaration provides a default, so a missing or null value
-// is replaced before anything reads it.
+// true when the field may be omitted. Defaulted is true when omission
+// fills a non-null default, so reads use Type directly instead of
+// optional(Type).
 type ObjectField struct {
 	Name      string
 	Type      Type

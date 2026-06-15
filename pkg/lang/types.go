@@ -6,8 +6,8 @@ package lang
 // constructor (list, set, map, tuple, object, optional, open). Anything
 // outside that subset is rejected with an ErrType diagnostic.
 //
-// Default values inside optional(T, default) are not promoted; they remain
-// plain Expr because TypeOptional.Default is a value, not a type.
+// If optional receives a default argument, that default stays a plain
+// Expr because TypeOptional.Default is a value, not a type.
 func PromoteType(e Expr) (TypeExpr, error) {
 	switch v := e.(type) {
 	case *Ident:

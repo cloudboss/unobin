@@ -840,8 +840,8 @@ func buildInputs(
 	return validated, nil
 }
 
-// defaultEval reduces an `optional(T, default)` default expression to a
-// Go value. The empty EvalContext means defaults can use literals,
+// defaultEval reduces an input declaration default expression to a Go
+// value. The empty EvalContext means defaults can use literals,
 // arithmetic, and built-in calls but not address roots like var.X
 // (which would be circular at default-application time anyway).
 func defaultEval(e lang.Expr) (any, error) {

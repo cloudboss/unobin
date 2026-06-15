@@ -9,14 +9,13 @@ import (
 )
 
 // EvalFunc reduces an expression to a Go value against an empty
-// context. Defaults inside `optional(T, default)` evaluate this way so
-// the validator can apply them without depending on the runtime
-// package.
+// context. Input declaration defaults evaluate this way so the
+// validator can apply them without depending on the runtime package.
 type EvalFunc func(e Expr) (any, error)
 
 // ValidateInputs validates an operator-supplied values map against a
 // stack's `inputs:` declaration. Returns the validated values with
-// `optional(T, default)` defaults applied. Errors cover missing
+// declaration defaults applied. Errors cover missing
 // required inputs, unknown keys, type mismatches, and modifier
 // violations. The decl is the parsed `inputs:` block; values is the
 // map produced by loadConfigInputs + applyEnvOverrides. evalDefault
@@ -62,7 +61,7 @@ func validateOneInput(
 	}
 
 	raw, present := values[name]
-	if (!present || raw == nil) && isOptional && defaultExpr != nil {
+	if !present && defaultExpr != nil {
 		if evalDefault == nil {
 			errs.Addf(ErrSchema, defaultExpr.Span().Start,
 				"input %q: cannot evaluate default (no evaluator provided)", name)
@@ -109,35 +108,44 @@ func validateOneInput(
 	out[name] = coerced
 }
 
-// extractTypeAndDefault pulls the `type:` expression from an input
-// declaration and unwraps a top-level `optional(T, default)` so the
-// caller can treat the inner type as the value's actual type. ok is
-// false if the declaration has no `type:` or its type expression is
-// malformed; an earlier ValidateInputDeclarations pass should have
-// reported either case.
+// extractTypeAndDefault pulls the `type:` and optional `default:`
+// expressions from an input declaration. ok is false if the declaration
+// has no `type:` or its type expression is malformed; an earlier
+// ValidateInputDeclarations pass should have reported either case.
 func extractTypeAndDefault(
 	decl *ObjectLit,
 ) (typeExpr TypeExpr, defaultExpr Expr, isOptional, ok bool) {
+	var typeField, defaultField Expr
 	for _, df := range decl.Fields {
-		if df.Key.Kind != FieldIdent || df.Key.Name != "type" {
+		if df.Key.Kind != FieldIdent {
 			continue
 		}
-		t, err := PromoteType(df.Value)
-		if err != nil {
-			return nil, nil, false, false
+		switch df.Key.Name {
+		case "type":
+			typeField = df.Value
+		case "default":
+			defaultField = df.Value
 		}
-		if opt, ok := t.(*TypeOptional); ok {
-			return opt.Elem, opt.Default, true, true
-		}
-		return t, nil, false, true
 	}
-	return nil, nil, false, false
+	if typeField == nil {
+		return nil, nil, false, false
+	}
+	t, err := PromoteType(typeField)
+	if err != nil {
+		return nil, nil, false, false
+	}
+	if opt, ok := t.(*TypeOptional); ok {
+		if defaultField == nil {
+			defaultField = opt.Default
+		}
+		return opt.Elem, defaultField, true, true
+	}
+	return t, defaultField, false, true
 }
 
 // checkValue validates v against the declared type and returns the
-// coerced value. ev evaluates `optional(T, default)` defaults on
-// nested object fields; nil refuses any nested default that would
-// need it.
+// coerced value. ev evaluates declaration defaults on nested object
+// fields; nil refuses any nested default that would need it.
 func checkValue(t TypeExpr, v any, ev EvalFunc) (any, error) {
 	switch tt := t.(type) {
 	case *TypeAtomic:
@@ -239,7 +247,7 @@ func checkObject(t *TypeObject, v any, ev EvalFunc) (any, error) {
 		if !ok {
 			continue
 		}
-		if (!present || raw == nil) && isOpt && defaultExpr != nil {
+		if !present && defaultExpr != nil {
 			if ev == nil {
 				return nil, fmt.Errorf(
 					"field %q: cannot evaluate default (no evaluator provided)", f.Name)
@@ -292,8 +300,7 @@ func checkObject(t *TypeObject, v any, ev EvalFunc) (any, error) {
 
 // fieldTypeAndDefault resolves an object field to its value type,
 // default expression, and optionality, whichever declaration form it
-// used: a full declaration object, a bare optional(T, default), or a
-// bare type.
+// used: a full declaration object, a bare optional(T), or a bare type.
 func fieldTypeAndDefault(f *TypeObjectField) (TypeExpr, Expr, bool, bool) {
 	if f.Decl != nil {
 		return extractTypeAndDefault(f.Decl)
@@ -332,7 +339,7 @@ func checkModifiers(decl *ObjectLit, v any) error {
 			continue
 		}
 		switch df.Key.Name {
-		case "type", "description":
+		case "type", "default", "description":
 			continue
 		}
 		if err := applyModifier(df.Key.Name, df.Value, v); err != nil {

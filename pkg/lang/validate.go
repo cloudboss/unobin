@@ -153,6 +153,7 @@ func ValidateTopLevelKeys(f *File) *ErrorList {
 var inputModifierKeys = map[string]struct{}{
 	"type":        {},
 	"description": {},
+	"default":     {},
 	"pattern":     {},
 	"minimum":     {},
 	"maximum":     {},
@@ -266,8 +267,8 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 				}
 				continue
 			}
-			if opt, ok := t.(*TypeOptional); ok && opt.Default != nil {
-				checkDefaultIdents(name, opt.Default, nil, errs)
+			if defaultExpr := declaredDefaultExpr(decl, t); defaultExpr != nil {
+				checkDefaultIdents(name, defaultExpr, nil, errs)
 			}
 			checkDeclaredDefault(name, decl, t, errs)
 			validateNestedDecls(name, t, errs)
@@ -308,26 +309,45 @@ func validateNestedDecls(name string, t TypeExpr, errs *ErrorList) {
 	}
 }
 
-// checkDeclaredDefault verifies a literal optional() default against
-// the declaration's own type and modifiers, so a self-contradictory
+func declaredDefaultExpr(decl *ObjectLit, t TypeExpr) Expr {
+	for _, df := range decl.Fields {
+		if df.Key.Kind == FieldIdent && df.Key.Name == "default" {
+			return df.Value
+		}
+	}
+	if opt, ok := t.(*TypeOptional); ok {
+		return opt.Default
+	}
+	return nil
+}
+
+// checkDeclaredDefault verifies a literal default against the
+// declaration's own type and modifiers, so a self-contradictory
 // declaration fails at compile instead of on the first omission. A
 // computed default is checked when it is applied.
 func checkDeclaredDefault(name string, decl *ObjectLit, t TypeExpr, errs *ErrorList) {
-	opt, ok := t.(*TypeOptional)
-	if !ok || opt.Default == nil {
+	defaultExpr := declaredDefaultExpr(decl, t)
+	if defaultExpr == nil {
 		return
 	}
-	val, ok := staticLiteral(opt.Default)
-	if !ok || val == nil {
+	val, ok := staticLiteral(defaultExpr)
+	if !ok {
 		return
 	}
-	coerced, err := checkValue(opt.Elem, val, staticDefaultEval)
+	checkType := t
+	if opt, ok := t.(*TypeOptional); ok {
+		if val == nil {
+			return
+		}
+		checkType = opt.Elem
+	}
+	coerced, err := checkValue(checkType, val, staticDefaultEval)
 	if err != nil {
-		errs.Addf(ErrSchema, opt.Default.Span().Start, "input %q: default: %v", name, err)
+		errs.Addf(ErrSchema, defaultExpr.Span().Start, "input %q: default: %v", name, err)
 		return
 	}
 	if err := checkModifiers(decl, coerced); err != nil {
-		errs.Addf(ErrSchema, opt.Default.Span().Start, "input %q: default: %v", name, err)
+		errs.Addf(ErrSchema, defaultExpr.Span().Start, "input %q: default: %v", name, err)
 	}
 }
 
@@ -967,9 +987,9 @@ const CoreNamespace = "@core"
 // imported library or @core), and a qualified call whose alias is
 // missing from the file's imports block. @core needs no import; any
 // other @-name is rejected, since the language provides only @core.
-// The type constructors in an input declaration's type (list(string),
-// optional(integer, 0)) are left alone: they share call syntax but denote
-// types; a default inside such a type stays a value and is still checked.
+// The type constructors in an input declaration's type, such as
+// list(string) or optional(integer), are left alone: they share call
+// syntax but denote types. Defaults stay values and are still checked.
 // Whether a named library function exists is not checked here; that is
 // a runtime concern, since a library's function set lives in compiled
 // Go code. The @core set is fixed and the reference checker enforces it.
@@ -1088,9 +1108,9 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 // (list, map, optional, ...) rather than a function, so the call checker
 // leaves them alone. It starts only from input declarations, since that is
 // the one place a type can be written, and follows the type sub-grammar
-// from each declared type. Default values inside optional(...) and object
-// field declarations are values, not types, so their calls are not
-// collected and stay subject to the call checker.
+// from each declared type. Default values and object field declaration
+// values are not types, so their calls are not collected and stay subject
+// to the call checker.
 func typeConstructorCalls(f *File) map[Expr]struct{} {
 	skip := map[Expr]struct{}{}
 	inputs, ok := indexTopLevelBlocks(f)["inputs"].(*ObjectLit)
@@ -1120,8 +1140,7 @@ func collectTypeConstructors(e Expr, skip map[Expr]struct{}) {
 	}
 	switch c.Callee.Name {
 	case "list", "set", "map", "optional", "open":
-		// The element or inner type is the first argument; optional's second
-		// argument is a default value and is left for the call checker.
+		// The element or inner type is the first argument.
 		collectTypeConstructors(c.Args[0], skip)
 	case "tuple":
 		if arr, ok := c.Args[0].(*ArrayLit); ok {

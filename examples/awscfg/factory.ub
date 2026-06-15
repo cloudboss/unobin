@@ -5,7 +5,7 @@ factory: {
     operator configurations, internal configurations, and the state blocks.
     '''
 
-  inputs: { region: { type: optional(string, 'us-west-2') } }
+  inputs: { region: { type: string, default: 'us-west-2' } }
 
   imports: { aws: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
 

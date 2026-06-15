@@ -81,10 +81,10 @@ func (n *ObjectLit) exprNode()  {}
 // value`) or a selector-body declaration (`name: selector { ... }` or
 // `selector { ... }`).
 type Field struct {
-	S    Span
-	Key  FieldKey
+	S     Span
+	Key   FieldKey
 	Value Expr
-	Decl *SelectorBody
+	Decl  *SelectorBody
 }
 
 func (n *Field) Span() Span { return n.S }
@@ -494,11 +494,12 @@ func (n *TypeTuple) Span() Span    { return n.S }
 func (n *TypeTuple) exprNode()     {}
 func (n *TypeTuple) typeExprNode() {}
 
-// TypeOptional is `optional(T)` or `optional(T default-value)`.
+// TypeOptional is optional(T), with an optional default argument accepted
+// by the generic expression parser.
 //
-// Optionality implies nullability - wrapping with `optional()` allows null
-// values; bare types do not. Default is nil when not provided (the wrapper
-// then defaults to null).
+// Optionality implies nullability - wrapping with optional() allows null
+// values; bare types do not. Default is nil when no default argument was
+// written.
 type TypeOptional struct {
 	S       Span
 	Elem    TypeExpr

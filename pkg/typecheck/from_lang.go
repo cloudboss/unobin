@@ -59,22 +59,18 @@ func atomicFromLang(name string) Type {
 
 // objectFieldFromLang converts a TypeObjectField, which may use
 // either a bare type or a full input declaration. An input
-// declaration is unwrapped through typeFromInputDecl below; the
-// resulting Optional wrapper becomes the field's `optional()`
-// marker on ObjectField.Optional, and a declared default sets
-// Defaulted so readers see the inner type, the way a defaulted
-// top-level input reads.
+// declaration is unwrapped through typeFromInputDecl below; nullable
+// optional() fields set Optional, and non-null defaults set Defaulted.
 func objectFieldFromLang(f *lang.TypeObjectField) ObjectField {
 	var inner lang.TypeExpr
 	var optional, defaulted bool
-	switch {
-	case f.Type != nil:
+	if f.Type != nil {
 		inner, optional, defaulted = peelOptional(f.Type)
-	case f.Decl != nil:
+	} else if f.Decl != nil {
 		inner, optional, defaulted = typeFromInputDecl(f.Decl)
 	}
 	if inner == nil {
-		return ObjectField{Name: f.Name, Type: TUnknown(), Optional: optional}
+		return ObjectField{Name: f.Name, Type: TUnknown(), Optional: optional, Defaulted: defaulted}
 	}
 	return ObjectField{
 		Name:      f.Name,
@@ -86,7 +82,7 @@ func objectFieldFromLang(f *lang.TypeObjectField) ObjectField {
 
 func peelOptional(t lang.TypeExpr) (lang.TypeExpr, bool, bool) {
 	if opt, ok := t.(*lang.TypeOptional); ok {
-		return opt.Elem, true, opt.Default != nil
+		return opt.Elem, true, false
 	}
 	return t, false, false
 }
@@ -94,8 +90,8 @@ func peelOptional(t lang.TypeExpr) (lang.TypeExpr, bool, bool) {
 // typeFromInputDecl walks an input declaration object literal (the
 // `{ type: ...  description: ...  ... }` form) and pulls out the
 // `type:` field, promoting it to a TypeExpr. The booleans report
-// whether the declaration is wrapped in `optional()` and whether the
-// wrapper provides a default.
+// whether the field may be omitted and whether omission fills a
+// non-null default.
 func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool, bool) {
 	if decl == nil {
 		return nil, false, false
@@ -109,19 +105,28 @@ func typeFromInputDecl(decl *lang.ObjectLit) (lang.TypeExpr, bool, bool) {
 			return nil, false, false
 		}
 		if opt, ok := t.(*lang.TypeOptional); ok {
-			return opt.Elem, true, opt.Default != nil
+			return opt.Elem, true, false
+		}
+		if hasInputDefault(decl) {
+			return t, true, true
 		}
 		return t, false, false
 	}
 	return nil, false, false
 }
 
+func hasInputDefault(decl *lang.ObjectLit) bool {
+	for _, fld := range decl.Fields {
+		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "default" {
+			return true
+		}
+	}
+	return false
+}
+
 // InputsFromBlock walks an `inputs:` block object literal and
-// returns each input's name to its semantic type. An input declared
-// with `optional()` holds the inner type with Optional set; Defaulted
-// is set too when the wrapper provides a default. A reader treats a
-// defaulted input as its inner type (the default replaces a missing
-// or null value), while a writer may still omit it or pass null.
+// returns each input's name to its semantic type. A nullable optional()
+// input sets Optional, and a non-null default sets Defaulted.
 func InputsFromBlock(decl *lang.ObjectLit) []ObjectField {
 	if decl == nil {
 		return nil

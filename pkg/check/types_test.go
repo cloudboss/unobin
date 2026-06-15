@@ -313,9 +313,9 @@ resources: {
 		"an input field keeps its declared type through the reference")
 }
 
-func TestCheckTypesAcceptsOptionalIntoRequired(t *testing.T) {
+func TestCheckTypesAcceptsDefaultedRequiredInput(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-inputs:    { p: { type: optional(string, 'x') } }
+inputs:    { p: { type: string, default: 'x' } }
 resources: { local.file.one: { path: var.p, content: 'hi' } }
 `), map[string]*runtime.Library{"local": localFileLibrary()})
 

@@ -13,7 +13,8 @@ factory: {
       description: 'Custom banner text; omitted, the stack builds one'
     }
     suffix: {
-      type:        optional(string, '!')
+      type:        string
+      default:     '!'
       description: 'Banner punctuation, with a declared default'
     }
     labels: { type: optional(map(string)), description: 'Extra files to write, name to content' }
@@ -42,8 +43,9 @@ factory: {
   ]
 
   locals: {
-    # suffix has a declared default, so it reads as a plain string with
-    # no test. greeting has none: the null test supplies the fallback,
+    # suffix is required but has a declared default, so it reads as a
+    # plain string with no test. greeting has none: the null test supplies
+    # the fallback,
     # and in the else branch the checker knows greeting is a string. A
     # conditional fits here because the branches differ; for a plain
     # fallback, ?? below is shorter.
