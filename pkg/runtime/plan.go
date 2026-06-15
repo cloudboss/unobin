@@ -183,9 +183,10 @@ type PlanStep struct {
 	// alone. Nil for a create, where there is no prior to compare against.
 	PriorInputs map[string]any `json:"prior-inputs,omitempty"`
 
-	PriorOutputs    map[string]any `json:"prior-outputs,omitempty"`
-	ObservedOutputs map[string]any `json:"observed-outputs,omitempty"`
-	TriggerHash     string         `json:"trigger-hash,omitempty"`
+	PriorSelector   *state.Selector `json:"prior-selector,omitempty"`
+	PriorOutputs    map[string]any  `json:"prior-outputs,omitempty"`
+	ObservedOutputs map[string]any  `json:"observed-outputs,omitempty"`
+	TriggerHash     string          `json:"trigger-hash,omitempty"`
 
 	// ReplaceTriggers names the replace-forcing fields whose value changed,
 	// the reason a step replaces rather than updates. The renderer tags each
@@ -1208,6 +1209,26 @@ func (e *Executor) planOneResource(
 		return step, nil
 	}
 	inputs := withoutPending(display, unresolved)
+	priorSelector := selectorFromEntry(prior)
+	if !sameSelector(priorSelector, step.Selector) {
+		priorRT, priorAlias, err := e.resourceRegistrationForSelector(addr, priorSelector)
+		if err != nil {
+			return nil, err
+		}
+		migrated, err := migrateEntry(priorRT, priorAlias, prior.SchemaVersion,
+			MigrationState{Inputs: prior.Inputs, Outputs: prior.Outputs})
+		if err != nil {
+			return nil, err
+		}
+		step.PriorSelector = priorSelector
+		step.PriorInputs = cloneMap(migrated.Inputs)
+		step.PriorOutputs = migrated.Outputs
+		step.Configuration = prior.Configuration
+		step.Decision = DecisionReplace
+		step.regeneratesOutputs = true
+		step.mayChangeOutputs = true
+		return step, nil
+	}
 	migrated, err := migrateEntry(rt, n.Alias, prior.SchemaVersion,
 		MigrationState{Inputs: prior.Inputs, Outputs: prior.Outputs})
 	if err != nil {

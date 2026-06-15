@@ -66,6 +66,120 @@ func orderModules(rec *deleteOrder) map[string]*Library {
 	}
 }
 
+func selectorChangeModules(oldC, newC *resourceCounters) map[string]*Library {
+	return map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"old": MakeResourceWith[countingResource, any](
+					func() *countingResource { return &countingResource{counters: oldC} },
+				),
+				"new": MakeResourceWith[countingResource, any](
+					func() *countingResource { return &countingResource{counters: newC} },
+				),
+			},
+		},
+	}
+}
+
+type countedAction struct {
+	Echo string
+	runs *int64
+}
+
+func (a *countedAction) Run(_ context.Context, _ any) (any, error) {
+	atomic.AddInt64(a.runs, 1)
+	return map[string]any{"echo": a.Echo}, nil
+}
+
+func actionSelectorChangeModules(oldRuns, newRuns *int64) map[string]*Library {
+	return map[string]*Library{
+		"core": {
+			Name: "core",
+			Actions: map[string]ActionRegistration{
+				"old": MakeActionWith[countedAction, any](
+					func() *countedAction { return &countedAction{runs: oldRuns} },
+				),
+				"new": MakeActionWith[countedAction, any](
+					func() *countedAction { return &countedAction{runs: newRuns} },
+				),
+			},
+		},
+	}
+}
+
+func TestResourceSelectorChangeReplacesResource(t *testing.T) {
+	oldC := &resourceCounters{}
+	newC := &resourceCounters{}
+	libs := selectorChangeModules(oldC, newC)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	oldSrc := `
+resources: { one: core.old { name: 'alpha', size: 1 } }
+`
+	newSrc := `
+resources: { one: core.new { name: 'alpha', size: 1 } }
+`
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, oldSrc), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, newSrc), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.one")
+	require.Equal(t, DecisionReplace, step.Decision)
+	require.Equal(t, &state.Selector{Alias: "core", Export: "old"}, step.PriorSelector)
+	require.Equal(t, &state.Selector{Alias: "core", Export: "new"}, step.Selector)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	_, err = exec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, oldC.deletes)
+	require.EqualValues(t, 1, newC.creates)
+	require.EqualValues(t, 0, oldC.updates)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.one")
+	require.NotNil(t, ent)
+	require.Equal(t, &state.Selector{Alias: "core", Export: "new"}, ent.Selector)
+}
+
+func TestActionSelectorChangeRerunsAction(t *testing.T) {
+	var oldRuns int64
+	var newRuns int64
+	libs := actionSelectorChangeModules(&oldRuns, &newRuns)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	oldSrc := `
+actions: { one: core.old { echo: 'hello' } }
+`
+	newSrc := `
+actions: { one: core.new { echo: 'hello' } }
+`
+	applyOnce(t, &Executor{
+		DAG: BuildDAG(parseStack(t, oldSrc), libs), Libraries: libs, Store: store, Factory: stack,
+	})
+
+	exec := &Executor{
+		DAG: BuildDAG(parseStack(t, newSrc), libs), Libraries: libs, Store: store, Factory: stack,
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "action.one")
+	require.Equal(t, DecisionRerun, step.Decision)
+	applyOnce(t, exec)
+	require.EqualValues(t, 1, oldRuns)
+	require.EqualValues(t, 1, newRuns)
+}
+
 func TestDestroyDeletesDependentsFirst(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)

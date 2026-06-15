@@ -291,7 +291,28 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		outputs = mapify(result)
 	case DecisionReplace:
 		cfg := e.configFor(prep.node)
-		if err := rt.Delete(ctx, receiver, cfg, step.PriorOutputs); err != nil {
+		deleteRT := rt
+		deleteReceiver := receiver
+		deleteCfg := cfg
+		if step.PriorSelector != nil && !sameSelector(step.PriorSelector, selectorForNode(prep.node)) {
+			priorRT, priorAlias, err := e.resourceRegistrationForSelector(
+				step.Address, step.PriorSelector,
+			)
+			if err != nil {
+				return err
+			}
+			deleteRT = priorRT
+			deleteReceiver = priorRT.NewReceiver()
+			if err := Decode(deleteReceiver, step.PriorInputs); err != nil {
+				return fmt.Errorf("replace: decode prior: %w", err)
+			}
+			priorCfg, err := e.configForRef(step.Configuration, priorAlias)
+			if err != nil {
+				return err
+			}
+			deleteCfg = priorCfg
+		}
+		if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, step.PriorOutputs); err != nil {
 			return fmt.Errorf("replace: delete prior: %w", err)
 		}
 		result, err := rt.Create(ctx, receiver, cfg)

@@ -1005,6 +1005,13 @@ func selectorParts(sel *state.Selector) (alias, typeName string, ok bool) {
 	return sel.Alias, sel.Export, true
 }
 
+func sameSelector(a, b *state.Selector) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Alias == b.Alias && a.Export == b.Export
+}
+
 func entrySelectorParts(ent *state.Entry) (alias, typeName string, ok bool) {
 	if alias, typeName, ok := selectorParts(selectorFromEntry(ent)); ok {
 		return alias, typeName, true
@@ -1021,6 +1028,25 @@ func stepSelectorParts(step *PlanStep) (alias, typeName string, ok bool) {
 	}
 	_, alias, typeName, _, ok = parseAddress(step.Address)
 	return alias, typeName, ok
+}
+
+func (e *Executor) resourceRegistrationForSelector(
+	addr string,
+	sel *state.Selector,
+) (ResourceRegistration, string, error) {
+	alias, typeName, ok := selectorParts(sel)
+	if !ok {
+		return nil, "", fmt.Errorf("missing selector for %q", addr)
+	}
+	lib, ok := e.librariesForAddress(addr)[alias]
+	if !ok {
+		return nil, "", fmt.Errorf("library %q is not imported", alias)
+	}
+	rt, ok := lib.Resources[typeName]
+	if !ok {
+		return nil, "", fmt.Errorf("library %s has no resource %q", alias, typeName)
+	}
+	return rt, alias, nil
 }
 
 // evalBody evaluates an object literal body to a map[string]any of input

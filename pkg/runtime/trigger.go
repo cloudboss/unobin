@@ -24,9 +24,9 @@ type TriggerDecision struct {
 
 // ComputeTrigger evaluates the action node's `@trigger` meta key (if any)
 // and returns the resulting decision. Without `@trigger`, the hash is
-// taken over the action's evaluated inputs so any visible change to the
-// body causes a rerun. With `@trigger: 'always'`, AlwaysRerun is true and
-// the hash is empty.
+// taken over the action's selector and evaluated inputs so any visible
+// change to the body causes a rerun. With `@trigger: 'always'`,
+// AlwaysRerun is true and the hash is empty.
 func ComputeTrigger(n *Node, inputs map[string]any, ec *EvalContext) (TriggerDecision, error) {
 	obj, ok := n.Body.(*lang.ObjectLit)
 	if !ok {
@@ -51,17 +51,24 @@ func ComputeTrigger(n *Node, inputs map[string]any, ec *EvalContext) (TriggerDec
 		if s, ok := val.(string); ok && s == TriggerAlways {
 			return TriggerDecision{AlwaysRerun: true, HasExplicit: true}, nil
 		}
-		hash, err := hashJSON(val)
+		hash, err := hashJSON(triggerHashValue(n, val))
 		if err != nil {
 			return TriggerDecision{}, err
 		}
 		return TriggerDecision{Hash: hash, HasExplicit: true}, nil
 	}
-	hash, err := hashJSON(inputs)
+	hash, err := hashJSON(triggerHashValue(n, inputs))
 	if err != nil {
 		return TriggerDecision{}, err
 	}
 	return TriggerDecision{Hash: hash}, nil
+}
+
+func triggerHashValue(n *Node, value any) any {
+	return map[string]any{
+		"selector": selectorForNode(n),
+		"value":    value,
+	}
 }
 
 func hashJSON(v any) (string, error) {
