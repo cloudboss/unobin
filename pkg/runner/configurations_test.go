@@ -5,8 +5,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 type awsAssumeRole struct {
@@ -35,6 +37,28 @@ func awsModuleWithConfig() *runtime.Library {
 
 func awsModuleNoConfig() *runtime.Library {
 	return &runtime.Library{Name: "aws"}
+}
+
+func TestLoadConfigurationFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/configurations", func(
+		name string, src []byte,
+	) (string, []string) {
+		f, err := lang.ParseSource(name+".ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		f, err = lowerStackConfig(f)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		_, _, err = loadConfigurations(f, name+".ub", map[string]*runtime.Library{
+			"aws": awsModuleWithConfig(),
+		}, map[string]map[string]bool{"aws": {"default": true}})
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return "", nil
+	})
 }
 
 func TestLoadConfigurationsDecodesDefault(t *testing.T) {
@@ -282,7 +306,7 @@ factory: {
 `)
 	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
-	}, map[string]map[string]bool{"aws": {"cluster": true}})
+	}, map[string]map[string]bool{"aws": {"default": true, "cluster": true}})
 	require.NoError(t, err)
 	require.Equal(t, "us-east-2", out["aws"]["cluster"].(*awsConfig).Region.Value)
 }

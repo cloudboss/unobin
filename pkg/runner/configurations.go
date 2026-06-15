@@ -16,16 +16,15 @@ import (
 // inner key is the configuration alias name. Values may reference the
 // file's locals, which resolve at load, so the raw form is already
 // concrete by the time it reaches a plan file.
-// internal is accepted for callers that already compute the factory
-// names, but stack entries with the same names are valid overrides.
-// Whether every configuration a node selects exists is the executor's
-// demand-driven check, not enforced here. path is preserved only for
-// error messages.
+// allowed names the configuration entries the stack may provide. Named
+// entries come from factory declarations; default entries may come from
+// factory declarations or configurable node usage. A nil map skips this
+// check for lower-level tests that do not have a factory DAG.
 func loadConfigurations(
 	f *lang.File,
 	path string,
 	libraries map[string]*runtime.Library,
-	_ map[string]map[string]bool,
+	allowed map[string]map[string]bool,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
 
@@ -39,6 +38,9 @@ func loadConfigurations(
 			return nil, nil, err
 		}
 		rawByImport = loaded
+	}
+	if err := validateConfigurationOverrides(path, rawByImport, allowed); err != nil {
+		return nil, nil, err
 	}
 
 	decoded, err = decodeConfigurations(rawByImport, libraries)
@@ -54,9 +56,55 @@ func loadConfigurations(
 // decodeConfigurations runs cfg.Decode for each configuration alias
 // under each library. It errors when an alias targets a library that
 // has no Configuration, when an import is unknown, or when an entry
-// fails to decode. Whether a library's nodes have the configurations
-// they select is checked demand-driven by the executor, so a library
-// may legitimately appear here with any subset of names, or none.
+// fails to decode. The caller has already checked whether the stack may
+// provide those configuration names.
+func allowedConfigurationOverrides(
+	dag *runtime.DAG,
+	libraries map[string]*runtime.Library,
+	internal map[string]map[string]bool,
+) map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	mergeConfigurationNames(out, internal)
+	if dag != nil {
+		mergeConfigurationNames(out, dag.ConfigurationSelections(libraries))
+	}
+	return out
+}
+
+func mergeConfigurationNames(dst, src map[string]map[string]bool) {
+	for alias, names := range src {
+		if dst[alias] == nil {
+			dst[alias] = map[string]bool{}
+		}
+		for name, ok := range names {
+			if ok {
+				dst[alias][name] = true
+			}
+		}
+	}
+}
+
+func validateConfigurationOverrides(
+	path string,
+	rawByImport map[string]map[string]any,
+	allowed map[string]map[string]bool,
+) error {
+	if allowed == nil {
+		return nil
+	}
+	var errs []error
+	for alias, names := range rawByImport {
+		for name := range names {
+			if !allowed[alias][name] {
+				errs = append(errs, fmt.Errorf(
+					"%s: factory.configurations.%s.%s is not declared by the factory",
+					path, alias, name))
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func decodeConfigurations(
 	rawByImport map[string]map[string]any,
 	libraries map[string]*runtime.Library,

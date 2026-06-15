@@ -441,8 +441,10 @@ func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath stri
 	if err != nil {
 		return err
 	}
+	allowedConfigs := allowedConfigurationOverrides(
+		dag, info.Libraries, runtime.InternalConfigurationNames(f))
 	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
-		info.Libraries, runtime.InternalConfigurationNames(f))
+		info.Libraries, allowedConfigs)
 	if err != nil {
 		return err
 	}
@@ -524,8 +526,10 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 		info.Libraries); err != nil {
 		return err
 	}
+	allowedConfigs := allowedConfigurationOverrides(
+		dag, info.Libraries, runtime.InternalConfigurationNames(f))
 	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
-		info.Libraries, runtime.InternalConfigurationNames(f))
+		info.Libraries, allowedConfigs)
 	if err != nil {
 		return err
 	}
@@ -757,8 +761,10 @@ func doPlan(
 	if err != nil {
 		return err
 	}
+	allowedConfigs := allowedConfigurationOverrides(
+		dag, info.Libraries, runtime.InternalConfigurationNames(f))
 	configurations, rawConfigurations, err := loadConfigurations(
-		config, configPath, info.Libraries, runtime.InternalConfigurationNames(f))
+		config, configPath, info.Libraries, allowedConfigs)
 	if err != nil {
 		return err
 	}
