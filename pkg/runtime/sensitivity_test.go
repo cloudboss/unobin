@@ -159,6 +159,34 @@ resources: {
 	require.Equal(t, []string{"content"}, got)
 }
 
+func TestSensitivityRecognizesSensitiveShortGoOutput(t *testing.T) {
+	src := `
+factory: {
+  resources: {
+    secret: vault.secret { name: 'token' }
+    file: local.file { path: 'out.txt', content: resource.secret.value }
+  }
+}
+`
+	f := parseSyntaxFactory(t, src)
+	libs := map[string]*Library{
+		"vault": {
+			Name: "vault",
+			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
+				"secret": {SensitiveOutputs: []string{"value"}},
+			}},
+		},
+		"local": {Name: "local"},
+	}
+	dag := BuildDAG(f, libs)
+	an := newSensitivityAnalyzer(f, libs, dag)
+
+	node := dag.Nodes["resource.file"]
+	require.NotNil(t, node)
+	got := an.sensitiveInputs(node.Body, node.Composite)
+	require.Equal(t, []string{"content"}, got)
+}
+
 func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
 	src := `
 resources: {

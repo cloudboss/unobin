@@ -272,10 +272,9 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 }
 
 // scopeRef rewrites a reference into a composite internal address.
-// `resource.aws.vpc.this` under call site `resource.net.cluster.web`
-// becomes `resource.net.cluster.web/resource.aws.vpc.this`; every
-// segment keeps its own kind root, so resource, data, and action
-// refs all join the same way, matching what `composeAddress` produces.
+// `resource.inner` under call site `resource.outer` becomes
+// `resource.outer/resource.inner`; every segment keeps its own kind
+// root, so resource, data, and action refs all join the same way.
 // Var refs and unsupported kinds pass through unchanged so toposort
 // skips them. An empty callSite means the ref is already in its target
 // scope (a top-level boundary's body refs, or a no-op when walking up

@@ -36,16 +36,24 @@ type sensScope struct {
 	vars    map[string]bool
 	libs    map[string]*Library
 	locals  map[string]lang.Expr
+	nodes   map[string]*Node
+	scope   string
 	forcing map[string]bool
 }
 
 func newSensScope(
-	vars map[string]bool, libs map[string]*Library, locals map[string]lang.Expr,
+	vars map[string]bool,
+	libs map[string]*Library,
+	locals map[string]lang.Expr,
+	nodes map[string]*Node,
+	scope string,
 ) *sensScope {
 	return &sensScope{
 		vars:    vars,
 		libs:    libs,
 		locals:  locals,
+		nodes:   nodes,
+		scope:   scope,
 		forcing: map[string]bool{},
 	}
 }
@@ -152,22 +160,30 @@ func (s *sensitivityAnalyzer) libsForNode(n *Node) (map[string]*Library, *Node) 
 // rootInputs and rootMods.
 func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) *sensScope {
 	if compositeAddr == "" || s.dag == nil {
-		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
+		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals, s.dagNodes(), "")
 	}
 	tmpl, _ := splitInstanceAddress(compositeAddr)
 	boundary, ok := s.dag.Nodes[tmpl]
 	if !ok {
-		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
+		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals, s.dagNodes(), "")
 	}
 	cs := s.compositeSensitivity(boundary)
 	if cs == nil {
-		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals)
+		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals, s.dagNodes(), "")
 	}
 	libs := boundary.Libraries
 	if libs == nil {
 		libs = s.rootMods
 	}
-	return newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(boundary.CompositeBody)))
+	return newSensScope(
+		cs.inputs, libs, lang.FieldMap(localsBlock(boundary.CompositeBody)), s.dagNodes(), tmpl)
+}
+
+func (s *sensitivityAnalyzer) dagNodes() map[string]*Node {
+	if s.dag == nil {
+		return nil
+	}
+	return s.dag.Nodes
 }
 
 // compositeSensitivity returns the analyzed sensitivity facts for
@@ -204,7 +220,8 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	if libs == nil {
 		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(body)))
+	sc := newSensScope(
+		cs.inputs, libs, lang.FieldMap(localsBlock(body)), s.dagNodes(), boundary.Address)
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -256,48 +273,85 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 	case "local":
 		return s.localSensitive(dp, sc)
 	case "resource", "data", "action":
+		if sc.nodes != nil {
+			if match, ok := RefMatchInScope(dp, sc.nodes, sc.scope); ok {
+				field := trailingNamedSegmentAfter(dp, match.Segments)
+				return s.nodeFieldSensitive(sc.libs, sc.nodes[match.Address], dp.Root.Name, field)
+			}
+		}
 		if len(dp.Segments) < 4 {
 			return false
 		}
 		alias := dp.Segments[0].Name
 		typ := dp.Segments[1].Name
-		field := trailingNamedSegment(dp)
-		if alias == "" || typ == "" || field == "" {
-			return false
-		}
-		lib, ok := sc.libs[alias]
-		if !ok || lib == nil {
-			return false
-		}
-		if dp.Root.Name == "resource" {
-			if comp, ok := lib.ResourceComposites[typ]; ok {
-				return s.compositeTypeOutputs(comp)[field]
-			}
-		}
-		if lib.Schema == nil {
-			return false
-		}
-		var ts *TypeSchema
-		switch dp.Root.Name {
-		case "resource":
-			ts = lib.Schema.Resources[typ]
-		case "data":
-			ts = lib.Schema.DataSources[typ]
-		case "action":
-			ts = lib.Schema.Actions[typ]
-		}
-		if ts == nil {
-			return false
-		}
-		// A leaf's inputs are referenceable too (mergeAttrs), so a
-		// sensitive input masks a reader the same way a sensitive output
-		// does. Checked as a union: either side marks the field secret.
-		if slices.Contains(ts.SensitiveOutputs, field) ||
-			slices.Contains(ts.SensitiveInputs, field) {
-			return true
-		}
+		field := trailingNamedSegmentAfter(dp, 3)
+		return s.libraryFieldSensitive(sc.libs[alias], dp.Root.Name, typ, field)
 	}
 	return false
+}
+
+func (s *sensitivityAnalyzer) nodeFieldSensitive(
+	libs map[string]*Library,
+	n *Node,
+	root string,
+	field string,
+) bool {
+	if n == nil || field == "" {
+		return false
+	}
+	lib := libs[n.Alias]
+	if lib == nil {
+		lib = n.Libraries[n.Alias]
+	}
+	if lib == nil {
+		lib = s.rootMods[n.Alias]
+	}
+	return s.libraryFieldSensitive(lib, root, n.Type, field)
+}
+
+func (s *sensitivityAnalyzer) libraryFieldSensitive(
+	lib *Library,
+	root string,
+	typ string,
+	field string,
+) bool {
+	if lib == nil || typ == "" || field == "" {
+		return false
+	}
+	switch root {
+	case "resource":
+		if comp, ok := lib.ResourceComposites[typ]; ok {
+			return s.compositeTypeOutputs(comp)[field]
+		}
+	case "data":
+		if comp, ok := lib.DataComposites[typ]; ok {
+			return s.compositeTypeOutputs(comp)[field]
+		}
+	case "action":
+		if comp, ok := lib.ActionComposites[typ]; ok {
+			return s.compositeTypeOutputs(comp)[field]
+		}
+	}
+	if lib.Schema == nil {
+		return false
+	}
+	var ts *TypeSchema
+	switch root {
+	case "resource":
+		ts = lib.Schema.Resources[typ]
+	case "data":
+		ts = lib.Schema.DataSources[typ]
+	case "action":
+		ts = lib.Schema.Actions[typ]
+	}
+	if ts == nil {
+		return false
+	}
+	// A leaf's inputs are referenceable too (mergeAttrs), so a
+	// sensitive input masks a reader the same way a sensitive output
+	// does. Checked as a union: either side marks the field secret.
+	return slices.Contains(ts.SensitiveOutputs, field) ||
+		slices.Contains(ts.SensitiveInputs, field)
 }
 
 // localSensitive reports whether a `local.<name>` reference reads a
@@ -361,7 +415,7 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	if libs == nil {
 		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(ct.Body)))
+	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(ct.Body)), nil, "")
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -395,13 +449,12 @@ func inputsBlockSensitive(f *lang.File) map[string]bool {
 	return lang.SensitiveInputs(inputs)
 }
 
-// trailingNamedSegment returns the last named segment of a dot
-// path past the three-segment node address. Index-only segments
-// at the tail are skipped so `resource.alias.t.name['k'].field`
-// returns "field". Returns "" when no trailing named segment
-// exists.
-func trailingNamedSegment(dp *lang.DotPath) string {
-	for i := len(dp.Segments) - 1; i >= 3; i-- {
+// trailingNamedSegmentAfter returns the last named segment of a dot
+// path past the node address. Index-only segments at the tail are
+// skipped so `resource.app['k'].field` returns "field". Returns ""
+// when no trailing named segment exists.
+func trailingNamedSegmentAfter(dp *lang.DotPath, consumed int) string {
+	for i := len(dp.Segments) - 1; i >= consumed; i-- {
 		if dp.Segments[i].Name != "" {
 			return dp.Segments[i].Name
 		}

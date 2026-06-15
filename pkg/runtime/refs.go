@@ -164,8 +164,8 @@ func refsWithLocalsInScope(
 
 // deferredRefs returns the full dotted source paths an expression
 // reads from. Unlike Refs, the trailing field segments are preserved
-// so the renderer can show `<resource.aws.vpc.main.id>` rather than
-// the bare node address. A `local.<name>` reference expands to the
+// so the renderer can show `<resource.app.id>` rather than the bare
+// node address. A `local.<name>` reference expands to the
 // paths inside the local's own expression, so a plan field reading a
 // local still shows the real upstream it is waiting on. `@each`
 // bindings are skipped because they resolve from the for-each scope,

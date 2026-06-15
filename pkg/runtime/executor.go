@@ -932,12 +932,11 @@ func sameValue(a, b any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-// parseAddress reads the inner-most node segment of addr and splits it
-// into its kind root, alias, type, and name. addr may be a root
-// address (`resource.aws.vpc.this`) or a composite-internal address whose
-// segments are `/`-joined; only the final segment is parsed, so the node
-// is read relative to its direct enclosing scope. A trailing `@for-each`
-// instance key on that segment is ignored.
+// parseAddress reads the inner-most legacy node segment of addr and
+// splits it into its kind root, alias, type, and name. Only the final
+// segment is parsed, so the node is read relative to its direct
+// enclosing scope. A trailing `@for-each` instance key on that segment
+// is ignored.
 func parseAddress(addr string) (kind NodeKind, alias, typeName, name string, ok bool) {
 	parts, ok := addressParts(addr)
 	if !ok || len(parts) != 4 {

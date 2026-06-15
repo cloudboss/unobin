@@ -295,8 +295,8 @@ func (n *Ident) Span() Span { return n.S }
 func (n *Ident) exprNode()  {}
 
 // DotPath is a dot-separated address like `var.region`,
-// `resource.aws.vpc.main.id`, or `data.aws.ami.ubuntu.id`. Segments after
-// the root navigate by name (`.id`), by a string key or integer position
+// `resource.app.id`, or `data.ami.id`. Segments after the root navigate
+// by name (`.id`), by a string key or integer position
 // (`["alpha"]`, `[0]`), or project over a list with a splat (`[*]`). The
 // first segment (Root) is one of the reserved address roots: var, data,
 // resource, action, @each.

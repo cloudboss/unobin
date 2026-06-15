@@ -20,18 +20,17 @@ const (
 
 // Node is one addressable element of a stack: a single resource instance,
 // data source, action, output, or composite call site. Address is the
-// canonical dotted form the language uses to reference the node from
-// elsewhere such as `resource.aws.vpc.main` or `output.cluster-arn`. Body
-// is the source expression: an ObjectLit for resources/data/actions/
-// composites, any Expr for outputs.
+// dotted form the language uses to reference the node from elsewhere,
+// such as `resource.app`, `action.deploy`, or `output.cluster-arn`.
+// Body is the source expression: an ObjectLit for resources, data,
+// actions, and composites; any Expr for outputs.
 //
-// A node inside a composite carries the call site address in
-// Composite so the runtime evaluates its body against the composite's
-// scope rather than the root. Its address looks like
-// `resource.<call site>/<alias>.<type>.<name>`, with the call site as a
-// prefix joined by a single `/`. For a composite that itself calls
-// another composite the chain continues:
-// `resource.<outer>/<inner-rel>/<deepest-rel>`, and each node's
+// A node inside a composite stores the call site address in Composite so
+// the runtime evaluates its body against the composite's scope rather
+// than the root. Its address looks like `resource.app/resource.inner`,
+// with the call site as a prefix joined by a single `/`. For a composite
+// that itself calls another composite the chain continues:
+// `resource.outer/resource.inner/resource.leaf`, and each node's
 // Composite names its direct enclosing call site.
 //
 // CompositeBody and Libraries are set only on a composite boundary
@@ -93,8 +92,8 @@ func (n *Node) IsComposite() bool {
 	return n.CompositeBody != nil
 }
 
-// ConfigRef names a particular configuration on an import.
-// `@configuration: aws.east2` parses to {Alias: "aws", Configuration: "east2"}.
+// ConfigRef names a particular configuration on an import. A remap for
+// inner alias aws selecting east2 stores {Alias: "aws", Configuration: "east2"}.
 type ConfigRef struct {
 	Alias         string
 	Configuration string

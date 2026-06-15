@@ -1,8 +1,8 @@
 // Package goschema reads a Go library's source to learn the output
 // schema of each registered resource, data source, and action. The
 // dev CLI feeds the result into the reference checker so trailing
-// field names in references like `resource.aws.vpc.main.id` can be
-// validated at compile time.
+// field names in references like `resource.app.id` can be validated at
+// compile time.
 package goschema
 
 import (
