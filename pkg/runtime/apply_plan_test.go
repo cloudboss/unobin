@@ -381,7 +381,8 @@ func incrementalEntry(address, name string, size int64) *state.Entry {
 	return &state.Entry{
 		Address:       address,
 		Type:          state.EntryLeaf,
-		Kind:          "inc",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "inc"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": name, "size": size},
 		Outputs: map[string]any{
@@ -1636,6 +1637,21 @@ actions: {
 	planAndApply(src("beta"))
 	require.Equal(t, int64(2), atomic.LoadInt64(&actionRuns),
 		"action should rerun when its upstream resource is changing")
+}
+
+func TestEncodePlanUsesNodeKindKey(t *testing.T) {
+	plan := &Plan{
+		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
+		Steps: []*PlanStep{{
+			Address:  "resource.x",
+			Kind:     NodeResource,
+			Decision: DecisionCreate,
+		}},
+	}
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"node-kind": "resource"`)
+	require.NotContains(t, string(encoded), `"kind": "resource"`)
 }
 
 func TestDecodePlanRejectsBadFormatVersion(t *testing.T) {

@@ -1745,20 +1745,22 @@ func stateMoveFixture(t *testing.T, info Info) *local.Store {
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
 		{
-			Address:     "resource.greeter.greeting.welcome",
-			Type:        state.EntryLibraryCall,
-			Library:     "greeter",
-			LibraryType: "greeting",
+			Address:  "resource.greeter.greeting.welcome",
+			Type:     state.EntryLibraryCall,
+			Kind:     "resource",
+			Selector: &state.Selector{Alias: "greeter", Export: "greeting"},
 		},
 		{
-			Address: "resource.greeter.greeting.welcome/resource.local.file.this",
-			Type:    state.EntryLeaf,
-			Kind:    "resource",
+			Address:  "resource.greeter.greeting.welcome/resource.local.file.this",
+			Type:     state.EntryLeaf,
+			Kind:     "resource",
+			Selector: &state.Selector{Alias: "local", Export: "file"},
 		},
 		{
-			Address: "resource.local.file.other",
-			Type:    state.EntryLeaf,
-			Kind:    "resource",
+			Address:  "resource.local.file.other",
+			Type:     state.EntryLeaf,
+			Kind:     "resource",
+			Selector: &state.Selector{Alias: "local", Export: "file"},
 		},
 	}
 	rev, err := store.Write(snap)
@@ -1825,20 +1827,22 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
 		{
-			Address:     "resource.greeter.greeting.a",
-			Type:        state.EntryLibraryCall,
-			Library:     "greeter",
-			LibraryType: "greeting",
+			Address:  "resource.greeter.greeting.a",
+			Type:     state.EntryLibraryCall,
+			Kind:     "resource",
+			Selector: &state.Selector{Alias: "greeter", Export: "greeting"},
 		},
 		{
-			Address: "resource.greeter.greeting.a/resource.local.file.this",
-			Type:    state.EntryLeaf,
-			Kind:    "resource",
+			Address:  "resource.greeter.greeting.a/resource.local.file.this",
+			Type:     state.EntryLeaf,
+			Kind:     "resource",
+			Selector: &state.Selector{Alias: "local", Export: "file"},
 		},
 		{
-			Address: "resource.greeter.greeting.b/resource.local.file.this",
-			Type:    state.EntryLeaf,
-			Kind:    "resource",
+			Address:  "resource.greeter.greeting.b/resource.local.file.this",
+			Type:     state.EntryLeaf,
+			Kind:     "resource",
+			Selector: &state.Selector{Alias: "local", Export: "file"},
 		},
 	}
 	rev, err := store.Write(snap)

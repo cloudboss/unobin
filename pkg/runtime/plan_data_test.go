@@ -277,7 +277,8 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	ent := snap.Find("data.core.dial.cfg")
 	require.NotNil(t, ent, "the data read belongs in state")
 	require.Equal(t, state.EntryData, ent.Type)
-	require.Equal(t, "dial", ent.Kind)
+	require.Equal(t, "data", ent.Kind)
+	require.Equal(t, &state.Selector{Alias: "core", Export: "dial"}, ent.Selector)
 	require.Equal(t, map[string]any{"key": "k"}, ent.Inputs)
 	require.Equal(t, map[string]any{"value": "a:k"}, ent.Outputs)
 

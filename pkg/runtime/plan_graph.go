@@ -7,7 +7,7 @@ import "slices"
 // for under apply's scheduler.
 type StepNode struct {
 	Address   string   `json:"address"`
-	Kind      NodeKind `json:"kind"`
+	Kind      NodeKind `json:"node-kind"`
 	Composite bool     `json:"composite,omitempty"`
 	Decision  Decision `json:"decision"`
 	DependsOn []string `json:"depends-on,omitempty"`

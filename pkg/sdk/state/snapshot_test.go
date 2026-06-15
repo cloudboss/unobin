@@ -20,21 +20,22 @@ func sampleSnapshot() *Snapshot {
 		GeneratedAt: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
-				Address:       "resource.aws.vpc.main",
+				Address:       "resource.main",
 				Type:          EntryLeaf,
-				Kind:          "vpc",
+				Kind:          "resource",
+				Selector:      &Selector{Alias: "aws", Export: "vpc"},
 				SchemaVersion: 1,
 				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
 				Outputs:       map[string]any{"id": "vpc-abc"},
 			},
 			{
-				Address:     "resource.net.cluster.web",
-				Type:        EntryLibraryCall,
-				Library:     "net",
-				LibraryType: "cluster",
-				Inputs:      map[string]any{"name": "web", "size": float64(5)},
-				Outputs:     map[string]any{"arn": "arn:..."},
-				DependsOn:   []string{"resource.aws.vpc.main"},
+				Address:   "resource.web",
+				Type:      EntryLibraryCall,
+				Kind:      "resource",
+				Selector:  &Selector{Alias: "net", Export: "cluster"},
+				Inputs:    map[string]any{"name": "web", "size": float64(5)},
+				Outputs:   map[string]any{"arn": "arn:..."},
+				DependsOn: []string{"resource.main"},
 			},
 		},
 	}
@@ -61,11 +62,11 @@ func TestSnapshotEncodeStable(t *testing.T) {
 
 func TestSnapshotFind(t *testing.T) {
 	s := sampleSnapshot()
-	e := s.Find("resource.aws.vpc.main")
+	e := s.Find("resource.main")
 	require.NotNil(t, e)
-	require.Equal(t, "vpc", e.Kind)
+	require.Equal(t, "resource", e.Kind)
 
-	require.Nil(t, s.Find("resource.no.such.thing"))
+	require.Nil(t, s.Find("resource.no-such-thing"))
 }
 
 func TestSnapshotRejectsBadFormatVersion(t *testing.T) {
@@ -80,15 +81,15 @@ func TestSnapshotRejectsLeafWithoutKind(t *testing.T) {
 	s.Entries[0].Kind = ""
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing kind")
+	require.Contains(t, err.Error(), "missing node-kind")
 }
 
-func TestSnapshotRejectsLibraryCallWithoutModule(t *testing.T) {
+func TestSnapshotRejectsLibraryCallWithoutSelector(t *testing.T) {
 	s := sampleSnapshot()
-	s.Entries[1].Library = ""
+	s.Entries[1].Selector = nil
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing library")
+	require.Contains(t, err.Error(), "selector missing")
 }
 
 func TestSnapshotRejectsUnknownType(t *testing.T) {
@@ -96,15 +97,16 @@ func TestSnapshotRejectsUnknownType(t *testing.T) {
 	s.Entries[0].Type = "weird"
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown type")
+	require.Contains(t, err.Error(), "unknown entry-kind")
 }
 
 func TestSnapshotRejectsDuplicateAddresses(t *testing.T) {
 	s := sampleSnapshot()
 	s.Entries = append(s.Entries, &Entry{
-		Address: "resource.aws.vpc.main",
-		Type:    EntryLeaf,
-		Kind:    "vpc",
+		Address:  "resource.main",
+		Type:     EntryLeaf,
+		Kind:     "resource",
+		Selector: &Selector{Alias: "aws", Export: "vpc"},
 	})
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
@@ -134,8 +136,12 @@ func TestSnapshotJSONShape(t *testing.T) {
 	out := string(b)
 	require.True(t, strings.HasSuffix(out, "\n"))
 	require.Contains(t, out, `"format-version": 1`)
-	require.Contains(t, out, `"address": "resource.aws.vpc.main"`)
-	require.Contains(t, out, `"library-type": "cluster"`)
+	require.Contains(t, out, `"address": "resource.main"`)
+	require.Contains(t, out, `"entry-kind": "leaf"`)
+	require.Contains(t, out, `"node-kind": "resource"`)
+	require.NotContains(t, out, `"type":`)
+	require.NotContains(t, out, `"kind": "resource"`)
+	require.NotContains(t, out, `"library-type"`)
 }
 
 func TestSnapshotActionEntry(t *testing.T) {
@@ -146,9 +152,10 @@ func TestSnapshotActionEntry(t *testing.T) {
 		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
-				Address:     "action.core.command.smoke-test",
+				Address:     "action.smoke-test",
 				Type:        EntryAction,
-				Kind:        "command",
+				Kind:        "action",
+				Selector:    &Selector{Alias: "core", Export: "command"},
 				TriggerHash: "sha256:deadbeef",
 				Inputs:      map[string]any{"argv": []any{"true"}},
 				Outputs:     map[string]any{"stdout": "", "exit-code": float64(0)},
@@ -182,10 +189,14 @@ func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
 		Stack:         "prod",
 		GeneratedAt:   time.Now().UTC(),
 		Entries: []*Entry{
-			{Address: "action.core.command.x", Type: EntryAction},
+			{
+				Address:  "action.x",
+				Type:     EntryAction,
+				Selector: &Selector{Alias: "core", Export: "command"},
+			},
 		},
 	}
 	_, err := EncodeSnapshot(snap)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing kind")
+	require.Contains(t, err.Error(), "missing node-kind")
 }

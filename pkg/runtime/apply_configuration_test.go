@@ -408,6 +408,7 @@ func TestDestroyReadUnknownConfigurationRefFails(t *testing.T) {
 		Address:       "resource.fix.config-echo.app",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "fix", Export: "config-echo"},
 		SchemaVersion: 1,
 		Configuration: "fix.ghost",
 		Inputs:        map[string]any{},

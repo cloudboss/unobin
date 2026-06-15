@@ -407,12 +407,13 @@ outputs:   { out: { value: resource.w.box.x.id } }
 	}
 	require.NotNil(t, leaf)
 	require.Equal(t, "resource.w.box.x/resource.core.thing.one", leaf.Address)
-	require.Equal(t, "thing", leaf.Kind)
+	require.Equal(t, "resource", leaf.Kind)
+	require.Equal(t, &state.Selector{Alias: "core", Export: "thing"}, leaf.Selector)
 
 	require.NotNil(t, libCall)
 	require.Equal(t, "resource.w.box.x", libCall.Address)
-	require.Equal(t, "w", libCall.Library)
-	require.Equal(t, "box", libCall.LibraryType)
+	require.Equal(t, "resource", libCall.Kind)
+	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
 	require.Equal(t, "alpha", libCall.Inputs["name"])
 	require.Equal(t, "fake-alpha", libCall.Outputs["id"])
 }
@@ -456,8 +457,8 @@ outputs: { out: { value: data.w.box.x.value } }
 	require.NotNil(t, libCall, "the data composite call records a library-call entry")
 	require.Equal(t, "data.w.box.x", libCall.Address,
 		"the boundary address has the data kind root")
-	require.Equal(t, "w", libCall.Library)
-	require.Equal(t, "box", libCall.LibraryType)
+	require.Equal(t, "data", libCall.Kind)
+	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
 	require.Equal(t, "looked-up:abc", libCall.Outputs["value"])
 
 	// A second plan and apply against the prior state still resolves the
@@ -752,14 +753,15 @@ outputs:   { out: { value: resource.outer-lib.layer.mine.path } }
 	inner := byAddr[innerAddr]
 	require.NotNil(t, inner)
 	require.Equal(t, state.EntryLibraryCall, inner.Type)
-	require.Equal(t, "inner-lib", inner.Library)
-	require.Equal(t, "cluster", inner.LibraryType)
+	require.Equal(t, "resource", inner.Kind)
+	require.Equal(t, &state.Selector{Alias: "inner-lib", Export: "cluster"}, inner.Selector)
 
 	outerAddr := "resource.outer-lib.layer.mine"
 	outer := byAddr[outerAddr]
 	require.NotNil(t, outer)
 	require.Equal(t, state.EntryLibraryCall, outer.Type)
-	require.Equal(t, "outer-lib", outer.Library)
+	require.Equal(t, "resource", outer.Kind)
+	require.Equal(t, &state.Selector{Alias: "outer-lib", Export: "layer"}, outer.Selector)
 }
 
 func TestExecutorNestedCompositeEncapsulation(t *testing.T) {

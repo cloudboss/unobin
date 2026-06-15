@@ -1076,7 +1076,8 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": float64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
@@ -1132,7 +1133,8 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": float64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha"},
@@ -1184,7 +1186,8 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
@@ -1220,7 +1223,8 @@ resources: { core.thing.one: { name: 'alpha', size: 2 } }
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
@@ -1281,7 +1285,8 @@ resources: { core.thing.one: { name: 'alpha' } }
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
@@ -1309,7 +1314,8 @@ resources: { core.thing.one: { name: 'alpha' } }
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": float64(3)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(3)},
@@ -1337,7 +1343,8 @@ resources: { core.thing.one: { name: 'alpha' } }
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
@@ -1376,7 +1383,8 @@ resources: { core.thing.one: { name: 'alpha', size: 9 } }
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
@@ -1413,7 +1421,8 @@ resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
 		&state.Entry{
 			Address:       "resource.core.thing.many['alpha']",
 			Type:          state.EntryLeaf,
-			Kind:          "thing",
+			Kind:          "resource",
+			Selector:      &state.Selector{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "alpha"},
 			Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
@@ -1421,7 +1430,8 @@ resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
 		&state.Entry{
 			Address:       "resource.core.thing.many['beta']",
 			Type:          state.EntryLeaf,
-			Kind:          "thing",
+			Kind:          "resource",
+			Selector:      &state.Selector{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "beta"},
 			Outputs:       map[string]any{"id": "fake-beta", "name": "beta"},

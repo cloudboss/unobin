@@ -3,6 +3,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -29,26 +30,22 @@ type Selector struct {
 	Export string `json:"export,omitempty"`
 }
 
-// Entry is one record in a snapshot. Type discriminates the fields used:
-// leaf entries hold a primitive resource's Kind, SchemaVersion, Inputs, and
-// Outputs; library-call entries hold a composite type's Library, LibraryType,
-// and call-site Inputs/Outputs.
+// Entry is one record in a snapshot. Type is the entry discriminator.
+// Kind is the graph node kind for resource, data, action, and composite
+// entries. Selector names the implementation used by that entry.
 //
 // SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
 // values came from a sensitive source. Renderers mask the matching
 // entries when printing.
 type Entry struct {
 	Address string    `json:"address"`
-	Type    EntryType `json:"type"`
+	Type    EntryType `json:"entry-kind"`
 
-	Kind             string    `json:"kind,omitempty"`
+	Kind             string    `json:"node-kind,omitempty"`
 	Selector         *Selector `json:"selector,omitempty"`
 	SchemaVersion    int       `json:"schema-version,omitempty"`
 	SensitiveInputs  []string  `json:"sensitive-inputs,omitempty"`
 	SensitiveOutputs []string  `json:"sensitive-outputs,omitempty"`
-
-	Library     string `json:"library,omitempty"`
-	LibraryType string `json:"library-type,omitempty"`
 
 	// Configuration names the library configuration the resource was
 	// created against, as "<alias>.<configuration>". It is recorded only
@@ -164,47 +161,54 @@ func (s *Snapshot) Validate() error {
 func (e *Entry) validate() error {
 	switch e.Type {
 	case EntryLeaf:
-		if e.Kind == "" {
-			return fmt.Errorf("snapshot: leaf entry %q missing kind", e.Address)
+		if err := e.validateNodeKind("resource"); err != nil {
+			return err
 		}
 		if err := e.validateGraphSelector(); err != nil {
 			return err
 		}
 	case EntryLibraryCall:
-		if e.Library == "" {
-			return fmt.Errorf("snapshot: library-call entry %q missing library", e.Address)
-		}
-		if e.LibraryType == "" {
-			return fmt.Errorf("snapshot: library-call entry %q missing library-type", e.Address)
+		if err := e.validateNodeKind("resource", "data", "action"); err != nil {
+			return err
 		}
 		if err := e.validateGraphSelector(); err != nil {
 			return err
 		}
 	case EntryAction:
-		if e.Kind == "" {
-			return fmt.Errorf("snapshot: action entry %q missing kind", e.Address)
+		if err := e.validateNodeKind("action"); err != nil {
+			return err
 		}
 		if err := e.validateGraphSelector(); err != nil {
 			return err
 		}
 	case EntryData:
-		if e.Kind == "" {
-			return fmt.Errorf("snapshot: data entry %q missing kind", e.Address)
+		if err := e.validateNodeKind("data"); err != nil {
+			return err
 		}
 		if err := e.validateGraphSelector(); err != nil {
 			return err
 		}
 	case "":
-		return fmt.Errorf("snapshot: entry %q missing type", e.Address)
+		return fmt.Errorf("snapshot: entry %q missing entry-kind", e.Address)
 	default:
-		return fmt.Errorf("snapshot: entry %q has unknown type %q", e.Address, e.Type)
+		return fmt.Errorf("snapshot: entry %q has unknown entry-kind %q", e.Address, e.Type)
 	}
 	return nil
 }
 
+func (e *Entry) validateNodeKind(allowed ...string) error {
+	if e.Kind == "" {
+		return fmt.Errorf("snapshot: entry %q missing node-kind", e.Address)
+	}
+	if slices.Contains(allowed, e.Kind) {
+		return nil
+	}
+	return fmt.Errorf("snapshot: entry %q has node-kind %q", e.Address, e.Kind)
+}
+
 func (e *Entry) validateGraphSelector() error {
 	if e.Selector == nil {
-		return nil
+		return fmt.Errorf("snapshot: entry %q selector missing", e.Address)
 	}
 	if e.Selector.Alias == "" {
 		return fmt.Errorf("snapshot: entry %q selector missing alias", e.Address)

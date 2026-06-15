@@ -199,8 +199,8 @@ func TestEventStream(t *testing.T) {
 	frames := sseFrames(t, br, 2)
 	assert.Equal(t,
 		`{"kind":"graph","seq":0,"factory":"fac","stack":"prod","steps":[`+
-			`{"address":"resource.aws.vpc.main","kind":"resource","decision":"create"},`+
-			`{"address":"resource.aws.subnet.this","kind":"resource","decision":"create",`+
+			`{"address":"resource.aws.vpc.main","node-kind":"resource","decision":"create"},`+
+			`{"address":"resource.aws.subnet.this","node-kind":"resource","decision":"create",`+
 			`"depends-on":["resource.aws.vpc.main"]}]}`,
 		frames[0])
 	assert.Equal(t, `{"kind":"snapshot","seq":0,"steps":{}}`, frames[1])

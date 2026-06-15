@@ -310,7 +310,8 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
@@ -351,7 +352,8 @@ resources: { core.thing.one: { name: 'alpha' } }
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.core.thing.one",
 		Type:          state.EntryLeaf,
-		Kind:          "thing",
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},

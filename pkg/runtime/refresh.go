@@ -140,7 +140,7 @@ func (e *Executor) refreshLeaf(
 	return &state.Entry{
 		Address:          ent.Address,
 		Type:             state.EntryLeaf,
-		Kind:             ent.Kind,
+		Kind:             string(NodeResource),
 		Selector:         &state.Selector{Alias: alias, Export: typeName},
 		SchemaVersion:    rt.SchemaVersion(),
 		Configuration:    ent.Configuration,

@@ -789,8 +789,7 @@ func (e *Executor) finalizeComposite(
 	upsertEntry(rs.next, &state.Entry{
 		Address:          instAddr,
 		Type:             state.EntryLibraryCall,
-		Library:          n.Alias,
-		LibraryType:      n.Type,
+		Kind:             string(n.Kind),
 		Selector:         selectorForNode(n),
 		Inputs:           inputs,
 		Outputs:          outputs,
@@ -974,20 +973,10 @@ func selectorForNode(n *Node) *state.Selector {
 }
 
 func selectorFromEntry(ent *state.Entry) *state.Selector {
-	if ent == nil {
+	if ent == nil || ent.Selector == nil {
 		return nil
 	}
-	if ent.Selector != nil {
-		return cloneSelector(ent.Selector)
-	}
-	if ent.Library != "" && ent.LibraryType != "" {
-		return &state.Selector{Alias: ent.Library, Export: ent.LibraryType}
-	}
-	_, alias, typeName, _, ok := parseAddress(ent.Address)
-	if !ok {
-		return nil
-	}
-	return &state.Selector{Alias: alias, Export: typeName}
+	return cloneSelector(ent.Selector)
 }
 
 func cloneSelector(sel *state.Selector) *state.Selector {

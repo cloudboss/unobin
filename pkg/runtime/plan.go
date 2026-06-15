@@ -157,7 +157,7 @@ const (
 // reads from. Apply re-evaluates these against the live scope.
 type PlanStep struct {
 	Address  string          `json:"address"`
-	Kind     NodeKind        `json:"kind"`
+	Kind     NodeKind        `json:"node-kind"`
 	Selector *state.Selector `json:"selector,omitempty"`
 
 	// Composite marks a step whose apply finalizes a composite call

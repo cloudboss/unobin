@@ -22,9 +22,10 @@ func sampleSnapshot() *sdkstate.Snapshot {
 		GeneratedAt: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
 		Entries: []*sdkstate.Entry{
 			{
-				Address:       "resource.aws.vpc.main",
+				Address:       "resource.main",
 				Type:          sdkstate.EntryLeaf,
-				Kind:          "vpc",
+				Kind:          "resource",
+				Selector:      &sdkstate.Selector{Alias: "aws", Export: "vpc"},
 				SchemaVersion: 1,
 				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
 				Outputs:       map[string]any{"id": "vpc-abc"},
