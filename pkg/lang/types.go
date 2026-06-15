@@ -57,14 +57,6 @@ var typeConstructorNames = map[string]struct{}{
 	"open":     {},
 }
 
-// isTypeConstructor reports whether name is a call-form type constructor
-// rather than a library function. The call checker uses it to tell a type
-// like list(string) from a function call.
-func isTypeConstructor(name string) bool {
-	_, ok := typeConstructorNames[name]
-	return ok
-}
-
 func promoteCall(c *Call) (TypeExpr, error) {
 	if c.Library != nil {
 		return nil, Errorf(ErrType, c.S.Start,

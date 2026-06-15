@@ -71,6 +71,12 @@ func TestValidateCallsFixtures(t *testing.T) {
 		if err != nil {
 			return "", []string{err.Error()}
 		}
+		if inputs := TopLevelBlock(f, "inputs"); inputs != nil {
+			errs := ValidateInputDeclarations(inputs)
+			if errs.Len() > 0 {
+				return "", errs.Strings()
+			}
+		}
 		return "", ValidateCalls(f).Strings()
 	})
 }

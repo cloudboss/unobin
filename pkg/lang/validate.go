@@ -260,6 +260,7 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 			hasType = true
 			t, err := PromoteType(df.Value)
 			if err != nil {
+				df.Value = &TypeAtomic{S: df.Value.Span(), Name: "invalid"}
 				if pe, ok := errors.AsType[*Error](err); ok {
 					errs.Add(pe)
 				} else {
@@ -985,22 +986,17 @@ const CoreNamespace = "@core"
 // imported library or @core), and a qualified call whose alias is
 // missing from the file's imports block. @core needs no import; any
 // other @-name is rejected, since the language provides only @core.
-// The type constructors in an input declaration's type, such as
-// list(string) or optional(integer), are left alone: they share call
-// syntax but denote types. Defaults stay values and are still checked.
+// Type fields should already contain TypeExpr nodes from input
+// declaration validation. Defaults stay values and are still checked.
 // Whether a named library function exists is not checked here; that is
 // a runtime concern, since a library's function set lives in compiled
 // Go code. The @core set is fixed and the reference checker enforces it.
 func ValidateCalls(f *File) *ErrorList {
 	errs := NewErrorList(0)
 	imports := importedAliases(f)
-	inType := typeConstructorCalls(f)
 	Walk(f.Body, func(e Expr) {
 		c, ok := e.(*Call)
 		if !ok {
-			return
-		}
-		if _, isType := inType[e]; isType {
 			return
 		}
 		if c.Library == nil {
@@ -1100,85 +1096,6 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 			checkComprehensionBindings(part.Expr, bound, errs)
 		}
 	}
-}
-
-// typeConstructorCalls returns the Call nodes written inside type
-// positions, so the call checker leaves them to type validation. It
-// starts only from input declarations, since that is the one place a
-// type can be written, and follows the type sub-grammar from each
-// declared type. Default values and object field declaration values are
-// not types, so their calls are not collected and stay subject to the
-// call checker.
-func typeConstructorCalls(f *File) map[Expr]struct{} {
-	skip := map[Expr]struct{}{}
-	inputs, ok := indexTopLevelBlocks(f)["inputs"].(*ObjectLit)
-	if !ok {
-		return skip
-	}
-	for _, decl := range inputs.Fields {
-		if obj, ok := decl.Value.(*ObjectLit); ok {
-			collectTypeConstructors(fieldValue(obj, "type"), skip)
-		}
-	}
-	return skip
-}
-
-// collectTypeConstructors adds e to skip when it is a call in type
-// position, then recurses into its type arguments. It mirrors
-// promoteCall's structure but is tolerant: a malformed type just stops
-// the descent and is reported by ValidateInputDeclarations instead.
-func collectTypeConstructors(e Expr, skip map[Expr]struct{}) {
-	c, ok := e.(*Call)
-	if !ok || c.Library != nil || c.Callee == nil {
-		return
-	}
-	skip[c] = struct{}{}
-	if len(c.Args) == 0 {
-		return
-	}
-	if !isTypeConstructor(c.Callee.Name) {
-		for _, arg := range c.Args {
-			collectTypeConstructors(arg, skip)
-		}
-		return
-	}
-	switch c.Callee.Name {
-	case "list", "map", "optional", "open":
-		// The element or inner type is the first argument.
-		collectTypeConstructors(c.Args[0], skip)
-	case "tuple":
-		for _, arg := range c.Args {
-			collectTypeConstructors(arg, skip)
-		}
-	case "object":
-		if obj, ok := c.Args[0].(*ObjectLit); ok {
-			for _, fld := range obj.Fields {
-				collectObjectFieldType(fld, skip)
-			}
-		}
-	}
-}
-
-// collectObjectFieldType handles one field of an object(...) type. The
-// field value is either a direct type or a nested declaration carrying its
-// own type: key; only that type is a type position.
-func collectObjectFieldType(f *Field, skip map[Expr]struct{}) {
-	if obj, ok := f.Value.(*ObjectLit); ok {
-		collectTypeConstructors(fieldValue(obj, "type"), skip)
-		return
-	}
-	collectTypeConstructors(f.Value, skip)
-}
-
-// fieldValue returns the value of the bare-identifier field named name, or
-// nil when the object has no such field.
-func fieldValue(o *ObjectLit, name string) Expr {
-	for _, f := range o.Fields {
-		if f.Key.Kind == FieldIdent && f.Key.Name == name {
-			return f.Value
-		}
-	}
-	return nil
 }
 
 // ValidateFactoryConfigurations checks the structure of a factory's

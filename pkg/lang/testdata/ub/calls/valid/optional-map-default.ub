@@ -1,1 +1,1 @@
-inputs: { a: { type: optional(map(string), {}) } }
+inputs: { a: { type: optional(map(string)), default: {} } }

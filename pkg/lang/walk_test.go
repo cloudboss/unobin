@@ -28,6 +28,24 @@ func TestWalkNilIsSafe(t *testing.T) {
 	require.False(t, called)
 }
 
+func TestWalkVisitsParsedTypeDeclarations(t *testing.T) {
+	f, err := ParseSource("factory.ub", []byte(`
+inputs: { a: { type: object({ p: { type: integer, default: pick() } }) } }
+`))
+	require.NoError(t, err)
+	inputs := TopLevelBlock(f, "inputs")
+	errs := ValidateInputDeclarations(inputs)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+
+	var calls []string
+	Walk(f.Body, func(e Expr) {
+		if call, ok := e.(*Call); ok && call.Callee != nil {
+			calls = append(calls, call.Callee.Name)
+		}
+	})
+	require.Contains(t, calls, "pick")
+}
+
 func TestWalkVisitsConditionalBranches(t *testing.T) {
 	f, err := ParseSource("factory.ub", []byte(`
 resources: { a.b.c: { x: if var.prod then var.big else var.small } }
