@@ -85,15 +85,24 @@ func (o Options) stderr() io.Writer {
 }
 
 func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
+	_, f, body, err := ParseFactorySyntaxSource(path, src)
+	return f, body, err
+}
+
+// ParseFactorySyntaxSource parses source and returns typed and runtime views.
+func ParseFactorySyntaxSource(
+	path string,
+	src []byte,
+) (*syntax.File, *lang.File, string, error) {
 	sf, err := syntax.ParseSource(path, src)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
-		return nil, "", fmt.Errorf("%s: expected factory declaration", path)
+		return nil, nil, "", fmt.Errorf("%s: expected factory declaration", path)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-		return nil, "", verrs.Err()
+		return nil, nil, "", verrs.Err()
 	}
 	obj := syntax.RuntimeFactoryBodyObject(sf.Factory.Body)
 	out := &lang.File{
@@ -105,9 +114,9 @@ func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
 	}
 	body, err := lang.Canonicalize(path, src)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
-	return out, string(body), nil
+	return sf, out, string(body), nil
 }
 
 // FactorySourcePath returns the factory source file named by path.
@@ -143,7 +152,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	f, factoryBody, err := ParseFactorySource(stackPath, src)
+	sf, f, factoryBody, err := ParseFactorySyntaxSource(stackPath, src)
 	if err != nil {
 		return err
 	}
@@ -302,7 +311,7 @@ func Run(opts Options) error {
 	used := usedLibraryTypes(f)
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
-	checker := check.New(f, libs)
+	checker := check.NewSyntax(f, sf.Factory.Body, libs)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}

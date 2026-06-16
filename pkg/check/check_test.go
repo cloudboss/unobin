@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
@@ -34,6 +35,35 @@ resources: { local.file.one: { path: local.derived } }
 outputs:   { p: { value: resource.local.file.one.path } }
 `), nil)
 	require.Empty(t, checkRefMessages(t, errs))
+}
+
+func TestNewSyntaxBuildsDAGFromTypedBody(t *testing.T) {
+	sf, err := syntax.ParseSource("factory.ub", []byte(`
+factory: {
+  configurations: {
+    formal: k8s { host: resource.cluster.endpoint }
+  }
+  resources: {
+    cluster: aws.eks { name: 'web' }
+    apps: k8s.namespace { @configuration: configuration.formal, name: 'apps' }
+  }
+}
+`))
+	require.NoError(t, err)
+	require.NotNil(t, sf.Factory)
+	root := &lang.File{
+		S:        sf.S,
+		Kind:     lang.FileFactory,
+		Path:     sf.Path,
+		Body:     syntax.RuntimeFactoryBodyObject(sf.Factory.Body),
+		Comments: sf.Comments,
+	}
+
+	checker := NewSyntax(root, sf.Factory.Body, nil)
+	dag := checker.DAG()
+
+	require.Contains(t, dag.Nodes, "resource.apps")
+	require.Contains(t, dag.Edges["resource.apps"], "configuration.formal")
 }
 
 func TestCheckReferencesUnknownLocal(t *testing.T) {

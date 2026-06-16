@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -28,11 +29,42 @@ type Checker struct {
 // New builds the check state for a parsed stack file. libs is the
 // imported-library table resolved for the file.
 func New(f *lang.File, libs map[string]*runtime.Library) *Checker {
+	return newChecker(
+		f,
+		runtime.BuildDAG(f, libs),
+		runtime.InputNames(f),
+		localNames(f),
+		libs,
+	)
+}
+
+// NewSyntax builds the check state from a typed factory or composite body.
+func NewSyntax(
+	root *lang.File,
+	body syntax.FactoryBody,
+	libs map[string]*runtime.Library,
+) *Checker {
+	return newChecker(
+		root,
+		runtime.BuildSyntaxDAG(body, libs),
+		syntaxInputNames(body.Inputs),
+		syntaxLocalNames(body.Locals),
+		libs,
+	)
+}
+
+func newChecker(
+	root *lang.File,
+	dag *runtime.DAG,
+	inputs map[string]bool,
+	locals map[string]bool,
+	libs map[string]*runtime.Library,
+) *Checker {
 	c := &Checker{
-		root:      f,
-		dag:       runtime.BuildDAG(f, libs),
-		inputs:    map[string]map[string]bool{"": runtime.InputNames(f)},
-		locals:    map[string]map[string]bool{"": localNames(f)},
+		root:      root,
+		dag:       dag,
+		inputs:    map[string]map[string]bool{"": inputs},
+		locals:    map[string]map[string]bool{"": locals},
 		libraries: map[string]map[string]*runtime.Library{"": libs},
 	}
 	c.collectCompositeScopes()
@@ -711,6 +743,22 @@ func localNames(f *lang.File) map[string]bool {
 	out := map[string]bool{}
 	for name := range lang.FieldMap(lang.TopLevelBlock(f, "locals")) {
 		out[name] = true
+	}
+	return out
+}
+
+func syntaxInputNames(inputs []syntax.InputDecl) map[string]bool {
+	out := map[string]bool{}
+	for _, input := range inputs {
+		out[input.Name.Name] = true
+	}
+	return out
+}
+
+func syntaxLocalNames(locals []syntax.LocalDecl) map[string]bool {
+	out := map[string]bool{}
+	for _, local := range locals {
+		out[local.Name.Name] = true
 	}
 	return out
 }
