@@ -70,7 +70,7 @@ func (e *Executor) sensitivityAnalyzer() *sensitivityAnalyzer {
 	if e == nil {
 		return newSensitivityAnalyzer(nil, nil, nil)
 	}
-	return newSensitivityAnalyzerFromSource(e.Source, e.SyntaxSource, e.Libraries, e.DAG)
+	return newSensitivityAnalyzerFromSource(nil, e.SyntaxSource, e.Libraries, e.DAG)
 }
 
 func newSensitivityAnalyzerFromSource(

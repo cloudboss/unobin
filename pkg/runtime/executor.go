@@ -31,24 +31,18 @@ var ErrInstanceGone = errors.New("instance no longer in iterable")
 // value is given on the Executor or in the plan file.
 const DefaultParallelism = 10
 
-// Executor wires together the parsed DAG, the imported libraries, the
-// caller's inputs, and a state backend. It exposes three lifecycle
-// methods: Plan computes a PlanStep slice against prior state without
-// running any CRUD, ApplyPlan executes a previously computed plan,
-// and Refresh reads each prior-state resource and writes back observed
+// Executor owns the parsed DAG, imported libraries, caller inputs,
+// and state backend. It exposes three lifecycle methods: Plan
+// computes a PlanStep slice against prior state without running
+// any CRUD, ApplyPlan executes a previously computed plan, and
+// Refresh reads each prior-state resource and writes back observed
 // outputs. Store and Stack must always be set.
 type Executor struct {
 	DAG       *DAG
 	Libraries map[string]*Library
 	Inputs    map[string]any
 
-	// Source is the generic parsed factory body. Static analysis passes
-	// consult its top-level declarations when SyntaxSource is nil. May be
-	// nil in test setups; analyses that need it degrade to no-op.
-	Source *lang.File
-
 	// SyntaxSource is the typed factory body for grammar-first callers.
-	// When set, declaration queries prefer it over Source.
 	SyntaxSource *syntax.FactoryBody
 
 	// Configurations stores decoded operator-supplied configurations.

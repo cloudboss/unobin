@@ -58,13 +58,10 @@ func NewEvalContextFromLocals(exprs map[string]lang.Expr) *EvalContext {
 }
 
 func (e *Executor) rootLocalExprs() map[string]lang.Expr {
-	if e == nil {
+	if e == nil || e.SyntaxSource == nil {
 		return nil
 	}
-	if e.SyntaxSource != nil {
-		return syntaxLocalMap(e.SyntaxSource.Locals)
-	}
-	return lang.FieldMap(localsBlock(e.Source))
+	return syntaxLocalMap(e.SyntaxSource.Locals)
 }
 
 func (e *Executor) rootLocalScope() *localScope {

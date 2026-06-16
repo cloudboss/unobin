@@ -1595,32 +1595,32 @@ resources: {
 }
 
 func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
-	src := `
-locals: { one-id: resource.core.thing.one.id }
-resources: {
-  core.thing.one: { name: 'alpha', size: 1 }
-  core.thing.two: { name: local.one-id, size: 2 }
+	fixture := parseSyntaxFactoryFixture(t, `factory: {
+  locals: { one-id: resource.one.id }
+  resources: {
+    one: core.thing { name: 'alpha', size: 1 }
+    two: core.thing { name: local.one-id, size: 2 }
+  }
 }
-`
-	f := parseStack(t, src)
+`)
 	var c resourceCounters
 	libs := resourceModules(&c)
 	exec := &Executor{
-		DAG:       BuildDAG(f, libs),
-		Libraries: libs,
-		Source:    f,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          BuildSyntaxDAG(fixture.body, libs),
+		SyntaxSource: &fixture.body,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 
-	two := stepFor(plan, "resource.core.thing.two")
+	two := stepFor(plan, "resource.two")
 	require.NotNil(t, two)
 	require.Equal(t, DecisionCreate, two.Decision)
-	require.Equal(t, []string{"resource.core.thing.one.id"}, two.UnresolvedInputs["name"],
+	require.Equal(t, []string{"resource.one.id"}, two.UnresolvedInputs["name"],
 		"a field reading a local should show the resource the local waits on")
-	require.Equal(t, PendingValue{Refs: []string{"resource.core.thing.one.id"}}, two.Inputs["name"])
+	require.Equal(t, PendingValue{Refs: []string{"resource.one.id"}}, two.Inputs["name"])
 }
 
 func TestUpgradeActionRerunFollowsLocal(t *testing.T) {
