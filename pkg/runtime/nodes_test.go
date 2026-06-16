@@ -544,7 +544,7 @@ resources: { net.cluster.east: { @configurations: { aws: aws.east2 }, name: 'eas
 	require.True(t, got[0].IsComposite())
 	require.Equal(t, NodeResource, got[0].Kind)
 	require.Equal(t,
-		map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
+		map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
 		got[0].ConfigurationsRemap)
 }
 
@@ -566,7 +566,7 @@ resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, 
 	require.NotEmpty(t, got)
 	require.True(t, got[0].IsComposite())
 	require.Equal(t,
-		map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
+		map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
 		got[0].ConfigurationsRemap)
 }
 
@@ -586,7 +586,7 @@ resources: { net.cluster.east: { @configurations: { aws: gcp.east2 }, name: 'eas
 	got := ExtractNodes(parseStack(t, src), libs)
 	require.NotEmpty(t, got)
 	require.Equal(t,
-		map[string]ConfigRef{"aws": {Alias: "gcp", Configuration: "east2"}},
+		map[string]ConfigRef{"aws": {Alias: "gcp", Name: "east2"}},
 		got[0].ConfigurationsRemap,
 		"mismatched alias is kept so the validator can report it")
 }

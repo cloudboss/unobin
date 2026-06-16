@@ -323,6 +323,10 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	default:
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
+	configuration, err := e.configRef(prep.node).stateRef()
+	if err != nil {
+		return err
+	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	attrs := mergeAttrs(prep.inputs, outputs)
@@ -337,7 +341,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Kind:             string(prep.node.Kind),
 		Selector:         selectorForNode(prep.node),
 		SchemaVersion:    rt.SchemaVersion(),
-		Configuration:    e.configRefString(prep.node),
+		Configuration:    configuration,
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,

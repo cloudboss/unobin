@@ -258,7 +258,7 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 		}
 		if mapped, has := c.ConfigurationsRemap[n.Alias]; has {
 			alias = mapped.Alias
-			configuration = mapped.Configuration
+			configuration = mapped.Name
 			break
 		}
 		parent = c.Composite
@@ -271,19 +271,19 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 // on it at plan: a consumer must not reach its API with a nil
 // configuration just because the configuration's own upstream is
 // mid-change.
-func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
+func (e *Executor) pendingInternalConfig(n *Node) (ConfigRef, bool) {
 	alias, configuration := e.resolvedConfigRef(n)
 	if e.configurationOverridden(alias, configuration) {
-		return "", false
+		return ConfigRef{}, false
 	}
 	addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
 	if !internal {
-		return "", false
+		return ConfigRef{}, false
 	}
 	if _, ok := e.internalConfiguration(addr); ok {
-		return "", false
+		return ConfigRef{}, false
 	}
-	return alias + "." + configuration, true
+	return ConfigRef{Alias: alias, Name: configuration}, true
 }
 
 // configFor returns the decoded configuration to pass to a CRUD call
@@ -306,21 +306,21 @@ func (e *Executor) configFor(n *Node) any {
 	return e.lookupConfiguration(alias, configuration)
 }
 
-// configRefString returns the compact configuration key a destroy or
-// refresh should use to find credentials for n, or "" when n uses its
-// own import's default configuration. The empty case is the common one
-// and the resource address alone determines it, so it is left off the
-// state entry to keep snapshots small.
-func (e *Executor) configRefString(n *Node) string {
+// configRef returns the configuration selection a destroy or refresh should
+// use to find credentials for n, or zero when n uses its own import's default
+// configuration. The zero case is the common one and the resource address
+// alone determines it, so it is left off the state entry to keep snapshots
+// small.
+func (e *Executor) configRef(n *Node) ConfigRef {
 	alias, configuration := e.resolvedConfigRef(n)
 	if alias == n.Alias && configuration == "default" {
-		return ""
+		return ConfigRef{}
 	}
-	return alias + "." + configuration
+	return ConfigRef{Alias: alias, Name: configuration}
 }
 
 // configForRef returns the configuration named by a state entry's
-// recorded compact key. An empty ref means the entry used its import's
+// recorded reference. An empty ref means the entry used its import's
 // default configuration, so the entry's own import alias with the
 // default applies. A ref naming an
 // internal configuration reads the value evaluated from prior state,
@@ -333,12 +333,10 @@ func (e *Executor) configRefString(n *Node) string {
 // binary is older than the snapshot. An empty ref may still resolve
 // to nil, the normal case for a library that declares no
 // configuration.
-func (e *Executor) configForRef(ref, fallbackAlias string) (any, error) {
+func (e *Executor) configForRef(ref ConfigRef, fallbackAlias string) (any, error) {
 	alias, configuration := fallbackAlias, "default"
-	if ref != "" {
-		if a, c, ok := strings.Cut(ref, "."); ok {
-			alias, configuration = a, c
-		}
+	if !ref.IsZero() {
+		alias, configuration = ref.Alias, ref.Name
 	}
 	if e.configurationOverridden(alias, configuration) {
 		return e.lookupConfiguration(alias, configuration), nil
@@ -358,12 +356,23 @@ func (e *Executor) configForRef(ref, fallbackAlias string) (any, error) {
 		}
 	}
 	v := e.lookupConfiguration(alias, configuration)
-	if v == nil && ref != "" {
+	if v == nil && !ref.IsZero() {
 		return nil, fmt.Errorf(
 			"state records configuration %s, which this factory neither defines nor "+
-				"receives; the entry was written by a factory version that had it", ref)
+				"receives; the entry was written by a factory version that had it", ref.String())
 	}
 	return v, nil
+}
+
+func (e *Executor) configForStateRef(
+	ref *state.ConfigurationRef,
+	fallbackAlias string,
+) (any, error) {
+	runtimeRef, err := configRefFromState(ref)
+	if err != nil {
+		return nil, err
+	}
+	return e.configForRef(runtimeRef, fallbackAlias)
 }
 
 func (e *Executor) configurationOverridden(alias, configuration string) bool {

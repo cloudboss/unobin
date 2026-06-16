@@ -210,7 +210,7 @@ func TestEvalNamedConfigurationReference(t *testing.T) {
 			},
 		},
 		ConfigurationRefs: map[string]ConfigRef{
-			"east": {Alias: "aws", Configuration: "east"},
+			"east": {Alias: "aws", Name: "east"},
 		},
 	}
 	got, err := Eval(parseValue(t, "configuration.east.region"), ctx)

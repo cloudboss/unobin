@@ -85,7 +85,7 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 		Alias:         "net",
 		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {Alias: "aws", Configuration: "east2"},
+			"aws": {Alias: "aws", Name: "east2"},
 		},
 	}
 	e := newExecutorForConfigCheck(
@@ -103,7 +103,7 @@ func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 		Alias:         "net",
 		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {Alias: "gcp", Configuration: "east2"},
+			"aws": {Alias: "gcp", Name: "east2"},
 		},
 	}
 	e := newExecutorForConfigCheck(
@@ -124,7 +124,7 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 		Alias:         "net",
 		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {Alias: "aws", Configuration: "ghost"},
+			"aws": {Alias: "aws", Name: "ghost"},
 		},
 	}
 	e := newExecutorForConfigCheck(
@@ -150,7 +150,7 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 		Alias:         "net",
 		CompositeBody: &lang.File{},
 		ConfigurationsRemap: map[string]ConfigRef{
-			"aws": {Alias: "gcp", Configuration: "east2"},
+			"aws": {Alias: "gcp", Name: "east2"},
 		},
 	}
 	e := newExecutorForConfigCheck(

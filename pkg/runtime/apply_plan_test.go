@@ -291,7 +291,7 @@ resources: { aws.thing.x: { @configuration: aws.east2, name: 'x' } }
 	snap, err := store.Current()
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 1)
-	require.Equal(t, "aws.east2", snap.Entries[0].Configuration)
+	require.Equal(t, "aws.east2", snap.Entries[0].Configuration.Compact())
 
 	// Remove the resource from source so the next apply destroys it,
 	// and confirm Delete ran against the east2 configuration.
@@ -1747,7 +1747,7 @@ func TestEncodePlanUsesConfigurationReference(t *testing.T) {
 			Address:       "resource.app",
 			Kind:          NodeResource,
 			Decision:      DecisionNoOp,
-			Configuration: "aws.east",
+			Configuration: ConfigRef{Alias: "aws", Name: "east"},
 		}},
 	}
 	encoded, err := EncodePlan(plan)
@@ -1783,7 +1783,7 @@ func TestDecodePlanReadsConfigurationReference(t *testing.T) {
 }`)
 	pf, err := DecodePlan(b)
 	require.NoError(t, err)
-	require.Equal(t, "aws.east", pf.Steps[0].Configuration)
+	require.Equal(t, ConfigRef{Alias: "aws", Name: "east"}, pf.Steps[0].Configuration)
 }
 
 func TestDecodePlanRejectsConfigurationString(t *testing.T) {
@@ -1809,7 +1809,7 @@ func TestEncodePlanUsesDeferredReadReference(t *testing.T) {
 			Address:      "data.lookup",
 			Kind:         NodeData,
 			Decision:     DecisionNoOp,
-			DeferredRead: "aws.east",
+			DeferredRead: ConfigRef{Alias: "aws", Name: "east"},
 		}},
 	}
 	encoded, err := EncodePlan(plan)
@@ -1845,7 +1845,7 @@ func TestDecodePlanReadsDeferredReadReference(t *testing.T) {
 }`)
 	pf, err := DecodePlan(b)
 	require.NoError(t, err)
-	require.Equal(t, "aws.east", pf.Steps[0].DeferredRead)
+	require.Equal(t, ConfigRef{Alias: "aws", Name: "east"}, pf.Steps[0].DeferredRead)
 }
 
 func TestDecodePlanReadsConfigurationSections(t *testing.T) {

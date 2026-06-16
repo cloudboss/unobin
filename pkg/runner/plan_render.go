@@ -56,7 +56,7 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 	var deferred []*runtime.PlanStep
 	for _, s := range steps {
-		if s.DeferredRead != "" {
+		if !s.DeferredRead.IsZero() {
 			deferred = append(deferred, s)
 		}
 	}
@@ -74,7 +74,7 @@ func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 			reason = "read deferred to apply"
 		}
 		fmt.Fprintf(out, "  %s    @configuration: %s pending; %s\n",
-			s.Address, s.DeferredRead, reason)
+			s.Address, s.DeferredRead.String(), reason)
 	}
 }
 
@@ -156,9 +156,9 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 // upstream shows the source addresses in angle brackets; a field that forces a
 // replacement is tagged so the reason for the replace is visible.
 func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
-	if step.Configuration != "" && step.Decision != runtime.DecisionDestroy {
+	if !step.Configuration.IsZero() && step.Decision != runtime.DecisionDestroy {
 		fmt.Fprintf(out, "%s@configuration: %s\n", pad,
-			formatPending(runtime.PendingValue{Refs: []string{step.Configuration}}))
+			formatPending(runtime.PendingValue{Refs: []string{step.Configuration.String()}}))
 	}
 	for _, key := range sortedMapKeys(step.Inputs) {
 		fmt.Fprintf(out, "%s%s: %s%s\n",

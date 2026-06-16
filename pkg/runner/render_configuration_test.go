@@ -18,19 +18,19 @@ func TestPrintPlanShowsPendingConfigurationAndDeferredReads(t *testing.T) {
 			Kind:          runtime.NodeResource,
 			Decision:      runtime.DecisionCreate,
 			Inputs:        map[string]any{"name": "apps"},
-			Configuration: "fix.cluster",
+			Configuration: runtime.ConfigRef{Alias: "fix", Name: "cluster"},
 		},
 		{
 			Address:      "resource.fix.other.b",
 			Kind:         runtime.NodeResource,
 			Decision:     runtime.DecisionNoOp,
-			DeferredRead: "fix.cluster",
+			DeferredRead: runtime.ConfigRef{Alias: "fix", Name: "cluster"},
 		},
 		{
 			Address:      "data.fix.probe.p",
 			Kind:         runtime.NodeData,
 			Decision:     runtime.DecisionRead,
-			DeferredRead: "fix.cluster",
+			DeferredRead: runtime.ConfigRef{Alias: "fix", Name: "cluster"},
 		},
 	}}
 	buf := &bytes.Buffer{}

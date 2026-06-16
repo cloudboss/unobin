@@ -798,7 +798,7 @@ func configurationBody(ctx *EvalContext, ref ConfigRef) (any, bool) {
 	if ctx == nil || ctx.Configurations == nil {
 		return nil, false
 	}
-	body, ok := ctx.Configurations[ref.Alias][ref.Configuration]
+	body, ok := ctx.Configurations[ref.Alias][ref.Name]
 	return body, ok
 }
 
@@ -821,7 +821,7 @@ func configurationPathRef(
 	}
 	alias := first.Name
 	name := p.Segments[1].Name
-	return ConfigRef{Alias: alias, Configuration: name},
+	return ConfigRef{Alias: alias, Name: name},
 		p.Segments[2:], "configuration." + name, true
 }
 

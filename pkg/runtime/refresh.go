@@ -125,7 +125,7 @@ func (e *Executor) refreshLeaf(
 	if err != nil {
 		return nil, false, err
 	}
-	cfg, err := e.configForRef(ent.Configuration, alias)
+	cfg, err := e.configForStateRef(ent.Configuration, alias)
 	if err != nil {
 		return nil, false, err
 	}

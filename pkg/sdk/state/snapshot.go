@@ -57,46 +57,76 @@ func EncodeConfigurationRef(ref string) (*ConfigurationRef, error) {
 	return out, nil
 }
 
-func DecodeConfigurationRef(ref *ConfigurationRef) (string, error) {
+func ValidateConfigurationRef(ref *ConfigurationRef) error {
 	if ref == nil {
-		return "", nil
+		return nil
 	}
 	if ref.Selector.Alias == "" {
-		return "", fmt.Errorf("configuration selector missing alias")
+		return fmt.Errorf("configuration selector missing alias")
 	}
 	if ref.Selector.Export != "" {
-		return "", fmt.Errorf("configuration selector must have only alias")
+		return fmt.Errorf("configuration selector must have only alias")
 	}
 	switch ref.Kind {
 	case "default":
 		if ref.Name != "" {
-			return "", fmt.Errorf("default configuration must not have name")
+			return fmt.Errorf("default configuration must not have name")
 		}
-		return ref.Selector.Alias + ".default", nil
 	case "named":
 		if ref.Name == "" {
-			return "", fmt.Errorf("named configuration missing name")
+			return fmt.Errorf("named configuration missing name")
 		}
-		return ref.Selector.Alias + "." + ref.Name, nil
 	case "":
-		return "", fmt.Errorf("configuration missing kind")
+		return fmt.Errorf("configuration missing kind")
 	default:
-		return "", fmt.Errorf("unknown configuration kind %q", ref.Kind)
+		return fmt.Errorf("unknown configuration kind %q", ref.Kind)
 	}
+	return nil
 }
 
-func DecodeConfigurationRefJSON(raw json.RawMessage) (string, error) {
-	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+func (ref *ConfigurationRef) Compact() string {
+	if ref == nil {
+		return ""
+	}
+	if ref.Kind == "default" {
+		return ref.Selector.Alias + ".default"
+	}
+	return ref.Selector.Alias + "." + ref.Name
+}
+
+func DecodeConfigurationRef(ref *ConfigurationRef) (string, error) {
+	if ref == nil {
 		return "", nil
 	}
+	if err := ValidateConfigurationRef(ref); err != nil {
+		return "", err
+	}
+	return ref.Compact(), nil
+}
+
+func ParseConfigurationRefJSON(raw json.RawMessage) (*ConfigurationRef, error) {
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, nil
+	}
 	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte("\"")) {
-		return "", fmt.Errorf("configuration must be an object")
+		return nil, fmt.Errorf("configuration must be an object")
 	}
 	var ref ConfigurationRef
 	if err := json.Unmarshal(raw, &ref); err != nil {
+		return nil, err
+	}
+	if err := ValidateConfigurationRef(&ref); err != nil {
+		return nil, err
+	}
+	return &ref, nil
+}
+
+func DecodeConfigurationRefJSON(raw json.RawMessage) (string, error) {
+	ref, err := ParseConfigurationRefJSON(raw)
+	if err != nil {
 		return "", err
 	}
-	return DecodeConfigurationRef(&ref)
+	return ref.Compact(), nil
 }
 
 // Entry is one record in a snapshot. Type is the entry discriminator.
@@ -120,7 +150,7 @@ type Entry struct {
 	// recorded only when that differs from the import's own default, since
 	// destroy and refresh need it to find the right credentials once the
 	// resource is no longer described in source.
-	Configuration string `json:"-"`
+	Configuration *ConfigurationRef `json:"-"`
 
 	TriggerHash string `json:"trigger-hash,omitempty"`
 
@@ -145,8 +175,7 @@ type entryJSON struct {
 }
 
 func (e *Entry) MarshalJSON() ([]byte, error) {
-	cfg, err := EncodeConfigurationRef(e.Configuration)
-	if err != nil {
+	if err := ValidateConfigurationRef(e.Configuration); err != nil {
 		return nil, err
 	}
 	return json.Marshal(entryJSON{
@@ -157,7 +186,7 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 		SchemaVersion:    e.SchemaVersion,
 		SensitiveInputs:  e.SensitiveInputs,
 		SensitiveOutputs: e.SensitiveOutputs,
-		Configuration:    cfg,
+		Configuration:    e.Configuration,
 		TriggerHash:      e.TriggerHash,
 		Inputs:           e.Inputs,
 		Outputs:          e.Outputs,
@@ -173,7 +202,7 @@ func (e *Entry) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	cfg, err := DecodeConfigurationRefJSON(raw.Configuration)
+	cfg, err := ParseConfigurationRefJSON(raw.Configuration)
 	if err != nil {
 		return err
 	}

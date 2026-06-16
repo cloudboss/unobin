@@ -53,14 +53,14 @@ func (e *Executor) checkConfigurationBodyRefs(n *Node) []error {
 			return
 		}
 		if _, internal := configurationNodeAddress(
-			e.DAG.Nodes, ref.Alias, ref.Configuration); internal {
+			e.DAG.Nodes, ref.Alias, ref.Name); internal {
 			errs = append(errs, fmt.Errorf(
 				"%s: references %s, which this factory defines; "+
 					"only operator-supplied configurations are referenceable",
 				n.Address, display))
 			return
 		}
-		if _, ok := e.RawConfigurations[ref.Alias][ref.Configuration]; !ok {
+		if _, ok := e.RawConfigurations[ref.Alias][ref.Name]; !ok {
 			errs = append(errs, fmt.Errorf(
 				"%s: references %s, which is not supplied",
 				n.Address, display))
@@ -129,10 +129,10 @@ func (e *Executor) checkCompositeRemap(n *Node) []error {
 				n.Address, innerAlias, ref.Alias))
 			continue
 		}
-		if !e.configurationDeclared(ref.Alias, ref.Configuration) {
+		if !e.configurationDeclared(ref.Alias, ref.Name) {
 			errs = append(errs, fmt.Errorf(
 				"%s: @configurations.%s: configuration.%s not declared",
-				n.Address, innerAlias, ref.Configuration))
+				n.Address, innerAlias, ref.Name))
 		}
 	}
 	return errs

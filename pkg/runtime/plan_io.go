@@ -75,11 +75,11 @@ type planStepJSON struct {
 }
 
 func (s PlanStep) MarshalJSON() ([]byte, error) {
-	cfg, err := state.EncodeConfigurationRef(s.Configuration)
+	cfg, err := s.Configuration.stateRef()
 	if err != nil {
 		return nil, err
 	}
-	deferredRead, err := state.EncodeConfigurationRef(s.DeferredRead)
+	deferredRead, err := s.DeferredRead.stateRef()
 	if err != nil {
 		return nil, err
 	}
@@ -116,11 +116,11 @@ func (s *PlanStep) UnmarshalJSON(b []byte) error {
 	if err := dec.Decode(&raw); err != nil {
 		return err
 	}
-	cfg, err := state.DecodeConfigurationRefJSON(raw.Configuration)
+	cfg, err := configRefFromJSON(raw.Configuration)
 	if err != nil {
 		return err
 	}
-	deferredRead, err := state.DecodeConfigurationRef(raw.DeferredRead)
+	deferredRead, err := configRefFromState(raw.DeferredRead)
 	if err != nil {
 		return err
 	}

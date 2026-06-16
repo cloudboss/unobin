@@ -93,10 +93,10 @@ func (n *Node) IsComposite() bool {
 	return n != nil && (n.CompositeBody != nil || n.CompositeSyntaxBody != nil)
 }
 
-// ConfigRef names the selector and configuration key for one configuration.
+// ConfigRef names the selector and name for one configuration.
 type ConfigRef struct {
-	Alias         string
-	Configuration string
+	Alias string
+	Name  string
 }
 
 // ExtractNodes is the generic compatibility entrypoint for tests and
@@ -418,9 +418,9 @@ func configurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 		return ConfigRef{}, false
 	}
 	if dp.Root.Name == "configuration" {
-		return ConfigRef{Alias: alias, Configuration: dp.Segments[0].Name}, true
+		return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
 	}
-	return ConfigRef{Alias: dp.Root.Name, Configuration: dp.Segments[0].Name}, true
+	return ConfigRef{Alias: dp.Root.Name, Name: dp.Segments[0].Name}, true
 }
 
 func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
@@ -431,7 +431,7 @@ func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 	if dp.Root.Name != "configuration" {
 		return ConfigRef{}, false
 	}
-	return ConfigRef{Alias: alias, Configuration: dp.Segments[0].Name}, true
+	return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
 }
 
 // extractConfiguration reads @configuration from a generic body and returns
@@ -616,7 +616,7 @@ func ConfigurationRefNames(nodes map[string]*Node) map[string]ConfigRef {
 			ambiguous[n.Name] = true
 			continue
 		}
-		out[n.Name] = ConfigRef{Alias: n.Alias, Configuration: n.Name}
+		out[n.Name] = ConfigRef{Alias: n.Alias, Name: n.Name}
 	}
 	return out
 }

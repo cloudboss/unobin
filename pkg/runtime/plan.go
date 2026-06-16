@@ -176,7 +176,7 @@ type PlanStep struct {
 	// evaluation kept this node's read from running at plan. The stored
 	// state is taken as current for the decision; apply and the next plan
 	// see real values.
-	DeferredRead string `json:"-"`
+	DeferredRead ConfigRef `json:"-"`
 
 	// PriorInputs is the body the last apply evaluated, recorded so the plan
 	// can show a changed field as `old -> new` rather than the new value
@@ -193,13 +193,13 @@ type PlanStep struct {
 	// with `(forces replacement)`. Empty unless Decision is replace.
 	ReplaceTriggers []string `json:"replace-triggers,omitempty"`
 
-	// Configuration is the step's compact library configuration key. A
+	// Configuration is the step's library configuration selection. A
 	// destroy step records it from prior state, so apply deletes against
 	// the same credentials the resource was created with. A live step
 	// records it only when the selection names an internal configuration
 	// still pending this plan, which is how the renderer knows to show
 	// the selection on the step.
-	Configuration string `json:"-"`
+	Configuration ConfigRef `json:"-"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
 	// prior state. Apply reverses these edges so a resource is deleted
@@ -396,6 +396,10 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			if !e.Destroy && prior.Type != state.EntryLeaf {
 				continue
 			}
+			cfgRef, err := configRefFromState(prior.Configuration)
+			if err != nil {
+				return nil, err
+			}
 			plan.Steps = append(plan.Steps, &PlanStep{
 				Address:       prior.Address,
 				Kind:          kind,
@@ -404,7 +408,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				Decision:      DecisionDestroy,
 				Inputs:        prior.Inputs,
 				PriorOutputs:  prior.Outputs,
-				Configuration: prior.Configuration,
+				Configuration: cfgRef,
 				DependsOn:     prior.DependsOn,
 			})
 		}
@@ -1195,7 +1199,11 @@ func (e *Executor) planOneResource(
 		step.PriorSelector = priorSelector
 		step.PriorInputs = cloneMap(migrated.Inputs)
 		step.PriorOutputs = migrated.Outputs
-		step.Configuration = prior.Configuration
+		cfgRef, err := configRefFromState(prior.Configuration)
+		if err != nil {
+			return nil, err
+		}
+		step.Configuration = cfgRef
 		step.Decision = DecisionReplace
 		step.regeneratesOutputs = true
 		step.mayChangeOutputs = true

@@ -410,9 +410,13 @@ func TestDestroyReadUnknownConfigurationRefFails(t *testing.T) {
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "fix", Export: "config-echo"},
 		SchemaVersion: 1,
-		Configuration: "fix.ghost",
-		Inputs:        map[string]any{},
-		Outputs:       map[string]any{"endpoint": "x"},
+		Configuration: &state.ConfigurationRef{
+			Kind:     "named",
+			Name:     "ghost",
+			Selector: state.Selector{Alias: "fix"},
+		},
+		Inputs:  map[string]any{},
+		Outputs: map[string]any{"endpoint": "x"},
 	}}
 	rev, err := store.Write(snap)
 	require.NoError(t, err)
@@ -470,8 +474,8 @@ func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, seen, "no read should run while the configuration is pending")
 	ds := findStep(t, plan, "data.fix.probe.p")
-	require.Equal(t, "fix.cluster", ds.DeferredRead)
-	require.Equal(t, "fix.cluster", ds.Configuration)
+	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, ds.DeferredRead)
+	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, ds.Configuration)
 
 	fresh := &Executor{
 		DAG:       BuildDAG(parseStack(t, internalConfigDataSrc), libs),
@@ -521,8 +525,8 @@ func TestDriftReadSkippedWhileConfigurationPending(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, seen, "no read should run while the configuration is pending")
 	step := findStep(t, plan, "resource.fix.config-echo.app")
-	require.Equal(t, "fix.cluster", step.DeferredRead)
-	require.Equal(t, "fix.cluster", step.Configuration)
+	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, step.DeferredRead)
+	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, step.Configuration)
 	require.Equal(t, DecisionNoOp, step.Decision)
 }
 

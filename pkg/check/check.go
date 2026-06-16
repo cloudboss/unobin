@@ -537,7 +537,7 @@ func (c *referenceChecker) configurationReferenceParts(
 		return "", "", false
 	}
 	if ref, ok := c.configurationRefs[first.Name]; ok {
-		return ref.Alias, ref.Configuration, true
+		return ref.Alias, ref.Name, true
 	}
 	if len(dp.Segments) < 2 || !simpleConfigurationSegment(dp.Segments[1]) {
 		return "", "", false

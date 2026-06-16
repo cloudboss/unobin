@@ -147,7 +147,11 @@ func TestSnapshotJSONShape(t *testing.T) {
 
 func TestSnapshotConfigurationRefJSON(t *testing.T) {
 	s := sampleSnapshot()
-	s.Entries[0].Configuration = "aws.east"
+	s.Entries[0].Configuration = &ConfigurationRef{
+		Kind:     "named",
+		Name:     "east",
+		Selector: Selector{Alias: "aws"},
+	}
 	b, err := EncodeSnapshot(s)
 	require.NoError(t, err)
 
@@ -165,7 +169,7 @@ func TestSnapshotConfigurationRefJSON(t *testing.T) {
 
 	got, err := DecodeSnapshot(b)
 	require.NoError(t, err)
-	require.Equal(t, "aws.east", got.Entries[0].Configuration)
+	require.Equal(t, "aws.east", got.Entries[0].Configuration.Compact())
 }
 
 func TestSnapshotActionEntry(t *testing.T) {
