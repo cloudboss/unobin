@@ -174,7 +174,7 @@ func TestPromoteAcceptsParsedTypeExpr(t *testing.T) {
 				require.NotNil(t, name.Decl)
 				require.Len(t, name.Decl.Fields, 2)
 				require.Equal(t, "type", name.Decl.Fields[0].Key.Name)
-				require.Equal(t, "string", name.Decl.Fields[0].Value.(*Ident).Name)
+				requireAtomic(t, name.Decl.Fields[0].Value.(TypeExpr), "string")
 				require.Equal(t, "pattern", name.Decl.Fields[1].Key.Name)
 
 				size := requireObjectField(t, obj, 1, "size")
@@ -182,7 +182,7 @@ func TestPromoteAcceptsParsedTypeExpr(t *testing.T) {
 				require.NotNil(t, size.Decl)
 				require.Len(t, size.Decl.Fields, 3)
 				require.Equal(t, "type", size.Decl.Fields[0].Key.Name)
-				require.Equal(t, "integer", size.Decl.Fields[0].Value.(*Ident).Name)
+				requireAtomic(t, size.Decl.Fields[0].Value.(TypeExpr), "integer")
 				require.Equal(t, "default", size.Decl.Fields[1].Key.Name)
 				require.Equal(t, int64(3), size.Decl.Fields[1].Value.(*NumberLit).ParsedInt)
 			},

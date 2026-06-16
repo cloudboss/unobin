@@ -51,6 +51,10 @@ func TestParseTypeObjectFields(t *testing.T) {
 	assert.IsType(t, &TypeAtomic{}, obj.Fields[0].Type)
 	assert.Equal(t, "port", obj.Fields[1].Name)
 	require.NotNil(t, obj.Fields[1].Decl)
+	typeField := obj.Fields[1].Decl.Fields[0]
+	require.Equal(t, "type", typeField.Key.Name)
+	require.IsType(t, &TypeAtomic{}, typeField.Value)
+	assert.Equal(t, "integer", typeField.Value.(*TypeAtomic).Name)
 }
 
 func TestParseTypeOpenMarksObject(t *testing.T) {

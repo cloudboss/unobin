@@ -676,7 +676,7 @@ TypeObjectBody <- "{" _ fields:TypeObjectField* _ "}" {
 	return out, nil
 }
 
-TypeObjectField <- key:PlainIdentKey _ ":" _ value:( ObjectLitNode / TypeExprRule ) _ ","? _ {
+TypeObjectField <- key:PlainIdentKey _ ":" _ value:( TypeInputDecl / TypeExprRule ) _ ","? _ {
 	fk := key.(FieldKey)
 	field := &TypeObjectField{S: fk.S, Name: fk.Name}
 	switch v := value.(type) {
@@ -686,6 +686,19 @@ TypeObjectField <- key:PlainIdentKey _ ":" _ value:( ObjectLitNode / TypeExprRul
 		field.Decl = v
 	}
 	return field, nil
+}
+
+TypeInputDecl <- "{" _ fields:TypeInputDeclField* _ "}" {
+	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(fields)}, nil
+}
+
+TypeInputDeclField <- key:TypeKey _ ":" _ value:TypeExprRule _ ","? _ {
+	fk := key.(FieldKey)
+	return &Field{S: fk.S, Key: fk, Value: value.(Expr)}, nil
+} / ValuePair
+
+TypeKey <- "type" !IdentChar {
+	return FieldKey{S: c.span(), Kind: FieldIdent, Name: "type"}, nil
 }
 
 AtomicType <- name:IdentText {
