@@ -140,6 +140,9 @@ notify: action { description: 'n' }
 	require.Contains(t, lib.Bodies["resource"], "greeting")
 	require.Contains(t, lib.Bodies["data"], "ami")
 	require.Contains(t, lib.Bodies["action"], "notify")
+	require.Contains(t, lib.SyntaxBodies["resource"], "greeting")
+	require.Contains(t, lib.SyntaxBodies["data"], "ami")
+	require.Contains(t, lib.SyntaxBodies["action"], "notify")
 }
 
 func TestWalkUBSkipsPackageMetadataFiles(t *testing.T) {

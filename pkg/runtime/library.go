@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
@@ -72,10 +73,8 @@ type FunctionType struct {
 }
 
 // CompositeType registers a UB-implemented type under a library. Body
-// is the parsed body file for the composite (same shape as a stack
-// minus `configurations:`). The runtime expands a call site into
-// sub-DAG nodes by walking Body's `resources:`, `actions:`, and
-// `data:` blocks under the call site's address prefix.
+// is the generic body file for the composite. SyntaxBody is the typed body
+// used by grammar-first graph extraction when it is available.
 //
 // Libraries is the resolved import table for this composite's body,
 // keyed by the alias declared in the body's `imports:` block. The
@@ -85,10 +84,11 @@ type FunctionType struct {
 // back to the executor's root Libraries table for backward
 // compatibility with composites built directly in tests.
 type CompositeType struct {
-	Name      string
-	Kind      NodeKind
-	Body      *lang.File
-	Libraries map[string]*Library
+	Name       string
+	Kind       NodeKind
+	Body       *lang.File
+	SyntaxBody *syntax.FactoryBody
+	Libraries  map[string]*Library
 }
 
 // Composite returns the composite of the given kind and name, or nil

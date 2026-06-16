@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // GoLibrarySpecs holds one Go library's compile-extracted spec data,
@@ -31,7 +32,9 @@ func (s GoLibrarySpecs) Empty() bool {
 // generated package. The package's name is alias; it exports a
 // `Library()` function returning a `*runtime.Library` whose composites
 // are split into one map per kind (ResourceComposites, DataComposites,
-// ActionComposites). bodies is keyed by kind and then composite name.
+// ActionComposites). bodies and syntaxBodies are keyed by kind and then
+// composite name; syntaxBodies may be nil while callers are still using only
+// generic bodies.
 //
 // imports maps each composite's kind and name to its resolved import table:
 // the composite's body's own imports block, with each declared alias
@@ -48,6 +51,7 @@ func (s GoLibrarySpecs) Empty() bool {
 // spec data a root import of the library would.
 func GenerateUBLibrary(alias string,
 	bodies map[string]map[string]*lang.File,
+	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
 	goSpecs map[string]GoLibrarySpecs) ([]byte, error) {
 	if alias == "" {
@@ -76,6 +80,14 @@ func GenerateUBLibrary(alias string,
 					alias, kind, name, err)
 			}
 			entry := compositeEntry{Name: name, Symbol: group.Symbol, Body: encoded}
+			if syntaxBody, ok := syntaxBodies[kind][name]; ok {
+				encoded, err := EncodeSyntaxFactoryBody(syntaxBody)
+				if err != nil {
+					return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
+						alias, kind, name, err)
+				}
+				entry.SyntaxBody = "&" + encoded
+			}
 			for _, localAlias := range sortedAliases(imports[kind][name]) {
 				p := imports[kind][name][localAlias]
 				entry.Libraries = append(entry.Libraries, libraryBinding{
@@ -110,15 +122,17 @@ func GenerateUBLibrary(alias string,
 
 	var buf bytes.Buffer
 	data := struct {
-		Alias     string
-		SpecVars  []specVar
-		Groups    []*compositeGroup
-		GoImports []goImport
+		Alias           string
+		SpecVars        []specVar
+		Groups          []*compositeGroup
+		GoImports       []goImport
+		HasSyntaxBodies bool
 	}{
-		Alias:     alias,
-		SpecVars:  specVars,
-		Groups:    orderedGroups,
-		GoImports: idents.imports(),
+		Alias:           alias,
+		SpecVars:        specVars,
+		Groups:          orderedGroups,
+		GoImports:       idents.imports(),
+		HasSyntaxBodies: hasSyntaxBodies(orderedGroups),
 	}
 	if err := ubLibraryTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("ublibrary: %w", err)
@@ -150,10 +164,11 @@ type compositeGroup struct {
 }
 
 type compositeEntry struct {
-	Name      string
-	Symbol    string
-	Body      string
-	Libraries []libraryBinding
+	Name       string
+	Symbol     string
+	Body       string
+	SyntaxBody string
+	Libraries  []libraryBinding
 }
 
 type libraryBinding struct {
@@ -280,6 +295,17 @@ func sanitizeIdent(s string) string {
 	return b.String()
 }
 
+func hasSyntaxBodies(groups []*compositeGroup) bool {
+	for _, group := range groups {
+		for _, entry := range group.Entries {
+			if entry.SyntaxBody != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func sortedAliases(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
@@ -296,7 +322,8 @@ package {{.Alias}}
 
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/runtime"
+{{if .HasSyntaxBodies}}	"github.com/cloudboss/unobin/pkg/lang/syntax"
+{{end}}	"github.com/cloudboss/unobin/pkg/runtime"
 {{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}})
 
@@ -312,9 +339,12 @@ func Library() *runtime.Library {
 		Name: {{quote .Alias}},
 {{range .Groups}}		{{.MapField}}: map[string]*runtime.CompositeType{
 {{range .Entries}}			{{quote .Name}}: {
-				Name:     {{quote .Name}},
-				Kind:     {{.Symbol}},
-				Body:     {{.Body}},
+				Name: {{quote .Name}},
+				Kind: {{.Symbol}},
+				Body: {{.Body}},
+{{- if .SyntaxBody}}
+				SyntaxBody: {{.SyntaxBody}},
+{{- end}}
 {{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{
 {{range .Libraries}}					{{quote .LocalAlias}}: {{.Value}},

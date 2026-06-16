@@ -453,12 +453,16 @@ func (c *compileVisitor) OnUBLibrary(
 				bodyLibs[res.LocalAlias] = c.runtimeLibraries[res.CanonicalKey]
 			}
 		}
-		runtimeLib.AddComposite(&ubruntime.CompositeType{
+		composite := &ubruntime.CompositeType{
 			Name:      entry.name,
 			Kind:      ubruntime.NodeKind(entry.kind),
 			Body:      entry.body,
 			Libraries: bodyLibs,
-		})
+		}
+		if syntaxBody, ok := lib.SyntaxBodies[entry.kind][entry.name]; ok {
+			composite.SyntaxBody = &syntaxBody
+		}
+		runtimeLib.AddComposite(composite)
 	}
 	for kind, byName := range lib.BodyImports {
 		for name, resols := range byName {
@@ -481,7 +485,8 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.Bodies, composites, goSpecs)
+	src, err := codegen.GenerateUBLibrary(
+		canonical, lib.Bodies, lib.SyntaxBodies, composites, goSpecs)
 	if err != nil {
 		return err
 	}

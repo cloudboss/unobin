@@ -34,24 +34,26 @@ const (
 // `resource.outer/resource.inner/resource.leaf`, and each node's
 // Composite names its direct enclosing call site.
 //
-// CompositeBody and Libraries are set only on a composite boundary
-// (the call site node), and IsComposite reports that case.
-// CompositeBody points to the composite type's full body so the
-// runtime can evaluate the `outputs:` block once the internals
-// complete. Libraries is the composite's resolved import table; the
+// CompositeBody, CompositeSyntaxBody, and Libraries are set only on a
+// composite boundary (the call site node), and IsComposite reports that
+// case. CompositeBody points to the composite type's generic body so the
+// runtime can evaluate the `outputs:` block once the internals complete.
+// CompositeSyntaxBody keeps typed locals for grammar-first DAG edges.
+// Libraries is the composite's resolved import table; the
 // runtime resolves composite-internal node lookups against this map
 // rather than the stack root's, so a composite can be reused without
 // the caller importing every library it transitively uses.
 type Node struct {
-	Address       string
-	Kind          NodeKind
-	Alias         string
-	Type          string
-	Name          string
-	Body          lang.Expr
-	Composite     string
-	CompositeBody *lang.File
-	Libraries     map[string]*Library
+	Address             string
+	Kind                NodeKind
+	Alias               string
+	Type                string
+	Name                string
+	Body                lang.Expr
+	Composite           string
+	CompositeBody       *lang.File
+	CompositeSyntaxBody *syntax.FactoryBody
+	Libraries           map[string]*Library
 
 	ForEach lang.Expr
 
@@ -524,6 +526,7 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 		Body:                args,
 		Composite:           parent,
 		CompositeBody:       composite.Body,
+		CompositeSyntaxBody: composite.SyntaxBody,
 		Libraries:           scopeMods,
 		ForEach:             extractForEach(args),
 		ConfigurationsRemap: extractConfigurationsRemap(args),
@@ -548,11 +551,16 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 		Body:                args,
 		Composite:           parent,
 		CompositeBody:       composite.Body,
+		CompositeSyntaxBody: composite.SyntaxBody,
 		Libraries:           scopeMods,
 		ForEach:             extractForEach(args),
 		ConfigurationsRemap: extractSyntaxConfigurationsRemap(args),
 	}}
-	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
+	if composite.SyntaxBody != nil {
+		out = append(out, extractSyntaxNodes(*composite.SyntaxBody, callSiteAddr, scopeMods)...)
+	} else {
+		out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
+	}
 	return out
 }
 

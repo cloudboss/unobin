@@ -281,12 +281,16 @@ func (g *graphVisitor) OnUBLibrary(
 					bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
 				}
 			}
-			runtimeLib.AddComposite(&runtime.CompositeType{
+			composite := &runtime.CompositeType{
 				Name:      name,
 				Kind:      runtime.NodeKind(kind),
 				Body:      body,
 				Libraries: bodyLibs,
-			})
+			}
+			if syntaxBody, ok := lib.SyntaxBodies[kind][name]; ok {
+				composite.SyntaxBody = &syntaxBody
+			}
+			runtimeLib.AddComposite(composite)
 		}
 	}
 	g.byKey[canonicalKey] = runtimeLib

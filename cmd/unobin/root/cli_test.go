@@ -1574,7 +1574,7 @@ func main() {
 	require.Contains(t, pkgSrc, `Name: "net"`)
 	require.Contains(t, pkgSrc, `ResourceComposites: map[string]*runtime.CompositeType{`)
 	require.Contains(t, pkgSrc, `"cluster": {`)
-	require.Contains(t, pkgSrc, `Kind: runtime.NodeResource`)
+	require.Regexp(t, `Kind:\s*runtime\.NodeResource`, pkgSrc)
 	require.Contains(t, pkgSrc, `Path: "library.ub"`)
 	require.Contains(t, pkgSrc, `Name: "x"}, Decl: &lang.SelectorBody`)
 }

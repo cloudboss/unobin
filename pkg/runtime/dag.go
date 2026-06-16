@@ -89,7 +89,11 @@ func (s *scopeLocals) forScope(callSite string) map[string]lang.Expr {
 	}
 	var m map[string]lang.Expr
 	if boundary, ok := s.nodes[tmpl]; ok {
-		m = lang.FieldMap(localsBlock(boundary.CompositeBody))
+		if boundary.CompositeSyntaxBody != nil {
+			m = syntaxLocalMap(boundary.CompositeSyntaxBody.Locals)
+		} else {
+			m = lang.FieldMap(localsBlock(boundary.CompositeBody))
+		}
 	}
 	s.cache[tmpl] = m
 	return m

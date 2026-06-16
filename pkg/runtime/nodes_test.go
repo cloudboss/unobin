@@ -237,6 +237,46 @@ factory: {
 	requireSyntaxDAGMatch(t, fixture, libs)
 }
 
+func TestExtractSyntaxNodesUsesCompositeSyntaxBody(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+greeting: resource {
+  locals: { target: resource.helper.path }
+  resources: {
+    helper: local.fs-file { path: '/tmp/helper' }
+    file: local.fs-file { path: local.target }
+  }
+}
+`)
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    app: outer.greeting { path: '/tmp/app' }
+  }
+}
+`)
+	body := composite.body
+	libs := map[string]*Library{
+		"outer": {
+			Name: "outer",
+			ResourceComposites: map[string]*CompositeType{
+				"greeting": {
+					Name:       "greeting",
+					Body:       &lang.File{Body: &lang.ObjectLit{}},
+					SyntaxBody: &body,
+				},
+			},
+		},
+	}
+
+	got := BuildSyntaxDAG(fixture.body, libs)
+	node := got.Nodes["resource.app/resource.file"]
+	require.NotNil(t, node)
+	require.Equal(t, "local", node.Alias)
+	require.Equal(t, "fs-file", node.Type)
+	require.Equal(t, "file", node.Name)
+	require.Contains(t, got.Edges["resource.app/resource.file"], "resource.app/resource.helper")
+}
+
 func TestExtractNodesOutputBody(t *testing.T) {
 	src := `
 outputs: {

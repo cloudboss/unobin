@@ -63,13 +63,14 @@ type Resolution struct {
 
 // UBLibrary has everything the visitor needs about a UB library the
 // first time the walker reaches it. Bodies maps node kind and composite
-// name to the parsed body file; the name comes from a source-declared
-// composite declaration. BodyImports maps the same kind and name to the
-// resolved imports declared by that body, in alias-sorted order so callers
-// see a stable view across runs.
+// name to the generic body file; SyntaxBodies stores the same declarations
+// as typed bodies. BodyImports maps the same kind and name to the resolved
+// imports declared by that body, in alias-sorted order so callers see a
+// stable view across runs.
 type UBLibrary struct {
-	Bodies      map[string]map[string]*lang.File
-	BodyImports map[string]map[string][]Resolution
+	Bodies       map[string]map[string]*lang.File
+	SyntaxBodies map[string]map[string]syntax.FactoryBody
+	BodyImports  map[string]map[string][]Resolution
 }
 
 // UBVisitor is implemented by callers that want to consume the walked
@@ -364,22 +365,24 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	}
 	slices.Sort(matches)
 	bodies := make(map[string]map[string]*lang.File, len(matches))
+	syntaxBodies := make(map[string]map[string]syntax.FactoryBody, len(matches))
 	for _, filename := range matches {
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
 		}
-		if err := addSourceDeclaredLibraryFile(filename, b, bodies); err != nil {
+		if err := addSourceDeclaredLibraryFile(filename, b, bodies, syntaxBodies); err != nil {
 			return nil, err
 		}
 	}
-	return &UBLibrary{Bodies: bodies}, nil
+	return &UBLibrary{Bodies: bodies, SyntaxBodies: syntaxBodies}, nil
 }
 
 func addSourceDeclaredLibraryFile(
 	filename string,
 	src []byte,
 	bodies map[string]map[string]*lang.File,
+	syntaxBodies map[string]map[string]syntax.FactoryBody,
 ) error {
 	f, err := lang.ParseSource(filename, src)
 	if err != nil {
@@ -409,9 +412,11 @@ func addSourceDeclaredLibraryFile(
 			Body:     syntax.RuntimeFactoryBodyObject(export.Body),
 			Comments: sf.Comments,
 		}
-		if err := addLibraryBody(export.Name.Name, string(export.Kind), body, bodies); err != nil {
+		kind := string(export.Kind)
+		if err := addLibraryBody(export.Name.Name, kind, body, bodies); err != nil {
 			return err
 		}
+		addSyntaxLibraryBody(export.Name.Name, kind, export.Body, syntaxBodies)
 	}
 	return nil
 }
@@ -439,6 +444,18 @@ func addLibraryBody(
 	}
 	bodies[kind][name] = body
 	return nil
+}
+
+func addSyntaxLibraryBody(
+	name string,
+	kind string,
+	body syntax.FactoryBody,
+	bodies map[string]map[string]syntax.FactoryBody,
+) {
+	if bodies[kind] == nil {
+		bodies[kind] = map[string]syntax.FactoryBody{}
+	}
+	bodies[kind][name] = body
 }
 
 func readSourceFile(s *Source, name string) ([]byte, error) {
