@@ -34,23 +34,11 @@ func lowerFile(f *parse.File, mode lowerMode) (*File, *parse.ErrorList) {
 		return out, errs
 	}
 
-	switch f.Kind {
-	case parse.FileFactory:
-		out.Kind = FileFactory
-		out.Factory = &FactoryFile{S: f.S, Body: lowerFactoryBodyWithMode(f.Body, errs, mode)}
-	case parse.FileManifest:
-		out.Kind = FileManifest
-		out.Manifest = lowerManifestFile(f.S, f.Body, errs)
-	case parse.FileExportedType:
-		out.Kind = FileLibrary
-		out.Library = lowerLibraryFile(f, errs, mode)
-	default:
-		out.Kind = FileUnknown
-		errs.Addf(parse.ErrSchema, f.S.Start,
-			"cannot determine UB file role from %s; expected factory, stack, manifest, "+
-				"lock, or exported library file",
-			f.Kind)
-	}
+	out.Kind = FileUnknown
+	errs.Addf(parse.ErrSchema, f.S.Start,
+		"cannot determine UB file role from %s; expected source-declared factory, "+
+			"stack, manifest, lock, or exported library file",
+		f.Kind)
 
 	return out, errs
 }
@@ -106,9 +94,6 @@ func lowerSourceDeclaredFile(
 		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
 	}
-	if f.Kind != parse.FileUnknown && len(f.Body.Fields) != 1 {
-		return false
-	}
 	if len(roles) > 1 {
 		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
@@ -124,7 +109,7 @@ func lowerSourceDeclaredFile(
 		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
 	}
-	if selectorBody && f.Kind == parse.FileUnknown {
+	if selectorBody {
 		out.Kind = FileLibrary
 		out.Library = lowerLibraryFile(f, errs, mode)
 		return true

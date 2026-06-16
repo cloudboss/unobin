@@ -193,15 +193,42 @@ func TestParseSourceReportsTypeParserErrors(t *testing.T) {
 
 func TestLowerPreclassifiedStackFileRequiresSourceDeclaration(t *testing.T) {
 	f := parseFile(t, "dev.ub", `
-factory: {}
-state: local {}
-encryption: noop {}
+state: { @backend: local }
+encryption: { @key-source: noop }
 `, parse.FileConfig)
 
 	got, errs := LowerFile(f)
 	require.NotZero(t, errs.Len())
 	require.Equal(t, FileUnknown, got.Kind)
 	require.Contains(t, errs.Error(), "cannot determine UB file role from config")
+}
+
+func TestLowerPreclassifiedFactoryFileRequiresSourceDeclaration(t *testing.T) {
+	f := parseFile(t, "main.ub", `
+description: 'Example.'
+
+inputs: {
+  message: { type: string }
+}
+`, parse.FileFactory)
+
+	got, errs := LowerFile(f)
+	require.NotZero(t, errs.Len())
+	require.Equal(t, FileUnknown, got.Kind)
+	require.Contains(t, errs.Error(), "cannot determine UB file role from factory")
+}
+
+func TestLowerPreclassifiedManifestFileRequiresSourceDeclaration(t *testing.T) {
+	f := parseFile(t, "unobin.manifest", `
+requires: {
+  'github.com/cloudboss/example': 'v1.2.3'
+}
+`, parse.FileManifest)
+
+	got, errs := LowerFile(f)
+	require.NotZero(t, errs.Len())
+	require.Equal(t, FileUnknown, got.Kind)
+	require.Contains(t, errs.Error(), "cannot determine UB file role from manifest")
 }
 
 func TestLowerSourceDeclaredFactoryFile(t *testing.T) {
@@ -344,8 +371,8 @@ lookup: data {
 	assert.Equal(t, "lookup", got.Library.Exports[1].Name.Name)
 }
 
-func TestLowerExportedTypeFileRequiresDeclarations(t *testing.T) {
-	f := parseFile(t, "library.ub", `
+func TestLowerPreclassifiedExportedTypeFileRequiresSourceDeclaration(t *testing.T) {
+	f := parseFile(t, "resource-greeting.ub", `
 inputs: {
   message: { type: string }
 }
@@ -355,9 +382,10 @@ outputs: {
 }
 `, parse.FileExportedType)
 
-	_, errs := LowerFile(f)
+	got, errs := LowerFile(f)
 	require.Equal(t, 1, errs.Len(), errs.Error())
-	assert.Contains(t, errs.Error(), "library file must contain composite declarations")
+	require.Equal(t, FileUnknown, got.Kind)
+	assert.Contains(t, errs.Error(), "cannot determine UB file role from exported-type")
 }
 
 func TestRuntimeFactoryBodyObjectKeepsConfigurationReferences(t *testing.T) {
