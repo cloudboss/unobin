@@ -32,10 +32,8 @@ func (s GoLibrarySpecs) Empty() bool {
 // generated package. The package's name is alias; it exports a
 // `Library()` function returning a `*runtime.Library` whose composites
 // are split into one map per kind (ResourceComposites, DataComposites,
-// ActionComposites). bodies and syntaxBodies are keyed by kind and then
-// composite name; syntaxBodies may be nil while callers are still using only
-// generic bodies. When a syntax body is present for a composite, the generated
-// registration uses SyntaxBody without a generic Body.
+// ActionComposites). syntaxBodies are keyed by kind and then composite
+// name; each generated registration uses SyntaxBody.
 //
 // imports maps each composite's kind and name to its resolved import table:
 // the composite's body's own imports block, with each declared alias
@@ -50,11 +48,12 @@ func (s GoLibrarySpecs) Empty() bool {
 // Constraints and Defaults attached, and every binding of that path
 // shares the instance, so a composite-internal node resolves the same
 // spec data a root import of the library would.
-func GenerateUBLibrary(alias string,
-	bodies map[string]map[string]*lang.File,
+func GenerateUBLibrary(
+	alias string,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
-	goSpecs map[string]GoLibrarySpecs) ([]byte, error) {
+	goSpecs map[string]GoLibrarySpecs,
+) ([]byte, error) {
 	if alias == "" {
 		return nil, fmt.Errorf("ublibrary: alias is required")
 	}
@@ -64,28 +63,19 @@ func GenerateUBLibrary(alias string,
 	for _, c := range compositeKinds {
 		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
 	}
-	for _, kind := range compositeKindNames(bodies, syntaxBodies) {
+	for _, kind := range compositeKindNames(syntaxBodies) {
 		group, ok := groups[kind]
 		if !ok {
 			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", alias, kind)
 		}
-		for _, name := range compositeNames(bodies[kind], syntaxBodies[kind]) {
+		for _, name := range compositeNames(syntaxBodies[kind]) {
 			entry := compositeEntry{Name: name, Symbol: group.Symbol}
-			if syntaxBody, ok := syntaxBodies[kind][name]; ok {
-				encoded, err := EncodeSyntaxFactoryBody(syntaxBody)
-				if err != nil {
-					return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
-						alias, kind, name, err)
-				}
-				entry.SyntaxBody = "&" + encoded
-			} else if body := bodies[kind][name]; body != nil {
-				encoded, err := EncodeNode(body)
-				if err != nil {
-					return nil, fmt.Errorf("ublibrary %q: encode %s %q body: %w",
-						alias, kind, name, err)
-				}
-				entry.Body = encoded
+			encoded, err := EncodeSyntaxFactoryBody(syntaxBodies[kind][name])
+			if err != nil {
+				return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
+					alias, kind, name, err)
 			}
+			entry.SyntaxBody = "&" + encoded
 			for _, localAlias := range sortedAliases(imports[kind][name]) {
 				p := imports[kind][name][localAlias]
 				entry.Libraries = append(entry.Libraries, libraryBinding{
@@ -124,12 +114,14 @@ func GenerateUBLibrary(alias string,
 		SpecVars        []specVar
 		Groups          []*compositeGroup
 		GoImports       []goImport
+		HasLang         bool
 		HasSyntaxBodies bool
 	}{
 		Alias:           alias,
 		SpecVars:        specVars,
 		Groups:          orderedGroups,
 		GoImports:       idents.imports(),
+		HasLang:         len(specVars) > 0 || hasSyntaxBodies(orderedGroups),
 		HasSyntaxBodies: hasSyntaxBodies(orderedGroups),
 	}
 	if err := ubLibraryTemplate.Execute(&buf, data); err != nil {
@@ -164,43 +156,22 @@ type compositeGroup struct {
 type compositeEntry struct {
 	Name       string
 	Symbol     string
-	Body       string
 	SyntaxBody string
 	Libraries  []libraryBinding
 }
 
-func compositeKindNames(
-	bodies map[string]map[string]*lang.File,
-	syntaxBodies map[string]map[string]syntax.FactoryBody,
-) []string {
-	seen := map[string]bool{}
-	for kind := range bodies {
-		seen[kind] = true
-	}
+func compositeKindNames(syntaxBodies map[string]map[string]syntax.FactoryBody) []string {
+	out := make([]string, 0, len(syntaxBodies))
 	for kind := range syntaxBodies {
-		seen[kind] = true
-	}
-	out := make([]string, 0, len(seen))
-	for kind := range seen {
 		out = append(out, kind)
 	}
 	slices.Sort(out)
 	return out
 }
 
-func compositeNames(
-	bodies map[string]*lang.File,
-	syntaxBodies map[string]syntax.FactoryBody,
-) []string {
-	seen := map[string]bool{}
-	for name := range bodies {
-		seen[name] = true
-	}
+func compositeNames(syntaxBodies map[string]syntax.FactoryBody) []string {
+	out := make([]string, 0, len(syntaxBodies))
 	for name := range syntaxBodies {
-		seen[name] = true
-	}
-	out := make([]string, 0, len(seen))
-	for name := range seen {
 		out = append(out, name)
 	}
 	slices.Sort(out)
@@ -357,8 +328,8 @@ var ubLibraryTemplate = template.Must(template.New("ublibrary.go").Funcs(templat
 package {{.Alias}}
 
 import (
-	"github.com/cloudboss/unobin/pkg/lang"
-{{if .HasSyntaxBodies}}	"github.com/cloudboss/unobin/pkg/lang/syntax"
+{{if .HasLang}}	"github.com/cloudboss/unobin/pkg/lang"
+{{end}}{{if .HasSyntaxBodies}}	"github.com/cloudboss/unobin/pkg/lang/syntax"
 {{end}}	"github.com/cloudboss/unobin/pkg/runtime"
 {{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}})
@@ -377,9 +348,6 @@ func Library() *runtime.Library {
 {{range .Entries}}			{{quote .Name}}: {
 				Name: {{quote .Name}},
 				Kind: {{.Symbol}},
-{{- if .Body}}
-				Body: {{.Body}},
-{{- end}}
 {{- if .SyntaxBody}}
 				SyntaxBody: {{.SyntaxBody}},
 {{- end}}

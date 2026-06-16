@@ -467,8 +467,7 @@ func (c *compileVisitor) OnUBLibrary(
 		}
 	}
 	canonical := alias
-	src, err := codegen.GenerateUBLibrary(
-		canonical, nil, lib.SyntaxBodies, composites, goSpecs)
+	src, err := codegen.GenerateUBLibrary(canonical, lib.SyntaxBodies, composites, goSpecs)
 	if err != nil {
 		return err
 	}
