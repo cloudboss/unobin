@@ -1,3 +1,0 @@
-imports: {
-  @core: 'github.com/x/y'
-}

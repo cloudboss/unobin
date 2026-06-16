@@ -529,13 +529,11 @@ func (c *referenceChecker) configurationReferenceParts(
 	if !simpleConfigurationSegment(first) {
 		return "", "", false
 	}
-	if ref, ok := c.configurationRefs[first.Name]; ok {
-		return ref.Alias, ref.Name, true
-	}
-	if len(dp.Segments) < 2 || !simpleConfigurationSegment(dp.Segments[1]) {
+	ref, ok := c.configurationRefs[first.Name]
+	if !ok {
 		return "", "", false
 	}
-	return first.Name, dp.Segments[1].Name, true
+	return ref.Alias, ref.Name, true
 }
 
 func simpleConfigurationSegment(seg lang.DotSegment) bool {

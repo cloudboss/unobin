@@ -216,6 +216,20 @@ func TestEvalNamedConfigurationReference(t *testing.T) {
 	require.Equal(t, "us-east-1", got)
 }
 
+func TestEvalConfigurationAliasQualifiedReferenceFails(t *testing.T) {
+	ctx := &EvalContext{
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "east"}: map[string]any{"region": "us-east-1"},
+		},
+		ConfigurationRefs: map[string]ConfigRef{
+			"east": {Alias: "aws", Name: "east"},
+		},
+	}
+	_, err := Eval(parseValue(t, "configuration.aws.east.region"), ctx)
+	require.EqualError(t, err,
+		"eval: a configuration reference has the form configuration.<name>")
+}
+
 func TestEvalIndexedAddress(t *testing.T) {
 	ctx := &EvalContext{Resources: map[string]any{
 		"aws": map[string]any{

@@ -1,3 +1,0 @@
-description: 'a composite'
-inputs:  { name: { type: string } }
-outputs: { name: { value: var.name } }

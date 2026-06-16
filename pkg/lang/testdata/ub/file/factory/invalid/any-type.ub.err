@@ -1,1 +1,0 @@
-factory.ub:1:22: type: any is not a type; use opaque for a value passed along unread, or declare the value's type

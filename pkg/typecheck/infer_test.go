@@ -44,6 +44,24 @@ func TestInferSourceConfigurationReference(t *testing.T) {
 		`region: string  profile: string })`}, errs.Messages())
 }
 
+func TestInferConfigurationAliasQualifiedReferenceUnknown(t *testing.T) {
+	scope := &Scope{
+		LookupConfiguration: func(alias string) (Type, bool) {
+			require.FailNow(t, "configuration schema lookup should not run", alias)
+			return TUnknown(), false
+		},
+		LookupConfigurationRef: func(name string) (string, bool) {
+			require.Equal(t, "aws", name)
+			return "", false
+		},
+	}
+
+	errs := lang.NewErrorList(0)
+	got := Infer(parseExpr(t, "configuration.aws.east.region"), TUnknown(), scope, errs)
+	require.True(t, got.Equal(TUnknown()), "got %s", got)
+	require.Empty(t, errs.Messages())
+}
+
 func TestInferLiterals(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)

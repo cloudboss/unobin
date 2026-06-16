@@ -1,5 +1,0 @@
-locals:      { shared: 'x' }
-factory:     { pin: {}, configurations: { aws.default: {} }, inputs: { region: 'us-east-1' } }
-parallelism: 10
-state:       { backend: local }
-encryption:  { key-source: noop }

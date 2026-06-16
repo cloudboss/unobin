@@ -1,4 +1,0 @@
-encryption: {
-  @key-source: kms
-  key-id:      @core.b64-decode('YWxpYXMvY2xvdWRib3Nz')
-}

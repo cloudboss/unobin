@@ -1014,12 +1014,6 @@ func ValidateFile(f *File) *ErrorList {
 		if obj, ok := blocks["factory"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateConfigFactory(obj, locals))
 		}
-		if obj, ok := blocks["state"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateStateConfig(obj, locals))
-		}
-		if obj, ok := blocks["encryption"].(*ObjectLit); ok {
-			mergeErrors(errs, ValidateEncryptionConfig(obj, locals))
-		}
 	case FileManifest:
 		if obj, ok := blocks["requires"].(*ObjectLit); ok {
 			mergeErrors(errs, ValidateManifestRequires(obj))
@@ -1913,93 +1907,5 @@ func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
 		errs.Addf(ErrSchema, fld.Value.Span().Start,
 			"%s %s: @timeout %q is not a valid duration",
 			what, key, s.Value)
-	}
-}
-
-// ValidateStateConfig checks the internal generic form of a stack file's
-// state selector. Source stack files use state: s3 { ... }; syntax lowering
-// stores the selector beside the body before generic validation runs. Body
-// values must be static config values, with the file's locals referenceable;
-// they are not type-checked here, since the resolver decodes them against
-// each backend's declared configuration.
-func ValidateStateConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
-	return validateBackendBlock(block, "state", "@backend", "backend selector", "s3", locals)
-}
-
-// ValidateEncryptionConfig checks the internal generic form of a stack file's
-// encryption selector. Source stack files use encryption: kms { ... }; syntax
-// lowering stores the selector beside the body before generic validation runs.
-func ValidateEncryptionConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
-	return validateBackendBlock(
-		block, "encryption", "@key-source", "key-source selector", "kms", locals)
-}
-
-func validateBackendBlock(
-	block *ObjectLit,
-	what string,
-	metaKey string,
-	selectorLabel string,
-	example string,
-	locals map[string]bool,
-) *ErrorList {
-	errs := NewErrorList(0)
-	seen := make(map[string]Position, len(block.Fields))
-	var metaPos Position
-	var metaSet bool
-	for _, fld := range block.Fields {
-		if fld.Key.Kind == FieldString {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"%s block key must be a bare identifier, got quoted string %q",
-				what, fld.Key.String)
-			continue
-		}
-		if fld.Key.IsMeta() {
-			if fld.Key.Name == metaKey {
-				if metaSet {
-					errs.Addf(ErrSchema, fld.Key.S.Start,
-						"%s block: duplicate %s (first defined at %s)",
-						what, selectorLabel, metaPos)
-					continue
-				}
-				metaSet = true
-				metaPos = fld.Key.S.Start
-				if err := validateResolverRefValue(fld.Value, example); err != nil {
-					errs.Addf(ErrSchema, fld.Value.Span().Start,
-						"%s block: %s: %s", what, selectorLabel, err.Error())
-				}
-				continue
-			}
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"%s block: unknown meta-key %q", what, fld.Key.Name)
-			continue
-		}
-		name := fld.Key.Name
-		if prev, dup := seen[name]; dup {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"%s block: duplicate key %q (first defined at %s)", what, name, prev)
-			continue
-		}
-		seen[name] = fld.Key.S.Start
-		if what == "state" && name == "encryption" {
-			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"state block: encryption is its own top-level block; move it out of state")
-		}
-		checkConfigValue(fld.Value, map[string]bool{}, staticConfigRules{locals: locals}, errs)
-	}
-	if !metaSet {
-		errs.Addf(ErrSchema, block.S.Start,
-			"%s block: missing required %s", what, selectorLabel)
-	}
-	return errs
-}
-
-func validateResolverRefValue(expr Expr, example string) error {
-	switch expr.(type) {
-	case *Ident:
-		return nil
-	case *DotPath:
-		return fmt.Errorf("use a bare name like %s, not a qualified reference", example)
-	default:
-		return fmt.Errorf("expected a bare name like %s, got %s", example, exprKind(expr))
 	}
 }

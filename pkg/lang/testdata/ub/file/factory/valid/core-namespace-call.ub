@@ -1,3 +1,0 @@
-outputs: {
-  shout: { value: @core.b64-encode('hi') }
-}

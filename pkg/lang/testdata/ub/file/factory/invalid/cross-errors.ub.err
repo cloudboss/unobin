@@ -1,4 +1,0 @@
-factory.ub:3:11: schema: input "bad": missing required `type:` key
-factory.ub:6:51: resolve: constraints[0].fields[1]: input "missing" not declared in `inputs:`
-factory.ub:9:8: schema: import "aws": value must be a quoted-string source URL or local path, got number literal
-factory.ub:11:1: schema: "exports" is not a valid top level key for a factory file

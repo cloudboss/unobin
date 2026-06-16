@@ -295,71 +295,10 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 		"configuration.fix.cluster: configuration body must evaluate to an object, got a string")
 }
 
-// A configuration reference reads the operator-supplied body, so an
-// internal configuration can overlay fields onto what the operator
-// wrote without respelling it.
-func TestConfigurationReferenceMergesOperatorBody(t *testing.T) {
+func TestConfigurationAliasQualifiedReferenceFails(t *testing.T) {
 	src := `
 configurations: {
   fix.cluster: @core.merge(configuration.fix.default, { endpoint: 'https://pin.example' })
-}
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
-outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
-`
-	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Configurations: ConfigTable{
-			{Alias: "fix", Name: "default"}: &endpointConfiguration{},
-		},
-		RawConfigurations: ConfigTable{
-			{Alias: "fix", Name: "default"}: map[string]any{
-				"endpoint": "https://op.example",
-			},
-		},
-		Store:   newStateStore(t),
-		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
-	res := applyOnce(t, exec)
-	require.Equal(t, "https://pin.example", res.Outputs["got"])
-}
-
-// The overlay wins only where it names a key; everything else in the
-// operator body passes through the merge untouched.
-func TestConfigurationReferencePreservesOperatorFields(t *testing.T) {
-	src := `
-configurations: {
-  fix.cluster: @core.merge(configuration.fix.default, {})
-}
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
-outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
-`
-	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Configurations: ConfigTable{
-			{Alias: "fix", Name: "default"}: &endpointConfiguration{},
-		},
-		RawConfigurations: ConfigTable{
-			{Alias: "fix", Name: "default"}: map[string]any{
-				"endpoint": "https://op.example",
-			},
-		},
-		Store:   newStateStore(t),
-		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
-	res := applyOnce(t, exec)
-	require.Equal(t, "https://op.example", res.Outputs["got"])
-}
-
-// A reference to a configuration the operator did not supply fails
-// the plan before anything runs, naming both sides.
-func TestConfigurationReferenceUnsuppliedFails(t *testing.T) {
-	src := `
-configurations: {
-  fix.cluster: @core.merge(configuration.fix.other, { endpoint: 'x' })
 }
 resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `
@@ -373,16 +312,14 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.fix.cluster: references configuration.other, which is not supplied")
+		"configuration.fix.cluster: a configuration reference has the form configuration.<name>")
 }
 
-// A reference to a configuration the factory itself defines is
-// rejected: references read operator-supplied bodies only.
 func TestConfigurationReferenceToInternalFails(t *testing.T) {
 	src := `
 configurations: {
-  fix.base:    { endpoint: 'https://b.example' }
-  fix.cluster: @core.merge(configuration.fix.base, { endpoint: 'x' })
+  base: fix { endpoint: 'https://b.example' }
+  fix.cluster: @core.merge(configuration.base, { endpoint: 'x' })
 }
 resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `

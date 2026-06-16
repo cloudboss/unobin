@@ -707,43 +707,27 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 // navigation past the name checks field by field; an unknown schema infers
 // Unknown.
 func inferConfiguration(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
-	if scope == nil || scope.LookupConfiguration == nil || len(dp.Segments) == 0 {
+	if scope == nil || scope.LookupConfiguration == nil ||
+		scope.LookupConfigurationRef == nil || len(dp.Segments) == 0 {
 		return TUnknown()
 	}
 	first := dp.Segments[0]
 	if first.Name == "" {
 		return TUnknown()
 	}
-	if scope.LookupConfigurationRef != nil {
-		alias, ok := scope.LookupConfigurationRef(first.Name)
-		if ok {
-			if rejectGuardedRoot("configuration", dp.Segments, 1, errs) {
-				return TUnknown()
-			}
-			t, ok := scope.LookupConfiguration(alias)
-			if !ok {
-				return TUnknown()
-			}
-			return traverseSegments(t, dp.Segments[1:],
-				"configuration."+first.Name, scope, errs, false)
-		}
-	}
-	if len(dp.Segments) < 2 {
+	alias, ok := scope.LookupConfigurationRef(first.Name)
+	if !ok {
 		return TUnknown()
 	}
-	if rejectGuardedRoot("configuration", dp.Segments, 2, errs) {
-		return TUnknown()
-	}
-	alias, name := first.Name, dp.Segments[1].Name
-	if name == "" {
+	if rejectGuardedRoot("configuration", dp.Segments, 1, errs) {
 		return TUnknown()
 	}
 	t, ok := scope.LookupConfiguration(alias)
 	if !ok {
 		return TUnknown()
 	}
-	return traverseSegments(t, dp.Segments[2:],
-		"configuration."+name, scope, errs, false)
+	return traverseSegments(t, dp.Segments[1:],
+		"configuration."+first.Name, scope, errs, false)
 }
 
 // rejectGuardedRoot reports a `?.` used where the navigation cannot

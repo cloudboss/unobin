@@ -1,5 +1,0 @@
-state: {
-  @backend: aws.s3
-}
-
-encryption: { @key-source: aws.kms }

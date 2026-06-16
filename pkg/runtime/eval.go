@@ -808,19 +808,14 @@ func configurationPathRef(
 		return ConfigRef{}, nil, "", false
 	}
 	first := p.Segments[0]
-	if simpleConfigurationSegment(first) {
-		if ref, ok := refs[first.Name]; ok {
-			return ref, p.Segments[1:], "configuration." + first.Name, true
-		}
-	}
-	if len(p.Segments) < 2 || !simpleConfigurationSegment(first) ||
-		!simpleConfigurationSegment(p.Segments[1]) {
+	if !simpleConfigurationSegment(first) {
 		return ConfigRef{}, nil, "", false
 	}
-	alias := first.Name
-	name := p.Segments[1].Name
-	return ConfigRef{Alias: alias, Name: name},
-		p.Segments[2:], "configuration." + name, true
+	ref, ok := refs[first.Name]
+	if !ok {
+		return ConfigRef{}, nil, "", false
+	}
+	return ref, p.Segments[1:], "configuration." + first.Name, true
 }
 
 func simpleConfigurationSegment(seg lang.DotSegment) bool {

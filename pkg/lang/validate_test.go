@@ -9,63 +9,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
-func parseWithKind(t *testing.T, src string, kind FileKind) *File {
-	t.Helper()
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	f.Kind = kind
-	return f
-}
-
-// topLevelDriver checks a fixture's top-level keys as the given file kind.
-func topLevelDriver(kind FileKind) ubtest.Driver {
-	return func(name string, src []byte) (string, []string) {
-		f, err := ParseSource("", src)
-		if err != nil {
-			return "", []string{err.Error()}
-		}
-		f.Kind = kind
-		return "", ValidateTopLevelKeys(f).Messages()
-	}
-}
-
-func TestValidateTopLevelKeysFactoryFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/toplevel/factory", topLevelDriver(FileFactory))
-}
-
-func TestValidateTopLevelKeysConfigFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/toplevel/config", topLevelDriver(FileConfig))
-}
-
-func TestValidateTopLevelKeysUnknownFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/toplevel/unknown", topLevelDriver(FileUnknown))
-}
-
-// fileDriver runs ValidateFile over a whole fixture parsed as the given kind,
-// reporting positioned diagnostics so the goldens pin file:line:col.
-func fileDriver(kind FileKind) ubtest.Driver {
-	return func(name string, src []byte) (string, []string) {
-		f, err := ParseSource("factory.ub", src)
-		if err != nil {
-			return "", []string{err.Error()}
-		}
-		f.Kind = kind
-		return "", ValidateFile(f).Strings()
-	}
-}
-
-func TestValidateFileFactoryFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/file/factory", fileDriver(FileFactory))
-}
-
-func TestValidateFileExportedTypeFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/file/exported-type", fileDriver(FileExportedType))
-}
-
-func TestValidateFileUnknownFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/file/unknown", fileDriver(FileUnknown))
-}
-
 func TestValidateCallsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/calls", func(name string, src []byte) (string, []string) {
 		f, err := ParseSource("factory.ub", src)

@@ -1,1 +1,0 @@
-state: { @backend: local, path: 'a', path: 'b' }

@@ -676,31 +676,15 @@ configurations: { ghost.default: { region: 'r' } }
 		errs.Messages())
 }
 
-// A configuration reference is legal in a configurations block body,
-// types from the library schema, and composes with merge into a
-// precisely typed derived configuration.
-func TestCheckConfigurationReferenceValid(t *testing.T) {
+func TestCheckConfigurationReferenceAliasQualifiedRejected(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: {
   aws.use1: @core.merge(configuration.aws.default, { region: 'us-east-1' })
 }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckConfigurationReferenceNavigationTypes(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-configurations: { aws.use1: { region: configuration.aws.default.region } }
-`), map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckConfigurationReferenceUnknownFieldNavigation(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-configurations: { aws.use1: { region: configuration.aws.default.regin } }
-`), map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Len(t, errs.Messages(), 1)
-	require.Contains(t, errs.Messages()[0], "regin")
+	require.Equal(t,
+		[]string{"a configuration reference takes configuration.<name>"},
+		errs.Messages())
 }
 
 func TestCheckConfigurationReferenceOutsideConfigurationsBlock(t *testing.T) {
@@ -710,7 +694,7 @@ func TestCheckConfigurationReferenceOutsideConfigurationsBlock(t *testing.T) {
 	}
 	errs := checkReferences(parseStack(t, `
 resources: {
-  local.file.one: { path: configuration.aws.default.region, content: 'c' }
+  local.file.one: { path: configuration.base.region, content: 'c' }
 }
 `), libs)
 	require.Equal(t,
@@ -721,8 +705,8 @@ resources: {
 func TestCheckConfigurationReferenceToInternal(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: {
-  aws.base: { region: 'r' }
-  aws.use1: @core.merge(configuration.aws.base, { region: 'us-east-1' })
+  base: aws { region: 'r' }
+  aws.use1: @core.merge(configuration.base, { region: 'us-east-1' })
 }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
@@ -731,12 +715,18 @@ configurations: {
 		errs.Messages())
 }
 
-func TestCheckConfigurationReferenceUnimportedAlias(t *testing.T) {
+func TestCheckConfigurationReferenceUnimportedSelector(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { aws.use1: @core.merge(configuration.gcp.default, {}) }
+configurations: {
+  foreign: gcp {}
+  aws.use1: @core.merge(configuration.foreign, {})
+}
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
-		[]string{`library "gcp" is not imported`},
+		[]string{
+			`configuration.foreign: library "gcp" is not imported`,
+			`library "gcp" is not imported`,
+		},
 		errs.Messages())
 }
 
@@ -746,10 +736,16 @@ func TestCheckConfigurationReferenceUnconfiguredLibrary(t *testing.T) {
 		"local": localFileLibrary(),
 	}
 	errs := checkReferences(parseStack(t, `
-configurations: { aws.use1: @core.merge(configuration.local.default, {}) }
+configurations: {
+  other: local {}
+  aws.use1: @core.merge(configuration.other, {})
+}
 `), libs)
 	require.Equal(t,
-		[]string{`library "local" declares no configuration`},
+		[]string{
+			`configuration.other: library declares no configuration`,
+			`library "local" declares no configuration`,
+		},
 		errs.Messages())
 }
 
@@ -762,12 +758,9 @@ configurations: { aws.use1: @core.merge(configuration.aws, {}) }
 		errs.Messages())
 }
 
-// An expression configuration body checks whole against the schema's
-// object type, so a derived configuration with a wrongly typed field
-// fails at compile instead of at plan-time decode.
 func TestCheckTypesExpressionConfigurationFieldMismatch(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
-configurations: { aws.use1: @core.merge(configuration.aws.default, { region: 5 }) }
+configurations: { aws.use1: @core.merge({ region: 'r' }, { region: 5 }) }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Len(t, errs.Messages(), 1)
 	require.Contains(t, errs.Messages()[0], "type mismatch")
@@ -782,12 +775,10 @@ configurations: { aws.use1: @core.merge({ profile: 'p' }, {}) }
 	require.Contains(t, errs.Messages()[0], "type mismatch")
 }
 
-// A merge holding an argument the checker cannot know infers Unknown
-// and the body check fails open; plan-time decode still validates.
 func TestCheckTypesExpressionConfigurationUnknownChecksNothing(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 inputs: { extra: { type: map(string) } }
-configurations: { aws.use1: @core.merge(configuration.aws.default, var.extra) }
+configurations: { aws.use1: @core.merge({ region: 'r' }, var.extra) }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Empty(t, errs.Messages())
 }
