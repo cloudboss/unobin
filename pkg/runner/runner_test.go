@@ -15,6 +15,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/encrypters"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -268,6 +269,100 @@ func TestValidateAcceptsCompilerConfigurationSyntax(t *testing.T) {
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Equal(t, "OK\n", out)
+}
+
+func TestCommandsUseTypedOnlyComposite(t *testing.T) {
+	library, err := syntax.ParseSource("library.ub", []byte(`greeting: resource {
+  inputs: {
+    path:    { type: string }
+    message: { type: string }
+  }
+  imports: { local: './local' }
+  resources: {
+    file: local.file {
+      path:    var.path
+      content: var.message
+      mode:    420
+    }
+  }
+  outputs: { path: { value: resource.file.path } }
+}
+`))
+	require.NoError(t, err)
+	require.NotNil(t, library.Library)
+	require.Len(t, library.Library.Exports, 1)
+	body := library.Library.Exports[0].Body
+
+	filePath := filepath.Join(t.TempDir(), "greeting.txt")
+	pathValue := "'" + strings.ReplaceAll(filePath, "'", `\\'`) + "'"
+	info := testInfo(t, `factory: {
+  imports: { greeter: './greeter' }
+  inputs: {
+    path:    { type: string }
+    message: { type: string }
+  }
+  resources: {
+    welcome: greeter.greeting {
+      path:    var.path
+      message: var.message
+    }
+  }
+  outputs: { greeting-path: { value: resource.welcome.path } }
+}
+`)
+	info.Libraries["greeter"] = &runtime.Library{
+		Name: "greeter",
+		ResourceComposites: map[string]*runtime.CompositeType{
+			"greeting": {
+				Name:       "greeting",
+				Kind:       runtime.NodeResource,
+				SyntaxBody: &body,
+				Libraries: map[string]*runtime.Library{
+					"local": testFileLibrary(),
+				},
+			},
+		},
+	}
+	configPath := writeStateConfig(t, `factory: {
+  inputs: {
+    path: `+pathValue+`
+    message: 'hello from a typed composite'
+  }
+}
+`)
+
+	schemaOut, err := runRoot(t, info, "schema")
+	require.NoError(t, err)
+	require.Contains(t, schemaOut, "path: string")
+	require.Contains(t, schemaOut, "greeting-path")
+
+	templateOut, err := runRoot(t, info, "schema", "template")
+	require.NoError(t, err)
+	require.Contains(t, templateOut, "stack:")
+	require.Contains(t, templateOut, "state: local")
+
+	validateOut, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", configPath)
+	require.NoError(t, err)
+	require.Equal(t, "OK\n", validateOut)
+
+	planPath := filepath.Join(t.TempDir(), "plan.json")
+	planOut, err := runRoot(t, info,
+		"plan", "--allow-version-mismatch", "-o", planPath, "-c", configPath)
+	require.NoError(t, err)
+	require.Contains(t, planOut, "resource.welcome")
+
+	applyOut, err := runRoot(t, info, "apply", planPath)
+	require.NoError(t, err)
+	require.Contains(t, applyOut, "greeting-path")
+	require.FileExists(t, filePath)
+
+	outputOut, err := runRoot(t, info, "output", "-c", configPath)
+	require.NoError(t, err)
+	require.Contains(t, outputOut, "greeting-path")
+
+	refreshOut, err := runRoot(t, info, "refresh", "--allow-version-mismatch", "-c", configPath)
+	require.NoError(t, err)
+	require.Contains(t, refreshOut, "Refreshed 1")
 }
 
 func TestApplyAndOutput(t *testing.T) {

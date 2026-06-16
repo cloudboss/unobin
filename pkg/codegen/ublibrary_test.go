@@ -116,6 +116,36 @@ greeting: resource {
 	require.Contains(t, s, `SyntaxBody: &syntax.FactoryBody{`)
 	require.Contains(t, s, `Locals: []syntax.LocalDecl{`)
 	require.Contains(t, s, `Resources: []syntax.NodeDecl{`)
+	require.NotContains(t, s, `Body: &lang.File{`)
+}
+
+func TestGenerateUBLibraryUsesSyntaxBodiesWithoutGenericBodies(t *testing.T) {
+	syntaxBody := parseSyntaxUB(t, "library.ub", `
+greeting: resource {
+  inputs: { path: { type: string } }
+  resources: { file: local.file { path: var.path } }
+  outputs: { path: { value: resource.file.path } }
+}
+`)
+
+	out, err := GenerateUBLibrary(
+		"net",
+		nil,
+		resourceSyntaxBodies(map[string]syntax.FactoryBody{"greeting": syntaxBody}),
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "net.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", out)
+
+	s := string(out)
+	require.Regexp(t, `ResourceComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
+	require.Contains(t, s, `"greeting": {`)
+	require.Contains(t, s, `SyntaxBody: &syntax.FactoryBody{`)
+	require.NotContains(t, s, `Body: &lang.File{`)
 }
 
 func TestGenerateUBLibrarySplitsByKind(t *testing.T) {

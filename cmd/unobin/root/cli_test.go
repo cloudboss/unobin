@@ -1575,8 +1575,9 @@ func main() {
 	require.Contains(t, pkgSrc, `ResourceComposites: map[string]*runtime.CompositeType{`)
 	require.Contains(t, pkgSrc, `"cluster": {`)
 	require.Regexp(t, `Kind:\s*runtime\.NodeResource`, pkgSrc)
-	require.Contains(t, pkgSrc, `Path: "library.ub"`)
-	require.Contains(t, pkgSrc, `Name: "x"}, Decl: &lang.SelectorBody`)
+	require.Contains(t, pkgSrc, `SyntaxBody: &syntax.FactoryBody{`)
+	require.Contains(t, pkgSrc, `Name: syntax.Ident{Name: "x"}`)
+	require.NotContains(t, pkgSrc, `Body: &lang.File{`)
 }
 
 func TestCompileWithSelfUBLibrary(t *testing.T) {
