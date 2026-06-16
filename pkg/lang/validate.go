@@ -943,14 +943,14 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 	}
 }
 
-// factoryChildKeys lists the keys a config file's factory: block may
+// factoryChildKeys lists the keys a stack file's factory: block may
 // hold.
 var factoryChildKeys = map[string]bool{
 	"pin":    true,
 	"inputs": true,
 }
 
-// ValidateConfigFactory checks the structure of a config file's
+// ValidateConfigFactory checks the structure of a stack file's
 // factory: block, which names the factory to run and the values it
 // receives. Each child is a literal object: pin holds the identity
 // entries `unobin pin` manages and inputs holds the input values. locals
@@ -1084,17 +1084,17 @@ func validatePinEntry(el Expr, errs *ErrorList) {
 	}
 }
 
-// ValidateConfigInputs checks that every value in a config file's
+// ValidateConfigInputs checks that every value in a stack file's
 // factory.inputs block is a static value; see checkStaticConfigBlock.
 // locals holds the names declared by the file's locals: block,
-// referenceable from any config value.
+// referenceable from any stack value.
 func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
 }
 
-// ValidateConfigLocals checks the values of a config file's locals:
-// block. A config local is the file's own scope: a static value that may
-// reference other locals, but never inputs. The config supplies input
+// ValidateConfigLocals checks the values of a stack file's locals:
+// block. A stack local is the file's own scope: a static value that may
+// reference other locals, but never inputs. The stack file supplies input
 // values to the factory without being able to read them back, so a var.x
 // here is rejected with wording that says why. Locals referencing each
 // other in a loop are reported as cycles.
@@ -1125,9 +1125,9 @@ func configLocalNames(e Expr) map[string]bool {
 	return names
 }
 
-// staticConfigRules selects what a config block's values may reference
+// staticConfigRules selects what a stack block's values may reference
 // beyond literals. locals holds the file's declared local names, which
-// any config value may reference. inLocals marks the locals block
+// any stack value may reference. inLocals marks the locals block
 // itself, which rewords a var.x rejection around scope: a local cannot
 // read inputs.
 type staticConfigRules struct {
@@ -1139,13 +1139,13 @@ type staticConfigRules struct {
 // admits. root is the dot-path root, or empty for a bare identifier.
 func (r staticConfigRules) refError(root string) string {
 	if r.inLocals && root == "var" {
-		return "a local may not reference %s: inputs are supplied by the config, not in its scope"
+		return "a local may not reference %s: inputs are supplied by the stack file, not in its scope"
 	}
-	return "config values must be static, but %s is a reference"
+	return "stack values must be static, but %s is a reference"
 }
 
-// checkStaticConfigBlock reports calls and free references in a config
-// block's values. Config values are static data: the runner evaluates
+// checkStaticConfigBlock reports calls and free references in a stack
+// block's values. Stack values are static data: the runner evaluates
 // them before any cloud or state I/O, with no library table in scope, so
 // a function call or a reference to anything but an input or a local has
 // nothing to resolve against. Literals, operators, conditionals, and
@@ -1160,7 +1160,7 @@ func checkStaticConfigBlock(block *ObjectLit, rules staticConfigRules) *ErrorLis
 	return errs
 }
 
-// checkConfigValue reports calls and free references in a config value.
+// checkConfigValue reports calls and free references in a stack value.
 // bound is the set of names a surrounding comprehension brought into
 // scope; a bound name shadows the local root, matching evaluation order.
 func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, errs *ErrorList) {
@@ -1169,7 +1169,7 @@ func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, er
 	}
 	switch v := e.(type) {
 	case *StringLit, *NumberLit, *BoolLit, *NullLit:
-		// A literal is always a valid config value.
+		// A literal is always a valid stack value.
 	case *ArrayLit:
 		for _, el := range v.Elements {
 			checkConfigValue(el, bound, rules, errs)
@@ -1232,9 +1232,9 @@ func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, er
 		}
 	case *Call:
 		errs.Addf(ErrResolve, v.S.Start,
-			"config values must be static, but %s is a function call", callName(v))
+			"stack values must be static, but %s is a function call", callName(v))
 	default:
-		errs.Addf(ErrResolve, e.Span().Start, "config inputs must be static values")
+		errs.Addf(ErrResolve, e.Span().Start, "stack inputs must be static values")
 	}
 }
 

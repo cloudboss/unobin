@@ -57,7 +57,7 @@ func doPin(
 	}
 	updated, action, err := pinFile(src, info.LibraryPath, version, revision)
 	if err != nil {
-		return fmt.Errorf("config %s: %w", configPath, err)
+		return fmt.Errorf("stack file %s: %w", configPath, err)
 	}
 	if action == pinActionAlreadyPinned {
 		fmt.Fprintf(cmd.ErrOrStderr(),

@@ -21,7 +21,7 @@ func Canonicalize(name string, src []byte) ([]byte, error) {
 
 // WriteCanonical canonicalizes src and atomically writes it to path. The
 // path's basename labels parse errors. This is the single way generated
-// .ub and config files reach disk, so a new writer formats by default
+// .ub and stack files reach disk, so a new writer formats by default
 // instead of emitting ad-hoc bytes.
 func WriteCanonical(path string, src []byte) error {
 	out, err := Canonicalize(filepath.Base(path), src)

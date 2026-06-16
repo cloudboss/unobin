@@ -269,7 +269,7 @@ factory: {
 	_, err := parseConfigFile(path)
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"config values must be static, but var.region is a reference")
+		"stack values must be static, but var.region is a reference")
 }
 
 func TestLoadConfigurationsErrorsWhenAnyAliasFailsToDecode(t *testing.T) {

@@ -665,8 +665,8 @@ func parseFactory(info Info) (*parsedFactory, error) {
 }
 
 // loadStore resolves a state backend from the state: block of a
-// pre-parsed config. A config without a state: block is an error; a
-// backend must be configured explicitly. stack is the per-stack
+// pre-parsed stack file. A stack file without a state: block is an error;
+// a backend must be configured explicitly. stack is the per-stack
 // directory name (the stack file basename for plan/refresh, or the
 // plan file's embedded value for apply). configPath is preserved only
 // for error messages.
@@ -683,11 +683,10 @@ func loadStore(
 	return resolveBackend(sc.Backend, info.FactoryName, stack, enc)
 }
 
-// stackName derives a stack name from the config file path. The
+// stackName derives a stack name from the stack file path. The
 // basename minus any extension is the id, so `prod.ub` becomes "prod"
-// and `staging.ub` becomes "staging". A missing config path falls back
-// to "default" to keep the tests and dev workflows that pass no config
-// running.
+// and `staging.ub` becomes "staging". A missing stack file path falls
+// back to "default" to keep the tests and dev workflows that pass none.
 func stackName(configPath string) string {
 	if configPath == "" {
 		return "default"
@@ -700,7 +699,7 @@ func stackName(configPath string) string {
 }
 
 // loadEncrypter resolves the encrypter from the `encryption:` block of
-// a pre-parsed config. With a nil file, or no encryption block
+// a pre-parsed stack file. With a nil file, or no encryption block
 // present, the resolver falls back to the env-key encrypter against
 // `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
 // configPath is preserved only for error messages.
@@ -839,7 +838,7 @@ func predicateEval(
 }
 
 // loadParallelism extracts the `parallelism: N` top-level field from
-// a pre-parsed config. Zero is returned when the file omits the field
+// a pre-parsed stack file. Zero is returned when the file omits the field
 // or when config is nil, signaling the runtime should pick its default.
 // path is preserved only for error messages.
 func loadParallelism(config *parsedConfig, path string) (int, error) {
@@ -849,24 +848,24 @@ func loadParallelism(config *parsedConfig, path string) (int, error) {
 	}
 	val, err := runtime.Eval(stack.Parallelism, &runtime.EvalContext{})
 	if err != nil {
-		return 0, fmt.Errorf("config %s: parallelism: %w", path, err)
+		return 0, fmt.Errorf("stack file %s: parallelism: %w", path, err)
 	}
 	n, ok := val.(int64)
 	if !ok {
 		return 0, fmt.Errorf(
-			"config %s: parallelism: want a positive integer, got %s",
+			"stack file %s: parallelism: want a positive integer, got %s",
 			path, lang.TypeMessage(val))
 	}
 	if n < 1 {
 		return 0, fmt.Errorf(
-			"config %s: parallelism: want a positive integer, got %d",
+			"stack file %s: parallelism: want a positive integer, got %d",
 			path, n)
 	}
 	return int(n), nil
 }
 
 // loadConfigInputs extracts the `factory.inputs:` block from a
-// pre-parsed config. A nil config returns an empty map with no error.
+// pre-parsed stack file. A nil stack file returns an empty map with no error.
 // path is preserved only for error messages.
 func loadConfigInputs(config *parsedConfig, path string) (map[string]any, error) {
 	stack := configStack(config)
@@ -875,12 +874,12 @@ func loadConfigInputs(config *parsedConfig, path string) (map[string]any, error)
 	}
 	val, err := runtime.Eval(stack.Factory.Inputs, configEvalContext(config))
 	if err != nil {
-		return nil, fmt.Errorf("config %s: %w", path, err)
+		return nil, fmt.Errorf("stack file %s: %w", path, err)
 	}
 	out, ok := val.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf(
-			"config %s: `factory.inputs:` evaluated to %T, want map", path, val)
+			"stack file %s: `factory.inputs:` evaluated to %T, want map", path, val)
 	}
 	return out, nil
 }

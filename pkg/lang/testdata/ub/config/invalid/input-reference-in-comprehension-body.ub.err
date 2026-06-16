@@ -1,1 +1,1 @@
-config.ub:2:34: resolve: config values must be static, but var.y is a reference
+config.ub:2:34: resolve: stack values must be static, but var.y is a reference

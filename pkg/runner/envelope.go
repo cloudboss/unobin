@@ -12,9 +12,9 @@ type supportedVersion struct {
 	ContentRevision string
 }
 
-// factoryEnvelope holds the values read from a config's `factory.pin:`
-// block. The zero value (Present=false) means the config did not
-// declare a `factory:` section, or no config was provided at all.
+// factoryEnvelope holds the values read from a stack file's `factory.pin:`
+// block. The zero value (Present=false) means the stack file did not
+// declare a `factory:` section, or no stack file was provided at all.
 type factoryEnvelope struct {
 	Present           bool
 	LibraryPath       string
@@ -22,7 +22,7 @@ type factoryEnvelope struct {
 }
 
 // loadFactoryEnvelope extracts the `factory.pin:` block from a
-// pre-parsed config. A nil config or a config without a `factory:` block
+// pre-parsed stack file. A nil stack file or one without a `factory:` block
 // returns a zero envelope without error so the caller can apply the same
 // pin policy to both. path is preserved only for error messages.
 func loadFactoryEnvelope(config *parsedConfig, path string) (factoryEnvelope, error) {
@@ -37,12 +37,12 @@ func loadFactoryEnvelope(config *parsedConfig, path string) (factoryEnvelope, er
 	}
 	val, err := runtime.Eval(pinObj, configEvalContext(config))
 	if err != nil {
-		return factoryEnvelope{}, fmt.Errorf("config %s: %w", path, err)
+		return factoryEnvelope{}, fmt.Errorf("stack file %s: %w", path, err)
 	}
 	m, ok := val.(map[string]any)
 	if !ok {
 		return factoryEnvelope{}, fmt.Errorf(
-			"config %s: `factory.pin:` evaluated to %T, want map", path, val)
+			"stack file %s: `factory.pin:` evaluated to %T, want map", path, val)
 	}
 	return parsePinBlock(path, env, m)
 }
@@ -52,7 +52,7 @@ func parsePinBlock(path string, env factoryEnvelope, m map[string]any) (factoryE
 		s, ok := v.(string)
 		if !ok {
 			return env, fmt.Errorf(
-				"config %s: `factory.pin.library-path` must be a string, got %T", path, v)
+				"stack file %s: `factory.pin.library-path` must be a string, got %T", path, v)
 		}
 		env.LibraryPath = s
 	}
@@ -63,13 +63,13 @@ func parsePinBlock(path string, env factoryEnvelope, m map[string]any) (factoryE
 	list, ok := raw.([]any)
 	if !ok {
 		return env, fmt.Errorf(
-			"config %s: `factory.pin.supported-versions` must be a list, got %T", path, raw)
+			"stack file %s: `factory.pin.supported-versions` must be a list, got %T", path, raw)
 	}
 	for i, item := range list {
 		entry, ok := item.(map[string]any)
 		if !ok {
 			return env, fmt.Errorf(
-				"config %s: `factory.pin.supported-versions[%d]`"+
+				"stack file %s: `factory.pin.supported-versions[%d]`"+
 					" must be an object, got %T",
 				path, i, item)
 		}
@@ -77,7 +77,7 @@ func parsePinBlock(path string, env factoryEnvelope, m map[string]any) (factoryE
 		revision, _ := entry["content-revision"].(string)
 		if version == "" || revision == "" {
 			return env, fmt.Errorf(
-				"config %s: `factory.pin.supported-versions[%d]`"+
+				"stack file %s: `factory.pin.supported-versions[%d]`"+
 					" must have non-empty `version` and `content-revision`",
 				path, i)
 		}
@@ -90,8 +90,8 @@ func parsePinBlock(path string, env factoryEnvelope, m map[string]any) (factoryE
 }
 
 // verifyFactoryEnvelope enforces version pinning. It hard-fails when the
-// config names a library-path that does not match the binary. It
-// soft-fails (overridable by allowVersionMismatch) when the config does
+// stack file names a library-path that does not match the binary. It
+// soft-fails (overridable by allowVersionMismatch) when the stack file does
 // not pin any versions, or pins versions but not this binary's.
 func verifyFactoryEnvelope(
 	info Info, config *parsedConfig, configPath string, allowVersionMismatch bool,
@@ -102,7 +102,7 @@ func verifyFactoryEnvelope(
 	}
 	if env.LibraryPath != "" && env.LibraryPath != info.LibraryPath {
 		return fmt.Errorf(
-			"factory library-path mismatch: config declares %q"+
+			"factory library-path mismatch: stack file declares %q"+
 				" but this binary is built from %q",
 			env.LibraryPath, info.LibraryPath)
 	}
@@ -111,7 +111,7 @@ func verifyFactoryEnvelope(
 			return nil
 		}
 		return fmt.Errorf(
-			"config does not pin any factory versions in `factory.pin.supported-versions`; " +
+			"stack file does not pin any factory versions in `factory.pin.supported-versions`; " +
 				"add an entry or pass --allow-version-mismatch")
 	}
 	for _, sv := range env.SupportedVersions {
