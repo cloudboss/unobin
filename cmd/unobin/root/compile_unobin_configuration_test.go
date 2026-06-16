@@ -14,7 +14,7 @@ import (
 // library whose configuration struct is awscfg.Configuration from the
 // unobin module itself. The unobin replace in the manifest is what
 // lets schema extraction read those fields. configBody becomes the
-// factory's configurations.aws.default entry.
+// factory's default aws configuration.
 func writeUnobinConfigurationFixture(t *testing.T, configBody string) string {
 	t.Helper()
 	setCLIVersion(t, "dev")

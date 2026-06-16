@@ -1,0 +1,6 @@
+factory: {
+  imports: { aws: 'github.com/example/aws' }
+  configurations: {
+    east: aws { regin: 'oops' }
+  }
+}

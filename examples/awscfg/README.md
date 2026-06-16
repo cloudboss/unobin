@@ -56,7 +56,7 @@ Misspell a field in the internal configuration in `factory.ub`, for example
 `region:` to `regoin:`, and recompile:
 
 ```
-Error: examples/awscfg/factory.ub:15:7: resolve: configurations.aws.scoped:
+Error: examples/awscfg/factory.ub:15:7: resolve: configuration.scoped:
 unknown field "regoin"
 ```
 

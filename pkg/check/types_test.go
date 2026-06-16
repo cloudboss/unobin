@@ -3,11 +3,14 @@ package check
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
-	"github.com/stretchr/testify/require"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // localFileModule mirrors the input and output fields of the real
@@ -551,7 +554,7 @@ func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
 configurations: { ghost.default: { region: 'r' } }
 `), map[string]*runtime.Library{})
 	require.Equal(t,
-		[]string{`configurations.ghost: library "ghost" is not imported`},
+		[]string{`configuration.ghost.default: library "ghost" is not imported`},
 		errs.Messages())
 }
 
@@ -699,7 +702,7 @@ func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
 configurations: { local.default: { region: 'r' } }
 `), map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Equal(t,
-		[]string{`configurations.local: library declares no configuration`},
+		[]string{`configuration.local.default: library declares no configuration`},
 		errs.Messages())
 }
 
@@ -708,8 +711,30 @@ func TestCheckTypesConfigurationUnknownField(t *testing.T) {
 configurations: { aws.default: { region: 'r', regin: 'oops' } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
-		[]string{`configurations.aws.default: unknown field "regin"`},
+		[]string{`configuration.aws.default: unknown field "regin"`},
 		errs.Messages())
+}
+
+func TestCheckTypesSourceConfigurationFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/types", func(_ string, src []byte) (string, []string) {
+		f, err := syntax.ParseSource("factory.ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		if errs := syntax.ValidateFile(f); errs.Len() > 0 {
+			return "", errs.Messages()
+		}
+		if f.Factory == nil {
+			return "", []string{"fixture must declare factory"}
+		}
+		generic := &lang.File{
+			Kind: lang.FileFactory,
+			Body: syntax.RuntimeFactoryBodyObject(f.Factory.Body),
+		}
+		return "", checkReferences(generic, map[string]*runtime.Library{
+			"aws": configuredLibrary(),
+		}).Messages()
+	}, ubtest.Substring())
 }
 
 func TestCheckTypesConfigurationFieldTypeMismatch(t *testing.T) {

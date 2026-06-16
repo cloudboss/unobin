@@ -47,10 +47,11 @@ func (c *referenceChecker) checkTypes() {
 // schema as one object type; the comparison is open, so an extra field
 // the checker cannot rule out is left for plan-time decode to reject.
 func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
+	label := n.Address
 	lib := c.libraries[""][n.Alias]
 	if lib == nil {
 		c.addf(n.Body.Span().Start,
-			"configurations.%s: library %q is not imported", n.Alias, n.Alias)
+			"%s: library %q is not imported", label, n.Alias)
 		return
 	}
 	if !libraryKnown(lib) {
@@ -58,7 +59,7 @@ func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
 	}
 	if lib.Configuration == nil && (lib.Schema == nil || !lib.Schema.HasConfiguration) {
 		c.addf(n.Body.Span().Start,
-			"configurations.%s: library declares no configuration", n.Alias)
+			"%s: library declares no configuration", label)
 		return
 	}
 	if lib.Schema == nil || lib.Schema.Configuration == nil {
@@ -79,8 +80,7 @@ func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
 		present[fld.Key.Name] = true
 		target, ok := schema[fld.Key.Name]
 		if !ok {
-			c.addf(fld.Key.S.Start, "configurations.%s.%s: unknown field %q",
-				n.Alias, n.Name, fld.Key.Name)
+			c.addf(fld.Key.S.Start, "%s: unknown field %q", label, fld.Key.Name)
 			continue
 		}
 		typecheck.Check(fld.Value, target, scope, c.errs)
