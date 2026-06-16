@@ -94,24 +94,70 @@ func validateStackFile(stack *StackFile, pos parse.Position, errs *parse.ErrorLi
 		validateStackFactory(stack.Factory, localNames, errs)
 	}
 	if stack.State != nil {
-		mergeErrors(errs, lang.ValidateStateConfig(
-			resolverConfigObject(stack.State.S, "@backend", stack.State.Selector, stack.State.Body),
-			localNames,
-		))
+		validateStackResolverBody(stack.State.Body, stackResolverBodyRule{
+			role:         "state",
+			selectorName: "backend",
+			example:      "state: local { ... }",
+			locals:       localNames,
+		}, errs)
 	}
 	if stack.Encryption == nil {
 		errs.Addf(parse.ErrSchema, stack.S.Start, "stack file requires encryption")
 		return
 	}
-	mergeErrors(errs, lang.ValidateEncryptionConfig(
-		resolverConfigObject(
-			stack.Encryption.S,
-			"@key-source",
-			stack.Encryption.Selector,
-			stack.Encryption.Body,
-		),
-		localNames,
-	))
+	validateStackResolverBody(stack.Encryption.Body, stackResolverBodyRule{
+		role:         "encryption",
+		selectorName: "key-source",
+		example:      "encryption: noop { ... }",
+		locals:       localNames,
+	}, errs)
+}
+
+type stackResolverBodyRule struct {
+	role         string
+	selectorName string
+	example      string
+	locals       map[string]bool
+}
+
+func validateStackResolverBody(
+	body *parse.ObjectLit,
+	rule stackResolverBodyRule,
+	errs *parse.ErrorList,
+) {
+	if body == nil {
+		return
+	}
+	seen := make(map[string]parse.Position, len(body.Fields))
+	staticBody := &parse.ObjectLit{S: body.S}
+	for _, fld := range body.Fields {
+		if fld.Key.Kind == parse.FieldString {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"%s body key must be a bare identifier, got quoted string %q",
+				rule.role, fld.Key.String)
+			continue
+		}
+		if fld.Key.IsMeta() {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"%s body uses a %s selector before the body, "+
+					"not a body meta key; write %s",
+				rule.role, rule.selectorName, rule.example)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"%s body: duplicate key %q (first defined at %s)", rule.role, name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		if rule.role == "state" && name == "encryption" {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"state body: encryption is its own top-level block; move it out of state")
+		}
+		staticBody.Fields = append(staticBody.Fields, fld)
+	}
+	mergeErrors(errs, lang.ValidateConfigInputs(staticBody, rule.locals))
 }
 
 func validateStackFactory(
@@ -764,23 +810,6 @@ func manifestReplaceObject(decls []ManifestReplace) *parse.ObjectLit {
 		obj.Fields = append(obj.Fields, stringField(decl.ID.Value, decl.ID.S, decl.Path))
 	}
 	return obj
-}
-
-func resolverConfigObject(
-	span parse.Span,
-	metaKey string,
-	selector Ident,
-	body *parse.ObjectLit,
-) *parse.ObjectLit {
-	out := &parse.ObjectLit{S: span}
-	out.Fields = append(out.Fields, identField(metaKey, selector.S, &parse.Ident{
-		S:    selector.S,
-		Name: selector.Name,
-	}))
-	if body != nil {
-		out.Fields = append(out.Fields, body.Fields...)
-	}
-	return out
 }
 
 func expandShortNodeRefs(obj *parse.ObjectLit, body FactoryBody) {

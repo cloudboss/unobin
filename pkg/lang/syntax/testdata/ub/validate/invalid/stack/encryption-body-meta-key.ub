@@ -1,0 +1,8 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+  encryption: noop {
+    @key-source: noop
+  }
+}
