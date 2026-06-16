@@ -474,12 +474,12 @@ factory: {
   }
 }
 `), nil)
-	cfg, ok := g.Nodes["configuration.aws.default"]
+	cfg, ok := g.Nodes["default-configuration.aws"]
 	require.True(t, ok, "configuration node should exist")
 	require.Equal(t, NodeConfiguration, cfg.Kind)
 	require.Equal(t, "aws", cfg.Alias)
 	require.Equal(t, "default", cfg.Name)
-	require.Contains(t, g.Edges["resource.cluster"], "configuration.aws.default")
+	require.Contains(t, g.Edges["resource.cluster"], "default-configuration.aws")
 }
 
 func TestBuildDAGDefaultSelectionEdgesToInternalDefault(t *testing.T) {
@@ -489,7 +489,7 @@ configurations: {
 }
 resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 `), nil)
-	require.Contains(t, g.Edges["resource.aws.vpc.main"], "configuration.aws.default")
+	require.Contains(t, g.Edges["resource.aws.vpc.main"], "default-configuration.aws")
 }
 
 func TestBuildDAGNoEdgeWhenConfigurationNotInternal(t *testing.T) {

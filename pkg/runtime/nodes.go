@@ -569,7 +569,7 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 
 func selectorConfigurationAddress(alias, name string) string {
 	if name == "default" {
-		return "configuration." + alias + ".default"
+		return "default-configuration." + alias
 	}
 	return "configuration." + name
 }

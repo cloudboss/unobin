@@ -200,7 +200,7 @@ func TestCheckConfigurationsAcceptsInternalDefault(t *testing.T) {
 		Alias:   "aws",
 	}
 	internal := &Node{
-		Address: "configuration.aws.default",
+		Address: "default-configuration.aws",
 		Kind:    NodeConfiguration,
 		Alias:   "aws",
 		Name:    "default",
