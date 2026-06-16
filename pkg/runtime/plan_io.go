@@ -28,7 +28,7 @@ type PlanFile struct {
 	Inputs         map[string]any      `json:"inputs,omitempty"`
 	Configurations *PlanConfigurations `json:"configurations,omitempty"`
 
-	RawConfigurations map[string]map[string]any `json:"-"`
+	RawConfigurations ConfigTable `json:"-"`
 
 	Backend     *StateRef  `json:"backend,omitempty"`
 	Parallelism int        `json:"parallelism,omitempty"`
@@ -184,43 +184,41 @@ type FactoryRef struct {
 }
 
 func encodePlanConfigurations(
-	raw map[string]map[string]any,
+	raw ConfigTable,
 ) (*PlanConfigurations, error) {
 	out := &PlanConfigurations{}
 	var added bool
-	for alias, names := range raw {
-		if alias == "" {
+	for ref, bodyValue := range raw {
+		if ref.Alias == "" {
 			return nil, fmt.Errorf("plan: configuration selector is empty")
 		}
-		for name, bodyValue := range names {
-			if name == "" {
-				return nil, fmt.Errorf("plan: configuration name is empty")
-			}
-			body, ok := bodyValue.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf(
-					"plan: configuration %s.%s body must be an object", alias, name)
-			}
-			if name == "default" {
-				if out.Defaults == nil {
-					out.Defaults = map[string]PlanDefaultConfiguration{}
-				}
-				out.Defaults[alias] = PlanDefaultConfiguration{Body: body}
-				added = true
-				continue
-			}
-			if out.Named == nil {
-				out.Named = map[string]PlanNamedConfiguration{}
-			}
-			if _, exists := out.Named[name]; exists {
-				return nil, fmt.Errorf("plan: duplicate named configuration %q", name)
-			}
-			out.Named[name] = PlanNamedConfiguration{
-				Selector: state.Selector{Alias: alias},
-				Body:     body,
-			}
-			added = true
+		if ref.Name == "" {
+			return nil, fmt.Errorf("plan: configuration name is empty")
 		}
+		body, ok := bodyValue.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf(
+				"plan: configuration %s body must be an object", ref.String())
+		}
+		if ref.Name == "default" {
+			if out.Defaults == nil {
+				out.Defaults = map[string]PlanDefaultConfiguration{}
+			}
+			out.Defaults[ref.Alias] = PlanDefaultConfiguration{Body: body}
+			added = true
+			continue
+		}
+		if out.Named == nil {
+			out.Named = map[string]PlanNamedConfiguration{}
+		}
+		if _, exists := out.Named[ref.Name]; exists {
+			return nil, fmt.Errorf("plan: duplicate named configuration %q", ref.Name)
+		}
+		out.Named[ref.Name] = PlanNamedConfiguration{
+			Selector: state.Selector{Alias: ref.Alias},
+			Body:     body,
+		}
+		added = true
 	}
 	if !added {
 		return nil, nil
@@ -230,11 +228,11 @@ func encodePlanConfigurations(
 
 func decodePlanConfigurations(
 	configurations *PlanConfigurations,
-) (map[string]map[string]any, error) {
+) (ConfigTable, error) {
 	if configurations == nil {
 		return nil, nil
 	}
-	out := map[string]map[string]any{}
+	out := ConfigTable{}
 	for alias, cfg := range configurations.Defaults {
 		if alias == "" {
 			return nil, fmt.Errorf("plan: default configuration selector is empty")
@@ -276,15 +274,12 @@ func planConfigurationBody(label string, body map[string]any) (map[string]any, e
 }
 
 func setPlanConfiguration(
-	configs map[string]map[string]any,
+	configs ConfigTable,
 	alias string,
 	name string,
 	body map[string]any,
 ) {
-	if configs[alias] == nil {
-		configs[alias] = map[string]any{}
-	}
-	configs[alias][name] = body
+	configs[ConfigRef{Alias: alias, Name: name}] = body
 }
 
 // EncodePlan renders a plan as JSON bytes for on-disk storage.

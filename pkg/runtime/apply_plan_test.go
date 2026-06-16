@@ -271,8 +271,9 @@ func TestDestroyUsesRecordedConfiguration(t *testing.T) {
 	libs := cfgCapturingModules(capture)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	configurations := map[string]map[string]any{
-		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
+	configurations := ConfigTable{
+		{Alias: "aws", Name: "default"}: "default-cfg",
+		{Alias: "aws", Name: "east2"}:   "east2-cfg",
 	}
 
 	withResource := `
@@ -1713,10 +1714,12 @@ func TestEncodePlanUsesNodeKindKey(t *testing.T) {
 func TestEncodePlanUsesConfigurationSections(t *testing.T) {
 	plan := &Plan{
 		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
-		RawConfigurations: map[string]map[string]any{
-			"fix": {
-				"default": map[string]any{"endpoint": "https://op.example"},
-				"cluster": map[string]any{"endpoint": "https://stack.example"},
+		RawConfigurations: ConfigTable{
+			{Alias: "fix", Name: "default"}: map[string]any{
+				"endpoint": "https://op.example",
+			},
+			{Alias: "fix", Name: "cluster"}: map[string]any{
+				"endpoint": "https://stack.example",
 			},
 		},
 	}
@@ -1867,10 +1870,12 @@ func TestDecodePlanReadsConfigurationSections(t *testing.T) {
 }`)
 	pf, err := DecodePlan(b)
 	require.NoError(t, err)
-	require.Equal(t, map[string]map[string]any{
-		"fix": {
-			"default": map[string]any{"endpoint": "https://op.example"},
-			"cluster": map[string]any{"endpoint": "https://stack.example"},
+	require.Equal(t, ConfigTable{
+		{Alias: "fix", Name: "default"}: map[string]any{
+			"endpoint": "https://op.example",
+		},
+		{Alias: "fix", Name: "cluster"}: map[string]any{
+			"endpoint": "https://stack.example",
 		},
 	}, pf.RawConfigurations)
 }

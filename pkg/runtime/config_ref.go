@@ -8,6 +8,22 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
+// ConfigTable stores configuration values by selector and configuration name.
+type ConfigTable map[ConfigRef]any
+
+func (t ConfigTable) Lookup(ref ConfigRef) (any, bool) {
+	if t == nil || ref.IsZero() {
+		return nil, false
+	}
+	v, ok := t[ref]
+	return v, ok
+}
+
+func (t ConfigTable) Has(alias, name string) bool {
+	_, ok := t.Lookup(ConfigRef{Alias: alias, Name: name})
+	return ok
+}
+
 func (r ConfigRef) IsZero() bool {
 	return r.Alias == "" && r.Name == ""
 }

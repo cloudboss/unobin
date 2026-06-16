@@ -51,16 +51,16 @@ type Executor struct {
 	// When set, declaration queries prefer it over Source.
 	SyntaxSource *syntax.FactoryBody
 
-	// Configurations is keyed first by the library selector and then by
-	// the selected configuration name. Entries are the value returned by
-	// cfg.ConfigurationType.New populated by cfg.Decode. A nil map disables
-	// config routing and every CRUD call sees a nil cfg argument.
-	Configurations map[string]map[string]any
+	// Configurations stores decoded operator-supplied configurations.
+	// Entries are the value returned by cfg.ConfigurationType.New populated
+	// by cfg.Decode. A nil map disables config routing and every CRUD call
+	// sees a nil cfg argument.
+	Configurations ConfigTable
 
 	// RawConfigurations holds the same stack-supplied bodies as
 	// Configurations before decoding. A configuration.<name> reference
 	// inside an internal configuration's body reads from here.
-	RawConfigurations map[string]map[string]any
+	RawConfigurations ConfigTable
 
 	Store   state.Backend
 	Factory state.FactoryInfo
@@ -374,26 +374,12 @@ func (e *Executor) configForStateRef(
 }
 
 func (e *Executor) configurationOverridden(alias, configuration string) bool {
-	if e.Configurations == nil {
-		return false
-	}
-	configurations, ok := e.Configurations[alias]
-	if !ok {
-		return false
-	}
-	_, ok = configurations[configuration]
-	return ok
+	return e.Configurations.Has(alias, configuration)
 }
 
 func (e *Executor) lookupConfiguration(alias, configuration string) any {
-	if e.Configurations == nil {
-		return nil
-	}
-	configurations, ok := e.Configurations[alias]
-	if !ok {
-		return nil
-	}
-	return configurations[configuration]
+	value, _ := e.Configurations.Lookup(ConfigRef{Alias: alias, Name: configuration})
+	return value
 }
 
 // ExecResult is what the Executor produces: the outputs map, the

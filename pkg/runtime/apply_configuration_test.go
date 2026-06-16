@@ -157,15 +157,15 @@ outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
-		Configurations: map[string]map[string]any{
-			"fix": {
-				"cluster": &requiredEndpointConfiguration{
-					Endpoint: cfg.String{Value: "https://stack.example"},
-				},
+		Configurations: ConfigTable{
+			{Alias: "fix", Name: "cluster"}: &requiredEndpointConfiguration{
+				Endpoint: cfg.String{Value: "https://stack.example"},
 			},
 		},
-		RawConfigurations: map[string]map[string]any{
-			"fix": {"cluster": map[string]any{"endpoint": "https://stack.example"}},
+		RawConfigurations: ConfigTable{
+			{Alias: "fix", Name: "cluster"}: map[string]any{
+				"endpoint": "https://stack.example",
+			},
 		},
 		Store:   newStateStore(t),
 		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
@@ -310,11 +310,13 @@ outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
-		Configurations: map[string]map[string]any{
-			"fix": {"default": &endpointConfiguration{}},
+		Configurations: ConfigTable{
+			{Alias: "fix", Name: "default"}: &endpointConfiguration{},
 		},
-		RawConfigurations: map[string]map[string]any{
-			"fix": {"default": map[string]any{"endpoint": "https://op.example"}},
+		RawConfigurations: ConfigTable{
+			{Alias: "fix", Name: "default"}: map[string]any{
+				"endpoint": "https://op.example",
+			},
 		},
 		Store:   newStateStore(t),
 		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
@@ -337,11 +339,13 @@ outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 	exec := &Executor{
 		DAG:       BuildDAG(parseStack(t, src), libs),
 		Libraries: libs,
-		Configurations: map[string]map[string]any{
-			"fix": {"default": &endpointConfiguration{}},
+		Configurations: ConfigTable{
+			{Alias: "fix", Name: "default"}: &endpointConfiguration{},
 		},
-		RawConfigurations: map[string]map[string]any{
-			"fix": {"default": map[string]any{"endpoint": "https://op.example"}},
+		RawConfigurations: ConfigTable{
+			{Alias: "fix", Name: "default"}: map[string]any{
+				"endpoint": "https://op.example",
+			},
 		},
 		Store:   newStateStore(t),
 		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},

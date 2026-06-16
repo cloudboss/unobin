@@ -204,10 +204,8 @@ func TestEvalVarReferencedInObject(t *testing.T) {
 
 func TestEvalNamedConfigurationReference(t *testing.T) {
 	ctx := &EvalContext{
-		Configurations: map[string]map[string]any{
-			"aws": {
-				"east": map[string]any{"region": "us-east-1"},
-			},
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "east"}: map[string]any{"region": "us-east-1"},
 		},
 		ConfigurationRefs: map[string]ConfigRef{
 			"east": {Alias: "aws", Name: "east"},

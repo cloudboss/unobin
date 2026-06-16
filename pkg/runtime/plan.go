@@ -265,15 +265,15 @@ func (s *PlanStep) Gone() bool {
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
 // eval scope without re-reading the stack file. RawConfigurations keeps
-// the raw configuration bodies grouped by selector and configuration key
-// so apply re-decodes them through the same code path rather than
-// re-reading the stack file.
+// the raw configuration bodies by selector and configuration key so apply
+// re-decodes them through the same code path rather than re-reading the
+// stack file.
 type Plan struct {
 	Factory           state.FactoryInfo
 	Stack             string
 	StateRev          string
 	Inputs            map[string]any
-	RawConfigurations map[string]map[string]any
+	RawConfigurations ConfigTable
 	Steps             []*PlanStep
 
 	// Backend names the state backend the plan was computed against,

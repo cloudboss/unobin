@@ -36,9 +36,8 @@ type EvalContext struct {
 	Libraries map[string]*Library
 	Bindings  map[string]any
 
-	// Configurations holds supplied configuration bodies before decoding,
-	// keyed by import alias and configuration name.
-	Configurations map[string]map[string]any
+	// Configurations holds supplied configuration bodies before decoding.
+	Configurations ConfigTable
 
 	// ConfigurationRefs maps source-facing configuration names to the
 	// import alias and configuration table key that store the body.
@@ -795,11 +794,10 @@ func evalConfigurationRef(p *lang.DotPath, ctx *EvalContext) (any, error) {
 }
 
 func configurationBody(ctx *EvalContext, ref ConfigRef) (any, bool) {
-	if ctx == nil || ctx.Configurations == nil {
+	if ctx == nil {
 		return nil, false
 	}
-	body, ok := ctx.Configurations[ref.Alias][ref.Name]
-	return body, ok
+	return ctx.Configurations.Lookup(ref)
 }
 
 func configurationPathRef(

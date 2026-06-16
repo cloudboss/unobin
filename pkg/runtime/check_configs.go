@@ -60,7 +60,7 @@ func (e *Executor) checkConfigurationBodyRefs(n *Node) []error {
 				n.Address, display))
 			return
 		}
-		if _, ok := e.RawConfigurations[ref.Alias][ref.Name]; !ok {
+		if _, ok := e.RawConfigurations.Lookup(ref); !ok {
 			errs = append(errs, fmt.Errorf(
 				"%s: references %s, which is not supplied",
 				n.Address, display))
@@ -104,7 +104,7 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 // for an alias: either the operator supplied it in the stack file or
 // the factory defines it internally.
 func (e *Executor) configurationDeclared(alias, name string) bool {
-	if _, ok := e.Configurations[alias][name]; ok {
+	if e.Configurations.Has(alias, name) {
 		return true
 	}
 	_, ok := configurationNodeAddress(e.DAG.Nodes, alias, name)

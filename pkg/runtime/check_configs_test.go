@@ -12,7 +12,7 @@ import (
 func newExecutorForConfigCheck(
 	nodes map[string]*Node,
 	libs map[string]*Library,
-	configurations map[string]map[string]any,
+	configurations ConfigTable,
 ) *Executor {
 	return &Executor{
 		DAG:            &DAG{Nodes: nodes},
@@ -38,7 +38,10 @@ func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
 		map[string]*Library{"aws": libraryWithConfig()},
-		map[string]map[string]any{"aws": {"default": "x", "east2": "y"}},
+		ConfigTable{
+			{Alias: "aws", Name: "default"}: "x",
+			{Alias: "aws", Name: "east2"}:   "y",
+		},
 	)
 	require.NoError(t, e.CheckConfigurations())
 }
@@ -53,7 +56,7 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
 		map[string]*Library{"aws": libraryWithConfig()},
-		map[string]map[string]any{"aws": {"default": "x"}},
+		ConfigTable{{Alias: "aws", Name: "default"}: "x"},
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)
@@ -91,7 +94,10 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 	e := newExecutorForConfigCheck(
 		map[string]*Node{composite.Address: composite},
 		map[string]*Library{"aws": libraryWithConfig()},
-		map[string]map[string]any{"aws": {"default": "x", "east2": "y"}},
+		ConfigTable{
+			{Alias: "aws", Name: "default"}: "x",
+			{Alias: "aws", Name: "east2"}:   "y",
+		},
 	)
 	require.NoError(t, e.CheckConfigurations())
 }
@@ -109,7 +115,7 @@ func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 	e := newExecutorForConfigCheck(
 		map[string]*Node{composite.Address: composite},
 		map[string]*Library{"aws": libraryWithConfig()},
-		map[string]map[string]any{"aws": {"default": "x"}},
+		ConfigTable{{Alias: "aws", Name: "default"}: "x"},
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)
@@ -130,7 +136,7 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	e := newExecutorForConfigCheck(
 		map[string]*Node{composite.Address: composite},
 		map[string]*Library{"aws": libraryWithConfig()},
-		map[string]map[string]any{"aws": {"default": "x"}},
+		ConfigTable{{Alias: "aws", Name: "default"}: "x"},
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)
@@ -159,7 +165,7 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 			composite.Address: composite,
 		},
 		map[string]*Library{"aws": libraryWithConfig()},
-		map[string]map[string]any{"aws": {"default": "x"}},
+		ConfigTable{{Alias: "aws", Name: "default"}: "x"},
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)

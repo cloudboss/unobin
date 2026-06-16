@@ -38,6 +38,10 @@ func awsModuleNoConfig() *runtime.Library {
 	return &runtime.Library{Name: "aws"}
 }
 
+func configValue(table runtime.ConfigTable, alias, name string) any {
+	return table[runtime.ConfigRef{Alias: alias, Name: name}]
+}
+
 func TestLoadConfigurationFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/configurations", func(
 		name string, src []byte,
@@ -71,7 +75,7 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	got := out["aws"]["default"].(*awsConfig)
+	got := configValue(out, "aws", "default").(*awsConfig)
 	require.Equal(t, "us-east-1", got.Region.Value)
 	require.Equal(t, "prod", got.Profile.Value)
 }
@@ -101,13 +105,11 @@ stack: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	require.Equal(t, "us-east-1", out["aws"]["default"].(*awsConfig).Region.Value)
-	require.Equal(t, "us-east-2", out["aws"]["east2"].(*awsConfig).Region.Value)
-	require.Equal(t, map[string]map[string]any{
-		"aws": {
-			"default": map[string]any{"region": "us-east-1"},
-			"east2":   map[string]any{"region": "us-east-2"},
-		},
+	require.Equal(t, "us-east-1", configValue(out, "aws", "default").(*awsConfig).Region.Value)
+	require.Equal(t, "us-east-2", configValue(out, "aws", "east2").(*awsConfig).Region.Value)
+	require.Equal(t, runtime.ConfigTable{
+		{Alias: "aws", Name: "default"}: map[string]any{"region": "us-east-1"},
+		{Alias: "aws", Name: "east2"}:   map[string]any{"region": "us-east-2"},
 	}, raw)
 }
 
@@ -125,7 +127,7 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	got := out["aws"]["default"].(*awsConfig)
+	got := configValue(out, "aws", "default").(*awsConfig)
 	require.Equal(t, "default-profile", got.Profile.Value)
 }
 
@@ -134,7 +136,7 @@ func TestLoadConfigurationsAllowsAbsentConfigurations(t *testing.T) {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	require.Empty(t, out["aws"])
+	require.NotContains(t, out, runtime.ConfigRef{Alias: "aws", Name: "default"})
 }
 
 func TestLoadConfigurationsAllowsBlockMissingForModule(t *testing.T) {
@@ -150,8 +152,8 @@ factory: {
 		"other": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	require.Empty(t, out["aws"])
-	require.Equal(t, "us-west-2", out["other"]["default"].(*awsConfig).Region.Value)
+	require.NotContains(t, out, runtime.ConfigRef{Alias: "aws", Name: "default"})
+	require.Equal(t, "us-west-2", configValue(out, "other", "default").(*awsConfig).Region.Value)
 }
 
 func TestLoadConfigurationsErrorsOnUnknownImportAlias(t *testing.T) {
@@ -198,7 +200,7 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	require.Equal(t, "us-east-2", out["aws"]["east2"].(*awsConfig).Region.Value)
+	require.Equal(t, "us-east-2", configValue(out, "aws", "east2").(*awsConfig).Region.Value)
 }
 
 func TestLoadConfigurationsErrorsOnInvalidValues(t *testing.T) {
@@ -245,13 +247,13 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	require.Len(t, out["aws"], 2)
-	require.Equal(t, "us-east-1", out["aws"]["default"].(*awsConfig).Region.Value)
-	require.Equal(t, "us-east-2", out["aws"]["east2"].(*awsConfig).Region.Value)
+	require.Len(t, out, 2)
+	require.Equal(t, "us-east-1", configValue(out, "aws", "default").(*awsConfig).Region.Value)
+	require.Equal(t, "us-east-2", configValue(out, "aws", "east2").(*awsConfig).Region.Value)
 
-	require.Equal(t, out["aws"]["default"].(*awsConfig).Region.Value,
-		raw["aws"]["default"].(map[string]any)["region"])
-	require.Equal(t, "us-east-2", raw["aws"]["east2"].(map[string]any)["region"])
+	require.Equal(t, configValue(out, "aws", "default").(*awsConfig).Region.Value,
+		configValue(raw, "aws", "default").(map[string]any)["region"])
+	require.Equal(t, "us-east-2", configValue(raw, "aws", "east2").(map[string]any)["region"])
 }
 
 func TestParseConfigRejectsInputReferenceInConfigurations(t *testing.T) {
@@ -303,7 +305,7 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, map[string]map[string]bool{"aws": {"default": true, "cluster": true}})
 	require.NoError(t, err)
-	require.Equal(t, "us-east-2", out["aws"]["cluster"].(*awsConfig).Region.Value)
+	require.Equal(t, "us-east-2", configValue(out, "aws", "cluster").(*awsConfig).Region.Value)
 }
 
 func TestLoadConfigurationsResolvesLocals(t *testing.T) {
@@ -323,10 +325,13 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
-	got := out["aws"]["default"].(*awsConfig)
+	got := configValue(out, "aws", "default").(*awsConfig)
 	require.Equal(t, "us-east-1", got.Region.Value)
 	require.Equal(t, "core", got.Profile.Value)
-	require.Equal(t, map[string]map[string]any{
-		"aws": {"default": map[string]any{"region": "us-east-1", "profile": "core"}},
+	require.Equal(t, runtime.ConfigTable{
+		{Alias: "aws", Name: "default"}: map[string]any{
+			"region":  "us-east-1",
+			"profile": "core",
+		},
 	}, raw)
 }

@@ -1154,11 +1154,9 @@ func TestConfigForUsesNodeAlias(t *testing.T) {
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
-		Configurations: map[string]map[string]any{
-			"aws": {
-				"default": "default-cfg",
-				"east2":   "east2-cfg",
-			},
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "default"}: "default-cfg",
+			{Alias: "aws", Name: "east2"}:   "east2-cfg",
 		},
 	}
 	require.Equal(t, "east2-cfg", e.configFor(leaf))
@@ -1171,8 +1169,8 @@ func TestConfigForFallsBackToDefault(t *testing.T) {
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
-		Configurations: map[string]map[string]any{
-			"aws": {"default": "default-cfg"},
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "default"}: "default-cfg",
 		},
 	}
 	require.Equal(t, "default-cfg", e.configFor(leaf))
@@ -1195,11 +1193,9 @@ func TestConfigForPicksUpCompositeRemap(t *testing.T) {
 			composite.Address: composite,
 			leaf.Address:      leaf,
 		}},
-		Configurations: map[string]map[string]any{
-			"aws": {
-				"default": "default-cfg",
-				"east2":   "east2-cfg",
-			},
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "default"}: "default-cfg",
+			{Alias: "aws", Name: "east2"}:   "east2-cfg",
 		},
 	}
 	require.Equal(t, "east2-cfg", e.configFor(leaf))
@@ -1229,11 +1225,9 @@ func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
 			inner.Address: inner,
 			leaf.Address:  leaf,
 		}},
-		Configurations: map[string]map[string]any{
-			"aws": {
-				"default": "default-cfg",
-				"east2":   "east2-cfg",
-			},
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "default"}: "default-cfg",
+			{Alias: "aws", Name: "east2"}:   "east2-cfg",
 		},
 	}
 	require.Equal(t, "east2-cfg", e.configFor(leaf))
@@ -1247,16 +1241,17 @@ func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
-		Configurations: map[string]map[string]any{
-			"aws": {"default": "default-cfg"},
+		Configurations: ConfigTable{
+			{Alias: "aws", Name: "default"}: "default-cfg",
 		},
 	}
 	require.Nil(t, e.configFor(leaf))
 }
 
 func TestConfigRef(t *testing.T) {
-	cfgs := map[string]map[string]any{
-		"aws": {"default": "default-cfg", "east2": "east2-cfg"},
+	cfgs := ConfigTable{
+		{Alias: "aws", Name: "default"}: "default-cfg",
+		{Alias: "aws", Name: "east2"}:   "east2-cfg",
 	}
 
 	plain := &Node{Address: "resource.aws.instance.a", Alias: "aws"}
