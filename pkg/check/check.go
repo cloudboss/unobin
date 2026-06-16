@@ -366,6 +366,16 @@ func namedPathText(dp *lang.DotPath) string {
 }
 
 func (c *referenceChecker) checkCompositeOutputs(n *runtime.Node) {
+	if n.CompositeSyntaxBody != nil {
+		for _, decl := range n.CompositeSyntaxBody.Outputs {
+			inner := lang.OutputValueExpr(decl.Body)
+			if inner == nil {
+				continue
+			}
+			c.checkExpr(inner, n.Address, false)
+		}
+		return
+	}
 	if n.CompositeBody == nil || n.CompositeBody.Body == nil {
 		return
 	}
@@ -963,6 +973,13 @@ func (c *referenceChecker) attrsFor(node *runtime.Node, scope string) map[string
 // returned map shape matches the Go-side schema so callers do not
 // branch.
 func compositeOutputNames(node *runtime.Node) map[string]typecheck.Type {
+	if node.CompositeSyntaxBody != nil {
+		out := map[string]typecheck.Type{}
+		for _, decl := range node.CompositeSyntaxBody.Outputs {
+			out[decl.Name.Name] = typecheck.TUnknown()
+		}
+		return out
+	}
 	if node.CompositeBody == nil {
 		return nil
 	}

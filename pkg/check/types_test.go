@@ -136,6 +136,46 @@ resources: { bundle.pair.demo: { name: 'n' } }
 	require.Empty(t, clean.Messages())
 }
 
+func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+greeting: resource {
+  inputs: { path: { type: string } }
+  outputs: {
+    size:   { value: 42 }
+    broken: { value: var.path + 1 }
+  }
+}
+`)
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    app: outer.greeting {}
+    log: local.file { path: resource.app.size, content: 'x' }
+  }
+}
+`)
+	body := composite.body
+	checker := NewSyntax(fixture.file, fixture.body, map[string]*runtime.Library{
+		"outer": {
+			ResourceComposites: map[string]*runtime.CompositeType{
+				"greeting": {
+					Name:       "greeting",
+					Body:       &lang.File{Body: &lang.ObjectLit{}},
+					SyntaxBody: &body,
+				},
+			},
+		},
+		"local": localFileLibrary(),
+	})
+
+	got := checker.References(nil).Messages()
+	require.ElementsMatch(t, []string{
+		`missing required input "path" on outer.greeting`,
+		"type mismatch: expected string, got integer",
+		"+: operands must both be numbers or both be strings, got string and integer",
+	}, got)
+}
+
 func TestCheckTypesCompositeOutputTypes(t *testing.T) {
 	composite := parseStack(t, `
 inputs:    { name: { type: string } }
