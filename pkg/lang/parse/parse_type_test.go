@@ -87,6 +87,7 @@ func TestParseTypeErrors(t *testing.T) {
 		want string
 	}{
 		{name: "unknown atomic", src: "frobnicate", want: "unknown atomic type"},
+		{name: "unknown nested atomic", src: "list(unknown)", want: "unknown atomic type"},
 		{name: "any", src: "any", want: "any is not a type"},
 		{name: "optional args", src: "optional(string, integer)", want: "optional takes exactly 1"},
 		{name: "tuple args", src: "tuple(string)", want: "tuple takes at least 2"},

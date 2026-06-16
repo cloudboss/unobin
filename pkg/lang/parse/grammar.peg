@@ -612,7 +612,7 @@ ListType <- "list" "(" _ args:TypeArgs _ ")" {
 	span := c.span()
 	elems := typeExprSlice(args)
 	if len(elems) != 1 {
-		return nil, fmt.Errorf("list takes exactly 1 type argument, got %d", len(elems))
+		return &TypeList{S: span}, fmt.Errorf("list takes exactly 1 type argument, got %d", len(elems))
 	}
 	return &TypeList{S: span, Elem: elems[0]}, nil
 }
@@ -621,7 +621,7 @@ MapType <- "map" "(" _ args:TypeArgs _ ")" {
 	span := c.span()
 	elems := typeExprSlice(args)
 	if len(elems) != 1 {
-		return nil, fmt.Errorf("map takes exactly 1 type argument, got %d", len(elems))
+		return &TypeMap{S: span}, fmt.Errorf("map takes exactly 1 type argument, got %d", len(elems))
 	}
 	return &TypeMap{S: span, Elem: elems[0]}, nil
 }
@@ -630,7 +630,7 @@ TupleType <- "tuple" "(" _ args:TypeArgs _ ")" {
 	span := c.span()
 	elems := typeExprSlice(args)
 	if len(elems) < 2 {
-		return nil, fmt.Errorf("tuple takes at least 2 type arguments, got %d", len(elems))
+		return &TypeTuple{S: span}, fmt.Errorf("tuple takes at least 2 type arguments, got %d", len(elems))
 	}
 	return &TypeTuple{S: span, Elements: elems}, nil
 }
@@ -639,7 +639,7 @@ OptionalType <- "optional" "(" _ args:TypeArgs _ ")" {
 	span := c.span()
 	elems := typeExprSlice(args)
 	if len(elems) != 1 {
-		return nil, fmt.Errorf("optional takes exactly 1 type argument, got %d", len(elems))
+		return &TypeOptional{S: span}, fmt.Errorf("optional takes exactly 1 type argument, got %d", len(elems))
 	}
 	return &TypeOptional{S: span, Elem: elems[0]}, nil
 }
@@ -648,18 +648,19 @@ OpenType <- "open" "(" _ args:TypeArgs _ ")" {
 	span := c.span()
 	elems := typeExprSlice(args)
 	if len(elems) != 1 {
-		return nil, fmt.Errorf("open takes exactly 1 type argument, got %d", len(elems))
+		return &TypeObject{S: span, Open: true},
+			fmt.Errorf("open takes exactly 1 type argument, got %d", len(elems))
 	}
 	obj, ok := elems[0].(*TypeObject)
 	if !ok {
 		if _, isOpt := elems[0].(*TypeOptional); isOpt {
-			return nil, fmt.Errorf(
+			return &TypeObject{S: span, Open: true}, fmt.Errorf(
 				"open applies to object types, got optional; write optional(open(object({ ... })))")
 		}
-		return nil, fmt.Errorf("open applies to object types")
+		return &TypeObject{S: span, Open: true}, fmt.Errorf("open applies to object types")
 	}
 	if obj.Open {
-		return nil, fmt.Errorf("open(open(...)) is redundant; write open once")
+		return obj, fmt.Errorf("open(open(...)) is redundant; write open once")
 	}
 	obj.Open = true
 	obj.S = span
@@ -721,11 +722,11 @@ AtomicType <- name:IdentText {
 	span := c.span()
 	n := name.(string)
 	if n == "any" {
-		return nil, fmt.Errorf(
+		return &TypeAtomic{S: span, Name: "invalid"}, fmt.Errorf(
 			"any is not a type; use opaque for a value passed along unread, or declare the value's type")
 	}
 	if _, ok := atomicTypeNames[n]; !ok {
-		return nil, fmt.Errorf(
+		return &TypeAtomic{S: span, Name: "invalid"}, fmt.Errorf(
 			"unknown atomic type %q (expected string, number, integer, boolean, null, opaque)", n)
 	}
 	return &TypeAtomic{S: span, Name: n}, nil
