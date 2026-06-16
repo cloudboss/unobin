@@ -708,7 +708,7 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 // it waits for apply exactly as it would for the internal itself.
 func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
-	if !ok || node.CompositeBody == nil {
+	if !ok || !node.IsComposite() {
 		return nil
 	}
 	scope, ok := rs.composites[step.Address]
@@ -1026,7 +1026,7 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 		return nil
 	}
 	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
-	if !ok || node.CompositeBody == nil {
+	if !ok || !node.IsComposite() {
 		return nil
 	}
 	constraints := compositeConstraints(node)

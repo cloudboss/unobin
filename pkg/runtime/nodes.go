@@ -36,9 +36,8 @@ const (
 //
 // CompositeBody, CompositeSyntaxBody, and Libraries are set only on a
 // composite boundary (the call site node), and IsComposite reports that
-// case. CompositeBody points to the composite type's generic body so the
-// runtime can evaluate the `outputs:` block once the internals complete.
-// CompositeSyntaxBody keeps typed locals for grammar-first DAG edges.
+// case. CompositeBody points to the composite type's generic body.
+// CompositeSyntaxBody keeps the typed body for grammar-first code paths.
 // Libraries is the composite's resolved import table; the
 // runtime resolves composite-internal node lookups against this map
 // rather than the stack root's, so a composite can be reused without
@@ -89,10 +88,9 @@ type Node struct {
 // IsComposite reports whether the node is a composite call site (a
 // boundary) rather than a primitive leaf. A boundary has its own Kind
 // (the call site's resource/data/action kind) just like a leaf; what
-// sets it apart is the CompositeBody it expands, which extractKind
-// populates only on boundaries.
+// sets it apart is the composite body populated only on boundaries.
 func (n *Node) IsComposite() bool {
-	return n.CompositeBody != nil
+	return n != nil && (n.CompositeBody != nil || n.CompositeSyntaxBody != nil)
 }
 
 // ConfigRef names the selector and configuration key for one configuration.

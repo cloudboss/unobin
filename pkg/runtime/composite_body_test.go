@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 func TestCompositeOutputsUseSyntaxBody(t *testing.T) {
@@ -17,10 +15,7 @@ greeting: resource {
 }
 `)
 	body := composite.body
-	node := &Node{
-		CompositeBody:       &lang.File{Body: &lang.ObjectLit{}},
-		CompositeSyntaxBody: &body,
-	}
+	node := &Node{CompositeSyntaxBody: &body}
 	scope := &EvalContext{
 		Vars:   map[string]any{"path": "hello"},
 		locals: compositeLocalScope(node),
@@ -42,16 +37,39 @@ greeting: resource {
 }
 `)
 	body := composite.body
-	node := &Node{
-		CompositeBody:       &lang.File{Body: &lang.ObjectLit{}},
-		CompositeSyntaxBody: &body,
-	}
+	node := &Node{CompositeSyntaxBody: &body}
 	scope := &EvalContext{Vars: map[string]any{"ready": "ok"}}
 
 	got, err := planCompositeOutputs(node, scope)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"ready": "ok"}, got)
+}
+
+func TestSeedCompositeOutputsUsesSyntaxBody(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+greeting: resource {
+  outputs: { ready: { value: var.ready } }
+}
+`)
+	body := composite.body
+	node := &Node{
+		Address:             "resource.app",
+		Kind:                NodeResource,
+		CompositeSyntaxBody: &body,
+	}
+	exec := &Executor{DAG: &DAG{Nodes: map[string]*Node{"resource.app": node}}}
+	rs := &runState{
+		eval: &EvalContext{Resources: map[string]any{}},
+		composites: map[string]*EvalContext{
+			"resource.app": {Vars: map[string]any{"ready": "ok"}},
+		},
+	}
+
+	err := exec.seedCompositeOutputs(rs, &PlanStep{Address: "resource.app", Composite: true})
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"app": map[string]any{"ready": "ok"}}, rs.eval.Resources)
 }
 
 func TestCheckCompositeConstraintsUseSyntaxBody(t *testing.T) {
@@ -65,7 +83,6 @@ greeting: resource {
 	node := &Node{
 		Address:             "resource.app",
 		Kind:                NodeResource,
-		CompositeBody:       &lang.File{Body: &lang.ObjectLit{}},
 		CompositeSyntaxBody: &body,
 		Libraries:           map[string]*Library{},
 	}

@@ -259,11 +259,7 @@ factory: {
 		"outer": {
 			Name: "outer",
 			ResourceComposites: map[string]*CompositeType{
-				"greeting": {
-					Name:       "greeting",
-					Body:       &lang.File{Body: &lang.ObjectLit{}},
-					SyntaxBody: &body,
-				},
+				"greeting": {Name: "greeting", SyntaxBody: &body},
 			},
 		},
 	}
@@ -275,6 +271,7 @@ factory: {
 	require.Equal(t, "fs-file", node.Type)
 	require.Equal(t, "file", node.Name)
 	require.Contains(t, got.Edges["resource.app/resource.file"], "resource.app/resource.helper")
+	require.Contains(t, got.Edges["resource.app"], "resource.app/resource.file")
 }
 
 func TestExtractNodesOutputBody(t *testing.T) {
