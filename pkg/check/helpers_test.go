@@ -94,16 +94,24 @@ func parseStack(t *testing.T, src string) *lang.File {
 	return f
 }
 
-// checkReferences runs the reference check the way production callers
-// do, for the many tests that need only the diagnostics.
-func checkReferences(f *lang.File, libs map[string]*runtime.Library) *lang.ErrorList {
-	return New(f, libs).References(nil)
+func newGenericChecker(f *lang.File, libs map[string]*runtime.Library) *Checker {
+	return newChecker(
+		f,
+		runtime.BuildDAG(f, libs),
+		runtime.InputNames(f),
+		localNames(f),
+		libs,
+	)
 }
 
-// checkLiteralConstraints mirrors checkReferences for the literal
-// constraint check.
+// checkReferences runs the reference check for tests that need only diagnostics.
+func checkReferences(f *lang.File, libs map[string]*runtime.Library) *lang.ErrorList {
+	return newGenericChecker(f, libs).References(nil)
+}
+
+// checkLiteralConstraints mirrors checkReferences for the literal constraint check.
 func checkLiteralConstraints(f *lang.File, libs map[string]*runtime.Library) *lang.ErrorList {
-	return New(f, libs).LiteralConstraints()
+	return newGenericChecker(f, libs).LiteralConstraints()
 }
 
 func parseValue(t *testing.T, src string) lang.Expr {

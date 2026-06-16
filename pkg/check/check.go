@@ -12,12 +12,11 @@ import (
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
-// Checker runs the compile-time checks over a parsed, validated
-// stack file. Construction builds the stack's dependency graph and
-// the scope tables for every composite call site once; each check
-// method walks them and returns its own diagnostics. The graph is
-// exposed so callers executing the stack share the structure the
-// checks ran against.
+// Checker runs the compile-time checks over parsed, validated factory source.
+// Construction builds the dependency graph and the scope tables for every
+// composite call site once; each check method walks them and returns its own
+// diagnostics. The graph is exposed so callers executing the factory share the
+// structure the checks ran against.
 type Checker struct {
 	root       *lang.File
 	rootSyntax *syntax.FactoryBody
@@ -25,19 +24,6 @@ type Checker struct {
 	inputs     map[string]map[string]bool
 	locals     map[string]map[string]bool
 	libraries  map[string]map[string]*runtime.Library
-}
-
-// New is the generic compatibility entrypoint for tests and helpers
-// that still construct lang.File bodies directly. Production grammar-first
-// callers use NewSyntax.
-func New(f *lang.File, libs map[string]*runtime.Library) *Checker {
-	return newChecker(
-		f,
-		runtime.BuildDAG(f, libs),
-		runtime.InputNames(f),
-		localNames(f),
-		libs,
-	)
 }
 
 // NewSyntax builds the check state from a typed factory or composite body.
