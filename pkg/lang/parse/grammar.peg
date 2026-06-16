@@ -121,6 +121,24 @@ var atomicTypeNames = map[string]struct{}{
 	"opaque":  {},
 }
 
+func typeExprName(t TypeExpr) string {
+	switch v := t.(type) {
+	case *TypeAtomic:
+		return v.Name
+	case *TypeList:
+		return "list"
+	case *TypeMap:
+		return "map"
+	case *TypeTuple:
+		return "tuple"
+	case *TypeObject:
+		return "object"
+	case *TypeOptional:
+		return "optional"
+	}
+	return "type"
+}
+
 // infixTail carries one (op, right) tail produced by an operator-level
 // rule. The leftmost operand is the head; foldInfix combines a head with
 // any number of tails into a left-associated Infix tree. half marks an
@@ -657,7 +675,8 @@ OpenType <- "open" "(" _ args:TypeArgs _ ")" {
 			return &TypeObject{S: span, Open: true}, fmt.Errorf(
 				"open applies to object types, got optional; write optional(open(object({ ... })))")
 		}
-		return &TypeObject{S: span, Open: true}, fmt.Errorf("open applies to object types")
+		return &TypeObject{S: span, Open: true},
+			fmt.Errorf("open applies to object types, got %s", typeExprName(elems[0]))
 	}
 	if obj.Open {
 		return obj, fmt.Errorf("open(open(...)) is redundant; write open once")

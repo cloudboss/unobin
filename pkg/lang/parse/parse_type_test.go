@@ -91,6 +91,7 @@ func TestParseTypeErrors(t *testing.T) {
 		{name: "any", src: "any", want: "any is not a type"},
 		{name: "optional args", src: "optional(string, integer)", want: "optional takes exactly 1"},
 		{name: "tuple args", src: "tuple(string)", want: "tuple takes at least 2"},
+		{name: "open list", src: "open(list(string))", want: "open applies to object types, got list"},
 		{
 			name: "open optional",
 			src:  "open(optional(object({ name: string })))",
