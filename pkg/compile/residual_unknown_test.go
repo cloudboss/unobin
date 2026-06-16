@@ -76,7 +76,7 @@ func exampleResiduals(t *testing.T, repoRoot, name, stack string) []string {
 		}
 	}
 	err := Run(Options{
-		StackPath:     stack,
+		FactoryPath:   stack,
 		OutDir:        t.TempDir(),
 		StackName:     name,
 		GoVersion:     GoMajorMinor(),

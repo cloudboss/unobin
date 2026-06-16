@@ -21,7 +21,7 @@ var (
 )
 
 type compileConfig struct {
-	stackPath       string
+	factoryPath     string
 	version         string
 	stackName       string
 	libraryPath     string
@@ -33,7 +33,7 @@ type compileConfig struct {
 }
 
 func init() {
-	CompileCmd.Flags().StringVarP(&compileCfg.stackPath, "path", "p", ".",
+	CompileCmd.Flags().StringVarP(&compileCfg.factoryPath, "path", "p", ".",
 		"Path to the factory source file or directory.")
 
 	CompileCmd.Flags().StringVar(&compileCfg.version, "version", "v0.0.0",
@@ -70,7 +70,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		return err
 	}
 	return compile.Run(compile.Options{
-		StackPath:        cfg.stackPath,
+		FactoryPath:      cfg.factoryPath,
 		OutDir:           cfg.outDir,
 		StackName:        cfg.stackName,
 		LibraryPath:      cfg.libraryPath,

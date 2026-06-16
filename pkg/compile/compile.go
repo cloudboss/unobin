@@ -1,5 +1,5 @@
 // Package compile turns factory source into a buildable Go module: it
-// parses and validates the stack, resolves its imports, reads each Go
+// parses and validates the factory, resolves its imports, reads each Go
 // library's schema, runs the compile-time checks, generates main.go
 // and one package per UB library, and optionally runs `go build`. The
 // CLI's compile command is a thin flag layer over Run.
@@ -31,8 +31,8 @@ import (
 
 // Options configures one compile run.
 type Options struct {
-	// StackPath is the factory source file or directory to compile.
-	StackPath string
+	// FactoryPath is the factory source file or directory to compile.
+	FactoryPath string
 	// OutDir receives main.go, go.mod, and the generated UB-library
 	// packages; `-` streams main.go to Stdout instead.
 	OutDir string
@@ -128,15 +128,15 @@ func Run(opts Options) error {
 	if opts.OutDir == "" {
 		return errors.New("--out is required (use `-` for stdout)")
 	}
-	stackPath, err := FactorySourcePath(opts.StackPath)
+	factoryPath, err := FactorySourcePath(opts.FactoryPath)
 	if err != nil {
 		return err
 	}
-	src, err := os.ReadFile(stackPath)
+	src, err := os.ReadFile(factoryPath)
 	if err != nil {
 		return err
 	}
-	sf, factoryBody, err := ParseFactorySyntaxSource(stackPath, src)
+	sf, factoryBody, err := ParseFactorySyntaxSource(factoryPath, src)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func Run(opts Options) error {
 
 	name := opts.StackName
 	if name == "" {
-		name = DeriveStackName(stackPath)
+		name = DeriveStackName(factoryPath)
 	}
 
 	var replaceUnobinAbs string
@@ -160,7 +160,7 @@ func Run(opts Options) error {
 		replaceUnobinAbs = abs
 	}
 
-	sourceDir := filepath.Dir(stackPath)
+	sourceDir := filepath.Dir(factoryPath)
 	projectDir, err := projectRoot(sourceDir)
 	if err != nil {
 		return err
@@ -988,8 +988,8 @@ func GoMajorMinor() string {
 
 // DeriveStackName returns the stack name a source path implies: the
 // lowercased basename of the file's directory.
-func DeriveStackName(stackPath string) string {
-	abs, err := filepath.Abs(stackPath)
+func DeriveStackName(factoryPath string) string {
+	abs, err := filepath.Abs(factoryPath)
 	if err != nil {
 		return "stack"
 	}
