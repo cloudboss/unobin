@@ -70,6 +70,40 @@ factory: {
 	require.Empty(t, checkRefMessages(t, checker.References(nil)))
 }
 
+func TestNewSyntaxUsesCompositeSyntaxScope(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+greeting: resource {
+  inputs: { path: { type: string } }
+  locals: { target: var.path }
+  resources: {
+    file: local.fs-file { path: local.target }
+  }
+}
+`)
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    app: outer.greeting { path: '/tmp/app' }
+  }
+}
+`)
+	body := composite.body
+	checker := NewSyntax(fixture.file, fixture.body, map[string]*runtime.Library{
+		"outer": {
+			ResourceComposites: map[string]*runtime.CompositeType{
+				"greeting": {
+					Name:       "greeting",
+					Body:       &lang.File{Body: &lang.ObjectLit{}},
+					SyntaxBody: &body,
+					Libraries:  map[string]*runtime.Library{"local": {}},
+				},
+			},
+		},
+	})
+
+	require.Empty(t, checkRefMessages(t, checker.References(nil)))
+}
+
 func TestCheckReferencesUnknownLocal(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 outputs: {

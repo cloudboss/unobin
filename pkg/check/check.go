@@ -130,8 +130,13 @@ func (c *Checker) collectCompositeScopes() {
 		if !n.IsComposite() {
 			continue
 		}
-		c.inputs[n.Address] = runtime.InputNames(n.CompositeBody)
-		c.locals[n.Address] = localNames(n.CompositeBody)
+		if n.CompositeSyntaxBody != nil {
+			c.inputs[n.Address] = syntaxInputNames(n.CompositeSyntaxBody.Inputs)
+			c.locals[n.Address] = syntaxLocalNames(n.CompositeSyntaxBody.Locals)
+		} else {
+			c.inputs[n.Address] = runtime.InputNames(n.CompositeBody)
+			c.locals[n.Address] = localNames(n.CompositeBody)
+		}
 		c.libraries[n.Address] = n.Libraries
 	}
 }
@@ -219,7 +224,11 @@ func (c *referenceChecker) checkConstraints() {
 		if !n.IsComposite() {
 			continue
 		}
-		c.checkConstraintsBlock(n.CompositeBody, n.Address)
+		if n.CompositeSyntaxBody != nil {
+			c.checkSyntaxConstraints(n.CompositeSyntaxBody.Constraints, n.Address)
+		} else {
+			c.checkConstraintsBlock(n.CompositeBody, n.Address)
+		}
 	}
 }
 
@@ -231,7 +240,21 @@ func (c *referenceChecker) checkConstraintsBlock(f *lang.File, scope string) {
 	if !ok {
 		return
 	}
-	for _, e := range arr.Elements {
+	c.checkConstraintValues(arr.Elements, scope)
+}
+
+func (c *referenceChecker) checkSyntaxConstraints(
+	decls []syntax.ConstraintDecl, scope string,
+) {
+	values := make([]lang.Expr, 0, len(decls))
+	for _, decl := range decls {
+		values = append(values, decl.Value)
+	}
+	c.checkConstraintValues(values, scope)
+}
+
+func (c *referenceChecker) checkConstraintValues(values []lang.Expr, scope string) {
+	for _, e := range values {
 		obj, ok := e.(*lang.ObjectLit)
 		if !ok {
 			continue
@@ -653,7 +676,11 @@ func (c *referenceChecker) checkLocals() {
 		if !n.IsComposite() {
 			continue
 		}
-		c.checkLocalsBlock(n.CompositeBody, n.Address)
+		if n.CompositeSyntaxBody != nil {
+			c.checkSyntaxLocals(n.CompositeSyntaxBody.Locals, n.Address)
+		} else {
+			c.checkLocalsBlock(n.CompositeBody, n.Address)
+		}
 	}
 }
 
@@ -670,6 +697,12 @@ func (c *referenceChecker) checkLocalsBlock(f *lang.File, scope string) {
 	}
 }
 
+func (c *referenceChecker) checkSyntaxLocals(decls []syntax.LocalDecl, scope string) {
+	for _, decl := range decls {
+		c.checkExpr(decl.Value, scope, false)
+	}
+}
+
 // checkLocalCycles reports a `locals:` block whose entries refer to one
 // another in a loop. Declaration order does not matter, so the cycle is
 // found structurally rather than by evaluation.
@@ -679,7 +712,11 @@ func (c *referenceChecker) checkLocalCycles() {
 		if !n.IsComposite() {
 			continue
 		}
-		c.checkLocalCyclesBlock(n.CompositeBody, n.Address)
+		if n.CompositeSyntaxBody != nil {
+			c.checkSyntaxLocalCycles(n.CompositeSyntaxBody.Locals)
+		} else {
+			c.checkLocalCyclesBlock(n.CompositeBody, n.Address)
+		}
 	}
 }
 
@@ -700,6 +737,27 @@ func (c *referenceChecker) checkLocalCyclesBlock(f *lang.File, scope string) {
 		pos[name] = fld.Key.S.Start
 		order = append(order, name)
 	}
+	c.checkLocalCycleGraph(graph, pos, order)
+}
+
+func (c *referenceChecker) checkSyntaxLocalCycles(decls []syntax.LocalDecl) {
+	graph := map[string][]string{}
+	pos := map[string]lang.Position{}
+	order := make([]string, 0, len(decls))
+	for _, decl := range decls {
+		name := decl.Name.Name
+		graph[name] = localRefNames(decl.Value)
+		pos[name] = decl.Name.S.Start
+		order = append(order, name)
+	}
+	c.checkLocalCycleGraph(graph, pos, order)
+}
+
+func (c *referenceChecker) checkLocalCycleGraph(
+	graph map[string][]string,
+	pos map[string]lang.Position,
+	order []string,
+) {
 	const (
 		unvisited = 0
 		active    = 1
