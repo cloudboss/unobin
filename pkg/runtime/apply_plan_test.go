@@ -277,7 +277,7 @@ func TestDestroyUsesRecordedConfiguration(t *testing.T) {
 	}
 
 	withResource := `
-resources: { aws.thing.x: { @configuration: aws.east2, name: 'x' } }
+resources: { aws.thing.x: { @configuration: configuration.east2, name: 'x' } }
 `
 	exec := &Executor{
 		DAG:            BuildDAG(parseStack(t, withResource), libs),

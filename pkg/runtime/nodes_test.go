@@ -519,10 +519,10 @@ func TestExtractNodesReadsConfigurationAlias(t *testing.T) {
 	src := `
 resources: {
   aws.instance.web:    { ami: 'ami-1' }
-  aws.instance.mirror: { @configuration: aws.east2, ami: 'ami-2' }
+  aws.instance.mirror: { @configuration: configuration.east2, ami: 'ami-2' }
 }
-data:    { aws.ami.ubuntu: { @configuration: aws.east2, most-recent: true } }
-actions: { core.command.probe: { @configuration: core.alt, argv: ['echo'] } }
+data:    { aws.ami.ubuntu: { @configuration: configuration.east2, most-recent: true } }
+actions: { core.command.probe: { @configuration: configuration.alt, argv: ['echo'] } }
 `
 	got := ExtractNodes(parseStack(t, src), nil)
 	require.Len(t, got, 4)
@@ -543,7 +543,7 @@ actions: { core.command.probe: { @configuration: core.alt, argv: ['echo'] } }
 func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {
 	src := `
 imports:   { net: 'github.com/example/net' }
-resources: { net.cluster.east: { @configurations: { aws: aws.east2 }, name: 'east' } }
+resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, name: 'east' } }
 `
 	composite := &CompositeType{
 		Body: parseStack(t, `description: 'noop'`),
@@ -585,7 +585,7 @@ resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, 
 		got[0].ConfigurationsRemap)
 }
 
-func TestExtractConfigurationsRemapKeepsMismatchedAliasForValidation(t *testing.T) {
+func TestExtractConfigurationsRemapIgnoresAliasQualifiedValue(t *testing.T) {
 	src := `
 resources: { net.cluster.east: { @configurations: { aws: gcp.east2 }, name: 'east' } }
 `
@@ -600,10 +600,7 @@ resources: { net.cluster.east: { @configurations: { aws: gcp.east2 }, name: 'eas
 	}
 	got := ExtractNodes(parseStack(t, src), libs)
 	require.NotEmpty(t, got)
-	require.Equal(t,
-		map[string]ConfigRef{"aws": {Alias: "gcp", Name: "east2"}},
-		got[0].ConfigurationsRemap,
-		"mismatched alias is kept so the validator can report it")
+	require.Empty(t, got[0].ConfigurationsRemap)
 }
 
 func TestExtractConfigurationIgnoresMismatchedAlias(t *testing.T) {

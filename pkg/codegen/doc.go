@@ -8,5 +8,5 @@
 // internal resources at code-gen time).
 //
 // Output is a complete Go module that the Go toolchain compiles into the
-// stack binary.
+// generated binary.
 package codegen

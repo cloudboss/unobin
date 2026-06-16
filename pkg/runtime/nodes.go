@@ -417,10 +417,10 @@ func configurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 		return ConfigRef{}, false
 	}
-	if dp.Root.Name == "configuration" {
-		return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
+	if dp.Root.Name != "configuration" {
+		return ConfigRef{}, false
 	}
-	return ConfigRef{Alias: dp.Root.Name, Name: dp.Segments[0].Name}, true
+	return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
 }
 
 func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
@@ -451,7 +451,7 @@ func extractConfiguration(body lang.Expr, alias string) ConfigRef {
 		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 			return ConfigRef{}
 		}
-		if dp.Root.Name == "configuration" || dp.Root.Name == alias {
+		if dp.Root.Name == "configuration" {
 			return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}
 		}
 		return ConfigRef{}

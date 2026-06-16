@@ -427,7 +427,7 @@ configurations: {
 }
 resources: {
   aws.eks.main:       { name: 'web' }
-  k8s.namespace.apps: { @configuration: k8s.cluster, name: 'apps' }
+  k8s.namespace.apps: { @configuration: configuration.cluster, name: 'apps' }
 }
 `), nil)
 	cfg, ok := g.Nodes["configuration.k8s.cluster"]
@@ -494,7 +494,7 @@ resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 
 func TestBuildDAGNoEdgeWhenConfigurationNotInternal(t *testing.T) {
 	g := BuildDAG(parseStack(t, `
-resources: { aws.vpc.main: { @configuration: aws.east2, cidr-block: '10.0.0.0/16' } }
+resources: { aws.vpc.main: { @configuration: configuration.east2, cidr-block: '10.0.0.0/16' } }
 `), nil)
 	require.Empty(t, g.Edges["resource.aws.vpc.main"])
 }

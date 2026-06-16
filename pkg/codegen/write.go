@@ -13,7 +13,7 @@ import (
 // empty map means no replace directives.
 type Replaces map[string]string
 
-// WriteSource lays out a stack binary's source tree in dir, ready for
+// WriteSource lays out a generated binary's source tree in dir, ready for
 // `go build` to consume. It writes:
 //
 //	<dir>/main.go    // From Generate.

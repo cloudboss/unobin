@@ -1,11 +1,11 @@
 # hello
 
-Hello-world stack. Writes a file via `std.fs-file`, reads it back via
+Hello-world factory. Writes a file via `std.fs-file`, reads it back via
 `std.exec-command`, and exposes the captured output.
 
 ## Compile
 
-`unobin compile` produces a stack binary. From the unobin repo root:
+`unobin compile` produces a factory binary. From the unobin repo root:
 
 ```
 go run ./cmd/unobin compile \

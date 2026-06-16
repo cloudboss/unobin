@@ -127,7 +127,7 @@ const internalConfigSrc = `
 configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.value } }
 resources: {
   fix.echo.src:        { value: 'https://cluster.example' }
-  fix.config-echo.app: { @configuration: fix.cluster }
+  fix.config-echo.app: { @configuration: configuration.cluster }
 }
 outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 `
@@ -150,7 +150,7 @@ func TestApplyEvaluatesInternalConfiguration(t *testing.T) {
 func TestStackConfigurationOverridesFactoryConfiguration(t *testing.T) {
 	src := `
 configurations: { fix.cluster: { endpoint: var.missing } }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 `
 	libs := requiredConfiguredLibraries()
@@ -177,7 +177,7 @@ outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 func TestFactoryConfigurationErrorsWithoutStackOverride(t *testing.T) {
 	src := `
 configurations: { fix.cluster: {} }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `
 	libs := requiredConfiguredLibraries()
 	exec := &Executor{
@@ -230,7 +230,7 @@ configurations: {
 }
 resources: {
   fix.echo.src:        { value: 'https://cluster.example' }
-  fix.config-echo.app: { @configuration: fix.cluster }
+  fix.config-echo.app: { @configuration: configuration.cluster }
 }
 outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 `
@@ -259,7 +259,7 @@ configurations: {
   fix.default: {}
   fix.cluster: @core.merge({ endpoint: 'https://b.example' }, { endpoint: 'https://m.example' })
 }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
 	exec := &Executor{
@@ -280,7 +280,7 @@ resources: { fix.config-echo.app: { @configuration: fix.cluster } }
 func TestExpressionConfigurationMustEvaluateToObject(t *testing.T) {
 	src := `
 configurations: { fix.default: {}, fix.cluster: 'nope' }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
 	exec := &Executor{
@@ -303,7 +303,7 @@ func TestConfigurationReferenceMergesOperatorBody(t *testing.T) {
 configurations: {
   fix.cluster: @core.merge(configuration.fix.default, { endpoint: 'https://pin.example' })
 }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 `
 	libs := configuredLibraries()
@@ -332,7 +332,7 @@ func TestConfigurationReferencePreservesOperatorFields(t *testing.T) {
 configurations: {
   fix.cluster: @core.merge(configuration.fix.default, {})
 }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 `
 	libs := configuredLibraries()
@@ -361,7 +361,7 @@ func TestConfigurationReferenceUnsuppliedFails(t *testing.T) {
 configurations: {
   fix.cluster: @core.merge(configuration.fix.other, { endpoint: 'x' })
 }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
 	exec := &Executor{
@@ -384,7 +384,7 @@ configurations: {
   fix.base:    { endpoint: 'https://b.example' }
   fix.cluster: @core.merge(configuration.fix.base, { endpoint: 'x' })
 }
-resources: { fix.config-echo.app: { @configuration: fix.cluster } }
+resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
 	exec := &Executor{
@@ -454,7 +454,7 @@ func (d *configProbeData) Read(_ context.Context, c any) (any, error) {
 const internalConfigDataSrc = `
 configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.id } }
 resources: { fix.echo.src: { value: 'https://cluster.example' } }
-data:      { fix.probe.p: { @configuration: fix.cluster } }
+data:      { fix.probe.p: { @configuration: configuration.cluster } }
 `
 
 // A data source whose configuration is still pending at plan defers
@@ -496,7 +496,7 @@ const internalConfigVarSrc = `
 configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.id } }
 resources: {
   fix.echo.src:        { value: var.url }
-  fix.config-echo.app: { @configuration: fix.cluster }
+  fix.config-echo.app: { @configuration: configuration.cluster }
 }
 `
 

@@ -180,7 +180,7 @@ func (c *referenceChecker) checkDeclarations() {
 }
 
 // libraryKnown reports whether lib exposes enough to judge which types
-// it declares: a compile-time schema, Go registrations the stack binary
+// it declares: a compile-time schema, Go registrations the generated binary
 // holds, or UB composites. A library with none of these is opaque, so a
 // leaf against it is not judged, matching how a schemaless Go library is
 // left alone elsewhere.
@@ -192,8 +192,8 @@ func libraryKnown(lib *runtime.Library) bool {
 
 // libraryDeclares reports whether lib declares a type of the given kind
 // and name. A UB library backs it with a composite; a Go library backs
-// it with a registration the stack binary holds, or, at compile, with a
-// schema entry. The reference checker runs in both, so all three are
+// it with a registration the generated binary holds, or, at compile, with
+// a schema entry. The reference checker runs in both, so all three are
 // consulted.
 func libraryDeclares(lib *runtime.Library, kind runtime.NodeKind, typ string) bool {
 	if lib.Composite(kind, typ) != nil {
@@ -434,25 +434,18 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 }
 
 // checkConfigurationRef checks a configuration selection. It is a name in
-// configuration space, not an expression: the selected configuration's library
-// alias must be imported, and whether that library declares the named
-// configuration is the executor's check, made at plan against the decoded
-// configurations.
+// configuration space, not an expression: the value must name a declared
+// configuration, and the declaration is checked separately against imports
+// and schemas.
 func (c *referenceChecker) checkConfigurationRef(v lang.Expr, scope string) {
 	dp, ok := v.(*lang.DotPath)
-	if !ok || dp.Root == nil || len(dp.Segments) != 1 || dp.Segments[0].Name == "" {
+	if !ok || dp.Root == nil || dp.Root.Name != "configuration" ||
+		len(dp.Segments) != 1 || dp.Segments[0].Name == "" {
 		c.addf(v.Span().Start, "@configuration takes configuration.<name>")
 		return
 	}
-	if dp.Root.Name == "configuration" {
-		if _, ok := c.configurationRefs[dp.Segments[0].Name]; !ok {
-			c.addf(dp.S.Start, "configuration.%s is not declared", dp.Segments[0].Name)
-		}
-		return
-	}
-	libs := c.libraries[scope]
-	if libs != nil && libs[dp.Root.Name] == nil {
-		c.addf(dp.S.Start, `library %q is not imported`, dp.Root.Name)
+	if _, ok := c.configurationRefs[dp.Segments[0].Name]; !ok {
+		c.addf(dp.S.Start, "configuration.%s is not declared", dp.Segments[0].Name)
 	}
 }
 

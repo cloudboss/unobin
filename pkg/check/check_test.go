@@ -797,6 +797,7 @@ constraints: [
 func TestCheckReferencesConfigurationRefs(t *testing.T) {
 	greetLib := func() *runtime.Library {
 		return &runtime.Library{Schema: &runtime.LibrarySchema{
+			HasConfiguration: true,
 			Actions: map[string]*runtime.TypeSchema{
 				"say": {Inputs: map[string]typecheck.Type{
 					"message": typecheck.TString(),
@@ -827,21 +828,24 @@ actions: { greet.say.hello: { message: var.name } }
 		{
 			name: "leaf configuration reference",
 			src: `
-actions: { greet.say.formal: { @configuration: greet.formal, message: 'w' } }
+configurations: { greet.formal: {} }
+actions: { greet.say.formal: { @configuration: configuration.formal, message: 'w' } }
 `,
 		},
 		{
 			name: "composite configurations map",
 			src: `
-actions: { bundle.wrap.formal: { @configurations: { greet: greet.formal }, name: 'w' } }
+configurations: { greet.formal: {} }
+actions: { bundle.wrap.formal: { @configurations: { greet: configuration.formal }, name: 'w' } }
 `,
 		},
 		{
 			name: "unknown alias in a configuration reference",
 			src: `
-actions: { greet.say.formal: { @configuration: nope.formal, message: 'w' } }
+configurations: { nope.formal: {} }
+actions: { greet.say.formal: { @configuration: configuration.formal, message: 'w' } }
 `,
-			want: []string{`library "nope" is not imported`},
+			want: []string{`configuration.formal: library "nope" is not imported`},
 		},
 		{
 			name: "bare name is not a configuration reference",

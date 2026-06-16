@@ -23,11 +23,11 @@ var (
 	printGraphCfg = &printGraphConfig{}
 	PrintGraphCmd = &cobra.Command{
 		Use:   "print-graph",
-		Short: "Print a stack's dependency graph without compiling it",
-		Long: `Print a stack's dependency graph from its source.
+		Short: "Print a factory's dependency graph without compiling it",
+		Long: `Print a factory's dependency graph from its source.
 
 Imports are resolved in memory; composite call sites are expanded
-into their internal sub-nodes the same way the stack binary's
+into their internal sub-nodes the same way the generated binary's
 print-graph subcommand does. The output is intended to match what
 the compiled binary would emit.
 

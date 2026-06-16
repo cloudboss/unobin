@@ -34,7 +34,7 @@ type Library struct {
 	// Schema carries the library's resource, data source, and action
 	// output field sets. Populated by the dev CLI from a fetched Go
 	// library's source for compile-time reference checking; nil at
-	// runtime since the stack binary does not need it.
+	// runtime since the generated binary does not need it.
 	Schema *LibrarySchema
 
 	// Constraints holds each Go type's cross-field constraints in the
