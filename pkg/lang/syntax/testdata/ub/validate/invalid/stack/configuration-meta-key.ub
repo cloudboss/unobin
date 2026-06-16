@@ -1,0 +1,9 @@
+stack: {
+  factory: {
+    configurations: {
+      aws { @for-each: [] }
+    }
+  }
+  state: local {}
+  encryption: noop {}
+}

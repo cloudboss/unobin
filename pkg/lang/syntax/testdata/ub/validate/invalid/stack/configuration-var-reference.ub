@@ -1,0 +1,9 @@
+stack: {
+  factory: {
+    configurations: {
+      aws { region: var.region }
+    }
+  }
+  state: local {}
+  encryption: noop {}
+}

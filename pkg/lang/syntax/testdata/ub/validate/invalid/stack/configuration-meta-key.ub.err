@@ -1,0 +1,1 @@
+configuration aws: meta key "@for-each" is not allowed

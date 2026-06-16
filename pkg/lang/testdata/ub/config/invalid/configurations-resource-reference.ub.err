@@ -1,1 +1,0 @@
-config.ub:2:44: resolve: config values must be static, but resource.a.b.c is a reference

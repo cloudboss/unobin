@@ -1,1 +1,1 @@
-config.ub:1:12: schema: suported-versions is not a valid factory key; the factory block holds pin, configurations, and inputs
+config.ub:1:12: schema: suported-versions is not a valid factory key; the factory block holds pin and inputs

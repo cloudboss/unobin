@@ -1,3 +1,0 @@
-factory: {
-  configurations: { aws.default: { region: var.region } }
-}

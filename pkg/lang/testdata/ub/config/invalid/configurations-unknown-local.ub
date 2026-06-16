@@ -1,5 +1,0 @@
-locals: { aws-config: { region: 'us-east-1' } }
-
-factory: {
-  configurations: { aws.default: local.aws-cfg }
-}

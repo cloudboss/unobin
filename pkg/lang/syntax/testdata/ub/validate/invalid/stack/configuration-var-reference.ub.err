@@ -1,0 +1,1 @@
+config values must be static, but var.region is a reference

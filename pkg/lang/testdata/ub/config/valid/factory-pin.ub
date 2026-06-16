@@ -5,6 +5,5 @@ factory: {
       { version: 'v1.2.3', content-revision: 'abc123' },
     ]
   }
-  configurations: { aws.default: { region: 'us-east-1' } }
   inputs: { name: 'world' }
 }

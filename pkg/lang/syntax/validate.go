@@ -173,15 +173,7 @@ func validateStackFactory(
 		cfg.Fields = append(cfg.Fields, identField("inputs", factory.Inputs.S, factory.Inputs))
 	}
 	mergeErrors(errs, lang.ValidateConfigFactory(cfg, locals))
-	validateConfigurationValues(factory.Configurations, errs)
-	if len(factory.Configurations) == 0 {
-		return
-	}
-	configurations := configurationValuesObject(factory.Configurations)
-	wrapped := &parse.ObjectLit{S: factory.S}
-	wrapped.Fields = append(wrapped.Fields,
-		identField("configurations", configurations.S, configurations))
-	mergeErrors(errs, lang.ValidateConfigFactory(wrapped, locals))
+	validateStackConfigurationValues(factory.Configurations, locals, errs)
 }
 
 func validateManifestFile(manifest *ManifestFile, pos parse.Position, errs *parse.ErrorList) {
@@ -276,6 +268,28 @@ func validateConfigurationValues(values []ConfigurationValue, errs *parse.ErrorL
 	}
 }
 
+func validateStackConfigurationValues(
+	values []ConfigurationValue,
+	locals map[string]bool,
+	errs *parse.ErrorList,
+) {
+	validateConfigurationValues(values, errs)
+	for _, value := range values {
+		expr := configurationValueExpr(value)
+		if expr == nil {
+			continue
+		}
+		if body, ok := expr.(*parse.ObjectLit); ok {
+			validateConfigurationBody(configurationValueLabel(value), body, errs)
+			mergeErrors(errs, lang.ValidateConfigInputs(body, locals))
+			continue
+		}
+		block := &parse.ObjectLit{S: value.S}
+		block.Fields = append(block.Fields, identField("value", value.S, expr))
+		mergeErrors(errs, lang.ValidateConfigInputs(block, locals))
+	}
+}
+
 func checkDuplicateDefault(
 	selector Ident,
 	seen map[string]parse.Position,
@@ -307,6 +321,13 @@ func configurationDeclLabel(decl ConfigurationDecl) string {
 		return decl.Name.Name
 	}
 	return decl.Selector.Name
+}
+
+func configurationValueLabel(value ConfigurationValue) string {
+	if value.Name != nil {
+		return value.Name.Name
+	}
+	return value.Selector.Name
 }
 
 func validateConfigurationRefs(body FactoryBody, errs *parse.ErrorList) {

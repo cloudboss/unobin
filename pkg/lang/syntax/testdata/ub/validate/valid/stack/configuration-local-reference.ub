@@ -1,0 +1,13 @@
+stack: {
+  locals: {
+    region: 'us-east-1'
+  }
+  factory: {
+    configurations: {
+      aws { region: local.region }
+      east: aws { region: 'us-east-2' }
+    }
+  }
+  state: local {}
+  encryption: noop {}
+}

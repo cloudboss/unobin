@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"iter"
 	"maps"
 	"slices"
 	"strings"
@@ -947,16 +946,14 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 // factoryChildKeys lists the keys a config file's factory: block may
 // hold.
 var factoryChildKeys = map[string]bool{
-	"pin":            true,
-	"configurations": true,
-	"inputs":         true,
+	"pin":    true,
+	"inputs": true,
 }
 
 // ValidateConfigFactory checks the structure of a config file's
 // factory: block, which names the factory to run and the values it
 // receives. Each child is a literal object: pin holds the identity
-// entries `unobin pin` manages, configurations holds per-import
-// configuration values, and inputs holds the input values. locals
+// entries `unobin pin` manages and inputs holds the input values. locals
 // holds the names declared by the file's locals: block.
 func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
@@ -964,7 +961,7 @@ func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList 
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != FieldIdent {
 			errs.Addf(ErrSchema, fld.Key.S.Start,
-				"factory keys are plain identifiers: pin, configurations, inputs")
+				"factory keys are plain identifiers: pin, inputs")
 			continue
 		}
 		name := fld.Key.Name
@@ -976,7 +973,7 @@ func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList 
 		if !factoryChildKeys[name] {
 			errs.Addf(ErrSchema, fld.Key.S.Start,
 				"%s is not a valid factory key; the factory block holds"+
-					" pin, configurations, and inputs", name)
+					" pin and inputs", name)
 			continue
 		}
 		if prev, dup := seen[name]; dup {
@@ -994,8 +991,6 @@ func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList 
 		switch name {
 		case "pin":
 			validateFactoryPin(obj, errs)
-		case "configurations":
-			mergeErrors(errs, ValidateConfigurations(obj, locals))
 		case "inputs":
 			mergeErrors(errs, ValidateConfigInputs(obj, locals))
 		}
@@ -1095,24 +1090,6 @@ func validatePinEntry(el Expr, errs *ErrorList) {
 // referenceable from any config value.
 func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
-}
-
-// ValidateConfigurations checks the internal generic form of a stack file's
-// factory configurations block. Source stack files use selector-body entries;
-// syntax lowering stores them in this table before generic validation runs.
-// Unlike factory source, a stack body may be any expression: the runner
-// evaluates it at load and requires a map, so a whole body can come from a
-// local. Values follow the static-value rule; locals holds the names declared
-// by the file's locals block.
-func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList {
-	errs := NewErrorList(0)
-	for key, fld := range configurationDeclEntries(block, errs) {
-		if body, ok := fld.Value.(*ObjectLit); ok {
-			checkBodyMetaKeys(body, "configuration", key, nil, errs)
-		}
-	}
-	mergeErrors(errs, checkStaticConfigBlock(block, staticConfigRules{locals: locals}))
-	return errs
 }
 
 // ValidateConfigLocals checks the values of a config file's locals:
@@ -1499,53 +1476,4 @@ func validateConstraintCommonKey(
 	}
 	seen[name] = f.Key.S.Start
 	return true
-}
-
-// configurationDeclEntries walks an internal generic configurations block,
-// reporting key errors and duplicates to errs and yielding every keyed entry.
-func configurationDeclEntries(block *ObjectLit, errs *ErrorList) iter.Seq2[string, *Field] {
-	return func(yield func(string, *Field) bool) {
-		seen := make(map[string]Position, len(block.Fields))
-		for _, fld := range block.Fields {
-			if fld.Key.Kind != FieldPath {
-				errs.Addf(ErrSchema, fld.Key.S.Start,
-					"configuration entries use selector-body syntax: aws {} or east: aws {}")
-				continue
-			}
-			if len(fld.Key.Path) != 2 {
-				errs.Addf(ErrSchema, fld.Key.S.Start,
-					"configuration key %s uses dotted syntax; write aws {} or east: aws {}",
-					strings.Join(fld.Key.Path, "."))
-				continue
-			}
-			key := strings.Join(fld.Key.Path, ".")
-			if prev, dup := seen[key]; dup {
-				errs.Addf(ErrSchema, fld.Key.S.Start,
-					"duplicate configuration %s (first defined at %s)", key, prev)
-				continue
-			}
-			seen[key] = fld.Key.S.Start
-			if !yield(key, fld) {
-				return
-			}
-		}
-	}
-}
-
-// checkBodyMetaKeys reports any meta key in a declaration body that is
-// not in greenlist.
-func checkBodyMetaKeys(
-	body *ObjectLit, what, key string, greenlist map[string]bool, errs *ErrorList,
-) {
-	for _, bodyFld := range body.Fields {
-		if bodyFld.Key.Kind != FieldIdent || !bodyFld.Key.IsMeta() {
-			continue
-		}
-		if !greenlist[bodyFld.Key.Name] {
-			errs.Addf(ErrSchema, bodyFld.Key.S.Start,
-				"%s %s: meta key %q is not allowed",
-				what, key, bodyFld.Key.Name)
-			continue
-		}
-	}
 }
