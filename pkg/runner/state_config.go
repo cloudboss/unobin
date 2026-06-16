@@ -33,26 +33,27 @@ type stateConfig struct {
 	Encrypter *resolverRef
 }
 
-// parseStateConfig extracts the `state:` and `encryption:` blocks from
-// a pre-parsed config. A nil file or an absent block leaves the matching
-// field nil and the caller falls back to defaults. The blocks are
-// expected to be structurally validated by lang.ValidateStateConfig and
-// lang.ValidateEncryptionConfig before this runs; this function
-// evaluates body expressions, with the file's locals in scope, and
-// packages the values for the resolver. path is preserved only for
-// error messages from Eval.
-func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
-	if f == nil {
+// parseStateConfig extracts the `state:` and `encryption:` declarations from
+// a pre-parsed stack config. A nil config or an absent declaration leaves the
+// matching field nil and the caller falls back to defaults. The declarations
+// are already structurally validated; this function evaluates body expressions,
+// with the file's locals in scope, and packages the values for the resolver.
+// path is preserved only for error messages from Eval.
+func parseStateConfig(config *parsedConfig, path string) (*stateConfig, error) {
+	stack := configStack(config)
+	if stack == nil {
 		return &stateConfig{}, nil
 	}
 	sc := &stateConfig{}
-	ctx := runtime.NewEvalContext(f)
+	ctx := configEvalContext(config)
 	var stateErr, encErr error
-	if block := lang.TopLevelBlock(f, "state"); block != nil {
-		sc.Backend, stateErr = readStateBlock(path, block, ctx)
+	if stack.State != nil {
+		sc.Backend, stateErr = readResolverDecl(
+			path, "state", stack.State.Selector.Name, stack.State.Body, ctx)
 	}
-	if block := lang.TopLevelBlock(f, "encryption"); block != nil {
-		sc.Encrypter, encErr = readEncryptionBlock(path, block, ctx)
+	if stack.Encryption != nil {
+		sc.Encrypter, encErr = readResolverDecl(
+			path, "encryption", stack.Encryption.Selector.Name, stack.Encryption.Body, ctx)
 	}
 	if err := errors.Join(stateErr, encErr); err != nil {
 		return nil, err
@@ -60,27 +61,29 @@ func parseStateConfig(f *lang.File, path string) (*stateConfig, error) {
 	return sc, nil
 }
 
-func readStateBlock(
-	configPath string, block *lang.ObjectLit, ctx *runtime.EvalContext,
+func readResolverDecl(
+	configPath string,
+	section string,
+	name string,
+	bodyExpr *lang.ObjectLit,
+	ctx *runtime.EvalContext,
 ) (*resolverRef, error) {
+	if name == "" {
+		return nil, nil
+	}
 	body := map[string]any{}
-	var name string
 	var errs []error
-
-	for _, fld := range block.Fields {
-		if fld.Key.IsMeta() {
-			if fld.Key.Name == "@backend" {
-				name = resolverRefValue(fld.Value)
-			}
-			continue
-		}
-		if fld.Key.Kind != lang.FieldIdent {
+	if bodyExpr == nil {
+		return &resolverRef{Name: name, Body: body}, nil
+	}
+	for _, fld := range bodyExpr.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
 		}
 		val, err := runtime.Eval(fld.Value, ctx)
 		if err != nil {
 			errs = append(errs, fmt.Errorf(
-				"%s: state.%s: %w", configPath, fld.Key.Name, err))
+				"%s: %s.%s: %w", configPath, section, fld.Key.Name, err))
 			continue
 		}
 		body[fld.Key.Name] = val
@@ -88,55 +91,7 @@ func readStateBlock(
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
-	if name == "" {
-		return nil, nil
-	}
 	return &resolverRef{Name: name, Body: body}, nil
-}
-
-func readEncryptionBlock(
-	configPath string, block *lang.ObjectLit, ctx *runtime.EvalContext,
-) (*resolverRef, error) {
-	body := map[string]any{}
-	var name string
-	var errs []error
-
-	for _, fld := range block.Fields {
-		if fld.Key.IsMeta() {
-			if fld.Key.Name == "@key-source" {
-				name = resolverRefValue(fld.Value)
-			}
-			continue
-		}
-		if fld.Key.Kind != lang.FieldIdent {
-			continue
-		}
-		val, err := runtime.Eval(fld.Value, ctx)
-		if err != nil {
-			errs = append(errs, fmt.Errorf(
-				"%s: encryption.%s: %w", configPath, fld.Key.Name, err))
-			continue
-		}
-		body[fld.Key.Name] = val
-	}
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
-	}
-	if name == "" {
-		return nil, nil
-	}
-	return &resolverRef{Name: name, Body: body}, nil
-}
-
-// resolverRefValue extracts the bare name from a lowered selector marker.
-// lang.ValidateStateConfig has already rejected anything but a bare
-// identifier upstream; this returns "" for any other value so callers
-// fall back to defaults.
-func resolverRefValue(expr lang.Expr) string {
-	if id, ok := expr.(*lang.Ident); ok {
-		return id.Name
-	}
-	return ""
 }
 
 // defaultKeyEnvVar is the env var the resolver falls back to when a

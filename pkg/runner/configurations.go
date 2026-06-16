@@ -5,34 +5,32 @@ import (
 	"fmt"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
-// loadConfigurations extracts the `stack.factory.configurations:` block from
-// a pre-parsed stack, decodes every configuration body, and returns both the
-// decoded table (for the executor) and the raw form (for plan-file storage).
-// The outer key is the import alias; the inner key is the configuration name.
-// Values may reference the file's locals, which resolve at load, so the raw
-// form is already concrete by the time it reaches a plan file.
-// allowed names the configuration entries the stack may provide. Named
-// entries come from factory declarations; default entries may come from
-// factory declarations or configurable node usage. A nil map skips this
-// check for lower-level tests that do not have a factory DAG.
+// loadConfigurations extracts the `stack.factory.configurations:` entries
+// from a pre-parsed stack, decodes every configuration body, and returns both
+// the decoded table (for the executor) and the raw form (for plan-file
+// storage). The outer key is the import alias; the inner key is the
+// configuration name. Values may reference the file's locals, which resolve at
+// load, so the raw form is already concrete by the time it reaches a plan file.
+// allowed names the configuration entries the stack may provide. Named entries
+// come from factory declarations; default entries may come from factory
+// declarations or configurable node usage. A nil map skips this check for
+// lower-level tests that do not have a factory DAG.
 func loadConfigurations(
-	f *lang.File,
+	config *parsedConfig,
 	path string,
 	libraries map[string]*runtime.Library,
 	allowed map[string]map[string]bool,
 ) (decoded, raw map[string]map[string]any, err error) {
 	rawByImport := map[string]map[string]any{}
-
-	block, err := factoryChildObject(f, path, "configurations")
-	if err != nil {
-		return nil, nil, err
-	}
-	if block != nil {
-		loaded, err := readConfigurationsBlock(path, block, runtime.NewEvalContext(f))
+	stack := configStack(config)
+	if stack != nil && stack.Factory != nil && len(stack.Factory.Configurations) > 0 {
+		loaded, err := readConfigurationValues(
+			path, stack.Factory.Configurations, configEvalContext(config))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -170,28 +168,21 @@ func decodeConfigurationsFromPlan(
 	return decodeConfigurations(raw, libraries)
 }
 
-// readConfigurationsBlock walks the `configurations:` body and pulls every
-// selector-body entry into a raw form ready for decoding. The outer key of the
-// result is the import alias; the inner key is the configuration name; the
-// value is the raw map of fields, evaluated against ctx, which binds the file's
-// locals.
-func readConfigurationsBlock(
+// readConfigurationValues pulls every selector-body stack configuration entry
+// into a raw form ready for decoding. The outer key of the result is the
+// import alias; the inner key is the configuration name; the value is the raw
+// map of fields, evaluated against ctx, which binds the file's locals.
+func readConfigurationValues(
 	configPath string,
-	block *lang.ObjectLit,
+	values []syntax.ConfigurationValue,
 	ctx *runtime.EvalContext,
 ) (map[string]map[string]any, error) {
 	out := map[string]map[string]any{}
 	var errs []error
-	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
-			errs = append(errs, fmt.Errorf(
-				"%s: configuration entries must use selector bodies like `aws {}` "+
-					"or `east: aws {}`", configPath))
-			continue
-		}
-		importAlias, name := fld.Key.Path[0], fld.Key.Path[1]
+	for _, value := range values {
+		importAlias, name := configurationValueName(value)
 		label := configurationLabel(importAlias, name)
-		val, err := runtime.Eval(fld.Value, ctx)
+		val, err := runtime.Eval(configurationValueExpr(value), ctx)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %s: %w", configPath, label, err))
 			continue
@@ -210,4 +201,19 @@ func readConfigurationsBlock(
 		return nil, err
 	}
 	return out, nil
+}
+
+func configurationValueName(value syntax.ConfigurationValue) (alias, name string) {
+	name = "default"
+	if value.Name != nil {
+		name = value.Name.Name
+	}
+	return value.Selector.Name, name
+}
+
+func configurationValueExpr(value syntax.ConfigurationValue) lang.Expr {
+	if value.Value != nil {
+		return value.Value
+	}
+	return value.Body
 }

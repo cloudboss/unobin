@@ -50,6 +50,13 @@ func NewEvalContext(f *lang.File) *EvalContext {
 	return &EvalContext{locals: newLocalScope(localsBlock(f))}
 }
 
+// NewEvalContextFromLocals returns an EvalContext whose local.<name>
+// references resolve against exprs. Callers fill the remaining fields
+// for their scope.
+func NewEvalContextFromLocals(exprs map[string]lang.Expr) *EvalContext {
+	return &EvalContext{locals: newLocalScopeFromMap(exprs)}
+}
+
 // force evaluates the named local against ctx and returns its value. A
 // local that reads an upstream that has not run yet propagates
 // ErrEvalNotFound unchanged so the caller can defer it. A local that

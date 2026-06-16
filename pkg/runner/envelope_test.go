@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,11 +34,11 @@ func sourceStackWithNoop(body string) string {
 	return sourceStack(body)
 }
 
-func parseTestConfig(t *testing.T, path string) *lang.File {
+func parseTestConfig(t *testing.T, path string) *parsedConfig {
 	t.Helper()
-	f, err := parseConfigFile(path)
+	config, err := parseConfigFile(path)
 	require.NoError(t, err)
-	return f
+	return config
 }
 
 func TestLoadFactoryEnvelopeNilFile(t *testing.T) {

@@ -3,7 +3,6 @@ package runner
 import (
 	"fmt"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -22,55 +21,21 @@ type factoryEnvelope struct {
 	SupportedVersions []supportedVersion
 }
 
-// factoryChildObject returns the object bound to the named key inside
-// the config's factory: block, or nil when the config, the block, or
-// the key is absent. The validator reports non-object forms first on
-// the normal load path, so the errors here are a backstop for callers
-// holding an unvalidated file. path is preserved only for error
-// messages.
-func factoryChildObject(f *lang.File, path, name string) (*lang.ObjectLit, error) {
-	if f == nil || f.Body == nil {
-		return nil, nil
-	}
-	factoryField := findField(f.Body, "factory")
-	if factoryField == nil {
-		return nil, nil
-	}
-	factoryObj, ok := factoryField.Value.(*lang.ObjectLit)
-	if !ok {
-		return nil, fmt.Errorf("config %s: `factory:` must be an object", path)
-	}
-	child := findField(factoryObj, name)
-	if child == nil {
-		return nil, nil
-	}
-	obj, ok := child.Value.(*lang.ObjectLit)
-	if !ok {
-		return nil, fmt.Errorf("config %s: `factory.%s:` must be an object", path, name)
-	}
-	return obj, nil
-}
-
 // loadFactoryEnvelope extracts the `factory.pin:` block from a
-// pre-parsed config. A nil file or a config without a `factory:` block
-// returns a zero envelope without error so the caller can apply the
-// same pin policy to both. path is preserved only for error messages.
-func loadFactoryEnvelope(f *lang.File, path string) (factoryEnvelope, error) {
-	if f == nil || f.Body == nil {
+// pre-parsed config. A nil config or a config without a `factory:` block
+// returns a zero envelope without error so the caller can apply the same
+// pin policy to both. path is preserved only for error messages.
+func loadFactoryEnvelope(config *parsedConfig, path string) (factoryEnvelope, error) {
+	stack := configStack(config)
+	if stack == nil || stack.Factory == nil {
 		return factoryEnvelope{}, nil
-	}
-	if findField(f.Body, "factory") == nil {
-		return factoryEnvelope{}, nil
-	}
-	pinObj, err := factoryChildObject(f, path, "pin")
-	if err != nil {
-		return factoryEnvelope{}, err
 	}
 	env := factoryEnvelope{Present: true}
+	pinObj := stack.Factory.Pin
 	if pinObj == nil {
 		return env, nil
 	}
-	val, err := runtime.Eval(pinObj, runtime.NewEvalContext(f))
+	val, err := runtime.Eval(pinObj, configEvalContext(config))
 	if err != nil {
 		return factoryEnvelope{}, fmt.Errorf("config %s: %w", path, err)
 	}
@@ -129,9 +94,9 @@ func parsePinBlock(path string, env factoryEnvelope, m map[string]any) (factoryE
 // soft-fails (overridable by allowVersionMismatch) when the config does
 // not pin any versions, or pins versions but not this binary's.
 func verifyFactoryEnvelope(
-	info Info, f *lang.File, configPath string, allowVersionMismatch bool,
+	info Info, config *parsedConfig, configPath string, allowVersionMismatch bool,
 ) error {
-	env, err := loadFactoryEnvelope(f, configPath)
+	env, err := loadFactoryEnvelope(config, configPath)
 	if err != nil {
 		return err
 	}

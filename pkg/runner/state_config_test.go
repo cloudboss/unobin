@@ -6,23 +6,17 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
-	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// parseConfig parses an in-memory stack-file-style source. Tests pass the
-// result straight to parseStateConfig, so the file is classified as
-// FileConfig and ValidateFile runs the structural checks.
-func parseConfig(t *testing.T, src string) *lang.File {
+func parseConfig(t *testing.T, src string) *parsedConfig {
 	t.Helper()
-	f, err := lang.ParseSource("stack.ub", []byte(src))
+	config, err := parseConfigSource("stack.ub", []byte(sourceStackWithNoop(src)))
 	require.NoError(t, err)
-	f.Kind = lang.FileConfig
-	errs := lang.ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Err())
-	return f
+	return config
 }
 
 func TestParseStateConfigNilFile(t *testing.T) {
@@ -33,31 +27,31 @@ func TestParseStateConfigNilFile(t *testing.T) {
 }
 
 func TestParseStateConfigAbsentBlock(t *testing.T) {
-	f := parseConfig(t, "factory: { inputs: { x: 1 } }\n")
-	sc, err := parseStateConfig(f, "stack.ub")
+	config := &parsedConfig{stack: &syntax.StackFile{}}
+	sc, err := parseStateConfig(config, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
 	assert.Nil(t, sc.Encrypter)
 }
 
 func TestValidateRejectsDottedBackend(t *testing.T) {
-	f, err := lang.ParseSource(
-		"stack.ub", []byte("state: { @backend: core.local, path: '.unobin/state' }\n"))
-	require.NoError(t, err)
-	f.Kind = lang.FileConfig
-	errs := lang.ValidateFile(f)
-	require.NotZero(t, errs.Len())
-	require.Contains(t, errs.Err().Error(), "bare name")
+	_, err := parseConfigSource("stack.ub", []byte(`
+stack: {
+  state: core.local { path: '.unobin/state' }
+  encryption: noop {}
+}
+`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "state selector must have one segment")
 }
 
 func TestParseStateConfigBackendAndEncryption(t *testing.T) {
 	src := `
-state: {
-  @backend: local
-  path:     '/tmp/state'
+state: local {
+  path: '/tmp/state'
 }
 
-encryption: { @key-source: noop }
+encryption: noop {}
 `
 	f := parseConfig(t, src)
 	sc, err := parseStateConfig(f, "stack.ub")
@@ -88,11 +82,11 @@ stack: {
 }
 `)
 
-	f, err := parseConfigFile(path)
+	config, err := parseConfigFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, lang.FileConfig, f.Kind)
+	require.NotNil(t, configStack(config))
 
-	sc, err := parseStateConfig(f, path)
+	sc, err := parseStateConfig(config, path)
 	require.NoError(t, err)
 	require.NotNil(t, sc.Backend)
 	assert.Equal(t, "local", sc.Backend.Name)
@@ -100,7 +94,7 @@ stack: {
 	require.NotNil(t, sc.Encrypter)
 	assert.Equal(t, "noop", sc.Encrypter.Name)
 
-	parallelism, err := loadParallelism(f, path)
+	parallelism, err := loadParallelism(config, path)
 	require.NoError(t, err)
 	assert.Equal(t, 3, parallelism)
 }
@@ -121,8 +115,8 @@ encryption: noop {}
 }
 
 func TestParseStateConfigEncryptionOnly(t *testing.T) {
-	f := parseConfig(t, "encryption: { @key-source: noop }\n")
-	sc, err := parseStateConfig(f, "stack.ub")
+	config := parseConfig(t, "encryption: noop {}\n")
+	sc, err := parseStateConfig(config, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
 	require.NotNil(t, sc.Encrypter)
@@ -130,13 +124,16 @@ func TestParseStateConfigEncryptionOnly(t *testing.T) {
 }
 
 func TestValidateRejectsEncryptionInsideState(t *testing.T) {
-	f, err := lang.ParseSource("stack.ub", []byte(
-		"state: { @backend: local, encryption: { @key-source: noop } }\n"))
-	require.NoError(t, err)
-	f.Kind = lang.FileConfig
-	errs := lang.ValidateFile(f)
-	require.NotZero(t, errs.Len())
-	require.Contains(t, errs.Err().Error(), "its own top-level block")
+	_, err := parseConfigSource("stack.ub", []byte(`
+stack: {
+  state: local {
+    encryption: noop {}
+  }
+  encryption: noop {}
+}
+`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "its own top-level block")
 }
 
 func TestResolveBackendNilRefIsError(t *testing.T) {
@@ -257,16 +254,14 @@ locals: {
   }
 }
 
-state: {
-  @backend: s3
-  bucket:   'cloudboss'
-  aws:      local.aws-config
+state: s3 {
+  bucket: 'cloudboss'
+  aws:    local.aws-config
 }
 
-encryption: {
-  @key-source: kms
-  key-id:      'alias/cloudboss'
-  aws:         local.aws-config
+encryption: kms {
+  key-id: 'alias/cloudboss'
+  aws:    local.aws-config
 }
 `
 	f := parseConfig(t, src)

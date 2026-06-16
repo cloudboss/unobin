@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/ubtest"
@@ -43,15 +42,11 @@ func TestLoadConfigurationFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/configurations", func(
 		name string, src []byte,
 	) (string, []string) {
-		f, err := lang.ParseSource(name+".ub", src)
+		config, err := parseConfigSource(name+".ub", src)
 		if err != nil {
 			return "", []string{err.Error()}
 		}
-		f, err = lowerStackConfig(f)
-		if err != nil {
-			return "", []string{err.Error()}
-		}
-		_, _, err = loadConfigurations(f, name+".ub", map[string]*runtime.Library{
+		_, _, err = loadConfigurations(config, name+".ub", map[string]*runtime.Library{
 			"aws": awsModuleWithConfig(),
 		}, map[string]map[string]bool{"aws": {"default": true}})
 		if err != nil {

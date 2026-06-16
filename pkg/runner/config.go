@@ -7,16 +7,20 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+type parsedConfig struct {
+	stack *syntax.StackFile
+}
+
 // parseConfigFile reads, parses, and validates the stack file at path.
-// An empty path returns a nil file with no error so callers can pass
-// it through the no-config branch of each section reader uniformly.
-// Each cobra command parses the config once at the top and threads
-// the result into verifyStackEnvelope and the doXxx implementation,
-// so the file is read once per invocation regardless of how many
+// An empty path returns nil with no error so callers can pass it through
+// the no-config branch of each section reader uniformly. Each cobra command
+// parses the config once at the top and threads the result into the section
+// readers, so the file is read once per invocation regardless of how many
 // sections the command needs.
-func parseConfigFile(path string) (*lang.File, error) {
+func parseConfigFile(path string) (*parsedConfig, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -24,14 +28,28 @@ func parseConfigFile(path string) (*lang.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := lang.ParseSource(path, src)
+	return parseConfigSource(path, src)
+}
+
+func parseConfigSource(path string, src []byte) (*parsedConfig, error) {
+	raw, err := lang.ParseSource(path, src)
 	if err != nil {
 		return nil, err
 	}
-	if !hasStackDeclaration(f) {
+	if !hasStackDeclaration(raw) {
 		return nil, fmt.Errorf("%s must declare stack", filepath.Base(path))
 	}
-	return lowerStackConfig(f)
+	sf, err := syntax.ParseSource(path, src)
+	if err != nil {
+		return nil, err
+	}
+	if sf.Kind != syntax.FileStack || sf.Stack == nil {
+		return nil, fmt.Errorf("%s: expected stack declaration", path)
+	}
+	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+		return nil, verrs.Err()
+	}
+	return &parsedConfig{stack: sf.Stack}, nil
 }
 
 func hasStackDeclaration(f *lang.File) bool {
@@ -49,22 +67,24 @@ func hasStackDeclaration(f *lang.File) bool {
 	return false
 }
 
-func lowerStackConfig(f *lang.File) (*lang.File, error) {
-	sf, serrs := syntax.LowerFile(f)
-	if serrs.Len() > 0 {
-		return nil, serrs.Err()
+func configStack(config *parsedConfig) *syntax.StackFile {
+	if config == nil {
+		return nil
 	}
-	if sf.Kind != syntax.FileStack || sf.Stack == nil {
-		return nil, fmt.Errorf("%s: expected stack declaration", f.Path)
+	return config.stack
+}
+
+func configEvalContext(config *parsedConfig) *runtime.EvalContext {
+	return runtime.NewEvalContextFromLocals(stackLocalExprs(configStack(config)))
+}
+
+func stackLocalExprs(stack *syntax.StackFile) map[string]lang.Expr {
+	if stack == nil || len(stack.Locals) == 0 {
+		return nil
 	}
-	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-		return nil, verrs.Err()
+	exprs := make(map[string]lang.Expr, len(stack.Locals))
+	for _, local := range stack.Locals {
+		exprs[local.Name.Name] = local.Value
 	}
-	return &lang.File{
-		S:        f.S,
-		Kind:     lang.FileConfig,
-		Path:     f.Path,
-		Body:     syntax.StackFileObject(sf.Stack),
-		Comments: f.Comments,
-	}, nil
+	return exprs
 }

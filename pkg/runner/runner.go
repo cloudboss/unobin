@@ -431,7 +431,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doRefresh(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
+func doRefresh(cmd *cobra.Command, info Info, config *parsedConfig, configPath string) error {
 	f, dag, err := parsedFile(info)
 	if err != nil {
 		return err
@@ -508,7 +508,7 @@ func newValidateCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
+func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath string) error {
 	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
@@ -561,7 +561,7 @@ func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath str
 // configuration schema. It stops short of constructing either object,
 // so validate does no filesystem or network work. Unset refs are not
 // checked; the resolver's defaults are always available.
-func validateStateRefs(config *lang.File, configPath string) error {
+func validateStateRefs(config *parsedConfig, configPath string) error {
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return err
@@ -733,11 +733,11 @@ func runnerUsesSyntaxFactory(f *lang.File) bool {
 // for error messages.
 func loadStore(
 	info Info,
-	f *lang.File,
+	config *parsedConfig,
 	configPath, stack string,
 	enc sdkencrypt.Encrypter,
 ) (state.Backend, error) {
-	sc, err := parseStateConfig(f, configPath)
+	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -765,8 +765,8 @@ func stackName(configPath string) string {
 // present, the resolver falls back to the env-key encrypter against
 // `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
 // configPath is preserved only for error messages.
-func loadEncrypter(f *lang.File, configPath string) (sdkencrypt.Encrypter, error) {
-	sc, err := parseStateConfig(f, configPath)
+func loadEncrypter(config *parsedConfig, configPath string) (sdkencrypt.Encrypter, error) {
+	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -774,7 +774,7 @@ func loadEncrypter(f *lang.File, configPath string) (sdkencrypt.Encrypter, error
 }
 
 func doPlan(
-	cmd *cobra.Command, info Info, config *lang.File,
+	cmd *cobra.Command, info Info, config *parsedConfig,
 	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
 ) error {
 	f, dag, err := parsedFile(info)
@@ -848,13 +848,13 @@ func doPlan(
 }
 
 func buildInputs(
-	f *lang.File,
+	config *parsedConfig,
 	configPath string,
 	decl *lang.ObjectLit,
 	constraints *lang.ArrayLit,
 	libs map[string]*runtime.Library,
 ) (map[string]any, error) {
-	inputs, err := loadConfigInputs(f, configPath)
+	inputs, err := loadConfigInputs(config, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -900,48 +900,40 @@ func predicateEval(
 
 // loadParallelism extracts the `parallelism: N` top-level field from
 // a pre-parsed config. Zero is returned when the file omits the field
-// or when f is nil, signaling the runtime should pick its default.
+// or when config is nil, signaling the runtime should pick its default.
 // path is preserved only for error messages.
-func loadParallelism(f *lang.File, path string) (int, error) {
-	if f == nil {
+func loadParallelism(config *parsedConfig, path string) (int, error) {
+	stack := configStack(config)
+	if stack == nil || stack.Parallelism == nil {
 		return 0, nil
 	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "parallelism" {
-			continue
-		}
-		val, err := runtime.Eval(fld.Value, &runtime.EvalContext{})
-		if err != nil {
-			return 0, fmt.Errorf("config %s: parallelism: %w", path, err)
-		}
-		n, ok := val.(int64)
-		if !ok {
-			return 0, fmt.Errorf(
-				"config %s: parallelism: want a positive integer, got %s",
-				path, lang.TypeMessage(val))
-		}
-		if n < 1 {
-			return 0, fmt.Errorf(
-				"config %s: parallelism: want a positive integer, got %d",
-				path, n)
-		}
-		return int(n), nil
+	val, err := runtime.Eval(stack.Parallelism, &runtime.EvalContext{})
+	if err != nil {
+		return 0, fmt.Errorf("config %s: parallelism: %w", path, err)
 	}
-	return 0, nil
+	n, ok := val.(int64)
+	if !ok {
+		return 0, fmt.Errorf(
+			"config %s: parallelism: want a positive integer, got %s",
+			path, lang.TypeMessage(val))
+	}
+	if n < 1 {
+		return 0, fmt.Errorf(
+			"config %s: parallelism: want a positive integer, got %d",
+			path, n)
+	}
+	return int(n), nil
 }
 
 // loadConfigInputs extracts the `factory.inputs:` block from a
-// pre-parsed config. A nil file returns an empty map with no error.
+// pre-parsed config. A nil config returns an empty map with no error.
 // path is preserved only for error messages.
-func loadConfigInputs(f *lang.File, path string) (map[string]any, error) {
-	obj, err := factoryChildObject(f, path, "inputs")
-	if err != nil {
-		return nil, err
-	}
-	if obj == nil {
+func loadConfigInputs(config *parsedConfig, path string) (map[string]any, error) {
+	stack := configStack(config)
+	if stack == nil || stack.Factory == nil || stack.Factory.Inputs == nil {
 		return map[string]any{}, nil
 	}
-	val, err := runtime.Eval(obj, runtime.NewEvalContext(f))
+	val, err := runtime.Eval(stack.Factory.Inputs, configEvalContext(config))
 	if err != nil {
 		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
@@ -1074,7 +1066,7 @@ func normalizeJSONNumbers(v any) any {
 }
 
 func doOutput(
-	cmd *cobra.Command, info Info, config *lang.File, configPath string,
+	cmd *cobra.Command, info Info, config *parsedConfig, configPath string,
 	args []string, asJSON bool,
 ) error {
 	enc, err := loadEncrypter(config, configPath)
