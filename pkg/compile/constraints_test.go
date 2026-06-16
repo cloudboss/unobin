@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/stretchr/testify/require"
 )
@@ -59,6 +60,25 @@ func TestUsedLibraryTypesNoDeclarations(t *testing.T) {
 	f, err := lang.ParseSource("factory.ub", []byte("inputs: { x: { type: string } }\n"))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(f))
+}
+
+func TestUsedSyntaxLibraryTypes(t *testing.T) {
+	f, err := syntax.ParseSource("factory.ub", []byte(`
+factory: {
+  inputs: { path: { type: string } }
+  resources: {
+    main: aws.vpc { cidr-block: '10.0.0.0/16' }
+    a: aws.subnet { vpc-id: resource.main.id }
+  }
+  data:    { ubuntu: aws.ami { most-recent: true } }
+  actions: { hi: core.command { argv: ['echo'] } }
+}
+`))
+	require.NoError(t, err)
+	require.Equal(t, map[string]map[string]bool{
+		"aws":  {"resource.vpc": true, "resource.subnet": true, "data.ami": true},
+		"core": {"action.command": true},
+	}, usedSyntaxLibraryTypes(f.Factory.Body))
 }
 
 func TestPruneUnusedSpecs(t *testing.T) {

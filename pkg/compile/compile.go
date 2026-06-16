@@ -152,7 +152,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	sf, f, factoryBody, err := ParseFactorySyntaxSource(stackPath, src)
+	sf, _, factoryBody, err := ParseFactorySyntaxSource(stackPath, src)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func Run(opts Options) error {
 	// Embed only the specs for types the factory declares; a node hits
 	// the rules and defaults for its own type alone, so an imported
 	// library's other types are dead weight in the generated code.
-	used := usedLibraryTypes(f)
+	used := usedSyntaxLibraryTypes(sf.Factory.Body)
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
 	checker := check.NewSyntax(nil, sf.Factory.Body, libs)
@@ -430,6 +430,9 @@ func (c *compileVisitor) OnUBLibrary(
 		resols := lib.BodyImports[entry.kind][entry.name]
 		bodyLibs := make(map[string]*ubruntime.Library, len(resols))
 		bodyUsed := usedLibraryTypes(entry.body)
+		if syntaxBody, ok := lib.SyntaxBodies[entry.kind][entry.name]; ok {
+			bodyUsed = usedSyntaxLibraryTypes(syntaxBody)
+		}
 		for _, res := range resols {
 			switch res.Kind {
 			case resolve.ResolutionGo:
@@ -888,13 +891,35 @@ func usedLibraryTypes(f *lang.File) map[string]map[string]bool {
 			if !ok {
 				continue
 			}
-			if used[alias] == nil {
-				used[alias] = map[string]bool{}
-			}
-			used[alias][kind+"."+export] = true
+			addUsedLibraryType(used, alias, kind, export)
 		}
 	}
 	return used
+}
+
+func usedSyntaxLibraryTypes(body syntax.FactoryBody) map[string]map[string]bool {
+	used := map[string]map[string]bool{}
+	add := func(kind string, decls []syntax.NodeDecl) {
+		for _, decl := range decls {
+			addUsedLibraryType(
+				used,
+				decl.Selector.Alias.Name,
+				kind,
+				decl.Selector.Export.Name,
+			)
+		}
+	}
+	add("resource", body.Resources)
+	add("data", body.Data)
+	add("action", body.Actions)
+	return used
+}
+
+func addUsedLibraryType(used map[string]map[string]bool, alias, kind, export string) {
+	if used[alias] == nil {
+		used[alias] = map[string]bool{}
+	}
+	used[alias][kind+"."+export] = true
 }
 
 func usedEntrySelector(entry *lang.Field) (alias, export string, ok bool) {
