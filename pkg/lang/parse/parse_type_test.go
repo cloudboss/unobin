@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestParseTypeConstructors(t *testing.T) {
@@ -80,29 +82,12 @@ func TestParseTypeAtRebasesSpans(t *testing.T) {
 		fieldType.Span().Start)
 }
 
-func TestParseTypeErrors(t *testing.T) {
-	tests := []struct {
-		name string
-		src  string
-		want string
-	}{
-		{name: "unknown atomic", src: "frobnicate", want: "unknown atomic type"},
-		{name: "unknown nested atomic", src: "list(unknown)", want: "unknown atomic type"},
-		{name: "any", src: "any", want: "any is not a type"},
-		{name: "optional args", src: "optional(string, integer)", want: "optional takes exactly 1"},
-		{name: "tuple args", src: "tuple(string)", want: "tuple takes at least 2"},
-		{name: "open list", src: "open(list(string))", want: "open applies to object types, got list"},
-		{
-			name: "open optional",
-			src:  "open(optional(object({ name: string })))",
-			want: "open applies to object types",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseType("type.ub", []byte(tt.src))
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.want)
-		})
-	}
+func TestParseTypeInvalidFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/types/invalid", func(name string, src []byte) (string, []string) {
+		_, err := ParseType(name+".ub", src)
+		if err == nil {
+			return "", nil
+		}
+		return "", []string{err.Error()}
+	}, ubtest.Substring())
 }
