@@ -1,8 +1,10 @@
 package ubtest
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -97,6 +99,67 @@ func TestDiscoverEmpty(t *testing.T) {
 	fixtures, err := discover(t.TempDir())
 	require.NoError(t, err)
 	assert.Empty(t, fixtures)
+}
+
+func TestUBFixturesUseProjectLayout(t *testing.T) {
+	root := repoRoot(t)
+	var bad []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path != root && strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".ub") {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		parts := strings.Split(filepath.ToSlash(rel), "/")
+		for i, part := range parts {
+			if part != "testdata" {
+				continue
+			}
+			if !hasRequiredFixtureSegments(parts, i) {
+				bad = append(bad, filepath.ToSlash(rel))
+			}
+			break
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	if len(bad) > 0 {
+		t.Fatalf(".ub test fixtures must live under testdata/ub/.../(valid|invalid):\n%s",
+			strings.Join(bad, "\n"))
+	}
+}
+
+func hasRequiredFixtureSegments(parts []string, testdata int) bool {
+	if testdata+1 >= len(parts) || parts[testdata+1] != "ub" {
+		return false
+	}
+	for _, part := range parts[testdata+2:] {
+		if part == "valid" || part == "invalid" {
+			return true
+		}
+	}
+	return false
+}
+
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	_, err := os.Stat(filepath.Join(root, "go.mod"))
+	require.NoError(t, err)
+	return root
 }
 
 func TestFormatDiags(t *testing.T) {
