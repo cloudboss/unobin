@@ -122,7 +122,7 @@ greeter: resource {
 
 	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
 	require.NotNil(t, lib)
-	require.Contains(t, lib.Bodies["resource"], "greeter")
+	require.Contains(t, lib.SyntaxBodies["resource"], "greeter")
 	bodyImports := lib.BodyImports["resource"]["greeter"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, ResolutionGo, bodyImports[0].Kind)

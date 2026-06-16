@@ -328,7 +328,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		return nil, err
 	}
 
-	sensitivity := newSensitivityAnalyzer(e.Source, e.Libraries, e.DAG)
+	sensitivity := e.sensitivityAnalyzer()
 
 	// A destroy plan wants nothing from source, so the desired-state
 	// walk is skipped. With no live addresses, every prior leaf below
@@ -372,8 +372,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		if err := e.finalizePendingReads(rs); err != nil {
 			return nil, err
 		}
-		upgradeActionRerun(plan.Steps, e.DAG,
-			newScopeLocals(lang.FieldMap(localsBlock(e.Source)), e.DAG.Nodes))
+		upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.rootLocalExprs(), e.DAG.Nodes))
 	}
 
 	if len(constraintErrs) > 0 {

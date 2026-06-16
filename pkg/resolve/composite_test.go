@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,6 +13,15 @@ func parseComposite(t *testing.T, src string) *lang.File {
 	f, err := lang.ParseSource("x.ub", []byte(src))
 	require.NoError(t, err)
 	return f
+}
+
+func parseSyntaxComposite(t *testing.T, src string) syntax.CompositeDecl {
+	t.Helper()
+	f, err := syntax.ParseSource("library.ub", []byte(src))
+	require.NoError(t, err)
+	require.NotNil(t, f.Library)
+	require.Len(t, f.Library.Exports, 1)
+	return f.Library.Exports[0]
 }
 
 func TestValidateCompositeBody(t *testing.T) {
@@ -151,4 +161,20 @@ actions:   { core.command.c: { argv: ['x'] } }
 			require.Equal(t, tt.want, msgs)
 		})
 	}
+}
+
+func TestValidateSyntaxCompositeBody(t *testing.T) {
+	export := parseSyntaxComposite(t, `thing: data {
+  resources: { bad: aws.vpc {} }
+}
+`)
+	got := ValidateSyntaxCompositeBody(string(export.Kind), export.Name.Name, export.Body)
+	var msgs []string
+	for _, e := range got {
+		msgs = append(msgs, e.Error())
+	}
+	require.Equal(t, []string{
+		`composite "thing" (data): a data composite must declare at least one output`,
+		`composite "thing" (data): a data composite must not contain resources`,
+	}, msgs)
 }

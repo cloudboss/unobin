@@ -4,32 +4,41 @@ import (
 	"fmt"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
-// ValidateCompositeBody checks a composite body against the floor and
-// ceiling rules for its kind, which comes from the file's `<kind>-`
-// name prefix:
-//
-//   - data: at least one output, may hold data, no resources, no actions.
-//   - action: at least one action, may hold data, no resources; outputs
-//     are optional.
-//   - resource: at least one resource, may hold data and actions; outputs
-//     are optional.
-//
-// typeName names the composite in the messages. Returns one error per
-// violated rule, in a fixed order, so a body reports every problem at once.
-// The resolver does not run this during the walk; the compile command runs
-// it over each resolved library so that print-graph and fetch stay lenient.
+// ValidateCompositeBody checks a generic composite body against the
+// requirements for its declared kind.
 func ValidateCompositeBody(kind, typeName string, f *lang.File) []error {
+	return validateCompositeCounts(
+		kind,
+		typeName,
+		kindLeafCount(f, "resources"),
+		kindLeafCount(f, "actions"),
+		outputCount(f),
+	)
+}
+
+// ValidateSyntaxCompositeBody checks a typed composite body against the
+// requirements for its declared kind.
+func ValidateSyntaxCompositeBody(kind, typeName string, body syntax.FactoryBody) []error {
+	return validateCompositeCounts(
+		kind,
+		typeName,
+		len(body.Resources),
+		len(body.Actions),
+		len(body.Outputs),
+	)
+}
+
+func validateCompositeCounts(kind, typeName string, resources, actions, outputs int) []error {
 	var errs []error
 	add := func(msg string) {
 		errs = append(errs, fmt.Errorf("composite %q (%s): %s", typeName, kind, msg))
 	}
-	resources := kindLeafCount(f, "resources")
-	actions := kindLeafCount(f, "actions")
 	switch kind {
 	case "data":
-		if outputCount(f) == 0 {
+		if outputs == 0 {
 			add("a data composite must declare at least one output")
 		}
 		if resources > 0 {

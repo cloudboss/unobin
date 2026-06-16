@@ -229,6 +229,7 @@ func doApplyPlan(
 	}()
 	exec := &runtime.Executor{
 		Source:            f,
+		SyntaxSource:      parsed.syntaxBody,
 		DAG:               dag,
 		Libraries:         info.Libraries,
 		Configurations:    configurations,
@@ -462,6 +463,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedConfig, configPath s
 	}
 	exec := &runtime.Executor{
 		Source:            f,
+		SyntaxSource:      parsed.syntaxBody,
 		DAG:               dag,
 		Libraries:         info.Libraries,
 		Inputs:            inputs,
@@ -667,15 +669,7 @@ func parseFactory(info Info) (*parsedFactory, error) {
 			return nil, verrs.Err()
 		}
 		body := sf.Factory.Body
-		runtimeFile := &lang.File{
-			S:        sf.S,
-			Kind:     lang.FileFactory,
-			Path:     "factory.ub",
-			Body:     syntax.RuntimeFactoryBodyObject(body),
-			Comments: sf.Comments,
-		}
 		return &parsedFactory{
-			file:       runtimeFile,
 			syntaxBody: &body,
 			dag:        runtime.BuildSyntaxDAG(body, info.Libraries),
 		}, nil
@@ -800,6 +794,7 @@ func doPlan(
 	}
 	exec := &runtime.Executor{
 		Source:            f,
+		SyntaxSource:      parsed.syntaxBody,
 		DAG:               dag,
 		Libraries:         info.Libraries,
 		Inputs:            inputs,

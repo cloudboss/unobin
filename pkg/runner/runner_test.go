@@ -239,7 +239,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestParseFactoryAcceptsCompilerFactoryBody(t *testing.T) {
-	_, body, err := compile.ParseFactorySource("factory.ub", []byte(`factory: {
+	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
   imports: { std: 'github.com/example/std' }
   resources: {
     hello: std.fs-file { path: '/tmp/hello' }
@@ -253,7 +253,7 @@ func TestParseFactoryAcceptsCompilerFactoryBody(t *testing.T) {
 }
 
 func TestValidateAcceptsCompilerConfigurationSyntax(t *testing.T) {
-	_, body, err := compile.ParseFactorySource("factory.ub", []byte(`factory: {
+	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
   configurations: {
     east: aws { region: 'us-east-1' }
   }

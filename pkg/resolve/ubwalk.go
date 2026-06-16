@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -62,15 +63,64 @@ type Resolution struct {
 }
 
 // UBLibrary has everything the visitor needs about a UB library the
-// first time the walker reaches it. Bodies maps node kind and composite
-// name to the generic body file; SyntaxBodies stores the same declarations
-// as typed bodies. BodyImports maps the same kind and name to the resolved
-// imports declared by that body, in alias-sorted order so callers see a
-// stable view across runs.
+// first time the walker reaches it. SyntaxBodies maps node kind and
+// composite name to typed source declarations. Bodies is kept for older
+// generic tests and fallback callers. BodyImports maps the same kind and
+// name to the resolved imports declared by that body, in alias-sorted order
+// so callers see a stable view across runs.
 type UBLibrary struct {
 	Bodies       map[string]map[string]*lang.File
 	SyntaxBodies map[string]map[string]syntax.FactoryBody
 	BodyImports  map[string]map[string][]Resolution
+}
+
+type CompositeEntry struct {
+	Kind          string
+	Name          string
+	Body          *lang.File
+	SyntaxBody    syntax.FactoryBody
+	HasSyntaxBody bool
+}
+
+func (l *UBLibrary) CompositeEntries() []CompositeEntry {
+	if l == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var entries []CompositeEntry
+	for kind, byName := range l.Bodies {
+		for name, body := range byName {
+			key := kind + "\x00" + name
+			seen[key] = true
+			entry := CompositeEntry{Kind: kind, Name: name, Body: body}
+			if syntaxBody, ok := l.SyntaxBodies[kind][name]; ok {
+				entry.SyntaxBody = syntaxBody
+				entry.HasSyntaxBody = true
+			}
+			entries = append(entries, entry)
+		}
+	}
+	for kind, byName := range l.SyntaxBodies {
+		for name, body := range byName {
+			key := kind + "\x00" + name
+			if seen[key] {
+				continue
+			}
+			entries = append(entries, CompositeEntry{
+				Kind:          kind,
+				Name:          name,
+				SyntaxBody:    body,
+				HasSyntaxBody: true,
+			})
+		}
+	}
+	slices.SortFunc(entries, func(a, b CompositeEntry) int {
+		if a.Name != b.Name {
+			return strings.Compare(a.Name, b.Name)
+		}
+		return strings.Compare(a.Kind, b.Kind)
+	})
+	return entries
 }
 
 // UBVisitor is implemented by callers that want to consume the walked
@@ -326,23 +376,20 @@ func (w *ubWalker) handleUBImport(
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
 	lib.BodyImports = map[string]map[string][]Resolution{}
-	for _, kind := range sortedKinds(lib.Bodies) {
-		for _, name := range sortedBodyNames(lib.Bodies[kind]) {
-			body := lib.Bodies[kind][name]
-			bodyRefs, errs := libraryBodyImports(lib, kind, name, body)
-			if len(errs) > 0 {
-				return Resolution{}, errors.Join(errs...)
-			}
-			resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref), source, key)
-			if err != nil {
-				return Resolution{}, fmt.Errorf(
-					"import %q: composite %q: %w", alias, name, err)
-			}
-			if lib.BodyImports[kind] == nil {
-				lib.BodyImports[kind] = map[string][]Resolution{}
-			}
-			lib.BodyImports[kind][name] = resols
+	for _, entry := range lib.CompositeEntries() {
+		bodyRefs, errs := libraryBodyImports(entry)
+		if len(errs) > 0 {
+			return Resolution{}, errors.Join(errs...)
 		}
+		resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref), source, key)
+		if err != nil {
+			return Resolution{}, fmt.Errorf(
+				"import %q: composite %q: %w", alias, entry.Name, err)
+		}
+		if lib.BodyImports[entry.Kind] == nil {
+			lib.BodyImports[entry.Kind] = map[string][]Resolution{}
+		}
+		lib.BodyImports[entry.Kind][entry.Name] = resols
 	}
 	w.parsed[key] = lib
 	if err := w.visitor.OnUBLibrary(alias, key, ref, lib); err != nil {
@@ -358,20 +405,11 @@ func (w *ubWalker) handleUBImport(
 
 // parseLibrary reads a UB library's composite bodies from source-declared
 // composite export files.
-func libraryBodyImports(
-	lib *UBLibrary,
-	kind string,
-	name string,
-	body *lang.File,
-) (map[string]ImportRef, []error) {
-	if lib != nil && lib.SyntaxBodies != nil {
-		if byName := lib.SyntaxBodies[kind]; byName != nil {
-			if syntaxBody, ok := byName[name]; ok {
-				return ExtractSyntaxBodyImports(syntaxBody)
-			}
-		}
+func libraryBodyImports(entry CompositeEntry) (map[string]ImportRef, []error) {
+	if entry.HasSyntaxBody {
+		return ExtractSyntaxBodyImports(entry.SyntaxBody)
 	}
-	return ExtractImports(body)
+	return ExtractImports(entry.Body)
 }
 
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
@@ -380,24 +418,22 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		return nil, err
 	}
 	slices.Sort(matches)
-	bodies := make(map[string]map[string]*lang.File, len(matches))
 	syntaxBodies := make(map[string]map[string]syntax.FactoryBody, len(matches))
 	for _, filename := range matches {
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
 		}
-		if err := addSourceDeclaredLibraryFile(filename, b, bodies, syntaxBodies); err != nil {
+		if err := addSourceDeclaredLibraryFile(filename, b, syntaxBodies); err != nil {
 			return nil, err
 		}
 	}
-	return &UBLibrary{Bodies: bodies, SyntaxBodies: syntaxBodies}, nil
+	return &UBLibrary{SyntaxBodies: syntaxBodies}, nil
 }
 
 func addSourceDeclaredLibraryFile(
 	filename string,
 	src []byte,
-	bodies map[string]map[string]*lang.File,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 ) error {
 	f, err := lang.ParseSource(filename, src)
@@ -421,18 +457,10 @@ func addSourceDeclaredLibraryFile(
 		return verrs.Err()
 	}
 	for _, export := range sf.Library.Exports {
-		body := &lang.File{
-			S:        export.S,
-			Kind:     lang.FileExportedType,
-			Path:     filename,
-			Body:     syntax.RuntimeFactoryBodyObject(export.Body),
-			Comments: sf.Comments,
-		}
 		kind := string(export.Kind)
-		if err := addLibraryBody(export.Name.Name, kind, body, bodies); err != nil {
+		if err := addSyntaxLibraryBody(export.Name.Name, kind, export.Body, syntaxBodies); err != nil {
 			return err
 		}
-		addSyntaxLibraryBody(export.Name.Name, kind, export.Body, syntaxBodies)
 	}
 	return nil
 }
@@ -446,32 +474,20 @@ func skippableLibraryPackageFile(kind syntax.FileKind) bool {
 	}
 }
 
-func addLibraryBody(
+func addSyntaxLibraryBody(
 	name string,
 	kind string,
-	body *lang.File,
-	bodies map[string]map[string]*lang.File,
+	body syntax.FactoryBody,
+	bodies map[string]map[string]syntax.FactoryBody,
 ) error {
 	if bodies[kind] == nil {
-		bodies[kind] = map[string]*lang.File{}
+		bodies[kind] = map[string]syntax.FactoryBody{}
 	}
 	if _, dup := bodies[kind][name]; dup {
 		return fmt.Errorf("%s composite %q is declared by more than one file", kind, name)
 	}
 	bodies[kind][name] = body
 	return nil
-}
-
-func addSyntaxLibraryBody(
-	name string,
-	kind string,
-	body syntax.FactoryBody,
-	bodies map[string]map[string]syntax.FactoryBody,
-) {
-	if bodies[kind] == nil {
-		bodies[kind] = map[string]syntax.FactoryBody{}
-	}
-	bodies[kind][name] = body
 }
 
 func readSourceFile(s *Source, name string) ([]byte, error) {
@@ -487,24 +503,6 @@ func sortedAliases(refs map[string]ImportRef) []string {
 	out := make([]string, 0, len(refs))
 	for a := range refs {
 		out = append(out, a)
-	}
-	slices.Sort(out)
-	return out
-}
-
-func sortedKinds[V any](m map[string]map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	slices.Sort(out)
-	return out
-}
-
-func sortedBodyNames[V any](bodies map[string]V) []string {
-	out := make([]string, 0, len(bodies))
-	for n := range bodies {
-		out = append(out, n)
 	}
 	slices.Sort(out)
 	return out

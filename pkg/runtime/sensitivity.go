@@ -63,9 +63,31 @@ func newSensScope(
 func newSensitivityAnalyzer(
 	rootSource *lang.File, rootMods map[string]*Library, dag *DAG,
 ) *sensitivityAnalyzer {
+	return newSensitivityAnalyzerFromSource(rootSource, nil, rootMods, dag)
+}
+
+func (e *Executor) sensitivityAnalyzer() *sensitivityAnalyzer {
+	if e == nil {
+		return newSensitivityAnalyzer(nil, nil, nil)
+	}
+	return newSensitivityAnalyzerFromSource(e.Source, e.SyntaxSource, e.Libraries, e.DAG)
+}
+
+func newSensitivityAnalyzerFromSource(
+	rootSource *lang.File,
+	rootSyntax *syntax.FactoryBody,
+	rootMods map[string]*Library,
+	dag *DAG,
+) *sensitivityAnalyzer {
+	rootInputs := inputsBlockSensitive(rootSource)
+	rootLocals := lang.FieldMap(localsBlock(rootSource))
+	if rootSyntax != nil {
+		rootInputs = syntaxInputsSensitive(rootSyntax.Inputs)
+		rootLocals = syntaxLocalMap(rootSyntax.Locals)
+	}
 	return &sensitivityAnalyzer{
-		rootInputs:  inputsBlockSensitive(rootSource),
-		rootLocals:  lang.FieldMap(localsBlock(rootSource)),
+		rootInputs:  rootInputs,
+		rootLocals:  rootLocals,
 		rootMods:    rootMods,
 		dag:         dag,
 		cache:       map[*lang.File]*compositeSensitivity{},

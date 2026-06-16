@@ -3,7 +3,6 @@ package resolve
 import (
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/require"
 )
 
@@ -105,13 +104,6 @@ func TestIsUBLibraryNilSource(t *testing.T) {
 
 // walkOneUB resolves a single remote import pointing at src and returns
 // the library the visitor recorded for it, or the walk error.
-func formattedBody(t *testing.T, f *lang.File) string {
-	t.Helper()
-	out, err := lang.Format(f)
-	require.NoError(t, err)
-	return string(out)
-}
-
 func walkOneUB(t *testing.T, src *Source) (*UBLibrary, error) {
 	t.Helper()
 	refs := map[string]ImportRef{
@@ -137,12 +129,10 @@ notify: action { description: 'n' }
 	require.NoError(t, err)
 	require.NotNil(t, lib)
 
-	require.Contains(t, lib.Bodies["resource"], "greeting")
-	require.Contains(t, lib.Bodies["data"], "ami")
-	require.Contains(t, lib.Bodies["action"], "notify")
 	require.Contains(t, lib.SyntaxBodies["resource"], "greeting")
 	require.Contains(t, lib.SyntaxBodies["data"], "ami")
 	require.Contains(t, lib.SyntaxBodies["action"], "notify")
+	require.Empty(t, lib.Bodies)
 }
 
 func TestWalkUBSkipsPackageMetadataFiles(t *testing.T) {
@@ -155,7 +145,7 @@ func TestWalkUBSkipsPackageMetadataFiles(t *testing.T) {
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
 	require.NotNil(t, lib)
-	require.Contains(t, lib.Bodies["resource"], "greeting")
+	require.Contains(t, lib.SyntaxBodies["resource"], "greeting")
 }
 
 func TestWalkUBParsesSourceDeclaredLibraryExports(t *testing.T) {
@@ -198,10 +188,11 @@ lookup: data {
 	require.Len(t, top, 1)
 	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
 	require.NotNil(t, lib)
-	require.Contains(t, lib.Bodies["resource"], "greeting")
-	require.Contains(t, lib.Bodies["data"], "lookup")
-	body := lib.Bodies["resource"]["greeting"]
-	require.Contains(t, formattedBody(t, body), "resource.file.path")
+	require.Contains(t, lib.SyntaxBodies["resource"], "greeting")
+	require.Contains(t, lib.SyntaxBodies["data"], "lookup")
+	body := lib.SyntaxBodies["resource"]["greeting"]
+	require.Len(t, body.Resources, 1)
+	require.Len(t, body.Outputs, 1)
 	bodyImports := lib.BodyImports["resource"]["greeting"]
 	require.Len(t, bodyImports, 1)
 	require.Equal(t, "core", bodyImports[0].LocalAlias)
@@ -214,7 +205,7 @@ func TestWalkUBKeepsMultiHyphenTypeName(t *testing.T) {
 	})
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
-	require.Contains(t, lib.Bodies["resource"], "vpc-wrapper")
+	require.Contains(t, lib.SyntaxBodies["resource"], "vpc-wrapper")
 }
 
 func TestWalkUBAllowsSameExportNameAcrossKinds(t *testing.T) {
@@ -235,9 +226,9 @@ vpc: action {
 	})
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
-	require.Contains(t, lib.Bodies["resource"], "vpc")
-	require.Contains(t, lib.Bodies["data"], "vpc")
-	require.Contains(t, lib.Bodies["action"], "vpc")
+	require.Contains(t, lib.SyntaxBodies["resource"], "vpc")
+	require.Contains(t, lib.SyntaxBodies["data"], "vpc")
+	require.Contains(t, lib.SyntaxBodies["action"], "vpc")
 }
 
 func TestWalkUBRejectsLibraryFilesWithoutCompositeDeclarations(t *testing.T) {

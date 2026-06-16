@@ -3,7 +3,7 @@ package compile
 import (
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,14 +20,15 @@ func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
 }
 `)
 
-	f, body, err := ParseFactorySource("factory.ub", src)
+	sf, body, err := ParseFactorySyntaxSource("factory.ub", src)
 	require.NoError(t, err)
-	require.Equal(t, lang.FileFactory, f.Kind)
+	require.Equal(t, syntax.FileFactory, sf.Kind)
+	require.NotNil(t, sf.Factory)
 	require.Contains(t, body, "factory:")
 	require.Contains(t, body, "imports:")
 	require.Contains(t, body, "hello: std.fs-file")
 	require.Contains(t, body, "resource.hello.path")
-	require.NotNil(t, f.Body)
+	require.NotEmpty(t, sf.Factory.Body.Resources)
 }
 
 func TestParseFactorySourceRejectsUnwrappedFactory(t *testing.T) {
@@ -36,7 +37,7 @@ inputs: {}
 resources: {}
 `)
 
-	_, _, err := ParseFactorySource("factory.ub", src)
+	_, _, err := ParseFactorySyntaxSource("factory.ub", src)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "factory.ub must declare factory")
 }

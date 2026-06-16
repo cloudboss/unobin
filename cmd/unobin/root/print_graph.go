@@ -262,36 +262,35 @@ func (g *graphVisitor) OnUBLibrary(
 	_, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
 	runtimeLib := &runtime.Library{}
-	for kind, byName := range lib.Bodies {
-		for name, body := range byName {
-			resols := lib.BodyImports[kind][name]
-			bodyLibs := make(map[string]*runtime.Library, len(resols))
-			for _, res := range resols {
-				switch res.Kind {
-				case resolve.ResolutionGo:
-					schema, warnings, err := g.schemas.Read(res.SourcePath)
-					if err != nil {
-						return fmt.Errorf(
-							"%s composite %q import %q: %w",
-							kind, name, res.LocalAlias, err)
-					}
-					compile.PrintSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
-					bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
-				case resolve.ResolutionUB:
-					bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
+	for _, entry := range lib.CompositeEntries() {
+		resols := lib.BodyImports[entry.Kind][entry.Name]
+		bodyLibs := make(map[string]*runtime.Library, len(resols))
+		for _, res := range resols {
+			switch res.Kind {
+			case resolve.ResolutionGo:
+				schema, warnings, err := g.schemas.Read(res.SourcePath)
+				if err != nil {
+					return fmt.Errorf(
+						"%s composite %q import %q: %w",
+						entry.Kind, entry.Name, res.LocalAlias, err)
 				}
+				compile.PrintSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
+				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
+			case resolve.ResolutionUB:
+				bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
 			}
-			composite := &runtime.CompositeType{
-				Name:      name,
-				Kind:      runtime.NodeKind(kind),
-				Body:      body,
-				Libraries: bodyLibs,
-			}
-			if syntaxBody, ok := lib.SyntaxBodies[kind][name]; ok {
-				composite.SyntaxBody = &syntaxBody
-			}
-			runtimeLib.AddComposite(composite)
 		}
+		composite := &runtime.CompositeType{
+			Name:      entry.Name,
+			Kind:      runtime.NodeKind(entry.Kind),
+			Body:      entry.Body,
+			Libraries: bodyLibs,
+		}
+		if entry.HasSyntaxBody {
+			syntaxBody := entry.SyntaxBody
+			composite.SyntaxBody = &syntaxBody
+		}
+		runtimeLib.AddComposite(composite)
 	}
 	g.byKey[canonicalKey] = runtimeLib
 	return nil

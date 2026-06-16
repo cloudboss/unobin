@@ -14,6 +14,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
@@ -41,11 +42,14 @@ type Executor struct {
 	Libraries map[string]*Library
 	Inputs    map[string]any
 
-	// Source is the parsed stack file. Static analysis passes (e.g.
-	// sensitivity propagation at plan time) consult its top-level
-	// blocks for declarations the DAG alone does not carry. May be
+	// Source is the generic parsed factory body. Static analysis passes
+	// consult its top-level declarations when SyntaxSource is nil. May be
 	// nil in test setups; analyses that need it degrade to no-op.
 	Source *lang.File
+
+	// SyntaxSource is the typed factory body for grammar-first callers.
+	// When set, declaration queries prefer it over Source.
+	SyntaxSource *syntax.FactoryBody
 
 	// Configurations is keyed first by the library selector and then by
 	// the selected configuration name. Entries are the value returned by
@@ -143,7 +147,7 @@ func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalC
 		Libraries:         e.Libraries,
 		Configurations:    e.RawConfigurations,
 		ConfigurationRefs: ConfigurationRefNames(e.DAG.Nodes),
-		locals:            newLocalScope(localsBlock(e.Source)),
+		locals:            e.rootLocalScope(),
 	}
 	if prior == nil {
 		return scope
@@ -460,7 +464,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Libraries:         e.Libraries,
 			Configurations:    e.RawConfigurations,
 			ConfigurationRefs: ConfigurationRefNames(e.DAG.Nodes),
-			locals:            newLocalScope(localsBlock(e.Source)),
+			locals:            e.rootLocalScope(),
 		},
 		order:            order,
 		outputs:          make(map[string]any),

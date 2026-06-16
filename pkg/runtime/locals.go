@@ -57,6 +57,20 @@ func NewEvalContextFromLocals(exprs map[string]lang.Expr) *EvalContext {
 	return &EvalContext{locals: newLocalScopeFromMap(exprs)}
 }
 
+func (e *Executor) rootLocalExprs() map[string]lang.Expr {
+	if e == nil {
+		return nil
+	}
+	if e.SyntaxSource != nil {
+		return syntaxLocalMap(e.SyntaxSource.Locals)
+	}
+	return lang.FieldMap(localsBlock(e.Source))
+}
+
+func (e *Executor) rootLocalScope() *localScope {
+	return newLocalScopeFromMap(e.rootLocalExprs())
+}
+
 // force evaluates the named local against ctx and returns its value. A
 // local that reads an upstream that has not run yet propagates
 // ErrEvalNotFound unchanged so the caller can defer it. A local that

@@ -504,7 +504,7 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 	}
 }
 
-// RuntimeFactoryBodyObject returns the generic AST object runtime code reads.
+// RuntimeFactoryBodyObject returns the generic AST object for compatibility callers.
 func RuntimeFactoryBodyObject(body FactoryBody) *parse.ObjectLit {
 	return factoryBodyObject(body, configurationDeclsSelectorObject, nodeDeclsSelectorObject)
 }

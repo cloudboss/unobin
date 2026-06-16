@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
-	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/check"
@@ -84,14 +83,6 @@ func (o Options) stderr() io.Writer {
 	return os.Stderr
 }
 
-func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
-	sf, body, err := ParseFactorySyntaxSource(path, src)
-	if err != nil {
-		return nil, "", err
-	}
-	return runtimeFactoryFile(sf, path), body, nil
-}
-
 // ParseFactorySyntaxSource parses source and returns typed source plus
 // the canonical source body embedded in generated factories.
 func ParseFactorySyntaxSource(path string, src []byte) (*syntax.File, string, error) {
@@ -110,16 +101,6 @@ func ParseFactorySyntaxSource(path string, src []byte) (*syntax.File, string, er
 		return nil, "", err
 	}
 	return sf, string(body), nil
-}
-
-func runtimeFactoryFile(sf *syntax.File, path string) *lang.File {
-	return &lang.File{
-		S:        sf.S,
-		Kind:     lang.FileFactory,
-		Path:     path,
-		Body:     syntax.RuntimeFactoryBodyObject(sf.Factory.Body),
-		Comments: sf.Comments,
-	}
 }
 
 // FactorySourcePath returns the factory source file named by path.
@@ -417,11 +398,16 @@ func (c *compileVisitor) OnGoImport(_, path, version string) error {
 func (c *compileVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
-	entries := sortedCompositeBodies(lib.Bodies)
+	entries := lib.CompositeEntries()
 	var violations []error
 	for _, entry := range entries {
+		if entry.HasSyntaxBody {
+			violations = append(violations,
+				resolve.ValidateSyntaxCompositeBody(entry.Kind, entry.Name, entry.SyntaxBody)...)
+			continue
+		}
 		violations = append(violations,
-			resolve.ValidateCompositeBody(entry.kind, entry.name, entry.body)...)
+			resolve.ValidateCompositeBody(entry.Kind, entry.Name, entry.Body)...)
 	}
 	if len(violations) > 0 {
 		return errors.Join(violations...)
@@ -430,11 +416,11 @@ func (c *compileVisitor) OnUBLibrary(
 	goSpecs := map[string]codegen.GoLibrarySpecs{}
 	runtimeLib := &ubruntime.Library{Name: alias}
 	for _, entry := range entries {
-		resols := lib.BodyImports[entry.kind][entry.name]
+		resols := lib.BodyImports[entry.Kind][entry.Name]
 		bodyLibs := make(map[string]*ubruntime.Library, len(resols))
-		bodyUsed := usedLibraryTypes(entry.body)
-		if syntaxBody, ok := lib.SyntaxBodies[entry.kind][entry.name]; ok {
-			bodyUsed = usedSyntaxLibraryTypes(syntaxBody)
+		bodyUsed := usedLibraryTypes(entry.Body)
+		if entry.HasSyntaxBody {
+			bodyUsed = usedSyntaxLibraryTypes(entry.SyntaxBody)
 		}
 		for _, res := range resols {
 			switch res.Kind {
@@ -443,7 +429,7 @@ func (c *compileVisitor) OnUBLibrary(
 				if err != nil {
 					return fmt.Errorf(
 						"%s composite %q import %q: %w",
-						entry.kind, entry.name, res.LocalAlias, err)
+						entry.Kind, entry.Name, res.LocalAlias, err)
 				}
 				PrintSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
 				bodyLibs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
@@ -460,12 +446,13 @@ func (c *compileVisitor) OnUBLibrary(
 			}
 		}
 		composite := &ubruntime.CompositeType{
-			Name:      entry.name,
-			Kind:      ubruntime.NodeKind(entry.kind),
-			Body:      entry.body,
+			Name:      entry.Name,
+			Kind:      ubruntime.NodeKind(entry.Kind),
+			Body:      entry.Body,
 			Libraries: bodyLibs,
 		}
-		if syntaxBody, ok := lib.SyntaxBodies[entry.kind][entry.name]; ok {
+		if entry.HasSyntaxBody {
+			syntaxBody := entry.SyntaxBody
 			composite.SyntaxBody = &syntaxBody
 		}
 		runtimeLib.AddComposite(composite)
@@ -500,28 +487,6 @@ func (c *compileVisitor) OnUBLibrary(
 	c.packages[canonicalKey] = src
 	c.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
-}
-
-type compositeBodyEntry struct {
-	kind string
-	name string
-	body *lang.File
-}
-
-func sortedCompositeBodies(bodies map[string]map[string]*lang.File) []compositeBodyEntry {
-	var entries []compositeBodyEntry
-	for kind, byName := range bodies {
-		for name, body := range byName {
-			entries = append(entries, compositeBodyEntry{kind: kind, name: name, body: body})
-		}
-	}
-	slices.SortFunc(entries, func(a, b compositeBodyEntry) int {
-		if a.name != b.name {
-			return strings.Compare(a.name, b.name)
-		}
-		return strings.Compare(a.kind, b.kind)
-	})
-	return entries
 }
 
 // decideSelectedUnobin reads `go list -m` output for the unobin module

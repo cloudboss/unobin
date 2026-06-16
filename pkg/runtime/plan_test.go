@@ -38,6 +38,63 @@ func setSpec(kind string, fields ...string) lang.ConstraintSpec {
 	return lang.ConstraintSpec{Kind: kind, Fields: fields}
 }
 
+func TestPlanUsesSyntaxRootLocalsWithoutGenericSource(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `factory: {
+  inputs: { message: { type: string } }
+  locals: { echoed: var.message }
+  actions: {
+    say: core.echo { echo: local.echoed }
+  }
+}
+`)
+	libs := testModules()
+	exec := &Executor{
+		DAG:          BuildSyntaxDAG(fixture.body, libs),
+		SyntaxSource: &fixture.body,
+		Libraries:    libs,
+		Inputs:       map[string]any{"message": "hello"},
+		Store:        newStateStore(t),
+		Factory: state.FactoryInfo{
+			Name:            "test-stack",
+			Version:         "v0",
+			ContentRevision: "c0",
+		},
+	}
+
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "action.say")
+	require.Equal(t, map[string]any{"echo": "hello"}, step.Inputs)
+}
+
+func TestPlanUsesSyntaxRootInputSensitivity(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `factory: {
+  inputs: { secret: { type: string, @sensitive: true } }
+  actions: {
+    say: core.echo { echo: var.secret }
+  }
+}
+`)
+	libs := testModules()
+	exec := &Executor{
+		DAG:          BuildSyntaxDAG(fixture.body, libs),
+		SyntaxSource: &fixture.body,
+		Libraries:    libs,
+		Inputs:       map[string]any{"secret": "hidden"},
+		Store:        newStateStore(t),
+		Factory: state.FactoryInfo{
+			Name:            "test-stack",
+			Version:         "v0",
+			ContentRevision: "c0",
+		},
+	}
+
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "action.say")
+	require.Equal(t, []string{"echo"}, step.SensitiveInputs)
+}
+
 func predSpec(when, require string) lang.ConstraintSpec {
 	return lang.ConstraintSpec{Kind: "predicate", When: when, Require: require}
 }
