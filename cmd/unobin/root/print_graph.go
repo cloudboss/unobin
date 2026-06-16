@@ -121,7 +121,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	checker := check.NewSyntax(nil, sf.Factory.Body, libs)
+	checker := check.NewSyntax(sf.Factory.Body, libs)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}

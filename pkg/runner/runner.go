@@ -518,7 +518,7 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath 
 	// Validation is the one command whose job is to re-prove the
 	// stack, so it runs the deep checks the other commands leave to
 	// the compiler.
-	checker := check.NewSyntax(nil, *parsed.syntaxBody, info.Libraries)
+	checker := check.NewSyntax(*parsed.syntaxBody, info.Libraries)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}

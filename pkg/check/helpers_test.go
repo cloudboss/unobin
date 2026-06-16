@@ -12,7 +12,6 @@ import (
 
 type syntaxRuntimeFixture struct {
 	body syntax.FactoryBody
-	file *lang.File
 }
 
 func parseSyntaxFactoryFixture(t *testing.T, src string) syntaxRuntimeFixture {
@@ -20,10 +19,7 @@ func parseSyntaxFactoryFixture(t *testing.T, src string) syntaxRuntimeFixture {
 	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.NotNil(t, f.Factory)
-	return syntaxRuntimeFixture{
-		body: f.Factory.Body,
-		file: parseGenericFactoryBody(t, src),
-	}
+	return syntaxRuntimeFixture{body: f.Factory.Body}
 }
 
 func parseSyntaxCompositeFixture(t *testing.T, src string) syntaxRuntimeFixture {
@@ -32,55 +28,7 @@ func parseSyntaxCompositeFixture(t *testing.T, src string) syntaxRuntimeFixture 
 	require.NoError(t, err)
 	require.NotNil(t, f.Library)
 	require.Len(t, f.Library.Exports, 1)
-	body := f.Library.Exports[0].Body
-	return syntaxRuntimeFixture{
-		body: body,
-		file: parseGenericCompositeBody(t, src),
-	}
-}
-
-func parseGenericFactoryBody(t *testing.T, src string) *lang.File {
-	t.Helper()
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-	body := topLevelObject(t, f, "factory")
-	return &lang.File{
-		S:        body.S,
-		Kind:     lang.FileFactory,
-		Path:     f.Path,
-		Body:     body,
-		Comments: f.Comments,
-	}
-}
-
-func parseGenericCompositeBody(t *testing.T, src string) *lang.File {
-	t.Helper()
-	f, err := lang.ParseSource("library.ub", []byte(src))
-	require.NoError(t, err)
-	require.Len(t, f.Body.Fields, 1)
-	export := f.Body.Fields[0]
-	require.NotNil(t, export.Decl, "expected composite export")
-	return &lang.File{
-		S:        export.Decl.Body.S,
-		Kind:     lang.FileExportedType,
-		Path:     f.Path,
-		Body:     export.Decl.Body,
-		Comments: f.Comments,
-	}
-}
-
-func topLevelObject(t *testing.T, f *lang.File, key string) *lang.ObjectLit {
-	t.Helper()
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != key {
-			continue
-		}
-		body, ok := fld.Value.(*lang.ObjectLit)
-		require.True(t, ok, "expected %s body", key)
-		return body
-	}
-	require.FailNow(t, "missing top-level body", key)
-	return nil
+	return syntaxRuntimeFixture{body: f.Library.Exports[0].Body}
 }
 
 func parseStack(t *testing.T, src string) *lang.File {

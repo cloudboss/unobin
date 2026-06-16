@@ -155,7 +155,7 @@ factory: {
 }
 `)
 	body := composite.body
-	checker := NewSyntax(fixture.file, fixture.body, map[string]*runtime.Library{
+	checker := NewSyntax(fixture.body, map[string]*runtime.Library{
 		"outer": {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"greeting": {
@@ -602,7 +602,7 @@ factory: {
 }
 `)
 
-	errs := NewSyntax(nil, fixture.body,
+	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
 
 	require.Equal(t,
@@ -623,7 +623,7 @@ factory: {
 }
 `)
 
-	errs := NewSyntax(nil, fixture.body,
+	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
 
 	require.Equal(t,
@@ -641,7 +641,7 @@ factory: {
 }
 `)
 
-	errs := NewSyntax(nil, fixture.body, nil).References(nil)
+	errs := NewSyntax(fixture.body, nil).References(nil)
 
 	require.Equal(t,
 		[]string{"a constraint may read inputs only, not local.ok"},
@@ -658,7 +658,7 @@ factory: {
 }
 `)
 
-	errs := NewSyntax(nil, fixture.body,
+	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"aws": configuredLibrary()}).References(nil)
 
 	require.Equal(t,
@@ -836,7 +836,7 @@ func TestCheckTypesSourceConfigurationFixtures(t *testing.T) {
 		if f.Factory == nil {
 			return "", []string{"fixture must declare factory"}
 		}
-		return "", NewSyntax(nil, f.Factory.Body, map[string]*runtime.Library{
+		return "", NewSyntax(f.Factory.Body, map[string]*runtime.Library{
 			"aws": configuredLibrary(),
 		}).References(nil).Messages()
 	}, ubtest.Substring())

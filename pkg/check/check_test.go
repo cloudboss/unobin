@@ -51,7 +51,7 @@ factory: {
 `))
 	require.NoError(t, err)
 	require.NotNil(t, sf.Factory)
-	checker := NewSyntax(nil, sf.Factory.Body, map[string]*runtime.Library{
+	checker := NewSyntax(sf.Factory.Body, map[string]*runtime.Library{
 		"aws": {},
 		"k8s": {},
 	})
@@ -80,7 +80,7 @@ factory: {
 }
 `)
 	body := composite.body
-	checker := NewSyntax(fixture.file, fixture.body, map[string]*runtime.Library{
+	checker := NewSyntax(fixture.body, map[string]*runtime.Library{
 		"outer": {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"greeting": {

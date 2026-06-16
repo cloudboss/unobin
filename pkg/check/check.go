@@ -27,14 +27,9 @@ type Checker struct {
 }
 
 // NewSyntax builds the check state from a typed factory or composite body.
-// root is optional and exists only for callers that still need a generic view.
-func NewSyntax(
-	root *lang.File,
-	body syntax.FactoryBody,
-	libs map[string]*runtime.Library,
-) *Checker {
+func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Checker {
 	c := newChecker(
-		root,
+		nil,
 		runtime.BuildSyntaxDAG(body, libs),
 		syntaxInputNames(body.Inputs),
 		syntaxLocalNames(body.Locals),
