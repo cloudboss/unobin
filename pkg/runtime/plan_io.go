@@ -237,7 +237,7 @@ func decodePlanConfigurations(
 		if alias == "" {
 			return nil, fmt.Errorf("plan: default configuration selector is empty")
 		}
-		body, err := planConfigurationBody(alias+".default", cfg.Body)
+		body, err := planConfigurationBody("default for "+alias, cfg.Body)
 		if err != nil {
 			return nil, err
 		}

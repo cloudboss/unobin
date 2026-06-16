@@ -49,8 +49,8 @@ type Library struct {
 	// Defaults holds each Go type's declared input defaults, keyed by
 	// "<kind>.<type>" like Constraints and set the same way by codegen.
 	// The runtime fills a Value default into a body's inputs wherever a
-	// field is left out or null, before constraints, triggers, and
-	// decode read them; an Optional marker fills nothing.
+	// field is left out, before constraints, triggers, and decode read
+	// them; an Optional marker fills nothing.
 	Defaults map[string][]lang.DefaultSpec
 }
 

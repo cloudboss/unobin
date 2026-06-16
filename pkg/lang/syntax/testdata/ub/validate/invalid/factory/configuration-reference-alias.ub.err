@@ -1,1 +1,1 @@
-configuration formal must use configuration.formal, not configuration.greet.formal
+configuration formal takes configuration.formal; named configurations already declare their selector

@@ -51,8 +51,8 @@ func TestInferInterpolatedScalarSlotsAccepted(t *testing.T) {
 		`$'{{var.count + 1}}'`,
 		`$'{{if var.flag then var.region else 'other'}}'`,
 		`$'{{resource.aws.vpc.main.id}}'`,
-		// A defaulted optional reads as its inner type: the default
-		// replaces a missing or null value before anything sees it.
+		// A defaulted input reads as its inner type because omission
+		// fills a non-null value before the expression reads it.
 		`$'{{var.sized}}'`,
 	}
 	for _, src := range srcs {

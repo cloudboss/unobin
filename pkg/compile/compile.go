@@ -609,9 +609,9 @@ func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, erro
 
 // replaceResolver short-circuits remote imports whose URL matches a
 // configured prefix and serves them from a local directory instead.
-// Set up by `--replace-unobin` so a developer can compile a stack that
-// imports `github.com/cloudboss/unobin//<subdir>` against a working
-// tree without making any network calls.
+// Set up by `--replace-unobin` so a developer can compile a factory
+// that imports `github.com/cloudboss/unobin//<subdir>` against a
+// working tree without making any network calls.
 type replaceResolver struct {
 	prefix  string
 	local   string

@@ -470,8 +470,8 @@ func rejectConfigurationAliasPath(
 	}
 	if ref, ok := refs.named[dp.Segments[1].Name]; ok && ref.alias == dp.Segments[0].Name {
 		errs.Addf(parse.ErrSchema, dp.S.Start,
-			"%s must use configuration.%s, not configuration.%s.%s",
-			what, dp.Segments[1].Name, dp.Segments[0].Name, dp.Segments[1].Name)
+			"%s takes configuration.%s; named configurations already declare their selector",
+			what, dp.Segments[1].Name)
 		return true
 	}
 	return false
