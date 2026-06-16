@@ -83,7 +83,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
 			Libraries: compositeBodyLibraries(boundary, e.Libraries),
-			locals:    newLocalScope(localsBlock(boundary.CompositeBody)),
+			locals:    compositeLocalScope(boundary),
 		}
 	}
 

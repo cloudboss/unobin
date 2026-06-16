@@ -580,7 +580,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
 		Libraries: compositeBodyLibraries(boundary, e.Libraries),
-		locals:    newLocalScope(localsBlock(boundary.CompositeBody)),
+		locals:    compositeLocalScope(boundary),
 	}
 	rs.composites[callSite] = scope
 	return scope, nil
@@ -771,7 +771,7 @@ func (e *Executor) finalizeComposite(
 	if err != nil {
 		return err
 	}
-	outputs, err := evalCompositeOutputs(n.CompositeBody, scope)
+	outputs, err := evalCompositeOutputs(n, scope)
 	if err != nil {
 		return err
 	}
@@ -798,32 +798,6 @@ func (e *Executor) finalizeComposite(
 		DependsOn:        rs.dependsOn[instAddr],
 	})
 	return nil
-}
-
-// evalCompositeOutputs reads the composite body's `outputs:` block
-// and reduces each field against the given scope. Returns nil when
-// the body has no outputs block.
-func evalCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, error) {
-	outBlock := lang.TopLevelBlock(body, "outputs")
-	if outBlock == nil {
-		return nil, nil
-	}
-	out := make(map[string]any, len(outBlock.Fields))
-	for _, fld := range outBlock.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		inner := lang.OutputValueExpr(fld.Value)
-		if inner == nil {
-			return nil, fmt.Errorf("composite output %q: missing wrapper", fld.Key.Name)
-		}
-		val, err := Eval(inner, scope)
-		if err != nil {
-			return nil, fmt.Errorf("composite output %q: %w", fld.Key.Name, err)
-		}
-		out[fld.Key.Name] = val
-	}
-	return out, nil
 }
 
 // forEachInstancesFor returns a `@for-each` node's evaluated iterable,

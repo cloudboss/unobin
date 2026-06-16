@@ -22,8 +22,15 @@ type localScope struct {
 // newLocalScope builds a localScope from a parsed `locals:` block. A nil
 // block yields a usable empty scope, so every EvalContext can carry one.
 func newLocalScope(block *lang.ObjectLit) *localScope {
+	return newLocalScopeFromMap(lang.FieldMap(block))
+}
+
+func newLocalScopeFromMap(exprs map[string]lang.Expr) *localScope {
+	if exprs == nil {
+		exprs = map[string]lang.Expr{}
+	}
 	return &localScope{
-		exprs:   lang.FieldMap(block),
+		exprs:   exprs,
 		values:  map[string]any{},
 		forcing: map[string]bool{},
 	}

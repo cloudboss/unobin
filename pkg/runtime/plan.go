@@ -715,7 +715,7 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 	if !ok || scope == nil {
 		return nil
 	}
-	outputs, err := planCompositeOutputs(node.CompositeBody, scope)
+	outputs, err := planCompositeOutputs(node, scope)
 	if err != nil {
 		return err
 	}
@@ -734,36 +734,6 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 		seedAddressInstance(target, tmpl, instKey, outputs)
 	}
 	return nil
-}
-
-// planCompositeOutputs reduces the composite body's outputs block
-// field by field against the plan-time scope, leaving out any field
-// whose expression reads a value not yet known so it stays pending
-// for readers. Returns nil when the body declares no outputs.
-func planCompositeOutputs(body *lang.File, scope *EvalContext) (map[string]any, error) {
-	outBlock := lang.TopLevelBlock(body, "outputs")
-	if outBlock == nil {
-		return nil, nil
-	}
-	out := make(map[string]any, len(outBlock.Fields))
-	for _, fld := range outBlock.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		inner := lang.OutputValueExpr(fld.Value)
-		if inner == nil {
-			return nil, fmt.Errorf("composite output %q: missing wrapper", fld.Key.Name)
-		}
-		val, err := Eval(inner, scope)
-		if errors.Is(err, ErrEvalNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("composite output %q: %w", fld.Key.Name, err)
-		}
-		out[fld.Key.Name] = val
-	}
-	return out, nil
 }
 
 // withoutDeclared returns outputs minus the fields the body declares.
@@ -1059,8 +1029,8 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 	if !ok || node.CompositeBody == nil {
 		return nil
 	}
-	arr, ok := lang.FieldMap(node.CompositeBody.Body)["constraints"].(*lang.ArrayLit)
-	if !ok || len(arr.Elements) == 0 {
+	constraints := compositeConstraints(node)
+	if constraints == nil || len(constraints.Elements) == 0 {
 		return nil
 	}
 	scope, ok := rs.composites[step.Address]
@@ -1068,7 +1038,7 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 		return nil
 	}
 	values := make(map[string]any, len(scope.Vars))
-	for name := range InputNames(node.CompositeBody) {
+	for name := range compositeInputNames(node) {
 		values[name] = nil
 	}
 	maps.Copy(values, scope.Vars)
@@ -1078,7 +1048,9 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 		return Eval(ex, ctx)
 	}
 	var out []error
-	for _, er := range lang.CheckConstraints(arr, values, eval, lang.DisplayNodeRelative).Errors() {
+	for _, er := range lang.CheckConstraints(
+		constraints, values, eval, lang.DisplayNodeRelative,
+	).Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	return out
