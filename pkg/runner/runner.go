@@ -509,14 +509,18 @@ func newValidateCmd(info Info) *cobra.Command {
 }
 
 func doValidate(cmd *cobra.Command, info Info, config *lang.File, configPath string) error {
-	f, _, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
+	f := parsed.file
 	// Validation is the one command whose job is to re-prove the
 	// stack, so it runs the deep checks the other commands leave to
 	// the compiler.
 	checker := check.New(f, info.Libraries)
+	if parsed.syntaxBody != nil {
+		checker = check.NewSyntax(f, *parsed.syntaxBody, info.Libraries)
+	}
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}
@@ -648,29 +652,50 @@ func newOutputCmd(info Info) *cobra.Command {
 // filename is not preserved across compile, so this label is the
 // convention regardless of what the file was called on disk.
 func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
-	f, err := lang.ParseSource("factory.ub", []byte(info.FactoryBody))
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return nil, nil, err
+	}
+	return parsed.file, parsed.dag, nil
+}
+
+type parsedFactory struct {
+	file       *lang.File
+	syntaxBody *syntax.FactoryBody
+	dag        *runtime.DAG
+}
+
+func parseFactory(info Info) (*parsedFactory, error) {
+	f, err := lang.ParseSource("factory.ub", []byte(info.FactoryBody))
+	if err != nil {
+		return nil, err
 	}
 	if runnerUsesSyntaxFactory(f) {
 		sf, serrs := syntax.LowerFile(f)
 		if serrs.Len() > 0 {
-			return nil, nil, serrs.Err()
+			return nil, serrs.Err()
 		}
 		if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-			return nil, nil, verrs.Err()
+			return nil, verrs.Err()
 		}
-		f = &lang.File{
+		body := sf.Factory.Body
+		runtimeFile := &lang.File{
 			S:        sf.S,
 			Kind:     lang.FileFactory,
 			Path:     "factory.ub",
-			Body:     syntax.RuntimeFactoryBodyObject(sf.Factory.Body),
+			Body:     syntax.RuntimeFactoryBodyObject(body),
 			Comments: sf.Comments,
 		}
-	} else if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, nil, errs.Err()
+		return &parsedFactory{
+			file:       runtimeFile,
+			syntaxBody: &body,
+			dag:        runtime.BuildSyntaxDAG(body, info.Libraries),
+		}, nil
 	}
-	return f, runtime.BuildDAG(f, info.Libraries), nil
+	if errs := lang.ValidateFile(f); errs.Len() > 0 {
+		return nil, errs.Err()
+	}
+	return &parsedFactory{file: f, dag: runtime.BuildDAG(f, info.Libraries)}, nil
 }
 
 func runnerUsesSyntaxFactory(f *lang.File) bool {

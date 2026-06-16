@@ -88,6 +88,7 @@ func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.
 		seen:                   map[string]bool{},
 		observe:                observe,
 		internalConfigurations: runtime.InternalConfigurationNames(c.root),
+		configurationRefs:      runtime.ConfigurationRefNames(c.dag.Nodes),
 	}
 	r.checkDeclarations()
 	r.checkNodes()
@@ -112,10 +113,13 @@ type referenceChecker struct {
 	// observe, when set, rides the real checking walks' scopes so
 	// every inferred expression streams out with its type.
 	observe func(e lang.Expr, t typecheck.Type)
-	// internalConfigurations holds the alias.name set the factory's
+	// internalConfigurations holds the alias/name pairs the factory's
 	// own configurations block defines; a configuration reference
 	// naming one of these is rejected.
 	internalConfigurations map[string]map[string]bool
+	// configurationRefs maps source-facing configuration names to the
+	// alias/name pair that backs them.
+	configurationRefs map[string]runtime.ConfigRef
 	// inConfigurationBody is set while a configurations block body is
 	// being walked, the only place a configuration reference is valid.
 	inConfigurationBody bool
@@ -394,6 +398,12 @@ func (c *referenceChecker) checkConfigurationRef(v lang.Expr, scope string) {
 		c.addf(v.Span().Start, "@configuration takes configuration.<name>")
 		return
 	}
+	if dp.Root.Name == "configuration" {
+		if _, ok := c.configurationRefs[dp.Segments[0].Name]; !ok {
+			c.addf(dp.S.Start, "configuration.%s is not declared", dp.Segments[0].Name)
+		}
+		return
+	}
 	libs := c.libraries[scope]
 	if libs != nil && libs[dp.Root.Name] == nil {
 		c.addf(dp.S.Start, `library %q is not imported`, dp.Root.Name)
@@ -447,12 +457,12 @@ func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope s
 			"a configuration reference is valid only inside a configurations block body")
 		return
 	}
-	if len(dp.Segments) < 2 || dp.Segments[0].Name == "" || dp.Segments[1].Name == "" {
+	alias, name, ok := c.configurationReferenceParts(dp)
+	if !ok {
 		c.addf(dp.S.Start,
 			"a configuration reference takes configuration.<name>")
 		return
 	}
-	alias, name := dp.Segments[0].Name, dp.Segments[1].Name
 	lib := c.libraries[scope][alias]
 	if lib == nil {
 		c.addf(dp.S.Start, `library %q is not imported`, alias)
@@ -468,6 +478,29 @@ func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope s
 			"configuration.%s is defined by this factory; "+
 				"only operator-supplied configurations are referenceable", name)
 	}
+}
+
+func (c *referenceChecker) configurationReferenceParts(
+	dp *lang.DotPath,
+) (alias, name string, ok bool) {
+	if dp == nil || dp.Root == nil || dp.Root.Name != "configuration" || len(dp.Segments) == 0 {
+		return "", "", false
+	}
+	first := dp.Segments[0]
+	if !simpleConfigurationSegment(first) {
+		return "", "", false
+	}
+	if ref, ok := c.configurationRefs[first.Name]; ok {
+		return ref.Alias, ref.Configuration, true
+	}
+	if len(dp.Segments) < 2 || !simpleConfigurationSegment(dp.Segments[1]) {
+		return "", "", false
+	}
+	return first.Name, dp.Segments[1].Name, true
+}
+
+func simpleConfigurationSegment(seg lang.DotSegment) bool {
+	return seg.Name != "" && seg.Index == nil && !seg.Splat && !seg.Guarded
 }
 
 // checkSplat reports a splat that ends a path. A trailing `[*]` projects

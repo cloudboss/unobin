@@ -202,6 +202,22 @@ func TestEvalVarReferencedInObject(t *testing.T) {
 	}, got)
 }
 
+func TestEvalNamedConfigurationReference(t *testing.T) {
+	ctx := &EvalContext{
+		Configurations: map[string]map[string]any{
+			"aws": {
+				"east": map[string]any{"region": "us-east-1"},
+			},
+		},
+		ConfigurationRefs: map[string]ConfigRef{
+			"east": {Alias: "aws", Configuration: "east"},
+		},
+	}
+	got, err := Eval(parseValue(t, "configuration.east.region"), ctx)
+	require.NoError(t, err)
+	require.Equal(t, "us-east-1", got)
+}
+
 func TestEvalIndexedAddress(t *testing.T) {
 	ctx := &EvalContext{Resources: map[string]any{
 		"aws": map[string]any{

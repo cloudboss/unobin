@@ -36,10 +36,13 @@ type EvalContext struct {
 	Libraries map[string]*Library
 	Bindings  map[string]any
 
-	// Configurations holds the operator-supplied configuration bodies
-	// before decoding, keyed by import alias and configuration name,
-	// for configuration.<alias>.<name> references.
+	// Configurations holds supplied configuration bodies before decoding,
+	// keyed by import alias and configuration name.
 	Configurations map[string]map[string]any
+
+	// ConfigurationRefs maps source-facing configuration names to the
+	// import alias and configuration table key that store the body.
+	ConfigurationRefs map[string]ConfigRef
 
 	// Each holds named iteration bindings, @each for a @for-each body
 	// and declared names like @rule for a chained constraint form,
@@ -772,20 +775,58 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	return navigateSegments(root, p.Root.Name, p.Segments, ctx)
 }
 
-// evalConfigurationRef resolves configuration.<name> to the
-// operator-supplied configuration body of that name, then walks any
-// remaining segments into it.
+// evalConfigurationRef resolves a configuration reference to the
+// supplied configuration body, then walks any remaining segments into it.
 func evalConfigurationRef(p *lang.DotPath, ctx *EvalContext) (any, error) {
-	if len(p.Segments) < 2 || p.Segments[0].Name == "" || p.Segments[1].Name == "" {
+	refs := map[string]ConfigRef(nil)
+	if ctx != nil {
+		refs = ctx.ConfigurationRefs
+	}
+	ref, rest, display, ok := configurationPathRef(p, refs)
+	if !ok {
 		return nil, fmt.Errorf(
 			"eval: a configuration reference has the form configuration.<name>")
 	}
-	alias, name := p.Segments[0].Name, p.Segments[1].Name
-	body, ok := ctx.Configurations[alias][name]
+	body, ok := configurationBody(ctx, ref)
 	if !ok {
-		return nil, fmt.Errorf("eval: configuration.%s is not supplied", name)
+		return nil, fmt.Errorf("eval: %s is not supplied", display)
 	}
-	return navigateSegments(body, "configuration."+name, p.Segments[2:], ctx)
+	return navigateSegments(body, display, rest, ctx)
+}
+
+func configurationBody(ctx *EvalContext, ref ConfigRef) (any, bool) {
+	if ctx == nil || ctx.Configurations == nil {
+		return nil, false
+	}
+	body, ok := ctx.Configurations[ref.Alias][ref.Configuration]
+	return body, ok
+}
+
+func configurationPathRef(
+	p *lang.DotPath,
+	refs map[string]ConfigRef,
+) (ConfigRef, []lang.DotSegment, string, bool) {
+	if p == nil || p.Root == nil || p.Root.Name != "configuration" || len(p.Segments) == 0 {
+		return ConfigRef{}, nil, "", false
+	}
+	first := p.Segments[0]
+	if simpleConfigurationSegment(first) {
+		if ref, ok := refs[first.Name]; ok {
+			return ref, p.Segments[1:], "configuration." + first.Name, true
+		}
+	}
+	if len(p.Segments) < 2 || !simpleConfigurationSegment(first) ||
+		!simpleConfigurationSegment(p.Segments[1]) {
+		return ConfigRef{}, nil, "", false
+	}
+	alias := first.Name
+	name := p.Segments[1].Name
+	return ConfigRef{Alias: alias, Configuration: name},
+		p.Segments[2:], "configuration." + name, true
+}
+
+func simpleConfigurationSegment(seg lang.DotSegment) bool {
+	return seg.Name != "" && seg.Index == nil && !seg.Splat && !seg.Guarded
 }
 
 // navigateSegments walks a dot path's segments from cur, stepping into

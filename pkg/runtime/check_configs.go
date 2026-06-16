@@ -44,24 +44,26 @@ func (e *Executor) checkConfigurationBodyRefs(n *Node) []error {
 		if !ok || dp.Root == nil || dp.Root.Name != "configuration" {
 			return
 		}
-		if len(dp.Segments) < 2 || dp.Segments[0].Name == "" || dp.Segments[1].Name == "" {
+		ref, _, display, ok := configurationPathRef(
+			dp, ConfigurationRefNames(e.DAG.Nodes))
+		if !ok {
 			errs = append(errs, fmt.Errorf(
 				"%s: a configuration reference has the form configuration.<name>",
 				n.Address))
 			return
 		}
-		alias, name := dp.Segments[0].Name, dp.Segments[1].Name
-		if _, internal := configurationNodeAddress(e.DAG.Nodes, alias, name); internal {
+		if _, internal := configurationNodeAddress(
+			e.DAG.Nodes, ref.Alias, ref.Configuration); internal {
 			errs = append(errs, fmt.Errorf(
-				"%s: references configuration.%s, which this factory defines; "+
+				"%s: references %s, which this factory defines; "+
 					"only operator-supplied configurations are referenceable",
-				n.Address, name))
+				n.Address, display))
 			return
 		}
-		if _, ok := e.RawConfigurations[alias][name]; !ok {
+		if _, ok := e.RawConfigurations[ref.Alias][ref.Configuration]; !ok {
 			errs = append(errs, fmt.Errorf(
-				"%s: references configuration.%s, which is not supplied",
-				n.Address, name))
+				"%s: references %s, which is not supplied",
+				n.Address, display))
 		}
 	})
 	return errs

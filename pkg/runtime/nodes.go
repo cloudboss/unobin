@@ -587,9 +587,32 @@ func configurationNodeAddress(
 	return "", false
 }
 
+// ConfigurationRefNames returns the source-facing names of configuration
+// nodes, keyed by configuration name. Defaults are omitted because they
+// are selected by selector, not by a configuration.<name> reference.
+func ConfigurationRefNames(nodes map[string]*Node) map[string]ConfigRef {
+	out := map[string]ConfigRef{}
+	ambiguous := map[string]bool{}
+	for _, n := range nodes {
+		if n.Kind != NodeConfiguration || n.Name == "default" {
+			continue
+		}
+		if ambiguous[n.Name] {
+			continue
+		}
+		if _, exists := out[n.Name]; exists {
+			delete(out, n.Name)
+			ambiguous[n.Name] = true
+			continue
+		}
+		out[n.Name] = ConfigRef{Alias: n.Alias, Configuration: n.Name}
+	}
+	return out
+}
+
 // InternalConfigurationNames returns the configuration names a factory
 // defines internally, keyed by import alias. The runner consults it
-// when loading the stack file so an operator entry cannot collide with a
+// when loading the stack file so a stack entry cannot collide with a
 // name the factory owns.
 func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 	out := map[string]map[string]bool{}

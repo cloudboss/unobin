@@ -251,6 +251,25 @@ func TestParsedFileAcceptsCompilerFactoryBody(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidateAcceptsCompilerConfigurationSyntax(t *testing.T) {
+	_, body, err := compile.ParseFactorySource("factory.ub", []byte(`factory: {
+  configurations: {
+    east: aws { region: 'us-east-1' }
+  }
+  resources: {
+    thing: aws.widget { @configuration: configuration.east }
+  }
+}
+`))
+	require.NoError(t, err)
+
+	info := testInfo(t, body)
+	info.Libraries["aws"] = awsModuleWithConfig()
+	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
+	require.NoError(t, err)
+	require.Equal(t, "OK\n", out)
+}
+
 func TestApplyAndOutput(t *testing.T) {
 	info := testInfo(t, `
 actions: { core.echo.hi: { echo: 'hello world' } }

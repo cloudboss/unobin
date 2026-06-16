@@ -59,11 +59,15 @@ factory: {
 		Comments: sf.Comments,
 	}
 
-	checker := NewSyntax(root, sf.Factory.Body, nil)
+	checker := NewSyntax(root, sf.Factory.Body, map[string]*runtime.Library{
+		"aws": {},
+		"k8s": {},
+	})
 	dag := checker.DAG()
 
 	require.Contains(t, dag.Nodes, "resource.apps")
 	require.Contains(t, dag.Edges["resource.apps"], "configuration.formal")
+	require.Empty(t, checkRefMessages(t, checker.References(nil)))
 }
 
 func TestCheckReferencesUnknownLocal(t *testing.T) {
