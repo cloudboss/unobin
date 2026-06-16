@@ -45,18 +45,6 @@ func promoteAtomic(id *Ident) (TypeExpr, error) {
 	return &TypeAtomic{S: id.S, Name: id.Name}, nil
 }
 
-// typeConstructorNames are the call-form type constructors. promoteCall
-// below dispatches each one; keep the two in sync when adding a
-// constructor.
-var typeConstructorNames = map[string]struct{}{
-	"list":     {},
-	"map":      {},
-	"tuple":    {},
-	"object":   {},
-	"optional": {},
-	"open":     {},
-}
-
 func promoteCall(c *Call) (TypeExpr, error) {
 	if c.Library != nil {
 		return nil, Errorf(ErrType, c.S.Start,
