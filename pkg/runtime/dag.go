@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // DAG is a stack's runtime dependency graph: every addressable node
@@ -23,6 +24,17 @@ type DAG struct {
 // before edges are computed.
 func BuildDAG(f *lang.File, libs map[string]*Library) *DAG {
 	nodes := ExtractNodes(f, libs)
+	return buildDAG(nodes, lang.FieldMap(localsBlock(f)))
+}
+
+// BuildSyntaxDAG builds the dependency graph from a typed factory or
+// composite body.
+func BuildSyntaxDAG(body syntax.FactoryBody, libs map[string]*Library) *DAG {
+	nodes := ExtractSyntaxNodes(body, libs)
+	return buildDAG(nodes, syntaxLocalMap(body.Locals))
+}
+
+func buildDAG(nodes []*Node, rootLocals map[string]lang.Expr) *DAG {
 	g := &DAG{
 		Nodes: make(map[string]*Node, len(nodes)),
 		Edges: make(map[string][]string, len(nodes)),
@@ -30,12 +42,20 @@ func BuildDAG(f *lang.File, libs map[string]*Library) *DAG {
 	for _, n := range nodes {
 		g.Nodes[n.Address] = n
 	}
-	sl := newScopeLocals(f, g.Nodes)
+	sl := newScopeLocals(rootLocals, g.Nodes)
 	boundaryRefs := map[string][]string{}
 	for _, n := range nodes {
 		g.Edges[n.Address] = computeDeps(n, g.Nodes, sl, boundaryRefs)
 	}
 	return g
+}
+
+func syntaxLocalMap(decls []syntax.LocalDecl) map[string]lang.Expr {
+	out := map[string]lang.Expr{}
+	for _, decl := range decls {
+		out[decl.Name.Name] = decl.Value
+	}
+	return out
 }
 
 // scopeLocals resolves the `locals:` declarations for an evaluation
@@ -49,9 +69,9 @@ type scopeLocals struct {
 	cache map[string]map[string]lang.Expr
 }
 
-func newScopeLocals(f *lang.File, nodes map[string]*Node) *scopeLocals {
+func newScopeLocals(root map[string]lang.Expr, nodes map[string]*Node) *scopeLocals {
 	return &scopeLocals{
-		stack: lang.FieldMap(localsBlock(f)),
+		stack: root,
 		nodes: nodes,
 		cache: map[string]map[string]lang.Expr{},
 	}

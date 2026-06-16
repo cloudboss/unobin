@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // NodeKind tags a Node with its source block.
@@ -113,6 +114,13 @@ func ExtractNodes(f *lang.File, libs map[string]*Library) []*Node {
 	return extractNodes(f, "", libs)
 }
 
+// ExtractSyntaxNodes walks a typed factory or composite body and returns
+// every addressable node in source order. The body is assumed to be
+// validated. Composite internals still use each composite's runtime body.
+func ExtractSyntaxNodes(body syntax.FactoryBody, libs map[string]*Library) []*Node {
+	return extractSyntaxNodes(body, "", libs)
+}
+
 // extractNodes is the recursive workhorse. parent is the address of the
 // enclosing composite call site, or "" at root; each non-output node
 // gets its Composite set to parent, and resource/data/action addresses
@@ -144,6 +152,53 @@ func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node
 		}
 	}
 	return nodes
+}
+
+func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]*Library) []*Node {
+	var nodes []*Node
+	nodes = append(nodes, extractSyntaxKind(body.Resources, NodeResource, parent, libs)...)
+	nodes = append(nodes, extractSyntaxKind(body.Data, NodeData, parent, libs)...)
+	nodes = append(nodes, extractSyntaxKind(body.Actions, NodeAction, parent, libs)...)
+	if parent == "" {
+		nodes = append(nodes, extractSyntaxConfigurations(body.Configurations)...)
+		nodes = append(nodes, extractSyntaxOutputs(body.Outputs)...)
+	}
+	return nodes
+}
+
+func extractSyntaxKind(
+	decls []syntax.NodeDecl,
+	kind NodeKind,
+	parent string,
+	libs map[string]*Library,
+) []*Node {
+	out := make([]*Node, 0, len(decls))
+	for _, decl := range decls {
+		alias := decl.Selector.Alias.Name
+		typ := decl.Selector.Export.Name
+		name := decl.Name.Name
+		addr := composeNameAddress(parent, kind, name)
+		if composite := lookupComposite(libs, alias, kind, typ); composite != nil {
+			out = append(out, expandSyntaxComposite(addr, parent,
+				alias, typ, name, kind, decl.Body, composite, libs)...)
+			continue
+		}
+		node := &Node{
+			Address:       addr,
+			Kind:          kind,
+			Alias:         alias,
+			Type:          typ,
+			Name:          name,
+			Body:          decl.Body,
+			Composite:     parent,
+			ForEach:       extractForEach(decl.Body),
+			Configuration: extractSyntaxConfiguration(decl.Body, alias),
+			LockName:      extractLockName(decl.Body),
+			Timeout:       extractTimeout(decl.Body),
+		}
+		out = append(out, node)
+	}
+	return out
 }
 
 // extractKind walks one kind block (resources, data, or actions) and
@@ -334,6 +389,47 @@ func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 	return nil
 }
 
+func extractSyntaxConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return nil
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configurations" {
+			continue
+		}
+		mapping, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			return nil
+		}
+		out := map[string]ConfigRef{}
+		for _, entry := range mapping.Fields {
+			if entry.Key.Kind != lang.FieldIdent {
+				continue
+			}
+			if ref, ok := syntaxConfigurationRemap(entry.Key.Name, entry.Value); ok {
+				out[entry.Key.Name] = ref
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return nil
+}
+
+func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
+	dp, ok := expr.(*lang.DotPath)
+	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
+		return ConfigRef{}, false
+	}
+	if dp.Root.Name == "configuration" {
+		return ConfigRef{Alias: alias, Configuration: dp.Segments[0].Name}, true
+	}
+	return ConfigRef{Alias: dp.Root.Name, Configuration: dp.Segments[0].Name}, true
+}
+
 // extractConfiguration reads `@configuration: <alias>.<configuration>`
 // from a body and returns the configuration segment. The leading alias
 // is expected to match the node's own import alias; a mismatch or
@@ -357,6 +453,27 @@ func extractConfiguration(body lang.Expr, alias string) string {
 			return ""
 		}
 		return dp.Segments[0].Name
+	}
+	return ""
+}
+
+func extractSyntaxConfiguration(body lang.Expr, alias string) string {
+	obj, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return ""
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configuration" {
+			continue
+		}
+		dp, ok := fld.Value.(*lang.DotPath)
+		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
+			return ""
+		}
+		if dp.Root.Name == "configuration" || dp.Root.Name == alias {
+			return dp.Segments[0].Name
+		}
+		return ""
 	}
 	return ""
 }
@@ -413,6 +530,30 @@ func expandComposite(callSiteAddr, parent, alias, typ, name string,
 		Libraries:           scopeMods,
 		ForEach:             extractForEach(args),
 		ConfigurationsRemap: extractConfigurationsRemap(args),
+	}}
+	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
+	return out
+}
+
+func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
+	kind NodeKind, args lang.Expr, composite *CompositeType,
+	fallMods map[string]*Library) []*Node {
+	scopeMods := composite.Libraries
+	if scopeMods == nil {
+		scopeMods = fallMods
+	}
+	out := []*Node{{
+		Address:             callSiteAddr,
+		Kind:                kind,
+		Alias:               alias,
+		Type:                typ,
+		Name:                name,
+		Body:                args,
+		Composite:           parent,
+		CompositeBody:       composite.Body,
+		Libraries:           scopeMods,
+		ForEach:             extractForEach(args),
+		ConfigurationsRemap: extractSyntaxConfigurationsRemap(args),
 	}}
 	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
 	return out
@@ -518,6 +659,32 @@ func selectorConfigurationNode(fld *lang.Field) *Node {
 	}
 }
 
+func extractSyntaxConfigurations(decls []syntax.ConfigurationDecl) []*Node {
+	out := make([]*Node, 0, len(decls))
+	for _, decl := range decls {
+		alias := decl.Selector.Name
+		name := "default"
+		if decl.Name != nil {
+			name = decl.Name.Name
+		}
+		out = append(out, &Node{
+			Address: selectorConfigurationAddress(alias, name),
+			Kind:    NodeConfiguration,
+			Alias:   alias,
+			Name:    name,
+			Body:    syntaxConfigurationDeclExpr(decl),
+		})
+	}
+	return out
+}
+
+func syntaxConfigurationDeclExpr(decl syntax.ConfigurationDecl) lang.Expr {
+	if decl.Value != nil {
+		return decl.Value
+	}
+	return decl.Body
+}
+
 func extractOutputs(block *lang.ObjectLit) []*Node {
 	var out []*Node
 	for _, fld := range block.Fields {
@@ -532,6 +699,23 @@ func extractOutputs(block *lang.ObjectLit) []*Node {
 			Address: "output." + fld.Key.Name,
 			Kind:    NodeOutput,
 			Name:    fld.Key.Name,
+			Body:    inner,
+		})
+	}
+	return out
+}
+
+func extractSyntaxOutputs(decls []syntax.OutputDecl) []*Node {
+	out := make([]*Node, 0, len(decls))
+	for _, decl := range decls {
+		inner := lang.OutputValueExpr(decl.Body)
+		if inner == nil {
+			continue
+		}
+		out = append(out, &Node{
+			Address: "output." + decl.Name.Name,
+			Kind:    NodeOutput,
+			Name:    decl.Name.Name,
 			Body:    inner,
 		})
 	}

@@ -372,7 +372,8 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		if err := e.finalizePendingReads(rs); err != nil {
 			return nil, err
 		}
-		upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.Source, e.DAG.Nodes))
+		upgradeActionRerun(plan.Steps, e.DAG,
+			newScopeLocals(lang.FieldMap(localsBlock(e.Source)), e.DAG.Nodes))
 	}
 
 	if len(constraintErrs) > 0 {

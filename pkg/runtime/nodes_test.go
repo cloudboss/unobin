@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -15,19 +16,101 @@ func parseStack(t *testing.T, src string) *lang.File {
 	return f
 }
 
+type syntaxRuntimeFixture struct {
+	body syntax.FactoryBody
+	file *lang.File
+}
+
 func parseSyntaxFactory(t *testing.T, src string) *lang.File {
+	t.Helper()
+	return parseSyntaxFactoryFixture(t, src).file
+}
+
+func parseSyntaxFactoryFixture(t *testing.T, src string) syntaxRuntimeFixture {
 	t.Helper()
 	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, syntax.FileFactory, f.Kind)
 	require.NotNil(t, f.Factory)
-	return &lang.File{
-		S:        f.S,
-		Kind:     lang.FileFactory,
-		Path:     f.Path,
-		Body:     syntax.RuntimeFactoryBodyObject(f.Factory.Body),
-		Comments: f.Comments,
+	return syntaxRuntimeFixture{
+		body: f.Factory.Body,
+		file: syntaxBodyFile(f.S, lang.FileFactory, f.Path, f.Factory.Body, f.Comments),
 	}
+}
+
+func parseSyntaxCompositeFixture(t *testing.T, src string) syntaxRuntimeFixture {
+	t.Helper()
+	f, err := syntax.ParseSource("library.ub", []byte(src))
+	require.NoError(t, err)
+	require.Equal(t, syntax.FileLibrary, f.Kind)
+	require.NotNil(t, f.Library)
+	require.Len(t, f.Library.Exports, 1)
+	body := f.Library.Exports[0].Body
+	return syntaxRuntimeFixture{
+		body: body,
+		file: syntaxBodyFile(f.Library.Exports[0].S, lang.FileExportedType, f.Path, body, f.Comments),
+	}
+}
+
+func syntaxBodyFile(
+	span lang.Span,
+	kind lang.FileKind,
+	path string,
+	body syntax.FactoryBody,
+	comments []lang.Comment,
+) *lang.File {
+	return &lang.File{
+		S:        span,
+		Kind:     kind,
+		Path:     path,
+		Body:     syntax.RuntimeFactoryBodyObject(body),
+		Comments: comments,
+	}
+}
+
+type dagNodeSummary struct {
+	Address       string
+	Kind          NodeKind
+	Alias         string
+	Type          string
+	Name          string
+	Composite     string
+	IsComposite   bool
+	Configuration string
+	Edges         []string
+}
+
+func requireSyntaxDAGMatch(t *testing.T, fixture syntaxRuntimeFixture, libs map[string]*Library) {
+	t.Helper()
+	legacy := BuildDAG(fixture.file, libs)
+	typed := BuildSyntaxDAG(fixture.body, libs)
+	require.Equal(t, dagSummary(legacy), dagSummary(typed))
+}
+
+func dagSummary(g *DAG) []dagNodeSummary {
+	addresses := make([]string, 0, len(g.Nodes))
+	for addr := range g.Nodes {
+		addresses = append(addresses, addr)
+	}
+	slices.Sort(addresses)
+	out := make([]dagNodeSummary, 0, len(addresses))
+	for _, addr := range addresses {
+		n := g.Nodes[addr]
+		edges := slices.Clone(g.Edges[addr])
+		slices.Sort(edges)
+		out = append(out, dagNodeSummary{
+			Address:       n.Address,
+			Kind:          n.Kind,
+			Alias:         n.Alias,
+			Type:          n.Type,
+			Name:          n.Name,
+			Composite:     n.Composite,
+			IsComposite:   n.IsComposite(),
+			Configuration: n.Configuration,
+			Edges:         edges,
+		})
+	}
+	return out
 }
 
 func TestExtractNodesEmpty(t *testing.T) {
@@ -80,6 +163,78 @@ outputs:   { vpc-id: { value: resource.aws.vpc.main.id }, static: { value: 'lite
 	require.Equal(t, NodeData, got[1].Kind)
 	require.Equal(t, NodeAction, got[2].Kind)
 	require.Equal(t, NodeOutput, got[3].Kind)
+}
+
+func TestExtractSyntaxNodesMatchesFactoryDAG(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  configurations: {
+    std { token: var.token }
+    formal: std { prefix: resource.hello.path }
+  }
+  resources: {
+    hello: std.fs-file { path: '/tmp/hello' }
+    selected: std.fs-file { @configuration: configuration.formal, path: resource.hello.path }
+  }
+  data: { lookup: std.file-info { path: resource.selected.path } }
+  actions: { show: std.exec-command { argv: ['echo', data.lookup.path] } }
+  outputs: { path: { value: resource.selected.path } }
+}
+`)
+
+	requireSyntaxDAGMatch(t, fixture, nil)
+}
+
+func TestExtractSyntaxNodesMatchesCompositeDAG(t *testing.T) {
+	fixture := parseSyntaxCompositeFixture(t, `
+greeting: resource {
+  inputs: { path: { type: string } }
+  locals: { target: var.path }
+  resources: { file: local.fs-file { path: local.target } }
+  outputs: { path: { value: resource.file.path } }
+}
+`)
+
+	requireSyntaxDAGMatch(t, fixture, nil)
+}
+
+func TestExtractSyntaxNodesMatchesNestedCompositeDAG(t *testing.T) {
+	cluster := parseSyntaxCompositeFixture(t, `
+cluster: resource {
+  inputs: { path: { type: string } }
+  resources: { file: local.fs-file { path: var.path } }
+}
+`)
+	layer := parseSyntaxCompositeFixture(t, `
+layer: resource {
+  inputs: { target: { type: string } }
+  resources: { only: inner.cluster { path: var.target } }
+}
+`)
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    seed: local.fs-file { path: '/tmp/seed' }
+    app: outer.layer { target: resource.seed.path }
+  }
+}
+`)
+	libs := map[string]*Library{
+		"outer": {
+			Name: "outer",
+			ResourceComposites: map[string]*CompositeType{
+				"layer": {Name: "layer", Body: layer.file},
+			},
+		},
+		"inner": {
+			Name: "inner",
+			ResourceComposites: map[string]*CompositeType{
+				"cluster": {Name: "cluster", Body: cluster.file},
+			},
+		},
+	}
+
+	requireSyntaxDAGMatch(t, fixture, libs)
 }
 
 func TestExtractNodesOutputBody(t *testing.T) {

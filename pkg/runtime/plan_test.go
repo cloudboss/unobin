@@ -1574,7 +1574,7 @@ actions:   { core.command.notify: { argv: ['echo', local.thing-id] } }
 `
 	f := parseStack(t, src)
 	dag := BuildDAG(f, nil)
-	sl := newScopeLocals(f, dag.Nodes)
+	sl := newScopeLocals(lang.FieldMap(localsBlock(f)), dag.Nodes)
 
 	cases := []struct {
 		name     string
