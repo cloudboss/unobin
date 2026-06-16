@@ -410,7 +410,7 @@ outputs: {
 	assert.Contains(t, errs.Error(), "library file must contain composite declarations")
 }
 
-func TestRuntimeFactoryBodyObjectKeepsConfigurationDeclarations(t *testing.T) {
+func TestRuntimeFactoryBodyObjectKeepsConfigurationReferences(t *testing.T) {
 	f := parseFile(t, "factory.ub", `
 factory: {
   configurations: {
@@ -442,17 +442,17 @@ factory: {
 	want := `configurations: {
   greet {}
   formal: greet {
-    prefix: configuration.greet.formal.prefix
+    prefix: configuration.formal.prefix
   }
 }
 
 actions: {
   say: greet.say {
-    @configuration: greet.formal
-    message:        configuration.greet.formal.prefix
+    @configuration: configuration.formal
+    message:        configuration.formal.prefix
   }
   wrapped: greeter.greeting {
-    @configurations: { greet: greet.formal }
+    @configurations: { greet: configuration.formal }
     message:         'wrapped'
   }
 }

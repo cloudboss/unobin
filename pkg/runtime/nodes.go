@@ -371,13 +371,8 @@ func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 			if entry.Key.Kind != lang.FieldIdent {
 				continue
 			}
-			dp, ok := entry.Value.(*lang.DotPath)
-			if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-				continue
-			}
-			out[entry.Key.Name] = ConfigRef{
-				Alias:         dp.Root.Name,
-				Configuration: dp.Segments[0].Name,
+			if ref, ok := syntaxConfigurationRemap(entry.Key.Name, entry.Value); ok {
+				out[entry.Key.Name] = ref
 			}
 		}
 		if len(out) == 0 {
@@ -446,10 +441,13 @@ func extractConfiguration(body lang.Expr, alias string) string {
 		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 			return ""
 		}
-		if dp.Root.Name != alias {
-			return ""
+		if dp.Root.Name == "configuration" {
+			return dp.Segments[0].Name
 		}
-		return dp.Segments[0].Name
+		if dp.Root.Name == alias {
+			return dp.Segments[0].Name
+		}
+		return ""
 	}
 	return ""
 }

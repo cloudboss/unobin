@@ -506,9 +506,7 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 
 // RuntimeFactoryBodyObject returns the generic AST object runtime code reads.
 func RuntimeFactoryBodyObject(body FactoryBody) *parse.ObjectLit {
-	obj := factoryBodyObject(body, configurationDeclsSelectorObject, nodeDeclsSelectorObject)
-	expandConfigurationRefs(obj, body.Configurations)
-	return obj
+	return factoryBodyObject(body, configurationDeclsSelectorObject, nodeDeclsSelectorObject)
 }
 
 // FactoryBodyObject returns the generic AST object for a lowered factory body.
@@ -889,25 +887,6 @@ type configurationRef struct {
 	name  string
 }
 
-func expandConfigurationRefs(obj *parse.ObjectLit, decls []ConfigurationDecl) {
-	refs := configurationRefs(decls)
-	if len(refs.named) == 0 && len(refs.pairs) == 0 {
-		return
-	}
-	lang.Walk(obj, func(expr parse.Expr) {
-		object, ok := expr.(*parse.ObjectLit)
-		if ok {
-			rewriteConfigurationMeta(object, refs)
-		}
-	})
-	lang.Walk(obj, func(expr parse.Expr) {
-		dp, ok := expr.(*parse.DotPath)
-		if ok {
-			expandConfigurationDotPath(dp, refs)
-		}
-	})
-}
-
 func configurationRefs(decls []ConfigurationDecl) configurationRefIndex {
 	refs := configurationRefIndex{
 		named: map[string]configurationRef{},
@@ -922,87 +901,6 @@ func configurationRefs(decls []ConfigurationDecl) configurationRefIndex {
 		refs.pairs[decl.Selector.Name+"."+name] = true
 	}
 	return refs
-}
-
-func rewriteConfigurationMeta(obj *parse.ObjectLit, refs configurationRefIndex) {
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != parse.FieldIdent {
-			continue
-		}
-		switch fld.Key.Name {
-		case "@configuration":
-			fld.Value = configurationMetaValue(fld.Value, refs)
-		case "@configurations":
-			remap, ok := fld.Value.(*parse.ObjectLit)
-			if !ok {
-				continue
-			}
-			for _, entry := range remap.Fields {
-				entry.Value = configurationMetaValue(entry.Value, refs)
-			}
-		}
-	}
-}
-
-func configurationMetaValue(expr parse.Expr, refs configurationRefIndex) parse.Expr {
-	dp, ok := expr.(*parse.DotPath)
-	if !ok || dp.Root == nil {
-		return expr
-	}
-	ref, ok := configurationMetaRef(dp, refs)
-	if !ok {
-		return expr
-	}
-	return &parse.DotPath{
-		S:    dp.S,
-		Root: &parse.Ident{S: dp.Root.S, Name: ref.alias},
-		Segments: []parse.DotSegment{{
-			S:    dp.S,
-			Name: ref.name,
-		}},
-	}
-}
-
-func configurationMetaRef(
-	dp *parse.DotPath,
-	refs configurationRefIndex,
-) (configurationRef, bool) {
-	if dp.Root.Name != "configuration" {
-		if len(dp.Segments) != 1 || !simpleDotSegment(dp.Segments[0]) {
-			return configurationRef{}, false
-		}
-		ref := configurationRef{alias: dp.Root.Name, name: dp.Segments[0].Name}
-		return ref, refs.pairs[ref.alias+"."+ref.name]
-	}
-	if len(dp.Segments) == 1 && simpleDotSegment(dp.Segments[0]) {
-		ref, ok := refs.named[dp.Segments[0].Name]
-		return ref, ok
-	}
-	if len(dp.Segments) == 2 && simpleDotSegment(dp.Segments[0]) &&
-		simpleDotSegment(dp.Segments[1]) {
-		ref := configurationRef{alias: dp.Segments[0].Name, name: dp.Segments[1].Name}
-		return ref, refs.pairs[ref.alias+"."+ref.name]
-	}
-	return configurationRef{}, false
-}
-
-func expandConfigurationDotPath(dp *parse.DotPath, refs configurationRefIndex) {
-	if dp.Root == nil || dp.Root.Name != "configuration" || len(dp.Segments) == 0 {
-		return
-	}
-	first := dp.Segments[0]
-	if !simpleDotSegment(first) {
-		return
-	}
-	if len(dp.Segments) >= 2 && simpleDotSegment(dp.Segments[1]) &&
-		refs.pairs[first.Name+"."+dp.Segments[1].Name] {
-		return
-	}
-	ref, ok := refs.named[first.Name]
-	if !ok {
-		return
-	}
-	dp.Segments = append([]parse.DotSegment{{S: first.S, Name: ref.alias}}, dp.Segments...)
 }
 
 func simpleDotSegment(seg parse.DotSegment) bool {

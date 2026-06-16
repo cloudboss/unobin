@@ -508,6 +508,28 @@ resources: { net.cluster.east: { @configurations: { aws: aws.east2 }, name: 'eas
 		got[0].ConfigurationsRemap)
 }
 
+func TestExtractCompositeReadsSourceConfigurationRemap(t *testing.T) {
+	src := `
+imports:   { net: 'github.com/example/net' }
+resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, name: 'east' } }
+`
+	composite := &CompositeType{
+		Body: parseStack(t, `description: 'noop'`),
+	}
+	libs := map[string]*Library{
+		"net": {
+			Name:               "net",
+			ResourceComposites: map[string]*CompositeType{"cluster": composite},
+		},
+	}
+	got := ExtractNodes(parseStack(t, src), libs)
+	require.NotEmpty(t, got)
+	require.True(t, got[0].IsComposite())
+	require.Equal(t,
+		map[string]ConfigRef{"aws": {Alias: "aws", Configuration: "east2"}},
+		got[0].ConfigurationsRemap)
+}
+
 func TestExtractConfigurationsRemapKeepsMismatchedAliasForValidation(t *testing.T) {
 	src := `
 resources: { net.cluster.east: { @configurations: { aws: gcp.east2 }, name: 'east' } }
