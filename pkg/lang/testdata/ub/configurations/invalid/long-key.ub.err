@@ -1,1 +1,1 @@
-configuration key aws.default.extra must have two segments: alias.name
+configuration key aws.default.extra uses dotted syntax; write aws {} or east: aws {}

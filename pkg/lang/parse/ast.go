@@ -326,8 +326,8 @@ type DotSegment struct {
 
 // Call is a function call: `format('%s-%s' a b)`. Args are whitespace-
 // separated. The callee is either a bare identifier (built-in: `range`,
-// `format`, etc.) or a library-qualified dotted name (`alias.name`). For
-// now we model the callee as its raw text; the resolver disambiguates.
+// `format`, etc.) or a qualified dotted function name. For now we model
+// the callee as its raw text; the resolver disambiguates.
 type Call struct {
 	S       Span
 	Callee  *Ident // Simple name; nil if Library is set.

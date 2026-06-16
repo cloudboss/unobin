@@ -961,12 +961,12 @@ func configurationKey(
 ) (Ident, Ident, bool) {
 	if fld.Key.Kind != parse.FieldPath {
 		errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-			"configuration must be declared with a dotted alias.name key")
+			"configuration entries use selector-body syntax: aws {} or east: aws {}")
 		return Ident{}, Ident{}, false
 	}
 	if len(fld.Key.Path) != 2 {
 		errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-			"configuration key %s must have two segments: alias.name",
+			"configuration key %s uses dotted syntax; write aws {} or east: aws {}",
 			strings.Join(fld.Key.Path, "."))
 		return Ident{}, Ident{}, false
 	}

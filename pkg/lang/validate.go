@@ -1161,7 +1161,7 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 // evaluate to an object at run time. No meta keys are valid in an object body.
 func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
-	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
+	for key, fld := range configurationDeclEntries(block, errs) {
 		if body, ok := fld.Value.(*ObjectLit); ok {
 			checkBodyMetaKeys(body, "configuration", key, nil, errs)
 		}
@@ -1331,7 +1331,7 @@ func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 // by the file's locals block.
 func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
-	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
+	for key, fld := range configurationDeclEntries(block, errs) {
 		if body, ok := fld.Value.(*ObjectLit); ok {
 			checkBodyMetaKeys(body, "configuration", key, nil, errs)
 		}
@@ -1798,6 +1798,37 @@ func validateDeclBlock(block *ObjectLit, what, form string, greenlist map[string
 		checkBodyMetaKeys(body, what, key, greenlist, errs)
 	}
 	return errs
+}
+
+// configurationDeclEntries walks an internal generic configurations block,
+// reporting key errors and duplicates to errs and yielding every keyed entry.
+func configurationDeclEntries(block *ObjectLit, errs *ErrorList) iter.Seq2[string, *Field] {
+	return func(yield func(string, *Field) bool) {
+		seen := make(map[string]Position, len(block.Fields))
+		for _, fld := range block.Fields {
+			if fld.Key.Kind != FieldPath {
+				errs.Addf(ErrSchema, fld.Key.S.Start,
+					"configuration entries use selector-body syntax: aws {} or east: aws {}")
+				continue
+			}
+			if len(fld.Key.Path) != 2 {
+				errs.Addf(ErrSchema, fld.Key.S.Start,
+					"configuration key %s uses dotted syntax; write aws {} or east: aws {}",
+					strings.Join(fld.Key.Path, "."))
+				continue
+			}
+			key := strings.Join(fld.Key.Path, ".")
+			if prev, dup := seen[key]; dup {
+				errs.Addf(ErrSchema, fld.Key.S.Start,
+					"duplicate configuration %s (first defined at %s)", key, prev)
+				continue
+			}
+			seen[key] = fld.Key.S.Start
+			if !yield(key, fld) {
+				return
+			}
+		}
+	}
 }
 
 // declEntries walks a declaration-style block, reporting key errors
