@@ -22,6 +22,11 @@ import (
 var DepsCmd = &cobra.Command{
 	Use:   "deps",
 	Short: "Manage a factory's dependencies",
+	Long: `Manage dependency floors in manifest.ub and selected versions in lock.ub.
+
+A factory or UB library writes imports in .ub source. The manifest records
+its direct dependency floors, and the lock records the versions and source
+hashes the compiler should use.`,
 }
 
 var (

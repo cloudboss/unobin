@@ -252,6 +252,7 @@ func TestConfigurationFile(t *testing.T) {
 	checks := []string{
 		"package aws",
 		`"github.com/cloudboss/unobin/pkg/sdk/cfg"`,
+		"aws { ... } or name: aws { ... }",
 		"type ProviderConfig struct {",
 		"Region cfg.String",
 		"Profile *cfg.String",
@@ -263,6 +264,9 @@ func TestConfigurationFile(t *testing.T) {
 		if !strings.Contains(s, c) {
 			t.Errorf("expected generated source to contain %q\n\nSource:\n%s", c, s)
 		}
+	}
+	if strings.Contains(s, "aws.default") {
+		t.Errorf("generated source should use selector-body configuration examples:\n%s", s)
 	}
 }
 
