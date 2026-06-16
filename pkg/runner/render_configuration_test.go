@@ -36,12 +36,12 @@ func TestPrintPlanShowsPendingConfigurationAndDeferredReads(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	want := `  + resource.fix.config-echo.app
-      @configuration: <fix.cluster>
+      @configuration: <configuration.cluster>
       name: 'apps'
 
 Deferred reads (2):
-  data.fix.probe.p    @configuration: fix.cluster pending; read deferred to apply
-  resource.fix.other.b    @configuration: fix.cluster pending; drift unchecked this plan
+  data.fix.probe.p    @configuration: configuration.cluster pending; read deferred to apply
+  resource.fix.other.b    @configuration: configuration.cluster pending; drift unchecked this plan
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 `

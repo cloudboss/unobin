@@ -32,7 +32,10 @@ func (r ConfigRef) String() string {
 	if r.IsZero() {
 		return ""
 	}
-	return r.Alias + "." + r.Name
+	if r.Name == "default" {
+		return "default configuration for " + r.Alias
+	}
+	return "configuration." + r.Name
 }
 
 func (r ConfigRef) stateRef() (*state.ConfigurationRef, error) {

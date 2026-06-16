@@ -169,7 +169,11 @@ func TestSnapshotConfigurationRefJSON(t *testing.T) {
 
 	got, err := DecodeSnapshot(b)
 	require.NoError(t, err)
-	require.Equal(t, "aws.east", got.Entries[0].Configuration.Compact())
+	require.Equal(t, &ConfigurationRef{
+		Kind:     "named",
+		Name:     "east",
+		Selector: Selector{Alias: "aws"},
+	}, got.Entries[0].Configuration)
 }
 
 func TestSnapshotActionEntry(t *testing.T) {

@@ -1248,6 +1248,13 @@ func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
 	require.Nil(t, e.configFor(leaf))
 }
 
+func TestConfigRefStringUsesSourceNames(t *testing.T) {
+	require.Equal(t, "", ConfigRef{}.String())
+	require.Equal(t, "configuration.east", ConfigRef{Alias: "aws", Name: "east"}.String())
+	require.Equal(t, "default configuration for aws",
+		ConfigRef{Alias: "aws", Name: "default"}.String())
+}
+
 func TestConfigRef(t *testing.T) {
 	cfgs := ConfigTable{
 		{Alias: "aws", Name: "default"}: "default-cfg",

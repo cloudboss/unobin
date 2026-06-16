@@ -65,16 +65,6 @@ func ValidateConfigurationRef(ref *ConfigurationRef) error {
 	return nil
 }
 
-func (ref *ConfigurationRef) Compact() string {
-	if ref == nil {
-		return ""
-	}
-	if ref.Kind == "default" {
-		return ref.Selector.Alias + ".default"
-	}
-	return ref.Selector.Alias + "." + ref.Name
-}
-
 func ParseConfigurationRefJSON(raw json.RawMessage) (*ConfigurationRef, error) {
 	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return nil, nil

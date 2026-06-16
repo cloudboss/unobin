@@ -373,7 +373,7 @@ func TestDestroyReadUnknownConfigurationRefFails(t *testing.T) {
 	_, err = exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "resource.fix.config-echo.app")
-	require.Contains(t, err.Error(), "fix.ghost")
+	require.Contains(t, err.Error(), "configuration.ghost")
 }
 
 // configProbeData records the configuration its Read receives.
