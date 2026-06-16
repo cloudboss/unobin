@@ -11,7 +11,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/spf13/cobra"
 )
@@ -39,77 +38,55 @@ func newSchemaCmd(info Info) *cobra.Command {
 }
 
 func doSchema(cmd *cobra.Command, info Info) error {
-	f, dag, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
 	out := cmd.OutOrStdout()
-	inputs := lang.TopLevelBlock(f, "inputs")
-	if inputs == nil || len(inputs.Fields) == 0 {
+	inputs := parsed.inputs()
+	if len(inputs) == 0 {
 		fmt.Fprintln(out, "No inputs declared.")
-		printOutputSchema(out, f)
-		printConfigurationSchema(out, f, dag, info)
+		printOutputSchema(out, parsed)
+		printConfigurationSchema(out, parsed, info)
 		return nil
 	}
-	for _, fld := range inputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent {
-			continue
+	for _, input := range inputs {
+		typeStr := printType(input.typeExpr)
+		defaultStr := ""
+		if input.defaultExpr != nil {
+			defaultStr = printType(input.defaultExpr)
 		}
-		decl, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		typeStr := "?"
-		var description, defaultStr string
-		for _, df := range decl.Fields {
-			if df.Key.Kind != lang.FieldIdent {
-				continue
-			}
-			switch df.Key.Name {
-			case "type":
-				typeStr = printType(df.Value)
-			case "description":
-				if s, ok := df.Value.(*lang.StringLit); ok {
-					description = s.Value
-				}
-			case "default":
-				defaultStr = printType(df.Value)
-			}
-		}
-		fmt.Fprintf(out, "%s: %s", fld.Key.Name, typeStr)
+		fmt.Fprintf(out, "%s: %s", input.name, typeStr)
 		if defaultStr != "" {
 			fmt.Fprintf(out, "  default: %s", defaultStr)
 		}
-		if description != "" {
-			fmt.Fprintf(out, "  -- %s", description)
+		if input.description != "" {
+			fmt.Fprintf(out, "  -- %s", input.description)
 		}
 		fmt.Fprintln(out)
 	}
-	printOutputSchema(out, f)
-	printConfigurationSchema(out, f, dag, info)
+	printOutputSchema(out, parsed)
+	printConfigurationSchema(out, parsed, info)
 	return nil
 }
 
 // printOutputSchema lists the factory's declared outputs: each name
 // with its sensitivity marker and declared description. Values are
 // runtime results, so only the metadata prints here.
-func printOutputSchema(out io.Writer, f *lang.File) {
-	outputs := lang.TopLevelBlock(f, "outputs")
-	if outputs == nil || len(outputs.Fields) == 0 {
+func printOutputSchema(out io.Writer, parsed *parsedFactory) {
+	outputs := parsed.outputs()
+	if len(outputs) == 0 {
 		return
 	}
-	sensitive := lang.SensitiveOutputs(outputs)
+	sensitive := parsed.sensitiveOutputs()
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "outputs:")
-	for _, fld := range outputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		fmt.Fprintf(out, "  %s", fld.Key.Name)
-		if sensitive[fld.Key.Name] {
+	for _, output := range outputs {
+		fmt.Fprintf(out, "  %s", output.name)
+		if sensitive[output.name] {
 			fmt.Fprint(out, " (sensitive)")
 		}
-		if d := lang.OutputDescription(fld.Value); d != "" {
+		if d := lang.OutputDescription(output.body); d != "" {
 			fmt.Fprintf(out, "  -- %s", d)
 		}
 		fmt.Fprintln(out)
@@ -120,7 +97,7 @@ func printOutputSchema(out io.Writer, f *lang.File) {
 // the factory defines internally, the names the stack file must supply
 // (every selection some node makes that is not internal), and the
 // configuration's fields.
-func printConfigurationSchema(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
+func printConfigurationSchema(out io.Writer, parsed *parsedFactory, info Info) {
 	var aliases []string
 	for alias, lib := range info.Libraries {
 		if lib.Configuration != nil {
@@ -131,8 +108,8 @@ func printConfigurationSchema(out io.Writer, f *lang.File, dag *runtime.DAG, inf
 		return
 	}
 	slices.Sort(aliases)
-	used := dag.ConfigurationSelections(info.Libraries)
-	internal := runtime.InternalConfigurationNames(f)
+	used := parsed.dag.ConfigurationSelections(info.Libraries)
+	internal := parsed.internalConfigurations()
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "configurations:")
 	for _, alias := range aliases {
@@ -195,12 +172,12 @@ func fieldTypeLabel(f cfg.Field) string {
 }
 
 func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
-	f, dag, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
 	var buf bytes.Buffer
-	renderSchemaTemplate(&buf, f, dag, info)
+	renderSchemaTemplate(&buf, parsed, info)
 	formatted, err := lang.Canonicalize("stack.ub", buf.Bytes())
 	if err != nil {
 		return err
@@ -216,12 +193,12 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 // Canonicalize owns indentation and alignment, so the draft spells only
 // the structure, with line breaks marking the blocks that stay
 // expanded.
-func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
+func renderSchemaTemplate(out io.Writer, parsed *parsedFactory, info Info) {
 	fmt.Fprintln(out, "stack: {")
 	fmt.Fprintln(out, "factory: {")
 	fmt.Fprint(out, renderPinBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
-	renderConfigurationsTemplate(out, f, dag, info)
-	renderInputsTemplate(out, f)
+	renderConfigurationsTemplate(out, parsed, info)
+	renderInputsTemplate(out, parsed)
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "state: "+backends.LocalName+" {")
@@ -235,40 +212,18 @@ func renderSchemaTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info In
 // renderInputsTemplate scaffolds the factory.inputs block: one
 // placeholder line per declared input, with its description and type
 // alongside.
-func renderInputsTemplate(out io.Writer, f *lang.File) {
-	inputs := lang.TopLevelBlock(f, "inputs")
-	if inputs == nil || len(inputs.Fields) == 0 {
+func renderInputsTemplate(out io.Writer, parsed *parsedFactory) {
+	inputs := parsed.inputs()
+	if len(inputs) == 0 {
 		return
 	}
 	fmt.Fprintln(out, "inputs: {")
-	for _, fld := range inputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent {
-			continue
-		}
-		decl, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		var typeExpr lang.Expr
-		var description string
-		for _, df := range decl.Fields {
-			if df.Key.Kind != lang.FieldIdent {
-				continue
-			}
-			switch df.Key.Name {
-			case "type":
-				typeExpr = df.Value
-			case "description":
-				if s, ok := df.Value.(*lang.StringLit); ok {
-					description = s.Value
-				}
-			}
-		}
-		if description != "" {
-			fmt.Fprintf(out, "# %s\n", description)
+	for _, input := range inputs {
+		if input.description != "" {
+			fmt.Fprintf(out, "# %s\n", input.description)
 		}
 		fmt.Fprintf(out, "%s: %s  # type: %s\n",
-			fld.Key.Name, placeholderForType(typeExpr), printType(typeExpr))
+			input.name, placeholderForType(input.typeExpr), printType(input.typeExpr))
 	}
 	fmt.Fprintln(out, "}")
 }
@@ -276,9 +231,9 @@ func renderInputsTemplate(out io.Writer, f *lang.File) {
 // renderConfigurationsTemplate scaffolds the configurations the
 // operator owes: every selection some node makes that the factory
 // does not define internally, with a placeholder per field.
-func renderConfigurationsTemplate(out io.Writer, f *lang.File, dag *runtime.DAG, info Info) {
-	used := dag.ConfigurationSelections(info.Libraries)
-	internal := runtime.InternalConfigurationNames(f)
+func renderConfigurationsTemplate(out io.Writer, parsed *parsedFactory, info Info) {
+	used := parsed.dag.ConfigurationSelections(info.Libraries)
+	internal := parsed.internalConfigurations()
 	owedByAlias := map[string][]string{}
 	var aliases []string
 	for alias, names := range used {

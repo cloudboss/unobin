@@ -85,38 +85,41 @@ func (o Options) stderr() io.Writer {
 }
 
 func ParseFactorySource(path string, src []byte) (*lang.File, string, error) {
-	_, f, body, err := ParseFactorySyntaxSource(path, src)
-	return f, body, err
+	sf, body, err := ParseFactorySyntaxSource(path, src)
+	if err != nil {
+		return nil, "", err
+	}
+	return runtimeFactoryFile(sf, path), body, nil
 }
 
-// ParseFactorySyntaxSource parses source and returns typed and runtime views.
-func ParseFactorySyntaxSource(
-	path string,
-	src []byte,
-) (*syntax.File, *lang.File, string, error) {
+// ParseFactorySyntaxSource parses source and returns typed source plus
+// the canonical source body embedded in generated factories.
+func ParseFactorySyntaxSource(path string, src []byte) (*syntax.File, string, error) {
 	sf, err := syntax.ParseSource(path, src)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
-		return nil, nil, "", fmt.Errorf("%s: expected factory declaration", path)
+		return nil, "", fmt.Errorf("%s: expected factory declaration", path)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-		return nil, nil, "", verrs.Err()
-	}
-	obj := syntax.RuntimeFactoryBodyObject(sf.Factory.Body)
-	out := &lang.File{
-		S:        sf.S,
-		Kind:     lang.FileFactory,
-		Path:     path,
-		Body:     obj,
-		Comments: sf.Comments,
+		return nil, "", verrs.Err()
 	}
 	body, err := lang.Canonicalize(path, src)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
-	return sf, out, string(body), nil
+	return sf, string(body), nil
+}
+
+func runtimeFactoryFile(sf *syntax.File, path string) *lang.File {
+	return &lang.File{
+		S:        sf.S,
+		Kind:     lang.FileFactory,
+		Path:     path,
+		Body:     syntax.RuntimeFactoryBodyObject(sf.Factory.Body),
+		Comments: sf.Comments,
+	}
 }
 
 // FactorySourcePath returns the factory source file named by path.
@@ -152,7 +155,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	sf, _, factoryBody, err := ParseFactorySyntaxSource(stackPath, src)
+	sf, factoryBody, err := ParseFactorySyntaxSource(stackPath, src)
 	if err != nil {
 		return err
 	}

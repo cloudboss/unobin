@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -73,11 +74,97 @@ func TestSchemaTemplateScaffoldsNamedOwedConfigurationsAsSelectorBodies(t *testi
 	}}
 	info := Info{Libraries: map[string]*runtime.Library{"aws": awsModuleWithConfig()}}
 
+	parsed := &parsedFactory{file: &lang.File{}, dag: dag}
+
 	var out bytes.Buffer
-	renderConfigurationsTemplate(&out, &lang.File{}, dag, info)
+	renderConfigurationsTemplate(&out, parsed, info)
 
 	got := out.String()
 	require.Contains(t, got, "configurations: {\n")
 	require.Contains(t, got, "east2: aws {\n")
 	require.NotContains(t, got, "aws.east2")
+}
+
+func TestSchemaTemplateUsesTypedFactoryInputs(t *testing.T) {
+	parsed := typedOnlyParsedFactory(t, `factory: {
+  inputs: {
+    message: { type: string, description: 'Text to write' }
+  }
+}`,
+		nil)
+
+	var out bytes.Buffer
+	renderInputsTemplate(&out, parsed)
+
+	got := out.String()
+	require.Contains(t, got, "inputs: {\n")
+	require.Contains(t, got, "# Text to write\n")
+	require.Contains(t, got, "message: ''  # type: string\n")
+}
+
+func TestSchemaOutputUsesTypedFactoryOutputs(t *testing.T) {
+	parsed := typedOnlyParsedFactory(t, `factory: {
+  outputs: {
+    secret: { value: 'x', description: 'Hidden', @sensitive: true }
+  }
+}`,
+		nil)
+
+	var out bytes.Buffer
+	printOutputSchema(&out, parsed)
+
+	got := out.String()
+	require.Contains(t, got, "outputs:\n")
+	require.Contains(t, got, "secret (sensitive)  -- Hidden\n")
+}
+
+func TestSchemaTemplateUsesTypedInternalConfigurations(t *testing.T) {
+	info := Info{Libraries: map[string]*runtime.Library{"aws": awsModuleWithConfig()}}
+	parsed := typedOnlyParsedFactory(t, `factory: {
+  configurations: { admin: aws {} }
+  resources: {
+    one: aws.thing { @configuration: configuration.admin }
+    two: aws.thing {}
+  }
+}`,
+		info.Libraries)
+
+	var out bytes.Buffer
+	renderConfigurationsTemplate(&out, parsed, info)
+
+	got := out.String()
+	require.Contains(t, got, "configurations: {\n")
+	require.Contains(t, got, "aws {\n")
+	require.NotContains(t, got, "admin: aws {\n")
+}
+
+func TestRootSensitiveOutputsUsesTypedFactoryOutputs(t *testing.T) {
+	parsed := typedOnlyParsedFactory(t, `factory: {
+  outputs: {
+    secret: { value: 'x', @sensitive: true }
+    plain:  { value: 'y' }
+  }
+}`,
+		nil)
+
+	sensitive := rootSensitiveOutputs(parsed)
+	require.True(t, sensitive["secret"])
+	require.False(t, sensitive["plain"])
+}
+
+func typedOnlyParsedFactory(
+	t *testing.T,
+	src string,
+	libs map[string]*runtime.Library,
+) *parsedFactory {
+	t.Helper()
+	f, err := syntax.ParseSource("factory.ub", []byte(src))
+	require.NoError(t, err)
+	require.Equal(t, syntax.FileFactory, f.Kind)
+	require.NotNil(t, f.Factory)
+	return &parsedFactory{
+		file:       &lang.File{},
+		syntaxBody: &f.Factory.Body,
+		dag:        runtime.BuildSyntaxDAG(f.Factory.Body, libs),
+	}
 }

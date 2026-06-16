@@ -1140,6 +1140,61 @@ resources: { w.box.many: { @for-each: var.configs, name: @each.key } }
 	require.False(t, addrs["resource.w.box.many['beta']/resource.core.thing.only"])
 }
 
+func TestApplyPlanCompositeUsesSyntaxBody(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+box: resource {
+  inputs: { name: { type: string } }
+  locals: { label: var.name + '-ok' }
+  resources: { one: core.thing { name: local.label, size: 1 } }
+  outputs: { id: { value: resource.one.id } }
+}
+`)
+	body := composite.body
+	var c resourceCounters
+	libs := resourceModules(&c)
+	libs["w"] = &Library{
+		Name: "w",
+		ResourceComposites: map[string]*CompositeType{
+			"box": {Name: "box", SyntaxBody: &body, Libraries: libs},
+		},
+	}
+	root := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: { x: w.box { name: 'alpha' } }
+  outputs: { out: { value: resource.x.id } }
+}
+`)
+	store := newStateStore(t)
+	exec := &Executor{
+		DAG:       BuildSyntaxDAG(root.body, libs),
+		Libraries: libs,
+		Store:     store,
+		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+	}
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+
+	res, err := exec.ApplyPlan(context.Background(), pf)
+	require.NoError(t, err)
+	require.Equal(t, "fake-alpha-ok", res.Outputs["out"])
+	require.Equal(t, int64(1), c.creates)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	addresses := make([]string, len(snap.Entries))
+	types := make([]state.EntryType, len(snap.Entries))
+	for i, e := range snap.Entries {
+		addresses[i] = e.Address
+		types[i] = e.Type
+	}
+	require.ElementsMatch(t, []string{"resource.x", "resource.x/resource.one"}, addresses)
+	require.ElementsMatch(t, []state.EntryType{state.EntryLibraryCall, state.EntryLeaf}, types)
+}
+
 func TestApplyPlanComposite(t *testing.T) {
 	composite := parseStack(t, `
 resources: { core.thing.one: { name: var.name, size: 1 } }

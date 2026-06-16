@@ -371,7 +371,7 @@ func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 			if entry.Key.Kind != lang.FieldIdent {
 				continue
 			}
-			if ref, ok := syntaxConfigurationRemap(entry.Key.Name, entry.Value); ok {
+			if ref, ok := configurationRemap(entry.Key.Name, entry.Value); ok {
 				out[entry.Key.Name] = ref
 			}
 		}
@@ -413,7 +413,7 @@ func extractSyntaxConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 	return nil
 }
 
-func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
+func configurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 	dp, ok := expr.(*lang.DotPath)
 	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 		return ConfigRef{}, false
@@ -422,6 +422,17 @@ func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 		return ConfigRef{Alias: alias, Configuration: dp.Segments[0].Name}, true
 	}
 	return ConfigRef{Alias: dp.Root.Name, Configuration: dp.Segments[0].Name}, true
+}
+
+func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
+	dp, ok := expr.(*lang.DotPath)
+	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
+		return ConfigRef{}, false
+	}
+	if dp.Root.Name != "configuration" {
+		return ConfigRef{}, false
+	}
+	return ConfigRef{Alias: alias, Configuration: dp.Segments[0].Name}, true
 }
 
 // extractConfiguration reads @configuration from a generic body and returns
@@ -452,7 +463,7 @@ func extractConfiguration(body lang.Expr, alias string) string {
 	return ""
 }
 
-func extractSyntaxConfiguration(body lang.Expr, alias string) string {
+func extractSyntaxConfiguration(body lang.Expr, _ string) string {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
 		return ""
@@ -465,7 +476,7 @@ func extractSyntaxConfiguration(body lang.Expr, alias string) string {
 		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
 			return ""
 		}
-		if dp.Root.Name == "configuration" || dp.Root.Name == alias {
+		if dp.Root.Name == "configuration" {
 			return dp.Segments[0].Name
 		}
 		return ""

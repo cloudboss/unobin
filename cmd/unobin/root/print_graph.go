@@ -66,7 +66,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	sf, _, _, err := compile.ParseFactorySyntaxSource(stackPath, src)
+	sf, _, err := compile.ParseFactorySyntaxSource(stackPath, src)
 	if err != nil {
 		return err
 	}

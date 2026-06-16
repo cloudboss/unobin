@@ -237,7 +237,7 @@ func TestVersion(t *testing.T) {
 	require.Contains(t, out, "test-stack v0.1.0 (content-revision abcdef)")
 }
 
-func TestParsedFileAcceptsCompilerFactoryBody(t *testing.T) {
+func TestParseFactoryAcceptsCompilerFactoryBody(t *testing.T) {
 	_, body, err := compile.ParseFactorySource("factory.ub", []byte(`factory: {
   imports: { std: 'github.com/example/std' }
   resources: {
@@ -247,7 +247,7 @@ func TestParsedFileAcceptsCompilerFactoryBody(t *testing.T) {
 `))
 	require.NoError(t, err)
 
-	_, _, err = parsedFile(Info{FactoryBody: body})
+	_, err = parseFactory(Info{FactoryBody: body})
 	require.NoError(t, err)
 }
 

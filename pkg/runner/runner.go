@@ -187,10 +187,12 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	f, dag, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
+	f := parsed.file
+	dag := parsed.dag
 	store, err := resolveBackend(fromRuntimeStateRef(pf.Backend),
 		info.FactoryName, pf.Stack, enc)
 	if err != nil {
@@ -253,7 +255,7 @@ func doApplyPlan(
 		}
 		return err
 	}
-	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs, rootSensitiveOutputs(f))
+	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs, rootSensitiveOutputs(parsed))
 }
 
 // uiLingerTimeout is how long apply keeps the run view up after the
@@ -432,17 +434,19 @@ func newRefreshCmd(info Info) *cobra.Command {
 }
 
 func doRefresh(cmd *cobra.Command, info Info, config *parsedConfig, configPath string) error {
-	f, dag, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
+	f := parsed.file
+	dag := parsed.dag
 	inputs, err := buildInputs(config, configPath,
-		lang.TopLevelBlock(f, "inputs"), lang.TopLevelArray(f, "constraints"), info.Libraries)
+		parsed.inputBlock(), parsed.constraints(), info.Libraries)
 	if err != nil {
 		return err
 	}
 	allowedConfigs := allowedConfigurationOverrides(
-		dag, info.Libraries, runtime.InternalConfigurationNames(f))
+		dag, info.Libraries, parsed.internalConfigurations())
 	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
 		info.Libraries, allowedConfigs)
 	if err != nil {
@@ -526,12 +530,11 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath 
 	}
 	dag := checker.DAG()
 	if _, err := buildInputs(config, configPath,
-		lang.TopLevelBlock(f, "inputs"), lang.TopLevelArray(f, "constraints"),
-		info.Libraries); err != nil {
+		parsed.inputBlock(), parsed.constraints(), info.Libraries); err != nil {
 		return err
 	}
 	allowedConfigs := allowedConfigurationOverrides(
-		dag, info.Libraries, runtime.InternalConfigurationNames(f))
+		dag, info.Libraries, parsed.internalConfigurations())
 	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
 		info.Libraries, allowedConfigs)
 	if err != nil {
@@ -603,10 +606,11 @@ func newPrintGraphCmd(info Info) *cobra.Command {
 }
 
 func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
-	_, dag, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
+	dag := parsed.dag
 	out := cmd.OutOrStdout()
 	switch format {
 	case "plain":
@@ -641,22 +645,6 @@ func newOutputCmd(info Info) *cobra.Command {
 	cmd.Flags().BoolVar(&asJSON, "json", false,
 		"Emit outputs as JSON instead of plain text.")
 	return cmd
-}
-
-// parsedFile parses the factory source baked into the binary at compile
-// time and returns it with its dependency graph, built once here and
-// shared by every command. The compiler proved the source's references
-// and types before the binary existed, so the binary trusts them;
-// validation re-checks only the schema shape the graph build assumes.
-// The "factory.ub" filename labels error positions; the original source
-// filename is not preserved across compile, so this label is the
-// convention regardless of what the file was called on disk.
-func parsedFile(info Info) (*lang.File, *runtime.DAG, error) {
-	parsed, err := parseFactory(info)
-	if err != nil {
-		return nil, nil, err
-	}
-	return parsed.file, parsed.dag, nil
 }
 
 type parsedFactory struct {
@@ -777,17 +765,19 @@ func doPlan(
 	cmd *cobra.Command, info Info, config *parsedConfig,
 	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
 ) error {
-	f, dag, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
+	f := parsed.file
+	dag := parsed.dag
 	inputs, err := buildInputs(config, configPath,
-		lang.TopLevelBlock(f, "inputs"), lang.TopLevelArray(f, "constraints"), info.Libraries)
+		parsed.inputBlock(), parsed.constraints(), info.Libraries)
 	if err != nil {
 		return err
 	}
 	allowedConfigs := allowedConfigurationOverrides(
-		dag, info.Libraries, runtime.InternalConfigurationNames(f))
+		dag, info.Libraries, parsed.internalConfigurations())
 	configurations, rawConfigurations, err := loadConfigurations(
 		config, configPath, info.Libraries, allowedConfigs)
 	if err != nil {
@@ -1081,11 +1071,11 @@ func doOutput(
 	if err != nil {
 		return err
 	}
-	source, _, err := parsedFile(info)
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
-	sensitive := rootSensitiveOutputs(source)
+	sensitive := rootSensitiveOutputs(parsed)
 	masked := func(k string, v any) any {
 		if sensitive[k] {
 			return sensitivePlaceholder

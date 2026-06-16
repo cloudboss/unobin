@@ -274,6 +274,46 @@ factory: {
 	require.Contains(t, got.Edges["resource.app"], "resource.app/resource.file")
 }
 
+func TestExtractSyntaxNodesIgnoresAliasConfigurationSelection(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    app: std.fs-file { @configuration: std.formal, path: '/tmp/app' }
+  }
+}
+`)
+
+	got := BuildSyntaxDAG(fixture.body, nil)
+	require.Empty(t, got.Nodes["resource.app"].Configuration)
+}
+
+func TestExtractSyntaxNodesIgnoresAliasConfigurationRemap(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+greeting: resource {
+  resources: { file: local.fs-file { path: '/tmp/helper' } }
+}
+`)
+	body := composite.body
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    app: outer.greeting { @configurations: { local: local.formal } }
+  }
+}
+`)
+	libs := map[string]*Library{
+		"outer": {
+			Name: "outer",
+			ResourceComposites: map[string]*CompositeType{
+				"greeting": {Name: "greeting", SyntaxBody: &body},
+			},
+		},
+	}
+
+	got := BuildSyntaxDAG(fixture.body, libs)
+	require.Empty(t, got.Nodes["resource.app"].ConfigurationsRemap)
+}
+
 func TestExtractNodesOutputBody(t *testing.T) {
 	src := `
 outputs: {

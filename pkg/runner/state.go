@@ -344,11 +344,11 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			source, _, err := parsedFile(info)
+			parsed, err := parseFactory(info)
 			if err != nil {
 				return err
 			}
-			return printSnapshot(cmd, snap, rootSensitiveOutputs(source))
+			return printSnapshot(cmd, snap, rootSensitiveOutputs(parsed))
 		},
 	}
 	addConfigFlag(cmd, &configPath)
