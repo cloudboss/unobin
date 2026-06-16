@@ -139,6 +139,13 @@ func typeExprName(t TypeExpr) string {
 	return "type"
 }
 
+func sourceBytes(c *current) []byte {
+	if src, ok := c.globalStore["source"].([]byte); ok {
+		return src
+	}
+	return nil
+}
+
 // infixTail carries one (op, right) tail produced by an operator-level
 // rule. The leftmost operand is the head; foldInfix combines a head with
 // any number of tails into a left-associated Infix tree. half marks an
@@ -611,7 +618,7 @@ func collectComments(c *current) []Comment {
 
 
 File <- _ pairs:Pair* EOF {
-	body := &ObjectLit{S: c.span(), Fields: fieldSlice(pairs)}
+	body := &ObjectLit{S: c.span(), Fields: fieldSlice(pairs), Source: sourceBytes(c)}
 	f := &File{S: c.span(), Body: body}
 	if path, ok := c.globalStore["file"].(string); ok {
 		f.Path = path
@@ -725,7 +732,7 @@ TypeObjectField <- key:PlainIdentKey _ ":" _ value:( TypeInputDecl / TypeExprRul
 }
 
 TypeInputDecl <- "{" _ fields:TypeInputDeclField* _ "}" {
-	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(fields)}, nil
+	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(fields), Source: sourceBytes(c)}, nil
 }
 
 TypeInputDeclField <- key:TypeKey _ ":" _ value:TypeExprRule _ ","? _ {
@@ -968,7 +975,7 @@ SelectorIdent <- name:SelectorIdentText {
 }
 
 ObjectLitNode <- "{" _ pairs:Pair* "}" {
-	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(pairs)}, nil
+	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(pairs), Source: sourceBytes(c)}, nil
 }
 
 ArrayLitNode <- "[" _ elems:ArrayElems? _ "]" {

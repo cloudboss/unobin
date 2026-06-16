@@ -107,3 +107,9 @@ func ParseExpr(path string, b []byte) (Expr, error) {
 func ParseType(path string, b []byte) (TypeExpr, error) {
 	return parse.ParseType(path, b)
 }
+
+// ParseTypeAt parses a single unobin type expression whose first byte
+// starts at base in the source file.
+func ParseTypeAt(path string, b []byte, base Position) (TypeExpr, error) {
+	return parse.ParseTypeAt(path, b, base)
+}

@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"iter"
@@ -217,7 +218,7 @@ func validateInputDecl(name string, fld *Field, errs *ErrorList) {
 func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *ErrorList) {
 	var hasType bool
 	innerSeen := make(map[string]Position, len(decl.Fields))
-	for _, df := range decl.Fields {
+	for i, df := range decl.Fields {
 		if df.Key.Kind == FieldString {
 			errs.Addf(ErrSchema, df.Key.S.Start,
 				"input %q: declaration key must be an identifier, got quoted string %q",
@@ -258,7 +259,7 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 		switch keyName {
 		case "type":
 			hasType = true
-			t, err := PromoteType(df.Value)
+			t, err := parseInputTypeValue(decl, i)
 			if err != nil {
 				df.Value = &TypeAtomic{S: df.Value.Span(), Name: "invalid"}
 				if pe, ok := errors.AsType[*Error](err); ok {
@@ -281,6 +282,61 @@ func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *Error
 	if !hasType {
 		errs.Addf(ErrSchema, decl.S.Start, "input %q: missing required `type:` key", name)
 	}
+}
+
+func parseInputTypeValue(decl *ObjectLit, idx int) (TypeExpr, error) {
+	fld := decl.Fields[idx]
+	if t, ok := fld.Value.(TypeExpr); ok {
+		return t, nil
+	}
+	if src, ok := inputTypeFieldSource(decl, idx); ok {
+		t, err := ParseTypeAt(fld.Value.Span().Start.File, src, fld.Value.Span().Start)
+		if err != nil {
+			return nil, Errorf(ErrType, fld.Value.Span().Start, typeParseMessage(err))
+		}
+		return t, nil
+	}
+	return PromoteType(fld.Value)
+}
+
+func inputTypeFieldSource(decl *ObjectLit, idx int) ([]byte, bool) {
+	if len(decl.Source) == 0 || idx < 0 || idx >= len(decl.Fields) {
+		return nil, false
+	}
+	fld := decl.Fields[idx]
+	if fld.Value == nil {
+		return nil, false
+	}
+	start := fld.Value.Span().Start.Offset
+	end := decl.S.End.Offset - 1
+	if idx+1 < len(decl.Fields) {
+		end = decl.Fields[idx+1].S.Start.Offset
+	}
+	if start < 0 || end < start || end > len(decl.Source) {
+		return nil, false
+	}
+	return trimTypeSource(decl.Source[start:end]), true
+}
+
+func trimTypeSource(src []byte) []byte {
+	out := bytes.TrimSpace(src)
+	if len(out) > 0 && out[len(out)-1] == ',' {
+		out = bytes.TrimSpace(out[:len(out)-1])
+	}
+	return out
+}
+
+func typeParseMessage(err error) string {
+	msg := err.Error()
+	_, rest, ok := strings.Cut(msg, ": rule ")
+	if !ok {
+		return msg
+	}
+	_, out, ok := strings.Cut(rest, ": ")
+	if !ok {
+		return msg
+	}
+	return out
 }
 
 // validateNestedDecls walks a promoted type for object fields written

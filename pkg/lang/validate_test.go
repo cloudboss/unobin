@@ -3,6 +3,7 @@ package lang
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/ubtest"
@@ -146,6 +147,23 @@ inputs: {
 	require.NotNil(t, nested.Decl)
 	nestedTypeField := nested.Decl.Fields[0]
 	require.IsType(t, &TypeAtomic{}, nestedTypeField.Value)
+}
+
+func TestValidateInputDeclarationsUsesTypeParserSpans(t *testing.T) {
+	block := parseInputsBlock(t, `
+inputs: {
+  payload: { type: open(object({ kind: string })) }
+}
+`)
+
+	errs := ValidateInputDeclarations(block)
+	require.Equal(t, 0, errs.Len(), errs.Error())
+
+	decl := block.Fields[0].Value.(*ObjectLit)
+	typeField := decl.Fields[0]
+	require.IsType(t, &TypeObject{}, typeField.Value)
+	assert.Equal(t, 3, typeField.Value.Span().Start.Line)
+	assert.Equal(t, 20, typeField.Value.Span().Start.Column)
 }
 
 func constraintsBlock(f *File) (*ArrayLit, bool) {

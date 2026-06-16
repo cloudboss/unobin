@@ -72,6 +72,7 @@ type Expr interface {
 type ObjectLit struct {
 	S      Span
 	Fields []*Field
+	Source []byte
 }
 
 func (n *ObjectLit) Span() Span { return n.S }

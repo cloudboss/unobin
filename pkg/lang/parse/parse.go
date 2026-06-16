@@ -13,6 +13,7 @@ func ParseSource(path string, b []byte) (*File, error) {
 	v, err := Parse(path, b,
 		Entrypoint("File"),
 		GlobalStore("file", path),
+		GlobalStore("source", b),
 		Recover(false),
 	)
 	if err != nil {
@@ -59,6 +60,7 @@ func ParseTypeAt(path string, b []byte, base Position) (TypeExpr, error) {
 		Entrypoint("TypeFile"),
 		GlobalStore("file", path),
 		GlobalStore("base", base),
+		GlobalStore("source", b),
 		Recover(false),
 	)
 	if err != nil {
