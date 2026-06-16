@@ -58,11 +58,10 @@ formal-wrap: 'Good day: wrapped'
 The plan-time validator catches misuse before any work happens:
 
 - Mistype a configuration name: `@configuration: configuration.formel` produces
-  `@configuration greet.formel: configuration not declared`.
-- Remove the `default` entry while something still uses it: the node that
-  does reports `library "greet" requires a configuration; define
-  greet.default under factory.configurations in the stack file or under
-  configurations in the factory`.
+  `@configuration configuration.formel: configuration not declared`.
+- Remove the `greet { ... }` entry while something still uses it: the node that
+  does reports `library "greet" requires a configuration; add greet { ... }
+  under stack.factory.configurations or configurations in the factory`.
 - Remove the `fancy` entry from `dev.ub`: the factory body is used and plan
   reports `field prefix: required`.
 - Cross-import remap: `@configurations: { greet: configuration.aws-formal }`

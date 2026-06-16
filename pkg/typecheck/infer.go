@@ -701,10 +701,10 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	return TUnknown()
 }
 
-// inferConfiguration types a configuration.<import>.<name> reference
-// from the library's configuration schema. The schema describes the
-// whole declared shape, so navigation past the name checks field by
-// field; an unknown schema infers Unknown.
+// inferConfiguration types a configuration.<name> reference from the library's
+// configuration schema. The schema describes the whole declared form, so
+// navigation past the name checks field by field; an unknown schema infers
+// Unknown.
 func inferConfiguration(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || scope.LookupConfiguration == nil || len(dp.Segments) < 2 {
 		return TUnknown()
@@ -721,7 +721,7 @@ func inferConfiguration(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Ty
 		return TUnknown()
 	}
 	return traverseSegments(t, dp.Segments[2:],
-		"configuration."+alias+"."+name, scope, errs, false)
+		"configuration."+name, scope, errs, false)
 }
 
 // rejectGuardedRoot reports a `?.` used where the navigation cannot

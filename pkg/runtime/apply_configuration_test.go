@@ -369,7 +369,7 @@ resources: { fix.config-echo.app: { @configuration: fix.cluster } }
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.fix.cluster: references configuration fix.other, which is not supplied")
+		"configuration.fix.cluster: references configuration.other, which is not supplied")
 }
 
 // A reference to a configuration the factory itself defines is
@@ -392,7 +392,7 @@ resources: { fix.config-echo.app: { @configuration: fix.cluster } }
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.fix.cluster: references configuration fix.base, "+
+		"configuration.fix.cluster: references configuration.base, "+
 			"which this factory defines; only operator-supplied configurations are referenceable")
 }
 

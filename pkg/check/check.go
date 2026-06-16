@@ -351,16 +351,15 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 	}
 }
 
-// checkConfigurationRef checks a configuration reference, the
-// greet.formal of `@configuration: greet.formal`. It is a name in
-// configuration space, not an expression: the root must be an
-// imported library, and whether that library declares the named
-// configuration is the executor's check, made at plan against the
-// decoded configurations.
+// checkConfigurationRef checks a configuration selection. It is a name in
+// configuration space, not an expression: the selected configuration's library
+// alias must be imported, and whether that library declares the named
+// configuration is the executor's check, made at plan against the decoded
+// configurations.
 func (c *referenceChecker) checkConfigurationRef(v lang.Expr, scope string) {
 	dp, ok := v.(*lang.DotPath)
 	if !ok || dp.Root == nil || len(dp.Segments) != 1 || dp.Segments[0].Name == "" {
-		c.addf(v.Span().Start, "@configuration takes <import>.<name>")
+		c.addf(v.Span().Start, "@configuration takes configuration.<name>")
 		return
 	}
 	libs := c.libraries[scope]
@@ -405,12 +404,11 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 	})
 }
 
-// checkConfigurationReference checks a configuration.<import>.<name>
-// value reference. It is valid only inside a configurations block
-// body, must name an imported library that declares a configuration,
-// and must not name a configuration this factory defines: references
-// read operator-supplied bodies only. Whether the operator supplied
-// the name is checked at plan, when the supplied set is known.
+// checkConfigurationReference checks a configuration.<name> value reference.
+// It is valid only inside a configurations block body, must name an imported
+// library that declares a configuration, and must not name a configuration this
+// factory defines: references read operator-supplied bodies only. Whether the
+// operator supplied the name is checked at plan, when the supplied set is known.
 func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope string) {
 	if !c.inConfigurationBody {
 		c.addf(dp.S.Start,
@@ -419,7 +417,7 @@ func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope s
 	}
 	if len(dp.Segments) < 2 || dp.Segments[0].Name == "" || dp.Segments[1].Name == "" {
 		c.addf(dp.S.Start,
-			"a configuration reference takes configuration.<import>.<name>")
+			"a configuration reference takes configuration.<name>")
 		return
 	}
 	alias, name := dp.Segments[0].Name, dp.Segments[1].Name
@@ -435,8 +433,8 @@ func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope s
 	}
 	if c.internalConfigurations[alias][name] {
 		c.addf(dp.S.Start,
-			"configuration %s.%s is defined by this factory; "+
-				"only operator-supplied configurations are referenceable", alias, name)
+			"configuration.%s is defined by this factory; "+
+				"only operator-supplied configurations are referenceable", name)
 	}
 }
 

@@ -554,7 +554,7 @@ func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
 configurations: { ghost.default: { region: 'r' } }
 `), map[string]*runtime.Library{})
 	require.Equal(t,
-		[]string{`configuration.ghost.default: library "ghost" is not imported`},
+		[]string{`default configuration for ghost: library "ghost" is not imported`},
 		errs.Messages())
 }
 
@@ -608,7 +608,7 @@ configurations: {
 }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
-		[]string{"configuration aws.base is defined by this factory; " +
+		[]string{"configuration.base is defined by this factory; " +
 			"only operator-supplied configurations are referenceable"},
 		errs.Messages())
 }
@@ -640,7 +640,7 @@ func TestCheckConfigurationReferenceForm(t *testing.T) {
 configurations: { aws.use1: @core.merge(configuration.aws, {}) }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
-		[]string{"a configuration reference takes configuration.<import>.<name>"},
+		[]string{"a configuration reference takes configuration.<name>"},
 		errs.Messages())
 }
 
@@ -702,7 +702,7 @@ func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
 configurations: { local.default: { region: 'r' } }
 `), map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Equal(t,
-		[]string{`configuration.local.default: library declares no configuration`},
+		[]string{`default configuration for local: library declares no configuration`},
 		errs.Messages())
 }
 
@@ -711,7 +711,7 @@ func TestCheckTypesConfigurationUnknownField(t *testing.T) {
 configurations: { aws.default: { region: 'r', regin: 'oops' } }
 `), map[string]*runtime.Library{"aws": configuredLibrary()})
 	require.Equal(t,
-		[]string{`configuration.aws.default: unknown field "regin"`},
+		[]string{`default configuration for aws: unknown field "regin"`},
 		errs.Messages())
 }
 

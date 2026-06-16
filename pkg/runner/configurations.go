@@ -9,13 +9,12 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
-// loadConfigurations extracts the `factory.configurations:` block from
-// a pre-parsed config, decodes every alias under each import, and
-// returns both the decoded table (for the executor) and the raw form
-// (for plan-file storage). The outer key is the import alias; the
-// inner key is the configuration alias name. Values may reference the
-// file's locals, which resolve at load, so the raw form is already
-// concrete by the time it reaches a plan file.
+// loadConfigurations extracts the `stack.factory.configurations:` block from
+// a pre-parsed stack, decodes every configuration body, and returns both the
+// decoded table (for the executor) and the raw form (for plan-file storage).
+// The outer key is the import alias; the inner key is the configuration name.
+// Values may reference the file's locals, which resolve at load, so the raw
+// form is already concrete by the time it reaches a plan file.
 // allowed names the configuration entries the stack may provide. Named
 // entries come from factory declarations; default entries may come from
 // factory declarations or configurable node usage. A nil map skips this
@@ -84,6 +83,13 @@ func mergeConfigurationNames(dst, src map[string]map[string]bool) {
 	}
 }
 
+func configurationLabel(alias, name string) string {
+	if name == "default" {
+		return fmt.Sprintf("default configuration for %s", alias)
+	}
+	return "configuration." + name
+}
+
 func validateConfigurationOverrides(
 	path string,
 	rawByImport map[string]map[string]any,
@@ -97,8 +103,8 @@ func validateConfigurationOverrides(
 		for name := range names {
 			if !allowed[alias][name] {
 				errs = append(errs, fmt.Errorf(
-					"%s: factory.configurations.%s.%s is not declared by the factory",
-					path, alias, name))
+					"%s: %s is not declared by the factory",
+					path, configurationLabel(alias, name)))
 			}
 		}
 	}
@@ -116,7 +122,8 @@ func decodeConfigurations(
 		if lib.Configuration == nil {
 			if supplied {
 				errs = append(errs, fmt.Errorf(
-					"configurations.%s: library declares no configuration", importAlias))
+					"default configuration for %s: library declares no configuration",
+					importAlias))
 			}
 			continue
 		}
@@ -125,17 +132,16 @@ func decodeConfigurations(
 		}
 		decodedAliases := map[string]any{}
 		for aliasName, rawVal := range aliases {
+			label := configurationLabel(importAlias, aliasName)
 			m, ok := rawVal.(map[string]any)
 			if !ok {
 				errs = append(errs, fmt.Errorf(
-					"configurations.%s.%s: want a map, got %s",
-					importAlias, aliasName, lang.TypeMessage(rawVal)))
+					"%s: want a map, got %s", label, lang.TypeMessage(rawVal)))
 				continue
 			}
 			d, err := cfg.Decode(lib.Configuration, m)
 			if err != nil {
-				errs = append(errs, fmt.Errorf(
-					"configurations.%s.%s: %w", importAlias, aliasName, err))
+				errs = append(errs, fmt.Errorf("%s: %w", label, err))
 				continue
 			}
 			decodedAliases[aliasName] = d
@@ -145,7 +151,7 @@ func decodeConfigurations(
 	for importAlias := range rawByImport {
 		if _, known := libraries[importAlias]; !known {
 			errs = append(errs, fmt.Errorf(
-				"configurations.%s: unknown import alias", importAlias))
+				"default configuration for %s: unknown import alias", importAlias))
 		}
 	}
 	if err := errors.Join(errs...); err != nil {
@@ -164,11 +170,11 @@ func decodeConfigurationsFromPlan(
 	return decodeConfigurations(raw, libraries)
 }
 
-// readConfigurationsBlock walks the `configurations:` body and pulls
-// every dotted alias.name entry into a raw form ready for decoding.
-// The outer key of the result is the import alias; the inner key is
-// the configuration name; the value is the raw map of fields,
-// evaluated against ctx, which binds the file's locals.
+// readConfigurationsBlock walks the `configurations:` body and pulls every
+// selector-body entry into a raw form ready for decoding. The outer key of the
+// result is the import alias; the inner key is the configuration name; the
+// value is the raw map of fields, evaluated against ctx, which binds the file's
+// locals.
 func readConfigurationsBlock(
 	configPath string,
 	block *lang.ObjectLit,
@@ -179,21 +185,20 @@ func readConfigurationsBlock(
 	for _, fld := range block.Fields {
 		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
 			errs = append(errs, fmt.Errorf(
-				"%s: factory.configurations entries must be keyed by a dotted alias.name path",
-				configPath))
+				"%s: configuration entries must use selector bodies like `aws {}` "+
+					"or `east: aws {}`", configPath))
 			continue
 		}
 		importAlias, name := fld.Key.Path[0], fld.Key.Path[1]
+		label := configurationLabel(importAlias, name)
 		val, err := runtime.Eval(fld.Value, ctx)
 		if err != nil {
-			errs = append(errs, fmt.Errorf(
-				"%s: factory.configurations.%s.%s: %w", configPath, importAlias, name, err))
+			errs = append(errs, fmt.Errorf("%s: %s: %w", configPath, label, err))
 			continue
 		}
 		m, ok := val.(map[string]any)
 		if !ok {
-			errs = append(errs, fmt.Errorf(
-				"%s: factory.configurations.%s.%s must be a map", configPath, importAlias, name))
+			errs = append(errs, fmt.Errorf("%s: %s must be a map", configPath, label))
 			continue
 		}
 		if out[importAlias] == nil {

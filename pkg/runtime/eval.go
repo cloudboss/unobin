@@ -772,20 +772,20 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	return navigateSegments(root, p.Root.Name, p.Segments, ctx)
 }
 
-// evalConfigurationRef resolves configuration.<alias>.<name> to the
+// evalConfigurationRef resolves configuration.<name> to the
 // operator-supplied configuration body of that name, then walks any
 // remaining segments into it.
 func evalConfigurationRef(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	if len(p.Segments) < 2 || p.Segments[0].Name == "" || p.Segments[1].Name == "" {
 		return nil, fmt.Errorf(
-			"eval: a configuration reference has the form configuration.<import>.<name>")
+			"eval: a configuration reference has the form configuration.<name>")
 	}
 	alias, name := p.Segments[0].Name, p.Segments[1].Name
 	body, ok := ctx.Configurations[alias][name]
 	if !ok {
-		return nil, fmt.Errorf("eval: configuration %s.%s is not supplied", alias, name)
+		return nil, fmt.Errorf("eval: configuration.%s is not supplied", name)
 	}
-	return navigateSegments(body, "configuration."+alias+"."+name, p.Segments[2:], ctx)
+	return navigateSegments(body, "configuration."+name, p.Segments[2:], ctx)
 }
 
 // navigateSegments walks a dot path's segments from cur, stepping into

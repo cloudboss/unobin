@@ -46,22 +46,22 @@ func (e *Executor) checkConfigurationBodyRefs(n *Node) []error {
 		}
 		if len(dp.Segments) < 2 || dp.Segments[0].Name == "" || dp.Segments[1].Name == "" {
 			errs = append(errs, fmt.Errorf(
-				"%s: a configuration reference has the form configuration.<import>.<name>",
+				"%s: a configuration reference has the form configuration.<name>",
 				n.Address))
 			return
 		}
 		alias, name := dp.Segments[0].Name, dp.Segments[1].Name
 		if _, internal := configurationNodeAddress(e.DAG.Nodes, alias, name); internal {
 			errs = append(errs, fmt.Errorf(
-				"%s: references configuration %s.%s, which this factory defines; "+
+				"%s: references configuration.%s, which this factory defines; "+
 					"only operator-supplied configurations are referenceable",
-				n.Address, alias, name))
+				n.Address, name))
 			return
 		}
 		if _, ok := e.RawConfigurations[alias][name]; !ok {
 			errs = append(errs, fmt.Errorf(
-				"%s: references configuration %s.%s, which is not supplied",
-				n.Address, alias, name))
+				"%s: references configuration.%s, which is not supplied",
+				n.Address, name))
 		}
 	})
 	return errs
@@ -78,8 +78,8 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	if lib.Configuration == nil {
 		if n.Configuration != "" {
 			return []error{fmt.Errorf(
-				"%s: @configuration %s.%s: library declares no configuration",
-				n.Address, n.Alias, n.Configuration)}
+				"%s: @configuration configuration.%s: library declares no configuration",
+				n.Address, n.Configuration)}
 		}
 		return nil
 	}
@@ -89,12 +89,12 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	}
 	if n.Configuration != "" {
 		return []error{fmt.Errorf(
-			"%s: @configuration %s.%s: configuration not declared",
-			n.Address, n.Alias, n.Configuration)}
+			"%s: @configuration configuration.%s: configuration not declared",
+			n.Address, n.Configuration)}
 	}
 	return []error{fmt.Errorf(
-		"%s: library %q requires a configuration; define %s.default under "+
-			"factory.configurations in the stack file or under configurations in the factory",
+		"%s: library %q requires a configuration; add %s { ... } under "+
+			"stack.factory.configurations or configurations in the factory",
 		n.Address, n.Alias, alias)}
 }
 
@@ -129,8 +129,8 @@ func (e *Executor) checkCompositeRemap(n *Node) []error {
 		}
 		if !e.configurationDeclared(ref.Alias, ref.Configuration) {
 			errs = append(errs, fmt.Errorf(
-				"%s: @configurations.%s: configuration %s.%s not declared",
-				n.Address, innerAlias, ref.Alias, ref.Configuration))
+				"%s: @configurations.%s: configuration.%s not declared",
+				n.Address, innerAlias, ref.Configuration))
 		}
 	}
 	return errs

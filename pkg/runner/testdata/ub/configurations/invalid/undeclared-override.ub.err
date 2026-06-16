@@ -1,1 +1,1 @@
-invalid/undeclared-override.ub: factory.configurations.aws.stray is not declared by the factory
+invalid/undeclared-override.ub: configuration.stray is not declared by the factory

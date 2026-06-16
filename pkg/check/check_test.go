@@ -780,14 +780,14 @@ actions: { greet.say.formal: { @configuration: nope.formal, message: 'w' } }
 			src: `
 actions: { greet.say.formal: { @configuration: formal, message: 'w' } }
 `,
-			want: []string{"@configuration takes <import>.<name>"},
+			want: []string{"@configuration takes configuration.<name>"},
 		},
 		{
 			name: "string is not a configuration reference",
 			src: `
 actions: { greet.say.formal: { @configuration: 'greet.formal', message: 'w' } }
 `,
-			want: []string{"@configuration takes <import>.<name>"},
+			want: []string{"@configuration takes configuration.<name>"},
 		},
 	}
 	for _, tt := range cases {

@@ -292,7 +292,7 @@ factory: {
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "configurations.aws.bad")
+	require.Contains(t, err.Error(), "configuration.bad")
 }
 
 func TestLoadConfigurationsAcceptsFactoryNameOverride(t *testing.T) {

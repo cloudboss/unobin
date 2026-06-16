@@ -47,7 +47,7 @@ func (c *referenceChecker) checkTypes() {
 // schema as one object type; the comparison is open, so an extra field
 // the checker cannot rule out is left for plan-time decode to reject.
 func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
-	label := n.Address
+	label := configurationNodeLabel(n)
 	lib := c.libraries[""][n.Alias]
 	if lib == nil {
 		c.addf(n.Body.Span().Start,
@@ -85,6 +85,13 @@ func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
 		}
 		typecheck.Check(fld.Value, target, scope, c.errs)
 	}
+}
+
+func configurationNodeLabel(n *runtime.Node) string {
+	if n.Name == "default" {
+		return "default configuration for " + n.Alias
+	}
+	return "configuration." + n.Name
 }
 
 // checkLocalsBodyTypes infers every local's expression with the real

@@ -57,7 +57,7 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "@configuration aws.ghost")
+	require.Contains(t, err.Error(), "@configuration configuration.ghost")
 	require.Contains(t, err.Error(), "configuration not declared")
 }
 
@@ -134,7 +134,7 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "configuration aws.ghost not declared")
+	require.Contains(t, err.Error(), "configuration.ghost not declared")
 }
 
 func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
@@ -163,7 +163,7 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 	)
 	err := e.CheckConfigurations()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "@configuration aws.ghost")
+	require.Contains(t, err.Error(), "@configuration configuration.ghost")
 	require.Contains(t, err.Error(), "@configurations.aws")
 }
 
@@ -182,8 +182,8 @@ func TestCheckConfigurationsRequiresImplicitDefault(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t,
 		`resource.aws.instance.web: library "aws" requires a configuration; `+
-			`define aws.default under factory.configurations in the stack file`+
-			` or under configurations in the factory`,
+			`add aws { ... } under stack.factory.configurations `+
+			`or configurations in the factory`,
 		err.Error())
 }
 
