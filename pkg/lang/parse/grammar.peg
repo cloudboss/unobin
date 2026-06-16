@@ -24,7 +24,23 @@ func (c *current) span() Span {
 	if f, ok := c.globalStore["file"].(string); ok {
 		pos.File = f
 	}
+	if base, ok := c.globalStore["base"].(Position); ok {
+		pos = rebasePosition(pos, base)
+	}
 	return Span{Start: pos}
+}
+
+func rebasePosition(pos, base Position) Position {
+	out := pos
+	out.File = base.File
+	out.Offset = base.Offset + pos.Offset
+	out.Line = base.Line + pos.Line - 1
+	if pos.Line == 1 {
+		out.Column = base.Column + pos.Column - 1
+	} else {
+		out.Column = pos.Column
+	}
+	return out
 }
 
 // rangeSpan returns a Span whose Start is the parser's current position

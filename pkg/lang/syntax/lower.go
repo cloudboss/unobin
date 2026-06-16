@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"bytes"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,10 @@ import (
 )
 
 func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
+	return lowerFile(f, lowerMode{})
+}
+
+func lowerFile(f *parse.File, mode lowerMode) (*File, *parse.ErrorList) {
 	errs := parse.NewErrorList(0)
 	if f == nil {
 		errs.Addf(parse.ErrSchema, parse.Position{},
@@ -17,28 +22,31 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 		return &File{}, errs
 	}
 
+	if mode.path == "" {
+		mode.path = f.Path
+	}
 	out := &File{
 		S:        f.S,
 		Path:     f.Path,
 		Comments: f.Comments,
 	}
-	if lowerSourceDeclaredFile(f, out, errs) {
+	if lowerSourceDeclaredFile(f, out, errs, mode) {
 		return out, errs
 	}
 
 	switch f.Kind {
 	case parse.FileFactory:
 		out.Kind = FileFactory
-		out.Factory = &FactoryFile{S: f.S, Body: lowerFactoryBody(f.Body, errs)}
+		out.Factory = &FactoryFile{S: f.S, Body: lowerFactoryBodyWithMode(f.Body, errs, mode)}
 	case parse.FileConfig:
 		out.Kind = FileStack
-		out.Stack = lowerStackFile(f.S, f.Body, errs, lowerMode{})
+		out.Stack = lowerStackFile(f.S, f.Body, errs, mode)
 	case parse.FileManifest:
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(f.S, f.Body, errs)
 	case parse.FileExportedType:
 		out.Kind = FileLibrary
-		out.Library = lowerLibraryFile(f, errs)
+		out.Library = lowerLibraryFile(f, errs, mode)
 	default:
 		out.Kind = FileUnknown
 		errs.Addf(parse.ErrSchema, f.S.Start,
@@ -52,6 +60,13 @@ func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
 
 type lowerMode struct {
 	sourceDeclared bool
+	path           string
+	source         []byte
+}
+
+func (m lowerMode) withSourceDeclared() lowerMode {
+	m.sourceDeclared = true
+	return m
 }
 
 type sourceFileRole struct {
@@ -63,6 +78,7 @@ func lowerSourceDeclaredFile(
 	f *parse.File,
 	out *File,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) bool {
 	if f.Body == nil {
 		return false
@@ -84,36 +100,36 @@ func lowerSourceDeclaredFile(
 	}
 	if _, reserved := reservedSourceFileRole(f.Path); reserved {
 		if len(roles) > 1 {
-			lowerSourceDeclaredRole(f, out, roles, errs)
+			lowerSourceDeclaredRole(f, out, roles, errs, mode)
 			return true
 		}
 		if !validateSourceDeclaredPath(f, roles, errs) {
 			return true
 		}
-		lowerSourceDeclaredRole(f, out, roles, errs)
+		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
 	}
 	if f.Kind != parse.FileUnknown && len(f.Body.Fields) != 1 {
 		return false
 	}
 	if len(roles) > 1 {
-		lowerSourceDeclaredRole(f, out, roles, errs)
+		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
 	}
 	if !validateSourceDeclaredPath(f, roles, errs) {
 		return true
 	}
 	if len(roles) == 1 && len(f.Body.Fields) == 1 {
-		lowerSourceDeclaredRole(f, out, roles, errs)
+		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
 	}
 	if len(roles) > 0 && f.Kind == parse.FileUnknown {
-		lowerSourceDeclaredRole(f, out, roles, errs)
+		lowerSourceDeclaredRole(f, out, roles, errs, mode)
 		return true
 	}
 	if selectorBody && f.Kind == parse.FileUnknown {
 		out.Kind = FileLibrary
-		out.Library = lowerLibraryFile(f, errs)
+		out.Library = lowerLibraryFile(f, errs, mode)
 		return true
 	}
 	return false
@@ -175,6 +191,7 @@ func lowerSourceDeclaredRole(
 	out *File,
 	roles []sourceFileRole,
 	errs *parse.ErrorList,
+	mode lowerMode,
 ) {
 	first := roles[0]
 	for _, role := range roles[1:] {
@@ -193,16 +210,17 @@ func lowerSourceDeclaredRole(
 	if block == nil {
 		return
 	}
+	declMode := mode.withSourceDeclared()
 	switch first.name {
 	case "factory":
 		out.Kind = FileFactory
 		out.Factory = &FactoryFile{
 			S:    first.fld.S,
-			Body: lowerFactoryBodyWithMode(block, errs, lowerMode{sourceDeclared: true}),
+			Body: lowerFactoryBodyWithMode(block, errs, declMode),
 		}
 	case "stack":
 		out.Kind = FileStack
-		out.Stack = lowerStackFile(first.fld.S, block, errs, lowerMode{sourceDeclared: true})
+		out.Stack = lowerStackFile(first.fld.S, block, errs, declMode)
 	case "manifest":
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(first.fld.S, block, errs)
@@ -210,10 +228,6 @@ func lowerSourceDeclaredRole(
 		out.Kind = FileLock
 		out.Lock = lowerLockFile(first.fld.S, block, errs)
 	}
-}
-
-func lowerFactoryBody(block *parse.ObjectLit, errs *parse.ErrorList) FactoryBody {
-	return lowerFactoryBodyWithMode(block, errs, lowerMode{})
 }
 
 func lowerFactoryBodyWithMode(
@@ -236,7 +250,7 @@ func lowerFactoryBodyWithMode(
 			body.Description = stringValue(fld, "description", errs)
 		case "inputs":
 			if obj := objectValue(fld, "inputs", errs); obj != nil {
-				body.Inputs = lowerInputs(obj, errs)
+				body.Inputs = lowerInputs(obj, errs, mode)
 			}
 		case "locals":
 			if obj := objectValue(fld, "locals", errs); obj != nil {
@@ -470,10 +484,10 @@ func lowerLockToolchain(
 	return toolchain
 }
 
-func lowerLibraryFile(f *parse.File, errs *parse.ErrorList) *LibraryFile {
+func lowerLibraryFile(f *parse.File, errs *parse.ErrorList, mode lowerMode) *LibraryFile {
 	library := &LibraryFile{S: f.S}
 	if hasSelectorBody(f.Body) {
-		library.Exports = lowerCompositeDecls(f.Body, errs)
+		library.Exports = lowerCompositeDecls(f.Body, errs, mode)
 		return library
 	}
 	errs.Addf(parse.ErrSchema, f.S.Start, "library file must contain composite declarations")
@@ -492,7 +506,11 @@ func hasSelectorBody(block *parse.ObjectLit) bool {
 	return false
 }
 
-func lowerCompositeDecls(block *parse.ObjectLit, errs *parse.ErrorList) []CompositeDecl {
+func lowerCompositeDecls(
+	block *parse.ObjectLit,
+	errs *parse.ErrorList,
+	mode lowerMode,
+) []CompositeDecl {
 	exports := make([]CompositeDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
@@ -526,7 +544,7 @@ func lowerCompositeDecls(block *parse.ObjectLit, errs *parse.ErrorList) []Compos
 			Name: name,
 			Kind: kind,
 			Body: lowerFactoryBodyWithMode(
-				fld.Decl.Body, errs, lowerMode{sourceDeclared: true}),
+				fld.Decl.Body, errs, mode.withSourceDeclared()),
 		})
 	}
 	return exports
@@ -551,7 +569,11 @@ func compositeKind(sel parse.Selector, errs *parse.ErrorList) (NodeKind, bool) {
 	}
 }
 
-func lowerInputs(block *parse.ObjectLit, errs *parse.ErrorList) []InputDecl {
+func lowerInputs(
+	block *parse.ObjectLit,
+	errs *parse.ErrorList,
+	mode lowerMode,
+) []InputDecl {
 	inputs := make([]InputDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
@@ -573,16 +595,21 @@ func lowerInputs(block *parse.ObjectLit, errs *parse.ErrorList) []InputDecl {
 			S:    fld.S,
 			Name: name,
 			Body: body,
-			Type: lowerInputType(name.Name, body, errs),
+			Type: lowerInputType(name.Name, body, errs, mode),
 		})
 	}
 	return inputs
 }
 
-func lowerInputType(name string, body *parse.ObjectLit, errs *parse.ErrorList) parse.TypeExpr {
+func lowerInputType(
+	name string,
+	body *parse.ObjectLit,
+	errs *parse.ErrorList,
+	mode lowerMode,
+) parse.TypeExpr {
 	var out parse.TypeExpr
 	var found bool
-	for _, fld := range body.Fields {
+	for i, fld := range body.Fields {
 		if fld.Key.Kind != parse.FieldIdent || fld.Key.Name != "type" {
 			continue
 		}
@@ -592,7 +619,7 @@ func lowerInputType(name string, body *parse.ObjectLit, errs *parse.ErrorList) p
 			continue
 		}
 		found = true
-		t, err := lang.PromoteType(fld.Value)
+		t, err := parseInputTypeValue(body, i, mode)
 		if err != nil {
 			var perr *parse.Error
 			if errors.As(err, &perr) {
@@ -605,7 +632,7 @@ func lowerInputType(name string, body *parse.ObjectLit, errs *parse.ErrorList) p
 		}
 		fld.Value = t
 		out = t
-		storeNestedTypeFields(name, t, errs)
+		storeNestedTypeFields(name, t, errs, mode)
 	}
 	if !found {
 		errs.Addf(parse.ErrSchema, body.S.Start,
@@ -614,27 +641,80 @@ func lowerInputType(name string, body *parse.ObjectLit, errs *parse.ErrorList) p
 	return out
 }
 
-func storeNestedTypeFields(name string, t parse.TypeExpr, errs *parse.ErrorList) {
+func parseInputTypeValue(
+	block *parse.ObjectLit,
+	idx int,
+	mode lowerMode,
+) (parse.TypeExpr, error) {
+	fld := block.Fields[idx]
+	if t, ok := fld.Value.(parse.TypeExpr); ok {
+		return t, nil
+	}
+	if src, ok := fieldValueSource(block, idx, mode.source); ok {
+		if t, err := parse.ParseTypeAt(mode.path, src, fld.Value.Span().Start); err == nil {
+			return t, nil
+		}
+	}
+	return lang.PromoteType(fld.Value)
+}
+
+func fieldValueSource(
+	block *parse.ObjectLit,
+	idx int,
+	source []byte,
+) ([]byte, bool) {
+	if len(source) == 0 || block == nil || idx < 0 || idx >= len(block.Fields) {
+		return nil, false
+	}
+	fld := block.Fields[idx]
+	if fld.Value == nil {
+		return nil, false
+	}
+	start := fld.Value.Span().Start.Offset
+	end := block.S.End.Offset - 1
+	if idx+1 < len(block.Fields) {
+		end = block.Fields[idx+1].S.Start.Offset
+	}
+	if start < 0 || end < start || end > len(source) {
+		return nil, false
+	}
+	return trimTypeSource(source[start:end]), true
+}
+
+func trimTypeSource(src []byte) []byte {
+	out := bytes.TrimSpace(src)
+	if len(out) > 0 && out[len(out)-1] == ',' {
+		out = bytes.TrimSpace(out[:len(out)-1])
+	}
+	return out
+}
+
+func storeNestedTypeFields(
+	name string,
+	t parse.TypeExpr,
+	errs *parse.ErrorList,
+	mode lowerMode,
+) {
 	switch v := t.(type) {
 	case *parse.TypeList:
-		storeNestedTypeFields(name, v.Elem, errs)
+		storeNestedTypeFields(name, v.Elem, errs, mode)
 	case *parse.TypeMap:
-		storeNestedTypeFields(name, v.Elem, errs)
+		storeNestedTypeFields(name, v.Elem, errs, mode)
 	case *parse.TypeOptional:
-		storeNestedTypeFields(name, v.Elem, errs)
+		storeNestedTypeFields(name, v.Elem, errs, mode)
 	case *parse.TypeTuple:
 		for _, elem := range v.Elements {
-			storeNestedTypeFields(name, elem, errs)
+			storeNestedTypeFields(name, elem, errs, mode)
 		}
 	case *parse.TypeObject:
 		for _, field := range v.Fields {
 			fieldName := name + "." + field.Name
 			if field.Decl != nil {
-				lowerInputType(fieldName, field.Decl, errs)
+				lowerInputType(fieldName, field.Decl, errs, mode)
 				continue
 			}
 			if field.Type != nil {
-				storeNestedTypeFields(fieldName, field.Type, errs)
+				storeNestedTypeFields(fieldName, field.Type, errs, mode)
 			}
 		}
 	}

@@ -159,6 +159,24 @@ factory: {
 	require.IsType(t, &parse.TypeAtomic{}, nestedTypeField.Value)
 }
 
+func TestParseSourceUsesTypeParserForInputFields(t *testing.T) {
+	src := []byte(`factory: {
+  inputs: {
+    payload: { type: open(object({ kind: string })) }
+  }
+}
+`)
+
+	got, err := ParseSource("factory.ub", src)
+	require.NoError(t, err)
+	require.Len(t, got.Factory.Body.Inputs, 1)
+
+	typeExpr := got.Factory.Body.Inputs[0].Type
+	require.IsType(t, &parse.TypeObject{}, typeExpr)
+	assert.Equal(t, 3, typeExpr.Span().Start.Line)
+	assert.Equal(t, 22, typeExpr.Span().Start.Column)
+}
+
 func TestLowerStackFile(t *testing.T) {
 	f := parseFile(t, "dev.ub", `
 locals: {

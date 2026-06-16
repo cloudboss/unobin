@@ -7,6 +7,6 @@ func ParseSource(path string, b []byte) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	out, errs := LowerFile(f)
+	out, errs := lowerFile(f, lowerMode{path: path, source: b})
 	return out, errs.Err()
 }

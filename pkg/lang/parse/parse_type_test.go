@@ -63,6 +63,23 @@ func TestParseTypeOpenMarksObject(t *testing.T) {
 	assert.True(t, got.(*TypeObject).Open)
 }
 
+func TestParseTypeAtRebasesSpans(t *testing.T) {
+	got, err := ParseTypeAt("factory.ub", []byte("open(object({ name: string }))"), Position{
+		File:   "factory.ub",
+		Line:   7,
+		Column: 15,
+		Offset: 120,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, Position{File: "factory.ub", Line: 7, Column: 15, Offset: 120},
+		got.Span().Start)
+
+	obj := got.(*TypeObject)
+	fieldType := obj.Fields[0].Type
+	assert.Equal(t, Position{File: "factory.ub", Line: 7, Column: 35, Offset: 140},
+		fieldType.Span().Start)
+}
+
 func TestParseTypeErrors(t *testing.T) {
 	tests := []struct {
 		name string

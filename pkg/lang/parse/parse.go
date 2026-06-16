@@ -46,9 +46,19 @@ func ParseExpr(path string, b []byte) (Expr, error) {
 
 // ParseType parses b as a UB type expression and returns its AST.
 func ParseType(path string, b []byte) (TypeExpr, error) {
+	return ParseTypeAt(path, b, Position{File: path, Line: 1, Column: 1})
+}
+
+// ParseTypeAt parses b as a UB type expression whose first byte starts
+// at base in the source file.
+func ParseTypeAt(path string, b []byte, base Position) (TypeExpr, error) {
+	if base.File == "" {
+		base.File = path
+	}
 	v, err := Parse(path, b,
 		Entrypoint("TypeFile"),
 		GlobalStore("file", path),
+		GlobalStore("base", base),
 		Recover(false),
 	)
 	if err != nil {
