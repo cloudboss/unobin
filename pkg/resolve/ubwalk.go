@@ -128,15 +128,18 @@ type ubWalker struct {
 	inProgress map[string]bool
 }
 
-// lockedVersion returns ref with the version the lock selected for its
-// repository filled in, when the map has one. Local imports and
-// repositories absent from the map are returned unchanged.
+// lockedVersion returns ref with the selected lock version filled in,
+// when the map has one. Local imports and dependencies absent from the map
+// are returned unchanged.
 func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
 	r, ok := ref.(*RemoteImport)
 	if !ok {
 		return ref
 	}
-	v, found := w.versions[r.URL]
+	v, found := w.versions[remoteImportID(r)]
+	if !found {
+		v, found = w.versions[r.URL]
+	}
 	if !found {
 		return ref
 	}
@@ -176,7 +179,8 @@ func (w *ubWalker) walkOne(
 	ref = w.lockedVersion(ref)
 	if r, ok := ref.(*RemoteImport); ok && r.Version == "" {
 		return Resolution{}, fmt.Errorf(
-			"import %q: no version for %s in lock.ub; run `unobin deps sync`", alias, r.URL)
+			"import %q: no version for %s in lock.ub; run `unobin deps sync`",
+			alias, remoteImportID(r))
 	}
 	if r, ok := crossRepoInternal(repo, ref); ok {
 		return Resolution{}, internalImportError(alias, r)
@@ -259,6 +263,13 @@ func localModulePath(source *Source) string {
 		return ""
 	}
 	return modfile.ModulePath(b)
+}
+
+func remoteImportID(r *RemoteImport) string {
+	if r.Subdir == "" {
+		return r.URL
+	}
+	return r.URL + "//" + r.Subdir
 }
 
 func localPath(ref ImportRef) string {

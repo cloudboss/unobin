@@ -42,3 +42,19 @@ func (d Dependency) String() string {
 	}
 	return d.URL + "//" + d.Subdir
 }
+
+// ReplacementPath returns the local replacement for dep. A repository-level
+// replacement covers imports from subdirectories in that repository.
+func ReplacementPath(replace map[Dependency]string, dep Dependency) (string, bool) {
+	if replace == nil {
+		return "", false
+	}
+	if path, ok := replace[dep]; ok {
+		return path, true
+	}
+	if dep.Subdir == "" {
+		return "", false
+	}
+	path, ok := replace[Dependency{URL: dep.URL}]
+	return path, ok
+}

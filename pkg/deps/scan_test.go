@@ -15,7 +15,7 @@ func writeUB(t *testing.T, path, body string) {
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 }
 
-func TestImportedReposGroupsByRepo(t *testing.T) {
+func TestImportedReposPreservesSubdirs(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"), `
 factory: {
@@ -29,7 +29,8 @@ factory: {
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]bool{
-		{URL: "github.com/cloudboss/unobin"}: true,
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}:  true,
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/local"}: true,
 	}, repos)
 }
 
@@ -45,7 +46,7 @@ greeting: resource {
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]bool{
-		{URL: "github.com/scratch/repo"}: true,
+		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: true,
 	}, repos)
 }
 
@@ -62,7 +63,7 @@ factory: {
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]bool{
-		{URL: "github.com/cloudboss/unobin"}: true,
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}: true,
 	}, repos)
 }
 
@@ -113,7 +114,7 @@ lookup: data {
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]bool{
-		{URL: "github.com/scratch/repo"}: true,
+		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: true,
 	}, repos)
 }
 
@@ -134,5 +135,5 @@ func TestImportedReposSkipsHiddenDirs(t *testing.T) {
 		"imports: { bad: 'github.com/other/repo//lib' }\n")
 	repos, err := ImportedRepos(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{{URL: "github.com/x/y"}: true}, repos)
+	assert.Equal(t, map[Dependency]bool{{URL: "github.com/x/y", Subdir: "core"}: true}, repos)
 }

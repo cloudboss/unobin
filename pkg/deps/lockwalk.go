@@ -154,13 +154,11 @@ func (w *lockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.Source) e
 }
 
 func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
-	if _, replaced := w.replace[Dependency{URL: r.URL}]; replaced {
+	dep := Dependency{URL: r.URL, Subdir: r.Subdir}
+	if _, replaced := ReplacementPath(w.replace, dep); replaced {
 		return w.walkReplaced(r)
 	}
-	id := r.URL
-	if r.Subdir != "" {
-		id += "//" + r.Subdir
-	}
+	id := dep.String()
 	if _, done := w.lock.Deps[id]; done {
 		return nil
 	}
@@ -170,16 +168,15 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	w.inProgress[id] = true
 	defer delete(w.inProgress, id)
 
-	repo := Dependency{URL: r.URL}
-	version, ok := w.selection[repo]
+	version, ok := w.selection[dep]
 	if !ok {
 		return fmt.Errorf(
 			"%s is imported but has no version floor in the dependency manifest; "+
 				"add one with `unobin deps get %s@<version>`",
-			r.URL, r.URL)
+			dep, dep)
 	}
 	src, err := w.resolver.Resolve(
-		&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir, Version: repo.Tag(version)})
+		&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir, Version: dep.Tag(version)})
 	if err != nil {
 		return err
 	}

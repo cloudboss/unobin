@@ -77,14 +77,14 @@ func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 	assert.Equal(t, "v1.0.0", r.lastRef.Version)
 }
 
-func TestFetchUsesPrefixedTagForSubdirProject(t *testing.T) {
+func TestFetchUsesRepoTagForSubdirProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "net", "net/v1.0.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "net", "v1.0.0"): {FS: fstest.MapFS{}},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y", Subdir: "net"}, "v1.0.0")
 	require.NoError(t, err)
 	assert.Equal(t, "net", r.lastRef.Subdir)
-	assert.Equal(t, "net/v1.0.0", r.lastRef.Version)
+	assert.Equal(t, "v1.0.0", r.lastRef.Version)
 }
 
 func TestFetchPropagatesResolverError(t *testing.T) {

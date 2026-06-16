@@ -31,12 +31,15 @@ func ubSrc(commit, hash string, files map[string]string) *resolve.Source {
 
 func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' } }\n",
+		"factory.ub": "factory: { imports: { core: " +
+			"'github.com/cloudboss/unobin//pkg/libraries/core' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.1.0"}
+	sel := map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}: "v0.1.0",
+	}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
@@ -59,7 +62,9 @@ factory: {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.1.0"}
+	sel := map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}: "v0.1.0",
+	}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
@@ -150,7 +155,9 @@ thing: resource {
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
 	}}
 	replace := map[Dependency]string{{URL: "github.com/me/mylib"}: "../mylib"}
-	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.1.0"}
+	sel := map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}: "v0.1.0",
+	}
 	lock, err := LockFromImports(root, sel, r, replace)
 	require.NoError(t, err)
 	// The replaced library is not locked; its transitive remote dep is.
@@ -174,7 +181,7 @@ greeting: resource {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): goSrc("c1"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.1.0"}
+	sel := map[Dependency]string{{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: "v0.1.0"}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
@@ -197,7 +204,9 @@ hello: resource {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.5.0"): goSrc("c1"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/cloudboss/unobin"}: "v0.5.0"}
+	sel := map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/local"}: "v0.5.0",
+	}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
@@ -222,8 +231,8 @@ greeting: resource {
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}
 	sel := map[Dependency]string{
-		{URL: "github.com/scratch/repo"}:     "v0.1.0",
-		{URL: "github.com/cloudboss/unobin"}: "v0.1.0",
+		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}:              "v0.1.0",
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/local"}: "v0.1.0",
 	}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
@@ -255,8 +264,8 @@ greeting: resource {
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}
 	sel := map[Dependency]string{
-		{URL: "github.com/scratch/repo"}:     "v0.1.0",
-		{URL: "github.com/cloudboss/unobin"}: "v0.1.0",
+		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}:              "v0.1.0",
+		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/local"}: "v0.1.0",
 	}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
@@ -294,7 +303,7 @@ greeting: resource {
 			}),
 		},
 	}
-	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.1.0"}
+	sel := map[Dependency]string{{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: "v0.1.0"}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
@@ -327,7 +336,7 @@ func TestLockFromImportsDedups(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"}
+	sel := map[Dependency]string{{URL: "github.com/x/y", Subdir: "lib"}: "v1.0.0"}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Len(t, lock.Deps, 1)
@@ -340,7 +349,7 @@ func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v2.0.0"): goSrc("c2"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/x/y"}: "v2.0.0"}
+	sel := map[Dependency]string{{URL: "github.com/x/y", Subdir: "lib"}: "v2.0.0"}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "v2.0.0", lock.Deps["github.com/x/y//lib"].Version)
@@ -381,8 +390,8 @@ b: resource {
 		}),
 	}}
 	sel := map[Dependency]string{
-		{URL: "github.com/x/a"}: "v1.0.0",
-		{URL: "github.com/x/b"}: "v1.0.0",
+		{URL: "github.com/x/a", Subdir: "lib"}: "v1.0.0",
+		{URL: "github.com/x/b", Subdir: "lib"}: "v1.0.0",
 	}
 	_, err := LockFromImports(root, sel, r, nil)
 	require.Error(t, err)

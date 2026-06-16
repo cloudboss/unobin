@@ -152,7 +152,7 @@ func manifestSource(body string) []byte {
 func goCoreRemotes() map[string]*resolve.Source {
 	return map[string]*resolve.Source{
 		// the repo root, read by the version walk: no manifest, so a leaf.
-		"github.com/x/core@v1.0.0": {FS: fstest.MapFS{}},
+		"github.com/x/core@v1.0.0": {Commit: "root", FS: fstest.MapFS{}},
 		// the imported library, pinned in the lock as a Go library.
 		"github.com/x/core//lib@v1.0.0": {
 			Commit: "abc123",
@@ -168,7 +168,7 @@ func TestDepsSync(t *testing.T) {
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// The floor lives in the manifest; sync rebuilds the lock from it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -186,6 +186,26 @@ func TestDepsSync(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestDepsSyncRootImportUsesRepoFloor(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+
+	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
+		"-p", filepath.Join(root, "factory.ub"))
+	require.NoError(t, err)
+	require.Contains(t, out, "Wrote manifest.ub")
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/x/core": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "root"},
+	}, lock.Deps)
+}
+
 func TestDepsSyncUsesAncestorManifest(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	child := filepath.Join(root, "services", "app")
@@ -193,7 +213,7 @@ func TestDepsSyncUsesAncestorManifest(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"),
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(child, "factory.ub"))
@@ -243,7 +263,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(deps.ManifestFileName,
-		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/x/core//lib': 'v1.0.0' } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync")
 	require.NoError(t, err)
@@ -293,7 +313,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/x/core//lib': 'v1.0.0' } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -304,7 +324,7 @@ factory: {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.0.0'
+    'github.com/x/core//lib': 'v1.0.0'
   }
 }
 `, string(manifestBytes))
@@ -321,7 +341,7 @@ greeting: resource {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync", "-p", root)
 	require.NoError(t, err)
@@ -376,7 +396,7 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	// gone/repo is listed but no longer imported; sync must remove it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
-			"  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+			"  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -386,7 +406,7 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.0.0'
+    'github.com/x/core//lib': 'v1.0.0'
   }
 }
 `, string(manifestBytes))
@@ -536,15 +556,15 @@ func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
 func TestDepsGetExactVersion(t *testing.T) {
 	root := writeGetProject(t)
 	out, err := runCommandWithRemotes(t, goLibRemotes("v1.2.0", "c12"),
-		"deps", "get", "github.com/x/core@v1.2.0", "-p", filepath.Join(root, "factory.ub"))
+		"deps", "get", "github.com/x/core//lib@v1.2.0", "-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
-	require.Contains(t, out, "github.com/x/core v1.2.0")
+	require.Contains(t, out, "github.com/x/core//lib v1.2.0")
 
 	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.2.0'
+    'github.com/x/core//lib': 'v1.2.0'
   }
 }
 `, string(manifestBytes))
@@ -557,7 +577,7 @@ func TestDepsGetExactVersion(t *testing.T) {
 func TestDepsGetLatest(t *testing.T) {
 	root := writeGetProject(t)
 	_, err := runCommandWithRemotes(t, goLibRemotes("v2.0.0", "c20"),
-		"deps", "get", "github.com/x/core", "-p", filepath.Join(root, "factory.ub"))
+		"deps", "get", "github.com/x/core//lib", "-p", filepath.Join(root, "factory.ub"))
 	require.NoError(t, err)
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)

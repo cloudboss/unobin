@@ -86,15 +86,18 @@ func TestReadLockMissing(t *testing.T) {
 
 func TestLockRepoVersions(t *testing.T) {
 	l := NewLock()
+	l.Deps["github.com/x/y"] = &LockedDep{Kind: LockKindGo, Version: "v0.9.0", Commit: "c"}
 	l.Deps["github.com/x/y//a"] = &LockedDep{Kind: LockKindGo, Version: "v1.0.0", Commit: "c"}
-	l.Deps["github.com/x/y//b"] = &LockedDep{Kind: LockKindGo, Version: "v1.0.0", Commit: "c"}
+	l.Deps["github.com/x/y//b"] = &LockedDep{Kind: LockKindGo, Version: "v1.1.0", Commit: "c"}
 	l.Deps["github.com/z/w//ub"] = &LockedDep{
 		Kind: LockKindUB, Version: "v2.0.0", Commit: "c", Hash: "h",
 	}
 	got, err := l.RepoVersions()
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{
-		"github.com/x/y": "v1.0.0",
-		"github.com/z/w": "v2.0.0",
+		"github.com/x/y":     "v0.9.0",
+		"github.com/x/y//a":  "v1.0.0",
+		"github.com/x/y//b":  "v1.1.0",
+		"github.com/z/w//ub": "v2.0.0",
 	}, got)
 }

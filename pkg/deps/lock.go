@@ -9,7 +9,6 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
-	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 // SourceLockFileName is the dependency lock filename.
@@ -66,18 +65,16 @@ func (l *Lock) SortedIDs() []string {
 	return ids
 }
 
-// RepoVersions maps each repository to its selected version, derived from
-// the per-library entries (every library of a repo shares its version).
+// RepoVersions maps each locked dependency id to its selected version.
 // Compile feeds this to the import walk so versionless imports resolve at
 // the locked version.
 func (l *Lock) RepoVersions() (map[string]string, error) {
 	out := make(map[string]string, len(l.Deps))
 	for id, entry := range l.Deps {
-		url, _, err := resolve.SplitRepoSubdir(id)
-		if err != nil {
+		if _, err := ParseDependency(id); err != nil {
 			return nil, fmt.Errorf("lock id %q: %w", id, err)
 		}
-		out[url] = entry.Version
+		out[id] = entry.Version
 	}
 	return out, nil
 }

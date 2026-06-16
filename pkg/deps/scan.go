@@ -57,6 +57,6 @@ func addSyntaxImportRefs(repos map[Dependency]bool, refs []resolve.SyntaxImport)
 		if !ok {
 			continue
 		}
-		repos[Dependency{URL: rem.URL}] = true
+		repos[Dependency{URL: rem.URL, Subdir: rem.Subdir}] = true
 	}
 }

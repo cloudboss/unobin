@@ -62,7 +62,7 @@ var (
 
 	depsGetCfg = &depsSyncConfig{}
 	depsGetCmd = &cobra.Command{
-		Use:   "get <repo>[@version]",
+		Use:   "get <dependency>[@version]",
 		Short: "Add or update a dependency floor and re-pin",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -93,7 +93,8 @@ func init() {
 	depsSyncCmd.Flags().StringVar(&depsSyncCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
 	depsListCmd.Flags().StringVarP(&depsListCfg.stackPath, "path", "p", ".", depsPathHelp)
 	depsVerifyCmd.Flags().StringVarP(&depsVerifyCfg.stackPath, "path", "p", ".", depsPathHelp)
-	depsVerifyCmd.Flags().StringVar(&depsVerifyCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
+	depsVerifyCmd.Flags().StringVar(
+		&depsVerifyCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
 	depsGetCmd.Flags().StringVarP(&depsGetCfg.stackPath, "path", "p", ".", depsPathHelp)
 	depsGetCmd.Flags().StringVar(&depsGetCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
 	DepsCmd.AddCommand(depsSyncCmd, depsListCmd, depsVerifyCmd, depsCleanCmd, depsGetCmd)
@@ -203,7 +204,7 @@ func reconcileManifest(
 ) error {
 	var missing []string
 	for dep := range imported {
-		if _, ok := m.Replace[dep]; ok {
+		if _, ok := deps.ReplacementPath(m.Replace, dep); ok {
 			continue // a replaced dependency reads from a local path, no floor
 		}
 		if dep.URL == toolchain.UnobinModulePath {
@@ -222,7 +223,7 @@ func reconcileManifest(
 		slices.Sort(missing)
 		return fmt.Errorf(
 			"imported but missing from %s: %s\n"+
-				"add a floor with `unobin deps get <repo>@<version>`",
+				"add a floor with `unobin deps get <dependency>@<version>`",
 			manifestName, strings.Join(missing, ", "))
 	}
 	for dep := range m.Requires {
