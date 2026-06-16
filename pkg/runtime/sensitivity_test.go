@@ -273,6 +273,79 @@ resources: {
 	require.Equal(t, []string{"content"}, got)
 }
 
+func TestSensitivityPropagatesTypedCompositeOutputDeclared(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+box: resource {
+  outputs: { token: { value: 'secret', @sensitive: true } }
+}
+`)
+	body := composite.body
+	libs := map[string]*Library{
+		"wrap": {
+			Name: "wrap",
+			ResourceComposites: map[string]*CompositeType{
+				"box": {
+					Name:       "box",
+					Body:       &lang.File{Body: &lang.ObjectLit{}},
+					SyntaxBody: &body,
+				},
+			},
+		},
+		"local": {Name: "local"},
+	}
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    one: wrap.box {}
+    file: local.file { path: 'out.txt', content: resource.one.token }
+  }
+}
+`)
+	dag := BuildSyntaxDAG(fixture.body, libs)
+	an := newSensitivityAnalyzer(fixture.file, libs, dag)
+
+	node := dag.Nodes["resource.file"]
+	require.NotNil(t, node)
+	got := an.sensitiveInputs(node.Body, node.Composite)
+	require.Equal(t, []string{"content"}, got)
+}
+
+func TestSensitivityInsideTypedCompositeUsesSyntaxInputs(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+box: resource {
+  inputs: { password: { type: string, @sensitive: true } }
+  resources: { this: local.file { path: 'x.txt', content: var.password } }
+}
+`)
+	body := composite.body
+	libs := map[string]*Library{
+		"wrap": {
+			Name: "wrap",
+			ResourceComposites: map[string]*CompositeType{
+				"box": {
+					Name:       "box",
+					Body:       &lang.File{Body: &lang.ObjectLit{}},
+					SyntaxBody: &body,
+					Libraries:  map[string]*Library{"local": {Name: "local"}},
+				},
+			},
+		},
+		"local": {Name: "local"},
+	}
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: { one: wrap.box { password: 'shh' } }
+}
+`)
+	dag := BuildSyntaxDAG(fixture.body, libs)
+	an := newSensitivityAnalyzer(fixture.file, libs, dag)
+
+	inner := dag.Nodes["resource.one/resource.this"]
+	require.NotNil(t, inner)
+	got := an.sensitiveInputs(inner.Body, inner.Composite)
+	require.Equal(t, []string{"content"}, got)
+}
+
 func TestSensitivityPropagatesThroughCompositeOutputFromGoField(t *testing.T) {
 	composite := parseStack(t, `
 resources: { vault.secret.this: { name: 'x' } }

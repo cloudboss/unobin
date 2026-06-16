@@ -13,13 +13,17 @@ type compositeOutputDecl struct {
 }
 
 func compositeLocalScope(n *Node) *localScope {
+	return newLocalScopeFromMap(compositeLocalExprs(n))
+}
+
+func compositeLocalExprs(n *Node) map[string]lang.Expr {
 	if n != nil && n.CompositeSyntaxBody != nil {
-		return newLocalScopeFromMap(syntaxLocalMap(n.CompositeSyntaxBody.Locals))
+		return syntaxLocalMap(n.CompositeSyntaxBody.Locals)
 	}
 	if n == nil {
-		return newLocalScope(nil)
+		return nil
 	}
-	return newLocalScope(localsBlock(n.CompositeBody))
+	return lang.FieldMap(localsBlock(n.CompositeBody))
 }
 
 func compositeInputNames(n *Node) map[string]bool {

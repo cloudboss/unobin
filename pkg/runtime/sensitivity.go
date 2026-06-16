@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // sensitivityAnalyzer decides whether an expression reads any
@@ -16,11 +17,12 @@ import (
 // Per-composite analysis is memoized so a stack with many call
 // sites of the same composite type pays the inference cost once.
 type sensitivityAnalyzer struct {
-	rootInputs map[string]bool
-	rootLocals map[string]lang.Expr
-	rootMods   map[string]*Library
-	dag        *DAG
-	cache      map[*lang.File]*compositeSensitivity
+	rootInputs  map[string]bool
+	rootLocals  map[string]lang.Expr
+	rootMods    map[string]*Library
+	dag         *DAG
+	cache       map[*lang.File]*compositeSensitivity
+	syntaxCache map[*syntax.FactoryBody]*compositeSensitivity
 }
 
 type compositeSensitivity struct {
@@ -62,11 +64,12 @@ func newSensitivityAnalyzer(
 	rootSource *lang.File, rootMods map[string]*Library, dag *DAG,
 ) *sensitivityAnalyzer {
 	return &sensitivityAnalyzer{
-		rootInputs: inputsBlockSensitive(rootSource),
-		rootLocals: lang.FieldMap(localsBlock(rootSource)),
-		rootMods:   rootMods,
-		dag:        dag,
-		cache:      map[*lang.File]*compositeSensitivity{},
+		rootInputs:  inputsBlockSensitive(rootSource),
+		rootLocals:  lang.FieldMap(localsBlock(rootSource)),
+		rootMods:    rootMods,
+		dag:         dag,
+		cache:       map[*lang.File]*compositeSensitivity{},
+		syntaxCache: map[*syntax.FactoryBody]*compositeSensitivity{},
 	}
 }
 
@@ -175,8 +178,7 @@ func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) *sensScope {
 	if libs == nil {
 		libs = s.rootMods
 	}
-	return newSensScope(
-		cs.inputs, libs, lang.FieldMap(localsBlock(boundary.CompositeBody)), s.dagNodes(), tmpl)
+	return newSensScope(cs.inputs, libs, compositeLocalExprs(boundary), s.dagNodes(), tmpl)
 }
 
 func (s *sensitivityAnalyzer) dagNodes() map[string]*Node {
@@ -190,11 +192,29 @@ func (s *sensitivityAnalyzer) dagNodes() map[string]*Node {
 // a composite call site's type: which of its declared inputs are
 // sensitive, and which of its outputs are sensitive after merging
 // declared `@sensitive: true` wrappers with propagation from
-// sensitive sources. Results are cached on the body file pointer
-// because every call site of the same composite type shares its
-// body.
+// sensitive sources. Results are cached by composite body because
+// every call site of the same composite type shares the same source.
 func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSensitivity {
-	body := boundary.CompositeBody
+	if boundary == nil {
+		return nil
+	}
+	libs := boundary.Libraries
+	if libs == nil {
+		libs = s.rootMods
+	}
+	if boundary.CompositeSyntaxBody != nil {
+		return s.syntaxCompositeSensitivity(
+			boundary.CompositeSyntaxBody, libs, s.dagNodes(), boundary.Address)
+	}
+	return s.langCompositeSensitivity(boundary.CompositeBody, libs, s.dagNodes(), boundary.Address)
+}
+
+func (s *sensitivityAnalyzer) langCompositeSensitivity(
+	body *lang.File,
+	libs map[string]*Library,
+	nodes map[string]*Node,
+	scope string,
+) *compositeSensitivity {
 	if body == nil {
 		return nil
 	}
@@ -216,12 +236,7 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	for name := range lang.SensitiveOutputs(outputs) {
 		cs.outputs[name] = true
 	}
-	libs := boundary.Libraries
-	if libs == nil {
-		libs = s.rootMods
-	}
-	sc := newSensScope(
-		cs.inputs, libs, lang.FieldMap(localsBlock(body)), s.dagNodes(), boundary.Address)
+	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(body)), nodes, scope)
 	for _, fld := range outputs.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
 			continue
@@ -239,6 +254,65 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 		}
 	}
 	return cs
+}
+
+func (s *sensitivityAnalyzer) syntaxCompositeSensitivity(
+	body *syntax.FactoryBody,
+	libs map[string]*Library,
+	nodes map[string]*Node,
+	scope string,
+) *compositeSensitivity {
+	if body == nil {
+		return nil
+	}
+	if cached, ok := s.syntaxCache[body]; ok {
+		return cached
+	}
+	cs := &compositeSensitivity{
+		inputs:  syntaxInputsSensitive(body.Inputs),
+		outputs: map[string]bool{},
+	}
+	s.syntaxCache[body] = cs
+	sc := newSensScope(cs.inputs, libs, syntaxLocalMap(body.Locals), nodes, scope)
+	for _, decl := range body.Outputs {
+		name := decl.Name.Name
+		if sensitiveDecl(decl.Body) {
+			cs.outputs[name] = true
+			continue
+		}
+		inner := lang.OutputValueExpr(decl.Body)
+		if inner == nil {
+			continue
+		}
+		if s.exprSensitive(inner, sc) {
+			cs.outputs[name] = true
+		}
+	}
+	return cs
+}
+
+func syntaxInputsSensitive(decls []syntax.InputDecl) map[string]bool {
+	out := map[string]bool{}
+	for _, decl := range decls {
+		if sensitiveDecl(decl.Body) {
+			out[decl.Name.Name] = true
+		}
+	}
+	return out
+}
+
+func sensitiveDecl(obj *lang.ObjectLit) bool {
+	if obj == nil {
+		return false
+	}
+	for _, fld := range obj.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@sensitive" {
+			continue
+		}
+		b, ok := fld.Value.(*lang.BoolLit)
+		return ok && b.Value
+	}
+	return false
 }
 
 // exprSensitive walks an expression and returns true on the first
@@ -390,47 +464,23 @@ func (s *sensitivityAnalyzer) localSensitive(dp *lang.DotPath, sc *sensScope) bo
 // `resource.<alias>.<composite-type>.<name>.<field>` and we need
 // to know whether <field> is sensitive on that composite.
 func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string]bool {
-	if ct == nil || ct.Body == nil {
+	if ct == nil {
 		return nil
-	}
-	if cached, ok := s.cache[ct.Body]; ok {
-		return cached.outputs
-	}
-	cs := &compositeSensitivity{
-		inputs:  inputsBlockSensitive(ct.Body),
-		outputs: map[string]bool{},
-	}
-	s.cache[ct.Body] = cs
-	if ct.Body.Body == nil {
-		return cs.outputs
-	}
-	outputs, ok := lang.FieldMap(ct.Body.Body)["outputs"].(*lang.ObjectLit)
-	if !ok {
-		return cs.outputs
-	}
-	for name := range lang.SensitiveOutputs(outputs) {
-		cs.outputs[name] = true
 	}
 	libs := ct.Libraries
 	if libs == nil {
 		libs = s.rootMods
 	}
-	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(ct.Body)), nil, "")
-	for _, fld := range outputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
+	if ct.SyntaxBody != nil {
+		cs := s.syntaxCompositeSensitivity(ct.SyntaxBody, libs, nil, "")
+		if cs == nil {
+			return nil
 		}
-		name := fld.Key.Name
-		if cs.outputs[name] {
-			continue
-		}
-		inner := lang.OutputValueExpr(fld.Value)
-		if inner == nil {
-			continue
-		}
-		if s.exprSensitive(inner, sc) {
-			cs.outputs[name] = true
-		}
+		return cs.outputs
+	}
+	cs := s.langCompositeSensitivity(ct.Body, libs, nil, "")
+	if cs == nil {
+		return nil
 	}
 	return cs.outputs
 }
