@@ -40,8 +40,27 @@ func configDriver(name string, src []byte) (string, []string) {
 	if err != nil {
 		return "", []string{err.Error()}
 	}
-	f.Kind = FileConfig
-	return "", ValidateFile(f).Strings()
+	blocks := fixtureTopLevelBlocks(f)
+	errs := NewErrorList(0)
+	locals := configLocalNames(blocks["locals"])
+	if obj, ok := blocks["locals"].(*ObjectLit); ok {
+		mergeErrors(errs, ValidateLocals(obj))
+		mergeErrors(errs, ValidateConfigLocals(obj))
+	}
+	if obj, ok := blocks["factory"].(*ObjectLit); ok {
+		mergeErrors(errs, ValidateConfigFactory(obj, locals))
+	}
+	return "", errs.Strings()
+}
+
+func fixtureTopLevelBlocks(f *File) map[string]Expr {
+	out := make(map[string]Expr, len(f.Body.Fields))
+	for _, fld := range f.Body.Fields {
+		if fld.Key.Kind == FieldIdent && !fld.Key.IsMeta() {
+			out[fld.Key.Name] = fld.Value
+		}
+	}
+	return out
 }
 
 func TestValidateConfigFixtures(t *testing.T) {

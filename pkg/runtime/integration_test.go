@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
-	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
@@ -32,16 +32,16 @@ func applyOnce(t *testing.T, exec *runtime.Executor) *runtime.ExecResult {
 	return res
 }
 
-// runStack parses, validates, builds the DAG, and drives one
+// runFactory parses, validates, builds the DAG, and drives one
 // Plan-and-ApplyPlan cycle through the executor.
-func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResult {
+func runFactory(t *testing.T, src string, inputs map[string]any) *runtime.ExecResult {
 	t.Helper()
-	f, err := lang.ParseSource("factory.ub", []byte(src))
+	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
-	f.Kind = lang.FileFactory
+	require.NotNil(t, f.Factory)
 
-	errs := lang.ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "validate: %v", errsAsStrings(errs))
+	errs := syntax.ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Messages())
 
 	store, err := local.NewStore(t.TempDir(), "demo-stack", "test", encrypters.Noop{})
 	require.NoError(t, err)
@@ -50,12 +50,12 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 		"core": testCommandLibrary(),
 	}
 	exec := &runtime.Executor{
-		DAG:       runtime.BuildDAG(f, libs),
-		Libraries: libs,
-		Inputs:    inputs,
-		Source:    f,
-		Store:     store,
-		Factory:   state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          runtime.BuildSyntaxDAG(f.Factory.Body, libs),
+		Libraries:    libs,
+		Inputs:       inputs,
+		SyntaxSource: &f.Factory.Body,
+		Store:        store,
+		Factory:      state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	return applyOnce(t, exec)
 }
@@ -106,74 +106,81 @@ func (a *scriptAction) Run(ctx context.Context, _ any) (any, error) {
 	return map[string]any{"stdout": string(out)}, nil
 }
 
-func errsAsStrings(l *lang.ErrorList) []string {
-	es := l.Errors()
-	out := make([]string, len(es))
-	for i, e := range es {
-		out[i] = e.Error()
-	}
-	return out
-}
-
-func TestStackRunsCoreCommand(t *testing.T) {
+func TestFactoryRunsCoreCommand(t *testing.T) {
 	src := `
-inputs:  { greeting: { type: string } }
-actions: { core.command.hello: { argv: ['echo', var.greeting] } }
-outputs: { said: { value: action.core.command.hello.stdout } }
+factory: {
+  inputs:  { greeting: { type: string } }
+  actions: { hello: core.command { argv: ['echo', var.greeting] } }
+  outputs: { said: { value: action.hello.stdout } }
+}
 `
-	res := runStack(t, src, map[string]any{"greeting": "world"})
+	res := runFactory(t, src, map[string]any{"greeting": "world"})
 	require.Equal(t, "world\n", res.Outputs["said"])
 }
 
-func TestStackUsesLocals(t *testing.T) {
+func TestFactoryUsesLocals(t *testing.T) {
 	src := `
-inputs:  { env: { type: string }, region: { type: string } }
-locals:  { cluster: $'{{ var.env }}-{{ var.region }}', greeting: $'hello from {{ local.cluster }}' }
-actions: { core.command.hello: { argv: ['echo', local.greeting] } }
-outputs: { said: { value: action.core.command.hello.stdout }, cluster: { value: local.cluster } }
+factory: {
+  inputs: { env: { type: string }, region: { type: string } }
+  locals: {
+    cluster: $'{{ var.env }}-{{ var.region }}'
+    greeting: $'hello from {{ local.cluster }}'
+  }
+  actions: { hello: core.command { argv: ['echo', local.greeting] } }
+  outputs: { said: { value: action.hello.stdout }, cluster: { value: local.cluster } }
+}
 `
-	res := runStack(t, src, map[string]any{"env": "prod", "region": "us-east-1"})
+	res := runFactory(t, src, map[string]any{"env": "prod", "region": "us-east-1"})
 	require.Equal(t, "hello from prod-us-east-1\n", res.Outputs["said"])
 	require.Equal(t, "prod-us-east-1", res.Outputs["cluster"])
 }
 
-func TestStackLocalReadsActionOutput(t *testing.T) {
+func TestFactoryLocalReadsActionOutput(t *testing.T) {
 	src := `
-locals: { echoed: action.core.command.first.stdout }
-actions: {
-  core.command.first:  { argv: ['echo', 'one'] }
-  core.command.second: { argv: ['echo', local.echoed] }
+factory: {
+  locals: { echoed: action.first.stdout }
+  actions: {
+    first: core.command { argv: ['echo', 'one'] }
+    second: core.command { argv: ['echo', local.echoed] }
+  }
+  outputs: { result: { value: action.second.stdout } }
 }
-outputs: { result: { value: action.core.command.second.stdout } }
 `
-	res := runStack(t, src, nil)
+	res := runFactory(t, src, nil)
 	require.Equal(t, "one\n\n", res.Outputs["result"])
 }
 
-func TestStackChainsActions(t *testing.T) {
+func TestFactoryChainsActions(t *testing.T) {
 	src := `
-actions: {
-  core.command.first:  { argv: ['echo', 'one'] }
-  core.command.second: { argv: ['echo', action.core.command.first.stdout] }
+factory: {
+  actions: {
+    first: core.command { argv: ['echo', 'one'] }
+    second: core.command { argv: ['echo', action.first.stdout] }
+  }
+  outputs: { result: { value: action.second.stdout } }
 }
-outputs: { result: { value: action.core.command.second.stdout } }
 `
-	res := runStack(t, src, nil)
+	res := runFactory(t, src, nil)
 	require.Equal(t, "one\n\n", res.Outputs["result"])
 }
 
-func TestStackHTTPAndScript(t *testing.T) {
+func TestFactoryRunsScript(t *testing.T) {
 	src := `
-actions: { core.script.compute: { script: 'echo computed-value' } }
-outputs: { result: { value: action.core.script.compute.stdout } }
+factory: {
+  actions: { compute: core.script { script: 'echo computed-value' } }
+  outputs: { result: { value: action.compute.stdout } }
+}
 `
-	res := runStack(t, src, nil)
+	res := runFactory(t, src, nil)
 	require.Equal(t, "computed-value\n", res.Outputs["result"])
 }
 
-// stackTwiceCounts re-uses one Store across two apply cycles to verify
+// factoryTwiceCounts re-uses one Store across two apply cycles to verify
 // state flows between executions.
-func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *runtime.ExecResult) {
+func factoryTwiceCounts(
+	t *testing.T,
+	src string,
+) (int64, *runtime.ExecResult, *runtime.ExecResult) {
 	t.Helper()
 	store, err := local.NewStore(t.TempDir(), "demo-stack", "test", encrypters.Noop{})
 	require.NoError(t, err)
@@ -191,14 +198,25 @@ func stackTwiceCounts(t *testing.T, src string) (int64, *runtime.ExecResult, *ru
 	}
 	stack := state.FactoryInfo{Name: "demo-stack", Version: "v0", ContentRevision: "c0"}
 
-	f, err := lang.ParseSource("factory.ub", []byte(src))
+	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
+	require.NotNil(t, f.Factory)
+	errs := syntax.ValidateFile(f)
+	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Messages())
 
 	first := applyOnce(t, &runtime.Executor{
-		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Factory: stack,
+		DAG:          runtime.BuildSyntaxDAG(f.Factory.Body, libs),
+		Libraries:    libs,
+		SyntaxSource: &f.Factory.Body,
+		Store:        store,
+		Factory:      stack,
 	})
 	second := applyOnce(t, &runtime.Executor{
-		DAG: runtime.BuildDAG(f, libs), Libraries: libs, Store: store, Factory: stack,
+		DAG:          runtime.BuildSyntaxDAG(f.Factory.Body, libs),
+		Libraries:    libs,
+		SyntaxSource: &f.Factory.Body,
+		Store:        store,
+		Factory:      stack,
 	})
 	return atomic.LoadInt64(&runs), first, second
 }
@@ -213,10 +231,12 @@ func (c *counter) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"tag": c.Tag}, nil
 }
 
-func TestStackSkipsUnchangedActionAcrossRuns(t *testing.T) {
+func TestFactorySkipsUnchangedActionAcrossRuns(t *testing.T) {
 	src := `
-actions: { test.counter.it: { tag: 'fixed' } }
+factory: {
+  actions: { it: test.counter { tag: 'fixed' } }
+}
 `
-	count, _, _ := stackTwiceCounts(t, src)
+	count, _, _ := factoryTwiceCounts(t, src)
 	require.Equal(t, int64(1), count)
 }
