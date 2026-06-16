@@ -9,15 +9,8 @@ import (
 
 // Refs returns the addresses an expression depends on, in source order
 // with duplicates removed. Each returned address is the canonical form
-// of another node:
-//
-//	var.<name>
-//	resource.<alias>.<type>.<name>
-//	data.<alias>.<type>.<name>
-//	action.<alias>.<type>.<name>
-//
-// Field segments past the node address (`.id`, `['key'].arn`) and
-// `@each.X` bindings are skipped.
+// of another node: var.name, resource.name, data.name, or action.name.
+// Field segments past the node address and @each.X bindings are skipped.
 func Refs(e lang.Expr) []string {
 	if e == nil {
 		return nil

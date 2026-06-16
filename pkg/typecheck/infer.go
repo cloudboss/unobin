@@ -8,11 +8,10 @@ import (
 )
 
 // Scope carries the lexical information the inferrer needs to type
-// an expression: local input declarations, an optional @each
-// binding, and a callback that returns the output Type for a node
-// address (resource/data/action.<alias>.<type>.<name>). LookupNode may
-// be nil when the caller has no node table; the walker returns
-// Unknown for any node reference in that case.
+// an expression: local input declarations, an optional @each binding,
+// and a callback that returns the output Type for a node address.
+// LookupNode may be nil when the caller has no node table; the walker
+// returns Unknown for any node reference in that case.
 type Scope struct {
 	Inputs      []ObjectField
 	Each        *EachBinding
@@ -23,10 +22,9 @@ type Scope struct {
 	// false return, leaves the call inferring Unknown; existence and
 	// argument count are the reference checker's to enforce.
 	LookupFunction func(library, name string) (FuncSig, bool)
-	// LookupConfiguration resolves an import alias to the object type
-	// of its library's configuration schema, for typing
-	// configuration.<alias>.<name> references. Nil, or a false return,
-	// leaves the reference inferring Unknown.
+	// LookupConfiguration resolves a library selector to the object type
+	// of its configuration schema. Nil, or a false return, leaves the
+	// reference inferring Unknown.
 	LookupConfiguration func(alias string) (Type, bool)
 	// Bindings holds comprehension-bound names. They resolve as bare
 	// values and as dot-path roots ahead of var/resource/data/action.

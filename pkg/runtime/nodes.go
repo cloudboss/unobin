@@ -93,8 +93,7 @@ func (n *Node) IsComposite() bool {
 	return n.CompositeBody != nil
 }
 
-// ConfigRef names a particular configuration on an import. A remap for
-// inner alias aws selecting east2 stores {Alias: "aws", Configuration: "east2"}.
+// ConfigRef names the selector and configuration key for one configuration.
 type ConfigRef struct {
 	Alias         string
 	Configuration string
@@ -430,12 +429,10 @@ func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 	return ConfigRef{Alias: dp.Root.Name, Configuration: dp.Segments[0].Name}, true
 }
 
-// extractConfiguration reads `@configuration: <alias>.<configuration>`
-// from a body and returns the configuration segment. The leading alias
-// is expected to match the node's own import alias; a mismatch or
-// malformed value yields an empty string and the validator reports the
-// error elsewhere. An absent meta key returns "" too; the runtime falls
-// back to "default" at lookup time.
+// extractConfiguration reads @configuration from a generic body and returns
+// the configuration key. A mismatch or malformed value yields an empty string
+// and validation reports the error elsewhere. An absent meta key returns ""
+// too; the runtime falls back to "default" at lookup time.
 func extractConfiguration(body lang.Expr, alias string) string {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {

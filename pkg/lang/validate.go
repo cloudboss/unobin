@@ -1154,12 +1154,11 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 	}
 }
 
-// ValidateFactoryConfigurations checks the structure of a factory's
-// configurations: block: every entry is keyed by a dotted alias.name
-// path and binds either an object literal of fields or a whole
-// expression that must evaluate to an object at run time. No meta keys
-// are valid in an object body. Field values are ordinary expressions
-// and are not constrained here.
+// ValidateFactoryConfigurations checks the internal generic form of a
+// factory configurations block. Source files use selector-body entries;
+// syntax lowering stores them in this table before generic validation runs.
+// Each entry binds either field values or a whole expression that must
+// evaluate to an object at run time. No meta keys are valid in an object body.
 func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
@@ -1323,12 +1322,13 @@ func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
 }
 
-// ValidateConfigurations checks a config file's factory.configurations
-// block. Every entry is keyed by a dotted alias.name path, the same key
-// form a factory source's block has. Unlike that one, a body here may be any
-// expression: the runner evaluates it at load and requires a map, so a
-// whole body can come from a local. Values follow the static-value rule;
-// locals holds the names declared by the file's locals: block.
+// ValidateConfigurations checks the internal generic form of a stack file's
+// factory configurations block. Source stack files use selector-body entries;
+// syntax lowering stores them in this table before generic validation runs.
+// Unlike factory source, a stack body may be any expression: the runner
+// evaluates it at load and requires a map, so a whole body can come from a
+// local. Values follow the static-value rule; locals holds the names declared
+// by the file's locals block.
 func ValidateConfigurations(block *ObjectLit, locals map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
 	for key, fld := range declEntries(block, "configuration", "alias.name", errs) {
@@ -1765,27 +1765,27 @@ func metaKeySet(keys ...string) map[string]bool {
 	return set
 }
 
-// ValidateResources checks a `resources:` block: every entry is keyed by
-// a dotted alias.type.name and its body is an object.
+// ValidateResources checks the internal generic form of a resources block.
+// Source files use selector-body entries; syntax lowering stores them in this
+// declaration table before generic validation runs.
 func ValidateResources(block *ObjectLit) *ErrorList {
 	return validateDeclBlock(block, "resource", "alias.type.name", resourceBodyGreenlist)
 }
 
-// ValidateDataSources checks the shape of a `data:` block.
+// ValidateDataSources checks the internal generic form of a data block.
 func ValidateDataSources(block *ObjectLit) *ErrorList {
 	return validateDeclBlock(block, "data source", "alias.type.name", dataBodyGreenlist)
 }
 
-// ValidateActions checks the shape of an `actions:` block.
+// ValidateActions checks the internal generic form of an actions block.
 func ValidateActions(block *ObjectLit) *ErrorList {
 	return validateDeclBlock(block, "action", "alias.type.name", actionBodyGreenlist)
 }
 
-// validateDeclBlock checks one declaration block. Every entry is keyed
-// by a dotted path with form's segments (alias.type.name for resources,
-// alias.name for configurations) and binds an object body whose only
-// meta keys are those in greenlist. A bare or quoted key reports that
-// the dotted form is required.
+// validateDeclBlock checks one internal generic declaration block. Every
+// entry is keyed by a dotted path with form's segments and binds an object
+// body whose only meta keys are those in greenlist. A bare or quoted key
+// reports that the internal dotted form is required.
 func validateDeclBlock(block *ObjectLit, what, form string, greenlist map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
 	for key, fld := range declEntries(block, what, form, errs) {
@@ -1885,19 +1885,19 @@ func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
 	}
 }
 
-// ValidateStateConfig checks a state: block in a config file. The block
-// must have exactly one @backend: meta-key whose value is a bare backend
-// name such as s3, plus any number of body fields keyed by bare
-// identifiers. Body values must be static config values, with the file's
-// locals referenceable; they are not type-checked here, since the
-// resolver decodes them against each backend's declared configuration.
+// ValidateStateConfig checks the internal generic form of a stack file's
+// state selector. Source stack files use state: s3 { ... }; syntax lowering
+// stores the selector beside the body before generic validation runs. Body
+// values must be static config values, with the file's locals referenceable;
+// they are not type-checked here, since the resolver decodes them against
+// each backend's declared configuration.
 func ValidateStateConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return validateBackendBlock(block, "state", "@backend", "s3", locals)
 }
 
-// ValidateEncryptionConfig checks an `encryption:` block in a config
-// file. Same rules as ValidateStateConfig but with `@key-source:` in
-// place of `@backend:`.
+// ValidateEncryptionConfig checks the internal generic form of a stack file's
+// encryption selector. Source stack files use encryption: kms { ... }; syntax
+// lowering stores the selector beside the body before generic validation runs.
 func ValidateEncryptionConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
 	return validateBackendBlock(block, "encryption", "@key-source", "kms", locals)
 }

@@ -172,10 +172,10 @@ type PlanStep struct {
 	Inputs           map[string]any      `json:"inputs,omitempty"`
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
 
-	// DeferredRead names the configuration selection (alias.name form)
-	// whose pending evaluation kept this node's read from running at
-	// plan. The stored state is taken as current for the decision;
-	// apply and the next plan see real values.
+	// DeferredRead names the configuration selection whose pending
+	// evaluation kept this node's read from running at plan. The stored
+	// state is taken as current for the decision; apply and the next plan
+	// see real values.
 	DeferredRead string `json:"-"`
 
 	// PriorInputs is the body the last apply evaluated, recorded so the plan
@@ -193,12 +193,12 @@ type PlanStep struct {
 	// with `(forces replacement)`. Empty unless Decision is replace.
 	ReplaceTriggers []string `json:"replace-triggers,omitempty"`
 
-	// Configuration is the step's library configuration ref
-	// ("<alias>.<configuration>"). A destroy step records it from prior
-	// state, so apply deletes against the same credentials the resource
-	// was created with. A live step records it only when the selection
-	// names an internal configuration still pending this plan, which is
-	// how the renderer knows to show the selection on the step.
+	// Configuration is the step's compact library configuration key. A
+	// destroy step records it from prior state, so apply deletes against
+	// the same credentials the resource was created with. A live step
+	// records it only when the selection names an internal configuration
+	// still pending this plan, which is how the renderer knows to show
+	// the selection on the step.
 	Configuration string `json:"-"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
@@ -264,10 +264,10 @@ func (s *PlanStep) Gone() bool {
 // StateRev is the snapshot rev the plan was computed against. Apply
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
-// eval scope without re-reading the stack file. RawConfigurations carries
-// the raw per-library configuration maps (keyed by import alias then
-// alias name) so apply re-decodes them through the same code path
-// rather than re-reading the stack file.
+// eval scope without re-reading the stack file. RawConfigurations keeps
+// the raw configuration bodies grouped by selector and configuration key
+// so apply re-decodes them through the same code path rather than
+// re-reading the stack file.
 type Plan struct {
 	Factory           state.FactoryInfo
 	Stack             string

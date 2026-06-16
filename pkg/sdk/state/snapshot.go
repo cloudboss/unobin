@@ -45,7 +45,7 @@ func EncodeConfigurationRef(ref string) (*ConfigurationRef, error) {
 	}
 	parts := strings.Split(ref, ".")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("configuration ref %q must be alias.name", ref)
+		return nil, fmt.Errorf("configuration ref %q is invalid", ref)
 	}
 	out := &ConfigurationRef{Selector: Selector{Alias: parts[0]}}
 	if parts[1] == "default" {
@@ -116,11 +116,10 @@ type Entry struct {
 	SensitiveInputs  []string  `json:"sensitive-inputs,omitempty"`
 	SensitiveOutputs []string  `json:"sensitive-outputs,omitempty"`
 
-	// Configuration names the library configuration the resource was
-	// created against, as "<alias>.<configuration>". It is recorded only
-	// when that differs from the import's own default, since destroy and
-	// refresh need it to find the right credentials once the resource is
-	// no longer described in source.
+	// Configuration names the library configuration the resource used. It is
+	// recorded only when that differs from the import's own default, since
+	// destroy and refresh need it to find the right credentials once the
+	// resource is no longer described in source.
 	Configuration string `json:"-"`
 
 	TriggerHash string `json:"trigger-hash,omitempty"`

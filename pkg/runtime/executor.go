@@ -47,17 +47,15 @@ type Executor struct {
 	// nil in test setups; analyses that need it degrade to no-op.
 	Source *lang.File
 
-	// Configurations is keyed first by the library's import alias and
-	// then by the configuration alias declared in the stack file. Entries
-	// are the value returned by cfg.ConfigurationType.New populated
-	// by cfg.Decode. A nil map disables config routing and every CRUD
-	// call sees a nil cfg argument.
+	// Configurations is keyed first by the library selector and then by
+	// the selected configuration name. Entries are the value returned by
+	// cfg.ConfigurationType.New populated by cfg.Decode. A nil map disables
+	// config routing and every CRUD call sees a nil cfg argument.
 	Configurations map[string]map[string]any
 
-	// RawConfigurations holds the same operator-supplied bodies as
-	// Configurations before decoding, by operator-facing field name.
-	// A configuration.<alias>.<name> reference inside an internal
-	// configuration's body reads from here.
+	// RawConfigurations holds the same stack-supplied bodies as
+	// Configurations before decoding. A configuration.<name> reference
+	// inside an internal configuration's body reads from here.
 	RawConfigurations map[string]map[string]any
 
 	Store   state.Backend
@@ -265,10 +263,10 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 }
 
 // pendingInternalConfig reports whether n's resolved selection names
-// an internal configuration that has not evaluated this run, with the
-// selection in alias.name form for step records. Reads gate on it at
-// plan: a consumer must not reach its API with a nil configuration
-// just because the configuration's own upstream is mid-change.
+// an internal configuration that has not evaluated this run. Reads gate
+// on it at plan: a consumer must not reach its API with a nil
+// configuration just because the configuration's own upstream is
+// mid-change.
 func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
 	alias, configuration := e.resolvedConfigRef(n)
 	if e.configurationOverridden(alias, configuration) {
@@ -304,7 +302,7 @@ func (e *Executor) configFor(n *Node) any {
 	return e.lookupConfiguration(alias, configuration)
 }
 
-// configRefString returns the "<alias>.<configuration>" a destroy or
+// configRefString returns the compact configuration key a destroy or
 // refresh should use to find credentials for n, or "" when n uses its
 // own import's default configuration. The empty case is the common one
 // and the resource address alone determines it, so it is left off the
@@ -318,9 +316,9 @@ func (e *Executor) configRefString(n *Node) string {
 }
 
 // configForRef returns the configuration named by a state entry's
-// recorded ref of the form "<alias>.<configuration>". An empty ref
-// means the entry used its import's default configuration, so the
-// entry's own import alias with the default applies. A ref naming an
+// recorded compact key. An empty ref means the entry used its import's
+// default configuration, so the entry's own import alias with the
+// default applies. A ref naming an
 // internal configuration reads the value evaluated from prior state,
 // falling back to the live table when prior state had nothing for it.
 //
