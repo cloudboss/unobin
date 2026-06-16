@@ -71,7 +71,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		return err
 	}
 
-	refs, errs := resolve.ExtractImports(f)
+	refs, errs := resolve.ExtractSyntaxBodyImports(sf.Factory.Body)
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}

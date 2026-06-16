@@ -329,7 +329,7 @@ func (w *ubWalker) handleUBImport(
 	for _, kind := range sortedKinds(lib.Bodies) {
 		for _, name := range sortedBodyNames(lib.Bodies[kind]) {
 			body := lib.Bodies[kind][name]
-			bodyRefs, errs := ExtractImports(body)
+			bodyRefs, errs := libraryBodyImports(lib, kind, name, body)
 			if len(errs) > 0 {
 				return Resolution{}, errors.Join(errs...)
 			}
@@ -358,6 +358,22 @@ func (w *ubWalker) handleUBImport(
 
 // parseLibrary reads a UB library's composite bodies from source-declared
 // composite export files.
+func libraryBodyImports(
+	lib *UBLibrary,
+	kind string,
+	name string,
+	body *lang.File,
+) (map[string]ImportRef, []error) {
+	if lib != nil && lib.SyntaxBodies != nil {
+		if byName := lib.SyntaxBodies[kind]; byName != nil {
+			if syntaxBody, ok := byName[name]; ok {
+				return ExtractSyntaxBodyImports(syntaxBody)
+			}
+		}
+	}
+	return ExtractImports(body)
+}
+
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	matches, err := fs.Glob(source.FS, "*.ub")
 	if err != nil {

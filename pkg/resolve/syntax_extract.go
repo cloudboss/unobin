@@ -36,6 +36,23 @@ func ExtractSyntaxImports(f *syntax.File) ([]SyntaxImport, []error) {
 	return out, errs
 }
 
+// ExtractSyntaxBodyImports parses the imports declared by a typed factory body.
+func ExtractSyntaxBodyImports(body syntax.FactoryBody) (map[string]ImportRef, []error) {
+	refs, errs := appendSyntaxImports(nil, nil, "", body.Imports)
+	return syntaxImportMap(refs), errs
+}
+
+func syntaxImportMap(refs []SyntaxImport) map[string]ImportRef {
+	out := make(map[string]ImportRef, len(refs))
+	for _, ref := range refs {
+		if ref.Scope != "" {
+			continue
+		}
+		out[ref.Alias] = ref.Ref
+	}
+	return out
+}
+
 func appendSyntaxImports(
 	out []SyntaxImport,
 	errs []error,

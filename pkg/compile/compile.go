@@ -157,7 +157,7 @@ func Run(opts Options) error {
 		return err
 	}
 
-	refs, errs := resolve.ExtractImports(f)
+	refs, errs := resolve.ExtractSyntaxBodyImports(sf.Factory.Body)
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
