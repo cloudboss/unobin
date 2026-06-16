@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -37,24 +36,6 @@ type ConfigurationRef struct {
 	Kind     string   `json:"kind"`
 	Name     string   `json:"name,omitempty"`
 	Selector Selector `json:"selector"`
-}
-
-func EncodeConfigurationRef(ref string) (*ConfigurationRef, error) {
-	if ref == "" {
-		return nil, nil
-	}
-	parts := strings.Split(ref, ".")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("configuration ref %q is invalid", ref)
-	}
-	out := &ConfigurationRef{Selector: Selector{Alias: parts[0]}}
-	if parts[1] == "default" {
-		out.Kind = "default"
-		return out, nil
-	}
-	out.Kind = "named"
-	out.Name = parts[1]
-	return out, nil
 }
 
 func ValidateConfigurationRef(ref *ConfigurationRef) error {
@@ -94,16 +75,6 @@ func (ref *ConfigurationRef) Compact() string {
 	return ref.Selector.Alias + "." + ref.Name
 }
 
-func DecodeConfigurationRef(ref *ConfigurationRef) (string, error) {
-	if ref == nil {
-		return "", nil
-	}
-	if err := ValidateConfigurationRef(ref); err != nil {
-		return "", err
-	}
-	return ref.Compact(), nil
-}
-
 func ParseConfigurationRefJSON(raw json.RawMessage) (*ConfigurationRef, error) {
 	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return nil, nil
@@ -119,14 +90,6 @@ func ParseConfigurationRefJSON(raw json.RawMessage) (*ConfigurationRef, error) {
 		return nil, err
 	}
 	return &ref, nil
-}
-
-func DecodeConfigurationRefJSON(raw json.RawMessage) (string, error) {
-	ref, err := ParseConfigurationRefJSON(raw)
-	if err != nil {
-		return "", err
-	}
-	return ref.Compact(), nil
 }
 
 // Entry is one record in a snapshot. Type is the entry discriminator.

@@ -642,8 +642,6 @@ func newOutputCmd(info Info) *cobra.Command {
 }
 
 type parsedFactory struct {
-	// file is set only by tests that exercise generic helper fallback.
-	file       *lang.File
 	syntaxBody *syntax.FactoryBody
 	dag        *runtime.DAG
 }

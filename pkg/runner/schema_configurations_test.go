@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -74,7 +73,8 @@ func TestSchemaTemplateScaffoldsNamedOwedConfigurationsAsSelectorBodies(t *testi
 	}}
 	info := Info{Libraries: map[string]*runtime.Library{"aws": awsModuleWithConfig()}}
 
-	parsed := &parsedFactory{file: &lang.File{}, dag: dag}
+	body := syntax.FactoryBody{}
+	parsed := &parsedFactory{syntaxBody: &body, dag: dag}
 
 	var out bytes.Buffer
 	renderConfigurationsTemplate(&out, parsed, info)
@@ -163,7 +163,6 @@ func typedOnlyParsedFactory(
 	require.Equal(t, syntax.FileFactory, f.Kind)
 	require.NotNil(t, f.Factory)
 	return &parsedFactory{
-		file:       &lang.File{},
 		syntaxBody: &f.Factory.Body,
 		dag:        runtime.BuildSyntaxDAG(f.Factory.Body, libs),
 	}

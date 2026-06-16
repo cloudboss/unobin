@@ -19,53 +19,38 @@ type factoryOutputDecl struct {
 }
 
 func (p *parsedFactory) inputBlock() *lang.ObjectLit {
-	if p == nil {
+	if p == nil || p.syntaxBody == nil {
 		return nil
 	}
-	if p.syntaxBody != nil {
-		return syntaxInputBlock(p.syntaxBody.Inputs)
-	}
-	return lang.TopLevelBlock(p.file, "inputs")
+	return syntaxInputBlock(p.syntaxBody.Inputs)
 }
 
 func (p *parsedFactory) constraints() *lang.ArrayLit {
-	if p == nil {
+	if p == nil || p.syntaxBody == nil {
 		return nil
 	}
-	if p.syntaxBody != nil {
-		return syntaxConstraints(p.syntaxBody.Constraints)
-	}
-	return lang.TopLevelArray(p.file, "constraints")
+	return syntaxConstraints(p.syntaxBody.Constraints)
 }
 
 func (p *parsedFactory) internalConfigurations() map[string]map[string]bool {
-	if p == nil {
+	if p == nil || p.syntaxBody == nil {
 		return map[string]map[string]bool{}
 	}
-	if p.syntaxBody != nil {
-		return runtime.InternalSyntaxConfigurationNames(*p.syntaxBody)
-	}
-	return runtime.InternalConfigurationNames(p.file)
+	return runtime.InternalSyntaxConfigurationNames(*p.syntaxBody)
 }
 
 func (p *parsedFactory) inputs() []factoryInputDecl {
-	if p == nil {
+	if p == nil || p.syntaxBody == nil {
 		return nil
 	}
-	if p.syntaxBody != nil {
-		return syntaxInputs(p.syntaxBody.Inputs)
-	}
-	return genericInputs(lang.TopLevelBlock(p.file, "inputs"))
+	return syntaxInputs(p.syntaxBody.Inputs)
 }
 
 func (p *parsedFactory) outputs() []factoryOutputDecl {
-	if p == nil {
+	if p == nil || p.syntaxBody == nil {
 		return nil
 	}
-	if p.syntaxBody != nil {
-		return syntaxOutputs(p.syntaxBody.Outputs)
-	}
-	return genericOutputs(lang.TopLevelBlock(p.file, "outputs"))
+	return syntaxOutputs(p.syntaxBody.Outputs)
 }
 
 func (p *parsedFactory) sensitiveOutputs() map[string]bool {
@@ -121,41 +106,6 @@ func syntaxInputs(decls []syntax.InputDecl) []factoryInputDecl {
 	return out
 }
 
-func genericInputs(block *lang.ObjectLit) []factoryInputDecl {
-	if block == nil {
-		return nil
-	}
-	out := make([]factoryInputDecl, 0, len(block.Fields))
-	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		decl, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		input := factoryInputDecl{name: fld.Key.Name}
-		input.typeExpr, input.description, input.defaultExpr = inputFields(decl)
-		out = append(out, input)
-	}
-	return out
-}
-
-func inputFields(decl *lang.ObjectLit) (lang.Expr, string, lang.Expr) {
-	var typeExpr lang.Expr
-	description, defaultExpr := inputMetadata(decl)
-	if decl == nil {
-		return nil, description, defaultExpr
-	}
-	for _, fld := range decl.Fields {
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "type" {
-			typeExpr = fld.Value
-			break
-		}
-	}
-	return typeExpr, description, defaultExpr
-}
-
 func inputMetadata(decl *lang.ObjectLit) (string, lang.Expr) {
 	if decl == nil {
 		return "", nil
@@ -182,24 +132,6 @@ func syntaxOutputs(decls []syntax.OutputDecl) []factoryOutputDecl {
 	out := make([]factoryOutputDecl, 0, len(decls))
 	for _, decl := range decls {
 		out = append(out, factoryOutputDecl{name: decl.Name.Name, body: decl.Body})
-	}
-	return out
-}
-
-func genericOutputs(block *lang.ObjectLit) []factoryOutputDecl {
-	if block == nil {
-		return nil
-	}
-	out := make([]factoryOutputDecl, 0, len(block.Fields))
-	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		body, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		out = append(out, factoryOutputDecl{name: fld.Key.Name, body: body})
 	}
 	return out
 }

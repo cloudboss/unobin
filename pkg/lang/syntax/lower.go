@@ -44,14 +44,8 @@ func lowerFile(f *parse.File, mode lowerMode) (*File, *parse.ErrorList) {
 }
 
 type lowerMode struct {
-	sourceDeclared bool
-	path           string
-	source         []byte
-}
-
-func (m lowerMode) withSourceDeclared() lowerMode {
-	m.sourceDeclared = true
-	return m
+	path   string
+	source []byte
 }
 
 type sourceFileRole struct {
@@ -192,17 +186,16 @@ func lowerSourceDeclaredRole(
 	if block == nil {
 		return
 	}
-	declMode := mode.withSourceDeclared()
 	switch first.name {
 	case "factory":
 		out.Kind = FileFactory
 		out.Factory = &FactoryFile{
 			S:    first.fld.S,
-			Body: lowerFactoryBodyWithMode(block, errs, declMode),
+			Body: lowerFactoryBodyWithMode(block, errs, mode),
 		}
 	case "stack":
 		out.Kind = FileStack
-		out.Stack = lowerStackFile(first.fld.S, block, errs, declMode)
+		out.Stack = lowerStackFile(first.fld.S, block, errs, mode)
 	case "manifest":
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(first.fld.S, block, errs)
@@ -248,19 +241,19 @@ func lowerFactoryBodyWithMode(
 			}
 		case "configurations":
 			if obj := objectValue(fld, "configurations", errs); obj != nil {
-				body.Configurations = lowerConfigurationDecls(obj, errs, mode)
+				body.Configurations = lowerConfigurationDecls(obj, errs)
 			}
 		case "resources":
 			if obj := objectValue(fld, "resources", errs); obj != nil {
-				body.Resources = lowerNodes(obj, NodeResource, errs, mode)
+				body.Resources = lowerNodes(obj, NodeResource, errs)
 			}
 		case "data":
 			if obj := objectValue(fld, "data", errs); obj != nil {
-				body.Data = lowerNodes(obj, NodeData, errs, mode)
+				body.Data = lowerNodes(obj, NodeData, errs)
 			}
 		case "actions":
 			if obj := objectValue(fld, "actions", errs); obj != nil {
-				body.Actions = lowerNodes(obj, NodeAction, errs, mode)
+				body.Actions = lowerNodes(obj, NodeAction, errs)
 			}
 		case "outputs":
 			if obj := objectValue(fld, "outputs", errs); obj != nil {
@@ -341,7 +334,7 @@ func lowerStackFactory(
 			factory.Inputs = objectValue(fld, "factory.inputs", errs)
 		case "configurations":
 			if obj := objectValue(fld, "factory.configurations", errs); obj != nil {
-				factory.Configurations = lowerConfigurationValues(obj, errs, mode)
+				factory.Configurations = lowerConfigurationValues(obj, errs)
 			}
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
@@ -521,8 +514,7 @@ func lowerCompositeDecls(
 			S:    fld.S,
 			Name: name,
 			Kind: kind,
-			Body: lowerFactoryBodyWithMode(
-				fld.Decl.Body, errs, mode.withSourceDeclared()),
+			Body: lowerFactoryBodyWithMode(fld.Decl.Body, errs, mode),
 		})
 	}
 	return exports
@@ -774,50 +766,27 @@ func lowerImports(block *parse.ObjectLit, errs *parse.ErrorList) []ImportDecl {
 func lowerConfigurationDecls(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-	mode lowerMode,
 ) []ConfigurationDecl {
 	entries := make([]ConfigurationDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		if fld.Decl != nil {
-			entry, ok := lowerConfigurationDecl(fld, errs)
-			if !ok {
-				continue
-			}
-			key := configurationDeclKey(entry)
-			if prev, dup := seen[key]; dup {
-				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-					"duplicate configuration %s (first defined at %s)", key, prev)
-				continue
-			}
-			seen[key] = fld.Key.S.Start
-			entries = append(entries, entry)
-			continue
-		}
-		if mode.sourceDeclared {
+		if fld.Decl == nil {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"configuration must be written as selector { ... } or name: selector { ... }")
 			continue
 		}
-		selector, name, ok := configurationKey(fld, errs)
+		entry, ok := lowerConfigurationDecl(fld, errs)
 		if !ok {
 			continue
 		}
-		key := selector.Name + "." + name.Name
+		key := configurationDeclKey(entry)
 		if prev, dup := seen[key]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"duplicate configuration %s (first defined at %s)", key, prev)
 			continue
 		}
 		seen[key] = fld.Key.S.Start
-		body, _ := fld.Value.(*parse.ObjectLit)
-		entries = append(entries, ConfigurationDecl{
-			S:        fld.S,
-			Name:     &name,
-			Selector: selector,
-			Body:     body,
-			Value:    fld.Value,
-		})
+		entries = append(entries, entry)
 	}
 	return entries
 }
@@ -855,50 +824,27 @@ func configurationDeclKey(entry ConfigurationDecl) string {
 func lowerConfigurationValues(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-	mode lowerMode,
 ) []ConfigurationValue {
 	entries := make([]ConfigurationValue, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		if fld.Decl != nil {
-			entry, ok := lowerConfigurationValue(fld, errs)
-			if !ok {
-				continue
-			}
-			key := configurationValueKey(entry)
-			if prev, dup := seen[key]; dup {
-				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-					"duplicate configuration %s (first defined at %s)", key, prev)
-				continue
-			}
-			seen[key] = fld.Key.S.Start
-			entries = append(entries, entry)
-			continue
-		}
-		if mode.sourceDeclared {
+		if fld.Decl == nil {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"configuration must be written as selector { ... } or name: selector { ... }")
 			continue
 		}
-		selector, name, ok := configurationKey(fld, errs)
+		entry, ok := lowerConfigurationValue(fld, errs)
 		if !ok {
 			continue
 		}
-		key := selector.Name + "." + name.Name
+		key := configurationValueKey(entry)
 		if prev, dup := seen[key]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"duplicate configuration %s (first defined at %s)", key, prev)
 			continue
 		}
 		seen[key] = fld.Key.S.Start
-		body, _ := fld.Value.(*parse.ObjectLit)
-		entries = append(entries, ConfigurationValue{
-			S:        fld.S,
-			Name:     &name,
-			Selector: selector,
-			Body:     body,
-			Value:    fld.Value,
-		})
+		entries = append(entries, entry)
 	}
 	return entries
 }
@@ -933,85 +879,30 @@ func configurationValueKey(entry ConfigurationValue) string {
 	return entry.Selector.Name + "." + entry.Name.Name
 }
 
-func configurationKey(
-	fld *parse.Field,
-	errs *parse.ErrorList,
-) (Ident, Ident, bool) {
-	if fld.Key.Kind != parse.FieldPath {
-		errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-			"configuration entries use selector-body syntax: aws {} or east: aws {}")
-		return Ident{}, Ident{}, false
-	}
-	if len(fld.Key.Path) != 2 {
-		errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-			"configuration key %s uses dotted syntax; write aws {} or east: aws {}",
-			strings.Join(fld.Key.Path, "."))
-		return Ident{}, Ident{}, false
-	}
-	return keyPart(fld.Key, fld.Key.Path[0]), keyPart(fld.Key, fld.Key.Path[1]), true
-}
-
 func lowerNodes(
 	block *parse.ObjectLit,
 	kind NodeKind,
 	errs *parse.ErrorList,
-	mode lowerMode,
 ) []NodeDecl {
 	nodes := make([]NodeDecl, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		if fld.Decl != nil {
-			node, ok := lowerSelectorNode(fld, kind, errs)
-			if !ok {
-				continue
-			}
-			if prev, dup := seen[node.Name.Name]; dup {
-				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-					"duplicate %s %s (first defined at %s)", kind, node.Name.Name, prev)
-				continue
-			}
-			seen[node.Name.Name] = fld.Key.S.Start
-			nodes = append(nodes, node)
-			continue
-		}
-		if mode.sourceDeclared {
+		if fld.Decl == nil {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"%s must be written as name: alias.export { ... }", kind)
 			continue
 		}
-		if fld.Key.Kind != parse.FieldPath {
+		node, ok := lowerSelectorNode(fld, kind, errs)
+		if !ok {
+			continue
+		}
+		if prev, dup := seen[node.Name.Name]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"%s must be declared with a dotted alias.export.name key", kind)
+				"duplicate %s %s (first defined at %s)", kind, node.Name.Name, prev)
 			continue
 		}
-		if len(fld.Key.Path) != 3 {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"%s key %s must have three segments: alias.export.name",
-				kind, strings.Join(fld.Key.Path, "."))
-			continue
-		}
-		name := keyPart(fld.Key, fld.Key.Path[2])
-		if prev, dup := seen[name.Name]; dup {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"duplicate %s %s (first defined at %s)", kind, name.Name, prev)
-			continue
-		}
-		seen[name.Name] = fld.Key.S.Start
-		body := objectValue(fld, string(kind)+" "+name.Name, errs)
-		if body == nil {
-			continue
-		}
-		nodes = append(nodes, NodeDecl{
-			S:    fld.S,
-			Kind: kind,
-			Name: name,
-			Selector: NodeSelector{
-				S:      fld.Key.S,
-				Alias:  keyPart(fld.Key, fld.Key.Path[0]),
-				Export: keyPart(fld.Key, fld.Key.Path[1]),
-			},
-			Body: body,
-		})
+		seen[node.Name.Name] = fld.Key.S.Start
+		nodes = append(nodes, node)
 	}
 	return nodes
 }
