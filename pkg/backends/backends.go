@@ -1,7 +1,7 @@
 // Package backends holds the fixed set of state backends a factory
-// can use. An operator selects one by bare name with @backend in a
-// config's state: block, and the resolver looks the name up here.
-// The encrypter set lives in pkg/encrypters the same way.
+// can use. An operator selects one by bare name in a stack state
+// declaration, and the resolver looks the name up here. The encrypter
+// set lives in pkg/encrypters the same way.
 package backends
 
 import (
@@ -20,15 +20,15 @@ import (
 	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 )
 
-// Backend names, the registry keys an operator selects with @backend.
+// Backend names, the registry keys an operator selects in stack state.
 const (
 	LocalName = "local"
 	S3Name    = "s3"
 )
 
 // Backends returns the state backends keyed by the bare name an operator
-// selects with @backend. Names are unique by construction: this is one map
-// literal, so a duplicate is a compile error.
+// selects in stack state. Names are unique by construction: this is one
+// map literal, so a duplicate is a compile error.
 func Backends() map[string]sdkstate.BackendType {
 	return map[string]sdkstate.BackendType{
 		LocalName: {
@@ -53,7 +53,7 @@ func Backends() map[string]sdkstate.BackendType {
 }
 
 // LocalBackendConfig is the operator-facing body under
-// `state: { @backend: local ... }`.
+// `state: local { ... }`.
 type LocalBackendConfig struct {
 	Path cfg.String
 }
@@ -70,10 +70,10 @@ func newLocalBackend(
 	return local.NewStore(c.Path.Value, factory, stack, enc)
 }
 
-// S3BackendConfig is the operator-facing body under
-// `state: { @backend: s3 ... }`. The aws object holds the shared AWS
-// connection settings from pkg/awscfg; bucket, prefix, kms-key-id,
-// and use-path-style are the backend's own.
+// S3BackendConfig is the operator-facing body under `state: s3 { ... }`.
+// The aws object holds the shared AWS connection settings from
+// pkg/awscfg; bucket, prefix, kms-key-id, and use-path-style are the
+// backend's own.
 type S3BackendConfig struct {
 	Bucket       cfg.String
 	Prefix       *cfg.String

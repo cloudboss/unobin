@@ -1,7 +1,7 @@
 // Package encrypters holds the fixed set of state encrypters a
-// factory can use. An operator selects one by bare name with
-// @key-source in a config's encryption block, and the resolver looks
-// the name up here. The Encrypter contract lives in pkg/sdk/encrypt.
+// factory can use. An operator selects one by bare name in a stack
+// encryption declaration, and the resolver looks the name up here. The
+// Encrypter contract lives in pkg/sdk/encrypt.
 package encrypters
 
 import (
@@ -25,7 +25,7 @@ const (
 )
 
 // Encrypters returns the state encrypters keyed by the bare name an
-// operator selects with @key-source. Names are unique by
+// operator selects in stack encryption. Names are unique by
 // construction: this is one map literal, so a duplicate is a compile
 // error.
 func Encrypters() map[string]sdkencrypt.EncrypterType {
@@ -57,7 +57,7 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 }
 
 // EnvKeyConfig is the operator-facing body under
-// `encryption: { @key-source: env-key ... }`.
+// `encryption: env-key { ... }`.
 type EnvKeyConfig struct {
 	EnvVar cfg.String
 }
@@ -70,9 +70,8 @@ func newEnvKey(config any, _ map[string]any) (sdkencrypt.Encrypter, error) {
 	return NewEnvKey(c.EnvVar.Value)
 }
 
-// KMSConfig is the operator-facing body under
-// `encryption: { @key-source: kms ... }`. The aws object holds the
-// shared AWS connection settings from pkg/awscfg.
+// KMSConfig is the operator-facing body under `encryption: kms { ... }`.
+// The aws object holds the shared AWS connection settings from pkg/awscfg.
 type KMSConfig struct {
 	KeyID cfg.String
 	AWS   *awscfg.Configuration
@@ -100,7 +99,7 @@ func newKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, err
 
 // newNoop builds the no-op encrypter, which writes state as
 // plaintext. It is the explicit opt-out for unencrypted state,
-// selected as `noop` in a config's encryption block.
+// selected as `noop` in stack encryption.
 func newNoop(_ any, _ map[string]any) (sdkencrypt.Encrypter, error) {
 	return Noop{}, nil
 }

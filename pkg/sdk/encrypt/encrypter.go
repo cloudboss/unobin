@@ -17,9 +17,9 @@ type Encrypter interface {
 
 // Description identifies a key source and the configuration that
 // builds the same encrypter again. KeySource is the registry name an
-// operator selects with @key-source. Config holds the configuration
-// by operator-facing field name and must stay decodable against the
-// key source's configuration schema. Key material never belongs in a
+// operator selects in stack encryption. Config holds the configuration
+// by operator-facing field name and must stay decodable against the key
+// source's configuration schema. Key material never belongs in a
 // Description: descriptions are written to disk in plaintext.
 type Description struct {
 	KeySource string

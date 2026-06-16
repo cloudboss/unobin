@@ -14,8 +14,8 @@ import (
 const EnvelopeVersion = 1
 
 // Ref names an entry in the fixed backend or encrypter registry. Name is
-// the bare name an operator selects with @backend or @key-source; Body is
-// the configuration the resolver decodes against that entry's schema.
+// the bare state or encryption selector from the stack file; Body is the
+// configuration the resolver decodes against that entry's schema.
 //
 // A plan file records a Backend ref so apply can reconstruct the same
 // backend without re-reading the stack file, and every envelope records an

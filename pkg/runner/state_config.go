@@ -18,7 +18,7 @@ import (
 )
 
 // resolverRef names one entry in the fixed backend or encrypter registry.
-// Name is the bare name an operator selects with @backend or @key-source;
+// Name is the bare state or encryption selector from the stack file;
 // Body is the operator-provided configuration for it.
 type resolverRef struct {
 	Name string
@@ -128,10 +128,10 @@ func readEncryptionBlock(
 	return &resolverRef{Name: name, Body: body}, nil
 }
 
-// resolverRefValue extracts the bare name from a `@backend:` or
-// `@key-source:` value. lang.ValidateStateConfig has already rejected
-// anything but a bare identifier upstream; this returns "" for any other
-// value so callers fall back to defaults.
+// resolverRefValue extracts the bare name from a lowered selector marker.
+// lang.ValidateStateConfig has already rejected anything but a bare
+// identifier upstream; this returns "" for any other value so callers
+// fall back to defaults.
 func resolverRefValue(expr lang.Expr) string {
 	if id, ok := expr.(*lang.Ident); ok {
 		return id.Name
