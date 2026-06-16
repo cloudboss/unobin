@@ -262,7 +262,10 @@ func Run(opts Options) error {
 	repoVersions = withReplacedVersions(
 		repoVersions, replaceUnobinAbs != "", replaceMap, opts.ReplaceGoModules)
 	v := newCompileVisitor(name, opts.stderr(), schemas)
-	top, err := resolve.WalkUB(refs, resolver, v, repoVersions)
+	top, err := resolve.WalkUBFrom(refs, resolver, v, repoVersions, &resolve.Source{
+		FS:   os.DirFS(sourceDir),
+		Path: sourceDir,
+	})
 	if err != nil {
 		return err
 	}

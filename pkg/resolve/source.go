@@ -28,13 +28,23 @@ type Resolver interface {
 	Resolve(ref ImportRef) (*Source, error)
 }
 
+// ContextResolver resolves an import from the package source that declared it.
+type ContextResolver interface {
+	ResolveFrom(ref ImportRef, parent *Source) (*Source, error)
+}
+
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
 // with at least one source-declared composite export and no factory source.
 // Manifest and lock files do not make a package importable by themselves.
 // A malformed non-metadata `.ub` file is treated as a UB library candidate
 // so the library parser can return the source diagnostic.
 func IsUBLibrary(s *Source) bool {
-	if s == nil || s.FS == nil || ContainsFactorySource(s) {
+	return !ContainsFactorySource(s) && HasCompositeExports(s)
+}
+
+// HasCompositeExports reports whether s has source-declared composite exports.
+func HasCompositeExports(s *Source) bool {
+	if s == nil || s.FS == nil {
 		return false
 	}
 	matches, err := fs.Glob(s.FS, "*.ub")

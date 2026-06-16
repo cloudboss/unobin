@@ -110,7 +110,14 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	}
 	schemaRoots := compile.UnobinSchemaRoots(
 		cmd.ErrOrStderr(), replaceUnobin, cliVersion())
-	libs, err := buildLibraryMap(refs, resolver, repoVersions, cmd.ErrOrStderr(), schemaRoots)
+	libs, err := buildLibraryMap(
+		refs,
+		resolver,
+		repoVersions,
+		cmd.ErrOrStderr(),
+		schemaRoots,
+		&resolve.Source{FS: os.DirFS(filepath.Dir(stackPath)), Path: filepath.Dir(stackPath)},
+	)
 	if err != nil {
 		return err
 	}
@@ -202,16 +209,21 @@ func printGraphAbsReplacePath(root, path string) (string, error) {
 // tell "imported but not a composite" apart from "not imported at all". Each
 // composite carries its own Libraries map so composite-internal lookups stay
 // self-contained.
-func buildLibraryMap(refs map[string]resolve.ImportRef, resolver resolve.Resolver,
-	versions map[string]string, warnOut io.Writer,
-	schemaRoots []goschema.ModuleRoot) (map[string]*runtime.Library, error) {
+func buildLibraryMap(
+	refs map[string]resolve.ImportRef,
+	resolver resolve.Resolver,
+	versions map[string]string,
+	warnOut io.Writer,
+	schemaRoots []goschema.ModuleRoot,
+	source *resolve.Source,
+) (map[string]*runtime.Library, error) {
 	schemas := compile.NewSchemaCache(schemaRoots...)
 	v := &graphVisitor{
 		byKey:   map[string]*runtime.Library{},
 		warnOut: warnOut,
 		schemas: schemas,
 	}
-	top, err := resolve.WalkUB(refs, resolver, v, versions)
+	top, err := resolve.WalkUBFrom(refs, resolver, v, versions, source)
 	if err != nil {
 		return nil, err
 	}

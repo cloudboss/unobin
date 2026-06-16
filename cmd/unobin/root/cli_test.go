@@ -205,6 +205,32 @@ func TestDepsSyncUsesAncestorManifest(t *testing.T) {
 	require.True(t, os.IsNotExist(err))
 }
 
+func TestDepsSyncResolvesLocalImportsFromFactoryDir(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	child := filepath.Join(root, "services", "app")
+	require.NoError(t, os.MkdirAll(filepath.Join(child, "lib"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"), []byte(`
+factory: {
+  imports: { local: './lib' }
+  data: { message: local.message {} }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "lib", "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(child, "factory.ub"))
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Empty(t, lock.Deps)
+}
+
 func TestDepsSyncDefaultPathUsesFactoryUB(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -230,6 +256,30 @@ factory: {
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
+}
+
+func TestDepsSyncAllowsSelfImport(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { self: '.' }
+  data: { message: self.message {} }
+  outputs: { text: { value: data.message.text } }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Empty(t, lock.Deps)
 }
 
 func TestDepsSyncManifest(t *testing.T) {
@@ -558,6 +608,30 @@ factory: {
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.NoError(t, err)
 	require.Contains(t, out, "package main")
+}
+
+func TestCompileResolvesLocalImportsFromFactoryDir(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "demo-factory")
+	child := filepath.Join(root, "services", "app")
+	require.NoError(t, os.MkdirAll(filepath.Join(child, "lib"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"), []byte(`
+factory: {
+  imports: { local: './lib' }
+  data: { message: local.message {} }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "lib", "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(child, "factory.ub"), "-o", outDir)
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(outDir, "internal", "local", "local.go"))
 }
 
 func TestCompileSourceDeclaredFactoryToStdout(t *testing.T) {
@@ -1483,6 +1557,28 @@ func main() {
 	require.Contains(t, pkgSrc, `Kind: runtime.NodeResource`)
 	require.Contains(t, pkgSrc, `Path: "library.ub"`)
 	require.Contains(t, pkgSrc, `Name: "x"}, Decl: &lang.SelectorBody`)
+}
+
+func TestCompileWithSelfUBLibrary(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
+factory: {
+  imports: { self: '.' }
+  data: { message: self.message {} }
+  outputs: { text: { value: data.message.text } }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(outDir, "internal", "self", "self.go"))
 }
 
 func TestCompileWithRemoteUBLibrary(t *testing.T) {

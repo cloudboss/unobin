@@ -3,6 +3,7 @@ package deps
 import (
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -73,7 +74,7 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	}
 	for _, ref := range refs {
 		if local, ok := ref.Ref.(*resolve.LocalImport); ok {
-			if err := w.checkLocalImport(ref.Label, local); err != nil {
+			if err := w.checkLocalImport(ref.Label, local, filepath.Dir(path)); err != nil {
 				return err
 			}
 			continue
@@ -145,15 +146,11 @@ func (w *lockWalker) walkBodyFile(path string, src []byte, parent *resolve.Sourc
 }
 
 func (w *lockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.Source) error {
-	clean := strings.TrimPrefix(r.Path, "./")
-	if clean == "" || strings.HasPrefix(clean, "../") || strings.HasPrefix(r.Path, "/") {
-		return fmt.Errorf("local import %q must stay inside the project", r.Path)
-	}
-	sub, err := fs.Sub(parent.FS, clean)
+	src, err := resolve.ResolveLocalSource(r, parent)
 	if err != nil {
 		return err
 	}
-	return w.walkBodies(&resolve.Source{FS: sub})
+	return w.walkBodies(src)
 }
 
 func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
@@ -213,18 +210,32 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 // checkLocalImport resolves a local import and rejects it when it points
 // to a Go library, which cannot be imported by path. A UB library is fine:
 // the project walk visits its files directly, so nothing more is recorded.
-func (w *lockWalker) checkLocalImport(alias string, r *resolve.LocalImport) error {
-	src, err := w.resolver.Resolve(r)
+func (w *lockWalker) checkLocalImport(
+	alias string,
+	r *resolve.LocalImport,
+	baseDir string,
+) error {
+	resolved := &resolve.LocalImport{Path: rebaseLocalPath(baseDir, r.Path)}
+	src, err := w.resolver.Resolve(resolved)
 	if err != nil {
 		return fmt.Errorf("import %q: %w", alias, err)
 	}
-	if resolve.ContainsFactorySource(src) {
-		return fmt.Errorf("import %q: a factory cannot be imported", alias)
+	hasFactory := resolve.ContainsFactorySource(src)
+	hasExports := resolve.HasCompositeExports(src)
+	if hasFactory && !hasExports {
+		return fmt.Errorf("import %q: %s is not a UB library", alias, r.Path)
 	}
-	if !resolve.IsUBLibrary(src) {
+	if !hasExports {
 		return resolve.LocalGoImportError(alias, r.Path, src)
 	}
 	return nil
+}
+
+func rebaseLocalPath(baseDir, importPath string) string {
+	if filepath.IsAbs(importPath) || baseDir == "." || baseDir == "" {
+		return importPath
+	}
+	return filepath.ToSlash(filepath.Clean(filepath.Join(baseDir, importPath)))
 }
 
 // walkReplaced handles an import whose repository the manifest replaces

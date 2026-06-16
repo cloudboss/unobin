@@ -6,7 +6,7 @@ greeting: resource {
     path:    { type: string }
   }
 
-  imports: { helloer: './helloer' }
+  imports: { helloer: '../helloer' }
 
   resources: {
     file: helloer.hello {

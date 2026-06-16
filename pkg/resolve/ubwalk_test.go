@@ -2,6 +2,8 @@ package resolve
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
@@ -154,6 +156,63 @@ func TestWalkUBLocalNonLibraryReports(t *testing.T) {
 	_, err := WalkUB(refs, r, newRecordingVisitor(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "is not a UB library")
+}
+
+func TestWalkUBResolvesLocalBodyImportFromDeclaringPackage(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "greeter"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "helloer"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "greeter", "library.ub"), []byte(`
+greeting: resource {
+  imports: { helloer: '../helloer' }
+  resources: { x: helloer.hello {} }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "helloer", "library.ub"), []byte(`
+hello: resource {
+  description: 'hello'
+  resources: { x: local.file { path: '/tmp/x' } }
+}
+`), 0o644))
+
+	refs := map[string]ImportRef{"greeter": &LocalImport{Path: "./greeter"}}
+	v := newRecordingVisitor()
+
+	_, err := WalkUB(refs, NewLocalResolver(root), v, nil)
+
+	require.NoError(t, err)
+	require.Len(t, v.ubCalls, 2)
+	require.Contains(t, v.ubCalls[0], "helloer=")
+	require.Contains(t, v.ubCalls[1], "greeter=")
+}
+
+func TestWalkUBResolvesFetchedLocalBodyImportFromSourceTree(t *testing.T) {
+	parent := newUBSource(t, map[string]string{
+		"library.ub": `
+greeting: resource {
+  imports: { child: './child' }
+  resources: { x: child.hello {} }
+}
+`,
+		"child/library.ub": `
+hello: resource {
+  description: 'hello'
+  resources: { x: local.file { path: '/tmp/x' } }
+}
+`,
+	})
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"github.com/x/parent@v1": parent,
+	}}
+	refs := map[string]ImportRef{"parent": &RemoteImport{URL: "github.com/x/parent"}}
+	v := newRecordingVisitor()
+
+	_, err := WalkUB(refs, r, v, map[string]string{"github.com/x/parent": "v1"})
+
+	require.NoError(t, err)
+	require.Len(t, v.ubCalls, 2)
+	require.Contains(t, v.ubCalls[0], "child=")
+	require.Contains(t, v.ubCalls[1], "parent=")
 }
 
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {

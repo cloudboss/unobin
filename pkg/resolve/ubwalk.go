@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -98,6 +99,17 @@ type UBVisitor interface {
 func WalkUB(
 	refs map[string]ImportRef, resolver Resolver, v UBVisitor, versions map[string]string,
 ) ([]Resolution, error) {
+	return WalkUBFrom(refs, resolver, v, versions, nil)
+}
+
+// WalkUBFrom is WalkUB with the package source that declared refs.
+func WalkUBFrom(
+	refs map[string]ImportRef,
+	resolver Resolver,
+	v UBVisitor,
+	versions map[string]string,
+	source *Source,
+) ([]Resolution, error) {
 	w := &ubWalker{
 		resolver:   resolver,
 		visitor:    v,
@@ -105,7 +117,7 @@ func WalkUB(
 		parsed:     map[string]*UBLibrary{},
 		inProgress: map[string]bool{},
 	}
-	return w.walkRefs(refs, "")
+	return w.walkRefs(refs, "", source, sourceKey(source, ""))
 }
 
 type ubWalker struct {
@@ -136,11 +148,16 @@ func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
 // walkRefs walks each ref in alias order. repo is the repository the
 // declaring body lives in (empty at the factory root); it scopes the
 // internal-visibility check.
-func (w *ubWalker) walkRefs(refs map[string]ImportRef, repo string) ([]Resolution, error) {
+func (w *ubWalker) walkRefs(
+	refs map[string]ImportRef,
+	repo string,
+	source *Source,
+	fromKey string,
+) ([]Resolution, error) {
 	aliases := sortedAliases(refs)
 	out := make([]Resolution, 0, len(aliases))
 	for _, alias := range aliases {
-		res, err := w.walkOne(alias, refs[alias], repo)
+		res, err := w.walkOne(alias, refs[alias], repo, source, fromKey)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +166,13 @@ func (w *ubWalker) walkRefs(refs map[string]ImportRef, repo string) ([]Resolutio
 	return out, nil
 }
 
-func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution, error) {
+func (w *ubWalker) walkOne(
+	alias string,
+	ref ImportRef,
+	repo string,
+	parent *Source,
+	fromKey string,
+) (Resolution, error) {
 	ref = w.lockedVersion(ref)
 	if r, ok := ref.(*RemoteImport); ok && r.Version == "" {
 		return Resolution{}, fmt.Errorf(
@@ -158,17 +181,33 @@ func (w *ubWalker) walkOne(alias string, ref ImportRef, repo string) (Resolution
 	if r, ok := crossRepoInternal(repo, ref); ok {
 		return Resolution{}, internalImportError(alias, r)
 	}
-	source, err := w.resolver.Resolve(ref)
+	source, err := w.resolveImport(ref, parent)
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	if ContainsFactorySource(source) {
+	_, local := ref.(*LocalImport)
+	hasFactory := ContainsFactorySource(source)
+	hasExports := HasCompositeExports(source)
+	if hasFactory && !local {
 		return Resolution{}, fmt.Errorf("import %q: a factory cannot be imported", alias)
 	}
-	if !IsUBLibrary(source) {
+	if hasFactory && !hasExports {
+		return Resolution{}, fmt.Errorf("import %q: %s is not a UB library", alias, localPath(ref))
+	}
+	if !hasExports {
 		return w.handleGoImport(alias, ref, source)
 	}
-	return w.handleUBImport(alias, ref, source, repo)
+	return w.handleUBImport(alias, ref, source, repo, fromKey)
+}
+
+func (w *ubWalker) resolveImport(ref ImportRef, parent *Source) (*Source, error) {
+	if li, ok := ref.(*LocalImport); ok && parent != nil {
+		return ResolveLocalSource(li, parent)
+	}
+	if resolver, ok := w.resolver.(ContextResolver); ok && parent != nil {
+		return resolver.ResolveFrom(ref, parent)
+	}
+	return w.resolver.Resolve(ref)
 }
 
 func (w *ubWalker) handleGoImport(
@@ -222,10 +261,40 @@ func localModulePath(source *Source) string {
 	return modfile.ModulePath(b)
 }
 
+func localPath(ref ImportRef) string {
+	if li, ok := ref.(*LocalImport); ok {
+		return li.Path
+	}
+	return ""
+}
+
+func sourceKey(source *Source, fallback string) string {
+	if source != nil && source.Path != "" {
+		return "source:" + filepath.Clean(source.Path)
+	}
+	return fallback
+}
+
+func resolvedUBKey(ref ImportRef, source *Source, fromKey string) string {
+	if _, ok := ref.(*LocalImport); ok {
+		if source != nil && source.Path != "" {
+			return "local:" + filepath.Clean(source.Path)
+		}
+		if fromKey != "" {
+			return "local:" + fromKey + ":" + localPath(ref)
+		}
+	}
+	return UBKey(ref)
+}
+
 func (w *ubWalker) handleUBImport(
-	alias string, ref ImportRef, source *Source, repo string,
+	alias string,
+	ref ImportRef,
+	source *Source,
+	repo string,
+	fromKey string,
 ) (Resolution, error) {
-	key := UBKey(ref)
+	key := resolvedUBKey(ref, source, fromKey)
 	if _, alreadyParsed := w.parsed[key]; alreadyParsed {
 		return Resolution{
 			Kind:         ResolutionUB,
@@ -252,7 +321,7 @@ func (w *ubWalker) handleUBImport(
 			if len(errs) > 0 {
 				return Resolution{}, errors.Join(errs...)
 			}
-			resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref))
+			resols, err := w.walkRefs(bodyRefs, repoOf(repo, ref), source, key)
 			if err != nil {
 				return Resolution{}, fmt.Errorf(
 					"import %q: composite %q: %w", alias, name, err)
@@ -338,7 +407,7 @@ func addSourceDeclaredLibraryFile(
 
 func skippableLibraryPackageFile(kind syntax.FileKind) bool {
 	switch kind {
-	case syntax.FileManifest, syntax.FileLock, syntax.FileStack:
+	case syntax.FileFactory, syntax.FileManifest, syntax.FileLock, syntax.FileStack:
 		return true
 	default:
 		return false

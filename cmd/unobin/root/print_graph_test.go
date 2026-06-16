@@ -127,6 +127,30 @@ factory: {
 	require.Equal(t, "action.hi\n", out)
 }
 
+func TestPrintGraphResolvesLocalImportsFromFactoryDir(t *testing.T) {
+	root := t.TempDir()
+	child := filepath.Join(root, "stacks", "demo")
+	require.NoError(t, os.MkdirAll(filepath.Join(child, "lib"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"), []byte(`
+factory: {
+  imports: { local: './lib' }
+  data: { message: local.message {} }
+  outputs: { text: { value: data.message.text } }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "lib", "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	out, err := runCommand(t, "print-graph", "-p", child)
+	require.NoError(t, err)
+	require.Equal(t, "data.message\n\noutput.text\n  -> data.message\n", out)
+}
+
 func TestPrintGraphUsesManifestReplace(t *testing.T) {
 	root := t.TempDir()
 	repo := filepath.Join(root, "demo-lib")
@@ -149,6 +173,27 @@ factory: {
 	out, err := runCommand(t, "print-graph", "-p", root)
 	require.NoError(t, err)
 	require.Equal(t, "action.hi\n", out)
+}
+
+func TestPrintGraphAllowsSelfImport(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "graph-self")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
+factory: {
+  imports: { self: '.' }
+  data: { message: self.message {} }
+  outputs: { text: { value: data.message.text } }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	out, err := runCommand(t, "print-graph", "-p", dir)
+	require.NoError(t, err)
+	require.Equal(t, "data.message\n\noutput.text\n  -> data.message\n", out)
 }
 
 func TestPrintGraphDOT(t *testing.T) {
