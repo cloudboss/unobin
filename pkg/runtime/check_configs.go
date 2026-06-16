@@ -78,10 +78,10 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 		return nil
 	}
 	if lib.Configuration == nil {
-		if n.Configuration != "" {
+		if !n.Configuration.IsZero() {
 			return []error{fmt.Errorf(
 				"%s: @configuration configuration.%s: library declares no configuration",
-				n.Address, n.Configuration)}
+				n.Address, n.Configuration.Name)}
 		}
 		return nil
 	}
@@ -89,10 +89,10 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	if e.configurationDeclared(alias, configuration) {
 		return nil
 	}
-	if n.Configuration != "" {
+	if !n.Configuration.IsZero() {
 		return []error{fmt.Errorf(
 			"%s: @configuration configuration.%s: configuration not declared",
-			n.Address, n.Configuration)}
+			n.Address, n.Configuration.Name)}
 	}
 	return []error{fmt.Errorf(
 		"%s: library %q requires a configuration; add %s { ... } under "+

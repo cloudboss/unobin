@@ -1150,7 +1150,7 @@ func TestConfigForUsesNodeAlias(t *testing.T) {
 	leaf := &Node{
 		Address:       "resource.aws.instance.web",
 		Alias:         "aws",
-		Configuration: "east2",
+		Configuration: ConfigRef{Alias: "aws", Name: "east2"},
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
@@ -1243,7 +1243,7 @@ func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
 	leaf := &Node{
 		Address:       "resource.aws.instance.web",
 		Alias:         "aws",
-		Configuration: "ghost",
+		Configuration: ConfigRef{Alias: "aws", Name: "ghost"},
 	}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
@@ -1267,7 +1267,11 @@ func TestConfigRef(t *testing.T) {
 	require.True(t, ePlain.configRef(plain).IsZero(),
 		"a default configuration records no ref; the address determines it")
 
-	aliased := &Node{Address: "resource.aws.instance.b", Alias: "aws", Configuration: "east2"}
+	aliased := &Node{
+		Address:       "resource.aws.instance.b",
+		Alias:         "aws",
+		Configuration: ConfigRef{Alias: "aws", Name: "east2"},
+	}
 	eAliased := &Executor{
 		DAG:            &DAG{Nodes: map[string]*Node{aliased.Address: aliased}},
 		Configurations: cfgs,

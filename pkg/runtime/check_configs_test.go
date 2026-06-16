@@ -33,7 +33,7 @@ func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 		Address:       "resource.aws.instance.web",
 		Kind:          NodeResource,
 		Alias:         "aws",
-		Configuration: "east2",
+		Configuration: ConfigRef{Alias: "aws", Name: "east2"},
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
@@ -48,7 +48,7 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 		Address:       "resource.aws.instance.web",
 		Kind:          NodeResource,
 		Alias:         "aws",
-		Configuration: "ghost",
+		Configuration: ConfigRef{Alias: "aws", Name: "ghost"},
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
@@ -66,7 +66,7 @@ func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) 
 		Address:       "action.core.command.run",
 		Kind:          NodeAction,
 		Alias:         "core",
-		Configuration: "alt",
+		Configuration: ConfigRef{Alias: "core", Name: "alt"},
 	}
 	e := newExecutorForConfigCheck(
 		map[string]*Node{leaf.Address: leaf},
@@ -142,7 +142,7 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 		Address:       "resource.aws.instance.web",
 		Kind:          NodeResource,
 		Alias:         "aws",
-		Configuration: "ghost",
+		Configuration: ConfigRef{Alias: "aws", Name: "ghost"},
 	}
 	composite := &Node{
 		Address:       "resource.net.cluster.east",

@@ -69,7 +69,7 @@ func TestSchemaTemplateScaffoldsNamedOwedConfigurationsAsSelectorBodies(t *testi
 			Alias:         "aws",
 			Type:          "thing",
 			Name:          "b",
-			Configuration: "east2",
+			Configuration: runtime.ConfigRef{Alias: "aws", Name: "east2"},
 		},
 	}}
 	info := Info{Libraries: map[string]*runtime.Library{"aws": awsModuleWithConfig()}}

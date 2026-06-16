@@ -56,10 +56,10 @@ type Node struct {
 
 	ForEach lang.Expr
 
-	// Configuration names the configuration selected under the node's
-	// import (Alias) that the runtime hands to CRUD calls. Empty falls
-	// back to "default" at lookup time.
-	Configuration string
+	// Configuration is the explicit library configuration selected by
+	// @configuration. Zero means the node uses the default configuration
+	// for its own Alias.
+	Configuration ConfigRef
 
 	// LockName is the value of a node body's `@lock:` field. Two nodes
 	// sharing a non-empty LockName cannot run in parallel under apply's
@@ -435,13 +435,13 @@ func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 }
 
 // extractConfiguration reads @configuration from a generic body and returns
-// the configuration key. A mismatch or malformed value yields an empty string
-// and validation reports the error elsewhere. An absent meta key returns ""
-// too; the runtime falls back to "default" at lookup time.
-func extractConfiguration(body lang.Expr, alias string) string {
+// the selected configuration ref. A mismatch or malformed value yields a zero
+// ref and validation reports the error elsewhere. An absent meta key returns a
+// zero ref too; the runtime uses the node's default configuration at lookup.
+func extractConfiguration(body lang.Expr, alias string) ConfigRef {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
-		return ""
+		return ConfigRef{}
 	}
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configuration" {
@@ -449,23 +449,20 @@ func extractConfiguration(body lang.Expr, alias string) string {
 		}
 		dp, ok := fld.Value.(*lang.DotPath)
 		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-			return ""
+			return ConfigRef{}
 		}
-		if dp.Root.Name == "configuration" {
-			return dp.Segments[0].Name
+		if dp.Root.Name == "configuration" || dp.Root.Name == alias {
+			return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}
 		}
-		if dp.Root.Name == alias {
-			return dp.Segments[0].Name
-		}
-		return ""
+		return ConfigRef{}
 	}
-	return ""
+	return ConfigRef{}
 }
 
-func extractSyntaxConfiguration(body lang.Expr, _ string) string {
+func extractSyntaxConfiguration(body lang.Expr, alias string) ConfigRef {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
-		return ""
+		return ConfigRef{}
 	}
 	for _, fld := range obj.Fields {
 		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configuration" {
@@ -473,14 +470,14 @@ func extractSyntaxConfiguration(body lang.Expr, _ string) string {
 		}
 		dp, ok := fld.Value.(*lang.DotPath)
 		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-			return ""
+			return ConfigRef{}
 		}
 		if dp.Root.Name == "configuration" {
-			return dp.Segments[0].Name
+			return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}
 		}
-		return ""
+		return ConfigRef{}
 	}
-	return ""
+	return ConfigRef{}
 }
 
 func lookupComposite(

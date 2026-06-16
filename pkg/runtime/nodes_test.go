@@ -76,7 +76,7 @@ type dagNodeSummary struct {
 	Name          string
 	Composite     string
 	IsComposite   bool
-	Configuration string
+	Configuration ConfigRef
 	Edges         []string
 }
 
@@ -272,6 +272,21 @@ factory: {
 	require.Equal(t, "file", node.Name)
 	require.Contains(t, got.Edges["resource.app/resource.file"], "resource.app/resource.helper")
 	require.Contains(t, got.Edges["resource.app"], "resource.app/resource.file")
+}
+
+func TestExtractSyntaxNodesReadsConfigurationRef(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    app: std.fs-file { @configuration: configuration.formal, path: '/tmp/app' }
+  }
+}
+`)
+
+	got := BuildSyntaxDAG(fixture.body, nil)
+	require.Equal(t,
+		ConfigRef{Alias: "std", Name: "formal"},
+		got.Nodes["resource.app"].Configuration)
 }
 
 func TestExtractSyntaxNodesIgnoresAliasConfigurationSelection(t *testing.T) {
@@ -516,13 +531,13 @@ actions: { core.command.probe: { @configuration: core.alt, argv: ['echo'] } }
 	require.Empty(t, got[0].Configuration)
 
 	require.Equal(t, "resource.aws.instance.mirror", got[1].Address)
-	require.Equal(t, "east2", got[1].Configuration)
+	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, got[1].Configuration)
 
 	require.Equal(t, "data.aws.ami.ubuntu", got[2].Address)
-	require.Equal(t, "east2", got[2].Configuration)
+	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, got[2].Configuration)
 
 	require.Equal(t, "action.core.command.probe", got[3].Address)
-	require.Equal(t, "alt", got[3].Configuration)
+	require.Equal(t, ConfigRef{Alias: "core", Name: "alt"}, got[3].Configuration)
 }
 
 func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {

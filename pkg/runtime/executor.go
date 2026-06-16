@@ -246,10 +246,9 @@ func (e *Executor) resolvedConfigRef(n *Node) (alias, configuration string) {
 // node's import. If none does, the node's own `@configuration:`
 // selection (or "default") applies.
 func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration string) {
-	alias = n.Alias
-	configuration = n.Configuration
-	if configuration == "" {
-		configuration = "default"
+	ref := n.Configuration
+	if ref.IsZero() {
+		ref = ConfigRef{Alias: n.Alias, Name: "default"}
 	}
 	for parent := n.Composite; parent != ""; {
 		c, ok := nodes[parent]
@@ -257,13 +256,12 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 			break
 		}
 		if mapped, has := c.ConfigurationsRemap[n.Alias]; has {
-			alias = mapped.Alias
-			configuration = mapped.Name
+			ref = mapped
 			break
 		}
 		parent = c.Composite
 	}
-	return alias, configuration
+	return ref.Alias, ref.Name
 }
 
 // pendingInternalConfig reports whether n's resolved selection names
