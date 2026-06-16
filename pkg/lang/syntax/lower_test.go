@@ -191,67 +191,17 @@ func TestParseSourceReportsTypeParserErrors(t *testing.T) {
 	assert.NotContains(t, err.Error(), "rule AtomicType")
 }
 
-func TestLowerStackFile(t *testing.T) {
+func TestLowerPreclassifiedStackFileRequiresSourceDeclaration(t *testing.T) {
 	f := parseFile(t, "dev.ub", `
-locals: {
-  bucket: 'example'
-}
-
-factory: {
-  pin: {
-    library-path: './factory'
-  }
-  inputs: {
-    message: 'hello'
-  }
-  configurations: {
-    std.default: {
-      region: local.bucket
-    }
-  }
-}
-
-state: {
-  @backend: local
-  path: '.unobin/state'
-}
-
-encryption: {
-  @key-source: noop
-}
-
-parallelism: 4
+factory: {}
+state: local {}
+encryption: noop {}
 `, parse.FileConfig)
 
 	got, errs := LowerFile(f)
-	require.Equal(t, 0, errs.Len(), errs.Error())
-	require.Equal(t, FileStack, got.Kind)
-	require.NotNil(t, got.Stack)
-	requireSpan(t, got.Stack.S)
-
-	require.Len(t, got.Stack.Locals, 1)
-	requireSpan(t, got.Stack.Locals[0].S)
-	assert.Equal(t, "bucket", got.Stack.Locals[0].Name.Name)
-	require.NotNil(t, got.Stack.Factory)
-	requireSpan(t, got.Stack.Factory.S)
-	require.NotNil(t, got.Stack.Factory.Pin)
-	require.NotNil(t, got.Stack.Factory.Inputs)
-	require.Len(t, got.Stack.Factory.Configurations, 1)
-	requireSpan(t, got.Stack.Factory.Configurations[0].S)
-	assert.Equal(t, "default", got.Stack.Factory.Configurations[0].Name.Name)
-	assert.Equal(t, "std", got.Stack.Factory.Configurations[0].Selector.Name)
-
-	require.NotNil(t, got.Stack.State)
-	requireSpan(t, got.Stack.State.S)
-	assert.Equal(t, "local", got.Stack.State.Selector.Name)
-	require.Len(t, got.Stack.State.Body.Fields, 1)
-	assert.Equal(t, "path", got.Stack.State.Body.Fields[0].Key.Name)
-
-	require.NotNil(t, got.Stack.Encryption)
-	requireSpan(t, got.Stack.Encryption.S)
-	assert.Equal(t, "noop", got.Stack.Encryption.Selector.Name)
-	require.Empty(t, got.Stack.Encryption.Body.Fields)
-	require.NotNil(t, got.Stack.Parallelism)
+	require.NotZero(t, errs.Len())
+	require.Equal(t, FileUnknown, got.Kind)
+	require.Contains(t, errs.Error(), "cannot determine UB file role from config")
 }
 
 func TestLowerSourceDeclaredFactoryFile(t *testing.T) {

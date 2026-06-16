@@ -38,9 +38,6 @@ func lowerFile(f *parse.File, mode lowerMode) (*File, *parse.ErrorList) {
 	case parse.FileFactory:
 		out.Kind = FileFactory
 		out.Factory = &FactoryFile{S: f.S, Body: lowerFactoryBodyWithMode(f.Body, errs, mode)}
-	case parse.FileConfig:
-		out.Kind = FileStack
-		out.Stack = lowerStackFile(f.S, f.Body, errs, mode)
 	case parse.FileManifest:
 		out.Kind = FileManifest
 		out.Manifest = lowerManifestFile(f.S, f.Body, errs)
@@ -319,20 +316,16 @@ func lowerStackFile(
 		case "state":
 			if fld.Decl != nil {
 				stack.State = lowerStateSelectorDecl(fld, errs)
-			} else if mode.sourceDeclared {
+			} else {
 				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 					"state must be written as state: <backend> { ... }")
-			} else if obj := objectValue(fld, "state", errs); obj != nil {
-				stack.State = lowerStateDecl(fld.S, obj, errs)
 			}
 		case "encryption":
 			if fld.Decl != nil {
 				stack.Encryption = lowerEncryptionSelectorDecl(fld, errs)
-			} else if mode.sourceDeclared {
+			} else {
 				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 					"encryption must be written as encryption: <key-source> { ... }")
-			} else if obj := objectValue(fld, "encryption", errs); obj != nil {
-				stack.Encryption = lowerEncryptionDecl(fld.S, obj, errs)
 			}
 		case "parallelism":
 			stack.Parallelism = fld.Value
@@ -1088,11 +1081,6 @@ func lowerOutputs(block *parse.ObjectLit, errs *parse.ErrorList) []OutputDecl {
 	return outputs
 }
 
-func lowerStateDecl(span parse.Span, block *parse.ObjectLit, errs *parse.ErrorList) *StateDecl {
-	selector, body := lowerSelectorObject(block, "@backend", "state", errs)
-	return &StateDecl{S: span, Selector: selector, Body: body}
-}
-
 func lowerStateSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *StateDecl {
 	selector, ok := selectorIdent(fld.Decl.Selector, "state selector", errs)
 	if !ok {
@@ -1101,56 +1089,12 @@ func lowerStateSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *StateDecl 
 	return &StateDecl{S: fld.S, Selector: selector, Body: fld.Decl.Body}
 }
 
-func lowerEncryptionDecl(
-	span parse.Span,
-	block *parse.ObjectLit,
-	errs *parse.ErrorList,
-) *EncryptionDecl {
-	selector, body := lowerSelectorObject(block, "@key-source", "encryption", errs)
-	return &EncryptionDecl{S: span, Selector: selector, Body: body}
-}
-
 func lowerEncryptionSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *EncryptionDecl {
 	selector, ok := selectorIdent(fld.Decl.Selector, "encryption selector", errs)
 	if !ok {
 		return &EncryptionDecl{S: fld.S, Body: fld.Decl.Body}
 	}
 	return &EncryptionDecl{S: fld.S, Selector: selector, Body: fld.Decl.Body}
-}
-
-func lowerSelectorObject(
-	block *parse.ObjectLit,
-	metaKey string,
-	what string,
-	errs *parse.ErrorList,
-) (Ident, *parse.ObjectLit) {
-	var selector Ident
-	var found bool
-	body := &parse.ObjectLit{S: block.S}
-	for _, fld := range block.Fields {
-		if fld.Key.Kind == parse.FieldIdent && fld.Key.Name == metaKey {
-			if found {
-				errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-					"%s has duplicate %s selector", what, metaKey)
-				continue
-			}
-			found = true
-			id, ok := fld.Value.(*parse.Ident)
-			if !ok {
-				errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
-					"%s %s must be a bare identifier", what, metaKey)
-				continue
-			}
-			selector = Ident{S: id.S, Name: id.Name}
-			continue
-		}
-		body.Fields = append(body.Fields, fld)
-	}
-	if !found {
-		errs.Addf(parse.ErrSchema, block.S.Start,
-			"%s is missing required %s selector", what, metaKey)
-	}
-	return selector, body
 }
 
 func lowerManifestRequires(

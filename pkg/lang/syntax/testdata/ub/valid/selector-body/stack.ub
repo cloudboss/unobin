@@ -1,13 +1,15 @@
-factory: {
-  configurations: {
-    greet {
-      prefix: 'hello'
+stack: {
+  factory: {
+    configurations: {
+      greet {
+        prefix: 'hello'
+      }
     }
   }
-}
 
-state: local {
-  bucket: 'unobin-state'
-}
+  state: local {
+    bucket: 'unobin-state'
+  }
 
-encryption: noop {}
+  encryption: noop {}
+}
