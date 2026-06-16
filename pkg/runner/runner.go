@@ -191,7 +191,6 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	f := parsed.file
 	dag := parsed.dag
 	store, err := resolveBackend(fromRuntimeStateRef(pf.Backend),
 		info.FactoryName, pf.Stack, enc)
@@ -228,7 +227,6 @@ func doApplyPlan(
 		consumeApplyEvents(rendererEvents, cmd.ErrOrStderr(), format)
 	}()
 	exec := &runtime.Executor{
-		Source:            f,
 		SyntaxSource:      parsed.syntaxBody,
 		DAG:               dag,
 		Libraries:         info.Libraries,
@@ -439,7 +437,6 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedConfig, configPath s
 	if err != nil {
 		return err
 	}
-	f := parsed.file
 	dag := parsed.dag
 	inputs, err := buildInputs(config, configPath,
 		parsed.inputBlock(), parsed.constraints(), info.Libraries)
@@ -462,7 +459,6 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedConfig, configPath s
 		return err
 	}
 	exec := &runtime.Executor{
-		Source:            f,
 		SyntaxSource:      parsed.syntaxBody,
 		DAG:               dag,
 		Libraries:         info.Libraries,
@@ -519,14 +515,10 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath 
 	if err != nil {
 		return err
 	}
-	f := parsed.file
 	// Validation is the one command whose job is to re-prove the
 	// stack, so it runs the deep checks the other commands leave to
 	// the compiler.
-	checker := check.New(f, info.Libraries)
-	if parsed.syntaxBody != nil {
-		checker = check.NewSyntax(nil, *parsed.syntaxBody, info.Libraries)
-	}
+	checker := check.NewSyntax(nil, *parsed.syntaxBody, info.Libraries)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}
@@ -650,61 +642,28 @@ func newOutputCmd(info Info) *cobra.Command {
 }
 
 type parsedFactory struct {
+	// file is set only by tests that exercise generic helper fallback.
 	file       *lang.File
 	syntaxBody *syntax.FactoryBody
 	dag        *runtime.DAG
 }
 
 func parseFactory(info Info) (*parsedFactory, error) {
-	f, err := lang.ParseSource("factory.ub", []byte(info.FactoryBody))
+	sf, err := syntax.ParseSource("factory.ub", []byte(info.FactoryBody))
 	if err != nil {
 		return nil, err
 	}
-	if runnerUsesSyntaxFactory(f) {
-		sf, serrs := syntax.LowerFile(f)
-		if serrs.Len() > 0 {
-			return nil, serrs.Err()
-		}
-		if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-			return nil, verrs.Err()
-		}
-		body := sf.Factory.Body
-		return &parsedFactory{
-			syntaxBody: &body,
-			dag:        runtime.BuildSyntaxDAG(body, info.Libraries),
-		}, nil
+	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
+		return nil, errors.New("factory.ub must declare factory")
 	}
-	if errs := lang.ValidateFile(f); errs.Len() > 0 {
-		return nil, errs.Err()
+	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
+		return nil, verrs.Err()
 	}
-	return &parsedFactory{file: f, dag: runtime.BuildDAG(f, info.Libraries)}, nil
-}
-
-func runnerUsesSyntaxFactory(f *lang.File) bool {
-	if f == nil || f.Body == nil {
-		return false
-	}
-	if len(f.Body.Fields) == 1 {
-		fld := f.Body.Fields[0]
-		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "factory" {
-			return true
-		}
-	}
-	for _, fld := range f.Body.Fields {
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		switch fld.Key.Name {
-		case "resources", "data", "actions", "configurations":
-			for _, entry := range obj.Fields {
-				if entry.Decl != nil {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	body := sf.Factory.Body
+	return &parsedFactory{
+		syntaxBody: &body,
+		dag:        runtime.BuildSyntaxDAG(body, info.Libraries),
+	}, nil
 }
 
 // loadStore resolves a state backend from the state: block of a
@@ -763,7 +722,6 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	f := parsed.file
 	dag := parsed.dag
 	inputs, err := buildInputs(config, configPath,
 		parsed.inputBlock(), parsed.constraints(), info.Libraries)
@@ -793,7 +751,6 @@ func doPlan(
 		parallelism = parallelismOverride
 	}
 	exec := &runtime.Executor{
-		Source:            f,
 		SyntaxSource:      parsed.syntaxBody,
 		DAG:               dag,
 		Libraries:         info.Libraries,

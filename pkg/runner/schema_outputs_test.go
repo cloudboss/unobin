@@ -7,11 +7,13 @@ import (
 )
 
 const outputsFactorySrc = `
-inputs: { region: { type: string } }
-outputs: {
-  endpoint: { value: var.region, description: 'Public endpoint URL' }
-  token:    { value: var.region, @sensitive: true }
-  plain:    { value: var.region }
+factory: {
+  inputs: { region: { type: string } }
+  outputs: {
+    endpoint: { value: var.region, description: 'Public endpoint URL' }
+    token:    { value: var.region, @sensitive: true }
+    plain:    { value: var.region }
+  }
 }
 `
 

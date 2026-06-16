@@ -27,8 +27,9 @@ type Checker struct {
 	libraries  map[string]map[string]*runtime.Library
 }
 
-// New builds the check state for a parsed stack file. libs is the
-// imported-library table resolved for the file.
+// New is the generic compatibility entrypoint for tests and helpers
+// that still construct lang.File bodies directly. Production grammar-first
+// callers use NewSyntax.
 func New(f *lang.File, libs map[string]*runtime.Library) *Checker {
 	return newChecker(
 		f,

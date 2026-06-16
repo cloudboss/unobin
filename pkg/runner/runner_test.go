@@ -80,9 +80,16 @@ func testInfo(t *testing.T, src string) Info {
 		FactoryName:     "test-stack",
 		FactoryVersion:  "v0.1.0",
 		ContentRevision: "abcdef",
-		FactoryBody:     src,
+		FactoryBody:     sourceFactory(src),
 		Libraries:       map[string]*runtime.Library{"core": coreMod},
 	}
+}
+
+func sourceFactory(body string) string {
+	if strings.HasPrefix(strings.TrimSpace(body), "factory:") {
+		return body
+	}
+	return "factory: {\n" + body + "\n}\n"
 }
 
 // testFileLibrary registers a minimal file-on-disk resource so the
@@ -252,6 +259,12 @@ func TestParseFactoryAcceptsCompilerFactoryBody(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
+	_, err := parseFactory(Info{FactoryBody: `description: 'x'`})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "factory.ub must declare factory")
+}
+
 func TestValidateAcceptsCompilerConfigurationSyntax(t *testing.T) {
 	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
   configurations: {
@@ -367,8 +380,8 @@ func TestCommandsUseTypedOnlyComposite(t *testing.T) {
 
 func TestApplyAndOutput(t *testing.T) {
 	info := testInfo(t, `
-actions: { core.echo.hi: { echo: 'hello world' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello world' } }
+outputs: { said: { value: action.hi.echo } }
 `)
 	apply := applyVia(t, info, "")
 	require.Contains(t, apply, "said: 'hello world'")
@@ -385,7 +398,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 func TestPlanDestroyRemovesResources(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "managed.txt")
 	src := fmt.Sprintf(`
-resources: { local.file.x: { path: '%s', content: 'hello', mode: 420 } }
+resources: { x: local.file { path: '%s', content: 'hello', mode: 420 } }
 `, path)
 	info := testInfo(t, src)
 	info.Libraries["local"] = testFileLibrary()
@@ -398,7 +411,7 @@ resources: { local.file.x: { path: '%s', content: 'hello', mode: 420 } }
 	// A destroy plan renders the resource as a deletion and counts it.
 	render, err := runCfg(t, info, "plan", "--destroy", "--allow-version-mismatch")
 	require.NoError(t, err)
-	require.Contains(t, render, "- resource.local.file.x")
+	require.Contains(t, render, "- resource.x")
 	require.Contains(t, render, "0 to create, 0 to update, 0 to replace, 1 to destroy")
 
 	// A destroy plan should mark the file for deletion.
@@ -419,13 +432,13 @@ resources: { local.file.x: { path: '%s', content: 'hello', mode: 420 } }
 
 	out, err := runCfg(t, info, "state", "list")
 	require.NoError(t, err)
-	require.NotContains(t, out, "resource.local.file.x")
+	require.NotContains(t, out, "resource.x")
 }
 
 func TestOutputJSON(t *testing.T) {
 	info := testInfo(t, `
-actions: { core.echo.hi: { echo: 'hello world' } }
-outputs: { said: { value: action.core.echo.hi.echo }, count: { value: 7 } }
+actions: { hi: core.echo { echo: 'hello world' } }
+outputs: { said: { value: action.hi.echo }, count: { value: 7 } }
 `)
 	_ = applyVia(t, info, "")
 
@@ -461,8 +474,8 @@ func TestPlanParseError(t *testing.T) {
 func TestApplyWithConfigInputs(t *testing.T) {
 	src := `
 inputs:  { greeting: { type: string } }
-actions: { core.echo.hi: { echo: var.greeting } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: var.greeting } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -502,8 +515,8 @@ func TestDeploymentID(t *testing.T) {
 func TestPlanIsolatesDeploymentsByConfigName(t *testing.T) {
 	src := `
 inputs:  { greeting: { type: string } }
-actions: { core.echo.hi: { echo: var.greeting } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: var.greeting } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -533,8 +546,8 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 func TestEnvVarOverridesConfig(t *testing.T) {
 	src := `
 inputs:  { greeting: { type: string } }
-actions: { core.echo.hi: { echo: var.greeting } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: var.greeting } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -555,8 +568,8 @@ factory: {
 func TestEnvVarUnderscoreToHyphen(t *testing.T) {
 	src := `
 inputs:  { cluster-name: { type: string } }
-actions: { core.echo.hi: { echo: var.cluster-name } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: var.cluster-name } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 
@@ -575,14 +588,14 @@ inputs: {
 }
 imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
 actions: {
-  core.echo.summary: {
+  summary: core.echo {
     echo: $'''\-
       size={{ var.size }} spot={{ var.use-spot }} ratio=
       {{ var.ratio }} subnets={{ @core.join(var.subnets, ',') }}
       '''
   }
 }
-outputs: { said: { value: action.core.echo.summary.echo } }
+outputs: { said: { value: action.summary.echo } }
 `
 	info := testInfo(t, src)
 
@@ -599,8 +612,8 @@ outputs: { said: { value: action.core.echo.summary.echo } }
 func TestEnvVarStringInputTakesRawValue(t *testing.T) {
 	src := `
 inputs:  { answer: { type: string }, comment: { type: optional(string) } }
-actions: { core.echo.hi: { echo: var.answer } }
-outputs: { said: { value: action.core.echo.hi.echo }, note: { value: var.comment ?? 'none' } }
+actions: { hi: core.echo { echo: var.answer } }
+outputs: { said: { value: action.hi.echo }, note: { value: var.comment ?? 'none' } }
 `
 	info := testInfo(t, src)
 	// Each value parses as a UB literal, but the declared type is
@@ -664,7 +677,7 @@ inputs: {
   tags:   { type: list(string) }
 }
 imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
-actions: { core.echo.hi: { echo: 'x' } }
+actions: { hi: core.echo { echo: 'x' } }
 outputs: {
   result: {
     value: @core.to-json({ host: var.config.host, port: var.config.port, tags: var.tags })
@@ -725,8 +738,8 @@ func TestPlanAppliesDeclaredDefault(t *testing.T) {
 	src := `
 inputs:  { size: { type: integer, default: 3 } }
 imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
-actions: { core.echo.hi: { echo: $'size={{ var.size }}' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: $'size={{ var.size }}' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	out := applyVia(t, info, "")
@@ -897,8 +910,8 @@ func TestEnvVarUnparseableFallsBackToString(t *testing.T) {
 	// literals; they arrive as plain strings without shell-escape ceremony.
 	src := `
 inputs:  { endpoint: { type: string } }
-actions: { core.echo.hi: { echo: var.endpoint } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: var.endpoint } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	t.Setenv("UB_VAR_endpoint", "https://example.com/health")
@@ -909,8 +922,8 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 func TestEnvVarStringInputKeepsQuoteCharacters(t *testing.T) {
 	src := `
 inputs:  { greeting: { type: string } }
-actions: { core.echo.hi: { echo: var.greeting } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: var.greeting } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	// A string input takes the raw text, so UB-style quotes are data,
@@ -922,19 +935,19 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 func TestPlanShowsCreateBeforeApply(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
+actions: { hi: core.echo { echo: 'hello' } }
 `
 	info := testInfo(t, src)
 	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
-	require.Contains(t, out, "↺ action.core.echo.hi")
+	require.Contains(t, out, "↺ action.hi")
 	require.Contains(t, out, `echo: 'hello'`)
 	require.Contains(t, out, "Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.")
 }
 
 func TestPlanHidesSkipAfterApply(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
+actions: { hi: core.echo { echo: 'hello' } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
@@ -948,7 +961,7 @@ func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:  "resource.local.file.x",
+				Address:  "resource.x",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs: map[string]any{
@@ -1119,7 +1132,7 @@ func TestPrintPlanShowsDriftSection(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:         "resource.local.file.x",
+				Address:         "resource.x",
 				Kind:            runtime.NodeResource,
 				Decision:        runtime.DecisionUpdate,
 				Inputs:          map[string]any{"path": "/tmp/x"},
@@ -1132,7 +1145,7 @@ func TestPrintPlanShowsDriftSection(t *testing.T) {
 	printPlan(buf, plan, false)
 	out := buf.String()
 	require.Contains(t, out, "Drift detected (1)")
-	require.Contains(t, out, "  ~ resource.local.file.x")
+	require.Contains(t, out, "  ~ resource.x")
 	require.Contains(t, out, `sha256: 'old' -> 'new'`)
 	driftSection := strings.SplitN(out, "\n\n", 2)[0]
 	require.NotContains(t, driftSection, "path: ",
@@ -1577,7 +1590,7 @@ func TestPlanEmpty(t *testing.T) {
 
 func TestPlanWritesPlanFile(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
+actions: { hi: core.echo { echo: 'hello' } }
 `
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
@@ -1591,13 +1604,13 @@ actions: { core.echo.hi: { echo: 'hello' } }
 	for i, s := range pf.Steps {
 		addresses[i] = s.Address
 	}
-	require.Contains(t, addresses, "action.core.echo.hi")
+	require.Contains(t, addresses, "action.hi")
 }
 
 func TestApplyConsumesPlanFile(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello world' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello world' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
@@ -1649,7 +1662,7 @@ func TestRootIsCobraTree(t *testing.T) {
 
 func TestValidateAcceptsCleanSource(t *testing.T) {
 	info := testInfo(t, `
-actions: { core.echo.hi: { echo: 'hello' } }
+actions: { hi: core.echo { echo: 'hello' } }
 `)
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.NoError(t, err)
@@ -1664,7 +1677,7 @@ func TestValidateRejectsBadSource(t *testing.T) {
 
 func TestValidateRejectsInvalidReference(t *testing.T) {
 	info := testInfo(t, `
-actions: { core.echo.bad: { echo: var.missing } }
+actions: { bad: core.echo { echo: var.missing } }
 `)
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.Error(t, err)
@@ -1674,7 +1687,7 @@ actions: { core.echo.bad: { echo: var.missing } }
 func TestValidateChecksConfig(t *testing.T) {
 	info := testInfo(t, `
 inputs:  { greeting: { type: string } }
-actions: { core.echo.hi: { echo: var.greeting } }
+actions: { hi: core.echo { echo: var.greeting } }
 `)
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(cfg, []byte(`bogus { not valid`), 0o644))
@@ -1738,18 +1751,18 @@ func TestPrintGraphPlain(t *testing.T) {
 	src := `
 inputs: { msg: { type: string } }
 actions: {
-  core.echo.first:  { echo: var.msg }
-  core.echo.second: { echo: action.core.echo.first.echo }
+  first:  core.echo { echo: var.msg }
+  second: core.echo { echo: action.first.echo }
 }
 `
 	info := testInfo(t, src)
 	out, err := runRoot(t, info, "print-graph")
 	require.NoError(t, err)
-	expected := `action.core.echo.first
+	expected := `action.first
   -> var.msg
 
-action.core.echo.second
-  -> action.core.echo.first
+action.second
+  -> action.first
 `
 	require.Equal(t, expected, out)
 }
@@ -1758,17 +1771,17 @@ func TestPrintGraphDot(t *testing.T) {
 	src := `
 inputs: { msg: { type: string } }
 actions: {
-  core.echo.first:  { echo: var.msg }
-  core.echo.second: { echo: action.core.echo.first.echo }
+  first:  core.echo { echo: var.msg }
+  second: core.echo { echo: action.first.echo }
 }
 `
 	info := testInfo(t, src)
 	out, err := runRoot(t, info, "print-graph", "--format", "dot")
 	require.NoError(t, err)
 	expected := `digraph "test-stack" {
-  "action.core.echo.first";
-  "action.core.echo.second";
-  "action.core.echo.second" -> "action.core.echo.first";
+  "action.first";
+  "action.second";
+  "action.second" -> "action.first";
 }
 `
 	require.Equal(t, expected, out)
@@ -1783,24 +1796,24 @@ func TestPrintGraphRejectsUnknownFormat(t *testing.T) {
 
 func TestStateMoveRelocatesEntry(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runCfg(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
+	out, err := runCfg(t, info, "state", "move", "action.hi", "action.bye")
 	require.NoError(t, err)
-	require.Contains(t, out, "Moved action.core.echo.hi to action.core.echo.bye")
+	require.Contains(t, out, "Moved action.hi to action.bye")
 
 	show, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
-	require.Contains(t, show, "action.core.echo.bye")
-	require.NotContains(t, show, "action.core.echo.hi ")
+	require.Contains(t, show, "action.bye")
+	require.NotContains(t, show, "action.hi ")
 }
 
 func TestStateMoveRejectsMissingSource(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hello' } }`
+	src := `actions: { hi: core.echo { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -1811,32 +1824,32 @@ func TestStateMoveRejectsMissingSource(t *testing.T) {
 
 func TestStateMoveRejectsCollision(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' }, core.echo.bye: { echo: 'bye' } }
+actions: { hi: core.echo { echo: 'hello' }, bye: core.echo { echo: 'bye' } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runCfg(t, info, "state", "move", "action.core.echo.hi", "action.core.echo.bye")
+	_, err := runCfg(t, info, "state", "move", "action.hi", "action.bye")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already exists")
 }
 
 func TestStateRemoveDropsEntry(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hello' } }`
+	src := `actions: { hi: core.echo { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runCfg(t, info, "state", "remove", "action.core.echo.hi")
+	out, err := runCfg(t, info, "state", "remove", "action.hi")
 	require.NoError(t, err)
-	require.Contains(t, out, "Removed action.core.echo.hi")
+	require.Contains(t, out, "Removed action.hi")
 
 	show, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
-	require.NotContains(t, show, "action.core.echo.hi")
+	require.NotContains(t, show, "action.hi")
 }
 
 func TestStateRemoveRejectsMissing(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hello' } }`
+	src := `actions: { hi: core.echo { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -1976,7 +1989,7 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 }
 
 func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
-	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 
 	store, err := local.NewStore(
@@ -2006,7 +2019,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 }
 
 func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
-	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 	out, err := runCfg(t, info, "state", "gc", "--keep", "10")
 	require.NoError(t, err)
@@ -2014,7 +2027,7 @@ func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
 }
 
 func TestStateForceUnlockReleasesLock(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hello' } }`
+	src := `actions: { hi: core.echo { echo: 'hello' } }`
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
@@ -2034,7 +2047,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 }
 
 func TestRefreshNoStateIsOK(t *testing.T) {
-	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello' } }`)
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	out, err := runCfg(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
@@ -2042,8 +2055,8 @@ func TestRefreshNoStateIsOK(t *testing.T) {
 
 func TestRefreshCarriesActionsForward(t *testing.T) {
 	info := testInfo(t, `
-actions: { core.echo.hi: { echo: 'hello' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello' } }
+outputs: { said: { value: action.hi.echo } }
 `)
 	_ = applyVia(t, info, "")
 
@@ -2053,13 +2066,13 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 
 	show, err := runCfg(t, info, "state", "show")
 	require.NoError(t, err)
-	require.Contains(t, show, "action.core.echo.hi")
+	require.Contains(t, show, "action.hi")
 }
 
 func TestStateListAndShow(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
@@ -2072,7 +2085,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	require.NoError(t, err)
 	require.Contains(t, showOut, "factory:")
 	require.Contains(t, showOut, "test-stack")
-	require.Contains(t, showOut, "action.core.echo.hi")
+	require.Contains(t, showOut, "action.hi")
 	require.Contains(t, showOut, `said: 'hello'`)
 }
 
@@ -2113,8 +2126,8 @@ func TestSchemaEmpty(t *testing.T) {
 
 func TestStateEncryptedWithEnvKey(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
@@ -2149,7 +2162,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 }
 
 func TestStateShowFailsWithWrongKey(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hello' } }`
+	src := `actions: { hi: core.echo { echo: 'hello' } }`
 	info := testInfo(t, src)
 
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
@@ -2168,8 +2181,8 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 
 func TestPlanFileEncryptedWithEnvKey(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello world' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'hello world' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
@@ -2196,7 +2209,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 	plaintext, err := enc.Decrypt(env.Ciphertext)
 	require.NoError(t, err)
 	require.Contains(t, string(plaintext), `"format-version": 1`)
-	require.Contains(t, string(plaintext), "action.core.echo.hi")
+	require.Contains(t, string(plaintext), "action.hi")
 
 	out, err := runRoot(t, info, "apply", planFile)
 	require.NoError(t, err)
@@ -2204,7 +2217,7 @@ outputs: { said: { value: action.core.echo.hi.echo } }
 }
 
 func TestPlanFlagOverridesConfigParallelism(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hi' } }`
+	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
 	cfg := writeStateConfig(t, `
 parallelism: 3
@@ -2220,7 +2233,7 @@ factory: { inputs: {} }
 }
 
 func TestPlanFallsBackToConfigParallelism(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hi' } }`
+	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
 	cfg := writeStateConfig(t, `
 parallelism: 4
@@ -2236,7 +2249,7 @@ factory: { inputs: {} }
 }
 
 func TestApplyTamperedPlanFile(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hi' } }`
+	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
@@ -2260,7 +2273,7 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 }
 
 func TestApplyPlanWithoutKeyNamesMissingEnvVar(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hi' } }`
+	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
 
@@ -2275,7 +2288,7 @@ func TestApplyPlanWithoutKeyNamesMissingEnvVar(t *testing.T) {
 }
 
 func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
-	src := `actions: { core.echo.hi: { echo: 'hi' } }`
+	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
 
 	planFile := filepath.Join(t.TempDir(), "plan.json")
@@ -2353,7 +2366,7 @@ func TestApplyUIServesRunView(t *testing.T) {
 	uiLingerTimeout = 50 * time.Millisecond
 	t.Cleanup(func() { uiLingerTimeout = old })
 
-	info := testInfo(t, `actions: { core.echo.hi: { echo: 'hello world' } }`)
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello world' } }`)
 	configPath := writeStateConfig(t, "")
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 	_, err := runRoot(t, info,

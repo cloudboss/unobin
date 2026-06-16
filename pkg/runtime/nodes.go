@@ -99,10 +99,9 @@ type ConfigRef struct {
 	Configuration string
 }
 
-// ExtractNodes walks a parsed factory or composite body and returns every
-// addressable node in source order. The file is assumed to be validated.
-// Malformed subtrees are skipped silently rather than reported as they should
-// be validated with `lang.ValidateFile` first.
+// ExtractNodes is the generic compatibility entrypoint for tests and
+// helpers that still construct lang.File bodies directly. Production
+// grammar-first callers use ExtractSyntaxNodes.
 //
 // libs is the imported-library table keyed by alias. It is consulted to
 // distinguish primitive resource call sites from composite call sites;

@@ -18,10 +18,9 @@ type DAG struct {
 	Edges map[string][]string
 }
 
-// BuildDAG walks a parsed stack file and returns its dependency graph.
-// The file is assumed to be validated. libs is the imported-library
-// table; passed to ExtractNodes so composite call sites are expanded
-// before edges are computed.
+// BuildDAG is the generic compatibility entrypoint for tests and
+// helpers that still construct lang.File bodies directly. Production
+// grammar-first callers use BuildSyntaxDAG.
 func BuildDAG(f *lang.File, libs map[string]*Library) *DAG {
 	nodes := ExtractNodes(f, libs)
 	return buildDAG(nodes, lang.FieldMap(localsBlock(f)))
