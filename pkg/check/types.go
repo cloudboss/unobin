@@ -302,11 +302,12 @@ func (c *referenceChecker) lookupTypeSchema(n *runtime.Node) *runtime.TypeSchema
 func (c *referenceChecker) scopeFor(n *runtime.Node) *typecheck.Scope {
 	inputs := c.scopeInputs(n.Composite)
 	scope := &typecheck.Scope{
-		Inputs:              inputs,
-		LookupNode:          c.lookupNodeFor(n.Composite),
-		LookupFunction:      c.lookupFunctionFor(n.Composite),
-		LookupConfiguration: c.lookupConfigurationFor(n.Composite),
-		Observe:             c.observe,
+		Inputs:                 inputs,
+		LookupNode:             c.lookupNodeFor(n.Composite),
+		LookupFunction:         c.lookupFunctionFor(n.Composite),
+		LookupConfiguration:    c.lookupConfigurationFor(n.Composite),
+		LookupConfigurationRef: c.lookupConfigurationRef,
+		Observe:                c.observe,
 	}
 	scope.LookupLocal = c.lookupLocalFor(n.Composite, scope)
 	return scope
@@ -330,6 +331,14 @@ func (c *referenceChecker) lookupConfigurationFor(
 		}
 		return configurationObjectType(lib.Schema.Configuration), true
 	}
+}
+
+func (c *referenceChecker) lookupConfigurationRef(name string) (string, bool) {
+	ref, ok := c.configurationRefs[name]
+	if !ok {
+		return "", false
+	}
+	return ref.Alias, true
 }
 
 // configurationObjectType folds a configuration schema's field map

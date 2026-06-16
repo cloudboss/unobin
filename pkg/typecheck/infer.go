@@ -26,6 +26,9 @@ type Scope struct {
 	// of its configuration schema. Nil, or a false return, leaves the
 	// reference inferring Unknown.
 	LookupConfiguration func(alias string) (Type, bool)
+	// LookupConfigurationRef maps a source-facing configuration name to
+	// the library selector whose configuration schema types it.
+	LookupConfigurationRef func(name string) (alias string, ok bool)
 	// Bindings holds comprehension-bound names. They resolve as bare
 	// values and as dot-path roots ahead of var/resource/data/action.
 	// Names are distinct across nesting; validation rejects an inner
@@ -704,14 +707,35 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 // navigation past the name checks field by field; an unknown schema infers
 // Unknown.
 func inferConfiguration(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
-	if scope == nil || scope.LookupConfiguration == nil || len(dp.Segments) < 2 {
+	if scope == nil || scope.LookupConfiguration == nil || len(dp.Segments) == 0 {
+		return TUnknown()
+	}
+	first := dp.Segments[0]
+	if first.Name == "" {
+		return TUnknown()
+	}
+	if scope.LookupConfigurationRef != nil {
+		alias, ok := scope.LookupConfigurationRef(first.Name)
+		if ok {
+			if rejectGuardedRoot("configuration", dp.Segments, 1, errs) {
+				return TUnknown()
+			}
+			t, ok := scope.LookupConfiguration(alias)
+			if !ok {
+				return TUnknown()
+			}
+			return traverseSegments(t, dp.Segments[1:],
+				"configuration."+first.Name, scope, errs, false)
+		}
+	}
+	if len(dp.Segments) < 2 {
 		return TUnknown()
 	}
 	if rejectGuardedRoot("configuration", dp.Segments, 2, errs) {
 		return TUnknown()
 	}
-	alias, name := dp.Segments[0].Name, dp.Segments[1].Name
-	if alias == "" || name == "" {
+	alias, name := first.Name, dp.Segments[1].Name
+	if name == "" {
 		return TUnknown()
 	}
 	t, ok := scope.LookupConfiguration(alias)
