@@ -401,13 +401,8 @@ func (c *compileVisitor) OnUBLibrary(
 	entries := lib.CompositeEntries()
 	var violations []error
 	for _, entry := range entries {
-		if entry.HasSyntaxBody {
-			violations = append(violations,
-				resolve.ValidateSyntaxCompositeBody(entry.Kind, entry.Name, entry.SyntaxBody)...)
-			continue
-		}
 		violations = append(violations,
-			resolve.ValidateCompositeBody(entry.Kind, entry.Name, entry.Body)...)
+			resolve.ValidateSyntaxCompositeBody(entry.Kind, entry.Name, entry.SyntaxBody)...)
 	}
 	if len(violations) > 0 {
 		return errors.Join(violations...)
@@ -418,10 +413,7 @@ func (c *compileVisitor) OnUBLibrary(
 	for _, entry := range entries {
 		resols := lib.BodyImports[entry.Kind][entry.Name]
 		bodyLibs := make(map[string]*ubruntime.Library, len(resols))
-		bodyUsed := usedLibraryTypes(entry.Body)
-		if entry.HasSyntaxBody {
-			bodyUsed = usedSyntaxLibraryTypes(entry.SyntaxBody)
-		}
+		bodyUsed := usedSyntaxLibraryTypes(entry.SyntaxBody)
 		for _, res := range resols {
 			switch res.Kind {
 			case resolve.ResolutionGo:
@@ -445,15 +437,12 @@ func (c *compileVisitor) OnUBLibrary(
 				bodyLibs[res.LocalAlias] = c.runtimeLibraries[res.CanonicalKey]
 			}
 		}
+		syntaxBody := entry.SyntaxBody
 		composite := &ubruntime.CompositeType{
-			Name:      entry.Name,
-			Kind:      ubruntime.NodeKind(entry.Kind),
-			Body:      entry.Body,
-			Libraries: bodyLibs,
-		}
-		if entry.HasSyntaxBody {
-			syntaxBody := entry.SyntaxBody
-			composite.SyntaxBody = &syntaxBody
+			Name:       entry.Name,
+			Kind:       ubruntime.NodeKind(entry.Kind),
+			SyntaxBody: &syntaxBody,
+			Libraries:  bodyLibs,
 		}
 		runtimeLib.AddComposite(composite)
 	}
@@ -479,7 +468,7 @@ func (c *compileVisitor) OnUBLibrary(
 	}
 	canonical := alias
 	src, err := codegen.GenerateUBLibrary(
-		canonical, lib.Bodies, lib.SyntaxBodies, composites, goSpecs)
+		canonical, nil, lib.SyntaxBodies, composites, goSpecs)
 	if err != nil {
 		return err
 	}

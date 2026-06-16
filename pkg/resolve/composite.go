@@ -3,21 +3,8 @@ package resolve
 import (
 	"fmt"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
-
-// ValidateCompositeBody checks a generic composite body against the
-// requirements for its declared kind.
-func ValidateCompositeBody(kind, typeName string, f *lang.File) []error {
-	return validateCompositeCounts(
-		kind,
-		typeName,
-		kindLeafCount(f, "resources"),
-		kindLeafCount(f, "actions"),
-		outputCount(f),
-	)
-}
 
 // ValidateSyntaxCompositeBody checks a typed composite body against the
 // requirements for its declared kind.
@@ -60,37 +47,4 @@ func validateCompositeCounts(kind, typeName string, resources, actions, outputs 
 		}
 	}
 	return errs
-}
-
-// kindLeafCount counts the leaf entries in a resources, data, or actions block.
-func kindLeafCount(f *lang.File, block string) int {
-	obj := lang.TopLevelBlock(f, block)
-	if obj == nil {
-		return 0
-	}
-	count := 0
-	for _, fld := range obj.Fields {
-		switch {
-		case fld.Decl != nil && !fld.Decl.Default:
-			count++
-		case fld.Key.Kind == lang.FieldPath && len(fld.Key.Path) == 3:
-			count++
-		}
-	}
-	return count
-}
-
-// outputCount counts the named fields in the outputs block.
-func outputCount(f *lang.File) int {
-	obj := lang.TopLevelBlock(f, "outputs")
-	if obj == nil {
-		return 0
-	}
-	count := 0
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind == lang.FieldIdent && !fld.Key.IsMeta() {
-			count++
-		}
-	}
-	return count
 }

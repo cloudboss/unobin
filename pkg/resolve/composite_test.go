@@ -1,30 +1,24 @@
 package resolve
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
-func parseComposite(t *testing.T, src string) *lang.File {
+func parseSyntaxComposite(t *testing.T, kind, src string) syntax.CompositeDecl {
 	t.Helper()
-	f, err := lang.ParseSource("x.ub", []byte(src))
-	require.NoError(t, err)
-	return f
-}
-
-func parseSyntaxComposite(t *testing.T, src string) syntax.CompositeDecl {
-	t.Helper()
-	f, err := syntax.ParseSource("library.ub", []byte(src))
+	f, err := syntax.ParseSource("library.ub", fmt.Appendf(nil, "thing: %s {\n%s\n}\n", kind, src))
 	require.NoError(t, err)
 	require.NotNil(t, f.Library)
 	require.Len(t, f.Library.Exports, 1)
 	return f.Library.Exports[0]
 }
 
-func TestValidateCompositeBody(t *testing.T) {
+func TestValidateSyntaxCompositeBody(t *testing.T) {
 	tests := []struct {
 		name string
 		kind string
@@ -35,8 +29,8 @@ func TestValidateCompositeBody(t *testing.T) {
 			name: "data with output and a data source",
 			kind: "data",
 			src: `
-data:    { aws.ami.x: { most-recent: true } }
-outputs: { id: { value: data.aws.ami.x.id } }
+data: { x: aws.ami { most-recent: true } }
+outputs: { id: { value: data.x.id } }
 `,
 		},
 		{
@@ -47,14 +41,14 @@ outputs: { id: { value: data.aws.ami.x.id } }
 		{
 			name: "data without output",
 			kind: "data",
-			src:  `data: { aws.ami.x: { most-recent: true } }`,
+			src:  `data: { x: aws.ami { most-recent: true } }`,
 			want: []string{`composite "thing" (data): a data composite must declare at least one output`},
 		},
 		{
 			name: "data with a resource",
 			kind: "data",
 			src: `
-resources: { aws.vpc.m: {} }
+resources: { m: aws.vpc {} }
 outputs:   { id: { value: 'x' } }
 `,
 			want: []string{`composite "thing" (data): a data composite must not contain resources`},
@@ -63,7 +57,7 @@ outputs:   { id: { value: 'x' } }
 			name: "data with an action",
 			kind: "data",
 			src: `
-actions: { core.command.c: { argv: ['x'] } }
+actions: { c: core.command { argv: ['x'] } }
 outputs: { id: { value: 'x' } }
 `,
 			want: []string{`composite "thing" (data): a data composite must not contain actions`},
@@ -72,8 +66,8 @@ outputs: { id: { value: 'x' } }
 			name: "data with every violation",
 			kind: "data",
 			src: `
-resources: { aws.vpc.m: {} }
-actions:   { core.command.c: { argv: ['x'] } }
+resources: { m: aws.vpc {} }
+actions:   { c: core.command { argv: ['x'] } }
 `,
 			want: []string{
 				`composite "thing" (data): a data composite must declare at least one output`,
@@ -90,35 +84,37 @@ actions:   { core.command.c: { argv: ['x'] } }
 		{
 			name: "action with an action",
 			kind: "action",
-			src:  `actions: { core.command.c: { argv: ['x'] } }`,
+			src:  `actions: { c: core.command { argv: ['x'] } }`,
 		},
 		{
-			name: "action with data is allowed",
+			name: "action with data is accepted",
 			kind: "action",
 			src: `
-data:    { aws.ami.x: {} }
-actions: { core.command.c: { argv: ['x'] } }
+data:    { x: aws.ami {} }
+actions: { c: core.command { argv: ['x'] } }
 `,
 		},
 		{
 			name: "action without an action",
 			kind: "action",
 			src:  `outputs: { v: { value: 'x' } }`,
-			want: []string{`composite "thing" (action): an action composite must contain at least one action`},
+			want: []string{
+				`composite "thing" (action): an action composite must contain at least one action`,
+			},
 		},
 		{
 			name: "action with a resource",
 			kind: "action",
 			src: `
-resources: { aws.vpc.m: {} }
-actions:   { core.command.c: { argv: ['x'] } }
+resources: { m: aws.vpc {} }
+actions:   { c: core.command { argv: ['x'] } }
 `,
 			want: []string{`composite "thing" (action): an action composite must not contain resources`},
 		},
 		{
 			name: "action with a resource and no action",
 			kind: "action",
-			src:  `resources: { aws.vpc.m: {} }`,
+			src:  `resources: { m: aws.vpc {} }`,
 			want: []string{
 				`composite "thing" (action): an action composite must contain at least one action`,
 				`composite "thing" (action): an action composite must not contain resources`,
@@ -127,33 +123,38 @@ actions:   { core.command.c: { argv: ['x'] } }
 		{
 			name: "resource with a resource",
 			kind: "resource",
-			src:  `resources: { aws.vpc.m: {} }`,
+			src:  `resources: { m: aws.vpc {} }`,
 		},
 		{
-			name: "resource with data and actions is allowed",
+			name: "resource with data and actions is accepted",
 			kind: "resource",
 			src: `
-resources: { aws.vpc.m: {} }
-data:      { aws.ami.x: {} }
-actions:   { core.command.c: { argv: ['x'] } }
+resources: { m: aws.vpc {} }
+data:      { x: aws.ami {} }
+actions:   { c: core.command { argv: ['x'] } }
 `,
 		},
 		{
 			name: "resource without a resource",
 			kind: "resource",
-			src:  `data: { aws.ami.x: {} }`,
-			want: []string{`composite "thing" (resource): a resource composite must contain at least one resource`},
+			src:  `data: { x: aws.ami {} }`,
+			want: []string{
+				`composite "thing" (resource): a resource composite must contain at least one resource`,
+			},
 		},
 		{
 			name: "resource empty body",
 			kind: "resource",
 			src:  `description: 'x'`,
-			want: []string{`composite "thing" (resource): a resource composite must contain at least one resource`},
+			want: []string{
+				`composite "thing" (resource): a resource composite must contain at least one resource`,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ValidateCompositeBody(tt.kind, "thing", parseComposite(t, tt.src))
+			export := parseSyntaxComposite(t, tt.kind, tt.src)
+			got := ValidateSyntaxCompositeBody(string(export.Kind), export.Name.Name, export.Body)
 			var msgs []string
 			for _, e := range got {
 				msgs = append(msgs, e.Error())
@@ -161,20 +162,4 @@ actions:   { core.command.c: { argv: ['x'] } }
 			require.Equal(t, tt.want, msgs)
 		})
 	}
-}
-
-func TestValidateSyntaxCompositeBody(t *testing.T) {
-	export := parseSyntaxComposite(t, `thing: data {
-  resources: { bad: aws.vpc {} }
-}
-`)
-	got := ValidateSyntaxCompositeBody(string(export.Kind), export.Name.Name, export.Body)
-	var msgs []string
-	for _, e := range got {
-		msgs = append(msgs, e.Error())
-	}
-	require.Equal(t, []string{
-		`composite "thing" (data): a data composite must declare at least one output`,
-		`composite "thing" (data): a data composite must not contain resources`,
-	}, msgs)
 }

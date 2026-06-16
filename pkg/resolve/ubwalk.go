@@ -64,53 +64,31 @@ type Resolution struct {
 
 // UBLibrary has everything the visitor needs about a UB library the
 // first time the walker reaches it. SyntaxBodies maps node kind and
-// composite name to typed source declarations. Bodies is kept for older
-// generic tests and fallback callers. BodyImports maps the same kind and
-// name to the resolved imports declared by that body, in alias-sorted order
-// so callers see a stable view across runs.
+// composite name to typed source declarations. BodyImports maps the same
+// kind and name to the resolved imports declared by that body, in
+// alias-sorted order so callers see a stable view across runs.
 type UBLibrary struct {
-	Bodies       map[string]map[string]*lang.File
 	SyntaxBodies map[string]map[string]syntax.FactoryBody
 	BodyImports  map[string]map[string][]Resolution
 }
 
 type CompositeEntry struct {
-	Kind          string
-	Name          string
-	Body          *lang.File
-	SyntaxBody    syntax.FactoryBody
-	HasSyntaxBody bool
+	Kind       string
+	Name       string
+	SyntaxBody syntax.FactoryBody
 }
 
 func (l *UBLibrary) CompositeEntries() []CompositeEntry {
 	if l == nil {
 		return nil
 	}
-	seen := map[string]bool{}
 	var entries []CompositeEntry
-	for kind, byName := range l.Bodies {
-		for name, body := range byName {
-			key := kind + "\x00" + name
-			seen[key] = true
-			entry := CompositeEntry{Kind: kind, Name: name, Body: body}
-			if syntaxBody, ok := l.SyntaxBodies[kind][name]; ok {
-				entry.SyntaxBody = syntaxBody
-				entry.HasSyntaxBody = true
-			}
-			entries = append(entries, entry)
-		}
-	}
 	for kind, byName := range l.SyntaxBodies {
 		for name, body := range byName {
-			key := kind + "\x00" + name
-			if seen[key] {
-				continue
-			}
 			entries = append(entries, CompositeEntry{
-				Kind:          kind,
-				Name:          name,
-				SyntaxBody:    body,
-				HasSyntaxBody: true,
+				Kind:       kind,
+				Name:       name,
+				SyntaxBody: body,
 			})
 		}
 	}
@@ -406,10 +384,7 @@ func (w *ubWalker) handleUBImport(
 // parseLibrary reads a UB library's composite bodies from source-declared
 // composite export files.
 func libraryBodyImports(entry CompositeEntry) (map[string]ImportRef, []error) {
-	if entry.HasSyntaxBody {
-		return ExtractSyntaxBodyImports(entry.SyntaxBody)
-	}
-	return ExtractImports(entry.Body)
+	return ExtractSyntaxBodyImports(entry.SyntaxBody)
 }
 
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
