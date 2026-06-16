@@ -1381,7 +1381,7 @@ func TestFormatParsedOpenObjectType(t *testing.T) {
 	require.Equal(t, "t: open(object({\n  a: string\n}))\n", string(got))
 }
 
-func TestSingleLineWidthPromotedTypeExpressions(t *testing.T) {
+func TestSingleLineWidthParsedTypeExpressions(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
@@ -1397,8 +1397,8 @@ func TestSingleLineWidthPromotedTypeExpressions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w, expr := parseFirstValue(t, tt.src)
-			te, err := PromoteType(expr)
+			w := &formatter{}
+			te, err := ParseType("type.ub", []byte(tt.src))
 			require.NoError(t, err)
 			require.Equal(t, tt.want, w.singleLineWidth(te))
 		})

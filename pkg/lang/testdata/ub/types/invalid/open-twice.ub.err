@@ -1,0 +1,1 @@
+open(open(...)) is redundant; write open once

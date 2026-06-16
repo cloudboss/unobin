@@ -169,7 +169,7 @@ var inputModifierKeys = map[string]struct{}{
 // ValidateInputDeclarations checks an `inputs:` declaration block in a
 // factory or composite body. Every entry must be an identifier name bound to
 // an object declaration carrying a `type:` expression and any number of
-// permitted modifiers; types are promoted here so callers see syntactic and
+// permitted modifiers; type fields are parsed here so callers see syntax and
 // type level errors in one batch.
 //
 // Stack file `inputs:` blocks contain values, not declarations, and are not
@@ -212,8 +212,8 @@ func validateInputDecl(name string, fld *Field, errs *ErrorList) {
 
 // validateDeclObject checks one declaration object, top level or
 // nested inside an object() type: the key greenlist, duplicates, the
-// promoted type, the declared default against the declaration's own
-// type and modifiers, and every nested declaration the type contains.
+// parsed type, the declared default against the declaration's own type
+// and modifiers, and every nested declaration the type contains.
 // topLevel admits @sensitive, which has no meaning below the top.
 func validateDeclObject(name string, decl *ObjectLit, topLevel bool, errs *ErrorList) {
 	var hasType bool
@@ -296,7 +296,7 @@ func parseInputTypeValue(decl *ObjectLit, idx int) (TypeExpr, error) {
 		}
 		return t, nil
 	}
-	return PromoteType(fld.Value)
+	return nil, fmt.Errorf("type field was not parsed from source")
 }
 
 func inputTypeFieldSource(decl *ObjectLit, idx int) ([]byte, bool) {
@@ -339,9 +339,9 @@ func typeParseMessage(err error) string {
 	return out
 }
 
-// validateNestedDecls walks a promoted type for object fields written
-// as full declarations and validates each one, named by its dotted
-// path from the input.
+// validateNestedDecls walks a parsed type for object fields written as
+// full declarations and validates each one, named by its dotted path
+// from the input.
 func validateNestedDecls(name string, t TypeExpr, errs *ErrorList) {
 	switch v := t.(type) {
 	case *TypeList:

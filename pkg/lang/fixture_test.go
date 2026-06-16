@@ -10,7 +10,7 @@ import (
 // loadFixture reads path as UB source and returns the parsed File. The
 // path is taken relative to the test's working directory (pkg/lang).
 // Fixtures shared with the parse subpackage are read via paths like
-// `parse/testdata/valid/<name>.ub`.
+// `parse/testdata/ub/valid/<name>.ub`.
 func loadFixture(t *testing.T, path string) *File {
 	t.Helper()
 	b, err := os.ReadFile(path)

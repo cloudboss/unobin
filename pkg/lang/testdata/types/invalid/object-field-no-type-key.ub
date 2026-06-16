@@ -1,3 +1,0 @@
-t: object({
-  name: { foo: 'bar' },
-})

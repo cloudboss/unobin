@@ -1,0 +1,1 @@
+open applies to object types, got optional; write optional(open(object({ ... })))

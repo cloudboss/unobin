@@ -3,10 +3,10 @@ package syntax
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 )
 
@@ -659,7 +659,7 @@ func parseInputTypeValue(
 		}
 		return t, nil
 	}
-	return lang.PromoteType(fld.Value)
+	return nil, fmt.Errorf("type field was not parsed from source")
 }
 
 func typeParseMessage(err error) string {
@@ -680,6 +680,9 @@ func fieldValueSource(
 	idx int,
 	source []byte,
 ) ([]byte, bool) {
+	if len(source) == 0 && block != nil {
+		source = block.Source
+	}
 	if len(source) == 0 || block == nil || idx < 0 || idx >= len(block.Fields) {
 		return nil, false
 	}

@@ -139,6 +139,15 @@ func typeExprName(t TypeExpr) string {
 	return "type"
 }
 
+func hasTypeInputField(fields []*Field) bool {
+	for _, field := range fields {
+		if field.Key.Kind == FieldIdent && field.Key.Name == "type" {
+			return true
+		}
+	}
+	return false
+}
+
 func sourceBytes(c *current) []byte {
 	if src, ok := c.globalStore["source"].([]byte); ok {
 		return src
@@ -732,7 +741,11 @@ TypeObjectField <- key:PlainIdentKey _ ":" _ value:( TypeInputDecl / TypeExprRul
 }
 
 TypeInputDecl <- "{" _ fields:TypeInputDeclField* _ "}" {
-	return &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(fields), Source: sourceBytes(c)}, nil
+	decl := &ObjectLit{S: c.rangeSpan(), Fields: fieldSlice(fields), Source: sourceBytes(c)}
+	if !hasTypeInputField(decl.Fields) {
+		return decl, fmt.Errorf("input declaration in object type must include type")
+	}
+	return decl, nil
 }
 
 TypeInputDeclField <- key:TypeKey _ ":" _ value:TypeExprRule _ ","? _ {

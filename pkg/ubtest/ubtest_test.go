@@ -32,22 +32,23 @@ func fakeDriver(_ string, src []byte) (string, []string) {
 }
 
 func TestRunExactGoldens(t *testing.T) {
-	Run(t, "testdata/exact", fakeDriver)
+	Run(t, "testdata/ub/exact", fakeDriver)
 }
 
 func TestRunSubstring(t *testing.T) {
-	Run(t, "testdata/substr", fakeDriver, Substring())
+	Run(t, "testdata/ub/substr", fakeDriver, Substring())
 }
 
 // fakeDriver uppercases its output, so feeding that output back is stable.
 func TestRunIdempotent(t *testing.T) {
-	Run(t, "testdata/exact", fakeDriver, Idempotent())
+	Run(t, "testdata/ub/exact", fakeDriver, Idempotent())
 }
 
 func TestUpdateWritesAndRemovesGoldens(t *testing.T) {
 	dir := t.TempDir()
+	root := filepath.Join(dir, "testdata", "ub")
 	writeFixture := func(rel, content string) {
-		path := filepath.Join(dir, filepath.FromSlash(rel))
+		path := filepath.Join(root, filepath.FromSlash(rel))
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
@@ -57,28 +58,28 @@ func TestUpdateWritesAndRemovesGoldens(t *testing.T) {
 	old := *update
 	*update = true
 	t.Cleanup(func() { *update = old })
-	Run(t, dir, fakeDriver)
+	Run(t, root, fakeDriver)
 
-	errGolden, err := os.ReadFile(filepath.Join(dir, "invalid", "boom.ub.err"))
+	errGolden, err := os.ReadFile(filepath.Join(root, "invalid", "boom.ub.err"))
 	require.NoError(t, err)
 	assert.Equal(t, "boom\n", string(errGolden))
-	outGolden, err := os.ReadFile(filepath.Join(dir, "invalid", "boom.ub.out"))
+	outGolden, err := os.ReadFile(filepath.Join(root, "invalid", "boom.ub.out"))
 	require.NoError(t, err)
 	assert.Equal(t, "KEEP ME\n", string(outGolden))
 
 	// A clean fixture records no goldens.
-	_, err = os.Stat(filepath.Join(dir, "valid", "quiet.ub.err"))
+	_, err = os.Stat(filepath.Join(root, "valid", "quiet.ub.err"))
 	assert.True(t, os.IsNotExist(err))
-	_, err = os.Stat(filepath.Join(dir, "valid", "quiet.ub.out"))
+	_, err = os.Stat(filepath.Join(root, "valid", "quiet.ub.out"))
 	assert.True(t, os.IsNotExist(err))
 
 	// The recorded goldens now pass an ordinary run.
 	*update = false
-	Run(t, dir, fakeDriver)
+	Run(t, root, fakeDriver)
 }
 
 func TestDiscover(t *testing.T) {
-	fixtures, err := discover("testdata/exact")
+	fixtures, err := discover("testdata/ub/exact")
 	require.NoError(t, err)
 	var names []string
 	for _, fx := range fixtures {
