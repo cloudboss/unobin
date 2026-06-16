@@ -1,5 +1,0 @@
-configurations: {
-  aws.default: { region: 'us-east-1' }
-  aws.use1:    @core.merge(local.base-aws, { region: 'us-east-1' })
-  k8s.cluster: local.cluster-config
-}

@@ -167,15 +167,6 @@ func namedObjectBlock(f *File, key string) (*ObjectLit, bool) {
 	return o, ok
 }
 
-func parseObjectBlock(t *testing.T, src, key string) *ObjectLit {
-	t.Helper()
-	f, err := ParseSource("", []byte(src))
-	require.NoError(t, err)
-	o, ok := namedObjectBlock(f, key)
-	require.True(t, ok, "expected `%s:` to be an object literal", key)
-	return o
-}
-
 // objectBlockDriver runs the named top-level object block through validate,
 // reporting its diagnostics as the fixture's expected errors.
 func objectBlockDriver(key string, validate func(*ObjectLit) *ErrorList) ubtest.Driver {
@@ -204,25 +195,8 @@ func TestValidateLocalsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/locals", objectBlockDriver("locals", ValidateLocals))
 }
 
-func TestValidateResourcesFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/resources", objectBlockDriver("resources", ValidateResources))
-}
-
-func TestValidateDataSourcesFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/data", objectBlockDriver("data", ValidateDataSources))
-}
-
-func TestValidateActionsFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/actions", objectBlockDriver("actions", ValidateActions))
-}
-
 func TestValidateInputsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/inputs", objectBlockDriver("inputs", ValidateInputDeclarations))
-}
-
-func TestValidateFactoryConfigurationsFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/configurations",
-		objectBlockDriver("configurations", ValidateFactoryConfigurations))
 }
 
 // TestValidateConstraintReferencesFixtures checks that constraint fields
@@ -247,33 +221,5 @@ func TestValidateConstraintReferencesFixtures(t *testing.T) {
 			return "", []string{"fixture needs inputs: and constraints: blocks"}
 		}
 		return "", ValidateConstraintReferences(constraints, inputs).Strings()
-	})
-}
-
-// TestValidateBodyMetaKeysFixtures checks the meta keys allowed in a resource,
-// data, or action body. The fixture's first key picks which block to validate.
-func TestValidateBodyMetaKeysFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/body-meta", func(name string, src []byte) (string, []string) {
-		f, err := ParseSource("", src)
-		if err != nil {
-			return "", []string{err.Error()}
-		}
-		if len(f.Body.Fields) == 0 {
-			return "", []string{"fixture needs a resources, data, or actions block"}
-		}
-		fld := f.Body.Fields[0]
-		block, ok := fld.Value.(*ObjectLit)
-		if !ok {
-			return "", []string{"block must be an object"}
-		}
-		switch fld.Key.Name {
-		case "resources":
-			return "", ValidateResources(block).Messages()
-		case "data":
-			return "", ValidateDataSources(block).Messages()
-		case "actions":
-			return "", ValidateActions(block).Messages()
-		}
-		return "", []string{"unknown block " + fld.Key.Name}
 	})
 }

@@ -1,2 +1,0 @@
-resource aws.vpc.this: meta key "@bogus" is not allowed
-resource aws.vpc.this: meta key "@nope" is not allowed

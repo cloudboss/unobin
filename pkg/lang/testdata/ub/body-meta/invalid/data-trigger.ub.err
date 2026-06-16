@@ -1,1 +1,0 @@
-data source aws.ami.this: meta key "@trigger" is not allowed

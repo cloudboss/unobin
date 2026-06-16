@@ -1,1 +1,0 @@
-configuration key aws.default.extra uses dotted syntax; write aws {} or east: aws {}

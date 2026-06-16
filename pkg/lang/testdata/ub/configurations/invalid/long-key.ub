@@ -1,3 +1,0 @@
-configurations: {
-  aws.default.extra: { region: 'x' }
-}

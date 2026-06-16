@@ -8,7 +8,6 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"time"
 )
 
 // inputModifierKeys is the set of modifier keys permitted alongside `type:`
@@ -945,21 +944,6 @@ func checkComprehensionBindings(e Expr, bound map[string]Position, errs *ErrorLi
 	}
 }
 
-// ValidateFactoryConfigurations checks the internal generic form of a
-// factory configurations block. Source files use selector-body entries;
-// syntax lowering stores them in this table before generic validation runs.
-// Each entry binds either field values or a whole expression that must
-// evaluate to an object at run time. No meta keys are valid in an object body.
-func ValidateFactoryConfigurations(block *ObjectLit) *ErrorList {
-	errs := NewErrorList(0)
-	for key, fld := range configurationDeclEntries(block, errs) {
-		if body, ok := fld.Value.(*ObjectLit); ok {
-			checkBodyMetaKeys(body, "configuration", key, nil, errs)
-		}
-	}
-	return errs
-}
-
 // factoryChildKeys lists the keys a config file's factory: block may
 // hold.
 var factoryChildKeys = map[string]bool{
@@ -1517,70 +1501,6 @@ func validateConstraintCommonKey(
 	return true
 }
 
-// The @-keys a node body may hold, greenlisted by kind. The kind is the
-// block the body sits in (resources, data, or actions). Any @-prefixed key
-// not on the kind's greenlist is a compile error, so a misspelled or
-// not-yet-implemented meta key is caught early rather than silently ignored.
-//
-// resource, data, and action share a base set; an action body also allows
-// @trigger. @lock and @timeout are allowed on any node (they bound apply
-// in a kind-blind way), though neither affects a data source read at plan.
-// A composite call site may sit in any of the three blocks, so
-// @configurations is greenlisted everywhere; whether a key suits a leaf or
-// a composite is a finer check done during resolution.
-var (
-	resourceBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@timeout")
-	dataBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each", "@lock", "@timeout")
-	actionBodyGreenlist = metaKeySet(
-		"@configuration", "@configurations", "@depends-on", "@for-each",
-		"@lock", "@timeout", "@trigger")
-)
-
-func metaKeySet(keys ...string) map[string]bool {
-	set := make(map[string]bool, len(keys))
-	for _, k := range keys {
-		set[k] = true
-	}
-	return set
-}
-
-// ValidateResources checks the internal generic form of a resources block.
-// Source files use selector-body entries; syntax lowering stores them in this
-// declaration table before generic validation runs.
-func ValidateResources(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "resource", "alias.type.name", resourceBodyGreenlist)
-}
-
-// ValidateDataSources checks the internal generic form of a data block.
-func ValidateDataSources(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "data source", "alias.type.name", dataBodyGreenlist)
-}
-
-// ValidateActions checks the internal generic form of an actions block.
-func ValidateActions(block *ObjectLit) *ErrorList {
-	return validateDeclBlock(block, "action", "alias.type.name", actionBodyGreenlist)
-}
-
-// validateDeclBlock checks one internal generic declaration block. Every
-// entry is keyed by a dotted path with form's segments and binds an object
-// body whose only meta keys are those in greenlist. A bare or quoted key
-// reports that the internal dotted form is required.
-func validateDeclBlock(block *ObjectLit, what, form string, greenlist map[string]bool) *ErrorList {
-	errs := NewErrorList(0)
-	for key, fld := range declEntries(block, what, form, errs) {
-		body, ok := fld.Value.(*ObjectLit)
-		if !ok {
-			errs.Addf(ErrSchema, fld.Value.Span().Start,
-				"%s %s: body must be an object", what, key)
-			continue
-		}
-		checkBodyMetaKeys(body, what, key, greenlist, errs)
-	}
-	return errs
-}
-
 // configurationDeclEntries walks an internal generic configurations block,
 // reporting key errors and duplicates to errs and yielding every keyed entry.
 func configurationDeclEntries(block *ObjectLit, errs *ErrorList) iter.Seq2[string, *Field] {
@@ -1612,42 +1532,8 @@ func configurationDeclEntries(block *ObjectLit, errs *ErrorList) iter.Seq2[strin
 	}
 }
 
-// declEntries walks a declaration-style block, reporting key errors
-// (non-dotted form, wrong segment count, duplicates) to errs and
-// yielding the joined key and field of every well-keyed entry.
-func declEntries(block *ObjectLit, what, form string, errs *ErrorList) iter.Seq2[string, *Field] {
-	segments := strings.Count(form, ".") + 1
-	return func(yield func(string, *Field) bool) {
-		seen := make(map[string]Position, len(block.Fields))
-		for _, fld := range block.Fields {
-			if fld.Key.Kind != FieldPath {
-				errs.Addf(ErrSchema, fld.Key.S.Start,
-					"%s must be declared with a dotted %s key", what, form)
-				continue
-			}
-			if len(fld.Key.Path) != segments {
-				errs.Addf(ErrSchema, fld.Key.S.Start,
-					"%s key %s must have %s segments: %s",
-					what, strings.Join(fld.Key.Path, "."), numberWord(segments), form)
-				continue
-			}
-			key := strings.Join(fld.Key.Path, ".")
-			if prev, dup := seen[key]; dup {
-				errs.Addf(ErrSchema, fld.Key.S.Start,
-					"duplicate %s %s (first defined at %s)", what, key, prev)
-				continue
-			}
-			seen[key] = fld.Key.S.Start
-			if !yield(key, fld) {
-				return
-			}
-		}
-	}
-}
-
 // checkBodyMetaKeys reports any meta key in a declaration body that is
-// not in greenlist, and checks @timeout values where the greenlist
-// admits them.
+// not in greenlist.
 func checkBodyMetaKeys(
 	body *ObjectLit, what, key string, greenlist map[string]bool, errs *ErrorList,
 ) {
@@ -1661,38 +1547,5 @@ func checkBodyMetaKeys(
 				what, key, bodyFld.Key.Name)
 			continue
 		}
-		if bodyFld.Key.Name == "@timeout" {
-			checkTimeoutValue(bodyFld, what, key, errs)
-		}
-	}
-}
-
-// numberWord spells out the segment counts the dotted-key validators
-// quote in error messages.
-func numberWord(n int) string {
-	switch n {
-	case 2:
-		return "two"
-	case 3:
-		return "three"
-	}
-	return fmt.Sprintf("%d", n)
-}
-
-// checkTimeoutValue reports an error when a body's `@timeout:` value is not
-// a duration string like '30s'. A malformed timeout is caught here rather
-// than silently becoming no limit at apply.
-func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
-	s, ok := fld.Value.(*StringLit)
-	if !ok {
-		errs.Addf(ErrSchema, fld.Value.Span().Start,
-			"%s %s: @timeout must be a duration string like '30s'",
-			what, key)
-		return
-	}
-	if _, err := time.ParseDuration(s.Value); err != nil {
-		errs.Addf(ErrSchema, fld.Value.Span().Start,
-			"%s %s: @timeout %q is not a valid duration",
-			what, key, s.Value)
 	}
 }

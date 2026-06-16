@@ -1,1 +1,0 @@
-resource aws.vpc.this: meta key "@trigger" is not allowed

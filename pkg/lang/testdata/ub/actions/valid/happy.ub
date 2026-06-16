@@ -1,6 +1,0 @@
-actions: {
-  core.command.smoke-test: {
-    @trigger: 'always'
-    execute:  'curl -fsS https://example/health'
-  }
-}

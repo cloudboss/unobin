@@ -1,3 +1,0 @@
-resources: {
-  aws.vpc.main: 'not-an-object'
-}
