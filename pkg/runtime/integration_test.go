@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// applyOnce drives one Plan-then-ApplyPlan cycle through the exec,
-// round-tripping the plan bytes the way a real stack binary would. It
-// is the only apply entry point; there is no apply-without-plan path.
+// applyOnce runs one Plan-then-ApplyPlan cycle through the exec,
+// encoding and decoding the plan bytes the way a real stack binary would.
+// It is the only apply entry point; there is no apply-without-plan path.
 func applyOnce(t *testing.T, exec *runtime.Executor) *runtime.ExecResult {
 	t.Helper()
 	ctx := context.Background()
@@ -38,6 +38,7 @@ func runStack(t *testing.T, src string, inputs map[string]any) *runtime.ExecResu
 	t.Helper()
 	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
+	f.Kind = lang.FileFactory
 
 	errs := lang.ValidateFile(f)
 	require.Equal(t, 0, errs.Len(), "validate: %v", errsAsStrings(errs))

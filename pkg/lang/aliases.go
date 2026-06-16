@@ -83,17 +83,11 @@ var (
 	PascalToKebab = parse.PascalToKebab
 )
 
-// ParseSource reads .ub source from b, returns the parsed File, and
-// classifies the result via ClassifyByFilename so callers get a
-// File.Kind without a separate step. The classification is what
-// distinguishes this from parse.ParseSource.
+// ParseSource reads .ub source from b and returns the parsed File.
+// Source role classification belongs to pkg/lang/syntax; callers that
+// intentionally use the generic file validator set File.Kind explicitly.
 func ParseSource(path string, b []byte) (*File, error) {
-	f, err := parse.ParseSource(path, b)
-	if err != nil {
-		return nil, err
-	}
-	f.Kind = ClassifyByFilename(path)
-	return f, nil
+	return parse.ParseSource(path, b)
 }
 
 // ParseExpr parses a single unobin expression from b. It wraps
