@@ -430,15 +430,15 @@ resources: {
   k8s.namespace.apps: { @configuration: configuration.cluster, name: 'apps' }
 }
 `), nil)
-	cfg, ok := g.Nodes["configuration.k8s.cluster"]
+	cfg, ok := g.Nodes["configuration.cluster"]
 	require.True(t, ok, "configuration node should exist")
 	require.Equal(t, NodeConfiguration, cfg.Kind)
 	require.Equal(t, "k8s", cfg.Alias)
 	require.Equal(t, "cluster", cfg.Name)
 	require.Equal(t, []string{"resource.aws.eks.main"},
-		g.Edges["configuration.k8s.cluster"])
+		g.Edges["configuration.cluster"])
 	require.Contains(t, g.Edges["resource.k8s.namespace.apps"],
-		"configuration.k8s.cluster")
+		"configuration.cluster")
 }
 
 func TestBuildDAGSourceConfigurationNodeUsesNameAddress(t *testing.T) {

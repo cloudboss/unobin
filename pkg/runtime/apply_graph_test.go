@@ -362,15 +362,15 @@ func TestPersistedDependsOn(t *testing.T) {
 // configuration entry to sequence against.
 func TestPersistedDependsOnCollapsesConfigurations(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"configuration.greet.fancy":                       {"resource.greet.phrase.flourish"},
-		"action.greet.say.solo":                           {"configuration.greet.fancy"},
-		"action.greet.say.many":                           {"configuration.greet.fancy"},
-		"resource.net.cluster.web/action.greet.say.inner": {"configuration.greet.fancy"},
+		"configuration.fancy":                             {"resource.greet.phrase.flourish"},
+		"action.greet.say.solo":                           {"configuration.fancy"},
+		"action.greet.say.many":                           {"configuration.fancy"},
+		"resource.net.cluster.web/action.greet.say.inner": {"configuration.fancy"},
 		"resource.greet.phrase.flourish":                  nil,
 	})
 	steps := []PlanStep{
 		{Address: "resource.greet.phrase.flourish", Kind: NodeResource, Decision: DecisionCreate},
-		{Address: "configuration.greet.fancy", Kind: NodeConfiguration, Decision: DecisionEval},
+		{Address: "configuration.fancy", Kind: NodeConfiguration, Decision: DecisionEval},
 		{Address: "action.greet.say.solo", Kind: NodeAction, Decision: DecisionCreate},
 		{Address: "action.greet.say.many['k1']", Kind: NodeAction, Decision: DecisionCreate},
 		{Address: "action.greet.say.many['k2']", Kind: NodeAction, Decision: DecisionCreate},

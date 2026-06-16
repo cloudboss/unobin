@@ -567,13 +567,9 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 	return out
 }
 
-func configurationAddress(alias, name string) string {
-	return "configuration." + alias + "." + name
-}
-
 func selectorConfigurationAddress(alias, name string) string {
 	if name == "default" {
-		return configurationAddress(alias, name)
+		return "configuration." + alias + ".default"
 	}
 	return "configuration." + name
 }
@@ -583,14 +579,10 @@ func configurationNodeAddress(
 	alias string,
 	name string,
 ) (string, bool) {
-	legacy := configurationAddress(alias, name)
-	if _, ok := nodes[legacy]; ok {
-		return legacy, true
-	}
-	selector := selectorConfigurationAddress(alias, name)
-	n, ok := nodes[selector]
+	addr := selectorConfigurationAddress(alias, name)
+	n, ok := nodes[addr]
 	if ok && n.Alias == alias && n.Name == name {
-		return selector, true
+		return addr, true
 	}
 	return "", false
 }
@@ -677,7 +669,7 @@ func extractConfigurations(block *lang.ObjectLit) []*Node {
 		}
 		alias, name := fld.Key.Path[0], fld.Key.Path[1]
 		out = append(out, &Node{
-			Address: configurationAddress(alias, name),
+			Address: selectorConfigurationAddress(alias, name),
 			Kind:    NodeConfiguration,
 			Alias:   alias,
 			Name:    name,

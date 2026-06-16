@@ -136,7 +136,7 @@ func TestPlanGraph(t *testing.T) {
 			name: "kind, decision, and boundary bit copied through",
 			steps: []PlanStep{
 				{
-					Address:  "configuration.greet.fancy",
+					Address:  "configuration.fancy",
 					Kind:     NodeConfiguration,
 					Decision: DecisionEval,
 				},
@@ -153,13 +153,13 @@ func TestPlanGraph(t *testing.T) {
 				},
 			},
 			dag: newDAG(map[string][]string{
-				"action.greet.say.solo":     {"configuration.greet.fancy"},
-				"configuration.greet.fancy": nil,
-				"resource.net.cluster.web":  nil,
+				"action.greet.say.solo":    {"configuration.fancy"},
+				"configuration.fancy":      nil,
+				"resource.net.cluster.web": nil,
 			}),
 			want: []StepNode{
 				{
-					Address:  "configuration.greet.fancy",
+					Address:  "configuration.fancy",
 					Kind:     NodeConfiguration,
 					Decision: DecisionEval,
 				},
@@ -167,7 +167,7 @@ func TestPlanGraph(t *testing.T) {
 					Address:   "action.greet.say.solo",
 					Kind:      NodeAction,
 					Decision:  DecisionRerun,
-					DependsOn: []string{"configuration.greet.fancy"},
+					DependsOn: []string{"configuration.fancy"},
 				},
 				{
 					Address:   "resource.net.cluster.web",

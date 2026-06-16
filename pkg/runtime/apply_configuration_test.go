@@ -188,7 +188,7 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "configuration.fix.cluster")
+	require.Contains(t, err.Error(), "configuration.cluster")
 	require.Contains(t, err.Error(), "endpoint")
 }
 
@@ -270,7 +270,7 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	step := findStep(t, plan, "configuration.fix.cluster")
+	step := findStep(t, plan, "configuration.cluster")
 	require.Equal(t, map[string]any{"endpoint": "https://m.example"}, step.Inputs)
 	require.Empty(t, step.UnresolvedInputs)
 }
@@ -292,7 +292,7 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.fix.cluster: configuration body must evaluate to an object, got a string")
+		"configuration.cluster: configuration body must evaluate to an object, got a string")
 }
 
 func TestConfigurationAliasQualifiedReferenceFails(t *testing.T) {
@@ -312,7 +312,7 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.fix.cluster: a configuration reference has the form configuration.<name>")
+		"configuration.cluster: a configuration reference has the form configuration.<name>")
 }
 
 func TestConfigurationReferenceToInternalFails(t *testing.T) {
@@ -333,7 +333,7 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.fix.cluster: references configuration.base, "+
+		"configuration.cluster: references configuration.base, "+
 			"which this factory defines; only operator-supplied configurations are referenceable")
 }
 
