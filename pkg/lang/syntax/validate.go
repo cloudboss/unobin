@@ -546,18 +546,8 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 	return &parse.File{
 		S:    body.S,
 		Kind: parse.FileFactory,
-		Body: FactoryBodyObject(body),
+		Body: factoryBodyObject(body, configurationDeclsObject, nodeDeclsObject),
 	}
-}
-
-// RuntimeFactoryBodyObject returns the generic AST object for compatibility callers.
-func RuntimeFactoryBodyObject(body FactoryBody) *parse.ObjectLit {
-	return factoryBodyObject(body, configurationDeclsSelectorObject, nodeDeclsSelectorObject)
-}
-
-// FactoryBodyObject returns the generic AST object for a lowered factory body.
-func FactoryBodyObject(body FactoryBody) *parse.ObjectLit {
-	return factoryBodyObject(body, configurationDeclsObject, nodeDeclsObject)
 }
 
 func factoryBodyObject(

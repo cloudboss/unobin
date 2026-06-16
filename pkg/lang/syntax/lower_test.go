@@ -388,56 +388,6 @@ outputs: {
 	assert.Contains(t, errs.Error(), "cannot determine UB file role from exported-type")
 }
 
-func TestRuntimeFactoryBodyObjectKeepsConfigurationReferences(t *testing.T) {
-	f := parseFile(t, "factory.ub", `
-factory: {
-  configurations: {
-    greet {}
-    formal: greet {
-      prefix: configuration.formal.prefix
-    }
-  }
-
-  actions: {
-    say: greet.say {
-      @configuration: configuration.formal
-      message: configuration.formal.prefix
-    }
-    wrapped: greeter.greeting {
-      @configurations: { greet: configuration.formal }
-      message: 'wrapped'
-    }
-  }
-}
-`, parse.FileUnknown)
-
-	got, errs := LowerFile(f)
-	require.Equal(t, 0, errs.Len(), errs.Error())
-	body := RuntimeFactoryBodyObject(got.Factory.Body)
-	out := &parse.File{S: body.S, Kind: parse.FileFactory, Body: body}
-	formatted, err := lang.Format(out)
-	require.NoError(t, err)
-	want := `configurations: {
-  greet {}
-  formal: greet {
-    prefix: configuration.formal.prefix
-  }
-}
-
-actions: {
-  say: greet.say {
-    @configuration: configuration.formal
-    message:        configuration.formal.prefix
-  }
-  wrapped: greeter.greeting {
-    @configurations: { greet: configuration.formal }
-    message:         'wrapped'
-  }
-}
-`
-	assert.Equal(t, want, string(formatted))
-}
-
 func TestLowerSelectorBodyFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/valid/selector-body", func(name string, src []byte) (string, []string) {
 		kind, path := selectorBodyFixtureKind(name)

@@ -51,15 +51,7 @@ factory: {
 `))
 	require.NoError(t, err)
 	require.NotNil(t, sf.Factory)
-	root := &lang.File{
-		S:        sf.S,
-		Kind:     lang.FileFactory,
-		Path:     sf.Path,
-		Body:     syntax.RuntimeFactoryBodyObject(sf.Factory.Body),
-		Comments: sf.Comments,
-	}
-
-	checker := NewSyntax(root, sf.Factory.Body, map[string]*runtime.Library{
+	checker := NewSyntax(nil, sf.Factory.Body, map[string]*runtime.Library{
 		"aws": {},
 		"k8s": {},
 	})
