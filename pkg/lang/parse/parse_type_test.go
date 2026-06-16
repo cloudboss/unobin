@@ -43,7 +43,7 @@ func TestParseTypeObjectFields(t *testing.T) {
 	got, err := ParseType("type.ub", []byte(`object({
   host: string
   port: { type: integer, default: 8080 }
-})`))
+},)`))
 	require.NoError(t, err)
 	obj := got.(*TypeObject)
 	require.Len(t, obj.Fields, 2)

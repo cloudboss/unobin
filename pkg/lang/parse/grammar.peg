@@ -667,7 +667,7 @@ OpenType <- "open" "(" _ args:TypeArgs _ ")" {
 	return obj, nil
 }
 
-ObjectType <- "object" "(" _ fields:TypeObjectBody _ ")" {
+ObjectType <- "object" "(" _ fields:TypeObjectBody _ ","? _ ")" {
 	return &TypeObject{S: c.span(), Fields: fields.([]*TypeObjectField)}, nil
 }
 

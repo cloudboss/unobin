@@ -177,6 +177,20 @@ func TestParseSourceUsesTypeParserForInputFields(t *testing.T) {
 	assert.Equal(t, 22, typeExpr.Span().Start.Column)
 }
 
+func TestParseSourceReportsTypeParserErrors(t *testing.T) {
+	src := []byte(`factory: {
+  inputs: {
+    bad: { type: list(unknown) }
+  }
+}
+`)
+
+	_, err := ParseSource("factory.ub", src)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `input "bad": unknown atomic type "unknown"`)
+	assert.NotContains(t, err.Error(), "rule AtomicType")
+}
+
 func TestLowerStackFile(t *testing.T) {
 	f := parseFile(t, "dev.ub", `
 locals: {

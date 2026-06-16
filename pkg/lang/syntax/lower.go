@@ -619,7 +619,7 @@ func lowerInputType(
 			continue
 		}
 		found = true
-		t, err := parseInputTypeValue(body, i, mode)
+		t, err := parseInputTypeValue(name, body, i, mode)
 		if err != nil {
 			var perr *parse.Error
 			if errors.As(err, &perr) {
@@ -642,6 +642,7 @@ func lowerInputType(
 }
 
 func parseInputTypeValue(
+	name string,
 	block *parse.ObjectLit,
 	idx int,
 	mode lowerMode,
@@ -651,11 +652,27 @@ func parseInputTypeValue(
 		return t, nil
 	}
 	if src, ok := fieldValueSource(block, idx, mode.source); ok {
-		if t, err := parse.ParseTypeAt(mode.path, src, fld.Value.Span().Start); err == nil {
-			return t, nil
+		t, err := parse.ParseTypeAt(mode.path, src, fld.Value.Span().Start)
+		if err != nil {
+			return nil, parse.Errorf(parse.ErrType, fld.Value.Span().Start,
+				"input %q: %s", name, typeParseMessage(err))
 		}
+		return t, nil
 	}
 	return lang.PromoteType(fld.Value)
+}
+
+func typeParseMessage(err error) string {
+	msg := err.Error()
+	_, rest, ok := strings.Cut(msg, ": rule ")
+	if !ok {
+		return msg
+	}
+	_, out, ok := strings.Cut(rest, ": ")
+	if !ok {
+		return msg
+	}
+	return out
 }
 
 func fieldValueSource(
