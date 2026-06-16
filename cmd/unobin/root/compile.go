@@ -13,7 +13,7 @@ var (
 	compileCfg = &compileConfig{}
 	CompileCmd = &cobra.Command{
 		Use:   "compile",
-		Short: "Generate a stack binary's main.go from stack source",
+		Short: "Generate a factory binary's main.go from factory source",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCompile(cmd, compileCfg)
 		},

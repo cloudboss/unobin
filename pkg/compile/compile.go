@@ -31,13 +31,13 @@ import (
 
 // Options configures one compile run.
 type Options struct {
-	// StackPath is the factory source to compile.
+	// StackPath is the factory source file or directory to compile.
 	StackPath string
 	// OutDir receives main.go, go.mod, and the generated UB-library
 	// packages; `-` streams main.go to Stdout instead.
 	OutDir string
 	// StackName overrides the stack name; empty derives it from the
-	// stack file's parent directory.
+	// factory file's parent directory.
 	StackName string
 	// LibraryPath is the library-path identity to embed in the binary.
 	LibraryPath string

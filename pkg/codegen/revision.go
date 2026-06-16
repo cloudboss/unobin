@@ -13,7 +13,7 @@ import (
 // ContentRevision returns a short content-addressable revision for the
 // generated library in dir. It hashes every Go source file plus go.mod and
 // go.sum in sorted path order, so the result is a stable fingerprint of the
-// stack source, the inlined UB libraries, and the full pinned Go dependency
+// factory source, the inlined UB libraries, and the full pinned Go dependency
 // set that go.sum records. The compiled binary itself is excluded; only
 // build inputs contribute. Run it after `go mod tidy` so go.sum is present.
 func ContentRevision(dir string) (string, error) {

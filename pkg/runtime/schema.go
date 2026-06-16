@@ -8,7 +8,7 @@ import (
 // LibrarySchema describes a Go library's registered resource, data
 // source, and action types as the dev CLI sees them at compile time.
 // Each entry is keyed by the type's kebab-case name (the same name
-// used in stack source).
+// used in factory source).
 type LibrarySchema struct {
 	Resources   map[string]*TypeSchema
 	DataSources map[string]*TypeSchema
@@ -36,7 +36,7 @@ type LibrarySchema struct {
 
 // TypeSchema describes the input and output fields of one resource,
 // data source, or action. Each map keys a kebab-case field name (the
-// form stack source uses) to that field's semantic Type. Inputs
+// form factory source uses) to that field's semantic Type. Inputs
 // lists the receiver type's exported fields; Outputs lists the
 // output struct's. The walker that builds this schema (goschema)
 // recursively expands named struct types so nested object fields
