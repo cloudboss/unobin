@@ -311,7 +311,7 @@ func Run(opts Options) error {
 	used := usedLibraryTypes(f)
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
-	checker := check.NewSyntax(f, sf.Factory.Body, libs)
+	checker := check.NewSyntax(nil, sf.Factory.Body, libs)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}

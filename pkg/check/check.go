@@ -19,11 +19,12 @@ import (
 // exposed so callers executing the stack share the structure the
 // checks ran against.
 type Checker struct {
-	root      *lang.File
-	dag       *runtime.DAG
-	inputs    map[string]map[string]bool
-	locals    map[string]map[string]bool
-	libraries map[string]map[string]*runtime.Library
+	root       *lang.File
+	rootSyntax *syntax.FactoryBody
+	dag        *runtime.DAG
+	inputs     map[string]map[string]bool
+	locals     map[string]map[string]bool
+	libraries  map[string]map[string]*runtime.Library
 }
 
 // New builds the check state for a parsed stack file. libs is the
@@ -39,18 +40,21 @@ func New(f *lang.File, libs map[string]*runtime.Library) *Checker {
 }
 
 // NewSyntax builds the check state from a typed factory or composite body.
+// root is optional and exists only for callers that still need a generic view.
 func NewSyntax(
 	root *lang.File,
 	body syntax.FactoryBody,
 	libs map[string]*runtime.Library,
 ) *Checker {
-	return newChecker(
+	c := newChecker(
 		root,
 		runtime.BuildSyntaxDAG(body, libs),
 		syntaxInputNames(body.Inputs),
 		syntaxLocalNames(body.Locals),
 		libs,
 	)
+	c.rootSyntax = &body
+	return c
 }
 
 func newChecker(
@@ -82,12 +86,16 @@ func (c *Checker) DAG() *runtime.DAG {
 // every inferred expression with its type; the residual-Unknown
 // harness reads the stream.
 func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.ErrorList {
+	internalConfigurations := runtime.InternalConfigurationNames(c.root)
+	if c.rootSyntax != nil {
+		internalConfigurations = runtime.InternalSyntaxConfigurationNames(*c.rootSyntax)
+	}
 	r := &referenceChecker{
 		Checker:                c,
 		errs:                   lang.NewErrorList(0),
 		seen:                   map[string]bool{},
 		observe:                observe,
-		internalConfigurations: runtime.InternalConfigurationNames(c.root),
+		internalConfigurations: internalConfigurations,
 		configurationRefs:      runtime.ConfigurationRefNames(c.dag.Nodes),
 	}
 	r.checkDeclarations()
@@ -219,7 +227,11 @@ func (c *referenceChecker) checkNodes() {
 }
 
 func (c *referenceChecker) checkConstraints() {
-	c.checkConstraintsBlock(c.root, "")
+	if c.rootSyntax != nil {
+		c.checkSyntaxConstraints(c.rootSyntax.Constraints, "")
+	} else {
+		c.checkConstraintsBlock(c.root, "")
+	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
 			continue
@@ -681,7 +693,11 @@ func subtrahendText(root, rest string) string {
 // inside a `locals:` block (to inputs, nodes, or other locals) are
 // validated even though locals are not nodes in the graph.
 func (c *referenceChecker) checkLocals() {
-	c.checkLocalsBlock(c.root, "")
+	if c.rootSyntax != nil {
+		c.checkSyntaxLocals(c.rootSyntax.Locals, "")
+	} else {
+		c.checkLocalsBlock(c.root, "")
+	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
 			continue
@@ -717,7 +733,11 @@ func (c *referenceChecker) checkSyntaxLocals(decls []syntax.LocalDecl, scope str
 // another in a loop. Declaration order does not matter, so the cycle is
 // found structurally rather than by evaluation.
 func (c *referenceChecker) checkLocalCycles() {
-	c.checkLocalCyclesBlock(c.root, "")
+	if c.rootSyntax != nil {
+		c.checkSyntaxLocalCycles(c.rootSyntax.Locals)
+	} else {
+		c.checkLocalCyclesBlock(c.root, "")
+	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
 			continue

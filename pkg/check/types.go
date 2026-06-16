@@ -415,6 +415,9 @@ func (c *referenceChecker) lookupLocalFor(
 
 func (c *referenceChecker) localExprsFor(scope string) map[string]lang.Expr {
 	if scope == "" {
+		if c.rootSyntax != nil {
+			return syntaxLocalExprs(c.rootSyntax.Locals)
+		}
 		return lang.FieldMap(lang.TopLevelBlock(c.root, "locals"))
 	}
 	node, ok := c.dag.Nodes[scope]
@@ -438,6 +441,9 @@ func syntaxLocalExprs(decls []syntax.LocalDecl) map[string]lang.Expr {
 func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 	var inputsBlock *lang.ObjectLit
 	if scope == "" {
+		if c.rootSyntax != nil {
+			return syntaxInputFields(c.rootSyntax.Inputs)
+		}
 		if c.root != nil && c.root.Body != nil {
 			inputsBlock, _ = lang.FieldMap(c.root.Body)["inputs"].(*lang.ObjectLit)
 		}
@@ -733,7 +739,11 @@ func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
 // type, so the inferrer runs with TUnknown; the point is to let
 // nested field references go through traverseSegments.
 func (c *referenceChecker) checkOutputBodyTypes() {
-	c.checkOutputsBlock(c.root, "")
+	if c.rootSyntax != nil {
+		c.checkSyntaxOutputsBlock(c.rootSyntax.Outputs, "")
+	} else {
+		c.checkOutputsBlock(c.root, "")
+	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
 			continue
@@ -785,7 +795,11 @@ func (c *referenceChecker) outputScope(scope string) *typecheck.Scope {
 // `when:` and `require:` expressions with TBoolean as the target so
 // non-boolean predicates report a clear mismatch.
 func (c *referenceChecker) checkConstraintTypes() {
-	c.checkConstraintTypesBlock(c.root, "")
+	if c.rootSyntax != nil {
+		c.checkSyntaxConstraintTypesBlock(c.rootSyntax.Constraints, "")
+	} else {
+		c.checkConstraintTypesBlock(c.root, "")
+	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
 			continue

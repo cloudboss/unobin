@@ -519,7 +519,7 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath 
 	// the compiler.
 	checker := check.New(f, info.Libraries)
 	if parsed.syntaxBody != nil {
-		checker = check.NewSyntax(f, *parsed.syntaxBody, info.Libraries)
+		checker = check.NewSyntax(nil, *parsed.syntaxBody, info.Libraries)
 	}
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()

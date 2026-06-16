@@ -625,14 +625,32 @@ func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
 		return out
 	}
 	for _, n := range extractConfigurations(block) {
-		set := out[n.Alias]
-		if set == nil {
-			set = map[string]bool{}
-			out[n.Alias] = set
-		}
-		set[n.Name] = true
+		addInternalConfigurationName(out, n.Alias, n.Name)
 	}
 	return out
+}
+
+// InternalSyntaxConfigurationNames returns the configuration names a typed
+// factory body defines internally, keyed by import alias.
+func InternalSyntaxConfigurationNames(body syntax.FactoryBody) map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, decl := range body.Configurations {
+		name := "default"
+		if decl.Name != nil {
+			name = decl.Name.Name
+		}
+		addInternalConfigurationName(out, decl.Selector.Name, name)
+	}
+	return out
+}
+
+func addInternalConfigurationName(out map[string]map[string]bool, alias, name string) {
+	set := out[alias]
+	if set == nil {
+		set = map[string]bool{}
+		out[alias] = set
+	}
+	set[name] = true
 }
 
 // extractConfigurations walks a factory's configurations: block and

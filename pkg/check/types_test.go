@@ -589,6 +589,84 @@ func configuredLibrary() *runtime.Library {
 	}
 }
 
+func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  inputs: { path: { type: integer } }
+  resources: {
+    file: local.file {
+      path: var.path
+      content: 'x'
+    }
+  }
+}
+`)
+
+	errs := NewSyntax(nil, fixture.body,
+		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
+
+	require.Equal(t,
+		[]string{"type mismatch: expected string, got integer"},
+		errs.Messages())
+}
+
+func TestNewSyntaxUsesRootLocalsForTypeChecks(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  locals: { path: 5 }
+  resources: {
+    file: local.file {
+      path: local.path
+      content: 'x'
+    }
+  }
+}
+`)
+
+	errs := NewSyntax(nil, fixture.body,
+		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
+
+	require.Equal(t,
+		[]string{"type mismatch: expected string, got integer"},
+		errs.Messages())
+}
+
+func TestNewSyntaxUsesRootConstraints(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  locals: { ok: true }
+  constraints: [
+    { require: local.ok }
+  ]
+}
+`)
+
+	errs := NewSyntax(nil, fixture.body, nil).References(nil)
+
+	require.Equal(t,
+		[]string{"a constraint may read inputs only, not local.ok"},
+		errs.Messages())
+}
+
+func TestNewSyntaxUsesRootConfigurationDeclarations(t *testing.T) {
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  configurations: {
+    base: aws { region: 'r' }
+    derived: aws { region: configuration.base.region }
+  }
+}
+`)
+
+	errs := NewSyntax(nil, fixture.body,
+		map[string]*runtime.Library{"aws": configuredLibrary()}).References(nil)
+
+	require.Equal(t,
+		[]string{"configuration.base is defined by this factory; " +
+			"only operator-supplied configurations are referenceable"},
+		errs.Messages())
+}
+
 func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
 	errs := checkReferences(parseStack(t, `
 configurations: { ghost.default: { region: 'r' } }
@@ -767,13 +845,9 @@ func TestCheckTypesSourceConfigurationFixtures(t *testing.T) {
 		if f.Factory == nil {
 			return "", []string{"fixture must declare factory"}
 		}
-		generic := &lang.File{
-			Kind: lang.FileFactory,
-			Body: syntax.RuntimeFactoryBodyObject(f.Factory.Body),
-		}
-		return "", checkReferences(generic, map[string]*runtime.Library{
+		return "", NewSyntax(nil, f.Factory.Body, map[string]*runtime.Library{
 			"aws": configuredLibrary(),
-		}).Messages()
+		}).References(nil).Messages()
 	}, ubtest.Substring())
 }
 
