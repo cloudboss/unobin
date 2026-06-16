@@ -1,1 +1,1 @@
-config.ub:1:20: schema: state block: @backend: use a bare name like s3, not a qualified reference
+config.ub:1:20: schema: state block: backend selector: use a bare name like s3, not a qualified reference

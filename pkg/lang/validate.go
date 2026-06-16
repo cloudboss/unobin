@@ -1923,18 +1923,24 @@ func checkTimeoutValue(fld *Field, what, key string, errs *ErrorList) {
 // they are not type-checked here, since the resolver decodes them against
 // each backend's declared configuration.
 func ValidateStateConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
-	return validateBackendBlock(block, "state", "@backend", "s3", locals)
+	return validateBackendBlock(block, "state", "@backend", "backend selector", "s3", locals)
 }
 
 // ValidateEncryptionConfig checks the internal generic form of a stack file's
 // encryption selector. Source stack files use encryption: kms { ... }; syntax
 // lowering stores the selector beside the body before generic validation runs.
 func ValidateEncryptionConfig(block *ObjectLit, locals map[string]bool) *ErrorList {
-	return validateBackendBlock(block, "encryption", "@key-source", "kms", locals)
+	return validateBackendBlock(
+		block, "encryption", "@key-source", "key-source selector", "kms", locals)
 }
 
 func validateBackendBlock(
-	block *ObjectLit, what, metaKey, example string, locals map[string]bool,
+	block *ObjectLit,
+	what string,
+	metaKey string,
+	selectorLabel string,
+	example string,
+	locals map[string]bool,
 ) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
@@ -1952,14 +1958,14 @@ func validateBackendBlock(
 				if metaSet {
 					errs.Addf(ErrSchema, fld.Key.S.Start,
 						"%s block: duplicate %s (first defined at %s)",
-						what, metaKey, metaPos)
+						what, selectorLabel, metaPos)
 					continue
 				}
 				metaSet = true
 				metaPos = fld.Key.S.Start
 				if err := validateResolverRefValue(fld.Value, example); err != nil {
 					errs.Addf(ErrSchema, fld.Value.Span().Start,
-						"%s block: %s: %s", what, metaKey, err.Error())
+						"%s block: %s: %s", what, selectorLabel, err.Error())
 				}
 				continue
 			}
@@ -1982,7 +1988,7 @@ func validateBackendBlock(
 	}
 	if !metaSet {
 		errs.Addf(ErrSchema, block.S.Start,
-			"%s block: missing required %s", what, metaKey)
+			"%s block: missing required %s", what, selectorLabel)
 	}
 	return errs
 }

@@ -1,1 +1,1 @@
-config.ub:1:37: schema: encryption block: duplicate @key-source (first defined at config.ub:1:15)
+config.ub:1:37: schema: encryption block: duplicate key-source selector (first defined at config.ub:1:15)

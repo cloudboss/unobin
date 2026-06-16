@@ -1,1 +1,1 @@
-config.ub:1:13: schema: encryption block: missing required @key-source
+config.ub:1:13: schema: encryption block: missing required key-source selector

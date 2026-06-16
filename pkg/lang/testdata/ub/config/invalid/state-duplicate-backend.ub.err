@@ -1,1 +1,1 @@
-config.ub:1:27: schema: state block: duplicate @backend (first defined at config.ub:1:10)
+config.ub:1:27: schema: state block: duplicate backend selector (first defined at config.ub:1:10)

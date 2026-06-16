@@ -1,2 +1,2 @@
-config.ub:2:13: schema: state block: @backend: use a bare name like s3, not a qualified reference
-config.ub:5:28: schema: encryption block: @key-source: use a bare name like kms, not a qualified reference
+config.ub:2:13: schema: state block: backend selector: use a bare name like s3, not a qualified reference
+config.ub:5:28: schema: encryption block: key-source selector: use a bare name like kms, not a qualified reference

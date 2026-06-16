@@ -1,1 +1,1 @@
-config.ub:1:28: schema: encryption block: @key-source: expected a bare name like kms, got string literal
+config.ub:1:28: schema: encryption block: key-source selector: expected a bare name like kms, got string literal
