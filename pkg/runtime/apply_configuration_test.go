@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
@@ -123,13 +124,26 @@ func configuredLibrariesWithConfig(
 	}
 }
 
-const internalConfigSrc = `
-configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.value } }
-resources: {
-  fix.echo.src:        { value: 'https://cluster.example' }
-  fix.config-echo.app: { @configuration: configuration.cluster }
+func configurationTestExecutor(
+	t *testing.T,
+	src string,
+	libs map[string]*Library,
+) *Executor {
+	t.Helper()
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	return &Executor{DAG: dag, SyntaxSource: syntaxSource, Libraries: libs}
 }
-outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
+
+const internalConfigSrc = `
+configurations: {
+  fix {}
+  cluster: fix { endpoint: resource.src.value }
+}
+resources: {
+  src: fix.echo { value: 'https://cluster.example' }
+  app: fix.config-echo { @configuration: configuration.cluster }
+}
+outputs: { got: { value: resource.app.endpoint } }
 `
 
 // An internal configuration evaluates during apply, after the nodes
@@ -137,55 +151,46 @@ outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
 // reaches the consumer's CRUD call.
 func TestApplyEvaluatesInternalConfiguration(t *testing.T) {
 	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, internalConfigSrc, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://cluster.example", res.Outputs["got"])
 }
 
 func TestStackConfigurationOverridesFactoryConfiguration(t *testing.T) {
 	src := `
-configurations: { fix.cluster: { endpoint: var.missing } }
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
-outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
+configurations: { cluster: fix { endpoint: var.missing } }
+resources: { app: fix.config-echo { @configuration: configuration.cluster } }
+outputs: { got: { value: resource.app.endpoint } }
 `
 	libs := requiredConfiguredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Configurations: ConfigTable{
-			{Alias: "fix", Name: "cluster"}: &requiredEndpointConfiguration{
-				Endpoint: cfg.String{Value: "https://stack.example"},
-			},
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Configurations = ConfigTable{
+		{Alias: "fix", Name: "cluster"}: &requiredEndpointConfiguration{
+			Endpoint: cfg.String{Value: "https://stack.example"},
 		},
-		RawConfigurations: ConfigTable{
-			{Alias: "fix", Name: "cluster"}: map[string]any{
-				"endpoint": "https://stack.example",
-			},
-		},
-		Store:   newStateStore(t),
-		Factory: state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
 	}
+	exec.RawConfigurations = ConfigTable{
+		{Alias: "fix", Name: "cluster"}: map[string]any{
+			"endpoint": "https://stack.example",
+		},
+	}
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://stack.example", res.Outputs["got"])
 }
 
 func TestFactoryConfigurationErrorsWithoutStackOverride(t *testing.T) {
 	src := `
-configurations: { fix.cluster: {} }
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
+configurations: { cluster: fix {} }
+resources: { app: fix.config-echo { @configuration: configuration.cluster } }
 `
 	libs := requiredConfiguredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "configuration.cluster")
@@ -201,73 +206,65 @@ func TestPlanEvaluatesInternalConfigurationFromState(t *testing.T) {
 	libs := configuredLibrariesRecording(&seen, nil)
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-	})
+	first := configurationTestExecutor(t, internalConfigSrc, libs)
+	first.Store = store
+	first.Factory = factory
+	applyOnce(t, first)
 
 	seen = nil
-	fresh := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-	}
+	fresh := configurationTestExecutor(t, internalConfigSrc, libs)
+	fresh.Store = store
+	fresh.Factory = factory
 	plan, err := fresh.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []string{"https://cluster.example"}, seen)
 	require.Equal(t, DecisionNoOp,
-		findStep(t, plan, "resource.fix.config-echo.app").Decision)
+		findStep(t, plan, "resource.app").Decision)
 }
 
 const expressionConfigSrc = `
 configurations: {
-  fix.default: {}
-  fix.cluster: @core.merge({ endpoint: 'https://b.example' },
-    { endpoint: resource.fix.echo.src.value })
+  fix {}
+  cluster: fix {
+    endpoint: @core.join([resource.src.value], '')
+  }
 }
 resources: {
-  fix.echo.src:        { value: 'https://cluster.example' }
-  fix.config-echo.app: { @configuration: configuration.cluster }
+  src: fix.echo { value: 'https://cluster.example' }
+  app: fix.config-echo { @configuration: configuration.cluster }
 }
-outputs: { got: { value: resource.fix.config-echo.app.endpoint } }
+outputs: { got: { value: resource.app.endpoint } }
 `
 
-// An internal configuration body may be a whole expression. One
-// merging over a resource output is pending at first plan, defers
-// whole, and evaluates live during apply, reaching the consumer's
-// CRUD call like a literal body does.
+// An internal configuration field may be an expression. One joining
+// over a resource output is pending at first plan, defers with the
+// configuration body, and evaluates live during apply, reaching the
+// consumer's CRUD call like a literal field does.
 func TestApplyEvaluatesExpressionConfiguration(t *testing.T) {
 	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, expressionConfigSrc), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, expressionConfigSrc, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://cluster.example", res.Outputs["got"])
 }
 
-// A static expression body evaluates during the plan like a literal
-// one, with the merged fields on the step.
+// A static expression field evaluates during the plan like a literal
+// field, with the result on the step.
 func TestPlanEvaluatesStaticExpressionConfiguration(t *testing.T) {
 	src := `
 configurations: {
-  fix.default: {}
-  fix.cluster: @core.merge({ endpoint: 'https://b.example' }, { endpoint: 'https://m.example' })
+  fix {}
+  cluster: fix {
+    endpoint: @core.join(['https://m.example'], '')
+  }
 }
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
+resources: { app: fix.config-echo { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	step := findStep(t, plan, "configuration.cluster")
@@ -275,40 +272,30 @@ resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
 	require.Empty(t, step.UnresolvedInputs)
 }
 
-// A body expression must produce an object; anything else is an error
-// naming the configuration.
+// Configuration declarations use selector bodies; a plain value entry
+// is rejected before the runtime builds a graph.
 func TestExpressionConfigurationMustEvaluateToObject(t *testing.T) {
-	src := `
-configurations: { fix.default: {}, fix.cluster: 'nope' }
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
-`
-	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
-	_, err := exec.Plan(context.Background())
+	src := `factory: {
+configurations: { cluster: 'nope' }
+resources: { app: fix.config-echo { @configuration: configuration.cluster } }
+}`
+	_, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"configuration.cluster: configuration body must evaluate to an object, got a string")
+		"configuration must be written as selector { ... } or name: selector { ... }")
 }
 
 func TestConfigurationAliasQualifiedReferenceFails(t *testing.T) {
 	src := `
 configurations: {
-  fix.cluster: @core.merge(configuration.fix.default, { endpoint: 'https://pin.example' })
+  cluster: fix { endpoint: configuration.fix.default.endpoint }
 }
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
+resources: { app: fix.config-echo { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
@@ -319,17 +306,14 @@ func TestConfigurationReferenceToInternalFails(t *testing.T) {
 	src := `
 configurations: {
   base: fix { endpoint: 'https://b.example' }
-  fix.cluster: @core.merge(configuration.base, { endpoint: 'x' })
+  cluster: fix { endpoint: configuration.base.endpoint }
 }
-resources: { fix.config-echo.app: { @configuration: configuration.cluster } }
+resources: { app: fix.config-echo { @configuration: configuration.cluster } }
 `
 	libs := configuredLibraries()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
@@ -346,7 +330,7 @@ func TestDestroyReadUnknownConfigurationRefFails(t *testing.T) {
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	snap := state.NewSnapshot(factory, store.Stack())
 	snap.Entries = []*state.Entry{{
-		Address:       "resource.fix.config-echo.app",
+		Address:       "resource.app",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "fix", Export: "config-echo"},
@@ -363,16 +347,13 @@ func TestDestroyReadUnknownConfigurationRefFails(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(rev))
 
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, `configurations: { fix.default: {} }`), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-		Destroy:   true,
-	}
+	exec := configurationTestExecutor(t, `configurations: { fix {} }`, libs)
+	exec.Store = store
+	exec.Factory = factory
+	exec.Destroy = true
 	_, err = exec.Plan(context.Background())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "resource.fix.config-echo.app")
+	require.Contains(t, err.Error(), "resource.app")
 	require.Contains(t, err.Error(), "configuration.ghost")
 }
 
@@ -389,9 +370,12 @@ func (d *configProbeData) Read(_ context.Context, c any) (any, error) {
 }
 
 const internalConfigDataSrc = `
-configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.id } }
-resources: { fix.echo.src: { value: 'https://cluster.example' } }
-data:      { fix.probe.p: { @configuration: configuration.cluster } }
+configurations: {
+  fix {}
+  cluster: fix { endpoint: resource.src.id }
+}
+resources: { src: fix.echo { value: 'https://cluster.example' } }
+data:      { p: fix.probe { @configuration: configuration.cluster } }
 `
 
 // A data source whose configuration is still pending at plan defers
@@ -405,35 +389,32 @@ func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 			func() *configProbeData { return &configProbeData{readSeen: &seen} },
 		),
 	}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigDataSrc), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := configurationTestExecutor(t, internalConfigDataSrc, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	require.Empty(t, seen, "no read should run while the configuration is pending")
-	ds := findStep(t, plan, "data.fix.probe.p")
+	ds := findStep(t, plan, "data.p")
 	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, ds.DeferredRead)
 	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, ds.Configuration)
 
-	fresh := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigDataSrc), libs),
-		Libraries: libs,
-		Store:     exec.Store,
-		Factory:   exec.Factory,
-	}
+	fresh := configurationTestExecutor(t, internalConfigDataSrc, libs)
+	fresh.Store = exec.Store
+	fresh.Factory = exec.Factory
 	_, err = planAndApply(fresh)
 	require.NoError(t, err)
 	require.Equal(t, []string{"id-https://cluster.example"}, seen)
 }
 
 const internalConfigVarSrc = `
-configurations: { fix.default: {}, fix.cluster: { endpoint: resource.fix.echo.src.id } }
+configurations: {
+  fix {}
+  cluster: fix { endpoint: resource.src.id }
+}
 resources: {
-  fix.echo.src:        { value: var.url }
-  fix.config-echo.app: { @configuration: configuration.cluster }
+  src: fix.echo { value: var.url }
+  app: fix.config-echo { @configuration: configuration.cluster }
 }
 `
 
@@ -446,26 +427,21 @@ func TestDriftReadSkippedWhileConfigurationPending(t *testing.T) {
 	libs := configuredLibrariesRecording(&seen, nil)
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigVarSrc), libs),
-		Libraries: libs,
-		Inputs:    map[string]any{"url": "https://a"},
-		Store:     store,
-		Factory:   factory,
-	})
+	first := configurationTestExecutor(t, internalConfigVarSrc, libs)
+	first.Inputs = map[string]any{"url": "https://a"}
+	first.Store = store
+	first.Factory = factory
+	applyOnce(t, first)
 
 	seen = nil
-	fresh := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigVarSrc), libs),
-		Libraries: libs,
-		Inputs:    map[string]any{"url": "https://b"},
-		Store:     store,
-		Factory:   factory,
-	}
+	fresh := configurationTestExecutor(t, internalConfigVarSrc, libs)
+	fresh.Inputs = map[string]any{"url": "https://b"}
+	fresh.Store = store
+	fresh.Factory = factory
 	plan, err := fresh.Plan(context.Background())
 	require.NoError(t, err)
 	require.Empty(t, seen, "no read should run while the configuration is pending")
-	step := findStep(t, plan, "resource.fix.config-echo.app")
+	step := findStep(t, plan, "resource.app")
 	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, step.DeferredRead)
 	require.Equal(t, ConfigRef{Alias: "fix", Name: "cluster"}, step.Configuration)
 	require.Equal(t, DecisionNoOp, step.Decision)
@@ -478,20 +454,15 @@ func TestDestroyUsesInternalConfigurationFromState(t *testing.T) {
 	libs := configuredLibrariesRecording(nil, &deletes)
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-	})
+	first := configurationTestExecutor(t, internalConfigSrc, libs)
+	first.Store = store
+	first.Factory = factory
+	applyOnce(t, first)
 
-	down := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-		Destroy:   true,
-	}
+	down := configurationTestExecutor(t, internalConfigSrc, libs)
+	down.Store = store
+	down.Factory = factory
+	down.Destroy = true
 	_, err := planAndApply(down)
 	require.NoError(t, err)
 	require.Equal(t, []string{"https://cluster.example"}, deletes)
@@ -504,20 +475,15 @@ func TestRefreshUsesInternalConfigurationFromState(t *testing.T) {
 	libs := configuredLibrariesRecording(&reads, nil)
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-	})
+	first := configurationTestExecutor(t, internalConfigSrc, libs)
+	first.Store = store
+	first.Factory = factory
+	applyOnce(t, first)
 
 	reads = nil
-	fresh := &Executor{
-		DAG:       BuildDAG(parseStack(t, internalConfigSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   factory,
-	}
+	fresh := configurationTestExecutor(t, internalConfigSrc, libs)
+	fresh.Store = store
+	fresh.Factory = factory
 	_, err := fresh.Refresh(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []string{"https://cluster.example"}, reads)
