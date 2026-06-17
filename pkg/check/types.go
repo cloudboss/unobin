@@ -418,7 +418,7 @@ func (c *referenceChecker) localExprsFor(scope string) map[string]lang.Expr {
 		if c.rootSyntax != nil {
 			return syntaxLocalExprs(c.rootSyntax.Locals)
 		}
-		return lang.FieldMap(lang.TopLevelBlock(c.root, "locals"))
+		return nil
 	}
 	node, ok := c.dag.Nodes[scope]
 	if !ok {
@@ -444,10 +444,7 @@ func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 		if c.rootSyntax != nil {
 			return syntaxInputFields(c.rootSyntax.Inputs)
 		}
-		if c.root != nil && c.root.Body != nil {
-			inputsBlock, _ = lang.FieldMap(c.root.Body)["inputs"].(*lang.ObjectLit)
-		}
-		return typecheck.InputsFromBlock(inputsBlock)
+		return nil
 	}
 	node, ok := c.dag.Nodes[scope]
 	if !ok {
@@ -741,8 +738,6 @@ func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
 func (c *referenceChecker) checkOutputBodyTypes() {
 	if c.rootSyntax != nil {
 		c.checkSyntaxOutputsBlock(c.rootSyntax.Outputs, "")
-	} else {
-		c.checkOutputsBlock(c.root, "")
 	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
@@ -797,8 +792,6 @@ func (c *referenceChecker) outputScope(scope string) *typecheck.Scope {
 func (c *referenceChecker) checkConstraintTypes() {
 	if c.rootSyntax != nil {
 		c.checkSyntaxConstraintTypesBlock(c.rootSyntax.Constraints, "")
-	} else {
-		c.checkConstraintTypesBlock(c.root, "")
 	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {

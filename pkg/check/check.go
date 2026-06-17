@@ -18,7 +18,6 @@ import (
 // diagnostics. The graph is exposed so callers executing the factory share the
 // structure the checks ran against.
 type Checker struct {
-	root       *lang.File
 	rootSyntax *syntax.FactoryBody
 	dag        *runtime.DAG
 	inputs     map[string]map[string]bool
@@ -29,7 +28,6 @@ type Checker struct {
 // NewSyntax builds the check state from a typed factory or composite body.
 func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Checker {
 	c := newChecker(
-		nil,
 		runtime.BuildSyntaxDAG(body, libs),
 		syntaxInputNames(body.Inputs),
 		syntaxLocalNames(body.Locals),
@@ -40,14 +38,12 @@ func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Check
 }
 
 func newChecker(
-	root *lang.File,
 	dag *runtime.DAG,
 	inputs map[string]bool,
 	locals map[string]bool,
 	libs map[string]*runtime.Library,
 ) *Checker {
 	c := &Checker{
-		root:      root,
 		dag:       dag,
 		inputs:    map[string]map[string]bool{"": inputs},
 		locals:    map[string]map[string]bool{"": locals},
@@ -68,7 +64,7 @@ func (c *Checker) DAG() *runtime.DAG {
 // every inferred expression with its type; the residual-Unknown
 // harness reads the stream.
 func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.ErrorList {
-	internalConfigurations := runtime.InternalConfigurationNames(c.root)
+	internalConfigurations := map[string]map[string]bool{}
 	if c.rootSyntax != nil {
 		internalConfigurations = runtime.InternalSyntaxConfigurationNames(*c.rootSyntax)
 	}
@@ -211,8 +207,6 @@ func (c *referenceChecker) checkNodes() {
 func (c *referenceChecker) checkConstraints() {
 	if c.rootSyntax != nil {
 		c.checkSyntaxConstraints(c.rootSyntax.Constraints, "")
-	} else {
-		c.checkConstraintsBlock(c.root, "")
 	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
@@ -668,8 +662,6 @@ func subtrahendText(root, rest string) string {
 func (c *referenceChecker) checkLocals() {
 	if c.rootSyntax != nil {
 		c.checkSyntaxLocals(c.rootSyntax.Locals, "")
-	} else {
-		c.checkLocalsBlock(c.root, "")
 	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {
@@ -708,8 +700,6 @@ func (c *referenceChecker) checkSyntaxLocals(decls []syntax.LocalDecl, scope str
 func (c *referenceChecker) checkLocalCycles() {
 	if c.rootSyntax != nil {
 		c.checkSyntaxLocalCycles(c.rootSyntax.Locals)
-	} else {
-		c.checkLocalCyclesBlock(c.root, "")
 	}
 	for _, n := range c.dag.Nodes {
 		if !n.IsComposite() {

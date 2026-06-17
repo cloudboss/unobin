@@ -610,25 +610,6 @@ func ConfigurationRefNames(nodes map[string]*Node) map[string]ConfigRef {
 	return out
 }
 
-// InternalConfigurationNames returns the configuration names a factory
-// defines internally, keyed by import alias. The runner consults it
-// when loading the stack file so a stack entry cannot collide with a
-// name the factory owns.
-func InternalConfigurationNames(f *lang.File) map[string]map[string]bool {
-	out := map[string]map[string]bool{}
-	if f == nil || f.Body == nil {
-		return out
-	}
-	block, ok := lang.FieldMap(f.Body)["configurations"].(*lang.ObjectLit)
-	if !ok {
-		return out
-	}
-	for _, n := range extractConfigurations(block) {
-		addInternalConfigurationName(out, n.Alias, n.Name)
-	}
-	return out
-}
-
 // InternalSyntaxConfigurationNames returns the configuration names a typed
 // factory body defines internally, keyed by import alias.
 func InternalSyntaxConfigurationNames(body syntax.FactoryBody) map[string]map[string]bool {

@@ -285,7 +285,7 @@ factory: {
 }
 `)
 	dag := BuildSyntaxDAG(fixture.body, libs)
-	an := newSensitivityAnalyzer(fixture.file, libs, dag)
+	an := newSensitivityAnalyzerFromSource(nil, &fixture.body, libs, dag)
 
 	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
@@ -320,7 +320,7 @@ factory: {
 }
 `)
 	dag := BuildSyntaxDAG(fixture.body, libs)
-	an := newSensitivityAnalyzer(fixture.file, libs, dag)
+	an := newSensitivityAnalyzerFromSource(nil, &fixture.body, libs, dag)
 
 	inner := dag.Nodes["resource.one/resource.this"]
 	require.NotNil(t, inner)
