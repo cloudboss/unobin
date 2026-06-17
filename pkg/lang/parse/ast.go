@@ -38,7 +38,7 @@ const (
 	FileUnknown FileKind = iota
 	FileFactory
 	FileExportedType // A lowered composite body inside a library.
-	FileConfig       // The config .ub file for a factory.
+	FileStack        // A stack file for factory inputs and state settings.
 	FileManifest     // The manifest.ub file declaring dependency floors.
 )
 
@@ -48,8 +48,8 @@ func (k FileKind) String() string {
 		return "factory"
 	case FileExportedType:
 		return "exported-type"
-	case FileConfig:
-		return "config"
+	case FileStack:
+		return "stack"
 	case FileManifest:
 		return "manifest"
 	default:

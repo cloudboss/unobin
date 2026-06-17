@@ -528,8 +528,8 @@ func fileKindIdent(k lang.FileKind) string {
 		return "lang.FileFactory"
 	case lang.FileExportedType:
 		return "lang.FileExportedType"
-	case lang.FileConfig:
-		return "lang.FileConfig"
+	case lang.FileStack:
+		return "lang.FileStack"
 	default:
 		return "lang.FileUnknown"
 	}

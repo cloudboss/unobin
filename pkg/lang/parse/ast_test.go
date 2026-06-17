@@ -60,7 +60,7 @@ func TestFileKindString(t *testing.T) {
 		FileUnknown:      "unknown",
 		FileFactory:      "factory",
 		FileExportedType: "exported-type",
-		FileConfig:       "config",
+		FileStack:        "stack",
 	}
 	for k, want := range cases {
 		require.Equal(t, want, k.String(), "kind %d", k)

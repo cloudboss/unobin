@@ -50,7 +50,7 @@ const (
 	FileUnknown      = parse.FileUnknown
 	FileFactory      = parse.FileFactory
 	FileExportedType = parse.FileExportedType
-	FileConfig       = parse.FileConfig
+	FileStack        = parse.FileStack
 	FileManifest     = parse.FileManifest
 
 	FieldIdent  = parse.FieldIdent

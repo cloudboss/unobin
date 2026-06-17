@@ -195,12 +195,12 @@ func TestLowerPreclassifiedStackFileRequiresSourceDeclaration(t *testing.T) {
 	f := parseFile(t, "dev.ub", `
 state: { @backend: local }
 encryption: { @key-source: noop }
-`, parse.FileConfig)
+`, parse.FileStack)
 
 	got, errs := LowerFile(f)
 	require.NotZero(t, errs.Len())
 	require.Equal(t, FileUnknown, got.Kind)
-	require.Contains(t, errs.Error(), "cannot determine UB file role from config")
+	require.Contains(t, errs.Error(), "cannot determine UB file role from stack")
 }
 
 func TestLowerPreclassifiedFactoryFileRequiresSourceDeclaration(t *testing.T) {
@@ -422,7 +422,7 @@ func selectorBodyFixtureKind(name string) (parse.FileKind, string) {
 	case "factory":
 		return parse.FileFactory, "factory.ub"
 	case "stack":
-		return parse.FileConfig, "dev.ub"
+		return parse.FileStack, "dev.ub"
 	case "library":
 		return parse.FileExportedType, "library.ub"
 	default:
