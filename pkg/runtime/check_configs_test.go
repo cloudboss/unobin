@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
@@ -30,7 +30,7 @@ func libraryWithConfig() *Library {
 
 func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 	leaf := &Node{
-		Address:       "resource.aws.instance.web",
+		Address:       "resource.web",
 		Kind:          NodeResource,
 		Alias:         "aws",
 		Configuration: ConfigRef{Alias: "aws", Name: "east2"},
@@ -48,7 +48,7 @@ func TestCheckConfigurationsAcceptsValidLeafAlias(t *testing.T) {
 
 func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 	leaf := &Node{
-		Address:       "resource.aws.instance.web",
+		Address:       "resource.web",
 		Kind:          NodeResource,
 		Alias:         "aws",
 		Configuration: ConfigRef{Alias: "aws", Name: "ghost"},
@@ -66,7 +66,7 @@ func TestCheckConfigurationsRejectsUnknownLeafAlias(t *testing.T) {
 
 func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) {
 	leaf := &Node{
-		Address:       "action.core.command.run",
+		Address:       "action.run",
 		Kind:          NodeAction,
 		Alias:         "core",
 		Configuration: ConfigRef{Alias: "core", Name: "alt"},
@@ -83,10 +83,10 @@ func TestCheckConfigurationsRejectsLeafAliasOnModuleWithoutConfig(t *testing.T) 
 
 func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 	composite := &Node{
-		Address:       "resource.net.cluster.east",
-		Kind:          NodeResource,
-		Alias:         "net",
-		CompositeBody: &lang.File{},
+		Address:             "resource.east",
+		Kind:                NodeResource,
+		Alias:               "net",
+		CompositeSyntaxBody: &syntax.FactoryBody{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "aws", Name: "east2"},
 		},
@@ -104,10 +104,10 @@ func TestCheckConfigurationsAcceptsValidRemap(t *testing.T) {
 
 func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 	composite := &Node{
-		Address:       "resource.net.cluster.east",
-		Kind:          NodeResource,
-		Alias:         "net",
-		CompositeBody: &lang.File{},
+		Address:             "resource.east",
+		Kind:                NodeResource,
+		Alias:               "net",
+		CompositeSyntaxBody: &syntax.FactoryBody{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "gcp", Name: "east2"},
 		},
@@ -125,10 +125,10 @@ func TestCheckConfigurationsRejectsMismatchedAliasInRemap(t *testing.T) {
 
 func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 	composite := &Node{
-		Address:       "resource.net.cluster.east",
-		Kind:          NodeResource,
-		Alias:         "net",
-		CompositeBody: &lang.File{},
+		Address:             "resource.east",
+		Kind:                NodeResource,
+		Alias:               "net",
+		CompositeSyntaxBody: &syntax.FactoryBody{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "aws", Name: "ghost"},
 		},
@@ -145,16 +145,16 @@ func TestCheckConfigurationsRejectsMissingAliasInRemap(t *testing.T) {
 
 func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 	leaf := &Node{
-		Address:       "resource.aws.instance.web",
+		Address:       "resource.web",
 		Kind:          NodeResource,
 		Alias:         "aws",
 		Configuration: ConfigRef{Alias: "aws", Name: "ghost"},
 	}
 	composite := &Node{
-		Address:       "resource.net.cluster.east",
-		Kind:          NodeResource,
-		Alias:         "net",
-		CompositeBody: &lang.File{},
+		Address:             "resource.east",
+		Kind:                NodeResource,
+		Alias:               "net",
+		CompositeSyntaxBody: &syntax.FactoryBody{},
 		ConfigurationsRemap: map[string]ConfigRef{
 			"aws": {Alias: "gcp", Name: "east2"},
 		},
@@ -175,7 +175,7 @@ func TestCheckConfigurationsReportsMultipleErrorsAtOnce(t *testing.T) {
 
 func TestCheckConfigurationsRequiresImplicitDefault(t *testing.T) {
 	leaf := &Node{
-		Address: "resource.aws.instance.web",
+		Address: "resource.web",
 		Kind:    NodeResource,
 		Alias:   "aws",
 	}
@@ -187,7 +187,7 @@ func TestCheckConfigurationsRequiresImplicitDefault(t *testing.T) {
 	err := e.CheckConfigurations()
 	require.Error(t, err)
 	require.Equal(t,
-		`resource.aws.instance.web: library "aws" requires a configuration; `+
+		`resource.web: library "aws" requires a configuration; `+
 			`add aws { ... } under stack.factory.configurations `+
 			`or configurations in the factory`,
 		err.Error())
@@ -195,7 +195,7 @@ func TestCheckConfigurationsRequiresImplicitDefault(t *testing.T) {
 
 func TestCheckConfigurationsAcceptsInternalDefault(t *testing.T) {
 	leaf := &Node{
-		Address: "resource.aws.instance.web",
+		Address: "resource.web",
 		Kind:    NodeResource,
 		Alias:   "aws",
 	}

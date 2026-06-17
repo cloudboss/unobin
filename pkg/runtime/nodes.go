@@ -36,12 +36,12 @@ const (
 //
 // CompositeBody, CompositeSyntaxBody, and Libraries are set only on a
 // composite boundary (the call site node), and IsComposite reports that
-// case. CompositeBody points to the composite type's generic body.
-// CompositeSyntaxBody keeps the typed body for grammar-first code paths.
-// Libraries is the composite's resolved import table; the
-// runtime resolves composite-internal node lookups against this map
-// rather than the stack root's, so a composite can be reused without
-// the caller importing every library it transitively uses.
+// case. CompositeSyntaxBody is the grammar-first body. CompositeBody is
+// the generic compatibility body for direct tests/helpers. Libraries is
+// the composite's resolved import table; the runtime resolves
+// composite-internal node lookups against this map rather than the stack
+// root's, so a composite can be reused without the caller importing every
+// library it transitively uses.
 type Node struct {
 	Address             string
 	Kind                NodeKind
@@ -114,7 +114,8 @@ func ExtractNodes(f *lang.File, libs map[string]*Library) []*Node {
 
 // ExtractSyntaxNodes walks a typed factory or composite body and returns
 // every addressable node in source order. The body is assumed to be
-// validated. Composite internals still use each composite's runtime body.
+// validated. Composite internals use SyntaxBody when available, with
+// CompositeBody as the generic compatibility fallback.
 func ExtractSyntaxNodes(body syntax.FactoryBody, libs map[string]*Library) []*Node {
 	return extractSyntaxNodes(body, "", libs)
 }
@@ -493,26 +494,24 @@ func lookupComposite(
 	return lib.Composite(kind, typ)
 }
 
-// expandComposite emits the boundary node and the internal sub nodes
-// for a composite call site. The boundary node sits at the call site
-// address and carries the call site args as Body; the runtime
-// evaluates the composite's `outputs:` block via CompositeBody once
-// the internals complete. parent is the boundary's enclosing call
-// site (empty for top-level call sites; the outer call site address
-// for nested ones), and is recorded on the boundary's Composite
-// field so the boundary's args evaluate against the right scope.
+// expandComposite emits the boundary node and the internal subnodes for
+// a generic composite call site. The boundary node sits at the call site
+// address and records the call site args as Body. Runtime composite
+// helpers evaluate the composite's outputs once the internals complete.
+// Parent is the boundary's enclosing call site, empty for top-level call
+// sites. It is recorded on the boundary's Composite field so the
+// boundary's args evaluate against the right scope.
 //
-// Internals come from a recursive walk of the composite's body with
-// the new call site address as the parent prefix, so nested addresses
-// build up like `outer/inner-rel/leaf-rel` and each internal's
-// Composite names its direct enclosing call site. The composite's
-// own Libraries table drives that recursion so a composite that calls
-// another composite expands against its own imports rather than the
-// caller's. The boundary node also carries the Libraries table itself
-// so the runtime can resolve internal node lookups against it. When
-// a composite has no Libraries set, fallMods is used as a fallback
-// for tests that build composites directly without populating
-// imports.
+// Internals come from a recursive walk of the composite's body with the
+// new call site address as the parent prefix, so nested addresses build
+// up like `outer/inner-rel/leaf-rel` and each internal's Composite names
+// its direct enclosing call site. The composite's own Libraries table
+// drives that recursion so a composite that calls another composite
+// expands against its own imports rather than the caller's. The boundary
+// node also stores the Libraries table itself so the runtime can resolve
+// internal node lookups against it. When a composite has no Libraries set,
+// fallMods is used as a fallback for tests that build composites directly
+// without populating imports.
 func expandComposite(callSiteAddr, parent, alias, typ, name string,
 	kind NodeKind, args lang.Expr, composite *CompositeType,
 	fallMods map[string]*Library) []*Node {

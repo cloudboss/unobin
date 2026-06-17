@@ -6,10 +6,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 type fakeResource struct {
 	Name string
+}
+
+func parseGenericFile(t *testing.T, src string) *lang.File {
+	t.Helper()
+	f, err := lang.ParseSource("factory.ub", []byte(src))
+	require.NoError(t, err)
+	return f
 }
 
 func (r *fakeResource) SchemaVersion() int { return 1 }

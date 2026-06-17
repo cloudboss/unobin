@@ -10,12 +10,12 @@ import (
 
 // Library is the registration record a library exports for its types,
 // actions, and data sources. Go libraries supply Resources, Actions,
-// and DataSources via the generic helpers (`MakeResource` and
-// friends); UB libraries - compiled to Go packages by `unobin compile`
-// - contribute Composites whose bodies are parsed AST literals built
-// into the binary. The compiler links each imported library's record
-// and aggregates them under the alias the calling source assigned to
-// the import.
+// and DataSources via the generic helpers (`MakeResource` and friends);
+// UB libraries compiled by `unobin compile` contribute Composites with
+// typed syntax bodies. Generic composite bodies remain only for direct
+// test/helper compatibility. The compiler links each imported library's
+// record and aggregates it under the alias the calling source assigned
+// to the import.
 type Library struct {
 	Name          string
 	Description   string
@@ -72,9 +72,9 @@ type FunctionType struct {
 	Func        func(args []any) (any, error)
 }
 
-// CompositeType registers a UB-implemented type under a library. Body
-// is the generic body file for the composite. SyntaxBody is the typed body
-// used by grammar-first graph extraction when it is available.
+// CompositeType registers a UB-implemented type under a library. SyntaxBody
+// is the grammar-first body used by production graph extraction. Body is the
+// generic body file retained for direct test/helper compatibility.
 //
 // Libraries is the resolved import table for this composite's body,
 // keyed by the alias declared in the body's `imports:` block. The

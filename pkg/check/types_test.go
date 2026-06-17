@@ -163,7 +163,6 @@ factory: {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"greeting": {
 					Name:       "greeting",
-					Body:       &lang.File{Body: &lang.ObjectLit{}},
 					SyntaxBody: &body,
 				},
 			},

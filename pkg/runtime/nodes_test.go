@@ -8,13 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func parseGenericFile(t *testing.T, src string) *lang.File {
-	t.Helper()
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-	return f
-}
-
 type syntaxRuntimeFixture struct {
 	body syntax.FactoryBody
 }
@@ -360,10 +353,8 @@ resources: { one: m.t {} }
 }
 
 func TestExtractNodesNestedComposite(t *testing.T) {
-	// clusterBody is the body file for the `cluster` composite type
-	// registered under library alias `inner-lib`. In a real project this
-	// would live in `cluster.ub`, listed in inner-lib's `library.ub`
-	// manifest as `exports: { cluster: 'cluster.ub' }`.
+	// clusterBody is the body for the cluster composite registered under
+	// library alias inner-lib.
 	clusterBody := syntaxResourceComposite(t, "cluster", `
 inputs: { path: { type: string } }
 
@@ -371,9 +362,8 @@ resources: { x: local.file { path: var.path } }
 
 outputs: { path: { value: resource.x.path } }
 `)
-	// layerBody is the body file for the `layer` composite type registered
-	// under library alias `outer-lib`. Its body calls inner-lib's `cluster`
-	// composite, which is what makes this a nested composite.
+	// layerBody is the body for the layer composite registered under
+	// library alias outer-lib. It calls inner-lib.cluster.
 	layerBody := syntaxResourceComposite(t, "layer", `
 inputs: { target: { type: string } }
 
