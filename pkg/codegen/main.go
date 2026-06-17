@@ -23,7 +23,7 @@ import (
 // generated source stays a pure function of the factory content.
 // GoImports maps each Go-library alias the source uses to the Go import
 // path that supplies it (e.g.,
-// `"core" -> "github.com/cloudboss/unobin/pkg/libraries/core"`).
+// `"std" -> "github.com/cloudboss/unobin-library-std"`).
 // UBImports maps each UB-library alias to the local Go import path of
 // the package that compile generated for it (typically
 // `<factory-name>/internal/<alias>`).

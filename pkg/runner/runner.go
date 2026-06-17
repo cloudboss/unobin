@@ -38,8 +38,8 @@ const EnvVarPrefix = "UB_VAR_"
 // FactoryBody is the embedded factory source the binary parses on each
 // invocation. LibraryPath is the binary's library-path identity (the
 // same form Go libraries use); the operator's stack file asserts the
-// same value under `factory.library-path`. An empty LibraryPath disables
-// that identity check.
+// same value under `factory.pin.library-path`. An empty LibraryPath
+// disables that identity check.
 type Info struct {
 	FactoryName     string
 	FactoryVersion  string
