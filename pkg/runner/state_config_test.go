@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func parseConfig(t *testing.T, src string) *parsedConfig {
+func parseStackFixture(t *testing.T, src string) *parsedStack {
 	t.Helper()
-	config, err := parseConfigSource("stack.ub", []byte(sourceStackWithNoop(src)))
+	config, err := parseStackSource("stack.ub", []byte(sourceStackWithNoop(src)))
 	require.NoError(t, err)
 	return config
 }
@@ -27,7 +27,7 @@ func TestParseStateConfigNilFile(t *testing.T) {
 }
 
 func TestParseStateConfigAbsentBlock(t *testing.T) {
-	config := &parsedConfig{stack: &syntax.StackFile{}}
+	config := &parsedStack{stack: &syntax.StackFile{}}
 	sc, err := parseStateConfig(config, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
@@ -35,7 +35,7 @@ func TestParseStateConfigAbsentBlock(t *testing.T) {
 }
 
 func TestValidateRejectsDottedBackend(t *testing.T) {
-	_, err := parseConfigSource("stack.ub", []byte(`
+	_, err := parseStackSource("stack.ub", []byte(`
 stack: {
   state: core.local { path: '.unobin/state' }
   encryption: noop {}
@@ -53,7 +53,7 @@ state: local {
 
 encryption: noop {}
 `
-	f := parseConfig(t, src)
+	f := parseStackFixture(t, src)
 	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	require.NotNil(t, sc.Backend)
@@ -63,7 +63,7 @@ encryption: noop {}
 	assert.Equal(t, "noop", sc.Encrypter.Name)
 }
 
-func TestParseConfigFileAcceptsSourceStack(t *testing.T) {
+func TestParseStackFileAcceptsSourceStack(t *testing.T) {
 	path := writeConfig(t, `
 stack: {
   locals: { state-path: '/tmp/state' }
@@ -82,9 +82,9 @@ stack: {
 }
 `)
 
-	config, err := parseConfigFile(path)
+	config, err := parseStackFile(path)
 	require.NoError(t, err)
-	require.NotNil(t, configStack(config))
+	require.NotNil(t, stackFile(config))
 
 	sc, err := parseStateConfig(config, path)
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ stack: {
 	assert.Equal(t, 3, parallelism)
 }
 
-func TestParseConfigFileRejectsUnwrappedStack(t *testing.T) {
+func TestParseStackFileRejectsUnwrappedStack(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dev.ub")
 	require.NoError(t, os.WriteFile(path, []byte(`
 factory: {
@@ -109,13 +109,13 @@ factory: {
 encryption: noop {}
 `), 0o600))
 
-	_, err := parseConfigFile(path)
+	_, err := parseStackFile(path)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dev.ub must declare stack")
 }
 
 func TestParseStateConfigEncryptionOnly(t *testing.T) {
-	config := parseConfig(t, "encryption: noop {}\n")
+	config := parseStackFixture(t, "encryption: noop {}\n")
 	sc, err := parseStateConfig(config, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
@@ -124,7 +124,7 @@ func TestParseStateConfigEncryptionOnly(t *testing.T) {
 }
 
 func TestValidateRejectsEncryptionInsideState(t *testing.T) {
-	_, err := parseConfigSource("stack.ub", []byte(`
+	_, err := parseStackSource("stack.ub", []byte(`
 stack: {
   state: local {
     encryption: noop {}
@@ -264,7 +264,7 @@ encryption: kms {
   aws:    local.aws-config
 }
 `
-	f := parseConfig(t, src)
+	f := parseStackFixture(t, src)
 	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	want := map[string]any{

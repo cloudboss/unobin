@@ -113,7 +113,7 @@ func newPlanCmd(info Info) *cobra.Command {
 		Use:   "plan",
 		Short: "Show what apply would do",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseConfigFile(configPath)
+			config, err := parseStackFile(configPath)
 			if err != nil {
 				return err
 			}
@@ -415,7 +415,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 		Use:   "refresh",
 		Short: "Update state to match what each resource currently reports",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseConfigFile(configPath)
+			config, err := parseStackFile(configPath)
 			if err != nil {
 				return err
 			}
@@ -432,7 +432,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doRefresh(cmd *cobra.Command, info Info, config *parsedConfig, configPath string) error {
+func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath string) error {
 	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
@@ -493,7 +493,7 @@ func newValidateCmd(info Info) *cobra.Command {
 		Use:   "validate",
 		Short: "Check factory source and stack file without reading state or resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseConfigFile(configPath)
+			config, err := parseStackFile(configPath)
 			if err != nil {
 				return err
 			}
@@ -510,7 +510,7 @@ func newValidateCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath string) error {
+func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath string) error {
 	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
@@ -558,7 +558,7 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedConfig, configPath 
 // configuration schema. It stops short of constructing either object,
 // so validate does no filesystem or network work. Unset refs are not
 // checked; the resolver's defaults are always available.
-func validateStateRefs(config *parsedConfig, configPath string) error {
+func validateStateRefs(config *parsedStack, configPath string) error {
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return err
@@ -627,7 +627,7 @@ func newOutputCmd(info Info) *cobra.Command {
 		Short: "Print factory outputs from the current state",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseConfigFile(configPath)
+			config, err := parseStackFile(configPath)
 			if err != nil {
 				return err
 			}
@@ -672,7 +672,7 @@ func parseFactory(info Info) (*parsedFactory, error) {
 // for error messages.
 func loadStore(
 	info Info,
-	config *parsedConfig,
+	config *parsedStack,
 	configPath, stack string,
 	enc sdkencrypt.Encrypter,
 ) (state.Backend, error) {
@@ -703,7 +703,7 @@ func stackName(configPath string) string {
 // present, the resolver falls back to the env-key encrypter against
 // `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
 // configPath is preserved only for error messages.
-func loadEncrypter(config *parsedConfig, configPath string) (sdkencrypt.Encrypter, error) {
+func loadEncrypter(config *parsedStack, configPath string) (sdkencrypt.Encrypter, error) {
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return nil, err
@@ -712,7 +712,7 @@ func loadEncrypter(config *parsedConfig, configPath string) (sdkencrypt.Encrypte
 }
 
 func doPlan(
-	cmd *cobra.Command, info Info, config *parsedConfig,
+	cmd *cobra.Command, info Info, config *parsedStack,
 	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
 ) error {
 	parsed, err := parseFactory(info)
@@ -787,13 +787,13 @@ func doPlan(
 }
 
 func buildInputs(
-	config *parsedConfig,
+	config *parsedStack,
 	configPath string,
 	decl *lang.ObjectLit,
 	constraints *lang.ArrayLit,
 	libs map[string]*runtime.Library,
 ) (map[string]any, error) {
-	inputs, err := loadConfigInputs(config, configPath)
+	inputs, err := loadStackInputs(config, configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -841,8 +841,8 @@ func predicateEval(
 // a pre-parsed stack file. Zero is returned when the file omits the field
 // or when config is nil, signaling the runtime should pick its default.
 // path is preserved only for error messages.
-func loadParallelism(config *parsedConfig, path string) (int, error) {
-	stack := configStack(config)
+func loadParallelism(config *parsedStack, path string) (int, error) {
+	stack := stackFile(config)
 	if stack == nil || stack.Parallelism == nil {
 		return 0, nil
 	}
@@ -864,15 +864,15 @@ func loadParallelism(config *parsedConfig, path string) (int, error) {
 	return int(n), nil
 }
 
-// loadConfigInputs extracts the `factory.inputs:` block from a
+// loadStackInputs extracts the `factory.inputs:` block from a
 // pre-parsed stack file. A nil stack file returns an empty map with no error.
 // path is preserved only for error messages.
-func loadConfigInputs(config *parsedConfig, path string) (map[string]any, error) {
-	stack := configStack(config)
+func loadStackInputs(config *parsedStack, path string) (map[string]any, error) {
+	stack := stackFile(config)
 	if stack == nil || stack.Factory == nil || stack.Factory.Inputs == nil {
 		return map[string]any{}, nil
 	}
-	val, err := runtime.Eval(stack.Factory.Inputs, configEvalContext(config))
+	val, err := runtime.Eval(stack.Factory.Inputs, stackEvalContext(config))
 	if err != nil {
 		return nil, fmt.Errorf("stack file %s: %w", path, err)
 	}
@@ -1005,7 +1005,7 @@ func normalizeJSONNumbers(v any) any {
 }
 
 func doOutput(
-	cmd *cobra.Command, info Info, config *parsedConfig, configPath string,
+	cmd *cobra.Command, info Info, config *parsedStack, configPath string,
 	args []string, asJSON bool,
 ) error {
 	enc, err := loadEncrypter(config, configPath)

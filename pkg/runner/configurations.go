@@ -21,16 +21,16 @@ import (
 // declarations or configurable node usage. A nil map skips this check for
 // lower-level tests that do not have a factory DAG.
 func loadConfigurations(
-	config *parsedConfig,
+	config *parsedStack,
 	path string,
 	libraries map[string]*runtime.Library,
 	allowed map[string]map[string]bool,
 ) (decoded, raw runtime.ConfigTable, err error) {
 	rawByImport := runtime.ConfigTable{}
-	stack := configStack(config)
+	stack := stackFile(config)
 	if stack != nil && stack.Factory != nil && len(stack.Factory.Configurations) > 0 {
 		loaded, err := readConfigurationValues(
-			path, stack.Factory.Configurations, configEvalContext(config))
+			path, stack.Factory.Configurations, stackEvalContext(config))
 		if err != nil {
 			return nil, nil, err
 		}

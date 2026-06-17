@@ -25,8 +25,8 @@ type factoryEnvelope struct {
 // pre-parsed stack file. A nil stack file or one without a `factory:` block
 // returns a zero envelope without error so the caller can apply the same
 // pin policy to both. path is preserved only for error messages.
-func loadFactoryEnvelope(config *parsedConfig, path string) (factoryEnvelope, error) {
-	stack := configStack(config)
+func loadFactoryEnvelope(config *parsedStack, path string) (factoryEnvelope, error) {
+	stack := stackFile(config)
 	if stack == nil || stack.Factory == nil {
 		return factoryEnvelope{}, nil
 	}
@@ -35,7 +35,7 @@ func loadFactoryEnvelope(config *parsedConfig, path string) (factoryEnvelope, er
 	if pinObj == nil {
 		return env, nil
 	}
-	val, err := runtime.Eval(pinObj, configEvalContext(config))
+	val, err := runtime.Eval(pinObj, stackEvalContext(config))
 	if err != nil {
 		return factoryEnvelope{}, fmt.Errorf("stack file %s: %w", path, err)
 	}
@@ -94,7 +94,7 @@ func parsePinBlock(path string, env factoryEnvelope, m map[string]any) (factoryE
 // soft-fails (overridable by allowVersionMismatch) when the stack file does
 // not pin any versions, or pins versions but not this binary's.
 func verifyFactoryEnvelope(
-	info Info, config *parsedConfig, configPath string, allowVersionMismatch bool,
+	info Info, config *parsedStack, configPath string, allowVersionMismatch bool,
 ) error {
 	env, err := loadFactoryEnvelope(config, configPath)
 	if err != nil {

@@ -34,9 +34,9 @@ func sourceStackWithNoop(body string) string {
 	return sourceStack(body)
 }
 
-func parseTestConfig(t *testing.T, path string) *parsedConfig {
+func parseTestStack(t *testing.T, path string) *parsedStack {
 	t.Helper()
-	config, err := parseConfigFile(path)
+	config, err := parseStackFile(path)
 	require.NoError(t, err)
 	return config
 }
@@ -51,7 +51,7 @@ func TestLoadFactoryEnvelopeNilFile(t *testing.T) {
 
 func TestLoadFactoryEnvelopeNoFactoryBlock(t *testing.T) {
 	path := writeConfig(t, `locals: { region: 'us-east-1' }`)
-	env, err := loadFactoryEnvelope(parseTestConfig(t, path), path)
+	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.False(t, env.Present)
 }
@@ -67,7 +67,7 @@ factory: {
     ]
   }
 }`)
-	env, err := loadFactoryEnvelope(parseTestConfig(t, path), path)
+	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
 	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.LibraryPath)
@@ -82,7 +82,7 @@ func TestLoadFactoryEnvelopeFactoryWithoutPin(t *testing.T) {
 factory: {
   inputs: { region: 'us-east-1' }
 }`)
-	env, err := loadFactoryEnvelope(parseTestConfig(t, path), path)
+	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
 	assert.Empty(t, env.LibraryPath)
@@ -96,7 +96,7 @@ factory: {
     library-path: 'github.com/cloudboss/cluster-deploy'
   }
 }`)
-	env, err := loadFactoryEnvelope(parseTestConfig(t, path), path)
+	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
 	assert.Equal(t, "github.com/cloudboss/cluster-deploy", env.LibraryPath)
@@ -123,7 +123,7 @@ func TestVerifyFactoryEnvelopeNoConfigOverrideAllows(t *testing.T) {
 func TestVerifyFactoryEnvelopeMissingFactoryBlockSoftFails(t *testing.T) {
 	info := Info{FactoryVersion: "v0.1.0", ContentRevision: "abcdef"}
 	path := writeConfig(t, `locals: { region: 'us-east-1' }`)
-	err := verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false)
+	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 }
@@ -138,7 +138,7 @@ factory: {
   }
 }`)
 	info.LibraryPath = "github.com/cloudboss/test"
-	err := verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false)
+	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 }
@@ -159,7 +159,7 @@ factory: {
     ]
   }
 }`)
-	err := verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false)
+	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
 	assert.Contains(t, err.Error(), "v0.9.0")
@@ -180,7 +180,7 @@ factory: {
     ]
   }
 }`)
-	require.NoError(t, verifyFactoryEnvelope(info, parseTestConfig(t, path), path, true))
+	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, true))
 }
 
 func TestVerifyFactoryEnvelopeLibraryPathMismatchHardFails(t *testing.T) {
@@ -198,7 +198,7 @@ factory: {
     ]
   }
 }`)
-	err := verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false)
+	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "--allow-version-mismatch")
 	assert.Contains(t, err.Error(), "different-source")
@@ -219,7 +219,7 @@ factory: {
     ]
   }
 }`)
-	err := verifyFactoryEnvelope(info, parseTestConfig(t, path), path, true)
+	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, true)
 	require.Error(t, err)
 }
 
@@ -238,7 +238,7 @@ factory: {
     ]
   }
 }`)
-	require.NoError(t, verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false))
+	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
 func TestVerifyFactoryEnvelopeNoLibraryPathFieldChecksOnlyVersions(t *testing.T) {
@@ -255,7 +255,7 @@ factory: {
     ]
   }
 }`)
-	require.NoError(t, verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false))
+	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
 // TestVerifyFactoryEnvelopeComparesAgainstLibraryPathNotBody guards against
@@ -283,7 +283,7 @@ factory: {
     ]
   }
 }`)
-	require.NoError(t, verifyFactoryEnvelope(info, parseTestConfig(t, path), path, false))
+	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
 func TestParseConfigRejectsLocalReferenceInPin(t *testing.T) {
@@ -292,7 +292,7 @@ locals: { repo: 'github.com/cloudboss/cluster-deploy' }
 
 factory: { pin: { library-path: local.repo } }
 `)
-	_, err := parseConfigFile(path)
+	_, err := parseStackFile(path)
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
 		"`factory.pin.library-path:` must be a string literal")

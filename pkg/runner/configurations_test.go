@@ -46,7 +46,7 @@ func TestLoadConfigurationFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/configurations", func(
 		name string, src []byte,
 	) (string, []string) {
-		config, err := parseConfigSource(name+".ub", src)
+		config, err := parseStackSource(name+".ub", src)
 		if err != nil {
 			return "", []string{err.Error()}
 		}
@@ -71,7 +71,7 @@ factory: {
   }
 }
 `)
-	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ stack: {
 }
 `)
 
-	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, raw, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ factory: {
   }
 }
 `)
-	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ factory: {
   }
 }
 `)
-	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws":   awsModuleWithConfig(),
 		"other": awsModuleWithConfig(),
 	}, nil)
@@ -165,7 +165,7 @@ factory: {
 }
 `)
 	_, _, err := loadConfigurations(
-		parseTestConfig(t, path), path, map[string]*runtime.Library{}, nil)
+		parseTestStack(t, path), path, map[string]*runtime.Library{}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ghost")
 	require.Contains(t, err.Error(), "unknown import alias")
@@ -179,7 +179,7 @@ factory: {
   }
 }
 `)
-	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	_, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleNoConfig(),
 	}, nil)
 	require.Error(t, err)
@@ -196,7 +196,7 @@ factory: {
   }
 }
 `)
-	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
@@ -213,7 +213,7 @@ factory: {
   }
 }
 `)
-	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	_, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.Error(t, err)
@@ -243,7 +243,7 @@ factory: {
   }
 }
 `)
-	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, raw, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ factory: {
   }
 }
 `)
-	_, err := parseConfigFile(path)
+	_, err := parseStackFile(path)
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
 		"stack values must be static, but var.region is a reference")
@@ -285,7 +285,7 @@ factory: {
   }
 }
 `)
-	_, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	_, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.Error(t, err)
@@ -301,7 +301,7 @@ factory: {
   }
 }
 `)
-	out, _, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, _, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, map[string]map[string]bool{"aws": {"default": true, "cluster": true}})
 	require.NoError(t, err)
@@ -321,7 +321,7 @@ factory: {
   }
 }
 `)
-	out, raw, err := loadConfigurations(parseTestConfig(t, path), path, map[string]*runtime.Library{
+	out, raw, err := loadConfigurations(parseTestStack(t, path), path, map[string]*runtime.Library{
 		"aws": awsModuleWithConfig(),
 	}, nil)
 	require.NoError(t, err)

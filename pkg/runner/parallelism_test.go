@@ -20,7 +20,7 @@ func TestLoadParallelismNilFile(t *testing.T) {
 
 func TestLoadParallelismAbsentField(t *testing.T) {
 	path := parseForTest(t, `factory: { inputs: { region: 'us-east-1' } }`)
-	f, err := parseConfigFile(path)
+	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	got, err := loadParallelism(f, path)
 	require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestLoadParallelismValid(t *testing.T) {
 	path := parseForTest(t, `parallelism: 5
 factory: { inputs: { region: 'us-east-1' } }
 `)
-	f, err := parseConfigFile(path)
+	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	got, err := loadParallelism(f, path)
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestLoadParallelismRejectsZero(t *testing.T) {
 	path := parseForTest(t, `parallelism: 0
 factory: { inputs: { region: 'us-east-1' } }
 `)
-	f, err := parseConfigFile(path)
+	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	_, err = loadParallelism(f, path)
 	require.Error(t, err)
@@ -53,7 +53,7 @@ func TestLoadParallelismRejectsNonInt(t *testing.T) {
 	path := parseForTest(t, `parallelism: 'lots'
 factory: { inputs: { region: 'us-east-1' } }
 `)
-	f, err := parseConfigFile(path)
+	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	_, err = loadParallelism(f, path)
 	require.Error(t, err)

@@ -10,17 +10,17 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-type parsedConfig struct {
+type parsedStack struct {
 	stack *syntax.StackFile
 }
 
-// parseConfigFile reads, parses, and validates the stack file at path.
+// parseStackFile reads, parses, and validates the stack file at path.
 // An empty path returns nil with no error so callers can pass it through
-// the no-config branch of each section reader uniformly. Each cobra command
-// parses the config once at the top and threads the result into the section
+// the no-stack-file branch of each section reader uniformly. Each cobra command
+// parses the stack file once at the top and threads it into the section
 // readers, so the file is read once per invocation regardless of how many
 // sections the command needs.
-func parseConfigFile(path string) (*parsedConfig, error) {
+func parseStackFile(path string) (*parsedStack, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -28,10 +28,10 @@ func parseConfigFile(path string) (*parsedConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseConfigSource(path, src)
+	return parseStackSource(path, src)
 }
 
-func parseConfigSource(path string, src []byte) (*parsedConfig, error) {
+func parseStackSource(path string, src []byte) (*parsedStack, error) {
 	raw, err := lang.ParseSource(path, src)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func parseConfigSource(path string, src []byte) (*parsedConfig, error) {
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
 		return nil, verrs.Err()
 	}
-	return &parsedConfig{stack: sf.Stack}, nil
+	return &parsedStack{stack: sf.Stack}, nil
 }
 
 func hasStackDeclaration(f *lang.File) bool {
@@ -67,15 +67,15 @@ func hasStackDeclaration(f *lang.File) bool {
 	return false
 }
 
-func configStack(config *parsedConfig) *syntax.StackFile {
+func stackFile(config *parsedStack) *syntax.StackFile {
 	if config == nil {
 		return nil
 	}
 	return config.stack
 }
 
-func configEvalContext(config *parsedConfig) *runtime.EvalContext {
-	return runtime.NewEvalContextFromLocals(stackLocalExprs(configStack(config)))
+func stackEvalContext(config *parsedStack) *runtime.EvalContext {
+	return runtime.NewEvalContextFromLocals(stackLocalExprs(stackFile(config)))
 }
 
 func stackLocalExprs(stack *syntax.StackFile) map[string]lang.Expr {

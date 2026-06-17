@@ -157,13 +157,13 @@ func runRoot(t *testing.T, info Info, args ...string) (string, error) {
 
 // applyVia runs `plan -o <tmp> -c cfg` then `apply <tmp>` and returns the
 // apply output. Tests use this when they don't need to inspect the plan
-// separately. An empty configPath gets a generated config with just the
+// separately. An empty configPath gets a generated stack file with just the
 // required state block. The plan call passes --allow-version-mismatch
 // since most tests do not exercise pin verification.
 func applyVia(t *testing.T, info Info, configPath string) string {
 	t.Helper()
 	if configPath == "" {
-		configPath = writeStateConfig(t, "")
+		configPath = writeStateStack(t, "")
 	}
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 	args := []string{"plan", "--allow-version-mismatch", "-o", planFile, "-c", configPath}
@@ -174,36 +174,36 @@ func applyVia(t *testing.T, info Info, configPath string) string {
 	return out
 }
 
-// stateConfigBody is the state: and encryption: blocks every test config
+// stateStackBody is the state: and encryption: blocks every test stack file
 // needs, now that a backend must be configured explicitly.
-const stateConfigBody = `state: local {
+const stateStackBody = `state: local {
   path: '.unobin/state'
 }
 
 encryption: noop {}
 `
 
-// writeStateConfig writes a config with the required state block plus body
+// writeStateStack writes a stack file with the required state block plus body
 // and returns its path. The file is named default.ub so its stack
 // name matches the "default" a missing -c used to produce, which the state
 // tests' hand-built stores also use.
-func writeStateConfig(t *testing.T, body string) string {
+func writeStateStack(t *testing.T, body string) string {
 	t.Helper()
 	cfg := filepath.Join(t.TempDir(), "default.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateConfigBody+body)), 0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateStackBody+body)), 0o644))
 	return cfg
 }
 
-// runCfg runs a factory command with a fresh -c state config appended, for
+// runWithStack runs a factory command with a fresh -c stack file appended, for
 // commands that resolve a backend (plan, output, refresh, state). Every
-// config basename is default.ub, so each command in a test maps to the same
+// stack file basename is default.ub, so each command in a test maps to the same
 // stack and shares state.
-func runCfg(t *testing.T, info Info, args ...string) (string, error) {
+func runWithStack(t *testing.T, info Info, args ...string) (string, error) {
 	t.Helper()
-	return runRoot(t, info, append(args, "-c", writeStateConfig(t, ""))...)
+	return runRoot(t, info, append(args, "-c", writeStateStack(t, ""))...)
 }
 
-const backendConfigBody = `state: local {
+const backendStackBody = `state: local {
   path: '.unobin/state'
 }
 
@@ -215,7 +215,7 @@ encryption: env-key {
 func writeBackendConfig(t *testing.T) string {
 	t.Helper()
 	cfg := filepath.Join(t.TempDir(), "default.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(backendConfigBody)), 0o644))
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(backendStackBody)), 0o644))
 	return cfg
 }
 
@@ -336,7 +336,7 @@ func TestCommandsUseTypedOnlyComposite(t *testing.T) {
 			},
 		},
 	}
-	configPath := writeStateConfig(t, `factory: {
+	configPath := writeStateStack(t, `factory: {
   inputs: {
     path: `+pathValue+`
     message: 'hello from a typed composite'
@@ -386,11 +386,11 @@ outputs: { said: { value: action.hi.echo } }
 	apply := applyVia(t, info, "")
 	require.Contains(t, apply, "said: 'hello world'")
 
-	all, err := runCfg(t, info, "output")
+	all, err := runWithStack(t, info, "output")
 	require.NoError(t, err)
 	require.Contains(t, all, "said: 'hello world'")
 
-	one, err := runCfg(t, info, "output", "said")
+	one, err := runWithStack(t, info, "output", "said")
 	require.NoError(t, err)
 	require.Contains(t, one, "hello world")
 }
@@ -409,14 +409,14 @@ resources: { x: local.file { path: '%s', content: 'hello', mode: 420 } }
 	require.NoError(t, err)
 
 	// A destroy plan renders the resource as a deletion and counts it.
-	render, err := runCfg(t, info, "plan", "--destroy", "--allow-version-mismatch")
+	render, err := runWithStack(t, info, "plan", "--destroy", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, render, "- resource.x")
 	require.Contains(t, render, "0 to create, 0 to update, 0 to replace, 1 to destroy")
 
 	// A destroy plan should mark the file for deletion.
 	planFile := filepath.Join(t.TempDir(), "destroy.json")
-	_, err = runCfg(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
+	_, err = runWithStack(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	pf := openPlanFile(t, planFile)
@@ -430,7 +430,7 @@ resources: { x: local.file { path: '%s', content: 'hello', mode: 420 } }
 	_, err = os.Stat(path)
 	require.True(t, os.IsNotExist(err), "file should be removed after destroy")
 
-	out, err := runCfg(t, info, "state", "list")
+	out, err := runWithStack(t, info, "state", "list")
 	require.NoError(t, err)
 	require.NotContains(t, out, "resource.x")
 }
@@ -442,11 +442,11 @@ outputs: { said: { value: action.hi.echo }, count: { value: 7 } }
 `)
 	_ = applyVia(t, info, "")
 
-	all, err := runCfg(t, info, "output", "--json")
+	all, err := runWithStack(t, info, "output", "--json")
 	require.NoError(t, err)
 	require.Equal(t, "{\n  \"count\": 7,\n  \"said\": \"hello world\"\n}\n", all)
 
-	one, err := runCfg(t, info, "output", "--json", "said")
+	one, err := runWithStack(t, info, "output", "--json", "said")
 	require.NoError(t, err)
 	require.Equal(t, "\"hello world\"\n", one)
 }
@@ -454,14 +454,14 @@ outputs: { said: { value: action.hi.echo }, count: { value: 7 } }
 func TestOutputUnknownName(t *testing.T) {
 	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
 	_ = applyVia(t, info, "")
-	_, err := runCfg(t, info, "output", "missing")
+	_, err := runWithStack(t, info, "output", "missing")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no output")
 }
 
 func TestOutputBeforeApply(t *testing.T) {
 	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
-	_, err := runCfg(t, info, "output")
+	_, err := runWithStack(t, info, "output")
 	require.Error(t, err)
 }
 
@@ -471,7 +471,7 @@ func TestPlanParseError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestApplyWithConfigInputs(t *testing.T) {
+func TestApplyWithStackInputs(t *testing.T) {
 	src := `
 inputs:  { greeting: { type: string } }
 actions: { hi: core.echo { echo: var.greeting } }
@@ -480,7 +480,7 @@ outputs: { said: { value: action.hi.echo } }
 	info := testInfo(t, src)
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateConfigBody+`
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateStackBody+`
 factory: {
   inputs: {
     greeting: 'from-config'
@@ -522,11 +522,11 @@ outputs: { said: { value: action.hi.echo } }
 
 	prod := filepath.Join(t.TempDir(), "prod.ub")
 	require.NoError(t, os.WriteFile(prod,
-		[]byte(sourceStack(stateConfigBody+`factory: { inputs: { greeting: 'hello-prod' } }`)),
+		[]byte(sourceStack(stateStackBody+`factory: { inputs: { greeting: 'hello-prod' } }`)),
 		0o644))
 	staging := filepath.Join(filepath.Dir(prod), "staging.ub")
 	require.NoError(t, os.WriteFile(staging,
-		[]byte(sourceStack(stateConfigBody+`factory: { inputs: { greeting: 'hello-staging' } }`)),
+		[]byte(sourceStack(stateStackBody+`factory: { inputs: { greeting: 'hello-staging' } }`)),
 		0o644))
 
 	out := applyVia(t, info, prod)
@@ -552,7 +552,7 @@ outputs: { said: { value: action.hi.echo } }
 	info := testInfo(t, src)
 
 	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateConfigBody+`
+	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateStackBody+`
 factory: {
   inputs: {
     greeting: 'from-config'
@@ -887,7 +887,7 @@ constraints: [
 ]
 `
 	info := testInfo(t, src)
-	configPath := writeStateConfig(t, "")
+	configPath := writeStateStack(t, "")
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-c", configPath)
 	require.NoError(t, err)
 }
@@ -938,7 +938,7 @@ func TestPlanShowsCreateBeforeApply(t *testing.T) {
 actions: { hi: core.echo { echo: 'hello' } }
 `
 	info := testInfo(t, src)
-	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
+	out, err := runWithStack(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "↺ action.hi")
 	require.Contains(t, out, `echo: 'hello'`)
@@ -952,7 +952,7 @@ actions: { hi: core.echo { echo: 'hello' } }
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
+	out, err := runWithStack(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
 }
@@ -1566,7 +1566,7 @@ func TestSchemaTemplateScaffoldResolves(t *testing.T) {
 	require.NoError(t, err)
 
 	path := writeConfig(t, out)
-	f, err := parseConfigFile(path)
+	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	sc, err := parseStateConfig(f, path)
 	require.NoError(t, err)
@@ -1583,7 +1583,7 @@ func TestSchemaTemplateScaffoldResolves(t *testing.T) {
 
 func TestPlanEmpty(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
-	out, err := runCfg(t, info, "plan", "--allow-version-mismatch")
+	out, err := runWithStack(t, info, "plan", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "No changes.")
 }
@@ -1595,7 +1595,7 @@ actions: { hi: core.echo { echo: 'hello' } }
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 
-	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runWithStack(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	pf := openPlanFile(t, planFile)
@@ -1615,7 +1615,7 @@ outputs: { said: { value: action.hi.echo } }
 	info := testInfo(t, src)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 
-	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runWithStack(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	out, err := runRoot(t, info, "apply", planFile)
@@ -1623,7 +1623,7 @@ outputs: { said: { value: action.hi.echo } }
 	require.Contains(t, out, "said: 'hello world'")
 }
 
-func TestPlanMissingConfigFile(t *testing.T) {
+func TestPlanMissingStackFile(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
 	_, err := runRoot(t, info, "plan", "-c", "/no/such/path.ub")
 	require.Error(t, err)
@@ -1802,11 +1802,11 @@ outputs: { said: { value: action.hi.echo } }
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runCfg(t, info, "state", "move", "action.hi", "action.bye")
+	out, err := runWithStack(t, info, "state", "move", "action.hi", "action.bye")
 	require.NoError(t, err)
 	require.Contains(t, out, "Moved action.hi to action.bye")
 
-	show, err := runCfg(t, info, "state", "show")
+	show, err := runWithStack(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, show, "action.bye")
 	require.NotContains(t, show, "action.hi ")
@@ -1817,7 +1817,8 @@ func TestStateMoveRejectsMissingSource(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runCfg(t, info, "state", "move", "action.core.echo.gone", "action.core.echo.elsewhere")
+	_, err := runWithStack(t, info,
+		"state", "move", "action.core.echo.gone", "action.core.echo.elsewhere")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no entry at")
 }
@@ -1829,7 +1830,7 @@ actions: { hi: core.echo { echo: 'hello' }, bye: core.echo { echo: 'bye' } }
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runCfg(t, info, "state", "move", "action.hi", "action.bye")
+	_, err := runWithStack(t, info, "state", "move", "action.hi", "action.bye")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already exists")
 }
@@ -1839,11 +1840,11 @@ func TestStateRemoveDropsEntry(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	out, err := runCfg(t, info, "state", "remove", "action.hi")
+	out, err := runWithStack(t, info, "state", "remove", "action.hi")
 	require.NoError(t, err)
 	require.Contains(t, out, "Removed action.hi")
 
-	show, err := runCfg(t, info, "state", "show")
+	show, err := runWithStack(t, info, "state", "show")
 	require.NoError(t, err)
 	require.NotContains(t, show, "action.hi")
 }
@@ -1853,7 +1854,7 @@ func TestStateRemoveRejectsMissing(t *testing.T) {
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	_, err := runCfg(t, info, "state", "remove", "action.core.echo.gone")
+	_, err := runWithStack(t, info, "state", "remove", "action.core.echo.gone")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no entry at")
 }
@@ -1911,7 +1912,7 @@ func TestStateMoveRelocatesLibraryCallSite(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store := stateMoveFixture(t, info)
 
-	out, err := runCfg(t, info, "state", "move",
+	out, err := runWithStack(t, info, "state", "move",
 		"resource.greeter.greeting.welcome", "resource.greeter.greeting.hello")
 	require.NoError(t, err)
 	require.Contains(t, out,
@@ -1929,7 +1930,7 @@ func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
 	info := testInfo(t, `description: 'x'`)
 	store := stateMoveFixture(t, info)
 
-	out, err := runCfg(t, info, "state", "move",
+	out, err := runWithStack(t, info, "state", "move",
 		"resource.local.file.other", "resource.local.file.renamed")
 	require.NoError(t, err)
 	require.Contains(t, out,
@@ -1976,7 +1977,7 @@ func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(rev))
 
-	_, err = runCfg(t, info, "state", "move",
+	_, err = runWithStack(t, info, "state", "move",
 		"resource.greeter.greeting.a", "resource.greeter.greeting.b")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already exists at resource.greeter.greeting.b/resource.local.file.this")
@@ -2009,7 +2010,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, revs, 5)
 
-	out, err := runCfg(t, info, "state", "gc", "--keep", "2")
+	out, err := runWithStack(t, info, "state", "gc", "--keep", "2")
 	require.NoError(t, err)
 	require.Contains(t, out, "Deleted 2 snapshot(s), kept 3.")
 
@@ -2021,7 +2022,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
 	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
-	out, err := runCfg(t, info, "state", "gc", "--keep", "10")
+	out, err := runWithStack(t, info, "state", "gc", "--keep", "10")
 	require.NoError(t, err)
 	require.Contains(t, out, "Deleted 0 snapshot(s), kept 1.")
 }
@@ -2037,7 +2038,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 	_, err = store.Lock(context.Background())
 	require.NoError(t, err)
 
-	out, err := runCfg(t, info, "state", "force-unlock")
+	out, err := runWithStack(t, info, "state", "force-unlock")
 	require.NoError(t, err)
 	require.Contains(t, out, "Lock cleared.")
 
@@ -2048,7 +2049,7 @@ func TestStateForceUnlockReleasesLock(t *testing.T) {
 
 func TestRefreshNoStateIsOK(t *testing.T) {
 	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	out, err := runCfg(t, info, "refresh", "--allow-version-mismatch")
+	out, err := runWithStack(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 }
@@ -2060,11 +2061,11 @@ outputs: { said: { value: action.hi.echo } }
 `)
 	_ = applyVia(t, info, "")
 
-	out, err := runCfg(t, info, "refresh", "--allow-version-mismatch")
+	out, err := runWithStack(t, info, "refresh", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 
-	show, err := runCfg(t, info, "state", "show")
+	show, err := runWithStack(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, show, "action.hi")
 }
@@ -2077,11 +2078,11 @@ outputs: { said: { value: action.hi.echo } }
 	info := testInfo(t, src)
 	_ = applyVia(t, info, "")
 
-	listOut, err := runCfg(t, info, "state", "list")
+	listOut, err := runWithStack(t, info, "state", "list")
 	require.NoError(t, err)
 	require.Contains(t, listOut, "* ")
 
-	showOut, err := runCfg(t, info, "state", "show")
+	showOut, err := runWithStack(t, info, "state", "show")
 	require.NoError(t, err)
 	require.Contains(t, showOut, "factory:")
 	require.Contains(t, showOut, "test-stack")
@@ -2219,7 +2220,7 @@ outputs: { said: { value: action.hi.echo } }
 func TestPlanFlagOverridesConfigParallelism(t *testing.T) {
 	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
-	cfg := writeStateConfig(t, `
+	cfg := writeStateStack(t, `
 parallelism: 3
 factory: { inputs: {} }
 `)
@@ -2235,7 +2236,7 @@ factory: { inputs: {} }
 func TestPlanFallsBackToConfigParallelism(t *testing.T) {
 	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
-	cfg := writeStateConfig(t, `
+	cfg := writeStateStack(t, `
 parallelism: 4
 factory: { inputs: {} }
 `)
@@ -2292,7 +2293,7 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 	info := testInfo(t, src)
 
 	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runCfg(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
+	_, err := runWithStack(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
 	require.NoError(t, err)
 
 	body, err := os.ReadFile(planFile)
@@ -2336,7 +2337,7 @@ constraints: [
 	require.Contains(t, err.Error(), "tls is required (var.replicas[1])")
 }
 
-func TestLoadConfigInputsResolvesLocals(t *testing.T) {
+func TestLoadStackInputsResolvesLocals(t *testing.T) {
 	path := writeConfig(t, `
 locals: {
   region: 'us-east-1'
@@ -2351,7 +2352,7 @@ factory: {
   }
 }
 `)
-	got, err := loadConfigInputs(parseTestConfig(t, path), path)
+	got, err := loadStackInputs(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
 		"region": "us-east-1",
@@ -2367,7 +2368,7 @@ func TestApplyUIServesRunView(t *testing.T) {
 	t.Cleanup(func() { uiLingerTimeout = old })
 
 	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello world' } }`)
-	configPath := writeStateConfig(t, "")
+	configPath := writeStateStack(t, "")
 	planFile := filepath.Join(t.TempDir(), "plan.json")
 	_, err := runRoot(t, info,
 		"plan", "--allow-version-mismatch", "-o", planFile, "-c", configPath)

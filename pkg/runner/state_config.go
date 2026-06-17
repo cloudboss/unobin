@@ -34,18 +34,18 @@ type stateConfig struct {
 }
 
 // parseStateConfig extracts the `state:` and `encryption:` declarations from
-// a pre-parsed stack config. A nil config or an absent declaration leaves the
+// a pre-parsed stack file. A nil stack file or an absent declaration leaves the
 // matching field nil and the caller falls back to defaults. The declarations
 // are already structurally validated; this function evaluates body expressions,
 // with the file's locals in scope, and packages the values for the resolver.
 // path is preserved only for error messages from Eval.
-func parseStateConfig(config *parsedConfig, path string) (*stateConfig, error) {
-	stack := configStack(config)
+func parseStateConfig(config *parsedStack, path string) (*stateConfig, error) {
+	stack := stackFile(config)
 	if stack == nil {
 		return &stateConfig{}, nil
 	}
 	sc := &stateConfig{}
-	ctx := configEvalContext(config)
+	ctx := stackEvalContext(config)
 	var stateErr, encErr error
 	if stack.State != nil {
 		sc.Backend, stateErr = readResolverDecl(
@@ -95,11 +95,11 @@ func readResolverDecl(
 }
 
 // defaultKeyEnvVar is the env var the resolver falls back to when a
-// config has no encryption block.
+// stack file has no encryption block.
 const defaultKeyEnvVar = "UB_STATE_KEY"
 
 // resolveEncrypter constructs the encrypter named by the parsed state
-// config. A nil ref means the operator omitted the encryption block;
+// selections. A nil ref means the operator omitted the encryption block;
 // the resolver falls back to env-key against the default key env var,
 // or the no-op if that env var is unset.
 func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
@@ -121,7 +121,7 @@ func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
 }
 
 // resolveBackend constructs the backend named by the parsed state
-// config. A nil ref means the config has no state: block, which is an
+// selections. A nil ref means the stack file has no state: block, which is an
 // error: a state backend must be configured explicitly.
 func resolveBackend(
 	ref *resolverRef,
