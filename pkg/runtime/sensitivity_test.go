@@ -227,34 +227,31 @@ resources: {
 }
 
 func TestSensitivityPropagatesCompositeOutputDeclared(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "box", `
 inputs: { message: { type: string } }
 
-resources: { local.file.this: { path: 'x.txt', content: var.message } }
+resources: { this: local.file { path: 'x.txt', content: var.message } }
 
-outputs: { token: { value: resource.local.file.this.sha256, @sensitive: true } }
+outputs: { token: { value: resource.this.sha256, @sensitive: true } }
 `)
+	composite.Libraries = map[string]*Library{"local": {Name: "local"}}
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			ResourceComposites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
-					"local": {Name: "local"},
-				}},
+				"box": composite,
 			},
 		},
 		"local": {Name: "local"},
 	}
-	stack := parseStack(t, `
+	dag, an := syntaxSensitivity(t, `
 resources: {
-  wrap.box.one: { message: 'hi' }
-  local.file.f: { path: 'out.txt', content: resource.wrap.box.one.token }
+  one: wrap.box { message: 'hi' }
+  f:   local.file { path: 'out.txt', content: resource.one.token }
 }
-`)
-	dag := BuildDAG(stack, libs)
-	an := newSensitivityAnalyzer(stack, libs, dag)
+`, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.f"]
 	require.NotNil(t, node)
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Equal(t, []string{"content"}, got)
@@ -273,7 +270,6 @@ box: resource {
 			ResourceComposites: map[string]*CompositeType{
 				"box": {
 					Name:       "box",
-					Body:       &lang.File{Body: &lang.ObjectLit{}},
 					SyntaxBody: &body,
 				},
 			},
@@ -311,7 +307,6 @@ box: resource {
 			ResourceComposites: map[string]*CompositeType{
 				"box": {
 					Name:       "box",
-					Body:       &lang.File{Body: &lang.ObjectLit{}},
 					SyntaxBody: &body,
 					Libraries:  map[string]*Library{"local": {Name: "local"}},
 				},
@@ -334,43 +329,35 @@ factory: {
 }
 
 func TestSensitivityPropagatesThroughCompositeOutputFromGoField(t *testing.T) {
-	composite := parseStack(t, `
-resources: { vault.secret.this: { name: 'x' } }
+	vault := &Library{
+		Name: "vault",
+		Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
+			"secret": {SensitiveOutputs: []string{"value"}},
+		}},
+	}
+	composite := syntaxResourceComposite(t, "box", `
+resources: { this: vault.secret { name: 'x' } }
 
-outputs: { forwarded: { value: resource.vault.secret.this.value } }
+outputs: { forwarded: { value: resource.this.value } }
 `)
+	composite.Libraries = map[string]*Library{"vault": vault}
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			ResourceComposites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
-					"vault": {
-						Name: "vault",
-						Schema: &LibrarySchema{
-							Resources: map[string]*TypeSchema{
-								"secret": {
-									SensitiveOutputs: []string{
-										"value",
-									},
-								},
-							},
-						},
-					},
-				}},
+				"box": composite,
 			},
 		},
 		"local": {Name: "local"},
 	}
-	stack := parseStack(t, `
+	dag, an := syntaxSensitivity(t, `
 resources: {
-  wrap.box.one: {}
-  local.file.f: { path: 'out.txt', content: resource.wrap.box.one.forwarded }
+  one: wrap.box {}
+  f:   local.file { path: 'out.txt', content: resource.one.forwarded }
 }
-`)
-	dag := BuildDAG(stack, libs)
-	an := newSensitivityAnalyzer(stack, libs, dag)
+`, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.f"]
 	require.NotNil(t, node)
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Equal(t, []string{"content"}, got,
@@ -378,75 +365,64 @@ resources: {
 }
 
 func TestSensitivityNoFalsePositiveOnPlainComposite(t *testing.T) {
-	composite := parseStack(t, `
-resources: { vault.secret.this: { name: 'x' } }
+	vault := &Library{
+		Name: "vault",
+		Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
+			"secret": {SensitiveOutputs: []string{"value"}},
+		}},
+	}
+	composite := syntaxResourceComposite(t, "box", `
+resources: { this: vault.secret { name: 'x' } }
 
-outputs: { arn: { value: resource.vault.secret.this.arn } }
+outputs: { arn: { value: resource.this.arn } }
 `)
+	composite.Libraries = map[string]*Library{"vault": vault}
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			ResourceComposites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
-					"vault": {
-						Name: "vault",
-						Schema: &LibrarySchema{
-							Resources: map[string]*TypeSchema{
-								"secret": {
-									SensitiveOutputs: []string{
-										"value",
-									},
-								},
-							},
-						},
-					},
-				}},
+				"box": composite,
 			},
 		},
 		"local": {Name: "local"},
 	}
-	stack := parseStack(t, `
+	dag, an := syntaxSensitivity(t, `
 resources: {
-  wrap.box.one: {}
-  local.file.f: { path: 'out.txt', content: resource.wrap.box.one.arn }
+  one: wrap.box {}
+  f:   local.file { path: 'out.txt', content: resource.one.arn }
 }
-`)
-	dag := BuildDAG(stack, libs)
-	an := newSensitivityAnalyzer(stack, libs, dag)
+`, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.f"]
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Empty(t, got)
 }
 
 func TestSensitivityInsideCompositeUsesCompositeInputs(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "box", `
 inputs: { password: { type: string, @sensitive: true } }
 
-resources: { local.file.this: { path: 'x.txt', content: var.password } }
+resources: { this: local.file { path: 'x.txt', content: var.password } }
 
-outputs: { sha: { value: resource.local.file.this.sha256 } }
+outputs: { sha: { value: resource.this.sha256 } }
 `)
+	composite.Libraries = map[string]*Library{"local": {Name: "local"}}
 	libs := map[string]*Library{
 		"wrap": {
 			Name: "wrap",
 			ResourceComposites: map[string]*CompositeType{
-				"box": {Name: "box", Body: composite, Libraries: map[string]*Library{
-					"local": {Name: "local"},
-				}},
+				"box": composite,
 			},
 		},
 		"local": {Name: "local"},
 	}
-	stack := parseStack(t, `
-resources: { wrap.box.one: { password: 'shh' } }
-`)
-	dag := BuildDAG(stack, libs)
-	an := newSensitivityAnalyzer(stack, libs, dag)
+	dag, an := syntaxSensitivity(t, `
+resources: { one: wrap.box { password: 'shh' } }
+`, libs)
 
-	inner := dag.Nodes["resource.wrap.box.one/resource.local.file.this"]
+	inner := dag.Nodes["resource.one/resource.this"]
 	require.NotNil(t, inner, "internal node should exist")
-	require.Equal(t, "resource.wrap.box.one", inner.Composite)
+	require.Equal(t, "resource.one", inner.Composite)
 	got := an.sensitiveInputs(inner.Body, inner.Composite)
 	require.Equal(t, []string{"content"}, got,
 		"composite-internal node reading var.password should be flagged sensitive")

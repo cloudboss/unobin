@@ -395,6 +395,10 @@ func (s *sensitivityAnalyzer) nodeFieldSensitive(
 	if n == nil || field == "" {
 		return false
 	}
+	if n.IsComposite() {
+		cs := s.compositeSensitivity(n)
+		return cs != nil && cs.outputs[field]
+	}
 	lib := libs[n.Alias]
 	if lib == nil {
 		lib = n.Libraries[n.Alias]
