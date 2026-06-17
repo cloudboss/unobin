@@ -115,7 +115,7 @@ func TestDataSourceRead(t *testing.T) {
 }
 
 func TestLibraryHoldsCompositeTypes(t *testing.T) {
-	parsed := parseStack(t, "description: 'cluster'\n")
+	parsed := parseGenericFile(t, "description: 'cluster'\n")
 	lib := &Library{
 		Name: "net",
 		ResourceComposites: map[string]*CompositeType{

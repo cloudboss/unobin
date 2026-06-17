@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func parseStack(t *testing.T, src string) *lang.File {
+func parseGenericFile(t *testing.T, src string) *lang.File {
 	t.Helper()
 	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)

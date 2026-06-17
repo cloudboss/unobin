@@ -31,35 +31,15 @@ func parseSyntaxCompositeFixture(t *testing.T, src string) syntaxRuntimeFixture 
 	return syntaxRuntimeFixture{body: f.Library.Exports[0].Body}
 }
 
-func parseStack(t *testing.T, src string) *lang.File {
+// checkSyntaxReferences runs the typed reference check for tests that need only diagnostics.
+func checkSyntaxReferences(
+	t *testing.T,
+	src string,
+	libs map[string]*runtime.Library,
+) *lang.ErrorList {
 	t.Helper()
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-	if inputs := lang.TopLevelBlock(f, "inputs"); inputs != nil {
-		errs := lang.ValidateInputDeclarations(inputs)
-		require.Equal(t, 0, errs.Len(), errs.Error())
-	}
-	return f
-}
-
-func newGenericChecker(f *lang.File, libs map[string]*runtime.Library) *Checker {
-	return newChecker(
-		f,
-		runtime.BuildDAG(f, libs),
-		runtime.InputNames(f),
-		localNames(f),
-		libs,
-	)
-}
-
-// checkReferences runs the reference check for tests that need only diagnostics.
-func checkReferences(f *lang.File, libs map[string]*runtime.Library) *lang.ErrorList {
-	return newGenericChecker(f, libs).References(nil)
-}
-
-// checkLiteralConstraints mirrors checkReferences for the literal constraint check.
-func checkLiteralConstraints(f *lang.File, libs map[string]*runtime.Library) *lang.ErrorList {
-	return newGenericChecker(f, libs).LiteralConstraints()
+	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	return NewSyntax(fixture.body, libs).References(nil)
 }
 
 func parseValue(t *testing.T, src string) lang.Expr {

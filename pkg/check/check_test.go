@@ -11,29 +11,29 @@ import (
 )
 
 func TestCheckReferencesRootScope(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs:    { path: { type: string } }
-resources: { local.file.one: { path: var.missing, content: resource.local.file.absent.content } }
+resources: { one: local.file { path: var.missing, content: resource.absent.content } }
 outputs: {
-  good: { value: resource.local.file.one.path }
-  bad:  { value: data.core.lookup.missing.value }
+  good: { value: resource.one.path }
+  bad:  { value: data.missing.value }
 }
-`), nil)
+`, nil)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 3)
 	require.Contains(t, got[0], `unknown input "missing"`)
-	require.Contains(t, got[1], `unknown resource "resource.local.file.absent"`)
-	require.Contains(t, got[2], `unknown data "data.core.lookup.missing"`)
+	require.Contains(t, got[1], `unknown resource "resource.absent"`)
+	require.Contains(t, got[2], `unknown data "data.missing"`)
 }
 
 func TestCheckReferencesLocalsValid(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs:    { env: { type: string } }
 locals:    { base: var.env, derived: local.base }
-resources: { local.file.one: { path: local.derived } }
-outputs:   { p: { value: resource.local.file.one.path } }
-`), nil)
+resources: { one: local.file { path: local.derived } }
+outputs:   { p: { value: resource.one.path } }
+`, nil)
 	require.Empty(t, checkRefMessages(t, errs))
 }
 
@@ -97,11 +97,11 @@ factory: {
 }
 
 func TestCheckReferencesUnknownLocal(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 outputs: {
   bad: { value: local.nope }
 }
-`), nil)
+`, nil)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `unknown local "nope"`)
@@ -129,8 +129,8 @@ func TestCheckReferencesSplat(t *testing.T) {
 		{
 			name: "bare splat on a resource output",
 			stack: "inputs: { p: { type: string } }\n" +
-				"resources: { local.file.one: { path: var.p } }\n" +
-				"outputs: { bad: { value: resource.local.file.one.path[*] } }\n",
+				"resources: { one: local.file { path: var.p } }\n" +
+				"outputs: { bad: { value: resource.one.path[*] } }\n",
 			want: []string{bare},
 		},
 		{
@@ -148,7 +148,7 @@ func TestCheckReferencesSplat(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, c.stack), nil)
+			errs := checkSyntaxReferences(t, c.stack, nil)
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
@@ -181,9 +181,9 @@ func TestCheckReferencesFunctionExists(t *testing.T) {
 			},
 		}},
 	}
-	errs := checkReferences(parseStack(t, `
-actions: { core.command.x: { argv: [core.format('%s', 'hi')] } }
-`), libs)
+	errs := checkSyntaxReferences(t, `
+actions: { x: core.command { argv: [core.format('%s', 'hi')] } }
+`, libs)
 	require.Empty(t, checkRefMessages(t, errs))
 }
 
@@ -196,9 +196,9 @@ func TestCheckReferencesUnknownFunction(t *testing.T) {
 			},
 		}},
 	}
-	errs := checkReferences(parseStack(t, `
-actions: { core.command.x: { argv: [core.formatt('%s', 'hi')] } }
-`), libs)
+	errs := checkSyntaxReferences(t, `
+actions: { x: core.command { argv: [core.formatt('%s', 'hi')] } }
+`, libs)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `library "core" has no function "formatt"`)
@@ -222,11 +222,11 @@ func TestCheckReferencesCoreNamespace(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, `
+			errs := checkSyntaxReferences(t, `
 actions: {
-  ext.thing.x: { argv: [`+tt.call+`] }
+  x: ext.thing { argv: [`+tt.call+`] }
 }
-`), libs)
+`, libs)
 			got := checkRefMessages(t, errs)
 			if tt.want == "" {
 				require.Empty(t, got)
@@ -262,8 +262,8 @@ func TestCheckReferencesFunctionArity(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src := "actions: {\n  core.command.x: { argv: [" + c.call + "] }\n}\n"
-			got := checkRefMessages(t, checkReferences(parseStack(t, src), libs))
+			src := "actions: {\n  x: core.command { argv: [" + c.call + "] }\n}\n"
+			got := checkRefMessages(t, checkSyntaxReferences(t, src, libs))
 			if c.want == "" {
 				require.Empty(t, got)
 				return
@@ -275,32 +275,32 @@ func TestCheckReferencesFunctionArity(t *testing.T) {
 }
 
 func TestCheckReferencesLocalReadsUnknownInput(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 locals: { x: var.missing }
 outputs: { o: { value: local.x } }
-`), nil)
+`, nil)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `unknown input "missing"`)
 }
 
 func TestCheckReferencesLocalCycle(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 locals: {
   a: local.b
   b: local.a
 }
 outputs: { o: { value: local.a } }
-`), nil)
+`, nil)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `is part of a cycle`)
 }
 
 func TestCheckReferencesResourceModuleMustBeImported(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-resources: { greeter.greeting.welcome: { message: 'hello' } }
-`), map[string]*runtime.Library{
+	errs := checkSyntaxReferences(t, `
+resources: { welcome: greeter.greeting { message: 'hello' } }
+`, map[string]*runtime.Library{
 		"local": {},
 	})
 
@@ -310,14 +310,17 @@ resources: { greeter.greeting.welcome: { message: 'hello' } }
 }
 
 func TestCheckReferencesDeclarationCategory(t *testing.T) {
-	greeting := parseStack(t, `
-inputs:  { message: { type: string } }
-outputs: { said: { value: var.message } }
+	greeting := parseSyntaxCompositeFixture(t, `
+greeting: action {
+  inputs:  { message: { type: string } }
+  outputs: { said: { value: var.message } }
+}
 `)
+	body := greeting.body
 	libs := func() map[string]*runtime.Library {
 		return map[string]*runtime.Library{
 			"greeter": {ActionComposites: map[string]*runtime.CompositeType{
-				"greeting": {Name: "greeting", Kind: runtime.NodeAction, Body: greeting},
+				"greeting": {Name: "greeting", Kind: runtime.NodeAction, SyntaxBody: &body},
 			}},
 			"cloud": {Schema: &runtime.LibrarySchema{
 				Resources: map[string]*runtime.TypeSchema{"vpc": {}},
@@ -332,102 +335,108 @@ outputs: { said: { value: var.message } }
 	}{
 		{
 			name: "action composite used as a resource",
-			src:  "resources: { greeter.greeting.x: { message: 'hi' } }\n",
+			src:  "resources: { x: greeter.greeting { message: 'hi' } }\n",
 			want: []string{`library "greeter" has no resource "greeting"`},
 		},
 		{
 			name: "action composite used as an action",
-			src:  "actions: { greeter.greeting.x: { message: 'hi' } }\n",
+			src:  "actions: { x: greeter.greeting { message: 'hi' } }\n",
 		},
 		{
 			name: "go action used as a resource",
-			src:  "resources: { cloud.ping.x: {} }\n",
+			src:  "resources: { x: cloud.ping {} }\n",
 			want: []string{`library "cloud" has no resource "ping"`},
 		},
 		{
 			name: "go resource used as data",
-			src:  "data: { cloud.vpc.x: {} }\n",
+			src:  "data: { x: cloud.vpc {} }\n",
 			want: []string{`library "cloud" has no data "vpc"`},
 		},
 		{
 			name: "go resource used as a resource",
-			src:  "resources: { cloud.vpc.x: {} }\n",
+			src:  "resources: { x: cloud.vpc {} }\n",
 		},
 		{
 			name: "unknown type",
-			src:  "resources: { cloud.nope.x: {} }\n",
+			src:  "resources: { x: cloud.nope {} }\n",
 			want: []string{`library "cloud" has no resource "nope"`},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, c.src), libs())
+			errs := checkSyntaxReferences(t, c.src, libs())
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
 }
 
 func TestCheckReferencesCompositeScope(t *testing.T) {
-	composite := parseStack(t, `
-inputs: { path: { type: string } }
-resources: {
-  local.file.one: { path: var.path, content: 'hello' }
-  local.file.two: { path: resource.local.file.one.path, content: 'world' }
+	composite := parseSyntaxCompositeFixture(t, `
+file-pair: resource {
+  inputs: { path: { type: string } }
+  resources: {
+    one: local.file { path: var.path, content: 'hello' }
+    two: local.file { path: resource.one.path, content: 'world' }
+  }
+  outputs: { path: { value: resource.two.path } }
 }
-outputs: { path: { value: resource.local.file.two.path } }
 `)
+	body := composite.body
 	libs := map[string]*runtime.Library{
 		"bundle": {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"file-pair": {
-					Name:      "file-pair",
-					Body:      composite,
-					Libraries: map[string]*runtime.Library{"local": {}},
+					Name:       "file-pair",
+					SyntaxBody: &body,
+					Libraries:  map[string]*runtime.Library{"local": {}},
 				},
 			},
 		},
 	}
 
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs:    { target: { type: string } }
-resources: { bundle.file-pair.demo: { path: var.target } }
-outputs:   { path: { value: resource.bundle.file-pair.demo.path } }
-`), libs)
+resources: { demo: bundle.file-pair { path: var.target } }
+outputs:   { path: { value: resource.demo.path } }
+`, libs)
 
 	require.Empty(t, checkRefMessages(t, errs))
 }
 
 func TestCheckReferencesCompositeUnknownsUseCompositeScope(t *testing.T) {
-	composite := parseStack(t, `
-inputs:    { path: { type: string } }
-resources: { local.file.one: { path: var.missing, content: resource.local.file.absent.content } }
-outputs:   { path: { value: resource.local.file.one.path } }
+	composite := parseSyntaxCompositeFixture(t, `
+file-pair: resource {
+  inputs:    { path: { type: string } }
+  resources: { one: local.file { path: var.missing, content: resource.absent.content } }
+  outputs:   { path: { value: resource.one.path } }
+}
 `)
+	body := composite.body
 	libs := map[string]*runtime.Library{
 		"bundle": {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"file-pair": {
-					Name:      "file-pair",
-					Body:      composite,
-					Libraries: map[string]*runtime.Library{"local": {}},
+					Name:       "file-pair",
+					SyntaxBody: &body,
+					Libraries:  map[string]*runtime.Library{"local": {}},
 				},
 			},
 		},
 	}
 
-	errs := checkReferences(parseStack(t, `
-resources: { bundle.file-pair.demo: { path: 'x.txt' } }
-`), libs)
+	errs := checkSyntaxReferences(t, `
+resources: { demo: bundle.file-pair { path: 'x.txt' } }
+`, libs)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 2)
 	require.Contains(t, got[0], `unknown input "missing"`)
 	require.Contains(t, got[1],
-		`unknown resource "resource.bundle.file-pair.demo/resource.local.file.absent"`)
+		`unknown resource "resource.demo/resource.absent"`)
 }
 
 func TestCheckReferencesConstraintPredicateRootScope(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs: {
   region: { type: string }
 }
@@ -439,7 +448,7 @@ constraints: [
     message: 'should error'
   }
 ]
-`), nil)
+`, nil)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 2)
@@ -448,27 +457,30 @@ constraints: [
 }
 
 func TestCheckReferencesConstraintPredicateCompositeScope(t *testing.T) {
-	composite := parseStack(t, `
-inputs:      { region: { type: string } }
-constraints: [{ kind: predicate, when: var.bogus == 'x', require: var.region == 'y' }]
-resources:   { local.file.one: { path: var.region, content: 'hi' } }
-outputs:     { path: { value: resource.local.file.one.path } }
+	composite := parseSyntaxCompositeFixture(t, `
+thing: resource {
+  inputs:      { region: { type: string } }
+  constraints: [{ kind: predicate, when: var.bogus == 'x', require: var.region == 'y' }]
+  resources:   { one: local.file { path: var.region, content: 'hi' } }
+  outputs:     { path: { value: resource.one.path } }
+}
 `)
+	body := composite.body
 	libs := map[string]*runtime.Library{
 		"bundle": {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"thing": {
-					Name:      "thing",
-					Body:      composite,
-					Libraries: map[string]*runtime.Library{"local": {}},
+					Name:       "thing",
+					SyntaxBody: &body,
+					Libraries:  map[string]*runtime.Library{"local": {}},
 				},
 			},
 		},
 	}
 
-	errs := checkReferences(parseStack(t, `
-resources: { bundle.thing.demo: { region: 'us-east-1' } }
-`), libs)
+	errs := checkSyntaxReferences(t, `
+resources: { demo: bundle.thing { region: 'us-east-1' } }
+`, libs)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -476,14 +488,14 @@ resources: { bundle.thing.demo: { region: 'us-east-1' } }
 }
 
 func TestCheckReferencesUnknownTrailingField(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs:    { path: { type: string } }
-resources: { local.file.one: { path: var.path, content: 'hi' } }
+resources: { one: local.file { path: var.path, content: 'hi' } }
 outputs: {
-  ok:  { value: resource.local.file.one.path }
-  bad: { value: resource.local.file.one.bogus }
+  ok:  { value: resource.one.path }
+  bad: { value: resource.one.bogus }
 }
-`), map[string]*runtime.Library{
+`, map[string]*runtime.Library{
 		"local": {Schema: &runtime.LibrarySchema{
 			Resources: map[string]*runtime.TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{
@@ -502,10 +514,10 @@ outputs: {
 }
 
 func TestCheckReferencesActionFieldMustExist(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-actions: { core.command.x: { argv: ['true'] } }
-outputs: { bad: { value: action.core.command.x.nope } }
-`), map[string]*runtime.Library{
+	errs := checkSyntaxReferences(t, `
+actions: { x: core.command { argv: ['true'] } }
+outputs: { bad: { value: action.x.nope } }
+`, map[string]*runtime.Library{
 		"core": {Schema: &runtime.LibrarySchema{
 			Actions: map[string]*runtime.TypeSchema{
 				"command": {Outputs: map[string]typecheck.Type{
@@ -530,7 +542,7 @@ outputs: {
   bad: { value: local.doubled + 'x' }
 }
 `
-	errs := checkReferences(parseStack(t, src), nil)
+	errs := checkSyntaxReferences(t, src, nil)
 	var got []string
 	for _, e := range errs.Errors() {
 		got = append(got, e.Msg)
@@ -541,16 +553,19 @@ outputs: {
 }
 
 func TestCheckReferencesCompositeOutputMustBeDeclared(t *testing.T) {
-	composite := parseStack(t, `
-resources: { local.file.one: { path: 'x.txt', content: 'hi' } }
-outputs:   { path: { value: resource.local.file.one.path } }
+	composite := parseSyntaxCompositeFixture(t, `
+thing: resource {
+  resources: { one: local.file { path: 'x.txt', content: 'hi' } }
+  outputs:   { path: { value: resource.one.path } }
+}
 `)
+	body := composite.body
 	libs := map[string]*runtime.Library{
 		"bundle": {
 			ResourceComposites: map[string]*runtime.CompositeType{
 				"thing": {
-					Name: "thing",
-					Body: composite,
+					Name:       "thing",
+					SyntaxBody: &body,
 					Libraries: map[string]*runtime.Library{"local": {
 						Schema: &runtime.LibrarySchema{
 							Resources: map[string]*runtime.TypeSchema{
@@ -567,13 +582,13 @@ outputs:   { path: { value: resource.local.file.one.path } }
 		},
 	}
 
-	errs := checkReferences(parseStack(t, `
-resources: { bundle.thing.demo: {} }
+	errs := checkSyntaxReferences(t, `
+resources: { demo: bundle.thing {} }
 outputs: {
-  ok:  { value: resource.bundle.thing.demo.path }
-  bad: { value: resource.bundle.thing.demo.bogus }
+  ok:  { value: resource.demo.path }
+  bad: { value: resource.demo.bogus }
 }
-`), libs)
+`, libs)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -581,10 +596,10 @@ outputs: {
 }
 
 func TestCheckReferencesDataSourceFieldMustExist(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-data:    { aws.ami.ubuntu: { most-recent: true } }
-outputs: { ok: { value: data.aws.ami.ubuntu.id }, bad: { value: data.aws.ami.ubuntu.misspelled } }
-`), map[string]*runtime.Library{
+	errs := checkSyntaxReferences(t, `
+data:    { ubuntu: aws.ami { most-recent: true } }
+outputs: { ok: { value: data.ubuntu.id }, bad: { value: data.ubuntu.misspelled } }
+`, map[string]*runtime.Library{
 		"aws": {Schema: &runtime.LibrarySchema{
 			DataSources: map[string]*runtime.TypeSchema{
 				"ami": {Outputs: map[string]typecheck.Type{
@@ -602,14 +617,14 @@ outputs: { ok: { value: data.aws.ami.ubuntu.id }, bad: { value: data.aws.ami.ubu
 }
 
 func TestCheckReferencesForEachInstanceFieldMustExist(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs:    { names: { type: map(string) } }
-resources: { local.file.many: { @for-each: var.names, path: @each.value, content: 'hello' } }
+resources: { many: local.file { @for-each: var.names, path: @each.value, content: 'hello' } }
 outputs: {
-  ok:  { value: resource.local.file.many['greet'].path }
-  bad: { value: resource.local.file.many['greet'].whatever }
+  ok:  { value: resource.many['greet'].path }
+  bad: { value: resource.many['greet'].whatever }
 }
-`), map[string]*runtime.Library{
+`, map[string]*runtime.Library{
 		"local": {Schema: &runtime.LibrarySchema{
 			Resources: map[string]*runtime.TypeSchema{
 				"file": {Outputs: map[string]typecheck.Type{
@@ -626,10 +641,10 @@ outputs: {
 }
 
 func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-resources: { local.file.one: { path: 'x.txt' } }
-outputs:   { anything: { value: resource.local.file.one.whatever } }
-`), map[string]*runtime.Library{
+	errs := checkSyntaxReferences(t, `
+resources: { one: local.file { path: 'x.txt' } }
+outputs:   { anything: { value: resource.one.whatever } }
+`, map[string]*runtime.Library{
 		"local": {},
 	})
 
@@ -637,18 +652,18 @@ outputs:   { anything: { value: resource.local.file.one.whatever } }
 }
 
 func TestCheckReferencesEachScope(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs: { files: { type: map(string) } }
 resources: {
-  local.file.many: { @for-each: var.files, path: @each.key, content: @each.value }
-  local.file.mirror: {
+  many: local.file { @for-each: var.files, path: @each.key, content: @each.value }
+  mirror: local.file {
     @for-each: var.files
-    path:      resource.local.file.many[@each.key].path
+    path:      resource.many[@each.key].path
     content:   @each.value
   }
-  local.file.bad: { path: @each.key, content: 'no loop' }
+  bad: local.file { path: @each.key, content: 'no loop' }
 }
-`), nil)
+`, nil)
 
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
@@ -656,14 +671,14 @@ resources: {
 }
 
 func TestCheckReferencesUnknownAtRoots(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 inputs: { files: { type: map(string) } }
 locals: { greeting: @core.greeting }
 resources: {
-  local.file.many: { @for-each: var.files, path: @eech.key, content: @each.value }
-  local.file.one:  { path: @rule.value, content: 'x' }
+  many: local.file { @for-each: var.files, path: @eech.key, content: @each.value }
+  one: local.file { path: @rule.value, content: 'x' }
 }
-`), nil)
+`, nil)
 
 	got := checkRefMessages(t, errs)
 	require.Equal(t, []string{
@@ -708,8 +723,8 @@ func TestCheckReferencesFunctionArgumentTypes(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src := "actions: {\n  core.command.x: { argv: [" + c.call + "] }\n}\n"
-			errs := checkReferences(parseStack(t, src), libs)
+			src := "actions: {\n  x: core.command { argv: [" + c.call + "] }\n}\n"
+			errs := checkSyntaxReferences(t, src, libs)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -739,9 +754,9 @@ func TestCheckReferencesFunctionOnUBLibrary(t *testing.T) {
 			},
 		},
 	}
-	errs := checkReferences(parseStack(t, `
-actions: { core.command.x: { argv: [w.fn('hi')] } }
-`), libs)
+	errs := checkSyntaxReferences(t, `
+actions: { x: core.command { argv: [w.fn('hi')] } }
+`, libs)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0],
@@ -764,9 +779,9 @@ func TestCheckReferencesConstraintRootsLimitedToVar(t *testing.T) {
 	src := `
 inputs:    { replicas: { type: optional(list(object({ port: optional(integer) }))) } }
 locals:    { limit: 3 }
-resources: { core.thing.x: { name: 'a' } }
+resources: { x: core.thing { name: 'a' } }
 constraints: [
-  { kind: predicate, when: true, require: resource.core.thing.x.id != null },
+  { kind: predicate, when: true, require: resource.x.id != null },
   { kind: predicate, when: true, require: local.limit > 0 },
   {
     kind:    predicate
@@ -775,14 +790,14 @@ constraints: [
   },
 ]
 `
-	errs := checkReferences(parseStack(t, src), libs)
+	errs := checkSyntaxReferences(t, src, libs)
 	var got []string
 	for _, e := range errs.Errors() {
 		got = append(got, e.Msg)
 	}
 	require.Len(t, got, 2, "got: %v", got)
 	require.Contains(t, got[0],
-		"a constraint may read inputs only, not resource.core.thing.x.id")
+		"a constraint may read inputs only, not resource.x.id")
 	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
 }
 
@@ -797,18 +812,21 @@ func TestCheckReferencesConfigurationRefs(t *testing.T) {
 			},
 		}}
 	}
-	composite := parseStack(t, `
-inputs:  { name: { type: string } }
-actions: { greet.say.hello: { message: var.name } }
+	composite := parseSyntaxCompositeFixture(t, `
+wrap: action {
+  inputs:  { name: { type: string } }
+  actions: { hello: greet.say { message: var.name } }
+}
 `)
+	body := composite.body
 	libs := func() map[string]*runtime.Library {
 		return map[string]*runtime.Library{
 			"greet": greetLib(),
 			"bundle": {ActionComposites: map[string]*runtime.CompositeType{"wrap": {
-				Name:      "wrap",
-				Kind:      runtime.NodeAction,
-				Body:      composite,
-				Libraries: map[string]*runtime.Library{"greet": greetLib()},
+				Name:       "wrap",
+				Kind:       runtime.NodeAction,
+				SyntaxBody: &body,
+				Libraries:  map[string]*runtime.Library{"greet": greetLib()},
 			}}},
 		}
 	}
@@ -820,43 +838,43 @@ actions: { greet.say.hello: { message: var.name } }
 		{
 			name: "leaf configuration reference",
 			src: `
-configurations: { greet.formal: {} }
-actions: { greet.say.formal: { @configuration: configuration.formal, message: 'w' } }
+configurations: { formal: greet {} }
+actions: { formal: greet.say { @configuration: configuration.formal, message: 'w' } }
 `,
 		},
 		{
 			name: "composite configurations map",
 			src: `
-configurations: { greet.formal: {} }
-actions: { bundle.wrap.formal: { @configurations: { greet: configuration.formal }, name: 'w' } }
+configurations: { formal: greet {} }
+actions: { formal: bundle.wrap { @configurations: { greet: configuration.formal }, name: 'w' } }
 `,
 		},
 		{
 			name: "unknown alias in a configuration reference",
 			src: `
-configurations: { nope.formal: {} }
-actions: { greet.say.formal: { @configuration: configuration.formal, message: 'w' } }
+configurations: { formal: nope {} }
+actions: { formal: greet.say { @configuration: configuration.formal, message: 'w' } }
 `,
 			want: []string{`configuration.formal: library "nope" is not imported`},
 		},
 		{
 			name: "bare name is not a configuration reference",
 			src: `
-actions: { greet.say.formal: { @configuration: formal, message: 'w' } }
+actions: { formal: greet.say { @configuration: formal, message: 'w' } }
 `,
 			want: []string{"@configuration takes configuration.<name>"},
 		},
 		{
 			name: "string is not a configuration reference",
 			src: `
-actions: { greet.say.formal: { @configuration: 'greet.formal', message: 'w' } }
+actions: { formal: greet.say { @configuration: 'greet.formal', message: 'w' } }
 `,
 			want: []string{"@configuration takes configuration.<name>"},
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, tt.src), libs())
+			errs := checkSyntaxReferences(t, tt.src, libs())
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -921,7 +939,7 @@ outputs: { ok: { value: [ for s in var.subnets : s.cidr ] } }
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, tt.src), nil)
+			errs := checkSyntaxReferences(t, tt.src, nil)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -941,7 +959,7 @@ func TestCheckReferencesForEachKinds(t *testing.T) {
 			name: "node fan-out over a list",
 			src: `
 inputs:    { names: { type: list(string) } }
-resources: { local.file.one: { @for-each: var.names, path: @each.value } }
+resources: { one: local.file { @for-each: var.names, path: @each.value } }
 `,
 			want: []string{
 				"@for-each: iterable must be a map, got list(string); " +
@@ -952,7 +970,7 @@ resources: { local.file.one: { @for-each: var.names, path: @each.value } }
 			name: "node fan-out over an optional list",
 			src: `
 inputs:    { names: { type: optional(list(string)) } }
-resources: { local.file.one: { @for-each: var.names, path: @each.value } }
+resources: { one: local.file { @for-each: var.names, path: @each.value } }
 `,
 			want: []string{
 				"@for-each: iterable may be null; supply a fallback, like " +
@@ -964,7 +982,7 @@ resources: { local.file.one: { @for-each: var.names, path: @each.value } }
 			src: `
 inputs: { tags: { type: optional(map(string)) } }
 resources: {
-  local.file.one: { @for-each: if var.tags == null then {} else var.tags, path: @each.value }
+  one: local.file { @for-each: if var.tags == null then {} else var.tags, path: @each.value }
 }
 `,
 		},
@@ -981,7 +999,7 @@ constraints: [
 			name: "node fan-out over a scalar",
 			src: `
 inputs:    { name: { type: string } }
-resources: { local.file.one: { @for-each: var.name, path: @each.value } }
+resources: { one: local.file { @for-each: var.name, path: @each.value } }
 `,
 			want: []string{"@for-each: iterable must be a map, got string"},
 		},
@@ -989,14 +1007,14 @@ resources: { local.file.one: { @for-each: var.name, path: @each.value } }
 			name: "node fan-out over a map",
 			src: `
 inputs:    { tags: { type: map(string) } }
-resources: { local.file.one: { @for-each: var.tags, path: @each.value } }
+resources: { one: local.file { @for-each: var.tags, path: @each.value } }
 `,
 		},
 		{
 			name: "node fan-out over an object",
 			src: `
 inputs:    { cfg: { type: object({ a: string }) } }
-resources: { local.file.one: { @for-each: var.cfg, path: @each.key } }
+resources: { one: local.file { @for-each: var.cfg, path: @each.key } }
 `,
 		},
 		{
@@ -1022,7 +1040,7 @@ constraints: [
 			name: "node fan-out over bare opaque",
 			src: `
 inputs:    { blob: { type: opaque } }
-resources: { local.file.one: { @for-each: var.blob, path: @each.key } }
+resources: { one: local.file { @for-each: var.blob, path: @each.key } }
 `,
 			want: []string{
 				"@for-each: iterable is opaque; declare its type, like map(...)",
@@ -1032,7 +1050,7 @@ resources: { local.file.one: { @for-each: var.blob, path: @each.key } }
 			name: "node fan-out over optional opaque",
 			src: `
 inputs:    { blob: { type: optional(opaque) } }
-resources: { local.file.one: { @for-each: var.blob, path: @each.key } }
+resources: { one: local.file { @for-each: var.blob, path: @each.key } }
 `,
 			want: []string{
 				"@for-each: iterable is opaque; declare its type, like map(...)",
@@ -1042,7 +1060,7 @@ resources: { local.file.one: { @for-each: var.blob, path: @each.key } }
 			name: "node fan-out over a map of opaque",
 			src: `
 inputs:    { blobs: { type: map(opaque) } }
-resources: { local.file.one: { @for-each: var.blobs, path: @each.key } }
+resources: { one: local.file { @for-each: var.blobs, path: @each.key } }
 `,
 		},
 		{
@@ -1060,7 +1078,7 @@ constraints: [
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, tt.src), nil)
+			errs := checkSyntaxReferences(t, tt.src, nil)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -1093,9 +1111,9 @@ constraints: [
 ]
 `, "@each"},
 		{"for-each iterable reads inputs only", `
-resources:   { core.thing.x: { name: 'a' } }
-constraints: [{ kind: predicate, @for-each: resource.core.thing.x.id, when: true, require: true }]
-`, "a constraint may read inputs only, not resource.core.thing.x.id"},
+resources:   { x: core.thing { name: 'a' } }
+constraints: [{ kind: predicate, @for-each: resource.x.id, when: true, require: true }]
+`, "a constraint may read inputs only, not resource.x.id"},
 		{"chained bindings resolve", `
 inputs: {
   rules: { type: optional(list(object({ max: optional(number) }))) }
@@ -1155,11 +1173,11 @@ constraints: [
 ]
 `, "@b is not bound"},
 		{"level iterable reads inputs only", `
-resources: { core.thing.x: { name: 'a' } }
+resources: { x: core.thing { name: 'a' } }
 constraints: [
-  { kind: predicate, @for-each: [{ @a: resource.core.thing.x.id }], when: true, require: true },
+  { kind: predicate, @for-each: [{ @a: resource.x.id }], when: true, require: true },
 ]
-`, "a constraint may read inputs only, not resource.core.thing.x.id"},
+`, "a constraint may read inputs only, not resource.x.id"},
 	}
 	libs := map[string]*runtime.Library{
 		"core": {Schema: &runtime.LibrarySchema{
@@ -1170,7 +1188,7 @@ constraints: [
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, c.src), libs)
+			errs := checkSyntaxReferences(t, c.src, libs)
 			var got []string
 			for _, e := range errs.Errors() {
 				got = append(got, e.Msg)
@@ -1193,12 +1211,12 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 	}{
 		{
 			name:  "body field",
-			stack: "resources: { local.file.one: { path: tcp } }\n",
+			stack: "resources: { one: local.file { path: tcp } }\n",
 			want:  []string{`unknown name "tcp"; write 'tcp' for a string`},
 		},
 		{
 			name:  "array element",
-			stack: "resources: { local.file.one: { args: ['echo', verbose] } }\n",
+			stack: "resources: { one: local.file { args: ['echo', verbose] } }\n",
 			want:  []string{`unknown name "verbose"; write 'verbose' for a string`},
 		},
 		{
@@ -1271,7 +1289,7 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 		{
 			name: "bare each",
 			stack: "inputs: { files: { type: map(string) } }\n" +
-				"resources: { local.file.many: { @for-each: var.files, path: @each } }\n",
+				"resources: { many: local.file { @for-each: var.files, path: @each } }\n",
 			want: []string{`@each cannot stand alone; read @each.key or @each.value`},
 		},
 		{
@@ -1302,7 +1320,7 @@ func TestCheckReferencesBareIdents(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, c.stack), nil)
+			errs := checkSyntaxReferences(t, c.stack, nil)
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
@@ -1360,23 +1378,23 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		},
 		{
 			name: "field minus number",
-			stack: "resources: { core.thing.one: { name: 'a' } }\n" +
-				"outputs: { x: { value: resource.core.thing.one.size-1 } }\n",
+			stack: "resources: { one: core.thing { name: 'a' } }\n" +
+				"outputs: { x: { value: resource.one.size-1 } }\n",
 			want: []string{
 				`unknown field "size-1" on core.thing;` +
-					` write resource.core.thing.one.size - 1 to subtract`,
+					` write resource.one.size - 1 to subtract`,
 			},
 		},
 		{
 			name: "unknown field without a known prefix",
-			stack: "resources: { core.thing.one: { name: 'a' } }\n" +
-				"outputs: { x: { value: resource.core.thing.one.nope } }\n",
+			stack: "resources: { one: core.thing { name: 'a' } }\n" +
+				"outputs: { x: { value: resource.one.nope } }\n",
 			want: []string{`unknown field "nope" on core.thing`},
 		},
 		{
 			name: "each value minus number",
 			stack: "inputs: { files: { type: map(string) } }\n" +
-				"resources: { core.thing.many: { @for-each: var.files, name: @each.value-1 } }\n",
+				"resources: { many: core.thing { @for-each: var.files, name: @each.value-1 } }\n",
 			want: []string{
 				`@each.value-1 is not available; write @each.value - 1 to subtract`,
 			},
@@ -1384,37 +1402,37 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		{
 			name: "each segment without a known prefix",
 			stack: "inputs: { files: { type: map(string) } }\n" +
-				"resources: { core.thing.many: { @for-each: var.files, name: @each.foo } }\n",
+				"resources: { many: core.thing { @for-each: var.files, name: @each.foo } }\n",
 			want: []string{`@each.foo is not available`},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			errs := checkReferences(parseStack(t, c.stack), libs)
+			errs := checkSyntaxReferences(t, c.stack, libs)
 			require.Equal(t, c.want, checkRefMessages(t, errs))
 		})
 	}
 }
 
 func TestCheckReferencesNodeCycle(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
+	errs := checkSyntaxReferences(t, `
 resources: {
-  local.file.a: { path: resource.local.file.b.path }
-  local.file.b: { path: resource.local.file.a.path }
+  a: local.file { path: resource.b.path }
+  b: local.file { path: resource.a.path }
 }
-`), nil)
+`, nil)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], "reference cycle: "+
-		"resource.local.file.a -> resource.local.file.b -> resource.local.file.a")
+		"resource.a -> resource.b -> resource.a")
 }
 
 func TestCheckReferencesNodeSelfCycle(t *testing.T) {
-	errs := checkReferences(parseStack(t, `
-resources: { local.file.a: { path: resource.local.file.a.path } }
-`), nil)
+	errs := checkSyntaxReferences(t, `
+resources: { a: local.file { path: resource.a.path } }
+`, nil)
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0],
-		"reference cycle: resource.local.file.a -> resource.local.file.a")
+		"reference cycle: resource.a -> resource.a")
 }
