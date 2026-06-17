@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -96,93 +95,56 @@ func topLevelObject(t *testing.T, f *lang.File, key string) *lang.ObjectLit {
 	return nil
 }
 
-type dagNodeSummary struct {
-	Address       string
-	Kind          NodeKind
-	Alias         string
-	Type          string
-	Name          string
-	Composite     string
-	IsComposite   bool
-	Configuration ConfigRef
-	Edges         []string
-}
-
-func requireSyntaxDAGMatch(t *testing.T, fixture syntaxRuntimeFixture, libs map[string]*Library) {
+func extractSyntaxTestNodes(
+	t *testing.T,
+	src string,
+	libs map[string]*Library,
+) []*Node {
 	t.Helper()
-	legacy := BuildDAG(fixture.file, libs)
-	typed := BuildSyntaxDAG(fixture.body, libs)
-	require.Equal(t, dagSummary(legacy), dagSummary(typed))
-}
-
-func dagSummary(g *DAG) []dagNodeSummary {
-	addresses := make([]string, 0, len(g.Nodes))
-	for addr := range g.Nodes {
-		addresses = append(addresses, addr)
-	}
-	slices.Sort(addresses)
-	out := make([]dagNodeSummary, 0, len(addresses))
-	for _, addr := range addresses {
-		n := g.Nodes[addr]
-		edges := slices.Clone(g.Edges[addr])
-		slices.Sort(edges)
-		out = append(out, dagNodeSummary{
-			Address:       n.Address,
-			Kind:          n.Kind,
-			Alias:         n.Alias,
-			Type:          n.Type,
-			Name:          n.Name,
-			Composite:     n.Composite,
-			IsComposite:   n.IsComposite(),
-			Configuration: n.Configuration,
-			Edges:         edges,
-		})
-	}
-	return out
+	return extractSyntaxNodes(syntaxFactoryBody(t, src), "", libs)
 }
 
 func TestExtractNodesEmpty(t *testing.T) {
-	f := parseStack(t, `description: 'nothing here'`)
-	require.Empty(t, ExtractNodes(f, nil))
+	require.Empty(t, extractSyntaxTestNodes(t, `description: 'nothing here'`, nil))
 }
 
 func TestExtractNodesResources(t *testing.T) {
 	src := `
 resources: {
-  aws.vpc.main:           { cidr-block: '10.0.0.0/16' }
-  aws.vpc.backup:         { cidr-block: '10.1.0.0/16' }
-  aws.security-group.web: { name: 'web' }
+  main:   aws.vpc { cidr-block: '10.0.0.0/16' }
+  backup: aws.vpc { cidr-block: '10.1.0.0/16' }
+  web:    aws.security-group { name: 'web' }
 }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 3)
 
-	require.Equal(t, "resource.aws.vpc.main", got[0].Address)
+	require.Equal(t, "resource.main", got[0].Address)
 	require.Equal(t, NodeResource, got[0].Kind)
 	require.Equal(t, "aws", got[0].Alias)
 	require.Equal(t, "vpc", got[0].Type)
 	require.Equal(t, "main", got[0].Name)
 
-	require.Equal(t, "resource.aws.vpc.backup", got[1].Address)
-	require.Equal(t, "resource.aws.security-group.web", got[2].Address)
+	require.Equal(t, "resource.backup", got[1].Address)
+	require.Equal(t, "resource.web", got[2].Address)
 }
 
 func TestExtractNodesAllKinds(t *testing.T) {
 	src := `
-resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
-data:      { aws.ami.ubuntu: { most-recent: true } }
-actions:   { core.command.hello: { argv: ['echo'] } }
-outputs:   { vpc-id: { value: resource.aws.vpc.main.id }, static: { value: 'literal' } }
+resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
+data:      { ubuntu: aws.ami { most-recent: true } }
+actions:   { hello: core.command { argv: ['echo'] } }
+outputs:   { vpc-id: { value: resource.main.id }, static: { value: 'literal' } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	addresses := make([]string, len(got))
 	for i, n := range got {
 		addresses[i] = n.Address
 	}
 	require.Equal(t, []string{
-		"resource.aws.vpc.main",
-		"data.aws.ami.ubuntu",
-		"action.core.command.hello",
+		"resource.main",
+		"data.ubuntu",
+		"action.hello",
 		"output.vpc-id",
 		"output.static",
 	}, addresses)
@@ -210,7 +172,17 @@ factory: {
 }
 `)
 
-	requireSyntaxDAGMatch(t, fixture, nil)
+	got := BuildSyntaxDAG(fixture.body, nil)
+	require.Contains(t, got.Nodes, "default-configuration.std")
+	require.Contains(t, got.Nodes, "configuration.formal")
+	require.Contains(t, got.Nodes, "resource.hello")
+	require.Contains(t, got.Nodes, "resource.selected")
+	require.Contains(t, got.Nodes, "data.lookup")
+	require.Contains(t, got.Nodes, "action.show")
+	require.Contains(t, got.Nodes, "output.path")
+	require.Equal(t,
+		ConfigRef{Alias: "std", Name: "formal"},
+		got.Nodes["resource.selected"].Configuration)
 }
 
 func TestExtractSyntaxNodesMatchesCompositeDAG(t *testing.T) {
@@ -223,7 +195,10 @@ greeting: resource {
 }
 `)
 
-	requireSyntaxDAGMatch(t, fixture, nil)
+	got := BuildSyntaxDAG(fixture.body, nil)
+	require.Contains(t, got.Nodes, "resource.file")
+	require.Contains(t, got.Nodes, "output.path")
+	require.Contains(t, got.Edges["resource.file"], "var.path")
 }
 
 func TestExtractSyntaxNodesMatchesNestedCompositeDAG(t *testing.T) {
@@ -247,22 +222,28 @@ factory: {
   }
 }
 `)
+	layerBody := layer.body
+	clusterBody := cluster.body
 	libs := map[string]*Library{
 		"outer": {
 			Name: "outer",
 			ResourceComposites: map[string]*CompositeType{
-				"layer": {Name: "layer", Body: layer.file},
+				"layer": {Name: "layer", SyntaxBody: &layerBody},
 			},
 		},
 		"inner": {
 			Name: "inner",
 			ResourceComposites: map[string]*CompositeType{
-				"cluster": {Name: "cluster", Body: cluster.file},
+				"cluster": {Name: "cluster", SyntaxBody: &clusterBody},
 			},
 		},
 	}
 
-	requireSyntaxDAGMatch(t, fixture, libs)
+	got := BuildSyntaxDAG(fixture.body, libs)
+	require.Contains(t, got.Nodes, "resource.seed")
+	require.Contains(t, got.Nodes, "resource.app")
+	require.Contains(t, got.Nodes, "resource.app/resource.only")
+	require.Contains(t, got.Nodes, "resource.app/resource.only/resource.file")
 }
 
 func TestExtractSyntaxNodesUsesCompositeSyntaxBody(t *testing.T) {
@@ -360,19 +341,19 @@ factory: {
 func TestExtractNodesOutputBody(t *testing.T) {
 	src := `
 outputs: {
-  vpc-id: { value: resource.aws.vpc.main.id }
+  vpc-id: { value: resource.main.id }
 }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.IsType(t, &lang.DotPath{}, got[0].Body)
 }
 
 func TestExtractNodesResourceBody(t *testing.T) {
 	src := `
-resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
+resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	body, ok := got[0].Body.(*lang.ObjectLit)
 	require.True(t, ok)
@@ -381,53 +362,53 @@ resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
 }
 
 func TestExtractNodesExpandsComposite(t *testing.T) {
-	composite := parseStack(t, `
-resources: { local.file.greeting: { path: 'hello.txt', content: 'hi' } }
-outputs:   { greeting-path: { value: resource.local.file.greeting.path } }
+	composite := syntaxResourceComposite(t, "cluster", `
+resources: { greeting: local.file { path: 'hello.txt', content: 'hi' } }
+outputs:   { greeting-path: { value: resource.greeting.path } }
 `)
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
 			ResourceComposites: map[string]*CompositeType{
-				"cluster": {Name: "cluster", Body: composite},
+				"cluster": composite,
 			},
 		},
 	}
-	stack := parseStack(t, `
-resources: { net.cluster.web: { name: 'web' } }
-`)
-	got := ExtractNodes(stack, libs)
+	src := `
+resources: { web: net.cluster { name: 'web' } }
+`
+	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 
-	require.Equal(t, "resource.net.cluster.web", got[0].Address)
+	require.Equal(t, "resource.web", got[0].Address)
 	require.True(t, got[0].IsComposite())
 	require.Equal(t, NodeResource, got[0].Kind)
-	require.Equal(t, composite, got[0].CompositeBody)
+	require.Same(t, composite.SyntaxBody, got[0].CompositeSyntaxBody)
 	require.Empty(t, got[0].Composite)
 
-	require.Equal(t, "resource.net.cluster.web/resource.local.file.greeting", got[1].Address)
+	require.Equal(t, "resource.web/resource.greeting", got[1].Address)
 	require.Equal(t, NodeResource, got[1].Kind)
-	require.Equal(t, "resource.net.cluster.web", got[1].Composite)
+	require.Equal(t, "resource.web", got[1].Composite)
 	require.Equal(t, "local", got[1].Alias)
 	require.Equal(t, "file", got[1].Type)
 	require.Equal(t, "greeting", got[1].Name)
 }
 
 func TestExtractNodesCompositeDropsInternalOutputs(t *testing.T) {
-	composite := parseStack(t, `
-resources: { local.file.x: { path: 'x.txt' } }
-outputs:   { path: { value: resource.local.file.x.path } }
+	composite := syntaxResourceComposite(t, "t", `
+resources: { x: local.file { path: 'x.txt' } }
+outputs:   { path: { value: resource.x.path } }
 `)
 	libs := map[string]*Library{
 		"m": {
 			Name:               "m",
-			ResourceComposites: map[string]*CompositeType{"t": {Name: "t", Body: composite}},
+			ResourceComposites: map[string]*CompositeType{"t": composite},
 		},
 	}
-	stack := parseStack(t, `
-resources: { m.t.one: {} }
-`)
-	got := ExtractNodes(stack, libs)
+	src := `
+resources: { one: m.t {} }
+`
+	got := extractSyntaxTestNodes(t, src, libs)
 	for _, n := range got {
 		require.NotEqual(t, NodeOutput, n.Kind,
 			"output node should not become a DAG node; got %q", n.Address)
@@ -439,75 +420,75 @@ func TestExtractNodesNestedComposite(t *testing.T) {
 	// registered under library alias `inner-lib`. In a real project this
 	// would live in `cluster.ub`, listed in inner-lib's `library.ub`
 	// manifest as `exports: { cluster: 'cluster.ub' }`.
-	clusterBody := parseStack(t, `
+	clusterBody := syntaxResourceComposite(t, "cluster", `
 inputs: { path: { type: string } }
 
-resources: { local.file.x: { path: var.path } }
+resources: { x: local.file { path: var.path } }
 
-outputs: { path: { value: resource.local.file.x.path } }
+outputs: { path: { value: resource.x.path } }
 `)
 	// layerBody is the body file for the `layer` composite type registered
 	// under library alias `outer-lib`. Its body calls inner-lib's `cluster`
 	// composite, which is what makes this a nested composite.
-	layerBody := parseStack(t, `
+	layerBody := syntaxResourceComposite(t, "layer", `
 inputs: { target: { type: string } }
 
-resources: { inner-lib.cluster.only: { path: var.target } }
+resources: { only: inner-lib.cluster { path: var.target } }
 
-outputs: { path: { value: resource.inner-lib.cluster.only.path } }
+outputs: { path: { value: resource.only.path } }
 `)
 	libs := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
 			ResourceComposites: map[string]*CompositeType{
-				"layer": {Name: "layer", Body: layerBody},
+				"layer": layerBody,
 			},
 		},
 		"inner-lib": {
 			Name: "inner-lib",
 			ResourceComposites: map[string]*CompositeType{
-				"cluster": {Name: "cluster", Body: clusterBody},
+				"cluster": clusterBody,
 			},
 		},
 	}
-	stack := parseStack(t, `
-resources: { outer-lib.layer.mine: { target: '/tmp/x' } }
-`)
-	got := ExtractNodes(stack, libs)
+	src := `
+resources: { mine: outer-lib.layer { target: '/tmp/x' } }
+`
+	got := extractSyntaxTestNodes(t, src, libs)
 
 	byAddr := map[string]*Node{}
 	for _, n := range got {
 		byAddr[n.Address] = n
 	}
 
-	outerBoundary := byAddr["resource.outer-lib.layer.mine"]
+	outerBoundary := byAddr["resource.mine"]
 	require.NotNil(t, outerBoundary, "outer boundary at root address")
 	require.True(t, outerBoundary.IsComposite())
 	require.Equal(t, NodeResource, outerBoundary.Kind)
 	require.Empty(t, outerBoundary.Composite, "outer boundary has root scope")
 
-	innerBoundary := byAddr["resource.outer-lib.layer.mine/resource.inner-lib.cluster.only"]
+	innerBoundary := byAddr["resource.mine/resource.only"]
 	require.NotNil(t, innerBoundary, "inner boundary nested under outer")
 	require.True(t, innerBoundary.IsComposite())
 	require.Equal(t, NodeResource, innerBoundary.Kind)
-	require.Equal(t, "resource.outer-lib.layer.mine", innerBoundary.Composite,
+	require.Equal(t, "resource.mine", innerBoundary.Composite,
 		"inner boundary's direct parent is outer call site")
 
-	leafAddr := "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only/resource.local.file.x"
+	leafAddr := "resource.mine/resource.only/resource.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "leaf under inner composite")
 	require.Equal(t, NodeResource, leaf.Kind)
-	require.Equal(t, "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only", leaf.Composite,
+	require.Equal(t, "resource.mine/resource.only", leaf.Composite,
 		"leaf's direct parent is inner call site")
 }
 
 func TestExtractNodesResourceForEach(t *testing.T) {
 	src := `
-resources: { aws.instance.nodes: { @for-each: var.configs, instance-type: @each.value.size } }
+resources: { nodes: aws.instance { @for-each: var.configs, instance-type: @each.value.size } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
-	require.Equal(t, "resource.aws.instance.nodes", got[0].Address)
+	require.Equal(t, "resource.nodes", got[0].Address)
 	require.NotNil(t, got[0].ForEach, "@for-each iterable captured on the node")
 	dp, ok := got[0].ForEach.(*lang.DotPath)
 	require.True(t, ok, "iterable is a DotPath")
@@ -517,72 +498,70 @@ resources: { aws.instance.nodes: { @for-each: var.configs, instance-type: @each.
 
 func TestExtractNodesActionForEach(t *testing.T) {
 	src := `
-actions: { core.command.many: { @for-each: var.targets, argv: ['echo', @each.value] } }
+actions: { many: core.command { @for-each: var.targets, argv: ['echo', @each.value] } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
-	require.Equal(t, "action.core.command.many", got[0].Address)
+	require.Equal(t, "action.many", got[0].Address)
 	require.NotNil(t, got[0].ForEach)
 }
 
 func TestExtractNodesNoForEachLeavesFieldNil(t *testing.T) {
 	src := `
-resources: { aws.vpc.main: { cidr-block: '10.0.0.0/16' } }
+resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.Nil(t, got[0].ForEach)
 }
 
 func TestExtractNodesSkipsMalformed(t *testing.T) {
-	src := `
-resources: { aws: 'not an object', net.real.web: { size: 3 } }
-`
-	got := ExtractNodes(parseStack(t, src), nil)
-	require.Len(t, got, 1)
-	require.Equal(t, "resource.net.real.web", got[0].Address)
+	src := `factory: {
+resources: { aws: 'not an object', web: net.real { size: 3 } }
+}`
+	_, err := syntax.ParseSource("factory.ub", []byte(src))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "resource must be written as name: alias.export { ... }")
 }
 
 func TestExtractNodesReadsConfigurationAlias(t *testing.T) {
 	src := `
 resources: {
-  aws.instance.web:    { ami: 'ami-1' }
-  aws.instance.mirror: { @configuration: configuration.east2, ami: 'ami-2' }
+  web:    aws.instance { ami: 'ami-1' }
+  mirror: aws.instance { @configuration: configuration.east2, ami: 'ami-2' }
 }
-data:    { aws.ami.ubuntu: { @configuration: configuration.east2, most-recent: true } }
-actions: { core.command.probe: { @configuration: configuration.alt, argv: ['echo'] } }
+data:    { ubuntu: aws.ami { @configuration: configuration.east2, most-recent: true } }
+actions: { probe: core.command { @configuration: configuration.alt, argv: ['echo'] } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 4)
 
-	require.Equal(t, "resource.aws.instance.web", got[0].Address)
+	require.Equal(t, "resource.web", got[0].Address)
 	require.Empty(t, got[0].Configuration)
 
-	require.Equal(t, "resource.aws.instance.mirror", got[1].Address)
+	require.Equal(t, "resource.mirror", got[1].Address)
 	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, got[1].Configuration)
 
-	require.Equal(t, "data.aws.ami.ubuntu", got[2].Address)
+	require.Equal(t, "data.ubuntu", got[2].Address)
 	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, got[2].Configuration)
 
-	require.Equal(t, "action.core.command.probe", got[3].Address)
+	require.Equal(t, "action.probe", got[3].Address)
 	require.Equal(t, ConfigRef{Alias: "core", Name: "alt"}, got[3].Configuration)
 }
 
 func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {
 	src := `
 imports:   { net: 'github.com/example/net' }
-resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, name: 'east' } }
+resources: { east: net.cluster { @configurations: { aws: configuration.east2 }, name: 'east' } }
 `
-	composite := &CompositeType{
-		Body: parseStack(t, `description: 'noop'`),
-	}
+	composite := syntaxResourceComposite(t, "cluster", `description: 'noop'`)
 	libs := map[string]*Library{
 		"net": {
 			Name:               "net",
 			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	got := ExtractNodes(parseStack(t, src), libs)
+	got := extractSyntaxTestNodes(t, src, libs)
 	require.NotEmpty(t, got)
 	require.True(t, got[0].IsComposite())
 	require.Equal(t, NodeResource, got[0].Kind)
@@ -594,18 +573,16 @@ resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, 
 func TestExtractCompositeReadsSourceConfigurationRemap(t *testing.T) {
 	src := `
 imports:   { net: 'github.com/example/net' }
-resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, name: 'east' } }
+resources: { east: net.cluster { @configurations: { aws: configuration.east2 }, name: 'east' } }
 `
-	composite := &CompositeType{
-		Body: parseStack(t, `description: 'noop'`),
-	}
+	composite := syntaxResourceComposite(t, "cluster", `description: 'noop'`)
 	libs := map[string]*Library{
 		"net": {
 			Name:               "net",
 			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	got := ExtractNodes(parseStack(t, src), libs)
+	got := extractSyntaxTestNodes(t, src, libs)
 	require.NotEmpty(t, got)
 	require.True(t, got[0].IsComposite())
 	require.Equal(t,
@@ -615,87 +592,85 @@ resources: { net.cluster.east: { @configurations: { aws: configuration.east2 }, 
 
 func TestExtractConfigurationsRemapIgnoresAliasQualifiedValue(t *testing.T) {
 	src := `
-resources: { net.cluster.east: { @configurations: { aws: gcp.east2 }, name: 'east' } }
+resources: { east: net.cluster { @configurations: { aws: gcp.east2 }, name: 'east' } }
 `
-	composite := &CompositeType{
-		Body: parseStack(t, `description: 'noop'`),
-	}
+	composite := syntaxResourceComposite(t, "cluster", `description: 'noop'`)
 	libs := map[string]*Library{
 		"net": {
 			Name:               "net",
 			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	got := ExtractNodes(parseStack(t, src), libs)
+	got := extractSyntaxTestNodes(t, src, libs)
 	require.NotEmpty(t, got)
 	require.Empty(t, got[0].ConfigurationsRemap)
 }
 
 func TestExtractConfigurationIgnoresMismatchedAlias(t *testing.T) {
 	src := `
-resources: { aws.instance.web: { @configuration: gcp.something, ami: 'ami-1' } }
+resources: { web: aws.instance { @configuration: gcp.something, ami: 'ami-1' } }
 `
-	got := ExtractNodes(parseStack(t, src), nil)
+	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.Empty(t, got[0].Configuration,
 		"mismatched alias should yield empty configuration")
 }
 
 func TestExtractNodesExpandsDataComposite(t *testing.T) {
-	composite := parseStack(t, `
-data:    { aws.ami.ubuntu: { most-recent: true } }
-outputs: { id: { value: data.aws.ami.ubuntu.id } }
+	composite := syntaxComposite(t, "lookup", NodeData, `
+data:    { ubuntu: aws.ami { most-recent: true } }
+outputs: { id: { value: data.ubuntu.id } }
 `)
 	libs := map[string]*Library{
 		"img": {
 			Name: "img",
 			DataComposites: map[string]*CompositeType{
-				"lookup": {Name: "lookup", Kind: NodeData, Body: composite},
+				"lookup": composite,
 			},
 		},
 	}
-	stack := parseStack(t, `
-data: { img.lookup.latest: { family: 'ubuntu' } }
-`)
-	got := ExtractNodes(stack, libs)
+	src := `
+data: { latest: img.lookup { family: 'ubuntu' } }
+`
+	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 
-	require.Equal(t, "data.img.lookup.latest", got[0].Address)
+	require.Equal(t, "data.latest", got[0].Address)
 	require.True(t, got[0].IsComposite())
 	require.Equal(t, NodeData, got[0].Kind)
-	require.Equal(t, composite, got[0].CompositeBody)
+	require.Same(t, composite.SyntaxBody, got[0].CompositeSyntaxBody)
 	require.Empty(t, got[0].Composite)
 
-	require.Equal(t, "data.img.lookup.latest/data.aws.ami.ubuntu", got[1].Address)
+	require.Equal(t, "data.latest/data.ubuntu", got[1].Address)
 	require.Equal(t, NodeData, got[1].Kind)
-	require.Equal(t, "data.img.lookup.latest", got[1].Composite)
+	require.Equal(t, "data.latest", got[1].Composite)
 }
 
 func TestExtractNodesExpandsActionComposite(t *testing.T) {
-	composite := parseStack(t, `
-actions: { core.command.run: { argv: ['echo'] } }
+	composite := syntaxComposite(t, "deploy", NodeAction, `
+actions: { run: core.command { argv: ['echo'] } }
 `)
 	libs := map[string]*Library{
 		"ops": {
 			Name: "ops",
 			ActionComposites: map[string]*CompositeType{
-				"deploy": {Name: "deploy", Kind: NodeAction, Body: composite},
+				"deploy": composite,
 			},
 		},
 	}
-	stack := parseStack(t, `
-actions: { ops.deploy.go: { target: 'prod' } }
-`)
-	got := ExtractNodes(stack, libs)
+	src := `
+actions: { go: ops.deploy { target: 'prod' } }
+`
+	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 
-	require.Equal(t, "action.ops.deploy.go", got[0].Address)
+	require.Equal(t, "action.go", got[0].Address)
 	require.True(t, got[0].IsComposite())
 	require.Equal(t, NodeAction, got[0].Kind)
-	require.Equal(t, composite, got[0].CompositeBody)
+	require.Same(t, composite.SyntaxBody, got[0].CompositeSyntaxBody)
 	require.Empty(t, got[0].Composite)
 
-	require.Equal(t, "action.ops.deploy.go/action.core.command.run", got[1].Address)
+	require.Equal(t, "action.go/action.run", got[1].Address)
 	require.Equal(t, NodeAction, got[1].Kind)
-	require.Equal(t, "action.ops.deploy.go", got[1].Composite)
+	require.Equal(t, "action.go", got[1].Composite)
 }
