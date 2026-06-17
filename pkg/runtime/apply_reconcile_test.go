@@ -161,8 +161,8 @@ func TestReconcileTargets(t *testing.T) {
 // a. After apply b is a sink (nothing depends on it).
 const reconcileSrc = `
 resources: {
-  core.thing.a: { name: 'a', size: 1 }
-  core.thing.b: { name: 'b', size: resource.core.thing.a.size }
+  a: core.thing { name: 'a', size: 1 }
+  b: core.thing { name: 'b', size: resource.a.size }
 }
 `
 
@@ -193,15 +193,20 @@ func TestApplyReconcilesMutatedDependency(t *testing.T) {
 		return out, nil
 	}
 
+	dag, syntaxSource := syntaxDAGAndBody(t, reconcileSrc, libs)
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, reconcileSrc), libs), Libraries: libs, Store: store, Factory: stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	applyOnce(t, exec)
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	a := findEntry(t, snap, "resource.core.thing.a")
-	b := findEntry(t, snap, "resource.core.thing.b")
+	a := findEntry(t, snap, "resource.a")
+	b := findEntry(t, snap, "resource.b")
 	require.EqualValues(t, 99, a.Outputs["size"],
 		"the dependency is re-read after apply and its settled output reaches state")
 	require.EqualValues(t, 1, b.Outputs["size"],
@@ -216,10 +221,10 @@ func TestApplyReconciledValueReachesOutputs(t *testing.T) {
 
 	src := `
 resources: {
-  core.thing.a: { name: 'a', size: 1 }
-  core.thing.b: { name: 'b', size: resource.core.thing.a.size }
+  a: core.thing { name: 'a', size: 1 }
+  b: core.thing { name: 'b', size: resource.a.size }
 }
-outputs: { a-size: { value: resource.core.thing.a.size } }
+outputs: { a-size: { value: resource.a.size } }
 `
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
@@ -229,8 +234,13 @@ outputs: { a-size: { value: resource.core.thing.a.size } }
 		return out, nil
 	}
 
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	res := applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	})
 	require.EqualValues(t, 99, res.Outputs["a-size"],
 		"a stack output reads the reconciled value, not the one captured at apply")
@@ -245,18 +255,28 @@ func TestApplyReconcilesPreExistingDependency(t *testing.T) {
 
 	// Apply one resource on its own.
 	srcA := `
-resources: { core.thing.a: { name: 'a', size: 1 } }
+resources: { a: core.thing { name: 'a', size: 1 } }
 `
+	dagA, syntaxA := syntaxDAGAndBody(t, srcA, libs)
 	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, srcA), libs), Libraries: libs, Store: store, Factory: stack,
+		DAG:          dagA,
+		SyntaxSource: syntaxA,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	})
 
 	// Add a second resource that depends on the first. The plan reads the
 	// first as an unchanged no-op; only after the plan does its live Read
 	// start returning a mutated value, modeling the new dependent's side
 	// effect at apply time.
+	dag, syntaxSource := syntaxDAGAndBody(t, reconcileSrc, libs)
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, reconcileSrc), libs), Libraries: libs, Store: store, Factory: stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	plan, err := exec.Plan(ctx)
 	require.NoError(t, err)
@@ -280,7 +300,7 @@ resources: { core.thing.a: { name: 'a', size: 1 } }
 		"the pre-existing dependency stays a no-op, so no update runs")
 	snap, err := store.Current()
 	require.NoError(t, err)
-	a := findEntry(t, snap, "resource.core.thing.a")
+	a := findEntry(t, snap, "resource.a")
 	require.EqualValues(t, 99, a.Outputs["size"],
 		"a no-op dependency of a newly created resource is still reconciled")
 }
@@ -307,18 +327,20 @@ func TestApplyReconcileFailureKeepsAppliedOutputs(t *testing.T) {
 			stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 			c.readFn = tt.readFn
 
+			dag, syntaxSource := syntaxDAGAndBody(t, reconcileSrc, libs)
 			exec := &Executor{
-				DAG:       BuildDAG(parseStack(t, reconcileSrc), libs),
-				Libraries: libs,
-				Store:     store,
-				Factory:   stack,
+				DAG:          dag,
+				SyntaxSource: syntaxSource,
+				Libraries:    libs,
+				Store:        store,
+				Factory:      stack,
 			}
 			_, err := planAndApply(exec)
 			require.NoError(t, err, "a reconcile read failure does not fail the apply")
 
 			snap, err := store.Current()
 			require.NoError(t, err)
-			a := findEntry(t, snap, "resource.core.thing.a")
+			a := findEntry(t, snap, "resource.a")
 			require.EqualValues(t, 1, a.Outputs["size"],
 				"a resource whose reconcile read failed keeps its applied output")
 		})

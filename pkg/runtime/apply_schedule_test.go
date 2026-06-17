@@ -89,18 +89,20 @@ func TestApplyScheduleRunsIndependentLeavesInParallel(t *testing.T) {
 	var src strings.Builder
 	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("  slow.r.n%d: { name: 'n%d', delay-ms: %d }\n",
+		src.WriteString(fmt.Sprintf("  n%d: slow.r { name: 'n%d', delay-ms: %d }\n",
 			i, i, delay.Milliseconds()))
 	}
 	src.WriteString("}\n")
 
 	libs := slowLibraries()
+	dag, syntaxSource := syntaxDAGAndBody(t, src.String(), libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: n,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  n,
 	}
 	start := time.Now()
 	_, err := planAndApply(exec)
@@ -119,18 +121,20 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 	var src strings.Builder
 	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("  slow.r.n%d: { name: 'n%d', delay-ms: %d }\n",
+		src.WriteString(fmt.Sprintf("  n%d: slow.r { name: 'n%d', delay-ms: %d }\n",
 			i, i, delay.Milliseconds()))
 	}
 	src.WriteString("}\n")
 
 	libs := slowLibraries()
+	dag, syntaxSource := syntaxDAGAndBody(t, src.String(), libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 1,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  1,
 	}
 	start := time.Now()
 	_, err := planAndApply(exec)
@@ -185,17 +189,19 @@ func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 	}
 	src := `
 resources: {
-  slow.fail.boom: { name: 'boom', delay-ms: 50 }
-  slow.r.a:       { name: 'a', delay-ms: 300 }
-  slow.r.b:       { name: 'b', delay-ms: 300 }
+  boom: slow.fail { name: 'boom', delay-ms: 50 }
+  a:    slow.r { name: 'a', delay-ms: 300 }
+  b:    slow.r { name: 'b', delay-ms: 300 }
 }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 4,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  4,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)
@@ -219,16 +225,18 @@ func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 	}
 	src := `
 resources: {
-  slow.fail.upstream: { name: 'upstream', delay-ms: 10 }
-  slow.r.downstream:  { name: resource.slow.fail.upstream.name, delay-ms: 100 }
+  upstream:   slow.fail { name: 'upstream', delay-ms: 10 }
+  downstream: slow.r { name: resource.upstream.name, delay-ms: 100 }
 }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 4,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  4,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)

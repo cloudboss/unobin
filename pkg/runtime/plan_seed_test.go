@@ -97,7 +97,7 @@ func (r *pinnedResource) ReplaceFields() []string                  { return []st
 
 const cascadeSrc = `
 inputs:    { t: { type: string } }
-resources: { core.subnet.a: { tag: var.t }, core.instance.it: { ref: resource.core.subnet.a.id } }
+resources: { a: core.subnet { tag: var.t }, it: core.instance { ref: resource.a.id } }
 `
 
 // An update preserves the object, so its prior outputs stay readable
@@ -115,21 +115,21 @@ func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, cascadeSrc), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, cascadeSrc, libs)
 
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.core.subnet.a").Decision)
-	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.a").Decision)
+	inst := findStep(t, plan, "resource.it")
 	require.Equal(t, DecisionNoOp, inst.Decision)
 	require.Empty(t, inst.UnresolvedInputs)
 	require.Equal(t, "subnet-1", inst.Inputs["ref"])
@@ -138,13 +138,13 @@ func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
 	require.NoError(t, err)
 
 	third := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.subnet.a").Decision)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.instance.it").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.a").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.it").Decision)
 }
 
 // A replace regenerates the object, so its prior outputs are not
@@ -165,25 +165,25 @@ func TestReplaceSuppressesPriorOutputs(t *testing.T) {
 	}
 	src := `
 inputs:    { t: { type: string } }
-resources: { core.pinned.a: { tag: var.t }, core.instance.it: { ref: resource.core.pinned.a.id } }
+resources: { a: core.pinned { tag: var.t }, it: core.instance { ref: resource.a.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionReplace, findStep(t, plan, "resource.core.pinned.a").Decision)
-	inst := findStep(t, plan, "resource.core.instance.it")
+	require.Equal(t, DecisionReplace, findStep(t, plan, "resource.a").Decision)
+	inst := findStep(t, plan, "resource.it")
 	require.Equal(t, DecisionReplace, inst.Decision)
 	require.Contains(t, inst.UnresolvedInputs, "ref")
 
@@ -192,7 +192,7 @@ resources: { core.pinned.a: { tag: var.t }, core.instance.it: { ref: resource.co
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("resource.core.instance.it")
+	ent := snap.Find("resource.it")
 	require.NotNil(t, ent)
 	require.Equal(t, map[string]any{"ref": "gen-2"}, ent.Inputs)
 }
@@ -202,10 +202,10 @@ resources: { core.pinned.a: { tag: var.t }, core.instance.it: { ref: resource.co
 // value: an unchanged stack plans no-op instead of replacing the
 // reader on every plan.
 func TestCompositeOutputsSeedAtPlan(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "net", `
 inputs:    { tag: { type: string } }
-resources: { core.subnet.s: { tag: var.tag } }
-outputs:   { id: { value: resource.core.subnet.s.id } }
+resources: { s: core.subnet { tag: var.tag } }
+outputs:   { id: { value: resource.s.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -218,22 +218,26 @@ outputs:   { id: { value: resource.core.subnet.s.id } }
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*CompositeType{
-				"net": {Name: "net", Body: composite},
+				"net": composite,
 			},
 		},
 	}
 	src := `
-resources: { w.net.x: { tag: 'fixed' }, core.instance.it: { ref: resource.w.net.x.id } }
+resources: { x: w.net { tag: 'fixed' }, it: core.instance { ref: resource.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
 
-	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	second := &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	inst := findStep(t, plan, "resource.core.instance.it")
+	inst := findStep(t, plan, "resource.it")
 	require.Equal(t, DecisionNoOp, inst.Decision)
 	require.Empty(t, inst.UnresolvedInputs)
 	require.Equal(t, "subnet-1", inst.Inputs["ref"])
@@ -245,10 +249,10 @@ resources: { w.net.x: { tag: 'fixed' }, core.instance.it: { ref: resource.w.net.
 // applies with the fresh value.
 func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
 	var gen int64
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "net", `
 inputs:    { t: { type: string } }
-resources: { core.pinned.p: { tag: var.t } }
-outputs:   { id: { value: resource.core.pinned.p.id } }
+resources: { p: core.pinned { tag: var.t } }
+outputs:   { id: { value: resource.p.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -263,31 +267,31 @@ outputs:   { id: { value: resource.core.pinned.p.id } }
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*CompositeType{
-				"net": {Name: "net", Body: composite},
+				"net": composite,
 			},
 		},
 	}
 	src := `
 inputs:    { t: { type: string } }
-resources: { w.net.x: { t: var.t }, core.instance.it: { ref: resource.w.net.x.id } }
+resources: { x: w.net { t: var.t }, it: core.instance { ref: resource.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionReplace,
-		findStep(t, plan, "resource.w.net.x/resource.core.pinned.p").Decision)
-	inst := findStep(t, plan, "resource.core.instance.it")
+		findStep(t, plan, "resource.x/resource.p").Decision)
+	inst := findStep(t, plan, "resource.it")
 	require.Equal(t, DecisionReplace, inst.Decision)
 	require.Contains(t, inst.UnresolvedInputs, "ref")
 
@@ -295,7 +299,7 @@ resources: { w.net.x: { t: var.t }, core.instance.it: { ref: resource.w.net.x.id
 	require.NoError(t, err)
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("resource.core.instance.it")
+	ent := snap.Find("resource.it")
 	require.NotNil(t, ent)
 	require.Equal(t, map[string]any{"ref": "gen-2"}, ent.Inputs)
 }
@@ -304,10 +308,10 @@ resources: { w.net.x: { t: var.t }, core.instance.it: { ref: resource.w.net.x.id
 // keyed address, so a reader of one instance's output diffs a real
 // value on the second plan.
 func TestForEachCompositeOutputsSeedAtPlan(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "net", `
 inputs:    { tag: { type: string } }
-resources: { core.subnet.s: { tag: var.tag } }
-outputs:   { id: { value: resource.core.subnet.s.id } }
+resources: { s: core.subnet { tag: var.tag } }
+outputs:   { id: { value: resource.s.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -320,25 +324,29 @@ outputs:   { id: { value: resource.core.subnet.s.id } }
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*CompositeType{
-				"net": {Name: "net", Body: composite},
+				"net": composite,
 			},
 		},
 	}
 	src := `
 resources: {
-  w.net.x:          { @for-each: { a: 'one', b: 'two' }, tag: @each.value }
-  core.instance.it: { ref: resource.w.net.x['a'].id }
+  x:  w.net { @for-each: { a: 'one', b: 'two' }, tag: @each.value }
+  it: core.instance { ref: resource.x['a'].id }
 }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
 
-	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	second := &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	inst := findStep(t, plan, "resource.core.instance.it")
+	inst := findStep(t, plan, "resource.it")
 	require.Equal(t, DecisionNoOp, inst.Decision)
 	require.Empty(t, inst.UnresolvedInputs)
 	require.Equal(t, "subnet-1", inst.Inputs["ref"])
