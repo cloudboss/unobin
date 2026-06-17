@@ -16,6 +16,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func planTestExecutor(
+	t *testing.T,
+	src string,
+	libs map[string]*Library,
+	store state.Backend,
+	factory state.FactoryInfo,
+) *Executor {
+	t.Helper()
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	return &Executor{
+		DAG: dag, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: factory,
+	}
+}
+
 // planThingConstraintErr plans a stack with one core.thing resource whose
 // body is the given literal object, after attaching specs to the thing
 // type's constraints, and returns the plan error (nil when it succeeds).
@@ -23,13 +37,9 @@ func planThingConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body stri
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
-	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	src := "resources: {\n  x: core.thing " + body + "\n}\n"
+	exec := planTestExecutor(t, src, libs, newStateStore(t),
+		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
 	return err
 }
@@ -102,7 +112,7 @@ func predSpec(when, require string) lang.ConstraintSpec {
 // goConstraintCases drives both the violation table and the determinism
 // pass. The prefix repeated on every expected message is the node address
 // plus the kind tag lang.Error renders.
-const goConstraintPrefix = "resource.core.thing.x: schema: "
+const goConstraintPrefix = "resource.x: schema: "
 
 func goConstraintCases() []struct {
 	name    string
@@ -311,19 +321,15 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
-	src := "resources: {\n  core.plain.a: { name: 'a' }\n" +
-		"  core.thing.b: " + body + "\n}\n"
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	src := "resources: {\n  a: core.plain { name: 'a' }\n" +
+		"  b: core.thing " + body + "\n}\n"
+	exec := planTestExecutor(t, src, libs, newStateStore(t),
+		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
 	return err
 }
 
-const forwardConstraintPrefix = "resource.core.thing.b: schema: "
+const forwardConstraintPrefix = "resource.b: schema: "
 
 // forwardRefConstraintCases drives the per-rule deferral table and its
 // determinism pass. In every deferred case the rule would report a
@@ -339,7 +345,7 @@ func forwardRefConstraintCases() []struct {
 	body    string
 	wantErr string
 } {
-	ref := "resource.core.plain.a.id"
+	ref := "resource.a.id"
 	return []struct {
 		name    string
 		specs   []lang.ConstraintSpec
@@ -517,7 +523,7 @@ func TestPlanChecksChainedForEachSpec(t *testing.T) {
     ]
   }`)
 	require.EqualError(t, err,
-		"resource.core.thing.x: schema: constraints[0] (predicate): "+
+		"resource.x: schema: constraints[0] (predicate): "+
 			"a target cannot outweigh its rule (rules[1].targets[1])")
 
 	ok := planThingConstraintErr(t, specs, `{
@@ -571,17 +577,13 @@ func TestPlanGoTypeConstraintChecksActions(t *testing.T) {
 		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}}},
 	}
 	src := `
-actions: { core.echo.x: { name: 'a', size: 1 } }
+actions: { x: core.echo { name: 'a', size: 1 } }
 `
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := planTestExecutor(t, src, libs, newStateStore(t),
+		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
 	require.EqualError(t, err,
-		"action.core.echo.x: schema: constraints[0] (exactly-one-of [name, size]): "+
+		"action.x: schema: constraints[0] (exactly-one-of [name, size]): "+
 			"expected exactly one to be set, got 2 (name, size)")
 }
 
@@ -589,12 +591,8 @@ func runPlan(
 	t *testing.T, src string, libraries map[string]*Library, store *local.Store,
 ) *Plan {
 	t.Helper()
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libraries),
-		Libraries: libraries,
-		Store:     store,
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := planTestExecutor(t, src, libraries, store,
+		state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	return plan
@@ -623,29 +621,25 @@ func stepFor(plan *Plan, addr string) *PlanStep {
 // uses literals so internal planning never depends on an unset input.
 func planCompositeConstraintErr(t *testing.T, inputs, constraints, callArgs string) error {
 	t.Helper()
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "pair", `
 inputs: `+inputs+`
 constraints: `+constraints+`
-resources: { core.thing.one: { name: 'fixed', size: 1 } }
+resources: { one: core.thing { name: 'fixed', size: 1 } }
 `)
 	libs := resourceModules(&resourceCounters{})
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"pair": {Name: "pair", Body: composite},
+			"pair": composite,
 		},
 	}
 	src := `
 resources: {
-  w.pair.x: ` + callArgs + `
+  x: w.pair ` + callArgs + `
 }
 `
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := planTestExecutor(t, src, libs, newStateStore(t),
+		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
 	return err
 }
@@ -668,7 +662,7 @@ func TestPlanCompositeConstraints(t *testing.T) {
 			name:        "exactly-one-of with both set is rejected",
 			constraints: oneOf,
 			callArgs:    `{ name: 'a', size: 1 }`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+			wantErr: "resource.x: schema: constraints[0] (exactly-one-of " +
 				"[name, size]): expected exactly one to be set, got 2 (name, size)",
 		},
 		{
@@ -680,7 +674,7 @@ func TestPlanCompositeConstraints(t *testing.T) {
 			name:        "predicate with unmet requirement is rejected",
 			constraints: predicate,
 			callArgs:    `{ name: 'a' }`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (predicate): " +
+			wantErr: "resource.x: schema: constraints[0] (predicate): " +
 				"predicate requirement not satisfied",
 		},
 		{
@@ -697,7 +691,7 @@ func TestPlanCompositeConstraints(t *testing.T) {
 			name:        "required-together with one set is rejected",
 			constraints: together,
 			callArgs:    `{ name: 'a' }`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (required-together " +
+			wantErr: "resource.x: schema: constraints[0] (required-together " +
 				"[name, size]): expected all set or all null, got 1 set (name)",
 		},
 		{
@@ -746,7 +740,7 @@ func TestPlanCompositeNestedConstraints(t *testing.T) {
 			name:        "exactly-one-of nested with two set is rejected",
 			constraints: oneOf,
 			callArgs:    `{ code: { inline: 'x', from-file: 'y' } }`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+			wantErr: "resource.x: schema: constraints[0] (exactly-one-of " +
 				"[code.inline, code.from-file]): expected exactly one to be set, " +
 				"got 2 (code.inline, code.from-file)",
 		},
@@ -754,7 +748,7 @@ func TestPlanCompositeNestedConstraints(t *testing.T) {
 			name:        "exactly-one-of nested with parent unset is rejected",
 			constraints: oneOf,
 			callArgs:    `{}`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+			wantErr: "resource.x: schema: constraints[0] (exactly-one-of " +
 				"[code.inline, code.from-file]): expected exactly one to be set, got 0 ()",
 		},
 		{
@@ -766,7 +760,7 @@ func TestPlanCompositeNestedConstraints(t *testing.T) {
 			name:        "predicate over nested with unmet requirement is rejected",
 			constraints: predicate,
 			callArgs:    `{ code: { inline: 'x' } }`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (predicate): " +
+			wantErr: "resource.x: schema: constraints[0] (predicate): " +
 				"predicate requirement not satisfied",
 		},
 		{
@@ -812,7 +806,7 @@ func TestPlanCompositeSplatConstraints(t *testing.T) {
 		{
 			name:     "a violating element is named by index",
 			callArgs: `{ replicas: [{ inline: 'x' }, { inline: 'x', from-file: 'y' }] }`,
-			wantErr: "resource.w.pair.x: schema: constraints[0] (exactly-one-of " +
+			wantErr: "resource.x: schema: constraints[0] (exactly-one-of " +
 				"[replicas[1].inline, replicas[1].from-file]): expected exactly one " +
 				"to be set, got 2 (replicas[1].inline, replicas[1].from-file)",
 		},
@@ -860,67 +854,58 @@ func TestPlanCompositeConstraintCallsFunction(t *testing.T) {
 
 func TestPlanForEachResourceEmitsOneStepPerInstance(t *testing.T) {
 	src := `
-resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
+resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
 `
 	var c resourceCounters
 	libs := resourceModules(&c)
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := planTestExecutor(t, src, libs, newStateStore(t),
+		state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
+	exec.Inputs = map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 
-	alpha := stepFor(plan, "resource.core.thing.many['alpha']")
+	alpha := stepFor(plan, "resource.many['alpha']")
 	require.NotNil(t, alpha, "alpha instance step")
 	require.Equal(t, DecisionCreate, alpha.Decision)
 	require.Equal(t, "alpha", alpha.Inputs["name"])
 	require.Equal(t, int64(1), alpha.Inputs["size"])
 
-	beta := stepFor(plan, "resource.core.thing.many['beta']")
+	beta := stepFor(plan, "resource.many['beta']")
 	require.NotNil(t, beta, "beta instance step")
 	require.Equal(t, DecisionCreate, beta.Decision)
 	require.Equal(t, "beta", beta.Inputs["name"])
 	require.Equal(t, int64(2), beta.Inputs["size"])
 
-	require.Nil(t, stepFor(plan, "resource.core.thing.many"),
+	require.Nil(t, stepFor(plan, "resource.many"),
 		"no plan step for the template address itself")
 }
 
 func TestPlanForEachOrphanInstanceDestroyed(t *testing.T) {
 	src := `
-resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
+resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
 `
 	var c resourceCounters
 	libs := resourceModules(&c)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
+	exec.Inputs = map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}}
 	applyOnce(t, exec)
 
 	exec.Inputs = map[string]any{"configs": map[string]any{"alpha": int64(1)}}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 
-	beta := stepFor(plan, "resource.core.thing.many['beta']")
+	beta := stepFor(plan, "resource.many['beta']")
 	require.NotNil(t, beta, "removed instance shows up as orphan")
 	require.Equal(t, DecisionDestroy, beta.Decision)
 }
 
 func TestPlanComposite(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "pair", `
 resources: {
-  core.thing.one: { name: var.name, size: 1 }
-  core.thing.two: { name: var.name, size: 2 }
+  one: core.thing { name: var.name, size: 1 }
+  two: core.thing { name: var.name, size: 2 }
 }
 `)
 	var c resourceCounters
@@ -928,60 +913,55 @@ resources: {
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"pair": {Name: "pair", Body: composite},
+			"pair": composite,
 		},
 	}
 	stackSrc := `
-resources: { w.pair.x: { name: 'alpha' } }
+resources: { x: w.pair { name: 'alpha' } }
 `
 	plan := runPlan(t, stackSrc, libs, newStateStore(t))
 
-	boundary := stepFor(plan, "resource.w.pair.x")
+	boundary := stepFor(plan, "resource.x")
 	require.NotNil(t, boundary)
 	require.True(t, boundary.Composite)
 	require.Equal(t, NodeResource, boundary.Kind)
 	require.Equal(t, DecisionEval, boundary.Decision)
 	require.Equal(t, "alpha", boundary.Inputs["name"])
 
-	one := stepFor(plan, "resource.w.pair.x/resource.core.thing.one")
+	one := stepFor(plan, "resource.x/resource.one")
 	require.NotNil(t, one)
 	require.Equal(t, NodeResource, one.Kind)
 	require.Equal(t, DecisionCreate, one.Decision)
 	require.Equal(t, "alpha", one.Inputs["name"])
 
-	two := stepFor(plan, "resource.w.pair.x/resource.core.thing.two")
+	two := stepFor(plan, "resource.x/resource.two")
 	require.NotNil(t, two)
 	require.Equal(t, DecisionCreate, two.Decision)
 }
 
 func TestPlanCompositeInternalActionSkipsAfterRun(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "box", `
 inputs:  { phrase: { type: string } }
-actions: { core.echo.say: { echo: var.phrase } }
-outputs: { said: { value: action.core.echo.say.echo } }
+actions: { say: core.echo { echo: var.phrase } }
+outputs: { said: { value: action.say.echo } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"box": {Name: "box", Body: composite},
+			"box": composite,
 		},
 	}
 	stackSrc := `
-resources: { w.box.x: { phrase: 'hello' } }
+resources: { x: w.box { phrase: 'hello' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, stackSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := planTestExecutor(t, stackSrc, libs, store, stack)
 	applyOnce(t, exec)
 
 	plan := runPlan(t, stackSrc, libs, store)
-	step := stepFor(plan, "resource.w.box.x/action.core.echo.say")
+	step := stepFor(plan, "resource.x/action.say")
 	require.NotNil(t, step,
 		"internal action should appear as a plan step under its composite-prefixed address")
 	require.Equal(t, NodeAction, step.Kind)
@@ -991,47 +971,43 @@ resources: { w.box.x: { phrase: 'hello' } }
 
 func TestPlanCreateForFreshResource(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
-	require.Equal(t, DecisionCreate, decisionFor(plan, "resource.core.thing.one"))
+	require.Equal(t, DecisionCreate, decisionFor(plan, "resource.one"))
 	require.Equal(t, int64(0), c.creates, "Plan should not invoke Create")
 }
 
 func TestPlanNoOpForUnchanged(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	plan := runPlan(t, src, libs, store)
-	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.core.thing.one"))
+	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.one"))
 }
 
 func TestPlanUpdateForNonReplaceFieldChange(t *testing.T) {
 	first := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: { core.thing.one: { name: 'alpha', size: 99 } }
+resources: { one: core.thing { name: 'alpha', size: 99 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, first, libs, store, stack))
 
 	plan := runPlan(t, second, libs, store)
-	one := stepFor(plan, "resource.core.thing.one")
+	one := stepFor(plan, "resource.one")
 	require.Equal(t, DecisionUpdate, one.Decision)
 	require.Empty(t, one.ReplaceTriggers)
 	require.Equal(t, float64(1), one.PriorInputs["size"],
@@ -1040,21 +1016,19 @@ resources: { core.thing.one: { name: 'alpha', size: 99 } }
 
 func TestPlanReplaceForReplaceFieldChange(t *testing.T) {
 	first := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: { core.thing.one: { name: 'beta', size: 1 } }
+resources: { one: core.thing { name: 'beta', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, first, libs, store, stack))
 
 	plan := runPlan(t, second, libs, store)
-	one := stepFor(plan, "resource.core.thing.one")
+	one := stepFor(plan, "resource.one")
 	require.Equal(t, DecisionReplace, one.Decision)
 	require.Equal(t, []string{"name"}, one.ReplaceTriggers, "the changed replace field is named")
 	require.Equal(t, "alpha", one.PriorInputs["name"])
@@ -1062,15 +1036,13 @@ resources: { core.thing.one: { name: 'beta', size: 1 } }
 
 func TestPlanUpdateRevertsDrift(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
@@ -1081,7 +1053,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	}
 
 	plan := runPlan(t, src, libs, store)
-	step := stepFor(plan, "resource.core.thing.one")
+	step := stepFor(plan, "resource.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionUpdate, step.Decision,
 		"drift with no input change should plan a revert via Update")
@@ -1091,7 +1063,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 
 func TestUpdateSeesObservedDriftAtApply(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
@@ -1099,9 +1071,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	// First apply records outputs with size 1.
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	// Reality drifts to size 99; the re-apply plans a revert Update.
 	c.readFn = func(prior any) (any, error) {
@@ -1111,9 +1081,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 		out["size"] = int64(99)
 		return out, nil
 	}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	require.NotNil(t, c.gotUpdatePrior)
 	require.Equal(t, int64(1), c.gotUpdatePrior.Outputs.(map[string]any)["size"],
@@ -1124,14 +1092,14 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 
 func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1166,7 +1134,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 	}
 
 	plan := runPlan(t, src, libs, store)
-	step := stepFor(plan, "resource.core.thing.one")
+	step := stepFor(plan, "resource.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionNoOp, step.Decision)
 
@@ -1181,14 +1149,14 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 
 func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1216,12 +1184,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 		},
 	}
 
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
 	_, err = exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no migration registered")
@@ -1234,14 +1197,14 @@ func TestPlanMigratesPriorInputsOnSchemaBump(t *testing.T) {
 	// plan is a no-op rather than a spurious update from diffing inputs
 	// recorded under two different schema versions.
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1255,7 +1218,7 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 
 	var c resourceCounters
 	plan := runPlan(t, src, inputMigratingLibs(&c), store)
-	step := stepFor(plan, "resource.core.thing.one")
+	step := stepFor(plan, "resource.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionNoOp, step.Decision)
 	require.NotContains(t, step.PriorInputs, "label",
@@ -1271,14 +1234,14 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	// The rewritten entry ends at the current version with current
 	// inputs.
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 2 } }
+resources: { one: core.thing { name: 'alpha', size: 2 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1292,12 +1255,7 @@ resources: { core.thing.one: { name: 'alpha', size: 2 } }
 
 	var c resourceCounters
 	libs := inputMigratingLibs(&c)
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
 	_, err = planAndApply(exec)
 	require.NoError(t, err)
 
@@ -1308,7 +1266,7 @@ resources: { core.thing.one: { name: 'alpha', size: 2 } }
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("resource.core.thing.one")
+	ent := snap.Find("resource.one")
 	require.NotNil(t, ent)
 	require.Equal(t, 2, ent.SchemaVersion)
 	require.NotContains(t, ent.Inputs, "label")
@@ -1335,12 +1293,12 @@ func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
 	// overlay fills it into the prior too, so the diff sees them equal and
 	// the plan stays a no-op instead of a vacuous update.
 	src := `
-resources: { core.thing.one: { name: 'alpha' } }
+resources: { one: core.thing { name: 'alpha' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1351,7 +1309,7 @@ resources: { core.thing.one: { name: 'alpha' } }
 
 	var c resourceCounters
 	plan := runPlan(t, src, defaultingLibs(&c), store)
-	step := stepFor(plan, "resource.core.thing.one")
+	step := stepFor(plan, "resource.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionNoOp, step.Decision)
 	require.EqualValues(t, 7, step.PriorInputs["size"],
@@ -1364,12 +1322,12 @@ func TestPlanDefaultsOverlayKeepsExplicitPriorValue(t *testing.T) {
 	// only missing fields, so the prior is still seen as 3 and the change
 	// is genuine, not invented.
 	src := `
-resources: { core.thing.one: { name: 'alpha' } }
+resources: { one: core.thing { name: 'alpha' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1380,7 +1338,7 @@ resources: { core.thing.one: { name: 'alpha' } }
 
 	var c resourceCounters
 	plan := runPlan(t, src, defaultingLibs(&c), store)
-	step := stepFor(plan, "resource.core.thing.one")
+	step := stepFor(plan, "resource.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionUpdate, step.Decision)
 	require.EqualValues(t, 3, step.PriorInputs["size"],
@@ -1393,12 +1351,12 @@ func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
 	// a cloud update. The plan is a no-op, Update is never called, and the
 	// apply records the resolved default so the next plan agrees.
 	src := `
-resources: { core.thing.one: { name: 'alpha' } }
+resources: { one: core.thing { name: 'alpha' } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1409,9 +1367,7 @@ resources: { core.thing.one: { name: 'alpha' } }
 
 	var c resourceCounters
 	libs := defaultingLibs(&c)
-	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), atomic.LoadInt64(&c.updates), "no cloud update")
@@ -1419,13 +1375,13 @@ resources: { core.thing.one: { name: 'alpha' } }
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("resource.core.thing.one")
+	ent := snap.Find("resource.one")
 	require.NotNil(t, ent)
 	require.EqualValues(t, 7, ent.Inputs["size"], "apply records the resolved default")
 
 	plan2, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, stepFor(plan2, "resource.core.thing.one").Decision)
+	require.Equal(t, DecisionNoOp, stepFor(plan2, "resource.one").Decision)
 }
 
 func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
@@ -1433,12 +1389,12 @@ func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
 	// an update, and the overlay means Update sees a prior of 7 (the
 	// declared default), not a zero value from an absent field.
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 9 } }
+resources: { one: core.thing { name: 'alpha', size: 9 } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
-		Address:       "resource.core.thing.one",
+		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
 		Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1449,9 +1405,7 @@ resources: { core.thing.one: { name: 'alpha', size: 9 } }
 
 	var c resourceCounters
 	libs := defaultingLibs(&c)
-	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.updates))
@@ -1461,7 +1415,7 @@ resources: { core.thing.one: { name: 'alpha', size: 9 } }
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("resource.core.thing.one")
+	ent := snap.Find("resource.one")
 	require.NotNil(t, ent)
 	require.EqualValues(t, 9, ent.Inputs["size"])
 }
@@ -1470,13 +1424,13 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 	// The overlay also covers @for-each instances: each prior instance
 	// predates `size`, so each is a no-op once the default is overlaid.
 	src := `
-resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
+resources: { many: core.thing { @for-each: var.configs, name: @each.key } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack,
 		&state.Entry{
-			Address:       "resource.core.thing.many['alpha']",
+			Address:       "resource.many['alpha']",
 			Type:          state.EntryLeaf,
 			Kind:          "resource",
 			Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1485,7 +1439,7 @@ resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
 			Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
 		},
 		&state.Entry{
-			Address:       "resource.core.thing.many['beta']",
+			Address:       "resource.many['beta']",
 			Type:          state.EntryLeaf,
 			Kind:          "resource",
 			Selector:      &state.Selector{Alias: "core", Export: "thing"},
@@ -1497,17 +1451,12 @@ resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
 
 	var c resourceCounters
 	libs := defaultingLibs(&c)
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Inputs:    map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}},
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
+	exec.Inputs = map[string]any{"configs": map[string]any{"alpha": int64(1), "beta": int64(2)}}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, stepFor(plan, "resource.core.thing.many['alpha']").Decision)
-	require.Equal(t, DecisionNoOp, stepFor(plan, "resource.core.thing.many['beta']").Decision)
+	require.Equal(t, DecisionNoOp, stepFor(plan, "resource.many['alpha']").Decision)
+	require.Equal(t, DecisionNoOp, stepFor(plan, "resource.many['beta']").Decision)
 
 	encoded, err := EncodePlan(plan)
 	require.NoError(t, err)
@@ -1521,53 +1470,53 @@ resources: { core.thing.many: { @for-each: var.configs, name: @each.key } }
 func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
 	src := `
 resources: {
-  core.thing.one: { name: 'alpha', size: 1 }
-  core.thing.two: { name: resource.core.thing.one.id, size: 2 }
+  one: core.thing { name: 'alpha', size: 1 }
+  two: core.thing { name: resource.one.id, size: 2 }
 }
 `
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 
-	two := stepFor(plan, "resource.core.thing.two")
+	two := stepFor(plan, "resource.two")
 	require.NotNil(t, two)
 	require.Equal(t, DecisionCreate, two.Decision)
-	require.Equal(t, []string{"resource.core.thing.one.id"}, two.UnresolvedInputs["name"])
+	require.Equal(t, []string{"resource.one.id"}, two.UnresolvedInputs["name"])
 	require.NotContains(t, two.UnresolvedInputs, "size",
 		"resolved fields should not appear in UnresolvedInputs")
-	require.Equal(t, PendingValue{Refs: []string{"resource.core.thing.one.id"}}, two.Inputs["name"],
+	require.Equal(t, PendingValue{Refs: []string{"resource.one.id"}}, two.Inputs["name"],
 		"an unresolved field keeps a placeholder the renderer shows in place")
 	require.Equal(t, int64(2), two.Inputs["size"])
 }
 
 func TestPartialValueKeepsListStructure(t *testing.T) {
-	expr := parseValue(t, "['lit', resource.core.thing.one.id]")
+	expr := parseValue(t, "['lit', resource.one.id]")
 	got := partialValue(expr, &EvalContext{}, nil)
 	require.Equal(t, []any{
 		"lit",
-		PendingValue{Refs: []string{"resource.core.thing.one.id"}},
+		PendingValue{Refs: []string{"resource.one.id"}},
 	}, got)
 }
 
 func TestPartialValueKeepsObjectStructure(t *testing.T) {
-	expr := parseValue(t, "{ ready: true, id: resource.core.thing.one.id }")
+	expr := parseValue(t, "{ ready: true, id: resource.one.id }")
 	got := partialValue(expr, &EvalContext{}, nil)
 	require.Equal(t, map[string]any{
 		"ready": true,
-		"id":    PendingValue{Refs: []string{"resource.core.thing.one.id"}},
+		"id":    PendingValue{Refs: []string{"resource.one.id"}},
 	}, got)
 }
 
 func TestPlanResolvesInputRefAtPlanTime(t *testing.T) {
 	src := `
 resources: {
-  core.thing.one: { name: 'alpha', size: 1 }
-  core.thing.two: { name: resource.core.thing.one.name, size: 2 }
+  one: core.thing { name: 'alpha', size: 1 }
+  two: core.thing { name: resource.one.name, size: 2 }
 }
 `
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 
-	two := stepFor(plan, "resource.core.thing.two")
+	two := stepFor(plan, "resource.two")
 	require.NotNil(t, two)
 	require.Equal(t, DecisionCreate, two.Decision)
 	require.NotContains(t, two.UnresolvedInputs, "name",
@@ -1578,20 +1527,20 @@ resources: {
 func TestPlanDoesNotResolveAPendingInput(t *testing.T) {
 	src := `
 resources: {
-  core.thing.one:   { name: 'alpha', size: 1 }
-  core.thing.two:   { name: resource.core.thing.one.id, size: 2 }
-  core.thing.three: { name: resource.core.thing.two.name, size: 3 }
+  one: core.thing   { name: 'alpha', size: 1 }
+  two: core.thing   { name: resource.one.id, size: 2 }
+  three: core.thing { name: resource.two.name, size: 3 }
 }
 `
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 
-	three := stepFor(plan, "resource.core.thing.three")
+	three := stepFor(plan, "resource.three")
 	require.NotNil(t, three)
-	require.Equal(t, []string{"resource.core.thing.two.name"}, three.UnresolvedInputs["name"],
+	require.Equal(t, []string{"resource.two.name"}, three.UnresolvedInputs["name"],
 		"two.name is itself waiting on one.id, so reading it stays unknown at plan")
 	require.Equal(t,
-		PendingValue{Refs: []string{"resource.core.thing.two.name"}}, three.Inputs["name"])
+		PendingValue{Refs: []string{"resource.two.name"}}, three.Inputs["name"])
 }
 
 func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
@@ -1625,13 +1574,13 @@ func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
 
 func TestUpgradeActionRerunFollowsLocal(t *testing.T) {
 	src := `
-locals:    { thing-id: resource.core.thing.one.id }
-resources: { core.thing.one: { name: 'a' } }
-actions:   { core.command.notify: { argv: ['echo', local.thing-id] } }
+locals:    { thing-id: resource.one.id }
+resources: { one: core.thing { name: 'a' } }
+actions:   { notify: core.command { argv: ['echo', local.thing-id] } }
 `
-	f := parseStack(t, src)
-	dag := BuildDAG(f, nil)
-	sl := newScopeLocals(lang.FieldMap(localsBlock(f)), dag.Nodes)
+	body := syntaxFactoryBody(t, src)
+	dag := BuildSyntaxDAG(body, nil)
+	sl := newScopeLocals(syntaxLocalMap(body.Locals), dag.Nodes)
 
 	cases := []struct {
 		name     string
@@ -1644,8 +1593,8 @@ actions:   { core.command.notify: { argv: ['echo', local.thing-id] } }
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			steps := []*PlanStep{
-				{Address: "resource.core.thing.one", Kind: NodeResource, Decision: tc.upstream},
-				{Address: "action.core.command.notify", Kind: NodeAction, Decision: DecisionSkip},
+				{Address: "resource.one", Kind: NodeResource, Decision: tc.upstream},
+				{Address: "action.notify", Kind: NodeAction, Decision: DecisionSkip},
 			}
 			upgradeActionRerun(steps, dag, sl)
 			require.Equal(t, tc.want, steps[1].Decision)
@@ -1655,20 +1604,18 @@ actions:   { core.command.notify: { argv: ['echo', local.thing-id] } }
 
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
 
 	plan := runPlan(t, src, libs, store)
-	step := stepFor(plan, "resource.core.thing.one")
+	step := stepFor(plan, "resource.one")
 	require.NotNil(t, step)
 	require.Equal(t, DecisionCreate, step.Decision,
 		"a missing resource with prior state should plan a recreate")
@@ -1678,30 +1625,28 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 
 func TestPlanDestroyForOrphan(t *testing.T) {
 	first := `
-resources: { core.thing.keep: { name: 'a', size: 1 }, core.thing.orph: { name: 'b', size: 2 } }
+resources: { keep: core.thing { name: 'a', size: 1 }, orph: core.thing { name: 'b', size: 2 } }
 `
 	second := `
-resources: { core.thing.keep: { name: 'a', size: 1 } }
+resources: { keep: core.thing { name: 'a', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, first, libs, store, stack))
 
 	plan := runPlan(t, second, libs, store)
-	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.core.thing.keep"))
-	require.Equal(t, DecisionDestroy, decisionFor(plan, "resource.core.thing.orph"))
+	require.Equal(t, DecisionNoOp, decisionFor(plan, "resource.keep"))
+	require.Equal(t, DecisionDestroy, decisionFor(plan, "resource.orph"))
 }
 
 func TestPlanRerunForChangedAction(t *testing.T) {
 	first := `
-actions: { core.echo.hi: { echo: 'one' } }
+actions: { hi: core.echo { echo: 'one' } }
 `
 	second := `
-actions: { core.echo.hi: { echo: 'two' } }
+actions: { hi: core.echo { echo: 'two' } }
 `
 	libs := map[string]*Library{
 		"core": {
@@ -1713,17 +1658,15 @@ actions: { core.echo.hi: { echo: 'two' } }
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, first, libs, store, stack))
 
 	plan := runPlan(t, second, libs, store)
-	require.Equal(t, DecisionRerun, decisionFor(plan, "action.core.echo.hi"))
+	require.Equal(t, DecisionRerun, decisionFor(plan, "action.hi"))
 }
 
 func TestPlanSkipForUnchangedAction(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'same' } }
+actions: { hi: core.echo { echo: 'same' } }
 `
 	libs := map[string]*Library{
 		"core": {
@@ -1735,24 +1678,17 @@ actions: { core.echo.hi: { echo: 'same' } }
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	plan := runPlan(t, src, libs, store)
-	require.Equal(t, DecisionSkip, decisionFor(plan, "action.core.echo.hi"))
+	require.Equal(t, DecisionSkip, decisionFor(plan, "action.hi"))
 }
 
 func TestPlanRecordsStateRev(t *testing.T) {
 	src := `description: 'x'`
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG:       BuildDAG(parseStack(t, src), nil),
-		Libraries: map[string]*Library{},
-		Store:     store,
-		Factory:   stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, map[string]*Library{}, store, stack))
 
 	plan := runPlan(t, src, map[string]*Library{}, store)
 	require.NotEmpty(t, plan.StateRev)
@@ -1764,7 +1700,7 @@ func planResourcesSrc(n int) string {
 	var src strings.Builder
 	src.WriteString("resources: {\n")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("  core.thing.r%d: { name: 'r%d', size: %d }\n", i, i, i))
+		src.WriteString(fmt.Sprintf("  r%d: core.thing { name: 'r%d', size: %d }\n", i, i, i))
 	}
 	src.WriteString("}\n")
 	return src.String()
@@ -1778,9 +1714,7 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	const delay = 150 * time.Millisecond
 	c.readFn = func(prior any) (any, error) {
@@ -1788,13 +1722,8 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 		return prior, nil
 	}
 
-	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       store,
-		Factory:     stack,
-		Parallelism: n,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
+	exec.Parallelism = n
 	start := time.Now()
 	plan, err := exec.Plan(context.Background())
 	elapsed := time.Since(start)
@@ -1813,9 +1742,7 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	const delay = 80 * time.Millisecond
 	c.readFn = func(prior any) (any, error) {
@@ -1823,13 +1750,8 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 		return prior, nil
 	}
 
-	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       store,
-		Factory:     stack,
-		Parallelism: 1,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
+	exec.Parallelism = 1
 	start := time.Now()
 	_, err := exec.Plan(context.Background())
 	elapsed := time.Since(start)
@@ -1840,33 +1762,29 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 
 func TestPlanPropagatesReadError(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	wantErr := errors.New("cloud is unwell")
 	c.readFn = func(any) (any, error) { return nil, wantErr }
 
-	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, src), libs), Libraries: libs, Store: store, Factory: stack,
-	}
+	exec := planTestExecutor(t, src, libs, store, stack)
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.ErrorIs(t, err, wantErr)
-	require.Contains(t, err.Error(), "resource.core.thing.one")
+	require.Contains(t, err.Error(), "resource.one")
 }
 
 func TestPartialValueKeepsStringKeyedFields(t *testing.T) {
-	expr := parseValue(t, "{ 'app/role': 'web', id: resource.core.thing.one.id }")
+	expr := parseValue(t, "{ 'app/role': 'web', id: resource.one.id }")
 	got := partialValue(expr, &EvalContext{}, nil)
 	require.Equal(t, map[string]any{
 		"app/role": "web",
-		"id":       PendingValue{Refs: []string{"resource.core.thing.one.id"}},
+		"id":       PendingValue{Refs: []string{"resource.one.id"}},
 	}, got)
 }
