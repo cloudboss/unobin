@@ -26,7 +26,10 @@ func compositeLocalExprs(n *Node) map[string]lang.Expr {
 	return lang.FieldMap(localsBlock(n.CompositeBody))
 }
 
-func compositeInputNames(n *Node) map[string]bool {
+// CompositeInputNames returns the input names declared by a composite
+// boundary. Grammar-first composites use their typed body; Body is a
+// compatibility fallback for generic test helpers.
+func CompositeInputNames(n *Node) map[string]bool {
 	out := map[string]bool{}
 	if n == nil {
 		return out
@@ -38,6 +41,10 @@ func compositeInputNames(n *Node) map[string]bool {
 		return out
 	}
 	return InputNames(n.CompositeBody)
+}
+
+func compositeInputNames(n *Node) map[string]bool {
+	return CompositeInputNames(n)
 }
 
 func compositeConstraints(n *Node) *lang.ArrayLit {

@@ -124,7 +124,7 @@ func (c *Checker) collectCompositeScopes() {
 			c.inputs[n.Address] = syntaxInputNames(n.CompositeSyntaxBody.Inputs)
 			c.locals[n.Address] = syntaxLocalNames(n.CompositeSyntaxBody.Locals)
 		} else {
-			c.inputs[n.Address] = runtime.InputNames(n.CompositeBody)
+			c.inputs[n.Address] = runtime.CompositeInputNames(n)
 			c.locals[n.Address] = localNames(n.CompositeBody)
 		}
 		c.libraries[n.Address] = n.Libraries

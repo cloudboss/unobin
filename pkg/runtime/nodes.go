@@ -778,7 +778,9 @@ func joinAddress(parent, local string) string {
 	return parent + "/" + local
 }
 
-// InputNames returns the set of input names a file declares.
+// InputNames returns the input names declared by a generic file body.
+// Grammar-first production callers use typed syntax helpers; this remains
+// for tests and helpers that construct lang.File bodies directly.
 func InputNames(f *lang.File) map[string]bool {
 	names := map[string]bool{}
 	if f == nil || f.Body == nil {
