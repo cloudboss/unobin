@@ -12,15 +12,15 @@ import (
 // A composite called inside a @for-each composite, with a real
 // resource inside and outputs chained through both boundaries.
 func TestForEachCompositeCallingComposite(t *testing.T) {
-	inner := parseStack(t, `
+	inner := syntaxResourceComposite(t, "inner", `
 inputs:    { tag: { type: string } }
-resources: { core.subnet.s: { tag: var.tag } }
-outputs:   { id: { value: resource.core.subnet.s.id } }
+resources: { s: core.subnet { tag: var.tag } }
+outputs:   { id: { value: resource.s.id } }
 `)
-	outer := parseStack(t, `
+	outer := syntaxResourceComposite(t, "outer", `
 inputs:    { t: { type: string } }
-resources: { w.inner.i: { tag: var.t } }
-outputs:   { id: { value: resource.w.inner.i.id } }
+resources: { i: w.inner { tag: var.t } }
+outputs:   { id: { value: resource.i.id } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -32,22 +32,24 @@ outputs:   { id: { value: resource.w.inner.i.id } }
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*CompositeType{
-				"inner": {Name: "inner", Body: inner},
-				"outer": {Name: "outer", Body: outer},
+				"inner": inner,
+				"outer": outer,
 			},
 		},
 	}
 	src := `
-resources: { w.outer.x: { @for-each: { a: 'one', b: 'two' }, t: @each.value } }
-outputs: { ida: { value: resource.w.outer.x['a'].id }, idb: { value: resource.w.outer.x['b'].id } }
+resources: { x: w.outer { @for-each: { a: 'one', b: 'two' }, t: @each.value } }
+outputs: { ida: { value: resource.x['a'].id }, idb: { value: resource.x['b'].id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -56,11 +58,17 @@ outputs: { ida: { value: resource.w.outer.x['a'].id }, idb: { value: resource.w.
 
 	// The second plan diffs every instance's subnet through both
 	// boundaries against seeded values, so nothing shows as a change.
-	second := &Executor{DAG: exec.DAG, Libraries: libs, Store: store, Factory: stack}
+	second := &Executor{
+		DAG:          exec.DAG,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
+	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	for _, key := range []string{"a", "b"} {
-		addr := "resource.w.outer.x['" + key + "']/resource.w.inner.i/resource.core.subnet.s"
+		addr := "resource.x['" + key + "']/resource.i/resource.s"
 		require.Equal(t, DecisionNoOp, findStep(t, plan, addr).Decision)
 	}
 	for _, s := range plan.Steps {
@@ -74,17 +82,17 @@ outputs: { ida: { value: resource.w.outer.x['a'].id }, idb: { value: resource.w.
 // boundary finalizes. The outer's outputs read it through the
 // per-instance scope.
 func TestForEachCompositeCallingDataComposite(t *testing.T) {
-	label := parseStack(t, `
+	label := syntaxComposite(t, "label", NodeData, `
 inputs: { note: { type: string } }
 outputs: {
   marker: { value: 'fixed' }
 }
 `)
-	outer := parseStack(t, `
+	outer := syntaxResourceComposite(t, "outer", `
 inputs:    { t: { type: string } }
-data:      { w.label.i: { note: var.t } }
-resources: { core.subnet.s: { tag: var.t } }
-outputs:   { marker: { value: data.w.label.i.marker } }
+data:      { i: w.label { note: var.t } }
+resources: { s: core.subnet { tag: var.t } }
+outputs:   { marker: { value: data.i.marker } }
 `)
 	libs := map[string]*Library{
 		"core": {
@@ -96,24 +104,26 @@ outputs:   { marker: { value: data.w.label.i.marker } }
 		"w": {
 			Name: "w",
 			DataComposites: map[string]*CompositeType{
-				"label": {Name: "label", Body: label},
+				"label": label,
 			},
 			ResourceComposites: map[string]*CompositeType{
-				"outer": {Name: "outer", Body: outer},
+				"outer": outer,
 			},
 		},
 	}
 	src := `
-resources: { w.outer.x: { @for-each: { a: 'one' }, t: @each.value } }
-outputs:   { m: { value: resource.w.outer.x['a'].marker } }
+resources: { x: w.outer { @for-each: { a: 'one' }, t: @each.value } }
+outputs:   { m: { value: resource.x['a'].marker } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)

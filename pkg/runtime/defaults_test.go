@@ -135,13 +135,15 @@ func defaultsExecutor(t *testing.T, body string) (*Executor, *local.Store) {
 			{Field: "var.region", Optional: true},
 		},
 	}
-	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
+	src := "resources: {\n  x: core.thing " + body + "\n}\n"
 	store := newStateStore(t)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	return &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
 	}, store
 }
 
@@ -180,14 +182,14 @@ func TestPlanConstraintSeesDefault(t *testing.T) {
 func TestPlanDefaultDoesNotMaskForwardRef(t *testing.T) {
 	plan := planTwoThingsWithSizeDefault(t)
 	for _, step := range plan.Steps {
-		if step.Address != "resource.core.thing.b" {
+		if step.Address != "resource.b" {
 			continue
 		}
 		require.Contains(t, step.UnresolvedInputs, "size")
-		require.Equal(t, PendingValue{Refs: []string{"resource.core.thing.a.id"}}, step.Inputs["size"])
+		require.Equal(t, PendingValue{Refs: []string{"resource.a.id"}}, step.Inputs["size"])
 		return
 	}
-	t.Fatal("no step for resource.core.thing.b")
+	t.Fatal("no step for resource.b")
 }
 
 // TestPlanSeedsDefaultedInputForReferences proves a defaulted input
@@ -197,13 +199,13 @@ func TestPlanDefaultDoesNotMaskForwardRef(t *testing.T) {
 func TestPlanSeedsDefaultedInputForReferences(t *testing.T) {
 	plan := planTwoThingsWithSizeDefault(t)
 	for _, step := range plan.Steps {
-		if step.Address != "resource.core.thing.b" {
+		if step.Address != "resource.b" {
 			continue
 		}
 		require.Equal(t, int64(7), step.Inputs["name"])
 		return
 	}
-	t.Fatal("no step for resource.core.thing.b")
+	t.Fatal("no step for resource.b")
 }
 
 // planTwoThingsWithSizeDefault plans two thing nodes whose type
@@ -217,15 +219,17 @@ func planTwoThingsWithSizeDefault(t *testing.T) *Plan {
 	}
 	src := `
 resources: {
-  core.thing.a: { name: 'a' }
-  core.thing.b: { name: resource.core.thing.a.size, size: resource.core.thing.a.id }
+  a: core.thing { name: 'a' }
+  b: core.thing { name: resource.a.size, size: resource.a.id }
 }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)

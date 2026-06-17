@@ -262,21 +262,23 @@ func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
 		},
 	}
 	src := `
-resources: { boom.it.x: { name: 'x' } }
+resources: { x: boom.it { name: 'x' } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 1,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  1,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)
 
 	var ae *ApplyError
 	require.True(t, errors.As(err, &ae), "want *ApplyError, got %T", err)
-	assert.Equal(t, "resource.boom.it.x", ae.Address)
+	assert.Equal(t, "resource.x", ae.Address)
 
 	var pe *PanicError
 	require.True(t, errors.As(err, &pe), "ApplyError should unwrap to *PanicError")
@@ -300,14 +302,16 @@ func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
 		},
 	}
 	src := `
-resources: { boom.it.x: { name: 'x' } }
+resources: { x: boom.it { name: 'x' } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 1,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  1,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)

@@ -19,21 +19,23 @@ func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 		},
 	}
 	src := `
-resources: { slow.fail.boom: { name: 'boom', delay-ms: 5 } }
+resources: { boom: slow.fail { name: 'boom', delay-ms: 5 } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 2,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  2,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)
 
 	var ae *ApplyError
 	require.True(t, errors.As(err, &ae), "want *ApplyError, got %T", err)
-	assert.Equal(t, "resource.slow.fail.boom", ae.Address)
+	assert.Equal(t, "resource.boom", ae.Address)
 	assert.Equal(t, NodeResource, ae.Kind)
 	assert.Equal(t, DecisionCreate, ae.Decision)
 	assert.Equal(t, "slow", ae.Library)
@@ -53,17 +55,19 @@ func TestApplyErrorCountsSkippedAndSucceeded(t *testing.T) {
 	}
 	src := `
 resources: {
-  slow.fail.upstream:    { name: 'upstream', delay-ms: 5 }
-  slow.r.sibling:        { name: 'sibling', delay-ms: 5 }
-  slow.r.after-upstream: { name: resource.slow.fail.upstream.name, delay-ms: 5 }
+  upstream:       slow.fail { name: 'upstream', delay-ms: 5 }
+  sibling:        slow.r { name: 'sibling', delay-ms: 5 }
+  after-upstream: slow.r { name: resource.upstream.name, delay-ms: 5 }
 }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 4,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  4,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)

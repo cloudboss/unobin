@@ -62,18 +62,20 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 	var src strings.Builder
 	src.WriteString("resources: {\n")
 	for i := range 6 {
-		src.WriteString(fmt.Sprintf("  slow.r.n%d: { name: 'n%d', delay-ms: 200 }\n", i, i))
+		src.WriteString(fmt.Sprintf("  n%d: slow.r { name: 'n%d', delay-ms: 200 }\n", i, i))
 	}
 	src.WriteString("}\n")
+	dag, syntaxSource := syntaxDAGAndBody(t, src.String(), libs)
 
 	drain := make(chan struct{})
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src.String()), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 2,
-		Drain:       drain,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  2,
+		Drain:        drain,
 	}
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -98,17 +100,19 @@ func TestApplyScheduleDrainBeforeDispatchSkipsEverything(t *testing.T) {
 		},
 	}
 	src := `
-resources: { slow.r.n0: { name: 'n0', delay-ms: 100 } }
+resources: { n0: slow.r { name: 'n0', delay-ms: 100 } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	drain := make(chan struct{})
 	close(drain)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 2,
-		Drain:       drain,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  2,
+		Drain:        drain,
 	}
 	_, err := planAndApply(exec)
 	require.Error(t, err)

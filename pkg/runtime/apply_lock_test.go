@@ -66,18 +66,20 @@ func TestApplyScheduleLockSerializesNamedActions(t *testing.T) {
 	var track concurrencyTracker
 	src := `
 actions: {
-  core.slow.a: { @lock: 'kubectl', delay-ms: 100 }
-  core.slow.b: { @lock: 'kubectl', delay-ms: 100 }
-  core.slow.c: { @lock: 'kubectl', delay-ms: 100 }
+  a: core.slow { @lock: 'kubectl', delay-ms: 100 }
+  b: core.slow { @lock: 'kubectl', delay-ms: 100 }
+  c: core.slow { @lock: 'kubectl', delay-ms: 100 }
 }
 `
 	libs := slowActionModules(&track)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 4,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  4,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -89,18 +91,20 @@ func TestApplyScheduleDistinctLocksRunInParallel(t *testing.T) {
 	var track concurrencyTracker
 	src := `
 actions: {
-  core.slow.a: { @lock: 'one', delay-ms: 100 }
-  core.slow.b: { @lock: 'two', delay-ms: 100 }
-  core.slow.c: { @lock: 'three', delay-ms: 100 }
+  a: core.slow { @lock: 'one', delay-ms: 100 }
+  b: core.slow { @lock: 'two', delay-ms: 100 }
+  c: core.slow { @lock: 'three', delay-ms: 100 }
 }
 `
 	libs := slowActionModules(&track)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 4,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  4,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -112,18 +116,20 @@ func TestApplyScheduleUnlockedActionRunsAlongsideLocked(t *testing.T) {
 	var track concurrencyTracker
 	src := `
 actions: {
-  core.slow.a:    { @lock: 'kubectl', delay-ms: 100 }
-  core.slow.b:    { @lock: 'kubectl', delay-ms: 100 }
-  core.slow.free: { delay-ms: 100 }
+  a:    core.slow { @lock: 'kubectl', delay-ms: 100 }
+  b:    core.slow { @lock: 'kubectl', delay-ms: 100 }
+  free: core.slow { delay-ms: 100 }
 }
 `
 	libs := slowActionModules(&track)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 4,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  4,
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -139,28 +145,28 @@ func TestExtractLockName(t *testing.T) {
 	}{
 		{
 			name: "action",
-			src:  `actions: { core.slow.x: { @lock: 'kubectl', delay-ms: 50 } }`,
+			src:  `actions: { x: core.slow { @lock: 'kubectl', delay-ms: 50 } }`,
 			want: "kubectl",
 		},
 		{
 			name: "resource",
-			src:  `resources: { aws.sg-rule.x: { @lock: 'sg', port: 80 } }`,
+			src:  `resources: { x: aws.sg-rule { @lock: 'sg', port: 80 } }`,
 			want: "sg",
 		},
 		{
 			name: "data",
-			src:  `data: { aws.ami.x: { @lock: 'reads', most-recent: true } }`,
+			src:  `data: { x: aws.ami { @lock: 'reads', most-recent: true } }`,
 			want: "reads",
 		},
 		{
 			name: "no lock",
-			src:  `resources: { aws.vpc.x: { cidr: '10.0.0.0/16' } }`,
+			src:  `resources: { x: aws.vpc { cidr: '10.0.0.0/16' } }`,
 			want: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nodes := ExtractNodes(parseStack(t, tt.src), nil)
+			nodes := ExtractSyntaxNodes(syntaxFactoryBody(t, tt.src), nil)
 			require.Len(t, nodes, 1)
 			assert.Equal(t, tt.want, nodes[0].LockName)
 		})

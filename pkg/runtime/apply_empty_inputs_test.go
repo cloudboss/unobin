@@ -19,11 +19,13 @@ func TestApplyAcceptsEmptyInputs(t *testing.T) {
 			},
 		},
 	}
+	dag, syntaxSource := syntaxDAGAndBody(t, `resources: { one: core.thing {} }`, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, `resources: { core.thing.one: {} }`), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
 	}
 	res := applyOnce(t, exec)
 	require.NotNil(t, res)

@@ -31,26 +31,28 @@ func countingInstancesLibrary(evals *int64) map[string]*Library {
 // A composite call's @for-each iterable evaluates once per run; each
 // instance's scope reuses that evaluation.
 func TestForEachCompositeIterableEvaluatesOncePerRun(t *testing.T) {
-	inner := parseStack(t, `
+	inner := syntaxResourceComposite(t, "inner", `
 inputs:    { tag: { type: string } }
-resources: { core.subnet.s: { tag: var.tag } }
+resources: { s: core.subnet { tag: var.tag } }
 `)
 	var evals int64
 	libs := countingInstancesLibrary(&evals)
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"inner": {Name: "inner", Body: inner},
+			"inner": inner,
 		},
 	}
 	src := `
-resources: { w.inner.x: { @for-each: core.instances(), tag: @each.value } }
+resources: { x: w.inner { @for-each: core.instances(), tag: @each.value } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -61,9 +63,9 @@ resources: { w.inner.x: { @for-each: core.instances(), tag: @each.value } }
 		}
 	}
 	require.ElementsMatch(t, []string{
-		"resource.w.inner.x['a']",
-		"resource.w.inner.x['b']",
-		"resource.w.inner.x['c']",
+		"resource.x['a']",
+		"resource.x['b']",
+		"resource.x['c']",
 	}, boundaries)
 	require.Equal(t, int64(1), atomic.LoadInt64(&evals))
 }
@@ -74,13 +76,15 @@ func TestForEachLeafIterableEvaluatesOncePerRun(t *testing.T) {
 	var evals int64
 	libs := countingInstancesLibrary(&evals)
 	src := `
-resources: { core.subnet.s: { @for-each: core.instances(), tag: @each.value } }
+resources: { s: core.subnet { @for-each: core.instances(), tag: @each.value } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	_, err := planAndApply(exec)
 	require.NoError(t, err)

@@ -65,46 +65,64 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 		},
 	}
 	src := `
-resources: { core.ghost.one: { tag: 'x' }, core.thing.two: { tag: resource.core.ghost.one.id } }
+resources: { one: core.ghost { tag: 'x' }, two: core.thing { tag: resource.one.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	applyOnce(t, &Executor{
+		DAG:          g,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
+	})
 
 	// The plan sees the upstream gone and decides to recreate it; the
 	// downstream diffs against the seeded prior id and plans no-op.
 	gone = true
-	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	second := &Executor{
+		DAG:          g,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
+	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionCreate, findStep(t, plan, "resource.core.ghost.one").Decision)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.thing.two").Decision)
+	require.Equal(t, DecisionCreate, findStep(t, plan, "resource.one").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.two").Decision)
 
 	// The recreate mints gen-2, so the downstream's tag re-evaluates
 	// to a value the plan never showed.
 	gone = false
 	_, err = planAndApplyExisting(second, plan)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "resource.core.thing.two")
+	require.Contains(t, err.Error(), "resource.two")
 	require.Contains(t, err.Error(), "inputs changed since the plan was computed; plan again")
 	require.Contains(t, err.Error(), `tag: "gen-1" -> "gen-2"`,
 		"the error names each moved field with both values")
 
 	// The recreate persisted before the failure, so one re-plan diffs
 	// the downstream against the new id and converges.
-	third := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	third := &Executor{
+		DAG:          g,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
+	}
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.ghost.one").Decision)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.core.thing.two").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.one").Decision)
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.two").Decision)
 	_, err = planAndApplyExisting(third, plan)
 	require.NoError(t, err)
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("resource.core.thing.two")
+	ent := snap.Find("resource.two")
 	require.NotNil(t, ent)
 	require.Equal(t, map[string]any{"tag": "gen-2"}, ent.Inputs)
 }
@@ -126,19 +144,21 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 		},
 	}
 	src := `
-resources: { core.ghost.one: { tag: 'x' }, core.thing.two: { tag: resource.core.ghost.one.id } }
+resources: { one: core.ghost { tag: 'x' }, two: core.thing { tag: resource.one.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	step := findStep(t, plan, "resource.core.thing.two")
+	step := findStep(t, plan, "resource.two")
 	require.Contains(t, step.UnresolvedInputs, "tag")
 
 	_, err = planAndApplyExisting(exec, plan)

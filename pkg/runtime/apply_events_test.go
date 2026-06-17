@@ -60,16 +60,18 @@ func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 		},
 	}
 	src := `
-resources: { r.thing.one: { name: 'one' }, r.thing.two: { name: 'two' } }
+resources: { one: r.thing { name: 'one' }, two: r.thing { name: 'two' } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	events := make(chan ApplyEvent, 32)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 2,
-		Events:      events,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  2,
+		Events:       events,
 	}
 	_, err := planAndApply(exec)
 	close(events)
@@ -87,10 +89,10 @@ resources: { r.thing.one: { name: 'one' }, r.thing.two: { name: 'two' } }
 			t.Fatalf("unexpected fail event: %+v", ev)
 		}
 	}
-	assert.Equal(t, 1, starts["resource.r.thing.one"])
-	assert.Equal(t, 1, dones["resource.r.thing.one"])
-	assert.Equal(t, 1, starts["resource.r.thing.two"])
-	assert.Equal(t, 1, dones["resource.r.thing.two"])
+	assert.Equal(t, 1, starts["resource.one"])
+	assert.Equal(t, 1, dones["resource.one"])
+	assert.Equal(t, 1, starts["resource.two"])
+	assert.Equal(t, 1, dones["resource.two"])
 }
 
 func TestApplyEventsEmitsFailEvent(t *testing.T) {
@@ -103,16 +105,18 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 		},
 	}
 	src := `
-resources: { r.thing.bad: { name: 'bad' } }
+resources: { bad: r.thing { name: 'bad' } }
 `
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	events := make(chan ApplyEvent, 8)
 	exec := &Executor{
-		DAG:         BuildDAG(parseStack(t, src), libs),
-		Libraries:   libs,
-		Store:       newStateStore(t),
-		Factory:     state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism: 2,
-		Events:      events,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		Parallelism:  2,
+		Events:       events,
 	}
 	_, err := planAndApply(exec)
 	close(events)
@@ -122,11 +126,11 @@ resources: { r.thing.bad: { name: 'bad' } }
 	for ev := range events {
 		switch ev.Stage {
 		case StageStart:
-			if ev.Address == "resource.r.thing.bad" {
+			if ev.Address == "resource.bad" {
 				sawStart = true
 			}
 		case StageFail:
-			if ev.Address == "resource.r.thing.bad" {
+			if ev.Address == "resource.bad" {
 				sawFail = true
 				assert.NotNil(t, ev.Err)
 			}

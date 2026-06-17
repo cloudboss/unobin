@@ -17,28 +17,28 @@ func TestExtractTimeout(t *testing.T) {
 	}{
 		{
 			name: "action",
-			src:  `actions: { core.slow.x: { @timeout: '30s', delay-ms: 1 } }`,
+			src:  `actions: { x: core.slow { @timeout: '30s', delay-ms: 1 } }`,
 			want: 30 * time.Second,
 		},
 		{
 			name: "resource",
-			src:  `resources: { aws.vpc.x: { @timeout: '5m', cidr: '10.0.0.0/16' } }`,
+			src:  `resources: { x: aws.vpc { @timeout: '5m', cidr: '10.0.0.0/16' } }`,
 			want: 5 * time.Minute,
 		},
 		{
 			name: "data",
-			src:  `data: { aws.ami.x: { @timeout: '1h30m', most-recent: true } }`,
+			src:  `data: { x: aws.ami { @timeout: '1h30m', most-recent: true } }`,
 			want: 90 * time.Minute,
 		},
 		{
 			name: "none",
-			src:  `resources: { aws.vpc.x: { cidr: '10.0.0.0/16' } }`,
+			src:  `resources: { x: aws.vpc { cidr: '10.0.0.0/16' } }`,
 			want: 0,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nodes := ExtractNodes(parseStack(t, tt.src), nil)
+			nodes := ExtractSyntaxNodes(syntaxFactoryBody(t, tt.src), nil)
 			require.Len(t, nodes, 1)
 			assert.Equal(t, tt.want, nodes[0].Timeout)
 		})
@@ -48,17 +48,19 @@ func TestExtractTimeout(t *testing.T) {
 func timeoutExecutor(t *testing.T, src string) *Executor {
 	var track concurrencyTracker
 	libs := slowActionModules(&track)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	return &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 }
 
 func TestApplyTimeoutFailsAnOverrunningStep(t *testing.T) {
 	src := `
-actions: { core.slow.x: { @timeout: '20ms', delay-ms: 500 } }
+actions: { x: core.slow { @timeout: '20ms', delay-ms: 500 } }
 `
 	_, err := planAndApply(timeoutExecutor(t, src))
 	require.Error(t, err)
@@ -67,7 +69,7 @@ actions: { core.slow.x: { @timeout: '20ms', delay-ms: 500 } }
 
 func TestApplyTimeoutAllowsAStepThatFinishesInTime(t *testing.T) {
 	src := `
-actions: { core.slow.x: { @timeout: '5s', delay-ms: 5 } }
+actions: { x: core.slow { @timeout: '5s', delay-ms: 5 } }
 `
 	_, err := planAndApply(timeoutExecutor(t, src))
 	require.NoError(t, err)

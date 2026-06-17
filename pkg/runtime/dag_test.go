@@ -3,19 +3,41 @@ package runtime
 import (
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/stretchr/testify/require"
 )
 
-func syntaxDAG(t *testing.T, src string, libs map[string]*Library) *DAG {
+func syntaxFactoryBody(t *testing.T, src string) syntax.FactoryBody {
 	t.Helper()
 	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
-	return BuildSyntaxDAG(fixture.body, libs)
+	return fixture.body
+}
+
+func syntaxDAG(t *testing.T, src string, libs map[string]*Library) *DAG {
+	t.Helper()
+	body := syntaxFactoryBody(t, src)
+	return BuildSyntaxDAG(body, libs)
+}
+
+func syntaxDAGAndBody(
+	t *testing.T,
+	src string,
+	libs map[string]*Library,
+) (*DAG, *syntax.FactoryBody) {
+	t.Helper()
+	body := syntaxFactoryBody(t, src)
+	return BuildSyntaxDAG(body, libs), &body
+}
+
+func syntaxComposite(t *testing.T, name string, kind NodeKind, src string) *CompositeType {
+	t.Helper()
+	body := parseSyntaxCompositeFixture(t, name+": "+string(kind)+" {\n"+src+"\n}").body
+	return &CompositeType{Name: name, Kind: kind, SyntaxBody: &body}
 }
 
 func syntaxResourceComposite(t *testing.T, name, src string) *CompositeType {
 	t.Helper()
-	body := parseSyntaxCompositeFixture(t, name+": resource {\n"+src+"\n}").body
-	return &CompositeType{Name: name, SyntaxBody: &body}
+	return syntaxComposite(t, name, NodeResource, src)
 }
 
 func TestBuildDAGEmpty(t *testing.T) {
