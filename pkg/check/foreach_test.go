@@ -11,25 +11,30 @@ import (
 // A @for-each leaf inside a @for-each composite has no inner fan-out;
 // the compile check refuses it, naming the node.
 func TestForEachLeafInsideForEachCompositeRejected(t *testing.T) {
-	composite := parseStack(t, `
-inputs:    { tags: { type: map(string) } }
-resources: { core.subnet.it: { @for-each: var.tags, tag: @each.value } }
+	composite := parseSyntaxCompositeFixture(t, `
+outer: resource {
+  inputs:    { tags: { type: map(string) } }
+  resources: { it: core.subnet { @for-each: var.tags, tag: @each.value } }
+}
 `)
+	body := composite.body
 	libs := map[string]*runtime.Library{
 		"core": {Name: "core"},
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*runtime.CompositeType{
-				"outer": {Name: "outer", Body: composite},
+				"outer": {Name: "outer", SyntaxBody: &body},
 			},
 		},
 	}
-	src := `
-resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
-`
-	errs := newGenericChecker(parseStack(t, src), libs).ForEachNesting()
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: { x: w.outer { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
+}
+`)
+	errs := NewSyntax(fixture.body, libs).ForEachNesting()
 	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Err().Error(), "resource.w.outer.x/resource.core.subnet.it")
+	require.Contains(t, errs.Err().Error(), "resource.x/resource.it")
 	require.Contains(t, errs.Err().Error(),
 		"@for-each inside a @for-each composite is not supported")
 }
@@ -37,30 +42,38 @@ resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
 // A @for-each composite call inside a @for-each composite is refused
 // the same way.
 func TestForEachCompositeInsideForEachCompositeRejected(t *testing.T) {
-	inner := parseStack(t, `
-inputs:    { tag: { type: string } }
-resources: { core.subnet.s: { tag: var.tag } }
+	inner := parseSyntaxCompositeFixture(t, `
+inner: resource {
+  inputs:    { tag: { type: string } }
+  resources: { s: core.subnet { tag: var.tag } }
+}
 `)
-	outer := parseStack(t, `
-inputs:    { tags: { type: map(string) } }
-resources: { w.inner.i: { @for-each: var.tags, tag: @each.value } }
+	innerBody := inner.body
+	outer := parseSyntaxCompositeFixture(t, `
+outer: resource {
+  inputs:    { tags: { type: map(string) } }
+  resources: { i: w.inner { @for-each: var.tags, tag: @each.value } }
+}
 `)
+	outerBody := outer.body
 	libs := map[string]*runtime.Library{
 		"core": {Name: "core"},
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*runtime.CompositeType{
-				"inner": {Name: "inner", Body: inner},
-				"outer": {Name: "outer", Body: outer},
+				"inner": {Name: "inner", SyntaxBody: &innerBody},
+				"outer": {Name: "outer", SyntaxBody: &outerBody},
 			},
 		},
 	}
-	src := `
-resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
-`
-	errs := newGenericChecker(parseStack(t, src), libs).ForEachNesting()
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: { x: w.outer { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
+}
+`)
+	errs := NewSyntax(fixture.body, libs).ForEachNesting()
 	require.Equal(t, 1, errs.Len())
-	require.Contains(t, errs.Err().Error(), "resource.w.outer.x/resource.w.inner.i")
+	require.Contains(t, errs.Err().Error(), "resource.x/resource.i")
 	require.Contains(t, errs.Err().Error(),
 		"@for-each inside a @for-each composite is not supported")
 }
@@ -68,30 +81,38 @@ resources: { w.outer.x: { @for-each: { a: 'one' }, tags: { t1: 'one' } } }
 // Iteration that does not nest stays legal: a @for-each call with
 // plain internals, and a plain composite holding a @for-each leaf.
 func TestForEachWithoutNestingPasses(t *testing.T) {
-	composite := parseStack(t, `
-inputs:    { tag: { type: string } }
-resources: { core.subnet.s: { tag: var.tag } }
+	composite := parseSyntaxCompositeFixture(t, `
+slice: resource {
+  inputs:    { tag: { type: string } }
+  resources: { s: core.subnet { tag: var.tag } }
+}
 `)
-	plainWithForEach := parseStack(t, `
-inputs:    { tags: { type: map(string) } }
-resources: { core.subnet.it: { @for-each: var.tags, tag: @each.value } }
+	compositeBody := composite.body
+	plainWithForEach := parseSyntaxCompositeFixture(t, `
+plain: resource {
+  inputs:    { tags: { type: map(string) } }
+  resources: { it: core.subnet { @for-each: var.tags, tag: @each.value } }
+}
 `)
+	plainBody := plainWithForEach.body
 	libs := map[string]*runtime.Library{
 		"core": {Name: "core"},
 		"w": {
 			Name: "w",
 			ResourceComposites: map[string]*runtime.CompositeType{
-				"slice": {Name: "slice", Body: composite},
-				"plain": {Name: "plain", Body: plainWithForEach},
+				"slice": {Name: "slice", SyntaxBody: &compositeBody},
+				"plain": {Name: "plain", SyntaxBody: &plainBody},
 			},
 		},
 	}
-	src := `
-resources: {
-  w.slice.x: { @for-each: { a: 'one' }, tag: @each.value }
-  w.plain.y: { tags: { t1: 'one' } }
+	fixture := parseSyntaxFactoryFixture(t, `
+factory: {
+  resources: {
+    x: w.slice { @for-each: { a: 'one' }, tag: @each.value }
+    y: w.plain { tags: { t1: 'one' } }
+  }
 }
-`
-	errs := newGenericChecker(parseStack(t, src), libs).ForEachNesting()
+`)
+	errs := NewSyntax(fixture.body, libs).ForEachNesting()
 	require.Equal(t, 0, errs.Len())
 }

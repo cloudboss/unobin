@@ -24,6 +24,16 @@ func constrainedLibs() map[string]*runtime.Library {
 	}
 }
 
+func checkSyntaxLiteralConstraints(
+	t *testing.T,
+	src string,
+	libs map[string]*runtime.Library,
+) *lang.ErrorList {
+	t.Helper()
+	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	return NewSyntax(fixture.body, libs).LiteralConstraints()
+}
+
 func TestCheckLiteralConstraints(t *testing.T) {
 	tests := []struct {
 		name string
@@ -32,81 +42,84 @@ func TestCheckLiteralConstraints(t *testing.T) {
 	}{
 		{
 			name: "literal violation is reported",
-			src:  `resources: { core.thing.x: { name: 'x', size: 1 } }`,
+			src:  `resources: { x: core.thing { name: 'x', size: 1 } }`,
 			want: []string{
-				"resource.core.thing.x: constraints[0] (exactly-one-of " +
+				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 		{
 			name: "satisfied literal passes",
-			src:  `resources: { core.thing.x: { name: 'x' } }`,
+			src:  `resources: { x: core.thing { name: 'x' } }`,
 			want: nil,
 		},
 		{
 			name: "neither field set is reported",
-			src:  `resources: { core.thing.x: { other: 'z' } }`,
+			src:  `resources: { x: core.thing { other: 'z' } }`,
 			want: []string{
-				"resource.core.thing.x: constraints[0] (exactly-one-of " +
+				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 0 ()",
 			},
 		},
 		{
 			name: "input reference in a constrained field defers to plan",
 			src: `inputs:    { who: { type: string } }
-resources: { core.thing.x: { name: var.who, size: 1 } }`,
+resources: { x: core.thing { name: var.who, size: 1 } }`,
 			want: nil,
 		},
 		{
 			name: "literal violation is reported despite an unrelated input reference",
 			src: `inputs:    { who: { type: string } }
-resources: { core.thing.x: { name: 'x', size: 1, region: var.who } }`,
+resources: { x: core.thing { name: 'x', size: 1, region: var.who } }`,
 			want: []string{
-				"resource.core.thing.x: constraints[0] (exactly-one-of " +
+				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 		{
 			name: "output reference defers to plan",
 			src: `resources: {
-  core.thing.a: { name: 'a' }
-  core.thing.b: { name: resource.core.thing.a.id, size: 1 }
+  a: core.thing { name: 'a' }
+  b: core.thing { name: resource.a.id, size: 1 }
 }`,
 			want: nil,
 		},
 		{
 			name: "type without constraints passes",
-			src:  `resources: { core.plain.x: { name: 'x', size: 1 } }`,
+			src:  `resources: { x: core.plain { name: 'x', size: 1 } }`,
 			want: nil,
 		},
 		{
 			name: "unimported alias is skipped",
-			src:  `resources: { other.thing.x: { name: 'x', size: 1 } }`,
+			src:  `resources: { x: other.thing { name: 'x', size: 1 } }`,
 			want: nil,
 		},
 		{
 			name: "two violations are both reported",
-			src:  `resources: { core.thing.x: { name: 'x', size: 1 }, core.thing.y: { name: 'y', size: 2 } }`,
+			src: `resources: {
+  x: core.thing { name: 'x', size: 1 }
+  y: core.thing { name: 'y', size: 2 }
+}`,
 			want: []string{
-				"resource.core.thing.x: constraints[0] (exactly-one-of " +
+				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
-				"resource.core.thing.y: constraints[0] (exactly-one-of " +
+				"resource.y: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 		{
 			name: "one literal violation alongside a deferred node",
 			src: `inputs:    { who: { type: string } }
-resources: { core.thing.x: { name: 'x', size: 1 }, core.thing.y: { name: var.who, size: 2 } }`,
+resources: { x: core.thing { name: 'x', size: 1 }, y: core.thing { name: var.who, size: 2 } }`,
 			want: []string{
-				"resource.core.thing.x: constraints[0] (exactly-one-of " +
+				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := checkLiteralConstraints(parseStack(t, tt.src), constrainedLibs())
+			errs := checkSyntaxLiteralConstraints(t, tt.src, constrainedLibs())
 			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
@@ -129,12 +142,11 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 			},
 		}},
 	}
-	f := parseStack(t, `resources: { core.thing.x: { items: [] } }`)
-	errs := checkLiteralConstraints(f, libs)
+	errs := checkSyntaxLiteralConstraints(t, `resources: { x: core.thing { items: [] } }`, libs)
 	require.Equal(t, 1, errs.Len(), "got: %v", errs.Err())
 	require.Contains(t, errs.Errors()[0].Error(), "items must list at least one entry")
 
-	ok := checkLiteralConstraints(parseStack(t, `resources: { core.thing.x: { items: ['a'] } }`), libs)
+	ok := checkSyntaxLiteralConstraints(t, `resources: { x: core.thing { items: ['a'] } }`, libs)
 	require.Equal(t, 0, ok.Len(), "got: %v", ok.Err())
 }
 
@@ -144,32 +156,34 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 // passes.
 func TestCheckLiteralConstraintsInsideComposite(t *testing.T) {
 	compositeLibs := func(node string) map[string]*runtime.Library {
-		body := parseStack(t, `
-inputs:    { path: { type: string } }
-resources: { core.thing.inner: `+node+` }
-outputs:   { id: { value: resource.core.thing.inner.id } }
+		fixture := parseSyntaxCompositeFixture(t, `
+file-pair: resource {
+  inputs:    { path: { type: string } }
+  resources: { inner: core.thing `+node+` }
+  outputs:   { id: { value: resource.inner.id } }
+}
 `)
+		body := fixture.body
 		return map[string]*runtime.Library{
 			"bundle": {ResourceComposites: map[string]*runtime.CompositeType{
 				"file-pair": {
-					Name:      "file-pair",
-					Body:      body,
-					Libraries: constrainedLibs(),
+					Name:       "file-pair",
+					SyntaxBody: &body,
+					Libraries:  constrainedLibs(),
 				},
 			}},
 		}
 	}
-	root := `resources: { bundle.file-pair.demo: { path: 'x.txt' } }`
+	root := `resources: { demo: bundle.file-pair { path: 'x.txt' } }`
 
-	errs := checkLiteralConstraints(parseStack(t, root),
-		compositeLibs(`{ name: 'x', size: 1 }`))
+	errs := checkSyntaxLiteralConstraints(t, root, compositeLibs(`{ name: 'x', size: 1 }`))
 	require.Equal(t, []string{
-		"resource.bundle.file-pair.demo/resource.core.thing.inner: " +
+		"resource.demo/resource.inner: " +
 			"constraints[0] (exactly-one-of [name, size]): " +
 			"expected exactly one to be set, got 2 (name, size)",
 	}, errs.Messages())
 
-	ok := checkLiteralConstraints(parseStack(t, root), compositeLibs(`{ name: 'x' }`))
+	ok := checkSyntaxLiteralConstraints(t, root, compositeLibs(`{ name: 'x' }`))
 	require.Empty(t, ok.Messages())
 }
 
@@ -178,15 +192,15 @@ outputs:   { id: { value: resource.core.thing.inner.id } }
 // into the reported diagnostics.
 func TestCheckLiteralConstraintsDeterministic(t *testing.T) {
 	src := `resources: {
-  core.thing.x: { name: 'x', size: 1 }
-  core.thing.y: { name: 'y', size: 2 }
-  core.thing.z: { other: 'z' }
+  x: core.thing { name: 'x', size: 1 }
+  y: core.thing { name: 'y', size: 2 }
+  z: core.thing { other: 'z' }
 }`
 	libs := constrainedLibs()
-	first := checkLiteralConstraints(parseStack(t, src), libs).Messages()
+	first := checkSyntaxLiteralConstraints(t, src, libs).Messages()
 	require.Len(t, first, 3)
 	for range 20 {
-		require.Equal(t, first, checkLiteralConstraints(parseStack(t, src), libs).Messages())
+		require.Equal(t, first, checkSyntaxLiteralConstraints(t, src, libs).Messages())
 	}
 }
 
@@ -225,7 +239,7 @@ func TestLiteralValues(t *testing.T) {
 		},
 		{
 			name:         "output reference defers its field",
-			src:          `{ name: resource.core.thing.a.id }`,
+			src:          `{ name: resource.a.id }`,
 			want:         map[string]any{},
 			wantDeferred: map[string]bool{"name": true},
 		},
@@ -270,8 +284,8 @@ func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []
 			Resources: map[string]*runtime.TypeSchema{"thing": {Constraints: specs}},
 		}},
 	}
-	src := "resources: {\n  core.thing.x: " + body + "\n}\n"
-	return checkLiteralConstraints(parseStack(t, src), libs).Messages()
+	src := "resources: {\n  x: core.thing " + body + "\n}\n"
+	return checkSyntaxLiteralConstraints(t, src, libs).Messages()
 }
 
 // TestCheckLiteralConstraintKinds covers the constraint kinds and the
@@ -279,7 +293,7 @@ func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []
 // that reads an input the body omits: the check must fill it with null so
 // the condition evaluates instead of failing.
 func TestCheckLiteralConstraintKinds(t *testing.T) {
-	const addr = "resource.core.thing.x: "
+	const addr = "resource.x: "
 	pred := []lang.ConstraintSpec{{
 		Kind: "predicate", When: "var.name != null", Require: "var.size != null",
 	}}
@@ -351,7 +365,7 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 // it references is literal, defers when any is not, and keeps its
 // position in the type's constraint list either way.
 func TestCheckLiteralConstraintsPartialBody(t *testing.T) {
-	const addr = "resource.core.thing.x: "
+	const addr = "resource.x: "
 	tests := []struct {
 		name  string
 		specs []lang.ConstraintSpec
