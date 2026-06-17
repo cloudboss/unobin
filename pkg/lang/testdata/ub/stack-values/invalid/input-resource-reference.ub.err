@@ -1,0 +1,1 @@
+stack-values.ub:2:16: resolve: stack values must be static, but resource.a.b.c is a reference

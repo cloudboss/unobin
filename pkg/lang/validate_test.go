@@ -35,20 +35,20 @@ func TestValidateComprehensionBindingsFixtures(t *testing.T) {
 	})
 }
 
-func configDriver(name string, src []byte) (string, []string) {
-	f, err := ParseSource("config.ub", src)
+func stackValueDriver(name string, src []byte) (string, []string) {
+	f, err := ParseSource("stack-values.ub", src)
 	if err != nil {
 		return "", []string{err.Error()}
 	}
 	blocks := fixtureTopLevelBlocks(f)
 	errs := NewErrorList(0)
-	locals := configLocalNames(blocks["locals"])
+	locals := stackLocalNames(blocks["locals"])
 	if obj, ok := blocks["locals"].(*ObjectLit); ok {
 		mergeErrors(errs, ValidateLocals(obj))
-		mergeErrors(errs, ValidateConfigLocals(obj))
+		mergeErrors(errs, ValidateStackLocals(obj))
 	}
 	if obj, ok := blocks["factory"].(*ObjectLit); ok {
-		mergeErrors(errs, ValidateConfigFactory(obj, locals))
+		mergeErrors(errs, ValidateStackFactory(obj, locals))
 	}
 	return "", errs.Strings()
 }
@@ -63,8 +63,8 @@ func fixtureTopLevelBlocks(f *File) map[string]Expr {
 	return out
 }
 
-func TestValidateConfigFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/config", configDriver)
+func TestValidateStackValueFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/stack-values", stackValueDriver)
 }
 
 func parseInputsBlock(t *testing.T, src string) *ObjectLit {

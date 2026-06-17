@@ -950,12 +950,12 @@ var factoryChildKeys = map[string]bool{
 	"inputs": true,
 }
 
-// ValidateConfigFactory checks the structure of a stack file's
+// ValidateStackFactory checks the structure of a stack file's
 // factory: block, which names the factory to run and the values it
 // receives. Each child is a literal object: pin holds the identity
 // entries `unobin pin` manages and inputs holds the input values. locals
 // holds the names declared by the file's locals: block.
-func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList {
+func ValidateStackFactory(block *ObjectLit, locals map[string]bool) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
 	for _, fld := range block.Fields {
@@ -992,7 +992,7 @@ func ValidateConfigFactory(block *ObjectLit, locals map[string]bool) *ErrorList 
 		case "pin":
 			validateFactoryPin(obj, errs)
 		case "inputs":
-			mergeErrors(errs, ValidateConfigInputs(obj, locals))
+			mergeErrors(errs, ValidateStackInputs(obj, locals))
 		}
 	}
 	return errs
@@ -1084,34 +1084,34 @@ func validatePinEntry(el Expr, errs *ErrorList) {
 	}
 }
 
-// ValidateConfigInputs checks that every value in a stack file's
-// factory.inputs block is a static value; see checkStaticConfigBlock.
+// ValidateStackInputs checks that every value in a stack file's
+// factory.inputs block is a static value; see checkStaticStackBlock.
 // locals holds the names declared by the file's locals: block,
 // referenceable from any stack value.
-func ValidateConfigInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
-	return checkStaticConfigBlock(block, staticConfigRules{locals: locals})
+func ValidateStackInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
+	return checkStaticStackBlock(block, stackValueRules{locals: locals})
 }
 
-// ValidateConfigLocals checks the values of a stack file's locals:
+// ValidateStackLocals checks the values of a stack file's locals:
 // block. A stack local is the file's own scope: a static value that may
 // reference other locals, but never inputs. The stack file supplies input
 // values to the factory without being able to read them back, so a var.x
 // here is rejected with wording that says why. Locals referencing each
 // other in a loop are reported as cycles.
-func ValidateConfigLocals(block *ObjectLit) *ErrorList {
+func ValidateStackLocals(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
-	rules := staticConfigRules{locals: configLocalNames(block), inLocals: true}
+	rules := stackValueRules{locals: stackLocalNames(block), inLocals: true}
 	for _, f := range block.Fields {
-		checkConfigValue(f.Value, map[string]bool{}, rules, errs)
+		checkStackValue(f.Value, map[string]bool{}, rules, errs)
 	}
-	checkConfigLocalCycles(block, errs)
+	checkStackLocalCycles(block, errs)
 	return errs
 }
 
-// configLocalNames collects the declared local names from a locals:
+// stackLocalNames collects the declared local names from a locals:
 // block expression, tolerating a nil or non-object value so callers can
 // pass whatever the top-level index holds.
-func configLocalNames(e Expr) map[string]bool {
+func stackLocalNames(e Expr) map[string]bool {
 	obj, ok := e.(*ObjectLit)
 	if !ok {
 		return nil
@@ -1125,26 +1125,26 @@ func configLocalNames(e Expr) map[string]bool {
 	return names
 }
 
-// staticConfigRules selects what a stack block's values may reference
+// stackValueRules selects what a stack block's values may reference
 // beyond literals. locals holds the file's declared local names, which
 // any stack value may reference. inLocals marks the locals block
 // itself, which rewords a var.x rejection around scope: a local cannot
 // read inputs.
-type staticConfigRules struct {
+type stackValueRules struct {
 	locals   map[string]bool
 	inLocals bool
 }
 
 // refError picks the rejection wording for a reference that no rule
 // admits. root is the dot-path root, or empty for a bare identifier.
-func (r staticConfigRules) refError(root string) string {
+func (r stackValueRules) refError(root string) string {
 	if r.inLocals && root == "var" {
 		return "a local may not reference %s: inputs are supplied by the stack file, not in its scope"
 	}
 	return "stack values must be static, but %s is a reference"
 }
 
-// checkStaticConfigBlock reports calls and free references in a stack
+// checkStaticStackBlock reports calls and free references in a stack
 // block's values. Stack values are static data: the runner evaluates
 // them before any cloud or state I/O, with no library table in scope, so
 // a function call or a reference to anything but an input or a local has
@@ -1152,18 +1152,18 @@ func (r staticConfigRules) refError(root string) string {
 // comprehensions over literals are allowed; a comprehension's own bound
 // names are in scope inside its body, and the file's declared locals are
 // in scope everywhere.
-func checkStaticConfigBlock(block *ObjectLit, rules staticConfigRules) *ErrorList {
+func checkStaticStackBlock(block *ObjectLit, rules stackValueRules) *ErrorList {
 	errs := NewErrorList(0)
 	for _, f := range block.Fields {
-		checkConfigValue(f.Value, map[string]bool{}, rules, errs)
+		checkStackValue(f.Value, map[string]bool{}, rules, errs)
 	}
 	return errs
 }
 
-// checkConfigValue reports calls and free references in a stack value.
+// checkStackValue reports calls and free references in a stack value.
 // bound is the set of names a surrounding comprehension brought into
 // scope; a bound name shadows the local root, matching evaluation order.
-func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, errs *ErrorList) {
+func checkStackValue(e Expr, bound map[string]bool, rules stackValueRules, errs *ErrorList) {
 	if e == nil {
 		return
 	}
@@ -1172,33 +1172,33 @@ func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, er
 		// A literal is always a valid stack value.
 	case *ArrayLit:
 		for _, el := range v.Elements {
-			checkConfigValue(el, bound, rules, errs)
+			checkStackValue(el, bound, rules, errs)
 		}
 	case *ObjectLit:
 		for _, f := range v.Fields {
-			checkConfigValue(f.Value, bound, rules, errs)
+			checkStackValue(f.Value, bound, rules, errs)
 		}
 	case *InterpolatedString:
 		for _, p := range v.Parts {
-			checkConfigValue(p.Expr, bound, rules, errs)
+			checkStackValue(p.Expr, bound, rules, errs)
 		}
 	case *Infix:
-		checkConfigValue(v.Left, bound, rules, errs)
-		checkConfigValue(v.Right, bound, rules, errs)
+		checkStackValue(v.Left, bound, rules, errs)
+		checkStackValue(v.Right, bound, rules, errs)
 	case *Prefix:
-		checkConfigValue(v.Expr, bound, rules, errs)
+		checkStackValue(v.Expr, bound, rules, errs)
 	case *Conditional:
-		checkConfigValue(v.Cond, bound, rules, errs)
-		checkConfigValue(v.Then, bound, rules, errs)
-		checkConfigValue(v.Else, bound, rules, errs)
+		checkStackValue(v.Cond, bound, rules, errs)
+		checkStackValue(v.Then, bound, rules, errs)
+		checkStackValue(v.Else, bound, rules, errs)
 	case *Comprehension:
 		// The source is evaluated before the binding exists; the key, value,
 		// and filter see the bound names.
-		checkConfigValue(v.Source, bound, rules, errs)
+		checkStackValue(v.Source, bound, rules, errs)
 		inner := withBound(bound, v.Names)
-		checkConfigValue(v.Key, inner, rules, errs)
-		checkConfigValue(v.Value, inner, rules, errs)
-		checkConfigValue(v.Filter, inner, rules, errs)
+		checkStackValue(v.Key, inner, rules, errs)
+		checkStackValue(v.Value, inner, rules, errs)
+		checkStackValue(v.Filter, inner, rules, errs)
 	case *Ident:
 		if !bound[v.Name] {
 			errs.Addf(ErrResolve, v.S.Start, rules.refError(""), v.Name)
@@ -1228,7 +1228,7 @@ func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, er
 			return
 		}
 		for _, seg := range v.Segments {
-			checkConfigValue(seg.Index, bound, rules, errs)
+			checkStackValue(seg.Index, bound, rules, errs)
 		}
 	case *Call:
 		errs.Addf(ErrResolve, v.S.Start,
@@ -1238,12 +1238,12 @@ func checkConfigValue(e Expr, bound map[string]bool, rules staticConfigRules, er
 	}
 }
 
-// checkConfigLocalCycles reports locals that reference themselves
+// checkStackLocalCycles reports locals that reference themselves
 // through the locals block, directly or via other locals. The walk
 // mirrors the factory-side check: a depth-first visit over the
 // local-to-local edges, reporting at the entry whose visit found the
 // loop.
-func checkConfigLocalCycles(block *ObjectLit, errs *ErrorList) {
+func checkStackLocalCycles(block *ObjectLit, errs *ErrorList) {
 	graph := map[string][]string{}
 	pos := map[string]Position{}
 	var order []string
@@ -1252,7 +1252,7 @@ func checkConfigLocalCycles(block *ObjectLit, errs *ErrorList) {
 			continue
 		}
 		name := fld.Key.Name
-		graph[name] = configLocalRefs(fld.Value)
+		graph[name] = stackLocalRefs(fld.Value)
 		pos[name] = fld.Key.S.Start
 		order = append(order, name)
 	}
@@ -1286,8 +1286,8 @@ func checkConfigLocalCycles(block *ObjectLit, errs *ErrorList) {
 	}
 }
 
-// configLocalRefs collects the local names an expression references.
-func configLocalRefs(e Expr) []string {
+// stackLocalRefs collects the local names an expression references.
+func stackLocalRefs(e Expr) []string {
 	var names []string
 	Walk(e, func(x Expr) {
 		dp, ok := x.(*DotPath)

@@ -1,0 +1,1 @@
+stack-values.ub:2:16: resolve: stack values must be static, but core.format is a function call

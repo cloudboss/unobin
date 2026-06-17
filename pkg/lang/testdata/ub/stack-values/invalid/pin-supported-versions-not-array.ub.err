@@ -1,0 +1,1 @@
+stack-values.ub:1:39: schema: `factory.pin.supported-versions:` must be an array, got object literal

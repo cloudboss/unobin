@@ -1,1 +1,0 @@
-config.ub:2:21: resolve: stack values must be static, but pick is a function call

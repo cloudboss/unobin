@@ -1,0 +1,1 @@
+stack-values.ub:1:19: resolve: a local may not reference var.region: inputs are supplied by the stack file, not in its scope

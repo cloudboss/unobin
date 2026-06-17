@@ -1,0 +1,2 @@
+stack-values.ub:1:40: schema: a supported-versions entry must have a content-revision
+stack-values.ub:1:57: schema: a supported-versions entry holds only version and content-revision

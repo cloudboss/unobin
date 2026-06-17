@@ -87,9 +87,9 @@ func validateStackFile(stack *StackFile, pos parse.Position, errs *parse.ErrorLi
 		return
 	}
 	locals := localDeclsObject(stack.Locals)
-	localNames := configLocalNames(stack.Locals)
+	localNames := stackLocalNames(stack.Locals)
 	mergeErrors(errs, lang.ValidateLocals(locals))
-	mergeErrors(errs, lang.ValidateConfigLocals(locals))
+	mergeErrors(errs, lang.ValidateStackLocals(locals))
 	if stack.Factory != nil {
 		validateStackFactory(stack.Factory, localNames, errs)
 	}
@@ -157,7 +157,7 @@ func validateStackResolverBody(
 		}
 		staticBody.Fields = append(staticBody.Fields, fld)
 	}
-	mergeErrors(errs, lang.ValidateConfigInputs(staticBody, rule.locals))
+	mergeErrors(errs, lang.ValidateStackInputs(staticBody, rule.locals))
 }
 
 func validateStackFactory(
@@ -172,7 +172,7 @@ func validateStackFactory(
 	if factory.Inputs != nil {
 		cfg.Fields = append(cfg.Fields, identField("inputs", factory.Inputs.S, factory.Inputs))
 	}
-	mergeErrors(errs, lang.ValidateConfigFactory(cfg, locals))
+	mergeErrors(errs, lang.ValidateStackFactory(cfg, locals))
 	validateStackConfigurationValues(factory.Configurations, locals, errs)
 }
 
@@ -281,12 +281,12 @@ func validateStackConfigurationValues(
 		}
 		if body, ok := expr.(*parse.ObjectLit); ok {
 			validateConfigurationBody(configurationValueLabel(value), body, errs)
-			mergeErrors(errs, lang.ValidateConfigInputs(body, locals))
+			mergeErrors(errs, lang.ValidateStackInputs(body, locals))
 			continue
 		}
 		block := &parse.ObjectLit{S: value.S}
 		block.Fields = append(block.Fields, identField("value", value.S, expr))
-		mergeErrors(errs, lang.ValidateConfigInputs(block, locals))
+		mergeErrors(errs, lang.ValidateStackInputs(block, locals))
 	}
 }
 
@@ -900,7 +900,7 @@ func selectorSegments(span parse.Span, names []string) []parse.DotSegment {
 	return out
 }
 
-func configLocalNames(decls []LocalDecl) map[string]bool {
+func stackLocalNames(decls []LocalDecl) map[string]bool {
 	names := make(map[string]bool, len(decls))
 	for _, decl := range decls {
 		names[decl.Name.Name] = true
