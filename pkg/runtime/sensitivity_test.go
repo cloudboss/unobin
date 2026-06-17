@@ -8,18 +8,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func syntaxSensitivity(
+	t *testing.T,
+	src string,
+	libs map[string]*Library,
+) (*DAG, *sensitivityAnalyzer) {
+	t.Helper()
+	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	dag := BuildSyntaxDAG(fixture.body, libs)
+	return dag, newSensitivityAnalyzerFromSource(nil, &fixture.body, libs, dag)
+}
+
 func TestSensitivityRecognizesSensitiveVar(t *testing.T) {
 	src := `
 inputs: { region: { type: string }, password: { type: string, @sensitive: true } }
 
-resources: { local.secret.one: { name: var.region, password: var.password } }
+resources: { one: local.secret { name: var.region, password: var.password } }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.secret.one"]
+	node := dag.Nodes["resource.one"]
 	require.NotNil(t, node)
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Equal(t, []string{"password"}, got)
@@ -29,14 +38,12 @@ func TestSensitivityFollowsLocalToSensitiveVar(t *testing.T) {
 	src := `
 inputs:    { region: { type: string }, password: { type: string, @sensitive: true } }
 locals:    { pw: var.password }
-resources: { local.secret.one: { name: var.region, password: local.pw } }
+resources: { one: local.secret { name: var.region, password: local.pw } }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.secret.one"]
+	node := dag.Nodes["resource.one"]
 	require.NotNil(t, node)
 	require.Equal(t, []string{"password"}, an.sensitiveInputs(node.Body, node.Composite))
 }
@@ -45,27 +52,24 @@ func TestSensitivityFollowsChainedLocal(t *testing.T) {
 	src := `
 inputs:    { plain: { type: string }, secret: { type: string, @sensitive: true } }
 locals:    { a: var.secret, b: local.a, c: var.plain }
-resources: { local.secret.one: { name: local.c, password: local.b } }
+resources: { one: local.secret { name: local.c, password: local.b } }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.secret.one"]
+	node := dag.Nodes["resource.one"]
 	require.NotNil(t, node)
 	require.Equal(t, []string{"password"}, an.sensitiveInputs(node.Body, node.Composite))
 }
 
 func TestSensitivityFollowsLocalToSensitiveOutput(t *testing.T) {
 	src := `
-locals: { tok: resource.vault.secret.s.value }
+locals: { tok: resource.secret.value }
 resources: {
-  vault.secret.s: { name: 'token' }
-  local.file.f:   { path: 'out.txt', content: local.tok }
+  secret: vault.secret { name: 'token' }
+  file:   local.file { path: 'out.txt', content: local.tok }
 }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -75,10 +79,9 @@ resources: {
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
 	require.Equal(t, []string{"content"}, an.sensitiveInputs(node.Body, node.Composite))
 }
@@ -87,14 +90,12 @@ func TestSensitivityLocalNonSensitive(t *testing.T) {
 	src := `
 inputs:    { region: { type: string } }
 locals:    { r: var.region }
-resources: { local.file.f: { path: local.r } }
+resources: { file: local.file { path: local.r } }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
 	require.Empty(t, an.sensitiveInputs(node.Body, node.Composite))
 }
@@ -102,14 +103,12 @@ resources: { local.file.f: { path: local.r } }
 func TestSensitivityLocalCycleTerminates(t *testing.T) {
 	src := `
 locals:    { a: local.b, b: local.a }
-resources: { local.file.f: { path: local.a } }
+resources: { file: local.file { path: local.a } }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
 	require.Empty(t, an.sensitiveInputs(node.Body, node.Composite))
 }
@@ -121,14 +120,12 @@ func TestSensitivityNarrowsObjectLocalToNavigatedField(t *testing.T) {
 	src := `
 inputs:    { user: { type: string }, password: { type: string, @sensitive: true } }
 locals:    { creds: { name: var.user, secret: var.password } }
-resources: { local.file.f: { path: local.creds.name, content: local.creds.secret } }
+resources: { file: local.file { path: local.creds.name, content: local.creds.secret } }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
 	require.Equal(t, []string{"content"}, an.sensitiveInputs(node.Body, node.Composite))
 }
@@ -136,11 +133,10 @@ resources: { local.file.f: { path: local.creds.name, content: local.creds.secret
 func TestSensitivityRecognizesSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {
-  vault.secret.s: { name: 'token' }
-  local.file.f:   { path: 'out.txt', content: resource.vault.secret.s.value }
+  secret: vault.secret { name: 'token' }
+  file:   local.file { path: 'out.txt', content: resource.secret.value }
 }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -150,10 +146,9 @@ resources: {
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Equal(t, []string{"content"}, got)
@@ -161,14 +156,11 @@ resources: {
 
 func TestSensitivityRecognizesSensitiveShortGoOutput(t *testing.T) {
 	src := `
-factory: {
-  resources: {
-    secret: vault.secret { name: 'token' }
-    file: local.file { path: 'out.txt', content: resource.secret.value }
-  }
+resources: {
+  secret: vault.secret { name: 'token' }
+  file: local.file { path: 'out.txt', content: resource.secret.value }
 }
 `
-	f := parseSyntaxFactory(t, src)
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -178,8 +170,7 @@ factory: {
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
 	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
@@ -190,11 +181,10 @@ factory: {
 func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
 	src := `
 resources: {
-  vault.secret.s: { token: 'shh' }
-  local.file.f:   { path: 'out.txt', content: resource.vault.secret.s.token }
+  secret: vault.secret { token: 'shh' }
+  file:   local.file { path: 'out.txt', content: resource.secret.token }
 }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -204,10 +194,9 @@ resources: {
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Equal(t, []string{"content"}, got,
@@ -217,11 +206,10 @@ resources: {
 func TestSensitivityRecognizesNonSensitiveGoOutput(t *testing.T) {
 	src := `
 resources: {
-  vault.secret.s: { name: 'token' }
-  local.file.f:   { path: 'out.txt', content: resource.vault.secret.s.arn }
+  secret: vault.secret { name: 'token' }
+  file:   local.file { path: 'out.txt', content: resource.secret.arn }
 }
 `
-	f := parseStack(t, src)
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -231,10 +219,9 @@ resources: {
 		},
 		"local": {Name: "local"},
 	}
-	dag := BuildDAG(f, libs)
-	an := newSensitivityAnalyzer(f, libs, dag)
+	dag, an := syntaxSensitivity(t, src, libs)
 
-	node := dag.Nodes["resource.local.file.f"]
+	node := dag.Nodes["resource.file"]
 	got := an.sensitiveInputs(node.Body, node.Composite)
 	require.Empty(t, got)
 }
