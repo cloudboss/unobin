@@ -163,9 +163,9 @@ type PlanStep struct {
 	// Composite marks a step whose apply finalizes a composite call
 	// site (a boundary) rather than a primitive leaf. A boundary's Kind
 	// is its own resource/data/action kind, so the runtime cannot
-	// tell it from a leaf by Kind alone; on a Node that distinction is
-	// the expanded CompositeBody (Node.IsComposite), but a step has no
-	// body, so the bit is stored explicitly in the plan file.
+	// tell it from a leaf by Kind alone; Node.IsComposite has source
+	// body metadata, but a step has no body, so the bit is stored
+	// explicitly in the plan file.
 	Composite bool `json:"composite,omitempty"`
 
 	Decision         Decision            `json:"decision"`

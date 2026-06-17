@@ -18,14 +18,6 @@ type DAG struct {
 	Edges map[string][]string
 }
 
-// BuildDAG is the generic compatibility entrypoint for tests and
-// helpers that still construct lang.File bodies directly. Production
-// grammar-first callers use BuildSyntaxDAG.
-func BuildDAG(f *lang.File, libs map[string]*Library) *DAG {
-	nodes := ExtractNodes(f, libs)
-	return buildDAG(nodes, lang.FieldMap(localsBlock(f)))
-}
-
 // BuildSyntaxDAG builds the dependency graph from a typed factory or
 // composite body.
 func BuildSyntaxDAG(body syntax.FactoryBody, libs map[string]*Library) *DAG {
@@ -87,12 +79,8 @@ func (s *scopeLocals) forScope(callSite string) map[string]lang.Expr {
 		return m
 	}
 	var m map[string]lang.Expr
-	if boundary, ok := s.nodes[tmpl]; ok {
-		if boundary.CompositeSyntaxBody != nil {
-			m = syntaxLocalMap(boundary.CompositeSyntaxBody.Locals)
-		} else {
-			m = lang.FieldMap(localsBlock(boundary.CompositeBody))
-		}
+	if boundary, ok := s.nodes[tmpl]; ok && boundary.CompositeSyntaxBody != nil {
+		m = syntaxLocalMap(boundary.CompositeSyntaxBody.Locals)
 	}
 	s.cache[tmpl] = m
 	return m

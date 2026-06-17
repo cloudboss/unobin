@@ -17,30 +17,23 @@ func compositeLocalScope(n *Node) *localScope {
 }
 
 func compositeLocalExprs(n *Node) map[string]lang.Expr {
-	if n != nil && n.CompositeSyntaxBody != nil {
-		return syntaxLocalMap(n.CompositeSyntaxBody.Locals)
-	}
-	if n == nil {
+	if n == nil || n.CompositeSyntaxBody == nil {
 		return nil
 	}
-	return lang.FieldMap(localsBlock(n.CompositeBody))
+	return syntaxLocalMap(n.CompositeSyntaxBody.Locals)
 }
 
 // CompositeInputNames returns the input names declared by a composite
-// boundary. Grammar-first composites use their typed body; Body is a
-// compatibility fallback for generic test helpers.
+// boundary.
 func CompositeInputNames(n *Node) map[string]bool {
 	out := map[string]bool{}
-	if n == nil {
+	if n == nil || n.CompositeSyntaxBody == nil {
 		return out
 	}
-	if n.CompositeSyntaxBody != nil {
-		for _, decl := range n.CompositeSyntaxBody.Inputs {
-			out[decl.Name.Name] = true
-		}
-		return out
+	for _, decl := range n.CompositeSyntaxBody.Inputs {
+		out[decl.Name.Name] = true
 	}
-	return InputNames(n.CompositeBody)
+	return out
 }
 
 func compositeInputNames(n *Node) map[string]bool {
@@ -48,47 +41,23 @@ func compositeInputNames(n *Node) map[string]bool {
 }
 
 func compositeConstraints(n *Node) *lang.ArrayLit {
-	if n == nil {
+	if n == nil || n.CompositeSyntaxBody == nil {
 		return nil
 	}
-	if n.CompositeSyntaxBody != nil {
-		values := make([]lang.Expr, 0, len(n.CompositeSyntaxBody.Constraints))
-		for _, decl := range n.CompositeSyntaxBody.Constraints {
-			values = append(values, decl.Value)
-		}
-		return &lang.ArrayLit{Elements: values}
+	values := make([]lang.Expr, 0, len(n.CompositeSyntaxBody.Constraints))
+	for _, decl := range n.CompositeSyntaxBody.Constraints {
+		values = append(values, decl.Value)
 	}
-	if n.CompositeBody == nil || n.CompositeBody.Body == nil {
-		return nil
-	}
-	arr, _ := lang.FieldMap(n.CompositeBody.Body)["constraints"].(*lang.ArrayLit)
-	return arr
+	return &lang.ArrayLit{Elements: values}
 }
 
 func compositeOutputs(n *Node) []compositeOutputDecl {
-	if n == nil {
+	if n == nil || n.CompositeSyntaxBody == nil {
 		return nil
 	}
-	if n.CompositeSyntaxBody != nil {
-		out := make([]compositeOutputDecl, 0, len(n.CompositeSyntaxBody.Outputs))
-		for _, decl := range n.CompositeSyntaxBody.Outputs {
-			out = append(out, compositeOutputDecl{name: decl.Name.Name, body: decl.Body})
-		}
-		return out
-	}
-	if n.CompositeBody == nil || n.CompositeBody.Body == nil {
-		return nil
-	}
-	outBlock := lang.TopLevelBlock(n.CompositeBody, "outputs")
-	if outBlock == nil {
-		return nil
-	}
-	out := make([]compositeOutputDecl, 0, len(outBlock.Fields))
-	for _, fld := range outBlock.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		out = append(out, compositeOutputDecl{name: fld.Key.Name, body: fld.Value})
+	out := make([]compositeOutputDecl, 0, len(n.CompositeSyntaxBody.Outputs))
+	for _, decl := range n.CompositeSyntaxBody.Outputs {
+		out = append(out, compositeOutputDecl{name: decl.Name.Name, body: decl.Body})
 	}
 	return out
 }

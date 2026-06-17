@@ -6,19 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudboss/unobin/pkg/lang"
 )
 
 type fakeResource struct {
 	Name string
-}
-
-func parseGenericFile(t *testing.T, src string) *lang.File {
-	t.Helper()
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-	return f
 }
 
 func (r *fakeResource) SchemaVersion() int { return 1 }
@@ -124,14 +115,14 @@ func TestDataSourceRead(t *testing.T) {
 }
 
 func TestLibraryHoldsCompositeTypes(t *testing.T) {
-	parsed := parseGenericFile(t, "description: 'cluster'\n")
+	composite := syntaxResourceComposite(t, "cluster", "description: 'cluster'")
 	lib := &Library{
 		Name: "net",
 		ResourceComposites: map[string]*CompositeType{
-			"cluster": {Name: "cluster", Kind: NodeResource, Body: parsed},
+			"cluster": composite,
 		},
 	}
-	require.Same(t, parsed, lib.Composite(NodeResource, "cluster").Body)
+	require.Same(t, composite.SyntaxBody, lib.Composite(NodeResource, "cluster").SyntaxBody)
 	require.Nil(t, lib.Composite(NodeData, "cluster"), "kind selects the map")
 }
 

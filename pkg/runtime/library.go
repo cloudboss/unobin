@@ -12,10 +12,9 @@ import (
 // actions, and data sources. Go libraries supply Resources, Actions,
 // and DataSources via the generic helpers (`MakeResource` and friends);
 // UB libraries compiled by `unobin compile` contribute Composites with
-// typed syntax bodies. Generic composite bodies remain only for direct
-// test/helper compatibility. The compiler links each imported library's
-// record and aggregates it under the alias the calling source assigned
-// to the import.
+// typed syntax bodies. The compiler links each imported library's record
+// and aggregates it under the alias the calling source assigned to the
+// import.
 type Library struct {
 	Name          string
 	Description   string
@@ -72,21 +71,18 @@ type FunctionType struct {
 	Func        func(args []any) (any, error)
 }
 
-// CompositeType registers a UB-implemented type under a library. SyntaxBody
-// is the grammar-first body used by production graph extraction. Body is the
-// generic body file retained for direct test/helper compatibility.
+// CompositeType registers a UB-implemented type under a library.
+// SyntaxBody is the grammar-first body used by graph extraction.
 //
 // Libraries is the resolved import table for this composite's body,
 // keyed by the alias declared in the body's `imports:` block. The
 // runtime looks up composite-internal nodes against this table, not
 // the stack root's, so a composite can be reused without the caller
-// importing every library it transitively uses. A nil Libraries falls
-// back to the executor's root Libraries table for backward
-// compatibility with composites built directly in tests.
+// importing every library it transitively uses. A nil Libraries uses
+// the executor's root Libraries table.
 type CompositeType struct {
 	Name       string
 	Kind       NodeKind
-	Body       *lang.File
 	SyntaxBody *syntax.FactoryBody
 	Libraries  map[string]*Library
 }

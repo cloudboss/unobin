@@ -210,17 +210,10 @@ func (c *referenceChecker) bodyTargets(n *runtime.Node) map[string]typecheck.Typ
 }
 
 func compositeInputTargets(n *runtime.Node) map[string]typecheck.Type {
-	if n.CompositeSyntaxBody != nil {
-		return inputTargets(syntaxInputFields(n.CompositeSyntaxBody.Inputs))
-	}
-	if n.CompositeBody == nil {
+	if n.CompositeSyntaxBody == nil {
 		return nil
 	}
-	inputs, ok := lang.FieldMap(n.CompositeBody.Body)["inputs"].(*lang.ObjectLit)
-	if !ok {
-		return nil
-	}
-	return inputTargets(typecheck.InputsFromBlock(inputs))
+	return inputTargets(syntaxInputFields(n.CompositeSyntaxBody.Inputs))
 }
 
 func inputTargets(fields []typecheck.ObjectField) map[string]typecheck.Type {
@@ -424,10 +417,10 @@ func (c *referenceChecker) localExprsFor(scope string) map[string]lang.Expr {
 	if !ok {
 		return nil
 	}
-	if node.CompositeSyntaxBody != nil {
-		return syntaxLocalExprs(node.CompositeSyntaxBody.Locals)
+	if node.CompositeSyntaxBody == nil {
+		return nil
 	}
-	return lang.FieldMap(lang.TopLevelBlock(node.CompositeBody, "locals"))
+	return syntaxLocalExprs(node.CompositeSyntaxBody.Locals)
 }
 
 func syntaxLocalExprs(decls []syntax.LocalDecl) map[string]lang.Expr {
@@ -439,7 +432,6 @@ func syntaxLocalExprs(decls []syntax.LocalDecl) map[string]lang.Expr {
 }
 
 func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
-	var inputsBlock *lang.ObjectLit
 	if scope == "" {
 		if c.rootSyntax != nil {
 			return syntaxInputFields(c.rootSyntax.Inputs)
@@ -447,17 +439,10 @@ func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 		return nil
 	}
 	node, ok := c.dag.Nodes[scope]
-	if !ok {
+	if !ok || node.CompositeSyntaxBody == nil {
 		return nil
 	}
-	if node.CompositeSyntaxBody != nil {
-		return syntaxInputFields(node.CompositeSyntaxBody.Inputs)
-	}
-	if node.CompositeBody == nil || node.CompositeBody.Body == nil {
-		return nil
-	}
-	inputsBlock, _ = lang.FieldMap(node.CompositeBody.Body)["inputs"].(*lang.ObjectLit)
-	return typecheck.InputsFromBlock(inputsBlock)
+	return syntaxInputFields(node.CompositeSyntaxBody.Inputs)
 }
 
 func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {
@@ -506,17 +491,10 @@ func (c *referenceChecker) inferCompositeOutputs(node *runtime.Node) map[string]
 	}
 	s.LookupLocal = c.lookupLocalFor(node.Address, s)
 	discard := lang.NewErrorList(0)
-	if node.CompositeSyntaxBody != nil {
-		return inferSyntaxOutputs(node.CompositeSyntaxBody.Outputs, s, discard)
-	}
-	if node.CompositeBody == nil || node.CompositeBody.Body == nil {
+	if node.CompositeSyntaxBody == nil {
 		return nil
 	}
-	outputs, ok := lang.FieldMap(node.CompositeBody.Body)["outputs"].(*lang.ObjectLit)
-	if !ok {
-		return nil
-	}
-	return inferOutputs(outputs, s, discard)
+	return inferSyntaxOutputs(node.CompositeSyntaxBody.Outputs, s, discard)
 }
 
 func inferSyntaxOutputs(
@@ -532,26 +510,6 @@ func inferSyntaxOutputs(
 			continue
 		}
 		out[decl.Name.Name] = typecheck.Infer(expr, typecheck.TUnknown(), s, errs)
-	}
-	return out
-}
-
-func inferOutputs(
-	outputs *lang.ObjectLit,
-	s *typecheck.Scope,
-	errs *lang.ErrorList,
-) map[string]typecheck.Type {
-	out := make(map[string]typecheck.Type, len(outputs.Fields))
-	for _, fld := range outputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		expr := lang.OutputValueExpr(fld.Value)
-		if expr == nil {
-			out[fld.Key.Name] = typecheck.TUnknown()
-			continue
-		}
-		out[fld.Key.Name] = typecheck.Infer(expr, typecheck.TUnknown(), s, errs)
 	}
 	return out
 }
@@ -743,28 +701,7 @@ func (c *referenceChecker) checkOutputBodyTypes() {
 		if !n.IsComposite() {
 			continue
 		}
-		if n.CompositeSyntaxBody != nil {
-			c.checkSyntaxOutputsBlock(n.CompositeSyntaxBody.Outputs, n.Address)
-		} else {
-			c.checkOutputsBlock(n.CompositeBody, n.Address)
-		}
-	}
-}
-
-func (c *referenceChecker) checkOutputsBlock(f *lang.File, scope string) {
-	if f == nil || f.Body == nil {
-		return
-	}
-	obj, ok := lang.FieldMap(f.Body)["outputs"].(*lang.ObjectLit)
-	if !ok {
-		return
-	}
-	s := c.outputScope(scope)
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		typecheck.Infer(fld.Value, typecheck.TUnknown(), s, c.errs)
+		c.checkSyntaxOutputsBlock(n.CompositeSyntaxBody.Outputs, n.Address)
 	}
 }
 
@@ -797,23 +734,8 @@ func (c *referenceChecker) checkConstraintTypes() {
 		if !n.IsComposite() {
 			continue
 		}
-		if n.CompositeSyntaxBody != nil {
-			c.checkSyntaxConstraintTypesBlock(n.CompositeSyntaxBody.Constraints, n.Address)
-		} else {
-			c.checkConstraintTypesBlock(n.CompositeBody, n.Address)
-		}
+		c.checkSyntaxConstraintTypesBlock(n.CompositeSyntaxBody.Constraints, n.Address)
 	}
-}
-
-func (c *referenceChecker) checkConstraintTypesBlock(f *lang.File, scope string) {
-	if f == nil || f.Body == nil {
-		return
-	}
-	arr, ok := lang.FieldMap(f.Body)["constraints"].(*lang.ArrayLit)
-	if !ok {
-		return
-	}
-	c.checkConstraintTypeExprs(arr.Elements, scope)
 }
 
 func (c *referenceChecker) checkSyntaxConstraintTypesBlock(

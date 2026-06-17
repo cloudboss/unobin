@@ -34,10 +34,8 @@ const (
 // `resource.outer/resource.inner/resource.leaf`, and each node's
 // Composite names its direct enclosing call site.
 //
-// CompositeBody, CompositeSyntaxBody, and Libraries are set only on a
-// composite boundary (the call site node), and IsComposite reports that
-// case. CompositeSyntaxBody is the grammar-first body. CompositeBody is
-// the generic compatibility body for direct tests/helpers. Libraries is
+// CompositeSyntaxBody and Libraries are set only on a composite boundary
+// (the call site node), and IsComposite reports that case. Libraries is
 // the composite's resolved import table; the runtime resolves
 // composite-internal node lookups against this map rather than the stack
 // root's, so a composite can be reused without the caller importing every
@@ -50,7 +48,6 @@ type Node struct {
 	Name                string
 	Body                lang.Expr
 	Composite           string
-	CompositeBody       *lang.File
 	CompositeSyntaxBody *syntax.FactoryBody
 	Libraries           map[string]*Library
 
@@ -90,7 +87,7 @@ type Node struct {
 // (the call site's resource/data/action kind) just like a leaf; what
 // sets it apart is the composite body populated only on boundaries.
 func (n *Node) IsComposite() bool {
-	return n != nil && (n.CompositeBody != nil || n.CompositeSyntaxBody != nil)
+	return n != nil && n.CompositeSyntaxBody != nil
 }
 
 // ConfigRef names the selector and name for one configuration.
@@ -99,58 +96,11 @@ type ConfigRef struct {
 	Name  string
 }
 
-// ExtractNodes is the generic compatibility entrypoint for tests and
-// helpers that still construct lang.File bodies directly. Production
-// grammar-first callers use ExtractSyntaxNodes.
-//
-// libs is the imported-library table keyed by alias. It is consulted to
-// distinguish primitive resource call sites from composite call sites;
-// composites expand into a boundary node plus internal nodes. A nil
-// or empty libs skips the composite check, in which case every node in
-// `resources:` is treated as a primitive.
-func ExtractNodes(f *lang.File, libs map[string]*Library) []*Node {
-	return extractNodes(f, "", libs)
-}
-
 // ExtractSyntaxNodes walks a typed factory or composite body and returns
 // every addressable node in source order. The body is assumed to be
-// validated. Composite internals use SyntaxBody when available, with
-// CompositeBody as the generic compatibility fallback.
+// validated.
 func ExtractSyntaxNodes(body syntax.FactoryBody, libs map[string]*Library) []*Node {
 	return extractSyntaxNodes(body, "", libs)
-}
-
-// extractNodes is the recursive workhorse. parent is the address of the
-// enclosing composite call site, or "" at root; each non-output node
-// gets its Composite set to parent, and resource/data/action addresses
-// are prefixed with `parent + "/"` when parent is non-empty. Output
-// blocks are only emitted at root: a composite's `outputs:` block is
-// consumed by `evalCompositeOutputs` at apply time, not turned into
-// DAG nodes.
-func extractNodes(f *lang.File, parent string, libs map[string]*Library) []*Node {
-	if f == nil || f.Body == nil {
-		return nil
-	}
-	var nodes []*Node
-	blocks := lang.FieldMap(f.Body)
-	if obj, ok := blocks["resources"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractKind(obj, NodeResource, parent, libs)...)
-	}
-	if obj, ok := blocks["data"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractKind(obj, NodeData, parent, libs)...)
-	}
-	if obj, ok := blocks["actions"].(*lang.ObjectLit); ok {
-		nodes = append(nodes, extractKind(obj, NodeAction, parent, libs)...)
-	}
-	if parent == "" {
-		if obj, ok := blocks["configurations"].(*lang.ObjectLit); ok {
-			nodes = append(nodes, extractConfigurations(obj)...)
-		}
-		if obj, ok := blocks["outputs"].(*lang.ObjectLit); ok {
-			nodes = append(nodes, extractOutputs(obj)...)
-		}
-	}
-	return nodes
 }
 
 func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]*Library) []*Node {
@@ -198,88 +148,6 @@ func extractSyntaxKind(
 		out = append(out, node)
 	}
 	return out
-}
-
-// extractKind walks one kind block (resources, data, or actions) and
-// returns its nodes. A type that resolves to a composite in the library
-// table expands into a boundary node plus its internals; anything else
-// becomes a leaf of the given kind. The lookup is kind-keyed, so a
-// `data:` call site matches only a data composite and an `actions:` call
-// site only an action composite, the same way Go-implemented types are
-// placed per kind. A nil libs skips the composite check and every node
-// is a leaf. The boundary node takes the call site's kind as its Kind,
-// the same as a leaf of that kind; IsComposite tells the two apart by
-// the CompositeBody a boundary expands.
-func extractKind(
-	block *lang.ObjectLit, kind NodeKind, parent string, libs map[string]*Library,
-) []*Node {
-	var out []*Node
-	for _, fld := range block.Fields {
-		decl, ok := nodeFieldDecl(fld)
-		if !ok {
-			continue
-		}
-		addr := decl.address(parent, kind)
-		if composite := lookupComposite(libs, decl.alias, kind, decl.typ); composite != nil {
-			out = append(out, expandComposite(addr, parent,
-				decl.alias, decl.typ, decl.name, kind, decl.body, composite, libs)...)
-			continue
-		}
-		node := &Node{
-			Address:       addr,
-			Kind:          kind,
-			Alias:         decl.alias,
-			Type:          decl.typ,
-			Name:          decl.name,
-			Body:          decl.body,
-			Composite:     parent,
-			ForEach:       extractForEach(decl.body),
-			Configuration: extractConfiguration(decl.body, decl.alias),
-			LockName:      extractLockName(decl.body),
-			Timeout:       extractTimeout(decl.body),
-		}
-		out = append(out, node)
-	}
-	return out
-}
-
-type nodeField struct {
-	alias string
-	typ   string
-	name  string
-	body  lang.Expr
-	short bool
-}
-
-func nodeFieldDecl(fld *lang.Field) (nodeField, bool) {
-	if fld.Decl != nil {
-		if fld.Decl.Default || fld.Key.Kind != lang.FieldIdent || len(fld.Decl.Selector.Parts) != 2 {
-			return nodeField{}, false
-		}
-		return nodeField{
-			alias: fld.Decl.Selector.Parts[0].Name,
-			typ:   fld.Decl.Selector.Parts[1].Name,
-			name:  fld.Key.Name,
-			body:  fld.Decl.Body,
-			short: true,
-		}, true
-	}
-	if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 3 {
-		return nodeField{}, false
-	}
-	return nodeField{
-		alias: fld.Key.Path[0],
-		typ:   fld.Key.Path[1],
-		name:  fld.Key.Path[2],
-		body:  fld.Value,
-	}, true
-}
-
-func (d nodeField) address(parent string, kind NodeKind) string {
-	if d.short {
-		return composeNameAddress(parent, kind, d.name)
-	}
-	return composeAddress(parent, kind, d.alias, d.typ, d.name)
 }
 
 // extractLockName reads `@lock: 'name'` from a node body. The value
@@ -346,43 +214,6 @@ func extractForEach(body lang.Expr) lang.Expr {
 	return nil
 }
 
-// extractConfigurationsRemap reads `@configurations:` from a
-// composite call site body and returns the inner-import-to-outer
-// reference map. Entries whose value is not a dotted notation are
-// dropped (the parser would reject malformed ones anyway). Entries
-// whose right-hand-side alias differs from the key still come
-// through so the validator can surface them. An empty or absent
-// meta key returns nil.
-func extractConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
-	obj, ok := body.(*lang.ObjectLit)
-	if !ok {
-		return nil
-	}
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configurations" {
-			continue
-		}
-		mapping, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			return nil
-		}
-		out := map[string]ConfigRef{}
-		for _, entry := range mapping.Fields {
-			if entry.Key.Kind != lang.FieldIdent {
-				continue
-			}
-			if ref, ok := configurationRemap(entry.Key.Name, entry.Value); ok {
-				out[entry.Key.Name] = ref
-			}
-		}
-		if len(out) == 0 {
-			return nil
-		}
-		return out
-	}
-	return nil
-}
-
 func extractSyntaxConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 	obj, ok := body.(*lang.ObjectLit)
 	if !ok {
@@ -413,17 +244,6 @@ func extractSyntaxConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
 	return nil
 }
 
-func configurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
-	dp, ok := expr.(*lang.DotPath)
-	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-		return ConfigRef{}, false
-	}
-	if dp.Root.Name != "configuration" {
-		return ConfigRef{}, false
-	}
-	return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
-}
-
 func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 	dp, ok := expr.(*lang.DotPath)
 	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
@@ -433,31 +253,6 @@ func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
 		return ConfigRef{}, false
 	}
 	return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
-}
-
-// extractConfiguration reads @configuration from a generic body and returns
-// the selected configuration ref. A mismatch or malformed value yields a zero
-// ref and validation reports the error elsewhere. An absent meta key returns a
-// zero ref too; the runtime uses the node's default configuration at lookup.
-func extractConfiguration(body lang.Expr, alias string) ConfigRef {
-	obj, ok := body.(*lang.ObjectLit)
-	if !ok {
-		return ConfigRef{}
-	}
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configuration" {
-			continue
-		}
-		dp, ok := fld.Value.(*lang.DotPath)
-		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-			return ConfigRef{}
-		}
-		if dp.Root.Name == "configuration" {
-			return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}
-		}
-		return ConfigRef{}
-	}
-	return ConfigRef{}
 }
 
 func extractSyntaxConfiguration(body lang.Expr, alias string) ConfigRef {
@@ -491,50 +286,11 @@ func lookupComposite(
 	if !ok || lib == nil {
 		return nil
 	}
-	return lib.Composite(kind, typ)
-}
-
-// expandComposite emits the boundary node and the internal subnodes for
-// a generic composite call site. The boundary node sits at the call site
-// address and records the call site args as Body. Runtime composite
-// helpers evaluate the composite's outputs once the internals complete.
-// Parent is the boundary's enclosing call site, empty for top-level call
-// sites. It is recorded on the boundary's Composite field so the
-// boundary's args evaluate against the right scope.
-//
-// Internals come from a recursive walk of the composite's body with the
-// new call site address as the parent prefix, so nested addresses build
-// up like `outer/inner-rel/leaf-rel` and each internal's Composite names
-// its direct enclosing call site. The composite's own Libraries table
-// drives that recursion so a composite that calls another composite
-// expands against its own imports rather than the caller's. The boundary
-// node also stores the Libraries table itself so the runtime can resolve
-// internal node lookups against it. When a composite has no Libraries set,
-// fallMods is used as a fallback for tests that build composites directly
-// without populating imports.
-func expandComposite(callSiteAddr, parent, alias, typ, name string,
-	kind NodeKind, args lang.Expr, composite *CompositeType,
-	fallMods map[string]*Library) []*Node {
-	scopeMods := composite.Libraries
-	if scopeMods == nil {
-		scopeMods = fallMods
+	composite := lib.Composite(kind, typ)
+	if composite == nil || composite.SyntaxBody == nil {
+		return nil
 	}
-	out := []*Node{{
-		Address:             callSiteAddr,
-		Kind:                kind,
-		Alias:               alias,
-		Type:                typ,
-		Name:                name,
-		Body:                args,
-		Composite:           parent,
-		CompositeBody:       composite.Body,
-		CompositeSyntaxBody: composite.SyntaxBody,
-		Libraries:           scopeMods,
-		ForEach:             extractForEach(args),
-		ConfigurationsRemap: extractConfigurationsRemap(args),
-	}}
-	out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
-	return out
+	return composite
 }
 
 func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
@@ -552,17 +308,12 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 		Name:                name,
 		Body:                args,
 		Composite:           parent,
-		CompositeBody:       composite.Body,
 		CompositeSyntaxBody: composite.SyntaxBody,
 		Libraries:           scopeMods,
 		ForEach:             extractForEach(args),
 		ConfigurationsRemap: extractSyntaxConfigurationsRemap(args),
 	}}
-	if composite.SyntaxBody != nil {
-		out = append(out, extractSyntaxNodes(*composite.SyntaxBody, callSiteAddr, scopeMods)...)
-	} else {
-		out = append(out, extractNodes(composite.Body, callSiteAddr, scopeMods)...)
-	}
+	out = append(out, extractSyntaxNodes(*composite.SyntaxBody, callSiteAddr, scopeMods)...)
 	return out
 }
 
@@ -632,54 +383,6 @@ func addInternalConfigurationName(out map[string]map[string]bool, alias, name st
 	set[name] = true
 }
 
-// extractConfigurations walks a factory's configurations: block and
-// returns one node per defined configuration. Like outputs,
-// configurations are defined only at the factory root.
-func extractConfigurations(block *lang.ObjectLit) []*Node {
-	var out []*Node
-	for _, fld := range block.Fields {
-		if fld.Decl != nil {
-			if n := selectorConfigurationNode(fld); n != nil {
-				out = append(out, n)
-			}
-			continue
-		}
-		if fld.Key.Kind != lang.FieldPath || len(fld.Key.Path) != 2 {
-			continue
-		}
-		alias, name := fld.Key.Path[0], fld.Key.Path[1]
-		out = append(out, &Node{
-			Address: selectorConfigurationAddress(alias, name),
-			Kind:    NodeConfiguration,
-			Alias:   alias,
-			Name:    name,
-			Body:    fld.Value,
-		})
-	}
-	return out
-}
-
-func selectorConfigurationNode(fld *lang.Field) *Node {
-	if len(fld.Decl.Selector.Parts) != 1 {
-		return nil
-	}
-	alias := fld.Decl.Selector.Parts[0].Name
-	name := "default"
-	if !fld.Decl.Default {
-		if fld.Key.Kind != lang.FieldIdent {
-			return nil
-		}
-		name = fld.Key.Name
-	}
-	return &Node{
-		Address: selectorConfigurationAddress(alias, name),
-		Kind:    NodeConfiguration,
-		Alias:   alias,
-		Name:    name,
-		Body:    fld.Decl.Body,
-	}
-}
-
 func extractSyntaxConfigurations(decls []syntax.ConfigurationDecl) []*Node {
 	out := make([]*Node, 0, len(decls))
 	for _, decl := range decls {
@@ -706,26 +409,6 @@ func syntaxConfigurationDeclExpr(decl syntax.ConfigurationDecl) lang.Expr {
 	return decl.Body
 }
 
-func extractOutputs(block *lang.ObjectLit) []*Node {
-	var out []*Node
-	for _, fld := range block.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		inner := lang.OutputValueExpr(fld.Value)
-		if inner == nil {
-			continue
-		}
-		out = append(out, &Node{
-			Address: "output." + fld.Key.Name,
-			Kind:    NodeOutput,
-			Name:    fld.Key.Name,
-			Body:    inner,
-		})
-	}
-	return out
-}
-
 func extractSyntaxOutputs(decls []syntax.OutputDecl) []*Node {
 	out := make([]*Node, 0, len(decls))
 	for _, decl := range decls {
@@ -743,10 +426,6 @@ func extractSyntaxOutputs(decls []syntax.OutputDecl) []*Node {
 	return out
 }
 
-func composeAddress(parent string, kind NodeKind, alias, typ, name string) string {
-	return joinAddress(parent, fmt.Sprintf("%s.%s.%s.%s", kind, alias, typ, name))
-}
-
 func composeNameAddress(parent string, kind NodeKind, name string) string {
 	return joinAddress(parent, fmt.Sprintf("%s.%s", kind, name))
 }
@@ -756,18 +435,4 @@ func joinAddress(parent, local string) string {
 		return local
 	}
 	return parent + "/" + local
-}
-
-// InputNames returns the input names declared by a generic file body.
-// Grammar-first production callers use typed syntax helpers; this remains
-// for tests and helpers that construct lang.File bodies directly.
-func InputNames(f *lang.File) map[string]bool {
-	names := map[string]bool{}
-	if f == nil || f.Body == nil {
-		return names
-	}
-	for name := range lang.FieldMap(lang.TopLevelBlock(f, "inputs")) {
-		names[name] = true
-	}
-	return names
 }

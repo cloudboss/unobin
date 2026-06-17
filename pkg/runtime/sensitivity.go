@@ -21,7 +21,6 @@ type sensitivityAnalyzer struct {
 	rootLocals  map[string]lang.Expr
 	rootMods    map[string]*Library
 	dag         *DAG
-	cache       map[*lang.File]*compositeSensitivity
 	syntaxCache map[*syntax.FactoryBody]*compositeSensitivity
 }
 
@@ -61,9 +60,9 @@ func newSensScope(
 }
 
 func newSensitivityAnalyzer(
-	rootSource *lang.File, rootMods map[string]*Library, dag *DAG,
+	_ *lang.File, rootMods map[string]*Library, dag *DAG,
 ) *sensitivityAnalyzer {
-	return newSensitivityAnalyzerFromSource(rootSource, nil, rootMods, dag)
+	return newSensitivityAnalyzerFromSource(nil, nil, rootMods, dag)
 }
 
 func (e *Executor) sensitivityAnalyzer() *sensitivityAnalyzer {
@@ -74,13 +73,13 @@ func (e *Executor) sensitivityAnalyzer() *sensitivityAnalyzer {
 }
 
 func newSensitivityAnalyzerFromSource(
-	rootSource *lang.File,
+	_ *lang.File,
 	rootSyntax *syntax.FactoryBody,
 	rootMods map[string]*Library,
 	dag *DAG,
 ) *sensitivityAnalyzer {
-	rootInputs := inputsBlockSensitive(rootSource)
-	rootLocals := lang.FieldMap(localsBlock(rootSource))
+	rootInputs := map[string]bool{}
+	rootLocals := map[string]lang.Expr{}
 	if rootSyntax != nil {
 		rootInputs = syntaxInputsSensitive(rootSyntax.Inputs)
 		rootLocals = syntaxLocalMap(rootSyntax.Locals)
@@ -90,7 +89,6 @@ func newSensitivityAnalyzerFromSource(
 		rootLocals:  rootLocals,
 		rootMods:    rootMods,
 		dag:         dag,
-		cache:       map[*lang.File]*compositeSensitivity{},
 		syntaxCache: map[*syntax.FactoryBody]*compositeSensitivity{},
 	}
 }
@@ -224,58 +222,8 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	if libs == nil {
 		libs = s.rootMods
 	}
-	if boundary.CompositeSyntaxBody != nil {
-		return s.syntaxCompositeSensitivity(
-			boundary.CompositeSyntaxBody, libs, s.dagNodes(), boundary.Address)
-	}
-	return s.langCompositeSensitivity(boundary.CompositeBody, libs, s.dagNodes(), boundary.Address)
-}
-
-func (s *sensitivityAnalyzer) langCompositeSensitivity(
-	body *lang.File,
-	libs map[string]*Library,
-	nodes map[string]*Node,
-	scope string,
-) *compositeSensitivity {
-	if body == nil {
-		return nil
-	}
-	if cached, ok := s.cache[body]; ok {
-		return cached
-	}
-	cs := &compositeSensitivity{
-		inputs:  inputsBlockSensitive(body),
-		outputs: map[string]bool{},
-	}
-	s.cache[body] = cs
-	if body.Body == nil {
-		return cs
-	}
-	outputs, ok := lang.FieldMap(body.Body)["outputs"].(*lang.ObjectLit)
-	if !ok {
-		return cs
-	}
-	for name := range lang.SensitiveOutputs(outputs) {
-		cs.outputs[name] = true
-	}
-	sc := newSensScope(cs.inputs, libs, lang.FieldMap(localsBlock(body)), nodes, scope)
-	for _, fld := range outputs.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		name := fld.Key.Name
-		if cs.outputs[name] {
-			continue
-		}
-		inner := lang.OutputValueExpr(fld.Value)
-		if inner == nil {
-			continue
-		}
-		if s.exprSensitive(inner, sc) {
-			cs.outputs[name] = true
-		}
-	}
-	return cs
+	return s.syntaxCompositeSensitivity(
+		boundary.CompositeSyntaxBody, libs, s.dagNodes(), boundary.Address)
 }
 
 func (s *sensitivityAnalyzer) syntaxCompositeSensitivity(
@@ -497,32 +445,11 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	if libs == nil {
 		libs = s.rootMods
 	}
-	if ct.SyntaxBody != nil {
-		cs := s.syntaxCompositeSensitivity(ct.SyntaxBody, libs, nil, "")
-		if cs == nil {
-			return nil
-		}
-		return cs.outputs
-	}
-	cs := s.langCompositeSensitivity(ct.Body, libs, nil, "")
+	cs := s.syntaxCompositeSensitivity(ct.SyntaxBody, libs, nil, "")
 	if cs == nil {
 		return nil
 	}
 	return cs.outputs
-}
-
-// inputsBlockSensitive returns the set of input names declared
-// `@sensitive: true` in a file's top-level `inputs:` block.
-// Returns an empty map when the file or block is absent.
-func inputsBlockSensitive(f *lang.File) map[string]bool {
-	if f == nil || f.Body == nil {
-		return map[string]bool{}
-	}
-	inputs, ok := lang.FieldMap(f.Body)["inputs"].(*lang.ObjectLit)
-	if !ok {
-		return map[string]bool{}
-	}
-	return lang.SensitiveInputs(inputs)
 }
 
 // trailingNamedSegmentAfter returns the last named segment of a dot
