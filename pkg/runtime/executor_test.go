@@ -65,26 +65,31 @@ func testModules() map[string]*Library {
 	}
 }
 
+func executorTestExecutor(
+	t *testing.T,
+	src string,
+	libs map[string]*Library,
+	store state.Backend,
+	stack state.FactoryInfo,
+) *Executor {
+	t.Helper()
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	return &Executor{
+		DAG: dag, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	}
+}
+
 func runExecutor(t *testing.T, src string, inputs map[string]any) (*ExecResult, error) {
 	t.Helper()
-	f := parseStack(t, src)
 	libs := testModules()
-	g := BuildDAG(f, libs)
-	exec := &Executor{
-		DAG:       g,
-		Libraries: libs,
-		Inputs:    inputs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := executorTestExecutor(t, src, libs, newStateStore(t),
+		state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
+	exec.Inputs = inputs
 	return planAndApply(exec)
 }
 
 func TestExecutorRequiresStore(t *testing.T) {
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, `description: 'x'`), nil),
-		Libraries: testModules(),
-	}
+	exec := executorTestExecutor(t, `description: 'x'`, testModules(), nil, state.FactoryInfo{})
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Store")
@@ -102,8 +107,8 @@ outputs: {
 
 func TestExecutorActionRuns(t *testing.T) {
 	res, err := runExecutor(t, `
-actions: { core.echo.hi: { echo: 'hello' } }
-outputs: { said: { value: action.core.echo.hi.echo }, letters: { value: action.core.echo.hi.len } }
+actions: { hi: core.echo { echo: 'hello' } }
+outputs: { said: { value: action.hi.echo }, letters: { value: action.hi.len } }
 `, nil)
 	require.NoError(t, err)
 	require.Equal(t, "hello", res.Outputs["said"])
@@ -112,8 +117,8 @@ outputs: { said: { value: action.core.echo.hi.echo }, letters: { value: action.c
 
 func TestExecutorInputFlowsToAction(t *testing.T) {
 	res, err := runExecutor(t, `
-actions: { core.echo.greet: { echo: var.name } }
-outputs: { said: { value: action.core.echo.greet.echo } }
+actions: { greet: core.echo { echo: var.name } }
+outputs: { said: { value: action.greet.echo } }
 `, map[string]any{"name": "world"})
 	require.NoError(t, err)
 	require.Equal(t, "world", res.Outputs["said"])
@@ -121,8 +126,8 @@ outputs: { said: { value: action.core.echo.greet.echo } }
 
 func TestExecutorDataSource(t *testing.T) {
 	res, err := runExecutor(t, `
-data:    { core.lookup.it: { key: var.key } }
-outputs: { found: { value: data.core.lookup.it.value } }
+data:    { it: core.lookup { key: var.key } }
+outputs: { found: { value: data.it.value } }
 `, map[string]any{"key": "abc"})
 	require.NoError(t, err)
 	require.Equal(t, "looked-up:abc", res.Outputs["found"])
@@ -131,10 +136,10 @@ outputs: { found: { value: data.core.lookup.it.value } }
 func TestExecutorActionDependsOnAction(t *testing.T) {
 	res, err := runExecutor(t, `
 actions: {
-  core.echo.first:  { echo: 'one' }
-  core.echo.second: { echo: action.core.echo.first.echo }
+  first: core.echo  { echo: 'one' }
+  second: core.echo { echo: action.first.echo }
 }
-outputs: { result: { value: action.core.echo.second.echo } }
+outputs: { result: { value: action.second.echo } }
 `, nil)
 	require.NoError(t, err)
 	require.Equal(t, "one", res.Outputs["result"])
@@ -142,10 +147,10 @@ outputs: { result: { value: action.core.echo.second.echo } }
 
 func TestExecutorPropagatesActionError(t *testing.T) {
 	_, err := runExecutor(t, `
-actions: { core.fail.f: {} }
+actions: { f: core.fail {} }
 `, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "action.core.fail.f")
+	require.Contains(t, err.Error(), "action.f")
 	require.Contains(t, err.Error(), "intentional failure")
 }
 
@@ -364,30 +369,25 @@ func fnAllBools(args []any) (any, error) {
 }
 
 func TestExecutorRunsComposite(t *testing.T) {
-	composite := parseStack(t, `
-resources: { core.thing.one: { name: var.name, size: 1 } }
-outputs:   { id: { value: resource.core.thing.one.id } }
+	composite := syntaxResourceComposite(t, "box", `
+resources: { one: core.thing { name: var.name, size: 1 } }
+outputs:   { id: { value: resource.one.id } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"box": {Name: "box", Body: composite},
+			"box": composite,
 		},
 	}
 	src := `
-resources: { w.box.x: { name: 'alpha' } }
-outputs:   { out: { value: resource.w.box.x.id } }
+resources: { x: w.box { name: 'alpha' } }
+outputs:   { out: { value: resource.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["out"])
 	require.Equal(t, int64(1), c.creates)
@@ -406,12 +406,12 @@ outputs:   { out: { value: resource.w.box.x.id } }
 		}
 	}
 	require.NotNil(t, leaf)
-	require.Equal(t, "resource.w.box.x/resource.core.thing.one", leaf.Address)
+	require.Equal(t, "resource.x/resource.one", leaf.Address)
 	require.Equal(t, "resource", leaf.Kind)
 	require.Equal(t, &state.Selector{Alias: "core", Export: "thing"}, leaf.Selector)
 
 	require.NotNil(t, libCall)
-	require.Equal(t, "resource.w.box.x", libCall.Address)
+	require.Equal(t, "resource.x", libCall.Address)
 	require.Equal(t, "resource", libCall.Kind)
 	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
 	require.Equal(t, "alpha", libCall.Inputs["name"])
@@ -419,29 +419,24 @@ outputs:   { out: { value: resource.w.box.x.id } }
 }
 
 func TestExecutorAppliesDataComposite(t *testing.T) {
-	composite := parseStack(t, `
-data:    { core.lookup.it: { key: var.key } }
-outputs: { value: { value: data.core.lookup.it.value } }
+	composite := syntaxComposite(t, "box", NodeData, `
+data:    { it: core.lookup { key: var.key } }
+outputs: { value: { value: data.it.value } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
 		DataComposites: map[string]*CompositeType{
-			"box": {Name: "box", Kind: NodeData, Body: composite},
+			"box": composite,
 		},
 	}
 	src := `
-data:    { w.box.x: { key: 'abc' } }
-outputs: { out: { value: data.w.box.x.value } }
+data:    { x: w.box { key: 'abc' } }
+outputs: { out: { value: data.x.value } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "looked-up:abc", res.Outputs["out"],
 		"the data composite's published output flows to the root output")
@@ -455,7 +450,7 @@ outputs: { out: { value: data.w.box.x.value } }
 		}
 	}
 	require.NotNil(t, libCall, "the data composite call records a library-call entry")
-	require.Equal(t, "data.w.box.x", libCall.Address,
+	require.Equal(t, "data.x", libCall.Address,
 		"the boundary address has the data kind root")
 	require.Equal(t, "data", libCall.Kind)
 	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
@@ -468,29 +463,24 @@ outputs: { out: { value: data.w.box.x.value } }
 }
 
 func TestExecutorAppliesActionComposite(t *testing.T) {
-	composite := parseStack(t, `
-actions: { core.echo.it: { echo: var.msg } }
-outputs: { said: { value: action.core.echo.it.echo } }
+	composite := syntaxComposite(t, "greet", NodeAction, `
+actions: { it: core.echo { echo: var.msg } }
+outputs: { said: { value: action.it.echo } }
 `)
 	libs := testModules()
 	libs["ops"] = &Library{
 		Name: "ops",
 		ActionComposites: map[string]*CompositeType{
-			"greet": {Name: "greet", Kind: NodeAction, Body: composite},
+			"greet": composite,
 		},
 	}
 	src := `
-actions: { ops.greet.hello: { msg: 'hi' } }
-outputs: { out: { value: action.ops.greet.hello.said } }
+actions: { hello: ops.greet { msg: 'hi' } }
+outputs: { out: { value: action.hello.said } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "hi", res.Outputs["out"],
 		"the action composite's published output flows to the root output")
@@ -504,34 +494,29 @@ outputs: { out: { value: action.ops.greet.hello.said } }
 		}
 	}
 	require.NotNil(t, libCall, "the action composite call records a library-call entry")
-	require.Equal(t, "action.ops.greet.hello", libCall.Address,
+	require.Equal(t, "action.hello", libCall.Address,
 		"the boundary address has the action kind root")
 	require.Equal(t, "hi", libCall.Outputs["said"])
 }
 
 func TestExecutorForEachResourceCreatesPerInstance(t *testing.T) {
 	src := `
-resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
+resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
 outputs: {
-  alpha-id: { value: resource.core.thing.many['alpha'].id }
-  beta-id:  { value: resource.core.thing.many['beta'].id }
+  alpha-id: { value: resource.many['alpha'].id }
+  beta-id:  { value: resource.many['beta'].id }
 }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Inputs: map[string]any{
-			"configs": map[string]any{
-				"alpha": int64(1),
-				"beta":  int64(2),
-			},
+	exec := executorTestExecutor(t, src, libs, store, stack)
+	exec.Inputs = map[string]any{
+		"configs": map[string]any{
+			"alpha": int64(1),
+			"beta":  int64(2),
 		},
-		Store:   store,
-		Factory: stack,
 	}
 	res := applyOnce(t, exec)
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates))
@@ -544,26 +529,21 @@ outputs: {
 	for _, ent := range snap.Entries {
 		addrs[ent.Address] = true
 	}
-	require.True(t, addrs["resource.core.thing.many['alpha']"], "alpha instance in state")
-	require.True(t, addrs["resource.core.thing.many['beta']"], "beta instance in state")
+	require.True(t, addrs["resource.many['alpha']"], "alpha instance in state")
+	require.True(t, addrs["resource.many['beta']"], "beta instance in state")
 }
 
 func TestExecutorForEachOrphanInstanceDeleted(t *testing.T) {
 	src := `
-resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @each.value } }
+resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 	runOnce := func(configs map[string]any) {
-		exec := &Executor{
-			DAG:       BuildDAG(parseStack(t, src), libs),
-			Libraries: libs,
-			Inputs:    map[string]any{"configs": configs},
-			Store:     store,
-			Factory:   stack,
-		}
+		exec := executorTestExecutor(t, src, libs, store, stack)
+		exec.Inputs = map[string]any{"configs": configs}
 		applyOnce(t, exec)
 	}
 	runOnce(map[string]any{"alpha": int64(1), "beta": int64(2)})
@@ -578,25 +558,20 @@ resources: { core.thing.many: { @for-each: var.configs, name: @each.key, size: @
 	for _, ent := range snap.Entries {
 		addrs[ent.Address] = true
 	}
-	require.True(t, addrs["resource.core.thing.many['alpha']"])
-	require.False(t, addrs["resource.core.thing.many['beta']"], "beta dropped from state")
+	require.True(t, addrs["resource.many['alpha']"])
+	require.False(t, addrs["resource.many['beta']"], "beta dropped from state")
 }
 
 func TestExecutorForEachRejectsList(t *testing.T) {
 	src := `
-resources: { core.thing.many: { @for-each: var.items, name: @each.value } }
+resources: { many: core.thing { @for-each: var.items, name: @each.value } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Inputs:    map[string]any{"items": []any{"a", "b"}},
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
+	exec.Inputs = map[string]any{"items": []any{"a", "b"}}
 	_, err := planAndApply(exec)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "@for-each")
@@ -613,30 +588,26 @@ outputs: {
 }
 
 func TestExecutorModuleFunctionInsideComposite(t *testing.T) {
-	layerBody := parseStack(t, `
+	layerBody := syntaxResourceComposite(t, "layer", `
 inputs: { name: { type: string } }
 outputs: { shout: { value: core.uppercase(var.name) } }
 `)
+	layerBody.Libraries = testModules()
 	rootMods := map[string]*Library{
 		"wrapper": {
 			Name: "wrapper",
 			ResourceComposites: map[string]*CompositeType{
-				"layer": {Name: "layer", Body: layerBody, Libraries: testModules()},
+				"layer": layerBody,
 			},
 		},
 	}
 	src := `
-resources: { wrapper.layer.x: { name: 'hi' } }
-outputs:   { out: { value: resource.wrapper.layer.x.shout } }
+resources: { x: wrapper.layer { name: 'hi' } }
+outputs:   { out: { value: resource.x.shout } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), rootMods),
-		Libraries: rootMods,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, rootMods, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "HI", res.Outputs["out"])
 }
@@ -647,21 +618,17 @@ func TestExecutorCompositeUsesItsOwnModules(t *testing.T) {
 	// against the composite's Libraries table, not the stack root's. This
 	// is the encapsulation that lets a composite be reusable without the
 	// caller needing to import everything the composite uses transitively.
-	layerBody := parseStack(t, `
+	composite := syntaxResourceComposite(t, "layer", `
 inputs: { name: { type: string } }
 
-resources: { core.thing.y: { name: var.name, size: 1 } }
+resources: { y: core.thing { name: var.name, size: 1 } }
 
-outputs: { id: { value: resource.core.thing.y.id } }
+outputs: { id: { value: resource.y.id } }
 `)
 	var c resourceCounters
 	// "core" is registered only in the composite's Libraries, never in
 	// the stack-root libs.
-	composite := &CompositeType{
-		Name:      "layer",
-		Body:      layerBody,
-		Libraries: resourceModules(&c),
-	}
+	composite.Libraries = resourceModules(&c)
 	rootMods := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
@@ -671,17 +638,12 @@ outputs: { id: { value: resource.core.thing.y.id } }
 		},
 	}
 	src := `
-resources: { outer-lib.layer.x: { name: 'alpha' } }
-outputs:   { out: { value: resource.outer-lib.layer.x.id } }
+resources: { x: outer-lib.layer { name: 'alpha' } }
+outputs:   { out: { value: resource.x.id } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), rootMods),
-		Libraries: rootMods,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, rootMods, store, stack)
 	res, err := planAndApply(exec)
 	require.NoError(t, err,
 		"composite-internal core.thing should resolve via the composite's own Libraries")
@@ -690,46 +652,41 @@ outputs:   { out: { value: resource.outer-lib.layer.x.id } }
 }
 
 func TestExecutorRunsNestedComposite(t *testing.T) {
-	clusterBody := parseStack(t, `
+	clusterBody := syntaxResourceComposite(t, "cluster", `
 inputs: { path: { type: string } }
 
-resources: { core.thing.x: { name: var.path, size: 1 } }
+resources: { x: core.thing { name: var.path, size: 1 } }
 
-outputs: { path: { value: resource.core.thing.x.name } }
+outputs: { path: { value: resource.x.name } }
 `)
-	layerBody := parseStack(t, `
+	layerBody := syntaxResourceComposite(t, "layer", `
 inputs: { target: { type: string } }
 
-resources: { inner-lib.cluster.only: { path: var.target } }
+resources: { only: inner-lib.cluster { path: var.target } }
 
-outputs: { path: { value: resource.inner-lib.cluster.only.path } }
+outputs: { path: { value: resource.only.path } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
 		Name: "outer-lib",
 		ResourceComposites: map[string]*CompositeType{
-			"layer": {Name: "layer", Body: layerBody},
+			"layer": layerBody,
 		},
 	}
 	libs["inner-lib"] = &Library{
 		Name: "inner-lib",
 		ResourceComposites: map[string]*CompositeType{
-			"cluster": {Name: "cluster", Body: clusterBody},
+			"cluster": clusterBody,
 		},
 	}
 	src := `
-resources: { outer-lib.layer.mine: { target: 'alpha' } }
-outputs:   { out: { value: resource.outer-lib.layer.mine.path } }
+resources: { mine: outer-lib.layer { target: 'alpha' } }
+outputs:   { out: { value: resource.mine.path } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "alpha", res.Outputs["out"],
 		"path flows up through both composite layers")
@@ -744,19 +701,19 @@ outputs:   { out: { value: resource.outer-lib.layer.mine.path } }
 		byAddr[e.Address] = e
 	}
 
-	leafAddr := "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only/resource.core.thing.x"
+	leafAddr := "resource.mine/resource.only/resource.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "deepest leaf persists at fully chained address")
 	require.Equal(t, state.EntryLeaf, leaf.Type)
 
-	innerAddr := "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only"
+	innerAddr := "resource.mine/resource.only"
 	inner := byAddr[innerAddr]
 	require.NotNil(t, inner)
 	require.Equal(t, state.EntryLibraryCall, inner.Type)
 	require.Equal(t, "resource", inner.Kind)
 	require.Equal(t, &state.Selector{Alias: "inner-lib", Export: "cluster"}, inner.Selector)
 
-	outerAddr := "resource.outer-lib.layer.mine"
+	outerAddr := "resource.mine"
 	outer := byAddr[outerAddr]
 	require.NotNil(t, outer)
 	require.Equal(t, state.EntryLibraryCall, outer.Type)
@@ -768,48 +725,43 @@ func TestExecutorNestedCompositeEncapsulation(t *testing.T) {
 	// Inner's leaf produces {id, name, size}; inner only publishes
 	// {path}. Outer's outputs reference the boundary's published
 	// outputs, not the leaf's internals.
-	clusterBody := parseStack(t, `
+	clusterBody := syntaxResourceComposite(t, "cluster", `
 inputs: { path: { type: string } }
 
-resources: { core.thing.x: { name: var.path, size: 7 } }
+resources: { x: core.thing { name: var.path, size: 7 } }
 
-outputs: { path: { value: resource.core.thing.x.name } }
+outputs: { path: { value: resource.x.name } }
 `)
-	layerBody := parseStack(t, `
+	layerBody := syntaxResourceComposite(t, "layer", `
 inputs: { target: { type: string } }
 
-resources: { inner-lib.cluster.only: { path: var.target } }
+resources: { only: inner-lib.cluster { path: var.target } }
 
-outputs: { exposed: { value: resource.inner-lib.cluster.only.path } }
+outputs: { exposed: { value: resource.only.path } }
 `)
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
 		Name: "outer-lib",
 		ResourceComposites: map[string]*CompositeType{
-			"layer": {Name: "layer", Body: layerBody},
+			"layer": layerBody,
 		},
 	}
 	libs["inner-lib"] = &Library{
 		Name: "inner-lib",
 		ResourceComposites: map[string]*CompositeType{
-			"cluster": {Name: "cluster", Body: clusterBody},
+			"cluster": clusterBody,
 		},
 	}
 
 	t.Run("only published outputs cross the boundary", func(t *testing.T) {
 		src := `
-resources: { outer-lib.layer.mine: { target: 'beta' } }
-outputs:   { out: { value: resource.outer-lib.layer.mine.exposed } }
+resources: { mine: outer-lib.layer { target: 'beta' } }
+outputs:   { out: { value: resource.mine.exposed } }
 `
 		store := newStateStore(t)
 		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-		exec := &Executor{
-			DAG:       BuildDAG(parseStack(t, src), libs),
-			Libraries: libs,
-			Store:     store,
-			Factory:   stack,
-		}
+		exec := executorTestExecutor(t, src, libs, store, stack)
 		res := applyOnce(t, exec)
 		require.Equal(t, "beta", res.Outputs["out"])
 
@@ -817,7 +769,7 @@ outputs:   { out: { value: resource.outer-lib.layer.mine.exposed } }
 		require.NoError(t, err)
 		var inner *state.Entry
 		for _, e := range snap.Entries {
-			if e.Address == "resource.outer-lib.layer.mine/resource.inner-lib.cluster.only" {
+			if e.Address == "resource.mine/resource.only" {
 				inner = e
 			}
 		}
@@ -832,22 +784,17 @@ outputs:   { out: { value: resource.outer-lib.layer.mine.exposed } }
 	})
 
 	t.Run("non-published fields are unreachable from outer scope", func(t *testing.T) {
-		// Outer attempts to reference resource.inner-lib.cluster.only.size
-		// which is the leaf's `size` field, not in inner's `outputs:` block.
-		// The reference must fail at eval time because outer scope holds
-		// only the boundary's published map.
+		// Outer attempts to reference resource.mine.size, which is the
+		// inner leaf's `size` field, not in inner's `outputs:` block. The
+		// reference must fail at eval time because outer scope holds only the
+		// boundary's published map.
 		src := `
-resources: { outer-lib.layer.mine: { target: 'gamma' } }
-outputs:   { leak: { value: resource.outer-lib.layer.mine.size } }
+resources: { mine: outer-lib.layer { target: 'gamma' } }
+outputs:   { leak: { value: resource.mine.size } }
 `
 		store := newStateStore(t)
 		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-		exec := &Executor{
-			DAG:       BuildDAG(parseStack(t, src), libs),
-			Libraries: libs,
-			Store:     store,
-			Factory:   stack,
-		}
+		exec := executorTestExecutor(t, src, libs, store, stack)
 		_, err := planAndApply(exec)
 		require.Error(t, err,
 			"outer scope must not expose the inner leaf's internal fields")
@@ -856,31 +803,26 @@ outputs:   { leak: { value: resource.outer-lib.layer.mine.size } }
 }
 
 func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "box", `
 inputs:  { key: { type: string } }
-data:    { core.lookup.found: { key: var.key } }
-actions: { core.echo.say: { echo: data.core.lookup.found.value } }
-outputs: { said: { value: action.core.echo.say.echo } }
+data:    { found: core.lookup { key: var.key } }
+actions: { say: core.echo { echo: data.found.value } }
+outputs: { said: { value: action.say.echo } }
 `)
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"box": {Name: "box", Body: composite},
+			"box": composite,
 		},
 	}
 	src := `
-resources: { w.box.x: { key: 'banana' } }
-outputs:   { result: { value: resource.w.box.x.said } }
+resources: { x: w.box { key: 'banana' } }
+outputs:   { result: { value: resource.x.said } }
 `
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "looked-up:banana", res.Outputs["result"])
 
@@ -889,9 +831,9 @@ outputs:   { result: { value: resource.w.box.x.said } }
 	var actionEntry, libCall *state.Entry
 	for _, e := range snap.Entries {
 		switch e.Address {
-		case "resource.w.box.x/action.core.echo.say":
+		case "resource.x/action.say":
 			actionEntry = e
-		case "resource.w.box.x":
+		case "resource.x":
 			libCall = e
 		}
 	}
@@ -906,19 +848,14 @@ outputs:   { result: { value: resource.w.box.x.said } }
 
 func TestExecutorCreatesResource(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
-outputs:   { id: { value: resource.core.thing.one.id } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
+outputs:   { id: { value: resource.one.id } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
-	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
-	}
+	exec := executorTestExecutor(t, src, libs, store, stack)
 	res := applyOnce(t, exec)
 	require.Equal(t, "fake-alpha", res.Outputs["id"])
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
@@ -927,7 +864,7 @@ outputs:   { id: { value: resource.core.thing.one.id } }
 
 func TestExecutorSameInputsNoCreateOrUpdate(t *testing.T) {
 	src := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	var c resourceCounters
 	runExecutorTwice(t, src, resourceModules(&c))
@@ -937,22 +874,18 @@ resources: { core.thing.one: { name: 'alpha', size: 1 } }
 
 func TestExecutorChangedInputsTriggersUpdate(t *testing.T) {
 	first := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: { core.thing.one: { name: 'alpha', size: 9 } }
+resources: { one: core.thing { name: 'alpha', size: 9 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, executorTestExecutor(t, first, libs, store, stack))
+	applyOnce(t, executorTestExecutor(t, second, libs, store, stack))
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.updates))
@@ -960,22 +893,18 @@ resources: { core.thing.one: { name: 'alpha', size: 9 } }
 
 func TestExecutorReplaceFieldChangeTriggersDeleteAndCreate(t *testing.T) {
 	first := `
-resources: { core.thing.one: { name: 'alpha', size: 1 } }
+resources: { one: core.thing { name: 'alpha', size: 1 } }
 `
 	second := `
-resources: { core.thing.one: { name: 'beta', size: 1 } }
+resources: { one: core.thing { name: 'beta', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, executorTestExecutor(t, first, libs, store, stack))
+	applyOnce(t, executorTestExecutor(t, second, libs, store, stack))
 
 	require.Equal(t, int64(2), atomic.LoadInt64(&c.creates),
 		"replace destroys the old and creates a new")
@@ -987,22 +916,18 @@ resources: { core.thing.one: { name: 'beta', size: 1 } }
 
 func TestExecutorOrphanResourceDeleted(t *testing.T) {
 	first := `
-resources: { core.thing.keep: { name: 'a', size: 1 }, core.thing.orph: { name: 'b', size: 2 } }
+resources: { keep: core.thing { name: 'a', size: 1 }, orph: core.thing { name: 'b', size: 2 } }
 `
 	second := `
-resources: { core.thing.keep: { name: 'a', size: 1 } }
+resources: { keep: core.thing { name: 'a', size: 1 } }
 `
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := resourceModules(&c)
 
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, first), libs), Libraries: libs, Store: store, Factory: stack,
-	})
-	applyOnce(t, &Executor{
-		DAG: BuildDAG(parseStack(t, second), libs), Libraries: libs, Store: store, Factory: stack,
-	})
+	applyOnce(t, executorTestExecutor(t, first, libs, store, stack))
+	applyOnce(t, executorTestExecutor(t, second, libs, store, stack))
 
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.deletes),
 		"the orphan resource (orph) should be deleted on the second run")
@@ -1015,12 +940,12 @@ resources: { core.thing.keep: { name: 'a', size: 1 } }
 			addresses = append(addresses, e.Address)
 		}
 	}
-	require.Equal(t, []string{"resource.core.thing.keep"}, addresses)
+	require.Equal(t, []string{"resource.keep"}, addresses)
 }
 
 func TestExecutorResourceMissingType(t *testing.T) {
 	_, err := runExecutor(t, `
-resources: { core.not-a-thing.x: {} }
+resources: { x: core.not-a-thing {} }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not-a-thing")
@@ -1028,7 +953,7 @@ resources: { core.not-a-thing.x: {} }
 
 func TestExecutorUnknownModule(t *testing.T) {
 	_, err := runExecutor(t, `
-actions: { unknown.echo.x: { echo: 'hi' } }
+actions: { x: unknown.echo { echo: 'hi' } }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown")
@@ -1036,7 +961,7 @@ actions: { unknown.echo.x: { echo: 'hi' } }
 
 func TestExecutorUnknownActionType(t *testing.T) {
 	_, err := runExecutor(t, `
-actions: { core.not-a-type.x: {} }
+actions: { x: core.not-a-type {} }
 `, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not-a-type")
@@ -1071,10 +996,14 @@ func runExecutorTwice(
 	t.Helper()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libraries)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libraries)
 
-	first := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Factory: stack})
-	second := applyOnce(t, &Executor{DAG: g, Libraries: libraries, Store: store, Factory: stack})
+	first := applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libraries, Store: store, Factory: stack,
+	})
+	second := applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libraries, Store: store, Factory: stack,
+	})
 	return first, second
 }
 
@@ -1094,14 +1023,9 @@ func countingModules(runs *int64) map[string]*Library {
 func TestExecutorPersistsSnapshot(t *testing.T) {
 	store := newStateStore(t)
 	libs := testModules()
-	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, `
-actions: { core.echo.hi: { echo: 'hello' } }
-`), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-	}
+	exec := executorTestExecutor(t, `
+actions: { hi: core.echo { echo: 'hello' } }
+`, libs, store, state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
 	res := applyOnce(t, exec)
 	require.NotEmpty(t, res.WrittenRev)
 
@@ -1112,14 +1036,14 @@ actions: { core.echo.hi: { echo: 'hello' } }
 	snap, err := store.Current()
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 1)
-	require.Equal(t, "action.core.echo.hi", snap.Entries[0].Address)
+	require.Equal(t, "action.hi", snap.Entries[0].Address)
 	require.Equal(t, state.EntryAction, snap.Entries[0].Type)
 	require.NotEmpty(t, snap.Entries[0].TriggerHash)
 }
 
 func TestExecutorSkipsActionWhenInputsUnchanged(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'hello' } }
+actions: { hi: core.echo { echo: 'hello' } }
 `
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
@@ -1129,7 +1053,7 @@ actions: { core.echo.hi: { echo: 'hello' } }
 
 func TestExecutorAlwaysTriggerReruns(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { @trigger: 'always', echo: 'hello' } }
+actions: { hi: core.echo { @trigger: 'always', echo: 'hello' } }
 `
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
@@ -1139,7 +1063,7 @@ actions: { core.echo.hi: { @trigger: 'always', echo: 'hello' } }
 
 func TestExecutorExplicitTriggerSkipsWhenSame(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { @trigger: 'fixed-key', echo: 'hello' } }
+actions: { hi: core.echo { @trigger: 'fixed-key', echo: 'hello' } }
 `
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
@@ -1303,8 +1227,8 @@ func TestConfigRef(t *testing.T) {
 
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {
 	src := `
-actions: { core.echo.hi: { echo: 'cached-value' } }
-outputs: { said: { value: action.core.echo.hi.echo } }
+actions: { hi: core.echo { echo: 'cached-value' } }
+outputs: { said: { value: action.hi.echo } }
 `
 	var runs int64
 	first, second := runExecutorTwice(t, src, countingModules(&runs))
