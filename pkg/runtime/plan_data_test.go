@@ -88,9 +88,9 @@ func stepAddresses(p *Plan) []string {
 }
 
 const dataConsumerSrc = `
-data:      { core.dial.cfg: { key: 'k' } }
-resources: { core.thing.one: { tag: data.core.dial.cfg.value } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+data:      { cfg: core.dial { key: 'k' } }
+resources: { one: core.thing { tag: data.cfg.value } }
+outputs:   { v: { value: data.cfg.value } }
 `
 
 // A data source whose inputs resolve at plan is read during the plan,
@@ -99,21 +99,23 @@ func TestPlanReadsResolvedDataSource(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
+	dag, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, dataConsumerSrc), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 
-	ds := findStep(t, plan, "data.core.dial.cfg")
+	ds := findStep(t, plan, "data.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Equal(t, map[string]any{"value": "a:k"}, ds.ObservedOutputs)
 	require.Empty(t, ds.UnresolvedInputs)
 
-	rsStep := findStep(t, plan, "resource.core.thing.one")
+	rsStep := findStep(t, plan, "resource.one")
 	require.Equal(t, DecisionCreate, rsStep.Decision)
 	require.Equal(t, "a:k", rsStep.Inputs["tag"])
 	require.Empty(t, rsStep.UnresolvedInputs)
@@ -131,15 +133,19 @@ func TestSecondPlanNoOpWhenDataUnchanged(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, dataConsumerSrc), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
 
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
 	require.Equal(t, int64(2), reads, "one read at plan, one verifying read at apply")
 
-	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	second := &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.core.thing.one").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.one").Decision)
 	require.Equal(t, int64(3), reads)
 }
 
@@ -150,14 +156,18 @@ func TestSecondPlanUpdatesWhenDataChanged(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, dataConsumerSrc), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
 
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
 	value = "b"
-	second := &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack}
+	second := &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	step := findStep(t, plan, "resource.core.thing.one")
+	step := findStep(t, plan, "resource.one")
 	require.Equal(t, DecisionUpdate, step.Decision)
 	require.Equal(t, "b:k", step.Inputs["tag"])
 }
@@ -167,24 +177,26 @@ func TestSecondPlanUpdatesWhenDataChanged(t *testing.T) {
 // downstream of it stays pending. The apply still resolves end to end.
 func TestPlanDefersDataWithPendingInputs(t *testing.T) {
 	src := `
-resources: { core.thing.one: { tag: 'fixed' } }
-data:      { core.dial.cfg: { key: resource.core.thing.one.id } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+resources: { one: core.thing { tag: 'fixed' } }
+data:      { cfg: core.dial { key: resource.one.id } }
+outputs:   { v: { value: data.cfg.value } }
 `
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	ds := findStep(t, plan, "data.core.dial.cfg")
+	ds := findStep(t, plan, "data.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs)
 	require.Contains(t, ds.UnresolvedInputs, "key")
@@ -201,24 +213,26 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 // that was not there yet, and the cloud returned not-found.
 func TestDataDefersWhenUpstreamResourceCreated(t *testing.T) {
 	src := `
-resources: { core.thing.one: { tag: 'fixed' } }
-data:      { core.dial.cfg: { key: resource.core.thing.one.tag } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+resources: { one: core.thing { tag: 'fixed' } }
+data:      { cfg: core.dial { key: resource.one.tag } }
+outputs:   { v: { value: data.cfg.value } }
 `
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	ds := findStep(t, plan, "data.core.dial.cfg")
+	ds := findStep(t, plan, "data.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs,
 		"a data source reading a to-be-created resource defers its read to apply")
@@ -237,11 +251,13 @@ func TestApplyErrorsWhenDataChangedSincePlan(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	dag, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, dataConsumerSrc), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	ctx := context.Background()
 	plan, err := exec.Plan(ctx)
@@ -254,7 +270,7 @@ func TestApplyErrorsWhenDataChangedSincePlan(t *testing.T) {
 	value = "b"
 	_, err = exec.ApplyPlan(ctx, pf)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "data.core.dial.cfg")
+	require.Contains(t, err.Error(), "data.cfg")
 	require.Contains(t, err.Error(), "changed since the plan")
 	require.Contains(t, err.Error(), `value: "a:k" -> "b:k"`,
 		"the error names each differing field with both values")
@@ -269,12 +285,14 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, dataConsumerSrc), libs)
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("data.core.dial.cfg")
+	ent := snap.Find("data.cfg")
 	require.NotNil(t, ent, "the data read belongs in state")
 	require.Equal(t, state.EntryData, ent.Type)
 	require.Equal(t, "data", ent.Kind)
@@ -283,47 +301,51 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	require.Equal(t, map[string]any{"value": "a:k"}, ent.Outputs)
 
 	withoutData := `
-resources: { core.thing.one: { tag: 'fixed' } }
+resources: { one: core.thing { tag: 'fixed' } }
 `
+	dagWithoutData, syntaxWithoutData := syntaxDAGAndBody(t, withoutData, libs)
 	second := &Executor{
-		DAG:       BuildDAG(parseStack(t, withoutData), libs),
-		Libraries: libs,
-		Store:     store,
-		Factory:   stack,
+		DAG:          dagWithoutData,
+		SyntaxSource: syntaxWithoutData,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      stack,
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	for _, s := range plan.Steps {
-		require.NotEqual(t, "data.core.dial.cfg", s.Address,
+		require.NotEqual(t, "data.cfg", s.Address,
 			"a removed data node prunes from state without a step")
 	}
 	_, err = planAndApplyExisting(second, plan)
 	require.NoError(t, err)
 	snap, err = store.Current()
 	require.NoError(t, err)
-	require.Nil(t, snap.Find("data.core.dial.cfg"))
+	require.Nil(t, snap.Find("data.cfg"))
 }
 
 // Each @for-each instance reads at plan with its own key.
 func TestForEachDataReadsAtPlan(t *testing.T) {
 	src := `
-data: { core.dial.cfg: { @for-each: { a: 'x', b: 'y' }, key: @each.value } }
+data: { cfg: core.dial { @for-each: { a: 'x', b: 'y' }, key: @each.value } }
 `
 	value := "v"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG:       BuildDAG(parseStack(t, src), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"value": "v:x"},
-		findStep(t, plan, `data.core.dial.cfg['a']`).ObservedOutputs)
+		findStep(t, plan, `data.cfg['a']`).ObservedOutputs)
 	require.Equal(t, map[string]any{"value": "v:y"},
-		findStep(t, plan, `data.core.dial.cfg['b']`).ObservedOutputs)
+		findStep(t, plan, `data.cfg['b']`).ObservedOutputs)
 	require.Equal(t, int64(2), reads)
 }
 
@@ -363,9 +385,9 @@ func (r *versionedResource) ReplaceFields() []string                  { return n
 func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	src := `
 inputs:    { t: { type: string } }
-resources: { core.versioned.one: { tag: var.t } }
-data:      { core.dial.cfg: { key: resource.core.versioned.one.id } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+resources: { one: core.versioned { tag: var.t } }
+data:      { cfg: core.dial { key: resource.one.id } }
+outputs:   { v: { value: data.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -373,10 +395,10 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
 	first := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	}
 	res := applyOnce(t, first)
@@ -385,14 +407,13 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	// The id is a known prior output, so the read's input resolves at
 	// plan; it defers anyway because the resource it reads is updating.
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate,
-		findStep(t, plan, "resource.core.versioned.one").Decision)
-	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.one").Decision)
+	ds := findStep(t, plan, "data.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read past the stale prior id")
 	require.Empty(t, ds.UnresolvedInputs)
@@ -409,9 +430,9 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	src := `
 inputs:    { t: { type: string } }
-resources: { core.versioned.one: { tag: var.t } }
-data:      { core.dial.cfg: { key: resource.core.versioned.one.tag } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+resources: { one: core.versioned { tag: var.t } }
+data:      { cfg: core.dial { key: resource.one.tag } }
+outputs:   { v: { value: data.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -419,20 +440,20 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	ds := findStep(t, plan, "data.core.dial.cfg")
+	ds := findStep(t, plan, "data.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read until apply")
@@ -450,10 +471,10 @@ func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	src := `
 inputs: { t: { type: string } }
 resources: {
-  core.versioned.one: { tag: var.t }
-  core.thing.two:     { tag: resource.core.versioned.one.id }
+  one: core.versioned { tag: var.t }
+  two: core.thing { tag: resource.one.id }
 }
-outputs: { fed: { value: resource.core.thing.two.tag } }
+outputs: { fed: { value: resource.two.tag } }
 `
 	value := "a"
 	var reads int64
@@ -461,39 +482,39 @@ outputs: { fed: { value: resource.core.thing.two.tag } }
 	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	step := findStep(t, plan, "resource.core.thing.two")
+	step := findStep(t, plan, "resource.two")
 	require.Equal(t, DecisionNoOp, step.Decision)
 	require.Empty(t, step.UnresolvedInputs)
 	require.Equal(t, "id-1", step.Inputs["tag"])
 
 	_, err = planAndApplyExisting(second, plan)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "resource.core.thing.two")
+	require.Contains(t, err.Error(), "resource.two")
 	require.Contains(t, err.Error(), "inputs changed since the plan was computed; plan again")
 	require.Contains(t, err.Error(), `tag: "id-1" -> "id-2"`)
 
 	// The update persisted before the failure, so a fresh plan diffs
 	// the downstream against the new id and converges.
 	third := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.core.thing.two").Decision)
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.two").Decision)
 	res, err := planAndApplyExisting(third, plan)
 	require.NoError(t, err)
 	require.Equal(t, "id-2", res.Outputs["fed"])
@@ -505,9 +526,9 @@ outputs: { fed: { value: resource.core.thing.two.tag } }
 func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
 	src := `
 inputs:    { t: { type: string } }
-resources: { core.versioned.one: { tag: var.t } }
-data:      { core.dial.cfg: { @depends-on: [resource.core.versioned.one], key: 'fixed' } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+resources: { one: core.versioned { tag: var.t } }
+data:      { cfg: core.dial { @depends-on: [resource.one], key: 'fixed' } }
+outputs:   { v: { value: data.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -515,22 +536,21 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate,
-		findStep(t, plan, "resource.core.versioned.one").Decision)
-	ds := findStep(t, plan, "data.core.dial.cfg")
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.one").Decision)
+	ds := findStep(t, plan, "data.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"a pending @depends-on target defers the read")
 	res, err := planAndApplyExisting(second, plan)
@@ -539,30 +559,30 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 
 	// With the target settled, the read returns to plan time.
 	third := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionNoOp,
-		findStep(t, plan, "resource.core.versioned.one").Decision)
+		findStep(t, plan, "resource.one").Decision)
 	require.Equal(t, map[string]any{"value": "a:fixed"},
-		findStep(t, plan, "data.core.dial.cfg").ObservedOutputs)
+		findStep(t, plan, "data.cfg").ObservedOutputs)
 }
 
 // An explicit @depends-on naming a composite defers the data read
 // while anything inside the composite has changes pending; once the
 // internals settle, the read returns to plan time.
 func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
-	composite := parseStack(t, `
+	composite := syntaxResourceComposite(t, "box", `
 inputs:    { t: { type: string } }
-resources: { core.versioned.one: { tag: var.t } }
+resources: { one: core.versioned { tag: var.t } }
 `)
 	src := `
 inputs:    { t: { type: string } }
-resources: { w.box.x: { t: var.t } }
-data:      { core.dial.cfg: { @depends-on: [resource.w.box.x], key: 'fixed' } }
-outputs:   { v: { value: data.core.dial.cfg.value } }
+resources: { x: w.box { t: var.t } }
+data:      { cfg: core.dial { @depends-on: [resource.x], key: 'fixed' } }
+outputs:   { v: { value: data.cfg.value } }
 `
 	value := "a"
 	var reads int64
@@ -571,27 +591,27 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
-			"box": {Name: "box", Body: composite},
+			"box": composite,
 		},
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, src), libs)
+	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
 
 	applyOnce(t, &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "1"},
 	})
 
 	second := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionUpdate,
-		findStep(t, plan, "resource.w.box.x/resource.core.versioned.one").Decision)
-	ds := findStep(t, plan, "data.core.dial.cfg")
+		findStep(t, plan, "resource.x/resource.one").Decision)
+	ds := findStep(t, plan, "data.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"a pending change inside the @depends-on composite defers the read")
 	res, err := planAndApplyExisting(second, plan)
@@ -599,13 +619,13 @@ outputs:   { v: { value: data.core.dial.cfg.value } }
 	require.Equal(t, "a:fixed", res.Outputs["v"])
 
 	third := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"value": "a:fixed"},
-		findStep(t, plan, "data.core.dial.cfg").ObservedOutputs)
+		findStep(t, plan, "data.cfg").ObservedOutputs)
 }
 
 // amiOut mimics a cloud data source's richer output: a nested struct
@@ -649,14 +669,20 @@ func TestApplyAcceptsUnchangedStructOutputs(t *testing.T) {
 			},
 		},
 	}
+	src := `
+data: { al: core.ami { key: 'k' } }
+outputs: {
+  id:   { value: data.al.id }
+  name: { value: data.al.devices[0].name }
+}
+`
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
-		DAG: BuildDAG(parseStack(t, `
-data:    { core.ami.al: { key: 'k' } }
-outputs: { id: { value: data.core.ami.al.id }, name: { value: data.core.ami.al.devices[0].name } }
-`), libs),
-		Libraries: libs,
-		Store:     newStateStore(t),
-		Factory:   state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
 	}
 	res, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -678,20 +704,22 @@ func TestDestroyRemovesDataEntry(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g := BuildDAG(parseStack(t, dataConsumerSrc), libs)
-	applyOnce(t, &Executor{DAG: g, Libraries: libs, Store: store, Factory: stack})
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
 	readsBefore := reads
 
 	destroy := &Executor{
-		DAG: g, Libraries: libs, Store: store, Factory: stack, Destroy: true,
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack, Destroy: true,
 	}
 	_, err := planAndApply(destroy)
 	require.NoError(t, err)
 	require.Equal(t, readsBefore, reads, "destroy reads no data sources")
 	snap, err := store.Current()
 	require.NoError(t, err)
-	require.Nil(t, snap.Find("data.core.dial.cfg"))
-	require.Nil(t, snap.Find("resource.core.thing.one"))
+	require.Nil(t, snap.Find("data.cfg"))
+	require.Nil(t, snap.Find("resource.one"))
 }
 
 // planAndApplyExisting applies an already computed plan through the
