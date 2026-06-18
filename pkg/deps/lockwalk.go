@@ -195,8 +195,13 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	if resolve.ContainsFactorySource(src) {
 		return fmt.Errorf("a factory cannot be imported")
 	}
+	ubLibrary := resolve.IsUBLibrary(src)
+	goLibrary := resolve.IsGoLibrary(src)
+	if !ubLibrary && !goLibrary {
+		return missingPackageProjectError(pkg, owner.Project)
+	}
 	kind := LockKindGo
-	if resolve.IsUBLibrary(src) {
+	if ubLibrary {
 		kind = LockKindUB
 	}
 	projectID := owner.Project.String()
@@ -214,6 +219,13 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	}
 	w.walked[packageKey] = true
 	return nil
+}
+
+func missingPackageProjectError(pkg RemotePackage, project ProjectID) error {
+	return fmt.Errorf(
+		"selected project %s does not provide package %s; "+
+			"add the owning project to manifest.ub and run `unobin deps sync`",
+		project, pkg)
 }
 
 func (w *lockWalker) ownerVersion(pkg RemotePackage) (PackageOwner, string, bool) {

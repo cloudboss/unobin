@@ -307,6 +307,40 @@ func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
 	}, lock.Deps)
 }
 
+func TestLockFromImportsReportsPackageMissingFromSelectedProject(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": `factory: {
+  imports: {
+    comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions'
+    helloer:        'github.com/scratch/repo//ub/helloer'
+  }
+}
+`,
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/project-b/comprehensions", "v0.8.0"): {
+			Commit: "c1",
+			FS:     fstest.MapFS{},
+		},
+		srcKey("github.com/scratch/repo", "ub/helloer", "v0.8.0"): ubSrc(
+			"c1", "sha256:package", map[string]string{
+				"resource-hello.ub": `
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+			}),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.8.0"}
+
+	_, err := LockFromImports(root, sel, r, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "selected project github.com/scratch/repo")
+	assert.Contains(t, err.Error(), "does not provide package")
+	assert.Contains(t, err.Error(), "add the owning project")
+}
+
 func TestLockFromImportsSkipsNestedProjects(t *testing.T) {
 	root := mapFS(map[string]string{
 		ManifestFileName: "manifest: { requires: {} }\n",

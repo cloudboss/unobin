@@ -453,6 +453,119 @@ hello: resource {
 	}, lock.Deps)
 }
 
+func TestDepsSyncReportsPackageMissingFromSelectedProject(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: {
+    comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions'
+    helloer:        'github.com/scratch/repo//ub/helloer'
+  }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("manifest: { requires: { 'github.com/scratch/repo': 'v0.8.0' } }\n"), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/scratch/repo@v0.8.0": {
+			Commit: "scratch",
+			Hash:   "sha256:project",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+			},
+		},
+		"github.com/scratch/repo//ub/helloer@v0.8.0": {
+			Commit: "scratch",
+			Hash:   "sha256:package",
+			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`)}},
+		},
+		"github.com/scratch/repo//ub/project-b/comprehensions@v0.8.0": {
+			Commit: "scratch",
+			FS:     fstest.MapFS{},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "selected project github.com/scratch/repo")
+	require.Contains(t, err.Error(), "does not provide package")
+	require.Contains(t, err.Error(), "add the owning project")
+}
+
+func TestDepsSyncRootAndNestedProjectOwnPackages(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: {
+    comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions'
+    helloer:        'github.com/scratch/repo//ub/helloer'
+  }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName), []byte(`manifest: {
+  requires: {
+    'github.com/scratch/repo':               'v0.8.0'
+    'github.com/scratch/repo//ub/project-b': 'v0.1.0'
+  }
+}
+`), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/scratch/repo@v0.8.0": {
+			Commit: "root",
+			Hash:   "sha256:root",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+			},
+		},
+		"github.com/scratch/repo//ub/helloer@v0.8.0": {
+			Commit: "root",
+			Hash:   "sha256:helloer",
+			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`)}},
+		},
+		"github.com/scratch/repo//ub/project-b@ub/project-b/v0.1.0": {
+			Commit: "project-b",
+			Hash:   "sha256:project-b",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+			},
+		},
+		"github.com/scratch/repo//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
+			Commit: "project-b",
+			Hash:   "sha256:comprehensions",
+			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
+list: data {
+  outputs: { value: { value: [] } }
+}
+`)}},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/scratch/repo": {
+			Kind: deps.LockKindUB, Version: "v0.8.0", Commit: "root", Hash: "sha256:root",
+		},
+		"github.com/scratch/repo//ub/project-b": {
+			Kind: deps.LockKindUB, Version: "v0.1.0", Commit: "project-b",
+			Hash: "sha256:project-b",
+		},
+	}, lock.Deps)
+}
+
 func TestDepsSyncLibraryProject(t *testing.T) {
 	// A library project: body files, no factory.ub. Its dependencies are
 	// managed the same way a factory's are.
