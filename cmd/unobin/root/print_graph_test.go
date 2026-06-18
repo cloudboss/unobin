@@ -155,6 +155,8 @@ func TestPrintGraphUsesManifestReplace(t *testing.T) {
 	root := t.TempDir()
 	repo := filepath.Join(root, "demo-lib")
 	require.NoError(t, os.MkdirAll(repo, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, deps.ManifestFileName),
+		[]byte("manifest: { requires: {} }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "noop.ub"), []byte(`
 noop: action {
   description: 'No-op action composite.'

@@ -50,7 +50,7 @@ func RequireProject(dep Dependency, version string, resolver resolve.Resolver) e
 	if err != nil {
 		return err
 	}
-	ok, err := hasProjectMarker(src.FS)
+	ok, err := HasProjectMarker(src.FS)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,8 @@ func RequireProject(dep Dependency, version string, resolver resolve.Resolver) e
 	return nil
 }
 
-func hasProjectMarker(fsys fs.FS) (bool, error) {
+// HasProjectMarker reports whether fsys contains manifest.ub or go.mod at its root.
+func HasProjectMarker(fsys fs.FS) (bool, error) {
 	if _, err := ReadManifest(fsys); err == nil {
 		return true, nil
 	} else if !errors.Is(err, fs.ErrNotExist) {

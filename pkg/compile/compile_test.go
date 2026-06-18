@@ -120,6 +120,10 @@ func TestWrapReplacesSubdirMatching(t *testing.T) {
 	} {
 		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
+	require.NoError(t, os.WriteFile(filepath.Join(checkout, deps.ManifestFileName),
+		[]byte("manifest: { requires: {} }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(library, deps.ManifestFileName),
+		[]byte("manifest: { requires: {} }\n"), 0o644))
 
 	cases := []struct {
 		name    string
@@ -164,6 +168,17 @@ func TestWrapReplacesSubdirMatching(t *testing.T) {
 			require.Equal(t, tt.want, src.Path)
 		})
 	}
+}
+
+func TestWrapReplacesRejectsPackageReplacementWithoutMarker(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "helloer"), 0o755))
+
+	_, err := WrapReplaces(failingResolver{}, root, "", map[deps.Dependency]string{
+		{URL: "github.com/acme/repo", Subdir: "ub/helloer"}: "./helloer",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no manifest.ub or go.mod")
 }
 
 func TestWithReplacedVersionsUsesReplacementID(t *testing.T) {

@@ -652,43 +652,24 @@ type localReplacementMatch struct {
 }
 
 func (r *replaceResolver) match(ri *resolve.RemoteImport) (localReplacementMatch, bool) {
-	dep := deps.Dependency{URL: ri.URL, Subdir: ri.Subdir}
-	var best localReplacementMatch
-	bestLen := -1
+	pkg := deps.RemotePackage{URL: ri.URL, Subdir: ri.Subdir}
+	projects := make([]deps.ProjectID, 0, len(r.replacements))
+	locals := make(map[deps.Dependency]string, len(r.replacements))
 	for _, repl := range r.replacements {
-		candidate, ok := localReplacementFor(repl, dep)
-		if !ok {
-			continue
-		}
-		if n := len(repl.dep.Subdir); n > bestLen {
-			best = candidate
-			bestLen = n
-		}
+		project := deps.ProjectIDFromDependency(repl.dep)
+		projects = append(projects, project)
+		locals[repl.dep] = repl.local
 	}
-	return best, bestLen >= 0
-}
-
-func localReplacementFor(
-	repl localReplacement, dep deps.Dependency,
-) (localReplacementMatch, bool) {
-	if repl.dep.URL != dep.URL {
+	owner, ok := deps.MostSpecificProject(projects, pkg)
+	if !ok {
 		return localReplacementMatch{}, false
 	}
-	if repl.dep.Subdir == "" {
-		return localReplacementMatch{dep: repl.dep, local: repl.local, suffix: dep.Subdir}, true
+	suffix := ""
+	if owner.PackageSubdir != "." {
+		suffix = owner.PackageSubdir
 	}
-	if dep.Subdir == repl.dep.Subdir {
-		return localReplacementMatch{dep: repl.dep, local: repl.local}, true
-	}
-	prefix := repl.dep.Subdir + "/"
-	if after, ok := strings.CutPrefix(dep.Subdir, prefix); ok {
-		return localReplacementMatch{
-			dep:    repl.dep,
-			local:  repl.local,
-			suffix: after,
-		}, true
-	}
-	return localReplacementMatch{}, false
+	dep := owner.Project.Dependency()
+	return localReplacementMatch{dep: dep, local: locals[dep], suffix: suffix}, true
 }
 
 // replacedVersion is the placeholder version for a replaced dependency
@@ -741,6 +722,9 @@ func WrapReplaces(
 			if err != nil {
 				return nil, err
 			}
+			if err := validateReplacementProject(dep, abs); err != nil {
+				return nil, err
+			}
 			replacements = append(replacements, localReplacement{dep: dep, local: abs})
 		}
 		resolver = &replaceResolver{replacements: replacements, wrapped: resolver}
@@ -770,6 +754,24 @@ func projectManifest(dir string) (*deps.Manifest, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func validateReplacementProject(dep deps.Dependency, path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("replace %s: %w", dep, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("replace %s: %s is not a directory", dep, path)
+	}
+	ok, err := deps.HasProjectMarker(os.DirFS(path))
+	if err != nil {
+		return fmt.Errorf("replace %s: %w", dep, err)
+	}
+	if !ok {
+		return fmt.Errorf("replace %s: %s has no manifest.ub or go.mod", dep, path)
+	}
+	return nil
 }
 
 // withReplacedVersions gives each replaced repository a placeholder version
