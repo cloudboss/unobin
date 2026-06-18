@@ -45,14 +45,27 @@ Then run plan and apply. A factory cannot apply without first planning.
 
 See the [examples](./examples) directory for various example stacks that you can compile and run.
 
-## Dependency versioning in repository subdirectories
+## Dependency projects and import packages
 
-A git repository can contain more than one independently versioned Unobin project.
-The repository root uses ordinary semver tags such as `v1.2.3`. A project in a
-subdirectory uses tags prefixed by that project path, such as `library-c/v1.2.3`
-or `libs/core/v1.2.3`.
+A dependency project is a versioned directory with `manifest.ub` or `go.mod` at
+its root. A package import may name any directory below that project:
 
-Manifest and lock files keep plain semver versions:
+```ub
+imports: {
+  helloer: 'github.com/acme/repo//ub/helloer'
+}
+```
+
+The manifest names the owning project, not every package below it:
+
+```ub
+manifest: {
+  requires: { 'github.com/acme/repo': 'v1.2.3' }
+}
+```
+
+`unobin deps get` adds projects. If a repository subdirectory has its own
+`manifest.ub` or `go.mod`, it is a project and may be added directly:
 
 ```ub
 manifest: {
@@ -60,13 +73,17 @@ manifest: {
 }
 ```
 
+The repository root uses ordinary semver tags such as `v1.2.3`. A project in a
+subdirectory uses tags prefixed by that project path, such as `library-c/v1.2.3`
+or `libs/core/v1.2.3`. Package paths below the project do not change the tag.
+
 A nested `manifest.ub` is a project boundary. `unobin deps sync` for an ancestor
 project does not scan files under that nested project. Run
 `unobin deps sync -p library-c` to manage `library-c/manifest.ub` and
 `library-c/lock.ub`.
 
-Use a remote dependency id plus a replacement for local development against a
-nested project:
+Use a project id plus a replacement for local development against a nested
+project:
 
 ```ub
 manifest: {

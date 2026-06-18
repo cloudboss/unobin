@@ -2,10 +2,10 @@
 
 Hello-world stack that exercises nested UB libraries. The stack imports
 only `greeter` (a local library), and `greeter.greeting` itself imports
-the local `helloer` library. The deepest write goes through `std.fs-file`,
-which `helloer` brings in behind its boundary. Each composite's own
-`imports:` block resolves its libraries; the stack does not redeclare what
-its composites use.
+the remote `github.com/cloudboss/unobin-libraries-scratch//ub/helloer`
+package. The manifest pins the owning
+`github.com/cloudboss/unobin-libraries-scratch` project, and the lock records
+that project rather than the package path.
 
 ## Compile
 

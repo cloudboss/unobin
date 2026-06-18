@@ -6,7 +6,9 @@ greeting: resource {
     path:    { type: string }
   }
 
-  imports: { helloer: '../helloer' }
+  imports: {
+    helloer: 'github.com/cloudboss/unobin-libraries-scratch//ub/helloer'
+  }
 
   resources: {
     file: helloer.hello {
