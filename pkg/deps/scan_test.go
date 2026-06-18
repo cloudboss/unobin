@@ -15,7 +15,7 @@ func writeUB(t *testing.T, path, body string) {
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 }
 
-func TestImportedReposPreservesSubdirs(t *testing.T) {
+func TestImportedPackagesPreservesSubdirs(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"), `
 factory: {
@@ -26,15 +26,15 @@ factory: {
   }
 }
 `)
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{
+	assert.Equal(t, map[RemotePackage]bool{
 		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}:  true,
 		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/local"}: true,
 	}, repos)
 }
 
-func TestImportedReposScansLocalLibraries(t *testing.T) {
+func TestImportedPackagesScansLocalLibraries(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"),
 		"factory: { imports: { greeter: './greeter' } }\n")
@@ -43,14 +43,14 @@ greeting: resource {
   imports: { helloer: 'github.com/scratch/repo//ub/helloer' }
 }
 `)
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{
+	assert.Equal(t, map[RemotePackage]bool{
 		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: true,
 	}, repos)
 }
 
-func TestImportedReposScansSourceDeclaredFactory(t *testing.T) {
+func TestImportedPackagesScansSourceDeclaredFactory(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"), `
 factory: {
@@ -60,14 +60,14 @@ factory: {
   }
 }
 `)
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{
+	assert.Equal(t, map[RemotePackage]bool{
 		{URL: "github.com/cloudboss/unobin", Subdir: "pkg/libraries/core"}: true,
 	}, repos)
 }
 
-func TestImportedReposValidatesSourceDeclaredFactory(t *testing.T) {
+func TestImportedPackagesValidatesSourceDeclaredFactory(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"), `
 factory: {
@@ -78,25 +78,25 @@ factory: {
   }
 }
 `)
-	_, err := ImportedRepos(root)
+	_, err := ImportedPackages(root)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `resource hello: meta key "@trigger" is not allowed`)
 }
 
-func TestImportedReposRejectsUntypedUBFile(t *testing.T) {
+func TestImportedPackagesRejectsUntypedUBFile(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "loose.ub"), []byte(`
 imports: { core: 'github.com/x/y' }
 `), 0o644))
 
-	_, err := ImportedRepos(root)
+	_, err := ImportedPackages(root)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot determine UB file role")
 }
 
-func TestImportedReposScansSourceDeclaredLibraryExports(t *testing.T) {
+func TestImportedPackagesScansSourceDeclaredLibraryExports(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "library.ub"), `
 greeting: resource {
@@ -111,34 +111,34 @@ lookup: data {
   }
 }
 `)
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{
+	assert.Equal(t, map[RemotePackage]bool{
 		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: true,
 	}, repos)
 }
 
-func TestImportedReposNoRemoteDeps(t *testing.T) {
+func TestImportedPackagesNoRemoteDeps(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"),
 		"factory: { imports: { greeter: './greeter' } }\n")
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
 	assert.Empty(t, repos)
 }
 
-func TestImportedReposSkipsHiddenDirs(t *testing.T) {
+func TestImportedPackagesSkipsHiddenDirs(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "factory.ub"),
 		"factory: { imports: { core: 'github.com/x/y//core' } }\n")
 	writeUB(t, filepath.Join(root, ".git", "hooks", "stray.ub"),
 		"imports: { bad: 'github.com/other/repo//lib' }\n")
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{{URL: "github.com/x/y", Subdir: "core"}: true}, repos)
+	assert.Equal(t, map[RemotePackage]bool{{URL: "github.com/x/y", Subdir: "core"}: true}, repos)
 }
 
-func TestImportedReposSkipsNestedProjects(t *testing.T) {
+func TestImportedPackagesSkipsNestedProjects(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
 	writeUB(t, filepath.Join(root, "factory-a", "factory.ub"), `
@@ -154,14 +154,14 @@ thing: resource {
 }
 `)
 
-	repos, err := ImportedRepos(root)
+	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{
+	assert.Equal(t, map[RemotePackage]bool{
 		{URL: "github.com/acme/shared", Subdir: "lib"}: true,
 	}, repos)
 }
 
-func TestImportedReposScansNestedProjectWhenStartedThere(t *testing.T) {
+func TestImportedPackagesScansNestedProjectWhenStartedThere(t *testing.T) {
 	root := t.TempDir()
 	child := filepath.Join(root, "library-c")
 	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
@@ -177,20 +177,20 @@ thing: resource {
 }
 `)
 
-	repos, err := ImportedRepos(child)
+	repos, err := ImportedPackages(child)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]bool{
+	assert.Equal(t, map[RemotePackage]bool{
 		{URL: "github.com/acme/nested", Subdir: "lib"}: true,
 	}, repos)
 }
 
-func TestImportedReposRejectsInvalidNestedManifest(t *testing.T) {
+func TestImportedPackagesRejectsInvalidNestedManifest(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
 	writeUB(t, filepath.Join(root, "factory.ub"), "factory: {}\n")
 	writeUB(t, filepath.Join(root, "library-c", ManifestFileName), "factory: {}\n")
 
-	_, err := ImportedRepos(root)
+	_, err := ImportedPackages(root)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "manifest")
 }
