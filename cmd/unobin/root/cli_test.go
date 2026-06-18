@@ -3,6 +3,7 @@ package root
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,19 +27,53 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+var commandRemoteSources = map[string]*resolve.Source{}
+
 func runCommand(t *testing.T, args ...string) (string, error) {
-	return runCommandWithRemotes(t, nil, args...)
+	return runCommandWithRemotes(t, currentCommandRemotes(), args...)
 }
 
-// runCommandWithRemotes is runCommand with a fake resolver that
-// returns predefined Sources for the given remote URLs. Anything not
-// in remotes is returned as a Source with no FS, so compile treats
-// it as a plain Go import. Local imports keep working through the
-// real LocalResolver.
+func mergedCommandRemotes(remotes map[string]*resolve.Source) map[string]*resolve.Source {
+	merged := currentCommandRemotes()
+	if len(remotes) == 0 {
+		return merged
+	}
+	if merged == nil {
+		merged = map[string]*resolve.Source{}
+	}
+	maps.Copy(merged, remotes)
+	return merged
+}
+
+func currentCommandRemotes() map[string]*resolve.Source {
+	if len(commandRemoteSources) == 0 {
+		return nil
+	}
+	out := make(map[string]*resolve.Source, len(commandRemoteSources))
+	maps.Copy(out, commandRemoteSources)
+	return out
+}
+
+func addCommandRemoteSource(t *testing.T, key string, src *resolve.Source) {
+	t.Helper()
+	prev, hadPrev := commandRemoteSources[key]
+	commandRemoteSources[key] = src
+	t.Cleanup(func() {
+		if hadPrev {
+			commandRemoteSources[key] = prev
+		} else {
+			delete(commandRemoteSources, key)
+		}
+	})
+}
+
+// runCommandWithRemotes is runCommand with a fake resolver that returns
+// predefined Sources for the given remote URLs. Local imports keep working
+// through the real LocalResolver.
 func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	args ...string) (string, error) {
 	t.Helper()
-	stubCompileResolver(t, remotes)
+	stubCompileResolver(t, mergedCommandRemotes(remotes))
 	resetFlags(CompileCmd)
 	resetFlags(PrintGraphCmd)
 	resetFlags(depsSyncCmd)
@@ -87,20 +122,28 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 		return nil, fmt.Errorf("fake resolver: unsupported ref type %T", ref)
 	}
 	if src, found := r.remotes[remoteSourceKey(ri.URL, ri.Subdir, ri.Version)]; found {
-		return src, nil
+		return sourceWithFS(src), nil
 	}
 	if ri.Subdir != "" {
 		prefix := ri.Subdir + "/"
 		version, ok := strings.CutPrefix(ri.Version, prefix)
 		if ok {
 			if src, found := r.remotes[remoteSourceKey(ri.URL, ri.Subdir, version)]; found {
-				return src, nil
+				return sourceWithFS(src), nil
 			}
 		}
 	}
-	// A non-nil empty FS so callers that inspect it (a manifest read, a
-	// UB-library check) see an empty Go-library source rather than nil.
-	return &resolve.Source{Commit: "fakecommit", FS: fstest.MapFS{}}, nil
+	return nil, fmt.Errorf("fake resolver: no source for %s", remoteSourceKey(
+		ri.URL, ri.Subdir, ri.Version))
+}
+
+func sourceWithFS(src *resolve.Source) *resolve.Source {
+	if src == nil || src.FS != nil || src.Path == "" {
+		return src
+	}
+	clone := *src
+	clone.FS = os.DirFS(src.Path)
+	return &clone
 }
 
 func remoteSourceKey(url, subdir, version string) string {
@@ -702,8 +745,20 @@ func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
 	lock.ToolchainVersion = "dev"
 	for id, version := range pins {
 		lock.Deps[id] = &deps.LockedDep{Kind: deps.LockKindGo, Version: version, Commit: "c"}
+		addCommandRemoteSource(t, id+"@"+version, goTestSource(goModulePath(id)))
 	}
 	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
+}
+
+func goModulePath(id string) string {
+	return strings.Replace(id, "//", "/", 1)
+}
+
+func goTestSource(modulePath string) *resolve.Source {
+	return &resolve.Source{FS: fstest.MapFS{
+		"go.mod": &fstest.MapFile{Data: []byte("module " + modulePath + "\n")},
+		"lib.go": &fstest.MapFile{Data: []byte("package lib\n")},
+	}}
 }
 
 func TestDepsGetExactVersion(t *testing.T) {
@@ -2216,6 +2271,8 @@ imports: {
 	writeCompileLock(t, dir, map[string]string{
 		"github.com/cloudboss/unobin-library-std": "v0.1.0",
 	})
+	addCommandRemoteSource(t, "github.com/cloudboss/unobin-library-std//fs@v0.1.0",
+		goTestSource("github.com/cloudboss/unobin-library-std/fs"))
 
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-",
 		"--version", "v0.1.0")

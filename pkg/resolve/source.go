@@ -42,6 +42,18 @@ func IsUBLibrary(s *Source) bool {
 	return !ContainsFactorySource(s) && HasCompositeExports(s)
 }
 
+// IsGoLibrary reports whether s looks like a Go library package or module.
+func IsGoLibrary(s *Source) bool {
+	if s == nil || s.FS == nil {
+		return false
+	}
+	if info, err := fs.Stat(s.FS, "go.mod"); err == nil && !info.IsDir() {
+		return true
+	}
+	matches, err := fs.Glob(s.FS, "*.go")
+	return err == nil && len(matches) > 0
+}
+
 // HasCompositeExports reports whether s has source-declared composite exports.
 func HasCompositeExports(s *Source) bool {
 	if s == nil || s.FS == nil {

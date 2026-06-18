@@ -134,7 +134,25 @@ notify: action { description: 'n' }
 	require.Contains(t, lib.SyntaxBodies["action"], "notify")
 }
 
-func TestWalkUBDoesNotExposeNestedPackageFilesFromRootImport(t *testing.T) {
+func TestIsGoLibrary(t *testing.T) {
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  bool
+	}{
+		{name: "go mod", files: map[string]string{"go.mod": "module x\n"}, want: true},
+		{name: "go package", files: map[string]string{"lib.go": "package lib\n"}, want: true},
+		{name: "manifest only", files: map[string]string{"manifest.ub": "manifest: { requires: {} }"}},
+		{name: "empty", files: map[string]string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, IsGoLibrary(newUBSource(t, tt.files)))
+		})
+	}
+}
+
+func TestWalkUBErrorsForNonPackageRootImport(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"manifest.ub": "manifest: { requires: {} }",
 		"ub/helloer/resource-hello.ub": `
@@ -151,11 +169,10 @@ hello: resource {
 	}}
 	v := newRecordingVisitor()
 
-	top, err := WalkUB(refs, r, v, map[string]string{"github.com/x/libs": "v0.8.0"})
+	_, err := WalkUB(refs, r, v, map[string]string{"github.com/x/libs": "v0.8.0"})
 
-	require.NoError(t, err)
-	require.Len(t, top, 1)
-	require.Equal(t, ResolutionGo, top[0].Kind)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not a UB library or Go library")
 	require.Empty(t, v.ubCalls)
 }
 

@@ -11,8 +11,7 @@ import (
 )
 
 // fakeUBResolver returns predefined Sources keyed by URL@version or
-// LocalImport.Path. Anything not in the table comes back as an empty
-// Source so it looks like a Go module.
+// LocalImport.Path. Anything not in the table comes back as a Go source.
 type fakeUBResolver struct {
 	remotes map[string]*Source
 	locals  map[string]*Source
@@ -28,7 +27,10 @@ func (r *fakeUBResolver) Resolve(ref ImportRef) (*Source, error) {
 		if src, ok := r.remotes[key]; ok {
 			return src, nil
 		}
-		return &Source{Commit: "go"}, nil
+		return &Source{
+			Commit: "go",
+			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		}, nil
 	case *LocalImport:
 		if src, ok := r.locals[v.Path]; ok {
 			return src, nil

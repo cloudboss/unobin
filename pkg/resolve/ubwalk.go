@@ -261,6 +261,10 @@ func (w *ubWalker) walkOne(
 		return Resolution{}, fmt.Errorf("import %q: %s is not a UB library", alias, localPath(ref))
 	}
 	if !hasExports {
+		if !IsGoLibrary(source) {
+			return Resolution{}, fmt.Errorf(
+				"import %q: %s is not a UB library or Go library", alias, importPath(ref))
+		}
 		return w.handleGoImport(alias, ref, source)
 	}
 	return w.handleUBImport(alias, ref, source, repo, fromKey)
@@ -332,6 +336,17 @@ func remoteImportID(r *RemoteImport) string {
 		return r.URL
 	}
 	return r.URL + "//" + r.Subdir
+}
+
+func importPath(ref ImportRef) string {
+	switch r := ref.(type) {
+	case *LocalImport:
+		return r.Path
+	case *RemoteImport:
+		return remoteImportID(r)
+	default:
+		return ""
+	}
 }
 
 func localPath(ref ImportRef) string {
