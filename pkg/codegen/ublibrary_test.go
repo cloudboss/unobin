@@ -58,6 +58,26 @@ resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
 	require.NoError(t, err, "generated source should parse:\n%s", out)
 }
 
+func TestGenerateUBLibrarySanitizesPackageName(t *testing.T) {
+	body := parseSyntaxUB(t, "resource", "cluster", `description: 'a cluster'`)
+
+	out, err := GenerateUBLibrary(
+		"project-b",
+		resourceSyntaxBodies(map[string]syntax.FactoryBody{"cluster": body}),
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "project-b.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", out)
+
+	s := string(out)
+	require.Contains(t, s, "package project_b")
+	require.Contains(t, s, `Name: "project-b"`)
+}
+
 func TestGenerateUBLibraryHasExpectedForm(t *testing.T) {
 	bodies := map[string]syntax.FactoryBody{
 		"alpha": parseSyntaxUB(t, "resource", "alpha", "description: 'a'"),

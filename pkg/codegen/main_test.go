@@ -245,6 +245,28 @@ func TestGenerateValidGo(t *testing.T) {
 	require.NoError(t, err, "generated source should parse:\n%s", string(out))
 }
 
+func TestGenerateSanitizesImportAliases(t *testing.T) {
+	out, err := Generate(Input{
+		Body:        "description: 'x'\n",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"std-lib": "github.com/cloudboss/unobin-library-std",
+		},
+		UBImports: map[string]string{
+			"project-b": "demo/internal/project-b",
+		},
+	})
+	require.NoError(t, err)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "main.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
+
+	s := string(out)
+	require.Contains(t, s, `"std-lib":   lib_std_lib.Library(),`)
+	require.Contains(t, s, `"project-b": lib_project_b.Library(),`)
+}
+
 func TestGenerateEmbedsFactoryName(t *testing.T) {
 	out, err := Generate(Input{
 		Body:        "description: 'x'\n",

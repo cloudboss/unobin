@@ -51,18 +51,16 @@ func Generate(in Input) ([]byte, error) {
 	if in.FactoryName == "" {
 		return nil, fmt.Errorf("codegen: FactoryName is required")
 	}
-	aliases := sortedKeys(in.GoImports)
-	ubAliases := sortedKeys(in.UBImports)
+	goImports := aliasImports(in.GoImports)
+	ubImports := aliasImports(in.UBImports)
 	constraintAliases := injectedAliases(in.GoConstraints)
 	defaultAliases := injectedAliases(in.GoDefaults)
 	data := struct {
 		Body              string
 		LibraryPath       string
 		FactoryName       string
-		Aliases           []string
-		Imports           map[string]string
-		UBAliases         []string
-		UBImports         map[string]string
+		GoImports         []aliasImport
+		UBImports         []aliasImport
 		ConstraintAliases []string
 		GoConstraints     map[string]map[string][]lang.ConstraintSpec
 		DefaultAliases    []string
@@ -72,10 +70,8 @@ func Generate(in Input) ([]byte, error) {
 		Body:              in.Body,
 		LibraryPath:       in.LibraryPath,
 		FactoryName:       in.FactoryName,
-		Aliases:           aliases,
-		Imports:           in.GoImports,
-		UBAliases:         ubAliases,
-		UBImports:         in.UBImports,
+		GoImports:         goImports,
+		UBImports:         ubImports,
 		ConstraintAliases: constraintAliases,
 		GoConstraints:     in.GoConstraints,
 		DefaultAliases:    defaultAliases,
@@ -92,6 +88,28 @@ func Generate(in Input) ([]byte, error) {
 		return nil, fmt.Errorf("codegen: format generated source: %w", err)
 	}
 	return out, nil
+}
+
+type aliasImport struct {
+	LocalAlias string
+	GoIdent    string
+	Path       string
+}
+
+func aliasImports(m map[string]string) []aliasImport {
+	aliases := sortedKeys(m)
+	used := map[string]bool{}
+	out := make([]aliasImport, 0, len(aliases))
+	for _, alias := range aliases {
+		base := "lib_" + sanitizeIdent(alias)
+		ident := base
+		for i := 2; used[ident]; i++ {
+			ident = fmt.Sprintf("%s_%d", base, i)
+		}
+		used[ident] = true
+		out = append(out, aliasImport{LocalAlias: alias, GoIdent: ident, Path: m[alias]})
+	}
+	return out
 }
 
 func sortedKeys(m map[string]string) []string {
@@ -236,8 +254,8 @@ import (
 {{if .Inject}}	"github.com/cloudboss/unobin/pkg/lang"
 {{end}}	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
-{{range .Aliases}}	lib_{{.}} {{quote (index $.Imports .)}}
-{{end}}{{range .UBAliases}}	lib_{{.}} {{quote (index $.UBImports .)}}
+{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
+{{end}}{{range .UBImports}}	{{.GoIdent}} {{quote .Path}}
 {{end -}}
 )
 
@@ -257,8 +275,8 @@ var (
 func main() {
 {{if .Inject -}}
 	libraries := map[string]*runtime.Library{
-{{range .Aliases}}		{{quote .}}: lib_{{.}}.Library(),
-{{end}}{{range .UBAliases}}		{{quote .}}: lib_{{.}}.Library(),
+{{range .GoImports}}		{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
+{{end}}{{range .UBImports}}		{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
 {{end}}	}
 {{range .ConstraintAliases}}	{{injectConstraints . $.GoConstraints}}
 {{end}}{{range .DefaultAliases}}	{{injectDefaults . $.GoDefaults}}
@@ -279,8 +297,8 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-{{range .Aliases}}			{{quote .}}: lib_{{.}}.Library(),
-{{end}}{{range .UBAliases}}			{{quote .}}: lib_{{.}}.Library(),
+{{range .GoImports}}			{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
+{{end}}{{range .UBImports}}			{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
 {{end}}		},
 		UnobinVersion: unobinVersion,
 	})
