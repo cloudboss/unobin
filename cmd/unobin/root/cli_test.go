@@ -684,7 +684,10 @@ func goLibRemotes(version, commit string) map[string]*resolve.Source {
 		"github.com/x/core@" + version: {FS: fstest.MapFS{}},
 		"github.com/x/core//lib@" + version: {
 			Commit: commit,
-			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core/lib\n")},
+				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
+			},
 		},
 	}
 }
@@ -732,6 +735,82 @@ func TestDepsGetLatest(t *testing.T) {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, "v2.0.0", lock.Deps["github.com/x/core//lib"].Version)
+}
+
+func TestDepsGetRejectsPackageWithoutProjectMarker(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { helloer: 'github.com/x/libs//ub/helloer' }\n"), 0o644))
+	stubListTags(t, map[string][]string{
+		"github.com/x/libs": {"v0.8.0", "ub/helloer/v0.8.0"},
+	})
+	remotes := map[string]*resolve.Source{
+		"github.com/x/libs//ub/helloer@v0.8.0": {
+			Commit: "c1",
+			FS: fstest.MapFS{
+				"resource-hello.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+			},
+		},
+		"github.com/x/libs@v0.8.0": {
+			Commit: "c1",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+			},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes,
+		"deps", "get", "github.com/x/libs//ub/helloer", "-p", root)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no manifest.ub or go.mod")
+	require.Contains(t, err.Error(), "deps get operates on projects")
+}
+
+func TestDepsGetAcceptsNestedProject(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "proj")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { comprehensions: 'github.com/x/libs//ub/project-b/comprehensions' }
+}
+`), 0o644))
+	stubListTags(t, map[string][]string{"github.com/x/libs": {"ub/project-b/v0.1.0"}})
+	remotes := map[string]*resolve.Source{
+		"github.com/x/libs//ub/project-b@ub/project-b/v0.1.0": {
+			Commit: "project-b",
+			Hash:   "sha256:project",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+				"comprehensions/library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+			},
+		},
+		"github.com/x/libs//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
+			Commit: "project-b",
+			Hash:   "sha256:package",
+			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)}},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes,
+		"deps", "get", "github.com/x/libs//ub/project-b", "-p", root)
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, "v0.1.0", lock.Deps["github.com/x/libs//ub/project-b"].Version)
 }
 
 func TestCompileToStdout(t *testing.T) {

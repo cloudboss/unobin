@@ -2,6 +2,7 @@ package deps
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -23,35 +24,57 @@ func NewFetcher(resolver resolve.Resolver) Fetcher {
 }
 
 func (f *manifestFetcher) Fetch(dep Dependency, version string) (*Manifest, error) {
-	for _, candidate := range manifestCandidates(dep) {
-		ref := &resolve.RemoteImport{
-			URL:     candidate.URL,
-			Subdir:  candidate.Subdir,
-			Version: candidate.Tag(version),
-		}
-		src, err := f.resolver.Resolve(ref)
-		if err != nil {
-			return nil, err
-		}
-		manifest, err := ReadManifest(src.FS)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		return manifest, nil
+	ref := &resolve.RemoteImport{
+		URL:     dep.URL,
+		Subdir:  dep.Subdir,
+		Version: dep.Tag(version),
 	}
-	return nil, nil // a leaf: no manifest means no further dependencies
+	src, err := f.resolver.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	manifest, err := ReadManifest(src.FS)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return manifest, nil
 }
 
-func manifestCandidates(dep Dependency) []Dependency {
-	out := []Dependency{dep}
-	for subdir := parentSubdir(dep.Subdir); subdir != ""; subdir = parentSubdir(subdir) {
-		out = append(out, Dependency{URL: dep.URL, Subdir: subdir})
+// RequireProject checks that dep resolves to a project root at version.
+func RequireProject(dep Dependency, version string, resolver resolve.Resolver) error {
+	ref := &resolve.RemoteImport{URL: dep.URL, Subdir: dep.Subdir, Version: dep.Tag(version)}
+	src, err := resolver.Resolve(ref)
+	if err != nil {
+		return err
 	}
-	if dep.Subdir != "" {
-		out = append(out, Dependency{URL: dep.URL})
+	ok, err := hasProjectMarker(src.FS)
+	if err != nil {
+		return err
 	}
-	return out
+	if !ok {
+		return fmt.Errorf(
+			"%s has no manifest.ub or go.mod; deps get operates on projects, "+
+				"while .ub imports may name packages below projects",
+			dep)
+	}
+	return nil
+}
+
+func hasProjectMarker(fsys fs.FS) (bool, error) {
+	if _, err := ReadManifest(fsys); err == nil {
+		return true, nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return false, err
+	}
+	info, err := fs.Stat(fsys, "go.mod")
+	if err == nil && !info.IsDir() {
+		return true, nil
+	}
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, err
+	}
+	return false, nil
 }

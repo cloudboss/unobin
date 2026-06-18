@@ -174,6 +174,13 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
+	resolver, err := newDepsResolver(root, cfg.replaceUnobin, nil)
+	if err != nil {
+		return err
+	}
+	if err := deps.RequireProject(dep, version, resolver); err != nil {
+		return err
+	}
 	manifest, _, err := readManifestOrEmpty(root)
 	if err != nil {
 		return err

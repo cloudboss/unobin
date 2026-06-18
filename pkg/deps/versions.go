@@ -22,33 +22,7 @@ func (d Dependency) Tag(version string) string {
 
 // Versions returns the dependency's semver tags in increasing order.
 func Versions(dep Dependency, tags []string) []string {
-	for _, prefix := range tagPrefixes(dep.Subdir) {
-		versions := versionsWithPrefix(prefix, tags)
-		if len(versions) > 0 {
-			return versions
-		}
-	}
-	return nil
-}
-
-func tagPrefixes(subdir string) []string {
-	if subdir == "" {
-		return []string{""}
-	}
-	var out []string
-	for s := subdir; s != ""; s = parentSubdir(s) {
-		out = append(out, s+"/")
-	}
-	out = append(out, "")
-	return out
-}
-
-func parentSubdir(subdir string) string {
-	idx := strings.LastIndex(subdir, "/")
-	if idx < 0 {
-		return ""
-	}
-	return subdir[:idx]
+	return versionsWithPrefix(dep.TagPrefix(), tags)
 }
 
 func versionsWithPrefix(prefix string, tags []string) []string {
