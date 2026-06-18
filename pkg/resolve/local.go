@@ -1,12 +1,15 @@
 package resolve
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	pathpkg "path"
 	"path/filepath"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // LocalResolver resolves *LocalImport refs against a working directory
@@ -31,6 +34,9 @@ func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 	abs := li.Path
 	if !filepath.IsAbs(abs) {
 		abs = filepath.Join(r.Root, li.Path)
+	}
+	if err := checkLocalProjectBoundary(r.Root, abs, li.Path); err != nil {
+		return nil, err
 	}
 	return localSourceFromPath(li.Path, abs)
 }
@@ -61,6 +67,9 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 		if !filepath.IsAbs(abs) {
 			abs = filepath.Join(parent.Path, li.Path)
 		}
+		if err := checkLocalProjectBoundary(parent.Path, abs, li.Path); err != nil {
+			return nil, err
+		}
 		return localSourceFromPath(li.Path, abs)
 	}
 	if parent.FS == nil {
@@ -85,6 +94,87 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 		return nil, err
 	}
 	return &Source{FS: sub}, nil
+}
+
+func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error {
+	importerProject, importerOK, err := nearestManifestDir(importerDir)
+	if err != nil {
+		return err
+	}
+	targetProject, targetOK, err := nearestManifestDir(targetDir)
+	if err != nil {
+		return err
+	}
+	if importerOK && targetOK && !sameDir(importerProject, targetProject) {
+		return fmt.Errorf(
+			"local import %q targets a different project; "+
+				"import it by dependency id and add manifest.replace for local development",
+			importPath,
+		)
+	}
+	return nil
+}
+
+func nearestManifestDir(start string) (string, bool, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", false, err
+	}
+	if info, err := os.Stat(dir); err == nil && !info.IsDir() {
+		dir = filepath.Dir(dir)
+	}
+	for {
+		hasManifest, err := dirHasManifest(dir)
+		if err != nil {
+			return "", false, err
+		}
+		if hasManifest {
+			return dir, true, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false, nil
+		}
+		dir = parent
+	}
+}
+
+func dirHasManifest(dir string) (bool, error) {
+	path := filepath.Join(dir, "manifest.ub")
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	if info.IsDir() {
+		return false, nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	f, err := syntax.ParseSource(path, b)
+	if err != nil {
+		return false, err
+	}
+	if f.Kind != syntax.FileManifest || f.Manifest == nil {
+		return false, fmt.Errorf("%s must declare manifest", path)
+	}
+	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
+		return false, errs.Err()
+	}
+	return true, nil
+}
+
+func sameDir(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return filepath.Clean(a) == filepath.Clean(b)
+	}
+	return filepath.Clean(absA) == filepath.Clean(absB)
 }
 
 func localSourceFromPath(importPath, abs string) (*Source, error) {

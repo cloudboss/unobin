@@ -165,16 +165,35 @@ func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
 	if !ok {
 		return ref
 	}
-	v, found := w.versions[remoteImportID(r)]
-	if !found {
-		v, found = w.versions[r.URL]
-	}
+	v, found := w.versionFor(r)
 	if !found {
 		return ref
 	}
 	clone := *r
 	clone.Version = v
 	return &clone
+}
+
+func (w *ubWalker) versionFor(r *RemoteImport) (string, bool) {
+	if v, found := w.versions[remoteImportID(r)]; found {
+		return v, true
+	}
+	for subdir := r.Subdir; subdir != ""; subdir = parentSubdir(subdir) {
+		id := r.URL + "//" + subdir
+		if v, found := w.versions[id]; found {
+			return v, true
+		}
+	}
+	v, found := w.versions[r.URL]
+	return v, found
+}
+
+func parentSubdir(subdir string) string {
+	idx := strings.LastIndex(subdir, "/")
+	if idx < 0 {
+		return ""
+	}
+	return subdir[:idx]
 }
 
 // walkRefs walks each ref in alias order. repo is the repository the

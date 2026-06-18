@@ -9,14 +9,14 @@ import (
 
 func TestDependencyTagPrefix(t *testing.T) {
 	assert.Equal(t, "", Dependency{URL: "github.com/x/y"}.TagPrefix())
-	assert.Equal(t, "", Dependency{URL: "github.com/x/y", Subdir: "net"}.TagPrefix())
-	assert.Equal(t, "",
+	assert.Equal(t, "net/", Dependency{URL: "github.com/x/y", Subdir: "net"}.TagPrefix())
+	assert.Equal(t, "pkg/libraries/core/",
 		Dependency{URL: "github.com/x/y", Subdir: "pkg/libraries/core"}.TagPrefix())
 }
 
 func TestDependencyTag(t *testing.T) {
 	assert.Equal(t, "v1.0.0", Dependency{URL: "github.com/x/y"}.Tag("v1.0.0"))
-	assert.Equal(t, "v1.0.0",
+	assert.Equal(t, "net/v1.0.0",
 		Dependency{URL: "github.com/x/y", Subdir: "net"}.Tag("v1.0.0"))
 }
 
@@ -51,19 +51,19 @@ func TestVersions(t *testing.T) {
 		{
 			name: "subdir basic",
 			dep:  net,
-			tags: []string{"v1.0.0", "v1.1.0"},
+			tags: []string{"net/v1.0.0", "net/v1.1.0"},
 			want: []string{"v1.0.0", "v1.1.0"},
 		},
 		{
-			name: "subdir uses root tags",
+			name: "subdir ignores root tags",
 			dep:  net,
 			tags: []string{"net/v1.0.0", "v2.0.0", "db/v3.0.0"},
-			want: []string{"v2.0.0"},
+			want: []string{"v1.0.0"},
 		},
 		{
-			name: "subdir ignores path-prefixed tags",
+			name: "subdir ignores deeper prefix tags",
 			dep:  net,
-			tags: []string{"v1.0.0", "net/extra/v2.0.0"},
+			tags: []string{"net/v1.0.0", "net/extra/v2.0.0"},
 			want: []string{"v1.0.0"},
 		},
 		{
@@ -73,9 +73,14 @@ func TestVersions(t *testing.T) {
 			want: []string{"v1.0.0-alpha", "v1.0.0-rc1", "v1.0.0"},
 		},
 		{
-			name: "nested subdir uses root tags",
+			name: "nested subdir uses its path prefix",
 			dep:  nested,
-			tags: []string{"v0.2.0", "v0.1.0", "pkg/libraries/v9.9.9"},
+			tags: []string{
+				"v0.2.0",
+				"pkg/libraries/core/v0.2.0",
+				"pkg/libraries/core/v0.1.0",
+				"pkg/libraries/v9.9.9",
+			},
 			want: []string{"v0.1.0", "v0.2.0"},
 		},
 		{
@@ -144,8 +149,12 @@ func TestResolveVersion(t *testing.T) {
 		{name: "no versions available", dep: root, query: "", tags: nil, wantErr: true},
 		{name: "invalid query", dep: root, query: "garbage",
 			tags: []string{"v1.0.0"}, wantErr: true},
-		{name: "subdir dep uses repo tags", dep: sub, query: "latest",
-			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v2.0.0"},
+		{name: "subdir dep uses prefixed tags", dep: sub, query: "latest",
+			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v1.1.0"},
+		{name: "subdir dep exact query stays unprefixed", dep: sub, query: "v1.0.0",
+			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v1.0.0"},
+		{name: "subdir dep partial query stays unprefixed", dep: sub, query: "v1",
+			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v1.1.0"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -137,3 +137,60 @@ func TestImportedReposSkipsHiddenDirs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]bool{{URL: "github.com/x/y", Subdir: "core"}: true}, repos)
 }
+
+func TestImportedReposSkipsNestedProjects(t *testing.T) {
+	root := t.TempDir()
+	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
+	writeUB(t, filepath.Join(root, "factory-a", "factory.ub"), `
+factory: {
+  imports: { shared: 'github.com/acme/shared//lib' }
+}
+`)
+	writeUB(t, filepath.Join(root, "library-c", ManifestFileName),
+		"manifest: { requires: {} }\n")
+	writeUB(t, filepath.Join(root, "library-c", "abc.ub"), `
+thing: resource {
+  imports: { nested: 'github.com/acme/nested//lib' }
+}
+`)
+
+	repos, err := ImportedRepos(root)
+	require.NoError(t, err)
+	assert.Equal(t, map[Dependency]bool{
+		{URL: "github.com/acme/shared", Subdir: "lib"}: true,
+	}, repos)
+}
+
+func TestImportedReposScansNestedProjectWhenStartedThere(t *testing.T) {
+	root := t.TempDir()
+	child := filepath.Join(root, "library-c")
+	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
+	writeUB(t, filepath.Join(root, "factory.ub"), `
+factory: {
+  imports: { root: 'github.com/acme/root//lib' }
+}
+`)
+	writeUB(t, filepath.Join(child, ManifestFileName), "manifest: { requires: {} }\n")
+	writeUB(t, filepath.Join(child, "abc.ub"), `
+thing: resource {
+  imports: { nested: 'github.com/acme/nested//lib' }
+}
+`)
+
+	repos, err := ImportedRepos(child)
+	require.NoError(t, err)
+	assert.Equal(t, map[Dependency]bool{
+		{URL: "github.com/acme/nested", Subdir: "lib"}: true,
+	}, repos)
+}
+
+func TestImportedReposRejectsInvalidNestedManifest(t *testing.T) {
+	root := t.TempDir()
+	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
+	writeUB(t, filepath.Join(root, "factory.ub"), "factory: {}\n")
+	writeUB(t, filepath.Join(root, "library-c", ManifestFileName), "factory: {}\n")
+
+	_, err := ImportedRepos(root)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "manifest")
+}

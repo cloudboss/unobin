@@ -215,6 +215,32 @@ hello: resource {
 	require.Contains(t, v.ubCalls[1], "parent=")
 }
 
+func TestWalkUBRejectsLocalImportIntoDifferentProject(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "manifest.ub"), []byte(`
+manifest: { requires: {} }
+`), 0o644))
+	child := filepath.Join(root, "library-c")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "manifest.ub"), []byte(`
+manifest: { requires: {} }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "library.ub"), []byte(`
+hello: resource {
+  description: 'hello'
+  resources: { x: local.file { path: '/tmp/x' } }
+}
+`), 0o644))
+
+	refs := map[string]ImportRef{"child": &LocalImport{Path: "./library-c"}}
+	_, err := WalkUBFrom(refs, NewLocalResolver(root), newRecordingVisitor(), nil,
+		&Source{FS: os.DirFS(root), Path: root})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "different project")
+	require.Contains(t, err.Error(), "manifest.replace")
+}
+
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"library.ub": "thing: resource { description: 'thing' inputs: { x: { type: string } } }\n",

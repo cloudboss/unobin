@@ -3,6 +3,7 @@ package deps
 import (
 	"fmt"
 	"io/fs"
+	pathpkg "path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -39,7 +40,17 @@ func LockFromImports(
 			return err
 		}
 		if d.IsDir() {
-			if path != "." && strings.HasPrefix(d.Name(), ".") {
+			if path == "." {
+				return nil
+			}
+			if strings.HasPrefix(d.Name(), ".") {
+				return fs.SkipDir
+			}
+			hasManifest, err := fsHasManifestFile(rootFS, path)
+			if err != nil {
+				return err
+			}
+			if hasManifest {
 				return fs.SkipDir
 			}
 			return nil
@@ -74,7 +85,7 @@ func (w *lockWalker) lockFileImports(rootFS fs.FS, path string) error {
 	}
 	for _, ref := range refs {
 		if local, ok := ref.Ref.(*resolve.LocalImport); ok {
-			if err := w.checkLocalImport(ref.Label, local, filepath.Dir(path)); err != nil {
+			if err := w.checkLocalImport(rootFS, ref.Label, local, filepath.Dir(path)); err != nil {
 				return err
 			}
 			continue
@@ -208,10 +219,14 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 // to a Go library, which cannot be imported by path. A UB library is fine:
 // the project walk visits its files directly, so nothing more is recorded.
 func (w *lockWalker) checkLocalImport(
+	rootFS fs.FS,
 	alias string,
 	r *resolve.LocalImport,
 	baseDir string,
 ) error {
+	if err := checkLocalImportProjectBoundary(rootFS, baseDir, r.Path); err != nil {
+		return fmt.Errorf("import %q: %w", alias, err)
+	}
 	resolved := &resolve.LocalImport{Path: rebaseLocalPath(baseDir, r.Path)}
 	src, err := w.resolver.Resolve(resolved)
 	if err != nil {
@@ -233,6 +248,28 @@ func rebaseLocalPath(baseDir, importPath string) string {
 		return importPath
 	}
 	return filepath.ToSlash(filepath.Clean(filepath.Join(baseDir, importPath)))
+}
+
+func checkLocalImportProjectBoundary(rootFS fs.FS, baseDir, importPath string) error {
+	if filepath.IsAbs(importPath) {
+		return nil
+	}
+	target := cleanFSPath(rebaseLocalPath(baseDir, importPath))
+	if target == ".." || strings.HasPrefix(target, "../") {
+		return nil
+	}
+	importerProject, importerOK, err := nearestManifestInFS(rootFS, cleanFSPath(baseDir))
+	if err != nil {
+		return err
+	}
+	targetProject, targetOK, err := nearestManifestInFS(rootFS, target)
+	if err != nil {
+		return err
+	}
+	if importerOK && targetOK && importerProject != targetProject {
+		return localImportProjectBoundaryError(pathpkg.Clean(importPath))
+	}
+	return nil
 }
 
 // walkReplaced handles an import whose repository the manifest replaces

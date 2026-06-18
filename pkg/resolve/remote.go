@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/git"
+	"golang.org/x/mod/semver"
 )
 
 // RemoteResolver resolves *RemoteImport refs by fetching the named
@@ -35,6 +36,17 @@ func NewRemoteResolver() (*RemoteResolver, error) {
 	return &RemoteResolver{CacheRoot: filepath.Join(cache, "unobin")}, nil
 }
 
+// GitRef returns the git ref used to fetch ref.
+func GitRef(ref *RemoteImport) string {
+	if ref == nil || ref.Subdir == "" || !semver.IsValid(ref.Version) {
+		if ref == nil {
+			return ""
+		}
+		return ref.Version
+	}
+	return ref.Subdir + "/" + ref.Version
+}
+
 // Resolve fetches the repo named by ref, caches it, and returns a
 // Source rooted at the import's subdir, with FS and Commit always set.
 // A UB library also gets its content Hash set for lock-file integrity.
@@ -46,14 +58,15 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	ctx := context.Background()
 
 	cloneURL := WithDefaultScheme(ri.URL)
-	commit, err := git.LsRemote(ctx, cloneURL, ri.Version)
+	gitRef := GitRef(ri)
+	commit, err := git.LsRemote(ctx, cloneURL, gitRef)
 	if err != nil {
 		return nil, err
 	}
 
 	dir := r.cacheDir(ri.URL, commit)
 	if !dirExists(dir) {
-		if err := r.fetchInto(ctx, cloneURL, ri.Version, dir); err != nil {
+		if err := r.fetchInto(ctx, cloneURL, gitRef, dir); err != nil {
 			return nil, err
 		}
 	}

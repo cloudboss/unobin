@@ -176,7 +176,11 @@ func printGraphReplacedVersions(
 		versions[toolchain.UnobinModulePath] = "v0.0.0"
 	}
 	for dep := range replace {
-		versions[dep.URL] = "v0.0.0"
+		if dep.Subdir == "" {
+			versions[dep.URL] = "v0.0.0"
+		} else {
+			versions[dep.String()] = "v0.0.0"
+		}
 	}
 	return versions
 }

@@ -43,18 +43,60 @@ func (d Dependency) String() string {
 	return d.URL + "//" + d.Subdir
 }
 
-// ReplacementPath returns the local replacement for dep. A repository-level
-// replacement covers imports from subdirectories in that repository.
+// Replacement describes the local path selected for a dependency.
+type Replacement struct {
+	Dep    Dependency
+	Path   string
+	Suffix string
+	Exact  bool
+}
+
+// ReplacementFor returns the local replacement for dep. A repository-level
+// replacement covers imports from subdirectories in that repository. A
+// subdirectory replacement covers that subdirectory and packages below it.
+func ReplacementFor(replace map[Dependency]string, dep Dependency) (Replacement, bool) {
+	var best Replacement
+	bestLen := -1
+	for replDep, path := range replace {
+		if replDep.URL != dep.URL {
+			continue
+		}
+		match, ok := replacementMatch(replDep, path, dep)
+		if !ok {
+			continue
+		}
+		if n := len(replDep.Subdir); n > bestLen {
+			best = match
+			bestLen = n
+		}
+	}
+	return best, bestLen >= 0
+}
+
+func replacementMatch(replDep Dependency, path string, dep Dependency) (Replacement, bool) {
+	if replDep.Subdir == "" {
+		return Replacement{Dep: replDep, Path: path, Suffix: dep.Subdir}, true
+	}
+	if dep.Subdir == replDep.Subdir {
+		return Replacement{Dep: replDep, Path: path, Exact: true}, true
+	}
+	prefix := replDep.Subdir + "/"
+	if after, ok := strings.CutPrefix(dep.Subdir, prefix); ok {
+		return Replacement{
+			Dep:    replDep,
+			Path:   path,
+			Suffix: after,
+			Exact:  true,
+		}, true
+	}
+	return Replacement{}, false
+}
+
+// ReplacementPath returns the local replacement path for dep.
 func ReplacementPath(replace map[Dependency]string, dep Dependency) (string, bool) {
-	if replace == nil {
+	match, ok := ReplacementFor(replace, dep)
+	if !ok {
 		return "", false
 	}
-	if path, ok := replace[dep]; ok {
-		return path, true
-	}
-	if dep.Subdir == "" {
-		return "", false
-	}
-	path, ok := replace[Dependency{URL: dep.URL}]
-	return path, ok
+	return match.Path, true
 }

@@ -63,6 +63,69 @@ func TestDependencyStringRoundTrip(t *testing.T) {
 	}
 }
 
+func TestReplacementFor(t *testing.T) {
+	replace := map[Dependency]string{
+		{URL: "github.com/acme/repo"}:                         "./checkout",
+		{URL: "github.com/acme/repo", Subdir: "library-c"}:    "./library-c",
+		{URL: "github.com/acme/repo", Subdir: "libs/metrics"}: "./metrics",
+	}
+	cases := []struct {
+		name      string
+		dep       Dependency
+		wantPath  string
+		wantDep   Dependency
+		wantExact bool
+		wantRest  string
+	}{
+		{
+			name:     "repository replacement covers root",
+			dep:      Dependency{URL: "github.com/acme/repo"},
+			wantPath: "./checkout",
+			wantDep:  Dependency{URL: "github.com/acme/repo"},
+		},
+		{
+			name:     "repository replacement appends subdir",
+			dep:      Dependency{URL: "github.com/acme/repo", Subdir: "other"},
+			wantPath: "./checkout",
+			wantDep:  Dependency{URL: "github.com/acme/repo"},
+			wantRest: "other",
+		},
+		{
+			name:      "exact subdir replacement wins",
+			dep:       Dependency{URL: "github.com/acme/repo", Subdir: "library-c"},
+			wantPath:  "./library-c",
+			wantDep:   Dependency{URL: "github.com/acme/repo", Subdir: "library-c"},
+			wantExact: true,
+		},
+		{
+			name:      "exact subdir replacement covers child package",
+			dep:       Dependency{URL: "github.com/acme/repo", Subdir: "library-c/subpkg"},
+			wantPath:  "./library-c",
+			wantDep:   Dependency{URL: "github.com/acme/repo", Subdir: "library-c"},
+			wantExact: true,
+			wantRest:  "subpkg",
+		},
+		{
+			name:      "longer subdir replacement wins",
+			dep:       Dependency{URL: "github.com/acme/repo", Subdir: "libs/metrics/http"},
+			wantPath:  "./metrics",
+			wantDep:   Dependency{URL: "github.com/acme/repo", Subdir: "libs/metrics"},
+			wantExact: true,
+			wantRest:  "http",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := ReplacementFor(replace, tt.dep)
+			require.True(t, ok)
+			assert.Equal(t, tt.wantPath, got.Path)
+			assert.Equal(t, tt.wantDep, got.Dep)
+			assert.Equal(t, tt.wantExact, got.Exact)
+			assert.Equal(t, tt.wantRest, got.Suffix)
+		})
+	}
+}
+
 func manifestData(body string) []byte {
 	return []byte("manifest: {\n" + body + "}\n")
 }

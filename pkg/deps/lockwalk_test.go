@@ -216,6 +216,70 @@ hello: resource {
 	}, lock.Deps)
 }
 
+func TestLockFromImportsSkipsNestedProjects(t *testing.T) {
+	root := mapFS(map[string]string{
+		ManifestFileName: "manifest: { requires: {} }\n",
+		"factory-a/factory.ub": `
+factory: {
+  imports: { shared: 'github.com/acme/shared//lib' }
+}
+`,
+		"library-c/" + ManifestFileName: "manifest: { requires: {} }\n",
+		"library-c/abc.ub": `
+thing: resource {
+  imports: { nested: 'github.com/acme/nested//lib' }
+}
+`,
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/acme/shared", "lib", "lib/v1.0.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/acme/shared", Subdir: "lib"}: "v1.0.0"}
+
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/acme/shared//lib": {
+			Kind: LockKindGo, Version: "v1.0.0", Commit: "c1",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsScansNestedProjectWhenStartedThere(t *testing.T) {
+	root := mapFS(map[string]string{
+		ManifestFileName: "manifest: { requires: {} }\n",
+		"abc.ub": `
+thing: resource {
+  imports: { nested: 'github.com/acme/nested//lib' }
+}
+`,
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/acme/nested", "lib", "lib/v1.0.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/acme/nested", Subdir: "lib"}: "v1.0.0"}
+
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/acme/nested//lib": {
+			Kind: LockKindGo, Version: "v1.0.0", Commit: "c1",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsRejectsInvalidNestedManifest(t *testing.T) {
+	root := mapFS(map[string]string{
+		ManifestFileName:                "manifest: { requires: {} }\n",
+		"factory.ub":                    "factory: {}\n",
+		"library-c/" + ManifestFileName: "factory: {}\n",
+	})
+
+	_, err := LockFromImports(root, map[Dependency]string{}, nil, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "manifest")
+}
+
 func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
@@ -329,6 +393,30 @@ func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
 	assert.Contains(t, err.Error(), "in manifest.ub:")
 }
 
+func TestLockFromImportsRejectsLocalImportIntoDifferentProject(t *testing.T) {
+	root := mapFS(map[string]string{
+		ManifestFileName:                "manifest: { requires: {} }\n",
+		"factory.ub":                    "factory: { imports: { child: './library-c' } }\n",
+		"library-c/" + ManifestFileName: "manifest: { requires: {} }\n",
+		"library-c/library.ub": `
+hello: resource {
+  description: 'hello'
+  resources: { x: local.file { path: '/tmp/x' } }
+}
+`,
+	})
+	r := &fakeResolver{locals: map[string]*resolve.Source{
+		"./library-c": ubSrc("", "", map[string]string{
+			"library.ub": "hello: resource { description: 'hello' }\n",
+		}),
+	}}
+
+	_, err := LockFromImports(root, map[Dependency]string{}, r, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "different project")
+	assert.Contains(t, err.Error(), "manifest.replace")
+}
+
 func TestLockFromImportsDedups(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { a: 'github.com/x/y//lib', b: 'github.com/x/y//lib' } }\n",
@@ -347,12 +435,27 @@ func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 		"factory.ub": "factory: { imports: { core: 'github.com/x/y//lib' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "lib", "v2.0.0"): goSrc("c2"),
+		srcKey("github.com/x/y", "lib", "lib/v2.0.0"): goSrc("c2"),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/x/y", Subdir: "lib"}: "v2.0.0"}
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "v2.0.0", lock.Deps["github.com/x/y//lib"].Version)
+	assert.Equal(t, "lib/v2.0.0", r.lastRef.Version)
+}
+
+func TestLockFromImportsUsesPlainTagForRootProject(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": "factory: { imports: { core: 'github.com/x/y' } }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/x/y", "", "v2.0.0"): goSrc("c2"),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/x/y"}: "v2.0.0"}
+
+	_, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "v2.0.0", r.lastRef.Version)
 }
 
 func TestLockFromImportsRejectsRepoWithoutFloor(t *testing.T) {

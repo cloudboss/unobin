@@ -2,6 +2,7 @@ package deps
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -33,11 +34,19 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	}
 	ri := ref.(*resolve.RemoteImport)
 	r.lastRef = ri
-	src, ok := r.sources[srcKey(ri.URL, ri.Subdir, ri.Version)]
-	if !ok {
-		return nil, fmt.Errorf("no source for %s//%s@%s", ri.URL, ri.Subdir, ri.Version)
+	if src, ok := r.sources[srcKey(ri.URL, ri.Subdir, ri.Version)]; ok {
+		return src, nil
 	}
-	return src, nil
+	if ri.Subdir != "" {
+		prefix := ri.Subdir + "/"
+		version, ok := strings.CutPrefix(ri.Version, prefix)
+		if ok {
+			if src, ok := r.sources[srcKey(ri.URL, ri.Subdir, version)]; ok {
+				return src, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no source for %s//%s@%s", ri.URL, ri.Subdir, ri.Version)
 }
 
 func TestFetchReadsManifest(t *testing.T) {
@@ -77,14 +86,14 @@ func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 	assert.Equal(t, "v1.0.0", r.lastRef.Version)
 }
 
-func TestFetchUsesRepoTagForSubdirProject(t *testing.T) {
+func TestFetchUsesPrefixedTagForSubdirProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "net", "v1.0.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "net", "net/v1.0.0"): {FS: fstest.MapFS{}},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y", Subdir: "net"}, "v1.0.0")
 	require.NoError(t, err)
 	assert.Equal(t, "net", r.lastRef.Subdir)
-	assert.Equal(t, "v1.0.0", r.lastRef.Version)
+	assert.Equal(t, "net/v1.0.0", r.lastRef.Version)
 }
 
 func TestFetchPropagatesResolverError(t *testing.T) {

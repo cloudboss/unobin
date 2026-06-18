@@ -7,27 +7,29 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// TagPrefix returns the git tag prefix for this dependency. Subdirectory
-// dependencies use the repository's ordinary version stream.
+// TagPrefix returns the git tag prefix for this dependency.
 func (d Dependency) TagPrefix() string {
-	return ""
+	if d.Subdir == "" {
+		return ""
+	}
+	return d.Subdir + "/"
 }
 
 // Tag returns the git tag that names a version of this dependency.
 func (d Dependency) Tag(version string) string {
-	return version
+	return d.TagPrefix() + version
 }
 
-// Versions returns the semver tags in increasing order. A subdirectory
-// dependency uses the same version stream as the repository root.
+// Versions returns the dependency's semver tags in increasing order.
 func Versions(dep Dependency, tags []string) []string {
-	_ = dep
+	prefix := dep.TagPrefix()
 	var out []string
 	for _, t := range tags {
-		if !semver.IsValid(t) {
+		version, ok := strings.CutPrefix(t, prefix)
+		if !ok || !semver.IsValid(version) {
 			continue
 		}
-		out = append(out, t)
+		out = append(out, version)
 	}
 	semver.Sort(out)
 	return out

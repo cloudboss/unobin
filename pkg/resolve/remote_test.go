@@ -19,15 +19,7 @@ func makeRemoteRepo(t *testing.T, dir string, files map[string]string) string {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	run := func(args ...string) string {
 		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
-			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t",
-		)
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "git %v: %s", args, out)
-		return string(out)
+		return runGit(t, dir, args...)
 	}
 	run("init", "--quiet", "--initial-branch=main")
 	for path, body := range files {
@@ -39,6 +31,44 @@ func makeRemoteRepo(t *testing.T, dir string, files map[string]string) string {
 	run("commit", "--quiet", "-m", "first")
 	run("tag", "v1")
 	return strings.TrimSpace(run("rev-parse", "HEAD"))
+}
+
+func runGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
+		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t",
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git %v: %s", args, out)
+	return string(out)
+}
+
+func TestGitRef(t *testing.T) {
+	cases := []struct {
+		name string
+		ref  *RemoteImport
+		want string
+	}{
+		{name: "root semver", ref: &RemoteImport{URL: "github.com/x/y", Version: "v1.2.3"},
+			want: "v1.2.3"},
+		{name: "subdir semver", ref: &RemoteImport{
+			URL: "github.com/x/y", Subdir: "library-c", Version: "v1.2.3"},
+			want: "library-c/v1.2.3"},
+		{name: "subdir commit", ref: &RemoteImport{
+			URL: "github.com/x/y", Subdir: "library-c", Version: "abc123"},
+			want: "abc123"},
+		{name: "already prefixed", ref: &RemoteImport{
+			URL: "github.com/x/y", Subdir: "library-c", Version: "library-c/v1.2.3"},
+			want: "library-c/v1.2.3"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, GitRef(tt.ref))
+		})
+	}
 }
 
 func TestRemoteResolverFetchesUBLibrary(t *testing.T) {
@@ -80,6 +110,7 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 		"libraries/net/library.ub": "cluster: resource { description: 'net' }\n",
 		"go.mod":                   "module example.com/x\n",
 	})
+	runGit(t, src, "tag", "libraries/net/v1")
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
 	got, err := r.Resolve(&RemoteImport{URL: src, Subdir: "libraries/net", Version: "v1"})

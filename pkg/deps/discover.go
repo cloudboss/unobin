@@ -6,8 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
 // FindManifestDir walks up from start to the nearest ancestor directory
@@ -60,15 +58,8 @@ func hasManifestFile(dir string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	f, err := syntax.ParseSource(ManifestFileName, b)
-	if err != nil {
+	if err := validateManifestSource(ManifestFileName, b); err != nil {
 		return false, err
-	}
-	if f.Kind != syntax.FileManifest || f.Manifest == nil {
-		return false, fmt.Errorf("%s must declare manifest", ManifestFileName)
-	}
-	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
-		return false, errs.Err()
 	}
 	return true, nil
 }

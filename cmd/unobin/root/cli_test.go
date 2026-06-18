@@ -86,16 +86,29 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	if !ok {
 		return nil, fmt.Errorf("fake resolver: unsupported ref type %T", ref)
 	}
-	key := ri.URL + "@" + ri.Version
-	if ri.Subdir != "" {
-		key = ri.URL + "//" + ri.Subdir + "@" + ri.Version
-	}
-	if src, found := r.remotes[key]; found {
+	if src, found := r.remotes[remoteSourceKey(ri.URL, ri.Subdir, ri.Version)]; found {
 		return src, nil
+	}
+	if ri.Subdir != "" {
+		prefix := ri.Subdir + "/"
+		version, ok := strings.CutPrefix(ri.Version, prefix)
+		if ok {
+			if src, found := r.remotes[remoteSourceKey(ri.URL, ri.Subdir, version)]; found {
+				return src, nil
+			}
+		}
 	}
 	// A non-nil empty FS so callers that inspect it (a manifest read, a
 	// UB-library check) see an empty Go-library source rather than nil.
 	return &resolve.Source{Commit: "fakecommit", FS: fstest.MapFS{}}, nil
+}
+
+func remoteSourceKey(url, subdir, version string) string {
+	key := url + "@" + version
+	if subdir != "" {
+		key = url + "//" + subdir + "@" + version
+	}
+	return key
 }
 
 func factorySource(body string) []byte {
@@ -353,6 +366,81 @@ greeting: resource {
 	}, lock.Deps)
 }
 
+func TestDepsSyncSkipsNestedProjects(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "repo")
+	child := filepath.Join(root, "library-c")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { shared: 'github.com/acme/shared//lib' }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: { 'github.com/acme/shared//lib': 'v1.0.0' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
+		manifestSource("requires: { 'github.com/acme/nested//lib': 'v1.0.0' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
+thing: resource {
+  imports: { nested: 'github.com/acme/nested//lib' }
+}
+`), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/acme/shared//lib@v1.0.0": {
+			Commit: "shared",
+			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/acme/shared//lib": {
+			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "shared",
+		},
+	}, lock.Deps)
+	require.NoFileExists(t, filepath.Join(child, deps.SourceLockFileName))
+}
+
+func TestDepsSyncNestedProjectFromPath(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "repo")
+	child := filepath.Join(root, "library-c")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { root: 'github.com/acme/root//lib' }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
+		manifestSource("requires: { 'github.com/acme/nested//lib': 'v1.0.0' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
+thing: resource {
+  imports: { nested: 'github.com/acme/nested//lib' }
+}
+`), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/acme/nested//lib@v1.0.0": {
+			Commit: "nested",
+			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", child)
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(child))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/acme/nested//lib": {
+			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "nested",
+		},
+	}, lock.Deps)
+}
+
 func TestDepsSyncWithReplace(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "factory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -524,7 +612,7 @@ func writeGetProject(t *testing.T) string {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	stubListTags(t, map[string][]string{
-		"github.com/x/core": {"v1.0.0", "v1.2.0", "v2.0.0"},
+		"github.com/x/core": {"lib/v1.0.0", "lib/v1.2.0", "lib/v2.0.0"},
 	})
 	return root
 }
@@ -628,6 +716,32 @@ factory: {
 	out, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
 	require.NoError(t, err)
 	require.Contains(t, out, "package main")
+}
+
+func TestCompileRejectsLocalImportIntoNestedProject(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "demo-factory")
+	child := filepath.Join(root, "library-c")
+	require.NoError(t, os.MkdirAll(child, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { child: './library-c' }
+  data: { message: child.message {} }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(child, "library.ub"), []byte(`
+message: data {
+  outputs: { text: { value: 'hi' } }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "compile", "-p", filepath.Join(root, "factory.ub"), "-o", "-")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "different project")
+	require.Contains(t, err.Error(), "manifest.replace")
 }
 
 func TestCompileResolvesLocalImportsFromFactoryDir(t *testing.T) {

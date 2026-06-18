@@ -45,6 +45,39 @@ Then run plan and apply. A factory cannot apply without first planning.
 
 See the [examples](./examples) directory for various example stacks that you can compile and run.
 
+## Dependency versioning in repository subdirectories
+
+A git repository can contain more than one independently versioned Unobin project.
+The repository root uses ordinary semver tags such as `v1.2.3`. A project in a
+subdirectory uses tags prefixed by that project path, such as `library-c/v1.2.3`
+or `libs/core/v1.2.3`.
+
+Manifest and lock files keep plain semver versions:
+
+```ub
+manifest: {
+  requires: { 'github.com/acme/repo//library-c': 'v1.2.3' }
+}
+```
+
+A nested `manifest.ub` is a project boundary. `unobin deps sync` for an ancestor
+project does not scan files under that nested project. Run
+`unobin deps sync -p library-c` to manage `library-c/manifest.ub` and
+`library-c/lock.ub`.
+
+Use a remote dependency id plus a replacement for local development against a
+nested project:
+
+```ub
+manifest: {
+  requires: { 'github.com/acme/repo//library-c': 'v1.2.3' }
+  replace:  { 'github.com/acme/repo//library-c': './library-c' }
+}
+```
+
+Relative imports may only target source governed by the same nearest
+`manifest.ub`.
+
 ## Benefits of Unobin
 
 ### No Dependencies

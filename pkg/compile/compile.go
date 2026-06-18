@@ -231,15 +231,19 @@ func Run(opts Options) error {
 	resolver = &unobinImportGuard{wrapped: resolver}
 	if replaceUnobinAbs != "" {
 		resolver = &replaceResolver{
-			prefix:  toolchain.UnobinModulePath,
-			local:   replaceUnobinAbs,
+			replacements: []localReplacement{{
+				dep:   deps.Dependency{URL: toolchain.UnobinModulePath},
+				local: replaceUnobinAbs,
+			}},
 			wrapped: resolver,
 		}
 	}
 	for prefix, local := range opts.ReplaceGoModules {
 		resolver = &replaceResolver{
-			prefix:  prefix,
-			local:   local,
+			replacements: []localReplacement{{
+				dep:   deps.Dependency{URL: prefix},
+				local: local,
+			}},
 			wrapped: resolver,
 		}
 	}
@@ -607,34 +611,84 @@ func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, erro
 	return nil, fmt.Errorf("unsupported import ref type %T", ref)
 }
 
-// replaceResolver short-circuits remote imports whose URL matches a
-// configured prefix and serves them from a local directory instead.
-// Set up by `--replace-unobin` so a developer can compile a factory
-// that imports `github.com/cloudboss/unobin//<subdir>` against a
-// working tree without making any network calls.
+// replaceResolver serves selected remote imports from local directories.
 type replaceResolver struct {
-	prefix  string
-	local   string
-	wrapped resolve.Resolver
+	replacements []localReplacement
+	wrapped      resolve.Resolver
+}
+
+type localReplacement struct {
+	dep   deps.Dependency
+	local string
 }
 
 func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	ri, ok := ref.(*resolve.RemoteImport)
-	if !ok || ri.URL != r.prefix {
+	if !ok {
 		return r.wrapped.Resolve(ref)
 	}
-	target := r.local
-	if ri.Subdir != "" {
-		target = filepath.Join(target, ri.Subdir)
+	match, ok := r.match(ri)
+	if !ok {
+		return r.wrapped.Resolve(ref)
+	}
+	target := match.local
+	if match.suffix != "" {
+		target = filepath.Join(target, filepath.FromSlash(match.suffix))
 	}
 	info, err := os.Stat(target)
 	if err != nil {
-		return nil, fmt.Errorf("replace %s: %w", r.prefix, err)
+		return nil, fmt.Errorf("replace %s: %w", match.dep, err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("replace %s: %s is not a directory", r.prefix, target)
+		return nil, fmt.Errorf("replace %s: %s is not a directory", match.dep, target)
 	}
 	return &resolve.Source{Commit: "replace", Path: target, FS: os.DirFS(target)}, nil
+}
+
+type localReplacementMatch struct {
+	dep    deps.Dependency
+	local  string
+	suffix string
+}
+
+func (r *replaceResolver) match(ri *resolve.RemoteImport) (localReplacementMatch, bool) {
+	dep := deps.Dependency{URL: ri.URL, Subdir: ri.Subdir}
+	var best localReplacementMatch
+	bestLen := -1
+	for _, repl := range r.replacements {
+		candidate, ok := localReplacementFor(repl, dep)
+		if !ok {
+			continue
+		}
+		if n := len(repl.dep.Subdir); n > bestLen {
+			best = candidate
+			bestLen = n
+		}
+	}
+	return best, bestLen >= 0
+}
+
+func localReplacementFor(
+	repl localReplacement, dep deps.Dependency,
+) (localReplacementMatch, bool) {
+	if repl.dep.URL != dep.URL {
+		return localReplacementMatch{}, false
+	}
+	if repl.dep.Subdir == "" {
+		return localReplacementMatch{dep: repl.dep, local: repl.local, suffix: dep.Subdir}, true
+	}
+	if dep.Subdir == repl.dep.Subdir {
+		return localReplacementMatch{dep: repl.dep, local: repl.local}, true
+	}
+	prefix := repl.dep.Subdir + "/"
+	if after, ok := strings.CutPrefix(dep.Subdir, prefix); ok {
+		return localReplacementMatch{
+			dep:    repl.dep,
+			local:  repl.local,
+			suffix: after,
+		}, true
+	}
+	return localReplacementMatch{}, false
 }
 
 // replacedVersion is the placeholder version for a replaced dependency
@@ -673,17 +727,23 @@ func WrapReplaces(
 			return nil, err
 		}
 		resolver = &replaceResolver{
-			prefix:  toolchain.UnobinModulePath,
-			local:   abs,
+			replacements: []localReplacement{{
+				dep:   deps.Dependency{URL: toolchain.UnobinModulePath},
+				local: abs,
+			}},
 			wrapped: resolver,
 		}
 	}
-	for dep, path := range replace {
-		abs, err := absReplacePath(root, path)
-		if err != nil {
-			return nil, err
+	if len(replace) > 0 {
+		replacements := make([]localReplacement, 0, len(replace))
+		for dep, path := range replace {
+			abs, err := absReplacePath(root, path)
+			if err != nil {
+				return nil, err
+			}
+			replacements = append(replacements, localReplacement{dep: dep, local: abs})
 		}
-		resolver = &replaceResolver{prefix: dep.URL, local: abs, wrapped: resolver}
+		resolver = &replaceResolver{replacements: replacements, wrapped: resolver}
 	}
 	return resolver, nil
 }
@@ -731,7 +791,11 @@ func withReplacedVersions(
 		versions[toolchain.UnobinModulePath] = replacedVersion
 	}
 	for dep := range replace {
-		versions[dep.URL] = replacedVersion
+		if dep.Subdir == "" {
+			versions[dep.URL] = replacedVersion
+		} else {
+			versions[dep.String()] = replacedVersion
+		}
 	}
 	for modulePath := range replaceGoModules {
 		versions[modulePath] = replacedVersion
@@ -746,28 +810,65 @@ func addManifestReplaces(
 	replaces codegen.Replaces, root string,
 	replace map[deps.Dependency]string, importVersions map[string]string,
 ) error {
-	for dep, path := range replace {
-		if !goModuleImported(dep.URL, importVersions) {
+	for importPath := range importVersions {
+		path, suffix, ok := bestGoReplacement(replace, importPath)
+		if !ok {
 			continue
 		}
 		abs, err := absReplacePath(root, path)
 		if err != nil {
 			return err
 		}
-		replaces[dep.URL] = abs
+		if suffix != "" {
+			abs = filepath.Join(abs, filepath.FromSlash(suffix))
+		}
+		replaces[importPath] = abs
 	}
 	return nil
 }
 
-// goModuleImported reports whether url, or a package under it, appears as a
-// Go import path the generated go.mod requires.
-func goModuleImported(url string, importVersions map[string]string) bool {
-	for path := range importVersions {
-		if path == url || strings.HasPrefix(path, url+"/") {
-			return true
+func bestGoReplacement(
+	replace map[deps.Dependency]string,
+	importPath string,
+) (string, string, bool) {
+	bestPath := ""
+	bestSuffix := ""
+	bestLen := -1
+	for dep, path := range replace {
+		suffix, ok := replacementGoSuffix(dep, importPath)
+		if !ok {
+			continue
+		}
+		if n := goReplacementSpecificity(dep); n > bestLen {
+			bestPath = path
+			bestSuffix = suffix
+			bestLen = n
 		}
 	}
-	return false
+	return bestPath, bestSuffix, bestLen >= 0
+}
+
+func replacementGoSuffix(dep deps.Dependency, importPath string) (string, bool) {
+	base := replacementGoBase(dep)
+	if importPath == base {
+		return "", true
+	}
+	prefix := base + "/"
+	if after, ok := strings.CutPrefix(importPath, prefix); ok {
+		return after, true
+	}
+	return "", false
+}
+
+func replacementGoBase(dep deps.Dependency) string {
+	if dep.Subdir == "" {
+		return dep.URL
+	}
+	return dep.URL + "/" + dep.Subdir
+}
+
+func goReplacementSpecificity(dep deps.Dependency) int {
+	return len(replacementGoBase(dep))
 }
 
 // absReplacePath resolves a replace target to an absolute path; a relative

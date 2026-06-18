@@ -1,9 +1,14 @@
 package compile
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/require"
 )
 
@@ -96,4 +101,107 @@ func TestDecideSelectedUnobin(t *testing.T) {
 			}
 		})
 	}
+}
+
+type failingResolver struct{}
+
+func (f failingResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	return nil, fmt.Errorf("unexpected remote fetch for %T", ref)
+}
+
+func TestWrapReplacesSubdirMatching(t *testing.T) {
+	root := t.TempDir()
+	checkout := filepath.Join(root, "checkout")
+	library := filepath.Join(root, "library-c")
+	for _, dir := range []string{
+		filepath.Join(checkout, "library-c"),
+		library,
+		filepath.Join(library, "subpkg"),
+	} {
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+	}
+
+	cases := []struct {
+		name    string
+		replace map[deps.Dependency]string
+		ref     *resolve.RemoteImport
+		want    string
+	}{
+		{
+			name: "repository replacement appends subdir",
+			replace: map[deps.Dependency]string{
+				{URL: "github.com/acme/repo"}: "./checkout",
+			},
+			ref:  &resolve.RemoteImport{URL: "github.com/acme/repo", Subdir: "library-c"},
+			want: filepath.Join(checkout, "library-c"),
+		},
+		{
+			name: "exact subdir replacement uses local root",
+			replace: map[deps.Dependency]string{
+				{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+			},
+			ref:  &resolve.RemoteImport{URL: "github.com/acme/repo", Subdir: "library-c"},
+			want: library,
+		},
+		{
+			name: "exact subdir replacement appends child package",
+			replace: map[deps.Dependency]string{
+				{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+			},
+			ref: &resolve.RemoteImport{
+				URL: "github.com/acme/repo", Subdir: "library-c/subpkg",
+			},
+			want: filepath.Join(library, "subpkg"),
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver, err := WrapReplaces(failingResolver{}, root, "", tt.replace)
+			require.NoError(t, err)
+
+			src, err := resolver.Resolve(tt.ref)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, src.Path)
+		})
+	}
+}
+
+func TestWithReplacedVersionsUsesReplacementID(t *testing.T) {
+	versions := withReplacedVersions(nil, false, map[deps.Dependency]string{
+		{URL: "github.com/acme/repo"}:                      "./checkout",
+		{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+	}, nil)
+
+	require.Equal(t, replacedVersion, versions["github.com/acme/repo"])
+	require.Equal(t, replacedVersion, versions["github.com/acme/repo//library-c"])
+	require.NotContains(t, versions, "github.com/acme/repo/library-c")
+}
+
+func TestAddManifestReplacesUsesResolvedGoPath(t *testing.T) {
+	root := t.TempDir()
+	checkout := filepath.Join(root, "checkout")
+	library := filepath.Join(root, "library-c")
+	for _, dir := range []string{
+		filepath.Join(checkout, "library-c"),
+		library,
+		filepath.Join(library, "subpkg"),
+	} {
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+	}
+
+	replaces := map[string]string{}
+	err := addManifestReplaces(replaces, root, map[deps.Dependency]string{
+		{URL: "github.com/acme/repo"}:                      "./checkout",
+		{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+	}, map[string]string{
+		"github.com/acme/repo/other":            "v1.0.0",
+		"github.com/acme/repo/library-c":        "v1.0.0",
+		"github.com/acme/repo/library-c/subpkg": "v1.0.0",
+	})
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(checkout, "other"), replaces["github.com/acme/repo/other"])
+	require.Equal(t, library, replaces["github.com/acme/repo/library-c"])
+	require.Equal(t,
+		filepath.Join(library, "subpkg"),
+		replaces["github.com/acme/repo/library-c/subpkg"])
 }

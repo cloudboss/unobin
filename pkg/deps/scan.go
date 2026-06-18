@@ -22,7 +22,17 @@ func ImportedRepos(root string) (map[Dependency]bool, error) {
 			return err
 		}
 		if d.IsDir() {
-			if path != root && strings.HasPrefix(d.Name(), ".") {
+			if path == root {
+				return nil
+			}
+			if strings.HasPrefix(d.Name(), ".") {
+				return fs.SkipDir
+			}
+			hasManifest, err := hasManifestFile(path)
+			if err != nil {
+				return err
+			}
+			if hasManifest {
 				return fs.SkipDir
 			}
 			return nil
