@@ -23,17 +23,35 @@ func NewFetcher(resolver resolve.Resolver) Fetcher {
 }
 
 func (f *manifestFetcher) Fetch(dep Dependency, version string) (*Manifest, error) {
-	ref := &resolve.RemoteImport{URL: dep.URL, Subdir: dep.Subdir, Version: dep.Tag(version)}
-	src, err := f.resolver.Resolve(ref)
-	if err != nil {
-		return nil, err
+	for _, candidate := range manifestCandidates(dep) {
+		ref := &resolve.RemoteImport{
+			URL:     candidate.URL,
+			Subdir:  candidate.Subdir,
+			Version: candidate.Tag(version),
+		}
+		src, err := f.resolver.Resolve(ref)
+		if err != nil {
+			return nil, err
+		}
+		manifest, err := ReadManifest(src.FS)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		return manifest, nil
 	}
-	manifest, err := ReadManifest(src.FS)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil // a leaf: no manifest means no further dependencies
+	return nil, nil // a leaf: no manifest means no further dependencies
+}
+
+func manifestCandidates(dep Dependency) []Dependency {
+	out := []Dependency{dep}
+	for subdir := parentSubdir(dep.Subdir); subdir != ""; subdir = parentSubdir(subdir) {
+		out = append(out, Dependency{URL: dep.URL, Subdir: subdir})
 	}
-	if err != nil {
-		return nil, err
+	if dep.Subdir != "" {
+		out = append(out, Dependency{URL: dep.URL})
 	}
-	return manifest, nil
+	return out
 }

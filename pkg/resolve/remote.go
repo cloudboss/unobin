@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -36,15 +37,63 @@ func NewRemoteResolver() (*RemoteResolver, error) {
 	return &RemoteResolver{CacheRoot: filepath.Join(cache, "unobin")}, nil
 }
 
-// GitRef returns the git ref used to fetch ref.
+// GitRef returns the first git ref used to fetch ref.
 func GitRef(ref *RemoteImport) string {
-	if ref == nil || ref.Subdir == "" || !semver.IsValid(ref.Version) {
-		if ref == nil {
-			return ""
-		}
-		return ref.Version
+	refs := gitRefs(ref)
+	if len(refs) == 0 {
+		return ""
 	}
-	return ref.Subdir + "/" + ref.Version
+	return refs[0]
+}
+
+func gitRefs(ref *RemoteImport) []string {
+	if ref == nil {
+		return []string{""}
+	}
+	version := ref.Version
+	base, ok := unprefixedVersion(ref.Subdir, version)
+	if !ok {
+		return []string{version}
+	}
+	prefixes := refPrefixes(ref.Subdir)
+	out := make([]string, 0, len(prefixes))
+	seen := map[string]bool{}
+	for _, prefix := range prefixes {
+		candidate := prefix + base
+		if !seen[candidate] {
+			out = append(out, candidate)
+			seen[candidate] = true
+		}
+	}
+	return out
+}
+
+func unprefixedVersion(subdir, version string) (string, bool) {
+	if semver.IsValid(version) {
+		return version, true
+	}
+	for _, prefix := range refPrefixes(subdir) {
+		if prefix == "" {
+			continue
+		}
+		trimmed, ok := strings.CutPrefix(version, prefix)
+		if ok && semver.IsValid(trimmed) {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+func refPrefixes(subdir string) []string {
+	if subdir == "" {
+		return []string{""}
+	}
+	var out []string
+	for s := subdir; s != ""; s = parentSubdir(s) {
+		out = append(out, s+"/")
+	}
+	out = append(out, "")
+	return out
 }
 
 // Resolve fetches the repo named by ref, caches it, and returns a
@@ -58,8 +107,7 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	ctx := context.Background()
 
 	cloneURL := WithDefaultScheme(ri.URL)
-	gitRef := GitRef(ri)
-	commit, err := git.LsRemote(ctx, cloneURL, gitRef)
+	gitRef, commit, err := resolveRemoteRef(ctx, cloneURL, gitRefs(ri))
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +133,18 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 		src.Hash = hash
 	}
 	return src, nil
+}
+
+func resolveRemoteRef(ctx context.Context, url string, refs []string) (string, string, error) {
+	var errs []error
+	for _, ref := range refs {
+		commit, err := git.LsRemote(ctx, url, ref)
+		if err == nil {
+			return ref, commit, nil
+		}
+		errs = append(errs, err)
+	}
+	return "", "", errors.Join(errs...)
 }
 
 func (r *RemoteResolver) fetchInto(ctx context.Context, url, ref, dir string) error {

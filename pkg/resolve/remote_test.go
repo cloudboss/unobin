@@ -123,6 +123,29 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 	require.Contains(t, string(body), "net")
 }
 
+func TestRemoteResolverSubdirFallsBackToRootTag(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "src")
+	wantSHA := makeRemoteRepo(t, src, map[string]string{
+		"manifest.ub": "manifest: { requires: {} }\n",
+		"ub/helloer/resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+	})
+
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	got, err := r.Resolve(&RemoteImport{URL: src, Subdir: "ub/helloer", Version: "v1"})
+	require.NoError(t, err)
+	require.Equal(t, wantSHA, got.Commit)
+	require.NotNil(t, got.FS)
+	require.NotEmpty(t, got.Hash)
+
+	body, err := fs.ReadFile(got.FS, "resource-hello.ub")
+	require.NoError(t, err)
+	require.Contains(t, string(body), "hello: resource")
+}
+
 func TestRemoteResolverCacheHitSkipsRefetch(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	makeRemoteRepo(t, src, map[string]string{

@@ -7,7 +7,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// TagPrefix returns the git tag prefix for this dependency.
+// TagPrefix returns the most specific git tag prefix for this dependency.
 func (d Dependency) TagPrefix() string {
 	if d.Subdir == "" {
 		return ""
@@ -15,14 +15,43 @@ func (d Dependency) TagPrefix() string {
 	return d.Subdir + "/"
 }
 
-// Tag returns the git tag that names a version of this dependency.
+// Tag returns the most specific git tag that names a version of this dependency.
 func (d Dependency) Tag(version string) string {
 	return d.TagPrefix() + version
 }
 
 // Versions returns the dependency's semver tags in increasing order.
 func Versions(dep Dependency, tags []string) []string {
-	prefix := dep.TagPrefix()
+	for _, prefix := range tagPrefixes(dep.Subdir) {
+		versions := versionsWithPrefix(prefix, tags)
+		if len(versions) > 0 {
+			return versions
+		}
+	}
+	return nil
+}
+
+func tagPrefixes(subdir string) []string {
+	if subdir == "" {
+		return []string{""}
+	}
+	var out []string
+	for s := subdir; s != ""; s = parentSubdir(s) {
+		out = append(out, s+"/")
+	}
+	out = append(out, "")
+	return out
+}
+
+func parentSubdir(subdir string) string {
+	idx := strings.LastIndex(subdir, "/")
+	if idx < 0 {
+		return ""
+	}
+	return subdir[:idx]
+}
+
+func versionsWithPrefix(prefix string, tags []string) []string {
 	var out []string
 	for _, t := range tags {
 		version, ok := strings.CutPrefix(t, prefix)

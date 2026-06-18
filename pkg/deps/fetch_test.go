@@ -18,6 +18,7 @@ type fakeResolver struct {
 	sources map[string]*resolve.Source
 	locals  map[string]*resolve.Source
 	lastRef *resolve.RemoteImport
+	refs    []*resolve.RemoteImport
 }
 
 func srcKey(url, subdir, version string) string {
@@ -34,6 +35,7 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	}
 	ri := ref.(*resolve.RemoteImport)
 	r.lastRef = ri
+	r.refs = append(r.refs, ri)
 	if src, ok := r.sources[srcKey(ri.URL, ri.Subdir, ri.Version)]; ok {
 		return src, nil
 	}
@@ -89,11 +91,69 @@ func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 func TestFetchUsesPrefixedTagForSubdirProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "net", "net/v1.0.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "", "v1.0.0"):        {FS: fstest.MapFS{}},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y", Subdir: "net"}, "v1.0.0")
 	require.NoError(t, err)
-	assert.Equal(t, "net", r.lastRef.Subdir)
-	assert.Equal(t, "net/v1.0.0", r.lastRef.Version)
+	require.NotEmpty(t, r.refs)
+	assert.Equal(t, "net", r.refs[0].Subdir)
+	assert.Equal(t, "net/v1.0.0", r.refs[0].Version)
+}
+
+func TestFetchReadsNearestParentManifest(t *testing.T) {
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/x/libs", "ub/helloer", "ub/helloer/v1.0.0"): {
+			FS: fstest.MapFS{"resource-hello.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  imports: { std: 'github.com/cloudboss/unobin-library-std' }
+}
+`)}},
+		},
+		srcKey("github.com/x/libs", "ub", "ub/v1.0.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/libs", "", "v1.0.0"): {FS: fstest.MapFS{
+			ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
+  requires: { 'github.com/cloudboss/unobin-library-std': 'v0.1.0' }
+}
+`)},
+		}},
+	}}
+
+	got, err := NewFetcher(r).Fetch(
+		Dependency{URL: "github.com/x/libs", Subdir: "ub/helloer"}, "v1.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, map[Dependency]string{
+		{URL: "github.com/cloudboss/unobin-library-std"}: "v0.1.0",
+	}, got.Requires)
+}
+
+func TestFetchReadsNearestSubdirManifest(t *testing.T) {
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/x/libs", "ub/project-b/comprehensions",
+			"ub/project-b/comprehensions/v0.1.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/libs", "ub/project-b", "ub/project-b/v0.1.0"): {
+			FS: fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
+  requires: { 'github.com/x/project-dep': 'v0.2.0' }
+}
+`)}},
+		},
+		srcKey("github.com/x/libs", "ub", "ub/v0.1.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/libs", "", "v0.1.0"): {FS: fstest.MapFS{
+			ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
+  requires: { 'github.com/x/root-dep': 'v9.0.0' }
+}
+`)},
+		}},
+	}}
+
+	got, err := NewFetcher(r).Fetch(
+		Dependency{URL: "github.com/x/libs", Subdir: "ub/project-b/comprehensions"},
+		"v0.1.0")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, map[Dependency]string{
+		{URL: "github.com/x/project-dep"}: "v0.2.0",
+	}, got.Requires)
 }
 
 func TestFetchPropagatesResolverError(t *testing.T) {

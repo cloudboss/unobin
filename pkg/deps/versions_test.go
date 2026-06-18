@@ -55,10 +55,26 @@ func TestVersions(t *testing.T) {
 			want: []string{"v1.0.0", "v1.1.0"},
 		},
 		{
-			name: "subdir ignores root tags",
+			name: "subdir ignores root tags when project tags exist",
 			dep:  net,
 			tags: []string{"net/v1.0.0", "v2.0.0", "db/v3.0.0"},
 			want: []string{"v1.0.0"},
+		},
+		{
+			name: "subdir uses root tags when no project tags exist",
+			dep:  net,
+			tags: []string{"v1.0.0", "v1.1.0", "db/v3.0.0"},
+			want: []string{"v1.0.0", "v1.1.0"},
+		},
+		{
+			name: "subdir uses nearest parent project tags",
+			dep:  Dependency{URL: "github.com/x/y", Subdir: "ub/project-b/comprehensions"},
+			tags: []string{
+				"v9.0.0",
+				"ub/project-b/v0.1.0",
+				"ub/project-b/v0.2.0",
+			},
+			want: []string{"v0.1.0", "v0.2.0"},
 		},
 		{
 			name: "subdir ignores deeper prefix tags",
@@ -151,6 +167,8 @@ func TestResolveVersion(t *testing.T) {
 			tags: []string{"v1.0.0"}, wantErr: true},
 		{name: "subdir dep uses prefixed tags", dep: sub, query: "latest",
 			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v1.1.0"},
+		{name: "subdir dep uses root tags when no project tags exist", dep: sub, query: "latest",
+			tags: []string{"v1.0.0", "v2.0.0"}, want: "v2.0.0"},
 		{name: "subdir dep exact query stays unprefixed", dep: sub, query: "v1.0.0",
 			tags: []string{"net/v1.0.0", "net/v1.1.0", "v2.0.0"}, want: "v1.0.0"},
 		{name: "subdir dep partial query stays unprefixed", dep: sub, query: "v1",

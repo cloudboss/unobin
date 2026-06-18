@@ -134,7 +134,7 @@ notify: action { description: 'n' }
 	require.Contains(t, lib.SyntaxBodies["action"], "notify")
 }
 
-func TestWalkUBParsesNestedProjectLibraryFiles(t *testing.T) {
+func TestWalkUBDoesNotExposeNestedPackageFilesFromRootImport(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"manifest.ub": "manifest: { requires: {} }",
 		"ub/helloer/resource-hello.ub": `
@@ -144,7 +144,7 @@ hello: resource {
 `,
 	})
 	refs := map[string]ImportRef{
-		"helloer": &RemoteImport{URL: "github.com/x/libs"},
+		"scratch": &RemoteImport{URL: "github.com/x/libs"},
 	}
 	r := &fakeUBResolver{remotes: map[string]*Source{
 		"github.com/x/libs@v0.8.0": src,
@@ -155,8 +155,32 @@ hello: resource {
 
 	require.NoError(t, err)
 	require.Len(t, top, 1)
+	require.Equal(t, ResolutionGo, top[0].Kind)
+	require.Empty(t, v.ubCalls)
+}
+
+func TestWalkUBParsesSubdirPackageLibraryFiles(t *testing.T) {
+	src := newUBSource(t, map[string]string{
+		"resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+	})
+	refs := map[string]ImportRef{
+		"helloer": &RemoteImport{URL: "github.com/x/libs", Subdir: "ub/helloer"},
+	}
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"github.com/x/libs//ub/helloer@v0.8.0": src,
+	}}
+	v := newRecordingVisitor()
+
+	top, err := WalkUB(refs, r, v, map[string]string{"github.com/x/libs//ub/helloer": "v0.8.0"})
+
+	require.NoError(t, err)
+	require.Len(t, top, 1)
 	require.Equal(t, ResolutionUB, top[0].Kind)
-	lib := v.ubLibs["remote:github.com/x/libs@v0.8.0"]
+	lib := v.ubLibs["remote:github.com/x/libs//ub/helloer@v0.8.0"]
 	require.NotNil(t, lib)
 	require.Contains(t, lib.SyntaxBodies["resource"], "hello")
 }
