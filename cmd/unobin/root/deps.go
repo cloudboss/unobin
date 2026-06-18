@@ -139,7 +139,7 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	imported, err := deps.ImportedRepos(root)
+	imported, err := deps.ImportedPackages(root)
 	if err != nil {
 		return err
 	}
@@ -197,43 +197,48 @@ func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
 	return manifest, deps.ManifestFileName, nil
 }
 
-// reconcileManifest makes the manifest's floors match the set of imported
-// repositories. An imported repository with no floor is an error that
-// points the author at `deps get`; a floor whose repository is no longer
-// imported is removed. The unobin repository takes no floor at all: an
-// import from it must be served by a replace, since its source version
-// may not float free of the toolchain.
+// reconcileManifest makes the manifest's project floors match the imported
+// remote packages. An imported package with no owning project floor is an error
+// that points the author at `deps get`; a floor whose project owns no import is
+// removed. The unobin repository takes no floor at all: an import from it must
+// be served by a replace, since its source version may not float free of the
+// toolchain.
 func reconcileManifest(
 	manifestName string,
 	m *deps.Manifest,
-	imported map[deps.Dependency]bool,
+	imported map[deps.RemotePackage]bool,
 ) error {
+	projects := deps.ProjectIDsFromDependencies(m.Requires)
+	replaced := deps.ProjectIDsFromReplace(m.Replace)
+	used := map[deps.Dependency]bool{}
 	var missing []string
-	for dep := range imported {
-		if _, ok := deps.ReplacementPath(m.Replace, dep); ok {
-			continue // a replaced dependency reads from a local path, no floor
+	for pkg := range imported {
+		if _, ok := deps.MostSpecificProject(replaced, pkg); ok {
+			continue
 		}
-		if dep.URL == toolchain.UnobinModulePath {
+		if pkg.URL == toolchain.UnobinModulePath {
 			return fmt.Errorf(
 				"%s is toolchain-versioned and cannot be imported at a dependency"+
 					" version; replace it locally:\n"+
 					"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
-				dep.URL, dep.URL)
+				pkg.URL, pkg.URL)
 		}
-		if _, ok := m.Requires[dep]; ok {
+		owner, ok := deps.MostSpecificProject(projects, pkg)
+		if !ok {
+			missing = append(missing, pkg.String())
 			continue
 		}
-		missing = append(missing, dep.String())
+		used[owner.Project.Dependency()] = true
 	}
 	if len(missing) > 0 {
 		slices.Sort(missing)
 		return fmt.Errorf(
-			"imported but missing from %s: %s\n"+
-				"add a floor with `unobin deps get <dependency>@<version>`",
+			"imported but missing an owning project in %s: %s\n"+
+				"add the owning project with `unobin deps get <project>@<version>`",
 			manifestName, strings.Join(missing, ", "))
 	}
 	for dep := range m.Requires {
-		if !imported[dep] {
+		if !used[dep] {
 			delete(m.Requires, dep)
 		}
 	}

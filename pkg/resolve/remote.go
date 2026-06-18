@@ -51,49 +51,47 @@ func gitRefs(ref *RemoteImport) []string {
 		return []string{""}
 	}
 	version := ref.Version
-	base, ok := unprefixedVersion(ref.Subdir, version)
+	projectSubdir := remoteProjectSubdir(ref)
+	base, ok := unprefixedVersion(projectSubdir, version)
 	if !ok {
 		return []string{version}
 	}
-	prefixes := refPrefixes(ref.Subdir)
-	out := make([]string, 0, len(prefixes))
-	seen := map[string]bool{}
-	for _, prefix := range prefixes {
-		candidate := prefix + base
-		if !seen[candidate] {
-			out = append(out, candidate)
-			seen[candidate] = true
-		}
-	}
-	return out
+	return []string{projectTag(projectSubdir, base)}
 }
 
 func unprefixedVersion(subdir, version string) (string, bool) {
 	if semver.IsValid(version) {
 		return version, true
 	}
-	for _, prefix := range refPrefixes(subdir) {
-		if prefix == "" {
-			continue
-		}
-		trimmed, ok := strings.CutPrefix(version, prefix)
-		if ok && semver.IsValid(trimmed) {
-			return trimmed, true
-		}
+	if subdir == "" {
+		return "", false
+	}
+	trimmed, ok := strings.CutPrefix(version, subdir+"/")
+	if ok && semver.IsValid(trimmed) {
+		return trimmed, true
 	}
 	return "", false
 }
 
-func refPrefixes(subdir string) []string {
+func projectTag(subdir, version string) string {
 	if subdir == "" {
-		return []string{""}
+		return version
 	}
-	var out []string
-	for s := subdir; s != ""; s = parentSubdir(s) {
-		out = append(out, s+"/")
+	return subdir + "/" + version
+}
+
+func remoteProjectSubdir(ref *RemoteImport) string {
+	if ref.ProjectSubdir != "" || ref.PackageSubdir != "" {
+		return ref.ProjectSubdir
 	}
-	out = append(out, "")
-	return out
+	return ref.Subdir
+}
+
+func remotePackageSubdir(ref *RemoteImport) string {
+	if ref.ProjectSubdir != "" || ref.PackageSubdir != "" {
+		return ref.PackageSubdir
+	}
+	return ref.Subdir
 }
 
 // Resolve fetches the repo named by ref, caches it, and returns a
@@ -120,8 +118,8 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	}
 
 	subdirPath := dir
-	if ri.Subdir != "" {
-		subdirPath = filepath.Join(dir, ri.Subdir)
+	if packageSubdir := remotePackageSubdir(ri); packageSubdir != "" {
+		subdirPath = filepath.Join(dir, packageSubdir)
 	}
 
 	src := &Source{Commit: commit, Path: subdirPath, FS: os.DirFS(subdirPath)}
@@ -226,6 +224,11 @@ func normalizeURL(url string) string {
 // Files are walked in sorted order; per file, the hash absorbs the
 // path, the size, and the body. Directories themselves contribute no
 // bytes - the file paths carry the structure.
+// HashTree returns a stable sha256 of a source tree.
+func HashTree(fsys fs.FS) (string, error) {
+	return hashTree(fsys)
+}
+
 func hashTree(fsys fs.FS) (string, error) {
 	var paths []string
 	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {

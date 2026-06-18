@@ -21,13 +21,17 @@ type LocalImport struct {
 
 func (*LocalImport) isImportRef() {}
 
-// RemoteImport names an importable repo by host + owner/name and an
-// optional subdir within the repo. The import string has no version;
-// Version is filled in from lock.ub as the walk descends.
+// RemoteImport names an importable repo by host + owner/name and an optional
+// package subdir within the repo. The import string has no version; Version is
+// filled in from lock.ub as the walk descends. ProjectSubdir and PackageSubdir
+// are set after manifest or lock lookup when the owning project differs from
+// the imported package.
 type RemoteImport struct {
-	URL     string
-	Subdir  string
-	Version string
+	URL           string
+	Subdir        string
+	ProjectSubdir string
+	PackageSubdir string
+	Version       string
 }
 
 func (*RemoteImport) isImportRef() {}

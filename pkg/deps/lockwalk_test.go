@@ -242,6 +242,71 @@ hello: resource {
 	}, lock.Deps)
 }
 
+func TestLockFromImportsPackageImportLocksOwningProject(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": "factory: { imports: { helloer: 'github.com/scratch/repo//ub/helloer' } }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/helloer", "v0.8.0"): ubSrc(
+			"c1", "sha256:package", map[string]string{
+				"resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+			}),
+		srcKey("github.com/scratch/repo", "", "v0.8.0"): ubSrc(
+			"c1", "sha256:project", map[string]string{
+				ManifestFileName: "manifest: { requires: {} }\n",
+				"ub/helloer/resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+			}),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.8.0"}
+
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/scratch/repo": {
+			Kind: LockKindUB, Version: "v0.8.0", Commit: "c1", Hash: "sha256:project",
+		},
+	}, lock.Deps)
+}
+
+func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": `factory: {
+  imports: { comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions' }
+}
+`,
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/project-b/comprehensions",
+			"ub/project-b/v0.1.0"): ubSrc("c1", "sha256:package", map[string]string{
+			"library.ub": "hello: resource { outputs: { message: { value: 'hi' } } }\n",
+		}),
+		srcKey("github.com/scratch/repo", "ub/project-b", "ub/project-b/v0.1.0"): ubSrc(
+			"c1", "sha256:project", map[string]string{
+				ManifestFileName:            "manifest: { requires: {} }\n",
+				"comprehensions/library.ub": "hello: resource { description: 'hi' }\n",
+			}),
+	}}
+	sel := map[Dependency]string{
+		{URL: "github.com/scratch/repo", Subdir: "ub/project-b"}: "v0.1.0",
+	}
+
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/scratch/repo//ub/project-b": {
+			Kind: LockKindUB, Version: "v0.1.0", Commit: "c1", Hash: "sha256:project",
+		},
+	}, lock.Deps)
+}
+
 func TestLockFromImportsSkipsNestedProjects(t *testing.T) {
 	root := mapFS(map[string]string{
 		ManifestFileName: "manifest: { requires: {} }\n",

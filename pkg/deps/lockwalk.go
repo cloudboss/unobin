@@ -34,6 +34,7 @@ func LockFromImports(
 		replace:    replace,
 		lock:       NewLock(),
 		inProgress: map[string]bool{},
+		walked:     map[string]bool{},
 	}
 	err := fs.WalkDir(rootFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -104,6 +105,7 @@ type lockWalker struct {
 	replace    map[Dependency]string
 	lock       *Lock
 	inProgress map[string]bool
+	walked     map[string]bool
 }
 
 type lockImportRef struct {
@@ -165,29 +167,28 @@ func (w *lockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.Source) e
 }
 
 func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
-	dep := Dependency{URL: r.URL, Subdir: r.Subdir}
-	if _, replaced := ReplacementPath(w.replace, dep); replaced {
+	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
+	if _, replaced := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg); replaced {
 		return w.walkReplaced(r)
 	}
-	id := dep.String()
-	if _, done := w.lock.Deps[id]; done {
-		return nil
-	}
-	if w.inProgress[id] {
-		return fmt.Errorf("import cycle through %s", id)
-	}
-	w.inProgress[id] = true
-	defer delete(w.inProgress, id)
-
-	version, ok := w.selection[dep]
+	owner, version, ok := w.ownerVersion(pkg)
 	if !ok {
 		return fmt.Errorf(
-			"%s is imported but has no version floor in the dependency manifest; "+
-				"add one with `unobin deps get %s@<version>`",
-			dep, dep)
+			"%s is imported but has no owning project version in the dependency manifest; "+
+				"add one with `unobin deps get <project>@<version>`",
+			pkg)
 	}
-	src, err := w.resolver.Resolve(
-		&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir, Version: dep.Tag(version)})
+	packageKey := pkg.String() + "@" + version
+	if w.walked[packageKey] {
+		return nil
+	}
+	if w.inProgress[packageKey] {
+		return fmt.Errorf("import cycle through %s", packageKey)
+	}
+	w.inProgress[packageKey] = true
+	defer delete(w.inProgress, packageKey)
+
+	src, err := w.resolver.Resolve(remotePackageRef(pkg, owner, version))
 	if err != nil {
 		return err
 	}
@@ -198,21 +199,73 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	if resolve.IsUBLibrary(src) {
 		kind = LockKindUB
 	}
-	entry := &LockedDep{
-		Kind:    kind,
-		Version: version,
-		Commit:  src.Commit,
-		Hash:    src.Hash,
+	projectID := owner.Project.String()
+	if _, done := w.lock.Deps[projectID]; !done {
+		entry, err := w.lockEntry(owner.Project, version, kind, src)
+		if err != nil {
+			return err
+		}
+		w.lock.Deps[projectID] = entry
 	}
 	if kind == LockKindUB {
 		if err := w.walkBodies(src); err != nil {
 			return err
 		}
 	}
-	// Recorded after recursing, so a back-edge into a library still being
-	// walked is caught as a cycle rather than treated as already done.
-	w.lock.Deps[id] = entry
+	w.walked[packageKey] = true
 	return nil
+}
+
+func (w *lockWalker) ownerVersion(pkg RemotePackage) (PackageOwner, string, bool) {
+	owner, ok := MostSpecificProject(ProjectIDsFromDependencies(w.selection), pkg)
+	if !ok {
+		return PackageOwner{}, "", false
+	}
+	version, ok := w.selection[owner.Project.Dependency()]
+	return owner, version, ok
+}
+
+func (w *lockWalker) lockEntry(
+	project ProjectID, version string, kind LockKind, src *resolve.Source,
+) (*LockedDep, error) {
+	entry := &LockedDep{Kind: kind, Version: version, Commit: src.Commit}
+	if kind != LockKindUB {
+		return entry, nil
+	}
+	projectSrc, err := w.resolver.Resolve(remoteProjectRef(project, version))
+	if err != nil {
+		return nil, err
+	}
+	entry.Commit = projectSrc.Commit
+	entry.Hash = projectSrc.Hash
+	if entry.Hash == "" {
+		var err error
+		entry.Hash, err = resolve.HashTree(projectSrc.FS)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return entry, nil
+}
+
+func remotePackageRef(pkg RemotePackage, owner PackageOwner, version string) *resolve.RemoteImport {
+	return &resolve.RemoteImport{
+		URL:           pkg.URL,
+		Subdir:        pkg.Subdir,
+		ProjectSubdir: owner.Project.Subdir,
+		PackageSubdir: pkg.Subdir,
+		Version:       ProjectTag(owner.Project, version),
+	}
+}
+
+func remoteProjectRef(project ProjectID, version string) *resolve.RemoteImport {
+	return &resolve.RemoteImport{
+		URL:           project.URL,
+		Subdir:        project.Subdir,
+		ProjectSubdir: project.Subdir,
+		PackageSubdir: project.Subdir,
+		Version:       ProjectTag(project, version),
+	}
 }
 
 // checkLocalImport resolves a local import and rejects it when it points

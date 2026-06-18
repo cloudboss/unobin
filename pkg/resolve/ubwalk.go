@@ -165,35 +165,49 @@ func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
 	if !ok {
 		return ref
 	}
-	v, found := w.versionFor(r)
+	owner, found := w.ownerFor(r)
 	if !found {
 		return ref
 	}
 	clone := *r
-	clone.Version = v
+	clone.ProjectSubdir = owner.projectSubdir
+	clone.PackageSubdir = r.Subdir
+	clone.Version = owner.version
 	return &clone
 }
 
-func (w *ubWalker) versionFor(r *RemoteImport) (string, bool) {
-	if v, found := w.versions[remoteImportID(r)]; found {
-		return v, true
-	}
-	for subdir := r.Subdir; subdir != ""; subdir = parentSubdir(subdir) {
-		id := r.URL + "//" + subdir
-		if v, found := w.versions[id]; found {
-			return v, true
-		}
-	}
-	v, found := w.versions[r.URL]
-	return v, found
+type remoteOwner struct {
+	projectSubdir string
+	version       string
 }
 
-func parentSubdir(subdir string) string {
-	idx := strings.LastIndex(subdir, "/")
-	if idx < 0 {
-		return ""
+func (w *ubWalker) ownerFor(r *RemoteImport) (remoteOwner, bool) {
+	var best remoteOwner
+	bestLen := -1
+	for id, version := range w.versions {
+		url, subdir, err := SplitRepoSubdir(id)
+		if err != nil || url != r.URL {
+			continue
+		}
+		if !remoteProjectContains(subdir, r.Subdir) {
+			continue
+		}
+		if n := len(subdir); n > bestLen {
+			best = remoteOwner{projectSubdir: subdir, version: version}
+			bestLen = n
+		}
 	}
-	return subdir[:idx]
+	return best, bestLen >= 0
+}
+
+func remoteProjectContains(projectSubdir, packageSubdir string) bool {
+	if projectSubdir == "" {
+		return true
+	}
+	if packageSubdir == projectSubdir {
+		return true
+	}
+	return strings.HasPrefix(packageSubdir, projectSubdir+"/")
 }
 
 // walkRefs walks each ref in alias order. repo is the repository the

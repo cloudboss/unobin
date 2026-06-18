@@ -9,14 +9,13 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-// ImportedRepos scans every .ub file under root and returns the set of
-// repositories named by remote imports. The version on an import is not
-// read here: a repository's version floor lives in manifest.ub, not in
-// the import string. Local imports are intra-project and contribute no
-// repository. Hidden directories (a leading dot, such as .git) are
-// skipped.
-func ImportedRepos(root string) (map[Dependency]bool, error) {
-	repos := map[Dependency]bool{}
+// ImportedPackages scans every .ub file under root and returns the set of
+// packages named by remote imports. The version on an import is not read here:
+// a package's version floor lives on its owning project in manifest.ub, not in
+// the import string. Local imports are intra-project and contribute no remote
+// package. Hidden directories (a leading dot, such as .git) are skipped.
+func ImportedPackages(root string) (map[RemotePackage]bool, error) {
+	packages := map[RemotePackage]bool{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -40,15 +39,29 @@ func ImportedRepos(root string) (map[Dependency]bool, error) {
 		if !strings.HasSuffix(path, ".ub") {
 			return nil
 		}
-		return scanImports(path, repos)
+		return scanImports(path, packages)
 	})
 	if err != nil {
 		return nil, err
 	}
+	return packages, nil
+}
+
+// ImportedRepos is kept for callers that still need the import strings in the
+// older Dependency form.
+func ImportedRepos(root string) (map[Dependency]bool, error) {
+	packages, err := ImportedPackages(root)
+	if err != nil {
+		return nil, err
+	}
+	repos := make(map[Dependency]bool, len(packages))
+	for pkg := range packages {
+		repos[pkg.Dependency()] = true
+	}
 	return repos, nil
 }
 
-func scanImports(path string, repos map[Dependency]bool) error {
+func scanImports(path string, packages map[RemotePackage]bool) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -57,16 +70,16 @@ func scanImports(path string, repos map[Dependency]bool) error {
 	if err != nil {
 		return err
 	}
-	addSyntaxImportRefs(repos, refs)
+	addSyntaxImportRefs(packages, refs)
 	return nil
 }
 
-func addSyntaxImportRefs(repos map[Dependency]bool, refs []resolve.SyntaxImport) {
+func addSyntaxImportRefs(packages map[RemotePackage]bool, refs []resolve.SyntaxImport) {
 	for _, ref := range refs {
 		rem, ok := ref.Ref.(*resolve.RemoteImport)
 		if !ok {
 			continue
 		}
-		repos[Dependency{URL: rem.URL, Subdir: rem.Subdir}] = true
+		packages[RemotePackage{URL: rem.URL, Subdir: rem.Subdir}] = true
 	}
 }

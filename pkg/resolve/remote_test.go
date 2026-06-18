@@ -57,6 +57,9 @@ func TestGitRef(t *testing.T) {
 		{name: "subdir semver", ref: &RemoteImport{
 			URL: "github.com/x/y", Subdir: "library-c", Version: "v1.2.3"},
 			want: "library-c/v1.2.3"},
+		{name: "root project with child package", ref: &RemoteImport{
+			URL: "github.com/x/y", Subdir: "ub/helloer", PackageSubdir: "ub/helloer",
+			Version: "v1.2.3"}, want: "v1.2.3"},
 		{name: "subdir commit", ref: &RemoteImport{
 			URL: "github.com/x/y", Subdir: "library-c", Version: "abc123"},
 			want: "abc123"},
@@ -123,7 +126,7 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 	require.Contains(t, string(body), "net")
 }
 
-func TestRemoteResolverSubdirFallsBackToRootTag(t *testing.T) {
+func TestRemoteResolverRootProjectServesChildPackage(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
 		"manifest.ub": "manifest: { requires: {} }\n",
@@ -135,13 +138,43 @@ hello: resource {
 	})
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
-	got, err := r.Resolve(&RemoteImport{URL: src, Subdir: "ub/helloer", Version: "v1"})
+	got, err := r.Resolve(&RemoteImport{
+		URL: src, Subdir: "ub/helloer", PackageSubdir: "ub/helloer", Version: "v1",
+	})
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
 	require.NotNil(t, got.FS)
 	require.NotEmpty(t, got.Hash)
 
 	body, err := fs.ReadFile(got.FS, "resource-hello.ub")
+	require.NoError(t, err)
+	require.Contains(t, string(body), "hello: resource")
+}
+
+func TestRemoteResolverNestedProjectServesChildPackage(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "src")
+	wantSHA := makeRemoteRepo(t, src, map[string]string{
+		"ub/project-b/manifest.ub": "manifest: { requires: {} }\n",
+		"ub/project-b/comprehensions/library.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+	})
+	runGit(t, src, "tag", "ub/project-b/v1")
+
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	got, err := r.Resolve(&RemoteImport{
+		URL:           src,
+		Subdir:        "ub/project-b/comprehensions",
+		ProjectSubdir: "ub/project-b",
+		PackageSubdir: "ub/project-b/comprehensions",
+		Version:       "v1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, wantSHA, got.Commit)
+
+	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "hello: resource")
 }

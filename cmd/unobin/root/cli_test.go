@@ -357,6 +357,54 @@ factory: {
 `, string(manifestBytes))
 }
 
+func TestDepsSyncRootProjectOwnsPackageImport(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: {
+    helloer: 'github.com/scratch/repo//ub/helloer'
+  }
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("manifest: { requires: { 'github.com/scratch/repo': 'v0.8.0' } }\n"), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/scratch/repo//ub/helloer@v0.8.0": {
+			Commit: "scratch",
+			Hash:   "sha256:package",
+			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)}},
+		},
+		"github.com/scratch/repo@v0.8.0": {
+			Commit: "scratch",
+			Hash:   "sha256:project",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+				"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+			},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, map[string]*deps.LockedDep{
+		"github.com/scratch/repo": {
+			Kind: deps.LockKindUB, Version: "v0.8.0", Commit: "scratch", Hash: "sha256:project",
+		},
+	}, lock.Deps)
+}
+
 func TestDepsSyncLibraryProject(t *testing.T) {
 	// A library project: body files, no factory.ub. Its dependencies are
 	// managed the same way a factory's are.

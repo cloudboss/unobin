@@ -159,6 +159,32 @@ hello: resource {
 	require.Empty(t, v.ubCalls)
 }
 
+func TestWalkUBParsesPackageFilesFromOwningProjectVersion(t *testing.T) {
+	src := newUBSource(t, map[string]string{
+		"resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+	})
+	refs := map[string]ImportRef{
+		"helloer": &RemoteImport{URL: "github.com/x/libs", Subdir: "ub/helloer"},
+	}
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"github.com/x/libs//ub/helloer@v0.8.0": src,
+	}}
+	v := newRecordingVisitor()
+
+	top, err := WalkUB(refs, r, v, map[string]string{"github.com/x/libs": "v0.8.0"})
+
+	require.NoError(t, err)
+	require.Len(t, top, 1)
+	require.Equal(t, ResolutionUB, top[0].Kind)
+	lib := v.ubLibs["remote:github.com/x/libs//ub/helloer@v0.8.0"]
+	require.NotNil(t, lib)
+	require.Contains(t, lib.SyntaxBodies["resource"], "hello")
+}
+
 func TestWalkUBParsesSubdirPackageLibraryFiles(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"resource-hello.ub": `
