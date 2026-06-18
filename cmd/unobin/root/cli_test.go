@@ -768,7 +768,9 @@ func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
 	lock.ToolchainVersion = "dev"
 	for id, version := range pins {
 		lock.Deps[id] = &deps.LockedDep{Kind: deps.LockKindGo, Version: version, Commit: "c"}
-		addCommandRemoteSource(t, id+"@"+version, goTestSource(goModulePath(id)))
+		src := goTestSource(goModulePath(id))
+		addCommandRemoteSource(t, id+"@"+version, src)
+		addCommandRemoteSource(t, id+"@c", src)
 	}
 	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
 }
@@ -1982,6 +1984,59 @@ imports: {
 	require.NoError(t, err)
 	require.NotContains(t, string(goModBytes), "github.com/example/net",
 		"a UB library remote should not appear as a Go import in go.mod")
+}
+
+func TestCompileRejectsUBLockHashMismatch(t *testing.T) {
+	rootFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+	}
+	packageFS := fstest.MapFS{
+		"library.ub": &fstest.MapFile{Data: []byte(`
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+	}
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	stackPath := filepath.Join(dir, "factory.ub")
+	require.NoError(t, os.WriteFile(stackPath, factorySource(`
+imports: { helloer: 'github.com/scratch/repo//ub/helloer' }
+`), 0o644))
+	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["github.com/scratch/repo"] = &deps.LockedDep{
+		Kind:    deps.LockKindUB,
+		Version: "v0.8.0",
+		Commit:  "c1",
+		Hash:    "sha256:bad",
+	}
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
+	remotes := map[string]*resolve.Source{
+		"github.com/scratch/repo//ub/helloer@v0.8.0": {
+			Commit: "c1",
+			FS:     packageFS,
+		},
+		"github.com/scratch/repo//ub/helloer@c1": {
+			Commit: "c1",
+			FS:     packageFS,
+		},
+		"github.com/scratch/repo@c1": {
+			Commit: "c1",
+			FS:     rootFS,
+		},
+	}
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommandWithRemotes(t, remotes, "compile", "-p", stackPath, "-o", outDir)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "hash mismatch")
 }
 
 func TestCompileNestedUBLibraries(t *testing.T) {

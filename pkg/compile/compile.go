@@ -218,6 +218,11 @@ func Run(opts Options) error {
 
 	schemas := NewSchemaCache(UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)...)
 
+	lock, err := lockedProject(projectDir)
+	if err != nil {
+		return err
+	}
+
 	newResolver := opts.NewResolver
 	if newResolver == nil {
 		newResolver = NewProjectResolver
@@ -229,6 +234,7 @@ func Run(opts Options) error {
 	// The guard sits under every replace layer, so a replaced import
 	// never reaches it and an unreplaced one is refused.
 	resolver = &unobinImportGuard{wrapped: resolver}
+	resolver = WrapLockedSources(resolver, lock)
 	if replaceUnobinAbs != "" {
 		resolver = &replaceResolver{
 			replacements: []localReplacement{{
@@ -252,7 +258,7 @@ func Run(opts Options) error {
 		return err
 	}
 
-	repoVersions, err := LockedVersions(projectDir)
+	repoVersions, err := repoVersions(lock)
 	if err != nil {
 		return err
 	}
@@ -572,12 +578,27 @@ func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnob
 // selected version, or nil when no lock is present, in which case the walk
 // uses the version on each import string.
 func LockedVersions(dir string) (map[string]string, error) {
+	lock, err := lockedProject(dir)
+	if err != nil {
+		return nil, err
+	}
+	return repoVersions(lock)
+}
+
+func lockedProject(dir string) (*deps.Lock, error) {
 	lock, err := deps.ReadLock(os.DirFS(dir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+	return lock, nil
+}
+
+func repoVersions(lock *deps.Lock) (map[string]string, error) {
+	if lock == nil {
+		return nil, nil
 	}
 	return lock.RepoVersions()
 }
@@ -609,6 +630,93 @@ func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, erro
 		return r.remote.Resolve(ref)
 	}
 	return nil, fmt.Errorf("unsupported import ref type %T", ref)
+}
+
+// WrapLockedSources fetches locked remote imports by commit and verifies UB hashes.
+func WrapLockedSources(resolver resolve.Resolver, lock *deps.Lock) resolve.Resolver {
+	if lock == nil || len(lock.Deps) == 0 {
+		return resolver
+	}
+	return &lockedResolver{lock: lock, wrapped: resolver}
+}
+
+type lockedResolver struct {
+	lock    *deps.Lock
+	wrapped resolve.Resolver
+}
+
+func (r *lockedResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	ri, ok := ref.(*resolve.RemoteImport)
+	if !ok {
+		return r.wrapped.Resolve(ref)
+	}
+	owner, entry, ok := lockedOwner(r.lock, ri)
+	if !ok || entry.Kind != deps.LockKindUB {
+		return r.wrapped.Resolve(ref)
+	}
+	lockedRef := *ri
+	lockedRef.ProjectSubdir = owner.Project.Subdir
+	lockedRef.PackageSubdir = ri.Subdir
+	lockedRef.Version = entry.Commit
+	src, err := r.wrapped.Resolve(&lockedRef)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.verifyUBHash(owner.Project, entry); err != nil {
+		return nil, err
+	}
+	return src, nil
+}
+
+func lockedOwner(
+	lock *deps.Lock, ri *resolve.RemoteImport,
+) (deps.PackageOwner, *deps.LockedDep, bool) {
+	projects := make([]deps.ProjectID, 0, len(lock.Deps))
+	entries := make(map[deps.Dependency]*deps.LockedDep, len(lock.Deps))
+	for id, entry := range lock.Deps {
+		dep, err := deps.ParseDependency(id)
+		if err != nil {
+			continue
+		}
+		project := deps.ProjectIDFromDependency(dep)
+		projects = append(projects, project)
+		entries[dep] = entry
+	}
+	owner, ok := deps.MostSpecificProject(projects, deps.RemotePackage{
+		URL:    ri.URL,
+		Subdir: ri.Subdir,
+	})
+	if !ok {
+		return deps.PackageOwner{}, nil, false
+	}
+	entry := entries[owner.Project.Dependency()]
+	return owner, entry, entry != nil
+}
+
+func (r *lockedResolver) verifyUBHash(project deps.ProjectID, entry *deps.LockedDep) error {
+	projectRef := &resolve.RemoteImport{
+		URL:           project.URL,
+		Subdir:        project.Subdir,
+		ProjectSubdir: project.Subdir,
+		PackageSubdir: project.Subdir,
+		Version:       entry.Commit,
+	}
+	projectSrc, err := r.wrapped.Resolve(projectRef)
+	if err != nil {
+		return err
+	}
+	hash := projectSrc.Hash
+	if hash == "" {
+		hash, err = resolve.HashTree(projectSrc.FS)
+		if err != nil {
+			return err
+		}
+	}
+	if hash != entry.Hash {
+		return fmt.Errorf(
+			"%s: hash mismatch (locked %s, got %s)", project, entry.Hash, hash)
+	}
+	return nil
 }
 
 // replaceResolver serves selected remote imports from local directories.
