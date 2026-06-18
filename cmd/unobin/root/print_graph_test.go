@@ -4,8 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,6 +17,50 @@ func writeStack(t *testing.T, dir, body string) string {
 	stackPath := filepath.Join(dir, "factory.ub")
 	require.NoError(t, os.WriteFile(stackPath, factorySource(body), 0o644))
 	return stackPath
+}
+
+func TestPrintGraphRejectsUBLockHashMismatch(t *testing.T) {
+	rootFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+	}
+	packageFS := fstest.MapFS{
+		"library.ub": &fstest.MapFile{Data: []byte(`
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+	}
+	dir := filepath.Join(t.TempDir(), "graph")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
+factory: {
+  imports: { helloer: 'github.com/scratch/repo//ub/helloer' }
+}
+`), 0o644))
+	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["github.com/scratch/repo"] = &deps.LockedDep{
+		Kind:    deps.LockKindUB,
+		Version: "v0.8.0",
+		Commit:  "c1",
+		Hash:    "sha256:bad",
+	}
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
+	remotes := map[string]*resolve.Source{
+		"github.com/scratch/repo//ub/helloer@v0.8.0": {Commit: "c1", FS: packageFS},
+		"github.com/scratch/repo//ub/helloer@c1":     {Commit: "c1", FS: packageFS},
+		"github.com/scratch/repo@c1":                 {Commit: "c1", FS: rootFS},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "print-graph", "-p", dir)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "hash mismatch")
 }
 
 func TestPrintGraphPlain(t *testing.T) {

@@ -89,10 +89,15 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		replaceMap = manifest.Replace
 	}
 
+	lock, err := printGraphLock(projectDir)
+	if err != nil {
+		return err
+	}
 	resolver, err := newCompileResolver(projectDir)
 	if err != nil {
 		return err
 	}
+	resolver = compile.WrapLockedSources(resolver, lock)
 	resolver, err = compile.WrapReplaces(resolver, projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
 		return err
@@ -148,6 +153,17 @@ func printGraphProjectDir(sourceDir string) (string, error) {
 		return sourceDir, nil
 	}
 	return "", err
+}
+
+func printGraphLock(projectDir string) (*deps.Lock, error) {
+	lock, err := deps.ReadLock(os.DirFS(projectDir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return lock, nil
 }
 
 func printGraphManifest(projectDir string) (*deps.Manifest, error) {
