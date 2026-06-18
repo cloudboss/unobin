@@ -34,6 +34,7 @@ var (
 	depsSyncCmd = &cobra.Command{
 		Use:   "sync",
 		Short: "Reconcile the manifest and lock with the imports",
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsSync(cmd, depsSyncCfg)
 		},

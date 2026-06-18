@@ -264,6 +264,20 @@ message: data {
 	require.Empty(t, lock.Deps)
 }
 
+func TestDepsSyncRejectsPositionalPath(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "ub", "project-b"), 0o755))
+	t.Chdir(root)
+	require.NoError(t, os.WriteFile(deps.ManifestFileName,
+		[]byte("manifest: { requires: {} }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join("ub", "project-b", deps.ManifestFileName),
+		[]byte("manifest: { requires: {} }\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "ub/project-b")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "accepts 0 arg(s), received 1")
+}
+
 func TestDepsSyncDefaultPathUsesFactoryUB(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
