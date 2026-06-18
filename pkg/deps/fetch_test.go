@@ -69,7 +69,7 @@ func TestFetchReadsManifest(t *testing.T) {
 func TestFetchLeafHasNoManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "", "v1.0.0"): {
-			FS: fstest.MapFS{"y.go": &fstest.MapFile{Data: []byte("package y")}},
+			FS: fstest.MapFS{"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/y\n")}},
 		},
 	}}
 	got, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y"}, "v1.0.0")
@@ -77,9 +77,29 @@ func TestFetchLeafHasNoManifest(t *testing.T) {
 	assert.Nil(t, got)
 }
 
+func TestFetchRejectsDependencyWithoutProjectMarker(t *testing.T) {
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/x/libs", "ub/helloer", "ub/helloer/v1.0.0"): {
+			FS: fstest.MapFS{"resource-hello.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)}},
+		},
+	}}
+
+	_, err := NewFetcher(r).Fetch(
+		Dependency{URL: "github.com/x/libs", Subdir: "ub/helloer"}, "v1.0.0")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no manifest.ub or go.mod")
+}
+
 func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "", "v1.0.0"): {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "", "v1.0.0"): {
+			FS: fstest.MapFS{"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/y\n")}},
+		},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y"}, "v1.0.0")
 	require.NoError(t, err)
@@ -90,8 +110,12 @@ func TestFetchUsesPlainTagForRootProject(t *testing.T) {
 
 func TestFetchUsesPrefixedTagForSubdirProject(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "net", "net/v1.0.0"): {FS: fstest.MapFS{}},
-		srcKey("github.com/x/y", "", "v1.0.0"):        {FS: fstest.MapFS{}},
+		srcKey("github.com/x/y", "net", "net/v1.0.0"): {
+			FS: fstest.MapFS{"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/y/net\n")}},
+		},
+		srcKey("github.com/x/y", "", "v1.0.0"): {
+			FS: fstest.MapFS{"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/y\n")}},
+		},
 	}}
 	_, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y", Subdir: "net"}, "v1.0.0")
 	require.NoError(t, err)
@@ -117,10 +141,10 @@ hello: resource {
 		}},
 	}}
 
-	got, err := NewFetcher(r).Fetch(
+	_, err := NewFetcher(r).Fetch(
 		Dependency{URL: "github.com/x/libs", Subdir: "ub/helloer"}, "v1.0.0")
-	require.NoError(t, err)
-	assert.Nil(t, got)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no manifest.ub or go.mod")
 }
 
 func TestFetchReadsExactSubdirManifest(t *testing.T) {

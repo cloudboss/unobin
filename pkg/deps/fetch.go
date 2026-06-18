@@ -35,6 +35,11 @@ func (f *manifestFetcher) Fetch(dep Dependency, version string) (*Manifest, erro
 	}
 	manifest, err := ReadManifest(src.FS)
 	if errors.Is(err, fs.ErrNotExist) {
+		if ok, markerErr := HasProjectMarker(src.FS); markerErr != nil {
+			return nil, markerErr
+		} else if !ok {
+			return nil, noProjectMarkerError(dep)
+		}
 		return nil, nil
 	}
 	if err != nil {
@@ -55,12 +60,16 @@ func RequireProject(dep Dependency, version string, resolver resolve.Resolver) e
 		return err
 	}
 	if !ok {
-		return fmt.Errorf(
-			"%s has no manifest.ub or go.mod; deps get operates on projects, "+
-				"while .ub imports may name packages below projects",
-			dep)
+		return noProjectMarkerError(dep)
 	}
 	return nil
+}
+
+func noProjectMarkerError(dep Dependency) error {
+	return fmt.Errorf(
+		"%s has no manifest.ub or go.mod; deps get operates on projects, "+
+			"while .ub imports may name packages below projects",
+		dep)
 }
 
 // HasProjectMarker reports whether fsys contains manifest.ub or go.mod at its root.

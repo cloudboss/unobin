@@ -206,13 +206,18 @@ func manifestSource(body string) []byte {
 }
 
 func goCoreRemotes() map[string]*resolve.Source {
+	goMod := &fstest.MapFile{Data: []byte("module github.com/x/core\n")}
 	return map[string]*resolve.Source{
-		// the repo root, read by the version walk: no manifest, so a leaf.
-		"github.com/x/core@v1.0.0": {Commit: "root", FS: fstest.MapFS{}},
-		// the imported library, pinned in the lock as a Go library.
+		"github.com/x/core@v1.0.0": {
+			Commit: "abc123",
+			FS:     fstest.MapFS{"go.mod": goMod},
+		},
 		"github.com/x/core//lib@v1.0.0": {
 			Commit: "abc123",
-			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core/lib\n")},
+				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
+			},
 		},
 	}
 }
@@ -224,7 +229,7 @@ func TestDepsSync(t *testing.T) {
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// The floor lives in the manifest; sync rebuilds the lock from it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -238,7 +243,7 @@ func TestDepsSync(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, cliVersion(), lock.ToolchainVersion)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+		"github.com/x/core": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
 }
 
@@ -258,7 +263,7 @@ func TestDepsSyncRootImportUsesRepoFloor(t *testing.T) {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/x/core": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "root"},
+		"github.com/x/core": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
 }
 
@@ -269,7 +274,7 @@ func TestDepsSyncUsesAncestorManifest(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"),
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(child, "factory.ub"))
@@ -333,7 +338,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(deps.ManifestFileName,
-		[]byte("manifest: { requires: { 'github.com/x/core//lib': 'v1.0.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync")
 	require.NoError(t, err)
@@ -344,7 +349,7 @@ factory: {
 	require.NoError(t, err)
 	require.Equal(t, cliVersion(), lock.ToolchainVersion)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+		"github.com/x/core": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
 }
 
@@ -383,7 +388,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("manifest: { requires: { 'github.com/x/core//lib': 'v1.0.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -394,7 +399,7 @@ factory: {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core//lib': 'v1.0.0'
+    'github.com/x/core': 'v1.0.0'
   }
 }
 `, string(manifestBytes))
@@ -459,7 +464,7 @@ greeting: resource {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync", "-p", root)
 	require.NoError(t, err)
@@ -467,7 +472,7 @@ greeting: resource {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/x/core//lib": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
+		"github.com/x/core": {Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "abc123"},
 	}, lock.Deps)
 }
 
@@ -481,18 +486,27 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/acme/shared//lib': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'github.com/acme/shared': 'v1.0.0' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/acme/nested//lib': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'github.com/acme/nested': 'v1.0.0' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
 thing: resource {
   imports: { nested: 'github.com/acme/nested//lib' }
 }
 `), 0o644))
 	remotes := map[string]*resolve.Source{
+		"github.com/acme/shared@v1.0.0": {
+			Commit: "shared",
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/shared\n")},
+			},
+		},
 		"github.com/acme/shared//lib@v1.0.0": {
 			Commit: "shared",
-			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/shared/lib\n")},
+				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
+			},
 		},
 	}
 
@@ -502,7 +516,7 @@ thing: resource {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/acme/shared//lib": {
+		"github.com/acme/shared": {
 			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "shared",
 		},
 	}, lock.Deps)
@@ -521,16 +535,25 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/acme/nested//lib': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'github.com/acme/nested': 'v1.0.0' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
 thing: resource {
   imports: { nested: 'github.com/acme/nested//lib' }
 }
 `), 0o644))
 	remotes := map[string]*resolve.Source{
+		"github.com/acme/nested@v1.0.0": {
+			Commit: "nested",
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/nested\n")},
+			},
+		},
 		"github.com/acme/nested//lib@v1.0.0": {
 			Commit: "nested",
-			FS:     fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/nested/lib\n")},
+				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
+			},
 		},
 	}
 
@@ -540,7 +563,7 @@ thing: resource {
 	lock, err := deps.ReadLock(os.DirFS(child))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/acme/nested//lib": {
+		"github.com/acme/nested": {
 			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "nested",
 		},
 	}, lock.Deps)
@@ -589,7 +612,7 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	// gone/repo is listed but no longer imported; sync must remove it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
-			"  'github.com/x/core//lib': 'v1.0.0'\n}\n"), 0o644))
+			"  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -599,7 +622,7 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core//lib': 'v1.0.0'
+    'github.com/x/core': 'v1.0.0'
   }
 }
 `, string(manifestBytes))
