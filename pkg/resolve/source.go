@@ -1,7 +1,11 @@
 package resolve
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
+	pathpkg "path"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -47,9 +51,9 @@ func HasCompositeExports(s *Source) bool {
 	if s == nil || s.FS == nil {
 		return false
 	}
-	matches, err := fs.Glob(s.FS, "*.ub")
+	matches, err := librarySourceFiles(s.FS)
 	if err != nil {
-		return false
+		return true
 	}
 	for _, name := range matches {
 		if sourceFileMayBeLibrary(s.FS, name) {
@@ -57,6 +61,62 @@ func HasCompositeExports(s *Source) bool {
 		}
 	}
 	return false
+}
+
+func librarySourceFiles(fsys fs.FS) ([]string, error) {
+	var paths []string
+	err := fs.WalkDir(fsys, ".", func(name string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if name == "." {
+				return nil
+			}
+			if strings.HasPrefix(d.Name(), ".") {
+				return fs.SkipDir
+			}
+			hasManifest, err := sourceDirHasManifest(fsys, name)
+			if err != nil {
+				return err
+			}
+			if hasManifest {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(name, ".ub") {
+			paths = append(paths, name)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	slices.Sort(paths)
+	return paths, nil
+}
+
+func sourceDirHasManifest(fsys fs.FS, dir string) (bool, error) {
+	manifestPath := pathpkg.Join(dir, "manifest.ub")
+	b, err := fs.ReadFile(fsys, manifestPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	f, err := syntax.ParseSource(manifestPath, b)
+	if err != nil {
+		return true, err
+	}
+	if f.Kind != syntax.FileManifest || f.Manifest == nil {
+		return true, fmt.Errorf("%s must declare manifest", manifestPath)
+	}
+	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
+		return true, errs.Err()
+	}
+	return true, nil
 }
 
 func sourceFileMayBeLibrary(fsys fs.FS, name string) bool {

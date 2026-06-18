@@ -407,11 +407,10 @@ func libraryBodyImports(entry CompositeEntry) (map[string]ImportRef, []error) {
 }
 
 func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
-	matches, err := fs.Glob(source.FS, "*.ub")
+	matches, err := librarySourceFiles(source.FS)
 	if err != nil {
 		return nil, err
 	}
-	slices.Sort(matches)
 	syntaxBodies := make(map[string]map[string]syntax.FactoryBody, len(matches))
 	for _, filename := range matches {
 		b, err := readSourceFile(source, filename)

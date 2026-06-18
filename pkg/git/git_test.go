@@ -77,6 +77,21 @@ func TestLsRemoteResolvesTag(t *testing.T) {
 	require.Equal(t, wantSHA, got)
 }
 
+func TestLsRemoteResolvesAnnotatedTagToCommit(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "src")
+	repo, commit := initRepo(t, src)
+	sig := &object.Signature{Name: "t", Email: "t@t"}
+	_, err := repo.CreateTag("v1", commit, &gogit.CreateTagOptions{
+		Tagger:  sig,
+		Message: "v1",
+	})
+	require.NoError(t, err)
+
+	got, err := LsRemote(context.Background(), src, "v1")
+	require.NoError(t, err)
+	require.Equal(t, commit.String(), got)
+}
+
 func TestLsRemoteResolvesBranch(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRepo(t, src)

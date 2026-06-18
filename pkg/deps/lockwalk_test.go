@@ -216,6 +216,31 @@ hello: resource {
 	}, lock.Deps)
 }
 
+func TestLockFromImportsRootRemoteWithNestedLibraryFiles(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": "factory: { imports: { helloer: 'github.com/scratch/repo' } }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "", "v0.8.0"): ubSrc("c1", "sha256:h1",
+			map[string]string{
+				"manifest.ub": "manifest: { requires: {} }\n",
+				"ub/helloer/resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+			}),
+	}}
+	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.8.0"}
+	lock, err := LockFromImports(root, sel, r, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*LockedDep{
+		"github.com/scratch/repo": {
+			Kind: LockKindUB, Version: "v0.8.0", Commit: "c1", Hash: "sha256:h1",
+		},
+	}, lock.Deps)
+}
+
 func TestLockFromImportsSkipsNestedProjects(t *testing.T) {
 	root := mapFS(map[string]string{
 		ManifestFileName: "manifest: { requires: {} }\n",

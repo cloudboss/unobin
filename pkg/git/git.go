@@ -23,17 +23,25 @@ func LsRemote(ctx context.Context, url, ref string) (string, error) {
 		Name: "origin",
 		URLs: []string{url},
 	})
-	refs, err := rem.ListContext(ctx, &gogit.ListOptions{})
+	refs, err := rem.ListContext(ctx, &gogit.ListOptions{PeelingOption: gogit.AppendPeeled})
 	if err != nil {
 		return "", fmt.Errorf("ls-remote %s: %w", url, err)
 	}
 	wantTag := plumbing.NewTagReferenceName(ref).String()
+	wantPeeledTag := wantTag + "^{}"
 	wantBranch := plumbing.NewBranchReferenceName(ref).String()
+	var tagHash string
 	for _, r := range refs {
 		name := r.Name().String()
-		if name == wantTag || name == wantBranch {
+		if name == wantPeeledTag || name == wantBranch {
 			return r.Hash().String(), nil
 		}
+		if name == wantTag {
+			tagHash = r.Hash().String()
+		}
+	}
+	if tagHash != "" {
+		return tagHash, nil
 	}
 	if plumbing.IsHash(ref) {
 		return ref, nil
