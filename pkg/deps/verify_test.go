@@ -21,6 +21,35 @@ func TestVerifyMatchingHash(t *testing.T) {
 	assert.Empty(t, mismatches)
 }
 
+func TestVerifyHashesUBProjectRootWhenResolverHashEmpty(t *testing.T) {
+	fsys := mapFS(map[string]string{
+		ManifestFileName: "manifest: { requires: {} }\n",
+		"ub/helloer/library.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+	})
+	hash, err := resolve.HashTree(fsys)
+	require.NoError(t, err)
+	lock := NewLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["github.com/scratch/repo"] = &LockedDep{
+		Kind:    LockKindUB,
+		Version: "v0.8.0",
+		Commit:  "c1",
+		Hash:    hash,
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "", "c1"): {Commit: "c1", FS: fsys},
+	}}
+
+	mismatches, err := Verify(lock, r)
+
+	require.NoError(t, err)
+	require.Empty(t, mismatches)
+}
+
 func TestVerifyDetectsMismatch(t *testing.T) {
 	lock := NewLock()
 	lock.Deps["github.com/x/y//lib"] = &LockedDep{

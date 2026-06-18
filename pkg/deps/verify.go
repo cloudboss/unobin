@@ -28,9 +28,16 @@ func Verify(lock *Lock, resolver resolve.Resolver) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("verify %s: %w", id, err)
 		}
-		if src.Hash != entry.Hash {
+		hash := src.Hash
+		if hash == "" {
+			hash, err = resolve.HashTree(src.FS)
+			if err != nil {
+				return nil, fmt.Errorf("verify %s: %w", id, err)
+			}
+		}
+		if hash != entry.Hash {
 			mismatches = append(mismatches,
-				fmt.Sprintf("%s: hash mismatch (locked %s, got %s)", id, entry.Hash, src.Hash))
+				fmt.Sprintf("%s: hash mismatch (locked %s, got %s)", id, entry.Hash, hash))
 		}
 	}
 	return mismatches, nil
