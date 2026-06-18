@@ -235,6 +235,12 @@ func hashTree(fsys fs.FS) (string, error) {
 		if err != nil {
 			return err
 		}
+		if p == ".git" {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
 		if d.IsDir() {
 			return nil
 		}

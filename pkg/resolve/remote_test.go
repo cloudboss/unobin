@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -177,6 +178,33 @@ hello: resource {
 	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "hello: resource")
+}
+
+func TestHashTreeIgnoresGitMetadata(t *testing.T) {
+	withoutGit := fstest.MapFS{
+		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+	}
+	withGit := fstest.MapFS{
+		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+		".git/config":       &fstest.MapFile{Data: []byte("[remote \"origin\"]\n")},
+		".git/refs/tags/v1": &fstest.MapFile{Data: []byte("abc123\n")},
+	}
+
+	want, err := HashTree(withoutGit)
+	require.NoError(t, err)
+	got, err := HashTree(withGit)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
 }
 
 func TestRemoteResolverCacheHitSkipsRefetch(t *testing.T) {

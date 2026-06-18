@@ -6,7 +6,7 @@ lock: {
       kind:    ub
       version: 'v0.8.0'
       commit:  'da1df2b8c5c409e8cbba850a5cf6d9a26aab3e31'
-      hash:    'sha256:4058ea7486d69bda7a1668d3fd79c9c401041e1dbc99893e0edc5a3c168cc264'
+      hash:    'sha256:85ef8b330f4fbfcdcd71560d2cbc61e5388394110678f64ffc9d6646eda2aa2e'
     }
     'github.com/cloudboss/unobin-library-std': {
       kind:    go
