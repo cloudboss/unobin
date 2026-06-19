@@ -53,7 +53,7 @@ func View(ct Registration) (LibraryConfigView, error) {
 		Defaults: defaults,
 		Empty:    len(fields) == 0,
 	}
-	out.SchemaDigest = digestView(out.Fields, out.Defaults)
+	out.SchemaDigest = DigestView(out.Fields, out.Defaults)
 	return out, nil
 }
 
@@ -291,7 +291,8 @@ func wrapperValue(v reflect.Value) (any, error) {
 	return nil, fmt.Errorf("unsupported default value %s", v.Type())
 }
 
-func digestView(fields []typecheck.ObjectField, defaults []lang.DefaultSpec) string {
+// DigestView returns a deterministic digest for a config schema view.
+func DigestView(fields []typecheck.ObjectField, defaults []lang.DefaultSpec) string {
 	h := sha256.New()
 	writeViewFields(h, fields)
 	for _, def := range defaults {

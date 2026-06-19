@@ -30,8 +30,12 @@ type LibrarySchema struct {
 	// HasConfiguration distinguishes the two: it is true whenever the
 	// library declares a configuration, readable or not, so checks can
 	// tell "no configuration" from "fields unknowable".
-	Configuration    map[string]typecheck.Type
-	HasConfiguration bool
+	Configuration         map[string]typecheck.Type
+	ConfigurationFields   []typecheck.ObjectField
+	ConfigurationDefaults []lang.DefaultSpec
+	ConfigurationDigest   string
+	ConfigurationEmpty    bool
+	HasConfiguration      bool
 }
 
 // TypeSchema describes the input and output fields of one resource,

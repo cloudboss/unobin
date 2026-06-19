@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +44,23 @@ func TestReadExtractsConfigurationSchema(t *testing.T) {
 		"endpoint":    endpoint,
 		"assume-role": typecheck.TOptional(assumeRole),
 	}
+	wantFields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "profile", Type: typecheck.TString(), Optional: true},
+		{Name: "retries", Type: typecheck.TInteger()},
+		{Name: "ratio", Type: typecheck.TNumber(), Optional: true},
+		{Name: "verbose", Type: typecheck.TBoolean()},
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString())},
+		{Name: "subnets", Type: typecheck.TList(typecheck.TString())},
+		{Name: "extra", Type: typecheck.TOpaque()},
+		{Name: "endpoint", Type: endpoint},
+		{Name: "assume-role", Type: assumeRole, Optional: true},
+	}
 	require.Equal(t, want, schema.Configuration)
+	require.Equal(t, wantFields, schema.ConfigurationFields)
+	require.Empty(t, schema.ConfigurationDefaults)
+	require.False(t, schema.ConfigurationEmpty)
+	require.Equal(t, cfg.DigestView(wantFields, nil), schema.ConfigurationDigest)
 	require.True(t, schema.HasConfiguration)
 }
 
@@ -839,7 +856,15 @@ func TestReadConfigurationFromExtraRoot(t *testing.T) {
 		"assume-role": typecheck.TOptional(assumeRole),
 		"tuning":      tuning,
 	}
+	wantFields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "endpoint", Type: typecheck.TString(), Optional: true},
+		{Name: "assume-role", Type: assumeRole, Optional: true},
+		{Name: "tuning", Type: tuning},
+	}
 	require.Equal(t, want, schema.Configuration)
+	require.Equal(t, wantFields, schema.ConfigurationFields)
+	require.Equal(t, cfg.DigestView(wantFields, nil), schema.ConfigurationDigest)
 	require.True(t, schema.HasConfiguration)
 }
 

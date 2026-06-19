@@ -23,6 +23,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
@@ -99,13 +100,16 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 		} else {
 			w := newWalker(roots, rootPkg, cache, errs, &warnings)
 			w.subject = "library configuration"
-			fields, _ := w.lookupFields(ref)
+			fields, _ := w.lookupObjectFields(ref)
 			if fields == nil {
 				warnings = append(warnings, fmt.Sprintf(
 					"library configuration: %s not found in reachable source, "+
 						"so configuration fields are unchecked", ref))
 			} else {
-				schema.Configuration = fields
+				schema.Configuration = objectFieldsToMap(fields)
+				schema.ConfigurationFields = fields
+				schema.ConfigurationEmpty = len(fields) == 0
+				schema.ConfigurationDigest = cfg.DigestView(fields, nil)
 			}
 		}
 	}
@@ -295,8 +299,13 @@ func (w *walker) rootFor(importPath string) (ModuleRoot, bool) {
 // current position must be the library's root package; PkgAlias
 // triggers a switch into the referenced subpackage.
 func (w *walker) lookupFields(ref typeRef) (map[string]typecheck.Type, map[string]bool) {
+	fields, sensitive := w.lookupObjectFields(ref)
+	return objectFieldsToMap(fields), sensitive
+}
+
+func (w *walker) lookupObjectFields(ref typeRef) ([]typecheck.ObjectField, map[string]bool) {
 	if ref.PkgAlias == "" {
-		return w.fieldsFromPackage(ref.TypeName)
+		return w.objectFieldsFromPackage(ref.TypeName)
 	}
 	importPath, ok := w.imports[ref.PkgAlias]
 	if !ok {
@@ -306,15 +315,16 @@ func (w *walker) lookupFields(ref typeRef) (map[string]typecheck.Type, map[strin
 	if sub == nil {
 		return nil, nil
 	}
-	return sub.fieldsFromPackage(ref.TypeName)
+	return sub.objectFieldsFromPackage(ref.TypeName)
 }
 
-// fieldsFromPackage finds the named type in the walker's current
+// objectFieldsFromPackage finds the named type in the walker's current
 // package files, follows one level of alias if present (including
-// across packages for selector aliases), and returns the kebab-name
-// to typecheck.Type map of the resolved struct's fields along with
-// the set of fields marked sensitive.
-func (w *walker) fieldsFromPackage(typeName string) (map[string]typecheck.Type, map[string]bool) {
+// across packages for selector aliases), and returns fields in declaration
+// order with the set of fields marked sensitive.
+func (w *walker) objectFieldsFromPackage(
+	typeName string,
+) ([]typecheck.ObjectField, map[string]bool) {
 	spec := findTypeSpec(w.files, typeName)
 	if spec == nil {
 		return nil, nil
@@ -336,7 +346,7 @@ func (w *walker) fieldsFromPackage(typeName string) (map[string]typecheck.Type, 
 			if sub == nil {
 				return nil, nil
 			}
-			return sub.fieldsFromPackage(t.Sel.Name)
+			return sub.objectFieldsFromPackage(t.Sel.Name)
 		default:
 			return nil, nil
 		}
@@ -351,19 +361,17 @@ func (w *walker) fieldsFromPackage(typeName string) (map[string]typecheck.Type, 
 	key := w.importPath + "." + typeName
 	w.visiting[key] = true
 	defer delete(w.visiting, key)
-	return w.fieldsFromStruct(st)
+	return w.objectFieldsFromStruct(st)
 }
 
-// fieldsFromStruct walks one struct's fields into a kebab-name to
-// Type map plus a set of names the library marked sensitive. Each
-// field's Go type goes through typeFromAST so nested struct types
-// in the same package expand into Object types, and types named via
-// a selector into another in-library package expand the same way.
-func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type, map[string]bool) {
+// objectFieldsFromStruct walks one struct's fields in declaration order.
+func (w *walker) objectFieldsFromStruct(
+	st *ast.StructType,
+) ([]typecheck.ObjectField, map[string]bool) {
 	if st.Fields == nil {
 		return nil, nil
 	}
-	out := map[string]typecheck.Type{}
+	var fields []typecheck.ObjectField
 	var sensitive map[string]bool
 	w.eachStructField(st, func(kebab string, fld *ast.Field, isSensitive bool) {
 		t := w.typeFromAST(fld.Type)
@@ -371,7 +379,7 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 			w.addWarnf("field %s: Go type %s does not fully map to language types, "+
 				"so reads of it are unchecked", kebab, types.ExprString(fld.Type))
 		}
-		out[kebab] = t
+		fields = append(fields, objectField(kebab, t))
 		if isSensitive {
 			if sensitive == nil {
 				sensitive = map[string]bool{}
@@ -379,7 +387,22 @@ func (w *walker) fieldsFromStruct(st *ast.StructType) (map[string]typecheck.Type
 			sensitive[kebab] = true
 		}
 	})
-	return out, sensitive
+	return fields, sensitive
+}
+
+func objectFieldsToMap(fields []typecheck.ObjectField) map[string]typecheck.Type {
+	if fields == nil {
+		return nil
+	}
+	out := make(map[string]typecheck.Type, len(fields))
+	for _, field := range fields {
+		t := field.Type
+		if field.Optional {
+			t = typecheck.TOptional(t)
+		}
+		out[field.Name] = t
+	}
+	return out
 }
 
 // eachStructField calls fn for every declared, unskipped field of st
