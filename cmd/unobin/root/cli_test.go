@@ -838,17 +838,38 @@ func TestDepsSyncWithReplace(t *testing.T) {
 	require.Empty(t, lock.Deps, "a replaced dependency is not locked")
 }
 
-func TestDepsSyncRejectsMissingFloor(t *testing.T) {
+func TestDepsSyncDiscoversMissingOwner(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	stubListTags(t, map[string][]string{"github.com/x/core": {"v1.0.0"}})
+	remotes := map[string]*resolve.Source{
+		"github.com/x/core@v1.0.0": {
+			Commit: "c1",
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core\n")},
+			},
+		},
+		"github.com/x/core//lib@v1.0.0": {
+			Commit: "c1",
+			FS: fstest.MapFS{
+				"lib.go": &fstest.MapFile{Data: []byte("package lib\n")},
+			},
+		},
+	}
 
-	// No manifest, so the imported repo has no floor.
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "github.com/x/core")
-	require.Contains(t, err.Error(), "deps get")
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/core': 'v1.0.0'
+  }
+}
+`, string(manifestBytes))
 }
 
 func TestDepsSyncPrunesStaleFloor(t *testing.T) {

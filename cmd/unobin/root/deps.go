@@ -151,7 +151,11 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := reconcileManifest(manifestName, manifest, imported, lock); err != nil {
+	resolver, err := newDepsResolver(root, cfg.replaceUnobin, manifest.Replace)
+	if err != nil {
+		return err
+	}
+	if err := reconcileManifest(manifestName, manifest, imported, lock, resolver); err != nil {
 		return err
 	}
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
@@ -226,6 +230,7 @@ func reconcileManifest(
 	m *deps.Manifest,
 	imported map[deps.RemotePackage]bool,
 	lock *deps.Lock,
+	resolver resolve.Resolver,
 ) error {
 	projects := deps.ProjectIDsFromDependencies(m.Requires)
 	lockedProjects := lockProjectIDs(lock)
@@ -261,6 +266,17 @@ func reconcileManifest(
 			used[dep] = true
 			continue
 		}
+		discovered, version, found, err := discoverImportOwner(pkg, resolver)
+		if err != nil {
+			return err
+		}
+		if found {
+			dep := discovered.Project.Dependency()
+			m.Requires[dep] = version
+			projects = append(projects, discovered.Project)
+			used[dep] = true
+			continue
+		}
 		missing = append(missing, pkg.String())
 	}
 	if len(missing) > 0 {
@@ -276,6 +292,96 @@ func reconcileManifest(
 		}
 	}
 	return nil
+}
+
+func discoverImportOwner(
+	pkg deps.RemotePackage, resolver resolve.Resolver,
+) (deps.PackageOwner, string, bool, error) {
+	tags, err := depsListTags(pkg.URL)
+	if err != nil {
+		return deps.PackageOwner{}, "", false, err
+	}
+	for _, project := range importOwnerCandidates(pkg) {
+		dep := project.Dependency()
+		versions := deps.Versions(dep, tags)
+		if len(versions) == 0 {
+			continue
+		}
+		version := versions[len(versions)-1]
+		owner, ok := deps.ProjectContains(project, pkg)
+		if !ok {
+			continue
+		}
+		found, err := discoveredProjectHasMarker(project, version, resolver)
+		if err != nil {
+			return deps.PackageOwner{}, "", false, err
+		}
+		if !found {
+			continue
+		}
+		packageOwner := deps.PackageOwner{Project: project, PackageSubdir: owner}
+		if blockedByNestedProject(packageOwner, pkg, resolver, version) {
+			continue
+		}
+		return packageOwner, version, true, nil
+	}
+	return deps.PackageOwner{}, "", false, nil
+}
+
+func importOwnerCandidates(pkg deps.RemotePackage) []deps.ProjectID {
+	var candidates []deps.ProjectID
+	for subdir := pkg.Subdir; ; subdir = parentSubdir(subdir) {
+		candidates = append(candidates, deps.ProjectID{URL: pkg.URL, Subdir: subdir})
+		if subdir == "" {
+			break
+		}
+	}
+	return candidates
+}
+
+func parentSubdir(subdir string) string {
+	if subdir == "" {
+		return ""
+	}
+	if i := strings.LastIndex(subdir, "/"); i >= 0 {
+		return subdir[:i]
+	}
+	return ""
+}
+
+func discoveredProjectHasMarker(
+	project deps.ProjectID, version string, resolver resolve.Resolver,
+) (bool, error) {
+	src, err := resolver.Resolve(&resolve.RemoteImport{
+		URL:           project.URL,
+		Subdir:        project.Subdir,
+		ProjectSubdir: project.Subdir,
+		PackageSubdir: project.Subdir,
+		Version:       deps.ProjectTag(project, version),
+	})
+	if err != nil {
+		return false, err
+	}
+	return deps.HasProjectMarker(src.FS)
+}
+
+func blockedByNestedProject(
+	owner deps.PackageOwner,
+	pkg deps.RemotePackage,
+	resolver resolve.Resolver,
+	version string,
+) bool {
+	src, err := resolver.Resolve(&resolve.RemoteImport{
+		URL:           pkg.URL,
+		Subdir:        pkg.Subdir,
+		ProjectSubdir: owner.Project.Subdir,
+		PackageSubdir: pkg.Subdir,
+		Version:       deps.ProjectTag(owner.Project, version),
+	})
+	if err != nil {
+		return false
+	}
+	return deps.CheckPackageBoundary(src, owner, pkg) != nil
 }
 
 func lockProjectIDs(lock *deps.Lock) []deps.ProjectID {
