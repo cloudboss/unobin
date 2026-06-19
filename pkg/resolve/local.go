@@ -34,6 +34,9 @@ func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 		return nil, absoluteLocalImportError(li.Path)
 	}
 	abs := filepath.Join(r.Root, li.Path)
+	if err := checkLocalPathSymlinks(r.Root, li.Path); err != nil {
+		return nil, err
+	}
 	if err := checkLocalProjectBoundary(r.Root, abs, li.Path); err != nil {
 		return nil, err
 	}
@@ -66,6 +69,9 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 			return nil, absoluteLocalImportError(li.Path)
 		}
 		abs := filepath.Join(parent.Path, li.Path)
+		if err := checkLocalPathSymlinks(parent.Path, li.Path); err != nil {
+			return nil, err
+		}
 		if err := checkLocalProjectBoundary(parent.Path, abs, li.Path); err != nil {
 			return nil, err
 		}
@@ -97,6 +103,28 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 
 func absoluteLocalImportError(path string) error {
 	return fmt.Errorf("local import %q: absolute paths are not supported", path)
+}
+
+func checkLocalPathSymlinks(importerDir, importPath string) error {
+	cur := importerDir
+	for part := range strings.SplitSeq(filepath.Clean(importPath), string(filepath.Separator)) {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			cur = filepath.Dir(cur)
+			continue
+		}
+		cur = filepath.Join(cur, part)
+		info, err := os.Lstat(cur)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("local import %q: symlink %s is not supported", importPath, cur)
+		}
+	}
+	return nil
 }
 
 func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error {

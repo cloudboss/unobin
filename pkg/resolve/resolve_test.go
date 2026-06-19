@@ -51,6 +51,17 @@ func TestLocalResolverMissing(t *testing.T) {
 	require.True(t, errors.Is(err, fs.ErrNotExist))
 }
 
+func TestLocalResolverRejectsSymlinkPath(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "real-library")
+	writeFile(t, filepath.Join(target, "library.ub"), "description: 'real'\n")
+	require.NoError(t, os.Symlink(target, filepath.Join(root, "link-library")))
+
+	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./link-library"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "symlink")
+}
+
 func TestLocalResolverFileNotDir(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "stray.ub"), "description: 'x'\n")
