@@ -1,0 +1,6 @@
+factory: {
+  locals: {
+    dup: 'one'
+    dup: 'two'
+  }
+}

@@ -1,0 +1,7 @@
+stack: {
+  locals: {
+    dup: 'one'
+    dup: 'two'
+  }
+  encryption: noop {}
+}

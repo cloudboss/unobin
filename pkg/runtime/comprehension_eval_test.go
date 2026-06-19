@@ -119,32 +119,37 @@ func TestEvalComprehensionErrors(t *testing.T) {
 		name string
 		src  string
 		ctx  *EvalContext
+		want string
 	}{
 		{
 			name: "duplicate key without group",
 			src:  "{ for x in var.subnets : x.az => x.id }",
 			ctx:  subnetCtx(),
+			want: `eval: comprehension produced duplicate key "z1"; use ... to group`,
 		},
 		{
 			name: "non-list-or-map source",
 			src:  "[ for x in var.s : x ]",
 			ctx:  &EvalContext{Vars: map[string]any{"s": "scalar"}},
+			want: "eval: comprehension source must be a list or map, got a string",
 		},
 		{
 			name: "non-boolean filter",
 			src:  "[ for x in var.items : x when x ]",
 			ctx:  &EvalContext{Vars: map[string]any{"items": []any{"a"}}},
+			want: "eval: comprehension filter must be a boolean, got a string",
 		},
 		{
 			name: "non-string map key",
 			src:  "{ for x in var.items : x => x }",
 			ctx:  &EvalContext{Vars: map[string]any{"items": []any{int64(1)}}},
+			want: "eval: comprehension key must be a string, got an integer",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Eval(parseValue(t, tt.src), tt.ctx)
-			require.Error(t, err)
+			require.EqualError(t, err, tt.want)
 		})
 	}
 }

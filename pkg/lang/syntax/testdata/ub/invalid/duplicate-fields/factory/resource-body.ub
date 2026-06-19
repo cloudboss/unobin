@@ -1,0 +1,8 @@
+factory: {
+  resources: {
+    hello: std.fs-file {
+      path: '/tmp/one'
+      path: '/tmp/two'
+    }
+  }
+}

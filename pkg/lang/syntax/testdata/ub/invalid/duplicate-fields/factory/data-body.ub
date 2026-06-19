@@ -1,0 +1,8 @@
+factory: {
+  data: {
+    current: std.file {
+      path: '/tmp/one'
+      path: '/tmp/two'
+    }
+  }
+}

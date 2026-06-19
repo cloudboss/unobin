@@ -1,0 +1,7 @@
+stack: {
+  state: local {
+    path: './one.json'
+    path: './two.json'
+  }
+  encryption: noop {}
+}

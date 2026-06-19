@@ -1,0 +1,8 @@
+factory: {
+  locals: {
+    one: 1
+  }
+  locals: {
+    two: 2
+  }
+}

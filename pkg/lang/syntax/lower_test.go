@@ -417,6 +417,19 @@ func TestLowerInvalidSelectorBodyFixtures(t *testing.T) {
 	})
 }
 
+func TestLowerDuplicateObjectFieldFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/invalid/duplicate-fields", func(
+		name string, src []byte,
+	) (string, []string) {
+		f, err := lang.ParseSource(duplicateFieldFixturePath(name), src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		_, errs := LowerFile(f)
+		return "", errs.Messages()
+	})
+}
+
 func selectorBodyFixtureKind(name string) (parse.FileKind, string) {
 	switch name {
 	case "factory":
@@ -437,6 +450,27 @@ func invalidSelectorBodyFixturePath(name string) string {
 	case strings.HasPrefix(name, "stack-"):
 		return "dev.ub"
 	case strings.HasPrefix(name, "library-"):
+		return "library.ub"
+	default:
+		return name + ".ub"
+	}
+}
+
+func duplicateFieldFixturePath(name string) string {
+	parts := strings.Split(name, "/")
+	if len(parts) == 0 {
+		return name + ".ub"
+	}
+	switch parts[0] {
+	case "factory":
+		return "factory.ub"
+	case "stack":
+		return "dev.ub"
+	case "manifest":
+		return "manifest.ub"
+	case "lock":
+		return "lock.ub"
+	case "library":
 		return "library.ub"
 	default:
 		return name + ".ub"

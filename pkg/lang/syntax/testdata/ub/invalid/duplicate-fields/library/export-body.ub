@@ -1,0 +1,8 @@
+greeting: resource {
+  locals: {
+    cfg: {
+      path: '/tmp/one'
+      path: '/tmp/two'
+    }
+  }
+}

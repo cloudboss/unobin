@@ -1,0 +1,10 @@
+factory: {
+  inputs: {
+    cfg: {
+      type: object({
+        name: string
+        name: integer
+      })
+    }
+  }
+}

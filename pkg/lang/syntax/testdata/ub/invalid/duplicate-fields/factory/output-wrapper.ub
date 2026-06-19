@@ -1,0 +1,8 @@
+factory: {
+  outputs: {
+    result: {
+      value: 'one'
+      value: 'two'
+    }
+  }
+}

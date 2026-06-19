@@ -1,0 +1,11 @@
+factory: {
+  inputs: {
+    tags: {
+      type: map(string)
+      default: {
+        env: 'prod'
+        env: 'stage'
+      }
+    }
+  }
+}

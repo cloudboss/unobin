@@ -1,0 +1,8 @@
+factory: {
+  actions: {
+    run: std.exec {
+      command: 'one'
+      command: 'two'
+    }
+  }
+}

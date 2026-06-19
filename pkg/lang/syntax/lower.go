@@ -30,6 +30,10 @@ func lowerFile(f *parse.File, mode lowerMode) (*File, *parse.ErrorList) {
 		Path:     f.Path,
 		Comments: f.Comments,
 	}
+	validateUniqueObjectFields(f.Body, errs)
+	if errs.Len() > 0 {
+		return out, errs
+	}
 	if lowerSourceDeclaredFile(f, out, errs, mode) {
 		return out, errs
 	}
@@ -712,18 +716,11 @@ func storeNestedTypeFields(
 
 func lowerLocals(block *parse.ObjectLit, what string, errs *parse.ErrorList) []LocalDecl {
 	locals := make([]LocalDecl, 0, len(block.Fields))
-	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
 		name, ok := fieldName(fld, what+" name", errs)
 		if !ok {
 			continue
 		}
-		if prev, dup := seen[name.Name]; dup {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"duplicate %s %q (first defined at %s)", what, name.Name, prev)
-			continue
-		}
-		seen[name.Name] = fld.Key.S.Start
 		locals = append(locals, LocalDecl{S: fld.S, Name: name, Value: fld.Value})
 	}
 	return locals
