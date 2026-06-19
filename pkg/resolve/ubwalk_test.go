@@ -93,6 +93,40 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 	require.Empty(t, v.ubCalls)
 }
 
+func TestWalkUBRejectsParentProjectPastNestedMarker(t *testing.T) {
+	projectFS := fstest.MapFS{
+		"manifest.ub": &fstest.MapFile{
+			Data: []byte("manifest: { requires: {} }\n"),
+		},
+		"ub/project-b/manifest.ub": &fstest.MapFile{
+			Data: []byte("manifest: { requires: {} }\n"),
+		},
+		"ub/project-b/comprehensions/library.ub": &fstest.MapFile{
+			Data: []byte("hello: resource {}\n"),
+		},
+	}
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"example.com/repo//ub/project-b/comprehensions@v1.0.0": {
+			Commit: "c1",
+			FS: fstest.MapFS{
+				"library.ub": &fstest.MapFile{Data: []byte("hello: resource {}\n")},
+			},
+			ProjectFS:     projectFS,
+			PackageSubdir: "ub/project-b/comprehensions",
+		},
+	}}
+	refs := map[string]ImportRef{
+		"hello": &RemoteImport{URL: "example.com/repo", Subdir: "ub/project-b/comprehensions"},
+	}
+	versions := map[string]string{"example.com/repo": "v1.0.0"}
+
+	_, err := WalkUB(refs, r, newRecordingVisitor(), versions)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "does not own package")
+	require.Contains(t, err.Error(), "example.com/repo//ub/project-b")
+}
+
 func TestWalkUBValidatesGoModulePath(t *testing.T) {
 	tests := []struct {
 		name       string

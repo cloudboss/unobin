@@ -4,5 +4,6 @@ manifest: {
   }
   replace: {
     'github.com/cloudboss/unobin': '../..'
+    'github.com/cloudboss/unobin//examples/constraints': '.'
   }
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	pathpkg "path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/semver"
 )
@@ -216,6 +218,57 @@ func remoteProjectContains(projectSubdir, packageSubdir string) bool {
 	return strings.HasPrefix(packageSubdir, projectSubdir+"/")
 }
 
+func checkRemotePackageBoundary(r *RemoteImport, source *Source) error {
+	if source == nil || source.ProjectFS == nil {
+		return nil
+	}
+	projectSubdir := remoteProjectSubdir(r)
+	packageSubdir := remotePackageSubdir(r)
+	packageRel := packageSubdirInProject(projectSubdir, packageSubdir)
+	if packageRel == "" || packageRel == "." {
+		return nil
+	}
+	current := "."
+	for part := range strings.SplitSeq(packageRel, "/") {
+		if part == "" || part == "." {
+			continue
+		}
+		current = pathpkg.Join(current, part)
+		marker, err := projectmarker.Classify(source.ProjectFS, current)
+		if err != nil {
+			return err
+		}
+		if marker.Kind != projectmarker.None {
+			return remoteNestedProjectError(r, projectSubdir, packageSubdir, current)
+		}
+	}
+	return nil
+}
+
+func remoteNestedProjectError(
+	r *RemoteImport, projectSubdir, packageSubdir, nestedRel string,
+) error {
+	project := remoteProjectID(r.URL, projectSubdir)
+	pkg := remoteProjectID(r.URL, packageSubdir)
+	nestedSubdir := nestedRel
+	if projectSubdir != "" {
+		nestedSubdir = pathpkg.Join(projectSubdir, nestedRel)
+	}
+	nested := remoteProjectID(r.URL, nestedSubdir)
+	return fmt.Errorf(
+		"selected project %s does not own package %s; "+
+			"the package is inside nested project %s. "+
+			"Add that project to manifest.requires or replace it directly.",
+		project, pkg, nested)
+}
+
+func remoteProjectID(url, subdir string) string {
+	if subdir == "" || subdir == "." {
+		return url
+	}
+	return url + "//" + subdir
+}
+
 // walkRefs walks each ref in alias order. repo is the repository the
 // declaring body lives in (empty at the factory root); it scopes the
 // internal-visibility check.
@@ -256,6 +309,11 @@ func (w *ubWalker) walkOne(
 	source, err := w.resolveImport(ref, parent)
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+	}
+	if r, ok := ref.(*RemoteImport); ok {
+		if err := checkRemotePackageBoundary(r, source); err != nil {
+			return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+		}
 	}
 	_, local := ref.(*LocalImport)
 	hasFactory := ContainsFactorySource(source)

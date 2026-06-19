@@ -1678,6 +1678,10 @@ factory: {
   actions: { say: greet.say { message: 'world' } }
 }
 `), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+		manifestSource("requires: {}\nreplace: { "+
+			"'github.com/cloudboss/unobin//examples/configurations': '"+
+			filepath.Join(rootDir, "examples", "configurations")+"' }\n"), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
 		"-o", "-", "--replace-unobin", rootDir)
