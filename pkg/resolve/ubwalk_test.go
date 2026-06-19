@@ -93,6 +93,64 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 	require.Empty(t, v.ubCalls)
 }
 
+func TestWalkUBValidatesGoModulePath(t *testing.T) {
+	tests := []struct {
+		name       string
+		version    string
+		modulePath string
+		wantErr    string
+	}{
+		{
+			name:       "v2 version accepts v2 module",
+			version:    "v2.0.0",
+			modulePath: "example.com/lib/v2",
+		},
+		{
+			name:       "v2 version rejects base module",
+			version:    "v2.0.0",
+			modulePath: "example.com/lib",
+			wantErr:    "module path must end in /v2",
+		},
+		{
+			name:       "v1 version rejects v2 module",
+			version:    "v1.2.3",
+			modulePath: "example.com/lib/v2",
+			wantErr:    "cannot use version v1.2.3",
+		},
+		{
+			name:       "wrong base module",
+			version:    "v1.2.3",
+			modulePath: "example.com/other",
+			wantErr:    "module path must be example.com/lib",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			refs := map[string]ImportRef{
+				"lib": &RemoteImport{URL: "example.com/lib", Version: tt.version},
+			}
+			r := &fakeUBResolver{remotes: map[string]*Source{
+				"example.com/lib@" + tt.version: {
+					Commit:       "go",
+					FS:           fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+					ModulePath:   tt.modulePath,
+					GoImportPath: tt.modulePath,
+				},
+			}}
+			v := newRecordingVisitor()
+			top, err := WalkUB(refs, r, v, nil)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, top, 1)
+			require.Equal(t, []string{"lib=" + tt.modulePath + "@" + tt.version}, v.goCalls)
+		})
+	}
+}
+
 func TestWalkUBRecordsUBLibrary(t *testing.T) {
 	src := newUBSource(t, map[string]string{
 		"library.ub": `

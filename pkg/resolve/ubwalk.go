@@ -7,11 +7,13 @@ import (
 	"io/fs"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/semver"
 )
 
 // UBKey is the dedup key for a UB-library import. Remote imports key on
@@ -298,6 +300,9 @@ func (w *ubWalker) handleGoImport(
 	modulePath := path
 	if source.ModulePath != "" {
 		modulePath = source.ModulePath
+		if err := validateGoModulePath(r, modulePath); err != nil {
+			return Resolution{}, err
+		}
 	}
 	if err := w.visitor.OnGoImport(alias, path, modulePath, r.Version); err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
@@ -321,6 +326,81 @@ func remoteGoImportPath(r *RemoteImport) string {
 		path += "/" + r.Subdir
 	}
 	return path
+}
+
+func validateGoModulePath(r *RemoteImport, modulePath string) error {
+	major, ok := realVersionMajor(r.Version)
+	if !ok || modulePath == "" {
+		return nil
+	}
+	moduleMajor, hasModuleMajor, err := moduleMajorSuffix(modulePath)
+	if err != nil {
+		return err
+	}
+	if major < 2 && hasModuleMajor && moduleMajor >= 2 {
+		return fmt.Errorf("module %s cannot use version %s; module path requires v%d",
+			modulePath, r.Version, moduleMajor)
+	}
+	expectedBase := remoteProjectBase(r)
+	if !moduleBaseMatches(modulePath, expectedBase, major) {
+		return fmt.Errorf("module %s cannot serve %s; module path must be %s",
+			modulePath, expectedBase, expectedBase)
+	}
+	if major >= 2 {
+		if !hasModuleMajor || moduleMajor != major {
+			return fmt.Errorf("module %s cannot use version %s; module path must end in /v%d",
+				modulePath, r.Version, major)
+		}
+		return nil
+	}
+	return nil
+}
+
+func realVersionMajor(version string) (int, bool) {
+	if version == "" || !semver.IsValid(version) || semver.Prerelease(version) != "" {
+		return 0, false
+	}
+	major, err := strconv.Atoi(strings.TrimPrefix(semver.Major(version), "v"))
+	if err != nil {
+		return 0, false
+	}
+	return major, true
+}
+
+func remoteProjectBase(r *RemoteImport) string {
+	base := r.URL
+	projectSubdir := remoteProjectSubdir(r)
+	if projectSubdir != "" {
+		base += "/" + projectSubdir
+	}
+	return base
+}
+
+func moduleBaseMatches(modulePath, expectedBase string, selectedMajor int) bool {
+	if modulePath == expectedBase {
+		return true
+	}
+	return selectedMajor >= 2 && modulePath == fmt.Sprintf("%s/v%d", expectedBase, selectedMajor)
+}
+
+func moduleMajorSuffix(modulePath string) (int, bool, error) {
+	last := modulePath
+	if i := strings.LastIndex(modulePath, "/"); i >= 0 {
+		last = modulePath[i+1:]
+	}
+	if len(last) < 2 || last[0] != 'v' {
+		return 0, false, nil
+	}
+	for _, r := range last[1:] {
+		if r < '0' || r > '9' {
+			return 0, false, nil
+		}
+	}
+	major, err := strconv.Atoi(last[1:])
+	if err != nil {
+		return 0, false, fmt.Errorf("module path %q: invalid major suffix %q", modulePath, last)
+	}
+	return major, true, nil
 }
 
 // LocalGoImportError explains why a local import did not resolve to a UB
