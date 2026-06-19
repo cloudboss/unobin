@@ -184,3 +184,16 @@ func TestAssignableObjectFromMap(t *testing.T) {
 	assert.True(t, Assignable(dst, TMap(TString())))
 	assert.False(t, Assignable(dst, TMap(TInteger())))
 }
+
+func TestAssignableLibraryConfig(t *testing.T) {
+	fields := []ObjectField{{Name: "region", Type: TString()}}
+	aws := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", fields)
+	awsAgain := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", fields)
+	other := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "def", fields)
+
+	assert.True(t, Assignable(aws, awsAgain))
+	assert.False(t, Assignable(aws, other))
+	assert.True(t, Assignable(aws, TObject(fields)))
+	assert.True(t, Assignable(TObject(fields), aws))
+	assert.False(t, Assignable(aws, TObject([]ObjectField{{Name: "region", Type: TInteger()}})))
+}

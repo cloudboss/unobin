@@ -32,6 +32,11 @@ func TestTypeString(t *testing.T) {
 			"object({ a: string  b: integer })",
 		},
 		{
+			"library config",
+			TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", nil),
+			"library-config('github.com/acme/aws')",
+		},
+		{
 			"open object",
 			TOpenObject([]ObjectField{{Name: "a", Type: TString()}}),
 			"open(object({ a: string }))",
@@ -99,6 +104,17 @@ func TestEqualDistinguishesOpenObjects(t *testing.T) {
 	assert.True(t, open.Equal(TOpenObject([]ObjectField{{Name: "a", Type: TString()}})))
 }
 
+func TestEqualDistinguishesLibraryConfigIdentity(t *testing.T) {
+	fields := []ObjectField{{Name: "region", Type: TString()}}
+	aws := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", fields)
+	awsAgain := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", fields)
+	other := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "def", fields)
+
+	assert.True(t, aws.Equal(awsAgain))
+	assert.False(t, aws.Equal(other))
+	assert.False(t, aws.Equal(TObject(fields)))
+}
+
 func TestOptionalCollapsesDouble(t *testing.T) {
 	t1 := TOptional(TString())
 	t2 := TOptional(t1)
@@ -149,6 +165,13 @@ func TestField(t *testing.T) {
 
 	_, ok = o.Field("missing")
 	assert.False(t, ok)
+
+	cfg := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", []ObjectField{
+		{Name: "region", Type: TString()},
+	})
+	region, ok := cfg.Field("region")
+	assert.True(t, ok)
+	assert.Equal(t, TString(), region.Type)
 
 	_, ok = TString().Field("anything")
 	assert.False(t, ok)

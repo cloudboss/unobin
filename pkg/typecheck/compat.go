@@ -49,6 +49,8 @@ func Assignable(dst, src Type) bool {
 	}
 
 	switch dst.Kind {
+	case LibraryConfig:
+		return libraryConfigAssignable(dst, src)
 	case Union:
 		for _, m := range dst.Elems {
 			if Assignable(m, src) {
@@ -70,6 +72,16 @@ func Assignable(dst, src Type) bool {
 		return tupleAssignable(dst, src)
 	case Object:
 		return objectAssignable(dst, src)
+	}
+	return false
+}
+
+func libraryConfigAssignable(dst, src Type) bool {
+	if src.Kind == LibraryConfig {
+		return dst.Equal(src)
+	}
+	if src.Kind == Object || src.Kind == Map {
+		return objectAssignable(TObject(dst.Fields), src)
 	}
 	return false
 }
@@ -132,6 +144,12 @@ func tupleAssignable(dst, src Type) bool {
 }
 
 func objectAssignable(dst, src Type) bool {
+	if src.Kind == LibraryConfig {
+		src = TObject(src.Fields)
+	}
+	if dst.Kind == LibraryConfig {
+		dst = TObject(dst.Fields)
+	}
 	if src.Kind != Object && src.Kind != Map {
 		return false
 	}

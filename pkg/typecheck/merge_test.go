@@ -33,6 +33,15 @@ func TestMergeShallow(t *testing.T) {
 			want: obj(req("a", TString()), opt("b", TInteger())),
 		},
 		{
+			name: "library config reads as object",
+			args: []Type{
+				TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc",
+					[]ObjectField{req("region", TString())}),
+				obj(req("profile", TString())),
+			},
+			want: obj(req("region", TString()), req("profile", TString())),
+		},
+		{
 			name: "empty object adds nothing",
 			args: []Type{obj(req("a", TString())), obj()},
 			want: obj(req("a", TString())),

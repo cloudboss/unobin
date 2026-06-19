@@ -33,6 +33,7 @@ const (
 	List
 	Map
 	Object
+	LibraryConfig
 	Tuple
 	Optional
 	// Union appears only in builtin function signatures, constructed
@@ -56,11 +57,19 @@ const (
 // the declared ones. Open changes what may be present, never what may
 // be read - dotting into an undeclared field stays an error.
 type Type struct {
-	Kind   Kind
-	Open   bool
-	Elem   *Type
-	Elems  []Type
-	Fields []ObjectField
+	Kind          Kind
+	Open          bool
+	Elem          *Type
+	Elems         []Type
+	Fields        []ObjectField
+	LibraryConfig *LibraryConfigInfo
+}
+
+// LibraryConfigInfo is the nominal identity for a Go library config type.
+type LibraryConfigInfo struct {
+	Path         string
+	Identity     string
+	SchemaDigest string
 }
 
 // ObjectField is one named field of an Object type. Optional is
@@ -97,6 +106,18 @@ func TTuple(elems []Type) Type {
 
 func TObject(fields []ObjectField) Type {
 	return Type{Kind: Object, Fields: fields}
+}
+
+func TLibraryConfig(path, identity, digest string, fields []ObjectField) Type {
+	return Type{
+		Kind:   LibraryConfig,
+		Fields: fields,
+		LibraryConfig: &LibraryConfigInfo{
+			Path:         path,
+			Identity:     identity,
+			SchemaDigest: digest,
+		},
+	}
 }
 
 func TOpenObject(fields []ObjectField) Type {
@@ -153,10 +174,10 @@ func (t Type) Unwrap() Type {
 	return t
 }
 
-// Field returns the named field of an Object type, ok=false when
-// the field is absent or the type is not an Object.
+// Field returns the named field of an Object or LibraryConfig type,
+// ok=false when the field is absent or the type has no fields.
 func (t Type) Field(name string) (ObjectField, bool) {
-	if t.Kind != Object {
+	if t.Kind != Object && t.Kind != LibraryConfig {
 		return ObjectField{}, false
 	}
 	for _, f := range t.Fields {
@@ -194,6 +215,12 @@ func (t Type) String() string {
 		return "map(" + t.elemString() + ")"
 	case Optional:
 		return "optional(" + t.elemString() + ")"
+	case LibraryConfig:
+		path := ""
+		if t.LibraryConfig != nil {
+			path = t.LibraryConfig.Path
+		}
+		return "library-config('" + strings.ReplaceAll(path, "'", `\'`) + "')"
 	case Tuple:
 		parts := make([]string, len(t.Elems))
 		for i, e := range t.Elems {
@@ -251,6 +278,21 @@ func (t Type) Equal(other Type) bool {
 			}
 		}
 		return true
+	case LibraryConfig:
+		if !sameLibraryConfig(t.LibraryConfig, other.LibraryConfig) {
+			return false
+		}
+		if len(t.Fields) != len(other.Fields) {
+			return false
+		}
+		left := sortFields(t.Fields)
+		right := sortFields(other.Fields)
+		for i := range left {
+			if !objectFieldEqual(left[i], right[i]) {
+				return false
+			}
+		}
+		return true
 	case Object:
 		if t.Open != other.Open {
 			return false
@@ -270,6 +312,28 @@ func (t Type) Equal(other Type) bool {
 		return true
 	}
 	return true
+}
+
+func sameLibraryConfig(a, b *LibraryConfigInfo) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	aID := a.Identity
+	if aID == "" {
+		aID = a.Path
+	}
+	bID := b.Identity
+	if bID == "" {
+		bID = b.Path
+	}
+	return aID == bID && a.SchemaDigest == b.SchemaDigest
+}
+
+func objectFieldEqual(a, b ObjectField) bool {
+	return a.Name == b.Name &&
+		a.Optional == b.Optional &&
+		a.Defaulted == b.Defaulted &&
+		a.Type.Equal(b.Type)
 }
 
 func sortFields(fs []ObjectField) []ObjectField {

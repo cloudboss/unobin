@@ -257,7 +257,7 @@ func kindNoun(k Kind) string {
 		return "list"
 	case Map:
 		return "map"
-	case Object:
+	case Object, LibraryConfig:
 		return "object"
 	case Tuple:
 		return "tuple"
@@ -284,7 +284,7 @@ func typeProse(t Type) string {
 		return "a map"
 	case Tuple:
 		return "a tuple"
-	case Object:
+	case Object, LibraryConfig:
 		return "an object"
 	case Null:
 		return "null"
@@ -543,7 +543,7 @@ func literalEnforced(e lang.Expr, target Type) bool {
 	case *lang.ArrayLit:
 		return target.Kind == List || target.Kind == Tuple
 	case *lang.ObjectLit:
-		return target.Kind == Object || target.Kind == Map
+		return target.Kind == Object || target.Kind == LibraryConfig || target.Kind == Map
 	}
 	return false
 }
@@ -594,7 +594,7 @@ func inferObject(
 	o *lang.ObjectLit, target Type, scope *Scope, errs *lang.ErrorList,
 ) Type {
 	switch target.Kind {
-	case Object:
+	case Object, LibraryConfig:
 		return inferObjectAgainstObject(o, target, scope, errs)
 	case Map:
 		if target.Elem == nil {
@@ -932,7 +932,7 @@ func traverseSegments(
 			return TUnknown()
 		}
 		switch current.Kind {
-		case Object:
+		case Object, LibraryConfig:
 			field, ok := current.Field(seg.Name)
 			if !ok {
 				if !(skipFirst && i == 0) {
@@ -1040,7 +1040,7 @@ func indexSegmentType(
 			return TUnknown()
 		}
 		return current.Elems[i]
-	case Object:
+	case Object, LibraryConfig:
 		Check(seg.Index, TString(), scope, errs)
 		lit, ok := seg.Index.(*lang.StringLit)
 		if !ok {

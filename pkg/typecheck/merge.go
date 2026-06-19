@@ -27,6 +27,9 @@ func MergeShallow(args []Type) Type {
 			argMayMiss = true
 			arg = arg.Unwrap()
 		}
+		if arg.Kind == LibraryConfig {
+			arg = TObject(arg.Fields)
+		}
 		if arg.Kind != Object {
 			return TUnknown()
 		}
