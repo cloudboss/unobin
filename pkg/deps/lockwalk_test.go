@@ -238,7 +238,7 @@ hello: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
-			Kind: LockKindUB,
+			Kind:    LockKindUB,
 			Version: "v0.8.0",
 			Commit:  "c1",
 			Hash:    hashProject(t, mapFS(packageFiles)),
@@ -276,12 +276,40 @@ hello: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo": {
-			Kind: LockKindUB,
+			Kind:    LockKindUB,
 			Version: "v0.8.0",
 			Commit:  "c1",
 			Hash:    hashProject(t, mapFS(projectFiles)),
 		},
 	}, lock.Deps)
+}
+
+func TestLockFromImportsRejectsParentProjectPastNestedMarker(t *testing.T) {
+	projectFS := mapFS(map[string]string{
+		ManifestFileName:                     "manifest: { requires: {} }\n",
+		"ub/project-b/manifest.ub":           "manifest: { requires: {} }\n",
+		"ub/project-b/comprehensions/lib.ub": "hello: resource {}\n",
+	})
+	root := mapFS(map[string]string{
+		"factory.ub": "factory: { imports: { hello: " +
+			"'example.com/repo//ub/project-b/comprehensions' } }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("example.com/repo", "ub/project-b/comprehensions", "v1.0.0"): {
+			Commit:        "c1",
+			FS:            mapFS(map[string]string{"lib.ub": "hello: resource {}\n"}),
+			ProjectFS:     projectFS,
+			PackageSubdir: "ub/project-b/comprehensions",
+		},
+		srcKey("example.com/repo", "", "v1.0.0"): {Commit: "c1", FS: projectFS},
+	}}
+	sel := map[Dependency]string{{URL: "example.com/repo"}: "v1.0.0"}
+
+	_, err := LockFromImports(root, sel, r, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not own package")
+	assert.Contains(t, err.Error(), "example.com/repo//ub/project-b")
 }
 
 func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
@@ -311,7 +339,7 @@ func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/project-b": {
-			Kind: LockKindUB,
+			Kind:    LockKindUB,
 			Version: "v0.1.0",
 			Commit:  "c1",
 			Hash:    hashProject(t, mapFS(projectFiles)),

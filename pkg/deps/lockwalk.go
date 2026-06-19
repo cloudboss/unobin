@@ -193,6 +193,9 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	if err != nil {
 		return err
 	}
+	if err := CheckPackageBoundary(src, owner, pkg); err != nil {
+		return err
+	}
 	if resolve.ContainsFactorySource(src) {
 		return fmt.Errorf("a factory cannot be imported")
 	}
@@ -356,8 +359,16 @@ func checkLocalImportProjectBoundary(rootFS fs.FS, baseDir, importPath string) e
 // import it is not locked (its content is whatever is on disk), but a UB
 // library's own remote dependencies are still walked and locked.
 func (w *lockWalker) walkReplaced(r *resolve.RemoteImport) error {
+	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
+	owner, ok := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg)
+	if !ok {
+		return fmt.Errorf("%s has no replacement", pkg)
+	}
 	src, err := w.resolver.Resolve(&resolve.RemoteImport{URL: r.URL, Subdir: r.Subdir})
 	if err != nil {
+		return err
+	}
+	if err := CheckPackageBoundary(src, owner, pkg); err != nil {
 		return err
 	}
 	if resolve.ContainsFactorySource(src) {

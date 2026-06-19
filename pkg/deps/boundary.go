@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
+	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 func fsHasManifestFile(fsys fs.FS, dir string) (bool, error) {
@@ -55,6 +56,41 @@ func cleanFSPath(p string) string {
 		return "."
 	}
 	return p
+}
+
+func CheckPackageBoundary(
+	src *resolve.Source, owner PackageOwner, pkg RemotePackage,
+) error {
+	if src == nil || src.ProjectFS == nil || owner.PackageSubdir == "." {
+		return nil
+	}
+	current := "."
+	for part := range strings.SplitSeq(owner.PackageSubdir, "/") {
+		if part == "" || part == "." {
+			continue
+		}
+		current = pathpkg.Join(current, part)
+		marker, err := projectmarker.Classify(src.ProjectFS, current)
+		if err != nil {
+			return err
+		}
+		if marker.Kind != projectmarker.None {
+			return nestedProjectOwnershipError(owner.Project, pkg, current)
+		}
+	}
+	return nil
+}
+
+func nestedProjectOwnershipError(owner ProjectID, pkg RemotePackage, nestedRel string) error {
+	nested := ProjectID{URL: owner.URL, Subdir: nestedRel}
+	if owner.Subdir != "" {
+		nested.Subdir = pathpkg.Join(owner.Subdir, nestedRel)
+	}
+	return fmt.Errorf(
+		"selected project %s does not own package %s; "+
+			"the package is inside nested project %s. "+
+			"Add that project to manifest.requires or replace it directly.",
+		owner, pkg, nested)
 }
 
 func localImportProjectBoundaryError(importPath string) error {
