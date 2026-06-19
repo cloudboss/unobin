@@ -205,6 +205,13 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 		return missingPackageProjectError(pkg, owner.Project)
 	}
 	if goLibrary {
+		if src.ModulePath != "" {
+			if err := resolve.ValidateGoModulePath(
+				remotePackageRef(pkg, owner, version), src.ModulePath,
+			); err != nil {
+				return err
+			}
+		}
 		if err := validateGoLibrarySource(src); err != nil {
 			return err
 		}

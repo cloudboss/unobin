@@ -608,6 +608,26 @@ func TestLockFromImportsDedups(t *testing.T) {
 	assert.Len(t, lock.Deps, 1)
 }
 
+func TestLockFromImportsRejectsGoModuleMajorMismatch(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": "factory: { imports: { lib: 'example.com/lib' } }\n",
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("example.com/lib", "", "v2.0.0"): {
+			Commit:       "c2",
+			FS:           mapFS(map[string]string{"lib.go": "package lib\n"}),
+			ModulePath:   "example.com/lib",
+			GoImportPath: "example.com/lib",
+		},
+	}}
+	sel := map[Dependency]string{{URL: "example.com/lib"}: "v2.0.0"}
+
+	_, err := LockFromImports(root, sel, r, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "module path must end in /v2")
+}
+
 func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { core: 'github.com/x/y//lib' } }\n",

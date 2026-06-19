@@ -411,8 +411,17 @@ func (w *ubWalker) checkGoImportConflict(
 	return nil
 }
 
+// ValidateGoModulePath checks a discovered Go module path against a remote import version.
+func ValidateGoModulePath(r *RemoteImport, modulePath string) error {
+	return validateGoModulePath(r, modulePath)
+}
+
 func validateGoModulePath(r *RemoteImport, modulePath string) error {
-	major, ok := realVersionMajor(r.Version)
+	version := r.Version
+	if unprefixed, ok := unprefixedVersion(remoteProjectSubdir(r), version); ok {
+		version = unprefixed
+	}
+	major, ok := realVersionMajor(version)
 	if !ok || modulePath == "" {
 		return nil
 	}
@@ -422,7 +431,7 @@ func validateGoModulePath(r *RemoteImport, modulePath string) error {
 	}
 	if major < 2 && hasModuleMajor && moduleMajor >= 2 {
 		return fmt.Errorf("module %s cannot use version %s; module path requires v%d",
-			modulePath, r.Version, moduleMajor)
+			modulePath, version, moduleMajor)
 	}
 	expectedBase := remoteProjectBase(r)
 	if !moduleBaseMatches(modulePath, expectedBase, major) {
@@ -432,7 +441,7 @@ func validateGoModulePath(r *RemoteImport, modulePath string) error {
 	if major >= 2 {
 		if !hasModuleMajor || moduleMajor != major {
 			return fmt.Errorf("module %s cannot use version %s; module path must end in /v%d",
-				modulePath, r.Version, major)
+				modulePath, version, major)
 		}
 		return nil
 	}
