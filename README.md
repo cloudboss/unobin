@@ -95,6 +95,30 @@ manifest: {
 Relative imports may only target source governed by the same nearest
 `manifest.ub`.
 
+`unobin deps sync` manages UB projects only. If the nearest marker is `go.mod`,
+use Go commands for that module instead.
+
+A `manifest.replace` key is a project id. When a direct import has an exact
+replacement and no real version yet, `unobin deps sync` records the reserved
+manifest version `v0.0.0-unobin-replaced`. The replacement must be exact; a
+parent project replacement does not satisfy a nested project's reserved version.
+Replaced projects are not written to `lock.ub`.
+
+Go projects keep module identity separate from package imports. A `.ub` file may
+import a Go package below a module, but generated `main.go` imports the package
+path while generated `go.mod` requires and replaces the module path read from
+the selected project's `go.mod`:
+
+```text
+source import:     example.com/lib//fs
+generated import:  example.com/lib/fs
+generated require: example.com/lib v1.2.3
+```
+
+Go modules follow Go's major-version path rule. A selected `v2.0.0` module must
+use a module path ending in `/v2`; `v3.0.0` must use `/v3`, and so on. UB
+project ids do not add `/vN` for major versions.
+
 ## Benefits of Unobin
 
 ### No Dependencies
