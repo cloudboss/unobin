@@ -39,9 +39,9 @@ func TestLocalResolverAbsolute(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "abs-library")
 	writeFile(t, filepath.Join(target, "library.ub"), "description: 'abs'\n")
 
-	src, err := NewLocalResolver(root).Resolve(&LocalImport{Path: target})
-	require.NoError(t, err)
-	require.NotNil(t, src)
+	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: target})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "absolute")
 }
 
 func TestLocalResolverMissing(t *testing.T) {

@@ -30,10 +30,10 @@ func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 	if !ok {
 		return nil, fmt.Errorf("local resolver cannot handle %T", ref)
 	}
-	abs := li.Path
-	if !filepath.IsAbs(abs) {
-		abs = filepath.Join(r.Root, li.Path)
+	if filepath.IsAbs(li.Path) {
+		return nil, absoluteLocalImportError(li.Path)
 	}
+	abs := filepath.Join(r.Root, li.Path)
 	if err := checkLocalProjectBoundary(r.Root, abs, li.Path); err != nil {
 		return nil, err
 	}
@@ -62,10 +62,10 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 		return nil, fmt.Errorf("local import %q: missing declaring source", li.Path)
 	}
 	if parent.Path != "" {
-		abs := li.Path
-		if !filepath.IsAbs(abs) {
-			abs = filepath.Join(parent.Path, li.Path)
+		if filepath.IsAbs(li.Path) {
+			return nil, absoluteLocalImportError(li.Path)
 		}
+		abs := filepath.Join(parent.Path, li.Path)
 		if err := checkLocalProjectBoundary(parent.Path, abs, li.Path); err != nil {
 			return nil, err
 		}
@@ -93,6 +93,10 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 		return nil, err
 	}
 	return &Source{FS: sub}, nil
+}
+
+func absoluteLocalImportError(path string) error {
+	return fmt.Errorf("local import %q: absolute paths are not supported", path)
 }
 
 func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error {
