@@ -72,6 +72,7 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	mergeErrors(errs, lang.ValidateConstraintReferences(constraints, inputs))
 	mergeErrors(errs, lang.ValidateImports(importDeclsObject(body.Imports)))
 	validateConfigurationDecls(body.Configurations, errs)
+	validateLibraryConfigDecls(body.LibraryConfigs, errs)
 	validateConfigurationRefs(body, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
 	validateNodeDecls(body.Data, "data", dataBodyMeta, errs)
@@ -265,6 +266,19 @@ func validateConfigurationValues(values []ConfigurationValue, errs *parse.ErrorL
 		} else {
 			seenNames[value.Name.Name] = value.Name.S.Start
 		}
+	}
+}
+
+func validateLibraryConfigDecls(decls []LibraryConfigDecl, errs *parse.ErrorList) {
+	seen := map[string]parse.Position{}
+	for _, decl := range decls {
+		if prev, dup := seen[decl.Alias.Name]; dup {
+			errs.Addf(parse.ErrSchema, decl.Alias.S.Start,
+				"duplicate library config %q (first defined at %s)",
+				decl.Alias.Name, prev)
+			continue
+		}
+		seen[decl.Alias.Name] = decl.Alias.S.Start
 	}
 }
 
@@ -602,6 +616,10 @@ func factoryBodyObject(
 		cfgs := configurations(body.Configurations)
 		obj.Fields = append(obj.Fields, identField("configurations", cfgs.S, cfgs))
 	}
+	if len(body.LibraryConfigs) > 0 {
+		cfgs := libraryConfigDeclsObject(body.LibraryConfigs)
+		obj.Fields = append(obj.Fields, identField("library-configs", cfgs.S, cfgs))
+	}
 	if len(body.Resources) > 0 {
 		resources := nodes(body.Resources)
 		obj.Fields = append(obj.Fields, identField("resources", resources.S, resources))
@@ -688,6 +706,17 @@ func configurationDeclsObject(decls []ConfigurationDecl) *parse.ObjectLit {
 		}
 		obj.Fields = append(obj.Fields,
 			pathField(key, decl.Selector.S, configurationDeclValue(decl)))
+	}
+	return obj
+}
+
+func libraryConfigDeclsObject(decls []LibraryConfigDecl) *parse.ObjectLit {
+	obj := &parse.ObjectLit{}
+	if len(decls) > 0 {
+		obj.S = decls[0].S
+	}
+	for _, decl := range decls {
+		obj.Fields = append(obj.Fields, identField(decl.Alias.Name, decl.Alias.S, decl.Value))
 	}
 	return obj
 }

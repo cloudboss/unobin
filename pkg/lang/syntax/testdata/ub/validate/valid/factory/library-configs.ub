@@ -1,0 +1,13 @@
+factory: {
+  imports: {
+    aws: 'github.com/cloudboss/unobin-library-aws'
+  }
+
+  inputs: {
+    aws-config: { type: library-config('github.com/cloudboss/unobin-library-aws') }
+  }
+
+  library-configs: {
+    aws: @core.merge(var.aws-config, { region: 'us-east-1' })
+  }
+}

@@ -1,5 +1,6 @@
 configuration <default> -> greet fields=1
 configuration formal -> greet fields=0
+library config greet expr=var
 resource hello -> std.fs-file fields=1
 data existing -> std.file fields=1
 action run -> std.exec fields=1

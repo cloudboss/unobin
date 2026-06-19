@@ -89,6 +89,7 @@ type FactoryBody struct {
 	Constraints    []ConstraintDecl
 	Imports        []ImportDecl
 	Configurations []ConfigurationDecl
+	LibraryConfigs []LibraryConfigDecl
 	Resources      []NodeDecl
 	Data           []NodeDecl
 	Actions        []NodeDecl
@@ -152,6 +153,12 @@ type ConfigurationDecl struct {
 	Selector Ident
 	Body     *parse.ObjectLit
 	Value    parse.Expr
+}
+
+type LibraryConfigDecl struct {
+	S     parse.Span
+	Alias Ident
+	Value parse.Expr
 }
 
 type ConfigurationValue struct {

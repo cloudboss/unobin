@@ -6,6 +6,10 @@ factory: {
     formal: greet {}
   }
 
+  library-configs: {
+    greet: var.greet-config
+  }
+
   resources: {
     hello: std.fs-file {
       path: var.path

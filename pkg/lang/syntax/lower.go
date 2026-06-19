@@ -247,6 +247,10 @@ func lowerFactoryBodyWithMode(
 			if obj := objectValue(fld, "configurations", errs); obj != nil {
 				body.Configurations = lowerConfigurationDecls(obj, errs)
 			}
+		case "library-configs":
+			if obj := objectValue(fld, "library-configs", errs); obj != nil {
+				body.LibraryConfigs = lowerLibraryConfigDecls(obj, errs)
+			}
 		case "resources":
 			if obj := objectValue(fld, "resources", errs); obj != nil {
 				body.Resources = lowerNodes(obj, NodeResource, errs)
@@ -874,6 +878,33 @@ func configurationValueKey(entry ConfigurationValue) string {
 		return entry.Selector.Name
 	}
 	return entry.Selector.Name + "." + entry.Name.Name
+}
+
+func lowerLibraryConfigDecls(
+	block *parse.ObjectLit,
+	errs *parse.ErrorList,
+) []LibraryConfigDecl {
+	decls := make([]LibraryConfigDecl, 0, len(block.Fields))
+	seen := make(map[string]parse.Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		alias, ok := fieldName(fld, "library config alias", errs)
+		if !ok {
+			continue
+		}
+		if fld.Decl != nil || fld.Value == nil {
+			errs.Addf(parse.ErrSchema, fld.S.Start,
+				"library config %s must be an expression", alias.Name)
+			continue
+		}
+		if prev, dup := seen[alias.Name]; dup {
+			errs.Addf(parse.ErrSchema, alias.S.Start,
+				"duplicate library config %q (first defined at %s)", alias.Name, prev)
+			continue
+		}
+		seen[alias.Name] = alias.S.Start
+		decls = append(decls, LibraryConfigDecl{S: fld.S, Alias: alias, Value: fld.Value})
+	}
+	return decls
 }
 
 func lowerNodes(

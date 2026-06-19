@@ -60,6 +60,12 @@ func encodeSyntaxFactoryBody(b *strings.Builder, n syntax.FactoryBody) error {
 			return err
 		}
 	}
+	if len(n.LibraryConfigs) > 0 {
+		fields.next(b, "LibraryConfigs")
+		if err := encodeSyntaxLibraryConfigs(b, n.LibraryConfigs); err != nil {
+			return err
+		}
+	}
 	if len(n.Resources) > 0 {
 		fields.next(b, "Resources")
 		if err := encodeSyntaxNodes(b, n.Resources); err != nil {
@@ -220,6 +226,26 @@ func encodeSyntaxConfigurations(b *strings.Builder, decls []syntax.Configuration
 			fields.next(b, "Value")
 			b.WriteString(value)
 		}
+		b.WriteString("}")
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeSyntaxLibraryConfigs(b *strings.Builder, decls []syntax.LibraryConfigDecl) error {
+	b.WriteString("[]syntax.LibraryConfigDecl{")
+	for i, decl := range decls {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		value, err := EncodeNode(decl.Value)
+		if err != nil {
+			return err
+		}
+		b.WriteString("{Alias: ")
+		encodeSyntaxIdent(b, decl.Alias)
+		b.WriteString(", Value: ")
+		b.WriteString(value)
 		b.WriteString("}")
 	}
 	b.WriteString("}")

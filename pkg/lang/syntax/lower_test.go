@@ -51,6 +51,10 @@ configurations: {
   }
 }
 
+library-configs: {
+  std: var.std-config
+}
+
 resources: {
   hello: std.fs-file {
     path: local.path
@@ -106,6 +110,11 @@ outputs: {
 	requireSpan(t, got.Factory.Body.Configurations[0].S)
 	require.Nil(t, got.Factory.Body.Configurations[0].Name)
 	assert.Equal(t, "std", got.Factory.Body.Configurations[0].Selector.Name)
+
+	require.Len(t, got.Factory.Body.LibraryConfigs, 1)
+	requireSpan(t, got.Factory.Body.LibraryConfigs[0].S)
+	assert.Equal(t, "std", got.Factory.Body.LibraryConfigs[0].Alias.Name)
+	require.IsType(t, &parse.DotPath{}, got.Factory.Body.LibraryConfigs[0].Value)
 
 	require.Len(t, got.Factory.Body.Resources, 1)
 	resource := got.Factory.Body.Resources[0]
@@ -482,6 +491,7 @@ func lowerSelectorBodySummary(f *File) string {
 	switch f.Kind {
 	case FileFactory:
 		writeConfigurationDecls(&b, f.Factory.Body.Configurations, "configuration")
+		writeLibraryConfigDecls(&b, f.Factory.Body.LibraryConfigs)
 		writeNodeDecls(&b, f.Factory.Body.Resources)
 		writeNodeDecls(&b, f.Factory.Body.Data)
 		writeNodeDecls(&b, f.Factory.Body.Actions)
@@ -526,6 +536,24 @@ func writeConfigurationValues(
 	for _, cfg := range configurations {
 		fmt.Fprintf(b, "%s %s -> %s fields=%d\n",
 			prefix, optionalName(cfg.Name), cfg.Selector.Name, objectFieldCount(cfg.Body))
+	}
+}
+
+func writeLibraryConfigDecls(b *strings.Builder, decls []LibraryConfigDecl) {
+	for _, decl := range decls {
+		fmt.Fprintf(b, "library config %s expr=%s\n", decl.Alias.Name,
+			exprSummary(decl.Value))
+	}
+}
+
+func exprSummary(expr parse.Expr) string {
+	switch v := expr.(type) {
+	case *parse.DotPath:
+		return v.Root.Name
+	case *parse.ObjectLit:
+		return fmt.Sprintf("object fields=%d", len(v.Fields))
+	default:
+		return fmt.Sprintf("%T", expr)
 	}
 }
 

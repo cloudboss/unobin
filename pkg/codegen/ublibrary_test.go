@@ -104,6 +104,7 @@ func TestGenerateUBLibraryHasExpectedForm(t *testing.T) {
 func TestGenerateUBLibraryEmitsSyntaxBody(t *testing.T) {
 	syntaxBody := parseSyntaxUB(t, "resource", "greeting", `
 locals: { target: resource.helper.path }
+library-configs: { local: var.local-config }
 resources: {
   helper: local.fs-file { path: '/tmp/helper' }
   file: local.fs-file { path: local.target }
@@ -126,6 +127,7 @@ resources: {
 	require.Contains(t, s, `"github.com/cloudboss/unobin/pkg/lang/syntax"`)
 	require.Contains(t, s, `SyntaxBody: &syntax.FactoryBody{`)
 	require.Contains(t, s, `Locals: []syntax.LocalDecl{`)
+	require.Contains(t, s, `LibraryConfigs: []syntax.LibraryConfigDecl{`)
 	require.Contains(t, s, `Resources: []syntax.NodeDecl{`)
 	require.NotContains(t, s, `Body: &lang.File{`)
 }
