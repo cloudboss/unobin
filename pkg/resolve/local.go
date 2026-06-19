@@ -132,35 +132,41 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 	if err != nil {
 		return err
 	}
+	if !importerOK {
+		return nil
+	}
+	inside, err := pathWithinDir(importerProject, targetDir)
+	if err != nil {
+		return err
+	}
+	if !inside {
+		return fmt.Errorf("local import %q resolves outside project root %s",
+			importPath, importerProject)
+	}
 	targetProject, targetOK, err := nearestManifestDir(targetDir)
 	if err != nil {
 		return err
 	}
-	if importerOK {
-		inside, err := pathWithinDir(importerProject, targetDir)
-		if err != nil {
-			return err
-		}
-		if !inside {
-			return fmt.Errorf("local import %q resolves outside project root %s",
-				importPath, importerProject)
-		}
+	if !targetOK || sameDir(importerProject, targetProject) {
+		return nil
 	}
-	if importerOK && targetOK && !sameDir(importerProject, targetProject) {
-		directGoModule, err := directGoModuleRoot(targetProject, targetDir)
-		if err != nil {
-			return err
-		}
-		if directGoModule {
-			return nil
-		}
-		return fmt.Errorf(
-			"local import %q targets a different project; "+
-				"import it by dependency id and add manifest.replace for local development",
-			importPath,
-		)
+	directGoModule, err := directGoModuleRoot(targetProject, targetDir)
+	if err != nil {
+		return err
 	}
-	return nil
+	if directGoModule {
+		return nil
+	}
+	return localImportNestedProjectError(importPath, targetProject)
+}
+
+func localImportNestedProjectError(importPath, targetProject string) error {
+	return fmt.Errorf(
+		"local import %q crosses nested project %s; "+
+			"import it by dependency id and add manifest.replace for local development",
+		importPath,
+		targetProject,
+	)
 }
 
 func directGoModuleRoot(projectDir, targetDir string) (bool, error) {

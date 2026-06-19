@@ -73,6 +73,27 @@ func TestLocalResolverRejectsImportOutsideProjectRoot(t *testing.T) {
 	require.Contains(t, err.Error(), "outside project root")
 }
 
+func TestLocalResolverRejectsImportIntoNestedManifestRoot(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "manifest.ub"), "manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(root, "shared", "abc", "manifest.ub"),
+		"manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(root, "shared", "abc", "library.ub"), "thing: resource {}\n")
+
+	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./shared/abc"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "nested project")
+}
+
+func TestLocalResolverUnmarkedRootDoesNotClassifyTargetProject(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "shared", "manifest.ub"), "manifest: not-valid\n")
+	writeFile(t, filepath.Join(root, "shared", "library.ub"), "thing: resource {}\n")
+
+	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./shared"})
+	require.NoError(t, err)
+}
+
 func TestLocalResolverFileNotDir(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "stray.ub"), "description: 'x'\n")

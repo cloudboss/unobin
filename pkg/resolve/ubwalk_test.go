@@ -312,7 +312,7 @@ hello: resource {
 		&Source{FS: os.DirFS(root), Path: root})
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "different project")
+	require.Contains(t, err.Error(), "nested project")
 	require.Contains(t, err.Error(), "manifest.replace")
 }
 
