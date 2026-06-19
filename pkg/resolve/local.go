@@ -147,6 +147,13 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 		}
 	}
 	if importerOK && targetOK && !sameDir(importerProject, targetProject) {
+		directGoModule, err := directGoModuleRoot(targetProject, targetDir)
+		if err != nil {
+			return err
+		}
+		if directGoModule {
+			return nil
+		}
 		return fmt.Errorf(
 			"local import %q targets a different project; "+
 				"import it by dependency id and add manifest.replace for local development",
@@ -154,6 +161,17 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 		)
 	}
 	return nil
+}
+
+func directGoModuleRoot(projectDir, targetDir string) (bool, error) {
+	if !sameDir(projectDir, targetDir) {
+		return false, nil
+	}
+	marker, err := projectmarker.ClassifyRoot(os.DirFS(projectDir))
+	if err != nil {
+		return false, err
+	}
+	return marker.Kind == projectmarker.Go, nil
 }
 
 func pathWithinDir(root, target string) (bool, error) {

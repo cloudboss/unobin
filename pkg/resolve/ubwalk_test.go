@@ -208,6 +208,21 @@ func TestWalkUBLocalGoLibraryGuidesToReplace(t *testing.T) {
 		"manifest: { replace: { 'github.com/cloudboss/unobin-library-aws': '../../../..' } }")
 }
 
+func TestWalkUBNestedLocalGoLibraryGuidesToReplace(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "manifest.ub"), "manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(root, "go-lib", "go.mod"),
+		"module example.com/go-lib\n\ngo 1.26\n")
+	writeFile(t, filepath.Join(root, "go-lib", "lib.go"), "package lib\n")
+	refs := map[string]ImportRef{"lib": &LocalImport{Path: "./go-lib"}}
+
+	_, err := WalkUBFrom(refs, NewLocalResolver(root), newRecordingVisitor(), nil,
+		&Source{FS: os.DirFS(root), Path: root})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot be imported by path")
+	require.Contains(t, err.Error(), "example.com/go-lib")
+}
+
 func TestWalkUBLocalNonLibraryReports(t *testing.T) {
 	// A local source that is neither a UB library nor a Go module.
 	bare := newUBSource(t, map[string]string{"README.md": "hi"})
