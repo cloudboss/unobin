@@ -183,6 +183,72 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
+func TestDepsSyncAddsLockedVersionForDirectImport(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core' }\n"), 0o644))
+	lock := deps.NewLock()
+	lock.ToolchainVersion = "v0.1.0"
+	lock.Deps["github.com/x/core"] = &deps.LockedDep{
+		Kind: deps.LockKindGo, Version: "v1.2.0", Commit: "c12",
+	}
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock))
+	remotes := map[string]*resolve.Source{
+		"github.com/x/core@v1.2.0": {
+			Commit: "c12",
+			FS: fstest.MapFS{
+				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core\n")},
+				"lib.go": &fstest.MapFile{Data: []byte("package core\n")},
+			},
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/core': 'v1.2.0'
+  }
+}
+`, string(manifestBytes))
+}
+
+func TestDepsSyncAddsSentinelForExactReplacement(t *testing.T) {
+	root := t.TempDir()
+	local := filepath.Join(root, "core")
+	require.NoError(t, os.MkdirAll(local, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(local, "go.mod"),
+		[]byte("module github.com/x/core\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(local, "lib.go"), []byte("package core\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: {}\nreplace: { 'github.com/x/core': './core' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core' }\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/core': 'v0.0.0-unobin-replaced'
+  }
+  replace: {
+    'github.com/x/core': './core'
+  }
+}
+`, string(manifestBytes))
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.NotContains(t, lock.Deps, "github.com/x/core")
+}
+
 func TestDepsSyncRefusesGoModuleRoot(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"),

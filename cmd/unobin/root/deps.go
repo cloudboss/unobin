@@ -147,7 +147,11 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := reconcileManifest(manifestName, manifest, imported); err != nil {
+	lock, err := readLockOrNil(root)
+	if err != nil {
+		return err
+	}
+	if err := reconcileManifest(manifestName, manifest, imported, lock); err != nil {
 		return err
 	}
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
@@ -221,16 +225,16 @@ func reconcileManifest(
 	manifestName string,
 	m *deps.Manifest,
 	imported map[deps.RemotePackage]bool,
+	lock *deps.Lock,
 ) error {
 	projects := deps.ProjectIDsFromDependencies(m.Requires)
+	lockedProjects := lockProjectIDs(lock)
 	replaced := deps.ProjectIDsFromReplace(m.Replace)
 	used := map[deps.Dependency]bool{}
 	var missing []string
 	for pkg := range imported {
-		if _, ok := deps.MostSpecificProject(replaced, pkg); ok {
-			continue
-		}
-		if pkg.URL == toolchain.UnobinModulePath {
+		replacement, hasReplacement := deps.MostSpecificProject(replaced, pkg)
+		if pkg.URL == toolchain.UnobinModulePath && !hasReplacement {
 			return fmt.Errorf(
 				"%s is toolchain-versioned and cannot be imported at a dependency"+
 					" version; replace it locally:\n"+
@@ -238,11 +242,26 @@ func reconcileManifest(
 				pkg.URL, pkg.URL)
 		}
 		owner, ok := deps.MostSpecificProject(projects, pkg)
-		if !ok {
-			missing = append(missing, pkg.String())
+		if ok {
+			used[owner.Project.Dependency()] = true
 			continue
 		}
-		used[owner.Project.Dependency()] = true
+		owner, ok = deps.MostSpecificProject(lockedProjects, pkg)
+		if ok {
+			dep := owner.Project.Dependency()
+			m.Requires[dep] = lock.Deps[owner.Project.String()].Version
+			projects = append(projects, owner.Project)
+			used[dep] = true
+			continue
+		}
+		if hasReplacement {
+			dep := replacement.Project.Dependency()
+			m.Requires[dep] = deps.ReplacementSentinel
+			projects = append(projects, replacement.Project)
+			used[dep] = true
+			continue
+		}
+		missing = append(missing, pkg.String())
 	}
 	if len(missing) > 0 {
 		slices.Sort(missing)
@@ -257,6 +276,21 @@ func reconcileManifest(
 		}
 	}
 	return nil
+}
+
+func lockProjectIDs(lock *deps.Lock) []deps.ProjectID {
+	if lock == nil {
+		return nil
+	}
+	projects := make([]deps.ProjectID, 0, len(lock.Deps))
+	for id := range lock.Deps {
+		dep, err := deps.ParseDependency(id)
+		if err != nil {
+			continue
+		}
+		projects = append(projects, deps.ProjectIDFromDependency(dep))
+	}
+	return projects
 }
 
 func parseGetArg(arg string) (deps.Dependency, string, error) {
@@ -359,6 +393,17 @@ func readProjectLock(stackPath string) (*deps.Lock, error) {
 			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first",
 				deps.SourceLockFileName)
 		}
+		return nil, err
+	}
+	return lock, nil
+}
+
+func readLockOrNil(root string) (*deps.Lock, error) {
+	lock, err := deps.ReadLock(os.DirFS(root))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	return lock, nil
