@@ -59,7 +59,7 @@ func testInfo(t *testing.T, src string) Info {
 	coreMod := &runtime.Library{
 		Name: "core",
 		Actions: map[string]runtime.ActionRegistration{
-			"echo": runtime.MakeAction[echoAction, any](),
+			"echo": runtime.MakeAction[echoAction, any, any](),
 		},
 		// A library-exported function, so tests can cover calls against
 		// an imported library's own function set, distinct from @core.
@@ -99,7 +99,7 @@ func testFileLibrary() *runtime.Library {
 	return &runtime.Library{
 		Name: "local",
 		Resources: map[string]runtime.ResourceRegistration{
-			"file": runtime.MakeResource[fileResource, any](),
+			"file": runtime.MakeResource[fileResource, any, any](),
 		},
 	}
 }

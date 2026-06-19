@@ -11,7 +11,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "extroot",
 		Description: "Fixture library whose configuration type lives in another module.",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			Description: "Shared configuration.",
 			New:         func() any { return &awscfg.Configuration{} },
 		},

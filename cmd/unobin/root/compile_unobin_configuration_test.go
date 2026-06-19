@@ -52,12 +52,12 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "cloudlib",
 		Description: "Fixture library configured by a type from the unobin module.",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			Description: "AWS connection settings.",
 			New:         func() any { return &awscfg.Configuration{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
 		},
 	}
 }

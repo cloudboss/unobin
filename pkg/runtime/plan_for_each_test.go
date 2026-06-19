@@ -15,7 +15,7 @@ func countingInstancesLibrary(evals *int64) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet": MakeResource[subnetLike, any](),
+				"subnet": MakeResource[subnetLike, any, any](),
 			},
 			Functions: map[string]FunctionType{
 				"instances": MakeFunc("instances", "Counts evaluations.",

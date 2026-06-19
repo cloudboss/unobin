@@ -26,7 +26,7 @@ outputs:   { id: { value: resource.i.id } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet": MakeResource[subnetLike, any](),
+				"subnet": MakeResource[subnetLike, any, any](),
 			},
 		},
 		"w": {
@@ -98,7 +98,7 @@ outputs:   { marker: { value: data.i.marker } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet": MakeResource[subnetLike, any](),
+				"subnet": MakeResource[subnetLike, any, any](),
 			},
 		},
 		"w": {

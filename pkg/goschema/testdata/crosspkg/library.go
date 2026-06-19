@@ -12,7 +12,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "crosspkg",
 		Resources: map[string]runtime.ResourceRegistration{
-			"db": runtime.MakeResource[DB, *DBOutput](),
+			"db": runtime.MakeResource[DB, *DBOutput, any](),
 		},
 	}
 }

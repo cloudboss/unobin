@@ -11,8 +11,8 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "tls",
 		Resources: map[string]runtime.ResourceRegistration{
-			"cert":   runtime.MakeResource[Cert, *CertOutput](),
-			"policy": runtime.MakeResource[Policy, *PolicyOutput](),
+			"cert":   runtime.MakeResource[Cert, *CertOutput, any](),
+			"policy": runtime.MakeResource[Policy, *PolicyOutput, any](),
 		},
 	}
 }

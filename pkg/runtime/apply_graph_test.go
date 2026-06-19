@@ -165,8 +165,8 @@ resources: {
 		"aws": {
 			Name: "aws",
 			Resources: map[string]ResourceRegistration{
-				"instance": MakeResource[plainResource, any](),
-				"volume":   MakeResource[plainResource, any](),
+				"instance": MakeResource[plainResource, any, any](),
+				"volume":   MakeResource[plainResource, any, any](),
 			},
 		},
 	}

@@ -12,6 +12,6 @@ import "github.com/cloudboss/unobin/pkg/sdk/cfg"
 type EncrypterType struct {
 	Name          string
 	Description   string
-	Configuration *cfg.ConfigurationType
+	Configuration cfg.Registration
 	New           func(config any, body map[string]any) (Encrypter, error)
 }

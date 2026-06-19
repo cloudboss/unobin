@@ -44,7 +44,7 @@ func (r *drainTrackerResource) Delete(_ context.Context, _, _ any) error { retur
 func (r *drainTrackerResource) ReplaceFields() []string                  { return nil }
 
 func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
-	return MakeResourceWith[drainTrackerResource, any](
+	return MakeResourceWith[drainTrackerResource, any, any](
 		func() *drainTrackerResource { return &drainTrackerResource{runs: runs} },
 	)
 }

@@ -11,7 +11,7 @@ func TestConfigurationTypeNewReturnsFreshInstance(t *testing.T) {
 		Region  String
 		Profile *String
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		Description: "AWS configuration",
 		New: func() any {
 			return &Configuration{

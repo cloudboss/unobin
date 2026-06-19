@@ -10,8 +10,8 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "samepkg",
 		Actions: map[string]runtime.ActionRegistration{
-			"do":  runtime.MakeAction[DoAction, *DoActionOutput](),
-			"do2": runtime.MakeAction[Do2Action, *Do2ActionOutput](),
+			"do":  runtime.MakeAction[DoAction, *DoActionOutput, any](),
+			"do2": runtime.MakeAction[Do2Action, *Do2ActionOutput, any](),
 		},
 		Functions: map[string]runtime.FunctionType{
 			"upper": runtime.MakeFunc("upper", "Uppercase a string.", fnUpper),

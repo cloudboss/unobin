@@ -48,12 +48,12 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "cloud",
 		Description: "Reports the AWS connection settings a configuration selects.",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			Description: "AWS connection settings, shared with unobin's own backends.",
 			New:         func() any { return &awscfg.Configuration{} },
 		},
 		Actions: map[string]runtime.ActionRegistration{
-			"describe": runtime.MakeAction[DescribeAction, *DescribeActionOutput](),
+			"describe": runtime.MakeAction[DescribeAction, *DescribeActionOutput, any](),
 		},
 	}
 }

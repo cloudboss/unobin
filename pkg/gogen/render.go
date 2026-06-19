@@ -209,7 +209,7 @@ func LibraryFile(
 	fmt.Fprintf(&b, "\t\tDescription: \"Generated %s library\",\n", packageName)
 
 	if hasConfig {
-		b.WriteString("\t\tConfiguration: &cfg.ConfigurationType{\n")
+		b.WriteString("\t\tConfiguration: &cfg.ConfigurationType[any]{\n")
 		desc := escapeQuote(configuration.Description)
 		if desc == "" {
 			desc = packageName + " provider configuration."
@@ -228,7 +228,7 @@ func LibraryFile(
 		for _, rs := range resources {
 			typeKey := lang.PascalToKebab(rs.GoName)
 			fmt.Fprintf(&b,
-				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, *resources.%sOutput](),\n",
+				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, *resources.%sOutput, any](),\n",
 				typeKey, rs.GoName, rs.GoName)
 		}
 		b.WriteString("\t\t},\n")
@@ -242,7 +242,7 @@ func LibraryFile(
 		for _, ds := range dataSources {
 			typeKey := lang.PascalToKebab(ds.GoName)
 			fmt.Fprintf(&b,
-				"\t\t\t\"%s\": runtime.MakeDataSource[data.%s, *data.%sOutput](),\n",
+				"\t\t\t\"%s\": runtime.MakeDataSource[data.%s, *data.%sOutput, any](),\n",
 				typeKey, ds.GoName, ds.GoName)
 		}
 		b.WriteString("\t\t},\n")

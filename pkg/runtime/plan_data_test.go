@@ -57,10 +57,10 @@ func dataPlanModules(value *string, reads *int64) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[trackedResource, any](),
+				"thing": MakeResource[trackedResource, any, any](),
 			},
 			DataSources: map[string]DataSourceRegistration{
-				"dial": MakeDataSourceWith[dialDataSource, any](
+				"dial": MakeDataSourceWith[dialDataSource, any, any](
 					func() *dialDataSource { return &dialDataSource{value: value, reads: reads} },
 				),
 			},
@@ -392,7 +392,7 @@ outputs:   { v: { value: data.cfg.value } }
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -437,7 +437,7 @@ outputs:   { v: { value: data.cfg.value } }
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -479,7 +479,7 @@ outputs: { fed: { value: resource.two.tag } }
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -533,7 +533,7 @@ outputs:   { v: { value: data.cfg.value } }
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -587,7 +587,7 @@ outputs:   { v: { value: data.cfg.value } }
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any]()
+	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -665,7 +665,7 @@ func TestApplyAcceptsUnchangedStructOutputs(t *testing.T) {
 		"core": {
 			Name: "core",
 			DataSources: map[string]DataSourceRegistration{
-				"ami": MakeDataSource[amiDataSource, *amiOut](),
+				"ami": MakeDataSource[amiDataSource, *amiOut, any](),
 			},
 		},
 	}

@@ -33,7 +33,7 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 		EnvKeyName: {
 			Name:        EnvKeyName,
 			Description: "AES-256-GCM with a base64 key read from an env var.",
-			Configuration: &cfg.ConfigurationType{
+			Configuration: &cfg.ConfigurationType[any]{
 				Description: "Env-key encrypter configuration.",
 				New:         func() any { return &EnvKeyConfig{} },
 			},
@@ -42,7 +42,7 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 		KMSName: {
 			Name:        KMSName,
 			Description: "AES-256-GCM with data keys wrapped by AWS KMS.",
-			Configuration: &cfg.ConfigurationType{
+			Configuration: &cfg.ConfigurationType[any]{
 				Description: "KMS encrypter configuration.",
 				New:         func() any { return &KMSConfig{} },
 			},

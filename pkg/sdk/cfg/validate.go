@@ -11,14 +11,11 @@ import (
 // whose fields recurse to wrappers. Call this from a library's unit
 // tests to catch misuse at go-test time. The runtime calls it at
 // library load to fail fast on a misdeclared configuration.
-func ValidateConfigurationType(ct *ConfigurationType) error {
+func ValidateConfigurationType(ct Registration) error {
 	if ct == nil {
 		return errors.New("ConfigurationType is nil")
 	}
-	if ct.New == nil {
-		return errors.New("ConfigurationType.New is nil")
-	}
-	inst := ct.New()
+	inst := ct.NewAny()
 	if inst == nil {
 		return errors.New("ConfigurationType.New returned nil")
 	}

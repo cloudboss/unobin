@@ -108,8 +108,8 @@ func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, any](),
-				"instance": MakeResource[instanceLike, any](),
+				"subnet":   MakeResource[subnetLike, any, any](),
+				"instance": MakeResource[instanceLike, any, any](),
 			},
 		},
 	}
@@ -156,10 +156,10 @@ func TestReplaceSuppressesPriorOutputs(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"pinned": MakeResourceWith[pinnedResource, any](
+				"pinned": MakeResourceWith[pinnedResource, any, any](
 					func() *pinnedResource { return &pinnedResource{gen: &gen} },
 				),
-				"instance": MakeResource[instanceLike, any](),
+				"instance": MakeResource[instanceLike, any, any](),
 			},
 		},
 	}
@@ -211,8 +211,8 @@ outputs:   { id: { value: resource.s.id } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, any](),
-				"instance": MakeResource[instanceLike, any](),
+				"subnet":   MakeResource[subnetLike, any, any](),
+				"instance": MakeResource[instanceLike, any, any](),
 			},
 		},
 		"w": {
@@ -258,10 +258,10 @@ outputs:   { id: { value: resource.p.id } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"pinned": MakeResourceWith[pinnedResource, any](
+				"pinned": MakeResourceWith[pinnedResource, any, any](
 					func() *pinnedResource { return &pinnedResource{gen: &gen} },
 				),
-				"instance": MakeResource[instanceLike, any](),
+				"instance": MakeResource[instanceLike, any, any](),
 			},
 		},
 		"w": {
@@ -317,8 +317,8 @@ outputs:   { id: { value: resource.s.id } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, any](),
-				"instance": MakeResource[instanceLike, any](),
+				"subnet":   MakeResource[subnetLike, any, any](),
+				"instance": MakeResource[instanceLike, any, any](),
 			},
 		},
 		"w": {

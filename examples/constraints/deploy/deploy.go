@@ -26,7 +26,7 @@ func Library() *runtime.Library {
 		Name:        "deploy",
 		Description: "Demonstrates Go-declared constraints by rendering a service spec to a file.",
 		Resources: map[string]runtime.ResourceRegistration{
-			"service": runtime.MakeResource[Service, *ServiceOutput](),
+			"service": runtime.MakeResource[Service, *ServiceOutput, any](),
 		},
 	}
 }

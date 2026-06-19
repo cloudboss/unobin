@@ -19,7 +19,7 @@ func TestValidateConfigurationTypeAcceptsValidConfig(t *testing.T) {
 		Tags       Map[String]
 		AssumeRole *AssumeRole
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	require.NoError(t, ValidateConfigurationType(ct))
@@ -29,7 +29,7 @@ func TestValidateConfigurationTypeRejectsBareGoType(t *testing.T) {
 	type Configuration struct {
 		Region string
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	err := ValidateConfigurationType(ct)
@@ -46,7 +46,7 @@ func TestValidateConfigurationTypeRejectsBareGoTypeInsideNestedStruct(t *testing
 	type Configuration struct {
 		AssumeRole *AssumeRole
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	err := ValidateConfigurationType(ct)
@@ -59,7 +59,7 @@ func TestValidateConfigurationTypeRejectsNakedSliceOrMap(t *testing.T) {
 		Hosts []string
 		Tags  map[string]string
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	err := ValidateConfigurationType(ct)
@@ -73,7 +73,7 @@ func TestValidateConfigurationTypeSkipsUnexportedFields(t *testing.T) {
 		Region String
 		secret string
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{secret: "123"} },
 	}
 	require.NoError(t, ValidateConfigurationType(ct))
@@ -84,7 +84,7 @@ func TestValidateConfigurationTypeTolerantOfRecursiveTypes(t *testing.T) {
 		Name  String
 		Child *Tree
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Tree{} },
 	}
 	require.NoError(t, ValidateConfigurationType(ct))
@@ -92,11 +92,11 @@ func TestValidateConfigurationTypeTolerantOfRecursiveTypes(t *testing.T) {
 
 func TestValidateConfigurationTypeRejectsNilOrEmpty(t *testing.T) {
 	require.Error(t, ValidateConfigurationType(nil))
-	require.Error(t, ValidateConfigurationType(&ConfigurationType{}))
+	require.Error(t, ValidateConfigurationType(&ConfigurationType[any]{}))
 }
 
 func TestValidateConfigurationTypeRejectsNonPointerNonStructResult(t *testing.T) {
-	notAStruct := &ConfigurationType{
+	notAStruct := &ConfigurationType[any]{
 		New: func() any {
 			s := "not a struct"
 			return &s
@@ -104,7 +104,7 @@ func TestValidateConfigurationTypeRejectsNonPointerNonStructResult(t *testing.T)
 	}
 	require.Error(t, ValidateConfigurationType(notAStruct))
 
-	notAPointer := &ConfigurationType{
+	notAPointer := &ConfigurationType[any]{
 		New: func() any {
 			return struct{ Region String }{}
 		},

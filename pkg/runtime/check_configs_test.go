@@ -24,7 +24,7 @@ func newExecutorForConfigCheck(
 func libraryWithConfig() *Library {
 	return &Library{
 		Name:          "aws",
-		Configuration: &cfg.ConfigurationType{New: func() any { return &struct{}{} }},
+		Configuration: &cfg.ConfigurationType[any]{New: func() any { return &struct{}{} }},
 	}
 }
 

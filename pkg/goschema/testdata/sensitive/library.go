@@ -10,7 +10,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "sensitive",
 		Resources: map[string]runtime.ResourceRegistration{
-			"secret": runtime.MakeResource[Secret, *SecretOutput](),
+			"secret": runtime.MakeResource[Secret, *SecretOutput, any](),
 		},
 	}
 }

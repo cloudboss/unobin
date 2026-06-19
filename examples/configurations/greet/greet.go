@@ -78,15 +78,15 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "greet",
 		Description: "Demonstrates configuration routing by prepending a prefix to a message.",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			Description: "Greeting prefix.",
 			New:         func() any { return &Configuration{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"phrase": runtime.MakeResource[PhraseResource, *PhraseResourceOutput](),
+			"phrase": runtime.MakeResource[PhraseResource, *PhraseResourceOutput, any](),
 		},
 		Actions: map[string]runtime.ActionRegistration{
-			"say": runtime.MakeAction[SayAction, *SayActionOutput](),
+			"say": runtime.MakeAction[SayAction, *SayActionOutput, any](),
 		},
 	}
 }

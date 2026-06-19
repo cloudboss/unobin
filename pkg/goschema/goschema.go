@@ -1007,7 +1007,7 @@ func astValueType(e ast.Expr) typecheck.Type {
 }
 
 // refsFromMakeCall extracts the input and output type references
-// from a `runtime.MakeResource[T, Out](...)` call. It accepts the
+// from a `runtime.MakeResource[T, Out, any](...)` call. It accepts the
 // `With` variants too. The first type argument is the input
 // (receiver) type; the second is the output type. Any leading `*`
 // is stripped from either so the caller looks up the struct itself.
@@ -1032,7 +1032,7 @@ func refsFromMakeCall(e ast.Expr) (input, output typeRef, ok bool) {
 }
 
 // indexedTypeArgs returns the type-argument expressions on a generic
-// call's function part, in source order. The call `MakeResource[T, Out]()`
+// call's function part, in source order. The call `MakeResource[T, Out, any]()`
 // has fn = IndexListExpr{ X: MakeResource, Indices: [T, Out] }.
 // For older or single-arg shapes (`MakeResource[T]()`), it returns
 // the single index.

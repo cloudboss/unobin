@@ -68,8 +68,8 @@ func testCommandLibrary() *runtime.Library {
 	return &runtime.Library{
 		Name: "core",
 		Actions: map[string]runtime.ActionRegistration{
-			"command": runtime.MakeAction[commandAction, any](),
-			"script":  runtime.MakeAction[scriptAction, any](),
+			"command": runtime.MakeAction[commandAction, any, any](),
+			"script":  runtime.MakeAction[scriptAction, any, any](),
 		},
 	}
 }
@@ -190,7 +190,7 @@ func factoryTwiceCounts(
 		"test": {
 			Name: "test",
 			Actions: map[string]runtime.ActionRegistration{
-				"counter": runtime.MakeActionWith[counter, any](
+				"counter": runtime.MakeActionWith[counter, any, any](
 					func() *counter { return &counter{runs: &runs} },
 				),
 			},

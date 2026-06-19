@@ -23,7 +23,7 @@ type describedConfiguration struct {
 }
 
 func TestDescribeListsConfigurationFields(t *testing.T) {
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &describedConfiguration{
 				Region:  String{Description: "AWS region."},
@@ -59,7 +59,7 @@ func TestDescribeExpandsNestedObjects(t *testing.T) {
 	type root struct {
 		Middle *describedMiddle
 	}
-	ct := &ConfigurationType{New: func() any { return &root{} }}
+	ct := &ConfigurationType[any]{New: func() any { return &root{} }}
 	want := []Field{{
 		Name: "middle", Type: "object", Optional: true,
 		Fields: []Field{
@@ -86,7 +86,7 @@ func TestDescribeExpandsDeepNesting(t *testing.T) {
 	type root struct {
 		Outer *describedDeepOuter
 	}
-	ct := &ConfigurationType{New: func() any { return &root{} }}
+	ct := &ConfigurationType[any]{New: func() any { return &root{} }}
 	want := []Field{{
 		Name: "outer", Type: "object", Optional: true,
 		Fields: []Field{{
@@ -106,7 +106,7 @@ type describedSelf struct {
 }
 
 func TestDescribeStopsOnSelfReference(t *testing.T) {
-	ct := &ConfigurationType{New: func() any { return &describedSelf{} }}
+	ct := &ConfigurationType[any]{New: func() any { return &describedSelf{} }}
 	want := []Field{
 		{Name: "name", Type: "string"},
 		{Name: "child", Type: "object", Optional: true},
@@ -116,11 +116,11 @@ func TestDescribeStopsOnSelfReference(t *testing.T) {
 
 func TestDescribeNilConfiguration(t *testing.T) {
 	require.Nil(t, Describe(nil))
-	require.Nil(t, Describe(&ConfigurationType{New: func() any { return nil }}))
+	require.Nil(t, Describe(&ConfigurationType[any]{New: func() any { return nil }}))
 }
 
 func TestDescribeSkipsAnonymousField(t *testing.T) {
-	ct := &ConfigurationType{New: func() any { return &hostWithEmbedded{} }}
+	ct := &ConfigurationType[any]{New: func() any { return &hostWithEmbedded{} }}
 	fields := Describe(ct)
 	require.Len(t, fields, 1)
 	require.Equal(t, "name", fields[0].Name)

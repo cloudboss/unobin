@@ -2125,7 +2125,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "fake",
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
 		},
 	}
 }
@@ -2152,7 +2152,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "partial",
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
 		},
 	}
 }

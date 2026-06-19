@@ -29,7 +29,7 @@ func TestDecodeAtomicFields(t *testing.T) {
 		Ratio    Number
 		Enabled  Boolean
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{
 				Profile: &String{Default: "default"},
@@ -56,7 +56,7 @@ func TestDecodeOptionalUsesValueWhenPresent(t *testing.T) {
 	type Configuration struct {
 		Profile *String
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{Profile: &String{Default: "default"}}
 		},
@@ -70,7 +70,7 @@ func TestDecodeRequiredFieldAbsentIsAnError(t *testing.T) {
 	type Configuration struct {
 		Region String
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{})
@@ -83,7 +83,7 @@ func TestDecodeTypeMismatchIsAnError(t *testing.T) {
 	type Configuration struct {
 		Replicas Integer
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{"replicas": "five"})
@@ -154,7 +154,7 @@ func TestDecodeTypeMismatchUsesUbTypeNames(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ct := &ConfigurationType{
+			ct := &ConfigurationType[any]{
 				New: func() any { return &Configuration{} },
 			}
 			_, err := Decode(ct, tt.raw)
@@ -168,7 +168,7 @@ func TestDecodeUnknownKeyIsAnError(t *testing.T) {
 	type Configuration struct {
 		Region String
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{"region": "x", "rgeion": "typo"})
@@ -185,7 +185,7 @@ func TestDecodeNestedStructRecurses(t *testing.T) {
 		Region     String
 		AssumeRole AssumeRole
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{
 				AssumeRole: AssumeRole{
@@ -215,7 +215,7 @@ func TestDecodeOptionalStructAbsentLeavesNil(t *testing.T) {
 		Region     String
 		AssumeRole *AssumeRole
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	out, err := Decode(ct, map[string]any{"region": "us-east-1"})
@@ -230,7 +230,7 @@ func TestDecodeOptionalStructPresentAllocates(t *testing.T) {
 	type Configuration struct {
 		AssumeRole *AssumeRole
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{
@@ -249,7 +249,7 @@ func TestDecodeAllocatesNilWrapperPointer(t *testing.T) {
 	type Configuration struct {
 		Profile *String
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	out, err := Decode(ct, map[string]any{"profile": "prod"})
@@ -265,7 +265,7 @@ func TestDecodeStructMustBeMap(t *testing.T) {
 	type Configuration struct {
 		AssumeRole *AssumeRole
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{"assume-role": "not a map"})
@@ -278,7 +278,7 @@ func TestDecodeRunsValidatorOnDecodedValue(t *testing.T) {
 		Region String
 	}
 	stub := &stubValidator{}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{Region: String{Validate: stub}}
 		},
@@ -293,7 +293,7 @@ func TestDecodeReportsValidatorFailureWithFieldPath(t *testing.T) {
 		Region String
 	}
 	stub := &stubValidator{err: errors.New("bad region")}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{Region: String{Validate: stub}}
 		},
@@ -309,7 +309,7 @@ func TestDecodeValidatesDefaultsToo(t *testing.T) {
 		Profile *String
 	}
 	stub := &stubValidator{err: errors.New("default rejected")}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{
 				Profile: &String{Default: "bad-default", Validate: stub},
@@ -327,7 +327,7 @@ func TestDecodeSkipsValidatorOnTypeMismatch(t *testing.T) {
 		Replicas Integer
 	}
 	stub := &stubValidator{}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{Replicas: Integer{Validate: stub}}
 		},
@@ -345,7 +345,7 @@ func TestDecodeObjectPopulatesInnerStruct(t *testing.T) {
 	type Configuration struct {
 		Primary Object[Server]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{
@@ -368,7 +368,7 @@ func TestDecodeObjectMissingRequiredErrors(t *testing.T) {
 	type Configuration struct {
 		Primary Object[Server]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{})
@@ -384,7 +384,7 @@ func TestDecodeObjectOptionalAbsentLeavesZero(t *testing.T) {
 	type Configuration struct {
 		Primary *Object[Server]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	out, err := Decode(ct, map[string]any{})
@@ -400,7 +400,7 @@ func TestDecodeObjectRunsValidatorOnInnerStruct(t *testing.T) {
 		Primary Object[Server]
 	}
 	stub := &stubValidator{}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{
 				Primary: Object[Server]{Validate: stub},
@@ -423,7 +423,7 @@ func TestDecodeObjectInnerErrorPropagates(t *testing.T) {
 	type Configuration struct {
 		Primary Object[Server]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{
@@ -437,7 +437,7 @@ func TestDecodeListOfStrings(t *testing.T) {
 	type Configuration struct {
 		Subnets List[String]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{"subnets": []any{"a", "b", "c"}}
@@ -453,7 +453,7 @@ func TestDecodeListOfIntegers(t *testing.T) {
 	type Configuration struct {
 		Ports List[Integer]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{"ports": []any{int64(80), int64(443)}}
@@ -469,7 +469,7 @@ func TestDecodeListMustBeList(t *testing.T) {
 	type Configuration struct {
 		Subnets List[String]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{"subnets": "oops"})
@@ -481,7 +481,7 @@ func TestDecodeListRequiredAbsentErrors(t *testing.T) {
 	type Configuration struct {
 		Subnets List[String]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{})
@@ -493,7 +493,7 @@ func TestDecodeListOptionalAbsentUsesDefault(t *testing.T) {
 	type Configuration struct {
 		Subnets *List[String]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{
 				Subnets: &List[String]{
@@ -514,7 +514,7 @@ func TestDecodeListElementValidatorRunsPerItem(t *testing.T) {
 		Subnets List[String]
 	}
 	stub := &stubValidator{}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any {
 			return &Configuration{
 				Subnets: List[String]{Element: String{Validate: stub}},
@@ -534,7 +534,7 @@ func TestDecodeListOfObjects(t *testing.T) {
 	type Configuration struct {
 		Servers List[Object[Server]]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{
@@ -555,7 +555,7 @@ func TestDecodeMapOfStrings(t *testing.T) {
 	type Configuration struct {
 		Tags Map[String]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{
@@ -573,7 +573,7 @@ func TestDecodeMapMustBeMap(t *testing.T) {
 	type Configuration struct {
 		Tags Map[String]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	_, err := Decode(ct, map[string]any{"tags": []any{"oops"}})
@@ -585,7 +585,7 @@ func TestDecodeNestedMapOfMaps(t *testing.T) {
 	type Configuration struct {
 		PerRegion Map[Map[String]]
 	}
-	ct := &ConfigurationType{
+	ct := &ConfigurationType[any]{
 		New: func() any { return &Configuration{} },
 	}
 	raw := map[string]any{
@@ -611,7 +611,7 @@ type hostWithEmbedded struct {
 }
 
 func TestDecodeRejectsAnonymousField(t *testing.T) {
-	ct := &ConfigurationType{New: func() any { return &hostWithEmbedded{} }}
+	ct := &ConfigurationType[any]{New: func() any { return &hostWithEmbedded{} }}
 	_, err := Decode(ct, map[string]any{"name": "x"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "anonymous field")

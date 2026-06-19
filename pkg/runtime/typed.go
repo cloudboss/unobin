@@ -38,29 +38,33 @@ func Changed[T any](prior, current T) bool {
 	return !reflect.DeepEqual(prior, current)
 }
 
+// NoConfig is the config parameter for libraries that declare no config.
+type NoConfig struct{}
+
 // TypedResource is the typed contract a library author implements for
 // one primitive resource type. In names the input struct, which is the
 // method receiver; Out names the output struct, usually a pointer (e.g.
-// *VpcOutput) so a "no prior state" call passes nil. Update receives a
-// Prior bundling the last apply's inputs and outputs.
-type TypedResource[In, Out any] interface {
+// *VpcOutput) so a "no prior state" call passes nil. Config names the
+// decoded library config type. Update receives a Prior bundling the
+// last apply's inputs and outputs.
+type TypedResource[In, Out, Config any] interface {
 	SchemaVersion() int
-	Create(ctx context.Context, cfg any) (Out, error)
-	Read(ctx context.Context, cfg any, prior Out) (Out, error)
-	Update(ctx context.Context, cfg any, prior Prior[In, Out]) (Out, error)
-	Delete(ctx context.Context, cfg any, prior Out) error
+	Create(ctx context.Context, config Config) (Out, error)
+	Read(ctx context.Context, config Config, prior Out) (Out, error)
+	Update(ctx context.Context, config Config, prior Prior[In, Out]) (Out, error)
+	Delete(ctx context.Context, config Config, prior Out) error
 	ReplaceFields() []string
 }
 
 // TypedAction is the typed contract for actions. Out names the
 // action's output struct.
-type TypedAction[Out any] interface {
-	Run(ctx context.Context, cfg any) (Out, error)
+type TypedAction[Out, Config any] interface {
+	Run(ctx context.Context, config Config) (Out, error)
 }
 
 // TypedDataSource is the typed contract for read-only data sources.
-type TypedDataSource[Out any] interface {
-	Read(ctx context.Context, cfg any) (Out, error)
+type TypedDataSource[Out, Config any] interface {
+	Read(ctx context.Context, config Config) (Out, error)
 }
 
 // MigrationState is the pair of persisted maps a Migrator upgrades: the
@@ -119,76 +123,76 @@ type DataSourceRegistration interface {
 // input struct is T. The dev CLI uses this pattern so the MakeResource
 // helper can call methods on *T without the caller spelling out the
 // pointer type.
-type resourcePtr[T any, Out any] interface {
+type resourcePtr[T, Out, Config any] interface {
 	*T
-	TypedResource[T, Out]
+	TypedResource[T, Out, Config]
 }
 
-type actionPtr[T any, Out any] interface {
+type actionPtr[T, Out, Config any] interface {
 	*T
-	TypedAction[Out]
+	TypedAction[Out, Config]
 }
 
-type dataSourcePtr[T any, Out any] interface {
+type dataSourcePtr[T, Out, Config any] interface {
 	*T
-	TypedDataSource[Out]
+	TypedDataSource[Out, Config]
 }
 
 // MakeResource produces a ResourceRegistration that wraps a
-// TypedResource[Out] implemented by *T. Use as
-// `runtime.MakeResource[Vpc, *VpcOutput]()`. Each receiver is
-// zero-constructed via new(T) when the runtime asks for one.
-func MakeResource[T any, Out any, PT resourcePtr[T, Out]]() ResourceRegistration {
-	return typedResourceReg[T, Out, PT]{}
+// TypedResource[Out, Config] implemented by *T. Use as
+// `runtime.MakeResource[Vpc, *VpcOutput, any]()`. Each
+// receiver is zero-constructed via new(T) when the runtime asks for one.
+func MakeResource[T, Out, Config any, PT resourcePtr[T, Out, Config]]() ResourceRegistration {
+	return typedResourceReg[T, Out, Config, PT]{}
 }
 
 // MakeResourceWith is the variant of MakeResource for callers that
 // need each receiver to capture external state. The constructor runs
 // once per instance the runtime needs; Decode then fills it from the
 // inputs.
-func MakeResourceWith[T any, Out any, PT resourcePtr[T, Out]](
+func MakeResourceWith[T, Out, Config any, PT resourcePtr[T, Out, Config]](
 	construct func() *T,
 ) ResourceRegistration {
-	return typedResourceReg[T, Out, PT]{construct: construct}
+	return typedResourceReg[T, Out, Config, PT]{construct: construct}
 }
 
 // MakeAction produces an ActionRegistration that wraps a
-// TypedAction[Out] implemented by *T.
-func MakeAction[T any, Out any, PT actionPtr[T, Out]]() ActionRegistration {
-	return typedActionReg[T, Out, PT]{}
+// TypedAction[Out, Config] implemented by *T.
+func MakeAction[T, Out, Config any, PT actionPtr[T, Out, Config]]() ActionRegistration {
+	return typedActionReg[T, Out, Config, PT]{}
 }
 
 // MakeActionWith is the variant of MakeAction that captures
 // external state through the constructor.
-func MakeActionWith[T any, Out any, PT actionPtr[T, Out]](
+func MakeActionWith[T, Out, Config any, PT actionPtr[T, Out, Config]](
 	construct func() *T,
 ) ActionRegistration {
-	return typedActionReg[T, Out, PT]{construct: construct}
+	return typedActionReg[T, Out, Config, PT]{construct: construct}
 }
 
 // MakeDataSource produces a DataSourceRegistration that wraps a
-// TypedDataSource[Out] implemented by *T.
-func MakeDataSource[T any, Out any, PT dataSourcePtr[T, Out]]() DataSourceRegistration {
-	return typedDataSourceReg[T, Out, PT]{}
+// TypedDataSource[Out, Config] implemented by *T.
+func MakeDataSource[T, Out, Config any, PT dataSourcePtr[T, Out, Config]]() DataSourceRegistration {
+	return typedDataSourceReg[T, Out, Config, PT]{}
 }
 
 // MakeDataSourceWith is the variant of MakeDataSource that captures
 // external state through the constructor.
-func MakeDataSourceWith[T any, Out any, PT dataSourcePtr[T, Out]](
+func MakeDataSourceWith[T, Out, Config any, PT dataSourcePtr[T, Out, Config]](
 	construct func() *T,
 ) DataSourceRegistration {
-	return typedDataSourceReg[T, Out, PT]{construct: construct}
+	return typedDataSourceReg[T, Out, Config, PT]{construct: construct}
 }
 
-type typedResourceReg[T any, Out any, PT resourcePtr[T, Out]] struct {
+type typedResourceReg[T, Out, Config any, PT resourcePtr[T, Out, Config]] struct {
 	construct func() *T
 }
 
-func (typedResourceReg[T, Out, PT]) SchemaVersion() int {
+func (typedResourceReg[T, Out, Config, PT]) SchemaVersion() int {
 	return PT(new(T)).SchemaVersion()
 }
 
-func (typedResourceReg[T, Out, PT]) Migrate(
+func (typedResourceReg[T, Out, Config, PT]) Migrate(
 	old int, prior MigrationState,
 ) (MigrationState, error) {
 	m, ok := any(PT(new(T))).(Migrator)
@@ -200,36 +204,48 @@ func (typedResourceReg[T, Out, PT]) Migrate(
 	})
 }
 
-func (r typedResourceReg[T, Out, PT]) NewReceiver() any {
+func (r typedResourceReg[T, Out, Config, PT]) NewReceiver() any {
 	if r.construct != nil {
 		return r.construct()
 	}
 	return new(T)
 }
 
-func (typedResourceReg[T, Out, PT]) Create(
+func (typedResourceReg[T, Out, Config, PT]) Create(
 	ctx context.Context, receiver, cfg any,
 ) (any, error) {
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return nil, err
+	}
 	return guard("creating this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Create(ctx, cfg)
+		return PT(receiver.(*T)).Create(ctx, config)
 	})
 }
 
-func (typedResourceReg[T, Out, PT]) Read(
+func (typedResourceReg[T, Out, Config, PT]) Read(
 	ctx context.Context, receiver, cfg, prior any,
 ) (any, error) {
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return nil, err
+	}
 	p, err := coercePrior[Out](prior)
 	if err != nil {
 		return nil, err
 	}
 	return guard("reading this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Read(ctx, cfg, p)
+		return PT(receiver.(*T)).Read(ctx, config, p)
 	})
 }
 
-func (typedResourceReg[T, Out, PT]) Update(
+func (typedResourceReg[T, Out, Config, PT]) Update(
 	ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any,
 ) (any, error) {
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return nil, err
+	}
 	out, err := coercePrior[Out](priorOutputs)
 	if err != nil {
 		return nil, err
@@ -244,77 +260,101 @@ func (typedResourceReg[T, Out, PT]) Update(
 		Observed: obs,
 	}
 	return guard("updating this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Update(ctx, cfg, prior)
+		return PT(receiver.(*T)).Update(ctx, config, prior)
 	})
 }
 
-func (typedResourceReg[T, Out, PT]) Delete(
+func (typedResourceReg[T, Out, Config, PT]) Delete(
 	ctx context.Context, receiver, cfg, prior any,
 ) error {
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return err
+	}
 	p, err := coercePrior[Out](prior)
 	if err != nil {
 		return err
 	}
 	return guardErr("deleting this resource", false, func() error {
-		return PT(receiver.(*T)).Delete(ctx, cfg, p)
+		return PT(receiver.(*T)).Delete(ctx, config, p)
 	})
 }
 
-func (typedResourceReg[T, Out, PT]) ReplaceFields(receiver any) []string {
+func (typedResourceReg[T, Out, Config, PT]) ReplaceFields(receiver any) []string {
 	return PT(receiver.(*T)).ReplaceFields()
 }
 
-func (typedResourceReg[T, Out, PT]) OutputType() reflect.Type {
+func (typedResourceReg[T, Out, Config, PT]) OutputType() reflect.Type {
 	var zero Out
 	return reflect.TypeOf(zero)
 }
 
-type typedActionReg[T any, Out any, PT actionPtr[T, Out]] struct {
+type typedActionReg[T, Out, Config any, PT actionPtr[T, Out, Config]] struct {
 	construct func() *T
 }
 
-func (r typedActionReg[T, Out, PT]) NewReceiver() any {
+func (r typedActionReg[T, Out, Config, PT]) NewReceiver() any {
 	if r.construct != nil {
 		return r.construct()
 	}
 	return new(T)
 }
 
-func (typedActionReg[T, Out, PT]) Run(
+func (typedActionReg[T, Out, Config, PT]) Run(
 	ctx context.Context, receiver, cfg any,
 ) (any, error) {
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return nil, err
+	}
 	return guard("running this action", false, func() (Out, error) {
-		return PT(receiver.(*T)).Run(ctx, cfg)
+		return PT(receiver.(*T)).Run(ctx, config)
 	})
 }
 
-func (typedActionReg[T, Out, PT]) OutputType() reflect.Type {
+func (typedActionReg[T, Out, Config, PT]) OutputType() reflect.Type {
 	var zero Out
 	return reflect.TypeOf(zero)
 }
 
-type typedDataSourceReg[T any, Out any, PT dataSourcePtr[T, Out]] struct {
+type typedDataSourceReg[T, Out, Config any, PT dataSourcePtr[T, Out, Config]] struct {
 	construct func() *T
 }
 
-func (r typedDataSourceReg[T, Out, PT]) NewReceiver() any {
+func (r typedDataSourceReg[T, Out, Config, PT]) NewReceiver() any {
 	if r.construct != nil {
 		return r.construct()
 	}
 	return new(T)
 }
 
-func (typedDataSourceReg[T, Out, PT]) Read(
+func (typedDataSourceReg[T, Out, Config, PT]) Read(
 	ctx context.Context, receiver, cfg any,
 ) (any, error) {
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return nil, err
+	}
 	return guard("reading this data source", false, func() (Out, error) {
-		return PT(receiver.(*T)).Read(ctx, cfg)
+		return PT(receiver.(*T)).Read(ctx, config)
 	})
 }
 
-func (typedDataSourceReg[T, Out, PT]) OutputType() reflect.Type {
+func (typedDataSourceReg[T, Out, Config, PT]) OutputType() reflect.Type {
 	var zero Out
 	return reflect.TypeOf(zero)
+}
+
+func coerceConfig[Config any](cfg any) (Config, error) {
+	var zero Config
+	if cfg == nil {
+		return zero, nil
+	}
+	config, ok := cfg.(Config)
+	if !ok {
+		return zero, fmt.Errorf("config type mismatch: expected %T, got %T", zero, cfg)
+	}
+	return config, nil
 }
 
 // coercePrior returns prior as Out. nil is the runtime's "no prior

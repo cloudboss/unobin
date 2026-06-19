@@ -14,6 +14,6 @@ import (
 type BackendType struct {
 	Name          string
 	Description   string
-	Configuration *cfg.ConfigurationType
+	Configuration cfg.Registration
 	New           func(config any, factory, stack string, enc encrypt.Encrypter) (Backend, error)
 }

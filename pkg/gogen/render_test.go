@@ -153,7 +153,7 @@ func TestLibraryFileProducesParseableGo(t *testing.T) {
 		`"example.com/aws/resources"`,
 		"func Library() *runtime.Library",
 		"Resources: map[string]runtime.ResourceRegistration",
-		`"s3-bucket": runtime.MakeResource[resources.S3Bucket, *resources.S3BucketOutput]()`,
+		`"s3-bucket": runtime.MakeResource[resources.S3Bucket, *resources.S3BucketOutput, any]()`,
 	}
 	for _, c := range checks {
 		if !strings.Contains(s, c) {
@@ -188,7 +188,7 @@ func TestLibraryFileWithDataSources(t *testing.T) {
 	if !strings.Contains(s, `"example.com/aws/data"`) {
 		t.Error("expected /data import")
 	}
-	if !strings.Contains(s, `"ami": runtime.MakeDataSource[data.AMI, *data.AMIOutput]()`) {
+	if !strings.Contains(s, `"ami": runtime.MakeDataSource[data.AMI, *data.AMIOutput, any]()`) {
 		t.Error("expected qualified data source type reference")
 	}
 	if strings.Contains(s, "Resources") {
@@ -217,7 +217,7 @@ func TestLibraryFileWithConfiguration(t *testing.T) {
 	s := string(src)
 	checks := []string{
 		`"github.com/cloudboss/unobin/pkg/sdk/cfg"`,
-		"Configuration: &cfg.ConfigurationType{",
+		"Configuration: &cfg.ConfigurationType[any]{",
 		`Description: "aws provider configuration."`,
 		"New:         func() any { return &ProviderConfig{} }",
 	}

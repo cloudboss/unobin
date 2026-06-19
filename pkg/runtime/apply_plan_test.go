@@ -73,7 +73,7 @@ func orderModules(rec *deleteOrder) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[orderResource, any](
+				"thing": MakeResourceWith[orderResource, any, any](
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
@@ -86,10 +86,10 @@ func selectorChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"old": MakeResourceWith[countingResource, any](
+				"old": MakeResourceWith[countingResource, any, any](
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
-				"new": MakeResourceWith[countingResource, any](
+				"new": MakeResourceWith[countingResource, any, any](
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -112,10 +112,10 @@ func actionSelectorChangeModules(oldRuns, newRuns *int64) map[string]*Library {
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
-				"old": MakeActionWith[countedAction, any](
+				"old": MakeActionWith[countedAction, any, any](
 					func() *countedAction { return &countedAction{runs: oldRuns} },
 				),
-				"new": MakeActionWith[countedAction, any](
+				"new": MakeActionWith[countedAction, any, any](
 					func() *countedAction { return &countedAction{runs: newRuns} },
 				),
 			},
@@ -252,9 +252,9 @@ func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 	return map[string]*Library{
 		"aws": {
 			Name:          "aws",
-			Configuration: &cfg.ConfigurationType{New: func() any { return &struct{}{} }},
+			Configuration: &cfg.ConfigurationType[any]{New: func() any { return &struct{}{} }},
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[cfgResource, any](
+				"thing": MakeResourceWith[cfgResource, any, any](
 					func() *cfgResource { return &cfgResource{capture: capture} },
 				),
 			},
@@ -359,7 +359,7 @@ func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"inc": MakeResourceWith[incrementalResource, any](
+				"inc": MakeResourceWith[incrementalResource, any, any](
 					func() *incrementalResource {
 						return &incrementalResource{counters: c}
 					},
@@ -584,12 +584,12 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[orderResource, any](
+				"thing": MakeResourceWith[orderResource, any, any](
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
 			Actions: map[string]ActionRegistration{
-				"echo": MakeActionWith[countingAction, any](
+				"echo": MakeActionWith[countingAction, any, any](
 					func() *countingAction { return &countingAction{runs: &runs} },
 				),
 			},
@@ -1510,14 +1510,14 @@ actions: {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any](
+				"thing": MakeResourceWith[countingResource, any, any](
 					func() *countingResource {
 						return &countingResource{counters: &resCounters}
 					},
 				),
 			},
 			Actions: map[string]ActionRegistration{
-				"echo": MakeActionWith[countingAction, any](
+				"echo": MakeActionWith[countingAction, any, any](
 					func() *countingAction {
 						return &countingAction{runs: &actionRuns}
 					},

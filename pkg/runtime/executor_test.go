@@ -43,11 +43,11 @@ func testModules() map[string]*Library {
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
-				"echo": MakeAction[echoAction, any](),
-				"fail": MakeAction[failingAction, any](),
+				"echo": MakeAction[echoAction, any, any](),
+				"fail": MakeAction[failingAction, any, any](),
 			},
 			DataSources: map[string]DataSourceRegistration{
-				"lookup": MakeDataSource[lookupDataSource, any](),
+				"lookup": MakeDataSource[lookupDataSource, any, any](),
 			},
 			Functions: map[string]FunctionType{
 				"uppercase": {
@@ -299,7 +299,7 @@ func resourceModules(c *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any](
+				"thing": MakeResourceWith[countingResource, any, any](
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},
@@ -318,7 +318,7 @@ func inputMigratingLibs(c *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[inputMigratingResource, any](
+				"thing": MakeResourceWith[inputMigratingResource, any, any](
 					func() *inputMigratingResource {
 						return &inputMigratingResource{
 							countingResource: countingResource{counters: c},
@@ -338,7 +338,7 @@ func defaultingLibs(c *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any](
+				"thing": MakeResourceWith[countingResource, any, any](
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},
@@ -1012,7 +1012,7 @@ func countingModules(runs *int64) map[string]*Library {
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
-				"echo": MakeActionWith[countingAction, any](
+				"echo": MakeActionWith[countingAction, any, any](
 					func() *countingAction { return &countingAction{runs: runs} },
 				),
 			},

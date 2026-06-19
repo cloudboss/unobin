@@ -31,7 +31,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "configured",
 		Description: "Fixture library with a configuration and no types.",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			Description: "Test configuration.",
 			New:         func() any { return &Configuration{} },
 		},

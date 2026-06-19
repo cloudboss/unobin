@@ -115,7 +115,7 @@ func printConfigurationSchema(out io.Writer, parsed *parsedFactory, info Info) {
 	for _, alias := range aliases {
 		lib := info.Libraries[alias]
 		fmt.Fprintf(out, "  %s:", alias)
-		if d := lib.Configuration.Description; d != "" {
+		if d := lib.Configuration.DescriptionText(); d != "" {
 			fmt.Fprintf(out, "  -- %s", d)
 		}
 		fmt.Fprintln(out)

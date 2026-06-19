@@ -14,7 +14,7 @@ func newConfiguration() any { return &Configuration{} }
 func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "badnew",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			New: newConfiguration,
 		},
 	}

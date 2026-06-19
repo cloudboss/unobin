@@ -168,7 +168,7 @@ func lookupEncrypterType(ref *resolverRef) (sdkencrypt.EncrypterType, error) {
 	return et, nil
 }
 
-func decodeRefConfig(ct *cfg.ConfigurationType, ref *resolverRef) (any, error) {
+func decodeRefConfig(ct cfg.Registration, ref *resolverRef) (any, error) {
 	if ct == nil {
 		if len(ref.Body) > 0 {
 			return nil, fmt.Errorf("%q accepts no configuration fields", ref.Name)

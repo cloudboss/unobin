@@ -63,8 +63,8 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "disk",
 		Resources: map[string]runtime.ResourceRegistration{
-			"file":   runtime.MakeResource[File, *FileOutput](),
-			"volume": runtime.MakeResource[Volume, *VolumeOutput](),
+			"file":   runtime.MakeResource[File, *FileOutput, any](),
+			"volume": runtime.MakeResource[Volume, *VolumeOutput, any](),
 		},
 	}
 }

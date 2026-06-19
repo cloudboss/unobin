@@ -109,12 +109,12 @@ func configuredLibrariesWithConfig(
 	return map[string]*Library{
 		"fix": {
 			Name: "fix",
-			Configuration: &cfg.ConfigurationType{
+			Configuration: &cfg.ConfigurationType[any]{
 				New: newConfig,
 			},
 			Resources: map[string]ResourceRegistration{
-				"echo": MakeResource[echoResource, any](),
-				"config-echo": MakeResourceWith[configEchoResource, any](
+				"echo": MakeResource[echoResource, any, any](),
+				"config-echo": MakeResourceWith[configEchoResource, any, any](
 					func() *configEchoResource {
 						return &configEchoResource{readSeen: readSeen, deleteSeen: deleteSeen}
 					},
@@ -385,7 +385,7 @@ func TestDataReadDefersWhileConfigurationPending(t *testing.T) {
 	var seen []string
 	libs := configuredLibrariesRecording(&seen, nil)
 	libs["fix"].DataSources = map[string]DataSourceRegistration{
-		"probe": MakeDataSourceWith[configProbeData, any](
+		"probe": MakeDataSourceWith[configProbeData, any, any](
 			func() *configProbeData { return &configProbeData{readSeen: &seen} },
 		),
 	}

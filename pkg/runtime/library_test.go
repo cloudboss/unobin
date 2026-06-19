@@ -57,17 +57,17 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 	lib := &Library{
 		Name: "fake",
 		Resources: map[string]ResourceRegistration{
-			"thing": MakeResourceWith[fakeResource, any](
+			"thing": MakeResourceWith[fakeResource, any, any](
 				func() *fakeResource { return &fakeResource{Name: "x"} },
 			),
 		},
 		DataSources: map[string]DataSourceRegistration{
-			"lookup": MakeDataSourceWith[fakeDataSource, any](
+			"lookup": MakeDataSourceWith[fakeDataSource, any, any](
 				func() *fakeDataSource { return &fakeDataSource{Key: "k"} },
 			),
 		},
 		Actions: map[string]ActionRegistration{
-			"echo": MakeActionWith[fakeAction, any](
+			"echo": MakeActionWith[fakeAction, any, any](
 				func() *fakeAction { return &fakeAction{Echo: "hi"} },
 			),
 		},
@@ -79,7 +79,7 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 }
 
 func TestResourceLifecycle(t *testing.T) {
-	rt := MakeResourceWith[fakeResource, any](
+	rt := MakeResourceWith[fakeResource, any, any](
 		func() *fakeResource { return &fakeResource{Name: "alpha"} },
 	)
 	r := rt.NewReceiver()
@@ -105,7 +105,7 @@ func TestResourceLifecycle(t *testing.T) {
 }
 
 func TestDataSourceRead(t *testing.T) {
-	dt := MakeDataSourceWith[fakeDataSource, any](
+	dt := MakeDataSourceWith[fakeDataSource, any, any](
 		func() *fakeDataSource { return &fakeDataSource{Key: "abc"} },
 	)
 	d := dt.NewReceiver()

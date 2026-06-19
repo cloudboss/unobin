@@ -55,7 +55,7 @@ func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[plainResource, any](),
+				"thing": MakeResource[plainResource, any, any](),
 			},
 		},
 	}
@@ -100,7 +100,7 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[plainFailResource, any](),
+				"thing": MakeResource[plainFailResource, any, any](),
 			},
 		},
 	}

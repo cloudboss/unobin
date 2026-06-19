@@ -34,7 +34,7 @@ func Backends() map[string]sdkstate.BackendType {
 		LocalName: {
 			Name:        LocalName,
 			Description: "Local filesystem state backend.",
-			Configuration: &cfg.ConfigurationType{
+			Configuration: &cfg.ConfigurationType[any]{
 				Description: "Local state backend configuration.",
 				New:         func() any { return &LocalBackendConfig{} },
 			},
@@ -43,7 +43,7 @@ func Backends() map[string]sdkstate.BackendType {
 		S3Name: {
 			Name:        S3Name,
 			Description: "S3 state backend with conditional-write locking.",
-			Configuration: &cfg.ConfigurationType{
+			Configuration: &cfg.ConfigurationType[any]{
 				Description: "S3 state backend configuration.",
 				New:         func() any { return &S3BackendConfig{} },
 			},

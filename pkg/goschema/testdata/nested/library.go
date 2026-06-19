@@ -11,7 +11,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "nested",
 		Resources: map[string]runtime.ResourceRegistration{
-			"db": runtime.MakeResource[DB, *DBOutput](),
+			"db": runtime.MakeResource[DB, *DBOutput, any](),
 		},
 	}
 }

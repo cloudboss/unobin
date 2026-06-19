@@ -148,38 +148,38 @@ func TestPanicErrorMessage(t *testing.T) {
 }
 
 func TestResourceCreatePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any]()
+	reg := MakeResource[panicResource, any, any]()
 	_, err := reg.Create(context.Background(), reg.NewReceiver(), nil)
 	pe := requirePanicError(t, err, "boom in create")
 	require.False(t, pe.Core)
 }
 
 func TestResourceReadPanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any]()
+	reg := MakeResource[panicResource, any, any]()
 	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil, nil)
 	requirePanicError(t, err, "boom in read")
 }
 
 func TestResourceUpdatePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any]()
+	reg := MakeResource[panicResource, any, any]()
 	_, err := reg.Update(context.Background(), reg.NewReceiver(), nil, nil, nil, nil)
 	requirePanicError(t, err, "boom in update")
 }
 
 func TestResourceDeletePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any]()
+	reg := MakeResource[panicResource, any, any]()
 	err := reg.Delete(context.Background(), reg.NewReceiver(), nil, nil)
 	requirePanicError(t, err, "boom in delete")
 }
 
 func TestActionRunPanicBecomesError(t *testing.T) {
-	reg := MakeAction[panicAction, any]()
+	reg := MakeAction[panicAction, any, any]()
 	_, err := reg.Run(context.Background(), reg.NewReceiver(), nil)
 	requirePanicError(t, err, "boom in run")
 }
 
 func TestDataSourceReadPanicBecomesError(t *testing.T) {
-	reg := MakeDataSource[panicData, any]()
+	reg := MakeDataSource[panicData, any, any]()
 	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil)
 	requirePanicError(t, err, "boom in data read")
 }
@@ -234,14 +234,14 @@ func TestBlameLibrary(t *testing.T) {
 // and destroy read paths at once: they all funnel resource reads through
 // readObserved, which names the failing library from the alias in hand.
 func TestReadObservedPanicNamesLibrary(t *testing.T) {
-	reg := MakeResource[panicResource, any]()
+	reg := MakeResource[panicResource, any, any]()
 	_, err := readObserved(context.Background(), reg, "boom", nil, nil, nil)
 	pe := requirePanicError(t, err, "boom in read")
 	require.Equal(t, "boom", pe.Library)
 }
 
 func TestMigrateEntryPanicNamesLibrary(t *testing.T) {
-	reg := MakeResource[migratePanicResource, any]()
+	reg := MakeResource[migratePanicResource, any, any]()
 	_, err := migrateEntry(reg, "boom", 1, MigrationState{})
 	pe := requirePanicError(t, err, "boom in migrate")
 	require.Equal(t, "boom", pe.Library)
@@ -257,7 +257,7 @@ func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
 		"boom": {
 			Name: "boom",
 			Resources: map[string]ResourceRegistration{
-				"it": MakeResource[createPanicResource, any](),
+				"it": MakeResource[createPanicResource, any, any](),
 			},
 		},
 	}
@@ -297,7 +297,7 @@ func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
 		"boom": {
 			Name: "boom",
 			Resources: map[string]ResourceRegistration{
-				"it": MakeResource[schemaPanicResource, any](),
+				"it": MakeResource[schemaPanicResource, any, any](),
 			},
 		},
 	}

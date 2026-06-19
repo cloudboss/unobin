@@ -73,8 +73,8 @@ func slowLibraries() map[string]*Library {
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"r":    MakeResource[slowResource, any](),
-				"fail": MakeResource[slowFailResource, any](),
+				"r":    MakeResource[slowResource, any, any](),
+				"fail": MakeResource[slowFailResource, any, any](),
 			},
 		},
 	}
@@ -180,10 +180,10 @@ func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"r": MakeResourceWith[countingSlowResource, any](
+				"r": MakeResourceWith[countingSlowResource, any, any](
 					func() *countingSlowResource { return &countingSlowResource{runs: &runs} },
 				),
-				"fail": MakeResource[slowFailResource, any](),
+				"fail": MakeResource[slowFailResource, any, any](),
 			},
 		},
 	}
@@ -216,10 +216,10 @@ func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"r": MakeResourceWith[countingSlowResource, any](
+				"r": MakeResourceWith[countingSlowResource, any, any](
 					func() *countingSlowResource { return &countingSlowResource{runs: &runs} },
 				),
-				"fail": MakeResource[slowFailResource, any](),
+				"fail": MakeResource[slowFailResource, any, any](),
 			},
 		},
 	}

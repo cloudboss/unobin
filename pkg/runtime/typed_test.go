@@ -39,7 +39,7 @@ func (v *fakeVpc) Delete(_ context.Context, _ any, _ *fakeVpcOutput) error {
 func (v *fakeVpc) ReplaceFields() []string { return []string{"cidr-block"} }
 
 func TestMakeResourceProducesWorkingRegistration(t *testing.T) {
-	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
 	require.Equal(t, 1, reg.SchemaVersion())
 
 	receiver := reg.NewReceiver()
@@ -64,7 +64,7 @@ func TestMakeResourceProducesWorkingRegistration(t *testing.T) {
 }
 
 func TestResourceMigrateErrorsWhenNoMigratorImplemented(t *testing.T) {
-	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
 	_, err := reg.Migrate(0, MigrationState{Outputs: map[string]any{"old": "state"}})
 	require.Error(t, err)
 }
@@ -86,7 +86,7 @@ func (v *migratingVpc) Migrate(old int, prior MigrationState) (MigrationState, e
 }
 
 func TestResourceMigrateCallsMigratorWhenImplemented(t *testing.T) {
-	reg := MakeResource[migratingVpc, *fakeVpcOutput]()
+	reg := MakeResource[migratingVpc, *fakeVpcOutput, any]()
 	out, err := reg.Migrate(0, MigrationState{
 		Inputs:  map[string]any{"cidr-block": "10.0.0.0/8"},
 		Outputs: map[string]any{"original": "value"},
@@ -141,7 +141,7 @@ func (a *typedFakeAction) Run(_ context.Context, _ any) (*typedFakeActionOutput,
 }
 
 func TestMakeActionProducesWorkingRegistration(t *testing.T) {
-	reg := MakeAction[typedFakeAction, *typedFakeActionOutput]()
+	reg := MakeAction[typedFakeAction, *typedFakeActionOutput, any]()
 
 	receiver := reg.NewReceiver()
 	require.NoError(t, Decode(receiver, map[string]any{"argv": []any{"echo"}}))
@@ -230,7 +230,7 @@ func TestUpdateReceivesPriorInputsOutputsAndObserved(t *testing.T) {
 	// prior outputs, and the plan-time observed outputs the runtime hands
 	// it, all arriving as state maps. Outputs is the recorded handle;
 	// Observed is what the plan-time Read saw, which can differ under drift.
-	reg := MakeResource[capturingVpc, *fakeVpcOutput]()
+	reg := MakeResource[capturingVpc, *fakeVpcOutput, any]()
 	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
 	_, err := reg.Update(context.Background(), receiver, nil,
 		map[string]any{"cidr-block": "10.0.0.0/8"},
@@ -246,7 +246,7 @@ func TestUpdateReceivesPriorInputsOutputsAndObserved(t *testing.T) {
 func TestUpdatePassesNilObservedAsZero(t *testing.T) {
 	// A resource with no plan-time read (or a nil observed map) gets the
 	// zero Out, the same nil-pointer convention Outputs uses.
-	reg := MakeResource[capturingVpc, *fakeVpcOutput]()
+	reg := MakeResource[capturingVpc, *fakeVpcOutput, any]()
 	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
 	_, err := reg.Update(context.Background(), receiver, nil,
 		map[string]any{"cidr-block": "10.0.0.0/8"}, map[string]any{"id": "vpc-old"}, nil)
@@ -282,7 +282,7 @@ func TestChanged(t *testing.T) {
 func TestReadAcceptsStateMapPrior(t *testing.T) {
 	// State on disk is JSON-decoded, so typed Read is called with the
 	// map[string]any prior.
-	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
 	receiver := reg.NewReceiver()
 	prior := map[string]any{"id": "vpc-abc"}
 	out, err := reg.Read(context.Background(), receiver, nil, prior)
@@ -293,7 +293,7 @@ func TestReadAcceptsStateMapPrior(t *testing.T) {
 func TestReadReturnsErrorOnUndecodableStateMap(t *testing.T) {
 	// A corrupt prior state entry is reported as a Read error rather
 	// than a panic out of the registration.
-	reg := MakeResource[fakeVpc, *fakeVpcOutput]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
 	receiver := reg.NewReceiver()
 	prior := map[string]any{"unknown-field": "x"}
 	_, err := reg.Read(context.Background(), receiver, nil, prior)
@@ -301,7 +301,7 @@ func TestReadReturnsErrorOnUndecodableStateMap(t *testing.T) {
 }
 
 func TestMakeDataSourceProducesWorkingRegistration(t *testing.T) {
-	reg := MakeDataSource[fakeAMI, *fakeAMIOutput]()
+	reg := MakeDataSource[fakeAMI, *fakeAMIOutput, any]()
 
 	receiver := reg.NewReceiver()
 	require.NoError(t, Decode(receiver, map[string]any{"image-id": "ami-123"}))

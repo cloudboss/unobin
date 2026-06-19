@@ -24,7 +24,7 @@ type awsConfig struct {
 func awsModuleWithConfig() *runtime.Library {
 	return &runtime.Library{
 		Name: "aws",
-		Configuration: &cfg.ConfigurationType{
+		Configuration: &cfg.ConfigurationType[any]{
 			New: func() any {
 				return &awsConfig{
 					Profile: &cfg.String{Default: "default-profile"},

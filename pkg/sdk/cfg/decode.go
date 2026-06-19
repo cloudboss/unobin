@@ -20,11 +20,14 @@ import (
 // composes another configuration through a named field only; an
 // anonymous field is an error, so a field is never silently keyed by
 // its type name.
-func Decode(ct *ConfigurationType, raw map[string]any) (any, error) {
-	if ct == nil || ct.New == nil {
-		return nil, errors.New("Decode: ConfigurationType has no New")
+func Decode(ct Registration, raw map[string]any) (any, error) {
+	if ct == nil {
+		return nil, errors.New("Decode: configuration registration is nil")
 	}
-	inst := ct.New()
+	inst := ct.NewAny()
+	if inst == nil {
+		return nil, errors.New("Decode: configuration registration has no New")
+	}
 	v := reflect.ValueOf(inst)
 	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
 		return nil, fmt.Errorf(

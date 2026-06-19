@@ -27,11 +27,11 @@ type Field struct {
 // Anonymous fields are skipped here; Decode rejects them.
 // Descriptions come from whatever the zero value sets. Returns nil
 // when there is no configuration to describe.
-func Describe(ct *ConfigurationType) []Field {
-	if ct == nil || ct.New == nil {
+func Describe(ct Registration) []Field {
+	if ct == nil {
 		return nil
 	}
-	v := reflect.ValueOf(ct.New())
+	v := reflect.ValueOf(ct.NewAny())
 	if !v.IsValid() {
 		return nil
 	}

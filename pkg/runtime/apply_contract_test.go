@@ -57,10 +57,10 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"ghost": MakeResourceWith[ghostResource, any](
+				"ghost": MakeResourceWith[ghostResource, any, any](
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, any](),
+				"thing": MakeResource[trackedResource, any, any](),
 			},
 		},
 	}
@@ -136,10 +136,10 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"ghost": MakeResourceWith[ghostResource, any](
+				"ghost": MakeResourceWith[ghostResource, any, any](
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, any](),
+				"thing": MakeResource[trackedResource, any, any](),
 			},
 		},
 	}

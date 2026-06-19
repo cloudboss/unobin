@@ -871,7 +871,7 @@ configurations: { aws { region: var.region } }
 
 func TestCheckTypesConfigurationDeclaredOnlyAtRuntime(t *testing.T) {
 	lib := &runtime.Library{
-		Configuration: &cfg.ConfigurationType{New: func() any { return nil }},
+		Configuration: &cfg.ConfigurationType[any]{New: func() any { return nil }},
 		Schema:        &runtime.LibrarySchema{},
 	}
 	errs := checkSyntaxReferences(t, `

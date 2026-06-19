@@ -317,7 +317,7 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 	t.Helper()
 	c := &resourceCounters{}
 	libs := resourceModules(c)
-	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, any](
+	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, any, any](
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
@@ -572,7 +572,7 @@ func TestPlanGoTypeConstraintForwardRefDeterministic(t *testing.T) {
 // address, not just resources.
 func TestPlanGoTypeConstraintChecksActions(t *testing.T) {
 	libs := resourceModules(&resourceCounters{})
-	libs["core"].Actions = map[string]ActionRegistration{"echo": MakeAction[echoAction, any]()}
+	libs["core"].Actions = map[string]ActionRegistration{"echo": MakeAction[echoAction, any, any]()}
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
 		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}}},
 	}
@@ -1116,7 +1116,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[migratingCountingResource, any](
+				"thing": MakeResourceWith[migratingCountingResource, any, any](
 					func() *migratingCountingResource {
 						return &migratingCountingResource{
 							countingResource: countingResource{counters: &c},
@@ -1173,7 +1173,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResourceV2, any](
+				"thing": MakeResourceWith[countingResourceV2, any, any](
 					func() *countingResourceV2 {
 						return &countingResourceV2{
 							countingResource: countingResource{counters: &c},
@@ -1652,7 +1652,7 @@ actions: { hi: core.echo { echo: 'two' } }
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
-				"echo": MakeAction[echoAction, any](),
+				"echo": MakeAction[echoAction, any, any](),
 			},
 		},
 	}
@@ -1672,7 +1672,7 @@ actions: { hi: core.echo { echo: 'same' } }
 		"core": {
 			Name: "core",
 			Actions: map[string]ActionRegistration{
-				"echo": MakeAction[echoAction, any](),
+				"echo": MakeAction[echoAction, any, any](),
 			},
 		},
 	}

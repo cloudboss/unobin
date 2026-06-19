@@ -18,7 +18,7 @@ import (
 type Library struct {
 	Name          string
 	Description   string
-	Configuration *cfg.ConfigurationType
+	Configuration cfg.Registration
 	Actions       map[string]ActionRegistration
 	Resources     map[string]ResourceRegistration
 	DataSources   map[string]DataSourceRegistration
