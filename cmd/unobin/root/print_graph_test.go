@@ -268,6 +268,30 @@ factory: {
 	require.Equal(t, "action.hi\n", out)
 }
 
+func TestPrintGraphUsesReplacementSentinelForGoV2Module(t *testing.T) {
+	root := t.TempDir()
+	moduleDir := filepath.Join(root, "lib")
+	require.NoError(t, os.MkdirAll(moduleDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "go.mod"), []byte(`module example.com/lib/v2
+
+go 1.26
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "library.go"),
+		validGoLibrarySource("lib"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: { 'example.com/lib/v2': '"+deps.ReplacementSentinel+"' }\n"+
+			"replace: { 'example.com/lib/v2': './lib' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
+factory: {
+  imports: { lib: 'example.com/lib/v2' }
+}
+`), 0o644))
+
+	out, err := runCommand(t, "print-graph", "-p", root)
+	require.NoError(t, err)
+	require.Empty(t, out)
+}
+
 func TestPrintGraphAllowsSelfImport(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-self")
 	require.NoError(t, os.MkdirAll(dir, 0o755))

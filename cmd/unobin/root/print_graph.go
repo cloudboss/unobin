@@ -192,13 +192,13 @@ func printGraphReplacedVersions(
 		versions = map[string]string{}
 	}
 	if replaceUnobin {
-		versions[toolchain.UnobinModulePath] = "v0.0.0"
+		versions[toolchain.UnobinModulePath] = deps.ReplacementSentinel
 	}
 	for dep := range replace {
 		if dep.Subdir == "" {
-			versions[dep.URL] = "v0.0.0"
+			versions[dep.URL] = deps.ReplacementSentinel
 		} else {
-			versions[dep.String()] = "v0.0.0"
+			versions[dep.String()] = deps.ReplacementSentinel
 		}
 	}
 	return versions
