@@ -20,6 +20,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -1165,6 +1166,13 @@ func ReadGoSchema(
 ) (*ubruntime.LibrarySchema, []string, error) {
 	if sourcePath == "" {
 		return nil, nil, nil
+	}
+	moduleRoot, err := golibrary.FindModuleRoot(sourcePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, err := golibrary.ValidatePackage(moduleRoot, sourcePath); err != nil {
+		return nil, nil, err
 	}
 	return goschema.Read(sourcePath, extra...)
 }

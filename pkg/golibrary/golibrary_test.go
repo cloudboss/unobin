@@ -30,15 +30,27 @@ func librarySource(importDecl, body string) string {
 	return "package lib\n\n" + importDecl + "\n\n" + body + "\n"
 }
 
+func writeLibraryPackage(
+	t *testing.T,
+	moduleRoot string,
+	packageRel string,
+	importDecl string,
+	body string,
+) string {
+	t.Helper()
+	return writeModulePackage(t, moduleRoot, packageRel, librarySource(importDecl, body))
+}
+
 func TestValidatePackageAcceptsResourceLibrary(t *testing.T) {
 	moduleRoot := t.TempDir()
-	packageDir := writeModulePackage(t, moduleRoot, ".", librarySource(runtimePackage(""), `func Library() *runtime.Library {
+	packageDir := writeLibraryPackage(
+		t, moduleRoot, ".", runtimePackage(""), `func Library() *runtime.Library {
 	return &runtime.Library{
 		Resources: map[string]runtime.ResourceRegistration{
 			"server": nil,
 		},
 	}
-}`))
+}`)
 
 	got, err := ValidatePackage(moduleRoot, packageDir)
 	require.NoError(t, err)
@@ -52,13 +64,14 @@ func TestValidatePackageAcceptsResourceLibrary(t *testing.T) {
 
 func TestValidatePackageAcceptsAliasedRuntimeImport(t *testing.T) {
 	moduleRoot := t.TempDir()
-	packageDir := writeModulePackage(t, moduleRoot, ".", librarySource(runtimePackage("ubruntime"), `func Library() *ubruntime.Library {
+	packageDir := writeLibraryPackage(
+		t, moduleRoot, ".", runtimePackage("ubruntime"), `func Library() *ubruntime.Library {
 	return &ubruntime.Library{
 		Resources: map[string]ubruntime.ResourceRegistration{
 			"server": nil,
 		},
 	}
-}`))
+}`)
 
 	got, err := ValidatePackage(moduleRoot, packageDir)
 	require.NoError(t, err)
@@ -94,13 +107,14 @@ func TestValidatePackageAcceptsRegistrationKinds(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			moduleRoot := t.TempDir()
-			packageDir := writeModulePackage(t, moduleRoot, ".", librarySource(runtimePackage(""), `func Library() *runtime.Library {
+			body := `func Library() *runtime.Library {
 	return &runtime.Library{
-		`+tt.field+`: map[string]runtime.`+tt.typ+`{
+		` + tt.field + `: map[string]runtime.` + tt.typ + `{
 			"x": {},
 		},
 	}
-}`))
+}`
+			packageDir := writeLibraryPackage(t, moduleRoot, ".", runtimePackage(""), body)
 
 			got, err := ValidatePackage(moduleRoot, packageDir)
 			require.NoError(t, err)
@@ -111,13 +125,14 @@ func TestValidatePackageAcceptsRegistrationKinds(t *testing.T) {
 
 func TestValidatePackageAcceptsSubpackage(t *testing.T) {
 	moduleRoot := t.TempDir()
-	packageDir := writeModulePackage(t, moduleRoot, "sub/lib", librarySource(runtimePackage(""), `func Library() *runtime.Library {
+	packageDir := writeLibraryPackage(
+		t, moduleRoot, "sub/lib", runtimePackage(""), `func Library() *runtime.Library {
 	return &runtime.Library{
 		Actions: map[string]runtime.ActionRegistration{
 			"run": {},
 		},
 	}
-}`))
+}`)
 
 	got, err := ValidatePackage(moduleRoot, packageDir)
 	require.NoError(t, err)
@@ -129,9 +144,10 @@ func TestValidatePackageAcceptsSubpackage(t *testing.T) {
 func TestValidatePackageRejectsPackageOutsideModule(t *testing.T) {
 	moduleRoot := t.TempDir()
 	outside := t.TempDir()
-	packageDir := writeModulePackage(t, outside, ".", librarySource(runtimePackage(""), `func Library() *runtime.Library {
+	packageDir := writeLibraryPackage(
+		t, outside, ".", runtimePackage(""), `func Library() *runtime.Library {
 	return &runtime.Library{Resources: map[string]runtime.ResourceRegistration{"x": {}}}
-}`))
+}`)
 
 	_, err := ValidatePackage(moduleRoot, packageDir)
 	require.Error(t, err)
@@ -146,9 +162,12 @@ func TestValidatePackageRejectsInvalidLibraryForms(t *testing.T) {
 	}{
 		{
 			name: "dot import",
-			src: librarySource(`import . "github.com/cloudboss/unobin/pkg/runtime"`, `func Library() *Library {
+			src: librarySource(
+				`import . "github.com/cloudboss/unobin/pkg/runtime"`,
+				`func Library() *Library {
 	return &Library{}
-}`),
+}`,
+			),
 			want: "dot import",
 		},
 		{

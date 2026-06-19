@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -200,6 +201,11 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	if !ubLibrary && !goLibrary {
 		return missingPackageProjectError(pkg, owner.Project)
 	}
+	if goLibrary {
+		if err := validateGoLibrarySource(src); err != nil {
+			return err
+		}
+	}
 	kind := LockKindGo
 	if ubLibrary {
 		kind = LockKindUB
@@ -219,6 +225,18 @@ func (w *lockWalker) walkRemote(r *resolve.RemoteImport) error {
 	}
 	w.walked[packageKey] = true
 	return nil
+}
+
+func validateGoLibrarySource(src *resolve.Source) error {
+	if src == nil || src.Path == "" {
+		return nil
+	}
+	moduleRoot, err := golibrary.FindModuleRoot(src.Path)
+	if err != nil {
+		return err
+	}
+	_, err = golibrary.ValidatePackage(moduleRoot, src.Path)
+	return err
 }
 
 func missingPackageProjectError(pkg RemotePackage, project ProjectID) error {
@@ -351,6 +369,9 @@ func (w *lockWalker) walkReplaced(r *resolve.RemoteImport) error {
 	}
 	if resolve.IsUBLibrary(src) {
 		return w.walkBodies(src)
+	}
+	if resolve.IsGoLibrary(src) {
+		return validateGoLibrarySource(src)
 	}
 	return nil
 }

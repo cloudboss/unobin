@@ -24,6 +24,25 @@ type Validation struct {
 	HasFunctions bool
 }
 
+func FindModuleRoot(packageDir string) (string, error) {
+	dir, err := filepath.Abs(packageDir)
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		} else if err != nil && !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("no go.mod found in %s or any parent directory", packageDir)
+		}
+		dir = parent
+	}
+}
+
 func ValidatePackage(moduleRoot, packageDir string) (*Validation, error) {
 	moduleRoot, packageDir, err := cleanRoots(moduleRoot, packageDir)
 	if err != nil {
@@ -145,7 +164,7 @@ func libraryFunction(pkg *ast.Package) (*ast.FuncDecl, error) {
 		}
 	}
 	if len(found) == 0 {
-		return nil, fmt.Errorf("no package-level Library function")
+		return nil, fmt.Errorf("no Library() function; no package-level Library function")
 	}
 	if len(found) > 1 {
 		return nil, fmt.Errorf("more than one package-level Library function")
@@ -173,11 +192,8 @@ func validateBody(fn *ast.FuncDecl, runtimeAliases map[string]bool) (*Validation
 	if fn.Body == nil || countReturns(fn.Body) != 1 {
 		return nil, fmt.Errorf("Library function must have exactly one return statement")
 	}
-	if len(fn.Body.List) != 1 {
-		return nil, fmt.Errorf("Library function must have exactly one return statement")
-	}
-	stmt, ok := fn.Body.List[0].(*ast.ReturnStmt)
-	if !ok || len(stmt.Results) != 1 {
+	stmt := onlyReturn(fn.Body)
+	if stmt == nil || len(stmt.Results) != 1 {
 		return nil, fmt.Errorf("Library function must have exactly one return statement")
 	}
 	literal, ok := directLibraryLiteral(stmt.Results[0], runtimeAliases)
@@ -195,12 +211,29 @@ func validateBody(fn *ast.FuncDecl, runtimeAliases map[string]bool) (*Validation
 func countReturns(body *ast.BlockStmt) int {
 	var count int
 	ast.Inspect(body, func(n ast.Node) bool {
+		if _, ok := n.(*ast.FuncLit); ok {
+			return false
+		}
 		if _, ok := n.(*ast.ReturnStmt); ok {
 			count++
 		}
 		return true
 	})
 	return count
+}
+
+func onlyReturn(body *ast.BlockStmt) *ast.ReturnStmt {
+	var stmt *ast.ReturnStmt
+	ast.Inspect(body, func(n ast.Node) bool {
+		if _, ok := n.(*ast.FuncLit); ok {
+			return false
+		}
+		if ret, ok := n.(*ast.ReturnStmt); ok {
+			stmt = ret
+		}
+		return stmt == nil
+	})
+	return stmt
 }
 
 func isRuntimeLibraryPointer(expr ast.Expr, runtimeAliases map[string]bool) bool {

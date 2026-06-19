@@ -162,6 +162,21 @@ func factorySource(body string) []byte {
 	return []byte("factory: {\n" + trimmed + "}\n")
 }
 
+func validGoLibrarySource(pkg string) []byte {
+	return fmt.Appendf(nil, `package %s
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Resources: map[string]runtime.ResourceRegistration{
+			"x": nil,
+		},
+	}
+}
+`, pkg)
+}
+
 func resetFlags(cmd *cobra.Command) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if sv, ok := f.Value.(pflag.SliceValue); ok {
@@ -218,13 +233,34 @@ func TestDepsSyncAddsLockedVersionForDirectImport(t *testing.T) {
 `, string(manifestBytes))
 }
 
+func TestDepsSyncRejectsInvalidGoLibrary(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource("requires: { 'github.com/x/bad': 'v1.0.0' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { bad: 'github.com/x/bad' }\n"), 0o644))
+	badDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(badDir, "go.mod"),
+		[]byte("module github.com/x/bad\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(badDir, "library.go"),
+		[]byte("package bad\n\nfunc Library() any { return nil }\n"), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/x/bad@v1.0.0": {Commit: "c1", Path: badDir},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must return *runtime.Library")
+}
+
 func TestDepsSyncAddsSentinelForExactReplacement(t *testing.T) {
 	root := t.TempDir()
 	local := filepath.Join(root, "core")
 	require.NoError(t, os.MkdirAll(local, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(local, "go.mod"),
 		[]byte("module github.com/x/core\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(local, "lib.go"), []byte("package core\n"), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(local, "lib.go"), validGoLibrarySource("core"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource("requires: {}\nreplace: { 'github.com/x/core': './core' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
@@ -770,6 +806,8 @@ func TestDepsSyncWithReplace(t *testing.T) {
 	awsDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
 		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(awsDir, "library.go"), validGoLibrarySource("aws"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
 			awsDir+"' }\n"), 0o644))
@@ -1344,14 +1382,8 @@ func TestCompileWithReplacedGoLibrary(t *testing.T) {
 	awsDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
 		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "library.go"), []byte(`package aws
-
-import "github.com/cloudboss/unobin/pkg/runtime"
-
-func Library() *runtime.Library {
-	return &runtime.Library{Name: "aws"}
-}
-`), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(awsDir, "library.go"), validGoLibrarySource("aws"), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
 		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
@@ -1561,14 +1593,8 @@ cluster: resource {
 	awsDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
 		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "library.go"), []byte(`package aws
-
-import "github.com/cloudboss/unobin/pkg/runtime"
-
-func Library() *runtime.Library {
-	return &runtime.Library{Name: "aws"}
-}
-`), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(awsDir, "library.go"), validGoLibrarySource("aws"), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
 		manifestSource("requires: {}\nreplace: {\n"+
@@ -2498,10 +2524,12 @@ imports: {
 	require.Regexp(t, `"foo":\s*\{\s*Name:\s*"foo"`, string(pkgBytes))
 }
 
-func TestCompileReplaceUnobinGoSubdir(t *testing.T) {
+func TestCompileReplaceUnobinGoSubdirRejectsInvalidLibrary(t *testing.T) {
 	fakeUnobin := t.TempDir()
 	goModDir := filepath.Join(fakeUnobin, "pkg/libraries/local")
 	require.NoError(t, os.MkdirAll(goModDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "go.mod"),
+		[]byte("module github.com/cloudboss/unobin/pkg/libraries/local\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(goModDir, "library.go"),
 		[]byte("package local\n\nfunc Library() any { return nil }\n"), 0o644))
 
@@ -2517,12 +2545,12 @@ imports: {
 		"github.com/cloudboss/unobin//pkg/libraries/local": "v0.1.0",
 	})
 
-	out, err := runCommand(t, "compile",
+	_, err := runCommand(t, "compile",
 		"-p", stackPath, "-o", "-",
 		"--version", "v0.1.0",
 		"--replace-unobin", fakeUnobin)
-	require.NoError(t, err)
-	require.Contains(t, out, `"github.com/cloudboss/unobin/pkg/libraries/local"`)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must return *runtime.Library")
 }
 
 func TestCompileReplaceUnobinMissingPath(t *testing.T) {

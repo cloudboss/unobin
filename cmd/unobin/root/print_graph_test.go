@@ -19,6 +19,33 @@ func writeStack(t *testing.T, dir, body string) string {
 	return stackPath
 }
 
+func TestPrintGraphRejectsInvalidGoLibrary(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "graph-invalid-go")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`factory: {
+  imports: { bad: 'github.com/x/bad' }
+}
+`), 0o644))
+	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["github.com/x/bad"] = &deps.LockedDep{
+		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
+	}
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
+	badDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(badDir, "go.mod"),
+		[]byte("module github.com/x/bad\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(badDir, "library.go"),
+		[]byte("package bad\n\nfunc Library() any { return nil }\n"), 0o644))
+	remotes := map[string]*resolve.Source{
+		"github.com/x/bad@v1.0.0": {Commit: "c1", Path: badDir},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "print-graph", "-p", dir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must return *runtime.Library")
+}
+
 func TestPrintGraphRejectsSentinelWithoutReplacement(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-sentinel")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
