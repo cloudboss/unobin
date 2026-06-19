@@ -8,6 +8,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
@@ -204,16 +205,16 @@ func (c *referenceChecker) defaultedInputs(n *runtime.Node) map[string]bool {
 // so missing-schema libraries do not block compile.
 func (c *referenceChecker) bodyTargets(n *runtime.Node) map[string]typecheck.Type {
 	if n.IsComposite() {
-		return compositeInputTargets(n)
+		return c.compositeInputTargets(n)
 	}
 	return c.goInputTargets(n)
 }
 
-func compositeInputTargets(n *runtime.Node) map[string]typecheck.Type {
+func (c *referenceChecker) compositeInputTargets(n *runtime.Node) map[string]typecheck.Type {
 	if n.CompositeSyntaxBody == nil {
 		return nil
 	}
-	return inputTargets(syntaxInputFields(n.CompositeSyntaxBody.Inputs))
+	return inputTargets(c.syntaxInputFields(n.Address, n.CompositeSyntaxBody.Inputs))
 }
 
 func inputTargets(fields []typecheck.ObjectField) map[string]typecheck.Type {
@@ -228,13 +229,16 @@ func inputTargets(fields []typecheck.ObjectField) map[string]typecheck.Type {
 	return out
 }
 
-func syntaxInputFields(decls []syntax.InputDecl) []typecheck.ObjectField {
+func (c *referenceChecker) syntaxInputFields(
+	scope string,
+	decls []syntax.InputDecl,
+) []typecheck.ObjectField {
 	fields := make([]typecheck.ObjectField, 0, len(decls))
 	for _, decl := range decls {
 		inner, optional, defaulted := syntaxInputType(decl)
 		fields = append(fields, typecheck.ObjectField{
 			Name:      decl.Name.Name,
-			Type:      typecheck.FromLang(inner),
+			Type:      c.typeFromLangInput(scope, inner),
 			Optional:  optional,
 			Defaulted: defaulted,
 		})
@@ -250,6 +254,122 @@ func syntaxInputType(decl syntax.InputDecl) (lang.TypeExpr, bool, bool) {
 		return decl.Type, true, true
 	}
 	return decl.Type, false, false
+}
+
+func (c *referenceChecker) typeFromLangInput(scope string, t lang.TypeExpr) typecheck.Type {
+	lib, ok := t.(*lang.TypeLibraryConfig)
+	if !ok {
+		return typecheck.FromLang(t)
+	}
+	return c.libraryConfigInputType(scope, lib)
+}
+
+func (c *referenceChecker) libraryConfigInputType(
+	scope string,
+	t *lang.TypeLibraryConfig,
+) typecheck.Type {
+	if t == nil || t.Path == nil {
+		return typecheck.TUnknown()
+	}
+	path := t.Path.Value
+	libs := c.libraries[scope]
+	if libs == nil {
+		c.addf(t.Path.S.Start, "library-config %q has no resolved imports", path)
+		return typecheck.TUnknown()
+	}
+	imports := c.importsForScope(scope)
+	var out typecheck.Type
+	matched := false
+	for _, imp := range imports {
+		if imp.Ref == nil || imp.Ref.Value != path {
+			continue
+		}
+		matched = true
+		lib := libs[imp.Alias.Name]
+		if lib == nil {
+			c.addf(t.Path.S.Start, "library-config %q: alias %q is unresolved",
+				path, imp.Alias.Name)
+			continue
+		}
+		got, ok := libraryConfigType(path, lib)
+		if !ok {
+			c.addf(t.Path.S.Start, "library-config %q: alias %q declares no config",
+				path, imp.Alias.Name)
+			continue
+		}
+		if !out.IsKnown() && out.Kind == typecheck.Unknown {
+			out = got
+			continue
+		}
+		if !out.Equal(got) {
+			c.addf(t.Path.S.Start,
+				"library-config %q: aliases disagree on config schema", path)
+			return typecheck.TUnknown()
+		}
+	}
+	if !matched {
+		c.addf(t.Path.S.Start, "library-config path %q is not imported in this body", path)
+		return typecheck.TUnknown()
+	}
+	if out.Kind == typecheck.Unknown {
+		return typecheck.TUnknown()
+	}
+	return out
+}
+
+func (c *referenceChecker) importsForScope(scope string) []syntax.ImportDecl {
+	if scope == "" {
+		if c.rootSyntax == nil {
+			return nil
+		}
+		return c.rootSyntax.Imports
+	}
+	node, ok := c.dag.Nodes[scope]
+	if !ok || node.CompositeSyntaxBody == nil {
+		return nil
+	}
+	return node.CompositeSyntaxBody.Imports
+}
+
+func libraryConfigType(path string, lib *runtime.Library) (typecheck.Type, bool) {
+	if lib == nil {
+		return typecheck.TUnknown(), false
+	}
+	if lib.Schema != nil && lib.Schema.HasConfiguration {
+		fields := lib.Schema.ConfigurationFields
+		if fields == nil && lib.Schema.Configuration != nil {
+			fields = configurationFieldsFromMap(lib.Schema.Configuration)
+		}
+		if fields == nil {
+			return typecheck.TUnknown(), false
+		}
+		digest := lib.Schema.ConfigurationDigest
+		if digest == "" {
+			digest = cfg.DigestView(fields, lib.Schema.ConfigurationDefaults)
+		}
+		return typecheck.TLibraryConfig(path, path, digest, fields), true
+	}
+	if lib.Configuration == nil {
+		return typecheck.TUnknown(), false
+	}
+	view, err := cfg.View(lib.Configuration)
+	if err != nil {
+		return typecheck.TUnknown(), false
+	}
+	return typecheck.TLibraryConfig(path, path, view.SchemaDigest, view.Fields), true
+}
+
+func configurationFieldsFromMap(schema map[string]typecheck.Type) []typecheck.ObjectField {
+	fields := make([]typecheck.ObjectField, 0, len(schema))
+	for _, name := range slices.Sorted(maps.Keys(schema)) {
+		t := schema[name]
+		fields = append(fields, typecheck.ObjectField{
+			Name:     name,
+			Type:     t.Unwrap(),
+			Optional: t.Kind == typecheck.Optional,
+		})
+	}
+	return fields
 }
 
 func inputDeclHasDefault(decl *lang.ObjectLit) bool {
@@ -434,7 +554,7 @@ func syntaxLocalExprs(decls []syntax.LocalDecl) map[string]lang.Expr {
 func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 	if scope == "" {
 		if c.rootSyntax != nil {
-			return syntaxInputFields(c.rootSyntax.Inputs)
+			return c.syntaxInputFields("", c.rootSyntax.Inputs)
 		}
 		return nil
 	}
@@ -442,7 +562,7 @@ func (c *referenceChecker) scopeInputs(scope string) []typecheck.ObjectField {
 	if !ok || node.CompositeSyntaxBody == nil {
 		return nil
 	}
-	return syntaxInputFields(node.CompositeSyntaxBody.Inputs)
+	return c.syntaxInputFields(scope, node.CompositeSyntaxBody.Inputs)
 }
 
 func (c *referenceChecker) lookupNodeFor(scope string) typecheck.LookupNodeFn {

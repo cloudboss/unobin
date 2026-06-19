@@ -371,7 +371,7 @@ func (w *walker) objectFieldsFromStruct(
 	if st.Fields == nil {
 		return nil, nil
 	}
-	var fields []typecheck.ObjectField
+	fields := []typecheck.ObjectField{}
 	var sensitive map[string]bool
 	w.eachStructField(st, func(kebab string, fld *ast.Field, isSensitive bool) {
 		t := w.typeFromAST(fld.Type)

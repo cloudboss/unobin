@@ -42,6 +42,19 @@ func localFileLibrary() *runtime.Library {
 	}
 }
 
+func libraryConfigSchemaLibrary(digest string) *runtime.Library {
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	if digest == "" {
+		digest = cfg.DigestView(fields, nil)
+	}
+	return &runtime.Library{Schema: &runtime.LibrarySchema{
+		HasConfiguration:    true,
+		ConfigurationFields: fields,
+		ConfigurationDigest: digest,
+		Configuration:       map[string]typecheck.Type{"region": typecheck.TString()},
+	}}
+}
+
 // TestCheckTypesRequiresMissingInput proves a body that leaves out a
 // required input fails at compile: content has no default and is not
 // optional, while mode and create-directory are excused by their
@@ -137,6 +150,85 @@ resources: { demo: bundle.pair {} }
 resources: { demo: bundle.pair { name: 'n' } }
 `, libs)
 	require.Empty(t, clean.Messages())
+}
+
+func TestCheckTypesUsesLibraryConfigInputFields(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: {
+  aws: 'github.com/acme/aws'
+  local: 'github.com/local/file'
+}
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+resources: {
+  one: local.file { path: var.aws-config.region content: 'x' }
+}
+`, map[string]*runtime.Library{
+		"aws":   libraryConfigSchemaLibrary(""),
+		"local": localFileLibrary(),
+	})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesRequiresImportedLibraryConfigPath(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: { aws: 'github.com/acme/other' }
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+locals: { region: var.aws-config.region }
+`, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
+
+	require.Equal(t,
+		[]string{`library-config path "github.com/acme/aws" is not imported in this body`},
+		errs.Messages())
+}
+
+func TestCheckTypesRequiresOneLibraryConfigSchema(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: {
+  primary: 'github.com/acme/aws'
+  backup: 'github.com/acme/aws'
+}
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+locals: { region: var.aws-config.region }
+`, map[string]*runtime.Library{
+		"primary": libraryConfigSchemaLibrary("one"),
+		"backup":  libraryConfigSchemaLibrary("two"),
+	})
+
+	require.Equal(t,
+		[]string{`library-config "github.com/acme/aws": aliases disagree on config schema`},
+		errs.Messages())
+}
+
+func TestCheckTypesUsesCompositeLibraryConfigInput(t *testing.T) {
+	composite := parseSyntaxCompositeFixture(t, `
+app: resource {
+  imports: { aws: 'github.com/acme/aws' }
+  inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
+  outputs: { region: { value: var.aws-config.region } }
+}
+`)
+	body := composite.body
+	libs := map[string]*runtime.Library{
+		"bundle": {ResourceComposites: map[string]*runtime.CompositeType{"app": {
+			Name:       "app",
+			SyntaxBody: &body,
+			Libraries:  map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")},
+		}}},
+	}
+
+	errs := checkSyntaxReferences(t, `
+resources: { demo: bundle.app { aws-config: { region: 1 } } }
+`, libs)
+	require.Equal(t,
+		[]string{`type mismatch: expected string, got integer`},
+		errs.Messages())
 }
 
 func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {
