@@ -24,6 +24,8 @@ import (
 // GoImports maps each Go-library alias the source uses to the Go import
 // path that supplies it (e.g.,
 // `"std" -> "github.com/cloudboss/unobin-library-std"`).
+// GoModules maps each required Go module path to the selected version for
+// go.mod. A Go package import below a module appears only in GoImports.
 // UBImports maps each UB-library alias to the local Go import path of
 // the package that compile generated for it (typically
 // `<factory-name>/internal/<alias>`).
@@ -32,6 +34,7 @@ type Input struct {
 	LibraryPath string
 	FactoryName string
 	GoImports   map[string]string
+	GoModules   map[string]string
 	UBImports   map[string]string
 	// GoConstraints maps a Go-library alias to its types' cross-field
 	// constraints (kebab type name -> specs), gathered by the dev CLI

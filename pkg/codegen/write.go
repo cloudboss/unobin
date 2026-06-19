@@ -22,8 +22,8 @@ type Replaces map[string]string
 // goVersion is the Go toolchain version to declare. unobinVersion is
 // the version of `github.com/cloudboss/unobin` the generated binary
 // depends on. importVersions maps each library's Go import path to the
-// version constraint to require. replaces maps a library path to a
-// local path to substitute via `replace`.
+// version constraint to require for callers that have not set Input.GoModules.
+// replaces maps a module path to a local path to substitute via `replace`.
 func WriteSource(
 	dir string,
 	in Input,
@@ -41,17 +41,44 @@ func WriteSource(
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), source, 0o644); err != nil {
 		return err
 	}
-	lib, err := renderGoMod(in.FactoryName, goVersion, unobinVersion,
-		in.GoImports, importVersions, replaces)
+	goModules, err := modulesForGoMod(in.GoImports, in.GoModules, importVersions)
+	if err != nil {
+		return err
+	}
+	lib, err := renderGoMod(in.FactoryName, goVersion, unobinVersion, goModules, replaces)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "go.mod"), lib, 0o644)
 }
 
+func modulesForGoMod(
+	goImports, goModules, importVersions map[string]string,
+) (map[string]string, error) {
+	if len(goModules) > 0 {
+		out := make(map[string]string, len(goModules))
+		for modulePath, version := range goModules {
+			if version == "" {
+				return nil, fmt.Errorf("codegen: no version for module %q", modulePath)
+			}
+			out[modulePath] = version
+		}
+		return out, nil
+	}
+	out := make(map[string]string, len(goImports))
+	for alias, path := range goImports {
+		version, ok := importVersions[path]
+		if !ok {
+			return nil, fmt.Errorf("codegen: no version for import %q (%s)", alias, path)
+		}
+		out[path] = version
+	}
+	return out, nil
+}
+
 func renderGoMod(
 	factoryName, goVersion, unobinVersion string,
-	goImports, importVersions map[string]string,
+	goModules map[string]string,
 	replaces Replaces,
 ) ([]byte, error) {
 	if goVersion == "" {
@@ -60,25 +87,15 @@ func renderGoMod(
 	if unobinVersion == "" {
 		return nil, fmt.Errorf("codegen: unobinVersion is required")
 	}
-	for alias, path := range goImports {
-		if _, ok := importVersions[path]; !ok {
-			return nil, fmt.Errorf("codegen: no version for import %q (%s)", alias, path)
-		}
-	}
-
 	var b []byte
 	b = append(b, "module "+factoryName+"\n\n"...)
 	b = append(b, "go "+goVersion+"\n\n"...)
 	b = append(b, "require (\n"...)
 	b = append(b, "\tgithub.com/cloudboss/unobin "+unobinVersion+"\n"...)
 
-	paths := make([]string, 0, len(goImports))
-	seen := make(map[string]bool, len(goImports))
-	for _, p := range goImports {
-		if !seen[p] {
-			paths = append(paths, p)
-			seen[p] = true
-		}
+	paths := make([]string, 0, len(goModules))
+	for p := range goModules {
+		paths = append(paths, p)
 	}
 	slices.Sort(paths)
 
@@ -86,7 +103,7 @@ func renderGoMod(
 		if p == "github.com/cloudboss/unobin" || hasPrefix(p, "github.com/cloudboss/unobin/") {
 			continue
 		}
-		b = append(b, "\t"+p+" "+importVersions[p]+"\n"...)
+		b = append(b, "\t"+p+" "+goModules[p]+"\n"...)
 	}
 	b = append(b, ")\n"...)
 

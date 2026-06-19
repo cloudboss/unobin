@@ -75,6 +75,34 @@ func TestWriteSourceIncludesExternalImports(t *testing.T) {
 	require.Contains(t, lib, "github.com/cloudboss/unobin-libraries/aws v0.5.0")
 }
 
+func TestWriteSourceUsesGoModulesForGoMod(t *testing.T) {
+	dir := t.TempDir()
+	err := WriteSource(dir, Input{
+		Body:        "description: 'x'\n",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"fs": "example.com/lib/fs",
+		},
+		GoModules: map[string]string{
+			"example.com/lib": "v1.2.3",
+		},
+	}, "1.26", "v0.10.0", nil, nil)
+	require.NoError(t, err)
+
+	modBytes, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	require.NoError(t, err)
+	want := `module demo
+
+go 1.26
+
+require (
+	github.com/cloudboss/unobin v0.10.0
+	example.com/lib v1.2.3
+)
+`
+	require.Equal(t, want, string(modBytes))
+}
+
 func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 	dir := t.TempDir()
 	err := WriteSource(dir, Input{
