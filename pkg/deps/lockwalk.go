@@ -20,11 +20,11 @@ import (
 // locked and need no following: the walk already visits every file under the
 // root, so a local library's own imports are reached directly. A library's
 // version is its repository's selected version; a repository the selection
-// does not cover is an error (it is imported but no floor reached it). Kind
-// and content hash come from the fetched library subtree, so a Go library and
-// a UB library in the same repo are recorded distinctly. A repository named
-// in replace is read from its local path and never locked; a replaced UB
-// library's own remote dependencies are still walked.
+// does not cover is an error (it is imported but no floor reached it). Go
+// dependencies are recorded by project id. UB dependencies are recorded by
+// project id with a project-root hash. A repository named in replace is read
+// from its local path and never locked; a replaced UB library's own remote
+// dependencies are still walked.
 func LockFromImports(
 	rootFS fs.FS, selection map[Dependency]string, resolver resolve.Resolver,
 	replace map[Dependency]string,

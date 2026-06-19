@@ -1,11 +1,8 @@
-// Package resolve handles import resolution and lock file management.
+// Package resolve handles import resolution.
 //
 // Resolves import paths (bare URLs, with // subdirs, local ./ paths) to
 // concrete sources. Detects whether each import is a UB library (it has
 // UB files at the root) or a Go library. Detects cycles at resolve time
-// and reports them as compile errors. Enforces same-repo
-// imports sharing a version.
-//
-// Reads and writes dependency locks - pins git commits and content hashes per
-// import for reproducible compiles.
+// and reports them as compile errors. Enforces same-repo imports sharing
+// a version.
 package resolve

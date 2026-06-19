@@ -2,14 +2,10 @@ package resolve
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/git"
@@ -142,13 +138,6 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	if err := addGoModuleMetadata(src); err != nil {
 		return nil, err
 	}
-	if IsUBLibrary(src) {
-		hash, err := hashTree(src.FS)
-		if err != nil {
-			return nil, err
-		}
-		src.Hash = hash
-	}
 	return src, nil
 }
 
@@ -273,48 +262,4 @@ func normalizeURL(url string) string {
 		}
 	}
 	return strings.Trim(u, "/")
-}
-
-// hashTree returns a stable sha256 of the file tree rooted at fsys.
-// Files are walked in sorted order; per file, the hash absorbs the
-// path, the size, and the body. Directories themselves contribute no
-// bytes - the file paths carry the structure.
-// HashTree returns a stable sha256 of a source tree.
-func HashTree(fsys fs.FS) (string, error) {
-	return hashTree(fsys)
-}
-
-func hashTree(fsys fs.FS) (string, error) {
-	var paths []string
-	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if p == ".git" {
-			if d.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		paths = append(paths, p)
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	slices.Sort(paths)
-
-	h := sha256.New()
-	for _, p := range paths {
-		body, err := fs.ReadFile(fsys, p)
-		if err != nil {
-			return "", err
-		}
-		fmt.Fprintf(h, "%s\n%d\n", p, len(body))
-		h.Write(body)
-	}
-	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
 }

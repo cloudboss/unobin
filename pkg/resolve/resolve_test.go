@@ -27,7 +27,6 @@ func TestLocalResolverRelative(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, src)
 	require.Empty(t, src.Commit)
-	require.Empty(t, src.Hash)
 
 	b, err := fs.ReadFile(src.FS, "library.ub")
 	require.NoError(t, err)

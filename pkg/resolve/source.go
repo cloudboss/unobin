@@ -8,16 +8,13 @@ import (
 )
 
 // Source is the file tree of a resolved import, rooted at the imported
-// package directory. For remote imports, Commit and Hash record the resolved
-// git commit and a content hash so the lock file can pin reproducibility.
-// Local imports leave both empty since their content is whatever the developer
-// has now. Path is the on-disk package directory the dev CLI uses for
+// package directory. For remote imports, Commit records the resolved git
+// commit. Path is the on-disk package directory the dev CLI uses for
 // compile-time inspection of Go-library source.
 type Source struct {
 	FS     fs.FS
 	Path   string
 	Commit string
-	Hash   string
 
 	ProjectFS     fs.FS
 	ProjectPath   string

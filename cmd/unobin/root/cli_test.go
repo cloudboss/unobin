@@ -545,7 +545,6 @@ hello: resource {
 	remotes := map[string]*resolve.Source{
 		"github.com/scratch/repo//ub/helloer@v0.8.0": {
 			Commit: "scratch",
-			Hash:   "sha256:package",
 			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
 hello: resource {
   outputs: { message: { value: 'hi' } }
@@ -554,7 +553,6 @@ hello: resource {
 		},
 		"github.com/scratch/repo@v0.8.0": {
 			Commit: "scratch",
-			Hash:   "sha256:project",
 			FS:     projectFS,
 		},
 	}
@@ -590,14 +588,12 @@ factory: {
 	remotes := map[string]*resolve.Source{
 		"github.com/scratch/repo@v0.8.0": {
 			Commit: "scratch",
-			Hash:   "sha256:project",
 			FS: fstest.MapFS{
 				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
 			},
 		},
 		"github.com/scratch/repo//ub/helloer@v0.8.0": {
 			Commit: "scratch",
-			Hash:   "sha256:package",
 			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
 hello: data {
   outputs: { message: { value: 'hi' } }
@@ -649,12 +645,10 @@ factory: {
 	remotes := map[string]*resolve.Source{
 		"github.com/scratch/repo@v0.8.0": {
 			Commit: "root",
-			Hash:   "sha256:root",
 			FS:     rootFS,
 		},
 		"github.com/scratch/repo//ub/helloer@v0.8.0": {
 			Commit: "root",
-			Hash:   "sha256:helloer",
 			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
 hello: data {
   outputs: { message: { value: 'hi' } }
@@ -663,12 +657,10 @@ hello: data {
 		},
 		"github.com/scratch/repo//ub/project-b@ub/project-b/v0.1.0": {
 			Commit: "project-b",
-			Hash:   "sha256:project-b",
 			FS:     projectBFS,
 		},
 		"github.com/scratch/repo//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
 			Commit: "project-b",
-			Hash:   "sha256:comprehensions",
 			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
 list: data {
   outputs: { value: { value: [] } }
@@ -1195,7 +1187,6 @@ factory: {
 	remotes := map[string]*resolve.Source{
 		"github.com/x/libs//ub/project-b@ub/project-b/v0.1.0": {
 			Commit: "project-b",
-			Hash:   "sha256:project",
 			FS: fstest.MapFS{
 				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
 				"comprehensions/library.ub": &fstest.MapFile{Data: []byte(`
@@ -1207,7 +1198,6 @@ hello: resource {
 		},
 		"github.com/x/libs//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
 			Commit: "project-b",
-			Hash:   "sha256:package",
 			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
 hello: resource {
   outputs: { message: { value: 'hi' } }
@@ -2442,7 +2432,6 @@ imports: {
 		"github.com/example/net//libraries/network@v1": {
 			FS:     os.DirFS(libraryDir),
 			Commit: "abc123",
-			Hash:   "sha256:fakehash",
 		},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "compile",

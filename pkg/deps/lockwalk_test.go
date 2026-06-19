@@ -25,8 +25,8 @@ func goSrc(commit string) *resolve.Source {
 
 // ubSrc is a fetched UB-library source; its .ub files hold whatever
 // imports the test needs for recursion.
-func ubSrc(commit, hash string, files map[string]string) *resolve.Source {
-	return &resolve.Source{Commit: commit, Hash: hash, FS: mapFS(files)}
+func ubSrc(commit, _ string, files map[string]string) *resolve.Source {
+	return &resolve.Source{Commit: commit, FS: mapFS(files)}
 }
 
 func TestLockFromImportsRemoteGoLibrary(t *testing.T) {

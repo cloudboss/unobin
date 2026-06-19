@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -85,7 +84,6 @@ func TestRemoteResolverFetchesUBLibrary(t *testing.T) {
 	got, err := r.Resolve(&RemoteImport{URL: src, Version: "v1"})
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
-	require.NotEmpty(t, got.Hash)
 	require.NotNil(t, got.FS)
 
 	body, err := fs.ReadFile(got.FS, "library.ub")
@@ -104,7 +102,6 @@ func TestRemoteResolverFetchesGoLibrary(t *testing.T) {
 	got, err := r.Resolve(&RemoteImport{URL: src, Version: "v1"})
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
-	require.Empty(t, got.Hash, "go-library imports do not record a content hash")
 	require.NotNil(t, got.FS, "every resolved source exposes a filesystem")
 }
 
@@ -120,7 +117,6 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 	got, err := r.Resolve(&RemoteImport{URL: src, Subdir: "libraries/net", Version: "v1"})
 	require.NoError(t, err)
 	require.NotNil(t, got.FS)
-	require.NotEmpty(t, got.Hash)
 
 	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)
@@ -145,7 +141,6 @@ hello: resource {
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
 	require.NotNil(t, got.FS)
-	require.NotEmpty(t, got.Hash)
 	require.Equal(t, r.cacheDir(src, wantSHA), got.ProjectPath)
 	require.Equal(t, filepath.Join(r.cacheDir(src, wantSHA), "ub", "helloer"), got.Path)
 	require.Empty(t, got.ProjectSubdir)
@@ -221,33 +216,6 @@ func Library() *runtime.Library {
 	require.Equal(t, r.cacheDir(src, wantSHA), got.ModuleRootPath)
 	require.Equal(t, "example.com/lib", got.ModulePath)
 	require.Equal(t, "example.com/lib/fs", got.GoImportPath)
-}
-
-func TestHashTreeIgnoresGitMetadata(t *testing.T) {
-	withoutGit := fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`)},
-	}
-	withGit := fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`)},
-		".git/config":       &fstest.MapFile{Data: []byte("[remote \"origin\"]\n")},
-		".git/refs/tags/v1": &fstest.MapFile{Data: []byte("abc123\n")},
-	}
-
-	want, err := HashTree(withoutGit)
-	require.NoError(t, err)
-	got, err := HashTree(withGit)
-	require.NoError(t, err)
-	require.Equal(t, want, got)
 }
 
 func TestRemoteResolverCacheHitSkipsRefetch(t *testing.T) {
