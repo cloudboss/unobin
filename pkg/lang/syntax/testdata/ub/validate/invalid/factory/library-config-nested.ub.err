@@ -1,0 +1,1 @@
+input "aws-configs": library-config is only valid as the direct input type

@@ -1,0 +1,7 @@
+factory: {
+  inputs: {
+    aws-configs: {
+      type: list(library-config('github.com/cloudboss/unobin-library-aws'))
+    }
+  }
+}

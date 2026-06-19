@@ -72,6 +72,7 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	mergeErrors(errs, lang.ValidateConstraintReferences(constraints, inputs))
 	mergeErrors(errs, lang.ValidateImports(importDeclsObject(body.Imports)))
 	validateConfigurationDecls(body.Configurations, errs)
+	validateLibraryConfigTypePlacement(body.Inputs, errs)
 	validateLibraryConfigDecls(body.LibraryConfigs, errs)
 	validateConfigurationRefs(body, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
@@ -250,6 +251,65 @@ func validateConfigurationDecls(decls []ConfigurationDecl, errs *parse.ErrorList
 			seenNames[decl.Name.Name] = decl.Name.S.Start
 		}
 		validateConfigurationBody(label, decl.Body, errs)
+	}
+}
+
+func validateLibraryConfigTypePlacement(inputs []InputDecl, errs *parse.ErrorList) {
+	for _, input := range inputs {
+		if input.Type == nil {
+			continue
+		}
+		if _, ok := input.Type.(*parse.TypeLibraryConfig); ok {
+			continue
+		}
+		validateNestedLibraryConfigTypes(input.Name.Name, input.Type, errs)
+	}
+}
+
+func validateNestedLibraryConfigTypes(
+	input string,
+	t parse.TypeExpr,
+	errs *parse.ErrorList,
+) {
+	switch v := t.(type) {
+	case *parse.TypeLibraryConfig:
+		errs.Addf(parse.ErrSchema, v.S.Start,
+			"input %q: library-config is only valid as the direct input type", input)
+	case *parse.TypeList:
+		validateNestedLibraryConfigTypes(input, v.Elem, errs)
+	case *parse.TypeMap:
+		validateNestedLibraryConfigTypes(input, v.Elem, errs)
+	case *parse.TypeOptional:
+		validateNestedLibraryConfigTypes(input, v.Elem, errs)
+	case *parse.TypeTuple:
+		for _, elem := range v.Elements {
+			validateNestedLibraryConfigTypes(input, elem, errs)
+		}
+	case *parse.TypeObject:
+		for _, field := range v.Fields {
+			if field.Type != nil {
+				validateNestedLibraryConfigTypes(input, field.Type, errs)
+			}
+			validateNestedLibraryConfigDecl(input, field.Decl, errs)
+		}
+	}
+}
+
+func validateNestedLibraryConfigDecl(
+	input string,
+	decl *parse.ObjectLit,
+	errs *parse.ErrorList,
+) {
+	if decl == nil {
+		return
+	}
+	for _, fld := range decl.Fields {
+		if fld.Key.Kind != parse.FieldIdent || fld.Key.Name != "type" {
+			continue
+		}
+		if t, ok := fld.Value.(parse.TypeExpr); ok {
+			validateNestedLibraryConfigTypes(input, t, errs)
+		}
 	}
 }
 
