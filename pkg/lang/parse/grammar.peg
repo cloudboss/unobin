@@ -135,6 +135,8 @@ func typeExprName(t TypeExpr) string {
 		return "object"
 	case *TypeOptional:
 		return "optional"
+	case *TypeLibraryConfig:
+		return "library-config"
 	}
 	return "type"
 }
@@ -640,7 +642,7 @@ TypeFile <- _ t:TypeExprRule _ EOF {
 	return t, nil
 }
 
-TypeExprRule <- OpenType / OptionalType / ListType / MapType / TupleType / ObjectType / AtomicType
+TypeExprRule <- OpenType / OptionalType / ListType / MapType / TupleType / ObjectType / LibraryConfigType / AtomicType
 
 ListType <- "list" "(" _ args:TypeArgs _ ")" {
 	span := c.span()
@@ -704,6 +706,31 @@ OpenType <- "open" "(" _ args:TypeArgs _ ")" {
 
 ObjectType <- "object" "(" _ fields:TypeObjectBody _ ","? _ ")" {
 	return &TypeObject{S: c.span(), Fields: fields.([]*TypeObjectField)}, nil
+}
+
+LibraryConfigType <- "library-config" "(" _ args:LibraryConfigArgs? _ ")" {
+	span := c.span()
+	if args == nil {
+		return &TypeLibraryConfig{S: span}, fmt.Errorf(
+			"library-config takes exactly 1 string argument, got 0")
+	}
+	values := args.([]any)
+	if len(values) != 1 {
+		return &TypeLibraryConfig{S: span}, fmt.Errorf(
+			"library-config takes exactly 1 string argument, got %d", len(values))
+	}
+	path, ok := values[0].(*StringLit)
+	if !ok || path.Form != StringSingleQuoted {
+		return &TypeLibraryConfig{S: span}, fmt.Errorf(
+			"library-config takes a single-quoted string argument")
+	}
+	return &TypeLibraryConfig{S: span, Path: path}, nil
+}
+
+LibraryConfigArgs <- first:Value rest:( _ "," _ v:Value { return v, nil } )* _ ","? {
+	out := []any{first}
+	out = append(out, rest.([]any)...)
+	return out, nil
 }
 
 TypeArgs <- args:( first:TypeExprRule rest:( _ "," _ t:TypeExprRule { return t, nil } )* _ ","? )? {

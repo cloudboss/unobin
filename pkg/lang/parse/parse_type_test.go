@@ -22,6 +22,11 @@ func TestParseTypeConstructors(t *testing.T) {
 		{name: "optional", src: "optional(string)", want: &TypeOptional{}},
 		{name: "object", src: "object({ host: string port: integer })", want: &TypeObject{}},
 		{name: "open", src: "open(object({ tags: map(string) }))", want: &TypeObject{}},
+		{
+			name: "library config",
+			src:  "library-config('github.com/acme/aws')",
+			want: &TypeLibraryConfig{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -30,6 +35,14 @@ func TestParseTypeConstructors(t *testing.T) {
 			require.IsType(t, tt.want, got)
 		})
 	}
+}
+
+func TestParseTypeLibraryConfigPath(t *testing.T) {
+	got, err := ParseType("type.ub", []byte("library-config('github.com/acme/aws')"))
+	require.NoError(t, err)
+	cfg := got.(*TypeLibraryConfig)
+	require.NotNil(t, cfg.Path)
+	assert.Equal(t, "github.com/acme/aws", cfg.Path.Value)
 }
 
 func TestParseTypeTupleElements(t *testing.T) {

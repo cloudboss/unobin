@@ -576,6 +576,11 @@ func (w *formatter) typeExprWidth(t TypeExpr) int {
 			return -1
 		}
 		return len("optional(") + i + 1
+	case *TypeLibraryConfig:
+		if x.Path == nil {
+			return len("library-config('')")
+		}
+		return len("library-config(") + stringInlineWidth(x.Path) + 1
 	}
 	return -1
 }
@@ -1787,6 +1792,14 @@ func (w *formatter) writeTypeExpr(t TypeExpr, indent string) error {
 	case *TypeOptional:
 		w.buf.WriteString("optional(")
 		if err := w.writeTypeExpr(x.Elem, indent); err != nil {
+			return err
+		}
+		w.buf.WriteByte(')')
+	case *TypeLibraryConfig:
+		w.buf.WriteString("library-config(")
+		if x.Path == nil {
+			w.buf.WriteString("''")
+		} else if err := w.writeString(x.Path, indent); err != nil {
 			return err
 		}
 		w.buf.WriteByte(')')

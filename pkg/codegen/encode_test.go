@@ -311,6 +311,16 @@ func TestEncodeTypeOptional(t *testing.T) {
 	parsesAsGoExpr(t, got)
 }
 
+func TestEncodeTypeLibraryConfig(t *testing.T) {
+	got, err := EncodeNode(&lang.TypeLibraryConfig{
+		Path: &lang.StringLit{Value: "github.com/acme/aws"},
+	})
+	require.NoError(t, err)
+	require.Contains(t, got, "&lang.TypeLibraryConfig{")
+	require.Contains(t, got, `Value: "github.com/acme/aws"`)
+	parsesAsGoExpr(t, got)
+}
+
 func encodeExpr(t *testing.T, src string) string {
 	t.Helper()
 	f, err := lang.ParseSource("test.ub", []byte("v: "+src+"\n"))

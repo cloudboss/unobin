@@ -73,6 +73,8 @@ func encodeNode(b *strings.Builder, n lang.Node) error {
 		return encodeTypeTuple(b, x)
 	case *lang.TypeOptional:
 		return encodeTypeOptional(b, x)
+	case *lang.TypeLibraryConfig:
+		return encodeTypeLibraryConfig(b, x)
 	case nil:
 		b.WriteString("nil")
 		return nil
@@ -517,6 +519,18 @@ func encodeTypeOptional(b *strings.Builder, n *lang.TypeOptional) error {
 	b.WriteString("&lang.TypeOptional{Elem: ")
 	if err := encodeNode(b, n.Elem); err != nil {
 		return err
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeTypeLibraryConfig(b *strings.Builder, n *lang.TypeLibraryConfig) error {
+	b.WriteString("&lang.TypeLibraryConfig{")
+	if n.Path != nil {
+		b.WriteString("Path: ")
+		if err := encodeStringLit(b, n.Path); err != nil {
+			return err
+		}
 	}
 	b.WriteString("}")
 	return nil

@@ -507,3 +507,13 @@ type TypeOptional struct {
 func (n *TypeOptional) Span() Span    { return n.S }
 func (n *TypeOptional) exprNode()     {}
 func (n *TypeOptional) typeExprNode() {}
+
+// TypeLibraryConfig is library-config('<library-path>').
+type TypeLibraryConfig struct {
+	S    Span
+	Path *StringLit
+}
+
+func (n *TypeLibraryConfig) Span() Span    { return n.S }
+func (n *TypeLibraryConfig) exprNode()     {}
+func (n *TypeLibraryConfig) typeExprNode() {}

@@ -69,6 +69,14 @@ func requireOptional(t *testing.T, te TypeExpr) *TypeOptional {
 	return opt
 }
 
+func requireLibraryConfig(t *testing.T, te TypeExpr) *TypeLibraryConfig {
+	t.Helper()
+	lib, ok := te.(*TypeLibraryConfig)
+	require.True(t, ok, "got %T", te)
+	require.NotZero(t, lib.S.Start.Line)
+	return lib
+}
+
 func requireObjectField(t *testing.T, obj *TypeObject, idx int, name string) *TypeObjectField {
 	t.Helper()
 	require.Greater(t, len(obj.Fields), idx)
@@ -183,6 +191,14 @@ func TestParseTypeValidFixtures(t *testing.T) {
 				require.Len(t, obj.Fields, 1)
 				url := requireObjectField(t, obj, 0, "url")
 				requireAtomic(t, url.Type, "string")
+			},
+		},
+		{
+			name:    "library config",
+			fixture: "library-config",
+			check: func(t *testing.T, te TypeExpr) {
+				lib := requireLibraryConfig(t, te)
+				require.Equal(t, "github.com/acme/aws", lib.Path.Value)
 			},
 		},
 		{

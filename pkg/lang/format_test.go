@@ -777,6 +777,7 @@ func TestFormatTypeExpressions(t *testing.T) {
   region: { type: string }
   ports:  { type: list(integer) }
   cfg:    { type: optional(map(string)) }
+  aws:    { type: library-config('github.com/acme/aws') }
 }
 `
 	require.Equal(t, src, formatString(t, src))
@@ -1394,6 +1395,11 @@ func TestSingleLineWidthParsedTypeExpressions(t *testing.T) {
 		{"empty open type object", "open(object({}))", len("open(object({}))")},
 		{"non-empty type object forces break", "object({ a: integer })", -1},
 		{"tuple", "tuple(string, integer)", len("tuple(string, integer)")},
+		{
+			"library config",
+			"library-config('github.com/acme/aws')",
+			len("library-config('github.com/acme/aws')"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

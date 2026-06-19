@@ -38,6 +38,7 @@ type (
 	TypeObjectField    = parse.TypeObjectField
 	TypeTuple          = parse.TypeTuple
 	TypeOptional       = parse.TypeOptional
+	TypeLibraryConfig  = parse.TypeLibraryConfig
 	Comment            = parse.Comment
 	Span               = parse.Span
 	Position           = parse.Position
