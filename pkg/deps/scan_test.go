@@ -143,21 +143,21 @@ func TestImportedPackagesSkipsNestedProjects(t *testing.T) {
 	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
 	writeUB(t, filepath.Join(root, "factory-a", "factory.ub"), `
 factory: {
-  imports: { shared: 'github.com/acme/shared//lib' }
+  imports: { shared: 'example.com/shared//lib' }
 }
 `)
 	writeUB(t, filepath.Join(root, "library-c", ManifestFileName),
 		"manifest: { requires: {} }\n")
 	writeUB(t, filepath.Join(root, "library-c", "abc.ub"), `
 thing: resource {
-  imports: { nested: 'github.com/acme/nested//lib' }
+  imports: { nested: 'example.com/nested//lib' }
 }
 `)
 
 	repos, err := ImportedPackages(root)
 	require.NoError(t, err)
 	assert.Equal(t, map[RemotePackage]bool{
-		{URL: "github.com/acme/shared", Subdir: "lib"}: true,
+		{URL: "example.com/shared", Subdir: "lib"}: true,
 	}, repos)
 }
 
@@ -167,20 +167,20 @@ func TestImportedPackagesScansNestedProjectWhenStartedThere(t *testing.T) {
 	writeUB(t, filepath.Join(root, ManifestFileName), "manifest: { requires: {} }\n")
 	writeUB(t, filepath.Join(root, "factory.ub"), `
 factory: {
-  imports: { root: 'github.com/acme/root//lib' }
+  imports: { root: 'example.com/root//lib' }
 }
 `)
 	writeUB(t, filepath.Join(child, ManifestFileName), "manifest: { requires: {} }\n")
 	writeUB(t, filepath.Join(child, "abc.ub"), `
 thing: resource {
-  imports: { nested: 'github.com/acme/nested//lib' }
+  imports: { nested: 'example.com/nested//lib' }
 }
 `)
 
 	repos, err := ImportedPackages(child)
 	require.NoError(t, err)
 	assert.Equal(t, map[RemotePackage]bool{
-		{URL: "github.com/acme/nested", Subdir: "lib"}: true,
+		{URL: "example.com/nested", Subdir: "lib"}: true,
 	}, repos)
 }
 

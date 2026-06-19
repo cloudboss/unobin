@@ -17,35 +17,35 @@ func TestProjectContains(t *testing.T) {
 	}{
 		{
 			name:    "different url",
-			project: ProjectID{URL: "github.com/acme/repo"},
-			pkg:     RemotePackage{URL: "github.com/acme/other", Subdir: "ub/helloer"},
+			project: ProjectID{URL: "example.com/repo"},
+			pkg:     RemotePackage{URL: "example.com/other", Subdir: "ub/helloer"},
 		},
 		{
 			name:    "root project owns root package",
-			project: ProjectID{URL: "github.com/acme/repo"},
-			pkg:     RemotePackage{URL: "github.com/acme/repo"},
+			project: ProjectID{URL: "example.com/repo"},
+			pkg:     RemotePackage{URL: "example.com/repo"},
 			want:    ".",
 			ok:      true,
 		},
 		{
 			name:    "root project owns child package",
-			project: ProjectID{URL: "github.com/acme/repo"},
-			pkg:     RemotePackage{URL: "github.com/acme/repo", Subdir: "ub/helloer"},
+			project: ProjectID{URL: "example.com/repo"},
+			pkg:     RemotePackage{URL: "example.com/repo", Subdir: "ub/helloer"},
 			want:    "ub/helloer",
 			ok:      true,
 		},
 		{
 			name:    "nested project owns itself",
-			project: ProjectID{URL: "github.com/acme/repo", Subdir: "ub/project-b"},
-			pkg:     RemotePackage{URL: "github.com/acme/repo", Subdir: "ub/project-b"},
+			project: ProjectID{URL: "example.com/repo", Subdir: "ub/project-b"},
+			pkg:     RemotePackage{URL: "example.com/repo", Subdir: "ub/project-b"},
 			want:    ".",
 			ok:      true,
 		},
 		{
 			name:    "nested project owns child package",
-			project: ProjectID{URL: "github.com/acme/repo", Subdir: "ub/project-b"},
+			project: ProjectID{URL: "example.com/repo", Subdir: "ub/project-b"},
 			pkg: RemotePackage{
-				URL:    "github.com/acme/repo",
+				URL:    "example.com/repo",
 				Subdir: "ub/project-b/comprehensions",
 			},
 			want: "comprehensions",
@@ -53,8 +53,8 @@ func TestProjectContains(t *testing.T) {
 		},
 		{
 			name:    "sibling prefix does not match",
-			project: ProjectID{URL: "github.com/acme/repo", Subdir: "ub/project-b"},
-			pkg:     RemotePackage{URL: "github.com/acme/repo", Subdir: "ub/project-bad"},
+			project: ProjectID{URL: "example.com/repo", Subdir: "ub/project-b"},
+			pkg:     RemotePackage{URL: "example.com/repo", Subdir: "ub/project-bad"},
 		},
 	}
 	for _, tt := range tests {
@@ -68,23 +68,23 @@ func TestProjectContains(t *testing.T) {
 
 func TestMostSpecificProject(t *testing.T) {
 	projects := []ProjectID{
-		{URL: "github.com/acme/repo"},
-		{URL: "github.com/acme/repo", Subdir: "ub/project-b"},
-		{URL: "github.com/acme/repo", Subdir: "ub/project-b/comprehensions"},
+		{URL: "example.com/repo"},
+		{URL: "example.com/repo", Subdir: "ub/project-b"},
+		{URL: "example.com/repo", Subdir: "ub/project-b/comprehensions"},
 	}
 	owner, ok := MostSpecificProject(projects, RemotePackage{
-		URL:    "github.com/acme/repo",
+		URL:    "example.com/repo",
 		Subdir: "ub/project-b/comprehensions/actions",
 	})
 	require.True(t, ok)
 	assert.Equal(t,
-		ProjectID{URL: "github.com/acme/repo", Subdir: "ub/project-b/comprehensions"},
+		ProjectID{URL: "example.com/repo", Subdir: "ub/project-b/comprehensions"},
 		owner.Project)
 	assert.Equal(t, "actions", owner.PackageSubdir)
 }
 
 func TestProjectTag(t *testing.T) {
-	assert.Equal(t, "v1.2.3", ProjectTag(ProjectID{URL: "github.com/acme/repo"}, "v1.2.3"))
+	assert.Equal(t, "v1.2.3", ProjectTag(ProjectID{URL: "example.com/repo"}, "v1.2.3"))
 	assert.Equal(t, "ub/project-b/v1.2.3", ProjectTag(
-		ProjectID{URL: "github.com/acme/repo", Subdir: "ub/project-b"}, "v1.2.3"))
+		ProjectID{URL: "example.com/repo", Subdir: "ub/project-b"}, "v1.2.3"))
 }

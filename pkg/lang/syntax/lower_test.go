@@ -316,7 +316,7 @@ lock: {
       version: 'v0.1.0'
       commit: 'abc123'
     }
-    'github.com/acme/ub-lib//network': {
+    'example.com/ub-lib//network': {
       kind: ub
       version: 'v0.4.2'
       commit: 'def456'
@@ -342,7 +342,7 @@ lock: {
 	assert.Equal(t, "v0.1.0", got.Lock.Deps[0].Version.Value)
 	assert.Equal(t, "abc123", got.Lock.Deps[0].Commit.Value)
 	require.Nil(t, got.Lock.Deps[0].Hash)
-	assert.Equal(t, "github.com/acme/ub-lib//network", got.Lock.Deps[1].ID.Value)
+	assert.Equal(t, "example.com/ub-lib//network", got.Lock.Deps[1].ID.Value)
 	assert.Equal(t, "ub", got.Lock.Deps[1].Kind.Name)
 	assert.Equal(t, "sha256:789abc", got.Lock.Deps[1].Hash.Value)
 }

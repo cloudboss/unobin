@@ -108,14 +108,14 @@ func TestLockFromImportsRejectsUntypedUBFile(t *testing.T) {
 
 func TestLockFromImportsRejectsGrammarFirstFactoryImport(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { app: 'github.com/acme/app' } }\n",
+		"factory.ub": "factory: { imports: { app: 'example.com/app' } }\n",
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/acme/app", "", "v0.1.0"): ubSrc("c1", "h1", map[string]string{
+		srcKey("example.com/app", "", "v0.1.0"): ubSrc("c1", "h1", map[string]string{
 			"factory.ub": "factory: {}\n",
 		}),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/acme/app"}: "v0.1.0"}
+	sel := map[Dependency]string{{URL: "example.com/app"}: "v0.1.0"}
 
 	_, err := LockFromImports(root, sel, r, nil)
 
@@ -346,25 +346,25 @@ func TestLockFromImportsSkipsNestedProjects(t *testing.T) {
 		ManifestFileName: "manifest: { requires: {} }\n",
 		"factory-a/factory.ub": `
 factory: {
-  imports: { shared: 'github.com/acme/shared//lib' }
+  imports: { shared: 'example.com/shared//lib' }
 }
 `,
 		"library-c/" + ManifestFileName: "manifest: { requires: {} }\n",
 		"library-c/abc.ub": `
 thing: resource {
-  imports: { nested: 'github.com/acme/nested//lib' }
+  imports: { nested: 'example.com/nested//lib' }
 }
 `,
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/acme/shared", "lib", "lib/v1.0.0"): goSrc("c1"),
+		srcKey("example.com/shared", "lib", "lib/v1.0.0"): goSrc("c1"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/acme/shared", Subdir: "lib"}: "v1.0.0"}
+	sel := map[Dependency]string{{URL: "example.com/shared", Subdir: "lib"}: "v1.0.0"}
 
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
-		"github.com/acme/shared//lib": {
+		"example.com/shared//lib": {
 			Kind: LockKindGo, Version: "v1.0.0", Commit: "c1",
 		},
 	}, lock.Deps)
@@ -375,19 +375,19 @@ func TestLockFromImportsScansNestedProjectWhenStartedThere(t *testing.T) {
 		ManifestFileName: "manifest: { requires: {} }\n",
 		"abc.ub": `
 thing: resource {
-  imports: { nested: 'github.com/acme/nested//lib' }
+  imports: { nested: 'example.com/nested//lib' }
 }
 `,
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/acme/nested", "lib", "lib/v1.0.0"): goSrc("c1"),
+		srcKey("example.com/nested", "lib", "lib/v1.0.0"): goSrc("c1"),
 	}}
-	sel := map[Dependency]string{{URL: "github.com/acme/nested", Subdir: "lib"}: "v1.0.0"}
+	sel := map[Dependency]string{{URL: "example.com/nested", Subdir: "lib"}: "v1.0.0"}
 
 	lock, err := LockFromImports(root, sel, r, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
-		"github.com/acme/nested//lib": {
+		"example.com/nested//lib": {
 			Kind: LockKindGo, Version: "v1.0.0", Commit: "c1",
 		},
 	}, lock.Deps)

@@ -134,26 +134,26 @@ func TestWrapReplacesSubdirMatching(t *testing.T) {
 		{
 			name: "repository replacement appends subdir",
 			replace: map[deps.Dependency]string{
-				{URL: "github.com/acme/repo"}: "./checkout",
+				{URL: "example.com/repo"}: "./checkout",
 			},
-			ref:  &resolve.RemoteImport{URL: "github.com/acme/repo", Subdir: "library-c"},
+			ref:  &resolve.RemoteImport{URL: "example.com/repo", Subdir: "library-c"},
 			want: filepath.Join(checkout, "library-c"),
 		},
 		{
 			name: "exact subdir replacement uses local root",
 			replace: map[deps.Dependency]string{
-				{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+				{URL: "example.com/repo", Subdir: "library-c"}: "./library-c",
 			},
-			ref:  &resolve.RemoteImport{URL: "github.com/acme/repo", Subdir: "library-c"},
+			ref:  &resolve.RemoteImport{URL: "example.com/repo", Subdir: "library-c"},
 			want: library,
 		},
 		{
 			name: "exact subdir replacement appends child package",
 			replace: map[deps.Dependency]string{
-				{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+				{URL: "example.com/repo", Subdir: "library-c"}: "./library-c",
 			},
 			ref: &resolve.RemoteImport{
-				URL: "github.com/acme/repo", Subdir: "library-c/subpkg",
+				URL: "example.com/repo", Subdir: "library-c/subpkg",
 			},
 			want: filepath.Join(library, "subpkg"),
 		},
@@ -175,7 +175,7 @@ func TestWrapReplacesRejectsPackageReplacementWithoutMarker(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "helloer"), 0o755))
 
 	_, err := WrapReplaces(failingResolver{}, root, "", map[deps.Dependency]string{
-		{URL: "github.com/acme/repo", Subdir: "ub/helloer"}: "./helloer",
+		{URL: "example.com/repo", Subdir: "ub/helloer"}: "./helloer",
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no manifest.ub or go.mod")
@@ -183,13 +183,13 @@ func TestWrapReplacesRejectsPackageReplacementWithoutMarker(t *testing.T) {
 
 func TestWithReplacedVersionsUsesReplacementID(t *testing.T) {
 	versions := withReplacedVersions(nil, false, map[deps.Dependency]string{
-		{URL: "github.com/acme/repo"}:                      "./checkout",
-		{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+		{URL: "example.com/repo"}:                      "./checkout",
+		{URL: "example.com/repo", Subdir: "library-c"}: "./library-c",
 	}, nil)
 
-	require.Equal(t, replacedVersion, versions["github.com/acme/repo"])
-	require.Equal(t, replacedVersion, versions["github.com/acme/repo//library-c"])
-	require.NotContains(t, versions, "github.com/acme/repo/library-c")
+	require.Equal(t, replacedVersion, versions["example.com/repo"])
+	require.Equal(t, replacedVersion, versions["example.com/repo//library-c"])
+	require.NotContains(t, versions, "example.com/repo/library-c")
 }
 
 func TestAddManifestReplacesUsesResolvedGoPath(t *testing.T) {
@@ -206,17 +206,17 @@ func TestAddManifestReplacesUsesResolvedGoPath(t *testing.T) {
 
 	replaces := map[string]string{}
 	err := addManifestReplaces(replaces, root, map[deps.Dependency]string{
-		{URL: "github.com/acme/repo"}:                      "./checkout",
-		{URL: "github.com/acme/repo", Subdir: "library-c"}: "./library-c",
+		{URL: "example.com/repo"}:                      "./checkout",
+		{URL: "example.com/repo", Subdir: "library-c"}: "./library-c",
 	}, map[string]string{
-		"github.com/acme/repo/other":            "v1.0.0",
-		"github.com/acme/repo/library-c":        "v1.0.0",
-		"github.com/acme/repo/library-c/subpkg": "v1.0.0",
+		"example.com/repo/other":            "v1.0.0",
+		"example.com/repo/library-c":        "v1.0.0",
+		"example.com/repo/library-c/subpkg": "v1.0.0",
 	})
 	require.NoError(t, err)
-	require.Equal(t, filepath.Join(checkout, "other"), replaces["github.com/acme/repo/other"])
-	require.Equal(t, library, replaces["github.com/acme/repo/library-c"])
+	require.Equal(t, filepath.Join(checkout, "other"), replaces["example.com/repo/other"])
+	require.Equal(t, library, replaces["example.com/repo/library-c"])
 	require.Equal(t,
 		filepath.Join(library, "subpkg"),
-		replaces["github.com/acme/repo/library-c/subpkg"])
+		replaces["example.com/repo/library-c/subpkg"])
 }

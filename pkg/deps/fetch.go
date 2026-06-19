@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -74,17 +75,9 @@ func noProjectMarkerError(dep Dependency) error {
 
 // HasProjectMarker reports whether fsys contains manifest.ub or go.mod at its root.
 func HasProjectMarker(fsys fs.FS) (bool, error) {
-	if _, err := ReadManifest(fsys); err == nil {
-		return true, nil
-	} else if !errors.Is(err, fs.ErrNotExist) {
+	marker, err := projectmarker.ClassifyRoot(fsys)
+	if err != nil {
 		return false, err
 	}
-	info, err := fs.Stat(fsys, "go.mod")
-	if err == nil && !info.IsDir() {
-		return true, nil
-	}
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return false, err
-	}
-	return false, nil
+	return marker.Kind != projectmarker.None, nil
 }

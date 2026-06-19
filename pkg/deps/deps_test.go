@@ -65,9 +65,9 @@ func TestDependencyStringRoundTrip(t *testing.T) {
 
 func TestReplacementFor(t *testing.T) {
 	replace := map[Dependency]string{
-		{URL: "github.com/acme/repo"}:                         "./checkout",
-		{URL: "github.com/acme/repo", Subdir: "library-c"}:    "./library-c",
-		{URL: "github.com/acme/repo", Subdir: "libs/metrics"}: "./metrics",
+		{URL: "example.com/repo"}:                         "./checkout",
+		{URL: "example.com/repo", Subdir: "library-c"}:    "./library-c",
+		{URL: "example.com/repo", Subdir: "libs/metrics"}: "./metrics",
 	}
 	cases := []struct {
 		name      string
@@ -79,37 +79,37 @@ func TestReplacementFor(t *testing.T) {
 	}{
 		{
 			name:     "repository replacement covers root",
-			dep:      Dependency{URL: "github.com/acme/repo"},
+			dep:      Dependency{URL: "example.com/repo"},
 			wantPath: "./checkout",
-			wantDep:  Dependency{URL: "github.com/acme/repo"},
+			wantDep:  Dependency{URL: "example.com/repo"},
 		},
 		{
 			name:     "repository replacement appends subdir",
-			dep:      Dependency{URL: "github.com/acme/repo", Subdir: "other"},
+			dep:      Dependency{URL: "example.com/repo", Subdir: "other"},
 			wantPath: "./checkout",
-			wantDep:  Dependency{URL: "github.com/acme/repo"},
+			wantDep:  Dependency{URL: "example.com/repo"},
 			wantRest: "other",
 		},
 		{
 			name:      "exact subdir replacement wins",
-			dep:       Dependency{URL: "github.com/acme/repo", Subdir: "library-c"},
+			dep:       Dependency{URL: "example.com/repo", Subdir: "library-c"},
 			wantPath:  "./library-c",
-			wantDep:   Dependency{URL: "github.com/acme/repo", Subdir: "library-c"},
+			wantDep:   Dependency{URL: "example.com/repo", Subdir: "library-c"},
 			wantExact: true,
 		},
 		{
 			name:      "exact subdir replacement covers child package",
-			dep:       Dependency{URL: "github.com/acme/repo", Subdir: "library-c/subpkg"},
+			dep:       Dependency{URL: "example.com/repo", Subdir: "library-c/subpkg"},
 			wantPath:  "./library-c",
-			wantDep:   Dependency{URL: "github.com/acme/repo", Subdir: "library-c"},
+			wantDep:   Dependency{URL: "example.com/repo", Subdir: "library-c"},
 			wantExact: true,
 			wantRest:  "subpkg",
 		},
 		{
 			name:      "longer subdir replacement wins",
-			dep:       Dependency{URL: "github.com/acme/repo", Subdir: "libs/metrics/http"},
+			dep:       Dependency{URL: "example.com/repo", Subdir: "libs/metrics/http"},
 			wantPath:  "./metrics",
-			wantDep:   Dependency{URL: "github.com/acme/repo", Subdir: "libs/metrics"},
+			wantDep:   Dependency{URL: "example.com/repo", Subdir: "libs/metrics"},
 			wantExact: true,
 			wantRest:  "http",
 		},

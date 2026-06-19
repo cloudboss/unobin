@@ -1,7 +1,6 @@
 package resolve
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -9,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 )
 
 // LocalResolver resolves *LocalImport refs against a working directory
@@ -140,32 +139,11 @@ func nearestManifestDir(start string) (string, bool, error) {
 }
 
 func dirHasManifest(dir string) (bool, error) {
-	path := filepath.Join(dir, "manifest.ub")
-	info, err := os.Stat(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
-	}
-	if info.IsDir() {
-		return false, nil
-	}
-	b, err := os.ReadFile(path)
+	marker, err := projectmarker.ClassifyRoot(os.DirFS(dir))
 	if err != nil {
 		return false, err
 	}
-	f, err := syntax.ParseSource(path, b)
-	if err != nil {
-		return false, err
-	}
-	if f.Kind != syntax.FileManifest || f.Manifest == nil {
-		return false, fmt.Errorf("%s must declare manifest", path)
-	}
-	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
-		return false, errs.Err()
-	}
-	return true, nil
+	return marker.Kind != projectmarker.None, nil
 }
 
 func sameDir(a, b string) bool {

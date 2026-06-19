@@ -1,38 +1,21 @@
 package deps
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	pathpkg "path"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 )
 
 func fsHasManifestFile(fsys fs.FS, dir string) (bool, error) {
-	manifestPath := pathpkg.Join(dir, ManifestFileName)
-	if dir == "." || dir == "" {
-		manifestPath = ManifestFileName
-	}
-	info, err := fs.Stat(fsys, manifestPath)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
-	}
-	if info.IsDir() {
-		return false, nil
-	}
-	b, err := fs.ReadFile(fsys, manifestPath)
+	marker, err := projectmarker.Classify(fsys, dir)
 	if err != nil {
 		return false, err
 	}
-	if err := validateManifestSource(manifestPath, b); err != nil {
-		return false, err
-	}
-	return true, nil
+	return marker.Kind != projectmarker.None, nil
 }
 
 func validateManifestSource(name string, b []byte) error {

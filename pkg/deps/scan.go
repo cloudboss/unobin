@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -27,11 +28,11 @@ func ImportedPackages(root string) (map[RemotePackage]bool, error) {
 			if strings.HasPrefix(d.Name(), ".") {
 				return fs.SkipDir
 			}
-			hasManifest, err := hasManifestFile(path)
+			hasMarker, err := hasProjectMarkerDir(path)
 			if err != nil {
 				return err
 			}
-			if hasManifest {
+			if hasMarker {
 				return fs.SkipDir
 			}
 			return nil
@@ -59,6 +60,14 @@ func ImportedRepos(root string) (map[Dependency]bool, error) {
 		repos[pkg.Dependency()] = true
 	}
 	return repos, nil
+}
+
+func hasProjectMarkerDir(path string) (bool, error) {
+	marker, err := projectmarker.ClassifyRoot(os.DirFS(path))
+	if err != nil {
+		return false, err
+	}
+	return marker.Kind != projectmarker.None, nil
 }
 
 func scanImports(path string, packages map[RemotePackage]bool) error {

@@ -52,7 +52,7 @@ its root. A package import may name any directory below that project:
 
 ```ub
 imports: {
-  helloer: 'github.com/acme/repo//ub/helloer'
+  helloer: 'example.com/repo//ub/helloer'
 }
 ```
 
@@ -60,7 +60,7 @@ The manifest names the owning project, not every package below it:
 
 ```ub
 manifest: {
-  requires: { 'github.com/acme/repo': 'v1.2.3' }
+  requires: { 'example.com/repo': 'v1.2.3' }
 }
 ```
 
@@ -69,7 +69,7 @@ manifest: {
 
 ```ub
 manifest: {
-  requires: { 'github.com/acme/repo//library-c': 'v1.2.3' }
+  requires: { 'example.com/repo//library-c': 'v1.2.3' }
 }
 ```
 
@@ -87,8 +87,8 @@ project:
 
 ```ub
 manifest: {
-  requires: { 'github.com/acme/repo//library-c': 'v1.2.3' }
-  replace:  { 'github.com/acme/repo//library-c': './library-c' }
+  requires: { 'example.com/repo//library-c': 'v1.2.3' }
+  replace:  { 'example.com/repo//library-c': './library-c' }
 }
 ```
 

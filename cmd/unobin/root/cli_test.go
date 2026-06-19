@@ -595,29 +595,29 @@ func TestDepsSyncSkipsNestedProjects(t *testing.T) {
 	require.NoError(t, os.MkdirAll(child, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
 factory: {
-  imports: { shared: 'github.com/acme/shared//lib' }
+  imports: { shared: 'example.com/shared//lib' }
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/acme/shared': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'example.com/shared': 'v1.0.0' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/acme/nested': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'example.com/nested': 'v1.0.0' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
 thing: resource {
-  imports: { nested: 'github.com/acme/nested//lib' }
+  imports: { nested: 'example.com/nested//lib' }
 }
 `), 0o644))
 	remotes := map[string]*resolve.Source{
-		"github.com/acme/shared@v1.0.0": {
+		"example.com/shared@v1.0.0": {
 			Commit: "shared",
 			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/shared\n")},
+				"go.mod": &fstest.MapFile{Data: []byte("module example.com/shared\n")},
 			},
 		},
-		"github.com/acme/shared//lib@v1.0.0": {
+		"example.com/shared//lib@v1.0.0": {
 			Commit: "shared",
 			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/shared/lib\n")},
+				"go.mod": &fstest.MapFile{Data: []byte("module example.com/shared/lib\n")},
 				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
 			},
 		},
@@ -629,7 +629,7 @@ thing: resource {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/acme/shared": {
+		"example.com/shared": {
 			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "shared",
 		},
 	}, lock.Deps)
@@ -644,27 +644,27 @@ func TestDepsSyncNestedProjectFromPath(t *testing.T) {
 		manifestSource("requires: {}\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
 factory: {
-  imports: { root: 'github.com/acme/root//lib' }
+  imports: { root: 'example.com/root//lib' }
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/acme/nested': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'example.com/nested': 'v1.0.0' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
 thing: resource {
-  imports: { nested: 'github.com/acme/nested//lib' }
+  imports: { nested: 'example.com/nested//lib' }
 }
 `), 0o644))
 	remotes := map[string]*resolve.Source{
-		"github.com/acme/nested@v1.0.0": {
+		"example.com/nested@v1.0.0": {
 			Commit: "nested",
 			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/nested\n")},
+				"go.mod": &fstest.MapFile{Data: []byte("module example.com/nested\n")},
 			},
 		},
-		"github.com/acme/nested//lib@v1.0.0": {
+		"example.com/nested//lib@v1.0.0": {
 			Commit: "nested",
 			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/acme/nested/lib\n")},
+				"go.mod": &fstest.MapFile{Data: []byte("module example.com/nested/lib\n")},
 				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
 			},
 		},
@@ -676,7 +676,7 @@ thing: resource {
 	lock, err := deps.ReadLock(os.DirFS(child))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/acme/nested": {
+		"example.com/nested": {
 			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "nested",
 		},
 	}, lock.Deps)
