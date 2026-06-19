@@ -198,6 +198,9 @@ func validateSourceLock(l *Lock) error {
 	if err := validateLockedDeps(l); err != nil {
 		return err
 	}
+	if err := CheckNoReplacementSentinelInLock(l); err != nil {
+		return err
+	}
 	for id, dep := range l.Deps {
 		if dep.Kind == LockKindUB && !hasHashAlgorithm(dep.Hash) {
 			return fmt.Errorf("lock: dependency %q: hash must include an algorithm prefix", id)

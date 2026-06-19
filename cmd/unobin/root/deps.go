@@ -161,6 +161,9 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
+	if deps.IsReplacementSentinel(query) {
+		return fmt.Errorf("%s is reserved for manifest replacements", query)
+	}
 	if dep.URL == toolchain.UnobinModulePath {
 		return fmt.Errorf(
 			"%s is toolchain-versioned; pin it with the manifest's unobin-version line",
@@ -266,6 +269,9 @@ func parseGetArg(arg string) (deps.Dependency, string, error) {
 func resolveAndWrite(
 	cmd *cobra.Command, root string, manifest *deps.Manifest, replaceUnobin string,
 ) error {
+	if err := deps.CheckReplacementSentinels(manifest); err != nil {
+		return err
+	}
 	resolver, err := newDepsResolver(root, replaceUnobin, manifest.Replace)
 	if err != nil {
 		return err

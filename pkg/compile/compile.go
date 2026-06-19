@@ -171,6 +171,9 @@ func Run(opts Options) error {
 	}
 	var replaceMap map[deps.Dependency]string
 	if manifest != nil {
+		if err := deps.CheckReplacementSentinels(manifest); err != nil {
+			return err
+		}
 		replaceMap = manifest.Replace
 	}
 	if replaceUnobinAbs == "" {

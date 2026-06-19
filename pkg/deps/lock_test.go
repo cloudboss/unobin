@@ -58,6 +58,47 @@ func TestEncodeSourceLockRejectsUnprefixedHash(t *testing.T) {
 	assert.Contains(t, err.Error(), "hash must include an algorithm prefix")
 }
 
+func TestReplacementSentinelHelpers(t *testing.T) {
+	assert.Equal(t, "v0.0.0-unobin-replaced", ReplacementSentinel)
+	assert.True(t, IsReplacementSentinel("v0.0.0-unobin-replaced"))
+	assert.False(t, IsReplacementSentinel("v0.0.1"))
+
+	got, err := GoReplacementSentinel("example.com/lib")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.0.0-unobin-replaced", got)
+
+	got, err = GoReplacementSentinel("example.com/lib/v2")
+	require.NoError(t, err)
+	assert.Equal(t, "v2.0.0-unobin-replaced", got)
+}
+
+func TestEncodeSourceLockRejectsReplacementSentinel(t *testing.T) {
+	lock := sampleSourceLock()
+	lock.Deps["github.com/aws/some-go-lib"].Version = ReplacementSentinel
+
+	_, err := EncodeSourceLock(lock)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "v0.0.0-unobin-replaced is reserved")
+}
+
+func TestReadLockRejectsReplacementSentinel(t *testing.T) {
+	_, err := DecodeSourceLock([]byte(`lock: {
+  version: 1
+  toolchain: { unobin-version: 'v0.4.2' }
+  deps: {
+    'github.com/x/y': {
+      kind: ub
+      version: 'v0.0.0-unobin-replaced'
+      commit: 'abc123'
+      hash: 'sha256:deadbeef'
+    }
+  }
+}
+`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "v0.0.0-unobin-replaced is reserved")
+}
+
 func TestSourceLockCodec(t *testing.T) {
 	b, err := EncodeSourceLock(sampleSourceLock())
 	require.NoError(t, err)

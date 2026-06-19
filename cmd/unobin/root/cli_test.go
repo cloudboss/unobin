@@ -930,6 +930,23 @@ func TestDepsGetLatest(t *testing.T) {
 	require.Equal(t, "v2.0.0", lock.Deps["github.com/x/core//lib"].Version)
 }
 
+func TestDepsGetRejectsReplacementSentinel(t *testing.T) {
+	root := writeGetProject(t)
+	calledTags := false
+	prev := depsListTags
+	depsListTags = func(string) ([]string, error) {
+		calledTags = true
+		return nil, fmt.Errorf("tags should not be listed")
+	}
+	t.Cleanup(func() { depsListTags = prev })
+
+	_, err := runCommand(t, "deps", "get",
+		"github.com/x/core@"+deps.ReplacementSentinel, "-p", root)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "v0.0.0-unobin-replaced is reserved")
+	require.False(t, calledTags)
+}
+
 func TestDepsGetRejectsPackageWithoutProjectMarker(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))

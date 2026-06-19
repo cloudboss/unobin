@@ -109,6 +109,29 @@ func (f failingResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error)
 	return nil, fmt.Errorf("unexpected remote fetch for %T", ref)
 }
 
+func TestRunRejectsSentinelWithoutReplacementBeforeResolve(t *testing.T) {
+	root := t.TempDir()
+	requires := "requires: { 'example.com/lib': '" + deps.ReplacementSentinel + "' }"
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		[]byte("manifest: { "+requires+" }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`factory: {
+  imports: { lib: 'example.com/lib' }
+}
+`), 0o644))
+
+	err := Run(Options{
+		FactoryPath: filepath.Join(root, "factory.ub"),
+		OutDir:      filepath.Join(root, "out"),
+		GoVersion:   "1.26",
+		CLIVersion:  "v0.1.0",
+		NewResolver: func(string) (resolve.Resolver, error) { return failingResolver{}, nil },
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "v0.0.0-unobin-replaced is reserved")
+	require.NotContains(t, err.Error(), "unexpected remote fetch")
+}
+
 func TestWrapReplacesSubdirMatching(t *testing.T) {
 	root := t.TempDir()
 	checkout := filepath.Join(root, "checkout")

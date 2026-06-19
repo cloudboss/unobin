@@ -19,6 +19,24 @@ func writeStack(t *testing.T, dir, body string) string {
 	return stackPath
 }
 
+func TestPrintGraphRejectsSentinelWithoutReplacement(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "graph-sentinel")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName), []byte(
+		"manifest: { requires: { 'example.com/lib': '"+deps.ReplacementSentinel+"' } }\n"),
+		0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`factory: {
+  imports: { lib: 'example.com/lib' }
+}
+`), 0o644))
+
+	_, err := runCommand(t, "print-graph", "-p", dir)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "v0.0.0-unobin-replaced is reserved")
+	require.NotContains(t, err.Error(), "fake resolver")
+}
+
 func TestPrintGraphRejectsUBLockHashMismatch(t *testing.T) {
 	rootFS := fstest.MapFS{
 		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
