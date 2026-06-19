@@ -53,6 +53,26 @@ hello: resource {
 	require.Empty(t, mismatches)
 }
 
+func TestVerifyRequiresUBProjectMarker(t *testing.T) {
+	fsys := mapFS(map[string]string{
+		"library.ub": "thing: resource {}\n",
+	})
+	hash, err := HashUBProject(fsys)
+	require.NoError(t, err)
+	lock := NewLock()
+	lock.Deps["github.com/x/y"] = &LockedDep{
+		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hash,
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/x/y", "", "c1"): {FS: fsys},
+	}}
+
+	_, err = Verify(lock, r)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected UB project marker")
+}
+
 func TestVerifyDetectsMismatch(t *testing.T) {
 	fsys := mapFS(map[string]string{
 		ManifestFileName: "manifest: { requires: {} }\n",

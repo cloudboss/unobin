@@ -718,6 +718,9 @@ func (r *lockedResolver) verifyUBHash(project deps.ProjectID, entry *deps.Locked
 	if err != nil {
 		return err
 	}
+	if err := requireUBProjectMarker(project, projectSrc.FS); err != nil {
+		return err
+	}
 	hash, err := deps.HashUBProject(projectSrc.FS)
 	if err != nil {
 		return err
@@ -725,6 +728,20 @@ func (r *lockedResolver) verifyUBHash(project deps.ProjectID, entry *deps.Locked
 	if hash != entry.Hash {
 		return fmt.Errorf(
 			"%s: hash mismatch (locked %s, got %s)", project, entry.Hash, hash)
+	}
+	return nil
+}
+
+func requireUBProjectMarker(project deps.ProjectID, fsys fs.FS) error {
+	if fsys == nil {
+		return fmt.Errorf("%s: expected UB project marker", project)
+	}
+	marker, err := projectmarker.ClassifyRoot(fsys)
+	if err != nil {
+		return err
+	}
+	if marker.Kind != projectmarker.UB {
+		return fmt.Errorf("%s: expected UB project marker", project)
 	}
 	return nil
 }

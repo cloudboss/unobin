@@ -2,7 +2,9 @@ package deps
 
 import (
 	"fmt"
+	"io/fs"
 
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -28,6 +30,9 @@ func Verify(lock *Lock, resolver resolve.Resolver) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("verify %s: %w", id, err)
 		}
+		if err := requireUBProjectMarker(src.FS); err != nil {
+			return nil, fmt.Errorf("verify %s: %w", id, err)
+		}
 		hash, err := HashUBProject(src.FS)
 		if err != nil {
 			return nil, fmt.Errorf("verify %s: %w", id, err)
@@ -38,4 +43,18 @@ func Verify(lock *Lock, resolver resolve.Resolver) ([]string, error) {
 		}
 	}
 	return mismatches, nil
+}
+
+func requireUBProjectMarker(fsys fs.FS) error {
+	if fsys == nil {
+		return fmt.Errorf("expected UB project marker")
+	}
+	marker, err := projectmarker.ClassifyRoot(fsys)
+	if err != nil {
+		return err
+	}
+	if marker.Kind != projectmarker.UB {
+		return fmt.Errorf("expected UB project marker")
+	}
+	return nil
 }

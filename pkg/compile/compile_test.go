@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -105,8 +106,34 @@ func TestDecideSelectedUnobin(t *testing.T) {
 
 type failingResolver struct{}
 
-func (f failingResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+func (failingResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	return nil, fmt.Errorf("unexpected remote fetch for %T", ref)
+}
+
+type staticSourceResolver struct {
+	src *resolve.Source
+}
+
+func (r staticSourceResolver) Resolve(resolve.ImportRef) (*resolve.Source, error) {
+	return r.src, nil
+}
+
+func TestWrapLockedSourcesRequiresUBProjectMarker(t *testing.T) {
+	fsys := fstest.MapFS{
+		"library.ub": &fstest.MapFile{Data: []byte("thing: resource {}\n")},
+	}
+	hash, err := deps.HashUBProject(fsys)
+	require.NoError(t, err)
+	lock := deps.NewLock()
+	lock.Deps["example.com/repo"] = &deps.LockedDep{
+		Kind: deps.LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hash,
+	}
+	resolver := WrapLockedSources(staticSourceResolver{src: &resolve.Source{FS: fsys}}, lock)
+
+	_, err = resolver.Resolve(&resolve.RemoteImport{URL: "example.com/repo", Version: "v1.0.0"})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected UB project marker")
 }
 
 func TestRunRejectsSentinelWithoutReplacementBeforeResolve(t *testing.T) {
