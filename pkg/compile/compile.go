@@ -407,6 +407,13 @@ func newCompileVisitor(
 }
 
 func (c *compileVisitor) OnGoImport(_, _, modulePath, version string) error {
+	if deps.IsReplacementSentinel(version) {
+		goVersion, err := deps.GoReplacementSentinel(modulePath)
+		if err != nil {
+			return err
+		}
+		version = goVersion
+	}
 	c.goModules[modulePath] = version
 	return nil
 }
@@ -815,7 +822,7 @@ func (r *replaceResolver) match(ri *resolve.RemoteImport) (localReplacementMatch
 // replacedVersion is the placeholder version for a replaced dependency
 // in the generated go.mod; the replace directive serves it from a local
 // path, so the version is never used to fetch anything.
-const replacedVersion = "v0.0.0"
+const replacedVersion = deps.ReplacementSentinel
 
 // unobinImportGuard refuses an import from the unobin repository when
 // no replace serves it. The repo is toolchain-versioned: a

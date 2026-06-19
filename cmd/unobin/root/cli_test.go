@@ -1469,7 +1469,8 @@ func TestCompileWithReplacedGoLibrary(t *testing.T) {
 
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
 	require.NoError(t, err)
-	require.Contains(t, string(goMod), "github.com/cloudboss/unobin-library-aws v0.0.0")
+	require.Contains(t, string(goMod),
+		"github.com/cloudboss/unobin-library-aws v0.0.0-unobin-replaced")
 	require.Contains(t, string(goMod),
 		"github.com/cloudboss/unobin-library-aws => "+awsDir)
 }
@@ -1542,10 +1543,45 @@ func main() {
 		"go " + compilepkg.GoMajorMinor() + "\n\n" +
 		"require (\n" +
 		"\tgithub.com/cloudboss/unobin v0.1.0\n" +
-		"\texample.com/repo/go v0.0.0\n" +
+		"\texample.com/repo/go v0.0.0-unobin-replaced\n" +
 		")\n\n" +
 		"replace (\n" +
 		"\texample.com/repo/go => " + moduleDir + "\n" +
+		")\n"
+	require.Equal(t, want, string(goMod))
+}
+
+func TestCompileWithReplacedGoV2Module(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { lib: 'example.com/lib/v2' }\n"), 0o644))
+
+	moduleDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "go.mod"),
+		[]byte("module example.com/lib/v2\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "library.go"),
+		validGoLibrarySource("lib"), 0o644))
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+		manifestSource("requires: {}\nreplace: { 'example.com/lib/v2': '"+
+			moduleDir+"' }\n"), 0o644))
+
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
+		"-o", outDir)
+	require.NoError(t, err)
+
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	want := "module demo-factory\n\n" +
+		"go " + compilepkg.GoMajorMinor() + "\n\n" +
+		"require (\n" +
+		"\tgithub.com/cloudboss/unobin v0.1.0\n" +
+		"\texample.com/lib/v2 v2.0.0-unobin-replaced\n" +
+		")\n\n" +
+		"replace (\n" +
+		"\texample.com/lib/v2 => " + moduleDir + "\n" +
 		")\n"
 	require.Equal(t, want, string(goMod))
 }
