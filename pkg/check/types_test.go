@@ -206,6 +206,38 @@ locals: { region: var.aws-config.region }
 		errs.Messages())
 }
 
+func TestCheckTypesChecksLibraryConfigBindings(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: { aws: 'github.com/acme/aws' }
+inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
+library-configs: { aws: var.aws-config }
+locals: { region: var.aws-config.region }
+`, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesChecksLibraryConfigBindingFields(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: { aws: 'github.com/acme/aws' }
+library-configs: { aws: { region: 1 } }
+`, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
+
+	require.Equal(t,
+		[]string{`type mismatch: expected string, got integer`},
+		errs.Messages())
+}
+
+func TestCheckTypesRejectsUnknownLibraryConfigBindingAlias(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+library-configs: { aws: {} }
+`, nil)
+
+	require.Equal(t,
+		[]string{`library-configs.aws has no resolved imports`},
+		errs.Messages())
+}
+
 func TestCheckTypesUsesCompositeLibraryConfigInput(t *testing.T) {
 	composite := parseSyntaxCompositeFixture(t, `
 app: resource {

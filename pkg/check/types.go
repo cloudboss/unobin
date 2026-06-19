@@ -35,9 +35,86 @@ func (c *referenceChecker) checkTypes() {
 		c.checkBodyTypes(n.Body, targets, scope, n)
 		c.checkRequiredPresence(n, targets)
 	}
+	c.checkLibraryConfigDecls()
 	c.checkLocalsBodyTypes()
 	c.checkOutputBodyTypes()
 	c.checkConstraintTypes()
+}
+
+func (c *referenceChecker) checkLibraryConfigDecls() {
+	if c.rootSyntax != nil {
+		c.checkLibraryConfigDeclsForScope("", *c.rootSyntax)
+	}
+	for _, n := range c.dag.Nodes {
+		if !n.IsComposite() || n.CompositeSyntaxBody == nil {
+			continue
+		}
+		c.checkLibraryConfigDeclsForScope(n.Address, *n.CompositeSyntaxBody)
+	}
+}
+
+func (c *referenceChecker) checkLibraryConfigDeclsForScope(
+	scope string,
+	body syntax.FactoryBody,
+) {
+	if len(body.LibraryConfigs) == 0 {
+		return
+	}
+	s := c.scopeForLibraryConfig(scope)
+	for _, decl := range body.LibraryConfigs {
+		target, ok := c.libraryConfigTypeForAlias(scope, decl.Alias.Name, decl.Alias.S.Start)
+		if !ok {
+			continue
+		}
+		typecheck.Check(decl.Value, target, s, c.errs)
+	}
+}
+
+func (c *referenceChecker) scopeForLibraryConfig(scope string) *typecheck.Scope {
+	s := &typecheck.Scope{
+		Inputs:         c.scopeInputs(scope),
+		LookupNode:     c.lookupNodeFor(scope),
+		LookupFunction: c.lookupFunctionFor(scope),
+		Observe:        c.observe,
+	}
+	s.LookupLocal = c.lookupLocalFor(scope, s)
+	return s
+}
+
+func (c *referenceChecker) libraryConfigTypeForAlias(
+	scope string,
+	alias string,
+	pos lang.Position,
+) (typecheck.Type, bool) {
+	libs := c.libraries[scope]
+	if libs == nil {
+		c.addf(pos, "library-configs.%s has no resolved imports", alias)
+		return typecheck.TUnknown(), false
+	}
+	lib := libs[alias]
+	if lib == nil {
+		c.addf(pos, "library-configs.%s names an unknown import alias", alias)
+		return typecheck.TUnknown(), false
+	}
+	path, ok := c.importPathForAlias(scope, alias)
+	if !ok {
+		path = alias
+	}
+	target, ok := libraryConfigType(path, lib)
+	if !ok {
+		c.addf(pos, "library-configs.%s declares config for a library without config", alias)
+		return typecheck.TUnknown(), false
+	}
+	return target, true
+}
+
+func (c *referenceChecker) importPathForAlias(scope string, alias string) (string, bool) {
+	for _, imp := range c.importsForScope(scope) {
+		if imp.Alias.Name == alias && imp.Ref != nil {
+			return imp.Ref.Value, true
+		}
+	}
+	return "", false
 }
 
 // checkConfigurationNode validates one factory configuration. The
