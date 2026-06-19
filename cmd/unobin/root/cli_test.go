@@ -872,6 +872,41 @@ func TestDepsSyncDiscoversMissingOwner(t *testing.T) {
 `, string(manifestBytes))
 }
 
+func TestDepsSyncDiscoveryFailsMalformedNestedMarker(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "myfactory")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: { lib: 'example.com/repo//ub/project-b/lib' }\n"), 0o644))
+	stubListTags(t, map[string][]string{"example.com/repo": {"v1.0.0"}})
+	projectFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"ub/project-b/manifest.ub": &fstest.MapFile{
+			Data: []byte("manifest: not-valid\n"),
+		},
+	}
+	remotes := map[string]*resolve.Source{
+		"example.com/repo@v1.0.0": {
+			Commit: "c1",
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{
+					Data: []byte("manifest: { requires: {} }\n"),
+				},
+			},
+		},
+		"example.com/repo//ub/project-b/lib@v1.0.0": {
+			Commit:        "c1",
+			FS:            fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte("x: resource {}\n")}},
+			ProjectFS:     projectFS,
+			PackageSubdir: "ub/project-b/lib",
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "project marker")
+}
+
 func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))

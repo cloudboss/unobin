@@ -320,7 +320,11 @@ func discoverImportOwner(
 			continue
 		}
 		packageOwner := deps.PackageOwner{Project: project, PackageSubdir: owner}
-		if blockedByNestedProject(packageOwner, pkg, resolver, version) {
+		blocked, err := blockedByNestedProject(packageOwner, pkg, resolver, version)
+		if err != nil {
+			return deps.PackageOwner{}, "", false, err
+		}
+		if blocked {
 			continue
 		}
 		return packageOwner, version, true, nil
@@ -370,7 +374,7 @@ func blockedByNestedProject(
 	pkg deps.RemotePackage,
 	resolver resolve.Resolver,
 	version string,
-) bool {
+) (bool, error) {
 	src, err := resolver.Resolve(&resolve.RemoteImport{
 		URL:           pkg.URL,
 		Subdir:        pkg.Subdir,
@@ -379,9 +383,15 @@ func blockedByNestedProject(
 		Version:       deps.ProjectTag(owner.Project, version),
 	})
 	if err != nil {
-		return false
+		return false, nil
 	}
-	return deps.CheckPackageBoundary(src, owner, pkg) != nil
+	if err := deps.CheckPackageBoundary(src, owner, pkg); err != nil {
+		if strings.Contains(err.Error(), "does not own package") {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
 }
 
 func lockProjectIDs(lock *deps.Lock) []deps.ProjectID {
