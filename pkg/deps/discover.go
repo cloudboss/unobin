@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 )
 
 // FindManifestDir walks up from start to the nearest ancestor directory
@@ -34,6 +36,40 @@ func FindManifestDir(start string) (string, error) {
 			return "", fmt.Errorf(
 				"no %s found in %s or any parent directory: %w",
 				ManifestFileName,
+				start,
+				fs.ErrNotExist,
+			)
+		}
+		dir = parent
+	}
+}
+
+func FindProjectMarkerDir(start string) (string, projectmarker.Marker, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", projectmarker.Marker{}, err
+	}
+	if info, err := os.Stat(dir); err == nil {
+		if !info.IsDir() {
+			dir = filepath.Dir(dir)
+		}
+	} else if errors.Is(err, fs.ErrNotExist) {
+		dir = filepath.Dir(dir)
+	} else {
+		return "", projectmarker.Marker{}, err
+	}
+	for {
+		marker, err := projectmarker.ClassifyRoot(os.DirFS(dir))
+		if err != nil {
+			return "", projectmarker.Marker{}, err
+		}
+		if marker.Kind != projectmarker.None {
+			return dir, marker, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", projectmarker.Marker{}, fmt.Errorf(
+				"no manifest.ub or go.mod found in %s or any parent directory: %w",
 				start,
 				fs.ErrNotExist,
 			)

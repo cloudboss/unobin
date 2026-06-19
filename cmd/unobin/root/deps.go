@@ -13,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/git"
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/spf13/cobra"
@@ -111,8 +112,11 @@ func init() {
 // manifest, the path itself is the root when it is a directory; otherwise its
 // parent is used so first-time deps sync can create manifest.ub there.
 func projectRoot(stackPath string) (string, error) {
-	root, err := deps.FindManifestDir(stackPath)
+	root, marker, err := deps.FindProjectMarkerDir(stackPath)
 	if err == nil {
+		if marker.Kind == projectmarker.Go {
+			return "", fmt.Errorf("deps sync manages UB projects; use Go commands for Go modules")
+		}
 		return root, nil
 	}
 	if !errors.Is(err, fs.ErrNotExist) {

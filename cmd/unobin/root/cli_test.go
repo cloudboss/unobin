@@ -183,6 +183,18 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
+func TestDepsSyncRefusesGoModuleRoot(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"),
+		[]byte("module example.com/app\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource("imports: {}\n"), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", root)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "deps sync manages UB projects; use Go commands for Go modules")
+}
+
 func TestDepsSyncRejectsLocalGoImport(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "factory")
