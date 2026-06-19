@@ -148,21 +148,25 @@ func WalkUBFrom(
 	source *Source,
 ) ([]Resolution, error) {
 	w := &ubWalker{
-		resolver:   resolver,
-		visitor:    v,
-		versions:   versions,
-		parsed:     map[string]*UBLibrary{},
-		inProgress: map[string]bool{},
+		resolver:         resolver,
+		visitor:          v,
+		versions:         versions,
+		parsed:           map[string]*UBLibrary{},
+		inProgress:       map[string]bool{},
+		goModuleProjects: map[string]string{},
+		goPackageModules: map[string]string{},
 	}
 	return w.walkRefs(refs, "", source, sourceKey(source, ""))
 }
 
 type ubWalker struct {
-	resolver   Resolver
-	visitor    UBVisitor
-	versions   map[string]string
-	parsed     map[string]*UBLibrary
-	inProgress map[string]bool
+	resolver         Resolver
+	visitor          UBVisitor
+	versions         map[string]string
+	parsed           map[string]*UBLibrary
+	inProgress       map[string]bool
+	goModuleProjects map[string]string
+	goPackageModules map[string]string
 }
 
 // lockedVersion returns ref with the selected lock version filled in,
@@ -362,6 +366,9 @@ func (w *ubWalker) handleGoImport(
 			return Resolution{}, err
 		}
 	}
+	if err := w.checkGoImportConflict(r, path, modulePath); err != nil {
+		return Resolution{}, err
+	}
 	if err := w.visitor.OnGoImport(alias, path, modulePath, r.Version); err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
@@ -384,6 +391,24 @@ func remoteGoImportPath(r *RemoteImport) string {
 		path += "/" + r.Subdir
 	}
 	return path
+}
+
+func (w *ubWalker) checkGoImportConflict(
+	r *RemoteImport, path, modulePath string,
+) error {
+	projectID := remoteProjectID(r.URL, remoteProjectSubdir(r))
+	if previous, ok := w.goModuleProjects[modulePath]; ok && previous != projectID {
+		return fmt.Errorf("Go module %s is resolved by both %s and %s",
+			modulePath, previous, projectID)
+	}
+	w.goModuleProjects[modulePath] = projectID
+
+	if previous, ok := w.goPackageModules[path]; ok && previous != modulePath {
+		return fmt.Errorf("Go package %s is resolved by both modules %s and %s",
+			path, previous, modulePath)
+	}
+	w.goPackageModules[path] = modulePath
+	return nil
 }
 
 func validateGoModulePath(r *RemoteImport, modulePath string) error {

@@ -127,6 +127,65 @@ func TestWalkUBRejectsParentProjectPastNestedMarker(t *testing.T) {
 	require.Contains(t, err.Error(), "example.com/repo//ub/project-b")
 }
 
+func TestWalkUBRejectsDuplicateGoModuleProjects(t *testing.T) {
+	refs := map[string]ImportRef{
+		"root": &RemoteImport{URL: "example.com/lib"},
+		"v2":   &RemoteImport{URL: "example.com/lib/v2"},
+	}
+	versions := map[string]string{
+		"example.com/lib":    "v2.0.0",
+		"example.com/lib/v2": "v2.0.0",
+	}
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"example.com/lib@v2.0.0":    goModuleSource("example.com/lib/v2"),
+		"example.com/lib/v2@v2.0.0": goModuleSource("example.com/lib/v2"),
+	}}
+
+	_, err := WalkUB(refs, r, newRecordingVisitor(), versions)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "module example.com/lib/v2")
+	require.Contains(t, err.Error(), "example.com/lib")
+	require.Contains(t, err.Error(), "example.com/lib/v2")
+}
+
+func TestWalkUBRejectsGoPackageImportConflict(t *testing.T) {
+	refs := map[string]ImportRef{
+		"a": &RemoteImport{URL: "example.com/module-a"},
+		"b": &RemoteImport{URL: "example.com/module-b"},
+	}
+	versions := map[string]string{
+		"example.com/module-a": "v1.0.0",
+		"example.com/module-b": "v1.0.0",
+	}
+	r := &fakeUBResolver{remotes: map[string]*Source{
+		"example.com/module-a@v1.0.0": goModulePackageSource(
+			"example.com/module-a", "example.com/pkg"),
+		"example.com/module-b@v1.0.0": goModulePackageSource(
+			"example.com/module-b", "example.com/pkg"),
+	}}
+
+	_, err := WalkUB(refs, r, newRecordingVisitor(), versions)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Go package example.com/pkg")
+	require.Contains(t, err.Error(), "example.com/module-a")
+	require.Contains(t, err.Error(), "example.com/module-b")
+}
+
+func goModuleSource(modulePath string) *Source {
+	return goModulePackageSource(modulePath, modulePath)
+}
+
+func goModulePackageSource(modulePath, goImportPath string) *Source {
+	return &Source{
+		Commit:       "go",
+		FS:           fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
+		ModulePath:   modulePath,
+		GoImportPath: goImportPath,
+	}
+}
+
 func TestWalkUBValidatesGoModulePath(t *testing.T) {
 	tests := []struct {
 		name       string
