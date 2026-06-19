@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/git"
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"golang.org/x/mod/semver"
 )
 
@@ -117,12 +118,30 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 		}
 	}
 
+	projectSubdir := remoteProjectSubdir(ri)
+	packageSubdir := remotePackageSubdir(ri)
+
+	projectPath := dir
+	if projectSubdir != "" {
+		projectPath = filepath.Join(dir, projectSubdir)
+	}
 	subdirPath := dir
-	if packageSubdir := remotePackageSubdir(ri); packageSubdir != "" {
+	if packageSubdir != "" {
 		subdirPath = filepath.Join(dir, packageSubdir)
 	}
 
-	src := &Source{Commit: commit, Path: subdirPath, FS: os.DirFS(subdirPath)}
+	src := &Source{
+		Commit:        commit,
+		Path:          subdirPath,
+		FS:            os.DirFS(subdirPath),
+		ProjectFS:     os.DirFS(projectPath),
+		ProjectPath:   projectPath,
+		ProjectSubdir: projectSubdir,
+		PackageSubdir: packageSubdir,
+	}
+	if err := addGoModuleMetadata(src); err != nil {
+		return nil, err
+	}
 	if IsUBLibrary(src) {
 		hash, err := hashTree(src.FS)
 		if err != nil {
@@ -131,6 +150,42 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 		src.Hash = hash
 	}
 	return src, nil
+}
+
+func addGoModuleMetadata(src *Source) error {
+	marker, err := projectmarker.ClassifyRoot(src.ProjectFS)
+	if err != nil {
+		return err
+	}
+	if marker.Kind != projectmarker.Go {
+		return nil
+	}
+	src.ModuleRootPath = src.ProjectPath
+	src.ModulePath = marker.ModulePath
+	src.GoImportPath = goImportPath(marker.ModulePath,
+		packageSubdirInProject(src.ProjectSubdir, src.PackageSubdir))
+	return nil
+}
+
+func packageSubdirInProject(projectSubdir, packageSubdir string) string {
+	if projectSubdir == "" {
+		return packageSubdir
+	}
+	if packageSubdir == projectSubdir {
+		return ""
+	}
+	prefix := projectSubdir + "/"
+	if suffix, ok := strings.CutPrefix(packageSubdir, prefix); ok {
+		return suffix
+	}
+	return packageSubdir
+}
+
+func goImportPath(modulePath, packageSubdir string) string {
+	if packageSubdir == "" || packageSubdir == "." {
+		return modulePath
+	}
+	return modulePath + "/" + packageSubdir
 }
 
 func resolveRemoteRef(ctx context.Context, url string, refs []string) (string, string, error) {

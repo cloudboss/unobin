@@ -146,6 +146,14 @@ hello: resource {
 	require.Equal(t, wantSHA, got.Commit)
 	require.NotNil(t, got.FS)
 	require.NotEmpty(t, got.Hash)
+	require.Equal(t, r.cacheDir(src, wantSHA), got.ProjectPath)
+	require.Equal(t, filepath.Join(r.cacheDir(src, wantSHA), "ub", "helloer"), got.Path)
+	require.Empty(t, got.ProjectSubdir)
+	require.Equal(t, "ub/helloer", got.PackageSubdir)
+
+	manifest, err := fs.ReadFile(got.ProjectFS, "manifest.ub")
+	require.NoError(t, err)
+	require.Contains(t, string(manifest), "manifest:")
 
 	body, err := fs.ReadFile(got.FS, "resource-hello.ub")
 	require.NoError(t, err)
@@ -174,10 +182,45 @@ hello: resource {
 	})
 	require.NoError(t, err)
 	require.Equal(t, wantSHA, got.Commit)
+	require.Equal(t, filepath.Join(r.cacheDir(src, wantSHA), "ub", "project-b"), got.ProjectPath)
+	require.Equal(t,
+		filepath.Join(r.cacheDir(src, wantSHA), "ub", "project-b", "comprehensions"),
+		got.Path)
+	require.Equal(t, "ub/project-b", got.ProjectSubdir)
+	require.Equal(t, "ub/project-b/comprehensions", got.PackageSubdir)
+
+	manifest, err := fs.ReadFile(got.ProjectFS, "manifest.ub")
+	require.NoError(t, err)
+	require.Contains(t, string(manifest), "manifest:")
 
 	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(body), "hello: resource")
+}
+
+func TestRemoteResolverSetsGoModuleMetadata(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "src")
+	wantSHA := makeRemoteRepo(t, src, map[string]string{
+		"go.mod": "module example.com/lib\n",
+		"fs/library.go": `package fs
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{Actions: map[string]runtime.ActionType{"x": nil}}
+}
+`,
+	})
+
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	got, err := r.Resolve(&RemoteImport{
+		URL: src, Subdir: "fs", PackageSubdir: "fs", Version: "v1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, wantSHA, got.Commit)
+	require.Equal(t, r.cacheDir(src, wantSHA), got.ModuleRootPath)
+	require.Equal(t, "example.com/lib", got.ModulePath)
+	require.Equal(t, "example.com/lib/fs", got.GoImportPath)
 }
 
 func TestHashTreeIgnoresGitMetadata(t *testing.T) {

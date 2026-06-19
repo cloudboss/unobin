@@ -7,18 +7,26 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
-// Source is the file tree of a resolved import, rooted at the import's
-// subdirectory, or the repo root when there is no subdir. For remote
-// imports, Commit and Hash record the resolved git commit and a content
-// hash so the lock file can pin reproducibility. Local imports leave
-// both empty since their content is whatever the developer has now.
-// Path is the on-disk directory the source was fetched into, which the
-// dev CLI uses for compile-time inspection of Go-library source.
+// Source is the file tree of a resolved import, rooted at the imported
+// package directory. For remote imports, Commit and Hash record the resolved
+// git commit and a content hash so the lock file can pin reproducibility.
+// Local imports leave both empty since their content is whatever the developer
+// has now. Path is the on-disk package directory the dev CLI uses for
+// compile-time inspection of Go-library source.
 type Source struct {
 	FS     fs.FS
 	Path   string
 	Commit string
 	Hash   string
+
+	ProjectFS     fs.FS
+	ProjectPath   string
+	ProjectSubdir string
+	PackageSubdir string
+
+	ModuleRootPath string
+	ModulePath     string
+	GoImportPath   string
 }
 
 // Resolver turns an ImportRef into a Source. Implementations cover one
