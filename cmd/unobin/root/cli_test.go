@@ -531,6 +531,16 @@ factory: {
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		[]byte("manifest: { requires: { 'github.com/scratch/repo': 'v0.8.0' } }\n"), 0o644))
+	projectFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`)},
+	}
+	projectHash, err := deps.HashUBProject(projectFS)
+	require.NoError(t, err)
 	remotes := map[string]*resolve.Source{
 		"github.com/scratch/repo//ub/helloer@v0.8.0": {
 			Commit: "scratch",
@@ -544,25 +554,21 @@ hello: resource {
 		"github.com/scratch/repo@v0.8.0": {
 			Commit: "scratch",
 			Hash:   "sha256:project",
-			FS: fstest.MapFS{
-				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-				"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`)},
-			},
+			FS:     projectFS,
 		},
 	}
 
-	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	_, err = runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
 	require.NoError(t, err)
 
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/scratch/repo": {
-			Kind: deps.LockKindUB, Version: "v0.8.0", Commit: "scratch", Hash: "sha256:project",
+			Kind:    deps.LockKindUB,
+			Version: "v0.8.0",
+			Commit:  "scratch",
+			Hash:    projectHash,
 		},
 	}, lock.Deps)
 }
@@ -629,13 +635,21 @@ factory: {
   }
 }
 `), 0o644))
+	rootFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+	}
+	rootHash, err := deps.HashUBProject(rootFS)
+	require.NoError(t, err)
+	projectBFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+	}
+	projectBHash, err := deps.HashUBProject(projectBFS)
+	require.NoError(t, err)
 	remotes := map[string]*resolve.Source{
 		"github.com/scratch/repo@v0.8.0": {
 			Commit: "root",
 			Hash:   "sha256:root",
-			FS: fstest.MapFS{
-				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-			},
+			FS:     rootFS,
 		},
 		"github.com/scratch/repo//ub/helloer@v0.8.0": {
 			Commit: "root",
@@ -649,9 +663,7 @@ hello: data {
 		"github.com/scratch/repo//ub/project-b@ub/project-b/v0.1.0": {
 			Commit: "project-b",
 			Hash:   "sha256:project-b",
-			FS: fstest.MapFS{
-				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-			},
+			FS:     projectBFS,
 		},
 		"github.com/scratch/repo//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
 			Commit: "project-b",
@@ -664,18 +676,23 @@ list: data {
 		},
 	}
 
-	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
+	_, err = runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
 	require.NoError(t, err)
 
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, map[string]*deps.LockedDep{
 		"github.com/scratch/repo": {
-			Kind: deps.LockKindUB, Version: "v0.8.0", Commit: "root", Hash: "sha256:root",
+			Kind:    deps.LockKindUB,
+			Version: "v0.8.0",
+			Commit:  "root",
+			Hash:    rootHash,
 		},
 		"github.com/scratch/repo//ub/project-b": {
-			Kind: deps.LockKindUB, Version: "v0.1.0", Commit: "project-b",
-			Hash: "sha256:project-b",
+			Kind:    deps.LockKindUB,
+			Version: "v0.1.0",
+			Commit:  "project-b",
+			Hash:    projectBHash,
 		},
 	}, lock.Deps)
 }
@@ -857,18 +874,25 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 `, string(manifestBytes))
 }
 
-func writeProjectLock(t *testing.T, root string) {
+func writeProjectLock(t *testing.T, root string) fstest.MapFS {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(root, 0o755))
+	ubFS := fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"library.ub":          &fstest.MapFile{Data: []byte("hello: resource {}\n")},
+	}
+	ubHash, err := deps.HashUBProject(ubFS)
+	require.NoError(t, err)
 	lock := deps.NewLock()
 	lock.ToolchainVersion = "dev"
 	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
 		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
 	}
 	lock.Deps["github.com/x/hello//ub"] = &deps.LockedDep{
-		Kind: deps.LockKindUB, Version: "v2.0.0", Commit: "c2", Hash: "sha256:h2",
+		Kind: deps.LockKindUB, Version: "v2.0.0", Commit: "c2", Hash: ubHash,
 	}
 	require.NoError(t, deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock))
+	return ubFS
 }
 
 func TestDepsList(t *testing.T) {
@@ -920,9 +944,9 @@ func TestDepsListNoLock(t *testing.T) {
 
 func TestDepsVerifyMatches(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
-	writeProjectLock(t, root)
+	ubFS := writeProjectLock(t, root)
 	remotes := map[string]*resolve.Source{
-		"github.com/x/hello//ub@c2": {Hash: "sha256:h2"},
+		"github.com/x/hello//ub@c2": {FS: ubFS},
 	}
 	out, err := runCommandWithRemotes(t, remotes, "deps", "verify",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -934,7 +958,12 @@ func TestDepsVerifyDetectsMismatch(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	writeProjectLock(t, root)
 	remotes := map[string]*resolve.Source{
-		"github.com/x/hello//ub@c2": {Hash: "tampered"},
+		"github.com/x/hello//ub@c2": {
+			FS: fstest.MapFS{
+				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+				"library.ub":          &fstest.MapFile{Data: []byte("changed: resource {}\n")},
+			},
+		},
 	}
 	_, err := runCommandWithRemotes(t, remotes, "deps", "verify",
 		"-p", filepath.Join(root, "factory.ub"))

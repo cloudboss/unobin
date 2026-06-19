@@ -28,12 +28,9 @@ func Verify(lock *Lock, resolver resolve.Resolver) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("verify %s: %w", id, err)
 		}
-		hash := src.Hash
-		if hash == "" {
-			hash, err = resolve.HashTree(src.FS)
-			if err != nil {
-				return nil, fmt.Errorf("verify %s: %w", id, err)
-			}
+		hash, err := HashUBProject(src.FS)
+		if err != nil {
+			return nil, fmt.Errorf("verify %s: %w", id, err)
 		}
 		if hash != entry.Hash {
 			mismatches = append(mismatches,

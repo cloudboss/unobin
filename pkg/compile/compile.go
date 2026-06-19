@@ -709,12 +709,9 @@ func (r *lockedResolver) verifyUBHash(project deps.ProjectID, entry *deps.Locked
 	if err != nil {
 		return err
 	}
-	hash := projectSrc.Hash
-	if hash == "" {
-		hash, err = resolve.HashTree(projectSrc.FS)
-		if err != nil {
-			return err
-		}
+	hash, err := deps.HashUBProject(projectSrc.FS)
+	if err != nil {
+		return err
 	}
 	if hash != entry.Hash {
 		return fmt.Errorf(

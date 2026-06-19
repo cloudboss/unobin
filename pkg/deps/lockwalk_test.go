@@ -220,15 +220,16 @@ func TestLockFromImportsRemoteSubdirLibraryFiles(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { helloer: 'github.com/scratch/repo//ub/helloer' } }\n",
 	})
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/scratch/repo", "ub/helloer", "ub/helloer/v0.8.0"): ubSrc(
-			"c1", "sha256:h1", map[string]string{
-				"resource-hello.ub": `
+	packageFiles := map[string]string{
+		"resource-hello.ub": `
 hello: resource {
   outputs: { message: { value: 'hi' } }
 }
 `,
-			}),
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/helloer", "ub/helloer/v0.8.0"): ubSrc(
+			"c1", "sha256:h1", packageFiles),
 	}}
 	sel := map[Dependency]string{
 		{URL: "github.com/scratch/repo", Subdir: "ub/helloer"}: "v0.8.0",
@@ -237,7 +238,10 @@ hello: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
-			Kind: LockKindUB, Version: "v0.8.0", Commit: "c1", Hash: "sha256:h1",
+			Kind: LockKindUB,
+			Version: "v0.8.0",
+			Commit:  "c1",
+			Hash:    hashProject(t, mapFS(packageFiles)),
 		},
 	}, lock.Deps)
 }
@@ -246,6 +250,14 @@ func TestLockFromImportsPackageImportLocksOwningProject(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { helloer: 'github.com/scratch/repo//ub/helloer' } }\n",
 	})
+	projectFiles := map[string]string{
+		ManifestFileName: "manifest: { requires: {} }\n",
+		"ub/helloer/resource-hello.ub": `
+hello: resource {
+  outputs: { message: { value: 'hi' } }
+}
+`,
+	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.8.0"): ubSrc(
 			"c1", "sha256:package", map[string]string{
@@ -256,14 +268,7 @@ hello: resource {
 `,
 			}),
 		srcKey("github.com/scratch/repo", "", "v0.8.0"): ubSrc(
-			"c1", "sha256:project", map[string]string{
-				ManifestFileName: "manifest: { requires: {} }\n",
-				"ub/helloer/resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
-			}),
+			"c1", "sha256:project", projectFiles),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.8.0"}
 
@@ -271,7 +276,10 @@ hello: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo": {
-			Kind: LockKindUB, Version: "v0.8.0", Commit: "c1", Hash: "sha256:project",
+			Kind: LockKindUB,
+			Version: "v0.8.0",
+			Commit:  "c1",
+			Hash:    hashProject(t, mapFS(projectFiles)),
 		},
 	}, lock.Deps)
 }
@@ -283,16 +291,17 @@ func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
 }
 `,
 	})
+	projectFiles := map[string]string{
+		ManifestFileName:            "manifest: { requires: {} }\n",
+		"comprehensions/library.ub": "hello: resource { description: 'hi' }\n",
+	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/project-b/comprehensions",
 			"ub/project-b/v0.1.0"): ubSrc("c1", "sha256:package", map[string]string{
 			"library.ub": "hello: resource { outputs: { message: { value: 'hi' } } }\n",
 		}),
 		srcKey("github.com/scratch/repo", "ub/project-b", "ub/project-b/v0.1.0"): ubSrc(
-			"c1", "sha256:project", map[string]string{
-				ManifestFileName:            "manifest: { requires: {} }\n",
-				"comprehensions/library.ub": "hello: resource { description: 'hi' }\n",
-			}),
+			"c1", "sha256:project", projectFiles),
 	}}
 	sel := map[Dependency]string{
 		{URL: "github.com/scratch/repo", Subdir: "ub/project-b"}: "v0.1.0",
@@ -302,7 +311,10 @@ func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/project-b": {
-			Kind: LockKindUB, Version: "v0.1.0", Commit: "c1", Hash: "sha256:project",
+			Kind: LockKindUB,
+			Version: "v0.1.0",
+			Commit:  "c1",
+			Hash:    hashProject(t, mapFS(projectFiles)),
 		},
 	}, lock.Deps)
 }
@@ -409,14 +421,16 @@ func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
 	})
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2", map[string]string{
-			"library.ub": `
+	packageFiles := map[string]string{
+		"library.ub": `
 greeting: resource {
   imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
 }
 `,
-		}),
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc(
+			"c2", "h2", packageFiles),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}
 	sel := map[Dependency]string{
@@ -427,7 +441,10 @@ greeting: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
-			Kind: LockKindUB, Version: "v0.1.0", Commit: "c2", Hash: "h2",
+			Kind:    LockKindUB,
+			Version: "v0.1.0",
+			Commit:  "c2",
+			Hash:    hashProject(t, mapFS(packageFiles)),
 		},
 		"github.com/cloudboss/unobin//pkg/libraries/local": {
 			Kind: LockKindGo, Version: "v0.1.0", Commit: "c3",
@@ -439,17 +456,18 @@ func TestLockFromImportsRecursesThroughSourceDeclaredRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
 	})
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2",
-			map[string]string{
-				"library.ub": `
+	packageFiles := map[string]string{
+		"library.ub": `
 greeting: resource {
   imports: {
     local: 'github.com/cloudboss/unobin//pkg/libraries/local'
   }
 }
 `,
-			}),
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc(
+			"c2", "h2", packageFiles),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.1.0"): goSrc("c3"),
 	}}
 	sel := map[Dependency]string{
@@ -460,7 +478,10 @@ greeting: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
-			Kind: LockKindUB, Version: "v0.1.0", Commit: "c2", Hash: "h2",
+			Kind:    LockKindUB,
+			Version: "v0.1.0",
+			Commit:  "c2",
+			Hash:    hashProject(t, mapFS(packageFiles)),
 		},
 		"github.com/cloudboss/unobin//pkg/libraries/local": {
 			Kind: LockKindGo, Version: "v0.1.0", Commit: "c3",
@@ -477,14 +498,15 @@ greeting: resource {
 }
 `,
 	})
-	r := &fakeResolver{
-		sources: map[string]*resolve.Source{
-			srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc("c2", "h2",
-				map[string]string{"library.ub": `
+	packageFiles := map[string]string{"library.ub": `
 greeting: resource {
   outputs: { greeting: { value: 'hi' } }
 }
-`}),
+`}
+	r := &fakeResolver{
+		sources: map[string]*resolve.Source{
+			srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc(
+				"c2", "h2", packageFiles),
 		},
 		locals: map[string]*resolve.Source{
 			"./greeter": ubSrc("", "", map[string]string{
@@ -497,7 +519,10 @@ greeting: resource {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*LockedDep{
 		"github.com/scratch/repo//ub/helloer": {
-			Kind: LockKindUB, Version: "v0.1.0", Commit: "c2", Hash: "h2",
+			Kind:    LockKindUB,
+			Version: "v0.1.0",
+			Commit:  "c2",
+			Hash:    hashProject(t, mapFS(packageFiles)),
 		},
 	}, lock.Deps)
 }

@@ -267,13 +267,9 @@ func (w *lockWalker) lockEntry(
 		return nil, err
 	}
 	entry.Commit = projectSrc.Commit
-	entry.Hash = projectSrc.Hash
-	if entry.Hash == "" {
-		var err error
-		entry.Hash, err = resolve.HashTree(projectSrc.FS)
-		if err != nil {
-			return nil, err
-		}
+	entry.Hash, err = HashUBProject(projectSrc.FS)
+	if err != nil {
+		return nil, err
 	}
 	return entry, nil
 }

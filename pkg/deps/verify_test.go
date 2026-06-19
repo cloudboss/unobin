@@ -9,12 +9,16 @@ import (
 )
 
 func TestVerifyMatchingHash(t *testing.T) {
+	fsys := mapFS(map[string]string{
+		ManifestFileName: "manifest: { requires: {} }\n",
+		"library.ub":     "hello: resource { description: 'hi' }\n",
+	})
 	lock := NewLock()
 	lock.Deps["github.com/x/y//lib"] = &LockedDep{
-		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "h1",
+		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hashProject(t, fsys),
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "lib", "c1"): {Hash: "h1"},
+		srcKey("github.com/x/y", "lib", "c1"): {FS: fsys},
 	}}
 	mismatches, err := Verify(lock, r)
 	require.NoError(t, err)
@@ -30,8 +34,7 @@ hello: resource {
 }
 `,
 	})
-	hash, err := resolve.HashTree(fsys)
-	require.NoError(t, err)
+	hash := hashProject(t, fsys)
 	lock := NewLock()
 	lock.ToolchainVersion = "dev"
 	lock.Deps["github.com/scratch/repo"] = &LockedDep{
@@ -51,12 +54,16 @@ hello: resource {
 }
 
 func TestVerifyDetectsMismatch(t *testing.T) {
+	fsys := mapFS(map[string]string{
+		ManifestFileName: "manifest: { requires: {} }\n",
+		"library.ub":     "hello: resource { description: 'hi' }\n",
+	})
 	lock := NewLock()
 	lock.Deps["github.com/x/y//lib"] = &LockedDep{
-		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "h1",
+		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "sha256:wrong",
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "lib", "c1"): {Hash: "tampered"},
+		srcKey("github.com/x/y", "lib", "c1"): {FS: fsys},
 	}}
 	mismatches, err := Verify(lock, r)
 	require.NoError(t, err)
