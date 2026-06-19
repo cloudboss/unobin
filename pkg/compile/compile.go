@@ -24,6 +24,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/toolchain"
@@ -752,7 +753,36 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 	if !info.IsDir() {
 		return nil, fmt.Errorf("replace %s: %s is not a directory", match.dep, target)
 	}
-	return &resolve.Source{Commit: "replace", Path: target, FS: os.DirFS(target)}, nil
+	src := &resolve.Source{
+		Commit:        "replace",
+		Path:          target,
+		FS:            os.DirFS(target),
+		ProjectFS:     os.DirFS(match.local),
+		ProjectPath:   match.local,
+		ProjectSubdir: match.dep.Subdir,
+		PackageSubdir: ri.Subdir,
+	}
+	if err := addReplacementModuleMetadata(src, match.suffix); err != nil {
+		return nil, fmt.Errorf("replace %s: %w", match.dep, err)
+	}
+	return src, nil
+}
+
+func addReplacementModuleMetadata(src *resolve.Source, packageSuffix string) error {
+	marker, err := projectmarker.ClassifyRoot(src.ProjectFS)
+	if err != nil {
+		return err
+	}
+	if marker.Kind != projectmarker.Go {
+		return nil
+	}
+	src.ModuleRootPath = src.ProjectPath
+	src.ModulePath = marker.ModulePath
+	src.GoImportPath = marker.ModulePath
+	if packageSuffix != "" {
+		src.GoImportPath += "/" + packageSuffix
+	}
+	return nil
 }
 
 type localReplacementMatch struct {
