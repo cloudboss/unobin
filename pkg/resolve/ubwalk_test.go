@@ -51,7 +51,7 @@ func newRecordingVisitor() *recordingVisitor {
 	return &recordingVisitor{ubLibs: map[string]*UBLibrary{}}
 }
 
-func (v *recordingVisitor) OnGoImport(alias, path, version string) error {
+func (v *recordingVisitor) OnGoImport(alias, path, _, version string) error {
 	if v.failOn == "go:"+alias {
 		return fmt.Errorf("forced failure on %s", alias)
 	}

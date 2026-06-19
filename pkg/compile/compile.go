@@ -325,6 +325,7 @@ func Run(opts Options) error {
 		LibraryPath:   opts.LibraryPath,
 		FactoryName:   name,
 		GoImports:     goImports,
+		GoModules:     v.goModules,
 		UBImports:     ubImports,
 		GoConstraints: goConstraints,
 		GoDefaults:    goDefaults,
@@ -347,12 +348,12 @@ func Run(opts Options) error {
 		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, opts.ReplaceGoModules)
-	if err := addManifestReplaces(replaces, projectDir, replaceMap, v.importVersions); err != nil {
+	if err := addManifestReplaces(replaces, projectDir, replaceMap, v.goModules); err != nil {
 		return err
 	}
 
 	err = codegen.WriteSource(opts.OutDir, in,
-		opts.GoVersion, unobinVersion, v.importVersions, replaces)
+		opts.GoVersion, unobinVersion, v.goModules, replaces)
 	if err != nil {
 		return err
 	}
@@ -377,14 +378,14 @@ func Run(opts Options) error {
 // walker descends the import graph. canonicalAlias maps each UB
 // library's dedup key to the local alias of the first site that
 // reached it (used as the `internal/<dir>/` package name). packages
-// holds the generated Go source per key. importVersions pins each
-// Go-library path to its version for the stack's go.mod; the lock
-// already gives every site of a path the same version.
+// holds the generated Go source per key. goModules pins each Go-library
+// module path to its version for the stack's go.mod; the lock already gives
+// every site of a module the same version.
 type compileVisitor struct {
 	stackName        string
 	canonicalAlias   map[string]string
 	packages         map[string][]byte
-	importVersions   map[string]string
+	goModules        map[string]string
 	runtimeLibraries map[string]*ubruntime.Library
 	warnOut          io.Writer
 	schemas          *SchemaCache
@@ -397,15 +398,15 @@ func newCompileVisitor(
 		stackName:        stackName,
 		canonicalAlias:   map[string]string{},
 		packages:         map[string][]byte{},
-		importVersions:   map[string]string{},
+		goModules:        map[string]string{},
 		runtimeLibraries: map[string]*ubruntime.Library{},
 		warnOut:          warnOut,
 		schemas:          schemas,
 	}
 }
 
-func (c *compileVisitor) OnGoImport(_, path, version string) error {
-	c.importVersions[path] = version
+func (c *compileVisitor) OnGoImport(_, _, modulePath, version string) error {
+	c.goModules[modulePath] = version
 	return nil
 }
 
@@ -919,10 +920,10 @@ func withReplacedVersions(
 // local path. UB libraries are compiled in, so they need no go.mod entry.
 func addManifestReplaces(
 	replaces codegen.Replaces, root string,
-	replace map[deps.Dependency]string, importVersions map[string]string,
+	replace map[deps.Dependency]string, goModules map[string]string,
 ) error {
-	for importPath := range importVersions {
-		path, suffix, ok := bestGoReplacement(replace, importPath)
+	for modulePath := range goModules {
+		path, suffix, ok := bestGoReplacement(replace, modulePath)
 		if !ok {
 			continue
 		}
@@ -933,7 +934,7 @@ func addManifestReplaces(
 		if suffix != "" {
 			abs = filepath.Join(abs, filepath.FromSlash(suffix))
 		}
-		replaces[importPath] = abs
+		replaces[modulePath] = abs
 	}
 	return nil
 }

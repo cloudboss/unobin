@@ -12,6 +12,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	compilepkg "github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
@@ -1393,6 +1394,49 @@ func TestCompileUsesLockVersion(t *testing.T) {
 	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
 	require.NoError(t, err)
 	require.Contains(t, string(goMod), "github.com/x/core/lib v1.0.0")
+}
+
+func TestCompileRequiresGoModuleForSubpackage(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+	lock := deps.NewLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["github.com/x/core"] = &deps.LockedDep{
+		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
+	}
+	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
+
+	moduleDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(moduleDir, "lib"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "go.mod"),
+		[]byte("module github.com/x/core\n\ngo 1.26\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "lib", "library.go"),
+		validGoLibrarySource("lib"), 0o644))
+
+	remotes := map[string]*resolve.Source{
+		"github.com/x/core//lib@v1.0.0": {
+			Path:           filepath.Join(moduleDir, "lib"),
+			ProjectPath:    moduleDir,
+			ModuleRootPath: moduleDir,
+			ModulePath:     "github.com/x/core",
+			GoImportPath:   "github.com/x/core/lib",
+		},
+	}
+	outDir := filepath.Join(t.TempDir(), "build")
+	_, err := runCommandWithRemotes(t, remotes, "compile",
+		"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
+	require.NoError(t, err)
+	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
+	require.NoError(t, err)
+	want := "module demo-factory\n\n" +
+		"go " + compilepkg.GoMajorMinor() + "\n\n" +
+		"require (\n" +
+		"\tgithub.com/cloudboss/unobin v0.1.0\n" +
+		"\tgithub.com/x/core v1.0.0\n" +
+		")\n"
+	require.Equal(t, want, string(goMod))
 }
 
 // TestCompileRequiresLockedVersion compiles a factory whose import is

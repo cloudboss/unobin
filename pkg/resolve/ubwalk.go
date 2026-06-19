@@ -60,6 +60,10 @@ type Resolution struct {
 	Version      string
 	CanonicalKey string
 	SourcePath   string
+
+	ModulePath     string
+	ModuleRootPath string
+	GoImportPath   string
 }
 
 // UBLibrary has everything the visitor needs about a UB library the
@@ -108,7 +112,7 @@ type UBVisitor interface {
 	// Go library. May fire multiple times with the same path when the
 	// same library is imported from several sites; visitors that need
 	// uniqueness dedup themselves.
-	OnGoImport(alias, path, version string) error
+	OnGoImport(alias, path, modulePath, version string) error
 	// OnUBLibrary is called once per canonical key. alias is the local
 	// alias of whichever site first reached the library (which matters
 	// when the visitor names a directory or package after it).
@@ -287,21 +291,36 @@ func (w *ubWalker) handleGoImport(
 	if !ok {
 		return Resolution{}, LocalGoImportError(alias, ref.(*LocalImport).Path, source)
 	}
+	path := remoteGoImportPath(r)
+	if source.GoImportPath != "" {
+		path = source.GoImportPath
+	}
+	modulePath := path
+	if source.ModulePath != "" {
+		modulePath = source.ModulePath
+	}
+	if err := w.visitor.OnGoImport(alias, path, modulePath, r.Version); err != nil {
+		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+	}
+	return Resolution{
+		Kind:           ResolutionGo,
+		LocalAlias:     alias,
+		Ref:            ref,
+		Path:           path,
+		Version:        r.Version,
+		SourcePath:     source.Path,
+		ModulePath:     modulePath,
+		ModuleRootPath: source.ModuleRootPath,
+		GoImportPath:   path,
+	}, nil
+}
+
+func remoteGoImportPath(r *RemoteImport) string {
 	path := r.URL
 	if r.Subdir != "" {
 		path += "/" + r.Subdir
 	}
-	if err := w.visitor.OnGoImport(alias, path, r.Version); err != nil {
-		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
-	}
-	return Resolution{
-		Kind:       ResolutionGo,
-		LocalAlias: alias,
-		Ref:        ref,
-		Path:       path,
-		Version:    r.Version,
-		SourcePath: source.Path,
-	}, nil
+	return path
 }
 
 // LocalGoImportError explains why a local import did not resolve to a UB

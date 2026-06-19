@@ -277,7 +277,7 @@ type graphVisitor struct {
 	schemas *compile.SchemaCache
 }
 
-func (g *graphVisitor) OnGoImport(_, _, _ string) error {
+func (g *graphVisitor) OnGoImport(_, _, _, _ string) error {
 	return nil
 }
 
