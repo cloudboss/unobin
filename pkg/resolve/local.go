@@ -136,6 +136,16 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 	if err != nil {
 		return err
 	}
+	if importerOK {
+		inside, err := pathWithinDir(importerProject, targetDir)
+		if err != nil {
+			return err
+		}
+		if !inside {
+			return fmt.Errorf("local import %q resolves outside project root %s",
+				importPath, importerProject)
+		}
+	}
 	if importerOK && targetOK && !sameDir(importerProject, targetProject) {
 		return fmt.Errorf(
 			"local import %q targets a different project; "+
@@ -144,6 +154,22 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 		)
 	}
 	return nil
+}
+
+func pathWithinDir(root, target string) (bool, error) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return false, err
+	}
+	targetAbs, err := filepath.Abs(target)
+	if err != nil {
+		return false, err
+	}
+	rel, err := filepath.Rel(rootAbs, targetAbs)
+	if err != nil {
+		return false, err
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))), nil
 }
 
 func nearestManifestDir(start string) (string, bool, error) {

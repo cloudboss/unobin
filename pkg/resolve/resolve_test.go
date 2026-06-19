@@ -62,6 +62,17 @@ func TestLocalResolverRejectsSymlinkPath(t *testing.T) {
 	require.Contains(t, err.Error(), "symlink")
 }
 
+func TestLocalResolverRejectsImportOutsideProjectRoot(t *testing.T) {
+	base := t.TempDir()
+	project := filepath.Join(base, "project")
+	writeFile(t, filepath.Join(project, "manifest.ub"), "manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(base, "shared", "library.ub"), "thing: resource {}\n")
+
+	_, err := NewLocalResolver(project).Resolve(&LocalImport{Path: "../shared"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "outside project root")
+}
+
 func TestLocalResolverFileNotDir(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "stray.ub"), "description: 'x'\n")
