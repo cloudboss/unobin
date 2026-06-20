@@ -24,9 +24,6 @@ func (c *referenceChecker) checkTypes() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
 		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
-		case runtime.NodeConfiguration:
-			c.checkConfigurationNode(n)
-			continue
 		default:
 			continue
 		}
@@ -70,9 +67,7 @@ func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(
 	scope string,
 	body syntax.FactoryBody,
 ) {
-	if c.scopeUsesConfigurationRouting(scope, body) || !bodyUsesLibraryConfigInputs(body) {
-		return
-	}
+	_ = body
 	bound := libraryConfigAliases(body.LibraryConfigs)
 	for _, n := range c.dag.Nodes {
 		if n.Composite != scope || n.IsComposite() {
@@ -95,41 +90,6 @@ func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(
 		c.addf(n.Body.Span().Start,
 			"library %q requires library-configs.%s", n.Alias, n.Alias)
 	}
-}
-
-func bodyUsesLibraryConfigInputs(body syntax.FactoryBody) bool {
-	if len(body.LibraryConfigs) > 0 {
-		return true
-	}
-	for _, input := range body.Inputs {
-		if _, ok := input.Type.(*lang.TypeLibraryConfig); ok {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *referenceChecker) scopeUsesConfigurationRouting(
-	scope string,
-	body syntax.FactoryBody,
-) bool {
-	if len(body.Configurations) > 0 {
-		return true
-	}
-	if scope != "" {
-		if call, ok := c.dag.Nodes[scope]; ok && len(call.ConfigurationsRemap) > 0 {
-			return true
-		}
-	}
-	for _, n := range c.dag.Nodes {
-		if n.Composite != scope {
-			continue
-		}
-		if !n.Configuration.IsZero() || len(n.ConfigurationsRemap) > 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func libraryConfigAliases(decls []syntax.LibraryConfigDecl) map[string]bool {
@@ -226,62 +186,6 @@ func (c *referenceChecker) importPathForAlias(scope string, alias string) (strin
 		}
 	}
 	return "", false
-}
-
-// checkConfigurationNode validates one factory configuration. The
-// alias must name an imported library that declares a configuration.
-// When the configuration's field schema is known, every body field
-// must be one the schema declares with an assignable type. Missing
-// required fields are left to the runtime, where the stack file may
-// supply an override. A whole-expression body checks against the
-// schema as one object type; the comparison is open, so an extra field
-// the checker cannot rule out is left for plan-time decode to reject.
-func (c *referenceChecker) checkConfigurationNode(n *runtime.Node) {
-	label := configurationNodeLabel(n)
-	lib := c.libraries[""][n.Alias]
-	if lib == nil {
-		c.addf(n.Body.Span().Start,
-			"%s: library %q is not imported", label, n.Alias)
-		return
-	}
-	if !libraryKnown(lib) {
-		return
-	}
-	if lib.Configuration == nil && (lib.Schema == nil || !lib.Schema.HasConfiguration) {
-		c.addf(n.Body.Span().Start,
-			"%s: library declares no configuration", label)
-		return
-	}
-	if lib.Schema == nil || lib.Schema.Configuration == nil {
-		return
-	}
-	schema := lib.Schema.Configuration
-	scope := c.scopeFor(n)
-	obj, ok := n.Body.(*lang.ObjectLit)
-	if !ok {
-		typecheck.Check(n.Body, configurationObjectType(schema), scope, c.errs)
-		return
-	}
-	present := make(map[string]bool, len(obj.Fields))
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
-			continue
-		}
-		present[fld.Key.Name] = true
-		target, ok := schema[fld.Key.Name]
-		if !ok {
-			c.addf(fld.Key.S.Start, "%s: unknown field %q", label, fld.Key.Name)
-			continue
-		}
-		typecheck.Check(fld.Value, target, scope, c.errs)
-	}
-}
-
-func configurationNodeLabel(n *runtime.Node) string {
-	if n.Name == "default" {
-		return "default configuration for " + n.Alias
-	}
-	return "configuration." + n.Name
 }
 
 // checkLocalsBodyTypes infers every local's expression with the real
@@ -603,12 +507,11 @@ func (c *referenceChecker) lookupTypeSchema(n *runtime.Node) *runtime.TypeSchema
 func (c *referenceChecker) scopeFor(n *runtime.Node) *typecheck.Scope {
 	inputs := c.scopeInputs(n.Composite)
 	scope := &typecheck.Scope{
-		Inputs:                 inputs,
-		LookupNode:             c.lookupNodeFor(n.Composite),
-		LookupFunction:         c.lookupFunctionFor(n.Composite),
-		LookupConfiguration:    c.lookupConfigurationFor(n.Composite),
-		LookupConfigurationRef: c.lookupConfigurationRef,
-		Observe:                c.observe,
+		Inputs:              inputs,
+		LookupNode:          c.lookupNodeFor(n.Composite),
+		LookupFunction:      c.lookupFunctionFor(n.Composite),
+		LookupConfiguration: c.lookupConfigurationFor(n.Composite),
+		Observe:             c.observe,
 	}
 	scope.LookupLocal = c.lookupLocalFor(n.Composite, scope)
 	return scope
@@ -632,14 +535,6 @@ func (c *referenceChecker) lookupConfigurationFor(
 		}
 		return configurationObjectType(lib.Schema.Configuration), true
 	}
-}
-
-func (c *referenceChecker) lookupConfigurationRef(name string) (string, bool) {
-	ref, ok := c.configurationRefs[name]
-	if !ok {
-		return "", false
-	}
-	return ref.Alias, true
 }
 
 // configurationObjectType folds a configuration schema's field map

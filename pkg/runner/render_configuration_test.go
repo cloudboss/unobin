@@ -8,40 +8,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// A consumer whose internal configuration is pending shows the
-// selection in pending brackets, and every step whose read was held
-// back is listed with the reason.
-func TestPrintPlanShowsPendingConfigurationAndDeferredReads(t *testing.T) {
+func TestPrintPlanShowsDeferredLibraryConfigReads(t *testing.T) {
 	plan := &runtime.Plan{Steps: []*runtime.PlanStep{
 		{
-			Address:       "resource.fix.config-echo.app",
-			Kind:          runtime.NodeResource,
-			Decision:      runtime.DecisionCreate,
-			Inputs:        map[string]any{"name": "apps"},
-			Configuration: runtime.ConfigRef{Alias: "fix", Name: "cluster"},
+			Address:  "resource.fix.config-echo.app",
+			Kind:     runtime.NodeResource,
+			Decision: runtime.DecisionCreate,
+			Inputs:   map[string]any{"name": "apps"},
 		},
 		{
-			Address:      "resource.fix.other.b",
-			Kind:         runtime.NodeResource,
-			Decision:     runtime.DecisionNoOp,
-			DeferredRead: runtime.ConfigRef{Alias: "fix", Name: "cluster"},
+			Address:        "resource.fix.other.b",
+			Kind:           runtime.NodeResource,
+			Decision:       runtime.DecisionNoOp,
+			DeferredConfig: "library-config.fix",
 		},
 		{
-			Address:      "data.fix.probe.p",
-			Kind:         runtime.NodeData,
-			Decision:     runtime.DecisionRead,
-			DeferredRead: runtime.ConfigRef{Alias: "fix", Name: "cluster"},
+			Address:        "data.fix.probe.p",
+			Kind:           runtime.NodeData,
+			Decision:       runtime.DecisionRead,
+			DeferredConfig: "library-config.fix",
 		},
 	}}
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	want := `  + resource.fix.config-echo.app
-      @configuration: <configuration.cluster>
       name: 'apps'
 
 Deferred reads (2):
-  data.fix.probe.p    @configuration: configuration.cluster pending; read deferred to apply
-  resource.fix.other.b    @configuration: configuration.cluster pending; drift unchecked this plan
+  data.fix.probe.p    library-config.fix pending; read deferred to apply
+  resource.fix.other.b    library-config.fix pending; drift unchecked this plan
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 `

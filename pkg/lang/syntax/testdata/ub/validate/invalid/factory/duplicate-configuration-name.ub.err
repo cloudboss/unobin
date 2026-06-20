@@ -1,1 +1,2 @@
-duplicate configuration name "formal" (first defined at factory.ub:3:5)
+configurations block is not supported; use library-configs
+configurations block is not supported; use library-configs

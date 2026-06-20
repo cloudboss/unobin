@@ -9,29 +9,23 @@ import (
 
 var (
 	resourceBodyMeta = map[string]bool{
-		"@configuration":  true,
-		"@configurations": true,
-		"@depends-on":     true,
-		"@for-each":       true,
-		"@lock":           true,
-		"@timeout":        true,
+		"@depends-on": true,
+		"@for-each":   true,
+		"@lock":       true,
+		"@timeout":    true,
 	}
 	dataBodyMeta = map[string]bool{
-		"@configuration":  true,
-		"@configurations": true,
-		"@depends-on":     true,
-		"@for-each":       true,
-		"@lock":           true,
-		"@timeout":        true,
+		"@depends-on": true,
+		"@for-each":   true,
+		"@lock":       true,
+		"@timeout":    true,
 	}
 	actionBodyMeta = map[string]bool{
-		"@configuration":  true,
-		"@configurations": true,
-		"@depends-on":     true,
-		"@for-each":       true,
-		"@lock":           true,
-		"@timeout":        true,
-		"@trigger":        true,
+		"@depends-on": true,
+		"@for-each":   true,
+		"@lock":       true,
+		"@timeout":    true,
+		"@trigger":    true,
 	}
 )
 
@@ -71,10 +65,9 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	mergeErrors(errs, lang.ValidateConstraints(constraints))
 	mergeErrors(errs, lang.ValidateConstraintReferences(constraints, inputs))
 	mergeErrors(errs, lang.ValidateImports(importDeclsObject(body.Imports)))
-	validateConfigurationDecls(body.Configurations, errs)
+	validateNoConfigurationDecls(body.Configurations, errs)
 	validateLibraryConfigTypePlacement(body.Inputs, errs)
 	validateLibraryConfigDecls(body.LibraryConfigs, errs)
-	validateConfigurationRefs(body, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
 	validateNodeDecls(body.Data, "data", dataBodyMeta, errs)
 	validateNodeDecls(body.Actions, "action", actionBodyMeta, errs)
@@ -175,7 +168,7 @@ func validateStackFactory(
 		cfg.Fields = append(cfg.Fields, identField("inputs", factory.Inputs.S, factory.Inputs))
 	}
 	mergeErrors(errs, lang.ValidateStackFactory(cfg, locals))
-	validateStackConfigurationValues(factory.Configurations, locals, errs)
+	validateNoStackConfigurationValues(factory.Configurations, errs)
 }
 
 func validateManifestFile(manifest *ManifestFile, pos parse.Position, errs *parse.ErrorList) {
@@ -233,6 +226,20 @@ func validateLibraryFile(library *LibraryFile, pos parse.Position, errs *parse.E
 		}
 		seen[key] = export.Name.S.Start
 		validateFactoryBody(export.Body, errs)
+	}
+}
+
+func validateNoConfigurationDecls(decls []ConfigurationDecl, errs *parse.ErrorList) {
+	for _, decl := range decls {
+		errs.Addf(parse.ErrSchema, decl.S.Start,
+			"configurations block is not supported; use library-configs")
+	}
+}
+
+func validateNoStackConfigurationValues(values []ConfigurationValue, errs *parse.ErrorList) {
+	for _, value := range values {
+		errs.Addf(parse.ErrSchema, value.S.Start,
+			"factory.configurations is not supported; pass library configs through factory.inputs")
 	}
 }
 

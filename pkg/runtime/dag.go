@@ -222,56 +222,16 @@ func (g *DAG) UnderForEachComposite(n *Node) bool {
 	return false
 }
 
-// ConfigurationSelections returns every configuration selection the
-// graph's leaves resolve to, explicit or implicit default, keyed by
-// the resolved alias and limited to libraries that declare a
-// configuration. The factory's help output uses it to say which
-// names an operator must supply.
-func (g *DAG) ConfigurationSelections(libs map[string]*Library) map[string]map[string]bool {
-	out := map[string]map[string]bool{}
-	for _, n := range g.Nodes {
-		switch n.Kind {
-		case NodeResource, NodeData, NodeAction:
-		default:
-			continue
-		}
-		if n.IsComposite() {
-			continue
-		}
-		alias, configuration := resolvedConfigRef(n, g.Nodes)
-		lib := libs[alias]
-		if lib == nil || lib.Configuration == nil {
-			continue
-		}
-		set := out[alias]
-		if set == nil {
-			set = map[string]bool{}
-			out[alias] = set
-		}
-		set[configuration] = true
-	}
-	return out
-}
-
-// configurationDep returns the address of the configuration node a
-// leaf's resolved selection names, when the factory defines that
-// configuration internally. The edge orders every consumer after the
-// values its configuration derives from.
+// configurationDep returns the address of the library config node a
+// leaf's alias names. The edge orders every consumer after the values
+// its alias config derives from.
 func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
 	switch n.Kind {
 	case NodeResource, NodeData, NodeAction:
 	default:
 		return "", false
 	}
-	if addr, ok := libraryConfigNode(nodes, n.Composite, n.Alias); ok {
-		return addr, true
-	}
-	alias, configuration := resolvedConfigRef(n, nodes)
-	addr, ok := configurationNodeAddress(nodes, alias, configuration)
-	if !ok {
-		return "", false
-	}
-	return addr, true
+	return libraryConfigNode(nodes, n.Composite, n.Alias)
 }
 
 func internalsOf(callSite string, nodes map[string]*Node) []string {

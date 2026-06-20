@@ -1,1 +1,1 @@
-@configuration names unknown configuration "formal"
+action say: meta key "@configuration" is not allowed

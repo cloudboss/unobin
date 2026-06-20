@@ -1,1 +1,1 @@
-configuration aws: meta key "@for-each" is not allowed
+factory.configurations is not supported; pass library configs through factory.inputs

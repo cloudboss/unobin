@@ -3,7 +3,6 @@ package runner
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
-	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 type factoryInputDecl struct {
@@ -30,13 +29,6 @@ func (p *parsedFactory) constraints() *lang.ArrayLit {
 		return nil
 	}
 	return syntaxConstraints(p.syntaxBody.Constraints)
-}
-
-func (p *parsedFactory) internalConfigurations() map[string]map[string]bool {
-	if p == nil || p.syntaxBody == nil {
-		return map[string]map[string]bool{}
-	}
-	return runtime.InternalSyntaxConfigurationNames(*p.syntaxBody)
 }
 
 func (p *parsedFactory) inputs() []factoryInputDecl {

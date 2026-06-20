@@ -12,10 +12,8 @@ factory: {
     rendered: std.render('hello')
   }
 
-  configurations: {
-    std {
-      region: 'us-east-1'
-    }
+  library-configs: {
+    std: { region: 'us-east-1' }
   }
 
   resources: {

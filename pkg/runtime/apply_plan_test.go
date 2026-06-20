@@ -251,8 +251,10 @@ func (r *cfgResource) SchemaVersion() int { return 1 }
 func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 	return map[string]*Library{
 		"aws": {
-			Name:          "aws",
-			Configuration: &cfg.ConfigurationType[any]{New: func() any { return &struct{}{} }},
+			Name: "aws",
+			Configuration: &cfg.ConfigurationType[any]{
+				New: func() any { return &endpointConfiguration{} },
+			},
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[cfgResource, any, any](
 					func() *cfgResource { return &cfgResource{capture: capture} },
@@ -262,41 +264,32 @@ func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 	}
 }
 
-func TestDestroyUsesRecordedConfiguration(t *testing.T) {
+func TestDestroyUsesCurrentAliasConfig(t *testing.T) {
 	capture := &cfgCapture{}
 	libs := cfgCapturingModules(capture)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	configurations := ConfigTable{
-		{Alias: "aws", Name: "default"}: "default-cfg",
-		{Alias: "aws", Name: "east2"}:   "east2-cfg",
-	}
 
 	withResource := `
-resources: { x: aws.thing { @configuration: configuration.east2, name: 'x' } }
+library-configs: { aws: { endpoint: 'https://create.example' } }
+resources: { x: aws.thing { name: 'x' } }
 `
 	exec := applyPlanTestExecutor(t, withResource, libs, store, stack)
-	exec.Configurations = configurations
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
 
 	snap, err := store.Current()
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 1)
-	require.Equal(t, &state.ConfigurationRef{
-		Kind:     "named",
-		Name:     "east2",
-		Selector: state.Selector{Alias: "aws"},
-	}, snap.Entries[0].Configuration)
 
-	// Remove the resource from source so the next apply destroys it,
-	// and confirm Delete ran against the east2 configuration.
-	empty := applyPlanTestExecutor(t, `description: 'gone'`, libs, store, stack)
-	empty.Configurations = configurations
+	destroySource := `
+library-configs: { aws: { endpoint: 'https://delete.example' } }
+`
+	empty := applyPlanTestExecutor(t, destroySource, libs, store, stack)
 	_, err = planAndApply(empty)
 	require.NoError(t, err)
 	require.True(t, capture.deleted)
-	require.Equal(t, "east2-cfg", capture.deleteCfg)
+	require.Equal(t, "https://delete.example", endpointOf(capture.deleteCfg))
 
 	snap, err = store.Current()
 	require.NoError(t, err)
@@ -1570,46 +1563,14 @@ func TestEncodePlanUsesNodeKindKey(t *testing.T) {
 	require.NotContains(t, string(encoded), `"kind": "resource"`)
 }
 
-func TestEncodePlanUsesConfigurationSections(t *testing.T) {
-	plan := &Plan{
-		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
-		RawConfigurations: ConfigTable{
-			{Alias: "fix", Name: "default"}: map[string]any{
-				"endpoint": "https://op.example",
-			},
-			{Alias: "fix", Name: "cluster"}: map[string]any{
-				"endpoint": "https://stack.example",
-			},
-		},
-	}
-	encoded, err := EncodePlan(plan)
-	require.NoError(t, err)
-
-	var got map[string]any
-	require.NoError(t, json.Unmarshal(encoded, &got))
-	require.Equal(t, map[string]any{
-		"defaults": map[string]any{
-			"fix": map[string]any{
-				"body": map[string]any{"endpoint": "https://op.example"},
-			},
-		},
-		"named": map[string]any{
-			"cluster": map[string]any{
-				"selector": map[string]any{"alias": "fix"},
-				"body":     map[string]any{"endpoint": "https://stack.example"},
-			},
-		},
-	}, got["configurations"])
-}
-
-func TestEncodePlanUsesConfigurationReference(t *testing.T) {
+func TestEncodePlanUsesDeferredConfig(t *testing.T) {
 	plan := &Plan{
 		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
 		Steps: []*PlanStep{{
-			Address:       "resource.app",
-			Kind:          NodeResource,
-			Decision:      DecisionNoOp,
-			Configuration: ConfigRef{Alias: "aws", Name: "east"},
+			Address:        "data.lookup",
+			Kind:           NodeData,
+			Decision:       DecisionNoOp,
+			DeferredConfig: "library-config.aws",
 		}},
 	}
 	encoded, err := EncodePlan(plan)
@@ -1619,78 +1580,10 @@ func TestEncodePlanUsesConfigurationReference(t *testing.T) {
 		Steps []map[string]any `json:"steps"`
 	}
 	require.NoError(t, json.Unmarshal(encoded, &got))
-	require.Equal(t, map[string]any{
-		"kind": "named",
-		"name": "east",
-		"selector": map[string]any{
-			"alias": "aws",
-		},
-	}, got.Steps[0]["configuration"])
+	require.Equal(t, "library-config.aws", got.Steps[0]["deferred-config"])
 }
 
-func TestDecodePlanReadsConfigurationReference(t *testing.T) {
-	b := []byte(`{
-  "format-version": 1,
-  "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
-  "steps": [{
-    "address": "resource.app",
-    "node-kind": "resource",
-    "decision": "no-op",
-    "configuration": {
-      "kind": "named",
-      "name": "east",
-      "selector": {"alias": "aws"}
-    }
-  }]
-}`)
-	pf, err := DecodePlan(b)
-	require.NoError(t, err)
-	require.Equal(t, ConfigRef{Alias: "aws", Name: "east"}, pf.Steps[0].Configuration)
-}
-
-func TestDecodePlanRejectsConfigurationString(t *testing.T) {
-	b := []byte(`{
-  "format-version": 1,
-  "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
-  "steps": [{
-    "address": "resource.app",
-    "node-kind": "resource",
-    "decision": "no-op",
-    "configuration": "aws.east"
-  }]
-}`)
-	_, err := DecodePlan(b)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "configuration must be an object")
-}
-
-func TestEncodePlanUsesDeferredReadReference(t *testing.T) {
-	plan := &Plan{
-		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
-		Steps: []*PlanStep{{
-			Address:      "data.lookup",
-			Kind:         NodeData,
-			Decision:     DecisionNoOp,
-			DeferredRead: ConfigRef{Alias: "aws", Name: "east"},
-		}},
-	}
-	encoded, err := EncodePlan(plan)
-	require.NoError(t, err)
-
-	var got struct {
-		Steps []map[string]any `json:"steps"`
-	}
-	require.NoError(t, json.Unmarshal(encoded, &got))
-	require.Equal(t, map[string]any{
-		"kind": "named",
-		"name": "east",
-		"selector": map[string]any{
-			"alias": "aws",
-		},
-	}, got.Steps[0]["deferred-read"])
-}
-
-func TestDecodePlanReadsDeferredReadReference(t *testing.T) {
+func TestDecodePlanReadsDeferredConfig(t *testing.T) {
 	b := []byte(`{
   "format-version": 1,
   "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
@@ -1698,57 +1591,12 @@ func TestDecodePlanReadsDeferredReadReference(t *testing.T) {
     "address": "data.lookup",
     "node-kind": "data",
     "decision": "no-op",
-    "deferred-read": {
-      "kind": "named",
-      "name": "east",
-      "selector": {"alias": "aws"}
-    }
+    "deferred-config": "library-config.aws"
   }]
 }`)
 	pf, err := DecodePlan(b)
 	require.NoError(t, err)
-	require.Equal(t, ConfigRef{Alias: "aws", Name: "east"}, pf.Steps[0].DeferredRead)
-}
-
-func TestDecodePlanReadsConfigurationSections(t *testing.T) {
-	b := []byte(`{
-  "format-version": 1,
-  "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
-  "configurations": {
-    "defaults": {
-      "fix": {"body": {"endpoint": "https://op.example"}}
-    },
-    "named": {
-      "cluster": {
-        "selector": {"alias": "fix"},
-        "body": {"endpoint": "https://stack.example"}
-      }
-    }
-  },
-  "steps": []
-}`)
-	pf, err := DecodePlan(b)
-	require.NoError(t, err)
-	require.Equal(t, ConfigTable{
-		{Alias: "fix", Name: "default"}: map[string]any{
-			"endpoint": "https://op.example",
-		},
-		{Alias: "fix", Name: "cluster"}: map[string]any{
-			"endpoint": "https://stack.example",
-		},
-	}, pf.RawConfigurations)
-}
-
-func TestDecodePlanRejectsFlatConfigurations(t *testing.T) {
-	bad := []byte(`{
-  "format-version": 1,
-  "factory": {"name": "x"},
-  "configurations": {"fix": {"default": {}}},
-  "steps": []
-}`)
-	_, err := DecodePlan(bad)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `configurations: unknown field "fix"`)
+	require.Equal(t, "library-config.aws", pf.Steps[0].DeferredConfig)
 }
 
 func TestDecodePlanRejectsBadFormatVersion(t *testing.T) {

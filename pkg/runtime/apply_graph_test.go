@@ -270,14 +270,14 @@ func TestPersistedDependsOn(t *testing.T) {
 			want:       map[string][]string{"a": {"r"}},
 		},
 		{
-			name: "collapse through a configuration",
+			name: "collapse through a library config",
 			steps: []PlanStep{
 				{Address: "a", Kind: NodeAction, Decision: DecisionCreate},
-				{Address: "cfg", Kind: NodeConfiguration, Decision: DecisionEval},
+				{Address: "cfg", Kind: NodeLibraryConfig, Decision: DecisionEval},
 				leafStep("r"),
 			},
-			// a -> cfg -> r; the configuration evaluation is not an
-			// entry, so a records r and destroy sequences a before r.
+			// a -> cfg -> r; the config evaluation is not an entry, so a
+			// records r and destroy sequences a before r.
 			dependents: map[string][]string{"r": {"cfg"}, "cfg": {"a"}},
 			want:       map[string][]string{"a": {"r"}},
 		},
@@ -353,23 +353,22 @@ func TestPersistedDependsOn(t *testing.T) {
 	}
 }
 
-// TestPersistedDependsOnCollapsesConfigurations pins the recorded
+// TestPersistedDependsOnCollapsesLibraryConfigs pins the recorded
 // depends-on for every consumer form that reaches a resource only
-// through an internal configuration node: a plain leaf, @for-each
-// instances, and a composite-internal leaf. Each must record the
-// resource the configuration reads, since destroy ordering has no
-// configuration entry to sequence against.
-func TestPersistedDependsOnCollapsesConfigurations(t *testing.T) {
+// through a library config node: a plain leaf, @for-each instances, and
+// a composite-internal leaf. Each must record the resource the config
+// reads, since destroy ordering has no config entry to sequence against.
+func TestPersistedDependsOnCollapsesLibraryConfigs(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"configuration.fancy":                             {"resource.greet.phrase.flourish"},
-		"action.greet.say.solo":                           {"configuration.fancy"},
-		"action.greet.say.many":                           {"configuration.fancy"},
-		"resource.net.cluster.web/action.greet.say.inner": {"configuration.fancy"},
+		"library-config.greet":                            {"resource.greet.phrase.flourish"},
+		"action.greet.say.solo":                           {"library-config.greet"},
+		"action.greet.say.many":                           {"library-config.greet"},
+		"resource.net.cluster.web/action.greet.say.inner": {"library-config.greet"},
 		"resource.greet.phrase.flourish":                  nil,
 	})
 	steps := []PlanStep{
 		{Address: "resource.greet.phrase.flourish", Kind: NodeResource, Decision: DecisionCreate},
-		{Address: "configuration.fancy", Kind: NodeConfiguration, Decision: DecisionEval},
+		{Address: "library-config.greet", Kind: NodeLibraryConfig, Decision: DecisionEval},
 		{Address: "action.greet.say.solo", Kind: NodeAction, Decision: DecisionCreate},
 		{Address: "action.greet.say.many['k1']", Kind: NodeAction, Decision: DecisionCreate},
 		{Address: "action.greet.say.many['k2']", Kind: NodeAction, Decision: DecisionCreate},

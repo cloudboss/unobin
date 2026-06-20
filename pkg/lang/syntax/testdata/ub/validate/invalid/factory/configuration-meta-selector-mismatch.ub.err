@@ -1,1 +1,2 @@
-@configuration formal: selector "greet" does not match node selector "aws"
+configurations block is not supported; use library-configs
+action say: meta key "@configuration" is not allowed

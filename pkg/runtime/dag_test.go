@@ -444,65 +444,33 @@ resources: {
 	require.Len(t, order, 3)
 }
 
-func TestBuildDAGNamedConfigurationNode(t *testing.T) {
+func TestBuildDAGLibraryConfigNode(t *testing.T) {
 	g := syntaxDAG(t, `
-configurations: {
-  cluster: k8s { host: resource.main.endpoint }
-}
+library-configs: { k8s: { host: resource.main.endpoint } }
 resources: {
   main: aws.eks { name: 'web' }
-  apps: k8s.namespace { @configuration: configuration.cluster, name: 'apps' }
+  apps: k8s.namespace { name: 'apps' }
 }
 `, nil)
-	cfg, ok := g.Nodes["configuration.cluster"]
-	require.True(t, ok, "configuration node should exist")
-	require.Equal(t, NodeConfiguration, cfg.Kind)
+	cfg, ok := g.Nodes["library-config.k8s"]
+	require.True(t, ok, "library config node should exist")
+	require.Equal(t, NodeLibraryConfig, cfg.Kind)
 	require.Equal(t, "k8s", cfg.Alias)
-	require.Equal(t, "cluster", cfg.Name)
-	require.NotContains(t, g.Nodes, "configuration.k8s.cluster")
-	require.Equal(t, []string{"resource.main"}, g.Edges["configuration.cluster"])
-	require.Contains(t, g.Edges["resource.apps"], "configuration.cluster")
+	require.Equal(t, "k8s", cfg.Name)
+	require.Equal(t, []string{"resource.main"}, g.Edges["library-config.k8s"])
+	require.Contains(t, g.Edges["resource.apps"], "library-config.k8s")
 }
 
-func TestBuildDAGDefaultConfigurationUsesSelectorDefaultAddress(t *testing.T) {
+func TestBuildDAGNoLibraryConfigEdgeWhenAliasUnbound(t *testing.T) {
 	g := syntaxDAG(t, `
-configurations: {
-  aws { region: var.region }
-}
-resources: {
-  cluster: aws.eks { name: 'web' }
-}
-`, nil)
-	cfg, ok := g.Nodes["default-configuration.aws"]
-	require.True(t, ok, "configuration node should exist")
-	require.Equal(t, NodeConfiguration, cfg.Kind)
-	require.Equal(t, "aws", cfg.Alias)
-	require.Equal(t, "default", cfg.Name)
-	require.Contains(t, g.Edges["resource.cluster"], "default-configuration.aws")
-}
-
-func TestBuildDAGDefaultSelectionEdgesToInternalDefault(t *testing.T) {
-	g := syntaxDAG(t, `
-configurations: {
-  aws { region: var.region }
-}
 resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`, nil)
-	require.Contains(t, g.Edges["resource.main"], "default-configuration.aws")
-}
-
-func TestBuildDAGNoEdgeWhenConfigurationNotInternal(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { @configuration: configuration.east2, cidr-block: '10.0.0.0/16' } }
 `, nil)
 	require.Empty(t, g.Edges["resource.main"])
 }
 
-func TestBuildDAGConfigurationCycleDetected(t *testing.T) {
+func TestBuildDAGLibraryConfigCycleDetected(t *testing.T) {
 	g := syntaxDAG(t, `
-configurations: {
-  aws { token: resource.session.token }
-}
+library-configs: { aws: { token: resource.session.token } }
 resources: { session: aws.sts { name: 's' } }
 `, nil)
 	_, err := g.TopologicalOrder()

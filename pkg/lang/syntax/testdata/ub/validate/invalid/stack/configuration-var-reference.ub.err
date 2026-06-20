@@ -1,1 +1,1 @@
-stack values must be static, but var.region is a reference
+factory.configurations is not supported; pass library configs through factory.inputs

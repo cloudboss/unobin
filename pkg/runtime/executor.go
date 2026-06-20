@@ -45,17 +45,6 @@ type Executor struct {
 	// SyntaxSource is the typed factory body for grammar-first callers.
 	SyntaxSource *syntax.FactoryBody
 
-	// Configurations stores decoded operator-supplied configurations.
-	// Entries are the value returned by cfg.ConfigurationType.New populated
-	// by cfg.Decode. A nil map disables config routing and every CRUD call
-	// sees a nil cfg argument.
-	Configurations ConfigTable
-
-	// RawConfigurations holds the same stack-supplied bodies as
-	// Configurations before decoding. A configuration.<name> reference
-	// inside an internal configuration's body reads from here.
-	RawConfigurations ConfigTable
-
 	Store   state.Backend
 	Factory state.FactoryInfo
 
@@ -134,14 +123,12 @@ func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
 // cannot reference composite internals.
 func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalContext {
 	scope := &EvalContext{
-		Vars:              vars,
-		Resources:         make(map[string]any),
-		Data:              make(map[string]any),
-		Actions:           make(map[string]any),
-		Libraries:         e.Libraries,
-		Configurations:    e.RawConfigurations,
-		ConfigurationRefs: ConfigurationRefNames(e.DAG.Nodes),
-		locals:            e.rootLocalScope(),
+		Vars:      vars,
+		Resources: make(map[string]any),
+		Data:      make(map[string]any),
+		Actions:   make(map[string]any),
+		Libraries: e.Libraries,
+		locals:    e.rootLocalScope(),
 	}
 	if prior == nil {
 		return scope
@@ -188,10 +175,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 	}
 	var scope *EvalContext
 	for _, n := range e.DAG.Nodes {
-		if n.Kind != NodeConfiguration && n.Kind != NodeLibraryConfig {
-			continue
-		}
-		if n.Kind == NodeConfiguration && e.configurationOverridden(n.Alias, n.Name) {
+		if n.Kind != NodeLibraryConfig {
 			continue
 		}
 		if scope == nil {
@@ -231,69 +215,27 @@ func (e *Executor) effectiveParallelism() int {
 	return DefaultParallelism
 }
 
-// resolvedConfigRef returns the (alias, configuration) pair the runtime
-// resolves for a node; see the package function of the same name.
-func (e *Executor) resolvedConfigRef(n *Node) (alias, configuration string) {
-	return resolvedConfigRef(n, e.DAG.Nodes)
+// pendingInternalConfig reports whether n's alias config has not evaluated
+// this run. Reads gate on it at plan: a consumer must not reach its API with a
+// nil config just because the config expression's own upstream is mid-change.
+func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
+	if e.DAG == nil {
+		return "", false
+	}
+	addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias)
+	if !ok {
+		return "", false
+	}
+	if _, done := e.internalConfiguration(addr); done {
+		return "", false
+	}
+	return addr, true
 }
 
-// resolvedConfigRef returns the (alias, configuration) pair a node's
-// selection resolves to. The walk goes from the node up the composite
-// chain, taking the first `@configurations:` entry that covers the
-// node's import. If none does, the node's own `@configuration:`
-// selection (or "default") applies.
-func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration string) {
-	ref := n.Configuration
-	if ref.IsZero() {
-		ref = ConfigRef{Alias: n.Alias, Name: "default"}
-	}
-	for parent := n.Composite; parent != ""; {
-		c, ok := nodes[parent]
-		if !ok {
-			break
-		}
-		if mapped, has := c.ConfigurationsRemap[n.Alias]; has {
-			ref = mapped
-			break
-		}
-		parent = c.Composite
-	}
-	return ref.Alias, ref.Name
-}
-
-// pendingInternalConfig reports whether n's resolved selection names
-// an internal configuration that has not evaluated this run. Reads gate
-// on it at plan: a consumer must not reach its API with a nil
-// configuration just because the configuration's own upstream is
-// mid-change.
-func (e *Executor) pendingInternalConfig(n *Node) (ConfigRef, bool) {
-	if e.DAG != nil {
-		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
-			if _, done := e.internalConfiguration(addr); done {
-				return ConfigRef{}, false
-			}
-			return ConfigRef{Alias: n.Alias, Name: "default"}, true
-		}
-	}
-	alias, configuration := e.resolvedConfigRef(n)
-	if e.configurationOverridden(alias, configuration) {
-		return ConfigRef{}, false
-	}
-	addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
-	if !internal {
-		return ConfigRef{}, false
-	}
-	if _, ok := e.internalConfiguration(addr); ok {
-		return ConfigRef{}, false
-	}
-	return ConfigRef{Alias: alias, Name: configuration}, true
-}
-
-// configFor returns the decoded configuration to pass to a CRUD call
-// on the given node. A stack-file override wins first. Otherwise, a
-// selection the factory defines reads from the evaluated configuration
-// table, and the rest reads from the operator's decoded configuration
-// table.
+// configFor returns the decoded config to pass to a CRUD call on the given
+// node. A configured alias reads from its evaluated library-config node; an
+// unconfigured alias uses nil for libraries without config or a decoded empty
+// config for empty config schemas.
 func (e *Executor) configFor(n *Node) any {
 	if e.DAG != nil {
 		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
@@ -301,106 +243,35 @@ func (e *Executor) configFor(n *Node) any {
 			return v
 		}
 	}
-	alias, configuration := e.resolvedConfigRef(n)
-	if e.configurationOverridden(alias, configuration) {
-		return e.lookupConfiguration(alias, configuration)
-	}
-	if e.DAG != nil {
-		addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
-		if internal {
-			v, _ := e.internalConfiguration(addr)
-			return v
-		}
-	}
-	return e.lookupConfiguration(alias, configuration)
+	return emptyDecodedConfig(e.librariesFor(n)[n.Alias])
 }
 
-// configRef returns the configuration selection a destroy or refresh should
-// use to find credentials for n, or zero when n uses its own import's default
-// configuration. The zero case is the common one and the resource address
-// alone determines it, so it is left off the state entry to keep snapshots
-// small.
-func (e *Executor) configRef(n *Node) ConfigRef {
-	alias, configuration := e.resolvedConfigRef(n)
-	if alias == n.Alias && configuration == "default" {
-		return ConfigRef{}
+func emptyDecodedConfig(lib *Library) any {
+	if lib == nil || lib.Configuration == nil || !lib.Configuration.Empty() {
+		return nil
 	}
-	return ConfigRef{Alias: alias, Name: configuration}
+	decoded, err := cfg.Decode(lib.Configuration, map[string]any{})
+	if err != nil {
+		return nil
+	}
+	return decoded
 }
 
-// configForRef returns the configuration named by a state entry's
-// recorded reference. An empty ref means the entry used its import's
-// default configuration, so the entry's own import alias with the
-// default applies. A ref naming an
-// internal configuration reads the value evaluated from prior state,
-// falling back to the live table when prior state had nothing for it.
-//
-// A recorded ref that resolves to nothing is an error rather than a
-// nil configuration: the entry was written by a factory that had the
-// configuration, so reaching the library without one means the
-// running factory does not match the state, usually because the
-// binary is older than the snapshot. An empty ref may still resolve
-// to nil, the normal case for a library that declares no
-// configuration.
-func (e *Executor) configForRef(ref ConfigRef, fallbackAlias string) (any, error) {
-	alias, configuration := fallbackAlias, "default"
-	if !ref.IsZero() {
-		alias, configuration = ref.Alias, ref.Name
-	}
-	if ref.IsZero() && e.DAG != nil {
-		if addr, ok := libraryConfigNode(e.DAG.Nodes, "", fallbackAlias); ok {
-			if v, ok := e.priorInternalConfiguration(addr); ok {
-				return v, nil
-			}
-			if v, ok := e.internalConfiguration(addr); ok {
-				return v, nil
-			}
-		}
-	}
-	if e.configurationOverridden(alias, configuration) {
-		return e.lookupConfiguration(alias, configuration), nil
-	}
+func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
 	if e.DAG != nil {
-		addr, internal := configurationNodeAddress(e.DAG.Nodes, alias, configuration)
-		if internal {
-			if v, ok := e.priorInternalConfiguration(addr); ok {
+		scope := templateAddress(DirectParent(addr))
+		if configAddr, ok := libraryConfigNode(e.DAG.Nodes, scope, alias); ok {
+			if v, ok := e.priorInternalConfiguration(configAddr); ok {
 				return v, nil
 			}
-			if v, ok := e.internalConfiguration(addr); ok {
+			if v, ok := e.internalConfiguration(configAddr); ok {
 				return v, nil
 			}
 			return nil, fmt.Errorf(
-				"internal configuration %s.%s could not be evaluated from prior state",
-				alias, configuration)
+				"library config %s could not be evaluated from prior state", configAddr)
 		}
 	}
-	v := e.lookupConfiguration(alias, configuration)
-	if v == nil && !ref.IsZero() {
-		return nil, fmt.Errorf(
-			"state records configuration %s, which this factory neither defines nor "+
-				"receives; the entry was written by a factory version that had it", ref.String())
-	}
-	return v, nil
-}
-
-func (e *Executor) configForStateRef(
-	ref *state.ConfigurationRef,
-	fallbackAlias string,
-) (any, error) {
-	runtimeRef, err := configRefFromState(ref)
-	if err != nil {
-		return nil, err
-	}
-	return e.configForRef(runtimeRef, fallbackAlias)
-}
-
-func (e *Executor) configurationOverridden(alias, configuration string) bool {
-	return e.Configurations.Has(alias, configuration)
-}
-
-func (e *Executor) lookupConfiguration(alias, configuration string) any {
-	value, _ := e.Configurations.Lookup(ConfigRef{Alias: alias, Name: configuration})
-	return value
+	return emptyDecodedConfig(e.librariesForAddress(addr)[alias]), nil
 }
 
 // ExecResult is what the Executor produces: the outputs map, the
@@ -471,14 +342,12 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs := &runState{
 		eval: &EvalContext{
-			Vars:              e.Inputs,
-			Resources:         make(map[string]any),
-			Data:              make(map[string]any),
-			Actions:           make(map[string]any),
-			Libraries:         e.Libraries,
-			Configurations:    e.RawConfigurations,
-			ConfigurationRefs: ConfigurationRefNames(e.DAG.Nodes),
-			locals:            e.rootLocalScope(),
+			Vars:      e.Inputs,
+			Resources: make(map[string]any),
+			Data:      make(map[string]any),
+			Actions:   make(map[string]any),
+			Libraries: e.Libraries,
+			locals:    e.rootLocalScope(),
 		},
 		order:            order,
 		outputs:          make(map[string]any),

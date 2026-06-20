@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -31,57 +30,6 @@ type Selector struct {
 	Export string `json:"export,omitempty"`
 }
 
-// ConfigurationRef identifies a named or default library configuration.
-type ConfigurationRef struct {
-	Kind     string   `json:"kind"`
-	Name     string   `json:"name,omitempty"`
-	Selector Selector `json:"selector"`
-}
-
-func ValidateConfigurationRef(ref *ConfigurationRef) error {
-	if ref == nil {
-		return nil
-	}
-	if ref.Selector.Alias == "" {
-		return fmt.Errorf("configuration selector missing alias")
-	}
-	if ref.Selector.Export != "" {
-		return fmt.Errorf("configuration selector must have only alias")
-	}
-	switch ref.Kind {
-	case "default":
-		if ref.Name != "" {
-			return fmt.Errorf("default configuration must not have name")
-		}
-	case "named":
-		if ref.Name == "" {
-			return fmt.Errorf("named configuration missing name")
-		}
-	case "":
-		return fmt.Errorf("configuration missing kind")
-	default:
-		return fmt.Errorf("unknown configuration kind %q", ref.Kind)
-	}
-	return nil
-}
-
-func ParseConfigurationRefJSON(raw json.RawMessage) (*ConfigurationRef, error) {
-	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		return nil, nil
-	}
-	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte("\"")) {
-		return nil, fmt.Errorf("configuration must be an object")
-	}
-	var ref ConfigurationRef
-	if err := json.Unmarshal(raw, &ref); err != nil {
-		return nil, err
-	}
-	if err := ValidateConfigurationRef(&ref); err != nil {
-		return nil, err
-	}
-	return &ref, nil
-}
-
 // Entry is one record in a snapshot. Type is the entry discriminator.
 // Kind is the graph node kind for resource, data, action, and composite
 // entries. Selector names the implementation used by that entry.
@@ -99,12 +47,6 @@ type Entry struct {
 	SensitiveInputs  []string  `json:"sensitive-inputs,omitempty"`
 	SensitiveOutputs []string  `json:"sensitive-outputs,omitempty"`
 
-	// Configuration names the library configuration the resource used. It is
-	// recorded only when that differs from the import's own default, since
-	// destroy and refresh need it to find the right credentials once the
-	// resource is no longer described in source.
-	Configuration *ConfigurationRef `json:"-"`
-
 	TriggerHash string `json:"trigger-hash,omitempty"`
 
 	Inputs    map[string]any `json:"inputs,omitempty"`
@@ -113,24 +55,20 @@ type Entry struct {
 }
 
 type entryJSON struct {
-	Address          string            `json:"address"`
-	Type             EntryType         `json:"entry-kind"`
-	Kind             string            `json:"node-kind,omitempty"`
-	Selector         *Selector         `json:"selector,omitempty"`
-	SchemaVersion    int               `json:"schema-version,omitempty"`
-	SensitiveInputs  []string          `json:"sensitive-inputs,omitempty"`
-	SensitiveOutputs []string          `json:"sensitive-outputs,omitempty"`
-	Configuration    *ConfigurationRef `json:"configuration,omitempty"`
-	TriggerHash      string            `json:"trigger-hash,omitempty"`
-	Inputs           map[string]any    `json:"inputs,omitempty"`
-	Outputs          map[string]any    `json:"outputs,omitempty"`
-	DependsOn        []string          `json:"depends-on,omitempty"`
+	Address          string         `json:"address"`
+	Type             EntryType      `json:"entry-kind"`
+	Kind             string         `json:"node-kind,omitempty"`
+	Selector         *Selector      `json:"selector,omitempty"`
+	SchemaVersion    int            `json:"schema-version,omitempty"`
+	SensitiveInputs  []string       `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string       `json:"sensitive-outputs,omitempty"`
+	TriggerHash      string         `json:"trigger-hash,omitempty"`
+	Inputs           map[string]any `json:"inputs,omitempty"`
+	Outputs          map[string]any `json:"outputs,omitempty"`
+	DependsOn        []string       `json:"depends-on,omitempty"`
 }
 
 func (e *Entry) MarshalJSON() ([]byte, error) {
-	if err := ValidateConfigurationRef(e.Configuration); err != nil {
-		return nil, err
-	}
 	return json.Marshal(entryJSON{
 		Address:          e.Address,
 		Type:             e.Type,
@@ -139,7 +77,6 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 		SchemaVersion:    e.SchemaVersion,
 		SensitiveInputs:  e.SensitiveInputs,
 		SensitiveOutputs: e.SensitiveOutputs,
-		Configuration:    e.Configuration,
 		TriggerHash:      e.TriggerHash,
 		Inputs:           e.Inputs,
 		Outputs:          e.Outputs,
@@ -148,15 +85,8 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 }
 
 func (e *Entry) UnmarshalJSON(b []byte) error {
-	var raw struct {
-		entryJSON
-		Configuration json.RawMessage `json:"configuration"`
-	}
+	var raw entryJSON
 	if err := json.Unmarshal(b, &raw); err != nil {
-		return err
-	}
-	cfg, err := ParseConfigurationRefJSON(raw.Configuration)
-	if err != nil {
 		return err
 	}
 	*e = Entry{
@@ -167,7 +97,6 @@ func (e *Entry) UnmarshalJSON(b []byte) error {
 		SchemaVersion:    raw.SchemaVersion,
 		SensitiveInputs:  raw.SensitiveInputs,
 		SensitiveOutputs: raw.SensitiveOutputs,
-		Configuration:    cfg,
 		TriggerHash:      raw.TriggerHash,
 		Inputs:           raw.Inputs,
 		Outputs:          raw.Outputs,

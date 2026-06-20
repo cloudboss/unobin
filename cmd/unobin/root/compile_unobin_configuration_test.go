@@ -11,10 +11,9 @@ import (
 )
 
 // writeUnobinConfigurationFixture lays out a factory importing a Go
-// library whose configuration struct is awscfg.Configuration from the
-// unobin module itself. The unobin replace in the manifest is what
-// lets schema extraction read those fields. configBody becomes the
-// factory's default aws configuration.
+// library whose config struct is awscfg.Configuration from the unobin
+// module itself. The unobin replace in the manifest is what lets schema
+// extraction read those fields. configBody becomes library-configs.aws.
 func writeUnobinConfigurationFixture(t *testing.T, configBody string) string {
 	t.Helper()
 	setCLIVersion(t, "dev")
@@ -26,8 +25,8 @@ func writeUnobinConfigurationFixture(t *testing.T, configBody string) string {
 factory: {
   inputs:  { name: { type: string } }
   imports: { aws: 'github.com/example/cloudlib' }
-  configurations: {
-    aws {
+  library-configs: {
+    aws: {
 `+configBody+`
     }
   }

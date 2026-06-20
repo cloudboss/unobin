@@ -172,11 +172,10 @@ type PlanStep struct {
 	Inputs           map[string]any      `json:"inputs,omitempty"`
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
 
-	// DeferredRead names the configuration selection whose pending
-	// evaluation kept this node's read from running at plan. The stored
-	// state is taken as current for the decision; apply and the next plan
-	// see real values.
-	DeferredRead ConfigRef `json:"-"`
+	// DeferredConfig names the library-config node whose pending evaluation
+	// kept this node's read from running at plan. The stored state is taken as
+	// current for the decision; apply and the next plan see real values.
+	DeferredConfig string `json:"deferred-config,omitempty"`
 
 	// PriorInputs is the body the last apply evaluated, recorded so the plan
 	// can show a changed field as `old -> new` rather than the new value
@@ -192,14 +191,6 @@ type PlanStep struct {
 	// the reason a step replaces rather than updates. The renderer tags each
 	// with `(forces replacement)`. Empty unless Decision is replace.
 	ReplaceTriggers []string `json:"replace-triggers,omitempty"`
-
-	// Configuration is the step's library configuration selection. A
-	// destroy step records it from prior state, so apply deletes against
-	// the same credentials the resource was created with. A live step
-	// records it only when the selection names an internal configuration
-	// still pending this plan, which is how the renderer knows to show
-	// the selection on the step.
-	Configuration ConfigRef `json:"-"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
 	// prior state. Apply reverses these edges so a resource is deleted
@@ -264,17 +255,13 @@ func (s *PlanStep) Gone() bool {
 // StateRev is the snapshot rev the plan was computed against. Apply
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
-// eval scope without re-reading the stack file. RawConfigurations keeps
-// the raw configuration bodies by selector and configuration key so apply
-// re-decodes them through the same code path rather than re-reading the
-// stack file.
+// eval scope without re-reading the stack file.
 type Plan struct {
-	Factory           state.FactoryInfo
-	Stack             string
-	StateRev          string
-	Inputs            map[string]any
-	RawConfigurations ConfigTable
-	Steps             []*PlanStep
+	Factory  state.FactoryInfo
+	Stack    string
+	StateRev string
+	Inputs   map[string]any
+	Steps    []*PlanStep
 
 	// Backend names the state backend the plan was computed against,
 	// so apply can reconstruct the same backend without re-reading
@@ -301,7 +288,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
-	if err := e.CheckConfigurations(); err != nil {
+	if err := e.CheckLibraryConfigs(); err != nil {
 		return nil, err
 	}
 	rs, err := e.initRun()
@@ -349,8 +336,8 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				if !step.Composite {
 					switch step.Kind {
 					case NodeResource, NodeData, NodeAction:
-						if ref, pending := e.pendingInternalConfig(node); pending {
-							step.Configuration = ref
+						if configAddr, pending := e.pendingInternalConfig(node); pending {
+							step.DeferredConfig = configAddr
 						}
 					}
 				}
@@ -396,20 +383,15 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			if !e.Destroy && prior.Type != state.EntryLeaf {
 				continue
 			}
-			cfgRef, err := configRefFromState(prior.Configuration)
-			if err != nil {
-				return nil, err
-			}
 			plan.Steps = append(plan.Steps, &PlanStep{
-				Address:       prior.Address,
-				Kind:          kind,
-				Selector:      selectorFromEntry(prior),
-				Composite:     composite,
-				Decision:      DecisionDestroy,
-				Inputs:        prior.Inputs,
-				PriorOutputs:  prior.Outputs,
-				Configuration: cfgRef,
-				DependsOn:     prior.DependsOn,
+				Address:      prior.Address,
+				Kind:         kind,
+				Selector:     selectorFromEntry(prior),
+				Composite:    composite,
+				Decision:     DecisionDestroy,
+				Inputs:       prior.Inputs,
+				PriorOutputs: prior.Outputs,
+				DependsOn:    prior.DependsOn,
 			})
 		}
 	}
@@ -499,7 +481,7 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 	if !ok {
 		return false, fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
-	cfg, err := e.configForRef(step.Configuration, alias)
+	cfg, err := e.configForStateAddress(step.Address, alias)
 	if err != nil {
 		return false, err
 	}
@@ -879,21 +861,6 @@ func isUpstreamChange(d Decision) bool {
 	return false
 }
 
-// planConfiguration evaluates an internal configuration during the
-// plan when everything it reads has settled, so consumer drift reads
-// run with a real configuration on an unchanged world. A field whose
-// upstream is pending leaves the configuration unevaluated, recorded
-// on the step's UnresolvedInputs; apply computes it from live values.
-// A whole-expression body whose evaluation hits a pending upstream
-// defers the same way, with no field detail, since its field set is
-// unknowable until the sources settle.
-func (e *Executor) planConfiguration(rs *runState, n *Node) (*PlanStep, error) {
-	if e.configurationOverridden(n.Alias, n.Name) {
-		return nil, nil
-	}
-	return e.planConfigNode(rs, n)
-}
-
 func (e *Executor) planLibraryConfig(rs *runState, n *Node) (*PlanStep, error) {
 	return e.planConfigNode(rs, n)
 }
@@ -952,8 +919,6 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		return e.planOneInstance(ctx, rs, n, scope, n.Address)
 	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
-	case NodeConfiguration:
-		return e.planConfiguration(rs, n)
 	case NodeLibraryConfig:
 		return e.planLibraryConfig(rs, n)
 	default:
@@ -1209,11 +1174,6 @@ func (e *Executor) planOneResource(
 		step.PriorSelector = priorSelector
 		step.PriorInputs = cloneMap(migrated.Inputs)
 		step.PriorOutputs = migrated.Outputs
-		cfgRef, err := configRefFromState(prior.Configuration)
-		if err != nil {
-			return nil, err
-		}
-		step.Configuration = cfgRef
 		step.Decision = DecisionReplace
 		step.regeneratesOutputs = true
 		step.mayChangeOutputs = true
@@ -1257,8 +1217,8 @@ func (e *Executor) planOneResource(
 	// is nothing valid to hand the API client. The stored state stands
 	// in for the observed world, so drift goes unchecked this plan and
 	// the decision comes from the input diff alone.
-	if ref, pending := e.pendingInternalConfig(n); pending {
-		step.DeferredRead = ref
+	if configAddr, pending := e.pendingInternalConfig(n); pending {
+		step.DeferredConfig = configAddr
 		switch {
 		case step.regeneratesOutputs:
 			step.Decision = DecisionReplace
@@ -1403,8 +1363,8 @@ func (e *Executor) planOneData(
 	if len(unresolved) > 0 || e.dependsOnChange(rs, n) {
 		return step, nil
 	}
-	if ref, pending := e.pendingInternalConfig(n); pending {
-		step.DeferredRead = ref
+	if configAddr, pending := e.pendingInternalConfig(n); pending {
+		step.DeferredConfig = configAddr
 		return step, nil
 	}
 	dt, err := e.dataRegistration(n)

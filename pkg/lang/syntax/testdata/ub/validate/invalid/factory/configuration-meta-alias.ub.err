@@ -1,1 +1,2 @@
-@configuration takes configuration.<name>
+configurations block is not supported; use library-configs
+action say: meta key "@configuration" is not allowed

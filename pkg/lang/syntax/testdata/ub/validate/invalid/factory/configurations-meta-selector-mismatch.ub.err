@@ -1,1 +1,2 @@
-@configurations.aws: selector "greet" does not match remap key
+configurations block is not supported; use library-configs
+action say: meta key "@configurations" is not allowed

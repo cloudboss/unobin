@@ -3,9 +3,8 @@ stack: {
     region: 'us-east-1'
   }
   factory: {
-    configurations: {
-      aws { region: local.region }
-      east: aws { region: 'us-east-2' }
+    inputs: {
+      aws-config: { region: local.region }
     }
   }
   state: local {}

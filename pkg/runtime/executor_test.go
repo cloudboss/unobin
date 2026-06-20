@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/stretchr/testify/require"
@@ -1070,159 +1071,39 @@ actions: { hi: core.echo { @trigger: 'fixed-key', echo: 'hello' } }
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
 }
 
-func TestConfigForUsesNodeAlias(t *testing.T) {
-	leaf := &Node{
-		Address:       "resource.aws.instance.web",
-		Alias:         "aws",
-		Configuration: ConfigRef{Alias: "aws", Name: "east2"},
-	}
+func TestConfigForUsesLibraryConfigNode(t *testing.T) {
+	leaf := &Node{Address: "resource.web", Alias: "aws"}
+	configNode := &Node{Address: "library-config.aws", Kind: NodeLibraryConfig, Alias: "aws"}
+	e := &Executor{DAG: &DAG{Nodes: map[string]*Node{
+		leaf.Address:       leaf,
+		configNode.Address: configNode,
+	}}}
+	e.storeInternalConfiguration(configNode.Address, "decoded-cfg")
+	require.Equal(t, "decoded-cfg", e.configFor(leaf))
+}
+
+func TestConfigForEmptyConfigSynthesizesValue(t *testing.T) {
+	leaf := &Node{Address: "resource.web", Alias: "aws"}
 	e := &Executor{
 		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
-		Configurations: ConfigTable{
-			{Alias: "aws", Name: "default"}: "default-cfg",
-			{Alias: "aws", Name: "east2"}:   "east2-cfg",
+		Libraries: map[string]*Library{
+			"aws": {
+				Configuration: &cfg.ConfigurationType[*struct{}]{
+					New: func() *struct{} { return &struct{}{} },
+				},
+			},
 		},
 	}
-	require.Equal(t, "east2-cfg", e.configFor(leaf))
+	require.IsType(t, &struct{}{}, e.configFor(leaf))
 }
 
-func TestConfigForFallsBackToDefault(t *testing.T) {
-	leaf := &Node{
-		Address: "resource.aws.instance.web",
-		Alias:   "aws",
-	}
+func TestConfigForNoConfigReturnsNil(t *testing.T) {
+	leaf := &Node{Address: "resource.web", Alias: "aws"}
 	e := &Executor{
-		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
-		Configurations: ConfigTable{
-			{Alias: "aws", Name: "default"}: "default-cfg",
-		},
-	}
-	require.Equal(t, "default-cfg", e.configFor(leaf))
-}
-
-func TestConfigForPicksUpCompositeRemap(t *testing.T) {
-	composite := &Node{
-		Address:             "resource.net.cluster.east",
-		Kind:                NodeResource,
-		Alias:               "net",
-		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
-	}
-	leaf := &Node{
-		Address:   "resource.net.cluster.east/resource.aws.instance.worker",
-		Alias:     "aws",
-		Composite: composite.Address,
-	}
-	e := &Executor{
-		DAG: &DAG{Nodes: map[string]*Node{
-			composite.Address: composite,
-			leaf.Address:      leaf,
-		}},
-		Configurations: ConfigTable{
-			{Alias: "aws", Name: "default"}: "default-cfg",
-			{Alias: "aws", Name: "east2"}:   "east2-cfg",
-		},
-	}
-	require.Equal(t, "east2-cfg", e.configFor(leaf))
-}
-
-func TestConfigForWalksNestedCompositesUntilRemap(t *testing.T) {
-	outer := &Node{
-		Address:             "resource.outer.wrap.x",
-		Kind:                NodeResource,
-		Alias:               "outer",
-		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
-	}
-	inner := &Node{
-		Address:   "resource.outer.wrap.x/resource.inner.cluster.y",
-		Kind:      NodeResource,
-		Alias:     "inner",
-		Composite: outer.Address,
-	}
-	leaf := &Node{
-		Address:   inner.Address + "/resource.aws.instance.worker",
-		Alias:     "aws",
-		Composite: inner.Address,
-	}
-	e := &Executor{
-		DAG: &DAG{Nodes: map[string]*Node{
-			outer.Address: outer,
-			inner.Address: inner,
-			leaf.Address:  leaf,
-		}},
-		Configurations: ConfigTable{
-			{Alias: "aws", Name: "default"}: "default-cfg",
-			{Alias: "aws", Name: "east2"}:   "east2-cfg",
-		},
-	}
-	require.Equal(t, "east2-cfg", e.configFor(leaf))
-}
-
-func TestConfigForReturnsNilWhenAliasMissing(t *testing.T) {
-	leaf := &Node{
-		Address:       "resource.aws.instance.web",
-		Alias:         "aws",
-		Configuration: ConfigRef{Alias: "aws", Name: "ghost"},
-	}
-	e := &Executor{
-		DAG: &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
-		Configurations: ConfigTable{
-			{Alias: "aws", Name: "default"}: "default-cfg",
-		},
+		DAG:       &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
+		Libraries: map[string]*Library{"aws": {}},
 	}
 	require.Nil(t, e.configFor(leaf))
-}
-
-func TestConfigRefStringUsesSourceNames(t *testing.T) {
-	require.Equal(t, "", ConfigRef{}.String())
-	require.Equal(t, "configuration.east", ConfigRef{Alias: "aws", Name: "east"}.String())
-	require.Equal(t, "default configuration for aws",
-		ConfigRef{Alias: "aws", Name: "default"}.String())
-}
-
-func TestConfigRef(t *testing.T) {
-	cfgs := ConfigTable{
-		{Alias: "aws", Name: "default"}: "default-cfg",
-		{Alias: "aws", Name: "east2"}:   "east2-cfg",
-	}
-
-	plain := &Node{Address: "resource.aws.instance.a", Alias: "aws"}
-	ePlain := &Executor{
-		DAG:            &DAG{Nodes: map[string]*Node{plain.Address: plain}},
-		Configurations: cfgs,
-	}
-	require.True(t, ePlain.configRef(plain).IsZero(),
-		"a default configuration records no ref; the address determines it")
-
-	aliased := &Node{
-		Address:       "resource.aws.instance.b",
-		Alias:         "aws",
-		Configuration: ConfigRef{Alias: "aws", Name: "east2"},
-	}
-	eAliased := &Executor{
-		DAG:            &DAG{Nodes: map[string]*Node{aliased.Address: aliased}},
-		Configurations: cfgs,
-	}
-	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, eAliased.configRef(aliased))
-
-	composite := &Node{
-		Address:             "resource.net.cluster.east",
-		Kind:                NodeResource,
-		Alias:               "net",
-		ConfigurationsRemap: map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
-	}
-	internal := &Node{
-		Address:   "resource.net.cluster.east/resource.aws.instance.worker",
-		Alias:     "aws",
-		Composite: composite.Address,
-	}
-	eRemap := &Executor{
-		DAG: &DAG{Nodes: map[string]*Node{
-			composite.Address: composite,
-			internal.Address:  internal,
-		}},
-		Configurations: cfgs,
-	}
-	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, eRemap.configRef(internal))
 }
 
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {

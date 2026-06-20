@@ -91,11 +91,9 @@ func printOutputSchema(out io.Writer, parsed *parsedFactory) {
 	}
 }
 
-// printConfigurationSchema lists each configured library: the names
-// the factory defines internally, the names the stack file must supply
-// (every selection some node makes that is not internal), and the
-// configuration's fields.
+// printConfigurationSchema lists each library config schema known to the binary.
 func printConfigurationSchema(out io.Writer, parsed *parsedFactory, info Info) {
+	_ = parsed
 	var aliases []string
 	for alias, lib := range info.Libraries {
 		if lib.Configuration != nil {
@@ -106,10 +104,8 @@ func printConfigurationSchema(out io.Writer, parsed *parsedFactory, info Info) {
 		return
 	}
 	slices.Sort(aliases)
-	used := parsed.dag.ConfigurationSelections(info.Libraries)
-	internal := parsed.internalConfigurations()
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "configurations:")
+	fmt.Fprintln(out, "library configs:")
 	for _, alias := range aliases {
 		lib := info.Libraries[alias]
 		fmt.Fprintf(out, "  %s:", alias)
@@ -117,13 +113,7 @@ func printConfigurationSchema(out io.Writer, parsed *parsedFactory, info Info) {
 			fmt.Fprintf(out, "  -- %s", d)
 		}
 		fmt.Fprintln(out)
-		if names := sortedSetKeys(internal[alias]); len(names) > 0 {
-			fmt.Fprintf(out, "    internal: %s\n", strings.Join(names, ", "))
-		}
-		if owed := owedNames(used[alias], internal[alias]); len(owed) > 0 {
-			fmt.Fprintf(out, "    needed from stack file: %s\n", strings.Join(owed, ", "))
-		}
-		writeShowFields(out, cfg.Describe(lib.Configuration), "      ")
+		writeShowFields(out, cfg.Describe(lib.Configuration), "    ")
 	}
 }
 
@@ -138,28 +128,6 @@ func writeShowFields(out io.Writer, fields []cfg.Field, indent string) {
 		fmt.Fprintln(out)
 		writeShowFields(out, fl.Fields, indent+"  ")
 	}
-}
-
-// owedNames returns the selections in used that the factory does not
-// define internally, sorted: the names the stack file must supply.
-func owedNames(used, internal map[string]bool) []string {
-	var owed []string
-	for name := range used {
-		if !internal[name] {
-			owed = append(owed, name)
-		}
-	}
-	slices.Sort(owed)
-	return owed
-}
-
-func sortedSetKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	slices.Sort(out)
-	return out
 }
 
 func fieldTypeLabel(f cfg.Field) string {
@@ -221,40 +189,6 @@ func renderInputsTemplate(out io.Writer, parsed *parsedFactory) {
 		}
 		fmt.Fprintf(out, "%s: %s  # type: %s\n",
 			input.name, placeholderForType(input.typeExpr), printType(input.typeExpr))
-	}
-	fmt.Fprintln(out, "}")
-}
-
-// renderConfigurationsTemplate scaffolds the configurations the
-// operator owes: every selection some node makes that the factory
-// does not define internally, with a placeholder per field.
-func renderConfigurationsTemplate(out io.Writer, parsed *parsedFactory, info Info) {
-	used := parsed.dag.ConfigurationSelections(info.Libraries)
-	internal := parsed.internalConfigurations()
-	owedByAlias := map[string][]string{}
-	var aliases []string
-	for alias, names := range used {
-		if owed := owedNames(names, internal[alias]); len(owed) > 0 {
-			owedByAlias[alias] = owed
-			aliases = append(aliases, alias)
-		}
-	}
-	if len(aliases) == 0 {
-		return
-	}
-	slices.Sort(aliases)
-	fmt.Fprintln(out, "configurations: {")
-	for _, alias := range aliases {
-		fields := cfg.Describe(info.Libraries[alias].Configuration)
-		for _, name := range owedByAlias[alias] {
-			if name == "default" {
-				fmt.Fprintf(out, "%s {\n", alias)
-			} else {
-				fmt.Fprintf(out, "%s: %s {\n", name, alias)
-			}
-			writeTemplateFields(out, fields)
-			fmt.Fprintln(out, "}")
-		}
 	}
 	fmt.Fprintln(out, "}")
 }

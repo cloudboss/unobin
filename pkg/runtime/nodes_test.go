@@ -95,13 +95,10 @@ outputs:   { vpc-id: { value: resource.main.id }, static: { value: 'literal' } }
 func TestExtractSyntaxNodesMatchesFactoryDAG(t *testing.T) {
 	fixture := parseSyntaxFactoryFixture(t, `
 factory: {
-  configurations: {
-    std { token: var.token }
-    formal: std { prefix: resource.hello.path }
-  }
+  library-configs: { std: { prefix: resource.hello.path } }
   resources: {
     hello: std.fs-file { path: '/tmp/hello' }
-    selected: std.fs-file { @configuration: configuration.formal, path: resource.hello.path }
+    selected: std.fs-file { path: resource.hello.path }
   }
   data: { lookup: std.file-info { path: resource.selected.path } }
   actions: { show: std.exec-command { argv: ['echo', data.lookup.path] } }
@@ -110,16 +107,12 @@ factory: {
 `)
 
 	got := BuildSyntaxDAG(fixture.body, nil)
-	require.Contains(t, got.Nodes, "default-configuration.std")
-	require.Contains(t, got.Nodes, "configuration.formal")
+	require.Contains(t, got.Nodes, "library-config.std")
 	require.Contains(t, got.Nodes, "resource.hello")
 	require.Contains(t, got.Nodes, "resource.selected")
 	require.Contains(t, got.Nodes, "data.lookup")
 	require.Contains(t, got.Nodes, "action.show")
 	require.Contains(t, got.Nodes, "output.path")
-	require.Equal(t,
-		ConfigRef{Alias: "std", Name: "formal"},
-		got.Nodes["resource.selected"].Configuration)
 }
 
 func TestExtractSyntaxNodesMatchesCompositeDAG(t *testing.T) {
@@ -220,59 +213,20 @@ factory: {
 	require.Contains(t, got.Edges["resource.app"], "resource.app/resource.file")
 }
 
-func TestExtractSyntaxNodesReadsConfigurationRef(t *testing.T) {
+func TestExtractSyntaxNodesReadsLibraryConfig(t *testing.T) {
 	fixture := parseSyntaxFactoryFixture(t, `
 factory: {
-  resources: {
-    app: std.fs-file { @configuration: configuration.formal, path: '/tmp/app' }
-  }
+  library-configs: { std: { path: '/tmp/app' } }
+  resources: { app: std.fs-file { path: '/tmp/app' } }
 }
 `)
 
 	got := BuildSyntaxDAG(fixture.body, nil)
-	require.Equal(t,
-		ConfigRef{Alias: "std", Name: "formal"},
-		got.Nodes["resource.app"].Configuration)
-}
-
-func TestExtractSyntaxNodesIgnoresAliasConfigurationSelection(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    app: std.fs-file { @configuration: std.formal, path: '/tmp/app' }
-  }
-}
-`)
-
-	got := BuildSyntaxDAG(fixture.body, nil)
-	require.Empty(t, got.Nodes["resource.app"].Configuration)
-}
-
-func TestExtractSyntaxNodesIgnoresAliasConfigurationRemap(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  resources: { file: local.fs-file { path: '/tmp/helper' } }
-}
-`)
-	body := composite.body
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    app: outer.greeting { @configurations: { local: local.formal } }
-  }
-}
-`)
-	libs := map[string]*Library{
-		"outer": {
-			Name: "outer",
-			ResourceComposites: map[string]*CompositeType{
-				"greeting": {Name: "greeting", SyntaxBody: &body},
-			},
-		},
-	}
-
-	got := BuildSyntaxDAG(fixture.body, libs)
-	require.Empty(t, got.Nodes["resource.app"].ConfigurationsRemap)
+	cfg := got.Nodes["library-config.std"]
+	require.NotNil(t, cfg)
+	require.Equal(t, NodeLibraryConfig, cfg.Kind)
+	require.Equal(t, "std", cfg.Alias)
+	require.Equal(t, "std", cfg.Name)
 }
 
 func TestExtractNodesOutputBody(t *testing.T) {
@@ -458,96 +412,22 @@ resources: { aws: 'not an object', web: net.real { size: 3 } }
 	require.Contains(t, err.Error(), "resource must be written as name: alias.export { ... }")
 }
 
-func TestExtractNodesReadsConfigurationAlias(t *testing.T) {
+func TestExtractNodesReadsLibraryConfigAlias(t *testing.T) {
 	src := `
-resources: {
-  web:    aws.instance { ami: 'ami-1' }
-  mirror: aws.instance { @configuration: configuration.east2, ami: 'ami-2' }
-}
-data:    { ubuntu: aws.ami { @configuration: configuration.east2, most-recent: true } }
-actions: { probe: core.command { @configuration: configuration.alt, argv: ['echo'] } }
+library-configs: { aws: { region: 'us-east-1' } }
+resources: { web: aws.instance { ami: 'ami-1' } }
+data:    { ubuntu: aws.ami { most-recent: true } }
+actions: { probe: core.command { argv: ['echo'] } }
 `
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 4)
 
 	require.Equal(t, "resource.web", got[0].Address)
-	require.Empty(t, got[0].Configuration)
-
-	require.Equal(t, "resource.mirror", got[1].Address)
-	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, got[1].Configuration)
-
-	require.Equal(t, "data.ubuntu", got[2].Address)
-	require.Equal(t, ConfigRef{Alias: "aws", Name: "east2"}, got[2].Configuration)
-
-	require.Equal(t, "action.probe", got[3].Address)
-	require.Equal(t, ConfigRef{Alias: "core", Name: "alt"}, got[3].Configuration)
-}
-
-func TestExtractCompositeReadsConfigurationsRemap(t *testing.T) {
-	src := `
-imports:   { net: 'github.com/example/net' }
-resources: { east: net.cluster { @configurations: { aws: configuration.east2 }, name: 'east' } }
-`
-	composite := syntaxResourceComposite(t, "cluster", `description: 'noop'`)
-	libs := map[string]*Library{
-		"net": {
-			Name:               "net",
-			ResourceComposites: map[string]*CompositeType{"cluster": composite},
-		},
-	}
-	got := extractSyntaxTestNodes(t, src, libs)
-	require.NotEmpty(t, got)
-	require.True(t, got[0].IsComposite())
-	require.Equal(t, NodeResource, got[0].Kind)
-	require.Equal(t,
-		map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
-		got[0].ConfigurationsRemap)
-}
-
-func TestExtractCompositeReadsSourceConfigurationRemap(t *testing.T) {
-	src := `
-imports:   { net: 'github.com/example/net' }
-resources: { east: net.cluster { @configurations: { aws: configuration.east2 }, name: 'east' } }
-`
-	composite := syntaxResourceComposite(t, "cluster", `description: 'noop'`)
-	libs := map[string]*Library{
-		"net": {
-			Name:               "net",
-			ResourceComposites: map[string]*CompositeType{"cluster": composite},
-		},
-	}
-	got := extractSyntaxTestNodes(t, src, libs)
-	require.NotEmpty(t, got)
-	require.True(t, got[0].IsComposite())
-	require.Equal(t,
-		map[string]ConfigRef{"aws": {Alias: "aws", Name: "east2"}},
-		got[0].ConfigurationsRemap)
-}
-
-func TestExtractConfigurationsRemapIgnoresAliasQualifiedValue(t *testing.T) {
-	src := `
-resources: { east: net.cluster { @configurations: { aws: gcp.east2 }, name: 'east' } }
-`
-	composite := syntaxResourceComposite(t, "cluster", `description: 'noop'`)
-	libs := map[string]*Library{
-		"net": {
-			Name:               "net",
-			ResourceComposites: map[string]*CompositeType{"cluster": composite},
-		},
-	}
-	got := extractSyntaxTestNodes(t, src, libs)
-	require.NotEmpty(t, got)
-	require.Empty(t, got[0].ConfigurationsRemap)
-}
-
-func TestExtractConfigurationIgnoresMismatchedAlias(t *testing.T) {
-	src := `
-resources: { web: aws.instance { @configuration: gcp.something, ami: 'ami-1' } }
-`
-	got := extractSyntaxTestNodes(t, src, nil)
-	require.Len(t, got, 1)
-	require.Empty(t, got[0].Configuration,
-		"mismatched alias should yield empty configuration")
+	require.Equal(t, "data.ubuntu", got[1].Address)
+	require.Equal(t, "action.probe", got[2].Address)
+	require.Equal(t, "library-config.aws", got[3].Address)
+	require.Equal(t, NodeLibraryConfig, got[3].Kind)
+	require.Equal(t, "aws", got[3].Alias)
 }
 
 func TestExtractNodesExpandsDataComposite(t *testing.T) {

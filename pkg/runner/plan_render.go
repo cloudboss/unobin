@@ -50,13 +50,13 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 }
 
 // printDeferredReads lists every step whose read was held back by a
-// pending configuration, so a plan that checked no drift for a node
+// pending library config, so a plan that checked no drift for a node
 // says so instead of staying silent. Resources fall back to stored
 // state for their decision; data sources read at apply.
 func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 	var deferred []*runtime.PlanStep
 	for _, s := range steps {
-		if !s.DeferredRead.IsZero() {
+		if s.DeferredConfig != "" {
 			deferred = append(deferred, s)
 		}
 	}
@@ -73,8 +73,8 @@ func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 		if s.Kind == runtime.NodeData {
 			reason = "read deferred to apply"
 		}
-		fmt.Fprintf(out, "  %s    @configuration: %s pending; %s\n",
-			s.Address, s.DeferredRead.String(), reason)
+		fmt.Fprintf(out, "  %s    %s pending; %s\n",
+			s.Address, s.DeferredConfig, reason)
 	}
 }
 
@@ -156,10 +156,6 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 // upstream shows the source addresses in angle brackets; a field that forces a
 // replacement is tagged so the reason for the replace is visible.
 func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
-	if !step.Configuration.IsZero() && step.Decision != runtime.DecisionDestroy {
-		fmt.Fprintf(out, "%s@configuration: %s\n", pad,
-			formatPending(runtime.PendingValue{Refs: []string{step.Configuration.String()}}))
-	}
 	for _, key := range sortedMapKeys(step.Inputs) {
 		fmt.Fprintf(out, "%s%s: %s%s\n",
 			pad, key, renderInputValue(step, key), replaceNote(step, key))

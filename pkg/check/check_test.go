@@ -40,25 +40,25 @@ outputs:   { p: { value: resource.one.path } }
 func TestNewSyntaxBuildsDAGFromTypedBody(t *testing.T) {
 	sf, err := syntax.ParseSource("factory.ub", []byte(`
 factory: {
-  configurations: {
-    formal: k8s { host: resource.cluster.endpoint }
-  }
+  library-configs: { k8s: { region: resource.cluster.endpoint } }
   resources: {
     cluster: aws.eks { name: 'web' }
-    apps: k8s.namespace { @configuration: configuration.formal, name: 'apps' }
+    apps: k8s.namespace { name: 'apps' }
   }
 }
 `))
 	require.NoError(t, err)
 	require.NotNil(t, sf.Factory)
+	k8s := libraryConfigSchemaLibrary("")
+	k8s.Schema.Resources = map[string]*runtime.TypeSchema{"namespace": {}}
 	checker := NewSyntax(sf.Factory.Body, map[string]*runtime.Library{
 		"aws": {},
-		"k8s": {},
+		"k8s": k8s,
 	})
 	dag := checker.DAG()
 
 	require.Contains(t, dag.Nodes, "resource.apps")
-	require.Contains(t, dag.Edges["resource.apps"], "configuration.formal")
+	require.Contains(t, dag.Edges["resource.apps"], "library-config.k8s")
 	require.Empty(t, checkRefMessages(t, checker.References(nil)))
 }
 
@@ -798,89 +798,6 @@ constraints: [
 	require.Contains(t, got[0],
 		"a constraint may read inputs only, not resource.x.id")
 	require.Contains(t, got[1], "a constraint may read inputs only, not local.limit")
-}
-
-func TestCheckReferencesConfigurationRefs(t *testing.T) {
-	greetLib := func() *runtime.Library {
-		return &runtime.Library{Schema: &runtime.LibrarySchema{
-			HasConfiguration: true,
-			Actions: map[string]*runtime.TypeSchema{
-				"say": {Inputs: map[string]typecheck.Type{
-					"message": typecheck.TString(),
-				}},
-			},
-		}}
-	}
-	composite := parseSyntaxCompositeFixture(t, `
-wrap: action {
-  inputs:  { name: { type: string } }
-  actions: { hello: greet.say { message: var.name } }
-}
-`)
-	body := composite.body
-	libs := func() map[string]*runtime.Library {
-		return map[string]*runtime.Library{
-			"greet": greetLib(),
-			"bundle": {ActionComposites: map[string]*runtime.CompositeType{"wrap": {
-				Name:       "wrap",
-				Kind:       runtime.NodeAction,
-				SyntaxBody: &body,
-				Libraries:  map[string]*runtime.Library{"greet": greetLib()},
-			}}},
-		}
-	}
-	cases := []struct {
-		name string
-		src  string
-		want []string
-	}{
-		{
-			name: "leaf configuration reference",
-			src: `
-configurations: { formal: greet {} }
-actions: { formal: greet.say { @configuration: configuration.formal, message: 'w' } }
-`,
-		},
-		{
-			name: "composite configurations map",
-			src: `
-configurations: { formal: greet {} }
-actions: { formal: bundle.wrap { @configurations: { greet: configuration.formal }, name: 'w' } }
-`,
-		},
-		{
-			name: "unknown alias in a configuration reference",
-			src: `
-configurations: { formal: nope {} }
-actions: { formal: greet.say { @configuration: configuration.formal, message: 'w' } }
-`,
-			want: []string{`configuration.formal: library "nope" is not imported`},
-		},
-		{
-			name: "bare name is not a configuration reference",
-			src: `
-actions: { formal: greet.say { @configuration: formal, message: 'w' } }
-`,
-			want: []string{"@configuration takes configuration.<name>"},
-		},
-		{
-			name: "string is not a configuration reference",
-			src: `
-actions: { formal: greet.say { @configuration: 'greet.formal', message: 'w' } }
-`,
-			want: []string{"@configuration takes configuration.<name>"},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			errs := checkSyntaxReferences(t, tt.src, libs())
-			var got []string
-			for _, e := range errs.Errors() {
-				got = append(got, e.Msg)
-			}
-			require.Equal(t, tt.want, got)
-		})
-	}
 }
 
 func TestCheckReferencesUnknownPathRoots(t *testing.T) {

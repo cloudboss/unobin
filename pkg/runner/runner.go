@@ -197,10 +197,6 @@ func doApplyPlan(
 	if err != nil {
 		return err
 	}
-	configurations, err := decodeConfigurationsFromPlan(pf.RawConfigurations, info.Libraries)
-	if err != nil {
-		return err
-	}
 	ctx, drain, stop := applySignalContext(cmd.ErrOrStderr())
 	defer stop()
 	parallelism := pf.Parallelism
@@ -227,12 +223,10 @@ func doApplyPlan(
 		consumeApplyEvents(rendererEvents, cmd.ErrOrStderr(), format)
 	}()
 	exec := &runtime.Executor{
-		SyntaxSource:      parsed.syntaxBody,
-		DAG:               dag,
-		Libraries:         info.Libraries,
-		Configurations:    configurations,
-		RawConfigurations: pf.RawConfigurations,
-		Store:             store,
+		SyntaxSource: parsed.syntaxBody,
+		DAG:          dag,
+		Libraries:    info.Libraries,
+		Store:        store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,
@@ -442,13 +436,6 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 	if err != nil {
 		return err
 	}
-	allowedConfigs := allowedConfigurationOverrides(
-		dag, info.Libraries, parsed.internalConfigurations())
-	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
-		info.Libraries, allowedConfigs)
-	if err != nil {
-		return err
-	}
 	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
@@ -458,13 +445,11 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 		return err
 	}
 	exec := &runtime.Executor{
-		SyntaxSource:      parsed.syntaxBody,
-		DAG:               dag,
-		Libraries:         info.Libraries,
-		Inputs:            inputs,
-		Configurations:    configurations,
-		RawConfigurations: rawConfigurations,
-		Store:             store,
+		SyntaxSource: parsed.syntaxBody,
+		DAG:          dag,
+		Libraries:    info.Libraries,
+		Inputs:       inputs,
+		Store:        store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,
@@ -525,13 +510,6 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath s
 	if _, err := buildInputs(config, configPath, parsed, info.Libraries); err != nil {
 		return err
 	}
-	allowedConfigs := allowedConfigurationOverrides(
-		dag, info.Libraries, parsed.internalConfigurations())
-	configurations, rawConfigurations, err := loadConfigurations(config, configPath,
-		info.Libraries, allowedConfigs)
-	if err != nil {
-		return err
-	}
 	if err := validateStateRefs(config, configPath); err != nil {
 		return err
 	}
@@ -539,12 +517,10 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath s
 		return err
 	}
 	demand := &runtime.Executor{
-		DAG:               dag,
-		Libraries:         info.Libraries,
-		Configurations:    configurations,
-		RawConfigurations: rawConfigurations,
+		DAG:       dag,
+		Libraries: info.Libraries,
 	}
-	if err := demand.CheckConfigurations(); err != nil {
+	if err := demand.CheckLibraryConfigs(); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "OK")
@@ -722,13 +698,6 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	allowedConfigs := allowedConfigurationOverrides(
-		dag, info.Libraries, parsed.internalConfigurations())
-	configurations, rawConfigurations, err := loadConfigurations(
-		config, configPath, info.Libraries, allowedConfigs)
-	if err != nil {
-		return err
-	}
 	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
 		return err
@@ -745,13 +714,11 @@ func doPlan(
 		parallelism = parallelismOverride
 	}
 	exec := &runtime.Executor{
-		SyntaxSource:      parsed.syntaxBody,
-		DAG:               dag,
-		Libraries:         info.Libraries,
-		Inputs:            inputs,
-		Configurations:    configurations,
-		RawConfigurations: rawConfigurations,
-		Store:             store,
+		SyntaxSource: parsed.syntaxBody,
+		DAG:          dag,
+		Libraries:    info.Libraries,
+		Inputs:       inputs,
+		Store:        store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,
@@ -764,7 +731,6 @@ func doPlan(
 	if err != nil {
 		return err
 	}
-	plan.RawConfigurations = rawConfigurations
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return err

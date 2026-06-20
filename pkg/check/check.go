@@ -64,17 +64,11 @@ func (c *Checker) DAG() *runtime.DAG {
 // every inferred expression with its type; the residual-Unknown
 // harness reads the stream.
 func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.ErrorList {
-	internalConfigurations := map[string]map[string]bool{}
-	if c.rootSyntax != nil {
-		internalConfigurations = runtime.InternalSyntaxConfigurationNames(*c.rootSyntax)
-	}
 	r := &referenceChecker{
-		Checker:                c,
-		errs:                   lang.NewErrorList(0),
-		seen:                   map[string]bool{},
-		observe:                observe,
-		internalConfigurations: internalConfigurations,
-		configurationRefs:      runtime.ConfigurationRefNames(c.dag.Nodes),
+		Checker: c,
+		errs:    lang.NewErrorList(0),
+		seen:    map[string]bool{},
+		observe: observe,
 	}
 	r.checkDeclarations()
 	r.checkNodes()
@@ -99,16 +93,6 @@ type referenceChecker struct {
 	// observe, when set, rides the real checking walks' scopes so
 	// every inferred expression streams out with its type.
 	observe func(e lang.Expr, t typecheck.Type)
-	// internalConfigurations holds the alias/name pairs the factory's
-	// own configurations block defines; a configuration reference
-	// naming one of these is rejected.
-	internalConfigurations map[string]map[string]bool
-	// configurationRefs maps source-facing configuration names to the
-	// alias/name pair that backs them.
-	configurationRefs map[string]runtime.ConfigRef
-	// inConfigurationBody is set while a configurations block body is
-	// being walked, the only place a configuration reference is valid.
-	inConfigurationBody bool
 }
 
 func (c *Checker) collectCompositeScopes() {
@@ -190,9 +174,7 @@ func libraryDeclares(lib *runtime.Library, kind runtime.NodeKind, typ string) bo
 
 func (c *referenceChecker) checkNodes() {
 	for _, n := range c.dag.Nodes {
-		c.inConfigurationBody = n.Kind == runtime.NodeConfiguration
 		c.checkBody(n.Body, n.Composite, n.ForEach != nil)
-		c.inConfigurationBody = false
 		if n.IsComposite() {
 			c.checkCompositeOutputs(n)
 		}
@@ -350,47 +332,11 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 		return
 	}
 	for _, fld := range obj.Fields {
-		if fld.Key.Kind == lang.FieldIdent {
-			switch fld.Key.Name {
-			case "@configuration":
-				c.checkConfigurationRef(fld.Value, scope)
-				continue
-			case "@configurations":
-				c.checkConfigurationsMap(fld.Value, scope)
-				continue
-			}
-		}
 		fieldEachOK := eachOK
 		if fld.Key.Kind == lang.FieldIdent && fld.Key.Name == "@for-each" {
 			fieldEachOK = false
 		}
 		c.checkExpr(fld.Value, scope, fieldEachOK)
-	}
-}
-
-// checkConfigurationRef checks a configuration selection. It is a name in
-// configuration space, not an expression: the value must name a declared
-// configuration, and the declaration is checked separately against imports
-// and schemas.
-func (c *referenceChecker) checkConfigurationRef(v lang.Expr, scope string) {
-	dp, ok := v.(*lang.DotPath)
-	if !ok || dp.Root == nil || dp.Root.Name != "configuration" ||
-		len(dp.Segments) != 1 || dp.Segments[0].Name == "" {
-		c.addf(v.Span().Start, "@configuration takes configuration.<name>")
-		return
-	}
-	if _, ok := c.configurationRefs[dp.Segments[0].Name]; !ok {
-		c.addf(dp.S.Start, "configuration.%s is not declared", dp.Segments[0].Name)
-	}
-}
-
-func (c *referenceChecker) checkConfigurationsMap(v lang.Expr, scope string) {
-	obj, ok := v.(*lang.ObjectLit)
-	if !ok {
-		return
-	}
-	for _, fld := range obj.Fields {
-		c.checkConfigurationRef(fld.Value, scope)
 	}
 }
 
@@ -407,8 +353,6 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 				c.checkNode(n, scope)
 			case "local":
 				c.checkLocal(n, scope)
-			case "configuration":
-				c.checkConfigurationReference(n, scope)
 			default:
 				if strings.HasPrefix(n.Root.Name, "@") {
 					c.checkBindingPath(n, iterScope{bare: eachOK})
@@ -418,61 +362,6 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 			c.checkCall(n, scope)
 		}
 	})
-}
-
-// checkConfigurationReference checks a configuration.<name> value reference.
-// It is valid only inside a configurations block body, must name an imported
-// library that declares a configuration, and must not name a configuration this
-// factory defines: references read operator-supplied bodies only. Whether the
-// operator supplied the name is checked at plan, when the supplied set is known.
-func (c *referenceChecker) checkConfigurationReference(dp *lang.DotPath, scope string) {
-	if !c.inConfigurationBody {
-		c.addf(dp.S.Start,
-			"a configuration reference is valid only inside a configurations block body")
-		return
-	}
-	alias, name, ok := c.configurationReferenceParts(dp)
-	if !ok {
-		c.addf(dp.S.Start,
-			"a configuration reference takes configuration.<name>")
-		return
-	}
-	lib := c.libraries[scope][alias]
-	if lib == nil {
-		c.addf(dp.S.Start, `library %q is not imported`, alias)
-		return
-	}
-	if libraryKnown(lib) && lib.Configuration == nil &&
-		(lib.Schema == nil || !lib.Schema.HasConfiguration) {
-		c.addf(dp.S.Start, "library %q declares no configuration", alias)
-		return
-	}
-	if c.internalConfigurations[alias][name] {
-		c.addf(dp.S.Start,
-			"configuration.%s is defined by this factory; "+
-				"only operator-supplied configurations are referenceable", name)
-	}
-}
-
-func (c *referenceChecker) configurationReferenceParts(
-	dp *lang.DotPath,
-) (alias, name string, ok bool) {
-	if dp == nil || dp.Root == nil || dp.Root.Name != "configuration" || len(dp.Segments) == 0 {
-		return "", "", false
-	}
-	first := dp.Segments[0]
-	if !simpleConfigurationSegment(first) {
-		return "", "", false
-	}
-	ref, ok := c.configurationRefs[first.Name]
-	if !ok {
-		return "", "", false
-	}
-	return ref.Alias, ref.Name, true
-}
-
-func simpleConfigurationSegment(seg lang.DotSegment) bool {
-	return seg.Name != "" && seg.Index == nil && !seg.Splat && !seg.Guarded
 }
 
 // checkSplat reports a splat that ends a path. A trailing `[*]` projects
@@ -1061,7 +950,7 @@ func walkFreeIdents(
 // on the iteration context enclosing the expression.
 func addressRoot(name string) bool {
 	switch name {
-	case "var", "resource", "data", "action", "local", "configuration":
+	case "var", "resource", "data", "action", "local":
 		return true
 	}
 	return strings.HasPrefix(name, "@")

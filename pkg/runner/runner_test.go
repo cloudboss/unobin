@@ -285,20 +285,22 @@ func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
 	require.Contains(t, err.Error(), "factory.ub must declare factory")
 }
 
-func TestValidateAcceptsCompilerConfigurationSyntax(t *testing.T) {
+func TestValidateAcceptsLibraryConfigSyntax(t *testing.T) {
 	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
-  configurations: {
-    east: aws { region: 'us-east-1' }
-  }
+  library-configs: { aws: { region: 'us-east-1' } }
   resources: {
-    thing: aws.widget { @configuration: configuration.east }
+    thing: aws.widget {}
   }
 }
 `))
 	require.NoError(t, err)
 
 	info := testInfo(t, body)
-	info.Libraries["aws"] = awsModuleWithConfig()
+	info.Libraries["aws"] = &runtime.Library{
+		Configuration: &cfg.ConfigurationType[*struct{ Region cfg.String }]{
+			New: func() *struct{ Region cfg.String } { return &struct{ Region cfg.String }{} },
+		},
+	}
 	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.NoError(t, err)
 	require.Equal(t, "OK\n", out)

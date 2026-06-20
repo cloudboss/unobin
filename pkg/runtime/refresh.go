@@ -29,7 +29,7 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
-	if err := e.CheckConfigurations(); err != nil {
+	if err := e.CheckLibraryConfigs(); err != nil {
 		return nil, err
 	}
 	lock, err := e.Store.Lock(ctx)
@@ -125,7 +125,7 @@ func (e *Executor) refreshLeaf(
 	if err != nil {
 		return nil, false, err
 	}
-	cfg, err := e.configForStateRef(ent.Configuration, alias)
+	cfg, err := e.configForStateAddress(ent.Address, alias)
 	if err != nil {
 		return nil, false, err
 	}
@@ -143,7 +143,6 @@ func (e *Executor) refreshLeaf(
 		Kind:             string(NodeResource),
 		Selector:         &state.Selector{Alias: alias, Export: typeName},
 		SchemaVersion:    rt.SchemaVersion(),
-		Configuration:    ent.Configuration,
 		SensitiveInputs:  ent.SensitiveInputs,
 		SensitiveOutputs: ent.SensitiveOutputs,
 		TriggerHash:      ent.TriggerHash,

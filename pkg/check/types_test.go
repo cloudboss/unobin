@@ -6,11 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
-	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // localFileModule mirrors the input and output fields of the real
@@ -757,20 +755,6 @@ func checkErrorMessages(t *testing.T, errs *lang.ErrorList) []string {
 	return out
 }
 
-// configuredLibrary returns a library whose compile-time schema
-// declares a configuration with one required and one optional field.
-func configuredLibrary() *runtime.Library {
-	return &runtime.Library{
-		Schema: &runtime.LibrarySchema{
-			HasConfiguration: true,
-			Configuration: map[string]typecheck.Type{
-				"region":  typecheck.TString(),
-				"profile": typecheck.TOptional(typecheck.TString()),
-			},
-		},
-	}
-}
-
 func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
 	fixture := parseSyntaxFactoryFixture(t, `
 factory: {
@@ -830,139 +814,6 @@ factory: {
 		errs.Messages())
 }
 
-func TestNewSyntaxUsesRootConfigurationDeclarations(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  configurations: {
-    base: aws { region: 'r' }
-    derived: aws { region: configuration.base.region }
-  }
-}
-`)
-
-	errs := NewSyntax(fixture.body,
-		map[string]*runtime.Library{"aws": configuredLibrary()}).References(nil)
-
-	require.Equal(t,
-		[]string{"configuration.base is defined by this factory; " +
-			"only operator-supplied configurations are referenceable"},
-		errs.Messages())
-}
-
-func TestCheckTypesConfigurationUnknownAlias(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { ghost { region: 'r' } }
-`, map[string]*runtime.Library{})
-	require.Equal(t,
-		[]string{`default configuration for ghost: library "ghost" is not imported`},
-		errs.Messages())
-}
-
-func TestCheckConfigurationReferenceAliasQualifiedRejected(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: {
-  use1: aws { region: configuration.aws.default }
-}
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{"a configuration reference takes configuration.<name>"},
-		errs.Messages())
-}
-
-func TestCheckConfigurationReferenceOutsideConfigurationsBlock(t *testing.T) {
-	libs := map[string]*runtime.Library{
-		"aws":   configuredLibrary(),
-		"local": localFileLibrary(),
-	}
-	errs := checkSyntaxReferences(t, `
-resources: {
-  one: local.file { path: configuration.base.region, content: 'c' }
-}
-`, libs)
-	require.Equal(t,
-		[]string{"a configuration reference is valid only inside a configurations block body"},
-		errs.Messages())
-}
-
-func TestCheckConfigurationReferenceToInternal(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: {
-  base: aws { region: 'r' }
-  use1: aws { region: configuration.base.region }
-}
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{"configuration.base is defined by this factory; " +
-			"only operator-supplied configurations are referenceable"},
-		errs.Messages())
-}
-
-func TestCheckConfigurationReferenceUnimportedSelector(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: {
-  foreign: gcp {}
-  use1: aws { region: configuration.foreign.region }
-}
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{
-			`configuration.foreign: library "gcp" is not imported`,
-			`library "gcp" is not imported`,
-		},
-		errs.Messages())
-}
-
-func TestCheckConfigurationReferenceUnconfiguredLibrary(t *testing.T) {
-	libs := map[string]*runtime.Library{
-		"aws":   configuredLibrary(),
-		"local": localFileLibrary(),
-	}
-	errs := checkSyntaxReferences(t, `
-configurations: {
-  other: local {}
-  use1: aws { region: configuration.other.region }
-}
-`, libs)
-	require.Equal(t,
-		[]string{
-			`configuration.other: library declares no configuration`,
-			`library "local" declares no configuration`,
-		},
-		errs.Messages())
-}
-
-func TestCheckConfigurationReferenceForm(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { use1: aws { region: configuration.aws } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{"a configuration reference takes configuration.<name>"},
-		errs.Messages())
-}
-
-func TestCheckTypesExpressionConfigurationFieldMismatch(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { use1: aws { region: 5 } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Len(t, errs.Messages(), 1)
-	require.Contains(t, errs.Messages()[0], "type mismatch")
-}
-
-func TestCheckTypesNamedConfigurationMayLeaveRequiredFieldForStack(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { use1: aws { profile: 'p' } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesExpressionConfigurationUnknownChecksNothing(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs: { extra: { type: map(string) } }
-configurations: { use1: aws { region: @core.merge(var.extra, { region: 'r' }) } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
 // TestCheckTypesMergeInfersPreciseObject proves @core.merge of object
 // literals reaches a typed field as the precise merged object through
 // the full compile pipeline, not as an unknown that checks nothing.
@@ -983,76 +834,5 @@ func TestCheckTypesMergeOfMapChecksNothing(t *testing.T) {
 inputs: { tags: { type: map(string) } }
 resources: { one: local.file { path: @core.merge(var.tags, { a: 'x' }), content: 'c' } }
 `, map[string]*runtime.Library{"local": localFileLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesConfigurationOnUnconfiguredLibrary(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { local { region: 'r' } }
-`, map[string]*runtime.Library{"local": localFileLibrary()})
-	require.Equal(t,
-		[]string{`default configuration for local: library declares no configuration`},
-		errs.Messages())
-}
-
-func TestCheckTypesConfigurationUnknownField(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { aws { region: 'r', regin: 'oops' } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{`default configuration for aws: unknown field "regin"`},
-		errs.Messages())
-}
-
-func TestCheckTypesSourceConfigurationFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/types", func(_ string, src []byte) (string, []string) {
-		f, err := syntax.ParseSource("factory.ub", src)
-		if err != nil {
-			return "", []string{err.Error()}
-		}
-		if errs := syntax.ValidateFile(f); errs.Len() > 0 {
-			return "", errs.Messages()
-		}
-		if f.Factory == nil {
-			return "", []string{"fixture must declare factory"}
-		}
-		return "", NewSyntax(f.Factory.Body, map[string]*runtime.Library{
-			"aws": configuredLibrary(),
-		}).References(nil).Messages()
-	}, ubtest.Substring())
-}
-
-func TestCheckTypesConfigurationFieldTypeMismatch(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { aws { region: 5 } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Equal(t,
-		[]string{`type mismatch: expected string, got integer`},
-		errs.Messages())
-}
-
-func TestCheckTypesConfigurationMayLeaveRequiredFieldForStack(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-configurations: { aws { profile: 'p' } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesConfigurationValidPasses(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs: { region: { type: string } }
-configurations: { aws { region: var.region } }
-`, map[string]*runtime.Library{"aws": configuredLibrary()})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesConfigurationDeclaredOnlyAtRuntime(t *testing.T) {
-	lib := &runtime.Library{
-		Configuration: &cfg.ConfigurationType[any]{New: func() any { return nil }},
-		Schema:        &runtime.LibrarySchema{},
-	}
-	errs := checkSyntaxReferences(t, `
-configurations: { aws { anything: 'goes' } }
-`, map[string]*runtime.Library{"aws": lib})
 	require.Empty(t, errs.Messages())
 }

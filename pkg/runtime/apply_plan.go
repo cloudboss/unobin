@@ -150,29 +150,11 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return e.applyData(ctx, rs, step)
 	case NodeOutput:
 		return nil
-	case NodeConfiguration:
-		return e.applyConfiguration(rs, step)
 	case NodeLibraryConfig:
 		return e.applyLibraryConfig(rs, step)
 	default:
 		return fmt.Errorf("unknown step kind %q", step.Kind)
 	}
-}
-
-// applyConfiguration evaluates an internal configuration's fields and
-// decodes them into the library's configuration struct, making the
-// value available to every consumer that selects it. The scheduler
-// dispatches it after the nodes its expressions read, so evaluation
-// sees settled values.
-func (e *Executor) applyConfiguration(rs *runState, step *PlanStep) error {
-	node, ok := e.DAG.Nodes[step.Address]
-	if !ok {
-		return fmt.Errorf("%s: not in the graph", step.Address)
-	}
-	if e.configurationOverridden(node.Alias, node.Name) {
-		return nil
-	}
-	return e.applyConfigNode(rs, step, node)
 }
 
 func (e *Executor) applyLibraryConfig(rs *runState, step *PlanStep) error {
@@ -320,7 +302,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			if err := Decode(deleteReceiver, step.PriorInputs); err != nil {
 				return fmt.Errorf("replace: decode prior: %w", err)
 			}
-			priorCfg, err := e.configForRef(step.Configuration, priorAlias)
+			priorCfg, err := e.configForStateAddress(step.Address, priorAlias)
 			if err != nil {
 				return err
 			}
@@ -337,10 +319,6 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	default:
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
-	configuration, err := e.configRef(prep.node).stateRef()
-	if err != nil {
-		return err
-	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	attrs := mergeAttrs(prep.inputs, outputs)
@@ -355,7 +333,6 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Kind:             string(prep.node.Kind),
 		Selector:         selectorForNode(prep.node),
 		SchemaVersion:    rt.SchemaVersion(),
-		Configuration:    configuration,
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,
@@ -417,7 +394,7 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err := Decode(receiver, step.Inputs); err != nil {
 		return err
 	}
-	cfg, err := e.configForRef(step.Configuration, alias)
+	cfg, err := e.configForStateAddress(step.Address, alias)
 	if err != nil {
 		return err
 	}

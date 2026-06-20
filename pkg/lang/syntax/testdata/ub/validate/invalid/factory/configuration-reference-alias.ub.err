@@ -1,1 +1,1 @@
-configuration formal takes configuration.formal; named configurations already declare their selector
+configurations block is not supported; use library-configs

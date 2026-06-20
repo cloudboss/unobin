@@ -16,7 +16,6 @@ const (
 	NodeData          NodeKind = "data"
 	NodeAction        NodeKind = "action"
 	NodeOutput        NodeKind = "output"
-	NodeConfiguration NodeKind = "configuration"
 	NodeLibraryConfig NodeKind = "library-config"
 )
 
@@ -54,11 +53,6 @@ type Node struct {
 
 	ForEach lang.Expr
 
-	// Configuration is the explicit library configuration selected by
-	// @configuration. Zero means the node uses the default configuration
-	// for its own Alias.
-	Configuration ConfigRef
-
 	// LockName is the value of a node body's `@lock:` field. Two nodes
 	// sharing a non-empty LockName cannot run in parallel under apply's
 	// scheduler, even on unrelated DAG branches. Empty means the node is
@@ -73,14 +67,6 @@ type Node struct {
 	// fails like any other apply error. Like @lock it only bites at
 	// apply, so it does not bound a data source read at plan.
 	Timeout time.Duration
-
-	// ConfigurationsRemap is set only on a composite boundary. It maps an
-	// inner import alias to the (alias, configuration) of the
-	// configuration that backs that import inside the call. The
-	// runtime walks the composite chain at lookup time and the
-	// validator enforces that the right-hand-side alias matches
-	// the key.
-	ConfigurationsRemap map[string]ConfigRef
 }
 
 // IsComposite reports whether the node is a composite call site (a
@@ -89,12 +75,6 @@ type Node struct {
 // sets it apart is the composite body populated only on boundaries.
 func (n *Node) IsComposite() bool {
 	return n != nil && n.CompositeSyntaxBody != nil
-}
-
-// ConfigRef names the selector and name for one configuration.
-type ConfigRef struct {
-	Alias string
-	Name  string
 }
 
 // ExtractSyntaxNodes walks a typed factory or composite body and returns
@@ -111,7 +91,6 @@ func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]
 	nodes = append(nodes, extractSyntaxKind(body.Actions, NodeAction, parent, libs)...)
 	nodes = append(nodes, extractSyntaxLibraryConfigs(body.LibraryConfigs, parent)...)
 	if parent == "" {
-		nodes = append(nodes, extractSyntaxConfigurations(body.Configurations)...)
 		nodes = append(nodes, extractSyntaxOutputs(body.Outputs)...)
 	}
 	return nodes
@@ -135,17 +114,16 @@ func extractSyntaxKind(
 			continue
 		}
 		node := &Node{
-			Address:       addr,
-			Kind:          kind,
-			Alias:         alias,
-			Type:          typ,
-			Name:          name,
-			Body:          decl.Body,
-			Composite:     parent,
-			ForEach:       extractForEach(decl.Body),
-			Configuration: extractSyntaxConfiguration(decl.Body, alias),
-			LockName:      extractLockName(decl.Body),
-			Timeout:       extractTimeout(decl.Body),
+			Address:   addr,
+			Kind:      kind,
+			Alias:     alias,
+			Type:      typ,
+			Name:      name,
+			Body:      decl.Body,
+			Composite: parent,
+			ForEach:   extractForEach(decl.Body),
+			LockName:  extractLockName(decl.Body),
+			Timeout:   extractTimeout(decl.Body),
 		}
 		out = append(out, node)
 	}
@@ -216,68 +194,6 @@ func extractForEach(body lang.Expr) lang.Expr {
 	return nil
 }
 
-func extractSyntaxConfigurationsRemap(body lang.Expr) map[string]ConfigRef {
-	obj, ok := body.(*lang.ObjectLit)
-	if !ok {
-		return nil
-	}
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configurations" {
-			continue
-		}
-		mapping, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			return nil
-		}
-		out := map[string]ConfigRef{}
-		for _, entry := range mapping.Fields {
-			if entry.Key.Kind != lang.FieldIdent {
-				continue
-			}
-			if ref, ok := syntaxConfigurationRemap(entry.Key.Name, entry.Value); ok {
-				out[entry.Key.Name] = ref
-			}
-		}
-		if len(out) == 0 {
-			return nil
-		}
-		return out
-	}
-	return nil
-}
-
-func syntaxConfigurationRemap(alias string, expr lang.Expr) (ConfigRef, bool) {
-	dp, ok := expr.(*lang.DotPath)
-	if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-		return ConfigRef{}, false
-	}
-	if dp.Root.Name != "configuration" {
-		return ConfigRef{}, false
-	}
-	return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}, true
-}
-
-func extractSyntaxConfiguration(body lang.Expr, alias string) ConfigRef {
-	obj, ok := body.(*lang.ObjectLit)
-	if !ok {
-		return ConfigRef{}
-	}
-	for _, fld := range obj.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@configuration" {
-			continue
-		}
-		dp, ok := fld.Value.(*lang.DotPath)
-		if !ok || dp.Root == nil || len(dp.Segments) != 1 {
-			return ConfigRef{}
-		}
-		if dp.Root.Name == "configuration" {
-			return ConfigRef{Alias: alias, Name: dp.Segments[0].Name}
-		}
-		return ConfigRef{}
-	}
-	return ConfigRef{}
-}
-
 func lookupComposite(
 	libs map[string]*Library, alias string, kind NodeKind, typ string,
 ) *CompositeType {
@@ -313,7 +229,6 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 		CompositeSyntaxBody: composite.SyntaxBody,
 		Libraries:           scopeMods,
 		ForEach:             extractForEach(args),
-		ConfigurationsRemap: extractSyntaxConfigurationsRemap(args),
 	}}
 	out = append(out, extractSyntaxNodes(*composite.SyntaxBody, callSiteAddr, scopeMods)...)
 	return out
@@ -336,91 +251,6 @@ func libraryConfigNode(
 	return "", false
 }
 
-func selectorConfigurationAddress(alias, name string) string {
-	if name == "default" {
-		return "default-configuration." + alias
-	}
-	return "configuration." + name
-}
-
-func configurationNodeAddress(
-	nodes map[string]*Node,
-	alias string,
-	name string,
-) (string, bool) {
-	addr := selectorConfigurationAddress(alias, name)
-	n, ok := nodes[addr]
-	if ok && n.Alias == alias && n.Name == name {
-		return addr, true
-	}
-	return "", false
-}
-
-// ConfigurationRefNames returns the source-facing names of configuration
-// nodes, keyed by configuration name. Defaults are omitted because they
-// are selected by selector, not by a configuration.<name> reference.
-func ConfigurationRefNames(nodes map[string]*Node) map[string]ConfigRef {
-	out := map[string]ConfigRef{}
-	ambiguous := map[string]bool{}
-	for _, n := range nodes {
-		if n.Kind != NodeConfiguration || n.Name == "default" {
-			continue
-		}
-		if ambiguous[n.Name] {
-			continue
-		}
-		if _, exists := out[n.Name]; exists {
-			delete(out, n.Name)
-			ambiguous[n.Name] = true
-			continue
-		}
-		out[n.Name] = ConfigRef{Alias: n.Alias, Name: n.Name}
-	}
-	return out
-}
-
-// InternalSyntaxConfigurationNames returns the configuration names a typed
-// factory body defines internally, keyed by import alias.
-func InternalSyntaxConfigurationNames(body syntax.FactoryBody) map[string]map[string]bool {
-	out := map[string]map[string]bool{}
-	for _, decl := range body.Configurations {
-		name := "default"
-		if decl.Name != nil {
-			name = decl.Name.Name
-		}
-		addInternalConfigurationName(out, decl.Selector.Name, name)
-	}
-	return out
-}
-
-func addInternalConfigurationName(out map[string]map[string]bool, alias, name string) {
-	set := out[alias]
-	if set == nil {
-		set = map[string]bool{}
-		out[alias] = set
-	}
-	set[name] = true
-}
-
-func extractSyntaxConfigurations(decls []syntax.ConfigurationDecl) []*Node {
-	out := make([]*Node, 0, len(decls))
-	for _, decl := range decls {
-		alias := decl.Selector.Name
-		name := "default"
-		if decl.Name != nil {
-			name = decl.Name.Name
-		}
-		out = append(out, &Node{
-			Address: selectorConfigurationAddress(alias, name),
-			Kind:    NodeConfiguration,
-			Alias:   alias,
-			Name:    name,
-			Body:    syntaxConfigurationDeclExpr(decl),
-		})
-	}
-	return out
-}
-
 func extractSyntaxLibraryConfigs(
 	decls []syntax.LibraryConfigDecl,
 	parent string,
@@ -438,13 +268,6 @@ func extractSyntaxLibraryConfigs(
 		})
 	}
 	return out
-}
-
-func syntaxConfigurationDeclExpr(decl syntax.ConfigurationDecl) lang.Expr {
-	if decl.Value != nil {
-		return decl.Value
-	}
-	return decl.Body
 }
 
 func extractSyntaxOutputs(decls []syntax.OutputDecl) []*Node {
