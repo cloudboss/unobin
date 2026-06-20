@@ -56,6 +56,9 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	if len(rs.eval.Vars) == 0 && len(pf.Inputs) > 0 {
 		rs.eval.Vars = pf.Inputs
 	}
+	if err := e.applyPlannedEntryMoves(rs, pf.StateMoves); err != nil {
+		return nil, err
+	}
 	if err := e.seedPriorInternalConfigurations(rs.prior, rs.eval.Vars); err != nil {
 		return nil, err
 	}

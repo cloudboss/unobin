@@ -93,8 +93,11 @@ func ApplyEntryMoves(
 
 	out := cloneSnapshot(snap)
 	results := make([]EntryMoveResult, 0, len(changes))
-	for idx, to := range changes {
-		ent := out.Entries[idx]
+	for idx, ent := range out.Entries {
+		to, ok := changes[idx]
+		if !ok {
+			continue
+		}
 		if err := migrateMovedEntry(ent, dag, libs, to); err != nil {
 			return nil, nil, err
 		}

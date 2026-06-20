@@ -251,17 +251,23 @@ func (s *PlanStep) Gone() bool {
 		len(s.PriorOutputs) > 0
 }
 
+type PlannedEntryMove struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
 // Plan is the readonly result of computing what an apply would do.
 // StateRev is the snapshot rev the plan was computed against. Apply
 // rejects the plan when the current rev no longer matches. Inputs
 // captures the validated root inputs so apply can rebuild the same
 // eval scope without re-reading the stack file.
 type Plan struct {
-	Factory  state.FactoryInfo
-	Stack    string
-	StateRev string
-	Inputs   map[string]any
-	Steps    []*PlanStep
+	Factory    state.FactoryInfo
+	Stack      string
+	StateRev   string
+	Inputs     map[string]any
+	Steps      []*PlanStep
+	StateMoves []PlannedEntryMove
 
 	// Backend names the state backend the plan was computed against,
 	// so apply can reconstruct the same backend without re-reading
@@ -295,9 +301,6 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := e.seedPriorInternalConfigurations(rs.prior, e.Inputs); err != nil {
-		return nil, err
-	}
 	stateRev, _ := e.Store.CurrentRev()
 
 	plan := &Plan{
@@ -307,6 +310,14 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		Inputs:      e.Inputs,
 		Parallelism: e.Parallelism,
 		Destroy:     e.Destroy,
+	}
+	moves, err := e.applySourceEntryMoves(rs)
+	if err != nil {
+		return nil, err
+	}
+	plan.StateMoves = moves
+	if err := e.seedPriorInternalConfigurations(rs.prior, e.Inputs); err != nil {
+		return nil, err
 	}
 
 	// Seed the EvalContext with prior outputs so downstream evaluation

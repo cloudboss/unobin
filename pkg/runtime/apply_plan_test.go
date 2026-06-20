@@ -1461,6 +1461,9 @@ func TestEncodeDecodePlan(t *testing.T) {
 		Factory:  state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
 		Stack:    "prod",
 		StateRev: "2026-05-01T00:00:00.000000000Z",
+		StateMoves: []PlannedEntryMove{
+			{From: "core.thing@resource.old", To: "core.thing@resource.x"},
+		},
 		Steps: []*PlanStep{
 			{
 				Address:  "resource.x",
@@ -1476,6 +1479,7 @@ func TestEncodeDecodePlan(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, plan.Factory.Name, pf.Factory.Name)
 	require.Equal(t, plan.StateRev, pf.StateRev)
+	require.Equal(t, plan.StateMoves, pf.StateMoves)
 	require.Equal(t, "resource.x", pf.Steps[0].Address)
 	require.Equal(t, DecisionCreate, pf.Steps[0].Decision)
 }

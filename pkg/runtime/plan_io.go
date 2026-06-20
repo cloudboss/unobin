@@ -24,10 +24,11 @@ type PlanFile struct {
 	GeneratedAt   time.Time      `json:"generated-at"`
 	Inputs        map[string]any `json:"inputs,omitempty"`
 
-	Backend     *StateRef  `json:"backend,omitempty"`
-	Parallelism int        `json:"parallelism,omitempty"`
-	Destroy     bool       `json:"destroy,omitempty"`
-	Steps       []PlanStep `json:"steps"`
+	Backend     *StateRef          `json:"backend,omitempty"`
+	Parallelism int                `json:"parallelism,omitempty"`
+	Destroy     bool               `json:"destroy,omitempty"`
+	StateMoves  []PlannedEntryMove `json:"state-moves,omitempty"`
+	Steps       []PlanStep         `json:"steps"`
 }
 
 // FactoryRef identifies the stack a plan was computed against.
@@ -57,6 +58,7 @@ func EncodePlan(p *Plan) ([]byte, error) {
 		Backend:     p.Backend,
 		Parallelism: p.Parallelism,
 		Destroy:     p.Destroy,
+		StateMoves:  p.StateMoves,
 		Steps:       steps,
 	}
 	b, err := json.MarshalIndent(pf, "", "  ")
