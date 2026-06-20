@@ -8,6 +8,12 @@
       "args": ["schema", "template"],
       "stdout": "want/schema-template.stdout",
       "stderr": "want/schema-template.stderr"
+    },
+    {
+      "name": "schema-show",
+      "args": ["schema", "show"],
+      "stdout": "want/schema-show.stdout",
+      "stderr": "want/schema-show.stderr"
     }
   ]
 }

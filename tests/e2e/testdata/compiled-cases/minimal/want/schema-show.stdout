@@ -1,0 +1,4 @@
+e2e-config: ?  default: { base-dir: '.', event-log-path: 'events.ndjson', nested: { label: 'nested' } }
+
+outputs:
+  hello

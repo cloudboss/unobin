@@ -1,0 +1,7 @@
+digraph "minimal" {
+  "action.hello";
+  "library-config.e2e";
+  "output.hello";
+  "action.hello" -> "library-config.e2e";
+  "output.hello" -> "action.hello";
+}

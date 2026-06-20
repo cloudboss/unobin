@@ -23,10 +23,28 @@
       "stderr": "want/schema-template.stderr"
     },
     {
+      "name": "schema-show",
+      "args": ["schema", "show"],
+      "stdout": "want/schema-show.stdout",
+      "stderr": "want/schema-show.stderr"
+    },
+    {
       "name": "print-graph",
       "args": ["print-graph"],
       "stdout": "want/print-graph.stdout",
       "stderr": "want/print-graph.stderr"
+    },
+    {
+      "name": "print-graph-dot",
+      "args": ["print-graph", "--format", "dot"],
+      "stdout": "want/print-graph-dot.stdout",
+      "stderr": "want/print-graph-dot.stderr"
+    },
+    {
+      "name": "print-graph-unknown",
+      "args": ["print-graph", "--format", "yaml"],
+      "stderr": "want/print-graph-unknown.stderr",
+      "exitCode": 1
     },
     {
       "name": "plan-create",

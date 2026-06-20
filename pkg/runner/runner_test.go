@@ -1709,53 +1709,6 @@ encryption: env-key { env-var: 'UB_STATE_KEY' }
 	require.Contains(t, out, "OK")
 }
 
-func TestPrintGraphPlain(t *testing.T) {
-	src := `
-inputs: { msg: { type: string } }
-actions: {
-  first:  core.echo { echo: var.msg }
-  second: core.echo { echo: action.first.echo }
-}
-`
-	info := testInfo(t, src)
-	out, err := runRoot(t, info, "print-graph")
-	require.NoError(t, err)
-	expected := `action.first
-  -> var.msg
-
-action.second
-  -> action.first
-`
-	require.Equal(t, expected, out)
-}
-
-func TestPrintGraphDot(t *testing.T) {
-	src := `
-inputs: { msg: { type: string } }
-actions: {
-  first:  core.echo { echo: var.msg }
-  second: core.echo { echo: action.first.echo }
-}
-`
-	info := testInfo(t, src)
-	out, err := runRoot(t, info, "print-graph", "--format", "dot")
-	require.NoError(t, err)
-	expected := `digraph "test-stack" {
-  "action.first";
-  "action.second";
-  "action.second" -> "action.first";
-}
-`
-	require.Equal(t, expected, out)
-}
-
-func TestPrintGraphRejectsUnknownFormat(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	_, err := runRoot(t, info, "print-graph", "--format", "yaml")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "--format")
-}
-
 func TestStateMoveRelocatesEntry(t *testing.T) {
 	oldInfo := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, oldInfo, "")
@@ -2048,41 +2001,6 @@ func TestStateShowRejectsAbsentRef(t *testing.T) {
 	_, err := runWithStack(t, info, "state", "show", "core.echo@action.gone")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
-}
-
-func TestSchema(t *testing.T) {
-	src := `
-inputs: {
-  greeting: {
-    type:        string
-    description: 'a friendly word'
-  }
-  size: {
-    type:    integer
-    default: 3
-    minimum: 1
-  }
-  hosts: {
-    type: list(string)
-  }
-}
-`
-	info := testInfo(t, src)
-	out, err := runRoot(t, info, "schema")
-	require.NoError(t, err)
-
-	require.Contains(t, out, "greeting: string")
-	require.Contains(t, out, "a friendly word")
-	require.Contains(t, out, "size: integer")
-	require.Contains(t, out, "default: 3")
-	require.Contains(t, out, "hosts: list(string)")
-}
-
-func TestSchemaEmpty(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	out, err := runRoot(t, info, "schema")
-	require.NoError(t, err)
-	require.Contains(t, out, "No inputs declared.")
 }
 
 func TestStateEncryptedWithEnvKey(t *testing.T) {
