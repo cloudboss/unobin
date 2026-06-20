@@ -1,0 +1,3 @@
+list: data {
+  outputs: { value: { value: [] } }
+}

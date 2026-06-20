@@ -1,0 +1,5 @@
+factory: {
+  imports: {
+    comprehensions: 'github.com/x/libs//ub/project-b/comprehensions'
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "deps-sync-nested-project-from-path",
+  "rootPath": "repo/library-c",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "example.com/nested@v1.0.0",
+      "path": "remotes/nested",
+      "commit": "nested"
+    },
+    {
+      "key": "example.com/nested//lib@v1.0.0",
+      "path": "remotes/nested/lib",
+      "commit": "nested"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr"
+    }
+  ],
+  "files": [
+    { "path": "repo/library-c/manifest.ub", "want": "want/manifest.ub" },
+    { "path": "repo/library-c/lock.ub", "want": "want/lock.ub" }
+  ]
+}

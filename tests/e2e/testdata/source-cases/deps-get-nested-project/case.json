@@ -1,0 +1,31 @@
+{
+  "name": "deps-get-nested-project",
+  "rootPath": "root",
+  "executor": "root",
+  "tags": {
+    "github.com/x/libs": ["ub/project-b/v0.1.0"]
+  },
+  "remotes": [
+    {
+      "key": "github.com/x/libs//ub/project-b@ub/project-b/v0.1.0",
+      "path": "remotes/libs/ub/project-b",
+      "commit": "project-b"
+    },
+    {
+      "key": "github.com/x/libs//ub/project-b/comprehensions@ub/project-b/v0.1.0",
+      "path": "remotes/libs/ub/project-b/comprehensions",
+      "commit": "project-b"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-get",
+      "args": ["deps", "get", "github.com/x/libs//ub/project-b"],
+      "stderr": "want/deps-get.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/manifest.ub", "want": "want/manifest.ub" },
+    { "path": "root/lock.ub", "want": "want/lock.ub" }
+  ]
+}

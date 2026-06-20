@@ -1,0 +1,6 @@
+factory: {
+  imports: {
+    comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions'
+    helloer:        'github.com/scratch/repo//ub/helloer'
+  }
+}

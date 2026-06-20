@@ -1,0 +1,3 @@
+factory: {
+  imports: { root: 'example.com/root//lib' }
+}

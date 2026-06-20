@@ -549,86 +549,6 @@ hello: data {
 	require.Contains(t, err.Error(), "add the owning project")
 }
 
-func TestDepsSyncRootAndNestedProjectOwnPackages(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "myfactory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
-factory: {
-  imports: {
-    comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions'
-    helloer:        'github.com/scratch/repo//ub/helloer'
-  }
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName), []byte(`manifest: {
-  requires: {
-    'github.com/scratch/repo': {
-      version: 'v0.8.0'
-    }
-    'github.com/scratch/repo//ub/project-b': {
-      version: 'v0.1.0'
-    }
-  }
-}
-`), 0o644))
-	rootFS := fstest.MapFS{
-		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-	}
-	rootHash, err := deps.HashUBProject(rootFS)
-	require.NoError(t, err)
-	projectBFS := fstest.MapFS{
-		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-	}
-	projectBHash, err := deps.HashUBProject(projectBFS)
-	require.NoError(t, err)
-	remotes := map[string]*resolve.Source{
-		"github.com/scratch/repo@v0.8.0": {
-			Commit: "root",
-			FS:     rootFS,
-		},
-		"github.com/scratch/repo//ub/helloer@v0.8.0": {
-			Commit: "root",
-			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
-hello: data {
-  outputs: { message: { value: 'hi' } }
-}
-`)}},
-		},
-		"github.com/scratch/repo//ub/project-b@ub/project-b/v0.1.0": {
-			Commit: "project-b",
-			FS:     projectBFS,
-		},
-		"github.com/scratch/repo//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
-			Commit: "project-b",
-			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
-list: data {
-  outputs: { value: { value: [] } }
-}
-`)}},
-		},
-	}
-
-	_, err = runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
-	require.NoError(t, err)
-
-	lock, err := deps.ReadLock(os.DirFS(root))
-	require.NoError(t, err)
-	require.Equal(t, map[string]*deps.LockedDep{
-		"github.com/scratch/repo": {
-			Kind:    deps.LockKindUB,
-			Version: "v0.8.0",
-			Commit:  "root",
-			Hash:    rootHash,
-		},
-		"github.com/scratch/repo//ub/project-b": {
-			Kind:    deps.LockKindUB,
-			Version: "v0.1.0",
-			Commit:  "project-b",
-			Hash:    projectBHash,
-		},
-	}, lock.Deps)
-}
-
 func TestDepsSyncLibraryProject(t *testing.T) {
 	// A library project: body files, no factory.ub. Its dependencies are
 	// managed the same way a factory's are.
@@ -697,52 +617,6 @@ thing: resource {
 		},
 	}, lock.Deps)
 	require.NoFileExists(t, filepath.Join(child, deps.SourceLockFileName))
-}
-
-func TestDepsSyncNestedProjectFromPath(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "repo")
-	child := filepath.Join(root, "library-c")
-	require.NoError(t, os.MkdirAll(child, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {}\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
-factory: {
-  imports: { root: 'example.com/root//lib' }
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'example.com/nested': { version: 'v1.0.0' } }\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
-thing: resource {
-  imports: { nested: 'example.com/nested//lib' }
-}
-`), 0o644))
-	remotes := map[string]*resolve.Source{
-		"example.com/nested@v1.0.0": {
-			Commit: "nested",
-			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module example.com/nested\n")},
-			},
-		},
-		"example.com/nested//lib@v1.0.0": {
-			Commit: "nested",
-			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module example.com/nested/lib\n")},
-				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
-			},
-		},
-	}
-
-	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", child)
-	require.NoError(t, err)
-
-	lock, err := deps.ReadLock(os.DirFS(child))
-	require.NoError(t, err)
-	require.Equal(t, map[string]*deps.LockedDep{
-		"example.com/nested": {
-			Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "nested",
-		},
-	}, lock.Deps)
 }
 
 func TestDepsSyncDiscoversMissingOwner(t *testing.T) {
@@ -1132,46 +1006,6 @@ hello: resource {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no manifest.ub or go.mod")
 	require.Contains(t, err.Error(), "deps get operates on projects")
-}
-
-func TestDepsGetAcceptsNestedProject(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "proj")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
-factory: {
-  imports: { comprehensions: 'github.com/x/libs//ub/project-b/comprehensions' }
-}
-`), 0o644))
-	stubListTags(t, map[string][]string{"github.com/x/libs": {"ub/project-b/v0.1.0"}})
-	remotes := map[string]*resolve.Source{
-		"github.com/x/libs//ub/project-b@ub/project-b/v0.1.0": {
-			Commit: "project-b",
-			FS: fstest.MapFS{
-				deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-				"comprehensions/library.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`)},
-			},
-		},
-		"github.com/x/libs//ub/project-b/comprehensions@ub/project-b/v0.1.0": {
-			Commit: "project-b",
-			FS: fstest.MapFS{"library.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`)}},
-		},
-	}
-
-	_, err := runCommandWithRemotes(t, remotes,
-		"deps", "get", "github.com/x/libs//ub/project-b", "-p", root)
-	require.NoError(t, err)
-
-	lock, err := deps.ReadLock(os.DirFS(root))
-	require.NoError(t, err)
-	require.Equal(t, "v0.1.0", lock.Deps["github.com/x/libs//ub/project-b"].Version)
 }
 
 func TestCompileToStdout(t *testing.T) {
