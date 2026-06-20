@@ -1,0 +1,37 @@
+{
+  "name": "compile-unobin-configuration",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid",
+      "dir": "valid",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
+      "stderr": "want/valid.stderr"
+    },
+    {
+      "name": "invalid",
+      "dir": "invalid",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
+      "stderr": "want/invalid.stderr",
+      "exitCode": 1
+    }
+  ]
+}

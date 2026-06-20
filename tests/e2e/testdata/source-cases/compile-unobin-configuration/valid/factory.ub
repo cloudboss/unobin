@@ -1,0 +1,13 @@
+factory: {
+  inputs: { name: { type: string } }
+  imports: { aws: 'github.com/example/cloudlib' }
+  library-configs: {
+    aws: {
+      assume-role: {
+        role-arn:    'arn:aws:iam::123456789012:role/unobin-state'
+        external-id: 'unobin-test'
+      }
+    }
+  }
+  resources: { this: aws.thing { name: var.name } }
+}

@@ -1,0 +1,1 @@
+Error: factory.ub:5:12: type: unknown field "regoin" on library-config('github.com/example/cloudlib')
