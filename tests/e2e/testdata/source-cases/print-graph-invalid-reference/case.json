@@ -1,0 +1,13 @@
+{
+  "name": "print-graph-invalid-reference",
+  "rootPath": "graph-invalid-ref",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "factory.ub"],
+      "stderr": "want/print-graph.stderr",
+      "exitCode": 1
+    }
+  ]
+}

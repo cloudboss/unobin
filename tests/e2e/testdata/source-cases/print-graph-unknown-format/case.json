@@ -1,0 +1,13 @@
+{
+  "name": "print-graph-unknown-format",
+  "rootPath": "graph-bad-format",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "factory.ub", "--format", "yaml"],
+      "stderr": "want/print-graph.stderr",
+      "exitCode": 1
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "print-graph-paths",
+  "rootPath": "graph-paths",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0",
+      "path": "remotes/core"
+    }
+  ],
+  "commands": [
+    {
+      "name": "print-graph-file",
+      "args": ["print-graph", "-p", "factory.ub"],
+      "stdout": "want/print-graph-file.stdout"
+    },
+    {
+      "name": "print-graph-directory",
+      "args": ["print-graph", "-p", "."],
+      "stdout": "want/print-graph-directory.stdout"
+    },
+    {
+      "name": "print-graph-default",
+      "args": ["print-graph"],
+      "stdout": "want/print-graph-default.stdout"
+    }
+  ]
+}

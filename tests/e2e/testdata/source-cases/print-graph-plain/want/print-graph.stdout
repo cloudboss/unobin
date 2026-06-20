@@ -1,0 +1,5 @@
+action.first
+  -> var.msg
+
+action.second
+  -> action.first
