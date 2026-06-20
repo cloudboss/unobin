@@ -82,6 +82,178 @@ resources: {
 	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.new").Decision)
 }
 
+func TestPlanAppliesBoundaryAndCompositeStateMovesTogether(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("w.box", "resource.old-app"),
+		stateMovePlanEntry("resource.old-app/resource.old"),
+	)
+
+	plan := runPlan(t, `
+state-moves: [
+  { from: 'w.box@resource.old-app', to: 'w.box@resource.app' },
+]
+resources: {
+  app: w.box {}
+}
+`, stateMoveCompositeLibs(t), store)
+
+	require.Equal(t, []PlannedEntryMove{
+		{From: "w.box@resource.old-app", To: "w.box@resource.app"},
+		{
+			From: "core.thing@resource.old-app/resource.old",
+			To:   "core.thing@resource.app/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.app/resource.new").Decision)
+}
+
+func TestPlanAppliesCompositeBodyStateMove(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("w.box", "resource.app"),
+		stateMovePlanEntry("resource.app/resource.old"),
+	)
+
+	plan := runPlan(t, `
+resources: {
+  app: w.box {}
+}
+`, stateMoveCompositeLibs(t), store)
+
+	require.Equal(t, []PlannedEntryMove{
+		{
+			From: "core.thing@resource.app/resource.old",
+			To:   "core.thing@resource.app/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.app/resource.new").Decision)
+	assert.Nil(t, stepFor(plan, "resource.app/resource.old"))
+}
+
+func TestPlanAppliesCompositeBodyStateMoveUnderEveryKey(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("w.box", "resource.apps['blue']"),
+		stateMovePlanEntry("resource.apps['blue']/resource.old"),
+		stateMoveBoundaryEntry("w.box", "resource.apps['red']"),
+		stateMovePlanEntry("resource.apps['red']/resource.old"),
+	)
+	exec := planTestExecutor(t, `
+inputs: { configs: { type: map(boolean) } }
+resources: {
+  apps: w.box { @for-each: var.configs }
+}
+`, stateMoveCompositeLibs(t), store, stack)
+	exec.Inputs = map[string]any{"configs": map[string]any{"blue": true, "red": true}}
+
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.ElementsMatch(t, []PlannedEntryMove{
+		{
+			From: "core.thing@resource.apps['blue']/resource.old",
+			To:   "core.thing@resource.apps['blue']/resource.new",
+		},
+		{
+			From: "core.thing@resource.apps['red']/resource.old",
+			To:   "core.thing@resource.apps['red']/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.apps['blue']/resource.new").Decision)
+	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.apps['red']/resource.new").Decision)
+}
+
+func TestPlanAppliesNestedCompositeBodyStateMoveUnderKey(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("outer.web", "resource.apps['blue']"),
+		stateMoveBoundaryEntry("inner.box", "resource.apps['blue']/resource.child"),
+		stateMovePlanEntry("resource.apps['blue']/resource.child/resource.old"),
+	)
+	exec := planTestExecutor(t, `
+inputs: { configs: { type: map(boolean) } }
+resources: {
+  apps: outer.web { @for-each: var.configs }
+}
+`, stateMoveNestedCompositeLibs(t), store, stack)
+	exec.Inputs = map[string]any{"configs": map[string]any{"blue": true}}
+
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []PlannedEntryMove{
+		{
+			From: "core.thing@resource.apps['blue']/resource.child/resource.old",
+			To:   "core.thing@resource.apps['blue']/resource.child/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t,
+		DecisionNoOp,
+		stepFor(plan, "resource.apps['blue']/resource.child/resource.new").Decision,
+	)
+}
+
+func TestPlanAppliesCompositeBodyPrefixStateMove(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("w.outer", "resource.app"),
+		stateMoveBoundaryEntry("inner.box", "resource.app/resource.old-child"),
+		stateMovePlanEntry("resource.app/resource.old-child/resource.new"),
+	)
+
+	plan := runPlan(t, `
+resources: {
+  app: w.outer {}
+}
+`, stateMoveCompositePrefixLibs(t), store)
+
+	require.Equal(t, []PlannedEntryMove{
+		{
+			From: "inner.box@resource.app/resource.old-child",
+			To:   "inner.box@resource.app/resource.child",
+		},
+		{
+			From: "core.thing@resource.app/resource.old-child/resource.new",
+			To:   "core.thing@resource.app/resource.child/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t,
+		DecisionNoOp,
+		stepFor(plan, "resource.app/resource.child/resource.new").Decision,
+	)
+}
+
+func TestPlanAppliesNestedCompositeBodyStateMove(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("outer.web", "resource.app"),
+		stateMoveBoundaryEntry("inner.box", "resource.app/resource.child"),
+		stateMovePlanEntry("resource.app/resource.child/resource.old"),
+	)
+
+	plan := runPlan(t, `
+resources: {
+  app: outer.web {}
+}
+`, stateMoveNestedCompositeLibs(t), store)
+
+	require.Equal(t, []PlannedEntryMove{
+		{
+			From: "core.thing@resource.app/resource.child/resource.old",
+			To:   "core.thing@resource.app/resource.child/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t,
+		DecisionNoOp,
+		stepFor(plan, "resource.app/resource.child/resource.new").Decision,
+	)
+}
+
 func TestApplyPlanExecutesRecordedStateMove(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -149,6 +321,135 @@ func stateMovePlanFile(exec *Executor, rev string) *PlanFile {
 		StateMoves: []PlannedEntryMove{
 			{From: "core.thing@resource.old", To: "core.thing@resource.new"},
 		},
+	}
+}
+
+func stateMoveCompositeLibs(t *testing.T) map[string]*Library {
+	t.Helper()
+	body := parseSyntaxCompositeFixture(t, `
+box: resource {
+  state-moves: [
+    { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
+  ]
+  resources: {
+    new: core.thing { name: 'alpha', size: 1 }
+  }
+}
+`).body
+	libs := resourceModules(&resourceCounters{})
+	libs["w"] = &Library{
+		Name: "w",
+		ResourceComposites: map[string]*CompositeType{
+			"box": {Name: "box", Kind: NodeResource, SyntaxBody: &body, Libraries: libs},
+		},
+	}
+	return libs
+}
+
+func stateMoveCompositePrefixLibs(t *testing.T) map[string]*Library {
+	t.Helper()
+	innerBody := parseSyntaxCompositeFixture(t, `
+box: resource {
+  resources: {
+    new: core.thing { name: 'alpha', size: 1 }
+  }
+}
+`).body
+	outerBody := parseSyntaxCompositeFixture(t, `
+outer: resource {
+  state-moves: [
+    { from: 'inner.box@resource.old-child', to: 'inner.box@resource.child' },
+  ]
+  resources: {
+    child: inner.box {}
+  }
+}
+`).body
+	core := resourceModules(&resourceCounters{})["core"]
+	inner := &Library{
+		Name: "inner",
+		ResourceComposites: map[string]*CompositeType{
+			"box": {
+				Name:       "box",
+				Kind:       NodeResource,
+				SyntaxBody: &innerBody,
+				Libraries:  map[string]*Library{"core": core},
+			},
+		},
+	}
+	return map[string]*Library{
+		"core": core,
+		"w": {
+			Name: "w",
+			ResourceComposites: map[string]*CompositeType{
+				"outer": {
+					Name:       "outer",
+					Kind:       NodeResource,
+					SyntaxBody: &outerBody,
+					Libraries:  map[string]*Library{"inner": inner},
+				},
+			},
+		},
+	}
+}
+
+func stateMoveNestedCompositeLibs(t *testing.T) map[string]*Library {
+	t.Helper()
+	innerBody := parseSyntaxCompositeFixture(t, `
+box: resource {
+  state-moves: [
+    { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
+  ]
+  resources: {
+    new: core.thing { name: 'alpha', size: 1 }
+  }
+}
+`).body
+	outerBody := parseSyntaxCompositeFixture(t, `
+web: resource {
+  resources: {
+    child: inner.box {}
+  }
+}
+`).body
+	core := resourceModules(&resourceCounters{})["core"]
+	inner := &Library{
+		Name: "inner",
+		ResourceComposites: map[string]*CompositeType{
+			"box": {
+				Name:       "box",
+				Kind:       NodeResource,
+				SyntaxBody: &innerBody,
+				Libraries:  map[string]*Library{"core": core},
+			},
+		},
+	}
+	return map[string]*Library{
+		"core": core,
+		"outer": {
+			Name: "outer",
+			ResourceComposites: map[string]*CompositeType{
+				"web": {
+					Name:       "web",
+					Kind:       NodeResource,
+					SyntaxBody: &outerBody,
+					Libraries:  map[string]*Library{"inner": inner},
+				},
+			},
+		},
+	}
+}
+
+func stateMoveBoundaryEntry(selector, address string) *state.Entry {
+	ref, err := ParseEntryRef(selector + "@" + address)
+	if err != nil {
+		panic(err)
+	}
+	return &state.Entry{
+		Address:  ref.Address,
+		Type:     state.EntryLibraryCall,
+		Kind:     "resource",
+		Selector: &state.Selector{Alias: ref.Selector.Alias, Export: ref.Selector.Export},
 	}
 }
 
