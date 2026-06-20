@@ -1720,14 +1720,21 @@ func TestCompileReplaceUnobinDoesNotNeedLock(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
 factory: {
-  imports: { greet: 'github.com/cloudboss/unobin//examples/configurations/greet' }
-  actions: { say: greet.say { message: 'world' } }
+  imports: { cloud: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
+  inputs: {
+    cloud-config: {
+      type:    library-config('github.com/cloudboss/unobin//examples/awscfg/cloud')
+      default: {}
+    }
+  }
+  library-configs: { cloud: var.cloud-config }
+  actions: { describe: cloud.describe { label: 'world' } }
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
 		manifestSource("requires: {}\nreplace: { "+
-			"'github.com/cloudboss/unobin//examples/configurations': '"+
-			filepath.Join(rootDir, "examples", "configurations")+"' }\n"), 0o644))
+			"'github.com/cloudboss/unobin//examples/awscfg': '"+
+			filepath.Join(rootDir, "examples", "awscfg")+"' }\n"), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
 		"-o", "-", "--replace-unobin", rootDir)
@@ -1736,18 +1743,18 @@ factory: {
 
 func TestCompileReplaceGoModuleDoesNotNeedLock(t *testing.T) {
 	rootDir := findUnobinRoot(t)
-	libDir := filepath.Join(rootDir, "examples", "configurations", "greet")
+	libDir := filepath.Join(rootDir, "examples", "awscfg", "cloud")
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
 factory: {
-  imports: { greet: 'github.com/x/greet' }
-  actions: { say: greet.say { message: 'world' } }
+  imports: { cloud: 'github.com/x/cloud' }
+  actions: { describe: cloud.describe { label: 'world' } }
 }
 `), 0o644))
 
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
-		"-o", "-", "--replace-go-module", "github.com/x/greet="+libDir)
+		"-o", "-", "--replace-go-module", "github.com/x/cloud="+libDir)
 	require.NoError(t, err)
 }
 
