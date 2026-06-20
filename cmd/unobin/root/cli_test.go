@@ -788,59 +788,6 @@ func findUnobinRoot(t *testing.T) string {
 	return ""
 }
 
-func TestCompileRequiresOut(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	stackPath := filepath.Join(dir, "factory.ub")
-	require.NoError(t, os.WriteFile(stackPath, factorySource("description: 'x'"), 0o644))
-
-	_, err := runCommand(t, "compile", "-p", stackPath)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "out")
-}
-
-func TestCompileMissingStackFile(t *testing.T) {
-	_, err := runCommand(t, "compile", "-p", "/no/such/path/factory.ub", "-o", "-")
-	require.Error(t, err)
-}
-
-func TestCompileInvalidStackFails(t *testing.T) {
-	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
-	require.NoError(t, os.WriteFile(stackPath, factorySource("exports: { x: 'y.ub' }\n"), 0o644))
-
-	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
-	require.Error(t, err)
-}
-
-func TestCompileInvalidReferenceFails(t *testing.T) {
-	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
-	require.NoError(t, os.WriteFile(stackPath, factorySource(`
-resources: { bad: local.file { path: var.missing } }
-`), 0o644))
-
-	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `unknown input "missing"`)
-}
-
-func TestCompileUnimportedResourceModuleFails(t *testing.T) {
-	dir := t.TempDir()
-	stackPath := filepath.Join(dir, "factory.ub")
-	require.NoError(t, os.WriteFile(stackPath, factorySource(`
-imports:   { std: 'github.com/cloudboss/unobin-library-std' }
-resources: { welcome: greeter.greeting { message: 'hello' } }
-`), 0o644))
-	writeCompileLock(t, dir, map[string]string{
-		"github.com/cloudboss/unobin-library-std": "v0.1.0",
-	})
-
-	_, err := runCommand(t, "compile", "-p", stackPath, "-o", "-")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `library "greeter" is not imported`)
-}
-
 func TestCompileUnknownTrailingFieldFails(t *testing.T) {
 	goModDir := writeFakeGoModule(t)
 

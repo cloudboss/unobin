@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:2:32: resolve: library "local" is not imported
+  factory.ub:2:40: resolve: unknown input "missing"
+

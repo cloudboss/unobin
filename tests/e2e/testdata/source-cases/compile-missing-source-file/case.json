@@ -1,0 +1,14 @@
+{
+  "name": "compile-missing-source-file",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "missing/factory.ub", "-o", "-"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "compile-unimported-resource-module",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/cloudboss/unobin-library-std@v0.1.0",
+      "path": "remotes/std"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "-"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

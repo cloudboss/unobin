@@ -1,0 +1,4 @@
+factory: {
+  imports:   { std: 'github.com/cloudboss/unobin-library-std' }
+  resources: { welcome: greeter.greeting { message: 'hello' } }
+}

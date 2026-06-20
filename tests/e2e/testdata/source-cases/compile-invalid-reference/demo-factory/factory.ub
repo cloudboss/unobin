@@ -1,0 +1,3 @@
+factory: {
+  resources: { bad: local.file { path: var.missing } }
+}
