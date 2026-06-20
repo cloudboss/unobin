@@ -73,7 +73,8 @@ type File struct {
 	Path          string
 	Content       string
 	Mode          int64
-	CreateParents bool `ub:"create-parents"`
+	CreateParents bool  `ub:"create-parents"`
+	FailUpdate    *bool `ub:"fail-update"`
 	Tags          map[string]string
 }
 
@@ -137,6 +138,9 @@ func (f *File) Update(
 	config *Configuration,
 	_ ubruntime.Prior[File, *FileOutput],
 ) (*FileOutput, error) {
+	if f.FailUpdate != nil && *f.FailUpdate {
+		return nil, errors.New("file update failed")
+	}
 	return f.write(config, "update")
 }
 

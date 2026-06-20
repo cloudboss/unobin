@@ -24,6 +24,7 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 	file := schema.Resources["file"]
 	assert.Contains(t, file.Inputs, "path")
 	assert.Contains(t, file.Inputs, "content")
+	assert.Contains(t, file.Inputs, "fail-update")
 	assert.Contains(t, file.Outputs, "sha256")
 	assert.NotEmpty(t, file.Defaults)
 	assert.NotEmpty(t, file.Constraints)
