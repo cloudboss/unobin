@@ -471,6 +471,19 @@ func TestFormatCall(t *testing.T) {
 	}
 }
 
+func TestFormatCallKeepsNextFieldAdjacentAfterMultilineCall(t *testing.T) {
+	src := `x: {
+  a: f(
+    {
+      b: 1
+    },
+  )
+  c: 2
+}
+`
+	require.Equal(t, src, formatString(t, src))
+}
+
 func TestFormatCallDeterministic(t *testing.T) {
 	tests := []string{
 		"a: lib.foo(1, 2, 3)\n",
