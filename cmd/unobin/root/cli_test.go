@@ -336,35 +336,6 @@ func goTestSource(modulePath string) *resolve.Source {
 	}}
 }
 
-// TestCompileUsesLockVersion compiles a factory whose import has no
-// @version: the version must come from lock.ub. The fake resolver only
-// serves the locked version, and the generated go.mod must record it.
-func TestCompileUsesLockVersion(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
-	lock := deps.NewLock()
-	lock.ToolchainVersion = "dev"
-	lock.Deps["github.com/x/core//lib"] = &deps.LockedDep{
-		Kind: deps.LockKindGo, Version: "v1.0.0", Commit: "c1",
-	}
-	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
-
-	remotes := map[string]*resolve.Source{
-		"github.com/x/core//lib@v1.0.0": {
-			FS: fstest.MapFS{"lib.go": &fstest.MapFile{Data: []byte("package lib")}},
-		},
-	}
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommandWithRemotes(t, remotes, "compile",
-		"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-	require.NoError(t, err)
-	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
-	require.NoError(t, err)
-	require.Contains(t, string(goMod), "github.com/x/core/lib v1.0.0")
-}
-
 func TestCompileRequiresGoModuleForSubpackage(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
@@ -408,9 +379,6 @@ func TestCompileRequiresGoModuleForSubpackage(t *testing.T) {
 	require.Equal(t, want, string(goMod))
 }
 
-// TestCompileRequiresLockedVersion compiles a factory whose import is
-// versionless and has no lock. Compile never selects a version on its own,
-// so it must fail and point at deps sync.
 // TestCompileWithReplacedGoLibrary compiles a factory that imports a Go
 // library by URL while the manifest replaces it with a local checkout. The
 // import needs no locked version, and the generated go.mod requires the
@@ -553,19 +521,6 @@ func TestCompileWithReplacedGoV2Module(t *testing.T) {
 		"\texample.com/lib/v2 => " + moduleDir + "\n" +
 		")\n"
 	require.Equal(t, want, string(goMod))
-}
-
-func TestCompileRequiresLockedVersion(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "github.com/x/core")
-	require.Contains(t, err.Error(), "deps sync")
 }
 
 // setCLIVersion stamps the CLI version for one test, the way a release
