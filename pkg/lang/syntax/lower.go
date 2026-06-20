@@ -247,6 +247,10 @@ func lowerFactoryBodyWithMode(
 			if obj := objectValue(fld, "library-configs", errs); obj != nil {
 				body.LibraryConfigs = lowerLibraryConfigDecls(obj, errs)
 			}
+		case "state-moves":
+			if arr := arrayValue(fld, "state-moves", errs); arr != nil {
+				body.StateMoves = lowerStateMoves(arr, errs)
+			}
 		case "resources":
 			if obj := objectValue(fld, "resources", errs); obj != nil {
 				body.Resources = lowerNodes(obj, NodeResource, errs)
@@ -781,6 +785,54 @@ func lowerLibraryConfigDecls(
 		decls = append(decls, LibraryConfigDecl{S: fld.S, Alias: alias, Value: fld.Value})
 	}
 	return decls
+}
+
+func lowerStateMoves(arr *parse.ArrayLit, errs *parse.ErrorList) []StateMoveDecl {
+	moves := make([]StateMoveDecl, 0, len(arr.Elements))
+	for i, elem := range arr.Elements {
+		obj, ok := elem.(*parse.ObjectLit)
+		if !ok {
+			errs.Addf(parse.ErrSchema, elem.Span().Start,
+				"state-moves[%d] must be an object", i)
+			continue
+		}
+		moves = append(moves, lowerStateMove(i, obj, errs))
+	}
+	return moves
+}
+
+func lowerStateMove(i int, obj *parse.ObjectLit, errs *parse.ErrorList) StateMoveDecl {
+	move := StateMoveDecl{S: obj.S}
+	seen := make(map[string]parse.Position, len(obj.Fields))
+	for _, fld := range obj.Fields {
+		name, ok := fieldName(fld, fmt.Sprintf("state-moves[%d] field", i), errs)
+		if !ok {
+			continue
+		}
+		if prev, dup := seen[name.Name]; dup {
+			errs.Addf(parse.ErrSchema, name.S.Start,
+				"state-moves[%d]: duplicate field %q (first defined at %s)",
+				i, name.Name, prev)
+			continue
+		}
+		seen[name.Name] = name.S.Start
+		switch name.Name {
+		case "from":
+			move.From = stringValue(fld, fmt.Sprintf("state-moves[%d].from", i), errs)
+		case "to":
+			move.To = stringValue(fld, fmt.Sprintf("state-moves[%d].to", i), errs)
+		default:
+			errs.Addf(parse.ErrSchema, name.S.Start,
+				"state-moves[%d]: unknown field %q", i, name.Name)
+		}
+	}
+	if _, ok := seen["from"]; !ok {
+		errs.Addf(parse.ErrSchema, obj.S.Start, "state-moves[%d]: missing from", i)
+	}
+	if _, ok := seen["to"]; !ok {
+		errs.Addf(parse.ErrSchema, obj.S.Start, "state-moves[%d]: missing to", i)
+	}
+	return move
 }
 
 func lowerNodes(

@@ -1,0 +1,6 @@
+factory: {
+  state-moves: [
+    { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
+    { from: 'core.thing@resource.old', to: 'core.thing@resource.final' },
+  ]
+}

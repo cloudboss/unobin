@@ -1,0 +1,5 @@
+factory: {
+  state-moves: [
+    'core.thing@resource.old'
+  ]
+}

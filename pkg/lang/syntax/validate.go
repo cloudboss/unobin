@@ -1,10 +1,12 @@
 package syntax
 
 import (
+	"strings"
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
 var (
@@ -67,6 +69,7 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	mergeErrors(errs, lang.ValidateImports(importDeclsObject(body.Imports)))
 	validateLibraryConfigTypePlacement(body.Inputs, errs)
 	validateLibraryConfigDecls(body.LibraryConfigs, errs)
+	validateStateMoves(body.StateMoves, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
 	validateNodeDecls(body.Data, "data", dataBodyMeta, errs)
 	validateNodeDecls(body.Actions, "action", actionBodyMeta, errs)
@@ -296,6 +299,89 @@ func validateLibraryConfigDecls(decls []LibraryConfigDecl, errs *parse.ErrorList
 			continue
 		}
 		seen[decl.Alias.Name] = decl.Alias.S.Start
+	}
+}
+
+func validateStateMoves(decls []StateMoveDecl, errs *parse.ErrorList) {
+	refs := make([]stateMoveRefs, 0, len(decls))
+	seen := map[string]parse.Position{}
+	for i, decl := range decls {
+		if decl.From == nil || decl.To == nil {
+			continue
+		}
+		from, ok := validateStateMoveRef(i, "from", decl.From, errs)
+		if !ok {
+			continue
+		}
+		to, ok := validateStateMoveRef(i, "to", decl.To, errs)
+		if !ok {
+			continue
+		}
+		if stateref.Same(from, to) {
+			errs.Addf(parse.ErrSchema, decl.From.S.Start,
+				"state-moves[%d]: from and to must differ", i)
+			continue
+		}
+		if prev, dup := seen[from.String()]; dup {
+			errs.Addf(parse.ErrSchema, decl.From.S.Start,
+				"state-moves[%d]: duplicate from %s (first defined at %s)",
+				i, from.String(), prev)
+			continue
+		}
+		seen[from.String()] = decl.From.S.Start
+		refs = append(refs, stateMoveRefs{index: i, from: from, to: to, pos: decl.From.S.Start})
+	}
+	validateStateMoveCycles(refs, errs)
+}
+
+type stateMoveRefs struct {
+	index int
+	from  stateref.EntryRef
+	to    stateref.EntryRef
+	pos   parse.Position
+}
+
+func validateStateMoveRef(
+	i int,
+	field string,
+	lit *parse.StringLit,
+	errs *parse.ErrorList,
+) (stateref.EntryRef, bool) {
+	ref, err := stateref.Parse(lit.Value)
+	if err != nil {
+		errs.Addf(parse.ErrSchema, lit.S.Start,
+			"state-moves[%d].%s: %v", i, field, err)
+		return stateref.EntryRef{}, false
+	}
+	return ref, true
+}
+
+func validateStateMoveCycles(refs []stateMoveRefs, errs *parse.ErrorList) {
+	edges := map[string]stateref.EntryRef{}
+	for _, ref := range refs {
+		edges[ref.from.String()] = ref.to
+	}
+	for _, ref := range refs {
+		seen := map[string]int{}
+		var path []string
+		cur := ref.from
+		for {
+			key := cur.String()
+			if idx, ok := seen[key]; ok {
+				cycle := append(path[idx:], key)
+				errs.Addf(parse.ErrSchema, ref.pos,
+					"state-moves[%d]: cycle: %s", ref.index, strings.Join(cycle, " -> "))
+				break
+			}
+			next, ok := edges[key]
+			if !ok {
+				break
+			}
+			seen[key] = len(path)
+			path = append(path, key)
+			cur = next
+		}
+		delete(edges, ref.from.String())
 	}
 }
 

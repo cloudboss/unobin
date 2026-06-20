@@ -1,0 +1,1 @@
+state-moves[0]: cycle: core.thing@resource.a -> core.thing@resource.b -> core.thing@resource.a

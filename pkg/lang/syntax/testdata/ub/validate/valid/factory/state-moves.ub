@@ -1,0 +1,11 @@
+factory: {
+  state-moves: [
+    { from: '''core.thing@resource.old''', to: '''core.thing@resource.new''' },
+    { from: '''core.thing@resource.items['old']''', to: '''core.thing@resource.items['new']''' },
+  ]
+
+  resources: {
+    new: core.thing {}
+    items: core.thing { @for-each: ['new'] }
+  }
+}

@@ -1,0 +1,1 @@
+factory.ub:3:13: schema: state-moves[0].from must be a string literal

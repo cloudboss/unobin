@@ -89,6 +89,7 @@ type FactoryBody struct {
 	Constraints    []ConstraintDecl
 	Imports        []ImportDecl
 	LibraryConfigs []LibraryConfigDecl
+	StateMoves     []StateMoveDecl
 	Resources      []NodeDecl
 	Data           []NodeDecl
 	Actions        []NodeDecl
@@ -149,6 +150,12 @@ type LibraryConfigDecl struct {
 	S     parse.Span
 	Alias Ident
 	Value parse.Expr
+}
+
+type StateMoveDecl struct {
+	S    parse.Span
+	From *parse.StringLit
+	To   *parse.StringLit
 }
 
 type StateDecl struct {

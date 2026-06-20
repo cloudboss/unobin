@@ -1,0 +1,9 @@
+factory: {
+  state-moves: [
+    {
+      from: 'core.thing@resource.old'
+      from: 'core.thing@resource.other'
+      to:   'core.thing@resource.new'
+    }
+  ]
+}

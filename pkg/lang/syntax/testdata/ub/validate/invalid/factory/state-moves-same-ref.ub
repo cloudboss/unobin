@@ -1,0 +1,5 @@
+factory: {
+  state-moves: [
+    { from: 'core.thing@resource.same', to: 'core.thing@resource.same' }
+  ]
+}

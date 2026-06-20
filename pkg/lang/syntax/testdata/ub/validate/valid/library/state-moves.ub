@@ -1,0 +1,9 @@
+web-cluster: resource {
+  state-moves: [
+    { from: '''aws.security-group@resource.sg''', to: '''aws.security-group@resource.web-sg''' },
+  ]
+
+  resources: {
+    web-sg: aws.security-group {}
+  }
+}
