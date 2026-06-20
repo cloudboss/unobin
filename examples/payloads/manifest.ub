@@ -1,7 +1,7 @@
 manifest: {
   requires: {
     'github.com/cloudboss/unobin-library-std': {
-      version: 'v0.1.0'
+      version: 'v0.2.0'
     }
   }
   replace: {
