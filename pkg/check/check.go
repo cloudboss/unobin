@@ -77,6 +77,7 @@ func (c *Checker) References(observe func(e lang.Expr, t typecheck.Type)) *lang.
 	r.checkNodeCycles()
 	r.checkConstraints()
 	r.checkTypes()
+	r.checkStateMoves()
 	return r.errs
 }
 
