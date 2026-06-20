@@ -1,0 +1,3 @@
+{ kind: 'apply-output', name: 'read-content', value: 'one' }
+{ kind: 'apply-output', name: 'read-size', value: 3 }
+{ kind: 'apply-output', name: 'recorded', value: 'read:one' }

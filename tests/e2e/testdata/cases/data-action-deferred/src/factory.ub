@@ -1,0 +1,47 @@
+factory: {
+  inputs: {
+    file-content: { type: string }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  resources: {
+    doc: e2e.file {
+      path:    'files/data.txt'
+      content: var.file-content
+    }
+  }
+
+  data: {
+    read-back: e2e.read-file {
+      path: resource.doc.path
+    }
+  }
+
+  actions: {
+    capture: e2e.record {
+      name:    'read'
+      message: data.read-back.content
+    }
+  }
+
+  outputs: {
+    read-content: { value: data.read-back.content }
+    read-size:    { value: data.read-back.size }
+    recorded:     { value: action.capture.record }
+  }
+}

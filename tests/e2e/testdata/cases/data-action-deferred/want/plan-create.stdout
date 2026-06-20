@@ -1,0 +1,10 @@
+  (rerun)   action.capture
+      message: <data.read-back.content>
+      name: 'read'
+  (create)  resource.doc
+      content: 'one'
+      create-parents: true
+      mode: 420
+      path: 'files/data.txt'
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.

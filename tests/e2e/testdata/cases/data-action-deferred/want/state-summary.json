@@ -1,0 +1,80 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "data-action-deferred",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.capture",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": {
+        "alias": "e2e",
+        "export": "record"
+      },
+      "inputs": {
+        "message": "two",
+        "name": "read"
+      },
+      "outputs": {
+        "count": 1,
+        "name": "read",
+        "record": "read:two"
+      },
+      "depends-on": [
+        "resource.doc"
+      ]
+    },
+    {
+      "address": "data.read-back",
+      "entry-kind": "data",
+      "node-kind": "data",
+      "selector": {
+        "alias": "e2e",
+        "export": "read-file"
+      },
+      "inputs": {
+        "optional": false,
+        "path": "files/data.txt"
+      },
+      "outputs": {
+        "content": "two",
+        "exists": true,
+        "path": "files/data.txt",
+        "sha256": "3fc4ccfe745870e2c0d99f71f30ff0656c8dedd41cc1d7d3d376b0dbe685e2f3",
+        "size": 3
+      }
+    },
+    {
+      "address": "resource.doc",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "two",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/data.txt"
+      },
+      "outputs": {
+        "content": "two",
+        "exists": true,
+        "path": "files/data.txt",
+        "sha256": "3fc4ccfe745870e2c0d99f71f30ff0656c8dedd41cc1d7d3d376b0dbe685e2f3",
+        "size": 3
+      }
+    }
+  ],
+  "outputs": {
+    "read-content": "two",
+    "read-size": 3,
+    "recorded": "read:two"
+  }
+}
