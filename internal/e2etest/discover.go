@@ -29,6 +29,7 @@ type CompiledCase struct {
 	Commands      []Command   `json:"commands"`
 	Files         []FileCheck `json:"files"`
 	StateSummary  string      `json:"stateSummary"`
+	StateSeed     string      `json:"stateSeed"`
 	Deterministic bool        `json:"deterministic"`
 }
 
@@ -187,7 +188,10 @@ func validateCompiledCase(c CompiledCase) error {
 	if err := validateFiles(c.Files); err != nil {
 		return err
 	}
-	return checkRelPath("stateSummary", c.StateSummary)
+	if err := checkRelPath("stateSummary", c.StateSummary); err != nil {
+		return err
+	}
+	return checkRelPath("stateSeed", c.StateSeed)
 }
 
 func validateSourceCase(c SourceCase) error {

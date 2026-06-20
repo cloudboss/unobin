@@ -23,6 +23,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 			t.Fatalf("built binary: %v", err)
 		}
 	}
+	if err := seedState(workspace, c); err != nil {
+		t.Fatal(err)
+	}
 	pinned := map[string]bool{}
 	var lastStackPath string
 	for _, cmd := range c.Commands {
