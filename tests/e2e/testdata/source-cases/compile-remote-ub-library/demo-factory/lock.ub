@@ -1,0 +1,11 @@
+lock: {
+  version:   1
+  toolchain: { unobin-version: 'dev' }
+  deps: {
+    'github.com/example/net//libraries/network': {
+      kind:    go
+      version: 'v1'
+      commit:  'abc123'
+    }
+  }
+}

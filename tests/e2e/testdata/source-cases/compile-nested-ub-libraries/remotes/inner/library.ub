@@ -1,0 +1,7 @@
+hello: resource {
+  description: 'inner hello'
+  inputs: { path: { type: string } }
+  imports: { std: 'github.com/cloudboss/unobin-library-std' }
+  resources: { this: std.file { path: var.path, content: 'hi' } }
+  outputs: { path: { value: resource.this.path } }
+}

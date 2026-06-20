@@ -1,0 +1,3 @@
+factory: {
+  imports: { outer: 'github.com/example/outer//ub/outer' }
+}

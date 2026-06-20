@@ -1,0 +1,3 @@
+factory: {
+  imports: { a: 'github.com/example/a//ub/a' }
+}

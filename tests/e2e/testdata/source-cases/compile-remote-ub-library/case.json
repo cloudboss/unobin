@@ -1,0 +1,25 @@
+{
+  "name": "compile-remote-ub-library",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/example/net//libraries/network@v1",
+      "path": "remotes/net",
+      "commit": "abc123"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr"
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" },
+    { "path": "demo-factory/build/internal/net/net.go", "want": "want/net.go" }
+  ]
+}

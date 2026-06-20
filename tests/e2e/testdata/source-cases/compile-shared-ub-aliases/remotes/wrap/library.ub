@@ -1,0 +1,7 @@
+greeting: resource {
+  description: 'wrap greeting'
+  inputs: { path: { type: string } }
+  imports: { inside: 'github.com/example/shared//ub/shared' }
+  resources: { x: inside.hello { path: var.path } }
+  outputs: { path: { value: resource.x.path } }
+}

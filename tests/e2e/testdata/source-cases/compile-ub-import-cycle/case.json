@@ -1,0 +1,26 @@
+{
+  "name": "compile-ub-import-cycle",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/example/a//ub/a@v1",
+      "path": "remotes/a",
+      "commit": "a"
+    },
+    {
+      "key": "github.com/example/b//ub/b@v1",
+      "path": "remotes/b",
+      "commit": "b"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

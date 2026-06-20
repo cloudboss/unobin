@@ -1,0 +1,6 @@
+hello: resource {
+  description: 'inner hello'
+  inputs: { path: { type: string } }
+  resources: { x: local.file { path: var.path, content: 'hi' } }
+  outputs: { path: { value: resource.x.path } }
+}

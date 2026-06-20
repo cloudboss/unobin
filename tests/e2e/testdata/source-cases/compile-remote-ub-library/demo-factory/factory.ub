@@ -1,0 +1,3 @@
+factory: {
+  imports: { net: 'github.com/example/net//libraries/network' }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "compile-nested-ub-libraries",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/example/outer//ub/outer@v1",
+      "path": "remotes/outer",
+      "commit": "outer-commit"
+    },
+    {
+      "key": "github.com/example/inner//ub/inner@v1",
+      "path": "remotes/inner",
+      "commit": "inner-commit"
+    },
+    {
+      "key": "github.com/cloudboss/unobin-library-std@v0.1.0",
+      "path": "remotes/std",
+      "commit": "std-commit"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr"
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" },
+    { "path": "demo-factory/build/internal/outer/outer.go", "want": "want/outer.go" },
+    { "path": "demo-factory/build/internal/inner/inner.go", "want": "want/inner.go" }
+  ]
+}

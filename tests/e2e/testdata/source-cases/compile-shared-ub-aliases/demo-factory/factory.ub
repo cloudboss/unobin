@@ -1,0 +1,6 @@
+factory: {
+  imports: {
+    shared: 'github.com/example/shared//ub/shared'
+    wrap: 'github.com/example/wrap//ub/wrap'
+  }
+}

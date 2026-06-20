@@ -1,0 +1,31 @@
+{
+  "name": "compile-ub-lock-hash-mismatch",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/scratch/repo//ub/helloer@v0.8.0",
+      "path": "remotes/repo/ub/helloer",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/scratch/repo//ub/helloer@c1",
+      "path": "remotes/repo/ub/helloer",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/scratch/repo@c1",
+      "path": "remotes/repo",
+      "commit": "c1"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

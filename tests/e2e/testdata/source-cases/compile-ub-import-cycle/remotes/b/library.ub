@@ -1,0 +1,5 @@
+type-b: resource {
+  description: 'b body'
+  imports: { a: 'github.com/example/a//ub/a' }
+  resources: { z: a.type-a {} }
+}

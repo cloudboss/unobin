@@ -1,0 +1,1 @@
+Error: import "a": composite "type-a": import "b": composite "type-b": import cycle through remote:github.com/example/a//ub/a@v1
