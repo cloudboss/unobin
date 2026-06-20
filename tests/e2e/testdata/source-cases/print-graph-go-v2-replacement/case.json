@@ -1,0 +1,11 @@
+{
+  "name": "print-graph-go-v2-replacement",
+  "rootPath": "repo",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."]
+    }
+  ]
+}

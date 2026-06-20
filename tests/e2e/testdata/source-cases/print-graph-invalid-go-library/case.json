@@ -1,0 +1,21 @@
+{
+  "name": "print-graph-invalid-go-library",
+  "rootPath": "graph-invalid-go",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/bad@v1.0.0",
+      "path": "remotes/bad",
+      "commit": "c1",
+      "sourcePath": true
+    }
+  ],
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."],
+      "stderr": "want/print-graph.stderr",
+      "exitCode": 1
+    }
+  ]
+}

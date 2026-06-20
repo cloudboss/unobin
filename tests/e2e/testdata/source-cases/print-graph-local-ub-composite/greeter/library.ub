@@ -1,0 +1,7 @@
+greeting: resource {
+  description: 'Greeting composite'
+  inputs: { message: { type: string } }
+  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
+  resources: { this: local.file { path: '/tmp/greeting', content: var.message } }
+  outputs: { path: { value: resource.this.path } }
+}

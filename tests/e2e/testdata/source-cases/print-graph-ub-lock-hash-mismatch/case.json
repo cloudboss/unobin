@@ -1,0 +1,30 @@
+{
+  "name": "print-graph-ub-lock-hash-mismatch",
+  "rootPath": "graph",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/scratch/repo//ub/helloer@v0.8.0",
+      "path": "remotes/repo/ub/helloer",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/scratch/repo//ub/helloer@c1",
+      "path": "remotes/repo/ub/helloer",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/scratch/repo@c1",
+      "path": "remotes/repo",
+      "commit": "c1"
+    }
+  ],
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."],
+      "stderr": "want/print-graph.stderr",
+      "exitCode": 1
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+factory: {
+  inputs:  { who: { type: string } }
+  imports: { greeter: '../greeter' }
+  resources: { hello: greeter.greeting { message: var.who } }
+}

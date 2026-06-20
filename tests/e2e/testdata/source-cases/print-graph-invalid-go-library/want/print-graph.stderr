@@ -1,0 +1,1 @@
+Error: import "bad": Library function must return *runtime.Library

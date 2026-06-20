@@ -1,0 +1,1 @@
+Error: manifest: dependency example.com/lib: v0.0.0-unobin-replaced is reserved for manifest replacements; add an exact manifest.replace entry

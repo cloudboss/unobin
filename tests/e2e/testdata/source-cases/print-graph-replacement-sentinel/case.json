@@ -1,0 +1,13 @@
+{
+  "name": "print-graph-replacement-sentinel",
+  "rootPath": "graph-sentinel",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."],
+      "stderr": "want/print-graph.stderr",
+      "exitCode": 1
+    }
+  ]
+}

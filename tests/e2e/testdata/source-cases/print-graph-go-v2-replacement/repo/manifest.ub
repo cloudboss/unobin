@@ -1,0 +1,4 @@
+manifest: {
+  requires: { 'example.com/lib/v2': { version: 'v2.0.0-unobin-replaced' } }
+  replace: { 'example.com/lib/v2': './lib' }
+}

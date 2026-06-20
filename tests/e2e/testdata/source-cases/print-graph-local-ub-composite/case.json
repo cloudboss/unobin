@@ -1,0 +1,18 @@
+{
+  "name": "print-graph-local-ub-composite",
+  "rootPath": ".",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0",
+      "path": "remotes/local"
+    }
+  ],
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "stack/factory.ub"],
+      "stdout": "want/print-graph.stdout"
+    }
+  ]
+}
