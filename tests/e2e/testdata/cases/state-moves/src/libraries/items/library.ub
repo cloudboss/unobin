@@ -1,0 +1,31 @@
+item: resource {
+  state-moves: [
+    { from: 'e2e.file@resource.old-file', to: 'e2e.file@resource.file' },
+  ]
+
+  inputs: {
+    path: { type: string }
+    content: { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  resources: {
+    file: e2e.file {
+      path:    var.path
+      content: var.content
+    }
+  }
+
+  outputs: {
+    content: { value: resource.file.content }
+    path:    { value: resource.file.path }
+  }
+}

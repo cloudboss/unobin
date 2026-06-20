@@ -1,0 +1,16 @@
+State moves:
+  e2e.file@resource.old-direct -> e2e.file@resource.direct
+  e2e.file@resource.old-items['blue'] -> e2e.file@resource.items['blue']
+  groups.group@resource.old-group -> groups.group@resource.group
+  e2e.file@resource.old-group/resource.old-file -> e2e.file@resource.group/resource.file
+  items.item@resource.old-group/resource.old-single -> items.item@resource.group/resource.single
+  e2e.file@resource.old-group/resource.old-single/resource.old-file -> e2e.file@resource.group/resource.single/resource.file
+
+  (update)  resource.bad
+      content: 'old failure content' -> 'new failure content'
+      create-parents: true
+      fail-update: true
+      mode: 420
+      path: 'files/fail.txt'
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to destroy, 0 to rerun.

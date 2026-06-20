@@ -1,0 +1,7 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'eval', address: 'library-config.e2e' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'eval', address: 'library-config.e2e', elapsed: '<elapsed>' }
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'update', address: 'resource.bad' }
+{ kind: 'apply-event', time: '<time>', stage: 'fail', decision: 'update', address: 'resource.bad', elapsed: '<elapsed>', err: 'file update failed' }
+{ kind: 'apply-error', address: 'resource.bad', decision: 'update', library: 'e2e', elapsed: '<elapsed>', err: 'file update failed', succeeded: 1 }
+resource.bad: file update failed

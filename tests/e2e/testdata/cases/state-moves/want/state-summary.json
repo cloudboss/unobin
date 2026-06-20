@@ -1,0 +1,186 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "state-moves",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.bad",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "old failure content",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/fail.txt"
+      },
+      "outputs": {
+        "content": "old failure content",
+        "exists": true,
+        "path": "files/fail.txt",
+        "sha256": "5cc0812f152bc1f9d2a9de1498a0121df42086ad6d789e88614735e80bfb00da",
+        "size": 19
+      }
+    },
+    {
+      "address": "resource.direct",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "direct",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/direct.txt"
+      },
+      "outputs": {
+        "content": "direct",
+        "exists": true,
+        "path": "files/direct.txt",
+        "sha256": "d15690f08a575024650b01ffac892cfd2b93e6c57c140f1b6d9e47753cabd579",
+        "size": 6
+      }
+    },
+    {
+      "address": "resource.group",
+      "entry-kind": "library-call",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "groups",
+        "export": "group"
+      },
+      "inputs": {
+        "content": "grouped",
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "file-path": "files/group.txt",
+        "single-path": "files/single.txt"
+      },
+      "outputs": {
+        "file-content": "grouped",
+        "single-content": "grouped"
+      },
+      "depends-on": [
+        "resource.group/resource.file",
+        "resource.group/resource.single"
+      ]
+    },
+    {
+      "address": "resource.group/resource.file",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "grouped",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/group.txt"
+      },
+      "outputs": {
+        "content": "grouped",
+        "exists": true,
+        "path": "files/group.txt",
+        "sha256": "053d4d953dfbf7796624a8cef8ba8fdc9ee2a82200d6c4569bd816119b107dc2",
+        "size": 7
+      }
+    },
+    {
+      "address": "resource.group/resource.single",
+      "entry-kind": "library-call",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "items",
+        "export": "item"
+      },
+      "inputs": {
+        "content": "grouped",
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "path": "files/single.txt"
+      },
+      "outputs": {
+        "content": "grouped",
+        "path": "files/single.txt"
+      },
+      "depends-on": [
+        "resource.group/resource.single/resource.file"
+      ]
+    },
+    {
+      "address": "resource.group/resource.single/resource.file",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "grouped",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/single.txt"
+      },
+      "outputs": {
+        "content": "grouped",
+        "exists": true,
+        "path": "files/single.txt",
+        "sha256": "053d4d953dfbf7796624a8cef8ba8fdc9ee2a82200d6c4569bd816119b107dc2",
+        "size": 7
+      }
+    },
+    {
+      "address": "resource.items['blue']",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "blue item",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/item-blue.txt"
+      },
+      "outputs": {
+        "content": "blue item",
+        "exists": true,
+        "path": "files/item-blue.txt",
+        "sha256": "b58a80d1637025111bc36b2b803319f0202dff51351c14fd629cfbcab4cf2392",
+        "size": 9
+      }
+    }
+  ]
+}

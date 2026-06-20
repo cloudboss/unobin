@@ -1,0 +1,71 @@
+factory: {
+  state-moves: [
+    { from: 'e2e.file@resource.old-direct', to: 'e2e.file@resource.direct' },
+    { from: '''e2e.file@resource.old-items['blue']''', to: '''e2e.file@resource.items['blue']''' },
+    { from: 'groups.group@resource.old-group', to: 'groups.group@resource.group' },
+  ]
+
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  locals: {
+    items: {
+      blue: { path: 'files/item-blue.txt', content: 'blue item' }
+    }
+    group: {
+      file-path:   'files/group.txt'
+      single-path: 'files/single.txt'
+      content:     'grouped'
+    }
+  }
+
+  imports: {
+    e2e:    'example.com/unobin/e2elib'
+    groups: './libraries/groups'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  resources: {
+    direct: e2e.file {
+      path:    'files/direct.txt'
+      content: 'direct'
+    }
+
+    items: e2e.file {
+      @for-each: local.items
+      path:      @each.value.path
+      content:   @each.value.content
+    }
+
+    group: groups.group {
+      file-path:   local.group.file-path
+      single-path: local.group.single-path
+      content:     local.group.content
+      e2e-config:  var.e2e-config
+    }
+
+    bad: e2e.file {
+      path:        'files/fail.txt'
+      content:     'new failure content'
+      fail-update: true
+    }
+  }
+
+  outputs: {
+    direct: { value: resource.direct.content }
+    item:   { value: resource.items['blue'].content }
+    group:  { value: resource.group.file-content }
+    single: { value: resource.group.single-content }
+  }
+}
