@@ -199,43 +199,6 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
-func TestDepsSyncAddsLockedVersionForDirectImport(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {}\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core' }\n"), 0o644))
-	lock := deps.NewLock()
-	lock.ToolchainVersion = "v0.1.0"
-	lock.Deps["github.com/x/core"] = &deps.LockedDep{
-		Kind: deps.LockKindGo, Version: "v1.2.0", Commit: "c12",
-	}
-	require.NoError(t, deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock))
-	remotes := map[string]*resolve.Source{
-		"github.com/x/core@v1.2.0": {
-			Commit: "c12",
-			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core\n")},
-				"lib.go": &fstest.MapFile{Data: []byte("package core\n")},
-			},
-		},
-	}
-
-	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
-	require.NoError(t, err)
-
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
-	require.NoError(t, err)
-	require.Equal(t, `manifest: {
-  requires: {
-    'github.com/x/core': {
-      version: 'v1.2.0'
-    }
-  }
-}
-`, string(manifestBytes))
-}
-
 func TestDepsSyncRejectsInvalidGoLibrary(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
@@ -1090,15 +1053,6 @@ func writeProjectLock(t *testing.T, root string) fstest.MapFS {
 	return ubFS
 }
 
-func TestDepsList(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "proj")
-	writeProjectLock(t, root)
-	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "factory.ub"))
-	require.NoError(t, err)
-	require.Equal(t,
-		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)
-}
-
 func TestDepsListUsesAncestorManifest(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	child := filepath.Join(root, "services", "app")
@@ -1127,14 +1081,6 @@ func TestDepsListAcceptsDirectory(t *testing.T) {
 	out, err = runCommand(t, "deps", "list", "-p", root+string(filepath.Separator))
 	require.NoError(t, err)
 	require.Equal(t, want, out)
-}
-
-func TestDepsListNoLock(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "proj")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	_, err := runCommand(t, "deps", "list", "-p", filepath.Join(root, "factory.ub"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "run `unobin deps sync`")
 }
 
 func TestDepsVerifyMatches(t *testing.T) {
@@ -1316,37 +1262,6 @@ func TestDepsGetExactVersion(t *testing.T) {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, "v1.2.0", lock.Deps["github.com/x/core//lib"].Version)
-}
-
-func TestDepsGetTransitiveDependencyWritesIndirect(t *testing.T) {
-	root := writeScratchImportProject(t, `requires: {
-  'github.com/x/scratch': { version: 'v0.8.0' }
-}
-`)
-	stubListTags(t, map[string][]string{"github.com/x/std": {"v0.1.0", "v0.2.0"}})
-
-	out, err := runCommandWithRemotes(t, scratchStdRemotes(),
-		"deps", "get", "github.com/x/std@v0.2.0", "-p", root)
-	require.NoError(t, err)
-	require.Contains(t, out, "github.com/x/std v0.2.0")
-
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
-	require.NoError(t, err)
-	require.Equal(t, `manifest: {
-  requires: {
-    'github.com/x/scratch': {
-      version: 'v0.8.0'
-    }
-    'github.com/x/std': {
-      version:  'v0.2.0'
-      indirect: true
-    }
-  }
-}
-`, string(manifestBytes))
-	lock, err := deps.ReadLock(os.DirFS(root))
-	require.NoError(t, err)
-	require.Equal(t, "v0.2.0", lock.Deps["github.com/x/std"].Version)
 }
 
 func TestDepsGetRejectsUnreachableDependency(t *testing.T) {

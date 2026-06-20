@@ -84,6 +84,13 @@ var depsListTags = func(url string) ([]string, error) {
 	return git.ListTags(context.Background(), resolve.WithDefaultScheme(url))
 }
 
+// SetDepsListTagsForTest replaces tag listing and returns a restore function.
+func SetDepsListTagsForTest(listTags func(string) ([]string, error)) func() {
+	prev := depsListTags
+	depsListTags = listTags
+	return func() { depsListTags = prev }
+}
+
 type depsSyncConfig struct {
 	stackPath     string
 	replaceUnobin string

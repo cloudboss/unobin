@@ -1,0 +1,12 @@
+{
+  "name": "deps-list",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-list",
+      "args": ["deps", "list", "-p", "factory.ub"],
+      "stdout": "want/deps-list.stdout"
+    }
+  ]
+}

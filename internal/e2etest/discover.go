@@ -36,11 +36,21 @@ type CompiledCase struct {
 
 // SourceCase describes a source-root CLI e2e case.
 type SourceCase struct {
-	Name     string      `json:"name"`
-	Dir      string      `json:"-"`
-	RootPath string      `json:"rootPath"`
-	Commands []Command   `json:"commands"`
-	Files    []FileCheck `json:"files"`
+	Name     string              `json:"name"`
+	Dir      string              `json:"-"`
+	RootPath string              `json:"rootPath"`
+	Executor string              `json:"executor"`
+	Remotes  []RemoteSource      `json:"remotes"`
+	Tags     map[string][]string `json:"tags"`
+	Commands []Command           `json:"commands"`
+	Files    []FileCheck         `json:"files"`
+}
+
+// RemoteSource describes a fake remote repository used by source-root cases.
+type RemoteSource struct {
+	Key    string `json:"key"`
+	Path   string `json:"path"`
+	Commit string `json:"commit"`
 }
 
 // Command describes one subprocess invocation.
@@ -90,7 +100,7 @@ func RunSourceCases(t *testing.T, dir string, opts ...Option) {
 		t.Fatal(err)
 	}
 	executable := cfg.unobinExecutable
-	if executable == "" {
+	if executable == "" && sourceCasesNeedProcess(cases) {
 		if testing.Short() {
 			t.Skip("skipped: builds unobin CLI")
 		}
@@ -217,13 +227,32 @@ func validateSourceCase(c SourceCase) error {
 	if c.Name == "" {
 		return fmt.Errorf("name is required")
 	}
+	if c.Executor != "" && c.Executor != "process" && c.Executor != "root" {
+		return fmt.Errorf("executor must be process or root")
+	}
 	if err := checkRelPath("rootPath", c.RootPath); err != nil {
+		return err
+	}
+	if err := validateRemotes(c.Remotes); err != nil {
 		return err
 	}
 	if err := validateCommands(c.Commands); err != nil {
 		return err
 	}
 	return validateFiles(c.Files)
+}
+
+func validateRemotes(remotes []RemoteSource) error {
+	for i, remote := range remotes {
+		prefix := fmt.Sprintf("remotes[%d]", i)
+		if remote.Key == "" {
+			return fmt.Errorf("%s.key is required", prefix)
+		}
+		if err := checkRelPath(prefix+".path", remote.Path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateCommands(commands []Command) error {

@@ -66,6 +66,15 @@ func TestDiscoverSourceCases(t *testing.T) {
 	writeCaseFile(t, dir, "deps-sync", `{
 		"name": "deps-sync",
 		"rootPath": "root",
+		"executor": "root",
+		"tags": { "github.com/x/lib": ["v1.0.0"] },
+		"remotes": [
+			{
+				"key": "github.com/x/lib@v1.0.0",
+				"path": "remotes/lib",
+				"commit": "abc123"
+			}
+		],
 		"commands": [
 			{ "name": "sync", "args": ["deps", "sync"], "stdout": "want/stdout" }
 		],
@@ -82,6 +91,12 @@ func TestDiscoverSourceCases(t *testing.T) {
 	assert.Equal(t, "deps-sync", got.Name)
 	assert.Equal(t, filepath.Join(dir, "deps-sync"), got.Dir)
 	assert.Equal(t, "root", got.RootPath)
+	assert.Equal(t, "root", got.Executor)
+	require.Len(t, got.Remotes, 1)
+	assert.Equal(t, "github.com/x/lib@v1.0.0", got.Remotes[0].Key)
+	assert.Equal(t, "remotes/lib", got.Remotes[0].Path)
+	assert.Equal(t, "abc123", got.Remotes[0].Commit)
+	assert.Equal(t, []string{"v1.0.0"}, got.Tags["github.com/x/lib"])
 	assert.Equal(t, "sync", got.Commands[0].Name)
 	assert.Equal(t, "root/manifest.ub", got.Files[0].Path)
 }

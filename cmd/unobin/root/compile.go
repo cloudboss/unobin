@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/compile"
+	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 )
 
@@ -90,6 +91,15 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 // and deps commands fetch import sources with. Tests override this
 // package var to avoid any network access.
 var newCompileResolver = compile.NewProjectResolver
+
+// SetCompileResolverForTest replaces the resolver factory and returns a restore function.
+func SetCompileResolverForTest(
+	newResolver func(string) (resolve.Resolver, error),
+) func() {
+	prev := newCompileResolver
+	newCompileResolver = newResolver
+	return func() { newCompileResolver = prev }
+}
 
 // parseReplaceFlags parses each `--replace-go-module module-path=local-path`
 // value into the map fed to both the import resolver and the generated

@@ -1,7 +1,14 @@
 {
-  "name": "deps-sync-local-replace",
+  "name": "deps-sync-locked-direct",
   "rootPath": "root",
   "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/core@v1.2.0",
+      "path": "remotes/core",
+      "commit": "c12"
+    }
+  ],
   "commands": [
     {
       "name": "deps-sync",
