@@ -93,6 +93,7 @@ func ApplyEntryMoves(
 
 	out := cloneSnapshot(snap)
 	results := make([]EntryMoveResult, 0, len(changes))
+	addressMoves := make(map[string]string, len(changes))
 	for idx, ent := range out.Entries {
 		to, ok := changes[idx]
 		if !ok {
@@ -101,9 +102,13 @@ func ApplyEntryMoves(
 		if err := migrateMovedEntry(ent, dag, libs, to); err != nil {
 			return nil, nil, err
 		}
+		addressMoves[originals[idx].Address] = to.Address
 		ent.Address = to.Address
 		ent.Selector = &state.Selector{Alias: to.Selector.Alias, Export: to.Selector.Export}
 		results = append(results, EntryMoveResult{From: originals[idx], To: to})
+	}
+	for _, ent := range out.Entries {
+		ent.DependsOn = rewriteMovedDependsOn(ent.DependsOn, addressMoves)
 	}
 	if err := out.Validate(); err != nil {
 		return nil, nil, err
@@ -228,6 +233,44 @@ func entryMoveTargetForRef(
 
 func entryMoveHasAddressPrefix(address, prefix string) bool {
 	return address == prefix || strings.HasPrefix(address, prefix+"/")
+}
+
+func rewriteMovedDependsOn(deps []string, addressMoves map[string]string) []string {
+	if len(deps) == 0 || len(addressMoves) == 0 {
+		return deps
+	}
+	var out []string
+	for i, dep := range deps {
+		rewritten := rewriteMovedAddress(dep, addressMoves)
+		if out == nil && rewritten != dep {
+			out = append([]string{}, deps[:i]...)
+		}
+		if out != nil {
+			out = append(out, rewritten)
+		}
+	}
+	if out == nil {
+		return deps
+	}
+	return out
+}
+
+func rewriteMovedAddress(address string, addressMoves map[string]string) string {
+	bestFrom := ""
+	bestTo := ""
+	for from, to := range addressMoves {
+		if !entryMoveHasAddressPrefix(address, from) {
+			continue
+		}
+		if len(from) > len(bestFrom) {
+			bestFrom = from
+			bestTo = to
+		}
+	}
+	if bestFrom == "" {
+		return address
+	}
+	return bestTo + address[len(bestFrom):]
 }
 
 func checkEntryMoveConflicts(snap *state.Snapshot, changes map[int]EntryRef) error {

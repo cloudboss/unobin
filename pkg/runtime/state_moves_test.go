@@ -102,6 +102,29 @@ func entryRefStrings(t *testing.T, snap *state.Snapshot) []string {
 	return out
 }
 
+func TestApplyEntryMovesUpdatesDependsOn(t *testing.T) {
+	parent := moveEntry(t, "core.box@resource.old", state.EntryLibraryCall, "resource")
+	parent.DependsOn = []string{"resource.old/resource.child"}
+	child := moveEntry(t, "core.thing@resource.old/resource.child", state.EntryLeaf, "resource")
+	snap := moveSnapshot(parent, child)
+	dag := moveDAG(
+		moveCompositeNode("core.box@resource.new", NodeResource),
+		moveNode("core.thing@resource.new/resource.child", NodeResource),
+	)
+
+	out, moved, err := ApplyEntryMoves(
+		snap,
+		dag,
+		stateMovesLibs(),
+		[]EntryMoveSpec{moveSpec(t, "core.box@resource.old", "core.box@resource.new")},
+		EntryMoveIdempotent,
+	)
+
+	require.NoError(t, err)
+	require.Len(t, moved, 2)
+	require.Equal(t, []string{"resource.new/resource.child"}, out.Find("resource.new").DependsOn)
+}
+
 func TestApplyEntryMovesStrictResourceMoves(t *testing.T) {
 	tests := []struct {
 		name string
