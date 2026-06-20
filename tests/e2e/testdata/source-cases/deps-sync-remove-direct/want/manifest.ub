@@ -1,0 +1,7 @@
+manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+  }
+}

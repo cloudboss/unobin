@@ -1,0 +1,6 @@
+factory: {
+  imports: {
+    scratch: 'github.com/x/scratch//ub/helloer'
+    std:     'github.com/x/std'
+  }
+}

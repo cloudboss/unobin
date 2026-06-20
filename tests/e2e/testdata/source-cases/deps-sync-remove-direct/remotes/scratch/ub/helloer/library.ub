@@ -1,0 +1,4 @@
+hello: resource {
+  imports: { std: 'github.com/x/std' }
+  resources: { file: std.fs-file {} }
+}

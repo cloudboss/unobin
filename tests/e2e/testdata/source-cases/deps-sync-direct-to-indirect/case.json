@@ -1,0 +1,38 @@
+{
+  "name": "deps-sync-direct-to-indirect",
+  "rootPath": "root",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/scratch@v0.8.0",
+      "path": "remotes/scratch",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/x/scratch//ub/helloer@v0.8.0",
+      "path": "remotes/scratch/ub/helloer",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/x/std@v0.1.0",
+      "path": "remotes/std-v0.1.0",
+      "commit": "std-v0.1.0"
+    },
+    {
+      "key": "github.com/x/std@v0.2.0",
+      "path": "remotes/std-v0.2.0",
+      "commit": "std-v0.2.0"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/manifest.ub", "want": "want/manifest.ub" },
+    { "path": "root/lock.ub", "want": "want/lock.ub" }
+  ]
+}
