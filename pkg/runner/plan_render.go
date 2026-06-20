@@ -14,6 +14,8 @@ import (
 )
 
 func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
+	printedStateMoves := printStateMoves(out, plan.StateMoves)
+
 	var drift []*runtime.PlanStep
 	for _, s := range plan.Steps {
 		if s.Drift() || s.Gone() {
@@ -32,7 +34,11 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 	}
 
 	if !anyChangeRecursive(tree, "") {
-		fmt.Fprintln(out, "No changes.")
+		if printedStateMoves {
+			fmt.Fprintln(out, "No resource changes.")
+		} else {
+			fmt.Fprintln(out, "No changes.")
+		}
 		printDeferredReads(out, plan.Steps)
 		return
 	}
@@ -47,6 +53,18 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 	fmt.Fprintf(out,
 		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
 		c.create, c.update, c.replace, c.destroy, c.rerun)
+}
+
+func printStateMoves(out io.Writer, moves []runtime.PlannedEntryMove) bool {
+	if len(moves) == 0 {
+		return false
+	}
+	fmt.Fprintln(out, "State moves:")
+	for _, move := range moves {
+		fmt.Fprintf(out, "  %s -> %s\n", move.From, move.To)
+	}
+	fmt.Fprintln(out)
+	return true
 }
 
 // printDeferredReads lists every step whose read was held back by a
