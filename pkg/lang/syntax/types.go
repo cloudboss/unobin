@@ -88,7 +88,6 @@ type FactoryBody struct {
 	Locals         []LocalDecl
 	Constraints    []ConstraintDecl
 	Imports        []ImportDecl
-	Configurations []ConfigurationDecl
 	LibraryConfigs []LibraryConfigDecl
 	Resources      []NodeDecl
 	Data           []NodeDecl
@@ -97,10 +96,9 @@ type FactoryBody struct {
 }
 
 type StackFactoryBlock struct {
-	S              parse.Span
-	Pin            *parse.ObjectLit
-	Inputs         *parse.ObjectLit
-	Configurations []ConfigurationValue
+	S      parse.Span
+	Pin    *parse.ObjectLit
+	Inputs *parse.ObjectLit
 }
 
 type InputDecl struct {
@@ -147,26 +145,10 @@ type NodeSelector struct {
 	Export Ident
 }
 
-type ConfigurationDecl struct {
-	S        parse.Span
-	Name     *Ident
-	Selector Ident
-	Body     *parse.ObjectLit
-	Value    parse.Expr
-}
-
 type LibraryConfigDecl struct {
 	S     parse.Span
 	Alias Ident
 	Value parse.Expr
-}
-
-type ConfigurationValue struct {
-	S        parse.Span
-	Name     *Ident
-	Selector Ident
-	Body     *parse.ObjectLit
-	Value    parse.Expr
 }
 
 type StateDecl struct {

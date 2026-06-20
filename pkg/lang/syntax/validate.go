@@ -65,7 +65,6 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	mergeErrors(errs, lang.ValidateConstraints(constraints))
 	mergeErrors(errs, lang.ValidateConstraintReferences(constraints, inputs))
 	mergeErrors(errs, lang.ValidateImports(importDeclsObject(body.Imports)))
-	validateNoConfigurationDecls(body.Configurations, errs)
 	validateLibraryConfigTypePlacement(body.Inputs, errs)
 	validateLibraryConfigDecls(body.LibraryConfigs, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
@@ -168,7 +167,6 @@ func validateStackFactory(
 		cfg.Fields = append(cfg.Fields, identField("inputs", factory.Inputs.S, factory.Inputs))
 	}
 	mergeErrors(errs, lang.ValidateStackFactory(cfg, locals))
-	validateNoStackConfigurationValues(factory.Configurations, errs)
 }
 
 func validateManifestFile(manifest *ManifestFile, pos parse.Position, errs *parse.ErrorList) {
@@ -226,38 +224,6 @@ func validateLibraryFile(library *LibraryFile, pos parse.Position, errs *parse.E
 		}
 		seen[key] = export.Name.S.Start
 		validateFactoryBody(export.Body, errs)
-	}
-}
-
-func validateNoConfigurationDecls(decls []ConfigurationDecl, errs *parse.ErrorList) {
-	for _, decl := range decls {
-		errs.Addf(parse.ErrSchema, decl.S.Start,
-			"configurations block is not supported; use library-configs")
-	}
-}
-
-func validateNoStackConfigurationValues(values []ConfigurationValue, errs *parse.ErrorList) {
-	for _, value := range values {
-		errs.Addf(parse.ErrSchema, value.S.Start,
-			"factory.configurations is not supported; pass library configs through factory.inputs")
-	}
-}
-
-func validateConfigurationDecls(decls []ConfigurationDecl, errs *parse.ErrorList) {
-	seenNames := map[string]parse.Position{}
-	seenDefaults := map[string]parse.Position{}
-	for _, decl := range decls {
-		label := configurationDeclLabel(decl)
-		if decl.Name == nil {
-			checkDuplicateDefault(decl.Selector, seenDefaults, errs)
-		} else if prev, dup := seenNames[decl.Name.Name]; dup {
-			errs.Addf(parse.ErrSchema, decl.Name.S.Start,
-				"duplicate configuration name %q (first defined at %s)",
-				decl.Name.Name, prev)
-		} else {
-			seenNames[decl.Name.Name] = decl.Name.S.Start
-		}
-		validateConfigurationBody(label, decl.Body, errs)
 	}
 }
 
@@ -320,22 +286,6 @@ func validateNestedLibraryConfigDecl(
 	}
 }
 
-func validateConfigurationValues(values []ConfigurationValue, errs *parse.ErrorList) {
-	seenNames := map[string]parse.Position{}
-	seenDefaults := map[string]parse.Position{}
-	for _, value := range values {
-		if value.Name == nil {
-			checkDuplicateDefault(value.Selector, seenDefaults, errs)
-		} else if prev, dup := seenNames[value.Name.Name]; dup {
-			errs.Addf(parse.ErrSchema, value.Name.S.Start,
-				"duplicate configuration name %q (first defined at %s)",
-				value.Name.Name, prev)
-		} else {
-			seenNames[value.Name.Name] = value.Name.S.Start
-		}
-	}
-}
-
 func validateLibraryConfigDecls(decls []LibraryConfigDecl, errs *parse.ErrorList) {
 	seen := map[string]parse.Position{}
 	for _, decl := range decls {
@@ -347,230 +297,6 @@ func validateLibraryConfigDecls(decls []LibraryConfigDecl, errs *parse.ErrorList
 		}
 		seen[decl.Alias.Name] = decl.Alias.S.Start
 	}
-}
-
-func validateStackConfigurationValues(
-	values []ConfigurationValue,
-	locals map[string]bool,
-	errs *parse.ErrorList,
-) {
-	validateConfigurationValues(values, errs)
-	for _, value := range values {
-		expr := configurationValueExpr(value)
-		if expr == nil {
-			continue
-		}
-		if body, ok := expr.(*parse.ObjectLit); ok {
-			validateConfigurationBody(configurationValueLabel(value), body, errs)
-			mergeErrors(errs, lang.ValidateStackInputs(body, locals))
-			continue
-		}
-		block := &parse.ObjectLit{S: value.S}
-		block.Fields = append(block.Fields, identField("value", value.S, expr))
-		mergeErrors(errs, lang.ValidateStackInputs(block, locals))
-	}
-}
-
-func checkDuplicateDefault(
-	selector Ident,
-	seen map[string]parse.Position,
-	errs *parse.ErrorList,
-) {
-	if prev, dup := seen[selector.Name]; dup {
-		errs.Addf(parse.ErrSchema, selector.S.Start,
-			"duplicate default configuration for %q (first defined at %s)",
-			selector.Name, prev)
-		return
-	}
-	seen[selector.Name] = selector.S.Start
-}
-
-func validateConfigurationBody(label string, body *parse.ObjectLit, errs *parse.ErrorList) {
-	if body == nil {
-		return
-	}
-	for _, fld := range body.Fields {
-		if fld.Key.Kind == parse.FieldIdent && fld.Key.IsMeta() {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"configuration %s: meta key %q is not allowed", label, fld.Key.Name)
-		}
-	}
-}
-
-func configurationDeclLabel(decl ConfigurationDecl) string {
-	if decl.Name != nil {
-		return decl.Name.Name
-	}
-	return decl.Selector.Name
-}
-
-func configurationValueLabel(value ConfigurationValue) string {
-	if value.Name != nil {
-		return value.Name.Name
-	}
-	return value.Selector.Name
-}
-
-func validateConfigurationRefs(body FactoryBody, errs *parse.ErrorList) {
-	refs := configurationRefs(body.Configurations)
-	for _, decl := range body.Configurations {
-		label := configurationDeclLabel(decl)
-		validateConfigurationBodyRefs(label, decl.Body, refs, errs)
-	}
-	validateConfigurationNodeRefs(body.Resources, refs, errs)
-	validateConfigurationNodeRefs(body.Data, refs, errs)
-	validateConfigurationNodeRefs(body.Actions, refs, errs)
-}
-
-func validateConfigurationBodyRefs(
-	label string,
-	body *parse.ObjectLit,
-	refs configurationRefIndex,
-	errs *parse.ErrorList,
-) {
-	if body == nil {
-		return
-	}
-	lang.Walk(body, func(expr parse.Expr) {
-		dp, ok := expr.(*parse.DotPath)
-		if !ok || dp.Root == nil || dp.Root.Name != "configuration" {
-			return
-		}
-		validateConfigurationPath(dp, refs, "configuration "+label, errs)
-	})
-}
-
-func validateConfigurationNodeRefs(
-	nodes []NodeDecl,
-	refs configurationRefIndex,
-	errs *parse.ErrorList,
-) {
-	for _, node := range nodes {
-		validateConfigurationNodeBodyRefs(node, refs, errs)
-	}
-}
-
-func validateConfigurationNodeBodyRefs(
-	node NodeDecl,
-	refs configurationRefIndex,
-	errs *parse.ErrorList,
-) {
-	if node.Body == nil {
-		return
-	}
-	for _, fld := range node.Body.Fields {
-		if fld.Key.Kind != parse.FieldIdent {
-			continue
-		}
-		switch fld.Key.Name {
-		case "@configuration":
-			ref, ok := validateConfigurationSelection(
-				fld.Value, refs, "@configuration", errs)
-			if ok && ref.alias != node.Selector.Alias.Name {
-				errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
-					"@configuration %s: selector %q does not match node selector %q",
-					ref.name, ref.alias, node.Selector.Alias.Name)
-			}
-		case "@configurations":
-			validateConfigurationsSelection(fld.Value, refs, errs)
-		}
-	}
-}
-
-func validateConfigurationsSelection(
-	expr parse.Expr,
-	refs configurationRefIndex,
-	errs *parse.ErrorList,
-) {
-	obj, ok := expr.(*parse.ObjectLit)
-	if !ok {
-		return
-	}
-	for _, entry := range obj.Fields {
-		if entry.Key.Kind != parse.FieldIdent {
-			continue
-		}
-		ref, ok := validateConfigurationSelection(
-			entry.Value, refs, "@configurations."+entry.Key.Name, errs)
-		if ok && ref.alias != entry.Key.Name {
-			errs.Addf(parse.ErrSchema, entry.Value.Span().Start,
-				"@configurations.%s: selector %q does not match remap key",
-				entry.Key.Name, ref.alias)
-		}
-	}
-}
-
-func validateConfigurationSelection(
-	expr parse.Expr,
-	refs configurationRefIndex,
-	what string,
-	errs *parse.ErrorList,
-) (configurationRef, bool) {
-	dp, ok := expr.(*parse.DotPath)
-	if !ok || dp.Root == nil || dp.Root.Name != "configuration" {
-		errs.Addf(parse.ErrSchema, expr.Span().Start,
-			"%s takes configuration.<name>", what)
-		return configurationRef{}, false
-	}
-	if rejectConfigurationAliasPath(dp, refs, what, errs) {
-		return configurationRef{}, false
-	}
-	if len(dp.Segments) != 1 || !simpleDotSegment(dp.Segments[0]) {
-		errs.Addf(parse.ErrSchema, dp.S.Start,
-			"%s takes configuration.<name>", what)
-		return configurationRef{}, false
-	}
-	return namedConfigurationRef(dp, refs, what, errs)
-}
-
-func validateConfigurationPath(
-	dp *parse.DotPath,
-	refs configurationRefIndex,
-	what string,
-	errs *parse.ErrorList,
-) (configurationRef, bool) {
-	if len(dp.Segments) < 1 || !simpleDotSegment(dp.Segments[0]) {
-		errs.Addf(parse.ErrSchema, dp.S.Start,
-			"%s takes configuration.<name>", what)
-		return configurationRef{}, false
-	}
-	if rejectConfigurationAliasPath(dp, refs, what, errs) {
-		return configurationRef{}, false
-	}
-	return namedConfigurationRef(dp, refs, what, errs)
-}
-
-func rejectConfigurationAliasPath(
-	dp *parse.DotPath,
-	refs configurationRefIndex,
-	what string,
-	errs *parse.ErrorList,
-) bool {
-	if len(dp.Segments) < 2 || !simpleDotSegment(dp.Segments[1]) {
-		return false
-	}
-	if ref, ok := refs.named[dp.Segments[1].Name]; ok && ref.alias == dp.Segments[0].Name {
-		errs.Addf(parse.ErrSchema, dp.S.Start,
-			"%s takes configuration.%s; named configurations already declare their selector",
-			what, dp.Segments[1].Name)
-		return true
-	}
-	return false
-}
-
-func namedConfigurationRef(
-	dp *parse.DotPath,
-	refs configurationRefIndex,
-	what string,
-	errs *parse.ErrorList,
-) (configurationRef, bool) {
-	ref, ok := refs.named[dp.Segments[0].Name]
-	if !ok {
-		errs.Addf(parse.ErrSchema, dp.S.Start,
-			"%s names unknown configuration %q", what, dp.Segments[0].Name)
-		return configurationRef{}, false
-	}
-	return ref, true
 }
 
 func validateNodeDecls(
@@ -648,13 +374,12 @@ func parseFactoryBody(body FactoryBody) *parse.File {
 	return &parse.File{
 		S:    body.S,
 		Kind: parse.FileFactory,
-		Body: factoryBodyObject(body, configurationDeclsObject, nodeDeclsObject),
+		Body: factoryBodyObject(body, nodeDeclsObject),
 	}
 }
 
 func factoryBodyObject(
 	body FactoryBody,
-	configurations func([]ConfigurationDecl) *parse.ObjectLit,
 	nodes func([]NodeDecl) *parse.ObjectLit,
 ) *parse.ObjectLit {
 	obj := &parse.ObjectLit{S: body.S}
@@ -678,10 +403,6 @@ func factoryBodyObject(
 	if len(body.Imports) > 0 {
 		imports := importDeclsObject(body.Imports)
 		obj.Fields = append(obj.Fields, identField("imports", imports.S, imports))
-	}
-	if len(body.Configurations) > 0 {
-		cfgs := configurations(body.Configurations)
-		obj.Fields = append(obj.Fields, identField("configurations", cfgs.S, cfgs))
 	}
 	if len(body.LibraryConfigs) > 0 {
 		cfgs := libraryConfigDeclsObject(body.LibraryConfigs)
@@ -761,22 +482,6 @@ func outputDeclsObject(decls []OutputDecl) *parse.ObjectLit {
 	return obj
 }
 
-func configurationDeclsObject(decls []ConfigurationDecl) *parse.ObjectLit {
-	obj := &parse.ObjectLit{}
-	if len(decls) > 0 {
-		obj.S = decls[0].S
-	}
-	for _, decl := range decls {
-		key := []string{decl.Selector.Name, "default"}
-		if decl.Name != nil {
-			key[1] = decl.Name.Name
-		}
-		obj.Fields = append(obj.Fields,
-			pathField(key, decl.Selector.S, configurationDeclValue(decl)))
-	}
-	return obj
-}
-
 func libraryConfigDeclsObject(decls []LibraryConfigDecl) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {
@@ -786,67 +491,6 @@ func libraryConfigDeclsObject(decls []LibraryConfigDecl) *parse.ObjectLit {
 		obj.Fields = append(obj.Fields, identField(decl.Alias.Name, decl.Alias.S, decl.Value))
 	}
 	return obj
-}
-
-func configurationDeclsSelectorObject(decls []ConfigurationDecl) *parse.ObjectLit {
-	obj := &parse.ObjectLit{}
-	if len(decls) > 0 {
-		obj.S = decls[0].S
-	}
-	for _, decl := range decls {
-		obj.Fields = append(obj.Fields, configurationSelectorField(decl))
-	}
-	return obj
-}
-
-func configurationSelectorField(decl ConfigurationDecl) *parse.Field {
-	fld := &parse.Field{
-		S: decl.S,
-		Decl: &parse.SelectorBody{
-			S: decl.S,
-			Selector: parse.Selector{
-				S:     decl.Selector.S,
-				Parts: []parse.Ident{{S: decl.Selector.S, Name: decl.Selector.Name}},
-			},
-			Body: decl.Body,
-		},
-	}
-	if decl.Name == nil {
-		fld.Key = parse.FieldKey{S: decl.Selector.S, Kind: parse.FieldIdent, Name: decl.Selector.Name}
-		fld.Decl.Default = true
-		return fld
-	}
-	fld.Key = parse.FieldKey{S: decl.Name.S, Kind: parse.FieldIdent, Name: decl.Name.Name}
-	return fld
-}
-
-func configurationDeclValue(decl ConfigurationDecl) parse.Expr {
-	if decl.Value != nil {
-		return decl.Value
-	}
-	return decl.Body
-}
-
-func configurationValuesObject(values []ConfigurationValue) *parse.ObjectLit {
-	obj := &parse.ObjectLit{}
-	if len(values) > 0 {
-		obj.S = values[0].S
-	}
-	for _, value := range values {
-		key := []string{value.Selector.Name, "default"}
-		if value.Name != nil {
-			key[1] = value.Name.Name
-		}
-		obj.Fields = append(obj.Fields, pathField(key, value.S, configurationValueExpr(value)))
-	}
-	return obj
-}
-
-func configurationValueExpr(value ConfigurationValue) parse.Expr {
-	if value.Value != nil {
-		return value.Value
-	}
-	return value.Body
 }
 
 func nodeDeclsObject(decls []NodeDecl) *parse.ObjectLit {
@@ -956,36 +600,6 @@ func nodeSelectorRefs(nodes []NodeDecl) map[string][]string {
 		}
 	}
 	return out
-}
-
-type configurationRefIndex struct {
-	named map[string]configurationRef
-	pairs map[string]bool
-}
-
-type configurationRef struct {
-	alias string
-	name  string
-}
-
-func configurationRefs(decls []ConfigurationDecl) configurationRefIndex {
-	refs := configurationRefIndex{
-		named: map[string]configurationRef{},
-		pairs: map[string]bool{},
-	}
-	for _, decl := range decls {
-		name := "default"
-		if decl.Name != nil {
-			name = decl.Name.Name
-			refs.named[name] = configurationRef{alias: decl.Selector.Name, name: name}
-		}
-		refs.pairs[decl.Selector.Name+"."+name] = true
-	}
-	return refs
-}
-
-func simpleDotSegment(seg parse.DotSegment) bool {
-	return seg.Name != "" && seg.Index == nil && !seg.Splat && !seg.Guarded
 }
 
 func selectorSegments(span parse.Span, names []string) []parse.DotSegment {

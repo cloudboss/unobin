@@ -243,10 +243,6 @@ func lowerFactoryBodyWithMode(
 			if obj := objectValue(fld, "imports", errs); obj != nil {
 				body.Imports = lowerImports(obj, errs)
 			}
-		case "configurations":
-			if obj := objectValue(fld, "configurations", errs); obj != nil {
-				body.Configurations = lowerConfigurationDecls(obj, errs)
-			}
 		case "library-configs":
 			if obj := objectValue(fld, "library-configs", errs); obj != nil {
 				body.LibraryConfigs = lowerLibraryConfigDecls(obj, errs)
@@ -340,10 +336,6 @@ func lowerStackFactory(
 			factory.Pin = objectValue(fld, "factory.pin", errs)
 		case "inputs":
 			factory.Inputs = objectValue(fld, "factory.inputs", errs)
-		case "configurations":
-			if obj := objectValue(fld, "factory.configurations", errs); obj != nil {
-				factory.Configurations = lowerConfigurationValues(obj, errs)
-			}
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
 				"%q is not a valid stack factory field", name.Name)
@@ -762,122 +754,6 @@ func lowerImports(block *parse.ObjectLit, errs *parse.ErrorList) []ImportDecl {
 		imports = append(imports, ImportDecl{S: fld.S, Alias: alias, Ref: ref})
 	}
 	return imports
-}
-
-func lowerConfigurationDecls(
-	block *parse.ObjectLit,
-	errs *parse.ErrorList,
-) []ConfigurationDecl {
-	entries := make([]ConfigurationDecl, 0, len(block.Fields))
-	seen := make(map[string]parse.Position, len(block.Fields))
-	for _, fld := range block.Fields {
-		if fld.Decl == nil {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"configuration must be written as selector { ... } or name: selector { ... }")
-			continue
-		}
-		entry, ok := lowerConfigurationDecl(fld, errs)
-		if !ok {
-			continue
-		}
-		key := configurationDeclKey(entry)
-		if prev, dup := seen[key]; dup {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"duplicate configuration %s (first defined at %s)", key, prev)
-			continue
-		}
-		seen[key] = fld.Key.S.Start
-		entries = append(entries, entry)
-	}
-	return entries
-}
-
-func lowerConfigurationDecl(
-	fld *parse.Field,
-	errs *parse.ErrorList,
-) (ConfigurationDecl, bool) {
-	selector, ok := selectorIdent(fld.Decl.Selector, "configuration selector", errs)
-	if !ok {
-		return ConfigurationDecl{}, false
-	}
-	entry := ConfigurationDecl{
-		S:        fld.S,
-		Selector: selector,
-		Body:     fld.Decl.Body,
-	}
-	if !fld.Decl.Default {
-		name, ok := fieldName(fld, "configuration name", errs)
-		if !ok {
-			return ConfigurationDecl{}, false
-		}
-		entry.Name = &name
-	}
-	return entry, true
-}
-
-func configurationDeclKey(entry ConfigurationDecl) string {
-	if entry.Name == nil {
-		return entry.Selector.Name
-	}
-	return entry.Selector.Name + "." + entry.Name.Name
-}
-
-func lowerConfigurationValues(
-	block *parse.ObjectLit,
-	errs *parse.ErrorList,
-) []ConfigurationValue {
-	entries := make([]ConfigurationValue, 0, len(block.Fields))
-	seen := make(map[string]parse.Position, len(block.Fields))
-	for _, fld := range block.Fields {
-		if fld.Decl == nil {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"configuration must be written as selector { ... } or name: selector { ... }")
-			continue
-		}
-		entry, ok := lowerConfigurationValue(fld, errs)
-		if !ok {
-			continue
-		}
-		key := configurationValueKey(entry)
-		if prev, dup := seen[key]; dup {
-			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"duplicate configuration %s (first defined at %s)", key, prev)
-			continue
-		}
-		seen[key] = fld.Key.S.Start
-		entries = append(entries, entry)
-	}
-	return entries
-}
-
-func lowerConfigurationValue(
-	fld *parse.Field,
-	errs *parse.ErrorList,
-) (ConfigurationValue, bool) {
-	selector, ok := selectorIdent(fld.Decl.Selector, "configuration selector", errs)
-	if !ok {
-		return ConfigurationValue{}, false
-	}
-	entry := ConfigurationValue{
-		S:        fld.S,
-		Selector: selector,
-		Body:     fld.Decl.Body,
-	}
-	if !fld.Decl.Default {
-		name, ok := fieldName(fld, "configuration name", errs)
-		if !ok {
-			return ConfigurationValue{}, false
-		}
-		entry.Name = &name
-	}
-	return entry, true
-}
-
-func configurationValueKey(entry ConfigurationValue) string {
-	if entry.Name == nil {
-		return entry.Selector.Name
-	}
-	return entry.Selector.Name + "." + entry.Name.Name
 }
 
 func lowerLibraryConfigDecls(

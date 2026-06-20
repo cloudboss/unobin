@@ -1,1 +1,1 @@
-configuration must be written as selector { ... } or name: selector { ... }
+"configurations" is not a valid factory field

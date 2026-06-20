@@ -45,12 +45,6 @@ constraints: [
   { when: var.message require: var.message != '' }
 ]
 
-configurations: {
-  std {
-    region: 'us-east-1'
-  }
-}
-
 library-configs: {
   std: var.std-config
 }
@@ -106,10 +100,6 @@ outputs: {
 
 	require.Len(t, got.Factory.Body.Constraints, 1)
 	requireSpan(t, got.Factory.Body.Constraints[0].S)
-	require.Len(t, got.Factory.Body.Configurations, 1)
-	requireSpan(t, got.Factory.Body.Configurations[0].S)
-	require.Nil(t, got.Factory.Body.Configurations[0].Name)
-	assert.Equal(t, "std", got.Factory.Body.Configurations[0].Selector.Name)
 
 	require.Len(t, got.Factory.Body.LibraryConfigs, 1)
 	requireSpan(t, got.Factory.Body.LibraryConfigs[0].S)
@@ -490,7 +480,6 @@ func lowerSelectorBodySummary(f *File) string {
 	var b strings.Builder
 	switch f.Kind {
 	case FileFactory:
-		writeConfigurationDecls(&b, f.Factory.Body.Configurations, "configuration")
 		writeLibraryConfigDecls(&b, f.Factory.Body.LibraryConfigs)
 		writeNodeDecls(&b, f.Factory.Body.Resources)
 		writeNodeDecls(&b, f.Factory.Body.Data)
@@ -504,10 +493,6 @@ func lowerSelectorBodySummary(f *File) string {
 			fmt.Fprintf(&b, "encryption -> %s fields=%d\n",
 				f.Stack.Encryption.Selector.Name, objectFieldCount(f.Stack.Encryption.Body))
 		}
-		if f.Stack.Factory != nil {
-			writeConfigurationValues(&b, f.Stack.Factory.Configurations,
-				"factory configuration")
-		}
 	case FileLibrary:
 		for _, export := range f.Library.Exports {
 			fmt.Fprintf(&b, "export %s %s outputs=%d\n",
@@ -515,28 +500,6 @@ func lowerSelectorBodySummary(f *File) string {
 		}
 	}
 	return b.String()
-}
-
-func writeConfigurationDecls(
-	b *strings.Builder,
-	configurations []ConfigurationDecl,
-	prefix string,
-) {
-	for _, cfg := range configurations {
-		fmt.Fprintf(b, "%s %s -> %s fields=%d\n",
-			prefix, optionalName(cfg.Name), cfg.Selector.Name, objectFieldCount(cfg.Body))
-	}
-}
-
-func writeConfigurationValues(
-	b *strings.Builder,
-	configurations []ConfigurationValue,
-	prefix string,
-) {
-	for _, cfg := range configurations {
-		fmt.Fprintf(b, "%s %s -> %s fields=%d\n",
-			prefix, optionalName(cfg.Name), cfg.Selector.Name, objectFieldCount(cfg.Body))
-	}
 }
 
 func writeLibraryConfigDecls(b *strings.Builder, decls []LibraryConfigDecl) {
@@ -563,13 +526,6 @@ func writeNodeDecls(b *strings.Builder, nodes []NodeDecl) {
 			node.Kind, node.Name.Name, node.Selector.Alias.Name,
 			node.Selector.Export.Name, objectFieldCount(node.Body))
 	}
-}
-
-func optionalName(name *Ident) string {
-	if name == nil {
-		return "<default>"
-	}
-	return name.Name
 }
 
 func objectFieldCount(obj *parse.ObjectLit) int {

@@ -1,2 +1,1 @@
-configurations block is not supported; use library-configs
-action say: meta key "@configuration" is not allowed
+factory.ub:2:3: schema: "configurations" is not a valid factory field

@@ -54,12 +54,6 @@ func encodeSyntaxFactoryBody(b *strings.Builder, n syntax.FactoryBody) error {
 			return err
 		}
 	}
-	if len(n.Configurations) > 0 {
-		fields.next(b, "Configurations")
-		if err := encodeSyntaxConfigurations(b, n.Configurations); err != nil {
-			return err
-		}
-	}
 	if len(n.LibraryConfigs) > 0 {
 		fields.next(b, "LibraryConfigs")
 		if err := encodeSyntaxLibraryConfigs(b, n.LibraryConfigs); err != nil {
@@ -189,43 +183,6 @@ func encodeSyntaxImports(b *strings.Builder, decls []syntax.ImportDecl) error {
 		encodeSyntaxIdent(b, decl.Alias)
 		b.WriteString(", Ref: ")
 		b.WriteString(ref)
-		b.WriteString("}")
-	}
-	b.WriteString("}")
-	return nil
-}
-
-func encodeSyntaxConfigurations(b *strings.Builder, decls []syntax.ConfigurationDecl) error {
-	b.WriteString("[]syntax.ConfigurationDecl{")
-	for i, decl := range decls {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		b.WriteString("{")
-		fields := syntaxFieldWriter{}
-		if decl.Name != nil {
-			fields.next(b, "Name")
-			b.WriteString("&")
-			encodeSyntaxIdent(b, *decl.Name)
-		}
-		fields.next(b, "Selector")
-		encodeSyntaxIdent(b, decl.Selector)
-		if decl.Body != nil {
-			body, err := EncodeNode(decl.Body)
-			if err != nil {
-				return err
-			}
-			fields.next(b, "Body")
-			b.WriteString(body)
-		}
-		if decl.Value != nil {
-			value, err := EncodeNode(decl.Value)
-			if err != nil {
-				return err
-			}
-			fields.next(b, "Value")
-			b.WriteString(value)
-		}
 		b.WriteString("}")
 	}
 	b.WriteString("}")

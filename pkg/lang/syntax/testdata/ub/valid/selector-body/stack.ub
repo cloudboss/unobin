@@ -1,9 +1,7 @@
 stack: {
   factory: {
-    configurations: {
-      greet {
-        prefix: 'hello'
-      }
+    inputs: {
+      greet-config: { prefix: 'hello' }
     }
   }
 

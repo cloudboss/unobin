@@ -1,1 +1,1 @@
-factory.configurations is not supported; pass library configs through factory.inputs
+dev.ub:3:5: schema: "configurations" is not a valid stack factory field

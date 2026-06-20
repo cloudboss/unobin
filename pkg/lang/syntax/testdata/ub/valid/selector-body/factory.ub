@@ -1,11 +1,4 @@
 factory: {
-  configurations: {
-    greet {
-      prefix: 'hello'
-    }
-    formal: greet {}
-  }
-
   library-configs: {
     greet: var.greet-config
   }

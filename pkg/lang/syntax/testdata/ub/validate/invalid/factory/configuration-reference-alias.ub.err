@@ -1,1 +1,1 @@
-configurations block is not supported; use library-configs
+factory.ub:2:3: schema: "configurations" is not a valid factory field
