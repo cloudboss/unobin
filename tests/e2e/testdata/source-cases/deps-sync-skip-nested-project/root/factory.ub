@@ -1,0 +1,3 @@
+factory: {
+  imports: { shared: 'example.com/shared//lib' }
+}

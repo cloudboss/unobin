@@ -43,6 +43,16 @@ func TestRunSourceCasesRunsFromRootAndComparesFiles(t *testing.T) {
 	)
 }
 
+func TestCheckAbsentFiles(t *testing.T) {
+	workspace := t.TempDir()
+	writeText(t, filepath.Join(workspace, "present.txt"), "x")
+
+	require.NoError(t, checkAbsentFiles(workspace, []string{"missing.txt"}))
+	err := checkAbsentFiles(workspace, []string{"present.txt"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "present.txt exists")
+}
+
 func TestSourceCaseHelper(t *testing.T) {
 	if os.Getenv("E2ETEST_SOURCE_HELPER") != "1" {
 		return

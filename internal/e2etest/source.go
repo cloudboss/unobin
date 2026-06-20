@@ -45,14 +45,16 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 			t.Fatal(err)
 		}
 	}
-	if len(c.Files) == 0 {
-		return
+	if len(c.Files) > 0 {
+		files, err := readFileResults(workspace, c.Files)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
+			t.Fatal(err)
+		}
 	}
-	files, err := readFileResults(workspace, c.Files)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
+	if err := checkAbsentFiles(workspace, c.AbsentFiles); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -95,6 +97,21 @@ func runSourceCommand(
 }
 
 type rootCommandFunc func(context.Context, string, Command) (CommandResult, error)
+
+func checkAbsentFiles(workspace string, paths []string) error {
+	for _, rel := range paths {
+		path := filepath.Join(workspace, filepath.FromSlash(rel))
+		_, err := os.Stat(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", rel, err)
+		}
+		return fmt.Errorf("%s exists", rel)
+	}
+	return nil
+}
 
 func copySourceModules(workspace string, e2eLibraryDir string) error {
 	if e2eLibraryDir == "" {

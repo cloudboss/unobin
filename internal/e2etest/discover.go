@@ -36,14 +36,15 @@ type CompiledCase struct {
 
 // SourceCase describes a source-root CLI e2e case.
 type SourceCase struct {
-	Name     string              `json:"name"`
-	Dir      string              `json:"-"`
-	RootPath string              `json:"rootPath"`
-	Executor string              `json:"executor"`
-	Remotes  []RemoteSource      `json:"remotes"`
-	Tags     map[string][]string `json:"tags"`
-	Commands []Command           `json:"commands"`
-	Files    []FileCheck         `json:"files"`
+	Name        string              `json:"name"`
+	Dir         string              `json:"-"`
+	RootPath    string              `json:"rootPath"`
+	Executor    string              `json:"executor"`
+	Remotes     []RemoteSource      `json:"remotes"`
+	Tags        map[string][]string `json:"tags"`
+	Commands    []Command           `json:"commands"`
+	Files       []FileCheck         `json:"files"`
+	AbsentFiles []string            `json:"absentFiles"`
 }
 
 // RemoteSource describes a fake remote repository used by source-root cases.
@@ -240,7 +241,19 @@ func validateSourceCase(c SourceCase) error {
 	if err := validateCommands(c.Commands); err != nil {
 		return err
 	}
-	return validateFiles(c.Files)
+	if err := validateFiles(c.Files); err != nil {
+		return err
+	}
+	return validateAbsentFiles(c.AbsentFiles)
+}
+
+func validateAbsentFiles(paths []string) error {
+	for i, path := range paths {
+		if err := checkRelPath(fmt.Sprintf("absentFiles[%d]", i), path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateRemotes(remotes []RemoteSource) error {
