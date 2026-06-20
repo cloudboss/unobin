@@ -1,0 +1,13 @@
+{
+  "name": "deps-sync-positional-path",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync", "ub/project-b"],
+      "stderr": "want/deps-sync.stderr",
+      "exitCode": 1
+    }
+  ]
+}

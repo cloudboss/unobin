@@ -1,0 +1,5 @@
+factory: {
+  imports: { self: '.' }
+  data: { message: self.message {} }
+  outputs: { text: { value: data.message.text } }
+}

@@ -1,0 +1,5 @@
+lock: {
+  version:   1
+  toolchain: { unobin-version: 'dev' }
+  deps:      { 'github.com/x/core': { kind: go, version: 'v1.0.0', commit: 'abc123' } }
+}

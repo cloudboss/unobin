@@ -1,0 +1,4 @@
+factory: {
+  imports: { local: './lib' }
+  data: { message: local.message {} }
+}
