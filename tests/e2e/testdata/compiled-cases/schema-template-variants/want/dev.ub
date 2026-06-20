@@ -1,0 +1,23 @@
+stack: {
+  factory: {
+    pin: {
+      library-path: 'github.com/cloudboss/cluster-deploy'
+      supported-versions: [
+        { version: 'v0.0.0', content-revision: '<revision>' },
+      ]
+    }
+    inputs: {
+      # Text to write
+      greeting: ''  # type: string
+      count:    0  # type: integer
+      enabled:  false  # type: boolean
+      tags:     []  # type: list(string)
+    }
+  }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+}

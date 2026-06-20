@@ -1,0 +1,15 @@
+stack: {
+  factory: {
+    pin: {
+      supported-versions: [
+        { version: 'v0.0.0', content-revision: '<revision>' },
+      ]
+    }
+  }
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+}

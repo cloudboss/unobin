@@ -1,0 +1,13 @@
+{
+  "name": "schema-template-empty",
+  "factoryPath": "src",
+  "build": true,
+  "commands": [
+    {
+      "name": "schema-template",
+      "args": ["schema", "template"],
+      "stdout": "want/schema-template.stdout",
+      "stderr": "want/schema-template.stderr"
+    }
+  ]
+}

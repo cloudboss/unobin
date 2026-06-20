@@ -1,0 +1,28 @@
+{
+  "name": "schema-template-variants",
+  "factoryPath": "src",
+  "libraryPath": "github.com/cloudboss/cluster-deploy",
+  "build": true,
+  "commands": [
+    {
+      "name": "schema-template-stdout",
+      "args": ["schema", "template"],
+      "stdout": "want/schema-template.stdout",
+      "stderr": "want/schema-template.stderr"
+    },
+    {
+      "name": "schema-template-file",
+      "args": ["schema", "template", "-o", "work/dev.ub"],
+      "stderr": "want/schema-template-file.stderr"
+    },
+    {
+      "name": "validate-scaffold",
+      "args": ["validate", "-c", "work/dev.ub"],
+      "stdout": "want/validate-scaffold.stdout",
+      "stderr": "want/validate-scaffold.stderr"
+    }
+  ],
+  "files": [
+    { "path": "work/dev.ub", "want": "want/dev.ub" }
+  ]
+}

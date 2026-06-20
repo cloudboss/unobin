@@ -1,0 +1,11 @@
+factory: {
+  inputs: {
+    greeting: {
+      type:        string
+      description: 'Text to write'
+    }
+    count:   { type: integer }
+    enabled: { type: boolean }
+    tags:    { type: list(string) }
+  }
+}
