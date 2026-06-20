@@ -1380,10 +1380,81 @@ func ValidateImports(block *ObjectLit) *ErrorList {
 
 // ValidateManifestRequires checks a manifest `requires:` block: every
 // entry binds a quoted dependency id (a repo URL with an optional
-// `//subdir`) to a quoted version floor. The id and version strings are
-// not parsed here; resolution validates the URL and the semver floor.
+// `//subdir`) to an object with a quoted version floor and an optional
+// indirect flag. The id and version strings are not parsed here; resolution
+// validates the URL and the semver floor.
 func ValidateManifestRequires(block *ObjectLit) *ErrorList {
-	return validateManifestEntries(block, "requires", "version")
+	errs := NewErrorList(0)
+	seen := make(map[string]Position, len(block.Fields))
+	for _, fld := range block.Fields {
+		if fld.Key.Kind != FieldString {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: dependency id must be a quoted string, got bare identifier %q",
+				fld.Key.Name)
+			continue
+		}
+		id := fld.Key.String
+		if prev, dup := seen[id]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: duplicate dependency %q (first defined at %s)", id, prev)
+			continue
+		}
+		seen[id] = fld.Key.S.Start
+		body, ok := fld.Value.(*ObjectLit)
+		if !ok {
+			pos := fld.S.Start
+			if fld.Value != nil {
+				pos = fld.Value.Span().Start
+			}
+			errs.Addf(ErrSchema, pos,
+				"requires: dependency %q: value must be an object", id)
+			continue
+		}
+		validateManifestRequireBody(errs, id, body)
+	}
+	return errs
+}
+
+func validateManifestRequireBody(errs *ErrorList, id string, body *ObjectLit) {
+	seen := make(map[string]Position, len(body.Fields))
+	hasVersion := false
+	for _, fld := range body.Fields {
+		if fld.Key.Kind != FieldIdent || fld.Key.IsMeta() {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: dependency %q: require field must be a bare identifier", id)
+			continue
+		}
+		name := fld.Key.Name
+		if prev, dup := seen[name]; dup {
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: dependency %q: duplicate field %q (first defined at %s)",
+				id, name, prev)
+			continue
+		}
+		seen[name] = fld.Key.S.Start
+		switch name {
+		case "version":
+			hasVersion = true
+			if _, ok := fld.Value.(*StringLit); !ok {
+				errs.Addf(ErrSchema, fld.Value.Span().Start,
+					"requires: dependency %q: version must be a quoted string, got %s",
+					id, exprKind(fld.Value))
+			}
+		case "indirect":
+			if _, ok := fld.Value.(*BoolLit); !ok {
+				errs.Addf(ErrSchema, fld.Value.Span().Start,
+					"requires: dependency %q: indirect must be a boolean, got %s",
+					id, exprKind(fld.Value))
+			}
+		default:
+			errs.Addf(ErrSchema, fld.Key.S.Start,
+				"requires: dependency %q: %q is not a valid require field", id, name)
+		}
+	}
+	if !hasVersion {
+		errs.Addf(ErrSchema, body.S.Start,
+			"requires: dependency %q: missing version", id)
+	}
 }
 
 // ValidateManifestReplace checks a manifest `replace:` block: every entry

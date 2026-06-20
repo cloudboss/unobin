@@ -138,7 +138,7 @@ func TestWrapLockedSourcesRequiresUBProjectMarker(t *testing.T) {
 
 func TestRunRejectsSentinelWithoutReplacementBeforeResolve(t *testing.T) {
 	root := t.TempDir()
-	requires := "requires: { 'example.com/lib': '" + deps.ReplacementSentinel + "' }"
+	requires := "requires: { 'example.com/lib': { version: '" + deps.ReplacementSentinel + "' } }"
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		[]byte("manifest: { "+requires+" }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`factory: {

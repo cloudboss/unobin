@@ -1,7 +1,7 @@
 manifest: {
   requires: {
     'github.com/x/y': {
-      version: 'latest'
+      indirect: true
     }
   }
 }

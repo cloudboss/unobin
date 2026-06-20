@@ -60,13 +60,21 @@ func selected(m map[Dependency]string) map[string]string {
 	return out
 }
 
+func toReqs(m map[string]string) map[Dependency]Requirement {
+	out := make(map[Dependency]Requirement, len(m))
+	for id, v := range m {
+		out[dep(id)] = Requirement{Version: v}
+	}
+	return out
+}
+
 // fetcherFor builds a fakeFetcher from a universe keyed by "<id>@<version>";
 // each value is the requirements that dependency version declares (empty
 // for a leaf).
 func fetcherFor(universe map[string]map[string]string) *fakeFetcher {
 	manifests := make(map[string]*Manifest, len(universe))
 	for key, reqs := range universe {
-		manifests[key] = &Manifest{Requires: toDeps(reqs)}
+		manifests[key] = &Manifest{Requires: toReqs(reqs)}
 	}
 	return &fakeFetcher{manifests: manifests}
 }
@@ -217,7 +225,7 @@ func TestResolveSelectsVersions(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := Resolve(&Manifest{Requires: toDeps(c.root)}, fetcherFor(c.universe))
+			got, err := Resolve(&Manifest{Requires: toReqs(c.root)}, fetcherFor(c.universe))
 			require.NoError(t, err)
 			assert.Equal(t, c.want, selected(got))
 		})
@@ -228,6 +236,29 @@ func TestResolveSelectsVersions(t *testing.T) {
 // between runs and confirms the selection is identical every time:
 // minimal version selection does not depend on the order requirements are
 // discovered.
+func TestResolveUsesIndirectRootFloors(t *testing.T) {
+	root := &Manifest{Requires: map[Dependency]Requirement{
+		dep("github.com/cloudboss/unobin-libraries-scratch"): {Version: "v0.8.0"},
+		dep("github.com/cloudboss/unobin-library-std"): {
+			Version:  "v0.2.0",
+			Indirect: true,
+		},
+	}}
+	universe := map[string]map[string]string{
+		"github.com/cloudboss/unobin-libraries-scratch@v0.8.0": {
+			"github.com/cloudboss/unobin-library-std": "v0.1.0",
+		},
+		"github.com/cloudboss/unobin-library-std@v0.2.0": nil,
+	}
+
+	got, err := Resolve(root, fetcherFor(universe))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{
+		"github.com/cloudboss/unobin-libraries-scratch": "v0.8.0",
+		"github.com/cloudboss/unobin-library-std":       "v0.2.0",
+	}, selected(got))
+}
+
 func TestResolveIsDeterministic(t *testing.T) {
 	root := map[string]string{"x/a": "v1.0.0", "x/e": "v1.0.0", "x/p": "v1.0.0"}
 	universe := map[string]map[string]string{
@@ -245,7 +276,7 @@ func TestResolveIsDeterministic(t *testing.T) {
 		"x/b": "v2.0.0", "x/q": "v2.0.0", "x/d": "v1.0.0",
 	}
 	for i := range 25 {
-		got, err := Resolve(&Manifest{Requires: toDeps(root)}, fetcherFor(universe))
+		got, err := Resolve(&Manifest{Requires: toReqs(root)}, fetcherFor(universe))
 		require.NoError(t, err)
 		assert.Equalf(t, want, selected(got), "run %d", i)
 	}
@@ -253,7 +284,7 @@ func TestResolveIsDeterministic(t *testing.T) {
 
 func TestResolveStopsAtLeaf(t *testing.T) {
 	f := fetcherFor(map[string]map[string]string{"x/g@v1.2.3": nil})
-	got, err := Resolve(&Manifest{Requires: toDeps(map[string]string{"x/g": "v1.2.3"})}, f)
+	got, err := Resolve(&Manifest{Requires: toReqs(map[string]string{"x/g": "v1.2.3"})}, f)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{"x/g": "v1.2.3"}, selected(got))
 	assert.Equal(t, []string{"x/g@v1.2.3"}, f.calls)
@@ -265,7 +296,7 @@ func TestResolveFetchesSharedDependencyOnce(t *testing.T) {
 		"x/b@v1.0.0": {"x/c": "v1.0.0"},
 		"x/c@v1.0.0": nil,
 	})
-	root := toDeps(map[string]string{"x/a": "v1.0.0", "x/b": "v1.0.0"})
+	root := toReqs(map[string]string{"x/a": "v1.0.0", "x/b": "v1.0.0"})
 	_, err := Resolve(&Manifest{Requires: root}, f)
 	require.NoError(t, err)
 	assert.Equal(t, 1, f.fetchCount("x/c@v1.0.0"))
@@ -278,7 +309,7 @@ func TestResolveRefetchesOnlyOncePerRaise(t *testing.T) {
 		"x/b@v1.0.0": nil,
 		"x/b@v2.0.0": nil,
 	})
-	root := toDeps(map[string]string{"x/a": "v1.0.0", "x/p": "v1.0.0"})
+	root := toReqs(map[string]string{"x/a": "v1.0.0", "x/p": "v1.0.0"})
 	_, err := Resolve(&Manifest{Requires: root}, f)
 	require.NoError(t, err)
 	assert.LessOrEqual(t, f.fetchCount("x/b@v1.0.0"), 1)
@@ -287,7 +318,7 @@ func TestResolveRefetchesOnlyOncePerRaise(t *testing.T) {
 
 func TestResolveFetchError(t *testing.T) {
 	f := &fakeFetcher{manifests: map[string]*Manifest{}}
-	_, err := Resolve(&Manifest{Requires: toDeps(map[string]string{"x/a": "v1.0.0"})}, f)
+	_, err := Resolve(&Manifest{Requires: toReqs(map[string]string{"x/a": "v1.0.0"})}, f)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "x/a@v1.0.0")
 }

@@ -50,7 +50,7 @@ func TestPrintGraphRejectsSentinelWithoutReplacement(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "graph-sentinel")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName), []byte(
-		"manifest: { requires: { 'example.com/lib': '"+deps.ReplacementSentinel+"' } }\n"),
+		"manifest: { requires: { 'example.com/lib': { version: '"+deps.ReplacementSentinel+"' } } }\n"),
 		0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`factory: {
   imports: { lib: 'example.com/lib' }
@@ -204,7 +204,7 @@ func TestPrintGraphUsesAncestorProjectFiles(t *testing.T) {
 	child := filepath.Join(root, "stacks", "demo")
 	require.NoError(t, os.MkdirAll(child, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/x/core': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'github.com/x/core': { version: 'v1.0.0' } }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"), []byte(`
 factory: {
   imports: { core: 'github.com/x/core' }
@@ -278,9 +278,12 @@ go 1.26
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "library.go"),
 		validGoLibrarySource("lib"), 0o644))
+	manifest := "requires: {\n" +
+		"  'example.com/lib/v2': { version: '" + deps.ReplacementSentinel + "' }\n" +
+		"}\n" +
+		"replace: { 'example.com/lib/v2': './lib' }\n"
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'example.com/lib/v2': '"+deps.ReplacementSentinel+"' }\n"+
-			"replace: { 'example.com/lib/v2': './lib' }\n"), 0o644))
+		manifestSource(manifest), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
 factory: {
   imports: { lib: 'example.com/lib/v2' }

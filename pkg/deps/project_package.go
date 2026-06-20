@@ -44,7 +44,7 @@ func RemotePackageFromDependency(dep Dependency) RemotePackage {
 	return RemotePackage{URL: dep.URL, Subdir: dep.Subdir}
 }
 
-func ProjectIDsFromDependencies(deps map[Dependency]string) []ProjectID {
+func ProjectIDsFromDependencies[V any](deps map[Dependency]V) []ProjectID {
 	projects := make([]ProjectID, 0, len(deps))
 	for dep := range deps {
 		projects = append(projects, ProjectIDFromDependency(dep))

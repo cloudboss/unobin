@@ -1,8 +1,13 @@
 manifest: {
   unobin-version: 'v0.2.0'
   requires: {
-    'github.com/cloudboss/unobin-library-std': 'v0.4.1'
-    'github.com/example/mono//libs/network': 'v2.0.0'
+    'github.com/cloudboss/unobin-library-std': {
+      version:  'v0.4.1'
+      indirect: true
+    }
+    'github.com/example/mono//libs/network': {
+      version: 'v2.0.0'
+    }
   }
   replace: {
     'github.com/cloudboss/unobin-library-std': '../local-std'

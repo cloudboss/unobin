@@ -171,9 +171,10 @@ type CompositeDecl struct {
 }
 
 type ManifestRequire struct {
-	S       parse.Span
-	ID      StringKey
-	Version *parse.StringLit
+	S        parse.Span
+	ID       StringKey
+	Version  *parse.StringLit
+	Indirect *parse.BoolLit
 }
 
 type ManifestReplace struct {

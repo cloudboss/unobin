@@ -134,16 +134,16 @@ func TestReadManifest(t *testing.T) {
 	fsys := fstest.MapFS{
 		ManifestFileName: &fstest.MapFile{Data: manifestData(`
 requires: {
-  'github.com/cloudboss/unobin-library-std//x':       'v0.1.0'
-  'github.com/me/net//vpc':                          'v2.0.0'
+  'github.com/cloudboss/unobin-library-std//x': { version: 'v0.1.0' }
+  'github.com/me/net//vpc':                    { version: 'v2.0.0' }
 }
 `)},
 	}
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]string{
-		{URL: "github.com/cloudboss/unobin-library-std", Subdir: "x"}: "v0.1.0",
-		{URL: "github.com/me/net", Subdir: "vpc"}:                     "v2.0.0",
+	assert.Equal(t, map[Dependency]Requirement{
+		{URL: "github.com/cloudboss/unobin-library-std", Subdir: "x"}: {Version: "v0.1.0"},
+		{URL: "github.com/me/net", Subdir: "vpc"}:                     {Version: "v2.0.0"},
 	}, m.Requires)
 }
 
@@ -173,7 +173,9 @@ func TestReadManifestRejectsBadVersionField(t *testing.T) {
 
 func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: manifestData("requires: { 'nohost': 'v1.0.0' }\n")},
+		ManifestFileName: &fstest.MapFile{
+			Data: manifestData("requires: { 'nohost': { version: 'v1.0.0' } }\n"),
+		},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
@@ -183,7 +185,7 @@ func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 func TestReadManifestRejectsBadFloor(t *testing.T) {
 	fsys := fstest.MapFS{
 		ManifestFileName: &fstest.MapFile{
-			Data: manifestData("requires: { 'github.com/x/y': 'latest' }\n"),
+			Data: manifestData("requires: { 'github.com/x/y': { version: 'latest' } }\n"),
 		},
 	}
 	_, err := ReadManifest(fsys)
@@ -192,14 +194,18 @@ func TestReadManifestRejectsBadFloor(t *testing.T) {
 }
 
 func TestEncodeManifest(t *testing.T) {
-	m := &Manifest{Requires: map[Dependency]string{
-		{URL: "github.com/cloudboss/unobin"}:        "v0.1.2",
-		{URL: "github.com/cloudboss/helloer-stuff"}: "v0.1.0",
+	m := &Manifest{Requires: map[Dependency]Requirement{
+		{URL: "github.com/cloudboss/unobin"}:        {Version: "v0.1.2"},
+		{URL: "github.com/cloudboss/helloer-stuff"}: {Version: "v0.1.0"},
 	}}
 	want := `manifest: {
 requires: {
-'github.com/cloudboss/helloer-stuff': 'v0.1.0'
-'github.com/cloudboss/unobin': 'v0.1.2'
+'github.com/cloudboss/helloer-stuff': {
+version: 'v0.1.0'
+}
+'github.com/cloudboss/unobin': {
+version: 'v0.1.2'
+}
 }
 }
 `
@@ -210,10 +216,10 @@ func TestEncodeManifestEmpty(t *testing.T) {
 	assert.Equal(t, "manifest: {\nrequires: {\n}\n}\n", string(EncodeManifest(&Manifest{})))
 }
 
-func TestManifestRoundTrip(t *testing.T) {
-	m := &Manifest{Requires: map[Dependency]string{
-		{URL: "github.com/x/y", Subdir: "sub"}: "v1.2.3",
-		{URL: "github.com/a/b"}:                "v0.1.0",
+func TestManifestCanBeReadAgain(t *testing.T) {
+	m := &Manifest{Requires: map[Dependency]Requirement{
+		{URL: "github.com/x/y", Subdir: "sub"}: {Version: "v1.2.3"},
+		{URL: "github.com/a/b"}:                {Version: "v0.1.0"},
 	}}
 	fsys := fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: EncodeManifest(m)}}
 	got, err := ReadManifest(fsys)
@@ -224,13 +230,15 @@ func TestManifestRoundTrip(t *testing.T) {
 func TestReadManifestWithReplace(t *testing.T) {
 	fsys := fstest.MapFS{
 		ManifestFileName: &fstest.MapFile{Data: manifestData(`
-requires: { 'github.com/x/y': 'v1.0.0' }
+requires: { 'github.com/x/y': { version: 'v1.0.0' } }
 replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
 `)},
 	}
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
-	assert.Equal(t, map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"}, m.Requires)
+	assert.Equal(t, map[Dependency]Requirement{
+		{URL: "github.com/x/y"}: {Version: "v1.0.0"},
+	}, m.Requires)
 	assert.Equal(t, map[Dependency]string{
 		{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
 	}, m.Replace)
@@ -238,14 +246,16 @@ replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
 
 func TestEncodeManifestWithReplace(t *testing.T) {
 	m := &Manifest{
-		Requires: map[Dependency]string{{URL: "github.com/x/y"}: "v1.0.0"},
+		Requires: map[Dependency]Requirement{{URL: "github.com/x/y"}: {Version: "v1.0.0"}},
 		Replace: map[Dependency]string{
 			{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
 		},
 	}
 	want := `manifest: {
 requires: {
-'github.com/x/y': 'v1.0.0'
+'github.com/x/y': {
+version: 'v1.0.0'
+}
 }
 replace: {
 'github.com/cloudboss/unobin-library-aws': '../../../..'
@@ -255,9 +265,9 @@ replace: {
 	assert.Equal(t, want, string(EncodeManifest(m)))
 }
 
-func TestReplaceRoundTrip(t *testing.T) {
+func TestReplaceCanBeReadAgain(t *testing.T) {
 	m := &Manifest{
-		Requires: map[Dependency]string{{URL: "github.com/a/b"}: "v0.1.0"},
+		Requires: map[Dependency]Requirement{{URL: "github.com/a/b"}: {Version: "v0.1.0"}},
 		Replace:  map[Dependency]string{{URL: "github.com/c/d"}: "../local/d"},
 	}
 	fsys := fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: EncodeManifest(m)}}

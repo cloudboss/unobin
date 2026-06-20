@@ -228,7 +228,9 @@ func TestDepsSyncAddsLockedVersionForDirectImport(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.2.0'
+    'github.com/x/core': {
+      version: 'v1.2.0'
+    }
   }
 }
 `, string(manifestBytes))
@@ -237,7 +239,7 @@ func TestDepsSyncAddsLockedVersionForDirectImport(t *testing.T) {
 func TestDepsSyncRejectsInvalidGoLibrary(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/x/bad': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'github.com/x/bad': { version: 'v1.0.0' } }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
 		factorySource("imports: { bad: 'github.com/x/bad' }\n"), 0o644))
 	badDir := t.TempDir()
@@ -274,7 +276,9 @@ func TestDepsSyncAddsSentinelForExactReplacement(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v0.0.0-unobin-replaced'
+    'github.com/x/core': {
+      version: 'v0.0.0-unobin-replaced'
+    }
   }
   replace: {
     'github.com/x/core': './core'
@@ -344,7 +348,7 @@ func TestDepsSync(t *testing.T) {
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// The floor lives in the manifest; sync rebuilds the lock from it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': { version: 'v1.0.0' }\n}\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -368,7 +372,7 @@ func TestDepsSyncRootImportUsesRepoFloor(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
 		factorySource("imports: { core: 'github.com/x/core' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': { version: 'v1.0.0' }\n}\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -389,7 +393,7 @@ func TestDepsSyncUsesAncestorManifest(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"),
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': { version: 'v1.0.0' }\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(child, "factory.ub"))
@@ -453,7 +457,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(deps.ManifestFileName,
-		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/x/core': { version: 'v1.0.0' } } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync")
 	require.NoError(t, err)
@@ -503,7 +507,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("manifest: { requires: { 'github.com/x/core': 'v1.0.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/x/core': { version: 'v1.0.0' } } }\n"), 0o644))
 
 	out, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -514,7 +518,9 @@ factory: {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.0.0'
+    'github.com/x/core': {
+      version: 'v1.0.0'
+    }
   }
 }
 `, string(manifestBytes))
@@ -531,7 +537,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("manifest: { requires: { 'github.com/scratch/repo': 'v0.8.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/scratch/repo': { version: 'v0.8.0' } } }\n"), 0o644))
 	projectFS := fstest.MapFS{
 		deps.ManifestFileName: &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
 		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`
@@ -584,7 +590,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("manifest: { requires: { 'github.com/scratch/repo': 'v0.8.0' } }\n"), 0o644))
+		[]byte("manifest: { requires: { 'github.com/scratch/repo': { version: 'v0.8.0' } } }\n"), 0o644))
 	remotes := map[string]*resolve.Source{
 		"github.com/scratch/repo@v0.8.0": {
 			Commit: "scratch",
@@ -627,8 +633,12 @@ factory: {
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName), []byte(`manifest: {
   requires: {
-    'github.com/scratch/repo':               'v0.8.0'
-    'github.com/scratch/repo//ub/project-b': 'v0.1.0'
+    'github.com/scratch/repo': {
+      version: 'v0.8.0'
+    }
+    'github.com/scratch/repo//ub/project-b': {
+      version: 'v0.1.0'
+    }
   }
 }
 `), 0o644))
@@ -701,7 +711,7 @@ greeting: resource {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/x/core': { version: 'v1.0.0' }\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync", "-p", root)
 	require.NoError(t, err)
@@ -723,9 +733,9 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'example.com/shared': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'example.com/shared': { version: 'v1.0.0' } }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'example.com/nested': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'example.com/nested': { version: 'v1.0.0' } }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
 thing: resource {
   imports: { nested: 'example.com/nested//lib' }
@@ -772,7 +782,7 @@ factory: {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: { 'example.com/nested': 'v1.0.0' }\n"), 0o644))
+		manifestSource("requires: { 'example.com/nested': { version: 'v1.0.0' } }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(child, "abc.ub"), []byte(`
 thing: resource {
   imports: { nested: 'example.com/nested//lib' }
@@ -858,7 +868,9 @@ func TestDepsSyncDiscoversMissingOwner(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.0.0'
+    'github.com/x/core': {
+      version: 'v1.0.0'
+    }
   }
 }
 `, string(manifestBytes))
@@ -906,8 +918,8 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
 	// gone/repo is listed but no longer imported; sync must remove it.
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/gone/repo': 'v1.0.0'\n"+
-			"  'github.com/x/core': 'v1.0.0'\n}\n"), 0o644))
+		manifestSource("requires: {\n  'github.com/gone/repo': { version: 'v1.0.0' }\n"+
+			"  'github.com/x/core': { version: 'v1.0.0' }\n}\n"), 0o644))
 
 	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
 		"-p", filepath.Join(root, "factory.ub"))
@@ -917,7 +929,9 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core': 'v1.0.0'
+    'github.com/x/core': {
+      version: 'v1.0.0'
+    }
   }
 }
 `, string(manifestBytes))
@@ -1104,7 +1118,9 @@ func TestDepsGetExactVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `manifest: {
   requires: {
-    'github.com/x/core//lib': 'v1.2.0'
+    'github.com/x/core//lib': {
+      version: 'v1.2.0'
+    }
   }
 }
 `, string(manifestBytes))

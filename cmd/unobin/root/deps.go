@@ -200,7 +200,7 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
-	manifest.Requires[dep] = version
+	manifest.SetRequire(dep, version, false)
 	fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n", dep, version)
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
 }
@@ -211,7 +211,9 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
 	manifest, err := deps.ReadManifest(os.DirFS(root))
 	if errors.Is(err, fs.ErrNotExist) {
-		return &deps.Manifest{Requires: map[deps.Dependency]string{}}, deps.ManifestFileName, nil
+		return &deps.Manifest{
+			Requires: map[deps.Dependency]deps.Requirement{},
+		}, deps.ManifestFileName, nil
 	}
 	if err != nil {
 		return nil, deps.ManifestFileName, err
@@ -257,14 +259,14 @@ func reconcileManifest(
 		owner, ok = deps.MostSpecificProject(lockedProjects, pkg)
 		if ok {
 			dep := owner.Project.Dependency()
-			m.Requires[dep] = lock.Deps[owner.Project.String()].Version
+			m.SetRequire(dep, lock.Deps[owner.Project.String()].Version, false)
 			projects = append(projects, owner.Project)
 			used[dep] = true
 			continue
 		}
 		if hasReplacement {
 			dep := replacement.Project.Dependency()
-			m.Requires[dep] = deps.ReplacementSentinel
+			m.SetRequire(dep, deps.ReplacementSentinel, false)
 			projects = append(projects, replacement.Project)
 			used[dep] = true
 			continue
@@ -275,7 +277,7 @@ func reconcileManifest(
 		}
 		if found {
 			dep := discovered.Project.Dependency()
-			m.Requires[dep] = version
+			m.SetRequire(dep, version, false)
 			projects = append(projects, discovered.Project)
 			used[dep] = true
 			continue
@@ -450,7 +452,7 @@ func resolveAndWrite(
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (%d direct) and %s (%d locked)\n",
-		manifestName, len(manifest.Requires), deps.SourceLockFileName, len(lock.Deps))
+		manifestName, manifest.DirectCount(), deps.SourceLockFileName, len(lock.Deps))
 	return nil
 }
 

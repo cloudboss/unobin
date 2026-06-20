@@ -55,7 +55,7 @@ func TestFetchReadsManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "", "v1.0.0"): {FS: fstest.MapFS{
 			ManifestFileName: &fstest.MapFile{
-				Data: []byte("manifest: { requires: { 'github.com/x/dep': 'v2.0.0' } }\n"),
+				Data: []byte("manifest: { requires: { 'github.com/x/dep': { version: 'v2.0.0' } } }\n"),
 			},
 		}},
 	}}
@@ -63,7 +63,8 @@ func TestFetchReadsManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t,
-		map[Dependency]string{{URL: "github.com/x/dep"}: "v2.0.0"}, got.Requires)
+		map[Dependency]Requirement{{URL: "github.com/x/dep"}: {Version: "v2.0.0"}},
+		got.Requires)
 }
 
 func TestFetchLeafHasNoManifest(t *testing.T) {
@@ -135,7 +136,7 @@ hello: resource {
 		},
 		srcKey("github.com/x/libs", "", "v1.0.0"): {FS: fstest.MapFS{
 			ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/cloudboss/unobin-library-std': 'v0.1.0' }
+  requires: { 'github.com/cloudboss/unobin-library-std': { version: 'v0.1.0' } }
 }
 `)},
 		}},
@@ -151,13 +152,13 @@ func TestFetchReadsExactSubdirManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/libs", "ub/project-b", "ub/project-b/v0.1.0"): {
 			FS: fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/x/project-dep': 'v0.2.0' }
+  requires: { 'github.com/x/project-dep': { version: 'v0.2.0' } }
 }
 `)}},
 		},
 		srcKey("github.com/x/libs", "", "v0.1.0"): {FS: fstest.MapFS{
 			ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/x/root-dep': 'v9.0.0' }
+  requires: { 'github.com/x/root-dep': { version: 'v9.0.0' } }
 }
 `)},
 		}},
@@ -167,8 +168,8 @@ func TestFetchReadsExactSubdirManifest(t *testing.T) {
 		Dependency{URL: "github.com/x/libs", Subdir: "ub/project-b"}, "v0.1.0")
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, map[Dependency]string{
-		{URL: "github.com/x/project-dep"}: "v0.2.0",
+	assert.Equal(t, map[Dependency]Requirement{
+		{URL: "github.com/x/project-dep"}: {Version: "v0.2.0"},
 	}, got.Requires)
 }
 

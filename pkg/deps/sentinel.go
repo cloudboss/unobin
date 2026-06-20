@@ -30,8 +30,8 @@ func CheckReplacementSentinels(manifest *Manifest) error {
 	if manifest == nil {
 		return nil
 	}
-	for dep, version := range manifest.Requires {
-		if !IsReplacementSentinel(version) {
+	for dep, req := range manifest.Requires {
+		if !IsReplacementSentinel(req.Version) {
 			continue
 		}
 		if _, ok := manifest.Replace[dep]; ok {

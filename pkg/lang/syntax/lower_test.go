@@ -287,7 +287,13 @@ func TestLowerSourceDeclaredManifestFile(t *testing.T) {
 manifest: {
   unobin-version: '0.2.0'
   requires: {
-    'github.com/cloudboss/example': 'v1.2.3'
+    'github.com/cloudboss/example': {
+      version: 'v1.2.3'
+    }
+    'github.com/cloudboss/std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
   }
 }
 `, parse.FileUnknown)
@@ -298,8 +304,16 @@ manifest: {
 	require.NotNil(t, got.Manifest)
 	require.NotNil(t, got.Manifest.UnobinVersion)
 	assert.Equal(t, "0.2.0", got.Manifest.UnobinVersion.Value)
-	require.Len(t, got.Manifest.Requires, 1)
+	require.Len(t, got.Manifest.Requires, 2)
 	assert.Equal(t, "github.com/cloudboss/example", got.Manifest.Requires[0].ID.Value)
+	require.NotNil(t, got.Manifest.Requires[0].Version)
+	assert.Equal(t, "v1.2.3", got.Manifest.Requires[0].Version.Value)
+	assert.Nil(t, got.Manifest.Requires[0].Indirect)
+	assert.Equal(t, "github.com/cloudboss/std", got.Manifest.Requires[1].ID.Value)
+	require.NotNil(t, got.Manifest.Requires[1].Version)
+	assert.Equal(t, "v0.2.0", got.Manifest.Requires[1].Version.Value)
+	require.NotNil(t, got.Manifest.Requires[1].Indirect)
+	assert.True(t, got.Manifest.Requires[1].Indirect.Value)
 }
 
 func TestLowerSourceDeclaredLockFile(t *testing.T) {
@@ -633,6 +647,50 @@ func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f := parseFile(t, c.path, c.src, parse.FileUnknown)
+
+			_, errs := LowerFile(f)
+			require.NotEqual(t, 0, errs.Len())
+			assert.Contains(t, errs.Error(), c.want)
+		})
+	}
+}
+
+func TestLowerReportsManifestRequireSchemaErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "string value",
+			src:  "'github.com/x/y': 'v1.2.3'",
+			want: "requires: dependency \"github.com/x/y\": value must be an object",
+		},
+		{
+			name: "missing version",
+			src:  "'github.com/x/y': { indirect: true }",
+			want: "requires: dependency \"github.com/x/y\": missing version",
+		},
+		{
+			name: "non string version",
+			src:  "'github.com/x/y': { version: 12 }",
+			want: "require github.com/x/y: version must be a string literal",
+		},
+		{
+			name: "non boolean indirect",
+			src:  "'github.com/x/y': { version: 'v1.2.3' indirect: 'yes' }",
+			want: "require github.com/x/y: indirect must be a boolean literal",
+		},
+		{
+			name: "unknown field",
+			src:  "'github.com/x/y': { version: 'v1.2.3' pinned: true }",
+			want: "requires: dependency \"github.com/x/y\": \"pinned\" is not a valid require field",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := parseFile(t, "manifest.ub", "manifest: { requires: { "+c.src+" } }\n",
+				parse.FileUnknown)
 
 			_, errs := LowerFile(f)
 			require.NotEqual(t, 0, errs.Len())

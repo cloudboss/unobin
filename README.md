@@ -60,7 +60,9 @@ The manifest names the owning project, not every package below it:
 
 ```ub
 manifest: {
-  requires: { 'example.com/repo': 'v1.2.3' }
+  requires: {
+    'example.com/repo': { version: 'v1.2.3' }
+  }
 }
 ```
 
@@ -69,7 +71,9 @@ manifest: {
 
 ```ub
 manifest: {
-  requires: { 'example.com/repo//library-c': 'v1.2.3' }
+  requires: {
+    'example.com/repo//library-c': { version: 'v1.2.3' }
+  }
 }
 ```
 
@@ -87,8 +91,10 @@ project:
 
 ```ub
 manifest: {
-  requires: { 'example.com/repo//library-c': 'v1.2.3' }
-  replace:  { 'example.com/repo//library-c': './library-c' }
+  requires: {
+    'example.com/repo//library-c': { version: 'v1.2.3' }
+  }
+  replace: { 'example.com/repo//library-c': './library-c' }
 }
 ```
 

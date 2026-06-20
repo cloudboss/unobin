@@ -27,6 +27,27 @@ func TestReadManifestWithoutToolchainLine(t *testing.T) {
 	require.Empty(t, m.UnobinVersion)
 }
 
+func TestReadManifestObjectRequirements(t *testing.T) {
+	m, err := ReadManifest(manifestFS(`requires: {
+  'github.com/x/direct': { version: 'v1.2.3' }
+  'github.com/x/indirect': { version: 'v2.0.0' indirect: true }
+}
+`))
+	require.NoError(t, err)
+	require.Equal(t, map[Dependency]Requirement{
+		{URL: "github.com/x/direct"}:   {Version: "v1.2.3"},
+		{URL: "github.com/x/indirect"}: {Version: "v2.0.0", Indirect: true},
+	}, m.Requires)
+	require.Equal(t, map[Dependency]string{
+		{URL: "github.com/x/direct"}:   "v1.2.3",
+		{URL: "github.com/x/indirect"}: "v2.0.0",
+	}, m.RequireVersions())
+	require.Equal(t, map[Dependency]string{{URL: "github.com/x/direct"}: "v1.2.3"},
+		m.DirectRequireVersions())
+	require.Equal(t, 1, m.DirectCount())
+	require.Equal(t, 1, m.IndirectCount())
+}
+
 func TestReadManifestFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/manifest", func(name string, src []byte) (string, []string) {
 		m, err := ReadManifest(fstest.MapFS{
@@ -60,22 +81,25 @@ func TestReadManifestRejectsNonStringToolchainLine(t *testing.T) {
 // pin, through the manifest's unobin-version line.
 func TestReadManifestRejectsUnobinInRequires(t *testing.T) {
 	_, err := ReadManifest(manifestFS(
-		"requires: {\n  'github.com/cloudboss/unobin': 'v0.5.0'\n}\n"))
+		"requires: {\n  'github.com/cloudboss/unobin': { version: 'v0.5.0' }\n}\n"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "toolchain-versioned")
 	require.Contains(t, err.Error(), "unobin-version line")
 }
 
-// TestEncodeManifestRoundTrips pins the encoder as stable: its output
+// TestEncodeManifestCanBeReadAgain pins the encoder as stable: its output
 // parses, reading it back recovers the manifest, and re-encoding is
 // byte-identical.
-func TestEncodeManifestRoundTrips(t *testing.T) {
+func TestEncodeManifestCanBeReadAgain(t *testing.T) {
 	m := &Manifest{
 		UnobinVersion: "v0.2.0",
-		Requires: map[Dependency]string{
-			{URL: "github.com/cloudboss/unobin-library-aws"}:         "v1.2.0",
-			{URL: "github.com/cloudboss/unobin-library-std"}:         "v0.4.1",
-			{URL: "github.com/example/mono", Subdir: "libs/network"}: "v2.0.0",
+		Requires: map[Dependency]Requirement{
+			{URL: "github.com/cloudboss/unobin-library-aws"}: {Version: "v1.2.0"},
+			{URL: "github.com/cloudboss/unobin-library-std"}: {
+				Version:  "v0.4.1",
+				Indirect: true,
+			},
+			{URL: "github.com/example/mono", Subdir: "libs/network"}: {Version: "v2.0.0"},
 		},
 		Replace: map[Dependency]string{
 			{URL: "github.com/cloudboss/unobin-library-std"}: "../local-std",
@@ -97,7 +121,7 @@ func TestEncodeManifestRoundTrips(t *testing.T) {
 func TestEncodeManifestWritesToolchainLine(t *testing.T) {
 	m := &Manifest{
 		UnobinVersion: "v0.2.0",
-		Requires:      map[Dependency]string{},
+		Requires:      map[Dependency]Requirement{},
 	}
 	encoded := EncodeManifest(m)
 	require.Contains(t, string(encoded), "unobin-version: 'v0.2.0'\n")

@@ -1,7 +1,8 @@
 manifest: {
   requires: {
     'github.com/x/y': {
-      version: 'latest'
+      version: 'v1.2.3'
+      pinned:  true
     }
   }
 }

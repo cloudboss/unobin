@@ -22,7 +22,7 @@ func TestHashUBProjectIncludesManifest(t *testing.T) {
 	}
 	changed := fstest.MapFS{
 		"manifest.ub": &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/x/y': 'v1.0.0' }
+  requires: { 'github.com/x/y': { version: 'v1.0.0' } }
 }
 `)},
 		"library.ub": &fstest.MapFile{Data: []byte("thing: resource {}\n")},

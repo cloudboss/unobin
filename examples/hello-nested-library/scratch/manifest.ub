@@ -4,7 +4,4 @@ manifest: {
       version: 'v0.1.0'
     }
   }
-  replace: {
-    'github.com/cloudboss/unobin': '../..'
-  }
 }

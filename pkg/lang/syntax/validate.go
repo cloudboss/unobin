@@ -547,7 +547,16 @@ func manifestRequiresObject(decls []ManifestRequire) *parse.ObjectLit {
 		obj.S = decls[0].S
 	}
 	for _, decl := range decls {
-		obj.Fields = append(obj.Fields, stringField(decl.ID.Value, decl.ID.S, decl.Version))
+		body := &parse.ObjectLit{S: decl.S}
+		if decl.Version != nil {
+			body.Fields = append(body.Fields,
+				identField("version", decl.Version.S, decl.Version))
+		}
+		if decl.Indirect != nil {
+			body.Fields = append(body.Fields,
+				identField("indirect", decl.Indirect.S, decl.Indirect))
+		}
+		obj.Fields = append(obj.Fields, stringField(decl.ID.Value, decl.ID.S, body))
 	}
 	return obj
 }

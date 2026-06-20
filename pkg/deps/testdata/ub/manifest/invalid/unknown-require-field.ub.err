@@ -1,0 +1,1 @@
+manifest.ub:5:7: schema: requires: dependency "github.com/x/y": "pinned" is not a valid require field

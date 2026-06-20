@@ -887,13 +887,59 @@ func lowerManifestRequires(
 		if !ok {
 			continue
 		}
-		version := stringValue(fld, "require "+id.Value, errs)
-		if version == nil {
+		body, ok := fld.Value.(*parse.ObjectLit)
+		if !ok {
+			pos := fld.S.Start
+			if fld.Value != nil {
+				pos = fld.Value.Span().Start
+			}
+			errs.Addf(parse.ErrSchema, pos,
+				"requires: dependency %q: value must be an object", id.Value)
 			continue
 		}
-		requires = append(requires, ManifestRequire{S: fld.S, ID: id, Version: version})
+		requires = append(requires, lowerManifestRequire(fld.S, id, body, errs))
 	}
 	return requires
+}
+
+func lowerManifestRequire(
+	span parse.Span,
+	id StringKey,
+	body *parse.ObjectLit,
+	errs *parse.ErrorList,
+) ManifestRequire {
+	require := ManifestRequire{S: span, ID: id}
+	seen := make(map[string]parse.Position, len(body.Fields))
+	versionSeen := false
+	for _, fld := range body.Fields {
+		name, ok := fieldName(fld, "require field", errs)
+		if !ok {
+			continue
+		}
+		if prev, dup := seen[name.Name]; dup {
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"requires: dependency %q: duplicate field %q (first defined at %s)",
+				id.Value, name.Name, prev)
+			continue
+		}
+		seen[name.Name] = fld.Key.S.Start
+		switch name.Name {
+		case "version":
+			versionSeen = true
+			require.Version = stringValue(fld, "require "+id.Value+": version", errs)
+		case "indirect":
+			require.Indirect = boolValue(fld, "require "+id.Value+": indirect", errs)
+		default:
+			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
+				"requires: dependency %q: %q is not a valid require field",
+				id.Value, name.Name)
+		}
+	}
+	if !versionSeen {
+		errs.Addf(parse.ErrSchema, body.S.Start,
+			"requires: dependency %q: missing version", id.Value)
+	}
+	return require
 }
 
 func lowerManifestReplace(
@@ -1075,6 +1121,21 @@ func numberValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.Nu
 	if !ok || value.IsFloat {
 		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
 			"%s must be an integer", what)
+		return nil
+	}
+	return value
+}
+
+func boolValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.BoolLit {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start,
+			"%s must be a boolean literal", what)
+		return nil
+	}
+	value, ok := fld.Value.(*parse.BoolLit)
+	if !ok {
+		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+			"%s must be a boolean literal", what)
 		return nil
 	}
 	return value

@@ -28,7 +28,7 @@ func Resolve(root *Manifest, fetch Fetcher) (map[Dependency]string, error) {
 			}
 		}
 	}
-	enqueue(root.Requires)
+	enqueue(root.RequireVersions())
 
 	fetchedAt := map[Dependency]string{}
 	for len(queue) > 0 {
@@ -44,7 +44,7 @@ func Resolve(root *Manifest, fetch Fetcher) (map[Dependency]string, error) {
 		}
 		fetchedAt[dep] = version
 		if manifest != nil {
-			enqueue(manifest.Requires)
+			enqueue(manifest.RequireVersions())
 		}
 	}
 	return sel.Chosen(), nil

@@ -1,0 +1,1 @@
+manifest.ub:3:23: schema: requires: dependency "github.com/x/y": value must be an object
