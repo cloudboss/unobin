@@ -50,13 +50,16 @@ type SourceCase struct {
 
 // RemoteSource describes a fake remote repository used by source-root cases.
 type RemoteSource struct {
-	Key           string `json:"key"`
-	Path          string `json:"path"`
-	Commit        string `json:"commit"`
-	ProjectPath   string `json:"projectPath"`
-	ProjectSubdir string `json:"projectSubdir"`
-	PackageSubdir string `json:"packageSubdir"`
-	SourcePath    bool   `json:"sourcePath"`
+	Key            string `json:"key"`
+	Path           string `json:"path"`
+	Commit         string `json:"commit"`
+	ProjectPath    string `json:"projectPath"`
+	ProjectSubdir  string `json:"projectSubdir"`
+	PackageSubdir  string `json:"packageSubdir"`
+	SourcePath     bool   `json:"sourcePath"`
+	ModuleRootPath string `json:"moduleRootPath"`
+	ModulePath     string `json:"modulePath"`
+	GoImportPath   string `json:"goImportPath"`
 }
 
 // Command describes one subprocess invocation.
@@ -274,6 +277,9 @@ func validateRemotes(remotes []RemoteSource) error {
 		}
 		if remote.ProjectPath == "" && (remote.ProjectSubdir != "" || remote.PackageSubdir != "") {
 			return fmt.Errorf("%s.projectPath is required with project metadata", prefix)
+		}
+		if err := checkRelPath(prefix+".moduleRootPath", remote.ModuleRootPath); err != nil {
+			return err
 		}
 	}
 	return nil

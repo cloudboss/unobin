@@ -224,6 +224,11 @@ func sourceRemoteMap(workspace string, remotes []RemoteSource) (map[string]*reso
 			source.ProjectSubdir = remote.ProjectSubdir
 			source.PackageSubdir = remote.PackageSubdir
 		}
+		if remote.ModuleRootPath != "" {
+			source.ModuleRootPath = filepath.Join(workspace, filepath.FromSlash(remote.ModuleRootPath))
+		}
+		source.ModulePath = remote.ModulePath
+		source.GoImportPath = remote.GoImportPath
 		out[remote.Key] = source
 	}
 	return out, nil

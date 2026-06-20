@@ -1,0 +1,27 @@
+{
+  "name": "compile-go-subpackage",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/x/core//lib@v1.0.0",
+      "path": "remotes/core/lib",
+      "commit": "c1",
+      "moduleRootPath": "remotes/core",
+      "modulePath": "github.com/x/core",
+      "goImportPath": "github.com/x/core/lib"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr"
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" }
+  ]
+}

@@ -60,11 +60,14 @@ func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 
 	remotes, err := sourceRemoteMap(workspace, []RemoteSource{
 		{
-			Key:           "example.com/repo//lib@v1.0.0",
-			Path:          "repo/lib",
-			ProjectPath:   "repo",
-			ProjectSubdir: "",
-			PackageSubdir: "lib",
+			Key:            "example.com/repo//lib@v1.0.0",
+			Path:           "repo/lib",
+			ProjectPath:    "repo",
+			ProjectSubdir:  "",
+			PackageSubdir:  "lib",
+			ModuleRootPath: "repo",
+			ModulePath:     "example.com/repo",
+			GoImportPath:   "example.com/repo/lib",
 		},
 	})
 	require.NoError(t, err)
@@ -74,6 +77,9 @@ func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 	require.Equal(t, filepath.Join(workspace, "repo"), src.ProjectPath)
 	require.Equal(t, "", src.ProjectSubdir)
 	require.Equal(t, "lib", src.PackageSubdir)
+	require.Equal(t, filepath.Join(workspace, "repo"), src.ModuleRootPath)
+	require.Equal(t, "example.com/repo", src.ModulePath)
+	require.Equal(t, "example.com/repo/lib", src.GoImportPath)
 }
 
 func TestRootCommandRunnerSetsCLIVersion(t *testing.T) {
