@@ -415,6 +415,40 @@ func TestApplyPlanRejectsRecordedStateMoveDestinationConflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "destination already exists at core.thing@resource.new")
 }
 
+func TestDestroyUsesStateMoveWhenPriorSelectorIsNotImported(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMovePlanEntryWithSelector("old", "thing", "resource.previous"),
+	)
+	libs := stateMoveNextOnlyLibs()
+	exec := planTestExecutor(t, `
+state-moves: [
+  { from: 'old.thing@resource.previous', to: 'next.thing@resource.current' },
+]
+resources: {
+  current: next.thing { name: 'alpha', size: 1 }
+}
+`, libs, store, stack)
+	exec.Destroy = true
+
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []PlannedEntryMove{
+		{From: "old.thing@resource.previous", To: "next.thing@resource.current"},
+	}, plan.StateMoves)
+	step := stepFor(plan, "resource.current")
+	require.NotNil(t, step)
+	assert.Equal(t, DecisionDestroy, step.Decision)
+	assert.Equal(t, &state.Selector{Alias: "next", Export: "thing"}, step.Selector)
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	snap, err := store.Current()
+	require.NoError(t, err)
+	assert.Empty(t, snap.Entries)
+}
+
 func stateMovePlanFile(exec *Executor, rev string) *PlanFile {
 	return &PlanFile{
 		FormatVersion: PlanFormatVersion,
@@ -624,13 +658,27 @@ resources: {
 }
 
 func stateMovePlanEntry(address string) *state.Entry {
+	return stateMovePlanEntryWithSelector("core", "thing", address)
+}
+
+func stateMovePlanEntryWithSelector(alias, export, address string) *state.Entry {
 	return &state.Entry{
 		Address:       address,
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
-		Selector:      &state.Selector{Alias: "core", Export: "thing"},
+		Selector:      &state.Selector{Alias: alias, Export: export},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": int64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": int64(1)},
+	}
+}
+
+func stateMoveNextOnlyLibs() map[string]*Library {
+	core := resourceModules(&resourceCounters{})["core"]
+	return map[string]*Library{
+		"next": {
+			Name:      "next",
+			Resources: core.Resources,
+		},
 	}
 }
