@@ -192,5 +192,6 @@ func TestImportedPackagesRejectsInvalidNestedManifest(t *testing.T) {
 
 	_, err := ImportedPackages(root)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "manifest")
+	assert.Contains(t, err.Error(), "library-c/manifest.ub")
+	assert.NotContains(t, err.Error(), "project marker ./manifest.ub")
 }

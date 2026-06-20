@@ -28,7 +28,7 @@ func ImportedPackages(root string) (map[RemotePackage]bool, error) {
 			if strings.HasPrefix(d.Name(), ".") {
 				return fs.SkipDir
 			}
-			hasMarker, err := hasProjectMarkerDir(path)
+			hasMarker, err := hasProjectMarkerDir(root, path)
 			if err != nil {
 				return err
 			}
@@ -62,8 +62,12 @@ func ImportedRepos(root string) (map[Dependency]bool, error) {
 	return repos, nil
 }
 
-func hasProjectMarkerDir(path string) (bool, error) {
-	marker, err := projectmarker.ClassifyRoot(os.DirFS(path))
+func hasProjectMarkerDir(root, path string) (bool, error) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false, err
+	}
+	marker, err := projectmarker.Classify(os.DirFS(root), filepath.ToSlash(rel))
 	if err != nil {
 		return false, err
 	}
