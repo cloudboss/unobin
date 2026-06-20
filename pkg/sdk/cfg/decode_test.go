@@ -66,6 +66,49 @@ func TestDecodeOptionalUsesValueWhenPresent(t *testing.T) {
 	require.Equal(t, "prod", out.(*Configuration).Profile.Value)
 }
 
+func TestDecodeOptionalUsesDefaultWhenNull(t *testing.T) {
+	type Configuration struct {
+		Profile *String
+		Tags    *Map[String]
+	}
+	ct := &ConfigurationType[any]{
+		New: func() any {
+			return &Configuration{
+				Profile: &String{Default: "default"},
+				Tags: &Map[String]{Default: map[string]String{
+					"env": {Value: "dev"},
+				}},
+			}
+		},
+	}
+	out, err := Decode(ct, map[string]any{"profile": nil, "tags": nil})
+	require.NoError(t, err)
+	config := out.(*Configuration)
+	require.Equal(t, "default", config.Profile.Value)
+	require.Equal(t, "dev", config.Tags.Value["env"].Value)
+}
+
+func TestDecodeOptionalStructNullLeavesNil(t *testing.T) {
+	type AssumeRole struct {
+		RoleARN String
+	}
+	type Configuration struct {
+		Region     String
+		AssumeRole *AssumeRole
+	}
+	ct := &ConfigurationType[any]{
+		New: func() any { return &Configuration{} },
+	}
+	out, err := Decode(ct, map[string]any{
+		"region":      "us-east-1",
+		"assume-role": nil,
+	})
+	require.NoError(t, err)
+	config := out.(*Configuration)
+	require.Equal(t, "us-east-1", config.Region.Value)
+	require.Nil(t, config.AssumeRole)
+}
+
 func TestDecodeRequiredFieldAbsentIsAnError(t *testing.T) {
 	type Configuration struct {
 		Region String

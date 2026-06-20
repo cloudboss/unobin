@@ -91,6 +91,9 @@ func decodeField(
 	errs *errList,
 ) {
 	if t.Kind() == reflect.Pointer {
+		if present && raw == nil {
+			present = false
+		}
 		if v.IsNil() {
 			if !present {
 				return
