@@ -937,6 +937,138 @@ func TestDepsSyncPrunesStaleFloor(t *testing.T) {
 `, string(manifestBytes))
 }
 
+func TestDepsSyncPreservesReachableIndirectFloor(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/scratch': { version: 'v0.8.0' }
+  'github.com/x/std':     { version: 'v0.2.0' indirect: true }
+}
+`)
+
+	out, err := runCommandWithRemotes(t, scratchStdRemotes(), "deps", "sync", "-p", root)
+	require.NoError(t, err)
+	require.Contains(t, out,
+		"Wrote manifest.ub (1 direct, 1 indirect) and lock.ub (2 locked)")
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+    'github.com/x/std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
+  }
+}
+`, string(manifestBytes))
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, "v0.2.0", lock.Deps["github.com/x/std"].Version)
+}
+
+func TestDepsSyncConvertsUnusedDirectFloorToIndirect(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/scratch': { version: 'v0.8.0' }
+  'github.com/x/std':     { version: 'v0.2.0' }
+}
+`)
+
+	_, err := runCommandWithRemotes(t, scratchStdRemotes(), "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+    'github.com/x/std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
+  }
+}
+`, string(manifestBytes))
+}
+
+func TestDepsSyncConvertsImportedIndirectFloorToDirect(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/scratch': { version: 'v0.8.0' }
+  'github.com/x/std':     { version: 'v0.2.0' indirect: true }
+}
+`)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), factorySource(`
+imports: {
+  scratch: 'github.com/x/scratch//ub/helloer'
+  std:     'github.com/x/std'
+}
+`), 0o644))
+
+	_, err := runCommandWithRemotes(t, scratchStdRemotes(), "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+    'github.com/x/std': {
+      version: 'v0.2.0'
+    }
+  }
+}
+`, string(manifestBytes))
+}
+
+func TestDepsSyncRemovesUnreachableIndirectFloor(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/scratch': { version: 'v0.8.0' }
+  'github.com/x/other':   { version: 'v1.0.0' indirect: true }
+}
+`)
+
+	_, err := runCommandWithRemotes(t, scratchStdRemotes(), "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+  }
+}
+`, string(manifestBytes))
+}
+
+func TestDepsSyncRemovesUnreachableDirectFloor(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/other':   { version: 'v1.0.0' }
+  'github.com/x/scratch': { version: 'v0.8.0' }
+}
+`)
+
+	_, err := runCommandWithRemotes(t, scratchStdRemotes(), "deps", "sync", "-p", root)
+	require.NoError(t, err)
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+  }
+}
+`, string(manifestBytes))
+}
+
 func writeProjectLock(t *testing.T, root string) fstest.MapFS {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -1079,6 +1211,62 @@ func goLibRemotes(version, commit string) map[string]*resolve.Source {
 	}
 }
 
+func writeScratchImportProject(t *testing.T, manifestBody string) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "proj")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), factorySource(`
+imports: {
+  scratch: 'github.com/x/scratch//ub/helloer'
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
+		manifestSource(manifestBody), 0o644))
+	return root
+}
+
+func scratchStdRemotes() map[string]*resolve.Source {
+	scratchProject := scratchProjectFS()
+	return map[string]*resolve.Source{
+		"github.com/x/scratch@v0.8.0": {
+			Commit: "scratch",
+			FS:     scratchProject,
+		},
+		"github.com/x/scratch//ub/helloer@v0.8.0": {
+			Commit: "scratch",
+			FS: fstest.MapFS{
+				"library.ub": scratchProject["ub/helloer/library.ub"],
+			},
+		},
+		"github.com/x/std@v0.1.0": stdGoSource("v0.1.0"),
+		"github.com/x/std@v0.2.0": stdGoSource("v0.2.0"),
+	}
+}
+
+func scratchProjectFS() fstest.MapFS {
+	return fstest.MapFS{
+		deps.ManifestFileName: &fstest.MapFile{Data: manifestSource(`requires: {
+  'github.com/x/std': { version: 'v0.1.0' }
+}
+`)},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`hello: resource {
+  imports: { std: 'github.com/x/std' }
+  resources: { file: std.fs-file {} }
+}
+`)},
+	}
+}
+
+func stdGoSource(version string) *resolve.Source {
+	return &resolve.Source{
+		Commit: "std-" + version,
+		FS: fstest.MapFS{
+			"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/std\n")},
+			"lib.go": &fstest.MapFile{Data: []byte("package std")},
+		},
+	}
+}
+
 // writeCompileLock writes a source lock into dir pinning each id (a
 // repo//subdir or bare Go path) to a version. Compile takes versions from
 // the lock, so a fixture with versionless imports needs one. Each entry is
@@ -1128,6 +1316,53 @@ func TestDepsGetExactVersion(t *testing.T) {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, "v1.2.0", lock.Deps["github.com/x/core//lib"].Version)
+}
+
+func TestDepsGetTransitiveDependencyWritesIndirect(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/scratch': { version: 'v0.8.0' }
+}
+`)
+	stubListTags(t, map[string][]string{"github.com/x/std": {"v0.1.0", "v0.2.0"}})
+
+	out, err := runCommandWithRemotes(t, scratchStdRemotes(),
+		"deps", "get", "github.com/x/std@v0.2.0", "-p", root)
+	require.NoError(t, err)
+	require.Contains(t, out, "github.com/x/std v0.2.0")
+
+	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
+	require.NoError(t, err)
+	require.Equal(t, `manifest: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+    'github.com/x/std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
+  }
+}
+`, string(manifestBytes))
+	lock, err := deps.ReadLock(os.DirFS(root))
+	require.NoError(t, err)
+	require.Equal(t, "v0.2.0", lock.Deps["github.com/x/std"].Version)
+}
+
+func TestDepsGetRejectsUnreachableDependency(t *testing.T) {
+	root := writeScratchImportProject(t, `requires: {
+  'github.com/x/scratch': { version: 'v0.8.0' }
+}
+`)
+	stubListTags(t, map[string][]string{"github.com/x/other": {"v1.0.0"}})
+	remotes := scratchStdRemotes()
+	remotes["github.com/x/other@v1.0.0"] = stdGoSource("v1.0.0")
+
+	_, err := runCommandWithRemotes(t, remotes,
+		"deps", "get", "github.com/x/other@v1.0.0", "-p", root)
+	require.Error(t, err)
+	require.Contains(t, err.Error(),
+		"github.com/x/other is not imported directly or transitively by this project")
 }
 
 func TestDepsGetLatest(t *testing.T) {

@@ -189,18 +189,47 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, nil)
+	manifest, manifestName, err := readManifestOrEmpty(root)
+	if err != nil {
+		return err
+	}
+	resolver, err := newDepsResolver(root, cfg.replaceUnobin, manifest.Replace)
 	if err != nil {
 		return err
 	}
 	if err := deps.RequireProject(dep, version, resolver); err != nil {
 		return err
 	}
-	manifest, _, err := readManifestOrEmpty(root)
+	imported, err := deps.ImportedPackages(root)
 	if err != nil {
 		return err
 	}
-	manifest.SetRequire(dep, version, false)
+	targetIsDirect := dependencyOwnsImportedPackage(dep, imported)
+	if targetIsDirect {
+		manifest.SetRequire(dep, version, false)
+	}
+	lock, err := readLockOrNil(root)
+	if err != nil {
+		return err
+	}
+	direct, err := directRequirementsForImports(manifestName, manifest, imported, lock, resolver)
+	if err != nil {
+		return err
+	}
+	for directDep, directVersion := range direct {
+		manifest.SetRequire(directDep, directVersion, false)
+	}
+	if !targetIsDirect {
+		reachable, err := reachableRequirements(direct, manifest.Replace, resolver)
+		if err != nil {
+			return err
+		}
+		if !reachable[dep] {
+			return fmt.Errorf(
+				"%s is not imported directly or transitively by this project", dep)
+		}
+		manifest.SetRequire(dep, version, true)
+	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n", dep, version)
 	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
 }
@@ -224,9 +253,9 @@ func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
 // reconcileManifest makes the manifest's project floors match the imported
 // remote packages. An imported package with no owning project floor is an error
 // that points the author at `deps get`; a floor whose project owns no import is
-// removed. The unobin repository takes no floor at all: an import from it must
-// be served by a replace, since its source version may not float free of the
-// toolchain.
+// kept only when the direct dependency graph reaches it. The unobin repository
+// takes no floor at all: an import from it must be served by a replace, since
+// its source version may not float free of the toolchain.
 func reconcileManifest(
 	manifestName string,
 	m *deps.Manifest,
@@ -234,16 +263,47 @@ func reconcileManifest(
 	lock *deps.Lock,
 	resolver resolve.Resolver,
 ) error {
+	direct, err := directRequirementsForImports(manifestName, m, imported, lock, resolver)
+	if err != nil {
+		return err
+	}
+	reachable, err := reachableRequirements(direct, m.Replace, resolver)
+	if err != nil {
+		return err
+	}
+	next := map[deps.Dependency]deps.Requirement{}
+	for dep, version := range direct {
+		next[dep] = deps.Requirement{Version: version}
+	}
+	for dep, req := range m.Requires {
+		if _, ok := direct[dep]; ok {
+			continue
+		}
+		if reachable[dep] {
+			next[dep] = deps.Requirement{Version: req.Version, Indirect: true}
+		}
+	}
+	m.Requires = next
+	return nil
+}
+
+func directRequirementsForImports(
+	manifestName string,
+	m *deps.Manifest,
+	imported map[deps.RemotePackage]bool,
+	lock *deps.Lock,
+	resolver resolve.Resolver,
+) (map[deps.Dependency]string, error) {
 	projects := deps.ProjectIDsFromDependencies(m.Requires)
 	lockedProjects := lockProjectIDs(lock)
 	replaced := deps.ProjectIDsFromReplace(m.Replace)
-	used := map[deps.Dependency]bool{}
+	direct := map[deps.Dependency]string{}
 	var missing []string
 	for pkg := range imported {
 		replacement, hasReplacement := deps.MostSpecificProject(replaced, pkg)
 		if pkg.URL == toolchain.UnobinModulePath {
 			if !hasReplacement {
-				return fmt.Errorf(
+				return nil, fmt.Errorf(
 					"%s is toolchain-versioned and cannot be imported at a dependency"+
 						" version; replace it locally:\n"+
 						"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
@@ -253,50 +313,79 @@ func reconcileManifest(
 		}
 		owner, ok := deps.MostSpecificProject(projects, pkg)
 		if ok {
-			used[owner.Project.Dependency()] = true
+			dep := owner.Project.Dependency()
+			direct[dep] = m.Requires[dep].Version
 			continue
 		}
 		owner, ok = deps.MostSpecificProject(lockedProjects, pkg)
 		if ok {
 			dep := owner.Project.Dependency()
-			m.SetRequire(dep, lock.Deps[owner.Project.String()].Version, false)
+			direct[dep] = lock.Deps[owner.Project.String()].Version
 			projects = append(projects, owner.Project)
-			used[dep] = true
 			continue
 		}
 		if hasReplacement {
 			dep := replacement.Project.Dependency()
-			m.SetRequire(dep, deps.ReplacementSentinel, false)
+			direct[dep] = deps.ReplacementSentinel
 			projects = append(projects, replacement.Project)
-			used[dep] = true
 			continue
 		}
 		discovered, version, found, err := discoverImportOwner(pkg, resolver)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if found {
 			dep := discovered.Project.Dependency()
-			m.SetRequire(dep, version, false)
+			direct[dep] = version
 			projects = append(projects, discovered.Project)
-			used[dep] = true
 			continue
 		}
 		missing = append(missing, pkg.String())
 	}
 	if len(missing) > 0 {
 		slices.Sort(missing)
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"imported but missing an owning project in %s: %s\n"+
 				"add the owning project with `unobin deps get <project>@<version>`",
 			manifestName, strings.Join(missing, ", "))
 	}
-	for dep := range m.Requires {
-		if !used[dep] {
-			delete(m.Requires, dep)
+	return direct, nil
+}
+
+func reachableRequirements(
+	direct map[deps.Dependency]string,
+	replace map[deps.Dependency]string,
+	resolver resolve.Resolver,
+) (map[deps.Dependency]bool, error) {
+	manifest := &deps.Manifest{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  replace,
+	}
+	for dep, version := range direct {
+		manifest.SetRequire(dep, version, false)
+	}
+	selection, err := deps.Resolve(manifest, deps.NewFetcher(resolver))
+	if err != nil {
+		return nil, err
+	}
+	reachable := map[deps.Dependency]bool{}
+	for dep := range selection {
+		reachable[dep] = true
+	}
+	return reachable, nil
+}
+
+func dependencyOwnsImportedPackage(
+	dep deps.Dependency,
+	imported map[deps.RemotePackage]bool,
+) bool {
+	project := deps.ProjectIDFromDependency(dep)
+	for pkg := range imported {
+		if _, ok := deps.ProjectContains(project, pkg); ok {
+			return true
 		}
 	}
-	return nil
+	return false
 }
 
 func discoverImportOwner(
@@ -451,8 +540,10 @@ func resolveAndWrite(
 	if err := deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (%d direct) and %s (%d locked)\n",
-		manifestName, manifest.DirectCount(), deps.SourceLockFileName, len(lock.Deps))
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"Wrote %s (%d direct, %d indirect) and %s (%d locked)\n",
+		manifestName, manifest.DirectCount(), manifest.IndirectCount(),
+		deps.SourceLockFileName, len(lock.Deps))
 	return nil
 }
 
