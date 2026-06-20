@@ -2,16 +2,10 @@ lock: {
   version:   1
   toolchain: { unobin-version: 'dev' }
   deps: {
-    'github.com/cloudboss/unobin-libraries-scratch': {
-      kind:    ub
-      version: 'v0.8.0'
-      commit:  'da1df2b8c5c409e8cbba850a5cf6d9a26aab3e31'
-      hash:    'sha256:6cb55b3a482cb2c5863dca8bfbc41160b9084997cef64ccc2f8e41fde8fd3aa3'
-    }
     'github.com/cloudboss/unobin-library-std': {
       kind:    go
-      version: 'v0.1.0'
-      commit:  '790996e0d870edb585bdac7e08e38986a26a7c47'
+      version: 'v0.2.0'
+      commit:  'bfd43697148ac0a233bf94a5099fcbbcf287e5eb'
     }
   }
 }
