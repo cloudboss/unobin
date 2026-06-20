@@ -1,0 +1,3 @@
+box: resource {
+  resources: { x: local.file { path: '/tmp/x' } }
+}

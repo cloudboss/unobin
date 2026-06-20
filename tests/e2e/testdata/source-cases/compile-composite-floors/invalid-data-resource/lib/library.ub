@@ -1,0 +1,4 @@
+lookup: data {
+  resources: { x: local.file {} }
+  outputs: { id: { value: 'x' } }
+}

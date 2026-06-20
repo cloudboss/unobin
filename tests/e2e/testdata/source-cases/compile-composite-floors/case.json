@@ -1,0 +1,72 @@
+{
+  "name": "compile-composite-floors",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-data",
+      "dir": "valid-data",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-action",
+      "dir": "valid-action",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-resource",
+      "dir": "valid-resource",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "invalid-data-no-output",
+      "dir": "invalid-data-no-output",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-data-no-output.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-data-resource",
+      "dir": "invalid-data-resource",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-data-resource.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-action-empty",
+      "dir": "invalid-action-empty",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-action-empty.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-resource-empty",
+      "dir": "invalid-resource-empty",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-resource-empty.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-order-1",
+      "dir": "invalid-order",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-order.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-order-2",
+      "dir": "invalid-order",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-order.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-order-3",
+      "dir": "invalid-order",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-order.stderr",
+      "exitCode": 1
+    }
+  ]
+}

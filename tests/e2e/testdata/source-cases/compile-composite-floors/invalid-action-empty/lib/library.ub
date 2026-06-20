@@ -1,0 +1,3 @@
+deploy: action {
+  outputs: { v: { value: 'x' } }
+}

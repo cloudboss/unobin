@@ -1,0 +1,3 @@
+lookup: data {
+  data: { x: aws.ami { most-recent: true } }
+}
