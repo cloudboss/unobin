@@ -40,11 +40,13 @@ type SourceCase struct {
 
 // Command describes one subprocess invocation.
 type Command struct {
-	Name     string   `json:"name"`
-	Args     []string `json:"args"`
-	Stdout   string   `json:"stdout"`
-	Stderr   string   `json:"stderr"`
-	ExitCode int      `json:"exitCode"`
+	Name     string            `json:"name"`
+	Args     []string          `json:"args"`
+	Dir      string            `json:"dir"`
+	Env      map[string]string `json:"env"`
+	Stdout   string            `json:"stdout"`
+	Stderr   string            `json:"stderr"`
+	ExitCode int               `json:"exitCode"`
 }
 
 // FileCheck describes a file compared to a golden.
@@ -195,6 +197,9 @@ func validateCommands(commands []Command) error {
 		prefix := fmt.Sprintf("commands[%d]", i)
 		if cmd.Name == "" {
 			return fmt.Errorf("%s.name is required", prefix)
+		}
+		if err := checkRelPath(prefix+".dir", cmd.Dir); err != nil {
+			return err
 		}
 		if err := checkRelPath(prefix+".stdout", cmd.Stdout); err != nil {
 			return err
