@@ -59,16 +59,12 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 
 func e2eLibraryDir(t *testing.T) string {
 	t.Helper()
+	return filepath.Join(e2eRepoRoot(t), "tests", "e2e", "testdata", "modules", "e2elib")
+}
+
+func e2eRepoRoot(t *testing.T) string {
+	t.Helper()
 	_, file, _, ok := goruntime.Caller(0)
 	require.True(t, ok)
-	return filepath.Clean(filepath.Join(
-		filepath.Dir(file),
-		"..",
-		"..",
-		"tests",
-		"e2e",
-		"testdata",
-		"modules",
-		"e2elib",
-	))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }

@@ -1,0 +1,15 @@
+{
+  "name": "minimal-build",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/minimal-build",
+  "build": true,
+  "commands": [
+    {
+      "name": "version",
+      "args": ["version"],
+      "stdout": "want/version.stdout",
+      "stderr": "want/version.stderr"
+    }
+  ],
+  "deterministic": true
+}

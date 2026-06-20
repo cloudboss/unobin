@@ -1,0 +1,26 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type:    library-config('example.com/unobin/e2elib')
+      default: {}
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  actions: {
+    hello: e2e.echo {
+      text: 'hello'
+    }
+  }
+
+  outputs: {
+    hello: { value: action.hello.text }
+  }
+}
