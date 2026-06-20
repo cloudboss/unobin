@@ -40,6 +40,7 @@ type SourceCase struct {
 	Dir         string              `json:"-"`
 	RootPath    string              `json:"rootPath"`
 	Executor    string              `json:"executor"`
+	CLIVersion  string              `json:"cliVersion"`
 	Remotes     []RemoteSource      `json:"remotes"`
 	Tags        map[string][]string `json:"tags"`
 	Commands    []Command           `json:"commands"`

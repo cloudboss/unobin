@@ -184,7 +184,25 @@ func rootCommandRunner(workspace string, c SourceCase) (rootCommandFunc, func(),
 		restoreTags()
 		restoreResolver()
 	}
-	return runRootCommand, cleanup, nil
+	runRoot := func(ctx context.Context, workspace string, cmd Command) (CommandResult, error) {
+		return runRootCommandWithVersion(ctx, workspace, cmd, c.CLIVersion)
+	}
+	return runRoot, cleanup, nil
+}
+
+func runRootCommandWithVersion(
+	ctx context.Context,
+	workspace string,
+	cmd Command,
+	cliVersion string,
+) (CommandResult, error) {
+	if cliVersion == "" {
+		return runRootCommand(ctx, workspace, cmd)
+	}
+	previous := cmdroot.Version
+	cmdroot.Version = cliVersion
+	defer func() { cmdroot.Version = previous }()
+	return runRootCommand(ctx, workspace, cmd)
 }
 
 func sourceRemoteMap(workspace string, remotes []RemoteSource) (map[string]*resolve.Source, error) {

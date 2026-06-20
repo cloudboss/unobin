@@ -1,0 +1,28 @@
+{
+  "name": "compile-write-output",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/cloudboss/unobin/pkg/libraries/core@v0.1.0",
+      "path": "remotes/core",
+      "commit": "c"
+    },
+    {
+      "key": "github.com/cloudboss/unobin/pkg/libraries/core@c",
+      "path": "remotes/core",
+      "commit": "c"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" }
+  ]
+}

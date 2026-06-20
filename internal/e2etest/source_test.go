@@ -76,6 +76,20 @@ func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 	require.Equal(t, "lib", src.PackageSubdir)
 }
 
+func TestRootCommandRunnerSetsCLIVersion(t *testing.T) {
+	workspace := t.TempDir()
+	runRoot, cleanup, err := rootCommandRunner(workspace, SourceCase{
+		Executor:   "root",
+		CLIVersion: "v9.9.9",
+	})
+	require.NoError(t, err)
+	defer cleanup()
+
+	got, err := runRoot(t.Context(), workspace, Command{Name: "version", Args: []string{"version"}})
+	require.NoError(t, err)
+	require.Contains(t, got.Stdout, "v9.9.9")
+}
+
 func TestSourceCaseHelper(t *testing.T) {
 	if os.Getenv("E2ETEST_SOURCE_HELPER") != "1" {
 		return
