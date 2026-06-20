@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -274,6 +275,33 @@ func TestApplyPlanExecutesRecordedStateMove(t *testing.T) {
 	assert.Equal(t, "thing", ent.Selector.Export)
 }
 
+func TestApplyPersistsStateMoveBeforeLaterUpdateError(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMovePlanEntry("resource.old"),
+		stateMoveUpdateFailureEntry(),
+	)
+	exec := planTestExecutor(t, `
+state-moves: [
+  { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
+]
+resources: {
+  new: core.thing { name: 'alpha', size: 1 }
+  fail: bad.thing { name: 'beta', size: 2 }
+}
+`, stateMoveUpdateFailureLibs(), store, stack)
+
+	_, err := planAndApply(exec)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "intentional update failure")
+	snap, err := store.Current()
+	require.NoError(t, err)
+	assert.Nil(t, snap.Find("resource.old"))
+	assert.NotNil(t, snap.Find("resource.new"))
+}
+
 func TestApplyPlanRejectsMissingRecordedStateMoveSource(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -450,6 +478,58 @@ func stateMoveBoundaryEntry(selector, address string) *state.Entry {
 		Type:     state.EntryLibraryCall,
 		Kind:     "resource",
 		Selector: &state.Selector{Alias: ref.Selector.Alias, Export: ref.Selector.Export},
+	}
+}
+
+type stateMoveUpdateFailureResource struct {
+	Name string
+	Size int64
+}
+
+func (r *stateMoveUpdateFailureResource) Create(_ context.Context, _ any) (any, error) {
+	return map[string]any{"id": r.Name, "size": r.Size}, nil
+}
+
+func (r *stateMoveUpdateFailureResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *stateMoveUpdateFailureResource) Update(
+	_ context.Context,
+	_ any,
+	_ Prior[stateMoveUpdateFailureResource, any],
+) (any, error) {
+	return nil, errors.New("intentional update failure")
+}
+
+func (r *stateMoveUpdateFailureResource) Delete(_ context.Context, _ any, _ any) error {
+	return nil
+}
+
+func (r *stateMoveUpdateFailureResource) ReplaceFields() []string { return nil }
+
+func (r *stateMoveUpdateFailureResource) SchemaVersion() int { return 1 }
+
+func stateMoveUpdateFailureLibs() map[string]*Library {
+	libs := resourceModules(&resourceCounters{})
+	libs["bad"] = &Library{
+		Name: "bad",
+		Resources: map[string]ResourceRegistration{
+			"thing": MakeResource[stateMoveUpdateFailureResource, any, any](),
+		},
+	}
+	return libs
+}
+
+func stateMoveUpdateFailureEntry() *state.Entry {
+	return &state.Entry{
+		Address:       "resource.fail",
+		Type:          state.EntryLeaf,
+		Kind:          "resource",
+		Selector:      &state.Selector{Alias: "bad", Export: "thing"},
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "beta", "size": int64(1)},
+		Outputs:       map[string]any{"id": "beta", "size": int64(1)},
 	}
 }
 
