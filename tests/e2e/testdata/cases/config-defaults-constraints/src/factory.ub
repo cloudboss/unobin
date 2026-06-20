@@ -1,0 +1,44 @@
+factory: {
+  inputs: {
+    direct-path:  { type: string }
+    archive-path: { type: string }
+    body:         { type: string }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        prefix:         'cfg-'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    e2e:   'example.com/unobin/e2elib'
+    files: './libraries/files'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  resources: {
+    direct: e2e.file {
+      path:    var.direct-path
+      content: 'direct'
+    }
+
+    archived: files.archive {
+      path:       var.archive-path
+      body:       var.body
+      e2e-config: var.e2e-config
+    }
+  }
+
+  outputs: {
+    direct-content:  { value: resource.direct.content }
+    archived-content: { value: resource.archived.content }
+    archived-path:    { value: resource.archived.path }
+  }
+}

@@ -1,0 +1,16 @@
+  (create)  resource.archived  (composite)
+      body: 'archived'
+      e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: 'cfg-'}
+      path: 'files/archive.txt'
+    (create)  resource.member
+        content: 'archived'
+        create-parents: true
+        mode: 420
+        path: 'files/archive.txt'
+  (create)  resource.direct
+      content: 'direct'
+      create-parents: true
+      mode: 420
+      path: 'files/direct.txt'
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

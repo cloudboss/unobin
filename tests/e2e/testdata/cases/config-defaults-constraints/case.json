@@ -1,0 +1,49 @@
+{
+  "name": "config-defaults-constraints",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/config-defaults-constraints",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate",
+      "args": ["validate", "-c", "stacks/valid/dev.ub"],
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate.stderr"
+    },
+    {
+      "name": "plan-valid",
+      "args": ["plan", "--ascii", "-c", "stacks/valid/dev.ub", "-o", "valid.ubp"],
+      "stdout": "want/plan-valid.stdout",
+      "stderr": "want/plan-valid.stderr"
+    },
+    {
+      "name": "apply-valid",
+      "args": ["apply", "--output", "unobin", "valid.ubp"],
+      "stdout": "want/apply-valid.stdout",
+      "stderr": "want/apply-valid.stderr"
+    },
+    {
+      "name": "output-valid",
+      "args": ["output", "--json", "-c", "stacks/valid/dev.ub"],
+      "stdout": "want/output-valid.json",
+      "stderr": "want/output-valid.stderr"
+    },
+    {
+      "name": "plan-root-invalid",
+      "args": ["plan", "--ascii", "-c", "stacks/root-invalid/dev.ub"],
+      "stderr": "want/plan-root-invalid.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-composite-invalid",
+      "args": ["plan", "--ascii", "-c", "stacks/composite-invalid/dev.ub"],
+      "stderr": "want/plan-composite-invalid.stderr",
+      "exitCode": 1
+    }
+  ],
+  "files": [
+    { "path": "events.ndjson", "want": "want/events.ndjson" }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

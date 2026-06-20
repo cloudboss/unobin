@@ -1,0 +1,3 @@
+{ kind: 'apply-output', name: 'archived-content', value: 'archived' }
+{ kind: 'apply-output', name: 'archived-path', value: 'files/archive.txt' }
+{ kind: 'apply-output', name: 'direct-content', value: 'direct' }

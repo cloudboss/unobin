@@ -1,0 +1,91 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "config-defaults-constraints",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.archived",
+      "entry-kind": "library-call",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "files",
+        "export": "archive"
+      },
+      "inputs": {
+        "body": "archived",
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": "cfg-"
+        },
+        "path": "files/archive.txt"
+      },
+      "outputs": {
+        "content": "archived",
+        "path": "files/archive.txt"
+      },
+      "depends-on": [
+        "resource.archived/resource.member"
+      ]
+    },
+    {
+      "address": "resource.archived/resource.member",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "archived",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/archive.txt"
+      },
+      "outputs": {
+        "content": "archived",
+        "exists": true,
+        "path": "files/archive.txt",
+        "sha256": "dd9e881230ebf6e02363abdbb3566ee5aa13d0bae08caaf4334015d16a5a920d",
+        "size": 8
+      }
+    },
+    {
+      "address": "resource.direct",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "direct",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/direct.txt"
+      },
+      "outputs": {
+        "content": "direct",
+        "exists": true,
+        "path": "files/direct.txt",
+        "sha256": "d15690f08a575024650b01ffac892cfd2b93e6c57c140f1b6d9e47753cabd579",
+        "size": 6
+      }
+    }
+  ],
+  "outputs": {
+    "archived-content": "archived",
+    "archived-path": "files/archive.txt",
+    "direct-content": "direct"
+  }
+}

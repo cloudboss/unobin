@@ -1,0 +1,17 @@
+stack: {
+  parallelism: 1
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      direct-path:  'files/direct.txt'
+      archive-path: ''
+      body:         'archived'
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{"operation":"create","kind":"file","path":"files/archive.txt","sha256":"dd9e881230ebf6e02363abdbb3566ee5aa13d0bae08caaf4334015d16a5a920d"}
+{"operation":"create","kind":"file","path":"files/direct.txt","sha256":"d15690f08a575024650b01ffac892cfd2b93e6c57c140f1b6d9e47753cabd579"}
