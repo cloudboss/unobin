@@ -7,5 +7,5 @@ import (
 )
 
 func TestCompiledCases(t *testing.T) {
-	e2etest.RunCompiledCases(t, "testdata/cases")
+	e2etest.RunCompiledCases(t, "testdata/compiled-cases")
 }
