@@ -1714,6 +1714,40 @@ func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
 	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
 }
 
+func TestDepsSyncOutputCompilesForReplacedUnobinSubdir(t *testing.T) {
+	rootDir := findUnobinRoot(t)
+	dir := filepath.Join(t.TempDir(), "demo-factory")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
+factory: {
+  imports: { cloud: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
+  inputs: {
+    cloud-config: {
+      type:    library-config('github.com/cloudboss/unobin//examples/awscfg/cloud')
+      default: {}
+    }
+  }
+  library-configs: { cloud: var.cloud-config }
+  actions: { describe: cloud.describe { label: 'world' } }
+}
+`), 0o644))
+	manifest := "requires: {}\nreplace: {\n" +
+		"  'github.com/cloudboss/unobin': '" + rootDir + "'\n" +
+		"  'github.com/cloudboss/unobin//examples/awscfg': '" +
+		filepath.Join(rootDir, "examples", "awscfg") + "'\n" +
+		"}\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
+		manifestSource(manifest), 0o644))
+
+	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(dir, "factory.ub"))
+	require.NoError(t, err)
+	synced, err := deps.ReadManifest(os.DirFS(dir))
+	require.NoError(t, err)
+	require.Empty(t, synced.Requires)
+	_, err = runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", "-")
+	require.NoError(t, err)
+}
+
 func TestCompileReplaceUnobinDoesNotNeedLock(t *testing.T) {
 	rootDir := findUnobinRoot(t)
 	dir := filepath.Join(t.TempDir(), "demo-factory")

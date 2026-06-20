@@ -239,12 +239,15 @@ func reconcileManifest(
 	var missing []string
 	for pkg := range imported {
 		replacement, hasReplacement := deps.MostSpecificProject(replaced, pkg)
-		if pkg.URL == toolchain.UnobinModulePath && !hasReplacement {
-			return fmt.Errorf(
-				"%s is toolchain-versioned and cannot be imported at a dependency"+
-					" version; replace it locally:\n"+
-					"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
-				pkg.URL, pkg.URL)
+		if pkg.URL == toolchain.UnobinModulePath {
+			if !hasReplacement {
+				return fmt.Errorf(
+					"%s is toolchain-versioned and cannot be imported at a dependency"+
+						" version; replace it locally:\n"+
+						"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
+					pkg.URL, pkg.URL)
+			}
+			continue
 		}
 		owner, ok := deps.MostSpecificProject(projects, pkg)
 		if ok {
