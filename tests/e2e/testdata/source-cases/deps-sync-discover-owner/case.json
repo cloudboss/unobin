@@ -1,0 +1,31 @@
+{
+  "name": "deps-sync-discover-owner",
+  "rootPath": "root",
+  "executor": "root",
+  "tags": {
+    "github.com/x/core": ["v1.0.0"]
+  },
+  "remotes": [
+    {
+      "key": "github.com/x/core@v1.0.0",
+      "path": "remotes/core",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/x/core//lib@v1.0.0",
+      "path": "remotes/core/lib",
+      "commit": "c1"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/manifest.ub", "want": "want/manifest.ub" },
+    { "path": "root/lock.ub", "want": "want/lock.ub" }
+  ]
+}

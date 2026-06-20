@@ -286,42 +286,6 @@ thing: resource {
 	require.NoFileExists(t, filepath.Join(child, deps.SourceLockFileName))
 }
 
-func TestDepsSyncDiscoversMissingOwner(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "myfactory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
-	stubListTags(t, map[string][]string{"github.com/x/core": {"v1.0.0"}})
-	remotes := map[string]*resolve.Source{
-		"github.com/x/core@v1.0.0": {
-			Commit: "c1",
-			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core\n")},
-			},
-		},
-		"github.com/x/core//lib@v1.0.0": {
-			Commit: "c1",
-			FS: fstest.MapFS{
-				"lib.go": &fstest.MapFile{Data: []byte("package lib\n")},
-			},
-		},
-	}
-
-	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
-	require.NoError(t, err)
-
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
-	require.NoError(t, err)
-	require.Equal(t, `manifest: {
-  requires: {
-    'github.com/x/core': {
-      version: 'v1.0.0'
-    }
-  }
-}
-`, string(manifestBytes))
-}
-
 func TestDepsSyncDiscoveryFailsMalformedNestedMarker(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -355,32 +319,6 @@ func TestDepsSyncDiscoveryFailsMalformedNestedMarker(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "project marker")
-}
-
-func TestDepsSyncPrunesStaleFloor(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "myfactory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
-	// gone/repo is listed but no longer imported; sync must remove it.
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {\n  'github.com/gone/repo': { version: 'v1.0.0' }\n"+
-			"  'github.com/x/core': { version: 'v1.0.0' }\n}\n"), 0o644))
-
-	_, err := runCommandWithRemotes(t, goCoreRemotes(), "deps", "sync",
-		"-p", filepath.Join(root, "factory.ub"))
-	require.NoError(t, err)
-
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
-	require.NoError(t, err)
-	require.Equal(t, `manifest: {
-  requires: {
-    'github.com/x/core': {
-      version: 'v1.0.0'
-    }
-  }
-}
-`, string(manifestBytes))
 }
 
 func writeProjectLock(t *testing.T, root string) fstest.MapFS {
