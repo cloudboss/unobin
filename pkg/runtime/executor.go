@@ -188,7 +188,10 @@ func (e *Executor) seedPriorInternalConfigurations(
 	}
 	var scope *EvalContext
 	for _, n := range e.DAG.Nodes {
-		if n.Kind != NodeConfiguration || e.configurationOverridden(n.Alias, n.Name) {
+		if n.Kind != NodeConfiguration && n.Kind != NodeLibraryConfig {
+			continue
+		}
+		if n.Kind == NodeConfiguration && e.configurationOverridden(n.Alias, n.Name) {
 			continue
 		}
 		if scope == nil {
@@ -343,6 +346,16 @@ func (e *Executor) configForRef(ref ConfigRef, fallbackAlias string) (any, error
 	alias, configuration := fallbackAlias, "default"
 	if !ref.IsZero() {
 		alias, configuration = ref.Alias, ref.Name
+	}
+	if ref.IsZero() && e.DAG != nil {
+		if addr, ok := libraryConfigNode(e.DAG.Nodes, "", fallbackAlias); ok {
+			if v, ok := e.priorInternalConfiguration(addr); ok {
+				return v, nil
+			}
+			if v, ok := e.internalConfiguration(addr); ok {
+				return v, nil
+			}
+		}
 	}
 	if e.configurationOverridden(alias, configuration) {
 		return e.lookupConfiguration(alias, configuration), nil

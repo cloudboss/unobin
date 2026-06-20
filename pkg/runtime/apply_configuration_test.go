@@ -177,6 +177,38 @@ outputs: { got: { value: resource.app.endpoint } }
 	require.Equal(t, "https://alias.example", res.Outputs["got"])
 }
 
+func TestRefreshUsesLibraryConfigBinding(t *testing.T) {
+	src := `
+imports: { fix: 'github.com/acme/fix' }
+inputs: { fix-config: { type: library-config('github.com/acme/fix') } }
+library-configs: { fix: var.fix-config }
+resources: { app: fix.config-echo {} }
+outputs: { got: { value: resource.app.endpoint } }
+`
+	var reads []string
+	libs := configuredLibrariesRecording(&reads, nil)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	first := configurationTestExecutor(t, src, libs)
+	first.Inputs = map[string]any{
+		"fix-config": map[string]any{"endpoint": "https://first.example"},
+	}
+	first.Store = store
+	first.Factory = factory
+	applyOnce(t, first)
+
+	reads = nil
+	fresh := configurationTestExecutor(t, src, libs)
+	fresh.Inputs = map[string]any{
+		"fix-config": map[string]any{"endpoint": "https://fresh.example"},
+	}
+	fresh.Store = store
+	fresh.Factory = factory
+	_, err := fresh.Refresh(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{"https://fresh.example"}, reads)
+}
+
 func TestStackConfigurationOverridesFactoryConfiguration(t *testing.T) {
 	src := `
 configurations: { cluster: fix { endpoint: var.missing } }
