@@ -2,8 +2,6 @@ package e2etest
 
 import (
 	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,22 +25,11 @@ func TestCompileCaseBuildsBinary(t *testing.T) {
 	cmd := c.Commands[0]
 	got, err := runCommand(t.Context(), workspace, binary, cmd)
 	require.NoError(t, err)
-	got.Stdout = normalizeVersionOutput(got.Stdout)
-	got.Stderr = normalizeRepoRoot(got.Stderr, repoRoot)
+	got = normalizeCommandResult(got, repoRoot)
 	require.NoError(t, compareCommandGoldens(c.Dir, cmd, got, *update))
 }
 
 func compiledFixtureDir(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(e2eRepoRoot(t), "internal", "e2etest", "testdata", "ub", "valid", "compiled")
-}
-
-var contentRevisionRE = regexp.MustCompile(`content-revision [0-9a-f]{12}`)
-
-func normalizeVersionOutput(s string) string {
-	return contentRevisionRE.ReplaceAllString(s, "content-revision <revision>")
-}
-
-func normalizeRepoRoot(s string, repoRoot string) string {
-	return strings.ReplaceAll(s, repoRoot, "<repo>")
 }

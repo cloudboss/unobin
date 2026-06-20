@@ -1,0 +1,45 @@
+{
+  "name": "minimal",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/minimal",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate",
+      "args": ["validate", "-c", "stacks/dev.ub"],
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate.stderr"
+    },
+    {
+      "name": "schema-template",
+      "args": ["schema", "template"],
+      "stdout": "want/schema-template.stdout",
+      "stderr": "want/schema-template.stderr"
+    },
+    {
+      "name": "print-graph",
+      "args": ["print-graph"],
+      "stdout": "want/print-graph.stdout",
+      "stderr": "want/print-graph.stderr"
+    },
+    {
+      "name": "plan-create",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "stdout": "want/apply-create.stdout",
+      "stderr": "want/apply-create.stderr"
+    },
+    {
+      "name": "output-json",
+      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output.json",
+      "stderr": "want/output.stderr"
+    }
+  ],
+  "deterministic": true
+}

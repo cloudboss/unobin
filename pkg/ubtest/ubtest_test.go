@@ -141,6 +141,9 @@ func TestUBFixturesUseProjectLayout(t *testing.T) {
 }
 
 func hasRequiredFixtureSegments(parts []string, testdata int) bool {
+	if isE2ECaseFixture(parts, testdata) {
+		return true
+	}
 	if testdata+1 >= len(parts) || parts[testdata+1] != "ub" {
 		return false
 	}
@@ -150,6 +153,16 @@ func hasRequiredFixtureSegments(parts []string, testdata int) bool {
 		}
 	}
 	return false
+}
+
+func isE2ECaseFixture(parts []string, testdata int) bool {
+	if testdata < 2 || parts[testdata-2] != "tests" || parts[testdata-1] != "e2e" {
+		return false
+	}
+	if testdata+1 >= len(parts) {
+		return false
+	}
+	return parts[testdata+1] == "cases" || parts[testdata+1] == "source-cases"
 }
 
 func repoRoot(t *testing.T) string {

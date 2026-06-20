@@ -20,7 +20,14 @@ type CommandResult struct {
 
 func compareCommandGoldens(caseDir string, cmd Command, got CommandResult, doUpdate bool) error {
 	if got.ExitCode != cmd.ExitCode {
-		return fmt.Errorf("%s exit code: got %d, want %d", cmd.Name, got.ExitCode, cmd.ExitCode)
+		return fmt.Errorf(
+			"%s exit code: got %d, want %d\nstdout:\n%s\nstderr:\n%s",
+			cmd.Name,
+			got.ExitCode,
+			cmd.ExitCode,
+			got.Stdout,
+			got.Stderr,
+		)
 	}
 	if err := compareOptionalGolden(
 		caseDir,

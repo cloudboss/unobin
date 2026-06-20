@@ -14,7 +14,10 @@ import (
 // Option configures e2e case execution.
 type Option func(*config)
 
-type config struct{}
+type config struct {
+	repoRoot      string
+	e2eLibraryDir string
+}
 
 // CompiledCase describes a compiled-factory e2e case.
 type CompiledCase struct {
@@ -58,11 +61,19 @@ type FileCheck struct {
 // RunCompiledCases runs compiled-factory cases found under dir.
 func RunCompiledCases(t *testing.T, dir string, opts ...Option) {
 	t.Helper()
-	_, err := DiscoverCompiledCases(dir)
+	cases, err := DiscoverCompiledCases(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Fatal("unimplemented")
+	cfg, err := newConfig(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			runCompiledCase(t, cfg, c)
+		})
+	}
 }
 
 // RunSourceCases runs source-root cases found under dir.

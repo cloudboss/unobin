@@ -1,0 +1,8 @@
+action.hello
+  -> library-config.e2e
+
+library-config.e2e
+  -> var.e2e-config
+
+output.hello
+  -> action.hello
