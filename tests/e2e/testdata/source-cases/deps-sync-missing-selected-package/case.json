@@ -1,0 +1,30 @@
+{
+  "name": "deps-sync-missing-selected-package",
+  "rootPath": "root",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/scratch/repo@v0.8.0",
+      "path": "remotes/repo",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/scratch/repo//ub/helloer@v0.8.0",
+      "path": "remotes/repo/ub/helloer",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/scratch/repo//ub/project-b/comprehensions@v0.8.0",
+      "path": "remotes/repo/ub/project-b/comprehensions",
+      "commit": "scratch"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr",
+      "exitCode": 1
+    }
+  ]
+}

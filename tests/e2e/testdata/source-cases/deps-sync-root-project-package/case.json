@@ -1,0 +1,28 @@
+{
+  "name": "deps-sync-root-project-package",
+  "rootPath": "root",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/scratch/repo@v0.8.0",
+      "path": "remotes/repo",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/scratch/repo//ub/helloer@v0.8.0",
+      "path": "remotes/repo/ub/helloer",
+      "commit": "scratch"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/manifest.ub", "want": "want/manifest.ub" },
+    { "path": "root/lock.ub", "want": "want/lock.ub" }
+  ]
+}

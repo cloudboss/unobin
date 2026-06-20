@@ -1,0 +1,1 @@
+Error: import "comprehensions": selected project github.com/scratch/repo does not provide package github.com/scratch/repo//ub/project-b/comprehensions; add the owning project to manifest.ub and run `unobin deps sync`

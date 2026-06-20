@@ -1,0 +1,5 @@
+factory: {
+  imports: {
+    helloer: 'github.com/scratch/repo//ub/helloer'
+  }
+}
