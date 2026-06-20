@@ -50,6 +50,7 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		files = normalizeFileResults(files, cfg.repoRoot, workspace)
 		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
 			t.Fatal(err)
 		}

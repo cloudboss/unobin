@@ -51,6 +51,7 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		files = normalizeFileResults(files, cfg.repoRoot, workspace)
 		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
 			t.Fatal(err)
 		}

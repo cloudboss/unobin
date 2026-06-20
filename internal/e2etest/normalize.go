@@ -24,6 +24,20 @@ func normalizeWorkspaceResult(result CommandResult, workspace string) CommandRes
 	return result
 }
 
+func normalizeFileResults(
+	results map[string]string,
+	repoRoot string,
+	workspace string,
+) map[string]string {
+	out := make(map[string]string, len(results))
+	for path, content := range results {
+		content = normalizeDynamicText(content, repoRoot)
+		content = strings.ReplaceAll(content, workspace, "<workspace>")
+		out[path] = content
+	}
+	return out
+}
+
 func normalizeDynamicText(s string, repoRoot string) string {
 	s = contentRevisionTextRE.ReplaceAllString(s, "content-revision <revision>")
 	s = contentRevisionFieldRE.ReplaceAllString(s, "content-revision: '<revision>'")

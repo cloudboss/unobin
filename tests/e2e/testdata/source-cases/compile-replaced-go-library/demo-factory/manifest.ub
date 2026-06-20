@@ -1,0 +1,4 @@
+manifest: {
+  requires: {}
+  replace: { 'github.com/cloudboss/unobin-library-aws': '../aws' }
+}
