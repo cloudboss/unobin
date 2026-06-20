@@ -73,7 +73,10 @@ func (e *Executor) checkLeafConfiguration(n *Node) []error {
 	if n.Kind != NodeResource && n.Kind != NodeData && n.Kind != NodeAction {
 		return nil
 	}
-	lib, ok := e.Libraries[n.Alias]
+	if _, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
+		return nil
+	}
+	lib, ok := e.librariesFor(n)[n.Alias]
 	if !ok {
 		return nil
 	}

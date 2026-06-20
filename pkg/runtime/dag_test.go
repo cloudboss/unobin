@@ -54,6 +54,17 @@ resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
 	require.Empty(t, g.Edges["resource.main"])
 }
 
+func TestBuildDAGLibraryConfigDependency(t *testing.T) {
+	g := syntaxDAG(t, `
+inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
+library-configs: { aws: var.aws-config }
+resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
+`, nil)
+	require.Contains(t, g.Nodes, "library-config.aws")
+	require.Equal(t, NodeLibraryConfig, g.Nodes["library-config.aws"].Kind)
+	require.Equal(t, []string{"library-config.aws"}, g.Edges["resource.main"])
+}
+
 func TestBuildDAGImplicitDependency(t *testing.T) {
 	g := syntaxDAG(t, `
 resources: {

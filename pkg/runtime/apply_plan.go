@@ -152,6 +152,8 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return nil
 	case NodeConfiguration:
 		return e.applyConfiguration(rs, step)
+	case NodeLibraryConfig:
+		return e.applyLibraryConfig(rs, step)
 	default:
 		return fmt.Errorf("unknown step kind %q", step.Kind)
 	}
@@ -170,6 +172,18 @@ func (e *Executor) applyConfiguration(rs *runState, step *PlanStep) error {
 	if e.configurationOverridden(node.Alias, node.Name) {
 		return nil
 	}
+	return e.applyConfigNode(rs, step, node)
+}
+
+func (e *Executor) applyLibraryConfig(rs *runState, step *PlanStep) error {
+	node, ok := e.DAG.Nodes[step.Address]
+	if !ok {
+		return fmt.Errorf("%s: not in the graph", step.Address)
+	}
+	return e.applyConfigNode(rs, step, node)
+}
+
+func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) error {
 	rs.mu.Lock()
 	raw, err := evalConfigurationBody(node.Body, rs.eval)
 	rs.mu.Unlock()

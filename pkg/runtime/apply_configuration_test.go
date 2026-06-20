@@ -158,6 +158,25 @@ func TestApplyEvaluatesInternalConfiguration(t *testing.T) {
 	require.Equal(t, "https://cluster.example", res.Outputs["got"])
 }
 
+func TestApplyEvaluatesLibraryConfigBinding(t *testing.T) {
+	src := `
+imports: { fix: 'github.com/acme/fix' }
+inputs: { fix-config: { type: library-config('github.com/acme/fix') } }
+library-configs: { fix: var.fix-config }
+resources: { app: fix.config-echo {} }
+outputs: { got: { value: resource.app.endpoint } }
+`
+	libs := configuredLibraries()
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Inputs = map[string]any{
+		"fix-config": map[string]any{"endpoint": "https://alias.example"},
+	}
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	res := applyOnce(t, exec)
+	require.Equal(t, "https://alias.example", res.Outputs["got"])
+}
+
 func TestStackConfigurationOverridesFactoryConfiguration(t *testing.T) {
 	src := `
 configurations: { cluster: fix { endpoint: var.missing } }

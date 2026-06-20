@@ -891,6 +891,14 @@ func (e *Executor) planConfiguration(rs *runState, n *Node) (*PlanStep, error) {
 	if e.configurationOverridden(n.Alias, n.Name) {
 		return nil, nil
 	}
+	return e.planConfigNode(rs, n)
+}
+
+func (e *Executor) planLibraryConfig(rs *runState, n *Node) (*PlanStep, error) {
+	return e.planConfigNode(rs, n)
+}
+
+func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 	step := &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}
 	scope, err := e.scopeForAddress(rs, n.Address)
 	if err != nil {
@@ -946,6 +954,8 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
 	case NodeConfiguration:
 		return e.planConfiguration(rs, n)
+	case NodeLibraryConfig:
+		return e.planLibraryConfig(rs, n)
 	default:
 		return nil, fmt.Errorf("unknown node kind %q", n.Kind)
 	}

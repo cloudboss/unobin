@@ -264,6 +264,14 @@ func resolvedConfigRef(n *Node, nodes map[string]*Node) (alias, configuration st
 // configuration just because the configuration's own upstream is
 // mid-change.
 func (e *Executor) pendingInternalConfig(n *Node) (ConfigRef, bool) {
+	if e.DAG != nil {
+		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
+			if _, done := e.internalConfiguration(addr); done {
+				return ConfigRef{}, false
+			}
+			return ConfigRef{Alias: n.Alias, Name: "default"}, true
+		}
+	}
 	alias, configuration := e.resolvedConfigRef(n)
 	if e.configurationOverridden(alias, configuration) {
 		return ConfigRef{}, false
@@ -284,6 +292,12 @@ func (e *Executor) pendingInternalConfig(n *Node) (ConfigRef, bool) {
 // table, and the rest reads from the operator's decoded configuration
 // table.
 func (e *Executor) configFor(n *Node) any {
+	if e.DAG != nil {
+		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
+			v, _ := e.internalConfiguration(addr)
+			return v
+		}
+	}
 	alias, configuration := e.resolvedConfigRef(n)
 	if e.configurationOverridden(alias, configuration) {
 		return e.lookupConfiguration(alias, configuration)

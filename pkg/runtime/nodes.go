@@ -17,6 +17,7 @@ const (
 	NodeAction        NodeKind = "action"
 	NodeOutput        NodeKind = "output"
 	NodeConfiguration NodeKind = "configuration"
+	NodeLibraryConfig NodeKind = "library-config"
 )
 
 // Node is one addressable element of a stack: a single resource instance,
@@ -108,6 +109,7 @@ func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]
 	nodes = append(nodes, extractSyntaxKind(body.Resources, NodeResource, parent, libs)...)
 	nodes = append(nodes, extractSyntaxKind(body.Data, NodeData, parent, libs)...)
 	nodes = append(nodes, extractSyntaxKind(body.Actions, NodeAction, parent, libs)...)
+	nodes = append(nodes, extractSyntaxLibraryConfigs(body.LibraryConfigs, parent)...)
 	if parent == "" {
 		nodes = append(nodes, extractSyntaxConfigurations(body.Configurations)...)
 		nodes = append(nodes, extractSyntaxOutputs(body.Outputs)...)
@@ -317,6 +319,23 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 	return out
 }
 
+func libraryConfigNodeAddress(scope string, alias string) string {
+	return joinAddress(scope, "library-config."+alias)
+}
+
+func libraryConfigNode(
+	nodes map[string]*Node,
+	scope string,
+	alias string,
+) (string, bool) {
+	addr := libraryConfigNodeAddress(scope, alias)
+	n, ok := nodes[addr]
+	if ok && n.Kind == NodeLibraryConfig && n.Alias == alias {
+		return addr, true
+	}
+	return "", false
+}
+
 func selectorConfigurationAddress(alias, name string) string {
 	if name == "default" {
 		return "default-configuration." + alias
@@ -397,6 +416,25 @@ func extractSyntaxConfigurations(decls []syntax.ConfigurationDecl) []*Node {
 			Alias:   alias,
 			Name:    name,
 			Body:    syntaxConfigurationDeclExpr(decl),
+		})
+	}
+	return out
+}
+
+func extractSyntaxLibraryConfigs(
+	decls []syntax.LibraryConfigDecl,
+	parent string,
+) []*Node {
+	out := make([]*Node, 0, len(decls))
+	for _, decl := range decls {
+		alias := decl.Alias.Name
+		out = append(out, &Node{
+			Address:   libraryConfigNodeAddress(parent, alias),
+			Kind:      NodeLibraryConfig,
+			Alias:     alias,
+			Name:      alias,
+			Body:      decl.Value,
+			Composite: parent,
 		})
 	}
 	return out

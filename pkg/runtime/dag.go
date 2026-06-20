@@ -263,6 +263,9 @@ func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
 	default:
 		return "", false
 	}
+	if addr, ok := libraryConfigNode(nodes, n.Composite, n.Alias); ok {
+		return addr, true
+	}
 	alias, configuration := resolvedConfigRef(n, nodes)
 	addr, ok := configurationNodeAddress(nodes, alias, configuration)
 	if !ok {
