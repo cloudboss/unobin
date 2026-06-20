@@ -1,0 +1,35 @@
+group: resource {
+  inputs: {
+    files: { type: map(object({ path: string, content: string })) }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: {
+    e2e:   'example.com/unobin/e2elib'
+    items: '../items'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  resources: {
+    file: e2e.file {
+      @for-each:  var.files
+      path:       @each.value.path
+      content:    @each.value.content
+    }
+
+    single: items.item {
+      path:       'files/single.txt'
+      content:    'single'
+      e2e-config: var.e2e-config
+    }
+  }
+
+  outputs: {
+    first:  { value: resource.file['one'].content }
+    second: { value: resource.file['two'].content }
+    single: { value: resource.single.content }
+  }
+}

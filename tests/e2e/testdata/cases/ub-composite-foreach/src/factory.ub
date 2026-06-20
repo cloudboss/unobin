@@ -1,0 +1,37 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  locals: {
+    files: {
+      one: { path: 'files/one.txt', content: 'content one' }
+      two: { path: 'files/two.txt', content: 'content two' }
+    }
+  }
+
+  imports: {
+    e2e:    'example.com/unobin/e2elib'
+    groups: './libraries/groups'
+  }
+
+  resources: {
+    group: groups.group {
+      files:      local.files
+      e2e-config: var.e2e-config
+    }
+  }
+
+  outputs: {
+    first:  { value: resource.group.first }
+    second: { value: resource.group.second }
+    single: { value: resource.group.single }
+  }
+}

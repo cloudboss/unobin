@@ -1,0 +1,3 @@
+{ kind: 'apply-output', name: 'first', value: 'content one' }
+{ kind: 'apply-output', name: 'second', value: 'content two' }
+{ kind: 'apply-output', name: 'single', value: 'single' }

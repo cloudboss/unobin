@@ -1,0 +1,154 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "ub-composite-foreach",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.group",
+      "entry-kind": "library-call",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "groups",
+        "export": "group"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "files": {
+          "one": {
+            "content": "content one",
+            "path": "files/one.txt"
+          },
+          "two": {
+            "content": "content two",
+            "path": "files/two.txt"
+          }
+        }
+      },
+      "outputs": {
+        "first": "content one",
+        "second": "content two",
+        "single": "single"
+      },
+      "depends-on": [
+        "resource.group/resource.file['one']",
+        "resource.group/resource.file['two']",
+        "resource.group/resource.single"
+      ]
+    },
+    {
+      "address": "resource.group/resource.file['one']",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "content one",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/one.txt"
+      },
+      "outputs": {
+        "content": "content one",
+        "exists": true,
+        "path": "files/one.txt",
+        "sha256": "cdaf242e2e139dd255fbb56a691a9d0943a916a3235ee8d3cd73810d9d0b1ea2",
+        "size": 11
+      }
+    },
+    {
+      "address": "resource.group/resource.file['two']",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "content two",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/two.txt"
+      },
+      "outputs": {
+        "content": "content two",
+        "exists": true,
+        "path": "files/two.txt",
+        "sha256": "c4f3079e433eaeb4e02b25c94b16b5ffa833a7c0d1f7733a41a73080d10a4f1b",
+        "size": 11
+      }
+    },
+    {
+      "address": "resource.group/resource.single",
+      "entry-kind": "library-call",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "items",
+        "export": "item"
+      },
+      "inputs": {
+        "content": "single",
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "path": "files/single.txt"
+      },
+      "outputs": {
+        "content": "single",
+        "path": "files/single.txt"
+      },
+      "depends-on": [
+        "resource.group/resource.single/resource.file"
+      ]
+    },
+    {
+      "address": "resource.group/resource.single/resource.file",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": {
+        "alias": "e2e",
+        "export": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "single",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/single.txt"
+      },
+      "outputs": {
+        "content": "single",
+        "exists": true,
+        "path": "files/single.txt",
+        "sha256": "947f187506f7629c81c81879a2cb2256455038e4ac770091d897fa0a8b945e3b",
+        "size": 6
+      }
+    }
+  ],
+  "outputs": {
+    "first": "content one",
+    "second": "content two",
+    "single": "single"
+  }
+}

@@ -1,0 +1,31 @@
+output.first
+  -> resource.group
+
+output.second
+  -> resource.group
+
+output.single
+  -> resource.group
+
+resource.group
+  -> resource.group/library-config.e2e
+  -> resource.group/resource.file
+  -> resource.group/resource.single
+
+resource.group/library-config.e2e
+  -> var.e2e-config
+
+resource.group/resource.file
+  -> resource.group/library-config.e2e
+  -> var.e2e-config
+
+resource.group/resource.single
+  -> resource.group/resource.single/library-config.e2e
+  -> resource.group/resource.single/resource.file
+
+resource.group/resource.single/library-config.e2e
+  -> var.e2e-config
+
+resource.group/resource.single/resource.file
+  -> resource.group/resource.single/library-config.e2e
+  -> var.e2e-config

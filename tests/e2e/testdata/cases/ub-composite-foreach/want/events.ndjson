@@ -1,0 +1,3 @@
+{"operation":"create","kind":"file","path":"files/one.txt","sha256":"cdaf242e2e139dd255fbb56a691a9d0943a916a3235ee8d3cd73810d9d0b1ea2"}
+{"operation":"create","kind":"file","path":"files/two.txt","sha256":"c4f3079e433eaeb4e02b25c94b16b5ffa833a7c0d1f7733a41a73080d10a4f1b"}
+{"operation":"create","kind":"file","path":"files/single.txt","sha256":"947f187506f7629c81c81879a2cb2256455038e4ac770091d897fa0a8b945e3b"}

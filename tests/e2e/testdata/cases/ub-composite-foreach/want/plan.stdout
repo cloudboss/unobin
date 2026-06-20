@@ -1,0 +1,25 @@
+  (create)  resource.group  (composite)
+      e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+      files: {one: {content: 'content one', path: 'files/one.txt'}, two: {content: 'content two', path: 'files/two.txt'}}
+    (create)  resource.file  (for-each, 2 instances)
+      (create)  ['one']
+          content: 'content one'
+          create-parents: true
+          mode: 420
+          path: 'files/one.txt'
+      (create)  ['two']
+          content: 'content two'
+          create-parents: true
+          mode: 420
+          path: 'files/two.txt'
+    (create)  resource.single  (composite)
+        content: 'single'
+        e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+        path: 'files/single.txt'
+      (create)  resource.file
+          content: 'single'
+          create-parents: true
+          mode: 420
+          path: 'files/single.txt'
+
+Plan: 3 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

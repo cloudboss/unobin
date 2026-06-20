@@ -1,0 +1,11 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'eval', address: 'resource.group/library-config.e2e' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'eval', address: 'resource.group/library-config.e2e', elapsed: '<elapsed>' }
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'create', address: 'resource.group/resource.file[\'one\']' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'create', address: 'resource.group/resource.file[\'one\']', elapsed: '<elapsed>' }
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'create', address: 'resource.group/resource.file[\'two\']' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'create', address: 'resource.group/resource.file[\'two\']', elapsed: '<elapsed>' }
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'eval', address: 'resource.group/resource.single/library-config.e2e' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'eval', address: 'resource.group/resource.single/library-config.e2e', elapsed: '<elapsed>' }
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'create', address: 'resource.group/resource.single/resource.file' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'create', address: 'resource.group/resource.single/resource.file', elapsed: '<elapsed>' }
