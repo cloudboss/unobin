@@ -1,0 +1,4 @@
+factory: {
+  imports:   { partial: 'example.com/partial' }
+  resources: { x: partial.thing {} }
+}

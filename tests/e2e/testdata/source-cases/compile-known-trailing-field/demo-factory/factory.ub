@@ -1,0 +1,5 @@
+factory: {
+  imports:   { fake: 'example.com/fake' }
+  resources: { x: fake.thing {} }
+  outputs:   { good: { value: resource.x.id } }
+}

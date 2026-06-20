@@ -1,0 +1,22 @@
+{
+  "name": "compile-unknown-trailing-field",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "example.com/fake@v0.1.0",
+      "path": "remotes/fake",
+      "commit": "fakecommit",
+      "sourcePath": true
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "-"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

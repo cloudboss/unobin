@@ -1,0 +1,22 @@
+{
+  "name": "compile-malformed-go-module",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "example.com/broken@v0.1.0",
+      "path": "remotes/broken",
+      "commit": "fakecommit",
+      "sourcePath": true
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "-"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

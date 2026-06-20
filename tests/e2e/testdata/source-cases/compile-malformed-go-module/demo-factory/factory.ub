@@ -1,0 +1,3 @@
+factory: {
+  imports: { broken: 'example.com/broken' }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "compile-output-type-warning",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "example.com/partial@v0.1.0",
+      "path": "remotes/partial",
+      "commit": "fakecommit",
+      "sourcePath": true
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "-"],
+      "stdout": "want/compile.stdout",
+      "stderr": "want/compile.stderr"
+    }
+  ]
+}
