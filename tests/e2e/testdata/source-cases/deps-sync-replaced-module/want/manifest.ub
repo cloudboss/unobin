@@ -1,0 +1,10 @@
+manifest: {
+  requires: {
+    'github.com/x/core': {
+      version: 'v0.0.0-unobin-replaced'
+    }
+  }
+  replace: {
+    'github.com/x/core': '../modules/core'
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "deps-get-replacement-sentinel",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-get",
+      "args": ["deps", "get", "github.com/x/core@v0.0.0-unobin-replaced"],
+      "stderr": "want/deps-get.stderr",
+      "exitCode": 1
+    }
+  ]
+}

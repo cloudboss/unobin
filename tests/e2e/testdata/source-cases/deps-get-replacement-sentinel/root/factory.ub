@@ -1,0 +1,5 @@
+factory: {
+  imports: {
+    core: 'github.com/x/core//lib'
+  }
+}

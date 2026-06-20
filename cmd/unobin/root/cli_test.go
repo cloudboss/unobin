@@ -219,40 +219,6 @@ func TestDepsSyncRejectsInvalidGoLibrary(t *testing.T) {
 	require.Contains(t, err.Error(), "must return *runtime.Library")
 }
 
-func TestDepsSyncAddsSentinelForExactReplacement(t *testing.T) {
-	root := t.TempDir()
-	local := filepath.Join(root, "core")
-	require.NoError(t, os.MkdirAll(local, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(local, "go.mod"),
-		[]byte("module github.com/x/core\n"), 0o644))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(local, "lib.go"), validGoLibrarySource("core"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {}\nreplace: { 'github.com/x/core': './core' }\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core' }\n"), 0o644))
-
-	_, err := runCommand(t, "deps", "sync", "-p", root)
-	require.NoError(t, err)
-
-	manifestBytes, err := os.ReadFile(filepath.Join(root, deps.ManifestFileName))
-	require.NoError(t, err)
-	require.Equal(t, `manifest: {
-  requires: {
-    'github.com/x/core': {
-      version: 'v0.0.0-unobin-replaced'
-    }
-  }
-  replace: {
-    'github.com/x/core': './core'
-  }
-}
-`, string(manifestBytes))
-	lock, err := deps.ReadLock(os.DirFS(root))
-	require.NoError(t, err)
-	require.NotContains(t, lock.Deps, "github.com/x/core")
-}
-
 func TestDepsSyncRefusesGoModuleRoot(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"),
@@ -779,30 +745,6 @@ thing: resource {
 	}, lock.Deps)
 }
 
-func TestDepsSyncWithReplace(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "factory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n"), 0o644))
-
-	// A local Go library the manifest replaces in (no remote, no floor).
-	awsDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
-		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(awsDir, "library.go"), validGoLibrarySource("aws"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin-library-aws': '"+
-			awsDir+"' }\n"), 0o644))
-
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
-	require.NoError(t, err)
-
-	lock, err := deps.ReadLock(os.DirFS(root))
-	require.NoError(t, err)
-	require.Empty(t, lock.Deps, "a replaced dependency is not locked")
-}
-
 func TestDepsSyncDiscoversMissingOwner(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "myfactory")
 	require.NoError(t, os.MkdirAll(root, 0o755))
@@ -1288,23 +1230,6 @@ func TestDepsGetLatest(t *testing.T) {
 	lock, err := deps.ReadLock(os.DirFS(root))
 	require.NoError(t, err)
 	require.Equal(t, "v2.0.0", lock.Deps["github.com/x/core//lib"].Version)
-}
-
-func TestDepsGetRejectsReplacementSentinel(t *testing.T) {
-	root := writeGetProject(t)
-	calledTags := false
-	prev := depsListTags
-	depsListTags = func(string) ([]string, error) {
-		calledTags = true
-		return nil, fmt.Errorf("tags should not be listed")
-	}
-	t.Cleanup(func() { depsListTags = prev })
-
-	_, err := runCommand(t, "deps", "get",
-		"github.com/x/core@"+deps.ReplacementSentinel, "-p", root)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "v0.0.0-unobin-replaced is reserved")
-	require.False(t, calledTags)
 }
 
 func TestDepsGetRejectsPackageWithoutProjectMarker(t *testing.T) {

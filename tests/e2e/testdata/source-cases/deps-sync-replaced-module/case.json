@@ -1,0 +1,16 @@
+{
+  "name": "deps-sync-replaced-module",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/manifest.ub", "want": "want/manifest.ub" },
+    { "path": "root/lock.ub", "want": "want/lock.ub" }
+  ]
+}
