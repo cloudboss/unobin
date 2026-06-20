@@ -162,7 +162,7 @@ func isE2ECaseFixture(parts []string, testdata int) bool {
 	if testdata+1 >= len(parts) {
 		return false
 	}
-	return parts[testdata+1] == "cases" || parts[testdata+1] == "source-cases"
+	return parts[testdata+1] == "compiled-cases" || parts[testdata+1] == "source-cases"
 }
 
 func repoRoot(t *testing.T) string {
