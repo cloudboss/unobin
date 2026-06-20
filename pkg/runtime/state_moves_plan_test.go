@@ -255,6 +255,85 @@ resources: {
 	)
 }
 
+func TestPlanAppliesRootBoundaryMoveWithNestedCompositeStateMove(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("outer.web", "resource.old-app"),
+		stateMoveBoundaryEntry("inner.box", "resource.old-app/resource.child"),
+		stateMovePlanEntry("resource.old-app/resource.child/resource.old"),
+	)
+
+	plan := runPlan(t, `
+state-moves: [
+  { from: 'outer.web@resource.old-app', to: 'outer.web@resource.app' },
+]
+resources: {
+  app: outer.web {}
+}
+`, stateMoveNestedCompositeLibs(t), store)
+
+	require.Equal(t, []PlannedEntryMove{
+		{From: "outer.web@resource.old-app", To: "outer.web@resource.app"},
+		{
+			From: "inner.box@resource.old-app/resource.child",
+			To:   "inner.box@resource.app/resource.child",
+		},
+		{
+			From: "core.thing@resource.old-app/resource.child/resource.old",
+			To:   "core.thing@resource.app/resource.child/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t,
+		DecisionNoOp,
+		stepFor(plan, "resource.app/resource.child/resource.new").Decision,
+	)
+}
+
+func TestPlanAppliesKeyedRootBoundaryMoveWithNestedCompositeStateMove(t *testing.T) {
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	seedPrior(t, store, stack,
+		stateMoveBoundaryEntry("outer.web", "resource.apps['blue']"),
+		stateMoveBoundaryEntry("inner.box", "resource.apps['blue']/resource.child"),
+		stateMovePlanEntry("resource.apps['blue']/resource.child/resource.old"),
+	)
+	exec := planTestExecutor(t, `
+inputs: { configs: { type: map(boolean) } }
+state-moves: [
+  {
+    from: '''outer.web@resource.apps['blue']''',
+    to:   '''outer.web@resource.apps['green']''',
+  },
+]
+resources: {
+  apps: outer.web { @for-each: var.configs }
+}
+`, stateMoveNestedCompositeLibs(t), store, stack)
+	exec.Inputs = map[string]any{"configs": map[string]any{"green": true}}
+
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []PlannedEntryMove{
+		{
+			From: "outer.web@resource.apps['blue']",
+			To:   "outer.web@resource.apps['green']",
+		},
+		{
+			From: "inner.box@resource.apps['blue']/resource.child",
+			To:   "inner.box@resource.apps['green']/resource.child",
+		},
+		{
+			From: "core.thing@resource.apps['blue']/resource.child/resource.old",
+			To:   "core.thing@resource.apps['green']/resource.child/resource.new",
+		},
+	}, plan.StateMoves)
+	assert.Equal(t,
+		DecisionNoOp,
+		stepFor(plan, "resource.apps['green']/resource.child/resource.new").Decision,
+	)
+}
+
 func TestApplyPlanExecutesRecordedStateMove(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}

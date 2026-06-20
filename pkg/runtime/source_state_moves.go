@@ -85,6 +85,7 @@ func (e *Executor) compositeEntryMoveSpecs(
 		return nil, nil
 	}
 	var specs []EntryMoveSpec
+	known := append([]EntryMoveSpec(nil), root...)
 	nodes := make([]*Node, 0, len(e.DAG.Nodes))
 	for _, n := range e.DAG.Nodes {
 		if n.IsComposite() && len(n.CompositeSyntaxBody.StateMoves) > 0 {
@@ -97,12 +98,18 @@ func (e *Executor) compositeEntryMoveSpecs(
 		if err != nil {
 			return nil, err
 		}
-		for _, prefix := range e.compositeEntryMovePrefixes(prior, n, root) {
+		prefixes, err := e.compositeEntryMovePrefixes(prior, n, known)
+		if err != nil {
+			return nil, err
+		}
+		for _, prefix := range prefixes {
 			for _, spec := range relative {
-				specs = append(specs, EntryMoveSpec{
+				expanded := EntryMoveSpec{
 					From: prefixedEntryRef(prefix.from, spec.From),
 					To:   prefixedEntryRef(prefix.to, spec.To),
-				})
+				}
+				specs = append(specs, expanded)
+				known = append(known, expanded)
 			}
 		}
 	}
@@ -117,33 +124,69 @@ type compositeEntryMovePrefix struct {
 func (e *Executor) compositeEntryMovePrefixes(
 	prior *state.Snapshot,
 	n *Node,
-	root []EntryMoveSpec,
-) []compositeEntryMovePrefix {
+	specs []EntryMoveSpec,
+) ([]compositeEntryMovePrefix, error) {
 	var prefixes []compositeEntryMovePrefix
 	seen := map[compositeEntryMovePrefix]bool{}
+	byFrom := map[string]int{}
 	add := func(prefix compositeEntryMovePrefix) {
+		if idx, ok := byFrom[prefix.from]; ok {
+			current := prefixes[idx]
+			if current.to == prefix.to {
+				return
+			}
+			if current.to == current.from && prefix.to != prefix.from {
+				delete(seen, current)
+				seen[prefix] = true
+				prefixes[idx] = prefix
+				return
+			}
+			if current.to != current.from && prefix.to == prefix.from {
+				return
+			}
+		}
 		if !seen[prefix] {
 			seen[prefix] = true
+			byFrom[prefix.from] = len(prefixes)
 			prefixes = append(prefixes, prefix)
 		}
 	}
+	selector := selectorForNode(n)
 	for _, ent := range prior.Entries {
 		if ent.Type != state.EntryLibraryCall {
 			continue
 		}
-		if templateAddress(ent.Address) != n.Address || !sameSelector(ent.Selector, selectorForNode(n)) {
+		if templateAddress(ent.Address) != n.Address || !sameSelector(ent.Selector, selector) {
 			continue
 		}
 		add(compositeEntryMovePrefix{from: ent.Address, to: ent.Address})
 	}
-	for _, spec := range normalizedRootEntryMoves(root) {
-		if templateAddress(spec.To.Address) != n.Address {
+	moves, err := normalizeEntryMoveSpecs(specs)
+	if err != nil {
+		return nil, err
+	}
+	for _, spec := range moves {
+		toTemplate := templateAddress(spec.To.Address)
+		if toTemplate == n.Address && spec.To.Selector == *selector {
+			add(compositeEntryMovePrefix{from: spec.From.Address, to: spec.To.Address})
 			continue
 		}
-		if spec.To.Selector != *selectorForNode(n) {
+		if !entryMoveHasAddressPrefix(n.Address, toTemplate) || n.Address == toTemplate {
 			continue
 		}
-		add(compositeEntryMovePrefix{from: spec.From.Address, to: spec.To.Address})
+		toNode, err := entryMoveTargetNode(e.DAG, spec.To)
+		if err != nil {
+			return nil, err
+		}
+		if !toNode.IsComposite() {
+			continue
+		}
+		suffix := n.Address[len(toTemplate):]
+		fromAddress := spec.From.Address + suffix
+		if !priorCompositeEntryHasSelector(prior, fromAddress, selector) {
+			continue
+		}
+		add(compositeEntryMovePrefix{from: fromAddress, to: spec.To.Address + suffix})
 	}
 	sort.Slice(prefixes, func(i, j int) bool {
 		if prefixes[i].from == prefixes[j].from {
@@ -151,15 +194,23 @@ func (e *Executor) compositeEntryMovePrefixes(
 		}
 		return prefixes[i].from < prefixes[j].from
 	})
-	return prefixes
+	return prefixes, nil
 }
 
-func normalizedRootEntryMoves(specs []EntryMoveSpec) []normalizedEntryMove {
-	moves, err := normalizeEntryMoveSpecs(specs)
-	if err != nil {
-		return nil
+func priorCompositeEntryHasSelector(
+	prior *state.Snapshot,
+	address string,
+	selector *state.Selector,
+) bool {
+	for _, ent := range prior.Entries {
+		if ent.Type != state.EntryLibraryCall {
+			continue
+		}
+		if ent.Address == address && sameSelector(ent.Selector, selector) {
+			return true
+		}
 	}
-	return moves
+	return false
 }
 
 func prefixedEntryRef(prefix string, ref EntryRef) EntryRef {
