@@ -45,6 +45,82 @@ Then run plan and apply. A factory cannot apply without first planning.
 
 See the [examples](./examples) directory for various example stacks that you can compile and run.
 
+## State inspection and relocation
+
+State commands name entries with a complete ref:
+
+```text
+<selector>@<address>
+```
+
+The selector is the imported implementation, such as `std.fs-file` or
+`aws.instance`. The address is the runtime address, such as `resource.web`,
+`action.read-back`, or `resource.app/resource.sg`.
+
+Useful state commands:
+
+```text
+./app state list -c dev.ub
+./app state show std.fs-file@resource.web -c dev.ub
+./app state pull -c dev.ub > state.json
+./app state snapshots list -c dev.ub
+./app state move -c dev.ub std.fs-file@resource.old std.fs-file@resource.web
+./app state remove -c dev.ub std.fs-file@resource.web
+```
+
+`state move` and `state remove` reject address-only refs. Use the complete
+`selector@address` form.
+
+A factory author can declare idempotent state moves in source:
+
+```ub
+factory: {
+  state-moves: [
+    { from: '''aws.instance@resource.old''', to: '''aws.instance@resource.web''' },
+  ]
+
+  resources: {
+    web: aws.instance { name: 'web' }
+  }
+}
+```
+
+A UB composite can declare moves relative to each call site:
+
+```ub
+web-cluster: resource {
+  state-moves: [
+    { from: '''aws.security-group@resource.sg''', to: '''aws.security-group@resource.web-sg''' },
+  ]
+
+  resources: {
+    web-sg: aws.security-group { name: var.name }
+  }
+}
+```
+
+A composite boundary move also relocates matching children below that boundary:
+
+```ub
+factory: {
+  state-moves: [
+    { from: '''net.cluster@resource.web''', to: '''net.cluster@resource.app''' },
+  ]
+
+  resources: {
+    app: net.cluster { name: 'app' }
+  }
+}
+```
+
+Use explicit child moves when a child selector or child address also changes.
+A plan prints actual state moves before resource changes:
+
+```text
+State moves:
+  aws.instance@resource.old -> aws.instance@resource.web
+```
+
 ## Dependency projects and import packages
 
 A dependency project is a versioned directory with `manifest.ub` or `go.mod` at
