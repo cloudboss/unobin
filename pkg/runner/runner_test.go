@@ -1881,73 +1881,104 @@ func TestPrintGraphRejectsUnknownFormat(t *testing.T) {
 }
 
 func TestStateMoveRelocatesEntry(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	_ = applyVia(t, info, "")
+	oldInfo := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
+	_ = applyVia(t, oldInfo, "")
 
-	out, err := runWithStack(t, info, "state", "move", "action.hi", "action.bye")
+	newInfo := oldInfo
+	newInfo.FactoryBody = sourceFactory(`actions: { bye: core.echo { echo: 'hello' } }`)
+	out, err := runWithStack(t, newInfo, "state", "move",
+		"core.echo@action.hi", "core.echo@action.bye")
 	require.NoError(t, err)
-	require.Contains(t, out, "Moved action.hi to action.bye")
+	require.Contains(t, out, "Moved core.echo@action.hi to core.echo@action.bye")
 
-	show, err := runWithStack(t, info, "state", "show")
+	list, err := runWithStack(t, newInfo, "state", "list")
 	require.NoError(t, err)
-	require.Contains(t, show, "action.bye")
-	require.NotContains(t, show, "action.hi ")
+	require.Contains(t, list, "core.echo@action.bye\n")
+	require.NotContains(t, list, "core.echo@action.hi")
 }
 
-func TestStateMoveRejectsMissingSource(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hello' } }`
-	info := testInfo(t, src)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info,
-		"state", "move", "action.core.echo.gone", "action.core.echo.elsewhere")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no entry at")
-}
-
-func TestStateMoveRejectsCollision(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' }, bye: core.echo { echo: 'bye' } }
-`
-	info := testInfo(t, src)
+func TestStateMoveRejectsAddressOnlyInput(t *testing.T) {
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 
 	_, err := runWithStack(t, info, "state", "move", "action.hi", "action.bye")
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected <selector>@<address>")
+}
+
+func TestStateMoveRejectsMissingSource(t *testing.T) {
+	info := testInfo(t, `actions: { bye: core.echo { echo: 'bye' } }`)
+	_ = applyVia(t, info, "")
+
+	_, err := runWithStack(t, info, "state", "move",
+		"core.echo@action.gone", "core.echo@action.bye")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
+}
+
+func TestStateMoveRejectsCollision(t *testing.T) {
+	info := testInfo(t, `
+actions: { hi: core.echo { echo: 'hello' }, bye: core.echo { echo: 'bye' } }
+`)
+	_ = applyVia(t, info, "")
+
+	_, err := runWithStack(t, info, "state", "move",
+		"core.echo@action.hi", "core.echo@action.bye")
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "already exists")
 }
 
-func TestStateRemoveDropsEntry(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hello' } }`
-	info := testInfo(t, src)
+func TestStateRemoveRemovesEntry(t *testing.T) {
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 
-	out, err := runWithStack(t, info, "state", "remove", "action.hi")
+	out, err := runWithStack(t, info, "state", "remove", "core.echo@action.hi")
 	require.NoError(t, err)
-	require.Contains(t, out, "Removed action.hi")
+	require.Contains(t, out, "Removed core.echo@action.hi")
 
-	show, err := runWithStack(t, info, "state", "show")
+	list, err := runWithStack(t, info, "state", "list")
 	require.NoError(t, err)
-	require.NotContains(t, show, "action.hi")
+	require.NotContains(t, list, "core.echo@action.hi")
+}
+
+func TestStateRemoveRejectsAddressOnlyInput(t *testing.T) {
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
+	_ = applyVia(t, info, "")
+
+	_, err := runWithStack(t, info, "state", "remove", "action.hi")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected <selector>@<address>")
 }
 
 func TestStateRemoveRejectsMissing(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hello' } }`
-	info := testInfo(t, src)
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
 
-	_, err := runWithStack(t, info, "state", "remove", "action.core.echo.gone")
+	_, err := runWithStack(t, info, "state", "remove", "core.echo@action.gone")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no entry at")
+	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
 }
 
-// stateMoveFixture builds a snapshot that mixes a library call site
-// (boundary + one internal) with one unrelated leaf so the move tests
-// can exercise both shapes against the same state.
+func testGreetingLibrary(t *testing.T) *runtime.Library {
+	t.Helper()
+	sf, err := syntax.ParseSource("factory.ub", []byte(sourceFactory(`
+resources: { this: local.file {} }
+`)))
+	require.NoError(t, err)
+	body := sf.Factory.Body
+	return &runtime.Library{
+		Name: "greeter",
+		ResourceComposites: map[string]*runtime.CompositeType{
+			"greeting": {
+				Name:       "greeting",
+				Kind:       runtime.NodeResource,
+				SyntaxBody: &body,
+				Libraries:  map[string]*runtime.Library{"local": testFileLibrary()},
+			},
+		},
+	}
+}
+
 func stateMoveFixture(t *testing.T, info Info) *local.Store {
 	t.Helper()
 	store, err := local.NewStore(
@@ -1959,22 +1990,24 @@ func stateMoveFixture(t *testing.T, info Info) *local.Store {
 	snap := state.NewSnapshot(stackInfo, "default")
 	snap.Entries = []*state.Entry{
 		{
-			Address:  "resource.greeter.greeting.welcome",
+			Address:  "resource.welcome",
 			Type:     state.EntryLibraryCall,
 			Kind:     "resource",
 			Selector: &state.Selector{Alias: "greeter", Export: "greeting"},
 		},
 		{
-			Address:  "resource.greeter.greeting.welcome/resource.local.file.this",
-			Type:     state.EntryLeaf,
-			Kind:     "resource",
-			Selector: &state.Selector{Alias: "local", Export: "file"},
+			Address:       "resource.welcome/resource.this",
+			Type:          state.EntryLeaf,
+			Kind:          "resource",
+			Selector:      &state.Selector{Alias: "local", Export: "file"},
+			SchemaVersion: 1,
 		},
 		{
-			Address:  "resource.local.file.other",
-			Type:     state.EntryLeaf,
-			Kind:     "resource",
-			Selector: &state.Selector{Alias: "local", Export: "file"},
+			Address:       "resource.other",
+			Type:          state.EntryLeaf,
+			Kind:          "resource",
+			Selector:      &state.Selector{Alias: "local", Export: "file"},
+			SchemaVersion: 1,
 		},
 	}
 	rev, err := store.Write(snap)
@@ -1983,96 +2016,42 @@ func stateMoveFixture(t *testing.T, info Info) *local.Store {
 	return store
 }
 
-func snapshotAddresses(t *testing.T, store *local.Store) []string {
+func snapshotRefs(t *testing.T, store *local.Store) []string {
 	t.Helper()
 	snap, err := store.Current()
 	require.NoError(t, err)
 	out := make([]string, 0, len(snap.Entries))
 	for _, e := range snap.Entries {
-		out = append(out, e.Address)
+		ref, ok := runtime.EntryRefFromEntry(e)
+		require.True(t, ok)
+		out = append(out, ref.String())
 	}
 	return out
 }
 
 func TestStateMoveRelocatesLibraryCallSite(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
+	info := testInfo(t, `
+resources: {
+  hello: greeter.greeting {}
+  other: local.file { path: 'x', content: 'y', mode: 420 }
+}
+`)
+	info.Libraries["greeter"] = testGreetingLibrary(t)
+	info.Libraries["local"] = testFileLibrary()
 	store := stateMoveFixture(t, info)
 
 	out, err := runWithStack(t, info, "state", "move",
-		"resource.greeter.greeting.welcome", "resource.greeter.greeting.hello")
+		"greeter.greeting@resource.welcome", "greeter.greeting@resource.hello")
 	require.NoError(t, err)
 	require.Contains(t, out,
-		"Moved resource.greeter.greeting.welcome"+
-			" to resource.greeter.greeting.hello (2 entries).")
+		"Moved greeter.greeting@resource.welcome"+
+			" to greeter.greeting@resource.hello (2 entries).")
 
 	require.ElementsMatch(t, []string{
-		"resource.greeter.greeting.hello",
-		"resource.greeter.greeting.hello/resource.local.file.this",
-		"resource.local.file.other",
-	}, snapshotAddresses(t, store))
-}
-
-func TestStateMoveSingleEntryLeavesLibraryAlone(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	store := stateMoveFixture(t, info)
-
-	out, err := runWithStack(t, info, "state", "move",
-		"resource.local.file.other", "resource.local.file.renamed")
-	require.NoError(t, err)
-	require.Contains(t, out,
-		"Moved resource.local.file.other to resource.local.file.renamed.")
-	require.NotContains(t, out, "entries")
-
-	require.ElementsMatch(t, []string{
-		"resource.greeter.greeting.welcome",
-		"resource.greeter.greeting.welcome/resource.local.file.this",
-		"resource.local.file.renamed",
-	}, snapshotAddresses(t, store))
-}
-
-func TestStateMoveBulkRejectsCollisionUnderTarget(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	store, err := local.NewStore(
-		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
-	require.NoError(t, err)
-	stackInfo := state.FactoryInfo{
-		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
-	}
-	snap := state.NewSnapshot(stackInfo, "default")
-	snap.Entries = []*state.Entry{
-		{
-			Address:  "resource.greeter.greeting.a",
-			Type:     state.EntryLibraryCall,
-			Kind:     "resource",
-			Selector: &state.Selector{Alias: "greeter", Export: "greeting"},
-		},
-		{
-			Address:  "resource.greeter.greeting.a/resource.local.file.this",
-			Type:     state.EntryLeaf,
-			Kind:     "resource",
-			Selector: &state.Selector{Alias: "local", Export: "file"},
-		},
-		{
-			Address:  "resource.greeter.greeting.b/resource.local.file.this",
-			Type:     state.EntryLeaf,
-			Kind:     "resource",
-			Selector: &state.Selector{Alias: "local", Export: "file"},
-		},
-	}
-	rev, err := store.Write(snap)
-	require.NoError(t, err)
-	require.NoError(t, store.SetCurrent(rev))
-
-	_, err = runWithStack(t, info, "state", "move",
-		"resource.greeter.greeting.a", "resource.greeter.greeting.b")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "already exists at resource.greeter.greeting.b/resource.local.file.this")
-
-	require.ElementsMatch(t, []string{
-		"resource.greeter.greeting.a",
-		"resource.greeter.greeting.a/resource.local.file.this",
-		"resource.greeter.greeting.b/resource.local.file.this",
-	}, snapshotAddresses(t, store))
+		"greeter.greeting@resource.hello",
+		"local.file@resource.hello/resource.this",
+		"local.file@resource.other",
+	}, snapshotRefs(t, store))
 }
 
 func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
@@ -2096,7 +2075,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, revs, 5)
 
-	out, err := runWithStack(t, info, "state", "gc", "--keep", "2")
+	out, err := runWithStack(t, info, "state", "snapshots", "gc", "--keep", "2")
 	require.NoError(t, err)
 	require.Contains(t, out, "Deleted 2 snapshot(s), kept 3.")
 
@@ -2108,7 +2087,7 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
 	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	_ = applyVia(t, info, "")
-	out, err := runWithStack(t, info, "state", "gc", "--keep", "10")
+	out, err := runWithStack(t, info, "state", "snapshots", "gc", "--keep", "10")
 	require.NoError(t, err)
 	require.Contains(t, out, "Deleted 0 snapshot(s), kept 1.")
 }
@@ -2151,12 +2130,12 @@ outputs: { said: { value: action.hi.echo } }
 	require.NoError(t, err)
 	require.Contains(t, out, "Refreshed 0, dropped 0.")
 
-	show, err := runWithStack(t, info, "state", "show")
+	show, err := runWithStack(t, info, "state", "list")
 	require.NoError(t, err)
-	require.Contains(t, show, "action.hi")
+	require.Contains(t, show, "core.echo@action.hi")
 }
 
-func TestStateListAndShow(t *testing.T) {
+func TestStateListShowPullAndSnapshots(t *testing.T) {
 	src := `
 actions: { hi: core.echo { echo: 'hello' } }
 outputs: { said: { value: action.hi.echo } }
@@ -2166,14 +2145,33 @@ outputs: { said: { value: action.hi.echo } }
 
 	listOut, err := runWithStack(t, info, "state", "list")
 	require.NoError(t, err)
-	require.Contains(t, listOut, "* ")
+	require.Equal(t, "core.echo@action.hi\n", listOut)
 
-	showOut, err := runWithStack(t, info, "state", "show")
+	snapshotsOut, err := runWithStack(t, info, "state", "snapshots", "list")
 	require.NoError(t, err)
-	require.Contains(t, showOut, "factory:")
-	require.Contains(t, showOut, "test-stack")
-	require.Contains(t, showOut, "action.hi")
-	require.Contains(t, showOut, `said: 'hello'`)
+	require.Contains(t, snapshotsOut, "* ")
+
+	showOut, err := runWithStack(t, info, "state", "show", "core.echo@action.hi")
+	require.NoError(t, err)
+	require.Contains(t, showOut, "address: action.hi")
+	require.Contains(t, showOut, "selector: core.echo")
+	require.Contains(t, showOut, "entry-kind: action")
+	require.Contains(t, showOut, "outputs:")
+	require.Contains(t, showOut, `  echo: 'hello'`)
+
+	pullOut, err := runWithStack(t, info, "state", "pull")
+	require.NoError(t, err)
+	require.True(t, isJSON([]byte(pullOut)))
+	require.Contains(t, pullOut, `"address": "action.hi"`)
+}
+
+func TestStateShowRejectsAbsentRef(t *testing.T) {
+	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
+	_ = applyVia(t, info, "")
+
+	_, err := runWithStack(t, info, "state", "show", "core.echo@action.gone")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
 }
 
 func TestSchema(t *testing.T) {
@@ -2243,9 +2241,9 @@ outputs: { said: { value: action.hi.echo } }
 		require.True(t, isJSON(plaintext), "decrypted snapshot %s should be JSON", e.Name())
 	}
 
-	showOut, err := runBackend(t, info, "state", "show")
+	showOut, err := runBackend(t, info, "state", "show", "core.echo@action.hi")
 	require.NoError(t, err)
-	require.Contains(t, showOut, `said: 'hello'`)
+	require.Contains(t, showOut, `  echo: 'hello'`)
 }
 
 func TestStateShowFailsWithWrongKey(t *testing.T) {
@@ -2256,7 +2254,7 @@ func TestStateShowFailsWithWrongKey(t *testing.T) {
 	_ = applyVia(t, info, writeBackendConfig(t))
 
 	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-	_, err := runBackend(t, info, "state", "show")
+	_, err := runBackend(t, info, "state", "list")
 	require.Error(t, err)
 }
 

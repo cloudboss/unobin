@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
 )
@@ -18,9 +21,10 @@ func newStateCmd(info Info) *cobra.Command {
 	}
 	cmd.AddCommand(newStateListCmd(info))
 	cmd.AddCommand(newStateShowCmd(info))
+	cmd.AddCommand(newStatePullCmd(info))
 	cmd.AddCommand(newStateMoveCmd(info))
 	cmd.AddCommand(newStateRemoveCmd(info))
-	cmd.AddCommand(newStateGCCmd(info))
+	cmd.AddCommand(newStateSnapshotsCmd(info))
 	cmd.AddCommand(newStateForceUnlockCmd(info))
 	return cmd
 }
@@ -31,6 +35,16 @@ func newStateCmd(info Info) *cobra.Command {
 func addConfigFlag(cmd *cobra.Command, dst *string) {
 	cmd.Flags().StringVarP(dst, "config", "c", "",
 		"Path to a stack file identifying the stack.")
+}
+
+func newStateSnapshotsCmd(info Info) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "snapshots",
+		Short: "Inspect and delete snapshot revisions",
+	}
+	cmd.AddCommand(newStateSnapshotsListCmd(info))
+	cmd.AddCommand(newStateGCCmd(info))
+	return cmd
 }
 
 func newStateGCCmd(info Info) *cobra.Command {
@@ -56,15 +70,7 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 	if keep < 0 {
 		return fmt.Errorf("--keep must not be negative")
 	}
-	config, err := parseStackFile(configPath)
-	if err != nil {
-		return err
-	}
-	enc, err := loadEncrypter(config, configPath)
-	if err != nil {
-		return err
-	}
-	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+	store, err := loadStateStore(info, configPath)
 	if err != nil {
 		return err
 	}
@@ -110,8 +116,8 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 func newStateMoveCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "move <old-address> <new-address>",
-		Short: "Move a state entry to a new address",
+		Use:   "move <from-selector@from-address> <to-selector@to-address>",
+		Short: "Move a state entry to a new address or selector",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doStateMove(cmd, info, configPath, args[0], args[1])
@@ -121,19 +127,20 @@ func newStateMoveCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr string) error {
-	if oldAddr == newAddr {
-		return fmt.Errorf("old and new address are the same")
+func doStateMove(cmd *cobra.Command, info Info, configPath, fromText, toText string) error {
+	from, err := runtime.ParseEntryRef(fromText)
+	if err != nil {
+		return fmt.Errorf("state move: %w", err)
 	}
-	config, err := parseStackFile(configPath)
+	to, err := runtime.ParseEntryRef(toText)
+	if err != nil {
+		return fmt.Errorf("state move: %w", err)
+	}
+	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
 	}
-	enc, err := loadEncrypter(config, configPath)
-	if err != nil {
-		return err
-	}
-	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+	store, err := loadStateStore(info, configPath)
 	if err != nil {
 		return err
 	}
@@ -147,31 +154,18 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr str
 	if err != nil {
 		return err
 	}
-
-	var moved []*state.Entry
-	occupied := map[string]bool{}
-	for _, e := range snap.Entries {
-		if e.Address == oldAddr || strings.HasPrefix(e.Address, oldAddr+"/") {
-			moved = append(moved, e)
-		} else {
-			occupied[e.Address] = true
-		}
-	}
-	if len(moved) == 0 {
-		return fmt.Errorf("no entry at %s", oldAddr)
-	}
-	for _, e := range moved {
-		target := newAddr + e.Address[len(oldAddr):]
-		if occupied[target] {
-			return fmt.Errorf("an entry already exists at %s", target)
-		}
-		occupied[target] = true
-	}
-	for _, e := range moved {
-		e.Address = newAddr + e.Address[len(oldAddr):]
+	next, moved, err := runtime.ApplyEntryMoves(
+		snap,
+		parsed.dag,
+		info.Libraries,
+		[]runtime.EntryMoveSpec{{From: from, To: to}},
+		runtime.EntryMoveStrict,
+	)
+	if err != nil {
+		return err
 	}
 
-	rev, err := store.Write(snap)
+	rev, err := store.Write(next)
 	if err != nil {
 		return err
 	}
@@ -180,9 +174,10 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr str
 	}
 	out := cmd.OutOrStdout()
 	if len(moved) == 1 {
-		fmt.Fprintf(out, "Moved %s to %s.\n", oldAddr, newAddr)
+		fmt.Fprintf(out, "Moved %s to %s.\n", from.String(), to.String())
 	} else {
-		fmt.Fprintf(out, "Moved %s to %s (%d entries).\n", oldAddr, newAddr, len(moved))
+		fmt.Fprintf(out, "Moved %s to %s (%d entries).\n",
+			from.String(), to.String(), len(moved))
 	}
 	return nil
 }
@@ -190,7 +185,7 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, oldAddr, newAddr str
 func newStateRemoveCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "remove <address>",
+		Use:   "remove <selector@address>",
 		Short: "Remove a state entry without touching the underlying resource",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -201,16 +196,12 @@ func newStateRemoveCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error {
-	config, err := parseStackFile(configPath)
+func doStateRemove(cmd *cobra.Command, info Info, configPath, refText string) error {
+	ref, err := runtime.ParseEntryRef(refText)
 	if err != nil {
-		return err
+		return fmt.Errorf("state remove: %w", err)
 	}
-	enc, err := loadEncrypter(config, configPath)
-	if err != nil {
-		return err
-	}
-	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+	store, err := loadStateStore(info, configPath)
 	if err != nil {
 		return err
 	}
@@ -226,13 +217,14 @@ func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error
 	}
 	idx := -1
 	for i, e := range snap.Entries {
-		if e.Address == addr {
+		entryRef, ok := runtime.EntryRefFromEntry(e)
+		if ok && runtime.SameEntryRef(entryRef, ref) {
 			idx = i
 			break
 		}
 	}
 	if idx < 0 {
-		return fmt.Errorf("no entry at %s", addr)
+		return fmt.Errorf("no entry at %s", ref.String())
 	}
 	snap.Entries = append(snap.Entries[:idx], snap.Entries[idx+1:]...)
 
@@ -243,7 +235,7 @@ func doStateRemove(cmd *cobra.Command, info Info, configPath, addr string) error
 	if err := store.SetCurrent(rev); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Removed %s.\n", addr)
+	fmt.Fprintf(cmd.OutOrStdout(), "Removed %s.\n", ref.String())
 	return nil
 }
 
@@ -255,15 +247,7 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 		Long: "Use this only when a previous run died without releasing the lock. " +
 			"Make sure no apply or refresh is running against this stack first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
-			if err != nil {
-				return err
-			}
-			enc, err := loadEncrypter(config, configPath)
-			if err != nil {
-				return err
-			}
-			store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+			store, err := loadStateStore(info, configPath)
 			if err != nil {
 				return err
 			}
@@ -282,17 +266,41 @@ func newStateListCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
 		Use:   "list",
+		Short: "List current state entries",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := loadStateStore(info, configPath)
+			if err != nil {
+				return err
+			}
+			snap, err := store.Current()
+			if errors.Is(err, state.ErrNoCurrent) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			refs, err := stateEntryRefs(snap)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			for _, ref := range refs {
+				fmt.Fprintln(out, ref)
+			}
+			return nil
+		},
+	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
+}
+
+func newStateSnapshotsListCmd(info Info) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "list",
 		Short: "List snapshot revisions, marking the current one with *",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
-			if err != nil {
-				return err
-			}
-			enc, err := loadEncrypter(config, configPath)
-			if err != nil {
-				return err
-			}
-			store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+			store, err := loadStateStore(info, configPath)
 			if err != nil {
 				return err
 			}
@@ -319,19 +327,43 @@ func newStateListCmd(info Info) *cobra.Command {
 func newStateShowCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "show [revision]",
-		Short: "Show a snapshot's entries (current snapshot if no revision given)",
+		Use:   "show <selector@address>",
+		Short: "Show one current state entry",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := runtime.ParseEntryRef(args[0])
+			if err != nil {
+				return fmt.Errorf("state show: %w", err)
+			}
+			store, err := loadStateStore(info, configPath)
+			if err != nil {
+				return err
+			}
+			snap, err := store.Current()
+			if err != nil {
+				return err
+			}
+			for _, ent := range snap.Entries {
+				entryRef, ok := runtime.EntryRefFromEntry(ent)
+				if ok && runtime.SameEntryRef(entryRef, ref) {
+					return printStateEntry(cmd, ent)
+				}
+			}
+			return fmt.Errorf("no entry at %s", ref.String())
+		},
+	}
+	addConfigFlag(cmd, &configPath)
+	return cmd
+}
+
+func newStatePullCmd(info Info) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "pull [revision]",
+		Short: "Print a decrypted state snapshot as JSON",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
-			if err != nil {
-				return err
-			}
-			enc, err := loadEncrypter(config, configPath)
-			if err != nil {
-				return err
-			}
-			store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+			store, err := loadStateStore(info, configPath)
 			if err != nil {
 				return err
 			}
@@ -344,38 +376,97 @@ func newStateShowCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			parsed, err := parseFactory(info)
+			body, err := state.EncodeSnapshot(snap)
 			if err != nil {
 				return err
 			}
-			return printSnapshot(cmd, snap, rootSensitiveOutputs(parsed))
+			_, err = cmd.OutOrStdout().Write(body)
+			return err
 		},
 	}
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
 
-func printSnapshot(cmd *cobra.Command, snap *state.Snapshot, sensitive map[string]bool) error {
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "factory:      %s %s (content-revision %s)\n",
-		snap.Factory.Name, snap.Factory.Version, snap.Factory.ContentRevision)
-	fmt.Fprintf(out, "stack:        %s\n", snap.Stack)
-	fmt.Fprintf(out, "generated-at: %s\n", snap.GeneratedAt.Format("2006-01-02 15:04:05Z07:00"))
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "entries:")
-	for _, e := range snap.Entries {
-		fmt.Fprintf(out, "  %s [%s]\n", e.Address, e.Type)
+func loadStateStore(info Info, configPath string) (state.Backend, error) {
+	config, err := parseStackFile(configPath)
+	if err != nil {
+		return nil, err
 	}
-	if len(snap.Outputs) > 0 {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, "outputs:")
-		for _, k := range sortedMapKeys(snap.Outputs) {
-			value := sensitivePlaceholder
-			if !sensitive[k] {
-				value = strings.ReplaceAll(lang.RenderPretty(snap.Outputs[k]), "\n", "\n  ")
-			}
-			fmt.Fprintf(out, "  %s: %s\n", k, value)
+	enc, err := loadEncrypter(config, configPath)
+	if err != nil {
+		return nil, err
+	}
+	return loadStore(info, config, configPath, stackName(configPath), enc)
+}
+
+func stateEntryRefs(snap *state.Snapshot) ([]string, error) {
+	refs := make([]string, 0, len(snap.Entries))
+	for i, ent := range snap.Entries {
+		ref, ok := runtime.EntryRefFromEntry(ent)
+		if !ok {
+			return nil, fmt.Errorf("state entry %d is missing a complete ref", i)
 		}
+		refs = append(refs, ref.String())
 	}
+	slices.Sort(refs)
+	return refs, nil
+}
+
+func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "address: %s\n", ent.Address)
+	fmt.Fprintf(out, "selector: %s\n", selectorString(ent.Selector))
+	fmt.Fprintf(out, "entry-kind: %s\n", ent.Type)
+	fmt.Fprintf(out, "node-kind: %s\n", ent.Kind)
+	fmt.Fprintf(out, "schema-version: %d\n", ent.SchemaVersion)
+	if ent.TriggerHash != "" {
+		fmt.Fprintf(out, "trigger-hash: %s\n", ent.TriggerHash)
+	}
+	printStateMap(out, "inputs", ent.Inputs, ent.SensitiveInputs)
+	printStateMap(out, "outputs", ent.Outputs, ent.SensitiveOutputs)
+	printStateList(out, "depends-on", ent.DependsOn)
+	printStateList(out, "sensitive-inputs", ent.SensitiveInputs)
+	printStateList(out, "sensitive-outputs", ent.SensitiveOutputs)
 	return nil
+}
+
+func selectorString(sel *state.Selector) string {
+	if sel == nil {
+		return ""
+	}
+	return sel.Alias + "." + sel.Export
+}
+
+func printStateMap(
+	out io.Writer,
+	name string,
+	values map[string]any,
+	sensitive []string,
+) {
+	if len(values) == 0 {
+		return
+	}
+	fmt.Fprintf(out, "%s:\n", name)
+	keys := sortedMapKeys(values)
+	sensitiveSet := map[string]bool{}
+	for _, key := range sensitive {
+		sensitiveSet[key] = true
+	}
+	for _, key := range keys {
+		value := sensitivePlaceholder
+		if !sensitiveSet[key] {
+			value = strings.ReplaceAll(lang.RenderPretty(values[key]), "\n", "\n  ")
+		}
+		fmt.Fprintf(out, "  %s: %s\n", key, value)
+	}
+}
+
+func printStateList(out io.Writer, name string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+	items := append([]string(nil), values...)
+	slices.Sort(items)
+	fmt.Fprintf(out, "%s: %s\n", name, strings.Join(items, ", "))
 }
