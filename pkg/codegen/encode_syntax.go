@@ -60,6 +60,12 @@ func encodeSyntaxFactoryBody(b *strings.Builder, n syntax.FactoryBody) error {
 			return err
 		}
 	}
+	if len(n.StateMoves) > 0 {
+		fields.next(b, "StateMoves")
+		if err := encodeSyntaxStateMoves(b, n.StateMoves); err != nil {
+			return err
+		}
+	}
 	if len(n.Resources) > 0 {
 		fields.next(b, "Resources")
 		if err := encodeSyntaxNodes(b, n.Resources); err != nil {
@@ -203,6 +209,36 @@ func encodeSyntaxLibraryConfigs(b *strings.Builder, decls []syntax.LibraryConfig
 		encodeSyntaxIdent(b, decl.Alias)
 		b.WriteString(", Value: ")
 		b.WriteString(value)
+		b.WriteString("}")
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeSyntaxStateMoves(b *strings.Builder, decls []syntax.StateMoveDecl) error {
+	b.WriteString("[]syntax.StateMoveDecl{")
+	for i, decl := range decls {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fields := syntaxFieldWriter{}
+		b.WriteString("{")
+		if decl.From != nil {
+			fields.next(b, "From")
+			from, err := EncodeNode(decl.From)
+			if err != nil {
+				return err
+			}
+			b.WriteString(from)
+		}
+		if decl.To != nil {
+			fields.next(b, "To")
+			to, err := EncodeNode(decl.To)
+			if err != nil {
+				return err
+			}
+			b.WriteString(to)
+		}
 		b.WriteString("}")
 	}
 	b.WriteString("}")
