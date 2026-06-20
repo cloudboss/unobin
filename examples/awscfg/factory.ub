@@ -1,32 +1,43 @@
 factory: {
   description: '''>-
-    Configures a library with awscfg.Configuration, the same AWS connection schema
-    unobin's s3 state backend and kms encrypter read, so one vocabulary serves
-    operator configurations, internal configurations, and the state blocks.
+    Configures a library with awscfg.Configuration, the same AWS
+    connection schema unobin's s3 state backend and kms encrypter read,
+    so one vocabulary serves library config inputs and the state blocks.
     '''
 
-  inputs: { region: { type: string, default: 'us-west-2' } }
-
-  imports: { aws: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
-
-  configurations: {
-    east: aws {}
-    scoped: aws {
-      region: var.region
+  inputs: {
+    region: { type: string, default: 'us-west-2' }
+    aws-config: {
+      type:    library-config('github.com/cloudboss/unobin//examples/awscfg/cloud')
+      default: {}
     }
+    east-config: {
+      type:    library-config('github.com/cloudboss/unobin//examples/awscfg/cloud')
+      default: {}
+    }
+  }
+
+  imports: {
+    aws:        'github.com/cloudboss/unobin//examples/awscfg/cloud'
+    aws-east:   'github.com/cloudboss/unobin//examples/awscfg/cloud'
+    aws-scoped: 'github.com/cloudboss/unobin//examples/awscfg/cloud'
+  }
+
+  library-configs: {
+    aws:        var.aws-config
+    aws-east:   var.east-config
+    aws-scoped: @core.merge(var.aws-config, { region: var.region })
   }
 
   actions: {
     default: aws.describe {
       label: 'default'
     }
-    east: aws.describe {
-      @configuration: configuration.east
-      label:          'east'
+    east: aws-east.describe {
+      label: 'east'
     }
-    scoped: aws.describe {
-      @configuration: configuration.scoped
-      label:          'scoped'
+    scoped: aws-scoped.describe {
+      label: 'scoped'
     }
   }
 

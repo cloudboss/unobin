@@ -7,12 +7,12 @@ stack: {
   }
 
   factory: {
-    configurations: {
-      aws {
+    inputs: {
+      aws-config: {
         region:      'us-east-1'
         assume-role: local.assume-role
       }
-      east: aws {
+      east-config: {
         region:      'us-east-2'
         assume-role: local.assume-role
       }

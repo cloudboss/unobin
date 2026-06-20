@@ -1,25 +1,20 @@
 # awscfg example
 
-Shows a library whose configuration is `awscfg.Configuration`, the same AWS
-connection schema unobin's s3 state backend and kms encrypter read. One
-vocabulary then serves every place AWS settings appear: operator
-configurations in the stack file, internal configurations in factory source,
-and the `state:`/`encryption:` blocks. Because the type lives in unobin's own
-packages, the compiler reads its fields when checking the factory, and
-`schema show` lists them for operators.
+Shows a library whose config is `awscfg.Configuration`, the same AWS connection
+schema unobin's s3 state backend and kms encrypter read. The factory exposes the
+config structs as ordinary inputs with `library-config('<path>')`, then assigns
+those inputs to import aliases with `library-configs:`.
 
 The `cloud.describe` action makes no AWS calls. It reports the settings its
-configuration selects (region, role ARN, and whether it would assume a role
-or use ambient credentials), so the example runs anywhere.
+alias config selects: region, role ARN, and whether it would assume a role or
+use ambient credentials.
 
 Two things to notice in the sources:
 
-- `dev.ub` declares the assume-role object once in `locals:` and references
-  it from both configuration bodies. Config locals are static values in the
-  file's own scope.
-- `factory.ub` defines the `scoped` configuration internally, deriving its
-  region from the `region` input, so an operator parameterizes it without
-  owning it.
+- `dev.ub` declares the assume-role object once in `locals:` and references it
+  from both config inputs.
+- `factory.ub` has three aliases for the same Go library. `aws-scoped` derives
+  its region from the ordinary `region` input with `@core.merge`.
 
 ## Try it
 
@@ -46,19 +41,17 @@ east-region: 'us-east-2'
 scoped-region: 'us-west-2'
 ```
 
-`./awscfg schema show` lists the configuration's fields under the `aws`
-alias. The default body is selected by omission, while `east` and `scoped` are
-factory-declared names.
+`./awscfg schema` lists `aws-config` and `east-config` under inputs and expands
+the fields stack authors may provide.
 
 ## See the compile check
 
-Misspell a field in the internal configuration in `factory.ub`, for example
+Misspell a field in a library config binding in `factory.ub`, for example
 `region:` to `regoin:`, and recompile:
 
 ```
-Error: examples/awscfg/factory.ub:15:7: resolve: configuration.scoped:
-unknown field "regoin"
+Error: examples/awscfg/factory.ub:27:41: type: object has no field "regoin"
 ```
 
-The same fields are enforced for `dev.ub` entries when a command loads the
-stack file, at decode rather than compile.
+The same fields are checked for `dev.ub` input values when a command reads the
+stack file.

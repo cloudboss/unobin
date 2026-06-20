@@ -27,17 +27,19 @@ type DescribeActionOutput struct {
 	Source  string
 }
 
-func (a *DescribeAction) Run(_ context.Context, rawCfg any) (*DescribeActionOutput, error) {
+func (a *DescribeAction) Run(
+	_ context.Context,
+	config *awscfg.Configuration,
+) (*DescribeActionOutput, error) {
 	out := &DescribeActionOutput{Label: a.Label, Region: "default", Source: "ambient"}
-	c, ok := rawCfg.(*awscfg.Configuration)
-	if !ok || c == nil {
+	if config == nil {
 		return out, nil
 	}
-	if c.Region != nil {
-		out.Region = c.Region.Value
+	if config.Region != nil {
+		out.Region = config.Region.Value
 	}
-	if c.AssumeRole != nil {
-		out.RoleArn = c.AssumeRole.RoleArn.Value
+	if config.AssumeRole != nil {
+		out.RoleArn = config.AssumeRole.RoleArn.Value
 		out.Source = "assume-role"
 	}
 	return out, nil
@@ -48,12 +50,16 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name:        "cloud",
 		Description: "Reports the AWS connection settings a configuration selects.",
-		Configuration: &cfg.ConfigurationType[any]{
+		Configuration: &cfg.ConfigurationType[*awscfg.Configuration]{
 			Description: "AWS connection settings, shared with unobin's own backends.",
-			New:         func() any { return &awscfg.Configuration{} },
+			New:         func() *awscfg.Configuration { return &awscfg.Configuration{} },
 		},
 		Actions: map[string]runtime.ActionRegistration{
-			"describe": runtime.MakeAction[DescribeAction, *DescribeActionOutput, any](),
+			"describe": runtime.MakeAction[
+				DescribeAction,
+				*DescribeActionOutput,
+				*awscfg.Configuration,
+			](),
 		},
 	}
 }
