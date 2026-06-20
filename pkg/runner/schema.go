@@ -47,7 +47,6 @@ func doSchema(cmd *cobra.Command, info Info) error {
 	if len(inputs) == 0 {
 		fmt.Fprintln(out, "No inputs declared.")
 		printOutputSchema(out, parsed)
-		printConfigurationSchema(out, parsed, info)
 		return nil
 	}
 	for _, input := range inputs {
@@ -66,7 +65,6 @@ func doSchema(cmd *cobra.Command, info Info) error {
 		fmt.Fprintln(out)
 	}
 	printOutputSchema(out, parsed)
-	printConfigurationSchema(out, parsed, info)
 	return nil
 }
 
@@ -197,7 +195,6 @@ func renderSchemaTemplate(out io.Writer, parsed *parsedFactory, info Info) {
 	fmt.Fprintln(out, "stack: {")
 	fmt.Fprintln(out, "factory: {")
 	fmt.Fprint(out, renderPinBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
-	renderConfigurationsTemplate(out, parsed, info)
 	renderInputsTemplate(out, parsed)
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)

@@ -30,34 +30,22 @@ func configuredSchemaInfo() Info {
 	}
 }
 
-func TestSchemaShowsConfigurations(t *testing.T) {
+func TestSchemaHidesConfigurations(t *testing.T) {
 	out, err := runRoot(t, configuredSchemaInfo(), "schema")
 	require.NoError(t, err)
-	require.Contains(t, out, "configurations:")
-	require.Contains(t, out, "  aws:")
-	require.Contains(t, out, "    internal: admin")
-	require.Contains(t, out, "    needed from stack file: default")
-	require.Contains(t, out, "      region: string")
-	require.Contains(t, out, "      profile: optional(string)")
-	require.Contains(t, out, "      assume-role: optional(object)")
-	require.Contains(t, out, "        role-arn: string")
-	require.Contains(t, out, "        external-id: optional(string)")
+	require.Contains(t, out, "region: string")
+	require.NotContains(t, out, "configurations:")
+	require.NotContains(t, out, "needed from stack file")
 }
 
-func TestSchemaTemplateScaffoldsOwedConfigurations(t *testing.T) {
+func TestSchemaTemplateOmitsOwedConfigurations(t *testing.T) {
 	out, err := runRoot(t, configuredSchemaInfo(), "schema", "template")
 	require.NoError(t, err)
-	require.Contains(t, out, "configurations: {")
-	require.Contains(t, out, "      aws {")
-	require.NotContains(t, out, "      east2: aws {")
-	require.NotContains(t, out, "      admin: aws {")
-	require.NotContains(t, out, "aws.default")
-	require.Contains(t, out, "        region:  ''  # type: string")
-	require.Contains(t, out, "        profile: ''  # type: optional(string)")
-	require.Contains(t, out, "        # type: optional(object)")
-	require.Contains(t, out, "        assume-role: {")
-	require.Contains(t, out, "          role-arn:    ''  # type: string")
-	require.Contains(t, out, "          external-id: ''  # type: optional(string)")
+	require.Contains(t, out, "inputs: {")
+	require.Contains(t, out, "region: ''  # type: string")
+	require.NotContains(t, out, "configurations: {")
+	require.NotContains(t, out, "aws {")
+	require.NotContains(t, out, "admin: aws {")
 }
 
 func TestSchemaTemplateScaffoldsNamedOwedConfigurationsAsSelectorBodies(t *testing.T) {
