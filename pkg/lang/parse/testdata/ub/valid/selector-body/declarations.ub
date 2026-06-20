@@ -4,13 +4,6 @@ resources: {
   }
 }
 
-configurations: {
-  greet {
-    prefix: 'hello'
-  }
-  formal: greet {}
-}
-
 state: local {
   bucket: 'unobin-state'
 }

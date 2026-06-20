@@ -124,7 +124,7 @@ func newPlanCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a stack file for inputs and per-stack configuration.")
+		"Path to a stack file for inputs and state settings.")
 	cmd.Flags().StringVarP(&outPath, "out", "o", "",
 		"Write the plan to this file so apply can consume it.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
@@ -420,7 +420,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
-		"Path to a stack file for inputs and per-stack configuration.")
+		"Path to a stack file for inputs and state settings.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
 		"Run even when the stack file does not pin this binary's version.")
 	return cmd

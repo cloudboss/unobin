@@ -1,4 +1,3 @@
 resources: { hello: std.fs-file { path: var.path } }
-configurations: { greet { prefix: 'hello' } formal: greet {} }
 state: local { bucket: 'unobin-state' }
 greeting: resource { outputs: {} }
