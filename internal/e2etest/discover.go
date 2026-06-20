@@ -15,8 +15,9 @@ import (
 type Option func(*config)
 
 type config struct {
-	repoRoot      string
-	e2eLibraryDir string
+	repoRoot         string
+	e2eLibraryDir    string
+	unobinExecutable string
 }
 
 // CompiledCase describes a compiled-factory e2e case.
@@ -80,11 +81,29 @@ func RunCompiledCases(t *testing.T, dir string, opts ...Option) {
 // RunSourceCases runs source-root cases found under dir.
 func RunSourceCases(t *testing.T, dir string, opts ...Option) {
 	t.Helper()
-	_, err := DiscoverSourceCases(dir)
+	cases, err := DiscoverSourceCases(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Fatal("unimplemented")
+	cfg, err := newConfig(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable := cfg.unobinExecutable
+	if executable == "" {
+		if testing.Short() {
+			t.Skip("skipped: builds unobin CLI")
+		}
+		executable, err = buildUnobinCLI(t.Context(), cfg.repoRoot, t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			runSourceCase(t, cfg, executable, c)
+		})
+	}
 }
 
 // DiscoverCompiledCases reads compiled-factory case.json files under dir.

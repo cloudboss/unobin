@@ -1,0 +1,10 @@
+manifest: {
+  requires: {
+    'example.com/unobin/e2elib': {
+      version: 'v0.0.0-unobin-replaced'
+    }
+  }
+  replace: {
+    'example.com/unobin/e2elib': '../modules/e2elib'
+  }
+}

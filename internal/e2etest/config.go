@@ -15,6 +15,10 @@ func WithE2ELibraryDir(path string) Option {
 	return func(c *config) { c.e2eLibraryDir = path }
 }
 
+func WithUnobinExecutable(path string) Option {
+	return func(c *config) { c.unobinExecutable = path }
+}
+
 func newConfig(opts []Option) (config, error) {
 	repoRoot, err := defaultRepoRoot()
 	if err != nil {
