@@ -1,0 +1,5 @@
+factory: {
+  imports: { local: './lib' }
+  data: { message: local.message {} }
+  outputs: { text: { value: data.message.text } }
+}

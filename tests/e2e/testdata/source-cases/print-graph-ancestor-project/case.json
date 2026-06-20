@@ -1,0 +1,18 @@
+{
+  "name": "print-graph-ancestor-project",
+  "rootPath": "repo/stacks/demo",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/core@v1.0.0",
+      "path": "remotes/core"
+    }
+  ],
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."],
+      "stdout": "want/print-graph.stdout"
+    }
+  ]
+}

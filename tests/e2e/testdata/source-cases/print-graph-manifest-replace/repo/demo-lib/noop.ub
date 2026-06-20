@@ -1,0 +1,3 @@
+noop: action {
+  description: 'No-op action composite.'
+}

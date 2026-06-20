@@ -1,0 +1,12 @@
+{
+  "name": "print-graph-self-import",
+  "rootPath": "graph-self",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."],
+      "stdout": "want/print-graph.stdout"
+    }
+  ]
+}

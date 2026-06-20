@@ -1,0 +1,12 @@
+{
+  "name": "print-graph-local-import",
+  "rootPath": "repo/stacks/demo",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "."],
+      "stdout": "want/print-graph.stdout"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+factory: {
+  imports: { demo: 'github.com/x/demo' }
+  actions: { hi: demo.noop {} }
+}
