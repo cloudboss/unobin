@@ -1,0 +1,20 @@
+{
+  "name": "compile-remote-go-subpath",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/cloudboss/unobin-library-std//fs@v0.1.0",
+      "path": "remotes/std/fs"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "-", "--version", "v0.1.0"],
+      "stdout": "want/compile.stdout",
+      "stderr": "want/compile.stderr"
+    }
+  ]
+}

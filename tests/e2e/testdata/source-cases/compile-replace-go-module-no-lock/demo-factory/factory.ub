@@ -1,0 +1,3 @@
+factory: {
+  imports: { cloud: 'github.com/x/cloud' }
+}

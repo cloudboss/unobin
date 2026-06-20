@@ -1,0 +1,4 @@
+cluster: resource {
+  description: 'a cluster'
+  resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
+}

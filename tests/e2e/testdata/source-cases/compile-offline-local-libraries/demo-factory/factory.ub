@@ -1,0 +1,6 @@
+factory: {
+  imports: {
+    net: './libraries/net'
+    e2e: 'example.com/unobin/e2elib'
+  }
+}

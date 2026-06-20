@@ -1,0 +1,4 @@
+foo: resource {
+  description: 'a foo'
+  resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
+}

@@ -1,0 +1,1 @@
+Error: import "local": replace github.com/cloudboss/unobin: stat <workspace>/no-such-tree/pkg/libraries/local: no such file or directory

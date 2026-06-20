@@ -1,0 +1,3 @@
+factory: {
+  imports: { some: 'github.com/cloudboss/unobin//some-lib' }
+}

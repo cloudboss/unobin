@@ -1,0 +1,25 @@
+{
+  "name": "compile-replace-unobin-no-lock",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "compile",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--replace-unobin",
+        "$WORKSPACE/fake-unobin"
+      ],
+      "stderr": "want/compile.stderr"
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/internal/some/some.go", "want": "want/some.go" }
+  ]
+}
