@@ -1,0 +1,28 @@
+{
+  "name": "deps-get-package-without-marker",
+  "rootPath": "root",
+  "executor": "root",
+  "tags": {
+    "github.com/x/libs": ["v0.8.0", "ub/helloer/v0.8.0"]
+  },
+  "remotes": [
+    {
+      "key": "github.com/x/libs@v0.8.0",
+      "path": "remotes/libs",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/x/libs//ub/helloer@v0.8.0",
+      "path": "remotes/libs/ub/helloer",
+      "commit": "c1"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-get",
+      "args": ["deps", "get", "github.com/x/libs//ub/helloer"],
+      "stderr": "want/deps-get.stderr",
+      "exitCode": 1
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "deps-get-unreachable",
+  "rootPath": "root",
+  "executor": "root",
+  "tags": {
+    "github.com/x/other": ["v1.0.0"]
+  },
+  "remotes": [
+    {
+      "key": "github.com/x/scratch@v0.8.0",
+      "path": "remotes/scratch",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/x/scratch//ub/helloer@v0.8.0",
+      "path": "remotes/scratch/ub/helloer",
+      "commit": "scratch"
+    },
+    {
+      "key": "github.com/x/std@v0.1.0",
+      "path": "remotes/std-v0.1.0",
+      "commit": "std-v0.1.0"
+    },
+    {
+      "key": "github.com/x/other@v1.0.0",
+      "path": "remotes/other",
+      "commit": "std-v1.0.0"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-get",
+      "args": ["deps", "get", "github.com/x/other@v1.0.0"],
+      "stderr": "want/deps-get.stderr",
+      "exitCode": 1
+    }
+  ]
+}

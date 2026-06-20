@@ -1,0 +1,3 @@
+factory: {
+  imports: { helloer: 'github.com/x/libs//ub/helloer' }
+}
