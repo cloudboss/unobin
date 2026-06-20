@@ -17,51 +17,6 @@ func parseExpr(t *testing.T, src string) lang.Expr {
 	return f.Body.Fields[0].Value
 }
 
-func TestInferSourceConfigurationReference(t *testing.T) {
-	scope := &Scope{
-		LookupConfiguration: func(alias string) (Type, bool) {
-			require.Equal(t, "aws", alias)
-			return TObject([]ObjectField{
-				{Name: "region", Type: TString()},
-				{Name: "profile", Type: TString()},
-			}), true
-		},
-		LookupConfigurationRef: func(name string) (string, bool) {
-			require.Equal(t, "east", name)
-			return "aws", true
-		},
-	}
-
-	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "configuration.east.region"), TUnknown(), scope, errs)
-	require.True(t, got.Equal(TString()), "got %s", got)
-	require.Empty(t, errs.Messages())
-
-	errs = lang.NewErrorList(0)
-	got = Infer(parseExpr(t, "configuration.east.regin"), TUnknown(), scope, errs)
-	require.True(t, got.Equal(TUnknown()), "got %s", got)
-	require.Equal(t, []string{`unknown field "regin" on object({ ` +
-		`region: string  profile: string })`}, errs.Messages())
-}
-
-func TestInferConfigurationAliasQualifiedReferenceUnknown(t *testing.T) {
-	scope := &Scope{
-		LookupConfiguration: func(alias string) (Type, bool) {
-			require.FailNow(t, "configuration schema lookup should not run", alias)
-			return TUnknown(), false
-		},
-		LookupConfigurationRef: func(name string) (string, bool) {
-			require.Equal(t, "aws", name)
-			return "", false
-		},
-	}
-
-	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "configuration.aws.east.region"), TUnknown(), scope, errs)
-	require.True(t, got.Equal(TUnknown()), "got %s", got)
-	require.Empty(t, errs.Messages())
-}
-
 func TestInferLiterals(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)

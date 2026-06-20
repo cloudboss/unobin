@@ -507,49 +507,13 @@ func (c *referenceChecker) lookupTypeSchema(n *runtime.Node) *runtime.TypeSchema
 func (c *referenceChecker) scopeFor(n *runtime.Node) *typecheck.Scope {
 	inputs := c.scopeInputs(n.Composite)
 	scope := &typecheck.Scope{
-		Inputs:              inputs,
-		LookupNode:          c.lookupNodeFor(n.Composite),
-		LookupFunction:      c.lookupFunctionFor(n.Composite),
-		LookupConfiguration: c.lookupConfigurationFor(n.Composite),
-		Observe:             c.observe,
+		Inputs:         inputs,
+		LookupNode:     c.lookupNodeFor(n.Composite),
+		LookupFunction: c.lookupFunctionFor(n.Composite),
+		Observe:        c.observe,
 	}
 	scope.LookupLocal = c.lookupLocalFor(n.Composite, scope)
 	return scope
-}
-
-// lookupConfigurationFor returns a resolver that types a configuration
-// reference's value from the aliased library's configuration schema.
-// Schema fields come back as one object type, optional fields marked,
-// in sorted order so derived diagnostics stay stable.
-func (c *referenceChecker) lookupConfigurationFor(
-	scope string,
-) func(alias string) (typecheck.Type, bool) {
-	return func(alias string) (typecheck.Type, bool) {
-		libs := c.libraries[scope]
-		if libs == nil || libs[alias] == nil {
-			return typecheck.TUnknown(), false
-		}
-		lib := libs[alias]
-		if lib.Schema == nil || lib.Schema.Configuration == nil {
-			return typecheck.TUnknown(), false
-		}
-		return configurationObjectType(lib.Schema.Configuration), true
-	}
-}
-
-// configurationObjectType folds a configuration schema's field map
-// into the object type a whole configuration value has.
-func configurationObjectType(schema map[string]typecheck.Type) typecheck.Type {
-	fields := make([]typecheck.ObjectField, 0, len(schema))
-	for _, name := range slices.Sorted(maps.Keys(schema)) {
-		t := schema[name]
-		fields = append(fields, typecheck.ObjectField{
-			Name:     name,
-			Type:     t.Unwrap(),
-			Optional: t.Kind == typecheck.Optional,
-		})
-	}
-	return typecheck.TObject(fields)
 }
 
 // lookupFunctionFor resolves a qualified function call in the given
