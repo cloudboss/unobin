@@ -1,0 +1,5 @@
+{
+  "cluster": "prod-us-east-1",
+  "first": "cfg-hello from prod-us-east-1",
+  "second": "cfg-cfg-hello from prod-us-east-1"
+}

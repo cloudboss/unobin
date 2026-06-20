@@ -1,0 +1,3 @@
+{ kind: 'apply-output', name: 'cluster', value: 'prod-us-east-1' }
+{ kind: 'apply-output', name: 'first', value: 'cfg-hello from prod-us-east-1' }
+{ kind: 'apply-output', name: 'second', value: 'cfg-cfg-hello from prod-us-east-1' }

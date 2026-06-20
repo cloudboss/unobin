@@ -1,0 +1,8 @@
+  (rerun)   action.first
+      text: 'hello from prod-us-east-1'
+      upper: false
+  (rerun)   action.second
+      text: <action.first.prefixed>
+      upper: false
+
+Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 2 to rerun.

@@ -1,0 +1,16 @@
+stack: {
+  parallelism: 1
+
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      env:    'prod'
+      region: 'us-east-1'
+    }
+  }
+}

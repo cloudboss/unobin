@@ -1,0 +1,44 @@
+factory: {
+  inputs: {
+    env:    { type: string }
+    region: { type: string }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        prefix:         'cfg-'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  locals: {
+    cluster: $'{{ var.env }}-{{ var.region }}'
+    greeting: $'hello from {{ local.cluster }}'
+    echoed: action.first.prefixed
+  }
+
+  actions: {
+    first: e2e.echo {
+      text: local.greeting
+    }
+    second: e2e.echo {
+      text: local.echoed
+    }
+  }
+
+  outputs: {
+    cluster: { value: local.cluster }
+    first:   { value: action.first.prefixed }
+    second:  { value: action.second.prefixed }
+  }
+}
