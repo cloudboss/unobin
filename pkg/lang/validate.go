@@ -256,7 +256,10 @@ func checkDeclaredDefault(name string, decl *ObjectLit, t TypeExpr, errs *ErrorL
 		}
 		checkType = opt.Elem
 	}
-	coerced, err := checkValue(checkType, val, staticDefaultEval)
+	if _, ok := checkType.(*TypeLibraryConfig); ok {
+		return
+	}
+	coerced, err := checkValue(checkType, val, staticDefaultEval, nil)
 	if err != nil {
 		errs.Addf(ErrSchema, defaultExpr.Span().Start, "input %q: default: %v", name, err)
 		return

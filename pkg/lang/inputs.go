@@ -13,6 +13,15 @@ import (
 // validator can apply them without depending on the runtime package.
 type EvalFunc func(e Expr) (any, error)
 
+// LibraryConfigSchema is the object view of a library-config input type.
+type LibraryConfigSchema struct {
+	Type     *TypeObject
+	Defaults []DefaultSpec
+}
+
+// LibraryConfigResolver resolves a library-config path literal to its schema.
+type LibraryConfigResolver func(path string) (LibraryConfigSchema, bool)
+
 // ValidateInputs validates an operator-supplied values map against a
 // stack's `inputs:` declaration. Returns the validated values with
 // declaration defaults applied. Errors cover missing
@@ -24,6 +33,25 @@ type EvalFunc func(e Expr) (any, error)
 func ValidateInputs(
 	decl *ObjectLit, values map[string]any, evalDefault EvalFunc,
 ) (map[string]any, *ErrorList) {
+	return validateInputs(decl, values, evalDefault, nil)
+}
+
+// ValidateInputsWithLibraryConfigs validates inputs with library-config schemas.
+func ValidateInputsWithLibraryConfigs(
+	decl *ObjectLit,
+	values map[string]any,
+	evalDefault EvalFunc,
+	resolve LibraryConfigResolver,
+) (map[string]any, *ErrorList) {
+	return validateInputs(decl, values, evalDefault, resolve)
+}
+
+func validateInputs(
+	decl *ObjectLit,
+	values map[string]any,
+	evalDefault EvalFunc,
+	resolve LibraryConfigResolver,
+) (map[string]any, *ErrorList) {
 	errs := NewErrorList(0)
 	out := make(map[string]any)
 
@@ -34,7 +62,7 @@ func ValidateInputs(
 				continue
 			}
 			declared[fld.Key.Name] = true
-			validateOneInput(fld, values, out, evalDefault, errs)
+			validateOneInput(fld, values, out, evalDefault, resolve, errs)
 		}
 	}
 
@@ -48,7 +76,11 @@ func ValidateInputs(
 }
 
 func validateOneInput(
-	fld *Field, values, out map[string]any, evalDefault EvalFunc, errs *ErrorList,
+	fld *Field,
+	values, out map[string]any,
+	evalDefault EvalFunc,
+	resolve LibraryConfigResolver,
+	errs *ErrorList,
 ) {
 	name := fld.Key.Name
 	declObj, ok := fld.Value.(*ObjectLit)
@@ -96,7 +128,7 @@ func validateOneInput(
 		return
 	}
 
-	coerced, err := checkValue(typeExpr, raw, evalDefault)
+	coerced, err := checkValue(typeExpr, raw, evalDefault, resolve)
 	if err != nil {
 		errs.Addf(ErrType, fld.Key.S.Start, "input %q: %v", name, err)
 		return
@@ -143,25 +175,132 @@ func extractTypeAndDefault(
 // checkValue validates v against the declared type and returns the
 // coerced value. ev evaluates declaration defaults on nested object
 // fields; nil refuses any nested default that would need it.
-func checkValue(t TypeExpr, v any, ev EvalFunc) (any, error) {
+func checkValue(
+	t TypeExpr,
+	v any,
+	ev EvalFunc,
+	resolve LibraryConfigResolver,
+) (any, error) {
 	switch tt := t.(type) {
 	case *TypeAtomic:
 		return checkAtomic(tt, v)
 	case *TypeList:
-		return checkList(tt, v, ev)
+		return checkList(tt, v, ev, resolve)
 	case *TypeMap:
-		return checkMap(tt, v, ev)
+		return checkMap(tt, v, ev, resolve)
 	case *TypeObject:
-		return checkObject(tt, v, ev)
+		return checkObject(tt, v, ev, resolve)
 	case *TypeTuple:
-		return checkTuple(tt, v, ev)
+		return checkTuple(tt, v, ev, resolve)
 	case *TypeOptional:
 		if v == nil {
 			return nil, nil
 		}
-		return checkValue(tt.Elem, v, ev)
+		return checkValue(tt.Elem, v, ev, resolve)
+	case *TypeLibraryConfig:
+		return checkLibraryConfig(tt, v, ev, resolve)
 	}
 	return nil, fmt.Errorf("unsupported type %T", t)
+}
+
+func checkLibraryConfig(
+	t *TypeLibraryConfig,
+	v any,
+	ev EvalFunc,
+	resolve LibraryConfigResolver,
+) (any, error) {
+	if t == nil || t.Path == nil {
+		return nil, fmt.Errorf("library-config path is missing")
+	}
+	if resolve == nil {
+		return nil, fmt.Errorf("library-config %q has no schema resolver", t.Path.Value)
+	}
+	schema, ok := resolve(t.Path.Value)
+	if !ok || schema.Type == nil {
+		return nil, fmt.Errorf("library-config %q schema is unavailable", t.Path.Value)
+	}
+	raw, ok := v.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("expected object, got %s", typeName(v))
+	}
+	withDefaults := cloneMap(raw)
+	if err := applyDefaultSpecs(withDefaults, schema.Defaults, ev); err != nil {
+		return nil, err
+	}
+	return checkObject(schema.Type, withDefaults, ev, resolve)
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = cloneValue(v)
+	}
+	return out
+}
+
+func cloneValue(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		return cloneMap(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = cloneValue(item)
+		}
+		return out
+	}
+	return v
+}
+
+func applyDefaultSpecs(values map[string]any, specs []DefaultSpec, ev EvalFunc) error {
+	for _, spec := range specs {
+		if spec.Optional {
+			continue
+		}
+		path, ok := strings.CutPrefix(spec.Field, "var.")
+		if !ok || path == "" {
+			continue
+		}
+		if ev == nil {
+			return fmt.Errorf("field %q: cannot evaluate default (no evaluator provided)", path)
+		}
+		expr, err := ParseExpr("default", []byte(spec.Value))
+		if err != nil {
+			return fmt.Errorf("field %q: invalid default: %v", path, err)
+		}
+		value, err := ev(expr)
+		if err != nil {
+			return fmt.Errorf("field %q: invalid default: %v", path, err)
+		}
+		applyDefaultValue(values, strings.Split(path, "."), value)
+	}
+	return nil
+}
+
+func applyDefaultValue(values map[string]any, path []string, value any) {
+	if len(path) == 0 {
+		return
+	}
+	target := values
+	for _, parent := range path[:len(path)-1] {
+		child, ok := target[parent]
+		if !ok {
+			next := map[string]any{}
+			target[parent] = next
+			target = next
+			continue
+		}
+		next, ok := child.(map[string]any)
+		if !ok {
+			return
+		}
+		target = next
+	}
+	leaf := path[len(path)-1]
+	if _, ok := target[leaf]; ok {
+		return
+	}
+	target[leaf] = value
 }
 
 func checkAtomic(t *TypeAtomic, v any) (any, error) {
@@ -198,14 +337,19 @@ func checkAtomic(t *TypeAtomic, v any) (any, error) {
 	return nil, fmt.Errorf("unknown atomic type %q", t.Name)
 }
 
-func checkList(t *TypeList, v any, ev EvalFunc) (any, error) {
+func checkList(
+	t *TypeList,
+	v any,
+	ev EvalFunc,
+	resolve LibraryConfigResolver,
+) (any, error) {
 	xs, ok := v.([]any)
 	if !ok {
 		return nil, fmt.Errorf("expected list, got %s", typeName(v))
 	}
 	out := make([]any, len(xs))
 	for i, el := range xs {
-		coerced, err := checkValue(t.Elem, el, ev)
+		coerced, err := checkValue(t.Elem, el, ev, resolve)
 		if err != nil {
 			return nil, fmt.Errorf("element %d: %w", i, err)
 		}
@@ -214,14 +358,19 @@ func checkList(t *TypeList, v any, ev EvalFunc) (any, error) {
 	return out, nil
 }
 
-func checkMap(t *TypeMap, v any, ev EvalFunc) (any, error) {
+func checkMap(
+	t *TypeMap,
+	v any,
+	ev EvalFunc,
+	resolve LibraryConfigResolver,
+) (any, error) {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("expected map, got %s", typeName(v))
 	}
 	out := make(map[string]any, len(m))
 	for k, val := range m {
-		coerced, err := checkValue(t.Elem, val, ev)
+		coerced, err := checkValue(t.Elem, val, ev, resolve)
 		if err != nil {
 			return nil, fmt.Errorf("key %q: %w", k, err)
 		}
@@ -230,7 +379,12 @@ func checkMap(t *TypeMap, v any, ev EvalFunc) (any, error) {
 	return out, nil
 }
 
-func checkObject(t *TypeObject, v any, ev EvalFunc) (any, error) {
+func checkObject(
+	t *TypeObject,
+	v any,
+	ev EvalFunc,
+	resolve LibraryConfigResolver,
+) (any, error) {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("expected object, got %s", typeName(v))
@@ -269,7 +423,7 @@ func checkObject(t *TypeObject, v any, ev EvalFunc) (any, error) {
 			}
 			return nil, fmt.Errorf("field %q: required but is null", f.Name)
 		}
-		coerced, err := checkValue(ft, raw, ev)
+		coerced, err := checkValue(ft, raw, ev, resolve)
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", f.Name, err)
 		}
@@ -311,7 +465,12 @@ func fieldTypeAndDefault(f *TypeObjectField) (TypeExpr, Expr, bool, bool) {
 	return f.Type, nil, false, true
 }
 
-func checkTuple(t *TypeTuple, v any, ev EvalFunc) (any, error) {
+func checkTuple(
+	t *TypeTuple,
+	v any,
+	ev EvalFunc,
+	resolve LibraryConfigResolver,
+) (any, error) {
 	xs, ok := v.([]any)
 	if !ok {
 		return nil, fmt.Errorf("expected tuple, got %s", typeName(v))
@@ -321,7 +480,7 @@ func checkTuple(t *TypeTuple, v any, ev EvalFunc) (any, error) {
 	}
 	out := make([]any, len(xs))
 	for i, el := range xs {
-		coerced, err := checkValue(t.Elements[i], el, ev)
+		coerced, err := checkValue(t.Elements[i], el, ev, resolve)
 		if err != nil {
 			return nil, fmt.Errorf("element %d: %w", i, err)
 		}

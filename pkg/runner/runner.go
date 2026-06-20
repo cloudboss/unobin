@@ -438,8 +438,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 		return err
 	}
 	dag := parsed.dag
-	inputs, err := buildInputs(config, configPath,
-		parsed.inputBlock(), parsed.constraints(), info.Libraries)
+	inputs, err := buildInputs(config, configPath, parsed, info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -523,8 +522,7 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath s
 		return errs.Err()
 	}
 	dag := checker.DAG()
-	if _, err := buildInputs(config, configPath,
-		parsed.inputBlock(), parsed.constraints(), info.Libraries); err != nil {
+	if _, err := buildInputs(config, configPath, parsed, info.Libraries); err != nil {
 		return err
 	}
 	allowedConfigs := allowedConfigurationOverrides(
@@ -720,8 +718,7 @@ func doPlan(
 		return err
 	}
 	dag := parsed.dag
-	inputs, err := buildInputs(config, configPath,
-		parsed.inputBlock(), parsed.constraints(), info.Libraries)
+	inputs, err := buildInputs(config, configPath, parsed, info.Libraries)
 	if err != nil {
 		return err
 	}
@@ -789,16 +786,18 @@ func doPlan(
 func buildInputs(
 	config *parsedStack,
 	configPath string,
-	decl *lang.ObjectLit,
-	constraints *lang.ArrayLit,
+	parsed *parsedFactory,
 	libs map[string]*runtime.Library,
 ) (map[string]any, error) {
+	decl := parsed.inputBlock()
+	constraints := parsed.constraints()
 	inputs, err := loadStackInputs(config, configPath)
 	if err != nil {
 		return nil, err
 	}
 	applyEnvOverrides(inputs, decl)
-	validated, errs := lang.ValidateInputs(decl, inputs, defaultEval)
+	validated, errs := lang.ValidateInputsWithLibraryConfigs(
+		decl, inputs, defaultEval, libraryConfigInputResolver(parsed.syntaxBody, libs))
 	if errs.Len() > 0 {
 		return nil, errs.Err()
 	}

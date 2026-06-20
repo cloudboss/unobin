@@ -17,6 +17,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
@@ -47,6 +48,25 @@ type echoAction struct {
 
 func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo}, nil
+}
+
+type runnerAWSConfig struct {
+	Region  *cfg.String
+	Profile *cfg.String
+}
+
+func runnerConfigLibrary() *runtime.Library {
+	return &runtime.Library{
+		Name: "aws",
+		Configuration: &cfg.ConfigurationType[*runnerAWSConfig]{
+			New: func() *runnerAWSConfig {
+				return &runnerAWSConfig{
+					Region:  &cfg.String{Default: "us-east-1"},
+					Profile: &cfg.String{Default: "default"},
+				}
+			},
+		},
+	}
 }
 
 func testInfo(t *testing.T, src string) Info {
@@ -732,6 +752,70 @@ inputs: {
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `unknown input "clustr-name"`)
+}
+
+func TestPlanAppliesLibraryConfigInputDefaults(t *testing.T) {
+	src := `
+imports: { aws: 'github.com/acme/aws' }
+inputs: {
+  aws-config: {
+    type: library-config('github.com/acme/aws')
+    default: {}
+  }
+}
+actions: {
+  hi: core.echo {
+    echo: $'region={{ var.aws-config.region }} profile={{ var.aws-config.profile }}'
+  }
+}
+outputs: { said: { value: action.hi.echo } }
+`
+	info := testInfo(t, src)
+	info.Libraries["aws"] = runnerConfigLibrary()
+
+	out := applyVia(t, info, "")
+	require.Contains(t, out, "said: 'region=us-east-1 profile=default'")
+}
+
+func TestEnvVarOverridesLibraryConfigInput(t *testing.T) {
+	src := `
+imports: { aws: 'github.com/acme/aws' }
+inputs: {
+  aws-config: {
+    type: library-config('github.com/acme/aws')
+    default: {}
+  }
+}
+actions: {
+  hi: core.echo {
+    echo: $'region={{ var.aws-config.region }} profile={{ var.aws-config.profile }}'
+  }
+}
+outputs: { said: { value: action.hi.echo } }
+`
+	info := testInfo(t, src)
+	info.Libraries["aws"] = runnerConfigLibrary()
+	t.Setenv("UB_VAR_aws_config", "{region: 'us-west-2'}")
+
+	out := applyVia(t, info, "")
+	require.Contains(t, out, "said: 'region=us-west-2 profile=default'")
+}
+
+func TestPlanChecksLibraryConfigInputValue(t *testing.T) {
+	src := `
+imports: { aws: 'github.com/acme/aws' }
+inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
+actions: { hi: core.echo { echo: 'x' } }
+outputs: { said: { value: action.hi.echo } }
+`
+	info := testInfo(t, src)
+	info.Libraries["aws"] = runnerConfigLibrary()
+	t.Setenv("UB_VAR_aws_config", "{region: 1}")
+
+	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `input "aws-config"`)
+	require.Contains(t, err.Error(), `field "region": expected string`)
 }
 
 func TestPlanAppliesDeclaredDefault(t *testing.T) {

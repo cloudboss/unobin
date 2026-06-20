@@ -230,6 +230,80 @@ inputs: {
 	}, out)
 }
 
+func TestValidateInputsLibraryConfigAppliesSchemaDefaults(t *testing.T) {
+	decl := parseValidatedInputsBlock(t, `
+inputs: {
+  aws-config: {
+    type: library-config('github.com/acme/aws')
+    default: {}
+  }
+}
+`)
+	raw := map[string]any{}
+	out, errs := ValidateInputsWithLibraryConfigs(
+		decl,
+		raw,
+		litEval,
+		testLibraryConfigResolver,
+	)
+	require.Equal(t, 0, errs.Len(), errs.Err())
+	require.Empty(t, raw)
+	require.Equal(t, map[string]any{
+		"aws-config": map[string]any{
+			"region":  "us-east-1",
+			"profile": "default",
+			"tags":    nil,
+		},
+	}, out)
+}
+
+func TestValidateInputsLibraryConfigChecksValues(t *testing.T) {
+	decl := parseValidatedInputsBlock(t, `
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+`)
+	_, errs := ValidateInputsWithLibraryConfigs(
+		decl,
+		map[string]any{"aws-config": map[string]any{"region": int64(1)}},
+		litEval,
+		testLibraryConfigResolver,
+	)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), `input "aws-config"`)
+	require.Contains(t, errs.Err().Error(), `field "region": expected string`)
+}
+
+func TestValidateInputsLibraryConfigRequiresResolver(t *testing.T) {
+	decl := parseValidatedInputsBlock(t, `
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+`)
+	_, errs := ValidateInputs(decl, map[string]any{
+		"aws-config": map[string]any{"region": "us-east-1"},
+	}, litEval)
+	require.Equal(t, 1, errs.Len())
+	require.Contains(t, errs.Err().Error(), `library-config "github.com/acme/aws"`)
+}
+
+func testLibraryConfigResolver(path string) (LibraryConfigSchema, bool) {
+	if path != "github.com/acme/aws" {
+		return LibraryConfigSchema{}, false
+	}
+	return LibraryConfigSchema{
+		Type: &TypeObject{Fields: []*TypeObjectField{
+			{Name: "region", Type: &TypeAtomic{Name: "string"}},
+			{Name: "profile", Type: &TypeOptional{Elem: &TypeAtomic{Name: "string"}}},
+			{Name: "tags", Type: &TypeOptional{Elem: &TypeMap{Elem: &TypeAtomic{Name: "string"}}}},
+		}},
+		Defaults: []DefaultSpec{
+			{Field: "var.region", Value: "'us-east-1'"},
+			{Field: "var.profile", Value: "'default'"},
+		},
+	}, true
+}
+
 func TestValidateInputsNestedOptionalNoDefaultStaysNull(t *testing.T) {
 	decl := parseValidatedInputsBlock(t, `
 inputs: {
