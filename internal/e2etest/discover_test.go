@@ -67,6 +67,7 @@ func TestDiscoverSourceCases(t *testing.T) {
 		"name": "deps-sync",
 		"rootPath": "root",
 		"executor": "root",
+		"build": true,
 		"tags": { "github.com/x/lib": ["v1.0.0"] },
 		"remotes": [
 			{
@@ -93,6 +94,7 @@ func TestDiscoverSourceCases(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, "deps-sync"), got.Dir)
 	assert.Equal(t, "root", got.RootPath)
 	assert.Equal(t, "root", got.Executor)
+	assert.True(t, got.Build)
 	require.Len(t, got.Remotes, 1)
 	assert.Equal(t, "github.com/x/lib@v1.0.0", got.Remotes[0].Key)
 	assert.Equal(t, "remotes/lib", got.Remotes[0].Path)

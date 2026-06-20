@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -430,76 +429,6 @@ func TestCLIVersionFallsBackToBuildInfo(t *testing.T) {
 
 	setCLIVersion(t, "v1.0.0")
 	require.Equal(t, "v1.0.0", cliVersion())
-}
-
-// TestCompileBuildStampsVersion compiles a minimal factory with --build
-// and then runs the resulting binary's `version` subcommand to confirm
-// that the factory version and content-revision were actually written
-// into the linked binary. This catches the failure mode where the
-// codegen template's `var factoryVersion` and the ldflags `-X main.<name>=`
-// identifier go out of sync: a mismatch leaves the stamp variable
-// empty, and the built binary reports no version.
-func TestCompileBuildStampsVersion(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipped: spawns `go build` and is slow")
-	}
-	rootDir := findUnobinRoot(t)
-
-	srcDir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(srcDir, 0o755))
-	factoryPath := filepath.Join(srcDir, "factory.ub")
-	require.NoError(t, os.WriteFile(factoryPath,
-		factorySource("description: 'minimal'\n"), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile",
-		"-p", factoryPath,
-		"-o", outDir,
-		"--build",
-		"--replace-unobin", rootDir,
-	)
-	require.NoError(t, err)
-
-	binaryPath := filepath.Join(outDir, "demo-factory")
-	require.FileExists(t, binaryPath)
-
-	out, err := exec.Command(binaryPath, "version").CombinedOutput()
-	require.NoError(t, err, "version subcommand failed: %s", out)
-	got := strings.TrimSpace(string(out))
-	require.Contains(t, got, "demo-factory v0.0.0",
-		"version output should carry the stamped factory version, got %q", got)
-	require.Contains(t, got, "content-revision ",
-		"version output should carry the stamped content-revision, got %q", got)
-	require.NotContains(t, got, "content-revision )",
-		"content-revision must not be empty (got %q); "+
-			"the ldflags -X identifier and the codegen template var have drifted",
-		got)
-}
-
-// TestCompileBuildNoticesReplacedUnobin proves the post-tidy version
-// check runs on the build path and reports the replacement rather than
-// failing, since a replaced unobin is the development escape.
-func TestCompileBuildNoticesReplacedUnobin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipped: spawns `go build` and is slow")
-	}
-	rootDir := findUnobinRoot(t)
-
-	srcDir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(srcDir, 0o755))
-	factoryPath := filepath.Join(srcDir, "factory.ub")
-	require.NoError(t, os.WriteFile(factoryPath,
-		factorySource("description: 'minimal'\n"), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	out, err := runCommand(t, "compile",
-		"-p", factoryPath,
-		"-o", outDir,
-		"--build",
-		"--replace-unobin", rootDir,
-	)
-	require.NoError(t, err)
-	require.Contains(t, out, "github.com/cloudboss/unobin is replaced")
 }
 
 // findUnobinRoot walks up from the test's working directory looking

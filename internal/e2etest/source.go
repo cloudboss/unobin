@@ -19,6 +19,9 @@ import (
 
 func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 	t.Helper()
+	if testing.Short() && c.Build {
+		t.Skip("skipped: spawns go build")
+	}
 	workspace := copyCaseToWorkspace(t, c.Dir)
 	if err := copySourceModules(workspace, cfg.e2eLibraryDir); err != nil {
 		t.Fatal(err)

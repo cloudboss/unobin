@@ -1,0 +1,23 @@
+{
+  "name": "compile-build-replaced-notice",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "build": true,
+  "commands": [
+    {
+      "name": "compile",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--build",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
+      "stderr": "want/compile.stderr"
+    }
+  ]
+}

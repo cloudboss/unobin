@@ -5,6 +5,12 @@
   "build": true,
   "commands": [
     {
+      "name": "version",
+      "args": ["version"],
+      "stdout": "want/version.stdout",
+      "stderr": "want/version.stderr"
+    },
+    {
       "name": "validate",
       "args": ["validate", "-c", "stacks/dev.ub"],
       "stdout": "want/validate.stdout",
