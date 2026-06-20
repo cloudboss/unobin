@@ -40,27 +40,37 @@ func TestReadExtractsConfigurationSchema(t *testing.T) {
 		"verbose":     typecheck.TBoolean(),
 		"tags":        typecheck.TMap(typecheck.TString()),
 		"subnets":     typecheck.TList(typecheck.TString()),
+		"zones":       typecheck.TOptional(typecheck.TList(typecheck.TString())),
+		"labels":      typecheck.TOptional(typecheck.TMap(typecheck.TString())),
 		"extra":       typecheck.TOpaque(),
 		"endpoint":    endpoint,
 		"assume-role": typecheck.TOptional(assumeRole),
 	}
 	wantFields := []typecheck.ObjectField{
 		{Name: "region", Type: typecheck.TString()},
-		{Name: "profile", Type: typecheck.TString(), Optional: true},
+		{Name: "profile", Type: typecheck.TString(), Optional: true, Defaulted: true},
 		{Name: "retries", Type: typecheck.TInteger()},
-		{Name: "ratio", Type: typecheck.TNumber(), Optional: true},
+		{Name: "ratio", Type: typecheck.TNumber(), Optional: true, Defaulted: true},
 		{Name: "verbose", Type: typecheck.TBoolean()},
 		{Name: "tags", Type: typecheck.TMap(typecheck.TString())},
 		{Name: "subnets", Type: typecheck.TList(typecheck.TString())},
+		{Name: "zones", Type: typecheck.TList(typecheck.TString()), Optional: true, Defaulted: true},
+		{Name: "labels", Type: typecheck.TMap(typecheck.TString()), Optional: true, Defaulted: true},
 		{Name: "extra", Type: typecheck.TOpaque()},
 		{Name: "endpoint", Type: endpoint},
 		{Name: "assume-role", Type: assumeRole, Optional: true},
 	}
 	require.Equal(t, want, schema.Configuration)
 	require.Equal(t, wantFields, schema.ConfigurationFields)
-	require.Empty(t, schema.ConfigurationDefaults)
+	wantDefaults := []lang.DefaultSpec{
+		{Field: "var.profile", Value: "'default'"},
+		{Field: "var.ratio", Value: "0.5"},
+		{Field: "var.zones", Value: "['zone-a', 'zone-b']"},
+		{Field: "var.labels", Value: "{ env: 'dev' }"},
+	}
+	require.Equal(t, wantDefaults, schema.ConfigurationDefaults)
 	require.False(t, schema.ConfigurationEmpty)
-	require.Equal(t, cfg.DigestView(wantFields, nil), schema.ConfigurationDigest)
+	require.Equal(t, cfg.DigestView(wantFields, wantDefaults), schema.ConfigurationDigest)
 	require.True(t, schema.HasConfiguration)
 }
 

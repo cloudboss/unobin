@@ -13,6 +13,8 @@ type Configuration struct {
 	Verbose    cfg.Boolean
 	Tags       cfg.Map[cfg.String]
 	Subnets    cfg.List[cfg.String]
+	Zones      *cfg.List[cfg.String]
+	Labels     *cfg.Map[cfg.String]
 	Extra      cfg.Any
 	Endpoint   cfg.Object[Endpoint]
 	AssumeRole *AssumeRole
@@ -33,7 +35,18 @@ func Library() *runtime.Library {
 		Description: "Fixture library with a configuration and no types.",
 		Configuration: &cfg.ConfigurationType[any]{
 			Description: "Test configuration.",
-			New:         func() any { return &Configuration{} },
+			New: func() any {
+				return &Configuration{
+					Profile: &cfg.String{Default: "default"},
+					Ratio:   &cfg.Number{Default: 0.5},
+					Zones: &cfg.List[cfg.String]{
+						Default: []cfg.String{{Value: "zone-a"}, {Value: "zone-b"}},
+					},
+					Labels: &cfg.Map[cfg.String]{
+						Default: map[string]cfg.String{"env": {Value: "dev"}},
+					},
+				}
+			},
 		},
 	}
 }

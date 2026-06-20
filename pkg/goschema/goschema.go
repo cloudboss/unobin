@@ -90,7 +90,7 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 			schema.Actions[reg.Name] = ts
 		}
 	}
-	if ref, found, ok := extractConfigurationRef(libraryFunc); found {
+	if ref, init, found, ok := extractConfigurationRef(libraryFunc); found {
 		schema.HasConfiguration = true
 		if !ok {
 			warnings = append(warnings,
@@ -100,7 +100,7 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 		} else {
 			w := newWalker(roots, rootPkg, cache, errs, &warnings)
 			w.subject = "library configuration"
-			fields, _ := w.lookupObjectFields(ref)
+			fields, defaults, _ := w.lookupConfigurationFields(ref, init)
 			if fields == nil {
 				warnings = append(warnings, fmt.Sprintf(
 					"library configuration: %s not found in reachable source, "+
@@ -108,8 +108,9 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 			} else {
 				schema.Configuration = objectFieldsToMap(fields)
 				schema.ConfigurationFields = fields
+				schema.ConfigurationDefaults = defaults
 				schema.ConfigurationEmpty = len(fields) == 0
-				schema.ConfigurationDigest = cfg.DigestView(fields, nil)
+				schema.ConfigurationDigest = cfg.DigestView(fields, defaults)
 			}
 		}
 	}
@@ -694,14 +695,16 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 }
 
 // extractConfigurationRef finds the Configuration entry of the
-// Library() return literal and returns the type behind its New
-// function. found reports whether the library declares a
+// Library() return literal and returns the type and initializer behind
+// its New function. found reports whether the library declares a
 // Configuration at all; ok reports whether the struct type could be
 // read from source, which requires the direct form
 // `New: func() any { return &T{} }` (a `&pkg.T{}` works too).
-func extractConfigurationRef(fn *ast.FuncDecl) (ref typeRef, found, ok bool) {
+func extractConfigurationRef(
+	fn *ast.FuncDecl,
+) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
 	if fn.Body == nil {
-		return typeRef{}, false, false
+		return typeRef{}, nil, false, false
 	}
 	for _, stmt := range fn.Body.List {
 		ret, retOk := stmt.(*ast.ReturnStmt)
@@ -722,7 +725,7 @@ func extractConfigurationRef(fn *ast.FuncDecl) (ref typeRef, found, ok bool) {
 			}
 			ctLit := unwrapModuleLiteral(kv.Value)
 			if ctLit == nil {
-				return typeRef{}, true, false
+				return typeRef{}, nil, true, false
 			}
 			for _, cel := range ctLit.Elts {
 				ckv, ckvOk := cel.(*ast.KeyValueExpr)
@@ -734,19 +737,19 @@ func extractConfigurationRef(fn *ast.FuncDecl) (ref typeRef, found, ok bool) {
 				}
 				return configurationNewRef(ckv.Value)
 			}
-			return typeRef{}, true, false
+			return typeRef{}, nil, true, false
 		}
 	}
-	return typeRef{}, false, false
+	return typeRef{}, nil, false, false
 }
 
 // configurationNewRef reads the struct type behind a ConfigurationType
 // New field. Only a function literal whose single return is an
 // address-of composite literal names the type in source.
-func configurationNewRef(e ast.Expr) (ref typeRef, found, ok bool) {
+func configurationNewRef(e ast.Expr) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
 	lit, litOk := e.(*ast.FuncLit)
 	if !litOk || lit.Body == nil {
-		return typeRef{}, true, false
+		return typeRef{}, nil, true, false
 	}
 	for _, stmt := range lit.Body.List {
 		ret, retOk := stmt.(*ast.ReturnStmt)
@@ -755,12 +758,12 @@ func configurationNewRef(e ast.Expr) (ref typeRef, found, ok bool) {
 		}
 		cl := unwrapModuleLiteral(ret.Results[0])
 		if cl == nil {
-			return typeRef{}, true, false
+			return typeRef{}, nil, true, false
 		}
 		r, refOk := outputTypeRef(cl.Type)
-		return r, true, refOk
+		return r, cl, true, refOk
 	}
-	return typeRef{}, true, false
+	return typeRef{}, nil, true, false
 }
 
 // extractFunctions returns each function in the Functions map of the
