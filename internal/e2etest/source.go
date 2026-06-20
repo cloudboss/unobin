@@ -41,6 +41,7 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 			t.Fatalf("%s: %v", cmd.Name, err)
 		}
 		got = normalizeCommandResult(got, cfg.repoRoot)
+		got = normalizeWorkspaceResult(got, workspace)
 		if err := compareCommandGoldens(c.Dir, cmd, got, *update); err != nil {
 			t.Fatal(err)
 		}
@@ -196,6 +197,13 @@ func sourceRemoteMap(workspace string, remotes []RemoteSource) (map[string]*reso
 		}
 		if remote.SourcePath {
 			source.Path = path
+		}
+		if remote.ProjectPath != "" {
+			projectPath := filepath.Join(workspace, filepath.FromSlash(remote.ProjectPath))
+			source.ProjectFS = os.DirFS(projectPath)
+			source.ProjectPath = projectPath
+			source.ProjectSubdir = remote.ProjectSubdir
+			source.PackageSubdir = remote.PackageSubdir
 		}
 		out[remote.Key] = source
 	}

@@ -18,6 +18,12 @@ func normalizeCommandResult(result CommandResult, repoRoot string) CommandResult
 	return result
 }
 
+func normalizeWorkspaceResult(result CommandResult, workspace string) CommandResult {
+	result.Stdout = strings.ReplaceAll(result.Stdout, workspace, "<workspace>")
+	result.Stderr = strings.ReplaceAll(result.Stderr, workspace, "<workspace>")
+	return result
+}
+
 func normalizeDynamicText(s string, repoRoot string) string {
 	s = contentRevisionTextRE.ReplaceAllString(s, "content-revision <revision>")
 	s = contentRevisionFieldRE.ReplaceAllString(s, "content-revision: '<revision>'")

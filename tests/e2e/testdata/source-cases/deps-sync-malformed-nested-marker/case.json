@@ -1,0 +1,30 @@
+{
+  "name": "deps-sync-malformed-nested-marker",
+  "rootPath": "root",
+  "executor": "root",
+  "tags": {
+    "example.com/repo": ["v1.0.0"]
+  },
+  "remotes": [
+    {
+      "key": "example.com/repo@v1.0.0",
+      "path": "remotes/repo",
+      "commit": "c1"
+    },
+    {
+      "key": "example.com/repo//ub/project-b/lib@v1.0.0",
+      "path": "remotes/repo/ub/project-b/lib",
+      "commit": "c1",
+      "projectPath": "remotes/repo",
+      "packageSubdir": "ub/project-b/lib"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync", "-p", "factory.ub"],
+      "stderr": "want/deps-sync.stderr",
+      "exitCode": 1
+    }
+  ]
+}

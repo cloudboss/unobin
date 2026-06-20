@@ -1,0 +1,14 @@
+{
+  "name": "deps-clean",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-clean",
+      "args": ["deps", "clean"],
+      "env": { "XDG_CACHE_HOME": "$WORKSPACE/cache" },
+      "stderr": "want/deps-clean.stderr"
+    }
+  ],
+  "absentFiles": ["cache/unobin/imports"]
+}

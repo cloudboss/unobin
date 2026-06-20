@@ -1,0 +1,19 @@
+{
+  "name": "deps-verify-matches",
+  "rootPath": "root",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/hello//ub@c2",
+      "path": "remotes/hello/ub",
+      "commit": "c2"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-verify",
+      "args": ["deps", "verify", "-p", "factory.ub"],
+      "stderr": "want/deps-verify.stderr"
+    }
+  ]
+}

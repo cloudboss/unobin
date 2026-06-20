@@ -53,6 +53,29 @@ func TestCheckAbsentFiles(t *testing.T) {
 	require.Contains(t, err.Error(), "present.txt exists")
 }
 
+func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
+	workspace := t.TempDir()
+	writeText(t, filepath.Join(workspace, "repo/manifest.ub"), "manifest: { requires: {} }\n")
+	writeText(t, filepath.Join(workspace, "repo/lib/library.ub"), "x: resource {}\n")
+
+	remotes, err := sourceRemoteMap(workspace, []RemoteSource{
+		{
+			Key:           "example.com/repo//lib@v1.0.0",
+			Path:          "repo/lib",
+			ProjectPath:   "repo",
+			ProjectSubdir: "",
+			PackageSubdir: "lib",
+		},
+	})
+	require.NoError(t, err)
+
+	src := remotes["example.com/repo//lib@v1.0.0"]
+	require.NotNil(t, src.ProjectFS)
+	require.Equal(t, filepath.Join(workspace, "repo"), src.ProjectPath)
+	require.Equal(t, "", src.ProjectSubdir)
+	require.Equal(t, "lib", src.PackageSubdir)
+}
+
 func TestSourceCaseHelper(t *testing.T) {
 	if os.Getenv("E2ETEST_SOURCE_HELPER") != "1" {
 		return

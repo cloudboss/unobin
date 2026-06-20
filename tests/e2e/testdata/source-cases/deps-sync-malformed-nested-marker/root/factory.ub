@@ -1,0 +1,3 @@
+factory: {
+  imports: { lib: 'example.com/repo//ub/project-b/lib' }
+}

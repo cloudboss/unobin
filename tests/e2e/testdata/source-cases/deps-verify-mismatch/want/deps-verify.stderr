@@ -1,0 +1,2 @@
+Error: verification failed:
+  github.com/x/hello//ub: hash mismatch (locked sha256:f36cf312aece6e19dce1819890ecbe0704fcbc4686e0434f59573e42d3f52bf9, got sha256:d7f7465491b52c8ce16db40b64936eb2240477b4112af20fb206d02daa8a7dcd)
