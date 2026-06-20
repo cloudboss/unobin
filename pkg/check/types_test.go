@@ -55,6 +55,27 @@ func libraryConfigSchemaLibrary(digest string) *runtime.Library {
 	}}
 }
 
+func configuredResourceLibrary() *runtime.Library {
+	lib := libraryConfigSchemaLibrary("")
+	lib.Schema.Resources = map[string]*runtime.TypeSchema{
+		"bucket": {Inputs: map[string]typecheck.Type{}},
+	}
+	return lib
+}
+
+func emptyConfigResourceLibrary() *runtime.Library {
+	return &runtime.Library{Schema: &runtime.LibrarySchema{
+		HasConfiguration:    true,
+		ConfigurationFields: []typecheck.ObjectField{},
+		ConfigurationDigest: cfg.DigestView(nil, nil),
+		ConfigurationEmpty:  true,
+		Configuration:       map[string]typecheck.Type{},
+		Resources: map[string]*runtime.TypeSchema{
+			"bucket": {Inputs: map[string]typecheck.Type{}},
+		},
+	}}
+}
+
 // TestCheckTypesRequiresMissingInput proves a body that leaves out a
 // required input fails at compile: content has no default and is not
 // optional, while mode and create-directory are excused by their
@@ -213,6 +234,38 @@ inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
 library-configs: { aws: var.aws-config }
 locals: { region: var.aws-config.region }
 `, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesRequiresLibraryConfigBindingForLeaf(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: { aws: 'github.com/acme/aws' }
+inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
+resources: { bucket: aws.bucket {} }
+`, map[string]*runtime.Library{"aws": configuredResourceLibrary()})
+
+	require.Equal(t,
+		[]string{`library "aws" requires library-configs.aws`},
+		errs.Messages())
+}
+
+func TestCheckTypesAcceptsLibraryConfigBindingForLeaf(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: { aws: 'github.com/acme/aws' }
+inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
+library-configs: { aws: var.aws-config }
+resources: { bucket: aws.bucket {} }
+`, map[string]*runtime.Library{"aws": configuredResourceLibrary()})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesAllowsEmptyConfigWithoutBinding(t *testing.T) {
+	errs := checkSyntaxReferences(t, `
+imports: { aws: 'github.com/acme/aws' }
+resources: { bucket: aws.bucket {} }
+`, map[string]*runtime.Library{"aws": emptyConfigResourceLibrary()})
 
 	require.Empty(t, errs.Messages())
 }

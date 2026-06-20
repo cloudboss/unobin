@@ -36,6 +36,7 @@ func (c *referenceChecker) checkTypes() {
 		c.checkRequiredPresence(n, targets)
 	}
 	c.checkLibraryConfigDecls()
+	c.checkRequiredLibraryConfigBindings()
 	c.checkLocalsBodyTypes()
 	c.checkOutputBodyTypes()
 	c.checkConstraintTypes()
@@ -51,6 +52,116 @@ func (c *referenceChecker) checkLibraryConfigDecls() {
 		}
 		c.checkLibraryConfigDeclsForScope(n.Address, *n.CompositeSyntaxBody)
 	}
+}
+
+func (c *referenceChecker) checkRequiredLibraryConfigBindings() {
+	if c.rootSyntax != nil {
+		c.checkRequiredLibraryConfigBindingsForScope("", *c.rootSyntax)
+	}
+	for _, n := range c.dag.Nodes {
+		if !n.IsComposite() || n.CompositeSyntaxBody == nil {
+			continue
+		}
+		c.checkRequiredLibraryConfigBindingsForScope(n.Address, *n.CompositeSyntaxBody)
+	}
+}
+
+func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(
+	scope string,
+	body syntax.FactoryBody,
+) {
+	if c.scopeUsesConfigurationRouting(scope, body) || !bodyUsesLibraryConfigInputs(body) {
+		return
+	}
+	bound := libraryConfigAliases(body.LibraryConfigs)
+	for _, n := range c.dag.Nodes {
+		if n.Composite != scope || n.IsComposite() {
+			continue
+		}
+		switch n.Kind {
+		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
+		default:
+			continue
+		}
+		libs := c.libraries[scope]
+		if libs == nil {
+			continue
+		}
+		lib := libs[n.Alias]
+		has, empty, known := libraryConfigRequirement(lib)
+		if !known || !has || empty || bound[n.Alias] {
+			continue
+		}
+		c.addf(n.Body.Span().Start,
+			"library %q requires library-configs.%s", n.Alias, n.Alias)
+	}
+}
+
+func bodyUsesLibraryConfigInputs(body syntax.FactoryBody) bool {
+	if len(body.LibraryConfigs) > 0 {
+		return true
+	}
+	for _, input := range body.Inputs {
+		if _, ok := input.Type.(*lang.TypeLibraryConfig); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *referenceChecker) scopeUsesConfigurationRouting(
+	scope string,
+	body syntax.FactoryBody,
+) bool {
+	if len(body.Configurations) > 0 {
+		return true
+	}
+	if scope != "" {
+		if call, ok := c.dag.Nodes[scope]; ok && len(call.ConfigurationsRemap) > 0 {
+			return true
+		}
+	}
+	for _, n := range c.dag.Nodes {
+		if n.Composite != scope {
+			continue
+		}
+		if !n.Configuration.IsZero() || len(n.ConfigurationsRemap) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func libraryConfigAliases(decls []syntax.LibraryConfigDecl) map[string]bool {
+	out := make(map[string]bool, len(decls))
+	for _, decl := range decls {
+		out[decl.Alias.Name] = true
+	}
+	return out
+}
+
+func libraryConfigRequirement(lib *runtime.Library) (has, empty, known bool) {
+	if lib == nil {
+		return false, false, false
+	}
+	if lib.Schema != nil && lib.Schema.HasConfiguration {
+		fields := lib.Schema.ConfigurationFields
+		if fields == nil && lib.Schema.Configuration != nil {
+			fields = configurationFieldsFromMap(lib.Schema.Configuration)
+		}
+		if fields == nil {
+			return true, false, false
+		}
+		return true, len(fields) == 0, true
+	}
+	if lib.Configuration == nil {
+		return false, false, true
+	}
+	view, err := cfg.View(lib.Configuration)
+	if err != nil {
+		return true, false, false
+	}
+	return true, view.Empty, true
 }
 
 func (c *referenceChecker) checkLibraryConfigDeclsForScope(
