@@ -336,56 +336,6 @@ func goTestSource(modulePath string) *resolve.Source {
 	}}
 }
 
-func TestCompileRejectsLocalImportIntoNestedProject(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "demo-factory")
-	child := filepath.Join(root, "library-c")
-	require.NoError(t, os.MkdirAll(child, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {}\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(`
-factory: {
-  imports: { child: './library-c' }
-  data: { message: child.message {} }
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, deps.ManifestFileName),
-		manifestSource("requires: {}\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "library.ub"), []byte(`
-message: data {
-  outputs: { text: { value: 'hi' } }
-}
-`), 0o644))
-
-	_, err := runCommand(t, "compile", "-p", filepath.Join(root, "factory.ub"), "-o", "-")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "nested project")
-	require.Contains(t, err.Error(), "manifest.replace")
-}
-
-func TestCompileResolvesLocalImportsFromFactoryDir(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "demo-factory")
-	child := filepath.Join(root, "services", "app")
-	require.NoError(t, os.MkdirAll(filepath.Join(child, "lib"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: {}\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"), []byte(`
-factory: {
-  imports: { local: './lib' }
-  data: { message: local.message {} }
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "lib", "library.ub"), []byte(`
-message: data {
-  outputs: { text: { value: 'hi' } }
-}
-`), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(child, "factory.ub"), "-o", outDir)
-	require.NoError(t, err)
-	require.FileExists(t, filepath.Join(outDir, "internal", "local", "local.go"))
-}
-
 // TestCompileUsesLockVersion compiles a factory whose import has no
 // @version: the version must come from lock.ub. The fake resolver only
 // serves the locked version, and the generated go.mod must record it.

@@ -1,0 +1,1 @@
+Error: import "child": local import "./library-c" crosses nested project <workspace>/demo-factory/library-c; import it by dependency id and add manifest.replace for local development

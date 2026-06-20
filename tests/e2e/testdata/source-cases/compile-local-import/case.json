@@ -1,0 +1,17 @@
+{
+  "name": "compile-local-import",
+  "rootPath": "repo/services/app",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ],
+  "files": [
+    { "path": "repo/services/app/build/main.go", "want": "want/main.go" },
+    { "path": "repo/services/app/build/go.mod", "want": "want/go.mod" },
+    { "path": "repo/services/app/build/internal/local/local.go", "want": "want/local.go" }
+  ]
+}

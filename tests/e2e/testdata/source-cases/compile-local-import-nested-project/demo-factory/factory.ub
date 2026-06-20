@@ -1,0 +1,4 @@
+factory: {
+  imports: { child: './library-c' }
+  data: { message: child.message {} }
+}
