@@ -1,7 +1,7 @@
 manifest: {
   requires: {
     'github.com/cloudboss/unobin-libraries-scratch': {
-      version: 'v0.8.0'
+      version: 'v0.9.0'
     }
     'github.com/cloudboss/unobin-library-std': {
       version:  'v0.2.0'
@@ -9,7 +9,6 @@ manifest: {
     }
   }
   replace: {
-    'github.com/cloudboss/unobin':                   '../..'
-    'github.com/cloudboss/unobin-libraries-scratch': './scratch'
+    'github.com/cloudboss/unobin': '../..'
   }
 }

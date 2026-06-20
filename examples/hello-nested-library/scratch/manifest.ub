@@ -1,7 +1,0 @@
-manifest: {
-  requires: {
-    'github.com/cloudboss/unobin-library-std': {
-      version: 'v0.1.0'
-    }
-  }
-}
