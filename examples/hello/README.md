@@ -48,5 +48,10 @@ export UB_STATE_KEY=$(head -c 32 /dev/urandom | base64)
 ./hello version
 ./hello schema
 ./hello state list
-./hello state show
+./hello state show std.fs-file@resource.hello
+./hello state pull > state.json
+./hello state snapshots list
 ```
+
+After apply, `state list` prints complete entry refs such as
+`std.fs-file@resource.hello` and `std.exec-command@action.read-back`.

@@ -72,12 +72,12 @@ and the action) group under one template header.
 
 State after apply contains, per instance:
 
-- `resource.file['<key>']` - a leaf entry per file
-- `resource.alert['<key>']` - a library-call entry per composite
-  instance
-- `resource.alert['<key>']/resource.this` - the leaf inside each
+- `std.fs-file@resource.file['<key>']` - a leaf entry per file
+- `notify.alert@resource.alert['<key>']` - a library-call entry per
   composite instance
-- `action.announce['<key>']` - an action entry per echo
+- `std.fs-file@resource.alert['<key>']/resource.this` - the leaf inside
+  each composite instance
+- `std.exec-command@action.announce['<key>']` - an action entry per echo
 
 Removing a key from `files:` in `dev.ub` and re-planning destroys
 both the leaf and the composite-internal leaf for the removed key.

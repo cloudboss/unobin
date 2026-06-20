@@ -31,5 +31,5 @@ deployments the operator pins the binary's version+commit in the
 stack file and the flag is unnecessary.
 
 `state list` shows two entries: the library-call record at
-`resource.welcome` and the internal leaf at
-`resource.welcome/resource.this`.
+`greeter.greeting@resource.welcome` and the internal leaf at
+`std.fs-file@resource.welcome/resource.this`.
