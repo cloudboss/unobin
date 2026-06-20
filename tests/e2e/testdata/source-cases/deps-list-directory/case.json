@@ -1,0 +1,17 @@
+{
+  "name": "deps-list-directory",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-list-dot",
+      "args": ["deps", "list", "-p", "."],
+      "stdout": "want/deps-list-dot.stdout"
+    },
+    {
+      "name": "deps-list-absolute-dir",
+      "args": ["deps", "list", "-p", "$WORKSPACE/root/"],
+      "stdout": "want/deps-list-absolute-dir.stdout"
+    }
+  ]
+}

@@ -737,36 +737,6 @@ func writeProjectLock(t *testing.T, root string) fstest.MapFS {
 	return ubFS
 }
 
-func TestDepsListUsesAncestorManifest(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "proj")
-	child := filepath.Join(root, "services", "app")
-	require.NoError(t, os.MkdirAll(child, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		[]byte("manifest: { requires: {} }\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "factory.ub"),
-		factorySource("description: 'x'\n"), 0o644))
-	writeProjectLock(t, root)
-
-	out, err := runCommand(t, "deps", "list", "-p", filepath.Join(child, "factory.ub"))
-	require.NoError(t, err)
-	require.Equal(t,
-		"github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n", out)
-}
-
-func TestDepsListAcceptsDirectory(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "proj")
-	writeProjectLock(t, root)
-	want := "github.com/x/core//lib v1.0.0 (go)\ngithub.com/x/hello//ub v2.0.0 (ub)\n"
-
-	out, err := runCommand(t, "deps", "list", "-p", root)
-	require.NoError(t, err)
-	require.Equal(t, want, out)
-
-	out, err = runCommand(t, "deps", "list", "-p", root+string(filepath.Separator))
-	require.NoError(t, err)
-	require.Equal(t, want, out)
-}
-
 func TestDepsVerifyMatches(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "proj")
 	ubFS := writeProjectLock(t, root)
