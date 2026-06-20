@@ -16,9 +16,11 @@ import (
 const liveRefresh = time.Second
 
 // firstBeat is how long a step runs before the plain-output renderer first
-// reports it as still going. Each later reminder for the same step waits
-// twice as long as the last, so a slow step grows quieter over time.
+// reports it as still going.
 const firstBeat = 10 * time.Second
+
+// maxBeatInterval is the longest plain-output delay between reminders.
+const maxBeatInterval = 40 * time.Second
 
 // applyRenderer turns the apply event stream into terminal output. On a
 // terminal it keeps a live region at the bottom listing the steps still
@@ -36,9 +38,10 @@ type applyRenderer struct {
 
 // runningStep is the live state the renderer keeps for one in-flight step.
 type runningStep struct {
-	decision runtime.Decision
-	start    time.Time
-	nextBeat time.Duration
+	decision     runtime.Decision
+	start        time.Time
+	nextBeat     time.Duration
+	beatInterval time.Duration
 }
 
 func newApplyRenderer(out io.Writer, format Format) *applyRenderer {
@@ -128,9 +131,10 @@ func (r *applyRenderer) tick() {
 
 func (r *applyRenderer) startRunning(ev runtime.ApplyEvent) {
 	r.running[ev.Address] = &runningStep{
-		decision: ev.Decision,
-		start:    ev.Time,
-		nextBeat: firstBeat,
+		decision:     ev.Decision,
+		start:        ev.Time,
+		nextBeat:     firstBeat,
+		beatInterval: firstBeat,
 	}
 }
 
@@ -152,7 +156,14 @@ func (r *applyRenderer) heartbeat() {
 		fmt.Fprintf(r.out, "[%s] still %s %s (%s)\n",
 			now.Format("15:04:05"), decisionGerund(s.decision), addr, formatDuration(elapsed))
 		for s.nextBeat <= elapsed {
-			s.nextBeat *= 2
+			if s.beatInterval <= 0 {
+				s.beatInterval = firstBeat
+			}
+			s.nextBeat += s.beatInterval
+			s.beatInterval *= 2
+			if s.beatInterval > maxBeatInterval {
+				s.beatInterval = maxBeatInterval
+			}
 		}
 	}
 }

@@ -81,6 +81,26 @@ func TestApplyHeartbeatEscalates(t *testing.T) {
 	now = now.Add(5 * time.Second)
 	r.heartbeat()
 	require.Contains(t, buf.String(), "still creating resource.aws.db.main (20.0s)")
+
+	buf.Reset()
+	now = now.Add(20 * time.Second)
+	r.heartbeat()
+	require.Contains(t, buf.String(), "still creating resource.aws.db.main (40.0s)")
+
+	buf.Reset()
+	now = now.Add(40 * time.Second)
+	r.heartbeat()
+	require.Contains(t, buf.String(), "still creating resource.aws.db.main (80.0s)")
+
+	buf.Reset()
+	now = now.Add(39 * time.Second)
+	r.heartbeat()
+	require.Empty(t, buf.String(), "after the cap, the next reminder waits 40 seconds")
+
+	buf.Reset()
+	now = now.Add(1 * time.Second)
+	r.heartbeat()
+	require.Contains(t, buf.String(), "still creating resource.aws.db.main (120.0s)")
 }
 
 func TestApplyRendererPlainStartDone(t *testing.T) {
