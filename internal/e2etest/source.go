@@ -173,10 +173,14 @@ func sourceRemoteMap(workspace string, remotes []RemoteSource) (map[string]*reso
 	out := make(map[string]*resolve.Source, len(remotes))
 	for _, remote := range remotes {
 		path := filepath.Join(workspace, filepath.FromSlash(remote.Path))
-		out[remote.Key] = &resolve.Source{
+		source := &resolve.Source{
 			Commit: remote.Commit,
 			FS:     os.DirFS(path),
 		}
+		if remote.SourcePath {
+			source.Path = path
+		}
+		out[remote.Key] = source
 	}
 	return out, nil
 }

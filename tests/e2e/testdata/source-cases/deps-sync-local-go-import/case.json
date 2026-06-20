@@ -1,0 +1,13 @@
+{
+  "name": "deps-sync-local-go-import",
+  "rootPath": "factory",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync", "-p", "factory.ub"],
+      "stderr": "want/deps-sync.stderr",
+      "exitCode": 1
+    }
+  ]
+}

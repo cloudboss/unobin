@@ -199,56 +199,6 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
-func TestDepsSyncRejectsInvalidGoLibrary(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource("requires: { 'github.com/x/bad': { version: 'v1.0.0' } }\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { bad: 'github.com/x/bad' }\n"), 0o644))
-	badDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(badDir, "go.mod"),
-		[]byte("module github.com/x/bad\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(badDir, "library.go"),
-		[]byte("package bad\n\nfunc Library() any { return nil }\n"), 0o644))
-	remotes := map[string]*resolve.Source{
-		"github.com/x/bad@v1.0.0": {Commit: "c1", Path: badDir},
-	}
-
-	_, err := runCommandWithRemotes(t, remotes, "deps", "sync", "-p", root)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "must return *runtime.Library")
-}
-
-func TestDepsSyncRefusesGoModuleRoot(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"),
-		[]byte("module example.com/app\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: {}\n"), 0o644))
-
-	_, err := runCommand(t, "deps", "sync", "-p", root)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "deps sync manages UB projects; use Go commands for Go modules")
-}
-
-func TestDepsSyncRejectsLocalGoImport(t *testing.T) {
-	base := t.TempDir()
-	root := filepath.Join(base, "factory")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { aws: '../aws' }\n"), 0o644))
-
-	awsDir := filepath.Join(base, "aws")
-	require.NoError(t, os.MkdirAll(awsDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "go.mod"),
-		[]byte("module github.com/cloudboss/unobin-library-aws\n\ngo 1.26\n"), 0o644))
-
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(root, "factory.ub"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "is a Go library")
-	require.Contains(t, err.Error(), "in manifest.ub:")
-}
-
 func manifestSource(body string) []byte {
 	return []byte("manifest: {\n" + body + "}\n")
 }

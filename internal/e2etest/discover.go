@@ -48,9 +48,10 @@ type SourceCase struct {
 
 // RemoteSource describes a fake remote repository used by source-root cases.
 type RemoteSource struct {
-	Key    string `json:"key"`
-	Path   string `json:"path"`
-	Commit string `json:"commit"`
+	Key        string `json:"key"`
+	Path       string `json:"path"`
+	Commit     string `json:"commit"`
+	SourcePath bool   `json:"sourcePath"`
 }
 
 // Command describes one subprocess invocation.

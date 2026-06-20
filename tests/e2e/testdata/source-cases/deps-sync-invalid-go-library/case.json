@@ -1,0 +1,21 @@
+{
+  "name": "deps-sync-invalid-go-library",
+  "rootPath": "root",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/bad@v1.0.0",
+      "path": "remotes/bad",
+      "commit": "c1",
+      "sourcePath": true
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr",
+      "exitCode": 1
+    }
+  ]
+}
