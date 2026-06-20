@@ -1,0 +1,35 @@
+factory: {
+  inputs: {
+    file-path: { type: string }
+    file-content: { type: string }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  resources: {
+    doc: e2e.file {
+      path:    var.file-path
+      content: var.file-content
+    }
+  }
+
+  outputs: {
+    path:    { value: resource.doc.path }
+    content: { value: resource.doc.content }
+    sha256:  { value: resource.doc.sha256 }
+  }
+}

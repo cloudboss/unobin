@@ -1,0 +1,14 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      file-path:    'files/item.txt'
+      file-content: 'two'
+    }
+  }
+}

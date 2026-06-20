@@ -24,8 +24,10 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		}
 	}
 	pinned := map[string]bool{}
+	var lastStackPath string
 	for _, cmd := range c.Commands {
 		if stackPath, ok := stackPathFromArgs(cmd.Args); ok && !isPinCommand(cmd) {
+			lastStackPath = stackPath
 			if !pinned[stackPath] {
 				pinStack(t, workspace, binary, stackPath)
 				pinned[stackPath] = true
@@ -46,6 +48,14 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 			t.Fatal(err)
 		}
 		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if c.StateSummary != "" {
+		if lastStackPath == "" {
+			t.Fatal("state summary requires a command with -c or --config")
+		}
+		if err := compareStateSummary(c.Dir, workspace, c, lastStackPath, *update); err != nil {
 			t.Fatal(err)
 		}
 	}

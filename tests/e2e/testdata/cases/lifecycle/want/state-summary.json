@@ -1,0 +1,10 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "lifecycle",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": []
+}

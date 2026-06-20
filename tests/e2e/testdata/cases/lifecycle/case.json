@@ -1,0 +1,73 @@
+{
+  "name": "lifecycle",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/lifecycle",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate",
+      "args": ["validate", "-c", "stacks/create/dev.ub"],
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate.stderr"
+    },
+    {
+      "name": "plan-create",
+      "args": ["plan", "--ascii", "-c", "stacks/create/dev.ub", "-o", "create.ubp"],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": ["apply", "--output", "unobin", "create.ubp"],
+      "stdout": "want/apply-create.stdout",
+      "stderr": "want/apply-create.stderr"
+    },
+    {
+      "name": "plan-noop",
+      "args": ["plan", "--ascii", "-c", "stacks/noop/dev.ub", "-o", "noop.ubp"],
+      "stdout": "want/plan-noop.stdout",
+      "stderr": "want/plan-noop.stderr"
+    },
+    {
+      "name": "plan-update",
+      "args": ["plan", "--ascii", "-c", "stacks/update/dev.ub", "-o", "update.ubp"],
+      "stdout": "want/plan-update.stdout",
+      "stderr": "want/plan-update.stderr"
+    },
+    {
+      "name": "apply-update",
+      "args": ["apply", "--output", "unobin", "update.ubp"],
+      "stdout": "want/apply-update.stdout",
+      "stderr": "want/apply-update.stderr"
+    },
+    {
+      "name": "plan-replace",
+      "args": ["plan", "--ascii", "-c", "stacks/replace/dev.ub", "-o", "replace.ubp"],
+      "stdout": "want/plan-replace.stdout",
+      "stderr": "want/plan-replace.stderr"
+    },
+    {
+      "name": "apply-replace",
+      "args": ["apply", "--output", "unobin", "replace.ubp"],
+      "stdout": "want/apply-replace.stdout",
+      "stderr": "want/apply-replace.stderr"
+    },
+    {
+      "name": "plan-destroy",
+      "args": ["plan", "--ascii", "--destroy", "-c", "stacks/replace/dev.ub", "-o", "destroy.ubp"],
+      "stdout": "want/plan-destroy.stdout",
+      "stderr": "want/plan-destroy.stderr"
+    },
+    {
+      "name": "apply-destroy",
+      "args": ["apply", "--output", "unobin", "destroy.ubp"],
+      "stdout": "want/apply-destroy.stdout",
+      "stderr": "want/apply-destroy.stderr"
+    }
+  ],
+  "files": [
+    { "path": "events.ndjson", "want": "want/events.ndjson" }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

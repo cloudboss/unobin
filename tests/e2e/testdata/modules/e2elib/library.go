@@ -112,9 +112,12 @@ func (f *File) Create(_ context.Context, config *Configuration) (*FileOutput, er
 func (f *File) Read(
 	_ context.Context,
 	config *Configuration,
-	_ *FileOutput,
+	prior *FileOutput,
 ) (*FileOutput, error) {
 	path := resolvePath(config, f.Path)
+	if prior != nil && prior.Path != "" {
+		path = prior.Path
+	}
 	body, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -211,9 +214,12 @@ func (o *Object) Create(_ context.Context, config *Configuration) (*ObjectOutput
 func (o *Object) Read(
 	_ context.Context,
 	config *Configuration,
-	_ *ObjectOutput,
+	prior *ObjectOutput,
 ) (*ObjectOutput, error) {
 	path := objectPath(config, o.Name)
+	if prior != nil && prior.Path != "" {
+		path = prior.Path
+	}
 	body, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -225,7 +231,12 @@ func (o *Object) Read(
 	if err := json.Unmarshal(body, &value); err != nil {
 		return nil, err
 	}
-	return objectOutput(config, o.Name, value, body), nil
+	out := objectOutput(config, o.Name, value, body)
+	out.Path = path
+	if prior != nil && prior.ID != "" {
+		out.ID = prior.ID
+	}
+	return out, nil
 }
 
 func (o *Object) Update(

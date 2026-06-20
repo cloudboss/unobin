@@ -1,0 +1,7 @@
+  (destroy) resource.doc
+      content: 'two'
+      create-parents: true
+      mode: 420
+      path: 'files/renamed.txt'
+
+Plan: 0 to create, 0 to update, 0 to replace, 1 to destroy, 0 to rerun.
