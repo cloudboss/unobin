@@ -388,66 +388,6 @@ func setCLIVersion(t *testing.T, v string) {
 	t.Cleanup(func() { Version = prev })
 }
 
-// TestCompilePinsGoModToCLIVersion proves the generated go.mod requires
-// unobin at the version of the compiling CLI itself, so the runtime a
-// factory links is the one its compile checks ran with.
-func TestCompilePinsGoModToCLIVersion(t *testing.T) {
-	setCLIVersion(t, "v9.9.9")
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("description: 'minimal'\n"), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-	require.NoError(t, err)
-
-	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
-	require.NoError(t, err)
-	require.Contains(t, string(goMod), "github.com/cloudboss/unobin v9.9.9")
-}
-
-// TestCompileDevVersionNeedsReplace proves a development CLI, which has
-// no release version to pin, refuses to compile unless the unobin repo
-// is replaced.
-func TestCompileDevVersionNeedsReplace(t *testing.T) {
-	setCLIVersion(t, "dev")
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("description: 'minimal'\n"), 0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "--replace-unobin")
-	require.Contains(t, err.Error(), "manifest.ub")
-}
-
-// TestCompileDevVersionAcceptsManifestReplace proves the manifest's
-// replace of the unobin repo satisfies the development gate the same
-// way --replace-unobin does, and appears in the generated go.mod.
-func TestCompileDevVersionAcceptsManifestReplace(t *testing.T) {
-	setCLIVersion(t, "dev")
-	rootDir := findUnobinRoot(t)
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("description: 'minimal'\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-		manifestSource("requires: {}\nreplace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n"),
-		0o644))
-
-	outDir := filepath.Join(t.TempDir(), "build")
-	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-	require.NoError(t, err)
-
-	goMod, err := os.ReadFile(filepath.Join(outDir, "go.mod"))
-	require.NoError(t, err)
-	require.Contains(t, string(goMod), "github.com/cloudboss/unobin v0.0.0")
-	require.Contains(t, string(goMod), "github.com/cloudboss/unobin => "+rootDir)
-}
-
 func TestDepsSyncOutputCompilesForReplacedUnobinSubdir(t *testing.T) {
 	rootDir := findUnobinRoot(t)
 	dir := filepath.Join(t.TempDir(), "demo-factory")
@@ -524,53 +464,6 @@ factory: {
 	_, err := runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"),
 		"-o", "-", "--replace-go-module", "github.com/x/cloud="+libDir)
 	require.NoError(t, err)
-}
-
-// TestCompileManifestToolchainLine proves the manifest's unobin-version
-// line pins which CLI may compile the project: a match proceeds, a mismatch
-// stops with the version to install, and a replaced unobin proceeds
-// with a notice since the replacement runs regardless.
-func TestCompileManifestToolchainLine(t *testing.T) {
-	write := func(t *testing.T, manifest string) string {
-		t.Helper()
-		dir := filepath.Join(t.TempDir(), "demo-factory")
-		require.NoError(t, os.MkdirAll(dir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-			factorySource("description: 'minimal'\n"), 0o644))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-			manifestSource(manifest), 0o644))
-		return dir
-	}
-
-	t.Run("matching line proceeds", func(t *testing.T) {
-		dir := write(t, "unobin-version: 'v0.1.0'\nrequires: {}\n")
-		outDir := filepath.Join(t.TempDir(), "build")
-		_, err := runCommand(t, "compile",
-			"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-		require.NoError(t, err)
-	})
-
-	t.Run("mismatched line is refused", func(t *testing.T) {
-		dir := write(t, "unobin-version: 'v0.9.9'\nrequires: {}\n")
-		outDir := filepath.Join(t.TempDir(), "build")
-		_, err := runCommand(t, "compile",
-			"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "pins unobin v0.9.9")
-		require.Contains(t, err.Error(), "v0.1.0")
-	})
-
-	t.Run("replaced unobin proceeds with a notice", func(t *testing.T) {
-		rootDir := findUnobinRoot(t)
-		dir := write(t, "unobin-version: 'v0.9.9'\nrequires: {}\n"+
-			"replace: { 'github.com/cloudboss/unobin': '"+rootDir+"' }\n")
-		outDir := filepath.Join(t.TempDir(), "build")
-		out, err := runCommand(t, "compile",
-			"-p", filepath.Join(dir, "factory.ub"), "-o", outDir)
-		require.NoError(t, err)
-		require.Contains(t, out, "notice:")
-		require.Contains(t, out, "v0.9.9")
-	})
 }
 
 // TestCompileOfflineLocalLibraries proves the local-testing workflow

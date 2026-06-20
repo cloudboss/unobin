@@ -1,0 +1,14 @@
+{
+  "name": "compile-dev-version-needs-replace",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "dev",
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr",
+      "exitCode": 1
+    }
+  ]
+}

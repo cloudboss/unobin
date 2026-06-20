@@ -1,0 +1,15 @@
+{
+  "name": "compile-pins-go-mod-version",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v9.9.9",
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" }
+  ]
+}
