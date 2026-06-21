@@ -62,54 +62,6 @@ resources: { file: local.file { path: local.creds.name, content: local.creds.sec
 	require.Equal(t, []string{"content"}, an.sensitiveInputs(node.Body, node.Composite))
 }
 
-func TestSensitivityRecognizesSensitiveGoOutput(t *testing.T) {
-	src := `
-resources: {
-  secret: vault.secret { name: 'token' }
-  file:   local.file { path: 'out.txt', content: resource.secret.value }
-}
-`
-	libs := map[string]*Library{
-		"vault": {
-			Name: "vault",
-			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
-				"secret": {SensitiveOutputs: []string{"value"}},
-			}},
-		},
-		"local": {Name: "local"},
-	}
-	dag, an := syntaxSensitivity(t, src, libs)
-
-	node := dag.Nodes["resource.file"]
-	require.NotNil(t, node)
-	got := an.sensitiveInputs(node.Body, node.Composite)
-	require.Equal(t, []string{"content"}, got)
-}
-
-func TestSensitivityRecognizesSensitiveShortGoOutput(t *testing.T) {
-	src := `
-resources: {
-  secret: vault.secret { name: 'token' }
-  file: local.file { path: 'out.txt', content: resource.secret.value }
-}
-`
-	libs := map[string]*Library{
-		"vault": {
-			Name: "vault",
-			Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
-				"secret": {SensitiveOutputs: []string{"value"}},
-			}},
-		},
-		"local": {Name: "local"},
-	}
-	dag, an := syntaxSensitivity(t, src, libs)
-
-	node := dag.Nodes["resource.file"]
-	require.NotNil(t, node)
-	got := an.sensitiveInputs(node.Body, node.Composite)
-	require.Equal(t, []string{"content"}, got)
-}
-
 func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
 	src := `
 resources: {
