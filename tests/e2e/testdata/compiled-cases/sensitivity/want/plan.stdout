@@ -4,5 +4,11 @@
   (rerun)   action.record
       message: ***
       name: 'deploy'
+  (rerun)   action.record-local
+      message: ***
+      name: 'deploy'
+  (rerun)   action.record-output-local
+      message: ***
+      name: 'output-local'
 
-Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 2 to rerun.
+Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 4 to rerun.
