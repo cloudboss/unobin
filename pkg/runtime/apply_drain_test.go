@@ -3,8 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -49,6 +48,13 @@ func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
 	)
 }
 
+func applyDrainBody(t *testing.T, name string) string {
+	t.Helper()
+	body, err := os.ReadFile("testdata/ub/apply-drain/valid/" + name + ".ub")
+	require.NoError(t, err)
+	return string(body)
+}
+
 func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 	var runs atomic.Int64
 	libs := map[string]*Library{
@@ -59,13 +65,7 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 			},
 		},
 	}
-	var src strings.Builder
-	src.WriteString("resources: {\n")
-	for i := range 6 {
-		src.WriteString(fmt.Sprintf("  n%d: slow.r { name: 'n%d', delay-ms: 200 }\n", i, i))
-	}
-	src.WriteString("}\n")
-	dag, syntaxSource := syntaxDAGAndBody(t, src.String(), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t, applyDrainBody(t, "inflight"), libs)
 
 	drain := make(chan struct{})
 	exec := &Executor{
@@ -99,10 +99,7 @@ func TestApplyScheduleDrainBeforeDispatchSkipsEverything(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: { n0: slow.r { name: 'n0', delay-ms: 100 } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t, applyDrainBody(t, "before-dispatch"), libs)
 	drain := make(chan struct{})
 	close(drain)
 	exec := &Executor{

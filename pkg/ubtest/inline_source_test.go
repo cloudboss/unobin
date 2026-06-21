@@ -52,7 +52,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runner/pin_test.go":                       true,
 	"pkg/runner/runner_test.go":                    true,
 	"pkg/runtime/apply_configuration_test.go":      true,
-	"pkg/runtime/apply_drain_test.go":              true,
 	"pkg/runtime/apply_error_test.go":              true,
 	"pkg/runtime/apply_events_test.go":             true,
 	"pkg/runtime/apply_lock_test.go":               true,

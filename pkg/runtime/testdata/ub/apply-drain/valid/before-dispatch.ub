@@ -1,0 +1,1 @@
+resources: { n0: slow.r { name: 'n0', delay-ms: 100 } }
