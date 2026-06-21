@@ -1,0 +1,4 @@
+resources: {
+  x: w.net { @for-each: { a: 'one', b: 'two' }, tag: @each.value }
+  it: core.instance { ref: resource.x['a'].id }
+}

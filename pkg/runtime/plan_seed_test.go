@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // subnetLike has a tag input and a stable id output; updating it
@@ -95,11 +96,6 @@ func (r *pinnedResource) Update(
 func (r *pinnedResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *pinnedResource) ReplaceFields() []string                  { return []string{"tag"} }
 
-const cascadeSrc = `
-inputs:    { t: { type: string } }
-resources: { a: core.subnet { tag: var.t }, it: core.instance { ref: resource.a.id } }
-`
-
 // An update preserves the object, so its prior outputs stay readable
 // during the plan: a tag sync upstream diffs the downstream against
 // the still-valid id and plans no-op instead of a replace.
@@ -115,7 +111,8 @@ func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g, syntaxSource := syntaxDAGAndBody(t, cascadeSrc, libs)
+	g, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "cascade-update"), libs)
 
 	applyOnce(t, &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
@@ -163,10 +160,7 @@ func TestReplaceSuppressesPriorOutputs(t *testing.T) {
 			},
 		},
 	}
-	src := `
-inputs:    { t: { type: string } }
-resources: { a: core.pinned { tag: var.t }, it: core.instance { ref: resource.a.id } }
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "replace-suppresses")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -202,11 +196,8 @@ resources: { a: core.pinned { tag: var.t }, it: core.instance { ref: resource.a.
 // value: an unchanged stack plans no-op instead of replacing the
 // reader on every plan.
 func TestCompositeOutputsSeedAtPlan(t *testing.T) {
-	composite := syntaxResourceComposite(t, "net", `
-inputs:    { tag: { type: string } }
-resources: { s: core.subnet { tag: var.tag } }
-outputs:   { id: { value: resource.s.id } }
-`)
+	composite := syntaxResourceComposite(t, "net",
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-net"))
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -222,9 +213,7 @@ outputs:   { id: { value: resource.s.id } }
 			},
 		},
 	}
-	src := `
-resources: { x: w.net { tag: 'fixed' }, it: core.instance { ref: resource.x.id } }
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-output-seed")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -249,11 +238,8 @@ resources: { x: w.net { tag: 'fixed' }, it: core.instance { ref: resource.x.id }
 // applies with the fresh value.
 func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
 	var gen int64
-	composite := syntaxResourceComposite(t, "net", `
-inputs:    { t: { type: string } }
-resources: { p: core.pinned { tag: var.t } }
-outputs:   { id: { value: resource.p.id } }
-`)
+	composite := syntaxResourceComposite(t, "net",
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-pinned"))
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -271,10 +257,7 @@ outputs:   { id: { value: resource.p.id } }
 			},
 		},
 	}
-	src := `
-inputs:    { t: { type: string } }
-resources: { x: w.net { t: var.t }, it: core.instance { ref: resource.x.id } }
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-pending")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -308,11 +291,8 @@ resources: { x: w.net { t: var.t }, it: core.instance { ref: resource.x.id } }
 // keyed address, so a reader of one instance's output diffs a real
 // value on the second plan.
 func TestForEachCompositeOutputsSeedAtPlan(t *testing.T) {
-	composite := syntaxResourceComposite(t, "net", `
-inputs:    { tag: { type: string } }
-resources: { s: core.subnet { tag: var.tag } }
-outputs:   { id: { value: resource.s.id } }
-`)
+	composite := syntaxResourceComposite(t, "net",
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-net"))
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -328,12 +308,7 @@ outputs:   { id: { value: resource.s.id } }
 			},
 		},
 	}
-	src := `
-resources: {
-  x:  w.net { @for-each: { a: 'one', b: 'two' }, tag: @each.value }
-  it: core.instance { ref: resource.x['a'].id }
-}
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "foreach-composite-output")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)

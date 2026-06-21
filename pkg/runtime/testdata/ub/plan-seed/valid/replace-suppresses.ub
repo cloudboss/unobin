@@ -1,0 +1,7 @@
+inputs: {
+  t: { type: string }
+}
+resources: {
+  a: core.pinned { tag: var.t }
+  it: core.instance { ref: resource.a.id }
+}

@@ -57,7 +57,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/locals_test.go":           true,
 	"pkg/runtime/nodes_test.go":            true,
 	"pkg/runtime/plan_data_test.go":        true,
-	"pkg/runtime/plan_seed_test.go":        true,
 	"pkg/runtime/plan_test.go":             true,
 	"pkg/runtime/refresh_test.go":          true,
 	"pkg/runtime/sensitivity_test.go":      true,

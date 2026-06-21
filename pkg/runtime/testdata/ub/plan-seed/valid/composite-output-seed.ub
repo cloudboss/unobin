@@ -1,0 +1,4 @@
+resources: {
+  x: w.net { tag: 'fixed' }
+  it: core.instance { ref: resource.x.id }
+}
