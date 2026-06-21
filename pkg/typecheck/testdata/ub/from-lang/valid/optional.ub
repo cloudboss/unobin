@@ -1,0 +1,5 @@
+inputs: {
+  region: { type: string }
+  count:  { type: integer, default: 1 }
+  label:  { type: optional(string) }
+}

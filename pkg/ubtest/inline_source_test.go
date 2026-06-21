@@ -83,7 +83,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/refresh_test.go":                  true,
 	"pkg/runtime/sensitivity_test.go":              true,
 	"pkg/runtime/state_moves_plan_test.go":         true,
-	"pkg/typecheck/from_lang_test.go":              true,
 }
 
 var inlineUBTokens = []string{

@@ -1,6 +1,7 @@
 package typecheck
 
 import (
+	"os"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -45,18 +46,7 @@ func TestFromLangOpenObject(t *testing.T) {
 }
 
 func TestInputsFromBlockNestedDefaults(t *testing.T) {
-	f, err := lang.ParseSource("x.ub", []byte(`
-inputs: {
-  spec: {
-    type: object({
-      port:    { type: integer, default: 8080 },
-      retries: { type: optional(integer), default: 3 },
-      note:    { type: optional(string) },
-    })
-  }
-}
-`))
-	require.NoError(t, err)
+	f := parseInputFixture(t, "testdata/ub/from-lang/valid/nested-defaults.ub")
 	inputs := InputsFromBlock(topLevelInputs(t, f))
 	scope := &Scope{Inputs: inputs}
 	errs := lang.NewErrorList(0)
@@ -103,16 +93,7 @@ func TestFromLangObjectBareFields(t *testing.T) {
 }
 
 func TestInputsFromBlockHandlesOptional(t *testing.T) {
-	src := `
-inputs: {
-  region: { type: string }
-  count: { type: integer, default: 1 }
-  label: { type: optional(string) }
-}
-`
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-
+	f := parseInputFixture(t, "testdata/ub/from-lang/valid/optional.ub")
 	inputs := topLevelInputs(t, f)
 	got := InputsFromBlock(inputs)
 	require.Len(t, got, 3)
@@ -131,6 +112,15 @@ inputs: {
 	assert.True(t, got[2].Type.Equal(TString()))
 	assert.True(t, got[2].Optional)
 	assert.False(t, got[2].Defaulted)
+}
+
+func parseInputFixture(t *testing.T, path string) *lang.File {
+	t.Helper()
+	src, err := os.ReadFile(path)
+	require.NoError(t, err)
+	f, err := lang.ParseSource("factory.ub", src)
+	require.NoError(t, err)
+	return f
 }
 
 func topLevelInputs(t *testing.T, f *lang.File) *lang.ObjectLit {

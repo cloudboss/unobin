@@ -1,0 +1,9 @@
+inputs: {
+  spec: {
+    type: object({
+      port:    { type: integer, default: 8080 },
+      retries: { type: optional(integer), default: 3 },
+      note:    { type: optional(string) },
+    })
+  }
+}
