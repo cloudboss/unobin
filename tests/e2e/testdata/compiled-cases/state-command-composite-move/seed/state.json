@@ -1,0 +1,74 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "state-command-composite-move",
+    "version": "v0.0.0",
+    "content-revision": "seed"
+  },
+  "stack": "dev",
+  "generated-at": "2026-06-20T00:00:00Z",
+  "entries": [
+    {
+      "address": "resource.welcome",
+      "entry-kind": "library-call",
+      "node-kind": "resource",
+      "selector": { "alias": "greeter", "export": "greeting" },
+      "inputs": {
+        "content": "hello",
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": { "enabled": true, "label": "nested" },
+          "prefix": ""
+        },
+        "path": "files/hello.txt"
+      },
+      "outputs": {
+        "path": "files/hello.txt"
+      },
+      "depends-on": [
+        "resource.welcome/resource.this"
+      ]
+    },
+    {
+      "address": "resource.welcome/resource.this",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": { "alias": "e2e", "export": "file" },
+      "schema-version": 1,
+      "inputs": {
+        "content": "hello",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/hello.txt"
+      },
+      "outputs": {
+        "content": "hello",
+        "exists": true,
+        "path": "files/hello.txt",
+        "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        "size": 5
+      }
+    },
+    {
+      "address": "resource.other",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "selector": { "alias": "e2e", "export": "file" },
+      "schema-version": 1,
+      "inputs": {
+        "content": "other",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/other.txt"
+      },
+      "outputs": {
+        "content": "other",
+        "exists": true,
+        "path": "files/other.txt",
+        "sha256": "d9298a10d1b0735837dc4bd85dac641b0f3cef27a47e5d53a54f2f3f5b2fcffa",
+        "size": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "state-command-composite-move",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-command-composite-move",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "commands": [
+    {
+      "name": "state-list-initial",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-list-initial.stdout",
+      "stderr": "want/state-list-initial.stderr"
+    },
+    {
+      "name": "state-move-composite",
+      "args": ["state", "move", "greeter.greeting@resource.welcome", "greeter.greeting@resource.hello", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-move-composite.stdout",
+      "stderr": "want/state-move-composite.stderr"
+    },
+    {
+      "name": "state-list-after-move",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-list-after-move.stdout",
+      "stderr": "want/state-list-after-move.stderr"
+    },
+    {
+      "name": "state-show-internal",
+      "args": ["state", "show", "e2e.file@resource.hello/resource.this", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-show-internal.stdout",
+      "stderr": "want/state-show-internal.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}
