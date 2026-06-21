@@ -1,0 +1,19 @@
+pair: resource {
+  inputs: {
+    name:       { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: { one: e2e.file { path: var.name, content: 'x' } }
+
+  outputs: {
+    path:  { value: resource.one.path }
+    size:  { value: resource.one.size }
+    info:  { value: { host: var.name } }
+    names: { value: [var.name] }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "compile-type-composite-outputs",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid",
+      "dir": "valid",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ]
+    },
+    {
+      "name": "unknown-object-field",
+      "dir": "unknown-object-field",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/unknown-object-field.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "output-list-mismatch",
+      "dir": "output-list-mismatch",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/output-list-mismatch.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "output-operator-mismatch",
+      "dir": "output-operator-mismatch",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/output-operator-mismatch.stderr",
+      "exitCode": 1
+    }
+  ]
+}
