@@ -1,0 +1,13 @@
+{
+  "name": "deps-get-unobin",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-get",
+      "args": ["deps", "get", "github.com/cloudboss/unobin@v0.5.0"],
+      "stderr": "want/deps-get.stderr",
+      "exitCode": 1
+    }
+  ]
+}

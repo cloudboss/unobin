@@ -377,35 +377,6 @@ factory: {
 	require.NoError(t, err)
 }
 
-// TestDepsGetRefusesUnobin proves a floor cannot be added for the
-// unobin repository.
-func TestDepsGetRefusesUnobin(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("description: 'x'\n"), 0o644))
-
-	_, err := runCommand(t, "deps", "get", "github.com/cloudboss/unobin@v0.5.0",
-		"-p", filepath.Join(dir, "factory.ub"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "toolchain-versioned")
-}
-
-// TestDepsSyncTeachesReplaceForUnobinImport proves sync does not ask
-// for a floor on an unobin-repo import; the fix it teaches is the
-// replace.
-func TestDepsSyncTeachesReplaceForUnobinImport(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "demo-factory")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
-		factorySource("imports: { x: 'github.com/cloudboss/unobin//examples/thing' }\n"), 0o644))
-
-	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(dir, "factory.ub"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "toolchain-versioned")
-	require.NotContains(t, err.Error(), "deps get")
-}
-
 // TestCLIVersionFallsBackToBuildInfo proves an unstamped binary
 // identifies by the module version Go recorded at install time, and a
 // source build stays dev.

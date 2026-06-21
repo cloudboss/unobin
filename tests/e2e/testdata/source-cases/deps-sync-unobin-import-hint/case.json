@@ -1,0 +1,13 @@
+{
+  "name": "deps-sync-unobin-import-hint",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr",
+      "exitCode": 1
+    }
+  ]
+}

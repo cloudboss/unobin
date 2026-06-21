@@ -1,0 +1,2 @@
+Error: github.com/cloudboss/unobin is toolchain-versioned and cannot be imported at a dependency version; replace it locally:
+  in manifest.ub: manifest: { replace: { 'github.com/cloudboss/unobin': '<path-to-unobin>' } }
