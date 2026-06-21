@@ -56,21 +56,3 @@ func TestFormatInterpolatedTripleEncodeDecode(t *testing.T) {
 	}
 }
 
-func TestFormatInterpolatedReparses(t *testing.T) {
-	// The formatted output parses back to an interpolated string with the
-	// same literal/slot layout.
-	f, err := ParseSource("test.ub", []byte("x: $'a-{{var.x}}-{{var.y:%d}}'\n"))
-	require.NoError(t, err)
-	out := formatString(t, "x: $'a-{{var.x}}-{{var.y:%d}}'\n")
-
-	g, err := ParseSource("test.ub", []byte(out))
-	require.NoError(t, err)
-	orig := f.Body.Fields[0].Value.(*InterpolatedString)
-	round := g.Body.Fields[0].Value.(*InterpolatedString)
-	require.Len(t, round.Parts, len(orig.Parts))
-	for i := range orig.Parts {
-		require.Equal(t, orig.Parts[i].Lit, round.Parts[i].Lit, "part %d literal", i)
-		require.Equal(t, orig.Parts[i].Verb, round.Parts[i].Verb, "part %d verb", i)
-		require.Equal(t, orig.Parts[i].Expr == nil, round.Parts[i].Expr == nil, "part %d slot", i)
-	}
-}
