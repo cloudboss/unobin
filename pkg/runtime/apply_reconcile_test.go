@@ -5,8 +5,10 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestReconcileTargets(t *testing.T) {
@@ -157,15 +159,6 @@ func TestReconcileTargets(t *testing.T) {
 	}
 }
 
-// reconcileSrc is two resources where b reads a's size, so b depends on
-// a. After apply b is a sink (nothing depends on it).
-const reconcileSrc = `
-resources: {
-  a: core.thing { name: 'a', size: 1 }
-  b: core.thing { name: 'b', size: resource.a.size }
-}
-`
-
 func findEntry(t *testing.T, snap *state.Snapshot, addr string) *state.Entry {
 	t.Helper()
 	for _, e := range snap.Entries {
@@ -193,7 +186,8 @@ func TestApplyReconcilesMutatedDependency(t *testing.T) {
 		return out, nil
 	}
 
-	dag, syntaxSource := syntaxDAGAndBody(t, reconcileSrc, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-reconcile", "dependency"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -219,13 +213,6 @@ func TestApplyReconciledValueReachesOutputs(t *testing.T) {
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	src := `
-resources: {
-  a: core.thing { name: 'a', size: 1 }
-  b: core.thing { name: 'b', size: resource.a.size }
-}
-outputs: { a-size: { value: resource.a.size } }
-`
 	c.readFn = func(prior any) (any, error) {
 		m, _ := prior.(map[string]any)
 		out := map[string]any{}
@@ -234,7 +221,8 @@ outputs: { a-size: { value: resource.a.size } }
 		return out, nil
 	}
 
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-reconcile", "dependency-output"), libs)
 	res := applyOnce(t, &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -254,10 +242,8 @@ func TestApplyReconcilesPreExistingDependency(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
 	// Apply one resource on its own.
-	srcA := `
-resources: { a: core.thing { name: 'a', size: 1 } }
-`
-	dagA, syntaxA := syntaxDAGAndBody(t, srcA, libs)
+	dagA, syntaxA := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-reconcile", "one-resource"), libs)
 	applyOnce(t, &Executor{
 		DAG:          dagA,
 		SyntaxSource: syntaxA,
@@ -270,7 +256,8 @@ resources: { a: core.thing { name: 'a', size: 1 } }
 	// first as an unchanged no-op; only after the plan does its live Read
 	// start returning a mutated value, modeling the new dependent's side
 	// effect at apply time.
-	dag, syntaxSource := syntaxDAGAndBody(t, reconcileSrc, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-reconcile", "dependency"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -327,7 +314,8 @@ func TestApplyReconcileFailureKeepsAppliedOutputs(t *testing.T) {
 			stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 			c.readFn = tt.readFn
 
-			dag, syntaxSource := syntaxDAGAndBody(t, reconcileSrc, libs)
+			dag, syntaxSource := syntaxDAGAndBody(t,
+				ubtest.ReadValidFixture(t, "testdata/ub/apply-reconcile", "dependency"), libs)
 			exec := &Executor{
 				DAG:          dag,
 				SyntaxSource: syntaxSource,
