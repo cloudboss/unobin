@@ -1,0 +1,12 @@
+address: action.old
+selector: e2e.echo
+entry-kind: action
+node-kind: action
+schema-version: 0
+inputs:
+  text: 'hello'
+  upper: false
+outputs:
+  length: 5
+  prefixed: 'hello'
+  text: 'hello'

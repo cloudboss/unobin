@@ -10,6 +10,9 @@ var (
 	contentRevisionFieldRE = regexp.MustCompile(`content-revision: '[0-9a-f]{12}'`)
 	eventTimeRE            = regexp.MustCompile(`time: '[0-9:]+(?:\.[0-9]+)?'`)
 	elapsedRE              = regexp.MustCompile(`elapsed: '[^']+'`)
+	stateRevisionLineRE    = regexp.MustCompile(
+		`(?m)^([* ] )[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z(?:_[0-9]+)?$`,
+	)
 )
 
 func normalizeCommandResult(result CommandResult, repoRoot string) CommandResult {
@@ -43,5 +46,9 @@ func normalizeDynamicText(s string, repoRoot string) string {
 	s = contentRevisionFieldRE.ReplaceAllString(s, "content-revision: '<revision>'")
 	s = eventTimeRE.ReplaceAllString(s, "time: '<time>'")
 	s = elapsedRE.ReplaceAllString(s, "elapsed: '<elapsed>'")
-	return strings.ReplaceAll(s, repoRoot, "<repo>")
+	s = stateRevisionLineRE.ReplaceAllString(s, "${1}<revision>")
+	if repoRoot != "" {
+		s = strings.ReplaceAll(s, repoRoot, "<repo>")
+	}
+	return s
 }

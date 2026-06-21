@@ -1,0 +1,32 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "state-command-edits",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.hi",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": {
+        "alias": "e2e",
+        "export": "echo"
+      },
+      "inputs": {
+        "text": "hello",
+        "upper": false
+      },
+      "outputs": {
+        "length": 5,
+        "prefixed": "hello",
+        "text": "hello"
+      }
+    }
+  ],
+  "outputs": {
+    "said": "hello"
+  }
+}

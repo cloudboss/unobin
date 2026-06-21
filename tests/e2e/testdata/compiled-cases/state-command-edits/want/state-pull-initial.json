@@ -1,0 +1,51 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "state-command-edits",
+    "version": "v0.0.0",
+    "content-revision": "seed"
+  },
+  "stack": "dev",
+  "generated-at": "2026-06-20T00:00:00Z",
+  "entries": [
+    {
+      "address": "action.old",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": {
+        "alias": "e2e",
+        "export": "echo"
+      },
+      "inputs": {
+        "text": "hello",
+        "upper": false
+      },
+      "outputs": {
+        "length": 5,
+        "prefixed": "hello",
+        "text": "hello"
+      }
+    },
+    {
+      "address": "action.bye",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": {
+        "alias": "e2e",
+        "export": "echo"
+      },
+      "inputs": {
+        "text": "bye",
+        "upper": false
+      },
+      "outputs": {
+        "length": 3,
+        "prefixed": "bye",
+        "text": "bye"
+      }
+    }
+  ],
+  "outputs": {
+    "said": "hello"
+  }
+}

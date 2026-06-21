@@ -1,0 +1,113 @@
+{
+  "name": "state-command-edits",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-command-edits",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "commands": [
+    {
+      "name": "state-list-initial",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-list-initial.stdout",
+      "stderr": "want/state-list-initial.stderr"
+    },
+    {
+      "name": "state-show-old",
+      "args": ["state", "show", "e2e.echo@action.old", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-show-old.stdout",
+      "stderr": "want/state-show-old.stderr"
+    },
+    {
+      "name": "state-pull-initial",
+      "args": ["state", "pull", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-pull-initial.json",
+      "stderr": "want/state-pull-initial.stderr"
+    },
+    {
+      "name": "state-snapshots-list-initial",
+      "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-snapshots-list-initial.stdout",
+      "stderr": "want/state-snapshots-list-initial.stderr"
+    },
+    {
+      "name": "state-move-address-only",
+      "args": ["state", "move", "action.old", "action.hi", "-c", "stacks/dev.ub"],
+      "stderr": "want/state-move-address-only.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-move-missing",
+      "args": ["state", "move", "e2e.echo@action.missing", "e2e.echo@action.hi", "-c", "stacks/dev.ub"],
+      "stderr": "want/state-move-missing.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-move-collision",
+      "args": ["state", "move", "e2e.echo@action.old", "e2e.echo@action.bye", "-c", "stacks/dev.ub"],
+      "stderr": "want/state-move-collision.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-remove-address-only",
+      "args": ["state", "remove", "action.bye", "-c", "stacks/dev.ub"],
+      "stderr": "want/state-remove-address-only.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-remove-missing",
+      "args": ["state", "remove", "e2e.echo@action.missing", "-c", "stacks/dev.ub"],
+      "stderr": "want/state-remove-missing.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-move-old-to-hi",
+      "args": ["state", "move", "e2e.echo@action.old", "e2e.echo@action.hi", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-move-old-to-hi.stdout",
+      "stderr": "want/state-move-old-to-hi.stderr"
+    },
+    {
+      "name": "state-list-after-move",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-list-after-move.stdout",
+      "stderr": "want/state-list-after-move.stderr"
+    },
+    {
+      "name": "state-remove-bye",
+      "args": ["state", "remove", "e2e.echo@action.bye", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-remove-bye.stdout",
+      "stderr": "want/state-remove-bye.stderr"
+    },
+    {
+      "name": "state-list-final",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-list-final.stdout",
+      "stderr": "want/state-list-final.stderr"
+    },
+    {
+      "name": "state-show-old-absent",
+      "args": ["state", "show", "e2e.echo@action.old", "-c", "stacks/dev.ub"],
+      "stderr": "want/state-show-old-absent.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-snapshots-gc",
+      "args": ["state", "snapshots", "gc", "--keep", "1", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-snapshots-gc.stdout",
+      "stderr": "want/state-snapshots-gc.stderr"
+    },
+    {
+      "name": "state-snapshots-list-final",
+      "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-snapshots-list-final.stdout",
+      "stderr": "want/state-snapshots-list-final.stderr"
+    },
+    {
+      "name": "state-snapshots-gc-noop",
+      "args": ["state", "snapshots", "gc", "--keep", "10", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-snapshots-gc-noop.stdout",
+      "stderr": "want/state-snapshots-gc-noop.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

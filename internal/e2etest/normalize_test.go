@@ -23,3 +23,9 @@ func TestNormalizeFileResults(t *testing.T) {
 
 	require.Equal(t, "repo <repo> workspace <workspace>\n", got["out.txt"])
 }
+
+func TestNormalizeStateRevisionLines(t *testing.T) {
+	got := normalizeDynamicText("  2026-06-20T12:00:01Z\n* 2026-06-20T12:00:02.3Z_1\n", "")
+
+	require.Equal(t, "  <revision>\n* <revision>\n", got)
+}

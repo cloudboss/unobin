@@ -1038,85 +1038,6 @@ actions: { bad: core.echo { echo: var.missing } }
 	require.Contains(t, err.Error(), `unknown input "missing"`)
 }
 
-func TestStateMoveRelocatesEntry(t *testing.T) {
-	oldInfo := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, oldInfo, "")
-
-	newInfo := oldInfo
-	newInfo.FactoryBody = sourceFactory(`actions: { bye: core.echo { echo: 'hello' } }`)
-	out, err := runWithStack(t, newInfo, "state", "move",
-		"core.echo@action.hi", "core.echo@action.bye")
-	require.NoError(t, err)
-	require.Contains(t, out, "Moved core.echo@action.hi to core.echo@action.bye")
-
-	list, err := runWithStack(t, newInfo, "state", "list")
-	require.NoError(t, err)
-	require.Contains(t, list, "core.echo@action.bye\n")
-	require.NotContains(t, list, "core.echo@action.hi")
-}
-
-func TestStateMoveRejectsAddressOnlyInput(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info, "state", "move", "action.hi", "action.bye")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "expected <selector>@<address>")
-}
-
-func TestStateMoveRejectsMissingSource(t *testing.T) {
-	info := testInfo(t, `actions: { bye: core.echo { echo: 'bye' } }`)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info, "state", "move",
-		"core.echo@action.gone", "core.echo@action.bye")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
-}
-
-func TestStateMoveRejectsCollision(t *testing.T) {
-	info := testInfo(t, `
-actions: { hi: core.echo { echo: 'hello' }, bye: core.echo { echo: 'bye' } }
-`)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info, "state", "move",
-		"core.echo@action.hi", "core.echo@action.bye")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "already exists")
-}
-
-func TestStateRemoveRemovesEntry(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-
-	out, err := runWithStack(t, info, "state", "remove", "core.echo@action.hi")
-	require.NoError(t, err)
-	require.Contains(t, out, "Removed core.echo@action.hi")
-
-	list, err := runWithStack(t, info, "state", "list")
-	require.NoError(t, err)
-	require.NotContains(t, list, "core.echo@action.hi")
-}
-
-func TestStateRemoveRejectsAddressOnlyInput(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info, "state", "remove", "action.hi")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "expected <selector>@<address>")
-}
-
-func TestStateRemoveRejectsMissing(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info, "state", "remove", "core.echo@action.gone")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
-}
-
 func testGreetingLibrary(t *testing.T) *runtime.Library {
 	t.Helper()
 	sf, err := syntax.ParseSource("factory.ub", []byte(sourceFactory(`
@@ -1242,14 +1163,6 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.Equal(t, []string{currentRev, revs[3], revs[4]}, after)
 }
 
-func TestStateGCNoOpWhenWithinKeep(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-	out, err := runWithStack(t, info, "state", "snapshots", "gc", "--keep", "10")
-	require.NoError(t, err)
-	require.Contains(t, out, "Deleted 0 snapshot(s), kept 1.")
-}
-
 func TestStateForceUnlockReleasesLock(t *testing.T) {
 	src := `actions: { hi: core.echo { echo: 'hello' } }`
 	info := testInfo(t, src)
@@ -1291,45 +1204,6 @@ outputs: { said: { value: action.hi.echo } }
 	show, err := runWithStack(t, info, "state", "list")
 	require.NoError(t, err)
 	require.Contains(t, show, "core.echo@action.hi")
-}
-
-func TestStateListShowPullAndSnapshots(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	_ = applyVia(t, info, "")
-
-	listOut, err := runWithStack(t, info, "state", "list")
-	require.NoError(t, err)
-	require.Equal(t, "core.echo@action.hi\n", listOut)
-
-	snapshotsOut, err := runWithStack(t, info, "state", "snapshots", "list")
-	require.NoError(t, err)
-	require.Contains(t, snapshotsOut, "* ")
-
-	showOut, err := runWithStack(t, info, "state", "show", "core.echo@action.hi")
-	require.NoError(t, err)
-	require.Contains(t, showOut, "address: action.hi")
-	require.Contains(t, showOut, "selector: core.echo")
-	require.Contains(t, showOut, "entry-kind: action")
-	require.Contains(t, showOut, "outputs:")
-	require.Contains(t, showOut, `  echo: 'hello'`)
-
-	pullOut, err := runWithStack(t, info, "state", "pull")
-	require.NoError(t, err)
-	require.True(t, isJSON([]byte(pullOut)))
-	require.Contains(t, pullOut, `"address": "action.hi"`)
-}
-
-func TestStateShowRejectsAbsentRef(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-
-	_, err := runWithStack(t, info, "state", "show", "core.echo@action.gone")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no entry at core.echo@action.gone")
 }
 
 func TestStateEncryptedWithEnvKey(t *testing.T) {
