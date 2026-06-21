@@ -1,0 +1,85 @@
+{
+  "name": "compile-type-library-configs",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "config-field-valid",
+      "dir": "config-field-valid",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/config-field-valid.stderr"
+    },
+    {
+      "name": "config-path-unimported",
+      "dir": "config-path-unimported",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/config-path-unimported.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "binding-required",
+      "dir": "binding-required",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/binding-required.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "binding-value-field-type",
+      "dir": "binding-value-field-type",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/binding-value-field-type.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "binding-unknown-alias",
+      "dir": "binding-unknown-alias",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/binding-unknown-alias.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "composite-config-field-type",
+      "dir": "composite-config-field-type",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/composite-config-field-type.stderr",
+      "exitCode": 1
+    }
+  ]
+}

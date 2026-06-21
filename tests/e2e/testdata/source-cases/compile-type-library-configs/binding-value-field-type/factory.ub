@@ -1,0 +1,11 @@
+factory: {
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  library-configs: {
+    e2e: {
+      base-dir:       1
+      event-log-path: 'events.ndjson'
+      nested:         { label: 'nested' }
+    }
+  }
+  resources: { one: e2e.file { path: 'out.txt', content: 'hi' } }
+}

@@ -1,0 +1,12 @@
+factory: {
+  imports: { bundle: './libraries/bundle' }
+  resources: {
+    demo: bundle.app {
+      e2e-config: {
+        base-dir:       1
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+}

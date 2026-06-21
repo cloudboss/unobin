@@ -53,14 +53,6 @@ func libraryConfigSchemaLibrary(digest string) *runtime.Library {
 	}}
 }
 
-func configuredResourceLibrary() *runtime.Library {
-	lib := libraryConfigSchemaLibrary("")
-	lib.Schema.Resources = map[string]*runtime.TypeSchema{
-		"bucket": {Inputs: map[string]typecheck.Type{}},
-	}
-	return lib
-}
-
 func emptyConfigResourceLibrary() *runtime.Library {
 	return &runtime.Library{Schema: &runtime.LibrarySchema{
 		HasConfiguration:    true,
@@ -108,40 +100,6 @@ resources: { one: ext.thing { name: 'a' } }
 	require.Empty(t, errs.Messages())
 }
 
-func TestCheckTypesUsesLibraryConfigInputFields(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: {
-  aws: 'github.com/acme/aws'
-  local: 'github.com/local/file'
-}
-inputs: {
-  aws-config: { type: library-config('github.com/acme/aws') }
-}
-resources: {
-  one: local.file { path: var.aws-config.region content: 'x' }
-}
-`, map[string]*runtime.Library{
-		"aws":   libraryConfigSchemaLibrary(""),
-		"local": localFileLibrary(),
-	})
-
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesRequiresImportedLibraryConfigPath(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: { aws: 'github.com/acme/other' }
-inputs: {
-  aws-config: { type: library-config('github.com/acme/aws') }
-}
-locals: { region: var.aws-config.region }
-`, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
-
-	require.Equal(t,
-		[]string{`library-config path "github.com/acme/aws" is not imported in this body`},
-		errs.Messages())
-}
-
 func TestCheckTypesRequiresOneLibraryConfigSchema(t *testing.T) {
 	errs := checkSyntaxReferences(t, `
 imports: {
@@ -162,40 +120,6 @@ locals: { region: var.aws-config.region }
 		errs.Messages())
 }
 
-func TestCheckTypesChecksLibraryConfigBindings(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: { aws: 'github.com/acme/aws' }
-inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
-library-configs: { aws: var.aws-config }
-locals: { region: var.aws-config.region }
-`, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
-
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesRequiresLibraryConfigBindingForLeaf(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: { aws: 'github.com/acme/aws' }
-inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
-resources: { bucket: aws.bucket {} }
-`, map[string]*runtime.Library{"aws": configuredResourceLibrary()})
-
-	require.Equal(t,
-		[]string{`library "aws" requires library-configs.aws`},
-		errs.Messages())
-}
-
-func TestCheckTypesAcceptsLibraryConfigBindingForLeaf(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: { aws: 'github.com/acme/aws' }
-inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
-library-configs: { aws: var.aws-config }
-resources: { bucket: aws.bucket {} }
-`, map[string]*runtime.Library{"aws": configuredResourceLibrary()})
-
-	require.Empty(t, errs.Messages())
-}
-
 func TestCheckTypesAllowsEmptyConfigWithoutBinding(t *testing.T) {
 	errs := checkSyntaxReferences(t, `
 imports: { aws: 'github.com/acme/aws' }
@@ -203,52 +127,6 @@ resources: { bucket: aws.bucket {} }
 `, map[string]*runtime.Library{"aws": emptyConfigResourceLibrary()})
 
 	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesChecksLibraryConfigBindingFields(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: { aws: 'github.com/acme/aws' }
-library-configs: { aws: { region: 1 } }
-`, map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")})
-
-	require.Equal(t,
-		[]string{`type mismatch: expected string, got integer`},
-		errs.Messages())
-}
-
-func TestCheckTypesRejectsUnknownLibraryConfigBindingAlias(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-library-configs: { aws: {} }
-`, nil)
-
-	require.Equal(t,
-		[]string{`library-configs.aws has no resolved imports`},
-		errs.Messages())
-}
-
-func TestCheckTypesUsesCompositeLibraryConfigInput(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-app: resource {
-  imports: { aws: 'github.com/acme/aws' }
-  inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
-  outputs: { region: { value: var.aws-config.region } }
-}
-`)
-	body := composite.body
-	libs := map[string]*runtime.Library{
-		"bundle": {ResourceComposites: map[string]*runtime.CompositeType{"app": {
-			Name:       "app",
-			SyntaxBody: &body,
-			Libraries:  map[string]*runtime.Library{"aws": libraryConfigSchemaLibrary("")},
-		}}},
-	}
-
-	errs := checkSyntaxReferences(t, `
-resources: { demo: bundle.app { aws-config: { region: 1 } } }
-`, libs)
-	require.Equal(t,
-		[]string{`type mismatch: expected string, got integer`},
-		errs.Messages())
 }
 
 func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {
