@@ -1,0 +1,6 @@
+inputs: {
+  empty-object: { type: object({}) }
+  open-empty:   { type: open(object({})) }
+  mixed-tuple:  { type: tuple(string, integer) }
+  open-value:   { type: open(object({ a: string })) }
+}

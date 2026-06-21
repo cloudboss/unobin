@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -30,6 +31,27 @@ func TestFormatFixtures(t *testing.T) {
 				return "", []string{err.Error()}
 			}
 			return string(out), nil
+		},
+		ubtest.Idempotent(),
+		ubtest.Repeat(5),
+	)
+}
+
+func TestFormatTypeExpressionFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/format-types/valid",
+		func(name string, src []byte) (string, []string) {
+			te, err := ParseType(name+".ub", bytes.TrimSpace(src))
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			out, err := Format(&File{Body: &ObjectLit{Fields: []*Field{{
+				Key:   FieldKey{Kind: FieldIdent, Name: "t"},
+				Value: te,
+			}}}})
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return strings.TrimPrefix(string(out), "t: "), nil
 		},
 		ubtest.Idempotent(),
 		ubtest.Repeat(5),
@@ -584,57 +606,6 @@ func TestSingleLineWidthMultilineStringForcesBreak(t *testing.T) {
 
 	w, expr = parseFirstValue(t, "{ a: 1, b: '''|\n  hi\n  ''' }")
 	require.Equal(t, -1, w.singleLineWidth(expr))
-}
-
-func TestSingleLineWidthCommentInsideCollectionForcesBreak(t *testing.T) {
-	src := "k: {\n  a: 1\n  # nope\n  b: 2\n}\n"
-	f, err := ParseSource("t.ub", []byte(src))
-	require.NoError(t, err)
-	w := &formatter{comments: f.Comments}
-	require.Equal(t, -1, w.singleLineWidth(f.Body.Fields[0].Value))
-}
-
-func TestFormatParsedOpenObjectType(t *testing.T) {
-	file := &File{Body: &ObjectLit{Fields: []*Field{{
-		Key: FieldKey{Kind: FieldIdent, Name: "t"},
-		Value: &TypeObject{Open: true, Fields: []*TypeObjectField{{
-			Name: "a",
-			Type: &TypeAtomic{Name: "string"},
-		}}},
-	}}}}
-
-	got, err := Format(file)
-	require.NoError(t, err)
-	require.Equal(t, "t: open(object({\n  a: string\n}))\n", string(got))
-}
-
-func TestSingleLineWidthParsedTypeExpressions(t *testing.T) {
-	tests := []struct {
-		name string
-		src  string
-		want int
-	}{
-		{"atomic", "string", len("string")},
-		{"list", "list(string)", len("list(string)")},
-		{"optional", "optional(map(string))", len("optional(map(string))")},
-		{"empty type object", "object({})", len("object({})")},
-		{"empty open type object", "open(object({}))", len("open(object({}))")},
-		{"non-empty type object forces break", "object({ a: integer })", -1},
-		{"tuple", "tuple(string, integer)", len("tuple(string, integer)")},
-		{
-			"library config",
-			"library-config('github.com/acme/aws')",
-			len("library-config('github.com/acme/aws')"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			w := &formatter{}
-			te, err := ParseType("type.ub", []byte(tt.src))
-			require.NoError(t, err)
-			require.Equal(t, tt.want, w.singleLineWidth(te))
-		})
-	}
 }
 
 func TestFitsOnLine(t *testing.T) {

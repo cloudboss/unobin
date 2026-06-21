@@ -1,0 +1,3 @@
+open(object({
+  a: string
+}))
