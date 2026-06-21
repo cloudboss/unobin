@@ -1,0 +1,4 @@
+a: lib.foo(
+  core.file('/very/long/path/to/something/important'),
+  core.file('/another/long/path/here/that/extends/well'),
+)

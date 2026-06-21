@@ -1,0 +1,5 @@
+a: lib.foo(
+  1,
+  core.file('/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+  2,
+)

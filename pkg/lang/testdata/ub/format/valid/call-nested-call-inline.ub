@@ -1,0 +1,1 @@
+a: lib.foo(other.bar(1))

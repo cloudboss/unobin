@@ -1,0 +1,4 @@
+a: lib.foo(
+  var.alpha.beta.gamma.delta.epsilon.zeta,
+  var.aaaaa.bbbbb.ccccc.ddddd.eeeee.fffff.ggggg.hhhhh,
+)
