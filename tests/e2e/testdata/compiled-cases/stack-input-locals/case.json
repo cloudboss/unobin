@@ -1,0 +1,33 @@
+{
+  "name": "stack-input-locals",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/stack-input-locals",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate",
+      "args": ["validate", "-c", "stacks/dev.ub"],
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate.stderr"
+    },
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "stdout": "want/apply.stdout",
+      "stderr": "want/apply.stderr"
+    },
+    {
+      "name": "output",
+      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output.json",
+      "stderr": "want/output.stderr"
+    }
+  ],
+  "deterministic": true
+}

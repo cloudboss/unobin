@@ -1,0 +1,20 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  locals: {
+    region: 'us-east-1'
+    tags:   { team: 'core' }
+  }
+
+  factory: {
+    inputs: {
+      region: local.region
+      name:   $'app-{{local.region}}'
+      tags:   local.tags
+    }
+  }
+}

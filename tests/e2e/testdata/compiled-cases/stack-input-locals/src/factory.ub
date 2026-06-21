@@ -1,0 +1,35 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+    region: { type: string }
+    name:   { type: string }
+    tags:   { type: object({ team: string }) }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  actions: {
+    app: e2e.echo {
+      text: var.name
+    }
+  }
+
+  outputs: {
+    name:   { value: action.app.text }
+    region: { value: var.region }
+    team:   { value: var.tags.team }
+  }
+}

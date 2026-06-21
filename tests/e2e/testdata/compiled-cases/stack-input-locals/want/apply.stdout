@@ -1,0 +1,3 @@
+{ kind: 'apply-output', name: 'name', value: 'app-us-east-1' }
+{ kind: 'apply-output', name: 'region', value: 'us-east-1' }
+{ kind: 'apply-output', name: 'team', value: 'core' }

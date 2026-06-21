@@ -1394,30 +1394,6 @@ func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
 // `.unobin/state` relative to cwd) by chdir-ing in testInfo.
 var _ = filepath.Join
 
-func TestLoadStackInputsResolvesLocals(t *testing.T) {
-	path := writeConfig(t, `
-locals: {
-  region: 'us-east-1'
-  tags:   { team: 'core' }
-}
-
-factory: {
-  inputs: {
-    region: local.region
-    name:   $'app-{{local.region}}'
-    tags:   local.tags
-  }
-}
-`)
-	got, err := loadStackInputs(parseTestStack(t, path), path)
-	require.NoError(t, err)
-	require.Equal(t, map[string]any{
-		"region": "us-east-1",
-		"name":   "app-us-east-1",
-		"tags":   map[string]any{"team": "core"},
-	}, got)
-}
-
 func TestApplyUIServesRunView(t *testing.T) {
 	t.Setenv("BROWSER", "true")
 	old := uiLingerTimeout
