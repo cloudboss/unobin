@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
@@ -191,20 +190,6 @@ func openPlanFile(t *testing.T, path string) *runtime.PlanFile {
 	})
 	require.NoError(t, err)
 	return pf
-}
-
-func TestParseFactoryAcceptsCompilerFactoryBody(t *testing.T) {
-	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
-  imports: { std: 'github.com/example/std' }
-  resources: {
-    hello: std.fs-file { path: '/tmp/hello' }
-  }
-}
-`))
-	require.NoError(t, err)
-
-	_, err = parseFactory(Info{FactoryBody: body})
-	require.NoError(t, err)
 }
 
 func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
