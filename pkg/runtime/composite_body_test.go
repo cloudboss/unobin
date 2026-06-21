@@ -4,16 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestCompositeOutputsUseSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  inputs: { path: { type: string } }
-  locals: { decorated: var.path + '!' }
-  outputs: { path: { value: local.decorated } }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/composite-body", "outputs-with-local"))
 	body := composite.body
 	node := &Node{CompositeSyntaxBody: &body}
 	scope := &EvalContext{
@@ -28,14 +25,8 @@ greeting: resource {
 }
 
 func TestPlanCompositeOutputsUseSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  outputs: {
-    ready: { value: var.ready }
-    later: { value: resource.later.id }
-  }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/composite-body", "plan-pending-output"))
 	body := composite.body
 	node := &Node{CompositeSyntaxBody: &body}
 	scope := &EvalContext{Vars: map[string]any{"ready": "ok"}}
@@ -47,11 +38,8 @@ greeting: resource {
 }
 
 func TestSeedCompositeOutputsUsesSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  outputs: { ready: { value: var.ready } }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/composite-body", "seed-output"))
 	body := composite.body
 	node := &Node{
 		Address:             "resource.app",
@@ -73,12 +61,8 @@ greeting: resource {
 }
 
 func TestCheckCompositeConstraintsUseSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  inputs: { name: { type: optional(string) } }
-  constraints: [ { kind: predicate, when: true, require: var.name != null } ]
-}
-`)
+	composite := parseSyntaxCompositeFixture(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/composite-body", "constraint-predicate"))
 	body := composite.body
 	node := &Node{
 		Address:             "resource.app",

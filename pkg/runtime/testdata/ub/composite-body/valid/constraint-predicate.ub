@@ -1,0 +1,8 @@
+greeting: resource {
+  inputs: {
+    name: { type: optional(string) }
+  }
+  constraints: [
+    { kind: predicate, when: true, require: var.name != null }
+  ]
+}

@@ -1,0 +1,11 @@
+greeting: resource {
+  inputs: {
+    path: { type: string }
+  }
+  locals: {
+    decorated: var.path + '!'
+  }
+  outputs: {
+    path: { value: local.decorated }
+  }
+}

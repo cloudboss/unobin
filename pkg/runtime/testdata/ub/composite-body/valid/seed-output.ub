@@ -1,0 +1,5 @@
+greeting: resource {
+  outputs: {
+    ready: { value: var.ready }
+  }
+}
