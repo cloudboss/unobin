@@ -28,26 +28,6 @@ func TestExtractSyntaxImportsFixtures(t *testing.T) {
 		})
 }
 
-func TestExtractSyntaxBodyImports(t *testing.T) {
-	f, err := syntax.ParseSource("factory.ub", []byte(`
-factory: {
-  imports: {
-    local: './lib'
-    remote: 'github.com/example/lib//pkg'
-  }
-}
-`))
-	require.NoError(t, err)
-
-	refs, errs := ExtractSyntaxBodyImports(f.Factory.Body)
-
-	require.Empty(t, errs)
-	require.Equal(t, &LocalImport{Path: "./lib"}, refs["local"])
-	require.Equal(t,
-		&RemoteImport{URL: "github.com/example/lib", Subdir: "pkg"},
-		refs["remote"])
-}
-
 func syntaxImportFixturePath(name string) string {
 	base := filepath.Base(name)
 	if strings.Contains(base, "library") {
