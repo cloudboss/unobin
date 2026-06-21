@@ -290,32 +290,6 @@ func TestParseEnvValueJSON(t *testing.T) {
 	}
 }
 
-func TestPlanChecksPredicateCallingFunction(t *testing.T) {
-	src := `
-inputs: {
-  replicas: {
-    type: optional(list(object({ port: optional(integer) })))
-    default: [{ port: 443 }, { port: 0 }]
-  }
-}
-imports: {
-  core: 'github.com/cloudboss/unobin//pkg/libraries/core'
-}
-constraints: [
-  {
-    kind:    predicate
-    when:    var.replicas != null
-    require: core.all([for r in var.replicas: r.port != null && r.port > 0])
-    message: 'every replica needs a positive port'
-  },
-]
-`
-	info := testInfo(t, src)
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "every replica needs a positive port")
-}
-
 func TestPrintPlanShowsStateMoves(t *testing.T) {
 	plan := &runtime.Plan{
 		StateMoves: []runtime.PlannedEntryMove{

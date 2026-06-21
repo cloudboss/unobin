@@ -1,0 +1,21 @@
+factory: {
+  inputs: {
+    replicas: {
+      type: optional(list(object({ port: optional(integer) })))
+      default: [{ port: 443 }, { port: 0 }]
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  constraints: [
+    {
+      kind:    predicate
+      when:    var.replicas != null
+      require: e2e.all-list([for r in var.replicas: r.port != null && r.port > 0])
+      message: 'every replica needs a positive port'
+    },
+  ]
+}

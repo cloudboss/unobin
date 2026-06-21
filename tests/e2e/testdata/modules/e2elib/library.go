@@ -60,7 +60,12 @@ func Library() *ubruntime.Library {
 			"record": ubruntime.MakeAction[Record, *RecordOutput, *Configuration](),
 		},
 		Functions: map[string]ubruntime.FunctionType{
-			"all":     ubruntime.MakeFunc("all", "Return true when every argument is true.", fnAll),
+			"all": ubruntime.MakeFunc("all", "Return true when every argument is true.", fnAll),
+			"all-list": ubruntime.MakeFunc(
+				"all-list",
+				"Return true when every list item is true.",
+				fnAllList,
+			),
 			"join":    ubruntime.MakeFunc("join", "Join strings with a separator.", fnJoin),
 			"length":  ubruntime.MakeFunc("length", "Return a value length.", fnLength),
 			"project": ubruntime.MakeFunc("project", "Read an object field.", fnProject),
@@ -415,6 +420,15 @@ type FunctionError struct {
 func (e *FunctionError) Error() string { return "e2elib: " + e.Message }
 
 func fnAll(values ...bool) (bool, error) {
+	for _, value := range values {
+		if !value {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func fnAllList(values []bool) (bool, error) {
 	for _, value := range values {
 		if !value {
 			return false, nil

@@ -1,0 +1,15 @@
+{
+  "name": "constraint-library-function",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/constraint-library-function",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "stderr": "want/plan.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}
