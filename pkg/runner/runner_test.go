@@ -400,23 +400,6 @@ func TestCommandsUseTypedOnlyComposite(t *testing.T) {
 	require.Contains(t, refreshOut, "Refreshed 1")
 }
 
-func TestApplyAndOutput(t *testing.T) {
-	info := testInfo(t, `
-actions: { hi: core.echo { echo: 'hello world' } }
-outputs: { said: { value: action.hi.echo } }
-`)
-	apply := applyVia(t, info, "")
-	require.Contains(t, apply, "said: 'hello world'")
-
-	all, err := runWithStack(t, info, "output")
-	require.NoError(t, err)
-	require.Contains(t, all, "said: 'hello world'")
-
-	one, err := runWithStack(t, info, "output", "said")
-	require.NoError(t, err)
-	require.Contains(t, one, "hello world")
-}
-
 func TestPlanDestroyRemovesResources(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "managed.txt")
 	src := fmt.Sprintf(`
@@ -457,61 +440,10 @@ resources: { x: local.file { path: '%s', content: 'hello', mode: 420 } }
 	require.NotContains(t, out, "resource.x")
 }
 
-func TestOutputJSON(t *testing.T) {
-	info := testInfo(t, `
-actions: { hi: core.echo { echo: 'hello world' } }
-outputs: { said: { value: action.hi.echo }, count: { value: 7 } }
-`)
-	_ = applyVia(t, info, "")
-
-	all, err := runWithStack(t, info, "output", "--json")
-	require.NoError(t, err)
-	require.Equal(t, "{\n  \"count\": 7,\n  \"said\": \"hello world\"\n}\n", all)
-
-	one, err := runWithStack(t, info, "output", "--json", "said")
-	require.NoError(t, err)
-	require.Equal(t, "\"hello world\"\n", one)
-}
-
-func TestOutputUnknownName(t *testing.T) {
-	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
-	_ = applyVia(t, info, "")
-	_, err := runWithStack(t, info, "output", "missing")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no output")
-}
-
-func TestOutputBeforeApply(t *testing.T) {
-	info := testInfo(t, `outputs: { x: { value: 'y' } }`)
-	_, err := runWithStack(t, info, "output")
-	require.Error(t, err)
-}
-
 func TestPlanParseError(t *testing.T) {
 	info := testInfo(t, `not valid syntax {{`)
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.Error(t, err)
-}
-
-func TestApplyWithStackInputs(t *testing.T) {
-	src := `
-inputs:  { greeting: { type: string } }
-actions: { hi: core.echo { echo: var.greeting } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateStackBody+`
-factory: {
-  inputs: {
-    greeting: 'from-config'
-  }
-}
-`)), 0o644))
-
-	out := applyVia(t, info, cfg)
-	require.Contains(t, out, "said: 'from-config'")
 }
 
 func TestDeploymentID(t *testing.T) {
@@ -532,37 +464,6 @@ func TestDeploymentID(t *testing.T) {
 			require.Equal(t, c.want, stackName(c.in))
 		})
 	}
-}
-
-func TestPlanIsolatesDeploymentsByConfigName(t *testing.T) {
-	src := `
-inputs:  { greeting: { type: string } }
-actions: { hi: core.echo { echo: var.greeting } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-
-	prod := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(prod,
-		[]byte(sourceStack(stateStackBody+`factory: { inputs: { greeting: 'hello-prod' } }`)),
-		0o644))
-	staging := filepath.Join(filepath.Dir(prod), "staging.ub")
-	require.NoError(t, os.WriteFile(staging,
-		[]byte(sourceStack(stateStackBody+`factory: { inputs: { greeting: 'hello-staging' } }`)),
-		0o644))
-
-	out := applyVia(t, info, prod)
-	require.Contains(t, out, "said: 'hello-prod'")
-	out = applyVia(t, info, staging)
-	require.Contains(t, out, "said: 'hello-staging'")
-
-	// Both stacks now have their own snapshot directory.
-	prodSnap := filepath.Join(".unobin/state", info.FactoryName, "prod")
-	stagingSnap := filepath.Join(".unobin/state", info.FactoryName, "staging")
-	_, err := os.Stat(prodSnap)
-	require.NoError(t, err)
-	_, err = os.Stat(stagingSnap)
-	require.NoError(t, err)
 }
 
 func TestEnvVarOverridesConfig(t *testing.T) {

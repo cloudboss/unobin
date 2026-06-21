@@ -1,0 +1,2 @@
+{ kind: 'apply-output', name: 'count', value: 7 }
+{ kind: 'apply-output', name: 'said', value: 'hello-prod' }

@@ -1,0 +1,81 @@
+{
+  "name": "outputs",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/outputs",
+  "build": true,
+  "commands": [
+    {
+      "name": "output-before-apply",
+      "args": ["output", "-c", "stacks/prod.ub"],
+      "stderr": "want/output-before-apply.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-prod",
+      "args": ["plan", "--ascii", "-c", "stacks/prod.ub", "-o", "prod.ubp"],
+      "stdout": "want/plan-prod.stdout",
+      "stderr": "want/plan-prod.stderr"
+    },
+    {
+      "name": "apply-prod",
+      "args": ["apply", "--output", "unobin", "prod.ubp"],
+      "stdout": "want/apply-prod.stdout",
+      "stderr": "want/apply-prod.stderr"
+    },
+    {
+      "name": "output-prod-text",
+      "args": ["output", "-c", "stacks/prod.ub"],
+      "stdout": "want/output-prod-text.stdout",
+      "stderr": "want/output-prod-text.stderr"
+    },
+    {
+      "name": "output-prod-name",
+      "args": ["output", "-c", "stacks/prod.ub", "said"],
+      "stdout": "want/output-prod-name.stdout",
+      "stderr": "want/output-prod-name.stderr"
+    },
+    {
+      "name": "output-prod-json",
+      "args": ["output", "--json", "-c", "stacks/prod.ub"],
+      "stdout": "want/output-prod.json",
+      "stderr": "want/output-prod-json.stderr"
+    },
+    {
+      "name": "output-prod-json-name",
+      "args": ["output", "--json", "-c", "stacks/prod.ub", "said"],
+      "stdout": "want/output-prod-name.json",
+      "stderr": "want/output-prod-json-name.stderr"
+    },
+    {
+      "name": "output-prod-unknown",
+      "args": ["output", "-c", "stacks/prod.ub", "missing"],
+      "stderr": "want/output-prod-unknown.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-staging",
+      "args": ["plan", "--ascii", "-c", "stacks/staging.ub", "-o", "staging.ubp"],
+      "stdout": "want/plan-staging.stdout",
+      "stderr": "want/plan-staging.stderr"
+    },
+    {
+      "name": "apply-staging",
+      "args": ["apply", "--output", "unobin", "staging.ubp"],
+      "stdout": "want/apply-staging.stdout",
+      "stderr": "want/apply-staging.stderr"
+    },
+    {
+      "name": "output-staging-json",
+      "args": ["output", "--json", "-c", "stacks/staging.ub"],
+      "stdout": "want/output-staging.json",
+      "stderr": "want/output-staging-json.stderr"
+    },
+    {
+      "name": "output-prod-json-after-staging",
+      "args": ["output", "--json", "-c", "stacks/prod.ub"],
+      "stdout": "want/output-prod-after-staging.json",
+      "stderr": "want/output-prod-json-after-staging.stderr"
+    }
+  ],
+  "deterministic": true
+}
