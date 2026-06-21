@@ -1,0 +1,8 @@
+# top
+output: {
+  region: 'us-east-1'
+  # nested comment
+  items:  [1, 2]
+}
+
+other: var.x.y

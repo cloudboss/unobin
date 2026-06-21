@@ -1,0 +1,5 @@
+script: '''|
+  one
+  two
+  '''
+next: 'x'

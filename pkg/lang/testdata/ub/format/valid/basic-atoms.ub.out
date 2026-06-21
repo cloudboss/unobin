@@ -1,0 +1,5 @@
+name:    'cfer'
+port:    42
+ratio:   1.5
+enabled: true
+empty:   null

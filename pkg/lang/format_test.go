@@ -18,37 +18,6 @@ func formatString(t *testing.T, src string) string {
 	return string(out)
 }
 
-func TestFormatAtoms(t *testing.T) {
-	src := `name:    'cfer'
-port:    42
-ratio:   1.5
-enabled: true
-empty:   null
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatNumberKeepsSourceText(t *testing.T) {
-	src := `small:      42
-fractional: 3.14
-negative:   -7
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatNestedObject(t *testing.T) {
-	src := `outer: { inner: 'x' }
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatEmptyCollectionsInline(t *testing.T) {
-	src := `obj:  {}
-list: []
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
 func TestFormatFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/format/valid",
 		func(name string, src []byte) (string, []string) {
@@ -65,44 +34,6 @@ func TestFormatFixtures(t *testing.T) {
 		ubtest.Idempotent(),
 		ubtest.Repeat(5),
 	)
-}
-
-// TestFormatEmptyBlockKeepsComment proves a comment is not ejected from a
-// block that holds nothing else: the block stays multi-line so the comment
-// keeps its place inside. A block with no comment still collapses inline.
-func TestFormatEmptyBlockKeepsComment(t *testing.T) {
-	tests := []struct {
-		name string
-		src  string
-	}{
-		{
-			name: "object with only a comment stays multi-line",
-			src: `inputs: {
-  # declared later
-}
-`,
-		},
-		{
-			name: "array with only a comment stays multi-line",
-			src: `items: [
-  # none yet
-]
-`,
-		},
-		{
-			name: "empty object with no comment stays inline",
-			src:  "inputs: {}\n",
-		},
-		{
-			name: "empty array with no comment stays inline",
-			src:  "items: []\n",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.src, formatString(t, tt.src))
-		})
-	}
 }
 
 func TestFormatWithMaxColumn(t *testing.T) {
@@ -164,19 +95,6 @@ func TestFormatWithMaxColumn(t *testing.T) {
 			require.Equal(t, tt.want, string(got))
 		})
 	}
-}
-
-func TestFormatCallKeepsNextFieldAdjacentAfterMultilineCall(t *testing.T) {
-	src := `x: {
-  a: f(
-    {
-      b: 1
-    },
-  )
-  c: 2
-}
-`
-	require.Equal(t, src, formatString(t, src))
 }
 
 func TestFormatWithWrapStrings(t *testing.T) {
@@ -404,95 +322,6 @@ func TestWordWrapDeterministic(t *testing.T) {
 	}
 }
 
-func TestFormatInfixAndPrefix(t *testing.T) {
-	src := `a: 1 + 2
-b: !var.flag
-c: var.x == 'y'
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatLeadingComment(t *testing.T) {
-	src := `# top
-name: 'x'
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatTrailingComment(t *testing.T) {
-	src := `name: 'x'  # tail
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatCommentBetweenSiblings(t *testing.T) {
-	src := `a: 1
-# divider
-b: 2
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatCommentInsideObject(t *testing.T) {
-	src := `outer: {
-  a: 1
-  # divider
-  b: 2
-}
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatCommentAfterLastFieldOfObject(t *testing.T) {
-	src := `outer: {
-  a: 1
-  # trailing inside
-}
-after: 'x'
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatCommentAfterCloseBrace(t *testing.T) {
-	src := `outer: { a: 1 }
-# after
-b:     2
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatBlankLineBetweenSiblings(t *testing.T) {
-	src := `a: 1
-
-b: 2
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatCollapsesMultipleBlankLines(t *testing.T) {
-	src := `a: 1
-
-
-
-b: 2
-`
-	want := `a: 1
-
-b: 2
-`
-	require.Equal(t, want, formatString(t, src))
-}
-
-func TestFormatMultilineString(t *testing.T) {
-	src := "script: '''|\n  echo hi\n  echo bye\n  '''\n"
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatMultilineStringNoSpuriousBlankBefore(t *testing.T) {
-	src := "script: '''|\n  one\n  two\n  '''\nnext: 'x'\n"
-	require.Equal(t, src, formatString(t, src))
-}
-
 var smartColumnBreakCases = []struct {
 	name  string
 	input string
@@ -669,47 +498,6 @@ func TestFormatJoinedWrapsLongValue(t *testing.T) {
 	require.Equal(t, value, got)
 }
 
-func TestFormatTripleQuoteAllSigils(t *testing.T) {
-	tests := []struct {
-		name string
-		src  string
-	}{
-		{
-			name: "literal clip",
-			src:  "k: '''|\n  one\n  two\n  '''\n",
-		},
-		{
-			name: "literal strip",
-			src:  "k: '''|-\n  one\n  two\n  '''\n",
-		},
-		{
-			name: "folded clip",
-			src:  "k: '''>\n  one two\n  '''\n",
-		},
-		{
-			name: "folded strip with paragraphs",
-			src:  "k: '''>-\n  paragraph one\n\n  paragraph two\n  '''\n",
-		},
-		{
-			name: "joined clip url",
-			src:  "k: '''\\\n  https://example.com/api/v1/users\n  '''\n",
-		},
-		{
-			name: "joined strip arn",
-			src:  "k: '''\\-\n  arn:aws:s3:::bucket/key\n  '''\n",
-		},
-		{
-			name: "single-line triple-quote",
-			src:  "k: '''it's here'''\n",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.src, formatString(t, tt.src))
-		})
-	}
-}
-
 func TestFormatCallBreaksAlignmentWhenItOverflows(t *testing.T) {
 	in := "a: 1\nsuper-long-key: format('aa', 'bb', 'cc', 'dd', 'ee')\nb: 2\n"
 	want := "a: 1\nsuper-long-key: format(\n  'aa', 'bb', 'cc', 'dd', 'ee',\n)\nb: 2\n"
@@ -835,20 +623,4 @@ func TestFitsOnLine(t *testing.T) {
 	require.True(t, w.fitsOnLine(expr, 90))
 	require.True(t, w.fitsOnLine(expr, 91))
 	require.False(t, w.fitsOnLine(expr, 92))
-}
-
-func TestFormatIdempotent(t *testing.T) {
-	src := `# top
-output: {
-  region: 'us-east-1'
-  # nested comment
-  items:  [1, 2]
-}
-
-other: var.x.y
-`
-	once := formatString(t, src)
-	require.Equal(t, src, once)
-	twice := formatString(t, once)
-	require.Equal(t, once, twice)
 }

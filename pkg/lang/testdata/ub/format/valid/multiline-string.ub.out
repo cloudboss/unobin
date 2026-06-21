@@ -1,0 +1,4 @@
+script: '''|
+  echo hi
+  echo bye
+  '''

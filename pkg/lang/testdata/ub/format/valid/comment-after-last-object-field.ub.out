@@ -1,0 +1,5 @@
+outer: {
+  a: 1
+  # trailing inside
+}
+after: 'x'
