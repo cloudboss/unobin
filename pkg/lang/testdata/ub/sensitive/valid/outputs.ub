@@ -1,0 +1,11 @@
+outputs: {
+  url: { value: 'https://example.com' }
+  password: {
+    value: var.p
+    @sensitive: true
+  }
+  token: {
+    value: 'cleartext'
+    @sensitive: false
+  }
+}

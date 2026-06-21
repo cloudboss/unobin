@@ -1,14 +1,15 @@
 package lang
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func parseOutputsBlock(t *testing.T, src string) *ObjectLit {
+func parseOutputsBlock(t *testing.T, src []byte) *ObjectLit {
 	t.Helper()
-	f, err := ParseSource("", []byte(src))
+	f, err := ParseSource("", src)
 	require.NoError(t, err)
 	require.NotEmpty(t, f.Body.Fields)
 	require.Equal(t, "outputs", f.Body.Fields[0].Key.Name)
@@ -18,24 +19,10 @@ func parseOutputsBlock(t *testing.T, src string) *ObjectLit {
 }
 
 func TestSensitiveInputs(t *testing.T) {
-	src := `
-inputs: {
-  region: { type: string }
-  password: {
-    type: string
-    @sensitive: true
-  }
-  token: {
-    type: string
-    @sensitive: false
-  }
-  api-key: {
-    type: string
-    @sensitive: true
-  }
-}
-`
-	got := SensitiveInputs(parseInputsBlock(t, src))
+	src, err := os.ReadFile("testdata/ub/sensitive/valid/inputs.ub")
+	require.NoError(t, err)
+
+	got := SensitiveInputs(parseInputsBlock(t, string(src)))
 	require.Equal(t, map[string]bool{"password": true, "api-key": true}, got)
 }
 
@@ -44,19 +31,9 @@ func TestSensitiveInputsNilBlock(t *testing.T) {
 }
 
 func TestSensitiveOutputs(t *testing.T) {
-	src := `
-outputs: {
-  url: { value: 'https://example.com' }
-  password: {
-    value: var.p
-    @sensitive: true
-  }
-  token: {
-    value: 'cleartext'
-    @sensitive: false
-  }
-}
-`
+	src, err := os.ReadFile("testdata/ub/sensitive/valid/outputs.ub")
+	require.NoError(t, err)
+
 	got := SensitiveOutputs(parseOutputsBlock(t, src))
 	require.Equal(t, map[string]bool{"password": true}, got)
 }

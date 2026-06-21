@@ -1,0 +1,15 @@
+inputs: {
+  region: { type: string }
+  password: {
+    type: string
+    @sensitive: true
+  }
+  token: {
+    type: string
+    @sensitive: false
+  }
+  api-key: {
+    type: string
+    @sensitive: true
+  }
+}
