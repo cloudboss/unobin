@@ -79,22 +79,15 @@ func parseInputsBlock(t *testing.T, src string) *ObjectLit {
 }
 
 func TestValidateInputBadType(t *testing.T) {
-	src := `
-inputs: {
-  bad: { type: list(weird-thing) }
-}
-`
+	src := ubtest.ReadFixture(t, "testdata/ub/inputs/invalid/bad-list-constructor.ub")
 	errs := ValidateInputDeclarations(parseInputsBlock(t, src))
 	require.Equal(t, 1, errs.Len())
 	require.Equal(t, ErrType, errs.Errors()[0].Kind)
 }
 
 func TestValidateInputDeclarationsStoresParsedTypes(t *testing.T) {
-	block := parseInputsBlock(t, `
-inputs: {
-  cfg: { type: object({ port: { type: integer, default: 8080 } }) }
-}
-`)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/inputs", "parsed-object-default")
+	block := parseInputsBlock(t, src)
 
 	errs := ValidateInputDeclarations(block)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -112,11 +105,8 @@ inputs: {
 }
 
 func TestValidateInputDeclarationsUsesTypeParserSpans(t *testing.T) {
-	block := parseInputsBlock(t, `
-inputs: {
-  payload: { type: open(object({ kind: string })) }
-}
-`)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/inputs", "parsed-open-object")
+	block := parseInputsBlock(t, src)
 
 	errs := ValidateInputDeclarations(block)
 	require.Equal(t, 0, errs.Len(), errs.Error())

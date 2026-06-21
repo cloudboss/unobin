@@ -43,7 +43,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/deps/verify_test.go":              true,
 	"pkg/lang/constraints_test.go":         true,
 	"pkg/lang/syntax/lower_test.go":        true,
-	"pkg/lang/validate_test.go":            true,
 	"pkg/resolve/library_test.go":          true,
 	"pkg/resolve/remote_test.go":           true,
 	"pkg/resolve/resolve_test.go":          true,

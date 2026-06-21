@@ -1,0 +1,4 @@
+
+inputs: {
+  payload: { type: open(object({ kind: string })) }
+}
