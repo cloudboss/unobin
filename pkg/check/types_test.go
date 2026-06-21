@@ -168,85 +168,6 @@ factory: {
 	}, got)
 }
 
-func TestCheckTypesRejectsListWithWrongElementType(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-actions: { x: core.command { argv: ['echo', 5] } }
-`, map[string]*runtime.Library{
-		"core": {Schema: &runtime.LibrarySchema{
-			Actions: map[string]*runtime.TypeSchema{
-				"command": {
-					Inputs: map[string]typecheck.Type{
-						"argv": typecheck.TList(typecheck.TString()),
-					},
-				},
-			},
-		}},
-	})
-
-	got := errs.Messages()
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], "expected string, got integer")
-}
-
-func TestCheckTypesAcceptsListLiteralMatchingTarget(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-actions: { x: core.command { argv: ['echo', 'hi'] } }
-`, map[string]*runtime.Library{
-		"core": {Schema: &runtime.LibrarySchema{
-			Actions: map[string]*runtime.TypeSchema{
-				"command": {
-					Inputs: map[string]typecheck.Type{
-						"argv": typecheck.TList(typecheck.TString()),
-					},
-				},
-			},
-		}},
-	})
-	require.Empty(t, errs.Messages())
-}
-
-func TestCheckTypesRejectsUnknownFieldOnNestedResourceOutput(t *testing.T) {
-	endpoint := typecheck.TObject([]typecheck.ObjectField{
-		{Name: "host", Type: typecheck.TString()},
-		{Name: "port", Type: typecheck.TInteger()},
-	})
-	errs := checkSyntaxReferences(t, `
-resources: {
-  main: aws.rds { name: 'one' }
-  one: local.file { path: resource.main.endpoint.bogus, content: 'hi' }
-}
-`, map[string]*runtime.Library{
-		"local": localFileLibrary(),
-		"aws": {Schema: &runtime.LibrarySchema{
-			Resources: map[string]*runtime.TypeSchema{
-				"rds": {
-					Inputs: map[string]typecheck.Type{
-						"name": typecheck.TString(),
-					},
-					Outputs: map[string]typecheck.Type{
-						"endpoint": endpoint,
-					},
-				},
-			},
-		}},
-	})
-
-	got := errs.Messages()
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `unknown field "bogus" on object(`)
-}
-
-func TestCheckTypesRejectsUnknownNestedObjectField(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs:    { cfg: { type: object({ host: string, port: integer }) } }
-resources: { one: local.file { path: var.cfg.bogus, content: 'hi' } }
-`, map[string]*runtime.Library{"local": localFileLibrary()})
-
-	got := errs.Messages()
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `unknown field "bogus" on object(`)
-}
-
 func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
 	errs := checkSyntaxReferences(t, `
 resources: { one: local.file { path: 5, content: 'hi' } }
@@ -258,49 +179,6 @@ resources: { one: local.file { path: 5, content: 'hi' } }
 		}},
 	})
 	require.Empty(t, errs.Messages())
-}
-
-// checkErrorMessages returns the messages of every diagnostic
-// regardless of kind. Used by the type-check tests because their
-// errors come back as ErrType while reference checks produce
-// ErrResolve.
-func TestCheckTypesConstraintWhenNarrowsRequire(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs: {
-  note: { type: optional(string) }
-}
-constraints: [
-  {
-    kind: predicate
-    require: $'{{var.note}}' != ''
-    when: var.note != null
-  },
-]
-`, nil)
-	require.Equal(t, []string(nil), errs.Messages())
-
-	control := checkSyntaxReferences(t, `
-inputs: {
-  note: { type: optional(string) }
-}
-constraints: [
-  { kind: predicate, when: true, require: $'{{var.note}}' != '' },
-]
-`, nil)
-	require.Equal(t, []string{
-		"interpolation slot may be null; supply a fallback, like " +
-			"{{ x ?? '-' }} (got optional(string))",
-	}, control.Messages())
-}
-
-func checkErrorMessages(t *testing.T, errs *lang.ErrorList) []string {
-	t.Helper()
-	require.NotNil(t, errs)
-	var out []string
-	for _, err := range errs.Errors() {
-		out = append(out, err.Msg)
-	}
-	return out
 }
 
 func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {

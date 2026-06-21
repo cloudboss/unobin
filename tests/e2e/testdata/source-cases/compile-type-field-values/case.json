@@ -81,6 +81,37 @@
       "exitCode": 1
     },
     {
+      "name": "function-list-valid",
+      "dir": "function-list-valid",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "function-list-wrong",
+      "dir": "function-list-wrong",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/function-list-wrong.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "input-object-unknown-field",
+      "dir": "input-object-unknown-field",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/input-object-unknown-field.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "constraint-when-narrows-valid",
+      "dir": "constraint-when-narrows-valid",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "constraint-when-narrows-invalid",
+      "dir": "constraint-when-narrows-invalid",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-when-narrows-invalid.stderr",
+      "exitCode": 1
+    },
+    {
       "name": "unknown-body-field",
       "dir": "unknown-body-field",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],

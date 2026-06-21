@@ -1,0 +1,5 @@
+factory: {
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  outputs: { ok: { value: e2e.all-list([true, false]) } }
+}

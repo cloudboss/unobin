@@ -1,0 +1,1 @@
+Error: factory.ub:18:45: type: unknown field "bogus" on object({ host: string  port: integer })
