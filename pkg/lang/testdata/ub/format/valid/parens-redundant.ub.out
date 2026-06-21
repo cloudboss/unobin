@@ -1,0 +1,10 @@
+plus-left:           a + b + c
+plus-left-tight:     a * b + c
+plus-right-tight:    a + b * c
+primary:             a
+coalesce-left:       a ?? b ?? c
+comparison-equality: a < b == c
+then-branch:         if c then a + b else b
+call-argument:       f.g(a + b)
+index:               xs[a + b]
+not-primary:         !a

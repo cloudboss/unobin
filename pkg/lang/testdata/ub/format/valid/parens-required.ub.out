@@ -1,0 +1,19 @@
+coalesce-comparison:        a <= (b ?? c)
+coalesce-arithmetic:        (a ?? b) + 1
+minus-right:                a - (b - c)
+divide-right:               a / (b * c)
+plus-times:                 (a + b) * c
+or-under-and:               a && (b || c)
+and-right:                  a && (b && c)
+coalesce-right:             a ?? (b ?? c)
+equality-comparison:        (a == b) < c
+not-and:                    !(a && b)
+negate-plus:                -(a + b)
+conditional-left-plus:      (if c then a else b) + 1
+conditional-right-coalesce: x ?? (if c then a else b)
+conditional-condition:      if (if a then b else c) then d else e
+conditional-list-source:    [ for x in (if c then xs else ys) : x ]
+conditional-map-source:     { for k in (if c then m else n) : k => 1 }
+conditional-map-key:        { for k in m : (if c then k else 'x') => 1 }
+conditional-filter:         [ for x in xs : x when (if c then a else b) ]
+interpolation:              $'{{ a - (b - c) }}'
