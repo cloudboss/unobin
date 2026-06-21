@@ -36,6 +36,24 @@ func TestFormatFixtures(t *testing.T) {
 	)
 }
 
+func TestFormatMaxColumnFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/format/max-column-50/valid",
+		func(name string, src []byte) (string, []string) {
+			f, err := ParseSource(name+".ub", src)
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			out, err := FormatWith(f, FormatOptions{MaxColumn: 50})
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return string(out), nil
+		},
+		ubtest.Idempotent(),
+		ubtest.Repeat(5),
+	)
+}
+
 func TestFormatWithMaxColumn(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -496,16 +514,6 @@ func TestFormatJoinedWrapsLongValue(t *testing.T) {
 	require.NoError(t, err)
 	got := f.Body.Fields[0].Value.(*StringLit).Value
 	require.Equal(t, value, got)
-}
-
-func TestFormatCallBreaksAlignmentWhenItOverflows(t *testing.T) {
-	in := "a: 1\nsuper-long-key: format('aa', 'bb', 'cc', 'dd', 'ee')\nb: 2\n"
-	want := "a: 1\nsuper-long-key: format(\n  'aa', 'bb', 'cc', 'dd', 'ee',\n)\nb: 2\n"
-	file, err := ParseSource("t.ub", []byte(in))
-	require.NoError(t, err)
-	got, err := FormatWith(file, FormatOptions{MaxColumn: 50})
-	require.NoError(t, err)
-	require.Equal(t, want, string(got))
 }
 
 func parseFirstValue(t *testing.T, src string) (*formatter, Expr) {
