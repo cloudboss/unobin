@@ -1,0 +1,36 @@
+{
+  "name": "compile-invalid-ub-library-files",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/x/factory@v1.0.0",
+      "path": "factory-source-import/remotes/factory",
+      "commit": "c1"
+    }
+  ],
+  "commands": [
+    {
+      "name": "library-no-composites",
+      "dir": "library-no-composites",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/library-no-composites.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "library-wrong-factory-role",
+      "dir": "library-wrong-factory-role",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/library-wrong-factory-role.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "factory-source-import",
+      "dir": "factory-source-import",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/factory-source-import.stderr",
+      "exitCode": 1
+    }
+  ]
+}

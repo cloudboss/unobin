@@ -1,0 +1,3 @@
+factory: {
+  imports: { lib: 'github.com/x/factory' }
+}

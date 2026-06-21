@@ -324,46 +324,6 @@ vpc: action {
 	require.Contains(t, lib.SyntaxBodies["action"], "vpc")
 }
 
-func TestWalkUBRejectsLibraryFilesWithoutCompositeDeclarations(t *testing.T) {
-	cases := []struct {
-		name  string
-		files map[string]string
-	}{
-		{
-			name: "factory-body object",
-			files: map[string]string{
-				"library.ub": "description: 'bad'",
-			},
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			_, err := walkOneUB(t, newUBSource(t, c.files))
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "must contain composite declarations")
-		})
-	}
-}
-
-func TestWalkUBRejectsWrongFactoryFileRole(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"factory.ub": "description: 'a factory'",
-		"library.ub": "a: resource { description: 'a' }",
-	})
-	_, err := walkOneUB(t, src)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "factory.ub must declare factory")
-}
-
-func TestWalkUBRejectsGrammarFirstFactoryImport(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"factory.ub": "factory: {}",
-	})
-	_, err := walkOneUB(t, src)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot be imported")
-}
-
 func keysOf[V any](m map[string]V) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
