@@ -1,0 +1,4 @@
+items: [
+  var.alpha.beta.gamma.delta,
+  var.epsilon.zeta.eta.theta.iota.kappa.lambda.mu.nu.xi.omicron.pi.rho.sigma,
+]

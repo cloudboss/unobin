@@ -1,0 +1,4 @@
+items: [
+  core.file('/very/long/path/to/some/important/file'),
+  core.file('/another/very/long/path/to/different/file'),
+]
