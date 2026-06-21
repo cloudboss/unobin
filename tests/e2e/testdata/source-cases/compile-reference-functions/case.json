@@ -1,0 +1,74 @@
+{
+  "name": "compile-reference-functions",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-library-function",
+      "dir": "valid-library-function",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-core-function",
+      "dir": "valid-core-function",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "unknown-library-function",
+      "dir": "unknown-library-function",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-library-function.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "library-function-too-few",
+      "dir": "library-function-too-few",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/library-function-too-few.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "library-function-too-many",
+      "dir": "library-function-too-many",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/library-function-too-many.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-core-function",
+      "dir": "unknown-core-function",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-core-function.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "core-function-too-many",
+      "dir": "core-function-too-many",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/core-function-too-many.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "core-arg-type-error",
+      "dir": "core-arg-type-error",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/core-arg-type-error.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "core-result-type-error",
+      "dir": "core-result-type-error",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/core-result-type-error.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "ub-library-function",
+      "dir": "ub-library-function",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/ub-library-function.stderr",
+      "exitCode": 1
+    }
+  ]
+}
