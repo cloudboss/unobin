@@ -1,0 +1,8 @@
+left: {
+  a: 1
+  bbb: 'a long enough left side value to keep the inline form of this object past the line budget'
+}
+right: {
+  xxxxxx: 1
+  y: 'a long enough right side value to keep the inline form of this object past the line budget'
+}

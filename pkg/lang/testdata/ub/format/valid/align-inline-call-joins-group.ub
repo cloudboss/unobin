@@ -1,0 +1,3 @@
+short: 1
+path: format('%s/%s', a, b)
+long-key-name: 2

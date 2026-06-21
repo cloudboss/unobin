@@ -1,0 +1,4 @@
+inputs: {
+  a: 1
+  bbbb: 'this is a value just long enough to push the inline form past the line budget'
+}

@@ -1,0 +1,7 @@
+description: 'demo'
+imports: {
+  core:  'github.com/cloudboss/unobin-core'
+  local: 'github.com/cloudboss/unobin-libraries-local/v2'
+}
+name:    'x'
+version: 'v1'

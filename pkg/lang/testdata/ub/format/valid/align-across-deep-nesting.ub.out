@@ -1,0 +1,10 @@
+top-a:   1
+top-bbb: 2
+top-cccc: {
+  mid-a:   1
+  mid-bbb: 2
+  mid-cccc: {
+    inner-a:     1
+    inner-bbbbb: 'long enough value here to push this inner object past the inline budget'
+  }
+}
