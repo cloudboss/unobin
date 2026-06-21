@@ -1,0 +1,9 @@
+greeting: resource {
+  description: 'TODO: describe this composite type'
+  inputs:      {}
+  imports:     {}
+  data:        {}
+  resources:   {}
+  actions:     {}
+  outputs:     {}
+}

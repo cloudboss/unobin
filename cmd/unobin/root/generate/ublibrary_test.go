@@ -32,41 +32,6 @@ func resetFlags(cmd *cobra.Command) {
 	})
 }
 
-func TestUblibraryDefaultTypeName(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "greeter")
-
-	out, err := runUblibraryCmd(t, "-o", dir)
-	require.NoError(t, err)
-	require.Contains(t, out, filepath.Join(dir, "example.ub"))
-
-	stub, err := os.ReadFile(filepath.Join(dir, "example.ub"))
-	require.NoError(t, err)
-	wantStub := `example: resource {
-  description: 'TODO: describe this composite type'
-  inputs:      {}
-  imports:     {}
-  data:        {}
-  resources:   {}
-  actions:     {}
-  outputs:     {}
-}
-`
-	require.Equal(t, wantStub, string(stub))
-}
-
-func TestUblibraryCustomTypeName(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "greeter")
-
-	_, err := runUblibraryCmd(t, "-o", dir, "--type", "greeting")
-	require.NoError(t, err)
-
-	_, err = os.Stat(filepath.Join(dir, "greeting.ub"))
-	require.NoError(t, err)
-
-	_, err = os.Stat(filepath.Join(dir, "example.ub"))
-	require.True(t, os.IsNotExist(err), "example.ub should not exist when --type=greeting")
-}
-
 func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "greeter")
 	_, err := runUblibraryCmd(t, "-o", dir)

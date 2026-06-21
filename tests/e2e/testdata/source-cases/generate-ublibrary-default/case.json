@@ -1,0 +1,16 @@
+{
+  "name": "generate-ublibrary-default",
+  "rootPath": ".",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "generate-ublibrary",
+      "args": ["generate", "ublibrary", "-o", "generated"],
+      "stdout": "want/stdout",
+      "stderr": "want/stderr"
+    }
+  ],
+  "files": [
+    { "path": "generated/example.ub", "want": "want/example.ub" }
+  ]
+}
