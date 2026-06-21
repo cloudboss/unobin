@@ -65,6 +65,9 @@
       "stderr": "want/apply-destroy.stderr"
     }
   ],
+  "planSummaries": [
+    { "path": "destroy.ubp", "want": "want/plan-destroy-summary.json" }
+  ],
   "files": [
     { "path": "events.ndjson", "want": "want/events.ndjson" }
   ],

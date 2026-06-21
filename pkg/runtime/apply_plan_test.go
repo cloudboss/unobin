@@ -604,27 +604,6 @@ actions:   { e: core.echo { echo: 'hi' } }
 	requireEmptyState(t, store)
 }
 
-func TestPlanFileRoundTripsDestroyFlag(t *testing.T) {
-	rec := &deleteOrder{}
-	libs := orderModules(rec)
-	store := newStateStore(t)
-	src := `resources: { a: core.thing { name: 'a' } }`
-	applyStack(t, store, libs, src, nil)
-
-	exec := applyPlanTestExecutor(t, src, libs, store,
-		state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
-	exec.Destroy = true
-	plan, err := exec.Plan(context.Background())
-	require.NoError(t, err)
-	encoded, err := EncodePlan(plan)
-	require.NoError(t, err)
-	pf, err := DecodePlan(encoded)
-	require.NoError(t, err)
-	require.True(t, pf.Destroy)
-	require.Len(t, pf.Steps, 1)
-	require.Equal(t, DecisionDestroy, pf.Steps[0].Decision)
-}
-
 func TestDestroyClearsActionAndLibraryCallRecords(t *testing.T) {
 	compositeBody := syntaxResourceComposite(t, "box", `
 inputs:  { msg: { type: string } }
