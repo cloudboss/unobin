@@ -1,0 +1,50 @@
+{
+  "name": "validate-stacks",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/validate-stacks",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate-source",
+      "args": ["validate", "--allow-version-mismatch"],
+      "stdout": "want/validate-source.stdout",
+      "stderr": "want/validate-source.stderr"
+    },
+    {
+      "name": "validate-good-env-key",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/good-env-key.ub"],
+      "stdout": "want/validate-good-env-key.stdout",
+      "stderr": "want/validate-good-env-key.stderr",
+      "skipPin": true
+    },
+    {
+      "name": "validate-bad-syntax",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/bad-syntax.ub"],
+      "stderr": "want/validate-bad-syntax.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-unknown-backend",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/unknown-backend.ub"],
+      "stderr": "want/validate-unknown-backend.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-bad-backend-body",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/bad-backend-body.ub"],
+      "stderr": "want/validate-bad-backend-body.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-unknown-encrypter",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/unknown-encrypter.ub"],
+      "stderr": "want/validate-unknown-encrypter.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    }
+  ],
+  "deterministic": true
+}

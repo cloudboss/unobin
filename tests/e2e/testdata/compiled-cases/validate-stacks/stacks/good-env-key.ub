@@ -1,0 +1,9 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: env-key {
+    env-var: 'UB_STATE_KEY'
+  }
+}

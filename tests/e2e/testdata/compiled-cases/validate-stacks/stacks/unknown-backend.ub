@@ -1,0 +1,5 @@
+stack: {
+  state: ghost {}
+
+  encryption: noop {}
+}

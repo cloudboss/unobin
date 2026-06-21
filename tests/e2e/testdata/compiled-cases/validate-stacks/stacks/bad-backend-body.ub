@@ -1,0 +1,7 @@
+stack: {
+  state: local {
+    unknown-field: 1
+  }
+
+  encryption: noop {}
+}

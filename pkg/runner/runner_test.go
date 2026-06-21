@@ -285,27 +285,6 @@ func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
 	require.Contains(t, err.Error(), "factory.ub must declare factory")
 }
 
-func TestValidateAcceptsLibraryConfigSyntax(t *testing.T) {
-	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
-  library-configs: { aws: { region: 'us-east-1' } }
-  resources: {
-    thing: aws.widget {}
-  }
-}
-`))
-	require.NoError(t, err)
-
-	info := testInfo(t, body)
-	info.Libraries["aws"] = &runtime.Library{
-		Configuration: &cfg.ConfigurationType[*struct{ Region cfg.String }]{
-			New: func() *struct{ Region cfg.String } { return &struct{ Region cfg.String }{} },
-		},
-	}
-	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Equal(t, "OK\n", out)
-}
-
 func TestCommandsUseTypedOnlyComposite(t *testing.T) {
 	library, err := syntax.ParseSource("library.ub", []byte(`greeting: resource {
   inputs: {
@@ -1523,15 +1502,6 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["state"])
 }
 
-func TestValidateAcceptsCleanSource(t *testing.T) {
-	info := testInfo(t, `
-actions: { hi: core.echo { echo: 'hello' } }
-`)
-	out, err := runRoot(t, info, "validate", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, out, "OK")
-}
-
 func TestValidateRejectsBadSource(t *testing.T) {
 	info := testInfo(t, `not valid syntax {{`)
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
@@ -1545,69 +1515,6 @@ actions: { bad: core.echo { echo: var.missing } }
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `unknown input "missing"`)
-}
-
-func TestValidateChecksConfig(t *testing.T) {
-	info := testInfo(t, `
-inputs:  { greeting: { type: string } }
-actions: { hi: core.echo { echo: var.greeting } }
-`)
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(`bogus { not valid`), 0o644))
-	_, err := runRoot(t, info, "validate", "-c", cfg)
-	require.Error(t, err)
-}
-
-func TestValidateRejectsUnknownBackend(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
-state: ghost {}
-
-encryption: noop {}
-`)), 0o644))
-	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `no backend named "ghost"`)
-}
-
-func TestValidateRejectsBadBackendBody(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
-state: local { unknown-field: 1 }
-
-encryption: noop {}
-`)), 0o644))
-	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown key")
-}
-
-func TestValidateRejectsUnknownEncrypter(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
-state: local { path: '.unobin/state' }
-
-encryption: ghost {}
-`)), 0o644))
-	_, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `no key-source named "ghost"`)
-}
-
-func TestValidateAcceptsCoreBackendAndEncrypter(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(`
-state: local { path: '.unobin/state' }
-
-encryption: env-key { env-var: 'UB_STATE_KEY' }
-`)), 0o644))
-	out, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", cfg)
-	require.NoError(t, err)
-	require.Contains(t, out, "OK")
 }
 
 func TestStateMoveRelocatesEntry(t *testing.T) {
