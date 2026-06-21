@@ -1,0 +1,1 @@
+resources: { a.b.c: { x: resource.aws.thing.many['alpha'].id } }

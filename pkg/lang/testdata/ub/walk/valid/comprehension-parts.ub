@@ -1,0 +1,1 @@
+resources: { a.b.c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } }

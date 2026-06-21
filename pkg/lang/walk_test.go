@@ -1,17 +1,23 @@
 package lang
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestWalkVisitsNestedExpressions(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
-inputs:    { size: { type: integer } }
-resources: { a.b.c: { x: format('%d', var.size + 1) } }
-`))
+func parseWalkFixture(t *testing.T, name string) *File {
+	t.Helper()
+	src, err := os.ReadFile("testdata/ub/walk/valid/" + name + ".ub")
 	require.NoError(t, err)
+	f, err := ParseSource("factory.ub", src)
+	require.NoError(t, err)
+	return f
+}
+
+func TestWalkVisitsNestedExpressions(t *testing.T) {
+	f := parseWalkFixture(t, "nested-expressions")
 
 	var dotPaths []string
 	Walk(f.Body, func(e Expr) {
@@ -29,10 +35,7 @@ func TestWalkNilIsSafe(t *testing.T) {
 }
 
 func TestWalkVisitsParsedTypeDeclarations(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
-inputs: { a: { type: object({ p: { type: integer, default: pick() } }) } }
-`))
-	require.NoError(t, err)
+	f := parseWalkFixture(t, "type-declarations")
 	inputs := TopLevelBlock(f, "inputs")
 	errs := ValidateInputDeclarations(inputs)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -47,10 +50,7 @@ inputs: { a: { type: object({ p: { type: integer, default: pick() } }) } }
 }
 
 func TestWalkVisitsConditionalBranches(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
-resources: { a.b.c: { x: if var.prod then var.big else var.small } }
-`))
-	require.NoError(t, err)
+	f := parseWalkFixture(t, "conditional-branches")
 
 	var roots []string
 	Walk(f.Body, func(e Expr) {
@@ -64,10 +64,7 @@ resources: { a.b.c: { x: if var.prod then var.big else var.small } }
 }
 
 func TestWalkVisitsComprehensionParts(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
-resources: { a.b.c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } }
-`))
-	require.NoError(t, err)
+	f := parseWalkFixture(t, "comprehension-parts")
 
 	var roots []string
 	Walk(f.Body, func(e Expr) {
@@ -80,10 +77,7 @@ resources: { a.b.c: { x: [ for s in var.subnets : s.cidr when var.enabled ] } }
 }
 
 func TestWalkVisitsDotPathIndexExpr(t *testing.T) {
-	f, err := ParseSource("factory.ub", []byte(`
-resources: { a.b.c: { x: resource.aws.thing.many['alpha'].id } }
-`))
-	require.NoError(t, err)
+	f := parseWalkFixture(t, "dot-path-index")
 
 	var strings []string
 	Walk(f.Body, func(e Expr) {

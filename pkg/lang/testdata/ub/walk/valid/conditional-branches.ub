@@ -1,0 +1,1 @@
+resources: { a.b.c: { x: if var.prod then var.big else var.small } }
