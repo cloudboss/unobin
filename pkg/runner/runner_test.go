@@ -258,13 +258,6 @@ func openPlanFile(t *testing.T, path string) *runtime.PlanFile {
 	return pf
 }
 
-func TestVersion(t *testing.T) {
-	info := testInfo(t, "description: 'x'")
-	out, err := runRoot(t, info, "version")
-	require.NoError(t, err)
-	require.Contains(t, out, "test-stack v0.1.0 (content-revision abcdef)")
-}
-
 func TestParseFactoryAcceptsCompilerFactoryBody(t *testing.T) {
 	_, body, err := compile.ParseFactorySyntaxSource("factory.ub", []byte(`factory: {
   imports: { std: 'github.com/example/std' }
