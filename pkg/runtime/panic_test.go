@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -124,6 +125,13 @@ type panicData struct{}
 
 func (d *panicData) Read(context.Context, any) (any, error) {
 	panic("boom in data read")
+}
+
+func panicResourceBody(t *testing.T) string {
+	t.Helper()
+	body, err := os.ReadFile("testdata/ub/panic/valid/resource.ub")
+	require.NoError(t, err)
+	return string(body)
 }
 
 func requirePanicError(t *testing.T, err error, wantValue string) *PanicError {
@@ -261,10 +269,7 @@ func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: { x: boom.it { name: 'x' } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t, panicResourceBody(t), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -301,10 +306,7 @@ func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: { x: boom.it { name: 'x' } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t, panicResourceBody(t), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
