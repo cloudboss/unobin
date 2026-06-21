@@ -1,0 +1,1 @@
+Error: import "a": composite "widget": import "secret": github.com/other/z//internal/secret is internal to github.com/other/z and cannot be imported from another repository

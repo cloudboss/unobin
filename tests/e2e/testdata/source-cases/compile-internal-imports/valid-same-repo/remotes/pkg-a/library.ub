@@ -1,0 +1,5 @@
+widget: data {
+  imports: { shared: 'github.com/x/y//internal/shared' }
+  data: { s: shared.secret { y: 'ok' } }
+  outputs: { y: { value: data.s.y } }
+}

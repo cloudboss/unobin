@@ -1,0 +1,42 @@
+{
+  "name": "compile-internal-imports",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/x/y//pkg/a@v1.0.0",
+      "path": "valid-same-repo/remotes/pkg-a",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/x/y//internal/shared@v1.0.0",
+      "path": "valid-same-repo/remotes/internal-shared",
+      "commit": "c1"
+    },
+    {
+      "key": "github.com/x/y//pkg/a@v1.1.0",
+      "path": "invalid-cross-repo-body/remotes/pkg-a",
+      "commit": "c2"
+    }
+  ],
+  "commands": [
+    {
+      "name": "valid-same-repo",
+      "dir": "valid-same-repo",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "invalid-cross-repo-body",
+      "dir": "invalid-cross-repo-body",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-cross-repo-body.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-local-internal",
+      "dir": "valid-local-internal",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}
