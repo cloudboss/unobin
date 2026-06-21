@@ -1,0 +1,15 @@
+imports: {
+  fix: 'github.com/acme/fix'
+}
+inputs: {
+  fix-config: { type: library-config('github.com/acme/fix') }
+}
+library-configs: {
+  fix: var.fix-config
+}
+resources: {
+  app: fix.config-echo {}
+}
+outputs: {
+  got: { value: resource.app.endpoint }
+}

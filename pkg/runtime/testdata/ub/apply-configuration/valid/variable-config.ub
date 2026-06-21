@@ -1,0 +1,10 @@
+imports: {
+  fix: 'github.com/acme/fix'
+}
+library-configs: {
+  fix: { endpoint: resource.src.id }
+}
+resources: {
+  src: base.echo { value: var.url }
+  app: fix.config-echo {}
+}

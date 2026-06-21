@@ -1,0 +1,9 @@
+imports: {
+  fix: 'github.com/acme/fix'
+}
+library-configs: {
+  fix: {}
+}
+resources: {
+  app: fix.config-echo {}
+}

@@ -1,0 +1,8 @@
+factory: {
+  imports: {
+    fix: 'github.com/acme/fix'
+  }
+  resources: {
+    app: fix.config-echo { @configuration: configuration.cluster }
+  }
+}

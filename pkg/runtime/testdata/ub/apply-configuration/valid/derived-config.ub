@@ -1,0 +1,13 @@
+imports: {
+  fix: 'github.com/acme/fix'
+}
+library-configs: {
+  fix: { endpoint: resource.src.value }
+}
+resources: {
+  src: base.echo { value: 'https://cluster.example' }
+  app: fix.config-echo {}
+}
+outputs: {
+  got: { value: resource.app.endpoint }
+}

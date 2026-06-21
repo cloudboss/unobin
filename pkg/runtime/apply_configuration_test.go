@@ -4,10 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/stretchr/testify/require"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 type endpointConfiguration struct {
@@ -130,17 +132,10 @@ func configurationTestExecutor(
 	return &Executor{DAG: dag, SyntaxSource: syntaxSource, Libraries: libs}
 }
 
-const directConfigSrc = `
-imports: { fix: 'github.com/acme/fix' }
-inputs: { fix-config: { type: library-config('github.com/acme/fix') } }
-library-configs: { fix: var.fix-config }
-resources: { app: fix.config-echo {} }
-outputs: { got: { value: resource.app.endpoint } }
-`
-
 func TestApplyEvaluatesLibraryConfigBinding(t *testing.T) {
 	libs := configuredLibraries()
-	exec := configurationTestExecutor(t, directConfigSrc, libs)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "direct-config")
+	exec := configurationTestExecutor(t, src, libs)
 	exec.Inputs = map[string]any{
 		"fix-config": map[string]any{"endpoint": "https://alias.example"},
 	}
@@ -153,9 +148,10 @@ func TestApplyEvaluatesLibraryConfigBinding(t *testing.T) {
 func TestRefreshUsesLibraryConfigBinding(t *testing.T) {
 	var reads []string
 	libs := configuredLibrariesRecording(&reads, nil)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "direct-config")
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, directConfigSrc, libs)
+	first := configurationTestExecutor(t, src, libs)
 	first.Inputs = map[string]any{
 		"fix-config": map[string]any{"endpoint": "https://first.example"},
 	}
@@ -164,7 +160,7 @@ func TestRefreshUsesLibraryConfigBinding(t *testing.T) {
 	applyOnce(t, first)
 
 	reads = nil
-	fresh := configurationTestExecutor(t, directConfigSrc, libs)
+	fresh := configurationTestExecutor(t, src, libs)
 	fresh.Inputs = map[string]any{
 		"fix-config": map[string]any{"endpoint": "https://fresh.example"},
 	}
@@ -175,19 +171,10 @@ func TestRefreshUsesLibraryConfigBinding(t *testing.T) {
 	require.Equal(t, []string{"https://fresh.example"}, reads)
 }
 
-const derivedConfigSrc = `
-imports: { fix: 'github.com/acme/fix' }
-library-configs: { fix: { endpoint: resource.src.value } }
-resources: {
-  src: base.echo { value: 'https://cluster.example' }
-  app: fix.config-echo {}
-}
-outputs: { got: { value: resource.app.endpoint } }
-`
-
 func TestApplyEvaluatesDerivedLibraryConfig(t *testing.T) {
 	libs := configuredLibraries()
-	exec := configurationTestExecutor(t, derivedConfigSrc, libs)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "derived-config")
+	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	res := applyOnce(t, exec)
@@ -195,11 +182,7 @@ func TestApplyEvaluatesDerivedLibraryConfig(t *testing.T) {
 }
 
 func TestRequiredLibraryConfigReportsDecodeError(t *testing.T) {
-	src := `
-imports: { fix: 'github.com/acme/fix' }
-library-configs: { fix: {} }
-resources: { app: fix.config-echo {} }
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "required-config-missing")
 	libs := requiredConfiguredLibraries()
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
@@ -213,15 +196,16 @@ resources: { app: fix.config-echo {} }
 func TestPlanEvaluatesLibraryConfigFromState(t *testing.T) {
 	var seen []string
 	libs := configuredLibrariesRecording(&seen, nil)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "derived-config")
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, derivedConfigSrc, libs)
+	first := configurationTestExecutor(t, src, libs)
 	first.Store = store
 	first.Factory = factory
 	applyOnce(t, first)
 
 	seen = nil
-	fresh := configurationTestExecutor(t, derivedConfigSrc, libs)
+	fresh := configurationTestExecutor(t, src, libs)
 	fresh.Store = store
 	fresh.Factory = factory
 	plan, err := fresh.Plan(context.Background())
@@ -241,13 +225,6 @@ func (d *configProbeData) Read(_ context.Context, c any) (any, error) {
 	return map[string]any{"value": "v"}, nil
 }
 
-const dataConfigSrc = `
-imports: { fix: 'github.com/acme/fix' }
-library-configs: { fix: { endpoint: resource.src.id } }
-resources: { src: base.echo { value: 'https://cluster.example' } }
-data:      { p: fix.probe {} }
-`
-
 func TestDataReadDefersWhileLibraryConfigPending(t *testing.T) {
 	var seen []string
 	libs := configuredLibrariesRecording(&seen, nil)
@@ -256,7 +233,8 @@ func TestDataReadDefersWhileLibraryConfigPending(t *testing.T) {
 			func() *configProbeData { return &configProbeData{readSeen: &seen} },
 		),
 	}
-	exec := configurationTestExecutor(t, dataConfigSrc, libs)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "data-config-pending")
+	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	plan, err := exec.Plan(context.Background())
@@ -265,7 +243,7 @@ func TestDataReadDefersWhileLibraryConfigPending(t *testing.T) {
 	ds := findStep(t, plan, "data.p")
 	require.Equal(t, "library-config.fix", ds.DeferredConfig)
 
-	fresh := configurationTestExecutor(t, dataConfigSrc, libs)
+	fresh := configurationTestExecutor(t, src, libs)
 	fresh.Store = exec.Store
 	fresh.Factory = exec.Factory
 	_, err = planAndApply(fresh)
@@ -273,28 +251,20 @@ func TestDataReadDefersWhileLibraryConfigPending(t *testing.T) {
 	require.Equal(t, []string{"id-https://cluster.example"}, seen)
 }
 
-const variableConfigSrc = `
-imports: { fix: 'github.com/acme/fix' }
-library-configs: { fix: { endpoint: resource.src.id } }
-resources: {
-  src: base.echo { value: var.url }
-  app: fix.config-echo {}
-}
-`
-
 func TestDriftReadSkippedWhileLibraryConfigPending(t *testing.T) {
 	var seen []string
 	libs := configuredLibrariesRecording(&seen, nil)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "variable-config")
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, variableConfigSrc, libs)
+	first := configurationTestExecutor(t, src, libs)
 	first.Inputs = map[string]any{"url": "https://a"}
 	first.Store = store
 	first.Factory = factory
 	applyOnce(t, first)
 
 	seen = nil
-	fresh := configurationTestExecutor(t, variableConfigSrc, libs)
+	fresh := configurationTestExecutor(t, src, libs)
 	fresh.Inputs = map[string]any{"url": "https://b"}
 	fresh.Store = store
 	fresh.Factory = factory
@@ -309,14 +279,15 @@ func TestDriftReadSkippedWhileLibraryConfigPending(t *testing.T) {
 func TestDestroyUsesLibraryConfigFromState(t *testing.T) {
 	var deletes []string
 	libs := configuredLibrariesRecording(nil, &deletes)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "derived-config")
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, derivedConfigSrc, libs)
+	first := configurationTestExecutor(t, src, libs)
 	first.Store = store
 	first.Factory = factory
 	applyOnce(t, first)
 
-	down := configurationTestExecutor(t, derivedConfigSrc, libs)
+	down := configurationTestExecutor(t, src, libs)
 	down.Store = store
 	down.Factory = factory
 	down.Destroy = true
@@ -328,15 +299,16 @@ func TestDestroyUsesLibraryConfigFromState(t *testing.T) {
 func TestRefreshUsesLibraryConfigFromState(t *testing.T) {
 	var reads []string
 	libs := configuredLibrariesRecording(&reads, nil)
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "derived-config")
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, derivedConfigSrc, libs)
+	first := configurationTestExecutor(t, src, libs)
 	first.Store = store
 	first.Factory = factory
 	applyOnce(t, first)
 
 	reads = nil
-	fresh := configurationTestExecutor(t, derivedConfigSrc, libs)
+	fresh := configurationTestExecutor(t, src, libs)
 	fresh.Store = store
 	fresh.Factory = factory
 	_, err := fresh.Refresh(context.Background())
@@ -345,10 +317,9 @@ func TestRefreshUsesLibraryConfigFromState(t *testing.T) {
 }
 
 func TestSyntaxValidationRejectsOldConfigurationMeta(t *testing.T) {
-	f, err := syntax.ParseSource("factory.ub", []byte(`factory: {
-imports: { fix: 'github.com/acme/fix' }
-resources: { app: fix.config-echo { @configuration: configuration.cluster } }
-}`))
+	src := ubtest.ReadFixture(t,
+		"testdata/ub/apply-configuration/invalid/old-configuration-meta.ub")
+	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	errs := syntax.ValidateFile(f)
 	require.Error(t, errs.Err())
