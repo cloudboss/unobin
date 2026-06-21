@@ -1,0 +1,15 @@
+stack: {
+  locals: { state-path: '/tmp/state' }
+
+  factory: {
+    inputs: { region: 'us-east-1' }
+  }
+
+  state: local {
+    path: local.state-path
+  }
+
+  encryption: noop {}
+
+  parallelism: 3
+}

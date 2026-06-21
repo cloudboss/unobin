@@ -1,0 +1,20 @@
+stack: {
+  locals: {
+    aws-config: {
+      assume-role: {
+        role-arn:    'arn:aws:iam::123456789012:role/unobin-state'
+        external-id: 'unobin-test'
+      }
+    }
+  }
+
+  state: s3 {
+    bucket: 'cloudboss'
+    aws:    local.aws-config
+  }
+
+  encryption: kms {
+    key-id: 'alias/cloudboss'
+    aws:    local.aws-config
+  }
+}

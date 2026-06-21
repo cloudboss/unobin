@@ -1,0 +1,7 @@
+stack: {
+  state: local {
+    path: '/tmp/state'
+  }
+
+  encryption: noop {}
+}

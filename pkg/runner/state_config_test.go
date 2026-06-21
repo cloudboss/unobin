@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -11,9 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func parseStackFixture(t *testing.T, src string) *parsedStack {
+func readStateConfigFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	config, err := parseStackSource("stack.ub", []byte(sourceStackWithNoop(src)))
+	path := filepath.Join("testdata", "ub", "state-config", "valid", name+".ub")
+	src, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return src
+}
+
+func parseStateConfigFixture(t *testing.T, name string) *parsedStack {
+	t.Helper()
+	config, err := parseStackSource("stack.ub", readStateConfigFixture(t, name))
 	require.NoError(t, err)
 	return config
 }
@@ -34,14 +43,7 @@ func TestParseStateConfigAbsentBlock(t *testing.T) {
 }
 
 func TestParseStateConfigBackendAndEncryption(t *testing.T) {
-	src := `
-state: local {
-  path: '/tmp/state'
-}
-
-encryption: noop {}
-`
-	f := parseStackFixture(t, src)
+	f := parseStateConfigFixture(t, "backend-encryption")
 	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	require.NotNil(t, sc.Backend)
@@ -52,23 +54,8 @@ encryption: noop {}
 }
 
 func TestParseStackFileAcceptsSourceStack(t *testing.T) {
-	path := writeConfig(t, `
-stack: {
-  locals: { state-path: '/tmp/state' }
-
-  factory: {
-    inputs: { region: 'us-east-1' }
-  }
-
-  state: local {
-    path: local.state-path
-  }
-
-  encryption: noop {}
-
-  parallelism: 3
-}
-`)
+	path := filepath.Join(t.TempDir(), "dev.ub")
+	require.NoError(t, os.WriteFile(path, readStateConfigFixture(t, "source-stack"), 0o600))
 
 	config, err := parseStackFile(path)
 	require.NoError(t, err)
@@ -88,7 +75,7 @@ stack: {
 }
 
 func TestParseStateConfigEncryptionOnly(t *testing.T) {
-	config := parseStackFixture(t, "encryption: noop {}\n")
+	config := parseStateConfigFixture(t, "encryption-only")
 	sc, err := parseStateConfig(config, "stack.ub")
 	require.NoError(t, err)
 	assert.Nil(t, sc.Backend)
@@ -181,27 +168,7 @@ func TestResolveEncrypterKMS(t *testing.T) {
 }
 
 func TestParseStateConfigResolvesLocals(t *testing.T) {
-	src := `
-locals: {
-  aws-config: {
-    assume-role: {
-      role-arn:    'arn:aws:iam::123456789012:role/unobin-state'
-      external-id: 'unobin-test'
-    }
-  }
-}
-
-state: s3 {
-  bucket: 'cloudboss'
-  aws:    local.aws-config
-}
-
-encryption: kms {
-  key-id: 'alias/cloudboss'
-  aws:    local.aws-config
-}
-`
-	f := parseStackFixture(t, src)
+	f := parseStateConfigFixture(t, "locals")
 	sc, err := parseStateConfig(f, "stack.ub")
 	require.NoError(t, err)
 	want := map[string]any{
