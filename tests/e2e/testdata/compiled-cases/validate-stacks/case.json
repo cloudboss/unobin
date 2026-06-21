@@ -25,6 +25,13 @@
       "skipPin": true
     },
     {
+      "name": "validate-unwrapped-stack",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/unwrapped.ub"],
+      "stderr": "want/validate-unwrapped-stack.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
       "name": "validate-unknown-backend",
       "args": ["validate", "--allow-version-mismatch", "-c", "stacks/unknown-backend.ub"],
       "stderr": "want/validate-unknown-backend.stderr",

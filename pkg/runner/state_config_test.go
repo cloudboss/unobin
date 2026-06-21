@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -97,21 +96,6 @@ stack: {
 	parallelism, err := loadParallelism(config, path)
 	require.NoError(t, err)
 	assert.Equal(t, 3, parallelism)
-}
-
-func TestParseStackFileRejectsUnwrappedStack(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "dev.ub")
-	require.NoError(t, os.WriteFile(path, []byte(`
-factory: {
-  inputs: { region: 'us-east-1' }
-}
-
-encryption: noop {}
-`), 0o600))
-
-	_, err := parseStackFile(path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "dev.ub must declare stack")
 }
 
 func TestParseStateConfigEncryptionOnly(t *testing.T) {
