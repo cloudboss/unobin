@@ -485,42 +485,6 @@ func TestParseEnvValueJSON(t *testing.T) {
 	}
 }
 
-func TestPlanRejectsConstraintViolation(t *testing.T) {
-	src := `
-inputs: {
-  vpc-id:     { type: optional(string) }
-  subnet-ids: { type: optional(list(string)) }
-}
-constraints: [
-  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
-]
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_VAR_vpc_id", "vpc-abc")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "required-together")
-}
-
-func TestPlanRejectsSplatConstraintViolation(t *testing.T) {
-	src := `
-inputs: {
-  replicas: {
-    type: list(object({ inline: optional(string), from-file: optional(string) }))
-    default: [{ inline: 'a', from-file: 'f' }]
-  }
-}
-constraints: [
-  { kind: exactly-one-of, fields: [var.replicas[*].inline, var.replicas[*].from-file] },
-]
-`
-	info := testInfo(t, src)
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(),
-		"expected exactly one to be set, got 2 (var.replicas[0].inline, var.replicas[0].from-file)")
-}
-
 func TestPlanChecksPredicateCallingFunction(t *testing.T) {
 	src := `
 inputs: {
@@ -545,74 +509,6 @@ constraints: [
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "every replica needs a positive port")
-}
-
-// TestPlanChecksPredicateCallingCoreNamespace proves a constraint
-// predicate can call @core with no import at all: the namespace is
-// part of the language, in scope everywhere expressions evaluate.
-func TestPlanChecksPredicateCallingCoreNamespace(t *testing.T) {
-	src := `
-inputs: {
-  replicas: {
-    type: optional(list(object({ port: optional(integer) })))
-    default: [{ port: 443 }, { port: 0 }]
-  }
-}
-constraints: [
-  {
-    kind:    predicate
-    when:    var.replicas != null
-    require: @core.all([for r in var.replicas: r.port != null && r.port > 0])
-    message: 'every replica needs a positive port'
-  },
-]
-`
-	info := testInfo(t, src)
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "every replica needs a positive port")
-}
-
-func TestPlanRejectsPredicate(t *testing.T) {
-	src := `
-inputs: {
-  region:    { type: string }
-  fips-mode: { type: boolean, default: false }
-}
-constraints: [
-  {
-    kind:    predicate
-    when:    var.region == 'us-gov-east-1'
-    require: var.fips-mode == true
-    message: 'GovCloud regions require FIPS mode enabled'
-  },
-]
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_VAR_region", "us-gov-east-1")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "GovCloud regions require FIPS mode enabled")
-}
-
-func TestPlanChecksPredicateOverNestedInput(t *testing.T) {
-	src := `
-inputs: {
-  code: { type: optional(object({ inline: optional(string) })) }
-}
-constraints: [
-  {
-    kind:    predicate
-    when:    true
-    require: var.code.inline != null
-    message: 'code must be inline'
-  },
-]
-`
-	info := testInfo(t, src)
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "code must be inline")
 }
 
 func TestPlanAllowsPredicateOverUnsetNestedInput(t *testing.T) {

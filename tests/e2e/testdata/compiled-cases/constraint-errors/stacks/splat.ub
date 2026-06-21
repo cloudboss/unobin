@@ -1,0 +1,13 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      replicas: [{ port: 443, inline: 'a', from-file: 'f' }]
+    }
+  }
+}

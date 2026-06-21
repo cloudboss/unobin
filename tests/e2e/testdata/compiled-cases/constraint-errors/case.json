@@ -1,0 +1,39 @@
+{
+  "name": "constraint-errors",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/constraint-errors",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-required-together",
+      "args": ["plan", "--ascii", "-c", "stacks/required-together.ub"],
+      "stderr": "want/plan-required-together.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-splat",
+      "args": ["plan", "--ascii", "-c", "stacks/splat.ub"],
+      "stderr": "want/plan-splat.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-core-predicate",
+      "args": ["plan", "--ascii", "-c", "stacks/core-predicate.ub"],
+      "stderr": "want/plan-core-predicate.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-region-predicate",
+      "args": ["plan", "--ascii", "-c", "stacks/region-predicate.ub"],
+      "stderr": "want/plan-region-predicate.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-nested-predicate",
+      "args": ["plan", "--ascii", "-c", "stacks/nested-predicate.ub"],
+      "stderr": "want/plan-nested-predicate.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}
