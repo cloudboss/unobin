@@ -1,0 +1,5 @@
+stack: {
+  factory: { inputs: { region: 'us-east-1' } }
+
+  encryption: noop {}
+}

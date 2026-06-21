@@ -1,15 +1,20 @@
 package runner
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func parseForTest(t *testing.T, body string) string {
+func parseParallelismFixture(t *testing.T, name string) string {
 	t.Helper()
-	return writeConfig(t, body)
+	path := filepath.Join("testdata", "ub", "parallelism", "valid", name+".ub")
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return writeConfig(t, string(body))
 }
 
 func TestLoadParallelismNilFile(t *testing.T) {
@@ -19,7 +24,7 @@ func TestLoadParallelismNilFile(t *testing.T) {
 }
 
 func TestLoadParallelismAbsentField(t *testing.T) {
-	path := parseForTest(t, `factory: { inputs: { region: 'us-east-1' } }`)
+	path := parseParallelismFixture(t, "absent")
 	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	got, err := loadParallelism(f, path)
@@ -28,13 +33,10 @@ func TestLoadParallelismAbsentField(t *testing.T) {
 }
 
 func TestLoadParallelismValid(t *testing.T) {
-	path := parseForTest(t, `parallelism: 5
-factory: { inputs: { region: 'us-east-1' } }
-`)
+	path := parseParallelismFixture(t, "value")
 	f, err := parseStackFile(path)
 	require.NoError(t, err)
 	got, err := loadParallelism(f, path)
 	require.NoError(t, err)
 	assert.Equal(t, 5, got)
 }
-

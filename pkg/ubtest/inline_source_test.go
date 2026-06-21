@@ -49,7 +49,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/resolve/resolve_test.go":                  true,
 	"pkg/resolve/ubwalk_test.go":                   true,
 	"pkg/runner/envelope_test.go":                  true,
-	"pkg/runner/parallelism_test.go":               true,
 	"pkg/runner/pin_test.go":                       true,
 	"pkg/runner/runner_test.go":                    true,
 	"pkg/runner/state_config_test.go":              true,
