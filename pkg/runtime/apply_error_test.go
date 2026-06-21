@@ -4,9 +4,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestApplyErrorPopulatesFailureFields(t *testing.T) {
@@ -18,10 +20,8 @@ func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: { boom: slow.fail { name: 'boom', delay-ms: 5 } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-error", "failing-resource"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -53,14 +53,8 @@ func TestApplyErrorCountsSkippedAndSucceeded(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: {
-  upstream:       slow.fail { name: 'upstream', delay-ms: 5 }
-  sibling:        slow.r { name: 'sibling', delay-ms: 5 }
-  after-upstream: slow.r { name: resource.upstream.name, delay-ms: 5 }
-}
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-error", "sibling-skipped"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,

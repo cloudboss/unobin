@@ -5,9 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 type plainResource struct {
@@ -59,10 +61,8 @@ func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: { one: r.thing { name: 'one' }, two: r.thing { name: 'two' } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-events", "successful-steps"), libs)
 	events := make(chan ApplyEvent, 32)
 	exec := &Executor{
 		DAG:          dag,
@@ -104,10 +104,8 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: { bad: r.thing { name: 'bad' } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-events", "fail-event"), libs)
 	events := make(chan ApplyEvent, 8)
 	exec := &Executor{
 		DAG:          dag,

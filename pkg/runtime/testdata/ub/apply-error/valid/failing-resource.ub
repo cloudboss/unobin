@@ -1,0 +1,3 @@
+resources: {
+  boom: slow.fail { name: 'boom', delay-ms: 5 }
+}

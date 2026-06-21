@@ -1,0 +1,5 @@
+resources: {
+  upstream: slow.fail { name: 'upstream', delay-ms: 5 }
+  sibling: slow.r { name: 'sibling', delay-ms: 5 }
+  after-upstream: slow.r { name: resource.upstream.name, delay-ms: 5 }
+}

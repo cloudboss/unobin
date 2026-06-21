@@ -1,0 +1,4 @@
+resources: {
+  one: r.thing { name: 'one' }
+  two: r.thing { name: 'two' }
+}

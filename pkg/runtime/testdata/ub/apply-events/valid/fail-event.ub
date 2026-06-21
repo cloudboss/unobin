@@ -1,0 +1,3 @@
+resources: {
+  bad: r.thing { name: 'bad' }
+}
