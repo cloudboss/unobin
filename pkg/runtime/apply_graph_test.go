@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"os"
 	"slices"
 	"testing"
 
@@ -155,12 +156,6 @@ func TestBuildStepGraphOrphanHasNoPredecessors(t *testing.T) {
 }
 
 func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
-	src := `
-resources: {
-  nodes: aws.instance { @for-each: var.cfgs, name: @each.value }
-  vols:  aws.volume { @for-each: var.cfgs, instance: resource.nodes[@each.key].name }
-}
-`
 	libs := map[string]*Library{
 		"aws": {
 			Name: "aws",
@@ -170,7 +165,7 @@ resources: {
 			},
 		},
 	}
-	dag := syntaxDAG(t, src, libs)
+	dag := syntaxDAG(t, applyGraphFixture(t, "pair-key"), libs)
 	addresses := []string{
 		"resource.nodes['alpha']",
 		"resource.nodes['beta']",
@@ -190,6 +185,15 @@ resources: {
 		"alpha vol should depend on only the alpha node, not both")
 	assert.Equal(t, 1, g.indegree["resource.vols['beta']"],
 		"beta vol should depend on only the beta node, not both")
+}
+
+func applyGraphFixture(t *testing.T, name string) string {
+	t.Helper()
+	body, err := os.ReadFile("testdata/ub/apply-graph/valid/" + name + ".ub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
 }
 
 func TestKeyPath(t *testing.T) {

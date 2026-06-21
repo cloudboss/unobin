@@ -57,7 +57,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/apply_empty_inputs_test.go":       true,
 	"pkg/runtime/apply_error_test.go":              true,
 	"pkg/runtime/apply_events_test.go":             true,
-	"pkg/runtime/apply_graph_test.go":              true,
 	"pkg/runtime/apply_lock_test.go":               true,
 	"pkg/runtime/apply_plan_test.go":               true,
 	"pkg/runtime/apply_reconcile_test.go":          true,
