@@ -1,0 +1,18 @@
+thing: resource {
+  inputs: {
+    region: { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  constraints: [{ kind: predicate, when: var.bogus == 'x', require: var.region == 'y' }]
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: {
+    one: e2e.file { path: var.region, content: 'hi' }
+  }
+
+  outputs: { path: { value: resource.one.path } }
+}

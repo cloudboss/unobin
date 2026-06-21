@@ -1,0 +1,4 @@
+Error: 2 errors:
+  library.ub:12:27: resolve: unknown input "missing"
+  library.ub:12:49: resolve: unknown resource "resource.demo/resource.absent"
+

@@ -1,0 +1,1 @@
+Error: factory.ub:21:25: resolve: library "greeter" has no resource "greeting"

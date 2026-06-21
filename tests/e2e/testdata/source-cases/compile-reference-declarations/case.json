@@ -1,0 +1,79 @@
+{
+  "name": "compile-reference-declarations",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "unimported-library",
+      "dir": "unimported-library",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unimported-library.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-go-declarations",
+      "dir": "valid-go-declarations",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "action-composite-as-resource",
+      "dir": "action-composite-as-resource",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/action-composite-as-resource.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "action-composite-as-action",
+      "dir": "action-composite-as-action",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "go-action-as-resource",
+      "dir": "go-action-as-resource",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/go-action-as-resource.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "go-resource-as-data",
+      "dir": "go-resource-as-data",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/go-resource-as-data.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-go-type",
+      "dir": "unknown-go-type",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-go-type.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-composite-scope",
+      "dir": "valid-composite-scope",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "composite-unknown-scope",
+      "dir": "composite-unknown-scope",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/composite-unknown-scope.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "constraint-root-scope",
+      "dir": "constraint-root-scope",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-root-scope.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "constraint-composite-scope",
+      "dir": "constraint-composite-scope",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-composite-scope.stderr",
+      "exitCode": 1
+    }
+  ]
+}

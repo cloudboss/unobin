@@ -1,0 +1,3 @@
+factory: {
+  resources: { welcome: greeter.greeting { message: 'hello' } }
+}

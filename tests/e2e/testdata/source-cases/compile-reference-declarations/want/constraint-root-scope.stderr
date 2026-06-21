@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:7:13: resolve: unknown input "bogus"
+  factory.ub:8:16: resolve: unknown input "also-missing"
+
