@@ -54,7 +54,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/apply_configuration_test.go":      true,
 	"pkg/runtime/apply_lock_test.go":               true,
 	"pkg/runtime/apply_plan_test.go":               true,
-	"pkg/runtime/apply_schedule_test.go":           true,
 	"pkg/runtime/apply_timeout_test.go":            true,
 	"pkg/runtime/composite_body_test.go":           true,
 	"pkg/runtime/dag_test.go":                      true,

@@ -1,0 +1,5 @@
+resources: {
+  boom: slow.fail { name: 'boom', delay-ms: 50 }
+  a: slow.r { name: 'a', delay-ms: 300 }
+  b: slow.r { name: 'b', delay-ms: 300 }
+}

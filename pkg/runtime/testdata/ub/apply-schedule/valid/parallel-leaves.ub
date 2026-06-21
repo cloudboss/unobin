@@ -1,0 +1,10 @@
+resources: {
+  n0: slow.r { name: 'n0', delay-ms: 200 }
+  n1: slow.r { name: 'n1', delay-ms: 200 }
+  n2: slow.r { name: 'n2', delay-ms: 200 }
+  n3: slow.r { name: 'n3', delay-ms: 200 }
+  n4: slow.r { name: 'n4', delay-ms: 200 }
+  n5: slow.r { name: 'n5', delay-ms: 200 }
+  n6: slow.r { name: 'n6', delay-ms: 200 }
+  n7: slow.r { name: 'n7', delay-ms: 200 }
+}

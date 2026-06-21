@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 type slowResource struct {
@@ -86,16 +87,9 @@ func TestApplyScheduleRunsIndependentLeavesInParallel(t *testing.T) {
 		delay    = 200 * time.Millisecond
 		serialUB = 7 * delay
 	)
-	var src strings.Builder
-	src.WriteString("resources: {\n")
-	for i := range n {
-		src.WriteString(fmt.Sprintf("  n%d: slow.r { name: 'n%d', delay-ms: %d }\n",
-			i, i, delay.Milliseconds()))
-	}
-	src.WriteString("}\n")
-
 	libs := slowLibraries()
-	dag, syntaxSource := syntaxDAGAndBody(t, src.String(), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-schedule", "parallel-leaves"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -118,16 +112,9 @@ func TestApplyScheduleP1IsSerial(t *testing.T) {
 		n     = 4
 		delay = 100 * time.Millisecond
 	)
-	var src strings.Builder
-	src.WriteString("resources: {\n")
-	for i := range n {
-		src.WriteString(fmt.Sprintf("  n%d: slow.r { name: 'n%d', delay-ms: %d }\n",
-			i, i, delay.Milliseconds()))
-	}
-	src.WriteString("}\n")
-
 	libs := slowLibraries()
-	dag, syntaxSource := syntaxDAGAndBody(t, src.String(), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-schedule", "serial-leaves"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -187,14 +174,8 @@ func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: {
-  boom: slow.fail { name: 'boom', delay-ms: 50 }
-  a:    slow.r { name: 'a', delay-ms: 300 }
-  b:    slow.r { name: 'b', delay-ms: 300 }
-}
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-schedule", "failure-drains-inflight"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -223,13 +204,8 @@ func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 			},
 		},
 	}
-	src := `
-resources: {
-  upstream:   slow.fail { name: 'upstream', delay-ms: 10 }
-  downstream: slow.r { name: resource.upstream.name, delay-ms: 100 }
-}
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-schedule", "skips-dependents"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
