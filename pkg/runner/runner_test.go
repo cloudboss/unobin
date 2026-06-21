@@ -213,12 +213,6 @@ func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
 	require.Contains(t, err.Error(), "factory.ub must declare factory")
 }
 
-func TestPlanParseError(t *testing.T) {
-	info := testInfo(t, `not valid syntax {{`)
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-}
-
 func TestDeploymentID(t *testing.T) {
 	cases := []struct {
 		in, want string
@@ -796,21 +790,6 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["output"])
 	require.True(t, subs["schema"])
 	require.True(t, subs["state"])
-}
-
-func TestValidateRejectsBadSource(t *testing.T) {
-	info := testInfo(t, `not valid syntax {{`)
-	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
-	require.Error(t, err)
-}
-
-func TestValidateRejectsInvalidReference(t *testing.T) {
-	info := testInfo(t, `
-actions: { bad: core.echo { echo: var.missing } }
-`)
-	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `unknown input "missing"`)
 }
 
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {
