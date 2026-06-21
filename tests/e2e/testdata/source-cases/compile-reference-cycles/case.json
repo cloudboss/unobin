@@ -1,0 +1,22 @@
+{
+  "name": "compile-reference-cycles",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "node-cycle",
+      "dir": "node-cycle",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-cycle.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "node-self-cycle",
+      "dir": "node-self-cycle",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-self-cycle.stderr",
+      "exitCode": 1
+    }
+  ]
+}

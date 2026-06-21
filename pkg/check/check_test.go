@@ -297,26 +297,3 @@ func TestCheckReferencesHyphenHints(t *testing.T) {
 		})
 	}
 }
-
-func TestCheckReferencesNodeCycle(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: {
-  a: local.file { path: resource.b.path }
-  b: local.file { path: resource.a.path }
-}
-`, nil)
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], "reference cycle: "+
-		"resource.a -> resource.b -> resource.a")
-}
-
-func TestCheckReferencesNodeSelfCycle(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { a: local.file { path: resource.a.path } }
-`, nil)
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0],
-		"reference cycle: resource.a -> resource.a")
-}

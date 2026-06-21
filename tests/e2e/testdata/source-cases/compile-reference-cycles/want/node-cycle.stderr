@@ -1,0 +1,1 @@
+Error: factory.ub:18:17: resolve: reference cycle: resource.a -> resource.b -> resource.a
