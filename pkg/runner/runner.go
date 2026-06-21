@@ -618,6 +618,7 @@ func newOutputCmd(info Info) *cobra.Command {
 type parsedFactory struct {
 	syntaxBody *syntax.FactoryBody
 	dag        *runtime.DAG
+	libraries  map[string]*runtime.Library
 }
 
 func parseFactory(info Info) (*parsedFactory, error) {
@@ -635,6 +636,7 @@ func parseFactory(info Info) (*parsedFactory, error) {
 	return &parsedFactory{
 		syntaxBody: &body,
 		dag:        runtime.BuildSyntaxDAG(body, info.Libraries),
+		libraries:  info.Libraries,
 	}, nil
 }
 

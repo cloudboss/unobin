@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 // Input bundles everything codegen needs to produce a factory binary's
@@ -45,6 +46,9 @@ type Input struct {
 	// defaults, gathered the same way and attached the same way, so the
 	// runtime can fill them into evaluated bodies.
 	GoDefaults map[string]map[string][]lang.DefaultSpec
+	// GoSchemas maps a Go-library alias to schema metadata the compiled
+	// runtime needs after compile-time checks, such as sensitive fields.
+	GoSchemas map[string]*runtime.LibrarySchema
 }
 
 // Generate produces the formatted Go source for the factory binary's
@@ -58,6 +62,7 @@ func Generate(in Input) ([]byte, error) {
 	ubImports := aliasImports(in.UBImports)
 	constraintAliases := injectedAliases(in.GoConstraints)
 	defaultAliases := injectedAliases(in.GoDefaults)
+	schemaInjectAliases := schemaAliases(in.GoSchemas)
 	data := struct {
 		Body              string
 		LibraryPath       string
@@ -68,6 +73,9 @@ func Generate(in Input) ([]byte, error) {
 		GoConstraints     map[string]map[string][]lang.ConstraintSpec
 		DefaultAliases    []string
 		GoDefaults        map[string]map[string][]lang.DefaultSpec
+		SchemaAliases     []string
+		GoSchemas         map[string]*runtime.LibrarySchema
+		HasLang           bool
 		Inject            bool
 	}{
 		Body:              in.Body,
@@ -79,7 +87,10 @@ func Generate(in Input) ([]byte, error) {
 		GoConstraints:     in.GoConstraints,
 		DefaultAliases:    defaultAliases,
 		GoDefaults:        in.GoDefaults,
-		Inject:            len(constraintAliases)+len(defaultAliases) > 0,
+		SchemaAliases:     schemaInjectAliases,
+		GoSchemas:         in.GoSchemas,
+		HasLang:           len(constraintAliases)+len(defaultAliases) > 0,
+		Inject:            len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
 	}
 
 	var buf bytes.Buffer
@@ -143,6 +154,35 @@ func injectedAliases[T any](m map[string]map[string][]T) []string {
 	return keys
 }
 
+func schemaAliases(m map[string]*runtime.LibrarySchema) []string {
+	keys := make([]string, 0, len(m))
+	for k, v := range m {
+		if schemaHasSensitivity(v) {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func schemaHasSensitivity(schema *runtime.LibrarySchema) bool {
+	if schema == nil {
+		return false
+	}
+	return schemaTypesHaveSensitivity(schema.Resources) ||
+		schemaTypesHaveSensitivity(schema.DataSources) ||
+		schemaTypesHaveSensitivity(schema.Actions)
+}
+
+func schemaTypesHaveSensitivity(types map[string]*runtime.TypeSchema) bool {
+	for _, ts := range types {
+		if ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0) {
+			return true
+		}
+	}
+	return false
+}
+
 // injectConstraints renders the assignment that attaches one Go library's
 // constraints to its entry in the libraries map.
 func injectConstraints(alias string, all map[string]map[string][]lang.ConstraintSpec) string {
@@ -153,6 +193,10 @@ func injectConstraints(alias string, all map[string]map[string][]lang.Constraint
 // declared input defaults to its entry in the libraries map.
 func injectDefaults(alias string, all map[string]map[string][]lang.DefaultSpec) string {
 	return defaultsAssign(fmt.Sprintf("libraries[%q]", alias), all[alias])
+}
+
+func injectSchema(alias string, all map[string]*runtime.LibrarySchema) string {
+	return schemaAssign(fmt.Sprintf("libraries[%q]", alias), all[alias])
 }
 
 // constraintsAssign renders the statement attaching constraint specs to
@@ -188,6 +232,61 @@ func defaultsAssign(target string, byType map[string][]lang.DefaultSpec) string 
 	}
 	b.WriteString("}")
 	return b.String()
+}
+
+func schemaAssign(target string, schema *runtime.LibrarySchema) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s.Schema = &runtime.LibrarySchema{\n", target)
+	schemaMapLiteral(&b, "Resources", schema.Resources)
+	schemaMapLiteral(&b, "DataSources", schema.DataSources)
+	schemaMapLiteral(&b, "Actions", schema.Actions)
+	b.WriteString("}")
+	return b.String()
+}
+
+func schemaMapLiteral(
+	b *strings.Builder,
+	field string,
+	types map[string]*runtime.TypeSchema,
+) {
+	if !schemaTypesHaveSensitivity(types) {
+		return
+	}
+	fmt.Fprintf(b, "%s: map[string]*runtime.TypeSchema{\n", field)
+	for _, typ := range sortedSchemaTypeKeys(types) {
+		fmt.Fprintf(b, "%q: %s,\n", typ, typeSchemaLiteral(types[typ]))
+	}
+	b.WriteString("},\n")
+}
+
+func typeSchemaLiteral(ts *runtime.TypeSchema) string {
+	parts := []string{}
+	if len(ts.SensitiveInputs) > 0 {
+		parts = append(parts, stringSliceField("SensitiveInputs", ts.SensitiveInputs))
+	}
+	if len(ts.SensitiveOutputs) > 0 {
+		parts = append(parts, stringSliceField("SensitiveOutputs", ts.SensitiveOutputs))
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+func stringSliceField(name string, values []string) string {
+	quoted := make([]string, len(values))
+	for i, value := range values {
+		quoted[i] = strconv.Quote(value)
+	}
+	return name + ": []string{" + strings.Join(quoted, ", ") + "}"
+}
+
+func sortedSchemaTypeKeys(types map[string]*runtime.TypeSchema) []string {
+	keys := make([]string, 0, len(types))
+	for typ, ts := range types {
+		if ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0) {
+			keys = append(keys, typ)
+		}
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // defaultLiteral renders one spec as an element of a []lang.DefaultSpec,
@@ -250,11 +349,12 @@ var mainTemplate = template.Must(template.New("main.go").Funcs(template.FuncMap{
 	"quote":             quote,
 	"injectConstraints": injectConstraints,
 	"injectDefaults":    injectDefaults,
+	"injectSchema":      injectSchema,
 }).Parse(`// Code generated by unobin. DO NOT EDIT.
 package main
 
 import (
-{{if .Inject}}	"github.com/cloudboss/unobin/pkg/lang"
+{{if .HasLang}}	"github.com/cloudboss/unobin/pkg/lang"
 {{end}}	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 {{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
@@ -283,6 +383,7 @@ func main() {
 {{end}}	}
 {{range .ConstraintAliases}}	{{injectConstraints . $.GoConstraints}}
 {{end}}{{range .DefaultAliases}}	{{injectDefaults . $.GoDefaults}}
+{{end}}{{range .SchemaAliases}}	{{injectSchema . $.GoSchemas}}
 {{end}}	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,

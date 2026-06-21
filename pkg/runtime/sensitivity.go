@@ -29,6 +29,28 @@ type compositeSensitivity struct {
 	outputs map[string]bool
 }
 
+// RootSensitiveOutputs reports root output names whose values must be masked.
+func RootSensitiveOutputs(
+	body syntax.FactoryBody,
+	libs map[string]*Library,
+	dag *DAG,
+) map[string]bool {
+	out := map[string]bool{}
+	an := newSensitivityAnalyzerFromSource(nil, &body, libs, dag)
+	scope := an.scopeFor("")
+	for _, decl := range body.Outputs {
+		if sensitiveDecl(decl.Body) {
+			out[decl.Name.Name] = true
+			continue
+		}
+		inner := lang.OutputValueExpr(decl.Body)
+		if inner != nil && an.exprSensitive(inner, scope) {
+			out[decl.Name.Name] = true
+		}
+	}
+	return out
+}
+
 // sensScope bundles what a body's references resolve against while
 // deciding sensitivity: the sensitive input names, the library table,
 // the scope's `locals:` declarations (so a `local.X` can be followed

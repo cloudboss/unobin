@@ -8,6 +8,29 @@
   "stack": "dev",
   "entries": [
     {
+      "address": "action.go-secret",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": {
+        "alias": "e2e",
+        "export": "secret"
+      },
+      "sensitive-inputs": [
+        "value"
+      ],
+      "sensitive-outputs": [
+        "value"
+      ],
+      "inputs": {
+        "label": "deploy",
+        "value": "top-secret"
+      },
+      "outputs": {
+        "label": "deploy",
+        "value": "top-secret"
+      }
+    },
+    {
       "address": "action.record",
       "entry-kind": "action",
       "node-kind": "action",
@@ -30,6 +53,7 @@
     }
   ],
   "outputs": {
+    "library-token": "top-secret",
     "public-name": "deploy",
     "token": "deploy:top-secret"
   }

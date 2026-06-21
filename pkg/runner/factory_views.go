@@ -3,6 +3,7 @@ package runner
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 type factoryInputDecl struct {
@@ -46,13 +47,10 @@ func (p *parsedFactory) outputs() []factoryOutputDecl {
 }
 
 func (p *parsedFactory) sensitiveOutputs() map[string]bool {
-	out := map[string]bool{}
-	for _, output := range p.outputs() {
-		if hasSensitiveOutput(output.body) {
-			out[output.name] = true
-		}
+	if p == nil || p.syntaxBody == nil {
+		return map[string]bool{}
 	}
-	return out
+	return runtime.RootSensitiveOutputs(*p.syntaxBody, p.libraries, p.dag)
 }
 
 func syntaxInputBlock(decls []syntax.InputDecl) *lang.ObjectLit {
@@ -126,18 +124,4 @@ func syntaxOutputs(decls []syntax.OutputDecl) []factoryOutputDecl {
 		out = append(out, factoryOutputDecl{name: decl.Name.Name, body: decl.Body})
 	}
 	return out
-}
-
-func hasSensitiveOutput(body *lang.ObjectLit) bool {
-	if body == nil {
-		return false
-	}
-	for _, fld := range body.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "@sensitive" {
-			continue
-		}
-		b, ok := fld.Value.(*lang.BoolLit)
-		return ok && b.Value
-	}
-	return false
 }

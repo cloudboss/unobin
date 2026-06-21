@@ -58,6 +58,7 @@ func Library() *ubruntime.Library {
 		Actions: map[string]ubruntime.ActionRegistration{
 			"echo":   ubruntime.MakeAction[Echo, *EchoOutput, *Configuration](),
 			"record": ubruntime.MakeAction[Record, *RecordOutput, *Configuration](),
+			"secret": ubruntime.MakeAction[Secret, *SecretOutput, *Configuration](),
 		},
 		Functions: map[string]ubruntime.FunctionType{
 			"all": ubruntime.MakeFunc("all", "Return true when every argument is true.", fnAll),
@@ -380,6 +381,16 @@ type RecordOutput struct {
 	Count  int64
 }
 
+type Secret struct {
+	Label string
+	Value string
+}
+
+type SecretOutput struct {
+	Label string
+	Value string `ub:",sensitive"`
+}
+
 func (r Record) Defaults() []defaults.Default {
 	return []defaults.Default{defaults.Optional(r.Tags)}
 }
@@ -402,6 +413,10 @@ func (r *Record) Run(_ context.Context, config *Configuration) (*RecordOutput, e
 		return nil, err
 	}
 	return &RecordOutput{Record: record, Name: r.Name, Count: 1}, nil
+}
+
+func (s *Secret) Run(_ context.Context, _ *Configuration) (*SecretOutput, error) {
+	return &SecretOutput{Label: s.Label, Value: s.Value}, nil
 }
 
 type event struct {

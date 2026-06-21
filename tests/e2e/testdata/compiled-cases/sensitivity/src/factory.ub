@@ -25,10 +25,16 @@ factory: {
       name:    var.name
       message: var.secret
     }
+
+    go-secret: e2e.secret {
+      label: var.name
+      value: var.secret
+    }
   }
 
   outputs: {
-    public-name: { value: action.record.name }
-    token:       { value: action.record.record, @sensitive: true }
+    public-name:   { value: action.record.name }
+    token:         { value: action.record.record, @sensitive: true }
+    library-token: { value: action.go-secret.value }
   }
 }

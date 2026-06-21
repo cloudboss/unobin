@@ -20,6 +20,7 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 	require.Contains(t, schema.DataSources, "read-file")
 	require.Contains(t, schema.Actions, "echo")
 	require.Contains(t, schema.Actions, "record")
+	require.Contains(t, schema.Actions, "secret")
 
 	file := schema.Resources["file"]
 	assert.Contains(t, file.Inputs, "path")
@@ -40,6 +41,10 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 
 	record := schema.Actions["record"]
 	assert.Contains(t, record.Outputs, "record")
+
+	secret := schema.Actions["secret"]
+	assert.Contains(t, secret.Outputs, "value")
+	assert.Equal(t, []string{"value"}, secret.SensitiveOutputs)
 
 	require.True(t, schema.HasConfiguration)
 	assert.Contains(t, schema.Configuration, "base-dir")

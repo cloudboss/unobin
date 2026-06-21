@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 // GoLibrarySpecs holds one Go library's compile-extracted spec data,
@@ -22,11 +23,12 @@ import (
 type GoLibrarySpecs struct {
 	Constraints map[string][]lang.ConstraintSpec
 	Defaults    map[string][]lang.DefaultSpec
+	Schema      *runtime.LibrarySchema
 }
 
 // Empty reports whether the specs hold no data at all.
 func (s GoLibrarySpecs) Empty() bool {
-	return len(s.Constraints) == 0 && len(s.Defaults) == 0
+	return len(s.Constraints) == 0 && len(s.Defaults) == 0 && !schemaHasSensitivity(s.Schema)
 }
 
 // GenerateUBLibrary produces the Go source for a UB library's
@@ -200,6 +202,7 @@ type specVar struct {
 	GoIdent     string
 	Constraints string
 	Defaults    string
+	Schema      string
 }
 
 // specVarsFor returns the spec variables for every bound import path
@@ -227,6 +230,9 @@ func specVarsFor(
 		}
 		if len(specs.Defaults) > 0 {
 			v.Defaults = defaultsAssign(name, specs.Defaults)
+		}
+		if schemaHasSensitivity(specs.Schema) {
+			v.Schema = schemaAssign(name, specs.Schema)
 		}
 		vars = append(vars, v)
 		varOf[p] = name
@@ -348,6 +354,9 @@ func Library() *runtime.Library {
 {{- end}}
 {{- if .Defaults}}
 	{{.Defaults}}
+{{- end}}
+{{- if .Schema}}
+	{{.Schema}}
 {{- end}}
 {{end}}	return &runtime.Library{
 		Name: {{quote .LibraryName}},

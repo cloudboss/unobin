@@ -14,6 +14,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 func parseSyntaxUB(t *testing.T, kind, name, src string) syntax.FactoryBody {
@@ -304,6 +305,11 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 					{Field: "var.create-directory", Optional: true},
 				},
 			},
+			Schema: &runtime.LibrarySchema{
+				Resources: map[string]*runtime.TypeSchema{
+					"file": {SensitiveInputs: []string{"content"}},
+				},
+			},
 		},
 	}
 
@@ -321,6 +327,8 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 	require.Contains(t, s, `{Kind: "predicate", Require: "var.path != null"`)
 	require.Contains(t, s, `{Field: "var.mode", Value: "420"}`)
 	require.Contains(t, s, `{Field: "var.create-directory", Optional: true}`)
+	require.Contains(t, s, `diskLib.Schema = &runtime.LibrarySchema{`)
+	require.Contains(t, s, `"file": {SensitiveInputs: []string{"content"}}`)
 	require.Regexp(t, `Name:\s*"archive"`, s)
 	require.Regexp(t, `Kind:\s*runtime\.NodeResource`, s)
 	require.Contains(t, s, `SyntaxBody: &syntax.FactoryBody{`)

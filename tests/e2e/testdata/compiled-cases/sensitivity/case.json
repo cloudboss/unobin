@@ -23,10 +23,16 @@
       "stderr": "want/output.stderr"
     },
     {
-      "name": "state-show",
+      "name": "state-show-record",
       "args": ["state", "show", "-c", "stacks/dev.ub", "e2e.record@action.record"],
-      "stdout": "want/state-show.stdout",
-      "stderr": "want/state-show.stderr"
+      "stdout": "want/state-show-record.stdout",
+      "stderr": "want/state-show-record.stderr"
+    },
+    {
+      "name": "state-show-secret",
+      "args": ["state", "show", "-c", "stacks/dev.ub", "e2e.secret@action.go-secret"],
+      "stdout": "want/state-show-secret.stdout",
+      "stderr": "want/state-show-secret.stderr"
     }
   ],
   "stateSummary": "want/state-summary.json",

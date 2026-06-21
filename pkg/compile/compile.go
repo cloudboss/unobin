@@ -282,6 +282,7 @@ func Run(opts Options) error {
 	ubImports := make(map[string]string, len(top))
 	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(top))
 	goDefaults := make(map[string]map[string][]lang.DefaultSpec, len(top))
+	goSchemas := make(map[string]*ubruntime.LibrarySchema, len(top))
 	libs := make(map[string]*ubruntime.Library, len(top))
 	for _, res := range top {
 		switch res.Kind {
@@ -293,6 +294,7 @@ func Run(opts Options) error {
 			}
 			PrintSchemaWarnings(opts.stderr(), res.LocalAlias, warnings)
 			libs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
+			goSchemas[res.LocalAlias] = schema
 			if c := constraintsFromSchema(schema); len(c) > 0 {
 				goConstraints[res.LocalAlias] = c
 			}
@@ -310,6 +312,7 @@ func Run(opts Options) error {
 	used := usedSyntaxLibraryTypes(sf.Factory.Body)
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
+	pruneUnusedSchemas(goSchemas, used)
 	checker := check.NewSyntax(sf.Factory.Body, libs)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
@@ -330,6 +333,7 @@ func Run(opts Options) error {
 		UBImports:     ubImports,
 		GoConstraints: goConstraints,
 		GoDefaults:    goDefaults,
+		GoSchemas:     goSchemas,
 	}
 
 	if opts.OutDir == "-" {
@@ -452,6 +456,7 @@ func (c *compileVisitor) OnUBLibrary(
 				specs := codegen.GoLibrarySpecs{
 					Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
 					Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
+					Schema:      keepUsedSchema(schema, used),
 				}
 				if !specs.Empty() {
 					goSpecs[res.Path] = specs
@@ -1202,6 +1207,62 @@ func keepUsedTypes[T any](m map[string][]T, used map[string]bool) map[string][]T
 		return nil
 	}
 	return out
+}
+
+func pruneUnusedSchemas(
+	schemas map[string]*ubruntime.LibrarySchema,
+	used map[string]map[string]bool,
+) {
+	for alias, schema := range schemas {
+		if kept := keepUsedSchema(schema, used[alias]); kept != nil {
+			schemas[alias] = kept
+		} else {
+			delete(schemas, alias)
+		}
+	}
+}
+
+func keepUsedSchema(
+	schema *ubruntime.LibrarySchema,
+	used map[string]bool,
+) *ubruntime.LibrarySchema {
+	if schema == nil {
+		return nil
+	}
+	out := &ubruntime.LibrarySchema{
+		Resources:   keepSensitiveTypes(schema.Resources, used, string(ubruntime.NodeResource)),
+		DataSources: keepSensitiveTypes(schema.DataSources, used, string(ubruntime.NodeData)),
+		Actions:     keepSensitiveTypes(schema.Actions, used, string(ubruntime.NodeAction)),
+	}
+	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 {
+		return nil
+	}
+	return out
+}
+
+func keepSensitiveTypes(
+	types map[string]*ubruntime.TypeSchema,
+	used map[string]bool,
+	kind string,
+) map[string]*ubruntime.TypeSchema {
+	out := map[string]*ubruntime.TypeSchema{}
+	for typ, ts := range types {
+		if !used[kind+"."+typ] || !typeHasSensitivity(ts) {
+			continue
+		}
+		out[typ] = &ubruntime.TypeSchema{
+			SensitiveInputs:  append([]string(nil), ts.SensitiveInputs...),
+			SensitiveOutputs: append([]string(nil), ts.SensitiveOutputs...),
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func typeHasSensitivity(ts *ubruntime.TypeSchema) bool {
+	return ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0)
 }
 
 // ReadGoSchema reads a fetched Go library's source from sourcePath

@@ -1,5 +1,7 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
 { kind: 'apply-event', time: '<time>', stage: 'start', decision: 'eval', address: 'library-config.e2e' }
 { kind: 'apply-event', time: '<time>', stage: 'done', decision: 'eval', address: 'library-config.e2e', elapsed: '<elapsed>' }
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'rerun', address: 'action.go-secret' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'rerun', address: 'action.go-secret', elapsed: '<elapsed>' }
 { kind: 'apply-event', time: '<time>', stage: 'start', decision: 'rerun', address: 'action.record' }
 { kind: 'apply-event', time: '<time>', stage: 'done', decision: 'rerun', address: 'action.record', elapsed: '<elapsed>' }

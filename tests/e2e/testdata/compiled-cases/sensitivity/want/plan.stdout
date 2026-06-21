@@ -1,5 +1,8 @@
+  (rerun)   action.go-secret
+      label: 'deploy'
+      value: ***
   (rerun)   action.record
       message: ***
       name: 'deploy'
 
-Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.
+Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 2 to rerun.

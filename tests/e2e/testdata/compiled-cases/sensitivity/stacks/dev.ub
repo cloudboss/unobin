@@ -1,4 +1,6 @@
 stack: {
+  parallelism: 1
+
   state: local {
     path: '.unobin/state'
   }
