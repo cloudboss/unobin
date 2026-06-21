@@ -527,30 +527,6 @@ constraints: [
 	require.NoError(t, err)
 }
 
-func TestPlanShowsCreateBeforeApply(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-`
-	info := testInfo(t, src)
-	out, err := runWithStack(t, info, "plan", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, out, "↺ action.hi")
-	require.Contains(t, out, `echo: 'hello'`)
-	require.Contains(t, out, "Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.")
-}
-
-func TestPlanHidesSkipAfterApply(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-`
-	info := testInfo(t, src)
-	_ = applyVia(t, info, "")
-
-	out, err := runWithStack(t, info, "plan", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, out, "No changes.")
-}
-
 func TestPrintPlanShowsStateMoves(t *testing.T) {
 	plan := &runtime.Plan{
 		StateMoves: []runtime.PlannedEntryMove{

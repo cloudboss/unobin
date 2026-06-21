@@ -1,0 +1,5 @@
+  ↺ action.hi
+      text: 'hello'
+      upper: false
+
+Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.
