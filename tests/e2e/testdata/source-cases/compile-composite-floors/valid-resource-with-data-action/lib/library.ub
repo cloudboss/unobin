@@ -1,0 +1,5 @@
+box: resource {
+  resources: { m: aws.vpc {} }
+  data: { x: aws.ami {} }
+  actions: { c: core.command { argv: ['x'] } }
+}

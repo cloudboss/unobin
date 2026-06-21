@@ -1,0 +1,4 @@
+lookup: data {
+  data: { x: aws.ami { most-recent: true } }
+  outputs: { id: { value: data.x.id } }
+}

@@ -1,0 +1,4 @@
+lookup: data {
+  resources: { m: aws.vpc {} }
+  actions: { c: core.command { argv: ['x'] } }
+}

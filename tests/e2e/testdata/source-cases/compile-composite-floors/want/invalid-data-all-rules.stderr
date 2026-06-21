@@ -1,0 +1,3 @@
+Error: import "lib": composite "lookup" (data): a data composite must declare at least one output
+composite "lookup" (data): a data composite must not contain resources
+composite "lookup" (data): a data composite must not contain actions

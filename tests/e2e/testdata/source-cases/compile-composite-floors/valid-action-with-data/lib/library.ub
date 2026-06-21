@@ -1,0 +1,4 @@
+deploy: action {
+  data: { x: aws.ami {} }
+  actions: { c: core.command { argv: ['x'] } }
+}

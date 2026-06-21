@@ -20,6 +20,21 @@
       "args": ["compile", "-p", "factory.ub", "-o", "build"]
     },
     {
+      "name": "valid-data-with-data",
+      "dir": "valid-data-with-data",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-action-with-data",
+      "dir": "valid-action-with-data",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-resource-with-data-action",
+      "dir": "valid-resource-with-data-action",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
       "name": "invalid-data-no-output",
       "dir": "invalid-data-no-output",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
@@ -34,10 +49,45 @@
       "exitCode": 1
     },
     {
+      "name": "invalid-data-action",
+      "dir": "invalid-data-action",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-data-action.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-data-all-rules",
+      "dir": "invalid-data-all-rules",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-data-all-rules.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-data-empty",
+      "dir": "invalid-data-empty",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-data-empty.stderr",
+      "exitCode": 1
+    },
+    {
       "name": "invalid-action-empty",
       "dir": "invalid-action-empty",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
       "stderr": "want/invalid-action-empty.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-action-resource",
+      "dir": "invalid-action-resource",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-action-resource.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-action-resource-empty",
+      "dir": "invalid-action-resource-empty",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-action-resource-empty.stderr",
       "exitCode": 1
     },
     {

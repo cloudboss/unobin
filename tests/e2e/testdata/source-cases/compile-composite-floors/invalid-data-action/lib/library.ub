@@ -1,0 +1,4 @@
+lookup: data {
+  actions: { c: core.command { argv: ['x'] } }
+  outputs: { id: { value: 'x' } }
+}
