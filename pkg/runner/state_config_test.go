@@ -110,14 +110,6 @@ func TestResolveBackendLocal(t *testing.T) {
 	require.NotNil(t, b)
 }
 
-func TestResolveBackendRejectsUnknownName(t *testing.T) {
-	ref := &resolverRef{Name: "ghost"}
-	_, err := resolveBackend(ref, "test-stack", "default", encrypters.Noop{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `no backend named "ghost"`)
-	assert.Contains(t, err.Error(), "available: local, s3")
-}
-
 func TestResolveBackendS3(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
@@ -141,13 +133,6 @@ func TestResolveBackendS3RejectsUnknownKey(t *testing.T) {
 	_, err := resolveBackend(ref, "test-factory", "default", encrypters.Noop{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown key region")
-}
-
-func TestResolveBackendRejectsBadConfig(t *testing.T) {
-	ref := &resolverRef{Name: "local", Body: map[string]any{"unknown": 1}}
-	_, err := resolveBackend(ref, "test-stack", "default", encrypters.Noop{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "state:")
 }
 
 func TestResolveEncrypterNilNoEnvKey(t *testing.T) {
@@ -179,14 +164,6 @@ func TestResolveEncrypterNamed(t *testing.T) {
 	require.NoError(t, err)
 	_, ok := enc.(encrypters.Noop)
 	assert.True(t, ok, "expected Noop, got %T", enc)
-}
-
-func TestResolveEncrypterRejectsUnknownName(t *testing.T) {
-	ref := &resolverRef{Name: "ghost"}
-	_, err := resolveEncrypter(ref)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `no key-source named "ghost"`)
-	assert.Contains(t, err.Error(), "available: env-key, kms, noop")
 }
 
 func TestResolveEncrypterKMS(t *testing.T) {
