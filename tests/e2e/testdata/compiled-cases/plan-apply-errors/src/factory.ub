@@ -1,0 +1,5 @@
+factory: {
+  outputs: {
+    ready: { value: 'ok' }
+  }
+}

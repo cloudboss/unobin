@@ -1,0 +1,34 @@
+{
+  "name": "plan-apply-errors",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/plan-apply-errors",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-empty",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "empty.ubp"],
+      "stdout": "want/plan-empty.stdout",
+      "stderr": "want/plan-empty.stderr"
+    },
+    {
+      "name": "plan-missing-stack",
+      "args": ["plan", "-c", "stacks/missing.ub"],
+      "stderr": "want/plan-missing-stack.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "apply-missing-plan",
+      "args": ["apply", "missing.ubp"],
+      "stderr": "want/apply-missing-plan.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "apply-requires-plan",
+      "args": ["apply"],
+      "stderr": "want/apply-requires-plan.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}

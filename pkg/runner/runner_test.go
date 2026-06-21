@@ -1423,66 +1423,6 @@ func TestPrintPlanHidesCompositeWhenInternalsUnchanged(t *testing.T) {
 	require.Equal(t, "No changes.\n", buf.String())
 }
 
-func TestPlanEmpty(t *testing.T) {
-	info := testInfo(t, `description: 'x'`)
-	out, err := runWithStack(t, info, "plan", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, out, "No changes.")
-}
-
-func TestPlanWritesPlanFile(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-`
-	info := testInfo(t, src)
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-
-	_, err := runWithStack(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	pf := openPlanFile(t, planFile)
-	require.Equal(t, 1, pf.FormatVersion)
-	addresses := make([]string, len(pf.Steps))
-	for i, s := range pf.Steps {
-		addresses[i] = s.Address
-	}
-	require.Contains(t, addresses, "action.hi")
-}
-
-func TestApplyConsumesPlanFile(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello world' } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-
-	_, err := runWithStack(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	out, err := runRoot(t, info, "apply", planFile)
-	require.NoError(t, err)
-	require.Contains(t, out, "said: 'hello world'")
-}
-
-func TestPlanMissingStackFile(t *testing.T) {
-	info := testInfo(t, "description: 'x'")
-	_, err := runRoot(t, info, "plan", "-c", "/no/such/path.ub")
-	require.Error(t, err)
-}
-
-func TestApplyMissingPlanFile(t *testing.T) {
-	info := testInfo(t, "description: 'x'")
-	_, err := runRoot(t, info, "apply", "/no/such/plan.json")
-	require.Error(t, err)
-}
-
-func TestApplyRequiresPlanFile(t *testing.T) {
-	info := testInfo(t, "description: 'x'")
-	_, err := runRoot(t, info, "apply")
-	require.Error(t, err)
-}
-
 func TestRootIsCobraTree(t *testing.T) {
 	info := testInfo(t, "description: 'x'")
 	root := newRootCmd(info)
