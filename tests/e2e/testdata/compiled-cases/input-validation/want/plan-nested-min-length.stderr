@@ -1,0 +1,2 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+factory.ub:29:5: type: input "nested-host": field "host": string length 2 is below min-length 3

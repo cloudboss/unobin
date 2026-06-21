@@ -1,0 +1,99 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+    required-name: { type: string }
+    scalar-size:   { type: integer, minimum: 1, maximum: 100, default: 3 }
+    ratio:         { type: number, default: 1.5 }
+    enable:        { type: boolean, default: true }
+    optional-note: { type: optional(string) }
+    optional-size: { type: optional(integer), default: 3 }
+    default-size:  { type: integer, default: 3 }
+    spec: {
+      type: object({
+        host:    string,
+        port:    { type: optional(integer), default: 8080 },
+        retries: { type: optional(integer), default: 3 },
+        note:    { type: optional(string) },
+      })
+      default: { host: 'api' }
+    }
+    nested-host: {
+      type:    object({ host: { type: string, min-length: 3 } })
+      default: { host: 'api' }
+    }
+    bounded-default: {
+      type:    object({ port: { type: optional(integer), default: 8080, minimum: 1024 } })
+      default: {}
+    }
+    subnets: {
+      type:      list(string)
+      min-items: 1
+      max-items: 3
+      default:   ['a', 'b']
+    }
+    tags:         { type: map(string), default: { Name: 'web' } }
+    rule:         { type: object({ from-port: integer, to-port: integer }), default: { from-port: 80, to-port: 443 } }
+    payload:      { type: open(object({ kind: string })), default: { kind: 'deploy', extra: 7, deep: { a: true } } }
+    pair:         { type: tuple(string, integer), default: ['web', 3] }
+    empty-list:   { type: optional(list(string)), default: [] }
+    cluster-name: { type: string, pattern: '^[a-z][a-z0-9-]{0,30}$', default: 'web-prod' }
+    short-name:   { type: string, min-length: 2, max-length: 5, default: 'naïve' }
+    when:         { type: string, format: date-time, default: '2026-05-11T15:00:00Z' }
+    enum-region:  { type: string, enum: ['us-east-1', 'us-west-2'], default: 'us-east-1' }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  actions: {
+    echo: e2e.echo {
+      text: var.required-name
+    }
+  }
+
+  outputs: {
+    echo: { value: action.echo.text }
+    values: {
+      value: {
+        required-name: var.required-name
+        scalar-size:   var.scalar-size
+        ratio:         var.ratio
+        enable:        var.enable
+        optional-note: var.optional-note
+        optional-size: var.optional-size
+        default-size:  var.default-size
+        spec:          var.spec
+        nested-host:   var.nested-host
+        bounded:       var.bounded-default
+        subnets:       var.subnets
+        tags:          var.tags
+        rule:          var.rule
+        payload:       var.payload
+        pair:          var.pair
+        empty-list:    var.empty-list
+        cluster-name:  var.cluster-name
+        short-name:    var.short-name
+        when:          var.when
+        enum-region:   var.enum-region
+        e2e-config: {
+          base-dir:       var.e2e-config.base-dir
+          event-log-path: var.e2e-config.event-log-path
+          prefix:         var.e2e-config.prefix
+          nested:         var.e2e-config.nested
+        }
+      }
+    }
+  }
+}

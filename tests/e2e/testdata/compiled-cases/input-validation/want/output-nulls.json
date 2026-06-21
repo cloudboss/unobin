@@ -1,0 +1,60 @@
+{
+  "echo": "web-null",
+  "values": {
+    "bounded": {
+      "port": 8080
+    },
+    "cluster-name": "web-prod",
+    "default-size": 3,
+    "e2e-config": {
+      "base-dir": ".",
+      "event-log-path": "events.ndjson",
+      "nested": {
+        "enabled": true,
+        "label": "nested"
+      },
+      "prefix": ""
+    },
+    "empty-list": [],
+    "enable": true,
+    "enum-region": "us-east-1",
+    "nested-host": {
+      "host": "api"
+    },
+    "optional-note": null,
+    "optional-size": null,
+    "pair": [
+      "web",
+      3
+    ],
+    "payload": {
+      "deep": {
+        "a": true
+      },
+      "extra": 7,
+      "kind": "deploy"
+    },
+    "ratio": 1.5,
+    "required-name": "web-null",
+    "rule": {
+      "from-port": 80,
+      "to-port": 443
+    },
+    "scalar-size": 3,
+    "short-name": "naïve",
+    "spec": {
+      "host": "api",
+      "note": null,
+      "port": null,
+      "retries": 3
+    },
+    "subnets": [
+      "a",
+      "b"
+    ],
+    "tags": {
+      "Name": "web"
+    },
+    "when": "2026-05-11T15:00:00Z"
+  }
+}

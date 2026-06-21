@@ -1,0 +1,16 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      required-name: 'web-null'
+      optional-note: null
+      optional-size: null
+      spec: { host: 'api', port: null }
+    }
+  }
+}

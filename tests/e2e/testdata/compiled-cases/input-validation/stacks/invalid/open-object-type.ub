@@ -1,0 +1,14 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      required-name: 'web'
+      payload: { kind: 1, extra: 'kept' }
+    }
+  }
+}

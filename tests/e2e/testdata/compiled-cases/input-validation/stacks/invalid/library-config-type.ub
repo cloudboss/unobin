@@ -1,0 +1,14 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  factory: {
+    inputs: {
+      required-name: 'web'
+      e2e-config: { base-dir: '.', event-log-path: 'events.ndjson', prefix: 1, nested: { label: 'nested' } }
+    }
+  }
+}

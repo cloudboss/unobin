@@ -1,0 +1,183 @@
+{
+  "name": "input-validation",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/input-validation",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-defaults",
+      "args": ["plan", "--ascii", "-c", "stacks/valid/defaults.ub", "-o", "defaults.ubp"],
+      "stdout": "want/plan-defaults.stdout",
+      "stderr": "want/plan-defaults.stderr"
+    },
+    {
+      "name": "apply-defaults",
+      "args": ["apply", "--output", "unobin", "defaults.ubp"],
+      "stdout": "want/apply-defaults.stdout",
+      "stderr": "want/apply-defaults.stderr"
+    },
+    {
+      "name": "output-defaults",
+      "args": ["output", "--json", "-c", "stacks/valid/defaults.ub"],
+      "stdout": "want/output-defaults.json",
+      "stderr": "want/output-defaults.stderr"
+    },
+    {
+      "name": "plan-nulls",
+      "args": ["plan", "--ascii", "-c", "stacks/valid/nulls.ub", "-o", "nulls.ubp"],
+      "stdout": "want/plan-nulls.stdout",
+      "stderr": "want/plan-nulls.stderr"
+    },
+    {
+      "name": "apply-nulls",
+      "args": ["apply", "--output", "unobin", "nulls.ubp"],
+      "stdout": "want/apply-nulls.stdout",
+      "stderr": "want/apply-nulls.stderr"
+    },
+    {
+      "name": "output-nulls",
+      "args": ["output", "--json", "-c", "stacks/valid/nulls.ub"],
+      "stdout": "want/output-nulls.json",
+      "stderr": "want/output-nulls.stderr"
+    },
+    {
+      "name": "plan-type-mismatch-string",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/type-mismatch-string.ub"],
+      "stderr": "want/plan-type-mismatch-string.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-integer-number",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/integer-number.ub"],
+      "stderr": "want/plan-integer-number.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-missing-required",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/missing-required.ub"],
+      "stderr": "want/plan-missing-required.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-null-required",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/null-required.ub"],
+      "stderr": "want/plan-null-required.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-null-default-required",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/null-default-required.ub"],
+      "stderr": "want/plan-null-default-required.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-unknown-input",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/unknown-input.ub"],
+      "stderr": "want/plan-unknown-input.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-library-config-type",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/library-config-type.ub"],
+      "stderr": "want/plan-library-config-type.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-nested-min-length",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/nested-min-length.ub"],
+      "stderr": "want/plan-nested-min-length.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-list-element-type",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/list-element-type.ub"],
+      "stderr": "want/plan-list-element-type.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-object-missing-field",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/object-missing-field.ub"],
+      "stderr": "want/plan-object-missing-field.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-object-unknown-field",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/object-unknown-field.ub"],
+      "stderr": "want/plan-object-unknown-field.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-open-object-type",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/open-object-type.ub"],
+      "stderr": "want/plan-open-object-type.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-tuple-arity",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/tuple-arity.ub"],
+      "stderr": "want/plan-tuple-arity.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-pattern",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/pattern.ub"],
+      "stderr": "want/plan-pattern.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-below-minimum",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/below-minimum.ub"],
+      "stderr": "want/plan-below-minimum.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-above-maximum",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/above-maximum.ub"],
+      "stderr": "want/plan-above-maximum.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-below-min-length",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/below-min-length.ub"],
+      "stderr": "want/plan-below-min-length.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-above-max-length",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/above-max-length.ub"],
+      "stderr": "want/plan-above-max-length.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-below-min-items",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/below-min-items.ub"],
+      "stderr": "want/plan-below-min-items.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-above-max-items",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/above-max-items.ub"],
+      "stderr": "want/plan-above-max-items.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-enum",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/enum.ub"],
+      "stderr": "want/plan-enum.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-date-time",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/date-time.ub"],
+      "stderr": "want/plan-date-time.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-multiple-errors",
+      "args": ["plan", "--ascii", "-c", "stacks/invalid/multiple-errors.ub"],
+      "stderr": "want/plan-multiple-errors.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}

@@ -1,0 +1,2 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+factory.ub:55:5: schema: input "short-name": string length 1 is below min-length 2
