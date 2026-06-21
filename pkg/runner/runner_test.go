@@ -18,7 +18,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -822,36 +821,6 @@ actions: { bad: core.echo { echo: var.missing } }
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `unknown input "missing"`)
-}
-
-func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	_ = applyVia(t, info, "")
-
-	store, err := local.NewStore(
-		".unobin/state", info.FactoryName, "default", encrypters.Noop{})
-	require.NoError(t, err)
-	currentRev, err := store.CurrentRev()
-	require.NoError(t, err)
-
-	stackInfo := state.FactoryInfo{
-		Name: info.FactoryName, Version: info.FactoryVersion, ContentRevision: info.ContentRevision,
-	}
-	for range 4 {
-		_, err := store.Write(state.NewSnapshot(stackInfo, "default"))
-		require.NoError(t, err)
-	}
-	revs, err := store.List()
-	require.NoError(t, err)
-	require.Len(t, revs, 5)
-
-	out, err := runWithStack(t, info, "state", "snapshots", "gc", "--keep", "2")
-	require.NoError(t, err)
-	require.Contains(t, out, "Deleted 2 snapshot(s), kept 3.")
-
-	after, err := store.List()
-	require.NoError(t, err)
-	require.Equal(t, []string{currentRev, revs[3], revs[4]}, after)
 }
 
 func TestStateEncryptedWithEnvKey(t *testing.T) {

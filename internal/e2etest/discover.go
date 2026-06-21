@@ -22,20 +22,21 @@ type config struct {
 
 // CompiledCase describes a compiled-factory e2e case.
 type CompiledCase struct {
-	Name          string              `json:"name"`
-	Dir           string              `json:"-"`
-	FactoryPath   string              `json:"factoryPath"`
-	LibraryPath   string              `json:"libraryPath"`
-	Build         bool                `json:"build"`
-	Commands      []Command           `json:"commands"`
-	Files         []FileCheck         `json:"files"`
-	PlanSummaries []PlanSummaryCheck  `json:"planSummaries"`
-	PlanEnvelopes []PlanEnvelopeCheck `json:"planEnvelopes"`
-	AbsentFiles   []string            `json:"absentFiles"`
-	StateSummary  string              `json:"stateSummary"`
-	StateSeed     string              `json:"stateSeed"`
-	StateLocks    []string            `json:"stateLocks"`
-	Deterministic bool                `json:"deterministic"`
+	Name                string              `json:"name"`
+	Dir                 string              `json:"-"`
+	FactoryPath         string              `json:"factoryPath"`
+	LibraryPath         string              `json:"libraryPath"`
+	Build               bool                `json:"build"`
+	Commands            []Command           `json:"commands"`
+	Files               []FileCheck         `json:"files"`
+	PlanSummaries       []PlanSummaryCheck  `json:"planSummaries"`
+	PlanEnvelopes       []PlanEnvelopeCheck `json:"planEnvelopes"`
+	AbsentFiles         []string            `json:"absentFiles"`
+	StateSummary        string              `json:"stateSummary"`
+	StateSeed           string              `json:"stateSeed"`
+	ExtraStateSnapshots int                 `json:"extraStateSnapshots"`
+	StateLocks          []string            `json:"stateLocks"`
+	Deterministic       bool                `json:"deterministic"`
 }
 
 // SourceCase describes a source-root CLI e2e case.

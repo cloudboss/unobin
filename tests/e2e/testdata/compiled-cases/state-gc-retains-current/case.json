@@ -1,0 +1,30 @@
+{
+  "name": "state-gc-retains-current",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-gc-retains-current",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "extraStateSnapshots": 4,
+  "commands": [
+    {
+      "name": "snapshots-list-before",
+      "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/snapshots-list-before.stdout",
+      "stderr": "want/snapshots-list-before.stderr"
+    },
+    {
+      "name": "snapshots-gc",
+      "args": ["state", "snapshots", "gc", "--keep", "2", "-c", "stacks/dev.ub"],
+      "stdout": "want/snapshots-gc.stdout",
+      "stderr": "want/snapshots-gc.stderr"
+    },
+    {
+      "name": "snapshots-list-after",
+      "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/snapshots-list-after.stdout",
+      "stderr": "want/snapshots-list-after.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

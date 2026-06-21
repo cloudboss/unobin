@@ -1,0 +1,27 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "state-gc-retains-current",
+    "version": "v0.0.0",
+    "content-revision": "seed"
+  },
+  "stack": "dev",
+  "generated-at": "2026-06-20T00:00:00Z",
+  "entries": [
+    {
+      "address": "action.hi",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": { "alias": "e2e", "export": "echo" },
+      "inputs": {
+        "text": "gc",
+        "upper": false
+      },
+      "outputs": {
+        "length": 2,
+        "prefixed": "gc",
+        "text": "gc"
+      }
+    }
+  ]
+}

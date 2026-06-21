@@ -50,6 +50,12 @@ func seedState(workspace string, c CompiledCase) error {
 	if err := store.SetCurrent(rev); err != nil {
 		return fmt.Errorf("set current state seed %s: %w", c.StateSeed, err)
 	}
+	for range c.ExtraStateSnapshots {
+		extra := sdkstate.NewSnapshot(snap.Factory, snap.Stack)
+		if _, err := store.Write(extra); err != nil {
+			return fmt.Errorf("write extra state seed %s: %w", c.StateSeed, err)
+		}
+	}
 	return nil
 }
 

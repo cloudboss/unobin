@@ -36,6 +36,7 @@ func TestDiscoverCases(t *testing.T) {
 		"absentFiles": ["work/lock"],
 		"stateSummary": "want/state-summary.json",
 		"stateSeed": "seed/state.json",
+		"extraStateSnapshots": 2,
 		"stateLocks": ["dev"],
 		"deterministic": true
 	}`)
@@ -74,6 +75,7 @@ func TestDiscoverCases(t *testing.T) {
 	assert.Equal(t, "want/state-summary.json", beta.StateSummary)
 	assert.Equal(t, []string{"work/lock"}, beta.AbsentFiles)
 	assert.Equal(t, "seed/state.json", beta.StateSeed)
+	assert.Equal(t, 2, beta.ExtraStateSnapshots)
 	assert.Equal(t, []string{"dev"}, beta.StateLocks)
 }
 
