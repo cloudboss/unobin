@@ -24,7 +24,6 @@ type inlineUBFinding struct {
 
 var inlineUBGreenlist = map[string]bool{
 	"cmd/unobin/root/cli_test.go":                  true,
-	"cmd/unobin/root/generate/factory_test.go":     true,
 	"internal/e2etest/source_test.go":              true,
 	"pkg/check/check_test.go":                      true,
 	"pkg/check/constraints_test.go":                true,
@@ -95,8 +94,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/sensitivity_test.go":              true,
 	"pkg/runtime/state_moves_plan_test.go":         true,
 	"pkg/typecheck/from_lang_test.go":              true,
-	"pkg/ubtest/inline_source_test.go":             true,
-	"pkg/ui/ui_test.go":                            true,
 }
 
 var inlineUBTokens = []string{
@@ -135,6 +132,26 @@ func TestInlineUBScannerAcceptsGreenlistedString(t *testing.T) {
 	findings, err := findInlineUBSources(root, map[string]bool{rel: true})
 	require.NoError(t, err)
 	require.Empty(t, findings)
+}
+
+func TestInlineUBScannerIgnoresTokenSubstring(t *testing.T) {
+	_, ok := inlineUBToken("manifest:")
+	require.False(t, ok)
+}
+
+func TestInlineUBGreenlistStillNeeded(t *testing.T) {
+	root := repoRoot(t)
+	var stale []string
+	for rel := range inlineUBGreenlist {
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		findings, err := inlineUBSourcesInFile(path, rel)
+		require.NoError(t, err)
+		if len(findings) == 0 {
+			stale = append(stale, rel)
+		}
+	}
+	sort.Strings(stale)
+	require.Empty(t, stale, "stale inline UB greenlist entries")
 }
 
 func TestTestFilesAvoidInlineUBSources(t *testing.T) {
@@ -236,6 +253,9 @@ func inlineUBSourcesInFile(path, rel string) ([]inlineUBFinding, error) {
 }
 
 func inlineUBToken(value string) (string, bool) {
+	if !strings.ContainsAny(value, "{[\n") {
+		return "", false
+	}
 	for line := range strings.SplitSeq(value, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
