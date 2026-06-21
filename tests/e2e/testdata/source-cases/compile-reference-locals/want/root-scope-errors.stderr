@@ -1,0 +1,5 @@
+Error: 3 errors:
+  factory.ub:20:16: resolve: unknown input "missing"
+  factory.ub:21:16: resolve: unknown resource "resource.absent"
+  factory.ub:27:20: resolve: unknown data "data.missing"
+

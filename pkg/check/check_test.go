@@ -10,33 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCheckReferencesRootScope(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs:    { path: { type: string } }
-resources: { one: local.file { path: var.missing, content: resource.absent.content } }
-outputs: {
-  good: { value: resource.one.path }
-  bad:  { value: data.missing.value }
-}
-`, nil)
-
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 3)
-	require.Contains(t, got[0], `unknown input "missing"`)
-	require.Contains(t, got[1], `unknown resource "resource.absent"`)
-	require.Contains(t, got[2], `unknown data "data.missing"`)
-}
-
-func TestCheckReferencesLocalsValid(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs:    { env: { type: string } }
-locals:    { base: var.env, derived: local.base }
-resources: { one: local.file { path: local.derived } }
-outputs:   { p: { value: resource.one.path } }
-`, nil)
-	require.Empty(t, checkRefMessages(t, errs))
-}
-
 func TestNewSyntaxBuildsDAGFromTypedBody(t *testing.T) {
 	sf, err := syntax.ParseSource("factory.ub", []byte(`
 factory: {
@@ -93,17 +66,6 @@ factory: {
 	})
 
 	require.Empty(t, checkRefMessages(t, checker.References(nil)))
-}
-
-func TestCheckReferencesUnknownLocal(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-outputs: {
-  bad: { value: local.nope }
-}
-`, nil)
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `unknown local "nope"`)
 }
 
 func TestCheckReferencesSplat(t *testing.T) {
@@ -271,29 +233,6 @@ func TestCheckReferencesFunctionArity(t *testing.T) {
 			require.Contains(t, got[0], c.want)
 		})
 	}
-}
-
-func TestCheckReferencesLocalReadsUnknownInput(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-locals: { x: var.missing }
-outputs: { o: { value: local.x } }
-`, nil)
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `unknown input "missing"`)
-}
-
-func TestCheckReferencesLocalCycle(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-locals: {
-  a: local.b
-  b: local.a
-}
-outputs: { o: { value: local.a } }
-`, nil)
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `is part of a cycle`)
 }
 
 func TestCheckReferencesResourceModuleMustBeImported(t *testing.T) {
@@ -530,25 +469,6 @@ outputs: { bad: { value: action.x.nope } }
 	got := checkRefMessages(t, errs)
 	require.Len(t, got, 1)
 	require.Contains(t, got[0], `unknown field "nope"`)
-}
-
-func TestCheckReferencesOutputsReadLocals(t *testing.T) {
-	src := `
-inputs: { count: { type: integer } }
-locals: { doubled: var.count * 2 }
-outputs: {
-  ok:  { value: local.doubled + 1 }
-  bad: { value: local.doubled + 'x' }
-}
-`
-	errs := checkSyntaxReferences(t, src, nil)
-	var got []string
-	for _, e := range errs.Errors() {
-		got = append(got, e.Msg)
-	}
-	require.Equal(t, []string{
-		"+: operands must both be numbers or both be strings, got integer and string",
-	}, got)
 }
 
 func TestCheckReferencesCompositeOutputMustBeDeclared(t *testing.T) {

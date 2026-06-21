@@ -1,0 +1,10 @@
+factory: {
+  inputs: { count: { type: integer } }
+
+  locals: { doubled: var.count * 2 }
+
+  outputs: {
+    ok:  { value: local.doubled + 1 }
+    bad: { value: local.doubled + 'x' }
+  }
+}

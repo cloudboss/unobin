@@ -1,0 +1,48 @@
+{
+  "name": "compile-reference-locals",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-local-chain",
+      "dir": "valid-local-chain",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "unknown-local",
+      "dir": "unknown-local",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-local.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-unknown-input",
+      "dir": "local-unknown-input",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/local-unknown-input.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-cycle",
+      "dir": "local-cycle",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/local-cycle.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "root-scope-errors",
+      "dir": "root-scope-errors",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/root-scope-errors.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "output-local-type-error",
+      "dir": "output-local-type-error",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/output-local-type-error.stderr",
+      "exitCode": 1
+    }
+  ]
+}
