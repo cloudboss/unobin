@@ -44,3 +44,18 @@ func TestNormalizeStateRevOutput(t *testing.T) {
 
 	require.Equal(t, "State rev: <revision>\n", got)
 }
+
+func TestNormalizeRunViewURL(t *testing.T) {
+	got := normalizeDynamicText(
+		"Run view: http://127.0.0.1:12345/0123456789abcdef0123456789abcdef/\n",
+		"",
+	)
+
+	require.Equal(t, "Run view: <run-view>\n", got)
+}
+
+func TestNormalizeUIEventTime(t *testing.T) {
+	got := normalizeDynamicText("[23:15:31] ran action.hi (12ms)\n", "")
+
+	require.Equal(t, "[<time>] ran action.hi (<elapsed>)\n", got)
+}

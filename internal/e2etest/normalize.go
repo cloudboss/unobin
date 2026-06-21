@@ -19,6 +19,9 @@ var (
 	stateRevTextRE = regexp.MustCompile(
 		`State rev: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z(?:_[0-9]+)?`,
 	)
+	runViewURLRE      = regexp.MustCompile(`Run view: http://127\.0\.0\.1:\d+/[0-9a-f]{32}/`)
+	uiEventTimeRE     = regexp.MustCompile(`(?m)^\[[0-9:]+\]`)
+	uiEventDurationRE = regexp.MustCompile(`\([0-9]+(?:\.[0-9]+)?(?:ms|s)\)`)
 )
 
 func normalizeCommandResult(result CommandResult, repoRoot string) CommandResult {
@@ -55,6 +58,9 @@ func normalizeDynamicText(s string, repoRoot string) string {
 	s = stateRevisionLineRE.ReplaceAllString(s, "${1}<revision>")
 	s = localStoreOpenRevRE.ReplaceAllString(s, "local store: open <revision>:")
 	s = stateRevTextRE.ReplaceAllString(s, "State rev: <revision>")
+	s = runViewURLRE.ReplaceAllString(s, "Run view: <run-view>")
+	s = uiEventTimeRE.ReplaceAllString(s, "[<time>]")
+	s = uiEventDurationRE.ReplaceAllString(s, "(<elapsed>)")
 	if repoRoot != "" {
 		s = strings.ReplaceAll(s, repoRoot, "<repo>")
 	}

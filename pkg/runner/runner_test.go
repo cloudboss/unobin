@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/encrypters"
@@ -869,21 +868,3 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 // Ensure t.TempDir is visible to the loadStore call (which writes to
 // `.unobin/state` relative to cwd) by chdir-ing in testInfo.
 var _ = filepath.Join
-
-func TestApplyUIServesRunView(t *testing.T) {
-	t.Setenv("BROWSER", "true")
-	old := uiLingerTimeout
-	uiLingerTimeout = 50 * time.Millisecond
-	t.Cleanup(func() { uiLingerTimeout = old })
-
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello world' } }`)
-	configPath := writeStateStack(t, "")
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runRoot(t, info,
-		"plan", "--allow-version-mismatch", "-o", planFile, "-c", configPath)
-	require.NoError(t, err)
-
-	out, err := runRoot(t, info, "apply", "--ui", planFile)
-	require.NoError(t, err)
-	require.Regexp(t, `Run view: http://127\.0\.0\.1:\d+/[0-9a-f]{32}/`, out)
-}

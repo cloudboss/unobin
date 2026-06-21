@@ -1,0 +1,22 @@
+{
+  "name": "apply-ui",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/apply-ui",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply-ui",
+      "args": ["apply", "--ui", "plan.ubp"],
+      "env": { "BROWSER": "true" },
+      "stdout": "want/apply-ui.stdout",
+      "stderr": "want/apply-ui.stderr"
+    }
+  ],
+  "deterministic": true
+}

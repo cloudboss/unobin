@@ -1,0 +1,6 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+Run view: <run-view>
+[<time>] eval library-config.e2e
+[<time>] eval library-config.e2e (<elapsed>)
+[<time>] running action.hi
+[<time>] ran action.hi (<elapsed>)
