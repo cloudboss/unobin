@@ -27,7 +27,6 @@ var inlineUBGreenlist = map[string]bool{
 	"internal/e2etest/source_test.go":              true,
 	"pkg/check/check_test.go":                      true,
 	"pkg/check/constraints_test.go":                true,
-	"pkg/check/foreach_test.go":                    true,
 	"pkg/check/helpers_test.go":                    true,
 	"pkg/check/types_test.go":                      true,
 	"pkg/codegen/encode_test.go":                   true,

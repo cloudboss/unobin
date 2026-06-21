@@ -1,0 +1,17 @@
+slice: resource {
+  inputs: {
+    tag: { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: {
+    file: e2e.file {
+      path:    var.tag
+      content: var.tag
+    }
+  }
+}

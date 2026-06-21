@@ -1,0 +1,27 @@
+{
+  "name": "compile-foreach-nesting",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "invalid-leaf-nesting",
+      "dir": "invalid-leaf-nesting",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-leaf-nesting.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-composite-nesting",
+      "dir": "invalid-composite-nesting",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-composite-nesting.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-composites",
+      "dir": "valid-composites",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}

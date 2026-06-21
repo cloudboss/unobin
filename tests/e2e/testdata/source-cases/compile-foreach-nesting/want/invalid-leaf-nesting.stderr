@@ -1,0 +1,1 @@
+Error: library.ub:12:18: schema: resource.app/resource.it: @for-each inside a @for-each composite is not supported

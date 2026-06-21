@@ -1,0 +1,18 @@
+outer: resource {
+  inputs: {
+    tags: { type: map(string) }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: {
+    it: e2e.file {
+      @for-each: var.tags
+      path:      @each.value
+      content:   @each.value
+    }
+  }
+}
