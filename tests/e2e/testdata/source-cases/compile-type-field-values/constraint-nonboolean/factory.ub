@@ -1,0 +1,10 @@
+factory: {
+  inputs: { region: { type: string } }
+  constraints: [
+    {
+      kind: predicate
+      when: var.region
+      require: var.region == 'us-east-1'
+    },
+  ]
+}

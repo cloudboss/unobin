@@ -1,0 +1,91 @@
+{
+  "name": "compile-type-field-values",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-matching-body",
+      "dir": "valid-matching-body",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "literal-into-string",
+      "dir": "literal-into-string",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/literal-into-string.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "var-wrong-type",
+      "dir": "var-wrong-type",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/var-wrong-type.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-matching",
+      "dir": "local-matching",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "local-wrong",
+      "dir": "local-wrong",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/local-wrong.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "chained-local-wrong",
+      "dir": "chained-local-wrong",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/chained-local-wrong.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "resource-field-wrong",
+      "dir": "resource-field-wrong",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/resource-field-wrong.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "input-field-reference-valid",
+      "dir": "input-field-reference-valid",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "input-field-reference-wrong",
+      "dir": "input-field-reference-wrong",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/input-field-reference-wrong.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "defaulted-required-valid",
+      "dir": "defaulted-required-valid",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "constraint-nonboolean",
+      "dir": "constraint-nonboolean",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-nonboolean.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "foreach-value-wrong",
+      "dir": "foreach-value-wrong",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/foreach-value-wrong.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-body-field",
+      "dir": "unknown-body-field",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-body-field.stderr",
+      "exitCode": 1
+    }
+  ]
+}

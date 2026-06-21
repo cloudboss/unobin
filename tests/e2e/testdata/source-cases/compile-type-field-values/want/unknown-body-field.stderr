@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:17:30: resolve: missing required input "path" on e2e.file
+  factory.ub:17:32: resolve: unknown field "paht" on e2e.file
+
