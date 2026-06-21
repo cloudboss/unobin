@@ -1,0 +1,20 @@
+web-cluster: resource {
+  state-moves: [
+    { from: 'e2e.file@resource.old', to: 'e2e.file@resource.new' },
+  ]
+
+  inputs: {
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: {
+    new: e2e.file {
+      path:    'files/composite.txt'
+      content: 'composite'
+    }
+  }
+}

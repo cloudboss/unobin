@@ -1,0 +1,28 @@
+{
+  "name": "compile-state-move-destinations",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-root",
+      "dir": "valid-root",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-chain",
+      "dir": "valid-chain",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-composite",
+      "dir": "valid-composite",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-nested-composite",
+      "dir": "valid-nested-composite",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}

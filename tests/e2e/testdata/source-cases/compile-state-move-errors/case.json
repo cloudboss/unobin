@@ -1,0 +1,36 @@
+{
+  "name": "compile-state-move-errors",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "missing-root-destination",
+      "dir": "missing-root-destination",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/missing-root-destination.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "wrong-selector-destination",
+      "dir": "wrong-selector-destination",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/wrong-selector-destination.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "missing-chain-destination",
+      "dir": "missing-chain-destination",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/missing-chain-destination.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "missing-composite-destination",
+      "dir": "missing-composite-destination",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/missing-composite-destination.stderr",
+      "exitCode": 1
+    }
+  ]
+}

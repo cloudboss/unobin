@@ -29,7 +29,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/check/constraints_test.go":                true,
 	"pkg/check/foreach_test.go":                    true,
 	"pkg/check/helpers_test.go":                    true,
-	"pkg/check/state_moves_test.go":                true,
 	"pkg/check/types_test.go":                      true,
 	"pkg/codegen/encode_test.go":                   true,
 	"pkg/codegen/main_test.go":                     true,
