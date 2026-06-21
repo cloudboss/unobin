@@ -1,0 +1,9 @@
+greeting: string  -- Text to write
+count: integer
+enabled: boolean
+tags: list(string)
+
+outputs:
+  endpoint  -- Public endpoint URL
+  token (sensitive)
+  plain

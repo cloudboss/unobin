@@ -11,6 +11,12 @@
       "stderr": "want/schema-template.stderr"
     },
     {
+      "name": "schema-show",
+      "args": ["schema", "show"],
+      "stdout": "want/schema-show.stdout",
+      "stderr": "want/schema-show.stderr"
+    },
+    {
       "name": "schema-template-file",
       "args": ["schema", "template", "-o", "work/dev.ub"],
       "stderr": "want/schema-template-file.stderr"
