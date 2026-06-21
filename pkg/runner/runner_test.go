@@ -485,47 +485,6 @@ func TestParseEnvValueJSON(t *testing.T) {
 	}
 }
 
-func TestPlanRejectsTypeMismatch(t *testing.T) {
-	src := `
-inputs: {
-  size: { type: integer }
-}
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_VAR_size", "'not-a-number'")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `input "size"`)
-	require.Contains(t, err.Error(), "expected integer")
-}
-
-func TestPlanRejectsMissingRequiredInput(t *testing.T) {
-	src := `
-inputs: {
-  region: { type: string }
-}
-`
-	info := testInfo(t, src)
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `input "region"`)
-	require.Contains(t, err.Error(), "required but not provided")
-}
-
-func TestPlanRejectsUnknownInput(t *testing.T) {
-	src := `
-inputs: {
-  region: { type: string }
-}
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_VAR_region", "us-east-1")
-	t.Setenv("UB_VAR_clustr_name", "typo")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `unknown input "clustr-name"`)
-}
-
 func TestPlanAppliesLibraryConfigInputDefaults(t *testing.T) {
 	src := `
 imports: { aws: 'github.com/acme/aws' }
@@ -746,19 +705,6 @@ constraints: [
 	configPath := writeStateStack(t, "")
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-c", configPath)
 	require.NoError(t, err)
-}
-
-func TestPlanRejectsValueOutsideMinimum(t *testing.T) {
-	src := `
-inputs: {
-  size: { type: integer, minimum: 1 }
-}
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_VAR_size", "0")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "below minimum")
 }
 
 func TestPlanShowsCreateBeforeApply(t *testing.T) {

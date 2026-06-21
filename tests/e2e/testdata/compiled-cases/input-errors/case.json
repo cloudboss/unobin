@@ -1,0 +1,49 @@
+{
+  "name": "input-errors",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/input-errors",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-type-mismatch",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "env": {
+        "UB_VAR_region": "us-east-1",
+        "UB_VAR_size": "'not-a-number'"
+      },
+      "stderr": "want/plan-type-mismatch.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-missing-required",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "env": {
+        "UB_VAR_size": "5"
+      },
+      "stderr": "want/plan-missing-required.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-unknown-input",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "env": {
+        "UB_VAR_clustr_name": "typo",
+        "UB_VAR_region": "us-east-1",
+        "UB_VAR_size": "5"
+      },
+      "stderr": "want/plan-unknown-input.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-below-minimum",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "env": {
+        "UB_VAR_region": "us-east-1",
+        "UB_VAR_size": "0"
+      },
+      "stderr": "want/plan-below-minimum.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}
