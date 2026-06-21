@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -134,19 +135,22 @@ func TestRenderPrettyNested(t *testing.T) {
 	require.Equal(t, want, RenderPretty(v))
 }
 
-func TestRenderPrettyReparses(t *testing.T) {
+func TestRenderPrettyFixture(t *testing.T) {
 	v := map[string]any{
 		"files": map[string]any{
 			"alpha": map[string]any{"path": "/tmp/a", "size": int64(13)},
 		},
 		"tags": []any{"x", "y"},
 	}
-	rendered := RenderPretty(v)
-	_, err := ParseSource("pretty", []byte("v: "+rendered+"\n"))
+	got := "v: " + RenderPretty(v) + "\n"
+	want, err := os.ReadFile("testdata/ub/render-pretty/valid/nested.ub")
+	require.NoError(t, err)
+	require.Equal(t, string(want), got)
+	_, err = ParseSource("nested.ub", []byte(got))
 	require.NoError(t, err)
 }
 
-func TestRenderRoundTrip(t *testing.T) {
+func TestRenderEncodeDecode(t *testing.T) {
 	values := []any{
 		"hello",
 		"it's",

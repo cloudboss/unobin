@@ -1,0 +1,12 @@
+v: {
+  files: {
+    alpha: {
+      path: '/tmp/a'
+      size: 13
+    }
+  }
+  tags: [
+    'x',
+    'y',
+  ]
+}
