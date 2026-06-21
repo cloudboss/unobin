@@ -1,0 +1,29 @@
+{
+  "name": "generate-factory-builds",
+  "rootPath": ".",
+  "executor": "root",
+  "build": true,
+  "commands": [
+    {
+      "name": "generate-factory",
+      "args": ["generate", "factory", "-o", "generated"],
+      "stdout": "want/generate.stdout",
+      "stderr": "want/generate.stderr"
+    },
+    {
+      "name": "compile-build",
+      "args": [
+        "compile",
+        "-p",
+        "generated/factory.ub",
+        "-o",
+        "build",
+        "--build",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
+      "stdout": "want/compile.stdout",
+      "stderr": "want/compile.stderr"
+    }
+  ]
+}
