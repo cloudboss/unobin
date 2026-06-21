@@ -67,35 +67,6 @@ factory: {
 	}, repos)
 }
 
-func TestImportedPackagesValidatesSourceDeclaredFactory(t *testing.T) {
-	root := t.TempDir()
-	writeUB(t, filepath.Join(root, "factory.ub"), `
-factory: {
-  resources: {
-    hello: std.fs-file {
-      @trigger: 'always'
-    }
-  }
-}
-`)
-	_, err := ImportedPackages(root)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `resource hello: meta key "@trigger" is not allowed`)
-}
-
-func TestImportedPackagesRejectsUntypedUBFile(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, "loose.ub"), []byte(`
-imports: { core: 'github.com/x/y' }
-`), 0o644))
-
-	_, err := ImportedPackages(root)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot determine UB file role")
-}
-
 func TestImportedPackagesScansSourceDeclaredLibraryExports(t *testing.T) {
 	root := t.TempDir()
 	writeUB(t, filepath.Join(root, "library.ub"), `

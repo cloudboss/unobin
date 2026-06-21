@@ -1,0 +1,1 @@
+Error: loose.ub:1:1: schema: cannot determine UB file role from unknown; expected source-declared factory, stack, manifest, lock, or exported library file

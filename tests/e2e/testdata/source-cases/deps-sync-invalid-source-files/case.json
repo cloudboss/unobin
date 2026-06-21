@@ -1,0 +1,21 @@
+{
+  "name": "deps-sync-invalid-source-files",
+  "rootPath": ".",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "invalid-meta",
+      "dir": "invalid-meta",
+      "args": ["deps", "sync", "-p", "factory.ub"],
+      "stderr": "want/invalid-meta.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "untyped-file",
+      "dir": "untyped-file",
+      "args": ["deps", "sync", "-p", "."],
+      "stderr": "want/untyped-file.stderr",
+      "exitCode": 1
+    }
+  ]
+}
