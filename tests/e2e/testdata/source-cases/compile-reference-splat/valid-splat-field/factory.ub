@@ -1,0 +1,4 @@
+factory: {
+  inputs: { subnets: { type: list(object({ id: string })) } }
+  outputs: { ids: { value: var.subnets[*].id } }
+}

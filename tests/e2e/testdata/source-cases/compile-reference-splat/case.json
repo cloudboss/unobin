@@ -1,0 +1,39 @@
+{
+  "name": "compile-reference-splat",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "bare-var",
+      "dir": "bare-var",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/bare-var.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "bare-deep-var",
+      "dir": "bare-deep-var",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/bare-deep-var.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "bare-resource",
+      "dir": "bare-resource",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/bare-resource.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-splat-field",
+      "dir": "valid-splat-field",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "valid-splat-index",
+      "dir": "valid-splat-index",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}

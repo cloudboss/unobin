@@ -68,53 +68,6 @@ factory: {
 	require.Empty(t, checkRefMessages(t, checker.References(nil)))
 }
 
-func TestCheckReferencesSplat(t *testing.T) {
-	const bare = "splat [*] must be followed by a field, like list[*].id"
-	cases := []struct {
-		name  string
-		stack string
-		want  []string
-	}{
-		{
-			name: "bare splat on a var",
-			stack: "inputs: { things: { type: list(string) } }\n" +
-				"outputs: { bad: { value: var.things[*] } }\n",
-			want: []string{bare},
-		},
-		{
-			name: "bare splat on a deep var field",
-			stack: "inputs: { net: { type: object({ subnets: list(string) }) } }\n" +
-				"outputs: { bad: { value: var.net.subnets[*] } }\n",
-			want: []string{bare},
-		},
-		{
-			name: "bare splat on a resource output",
-			stack: "inputs: { p: { type: string } }\n" +
-				"resources: { one: local.file { path: var.p } }\n" +
-				"outputs: { bad: { value: resource.one.path[*] } }\n",
-			want: []string{bare},
-		},
-		{
-			name: "splat with a field is fine",
-			stack: "inputs: { subnets: { type: list(object({ id: string })) } }\n" +
-				"outputs: { ids: { value: var.subnets[*].id } }\n",
-			want: nil,
-		},
-		{
-			name: "splat followed by an index is fine",
-			stack: "inputs: { matrix: { type: list(list(string)) } }\n" +
-				"outputs: { first: { value: var.matrix[*][0] } }\n",
-			want: nil,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			errs := checkSyntaxReferences(t, c.stack, nil)
-			require.Equal(t, c.want, checkRefMessages(t, errs))
-		})
-	}
-}
-
 func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
 	errs := checkSyntaxReferences(t, `
 resources: { one: local.file { path: 'x.txt' } }

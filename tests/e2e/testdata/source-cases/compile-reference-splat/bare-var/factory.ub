@@ -1,0 +1,4 @@
+factory: {
+  inputs: { things: { type: list(string) } }
+  outputs: { bad: { value: var.things[*] } }
+}
