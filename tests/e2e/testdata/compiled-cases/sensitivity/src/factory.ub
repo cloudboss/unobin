@@ -1,0 +1,34 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+    name:   { type: string }
+    secret: { type: string, @sensitive: true }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  actions: {
+    record: e2e.record {
+      name:    var.name
+      message: var.secret
+    }
+  }
+
+  outputs: {
+    public-name: { value: action.record.name }
+    token:       { value: action.record.record, @sensitive: true }
+  }
+}

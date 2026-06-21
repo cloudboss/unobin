@@ -1,0 +1,14 @@
+address: action.record
+selector: e2e.record
+entry-kind: action
+node-kind: action
+schema-version: 0
+trigger-hash: 9568fb17405d107336932fef6068cd84919af4bee3f616b1f36d9f2b409af2dc
+inputs:
+  message: ***
+  name: 'deploy'
+outputs:
+  count: 1
+  name: 'deploy'
+  record: 'deploy:top-secret'
+sensitive-inputs: message

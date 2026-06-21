@@ -1,0 +1,36 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "sensitivity",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.record",
+      "entry-kind": "action",
+      "node-kind": "action",
+      "selector": {
+        "alias": "e2e",
+        "export": "record"
+      },
+      "sensitive-inputs": [
+        "message"
+      ],
+      "inputs": {
+        "message": "top-secret",
+        "name": "deploy"
+      },
+      "outputs": {
+        "count": 1,
+        "name": "deploy",
+        "record": "deploy:top-secret"
+      }
+    }
+  ],
+  "outputs": {
+    "public-name": "deploy",
+    "token": "deploy:top-secret"
+  }
+}

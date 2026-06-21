@@ -1,0 +1,34 @@
+{
+  "name": "sensitivity",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/sensitivity",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "sensitive.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": ["apply", "--output", "unobin", "sensitive.ubp"],
+      "stdout": "want/apply.stdout",
+      "stderr": "want/apply.stderr"
+    },
+    {
+      "name": "output-json",
+      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output.json",
+      "stderr": "want/output.stderr"
+    },
+    {
+      "name": "state-show",
+      "args": ["state", "show", "-c", "stacks/dev.ub", "e2e.record@action.record"],
+      "stdout": "want/state-show.stdout",
+      "stderr": "want/state-show.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}
