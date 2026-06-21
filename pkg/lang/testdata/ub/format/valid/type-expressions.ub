@@ -1,0 +1,6 @@
+inputs: {
+  region: { type: string }
+  ports:  { type: list(integer) }
+  cfg:    { type: optional(map(string)) }
+  aws:    { type: library-config('github.com/acme/aws') }
+}

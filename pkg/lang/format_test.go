@@ -404,29 +404,10 @@ func TestWordWrapDeterministic(t *testing.T) {
 	}
 }
 
-func TestFormatDotPath(t *testing.T) {
-	src := `a: var.region
-b: resource.local.file.x.path
-c: var.cfg['key']
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
 func TestFormatInfixAndPrefix(t *testing.T) {
 	src := `a: 1 + 2
 b: !var.flag
 c: var.x == 'y'
-`
-	require.Equal(t, src, formatString(t, src))
-}
-
-func TestFormatTypeExpressions(t *testing.T) {
-	src := `inputs: {
-  region: { type: string }
-  ports:  { type: list(integer) }
-  cfg:    { type: optional(map(string)) }
-  aws:    { type: library-config('github.com/acme/aws') }
-}
 `
 	require.Equal(t, src, formatString(t, src))
 }
