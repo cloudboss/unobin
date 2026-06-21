@@ -72,6 +72,7 @@ type Command struct {
 	Stdout   string            `json:"stdout"`
 	Stderr   string            `json:"stderr"`
 	ExitCode int               `json:"exitCode"`
+	SkipPin  bool              `json:"skipPin"`
 }
 
 // FileCheck describes a file compared to a golden.

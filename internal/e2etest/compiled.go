@@ -29,9 +29,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	pinned := map[string]bool{}
 	var lastStackPath string
 	for _, cmd := range c.Commands {
-		if stackPath, ok := stackPathFromArgs(cmd.Args); ok && !isPinCommand(cmd) {
+		if stackPath, ok := stackPathFromArgs(cmd.Args); ok {
 			lastStackPath = stackPath
-			if !pinned[stackPath] {
+			if shouldPinStack(cmd, stackPath, pinned) {
 				pinStack(t, workspace, binary, stackPath)
 				pinned[stackPath] = true
 			}
@@ -98,6 +98,10 @@ func stackPathFromArgs(args []string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func shouldPinStack(cmd Command, stackPath string, pinned map[string]bool) bool {
+	return stackPath != "" && !cmd.SkipPin && !isPinCommand(cmd) && !pinned[stackPath]
 }
 
 func isPinCommand(cmd Command) bool {
