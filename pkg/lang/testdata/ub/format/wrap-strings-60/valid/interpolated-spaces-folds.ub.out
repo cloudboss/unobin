@@ -1,0 +1,4 @@
+x: $'''>-
+  deploying {{ var.cluster-name }} to region
+  {{ var.region }} for tenant {{ var.tenant-id }} now
+  '''
