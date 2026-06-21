@@ -1,0 +1,17 @@
+{
+  "name": "generate-factory-dev",
+  "rootPath": ".",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "generate-factory",
+      "args": ["generate", "factory", "-o", "generated"],
+      "stdout": "want/stdout",
+      "stderr": "want/stderr"
+    }
+  ],
+  "files": [
+    { "path": "generated/factory.ub", "want": "want/factory.ub" },
+    { "path": "generated/manifest.ub", "want": "want/manifest.ub" }
+  ]
+}

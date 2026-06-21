@@ -1,0 +1,4 @@
+manifest: {
+  unobin-version: 'v0.3.0'
+  requires:       {}
+}
