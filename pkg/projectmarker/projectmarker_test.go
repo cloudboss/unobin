@@ -2,13 +2,19 @@ package projectmarker
 
 import (
 	"io/fs"
+	"os"
 	"testing"
 	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 )
 
-const validManifest = "manifest: {\n  requires: {}\n}\n"
+func readMarkerFixture(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return data
+}
 
 func TestClassifyNoMarker(t *testing.T) {
 	marker, err := ClassifyRoot(fstest.MapFS{})
@@ -19,7 +25,9 @@ func TestClassifyNoMarker(t *testing.T) {
 
 func TestClassifyManifest(t *testing.T) {
 	marker, err := ClassifyRoot(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte(validManifest)},
+		"manifest.ub": &fstest.MapFile{
+			Data: readMarkerFixture(t, "testdata/ub/markers/valid/manifest.ub"),
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, UB, marker.Kind)
@@ -36,8 +44,10 @@ func TestClassifyGoMod(t *testing.T) {
 
 func TestClassifyBothMarkers(t *testing.T) {
 	_, err := ClassifyRoot(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte(validManifest)},
-		"go.mod":      &fstest.MapFile{Data: []byte("module example.com/lib\n")},
+		"manifest.ub": &fstest.MapFile{
+			Data: readMarkerFixture(t, "testdata/ub/markers/valid/manifest.ub"),
+		},
+		"go.mod": &fstest.MapFile{Data: []byte("module example.com/lib\n")},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "project marker . has both manifest.ub and go.mod")
@@ -53,7 +63,9 @@ func TestClassifyMarkerDirectory(t *testing.T) {
 
 func TestClassifyMalformedManifest(t *testing.T) {
 	_, err := ClassifyRoot(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("factory: {}\n")},
+		"manifest.ub": &fstest.MapFile{
+			Data: readMarkerFixture(t, "testdata/ub/markers/invalid/factory.ub"),
+		},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "project marker ./manifest.ub: must declare manifest")
