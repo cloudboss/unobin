@@ -1,0 +1,57 @@
+{
+  "name": "library-config-inputs",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/library-config-inputs",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-default",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "default.ubp"],
+      "stdout": "want/plan-default.stdout",
+      "stderr": "want/plan-default.stderr"
+    },
+    {
+      "name": "apply-default",
+      "args": ["apply", "--output", "unobin", "default.ubp"],
+      "stdout": "want/apply-default.stdout",
+      "stderr": "want/apply-default.stderr"
+    },
+    {
+      "name": "output-default",
+      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output-default.json",
+      "stderr": "want/output-default.stderr"
+    },
+    {
+      "name": "plan-env-override",
+      "args": ["plan", "--ascii", "-c", "stacks/env.ub", "-o", "env.ubp"],
+      "env": {
+        "UB_VAR_e2e_config": "{base-dir: '.', event-log-path: 'events.ndjson', prefix: 'env-', nested: {label: 'nested'}}"
+      },
+      "stdout": "want/plan-env-override.stdout",
+      "stderr": "want/plan-env-override.stderr"
+    },
+    {
+      "name": "apply-env-override",
+      "args": ["apply", "--output", "unobin", "env.ubp"],
+      "stdout": "want/apply-env-override.stdout",
+      "stderr": "want/apply-env-override.stderr"
+    },
+    {
+      "name": "output-env-override",
+      "args": ["output", "--json", "-c", "stacks/env.ub"],
+      "stdout": "want/output-env-override.json",
+      "stderr": "want/output-env-override.stderr"
+    },
+    {
+      "name": "plan-bad-config",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "env": {
+        "UB_VAR_e2e_config": "{base-dir: '.', event-log-path: 'events.ndjson', prefix: 1, nested: {label: 'nested'}}"
+      },
+      "stderr": "want/plan-bad-config.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}

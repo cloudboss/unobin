@@ -1,0 +1,2 @@
+{ kind: 'apply-output', name: 'prefixed', value: 'default-hello' }
+{ kind: 'apply-output', name: 'size', value: 3 }
