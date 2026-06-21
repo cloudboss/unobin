@@ -1,0 +1,3 @@
+factory: {
+  locals: { bad: 'a' - 'b' }
+}

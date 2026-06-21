@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:17:18: type: -: operand must be a number, got string
+  factory.ub:17:24: type: -: operand must be a number, got string
+

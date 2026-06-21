@@ -1,0 +1,47 @@
+{
+  "name": "compile-type-locals",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "local-body-errors",
+      "dir": "local-body-errors",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/local-body-errors.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-deep-field",
+      "dir": "local-deep-field",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/local-deep-field.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-error-once",
+      "dir": "local-error-once",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/local-error-once.stderr",
+      "exitCode": 1
+    }
+  ]
+}
