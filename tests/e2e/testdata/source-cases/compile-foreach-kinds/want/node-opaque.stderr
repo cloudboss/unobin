@@ -1,0 +1,1 @@
+Error: factory.ub:21:18: type: @for-each: iterable is opaque; declare its type, like map(...)

@@ -1,0 +1,1 @@
+Error: factory.ub:21:18: type: @for-each: iterable must be a map, got list(string); turn a list into a map with { for n in ns : n => n }

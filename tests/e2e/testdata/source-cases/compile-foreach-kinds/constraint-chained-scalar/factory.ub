@@ -1,0 +1,6 @@
+factory: {
+  inputs: { port: { type: integer } }
+  constraints: [
+    { kind: predicate, @for-each: [ { @r: var.port } ], when: true, require: true },
+  ]
+}

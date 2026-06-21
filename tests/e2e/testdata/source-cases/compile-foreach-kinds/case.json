@@ -1,0 +1,87 @@
+{
+  "name": "compile-foreach-kinds",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "node-list",
+      "dir": "node-list",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-list.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "node-optional-list",
+      "dir": "node-optional-list",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-optional-list.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "node-narrowed-optional-map",
+      "dir": "node-narrowed-optional-map",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "constraint-optional-list",
+      "dir": "constraint-optional-list",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "node-scalar",
+      "dir": "node-scalar",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-scalar.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "node-map",
+      "dir": "node-map",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "node-object",
+      "dir": "node-object",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "constraint-scalar",
+      "dir": "constraint-scalar",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-scalar.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "constraint-chained-scalar",
+      "dir": "constraint-chained-scalar",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "node-opaque",
+      "dir": "node-opaque",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-opaque.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "node-optional-opaque",
+      "dir": "node-optional-opaque",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/node-optional-opaque.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "node-map-opaque-values",
+      "dir": "node-map-opaque-values",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "constraint-opaque",
+      "dir": "constraint-opaque",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-opaque.stderr",
+      "exitCode": 1
+    }
+  ]
+}
