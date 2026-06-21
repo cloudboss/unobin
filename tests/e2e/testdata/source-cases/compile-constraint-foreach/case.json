@@ -1,0 +1,60 @@
+{
+  "name": "compile-constraint-foreach",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "each-valid",
+      "dir": "each-valid",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "each-outside",
+      "dir": "each-outside",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/each-outside.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "iterable-resource-ref",
+      "dir": "iterable-resource-ref",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/iterable-resource-ref.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "chained-bindings",
+      "dir": "chained-bindings",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "undeclared-binding",
+      "dir": "undeclared-binding",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/undeclared-binding.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "each-in-chain",
+      "dir": "each-in-chain",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/each-in-chain.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "later-binding-reference",
+      "dir": "later-binding-reference",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/later-binding-reference.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "level-resource-ref",
+      "dir": "level-resource-ref",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/level-resource-ref.stderr",
+      "exitCode": 1
+    }
+  ]
+}

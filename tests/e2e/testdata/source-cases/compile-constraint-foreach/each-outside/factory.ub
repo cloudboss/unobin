@@ -1,0 +1,8 @@
+factory: {
+  inputs: {
+    replicas: { type: optional(list(object({ tls: optional(boolean) }))) }
+  }
+  constraints: [
+    { kind: predicate, when: true, require: @each.value.tls == true },
+  ]
+}

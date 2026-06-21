@@ -1,0 +1,1 @@
+Error: factory.ub:22:42: resolve: a constraint may read inputs only, not resource.x.path

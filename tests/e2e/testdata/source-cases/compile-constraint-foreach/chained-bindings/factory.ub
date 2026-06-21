@@ -1,0 +1,16 @@
+factory: {
+  inputs: {
+    rules: { type: optional(list(object({ max: optional(number), transitions: optional(list(object({ days: optional(number) }))) }))) }
+  }
+  constraints: [
+    {
+      kind: predicate
+      @for-each: [
+        { @rule: var.rules },
+        { @t:    @rule.value.transitions },
+      ]
+      when:    true
+      require: @t.value.days != null && @rule.value.max != null
+    },
+  ]
+}

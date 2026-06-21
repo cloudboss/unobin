@@ -1,0 +1,13 @@
+factory: {
+  inputs: {
+    rules: { type: optional(list(string)) }
+  }
+  constraints: [
+    {
+      kind: predicate
+      @for-each: [ { @rule: var.rules } ]
+      when:    true
+      require: @each.value != null
+    },
+  ]
+}
