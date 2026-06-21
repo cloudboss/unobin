@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/encrypters"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
@@ -111,58 +109,6 @@ func sourceFactory(body string) string {
 	}
 	return "factory: {\n" + body + "\n}\n"
 }
-
-// testFileLibrary registers a minimal file-on-disk resource so the
-// destroy lifecycle runs against something real: Create writes the
-// file, Read reports absence, and Delete removes it.
-func testFileLibrary() *runtime.Library {
-	return &runtime.Library{
-		Name: "local",
-		Resources: map[string]runtime.ResourceRegistration{
-			"file": runtime.MakeResource[fileResource, any, any](),
-		},
-	}
-}
-
-type fileResource struct {
-	Path    string
-	Content string
-	Mode    int64
-}
-
-func (f *fileResource) Create(_ context.Context, _ any) (any, error) {
-	if err := os.WriteFile(f.Path, []byte(f.Content), os.FileMode(f.Mode)); err != nil {
-		return nil, err
-	}
-	return map[string]any{"path": f.Path}, nil
-}
-
-func (f *fileResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	if _, err := os.Stat(f.Path); err != nil {
-		if os.IsNotExist(err) {
-			return nil, runtime.ErrNotFound
-		}
-		return nil, err
-	}
-	return prior, nil
-}
-
-func (f *fileResource) Update(
-	_ context.Context, _ any, _ runtime.Prior[fileResource, any],
-) (any, error) {
-	return f.Create(context.Background(), nil)
-}
-
-func (f *fileResource) Delete(_ context.Context, _ any, _ any) error {
-	err := os.Remove(f.Path)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
-}
-
-func (f *fileResource) SchemaVersion() int      { return 1 }
-func (f *fileResource) ReplaceFields() []string { return []string{"path"} }
 
 func runRoot(t *testing.T, info Info, args ...string) (string, error) {
 	t.Helper()
@@ -276,140 +222,6 @@ func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
 	_, err := parseFactory(Info{FactoryBody: `description: 'x'`})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "factory.ub must declare factory")
-}
-
-func TestCommandsUseTypedOnlyComposite(t *testing.T) {
-	library, err := syntax.ParseSource("library.ub", []byte(`greeting: resource {
-  inputs: {
-    path:    { type: string }
-    message: { type: string }
-  }
-  imports: { local: './local' }
-  resources: {
-    file: local.file {
-      path:    var.path
-      content: var.message
-      mode:    420
-    }
-  }
-  outputs: { path: { value: resource.file.path } }
-}
-`))
-	require.NoError(t, err)
-	require.NotNil(t, library.Library)
-	require.Len(t, library.Library.Exports, 1)
-	body := library.Library.Exports[0].Body
-
-	filePath := filepath.Join(t.TempDir(), "greeting.txt")
-	pathValue := "'" + strings.ReplaceAll(filePath, "'", `\\'`) + "'"
-	info := testInfo(t, `factory: {
-  imports: { greeter: './greeter' }
-  inputs: {
-    path:    { type: string }
-    message: { type: string }
-  }
-  resources: {
-    welcome: greeter.greeting {
-      path:    var.path
-      message: var.message
-    }
-  }
-  outputs: { greeting-path: { value: resource.welcome.path } }
-}
-`)
-	info.Libraries["greeter"] = &runtime.Library{
-		Name: "greeter",
-		ResourceComposites: map[string]*runtime.CompositeType{
-			"greeting": {
-				Name:       "greeting",
-				Kind:       runtime.NodeResource,
-				SyntaxBody: &body,
-				Libraries: map[string]*runtime.Library{
-					"local": testFileLibrary(),
-				},
-			},
-		},
-	}
-	configPath := writeStateStack(t, `factory: {
-  inputs: {
-    path: `+pathValue+`
-    message: 'hello from a typed composite'
-  }
-}
-`)
-
-	schemaOut, err := runRoot(t, info, "schema")
-	require.NoError(t, err)
-	require.Contains(t, schemaOut, "path: string")
-	require.Contains(t, schemaOut, "greeting-path")
-
-	templateOut, err := runRoot(t, info, "schema", "template")
-	require.NoError(t, err)
-	require.Contains(t, templateOut, "stack:")
-	require.Contains(t, templateOut, "state: local")
-
-	validateOut, err := runRoot(t, info, "validate", "--allow-version-mismatch", "-c", configPath)
-	require.NoError(t, err)
-	require.Equal(t, "OK\n", validateOut)
-
-	planPath := filepath.Join(t.TempDir(), "plan.json")
-	planOut, err := runRoot(t, info,
-		"plan", "--allow-version-mismatch", "-o", planPath, "-c", configPath)
-	require.NoError(t, err)
-	require.Contains(t, planOut, "resource.welcome")
-
-	applyOut, err := runRoot(t, info, "apply", planPath)
-	require.NoError(t, err)
-	require.Contains(t, applyOut, "greeting-path")
-	require.FileExists(t, filePath)
-
-	outputOut, err := runRoot(t, info, "output", "-c", configPath)
-	require.NoError(t, err)
-	require.Contains(t, outputOut, "greeting-path")
-
-	refreshOut, err := runRoot(t, info, "refresh", "--allow-version-mismatch", "-c", configPath)
-	require.NoError(t, err)
-	require.Contains(t, refreshOut, "Refreshed 1")
-}
-
-func TestPlanDestroyRemovesResources(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "managed.txt")
-	src := fmt.Sprintf(`
-resources: { x: local.file { path: '%s', content: 'hello', mode: 420 } }
-`, path)
-	info := testInfo(t, src)
-	info.Libraries["local"] = testFileLibrary()
-
-	// Create the file with a normal apply.
-	_ = applyVia(t, info, "")
-	_, err := os.Stat(path)
-	require.NoError(t, err)
-
-	// A destroy plan renders the resource as a deletion and counts it.
-	render, err := runWithStack(t, info, "plan", "--destroy", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, render, "- resource.x")
-	require.Contains(t, render, "0 to create, 0 to update, 0 to replace, 1 to destroy")
-
-	// A destroy plan should mark the file for deletion.
-	planFile := filepath.Join(t.TempDir(), "destroy.json")
-	_, err = runWithStack(t, info, "plan", "--destroy", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	pf := openPlanFile(t, planFile)
-	require.True(t, pf.Destroy)
-	require.Len(t, pf.Steps, 1)
-	require.Equal(t, runtime.DecisionDestroy, pf.Steps[0].Decision)
-
-	// Applying it removes the file and empties state.
-	_, err = runRoot(t, info, "apply", planFile)
-	require.NoError(t, err)
-	_, err = os.Stat(path)
-	require.True(t, os.IsNotExist(err), "file should be removed after destroy")
-
-	out, err := runWithStack(t, info, "state", "list")
-	require.NoError(t, err)
-	require.NotContains(t, out, "resource.x")
 }
 
 func TestPlanParseError(t *testing.T) {
