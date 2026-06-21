@@ -15,6 +15,36 @@
       "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "flag.ubp", "--parallelism", "7"],
       "stdout": "want/plan-flag-parallelism.stdout",
       "stderr": "want/plan-flag-parallelism.stderr"
+    },
+    {
+      "name": "plan-zero-parallelism",
+      "args": [
+        "plan",
+        "--allow-version-mismatch",
+        "--ascii",
+        "-c",
+        "stacks/zero.ub",
+        "-o",
+        "zero.ubp"
+      ],
+      "stderr": "want/plan-zero-parallelism.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "plan-non-integer-parallelism",
+      "args": [
+        "plan",
+        "--allow-version-mismatch",
+        "--ascii",
+        "-c",
+        "stacks/non-integer.ub",
+        "-o",
+        "non-integer.ubp"
+      ],
+      "stderr": "want/plan-non-integer-parallelism.stderr",
+      "exitCode": 1,
+      "skipPin": true
     }
   ],
   "planSummaries": [

@@ -38,24 +38,3 @@ factory: { inputs: { region: 'us-east-1' } }
 	assert.Equal(t, 5, got)
 }
 
-func TestLoadParallelismRejectsZero(t *testing.T) {
-	path := parseForTest(t, `parallelism: 0
-factory: { inputs: { region: 'us-east-1' } }
-`)
-	f, err := parseStackFile(path)
-	require.NoError(t, err)
-	_, err = loadParallelism(f, path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "positive integer")
-}
-
-func TestLoadParallelismRejectsNonInt(t *testing.T) {
-	path := parseForTest(t, `parallelism: 'lots'
-factory: { inputs: { region: 'us-east-1' } }
-`)
-	f, err := parseStackFile(path)
-	require.NoError(t, err)
-	_, err = loadParallelism(f, path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parallelism: want a positive integer")
-}
