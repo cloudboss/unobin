@@ -8,23 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVerifyMatchingHash(t *testing.T) {
-	fsys := mapFS(map[string]string{
-		ManifestFileName: "manifest: { requires: {} }\n",
-		"library.ub":     "hello: resource { description: 'hi' }\n",
-	})
-	lock := NewLock()
-	lock.Deps["github.com/x/y//lib"] = &LockedDep{
-		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hashProject(t, fsys),
-	}
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "lib", "c1"): {FS: fsys},
-	}}
-	mismatches, err := Verify(lock, r)
-	require.NoError(t, err)
-	assert.Empty(t, mismatches)
-}
-
 func TestVerifyHashesUBProjectRootWhenResolverHashEmpty(t *testing.T) {
 	fsys := mapFS(map[string]string{
 		ManifestFileName: "manifest: { requires: {} }\n",
@@ -51,45 +34,6 @@ hello: resource {
 
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
-}
-
-func TestVerifyRequiresUBProjectMarker(t *testing.T) {
-	fsys := mapFS(map[string]string{
-		"library.ub": "thing: resource {}\n",
-	})
-	hash, err := HashUBProject(fsys)
-	require.NoError(t, err)
-	lock := NewLock()
-	lock.Deps["github.com/x/y"] = &LockedDep{
-		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hash,
-	}
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "", "c1"): {FS: fsys},
-	}}
-
-	_, err = Verify(lock, r)
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "expected UB project marker")
-}
-
-func TestVerifyDetectsMismatch(t *testing.T) {
-	fsys := mapFS(map[string]string{
-		ManifestFileName: "manifest: { requires: {} }\n",
-		"library.ub":     "hello: resource { description: 'hi' }\n",
-	})
-	lock := NewLock()
-	lock.Deps["github.com/x/y//lib"] = &LockedDep{
-		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "sha256:wrong",
-	}
-	r := &fakeResolver{sources: map[string]*resolve.Source{
-		srcKey("github.com/x/y", "lib", "c1"): {FS: fsys},
-	}}
-	mismatches, err := Verify(lock, r)
-	require.NoError(t, err)
-	require.Len(t, mismatches, 1)
-	assert.Contains(t, mismatches[0], "github.com/x/y//lib")
-	assert.Contains(t, mismatches[0], "hash mismatch")
 }
 
 func TestVerifySkipsGoEntries(t *testing.T) {

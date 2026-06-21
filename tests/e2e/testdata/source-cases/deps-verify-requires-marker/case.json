@@ -1,0 +1,20 @@
+{
+  "name": "deps-verify-requires-marker",
+  "rootPath": "root",
+  "executor": "root",
+  "remotes": [
+    {
+      "key": "github.com/x/y@c1",
+      "path": "remotes/lib",
+      "commit": "c1"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-verify",
+      "args": ["deps", "verify", "-p", "factory.ub"],
+      "stderr": "want/deps-verify.stderr",
+      "exitCode": 1
+    }
+  ]
+}
