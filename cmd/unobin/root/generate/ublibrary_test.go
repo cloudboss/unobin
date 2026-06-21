@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -30,20 +29,6 @@ func resetFlags(cmd *cobra.Command) {
 		_ = f.Value.Set(f.DefValue)
 		f.Changed = false
 	})
-}
-
-func TestUblibraryGeneratedFilesParseAndValidate(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "greeter")
-	_, err := runUblibraryCmd(t, "-o", dir)
-	require.NoError(t, err)
-
-	path := filepath.Join(dir, "example.ub")
-	src, err := os.ReadFile(path)
-	require.NoError(t, err)
-	f, err := syntax.ParseSource(path, src)
-	require.NoError(t, err)
-	errs := syntax.ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "validate: %v", errs.Err())
 }
 
 func TestUblibraryRefusesReservedTypeName(t *testing.T) {

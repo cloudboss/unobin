@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/deps"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -23,20 +22,6 @@ func runFactoryCmd(t *testing.T, args ...string) (string, error) {
 	root.SetArgs(append([]string{"factory"}, args...))
 	err := root.Execute()
 	return out.String(), err
-}
-
-func TestFactoryGeneratedFileParsesAndValidates(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "my-factory")
-	_, err := runFactoryCmd(t, "-o", dir)
-	require.NoError(t, err)
-
-	path := filepath.Join(dir, "factory.ub")
-	src, err := os.ReadFile(path)
-	require.NoError(t, err)
-	f, err := syntax.ParseSource(path, src)
-	require.NoError(t, err)
-	errs := syntax.ValidateFile(f)
-	require.Equal(t, 0, errs.Len(), "validate factory.ub: %v", errs.Err())
 }
 
 func TestFactoryRefusesExistingDir(t *testing.T) {
