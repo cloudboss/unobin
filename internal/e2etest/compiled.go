@@ -39,6 +39,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 				pinned[stackPath] = true
 			}
 		}
+		if err := tamperPlanFiles(workspace, cmd.TamperPlanFiles); err != nil {
+			t.Fatal(err)
+		}
 		got, err := runCommand(t.Context(), workspace, binary, cmd)
 		if err != nil {
 			t.Fatalf("%s: %v", cmd.Name, err)

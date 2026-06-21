@@ -34,6 +34,33 @@ func comparePlanEnvelopes(
 	return nil
 }
 
+func tamperPlanFiles(workspace string, paths []string) error {
+	for _, relPath := range paths {
+		path := filepath.Join(workspace, filepath.FromSlash(relPath))
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read plan envelope %s: %w", relPath, err)
+		}
+		var env state.Envelope
+		if err := json.Unmarshal(body, &env); err != nil {
+			return fmt.Errorf("decode plan envelope %s: %w", relPath, err)
+		}
+		if len(env.Ciphertext) == 0 {
+			return fmt.Errorf("plan envelope %s has empty ciphertext", relPath)
+		}
+		env.Ciphertext[len(env.Ciphertext)-1] ^= 0xff
+		out, err := json.MarshalIndent(env, "", "  ")
+		if err != nil {
+			return err
+		}
+		out = append(out, '\n')
+		if err := os.WriteFile(path, out, 0o600); err != nil {
+			return fmt.Errorf("write plan envelope %s: %w", relPath, err)
+		}
+	}
+	return nil
+}
+
 func planEnvelopeSummaryJSON(workspace string, relPath string) (string, error) {
 	path := filepath.Join(workspace, filepath.FromSlash(relPath))
 	body, err := os.ReadFile(path)

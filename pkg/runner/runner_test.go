@@ -897,30 +897,6 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestApplyTamperedPlanFile(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hi' } }`
-	info := testInfo(t, src)
-	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-
-	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runBackend(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	body, err := os.ReadFile(planFile)
-	require.NoError(t, err)
-	var env state.Envelope
-	require.NoError(t, json.Unmarshal(body, &env))
-	require.NotEmpty(t, env.Ciphertext)
-	env.Ciphertext[len(env.Ciphertext)-1] ^= 0xff
-	tampered, err := json.Marshal(env)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(planFile, tampered, 0o600))
-
-	_, err = runRoot(t, info, "apply", planFile)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "decrypt")
-}
-
 // Ensure t.TempDir is visible to the loadStore call (which writes to
 // `.unobin/state` relative to cwd) by chdir-ing in testInfo.
 var _ = filepath.Join

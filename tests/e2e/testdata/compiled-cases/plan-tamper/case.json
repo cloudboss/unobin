@@ -1,0 +1,24 @@
+{
+  "name": "plan-tamper",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/plan-tamper",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-encrypted",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+      "stdout": "want/plan-encrypted.stdout",
+      "stderr": "want/plan-encrypted.stderr"
+    },
+    {
+      "name": "apply-tampered",
+      "args": ["apply", "plan.ubp"],
+      "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+      "stderr": "want/apply-tampered.stderr",
+      "exitCode": 1,
+      "tamperPlanFiles": ["plan.ubp"]
+    }
+  ],
+  "deterministic": true
+}

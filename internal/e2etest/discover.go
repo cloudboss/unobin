@@ -69,14 +69,15 @@ type RemoteSource struct {
 
 // Command describes one subprocess invocation.
 type Command struct {
-	Name     string            `json:"name"`
-	Args     []string          `json:"args"`
-	Dir      string            `json:"dir"`
-	Env      map[string]string `json:"env"`
-	Stdout   string            `json:"stdout"`
-	Stderr   string            `json:"stderr"`
-	ExitCode int               `json:"exitCode"`
-	SkipPin  bool              `json:"skipPin"`
+	Name            string            `json:"name"`
+	Args            []string          `json:"args"`
+	Dir             string            `json:"dir"`
+	Env             map[string]string `json:"env"`
+	Stdout          string            `json:"stdout"`
+	Stderr          string            `json:"stderr"`
+	ExitCode        int               `json:"exitCode"`
+	SkipPin         bool              `json:"skipPin"`
+	TamperPlanFiles []string          `json:"tamperPlanFiles"`
 }
 
 // FileCheck describes a file compared to a golden.
@@ -364,6 +365,12 @@ func validateCommands(commands []Command) error {
 		}
 		if err := checkRelPath(prefix+".stderr", cmd.Stderr); err != nil {
 			return err
+		}
+		for j, path := range cmd.TamperPlanFiles {
+			field := fmt.Sprintf("%s.tamperPlanFiles[%d]", prefix, j)
+			if err := checkRelPath(field, path); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
