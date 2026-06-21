@@ -1,0 +1,3 @@
+inputs:      { who: { type: string } }
+constraints: [ { kind: predicate, when: true, require: true } ]
+state:       'not an object'

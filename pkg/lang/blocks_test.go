@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,11 +9,9 @@ import (
 
 func parseBlocksFile(t *testing.T) *File {
 	t.Helper()
-	f, err := ParseSource("blocks.ub", []byte(`
-inputs:      { who: { type: string } }
-constraints: [ { kind: predicate, when: true, require: true } ]
-state:       'not an object'
-`))
+	src, err := os.ReadFile("testdata/ub/blocks/valid/top-level.ub")
+	require.NoError(t, err)
+	f, err := ParseSource("blocks.ub", src)
 	require.NoError(t, err)
 	return f
 }
