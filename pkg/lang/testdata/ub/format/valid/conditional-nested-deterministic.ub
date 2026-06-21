@@ -1,0 +1,1 @@
+x: if var.n > 3 then 'big' else if var.n > 1 then 'mid' else 'small'

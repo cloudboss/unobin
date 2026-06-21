@@ -49,7 +49,7 @@ list: []
 	require.Equal(t, src, formatString(t, src))
 }
 
-func TestFormatSelectorBodyFixtures(t *testing.T) {
+func TestFormatFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/format/valid",
 		func(name string, src []byte) (string, []string) {
 			f, err := ParseSource(name+".ub", src)
