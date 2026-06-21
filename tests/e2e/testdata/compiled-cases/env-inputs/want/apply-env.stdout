@@ -1,0 +1,2 @@
+{ kind: 'apply-output', name: 'env', value: { answer: 'true', cluster: 'web-prod', config: { host: 'web', port: 8080 }, endpoint: 'https://example.com/health', greeting: 'from-env', note: '42', quoted: '\'hello world\'', ratio: 1.5, size: 5, subnets: ['subnet-a', 'subnet-b'], tags: ['a', 'b'], use-spot: true } }
+{ kind: 'apply-output', name: 'said', value: 'from-env' }

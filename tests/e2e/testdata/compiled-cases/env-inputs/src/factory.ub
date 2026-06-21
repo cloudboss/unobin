@@ -1,0 +1,58 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type:    library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+    greeting:     { type: string }
+    cluster-name: { type: string }
+    size:         { type: integer }
+    use-spot:     { type: boolean }
+    ratio:        { type: number }
+    subnets:      { type: list(string) }
+    answer:       { type: string }
+    comment:      { type: optional(string) }
+    config:       { type: object({ host: string, port: integer }) }
+    tags:         { type: list(string) }
+    endpoint:     { type: string }
+    quoted:       { type: string }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: var.e2e-config
+  }
+
+  actions: {
+    hi: e2e.echo {
+      text: var.greeting
+    }
+  }
+
+  outputs: {
+    said: { value: action.hi.text }
+    env: {
+      value: {
+        greeting: var.greeting
+        cluster:  var.cluster-name
+        size:     var.size
+        use-spot: var.use-spot
+        ratio:    var.ratio
+        subnets:  var.subnets
+        answer:   var.answer
+        note:     var.comment ?? 'none'
+        config:   var.config
+        tags:     var.tags
+        endpoint: var.endpoint
+        quoted:   var.quoted
+      }
+    }
+  }
+}

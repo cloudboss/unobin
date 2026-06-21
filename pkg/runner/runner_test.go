@@ -445,88 +445,6 @@ func TestDeploymentID(t *testing.T) {
 	}
 }
 
-func TestEnvVarOverridesConfig(t *testing.T) {
-	src := `
-inputs:  { greeting: { type: string } }
-actions: { hi: core.echo { echo: var.greeting } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-
-	cfg := filepath.Join(t.TempDir(), "prod.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateStackBody+`
-factory: {
-  inputs: {
-    greeting: 'from-config'
-  }
-}
-`)), 0o644))
-
-	t.Setenv("UB_VAR_greeting", "from-env")
-	out := applyVia(t, info, cfg)
-	require.Contains(t, out, "said: 'from-env'")
-}
-
-func TestEnvVarUnderscoreToHyphen(t *testing.T) {
-	src := `
-inputs:  { cluster-name: { type: string } }
-actions: { hi: core.echo { echo: var.cluster-name } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-
-	t.Setenv("UB_VAR_cluster_name", "web-prod")
-	out := applyVia(t, info, "")
-	require.Contains(t, out, "said: 'web-prod'")
-}
-
-func TestEnvVarParsesTypedLiterals(t *testing.T) {
-	src := `
-inputs: {
-  size:     { type: integer }
-  use-spot: { type: boolean }
-  ratio:    { type: number }
-  subnets:  { type: list(string) }
-}
-imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
-actions: {
-  summary: core.echo {
-    echo: $'''\-
-      size={{ var.size }} spot={{ var.use-spot }} ratio=
-      {{ var.ratio }} subnets={{ @core.join(var.subnets, ',') }}
-      '''
-  }
-}
-outputs: { said: { value: action.summary.echo } }
-`
-	info := testInfo(t, src)
-
-	t.Setenv("UB_VAR_size", "5")
-	t.Setenv("UB_VAR_use_spot", "true")
-	t.Setenv("UB_VAR_ratio", "1.5")
-	t.Setenv("UB_VAR_subnets", "['subnet-a', 'subnet-b']")
-
-	out := applyVia(t, info, "")
-	require.Contains(t, out,
-		"said: 'size=5 spot=true ratio=1.5 subnets=subnet-a,subnet-b'")
-}
-
-func TestEnvVarStringInputTakesRawValue(t *testing.T) {
-	src := `
-inputs:  { answer: { type: string }, comment: { type: optional(string) } }
-actions: { hi: core.echo { echo: var.answer } }
-outputs: { said: { value: action.hi.echo }, note: { value: var.comment ?? 'none' } }
-`
-	info := testInfo(t, src)
-	// Each value parses as a UB literal, but the declared type is
-	// string, so the raw text arrives untouched.
-	t.Setenv("UB_VAR_answer", "true")
-	t.Setenv("UB_VAR_comment", "42")
-	out := applyVia(t, info, "")
-	require.Contains(t, out, "said: 'true'")
-	require.Contains(t, out, "note: '42'")
-}
-
 func TestParseEnvValueJSON(t *testing.T) {
 	cases := []struct {
 		name string
@@ -565,34 +483,6 @@ func TestParseEnvValueJSON(t *testing.T) {
 			require.Equal(t, c.want, parseEnvValue(c.raw))
 		})
 	}
-}
-
-func TestEnvVarParsesJSON(t *testing.T) {
-	// JSON uses double quotes for strings and keys, which UB does not,
-	// so a JSON object or array is not valid UB and reaches inputs only
-	// through the JSON fallback. The integer 8080 must decode as an
-	// integer to satisfy the declared field; a JSON float would fail
-	// input validation.
-	src := `
-inputs: {
-  config: { type: object({ host: string, port: integer }) }
-  tags:   { type: list(string) }
-}
-imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
-actions: { hi: core.echo { echo: 'x' } }
-outputs: {
-  result: {
-    value: @core.to-json({ host: var.config.host, port: var.config.port, tags: var.tags })
-  }
-}
-`
-	info := testInfo(t, src)
-
-	t.Setenv("UB_VAR_config", `{"host": "web", "port": 8080}`)
-	t.Setenv("UB_VAR_tags", `["a", "b"]`)
-
-	out := applyVia(t, info, "")
-	require.Contains(t, out, `{"host":"web","port":8080,"tags":["a","b"]}`)
 }
 
 func TestPlanRejectsTypeMismatch(t *testing.T) {
@@ -869,34 +759,6 @@ inputs: {
 	_, err := runRoot(t, info, "plan", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "below minimum")
-}
-
-func TestEnvVarUnparseableFallsBackToString(t *testing.T) {
-	// URLs, paths, and names with special characters do not parse as UB
-	// literals; they arrive as plain strings without shell-escape ceremony.
-	src := `
-inputs:  { endpoint: { type: string } }
-actions: { hi: core.echo { echo: var.endpoint } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_VAR_endpoint", "https://example.com/health")
-	out := applyVia(t, info, "")
-	require.Contains(t, out, "said: 'https://example.com/health'")
-}
-
-func TestEnvVarStringInputKeepsQuoteCharacters(t *testing.T) {
-	src := `
-inputs:  { greeting: { type: string } }
-actions: { hi: core.echo { echo: var.greeting } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	// A string input takes the raw text, so UB-style quotes are data,
-	// not syntax.
-	t.Setenv("UB_VAR_greeting", "'hello world'")
-	out := applyVia(t, info, "")
-	require.Contains(t, out, `said: '\'hello world\''`)
 }
 
 func TestPlanShowsCreateBeforeApply(t *testing.T) {
