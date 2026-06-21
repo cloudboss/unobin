@@ -46,6 +46,21 @@ func TestRunIdempotent(t *testing.T) {
 	Run(t, "testdata/ub/exact", fakeDriver, Idempotent())
 }
 
+func TestRunRepeat(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "testdata", "ub", "valid")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "clean.ub"), []byte("hello\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "clean.ub.out"), []byte("HELLO\n"), 0o644))
+
+	runs := 0
+	Run(t, filepath.Dir(root), func(name string, src []byte) (string, []string) {
+		runs++
+		return fakeDriver(name, src)
+	}, Repeat(5))
+	require.Equal(t, 5, runs)
+}
+
 func TestUpdateWritesAndRemovesGoldens(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "testdata", "ub")

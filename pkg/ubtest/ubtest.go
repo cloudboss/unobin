@@ -43,6 +43,7 @@ type Option func(*config)
 type config struct {
 	substring  bool
 	idempotent bool
+	runs       int
 }
 
 // Substring matches each line of a .ub.err golden as a substring of the
@@ -58,6 +59,11 @@ func Substring() Option {
 // equal format(x).
 func Idempotent() Option {
 	return func(c *config) { c.idempotent = true }
+}
+
+// Repeat runs each fixture n times and compares every result. The default is 2.
+func Repeat(n int) Option {
+	return func(c *config) { c.runs = n }
 }
 
 type fixture struct {
@@ -77,6 +83,9 @@ func Run(t *testing.T, dir string, drive Driver, opts ...Option) {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	if cfg.runs < 2 {
+		cfg.runs = 2
+	}
 	fixtures, err := discover(dir)
 	require.NoError(t, err, "discover %s", dir)
 	require.NotEmpty(t, fixtures, "no .ub fixtures under %s", dir)
@@ -84,9 +93,11 @@ func Run(t *testing.T, dir string, drive Driver, opts ...Option) {
 	for _, fx := range fixtures {
 		t.Run(fx.name, func(t *testing.T) {
 			output, diags := drive(fx.name, fx.src)
-			again, diagsAgain := drive(fx.name, fx.src)
-			require.Equal(t, output, again, "driver output is not deterministic")
-			require.Equal(t, diags, diagsAgain, "driver diagnostics are not deterministic")
+			for i := range cfg.runs - 1 {
+				again, diagsAgain := drive(fx.name, fx.src)
+				require.Equal(t, output, again, "driver output changed on run %d", i+2)
+				require.Equal(t, diags, diagsAgain, "driver diagnostics changed on run %d", i+2)
+			}
 
 			if cfg.idempotent && output != "" {
 				reformatted, _ := drive(fx.name, []byte(output))

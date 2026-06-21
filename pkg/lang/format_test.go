@@ -63,6 +63,7 @@ func TestFormatFixtures(t *testing.T) {
 			return string(out), nil
 		},
 		ubtest.Idempotent(),
+		ubtest.Repeat(5),
 	)
 }
 
