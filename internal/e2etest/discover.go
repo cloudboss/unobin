@@ -29,8 +29,10 @@ type CompiledCase struct {
 	Build         bool        `json:"build"`
 	Commands      []Command   `json:"commands"`
 	Files         []FileCheck `json:"files"`
+	AbsentFiles   []string    `json:"absentFiles"`
 	StateSummary  string      `json:"stateSummary"`
 	StateSeed     string      `json:"stateSeed"`
+	StateLocks    []string    `json:"stateLocks"`
 	Deterministic bool        `json:"deterministic"`
 }
 
@@ -228,10 +230,25 @@ func validateCompiledCase(c CompiledCase) error {
 	if err := validateFiles(c.Files); err != nil {
 		return err
 	}
+	if err := validateAbsentFiles(c.AbsentFiles); err != nil {
+		return err
+	}
 	if err := checkRelPath("stateSummary", c.StateSummary); err != nil {
 		return err
 	}
-	return checkRelPath("stateSeed", c.StateSeed)
+	if err := checkRelPath("stateSeed", c.StateSeed); err != nil {
+		return err
+	}
+	return validateStateLocks(c.StateLocks)
+}
+
+func validateStateLocks(stacks []string) error {
+	for i, stack := range stacks {
+		if err := checkRelPath(fmt.Sprintf("stateLocks[%d]", i), stack); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateSourceCase(c SourceCase) error {

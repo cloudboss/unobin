@@ -1,0 +1,17 @@
+{
+  "name": "state-force-unlock",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-force-unlock",
+  "build": true,
+  "stateLocks": ["dev"],
+  "commands": [
+    {
+      "name": "force-unlock",
+      "args": ["state", "force-unlock", "-c", "stacks/dev.ub"],
+      "stdout": "want/force-unlock.stdout",
+      "stderr": "want/force-unlock.stderr"
+    }
+  ],
+  "absentFiles": [".unobin/state/state-force-unlock/dev/lock"],
+  "deterministic": true
+}

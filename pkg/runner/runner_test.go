@@ -880,26 +880,6 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.Equal(t, []string{currentRev, revs[3], revs[4]}, after)
 }
 
-func TestStateForceUnlockReleasesLock(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hello' } }`
-	info := testInfo(t, src)
-	_ = applyVia(t, info, "")
-
-	store, err := local.NewStore(".unobin/state", info.FactoryName, "default",
-		encrypters.Noop{})
-	require.NoError(t, err)
-	_, err = store.Lock(context.Background())
-	require.NoError(t, err)
-
-	out, err := runWithStack(t, info, "state", "force-unlock")
-	require.NoError(t, err)
-	require.Contains(t, out, "Lock cleared.")
-
-	again, err := store.Lock(context.Background())
-	require.NoError(t, err)
-	require.NoError(t, again.Unlock())
-}
-
 func TestRefreshNoStateIsOK(t *testing.T) {
 	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
 	out, err := runWithStack(t, info, "refresh", "--allow-version-mismatch")

@@ -26,6 +26,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	if err := seedState(workspace, c); err != nil {
 		t.Fatal(err)
 	}
+	if err := createStateLocks(workspace, c); err != nil {
+		t.Fatal(err)
+	}
 	pinned := map[string]bool{}
 	var lastStackPath string
 	for _, cmd := range c.Commands {
@@ -54,6 +57,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := checkAbsentFiles(workspace, c.AbsentFiles); err != nil {
+		t.Fatal(err)
 	}
 	if c.StateSummary != "" {
 		if lastStackPath == "" {

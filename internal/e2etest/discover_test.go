@@ -27,8 +27,10 @@ func TestDiscoverCases(t *testing.T) {
 		"files": [
 			{ "path": "work/events.ndjson", "want": "want/events.ndjson" }
 		],
+		"absentFiles": ["work/lock"],
 		"stateSummary": "want/state-summary.json",
 		"stateSeed": "seed/state.json",
+		"stateLocks": ["dev"],
 		"deterministic": true
 	}`)
 	writeCaseFile(t, dir, "alpha", `{
@@ -58,7 +60,9 @@ func TestDiscoverCases(t *testing.T) {
 	assert.Equal(t, "work/events.ndjson", beta.Files[0].Path)
 	assert.Equal(t, "want/events.ndjson", beta.Files[0].Want)
 	assert.Equal(t, "want/state-summary.json", beta.StateSummary)
+	assert.Equal(t, []string{"work/lock"}, beta.AbsentFiles)
 	assert.Equal(t, "seed/state.json", beta.StateSeed)
+	assert.Equal(t, []string{"dev"}, beta.StateLocks)
 }
 
 func TestDiscoverSourceCases(t *testing.T) {

@@ -52,3 +52,23 @@ func seedState(workspace string, c CompiledCase) error {
 	}
 	return nil
 }
+
+func createStateLocks(workspace string, c CompiledCase) error {
+	for _, stack := range c.StateLocks {
+		path := filepath.Join(
+			workspace,
+			".unobin",
+			"state",
+			c.Name,
+			filepath.FromSlash(stack),
+			"lock",
+		)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return fmt.Errorf("make state lock directory: %w", err)
+		}
+		if err := os.WriteFile(path, []byte("12345\n"), 0o600); err != nil {
+			return fmt.Errorf("write state lock %s: %w", stack, err)
+		}
+	}
+	return nil
+}
