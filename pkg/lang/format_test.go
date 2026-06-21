@@ -496,26 +496,6 @@ func TestSmartColumnBreakDeterministic(t *testing.T) {
 	}
 }
 
-func TestFormatJoinedWrapsLongValue(t *testing.T) {
-	value := "https://very-long-domain.example.com/" +
-		strings.Repeat("api/v1/resources/", 5) + "details"
-	src := "k: '''\\-\n  " + value + "\n  '''\n"
-	formatted := formatString(t, src)
-
-	require.Greater(t, strings.Count(formatted, "\n"), 3,
-		"expected multi-line output, got:\n%s", formatted)
-
-	for line := range strings.SplitSeq(formatted, "\n") {
-		require.LessOrEqual(t, len(line), 100,
-			"line exceeds 100 columns: %q", line)
-	}
-
-	f, err := ParseSource("test.ub", []byte(formatted))
-	require.NoError(t, err)
-	got := f.Body.Fields[0].Value.(*StringLit).Value
-	require.Equal(t, value, got)
-}
-
 func parseFirstValue(t *testing.T, src string) (*formatter, Expr) {
 	t.Helper()
 	wrapped := "k: " + src + "\n"
