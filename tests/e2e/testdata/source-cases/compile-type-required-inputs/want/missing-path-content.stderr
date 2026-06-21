@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:18:19: resolve: missing required input "content" on e2e.file
+  factory.ub:18:19: resolve: missing required input "path" on e2e.file
+

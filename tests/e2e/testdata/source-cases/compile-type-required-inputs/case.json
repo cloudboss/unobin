@@ -1,0 +1,34 @@
+{
+  "name": "compile-type-required-inputs",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "missing-content",
+      "dir": "missing-content",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/missing-content.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "missing-path-content",
+      "dir": "missing-path-content",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/missing-path-content.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "composite-missing-input",
+      "dir": "composite-missing-input",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/composite-missing-input.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "composite-valid-input",
+      "dir": "composite-valid-input",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}

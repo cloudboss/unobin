@@ -1,0 +1,23 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    e2e:    'example.com/unobin/e2elib'
+    bundle: './libraries/bundle'
+  }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: {
+    demo: bundle.pair { name: 'n', e2e-config: var.e2e-config }
+  }
+}

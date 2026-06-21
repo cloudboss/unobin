@@ -74,33 +74,6 @@ func emptyConfigResourceLibrary() *runtime.Library {
 	}}
 }
 
-// TestCheckTypesRequiresMissingInput proves a body that leaves out a
-// required input fails at compile: content has no default and is not
-// optional, while mode and create-directory are excused by their
-// declared defaults.
-func TestCheckTypesRequiresMissingInput(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { one: local.file { path: 'p' } }
-`, map[string]*runtime.Library{"local": localFileLibrary()})
-
-	require.Equal(t,
-		[]string{`missing required input "content" on local.file`},
-		errs.Messages())
-}
-
-// TestCheckTypesReportsEveryMissingInput proves the check reports each
-// missing required input by name, in sorted order.
-func TestCheckTypesReportsEveryMissingInput(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { one: local.file { create-directory: true } }
-`, map[string]*runtime.Library{"local": localFileLibrary()})
-
-	require.Equal(t, []string{
-		`missing required input "content" on local.file`,
-		`missing required input "path" on local.file`,
-	}, errs.Messages())
-}
-
 // TestCheckTypesSkipsUnknownTypedInput proves an input whose type the
 // schema could not describe is not required, since its optionality is
 // unknowable.
@@ -133,42 +106,6 @@ resources: { one: ext.thing { name: 'a' } }
 `, map[string]*runtime.Library{"ext": {}})
 
 	require.Empty(t, errs.Messages())
-}
-
-// TestCheckTypesRequiresCompositeInput proves a composite call site
-// must provide the composite's required inputs; a declared optional
-// input may stay absent.
-func TestCheckTypesRequiresCompositeInput(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-pair: resource {
-  inputs:    { name: { type: string }, note: { type: optional(string) } }
-  resources: { one: local.file { path: var.name, content: 'x' } }
-}
-`)
-	body := composite.body
-	libs := map[string]*runtime.Library{
-		"bundle": {
-			ResourceComposites: map[string]*runtime.CompositeType{
-				"pair": {
-					Name:       "pair",
-					SyntaxBody: &body,
-					Libraries:  map[string]*runtime.Library{"local": localFileLibrary()},
-				},
-			},
-		},
-	}
-
-	errs := checkSyntaxReferences(t, `
-resources: { demo: bundle.pair {} }
-`, libs)
-	require.Equal(t,
-		[]string{`missing required input "name" on bundle.pair`},
-		errs.Messages())
-
-	clean := checkSyntaxReferences(t, `
-resources: { demo: bundle.pair { name: 'n' } }
-`, libs)
-	require.Empty(t, clean.Messages())
 }
 
 func TestCheckTypesUsesLibraryConfigInputFields(t *testing.T) {
