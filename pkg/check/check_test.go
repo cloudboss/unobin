@@ -126,43 +126,6 @@ outputs:   { anything: { value: resource.one.whatever } }
 	require.Empty(t, checkRefMessages(t, errs))
 }
 
-func TestCheckReferencesEachScope(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs: { files: { type: map(string) } }
-resources: {
-  many: local.file { @for-each: var.files, path: @each.key, content: @each.value }
-  mirror: local.file {
-    @for-each: var.files
-    path:      resource.many[@each.key].path
-    content:   @each.value
-  }
-  bad: local.file { path: @each.key, content: 'no loop' }
-}
-`, nil)
-
-	got := checkRefMessages(t, errs)
-	require.Len(t, got, 1)
-	require.Contains(t, got[0], `@each is only available inside @for-each`)
-}
-
-func TestCheckReferencesUnknownAtRoots(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs: { files: { type: map(string) } }
-locals: { greeting: @core.greeting }
-resources: {
-  many: local.file { @for-each: var.files, path: @eech.key, content: @each.value }
-  one: local.file { path: @rule.value, content: 'x' }
-}
-`, nil)
-
-	got := checkRefMessages(t, errs)
-	require.Equal(t, []string{
-		"@core names functions; call one, e.g. @core.length(...)",
-		"@eech is not bound",
-		"@rule is not bound",
-	}, got)
-}
-
 func checkRefMessages(t *testing.T, errs *lang.ErrorList) []string {
 	t.Helper()
 	for _, err := range errs.Errors() {

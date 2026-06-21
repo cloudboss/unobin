@@ -1,0 +1,27 @@
+{
+  "name": "compile-reference-at-roots",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-each-scope",
+      "dir": "valid-each-scope",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "each-outside-loop",
+      "dir": "each-outside-loop",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/each-outside-loop.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-at-roots",
+      "dir": "unknown-at-roots",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-at-roots.stderr",
+      "exitCode": 1
+    }
+  ]
+}
