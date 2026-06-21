@@ -1,0 +1,9 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+
+  parallelism: 4
+}

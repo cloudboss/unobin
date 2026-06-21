@@ -1,0 +1,22 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "plan-parallelism",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "parallelism": 7,
+  "steps": [
+    {
+      "address": "library-config.e2e",
+      "kind": "library-config",
+      "decision": "eval"
+    },
+    {
+      "address": "action.hi",
+      "kind": "action",
+      "decision": "rerun"
+    }
+  ]
+}

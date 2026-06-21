@@ -1,0 +1,25 @@
+{
+  "name": "plan-parallelism",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/plan-parallelism",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-config-parallelism",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "config.ubp"],
+      "stdout": "want/plan-config-parallelism.stdout",
+      "stderr": "want/plan-config-parallelism.stderr"
+    },
+    {
+      "name": "plan-flag-parallelism",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "flag.ubp", "--parallelism", "7"],
+      "stdout": "want/plan-flag-parallelism.stdout",
+      "stderr": "want/plan-flag-parallelism.stderr"
+    }
+  ],
+  "planSummaries": [
+    { "path": "config.ubp", "want": "want/config-plan-summary.json" },
+    { "path": "flag.ubp", "want": "want/flag-plan-summary.json" }
+  ],
+  "deterministic": true
+}

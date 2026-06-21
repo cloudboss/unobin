@@ -934,38 +934,6 @@ outputs: { said: { value: action.hi.echo } }
 	require.Contains(t, out, "said: 'hello world'")
 }
 
-func TestPlanFlagOverridesConfigParallelism(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hi' } }`
-	info := testInfo(t, src)
-	cfg := writeStateStack(t, `
-parallelism: 3
-factory: { inputs: {} }
-`)
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch",
-		"-c", cfg, "-o", planFile, "--parallelism", "7")
-	require.NoError(t, err)
-
-	pf := openPlanFile(t, planFile)
-	require.Equal(t, 7, pf.Parallelism)
-}
-
-func TestPlanFallsBackToConfigParallelism(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hi' } }`
-	info := testInfo(t, src)
-	cfg := writeStateStack(t, `
-parallelism: 4
-factory: { inputs: {} }
-`)
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch",
-		"-c", cfg, "-o", planFile)
-	require.NoError(t, err)
-
-	pf := openPlanFile(t, planFile)
-	require.Equal(t, 4, pf.Parallelism)
-}
-
 func TestApplyTamperedPlanFile(t *testing.T) {
 	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)

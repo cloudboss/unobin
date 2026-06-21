@@ -22,18 +22,19 @@ type config struct {
 
 // CompiledCase describes a compiled-factory e2e case.
 type CompiledCase struct {
-	Name          string      `json:"name"`
-	Dir           string      `json:"-"`
-	FactoryPath   string      `json:"factoryPath"`
-	LibraryPath   string      `json:"libraryPath"`
-	Build         bool        `json:"build"`
-	Commands      []Command   `json:"commands"`
-	Files         []FileCheck `json:"files"`
-	AbsentFiles   []string    `json:"absentFiles"`
-	StateSummary  string      `json:"stateSummary"`
-	StateSeed     string      `json:"stateSeed"`
-	StateLocks    []string    `json:"stateLocks"`
-	Deterministic bool        `json:"deterministic"`
+	Name          string             `json:"name"`
+	Dir           string             `json:"-"`
+	FactoryPath   string             `json:"factoryPath"`
+	LibraryPath   string             `json:"libraryPath"`
+	Build         bool               `json:"build"`
+	Commands      []Command          `json:"commands"`
+	Files         []FileCheck        `json:"files"`
+	PlanSummaries []PlanSummaryCheck `json:"planSummaries"`
+	AbsentFiles   []string           `json:"absentFiles"`
+	StateSummary  string             `json:"stateSummary"`
+	StateSeed     string             `json:"stateSeed"`
+	StateLocks    []string           `json:"stateLocks"`
+	Deterministic bool               `json:"deterministic"`
 }
 
 // SourceCase describes a source-root CLI e2e case.
@@ -79,6 +80,12 @@ type Command struct {
 
 // FileCheck describes a file compared to a golden.
 type FileCheck struct {
+	Path string `json:"path"`
+	Want string `json:"want"`
+}
+
+// PlanSummaryCheck describes a plan file decoded and compared to a golden.
+type PlanSummaryCheck struct {
 	Path string `json:"path"`
 	Want string `json:"want"`
 }
@@ -230,6 +237,9 @@ func validateCompiledCase(c CompiledCase) error {
 	if err := validateFiles(c.Files); err != nil {
 		return err
 	}
+	if err := validatePlanSummaries(c.PlanSummaries); err != nil {
+		return err
+	}
 	if err := validateAbsentFiles(c.AbsentFiles); err != nil {
 		return err
 	}
@@ -271,6 +281,19 @@ func validateSourceCase(c SourceCase) error {
 		return err
 	}
 	return validateAbsentFiles(c.AbsentFiles)
+}
+
+func validatePlanSummaries(checks []PlanSummaryCheck) error {
+	for i, check := range checks {
+		prefix := fmt.Sprintf("planSummaries[%d]", i)
+		if err := checkRelPath(prefix+".path", check.Path); err != nil {
+			return err
+		}
+		if err := checkRelPath(prefix+".want", check.Want); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateAbsentFiles(paths []string) error {
