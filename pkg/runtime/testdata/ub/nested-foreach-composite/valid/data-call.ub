@@ -1,0 +1,6 @@
+resources: {
+  x: w.outer { @for-each: { a: 'one' }, t: @each.value }
+}
+outputs: {
+  m: { value: resource.x['a'].marker }
+}

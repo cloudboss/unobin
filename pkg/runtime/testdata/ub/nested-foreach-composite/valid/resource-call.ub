@@ -1,0 +1,7 @@
+resources: {
+  x: w.outer { @for-each: { a: 'one', b: 'two' }, t: @each.value }
+}
+outputs: {
+  ida: { value: resource.x['a'].id }
+  idb: { value: resource.x['b'].id }
+}

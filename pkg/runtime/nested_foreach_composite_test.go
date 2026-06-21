@@ -7,21 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // A composite called inside a @for-each composite, with a real
 // resource inside and outputs chained through both boundaries.
 func TestForEachCompositeCallingComposite(t *testing.T) {
-	inner := syntaxResourceComposite(t, "inner", `
-inputs:    { tag: { type: string } }
-resources: { s: core.subnet { tag: var.tag } }
-outputs:   { id: { value: resource.s.id } }
-`)
-	outer := syntaxResourceComposite(t, "outer", `
-inputs:    { t: { type: string } }
-resources: { i: w.inner { tag: var.t } }
-outputs:   { id: { value: resource.i.id } }
-`)
+	inner := syntaxResourceComposite(t, "inner",
+		ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "inner-resource"))
+	outer := syntaxResourceComposite(t, "outer",
+		ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "outer-resource"))
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -37,10 +32,7 @@ outputs:   { id: { value: resource.i.id } }
 			},
 		},
 	}
-	src := `
-resources: { x: w.outer { @for-each: { a: 'one', b: 'two' }, t: @each.value } }
-outputs: { ida: { value: resource.x['a'].id }, idb: { value: resource.x['b'].id } }
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "resource-call")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -82,18 +74,10 @@ outputs: { ida: { value: resource.x['a'].id }, idb: { value: resource.x['b'].id 
 // boundary finalizes. The outer's outputs read it through the
 // per-instance scope.
 func TestForEachCompositeCallingDataComposite(t *testing.T) {
-	label := syntaxComposite(t, "label", NodeData, `
-inputs: { note: { type: string } }
-outputs: {
-  marker: { value: 'fixed' }
-}
-`)
-	outer := syntaxResourceComposite(t, "outer", `
-inputs:    { t: { type: string } }
-data:      { i: w.label { note: var.t } }
-resources: { s: core.subnet { tag: var.t } }
-outputs:   { marker: { value: data.i.marker } }
-`)
+	label := syntaxComposite(t, "label", NodeData,
+		ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "data-label"))
+	outer := syntaxResourceComposite(t, "outer",
+		ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "outer-data-resource"))
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -111,10 +95,7 @@ outputs:   { marker: { value: data.i.marker } }
 			},
 		},
 	}
-	src := `
-resources: { x: w.outer { @for-each: { a: 'one' }, t: @each.value } }
-outputs:   { m: { value: resource.x['a'].marker } }
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "data-call")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)

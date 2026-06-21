@@ -1,0 +1,6 @@
+inputs: {
+  note: { type: string }
+}
+outputs: {
+  marker: { value: 'fixed' }
+}

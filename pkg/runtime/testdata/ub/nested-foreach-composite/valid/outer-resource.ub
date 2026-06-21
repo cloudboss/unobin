@@ -1,0 +1,9 @@
+inputs: {
+  t: { type: string }
+}
+resources: {
+  i: w.inner { tag: var.t }
+}
+outputs: {
+  id: { value: resource.i.id }
+}

@@ -1,0 +1,12 @@
+inputs: {
+  t: { type: string }
+}
+data: {
+  i: w.label { note: var.t }
+}
+resources: {
+  s: core.subnet { tag: var.t }
+}
+outputs: {
+  marker: { value: data.i.marker }
+}
