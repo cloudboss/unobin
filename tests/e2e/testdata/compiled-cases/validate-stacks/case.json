@@ -32,6 +32,20 @@
       "skipPin": true
     },
     {
+      "name": "validate-dotted-backend",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/dotted-backend.ub"],
+      "stderr": "want/validate-dotted-backend.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-encryption-inside-state",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/encryption-inside-state.ub"],
+      "stderr": "want/validate-encryption-inside-state.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
       "name": "validate-unknown-backend",
       "args": ["validate", "--allow-version-mismatch", "-c", "stacks/unknown-backend.ub"],
       "stderr": "want/validate-unknown-backend.stderr",

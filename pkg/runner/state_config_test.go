@@ -33,17 +33,6 @@ func TestParseStateConfigAbsentBlock(t *testing.T) {
 	assert.Nil(t, sc.Encrypter)
 }
 
-func TestValidateRejectsDottedBackend(t *testing.T) {
-	_, err := parseStackSource("stack.ub", []byte(`
-stack: {
-  state: core.local { path: '.unobin/state' }
-  encryption: noop {}
-}
-`))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "state selector must have one segment")
-}
-
 func TestParseStateConfigBackendAndEncryption(t *testing.T) {
 	src := `
 state: local {
@@ -105,19 +94,6 @@ func TestParseStateConfigEncryptionOnly(t *testing.T) {
 	assert.Nil(t, sc.Backend)
 	require.NotNil(t, sc.Encrypter)
 	assert.Equal(t, "noop", sc.Encrypter.Name)
-}
-
-func TestValidateRejectsEncryptionInsideState(t *testing.T) {
-	_, err := parseStackSource("stack.ub", []byte(`
-stack: {
-  state: local {
-    encryption: noop {}
-  }
-  encryption: noop {}
-}
-`))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "its own top-level block")
 }
 
 func TestResolveBackendNilRefIsError(t *testing.T) {

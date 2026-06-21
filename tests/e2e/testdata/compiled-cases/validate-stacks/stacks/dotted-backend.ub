@@ -1,0 +1,7 @@
+stack: {
+  state: core.local {
+    path: '.unobin/state'
+  }
+
+  encryption: noop {}
+}

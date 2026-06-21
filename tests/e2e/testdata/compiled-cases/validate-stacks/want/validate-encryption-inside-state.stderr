@@ -1,0 +1,2 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+stacks/encryption-inside-state.ub:3:5: schema: state body: encryption is its own top-level block; move it out of state
