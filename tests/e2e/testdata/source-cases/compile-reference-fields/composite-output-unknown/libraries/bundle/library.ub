@@ -1,0 +1,18 @@
+thing: resource {
+  inputs: {
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: var.e2e-config }
+
+  resources: {
+    one: e2e.file {
+      path:    'files/thing.txt'
+      content: 'hi'
+    }
+  }
+
+  outputs: { path: { value: resource.one.path } }
+}

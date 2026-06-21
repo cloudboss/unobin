@@ -1,0 +1,36 @@
+{
+  "name": "compile-reference-fields",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "action-output-unknown",
+      "dir": "action-output-unknown",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/action-output-unknown.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "data-output-unknown",
+      "dir": "data-output-unknown",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/data-output-unknown.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "foreach-output-unknown",
+      "dir": "foreach-output-unknown",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/foreach-output-unknown.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "composite-output-unknown",
+      "dir": "composite-output-unknown",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/composite-output-unknown.stderr",
+      "exitCode": 1
+    }
+  ]
+}
