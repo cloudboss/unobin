@@ -8,44 +8,23 @@ import (
 	"testing/fstest"
 
 	"github.com/cloudboss/unobin/pkg/deps"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseFactorySourceAcceptsSourceDeclaredFactory(t *testing.T) {
-	src := []byte(`factory: {
-  imports: { std: 'github.com/example/std' }
-  inputs: { path: { type: string } }
-  resources: {
-    hello: std.fs-file { path: var.path }
-  }
-  outputs: {
-    path: { value: resource.hello.path }
-  }
-}
-`)
-
-	sf, body, err := ParseFactorySyntaxSource("factory.ub", src)
-	require.NoError(t, err)
-	require.Equal(t, syntax.FileFactory, sf.Kind)
-	require.NotNil(t, sf.Factory)
-	require.Contains(t, body, "factory:")
-	require.Contains(t, body, "imports:")
-	require.Contains(t, body, "hello: std.fs-file")
-	require.Contains(t, body, "resource.hello.path")
-	require.NotEmpty(t, sf.Factory.Body.Resources)
-}
-
-func TestParseFactorySourceRejectsUnwrappedFactory(t *testing.T) {
-	src := []byte(`
-inputs: {}
-resources: {}
-`)
-
-	_, _, err := ParseFactorySyntaxSource("factory.ub", src)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "factory.ub must declare factory")
+func TestParseFactorySyntaxSourceFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/parse-factory",
+		func(name string, src []byte) (string, []string) {
+			_, body, err := ParseFactorySyntaxSource(name+".ub", src)
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return body, nil
+		},
+		ubtest.Idempotent(),
+		ubtest.Repeat(5),
+	)
 }
 
 func TestDecideSelectedUnobin(t *testing.T) {

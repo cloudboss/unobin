@@ -1,0 +1,12 @@
+factory: {
+  imports: { std: 'github.com/example/std' }
+  inputs:  { path: { type: string } }
+  resources: {
+    hello: std.fs-file {
+      path: var.path
+    }
+  }
+  outputs: {
+    path: { value: resource.hello.path }
+  }
+}
