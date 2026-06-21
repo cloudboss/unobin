@@ -1,0 +1,48 @@
+{
+  "name": "compile-reference-paths",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "constraint-resource-local",
+      "dir": "constraint-resource-local",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-resource-local.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-dotted-root",
+      "dir": "unknown-dotted-root",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-dotted-root.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "typo-address-root",
+      "dir": "typo-address-root",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/typo-address-root.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-root-constraint",
+      "dir": "unknown-root-constraint",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-root-constraint.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "binding-hyphen-subtraction",
+      "dir": "binding-hyphen-subtraction",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/binding-hyphen-subtraction.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-comprehension-root",
+      "dir": "valid-comprehension-root",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}

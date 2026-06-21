@@ -1,0 +1,5 @@
+factory: {
+  constraints: [
+    { kind: predicate, when: foo.bar == null, require: true },
+  ]
+}

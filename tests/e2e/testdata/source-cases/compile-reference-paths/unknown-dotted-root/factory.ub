@@ -1,0 +1,3 @@
+factory: {
+  outputs: { bad: { value: foo.bar } }
+}

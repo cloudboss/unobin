@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:24:45: resolve: a constraint may read inputs only, not resource.x.path
+  factory.ub:25:45: resolve: a constraint may read inputs only, not local.limit
+

@@ -1,0 +1,1 @@
+Error: factory.ub:3:28: resolve: unknown name "vars"; references start with var, local, resource, data, or action
