@@ -897,43 +897,6 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPlanFileEncryptedWithEnvKey(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello world' } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-
-	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runBackend(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	body, err := os.ReadFile(planFile)
-	require.NoError(t, err)
-	var env state.Envelope
-	require.NoError(t, json.Unmarshal(body, &env))
-	require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
-	require.NotNil(t, env.Encrypter,
-		"a plan sealed by the default chain should still record its encrypter")
-	require.Equal(t, "env-key", env.Encrypter.Name)
-	require.Equal(t, "UB_STATE_KEY", env.Encrypter.Body["env-var"])
-	require.NotEmpty(t, env.Ciphertext)
-	require.False(t, isJSON(env.Ciphertext),
-		"ciphertext should not parse as JSON when an encrypter is in use")
-
-	enc, err := encrypters.NewEnvKey("UB_STATE_KEY")
-	require.NoError(t, err)
-	plaintext, err := enc.Decrypt(env.Ciphertext)
-	require.NoError(t, err)
-	require.Contains(t, string(plaintext), `"format-version": 1`)
-	require.Contains(t, string(plaintext), "action.hi")
-
-	out, err := runRoot(t, info, "apply", planFile)
-	require.NoError(t, err)
-	require.Contains(t, out, "said: 'hello world'")
-}
-
 func TestApplyTamperedPlanFile(t *testing.T) {
 	src := `actions: { hi: core.echo { echo: 'hi' } }`
 	info := testInfo(t, src)
@@ -956,27 +919,6 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 	_, err = runRoot(t, info, "apply", planFile)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "decrypt")
-}
-
-func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hi' } }`
-	info := testInfo(t, src)
-
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-	_, err := runWithStack(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	body, err := os.ReadFile(planFile)
-	require.NoError(t, err)
-	var env state.Envelope
-	require.NoError(t, json.Unmarshal(body, &env))
-	require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
-	require.NotNil(t, env.Encrypter, "an unencrypted plan should say so explicitly")
-	require.Equal(t, "noop", env.Encrypter.Name)
-	require.Empty(t, env.Encrypter.Body)
-	require.True(t, isJSON(env.Ciphertext),
-		"with no encrypter, ciphertext should be plain plan JSON")
-	require.Contains(t, string(env.Ciphertext), `"format-version": 1`)
 }
 
 // Ensure t.TempDir is visible to the loadStore call (which writes to

@@ -1,0 +1,7 @@
+{
+  "envelope-version": 1,
+  "encrypter": {
+    "name": "noop"
+  },
+  "ciphertext-json": true
+}

@@ -47,5 +47,8 @@
       "stderr": "want/state-show.stderr"
     }
   ],
+  "planEnvelopes": [
+    { "path": "plan.ubp", "want": "want/plan-envelope.json" }
+  ],
   "deterministic": true
 }

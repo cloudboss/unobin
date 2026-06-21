@@ -61,6 +61,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	if err := comparePlanSummaries(c.Dir, workspace, c.PlanSummaries, *update); err != nil {
 		t.Fatal(err)
 	}
+	if err := comparePlanEnvelopes(c.Dir, workspace, c.PlanEnvelopes, *update); err != nil {
+		t.Fatal(err)
+	}
 	if err := checkAbsentFiles(workspace, c.AbsentFiles); err != nil {
 		t.Fatal(err)
 	}

@@ -22,19 +22,20 @@ type config struct {
 
 // CompiledCase describes a compiled-factory e2e case.
 type CompiledCase struct {
-	Name          string             `json:"name"`
-	Dir           string             `json:"-"`
-	FactoryPath   string             `json:"factoryPath"`
-	LibraryPath   string             `json:"libraryPath"`
-	Build         bool               `json:"build"`
-	Commands      []Command          `json:"commands"`
-	Files         []FileCheck        `json:"files"`
-	PlanSummaries []PlanSummaryCheck `json:"planSummaries"`
-	AbsentFiles   []string           `json:"absentFiles"`
-	StateSummary  string             `json:"stateSummary"`
-	StateSeed     string             `json:"stateSeed"`
-	StateLocks    []string           `json:"stateLocks"`
-	Deterministic bool               `json:"deterministic"`
+	Name          string              `json:"name"`
+	Dir           string              `json:"-"`
+	FactoryPath   string              `json:"factoryPath"`
+	LibraryPath   string              `json:"libraryPath"`
+	Build         bool                `json:"build"`
+	Commands      []Command           `json:"commands"`
+	Files         []FileCheck         `json:"files"`
+	PlanSummaries []PlanSummaryCheck  `json:"planSummaries"`
+	PlanEnvelopes []PlanEnvelopeCheck `json:"planEnvelopes"`
+	AbsentFiles   []string            `json:"absentFiles"`
+	StateSummary  string              `json:"stateSummary"`
+	StateSeed     string              `json:"stateSeed"`
+	StateLocks    []string            `json:"stateLocks"`
+	Deterministic bool                `json:"deterministic"`
 }
 
 // SourceCase describes a source-root CLI e2e case.
@@ -86,6 +87,12 @@ type FileCheck struct {
 
 // PlanSummaryCheck describes a plan file decoded and compared to a golden.
 type PlanSummaryCheck struct {
+	Path string `json:"path"`
+	Want string `json:"want"`
+}
+
+// PlanEnvelopeCheck describes a plan envelope compared to a golden.
+type PlanEnvelopeCheck struct {
 	Path string `json:"path"`
 	Want string `json:"want"`
 }
@@ -240,6 +247,9 @@ func validateCompiledCase(c CompiledCase) error {
 	if err := validatePlanSummaries(c.PlanSummaries); err != nil {
 		return err
 	}
+	if err := validatePlanEnvelopes(c.PlanEnvelopes); err != nil {
+		return err
+	}
 	if err := validateAbsentFiles(c.AbsentFiles); err != nil {
 		return err
 	}
@@ -286,6 +296,19 @@ func validateSourceCase(c SourceCase) error {
 func validatePlanSummaries(checks []PlanSummaryCheck) error {
 	for i, check := range checks {
 		prefix := fmt.Sprintf("planSummaries[%d]", i)
+		if err := checkRelPath(prefix+".path", check.Path); err != nil {
+			return err
+		}
+		if err := checkRelPath(prefix+".want", check.Want); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePlanEnvelopes(checks []PlanEnvelopeCheck) error {
+	for i, check := range checks {
+		prefix := fmt.Sprintf("planEnvelopes[%d]", i)
 		if err := checkRelPath(prefix+".path", check.Path); err != nil {
 			return err
 		}

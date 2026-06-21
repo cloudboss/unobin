@@ -21,5 +21,8 @@
     { "path": "config.ubp", "want": "want/config-plan-summary.json" },
     { "path": "flag.ubp", "want": "want/flag-plan-summary.json" }
   ],
+  "planEnvelopes": [
+    { "path": "config.ubp", "want": "want/config-plan-envelope.json" }
+  ],
   "deterministic": true
 }
