@@ -63,7 +63,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/nested_foreach_composite_test.go": true,
 	"pkg/runtime/nodes_test.go":                    true,
 	"pkg/runtime/plan_data_test.go":                true,
-	"pkg/runtime/plan_for_each_test.go":            true,
 	"pkg/runtime/plan_seed_test.go":                true,
 	"pkg/runtime/plan_test.go":                     true,
 	"pkg/runtime/refresh_test.go":                  true,

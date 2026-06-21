@@ -1,0 +1,3 @@
+resources: {
+  x: w.inner { @for-each: core.instances(), tag: @each.value }
+}

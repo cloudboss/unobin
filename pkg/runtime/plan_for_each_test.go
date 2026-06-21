@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func countingInstancesLibrary(evals *int64) map[string]*Library {
@@ -31,10 +32,8 @@ func countingInstancesLibrary(evals *int64) map[string]*Library {
 // A composite call's @for-each iterable evaluates once per run; each
 // instance's scope reuses that evaluation.
 func TestForEachCompositeIterableEvaluatesOncePerRun(t *testing.T) {
-	inner := syntaxResourceComposite(t, "inner", `
-inputs:    { tag: { type: string } }
-resources: { s: core.subnet { tag: var.tag } }
-`)
+	inner := syntaxResourceComposite(t, "inner",
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-for-each", "composite-body"))
 	var evals int64
 	libs := countingInstancesLibrary(&evals)
 	libs["w"] = &Library{
@@ -43,10 +42,8 @@ resources: { s: core.subnet { tag: var.tag } }
 			"inner": inner,
 		},
 	}
-	src := `
-resources: { x: w.inner { @for-each: core.instances(), tag: @each.value } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-for-each", "composite-call"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -75,10 +72,8 @@ resources: { x: w.inner { @for-each: core.instances(), tag: @each.value } }
 func TestForEachLeafIterableEvaluatesOncePerRun(t *testing.T) {
 	var evals int64
 	libs := countingInstancesLibrary(&evals)
-	src := `
-resources: { s: core.subnet { @for-each: core.instances(), tag: @each.value } }
-`
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-for-each", "leaf-call"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
