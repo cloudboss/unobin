@@ -880,29 +880,6 @@ func TestStateGCKeepsLatestPlusCurrent(t *testing.T) {
 	require.Equal(t, []string{currentRev, revs[3], revs[4]}, after)
 }
 
-func TestRefreshNoStateIsOK(t *testing.T) {
-	info := testInfo(t, `actions: { hi: core.echo { echo: 'hello' } }`)
-	out, err := runWithStack(t, info, "refresh", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, out, "Refreshed 0, dropped 0.")
-}
-
-func TestRefreshCarriesActionsForward(t *testing.T) {
-	info := testInfo(t, `
-actions: { hi: core.echo { echo: 'hello' } }
-outputs: { said: { value: action.hi.echo } }
-`)
-	_ = applyVia(t, info, "")
-
-	out, err := runWithStack(t, info, "refresh", "--allow-version-mismatch")
-	require.NoError(t, err)
-	require.Contains(t, out, "Refreshed 0, dropped 0.")
-
-	show, err := runWithStack(t, info, "state", "list")
-	require.NoError(t, err)
-	require.Contains(t, show, "core.echo@action.hi")
-}
-
 func TestStateEncryptedWithEnvKey(t *testing.T) {
 	src := `
 actions: { hi: core.echo { echo: 'hello' } }

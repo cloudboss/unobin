@@ -16,6 +16,9 @@ var (
 	localStoreOpenRevRE = regexp.MustCompile(
 		`local store: open [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z(?:_[0-9]+)?:`,
 	)
+	stateRevTextRE = regexp.MustCompile(
+		`State rev: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z(?:_[0-9]+)?`,
+	)
 )
 
 func normalizeCommandResult(result CommandResult, repoRoot string) CommandResult {
@@ -51,6 +54,7 @@ func normalizeDynamicText(s string, repoRoot string) string {
 	s = elapsedRE.ReplaceAllString(s, "elapsed: '<elapsed>'")
 	s = stateRevisionLineRE.ReplaceAllString(s, "${1}<revision>")
 	s = localStoreOpenRevRE.ReplaceAllString(s, "local store: open <revision>:")
+	s = stateRevTextRE.ReplaceAllString(s, "State rev: <revision>")
 	if repoRoot != "" {
 		s = strings.ReplaceAll(s, repoRoot, "<repo>")
 	}

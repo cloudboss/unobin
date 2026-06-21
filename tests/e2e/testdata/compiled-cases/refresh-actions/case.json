@@ -1,0 +1,39 @@
+{
+  "name": "refresh-actions",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/refresh-actions",
+  "build": true,
+  "commands": [
+    {
+      "name": "refresh-empty",
+      "args": ["refresh", "-c", "stacks/dev.ub"],
+      "stdout": "want/refresh-empty.stdout",
+      "stderr": "want/refresh-empty.stderr"
+    },
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "stdout": "want/apply.stdout",
+      "stderr": "want/apply.stderr"
+    },
+    {
+      "name": "refresh-after-apply",
+      "args": ["refresh", "-c", "stacks/dev.ub"],
+      "stdout": "want/refresh-after-apply.stdout",
+      "stderr": "want/refresh-after-apply.stderr"
+    },
+    {
+      "name": "state-list",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-list.stdout",
+      "stderr": "want/state-list.stderr"
+    }
+  ],
+  "deterministic": true
+}

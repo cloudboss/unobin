@@ -461,7 +461,7 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 		return err
 	}
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Refreshed %d, dropped %d.\n", res.Refreshed, res.Dropped)
+	fmt.Fprintf(out, "Refreshed %d, removed %d.\n", res.Refreshed, res.Dropped)
 	if res.WrittenRev != "" {
 		fmt.Fprintf(out, "State rev: %s\n", res.WrittenRev)
 	}
