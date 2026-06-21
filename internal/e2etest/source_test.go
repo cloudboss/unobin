@@ -55,8 +55,10 @@ func TestCheckAbsentFiles(t *testing.T) {
 
 func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 	workspace := t.TempDir()
-	writeText(t, filepath.Join(workspace, "repo/manifest.ub"), "manifest: { requires: {} }\n")
-	writeText(t, filepath.Join(workspace, "repo/lib/library.ub"), "x: resource {}\n")
+	writeText(t, filepath.Join(workspace, "repo/manifest.ub"),
+		readSourceFixture(t, "manifest.ub"))
+	writeText(t, filepath.Join(workspace, "repo/lib/library.ub"),
+		readSourceFixture(t, "library.ub"))
 
 	remotes, err := sourceRemoteMap(workspace, []RemoteSource{
 		{
@@ -80,6 +82,14 @@ func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 	require.Equal(t, filepath.Join(workspace, "repo"), src.ModuleRootPath)
 	require.Equal(t, "example.com/repo", src.ModulePath)
 	require.Equal(t, "example.com/repo/lib", src.GoImportPath)
+}
+
+func readSourceFixture(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join("testdata", "ub", "source-remote", "valid", name)
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(body)
 }
 
 func TestRootCommandRunnerSetsCLIVersion(t *testing.T) {
