@@ -1,0 +1,15 @@
+{
+  "name": "constraint-valid-unset",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/constraint-valid-unset",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-unset-nested",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "stdout": "want/plan-unset-nested.stdout",
+      "stderr": "want/plan-unset-nested.stderr"
+    }
+  ],
+  "deterministic": true
+}

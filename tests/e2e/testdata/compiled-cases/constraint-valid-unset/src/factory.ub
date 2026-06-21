@@ -1,0 +1,10 @@
+factory: {
+  inputs: {
+    code: { type: optional(object({ inline: optional(string) })) }
+    size: { type: optional(integer) }
+  }
+
+  constraints: [
+    { kind: predicate, when: var.code.inline != null, require: var.size != null },
+  ]
+}

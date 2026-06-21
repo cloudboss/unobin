@@ -504,22 +504,6 @@ constraints: [
 	require.Contains(t, err.Error(), "every replica needs a positive port")
 }
 
-func TestPlanAllowsPredicateOverUnsetNestedInput(t *testing.T) {
-	src := `
-inputs: {
-  code: { type: optional(object({ inline: optional(string) })) }
-  size: { type: optional(integer) }
-}
-constraints: [
-  { kind: predicate, when: var.code.inline != null, require: var.size != null },
-]
-`
-	info := testInfo(t, src)
-	configPath := writeStateStack(t, "")
-	_, err := runRoot(t, info, "plan", "--allow-version-mismatch", "-c", configPath)
-	require.NoError(t, err)
-}
-
 func TestPrintPlanShowsStateMoves(t *testing.T) {
 	plan := &runtime.Plan{
 		StateMoves: []runtime.PlannedEntryMove{
