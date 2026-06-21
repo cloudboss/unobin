@@ -1,0 +1,3 @@
+resources: {
+  x: core.thing { name: 'a', size: 9 }
+}

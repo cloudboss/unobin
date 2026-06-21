@@ -1,0 +1,4 @@
+resources: {
+  a: core.thing { name: 'a' }
+  b: core.thing { name: resource.a.size, size: resource.a.id }
+}

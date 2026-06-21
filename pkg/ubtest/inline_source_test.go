@@ -59,7 +59,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/apply_timeout_test.go":            true,
 	"pkg/runtime/composite_body_test.go":           true,
 	"pkg/runtime/dag_test.go":                      true,
-	"pkg/runtime/defaults_test.go":                 true,
 	"pkg/runtime/executor_test.go":                 true,
 	"pkg/runtime/locals_test.go":                   true,
 	"pkg/runtime/nested_foreach_composite_test.go": true,

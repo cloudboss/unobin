@@ -9,6 +9,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestOverlayDefaults(t *testing.T) {
@@ -123,10 +124,9 @@ func TestOverlayDefaults(t *testing.T) {
 	}
 }
 
-// defaultsExecutor plans one thing node with the given body and the
-// thing type declaring a Value default for size and an Optional marker
-// for region.
-func defaultsExecutor(t *testing.T, body string) (*Executor, *local.Store) {
+// defaultsExecutor plans one fixture whose thing type declares a Value
+// default for size and an Optional marker for region.
+func defaultsExecutor(t *testing.T, fixture string) (*Executor, *local.Store) {
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Defaults = map[string][]lang.DefaultSpec{
@@ -135,7 +135,7 @@ func defaultsExecutor(t *testing.T, body string) (*Executor, *local.Store) {
 			{Field: "var.region", Optional: true},
 		},
 	}
-	src := "resources: {\n  x: core.thing " + body + "\n}\n"
+	src := ubtest.ReadValidFixture(t, "testdata/ub/defaults", fixture)
 	store := newStateStore(t)
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	return &Executor{
@@ -148,7 +148,7 @@ func defaultsExecutor(t *testing.T, body string) (*Executor, *local.Store) {
 }
 
 func TestPlanFillsDeclaredDefaults(t *testing.T) {
-	exec, _ := defaultsExecutor(t, `{ name: 'a' }`)
+	exec, _ := defaultsExecutor(t, "default-size-omitted")
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	require.Len(t, plan.Steps, 1)
@@ -156,7 +156,7 @@ func TestPlanFillsDeclaredDefaults(t *testing.T) {
 }
 
 func TestPlanKeepsExplicitValueOverDefault(t *testing.T) {
-	exec, _ := defaultsExecutor(t, `{ name: 'a', size: 9 }`)
+	exec, _ := defaultsExecutor(t, "default-size-explicit")
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	require.Len(t, plan.Steps, 1)
@@ -167,7 +167,7 @@ func TestPlanKeepsExplicitValueOverDefault(t *testing.T) {
 // constraint check: the rule requires size above 5, the body omits
 // size, and the declared default 7 satisfies it.
 func TestPlanConstraintSeesDefault(t *testing.T) {
-	exec, _ := defaultsExecutor(t, `{ name: 'a' }`)
+	exec, _ := defaultsExecutor(t, "default-size-omitted")
 	exec.Libraries["core"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.thing": {{Kind: "predicate", When: "true", Require: "var.size > 5"}},
 	}
@@ -217,12 +217,7 @@ func planTwoThingsWithSizeDefault(t *testing.T) *Plan {
 	libs["core"].Defaults = map[string][]lang.DefaultSpec{
 		"resource.thing": {{Field: "var.size", Value: "7"}},
 	}
-	src := `
-resources: {
-  a: core.thing { name: 'a' }
-  b: core.thing { name: resource.a.size, size: resource.a.id }
-}
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/defaults", "default-forward-refs")
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
 		DAG:          dag,
@@ -240,7 +235,7 @@ resources: {
 // defaults too: the created resource decodes size 7 and echoes it into
 // its outputs, and the state entry records the defaulted input.
 func TestApplyFillsDeclaredDefaults(t *testing.T) {
-	exec, store := defaultsExecutor(t, `{ name: 'a' }`)
+	exec, store := defaultsExecutor(t, "default-size-omitted")
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
 
