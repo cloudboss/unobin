@@ -1,0 +1,4 @@
+factory: {
+  inputs: { nums: { type: list(number) } }
+  outputs: { s: { value: [ for n in var.nums : $'{{ n-1 }}' ] } }
+}

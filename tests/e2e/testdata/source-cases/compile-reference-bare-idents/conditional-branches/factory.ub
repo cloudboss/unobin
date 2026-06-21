@@ -1,0 +1,4 @@
+factory: {
+  inputs: { on: { type: boolean } }
+  outputs: { pick: { value: if var.on then fast else slow } }
+}

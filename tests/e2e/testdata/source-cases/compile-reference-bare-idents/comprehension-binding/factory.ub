@@ -1,0 +1,4 @@
+factory: {
+  inputs: { nums: { type: list(number) } }
+  outputs: { same: { value: [ for n in var.nums : n ] } }
+}

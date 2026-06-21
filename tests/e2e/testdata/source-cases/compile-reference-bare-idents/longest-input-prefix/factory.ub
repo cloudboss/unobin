@@ -1,0 +1,4 @@
+factory: {
+  inputs: { a-b: { type: integer } }
+  outputs: { x: { value: var.a-b-1 } }
+}

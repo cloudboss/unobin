@@ -1,0 +1,11 @@
+factory: {
+  constraints: [
+    {
+      kind: predicate
+      @for-each: [ { @rule: rules } ]
+      when: true
+      require: @rule.value != null
+      message: 'm'
+    },
+  ]
+}

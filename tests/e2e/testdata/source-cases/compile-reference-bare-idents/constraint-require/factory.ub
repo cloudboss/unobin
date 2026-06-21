@@ -1,0 +1,6 @@
+factory: {
+  inputs: { tier: { type: string } }
+  constraints: [
+    { kind: predicate, when: true, require: ready, message: 'm' },
+  ]
+}

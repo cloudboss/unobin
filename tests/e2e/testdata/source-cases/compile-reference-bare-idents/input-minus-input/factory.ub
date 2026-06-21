@@ -1,0 +1,4 @@
+factory: {
+  inputs: { count: { type: integer }, other: { type: integer } }
+  outputs: { x: { value: var.count-other } }
+}

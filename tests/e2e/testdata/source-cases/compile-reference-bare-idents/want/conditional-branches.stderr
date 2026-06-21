@@ -1,0 +1,4 @@
+Error: 2 errors:
+  factory.ub:3:44: resolve: unknown name "fast"; write 'fast' for a string
+  factory.ub:3:54: resolve: unknown name "slow"; write 'slow' for a string
+

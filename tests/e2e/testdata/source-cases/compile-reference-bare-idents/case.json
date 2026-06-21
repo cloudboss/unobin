@@ -1,0 +1,193 @@
+{
+  "name": "compile-reference-bare-idents",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "body-field",
+      "dir": "body-field",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/body-field.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "array-element",
+      "dir": "array-element",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/array-element.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "root-output",
+      "dir": "root-output",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/root-output.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-value",
+      "dir": "local-value",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/local-value.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "comprehension-body-subtraction",
+      "dir": "comprehension-body-subtraction",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/comprehension-body-subtraction.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "comprehension-binding",
+      "dir": "comprehension-binding",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "two-name-binding",
+      "dir": "two-name-binding",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "comprehension-source-outside",
+      "dir": "comprehension-source-outside",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/comprehension-source-outside.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "nested-comprehension-subtraction",
+      "dir": "nested-comprehension-subtraction",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/nested-comprehension-subtraction.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "filter",
+      "dir": "filter",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/filter.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "conditional-branches",
+      "dir": "conditional-branches",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/conditional-branches.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "interpolation-slot",
+      "dir": "interpolation-slot",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/interpolation-slot.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "index-expression",
+      "dir": "index-expression",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/index-expression.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "bare-each",
+      "dir": "bare-each",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/bare-each.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "bare-core",
+      "dir": "bare-core",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/bare-core.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "constraint-require",
+      "dir": "constraint-require",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/constraint-require.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "chain-level-iterable",
+      "dir": "chain-level-iterable",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/chain-level-iterable.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "kebab-binding-subtraction",
+      "dir": "kebab-binding-subtraction",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/kebab-binding-subtraction.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "input-minus-number",
+      "dir": "input-minus-number",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/input-minus-number.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "input-minus-input",
+      "dir": "input-minus-input",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/input-minus-input.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-input-no-prefix",
+      "dir": "unknown-input-no-prefix",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-input-no-prefix.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "longest-input-prefix",
+      "dir": "longest-input-prefix",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/longest-input-prefix.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "local-minus-number",
+      "dir": "local-minus-number",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/local-minus-number.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "field-minus-number",
+      "dir": "field-minus-number",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/field-minus-number.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "unknown-field-no-prefix",
+      "dir": "unknown-field-no-prefix",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unknown-field-no-prefix.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "each-value-minus-number",
+      "dir": "each-value-minus-number",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/each-value-minus-number.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "each-segment-no-prefix",
+      "dir": "each-segment-no-prefix",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/each-segment-no-prefix.stderr",
+      "exitCode": 1
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+factory: {
+  outputs: { x: { value: var.cidr-block } }
+}

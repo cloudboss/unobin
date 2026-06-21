@@ -1,0 +1,4 @@
+factory: {
+  inputs: { tags: { type: map(string) } }
+  outputs: { v: { value: var.tags[env] } }
+}

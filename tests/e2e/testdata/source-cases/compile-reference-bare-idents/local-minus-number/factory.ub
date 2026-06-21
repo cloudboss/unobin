@@ -1,0 +1,4 @@
+factory: {
+  locals: { retries: 3 }
+  outputs: { x: { value: local.retries-1 } }
+}
