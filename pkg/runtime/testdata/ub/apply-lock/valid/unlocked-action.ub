@@ -1,0 +1,5 @@
+actions: {
+  a: core.slow { @lock: 'kubectl', delay-ms: 100 }
+  b: core.slow { @lock: 'kubectl', delay-ms: 100 }
+  free: core.slow { delay-ms: 100 }
+}

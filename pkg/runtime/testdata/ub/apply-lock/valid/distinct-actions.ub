@@ -1,0 +1,5 @@
+actions: {
+  a: core.slow { @lock: 'one', delay-ms: 100 }
+  b: core.slow { @lock: 'two', delay-ms: 100 }
+  c: core.slow { @lock: 'three', delay-ms: 100 }
+}

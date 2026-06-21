@@ -6,9 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 type concurrencyTracker struct {
@@ -64,13 +66,7 @@ func slowActionModules(track *concurrencyTracker) map[string]*Library {
 
 func TestApplyScheduleLockSerializesNamedActions(t *testing.T) {
 	var track concurrencyTracker
-	src := `
-actions: {
-  a: core.slow { @lock: 'kubectl', delay-ms: 100 }
-  b: core.slow { @lock: 'kubectl', delay-ms: 100 }
-  c: core.slow { @lock: 'kubectl', delay-ms: 100 }
-}
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", "shared-actions")
 	libs := slowActionModules(&track)
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
@@ -89,13 +85,7 @@ actions: {
 
 func TestApplyScheduleDistinctLocksRunInParallel(t *testing.T) {
 	var track concurrencyTracker
-	src := `
-actions: {
-  a: core.slow { @lock: 'one', delay-ms: 100 }
-  b: core.slow { @lock: 'two', delay-ms: 100 }
-  c: core.slow { @lock: 'three', delay-ms: 100 }
-}
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", "distinct-actions")
 	libs := slowActionModules(&track)
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
@@ -114,13 +104,7 @@ actions: {
 
 func TestApplyScheduleUnlockedActionRunsAlongsideLocked(t *testing.T) {
 	var track concurrencyTracker
-	src := `
-actions: {
-  a:    core.slow { @lock: 'kubectl', delay-ms: 100 }
-  b:    core.slow { @lock: 'kubectl', delay-ms: 100 }
-  free: core.slow { delay-ms: 100 }
-}
-`
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", "unlocked-action")
 	libs := slowActionModules(&track)
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
@@ -139,34 +123,19 @@ actions: {
 
 func TestExtractLockName(t *testing.T) {
 	tests := []struct {
-		name string
-		src  string
-		want string
+		name    string
+		fixture string
+		want    string
 	}{
-		{
-			name: "action",
-			src:  `actions: { x: core.slow { @lock: 'kubectl', delay-ms: 50 } }`,
-			want: "kubectl",
-		},
-		{
-			name: "resource",
-			src:  `resources: { x: aws.sg-rule { @lock: 'sg', port: 80 } }`,
-			want: "sg",
-		},
-		{
-			name: "data",
-			src:  `data: { x: aws.ami { @lock: 'reads', most-recent: true } }`,
-			want: "reads",
-		},
-		{
-			name: "no lock",
-			src:  `resources: { x: aws.vpc { cidr: '10.0.0.0/16' } }`,
-			want: "",
-		},
+		{name: "action", fixture: "extract-action", want: "kubectl"},
+		{name: "resource", fixture: "extract-resource", want: "sg"},
+		{name: "data", fixture: "extract-data", want: "reads"},
+		{name: "no lock", fixture: "extract-none", want: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nodes := ExtractSyntaxNodes(syntaxFactoryBody(t, tt.src), nil)
+			src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", tt.fixture)
+			nodes := ExtractSyntaxNodes(syntaxFactoryBody(t, src), nil)
 			require.Len(t, nodes, 1)
 			assert.Equal(t, tt.want, nodes[0].LockName)
 		})

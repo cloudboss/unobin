@@ -1,0 +1,3 @@
+resources: {
+  x: aws.sg-rule { @lock: 'sg', port: 80 }
+}
