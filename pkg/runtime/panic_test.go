@@ -3,12 +3,13 @@ package runtime
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // panicResource panics in every CRUD method so the boundary guard can
@@ -125,13 +126,6 @@ type panicData struct{}
 
 func (d *panicData) Read(context.Context, any) (any, error) {
 	panic("boom in data read")
-}
-
-func panicResourceBody(t *testing.T) string {
-	t.Helper()
-	body, err := os.ReadFile("testdata/ub/panic/valid/resource.ub")
-	require.NoError(t, err)
-	return string(body)
 }
 
 func requirePanicError(t *testing.T, err error, wantValue string) *PanicError {
@@ -269,7 +263,8 @@ func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
 			},
 		},
 	}
-	dag, syntaxSource := syntaxDAGAndBody(t, panicResourceBody(t), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/panic", "resource"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -306,7 +301,8 @@ func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
 			},
 		},
 	}
-	dag, syntaxSource := syntaxDAGAndBody(t, panicResourceBody(t), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/panic", "resource"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,

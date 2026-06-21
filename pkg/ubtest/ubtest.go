@@ -66,6 +66,20 @@ func Repeat(n int) Option {
 	return func(c *config) { c.runs = n }
 }
 
+// ReadFixture reads a .ub fixture file and returns it as a string.
+func ReadFixture(t testing.TB, path string) string {
+	t.Helper()
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(body)
+}
+
+// ReadValidFixture reads <name>.ub from the valid fixture directory under dir.
+func ReadValidFixture(t testing.TB, dir, name string) string {
+	t.Helper()
+	return ReadFixture(t, filepath.Join(dir, "valid", name+".ub"))
+}
+
 type fixture struct {
 	name    string // path relative to the root, without the .ub extension
 	src     []byte

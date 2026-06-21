@@ -3,14 +3,15 @@ package runtime
 import (
 	"context"
 	"errors"
-	"os"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 type drainTrackerResource struct {
@@ -48,13 +49,6 @@ func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
 	)
 }
 
-func applyDrainBody(t *testing.T, name string) string {
-	t.Helper()
-	body, err := os.ReadFile("testdata/ub/apply-drain/valid/" + name + ".ub")
-	require.NoError(t, err)
-	return string(body)
-}
-
 func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 	var runs atomic.Int64
 	libs := map[string]*Library{
@@ -65,7 +59,8 @@ func TestApplyScheduleDrainStopsDispatchAndKeepsInflight(t *testing.T) {
 			},
 		},
 	}
-	dag, syntaxSource := syntaxDAGAndBody(t, applyDrainBody(t, "inflight"), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-drain", "inflight"), libs)
 
 	drain := make(chan struct{})
 	exec := &Executor{
@@ -99,7 +94,8 @@ func TestApplyScheduleDrainBeforeDispatchSkipsEverything(t *testing.T) {
 			},
 		},
 	}
-	dag, syntaxSource := syntaxDAGAndBody(t, applyDrainBody(t, "before-dispatch"), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-drain", "before-dispatch"), libs)
 	drain := make(chan struct{})
 	close(drain)
 	exec := &Executor{

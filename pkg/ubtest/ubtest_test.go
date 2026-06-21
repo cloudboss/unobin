@@ -33,6 +33,21 @@ func fakeDriver(_ string, src []byte) (string, []string) {
 	return output, diags
 }
 
+func TestReadFixture(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "one.ub")
+	require.NoError(t, os.WriteFile(path, []byte("name: 'one'\n"), 0o644))
+	require.Equal(t, "name: 'one'\n", ReadFixture(t, path))
+}
+
+func TestReadValidFixture(t *testing.T) {
+	dir := t.TempDir()
+	valid := filepath.Join(dir, "valid")
+	require.NoError(t, os.MkdirAll(valid, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(valid, "one.ub"), []byte("name: 'one'\n"), 0o644))
+	require.Equal(t, "name: 'one'\n", ReadValidFixture(t, dir, "one"))
+}
+
 func TestRunExactGoldens(t *testing.T) {
 	Run(t, "testdata/ub/exact", fakeDriver)
 }

@@ -1,11 +1,12 @@
 package runtime
 
 import (
-	"os"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func newDAG(edges map[string][]string) *DAG {
@@ -165,7 +166,8 @@ func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
 			},
 		},
 	}
-	dag := syntaxDAG(t, applyGraphFixture(t, "pair-key"), libs)
+	dag := syntaxDAG(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-graph", "pair-key"), libs)
 	addresses := []string{
 		"resource.nodes['alpha']",
 		"resource.nodes['beta']",
@@ -185,15 +187,6 @@ func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
 		"alpha vol should depend on only the alpha node, not both")
 	assert.Equal(t, 1, g.indegree["resource.vols['beta']"],
 		"beta vol should depend on only the beta node, not both")
-}
-
-func applyGraphFixture(t *testing.T, name string) string {
-	t.Helper()
-	body, err := os.ReadFile("testdata/ub/apply-graph/valid/" + name + ".ub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(body)
 }
 
 func TestKeyPath(t *testing.T) {

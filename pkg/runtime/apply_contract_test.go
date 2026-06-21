@@ -3,12 +3,12 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // ghostResource mints a fresh id on every create. Its Read reports
@@ -45,13 +45,6 @@ func (r *ghostResource) Update(
 func (r *ghostResource) Delete(_ context.Context, _, _ any) error { return nil }
 func (r *ghostResource) ReplaceFields() []string                  { return nil }
 
-func applyContractBody(t *testing.T, name string) string {
-	t.Helper()
-	body, err := os.ReadFile("testdata/ub/apply-contract/valid/" + name + ".ub")
-	require.NoError(t, err)
-	return string(body)
-}
-
 // A concrete plan-time input that evaluates differently at apply
 // fails the step: the decision was computed from a premise that no
 // longer holds, so the answer is a fresh plan. Here the upstream was
@@ -74,7 +67,8 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g, syntaxSource := syntaxDAGAndBody(t, applyContractBody(t, "ghost-dep"), libs)
+	g, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-contract", "ghost-dep"), libs)
 
 	applyOnce(t, &Executor{
 		DAG:          g,
@@ -150,7 +144,8 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 	}
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	dag, syntaxSource := syntaxDAGAndBody(t, applyContractBody(t, "ghost-dep"), libs)
+	dag, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/apply-contract", "ghost-dep"), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
