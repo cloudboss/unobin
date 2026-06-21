@@ -1,0 +1,3 @@
+x: if var.flag
+  then 'aaaaaaaa'
+  else 'bbbbbbbb'

@@ -36,14 +36,27 @@ func TestFormatFixtures(t *testing.T) {
 	)
 }
 
-func TestFormatMaxColumnFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/format/max-column-50/valid",
+func TestFormatMaxColumn24Fixtures(t *testing.T) {
+	runFormatMaxColumnFixtures(t, "testdata/ub/format/max-column-24/valid", 24)
+}
+
+func TestFormatMaxColumn30Fixtures(t *testing.T) {
+	runFormatMaxColumnFixtures(t, "testdata/ub/format/max-column-30/valid", 30)
+}
+
+func TestFormatMaxColumn50Fixtures(t *testing.T) {
+	runFormatMaxColumnFixtures(t, "testdata/ub/format/max-column-50/valid", 50)
+}
+
+func runFormatMaxColumnFixtures(t *testing.T, dir string, maxColumn int) {
+	t.Helper()
+	ubtest.Run(t, dir,
 		func(name string, src []byte) (string, []string) {
 			f, err := ParseSource(name+".ub", src)
 			if err != nil {
 				return "", []string{err.Error()}
 			}
-			out, err := FormatWith(f, FormatOptions{MaxColumn: 50})
+			out, err := FormatWith(f, FormatOptions{MaxColumn: maxColumn})
 			if err != nil {
 				return "", []string{err.Error()}
 			}

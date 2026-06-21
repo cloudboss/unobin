@@ -1,0 +1,1 @@
+x: { for s in var.subnets : s.az => s.identifier... }
