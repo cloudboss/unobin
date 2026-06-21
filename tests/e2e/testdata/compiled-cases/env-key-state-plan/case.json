@@ -1,0 +1,51 @@
+{
+  "name": "env-key-state-plan",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/env-key-state-plan",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-missing-key",
+      "args": ["plan", "--allow-version-mismatch", "-c", "stacks/dev.ub"],
+      "stderr": "want/plan-missing-key.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "plan-encrypted",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+      "stdout": "want/plan-encrypted.stdout",
+      "stderr": "want/plan-encrypted.stderr"
+    },
+    {
+      "name": "apply-missing-key",
+      "args": ["apply", "plan.ubp"],
+      "env": { "UB_STATE_KEY": "" },
+      "stderr": "want/apply-missing-key.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "apply-encrypted",
+      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+      "stdout": "want/apply-encrypted.stdout",
+      "stderr": "want/apply-encrypted.stderr"
+    },
+    {
+      "name": "state-list-wrong-key",
+      "args": ["state", "list", "-c", "stacks/dev.ub"],
+      "env": { "UB_STATE_KEY": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=" },
+      "stderr": "want/state-list-wrong-key.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-show",
+      "args": ["state", "show", "e2e.echo@action.hi", "-c", "stacks/dev.ub"],
+      "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
+      "stdout": "want/state-show.stdout",
+      "stderr": "want/state-show.stderr"
+    }
+  ],
+  "deterministic": true
+}

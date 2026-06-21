@@ -1,0 +1,13 @@
+address: action.hi
+selector: e2e.echo
+entry-kind: action
+node-kind: action
+schema-version: 0
+trigger-hash: ca2fe4b7e19962b7302484b15da7ebce25fda28fc729caa18de52673bbebce0c
+inputs:
+  text: 'hello encrypted state'
+  upper: false
+outputs:
+  length: 21
+  prefixed: 'hello encrypted state'
+  text: 'hello encrypted state'

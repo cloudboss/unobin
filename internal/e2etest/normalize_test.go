@@ -29,3 +29,12 @@ func TestNormalizeStateRevisionLines(t *testing.T) {
 
 	require.Equal(t, "  <revision>\n* <revision>\n", got)
 }
+
+func TestNormalizeLocalStoreOpenRevision(t *testing.T) {
+	got := normalizeDynamicText(
+		"local store: open 2026-06-20T12:00:01.23Z: open: decrypt failed\n",
+		"",
+	)
+
+	require.Equal(t, "local store: open <revision>: open: decrypt failed\n", got)
+}

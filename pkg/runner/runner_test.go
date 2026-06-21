@@ -960,18 +960,6 @@ outputs: { said: { value: action.hi.echo } }
 	require.Contains(t, showOut, `  echo: 'hello'`)
 }
 
-func TestStateShowFailsWithWrongKey(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hello' } }`
-	info := testInfo(t, src)
-
-	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-	_ = applyVia(t, info, writeBackendConfig(t))
-
-	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-	_, err := runBackend(t, info, "state", "list")
-	require.Error(t, err)
-}
-
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	t.Setenv("UB_STATE_KEY", "not-base64!!")
 	_, err := loadEncrypter(nil, "")
@@ -1069,21 +1057,6 @@ func TestApplyTamperedPlanFile(t *testing.T) {
 	_, err = runRoot(t, info, "apply", planFile)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "decrypt")
-}
-
-func TestApplyPlanWithoutKeyNamesMissingEnvVar(t *testing.T) {
-	src := `actions: { hi: core.echo { echo: 'hi' } }`
-	info := testInfo(t, src)
-	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-
-	planFile := filepath.Join(t.TempDir(), "plan.enc")
-	_, err := runBackend(t, info, "plan", "--allow-version-mismatch", "-o", planFile)
-	require.NoError(t, err)
-
-	t.Setenv("UB_STATE_KEY", "")
-	_, err = runRoot(t, info, "apply", planFile)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "UB_STATE_KEY is not set")
 }
 
 func TestPlanFilePlaintextWithoutEnvKey(t *testing.T) {
