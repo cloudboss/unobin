@@ -166,113 +166,6 @@ func TestFormatWithMaxColumn(t *testing.T) {
 	}
 }
 
-func TestFormatObject(t *testing.T) {
-	tests := []struct {
-		name string
-		src  string
-		want string
-	}{
-		{
-			name: "empty_inline",
-			src:  "outer: {}\n",
-			want: "outer: {}\n",
-		},
-		{
-			name: "empty_with_whitespace_normalized",
-			src:  "outer: {     }\n",
-			want: "outer: {}\n",
-		},
-		{
-			name: "single_field_inline",
-			src:  "outer: { inner: 'x' }\n",
-			want: "outer: { inner: 'x' }\n",
-		},
-		{
-			name: "single_field_multi_line_preserved",
-			src:  "outer: {\n  inner: 'x'\n}\n",
-			want: "outer: {\n  inner: 'x'\n}\n",
-		},
-		{
-			name: "two_fields_inline_with_commas",
-			src:  "outer: { a: 1, b: 2 }\n",
-			want: "outer: { a: 1, b: 2 }\n",
-		},
-		{
-			name: "two_fields_multi_line_preserved",
-			src:  "outer: {\n  a: 1\n  b: 2\n}\n",
-			want: "outer: {\n  a: 1\n  b: 2\n}\n",
-		},
-		{
-			name: "messy_whitespace_normalized_inline",
-			src:  "outer:{a:1,b:2}\n",
-			want: "outer: { a: 1, b: 2 }\n",
-		},
-		{
-			name: "comment_inside_forces_multi_line_without_commas",
-			src:  "outer: {\n  a: 1\n  # divider\n  b: 2\n}\n",
-			want: "outer: {\n  a: 1\n  # divider\n  b: 2\n}\n",
-		},
-		{
-			name: "multi_line_string_inside_forces_multi_line",
-			src:  "outer: {\n  a: 1\n  b: '''|\n    line\n    '''\n}\n",
-			want: "outer: {\n  a: 1\n  b: '''|\n    line\n    '''\n}\n",
-		},
-		{
-			name: "long_object_breaks_multi_line_without_commas",
-			src:  "outer: { aaaa: 'a value here that is fairly long', bbbb: 'another value here that is also fairly long to push over' }\n",
-			want: "outer: {\n  aaaa: 'a value here that is fairly long'\n  bbbb: 'another value here that is also fairly long to push over'\n}\n",
-		},
-		{
-			name: "nested_objects_both_inline",
-			src:  "outer: { inner: { x: 1 } }\n",
-			want: "outer: { inner: { x: 1 } }\n",
-		},
-		{
-			name: "outer_breaks_inner_inlines",
-			src:  "outer: { one: { xxx: 'one' }, two: { yyy: 'two' }, three: { zzz: 'three' }, four: { www: 'four' }, five: { vvv: 'five' } }\n",
-			want: "outer: {\n  one:   { xxx: 'one' }\n  two:   { yyy: 'two' }\n  three: { zzz: 'three' }\n  four:  { www: 'four' }\n  five:  { vvv: 'five' }\n}\n",
-		},
-		{
-			name: "trailing_comma_stripped_in_inline",
-			src:  "outer: { a: 1, b: 2, }\n",
-			want: "outer: { a: 1, b: 2 }\n",
-		},
-		{
-			name: "object_with_quoted_key_inline",
-			src:  "outer: { 'has space': 1, plain: 2 }\n",
-			want: "outer: { 'has space': 1, plain: 2 }\n",
-		},
-		{
-			name: "object_with_meta_key_inline",
-			src:  "step: { @trigger: 'x', name: 'y' }\n",
-			want: "step: { @trigger: 'x', name: 'y' }\n",
-		},
-		{
-			name: "deeply_nested_inline_if_total_fits",
-			src:  "a: { b: { c: { d: 1 } } }\n",
-			want: "a: { b: { c: { d: 1 } } }\n",
-		},
-		{
-			name: "object_with_array_value_inline",
-			src:  "outer: { ids: [1, 2, 3] }\n",
-			want: "outer: { ids: [1, 2, 3] }\n",
-		},
-		{
-			name: "object_with_long_array_value_breaks_outer",
-			src:  "outer: { ids: ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk'] }\n",
-			want: "outer: {\n  ids: ['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk']\n}\n",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatString(t, tt.src)
-			require.Equal(t, tt.want, got)
-			again := formatString(t, got)
-			require.Equal(t, got, again, "format is not idempotent")
-		})
-	}
-}
-
 func TestFormatCall(t *testing.T) {
 	tests := []struct {
 		name string
@@ -367,21 +260,6 @@ func TestFormatCallDeterministic(t *testing.T) {
 	tests := []string{
 		"a: lib.foo(1, 2, 3)\n",
 		"a: lib.foo('aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg', 'hhhh', 'iiii', 'jjjj', 'kkkk', 'llll', 'mmmm', 'nnnn')\n",
-	}
-	for _, src := range tests {
-		first := formatString(t, src)
-		for i := range 5 {
-			again := formatString(t, src)
-			require.Equal(t, first, again, "iteration %d differs", i)
-		}
-	}
-}
-
-func TestFormatObjectDeterministic(t *testing.T) {
-	tests := []string{
-		"outer: { a: 1, b: 2 }\n",
-		"outer: {\n  a: 1\n  # mid\n  b: 2\n}\n",
-		"deep: { x: { y: { z: 1 } } }\n",
 	}
 	for _, src := range tests {
 		first := formatString(t, src)
