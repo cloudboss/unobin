@@ -33,6 +33,9 @@ func TestDiscoverCases(t *testing.T) {
 		"planEnvelopes": [
 			{ "path": "work/plan.ubp", "want": "want/plan-envelope.json" }
 		],
+		"stateEnvelopes": [
+			{ "stack": "dev", "want": "want/state-envelope.json" }
+		],
 		"absentFiles": ["work/lock"],
 		"stateSummary": "want/state-summary.json",
 		"stateSeed": "seed/state.json",
@@ -72,6 +75,9 @@ func TestDiscoverCases(t *testing.T) {
 	require.Len(t, beta.PlanEnvelopes, 1)
 	assert.Equal(t, "work/plan.ubp", beta.PlanEnvelopes[0].Path)
 	assert.Equal(t, "want/plan-envelope.json", beta.PlanEnvelopes[0].Want)
+	require.Len(t, beta.StateEnvelopes, 1)
+	assert.Equal(t, "dev", beta.StateEnvelopes[0].Stack)
+	assert.Equal(t, "want/state-envelope.json", beta.StateEnvelopes[0].Want)
 	assert.Equal(t, "want/state-summary.json", beta.StateSummary)
 	assert.Equal(t, []string{"work/lock"}, beta.AbsentFiles)
 	assert.Equal(t, "seed/state.json", beta.StateSeed)

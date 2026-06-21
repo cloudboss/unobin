@@ -22,21 +22,22 @@ type config struct {
 
 // CompiledCase describes a compiled-factory e2e case.
 type CompiledCase struct {
-	Name                string              `json:"name"`
-	Dir                 string              `json:"-"`
-	FactoryPath         string              `json:"factoryPath"`
-	LibraryPath         string              `json:"libraryPath"`
-	Build               bool                `json:"build"`
-	Commands            []Command           `json:"commands"`
-	Files               []FileCheck         `json:"files"`
-	PlanSummaries       []PlanSummaryCheck  `json:"planSummaries"`
-	PlanEnvelopes       []PlanEnvelopeCheck `json:"planEnvelopes"`
-	AbsentFiles         []string            `json:"absentFiles"`
-	StateSummary        string              `json:"stateSummary"`
-	StateSeed           string              `json:"stateSeed"`
-	ExtraStateSnapshots int                 `json:"extraStateSnapshots"`
-	StateLocks          []string            `json:"stateLocks"`
-	Deterministic       bool                `json:"deterministic"`
+	Name                string               `json:"name"`
+	Dir                 string               `json:"-"`
+	FactoryPath         string               `json:"factoryPath"`
+	LibraryPath         string               `json:"libraryPath"`
+	Build               bool                 `json:"build"`
+	Commands            []Command            `json:"commands"`
+	Files               []FileCheck          `json:"files"`
+	PlanSummaries       []PlanSummaryCheck   `json:"planSummaries"`
+	PlanEnvelopes       []PlanEnvelopeCheck  `json:"planEnvelopes"`
+	StateEnvelopes      []StateEnvelopeCheck `json:"stateEnvelopes"`
+	AbsentFiles         []string             `json:"absentFiles"`
+	StateSummary        string               `json:"stateSummary"`
+	StateSeed           string               `json:"stateSeed"`
+	ExtraStateSnapshots int                  `json:"extraStateSnapshots"`
+	StateLocks          []string             `json:"stateLocks"`
+	Deterministic       bool                 `json:"deterministic"`
 }
 
 // SourceCase describes a source-root CLI e2e case.
@@ -97,6 +98,12 @@ type PlanSummaryCheck struct {
 type PlanEnvelopeCheck struct {
 	Path string `json:"path"`
 	Want string `json:"want"`
+}
+
+// StateEnvelopeCheck describes a current state envelope compared to a golden.
+type StateEnvelopeCheck struct {
+	Stack string `json:"stack"`
+	Want  string `json:"want"`
 }
 
 // RunCompiledCases runs compiled-factory cases found under dir.
@@ -252,6 +259,9 @@ func validateCompiledCase(c CompiledCase) error {
 	if err := validatePlanEnvelopes(c.PlanEnvelopes); err != nil {
 		return err
 	}
+	if err := validateStateEnvelopes(c.StateEnvelopes); err != nil {
+		return err
+	}
 	if err := validateAbsentFiles(c.AbsentFiles); err != nil {
 		return err
 	}
@@ -312,6 +322,19 @@ func validatePlanEnvelopes(checks []PlanEnvelopeCheck) error {
 	for i, check := range checks {
 		prefix := fmt.Sprintf("planEnvelopes[%d]", i)
 		if err := checkRelPath(prefix+".path", check.Path); err != nil {
+			return err
+		}
+		if err := checkRelPath(prefix+".want", check.Want); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateStateEnvelopes(checks []StateEnvelopeCheck) error {
+	for i, check := range checks {
+		prefix := fmt.Sprintf("stateEnvelopes[%d]", i)
+		if err := checkRelPath(prefix+".stack", check.Stack); err != nil {
 			return err
 		}
 		if err := checkRelPath(prefix+".want", check.Want); err != nil {

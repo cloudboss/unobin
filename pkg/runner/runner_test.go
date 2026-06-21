@@ -5,18 +5,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/compile"
-	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -28,12 +25,6 @@ func freshKeyB64(t *testing.T) string {
 	_, err := rand.Read(k)
 	require.NoError(t, err)
 	return base64.StdEncoding.EncodeToString(k)
-}
-
-// isJSON reports whether b parses as a JSON value.
-func isJSON(b []byte) bool {
-	var v any
-	return json.Unmarshal(b, &v) == nil
 }
 
 // echoAction is a tiny test action: takes an Echo string, returns it
@@ -820,43 +811,6 @@ actions: { bad: core.echo { echo: var.missing } }
 	_, err := runRoot(t, info, "validate", "--allow-version-mismatch")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `unknown input "missing"`)
-}
-
-func TestStateEncryptedWithEnvKey(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-outputs: { said: { value: action.hi.echo } }
-`
-	info := testInfo(t, src)
-	t.Setenv("UB_STATE_KEY", freshKeyB64(t))
-
-	_ = applyVia(t, info, writeBackendConfig(t))
-
-	snapDir := filepath.Join(".unobin", "state", "test-stack", "default", "snapshots")
-	entries, err := os.ReadDir(snapDir)
-	require.NoError(t, err)
-	require.NotEmpty(t, entries)
-
-	enc, err := encrypters.NewEnvKey("UB_STATE_KEY")
-	require.NoError(t, err)
-	for _, e := range entries {
-		body, err := os.ReadFile(filepath.Join(snapDir, e.Name()))
-		require.NoError(t, err)
-		var env state.Envelope
-		require.NoError(t, json.Unmarshal(body, &env), "snapshot %s should be an envelope", e.Name())
-		require.Equal(t, state.EnvelopeVersion, env.EnvelopeVersion)
-		require.NotNil(t, env.Encrypter,
-			"snapshot %s should record the key source that sealed it", e.Name())
-		require.Equal(t, "env-key", env.Encrypter.Name)
-		require.Equal(t, "UB_STATE_KEY", env.Encrypter.Body["env-var"])
-		plaintext, err := enc.Decrypt(env.Ciphertext)
-		require.NoError(t, err, "snapshot %s should decrypt with the configured key", e.Name())
-		require.True(t, isJSON(plaintext), "decrypted snapshot %s should be JSON", e.Name())
-	}
-
-	showOut, err := runBackend(t, info, "state", "show", "core.echo@action.hi")
-	require.NoError(t, err)
-	require.Contains(t, showOut, `  echo: 'hello'`)
 }
 
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {

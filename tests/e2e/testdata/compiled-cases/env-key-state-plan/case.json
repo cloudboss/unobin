@@ -50,5 +50,8 @@
   "planEnvelopes": [
     { "path": "plan.ubp", "want": "want/plan-envelope.json" }
   ],
+  "stateEnvelopes": [
+    { "stack": "dev", "want": "want/state-envelope.json" }
+  ],
   "deterministic": true
 }

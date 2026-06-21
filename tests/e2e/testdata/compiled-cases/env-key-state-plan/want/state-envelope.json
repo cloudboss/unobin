@@ -1,0 +1,10 @@
+{
+  "envelope-version": 1,
+  "encrypter": {
+    "name": "env-key",
+    "body": {
+      "env-var": "UB_STATE_KEY"
+    }
+  },
+  "ciphertext-json": false
+}
