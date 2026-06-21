@@ -16,6 +16,10 @@ factory: {
       type:    object({ inline: optional(string) })
       default: { inline: 'ok' }
     }
+    tls-items: {
+      type:    list(object({ tls: optional(boolean) }))
+      default: [{ tls: true }]
+    }
   }
 
   constraints: [
@@ -38,6 +42,13 @@ factory: {
       when:    true
       require: var.code.inline != null
       message: 'code must be inline'
+    },
+    {
+      kind:      predicate
+      @for-each: var.tls-items
+      when:      true
+      require:   @each.value.tls == true
+      message:   'tls is required'
     },
   ]
 }

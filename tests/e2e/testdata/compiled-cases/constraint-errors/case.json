@@ -33,6 +33,12 @@
       "args": ["plan", "--ascii", "-c", "stacks/nested-predicate.ub"],
       "stderr": "want/plan-nested-predicate.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "plan-foreach-predicate",
+      "args": ["plan", "--ascii", "-c", "stacks/foreach-predicate.ub"],
+      "stderr": "want/plan-foreach-predicate.stderr",
+      "exitCode": 1
     }
   ],
   "deterministic": true
