@@ -1,0 +1,3 @@
+actions: {
+  x: core.slow { @timeout: '30s', delay-ms: 1 }
+}
