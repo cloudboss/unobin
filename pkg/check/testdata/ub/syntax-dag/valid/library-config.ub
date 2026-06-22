@@ -1,0 +1,7 @@
+factory: {
+  library-configs: { k8s: { region: resource.cluster.endpoint } }
+  resources: {
+    cluster: aws.eks { name: 'web' }
+    apps: k8s.namespace { name: 'apps' }
+  }
+}

@@ -1,0 +1,2 @@
+resources: { one: local.file { path: 'x.txt' } }
+outputs:   { anything: { value: resource.one.whatever } }

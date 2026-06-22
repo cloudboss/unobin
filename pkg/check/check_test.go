@@ -3,22 +3,17 @@ package check
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/stretchr/testify/require"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestNewSyntaxBuildsDAGFromTypedBody(t *testing.T) {
-	sf, err := syntax.ParseSource("factory.ub", []byte(`
-factory: {
-  library-configs: { k8s: { region: resource.cluster.endpoint } }
-  resources: {
-    cluster: aws.eks { name: 'web' }
-    apps: k8s.namespace { name: 'apps' }
-  }
-}
-`))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/syntax-dag", "library-config")
+	sf, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.NotNil(t, sf.Factory)
 	k8s := libraryConfigSchemaLibrary("")
@@ -35,22 +30,10 @@ factory: {
 }
 
 func TestNewSyntaxUsesCompositeSyntaxScope(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  inputs: { path: { type: string } }
-  locals: { target: var.path }
-  resources: {
-    file: local.fs-file { path: local.target }
-  }
-}
-`)
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    app: outer.greeting { path: '/tmp/app' }
-  }
-}
-`)
+	composite := parseSyntaxCompositeFixture(
+		t, ubtest.ReadValidFixture(t, "testdata/ub/syntax-dag", "composite"))
+	fixture := parseSyntaxFactoryFixture(
+		t, ubtest.ReadValidFixture(t, "testdata/ub/syntax-dag", "composite-call"))
 	body := composite.body
 	checker := NewSyntax(fixture.body, map[string]*runtime.Library{
 		"outer": {
@@ -68,10 +51,8 @@ factory: {
 }
 
 func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { one: local.file { path: 'x.txt' } }
-outputs:   { anything: { value: resource.one.whatever } }
-`, map[string]*runtime.Library{
+	src := ubtest.ReadValidFixture(t, "testdata/ub/syntax-dag", "schemaless-output")
+	errs := checkSyntaxReferences(t, src, map[string]*runtime.Library{
 		"local": {},
 	})
 
