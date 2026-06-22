@@ -13,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,6 +31,11 @@ func planTestExecutor(
 	}
 }
 
+func planFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/plan", name)
+}
+
 // planThingConstraintErr plans a stack with one core.thing resource whose
 // body is the given literal object, after attaching specs to the thing
 // type's constraints, and returns the plan error (nil when it succeeds).
@@ -37,7 +43,7 @@ func planThingConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body stri
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
-	src := "resources: {\n  x: core.thing " + body + "\n}\n"
+	src := fmt.Sprintf("%s: {\n  x: core.thing %s\n}\n", "resources", body)
 	exec := planTestExecutor(t, src, libs, newStateStore(t),
 		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
@@ -264,8 +270,11 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
-	src := "resources: {\n  a: core.plain { name: 'a' }\n" +
-		"  b: core.thing " + body + "\n}\n"
+	src := fmt.Sprintf(
+		"%s: {\n  a: core.plain { name: 'a' }\n  b: core.thing %s\n}\n",
+		"resources",
+		body,
+	)
 	exec := planTestExecutor(t, src, libs, newStateStore(t),
 		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
@@ -519,9 +528,7 @@ func TestPlanGoTypeConstraintChecksActions(t *testing.T) {
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
 		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}}},
 	}
-	src := `
-actions: { x: core.echo { name: 'a', size: 1 } }
-`
+	src := planFixture(t, "plan-go-type-constraint-checks-actions")
 	exec := planTestExecutor(t, src, libs, newStateStore(t),
 		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
@@ -564,11 +571,14 @@ func stepFor(plan *Plan, addr string) *PlanStep {
 // uses literals so internal planning never depends on an unset input.
 func planCompositeConstraintErr(t *testing.T, inputs, constraints, callArgs string) error {
 	t.Helper()
-	composite := syntaxResourceComposite(t, "pair", `
-inputs: `+inputs+`
-constraints: `+constraints+`
-resources: { one: core.thing { name: 'fixed', size: 1 } }
-`)
+	composite := syntaxResourceComposite(t, "pair", fmt.Sprintf(
+		"%s %s\n%s %s\n%s: { one: core.thing { name: 'fixed', size: 1 } }\n",
+		"inputs:",
+		inputs,
+		"constraints:",
+		constraints,
+		"resources",
+	))
 	libs := resourceModules(&resourceCounters{})
 	libs["w"] = &Library{
 		Name: "w",
@@ -576,11 +586,7 @@ resources: { one: core.thing { name: 'fixed', size: 1 } }
 			"pair": composite,
 		},
 	}
-	src := `
-resources: {
-  x: w.pair ` + callArgs + `
-}
-`
+	src := fmt.Sprintf("%s: {\n  x: w.pair %s\n}\n", "resources", callArgs)
 	exec := planTestExecutor(t, src, libs, newStateStore(t),
 		state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"})
 	_, err := exec.Plan(context.Background())
@@ -796,9 +802,7 @@ func TestPlanCompositeConstraintCallsFunction(t *testing.T) {
 }
 
 func TestPlanForEachResourceEmitsOneStepPerInstance(t *testing.T) {
-	src := `
-resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
-`
+	src := planFixture(t, "plan-for-each-resource-emits-one-step-per-instance")
 	var c resourceCounters
 	libs := resourceModules(&c)
 	exec := planTestExecutor(t, src, libs, newStateStore(t),
@@ -824,9 +828,7 @@ resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @
 }
 
 func TestPlanForEachOrphanInstanceDestroyed(t *testing.T) {
-	src := `
-resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
-`
+	src := planFixture(t, "plan-for-each-orphan-instance-destroyed")
 	var c resourceCounters
 	libs := resourceModules(&c)
 	store := newStateStore(t)
@@ -845,12 +847,7 @@ resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @
 }
 
 func TestPlanComposite(t *testing.T) {
-	composite := syntaxResourceComposite(t, "pair", `
-resources: {
-  one: core.thing { name: var.name, size: 1 }
-  two: core.thing { name: var.name, size: 2 }
-}
-`)
+	composite := syntaxResourceComposite(t, "pair", planFixture(t, "plan-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -859,9 +856,7 @@ resources: {
 			"pair": composite,
 		},
 	}
-	stackSrc := `
-resources: { x: w.pair { name: 'alpha' } }
-`
+	stackSrc := planFixture(t, "plan-composite-2")
 	plan := runPlan(t, stackSrc, libs, newStateStore(t))
 
 	boundary := stepFor(plan, "resource.x")
@@ -883,11 +878,8 @@ resources: { x: w.pair { name: 'alpha' } }
 }
 
 func TestPlanCompositeInternalActionSkipsAfterRun(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs:  { phrase: { type: string } }
-actions: { say: core.echo { echo: var.phrase } }
-outputs: { said: { value: action.say.echo } }
-`)
+	composite := syntaxResourceComposite(t, "box",
+		planFixture(t, "plan-composite-internal-action-skips-after-run-1"))
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
@@ -895,9 +887,7 @@ outputs: { said: { value: action.say.echo } }
 			"box": composite,
 		},
 	}
-	stackSrc := `
-resources: { x: w.box { phrase: 'hello' } }
-`
+	stackSrc := planFixture(t, "plan-composite-internal-action-skips-after-run-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := planTestExecutor(t, stackSrc, libs, store, stack)
@@ -913,9 +903,7 @@ resources: { x: w.box { phrase: 'hello' } }
 }
 
 func TestPlanCreateForFreshResource(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-create-for-fresh-resource")
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 	require.Equal(t, DecisionCreate, decisionFor(plan, "resource.one"))
@@ -923,9 +911,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestPlanNoOpForUnchanged(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-no-op-for-unchanged")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -937,12 +923,8 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestPlanUpdateForNonReplaceFieldChange(t *testing.T) {
-	first := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
-	second := `
-resources: { one: core.thing { name: 'alpha', size: 99 } }
-`
+	first := planFixture(t, "plan-update-for-non-replace-field-change-1")
+	second := planFixture(t, "plan-update-for-non-replace-field-change-2")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -958,12 +940,8 @@ resources: { one: core.thing { name: 'alpha', size: 99 } }
 }
 
 func TestPlanReplaceForReplaceFieldChange(t *testing.T) {
-	first := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
-	second := `
-resources: { one: core.thing { name: 'beta', size: 1 } }
-`
+	first := planFixture(t, "plan-replace-for-replace-field-change-1")
+	second := planFixture(t, "plan-replace-for-replace-field-change-2")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -978,9 +956,7 @@ resources: { one: core.thing { name: 'beta', size: 1 } }
 }
 
 func TestPlanUpdateRevertsDrift(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-update-reverts-drift")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -1005,9 +981,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestUpdateSeesObservedDriftAtApply(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "update-sees-observed-drift-at-apply")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -1034,9 +1008,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-migrates-prior-outputs-on-schema-bump")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1091,9 +1063,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-errors-when-schema-bump-has-no-migrate")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1139,9 +1109,7 @@ func TestPlanMigratesPriorInputsOnSchemaBump(t *testing.T) {
 	// to `name`. After migration the prior inputs match the source, so the
 	// plan is a no-op rather than a spurious update from diffing inputs
 	// recorded under two different schema versions.
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-migrates-prior-inputs-on-schema-bump")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1176,9 +1144,7 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	// where the field was still `label` and would decode to the zero value.
 	// The rewritten entry ends at the current version with current
 	// inputs.
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 2 } }
-`
+	src := planFixture(t, "apply-update-receives-migrated-prior-inputs")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1235,9 +1201,7 @@ func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
 	// prior entry has none. The default fills into the current body; the
 	// overlay fills it into the prior too, so the diff sees them equal and
 	// the plan stays a no-op instead of a vacuous update.
-	src := `
-resources: { one: core.thing { name: 'alpha' } }
-`
+	src := planFixture(t, "plan-defaults-overlay-prevents-spurious-update")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
@@ -1264,9 +1228,7 @@ func TestPlanDefaultsOverlayKeepsExplicitPriorValue(t *testing.T) {
 	// default 7 is the desired value -- a real update. The overlay fills
 	// only missing fields, so the prior is still seen as 3 and the change
 	// is genuine, not invented.
-	src := `
-resources: { one: core.thing { name: 'alpha' } }
-`
+	src := planFixture(t, "plan-defaults-overlay-keeps-explicit-prior-value")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
@@ -1293,9 +1255,7 @@ func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
 	// End to end: a defaulted field added after creation should not provoke
 	// a cloud update. The plan is a no-op, Update is never called, and the
 	// apply records the resolved default so the next plan agrees.
-	src := `
-resources: { one: core.thing { name: 'alpha' } }
-`
+	src := planFixture(t, "apply-defaults-overlay-additive-field-makes-no-cloud-update")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
@@ -1331,9 +1291,7 @@ func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
 	// The prior predates `size`, and the body now sets it to 9. The plan is
 	// an update, and the overlay means Update sees a prior of 7 (the
 	// declared default), not a zero value from an absent field.
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 9 } }
-`
+	src := planFixture(t, "apply-defaults-overlay-update-sees-filled-prior-default")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
@@ -1366,9 +1324,7 @@ resources: { one: core.thing { name: 'alpha', size: 9 } }
 func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 	// The overlay also covers @for-each instances: each prior instance
 	// predates `size`, so each is a no-op once the default is overlaid.
-	src := `
-resources: { many: core.thing { @for-each: var.configs, name: @each.key } }
-`
+	src := planFixture(t, "apply-defaults-overlay-for-each-is-no-op")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack,
@@ -1411,12 +1367,7 @@ resources: { many: core.thing { @for-each: var.configs, name: @each.key } }
 }
 
 func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
-	src := `
-resources: {
-  one: core.thing { name: 'alpha', size: 1 }
-  two: core.thing { name: resource.one.id, size: 2 }
-}
-`
+	src := planFixture(t, "plan-records-unresolved-field-refs")
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 
@@ -1450,12 +1401,7 @@ func TestPartialValueKeepsObjectStructure(t *testing.T) {
 }
 
 func TestPlanResolvesInputRefAtPlanTime(t *testing.T) {
-	src := `
-resources: {
-  one: core.thing { name: 'alpha', size: 1 }
-  two: core.thing { name: resource.one.name, size: 2 }
-}
-`
+	src := planFixture(t, "plan-resolves-input-ref-at-plan-time")
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 
@@ -1468,13 +1414,7 @@ resources: {
 }
 
 func TestPlanDoesNotResolveAPendingInput(t *testing.T) {
-	src := `
-resources: {
-  one: core.thing   { name: 'alpha', size: 1 }
-  two: core.thing   { name: resource.one.id, size: 2 }
-  three: core.thing { name: resource.two.name, size: 3 }
-}
-`
+	src := planFixture(t, "plan-does-not-resolve-a-pending-input")
 	var c resourceCounters
 	plan := runPlan(t, src, resourceModules(&c), newStateStore(t))
 
@@ -1487,14 +1427,7 @@ resources: {
 }
 
 func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `factory: {
-  locals: { one-id: resource.one.id }
-  resources: {
-    one: core.thing { name: 'alpha', size: 1 }
-    two: core.thing { name: local.one-id, size: 2 }
-  }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t, planFixture(t, "plan-expands-local-in-unresolved-refs"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	exec := &Executor{
@@ -1516,11 +1449,7 @@ func TestPlanExpandsLocalInUnresolvedRefs(t *testing.T) {
 }
 
 func TestUpgradeActionRerunFollowsLocal(t *testing.T) {
-	src := `
-locals:    { thing-id: resource.one.id }
-resources: { one: core.thing { name: 'a' } }
-actions:   { notify: core.command { argv: ['echo', local.thing-id] } }
-`
+	src := planFixture(t, "upgrade-action-rerun-follows-local")
 	body := syntaxFactoryBody(t, src)
 	dag := BuildSyntaxDAG(body, nil)
 	sl := newScopeLocals(syntaxLocalMap(body.Locals), dag.Nodes)
@@ -1546,9 +1475,7 @@ actions:   { notify: core.command { argv: ['echo', local.thing-id] } }
 }
 
 func TestPlanCreateWhenResourceIsGone(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-create-when-resource-is-gone")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -1567,12 +1494,8 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestPlanDestroyForOrphan(t *testing.T) {
-	first := `
-resources: { keep: core.thing { name: 'a', size: 1 }, orph: core.thing { name: 'b', size: 2 } }
-`
-	second := `
-resources: { keep: core.thing { name: 'a', size: 1 } }
-`
+	first := planFixture(t, "plan-destroy-for-orphan-1")
+	second := planFixture(t, "plan-destroy-for-orphan-2")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -1585,12 +1508,8 @@ resources: { keep: core.thing { name: 'a', size: 1 } }
 }
 
 func TestPlanRerunForChangedAction(t *testing.T) {
-	first := `
-actions: { hi: core.echo { echo: 'one' } }
-`
-	second := `
-actions: { hi: core.echo { echo: 'two' } }
-`
+	first := planFixture(t, "plan-rerun-for-changed-action-1")
+	second := planFixture(t, "plan-rerun-for-changed-action-2")
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -1608,9 +1527,7 @@ actions: { hi: core.echo { echo: 'two' } }
 }
 
 func TestPlanSkipForUnchangedAction(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'same' } }
-`
+	src := planFixture(t, "plan-skip-for-unchanged-action")
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
@@ -1641,7 +1558,7 @@ func TestPlanRecordsStateRev(t *testing.T) {
 // r0..r(n-1) so the parallel-read tests can dial the fan-out.
 func planResourcesSrc(n int) string {
 	var src strings.Builder
-	src.WriteString("resources: {\n")
+	fmt.Fprintf(&src, "%s: {\n", "resources")
 	for i := range n {
 		src.WriteString(fmt.Sprintf("  r%d: core.thing { name: 'r%d', size: %d }\n", i, i, i))
 	}
@@ -1704,9 +1621,7 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 }
 
 func TestPlanPropagatesReadError(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := planFixture(t, "plan-propagates-read-error")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)

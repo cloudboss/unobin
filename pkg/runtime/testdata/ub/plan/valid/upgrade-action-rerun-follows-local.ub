@@ -1,0 +1,3 @@
+locals:    { thing-id: resource.one.id }
+resources: { one: core.thing { name: 'a' } }
+actions:   { notify: core.command { argv: ['echo', local.thing-id] } }

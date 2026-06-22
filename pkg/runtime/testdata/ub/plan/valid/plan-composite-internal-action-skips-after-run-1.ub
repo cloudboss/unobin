@@ -1,0 +1,3 @@
+inputs:  { phrase: { type: string } }
+actions: { say: core.echo { echo: var.phrase } }
+outputs: { said: { value: action.say.echo } }

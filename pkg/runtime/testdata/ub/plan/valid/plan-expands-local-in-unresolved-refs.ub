@@ -1,0 +1,7 @@
+factory: {
+  locals: { one-id: resource.one.id }
+  resources: {
+    one: core.thing { name: 'alpha', size: 1 }
+    two: core.thing { name: local.one-id, size: 2 }
+  }
+}

@@ -1,0 +1,1 @@
+resources: { keep: core.thing { name: 'a', size: 1 }, orph: core.thing { name: 'b', size: 2 } }

@@ -24,7 +24,6 @@ type inlineUBFinding struct {
 
 var inlineUBGreenlist = map[string]bool{
 	"pkg/runtime/apply_plan_test.go": true,
-	"pkg/runtime/plan_test.go":       true,
 }
 
 var inlineUBTokens = []string{
