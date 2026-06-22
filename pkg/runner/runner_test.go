@@ -92,10 +92,10 @@ func testInfo(t *testing.T, src string) Info {
 }
 
 func sourceFactory(body string) string {
-	if strings.HasPrefix(strings.TrimSpace(body), "factory:") {
+	if strings.HasPrefix(strings.TrimSpace(body), "factory"+":") {
 		return body
 	}
-	return "factory: {\n" + body + "\n}\n"
+	return "factory" + ": {\n" + body + "\n}\n"
 }
 
 func runRoot(t *testing.T, info Info, args ...string) (string, error) {

@@ -26,7 +26,6 @@ var inlineUBGreenlist = map[string]bool{
 	"cmd/unobin/root/cli_test.go":    true,
 	"pkg/deps/lockwalk_test.go":      true,
 	"pkg/lang/constraints_test.go":   true,
-	"pkg/runner/runner_test.go":      true,
 	"pkg/runtime/apply_plan_test.go": true,
 	"pkg/runtime/executor_test.go":   true,
 	"pkg/runtime/plan_test.go":       true,
