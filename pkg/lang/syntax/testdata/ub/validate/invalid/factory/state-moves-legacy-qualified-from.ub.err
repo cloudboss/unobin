@@ -1,1 +1,1 @@
-state-moves[0].from: expected state ref, got core.thing@resource.old
+factory.ub:3:13: schema: state-moves[0].from must be an unquoted state ref

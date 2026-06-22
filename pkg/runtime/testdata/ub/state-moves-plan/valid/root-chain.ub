@@ -1,6 +1,6 @@
 state-moves: [
-  { from: 'resource.old', to: 'resource.middle' },
-  { from: 'resource.middle', to: 'resource.new' },
+  { from: resource.old, to: resource.middle },
+  { from: resource.middle, to: resource.new },
 ]
 resources: {
   new: core.thing { name: 'alpha', size: 1 }

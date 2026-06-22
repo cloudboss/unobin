@@ -1,6 +1,6 @@
 web: resource {
   state-moves: [
-    { from: 'resource.old', to: 'resource.child/resource.new' },
+    { from: resource.old-child, to: resource.child },
   ]
 
   inputs: {

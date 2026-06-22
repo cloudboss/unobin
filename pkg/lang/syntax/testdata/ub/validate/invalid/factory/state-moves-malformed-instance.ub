@@ -1,5 +1,0 @@
-factory: {
-  state-moves: [
-    { from: 'resource.items[old]', to: 'resource.items.new' }
-  ]
-}

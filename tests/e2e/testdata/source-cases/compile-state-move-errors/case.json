@@ -12,10 +12,10 @@
       "exitCode": 1
     },
     {
-      "name": "legacy-qualified-destination",
-      "dir": "legacy-qualified-destination",
+      "name": "quoted-destination",
+      "dir": "quoted-destination",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
-      "stderr": "want/legacy-qualified-destination.stderr",
+      "stderr": "want/quoted-destination.stderr",
       "exitCode": 1
     },
     {

@@ -344,16 +344,15 @@ type stateMoveRefs struct {
 func validateStateMoveRef(
 	i int,
 	field string,
-	lit *parse.StringLit,
+	moveRef *StateMoveRef,
 	errs *parse.ErrorList,
 ) (stateref.EntryRef, bool) {
-	ref, err := stateref.Parse(lit.Value)
-	if err != nil {
-		errs.Addf(parse.ErrSchema, lit.S.Start,
-			"state-moves[%d].%s: %v", i, field, err)
+	if moveRef.Ref.Address == "" {
+		errs.Addf(parse.ErrSchema, moveRef.S.Start,
+			"state-moves[%d].%s: expected state ref", i, field)
 		return stateref.EntryRef{}, false
 	}
-	return ref, true
+	return moveRef.Ref, true
 }
 
 func validateStateMoveCycles(refs []stateMoveRefs, errs *parse.ErrorList) {

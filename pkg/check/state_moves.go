@@ -69,12 +69,9 @@ func stateMoveCheckSpecs(decls []syntax.StateMoveDecl) []stateMoveCheckSpec {
 		if decl.From == nil || decl.To == nil {
 			continue
 		}
-		from, err := stateref.Parse(decl.From.Value)
-		if err != nil {
-			continue
-		}
-		to, err := stateref.Parse(decl.To.Value)
-		if err != nil {
+		from := decl.From.Ref
+		to := decl.To.Ref
+		if from.Address == "" || to.Address == "" {
 			continue
 		}
 		out = append(out, stateMoveCheckSpec{

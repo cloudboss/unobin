@@ -1,7 +1,7 @@
 group: resource {
   state-moves: [
-    { from: 'resource.old-file', to: 'resource.file' },
-    { from: 'resource.old-single', to: 'resource.single' },
+    { from: resource.old-file, to: resource.file },
+    { from: resource.old-single, to: resource.single },
   ]
 
   inputs: {

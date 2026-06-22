@@ -14,13 +14,13 @@ func syntaxEntryMoveSpecs(decls []syntax.StateMoveDecl) ([]EntryMoveSpec, error)
 		if decl.From == nil || decl.To == nil {
 			continue
 		}
-		from, err := ParseEntryRef(decl.From.Value)
-		if err != nil {
-			return nil, fmt.Errorf("state-moves[%d].from: %w", i, err)
+		from := decl.From.Ref
+		if from.Address == "" {
+			return nil, fmt.Errorf("state-moves[%d].from: expected state ref", i)
 		}
-		to, err := ParseEntryRef(decl.To.Value)
-		if err != nil {
-			return nil, fmt.Errorf("state-moves[%d].to: %w", i, err)
+		to := decl.To.Ref
+		if to.Address == "" {
+			return nil, fmt.Errorf("state-moves[%d].to: expected state ref", i)
 		}
 		specs = append(specs, EntryMoveSpec{From: from, To: to})
 	}

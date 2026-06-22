@@ -1,1 +1,1 @@
-factory.ub:3:49: schema: state-moves[0]: unknown field "reason"
+factory.ub:3:45: schema: state-moves[0]: unknown field "reason"

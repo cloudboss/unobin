@@ -1,6 +1,6 @@
 web-cluster: resource {
   state-moves: [
-    { from: 'resource.old', to: 'resource.missing' },
+    { from: resource.old, to: resource.missing },
   ]
 
   inputs: {

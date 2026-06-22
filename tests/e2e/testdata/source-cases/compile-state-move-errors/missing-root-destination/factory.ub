@@ -15,7 +15,7 @@ factory: {
   library-configs: { e2e: input.e2e-config }
 
   state-moves: [
-    { from: 'resource.old', to: 'resource.missing' },
+    { from: resource.old, to: resource.missing },
   ]
 
   resources: {

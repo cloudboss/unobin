@@ -1,6 +1,6 @@
 factory: {
   state-moves: [
-    { from: 'resource.a', to: 'resource.b' },
-    { from: 'resource.b', to: 'resource.a' },
+    { from: resource.a, to: resource.b },
+    { from: resource.b, to: resource.a },
   ]
 }

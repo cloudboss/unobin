@@ -1,6 +1,9 @@
 package syntax
 
-import "github.com/cloudboss/unobin/pkg/lang/parse"
+import (
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/stateref"
+)
 
 type FileKind int
 
@@ -154,8 +157,13 @@ type LibraryConfigDecl struct {
 
 type StateMoveDecl struct {
 	S    parse.Span
-	From *parse.StringLit
-	To   *parse.StringLit
+	From *StateMoveRef
+	To   *StateMoveRef
+}
+
+type StateMoveRef struct {
+	S   parse.Span
+	Ref stateref.EntryRef
 }
 
 type StateDecl struct {

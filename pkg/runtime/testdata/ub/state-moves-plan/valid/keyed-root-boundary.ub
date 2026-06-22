@@ -1,8 +1,8 @@
 inputs: { configs: { type: map(boolean) } }
 state-moves: [
   {
-    from: '''resource.apps['blue']''',
-    to:   '''resource.apps['green']''',
+    from: resource.apps['blue'],
+    to:   resource.apps['green'],
   },
 ]
 resources: {

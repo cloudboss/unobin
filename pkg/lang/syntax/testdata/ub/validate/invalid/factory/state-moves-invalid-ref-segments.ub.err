@@ -1,0 +1,3 @@
+2 errors:
+  factory.ub:3:13: schema: state-moves[0].from: state ref keys must be string literals
+  factory.ub:3:38: schema: state-moves[0].to: state refs do not include field access

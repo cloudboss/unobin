@@ -1,6 +1,6 @@
 item: resource {
   state-moves: [
-    { from: 'resource.old-file', to: 'resource.file' },
+    { from: resource.old-file, to: resource.file },
   ]
 
   inputs: {

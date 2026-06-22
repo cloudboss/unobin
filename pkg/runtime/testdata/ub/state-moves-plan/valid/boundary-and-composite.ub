@@ -1,5 +1,5 @@
 state-moves: [
-  { from: 'resource.old-app', to: 'resource.app' },
+  { from: resource.old-app, to: resource.app },
 ]
 resources: {
   app: w.box {}

@@ -225,24 +225,22 @@ func encodeSyntaxStateMoves(b *strings.Builder, decls []syntax.StateMoveDecl) er
 		b.WriteString("{")
 		if decl.From != nil {
 			fields.next(b, "From")
-			from, err := EncodeNode(decl.From)
-			if err != nil {
-				return err
-			}
-			b.WriteString(from)
+			encodeSyntaxStateMoveRef(b, *decl.From)
 		}
 		if decl.To != nil {
 			fields.next(b, "To")
-			to, err := EncodeNode(decl.To)
-			if err != nil {
-				return err
-			}
-			b.WriteString(to)
+			encodeSyntaxStateMoveRef(b, *decl.To)
 		}
 		b.WriteString("}")
 	}
 	b.WriteString("}")
 	return nil
+}
+
+func encodeSyntaxStateMoveRef(b *strings.Builder, ref syntax.StateMoveRef) {
+	b.WriteString("&syntax.StateMoveRef{Ref: runtime.EntryRef{Address: ")
+	b.WriteString(strconv.Quote(ref.Ref.Address))
+	b.WriteString("}}")
 }
 
 func encodeSyntaxNodes(b *strings.Builder, decls []syntax.NodeDecl) error {

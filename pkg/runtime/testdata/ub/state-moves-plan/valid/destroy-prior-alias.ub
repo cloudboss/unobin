@@ -1,5 +1,5 @@
 state-moves: [
-  { from: 'resource.previous', to: 'resource.current' },
+  { from: resource.previous, to: resource.current },
 ]
 resources: {
   current: next.thing { name: 'alpha', size: 1 }

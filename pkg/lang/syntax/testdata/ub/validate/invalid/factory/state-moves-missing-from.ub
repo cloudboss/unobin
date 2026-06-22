@@ -1,5 +1,5 @@
 factory: {
   state-moves: [
-    { to: 'resource.new' }
+    { to: resource.new }
   ]
 }

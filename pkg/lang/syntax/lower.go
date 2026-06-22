@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
 func LowerFile(f *parse.File) (*File, *parse.ErrorList) {
@@ -818,9 +819,9 @@ func lowerStateMove(i int, obj *parse.ObjectLit, errs *parse.ErrorList) StateMov
 		seen[name.Name] = name.S.Start
 		switch name.Name {
 		case "from":
-			move.From = stringValue(fld, fmt.Sprintf("state-moves[%d].from", i), errs)
+			move.From = stateMoveRefValue(fld, fmt.Sprintf("state-moves[%d].from", i), errs)
 		case "to":
-			move.To = stringValue(fld, fmt.Sprintf("state-moves[%d].to", i), errs)
+			move.To = stateMoveRefValue(fld, fmt.Sprintf("state-moves[%d].to", i), errs)
 		default:
 			errs.Addf(parse.ErrSchema, name.S.Start,
 				"state-moves[%d]: unknown field %q", i, name.Name)
@@ -833,6 +834,74 @@ func lowerStateMove(i int, obj *parse.ObjectLit, errs *parse.ErrorList) StateMov
 		errs.Addf(parse.ErrSchema, obj.S.Start, "state-moves[%d]: missing to", i)
 	}
 	return move
+}
+
+func stateMoveRefValue(
+	fld *parse.Field,
+	what string,
+	errs *parse.ErrorList,
+) *StateMoveRef {
+	if fld.Value == nil {
+		errs.Addf(parse.ErrSchema, fld.S.Start, "%s must be an unquoted state ref", what)
+		return nil
+	}
+	if infix, ok := fld.Value.(*parse.Infix); ok && infix.Op == "/" {
+		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+			"%s must not contain /", what)
+		return nil
+	}
+	dp, ok := fld.Value.(*parse.DotPath)
+	if !ok {
+		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+			"%s must be an unquoted state ref", what)
+		return nil
+	}
+	address, err := stateMoveDotPathAddress(dp)
+	if err != nil {
+		errs.Addf(parse.ErrSchema, dp.S.Start, "%s: %v", what, err)
+		return nil
+	}
+	ref, err := stateref.Parse(address)
+	if err != nil {
+		errs.Addf(parse.ErrSchema, dp.S.Start, "%s: %v", what, err)
+		return nil
+	}
+	return &StateMoveRef{S: dp.S, Ref: ref}
+}
+
+func stateMoveDotPathAddress(dp *parse.DotPath) (string, error) {
+	if dp.Root == nil {
+		return "", fmt.Errorf("expected state ref")
+	}
+	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" || dp.Segments[0].Guarded {
+		return "", fmt.Errorf("address segment must be <category>.<name>")
+	}
+	segment := stateref.StateAddressSegment{
+		Category: stateref.Category(dp.Root.Name),
+		Name:     dp.Segments[0].Name,
+	}
+	for i, pathSegment := range dp.Segments[1:] {
+		switch {
+		case pathSegment.Splat:
+			return "", fmt.Errorf("state refs do not include splats")
+		case pathSegment.Guarded:
+			return "", fmt.Errorf("state refs do not include guarded field access")
+		case pathSegment.Index != nil:
+			if i != 0 || segment.Key != nil {
+				return "", fmt.Errorf("state refs do not include field access")
+			}
+			key, ok := pathSegment.Index.(*parse.StringLit)
+			if !ok {
+				return "", fmt.Errorf("state ref keys must be string literals")
+			}
+			segment.Key = &stateref.StringKey{Value: key.Value}
+		case pathSegment.Name != "":
+			return "", fmt.Errorf("state refs do not include field access")
+		default:
+			return "", fmt.Errorf("malformed state ref")
+		}
+	}
+	return segment.String(), nil
 }
 
 func lowerNodes(

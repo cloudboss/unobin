@@ -1,6 +1,6 @@
 web-cluster: resource {
   state-moves: [
-    { from: '''resource.sg''', to: '''resource.web-sg''' },
+    { from: resource.sg, to: resource.web-sg },
   ]
 
   resources: {

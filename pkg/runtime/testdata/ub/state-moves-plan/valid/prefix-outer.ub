@@ -1,6 +1,6 @@
 outer: resource {
   state-moves: [
-    { from: 'resource.old-child', to: 'resource.child' },
+    { from: resource.old-child, to: resource.child },
   ]
   resources: {
     child: inner.box {}
