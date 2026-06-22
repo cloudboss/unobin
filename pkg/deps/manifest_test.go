@@ -10,29 +10,28 @@ import (
 	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
-func manifestFS(src string) fstest.MapFS {
-	wrapped := "manifest: {\n" + src + "}\n"
-	return fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: []byte(wrapped)}}
+func manifestFixtureFS(t testing.TB, path string) fstest.MapFS {
+	t.Helper()
+	return fstest.MapFS{
+		ManifestFileName: &fstest.MapFile{Data: []byte(ubtest.ReadFixture(t, path))},
+	}
 }
 
 func TestReadManifestToolchainLine(t *testing.T) {
-	m, err := ReadManifest(manifestFS("unobin-version: 'v0.2.0'\nrequires: {}\n"))
+	m, err := ReadManifest(manifestFixtureFS(t, "testdata/ub/manifest/valid/basic.ub"))
 	require.NoError(t, err)
 	require.Equal(t, "v0.2.0", m.UnobinVersion)
 }
 
 func TestReadManifestWithoutToolchainLine(t *testing.T) {
-	m, err := ReadManifest(manifestFS("requires: {}\n"))
+	m, err := ReadManifest(manifestFixtureFS(t, "testdata/ub/manifest/valid/empty.ub"))
 	require.NoError(t, err)
 	require.Empty(t, m.UnobinVersion)
 }
 
 func TestReadManifestObjectRequirements(t *testing.T) {
-	m, err := ReadManifest(manifestFS(`requires: {
-  'github.com/x/direct': { version: 'v1.2.3' }
-  'github.com/x/indirect': { version: 'v2.0.0' indirect: true }
-}
-`))
+	m, err := ReadManifest(
+		manifestFixtureFS(t, "testdata/ub/manifest/valid/object-requirements.ub"))
 	require.NoError(t, err)
 	require.Equal(t, map[Dependency]Requirement{
 		{URL: "github.com/x/direct"}:   {Version: "v1.2.3"},
@@ -65,13 +64,15 @@ func TestReadManifestFixtures(t *testing.T) {
 }
 
 func TestReadManifestRejectsBadToolchainVersion(t *testing.T) {
-	_, err := ReadManifest(manifestFS("unobin-version: 'latest'\nrequires: {}\n"))
+	_, err := ReadManifest(
+		manifestFixtureFS(t, "testdata/ub/manifest/invalid/bad-toolchain-version.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `"latest" is not a valid version`)
 }
 
 func TestReadManifestRejectsNonStringToolchainLine(t *testing.T) {
-	_, err := ReadManifest(manifestFS("unobin-version: {}\nrequires: {}\n"))
+	_, err := ReadManifest(
+		manifestFixtureFS(t, "testdata/ub/manifest/invalid/non-string-toolchain.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unobin-version must be a string literal")
 }
@@ -80,8 +81,7 @@ func TestReadManifestRejectsNonStringToolchainLine(t *testing.T) {
 // cannot be a floored dependency: its version is the toolchain's to
 // pin, through the manifest's unobin-version line.
 func TestReadManifestRejectsUnobinInRequires(t *testing.T) {
-	_, err := ReadManifest(manifestFS(
-		"requires: {\n  'github.com/cloudboss/unobin': { version: 'v0.5.0' }\n}\n"))
+	_, err := ReadManifest(manifestFixtureFS(t, "testdata/ub/manifest/invalid/unobin-required.ub"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "toolchain-versioned")
 	require.Contains(t, err.Error(), "unobin-version line")
