@@ -1,0 +1,5 @@
+
+hello: resource {
+  description: 'hello'
+  resources: { x: local.file { path: '/tmp/x' } }
+}

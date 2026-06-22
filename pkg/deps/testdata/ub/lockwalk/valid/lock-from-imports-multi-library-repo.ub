@@ -1,0 +1,4 @@
+
+hello: resource {
+  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
+}

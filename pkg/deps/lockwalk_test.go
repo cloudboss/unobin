@@ -4,10 +4,17 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func lockwalkFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/lockwalk", name)
+}
 
 func mapFS(files map[string]string) fstest.MapFS {
 	m := make(fstest.MapFS, len(files))
@@ -31,8 +38,7 @@ func ubSrc(commit, _ string, files map[string]string) *resolve.Source {
 
 func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { core: " +
-			"'github.com/cloudboss/unobin//pkg/libraries/core' } }\n",
+		"factory.ub": lockwalkFixture(t, "remote-go-root"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
@@ -51,13 +57,7 @@ func TestLockFromImportsRemoteGoLibrary(t *testing.T) {
 
 func TestLockFromImportsSourceDeclaredFactory(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": `
-factory: {
-  imports: {
-    core: 'github.com/cloudboss/unobin//pkg/libraries/core'
-  }
-}
-`,
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-source-declared-factory"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
@@ -76,13 +76,7 @@ factory: {
 
 func TestLockFromImportsValidatesSourceDeclaredFactory(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": `
-factory: {
-  locals: {
-    message: text.render('hello')
-  }
-}
-`,
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-validates-source-declared-factory"),
 	})
 
 	_, err := LockFromImports(root, map[Dependency]string{}, nil, nil)
@@ -93,7 +87,7 @@ factory: {
 
 func TestLockFromImportsRejectsUntypedUBFile(t *testing.T) {
 	root := fstest.MapFS{
-		"loose.ub": {Data: []byte("imports: { core: 'github.com/x/y' }\n")},
+		"loose.ub": {Data: []byte(lockwalkFixture(t, "lock-from-imports-rejects-untyped-ub-file"))},
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "", "v1.0.0"): goSrc("c1"),
@@ -108,11 +102,11 @@ func TestLockFromImportsRejectsUntypedUBFile(t *testing.T) {
 
 func TestLockFromImportsRejectsGrammarFirstFactoryImport(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { app: 'example.com/app' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-rejects-grammar-first-factory-import-1"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("example.com/app", "", "v0.1.0"): ubSrc("c1", "h1", map[string]string{
-			"factory.ub": "factory: {}\n",
+			"factory.ub": lockwalkFixture(t, "lock-from-imports-rejects-grammar-first-factory-import-2"),
 		}),
 	}}
 	sel := map[Dependency]string{{URL: "example.com/app"}: "v0.1.0"}
@@ -125,7 +119,7 @@ func TestLockFromImportsRejectsGrammarFirstFactoryImport(t *testing.T) {
 
 func TestLockFromImportsSkipsReplaced(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { aws: 'github.com/cloudboss/unobin-library-aws' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-skips-replaced"),
 	})
 	// The replaced repo resolves locally (no version), and it's a Go library.
 	r := &fakeResolver{sources: map[string]*resolve.Source{
@@ -142,15 +136,11 @@ func TestLockFromImportsSkipsReplaced(t *testing.T) {
 
 func TestLockFromImportsReplacedUBLocksTransitive(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { mylib: 'github.com/me/mylib' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-replaced-ub-locks-transitive-1"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/me/mylib", "", ""): ubSrc("local", "", map[string]string{
-			"library.ub": `
-thing: resource {
-  imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
-}
-`,
+			"library.ub": lockwalkFixture(t, "lock-from-imports-replaced-ub-locks-transitive-2"),
 		}),
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/core", "v0.1.0"): goSrc("c1"),
 	}}
@@ -172,11 +162,7 @@ func TestLockFromImportsLibraryProject(t *testing.T) {
 	// A library project has no factory.ub; its imports live in source-declared
 	// composite files at the project root.
 	root := mapFS(map[string]string{
-		"library.ub": `
-greeting: resource {
-  imports: { hello: 'github.com/scratch/repo//ub/helloer' }
-}
-`,
+		"library.ub": lockwalkFixture(t, "lock-from-imports-library-project"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): goSrc("c1"),
@@ -195,11 +181,7 @@ func TestLockFromImportsMultiLibraryRepo(t *testing.T) {
 	// A repo whose libraries live in subdirectories, with no factory.ub or
 	// root-level body files; the walk must descend into the subdirs.
 	root := mapFS(map[string]string{
-		"ub/helloer/library.ub": `
-hello: resource {
-  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
-}
-`,
+		"ub/helloer/library.ub": lockwalkFixture(t, "lock-from-imports-multi-library-repo"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/cloudboss/unobin", "pkg/libraries/local", "v0.5.0"): goSrc("c1"),
@@ -218,14 +200,10 @@ hello: resource {
 
 func TestLockFromImportsRemoteSubdirLibraryFiles(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { helloer: 'github.com/scratch/repo//ub/helloer' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-remote-subdir-library-files-1"),
 	})
 	packageFiles := map[string]string{
-		"resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+		"resource-hello.ub": lockwalkFixture(t, "lock-from-imports-remote-subdir-library-files-2"),
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "ub/helloer/v0.8.0"): ubSrc(
@@ -248,24 +226,16 @@ hello: resource {
 
 func TestLockFromImportsPackageImportLocksOwningProject(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { helloer: 'github.com/scratch/repo//ub/helloer' } }\n",
+		"factory.ub": lockwalkFixture(t, "package-owning-root"),
 	})
 	projectFiles := map[string]string{
-		ManifestFileName: "manifest: { requires: {} }\n",
-		"ub/helloer/resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+		ManifestFileName:               lockwalkFixture(t, "package-owning-manifest"),
+		"ub/helloer/resource-hello.ub": lockwalkFixture(t, "package-owning-project-lib"),
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.8.0"): ubSrc(
 			"c1", "sha256:package", map[string]string{
-				"resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+				"resource-hello.ub": lockwalkFixture(t, "package-owning-package-lib"),
 			}),
 		srcKey("github.com/scratch/repo", "", "v0.8.0"): ubSrc(
 			"c1", "sha256:project", projectFiles),
@@ -286,13 +256,12 @@ hello: resource {
 
 func TestLockFromImportsRejectsParentProjectPastNestedMarker(t *testing.T) {
 	projectFS := mapFS(map[string]string{
-		ManifestFileName:                     "manifest: { requires: {} }\n",
-		"ub/project-b/manifest.ub":           "manifest: { requires: {} }\n",
+		ManifestFileName:                     lockwalkFixture(t, "parent-project-root-manifest"),
+		"ub/project-b/manifest.ub":           lockwalkFixture(t, "parent-project-nested-manifest"),
 		"ub/project-b/comprehensions/lib.ub": "hello: resource {}\n",
 	})
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { hello: " +
-			"'example.com/repo//ub/project-b/comprehensions' } }\n",
+		"factory.ub": lockwalkFixture(t, "reject-parent-project-import"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("example.com/repo", "ub/project-b/comprehensions", "v1.0.0"): {
@@ -314,13 +283,10 @@ func TestLockFromImportsRejectsParentProjectPastNestedMarker(t *testing.T) {
 
 func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": `factory: {
-  imports: { comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions' }
-}
-`,
+		"factory.ub": lockwalkFixture(t, "nested-package-root"),
 	})
 	projectFiles := map[string]string{
-		ManifestFileName:            "manifest: { requires: {} }\n",
+		ManifestFileName:            lockwalkFixture(t, "nested-package-manifest"),
 		"comprehensions/library.ub": "hello: resource { description: 'hi' }\n",
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
@@ -349,13 +315,7 @@ func TestLockFromImportsNestedPackageImportLocksOwningProject(t *testing.T) {
 
 func TestLockFromImportsReportsPackageMissingFromSelectedProject(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": `factory: {
-  imports: {
-    comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions'
-    helloer:        'github.com/scratch/repo//ub/helloer'
-  }
-}
-`,
+		"factory.ub": lockwalkFixture(t, "missing-selected-package-root"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/project-b/comprehensions", "v0.8.0"): {
@@ -364,11 +324,7 @@ func TestLockFromImportsReportsPackageMissingFromSelectedProject(t *testing.T) {
 		},
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.8.0"): ubSrc(
 			"c1", "sha256:package", map[string]string{
-				"resource-hello.ub": `
-hello: data {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+				"resource-hello.ub": lockwalkFixture(t, "missing-selected-package-lib"),
 			}),
 	}}
 	sel := map[Dependency]string{{URL: "github.com/scratch/repo"}: "v0.8.0"}
@@ -383,18 +339,10 @@ hello: data {
 
 func TestLockFromImportsSkipsNestedProjects(t *testing.T) {
 	root := mapFS(map[string]string{
-		ManifestFileName: "manifest: { requires: {} }\n",
-		"factory-a/factory.ub": `
-factory: {
-  imports: { shared: 'example.com/shared//lib' }
-}
-`,
-		"library-c/" + ManifestFileName: "manifest: { requires: {} }\n",
-		"library-c/abc.ub": `
-thing: resource {
-  imports: { nested: 'example.com/nested//lib' }
-}
-`,
+		ManifestFileName:                lockwalkFixture(t, "lock-from-imports-skips-nested-projects-1"),
+		"factory-a/factory.ub":          lockwalkFixture(t, "lock-from-imports-skips-nested-projects-2"),
+		"library-c/" + ManifestFileName: lockwalkFixture(t, "lock-from-imports-skips-nested-projects-3"),
+		"library-c/abc.ub":              lockwalkFixture(t, "lock-from-imports-skips-nested-projects-4"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("example.com/shared", "lib", "lib/v1.0.0"): goSrc("c1"),
@@ -412,12 +360,8 @@ thing: resource {
 
 func TestLockFromImportsScansNestedProjectWhenStartedThere(t *testing.T) {
 	root := mapFS(map[string]string{
-		ManifestFileName: "manifest: { requires: {} }\n",
-		"abc.ub": `
-thing: resource {
-  imports: { nested: 'example.com/nested//lib' }
-}
-`,
+		ManifestFileName: lockwalkFixture(t, "scan-nested-start-manifest"),
+		"abc.ub":         lockwalkFixture(t, "scan-nested-start-library"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("example.com/nested", "lib", "lib/v1.0.0"): goSrc("c1"),
@@ -435,9 +379,9 @@ thing: resource {
 
 func TestLockFromImportsRejectsInvalidNestedManifest(t *testing.T) {
 	root := mapFS(map[string]string{
-		ManifestFileName:                "manifest: { requires: {} }\n",
-		"factory.ub":                    "factory: {}\n",
-		"library-c/" + ManifestFileName: "factory: {}\n",
+		ManifestFileName:                lockwalkFixture(t, "invalid-nested-root-manifest"),
+		"factory.ub":                    lockwalkFixture(t, "invalid-nested-root-factory"),
+		"library-c/" + ManifestFileName: lockwalkFixture(t, "invalid-nested-child-manifest"),
 	})
 
 	_, err := LockFromImports(root, map[Dependency]string{}, nil, nil)
@@ -447,14 +391,10 @@ func TestLockFromImportsRejectsInvalidNestedManifest(t *testing.T) {
 
 func TestLockFromImportsRecursesThroughRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-recurses-through-remote-ub-1"),
 	})
 	packageFiles := map[string]string{
-		"library.ub": `
-greeting: resource {
-  imports: { local: 'github.com/cloudboss/unobin//pkg/libraries/local' }
-}
-`,
+		"library.ub": lockwalkFixture(t, "lock-from-imports-recurses-through-remote-ub-2"),
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc(
@@ -482,16 +422,10 @@ greeting: resource {
 
 func TestLockFromImportsRecursesThroughSourceDeclaredRemoteUB(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { hello: 'github.com/scratch/repo//ub/helloer' } }\n",
+		"factory.ub": lockwalkFixture(t, "source-remote-root"),
 	})
 	packageFiles := map[string]string{
-		"library.ub": `
-greeting: resource {
-  imports: {
-    local: 'github.com/cloudboss/unobin//pkg/libraries/local'
-  }
-}
-`,
+		"library.ub": lockwalkFixture(t, "source-remote-library"),
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc(
@@ -519,18 +453,10 @@ greeting: resource {
 
 func TestLockFromImportsFollowsLocalWithoutLocking(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { greeter: './greeter' } }\n",
-		"greeter/library.ub": `
-greeting: resource {
-  imports: { hello: 'github.com/scratch/repo//ub/helloer' }
-}
-`,
+		"factory.ub":         lockwalkFixture(t, "lock-from-imports-follows-local-without-locking-1"),
+		"greeter/library.ub": lockwalkFixture(t, "lock-from-imports-follows-local-without-locking-2"),
 	})
-	packageFiles := map[string]string{"library.ub": `
-greeting: resource {
-  outputs: { greeting: { value: 'hi' } }
-}
-`}
+	packageFiles := map[string]string{"library.ub": lockwalkFixture(t, "local-follow-package-lib")}
 	r := &fakeResolver{
 		sources: map[string]*resolve.Source{
 			srcKey("github.com/scratch/repo", "ub/helloer", "v0.1.0"): ubSrc(
@@ -557,7 +483,7 @@ greeting: resource {
 
 func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { aws: '../../../..' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-rejects-local-go-import"),
 	})
 	r := &fakeResolver{locals: map[string]*resolve.Source{
 		"../../../..": {FS: mapFS(map[string]string{
@@ -573,15 +499,10 @@ func TestLockFromImportsRejectsLocalGoImport(t *testing.T) {
 
 func TestLockFromImportsRejectsLocalImportIntoDifferentProject(t *testing.T) {
 	root := mapFS(map[string]string{
-		ManifestFileName:                "manifest: { requires: {} }\n",
-		"factory.ub":                    "factory: { imports: { child: './library-c' } }\n",
-		"library-c/" + ManifestFileName: "manifest: { requires: {} }\n",
-		"library-c/library.ub": `
-hello: resource {
-  description: 'hello'
-  resources: { x: local.file { path: '/tmp/x' } }
-}
-`,
+		ManifestFileName:                lockwalkFixture(t, "local-different-root-manifest"),
+		"factory.ub":                    lockwalkFixture(t, "local-different-root-factory"),
+		"library-c/" + ManifestFileName: lockwalkFixture(t, "local-different-child-manifest"),
+		"library-c/library.ub":          lockwalkFixture(t, "local-different-child-library"),
 	})
 	r := &fakeResolver{locals: map[string]*resolve.Source{
 		"./library-c": ubSrc("", "", map[string]string{
@@ -597,7 +518,7 @@ hello: resource {
 
 func TestLockFromImportsDedups(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { a: 'github.com/x/y//lib', b: 'github.com/x/y//lib' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-dedups"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c"),
@@ -610,7 +531,7 @@ func TestLockFromImportsDedups(t *testing.T) {
 
 func TestLockFromImportsRejectsGoModuleMajorMismatch(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { lib: 'example.com/lib' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-rejects-go-module-major-mismatch"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("example.com/lib", "", "v2.0.0"): {
@@ -630,7 +551,7 @@ func TestLockFromImportsRejectsGoModuleMajorMismatch(t *testing.T) {
 
 func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { core: 'github.com/x/y//lib' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-uses-selection-version"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "lib/v2.0.0"): goSrc("c2"),
@@ -644,7 +565,7 @@ func TestLockFromImportsUsesSelectionVersion(t *testing.T) {
 
 func TestLockFromImportsUsesPlainTagForRootProject(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { core: 'github.com/x/y' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-uses-plain-tag-for-root-project"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "", "v2.0.0"): goSrc("c2"),
@@ -658,7 +579,7 @@ func TestLockFromImportsUsesPlainTagForRootProject(t *testing.T) {
 
 func TestLockFromImportsRejectsRepoWithoutFloor(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { core: 'github.com/x/y//lib' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-rejects-repo-without-floor"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "lib", "v1.0.0"): goSrc("c1"),
@@ -672,22 +593,14 @@ func TestLockFromImportsRejectsRepoWithoutFloor(t *testing.T) {
 
 func TestLockFromImportsDetectsCycle(t *testing.T) {
 	root := mapFS(map[string]string{
-		"factory.ub": "factory: { imports: { a: 'github.com/x/a//lib' } }\n",
+		"factory.ub": lockwalkFixture(t, "lock-from-imports-detects-cycle-1"),
 	})
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/a", "lib", "v1.0.0"): ubSrc("ca", "ha", map[string]string{
-			"library.ub": `
-a: resource {
-  imports: { b: 'github.com/x/b//lib' }
-}
-`,
+			"library.ub": lockwalkFixture(t, "lock-from-imports-detects-cycle-2"),
 		}),
 		srcKey("github.com/x/b", "lib", "v1.0.0"): ubSrc("cb", "hb", map[string]string{
-			"library.ub": `
-b: resource {
-  imports: { a: 'github.com/x/a//lib' }
-}
-`,
+			"library.ub": lockwalkFixture(t, "lock-from-imports-detects-cycle-3"),
 		}),
 	}}
 	sel := map[Dependency]string{

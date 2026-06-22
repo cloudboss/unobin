@@ -1,0 +1,4 @@
+
+thing: resource {
+  imports: { nested: 'example.com/nested//lib' }
+}

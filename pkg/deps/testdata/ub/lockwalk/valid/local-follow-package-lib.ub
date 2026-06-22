@@ -1,0 +1,4 @@
+
+greeting: resource {
+  outputs: { greeting: { value: 'hi' } }
+}

@@ -1,0 +1,4 @@
+
+hello: data {
+  outputs: { message: { value: 'hi' } }
+}

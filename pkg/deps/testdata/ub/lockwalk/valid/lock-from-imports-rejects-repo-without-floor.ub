@@ -1,0 +1,1 @@
+factory: { imports: { core: 'github.com/x/y//lib' } }

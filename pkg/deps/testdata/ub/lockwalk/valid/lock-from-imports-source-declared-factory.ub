@@ -1,0 +1,6 @@
+
+factory: {
+  imports: {
+    core: 'github.com/cloudboss/unobin//pkg/libraries/core'
+  }
+}

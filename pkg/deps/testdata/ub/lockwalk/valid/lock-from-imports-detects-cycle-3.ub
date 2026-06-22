@@ -1,0 +1,4 @@
+
+b: resource {
+  imports: { a: 'github.com/x/a//lib' }
+}

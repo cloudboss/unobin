@@ -1,0 +1,4 @@
+
+greeting: resource {
+  imports: { hello: 'github.com/scratch/repo//ub/helloer' }
+}

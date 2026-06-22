@@ -1,0 +1,3 @@
+factory: {
+  imports: { comprehensions: 'github.com/scratch/repo//ub/project-b/comprehensions' }
+}

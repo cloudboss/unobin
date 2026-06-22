@@ -1,0 +1,6 @@
+
+factory: {
+  locals: {
+    message: text.render('hello')
+  }
+}

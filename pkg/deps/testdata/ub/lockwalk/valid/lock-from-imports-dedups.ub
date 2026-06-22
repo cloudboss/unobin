@@ -1,0 +1,1 @@
+factory: { imports: { a: 'github.com/x/y//lib', b: 'github.com/x/y//lib' } }
