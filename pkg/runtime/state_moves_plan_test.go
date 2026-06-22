@@ -5,17 +5,24 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func stateMoveFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/state-moves-plan", name)
+}
 
 func TestPlanAppliesRootStateMoveBeforePlanning(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, stateMovePlanEntry("resource.old"))
 
-	plan := runPlan(t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store)
+	plan := runPlan(t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store)
 
 	require.Equal(t, []PlannedEntryMove{
 		{From: "core.thing@resource.old", To: "core.thing@resource.new"},
@@ -31,7 +38,7 @@ func TestPlanStateMoveAlreadyAppliedIsNoOp(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, stateMovePlanEntry("resource.new"))
 
-	plan := runPlan(t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store)
+	plan := runPlan(t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store)
 
 	assert.Empty(t, plan.StateMoves)
 	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.new").Decision)
@@ -39,7 +46,7 @@ func TestPlanStateMoveAlreadyAppliedIsNoOp(t *testing.T) {
 
 func TestPlanStateMoveAbsentSourceCreatesNormally(t *testing.T) {
 	store := newStateStore(t)
-	plan := runPlan(t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store)
+	plan := runPlan(t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store)
 
 	assert.Empty(t, plan.StateMoves)
 	assert.Equal(t, DecisionCreate, stepFor(plan, "resource.new").Decision)
@@ -53,7 +60,7 @@ func TestPlanStateMoveSourceAndDestinationConflict(t *testing.T) {
 		stateMovePlanEntry("resource.new"),
 	)
 	exec := planTestExecutor(
-		t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store, stack,
+		t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store, stack,
 	)
 
 	_, err := exec.Plan(context.Background())
@@ -67,15 +74,12 @@ func TestPlanCollapsesRootStateMoveChain(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, stateMovePlanEntry("resource.old"))
 
-	plan := runPlan(t, `
-state-moves: [
-  { from: 'core.thing@resource.old', to: 'core.thing@resource.middle' },
-  { from: 'core.thing@resource.middle', to: 'core.thing@resource.new' },
-]
-resources: {
-  new: core.thing { name: 'alpha', size: 1 }
-}
-`, resourceModules(&resourceCounters{}), store)
+	plan := runPlan(
+		t,
+		stateMoveFixture(t, "root-chain"),
+		resourceModules(&resourceCounters{}),
+		store,
+	)
 
 	require.Equal(t, []PlannedEntryMove{
 		{From: "core.thing@resource.old", To: "core.thing@resource.new"},
@@ -91,14 +95,7 @@ func TestPlanAppliesBoundaryAndCompositeStateMovesTogether(t *testing.T) {
 		stateMovePlanEntry("resource.old-app/resource.old"),
 	)
 
-	plan := runPlan(t, `
-state-moves: [
-  { from: 'w.box@resource.old-app', to: 'w.box@resource.app' },
-]
-resources: {
-  app: w.box {}
-}
-`, stateMoveCompositeLibs(t), store)
+	plan := runPlan(t, stateMoveFixture(t, "boundary-and-composite"), stateMoveCompositeLibs(t), store)
 
 	require.Equal(t, []PlannedEntryMove{
 		{From: "w.box@resource.old-app", To: "w.box@resource.app"},
@@ -118,11 +115,7 @@ func TestPlanAppliesCompositeBodyStateMove(t *testing.T) {
 		stateMovePlanEntry("resource.app/resource.old"),
 	)
 
-	plan := runPlan(t, `
-resources: {
-  app: w.box {}
-}
-`, stateMoveCompositeLibs(t), store)
+	plan := runPlan(t, stateMoveFixture(t, "composite-body"), stateMoveCompositeLibs(t), store)
 
 	require.Equal(t, []PlannedEntryMove{
 		{
@@ -143,12 +136,13 @@ func TestPlanAppliesCompositeBodyStateMoveUnderEveryKey(t *testing.T) {
 		stateMoveBoundaryEntry("w.box", "resource.apps['red']"),
 		stateMovePlanEntry("resource.apps['red']/resource.old"),
 	)
-	exec := planTestExecutor(t, `
-inputs: { configs: { type: map(boolean) } }
-resources: {
-  apps: w.box { @for-each: var.configs }
-}
-`, stateMoveCompositeLibs(t), store, stack)
+	exec := planTestExecutor(
+		t,
+		stateMoveFixture(t, "composite-body-every-key"),
+		stateMoveCompositeLibs(t),
+		store,
+		stack,
+	)
 	exec.Inputs = map[string]any{"configs": map[string]any{"blue": true, "red": true}}
 
 	plan, err := exec.Plan(context.Background())
@@ -175,12 +169,13 @@ func TestPlanAppliesNestedCompositeBodyStateMoveUnderKey(t *testing.T) {
 		stateMoveBoundaryEntry("inner.box", "resource.apps['blue']/resource.child"),
 		stateMovePlanEntry("resource.apps['blue']/resource.child/resource.old"),
 	)
-	exec := planTestExecutor(t, `
-inputs: { configs: { type: map(boolean) } }
-resources: {
-  apps: outer.web { @for-each: var.configs }
-}
-`, stateMoveNestedCompositeLibs(t), store, stack)
+	exec := planTestExecutor(
+		t,
+		stateMoveFixture(t, "nested-under-key"),
+		stateMoveNestedCompositeLibs(t),
+		store,
+		stack,
+	)
 	exec.Inputs = map[string]any{"configs": map[string]any{"blue": true}}
 
 	plan, err := exec.Plan(context.Background())
@@ -206,11 +201,7 @@ func TestPlanAppliesCompositeBodyPrefixStateMove(t *testing.T) {
 		stateMovePlanEntry("resource.app/resource.old-child/resource.new"),
 	)
 
-	plan := runPlan(t, `
-resources: {
-  app: w.outer {}
-}
-`, stateMoveCompositePrefixLibs(t), store)
+	plan := runPlan(t, stateMoveFixture(t, "composite-prefix"), stateMoveCompositePrefixLibs(t), store)
 
 	require.Equal(t, []PlannedEntryMove{
 		{
@@ -237,11 +228,7 @@ func TestPlanAppliesNestedCompositeBodyStateMove(t *testing.T) {
 		stateMovePlanEntry("resource.app/resource.child/resource.old"),
 	)
 
-	plan := runPlan(t, `
-resources: {
-  app: outer.web {}
-}
-`, stateMoveNestedCompositeLibs(t), store)
+	plan := runPlan(t, stateMoveFixture(t, "nested-composite"), stateMoveNestedCompositeLibs(t), store)
 
 	require.Equal(t, []PlannedEntryMove{
 		{
@@ -264,14 +251,12 @@ func TestPlanAppliesRootBoundaryMoveWithNestedCompositeStateMove(t *testing.T) {
 		stateMovePlanEntry("resource.old-app/resource.child/resource.old"),
 	)
 
-	plan := runPlan(t, `
-state-moves: [
-  { from: 'outer.web@resource.old-app', to: 'outer.web@resource.app' },
-]
-resources: {
-  app: outer.web {}
-}
-`, stateMoveNestedCompositeLibs(t), store)
+	plan := runPlan(
+		t,
+		stateMoveFixture(t, "root-boundary-nested"),
+		stateMoveNestedCompositeLibs(t),
+		store,
+	)
 
 	require.Equal(t, []PlannedEntryMove{
 		{From: "outer.web@resource.old-app", To: "outer.web@resource.app"},
@@ -298,18 +283,13 @@ func TestPlanAppliesKeyedRootBoundaryMoveWithNestedCompositeStateMove(t *testing
 		stateMoveBoundaryEntry("inner.box", "resource.apps['blue']/resource.child"),
 		stateMovePlanEntry("resource.apps['blue']/resource.child/resource.old"),
 	)
-	exec := planTestExecutor(t, `
-inputs: { configs: { type: map(boolean) } }
-state-moves: [
-  {
-    from: '''outer.web@resource.apps['blue']''',
-    to:   '''outer.web@resource.apps['green']''',
-  },
-]
-resources: {
-  apps: outer.web { @for-each: var.configs }
-}
-`, stateMoveNestedCompositeLibs(t), store, stack)
+	exec := planTestExecutor(
+		t,
+		stateMoveFixture(t, "keyed-root-boundary"),
+		stateMoveNestedCompositeLibs(t),
+		store,
+		stack,
+	)
 	exec.Inputs = map[string]any{"configs": map[string]any{"green": true}}
 
 	plan, err := exec.Plan(context.Background())
@@ -339,7 +319,7 @@ func TestApplyPlanExecutesRecordedStateMove(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, stateMovePlanEntry("resource.old"))
 	exec := planTestExecutor(
-		t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store, stack,
+		t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store, stack,
 	)
 
 	_, err := planAndApply(exec)
@@ -361,15 +341,13 @@ func TestApplyPersistsStateMoveBeforeLaterUpdateError(t *testing.T) {
 		stateMovePlanEntry("resource.old"),
 		stateMoveUpdateFailureEntry(),
 	)
-	exec := planTestExecutor(t, `
-state-moves: [
-  { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
-]
-resources: {
-  new: core.thing { name: 'alpha', size: 1 }
-  fail: bad.thing { name: 'beta', size: 2 }
-}
-`, stateMoveUpdateFailureLibs(), store, stack)
+	exec := planTestExecutor(
+		t,
+		stateMoveFixture(t, "persist-before-error"),
+		stateMoveUpdateFailureLibs(),
+		store,
+		stack,
+	)
 
 	_, err := planAndApply(exec)
 
@@ -385,7 +363,7 @@ func TestApplyPlanRejectsMissingRecordedStateMoveSource(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := planTestExecutor(
-		t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store, stack,
+		t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store, stack,
 	)
 	pf := stateMovePlanFile(exec, "")
 
@@ -405,7 +383,7 @@ func TestApplyPlanRejectsRecordedStateMoveDestinationConflict(t *testing.T) {
 	rev, err := store.CurrentRev()
 	require.NoError(t, err)
 	exec := planTestExecutor(
-		t, stateMoveRootSource(), resourceModules(&resourceCounters{}), store, stack,
+		t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store, stack,
 	)
 	pf := stateMovePlanFile(exec, rev)
 
@@ -422,14 +400,7 @@ func TestDestroyUsesStateMoveWhenPriorSelectorIsNotImported(t *testing.T) {
 		stateMovePlanEntryWithSelector("old", "thing", "resource.previous"),
 	)
 	libs := stateMoveNextOnlyLibs()
-	exec := planTestExecutor(t, `
-state-moves: [
-  { from: 'old.thing@resource.previous', to: 'next.thing@resource.current' },
-]
-resources: {
-  current: next.thing { name: 'alpha', size: 1 }
-}
-`, libs, store, stack)
+	exec := planTestExecutor(t, stateMoveFixture(t, "destroy-prior-selector"), libs, store, stack)
 	exec.Destroy = true
 
 	plan, err := exec.Plan(context.Background())
@@ -467,16 +438,7 @@ func stateMovePlanFile(exec *Executor, rev string) *PlanFile {
 
 func stateMoveCompositeLibs(t *testing.T) map[string]*Library {
 	t.Helper()
-	body := parseSyntaxCompositeFixture(t, `
-box: resource {
-  state-moves: [
-    { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
-  ]
-  resources: {
-    new: core.thing { name: 'alpha', size: 1 }
-  }
-}
-`).body
+	body := parseSyntaxCompositeFixture(t, stateMoveFixture(t, "composite-lib-box")).body
 	libs := resourceModules(&resourceCounters{})
 	libs["w"] = &Library{
 		Name: "w",
@@ -489,23 +451,8 @@ box: resource {
 
 func stateMoveCompositePrefixLibs(t *testing.T) map[string]*Library {
 	t.Helper()
-	innerBody := parseSyntaxCompositeFixture(t, `
-box: resource {
-  resources: {
-    new: core.thing { name: 'alpha', size: 1 }
-  }
-}
-`).body
-	outerBody := parseSyntaxCompositeFixture(t, `
-outer: resource {
-  state-moves: [
-    { from: 'inner.box@resource.old-child', to: 'inner.box@resource.child' },
-  ]
-  resources: {
-    child: inner.box {}
-  }
-}
-`).body
+	innerBody := parseSyntaxCompositeFixture(t, stateMoveFixture(t, "prefix-inner-box")).body
+	outerBody := parseSyntaxCompositeFixture(t, stateMoveFixture(t, "prefix-outer")).body
 	core := resourceModules(&resourceCounters{})["core"]
 	inner := &Library{
 		Name: "inner",
@@ -536,23 +483,8 @@ outer: resource {
 
 func stateMoveNestedCompositeLibs(t *testing.T) map[string]*Library {
 	t.Helper()
-	innerBody := parseSyntaxCompositeFixture(t, `
-box: resource {
-  state-moves: [
-    { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
-  ]
-  resources: {
-    new: core.thing { name: 'alpha', size: 1 }
-  }
-}
-`).body
-	outerBody := parseSyntaxCompositeFixture(t, `
-web: resource {
-  resources: {
-    child: inner.box {}
-  }
-}
-`).body
+	innerBody := parseSyntaxCompositeFixture(t, stateMoveFixture(t, "nested-inner-box")).body
+	outerBody := parseSyntaxCompositeFixture(t, stateMoveFixture(t, "nested-outer-web")).body
 	core := resourceModules(&resourceCounters{})["core"]
 	inner := &Library{
 		Name: "inner",
@@ -646,15 +578,9 @@ func stateMoveUpdateFailureEntry() *state.Entry {
 	}
 }
 
-func stateMoveRootSource() string {
-	return `
-state-moves: [
-  { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
-]
-resources: {
-  new: core.thing { name: 'alpha', size: 1 }
-}
-`
+func stateMoveRootSource(t testing.TB) string {
+	t.Helper()
+	return stateMoveFixture(t, "root")
 }
 
 func stateMovePlanEntry(address string) *state.Entry {

@@ -1,0 +1,6 @@
+state-moves: [
+  { from: 'old.thing@resource.previous', to: 'next.thing@resource.current' },
+]
+resources: {
+  current: next.thing { name: 'alpha', size: 1 }
+}

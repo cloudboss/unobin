@@ -1,0 +1,5 @@
+box: resource {
+  resources: {
+    new: core.thing { name: 'alpha', size: 1 }
+  }
+}

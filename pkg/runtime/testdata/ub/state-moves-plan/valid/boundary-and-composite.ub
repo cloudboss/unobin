@@ -1,0 +1,6 @@
+state-moves: [
+  { from: 'w.box@resource.old-app', to: 'w.box@resource.app' },
+]
+resources: {
+  app: w.box {}
+}

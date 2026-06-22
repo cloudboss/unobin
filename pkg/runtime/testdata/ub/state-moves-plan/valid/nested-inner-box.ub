@@ -1,0 +1,8 @@
+box: resource {
+  state-moves: [
+    { from: 'core.thing@resource.old', to: 'core.thing@resource.new' },
+  ]
+  resources: {
+    new: core.thing { name: 'alpha', size: 1 }
+  }
+}

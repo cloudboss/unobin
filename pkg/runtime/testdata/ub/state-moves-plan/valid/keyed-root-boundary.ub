@@ -1,0 +1,10 @@
+inputs: { configs: { type: map(boolean) } }
+state-moves: [
+  {
+    from: '''outer.web@resource.apps['blue']''',
+    to:   '''outer.web@resource.apps['green']''',
+  },
+]
+resources: {
+  apps: outer.web { @for-each: var.configs }
+}
