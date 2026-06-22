@@ -5,8 +5,14 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
+
+func checkConstraintFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/constraints", name)
+}
 
 // constrainedLibs returns a single Go library whose `thing` resource
 // requires exactly one of name or size, the same constraint the plan-time
@@ -30,7 +36,7 @@ func checkSyntaxLiteralConstraints(
 	libs map[string]*runtime.Library,
 ) *lang.ErrorList {
 	t.Helper()
-	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	fixture := parseSyntaxFactoryFixture(t, checkFactorySource(src))
 	return NewSyntax(fixture.body, libs).LiteralConstraints()
 }
 
@@ -42,7 +48,7 @@ func TestCheckLiteralConstraints(t *testing.T) {
 	}{
 		{
 			name: "literal violation is reported",
-			src:  `resources: { x: core.thing { name: 'x', size: 1 } }`,
+			src:  checkConstraintFixture(t, "literal-violation"),
 			want: []string{
 				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
@@ -50,12 +56,12 @@ func TestCheckLiteralConstraints(t *testing.T) {
 		},
 		{
 			name: "satisfied literal passes",
-			src:  `resources: { x: core.thing { name: 'x' } }`,
+			src:  checkConstraintFixture(t, "satisfied-literal"),
 			want: nil,
 		},
 		{
 			name: "neither field set is reported",
-			src:  `resources: { x: core.thing { other: 'z' } }`,
+			src:  checkConstraintFixture(t, "neither-field"),
 			want: []string{
 				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 0 ()",
@@ -63,14 +69,12 @@ func TestCheckLiteralConstraints(t *testing.T) {
 		},
 		{
 			name: "input reference in a constrained field defers to plan",
-			src: `inputs:    { who: { type: string } }
-resources: { x: core.thing { name: var.who, size: 1 } }`,
+			src:  checkConstraintFixture(t, "input-reference"),
 			want: nil,
 		},
 		{
 			name: "literal violation is reported despite an unrelated input reference",
-			src: `inputs:    { who: { type: string } }
-resources: { x: core.thing { name: 'x', size: 1, region: var.who } }`,
+			src:  checkConstraintFixture(t, "unrelated-input-reference"),
 			want: []string{
 				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
@@ -78,28 +82,22 @@ resources: { x: core.thing { name: 'x', size: 1, region: var.who } }`,
 		},
 		{
 			name: "output reference defers to plan",
-			src: `resources: {
-  a: core.thing { name: 'a' }
-  b: core.thing { name: resource.a.id, size: 1 }
-}`,
+			src:  checkConstraintFixture(t, "output-reference"),
 			want: nil,
 		},
 		{
 			name: "type without constraints passes",
-			src:  `resources: { x: core.plain { name: 'x', size: 1 } }`,
+			src:  checkConstraintFixture(t, "type-without-constraints"),
 			want: nil,
 		},
 		{
 			name: "unimported alias is skipped",
-			src:  `resources: { x: other.thing { name: 'x', size: 1 } }`,
+			src:  checkConstraintFixture(t, "unimported-alias"),
 			want: nil,
 		},
 		{
 			name: "two violations are both reported",
-			src: `resources: {
-  x: core.thing { name: 'x', size: 1 }
-  y: core.thing { name: 'y', size: 2 }
-}`,
+			src:  checkConstraintFixture(t, "two-violations"),
 			want: []string{
 				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
@@ -109,8 +107,7 @@ resources: { x: core.thing { name: 'x', size: 1, region: var.who } }`,
 		},
 		{
 			name: "one literal violation alongside a deferred node",
-			src: `inputs:    { who: { type: string } }
-resources: { x: core.thing { name: 'x', size: 1 }, y: core.thing { name: var.who, size: 2 } }`,
+			src:  checkConstraintFixture(t, "violation-with-deferred-node"),
 			want: []string{
 				"resource.x: constraints[0] (exactly-one-of " +
 					"[name, size]): expected exactly one to be set, got 2 (name, size)",
@@ -142,11 +139,11 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 			},
 		}},
 	}
-	errs := checkSyntaxLiteralConstraints(t, `resources: { x: core.thing { items: [] } }`, libs)
+	errs := checkSyntaxLiteralConstraints(t, checkConstraintFixture(t, "length-predicate-empty"), libs)
 	require.Equal(t, 1, errs.Len(), "got: %v", errs.Err())
 	require.Contains(t, errs.Errors()[0].Error(), "items must list at least one entry")
 
-	ok := checkSyntaxLiteralConstraints(t, `resources: { x: core.thing { items: ['a'] } }`, libs)
+	ok := checkSyntaxLiteralConstraints(t, checkConstraintFixture(t, "length-predicate-ok"), libs)
 	require.Equal(t, 0, ok.Len(), "got: %v", ok.Err())
 }
 
@@ -155,14 +152,8 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 // reported under the call site's address, and a conforming body
 // passes.
 func TestCheckLiteralConstraintsInsideComposite(t *testing.T) {
-	compositeLibs := func(node string) map[string]*runtime.Library {
-		fixture := parseSyntaxCompositeFixture(t, `
-file-pair: resource {
-  inputs:    { path: { type: string } }
-  resources: { inner: core.thing `+node+` }
-  outputs:   { id: { value: resource.inner.id } }
-}
-`)
+	compositeLibs := func(fixtureName string) map[string]*runtime.Library {
+		fixture := parseSyntaxCompositeFixture(t, checkConstraintFixture(t, fixtureName))
 		body := fixture.body
 		return map[string]*runtime.Library{
 			"bundle": {ResourceComposites: map[string]*runtime.CompositeType{
@@ -174,16 +165,16 @@ file-pair: resource {
 			}},
 		}
 	}
-	root := `resources: { demo: bundle.file-pair { path: 'x.txt' } }`
+	root := checkConstraintFixture(t, "composite-root")
 
-	errs := checkSyntaxLiteralConstraints(t, root, compositeLibs(`{ name: 'x', size: 1 }`))
+	errs := checkSyntaxLiteralConstraints(t, root, compositeLibs("composite-body-violation"))
 	require.Equal(t, []string{
 		"resource.demo/resource.inner: " +
 			"constraints[0] (exactly-one-of [name, size]): " +
 			"expected exactly one to be set, got 2 (name, size)",
 	}, errs.Messages())
 
-	ok := checkSyntaxLiteralConstraints(t, root, compositeLibs(`{ name: 'x' }`))
+	ok := checkSyntaxLiteralConstraints(t, root, compositeLibs("composite-body-ok"))
 	require.Empty(t, ok.Messages())
 }
 
@@ -191,11 +182,7 @@ file-pair: resource {
 // requires byte-identical messages, so map iteration order cannot leak
 // into the reported diagnostics.
 func TestCheckLiteralConstraintsDeterministic(t *testing.T) {
-	src := `resources: {
-  x: core.thing { name: 'x', size: 1 }
-  y: core.thing { name: 'y', size: 2 }
-  z: core.thing { other: 'z' }
-}`
+	src := checkConstraintFixture(t, "deterministic-violations")
 	libs := constrainedLibs()
 	first := checkSyntaxLiteralConstraints(t, src, libs).Messages()
 	require.Len(t, first, 3)
@@ -284,7 +271,7 @@ func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []
 			Resources: map[string]*runtime.TypeSchema{"thing": {Constraints: specs}},
 		}},
 	}
-	src := "resources: {\n  x: core.thing " + body + "\n}\n"
+	src := "resources" + ": {\n  x: core.thing " + body + "\n}\n"
 	return checkSyntaxLiteralConstraints(t, src, libs).Messages()
 }
 

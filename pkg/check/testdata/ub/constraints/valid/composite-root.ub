@@ -1,0 +1,1 @@
+resources: { demo: bundle.file-pair { path: 'x.txt' } }

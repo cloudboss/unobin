@@ -1,0 +1,2 @@
+inputs:    { who: { type: string } }
+resources: { x: core.thing { name: 'x', size: 1, region: var.who } }

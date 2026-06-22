@@ -1,0 +1,1 @@
+resources: { x: other.thing { name: 'x', size: 1 } }

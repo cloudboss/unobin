@@ -1,0 +1,1 @@
+resources: { x: core.plain { name: 'x', size: 1 } }

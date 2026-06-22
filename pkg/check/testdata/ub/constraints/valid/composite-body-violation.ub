@@ -1,0 +1,5 @@
+file-pair: resource {
+  inputs:    { path: { type: string } }
+  resources: { inner: core.thing { name: 'x', size: 1 } }
+  outputs:   { id: { value: resource.inner.id } }
+}
