@@ -131,24 +131,6 @@ func TestParseEnvValueJSON(t *testing.T) {
 	}
 }
 
-func TestPrintPlanShowsStateMoves(t *testing.T) {
-	plan := &runtime.Plan{
-		StateMoves: []runtime.PlannedEntryMove{
-			{From: "core.thing@resource.old", To: "core.thing@resource.new"},
-			{From: "core.thing@resource.a", To: "core.thing@resource.c"},
-		},
-	}
-	buf := &bytes.Buffer{}
-	printPlan(buf, plan, false)
-
-	require.Equal(t, `State moves:
-  core.thing@resource.old -> core.thing@resource.new
-  core.thing@resource.a -> core.thing@resource.c
-
-No resource changes.
-`, buf.String())
-}
-
 func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{

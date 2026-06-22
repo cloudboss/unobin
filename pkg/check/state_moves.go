@@ -115,8 +115,8 @@ func stateMoveDestinationExists(dag *runtime.DAG, ref stateref.EntryRef) bool {
 	if n == nil {
 		return false
 	}
-	nodeRef, ok := runtime.EntryRefFromNode(n)
-	return ok && nodeRef.Selector == ref.Selector
+	_, ok := runtime.EntryRefFromNode(n)
+	return ok
 }
 
 func stateMoveTemplateAddress(addr string) string {

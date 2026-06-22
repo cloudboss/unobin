@@ -1,0 +1,1 @@
+Error: factory.ub:18:33: schema: state-moves[0].to: expected state ref, got e2e.file@resource.new

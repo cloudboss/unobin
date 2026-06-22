@@ -13,7 +13,7 @@
     },
     {
       "name": "state-move-composite",
-      "args": ["state", "move", "greeter.greeting@resource.welcome", "greeter.greeting@resource.hello", "-c", "stacks/dev.ub"],
+      "args": ["state", "move", "resource.welcome", "resource.hello", "-c", "stacks/dev.ub"],
       "stdout": "want/state-move-composite.stdout",
       "stderr": "want/state-move-composite.stderr"
     },
@@ -25,7 +25,7 @@
     },
     {
       "name": "state-show-internal",
-      "args": ["state", "show", "e2e.file@resource.hello/resource.this", "-c", "stacks/dev.ub"],
+      "args": ["state", "show", "resource.hello/resource.this", "-c", "stacks/dev.ub"],
       "stdout": "want/state-show-internal.stdout",
       "stderr": "want/state-show-internal.stderr"
     }

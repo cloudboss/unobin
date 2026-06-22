@@ -1,5 +1,6 @@
 address: action.old
-selector: e2e.echo
+import-alias: e2e
+kind: echo
 entry-kind: action
 node-kind: action
 schema-version: 0

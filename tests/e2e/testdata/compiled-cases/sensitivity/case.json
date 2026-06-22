@@ -24,13 +24,13 @@
     },
     {
       "name": "state-show-record",
-      "args": ["state", "show", "-c", "stacks/dev.ub", "e2e.record@action.record"],
+      "args": ["state", "show", "-c", "stacks/dev.ub", "action.record"],
       "stdout": "want/state-show-record.stdout",
       "stderr": "want/state-show-record.stderr"
     },
     {
       "name": "state-show-secret",
-      "args": ["state", "show", "-c", "stacks/dev.ub", "e2e.secret@action.go-secret"],
+      "args": ["state", "show", "-c", "stacks/dev.ub", "action.go-secret"],
       "stdout": "want/state-show-secret.stdout",
       "stderr": "want/state-show-secret.stderr"
     }

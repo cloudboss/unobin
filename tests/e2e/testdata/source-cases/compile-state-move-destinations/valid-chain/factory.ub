@@ -15,8 +15,8 @@ factory: {
   library-configs: { e2e: var.e2e-config }
 
   state-moves: [
-    { from: 'e2e.file@resource.old', to: 'e2e.file@resource.middle' },
-    { from: 'e2e.file@resource.middle', to: 'e2e.file@resource.new' },
+    { from: 'resource.old', to: 'resource.middle' },
+    { from: 'resource.middle', to: 'resource.new' },
   ]
 
   resources: {

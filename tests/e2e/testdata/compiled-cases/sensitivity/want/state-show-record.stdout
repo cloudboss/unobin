@@ -1,5 +1,6 @@
 address: action.record
-selector: e2e.record
+import-alias: e2e
+kind: record
 entry-kind: action
 node-kind: action
 schema-version: 0

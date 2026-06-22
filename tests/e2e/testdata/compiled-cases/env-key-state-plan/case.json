@@ -41,7 +41,7 @@
     },
     {
       "name": "state-show",
-      "args": ["state", "show", "e2e.echo@action.hi", "-c", "stacks/dev.ub"],
+      "args": ["state", "show", "action.hi", "-c", "stacks/dev.ub"],
       "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
       "stdout": "want/state-show.stdout",
       "stderr": "want/state-show.stderr"

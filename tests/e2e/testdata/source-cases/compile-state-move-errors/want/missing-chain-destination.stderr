@@ -1,4 +1,4 @@
 Error: 2 errors:
-  factory.ub:18:13: resolve: state-moves[0] e2e.file@resource.old -> e2e.file@resource.final: destination is not in this factory
-  factory.ub:19:13: resolve: state-moves[1] e2e.file@resource.middle -> e2e.file@resource.final: destination is not in this factory
+  factory.ub:18:13: resolve: state-moves[0] resource.old -> resource.final: destination is not in this factory
+  factory.ub:19:13: resolve: state-moves[1] resource.middle -> resource.final: destination is not in this factory
 

@@ -12,29 +12,23 @@ func ParseEntryRef(s string) (EntryRef, error) {
 }
 
 func EntryRefFromEntry(e *state.Entry) (EntryRef, bool) {
-	if e == nil || e.Selector == nil || e.Selector.Alias == "" || e.Selector.Export == "" {
+	if e == nil {
 		return EntryRef{}, false
 	}
 	if err := stateref.ValidateAddress(e.Address); err != nil {
 		return EntryRef{}, false
 	}
-	return EntryRef{
-		Selector: state.Selector{Alias: e.Selector.Alias, Export: e.Selector.Export},
-		Address:  e.Address,
-	}, true
+	return EntryRef{Address: e.Address}, true
 }
 
 func EntryRefFromNode(n *Node) (EntryRef, bool) {
-	if n == nil || n.Alias == "" || n.Type == "" {
+	if n == nil {
 		return EntryRef{}, false
 	}
 	if err := stateref.ValidateAddress(n.Address); err != nil {
 		return EntryRef{}, false
 	}
-	return EntryRef{
-		Selector: state.Selector{Alias: n.Alias, Export: n.Type},
-		Address:  n.Address,
-	}, true
+	return EntryRef{Address: n.Address}, true
 }
 
 func SameEntryRef(a, b EntryRef) bool {

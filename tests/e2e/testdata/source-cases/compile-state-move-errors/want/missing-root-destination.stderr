@@ -1,1 +1,1 @@
-Error: factory.ub:18:13: resolve: state-moves[0] e2e.file@resource.old -> e2e.file@resource.missing: destination is not in this factory
+Error: factory.ub:18:13: resolve: state-moves[0] resource.old -> resource.missing: destination is not in this factory

@@ -167,7 +167,7 @@ func (e *Executor) compositeEntryMovePrefixes(
 	}
 	for _, spec := range moves {
 		toTemplate := templateAddress(spec.To.Address)
-		if toTemplate == n.Address && spec.To.Selector == *selector {
+		if toTemplate == n.Address {
 			add(compositeEntryMovePrefix{from: spec.From.Address, to: spec.To.Address})
 			continue
 		}
@@ -214,7 +214,7 @@ func priorCompositeEntryHasSelector(
 }
 
 func prefixedEntryRef(prefix string, ref EntryRef) EntryRef {
-	return EntryRef{Selector: ref.Selector, Address: joinAddress(prefix, ref.Address)}
+	return EntryRef{Address: joinAddress(prefix, ref.Address)}
 }
 
 func (e *Executor) applyPlannedEntryMoves(rs *runState, moves []PlannedEntryMove) error {

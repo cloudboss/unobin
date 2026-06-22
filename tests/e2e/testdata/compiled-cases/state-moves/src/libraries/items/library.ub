@@ -1,6 +1,6 @@
 item: resource {
   state-moves: [
-    { from: 'e2e.file@resource.old-file', to: 'e2e.file@resource.file' },
+    { from: 'resource.old-file', to: 'resource.file' },
   ]
 
   inputs: {

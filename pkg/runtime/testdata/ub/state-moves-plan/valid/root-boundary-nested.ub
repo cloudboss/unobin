@@ -1,5 +1,5 @@
 state-moves: [
-  { from: 'outer.web@resource.old-app', to: 'outer.web@resource.app' },
+  { from: 'resource.old-app', to: 'resource.app' },
 ]
 resources: {
   app: outer.web {}

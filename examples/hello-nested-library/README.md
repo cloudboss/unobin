@@ -27,14 +27,14 @@ cd /tmp/hello-nested-library-build
 ./hello-nested-library apply /tmp/hello-nested-library-plan.json
 ./hello-nested-library output
 ./hello-nested-library state list
-./hello-nested-library state show greeter.greeting@resource.welcome
+./hello-nested-library state show resource.welcome
 ```
 
 `state list` lists three entries:
 
-* `greeter.greeting@resource.welcome` (the outer library-call record)
-* `helloer.hello@resource.welcome/resource.file` (the inner library-call record)
-* `std.fs-file@resource.welcome/resource.file/resource.this` (the deepest leaf)
+* `resource.welcome` (the outer library-call record)
+* `resource.welcome/resource.file` (the inner library-call record)
+* `resource.welcome/resource.file/resource.this` (the deepest leaf)
 
 `--allow-version-mismatch` is needed for the dev workflow because
 `dev.ub` does not declare `factory.supported-versions`. In real

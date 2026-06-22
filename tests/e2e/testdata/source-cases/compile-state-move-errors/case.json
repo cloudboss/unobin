@@ -12,10 +12,10 @@
       "exitCode": 1
     },
     {
-      "name": "wrong-selector-destination",
-      "dir": "wrong-selector-destination",
+      "name": "legacy-qualified-destination",
+      "dir": "legacy-qualified-destination",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
-      "stderr": "want/wrong-selector-destination.stderr",
+      "stderr": "want/legacy-qualified-destination.stderr",
       "exitCode": 1
     },
     {

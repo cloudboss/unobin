@@ -1,5 +1,5 @@
 factory: {
   state-moves: [
-    { from: 'core.thing@resource.old', to: 'core.thing@resource.new', reason: 'rename' }
+    { from: 'resource.old', to: 'resource.new', reason: 'rename' }
   ]
 }

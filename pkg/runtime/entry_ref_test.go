@@ -10,46 +10,39 @@ import (
 
 func TestParseEntryRefValid(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		selector state.Selector
-		address  string
+		name    string
+		input   string
+		address string
 	}{
 		{
-			name:     "resource",
-			input:    "aws.instance@resource.web",
-			selector: state.Selector{Alias: "aws", Export: "instance"},
-			address:  "resource.web",
+			name:    "resource",
+			input:   "resource.web",
+			address: "resource.web",
 		},
 		{
-			name:     "action",
-			input:    "core.echo@action.hi",
-			selector: state.Selector{Alias: "core", Export: "echo"},
-			address:  "action.hi",
+			name:    "action",
+			input:   "action.hi",
+			address: "action.hi",
 		},
 		{
-			name:     "data",
-			input:    "aws.ami@data.image",
-			selector: state.Selector{Alias: "aws", Export: "ami"},
-			address:  "data.image",
+			name:    "data",
+			input:   "data.image",
+			address: "data.image",
 		},
 		{
-			name:     "composite child",
-			input:    "aws.security-group@resource.app/resource.sg",
-			selector: state.Selector{Alias: "aws", Export: "security-group"},
-			address:  "resource.app/resource.sg",
+			name:    "composite child",
+			input:   "resource.app/resource.sg",
+			address: "resource.app/resource.sg",
 		},
 		{
-			name:     "instance key",
-			input:    "aws.subnet@resource.subnets['old']",
-			selector: state.Selector{Alias: "aws", Export: "subnet"},
-			address:  "resource.subnets['old']",
+			name:    "instance key",
+			input:   "resource.subnets['old']",
+			address: "resource.subnets['old']",
 		},
 		{
-			name:     "instance key with at sign",
-			input:    "core.echo@action.run['has@sign']",
-			selector: state.Selector{Alias: "core", Export: "echo"},
-			address:  "action.run['has@sign']",
+			name:    "instance key with slash and at sign",
+			input:   "action.run['has/@sign']",
+			address: "action.run['has/@sign']",
 		},
 	}
 
@@ -57,7 +50,6 @@ func TestParseEntryRefValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseEntryRef(tt.input)
 			require.NoError(t, err)
-			assert.Equal(t, tt.selector, got.Selector)
 			assert.Equal(t, tt.address, got.Address)
 			assert.Equal(t, tt.input, got.String())
 		})
@@ -70,38 +62,37 @@ func TestParseEntryRefInvalid(t *testing.T) {
 		in   string
 		want string
 	}{
-		{name: "missing at sign", in: "resource.web", want: "expected <selector>@<address>"},
-		{name: "empty selector", in: "@resource.web", want: "missing selector"},
-		{name: "empty address", in: "aws.instance@", want: "missing address"},
-		{name: "one selector segment", in: "aws@resource.web", want: "selector must have two segments"},
-		{
-			name: "three selector segments",
-			in:   "aws.instance.extra@resource.web",
-			want: "selector must have two segments",
-		},
-		{
-			name: "empty selector segment",
-			in:   "aws.@resource.web",
-			want: "selector must have two segments",
-		},
-		{
-			name: "invalid address root",
-			in:   "aws.instance@var.web",
-			want: "address root must be resource, data, or action",
-		},
+		{name: "legacy qualified ref", in: "aws.instance@resource.web", want: "expected state ref"},
+		{name: "empty address", in: "", want: "expected state ref"},
+		{name: "invalid root", in: "input.web", want: "address root must be resource, data, or action"},
 		{
 			name: "address missing name",
-			in:   "aws.instance@resource",
-			want: "address must start with resource., data., or action",
+			in:   "resource",
+			want: "address segment must be <category>.<name>",
+		},
+		{
+			name: "field access",
+			in:   "resource.web.id",
+			want: "state refs do not include field access",
 		},
 		{
 			name: "malformed instance key",
-			in:   "aws.instance@resource.web['old'",
+			in:   "resource.web['old'",
 			want: "malformed instance key",
 		},
 		{
 			name: "unquoted instance key",
-			in:   "aws.instance@resource.web[old]",
+			in:   "resource.web[old]",
+			want: "malformed instance key",
+		},
+		{
+			name: "computed instance key",
+			in:   "resource.web[input.name]",
+			want: "malformed instance key",
+		},
+		{
+			name: "splat instance key",
+			in:   "resource.web[*]",
 			want: "malformed instance key",
 		},
 	}
@@ -122,7 +113,7 @@ func TestEntryRefFromEntryAndNode(t *testing.T) {
 	}
 	fromEntry, ok := EntryRefFromEntry(ent)
 	require.True(t, ok)
-	assert.Equal(t, "aws.instance@resource.web", fromEntry.String())
+	assert.Equal(t, "resource.web", fromEntry.String())
 
 	node := &Node{Address: "resource.web", Alias: "aws", Type: "instance"}
 	fromNode, ok := EntryRefFromNode(node)
@@ -130,8 +121,8 @@ func TestEntryRefFromEntryAndNode(t *testing.T) {
 	assert.Equal(t, fromEntry, fromNode)
 	assert.True(t, SameEntryRef(fromEntry, fromNode))
 
-	_, ok = EntryRefFromEntry(&state.Entry{Address: "resource.web"})
+	_, ok = EntryRefFromEntry(&state.Entry{Address: "input.web"})
 	assert.False(t, ok)
-	_, ok = EntryRefFromNode(&Node{Address: "resource.web"})
+	_, ok = EntryRefFromNode(&Node{Address: "input.web"})
 	assert.False(t, ok)
 }

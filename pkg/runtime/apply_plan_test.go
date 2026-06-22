@@ -1297,7 +1297,7 @@ func TestEncodeDecodePlan(t *testing.T) {
 		Stack:    "prod",
 		StateRev: "2026-05-01T00:00:00.000000000Z",
 		StateMoves: []PlannedEntryMove{
-			{From: "core.thing@resource.old", To: "core.thing@resource.x"},
+			{From: "resource.old", To: "resource.x"},
 		},
 		Steps: []*PlanStep{
 			{

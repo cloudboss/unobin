@@ -32,12 +32,24 @@ func moveSnapshot(entries ...*state.Entry) *state.Snapshot {
 
 func moveEntry(t *testing.T, ref string, typ state.EntryType, kind string) *state.Entry {
 	t.Helper()
+	return moveEntryWithBinding(t, ref, typ, kind, "core", "thing")
+}
+
+func moveEntryWithBinding(
+	t *testing.T,
+	ref string,
+	typ state.EntryType,
+	kind string,
+	alias string,
+	export string,
+) *state.Entry {
+	t.Helper()
 	r := mustEntryRef(t, ref)
 	return &state.Entry{
 		Address:       r.Address,
 		Type:          typ,
 		Kind:          kind,
-		Selector:      &state.Selector{Alias: r.Selector.Alias, Export: r.Selector.Export},
+		Selector:      &state.Selector{Alias: alias, Export: export},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": r.Address},
 		Outputs:       map[string]any{"id": r.String()},
@@ -53,6 +65,10 @@ func moveDAG(nodes ...*Node) *DAG {
 }
 
 func moveNode(ref string, kind NodeKind) *Node {
+	return moveNodeWithBinding(ref, kind, "core", "thing")
+}
+
+func moveNodeWithBinding(ref string, kind NodeKind, alias string, export string) *Node {
 	r, err := ParseEntryRef(ref)
 	if err != nil {
 		panic(err)
@@ -60,13 +76,13 @@ func moveNode(ref string, kind NodeKind) *Node {
 	return &Node{
 		Address: r.Address,
 		Kind:    kind,
-		Alias:   r.Selector.Alias,
-		Type:    r.Selector.Export,
+		Alias:   alias,
+		Type:    export,
 	}
 }
 
-func moveCompositeNode(ref string, kind NodeKind) *Node {
-	n := moveNode(ref, kind)
+func moveCompositeNodeWithBinding(ref string, kind NodeKind, alias string, export string) *Node {
+	n := moveNodeWithBinding(ref, kind, alias, export)
 	n.CompositeSyntaxBody = &syntax.FactoryBody{}
 	return n
 }
@@ -103,20 +119,22 @@ func entryRefStrings(t *testing.T, snap *state.Snapshot) []string {
 }
 
 func TestApplyEntryMovesUpdatesDependsOn(t *testing.T) {
-	parent := moveEntry(t, "core.box@resource.old", state.EntryLibraryCall, "resource")
+	parent := moveEntryWithBinding(
+		t, "resource.old", state.EntryLibraryCall, "resource", "core", "box",
+	)
 	parent.DependsOn = []string{"resource.old/resource.child"}
-	child := moveEntry(t, "core.thing@resource.old/resource.child", state.EntryLeaf, "resource")
+	child := moveEntry(t, "resource.old/resource.child", state.EntryLeaf, "resource")
 	snap := moveSnapshot(parent, child)
 	dag := moveDAG(
-		moveCompositeNode("core.box@resource.new", NodeResource),
-		moveNode("core.thing@resource.new/resource.child", NodeResource),
+		moveCompositeNodeWithBinding("resource.new", NodeResource, "core", "box"),
+		moveNode("resource.new/resource.child", NodeResource),
 	)
 
 	out, moved, err := ApplyEntryMoves(
 		snap,
 		dag,
 		stateMovesLibs(),
-		[]EntryMoveSpec{moveSpec(t, "core.box@resource.old", "core.box@resource.new")},
+		[]EntryMoveSpec{moveSpec(t, "resource.old", "resource.new")},
 		EntryMoveIdempotent,
 	)
 
@@ -126,46 +144,20 @@ func TestApplyEntryMovesUpdatesDependsOn(t *testing.T) {
 }
 
 func TestApplyEntryMovesStrictResourceMoves(t *testing.T) {
-	tests := []struct {
-		name string
-		from string
-		to   string
-	}{
-		{
-			name: "address changes",
-			from: "core.thing@resource.old",
-			to:   "core.thing@resource.new",
-		},
-		{
-			name: "selector changes",
-			from: "core.other@resource.same",
-			to:   "core.thing@resource.same",
-		},
-		{
-			name: "selector and address change",
-			from: "core.other@resource.before",
-			to:   "core.thing@resource.after",
-		},
-	}
+	for range 2 {
+		snap := moveSnapshot(moveEntry(t, "resource.old", state.EntryLeaf, "resource"))
+		dag := moveDAG(moveNode("resource.new", NodeResource))
+		got, results, err := ApplyEntryMoves(
+			snap, dag, stateMovesLibs(), []EntryMoveSpec{moveSpec(t, "resource.old", "resource.new")},
+			EntryMoveStrict,
+		)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for range 2 {
-				snap := moveSnapshot(moveEntry(t, tt.from, state.EntryLeaf, "resource"))
-				dag := moveDAG(moveNode(tt.to, NodeResource))
-				got, results, err := ApplyEntryMoves(
-					snap, dag, stateMovesLibs(), []EntryMoveSpec{moveSpec(t, tt.from, tt.to)},
-					EntryMoveStrict,
-				)
-
-				require.NoError(t, err)
-				assert.Equal(t, []string{tt.to}, entryRefStrings(t, got))
-				require.Len(t, results, 1)
-				assert.Equal(t, tt.from, results[0].From.String())
-				assert.Equal(t, tt.to, results[0].To.String())
-				assert.Equal(t, []string{tt.from}, entryRefStrings(t, snap))
-			}
-		})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"resource.new"}, entryRefStrings(t, got))
+		require.Len(t, results, 1)
+		assert.Equal(t, "resource.old", results[0].From.String())
+		assert.Equal(t, "resource.new", results[0].To.String())
+		assert.Equal(t, []string{"resource.old"}, entryRefStrings(t, snap))
 	}
 }
 
@@ -180,60 +172,71 @@ func TestApplyEntryMovesStrictErrors(t *testing.T) {
 		{
 			name: "absent source",
 			snap: moveSnapshot(),
-			dag:  moveDAG(moveNode("core.thing@resource.new", NodeResource)),
+			dag:  moveDAG(moveNode("resource.new", NodeResource)),
 			specs: []EntryMoveSpec{
-				moveSpec(t, "core.thing@resource.old", "core.thing@resource.new"),
+				moveSpec(t, "resource.old", "resource.new"),
 			},
-			wantErr: "no entry at core.thing@resource.old",
+			wantErr: "no entry at resource.old",
 		},
 		{
 			name: "destination exists",
 			snap: moveSnapshot(
-				moveEntry(t, "core.thing@resource.old", state.EntryLeaf, "resource"),
-				moveEntry(t, "core.thing@resource.new", state.EntryLeaf, "resource"),
+				moveEntry(t, "resource.old", state.EntryLeaf, "resource"),
+				moveEntry(t, "resource.new", state.EntryLeaf, "resource"),
 			),
-			dag: moveDAG(moveNode("core.thing@resource.new", NodeResource)),
+			dag: moveDAG(moveNode("resource.new", NodeResource)),
 			specs: []EntryMoveSpec{
-				moveSpec(t, "core.thing@resource.old", "core.thing@resource.new"),
+				moveSpec(t, "resource.old", "resource.new"),
 			},
-			wantErr: "destination already exists at core.thing@resource.new",
+			wantErr: "destination already exists at resource.new",
 		},
 		{
 			name: "same ref",
-			snap: moveSnapshot(moveEntry(t, "core.thing@resource.old", state.EntryLeaf, "resource")),
-			dag:  moveDAG(moveNode("core.thing@resource.old", NodeResource)),
+			snap: moveSnapshot(moveEntry(t, "resource.old", state.EntryLeaf, "resource")),
+			dag:  moveDAG(moveNode("resource.old", NodeResource)),
 			specs: []EntryMoveSpec{
-				moveSpec(t, "core.thing@resource.old", "core.thing@resource.old"),
+				moveSpec(t, "resource.old", "resource.old"),
 			},
 			wantErr: "source and destination are the same",
 		},
 		{
 			name: "duplicate source",
-			snap: moveSnapshot(moveEntry(t, "core.thing@resource.old", state.EntryLeaf, "resource")),
-			dag:  moveDAG(moveNode("core.thing@resource.new", NodeResource)),
+			snap: moveSnapshot(moveEntry(t, "resource.old", state.EntryLeaf, "resource")),
+			dag:  moveDAG(moveNode("resource.new", NodeResource)),
 			specs: []EntryMoveSpec{
-				moveSpec(t, "core.thing@resource.old", "core.thing@resource.new"),
-				moveSpec(t, "core.thing@resource.old", "core.thing@resource.other"),
+				moveSpec(t, "resource.old", "resource.new"),
+				moveSpec(t, "resource.old", "resource.other"),
 			},
-			wantErr: "duplicate source core.thing@resource.old",
+			wantErr: "duplicate source resource.old",
 		},
 		{
 			name: "missing final destination",
-			snap: moveSnapshot(moveEntry(t, "core.thing@resource.old", state.EntryLeaf, "resource")),
+			snap: moveSnapshot(moveEntry(t, "resource.old", state.EntryLeaf, "resource")),
 			dag:  moveDAG(),
 			specs: []EntryMoveSpec{
-				moveSpec(t, "core.thing@resource.old", "core.thing@resource.new"),
+				moveSpec(t, "resource.old", "resource.new"),
 			},
 			wantErr: "destination is not in this factory",
 		},
 		{
 			name: "kind mismatch",
-			snap: moveSnapshot(moveEntry(t, "core.thing@resource.old", state.EntryLeaf, "resource")),
-			dag:  moveDAG(moveNode("core.thing@action.new", NodeAction)),
+			snap: moveSnapshot(moveEntry(t, "resource.old", state.EntryLeaf, "resource")),
+			dag:  moveDAG(moveNode("action.new", NodeAction)),
 			specs: []EntryMoveSpec{
-				moveSpec(t, "core.thing@resource.old", "core.thing@action.new"),
+				moveSpec(t, "resource.old", "action.new"),
 			},
 			wantErr: "leaf entry cannot move to action",
+		},
+		{
+			name: "implementation kind mismatch",
+			snap: moveSnapshot(
+				moveEntryWithBinding(t, "resource.old", state.EntryLeaf, "resource", "core", "other"),
+			),
+			dag: moveDAG(moveNode("resource.new", NodeResource)),
+			specs: []EntryMoveSpec{
+				moveSpec(t, "resource.old", "resource.new"),
+			},
+			wantErr: "entry kind other cannot move to kind thing",
 		},
 	}
 
@@ -255,30 +258,30 @@ func TestApplyEntryMovesIdempotent(t *testing.T) {
 	}{
 		{
 			name: "source absent destination present",
-			snap: moveSnapshot(moveEntry(t, "core.thing@resource.new", state.EntryLeaf, "resource")),
-			want: []string{"core.thing@resource.new"},
+			snap: moveSnapshot(moveEntry(t, "resource.new", state.EntryLeaf, "resource")),
+			want: []string{"resource.new"},
 		},
 		{
 			name: "source absent destination absent",
-			snap: moveSnapshot(moveEntry(t, "core.thing@resource.other", state.EntryLeaf, "resource")),
-			want: []string{"core.thing@resource.other"},
+			snap: moveSnapshot(moveEntry(t, "resource.other", state.EntryLeaf, "resource")),
+			want: []string{"resource.other"},
 		},
 		{
 			name: "source and destination present",
 			snap: moveSnapshot(
-				moveEntry(t, "core.thing@resource.old", state.EntryLeaf, "resource"),
-				moveEntry(t, "core.thing@resource.new", state.EntryLeaf, "resource"),
+				moveEntry(t, "resource.old", state.EntryLeaf, "resource"),
+				moveEntry(t, "resource.new", state.EntryLeaf, "resource"),
 			),
-			wantErr: "destination already exists at core.thing@resource.new",
+			wantErr: "destination already exists at resource.new",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dag := moveDAG(moveNode("core.thing@resource.new", NodeResource))
+			dag := moveDAG(moveNode("resource.new", NodeResource))
 			got, results, err := ApplyEntryMoves(
 				tt.snap, dag, stateMovesLibs(),
-				[]EntryMoveSpec{moveSpec(t, "core.thing@resource.old", "core.thing@resource.new")},
+				[]EntryMoveSpec{moveSpec(t, "resource.old", "resource.new")},
 				EntryMoveIdempotent,
 			)
 			if tt.wantErr != "" {
@@ -295,34 +298,34 @@ func TestApplyEntryMovesIdempotent(t *testing.T) {
 
 func TestApplyEntryMovesChains(t *testing.T) {
 	specs := []EntryMoveSpec{
-		moveSpec(t, "core.thing@resource.a", "core.thing@resource.b"),
-		moveSpec(t, "core.thing@resource.b", "core.thing@resource.c"),
+		moveSpec(t, "resource.a", "resource.b"),
+		moveSpec(t, "resource.b", "resource.c"),
 	}
-	dag := moveDAG(moveNode("core.thing@resource.c", NodeResource))
+	dag := moveDAG(moveNode("resource.c", NodeResource))
 
-	for _, start := range []string{"core.thing@resource.a", "core.thing@resource.b"} {
+	for _, start := range []string{"resource.a", "resource.b"} {
 		t.Run(start, func(t *testing.T) {
 			got, results, err := ApplyEntryMoves(
 				moveSnapshot(moveEntry(t, start, state.EntryLeaf, "resource")),
 				dag, stateMovesLibs(), specs, EntryMoveIdempotent,
 			)
 			require.NoError(t, err)
-			assert.Equal(t, []string{"core.thing@resource.c"}, entryRefStrings(t, got))
+			assert.Equal(t, []string{"resource.c"}, entryRefStrings(t, got))
 			require.Len(t, results, 1)
 			assert.Equal(t, start, results[0].From.String())
-			assert.Equal(t, "core.thing@resource.c", results[0].To.String())
+			assert.Equal(t, "resource.c", results[0].To.String())
 		})
 	}
 }
 
 func TestApplyEntryMovesRejectsCycle(t *testing.T) {
 	_, _, err := ApplyEntryMoves(
-		moveSnapshot(moveEntry(t, "core.thing@resource.a", state.EntryLeaf, "resource")),
-		moveDAG(moveNode("core.thing@resource.a", NodeResource)),
+		moveSnapshot(moveEntry(t, "resource.a", state.EntryLeaf, "resource")),
+		moveDAG(moveNode("resource.a", NodeResource)),
 		stateMovesLibs(),
 		[]EntryMoveSpec{
-			moveSpec(t, "core.thing@resource.a", "core.thing@resource.b"),
-			moveSpec(t, "core.thing@resource.b", "core.thing@resource.a"),
+			moveSpec(t, "resource.a", "resource.b"),
+			moveSpec(t, "resource.b", "resource.a"),
 		},
 		EntryMoveIdempotent,
 	)
@@ -332,71 +335,77 @@ func TestApplyEntryMovesRejectsCycle(t *testing.T) {
 
 func TestApplyEntryMovesCompositePrefix(t *testing.T) {
 	snap := moveSnapshot(
-		moveEntry(t, "net.cluster@resource.web", state.EntryLibraryCall, "resource"),
-		moveEntry(t, "aws.security-group@resource.web/resource.sg", state.EntryLeaf, "resource"),
-		moveEntry(t, "aws.instance@resource.web/resource.node", state.EntryLeaf, "resource"),
-		moveEntry(t, "aws.instance@resource.other", state.EntryLeaf, "resource"),
+		moveEntryWithBinding(t, "resource.web", state.EntryLibraryCall, "resource", "net", "cluster"),
+		moveEntryWithBinding(
+			t, "resource.web/resource.sg", state.EntryLeaf, "resource", "aws", "security-group",
+		),
+		moveEntryWithBinding(
+			t, "resource.web/resource.node", state.EntryLeaf, "resource", "aws", "instance",
+		),
+		moveEntryWithBinding(t, "resource.other", state.EntryLeaf, "resource", "aws", "instance"),
 	)
 	dag := moveDAG(
-		moveCompositeNode("net.cluster@resource.app", NodeResource),
-		moveNode("aws.security-group@resource.app/resource.sg", NodeResource),
-		moveNode("aws.instance@resource.app/resource.node", NodeResource),
-		moveNode("aws.instance@resource.other", NodeResource),
+		moveCompositeNodeWithBinding("resource.app", NodeResource, "net", "cluster"),
+		moveNodeWithBinding("resource.app/resource.sg", NodeResource, "aws", "security-group"),
+		moveNodeWithBinding("resource.app/resource.node", NodeResource, "aws", "instance"),
+		moveNodeWithBinding("resource.other", NodeResource, "aws", "instance"),
 	)
 
 	got, results, err := ApplyEntryMoves(
 		snap, dag, stateMovesLibs(),
-		[]EntryMoveSpec{moveSpec(t, "net.cluster@resource.web", "net.cluster@resource.app")},
+		[]EntryMoveSpec{moveSpec(t, "resource.web", "resource.app")},
 		EntryMoveIdempotent,
 	)
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
-		"net.cluster@resource.app",
-		"aws.security-group@resource.app/resource.sg",
-		"aws.instance@resource.app/resource.node",
-		"aws.instance@resource.other",
+		"resource.app",
+		"resource.app/resource.sg",
+		"resource.app/resource.node",
+		"resource.other",
 	}, entryRefStrings(t, got))
 	assert.Len(t, results, 3)
 }
 
 func TestApplyEntryMovesExactChildOverridesPrefix(t *testing.T) {
 	snap := moveSnapshot(
-		moveEntry(t, "net.cluster@resource.web", state.EntryLibraryCall, "resource"),
-		moveEntry(t, "aws.security-group@resource.web/resource.sg", state.EntryLeaf, "resource"),
+		moveEntryWithBinding(t, "resource.web", state.EntryLibraryCall, "resource", "net", "cluster"),
+		moveEntryWithBinding(
+			t, "resource.web/resource.sg", state.EntryLeaf, "resource", "aws", "security-group",
+		),
 	)
 	dag := moveDAG(
-		moveCompositeNode("net.cluster@resource.app", NodeResource),
-		moveNode("aws.security-group@resource.app/resource.firewall", NodeResource),
+		moveCompositeNodeWithBinding("resource.app", NodeResource, "net", "cluster"),
+		moveNodeWithBinding("resource.app/resource.firewall", NodeResource, "aws", "security-group"),
 	)
 
 	got, _, err := ApplyEntryMoves(
 		snap, dag, stateMovesLibs(),
 		[]EntryMoveSpec{
-			moveSpec(t, "net.cluster@resource.web", "net.cluster@resource.app"),
-			moveSpec(t,
-				"aws.security-group@resource.web/resource.sg",
-				"aws.security-group@resource.app/resource.firewall"),
+			moveSpec(t, "resource.web", "resource.app"),
+			moveSpec(t, "resource.web/resource.sg", "resource.app/resource.firewall"),
 		},
 		EntryMoveIdempotent,
 	)
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
-		"net.cluster@resource.app",
-		"aws.security-group@resource.app/resource.firewall",
+		"resource.app",
+		"resource.app/resource.firewall",
 	}, entryRefStrings(t, got))
 }
 
 func TestApplyEntryMovesPrefixRejectsMissingChildTarget(t *testing.T) {
 	_, _, err := ApplyEntryMoves(
 		moveSnapshot(
-			moveEntry(t, "net.cluster@resource.web", state.EntryLibraryCall, "resource"),
-			moveEntry(t, "aws.instance@resource.web/resource.node", state.EntryLeaf, "resource"),
+			moveEntryWithBinding(t, "resource.web", state.EntryLibraryCall, "resource", "net", "cluster"),
+			moveEntryWithBinding(
+				t, "resource.web/resource.node", state.EntryLeaf, "resource", "aws", "instance",
+			),
 		),
-		moveDAG(moveCompositeNode("net.cluster@resource.app", NodeResource)),
+		moveDAG(moveCompositeNodeWithBinding("resource.app", NodeResource, "net", "cluster")),
 		stateMovesLibs(),
-		[]EntryMoveSpec{moveSpec(t, "net.cluster@resource.web", "net.cluster@resource.app")},
+		[]EntryMoveSpec{moveSpec(t, "resource.web", "resource.app")},
 		EntryMoveIdempotent,
 	)
 	require.Error(t, err)

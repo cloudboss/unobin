@@ -1,8 +1,8 @@
 factory: {
   state-moves: [
-    { from: 'e2e.file@resource.old-direct', to: 'e2e.file@resource.direct' },
-    { from: '''e2e.file@resource.old-items['blue']''', to: '''e2e.file@resource.items['blue']''' },
-    { from: 'groups.group@resource.old-group', to: 'groups.group@resource.group' },
+    { from: 'resource.old-direct', to: 'resource.direct' },
+    { from: '''resource.old-items['blue']''', to: '''resource.items['blue']''' },
+    { from: 'resource.old-group', to: 'resource.group' },
   ]
 
   inputs: {

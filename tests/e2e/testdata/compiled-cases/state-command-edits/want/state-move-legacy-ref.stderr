@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-state move: expected <selector>@<address>, got action.old
+state move: expected state ref, got e2e.echo@action.old

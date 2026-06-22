@@ -1,7 +1,7 @@
 group: resource {
   state-moves: [
-    { from: 'e2e.file@resource.old-file', to: 'e2e.file@resource.file' },
-    { from: 'items.item@resource.old-single', to: 'items.item@resource.single' },
+    { from: 'resource.old-file', to: 'resource.file' },
+    { from: 'resource.old-single', to: 'resource.single' },
   ]
 
   inputs: {

@@ -1,5 +1,6 @@
 address: resource.hello/resource.this
-selector: e2e.file
+import-alias: e2e
+kind: file
 entry-kind: leaf
 node-kind: resource
 schema-version: 1

@@ -116,8 +116,8 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 func newStateMoveCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "move <from-selector@from-address> <to-selector@to-address>",
-		Short: "Move a state entry to a new address or selector",
+		Use:   "move <from-state-ref> <to-state-ref>",
+		Short: "Move a state entry to a new address",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doStateMove(cmd, info, configPath, args[0], args[1])
@@ -185,7 +185,7 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, fromText, toText str
 func newStateRemoveCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "remove <selector@address>",
+		Use:   "remove <state-ref>",
 		Short: "Remove a state entry without touching the underlying resource",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -327,7 +327,7 @@ func newStateSnapshotsListCmd(info Info) *cobra.Command {
 func newStateShowCmd(info Info) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "show <selector@address>",
+		Use:   "show <state-ref>",
 		Short: "Show one current state entry",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -405,7 +405,7 @@ func stateEntryRefs(snap *state.Snapshot) ([]string, error) {
 	for i, ent := range snap.Entries {
 		ref, ok := runtime.EntryRefFromEntry(ent)
 		if !ok {
-			return nil, fmt.Errorf("state entry %d is missing a complete ref", i)
+			return nil, fmt.Errorf("state entry %d is missing a valid state ref", i)
 		}
 		refs = append(refs, ref.String())
 	}
@@ -416,7 +416,10 @@ func stateEntryRefs(snap *state.Snapshot) ([]string, error) {
 func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "address: %s\n", ent.Address)
-	fmt.Fprintf(out, "selector: %s\n", selectorString(ent.Selector))
+	if ent.Selector != nil {
+		fmt.Fprintf(out, "import-alias: %s\n", ent.Selector.Alias)
+		fmt.Fprintf(out, "kind: %s\n", ent.Selector.Export)
+	}
 	fmt.Fprintf(out, "entry-kind: %s\n", ent.Type)
 	fmt.Fprintf(out, "node-kind: %s\n", ent.Kind)
 	fmt.Fprintf(out, "schema-version: %d\n", ent.SchemaVersion)
@@ -429,13 +432,6 @@ func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
 	printStateList(out, "sensitive-inputs", ent.SensitiveInputs)
 	printStateList(out, "sensitive-outputs", ent.SensitiveOutputs)
 	return nil
-}
-
-func selectorString(sel *state.Selector) string {
-	if sel == nil {
-		return ""
-	}
-	return sel.Alias + "." + sel.Export
 }
 
 func printStateMap(

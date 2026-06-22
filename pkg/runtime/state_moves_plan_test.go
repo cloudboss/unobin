@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ func TestPlanAppliesRootStateMoveBeforePlanning(t *testing.T) {
 	plan := runPlan(t, stateMoveRootSource(t), resourceModules(&resourceCounters{}), store)
 
 	require.Equal(t, []PlannedEntryMove{
-		{From: "core.thing@resource.old", To: "core.thing@resource.new"},
+		{From: "resource.old", To: "resource.new"},
 	}, plan.StateMoves)
 	step := stepFor(plan, "resource.new")
 	require.NotNil(t, step)
@@ -66,7 +67,7 @@ func TestPlanStateMoveSourceAndDestinationConflict(t *testing.T) {
 	_, err := exec.Plan(context.Background())
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "destination already exists at core.thing@resource.new")
+	assert.Contains(t, err.Error(), "destination already exists at resource.new")
 }
 
 func TestPlanCollapsesRootStateMoveChain(t *testing.T) {
@@ -82,7 +83,7 @@ func TestPlanCollapsesRootStateMoveChain(t *testing.T) {
 	)
 
 	require.Equal(t, []PlannedEntryMove{
-		{From: "core.thing@resource.old", To: "core.thing@resource.new"},
+		{From: "resource.old", To: "resource.new"},
 	}, plan.StateMoves)
 	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.new").Decision)
 }
@@ -98,10 +99,10 @@ func TestPlanAppliesBoundaryAndCompositeStateMovesTogether(t *testing.T) {
 	plan := runPlan(t, stateMoveFixture(t, "boundary-and-composite"), stateMoveCompositeLibs(t), store)
 
 	require.Equal(t, []PlannedEntryMove{
-		{From: "w.box@resource.old-app", To: "w.box@resource.app"},
+		{From: "resource.old-app", To: "resource.app"},
 		{
-			From: "core.thing@resource.old-app/resource.old",
-			To:   "core.thing@resource.app/resource.new",
+			From: "resource.old-app/resource.old",
+			To:   "resource.app/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.app/resource.new").Decision)
@@ -119,8 +120,8 @@ func TestPlanAppliesCompositeBodyStateMove(t *testing.T) {
 
 	require.Equal(t, []PlannedEntryMove{
 		{
-			From: "core.thing@resource.app/resource.old",
-			To:   "core.thing@resource.app/resource.new",
+			From: "resource.app/resource.old",
+			To:   "resource.app/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.app/resource.new").Decision)
@@ -149,12 +150,12 @@ func TestPlanAppliesCompositeBodyStateMoveUnderEveryKey(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsMatch(t, []PlannedEntryMove{
 		{
-			From: "core.thing@resource.apps['blue']/resource.old",
-			To:   "core.thing@resource.apps['blue']/resource.new",
+			From: "resource.apps['blue']/resource.old",
+			To:   "resource.apps['blue']/resource.new",
 		},
 		{
-			From: "core.thing@resource.apps['red']/resource.old",
-			To:   "core.thing@resource.apps['red']/resource.new",
+			From: "resource.apps['red']/resource.old",
+			To:   "resource.apps['red']/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t, DecisionNoOp, stepFor(plan, "resource.apps['blue']/resource.new").Decision)
@@ -182,8 +183,8 @@ func TestPlanAppliesNestedCompositeBodyStateMoveUnderKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []PlannedEntryMove{
 		{
-			From: "core.thing@resource.apps['blue']/resource.child/resource.old",
-			To:   "core.thing@resource.apps['blue']/resource.child/resource.new",
+			From: "resource.apps['blue']/resource.child/resource.old",
+			To:   "resource.apps['blue']/resource.child/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t,
@@ -205,12 +206,12 @@ func TestPlanAppliesCompositeBodyPrefixStateMove(t *testing.T) {
 
 	require.Equal(t, []PlannedEntryMove{
 		{
-			From: "inner.box@resource.app/resource.old-child",
-			To:   "inner.box@resource.app/resource.child",
+			From: "resource.app/resource.old-child",
+			To:   "resource.app/resource.child",
 		},
 		{
-			From: "core.thing@resource.app/resource.old-child/resource.new",
-			To:   "core.thing@resource.app/resource.child/resource.new",
+			From: "resource.app/resource.old-child/resource.new",
+			To:   "resource.app/resource.child/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t,
@@ -232,8 +233,8 @@ func TestPlanAppliesNestedCompositeBodyStateMove(t *testing.T) {
 
 	require.Equal(t, []PlannedEntryMove{
 		{
-			From: "core.thing@resource.app/resource.child/resource.old",
-			To:   "core.thing@resource.app/resource.child/resource.new",
+			From: "resource.app/resource.child/resource.old",
+			To:   "resource.app/resource.child/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t,
@@ -259,14 +260,14 @@ func TestPlanAppliesRootBoundaryMoveWithNestedCompositeStateMove(t *testing.T) {
 	)
 
 	require.Equal(t, []PlannedEntryMove{
-		{From: "outer.web@resource.old-app", To: "outer.web@resource.app"},
+		{From: "resource.old-app", To: "resource.app"},
 		{
-			From: "inner.box@resource.old-app/resource.child",
-			To:   "inner.box@resource.app/resource.child",
+			From: "resource.old-app/resource.child",
+			To:   "resource.app/resource.child",
 		},
 		{
-			From: "core.thing@resource.old-app/resource.child/resource.old",
-			To:   "core.thing@resource.app/resource.child/resource.new",
+			From: "resource.old-app/resource.child/resource.old",
+			To:   "resource.app/resource.child/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t,
@@ -296,16 +297,16 @@ func TestPlanAppliesKeyedRootBoundaryMoveWithNestedCompositeStateMove(t *testing
 	require.NoError(t, err)
 	require.Equal(t, []PlannedEntryMove{
 		{
-			From: "outer.web@resource.apps['blue']",
-			To:   "outer.web@resource.apps['green']",
+			From: "resource.apps['blue']",
+			To:   "resource.apps['green']",
 		},
 		{
-			From: "inner.box@resource.apps['blue']/resource.child",
-			To:   "inner.box@resource.apps['green']/resource.child",
+			From: "resource.apps['blue']/resource.child",
+			To:   "resource.apps['green']/resource.child",
 		},
 		{
-			From: "core.thing@resource.apps['blue']/resource.child/resource.old",
-			To:   "core.thing@resource.apps['green']/resource.child/resource.new",
+			From: "resource.apps['blue']/resource.child/resource.old",
+			To:   "resource.apps['green']/resource.child/resource.new",
 		},
 	}, plan.StateMoves)
 	assert.Equal(t,
@@ -370,7 +371,7 @@ func TestApplyPlanRejectsMissingRecordedStateMoveSource(t *testing.T) {
 	_, err := exec.ApplyPlan(context.Background(), pf)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no entry at core.thing@resource.old")
+	assert.Contains(t, err.Error(), "no entry at resource.old")
 }
 
 func TestApplyPlanRejectsRecordedStateMoveDestinationConflict(t *testing.T) {
@@ -390,34 +391,23 @@ func TestApplyPlanRejectsRecordedStateMoveDestinationConflict(t *testing.T) {
 	_, err = exec.ApplyPlan(context.Background(), pf)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "destination already exists at core.thing@resource.new")
+	assert.Contains(t, err.Error(), "destination already exists at resource.new")
 }
 
-func TestDestroyUsesStateMoveWhenPriorSelectorIsNotImported(t *testing.T) {
+func TestDestroyStateMoveRequiresPriorImportAlias(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack,
 		stateMovePlanEntryWithSelector("old", "thing", "resource.previous"),
 	)
 	libs := stateMoveNextOnlyLibs()
-	exec := planTestExecutor(t, stateMoveFixture(t, "destroy-prior-selector"), libs, store, stack)
+	exec := planTestExecutor(t, stateMoveFixture(t, "destroy-prior-alias"), libs, store, stack)
 	exec.Destroy = true
 
-	plan, err := exec.Plan(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, []PlannedEntryMove{
-		{From: "old.thing@resource.previous", To: "next.thing@resource.current"},
-	}, plan.StateMoves)
-	step := stepFor(plan, "resource.current")
-	require.NotNil(t, step)
-	assert.Equal(t, DecisionDestroy, step.Decision)
-	assert.Equal(t, &state.Selector{Alias: "next", Export: "thing"}, step.Selector)
+	_, err := exec.Plan(context.Background())
 
-	_, err = planAndApplyExisting(exec, plan)
-	require.NoError(t, err)
-	snap, err := store.Current()
-	require.NoError(t, err)
-	assert.Empty(t, snap.Entries)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `resource.current: read: library "old" is not imported`)
 }
 
 func stateMovePlanFile(exec *Executor, rev string) *PlanFile {
@@ -431,7 +421,7 @@ func stateMovePlanFile(exec *Executor, rev string) *PlanFile {
 		Stack:    exec.Store.Stack(),
 		StateRev: rev,
 		StateMoves: []PlannedEntryMove{
-			{From: "core.thing@resource.old", To: "core.thing@resource.new"},
+			{From: "resource.old", To: "resource.new"},
 		},
 	}
 }
@@ -514,15 +504,15 @@ func stateMoveNestedCompositeLibs(t *testing.T) map[string]*Library {
 }
 
 func stateMoveBoundaryEntry(selector, address string) *state.Entry {
-	ref, err := ParseEntryRef(selector + "@" + address)
-	if err != nil {
-		panic(err)
+	alias, export, ok := strings.Cut(selector, ".")
+	if !ok {
+		panic("invalid test selector")
 	}
 	return &state.Entry{
-		Address:  ref.Address,
+		Address:  address,
 		Type:     state.EntryLibraryCall,
 		Kind:     "resource",
-		Selector: &state.Selector{Alias: ref.Selector.Alias, Export: ref.Selector.Export},
+		Selector: &state.Selector{Alias: alias, Export: export},
 	}
 }
 

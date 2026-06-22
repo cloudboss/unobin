@@ -1,6 +1,6 @@
 web: resource {
   state-moves: [
-    { from: 'e2e.file@resource.old', to: 'e2e.file@resource.child/resource.new' },
+    { from: 'resource.old', to: 'resource.child/resource.new' },
   ]
 
   inputs: {

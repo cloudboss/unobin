@@ -47,36 +47,35 @@ See the [examples](./examples) directory for various example stacks that you can
 
 ## State inspection and relocation
 
-State commands name entries with a complete ref:
+State commands name entries with a state ref:
 
 ```text
-<selector>@<address>
+<category>.<name>
 ```
 
-The selector is the imported implementation, such as `std.fs-file` or
-`aws.instance`. The address is the runtime address, such as `resource.web`,
-`action.read-back`, or `resource.app/resource.sg`.
+Nested state refs join those same short segments with `/`, such as
+`resource.web`, `action.read-back`, or `resource.app/resource.sg`.
 
 Useful state commands:
 
 ```text
 ./app state list -c dev.ub
-./app state show std.fs-file@resource.web -c dev.ub
+./app state show resource.web -c dev.ub
 ./app state pull -c dev.ub > state.json
 ./app state snapshots list -c dev.ub
-./app state move -c dev.ub std.fs-file@resource.old std.fs-file@resource.web
-./app state remove -c dev.ub std.fs-file@resource.web
+./app state move -c dev.ub resource.old resource.web
+./app state remove -c dev.ub resource.web
 ```
 
-`state move` and `state remove` reject address-only refs. Use the complete
-`selector@address` form.
+`state move` and `state remove` reject legacy qualified refs. Use the short
+state ref form.
 
 A factory author can declare idempotent state moves in source:
 
 ```ub
 factory: {
   state-moves: [
-    { from: '''aws.instance@resource.old''', to: '''aws.instance@resource.web''' },
+    { from: 'resource.old', to: 'resource.web' },
   ]
 
   resources: {
@@ -90,7 +89,7 @@ A UB composite can declare moves relative to each call site:
 ```ub
 web-cluster: resource {
   state-moves: [
-    { from: '''aws.security-group@resource.sg''', to: '''aws.security-group@resource.web-sg''' },
+    { from: 'resource.sg', to: 'resource.web-sg' },
   ]
 
   resources: {
@@ -104,7 +103,7 @@ A composite boundary move also relocates matching children below that boundary:
 ```ub
 factory: {
   state-moves: [
-    { from: '''net.cluster@resource.web''', to: '''net.cluster@resource.app''' },
+    { from: 'resource.web', to: 'resource.app' },
   ]
 
   resources: {
@@ -113,12 +112,12 @@ factory: {
 }
 ```
 
-Use explicit child moves when a child selector or child address also changes.
-A plan prints actual state moves before resource changes:
+Use explicit child moves when a child address also changes. A plan prints actual
+state moves before resource changes:
 
 ```text
 State moves:
-  aws.instance@resource.old -> aws.instance@resource.web
+  resource.old -> resource.web
 ```
 
 ## Dependency projects and import packages

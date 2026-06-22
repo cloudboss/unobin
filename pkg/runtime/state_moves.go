@@ -104,7 +104,6 @@ func ApplyEntryMoves(
 		}
 		addressMoves[originals[idx].Address] = to.Address
 		ent.Address = to.Address
-		ent.Selector = &state.Selector{Alias: to.Selector.Alias, Export: to.Selector.Export}
 		results = append(results, EntryMoveResult{From: originals[idx], To: to})
 	}
 	for _, ent := range out.Entries {
@@ -166,7 +165,7 @@ func entryMoveStateRefs(snap *state.Snapshot) (map[string]*state.Entry, error) {
 	for i, ent := range snap.Entries {
 		ref, ok := EntryRefFromEntry(ent)
 		if !ok {
-			return nil, fmt.Errorf("state entry %d is missing a complete ref", i)
+			return nil, fmt.Errorf("state entry %d is missing a valid state ref", i)
 		}
 		refs[ref.String()] = ent
 	}
@@ -190,7 +189,7 @@ func entryMoveChanges(
 	for i, ent := range snap.Entries {
 		from, ok := EntryRefFromEntry(ent)
 		if !ok {
-			return nil, nil, fmt.Errorf("state entry %d is missing a complete ref", i)
+			return nil, nil, fmt.Errorf("state entry %d is missing a valid state ref", i)
 		}
 		to, changed := entryMoveTargetForRef(from, exact, prefixes)
 		if !changed || SameEntryRef(from, to) {
@@ -228,7 +227,7 @@ func entryMoveTargetForRef(
 		return EntryRef{}, false
 	}
 	suffix := from.Address[len(best.From.Address):]
-	return EntryRef{Selector: from.Selector, Address: best.To.Address + suffix}, true
+	return EntryRef{Address: best.To.Address + suffix}, true
 }
 
 func entryMoveHasAddressPrefix(address, prefix string) bool {
@@ -328,7 +327,7 @@ func entryMoveTargetNode(dag *DAG, ref EntryRef) (*Node, error) {
 }
 
 func entryMoveNodeMatchesRef(n *Node, ref EntryRef) bool {
-	return n != nil && n.Alias == ref.Selector.Alias && n.Type == ref.Selector.Export
+	return n != nil && templateAddress(ref.Address) == n.Address
 }
 
 func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
@@ -351,6 +350,12 @@ func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
 		}
 	default:
 		return fmt.Errorf("unsupported state entry kind %s", ent.Type)
+	}
+	if ent.Selector != nil &&
+		ent.Selector.Export != "" &&
+		n.Type != "" &&
+		ent.Selector.Export != n.Type {
+		return fmt.Errorf("entry kind %s cannot move to kind %s", ent.Selector.Export, n.Type)
 	}
 	return nil
 }

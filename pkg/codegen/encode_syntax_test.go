@@ -12,8 +12,8 @@ func TestEncodeSyntaxFactoryBodyIncludesStateMoves(t *testing.T) {
 	body := syntax.FactoryBody{
 		StateMoves: []syntax.StateMoveDecl{
 			{
-				From: &parse.StringLit{Value: "core.thing@resource.old"},
-				To:   &parse.StringLit{Value: "core.thing@resource.new"},
+				From: &parse.StringLit{Value: "resource.old"},
+				To:   &parse.StringLit{Value: "resource.new"},
 			},
 		},
 	}
@@ -23,8 +23,8 @@ func TestEncodeSyntaxFactoryBodyIncludesStateMoves(t *testing.T) {
 	require.NoError(t, err)
 	assertion := "syntax.FactoryBody{" +
 		"StateMoves: []syntax.StateMoveDecl{{" +
-		`From: &lang.StringLit{Value: "core.thing@resource.old"}, ` +
-		`To: &lang.StringLit{Value: "core.thing@resource.new"}` +
+		`From: &lang.StringLit{Value: "resource.old"}, ` +
+		`To: &lang.StringLit{Value: "resource.new"}` +
 		"}}}"
 	require.Equal(t, assertion, got)
 }
