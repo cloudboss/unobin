@@ -1,0 +1,12 @@
+locals: {
+  region: 'us-east-1'
+  arn:    'arn:aws:iam::123456789012:role/unobin-state'
+  aws-config: {
+    assume-role: { role-arn: local.arn }
+  }
+}
+
+inputs: {
+  role: local.aws-config.assume-role.role-arn
+  name: $'app-{{local.region}}'
+}

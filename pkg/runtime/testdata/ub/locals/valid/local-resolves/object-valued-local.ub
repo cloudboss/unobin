@@ -1,0 +1,1 @@
+locals: { lb: { host: 'h.example.com'  port: 443 } }

@@ -4,9 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func runtimeLocalsFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/locals", name)
+}
 
 // localsCtx parses a `locals: { ... }` block and returns an EvalContext
 // carrying it, seeded with the given vars and resources.
@@ -25,103 +32,99 @@ func localsCtx(t *testing.T, localsSrc string, vars, res map[string]any) *EvalCo
 
 func TestEvalLocalResolves(t *testing.T) {
 	cases := []struct {
-		name   string
-		locals string
-		expr   string
-		vars   map[string]any
-		res    map[string]any
-		want   any
+		name    string
+		fixture string
+		expr    string
+		vars    map[string]any
+		res     map[string]any
+		want    any
 	}{
 		{
-			name:   "string literal",
-			locals: `locals: { greeting: 'hello' }`,
-			expr:   "local.greeting",
-			want:   "hello",
+			name:    "string literal",
+			fixture: "local-resolves/string-literal",
+			expr:    "local.greeting",
+			want:    "hello",
 		},
 		{
-			name:   "number literal",
-			locals: `locals: { count: 3 }`,
-			expr:   "local.count",
-			want:   int64(3),
+			name:    "number literal",
+			fixture: "local-resolves/number-literal",
+			expr:    "local.count",
+			want:    int64(3),
 		},
 		{
-			name:   "reads a var",
-			locals: `locals: { r: var.region }`,
-			expr:   "local.r",
-			vars:   map[string]any{"region": "us-east-1"},
-			want:   "us-east-1",
+			name:    "reads a var",
+			fixture: "local-resolves/reads-var",
+			expr:    "local.r",
+			vars:    map[string]any{"region": "us-east-1"},
+			want:    "us-east-1",
 		},
 		{
-			name:   "boolean expression",
-			locals: `locals: { is-prod: var.env == 'prod' }`,
-			expr:   "local.is-prod",
-			vars:   map[string]any{"env": "prod"},
-			want:   true,
+			name:    "boolean expression",
+			fixture: "local-resolves/boolean-expression",
+			expr:    "local.is-prod",
+			vars:    map[string]any{"env": "prod"},
+			want:    true,
 		},
 		{
-			name:   "local reads another local",
-			locals: `locals: { base: var.x  derived: local.base }`,
-			expr:   "local.derived",
-			vars:   map[string]any{"x": "root"},
-			want:   "root",
+			name:    "local reads another local",
+			fixture: "local-resolves/local-reads-local",
+			expr:    "local.derived",
+			vars:    map[string]any{"x": "root"},
+			want:    "root",
 		},
 		{
-			name: "three local chain",
-			locals: `locals: {
-			  a: var.x
-			  b: local.a
-			  c: local.b
-			}`,
-			expr: "local.c",
-			vars: map[string]any{"x": "deep"},
-			want: "deep",
+			name:    "three local chain",
+			fixture: "local-resolves/three-local-chain",
+			expr:    "local.c",
+			vars:    map[string]any{"x": "deep"},
+			want:    "deep",
 		},
 		{
-			name:   "declaration order does not matter",
-			locals: `locals: { later: local.earlier  earlier: var.x }`,
-			expr:   "local.later",
-			vars:   map[string]any{"x": "ok"},
-			want:   "ok",
+			name:    "declaration order does not matter",
+			fixture: "local-resolves/declaration-order",
+			expr:    "local.later",
+			vars:    map[string]any{"x": "ok"},
+			want:    "ok",
 		},
 		{
-			name:   "interpolation over locals and vars",
-			locals: `locals: { name: $'{{var.env}}-{{local.suffix}}'  suffix: 'cluster' }`,
-			expr:   "local.name",
-			vars:   map[string]any{"env": "prod"},
-			want:   "prod-cluster",
+			name:    "interpolation over locals and vars",
+			fixture: "local-resolves/interpolation",
+			expr:    "local.name",
+			vars:    map[string]any{"env": "prod"},
+			want:    "prod-cluster",
 		},
 		{
-			name:   "navigate into object-valued local",
-			locals: `locals: { lb: { host: 'h.example.com'  port: 443 } }`,
-			expr:   "local.lb.host",
-			want:   "h.example.com",
+			name:    "navigate into object-valued local",
+			fixture: "local-resolves/object-valued-local",
+			expr:    "local.lb.host",
+			want:    "h.example.com",
 		},
 		{
-			name:   "reads a resource output",
-			locals: `locals: { endpoint: resource.aws.lb.main.dns-name }`,
-			expr:   "local.endpoint",
+			name:    "reads a resource output",
+			fixture: "local-resolves/resource-output",
+			expr:    "local.endpoint",
 			res: map[string]any{"aws": map[string]any{"lb": map[string]any{
 				"main": map[string]any{"dns-name": "lb-123.aws.com"},
 			}}},
 			want: "lb-123.aws.com",
 		},
 		{
-			name:   "local list element",
-			locals: `locals: { names: ['a', 'b', 'c'] }`,
-			expr:   "local.names",
-			want:   []any{"a", "b", "c"},
+			name:    "local list element",
+			fixture: "local-resolves/list",
+			expr:    "local.names",
+			want:    []any{"a", "b", "c"},
 		},
 		{
-			name:   "comprehension inside a local",
-			locals: `locals: { upper: [ for n in var.names : n ] }`,
-			expr:   "local.upper",
-			vars:   map[string]any{"names": []any{"x", "y"}},
-			want:   []any{"x", "y"},
+			name:    "comprehension inside a local",
+			fixture: "local-resolves/comprehension",
+			expr:    "local.upper",
+			vars:    map[string]any{"names": []any{"x", "y"}},
+			want:    []any{"x", "y"},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := localsCtx(t, c.locals, c.vars, c.res)
+			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), c.vars, c.res)
 			got, err := Eval(parseValue(t, c.expr), ctx)
 			require.NoError(t, err)
 			require.Equal(t, c.want, got)
@@ -131,32 +134,32 @@ func TestEvalLocalResolves(t *testing.T) {
 
 func TestEvalLocalNotFound(t *testing.T) {
 	cases := []struct {
-		name   string
-		locals string
-		expr   string
-		res    map[string]any
+		name    string
+		fixture string
+		expr    string
+		res     map[string]any
 	}{
 		{
-			name:   "undeclared local",
-			locals: `locals: { a: 'x' }`,
-			expr:   "local.missing",
+			name:    "undeclared local",
+			fixture: "not-found/undeclared-local",
+			expr:    "local.missing",
 		},
 		{
-			name:   "upstream resource not yet present",
-			locals: `locals: { endpoint: resource.aws.lb.main.dns-name }`,
-			expr:   "local.endpoint",
-			res:    map[string]any{},
+			name:    "upstream resource not yet present",
+			fixture: "not-found/upstream-resource",
+			expr:    "local.endpoint",
+			res:     map[string]any{},
 		},
 		{
-			name:   "chained through a missing upstream",
-			locals: `locals: { a: resource.aws.lb.main.dns-name  b: local.a }`,
-			expr:   "local.b",
-			res:    map[string]any{},
+			name:    "chained through a missing upstream",
+			fixture: "not-found/chained-missing-upstream",
+			expr:    "local.b",
+			res:     map[string]any{},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := localsCtx(t, c.locals, nil, c.res)
+			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), nil, c.res)
 			_, err := Eval(parseValue(t, c.expr), ctx)
 			require.Error(t, err)
 			require.ErrorIs(t, err, ErrEvalNotFound)
@@ -166,29 +169,29 @@ func TestEvalLocalNotFound(t *testing.T) {
 
 func TestEvalLocalCycle(t *testing.T) {
 	cases := []struct {
-		name   string
-		locals string
-		expr   string
+		name    string
+		fixture string
+		expr    string
 	}{
 		{
-			name:   "self reference",
-			locals: `locals: { a: local.a }`,
-			expr:   "local.a",
+			name:    "self reference",
+			fixture: "cycle/self-reference",
+			expr:    "local.a",
 		},
 		{
-			name:   "two-local cycle",
-			locals: `locals: { a: local.b  b: local.a }`,
-			expr:   "local.a",
+			name:    "two-local cycle",
+			fixture: "cycle/two-local-cycle",
+			expr:    "local.a",
 		},
 		{
-			name:   "three-local cycle",
-			locals: `locals: { a: local.b  b: local.c  c: local.a }`,
-			expr:   "local.b",
+			name:    "three-local cycle",
+			fixture: "cycle/three-local-cycle",
+			expr:    "local.b",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := localsCtx(t, c.locals, nil, nil)
+			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), nil, nil)
 			_, err := Eval(parseValue(t, c.expr), ctx)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "cycle")
@@ -197,7 +200,7 @@ func TestEvalLocalCycle(t *testing.T) {
 }
 
 func TestEvalLocalMissingIsNotCycle(t *testing.T) {
-	ctx := localsCtx(t, `locals: { endpoint: resource.aws.lb.main.dns-name }`, nil, map[string]any{})
+	ctx := localsCtx(t, runtimeLocalsFixture(t, "missing-is-not-cycle"), nil, map[string]any{})
 	_, err := Eval(parseValue(t, "local.endpoint"), ctx)
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), "cycle")
@@ -212,7 +215,7 @@ func TestEvalLocalNilScope(t *testing.T) {
 
 func TestEvalLocalInComprehension(t *testing.T) {
 	ctx := localsCtx(t,
-		`locals: { prefix: 'svc' }`,
+		runtimeLocalsFixture(t, "local-in-comprehension"),
 		map[string]any{"names": []any{"a", "b"}}, nil)
 	got, err := Eval(parseValue(t, "[ for n in var.names : $'{{local.prefix}}-{{n}}' ]"), ctx)
 	require.NoError(t, err)
@@ -221,19 +224,18 @@ func TestEvalLocalInComprehension(t *testing.T) {
 
 func TestEvalLocalDeterministic(t *testing.T) {
 	cases := []struct {
-		locals string
-		expr   string
-		vars   map[string]any
-		want   any
+		fixture string
+		expr    string
+		vars    map[string]any
+		want    any
 	}{
-		{`locals: { a: var.x  b: local.a }`, "local.b", map[string]any{"x": "v"}, "v"},
-		{`locals: { name: $'{{var.e}}-{{local.s}}'  s: 'c' }`, "local.name",
-			map[string]any{"e": "p"}, "p-c"},
-		{`locals: { obj: { k: 'val' } }`, "local.obj.k", nil, "val"},
+		{"deterministic/local-chain", "local.b", map[string]any{"x": "v"}, "v"},
+		{"deterministic/interpolation", "local.name", map[string]any{"e": "p"}, "p-c"},
+		{"deterministic/object", "local.obj.k", nil, "val"},
 	}
 	for _, c := range cases {
 		for range 20 {
-			ctx := localsCtx(t, c.locals, c.vars, nil)
+			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), c.vars, nil)
 			got, err := Eval(parseValue(t, c.expr), ctx)
 			require.NoError(t, err)
 			require.Equal(t, c.want, got)
@@ -242,20 +244,7 @@ func TestEvalLocalDeterministic(t *testing.T) {
 }
 
 func TestNewEvalContextResolvesFileLocals(t *testing.T) {
-	src := `
-locals: {
-  region: 'us-east-1'
-  arn:    'arn:aws:iam::123456789012:role/unobin-state'
-  aws-config: {
-    assume-role: { role-arn: local.arn }
-  }
-}
-
-inputs: {
-  role: local.aws-config.assume-role.role-arn
-  name: $'app-{{local.region}}'
-}
-`
+	src := runtimeLocalsFixture(t, "new-eval-context")
 	f, err := lang.ParseSource("config.ub", []byte(src))
 	require.NoError(t, err)
 	ctx := NewEvalContext(f)

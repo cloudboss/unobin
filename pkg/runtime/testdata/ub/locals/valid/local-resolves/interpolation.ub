@@ -1,0 +1,1 @@
+locals: { name: $'{{var.env}}-{{local.suffix}}'  suffix: 'cluster' }

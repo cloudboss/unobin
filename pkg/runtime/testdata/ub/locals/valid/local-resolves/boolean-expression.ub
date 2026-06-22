@@ -1,0 +1,1 @@
+locals: { is-prod: var.env == 'prod' }
