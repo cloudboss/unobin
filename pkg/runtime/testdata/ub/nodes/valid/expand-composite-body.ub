@@ -1,0 +1,2 @@
+resources: { greeting: local.file { path: 'hello.txt', content: 'hi' } }
+outputs:   { greeting-path: { value: resource.greeting.path } }

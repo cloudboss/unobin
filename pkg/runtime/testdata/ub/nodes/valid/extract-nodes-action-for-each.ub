@@ -1,0 +1,1 @@
+actions: { many: core.command { @for-each: var.targets, argv: ['echo', @each.value] } }

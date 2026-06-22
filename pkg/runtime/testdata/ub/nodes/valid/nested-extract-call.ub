@@ -1,0 +1,1 @@
+resources: { mine: outer-lib.layer { target: '/tmp/x' } }

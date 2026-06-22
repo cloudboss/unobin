@@ -1,0 +1,4 @@
+library-configs: { aws: { region: 'us-east-1' } }
+resources: { web: aws.instance { ami: 'ami-1' } }
+data:    { ubuntu: aws.ami { most-recent: true } }
+actions: { probe: core.command { argv: ['echo'] } }

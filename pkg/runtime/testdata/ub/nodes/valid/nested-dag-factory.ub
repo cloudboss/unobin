@@ -1,0 +1,6 @@
+factory: {
+  resources: {
+    seed: local.fs-file { path: '/tmp/seed' }
+    app: outer.layer { target: resource.seed.path }
+  }
+}

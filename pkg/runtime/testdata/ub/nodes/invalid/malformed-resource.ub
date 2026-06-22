@@ -1,0 +1,3 @@
+factory: {
+resources: { aws: 'not an object', web: net.real { size: 3 } }
+}

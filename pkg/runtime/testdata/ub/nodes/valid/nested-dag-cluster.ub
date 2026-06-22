@@ -1,0 +1,4 @@
+cluster: resource {
+  inputs: { path: { type: string } }
+  resources: { file: local.fs-file { path: var.path } }
+}

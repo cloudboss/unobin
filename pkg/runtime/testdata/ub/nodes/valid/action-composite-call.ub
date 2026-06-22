@@ -1,0 +1,1 @@
+actions: { go: ops.deploy { target: 'prod' } }

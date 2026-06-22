@@ -1,0 +1,7 @@
+greeting: resource {
+  locals: { target: resource.helper.path }
+  resources: {
+    helper: local.fs-file { path: '/tmp/helper' }
+    file: local.fs-file { path: local.target }
+  }
+}

@@ -1,0 +1,2 @@
+data:    { ubuntu: aws.ami { most-recent: true } }
+outputs: { id: { value: data.ubuntu.id } }

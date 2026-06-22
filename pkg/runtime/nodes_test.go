@@ -5,11 +5,22 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
 
 type syntaxRuntimeFixture struct {
 	body syntax.FactoryBody
+}
+
+func nodeFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/nodes", name)
+}
+
+func nodeInvalidFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadFixture(t, "testdata/ub/nodes/invalid/"+name+".ub")
 }
 
 func parseSyntaxFactoryFixture(t *testing.T, src string) syntaxRuntimeFixture {
@@ -42,17 +53,11 @@ func extractSyntaxTestNodes(
 }
 
 func TestExtractNodesEmpty(t *testing.T) {
-	require.Empty(t, extractSyntaxTestNodes(t, `description: 'nothing here'`, nil))
+	require.Empty(t, extractSyntaxTestNodes(t, nodeFixture(t, "extract-nodes-empty"), nil))
 }
 
 func TestExtractNodesResources(t *testing.T) {
-	src := `
-resources: {
-  main:   aws.vpc { cidr-block: '10.0.0.0/16' }
-  backup: aws.vpc { cidr-block: '10.1.0.0/16' }
-  web:    aws.security-group { name: 'web' }
-}
-`
+	src := nodeFixture(t, "extract-nodes-resources")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 3)
 
@@ -67,12 +72,7 @@ resources: {
 }
 
 func TestExtractNodesAllKinds(t *testing.T) {
-	src := `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-data:      { ubuntu: aws.ami { most-recent: true } }
-actions:   { hello: core.command { argv: ['echo'] } }
-outputs:   { vpc-id: { value: resource.main.id }, static: { value: 'literal' } }
-`
+	src := nodeFixture(t, "extract-nodes-all-kinds")
 	got := extractSyntaxTestNodes(t, src, nil)
 	addresses := make([]string, len(got))
 	for i, n := range got {
@@ -93,18 +93,7 @@ outputs:   { vpc-id: { value: resource.main.id }, static: { value: 'literal' } }
 }
 
 func TestExtractSyntaxNodesMatchesFactoryDAG(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  library-configs: { std: { prefix: resource.hello.path } }
-  resources: {
-    hello: std.fs-file { path: '/tmp/hello' }
-    selected: std.fs-file { path: resource.hello.path }
-  }
-  data: { lookup: std.file-info { path: resource.selected.path } }
-  actions: { show: std.exec-command { argv: ['echo', data.lookup.path] } }
-  outputs: { path: { value: resource.selected.path } }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t, nodeFixture(t, "extract-syntax-nodes-matches-factory-dag"))
 
 	got := BuildSyntaxDAG(fixture.body, nil)
 	require.Contains(t, got.Nodes, "library-config.std")
@@ -116,14 +105,7 @@ factory: {
 }
 
 func TestExtractSyntaxNodesMatchesCompositeDAG(t *testing.T) {
-	fixture := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  inputs: { path: { type: string } }
-  locals: { target: var.path }
-  resources: { file: local.fs-file { path: local.target } }
-  outputs: { path: { value: resource.file.path } }
-}
-`)
+	fixture := parseSyntaxCompositeFixture(t, nodeFixture(t, "composite-dag"))
 
 	got := BuildSyntaxDAG(fixture.body, nil)
 	require.Contains(t, got.Nodes, "resource.file")
@@ -132,26 +114,9 @@ greeting: resource {
 }
 
 func TestExtractSyntaxNodesMatchesNestedCompositeDAG(t *testing.T) {
-	cluster := parseSyntaxCompositeFixture(t, `
-cluster: resource {
-  inputs: { path: { type: string } }
-  resources: { file: local.fs-file { path: var.path } }
-}
-`)
-	layer := parseSyntaxCompositeFixture(t, `
-layer: resource {
-  inputs: { target: { type: string } }
-  resources: { only: inner.cluster { path: var.target } }
-}
-`)
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    seed: local.fs-file { path: '/tmp/seed' }
-    app: outer.layer { target: resource.seed.path }
-  }
-}
-`)
+	cluster := parseSyntaxCompositeFixture(t, nodeFixture(t, "nested-dag-cluster"))
+	layer := parseSyntaxCompositeFixture(t, nodeFixture(t, "nested-dag-layer"))
+	fixture := parseSyntaxFactoryFixture(t, nodeFixture(t, "nested-dag-factory"))
 	layerBody := layer.body
 	clusterBody := cluster.body
 	libs := map[string]*Library{
@@ -177,22 +142,8 @@ factory: {
 }
 
 func TestExtractSyntaxNodesUsesCompositeSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  locals: { target: resource.helper.path }
-  resources: {
-    helper: local.fs-file { path: '/tmp/helper' }
-    file: local.fs-file { path: local.target }
-  }
-}
-`)
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    app: outer.greeting { path: '/tmp/app' }
-  }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t, nodeFixture(t, "composite-syntax-body"))
+	fixture := parseSyntaxFactoryFixture(t, nodeFixture(t, "composite-syntax-call"))
 	body := composite.body
 	libs := map[string]*Library{
 		"outer": {
@@ -214,12 +165,7 @@ factory: {
 }
 
 func TestExtractSyntaxNodesReadsLibraryConfig(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  library-configs: { std: { path: '/tmp/app' } }
-  resources: { app: std.fs-file { path: '/tmp/app' } }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t, nodeFixture(t, "library-config-node"))
 
 	got := BuildSyntaxDAG(fixture.body, nil)
 	cfg := got.Nodes["library-config.std"]
@@ -230,20 +176,14 @@ factory: {
 }
 
 func TestExtractNodesOutputBody(t *testing.T) {
-	src := `
-outputs: {
-  vpc-id: { value: resource.main.id }
-}
-`
+	src := nodeFixture(t, "extract-nodes-output-body")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.IsType(t, &lang.DotPath{}, got[0].Body)
 }
 
 func TestExtractNodesResourceBody(t *testing.T) {
-	src := `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`
+	src := nodeFixture(t, "extract-nodes-resource-body")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	body, ok := got[0].Body.(*lang.ObjectLit)
@@ -253,10 +193,7 @@ resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
 }
 
 func TestExtractNodesExpandsComposite(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", `
-resources: { greeting: local.file { path: 'hello.txt', content: 'hi' } }
-outputs:   { greeting-path: { value: resource.greeting.path } }
-`)
+	composite := syntaxResourceComposite(t, "cluster", nodeFixture(t, "expand-composite-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
@@ -265,9 +202,7 @@ outputs:   { greeting-path: { value: resource.greeting.path } }
 			},
 		},
 	}
-	src := `
-resources: { web: net.cluster { name: 'web' } }
-`
+	src := nodeFixture(t, "expand-composite-call")
 	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 
@@ -286,19 +221,14 @@ resources: { web: net.cluster { name: 'web' } }
 }
 
 func TestExtractNodesCompositeDropsInternalOutputs(t *testing.T) {
-	composite := syntaxResourceComposite(t, "t", `
-resources: { x: local.file { path: 'x.txt' } }
-outputs:   { path: { value: resource.x.path } }
-`)
+	composite := syntaxResourceComposite(t, "t", nodeFixture(t, "composite-internal-outputs-body"))
 	libs := map[string]*Library{
 		"m": {
 			Name:               "m",
 			ResourceComposites: map[string]*CompositeType{"t": composite},
 		},
 	}
-	src := `
-resources: { one: m.t {} }
-`
+	src := nodeFixture(t, "composite-internal-outputs-call")
 	got := extractSyntaxTestNodes(t, src, libs)
 	for _, n := range got {
 		require.NotEqual(t, NodeOutput, n.Kind,
@@ -309,22 +239,10 @@ resources: { one: m.t {} }
 func TestExtractNodesNestedComposite(t *testing.T) {
 	// clusterBody is the body for the cluster composite registered under
 	// library alias inner-lib.
-	clusterBody := syntaxResourceComposite(t, "cluster", `
-inputs: { path: { type: string } }
-
-resources: { x: local.file { path: var.path } }
-
-outputs: { path: { value: resource.x.path } }
-`)
+	clusterBody := syntaxResourceComposite(t, "cluster", nodeFixture(t, "nested-extract-cluster"))
 	// layerBody is the body for the layer composite registered under
 	// library alias outer-lib. It calls inner-lib.cluster.
-	layerBody := syntaxResourceComposite(t, "layer", `
-inputs: { target: { type: string } }
-
-resources: { only: inner-lib.cluster { path: var.target } }
-
-outputs: { path: { value: resource.only.path } }
-`)
+	layerBody := syntaxResourceComposite(t, "layer", nodeFixture(t, "nested-extract-layer"))
 	libs := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
@@ -339,9 +257,7 @@ outputs: { path: { value: resource.only.path } }
 			},
 		},
 	}
-	src := `
-resources: { mine: outer-lib.layer { target: '/tmp/x' } }
-`
+	src := nodeFixture(t, "nested-extract-call")
 	got := extractSyntaxTestNodes(t, src, libs)
 
 	byAddr := map[string]*Node{}
@@ -371,9 +287,7 @@ resources: { mine: outer-lib.layer { target: '/tmp/x' } }
 }
 
 func TestExtractNodesResourceForEach(t *testing.T) {
-	src := `
-resources: { nodes: aws.instance { @for-each: var.configs, instance-type: @each.value.size } }
-`
+	src := nodeFixture(t, "extract-nodes-resource-for-each")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.Equal(t, "resource.nodes", got[0].Address)
@@ -385,9 +299,7 @@ resources: { nodes: aws.instance { @for-each: var.configs, instance-type: @each.
 }
 
 func TestExtractNodesActionForEach(t *testing.T) {
-	src := `
-actions: { many: core.command { @for-each: var.targets, argv: ['echo', @each.value] } }
-`
+	src := nodeFixture(t, "extract-nodes-action-for-each")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.Equal(t, "action.many", got[0].Address)
@@ -395,30 +307,21 @@ actions: { many: core.command { @for-each: var.targets, argv: ['echo', @each.val
 }
 
 func TestExtractNodesNoForEachLeavesFieldNil(t *testing.T) {
-	src := `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`
+	src := nodeFixture(t, "extract-nodes-no-for-each-leaves-field-nil")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 1)
 	require.Nil(t, got[0].ForEach)
 }
 
 func TestExtractNodesSkipsMalformed(t *testing.T) {
-	src := `factory: {
-resources: { aws: 'not an object', web: net.real { size: 3 } }
-}`
+	src := nodeInvalidFixture(t, "malformed-resource")
 	_, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "resource must be written as name: alias.export { ... }")
 }
 
 func TestExtractNodesReadsLibraryConfigAlias(t *testing.T) {
-	src := `
-library-configs: { aws: { region: 'us-east-1' } }
-resources: { web: aws.instance { ami: 'ami-1' } }
-data:    { ubuntu: aws.ami { most-recent: true } }
-actions: { probe: core.command { argv: ['echo'] } }
-`
+	src := nodeFixture(t, "extract-nodes-reads-library-config-alias")
 	got := extractSyntaxTestNodes(t, src, nil)
 	require.Len(t, got, 4)
 
@@ -431,10 +334,7 @@ actions: { probe: core.command { argv: ['echo'] } }
 }
 
 func TestExtractNodesExpandsDataComposite(t *testing.T) {
-	composite := syntaxComposite(t, "lookup", NodeData, `
-data:    { ubuntu: aws.ami { most-recent: true } }
-outputs: { id: { value: data.ubuntu.id } }
-`)
+	composite := syntaxComposite(t, "lookup", NodeData, nodeFixture(t, "data-composite-body"))
 	libs := map[string]*Library{
 		"img": {
 			Name: "img",
@@ -443,9 +343,7 @@ outputs: { id: { value: data.ubuntu.id } }
 			},
 		},
 	}
-	src := `
-data: { latest: img.lookup { family: 'ubuntu' } }
-`
+	src := nodeFixture(t, "data-composite-call")
 	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 
@@ -461,9 +359,7 @@ data: { latest: img.lookup { family: 'ubuntu' } }
 }
 
 func TestExtractNodesExpandsActionComposite(t *testing.T) {
-	composite := syntaxComposite(t, "deploy", NodeAction, `
-actions: { run: core.command { argv: ['echo'] } }
-`)
+	composite := syntaxComposite(t, "deploy", NodeAction, nodeFixture(t, "action-composite-body"))
 	libs := map[string]*Library{
 		"ops": {
 			Name: "ops",
@@ -472,9 +368,7 @@ actions: { run: core.command { argv: ['echo'] } }
 			},
 		},
 	}
-	src := `
-actions: { go: ops.deploy { target: 'prod' } }
-`
+	src := nodeFixture(t, "action-composite-call")
 	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 

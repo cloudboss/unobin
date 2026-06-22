@@ -1,0 +1,4 @@
+factory: {
+  library-configs: { std: { path: '/tmp/app' } }
+  resources: { app: std.fs-file { path: '/tmp/app' } }
+}

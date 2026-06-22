@@ -1,0 +1,5 @@
+resources: {
+  main:   aws.vpc { cidr-block: '10.0.0.0/16' }
+  backup: aws.vpc { cidr-block: '10.1.0.0/16' }
+  web:    aws.security-group { name: 'web' }
+}

@@ -1,0 +1,1 @@
+resources: { nodes: aws.instance { @for-each: var.configs, instance-type: @each.value.size } }
