@@ -3,12 +3,15 @@ package codegen
 import (
 	"go/parser"
 	"go/token"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/stretchr/testify/require"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestGenerateInjectsGoConstraints(t *testing.T) {
@@ -297,8 +300,9 @@ func main() {
 }
 
 func TestGenerateValidGo(t *testing.T) {
+	body := ubtest.ReadValidFixture(t, "testdata/ub/generate-main", "command-action")
 	out, err := Generate(Input{
-		Body:        "actions: { core.command.hi: { argv: ['echo', 'world'] } }\n",
+		Body:        body,
 		FactoryName: "demo",
 		GoImports: map[string]string{
 			"core": "github.com/cloudboss/unobin/pkg/libraries/core",
@@ -363,7 +367,8 @@ func TestGenerateDeclaresStampVars(t *testing.T) {
 }
 
 func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
-	src := "actions: { core.command.x: { argv: ['echo', \"with quotes\"] } }"
+	src := strings.TrimSpace(
+		ubtest.ReadValidFixture(t, "testdata/ub/generate-main", "quoted-action"))
 	out, err := Generate(Input{
 		Body:        src,
 		FactoryName: "x",
@@ -371,7 +376,7 @@ func TestGenerateEmbedsBodyVerbatim(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Contains(t, string(out), `"actions: { core.command.x: { argv: ['echo', \"with quotes\"] } }"`)
+	require.Contains(t, string(out), strconv.Quote(src))
 }
 
 func TestGenerateOrdersImports(t *testing.T) {

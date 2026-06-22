@@ -1,0 +1,1 @@
+actions: { core.command.x: { argv: ['echo', "with quotes"] } }
