@@ -40,7 +40,7 @@ type ContextResolver interface {
 
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
 // with at least one source-declared composite export and no factory source.
-// Manifest and lock files do not make a package importable by themselves.
+// Project and project-lock files do not make a package importable by themselves.
 // A malformed non-metadata `.ub` file is treated as a UB library candidate
 // so the library parser can return the source diagnostic.
 func IsUBLibrary(s *Source) bool {
@@ -90,7 +90,7 @@ func sourceFileMayBeLibrary(fsys fs.FS, name string) bool {
 
 func isMetadataFileName(name string) bool {
 	switch cleanSourceName(name) {
-	case "manifest.ub", "lock.ub":
+	case "project.ub", "project-lock.ub":
 		return true
 	default:
 		return false
@@ -99,7 +99,7 @@ func isMetadataFileName(name string) bool {
 
 func isReservedSourceFileName(name string) bool {
 	switch cleanSourceName(name) {
-	case "factory.ub", "manifest.ub", "lock.ub":
+	case "factory.ub", "project.ub", "project-lock.ub":
 		return true
 	default:
 		return false

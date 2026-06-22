@@ -122,7 +122,7 @@ State moves:
 
 ## Dependency projects and import packages
 
-A dependency project is a versioned directory with `manifest.ub` or `go.mod` at
+A dependency project is a versioned directory with `project.ub` or `go.mod` at
 its root. A package import may name any directory below that project:
 
 ```ub
@@ -131,10 +131,10 @@ imports: {
 }
 ```
 
-The manifest names the owning project, not every package below it:
+The project file names the owning project, not every package below it:
 
 ```ub
-manifest: {
+project: {
   requires: {
     'example.com/repo': { version: 'v1.2.3' }
   }
@@ -142,10 +142,10 @@ manifest: {
 ```
 
 `unobin deps get` adds projects. If a repository subdirectory has its own
-`manifest.ub` or `go.mod`, it is a project and may be added directly:
+`project.ub` or `go.mod`, it is a project and may be added directly:
 
 ```ub
-manifest: {
+project: {
   requires: {
     'example.com/repo//library-c': { version: 'v1.2.3' }
   }
@@ -156,16 +156,16 @@ The repository root uses ordinary semver tags such as `v1.2.3`. A project in a
 subdirectory uses tags prefixed by that project path, such as `library-c/v1.2.3`
 or `libs/core/v1.2.3`. Package paths below the project do not change the tag.
 
-A nested `manifest.ub` is a project boundary. `unobin deps sync` for an ancestor
+A nested `project.ub` is a project boundary. `unobin deps sync` for an ancestor
 project does not scan files under that nested project. Run
-`unobin deps sync -p library-c` to manage `library-c/manifest.ub` and
-`library-c/lock.ub`.
+`unobin deps sync -p library-c` to manage `library-c/project.ub` and
+`library-c/project-lock.ub`.
 
 Use a project id plus a replacement for local development against a nested
 project:
 
 ```ub
-manifest: {
+project: {
   requires: {
     'example.com/repo//library-c': { version: 'v1.2.3' }
   }
@@ -174,16 +174,16 @@ manifest: {
 ```
 
 Relative imports may only target source governed by the same nearest
-`manifest.ub`.
+`project.ub`.
 
 `unobin deps sync` manages UB projects only. If the nearest marker is `go.mod`,
 use Go commands for that module instead.
 
-A `manifest.replace` key is a project id. When a direct import has an exact
+A `project.replace` key is a project id. When a direct import has an exact
 replacement and no real version yet, `unobin deps sync` records the reserved
-manifest version `v0.0.0-unobin-replaced`. The replacement must be exact; a
+project replacement sentinel `v0.0.0-unobin-replaced`. The replacement must be exact; a
 parent project replacement does not satisfy a nested project's reserved version.
-Replaced projects are not written to `lock.ub`.
+Replaced projects are not written to `project-lock.ub`.
 
 Go projects keep module identity separate from package imports. A `.ub` file may
 import a Go package below a module, but generated `main.go` imports the package

@@ -1,1 +1,0 @@
-manifest: github.com/cloudboss/unobin is toolchain-versioned; pin it with the manifest's unobin-version line, not requires

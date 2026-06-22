@@ -23,10 +23,10 @@ import (
 var DepsCmd = &cobra.Command{
 	Use:   "deps",
 	Short: "Manage a factory's dependencies",
-	Long: `Manage dependency floors in manifest.ub and selected versions in lock.ub.
+	Long: `Manage dependency floors in project.ub and selected versions in project-lock.ub.
 
-A factory or UB library writes imports in .ub source. The manifest records
-its direct dependency floors, and the lock records the versions and source
+A factory or UB library writes imports in .ub source. The project records
+its direct dependency floors, and project-lock records the versions and source
 hashes the compiler should use.`,
 }
 
@@ -34,7 +34,7 @@ var (
 	depsSyncCfg = &depsSyncConfig{}
 	depsSyncCmd = &cobra.Command{
 		Use:   "sync",
-		Short: "Reconcile the manifest and lock with the imports",
+		Short: "Reconcile the project and project-lock with the imports",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsSync(cmd, depsSyncCfg)
@@ -44,7 +44,7 @@ var (
 	depsListCfg = &depsSyncConfig{}
 	depsListCmd = &cobra.Command{
 		Use:   "list",
-		Short: "List the locked dependencies",
+		Short: "List the project-lock dependencies",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsList(cmd, depsListCfg)
 		},
@@ -53,7 +53,7 @@ var (
 	depsVerifyCfg = &depsSyncConfig{}
 	depsVerifyCmd = &cobra.Command{
 		Use:   "verify",
-		Short: "Check the cached dependencies against the lock",
+		Short: "Check the cached dependencies against project-lock",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsVerify(cmd, depsVerifyCfg)
 		},
@@ -125,9 +125,9 @@ func init() {
 }
 
 // projectRoot resolves the project root from a --path value. When an
-// ancestor has manifest.ub, that directory is the project root. Without a
-// manifest, the path itself is the root when it is a directory; otherwise its
-// parent is used so first-time deps sync can create manifest.ub there.
+// ancestor has project.ub, that directory is the project root. Without a
+// project, the path itself is the root when it is a directory; otherwise its
+// parent is used so first-time deps sync can create project.ub there.
 func projectRoot(stackPath string) (string, error) {
 	root, marker, err := deps.FindProjectMarkerDir(stackPath)
 	if err == nil {
@@ -145,8 +145,8 @@ func projectRoot(stackPath string) (string, error) {
 	return filepath.Dir(stackPath), nil
 }
 
-// runDepsSync reconciles the project manifest and lock with the
-// project's imports. The manifest holds the floors; sync reads it,
+// runDepsSync reconciles the project file and project-lock with the
+// project's imports. The project holds the floors; sync reads it,
 // requires a floor for every imported repository, removes floors for
 // repositories no longer imported, then selects versions across the
 // dependency graph, walks the imports to pin every remote library, and
@@ -156,7 +156,7 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	manifest, manifestName, err := readManifestOrEmpty(root)
+	project, projectName, err := readProjectOrEmpty(root)
 	if err != nil {
 		return err
 	}
@@ -164,22 +164,22 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	lock, err := readLockOrNil(root)
+	projectLock, err := readProjectLockOrNil(root)
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, manifest.Replace)
+	resolver, err := newDepsResolver(root, cfg.replaceUnobin, project.Replace)
 	if err != nil {
 		return err
 	}
-	if err := reconcileManifest(manifestName, manifest, imported, lock, resolver); err != nil {
+	if err := reconcileProject(projectName, project, imported, projectLock, resolver); err != nil {
 		return err
 	}
-	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
+	return resolveAndWrite(cmd, root, project, cfg.replaceUnobin)
 }
 
 // runDepsGet resolves a version for one dependency, sets its floor in the
-// manifest, and re-pins. The query may be empty or "latest" (the highest
+// project, and re-pins. The query may be empty or "latest" (the highest
 // tag), an exact version, or a partial one (v1, v1.2).
 func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	root, err := projectRoot(cfg.stackPath)
@@ -191,11 +191,11 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 		return err
 	}
 	if deps.IsReplacementSentinel(query) {
-		return fmt.Errorf("%s is reserved for manifest replacements", query)
+		return fmt.Errorf("%s is reserved for project replacements", query)
 	}
 	if dep.URL == toolchain.UnobinModulePath {
 		return fmt.Errorf(
-			"%s is toolchain-versioned; pin it with the manifest's unobin-version line",
+			"%s is toolchain-versioned; pin it with the project's unobin-version line",
 			dep.URL)
 	}
 	tags, err := depsListTags(dep.URL)
@@ -206,11 +206,11 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
-	manifest, manifestName, err := readManifestOrEmpty(root)
+	project, projectName, err := readProjectOrEmpty(root)
 	if err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, manifest.Replace)
+	resolver, err := newDepsResolver(root, cfg.replaceUnobin, project.Replace)
 	if err != nil {
 		return err
 	}
@@ -223,21 +223,21 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	}
 	targetIsDirect := dependencyOwnsImportedPackage(dep, imported)
 	if targetIsDirect {
-		manifest.SetRequire(dep, version, false)
+		project.SetRequire(dep, version, false)
 	}
-	lock, err := readLockOrNil(root)
+	projectLock, err := readProjectLockOrNil(root)
 	if err != nil {
 		return err
 	}
-	direct, err := directRequirementsForImports(manifestName, manifest, imported, lock, resolver)
+	direct, err := directRequirementsForImports(projectName, project, imported, projectLock, resolver)
 	if err != nil {
 		return err
 	}
 	for directDep, directVersion := range direct {
-		manifest.SetRequire(directDep, directVersion, false)
+		project.SetRequire(directDep, directVersion, false)
 	}
 	if !targetIsDirect {
-		reachable, err := reachableRequirements(direct, manifest.Replace, resolver)
+		reachable, err := reachableRequirements(direct, project.Replace, resolver)
 		if err != nil {
 			return err
 		}
@@ -245,42 +245,42 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 			return fmt.Errorf(
 				"%s is not imported directly or transitively by this project", dep)
 		}
-		manifest.SetRequire(dep, version, true)
+		project.SetRequire(dep, version, true)
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n", dep, version)
-	return resolveAndWrite(cmd, root, manifest, cfg.replaceUnobin)
+	return resolveAndWrite(cmd, root, project, cfg.replaceUnobin)
 }
 
-// readManifestOrEmpty reads the project manifest from root, returning an
-// empty manifest when the file does not exist yet. There is no `deps init`:
-// the manifest is created the first time get or sync writes it.
-func readManifestOrEmpty(root string) (*deps.Manifest, string, error) {
-	manifest, err := deps.ReadManifest(os.DirFS(root))
+// readProjectOrEmpty reads the project file from root, returning an
+// empty project when the file does not exist yet. There is no `deps init`:
+// the project is created the first time get or sync writes it.
+func readProjectOrEmpty(root string) (*deps.Project, string, error) {
+	project, err := deps.ReadProject(os.DirFS(root))
 	if errors.Is(err, fs.ErrNotExist) {
-		return &deps.Manifest{
+		return &deps.Project{
 			Requires: map[deps.Dependency]deps.Requirement{},
-		}, deps.ManifestFileName, nil
+		}, deps.ProjectFileName, nil
 	}
 	if err != nil {
-		return nil, deps.ManifestFileName, err
+		return nil, deps.ProjectFileName, err
 	}
-	return manifest, deps.ManifestFileName, nil
+	return project, deps.ProjectFileName, nil
 }
 
-// reconcileManifest makes the manifest's project floors match the imported
+// reconcileProject makes the project's project floors match the imported
 // remote packages. An imported package with no owning project floor is an error
 // that points the author at `deps get`; a floor whose project owns no import is
 // kept only when the direct dependency graph reaches it. The unobin repository
 // takes no floor at all: an import from it must be served by a replace, since
 // its source version may not float free of the toolchain.
-func reconcileManifest(
-	manifestName string,
-	m *deps.Manifest,
+func reconcileProject(
+	projectName string,
+	m *deps.Project,
 	imported map[deps.RemotePackage]bool,
-	lock *deps.Lock,
+	projectLock *deps.ProjectLock,
 	resolver resolve.Resolver,
 ) error {
-	direct, err := directRequirementsForImports(manifestName, m, imported, lock, resolver)
+	direct, err := directRequirementsForImports(projectName, m, imported, projectLock, resolver)
 	if err != nil {
 		return err
 	}
@@ -305,14 +305,14 @@ func reconcileManifest(
 }
 
 func directRequirementsForImports(
-	manifestName string,
-	m *deps.Manifest,
+	projectName string,
+	m *deps.Project,
 	imported map[deps.RemotePackage]bool,
-	lock *deps.Lock,
+	projectLock *deps.ProjectLock,
 	resolver resolve.Resolver,
 ) (map[deps.Dependency]string, error) {
 	projects := deps.ProjectIDsFromDependencies(m.Requires)
-	lockedProjects := lockProjectIDs(lock)
+	projectLockProjects := projectLockProjectIDs(projectLock)
 	replaced := deps.ProjectIDsFromReplace(m.Replace)
 	direct := map[deps.Dependency]string{}
 	var missing []string
@@ -323,7 +323,7 @@ func directRequirementsForImports(
 				return nil, fmt.Errorf(
 					"%s is toolchain-versioned and cannot be imported at a dependency"+
 						" version; replace it locally:\n"+
-						"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
+						"  in project.ub: project: { replace: { '%s': '<path-to-unobin>' } }",
 					pkg.URL, pkg.URL)
 			}
 			continue
@@ -334,10 +334,10 @@ func directRequirementsForImports(
 			direct[dep] = m.Requires[dep].Version
 			continue
 		}
-		owner, ok = deps.MostSpecificProject(lockedProjects, pkg)
+		owner, ok = deps.MostSpecificProject(projectLockProjects, pkg)
 		if ok {
 			dep := owner.Project.Dependency()
-			direct[dep] = lock.Deps[owner.Project.String()].Version
+			direct[dep] = projectLock.Deps[owner.Project.String()].Version
 			projects = append(projects, owner.Project)
 			continue
 		}
@@ -364,7 +364,7 @@ func directRequirementsForImports(
 		return nil, fmt.Errorf(
 			"imported but missing an owning project in %s: %s\n"+
 				"add the owning project with `unobin deps get <project>@<version>`",
-			manifestName, strings.Join(missing, ", "))
+			projectName, strings.Join(missing, ", "))
 	}
 	return direct, nil
 }
@@ -374,14 +374,14 @@ func reachableRequirements(
 	replace map[deps.Dependency]string,
 	resolver resolve.Resolver,
 ) (map[deps.Dependency]bool, error) {
-	manifest := &deps.Manifest{
+	project := &deps.Project{
 		Requires: map[deps.Dependency]deps.Requirement{},
 		Replace:  replace,
 	}
 	for dep, version := range direct {
-		manifest.SetRequire(dep, version, false)
+		project.SetRequire(dep, version, false)
 	}
-	selection, err := deps.Resolve(manifest, deps.NewFetcher(resolver))
+	selection, err := deps.Resolve(project, deps.NewFetcher(resolver))
 	if err != nil {
 		return nil, err
 	}
@@ -505,12 +505,12 @@ func blockedByNestedProject(
 	return false, nil
 }
 
-func lockProjectIDs(lock *deps.Lock) []deps.ProjectID {
-	if lock == nil {
+func projectLockProjectIDs(projectLock *deps.ProjectLock) []deps.ProjectID {
+	if projectLock == nil {
 		return nil
 	}
-	projects := make([]deps.ProjectID, 0, len(lock.Deps))
-	for id := range lock.Deps {
+	projects := make([]deps.ProjectID, 0, len(projectLock.Deps))
+	for id := range projectLock.Deps {
 		dep, err := deps.ParseDependency(id)
 		if err != nil {
 			continue
@@ -529,64 +529,64 @@ func parseGetArg(arg string) (deps.Dependency, string, error) {
 	return dep, query, err
 }
 
-// resolveAndWrite selects versions across manifest's dependency graph,
-// walks the imports to build the lock, and writes both files at root.
+// resolveAndWrite selects versions across project's dependency graph,
+// walks the imports to build project-lock, and writes both files at root.
 func resolveAndWrite(
-	cmd *cobra.Command, root string, manifest *deps.Manifest, replaceUnobin string,
+	cmd *cobra.Command, root string, project *deps.Project, replaceUnobin string,
 ) error {
-	if err := deps.CheckReplacementSentinels(manifest); err != nil {
+	if err := deps.CheckReplacementSentinels(project); err != nil {
 		return err
 	}
-	resolver, err := newDepsResolver(root, replaceUnobin, manifest.Replace)
+	resolver, err := newDepsResolver(root, replaceUnobin, project.Replace)
 	if err != nil {
 		return err
 	}
-	selection, err := deps.Resolve(manifest, deps.NewFetcher(resolver))
+	selection, err := deps.Resolve(project, deps.NewFetcher(resolver))
 	if err != nil {
 		return err
 	}
-	lock, err := deps.LockFromImports(os.DirFS(root), selection, resolver, manifest.Replace)
+	projectLock, err := deps.ProjectLockFromImports(os.DirFS(root), selection, resolver, project.Replace)
 	if err != nil {
 		return err
 	}
-	manifestName, err := writeProjectManifest(root, manifest)
+	projectName, err := writeProject(root, project)
 	if err != nil {
 		return err
 	}
-	lock.ToolchainVersion = cliVersion()
-	if err := deps.WriteSourceLock(filepath.Join(root, deps.SourceLockFileName), lock); err != nil {
+	projectLock.ToolchainVersion = cliVersion()
+	if err := deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), projectLock); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(),
-		"Wrote %s (%d direct, %d indirect) and %s (%d locked)\n",
-		manifestName, manifest.DirectCount(), manifest.IndirectCount(),
-		deps.SourceLockFileName, len(lock.Deps))
+		"Wrote %s (%d direct, %d indirect) and %s (%d selected)\n",
+		projectName, project.DirectCount(), project.IndirectCount(),
+		deps.ProjectLockFileName, len(projectLock.Deps))
 	return nil
 }
 
-func writeProjectManifest(root string, manifest *deps.Manifest) (string, error) {
-	path := filepath.Join(root, deps.ManifestFileName)
-	return deps.ManifestFileName, deps.WriteManifest(path, manifest)
+func writeProject(root string, project *deps.Project) (string, error) {
+	path := filepath.Join(root, deps.ProjectFileName)
+	return deps.ProjectFileName, deps.WriteProject(path, project)
 }
 
-// runDepsList prints the locked dependencies, one per line, sorted by id.
+// runDepsList prints the project-lock dependencies, one per line, sorted by id.
 func runDepsList(cmd *cobra.Command, cfg *depsSyncConfig) error {
-	lock, err := readProjectLock(cfg.stackPath)
+	projectLock, err := readProjectLock(cfg.stackPath)
 	if err != nil {
 		return err
 	}
 	out := cmd.OutOrStdout()
-	for _, id := range lock.SortedIDs() {
-		d := lock.Deps[id]
+	for _, id := range projectLock.SortedIDs() {
+		d := projectLock.Deps[id]
 		fmt.Fprintf(out, "%s %s (%s)\n", id, d.Version, d.Kind)
 	}
 	return nil
 }
 
-// runDepsVerify re-fetches the locked UB dependencies and reports any
+// runDepsVerify re-fetches the project-lock UB dependencies and reports any
 // whose content no longer matches the recorded hash.
 func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
-	lock, err := readProjectLock(cfg.stackPath)
+	projectLock, err := readProjectLock(cfg.stackPath)
 	if err != nil {
 		return err
 	}
@@ -598,7 +598,7 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	mismatches, err := deps.Verify(lock, resolver)
+	mismatches, err := deps.Verify(projectLock, resolver)
 	if err != nil {
 		return err
 	}
@@ -609,33 +609,33 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	return nil
 }
 
-// readProjectLock reads the lock from stackPath's project root, with a
+// readProjectLock reads project-lock from stackPath's project root, with a
 // clear error when it is missing.
-func readProjectLock(stackPath string) (*deps.Lock, error) {
+func readProjectLock(stackPath string) (*deps.ProjectLock, error) {
 	root, rootErr := projectRoot(stackPath)
 	if rootErr != nil {
 		return nil, rootErr
 	}
-	lock, err := deps.ReadLock(os.DirFS(root))
+	projectLock, err := deps.ReadProjectLock(os.DirFS(root))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first",
-				deps.SourceLockFileName)
+				deps.ProjectLockFileName)
 		}
 		return nil, err
 	}
-	return lock, nil
+	return projectLock, nil
 }
 
-func readLockOrNil(root string) (*deps.Lock, error) {
-	lock, err := deps.ReadLock(os.DirFS(root))
+func readProjectLockOrNil(root string) (*deps.ProjectLock, error) {
+	projectLock, err := deps.ReadProjectLock(os.DirFS(root))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return lock, nil
+	return projectLock, nil
 }
 
 // runDepsClean removes the cached dependency sources, which are shared

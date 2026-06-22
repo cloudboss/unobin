@@ -7,11 +7,11 @@ import (
 )
 
 // Selection performs minimal version selection incrementally. Add records
-// that some manifest requires a dependency at a floor version, and
+// that some project requires a dependency at a floor version, and
 // Selection keeps the highest floor seen for each dependency -- Go's
 // max-of-minimums. A walker feeds it every requirement across the
 // dependency graph; the highest floor per dependency is the selected
-// version. Floors must be valid semver, which the manifest reader
+// version. Floors must be valid semver, which the project reader
 // guarantees.
 type Selection struct {
 	chosen map[Dependency]string
@@ -25,7 +25,7 @@ func NewSelection() *Selection {
 // Add records a required floor for dep and reports whether it raised the
 // selected version: true the first time dep is seen, or when floor is
 // higher than the current selection. A walker uses the result to decide
-// whether it must read dep's manifest at the new version, since a higher
+// whether it must read dep's project at the new version, since a higher
 // version may declare different requirements.
 func (s *Selection) Add(dep Dependency, floor string) bool {
 	current, seen := s.chosen[dep]

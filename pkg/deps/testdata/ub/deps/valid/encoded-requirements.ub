@@ -1,4 +1,4 @@
-manifest: {
+project: {
 requires: {
 'github.com/cloudboss/helloer-stuff': {
 version: 'v0.1.0'

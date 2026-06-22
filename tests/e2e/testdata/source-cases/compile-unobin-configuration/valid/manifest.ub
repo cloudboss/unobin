@@ -1,4 +1,0 @@
-manifest: {
-  requires: {}
-  replace: { 'github.com/example/cloudlib': '../cloudlib' }
-}

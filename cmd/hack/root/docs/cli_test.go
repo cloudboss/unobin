@@ -24,8 +24,8 @@ func TestCLIWritesReference(t *testing.T) {
 	require.Contains(t, got, "## unobin compile")
 	require.Contains(t, got, "## unobin version")
 	require.Contains(t, got, "factory.ub")
-	require.Contains(t, got, "manifest.ub")
-	require.Contains(t, got, "lock.ub")
+	require.Contains(t, got, "project.ub")
+	require.Contains(t, got, "project-lock.ub")
 	require.Contains(t, got, "stack file")
 	require.NotContains(t, got, "--help", "cobra's auto help flag must not appear")
 }

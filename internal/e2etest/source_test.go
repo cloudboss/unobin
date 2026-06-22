@@ -55,8 +55,8 @@ func TestCheckAbsentFiles(t *testing.T) {
 
 func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 	workspace := t.TempDir()
-	writeText(t, filepath.Join(workspace, "repo/manifest.ub"),
-		readSourceFixture(t, "manifest.ub"))
+	writeText(t, filepath.Join(workspace, "repo/project.ub"),
+		readSourceFixture(t, "project.ub"))
 	writeText(t, filepath.Join(workspace, "repo/lib/library.ub"),
 		readSourceFixture(t, "library.ub"))
 

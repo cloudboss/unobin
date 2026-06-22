@@ -1,2 +1,2 @@
 Using github.com/x/libs//ub/project-b v0.1.0
-Wrote manifest.ub (1 direct, 0 indirect) and lock.ub (1 locked)
+Wrote project.ub (1 direct, 0 indirect) and project-lock.ub (1 selected)

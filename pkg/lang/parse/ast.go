@@ -39,7 +39,7 @@ const (
 	FileFactory
 	FileExportedType // A lowered composite body inside a library.
 	FileStack        // A stack file for factory inputs and state settings.
-	FileManifest     // The manifest.ub file declaring dependency floors.
+	FileProject      // The project.ub file declaring dependency floors.
 )
 
 func (k FileKind) String() string {
@@ -50,8 +50,8 @@ func (k FileKind) String() string {
 		return "exported-type"
 	case FileStack:
 		return "stack"
-	case FileManifest:
-		return "manifest"
+	case FileProject:
+		return "project"
 	default:
 		return "unknown"
 	}

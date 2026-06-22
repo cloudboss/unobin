@@ -1,0 +1,11 @@
+project: {
+  requires: {
+    'github.com/x/direct': {
+      version: 'v1.2.3'
+    }
+    'github.com/x/indirect': {
+      version:  'v2.0.0'
+      indirect: true
+    }
+  }
+}

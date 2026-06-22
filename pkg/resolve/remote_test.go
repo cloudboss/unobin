@@ -133,7 +133,7 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 func TestRemoteResolverRootProjectServesChildPackage(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
-		"manifest.ub":                  remoteResolverFixture(t, "empty-manifest"),
+		"project.ub":                   remoteResolverFixture(t, "empty-project"),
 		"ub/helloer/resource-hello.ub": remoteResolverFixture(t, "hello-resource"),
 	})
 
@@ -149,9 +149,9 @@ func TestRemoteResolverRootProjectServesChildPackage(t *testing.T) {
 	require.Empty(t, got.ProjectSubdir)
 	require.Equal(t, "ub/helloer", got.PackageSubdir)
 
-	manifest, err := fs.ReadFile(got.ProjectFS, "manifest.ub")
+	project, err := fs.ReadFile(got.ProjectFS, "project.ub")
 	require.NoError(t, err)
-	require.Contains(t, string(manifest), "manifest:")
+	require.Contains(t, string(project), "project:")
 
 	body, err := fs.ReadFile(got.FS, "resource-hello.ub")
 	require.NoError(t, err)
@@ -161,7 +161,7 @@ func TestRemoteResolverRootProjectServesChildPackage(t *testing.T) {
 func TestRemoteResolverNestedProjectServesChildPackage(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
-		"ub/project-b/manifest.ub":               remoteResolverFixture(t, "empty-manifest"),
+		"ub/project-b/project.ub":                remoteResolverFixture(t, "empty-project"),
 		"ub/project-b/comprehensions/library.ub": remoteResolverFixture(t, "hello-resource"),
 	})
 	runGit(t, src, "tag", "ub/project-b/v1")
@@ -183,9 +183,9 @@ func TestRemoteResolverNestedProjectServesChildPackage(t *testing.T) {
 	require.Equal(t, "ub/project-b", got.ProjectSubdir)
 	require.Equal(t, "ub/project-b/comprehensions", got.PackageSubdir)
 
-	manifest, err := fs.ReadFile(got.ProjectFS, "manifest.ub")
+	project, err := fs.ReadFile(got.ProjectFS, "project.ub")
 	require.NoError(t, err)
-	require.Contains(t, string(manifest), "manifest:")
+	require.Contains(t, string(project), "project:")
 
 	body, err := fs.ReadFile(got.FS, "library.ub")
 	require.NoError(t, err)

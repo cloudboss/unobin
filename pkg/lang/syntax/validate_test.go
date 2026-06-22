@@ -25,10 +25,10 @@ func validateFixturePath(name string) string {
 	switch parts[1] {
 	case "factory":
 		return "factory.ub"
-	case "lock":
-		return "lock.ub"
-	case "manifest":
-		return "manifest.ub"
+	case "project-lock":
+		return "project-lock.ub"
+	case "project":
+		return "project.ub"
 	case "stack":
 		return "dev.ub"
 	default:

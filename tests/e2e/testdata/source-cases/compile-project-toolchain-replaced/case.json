@@ -1,0 +1,16 @@
+{
+  "name": "compile-project-toolchain-replaced",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/compile.stderr"
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" }
+  ]
+}

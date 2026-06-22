@@ -1,0 +1,8 @@
+project: {
+  requires: {
+    'github.com/x/y': {
+      version:  'v1.2.3'
+      indirect: 'true'
+    }
+  }
+}

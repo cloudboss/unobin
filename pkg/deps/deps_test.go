@@ -133,11 +133,11 @@ func depsFixture(t testing.TB, name string) []byte {
 	return []byte(ubtest.ReadFixture(t, "testdata/ub/deps/"+name+".ub"))
 }
 
-func TestReadManifest(t *testing.T) {
+func TestReadProject(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "valid/read-requirements")},
+		ProjectFileName: &fstest.MapFile{Data: depsFixture(t, "valid/read-requirements")},
 	}
-	m, err := ReadManifest(fsys)
+	m, err := ReadProject(fsys)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]Requirement{
 		{URL: "github.com/cloudboss/unobin-library-std", Subdir: "x"}: {Version: "v0.1.0"},
@@ -145,78 +145,78 @@ func TestReadManifest(t *testing.T) {
 	}, m.Requires)
 }
 
-func TestReadManifestEmptyRequires(t *testing.T) {
+func TestReadProjectEmptyRequires(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "valid/empty-requires")},
+		ProjectFileName: &fstest.MapFile{Data: depsFixture(t, "valid/empty-requires")},
 	}
-	m, err := ReadManifest(fsys)
+	m, err := ReadProject(fsys)
 	require.NoError(t, err)
 	assert.Empty(t, m.Requires)
 }
 
-func TestReadManifestMissingFile(t *testing.T) {
-	_, err := ReadManifest(fstest.MapFS{})
+func TestReadProjectMissingFile(t *testing.T) {
+	_, err := ReadProject(fstest.MapFS{})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, fs.ErrNotExist))
 }
 
-func TestReadManifestRejectsBadVersionField(t *testing.T) {
+func TestReadProjectRejectsBadVersionField(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-version-field")},
+		ProjectFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-version-field")},
 	}
-	_, err := ReadManifest(fsys)
+	_, err := ReadProject(fsys)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is not a valid manifest field")
+	assert.Contains(t, err.Error(), "is not a valid project field")
 }
 
-func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
+func TestReadProjectRejectsBadDependencyURL(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-dependency-url")},
+		ProjectFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-dependency-url")},
 	}
-	_, err := ReadManifest(fsys)
+	_, err := ReadProject(fsys)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "repo URL must contain a host and a path")
 }
 
-func TestReadManifestRejectsBadFloor(t *testing.T) {
+func TestReadProjectRejectsBadFloor(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-floor")},
+		ProjectFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-floor")},
 	}
-	_, err := ReadManifest(fsys)
+	_, err := ReadProject(fsys)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "is not a valid version")
 }
 
-func TestEncodeManifest(t *testing.T) {
-	m := &Manifest{Requires: map[Dependency]Requirement{
+func TestEncodeProject(t *testing.T) {
+	m := &Project{Requires: map[Dependency]Requirement{
 		{URL: "github.com/cloudboss/unobin"}:        {Version: "v0.1.2"},
 		{URL: "github.com/cloudboss/helloer-stuff"}: {Version: "v0.1.0"},
 	}}
 	want := depsFixture(t, "valid/encoded-requirements")
-	assert.Equal(t, string(want), string(EncodeManifest(m)))
+	assert.Equal(t, string(want), string(EncodeProject(m)))
 }
 
-func TestEncodeManifestEmpty(t *testing.T) {
+func TestEncodeProjectEmpty(t *testing.T) {
 	want := depsFixture(t, "valid/encoded-empty")
-	assert.Equal(t, string(want), string(EncodeManifest(&Manifest{})))
+	assert.Equal(t, string(want), string(EncodeProject(&Project{})))
 }
 
-func TestManifestCanBeReadAgain(t *testing.T) {
-	m := &Manifest{Requires: map[Dependency]Requirement{
+func TestProjectCanBeReadAgain(t *testing.T) {
+	m := &Project{Requires: map[Dependency]Requirement{
 		{URL: "github.com/x/y", Subdir: "sub"}: {Version: "v1.2.3"},
 		{URL: "github.com/a/b"}:                {Version: "v0.1.0"},
 	}}
-	fsys := fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: EncodeManifest(m)}}
-	got, err := ReadManifest(fsys)
+	fsys := fstest.MapFS{ProjectFileName: &fstest.MapFile{Data: EncodeProject(m)}}
+	got, err := ReadProject(fsys)
 	require.NoError(t, err)
 	assert.Equal(t, m.Requires, got.Requires)
 }
 
-func TestReadManifestWithReplace(t *testing.T) {
+func TestReadProjectWithReplace(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "valid/with-replace")},
+		ProjectFileName: &fstest.MapFile{Data: depsFixture(t, "valid/with-replace")},
 	}
-	m, err := ReadManifest(fsys)
+	m, err := ReadProject(fsys)
 	require.NoError(t, err)
 	assert.Equal(t, map[Dependency]Requirement{
 		{URL: "github.com/x/y"}: {Version: "v1.0.0"},
@@ -226,24 +226,24 @@ func TestReadManifestWithReplace(t *testing.T) {
 	}, m.Replace)
 }
 
-func TestEncodeManifestWithReplace(t *testing.T) {
-	m := &Manifest{
+func TestEncodeProjectWithReplace(t *testing.T) {
+	m := &Project{
 		Requires: map[Dependency]Requirement{{URL: "github.com/x/y"}: {Version: "v1.0.0"}},
 		Replace: map[Dependency]string{
 			{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
 		},
 	}
 	want := depsFixture(t, "valid/encoded-replace")
-	assert.Equal(t, string(want), string(EncodeManifest(m)))
+	assert.Equal(t, string(want), string(EncodeProject(m)))
 }
 
 func TestReplaceCanBeReadAgain(t *testing.T) {
-	m := &Manifest{
+	m := &Project{
 		Requires: map[Dependency]Requirement{{URL: "github.com/a/b"}: {Version: "v0.1.0"}},
 		Replace:  map[Dependency]string{{URL: "github.com/c/d"}: "../local/d"},
 	}
-	fsys := fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: EncodeManifest(m)}}
-	got, err := ReadManifest(fsys)
+	fsys := fstest.MapFS{ProjectFileName: &fstest.MapFile{Data: EncodeProject(m)}}
+	got, err := ReadProject(fsys)
 	require.NoError(t, err)
 	assert.Equal(t, m.Requires, got.Requires)
 	assert.Equal(t, m.Replace, got.Replace)

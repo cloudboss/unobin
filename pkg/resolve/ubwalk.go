@@ -129,10 +129,10 @@ type UBVisitor interface {
 // alias-to-resolution map without per-site visitor callbacks. Cycles
 // through UB libraries are reported as errors.
 //
-// versions maps a repository URL to the version selected for it in the
-// lock; every remote import is walked at its repository's selected
+// versions maps a repository URL to the version selected for it in
+// project-lock; every remote import is walked at its repository's selected
 // version. A remote import whose repository is not in the map has no
-// version and is an error: the lock must supply it.
+// version and is an error: project-lock must supply it.
 func WalkUB(
 	refs map[string]ImportRef, resolver Resolver, v UBVisitor, versions map[string]string,
 ) ([]Resolution, error) {
@@ -169,10 +169,10 @@ type ubWalker struct {
 	goPackageModules map[string]string
 }
 
-// lockedVersion returns ref with the selected lock version filled in,
-// when the map has one. Local imports and dependencies absent from the map
-// are returned unchanged.
-func (w *ubWalker) lockedVersion(ref ImportRef) ImportRef {
+// projectLockVersion returns ref with the selected project-lock version
+// filled in when the map has one. Local imports and dependencies absent from
+// the map are returned unchanged.
+func (w *ubWalker) projectLockVersion(ref ImportRef) ImportRef {
 	r, ok := ref.(*RemoteImport)
 	if !ok {
 		return ref
@@ -262,7 +262,7 @@ func remoteNestedProjectError(
 	return fmt.Errorf(
 		"selected project %s does not own package %s; "+
 			"the package is inside nested project %s; "+
-			"add that project to manifest.requires or replace it directly",
+			"add that project to project.requires or replace it directly",
 		project, pkg, nested)
 }
 
@@ -301,10 +301,10 @@ func (w *ubWalker) walkOne(
 	parent *Source,
 	fromKey string,
 ) (Resolution, error) {
-	ref = w.lockedVersion(ref)
+	ref = w.projectLockVersion(ref)
 	if r, ok := ref.(*RemoteImport); ok && r.Version == "" {
 		return Resolution{}, fmt.Errorf(
-			"import %q: no version for %s in lock.ub; run `unobin deps sync`",
+			"import %q: no version for %s in project-lock.ub; run `unobin deps sync`",
 			alias, remoteImportID(r))
 	}
 	if r, ok := crossRepoInternal(repo, ref); ok {
@@ -508,7 +508,7 @@ func LocalGoImportError(alias, path string, source *Source) error {
 	return fmt.Errorf("import %q: %s is a Go library (module %s), which cannot be "+
 		"imported by path. Import it by its module path and replace it locally:\n"+
 		"  in the .ub file: imports: { %s: '%s' }\n"+
-		"  in manifest.ub:  manifest: { replace: { '%s': '%s' } }",
+		"  in project.ub:  project: { replace: { '%s': '%s' } }",
 		alias, path, module, alias, module, module, path)
 }
 
@@ -681,7 +681,7 @@ func addSourceDeclaredLibraryFile(
 
 func skippableLibraryPackageFile(kind syntax.FileKind) bool {
 	switch kind {
-	case syntax.FileFactory, syntax.FileManifest, syntax.FileLock, syntax.FileStack:
+	case syntax.FileFactory, syntax.FileProject, syntax.FileProjectLock, syntax.FileStack:
 		return true
 	default:
 		return false

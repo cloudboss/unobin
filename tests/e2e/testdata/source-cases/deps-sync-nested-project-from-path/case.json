@@ -22,7 +22,7 @@
     }
   ],
   "files": [
-    { "path": "repo/library-c/manifest.ub", "want": "want/manifest.ub" },
-    { "path": "repo/library-c/lock.ub", "want": "want/lock.ub" }
+    { "path": "repo/library-c/project.ub", "want": "want/project.ub" },
+    { "path": "repo/library-c/project-lock.ub", "want": "want/project-lock.ub" }
   ]
 }

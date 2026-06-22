@@ -32,7 +32,7 @@ func resetFlags(cmd *cobra.Command) {
 }
 
 func TestUblibraryRefusesReservedTypeName(t *testing.T) {
-	for _, name := range []string{"factory", "lock", "main", "manifest"} {
+	for _, name := range []string{"factory", "main", "project", "project-lock"} {
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "greeter")
 			_, err := runUblibraryCmd(t, "-o", dir, "--type", name)

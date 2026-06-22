@@ -36,16 +36,16 @@ func Classify(fsys fs.FS, dir string) (Marker, error) {
 		return Marker{}, err
 	}
 
-	manifest, manifestOK := markerEntry(entries, "manifest.ub")
+	project, projectOK := markerEntry(entries, "project.ub")
 	goMod, goModOK := markerEntry(entries, "go.mod")
-	if manifestOK && goModOK {
-		return Marker{}, fmt.Errorf("project marker %s has both manifest.ub and go.mod", dir)
+	if projectOK && goModOK {
+		return Marker{}, fmt.Errorf("project marker %s has both project.ub and go.mod", dir)
 	}
-	if manifestOK {
-		if err := validateEntry(dir, "manifest.ub", manifest); err != nil {
+	if projectOK {
+		if err := validateEntry(dir, "project.ub", project); err != nil {
 			return Marker{}, err
 		}
-		if err := validateManifest(fsys, dir); err != nil {
+		if err := validateProject(fsys, dir); err != nil {
 			return Marker{}, err
 		}
 		return Marker{Kind: UB}, nil
@@ -87,9 +87,9 @@ func validateEntry(dir, name string, entry fs.DirEntry) error {
 	return nil
 }
 
-func validateManifest(fsys fs.FS, dir string) error {
-	name := markerPath(dir, "manifest.ub")
-	b, err := fs.ReadFile(fsys, fsPath(dir, "manifest.ub"))
+func validateProject(fsys fs.FS, dir string) error {
+	name := markerPath(dir, "project.ub")
+	b, err := fs.ReadFile(fsys, fsPath(dir, "project.ub"))
 	if err != nil {
 		return fmt.Errorf("project marker %s: %w", name, err)
 	}
@@ -97,15 +97,15 @@ func validateManifest(fsys fs.FS, dir string) error {
 	if err != nil {
 		return fmt.Errorf("project marker %s: %w", name, err)
 	}
-	if !declaresManifest(parsed) {
-		return fmt.Errorf("project marker %s: must declare manifest", name)
+	if !declaresProject(parsed) {
+		return fmt.Errorf("project marker %s: must declare project", name)
 	}
 	f, errs := syntax.LowerFile(parsed)
 	if errs.Len() > 0 {
 		return fmt.Errorf("project marker %s: %w", name, errs.Err())
 	}
-	if f.Kind != syntax.FileManifest || f.Manifest == nil {
-		return fmt.Errorf("project marker %s: must declare manifest", name)
+	if f.Kind != syntax.FileProject || f.Project == nil {
+		return fmt.Errorf("project marker %s: must declare project", name)
 	}
 	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
 		return fmt.Errorf("project marker %s: %w", name, errs.Err())
@@ -113,12 +113,12 @@ func validateManifest(fsys fs.FS, dir string) error {
 	return nil
 }
 
-func declaresManifest(f *parse.File) bool {
+func declaresProject(f *parse.File) bool {
 	if f == nil || f.Body == nil || len(f.Body.Fields) != 1 {
 		return false
 	}
 	field := f.Body.Fields[0]
-	return field.Key.Kind == parse.FieldIdent && field.Key.Name == "manifest"
+	return field.Key.Kind == parse.FieldIdent && field.Key.Name == "project"
 }
 
 func readModulePath(fsys fs.FS, dir string) (string, error) {

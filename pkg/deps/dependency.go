@@ -1,4 +1,4 @@
-// Package deps models a factory's dependencies. It reads manifest.ub,
+// Package deps models a factory's dependencies. It reads project.ub,
 // which lists each direct dependency and the lowest version the factory
 // accepts for it, and drives pkg/resolve to fetch them.
 package deps
@@ -11,7 +11,7 @@ import (
 )
 
 // Dependency identifies an importable unit by its repository URL and an
-// optional subdirectory within that repository. It is the manifest's
+// optional subdirectory within that repository. It is the project's
 // notion of "a dependency"; a resolved version (a git tag) is paired
 // with it elsewhere, not stored on the identity.
 type Dependency struct {

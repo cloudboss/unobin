@@ -1,4 +1,4 @@
-manifest: {
+project: {
   requires: {
     'github.com/cloudboss/unobin-library-std//x': { version: 'v0.1.0' }
     'github.com/me/net//vpc':                    { version: 'v2.0.0' }

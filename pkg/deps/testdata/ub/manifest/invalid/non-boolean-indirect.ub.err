@@ -1,1 +1,0 @@
-manifest.ub:5:17: schema: require github.com/x/y: indirect must be a boolean literal

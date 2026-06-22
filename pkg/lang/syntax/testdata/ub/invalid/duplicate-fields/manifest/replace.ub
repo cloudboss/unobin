@@ -1,6 +1,0 @@
-manifest: {
-  replace: {
-    'example.com/lib': '../one'
-    'example.com/lib': '../two'
-  }
-}

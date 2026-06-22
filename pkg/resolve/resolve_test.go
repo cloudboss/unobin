@@ -71,8 +71,8 @@ func TestLocalResolverRejectsSymlinkPath(t *testing.T) {
 func TestLocalResolverRejectsImportOutsideProjectRoot(t *testing.T) {
 	base := t.TempDir()
 	project := filepath.Join(base, "project")
-	writeFile(t, filepath.Join(project, "manifest.ub"),
-		localResolverFixture(t, "valid/empty-manifest"))
+	writeFile(t, filepath.Join(project, "project.ub"),
+		localResolverFixture(t, "valid/empty-project"))
 	writeFile(t, filepath.Join(base, "shared", "library.ub"), "thing: resource {}\n")
 
 	_, err := NewLocalResolver(project).Resolve(&LocalImport{Path: "../shared"})
@@ -80,12 +80,12 @@ func TestLocalResolverRejectsImportOutsideProjectRoot(t *testing.T) {
 	require.Contains(t, err.Error(), "outside project root")
 }
 
-func TestLocalResolverRejectsImportIntoNestedManifestRoot(t *testing.T) {
+func TestLocalResolverRejectsImportIntoNestedProjectRoot(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "manifest.ub"),
-		localResolverFixture(t, "valid/empty-manifest"))
-	writeFile(t, filepath.Join(root, "shared", "abc", "manifest.ub"),
-		localResolverFixture(t, "valid/empty-manifest"))
+	writeFile(t, filepath.Join(root, "project.ub"),
+		localResolverFixture(t, "valid/empty-project"))
+	writeFile(t, filepath.Join(root, "shared", "abc", "project.ub"),
+		localResolverFixture(t, "valid/empty-project"))
 	writeFile(t, filepath.Join(root, "shared", "abc", "library.ub"), "thing: resource {}\n")
 
 	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./shared/abc"})
@@ -95,8 +95,8 @@ func TestLocalResolverRejectsImportIntoNestedManifestRoot(t *testing.T) {
 
 func TestLocalResolverUnmarkedRootDoesNotClassifyTargetProject(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "shared", "manifest.ub"),
-		localResolverFixture(t, "invalid/bad-manifest"))
+	writeFile(t, filepath.Join(root, "shared", "project.ub"),
+		localResolverFixture(t, "invalid/bad-project"))
 	writeFile(t, filepath.Join(root, "shared", "library.ub"), "thing: resource {}\n")
 
 	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./shared"})
@@ -138,8 +138,8 @@ func TestNewRemoteResolverUsesEnvCacheRoot(t *testing.T) {
 
 func TestIsUBLibrary(t *testing.T) {
 	root := t.TempDir()
-	withManifest := filepath.Join(root, "with")
-	writeFile(t, filepath.Join(withManifest, "library.ub"),
+	withProject := filepath.Join(root, "with")
+	writeFile(t, filepath.Join(withProject, "library.ub"),
 		"thing: resource { description: 'x' }\n")
 	without := filepath.Join(root, "without")
 	require.NoError(t, os.MkdirAll(without, 0o755))

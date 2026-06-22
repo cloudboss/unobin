@@ -1,4 +1,4 @@
 Error: this unobin is a development build with no version to pin; compile with
   --replace-unobin <path-to-unobin-source>
-or add to manifest.ub:
-  manifest: { replace: { 'github.com/cloudboss/unobin': '<path-to-unobin-source>' } }
+or add to project.ub:
+  project: { replace: { 'github.com/cloudboss/unobin': '<path-to-unobin-source>' } }

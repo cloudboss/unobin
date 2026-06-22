@@ -61,7 +61,7 @@ func ubProjectHashPaths(fsys fs.FS) ([]string, error) {
 			}
 			return nil
 		}
-		if pathpkg.Base(p) == SourceLockFileName || !strings.HasSuffix(p, ".ub") {
+		if pathpkg.Base(p) == ProjectLockFileName || !strings.HasSuffix(p, ".ub") {
 			return nil
 		}
 		include, err := includeUBHashFile(fsys, p)

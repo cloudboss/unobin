@@ -1,1 +1,0 @@
-manifest.ub:4:16: schema: require github.com/x/y: version must be a string literal

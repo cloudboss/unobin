@@ -8,18 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeFetcher serves canned manifests keyed by "<dep-id>@<version>" and
-// records every call. A key mapped to a manifest with no requirements is
+// fakeFetcher serves canned projects keyed by "<dep-id>@<version>" and
+// records every call. A key mapped to a project with no requirements is
 // a known leaf; an absent key is an error.
 type fakeFetcher struct {
-	manifests map[string]*Manifest
-	calls     []string
+	projects map[string]*Project
+	calls    []string
 }
 
-func (f *fakeFetcher) Fetch(dep Dependency, version string) (*Manifest, error) {
+func (f *fakeFetcher) Fetch(dep Dependency, version string) (*Project, error) {
 	key := dep.String() + "@" + version
 	f.calls = append(f.calls, key)
-	m, ok := f.manifests[key]
+	m, ok := f.projects[key]
 	if !ok {
 		return nil, fmt.Errorf("no fake result for %s", key)
 	}
@@ -64,11 +64,11 @@ func toReqs(m map[string]string) map[Dependency]Requirement {
 // each value is the requirements that dependency version declares (empty
 // for a leaf).
 func fetcherFor(universe map[string]map[string]string) *fakeFetcher {
-	manifests := make(map[string]*Manifest, len(universe))
+	projects := make(map[string]*Project, len(universe))
 	for key, reqs := range universe {
-		manifests[key] = &Manifest{Requires: toReqs(reqs)}
+		projects[key] = &Project{Requires: toReqs(reqs)}
 	}
-	return &fakeFetcher{manifests: manifests}
+	return &fakeFetcher{projects: projects}
 }
 
 func TestResolveSelectsVersions(t *testing.T) {
@@ -217,7 +217,7 @@ func TestResolveSelectsVersions(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := Resolve(&Manifest{Requires: toReqs(c.root)}, fetcherFor(c.universe))
+			got, err := Resolve(&Project{Requires: toReqs(c.root)}, fetcherFor(c.universe))
 			require.NoError(t, err)
 			assert.Equal(t, c.want, selected(got))
 		})
@@ -229,7 +229,7 @@ func TestResolveSelectsVersions(t *testing.T) {
 // minimal version selection does not depend on the order requirements are
 // discovered.
 func TestResolveUsesIndirectRootFloors(t *testing.T) {
-	root := &Manifest{Requires: map[Dependency]Requirement{
+	root := &Project{Requires: map[Dependency]Requirement{
 		dep("github.com/cloudboss/unobin-libraries-scratch"): {Version: "v0.8.0"},
 		dep("github.com/cloudboss/unobin-library-std"): {
 			Version:  "v0.2.0",
@@ -268,7 +268,7 @@ func TestResolveIsDeterministic(t *testing.T) {
 		"x/b": "v2.0.0", "x/q": "v2.0.0", "x/d": "v1.0.0",
 	}
 	for i := range 25 {
-		got, err := Resolve(&Manifest{Requires: toReqs(root)}, fetcherFor(universe))
+		got, err := Resolve(&Project{Requires: toReqs(root)}, fetcherFor(universe))
 		require.NoError(t, err)
 		assert.Equalf(t, want, selected(got), "run %d", i)
 	}
@@ -276,7 +276,7 @@ func TestResolveIsDeterministic(t *testing.T) {
 
 func TestResolveStopsAtLeaf(t *testing.T) {
 	f := fetcherFor(map[string]map[string]string{"x/g@v1.2.3": nil})
-	got, err := Resolve(&Manifest{Requires: toReqs(map[string]string{"x/g": "v1.2.3"})}, f)
+	got, err := Resolve(&Project{Requires: toReqs(map[string]string{"x/g": "v1.2.3"})}, f)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{"x/g": "v1.2.3"}, selected(got))
 	assert.Equal(t, []string{"x/g@v1.2.3"}, f.calls)
@@ -289,7 +289,7 @@ func TestResolveFetchesSharedDependencyOnce(t *testing.T) {
 		"x/c@v1.0.0": nil,
 	})
 	root := toReqs(map[string]string{"x/a": "v1.0.0", "x/b": "v1.0.0"})
-	_, err := Resolve(&Manifest{Requires: root}, f)
+	_, err := Resolve(&Project{Requires: root}, f)
 	require.NoError(t, err)
 	assert.Equal(t, 1, f.fetchCount("x/c@v1.0.0"))
 }
@@ -302,15 +302,15 @@ func TestResolveRefetchesOnlyOncePerRaise(t *testing.T) {
 		"x/b@v2.0.0": nil,
 	})
 	root := toReqs(map[string]string{"x/a": "v1.0.0", "x/p": "v1.0.0"})
-	_, err := Resolve(&Manifest{Requires: root}, f)
+	_, err := Resolve(&Project{Requires: root}, f)
 	require.NoError(t, err)
 	assert.LessOrEqual(t, f.fetchCount("x/b@v1.0.0"), 1)
 	assert.Equal(t, 1, f.fetchCount("x/b@v2.0.0"))
 }
 
 func TestResolveFetchError(t *testing.T) {
-	f := &fakeFetcher{manifests: map[string]*Manifest{}}
-	_, err := Resolve(&Manifest{Requires: toReqs(map[string]string{"x/a": "v1.0.0"})}, f)
+	f := &fakeFetcher{projects: map[string]*Project{}}
+	_, err := Resolve(&Project{Requires: toReqs(map[string]string{"x/a": "v1.0.0"})}, f)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "x/a@v1.0.0")
 }

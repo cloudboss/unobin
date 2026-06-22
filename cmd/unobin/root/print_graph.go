@@ -80,19 +80,19 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := printGraphManifest(projectDir)
+	project, err := printGraphProject(projectDir)
 	if err != nil {
 		return err
 	}
 	var replaceMap map[deps.Dependency]string
-	if manifest != nil {
-		if err := deps.CheckReplacementSentinels(manifest); err != nil {
+	if project != nil {
+		if err := deps.CheckReplacementSentinels(project); err != nil {
 			return err
 		}
-		replaceMap = manifest.Replace
+		replaceMap = project.Replace
 	}
 
-	lock, err := printGraphLock(projectDir)
+	projectLock, err := printGraphProjectLock(projectDir)
 	if err != nil {
 		return err
 	}
@@ -100,13 +100,13 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	if err != nil {
 		return err
 	}
-	resolver = compile.WrapLockedSources(resolver, lock)
+	resolver = compile.WrapProjectLockSources(resolver, projectLock)
 	resolver, err = compile.WrapReplaces(resolver, projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
 		return err
 	}
 
-	repoVersions, err := compile.LockedVersions(projectDir)
+	repoVersions, err := compile.ProjectLockVersions(projectDir)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 }
 
 func printGraphProjectDir(sourceDir string) (string, error) {
-	projectDir, err := deps.FindManifestDir(sourceDir)
+	projectDir, err := deps.FindProjectDir(sourceDir)
 	if err == nil {
 		return projectDir, nil
 	}
@@ -158,26 +158,26 @@ func printGraphProjectDir(sourceDir string) (string, error) {
 	return "", err
 }
 
-func printGraphLock(projectDir string) (*deps.Lock, error) {
-	lock, err := deps.ReadLock(os.DirFS(projectDir))
+func printGraphProjectLock(projectDir string) (*deps.ProjectLock, error) {
+	projectLock, err := deps.ReadProjectLock(os.DirFS(projectDir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return lock, nil
+	return projectLock, nil
 }
 
-func printGraphManifest(projectDir string) (*deps.Manifest, error) {
-	manifest, err := deps.ReadManifest(os.DirFS(projectDir))
+func printGraphProject(projectDir string) (*deps.Project, error) {
+	project, err := deps.ReadProject(os.DirFS(projectDir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return manifest, nil
+	return project, nil
 }
 
 func printGraphReplacedVersions(

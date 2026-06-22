@@ -116,13 +116,13 @@ func TestFmtDirectoryWalksRecursively(t *testing.T) {
 func TestFmtDirectoryIncludesReservedSourceFiles(t *testing.T) {
 	dir := t.TempDir()
 	ub := writeUBFile(t, dir, "factory.ub", messySource)
-	manifest := writeUBFile(t, dir, deps.ManifestFileName, messySource)
-	lock := writeUBFile(t, dir, deps.SourceLockFileName, "lock: { deps: {} }")
+	project := writeUBFile(t, dir, deps.ProjectFileName, messySource)
+	projectLock := writeUBFile(t, dir, deps.ProjectLockFileName, "project-lock: { deps: {} }")
 
 	got, err := runFmtCommand(t, nil, "-l", dir)
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
-	require.ElementsMatch(t, []string{ub, manifest, lock}, lines)
+	require.ElementsMatch(t, []string{ub, project, projectLock}, lines)
 }
 
 func TestFmtReadsStdinAndWritesStdout(t *testing.T) {

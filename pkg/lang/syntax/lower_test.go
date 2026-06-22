@@ -157,14 +157,14 @@ func TestLowerPreclassifiedFactoryFileRequiresSourceDeclaration(t *testing.T) {
 	require.Contains(t, errs.Error(), "cannot determine UB file role from factory")
 }
 
-func TestLowerPreclassifiedManifestFileRequiresSourceDeclaration(t *testing.T) {
-	f := parseFile(t, "unobin.manifest", lowerInvalidFixture(t, "preclassified-manifest"),
-		parse.FileManifest)
+func TestLowerPreclassifiedProjectFileRequiresSourceDeclaration(t *testing.T) {
+	f := parseFile(t, "unobin.project", lowerInvalidFixture(t, "preclassified-project"),
+		parse.FileProject)
 
 	got, errs := LowerFile(f)
 	require.NotZero(t, errs.Len())
 	require.Equal(t, FileUnknown, got.Kind)
-	require.Contains(t, errs.Error(), "cannot determine UB file role from manifest")
+	require.Contains(t, errs.Error(), "cannot determine UB file role from project")
 }
 
 func TestLowerSourceDeclaredFactoryFile(t *testing.T) {
@@ -196,49 +196,49 @@ func TestLowerSourceDeclaredStackFile(t *testing.T) {
 	assert.Equal(t, "noop", got.Stack.Encryption.Selector.Name)
 }
 
-func TestLowerSourceDeclaredManifestFile(t *testing.T) {
-	f := parseFile(t, "manifest.ub", lowerFixture(t, "source-manifest"), parse.FileUnknown)
+func TestLowerSourceDeclaredProjectFile(t *testing.T) {
+	f := parseFile(t, "project.ub", lowerFixture(t, "source-project"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
-	require.Equal(t, FileManifest, got.Kind)
-	require.NotNil(t, got.Manifest)
-	require.NotNil(t, got.Manifest.UnobinVersion)
-	assert.Equal(t, "0.2.0", got.Manifest.UnobinVersion.Value)
-	require.Len(t, got.Manifest.Requires, 2)
-	assert.Equal(t, "github.com/cloudboss/example", got.Manifest.Requires[0].ID.Value)
-	require.NotNil(t, got.Manifest.Requires[0].Version)
-	assert.Equal(t, "v1.2.3", got.Manifest.Requires[0].Version.Value)
-	assert.Nil(t, got.Manifest.Requires[0].Indirect)
-	assert.Equal(t, "github.com/cloudboss/std", got.Manifest.Requires[1].ID.Value)
-	require.NotNil(t, got.Manifest.Requires[1].Version)
-	assert.Equal(t, "v0.2.0", got.Manifest.Requires[1].Version.Value)
-	require.NotNil(t, got.Manifest.Requires[1].Indirect)
-	assert.True(t, got.Manifest.Requires[1].Indirect.Value)
+	require.Equal(t, FileProject, got.Kind)
+	require.NotNil(t, got.Project)
+	require.NotNil(t, got.Project.UnobinVersion)
+	assert.Equal(t, "0.2.0", got.Project.UnobinVersion.Value)
+	require.Len(t, got.Project.Requires, 2)
+	assert.Equal(t, "github.com/cloudboss/example", got.Project.Requires[0].ID.Value)
+	require.NotNil(t, got.Project.Requires[0].Version)
+	assert.Equal(t, "v1.2.3", got.Project.Requires[0].Version.Value)
+	assert.Nil(t, got.Project.Requires[0].Indirect)
+	assert.Equal(t, "github.com/cloudboss/std", got.Project.Requires[1].ID.Value)
+	require.NotNil(t, got.Project.Requires[1].Version)
+	assert.Equal(t, "v0.2.0", got.Project.Requires[1].Version.Value)
+	require.NotNil(t, got.Project.Requires[1].Indirect)
+	assert.True(t, got.Project.Requires[1].Indirect.Value)
 }
 
-func TestLowerSourceDeclaredLockFile(t *testing.T) {
-	f := parseFile(t, "lock.ub", lowerFixture(t, "source-lock"), parse.FileUnknown)
+func TestLowerSourceDeclaredProjectLockFile(t *testing.T) {
+	f := parseFile(t, "project-lock.ub", lowerFixture(t, "source-project-lock"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
-	require.Equal(t, FileLock, got.Kind)
-	require.NotNil(t, got.Lock)
-	requireSpan(t, got.Lock.S)
-	require.NotNil(t, got.Lock.Version)
-	assert.Equal(t, int64(1), got.Lock.Version.ParsedInt)
-	require.NotNil(t, got.Lock.Toolchain)
-	assert.Equal(t, "v0.4.2", got.Lock.Toolchain.UnobinVersion.Value)
+	require.Equal(t, FileProjectLock, got.Kind)
+	require.NotNil(t, got.ProjectLock)
+	requireSpan(t, got.ProjectLock.S)
+	require.NotNil(t, got.ProjectLock.Version)
+	assert.Equal(t, int64(1), got.ProjectLock.Version.ParsedInt)
+	require.NotNil(t, got.ProjectLock.Toolchain)
+	assert.Equal(t, "v0.4.2", got.ProjectLock.Toolchain.UnobinVersion.Value)
 
-	require.Len(t, got.Lock.Deps, 2)
-	assert.Equal(t, "github.com/cloudboss/unobin-library-std", got.Lock.Deps[0].ID.Value)
-	assert.Equal(t, "go", got.Lock.Deps[0].Kind.Name)
-	assert.Equal(t, "v0.1.0", got.Lock.Deps[0].Version.Value)
-	assert.Equal(t, "abc123", got.Lock.Deps[0].Commit.Value)
-	require.Nil(t, got.Lock.Deps[0].Hash)
-	assert.Equal(t, "example.com/ub-lib//network", got.Lock.Deps[1].ID.Value)
-	assert.Equal(t, "ub", got.Lock.Deps[1].Kind.Name)
-	assert.Equal(t, "sha256:789abc", got.Lock.Deps[1].Hash.Value)
+	require.Len(t, got.ProjectLock.Deps, 2)
+	assert.Equal(t, "github.com/cloudboss/unobin-library-std", got.ProjectLock.Deps[0].ID.Value)
+	assert.Equal(t, "go", got.ProjectLock.Deps[0].Kind.Name)
+	assert.Equal(t, "v0.1.0", got.ProjectLock.Deps[0].Version.Value)
+	assert.Equal(t, "abc123", got.ProjectLock.Deps[0].Commit.Value)
+	require.Nil(t, got.ProjectLock.Deps[0].Hash)
+	assert.Equal(t, "example.com/ub-lib//network", got.ProjectLock.Deps[1].ID.Value)
+	assert.Equal(t, "ub", got.ProjectLock.Deps[1].Kind.Name)
+	assert.Equal(t, "sha256:789abc", got.ProjectLock.Deps[1].Hash.Value)
 }
 
 func TestLowerSourceDeclaredLibraryFile(t *testing.T) {
@@ -352,10 +352,10 @@ func duplicateFieldFixturePath(name string) string {
 		return "factory.ub"
 	case "stack":
 		return "dev.ub"
-	case "manifest":
-		return "manifest.ub"
-	case "lock":
-		return "lock.ub"
+	case "project":
+		return "project.ub"
+	case "project-lock":
+		return "project-lock.ub"
 	case "library":
 		return "library.ub"
 	default:
@@ -472,16 +472,16 @@ func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
 			want:    "factory.ub must declare factory",
 		},
 		{
-			name:    "manifest file with factory declaration",
-			path:    "manifest.ub",
-			fixture: "reserved-manifest-with-factory",
-			want:    "manifest.ub must declare manifest",
+			name:    "project file with factory declaration",
+			path:    "project.ub",
+			fixture: "reserved-project-with-factory",
+			want:    "project.ub must declare project",
 		},
 		{
-			name:    "lock file with manifest declaration",
-			path:    "lock.ub",
-			fixture: "reserved-lock-with-manifest",
-			want:    "lock.ub must declare lock",
+			name:    "project-lock file with project declaration",
+			path:    "project-lock.ub",
+			fixture: "reserved-project-lock-with-project",
+			want:    "project-lock.ub must declare project-lock",
 		},
 		{
 			name:    "factory declaration outside factory file",
@@ -490,16 +490,16 @@ func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
 			want:    "factory declaration must be in factory.ub",
 		},
 		{
-			name:    "manifest declaration outside manifest file",
+			name:    "project declaration outside project file",
 			path:    "app.ub",
-			fixture: "reserved-manifest-outside-manifest",
-			want:    "manifest declaration must be in manifest.ub",
+			fixture: "reserved-project-outside-project",
+			want:    "project declaration must be in project.ub",
 		},
 		{
-			name:    "lock declaration outside lock file",
+			name:    "project-lock declaration outside project-lock file",
 			path:    "app.ub",
-			fixture: "reserved-lock-outside-lock",
-			want:    "lock declaration must be in lock.ub",
+			fixture: "reserved-project-lock-outside-project-lock",
+			want:    "project-lock declaration must be in project-lock.ub",
 		},
 	}
 	for _, c := range cases {
@@ -514,7 +514,7 @@ func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
 	}
 }
 
-func TestLowerReportsManifestRequireSchemaErrors(t *testing.T) {
+func TestLowerReportsProjectRequireSchemaErrors(t *testing.T) {
 	cases := []struct {
 		name string
 		src  string
@@ -548,8 +548,8 @@ func TestLowerReportsManifestRequireSchemaErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			body := "manifest" + ": { requires: { " + c.src + " } }\n"
-			f := parseFile(t, "manifest.ub", body, parse.FileUnknown)
+			body := "project" + ": { requires: { " + c.src + " } }\n"
+			f := parseFile(t, "project.ub", body, parse.FileUnknown)
 
 			_, errs := LowerFile(f)
 			require.NotEqual(t, 0, errs.Len())
@@ -558,25 +558,25 @@ func TestLowerReportsManifestRequireSchemaErrors(t *testing.T) {
 	}
 }
 
-func TestLowerReportsLockSchemaErrors(t *testing.T) {
-	f := parseFile(t, "lock.ub", lowerInvalidFixture(t, "lock-schema-errors"), parse.FileUnknown)
+func TestLowerReportsProjectLockSchemaErrors(t *testing.T) {
+	f := parseFile(t, "project-lock.ub", lowerInvalidFixture(t, "project-lock-schema-errors"), parse.FileUnknown)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
 	got := errs.Error()
-	assert.Contains(t, got, "lock version must be an integer")
-	assert.Contains(t, got, "lock: missing toolchain")
-	assert.Contains(t, got, "lock dependency github.com/cloudboss/example: ub kind requires hash")
-	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-go: go kind forbids hash")
-	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-bad: unknown kind")
-	assert.Contains(t, got, "lock dependency github.com/cloudboss/example-bad: missing version")
+	assert.Contains(t, got, "project-lock version must be an integer")
+	assert.Contains(t, got, "project-lock: missing toolchain")
+	assert.Contains(t, got, "project-lock dependency github.com/cloudboss/example: ub kind requires hash")
+	assert.Contains(t, got, "project-lock dependency github.com/cloudboss/example-go: go kind forbids hash")
+	assert.Contains(t, got, "project-lock dependency github.com/cloudboss/example-bad: unknown kind")
+	assert.Contains(t, got, "project-lock dependency github.com/cloudboss/example-bad: missing version")
 }
 
-func TestLowerReportsLockToolchainSchemaErrors(t *testing.T) {
-	f := parseFile(t, "lock.ub", lowerInvalidFixture(t, "lock-toolchain-schema-errors"),
+func TestLowerReportsProjectLockToolchainSchemaErrors(t *testing.T) {
+	f := parseFile(t, "project-lock.ub", lowerInvalidFixture(t, "project-lock-toolchain-schema-errors"),
 		parse.FileUnknown)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
-	assert.Contains(t, errs.Error(), "lock toolchain: missing unobin-version")
+	assert.Contains(t, errs.Error(), "project-lock toolchain: missing unobin-version")
 }

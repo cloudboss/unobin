@@ -46,10 +46,10 @@ func ValidateFile(f *File) *parse.ErrorList {
 		validateFactoryBody(f.Factory.Body, errs)
 	case FileStack:
 		validateStackFile(f.Stack, f.S.Start, errs)
-	case FileManifest:
-		validateManifestFile(f.Manifest, f.S.Start, errs)
-	case FileLock:
-		validateLockFile(f.Lock, f.S.Start, errs)
+	case FileProject:
+		validateProjectFile(f.Project, f.S.Start, errs)
+	case FileProjectLock:
+		validateProjectLockFile(f.ProjectLock, f.S.Start, errs)
 	case FileLibrary:
 		validateLibraryFile(f.Library, f.S.Start, errs)
 	default:
@@ -172,33 +172,33 @@ func validateStackFactory(
 	mergeErrors(errs, lang.ValidateStackFactory(cfg, locals))
 }
 
-func validateManifestFile(manifest *ManifestFile, pos parse.Position, errs *parse.ErrorList) {
-	if manifest == nil {
-		errs.Addf(parse.ErrSchema, pos, "manifest file is missing manifest body")
+func validateProjectFile(project *ProjectFile, pos parse.Position, errs *parse.ErrorList) {
+	if project == nil {
+		errs.Addf(parse.ErrSchema, pos, "project file is missing project body")
 		return
 	}
-	mergeErrors(errs, lang.ValidateManifestRequires(manifestRequiresObject(manifest.Requires)))
-	mergeErrors(errs, lang.ValidateManifestReplace(manifestReplaceObject(manifest.Replace)))
+	mergeErrors(errs, lang.ValidateProjectRequires(projectRequiresObject(project.Requires)))
+	mergeErrors(errs, lang.ValidateProjectReplace(projectReplaceObject(project.Replace)))
 }
 
-func validateLockFile(lock *LockFile, pos parse.Position, errs *parse.ErrorList) {
-	if lock == nil {
-		errs.Addf(parse.ErrSchema, pos, "lock file is missing lock body")
+func validateProjectLockFile(projectLock *ProjectLockFile, pos parse.Position, errs *parse.ErrorList) {
+	if projectLock == nil {
+		errs.Addf(parse.ErrSchema, pos, "project-lock file is missing project-lock body")
 		return
 	}
-	if lock.Version == nil {
-		errs.Addf(parse.ErrSchema, lock.S.Start, "lock: missing version")
-	} else if lock.Version.ParsedInt != 1 {
-		errs.Addf(parse.ErrSchema, lock.Version.S.Start,
-			"lock version must be 1, got %d", lock.Version.ParsedInt)
+	if projectLock.Version == nil {
+		errs.Addf(parse.ErrSchema, projectLock.S.Start, "project-lock: missing version")
+	} else if projectLock.Version.ParsedInt != 1 {
+		errs.Addf(parse.ErrSchema, projectLock.Version.S.Start,
+			"project-lock version must be 1, got %d", projectLock.Version.ParsedInt)
 	}
-	if lock.Toolchain == nil {
-		errs.Addf(parse.ErrSchema, lock.S.Start, "lock: missing toolchain")
+	if projectLock.Toolchain == nil {
+		errs.Addf(parse.ErrSchema, projectLock.S.Start, "project-lock: missing toolchain")
 	}
-	for _, dep := range lock.Deps {
+	for _, dep := range projectLock.Deps {
 		if dep.Kind.Name == "ub" && dep.Hash != nil && !hasHashAlgorithm(dep.Hash.Value) {
 			errs.Addf(parse.ErrSchema, dep.Hash.S.Start,
-				"lock dependency %s: hash must include an algorithm prefix", dep.ID.Value)
+				"project-lock dependency %s: hash must include an algorithm prefix", dep.ID.Value)
 		}
 	}
 }
@@ -593,7 +593,7 @@ func nodeDeclsObject(decls []NodeDecl) *parse.ObjectLit {
 	return obj
 }
 
-func manifestRequiresObject(decls []ManifestRequire) *parse.ObjectLit {
+func projectRequiresObject(decls []ProjectRequire) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {
 		obj.S = decls[0].S
@@ -613,7 +613,7 @@ func manifestRequiresObject(decls []ManifestRequire) *parse.ObjectLit {
 	return obj
 }
 
-func manifestReplaceObject(decls []ManifestReplace) *parse.ObjectLit {
+func projectReplaceObject(decls []ProjectReplace) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {
 		obj.S = decls[0].S

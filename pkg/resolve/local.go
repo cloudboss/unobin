@@ -128,7 +128,7 @@ func checkLocalPathSymlinks(importerDir, importPath string) error {
 }
 
 func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error {
-	importerProject, importerOK, err := nearestManifestDir(importerDir)
+	importerProject, importerOK, err := nearestProjectDir(importerDir)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 		return fmt.Errorf("local import %q resolves outside project root %s",
 			importPath, importerProject)
 	}
-	targetProject, targetOK, err := nearestManifestDir(targetDir)
+	targetProject, targetOK, err := nearestProjectDir(targetDir)
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func checkLocalProjectBoundary(importerDir, targetDir, importPath string) error 
 func localImportNestedProjectError(importPath, targetProject string) error {
 	return fmt.Errorf(
 		"local import %q crosses nested project %s; "+
-			"import it by dependency id and add manifest.replace for local development",
+			"import it by dependency id and add project.replace for local development",
 		importPath,
 		targetProject,
 	)
@@ -196,7 +196,7 @@ func pathWithinDir(root, target string) (bool, error) {
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))), nil
 }
 
-func nearestManifestDir(start string) (string, bool, error) {
+func nearestProjectDir(start string) (string, bool, error) {
 	dir, err := filepath.Abs(start)
 	if err != nil {
 		return "", false, err
@@ -205,11 +205,11 @@ func nearestManifestDir(start string) (string, bool, error) {
 		dir = filepath.Dir(dir)
 	}
 	for {
-		hasManifest, err := dirHasManifest(dir)
+		hasProject, err := dirHasProject(dir)
 		if err != nil {
 			return "", false, err
 		}
-		if hasManifest {
+		if hasProject {
 			return dir, true, nil
 		}
 		parent := filepath.Dir(dir)
@@ -220,7 +220,7 @@ func nearestManifestDir(start string) (string, bool, error) {
 	}
 }
 
-func dirHasManifest(dir string) (bool, error) {
+func dirHasProject(dir string) (bool, error) {
 	marker, err := projectmarker.ClassifyRoot(os.DirFS(dir))
 	if err != nil {
 		return false, err

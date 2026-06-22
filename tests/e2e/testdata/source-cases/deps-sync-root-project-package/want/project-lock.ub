@@ -1,0 +1,12 @@
+project-lock: {
+  version:   1
+  toolchain: { unobin-version: 'dev' }
+  deps: {
+    'github.com/scratch/repo': {
+      kind:    ub
+      version: 'v0.8.0'
+      commit:  'scratch'
+      hash:    'sha256:e059a67d8b8e358239e5c36f90a6a911b089d24049250ec588d551e865bacdf9'
+    }
+  }
+}

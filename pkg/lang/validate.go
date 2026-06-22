@@ -1378,12 +1378,12 @@ func ValidateImports(block *ObjectLit) *ErrorList {
 	return validateAliasToString(block, "import", "source URL or local path")
 }
 
-// ValidateManifestRequires checks a manifest `requires:` block: every
+// ValidateProjectRequires checks a project `requires:` block: every
 // entry binds a quoted dependency id (a repo URL with an optional
 // `//subdir`) to an object with a quoted version floor and an optional
 // indirect flag. The id and version strings are not parsed here; resolution
 // validates the URL and the semver floor.
-func ValidateManifestRequires(block *ObjectLit) *ErrorList {
+func ValidateProjectRequires(block *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
 	for _, fld := range block.Fields {
@@ -1410,12 +1410,12 @@ func ValidateManifestRequires(block *ObjectLit) *ErrorList {
 				"requires: dependency %q: value must be an object", id)
 			continue
 		}
-		validateManifestRequireBody(errs, id, body)
+		validateProjectRequireBody(errs, id, body)
 	}
 	return errs
 }
 
-func validateManifestRequireBody(errs *ErrorList, id string, body *ObjectLit) {
+func validateProjectRequireBody(errs *ErrorList, id string, body *ObjectLit) {
 	seen := make(map[string]Position, len(body.Fields))
 	hasVersion := false
 	for _, fld := range body.Fields {
@@ -1457,18 +1457,18 @@ func validateManifestRequireBody(errs *ErrorList, id string, body *ObjectLit) {
 	}
 }
 
-// ValidateManifestReplace checks a manifest `replace:` block: every entry
+// ValidateProjectReplace checks a project `replace:` block: every entry
 // binds a quoted dependency id (a repo URL) to a quoted local path. The
 // id and path strings are not parsed here; resolution validates the URL
 // and that the path holds a library.
-func ValidateManifestReplace(block *ObjectLit) *ErrorList {
-	return validateManifestEntries(block, "replace", "local path")
+func ValidateProjectReplace(block *ObjectLit) *ErrorList {
+	return validateProjectEntries(block, "replace", "local path")
 }
 
-// validateManifestEntries checks a manifest block whose entries bind a
+// validateProjectEntries checks a project block whose entries bind a
 // quoted dependency id to a quoted string value. blockName names the block
 // and valueDesc names the value in error messages.
-func validateManifestEntries(block *ObjectLit, blockName, valueDesc string) *ErrorList {
+func validateProjectEntries(block *ObjectLit, blockName, valueDesc string) *ErrorList {
 	errs := NewErrorList(0)
 	seen := make(map[string]Position, len(block.Fields))
 	for _, fld := range block.Fields {

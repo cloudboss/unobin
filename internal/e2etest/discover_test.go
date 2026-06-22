@@ -104,9 +104,9 @@ func TestDiscoverSourceCases(t *testing.T) {
 			{ "name": "sync", "args": ["deps", "sync"], "stdout": "want/stdout" }
 		],
 		"files": [
-			{ "path": "root/manifest.ub", "want": "want/manifest.ub" }
+			{ "path": "root/project.ub", "want": "want/project.ub" }
 		],
-		"absentFiles": ["root/services/app/lock.ub"]
+		"absentFiles": ["root/services/app/project-lock.ub"]
 	}`)
 
 	cases, err := DiscoverSourceCases(dir)
@@ -125,8 +125,8 @@ func TestDiscoverSourceCases(t *testing.T) {
 	assert.Equal(t, "abc123", got.Remotes[0].Commit)
 	assert.Equal(t, []string{"v1.0.0"}, got.Tags["github.com/x/lib"])
 	assert.Equal(t, "sync", got.Commands[0].Name)
-	assert.Equal(t, "root/manifest.ub", got.Files[0].Path)
-	assert.Equal(t, []string{"root/services/app/lock.ub"}, got.AbsentFiles)
+	assert.Equal(t, "root/project.ub", got.Files[0].Path)
+	assert.Equal(t, []string{"root/services/app/project-lock.ub"}, got.AbsentFiles)
 }
 
 func TestDiscoverCasesRejectsBadPaths(t *testing.T) {

@@ -1,0 +1,14 @@
+project: {
+  requires: {
+    'github.com/cloudboss/unobin-libraries-scratch': {
+      version: 'v0.9.0'
+    }
+    'github.com/cloudboss/unobin-library-std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
+  }
+  replace: {
+    'github.com/cloudboss/unobin': '../..'
+  }
+}

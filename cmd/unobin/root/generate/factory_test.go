@@ -38,8 +38,8 @@ func TestFactoryForceOverwritesExistingDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	stale := filepath.Join(dir, "factory.ub")
 	require.NoError(t, os.WriteFile(stale, []byte("stale content"), 0o644))
-	staleManifest := filepath.Join(dir, deps.ManifestFileName)
-	require.NoError(t, os.WriteFile(staleManifest, []byte("stale content"), 0o644))
+	staleProject := filepath.Join(dir, deps.ProjectFileName)
+	require.NoError(t, os.WriteFile(staleProject, []byte("stale content"), 0o644))
 
 	_, err := runFactoryCmd(t, "-o", dir, "--force")
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestFactoryForceOverwritesExistingDir(t *testing.T) {
 	got, err := os.ReadFile(stale)
 	require.NoError(t, err)
 	require.Contains(t, string(got), "TODO: describe this factory")
-	manifest, err := os.ReadFile(staleManifest)
+	project, err := os.ReadFile(staleProject)
 	require.NoError(t, err)
-	require.Contains(t, string(manifest), "manifest:")
+	require.Contains(t, string(project), "project:")
 }

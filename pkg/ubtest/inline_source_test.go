@@ -33,7 +33,7 @@ var inlineUBTokens = []string{
 	"inputs:",
 	"library:",
 	"locals:",
-	"manifest:",
+	"project:",
 	"outputs:",
 	"resources:",
 	"state-moves:",
@@ -63,7 +63,7 @@ func TestInlineUBScannerAcceptsGreenlistedString(t *testing.T) {
 }
 
 func TestInlineUBScannerIgnoresTokenSubstring(t *testing.T) {
-	_, ok := inlineUBToken("manifest:")
+	_, ok := inlineUBToken("project:")
 	require.False(t, ok)
 }
 

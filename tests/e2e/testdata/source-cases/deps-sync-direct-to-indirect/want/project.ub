@@ -1,0 +1,11 @@
+project: {
+  requires: {
+    'github.com/x/scratch': {
+      version: 'v0.8.0'
+    }
+    'github.com/x/std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
+  }
+}

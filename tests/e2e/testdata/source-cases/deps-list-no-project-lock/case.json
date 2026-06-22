@@ -1,0 +1,13 @@
+{
+  "name": "deps-list-no-project-lock",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-list",
+      "args": ["deps", "list", "-p", "factory.ub"],
+      "stderr": "want/deps-list.stderr",
+      "exitCode": 1
+    }
+  ]
+}

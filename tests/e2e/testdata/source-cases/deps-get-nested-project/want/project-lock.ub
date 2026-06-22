@@ -1,0 +1,12 @@
+project-lock: {
+  version:   1
+  toolchain: { unobin-version: 'dev' }
+  deps: {
+    'github.com/x/libs//ub/project-b': {
+      kind:    ub
+      version: 'v0.1.0'
+      commit:  'project-b'
+      hash:    'sha256:2e4eb391812d06e2bbe4ed36a7700bd1a52c342b6ce2650e6b03e0049a3a3be7'
+    }
+  }
+}

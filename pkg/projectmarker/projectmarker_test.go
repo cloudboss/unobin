@@ -23,10 +23,10 @@ func TestClassifyNoMarker(t *testing.T) {
 	require.Empty(t, marker.ModulePath)
 }
 
-func TestClassifyManifest(t *testing.T) {
+func TestClassifyProject(t *testing.T) {
 	marker, err := ClassifyRoot(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{
-			Data: readMarkerFixture(t, "testdata/ub/markers/valid/manifest.ub"),
+		"project.ub": &fstest.MapFile{
+			Data: readMarkerFixture(t, "testdata/ub/markers/valid/project.ub"),
 		},
 	})
 	require.NoError(t, err)
@@ -44,13 +44,13 @@ func TestClassifyGoMod(t *testing.T) {
 
 func TestClassifyBothMarkers(t *testing.T) {
 	_, err := ClassifyRoot(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{
-			Data: readMarkerFixture(t, "testdata/ub/markers/valid/manifest.ub"),
+		"project.ub": &fstest.MapFile{
+			Data: readMarkerFixture(t, "testdata/ub/markers/valid/project.ub"),
 		},
 		"go.mod": &fstest.MapFile{Data: []byte("module example.com/lib\n")},
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "project marker . has both manifest.ub and go.mod")
+	require.Contains(t, err.Error(), "project marker . has both project.ub and go.mod")
 }
 
 func TestClassifyMarkerDirectory(t *testing.T) {
@@ -61,14 +61,14 @@ func TestClassifyMarkerDirectory(t *testing.T) {
 	require.Contains(t, err.Error(), "project marker ./go.mod is a directory")
 }
 
-func TestClassifyMalformedManifest(t *testing.T) {
+func TestClassifyMalformedProject(t *testing.T) {
 	_, err := ClassifyRoot(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{
+		"project.ub": &fstest.MapFile{
 			Data: readMarkerFixture(t, "testdata/ub/markers/invalid/factory.ub"),
 		},
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "project marker ./manifest.ub: must declare manifest")
+	require.Contains(t, err.Error(), "project marker ./project.ub: must declare project")
 }
 
 func TestClassifyMalformedGoMod(t *testing.T) {

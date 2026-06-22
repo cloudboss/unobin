@@ -1,0 +1,4 @@
+project: {
+  unobin-version: 'latest'
+  requires: {}
+}

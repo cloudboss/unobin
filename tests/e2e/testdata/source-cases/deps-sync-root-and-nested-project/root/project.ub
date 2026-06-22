@@ -1,0 +1,10 @@
+project: {
+  requires: {
+    'github.com/scratch/repo': {
+      version: 'v0.8.0'
+    }
+    'github.com/scratch/repo//ub/project-b': {
+      version: 'v0.1.0'
+    }
+  }
+}

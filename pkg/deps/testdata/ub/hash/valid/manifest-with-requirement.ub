@@ -1,3 +1,0 @@
-manifest: {
-  requires: { 'github.com/x/y': { version: 'v1.0.0' } }
-}

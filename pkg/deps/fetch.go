@@ -9,22 +9,22 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-// manifestFetcher reads dependency manifests through a resolve.Resolver.
+// projectFetcher reads dependency projects through a resolve.Resolver.
 // It fetches each project at the git tag for its selected version and
-// reads the manifest at the fetched root; a project with no manifest is a
+// reads the project at the fetched root; a project with no project is a
 // leaf.
-type manifestFetcher struct {
+type projectFetcher struct {
 	resolver resolve.Resolver
 }
 
-// NewFetcher returns a Fetcher that reads dependency manifests through
+// NewFetcher returns a Fetcher that reads dependency projects through
 // resolver. It is the production Fetcher behind unobin deps; tests pass a
 // fake resolver.
 func NewFetcher(resolver resolve.Resolver) Fetcher {
-	return &manifestFetcher{resolver: resolver}
+	return &projectFetcher{resolver: resolver}
 }
 
-func (f *manifestFetcher) Fetch(dep Dependency, version string) (*Manifest, error) {
+func (f *projectFetcher) Fetch(dep Dependency, version string) (*Project, error) {
 	ref := &resolve.RemoteImport{
 		URL:     dep.URL,
 		Subdir:  dep.Subdir,
@@ -34,7 +34,7 @@ func (f *manifestFetcher) Fetch(dep Dependency, version string) (*Manifest, erro
 	if err != nil {
 		return nil, err
 	}
-	manifest, err := ReadManifest(src.FS)
+	project, err := ReadProject(src.FS)
 	if errors.Is(err, fs.ErrNotExist) {
 		if ok, markerErr := HasProjectMarker(src.FS); markerErr != nil {
 			return nil, markerErr
@@ -46,7 +46,7 @@ func (f *manifestFetcher) Fetch(dep Dependency, version string) (*Manifest, erro
 	if err != nil {
 		return nil, err
 	}
-	return manifest, nil
+	return project, nil
 }
 
 // RequireProject checks that dep resolves to a project root at version.
@@ -68,12 +68,12 @@ func RequireProject(dep Dependency, version string, resolver resolve.Resolver) e
 
 func noProjectMarkerError(dep Dependency) error {
 	return fmt.Errorf(
-		"%s has no manifest.ub or go.mod; deps get operates on projects, "+
+		"%s has no project.ub or go.mod; deps get operates on projects, "+
 			"while .ub imports may name packages below projects",
 		dep)
 }
 
-// HasProjectMarker reports whether fsys contains manifest.ub or go.mod at its root.
+// HasProjectMarker reports whether fsys contains project.ub or go.mod at its root.
 func HasProjectMarker(fsys fs.FS) (bool, error) {
 	marker, err := projectmarker.ClassifyRoot(fsys)
 	if err != nil {

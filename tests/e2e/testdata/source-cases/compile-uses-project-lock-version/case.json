@@ -1,0 +1,22 @@
+{
+  "name": "compile-uses-project-lock-version",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "github.com/x/core//lib@v1.0.0",
+      "path": "remotes/core/lib"
+    }
+  ],
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" }
+  ]
+}

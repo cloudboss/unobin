@@ -10,12 +10,12 @@ import (
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 )
 
-// FindManifestDir walks up from start to the nearest ancestor directory
-// holding a manifest and returns that directory: the root of the project that
+// FindProjectDir walks up from start to the nearest ancestor directory
+// holding a project and returns that directory: the root of the project that
 // governs start. start may be any path inside the project, a directory or a
 // file. It stops at the filesystem root and returns an error wrapping
-// fs.ErrNotExist when no manifest is found.
-func FindManifestDir(start string) (string, error) {
+// fs.ErrNotExist when no project is found.
+func FindProjectDir(start string) (string, error) {
 	dir, err := filepath.Abs(start)
 	if err != nil {
 		return "", err
@@ -24,7 +24,7 @@ func FindManifestDir(start string) (string, error) {
 		dir = filepath.Dir(dir)
 	}
 	for {
-		ok, err := hasManifestFile(dir)
+		ok, err := hasProjectFile(dir)
 		if err != nil {
 			return "", err
 		}
@@ -35,7 +35,7 @@ func FindManifestDir(start string) (string, error) {
 		if parent == dir {
 			return "", fmt.Errorf(
 				"no %s found in %s or any parent directory: %w",
-				ManifestFileName,
+				ProjectFileName,
 				start,
 				fs.ErrNotExist,
 			)
@@ -69,7 +69,7 @@ func FindProjectMarkerDir(start string) (string, projectmarker.Marker, error) {
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			return "", projectmarker.Marker{}, fmt.Errorf(
-				"no manifest.ub or go.mod found in %s or any parent directory: %w",
+				"no project.ub or go.mod found in %s or any parent directory: %w",
 				start,
 				fs.ErrNotExist,
 			)
@@ -78,8 +78,8 @@ func FindProjectMarkerDir(start string) (string, projectmarker.Marker, error) {
 	}
 }
 
-func hasManifestFile(dir string) (bool, error) {
-	candidate := filepath.Join(dir, ManifestFileName)
+func hasProjectFile(dir string) (bool, error) {
+	candidate := filepath.Join(dir, ProjectFileName)
 	info, err := os.Stat(candidate)
 	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
@@ -94,7 +94,7 @@ func hasManifestFile(dir string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := validateManifestSource(ManifestFileName, b); err != nil {
+	if err := validateProjectSource(ProjectFileName, b); err != nil {
 		return false, err
 	}
 	return true, nil

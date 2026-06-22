@@ -1,0 +1,7 @@
+project: {
+  requires: {
+    'github.com/x/y': {
+      version: 1
+    }
+  }
+}

@@ -1,1 +1,1 @@
-Error: project marker ub/project-b/manifest.ub: ub/project-b/manifest.ub:1:11: schema: manifest must be an object
+Error: project marker ub/project-b/project.ub: ub/project-b/project.ub:1:10: schema: project must be an object

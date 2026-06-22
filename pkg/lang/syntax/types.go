@@ -11,8 +11,8 @@ const (
 	FileUnknown FileKind = iota
 	FileFactory
 	FileStack
-	FileManifest
-	FileLock
+	FileProject
+	FileProjectLock
 	FileLibrary
 )
 
@@ -35,15 +35,15 @@ type StringKey struct {
 }
 
 type File struct {
-	S        parse.Span
-	Kind     FileKind
-	Path     string
-	Factory  *FactoryFile
-	Stack    *StackFile
-	Manifest *ManifestFile
-	Lock     *LockFile
-	Library  *LibraryFile
-	Comments []parse.Comment
+	S           parse.Span
+	Kind        FileKind
+	Path        string
+	Factory     *FactoryFile
+	Stack       *StackFile
+	Project     *ProjectFile
+	ProjectLock *ProjectLockFile
+	Library     *LibraryFile
+	Comments    []parse.Comment
 }
 
 type FactoryFile struct {
@@ -60,21 +60,21 @@ type StackFile struct {
 	Parallelism parse.Expr
 }
 
-type ManifestFile struct {
+type ProjectFile struct {
 	S             parse.Span
 	UnobinVersion *parse.StringLit
-	Requires      []ManifestRequire
-	Replace       []ManifestReplace
+	Requires      []ProjectRequire
+	Replace       []ProjectReplace
 }
 
-type LockFile struct {
+type ProjectLockFile struct {
 	S         parse.Span
 	Version   *parse.NumberLit
-	Toolchain *LockToolchain
-	Deps      []LockDep
+	Toolchain *ProjectLockToolchain
+	Deps      []ProjectLockDep
 }
 
-type LockToolchain struct {
+type ProjectLockToolchain struct {
 	S             parse.Span
 	UnobinVersion *parse.StringLit
 }
@@ -185,20 +185,20 @@ type CompositeDecl struct {
 	Body FactoryBody
 }
 
-type ManifestRequire struct {
+type ProjectRequire struct {
 	S        parse.Span
 	ID       StringKey
 	Version  *parse.StringLit
 	Indirect *parse.BoolLit
 }
 
-type ManifestReplace struct {
+type ProjectReplace struct {
 	S    parse.Span
 	ID   StringKey
 	Path *parse.StringLit
 }
 
-type LockDep struct {
+type ProjectLockDep struct {
 	S       parse.Span
 	ID      StringKey
 	Kind    Ident

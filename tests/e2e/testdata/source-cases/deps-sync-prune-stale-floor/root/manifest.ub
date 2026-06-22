@@ -1,6 +1,0 @@
-manifest: {
-  requires: {
-    'github.com/gone/repo': { version: 'v1.0.0' }
-    'github.com/x/core':    { version: 'v1.0.0' }
-  }
-}

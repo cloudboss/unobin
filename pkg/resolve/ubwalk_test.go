@@ -278,15 +278,15 @@ func TestWalkUBLocalGoLibraryGuidesToReplace(t *testing.T) {
 	require.Contains(t, msg, "in the .ub file:")
 	require.Contains(t, msg, strings.TrimSpace(ubFixtureText(
 		t, "ubwalk/valid/local-go-library-import-hint")))
-	require.Contains(t, msg, "in manifest.ub:")
+	require.Contains(t, msg, "in project.ub:")
 	require.Contains(t, msg, strings.TrimSpace(ubFixtureText(
-		t, "ubwalk/valid/local-go-library-manifest-hint")))
+		t, "ubwalk/valid/local-go-library-project-hint")))
 }
 
 func TestWalkUBNestedLocalGoLibraryGuidesToReplace(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "manifest.ub"), ubFixtureText(
-		t, "ubwalk/valid/empty-manifest"))
+	writeFile(t, filepath.Join(root, "project.ub"), ubFixtureText(
+		t, "ubwalk/valid/empty-project"))
 	writeFile(t, filepath.Join(root, "go-lib", "go.mod"),
 		"module example.com/go-lib\n\ngo 1.26\n")
 	writeFile(t, filepath.Join(root, "go-lib", "lib.go"), "package lib\n")
@@ -348,7 +348,7 @@ func TestWalkUBRejectsLocalImportIntoDifferentProject(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "nested project")
-	require.Contains(t, err.Error(), "manifest.replace")
+	require.Contains(t, err.Error(), "project.replace")
 }
 
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {

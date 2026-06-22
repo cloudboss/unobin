@@ -75,16 +75,16 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 		return err
 	}
 
-	manifest := &deps.Manifest{}
+	project := &deps.Project{}
 	if v := CLIVersion(); semver.IsValid(v) {
-		manifest.UnobinVersion = v
+		project.UnobinVersion = v
 	}
-	manifestPath := filepath.Join(cfg.output, deps.ManifestFileName)
-	if err := deps.WriteManifest(manifestPath, manifest); err != nil {
+	projectPath := filepath.Join(cfg.output, deps.ProjectFileName)
+	if err := deps.WriteProject(projectPath, project); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", factoryPath)
-	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", manifestPath)
+	fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", projectPath)
 	return nil
 }
 

@@ -77,9 +77,9 @@ func TestImportedPackagesScansNestedProjectWhenStartedThere(t *testing.T) {
 	}, repos)
 }
 
-func TestImportedPackagesRejectsInvalidNestedManifest(t *testing.T) {
-	_, err := ImportedPackages(scanFixtureRoot(t, "invalid/invalid-nested-manifest"))
+func TestImportedPackagesRejectsInvalidNestedProject(t *testing.T) {
+	_, err := ImportedPackages(scanFixtureRoot(t, "invalid/invalid-nested-project"))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "library-c/manifest.ub")
-	assert.NotContains(t, err.Error(), "project marker ./manifest.ub")
+	assert.Contains(t, err.Error(), "library-c/project.ub")
+	assert.NotContains(t, err.Error(), "project marker ./project.ub")
 }

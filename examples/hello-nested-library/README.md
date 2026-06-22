@@ -3,8 +3,8 @@
 Hello-world stack that exercises nested UB libraries. The stack imports
 only `greeter` (a local library), and `greeter.greeting` itself imports
 the remote `github.com/cloudboss/unobin-libraries-scratch//ub/helloer`
-package. The manifest pins the owning
-`github.com/cloudboss/unobin-libraries-scratch` project, and the lock records
+package. The project file pins the owning
+`github.com/cloudboss/unobin-libraries-scratch` project, and project-lock records
 that project rather than the package path.
 
 ## Compile

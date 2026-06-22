@@ -96,7 +96,7 @@ func remotePackageSubdir(ref *RemoteImport) string {
 
 // Resolve fetches the repo named by ref, caches it, and returns a
 // Source rooted at the import's subdir, with FS and Commit always set.
-// A UB library also gets its content Hash set for lock-file integrity.
+// A UB library also gets its content Hash set for project-lock integrity.
 func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 	ri, ok := ref.(*RemoteImport)
 	if !ok {

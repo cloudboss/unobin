@@ -167,16 +167,16 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := projectManifest(projectDir)
+	project, err := readProject(projectDir)
 	if err != nil {
 		return err
 	}
 	var replaceMap map[deps.Dependency]string
-	if manifest != nil {
-		if err := deps.CheckReplacementSentinels(manifest); err != nil {
+	if project != nil {
+		if err := deps.CheckReplacementSentinels(project); err != nil {
 			return err
 		}
-		replaceMap = manifest.Replace
+		replaceMap = project.Replace
 	}
 	if replaceUnobinAbs == "" {
 		if local, ok := replaceMap[deps.Dependency{URL: toolchain.UnobinModulePath}]; ok {
@@ -199,31 +199,31 @@ func Run(opts Options) error {
 			return errors.New(
 				"this unobin is a development build with no version to pin; compile with\n" +
 					"  --replace-unobin <path-to-unobin-source>\n" +
-					"or add to manifest.ub:\n" +
-					"  manifest: { replace: { '" + toolchain.UnobinModulePath +
+					"or add to project.ub:\n" +
+					"  project: { replace: { '" + toolchain.UnobinModulePath +
 					"': '<path-to-unobin-source>' } }")
 		}
 		unobinVersion = replacedVersion
 	}
 
-	// The manifest's unobin-version line pins which CLI compiles the
+	// The project's unobin-version line pins which CLI compiles the
 	// project. A replaced unobin runs the replacement no matter what
 	// the line says, so it proceeds with a notice instead.
-	if manifest != nil && manifest.UnobinVersion != "" {
+	if project != nil && project.UnobinVersion != "" {
 		if replaceUnobinAbs != "" {
 			fmt.Fprintf(opts.stderr(),
-				"notice: the manifest pins unobin %s; the replacement at %s runs instead\n",
-				manifest.UnobinVersion, replaceUnobinAbs)
-		} else if manifest.UnobinVersion != unobinVersion {
+				"notice: the project pins unobin %s; the replacement at %s runs instead\n",
+				project.UnobinVersion, replaceUnobinAbs)
+		} else if project.UnobinVersion != unobinVersion {
 			return fmt.Errorf(
 				"this project pins unobin %s but this CLI is %s; install unobin %s",
-				manifest.UnobinVersion, unobinVersion, manifest.UnobinVersion)
+				project.UnobinVersion, unobinVersion, project.UnobinVersion)
 		}
 	}
 
 	schemas := NewSchemaCache(UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)...)
 
-	lock, err := lockedProject(projectDir)
+	projectLock, err := readProjectLock(projectDir)
 	if err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func Run(opts Options) error {
 	// The guard sits under every replace layer, so a replaced import
 	// never reaches it and an unreplaced one is refused.
 	resolver = &unobinImportGuard{wrapped: resolver}
-	resolver = WrapLockedSources(resolver, lock)
+	resolver = WrapProjectLockSources(resolver, projectLock)
 	if replaceUnobinAbs != "" {
 		resolver = &replaceResolver{
 			replacements: []localReplacement{{
@@ -263,7 +263,7 @@ func Run(opts Options) error {
 		return err
 	}
 
-	repoVersions, err := repoVersions(lock)
+	repoVersions, err := repoVersions(projectLock)
 	if err != nil {
 		return err
 	}
@@ -353,7 +353,7 @@ func Run(opts Options) error {
 		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, opts.ReplaceGoModules)
-	if err := addManifestReplaces(replaces, projectDir, replaceMap, v.goModules); err != nil {
+	if err := addProjectReplaces(replaces, projectDir, replaceMap, v.goModules); err != nil {
 		return err
 	}
 
@@ -384,7 +384,7 @@ func Run(opts Options) error {
 // library's dedup key to the local alias of the first site that
 // reached it (used as the `internal/<dir>/` package name). packages
 // holds the generated Go source per key. goModules pins each Go-library
-// module path to its version for the stack's go.mod; the lock already gives
+// module path to its version for the stack's go.mod; project-lock already gives
 // every site of a module the same version.
 type compileVisitor struct {
 	stackName        string
@@ -592,33 +592,33 @@ func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnob
 	return nil
 }
 
-// LockedVersions reads the dependency lock from dir and returns each repository's
-// selected version, or nil when no lock is present, in which case the walk
+// ProjectLockVersions reads dependency project-lock from dir and returns each repository's
+// selected version, or nil when no project-lock is present, in which case the walk
 // uses the version on each import string.
-func LockedVersions(dir string) (map[string]string, error) {
-	lock, err := lockedProject(dir)
+func ProjectLockVersions(dir string) (map[string]string, error) {
+	projectLock, err := readProjectLock(dir)
 	if err != nil {
 		return nil, err
 	}
-	return repoVersions(lock)
+	return repoVersions(projectLock)
 }
 
-func lockedProject(dir string) (*deps.Lock, error) {
-	lock, err := deps.ReadLock(os.DirFS(dir))
+func readProjectLock(dir string) (*deps.ProjectLock, error) {
+	projectLock, err := deps.ReadProjectLock(os.DirFS(dir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return lock, nil
+	return projectLock, nil
 }
 
-func repoVersions(lock *deps.Lock) (map[string]string, error) {
-	if lock == nil {
+func repoVersions(projectLock *deps.ProjectLock) (map[string]string, error) {
+	if projectLock == nil {
 		return nil, nil
 	}
-	return lock.RepoVersions()
+	return projectLock.RepoVersions()
 }
 
 // NewProjectResolver returns the resolver compile uses to fetch import
@@ -650,33 +650,33 @@ func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, erro
 	return nil, fmt.Errorf("unsupported import ref type %T", ref)
 }
 
-// WrapLockedSources fetches locked remote imports by commit and verifies UB hashes.
-func WrapLockedSources(resolver resolve.Resolver, lock *deps.Lock) resolve.Resolver {
-	if lock == nil || len(lock.Deps) == 0 {
+// WrapProjectLockSources fetches project-lock remote imports by commit and verifies UB hashes.
+func WrapProjectLockSources(resolver resolve.Resolver, projectLock *deps.ProjectLock) resolve.Resolver {
+	if projectLock == nil || len(projectLock.Deps) == 0 {
 		return resolver
 	}
-	return &lockedResolver{lock: lock, wrapped: resolver}
+	return &projectLockResolver{projectLock: projectLock, wrapped: resolver}
 }
 
-type lockedResolver struct {
-	lock    *deps.Lock
-	wrapped resolve.Resolver
+type projectLockResolver struct {
+	projectLock *deps.ProjectLock
+	wrapped     resolve.Resolver
 }
 
-func (r *lockedResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+func (r *projectLockResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	ri, ok := ref.(*resolve.RemoteImport)
 	if !ok {
 		return r.wrapped.Resolve(ref)
 	}
-	owner, entry, ok := lockedOwner(r.lock, ri)
-	if !ok || entry.Kind != deps.LockKindUB {
+	owner, entry, ok := projectLockOwner(r.projectLock, ri)
+	if !ok || entry.Kind != deps.ProjectLockKindUB {
 		return r.wrapped.Resolve(ref)
 	}
-	lockedRef := *ri
-	lockedRef.ProjectSubdir = owner.Project.Subdir
-	lockedRef.PackageSubdir = ri.Subdir
-	lockedRef.Version = entry.Commit
-	src, err := r.wrapped.Resolve(&lockedRef)
+	projectLockRef := *ri
+	projectLockRef.ProjectSubdir = owner.Project.Subdir
+	projectLockRef.PackageSubdir = ri.Subdir
+	projectLockRef.Version = entry.Commit
+	src, err := r.wrapped.Resolve(&projectLockRef)
 	if err != nil {
 		return nil, err
 	}
@@ -686,12 +686,12 @@ func (r *lockedResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error)
 	return src, nil
 }
 
-func lockedOwner(
-	lock *deps.Lock, ri *resolve.RemoteImport,
-) (deps.PackageOwner, *deps.LockedDep, bool) {
-	projects := make([]deps.ProjectID, 0, len(lock.Deps))
-	entries := make(map[deps.Dependency]*deps.LockedDep, len(lock.Deps))
-	for id, entry := range lock.Deps {
+func projectLockOwner(
+	projectLock *deps.ProjectLock, ri *resolve.RemoteImport,
+) (deps.PackageOwner, *deps.ProjectLockDep, bool) {
+	projects := make([]deps.ProjectID, 0, len(projectLock.Deps))
+	entries := make(map[deps.Dependency]*deps.ProjectLockDep, len(projectLock.Deps))
+	for id, entry := range projectLock.Deps {
 		dep, err := deps.ParseDependency(id)
 		if err != nil {
 			continue
@@ -711,7 +711,7 @@ func lockedOwner(
 	return owner, entry, entry != nil
 }
 
-func (r *lockedResolver) verifyUBHash(project deps.ProjectID, entry *deps.LockedDep) error {
+func (r *projectLockResolver) verifyUBHash(project deps.ProjectID, entry *deps.ProjectLockDep) error {
 	projectRef := &resolve.RemoteImport{
 		URL:           project.URL,
 		Subdir:        project.Subdir,
@@ -732,7 +732,7 @@ func (r *lockedResolver) verifyUBHash(project deps.ProjectID, entry *deps.Locked
 	}
 	if hash != entry.Hash {
 		return fmt.Errorf(
-			"%s: hash mismatch (locked %s, got %s)", project, entry.Hash, hash)
+			"%s: hash mismatch (selected %s, got %s)", project, entry.Hash, hash)
 	}
 	return nil
 }
@@ -859,14 +859,14 @@ func (g *unobinImportGuard) Resolve(ref resolve.ImportRef) (*resolve.Source, err
 		return nil, fmt.Errorf(
 			"the unobin repository is toolchain-versioned and cannot be imported at a"+
 				" dependency version; replace it locally for development:\n"+
-				"  in manifest.ub: manifest: { replace: { '%s': '<path-to-unobin>' } }",
+				"  in project.ub: project: { replace: { '%s': '<path-to-unobin>' } }",
 			toolchain.UnobinModulePath)
 	}
 	return g.wrapped.Resolve(ref)
 }
 
 // WrapReplaces wraps resolver so that a replaced unobin and each
-// manifest replace entry resolve to a local directory instead of
+// project replace entry resolve to a local directory instead of
 // fetching. Replace paths are taken relative to root.
 func WrapReplaces(
 	resolver resolve.Resolver, root, replaceUnobin string, replace map[deps.Dependency]string,
@@ -902,7 +902,7 @@ func WrapReplaces(
 }
 
 func projectRoot(dir string) (string, error) {
-	root, err := deps.FindManifestDir(dir)
+	root, err := deps.FindProjectDir(dir)
 	if err == nil {
 		return root, nil
 	}
@@ -912,10 +912,10 @@ func projectRoot(dir string) (string, error) {
 	return dir, nil
 }
 
-// projectManifest reads the project's dependency manifest, returning nil
-// when there is no manifest.
-func projectManifest(dir string) (*deps.Manifest, error) {
-	m, err := deps.ReadManifest(os.DirFS(dir))
+// project reads the project's dependency project, returning nil
+// when there is no project.
+func readProject(dir string) (*deps.Project, error) {
+	m, err := deps.ReadProject(os.DirFS(dir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
@@ -938,7 +938,7 @@ func validateReplacementProject(dep deps.Dependency, path string) error {
 		return fmt.Errorf("replace %s: %w", dep, err)
 	}
 	if !ok {
-		return fmt.Errorf("replace %s: %s has no manifest.ub or go.mod", dep, path)
+		return fmt.Errorf("replace %s: %s has no project.ub or go.mod", dep, path)
 	}
 	return nil
 }
@@ -974,10 +974,10 @@ func withReplacedVersions(
 	return versions
 }
 
-// addManifestReplaces records a go.mod replace for every replaced
+// addProjectReplaces records a go.mod replace for every replaced
 // repository that resolved to a Go library, pointing its module at the
 // local path. UB libraries are compiled in, so they need no go.mod entry.
-func addManifestReplaces(
+func addProjectReplaces(
 	replaces codegen.Replaces, root string,
 	replace map[deps.Dependency]string, goModules map[string]string,
 ) error {

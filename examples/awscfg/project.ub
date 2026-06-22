@@ -1,0 +1,7 @@
+project: {
+  requires: {}
+  replace: {
+    'github.com/cloudboss/unobin':                  '../..'
+    'github.com/cloudboss/unobin//examples/awscfg': '.'
+  }
+}

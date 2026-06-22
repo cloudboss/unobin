@@ -12,16 +12,16 @@ import (
 
 func TestVerifyHashesUBProjectRootWhenResolverHashEmpty(t *testing.T) {
 	fsys := mapFS(map[string]string{
-		ManifestFileName: ubtest.ReadValidFixture(
-			t, "testdata/ub/verify", "empty-manifest"),
+		ProjectFileName: ubtest.ReadValidFixture(
+			t, "testdata/ub/verify", "empty-project"),
 		"ub/helloer/library.ub": ubtest.ReadValidFixture(
 			t, "testdata/ub/verify", "helloer-library"),
 	})
 	hash := hashProject(t, fsys)
-	lock := NewLock()
-	lock.ToolchainVersion = "dev"
-	lock.Deps["github.com/scratch/repo"] = &LockedDep{
-		Kind:    LockKindUB,
+	projectLock := NewProjectLock()
+	projectLock.ToolchainVersion = "dev"
+	projectLock.Deps["github.com/scratch/repo"] = &ProjectLockDep{
+		Kind:    ProjectLockKindUB,
 		Version: "v0.8.0",
 		Commit:  "c1",
 		Hash:    hash,
@@ -30,29 +30,29 @@ func TestVerifyHashesUBProjectRootWhenResolverHashEmpty(t *testing.T) {
 		srcKey("github.com/scratch/repo", "", "c1"): {Commit: "c1", FS: fsys},
 	}}
 
-	mismatches, err := Verify(lock, r)
+	mismatches, err := Verify(projectLock, r)
 
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
 }
 
 func TestVerifySkipsGoEntries(t *testing.T) {
-	lock := NewLock()
-	lock.Deps["github.com/x/golib"] = &LockedDep{Kind: LockKindGo, Version: "v1.0.0", Commit: "c1"}
+	projectLock := NewProjectLock()
+	projectLock.Deps["github.com/x/golib"] = &ProjectLockDep{Kind: ProjectLockKindGo, Version: "v1.0.0", Commit: "c1"}
 	// An empty resolver: if Verify tried to fetch the go entry it would
 	// error, so an empty result proves go entries are skipped.
 	r := &fakeResolver{sources: map[string]*resolve.Source{}}
-	mismatches, err := Verify(lock, r)
+	mismatches, err := Verify(projectLock, r)
 	require.NoError(t, err)
 	assert.Empty(t, mismatches)
 }
 
 func TestVerifyResolveError(t *testing.T) {
-	lock := NewLock()
-	lock.Deps["github.com/x/y//lib"] = &LockedDep{
-		Kind: LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "h1",
+	projectLock := NewProjectLock()
+	projectLock.Deps["github.com/x/y//lib"] = &ProjectLockDep{
+		Kind: ProjectLockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "h1",
 	}
 	r := &fakeResolver{sources: map[string]*resolve.Source{}}
-	_, err := Verify(lock, r)
+	_, err := Verify(projectLock, r)
 	require.Error(t, err)
 }

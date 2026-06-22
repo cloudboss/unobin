@@ -19,8 +19,8 @@ var (
 		Long: `Scaffold a new UB library directory.
 
 The generated directory contains one starter resource composite export
-file named <type>.ub. The directory listing is the manifest, so there is
-no separate manifest file. Blocks are empty for the author to fill in.
+file named <type>.ub. The directory listing is the project, so there is
+no separate project file. Blocks are empty for the author to fill in.
 
 Examples:
   unobin generate ublibrary -o ./greeter
@@ -88,7 +88,7 @@ func validateUblibraryTypeName(name string) error {
 		return fmt.Errorf("--type must be a file name, got %q", name)
 	}
 	switch name {
-	case "factory", "lock", "main", "manifest":
+	case "factory", "main", "project", "project-lock":
 		return fmt.Errorf("--type %q is reserved; choose another type name", name)
 	}
 	return nil

@@ -12,6 +12,6 @@
   ],
   "files": [
     { "path": "generated/factory.ub", "want": "want/factory.ub" },
-    { "path": "generated/manifest.ub", "want": "want/manifest.ub" }
+    { "path": "generated/project.ub", "want": "want/project.ub" }
   ]
 }

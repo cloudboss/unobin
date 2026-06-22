@@ -12,34 +12,34 @@ func IsReplacementSentinel(v string) bool {
 	return v == ReplacementSentinel
 }
 
-func CheckNoReplacementSentinelInLock(lock *Lock) error {
-	if lock == nil {
+func CheckNoReplacementSentinelInProjectLock(projectLock *ProjectLock) error {
+	if projectLock == nil {
 		return nil
 	}
-	for id, dep := range lock.Deps {
+	for id, dep := range projectLock.Deps {
 		if dep != nil && IsReplacementSentinel(dep.Version) {
 			return fmt.Errorf(
-				"lock: dependency %q: %s is reserved for manifest replacements",
+				"project-lock: dependency %q: %s is reserved for project replacements",
 				id, ReplacementSentinel)
 		}
 	}
 	return nil
 }
 
-func CheckReplacementSentinels(manifest *Manifest) error {
-	if manifest == nil {
+func CheckReplacementSentinels(project *Project) error {
+	if project == nil {
 		return nil
 	}
-	for dep, req := range manifest.Requires {
+	for dep, req := range project.Requires {
 		if !IsReplacementSentinel(req.Version) {
 			continue
 		}
-		if _, ok := manifest.Replace[dep]; ok {
+		if _, ok := project.Replace[dep]; ok {
 			continue
 		}
 		return fmt.Errorf(
-			"manifest: dependency %s: %s is reserved for manifest replacements; "+
-				"add an exact manifest.replace entry",
+			"project: dependency %s: %s is reserved for project replacements; "+
+				"add an exact project.replace entry",
 			dep, ReplacementSentinel)
 	}
 	return nil

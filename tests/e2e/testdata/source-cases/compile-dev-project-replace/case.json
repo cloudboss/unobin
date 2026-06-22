@@ -1,0 +1,15 @@
+{
+  "name": "compile-dev-project-replace",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "dev",
+  "commands": [
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/go.mod", "want": "want/go.mod" }
+  ]
+}

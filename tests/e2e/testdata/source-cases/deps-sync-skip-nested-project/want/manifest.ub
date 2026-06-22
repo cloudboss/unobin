@@ -1,7 +1,0 @@
-manifest: {
-  requires: {
-    'example.com/shared': {
-      version: 'v1.0.0'
-    }
-  }
-}

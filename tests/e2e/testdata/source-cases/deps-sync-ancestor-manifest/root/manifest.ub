@@ -1,5 +1,0 @@
-manifest: {
-  requires: {
-    'github.com/x/core': { version: 'v1.0.0' }
-  }
-}

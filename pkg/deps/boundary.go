@@ -11,7 +11,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-func fsHasManifestFile(fsys fs.FS, dir string) (bool, error) {
+func fsHasProjectFile(fsys fs.FS, dir string) (bool, error) {
 	marker, err := projectmarker.Classify(fsys, dir)
 	if err != nil {
 		return false, err
@@ -19,13 +19,13 @@ func fsHasManifestFile(fsys fs.FS, dir string) (bool, error) {
 	return marker.Kind != projectmarker.None, nil
 }
 
-func validateManifestSource(name string, b []byte) error {
+func validateProjectSource(name string, b []byte) error {
 	f, err := syntax.ParseSource(name, b)
 	if err != nil {
 		return err
 	}
-	if f.Kind != syntax.FileManifest || f.Manifest == nil {
-		return fmt.Errorf("%s must declare manifest", name)
+	if f.Kind != syntax.FileProject || f.Project == nil {
+		return fmt.Errorf("%s must declare project", name)
 	}
 	if errs := syntax.ValidateFile(f); errs.Len() > 0 {
 		return errs.Err()
@@ -33,14 +33,14 @@ func validateManifestSource(name string, b []byte) error {
 	return nil
 }
 
-func nearestManifestInFS(fsys fs.FS, start string) (string, bool, error) {
+func nearestProjectInFS(fsys fs.FS, start string) (string, bool, error) {
 	dir := cleanFSPath(start)
 	for {
-		hasManifest, err := fsHasManifestFile(fsys, dir)
+		hasProject, err := fsHasProjectFile(fsys, dir)
 		if err != nil {
 			return "", false, err
 		}
-		if hasManifest {
+		if hasProject {
 			return dir, true, nil
 		}
 		if dir == "." {
@@ -89,14 +89,14 @@ func nestedProjectOwnershipError(owner ProjectID, pkg RemotePackage, nestedRel s
 	return fmt.Errorf(
 		"selected project %s does not own package %s; "+
 			"the package is inside nested project %s; "+
-			"add that project to manifest.requires or replace it directly",
+			"add that project to project.requires or replace it directly",
 		owner, pkg, nested)
 }
 
 func localImportProjectBoundaryError(importPath string) error {
 	return fmt.Errorf(
 		"local import %q targets a different project; "+
-			"import it by dependency id and add manifest.replace for local development",
+			"import it by dependency id and add project.replace for local development",
 		importPath,
 	)
 }

@@ -1,0 +1,12 @@
+project: {
+  unobin-version: '0.2.0'
+  requires: {
+    'github.com/cloudboss/example': {
+      version: 'v1.2.3'
+    }
+    'github.com/cloudboss/std': {
+      version:  'v0.2.0'
+      indirect: true
+    }
+  }
+}

@@ -1,7 +1,0 @@
-manifest: {
-  requires: {
-    'github.com/scratch/repo': {
-      version: 'v0.8.0'
-    }
-  }
-}

@@ -12,7 +12,7 @@ import (
 
 // ImportedPackages scans every .ub file under root and returns the set of
 // packages named by remote imports. The version on an import is not read here:
-// a package's version floor lives on its owning project in manifest.ub, not in
+// a package's version floor lives on its owning project in project.ub, not in
 // the import string. Local imports are intra-project and contribute no remote
 // package. Hidden directories (a leading dot, such as .git) are skipped.
 func ImportedPackages(root string) (map[RemotePackage]bool, error) {

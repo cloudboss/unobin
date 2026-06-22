@@ -1,5 +1,0 @@
-manifest: {
-  unobin-version: 'v0.9.9'
-  requires: {}
-  replace: { 'github.com/cloudboss/unobin': '../local-unobin' }
-}

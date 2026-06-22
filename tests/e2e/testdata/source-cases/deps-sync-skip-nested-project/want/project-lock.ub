@@ -1,0 +1,5 @@
+project-lock: {
+  version:   1
+  toolchain: { unobin-version: 'dev' }
+  deps:      { 'example.com/shared': { kind: go, version: 'v1.0.0', commit: 'shared' } }
+}

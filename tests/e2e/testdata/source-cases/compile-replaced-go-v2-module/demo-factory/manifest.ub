@@ -1,4 +1,0 @@
-manifest: {
-  requires: {}
-  replace: { 'example.com/lib/v2': '../libv2' }
-}

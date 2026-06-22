@@ -1,4 +1,0 @@
-manifest: {
-  requires: {}
-  replace: { 'example.com/repo//go': '../module' }
-}

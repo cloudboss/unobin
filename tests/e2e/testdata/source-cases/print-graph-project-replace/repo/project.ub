@@ -1,0 +1,4 @@
+project: {
+  requires: {}
+  replace: { 'github.com/x/demo': './demo-lib' }
+}

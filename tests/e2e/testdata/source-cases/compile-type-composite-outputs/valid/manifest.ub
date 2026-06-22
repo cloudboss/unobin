@@ -1,4 +1,0 @@
-manifest: {
-  requires: {}
-  replace: { 'example.com/unobin/e2elib': '../modules/e2elib' }
-}

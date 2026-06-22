@@ -1,0 +1,7 @@
+project: {
+  requires: {
+    'github.com/x/core//lib': {
+      version: 'v2.0.0'
+    }
+  }
+}

@@ -42,7 +42,7 @@ func lowerFile(f *parse.File, mode lowerMode) (*File, *parse.ErrorList) {
 	out.Kind = FileUnknown
 	errs.Addf(parse.ErrSchema, f.S.Start,
 		"cannot determine UB file role from %s; expected source-declared factory, "+
-			"stack, manifest, lock, or exported library file",
+			"stack, project, project-lock, or exported library file",
 		f.Kind)
 
 	return out, errs
@@ -78,7 +78,7 @@ func lowerSourceDeclaredFile(
 			continue
 		}
 		switch fld.Key.Name {
-		case "factory", "stack", "manifest", "lock":
+		case "factory", "stack", "project", "project-lock":
 			roles = append(roles, sourceFileRole{name: fld.Key.Name, fld: fld})
 		}
 	}
@@ -145,10 +145,10 @@ func reservedSourceFileRole(path string) (string, bool) {
 	switch filepath.Base(path) {
 	case "factory.ub":
 		return "factory", true
-	case "manifest.ub":
-		return "manifest", true
-	case "lock.ub":
-		return "lock", true
+	case "project.ub":
+		return "project", true
+	case "project-lock.ub":
+		return "project-lock", true
 	default:
 		return "", false
 	}
@@ -158,10 +158,10 @@ func sourceRoleFilename(role string) (string, bool) {
 	switch role {
 	case "factory":
 		return "factory.ub", true
-	case "manifest":
-		return "manifest.ub", true
-	case "lock":
-		return "lock.ub", true
+	case "project":
+		return "project.ub", true
+	case "project-lock":
+		return "project-lock.ub", true
 	default:
 		return "", false
 	}
@@ -201,12 +201,12 @@ func lowerSourceDeclaredRole(
 	case "stack":
 		out.Kind = FileStack
 		out.Stack = lowerStackFile(first.fld.S, block, errs, mode)
-	case "manifest":
-		out.Kind = FileManifest
-		out.Manifest = lowerManifestFile(first.fld.S, block, errs)
-	case "lock":
-		out.Kind = FileLock
-		out.Lock = lowerLockFile(first.fld.S, block, errs)
+	case "project":
+		out.Kind = FileProject
+		out.Project = lowerProjectFile(first.fld.S, block, errs)
+	case "project-lock":
+		out.Kind = FileProjectLock
+		out.ProjectLock = lowerProjectLockFile(first.fld.S, block, errs)
 	}
 }
 
@@ -349,113 +349,113 @@ func lowerStackFactory(
 	return factory
 }
 
-func lowerManifestFile(
+func lowerProjectFile(
 	span parse.Span,
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-) *ManifestFile {
-	manifest := &ManifestFile{S: span}
+) *ProjectFile {
+	project := &ProjectFile{S: span}
 	if block == nil {
-		return manifest
+		return project
 	}
 	for _, fld := range block.Fields {
-		name, ok := fieldName(fld, "manifest field", errs)
+		name, ok := fieldName(fld, "project field", errs)
 		if !ok {
 			continue
 		}
 		switch name.Name {
 		case "unobin-version":
-			manifest.UnobinVersion = stringValue(fld, "unobin-version", errs)
+			project.UnobinVersion = stringValue(fld, "unobin-version", errs)
 		case "requires":
 			if obj := objectValue(fld, "requires", errs); obj != nil {
-				manifest.Requires = lowerManifestRequires(obj, errs)
+				project.Requires = lowerProjectRequires(obj, errs)
 			}
 		case "replace":
 			if obj := objectValue(fld, "replace", errs); obj != nil {
-				manifest.Replace = lowerManifestReplace(obj, errs)
+				project.Replace = lowerProjectReplace(obj, errs)
 			}
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"%q is not a valid manifest field", name.Name)
+				"%q is not a valid project field", name.Name)
 		}
 	}
-	return manifest
+	return project
 }
 
-func lowerLockFile(span parse.Span, block *parse.ObjectLit, errs *parse.ErrorList) *LockFile {
-	lock := &LockFile{S: span}
+func lowerProjectLockFile(span parse.Span, block *parse.ObjectLit, errs *parse.ErrorList) *ProjectLockFile {
+	projectLock := &ProjectLockFile{S: span}
 	if block == nil {
-		return lock
+		return projectLock
 	}
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		name, ok := fieldName(fld, "lock field", errs)
+		name, ok := fieldName(fld, "project-lock field", errs)
 		if !ok {
 			continue
 		}
 		if prev, dup := seen[name.Name]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"lock: duplicate key %q (first defined at %s)", name.Name, prev)
+				"project-lock: duplicate key %q (first defined at %s)", name.Name, prev)
 			continue
 		}
 		seen[name.Name] = fld.Key.S.Start
 		switch name.Name {
 		case "version":
-			lock.Version = numberValue(fld, "lock version", errs)
+			projectLock.Version = numberValue(fld, "project-lock version", errs)
 		case "toolchain":
-			if obj := objectValue(fld, "lock toolchain", errs); obj != nil {
-				lock.Toolchain = lowerLockToolchain(fld.S, obj, errs)
+			if obj := objectValue(fld, "project-lock toolchain", errs); obj != nil {
+				projectLock.Toolchain = lowerProjectLockToolchain(fld.S, obj, errs)
 			}
 		case "deps":
-			if obj := objectValue(fld, "lock deps", errs); obj != nil {
-				lock.Deps = lowerLockDeps(obj, errs)
+			if obj := objectValue(fld, "project-lock deps", errs); obj != nil {
+				projectLock.Deps = lowerProjectLockDeps(obj, errs)
 			}
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"%q is not a valid lock field", name.Name)
+				"%q is not a valid project-lock field", name.Name)
 		}
 	}
 	if _, ok := seen["version"]; !ok {
-		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing version")
+		errs.Addf(parse.ErrSchema, block.S.Start, "project-lock: missing version")
 	}
 	if _, ok := seen["toolchain"]; !ok {
-		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing toolchain")
+		errs.Addf(parse.ErrSchema, block.S.Start, "project-lock: missing toolchain")
 	}
 	if _, ok := seen["deps"]; !ok {
-		errs.Addf(parse.ErrSchema, block.S.Start, "lock: missing deps")
+		errs.Addf(parse.ErrSchema, block.S.Start, "project-lock: missing deps")
 	}
-	return lock
+	return projectLock
 }
 
-func lowerLockToolchain(
+func lowerProjectLockToolchain(
 	span parse.Span,
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-) *LockToolchain {
-	toolchain := &LockToolchain{S: span}
+) *ProjectLockToolchain {
+	toolchain := &ProjectLockToolchain{S: span}
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		name, ok := fieldName(fld, "lock toolchain field", errs)
+		name, ok := fieldName(fld, "project-lock toolchain field", errs)
 		if !ok {
 			continue
 		}
 		if prev, dup := seen[name.Name]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"lock toolchain: duplicate key %q (first defined at %s)", name.Name, prev)
+				"project-lock toolchain: duplicate key %q (first defined at %s)", name.Name, prev)
 			continue
 		}
 		seen[name.Name] = fld.Key.S.Start
 		switch name.Name {
 		case "unobin-version":
-			toolchain.UnobinVersion = stringValue(fld, "lock toolchain unobin-version", errs)
+			toolchain.UnobinVersion = stringValue(fld, "project-lock toolchain unobin-version", errs)
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"%q is not a valid lock toolchain field", name.Name)
+				"%q is not a valid project-lock toolchain field", name.Name)
 		}
 	}
 	if _, ok := seen["unobin-version"]; !ok {
 		errs.Addf(parse.ErrSchema, block.S.Start,
-			"lock toolchain: missing unobin-version")
+			"project-lock toolchain: missing unobin-version")
 	}
 	return toolchain
 }
@@ -998,11 +998,11 @@ func lowerEncryptionSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *Encry
 	return &EncryptionDecl{S: fld.S, Selector: selector, Body: fld.Decl.Body}
 }
 
-func lowerManifestRequires(
+func lowerProjectRequires(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-) []ManifestRequire {
-	requires := make([]ManifestRequire, 0, len(block.Fields))
+) []ProjectRequire {
+	requires := make([]ProjectRequire, 0, len(block.Fields))
 	for _, fld := range block.Fields {
 		id, ok := stringKey(fld, "dependency id", errs)
 		if !ok {
@@ -1018,18 +1018,18 @@ func lowerManifestRequires(
 				"requires: dependency %q: value must be an object", id.Value)
 			continue
 		}
-		requires = append(requires, lowerManifestRequire(fld.S, id, body, errs))
+		requires = append(requires, lowerProjectRequire(fld.S, id, body, errs))
 	}
 	return requires
 }
 
-func lowerManifestRequire(
+func lowerProjectRequire(
 	span parse.Span,
 	id StringKey,
 	body *parse.ObjectLit,
 	errs *parse.ErrorList,
-) ManifestRequire {
-	require := ManifestRequire{S: span, ID: id}
+) ProjectRequire {
+	require := ProjectRequire{S: span, ID: id}
 	seen := make(map[string]parse.Position, len(body.Fields))
 	versionSeen := false
 	for _, fld := range body.Fields {
@@ -1063,11 +1063,11 @@ func lowerManifestRequire(
 	return require
 }
 
-func lowerManifestReplace(
+func lowerProjectReplace(
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-) []ManifestReplace {
-	replacements := make([]ManifestReplace, 0, len(block.Fields))
+) []ProjectReplace {
+	replacements := make([]ProjectReplace, 0, len(block.Fields))
 	for _, fld := range block.Fields {
 		id, ok := stringKey(fld, "dependency id", errs)
 		if !ok {
@@ -1077,105 +1077,105 @@ func lowerManifestReplace(
 		if path == nil {
 			continue
 		}
-		replacements = append(replacements, ManifestReplace{S: fld.S, ID: id, Path: path})
+		replacements = append(replacements, ProjectReplace{S: fld.S, ID: id, Path: path})
 	}
 	return replacements
 }
 
-func lowerLockDeps(block *parse.ObjectLit, errs *parse.ErrorList) []LockDep {
-	deps := make([]LockDep, 0, len(block.Fields))
+func lowerProjectLockDeps(block *parse.ObjectLit, errs *parse.ErrorList) []ProjectLockDep {
+	deps := make([]ProjectLockDep, 0, len(block.Fields))
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		id, ok := stringKey(fld, "lock dependency id", errs)
+		id, ok := stringKey(fld, "project-lock dependency id", errs)
 		if !ok {
 			continue
 		}
 		if prev, dup := seen[id.Value]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"duplicate lock dependency %q (first defined at %s)", id.Value, prev)
+				"duplicate project-lock dependency %q (first defined at %s)", id.Value, prev)
 			continue
 		}
 		seen[id.Value] = fld.Key.S.Start
-		body := objectValue(fld, "lock dependency "+id.Value, errs)
+		body := objectValue(fld, "project-lock dependency "+id.Value, errs)
 		if body == nil {
 			continue
 		}
-		deps = append(deps, lowerLockDep(fld.S, id, body, errs))
+		deps = append(deps, lowerProjectLockDep(fld.S, id, body, errs))
 	}
 	return deps
 }
 
-func lowerLockDep(
+func lowerProjectLockDep(
 	span parse.Span,
 	id StringKey,
 	block *parse.ObjectLit,
 	errs *parse.ErrorList,
-) LockDep {
-	dep := LockDep{S: span, ID: id}
+) ProjectLockDep {
+	dep := ProjectLockDep{S: span, ID: id}
 	seen := make(map[string]parse.Position, len(block.Fields))
 	for _, fld := range block.Fields {
-		name, ok := fieldName(fld, "lock dependency field", errs)
+		name, ok := fieldName(fld, "project-lock dependency field", errs)
 		if !ok {
 			continue
 		}
 		if prev, dup := seen[name.Name]; dup {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"lock dependency %s: duplicate key %q (first defined at %s)",
+				"project-lock dependency %s: duplicate key %q (first defined at %s)",
 				id.Value, name.Name, prev)
 			continue
 		}
 		seen[name.Name] = fld.Key.S.Start
 		switch name.Name {
 		case "kind":
-			dep.Kind = identValue(fld, "lock dependency "+id.Value+": kind", errs)
+			dep.Kind = identValue(fld, "project-lock dependency "+id.Value+": kind", errs)
 		case "version":
-			dep.Version = stringValue(fld, "lock dependency "+id.Value+": version", errs)
+			dep.Version = stringValue(fld, "project-lock dependency "+id.Value+": version", errs)
 		case "commit":
-			dep.Commit = stringValue(fld, "lock dependency "+id.Value+": commit", errs)
+			dep.Commit = stringValue(fld, "project-lock dependency "+id.Value+": commit", errs)
 		case "hash":
-			dep.Hash = stringValue(fld, "lock dependency "+id.Value+": hash", errs)
+			dep.Hash = stringValue(fld, "project-lock dependency "+id.Value+": hash", errs)
 		default:
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"lock dependency %s: unknown key %q", id.Value, name.Name)
+				"project-lock dependency %s: unknown key %q", id.Value, name.Name)
 		}
 	}
-	validateLockDep(dep, seen, block.S.Start, errs)
+	validateProjectLockDep(dep, seen, block.S.Start, errs)
 	return dep
 }
 
-func validateLockDep(
-	dep LockDep,
+func validateProjectLockDep(
+	dep ProjectLockDep,
 	seen map[string]parse.Position,
 	pos parse.Position,
 	errs *parse.ErrorList,
 ) {
 	if _, ok := seen["kind"]; !ok {
 		errs.Addf(parse.ErrSchema, pos,
-			"lock dependency %s: missing kind", dep.ID.Value)
+			"project-lock dependency %s: missing kind", dep.ID.Value)
 		return
 	}
 	switch dep.Kind.Name {
 	case "go":
 		if dep.Hash != nil {
 			errs.Addf(parse.ErrSchema, dep.Hash.S.Start,
-				"lock dependency %s: go kind forbids hash", dep.ID.Value)
+				"project-lock dependency %s: go kind forbids hash", dep.ID.Value)
 		}
 	case "ub":
 		if dep.Hash == nil {
 			errs.Addf(parse.ErrSchema, pos,
-				"lock dependency %s: ub kind requires hash", dep.ID.Value)
+				"project-lock dependency %s: ub kind requires hash", dep.ID.Value)
 		}
 	default:
 		errs.Addf(parse.ErrSchema, dep.Kind.S.Start,
-			"lock dependency %s: unknown kind %q", dep.ID.Value, dep.Kind.Name)
+			"project-lock dependency %s: unknown kind %q", dep.ID.Value, dep.Kind.Name)
 	}
 	if _, ok := seen["version"]; !ok {
 		errs.Addf(parse.ErrSchema, pos,
-			"lock dependency %s: missing version", dep.ID.Value)
+			"project-lock dependency %s: missing version", dep.ID.Value)
 	}
 	if _, ok := seen["commit"]; !ok {
 		errs.Addf(parse.ErrSchema, pos,
-			"lock dependency %s: missing commit", dep.ID.Value)
+			"project-lock dependency %s: missing commit", dep.ID.Value)
 	}
 }
 

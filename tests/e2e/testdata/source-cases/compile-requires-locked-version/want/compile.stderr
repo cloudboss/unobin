@@ -1,1 +1,0 @@
-Error: import "core": no version for github.com/x/core//lib in lock.ub; run `unobin deps sync`

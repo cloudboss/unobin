@@ -1,0 +1,5 @@
+project: {
+  requires: {
+    'github.com/x/std': { version: 'v0.1.0' }
+  }
+}

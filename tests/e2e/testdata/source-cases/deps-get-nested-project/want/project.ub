@@ -1,0 +1,7 @@
+project: {
+  requires: {
+    'github.com/x/libs//ub/project-b': {
+      version: 'v0.1.0'
+    }
+  }
+}

@@ -1,3 +1,0 @@
-manifest: {
-  requires: { 'github.com/x/bad': { version: 'v1.0.0' } }
-}

@@ -35,18 +35,18 @@ func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 			isLibrary: true,
 		},
 		{
-			name:      "library with manifest",
-			fixture:   "library-classification/valid/library-with-manifest",
+			name:      "library with project",
+			fixture:   "library-classification/valid/library-with-project",
 			isLibrary: true,
 		},
 		{
-			name:    "manifest only",
-			fixture: "library-classification/valid/manifest-only",
+			name:    "project only",
+			fixture: "library-classification/valid/project-only",
 		},
 		{
-			name: "lock only",
+			name: "project-lock only",
 			files: map[string]string{
-				"lock.ub": "lock: { version: 1 toolchain: { unobin-version: 'dev' } deps: {} }",
+				"project-lock.ub": "project-lock: { version: 1 toolchain: { unobin-version: 'dev' } deps: {} }",
 			},
 		},
 		{
@@ -141,7 +141,7 @@ func TestIsGoLibrary(t *testing.T) {
 			src:  newUBSource(t, map[string]string{"lib.go": "package lib\n"}),
 			want: true,
 		},
-		{name: "manifest only", src: newUBFixtureSource(t, "library-classification/valid/manifest-only")},
+		{name: "project only", src: newUBFixtureSource(t, "library-classification/valid/project-only")},
 		{name: "empty", src: newUBSource(t, map[string]string{})},
 	}
 	for _, tt := range tests {

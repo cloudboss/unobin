@@ -97,17 +97,17 @@ func (r staticSourceResolver) Resolve(resolve.ImportRef) (*resolve.Source, error
 	return r.src, nil
 }
 
-func TestWrapLockedSourcesRequiresUBProjectMarker(t *testing.T) {
+func TestWrapProjectLockSourcesRequiresUBProjectMarker(t *testing.T) {
 	fsys := fstest.MapFS{
 		"library.ub": &fstest.MapFile{Data: []byte("thing: resource {}\n")},
 	}
 	hash, err := deps.HashUBProject(fsys)
 	require.NoError(t, err)
-	lock := deps.NewLock()
-	lock.Deps["example.com/repo"] = &deps.LockedDep{
-		Kind: deps.LockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hash,
+	projectLock := deps.NewProjectLock()
+	projectLock.Deps["example.com/repo"] = &deps.ProjectLockDep{
+		Kind: deps.ProjectLockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hash,
 	}
-	resolver := WrapLockedSources(staticSourceResolver{src: &resolve.Source{FS: fsys}}, lock)
+	resolver := WrapProjectLockSources(staticSourceResolver{src: &resolve.Source{FS: fsys}}, projectLock)
 
 	_, err = resolver.Resolve(&resolve.RemoteImport{URL: "example.com/repo", Version: "v1.0.0"})
 
@@ -126,12 +126,12 @@ func TestWrapReplacesSubdirMatching(t *testing.T) {
 	} {
 		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
-	emptyManifest := []byte(ubtest.ReadValidFixture(
-		t, "testdata/ub/wrap-replaces", "empty-manifest"))
-	require.NoError(t, os.WriteFile(filepath.Join(checkout, deps.ManifestFileName),
-		emptyManifest, 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(library, deps.ManifestFileName),
-		emptyManifest, 0o644))
+	emptyProject := []byte(ubtest.ReadValidFixture(
+		t, "testdata/ub/wrap-replaces", "empty-project"))
+	require.NoError(t, os.WriteFile(filepath.Join(checkout, deps.ProjectFileName),
+		emptyProject, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(library, deps.ProjectFileName),
+		emptyProject, 0o644))
 
 	cases := []struct {
 		name    string
@@ -186,7 +186,7 @@ func TestWrapReplacesRejectsPackageReplacementWithoutMarker(t *testing.T) {
 		{URL: "example.com/repo", Subdir: "ub/helloer"}: "./helloer",
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no manifest.ub or go.mod")
+	require.Contains(t, err.Error(), "no project.ub or go.mod")
 }
 
 func TestWithReplacedVersionsUsesReplacementID(t *testing.T) {
@@ -200,7 +200,7 @@ func TestWithReplacedVersionsUsesReplacementID(t *testing.T) {
 	require.NotContains(t, versions, "example.com/repo/library-c")
 }
 
-func TestAddManifestReplacesUsesResolvedGoPath(t *testing.T) {
+func TestAddProjectReplacesUsesResolvedGoPath(t *testing.T) {
 	root := t.TempDir()
 	checkout := filepath.Join(root, "checkout")
 	library := filepath.Join(root, "library-c")
@@ -213,7 +213,7 @@ func TestAddManifestReplacesUsesResolvedGoPath(t *testing.T) {
 	}
 
 	replaces := map[string]string{}
-	err := addManifestReplaces(replaces, root, map[deps.Dependency]string{
+	err := addProjectReplaces(replaces, root, map[deps.Dependency]string{
 		{URL: "example.com/repo"}:                      "./checkout",
 		{URL: "example.com/repo", Subdir: "library-c"}: "./library-c",
 	}, map[string]string{

@@ -1,2 +1,2 @@
 Error: import "x": the unobin repository is toolchain-versioned and cannot be imported at a dependency version; replace it locally for development:
-  in manifest.ub: manifest: { replace: { 'github.com/cloudboss/unobin': '<path-to-unobin>' } }
+  in project.ub: project: { replace: { 'github.com/cloudboss/unobin': '<path-to-unobin>' } }

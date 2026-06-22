@@ -1,1 +1,1 @@
-Error: github.com/x/libs//ub/helloer has no manifest.ub or go.mod; deps get operates on projects, while .ub imports may name packages below projects
+Error: github.com/x/libs//ub/helloer has no project.ub or go.mod; deps get operates on projects, while .ub imports may name packages below projects

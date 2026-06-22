@@ -166,8 +166,8 @@ func TestVersionPrintsVersion(t *testing.T) {
 	require.Contains(t, out, "v1.2.3")
 }
 
-func manifestSource(body string) []byte {
-	return []byte("manifest" + ": {\n" + body + "}\n")
+func projectSource(body string) []byte {
+	return []byte("project" + ": {\n" + body + "}\n")
 }
 
 // setCLIVersion stamps the CLI version for one test, the way a release
@@ -185,17 +185,17 @@ func TestDepsSyncOutputCompilesForReplacedUnobinSubdir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
 		[]byte(cliFixture(t, "awscfg-factory")), 0o644))
-	manifest := "requires: {}\nreplace: {\n" +
+	project := "requires: {}\nreplace: {\n" +
 		"  'github.com/cloudboss/unobin': '" + rootDir + "'\n" +
 		"  'github.com/cloudboss/unobin//examples/awscfg': '" +
 		filepath.Join(rootDir, "examples", "awscfg") + "'\n" +
 		"}\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ManifestFileName),
-		manifestSource(manifest), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ProjectFileName),
+		projectSource(project), 0o644))
 
 	_, err := runCommand(t, "deps", "sync", "-p", filepath.Join(dir, "factory.ub"))
 	require.NoError(t, err)
-	synced, err := deps.ReadManifest(os.DirFS(dir))
+	synced, err := deps.ReadProject(os.DirFS(dir))
 	require.NoError(t, err)
 	require.Empty(t, synced.Requires)
 	_, err = runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", "-")

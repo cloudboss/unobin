@@ -1,6 +1,0 @@
-manifest: {
-  requires: {}
-  replace: {
-    'github.com/x/core': '../modules/core'
-  }
-}
