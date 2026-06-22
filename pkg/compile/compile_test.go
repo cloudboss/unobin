@@ -126,10 +126,12 @@ func TestWrapReplacesSubdirMatching(t *testing.T) {
 	} {
 		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
+	emptyManifest := []byte(ubtest.ReadValidFixture(
+		t, "testdata/ub/wrap-replaces", "empty-manifest"))
 	require.NoError(t, os.WriteFile(filepath.Join(checkout, deps.ManifestFileName),
-		[]byte("manifest: { requires: {} }\n"), 0o644))
+		emptyManifest, 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(library, deps.ManifestFileName),
-		[]byte("manifest: { requires: {} }\n"), 0o644))
+		emptyManifest, 0o644))
 
 	cases := []struct {
 		name    string
