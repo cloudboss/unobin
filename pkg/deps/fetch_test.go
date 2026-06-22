@@ -6,9 +6,11 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // fakeResolver serves canned sources keyed by a remote ref's url, subdir,
@@ -51,12 +53,15 @@ func (r *fakeResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
 	return nil, fmt.Errorf("no source for %s//%s@%s", ri.URL, ri.Subdir, ri.Version)
 }
 
+func fetchFixture(t testing.TB, name string) []byte {
+	t.Helper()
+	return []byte(ubtest.ReadValidFixture(t, "testdata/ub/fetch", name))
+}
+
 func TestFetchReadsManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/y", "", "v1.0.0"): {FS: fstest.MapFS{
-			ManifestFileName: &fstest.MapFile{
-				Data: []byte("manifest: { requires: { 'github.com/x/dep': { version: 'v2.0.0' } } }\n"),
-			},
+			ManifestFileName: &fstest.MapFile{Data: fetchFixture(t, "manifest-with-dep")},
 		}},
 	}}
 	got, err := NewFetcher(r).Fetch(Dependency{URL: "github.com/x/y"}, "v1.0.0")
@@ -81,11 +86,9 @@ func TestFetchLeafHasNoManifest(t *testing.T) {
 func TestFetchRejectsDependencyWithoutProjectMarker(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/libs", "ub/helloer", "ub/helloer/v1.0.0"): {
-			FS: fstest.MapFS{"resource-hello.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`)}},
+			FS: fstest.MapFS{
+				"resource-hello.ub": &fstest.MapFile{Data: fetchFixture(t, "hello-resource")},
+			},
 		},
 	}}
 
@@ -128,17 +131,12 @@ func TestFetchUsesPrefixedTagForSubdirProject(t *testing.T) {
 func TestFetchDoesNotReadParentManifestForPackage(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/libs", "ub/helloer", "ub/helloer/v1.0.0"): {
-			FS: fstest.MapFS{"resource-hello.ub": &fstest.MapFile{Data: []byte(`
-hello: resource {
-  imports: { std: 'github.com/cloudboss/unobin-library-std' }
-}
-`)}},
+			FS: fstest.MapFS{
+				"resource-hello.ub": &fstest.MapFile{Data: fetchFixture(t, "hello-import-std")},
+			},
 		},
 		srcKey("github.com/x/libs", "", "v1.0.0"): {FS: fstest.MapFS{
-			ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/cloudboss/unobin-library-std': { version: 'v0.1.0' } }
-}
-`)},
+			ManifestFileName: &fstest.MapFile{Data: fetchFixture(t, "manifest-with-std")},
 		}},
 	}}
 
@@ -151,16 +149,12 @@ hello: resource {
 func TestFetchReadsExactSubdirManifest(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/x/libs", "ub/project-b", "ub/project-b/v0.1.0"): {
-			FS: fstest.MapFS{ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/x/project-dep': { version: 'v0.2.0' } }
-}
-`)}},
+			FS: fstest.MapFS{
+				ManifestFileName: &fstest.MapFile{Data: fetchFixture(t, "manifest-project-dep")},
+			},
 		},
 		srcKey("github.com/x/libs", "", "v0.1.0"): {FS: fstest.MapFS{
-			ManifestFileName: &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/x/root-dep': { version: 'v9.0.0' } }
-}
-`)},
+			ManifestFileName: &fstest.MapFile{Data: fetchFixture(t, "manifest-root-dep")},
 		}},
 	}}
 

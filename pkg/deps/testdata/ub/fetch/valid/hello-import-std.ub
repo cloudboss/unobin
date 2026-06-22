@@ -1,0 +1,3 @@
+hello: resource {
+  imports: { std: 'github.com/cloudboss/unobin-library-std' }
+}

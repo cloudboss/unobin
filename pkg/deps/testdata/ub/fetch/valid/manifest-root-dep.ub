@@ -1,0 +1,3 @@
+manifest: {
+  requires: { 'github.com/x/root-dep': { version: 'v9.0.0' } }
+}
