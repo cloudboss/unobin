@@ -9,7 +9,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func readDiscoverFixture(t testing.TB, name string) []byte {
+	t.Helper()
+	return []byte(ubtest.ReadValidFixture(t, "testdata/ub/discover", name))
+}
 
 func TestFindManifestDir(t *testing.T) {
 	root := t.TempDir()
@@ -17,7 +24,7 @@ func TestFindManifestDir(t *testing.T) {
 	deep := filepath.Join(proj, "sub", "deep")
 	require.NoError(t, os.MkdirAll(deep, 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(proj, ManifestFileName), []byte("manifest: { requires: {} }\n"), 0o644))
+		filepath.Join(proj, ManifestFileName), readDiscoverFixture(t, "empty-manifest"), 0o644))
 
 	cases := []struct {
 		name  string
@@ -39,7 +46,7 @@ func TestFindManifestDir(t *testing.T) {
 func TestFindManifestDirFromFile(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(
-		filepath.Join(root, ManifestFileName), []byte("manifest: { requires: {} }\n"), 0o644))
+		filepath.Join(root, ManifestFileName), readDiscoverFixture(t, "empty-manifest"), 0o644))
 	mainUB := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(mainUB, []byte("description: 'x'\n"), 0o644))
 
@@ -59,7 +66,7 @@ func TestFindManifestDirIgnoresDirectoryNamedLikeManifest(t *testing.T) {
 	child := filepath.Join(root, "child")
 	require.NoError(t, os.MkdirAll(filepath.Join(child, ManifestFileName), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(root, ManifestFileName), []byte("manifest: { requires: {} }\n"), 0o644))
+		filepath.Join(root, ManifestFileName), readDiscoverFixture(t, "empty-manifest"), 0o644))
 
 	got, err := FindManifestDir(child)
 	require.NoError(t, err)
@@ -71,9 +78,9 @@ func TestFindManifestDirRejectsWrongManifestRole(t *testing.T) {
 	child := filepath.Join(root, "child")
 	require.NoError(t, os.MkdirAll(child, 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(root, ManifestFileName), []byte("manifest: { requires: {} }\n"), 0o644))
+		filepath.Join(root, ManifestFileName), readDiscoverFixture(t, "empty-manifest"), 0o644))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(child, ManifestFileName), []byte("factory: {}\n"), 0o644))
+		filepath.Join(child, ManifestFileName), readDiscoverFixture(t, "factory-role"), 0o644))
 
 	_, err := FindManifestDir(child)
 	require.Error(t, err)

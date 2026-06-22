@@ -33,7 +33,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/codegen/ublibrary_test.go":        true,
 	"pkg/compile/constraints_test.go":      true,
 	"pkg/deps/deps_test.go":                true,
-	"pkg/deps/discover_test.go":            true,
 	"pkg/deps/fetch_test.go":               true,
 	"pkg/deps/hash_test.go":                true,
 	"pkg/deps/lockwalk_test.go":            true,
