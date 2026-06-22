@@ -6,6 +6,8 @@ import (
 	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func hashProject(t *testing.T, files fstest.MapFS) string {
@@ -15,17 +17,24 @@ func hashProject(t *testing.T, files fstest.MapFS) string {
 	return hash
 }
 
+func hashValidFixture(t testing.TB, name string) []byte {
+	t.Helper()
+	return []byte(ubtest.ReadValidFixture(t, "testdata/ub/hash", name))
+}
+
+func hashInvalidFixture(t testing.TB, name string) []byte {
+	t.Helper()
+	return []byte(ubtest.ReadFixture(t, "testdata/ub/hash/invalid/"+name+".ub"))
+}
+
 func TestHashUBProjectIncludesManifest(t *testing.T) {
 	base := fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"library.ub":  &fstest.MapFile{Data: []byte("thing: resource {}\n")},
+		"manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
+		"library.ub":  &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
 	}
 	changed := fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte(`manifest: {
-  requires: { 'github.com/x/y': { version: 'v1.0.0' } }
-}
-`)},
-		"library.ub": &fstest.MapFile{Data: []byte("thing: resource {}\n")},
+		"manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "manifest-with-requirement")},
+		"library.ub":  &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
 	}
 
 	require.NotEqual(t, hashProject(t, base), hashProject(t, changed))
@@ -33,19 +42,19 @@ func TestHashUBProjectIncludesManifest(t *testing.T) {
 
 func TestHashUBProjectExcludesNonProjectInputs(t *testing.T) {
 	base := fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"library.ub":  &fstest.MapFile{Data: []byte("thing: resource {}\n")},
+		"manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
+		"library.ub":  &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
 	}
 	withExtras := fstest.MapFS{
-		"manifest.ub":        &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"library.ub":         &fstest.MapFile{Data: []byte("thing: resource {}\n")},
+		"manifest.ub":        &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
+		"library.ub":         &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
 		"lock.ub":            &fstest.MapFile{Data: []byte("not parsed\n")},
-		"stack.ub":           &fstest.MapFile{Data: []byte("stack: {}\n")},
+		"stack.ub":           &fstest.MapFile{Data: hashValidFixture(t, "stack")},
 		"notes.txt":          &fstest.MapFile{Data: []byte("ignored\n")},
-		".hidden.ub":         &fstest.MapFile{Data: []byte("ignored: resource {}\n")},
-		".hidden/lib.ub":     &fstest.MapFile{Data: []byte("ignored: resource {}\n")},
-		"nested/manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"nested/library.ub":  &fstest.MapFile{Data: []byte("ignored: resource {}\n")},
+		".hidden.ub":         &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
+		".hidden/lib.ub":     &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
+		"nested/manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
+		"nested/library.ub":  &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
 	}
 
 	require.Equal(t, hashProject(t, base), hashProject(t, withExtras))
@@ -53,8 +62,8 @@ func TestHashUBProjectExcludesNonProjectInputs(t *testing.T) {
 
 func TestHashUBProjectRejectsMalformedIncludedUB(t *testing.T) {
 	_, err := HashUBProject(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"library.ub":  &fstest.MapFile{Data: []byte("thing: resource {\n")},
+		"manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
+		"library.ub":  &fstest.MapFile{Data: hashInvalidFixture(t, "malformed-resource")},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "library.ub")
@@ -62,9 +71,9 @@ func TestHashUBProjectRejectsMalformedIncludedUB(t *testing.T) {
 
 func TestHashUBProjectRejectsMalformedNestedMarker(t *testing.T) {
 	_, err := HashUBProject(fstest.MapFS{
-		"manifest.ub":        &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
-		"library.ub":         &fstest.MapFile{Data: []byte("thing: resource {}\n")},
-		"nested/manifest.ub": &fstest.MapFile{Data: []byte("factory: {}\n")},
+		"manifest.ub":        &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
+		"library.ub":         &fstest.MapFile{Data: hashValidFixture(t, "library-resource")},
+		"nested/manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "factory-marker")},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "nested/manifest.ub")
@@ -72,7 +81,7 @@ func TestHashUBProjectRejectsMalformedNestedMarker(t *testing.T) {
 
 func TestHashUBProjectRejectsSymlink(t *testing.T) {
 	_, err := HashUBProject(fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{Data: []byte("manifest: { requires: {} }\n")},
+		"manifest.ub": &fstest.MapFile{Data: hashValidFixture(t, "empty-manifest")},
 		"library.ub":  &fstest.MapFile{Mode: fs.ModeSymlink},
 	})
 	require.Error(t, err)
