@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestParseDependency(t *testing.T) {
@@ -126,18 +128,14 @@ func TestReplacementFor(t *testing.T) {
 	}
 }
 
-func manifestData(body string) []byte {
-	return []byte("manifest: {\n" + body + "}\n")
+func depsFixture(t testing.TB, name string) []byte {
+	t.Helper()
+	return []byte(ubtest.ReadFixture(t, "testdata/ub/deps/"+name+".ub"))
 }
 
 func TestReadManifest(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: manifestData(`
-requires: {
-  'github.com/cloudboss/unobin-library-std//x': { version: 'v0.1.0' }
-  'github.com/me/net//vpc':                    { version: 'v2.0.0' }
-}
-`)},
+		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "valid/read-requirements")},
 	}
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
@@ -149,7 +147,7 @@ requires: {
 
 func TestReadManifestEmptyRequires(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: manifestData("requires: {}\n")},
+		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "valid/empty-requires")},
 	}
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
@@ -164,7 +162,7 @@ func TestReadManifestMissingFile(t *testing.T) {
 
 func TestReadManifestRejectsBadVersionField(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: manifestData("version: 'v1.0.0'\n")},
+		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-version-field")},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
@@ -173,9 +171,7 @@ func TestReadManifestRejectsBadVersionField(t *testing.T) {
 
 func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{
-			Data: manifestData("requires: { 'nohost': { version: 'v1.0.0' } }\n"),
-		},
+		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-dependency-url")},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
@@ -184,9 +180,7 @@ func TestReadManifestRejectsBadDependencyURL(t *testing.T) {
 
 func TestReadManifestRejectsBadFloor(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{
-			Data: manifestData("requires: { 'github.com/x/y': { version: 'latest' } }\n"),
-		},
+		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "invalid/bad-floor")},
 	}
 	_, err := ReadManifest(fsys)
 	require.Error(t, err)
@@ -198,22 +192,13 @@ func TestEncodeManifest(t *testing.T) {
 		{URL: "github.com/cloudboss/unobin"}:        {Version: "v0.1.2"},
 		{URL: "github.com/cloudboss/helloer-stuff"}: {Version: "v0.1.0"},
 	}}
-	want := `manifest: {
-requires: {
-'github.com/cloudboss/helloer-stuff': {
-version: 'v0.1.0'
-}
-'github.com/cloudboss/unobin': {
-version: 'v0.1.2'
-}
-}
-}
-`
-	assert.Equal(t, want, string(EncodeManifest(m)))
+	want := depsFixture(t, "valid/encoded-requirements")
+	assert.Equal(t, string(want), string(EncodeManifest(m)))
 }
 
 func TestEncodeManifestEmpty(t *testing.T) {
-	assert.Equal(t, "manifest: {\nrequires: {\n}\n}\n", string(EncodeManifest(&Manifest{})))
+	want := depsFixture(t, "valid/encoded-empty")
+	assert.Equal(t, string(want), string(EncodeManifest(&Manifest{})))
 }
 
 func TestManifestCanBeReadAgain(t *testing.T) {
@@ -229,10 +214,7 @@ func TestManifestCanBeReadAgain(t *testing.T) {
 
 func TestReadManifestWithReplace(t *testing.T) {
 	fsys := fstest.MapFS{
-		ManifestFileName: &fstest.MapFile{Data: manifestData(`
-requires: { 'github.com/x/y': { version: 'v1.0.0' } }
-replace:  { 'github.com/cloudboss/unobin-library-aws': '../../../..' }
-`)},
+		ManifestFileName: &fstest.MapFile{Data: depsFixture(t, "valid/with-replace")},
 	}
 	m, err := ReadManifest(fsys)
 	require.NoError(t, err)
@@ -251,18 +233,8 @@ func TestEncodeManifestWithReplace(t *testing.T) {
 			{URL: "github.com/cloudboss/unobin-library-aws"}: "../../../..",
 		},
 	}
-	want := `manifest: {
-requires: {
-'github.com/x/y': {
-version: 'v1.0.0'
-}
-}
-replace: {
-'github.com/cloudboss/unobin-library-aws': '../../../..'
-}
-}
-`
-	assert.Equal(t, want, string(EncodeManifest(m)))
+	want := depsFixture(t, "valid/encoded-replace")
+	assert.Equal(t, string(want), string(EncodeManifest(m)))
 }
 
 func TestReplaceCanBeReadAgain(t *testing.T) {

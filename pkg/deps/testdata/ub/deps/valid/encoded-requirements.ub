@@ -1,0 +1,10 @@
+manifest: {
+requires: {
+'github.com/cloudboss/helloer-stuff': {
+version: 'v0.1.0'
+}
+'github.com/cloudboss/unobin': {
+version: 'v0.1.2'
+}
+}
+}

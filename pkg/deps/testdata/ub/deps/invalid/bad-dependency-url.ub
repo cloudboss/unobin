@@ -1,0 +1,3 @@
+manifest: {
+  requires: { 'nohost': { version: 'v1.0.0' } }
+}
