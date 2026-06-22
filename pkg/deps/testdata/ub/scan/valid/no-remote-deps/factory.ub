@@ -1,0 +1,3 @@
+factory: {
+  imports: { greeter: './greeter' }
+}
