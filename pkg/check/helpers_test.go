@@ -31,6 +31,10 @@ func parseSyntaxCompositeFixture(t *testing.T, src string) syntaxRuntimeFixture 
 	return syntaxRuntimeFixture{body: f.Library.Exports[0].Body}
 }
 
+func checkFactorySource(src string) string {
+	return "factory" + ": {\n" + src + "\n}"
+}
+
 // checkSyntaxReferences runs the typed reference check for tests that need only diagnostics.
 func checkSyntaxReferences(
 	t *testing.T,
@@ -38,7 +42,7 @@ func checkSyntaxReferences(
 	libs map[string]*runtime.Library,
 ) *lang.ErrorList {
 	t.Helper()
-	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	fixture := parseSyntaxFactoryFixture(t, checkFactorySource(src))
 	return NewSyntax(fixture.body, libs).References(nil)
 }
 
