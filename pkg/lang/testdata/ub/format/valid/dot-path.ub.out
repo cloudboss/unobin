@@ -1,3 +1,3 @@
-a: var.region
+a: input.region
 b: resource.local.file.x.path
-c: var.cfg['key']
+c: input.cfg['key']

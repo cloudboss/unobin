@@ -9,7 +9,7 @@ import (
 )
 
 func splatEvalContext() *EvalContext {
-	return &EvalContext{Vars: map[string]any{
+	return &EvalContext{Inputs: map[string]any{
 		"subnets": []any{
 			map[string]any{"id": "s-1", "cidr": "10.0.0.0/24", "az": "a", "public": true},
 			map[string]any{"id": "s-2", "cidr": "10.0.1.0/24", "az": "b", "public": false},
@@ -49,56 +49,56 @@ type splatEvalCase struct {
 
 func splatEvalCases() []splatEvalCase {
 	return []splatEvalCase{
-		{name: "project string field", src: "var.subnets[*].id", want: []any{"s-1", "s-2", "s-3"}},
+		{name: "project string field", src: "input.subnets[*].id", want: []any{"s-1", "s-2", "s-3"}},
 		{
 			name: "project cidr field",
-			src:  "var.subnets[*].cidr",
+			src:  "input.subnets[*].cidr",
 			want: []any{"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24"},
 		},
-		{name: "project bool field", src: "var.subnets[*].public", want: []any{true, false, true}},
-		{name: "project field with repeats", src: "var.subnets[*].az", want: []any{"a", "b", "a"}},
-		{name: "single element list", src: "var.single[*].id", want: []any{"only"}},
-		{name: "empty list projects to empty", src: "var.empty[*].id", want: []any{}},
+		{name: "project bool field", src: "input.subnets[*].public", want: []any{true, false, true}},
+		{name: "project field with repeats", src: "input.subnets[*].az", want: []any{"a", "b", "a"}},
+		{name: "single element list", src: "input.single[*].id", want: []any{"only"}},
+		{name: "empty list projects to empty", src: "input.empty[*].id", want: []any{}},
 		{
 			name: "bare splat of scalars is the list",
-			src:  "var.nums[*]",
+			src:  "input.nums[*]",
 			want: []any{int64(1), int64(2), int64(3)},
 		},
 		{
 			name: "bare splat of objects is the list",
-			src:  "var.single[*]",
+			src:  "input.single[*]",
 			want: []any{map[string]any{"id": "only"}},
 		},
 		{
 			name: "nested splat",
-			src:  "var.grid[*][*].name",
+			src:  "input.grid[*][*].name",
 			want: []any{[]any{"a", "b"}, []any{"c"}},
 		},
 		{
 			name: "field then splat under a splat",
-			src:  "var.regions[*].subnets[*].id",
+			src:  "input.regions[*].subnets[*].id",
 			want: []any{[]any{"e-1", "e-2"}, []any{"w-1"}},
 		},
 		{
 			name: "splat then nested object field",
-			src:  "var.servers[*].meta.name",
+			src:  "input.servers[*].meta.name",
 			want: []any{"web", "db"},
 		},
 		{
 			name: "splat then field then index",
-			src:  "var.servers[*].ports[0]",
+			src:  "input.servers[*].ports[0]",
 			want: []any{int64(80), int64(5432)},
 		},
 		{
 			name: "splat then field then later index",
-			src:  "var.servers[*].ports[1]",
+			src:  "input.servers[*].ports[1]",
 			want: []any{int64(443), int64(5433)},
 		},
-		{name: "project region names", src: "var.regions[*].name", want: []any{"east", "west"}},
-		{name: "index then bare splat", src: "var.matrix[0][*]", want: []any{int64(1), int64(2)}},
+		{name: "project region names", src: "input.regions[*].name", want: []any{"east", "west"}},
+		{name: "index then bare splat", src: "input.matrix[0][*]", want: []any{int64(1), int64(2)}},
 		{
 			name: "index then bare splat other row",
-			src:  "var.matrix[1][*]",
+			src:  "input.matrix[1][*]",
 			want: []any{int64(3), int64(4)},
 		},
 	}
@@ -131,7 +131,7 @@ func TestEvalSplatDeterministic(t *testing.T) {
 }
 
 func TestEvalSplatErrors(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"region":  map[string]any{"zone": "z-1"},
 		"scalar":  "hello",
 		"nul":     nil,
@@ -147,39 +147,39 @@ func TestEvalSplatErrors(t *testing.T) {
 	}{
 		{
 			name: "splat a map",
-			src:  "var.region[*]",
-			want: "eval: cannot splat an object at var.region[*]",
+			src:  "input.region[*]",
+			want: "eval: cannot splat an object at input.region[*]",
 		},
 		{
 			name: "splat a scalar",
-			src:  "var.scalar[*]",
-			want: "eval: cannot splat a string at var.scalar[*]",
+			src:  "input.scalar[*]",
+			want: "eval: cannot splat a string at input.scalar[*]",
 		},
-		{name: "splat null", src: "var.nul[*]", want: "eval: cannot splat null at var.nul[*]"},
+		{name: "splat null", src: "input.nul[*]", want: "eval: cannot splat null at input.nul[*]"},
 		{
 			name: "missing field in element",
-			src:  "var.subnets[*].bogus",
-			want: "eval: var.subnets[0].bogus: not found",
+			src:  "input.subnets[*].bogus",
+			want: "eval: input.subnets[0].bogus: not found",
 		},
 		{
 			name: "missing field in later element",
-			src:  "var.mixed[*].extra",
-			want: "eval: var.mixed[1].extra: not found",
+			src:  "input.mixed[*].extra",
+			want: "eval: input.mixed[1].extra: not found",
 		},
 		{
 			name: "nested splat hits a non-list element",
-			src:  "var.notgrid[*][*]",
-			want: "eval: cannot splat an integer at var.notgrid[1][*]",
+			src:  "input.notgrid[*][*]",
+			want: "eval: cannot splat an integer at input.notgrid[1][*]",
 		},
 		{
 			name: "index out of range after splat",
-			src:  "var.servers[*].ports[5]",
-			want: "eval: var.servers[0].ports[5]: not found",
+			src:  "input.servers[*].ports[5]",
+			want: "eval: input.servers[0].ports[5]: not found",
 		},
 		{
 			name: "splat a scalar reached by a field",
-			src:  "var.subnets[*].id[*]",
-			want: "eval: cannot splat a string at var.subnets[0].id[*]",
+			src:  "input.subnets[*].id[*]",
+			want: "eval: cannot splat a string at input.subnets[0].id[*]",
 		},
 	}
 	for _, c := range cases {

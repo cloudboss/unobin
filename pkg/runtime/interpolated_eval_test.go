@@ -8,7 +8,7 @@ import (
 
 func TestEvalInterpolated(t *testing.T) {
 	ctx := &EvalContext{
-		Vars: map[string]any{
+		Inputs: map[string]any{
 			"region": "us-east-1",
 			"name":   "web",
 			"a":      "x",
@@ -36,19 +36,19 @@ func TestEvalInterpolated(t *testing.T) {
 	}{
 		{"literal only", `$'hello world'`, "hello world"},
 		{"empty", `$''`, ""},
-		{"single slot", `$'{{var.region}}'`, "us-east-1"},
-		{"lit slot lit", `$'cluster-{{var.name}}-prod'`, "cluster-web-prod"},
-		{"two slots", `$'{{var.a}}/{{var.b}}'`, "x/y"},
-		{"nested dot path", `$'{{var.net.id}}'`, "vpc-123"},
-		{"default int", `$'n={{var.n}}'`, "n=5"},
-		{"default float", `$'{{var.f}}'`, "3.14159"},
-		{"default bool true", `$'{{var.prod}}'`, "true"},
-		{"default bool false", `$'{{var.flag}}'`, "false"},
-		{"verb int zero pad", `$'{{var.n:%03d}}'`, "005"},
-		{"verb float precision", `$'{{var.f:%.2f}}'`, "3.14"},
-		{"verb string width", `$'{{var.s:%-5s}}|'`, "ab   |"},
-		{"conditional slot", `$'{{if var.prod then 'big' else 'small'}}'`, "big"},
-		{"call slot", `$'{{lib.bang(var.a)}}'`, "x!"},
+		{"single slot", `$'{{input.region}}'`, "us-east-1"},
+		{"lit slot lit", `$'cluster-{{input.name}}-prod'`, "cluster-web-prod"},
+		{"two slots", `$'{{input.a}}/{{input.b}}'`, "x/y"},
+		{"nested dot path", `$'{{input.net.id}}'`, "vpc-123"},
+		{"default int", `$'n={{input.n}}'`, "n=5"},
+		{"default float", `$'{{input.f}}'`, "3.14159"},
+		{"default bool true", `$'{{input.prod}}'`, "true"},
+		{"default bool false", `$'{{input.flag}}'`, "false"},
+		{"verb int zero pad", `$'{{input.n:%03d}}'`, "005"},
+		{"verb float precision", `$'{{input.f:%.2f}}'`, "3.14"},
+		{"verb string width", `$'{{input.s:%-5s}}|'`, "ab   |"},
+		{"conditional slot", `$'{{if input.prod then 'big' else 'small'}}'`, "big"},
+		{"call slot", `$'{{lib.bang(input.a)}}'`, "x!"},
 		{"escaped open brace", `$'\{{x}}'`, "{{x}}"},
 	}
 	for _, tt := range tests {
@@ -61,7 +61,7 @@ func TestEvalInterpolated(t *testing.T) {
 }
 
 func TestEvalInterpolatedTriple(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{"name": "web", "region": "us-east-1"}}
+	ctx := &EvalContext{Inputs: map[string]any{"name": "web", "region": "us-east-1"}}
 	tests := []struct {
 		name string
 		src  string
@@ -69,22 +69,22 @@ func TestEvalInterpolatedTriple(t *testing.T) {
 	}{
 		{
 			"single line",
-			`$'''Hello {{ var.name }}!'''`,
+			`$'''Hello {{ input.name }}!'''`,
 			"Hello web!",
 		},
 		{
 			"folded strip joins lines with a space",
-			"$'''>-\n  Hello {{ var.name }},\n  region {{ var.region }}\n  '''",
+			"$'''>-\n  Hello {{ input.name }},\n  region {{ input.region }}\n  '''",
 			"Hello web, region us-east-1",
 		},
 		{
 			"literal strip keeps the newline",
-			"$'''|-\n  host {{ var.name }}\n  zone {{ var.region }}\n  '''",
+			"$'''|-\n  host {{ input.name }}\n  zone {{ input.region }}\n  '''",
 			"host web\nzone us-east-1",
 		},
 		{
 			"joined strip drops the line break",
-			"$'''\\-\n  {{ var.name }}\n  -{{ var.region }}\n  '''",
+			"$'''\\-\n  {{ input.name }}\n  -{{ input.region }}\n  '''",
 			"web-us-east-1",
 		},
 	}
@@ -98,7 +98,7 @@ func TestEvalInterpolatedTriple(t *testing.T) {
 }
 
 func TestEvalInterpolatedRejectsNonScalar(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"nothing": nil,
 		"list":    []any{"a", "b"},
 		"obj":     map[string]any{"k": "v"},
@@ -107,9 +107,9 @@ func TestEvalInterpolatedRejectsNonScalar(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"null slot", `$'{{var.nothing}}'`},
-		{"list slot", `$'x-{{var.list}}'`},
-		{"map slot", `$'{{var.obj}}'`},
+		{"null slot", `$'{{input.nothing}}'`},
+		{"list slot", `$'x-{{input.list}}'`},
+		{"map slot", `$'{{input.obj}}'`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

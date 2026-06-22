@@ -1,0 +1,1 @@
+resources: { web: net.cluster { path: input.target-path, message: input.target-message } }

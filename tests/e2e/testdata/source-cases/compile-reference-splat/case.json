@@ -5,17 +5,17 @@
   "cliVersion": "v0.1.0",
   "commands": [
     {
-      "name": "bare-var",
-      "dir": "bare-var",
+      "name": "bare-input",
+      "dir": "bare-input",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
-      "stderr": "want/bare-var.stderr",
+      "stderr": "want/bare-input.stderr",
       "exitCode": 1
     },
     {
-      "name": "bare-deep-var",
-      "dir": "bare-deep-var",
+      "name": "bare-deep-input",
+      "dir": "bare-deep-input",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
-      "stderr": "want/bare-deep-var.stderr",
+      "stderr": "want/bare-deep-input.stderr",
       "exitCode": 1
     },
     {

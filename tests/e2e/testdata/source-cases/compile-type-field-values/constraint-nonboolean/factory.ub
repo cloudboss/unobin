@@ -3,8 +3,8 @@ factory: {
   constraints: [
     {
       kind: predicate
-      when: var.region
-      require: var.region == 'us-east-1'
+      when: input.region
+      require: input.region == 'us-east-1'
     },
   ]
 }

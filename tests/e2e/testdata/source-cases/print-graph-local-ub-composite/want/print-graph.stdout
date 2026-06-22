@@ -2,4 +2,4 @@ resource.hello
   -> resource.hello/resource.this
 
 resource.hello/resource.this
-  -> var.who
+  -> input.who

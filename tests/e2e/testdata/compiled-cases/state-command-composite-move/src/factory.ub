@@ -16,14 +16,14 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   resources: {
     hello: greeter.greeting {
       path:       'files/hello.txt'
       content:    'hello'
-      e2e-config: var.e2e-config
+      e2e-config: input.e2e-config
     }
 
     other: e2e.file {

@@ -8,6 +8,6 @@ factory: {
   }
 
   library-configs: {
-    aws: @core.merge(var.aws-config, { region: 'us-east-1' })
+    aws: @core.merge(input.aws-config, { region: 'us-east-1' })
   }
 }

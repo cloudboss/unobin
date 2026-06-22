@@ -243,7 +243,7 @@ func fnLength(v any) (int64, error) {
 // fnAll reports whether every element of a list of booleans is true.
 // An empty list is true: no element is false. Pairs with a boolean
 // comprehension to quantify over a list, as a constraint predicate
-// does: @core.all([for r in var.replicas: r.port > 0]).
+// does: @core.all([for r in input.replicas: r.port > 0]).
 func fnAll(bools []bool) (bool, error) {
 	for _, b := range bools {
 		if !b {

@@ -1,7 +1,7 @@
 constraints: [
   {
     kind: predicate
-    @for-each: [ { @each: var.rules }, ]
+    @for-each: [ { @each: input.rules }, ]
     when:    true
     require: true
   },

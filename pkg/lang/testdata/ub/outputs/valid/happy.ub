@@ -1,6 +1,6 @@
 outputs: {
   cluster-id:  { value: resource.net.cluster.web.id }
   cluster-arn: { value: resource.net.cluster.web.arn }
-  region:      { value: var.region }
+  region:      { value: input.region }
   static:      { value: 'literal' }
 }

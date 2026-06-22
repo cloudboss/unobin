@@ -4,8 +4,8 @@ factory: {
   constraints: [
     {
       kind: predicate
-      when: var.bogus == 'x'
-      require: var.also-missing == true
+      when: input.bogus == 'x'
+      require: input.also-missing == true
       message: 'should error'
     }
   ]

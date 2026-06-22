@@ -17,25 +17,25 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   locals: {
-    name-copy:     var.name
-    secret-copy:   var.secret
+    name-copy:     input.name
+    secret-copy:   input.secret
     secret-chain:  local.secret-copy
     secret-output: action.go-secret.value
   }
 
   actions: {
     record: e2e.record {
-      name:    var.name
-      message: var.secret
+      name:    input.name
+      message: input.secret
     }
 
     go-secret: e2e.secret {
-      label: var.name
-      value: var.secret
+      label: input.name
+      value: input.secret
     }
 
     record-local: e2e.record {

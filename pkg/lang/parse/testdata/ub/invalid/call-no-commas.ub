@@ -1,1 +1,1 @@
-key: format('%s' var.x)
+key: format('%s' input.x)

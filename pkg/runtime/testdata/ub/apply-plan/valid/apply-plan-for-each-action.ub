@@ -1,4 +1,4 @@
-actions: { many: core.echo { @for-each: var.names, echo: @each.value } }
+actions: { many: core.echo { @for-each: input.names, echo: @each.value } }
 outputs: {
   alpha-said: { value: action.many['alpha'].echo }
   beta-said:  { value: action.many['beta'].echo }

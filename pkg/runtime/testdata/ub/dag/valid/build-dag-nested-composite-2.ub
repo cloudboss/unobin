@@ -1,3 +1,3 @@
 inputs: { target: { type: string } }
 
-resources: { only: inner-lib.cluster { path: var.target } }
+resources: { only: inner-lib.cluster { path: input.target } }

@@ -15,11 +15,11 @@ func TestParseComprehension(t *testing.T) {
 	}{
 		{
 			name: "list maps each element",
-			in:   "[ for x in var.subnets : x.cidr-block ]",
+			in:   "[ for x in input.subnets : x.cidr-block ]",
 			check: func(t *testing.T, c *Comprehension) {
 				assert.Equal(t, CompList, c.Kind)
 				assert.Equal(t, []string{"x"}, c.Names)
-				assert.Equal(t, "var", c.Source.(*DotPath).Root.Name)
+				assert.Equal(t, "input", c.Source.(*DotPath).Root.Name)
 				assert.Equal(t, "x", c.Value.(*DotPath).Root.Name)
 				assert.Nil(t, c.Key)
 				assert.Nil(t, c.Filter)
@@ -28,7 +28,7 @@ func TestParseComprehension(t *testing.T) {
 		},
 		{
 			name: "map indexes by a field",
-			in:   "{ for x in var.subnets : x.name => x }",
+			in:   "{ for x in input.subnets : x.name => x }",
 			check: func(t *testing.T, c *Comprehension) {
 				assert.Equal(t, CompMap, c.Kind)
 				assert.Equal(t, "x", c.Key.(*DotPath).Root.Name)
@@ -38,7 +38,7 @@ func TestParseComprehension(t *testing.T) {
 		},
 		{
 			name: "list with when filter",
-			in:   "[ for x in var.subnets : x.id when x.public ]",
+			in:   "[ for x in input.subnets : x.id when x.public ]",
 			check: func(t *testing.T, c *Comprehension) {
 				assert.Equal(t, CompList, c.Kind)
 				require.NotNil(t, c.Filter)
@@ -47,7 +47,7 @@ func TestParseComprehension(t *testing.T) {
 		},
 		{
 			name: "map group-by with ellipsis",
-			in:   "{ for x in var.subnets : x.az => x.id... }",
+			in:   "{ for x in input.subnets : x.az => x.id... }",
 			check: func(t *testing.T, c *Comprehension) {
 				assert.Equal(t, CompMap, c.Kind)
 				assert.True(t, c.Group)
@@ -89,7 +89,7 @@ func TestParseComprehension(t *testing.T) {
 		},
 		{
 			name: "conditional body with filter",
-			in:   "[ for x in var.subnets : if x.public then x.id else '' when x.active ]",
+			in:   "[ for x in input.subnets : if x.public then x.id else '' when x.active ]",
 			check: func(t *testing.T, c *Comprehension) {
 				cond := c.Value.(*Conditional)
 				assert.Equal(t, "x", cond.Cond.(*DotPath).Root.Name)
@@ -109,7 +109,7 @@ func TestParseComprehension(t *testing.T) {
 		},
 		{
 			name: "nested list comprehension",
-			in:   "[ for net in var.networks : [ for s in net.subnets : s.id ] ]",
+			in:   "[ for net in input.networks : [ for s in net.subnets : s.id ] ]",
 			check: func(t *testing.T, c *Comprehension) {
 				inner := c.Value.(*Comprehension)
 				assert.Equal(t, []string{"s"}, inner.Names)
@@ -119,7 +119,7 @@ func TestParseComprehension(t *testing.T) {
 		},
 		{
 			name: "spans multiple lines",
-			in:   "[\n  for x in var.subnets :\n  x.id\n  when x.public\n]",
+			in:   "[\n  for x in input.subnets :\n  x.id\n  when x.public\n]",
 			check: func(t *testing.T, c *Comprehension) {
 				assert.Equal(t, "x", c.Value.(*DotPath).Root.Name)
 				require.NotNil(t, c.Filter)

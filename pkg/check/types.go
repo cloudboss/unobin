@@ -280,7 +280,7 @@ func (c *referenceChecker) defaultedInputs(n *runtime.Node) map[string]bool {
 	}
 	out := make(map[string]bool, len(ts.Defaults))
 	for _, d := range ts.Defaults {
-		rest, ok := strings.CutPrefix(d.Field, "var.")
+		rest, ok := strings.CutPrefix(d.Field, "input.")
 		if !ok {
 			continue
 		}
@@ -971,14 +971,14 @@ func (c *referenceChecker) checkConstraintTypeExprs(values []lang.Expr, scope st
 // bareConstraintIterable reports whether a constraint @for-each value
 // gets the iterable kind check. The chained form (an array of level
 // objects) validates its levels elsewhere, and a dot path rooted
-// outside var already failed the inputs-only rule, so typing it on
+// outside input already failed the inputs-only rule, so typing it on
 // top would report the same mistake twice.
 func bareConstraintIterable(forEach lang.Expr) bool {
 	switch fe := forEach.(type) {
 	case *lang.ArrayLit:
 		return false
 	case *lang.DotPath:
-		return fe.Root == nil || fe.Root.Name == "var"
+		return fe.Root == nil || fe.Root.Name == "input"
 	}
 	return true
 }

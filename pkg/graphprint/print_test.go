@@ -17,7 +17,7 @@ func sampleDAG() *runtime.DAG {
 			b.Address: b,
 		},
 		Edges: map[string][]string{
-			a.Address: {"var.msg"},
+			a.Address: {"input.msg"},
 			b.Address: {"action.core.echo.first"},
 		},
 	}
@@ -28,7 +28,7 @@ func TestPlainListsNodesAndEdges(t *testing.T) {
 	Plain(&buf, sampleDAG())
 
 	want := `action.core.echo.first
-  -> var.msg
+  -> input.msg
 
 action.core.echo.second
   -> action.core.echo.first

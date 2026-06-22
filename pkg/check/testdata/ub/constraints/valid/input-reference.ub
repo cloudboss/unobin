@@ -1,2 +1,2 @@
 inputs:    { who: { type: string } }
-resources: { x: core.thing { name: var.who, size: 1 } }
+resources: { x: core.thing { name: input.who, size: 1 } }

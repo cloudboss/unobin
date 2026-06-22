@@ -2,5 +2,5 @@ inputs: {
   vpc-id: { type: string }
 }
 constraints: [
-  { kind: required-together, fields: [var.vpc-id, var.missing-name] },
+  { kind: required-together, fields: [input.vpc-id, input.missing-name] },
 ]

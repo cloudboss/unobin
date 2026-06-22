@@ -1,7 +1,7 @@
 constraints: [
   {
     kind:      predicate
-    @for-each: var.replicas
+    @for-each: input.replicas
     when:      true
     require:   @each.value.tls == true
   },

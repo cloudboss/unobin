@@ -226,7 +226,7 @@ func wrapperDefaultSpec(
 	if err != nil || !ok {
 		return lang.DefaultSpec{}, false, err
 	}
-	return lang.DefaultSpec{Field: "var." + strings.Join(path, "."), Value: lang.Render(value)},
+	return lang.DefaultSpec{Field: "input." + strings.Join(path, "."), Value: lang.Render(value)},
 		true, nil
 }
 

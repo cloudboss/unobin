@@ -1,4 +1,4 @@
 inputs: { configs: { type: map(boolean) } }
 resources: {
-  apps: w.box { @for-each: var.configs }
+  apps: w.box { @for-each: input.configs }
 }

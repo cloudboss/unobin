@@ -1,1 +1,1 @@
-x: $'{{ format('%s', var.x) }}'
+x: $'{{ format('%s', input.x) }}'

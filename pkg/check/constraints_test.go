@@ -22,7 +22,7 @@ func constrainedLibs() map[string]*runtime.Library {
 		"core": {Schema: &runtime.LibrarySchema{
 			Resources: map[string]*runtime.TypeSchema{
 				"thing": {Constraints: []lang.ConstraintSpec{
-					{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}},
+					{Kind: "exactly-one-of", Fields: []string{"input.name", "input.size"}},
 				}},
 				"plain": {},
 			},
@@ -133,7 +133,7 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 				"thing": {Constraints: []lang.ConstraintSpec{{
 					Kind:    "predicate",
 					When:    "true",
-					Require: "((var.items != null) && (@core.length(var.items) >= 1))",
+					Require: "((input.items != null) && (@core.length(input.items) >= 1))",
 					Message: "items must list at least one entry",
 				}}},
 			},
@@ -220,7 +220,7 @@ func TestLiteralValues(t *testing.T) {
 		},
 		{
 			name:         "input reference defers its field",
-			src:          `{ name: var.who }`,
+			src:          `{ name: input.who }`,
 			want:         map[string]any{},
 			wantDeferred: map[string]bool{"name": true},
 		},
@@ -232,13 +232,13 @@ func TestLiteralValues(t *testing.T) {
 		},
 		{
 			name:         "nested reference defers its field",
-			src:          `{ tags: { owner: var.who } }`,
+			src:          `{ tags: { owner: input.who } }`,
 			want:         map[string]any{},
 			wantDeferred: map[string]bool{"tags": true},
 		},
 		{
 			name:         "literal fields reduce alongside a deferred one",
-			src:          `{ name: 'x', size: var.n }`,
+			src:          `{ name: 'x', size: input.n }`,
 			want:         map[string]any{"name": "x"},
 			wantDeferred: map[string]bool{"size": true},
 		},
@@ -282,7 +282,7 @@ func checkLiteralMsgs(t *testing.T, specs []lang.ConstraintSpec, body string) []
 func TestCheckLiteralConstraintKinds(t *testing.T) {
 	const addr = "resource.x: "
 	pred := []lang.ConstraintSpec{{
-		Kind: "predicate", When: "var.name != null", Require: "var.size != null",
+		Kind: "predicate", When: "input.name != null", Require: "input.size != null",
 	}}
 	tests := []struct {
 		name  string
@@ -293,7 +293,7 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 		{
 			name: "at-least-one-of with none set is reported",
 			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of",
-				Fields: []string{"var.name", "var.size"}}},
+				Fields: []string{"input.name", "input.size"}}},
 			body: `{ region: 'us' }`,
 			want: []string{addr + "constraints[0] (at-least-one-of [name, size]): " +
 				"expected at least one to be set, got none"},
@@ -301,7 +301,7 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 		{
 			name: "required-together with one set is reported",
 			specs: []lang.ConstraintSpec{{Kind: "required-together",
-				Fields: []string{"var.name", "var.size"}}},
+				Fields: []string{"input.name", "input.size"}}},
 			body: `{ name: 'a' }`,
 			want: []string{addr + "constraints[0] (required-together [name, size]): " +
 				"expected all set or all null, got 1 set (name)"},
@@ -327,7 +327,7 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 		{
 			name: "splat constraint names the violating element",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
+				Fields: []string{"input.items[*].a", "input.items[*].b"}}},
 			body: `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
 			want: []string{addr + "constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
 				"expected exactly one to be set, got 2 (items[1].a, items[1].b)"},
@@ -335,7 +335,7 @@ func TestCheckLiteralConstraintKinds(t *testing.T) {
 		{
 			name: "splat constraint passes when every element conforms",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
+				Fields: []string{"input.items[*].a", "input.items[*].b"}}},
 			body: `{ items: [{ a: 1 }, { b: 2 }] }`,
 			want: nil,
 		},
@@ -362,83 +362,83 @@ func TestCheckLiteralConstraintsPartialBody(t *testing.T) {
 		{
 			name: "set constraint referencing a deferred field defers",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"var.name", "var.size"}}},
-			body: `{ name: var.who, size: 1 }`,
+				Fields: []string{"input.name", "input.size"}}},
+			body: `{ name: input.who, size: 1 }`,
 			want: nil,
 		},
 		{
 			name: "deferred entry keeps the next entry's index",
 			specs: []lang.ConstraintSpec{
-				{Kind: "required-together", Fields: []string{"var.region", "var.zone"}},
-				{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}},
+				{Kind: "required-together", Fields: []string{"input.region", "input.zone"}},
+				{Kind: "exactly-one-of", Fields: []string{"input.name", "input.size"}},
 			},
-			body: `{ name: 'a', size: 1, region: var.who }`,
+			body: `{ name: 'a', size: 1, region: input.who }`,
 			want: []string{addr + "constraints[1] (exactly-one-of [name, size]): " +
 				"expected exactly one to be set, got 2 (name, size)"},
 		},
 		{
 			name: "predicate over literal fields checks despite a deferred field",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", When: "var.name != null", Require: "var.size != null",
+				Kind: "predicate", When: "input.name != null", Require: "input.size != null",
 			}},
-			body: `{ name: 'a', region: var.who }`,
+			body: `{ name: 'a', region: input.who }`,
 			want: []string{addr + "constraints[0] (predicate): predicate requirement not satisfied"},
 		},
 		{
 			name: "predicate reading a deferred field in when defers",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", When: "var.name != null", Require: "var.size != null",
+				Kind: "predicate", When: "input.name != null", Require: "input.size != null",
 			}},
-			body: `{ name: var.who, size: 1 }`,
+			body: `{ name: input.who, size: 1 }`,
 			want: nil,
 		},
 		{
 			name: "predicate reading a deferred field in require defers",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", When: "true", Require: "var.size != null",
+				Kind: "predicate", When: "true", Require: "input.size != null",
 			}},
-			body: `{ size: var.n }`,
+			body: `{ size: input.n }`,
 			want: nil,
 		},
 		{
 			name: "iterating predicate over a literal list checks despite a deferred field",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", ForEach: "var.items",
+				Kind: "predicate", ForEach: "input.items",
 				When: "true", Require: "@each.value.a != null",
 				Message: "a is required",
 			}},
-			body: `{ items: [{ a: 1 }, { b: 2 }], region: var.who }`,
+			body: `{ items: [{ a: 1 }, { b: 2 }], region: input.who }`,
 			want: []string{addr + "constraints[0] (predicate): a is required (items[1])"},
 		},
 		{
 			name: "iterating predicate over a deferred list defers",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", ForEach: "var.items",
+				Kind: "predicate", ForEach: "input.items",
 				When: "true", Require: "@each.value.a != null",
 			}},
-			body: `{ items: var.who }`,
+			body: `{ items: input.who }`,
 			want: nil,
 		},
 		{
 			name: "splat constraint over a literal list checks despite a deferred field",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
-			body: `{ items: [{ a: 1, b: 2 }], region: var.who }`,
+				Fields: []string{"input.items[*].a", "input.items[*].b"}}},
+			body: `{ items: [{ a: 1, b: 2 }], region: input.who }`,
 			want: []string{addr + "constraints[0] (exactly-one-of [items[0].a, items[0].b]): " +
 				"expected exactly one to be set, got 2 (items[0].a, items[0].b)"},
 		},
 		{
 			name: "splat constraint over a deferred list defers",
 			specs: []lang.ConstraintSpec{{Kind: "exactly-one-of",
-				Fields: []string{"var.items[*].a", "var.items[*].b"}}},
-			body: `{ items: var.who }`,
+				Fields: []string{"input.items[*].a", "input.items[*].b"}}},
+			body: `{ items: input.who }`,
 			want: nil,
 		},
 		{
 			name: "constraint over absent fields checks despite a deferred field",
 			specs: []lang.ConstraintSpec{{Kind: "at-least-one-of",
-				Fields: []string{"var.name", "var.size"}}},
-			body: `{ region: var.who }`,
+				Fields: []string{"input.name", "input.size"}}},
+			body: `{ region: input.who }`,
 			want: []string{addr + "constraints[0] (at-least-one-of [name, size]): " +
 				"expected at least one to be set, got none"},
 		},

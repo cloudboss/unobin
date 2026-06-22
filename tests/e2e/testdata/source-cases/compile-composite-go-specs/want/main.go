@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	factoryBody        = "factory: {\n  inputs: {\n    path: { type: string }\n    body: { type: string }\n    e2e-config: {\n      type: library-config('example.com/unobin/e2elib')\n      default: {\n        base-dir:       '.'\n        event-log-path: 'events.ndjson'\n        nested:         { label: 'nested' }\n      }\n    }\n  }\n\n  imports: {\n    e2e:   'example.com/unobin/e2elib'\n    files: './libraries/files'\n  }\n\n  library-configs: { e2e: var.e2e-config }\n\n  resources: {\n    direct: e2e.file {\n      path:    var.path\n      content: 'direct'\n    }\n    archive: files.archive {\n      path:       var.path\n      body:       var.body\n      e2e-config: var.e2e-config\n    }\n  }\n}\n"
+	factoryBody        = "factory: {\n  inputs: {\n    path: { type: string }\n    body: { type: string }\n    e2e-config: {\n      type: library-config('example.com/unobin/e2elib')\n      default: {\n        base-dir:       '.'\n        event-log-path: 'events.ndjson'\n        nested:         { label: 'nested' }\n      }\n    }\n  }\n\n  imports: {\n    e2e:   'example.com/unobin/e2elib'\n    files: './libraries/files'\n  }\n\n  library-configs: { e2e: input.e2e-config }\n\n  resources: {\n    direct: e2e.file {\n      path:    input.path\n      content: 'direct'\n    }\n    archive: files.archive {\n      path:       input.path\n      body:       input.body\n      e2e-config: input.e2e-config\n    }\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -29,15 +29,15 @@ func main() {
 	}
 	libraries["e2e"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.file": {
-			{Kind: "predicate", When: "true", Require: "((var.path != null) && (@core.length(var.path) >= 1))", Message: "path is required"},
-			{Kind: "predicate", When: "true", Require: "(var.mode == null || var.mode >= 0)", Message: "mode must be non-negative"},
+			{Kind: "predicate", When: "true", Require: "((input.path != null) && (@core.length(input.path) >= 1))", Message: "path is required"},
+			{Kind: "predicate", When: "true", Require: "(input.mode == null || input.mode >= 0)", Message: "mode must be non-negative"},
 		},
 	}
 	libraries["e2e"].Defaults = map[string][]lang.DefaultSpec{
 		"resource.file": {
-			{Field: "var.mode", Value: "420"},
-			{Field: "var.create-parents", Value: "true"},
-			{Field: "var.tags", Optional: true},
+			{Field: "input.mode", Value: "420"},
+			{Field: "input.create-parents", Value: "true"},
+			{Field: "input.tags", Optional: true},
 		},
 	}
 	runner.Run(runner.Info{

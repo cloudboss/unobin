@@ -17,14 +17,14 @@ factory: {
     files: './libraries/files'
   }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
-    direct: e2e.file { path: var.path, content: 'direct' }
+    direct: e2e.file { path: input.path, content: 'direct' }
     archive: files.archive {
-      path:       var.path
-      body:       var.body
-      e2e-config: var.e2e-config
+      path:       input.path
+      body:       input.body
+      e2e-config: input.e2e-config
     }
   }
 }

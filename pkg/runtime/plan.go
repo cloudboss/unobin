@@ -966,7 +966,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	values := make(map[string]any, len(step.Inputs))
 	maps.Copy(values, step.Inputs)
 	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{Vars: values, MissingAsNull: true}
+		ctx := &EvalContext{Inputs: values, MissingAsNull: true}
 		ApplyBindings(ctx, binds)
 		v, err := Eval(ex, ctx)
 		if errors.Is(err, ErrEvalNotFound) {
@@ -1017,13 +1017,13 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 	if !ok || scope == nil {
 		return nil
 	}
-	values := make(map[string]any, len(scope.Vars))
+	values := make(map[string]any, len(scope.Inputs))
 	for name := range compositeInputNames(node) {
 		values[name] = nil
 	}
-	maps.Copy(values, scope.Vars)
+	maps.Copy(values, scope.Inputs)
 	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{Vars: values, Libraries: node.Libraries, MissingAsNull: true}
+		ctx := &EvalContext{Inputs: values, Libraries: node.Libraries, MissingAsNull: true}
 		ApplyBindings(ctx, binds)
 		return Eval(ex, ctx)
 	}
@@ -1039,7 +1039,7 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 // planComposite plans the composite boundary. The call site args are
 // evaluated against the boundary's enclosing scope (root for top-level
 // boundaries, the outer composite's scope for nested ones) by
-// constructing the composite scope; its Vars are those evaluated args.
+// constructing the composite scope; its Inputs are those evaluated args.
 // The boundary itself does no CRUD: its decision is Eval and its
 // outputs are computed at apply time after the internals run.
 func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
@@ -1061,7 +1061,7 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 		Selector:     selectorForNode(n),
 		Composite:    true,
 		Decision:     DecisionEval,
-		Inputs:       scope.Vars,
+		Inputs:       scope.Inputs,
 		PriorOutputs: priorOut,
 	}, nil
 }

@@ -10,8 +10,8 @@ factory: {
   }
 
   outputs: {
-    endpoint: { value: var.greeting, description: 'Public endpoint URL' }
-    token:    { value: var.greeting, @sensitive: true }
-    plain:    { value: var.greeting }
+    endpoint: { value: input.greeting, description: 'Public endpoint URL' }
+    token:    { value: input.greeting, @sensitive: true }
+    plain:    { value: input.greeting }
   }
 }

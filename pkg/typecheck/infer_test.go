@@ -116,7 +116,7 @@ func TestInferObjectReportsMissingRequired(t *testing.T) {
 	assert.Contains(t, errs.Errors()[0].Msg, `missing required field "count"`)
 }
 
-func TestInferVar(t *testing.T) {
+func TestInferInput(t *testing.T) {
 	scope := &Scope{
 		Inputs: []ObjectField{
 			{Name: "region", Type: TString()},
@@ -126,24 +126,24 @@ func TestInferVar(t *testing.T) {
 	}
 	errs := lang.NewErrorList(0)
 
-	assert.True(t, Infer(parseExpr(t, "var.region"), TUnknown(), scope, errs).Equal(TString()))
-	assert.True(t, Infer(parseExpr(t, "var.ports"), TUnknown(), scope, errs).Equal(TList(TInteger())))
+	assert.True(t, Infer(parseExpr(t, "input.region"), TUnknown(), scope, errs).Equal(TString()))
+	assert.True(t, Infer(parseExpr(t, "input.ports"), TUnknown(), scope, errs).Equal(TList(TInteger())))
 	assert.True(
 		t,
-		Infer(parseExpr(t, "var.tags"), TUnknown(), scope, errs).
+		Infer(parseExpr(t, "input.tags"), TUnknown(), scope, errs).
 			Equal(TOptional(TMap(TString()))),
 	)
 	assert.Empty(t, errs.Errors())
 }
 
-func TestInferVarIntoStringSlotIntegerMismatch(t *testing.T) {
+func TestInferInputIntoStringSlotIntegerMismatch(t *testing.T) {
 	scope := &Scope{
 		Inputs: []ObjectField{
 			{Name: "count", Type: TInteger()},
 		},
 	}
 	errs := lang.NewErrorList(0)
-	Check(parseExpr(t, "var.count"), TString(), scope, errs)
+	Check(parseExpr(t, "input.count"), TString(), scope, errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, "expected string, got integer")
 }
@@ -184,7 +184,7 @@ func TestInferNodeFieldTraversal(t *testing.T) {
 	assert.Empty(t, errs.Errors())
 }
 
-func TestInferVarNestedObjectReportsUnknownField(t *testing.T) {
+func TestInferInputNestedObjectReportsUnknownField(t *testing.T) {
 	scope := &Scope{
 		Inputs: []ObjectField{
 			{Name: "cfg", Type: TObject([]ObjectField{
@@ -194,13 +194,13 @@ func TestInferVarNestedObjectReportsUnknownField(t *testing.T) {
 		},
 	}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "var.cfg.bogus"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.cfg.bogus"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TUnknown()))
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "bogus" on object(`)
 }
 
-func TestInferVarDeeplyNestedObjectReportsUnknownField(t *testing.T) {
+func TestInferInputDeeplyNestedObjectReportsUnknownField(t *testing.T) {
 	scope := &Scope{
 		Inputs: []ObjectField{
 			{Name: "cfg", Type: TObject([]ObjectField{
@@ -211,7 +211,7 @@ func TestInferVarDeeplyNestedObjectReportsUnknownField(t *testing.T) {
 		},
 	}
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "var.cfg.db.port"), TUnknown(), scope, errs)
+	Infer(parseExpr(t, "input.cfg.db.port"), TUnknown(), scope, errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "port" on object(`)
 }
@@ -341,11 +341,11 @@ func TestNavigateOpenObjectFields(t *testing.T) {
 		Type: TOpenObject([]ObjectField{{Name: "url", Type: TString()}}),
 	}}}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "var.payload.url"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.payload.url"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TString()), "got %s", got)
 	assert.Empty(t, errs.Errors())
 
-	got = Infer(parseExpr(t, "var.payload.token"), TUnknown(), scope, errs)
+	got = Infer(parseExpr(t, "input.payload.token"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TUnknown()))
 	require.Equal(t,
 		[]string{`unknown field "token" on open(object({ url: string })); ` +
@@ -359,7 +359,7 @@ func TestIndexOpenObjectUndeclaredField(t *testing.T) {
 		Type: TOpenObject([]ObjectField{{Name: "url", Type: TString()}}),
 	}}}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "var.payload['token']"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.payload['token']"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TUnknown()))
 	require.Equal(t,
 		[]string{`unknown field "token" on open(object({ url: string })); ` +
@@ -381,22 +381,22 @@ func TestNavigateIntoScalar(t *testing.T) {
 	}{
 		{
 			"string field",
-			"var.name.length",
+			"input.name.length",
 			[]string{`cannot read field "length" of string`},
 		},
 		{
 			"integer field",
-			"var.count.value",
+			"input.count.value",
 			[]string{`cannot read field "value" of integer`},
 		},
 		{
 			"list field",
-			"var.ports.first",
+			"input.ports.first",
 			[]string{`cannot read field "first" of list(integer)`},
 		},
 		{
 			"deep scalar field",
-			"var.cfg.tag.upper",
+			"input.cfg.tag.upper",
 			[]string{`cannot read field "upper" of string`},
 		},
 	}
@@ -423,37 +423,37 @@ func TestNavigateIntoOpaque(t *testing.T) {
 	}{
 		{
 			"dot",
-			"var.blob.url",
-			[]string{"var.blob is opaque; declare the fields you read, " +
+			"input.blob.url",
+			[]string{"input.blob is opaque; declare the fields you read, " +
 				"like open(object({ url: ... }))"},
 		},
 		{
 			"guarded dot",
-			"var.blob?.url",
-			[]string{"var.blob is opaque; declare the fields you read, " +
+			"input.blob?.url",
+			[]string{"input.blob is opaque; declare the fields you read, " +
 				"like open(object({ url: ... }))"},
 		},
 		{
 			"string index",
-			"var.blob['url']",
-			[]string{"var.blob is opaque; declare the fields you read, " +
+			"input.blob['url']",
+			[]string{"input.blob is opaque; declare the fields you read, " +
 				"like open(object({ url: ... }))"},
 		},
 		{
 			"integer index",
-			"var.blob[0]",
-			[]string{"var.blob is opaque; declare its type to index into it"},
+			"input.blob[0]",
+			[]string{"input.blob is opaque; declare its type to index into it"},
 		},
 		{
 			"deep field",
-			"var.cfg.inner.url",
-			[]string{"var.cfg.inner is opaque; declare the fields you read, " +
+			"input.cfg.inner.url",
+			[]string{"input.cfg.inner is opaque; declare the fields you read, " +
 				"like open(object({ url: ... }))"},
 		},
 		{
 			"map element",
-			"var.tags['a'].x",
-			[]string{"var.tags['a'] is opaque; declare the fields you read, " +
+			"input.tags['a'].x",
+			[]string{"input.tags['a'] is opaque; declare the fields you read, " +
 				"like open(object({ x: ... }))"},
 		},
 	}
@@ -473,9 +473,9 @@ func TestOpaqueReadsWholeValue(t *testing.T) {
 		{Name: "tags", Type: TMap(TOpaque())},
 	}}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "var.blob"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.blob"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOpaque()), "got %s", got)
-	got = Infer(parseExpr(t, "var.tags['a']"), TUnknown(), scope, errs)
+	got = Infer(parseExpr(t, "input.tags['a']"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOpaque()), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
@@ -487,17 +487,17 @@ func TestOpaqueOperandsRejected(t *testing.T) {
 		src  string
 		want []string
 	}{
-		{"plus", "var.blob + 1",
+		{"plus", "input.blob + 1",
 			[]string{"+: operand must be a number or a string, got opaque"}},
-		{"minus", "1 - var.blob",
+		{"minus", "1 - input.blob",
 			[]string{"-: operand must be a number, got opaque"}},
-		{"and", "var.blob && true",
+		{"and", "input.blob && true",
 			[]string{"&&: operand must be a boolean, got opaque"}},
-		{"not", "!var.blob",
+		{"not", "!input.blob",
 			[]string{"!: operand must be a boolean, got opaque"}},
-		{"negate", "-var.blob",
+		{"negate", "-input.blob",
 			[]string{"-: operand must be a number, got opaque"}},
-		{"ordering", "var.blob < 3",
+		{"ordering", "input.blob < 3",
 			[]string{"<: operand must be a number or a string, got opaque"}},
 	}
 	for _, c := range cases {
@@ -513,18 +513,18 @@ func TestOpaqueNullTestsAndCoalesceStayLegal(t *testing.T) {
 	scope := &Scope{Inputs: []ObjectField{{Name: "blob", Type: TOpaque()}}}
 	errs := lang.NewErrorList(0)
 
-	got := Infer(parseExpr(t, "var.blob == null"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.blob == null"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TBoolean()), "got %s", got)
 
-	got = Infer(parseExpr(t, "var.blob != 'x'"), TUnknown(), scope, errs)
+	got = Infer(parseExpr(t, "input.blob != 'x'"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TBoolean()), "got %s", got)
 
 	// An opaque value includes null, so a fallback is dischargeable;
 	// the result may be the opaque side, so the join is opaque.
-	got = Infer(parseExpr(t, "var.blob ?? {}"), TUnknown(), scope, errs)
+	got = Infer(parseExpr(t, "input.blob ?? {}"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOpaque()), "got %s", got)
 
-	got = Infer(parseExpr(t, "if var.blob == null then {} else var.blob"),
+	got = Infer(parseExpr(t, "if input.blob == null then {} else input.blob"),
 		TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOpaque()), "got %s", got)
 
@@ -535,7 +535,7 @@ func TestCheckTeachesOpaqueMismatch(t *testing.T) {
 	scope := &Scope{Inputs: []ObjectField{{Name: "blob", Type: TOpaque()}}}
 
 	errs := lang.NewErrorList(0)
-	Check(parseExpr(t, "var.blob"), TString(), scope, errs)
+	Check(parseExpr(t, "input.blob"), TString(), scope, errs)
 	require.Equal(t,
 		[]string{"type mismatch: expected string, got opaque; " +
 			"pass it as JSON text with @core.to-json(x), " +
@@ -543,7 +543,7 @@ func TestCheckTeachesOpaqueMismatch(t *testing.T) {
 		errs.Messages())
 
 	errs = lang.NewErrorList(0)
-	Check(parseExpr(t, "var.blob"), TInteger(), scope, errs)
+	Check(parseExpr(t, "input.blob"), TInteger(), scope, errs)
 	require.Equal(t,
 		[]string{"type mismatch: expected integer, got opaque; " +
 			"declare the value's type where it enters"},
@@ -551,8 +551,8 @@ func TestCheckTeachesOpaqueMismatch(t *testing.T) {
 
 	// Opaque slots remain the legal home for an opaque value.
 	errs = lang.NewErrorList(0)
-	Check(parseExpr(t, "var.blob"), TOpaque(), scope, errs)
-	Check(parseExpr(t, "var.blob"), TOptional(TOpaque()), scope, errs)
+	Check(parseExpr(t, "input.blob"), TOpaque(), scope, errs)
+	Check(parseExpr(t, "input.blob"), TOptional(TOpaque()), scope, errs)
 	assert.Empty(t, errs.Errors())
 }
 
@@ -625,7 +625,7 @@ func TestInferOperandErrors(t *testing.T) {
 		{"1 != 'a'", []string{"!=: comparing integer with string is always true"}},
 		{"true == 1", []string{"==: comparing boolean with integer is always false"}},
 		{"[1] == 'a'", []string{"==: comparing list(integer) with string is always false"}},
-		{"var.count + 'a'", []string{
+		{"input.count + 'a'", []string{
 			"+: operands must both be numbers or both be strings, got integer and string",
 		}},
 	}
@@ -647,16 +647,16 @@ func TestInferOperandLeniency(t *testing.T) {
 		},
 	}
 	tests := []string{
-		"var.count + 1",
-		"var.nope + 1",
-		"if var.opt-count != null then var.opt-count + 1 else 0",
-		"var.maybe == null",
-		"null == var.maybe",
-		"var.count == null",
+		"input.count + 1",
+		"input.nope + 1",
+		"if input.opt-count != null then input.opt-count + 1 else 0",
+		"input.maybe == null",
+		"null == input.maybe",
+		"input.count == null",
 		"1 == 1.0",
-		"1.5 > var.count",
-		"var.maybe != 'a'",
-		"'a' + var.nope",
+		"1.5 > input.count",
+		"input.maybe != 'a'",
+		"'a' + input.nope",
 	}
 	for _, src := range tests {
 		t.Run(src, func(t *testing.T) {
@@ -680,10 +680,10 @@ func TestInferOperandsRejectOptionals(t *testing.T) {
 		src  string
 		want []string
 	}{
-		{"var.opt-count + 1", []string{
+		{"input.opt-count + 1", []string{
 			"+: operand must be a number or a string, got optional(integer)",
 		}},
-		{"-var.opt-count", []string{
+		{"-input.opt-count", []string{
 			"-: operand must be a number, got optional(integer)",
 		}},
 	}
@@ -699,7 +699,7 @@ func TestInferOperandsRejectOptionals(t *testing.T) {
 func TestInferPlusPartialString(t *testing.T) {
 	scope := &Scope{}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "'a' + var.nope"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "'a' + input.nope"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TString()), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
@@ -723,7 +723,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 	}{
 		{
 			name:   "list element mismatch",
-			src:    "var.ports",
+			src:    "input.ports",
 			target: TList(TString()),
 			wantErrs: []string{
 				"type mismatch: expected list(string), got list(integer)",
@@ -731,7 +731,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 		},
 		{
 			name:   "map element mismatch",
-			src:    "var.tags",
+			src:    "input.tags",
 			target: TMap(TInteger()),
 			wantErrs: []string{
 				"type mismatch: expected map(integer), got map(string)",
@@ -739,7 +739,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 		},
 		{
 			name: "object missing required field",
-			src:  "var.cfg",
+			src:  "input.cfg",
 			target: TObject([]ObjectField{
 				{Name: "host", Type: TString()},
 				{Name: "port", Type: TInteger()},
@@ -757,7 +757,7 @@ func TestCheckCompositeTargets(t *testing.T) {
 		},
 		{
 			name:   "conditional of references against list target",
-			src:    "if true then var.ports else var.ports",
+			src:    "if true then input.ports else input.ports",
 			target: TList(TString()),
 			wantErrs: []string{
 				"type mismatch: expected list(string), got list(integer)",
@@ -765,16 +765,16 @@ func TestCheckCompositeTargets(t *testing.T) {
 		},
 		{
 			name:   "list comprehension against map target",
-			src:    "[ for p in var.ports : p ]",
+			src:    "[ for p in input.ports : p ]",
 			target: TMap(TString()),
 			wantErrs: []string{
 				"type mismatch: expected map(string), got list(integer)",
 			},
 		},
-		{name: "matching list reference", src: "var.ports", target: TList(TInteger())},
-		{name: "widening into any elements", src: "var.ports", target: TList(TOpaque())},
-		{name: "tuple into list", src: "var.pair", target: TList(TInteger())},
-		{name: "object into map", src: "var.cfg", target: TMap(TString())},
+		{name: "matching list reference", src: "input.ports", target: TList(TInteger())},
+		{name: "widening into any elements", src: "input.ports", target: TList(TOpaque())},
+		{name: "tuple into list", src: "input.pair", target: TList(TInteger())},
+		{name: "object into map", src: "input.cfg", target: TMap(TString())},
 		{
 			name:   "literal still enforced at elements only",
 			src:    "['a', 5]",
@@ -813,39 +813,39 @@ func TestInferIndexSegments(t *testing.T) {
 		want     Type
 		wantErrs []string
 	}{
-		{src: "var.tags[0]", want: TString(), wantErrs: []string{
+		{src: "input.tags[0]", want: TString(), wantErrs: []string{
 			"type mismatch: expected string, got integer",
 		}},
-		{src: "var.ports['a']", want: TInteger(), wantErrs: []string{
+		{src: "input.ports['a']", want: TInteger(), wantErrs: []string{
 			"type mismatch: expected integer, got string",
 		}},
-		{src: "var.pair[5]", want: unknown, wantErrs: []string{
+		{src: "input.pair[5]", want: unknown, wantErrs: []string{
 			"index 5 out of range for tuple(string, integer)",
 		}},
-		{src: "var.pair['a']", want: unknown, wantErrs: []string{
+		{src: "input.pair['a']", want: unknown, wantErrs: []string{
 			"type mismatch: expected integer, got string",
 		}},
-		{src: "var.cfg[0]", want: unknown, wantErrs: []string{
+		{src: "input.cfg[0]", want: unknown, wantErrs: []string{
 			"type mismatch: expected string, got integer",
 		}},
-		{src: "var.cfg['bogus']", want: unknown, wantErrs: []string{
+		{src: "input.cfg['bogus']", want: unknown, wantErrs: []string{
 			`unknown field "bogus" on object({ host: string })`,
 		}},
-		{src: "var.name[0]", want: unknown, wantErrs: []string{
+		{src: "input.name[0]", want: unknown, wantErrs: []string{
 			"cannot index into string",
 		}},
-		{src: "var.count[0]", want: unknown, wantErrs: []string{
+		{src: "input.count[0]", want: unknown, wantErrs: []string{
 			"cannot index into integer",
 		}},
-		{src: "var.anything[0]", want: unknown, wantErrs: []string{
-			"var.anything is opaque; declare its type to index into it",
+		{src: "input.anything[0]", want: unknown, wantErrs: []string{
+			"input.anything is opaque; declare its type to index into it",
 		}},
-		{src: "var.ports[1 + 1]", want: TInteger()},
-		{src: "var.pair[0]", want: TString()},
-		{src: "var.pair[1]", want: TInteger()},
-		{src: "var.cfg['host']", want: TString()},
-		{src: "var.tags[var.name]", want: TString()},
-		{src: "[ for i, p in var.ports : var.ports[i] ]", want: TList(TInteger())},
+		{src: "input.ports[1 + 1]", want: TInteger()},
+		{src: "input.pair[0]", want: TString()},
+		{src: "input.pair[1]", want: TInteger()},
+		{src: "input.cfg['host']", want: TString()},
+		{src: "input.tags[input.name]", want: TString()},
+		{src: "[ for i, p in input.ports : input.ports[i] ]", want: TList(TInteger())},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -865,7 +865,7 @@ func TestCheckMapComprehensionValueTarget(t *testing.T) {
 	}
 	errs := lang.NewErrorList(0)
 	got := Check(
-		parseExpr(t, "{ for k, v in var.tags : k => 1 }"),
+		parseExpr(t, "{ for k, v in input.tags : k => 1 }"),
 		TMap(TString()), scope, errs,
 	)
 	assert.True(t, got.Equal(TMap(TString())), "got %s", got)

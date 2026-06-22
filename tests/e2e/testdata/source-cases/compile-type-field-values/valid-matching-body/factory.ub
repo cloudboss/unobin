@@ -13,7 +13,7 @@ factory: {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
-  resources: { one: e2e.file { path: var.path, content: 'hi' } }
+  resources: { one: e2e.file { path: input.path, content: 'hi' } }
 }

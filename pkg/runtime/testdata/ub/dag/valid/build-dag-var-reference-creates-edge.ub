@@ -1,1 +1,0 @@
-resources: { main: aws.vpc { cidr-block: var.cidr } }

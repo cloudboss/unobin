@@ -15,13 +15,13 @@ factory: {
     outer: './libraries/outer'
   }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
     app: outer.outer {
       @for-each:  { a: 'one' }
       tags:       { t1: 'files/one.txt' }
-      e2e-config: var.e2e-config
+      e2e-config: input.e2e-config
     }
   }
 }

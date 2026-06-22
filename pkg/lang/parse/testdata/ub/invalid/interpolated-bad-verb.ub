@@ -1,1 +1,1 @@
-size: $'{{ var.n : decimal }}'
+size: $'{{ input.n : decimal }}'

@@ -1,4 +1,4 @@
-locals: { region: var.region }
+locals: { region: input.region }
 
 factory: {
   inputs: { region: 'us-east-1' }

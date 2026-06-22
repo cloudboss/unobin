@@ -1,4 +1,4 @@
 layer: resource {
   inputs: { target: { type: string } }
-  resources: { only: inner.cluster { path: var.target } }
+  resources: { only: inner.cluster { path: input.target } }
 }

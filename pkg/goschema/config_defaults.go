@@ -207,7 +207,7 @@ func (w *walker) configDefaultsForWrapper(
 	if !ok {
 		return nil
 	}
-	return []lang.DefaultSpec{{Field: "var." + fieldPath, Value: lang.Render(value)}}
+	return []lang.DefaultSpec{{Field: "input." + fieldPath, Value: lang.Render(value)}}
 }
 
 func (w *walker) configDefaultsForObjectWrapper(
@@ -452,7 +452,7 @@ func markDefaultedFields(fields []typecheck.ObjectField, defaults []lang.Default
 		if def.Optional {
 			continue
 		}
-		path, ok := strings.CutPrefix(def.Field, "var.")
+		path, ok := strings.CutPrefix(def.Field, "input.")
 		if !ok || path == "" {
 			continue
 		}

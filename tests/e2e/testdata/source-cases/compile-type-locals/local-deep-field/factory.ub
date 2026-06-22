@@ -1,4 +1,4 @@
 factory: {
   inputs: { cfg: { type: object({ host: string }) } }
-  locals: { h: var.cfg.bogus }
+  locals: { h: input.cfg.bogus }
 }

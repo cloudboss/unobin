@@ -5,4 +5,4 @@ output: {
   items:  [1, 2]
 }
 
-other: var.x.y
+other: input.x.y

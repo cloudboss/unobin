@@ -1,2 +1,2 @@
-data:    { it: core.lookup { key: var.key } }
+data:    { it: core.lookup { key: input.key } }
 outputs: { found: { value: data.it.value } }

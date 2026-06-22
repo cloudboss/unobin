@@ -5,7 +5,7 @@ factory: {
   constraints: [
     {
       kind: predicate
-      @for-each: [ { @rule: var.rules } ]
+      @for-each: [ { @rule: input.rules } ]
       when:    true
       require: @x.value != null
     },

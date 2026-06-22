@@ -12,15 +12,15 @@ func Library() *runtime.Library {
 	e2elibLib := lib_e2elib.Library()
 	e2elibLib.Constraints = map[string][]lang.ConstraintSpec{
 		"resource.file": {
-			{Kind: "predicate", When: "true", Require: "((var.path != null) && (@core.length(var.path) >= 1))", Message: "path is required"},
-			{Kind: "predicate", When: "true", Require: "(var.mode == null || var.mode >= 0)", Message: "mode must be non-negative"},
+			{Kind: "predicate", When: "true", Require: "((input.path != null) && (@core.length(input.path) >= 1))", Message: "path is required"},
+			{Kind: "predicate", When: "true", Require: "(input.mode == null || input.mode >= 0)", Message: "mode must be non-negative"},
 		},
 	}
 	e2elibLib.Defaults = map[string][]lang.DefaultSpec{
 		"resource.file": {
-			{Field: "var.mode", Value: "420"},
-			{Field: "var.create-parents", Value: "true"},
-			{Field: "var.tags", Optional: true},
+			{Field: "input.mode", Value: "420"},
+			{Field: "input.create-parents", Value: "true"},
+			{Field: "input.tags", Optional: true},
 		},
 	}
 	return &runtime.Library{
@@ -29,7 +29,7 @@ func Library() *runtime.Library {
 			"archive": {
 				Name:       "archive",
 				Kind:       runtime.NodeResource,
-				SyntaxBody: &syntax.FactoryBody{Inputs: []syntax.InputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}, {Name: syntax.Ident{Name: "body"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}, {Name: syntax.Ident{Name: "e2e-config"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeLibraryConfig{Path: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}}}, Type: &lang.TypeLibraryConfig{Path: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}}, Imports: []syntax.ImportDecl{{Alias: syntax.Ident{Name: "e2e"}, Ref: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}, LibraryConfigs: []syntax.LibraryConfigDecl{{Alias: syntax.Ident{Name: "e2e"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "var"}, Segments: []lang.DotSegment{{Name: "e2e-config"}}}}}, Resources: []syntax.NodeDecl{{Kind: syntax.NodeKind("resource"), Name: syntax.Ident{Name: "member"}, Selector: syntax.NodeSelector{Alias: syntax.Ident{Name: "e2e"}, Export: syntax.Ident{Name: "file"}}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "var"}, Segments: []lang.DotSegment{{Name: "path"}}}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "var"}, Segments: []lang.DotSegment{{Name: "body"}}}}}}}}},
+				SyntaxBody: &syntax.FactoryBody{Inputs: []syntax.InputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}, {Name: syntax.Ident{Name: "body"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}, {Name: syntax.Ident{Name: "e2e-config"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeLibraryConfig{Path: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}}}, Type: &lang.TypeLibraryConfig{Path: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}}, Imports: []syntax.ImportDecl{{Alias: syntax.Ident{Name: "e2e"}, Ref: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}, LibraryConfigs: []syntax.LibraryConfigDecl{{Alias: syntax.Ident{Name: "e2e"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "e2e-config"}}}}}, Resources: []syntax.NodeDecl{{Kind: syntax.NodeKind("resource"), Name: syntax.Ident{Name: "member"}, Selector: syntax.NodeSelector{Alias: syntax.Ident{Name: "e2e"}, Export: syntax.Ident{Name: "file"}}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "path"}}}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "body"}}}}}}}}},
 				Libraries: map[string]*runtime.Library{
 					"e2e": e2elibLib,
 				},

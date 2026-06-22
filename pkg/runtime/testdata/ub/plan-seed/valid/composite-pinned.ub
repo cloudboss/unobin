@@ -2,7 +2,7 @@ inputs: {
   t: { type: string }
 }
 resources: {
-  p: core.pinned { tag: var.t }
+  p: core.pinned { tag: input.t }
 }
 outputs: {
   id: { value: resource.p.id }

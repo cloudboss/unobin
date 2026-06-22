@@ -1,1 +1,1 @@
-Error: factory.ub:3:50: resolve: unknown name "a-b-1"; write a-b - 1 to subtract
+Error: factory.ub:3:52: resolve: unknown name "a-b-1"; write a-b - 1 to subtract

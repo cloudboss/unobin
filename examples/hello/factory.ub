@@ -10,15 +10,15 @@ factory: {
 
   resources: {
     hello: std.fs-file {
-      path:    var.path
-      content: var.message
+      path:    input.path
+      content: input.message
     }
   }
 
   actions: {
     read-back: std.exec-command {
       @trigger: resource.hello.sha256
-      argv:     ['cat', var.path]
+      argv:     ['cat', input.path]
     }
   }
 

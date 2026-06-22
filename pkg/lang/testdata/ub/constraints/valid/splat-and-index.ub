@@ -1,6 +1,6 @@
 constraints: [
-  { kind: exactly-one-of,     fields: [var.replicas[*].inline, var.replicas[*].from-file] },
-  { kind: required-together,  fields: [var.listeners[0].cert, var.listeners[0].key] },
-  { kind: required-with,      fields: [var.replicas[*].tls, var.ca-cert] },
-  { kind: at-least-one-of,    fields: [var.config.replicas[*].a, var.config.replicas[*].b] },
+  { kind: exactly-one-of,     fields: [input.replicas[*].inline, input.replicas[*].from-file] },
+  { kind: required-together,  fields: [input.listeners[0].cert, input.listeners[0].key] },
+  { kind: required-with,      fields: [input.replicas[*].tls, input.ca-cert] },
+  { kind: at-least-one-of,    fields: [input.config.replicas[*].a, input.config.replicas[*].b] },
 ]

@@ -1,8 +1,8 @@
 constraints: [
   {
     kind:    predicate
-    when:    var.region == 'us-gov-east-1'
-    require: var.fips-mode == true
+    when:    input.region == 'us-gov-east-1'
+    require: input.fips-mode == true
     message: 'GovCloud regions require FIPS mode enabled'
   },
 ]

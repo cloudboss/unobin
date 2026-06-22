@@ -88,9 +88,9 @@ func (s *scopeLocals) forScope(callSite string) map[string]lang.Expr {
 
 // TopologicalOrder returns the DAG's nodes in dependency order: every
 // node appears after the nodes it references. Edges to non-node addresses
-// such as `var.X` are skipped, since vars are bound from inputs and not
-// block execution. Returns an error naming the involved addresses when
-// the graph contains a cycle.
+// such as `input.X` are skipped, since input refs are bound from stack values
+// and do not block execution. Returns an error naming the involved addresses
+// when the graph contains a cycle.
 func (g *DAG) TopologicalOrder() ([]string, error) {
 	inDegree := make(map[string]int, len(g.Nodes))
 	dependents := make(map[string][]string, len(g.Nodes))
@@ -156,8 +156,8 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 // scope; this makes deeply nested leaves see the outer call sites'
 // args, ensuring root nodes referenced by call args run before the
 // leaf. Composite boundaries pick those deps up transitively via
-// their leaves and don't walk up themselves. Var refs inside a
-// leaf's own body are dropped: they name composite-scoped vars that
+// their leaves and don't walk up themselves. Input refs inside a
+// leaf's own body are dropped: they name composite-scoped inputs that
 // resolve to call-site args, not anything in parent scope. Top-level
 // nodes keep the original behavior: body refs and any `@depends-on`
 // entries.
@@ -169,7 +169,7 @@ func computeDeps(
 	}
 	deps := bodyDeps(n.Body, sl.forScope(n.Composite), nodes, n.Composite)
 	if n.Composite != "" {
-		deps = withoutVars(deps)
+		deps = withoutInputs(deps)
 	}
 	for current := n.Composite; current != ""; {
 		boundary, ok := nodes[current]
@@ -195,10 +195,10 @@ func computeDeps(
 	return dedupe(deps)
 }
 
-func withoutVars(refs []string) []string {
+func withoutInputs(refs []string) []string {
 	out := refs[:0]
 	for _, ref := range refs {
-		if strings.HasPrefix(ref, "var.") {
+		if strings.HasPrefix(ref, "input.") {
 			continue
 		}
 		out = append(out, ref)
@@ -249,7 +249,7 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 // `resource.inner` under call site `resource.outer` becomes
 // `resource.outer/resource.inner`; every segment keeps its own kind
 // root, so resource, data, and action refs all join the same way.
-// Var refs and unsupported kinds pass through unchanged so toposort
+// Input refs and unsupported kinds pass through unchanged so toposort
 // skips them. An empty callSite means the ref is already in its target
 // scope (a top-level boundary's body refs, or a no-op when walking up
 // past the outermost scope) and the ref returns unchanged.

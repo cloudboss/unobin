@@ -8,12 +8,12 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-func evalCore(t *testing.T, src string, vars map[string]any) (any, error) {
+func evalCore(t *testing.T, src string, inputs map[string]any) (any, error) {
 	t.Helper()
 	f, err := lang.ParseSource("", []byte("v: "+src+"\n"))
 	require.NoError(t, err)
 	require.Len(t, f.Body.Fields, 1)
-	return Eval(f.Body.Fields[0].Value, &EvalContext{Vars: vars})
+	return Eval(f.Body.Fields[0].Value, &EvalContext{Inputs: inputs})
 }
 
 func TestFunctionB64Encode(t *testing.T) {
@@ -122,7 +122,7 @@ func TestFunctionNested(t *testing.T) {
 }
 
 func TestFunctionJoin(t *testing.T) {
-	vars := map[string]any{
+	inputs := map[string]any{
 		"hosts": []any{"web-1", "web-2", "web-3"},
 		"ports": []any{int64(80), int64(443)},
 	}
@@ -136,14 +136,14 @@ func TestFunctionJoin(t *testing.T) {
 		{"@core.join([true, false], ' ')", "true false"},
 		{"@core.join([1.5, 2.0], ',')", "1.5,2"},
 		{"@core.join(['a', 1, true], ' ')", "a 1 true"},
-		{"@core.join(var.hosts, ', ')", "web-1, web-2, web-3"},
-		{"@core.join(var.ports, ':')", "80:443"},
+		{"@core.join(input.hosts, ', ')", "web-1, web-2, web-3"},
+		{"@core.join(input.ports, ':')", "80:443"},
 		{"@core.join(@core.range(3), '+')", "0+1+2"},
-		{"@core.join([for h in var.hosts: h when h != 'web-2'], '/')", "web-1/web-3"},
+		{"@core.join([for h in input.hosts: h when h != 'web-2'], '/')", "web-1/web-3"},
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
-			got, err := evalCore(t, c.src, vars)
+			got, err := evalCore(t, c.src, inputs)
 			require.NoError(t, err)
 			require.Equal(t, c.want, got)
 		})
@@ -155,10 +155,10 @@ func TestFunctionJoin(t *testing.T) {
 func TestFunctionJoinMatchesSlotRendering(t *testing.T) {
 	scalars := []any{"text", true, false, int64(42), 1.25, 2.0}
 	for _, v := range scalars {
-		vars := map[string]any{"x": v}
-		joined, err := evalCore(t, "@core.join([var.x], '')", vars)
+		inputs := map[string]any{"x": v}
+		joined, err := evalCore(t, "@core.join([input.x], '')", inputs)
 		require.NoError(t, err)
-		slotted, err := evalCore(t, "$'{{ var.x }}'", vars)
+		slotted, err := evalCore(t, "$'{{ input.x }}'", inputs)
 		require.NoError(t, err)
 		require.Equal(t, slotted, joined)
 	}
@@ -171,8 +171,8 @@ func TestFunctionJoinNullElement(t *testing.T) {
 }
 
 func TestFunctionJoinCompositeElement(t *testing.T) {
-	vars := map[string]any{"xs": []any{"a", []any{"b"}}}
-	_, err := evalCore(t, "@core.join(var.xs, ',')", vars)
+	inputs := map[string]any{"xs": []any{"a", []any{"b"}}}
+	_, err := evalCore(t, "@core.join(input.xs, ',')", inputs)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "join: element 1 must be a scalar, got a list")
 }
@@ -190,7 +190,7 @@ func TestFunctionJoinNonStringSeparator(t *testing.T) {
 }
 
 func TestFunctionToJSON(t *testing.T) {
-	vars := map[string]any{"missing": nil}
+	inputs := map[string]any{"missing": nil}
 	cases := []struct{ src, want string }{
 		{"@core.to-json('hi')", `"hi"`},
 		{`@core.to-json('with \'quote\'')`, `"with 'quote'"`},
@@ -200,7 +200,7 @@ func TestFunctionToJSON(t *testing.T) {
 		{"@core.to-json(1.5)", "1.5"},
 		{"@core.to-json(true)", "true"},
 		{"@core.to-json(null)", "null"},
-		{"@core.to-json(var.missing)", "null"},
+		{"@core.to-json(input.missing)", "null"},
 		{"@core.to-json([])", "[]"},
 		{"@core.to-json(['a', 'b'])", `["a","b"]`},
 		{"@core.to-json([1, [2, 3]])", "[1,[2,3]]"},
@@ -211,7 +211,7 @@ func TestFunctionToJSON(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
-			got, err := evalCore(t, c.src, vars)
+			got, err := evalCore(t, c.src, inputs)
 			require.NoError(t, err)
 			require.Equal(t, c.want, got)
 		})
@@ -267,16 +267,16 @@ func TestFunctionAny(t *testing.T) {
 }
 
 func TestFunctionAllOverComprehension(t *testing.T) {
-	vars := map[string]any{"replicas": []any{
+	inputs := map[string]any{"replicas": []any{
 		map[string]any{"port": int64(443)},
 		map[string]any{"port": int64(8080)},
 	}}
-	got, err := evalCore(t, "@core.all([for r in var.replicas: r.port > 0])", vars)
+	got, err := evalCore(t, "@core.all([for r in input.replicas: r.port > 0])", inputs)
 	require.NoError(t, err)
 	require.Equal(t, true, got)
 
-	vars["replicas"] = []any{map[string]any{"port": int64(0)}}
-	got, err = evalCore(t, "@core.all([for r in var.replicas: r.port > 0])", vars)
+	inputs["replicas"] = []any{map[string]any{"port": int64(0)}}
+	got, err = evalCore(t, "@core.all([for r in input.replicas: r.port > 0])", inputs)
 	require.NoError(t, err)
 	require.Equal(t, false, got)
 }

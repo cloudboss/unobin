@@ -20,19 +20,19 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   resources: {
     direct: e2e.file {
-      path:    var.direct-path
+      path:    input.direct-path
       content: 'direct'
     }
 
     archived: files.archive {
-      path:       var.archive-path
-      body:       var.body
-      e2e-config: var.e2e-config
+      path:       input.archive-path
+      body:       input.body
+      e2e-config: input.e2e-config
     }
   }
 

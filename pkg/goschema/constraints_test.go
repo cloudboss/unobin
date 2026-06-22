@@ -84,7 +84,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 			require.Equal(t, []lang.ConstraintSpec{
 				{
 					Kind:    "exactly-one-of",
-					Fields:  []string{"var.name", "var.kind"},
+					Fields:  []string{"input.name", "input.kind"},
 					Message: tt.want,
 				},
 			}, schema.Resources["thing"].Constraints)
@@ -109,7 +109,7 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 }`,
 			extra: `const defaultMessage = "pick one"`,
 			wantSpecs: []lang.ConstraintSpec{
-				{Kind: "exactly-one-of", Fields: []string{"var.name", "var.kind"}},
+				{Kind: "exactly-one-of", Fields: []string{"input.name", "input.kind"}},
 			},
 			wantWarns: []string{
 				"Thing: Message must be a string literal, got defaultMessage",
@@ -160,7 +160,7 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 }`,
 			extra: `var shared = constraint.RequiredTogether(nil, nil)`,
 			wantSpecs: []lang.ConstraintSpec{
-				{Kind: "exactly-one-of", Fields: []string{"var.name", "var.kind"}},
+				{Kind: "exactly-one-of", Fields: []string{"input.name", "input.kind"}},
 			},
 			wantWarns: []string{
 				"Thing: a constraint must be a pkg/constraint constructor call, got shared",
@@ -272,8 +272,8 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 			wantSpecs: []lang.ConstraintSpec{
 				{
 					Kind:    "predicate",
-					When:    "(var.name != null)",
-					Require: "(var.kind != null)",
+					When:    "(input.name != null)",
+					Require: "(input.kind != null)",
 					Message: "a name needs a kind",
 				},
 			},
@@ -315,14 +315,14 @@ func (v Thing) Constraints() []constraint.Constraint {
 		{
 			Kind:    "predicate",
 			When:    "true",
-			Require: "((var.items != null) && (@core.length(var.items) >= 1))",
+			Require: "((input.items != null) && (@core.length(input.items) >= 1))",
 			Message: "items must list at least one entry",
 		},
 		{
 			Kind: "predicate",
-			When: "(var.items != null)",
-			Require: "(var.items == null || @core.length(var.items) >= 1)" +
-				" && (var.items == null || @core.length(var.items) <= 5)",
+			When: "(input.items != null)",
+			Require: "(input.items == null || @core.length(input.items) >= 1)" +
+				" && (input.items == null || @core.length(input.items) <= 5)",
 		},
 	}, schema.Resources["thing"].Constraints)
 }
@@ -348,7 +348,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 
 	check := func(values map[string]any) int {
 		eval := func(e lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			ctx := &runtime.EvalContext{Inputs: values, MissingAsNull: true}
 			for _, b := range binds {
 				if ctx.Each == nil {
 					ctx.Each = map[string]lang.EachValue{}
@@ -416,13 +416,13 @@ func (v Thing) Constraints() []constraint.Constraint {
 			When:    "true",
 			Require: "(@each.value == 'GET' || @each.value == 'PUT')",
 			Message: "methods must be supported verbs",
-			ForEach: "var.methods",
+			ForEach: "input.methods",
 		},
 		{
 			Kind:    "predicate",
 			When:    "true",
 			Require: "((@each.value != null) && (@core.length(@each.value) >= 1))",
-			ForEach: "var.methods",
+			ForEach: "input.methods",
 		},
 	}, schema.Resources["thing"].Constraints)
 }
@@ -449,7 +449,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 
 	eval := func(values map[string]any) lang.ConstraintEvalFunc {
 		return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			ctx := &runtime.EvalContext{Inputs: values, MissingAsNull: true}
 			for _, b := range binds {
 				if ctx.Each == nil {
 					ctx.Each = map[string]lang.EachValue{}
@@ -518,16 +518,16 @@ func (v Thing) Constraints() []constraint.Constraint {
 		{
 			Kind: "exactly-one-of",
 			Fields: []string{
-				"var.items[*].subs[*].c",
-				"var.items[*].subs[*].d",
+				"input.items[*].subs[*].c",
+				"input.items[*].subs[*].d",
 			},
 			Message: "pick one",
 		},
 		{
 			Kind: "required-with",
 			Fields: []string{
-				"var.items[*].subs[*].c",
-				"var.name",
+				"input.items[*].subs[*].c",
+				"input.name",
 			},
 		},
 	}, schema.Resources["thing"].Constraints)
@@ -564,7 +564,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 		Require: "(@it.value.a != null)",
 		Message: "a sub with c needs its item's a",
 		ForEachLevels: []lang.ForEachSpecLevel{
-			{Name: "@it", In: "var.items"},
+			{Name: "@it", In: "input.items"},
 			{Name: "@s", In: "@it.value.subs"},
 		},
 	}}, schema.Resources["thing"].Constraints)
@@ -598,7 +598,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 
 	eval := func(values map[string]any) lang.ConstraintEvalFunc {
 		return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			ctx := &runtime.EvalContext{Inputs: values, MissingAsNull: true}
 			for _, b := range binds {
 				if ctx.Each == nil {
 					ctx.Each = map[string]lang.EachValue{}
@@ -655,7 +655,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 		When:    "true",
 		Require: "(@tag.value == 'a' || @tag.value == 'b')",
 		ForEachLevels: []lang.ForEachSpecLevel{
-			{Name: "@it", In: "var.items"},
+			{Name: "@it", In: "input.items"},
 			{Name: "@tag", In: "@it.value.tags"},
 		},
 	}}, schema.Resources["thing"].Constraints)
@@ -712,8 +712,8 @@ func (v Thing) Constraints() []constraint.Constraint {
 		{
 			Kind: "exactly-one-of",
 			Fields: []string{
-				"var.items[*].subs[*].c",
-				"var.items[*].subs[*].d",
+				"input.items[*].subs[*].c",
+				"input.items[*].subs[*].d",
 			},
 		},
 		{
@@ -721,7 +721,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 			When:    "true",
 			Require: "(@s.value.c != null)",
 			ForEachLevels: []lang.ForEachSpecLevel{
-				{Name: "@it", In: "var.items"},
+				{Name: "@it", In: "input.items"},
 				{Name: "@s", In: "@it.value.subs"},
 			},
 		},

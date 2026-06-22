@@ -1,1 +1,1 @@
-x: $'{{   var.region   }}'
+x: $'{{   input.region   }}'

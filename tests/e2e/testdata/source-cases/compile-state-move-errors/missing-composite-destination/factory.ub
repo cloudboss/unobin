@@ -15,9 +15,9 @@ factory: {
     badnet: './libraries/badnet'
   }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
-    app: badnet.web-cluster { e2e-config: var.e2e-config }
+    app: badnet.web-cluster { e2e-config: input.e2e-config }
   }
 }

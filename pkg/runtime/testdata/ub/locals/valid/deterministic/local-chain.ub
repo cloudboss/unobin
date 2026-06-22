@@ -1,1 +1,1 @@
-locals: { a: var.x  b: local.a }
+locals: { a: input.x  b: local.a }

@@ -1,7 +1,7 @@
 stack: {
   factory: {
     configurations: {
-      aws { region: var.region }
+      aws { region: input.region }
     }
   }
   state: local {}

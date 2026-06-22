@@ -17,10 +17,10 @@
       "exitCode": 1
     },
     {
-      "name": "var-wrong-type",
-      "dir": "var-wrong-type",
+      "name": "input-wrong-type",
+      "dir": "input-wrong-type",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
-      "stderr": "want/var-wrong-type.stderr",
+      "stderr": "want/input-wrong-type.stderr",
       "exitCode": 1
     },
     {

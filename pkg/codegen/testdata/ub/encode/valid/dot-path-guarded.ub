@@ -1,1 +1,1 @@
-outputs: { x: { value: var.cfg?.db?.host } }
+outputs: { x: { value: input.cfg?.db?.host } }

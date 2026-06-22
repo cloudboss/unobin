@@ -3,5 +3,5 @@ inputs: {
   subnet-ids: { type: list(string) }
 }
 constraints: [
-  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
+  { kind: required-together, fields: [input.vpc-id, input.subnet-ids] },
 ]

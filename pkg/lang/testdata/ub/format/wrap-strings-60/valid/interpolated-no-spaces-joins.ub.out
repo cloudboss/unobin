@@ -1,4 +1,4 @@
 x: $'''\-
-  https://{{ var.host }}/api/v1/{{ var.namespace }}/
-  {{ var.resource }}/{{ var.id }}
+  https://{{ input.host }}/api/v1/{{ input.namespace }}/
+  {{ input.resource }}/{{ input.id }}
   '''

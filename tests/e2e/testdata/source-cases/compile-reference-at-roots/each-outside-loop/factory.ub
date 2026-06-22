@@ -13,7 +13,7 @@ factory: {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
     bad: e2e.file { path: @each.key, content: 'no loop' }

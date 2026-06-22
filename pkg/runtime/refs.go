@@ -9,7 +9,7 @@ import (
 
 // Refs returns the addresses an expression depends on, in source order
 // with duplicates removed. Each returned address is the canonical form
-// of another node: var.name, resource.name, data.name, or action.name.
+// of another node: input.name, resource.name, data.name, or action.name.
 // Field segments past the node address and @each.X bindings are skipped.
 func Refs(e lang.Expr) []string {
 	if e == nil {
@@ -167,7 +167,7 @@ func deferredRefs(e lang.Expr, locals map[string]lang.Expr) []string {
 	var out []string
 	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
 		switch dp.Root.Name {
-		case "var", "resource", "data", "action":
+		case "input", "resource", "data", "action":
 			if path := DotPathString(dp); path != "" {
 				out = append(out, path)
 			}
@@ -205,11 +205,11 @@ func DotPathString(p *lang.DotPath) string {
 
 func RefAddress(p *lang.DotPath) string {
 	switch p.Root.Name {
-	case "var":
+	case "input":
 		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
 			return ""
 		}
-		return "var." + p.Segments[0].Name
+		return "input." + p.Segments[0].Name
 	case "resource", "data", "action":
 		if len(p.Segments) < 3 {
 			return ""
@@ -242,11 +242,11 @@ func RefMatchInScope(
 	if p == nil || p.Root == nil {
 		return RefMatch{}, false
 	}
-	if p.Root.Name == "var" {
+	if p.Root.Name == "input" {
 		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
 			return RefMatch{}, false
 		}
-		return RefMatch{Address: "var." + p.Segments[0].Name, Segments: 1}, true
+		return RefMatch{Address: "input." + p.Segments[0].Name, Segments: 1}, true
 	}
 	if p.Root.Name != "resource" && p.Root.Name != "data" && p.Root.Name != "action" {
 		return RefMatch{}, false

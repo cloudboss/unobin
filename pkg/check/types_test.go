@@ -37,8 +37,8 @@ func localFileLibrary() *runtime.Library {
 						"size":   typecheck.TInteger(),
 					},
 					Defaults: []lang.DefaultSpec{
-						{Field: "var.mode", Value: "420"},
-						{Field: "var.create-directory", Optional: true},
+						{Field: "input.mode", Value: "420"},
+						{Field: "input.create-directory", Optional: true},
 					},
 				},
 			},

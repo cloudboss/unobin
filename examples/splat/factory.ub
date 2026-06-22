@@ -22,27 +22,27 @@ factory: {
 
   resources: {
     summary: std.fs-file {
-      path:    var.path
-      content: $'subnet ids: {{ @core.join(var.subnets[*].id, ', ') }}'
+      path:    input.path
+      content: $'subnet ids: {{ @core.join(input.subnets[*].id, ', ') }}'
     }
   }
 
   actions: {
     read-back: std.exec-command {
       @trigger: resource.summary.sha256
-      argv:     ['cat', var.path]
+      argv:     ['cat', input.path]
     }
   }
 
   outputs: {
-    ids:    { value: var.subnets[*].id }
-    cidrs:  { value: var.subnets[*].cidr }
-    public: { value: var.subnets[*].public }
+    ids:    { value: input.subnets[*].id }
+    cidrs:  { value: input.subnets[*].cidr }
+    public: { value: input.subnets[*].public }
 
     # The same list of ids written the long way, for contrast.
-    ids-the-long-way: { value: [ for s in var.subnets : s.id ] }
+    ids-the-long-way: { value: [ for s in input.subnets : s.id ] }
 
     # Nested splat: every host ip under every zone, grouped by zone.
-    host-ips: { value: var.zones[*].hosts[*].ip }
+    host-ips: { value: input.zones[*].hosts[*].ip }
   }
 }

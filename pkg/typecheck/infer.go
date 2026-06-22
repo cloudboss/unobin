@@ -23,12 +23,12 @@ type Scope struct {
 	// argument count are the reference checker's to enforce.
 	LookupFunction func(library, name string) (FuncSig, bool)
 	// Bindings holds comprehension-bound names. They resolve as bare
-	// values and as dot-path roots ahead of var/resource/data/action.
+	// values and as dot-path roots ahead of input/resource/data/action.
 	// Names are distinct across nesting; validation rejects an inner
 	// comprehension that rebinds an enclosing name.
 	Bindings map[string]Type
 	// Narrowed overrides reference types inside a region guarded by a
-	// null test, keyed by the canonical dot path ("var.x.y"). A lookup
+	// null test, keyed by the canonical dot path ("input.x.y"). A lookup
 	// takes the longest matching prefix and resumes traversal from the
 	// narrowed type. Sound because values never change between the
 	// test and the read.
@@ -681,8 +681,8 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 		}
 	}
 	switch dp.Root.Name {
-	case "var":
-		return inferVar(dp, scope, errs)
+	case "input":
+		return inferInput(dp, scope, errs)
 	case "resource", "data", "action":
 		return inferNode(dp, scope, errs)
 	case "local":
@@ -694,7 +694,7 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 }
 
 // rejectGuardedRoot reports a `?.` used where the navigation cannot
-// be null: the var, local, and @each tables always exist, and a node
+// be null: the input, local, and @each tables always exist, and a node
 // address is a name, not a value.
 func rejectGuardedRoot(root string, segs []lang.DotSegment, n int, errs *lang.ErrorList) bool {
 	for i := 0; i < n && i < len(segs); i++ {
@@ -725,11 +725,11 @@ func inferLocal(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	return traverseSegments(t, dp.Segments[1:], "local."+name, scope, errs, false)
 }
 
-func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
+func inferInput(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if scope == nil || len(dp.Segments) == 0 {
 		return TUnknown()
 	}
-	if rejectGuardedRoot("var", dp.Segments, 1, errs) {
+	if rejectGuardedRoot("input", dp.Segments, 1, errs) {
 		return TUnknown()
 	}
 	name := dp.Segments[0].Name
@@ -741,7 +741,7 @@ func inferVar(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	if field.Optional && !field.Defaulted {
 		t = TOptional(t)
 	}
-	return traverseSegments(t, dp.Segments[1:], "var."+name, scope, errs, false)
+	return traverseSegments(t, dp.Segments[1:], "input."+name, scope, errs, false)
 }
 
 func inferNode(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {

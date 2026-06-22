@@ -1,1 +1,1 @@
-x: $'{{ var.region }}/{{ var.zone }}'
+x: $'{{ input.region }}/{{ input.zone }}'

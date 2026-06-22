@@ -1,1 +1,1 @@
-x: $'{{ var.size : %-10s }}'
+x: $'{{ input.size : %-10s }}'

@@ -36,8 +36,8 @@ factory: {
     # discharge here. Each upstream's optional port needs its own test.
     {
       kind:    predicate
-      when:    var.upstreams != null
-      require: @core.all([ for u in var.upstreams : u.port == null || u.port > 0 ])
+      when:    input.upstreams != null
+      require: @core.all([ for u in input.upstreams : u.port == null || u.port > 0 ])
       message: 'upstream ports must be positive'
     },
   ]
@@ -49,11 +49,11 @@ factory: {
     # and in the else branch the checker knows greeting is a string. A
     # conditional fits here because the branches differ; for a plain
     # fallback, ?? below is shorter.
-    banner: if var.greeting == null then $'Hello, {{ var.name }}{{ var.suffix }}' else var.greeting
+    banner: if input.greeting == null then $'Hello, {{ input.name }}{{ input.suffix }}' else input.greeting
 
     # ?? supplies a fallback in one step, discharging the list for
     # everything built from it.
-    upstreams: var.upstreams ?? []
+    upstreams: input.upstreams ?? []
 
     # A comprehension filter narrows: u.port is a plain integer in the
     # value expression, because elements that fail the test never
@@ -62,19 +62,19 @@ factory: {
 
     # ?. rides a maybe: each nullable level wears its own marker, the
     # chain's result is optional, and ?? supplies the fallback.
-    cert: var.tls?.cert ?? 'self-signed'
+    cert: input.tls?.cert ?? 'self-signed'
   }
 
   resources: {
     banner: std.fs-file {
-      path:    $'{{ var.base-path }}/banner.txt'
+      path:    $'{{ input.base-path }}/banner.txt'
       content: local.banner
     }
     label: std.fs-file {
       # A possibly-null map cannot fan out; the fallback supplies
       # the empty case, so omitting the input means no instances.
-      @for-each: var.labels ?? {}
-      path:      $'{{ var.base-path }}/label-{{ @each.key }}.txt'
+      @for-each: input.labels ?? {}
+      path:      $'{{ input.base-path }}/label-{{ @each.key }}.txt'
       content:   @each.value
     }
   }

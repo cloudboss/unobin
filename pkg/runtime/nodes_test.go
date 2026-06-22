@@ -110,7 +110,7 @@ func TestExtractSyntaxNodesMatchesCompositeDAG(t *testing.T) {
 	got := BuildSyntaxDAG(fixture.body, nil)
 	require.Contains(t, got.Nodes, "resource.file")
 	require.Contains(t, got.Nodes, "output.path")
-	require.Contains(t, got.Edges["resource.file"], "var.path")
+	require.Contains(t, got.Edges["resource.file"], "input.path")
 }
 
 func TestExtractSyntaxNodesMatchesNestedCompositeDAG(t *testing.T) {
@@ -294,7 +294,7 @@ func TestExtractNodesResourceForEach(t *testing.T) {
 	require.NotNil(t, got[0].ForEach, "@for-each iterable captured on the node")
 	dp, ok := got[0].ForEach.(*lang.DotPath)
 	require.True(t, ok, "iterable is a DotPath")
-	require.Equal(t, "var", dp.Root.Name)
+	require.Equal(t, "input", dp.Root.Name)
 	require.Equal(t, "configs", dp.Segments[0].Name)
 }
 

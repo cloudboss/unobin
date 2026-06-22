@@ -59,7 +59,7 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	w.subject = typeName
 	scope := constraintScope{}
 	if name, ok := receiverName(method); ok {
-		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "var"}
+		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "input"}
 	}
 	var out []lang.ConstraintSpec
 	for _, call := range w.listReturnCalls(
@@ -87,8 +87,8 @@ type constraintScope map[string]scopeRoot
 
 // scopeRoot is the type behind one scope identifier, with the walker
 // positioned at the package the type lives in. prefix is what the
-// identifier stands for in a rendered reference: var for the receiver,
-// the splatted list reference (var.replicas[*]) for a ForEach element.
+// identifier stands for in a rendered reference: input for the receiver,
+// the splatted list reference (input.replicas[*]) for a ForEach element.
 // A scalar root has no type to select fields from; the identifier
 // renders as its prefix alone, the element itself.
 type scopeRoot struct {
@@ -380,8 +380,8 @@ func isPredicateCall(call *ast.CallExpr) bool {
 	return sel.Sel.Name == "Must" || sel.Sel.Name == "Require"
 }
 
-// listField resolves ForEach's list argument to its rendered var reference
-// (var.replicas) and the scope root of the list's element type.
+// listField resolves ForEach's list argument to its rendered input reference
+// (input.replicas) and the scope root of the list's element type.
 func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRoot, bool) {
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
@@ -759,7 +759,7 @@ func (w *walker) notCond(call *ast.CallExpr, scope constraintScope) (string, boo
 }
 
 // valueString renders a comparison operand: a v.Field selector becomes a
-// var reference, and a literal becomes its unobin form. Anything else,
+// input reference, and a literal becomes its unobin form. Anything else,
 // a named constant or a conversion included, has no value in the
 // source, so it warns and returns ok=false.
 func (w *walker) valueString(arg ast.Expr, scope constraintScope) (string, bool) {
@@ -856,8 +856,8 @@ func stringConstant(e ast.Expr) (string, bool) {
 	return "", false
 }
 
-// selectorField reads a v.Field argument and returns the field's var
-// reference (var.code.inline), the one spelling a constraint uses for a
+// selectorField reads a v.Field argument and returns the field's input
+// reference (input.code.inline), the one spelling a constraint uses for a
 // field whether it sits in a fields list or a predicate. The selector's
 // root identifier must be in scope; the hops walk from its type into
 // nested struct types, joining each hop's kebab name with a dot under

@@ -6,10 +6,10 @@ file-pair: resource {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
-    one: e2e.file { path: var.missing, content: resource.absent.content }
+    one: e2e.file { path: input.missing, content: resource.absent.content }
   }
 
   outputs: { path: { value: resource.one.path } }

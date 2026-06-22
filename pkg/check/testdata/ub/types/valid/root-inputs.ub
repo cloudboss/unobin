@@ -2,7 +2,7 @@ factory: {
   inputs: { path: { type: integer } }
   resources: {
     file: local.file {
-      path: var.path
+      path: input.path
       content: 'x'
     }
   }

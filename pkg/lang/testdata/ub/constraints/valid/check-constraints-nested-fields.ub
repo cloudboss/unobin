@@ -1,3 +1,3 @@
 constraints: [
-  { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] },
+  { kind: exactly-one-of, fields: [input.code.inline, input.code.from-file] },
 ]

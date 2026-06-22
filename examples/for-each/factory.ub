@@ -10,22 +10,22 @@ factory: {
 
   resources: {
     file: std.fs-file {
-      @for-each:        var.files
-      path:             $'{{ var.base-path }}/{{ @each.key }}.txt'
+      @for-each:        input.files
+      path:             $'{{ input.base-path }}/{{ @each.key }}.txt'
       content:          @each.value
       create-directory: true
     }
     alert: notify.alert {
-      @for-each: var.files
+      @for-each: input.files
       topic:     @each.key
       body:      @each.value
-      path:      $'{{ var.base-path }}/{{ @each.key }}.alert'
+      path:      $'{{ input.base-path }}/{{ @each.key }}.alert'
     }
   }
 
   actions: {
     announce: std.exec-command {
-      @for-each: var.files
+      @for-each: input.files
       @trigger:  resource.file[@each.key].sha256
       argv: [
         'echo',

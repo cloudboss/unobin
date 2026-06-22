@@ -1,4 +1,4 @@
 factory: {
   inputs: { thing: { type: string } }
-  outputs: { bad: { value: vars.thing } }
+  outputs: { bad: { value: wrong.thing } }
 }

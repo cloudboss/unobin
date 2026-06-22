@@ -1,0 +1,2 @@
+inputs:    { who: { type: string } }
+resources: { greet: core.thing { name: input.who, size: 1 } }

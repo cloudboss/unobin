@@ -19,7 +19,7 @@ factory: {
   resources: {
     hello: std.fs-file {
       path: '/tmp/hello.txt'
-      content: var.message
+      content: input.message
       @timeout: '30s'
     }
   }

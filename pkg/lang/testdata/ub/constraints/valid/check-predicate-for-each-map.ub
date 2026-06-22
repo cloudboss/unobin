@@ -1,7 +1,7 @@
 constraints: [
   {
     kind:      predicate
-    @for-each: var.configs
+    @for-each: input.configs
     when:      true
     require:   @each.value.on == true
     message:   'must be on'

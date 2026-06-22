@@ -18,18 +18,18 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   actions: {
     app: e2e.echo {
-      text: var.name
+      text: input.name
     }
   }
 
   outputs: {
     name:   { value: action.app.text }
-    region: { value: var.region }
-    team:   { value: var.tags.team }
+    region: { value: input.region }
+    team:   { value: input.tags.team }
   }
 }

@@ -1,7 +1,7 @@
 greeting: resource {
   outputs: {
     message: {
-      value: var.message
+      value: input.message
     }
   }
 }
@@ -9,7 +9,7 @@ greeting: resource {
 lookup: data {
   outputs: {
     id: {
-      value: var.id
+      value: input.id
     }
   }
 }

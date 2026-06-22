@@ -27,12 +27,12 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   actions: {
     hi: e2e.echo {
-      text: var.greeting
+      text: input.greeting
     }
   }
 
@@ -40,18 +40,18 @@ factory: {
     said: { value: action.hi.text }
     env: {
       value: {
-        greeting: var.greeting
-        cluster:  var.cluster-name
-        size:     var.size
-        use-spot: var.use-spot
-        ratio:    var.ratio
-        subnets:  var.subnets
-        answer:   var.answer
-        note:     var.comment ?? 'none'
-        config:   var.config
-        tags:     var.tags
-        endpoint: var.endpoint
-        quoted:   var.quoted
+        greeting: input.greeting
+        cluster:  input.cluster-name
+        size:     input.size
+        use-spot: input.use-spot
+        ratio:    input.ratio
+        subnets:  input.subnets
+        answer:   input.answer
+        note:     input.comment ?? 'none'
+        config:   input.config
+        tags:     input.tags
+        endpoint: input.endpoint
+        quoted:   input.quoted
       }
     }
   }

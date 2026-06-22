@@ -27,8 +27,8 @@ func TestGenerateInjectsGoConstraints(t *testing.T) {
 					{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}},
 					{
 						Kind:    "predicate",
-						When:    "(var.tier == 'prod')",
-						Require: "(var.backups == true)",
+						When:    "(input.tier == 'prod')",
+						Require: "(input.backups == true)",
 						Message: "prod needs backups",
 					},
 					{
@@ -36,7 +36,7 @@ func TestGenerateInjectsGoConstraints(t *testing.T) {
 						When:    "true",
 						Require: "(@t.value.weight <= 999)",
 						ForEachLevels: []lang.ForEachSpecLevel{
-							{Name: "@rule", In: "var.rules"},
+							{Name: "@rule", In: "input.rules"},
 							{Name: "@t", In: "@rule.value.targets"},
 						},
 					},
@@ -76,8 +76,8 @@ func main() {
 	libraries["aws"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.vpc": {
 			{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}},
-			{Kind: "predicate", When: "(var.tier == 'prod')", Require: "(var.backups == true)", Message: "prod needs backups"},
-			{Kind: "predicate", When: "true", Require: "(@t.value.weight <= 999)", ForEachLevels: []lang.ForEachSpecLevel{{Name: "@rule", In: "var.rules"}, {Name: "@t", In: "@rule.value.targets"}}},
+			{Kind: "predicate", When: "(input.tier == 'prod')", Require: "(input.backups == true)", Message: "prod needs backups"},
+			{Kind: "predicate", When: "true", Require: "(@t.value.weight <= 999)", ForEachLevels: []lang.ForEachSpecLevel{{Name: "@rule", In: "input.rules"}, {Name: "@t", In: "@rule.value.targets"}}},
 		},
 	}
 	runner.Run(runner.Info{
@@ -104,8 +104,8 @@ func TestGenerateInjectsGoDefaults(t *testing.T) {
 		GoDefaults: map[string]map[string][]lang.DefaultSpec{
 			"local": {
 				"resource.file": {
-					{Field: "var.mode", Value: "420"},
-					{Field: "var.create-directory", Optional: true},
+					{Field: "input.mode", Value: "420"},
+					{Field: "input.create-directory", Optional: true},
 				},
 			},
 		},
@@ -141,8 +141,8 @@ func main() {
 	}
 	libraries["local"].Defaults = map[string][]lang.DefaultSpec{
 		"resource.file": {
-			{Field: "var.mode", Value: "420"},
-			{Field: "var.create-directory", Optional: true},
+			{Field: "input.mode", Value: "420"},
+			{Field: "input.create-directory", Optional: true},
 		},
 	}
 	runner.Run(runner.Info{
@@ -241,7 +241,7 @@ func TestGenerateInjectsConstraintsAndDefaultsTogether(t *testing.T) {
 		GoDefaults: map[string]map[string][]lang.DefaultSpec{
 			"aws": {
 				"resource.vpc": {
-					{Field: "var.tier", Value: "'dev'"},
+					{Field: "input.tier", Value: "'dev'"},
 				},
 			},
 		},
@@ -282,7 +282,7 @@ func main() {
 	}
 	libraries["aws"].Defaults = map[string][]lang.DefaultSpec{
 		"resource.vpc": {
-			{Field: "var.tier", Value: "'dev'"},
+			{Field: "input.tier", Value: "'dev'"},
 		},
 	}
 	runner.Run(runner.Info{

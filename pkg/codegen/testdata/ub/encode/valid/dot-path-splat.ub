@@ -1,1 +1,1 @@
-outputs: { x: { value: var.subnets[*].id } }
+outputs: { x: { value: input.subnets[*].id } }

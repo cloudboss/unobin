@@ -1050,7 +1050,7 @@ func TestApplyPlanNestedComposite(t *testing.T) {
 	// Apply runs without root inputs, mirroring the stack binary's
 	// `apply` subcommand which only reads the plan file. Both
 	// composite scopes (outer and inner) must be seeded from the plan
-	// steps so the deepest leaf can read its `var.path`.
+	// steps so the deepest leaf can read its `input.path`.
 	applyExec := applyPlanTestExecutor(t, src, libs, store, stack)
 	res, err := applyExec.ApplyPlan(context.Background(), pf)
 	require.NoError(t, err)
@@ -1141,7 +1141,7 @@ func TestApplyPlanCompositeWithRootVarArgs(t *testing.T) {
 	// boundary's args are evaluated at plan time and must seed the
 	// composite scope at apply time so internals can read them.
 	composite := syntaxResourceComposite(t, "hello",
-		applyPlanFixture(t, "apply-plan-composite-with-root-var-args-1"))
+		applyPlanFixture(t, "apply-plan-composite-with-root-input-args-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -1150,7 +1150,7 @@ func TestApplyPlanCompositeWithRootVarArgs(t *testing.T) {
 			"hello": composite,
 		},
 	}
-	src := applyPlanFixture(t, "apply-plan-composite-with-root-var-args-2")
+	src := applyPlanFixture(t, "apply-plan-composite-with-root-input-args-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 

@@ -4,5 +4,5 @@ factory: {
   library-configs: {
     aws: { regoin: 'us-east-1' }
   }
-  resources: { this: aws.thing { name: var.name } }
+  resources: { this: aws.thing { name: input.name } }
 }

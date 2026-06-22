@@ -24,9 +24,9 @@ factory: {
   }
 
   library-configs: {
-    aws:        var.aws-config
-    aws-east:   var.east-config
-    aws-scoped: @core.merge(var.aws-config, { region: var.region })
+    aws:        input.aws-config
+    aws-east:   input.east-config
+    aws-scoped: @core.merge(input.aws-config, { region: input.region })
   }
 
   actions: {

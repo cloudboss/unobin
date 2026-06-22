@@ -1,6 +1,6 @@
 resources: {
   hello: std.fs-file {
-    path: var.path
+    path: input.path
   }
 }
 state: local {

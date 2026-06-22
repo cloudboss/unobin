@@ -1,7 +1,7 @@
 # for-each
 
 Example that shows `@for-each` on a resource, an action, and a
-composite call site, all iterating the same `var.files` map.
+composite call site, all iterating the same `input.files` map.
 
 The stack imports a local UB library `notify` that exports a single
 composite type `alert`. Each iteration produces:

@@ -72,28 +72,28 @@ func subnetScope() *Scope {
 
 func TestInferListComprehension(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "[ for s in var.subnets : s.cidr ]"), TUnknown(), subnetScope(), errs)
+	got := Infer(parseExpr(t, "[ for s in input.subnets : s.cidr ]"), TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TList(TString())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
 
 func TestInferListComprehensionBareBoundValue(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "[ for n in var.nums : n ]"), TUnknown(), subnetScope(), errs)
+	got := Infer(parseExpr(t, "[ for n in input.nums : n ]"), TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TList(TInteger())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
 
 func TestInferComprehensionUnknownBoundField(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "[ for s in var.subnets : s.bogus ]"), TUnknown(), subnetScope(), errs)
+	Infer(parseExpr(t, "[ for s in input.subnets : s.bogus ]"), TUnknown(), subnetScope(), errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, `unknown field "bogus"`)
 }
 
 func TestInferMapComprehension(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "{ for s in var.subnets : s.cidr => s.public }"),
+	got := Infer(parseExpr(t, "{ for s in input.subnets : s.cidr => s.public }"),
 		TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TMap(TBoolean())), "got %s", got)
 	assert.Empty(t, errs.Errors())
@@ -102,21 +102,21 @@ func TestInferMapComprehension(t *testing.T) {
 func TestInferMapComprehensionGroupBy(t *testing.T) {
 	errs := lang.NewErrorList(0)
 	got := Infer(
-		parseExpr(t, "{ for s in var.subnets : s.cidr => s.public... }"), TUnknown(), subnetScope(), errs)
+		parseExpr(t, "{ for s in input.subnets : s.cidr => s.public... }"), TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TMap(TList(TBoolean()))), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
 
 func TestInferMapComprehensionNonStringKey(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "{ for n in var.nums : n => n }"), TUnknown(), subnetScope(), errs)
+	Infer(parseExpr(t, "{ for n in input.nums : n => n }"), TUnknown(), subnetScope(), errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, "expected string, got integer")
 }
 
 func TestInferComprehensionNonBoolFilter(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "[ for s in var.subnets : s.cidr when s.cidr ]"),
+	Infer(parseExpr(t, "[ for s in input.subnets : s.cidr when s.cidr ]"),
 		TUnknown(), subnetScope(), errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, "expected boolean, got string")
@@ -124,14 +124,14 @@ func TestInferComprehensionNonBoolFilter(t *testing.T) {
 
 func TestInferComprehensionListIndexBinding(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "[ for i, s in var.subnets : i ]"), TUnknown(), subnetScope(), errs)
+	got := Infer(parseExpr(t, "[ for i, s in input.subnets : i ]"), TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TList(TInteger())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
 
 func TestInferComprehensionMapKeyValueBinding(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "{ for k, v in var.m : k => v }"), TUnknown(), subnetScope(), errs)
+	got := Infer(parseExpr(t, "{ for k, v in input.m : k => v }"), TUnknown(), subnetScope(), errs)
 	assert.True(t, got.Equal(TMap(TString())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
@@ -148,11 +148,11 @@ func TestInferComprehensionRejectsScalarSources(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"[ for x in var.count : x ]",
+		{"[ for x in input.count : x ]",
 			"comprehension source must be a list or map, got integer"},
-		{"[ for x in var.name : x ]",
+		{"[ for x in input.name : x ]",
 			"comprehension source must be a list or map, got string"},
-		{"{ for k, v in var.on : k => v }",
+		{"{ for k, v in input.on : k => v }",
 			"comprehension source must be a list or map, got optional(boolean)"},
 	}
 	for _, tt := range tests {
@@ -175,17 +175,17 @@ func TestInferComprehensionRejectsOpaqueSource(t *testing.T) {
 	want := "comprehension source is opaque; declare its type, like list(...) or map(...)"
 
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, "[ for x in var.blob : x ]"), TUnknown(), scope, errs)
+	Infer(parseExpr(t, "[ for x in input.blob : x ]"), TUnknown(), scope, errs)
 	require.Equal(t, []string{want}, errs.Messages())
 
 	errs = lang.NewErrorList(0)
-	Infer(parseExpr(t, "{ for k, v in var.maybe : k => v }"), TUnknown(), scope, errs)
+	Infer(parseExpr(t, "{ for k, v in input.maybe : k => v }"), TUnknown(), scope, errs)
 	require.Equal(t, []string{want}, errs.Messages())
 
 	// Elements may be opaque when the container is declared: each
 	// binding holds a whole value.
 	errs = lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "[ for x in var.items : x ]"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "[ for x in input.items : x ]"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TList(TOpaque())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
@@ -197,7 +197,7 @@ func TestInferComprehensionTupleSource(t *testing.T) {
 		},
 	}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "[ for x in var.pair : x ]"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "[ for x in input.pair : x ]"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TList(TNumber())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
@@ -212,14 +212,14 @@ func TestInferComprehensionObjectSource(t *testing.T) {
 		},
 	}
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "{ for k, v in var.cfg : k => v }"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "{ for k, v in input.cfg : k => v }"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TMap(TString())), "got %s", got)
 	assert.Empty(t, errs.Errors())
 }
 
 func TestInferComprehensionElementAgainstTarget(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	Check(parseExpr(t, "[ for s in var.subnets : s.cidr ]"), TList(TInteger()), subnetScope(), errs)
+	Check(parseExpr(t, "[ for s in input.subnets : s.cidr ]"), TList(TInteger()), subnetScope(), errs)
 	require.Len(t, errs.Errors(), 1)
 	assert.Contains(t, errs.Errors()[0].Msg, "expected integer, got string")
 }

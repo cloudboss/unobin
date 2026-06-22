@@ -2,5 +2,5 @@ inputs: {
   code: { type: optional(object({ inline: optional(string) })) }
 }
 constraints: [
-  { kind: at-least-one-of, fields: [var.code.inline, var.bogus.inline] },
+  { kind: at-least-one-of, fields: [input.code.inline, input.bogus.inline] },
 ]

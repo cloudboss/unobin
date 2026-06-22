@@ -14,7 +14,7 @@ func TestCompositeOutputsUseSyntaxBody(t *testing.T) {
 	body := composite.body
 	node := &Node{CompositeSyntaxBody: &body}
 	scope := &EvalContext{
-		Vars:   map[string]any{"path": "hello"},
+		Inputs: map[string]any{"path": "hello"},
 		locals: compositeLocalScope(node),
 	}
 
@@ -29,7 +29,7 @@ func TestPlanCompositeOutputsUseSyntaxBody(t *testing.T) {
 		ubtest.ReadValidFixture(t, "testdata/ub/composite-body", "plan-pending-output"))
 	body := composite.body
 	node := &Node{CompositeSyntaxBody: &body}
-	scope := &EvalContext{Vars: map[string]any{"ready": "ok"}}
+	scope := &EvalContext{Inputs: map[string]any{"ready": "ok"}}
 
 	got, err := planCompositeOutputs(node, scope)
 
@@ -50,7 +50,7 @@ func TestSeedCompositeOutputsUsesSyntaxBody(t *testing.T) {
 	rs := &runState{
 		eval: &EvalContext{Resources: map[string]any{}},
 		composites: map[string]*EvalContext{
-			"resource.app": {Vars: map[string]any{"ready": "ok"}},
+			"resource.app": {Inputs: map[string]any{"ready": "ok"}},
 		},
 	}
 
@@ -73,7 +73,7 @@ func TestCheckCompositeConstraintsUseSyntaxBody(t *testing.T) {
 	exec := &Executor{DAG: &DAG{Nodes: map[string]*Node{"resource.app": node}}}
 	rs := &runState{composites: map[string]*EvalContext{
 		"resource.app": {
-			Vars:      map[string]any{},
+			Inputs:    map[string]any{},
 			Libraries: map[string]*Library{},
 			locals:    newLocalScope(nil),
 		},

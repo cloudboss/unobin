@@ -1,2 +1,2 @@
 constraints[0]: a [*] constraint needs at least two fields
-constraints[1]: [*] fields must splat the same list, got var.replicas[*] and var.volumes[*]
+constraints[1]: [*] fields must splat the same list, got input.replicas[*] and input.volumes[*]

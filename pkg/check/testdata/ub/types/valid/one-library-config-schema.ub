@@ -5,4 +5,4 @@ imports: {
 inputs: {
   aws-config: { type: library-config('github.com/acme/aws') }
 }
-locals: { region: var.aws-config.region }
+locals: { region: input.aws-config.region }

@@ -1,4 +1,4 @@
 outputs: {
-  a: { value: var.x, description: 42 }
-  b: { value: var.x, description: $'{{var.x}}' }
+  a: { value: input.x, description: 42 }
+  b: { value: input.x, description: $'{{input.x}}' }
 }

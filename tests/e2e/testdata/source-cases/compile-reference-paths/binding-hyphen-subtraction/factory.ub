@@ -1,4 +1,4 @@
 factory: {
   inputs: { xs: { type: list(integer) } }
-  outputs: { bad: { value: [ for x in var.xs : x-1.value ] } }
+  outputs: { bad: { value: [ for x in input.xs : x-1.value ] } }
 }

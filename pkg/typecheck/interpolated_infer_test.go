@@ -29,8 +29,8 @@ func TestInferInterpolatedResultIsString(t *testing.T) {
 	for _, src := range []string{
 		`$'literal only'`,
 		`$''`,
-		`$'{{var.region}}'`,
-		`$'a-{{var.count}}-{{var.region}}'`,
+		`$'{{input.region}}'`,
+		`$'a-{{input.count}}-{{input.region}}'`,
 	} {
 		errs := lang.NewErrorList(0)
 		got := Infer(parseExpr(t, src), TUnknown(), interpolatedScope(), errs)
@@ -43,17 +43,17 @@ func TestInferInterpolatedScalarSlotsAccepted(t *testing.T) {
 	// Scalars are fine; an unresolved node fails open so the runtime
 	// guard handles it rather than the type checker.
 	srcs := []string{
-		`$'{{var.region}}'`,
-		`$'{{var.count}}'`,
-		`$'{{var.ratio}}'`,
-		`$'{{var.flag}}'`,
-		`$'{{var.count:%03d}}'`,
-		`$'{{var.count + 1}}'`,
-		`$'{{if var.flag then var.region else 'other'}}'`,
+		`$'{{input.region}}'`,
+		`$'{{input.count}}'`,
+		`$'{{input.ratio}}'`,
+		`$'{{input.flag}}'`,
+		`$'{{input.count:%03d}}'`,
+		`$'{{input.count + 1}}'`,
+		`$'{{if input.flag then input.region else 'other'}}'`,
 		`$'{{resource.aws.vpc.main.id}}'`,
 		// A defaulted input reads as its inner type because omission
 		// fills a non-null value before the expression reads it.
-		`$'{{var.sized}}'`,
+		`$'{{input.sized}}'`,
 	}
 	for _, src := range srcs {
 		t.Run(src, func(t *testing.T) {
@@ -70,13 +70,13 @@ func TestInferInterpolatedRejectsBadSlot(t *testing.T) {
 		src  string
 		msg  string
 	}{
-		{"list", `$'{{var.ports}}'`, "must be a scalar"},
-		{"map", `$'{{var.tags}}'`, "must be a scalar"},
-		{"object", `$'{{var.cfg}}'`, "must be a scalar"},
-		{"optional", `$'{{var.maybe}}'`, "may be null"},
+		{"list", `$'{{input.ports}}'`, "must be a scalar"},
+		{"map", `$'{{input.tags}}'`, "must be a scalar"},
+		{"object", `$'{{input.cfg}}'`, "must be a scalar"},
+		{"optional", `$'{{input.maybe}}'`, "may be null"},
 		{"null literal", `$'{{null}}'`, "may be null"},
 		{
-			"opaque", `$'{{var.anything}}'`,
+			"opaque", `$'{{input.anything}}'`,
 			"interpolation slot is opaque; render it as text with @core.to-json(x)",
 		},
 	}
@@ -94,6 +94,6 @@ func TestInferInterpolatedRejectsBadSlot(t *testing.T) {
 func TestInferInterpolatedReportsEachBadSlot(t *testing.T) {
 	// Two bad slots in one string produce two separate diagnostics.
 	errs := lang.NewErrorList(0)
-	Infer(parseExpr(t, `$'{{var.ports}}-{{var.tags}}'`), TUnknown(), interpolatedScope(), errs)
+	Infer(parseExpr(t, `$'{{input.ports}}-{{input.tags}}'`), TUnknown(), interpolatedScope(), errs)
 	require.Len(t, errs.Errors(), 2)
 }

@@ -1,1 +1,1 @@
-outputs: { x: { value: format('%s-%s', var.a, var.b) } }
+outputs: { x: { value: format('%s-%s', input.a, input.b) } }

@@ -32,35 +32,35 @@ func TestNullFacts(t *testing.T) {
 		whenFalse map[string]Type
 	}{
 		{
-			src:       "var.x != null",
-			whenTrue:  map[string]Type{"var.x": TString()},
-			whenFalse: map[string]Type{"var.x": TNull()},
+			src:       "input.x != null",
+			whenTrue:  map[string]Type{"input.x": TString()},
+			whenFalse: map[string]Type{"input.x": TNull()},
 		},
 		{
-			src:       "var.x == null",
-			whenTrue:  map[string]Type{"var.x": TNull()},
-			whenFalse: map[string]Type{"var.x": TString()},
+			src:       "input.x == null",
+			whenTrue:  map[string]Type{"input.x": TNull()},
+			whenFalse: map[string]Type{"input.x": TString()},
 		},
 		{
-			src:       "null != var.x",
-			whenTrue:  map[string]Type{"var.x": TString()},
-			whenFalse: map[string]Type{"var.x": TNull()},
+			src:       "null != input.x",
+			whenTrue:  map[string]Type{"input.x": TString()},
+			whenFalse: map[string]Type{"input.x": TNull()},
 		},
 		{
-			src:       "!(var.x == null)",
-			whenTrue:  map[string]Type{"var.x": TString()},
-			whenFalse: map[string]Type{"var.x": TNull()},
+			src:       "!(input.x == null)",
+			whenTrue:  map[string]Type{"input.x": TString()},
+			whenFalse: map[string]Type{"input.x": TNull()},
 		},
 		{
-			src: "var.x != null && var.tls != null",
+			src: "input.x != null && input.tls != null",
 			whenTrue: map[string]Type{
-				"var.x":   TString(),
-				"var.tls": tlsObject,
+				"input.x":   TString(),
+				"input.tls": tlsObject,
 			},
 		},
-		{src: "var.x == var.y"},
-		{src: "var.xs[0] != null"},
-		{src: "var.x != null || var.tls != null"},
+		{src: "input.x == input.y"},
+		{src: "input.xs[0] != null"},
+		{src: "input.x != null || input.tls != null"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -73,23 +73,23 @@ func TestNullFacts(t *testing.T) {
 
 func TestNarrowedLookupPrefixes(t *testing.T) {
 	tlsObject := TObject([]ObjectField{{Name: "port", Type: TInteger()}})
-	scope := &Scope{Narrowed: map[string]Type{"var.tls": tlsObject}}
+	scope := &Scope{Narrowed: map[string]Type{"input.tls": tlsObject}}
 
-	dp := parseExpr(t, "var.tls.port").(*lang.DotPath)
+	dp := parseExpr(t, "input.tls.port").(*lang.DotPath)
 	got, rest, at, ok := narrowedLookup(scope, dp)
 	require.True(t, ok)
 	assert.True(t, got.Equal(tlsObject), "got %s", got)
 	require.Len(t, rest, 1)
 	require.Equal(t, "port", rest[0].Name)
-	require.Equal(t, "var.tls", at)
+	require.Equal(t, "input.tls", at)
 
-	dp = parseExpr(t, "var.tls[0].port").(*lang.DotPath)
+	dp = parseExpr(t, "input.tls[0].port").(*lang.DotPath)
 	got, rest, _, ok = narrowedLookup(scope, dp)
 	require.True(t, ok, "an index past the narrowed prefix still matches the prefix")
 	assert.True(t, got.Equal(tlsObject), "got %s", got)
 	require.Len(t, rest, 2)
 
-	dp = parseExpr(t, "var.other.port").(*lang.DotPath)
+	dp = parseExpr(t, "input.other.port").(*lang.DotPath)
 	_, _, _, ok = narrowedLookup(scope, dp)
 	require.False(t, ok)
 }
@@ -100,9 +100,9 @@ func TestNarrowedLookupPrefixes(t *testing.T) {
 // without the test.
 func TestNarrowConditionalDischargesSlot(t *testing.T) {
 	for _, src := range []string{
-		`$'a-{{ if var.x == null then '-' else var.x }}'`,
-		`$'a-{{ if var.x != null then var.x else '-' }}'`,
-		`$'a-{{ if !(var.x == null) then var.x else '-' }}'`,
+		`$'a-{{ if input.x == null then '-' else input.x }}'`,
+		`$'a-{{ if input.x != null then input.x else '-' }}'`,
+		`$'a-{{ if !(input.x == null) then input.x else '-' }}'`,
 	} {
 		t.Run(src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
@@ -117,7 +117,7 @@ func TestNarrowConditionalDischargesSlot(t *testing.T) {
 // would produce optional(string).
 func TestNarrowConditionalJoinsToInner(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "if var.x != null then var.x else 'd'"),
+	got := Infer(parseExpr(t, "if input.x != null then input.x else 'd'"),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TString()), "got %s", got)
 	require.Equal(t, []string(nil), errs.Messages())
@@ -125,26 +125,26 @@ func TestNarrowConditionalJoinsToInner(t *testing.T) {
 
 func TestNarrowThenBranchSeesNull(t *testing.T) {
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "if var.x == null then var.x else var.x"),
+	got := Infer(parseExpr(t, "if input.x == null then input.x else input.x"),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TOptional(TString())), "got %s", got)
 	require.Equal(t, []string(nil), errs.Messages())
 }
 
 // Each conjunct's narrowing is visible in the branch type it decides:
-// var.x reads string, and var.tls reads the bare object, where the
+// input.x reads string, and input.tls reads the bare object, where the
 // un-narrowed joins would both wrap in optional().
 func TestNarrowConjunctionFacts(t *testing.T) {
 	tlsObject := TObject([]ObjectField{{Name: "port", Type: TInteger()}})
 	errs := lang.NewErrorList(0)
 
 	got := Infer(parseExpr(t,
-		"if var.x != null && var.tls != null then var.x else 'd'"),
+		"if input.x != null && input.tls != null then input.x else 'd'"),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TString()), "left conjunct narrows, got %s", got)
 
 	got = Infer(parseExpr(t,
-		"if var.x != null && var.tls != null then var.tls else { port: 0 }"),
+		"if input.x != null && input.tls != null then input.tls else { port: 0 }"),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(tlsObject), "right conjunct narrows, got %s", got)
 
@@ -157,8 +157,8 @@ func TestNarrowConjunctionFacts(t *testing.T) {
 // slot complains under a guard that proves nothing.
 func TestNarrowShortCircuitOperands(t *testing.T) {
 	for _, src := range []string{
-		`var.x != null && $'{{var.x}}' == 'a'`,
-		`var.x == null || $'{{var.x}}' == 'a'`,
+		`input.x != null && $'{{input.x}}' == 'a'`,
+		`input.x == null || $'{{input.x}}' == 'a'`,
 	} {
 		t.Run(src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)
@@ -173,7 +173,7 @@ func TestNarrowShortCircuitOperands(t *testing.T) {
 func TestNarrowComprehensionFilter(t *testing.T) {
 	errs := lang.NewErrorList(0)
 	got := Infer(
-		parseExpr(t, `[ for s in var.subnets : s.cert when s.cert != null ]`),
+		parseExpr(t, `[ for s in input.subnets : s.cert when s.cert != null ]`),
 		TUnknown(), narrowScope(), errs)
 	assert.True(t, got.Equal(TList(TString())), "got %s", got)
 	require.Equal(t, []string(nil), errs.Messages())
@@ -204,35 +204,35 @@ func TestGuardedNavigation(t *testing.T) {
 		want     Type
 		wantErrs []string
 	}{
-		{src: "var.tls?.port", want: TOptional(TInteger())},
-		{src: "var.cfg?.db?.host", want: TOptional(TString())},
+		{src: "input.tls?.port", want: TOptional(TInteger())},
+		{src: "input.cfg?.db?.host", want: TOptional(TString())},
 		{
-			src:  "var.cfg?.db.host",
+			src:  "input.cfg?.db.host",
 			want: TUnknown(),
 			wantErrs: []string{
-				"var.cfg?.db may be null; read it with var.cfg?.db?.host, " +
+				"input.cfg?.db may be null; read it with input.cfg?.db?.host, " +
 					"or test it first (got optional(object({ host: string })))",
 			},
 		},
 		{
-			src:  "var.y?.anything",
+			src:  "input.y?.anything",
 			want: TUnknown(),
 			wantErrs: []string{
-				"var.y is never null; write var.y.anything (got string)",
+				"input.y is never null; write input.y.anything (got string)",
 			},
 		},
 		{
-			src:  "if var.tls != null then var.tls?.port else 0",
+			src:  "if input.tls != null then input.tls?.port else 0",
 			want: TInteger(),
 			wantErrs: []string{
-				"var.tls is never null; write var.tls.port (got object({ port: integer }))",
+				"input.tls is never null; write input.tls.port (got object({ port: integer }))",
 			},
 		},
 		{
-			src:  "var?.y",
+			src:  "input?.y",
 			want: TUnknown(),
 			wantErrs: []string{
-				"var is never null; write var.y",
+				"input is never null; write input.y",
 			},
 		},
 	}
@@ -254,33 +254,33 @@ func TestCoalesce(t *testing.T) {
 		want     Type
 		wantErrs []string
 	}{
-		{src: "var.x ?? 'd'", want: TString()},
-		{src: "var.opt-count ?? 0", want: TInteger()},
-		{src: "var.opt-count ?? 1.5", want: TNumber()},
-		{src: "var.opt-flag ?? false", want: TBoolean()},
-		{src: "var.cfg?.db?.host ?? 'none'", want: TString()},
-		{src: "var.tls?.port ?? 0", want: TInteger()},
-		{src: "var.x ?? null", want: TOptional(TString())},
-		{src: "var.x ?? var.x", want: TOptional(TString())},
-		{src: "var.x ?? var.x ?? 'd'", want: TString()},
+		{src: "input.x ?? 'd'", want: TString()},
+		{src: "input.opt-count ?? 0", want: TInteger()},
+		{src: "input.opt-count ?? 1.5", want: TNumber()},
+		{src: "input.opt-flag ?? false", want: TBoolean()},
+		{src: "input.cfg?.db?.host ?? 'none'", want: TString()},
+		{src: "input.tls?.port ?? 0", want: TInteger()},
+		{src: "input.x ?? null", want: TOptional(TString())},
+		{src: "input.x ?? input.x", want: TOptional(TString())},
+		{src: "input.x ?? input.x ?? 'd'", want: TString()},
 		{src: "null ?? 'd'", want: TString()},
-		{src: "var.maybe-list ?? []", want: TList(TString())},
-		{src: "var.opt-tags ?? {}", want: TMap(TString())},
-		{src: "var.tls ?? { port: 1 }", want: TObject([]ObjectField{
+		{src: "input.maybe-list ?? []", want: TList(TString())},
+		{src: "input.opt-tags ?? {}", want: TMap(TString())},
+		{src: "input.tls ?? { port: 1 }", want: TObject([]ObjectField{
 			{Name: "port", Type: TInteger()},
 		})},
-		{src: "var.nope ?? 'd'", want: TString()},
-		{src: "$'{{ var.x ?? '-' }}'", want: TString()},
-		{src: "$'{{ var.cfg?.db?.host ?? '-' }}-{{ var.opt-count ?? 0 }}'", want: TString()},
+		{src: "input.nope ?? 'd'", want: TString()},
+		{src: "$'{{ input.x ?? '-' }}'", want: TString()},
+		{src: "$'{{ input.cfg?.db?.host ?? '-' }}-{{ input.opt-count ?? 0 }}'", want: TString()},
 		{
-			src:  "var.y ?? 'd'",
+			src:  "input.y ?? 'd'",
 			want: TString(),
 			wantErrs: []string{
 				"left of ?? is never null; write it without the fallback (got string)",
 			},
 		},
 		{
-			src:  "var.tls ?? { port: 1 } ?? { port: 2 }",
+			src:  "input.tls ?? { port: 1 } ?? { port: 2 }",
 			want: TObject([]ObjectField{{Name: "port", Type: TInteger()}}),
 			wantErrs: []string{
 				"left of ?? is never null; write it without the fallback " +
@@ -288,21 +288,21 @@ func TestCoalesce(t *testing.T) {
 			},
 		},
 		{
-			src:  "var.x ?? 5",
+			src:  "input.x ?? 5",
 			want: TUnknown(),
 			wantErrs: []string{
 				"?? sides have different types: string and integer",
 			},
 		},
 		{
-			src:  "var.opt-count ?? 'd'",
+			src:  "input.opt-count ?? 'd'",
 			want: TUnknown(),
 			wantErrs: []string{
 				"?? sides have different types: integer and string",
 			},
 		},
 		{
-			src:  "var.maybe-list ?? {}",
+			src:  "input.maybe-list ?? {}",
 			want: TUnknown(),
 			wantErrs: []string{
 				"?? sides have different types: list(string) and object({  })",
@@ -328,12 +328,12 @@ func TestCoalescePrecedence(t *testing.T) {
 		want     Type
 		wantErrs []string
 	}{
-		{src: "var.opt-flag ?? var.y == 'a'", want: TBoolean()},
-		{src: "var.opt-flag ?? true || false", want: TBoolean()},
-		{src: "(var.x ?? 'd') == 'a'", want: TBoolean()},
-		{src: "var.opt-count ?? 1 + 2", want: TInteger()},
+		{src: "input.opt-flag ?? input.y == 'a'", want: TBoolean()},
+		{src: "input.opt-flag ?? true || false", want: TBoolean()},
+		{src: "(input.x ?? 'd') == 'a'", want: TBoolean()},
+		{src: "input.opt-count ?? 1 + 2", want: TInteger()},
 		{
-			src:  "var.x ?? 'd' == 'a'",
+			src:  "input.x ?? 'd' == 'a'",
 			want: TUnknown(),
 			wantErrs: []string{
 				"?? sides have different types: string and boolean",
@@ -356,7 +356,7 @@ func TestGuardedNavigationUnderMissingAsNull(t *testing.T) {
 	scope := strictScope()
 	scope.MissingAsNull = true
 	errs := lang.NewErrorList(0)
-	got := Infer(parseExpr(t, "var.cfg?.db?.host"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.cfg?.db?.host"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOptional(TString())), "got %s", got)
 	require.Equal(t, []string(nil), errs.Messages())
 }
@@ -371,37 +371,37 @@ func TestStrictOptionalNavigation(t *testing.T) {
 		wantErrs []string
 	}{
 		{
-			src:  "var.tls.port",
+			src:  "input.tls.port",
 			want: TUnknown(),
 			wantErrs: []string{
-				"var.tls may be null; read it with var.tls?.port, or test it first " +
+				"input.tls may be null; read it with input.tls?.port, or test it first " +
 					"(got optional(object({ port: integer })))",
 			},
 		},
 		{
-			src:  "if var.tls != null then var.tls.port else 0",
+			src:  "if input.tls != null then input.tls.port else 0",
 			want: TInteger(),
 		},
 		{
-			src:  "var.maybe-list[0]",
+			src:  "input.maybe-list[0]",
 			want: TUnknown(),
 			wantErrs: []string{
-				"var.maybe-list may be null; test it first, like " +
-					"if var.maybe-list != null then var.maybe-list[0] else <fallback> " +
+				"input.maybe-list may be null; test it first, like " +
+					"if input.maybe-list != null then input.maybe-list[0] else <fallback> " +
 					"(got optional(list(string)))",
 			},
 		},
 		{
-			src:  "var.maybe-list[*]",
+			src:  "input.maybe-list[*]",
 			want: TUnknown(),
 			wantErrs: []string{
-				"var.maybe-list may be null; test it first, like " +
-					"if var.maybe-list != null then var.maybe-list[*]... else [] " +
+				"input.maybe-list may be null; test it first, like " +
+					"if input.maybe-list != null then input.maybe-list[*]... else [] " +
 					"(got optional(list(string)))",
 			},
 		},
 		{
-			src:  "[ for s in var.maybe-list : s ]",
+			src:  "[ for s in input.maybe-list : s ]",
 			want: TList(TString()),
 			wantErrs: []string{
 				"comprehension source may be null; supply a fallback, like " +
@@ -409,7 +409,7 @@ func TestStrictOptionalNavigation(t *testing.T) {
 			},
 		},
 		{
-			src:  "if var.maybe-list == null then [] else [ for s in var.maybe-list : s ]",
+			src:  "if input.maybe-list == null then [] else [ for s in input.maybe-list : s ]",
 			want: TList(TString()),
 		},
 	}
@@ -437,7 +437,7 @@ func TestOptionalFieldsAcceptOptionalValues(t *testing.T) {
 		{Name: "tls", Type: TBoolean(), Optional: true},
 	})
 	for _, src := range []string{
-		"{ number: 1, tls: var.maybe-tls }",
+		"{ number: 1, tls: input.maybe-tls }",
 		"{ number: 1, tls: null }",
 		"{ number: 1 }",
 	} {
@@ -449,7 +449,7 @@ func TestOptionalFieldsAcceptOptionalValues(t *testing.T) {
 	}
 
 	errs := lang.NewErrorList(0)
-	Check(parseExpr(t, "{ number: var.maybe-tls }"), target, scope, errs)
+	Check(parseExpr(t, "{ number: input.maybe-tls }"), target, scope, errs)
 	require.Equal(t, []string{
 		"type mismatch: expected integer, got optional(boolean)",
 	}, errs.Messages())
@@ -470,14 +470,14 @@ func TestAssignableOptionalObjectFields(t *testing.T) {
 func TestCheckRejectsOptionalIntoRequiredSlot(t *testing.T) {
 	scope := narrowScope()
 	errs := lang.NewErrorList(0)
-	Check(parseExpr(t, "var.x"), TString(), scope, errs)
+	Check(parseExpr(t, "input.x"), TString(), scope, errs)
 	require.Equal(t, []string{
 		"type mismatch: expected string, got optional(string); " +
 			"test it first, like if x != null then x else <fallback>",
 	}, errs.Messages())
 
 	errs = lang.NewErrorList(0)
-	Check(parseExpr(t, "if var.x != null then var.x else 'd'"), TString(), scope, errs)
+	Check(parseExpr(t, "if input.x != null then input.x else 'd'"), TString(), scope, errs)
 	require.Equal(t, []string(nil), errs.Messages())
 }
 
@@ -485,8 +485,8 @@ func TestCheckRejectsOptionalIntoRequiredSlot(t *testing.T) {
 // slot complaints stay.
 func TestNarrowDoesNotInvent(t *testing.T) {
 	for _, src := range []string{
-		`if var.x == var.y then $'{{var.x}}' else '-'`,
-		`var.xs[0] != null && $'{{var.xs[0]}}' == 'a'`,
+		`if input.x == input.y then $'{{input.x}}' else '-'`,
+		`input.xs[0] != null && $'{{input.xs[0]}}' == 'a'`,
 	} {
 		t.Run(src, func(t *testing.T) {
 			errs := lang.NewErrorList(0)

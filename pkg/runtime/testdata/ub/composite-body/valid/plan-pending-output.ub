@@ -1,6 +1,6 @@
 greeting: resource {
   outputs: {
-    ready: { value: var.ready }
+    ready: { value: input.ready }
     later: { value: resource.later.id }
   }
 }

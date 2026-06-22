@@ -27,53 +27,53 @@ func TestOverlayDefaults(t *testing.T) {
 		{
 			name:   "fills a missing field",
 			inputs: map[string]any{"name": "a"},
-			specs:  []lang.DefaultSpec{value("var.mode", "420")},
+			specs:  []lang.DefaultSpec{value("input.mode", "420")},
 			want:   map[string]any{"name": "a", "mode": int64(420)},
 		},
 		{
 			name:   "keeps a null field",
 			inputs: map[string]any{"mode": nil},
-			specs:  []lang.DefaultSpec{value("var.mode", "420")},
+			specs:  []lang.DefaultSpec{value("input.mode", "420")},
 			want:   map[string]any{"mode": nil},
 		},
 		{
 			name:   "keeps a set value",
 			inputs: map[string]any{"mode": int64(384)},
-			specs:  []lang.DefaultSpec{value("var.mode", "420")},
+			specs:  []lang.DefaultSpec{value("input.mode", "420")},
 			want:   map[string]any{"mode": int64(384)},
 		},
 		{
 			name:   "keeps a set zero value",
 			inputs: map[string]any{"mode": int64(0)},
-			specs:  []lang.DefaultSpec{value("var.mode", "420")},
+			specs:  []lang.DefaultSpec{value("input.mode", "420")},
 			want:   map[string]any{"mode": int64(0)},
 		},
 		{
 			name:   "keeps a set false",
 			inputs: map[string]any{"on": false},
-			specs:  []lang.DefaultSpec{value("var.on", "true")},
+			specs:  []lang.DefaultSpec{value("input.on", "true")},
 			want:   map[string]any{"on": false},
 		},
 		{
 			name:   "fills string and boolean literals",
 			inputs: map[string]any{},
 			specs: []lang.DefaultSpec{
-				value("var.method", "'GET'"),
-				value("var.follow", "true"),
-				value("var.ratio", "0.5"),
+				value("input.method", "'GET'"),
+				value("input.follow", "true"),
+				value("input.ratio", "0.5"),
 			},
 			want: map[string]any{"method": "GET", "follow": true, "ratio": 0.5},
 		},
 		{
 			name:   "optional marker fills nothing",
 			inputs: map[string]any{},
-			specs:  []lang.DefaultSpec{{Field: "var.dir", Optional: true}},
+			specs:  []lang.DefaultSpec{{Field: "input.dir", Optional: true}},
 			want:   map[string]any{},
 		},
 		{
 			name:   "fills a nested field when its parent is present",
 			inputs: map[string]any{"code": map[string]any{"inline": "x"}},
-			specs:  []lang.DefaultSpec{value("var.code.retries", "3")},
+			specs:  []lang.DefaultSpec{value("input.code.retries", "3")},
 			want: map[string]any{
 				"code": map[string]any{"inline": "x", "retries": int64(3)},
 			},
@@ -81,32 +81,32 @@ func TestOverlayDefaults(t *testing.T) {
 		{
 			name:   "does not invent an absent parent object",
 			inputs: map[string]any{},
-			specs:  []lang.DefaultSpec{value("var.code.retries", "3")},
+			specs:  []lang.DefaultSpec{value("input.code.retries", "3")},
 			want:   map[string]any{},
 		},
 		{
 			name:   "does not descend into a null parent",
 			inputs: map[string]any{"code": nil},
-			specs:  []lang.DefaultSpec{value("var.code.retries", "3")},
+			specs:  []lang.DefaultSpec{value("input.code.retries", "3")},
 			want:   map[string]any{"code": nil},
 		},
 		{
 			name:   "does not descend into a non-object parent",
 			inputs: map[string]any{"code": "inline"},
-			specs:  []lang.DefaultSpec{value("var.code.retries", "3")},
+			specs:  []lang.DefaultSpec{value("input.code.retries", "3")},
 			want:   map[string]any{"code": "inline"},
 		},
 		{
 			name:       "skips a field waiting on an upstream output",
 			inputs:     map[string]any{"mode": nil},
-			specs:      []lang.DefaultSpec{value("var.mode", "420")},
+			specs:      []lang.DefaultSpec{value("input.mode", "420")},
 			unresolved: map[string][]string{"mode": {"resource.core.thing.a.id"}},
 			want:       map[string]any{"mode": nil},
 		},
 		{
 			name:    "a literal that does not parse names the field",
 			inputs:  map[string]any{},
-			specs:   []lang.DefaultSpec{value("var.mode", "{")},
+			specs:   []lang.DefaultSpec{value("input.mode", "{")},
 			wantErr: `default for "mode"`,
 		},
 	}
@@ -131,8 +131,8 @@ func defaultsExecutor(t *testing.T, fixture string) (*Executor, *local.Store) {
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Defaults = map[string][]lang.DefaultSpec{
 		"resource.thing": {
-			{Field: "var.size", Value: "7"},
-			{Field: "var.region", Optional: true},
+			{Field: "input.size", Value: "7"},
+			{Field: "input.region", Optional: true},
 		},
 	}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/defaults", fixture)
@@ -169,7 +169,7 @@ func TestPlanKeepsExplicitValueOverDefault(t *testing.T) {
 func TestPlanConstraintSeesDefault(t *testing.T) {
 	exec, _ := defaultsExecutor(t, "default-size-omitted")
 	exec.Libraries["core"].Constraints = map[string][]lang.ConstraintSpec{
-		"resource.thing": {{Kind: "predicate", When: "true", Require: "var.size > 5"}},
+		"resource.thing": {{Kind: "predicate", When: "true", Require: "input.size > 5"}},
 	}
 	_, err := exec.Plan(context.Background())
 	require.NoError(t, err)
@@ -215,7 +215,7 @@ func planTwoThingsWithSizeDefault(t *testing.T) *Plan {
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Defaults = map[string][]lang.DefaultSpec{
-		"resource.thing": {{Field: "var.size", Value: "7"}},
+		"resource.thing": {{Field: "input.size", Value: "7"}},
 	}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/defaults", "default-forward-refs")
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)

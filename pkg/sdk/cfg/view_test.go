@@ -59,11 +59,11 @@ func TestViewBuildsFieldsDefaultsAndDigest(t *testing.T) {
 		{Name: "assume-role", Type: assumeRole, Optional: true},
 	}
 	wantDefaults := []lang.DefaultSpec{
-		{Field: "var.profile", Value: "'default'"},
-		{Field: "var.enabled", Value: "false"},
-		{Field: "var.retries", Value: "3"},
-		{Field: "var.ratio", Value: "0.5"},
-		{Field: "var.subnets", Value: "['subnet-a']"},
+		{Field: "input.profile", Value: "'default'"},
+		{Field: "input.enabled", Value: "false"},
+		{Field: "input.retries", Value: "3"},
+		{Field: "input.ratio", Value: "0.5"},
+		{Field: "input.subnets", Value: "['subnet-a']"},
 	}
 	require.Equal(t, wantFields, got.Fields)
 	require.Equal(t, wantDefaults, got.Defaults)

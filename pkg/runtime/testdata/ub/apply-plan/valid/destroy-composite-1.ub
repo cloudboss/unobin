@@ -1,2 +1,2 @@
-resources: { one: core.thing { name: var.name } }
+resources: { one: core.thing { name: input.name } }
 outputs:   { id: { value: resource.one.id } }

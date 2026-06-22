@@ -1,1 +1,1 @@
-x: $'cluster-{{ var.name }}-prod'
+x: $'cluster-{{ input.name }}-prod'

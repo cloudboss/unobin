@@ -4,8 +4,8 @@ Shows off splat expressions. The stack takes a list of subnets and a list
 of zones as input, then uses `[*]` to read fields out of them and writes a
 summary file.
 
-A splat is shorthand for a `for` comprehension: `var.subnets[*].id` reads
-the `id` of every subnet, exactly like `[ for s in var.subnets : s.id ]`.
+A splat is shorthand for a `for` comprehension: `input.subnets[*].id` reads
+the `id` of every subnet, exactly like `[ for s in input.subnets : s.id ]`.
 Everything to the right of the `[*]` applies to each element, and the
 result is a list.
 
@@ -20,7 +20,7 @@ What each piece demonstrates:
 
 The resource `content` also joins a splat with `@core.join` to list the
 subnet ids in the summary file. A splat must end in a field; a bare
-`var.subnets[*]` is rejected, since it would just be the list itself.
+`input.subnets[*]` is rejected, since it would just be the list itself.
 
 ## Compile
 

@@ -10,8 +10,8 @@ factory: {
 
   resources: {
     welcome: greeter.greeting {
-      message: var.message
-      path:    var.path
+      message: input.message
+      path:    input.path
     }
   }
 

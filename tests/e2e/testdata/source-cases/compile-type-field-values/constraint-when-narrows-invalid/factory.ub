@@ -2,6 +2,6 @@ factory: {
   inputs: { note: { type: optional(string) } }
 
   constraints: [
-    { kind: predicate, when: true, require: $'{{var.note}}' != '' }
+    { kind: predicate, when: true, require: $'{{input.note}}' != '' }
   ]
 }

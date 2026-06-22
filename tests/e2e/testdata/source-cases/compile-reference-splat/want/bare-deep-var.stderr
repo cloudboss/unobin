@@ -1,1 +1,0 @@
-Error: factory.ub:3:43: resolve: splat [*] must be followed by a field, like list[*].id

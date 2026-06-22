@@ -1,17 +1,17 @@
 factory: {
   library-configs: {
-    greet: var.greet-config
+    greet: input.greet-config
   }
 
   resources: {
     hello: std.fs-file {
-      path: var.path
+      path: input.path
     }
   }
 
   data: {
     existing: std.file {
-      path: var.path
+      path: input.path
     }
   }
 

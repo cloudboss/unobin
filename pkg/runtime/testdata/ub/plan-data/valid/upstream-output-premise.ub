@@ -1,6 +1,6 @@
 inputs: { t: { type: string } }
 resources: {
-  one: core.versioned { tag: var.t }
+  one: core.versioned { tag: input.t }
   two: core.thing { tag: resource.one.id }
 }
 outputs: { fed: { value: resource.two.tag } }

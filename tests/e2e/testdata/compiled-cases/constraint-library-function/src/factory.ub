@@ -13,8 +13,8 @@ factory: {
   constraints: [
     {
       kind:    predicate
-      when:    var.replicas != null
-      require: e2e.all-list([for r in var.replicas: r.port != null && r.port > 0])
+      when:    input.replicas != null
+      require: e2e.all-list([for r in input.replicas: r.port != null && r.port > 0])
       message: 'every replica needs a positive port'
     },
   ]

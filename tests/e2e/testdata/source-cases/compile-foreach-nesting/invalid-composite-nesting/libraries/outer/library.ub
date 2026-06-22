@@ -9,13 +9,13 @@ outer: resource {
     inner: '../inner'
   }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
     i: inner.inner {
-      @for-each:  var.tags
+      @for-each:  input.tags
       tag:        @each.value
-      e2e-config: var.e2e-config
+      e2e-config: input.e2e-config
     }
   }
 }

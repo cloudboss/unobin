@@ -1,2 +1,2 @@
 inputs:    { name: { type: string } }
-resources: { only: core.thing { name: var.name, size: 1 } }
+resources: { only: core.thing { name: input.name, size: 1 } }

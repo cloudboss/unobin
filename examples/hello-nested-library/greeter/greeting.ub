@@ -12,8 +12,8 @@ greeting: resource {
 
   resources: {
     file: helloer.hello {
-      message: var.message
-      path:    var.path
+      message: input.message
+      path:    input.path
     }
   }
 

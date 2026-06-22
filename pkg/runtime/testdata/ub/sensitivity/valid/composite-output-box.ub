@@ -1,5 +1,5 @@
 inputs: { message: { type: string } }
 
-resources: { this: local.file { path: 'x.txt', content: var.message } }
+resources: { this: local.file { path: 'x.txt', content: input.message } }
 
 outputs: { token: { value: resource.this.sha256, @sensitive: true } }

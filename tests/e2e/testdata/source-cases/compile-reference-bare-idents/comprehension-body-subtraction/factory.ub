@@ -1,4 +1,4 @@
 factory: {
   inputs: { nums: { type: list(number) } }
-  outputs: { dec: { value: [ for n in var.nums : n-1 ] } }
+  outputs: { dec: { value: [ for n in input.nums : n-1 ] } }
 }

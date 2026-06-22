@@ -1,1 +1,1 @@
-x: if var.flag then 'aaaaaaaa' else 'bbbbbbbb'
+x: if input.flag then 'aaaaaaaa' else 'bbbbbbbb'

@@ -10,11 +10,11 @@ factory: {
     }
   }
 
-  locals: { x: var.missing }
+  locals: { x: input.missing }
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
     one: e2e.file {

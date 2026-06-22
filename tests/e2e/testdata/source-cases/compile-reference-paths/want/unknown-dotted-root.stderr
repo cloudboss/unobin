@@ -1,1 +1,1 @@
-Error: factory.ub:2:28: resolve: unknown name "foo"; references start with var, local, resource, data, or action
+Error: factory.ub:2:28: resolve: unknown name "foo"; references start with input, local, resource, data, or action

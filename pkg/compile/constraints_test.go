@@ -21,7 +21,7 @@ func TestConstraintsFromSchema(t *testing.T) {
 		},
 		DataSources: map[string]*ubruntime.TypeSchema{
 			"ami": {Constraints: []lang.ConstraintSpec{
-				{Kind: "predicate", When: "true", Require: "(var.owner != null)"},
+				{Kind: "predicate", When: "true", Require: "(input.owner != null)"},
 			}},
 		},
 		Actions: map[string]*ubruntime.TypeSchema{
@@ -31,7 +31,7 @@ func TestConstraintsFromSchema(t *testing.T) {
 	got := constraintsFromSchema(schema)
 	require.Equal(t, map[string][]lang.ConstraintSpec{
 		"resource.vpc": {{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}}},
-		"data.ami":     {{Kind: "predicate", When: "true", Require: "(var.owner != null)"}},
+		"data.ami":     {{Kind: "predicate", When: "true", Require: "(input.owner != null)"}},
 	}, got)
 }
 

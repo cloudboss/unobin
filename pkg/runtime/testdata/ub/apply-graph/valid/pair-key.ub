@@ -1,4 +1,4 @@
 resources: {
-  nodes: aws.instance { @for-each: var.cfgs, name: @each.value }
-  vols:  aws.volume { @for-each: var.cfgs, instance: resource.nodes[@each.key].name }
+  nodes: aws.instance { @for-each: input.cfgs, name: @each.value }
+  vols:  aws.volume { @for-each: input.cfgs, instance: resource.nodes[@each.key].name }
 }

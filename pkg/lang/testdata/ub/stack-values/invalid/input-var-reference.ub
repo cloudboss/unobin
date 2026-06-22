@@ -1,3 +1,0 @@
-factory: {
-  inputs: { x: var.other }
-}

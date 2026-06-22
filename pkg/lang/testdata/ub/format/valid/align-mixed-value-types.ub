@@ -3,7 +3,7 @@ num: 42
 fp: 1.5
 flag: true
 empty: null
-path: var.x
+path: input.x
 call: range(1, 5)
 sum: 1 + 2
-neg: !var.flag
+neg: !input.flag

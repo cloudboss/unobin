@@ -1,4 +1,4 @@
 inputs:    { t: { type: string } }
-resources: { one: core.versioned { tag: var.t } }
+resources: { one: core.versioned { tag: input.t } }
 data:      { cfg: core.dial { key: resource.one.id } }
 outputs:   { v: { value: data.cfg.value } }

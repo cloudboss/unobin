@@ -77,121 +77,121 @@ func goConstraintCases() []struct {
 	}{
 		{
 			name:  "exactly-one-of with two set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [name, size]): " +
 				"expected exactly one to be set, got 2 (name, size)",
 		},
 		{
 			name:  "exactly-one-of with one set passes",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.name", "input.size")},
 			body:  `{ name: 'a' }`,
 		},
 		{
 			name:  "exactly-one-of with none set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.name", "input.size")},
 			body:  `{ region: 'us' }`,
 			wantErr: goConstraintPrefix + "constraints[0] (exactly-one-of [name, size]): " +
 				"expected exactly one to be set, got 0 ()",
 		},
 		{
 			name:  "at-least-one-of with none set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "input.name", "input.size")},
 			body:  `{ region: 'us' }`,
 			wantErr: goConstraintPrefix + "constraints[0] (at-least-one-of [name, size]): " +
 				"expected at least one to be set, got none",
 		},
 		{
 			name:  "at-least-one-of with both set passes",
-			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 		},
 		{
 			name:  "at-most-one-of with two set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix + "constraints[0] (at-most-one-of [name, size]): " +
 				"expected at most one to be set, got 2 (name, size)",
 		},
 		{
 			name:  "at-most-one-of with none set passes",
-			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "input.name", "input.size")},
 			body:  `{ region: 'us' }`,
 		},
 		{
 			name:  "at-most-one-of with two set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix + "constraints[0] (at-most-one-of [name, size]): " +
 				"expected at most one to be set, got 2 (name, size)",
 		},
 		{
 			name:  "required-together with one set is rejected",
-			specs: []lang.ConstraintSpec{setSpec("required-together", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("required-together", "input.name", "input.size")},
 			body:  `{ name: 'a' }`,
 			wantErr: goConstraintPrefix + "constraints[0] (required-together [name, size]): " +
 				"expected all set or all null, got 1 set (name)",
 		},
 		{
 			name:  "required-together with both set passes",
-			specs: []lang.ConstraintSpec{setSpec("required-together", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("required-together", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 		},
 		{
 			name:  "required-together with neither set passes",
-			specs: []lang.ConstraintSpec{setSpec("required-together", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("required-together", "input.name", "input.size")},
 			body:  `{ region: 'us' }`,
 		},
 		{
 			name:  "required-with trigger lacking dependent is rejected",
-			specs: []lang.ConstraintSpec{setSpec("required-with", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("required-with", "input.name", "input.size")},
 			body:  `{ name: 'a' }`,
 			wantErr: goConstraintPrefix + `constraints[0] (required-with): ` +
 				`"name" is set, so [size] must also be set; missing size`,
 		},
 		{
 			name:  "required-with trigger with dependent passes",
-			specs: []lang.ConstraintSpec{setSpec("required-with", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("required-with", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 		},
 		{
 			name:  "required-with without trigger passes",
-			specs: []lang.ConstraintSpec{setSpec("required-with", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("required-with", "input.name", "input.size")},
 			body:  `{ size: 1 }`,
 		},
 		{
 			name:  "forbidden-with trigger and forbidden field is rejected",
-			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "input.name", "input.size")},
 			body:  `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix + `constraints[0] (forbidden-with): ` +
 				`"name" is set, so [size] must be null; got size`,
 		},
 		{
 			name:  "forbidden-with trigger alone passes",
-			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "input.name", "input.size")},
 			body:  `{ name: 'a' }`,
 		},
 		{
 			name:    "predicate with unmet requirement is rejected",
-			specs:   []lang.ConstraintSpec{predSpec("var.name != null", "var.size != null")},
+			specs:   []lang.ConstraintSpec{predSpec("input.name != null", "input.size != null")},
 			body:    `{ name: 'a' }`,
 			wantErr: goConstraintPrefix + "constraints[0] (predicate): predicate requirement not satisfied",
 		},
 		{
 			name:  "predicate with met requirement passes",
-			specs: []lang.ConstraintSpec{predSpec("var.name != null", "var.size != null")},
+			specs: []lang.ConstraintSpec{predSpec("input.name != null", "input.size != null")},
 			body:  `{ name: 'a', size: 1 }`,
 		},
 		{
 			name:  "predicate whose condition is false passes",
-			specs: []lang.ConstraintSpec{predSpec("var.name != null", "var.size != null")},
+			specs: []lang.ConstraintSpec{predSpec("input.name != null", "input.size != null")},
 			body:  `{ size: 1 }`,
 		},
 		{
 			name: "predicate uses its custom message",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", When: "var.name != null",
-				Require: "var.size != null", Message: "size is required with name",
+				Kind: "predicate", When: "input.name != null",
+				Require: "input.size != null", Message: "size is required with name",
 			}},
 			body:    `{ name: 'a' }`,
 			wantErr: goConstraintPrefix + "constraints[0] (predicate): size is required with name",
@@ -199,8 +199,8 @@ func goConstraintCases() []struct {
 		{
 			name: "two violated constraints report both",
 			specs: []lang.ConstraintSpec{
-				setSpec("exactly-one-of", "var.name", "var.size"),
-				setSpec("forbidden-with", "var.name", "var.size"),
+				setSpec("exactly-one-of", "input.name", "input.size"),
+				setSpec("forbidden-with", "input.name", "input.size"),
 			},
 			body: `{ name: 'a', size: 1 }`,
 			wantErr: goConstraintPrefix +
@@ -212,7 +212,7 @@ func goConstraintCases() []struct {
 		},
 		{
 			name:  "splat constraint names the violating element",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.items[*].a", "var.items[*].b")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.items[*].a", "input.items[*].b")},
 			body:  `{ items: [{ a: 1 }, { a: 1, b: 2 }] }`,
 			wantErr: goConstraintPrefix +
 				"constraints[0] (exactly-one-of [items[1].a, items[1].b]): " +
@@ -220,7 +220,7 @@ func goConstraintCases() []struct {
 		},
 		{
 			name:  "splat constraint passes when every element conforms",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.items[*].a", "var.items[*].b")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.items[*].a", "input.items[*].b")},
 			body:  `{ items: [{ a: 1 }, { b: 2 }] }`,
 		},
 	}
@@ -306,66 +306,66 @@ func forwardRefConstraintCases() []struct {
 	}{
 		{
 			name:  "exactly-one-of defers on a pending field",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.name", "var.size")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.name", "input.size")},
 			body:  `{ name: ` + ref + ` }`,
 		},
 		{
 			name:  "at-least-one-of defers on a pending field",
-			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.name", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "input.name", "input.zone")},
 			body:  `{ name: ` + ref + ` }`,
 		},
 		{
 			name: "at-most-one-of defers although known fields violate",
 			specs: []lang.ConstraintSpec{
-				setSpec("at-most-one-of", "var.name", "var.region", "var.zone"),
+				setSpec("at-most-one-of", "input.name", "input.region", "input.zone"),
 			},
 			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 		},
 		{
 			name: "at-most-one-of defers although known fields violate",
 			specs: []lang.ConstraintSpec{
-				setSpec("at-most-one-of", "var.name", "var.region", "var.zone"),
+				setSpec("at-most-one-of", "input.name", "input.region", "input.zone"),
 			},
 			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 		},
 		{
 			name:  "required-together defers on a pending field",
-			specs: []lang.ConstraintSpec{setSpec("required-together", "var.name", "var.region")},
+			specs: []lang.ConstraintSpec{setSpec("required-together", "input.name", "input.region")},
 			body:  `{ name: ` + ref + `, region: 'us' }`,
 		},
 		{
 			name:  "required-with defers on a pending dependent",
-			specs: []lang.ConstraintSpec{setSpec("required-with", "var.region", "var.name")},
+			specs: []lang.ConstraintSpec{setSpec("required-with", "input.region", "input.name")},
 			body:  `{ name: ` + ref + `, region: 'us' }`,
 		},
 		{
 			name: "forbidden-with defers although a known field violates",
 			specs: []lang.ConstraintSpec{
-				setSpec("forbidden-with", "var.region", "var.name", "var.zone"),
+				setSpec("forbidden-with", "input.region", "input.name", "input.zone"),
 			},
 			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 		},
 		{
 			name:  "predicate defers when require reads the pending field",
-			specs: []lang.ConstraintSpec{predSpec("true", "var.name != null")},
+			specs: []lang.ConstraintSpec{predSpec("true", "input.name != null")},
 			body:  `{ name: ` + ref + ` }`,
 		},
 		{
 			name:  "predicate defers when when reads the pending field",
-			specs: []lang.ConstraintSpec{predSpec("var.name == null", "var.region != null")},
+			specs: []lang.ConstraintSpec{predSpec("input.name == null", "input.region != null")},
 			body:  `{ name: ` + ref + ` }`,
 		},
 		{
 			name: "iterating predicate defers when require reads the pending field",
 			specs: []lang.ConstraintSpec{{
-				Kind: "predicate", ForEach: "var.regions",
-				When: "true", Require: "var.name != null",
+				Kind: "predicate", ForEach: "input.regions",
+				When: "true", Require: "input.name != null",
 			}},
 			body: `{ name: ` + ref + `, regions: ['us', 'eu'] }`,
 		},
 		{
 			name:  "exactly-one-of reports beside a pending field",
-			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "var.region", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("exactly-one-of", "input.region", "input.zone")},
 			body:  `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 			wantErr: forwardConstraintPrefix +
 				"constraints[0] (exactly-one-of [region, zone]): " +
@@ -373,7 +373,7 @@ func forwardRefConstraintCases() []struct {
 		},
 		{
 			name:  "at-least-one-of reports beside a pending field",
-			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "var.region", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("at-least-one-of", "input.region", "input.zone")},
 			body:  `{ name: ` + ref + ` }`,
 			wantErr: forwardConstraintPrefix +
 				"constraints[0] (at-least-one-of [region, zone]): " +
@@ -381,7 +381,7 @@ func forwardRefConstraintCases() []struct {
 		},
 		{
 			name:  "at-most-one-of reports beside a pending field",
-			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "var.region", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("at-most-one-of", "input.region", "input.zone")},
 			body:  `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 			wantErr: forwardConstraintPrefix +
 				"constraints[0] (at-most-one-of [region, zone]): " +
@@ -389,7 +389,7 @@ func forwardRefConstraintCases() []struct {
 		},
 		{
 			name:  "required-together reports beside a pending field",
-			specs: []lang.ConstraintSpec{setSpec("required-together", "var.region", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("required-together", "input.region", "input.zone")},
 			body:  `{ name: ` + ref + `, region: 'us' }`,
 			wantErr: forwardConstraintPrefix +
 				"constraints[0] (required-together [region, zone]): " +
@@ -397,7 +397,7 @@ func forwardRefConstraintCases() []struct {
 		},
 		{
 			name:  "required-with reports beside a pending field",
-			specs: []lang.ConstraintSpec{setSpec("required-with", "var.region", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("required-with", "input.region", "input.zone")},
 			body:  `{ name: ` + ref + `, region: 'us' }`,
 			wantErr: forwardConstraintPrefix +
 				`constraints[0] (required-with): ` +
@@ -405,7 +405,7 @@ func forwardRefConstraintCases() []struct {
 		},
 		{
 			name:  "forbidden-with reports beside a pending field",
-			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "var.region", "var.zone")},
+			specs: []lang.ConstraintSpec{setSpec("forbidden-with", "input.region", "input.zone")},
 			body:  `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 			wantErr: forwardConstraintPrefix +
 				`constraints[0] (forbidden-with): ` +
@@ -413,7 +413,7 @@ func forwardRefConstraintCases() []struct {
 		},
 		{
 			name:  "predicate reports beside a pending field",
-			specs: []lang.ConstraintSpec{predSpec("var.region != null", "var.zone != null")},
+			specs: []lang.ConstraintSpec{predSpec("input.region != null", "input.zone != null")},
 			body:  `{ name: ` + ref + `, region: 'us' }`,
 			wantErr: forwardConstraintPrefix +
 				"constraints[0] (predicate): predicate requirement not satisfied",
@@ -421,7 +421,7 @@ func forwardRefConstraintCases() []struct {
 		{
 			name: "splat rule reports when its list resolved",
 			specs: []lang.ConstraintSpec{
-				setSpec("exactly-one-of", "var.items[*].a", "var.items[*].b"),
+				setSpec("exactly-one-of", "input.items[*].a", "input.items[*].b"),
 			},
 			body: `{ name: ` + ref + `, items: [{ a: 1, b: 2 }] }`,
 			wantErr: forwardConstraintPrefix +
@@ -431,7 +431,7 @@ func forwardRefConstraintCases() []struct {
 		{
 			name: "indexed rule reports when its list resolved",
 			specs: []lang.ConstraintSpec{
-				setSpec("required-together", "var.items[0].a", "var.items[0].b"),
+				setSpec("required-together", "input.items[0].a", "input.items[0].b"),
 			},
 			body: `{ name: ` + ref + `, items: [{ a: 1 }] }`,
 			wantErr: forwardConstraintPrefix +
@@ -441,9 +441,9 @@ func forwardRefConstraintCases() []struct {
 		{
 			name: "one rule reports while the others defer",
 			specs: []lang.ConstraintSpec{
-				setSpec("exactly-one-of", "var.region", "var.zone"),
-				setSpec("exactly-one-of", "var.name", "var.size"),
-				predSpec("true", "var.name != null"),
+				setSpec("exactly-one-of", "input.region", "input.zone"),
+				setSpec("exactly-one-of", "input.name", "input.size"),
+				predSpec("true", "input.name != null"),
 			},
 			body: `{ name: ` + ref + `, region: 'us', zone: 'z' }`,
 			wantErr: forwardConstraintPrefix +
@@ -464,7 +464,7 @@ func TestPlanChecksChainedForEachSpec(t *testing.T) {
 		Require: "@t.value.weight <= @rule.value.max-weight",
 		Message: "a target cannot outweigh its rule",
 		ForEachLevels: []lang.ForEachSpecLevel{
-			{Name: "@rule", In: "var.rules"},
+			{Name: "@rule", In: "input.rules"},
 			{Name: "@t", In: "@rule.value.targets"},
 		},
 	}}
@@ -526,7 +526,7 @@ func TestPlanGoTypeConstraintChecksActions(t *testing.T) {
 	libs := resourceModules(&resourceCounters{})
 	libs["core"].Actions = map[string]ActionRegistration{"echo": MakeAction[echoAction, any, any]()}
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{
-		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"var.name", "var.size"}}},
+		"action.echo": {{Kind: "exactly-one-of", Fields: []string{"input.name", "input.size"}}},
 	}
 	src := planFixture(t, "plan-go-type-constraint-checks-actions")
 	exec := planTestExecutor(t, src, libs, newStateStore(t),
@@ -598,9 +598,9 @@ func TestPlanCompositeConstraints(t *testing.T) {
   name: { type: optional(string) }
   size: { type: optional(integer) }
 }`
-	const oneOf = `[ { kind: exactly-one-of, fields: [var.name, var.size] } ]`
-	const together = `[ { kind: required-together, fields: [var.name, var.size] } ]`
-	const predicate = `[ { kind: predicate, when: var.name != null, require: var.size != null } ]`
+	const oneOf = `[ { kind: exactly-one-of, fields: [input.name, input.size] } ]`
+	const together = `[ { kind: required-together, fields: [input.name, input.size] } ]`
+	const predicate = `[ { kind: predicate, when: input.name != null, require: input.size != null } ]`
 	tests := []struct {
 		name        string
 		constraints string
@@ -671,9 +671,9 @@ func TestPlanCompositeNestedConstraints(t *testing.T) {
   code: { type: optional(object({ inline: optional(string), from-file: optional(string) })) }
   size: { type: optional(integer) }
 }`
-	const oneOf = `[ { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] } ]`
-	const predicate = `[ { kind: predicate, when: var.code.inline != null,` +
-		` require: var.size != null } ]`
+	const oneOf = `[ { kind: exactly-one-of, fields: [input.code.inline, input.code.from-file] } ]`
+	const predicate = `[ { kind: predicate, when: input.code.inline != null,` +
+		` require: input.size != null } ]`
 	tests := []struct {
 		name        string
 		constraints string
@@ -742,7 +742,7 @@ func TestPlanCompositeSplatConstraints(t *testing.T) {
   }
 }`
 	const oneOf = `[ { kind: exactly-one-of,
-  fields: [var.replicas[*].inline, var.replicas[*].from-file] } ]`
+  fields: [input.replicas[*].inline, input.replicas[*].from-file] } ]`
 	tests := []struct {
 		name     string
 		callArgs string
@@ -786,8 +786,8 @@ func TestPlanCompositeConstraintCallsFunction(t *testing.T) {
 }`
 	const predicate = `[ {
   kind:    predicate
-  when:    var.replicas != null
-  require: core.all([for r in var.replicas: r.port > 0])
+  when:    input.replicas != null
+  require: core.all([for r in input.replicas: r.port > 0])
   message: 'every replica needs a positive port'
 } ]`
 

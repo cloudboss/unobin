@@ -1,3 +1,3 @@
 constraints: [
-  { kind: required-together, fields: [var.listeners[0].cert, var.listeners[0].key] },
+  { kind: required-together, fields: [input.listeners[0].cert, input.listeners[0].key] },
 ]

@@ -254,7 +254,7 @@ func TestDataReadDefersWhileLibraryConfigPending(t *testing.T) {
 func TestDriftReadSkippedWhileLibraryConfigPending(t *testing.T) {
 	var seen []string
 	libs := configuredLibrariesRecording(&seen, nil)
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "variable-config")
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "input-config")
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	first := configurationTestExecutor(t, src, libs)

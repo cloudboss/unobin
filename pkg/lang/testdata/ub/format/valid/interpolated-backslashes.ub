@@ -1,1 +1,1 @@
-x: $'path\\to\\thing {{var.x}}'
+x: $'path\\to\\thing {{input.x}}'

@@ -407,7 +407,7 @@ func staticLiteral(e Expr) (any, bool) {
 
 // ValidateConstraints walks a `constraints:` array and checks each entry
 // per its declared `kind:`. Field-based kinds take a nonempty `fields:`
-// list of var references, dotted to reach a field inside a nested
+// list of input references, dotted to reach a field inside a nested
 // input; the `predicate` kind takes `when:` and `require:` expressions
 // plus an optional `message:`.
 func ValidateConstraints(arr *ArrayLit) *ErrorList {
@@ -487,7 +487,7 @@ func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorL
 	arr, ok := fieldsField.Value.(*ArrayLit)
 	if !ok {
 		errs.Addf(ErrSchema, fieldsField.Value.Span().Start,
-			"constraints[%d]: `fields:` must be an array of var references", idx)
+			"constraints[%d]: `fields:` must be an array of input references", idx)
 		return
 	}
 	if len(arr.Elements) == 0 {
@@ -517,19 +517,19 @@ func validateFieldsConstraint(idx int, kind string, obj *ObjectLit, errs *ErrorL
 }
 
 // fieldNameProblem describes why a `fields:` element does not render to
-// a var reference, with a pointed message for the bare-name, splat, and
+// a input reference, with a pointed message for the bare-name, splat, and
 // index mistakes a constraint invites.
 func fieldNameProblem(e Expr) string {
-	const generic = "must be a var reference to an input, like var.vpc-id"
+	const generic = "must be a input reference to an input, like input.vpc-id"
 	switch v := e.(type) {
 	case *Ident:
-		return fmt.Sprintf("must be a var reference: write var.%s", v.Name)
+		return fmt.Sprintf("must be a input reference: write input.%s", v.Name)
 	case *DotPath:
 		if v.Root == nil {
 			return generic
 		}
-		if v.Root.Name != "var" {
-			return fmt.Sprintf("must be a var reference: write var.%s", dotPathString(v))
+		if v.Root.Name != "input" {
+			return fmt.Sprintf("must be a input reference: write input.%s", dotPathString(v))
 		}
 		splats := 0
 		for i, seg := range v.Segments {
@@ -539,13 +539,13 @@ func fieldNameProblem(e Expr) string {
 					return "only one [*] is allowed in a field"
 				}
 				if i == len(v.Segments)-1 {
-					return "splat [*] must be followed by a field, like var.replicas[*].host"
+					return "splat [*] must be followed by a field, like input.replicas[*].host"
 				}
 				continue
 			}
 			if seg.Index != nil {
 				if _, ok := literalIndex(seg.Index); !ok {
-					return "a list index in a field must be a whole number, like var.listeners[0]"
+					return "a list index in a field must be a whole number, like input.listeners[0]"
 				}
 			}
 		}
@@ -615,7 +615,7 @@ func validateForEachChain(idx int, arr *ArrayLit, errs *ErrorList) {
 		if !ok || len(obj.Fields) != 1 || obj.Fields[0].Key.Kind != FieldIdent {
 			errs.Addf(ErrSchema, el.Span().Start,
 				"constraints[%d]: a chain level binds one @-name to an iterable,"+
-					" like { @rule: var.rules }", idx)
+					" like { @rule: input.rules }", idx)
 			continue
 		}
 		key := obj.Fields[0].Key
@@ -771,9 +771,9 @@ func ValidateLocals(block *ObjectLit) *ErrorList {
 	return errs
 }
 
-// ValidateConstraintReferences checks that every var reference in the
+// ValidateConstraintReferences checks that every input reference in the
 // `fields:` list of each constraint names a declared input. A reference
-// is checked by the segment after var, the input the path starts from,
+// is checked by the segment after input, the input the path starts from,
 // with any [N] or [*] suffix set aside. Malformed entries are skipped.
 func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *ErrorList {
 	errs := NewErrorList(0)
@@ -807,7 +807,7 @@ func ValidateConstraintReferences(constraints *ArrayLit, inputs *ObjectLit) *Err
 			if !ok {
 				continue
 			}
-			rest, ok := strings.CutPrefix(name, "var.")
+			rest, ok := strings.CutPrefix(name, "input.")
 			if !ok {
 				continue
 			}
@@ -1098,7 +1098,7 @@ func ValidateStackInputs(block *ObjectLit, locals map[string]bool) *ErrorList {
 // ValidateStackLocals checks the values of a stack file's locals:
 // block. A stack local is the file's own scope: a static value that may
 // reference other locals, but never inputs. The stack file supplies input
-// values to the factory without being able to read them back, so a var.x
+// values to the factory without being able to read them back, so a input.x
 // here is rejected with wording that says why. Locals referencing each
 // other in a loop are reported as cycles.
 func ValidateStackLocals(block *ObjectLit) *ErrorList {
@@ -1131,7 +1131,7 @@ func stackLocalNames(e Expr) map[string]bool {
 // stackValueRules selects what a stack block's values may reference
 // beyond literals. locals holds the file's declared local names, which
 // any stack value may reference. inLocals marks the locals block
-// itself, which rewords a var.x rejection around scope: a local cannot
+// itself, which rewords a input.x rejection around scope: a local cannot
 // read inputs.
 type stackValueRules struct {
 	locals   map[string]bool
@@ -1141,7 +1141,7 @@ type stackValueRules struct {
 // refError picks the rejection wording for a reference that no rule
 // admits. root is the dot-path root, or empty for a bare identifier.
 func (r stackValueRules) refError(root string) string {
-	if r.inLocals && root == "var" {
+	if r.inLocals && root == "input" {
 		return "a local may not reference %s: inputs are supplied by the stack file, not in its scope"
 	}
 	return "stack values must be static, but %s is a reference"

@@ -23,13 +23,13 @@ func TestRefsLiteralHasNone(t *testing.T) {
 }
 
 func TestRefsVarSimple(t *testing.T) {
-	require.Equal(t, []string{"var.region"},
-		Refs(parseValue(t, "var.region")))
+	require.Equal(t, []string{"input.region"},
+		Refs(parseValue(t, "input.region")))
 }
 
 func TestRefsVarFieldAccessIgnored(t *testing.T) {
-	require.Equal(t, []string{"var.network"},
-		Refs(parseValue(t, "var.network.vpc-id")))
+	require.Equal(t, []string{"input.network"},
+		Refs(parseValue(t, "input.network.vpc-id")))
 }
 
 func TestRefsResourceInstance(t *testing.T) {
@@ -64,7 +64,7 @@ func TestRefsInterpolated(t *testing.T) {
 		{"literal only", `$'just text'`, nil},
 		{"escaped braces are literal", `$'\{{not a ref}}'`, nil},
 		{"each binding ignored", `$'{{@each.value}}'`, nil},
-		{"single var", `$'{{var.region}}'`, []string{"var.region"}},
+		{"single input", `$'{{input.region}}'`, []string{"input.region"}},
 		{"single resource", `$'{{resource.aws.vpc.main.id}}'`, []string{"resource.aws.vpc.main"}},
 		{"single data", `$'{{data.aws.ami.ubuntu.id}}'`, []string{"data.aws.ami.ubuntu"}},
 		{
@@ -72,27 +72,27 @@ func TestRefsInterpolated(t *testing.T) {
 			`$'{{action.core.command.smoke.exit-code}}'`,
 			[]string{"action.core.command.smoke"},
 		},
-		{"literal around ref", `$'https://{{var.host}}/v1'`, []string{"var.host"}},
-		{"verb does not change ref", `$'{{var.n:%03d}}'`, []string{"var.n"}},
-		{"nested field collapses to node", `$'{{var.network.vpc-id}}'`, []string{"var.network"}},
+		{"literal around ref", `$'https://{{input.host}}/v1'`, []string{"input.host"}},
+		{"verb does not change ref", `$'{{input.n:%03d}}'`, []string{"input.n"}},
+		{"nested field collapses to node", `$'{{input.network.vpc-id}}'`, []string{"input.network"}},
 		{
 			"for-each instance index",
 			`$'{{resource.aws.instance.nodes['alpha'].id}}'`,
 			[]string{"resource.aws.instance.nodes"},
 		},
-		{"two vars in order", `$'{{var.z}}-{{var.a}}'`, []string{"var.z", "var.a"}},
-		{"duplicate ref deduped", `$'{{var.x}}/{{var.x}}'`, []string{"var.x"}},
+		{"two inputs in order", `$'{{input.z}}-{{input.a}}'`, []string{"input.z", "input.a"}},
+		{"duplicate ref deduped", `$'{{input.x}}/{{input.x}}'`, []string{"input.x"}},
 		{
 			"mixed kinds",
-			`$'{{var.region}}/{{resource.aws.vpc.main.id}}/{{data.aws.ami.ubuntu.id}}'`,
-			[]string{"var.region", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
+			`$'{{input.region}}/{{resource.aws.vpc.main.id}}/{{data.aws.ami.ubuntu.id}}'`,
+			[]string{"input.region", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
 		},
 		{
 			"conditional slot unions both branches",
-			`$'{{if var.cond then resource.aws.vpc.main.id else data.aws.ami.ubuntu.id}}'`,
-			[]string{"var.cond", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
+			`$'{{if input.cond then resource.aws.vpc.main.id else data.aws.ami.ubuntu.id}}'`,
+			[]string{"input.cond", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
 		},
-		{"call argument ref", `$'{{format('%s', var.x)}}'`, []string{"var.x"}},
+		{"call argument ref", `$'{{format('%s', input.x)}}'`, []string{"input.x"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -103,41 +103,41 @@ func TestRefsInterpolated(t *testing.T) {
 
 func TestRefsCollectsAcrossArrayAndObject(t *testing.T) {
 	src := `[
-  var.a,
+  input.a,
   resource.aws.vpc.main.id,
-  { sg: resource.aws.security-group.web.id, az: var.zone },
+  { sg: resource.aws.security-group.web.id, az: input.zone },
 ]`
 	got := Refs(parseValue(t, src))
 	require.Equal(t, []string{
-		"var.a",
+		"input.a",
 		"resource.aws.vpc.main",
 		"resource.aws.security-group.web",
-		"var.zone",
+		"input.zone",
 	}, got)
 }
 
 func TestRefsCollectsInsideCalls(t *testing.T) {
-	src := `format('%s-%s', var.region, resource.aws.vpc.main.id)`
+	src := `format('%s-%s', input.region, resource.aws.vpc.main.id)`
 	got := Refs(parseValue(t, src))
-	require.Equal(t, []string{"var.region", "resource.aws.vpc.main"}, got)
+	require.Equal(t, []string{"input.region", "resource.aws.vpc.main"}, got)
 }
 
 func TestRefsCollectsAcrossOperators(t *testing.T) {
-	src := `var.a + var.b > 0 && resource.aws.vpc.main.id == 'x'`
+	src := `input.a + input.b > 0 && resource.aws.vpc.main.id == 'x'`
 	got := Refs(parseValue(t, src))
-	require.Equal(t, []string{"var.a", "var.b", "resource.aws.vpc.main"}, got)
+	require.Equal(t, []string{"input.a", "input.b", "resource.aws.vpc.main"}, got)
 }
 
 func TestRefsIndexExpressionIsScanned(t *testing.T) {
-	src := `resource.aws.instance.nodes[var.key].id`
+	src := `resource.aws.instance.nodes[input.key].id`
 	got := Refs(parseValue(t, src))
-	require.Equal(t, []string{"resource.aws.instance.nodes", "var.key"}, got)
+	require.Equal(t, []string{"resource.aws.instance.nodes", "input.key"}, got)
 }
 
 func TestRefsDeduplicates(t *testing.T) {
-	src := `[var.region, var.region, resource.aws.vpc.main.id, resource.aws.vpc.main.cidr-block]`
+	src := `[input.region, input.region, resource.aws.vpc.main.id, resource.aws.vpc.main.cidr-block]`
 	got := Refs(parseValue(t, src))
-	require.Equal(t, []string{"var.region", "resource.aws.vpc.main"}, got)
+	require.Equal(t, []string{"input.region", "resource.aws.vpc.main"}, got)
 }
 
 func TestRefsResourceWithoutThreeSegmentsIgnored(t *testing.T) {
@@ -150,26 +150,26 @@ func TestRefsUnknownRootIgnored(t *testing.T) {
 }
 
 func TestRefsInsideConditional(t *testing.T) {
-	src := `if var.prod then resource.aws.vpc.big.id else resource.aws.vpc.small.id`
+	src := `if input.prod then resource.aws.vpc.big.id else resource.aws.vpc.small.id`
 	got := Refs(parseValue(t, src))
 	require.Equal(t, []string{
-		"var.prod", "resource.aws.vpc.big", "resource.aws.vpc.small",
+		"input.prod", "resource.aws.vpc.big", "resource.aws.vpc.small",
 	}, got)
 }
 
 // A comprehension's bound name is not a node address, so it never
-// becomes a dependency edge; only the source and any var/resource refs
+// becomes a dependency edge; only the source and any input/resource refs
 // in the body or filter count.
 func TestRefsInsideComprehensionExcludesBoundName(t *testing.T) {
-	src := `[ for s in var.subnets : s.cidr-block when s.public ]`
+	src := `[ for s in input.subnets : s.cidr-block when s.public ]`
 	got := Refs(parseValue(t, src))
-	require.Equal(t, []string{"var.subnets"}, got)
+	require.Equal(t, []string{"input.subnets"}, got)
 }
 
 func TestRefsInsideMapComprehension(t *testing.T) {
-	src := `{ for s in resource.aws.subnet.all : s.id => var.tags }`
+	src := `{ for s in resource.aws.subnet.all : s.id => input.tags }`
 	got := Refs(parseValue(t, src))
-	require.Equal(t, []string{"resource.aws.subnet.all", "var.tags"}, got)
+	require.Equal(t, []string{"resource.aws.subnet.all", "input.tags"}, got)
 }
 
 // Reading one field of an object-valued local depends only on that

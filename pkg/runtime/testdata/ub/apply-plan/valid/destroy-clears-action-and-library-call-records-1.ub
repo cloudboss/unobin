@@ -1,3 +1,3 @@
 inputs:  { msg: { type: string } }
-actions: { inner: core.echo { echo: var.msg } }
+actions: { inner: core.echo { echo: input.msg } }
 outputs: { said: { value: action.inner.echo } }

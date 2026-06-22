@@ -6,12 +6,12 @@ slice: resource {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
     file: e2e.file {
-      path:    var.tag
-      content: var.tag
+      path:    input.tag
+      content: input.tag
     }
   }
 }

@@ -16,13 +16,13 @@ func runtimeLocalsFixture(t testing.TB, name string) string {
 }
 
 // localsCtx parses a `locals: { ... }` block and returns an EvalContext
-// carrying it, seeded with the given vars and resources.
-func localsCtx(t *testing.T, localsSrc string, vars, res map[string]any) *EvalContext {
+// carrying it, seeded with the given inputs and resources.
+func localsCtx(t *testing.T, localsSrc string, inputs, res map[string]any) *EvalContext {
 	t.Helper()
 	f, err := lang.ParseSource("", []byte(localsSrc+"\n"))
 	require.NoError(t, err)
 	return &EvalContext{
-		Vars:      vars,
+		Inputs:    inputs,
 		Resources: res,
 		Data:      map[string]any{},
 		Actions:   map[string]any{},
@@ -35,7 +35,7 @@ func TestEvalLocalResolves(t *testing.T) {
 		name    string
 		fixture string
 		expr    string
-		vars    map[string]any
+		inputs  map[string]any
 		res     map[string]any
 		want    any
 	}{
@@ -52,45 +52,45 @@ func TestEvalLocalResolves(t *testing.T) {
 			want:    int64(3),
 		},
 		{
-			name:    "reads a var",
-			fixture: "local-resolves/reads-var",
+			name:    "reads an input",
+			fixture: "local-resolves/reads-input",
 			expr:    "local.r",
-			vars:    map[string]any{"region": "us-east-1"},
+			inputs:  map[string]any{"region": "us-east-1"},
 			want:    "us-east-1",
 		},
 		{
 			name:    "boolean expression",
 			fixture: "local-resolves/boolean-expression",
 			expr:    "local.is-prod",
-			vars:    map[string]any{"env": "prod"},
+			inputs:  map[string]any{"env": "prod"},
 			want:    true,
 		},
 		{
 			name:    "local reads another local",
 			fixture: "local-resolves/local-reads-local",
 			expr:    "local.derived",
-			vars:    map[string]any{"x": "root"},
+			inputs:  map[string]any{"x": "root"},
 			want:    "root",
 		},
 		{
 			name:    "three local chain",
 			fixture: "local-resolves/three-local-chain",
 			expr:    "local.c",
-			vars:    map[string]any{"x": "deep"},
+			inputs:  map[string]any{"x": "deep"},
 			want:    "deep",
 		},
 		{
 			name:    "declaration order does not matter",
 			fixture: "local-resolves/declaration-order",
 			expr:    "local.later",
-			vars:    map[string]any{"x": "ok"},
+			inputs:  map[string]any{"x": "ok"},
 			want:    "ok",
 		},
 		{
-			name:    "interpolation over locals and vars",
+			name:    "interpolation over locals and inputs",
 			fixture: "local-resolves/interpolation",
 			expr:    "local.name",
-			vars:    map[string]any{"env": "prod"},
+			inputs:  map[string]any{"env": "prod"},
 			want:    "prod-cluster",
 		},
 		{
@@ -118,13 +118,13 @@ func TestEvalLocalResolves(t *testing.T) {
 			name:    "comprehension inside a local",
 			fixture: "local-resolves/comprehension",
 			expr:    "local.upper",
-			vars:    map[string]any{"names": []any{"x", "y"}},
+			inputs:  map[string]any{"names": []any{"x", "y"}},
 			want:    []any{"x", "y"},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), c.vars, c.res)
+			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), c.inputs, c.res)
 			got, err := Eval(parseValue(t, c.expr), ctx)
 			require.NoError(t, err)
 			require.Equal(t, c.want, got)
@@ -217,7 +217,7 @@ func TestEvalLocalInComprehension(t *testing.T) {
 	ctx := localsCtx(t,
 		runtimeLocalsFixture(t, "local-in-comprehension"),
 		map[string]any{"names": []any{"a", "b"}}, nil)
-	got, err := Eval(parseValue(t, "[ for n in var.names : $'{{local.prefix}}-{{n}}' ]"), ctx)
+	got, err := Eval(parseValue(t, "[ for n in input.names : $'{{local.prefix}}-{{n}}' ]"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, []any{"svc-a", "svc-b"}, got)
 }
@@ -226,7 +226,7 @@ func TestEvalLocalDeterministic(t *testing.T) {
 	cases := []struct {
 		fixture string
 		expr    string
-		vars    map[string]any
+		inputs  map[string]any
 		want    any
 	}{
 		{"deterministic/local-chain", "local.b", map[string]any{"x": "v"}, "v"},
@@ -235,7 +235,7 @@ func TestEvalLocalDeterministic(t *testing.T) {
 	}
 	for _, c := range cases {
 		for range 20 {
-			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), c.vars, nil)
+			ctx := localsCtx(t, runtimeLocalsFixture(t, c.fixture), c.inputs, nil)
 			got, err := Eval(parseValue(t, c.expr), ctx)
 			require.NoError(t, err)
 			require.Equal(t, c.want, got)

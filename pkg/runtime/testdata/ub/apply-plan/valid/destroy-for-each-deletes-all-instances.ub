@@ -1,1 +1,1 @@
-resources: { many: core.thing { @for-each: var.names, name: @each.key } }
+resources: { many: core.thing { @for-each: input.names, name: @each.key } }

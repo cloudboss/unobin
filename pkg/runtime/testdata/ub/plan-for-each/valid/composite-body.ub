@@ -2,5 +2,5 @@ inputs: {
   tag: { type: string }
 }
 resources: {
-  s: core.subnet { tag: var.tag }
+  s: core.subnet { tag: input.tag }
 }

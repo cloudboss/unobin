@@ -1,7 +1,7 @@
 outputs: {
   url: { value: 'https://example.com' }
   password: {
-    value: var.p
+    value: input.p
     @sensitive: true
   }
   token: {

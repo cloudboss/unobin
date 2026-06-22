@@ -1,1 +1,1 @@
-x: if var.n > 3 then 'big' else 'small'
+x: if input.n > 3 then 'big' else 'small'

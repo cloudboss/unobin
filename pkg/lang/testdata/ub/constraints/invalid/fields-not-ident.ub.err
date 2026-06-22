@@ -1,2 +1,2 @@
-constraints[0].fields[0]: must be a var reference to an input, like var.vpc-id
-constraints[0].fields[1]: must be a var reference to an input, like var.vpc-id
+constraints[0].fields[0]: must be a input reference to an input, like input.vpc-id
+constraints[0].fields[1]: must be a input reference to an input, like input.vpc-id

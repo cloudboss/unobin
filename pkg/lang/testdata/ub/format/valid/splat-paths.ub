@@ -1,9 +1,9 @@
-splat-field: var.subnets[*].id
+splat-field: input.subnets[*].id
 node-output-field: resource.aws.vpc.main.subnets[*].cidr
-nested-splat: var.grid[*][*].name
-index-splat-field: var.matrix[0][*].id
-splat-index: var.matrix[*][0]
-string-index-splat: var.m['key'].items[*].id
-bare-splat: var.list[*]
-spaces-normalized: var.list[ * ].id
-splat-call-argument: core.format('%s', var.subnets[*].id)
+nested-splat: input.grid[*][*].name
+index-splat-field: input.matrix[0][*].id
+splat-index: input.matrix[*][0]
+string-index-splat: input.m['key'].items[*].id
+bare-splat: input.list[*]
+spaces-normalized: input.list[ * ].id
+splat-call-argument: core.format('%s', input.subnets[*].id)

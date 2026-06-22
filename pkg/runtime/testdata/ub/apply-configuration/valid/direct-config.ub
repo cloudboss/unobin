@@ -5,7 +5,7 @@ inputs: {
   fix-config: { type: library-config('github.com/acme/fix') }
 }
 library-configs: {
-  fix: var.fix-config
+  fix: input.fix-config
 }
 resources: {
   app: fix.config-echo {}

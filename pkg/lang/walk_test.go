@@ -25,7 +25,7 @@ func TestWalkVisitsNestedExpressions(t *testing.T) {
 			dotPaths = append(dotPaths, dp.Root.Name)
 		}
 	})
-	require.Contains(t, dotPaths, "var")
+	require.Contains(t, dotPaths, "input")
 }
 
 func TestWalkNilIsSafe(t *testing.T) {
@@ -58,9 +58,9 @@ func TestWalkVisitsConditionalBranches(t *testing.T) {
 			roots = append(roots, dp.Root.Name+"."+dp.Segments[0].Name)
 		}
 	})
-	require.Contains(t, roots, "var.prod")
-	require.Contains(t, roots, "var.big")
-	require.Contains(t, roots, "var.small")
+	require.Contains(t, roots, "input.prod")
+	require.Contains(t, roots, "input.big")
+	require.Contains(t, roots, "input.small")
 }
 
 func TestWalkVisitsComprehensionParts(t *testing.T) {
@@ -72,7 +72,7 @@ func TestWalkVisitsComprehensionParts(t *testing.T) {
 			roots = append(roots, dp.Root.Name)
 		}
 	})
-	require.Contains(t, roots, "var", "source and filter var refs should be visited")
+	require.Contains(t, roots, "input", "source and filter input refs should be visited")
 	require.Contains(t, roots, "s", "bound name in the body should be visited")
 }
 

@@ -56,7 +56,7 @@ func RootSensitiveOutputs(
 // the scope's `locals:` declarations (so a `local.X` can be followed
 // to its expression), and a guard set that breaks cyclic locals.
 type sensScope struct {
-	vars    map[string]bool
+	inputs  map[string]bool
 	libs    map[string]*Library
 	locals  map[string]lang.Expr
 	nodes   map[string]*Node
@@ -65,14 +65,14 @@ type sensScope struct {
 }
 
 func newSensScope(
-	vars map[string]bool,
+	inputs map[string]bool,
 	libs map[string]*Library,
 	locals map[string]lang.Expr,
 	nodes map[string]*Node,
 	scope string,
 ) *sensScope {
 	return &sensScope{
-		vars:    vars,
+		inputs:  inputs,
 		libs:    libs,
 		locals:  locals,
 		nodes:   nodes,
@@ -199,7 +199,7 @@ func (s *sensitivityAnalyzer) libsForNode(n *Node) (map[string]*Library, *Node) 
 	return boundary.Libraries, boundary
 }
 
-// scopeFor returns the sensitive-vars set and libraries table to
+// scopeFor returns the sensitive-inputs set and libraries table to
 // resolve references against when analyzing inside the named
 // composite call site. The root scope returns the analyzer's
 // rootInputs and rootMods.
@@ -331,11 +331,11 @@ func (s *sensitivityAnalyzer) exprSensitive(e lang.Expr, sc *sensScope) bool {
 
 func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) bool {
 	switch dp.Root.Name {
-	case "var":
+	case "input":
 		if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
 			return false
 		}
-		return sc.vars[dp.Segments[0].Name]
+		return sc.inputs[dp.Segments[0].Name]
 	case "local":
 		return s.localSensitive(dp, sc)
 	case "resource", "data", "action":

@@ -4,8 +4,8 @@ factory: {
   constraints: [
     {
       kind: predicate
-      require: $'{{var.note}}' != ''
-      when: var.note != null
+      require: $'{{input.note}}' != ''
+      when: input.note != null
     }
   ]
 }

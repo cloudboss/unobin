@@ -51,11 +51,11 @@ func TestInputsFromBlockNestedDefaults(t *testing.T) {
 	scope := &Scope{Inputs: inputs}
 	errs := lang.NewErrorList(0)
 
-	got := Infer(parseExpr(t, "var.spec.port"), TUnknown(), scope, errs)
+	got := Infer(parseExpr(t, "input.spec.port"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TInteger()), "port reads defaulted, got %s", got)
-	got = Infer(parseExpr(t, "var.spec.retries"), TUnknown(), scope, errs)
+	got = Infer(parseExpr(t, "input.spec.retries"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOptional(TInteger())), "retries stays optional, got %s", got)
-	got = Infer(parseExpr(t, "var.spec.note"), TUnknown(), scope, errs)
+	got = Infer(parseExpr(t, "input.spec.note"), TUnknown(), scope, errs)
 	assert.True(t, got.Equal(TOptional(TString())), "note stays optional, got %s", got)
 	assert.Empty(t, errs.Errors())
 }

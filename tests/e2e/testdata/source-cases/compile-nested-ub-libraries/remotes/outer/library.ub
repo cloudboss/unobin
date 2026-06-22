@@ -2,6 +2,6 @@ greeting: resource {
   description: 'outer greeting'
   inputs: { path: { type: string } }
   imports: { inner: 'github.com/example/inner//ub/inner' }
-  resources: { x: inner.hello { path: var.path } }
+  resources: { x: inner.hello { path: input.path } }
   outputs: { path: { value: resource.x.path } }
 }

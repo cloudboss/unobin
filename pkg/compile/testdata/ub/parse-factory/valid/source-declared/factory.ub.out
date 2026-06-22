@@ -3,7 +3,7 @@ factory: {
   inputs:  { path: { type: string } }
   resources: {
     hello: std.fs-file {
-      path: var.path
+      path: input.path
     }
   }
   outputs: {

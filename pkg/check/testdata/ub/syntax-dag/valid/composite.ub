@@ -1,6 +1,6 @@
 greeting: resource {
   inputs: { path: { type: string } }
-  locals: { target: var.path }
+  locals: { target: input.path }
   resources: {
     file: local.fs-file { path: local.target }
   }

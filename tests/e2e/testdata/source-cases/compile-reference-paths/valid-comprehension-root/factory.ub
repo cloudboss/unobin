@@ -1,4 +1,4 @@
 factory: {
   inputs: { subnets: { type: list(object({ cidr: string })) } }
-  outputs: { ok: { value: [ for s in var.subnets : s.cidr ] } }
+  outputs: { ok: { value: [ for s in input.subnets : s.cidr ] } }
 }

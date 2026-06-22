@@ -1,0 +1,2 @@
+inputs:    { who: { type: string } }
+resources: { x: w.hello { who: input.who } }

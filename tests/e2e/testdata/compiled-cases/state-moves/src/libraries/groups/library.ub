@@ -17,19 +17,19 @@ group: resource {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   resources: {
     file: e2e.file {
-      path:    var.file-path
-      content: var.content
+      path:    input.file-path
+      content: input.content
     }
 
     single: items.item {
-      path:       var.single-path
-      content:    var.content
-      e2e-config: var.e2e-config
+      path:       input.single-path
+      content:    input.content
+      e2e-config: input.e2e-config
     }
   }
 

@@ -30,19 +30,19 @@ factory: {
   constraints: [
     # Set kinds relate which inputs are set: deploy from an image or a
     # build context but not both, and an image needs its registry.
-    { kind: exactly-one-of, fields: [var.image, var.build] },
-    { kind: required-with, fields: [var.image, var.registry] },
+    { kind: exactly-one-of, fields: [input.image, input.build] },
+    { kind: required-with, fields: [input.image, input.registry] },
 
     # A [*] field runs the rule once per element, so each replica's cert
     # and key come together; a failure names the element that broke it.
-    { kind: required-together, fields: [var.replicas[*].cert, var.replicas[*].key] },
+    { kind: required-together, fields: [input.replicas[*].cert, input.replicas[*].key] },
 
     # A predicate checks an arbitrary when/require pair and may call
     # imported functions.
     {
       kind:    predicate
-      when:    var.tier == 'prod'
-      require: @core.length(var.replicas) >= 2
+      when:    input.tier == 'prod'
+      require: @core.length(input.replicas) >= 2
       message: 'prod runs at least two replicas'
     },
 
@@ -50,7 +50,7 @@ factory: {
     # @each bound to the element's key and value.
     {
       kind:      predicate
-      @for-each: var.replicas
+      @for-each: input.replicas
       when:      @each.value.tls == true
       require:   @each.value.cert != null
       message:   'a tls replica needs a cert'
@@ -65,16 +65,16 @@ factory: {
   resources: {
     app: deploy.service {
       name:     'app'
-      tier:     var.tier
-      image:    var.image
-      build:    var.build
-      replicas: @core.length(var.replicas)
-      ports:    [ for r in var.replicas : { number: r.port, tls: r.tls, cert: r.cert } ]
-      path:     $'{{ var.base-path }}/app.service'
+      tier:     input.tier
+      image:    input.image
+      build:    input.build
+      replicas: @core.length(input.replicas)
+      ports:    [ for r in input.replicas : { number: r.port, tls: r.tls, cert: r.cert } ]
+      path:     $'{{ input.base-path }}/app.service'
     }
     summary: std.fs-file {
-      path:             $'{{ var.base-path }}/replicas.txt'
-      content:          $'replicas: {{ @core.join(var.replicas[*].host, ', ') }}\n'
+      path:             $'{{ input.base-path }}/replicas.txt'
+      content:          $'replicas: {{ @core.join(input.replicas[*].host, ', ') }}\n'
       create-directory: true
     }
   }
@@ -83,6 +83,6 @@ factory: {
     spec-sha256:  { value: resource.app.sha256 }
     spec-size:    { value: resource.app.size }
     summary-path: { value: resource.summary.path }
-    hosts:        { value: var.replicas[*].host }
+    hosts:        { value: input.replicas[*].host }
   }
 }

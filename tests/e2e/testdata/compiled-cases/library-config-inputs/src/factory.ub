@@ -17,7 +17,7 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   actions: {
@@ -28,6 +28,6 @@ factory: {
 
   outputs: {
     prefixed: { value: action.hi.prefixed }
-    size:     { value: var.size }
+    size:     { value: input.size }
   }
 }

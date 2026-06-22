@@ -23,29 +23,29 @@ factory: {
   }
 
   constraints: [
-    { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
-    { kind: exactly-one-of, fields: [var.replicas[*].inline, var.replicas[*].from-file] },
+    { kind: required-together, fields: [input.vpc-id, input.subnet-ids] },
+    { kind: exactly-one-of, fields: [input.replicas[*].inline, input.replicas[*].from-file] },
     {
       kind:    predicate
-      when:    var.replicas != null
-      require: @core.all([for r in var.replicas: r.port != null && r.port > 0])
+      when:    input.replicas != null
+      require: @core.all([for r in input.replicas: r.port != null && r.port > 0])
       message: 'every replica needs a positive port'
     },
     {
       kind:    predicate
-      when:    var.region == 'us-gov-east-1'
-      require: var.fips-mode == true
+      when:    input.region == 'us-gov-east-1'
+      require: input.fips-mode == true
       message: 'GovCloud regions require FIPS mode enabled'
     },
     {
       kind:    predicate
       when:    true
-      require: var.code.inline != null
+      require: input.code.inline != null
       message: 'code must be inline'
     },
     {
       kind:      predicate
-      @for-each: var.tls-items
+      @for-each: input.tls-items
       when:      true
       require:   @each.value.tls == true
       message:   'tls is required'

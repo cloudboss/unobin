@@ -1,1 +1,1 @@
-a: lib.foo(var.x, var.y)
+a: lib.foo(input.x, input.y)

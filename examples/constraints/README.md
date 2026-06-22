@@ -18,12 +18,12 @@ plan time, before any work happens:
   and an image needs its `registry:`.
 - A `[*]` field runs a set rule once per list element, so each
   replica's `cert` and `key` come together. A failure names the
-  element that broke the rule (`var.replicas[0].cert`).
+  element that broke the rule (`input.replicas[0].cert`).
 - A `predicate` checks a `when:`/`require:` pair and may call
   functions from the language namespace (`@core.length`).
 - A predicate with `@for-each:` checks once per element, with
   `@each.key` and `@each.value` bound; a failure names the element
-  (`var.replicas[1]`).
+  (`input.replicas[1]`).
 
 ## The Go constraints
 
@@ -94,21 +94,21 @@ Each rule rejects a bad `dev.ub` at plan time. Editing the inputs
 one way at a time:
 
 - Add `build: './src'` next to `image:`:
-  `constraints[0] (exactly-one-of [var.image, var.build]): expected
-  exactly one to be set, got 2 (var.image, var.build)`.
+  `constraints[0] (exactly-one-of [input.image, input.build]): expected
+  exactly one to be set, got 2 (input.image, input.build)`.
 - Remove `registry:`:
-  `constraints[1] (required-with): "var.image" is set, so
-  [var.registry] must also be set; missing var.registry`.
+  `constraints[1] (required-with): "input.image" is set, so
+  [input.registry] must also be set; missing input.registry`.
 - Remove the first replica's `key:`:
-  `constraints[2] (required-together [var.replicas[0].cert,
-  var.replicas[0].key]): expected all set or all null, got 1 set
-  (var.replicas[0].cert)`.
+  `constraints[2] (required-together [input.replicas[0].cert,
+  input.replicas[0].key]): expected all set or all null, got 1 set
+  (input.replicas[0].cert)`.
 - Remove the second replica while `tier: 'prod'`:
   `constraints[3] (predicate): prod runs at least two replicas`.
 - Remove the first replica's `cert:` and `key:` while it has
   `tls: true`:
   `constraints[4] (predicate): a tls replica needs a cert
-  (var.replicas[0])`.
+  (input.replicas[0])`.
 - Set `tier: 'staging'`, which the stack rules allow but the Go
   rules reject, named relative to the resource body:
   `resource.app: schema: constraints[1] (predicate):
@@ -124,4 +124,4 @@ constraints[0] (exactly-one-of [image, build]): expected exactly one to be set,
 got 2 (image, build)
 ```
 
-Fields that read inputs (`tier: var.tier`) defer their rules to plan.
+Fields that read inputs (`tier: input.tier`) defer their rules to plan.

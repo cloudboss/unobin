@@ -1,2 +1,2 @@
 inputs:    { size: { type: integer } }
-resources: { a.b.c: { x: format('%d', var.size + 1) } }
+resources: { a.b.c: { x: format('%d', input.size + 1) } }

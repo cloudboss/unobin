@@ -1,1 +1,1 @@
-x: [ for i, s in var.items : i ]
+x: [ for i, s in input.items : i ]

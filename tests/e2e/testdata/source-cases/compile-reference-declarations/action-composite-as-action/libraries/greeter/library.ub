@@ -6,10 +6,10 @@ greeting: action {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   actions: {
-    say: e2e.echo { text: var.message }
+    say: e2e.echo { text: input.message }
   }
 
   outputs: { said: { value: action.say.text } }

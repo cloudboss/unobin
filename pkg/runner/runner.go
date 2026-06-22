@@ -779,21 +779,21 @@ func buildInputs(
 
 // defaultEval reduces an input declaration default expression to a Go
 // value. The empty EvalContext means defaults can use literals,
-// arithmetic, and built-in calls but not address roots like var.X
+// arithmetic, and built-in calls but not address roots like input.X
 // (which would be circular at default-application time anyway).
 func defaultEval(e lang.Expr) (any, error) {
 	return runtime.Eval(e, &runtime.EvalContext{})
 }
 
 // predicateEval reduces a constraint's `when:` or `require:` expression
-// against the validated inputs, so a predicate can read var.X for any
+// against the validated inputs, so a predicate can read input.X for any
 // declared input, call functions from the factory's imported libraries,
 // and read a field under an unset nested input as null.
 func predicateEval(
 	values map[string]any, libs map[string]*runtime.Library,
 ) lang.ConstraintEvalFunc {
 	return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &runtime.EvalContext{Vars: values, Libraries: libs, MissingAsNull: true}
+		ctx := &runtime.EvalContext{Inputs: values, Libraries: libs, MissingAsNull: true}
 		for _, b := range binds {
 			if ctx.Each == nil {
 				ctx.Each = map[string]lang.EachValue{}

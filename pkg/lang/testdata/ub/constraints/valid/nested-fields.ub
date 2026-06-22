@@ -1,4 +1,4 @@
 constraints: [
-  { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] },
-  { kind: required-with,  fields: [var.code.signing.key-arn, var.name] },
+  { kind: exactly-one-of, fields: [input.code.inline, input.code.from-file] },
+  { kind: required-with,  fields: [input.code.signing.key-arn, input.name] },
 ]

@@ -66,7 +66,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Mode, 420),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.mode", Value: "420"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.mode", Value: "420"}},
 		},
 		{
 			name: "octal literal normalizes to decimal",
@@ -75,7 +75,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Mode, 0o644),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.mode", Value: "420"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.mode", Value: "420"}},
 		},
 		{
 			name: "string value",
@@ -84,7 +84,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Method, "GET"),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.method", Value: "'GET'"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.method", Value: "'GET'"}},
 		},
 		{
 			name: "boolean value",
@@ -93,7 +93,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.On, true),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.on", Value: "true"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.on", Value: "true"}},
 		},
 		{
 			name: "float value",
@@ -102,7 +102,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Ratio, 0.5),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.ratio", Value: "0.5"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.ratio", Value: "0.5"}},
 		},
 		{
 			name: "negative value",
@@ -111,7 +111,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Mode, -1),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.mode", Value: "-1"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.mode", Value: "-1"}},
 		},
 		{
 			name: "duration constant folds to nanoseconds",
@@ -120,7 +120,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Timeout, time.Second),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.timeout", Value: "1000000000"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.timeout", Value: "1000000000"}},
 		},
 		{
 			name: "duration product folds",
@@ -129,7 +129,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Timeout, 5*time.Minute),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.timeout", Value: "300000000000"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.timeout", Value: "300000000000"}},
 		},
 		{
 			name: "duration product folds with the constant first",
@@ -138,7 +138,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Timeout, time.Second*30),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.timeout", Value: "30000000000"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.timeout", Value: "30000000000"}},
 		},
 		{
 			name: "optional marker",
@@ -147,7 +147,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Optional(f.Dir),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.dir", Optional: true}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.dir", Optional: true}},
 		},
 		{
 			name: "nested field by dotted path",
@@ -156,7 +156,7 @@ func TestReadExtractsDefaults(t *testing.T) {
 		defaults.Value(f.Code.Retries, 3),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "var.code.retries", Value: "3"}},
+			wantSpecs: []lang.DefaultSpec{{Field: "input.code.retries", Value: "3"}},
 		},
 		{
 			name: "declaration order is preserved",
@@ -168,9 +168,9 @@ func TestReadExtractsDefaults(t *testing.T) {
 	}
 }`,
 			wantSpecs: []lang.DefaultSpec{
-				{Field: "var.method", Value: "'GET'"},
-				{Field: "var.dir", Optional: true},
-				{Field: "var.mode", Value: "420"},
+				{Field: "input.method", Value: "'GET'"},
+				{Field: "input.dir", Optional: true},
+				{Field: "input.mode", Value: "420"},
 			},
 		},
 		{
@@ -326,9 +326,9 @@ func (f Thing) Defaults() []defaults.Default {
 	require.Empty(t, warnings)
 	thing := schema.Resources["thing"]
 	require.Equal(t, []lang.ConstraintSpec{
-		{Kind: "required-with", Fields: []string{"var.method", "var.dir"}},
+		{Kind: "required-with", Fields: []string{"input.method", "input.dir"}},
 	}, thing.Constraints)
 	require.Equal(t, []lang.DefaultSpec{
-		{Field: "var.method", Value: "'GET'"},
+		{Field: "input.method", Value: "'GET'"},
 	}, thing.Defaults)
 }

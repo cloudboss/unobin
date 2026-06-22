@@ -19,7 +19,7 @@ import (
 // surfaces a real failure when the reference truly is invalid.
 var ErrEvalNotFound = errors.New("not found")
 
-// EvalContext supplies the values that addresses resolve against. Vars
+// EvalContext supplies the values that addresses resolve against. Inputs
 // is the validated `inputs:` map after the stack file and `UB_INPUT_*` env
 // overrides. Resources, Data, and Actions hold the outputs of nodes
 // that have already executed, indexed by their source address path.
@@ -29,7 +29,7 @@ var ErrEvalNotFound = errors.New("not found")
 // dot-path roots ahead of the reserved roots; validation keeps the
 // names distinct across nesting.
 type EvalContext struct {
-	Vars      map[string]any
+	Inputs    map[string]any
 	Resources map[string]any
 	Data      map[string]any
 	Actions   map[string]any
@@ -73,7 +73,7 @@ func (ctx *EvalContext) withBindings(binds map[string]any) *EvalContext {
 
 // Eval reduces a parsed expression to a Go value. Supported are
 // literals, bare identifiers (as their name string); array and object
-// literals (recursive); and the `var.X[.Y...]` address form.
+// literals (recursive); and the `input.X[.Y...]` address form.
 func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 	switch v := e.(type) {
 	case *lang.StringLit:
@@ -742,8 +742,8 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	}
 	var root any
 	switch p.Root.Name {
-	case "var":
-		root = ctx.Vars
+	case "input":
+		root = ctx.Inputs
 	case "resource":
 		root = ctx.Resources
 	case "data":

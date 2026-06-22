@@ -59,6 +59,16 @@ func TestCheckReferencesSkipsFieldCheckWhenNoSchema(t *testing.T) {
 	require.Empty(t, checkRefMessages(t, errs))
 }
 
+func TestCheckReferenceFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/references", func(name string, src []byte) (string, []string) {
+		f, err := syntax.ParseSource("factory.ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return "", NewSyntax(f.Factory.Body, nil).References(nil).Messages()
+	})
+}
+
 func checkRefMessages(t *testing.T, errs *lang.ErrorList) []string {
 	t.Helper()
 	for _, err := range errs.Errors() {

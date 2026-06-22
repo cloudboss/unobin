@@ -45,7 +45,7 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 			errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, e.Msg)
 		}
 		eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			ctx := &runtime.EvalContext{Inputs: values, MissingAsNull: true}
 			runtime.ApplyBindings(ctx, binds)
 			v, err := runtime.Eval(ex, ctx)
 			if errors.Is(err, runtime.ErrEvalNotFound) {

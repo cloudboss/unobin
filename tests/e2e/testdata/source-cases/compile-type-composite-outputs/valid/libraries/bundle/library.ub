@@ -6,14 +6,14 @@ pair: resource {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
-  resources: { one: e2e.file { path: var.name, content: 'x' } }
+  resources: { one: e2e.file { path: input.name, content: 'x' } }
 
   outputs: {
     path:  { value: resource.one.path }
     size:  { value: resource.one.size }
-    info:  { value: { host: var.name } }
-    names: { value: [var.name] }
+    info:  { value: { host: input.name } }
+    names: { value: [input.name] }
   }
 }

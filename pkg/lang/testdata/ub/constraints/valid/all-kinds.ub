@@ -1,11 +1,11 @@
 constraints: [
-  { kind: exactly-one-of,    fields: [var.encryption-key, var.encryption-key-arn] },
-  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
-  { kind: at-most-one-of,    fields: [var.use-spot, var.reserved-capacity] },
+  { kind: exactly-one-of,    fields: [input.encryption-key, input.encryption-key-arn] },
+  { kind: required-together, fields: [input.vpc-id, input.subnet-ids] },
+  { kind: at-most-one-of,    fields: [input.use-spot, input.reserved-capacity] },
   {
     kind:    predicate
-    when:    'var.region == \'us-gov-east-1\''
-    require: 'var.fips-mode == true'
+    when:    'input.region == \'us-gov-east-1\''
+    require: 'input.fips-mode == true'
     message: 'GovCloud regions require FIPS mode enabled'
   },
 ]

@@ -25,7 +25,7 @@ factory: {
   resources: {
     group: groups.group {
       files:      local.files
-      e2e-config: var.e2e-config
+      e2e-config: input.e2e-config
     }
   }
 

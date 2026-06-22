@@ -41,7 +41,7 @@ func overlayDefaults(
 		if s.Optional {
 			continue
 		}
-		path, ok := strings.CutPrefix(s.Field, "var.")
+		path, ok := strings.CutPrefix(s.Field, "input.")
 		if !ok {
 			continue
 		}

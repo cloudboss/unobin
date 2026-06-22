@@ -1,1 +1,1 @@
-locals: { base: var.x  derived: local.base }
+locals: { base: input.x  derived: local.base }

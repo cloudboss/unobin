@@ -6,5 +6,5 @@ state-moves: [
   },
 ]
 resources: {
-  apps: outer.web { @for-each: var.configs }
+  apps: outer.web { @for-each: input.configs }
 }

@@ -1,8 +1,8 @@
-single-segment:    var.region
+single-segment:    input.region
 two-segment:       data.aws
 deep:              resource.aws.vpc.main.id
 indexed-string:    resource.aws.instance.nodes['alpha']
 indexed-then-attr: resource.aws.instance.nodes['alpha'].arn
 each-key:          @each.key
 each-value:        @each.value
-nested-index:      data.x.lookup[var.key]
+nested-index:      data.x.lookup[input.key]

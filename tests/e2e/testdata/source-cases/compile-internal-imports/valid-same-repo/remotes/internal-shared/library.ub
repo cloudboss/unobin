@@ -1,4 +1,4 @@
 secret: data {
   inputs: { y: { type: string } }
-  outputs: { y: { value: var.y } }
+  outputs: { y: { value: input.y } }
 }

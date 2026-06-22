@@ -238,7 +238,7 @@ func TestSensitivityInsideCompositeUsesCompositeInputs(t *testing.T) {
 	require.Equal(t, "resource.one", inner.Composite)
 	got := an.sensitiveInputs(inner.Body, inner.Composite)
 	require.Equal(t, []string{"content"}, got,
-		"composite-internal node reading var.password should be flagged sensitive")
+		"composite-internal node reading input.password should be flagged sensitive")
 }
 
 func TestSensitivityHandlesNilSource(t *testing.T) {

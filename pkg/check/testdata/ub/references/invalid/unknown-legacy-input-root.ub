@@ -1,0 +1,4 @@
+factory: {
+  inputs: { path: { type: string } }
+  outputs: { path: { value: var.path } }
+}

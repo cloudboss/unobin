@@ -2,7 +2,7 @@ factory: {
   inputs:  { msg: { type: string } }
   imports: { core: 'github.com/cloudboss/unobin//pkg/libraries/core' }
   actions: {
-    first:  core.command { argv: ['echo', var.msg] }
+    first:  core.command { argv: ['echo', input.msg] }
     second: core.command { argv: ['echo', action.first.stdout] }
   }
 }

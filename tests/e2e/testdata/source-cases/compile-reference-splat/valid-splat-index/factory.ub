@@ -1,4 +1,4 @@
 factory: {
   inputs: { matrix: { type: list(list(string)) } }
-  outputs: { first: { value: var.matrix[*][0] } }
+  outputs: { first: { value: input.matrix[*][0] } }
 }

@@ -1,1 +1,1 @@
-Error: factory.ub:3:23: type: unknown field "bogus" on object({ host: string })
+Error: factory.ub:3:25: type: unknown field "bogus" on object({ host: string })

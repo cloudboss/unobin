@@ -18,11 +18,11 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   locals: {
-    cluster: $'{{ var.env }}-{{ var.region }}'
+    cluster: $'{{ input.env }}-{{ input.region }}'
     greeting: $'hello from {{ local.cluster }}'
     echoed: action.first.prefixed
   }

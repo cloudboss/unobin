@@ -1,1 +1,1 @@
-resources: { many: w.box { @for-each: var.configs, name: @each.key } }
+resources: { many: w.box { @for-each: input.configs, name: @each.key } }

@@ -1,3 +1,3 @@
 factory: {
-  inputs: { x: [for n in var.xs: n] }
+  inputs: { x: [for n in input.xs: n] }
 }

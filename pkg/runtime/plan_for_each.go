@@ -43,7 +43,7 @@ func (e *Executor) planForEachLeaf(
 
 // planForEachComposite expands a `@for-each` composite call site into
 // one full subtree per iterable key. For each key it ensures the
-// per-instance composite scope (whose Vars are the args evaluated
+// per-instance composite scope (whose Inputs are the args evaluated
 // with `@each` bound) is built, then plans every template-internal
 // node of the boundary under a per-instance address, finishing with
 // the boundary's own per-instance step.
@@ -90,7 +90,7 @@ func (e *Executor) planForEachComposite(
 			Kind:         boundary.Kind,
 			Composite:    true,
 			Decision:     DecisionEval,
-			Inputs:       scope.Vars,
+			Inputs:       scope.Inputs,
 			PriorOutputs: priorOut,
 		})
 	}
@@ -148,7 +148,7 @@ func rewriteAddress(addr, boundary, instAddr string) string {
 // composite at its per-instance address. A leaf's scope comes from
 // the cached per-instance composite scope (built lazily via
 // scopeForAddress when its body is evaluated); a nested boundary
-// builds its own scope, whose Vars are its call args evaluated
+// builds its own scope, whose Inputs are its call args evaluated
 // against the enclosing instance.
 func (e *Executor) planInternalUnder(
 	ctx context.Context, rs *runState, n *Node, addr, instCallSite string,
@@ -169,7 +169,7 @@ func (e *Executor) planInternalUnder(
 			Kind:         n.Kind,
 			Composite:    true,
 			Decision:     DecisionEval,
-			Inputs:       own.Vars,
+			Inputs:       own.Inputs,
 			PriorOutputs: priorOut,
 		}}, nil
 	}

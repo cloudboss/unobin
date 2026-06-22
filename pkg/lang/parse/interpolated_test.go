@@ -28,19 +28,19 @@ func TestInterpolatedParts(t *testing.T) {
 	}{
 		{"literal only", `$'hello world'`, []want{{lit: "hello world"}}},
 		{"empty", `$''`, nil},
-		{"slot only", `$'{{var.x}}'`, []want{{slot: true}}},
-		{"lit slot lit", `$'a{{var.x}}b'`, []want{{lit: "a"}, {slot: true}, {lit: "b"}}},
-		{"adjacent slots", `$'{{var.x}}{{var.y}}'`, []want{{slot: true}, {slot: true}}},
-		{"slot with verb", `$'{{var.size:%03d}}'`, []want{{slot: true, verb: "%03d"}}},
-		{"verb with flags and spaces", `$'{{ var.n : %-10s }}'`, []want{{slot: true, verb: "%-10s"}}},
+		{"slot only", `$'{{input.x}}'`, []want{{slot: true}}},
+		{"lit slot lit", `$'a{{input.x}}b'`, []want{{lit: "a"}, {slot: true}, {lit: "b"}}},
+		{"adjacent slots", `$'{{input.x}}{{input.y}}'`, []want{{slot: true}, {slot: true}}},
+		{"slot with verb", `$'{{input.size:%03d}}'`, []want{{slot: true, verb: "%03d"}}},
+		{"verb with flags and spaces", `$'{{ input.n : %-10s }}'`, []want{{slot: true, verb: "%-10s"}}},
 		{"single brace is literal", `$'a{b}c'`, []want{{lit: "a{b}c"}}},
 		{"escaped open brace", `$'\{{x}}'`, []want{{lit: "{{x}}"}}},
-		{"escaped quote in literal", `$'it\'s {{var.x}}'`, []want{{lit: "it's "}, {slot: true}}},
-		{"conditional slot", `$'{{if var.p then var.a else var.b}}'`, []want{{slot: true}}},
-		{"call slot", `$'{{format('%s', var.x)}}'`, []want{{slot: true}}},
+		{"escaped quote in literal", `$'it\'s {{input.x}}'`, []want{{lit: "it's "}, {slot: true}}},
+		{"conditional slot", `$'{{if input.p then input.a else input.b}}'`, []want{{slot: true}}},
+		{"call slot", `$'{{format('%s', input.x)}}'`, []want{{slot: true}}},
 		{"braces inside slot string", `$'{{ 'a}}b' }}'`, []want{{slot: true}}},
-		{"leading slot trailing literal", `$'{{var.x}} done'`, []want{{slot: true}, {lit: " done"}}},
-		{"newline escape then slot", `$'line\n{{var.x}}'`, []want{{lit: "line\n"}, {slot: true}}},
+		{"leading slot trailing literal", `$'{{input.x}} done'`, []want{{slot: true}, {lit: " done"}}},
+		{"newline escape then slot", `$'line\n{{input.x}}'`, []want{{lit: "line\n"}, {slot: true}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -62,22 +62,22 @@ func TestInterpolatedParts(t *testing.T) {
 
 func TestInterpolatedSlotExprTypes(t *testing.T) {
 	t.Run("dot path", func(t *testing.T) {
-		is := interpolatedString(t, `$'{{var.region}}'`)
+		is := interpolatedString(t, `$'{{input.region}}'`)
 		dp, ok := is.Parts[0].Expr.(*DotPath)
 		require.True(t, ok, "want *DotPath, got %T", is.Parts[0].Expr)
-		assert.Equal(t, "var", dp.Root.Name)
+		assert.Equal(t, "input", dp.Root.Name)
 		require.Len(t, dp.Segments, 1)
 		assert.Equal(t, "region", dp.Segments[0].Name)
 	})
 
 	t.Run("conditional", func(t *testing.T) {
-		is := interpolatedString(t, `$'{{if var.p then var.a else var.b}}'`)
+		is := interpolatedString(t, `$'{{if input.p then input.a else input.b}}'`)
 		_, ok := is.Parts[0].Expr.(*Conditional)
 		assert.True(t, ok, "want *Conditional, got %T", is.Parts[0].Expr)
 	})
 
 	t.Run("call", func(t *testing.T) {
-		is := interpolatedString(t, `$'{{format('%s', var.x)}}'`)
+		is := interpolatedString(t, `$'{{format('%s', input.x)}}'`)
 		_, ok := is.Parts[0].Expr.(*Call)
 		assert.True(t, ok, "want *Call, got %T", is.Parts[0].Expr)
 	})
@@ -92,17 +92,17 @@ func TestSlotFormParity(t *testing.T) {
 		slot    string
 		wantErr string // "" means both forms parse
 	}{
-		{"plain", "{{ var.x }}", ""},
-		{"verb", "{{ var.n : %03d }}", ""},
-		{"colon inside index string", "{{ var.m['a:b'] }}", ""},
+		{"plain", "{{ input.x }}", ""},
+		{"verb", "{{ input.n : %03d }}", ""},
+		{"colon inside index string", "{{ input.m['a:b'] }}", ""},
 		{"closer inside string", "{{ 'a}}b' }}", ""},
 		{"nested braces", "{{ {a: {b: 1}} }}", ""},
-		{"conditional", "{{ if var.p then var.a else var.b }}", ""},
+		{"conditional", "{{ if input.p then input.a else input.b }}", ""},
 		{"empty", "{{}}", "empty interpolation slot"},
 		{"empty spaces", "{{   }}", "empty interpolation slot"},
-		{"bad verb", "{{ var.x : bad }}",
+		{"bad verb", "{{ input.x : bad }}",
 			"interpolation directive must be a printf verb like %03d"},
-		{"quoted closer in directive", "{{ var.x : '}}' }}",
+		{"quoted closer in directive", "{{ input.x : '}}' }}",
 			"interpolation directive must be a printf verb like %03d"},
 		{"newline in slot", "{{ 1 +\n2 }}", "interpolation slot must be on one line"},
 		{"newline only slot", "{{\n}}", "interpolation slot must be on one line"},
@@ -132,9 +132,9 @@ func TestInterpolatedInvalid(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"unterminated slot", `x: $'{{var.x'`},
+		{"unterminated slot", `x: $'{{input.x'`},
 		{"empty slot", `x: $'{{}}'`},
-		{"verb without percent", `x: $'{{var.x:bad}}'`},
+		{"verb without percent", `x: $'{{input.x:bad}}'`},
 		{"escaped close brace", `x: $'bad\}}'`},
 		{"unknown escape in literal", `x: $'oops\q'`},
 		{"single escaped brace", `x: $'lit\{here'`},

@@ -32,7 +32,7 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 	return map[string]sdkencrypt.EncrypterType{
 		EnvKeyName: {
 			Name:        EnvKeyName,
-			Description: "AES-256-GCM with a base64 key read from an env var.",
+			Description: "AES-256-GCM with a base64 key read from an env input.",
 			Configuration: &cfg.ConfigurationType[any]{
 				Description: "Env-key encrypter configuration.",
 				New:         func() any { return &EnvKeyConfig{} },

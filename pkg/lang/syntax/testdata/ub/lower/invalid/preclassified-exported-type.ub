@@ -3,5 +3,5 @@ inputs: {
 }
 
 outputs: {
-  message: { value: var.message }
+  message: { value: input.message }
 }

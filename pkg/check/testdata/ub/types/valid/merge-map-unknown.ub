@@ -1,2 +1,2 @@
 inputs: { tags: { type: map(string) } }
-resources: { one: local.file { path: @core.merge(var.tags, { a: 'x' }), content: 'c' } }
+resources: { one: local.file { path: @core.merge(input.tags, { a: 'x' }), content: 'c' } }

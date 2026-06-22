@@ -7,7 +7,7 @@ factory: {
       kind: predicate
       @for-each: [
         { @a: @b.value.items },
-        { @b: var.rules },
+        { @b: input.rules },
       ]
       when:    true
       require: true

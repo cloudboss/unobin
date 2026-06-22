@@ -1,7 +1,7 @@
 factory: {
   inputs: { count: { type: integer } }
 
-  locals: { doubled: var.count * 2 }
+  locals: { doubled: input.count * 2 }
 
   outputs: {
     ok:  { value: local.doubled + 1 }

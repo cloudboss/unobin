@@ -16,12 +16,12 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   actions: {
     hi: e2e.echo {
-      text: var.greeting
+      text: input.greeting
     }
   }
 

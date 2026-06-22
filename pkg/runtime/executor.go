@@ -121,9 +121,9 @@ func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
 // configurations against what the last apply recorded. Only root
 // entries seed it: configurations are defined at the factory root and
 // cannot reference composite internals.
-func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalContext {
+func (e *Executor) stateScope(prior *state.Snapshot, inputs map[string]any) *EvalContext {
 	scope := &EvalContext{
-		Vars:      vars,
+		Inputs:    inputs,
 		Resources: make(map[string]any),
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
@@ -168,7 +168,7 @@ func (e *Executor) stateScope(prior *state.Snapshot, vars map[string]any) *EvalC
 // supplied. Live consumers never read these values; the plan walk and
 // apply evaluate their own.
 func (e *Executor) seedPriorInternalConfigurations(
-	prior *state.Snapshot, vars map[string]any,
+	prior *state.Snapshot, inputs map[string]any,
 ) error {
 	if prior == nil || e.DAG == nil {
 		return nil
@@ -179,7 +179,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 			continue
 		}
 		if scope == nil {
-			scope = e.stateScope(prior, vars)
+			scope = e.stateScope(prior, inputs)
 		}
 		raw, err := evalConfigurationBody(n.Body, scope)
 		if err != nil {
@@ -295,7 +295,7 @@ type runState struct {
 	order []string
 
 	// composites holds one EvalContext per composite call site. Lazily
-	// built when a node inside a composite first needs evaluation. Vars
+	// built when a node inside a composite first needs evaluation. Inputs
 	// in each scope are the call site args; Resources, Data, Actions
 	// hold sibling outputs as the internals complete.
 	composites map[string]*EvalContext
@@ -342,7 +342,7 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs := &runState{
 		eval: &EvalContext{
-			Vars:      e.Inputs,
+			Inputs:    e.Inputs,
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
@@ -365,7 +365,7 @@ func (e *Executor) initRun() (*runState, error) {
 
 // scopeFor returns the EvalContext n's body should be evaluated
 // against. Root scope for nodes outside a composite, the composite's
-// own scope otherwise. The composite scope's Vars carry the call site
+// own scope otherwise. The composite scope's Inputs carry the call site
 // args and its Resources/Data/Actions hold sibling outputs.
 func (e *Executor) scopeFor(rs *runState, n *Node) (*EvalContext, error) {
 	if n.Composite == "" {
@@ -462,7 +462,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		return nil, fmt.Errorf("composite %s: eval call args: %w", callSite, err)
 	}
 	scope := &EvalContext{
-		Vars:      args,
+		Inputs:    args,
 		Resources: make(map[string]any),
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
@@ -723,7 +723,7 @@ func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 
 // childScopeWithEach returns a per-instance evaluation scope whose
 // `@each.key` and `@each.value` bindings are set to the iteration's
-// pair. The parent's Vars, Resources, Data, Actions, and Libraries are
+// pair. The parent's Inputs, Resources, Data, Actions, and Libraries are
 // shared by reference.
 func childScopeWithEach(parent *EvalContext, key string, value any) *EvalContext {
 	child := *parent

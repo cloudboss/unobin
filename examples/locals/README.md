@@ -10,7 +10,7 @@ What each local demonstrates:
   into one name.
 - **a local that reads another local** — `banner` builds on `cluster`,
   so changing an input flows through both.
-- **a boolean expression** — `is-prod` is just `var.env == 'prod'`.
+- **a boolean expression** — `is-prod` is just `input.env == 'prod'`.
 - **one value used in two places** — `summary-path` is the file's path
   and the `cat` argument, written once.
 - **reading a resource output** — `file-hash` is the written file's

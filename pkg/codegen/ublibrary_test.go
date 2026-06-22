@@ -284,14 +284,14 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 		"github.com/example/disk": {
 			Constraints: map[string][]lang.ConstraintSpec{
 				"resource.file": {
-					{Kind: "predicate", Require: "var.path != null",
+					{Kind: "predicate", Require: "input.path != null",
 						Message: "a file needs a path"},
 				},
 			},
 			Defaults: map[string][]lang.DefaultSpec{
 				"resource.file": {
-					{Field: "var.mode", Value: "420"},
-					{Field: "var.create-directory", Optional: true},
+					{Field: "input.mode", Value: "420"},
+					{Field: "input.create-directory", Optional: true},
 				},
 			},
 			Schema: &runtime.LibrarySchema{
@@ -313,9 +313,9 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 	s := string(out)
 	require.Contains(t, s, `diskLib := lib_disk.Library()`)
 	require.Contains(t, s, `diskLib.Constraints = map[string][]lang.ConstraintSpec{`)
-	require.Contains(t, s, `{Kind: "predicate", Require: "var.path != null"`)
-	require.Contains(t, s, `{Field: "var.mode", Value: "420"}`)
-	require.Contains(t, s, `{Field: "var.create-directory", Optional: true}`)
+	require.Contains(t, s, `{Kind: "predicate", Require: "input.path != null"`)
+	require.Contains(t, s, `{Field: "input.mode", Value: "420"}`)
+	require.Contains(t, s, `{Field: "input.create-directory", Optional: true}`)
 	require.Contains(t, s, `diskLib.Schema = &runtime.LibrarySchema{`)
 	require.Contains(t, s, `"file": {SensitiveInputs: []string{"content"}}`)
 	require.Regexp(t, `Name:\s*"archive"`, s)
@@ -340,7 +340,7 @@ func TestGenerateUBLibrarySharesSpecsAcrossComposites(t *testing.T) {
 	goSpecs := map[string]GoLibrarySpecs{
 		"github.com/example/disk": {
 			Defaults: map[string][]lang.DefaultSpec{
-				"resource.file": {{Field: "var.mode", Value: "420"}},
+				"resource.file": {{Field: "input.mode", Value: "420"}},
 			},
 		},
 	}
@@ -356,7 +356,7 @@ func TestGenerateUBLibrarySharesSpecsAcrossComposites(t *testing.T) {
 	s := string(out)
 	require.Equal(t, 1, strings.Count(s, "diskLib := lib_disk.Library()"),
 		"one construction for both bindings")
-	require.Equal(t, 1, strings.Count(s, `{Field: "var.mode", Value: "420"}`),
+	require.Equal(t, 1, strings.Count(s, `{Field: "input.mode", Value: "420"}`),
 		"specs are emitted once")
 	require.Contains(t, s, `"disk": diskLib`)
 	require.Contains(t, s, `"d": diskLib`)

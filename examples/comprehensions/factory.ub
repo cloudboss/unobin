@@ -18,15 +18,15 @@ factory: {
   imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
   locals: {
-    replicas:     if var.environment == 'prod' then 3 else 1
-    public-names: [ for s in var.services : s.name when s.public ]
+    replicas:     if input.environment == 'prod' then 3 else 1
+    public-names: [ for s in input.services : s.name when s.public ]
   }
 
   resources: {
     summary: std.fs-file {
-      path: var.path
+      path: input.path
       content: $'''>-
-        environment={{ var.environment }} replicas={{ local.replicas }}
+        environment={{ input.environment }} replicas={{ local.replicas }}
         public={{ @core.join(local.public-names, ',') }}
         '''
     }
@@ -35,7 +35,7 @@ factory: {
   actions: {
     read-back: std.exec-command {
       @trigger: resource.summary.sha256
-      argv:     ['cat', var.path]
+      argv:     ['cat', input.path]
     }
   }
 
@@ -44,26 +44,26 @@ factory: {
 
     public-names: { value: local.public-names }
 
-    ports-by-name: { value: { for s in var.services : s.name => s.port } }
+    ports-by-name: { value: { for s in input.services : s.name => s.port } }
 
-    names-by-region: { value: { for s in var.services : s.region => s.name... } }
+    names-by-region: { value: { for s in input.services : s.region => s.name... } }
 
     tiers: {
       value: [
-        for s in var.services :
+        for s in input.services :
         { name: s.name, tier: if s.public then 'public' else 'internal' }
       ]
     }
 
     by-region: {
       value: [
-        for r in var.regions :
-        { region: r, names: [ for s in var.services : s.name when s.region == r ] }
+        for r in input.regions :
+        { region: r, names: [ for s in input.services : s.name when s.region == r ] }
       ]
     }
 
     prod-names: {
-      value: if var.environment == 'prod' then [ for s in var.services : s.name ] else []
+      value: if input.environment == 'prod' then [ for s in input.services : s.name ] else []
     }
   }
 }

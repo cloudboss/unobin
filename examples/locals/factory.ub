@@ -14,9 +14,9 @@ factory: {
   imports: { std: 'github.com/cloudboss/unobin-library-std' }
 
   locals: {
-    cluster:      $'{{ var.env }}-{{ var.region }}'
-    is-prod:      var.env == 'prod'
-    banner:       $'[{{ local.cluster }}] {{ var.message }}'
+    cluster:      $'{{ input.env }}-{{ input.region }}'
+    is-prod:      input.env == 'prod'
+    banner:       $'[{{ local.cluster }}] {{ input.message }}'
     summary-path: $'/tmp/unobin-{{ local.cluster }}.txt'
     file-hash:    resource.summary.sha256
   }

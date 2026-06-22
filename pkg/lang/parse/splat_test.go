@@ -20,42 +20,42 @@ func TestParseSplatSegment(t *testing.T) {
 	}{
 		{
 			name: "splat then field",
-			in:   "var.subnets[*].id",
+			in:   "input.subnets[*].id",
 			want: []seg{{name: "subnets"}, {splat: true}, {name: "id"}},
 		},
 		{
 			name: "bare splat",
-			in:   "var.list[*]",
+			in:   "input.list[*]",
 			want: []seg{{name: "list"}, {splat: true}},
 		},
 		{
 			name: "index then splat",
-			in:   "var.matrix[0][*]",
+			in:   "input.matrix[0][*]",
 			want: []seg{{name: "matrix"}, {index: true}, {splat: true}},
 		},
 		{
 			name: "splat then index",
-			in:   "var.matrix[*][0]",
+			in:   "input.matrix[*][0]",
 			want: []seg{{name: "matrix"}, {splat: true}, {index: true}},
 		},
 		{
 			name: "nested splat then field",
-			in:   "var.grid[*][*].name",
+			in:   "input.grid[*][*].name",
 			want: []seg{{name: "grid"}, {splat: true}, {splat: true}, {name: "name"}},
 		},
 		{
 			name: "multiple splats then index",
-			in:   "var.a[*][*][0]",
+			in:   "input.a[*][*][0]",
 			want: []seg{{name: "a"}, {splat: true}, {splat: true}, {index: true}},
 		},
 		{
 			name: "string index then splat",
-			in:   "var.m['k'].items[*].id",
+			in:   "input.m['k'].items[*].id",
 			want: []seg{{name: "m"}, {index: true}, {name: "items"}, {splat: true}, {name: "id"}},
 		},
 		{
 			name: "spaces inside brackets",
-			in:   "var.list[ * ].id",
+			in:   "input.list[ * ].id",
 			want: []seg{{name: "list"}, {splat: true}, {name: "id"}},
 		},
 		{
@@ -68,12 +68,12 @@ func TestParseSplatSegment(t *testing.T) {
 		},
 		{
 			name: "integer index is not a splat",
-			in:   "var.x[0]",
+			in:   "input.x[0]",
 			want: []seg{{name: "x"}, {index: true}},
 		},
 		{
 			name: "string index is not a splat",
-			in:   "var.x['k']",
+			in:   "input.x['k']",
 			want: []seg{{name: "x"}, {index: true}},
 		},
 	}

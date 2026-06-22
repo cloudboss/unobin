@@ -1,4 +1,4 @@
 factory: {
   inputs: { net: { type: object({ subnets: list(string) }) } }
-  outputs: { bad: { value: var.net.subnets[*] } }
+  outputs: { bad: { value: input.net.subnets[*] } }
 }

@@ -16,13 +16,13 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   resources: {
     doc: e2e.file {
       path:    'files/data.txt'
-      content: var.file-content
+      content: input.file-content
     }
   }
 

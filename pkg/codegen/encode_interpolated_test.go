@@ -25,7 +25,7 @@ func TestEncodeInterpolatedLiteralOnly(t *testing.T) {
 }
 
 func TestEncodeInterpolatedSlotWithVerb(t *testing.T) {
-	got := encodeValue(t, `$'n-{{var.size:%03d}}'`)
+	got := encodeValue(t, `$'n-{{input.size:%03d}}'`)
 	require.Contains(t, got, `{Lit: "n-"}`)
 	require.Contains(t, got, `Expr: &lang.DotPath{`)
 	require.Contains(t, got, `Verb: "%03d"`)
@@ -33,7 +33,7 @@ func TestEncodeInterpolatedSlotWithVerb(t *testing.T) {
 }
 
 func TestEncodeInterpolatedMixedParsesAsGo(t *testing.T) {
-	got := encodeValue(t, `$'{{var.region}}/{{resource.aws.vpc.main.id}}-end'`)
+	got := encodeValue(t, `$'{{input.region}}/{{resource.aws.vpc.main.id}}-end'`)
 	require.Contains(t, got, `{Lit: "-end"}`)
 	parsesAsGoExpr(t, got)
 }

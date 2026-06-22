@@ -1,1 +1,1 @@
-locals: { upper: [ for n in var.names : n ] }
+locals: { upper: [ for n in input.names : n ] }

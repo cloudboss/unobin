@@ -3,7 +3,7 @@ greeting: resource {
     path: { type: string }
   }
   locals: {
-    decorated: var.path + '!'
+    decorated: input.path + '!'
   }
   outputs: {
     path: { value: local.decorated }

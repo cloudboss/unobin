@@ -1,3 +1,3 @@
 inputs:    { user: { type: string }, password: { type: string, @sensitive: true } }
-locals:    { creds: { name: var.user, secret: var.password } }
+locals:    { creds: { name: input.user, secret: input.password } }
 resources: { file: local.file { path: local.creds.name, content: local.creds.secret } }

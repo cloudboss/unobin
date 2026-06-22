@@ -1,5 +1,5 @@
 factory: {
   imports: { e2e: 'example.com/unobin/e2elib' }
   inputs: { other-config: { type: library-config('example.com/unobin/missing') } }
-  locals: { base: var.other-config.base-dir }
+  locals: { base: input.other-config.base-dir }
 }

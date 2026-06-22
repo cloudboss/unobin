@@ -5,6 +5,6 @@ library-configs: {
   fix: { endpoint: resource.src.id }
 }
 resources: {
-  src: base.echo { value: var.url }
+  src: base.echo { value: input.url }
   app: fix.config-echo {}
 }

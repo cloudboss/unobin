@@ -1,4 +1,4 @@
 factory: {
   inputs: { tags: { type: map(string) } }
-  outputs: { copy: { value: { for k, v in var.tags : k => v } } }
+  outputs: { copy: { value: { for k, v in input.tags : k => v } } }
 }

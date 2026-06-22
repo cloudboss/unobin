@@ -295,11 +295,11 @@ type Ident struct {
 func (n *Ident) Span() Span { return n.S }
 func (n *Ident) exprNode()  {}
 
-// DotPath is a dot-separated address like `var.region`,
+// DotPath is a dot-separated address like `input.region`,
 // `resource.app.id`, or `data.ami.id`. Segments after the root navigate
 // by name (`.id`), by a string key or integer position
 // (`["alpha"]`, `[0]`), or project over a list with a splat (`[*]`). The
-// first segment (Root) is one of the reserved address roots: var, data,
+// first segment (Root) is one of the reserved address roots: input, data,
 // resource, action, @each.
 type DotPath struct {
 	S        Span

@@ -15,10 +15,10 @@ factory: {
     bundle: './libraries/bundle'
   }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
-    demo: bundle.pair { name: 'n', e2e-config: var.e2e-config }
+    demo: bundle.pair { name: 'n', e2e-config: input.e2e-config }
     logs: e2e.file { path: resource.demo.names, content: 'c' }
   }
 }

@@ -1,1 +1,1 @@
-locals: { later: local.earlier  earlier: var.x }
+locals: { later: local.earlier  earlier: input.x }

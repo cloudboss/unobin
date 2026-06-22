@@ -1,4 +1,4 @@
 constraints: [
-  { kind: at-most-one-of,    fields: [var.replicas[*].primary] },
-  { kind: required-together, fields: [var.replicas[*].x, var.volumes[*].y] },
+  { kind: at-most-one-of,    fields: [input.replicas[*].primary] },
+  { kind: required-together, fields: [input.replicas[*].x, input.volumes[*].y] },
 ]

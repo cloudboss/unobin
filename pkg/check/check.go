@@ -275,7 +275,7 @@ func constraintForEach(obj *lang.ObjectLit) lang.Expr {
 }
 
 // checkConstraintExpr walks a constraint's when, require, or @for-each
-// expression. A constraint checks input values, so var is the only
+// expression. A constraint checks input values, so input is the only
 // address root in scope; a resource, data, action, or local reference
 // has no value where constraints evaluate, so it is rejected at
 // compile instead of reading as null and silently passing the
@@ -289,8 +289,8 @@ func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it 
 		case *lang.DotPath:
 			c.checkSplat(n)
 			switch {
-			case n.Root.Name == "var":
-				c.checkVar(n, scope)
+			case n.Root.Name == "input":
+				c.checkInput(n, scope)
 			case n.Root.Name == "resource", n.Root.Name == "data",
 				n.Root.Name == "action", n.Root.Name == "local":
 				c.addf(n.S.Start,
@@ -348,8 +348,8 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 		case *lang.DotPath:
 			c.checkSplat(n)
 			switch n.Root.Name {
-			case "var":
-				c.checkVar(n, scope)
+			case "input":
+				c.checkInput(n, scope)
 			case "resource", "data", "action":
 				c.checkNode(n, scope)
 			case "local":
@@ -462,7 +462,7 @@ func argCount(n int) string {
 	return fmt.Sprintf("%d arguments", n)
 }
 
-func (c *referenceChecker) checkVar(dp *lang.DotPath, scope string) {
+func (c *referenceChecker) checkInput(dp *lang.DotPath, scope string) {
 	if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
 		return
 	}
@@ -472,8 +472,8 @@ func (c *referenceChecker) checkVar(dp *lang.DotPath, scope string) {
 	}
 	known := func(s string) bool { return c.inputs[scope][s] }
 	if prefix, rest, ok := hyphenSubtraction(name, known); ok {
-		c.addf(dp.S.Start, `unknown input %q; write var.%s - %s to subtract`,
-			name, prefix, subtrahendText("var.", rest))
+		c.addf(dp.S.Start, `unknown input %q; write input.%s - %s to subtract`,
+			name, prefix, subtrahendText("input.", rest))
 		return
 	}
 	c.addf(dp.S.Start, `unknown input %q`, name)
@@ -852,7 +852,7 @@ func (c *referenceChecker) checkPathRoot(root *lang.Ident, bound map[string]bool
 		return
 	}
 	c.addf(root.S.Start,
-		"unknown name %q; references start with var, local, resource, data, or action", name)
+		"unknown name %q; references start with input, local, resource, data, or action", name)
 }
 
 func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
@@ -941,7 +941,7 @@ func walkFreeIdents(
 // on the iteration context enclosing the expression.
 func addressRoot(name string) bool {
 	switch name {
-	case "var", "resource", "data", "action", "local":
+	case "input", "resource", "data", "action", "local":
 		return true
 	}
 	return strings.HasPrefix(name, "@")

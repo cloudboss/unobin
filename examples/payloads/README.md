@@ -19,7 +19,7 @@ What each piece demonstrates:
 - **closed stays the default** — a plain `object({ ... })` still
   rejects undeclared fields at decode, which is the typo catch.
 
-Try it: add `var.policy.version` to an output and the compile error
+Try it: add `input.policy.version` to an output and the compile error
 shows the open(object) form that declares the field; add another key
 under `event` in `dev.ub` and it flows into the event file, while
 misspelling `kind` fails decode.

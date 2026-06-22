@@ -3,6 +3,6 @@ greeting: resource {
     name: { type: optional(string) }
   }
   constraints: [
-    { kind: predicate, when: true, require: var.name != null }
+    { kind: predicate, when: true, require: input.name != null }
   ]
 }

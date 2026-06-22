@@ -63,10 +63,10 @@ func TestReadExtractsConfigurationSchema(t *testing.T) {
 	require.Equal(t, want, schema.Configuration)
 	require.Equal(t, wantFields, schema.ConfigurationFields)
 	wantDefaults := []lang.DefaultSpec{
-		{Field: "var.profile", Value: "'default'"},
-		{Field: "var.ratio", Value: "0.5"},
-		{Field: "var.zones", Value: "['zone-a', 'zone-b']"},
-		{Field: "var.labels", Value: "{ env: 'dev' }"},
+		{Field: "input.profile", Value: "'default'"},
+		{Field: "input.ratio", Value: "0.5"},
+		{Field: "input.zones", Value: "['zone-a', 'zone-b']"},
+		{Field: "input.labels", Value: "{ env: 'dev' }"},
 	}
 	require.Equal(t, wantDefaults, schema.ConfigurationDefaults)
 	require.False(t, schema.ConfigurationEmpty)
@@ -97,12 +97,12 @@ func TestReadExtractsSetConstraints(t *testing.T) {
 	require.Contains(t, schema.Resources, "cert")
 
 	want := []lang.ConstraintSpec{
-		{Kind: "exactly-one-of", Fields: []string{"var.self-signed", "var.acm-arn", "var.pem-bundle"}},
-		{Kind: "at-least-one-of", Fields: []string{"var.self-signed", "var.acm-arn"}},
-		{Kind: "at-most-one-of", Fields: []string{"var.acm-arn", "var.pem-bundle"}},
-		{Kind: "required-together", Fields: []string{"var.pem-bundle", "var.private-key"}},
-		{Kind: "required-with", Fields: []string{"var.pem-bundle", "var.private-key"}},
-		{Kind: "forbidden-with", Fields: []string{"var.acm-arn", "var.renew-before"}},
+		{Kind: "exactly-one-of", Fields: []string{"input.self-signed", "input.acm-arn", "input.pem-bundle"}},
+		{Kind: "at-least-one-of", Fields: []string{"input.self-signed", "input.acm-arn"}},
+		{Kind: "at-most-one-of", Fields: []string{"input.acm-arn", "input.pem-bundle"}},
+		{Kind: "required-together", Fields: []string{"input.pem-bundle", "input.private-key"}},
+		{Kind: "required-with", Fields: []string{"input.pem-bundle", "input.private-key"}},
+		{Kind: "forbidden-with", Fields: []string{"input.acm-arn", "input.renew-before"}},
 	}
 	require.Equal(t, want, schema.Resources["cert"].Constraints)
 }
@@ -136,20 +136,20 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	require.Equal(t, []lang.ConstraintSpec{
 		{
 			Kind:    "predicate",
-			When:    "(var.tier == 'prod')",
-			Require: "(var.backups == true)",
+			When:    "(input.tier == 'prod')",
+			Require: "(input.backups == true)",
 			Message: "prod requires backups",
 		},
 		{
 			Kind: "predicate",
 			When: "true",
-			Require: "(var.max-size == null || var.min-size == null" +
-				" || var.max-size >= var.min-size)",
+			Require: "(input.max-size == null || input.min-size == null" +
+				" || input.max-size >= input.min-size)",
 		},
 		{
 			Kind:    "predicate",
 			When:    "true",
-			Require: "(var.region == 'us-east-1' || var.region == 'us-west-2')",
+			Require: "(input.region == 'us-east-1' || input.region == 'us-west-2')",
 		},
 	}, specs)
 
@@ -160,7 +160,7 @@ func TestReadExtractsPredicateConstraints(t *testing.T) {
 	// same path a UB predicate takes at plan.
 	check := func(values map[string]any) int {
 		eval := func(e lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &runtime.EvalContext{Vars: values}
+			ctx := &runtime.EvalContext{Inputs: values}
 			for _, b := range binds {
 				if ctx.Each == nil {
 					ctx.Each = map[string]lang.EachValue{}
@@ -303,22 +303,22 @@ func TestReadExtractsNestedConstraints(t *testing.T) {
 	require.Contains(t, schema.Resources, "db")
 
 	want := []lang.ConstraintSpec{
-		{Kind: "exactly-one-of", Fields: []string{"var.code.inline", "var.code.from-file"}},
+		{Kind: "exactly-one-of", Fields: []string{"input.code.inline", "input.code.from-file"}},
 		{
 			Kind:    "predicate",
-			When:    "(var.code.signing != null)",
-			Require: "(var.code.signing.key-arn != null)",
+			When:    "(input.code.signing != null)",
+			Require: "(input.code.signing.key-arn != null)",
 			Message: "signing requires a key arn",
 		},
-		{Kind: "required-together", Fields: []string{"var.listeners[0].cert", "var.listeners[0].key"}},
-		{Kind: "exactly-one-of", Fields: []string{"var.replicas[*].inline", "var.replicas[*].from-file"}},
-		{Kind: "required-with", Fields: []string{"var.replicas[*].tls", "var.ca-cert"}},
+		{Kind: "required-together", Fields: []string{"input.listeners[0].cert", "input.listeners[0].key"}},
+		{Kind: "exactly-one-of", Fields: []string{"input.replicas[*].inline", "input.replicas[*].from-file"}},
+		{Kind: "required-with", Fields: []string{"input.replicas[*].tls", "input.ca-cert"}},
 		{
 			Kind:    "predicate",
 			When:    "(@each.value.tls == true)",
 			Require: "(@each.value.cert != null)",
 			Message: "tls requires a cert",
-			ForEach: "var.replicas",
+			ForEach: "input.replicas",
 		},
 	}
 	require.Equal(t, want, schema.Resources["db"].Constraints)
@@ -332,7 +332,7 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 
 	eval := func(values map[string]any) lang.ConstraintEvalFunc {
 		return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
-			ctx := &runtime.EvalContext{Vars: values, MissingAsNull: true}
+			ctx := &runtime.EvalContext{Inputs: values, MissingAsNull: true}
 			for _, b := range binds {
 				if ctx.Each == nil {
 					ctx.Each = map[string]lang.EachValue{}

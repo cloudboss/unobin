@@ -1,1 +1,1 @@
-Error: factory.ub:3:26: resolve: unknown input "count-1"; write var.count - 1 to subtract
+Error: factory.ub:3:26: resolve: unknown input "count-1"; write input.count - 1 to subtract

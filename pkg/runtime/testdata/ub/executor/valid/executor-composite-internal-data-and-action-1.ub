@@ -1,4 +1,4 @@
 inputs:  { key: { type: string } }
-data:    { found: core.lookup { key: var.key } }
+data:    { found: core.lookup { key: input.key } }
 actions: { say: core.echo { echo: data.found.value } }
 outputs: { said: { value: action.say.echo } }

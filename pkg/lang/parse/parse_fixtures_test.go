@@ -449,7 +449,7 @@ func TestParseFixtureDotPaths(t *testing.T) {
 	}
 
 	single := getPath(0, "single-segment")
-	require.Equal(t, "var", single.Root.Name)
+	require.Equal(t, "input", single.Root.Name)
 	require.Len(t, single.Segments, 1)
 	require.Equal(t, "region", single.Segments[0].Name)
 
@@ -478,7 +478,7 @@ func TestParseFixtureDotPaths(t *testing.T) {
 	nestedIndex := getPath(7, "nested-index")
 	require.IsType(t, &DotPath{}, nestedIndex.Segments[2].Index)
 	inner := nestedIndex.Segments[2].Index.(*DotPath)
-	require.Equal(t, "var", inner.Root.Name)
+	require.Equal(t, "input", inner.Root.Name)
 	require.Equal(t, "key", inner.Segments[0].Name)
 }
 
@@ -614,7 +614,7 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "format", cps.Left.(*Call).Callee.Name)
 	require.Equal(t, "-suffix", cps.Right.(*StringLit).Value)
 
-	// nested-calls: lib.index-by(format('%s', var.x), 'name')
+	// nested-calls: lib.index-by(format('%s', input.x), 'name')
 	nc := byKey["nested-calls"].(*Call)
 	require.Equal(t, "lib", nc.Library.Name)
 	require.Equal(t, "index-by", nc.Func.Name)
@@ -622,25 +622,25 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "format", nc.Args[0].(*Call).Callee.Name)
 	require.Equal(t, "name", nc.Args[1].(*StringLit).Value)
 
-	// call-as-operand: count(var.items) > 0 && var.enabled
+	// call-as-operand: count(input.items) > 0 && input.enabled
 	cao := byKey["call-as-operand"].(*Infix)
 	require.Equal(t, "&&", cao.Op)
 	cmp := cao.Left.(*Infix)
 	require.Equal(t, ">", cmp.Op)
 	require.Equal(t, "count", cmp.Left.(*Call).Callee.Name)
 	require.Equal(t, int64(0), cmp.Right.(*NumberLit).ParsedInt)
-	require.Equal(t, "var", cao.Right.(*DotPath).Root.Name)
+	require.Equal(t, "input", cao.Right.(*DotPath).Root.Name)
 
-	// arith-with-vars: (var.size + 1) * 2
-	awv := byKey["arith-with-vars"].(*Infix)
-	require.Equal(t, "*", awv.Op)
-	add := awv.Left.(*Infix)
+	// arith-with-inputs: (input.size + 1) * 2
+	awi := byKey["arith-with-inputs"].(*Infix)
+	require.Equal(t, "*", awi.Op)
+	add := awi.Left.(*Infix)
 	require.Equal(t, "+", add.Op)
-	require.Equal(t, "var", add.Left.(*DotPath).Root.Name)
+	require.Equal(t, "input", add.Left.(*DotPath).Root.Name)
 	require.Equal(t, int64(1), add.Right.(*NumberLit).ParsedInt)
-	require.Equal(t, int64(2), awv.Right.(*NumberLit).ParsedInt)
+	require.Equal(t, int64(2), awi.Right.(*NumberLit).ParsedInt)
 
-	// deep-comparison: var.region == 'us-east-1' || var.region == 'us-west-2'
+	// deep-comparison: input.region == 'us-east-1' || input.region == 'us-west-2'
 	dc := byKey["deep-comparison"].(*Infix)
 	require.Equal(t, "||", dc.Op)
 	require.Equal(t, "==", dc.Left.(*Infix).Op)
@@ -648,22 +648,22 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "us-east-1", dc.Left.(*Infix).Right.(*StringLit).Value)
 	require.Equal(t, "us-west-2", dc.Right.(*Infix).Right.(*StringLit).Value)
 
-	// indexed-in-arith: var.tags['Name'] + '-x'
+	// indexed-in-arith: input.tags['Name'] + '-x'
 	iia := byKey["indexed-in-arith"].(*Infix)
 	require.Equal(t, "+", iia.Op)
 	tags := iia.Left.(*DotPath)
-	require.Equal(t, "var", tags.Root.Name)
+	require.Equal(t, "input", tags.Root.Name)
 	require.Equal(t, "tags", tags.Segments[0].Name)
 	require.Equal(t, "Name", tags.Segments[1].Index.(*StringLit).Value)
 	require.Equal(t, "-x", iia.Right.(*StringLit).Value)
 
-	// arr-of-exprs: [1+1, 2*2, format(...), var.x]
+	// arr-of-exprs: [1+1, 2*2, format(...), input.x]
 	arr := byKey["arr-of-exprs"].(*ArrayLit)
 	require.Len(t, arr.Elements, 4)
 	require.Equal(t, "+", arr.Elements[0].(*Infix).Op)
 	require.Equal(t, "*", arr.Elements[1].(*Infix).Op)
 	require.Equal(t, "format", arr.Elements[2].(*Call).Callee.Name)
-	require.Equal(t, "var", arr.Elements[3].(*DotPath).Root.Name)
+	require.Equal(t, "input", arr.Elements[3].(*DotPath).Root.Name)
 
 	// obj-of-exprs
 	obj := byKey["obj-of-exprs"].(*ObjectLit)
@@ -707,14 +707,14 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "-", eqRight.Op)
 	require.Equal(t, "/", eqRight.Right.(*Infix).Op)
 
-	// unary-on-call: !lib.is-valid(var.x)
+	// unary-on-call: !lib.is-valid(input.x)
 	uoc := byKey["unary-on-call"].(*Prefix)
 	require.Equal(t, "!", uoc.Op)
 	call := uoc.Expr.(*Call)
 	require.Equal(t, "lib", call.Library.Name)
 	require.Equal(t, "is-valid", call.Func.Name)
 
-	// unary-on-paren: -(var.x + var.y)
+	// unary-on-paren: -(input.x + input.y)
 	uop := byKey["unary-on-paren"].(*Prefix)
 	require.Equal(t, "-", uop.Op)
 	require.Equal(t, "+", uop.Expr.(*Infix).Op)
@@ -725,13 +725,13 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.Equal(t, "+", cwc.Left.(*Infix).Op)
 	require.Equal(t, "b", cwc.Right.(*Ident).Name)
 
-	// call-with-arr-arg: build([1,2,3], var.opts)
+	// call-with-arr-arg: build([1,2,3], input.opts)
 	cwa := byKey["call-with-arr-arg"].(*Call)
 	require.Equal(t, "build", cwa.Callee.Name)
 	require.IsType(t, &ArrayLit{}, cwa.Args[0])
 	require.Len(t, cwa.Args[0].(*ArrayLit).Elements, 3)
 
-	// call-with-obj-arg: merge({a:1,b:2}, var.extra)
+	// call-with-obj-arg: merge({a:1,b:2}, input.extra)
 	cwo := byKey["call-with-obj-arg"].(*Call)
 	require.Equal(t, "merge", cwo.Callee.Name)
 	require.IsType(t, &ObjectLit{}, cwo.Args[0])

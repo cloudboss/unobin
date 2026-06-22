@@ -41,24 +41,24 @@ func TestInferSplat(t *testing.T) {
 		src  string
 		want Type
 	}{
-		{name: "project string field", src: "var.subnets[*].id", want: TList(TString())},
-		{name: "project bool field", src: "var.subnets[*].public", want: TList(TBoolean())},
-		{name: "project nested object field", src: "var.servers[*].meta.name", want: TList(TString())},
-		{name: "splat then list field", src: "var.servers[*].ports", want: TList(TList(TInteger()))},
-		{name: "splat then field then index", src: "var.servers[*].ports[0]", want: TList(TInteger())},
-		{name: "nested splat", src: "var.grid[*][*].name", want: TList(TList(TString()))},
+		{name: "project string field", src: "input.subnets[*].id", want: TList(TString())},
+		{name: "project bool field", src: "input.subnets[*].public", want: TList(TBoolean())},
+		{name: "project nested object field", src: "input.servers[*].meta.name", want: TList(TString())},
+		{name: "splat then list field", src: "input.servers[*].ports", want: TList(TList(TInteger()))},
+		{name: "splat then field then index", src: "input.servers[*].ports[0]", want: TList(TInteger())},
+		{name: "nested splat", src: "input.grid[*][*].name", want: TList(TList(TString()))},
 		{
 			name: "field then splat under splat",
-			src:  "var.regions[*].subnets[*].id",
+			src:  "input.regions[*].subnets[*].id",
 			want: TList(TList(TString())),
 		},
-		{name: "bare splat types as the list", src: "var.nums[*]", want: TList(TInteger())},
+		{name: "bare splat types as the list", src: "input.nums[*]", want: TList(TInteger())},
 		{
 			name: "splat over a narrowed optional list",
-			src:  "if var.maybe == null then [] else var.maybe[*]",
+			src:  "if input.maybe == null then [] else input.maybe[*]",
 			want: TList(TString()),
 		},
-		{name: "splat over list of opaque", src: "var.whatever[*]", want: TList(TOpaque())},
+		{name: "splat over list of opaque", src: "input.whatever[*]", want: TList(TOpaque())},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -76,28 +76,28 @@ func TestInferSplatRejectsNonList(t *testing.T) {
 		src  string
 		want string
 	}{
-		{name: "map", src: "var.m[*]", want: "splat [*] needs a list, got map(string)"},
+		{name: "map", src: "input.m[*]", want: "splat [*] needs a list, got map(string)"},
 		{
 			name: "optional list",
-			src:  "var.maybe[*]",
-			want: "var.maybe may be null; test it first, like " +
-				"if var.maybe != null then var.maybe[*]... else [] (got optional(list(string)))",
+			src:  "input.maybe[*]",
+			want: "input.maybe may be null; test it first, like " +
+				"if input.maybe != null then input.maybe[*]... else [] (got optional(list(string)))",
 		},
-		{name: "scalar field", src: "var.subnets[*].id[*]", want: "splat [*] needs a list, got string"},
+		{name: "scalar field", src: "input.subnets[*].id[*]", want: "splat [*] needs a list, got string"},
 		{
 			name: "double splat on int list",
-			src:  "var.nums[*][*]",
+			src:  "input.nums[*][*]",
 			want: "splat [*] needs a list, got integer",
 		},
 		{
 			name: "splat over bare opaque",
-			src:  "var.blob[*]",
-			want: "var.blob is opaque; declare its type, like list(object({ ... }))",
+			src:  "input.blob[*]",
+			want: "input.blob is opaque; declare its type, like list(object({ ... }))",
 		},
 		{
 			name: "field on opaque elements",
-			src:  "var.whatever[*].foo",
-			want: "var.whatever[*] is opaque; declare the fields you read, " +
+			src:  "input.whatever[*].foo",
+			want: "input.whatever[*] is opaque; declare the fields you read, " +
 				"like open(object({ foo: ... }))",
 		},
 	}

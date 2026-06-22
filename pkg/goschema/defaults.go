@@ -44,7 +44,7 @@ func (w *walker) defaultsFromType(typeName string) []lang.DefaultSpec {
 	w.subject = typeName
 	scope := constraintScope{}
 	if name, ok := receiverName(method); ok {
-		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "var"}
+		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "input"}
 	}
 	var out []lang.DefaultSpec
 	seen := map[string]bool{}
@@ -126,7 +126,7 @@ func (w *walker) defaultField(
 			return "", false
 		}
 	}
-	name := strings.TrimPrefix(field, "var.")
+	name := strings.TrimPrefix(field, "input.")
 	if ft, ok := fieldFinalType(scope[root], hops); ok {
 		if _, isPointer := ft.(*ast.StarExpr); isPointer {
 			if hasValue {

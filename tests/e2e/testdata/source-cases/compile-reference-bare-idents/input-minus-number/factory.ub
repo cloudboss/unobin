@@ -1,4 +1,4 @@
 factory: {
   inputs: { count: { type: integer } }
-  outputs: { x: { value: var.count-1 } }
+  outputs: { x: { value: input.count-1 } }
 }

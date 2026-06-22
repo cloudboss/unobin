@@ -6,6 +6,6 @@ factory: {
       default: {}
     }
   }
-  library-configs: { cloud: var.cloud-config }
+  library-configs: { cloud: input.cloud-config }
   actions: { describe: cloud.describe { label: 'world' } }
 }

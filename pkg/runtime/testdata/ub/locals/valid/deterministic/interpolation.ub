@@ -1,1 +1,1 @@
-locals: { name: $'{{var.e}}-{{local.s}}'  s: 'c' }
+locals: { name: $'{{input.e}}-{{local.s}}'  s: 'c' }

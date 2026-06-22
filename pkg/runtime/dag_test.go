@@ -119,8 +119,8 @@ func TestBuildDAGActionDependsOnResource(t *testing.T) {
 }
 
 func TestBuildDAGVarReferenceCreatesEdge(t *testing.T) {
-	g := syntaxDAG(t, dagFixture(t, "build-dag-var-reference-creates-edge"), nil)
-	require.Equal(t, []string{"var.cidr"}, g.Edges["resource.main"])
+	g := syntaxDAG(t, dagFixture(t, "build-dag-input-reference-creates-edge"), nil)
+	require.Equal(t, []string{"input.cidr"}, g.Edges["resource.main"])
 }
 
 func TestBuildDAGCompositeBoundaryDependsOnInternals(t *testing.T) {
@@ -151,8 +151,8 @@ func TestBuildDAGCompositeInternalRewritesSiblingRef(t *testing.T) {
 		g.Edges["resource.web/resource.b"])
 }
 
-func TestBuildDAGCompositeInternalExcludesCompositeScopedVars(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-scoped-vars-body"))
+func TestBuildDAGCompositeInternalExcludesCompositeScopedInputs(t *testing.T) {
+	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-scoped-inputs-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
@@ -161,12 +161,12 @@ func TestBuildDAGCompositeInternalExcludesCompositeScopedVars(t *testing.T) {
 			},
 		},
 	}
-	g := syntaxDAG(t, dagFixture(t, "composite-scoped-vars-call"), libs)
+	g := syntaxDAG(t, dagFixture(t, "composite-scoped-inputs-call"), libs)
 	deps := g.Edges["resource.web/resource.x"]
-	require.NotContains(t, deps, "var.path")
-	require.NotContains(t, deps, "var.message")
-	require.Contains(t, deps, "var.target-path")
-	require.Contains(t, deps, "var.target-message")
+	require.NotContains(t, deps, "input.path")
+	require.NotContains(t, deps, "input.message")
+	require.Contains(t, deps, "input.target-path")
+	require.Contains(t, deps, "input.target-message")
 }
 
 func TestBuildDAGCompositeInternalRewritesDataAndActionRefs(t *testing.T) {
@@ -284,7 +284,7 @@ func TestTopologicalOrderDiamond(t *testing.T) {
 }
 
 func TestTopologicalOrderVarsDontBlock(t *testing.T) {
-	g := syntaxDAG(t, dagFixture(t, "topological-order-vars-dont-block"), nil)
+	g := syntaxDAG(t, dagFixture(t, "topological-order-inputs-dont-block"), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{"resource.main"}, got)

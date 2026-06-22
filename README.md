@@ -93,7 +93,7 @@ web-cluster: resource {
   ]
 
   resources: {
-    web-sg: aws.security-group { name: var.name }
+    web-sg: aws.security-group { name: input.name }
   }
 }
 ```

@@ -1,5 +1,5 @@
 inputs: { path: { type: string } }
 
-resources: { x: core.thing { name: var.path, size: 1 } }
+resources: { x: core.thing { name: input.path, size: 1 } }
 
 outputs: { path: { value: resource.x.name } }

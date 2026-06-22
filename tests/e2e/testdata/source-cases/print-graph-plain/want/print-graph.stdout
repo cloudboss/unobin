@@ -1,5 +1,5 @@
 action.first
-  -> var.msg
+  -> input.msg
 
 action.second
   -> action.first

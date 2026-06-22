@@ -1,5 +1,5 @@
-guarded-field:       var.tls?.port
-guarded-chain:       var.cfg?.db?.host
+guarded-field:       input.tls?.port
+guarded-chain:       input.cfg?.db?.host
 guard-after-plain:   resource.aws.vpc.main.logging?.bucket
-guard-then-index:    var.cfg?.hosts[0]
-guard-call-argument: core.format('%s', var.cfg?.db)
+guard-then-index:    input.cfg?.hosts[0]
+guard-call-argument: core.format('%s', input.cfg?.db)

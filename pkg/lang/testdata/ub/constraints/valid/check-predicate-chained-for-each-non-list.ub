@@ -2,7 +2,7 @@ constraints: [
   {
     kind: predicate
     @for-each: [
-      { @rule: var.items },
+      { @rule: input.items },
       { @t:    @rule.value.subs }
     ]
     when:    true

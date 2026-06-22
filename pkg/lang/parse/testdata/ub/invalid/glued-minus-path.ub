@@ -1,1 +1,1 @@
-a: var.count- 1
+a: input.count- 1

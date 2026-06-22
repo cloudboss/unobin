@@ -50,11 +50,11 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 	}
 	e.prepareApplySnapshot(rs)
 	// The apply subcommand is invoked with only the plan file, so the
-	// executor's own Inputs is typically empty. Seed root Vars from
-	// the plan file so root-scope references like `var.X` resolve when
+	// executor's own Inputs is typically empty. Seed root Inputs from
+	// the plan file so root-scope references like `input.X` resolve when
 	// applyXxx re-evaluates a node body.
-	if len(rs.eval.Vars) == 0 && len(pf.Inputs) > 0 {
-		rs.eval.Vars = pf.Inputs
+	if len(rs.eval.Inputs) == 0 && len(pf.Inputs) > 0 {
+		rs.eval.Inputs = pf.Inputs
 	}
 	if err := e.applyPlannedEntryMoves(rs, pf.StateMoves); err != nil {
 		return nil, err
@@ -64,13 +64,13 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			return nil, err
 		}
 	}
-	if err := e.seedPriorInternalConfigurations(rs.prior, rs.eval.Vars); err != nil {
+	if err := e.seedPriorInternalConfigurations(rs.prior, rs.eval.Inputs); err != nil {
 		return nil, err
 	}
 
 	// Composite scopes seed from the plan: each composite step carries
 	// its evaluated call site args as Inputs, so internals see the
-	// right Vars without needing the root inputs again. Libraries comes
+	// right Inputs without needing the root inputs again. Libraries comes
 	// from the boundary node so functions invoked in the composite's
 	// outputs or internals resolve against the composite's own imports.
 	// A `@for-each` composite emits one step per instance, each at a
@@ -86,7 +86,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			return nil, fmt.Errorf("composite %q: not in DAG", step.Address)
 		}
 		rs.composites[step.Address] = &EvalContext{
-			Vars:      step.Inputs,
+			Inputs:    step.Inputs,
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),

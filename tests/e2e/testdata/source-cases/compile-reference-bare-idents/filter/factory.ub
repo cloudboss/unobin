@@ -1,4 +1,4 @@
 factory: {
   inputs: { nums: { type: list(number) } }
-  outputs: { f: { value: [ for n in var.nums : n when active ] } }
+  outputs: { f: { value: [ for n in input.nums : n when active ] } }
 }

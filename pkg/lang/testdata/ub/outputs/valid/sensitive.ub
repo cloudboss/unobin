@@ -1,6 +1,6 @@
 outputs: {
   password: {
-    value: var.p
+    value: input.p
     @sensitive: true
   }
 }

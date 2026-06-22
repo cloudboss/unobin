@@ -1,8 +1,8 @@
 constraints: [
   {
     kind:      predicate
-    @for-each: var.a
-    @for-each: var.b
+    @for-each: input.a
+    @for-each: input.b
     when:      true
     require:   true
   },

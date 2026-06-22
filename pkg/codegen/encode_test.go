@@ -328,10 +328,10 @@ func TestEncodeConditional(t *testing.T) {
 }
 
 func TestEncodeListComprehension(t *testing.T) {
-	got := encodeExpr(t, "[ for s in var.subnets : s.cidr ]")
+	got := encodeExpr(t, "[ for s in input.subnets : s.cidr ]")
 	require.Equal(t,
 		`&lang.Comprehension{Kind: lang.CompList, Names: []string{"s"}, `+
-			`Source: &lang.DotPath{Root: &lang.Ident{Name: "var"}, `+
+			`Source: &lang.DotPath{Root: &lang.Ident{Name: "input"}, `+
 			`Segments: []lang.DotSegment{{Name: "subnets"}}}, `+
 			`Value: &lang.DotPath{Root: &lang.Ident{Name: "s"}, `+
 			`Segments: []lang.DotSegment{{Name: "cidr"}}}}`,
@@ -339,7 +339,7 @@ func TestEncodeListComprehension(t *testing.T) {
 }
 
 func TestEncodeMapComprehensionGroupAndFilter(t *testing.T) {
-	got := encodeExpr(t, "{ for s in var.subnets : s.az => s.id... when s.public }")
+	got := encodeExpr(t, "{ for s in input.subnets : s.az => s.id... when s.public }")
 	require.Contains(t, got, "&lang.Comprehension{Kind: lang.CompMap")
 	require.Contains(t, got, `Names: []string{"s"}`)
 	require.Contains(t, got, "Key: &lang.DotPath{")
@@ -348,7 +348,7 @@ func TestEncodeMapComprehensionGroupAndFilter(t *testing.T) {
 }
 
 func TestEncodeComprehensionTwoNames(t *testing.T) {
-	got := encodeExpr(t, "[ for i, s in var.items : i ]")
+	got := encodeExpr(t, "[ for i, s in input.items : i ]")
 	require.Contains(t, got, `Names: []string{"i", "s"}`)
 }
 

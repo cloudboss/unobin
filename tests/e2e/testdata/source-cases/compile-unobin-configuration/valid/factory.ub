@@ -9,5 +9,5 @@ factory: {
       }
     }
   }
-  resources: { this: aws.thing { name: var.name } }
+  resources: { this: aws.thing { name: input.name } }
 }

@@ -58,14 +58,14 @@ func TestEvalNestedArrayInObject(t *testing.T) {
 }
 
 func TestEvalVarSimple(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{"region": "us-east-1"}}
-	got, err := Eval(parseValue(t, "var.region"), ctx)
+	ctx := &EvalContext{Inputs: map[string]any{"region": "us-east-1"}}
+	got, err := Eval(parseValue(t, "input.region"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "us-east-1", got)
 }
 
 func TestEvalVarNested(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"network": map[string]any{
 			"vpc-id": "vpc-abc",
 			"subnets": map[string]any{
@@ -73,18 +73,18 @@ func TestEvalVarNested(t *testing.T) {
 			},
 		},
 	}}
-	got, err := Eval(parseValue(t, "var.network.vpc-id"), ctx)
+	got, err := Eval(parseValue(t, "input.network.vpc-id"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "vpc-abc", got)
 
-	got, err = Eval(parseValue(t, "var.network.subnets.public"), ctx)
+	got, err = Eval(parseValue(t, "input.network.subnets.public"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "subnet-1", got)
 }
 
 func TestEvalVarMissingKey(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{"region": "us-east-1"}}
-	_, err := Eval(parseValue(t, "var.missing"), ctx)
+	ctx := &EvalContext{Inputs: map[string]any{"region": "us-east-1"}}
+	_, err := Eval(parseValue(t, "input.missing"), ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not found")
 }
@@ -104,55 +104,55 @@ func TestEvalMissingAsNull(t *testing.T) {
 	cases := []struct {
 		name    string
 		src     string
-		vars    map[string]any
+		inputs  map[string]any
 		strict  outcome
 		lenient outcome
 	}{
 		{
 			name: "nested leaf present resolves in either mode",
-			src:  "var.code.inline", vars: code(map[string]any{"inline": "x"}),
+			src:  "input.code.inline", inputs: code(map[string]any{"inline": "x"}),
 			strict:  outcome{val: "x"},
 			lenient: outcome{val: "x"},
 		},
 		{
 			name: "nested leaf missing under a present parent",
-			src:  "var.code.inline", vars: code(map[string]any{}),
+			src:  "input.code.inline", inputs: code(map[string]any{}),
 			strict:  outcome{err: true},
 			lenient: outcome{val: nil},
 		},
 		{
 			name: "nested parent missing",
-			src:  "var.code.inline", vars: map[string]any{},
+			src:  "input.code.inline", inputs: map[string]any{},
 			strict:  outcome{err: true},
 			lenient: outcome{val: nil},
 		},
 		{
 			name: "nested parent null",
-			src:  "var.code.inline", vars: map[string]any{"code": nil},
+			src:  "input.code.inline", inputs: map[string]any{"code": nil},
 			strict:  outcome{err: true},
 			lenient: outcome{val: nil},
 		},
 		{
 			name: "nested scalar parent errors in either mode",
-			src:  "var.code.inline", vars: map[string]any{"code": "oops"},
+			src:  "input.code.inline", inputs: map[string]any{"code": "oops"},
 			strict:  outcome{err: true},
 			lenient: outcome{err: true},
 		},
 		{
 			name: "predicate over a missing nested field",
-			src:  "var.code.inline != null", vars: map[string]any{},
+			src:  "input.code.inline != null", inputs: map[string]any{},
 			strict:  outcome{err: true},
 			lenient: outcome{val: false},
 		},
 		{
 			name: "flat present resolves in either mode",
-			src:  "var.region", vars: map[string]any{"region": "us-east-1"},
+			src:  "input.region", inputs: map[string]any{"region": "us-east-1"},
 			strict:  outcome{val: "us-east-1"},
 			lenient: outcome{val: "us-east-1"},
 		},
 		{
 			name: "flat missing",
-			src:  "var.region", vars: map[string]any{},
+			src:  "input.region", inputs: map[string]any{},
 			strict:  outcome{err: true},
 			lenient: outcome{val: nil},
 		},
@@ -168,7 +168,7 @@ func TestEvalMissingAsNull(t *testing.T) {
 				{"lenient", true, c.lenient},
 			} {
 				t.Run(m.label, func(t *testing.T) {
-					ctx := &EvalContext{Vars: c.vars, MissingAsNull: m.lenient}
+					ctx := &EvalContext{Inputs: c.inputs, MissingAsNull: m.lenient}
 					got, err := Eval(parseValue(t, c.src), ctx)
 					if m.want.err {
 						require.Error(t, err)
@@ -183,18 +183,18 @@ func TestEvalMissingAsNull(t *testing.T) {
 }
 
 func TestEvalVarReferencedInArray(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{"greeting": "world"}}
-	got, err := Eval(parseValue(t, "['echo', var.greeting]"), ctx)
+	ctx := &EvalContext{Inputs: map[string]any{"greeting": "world"}}
+	got, err := Eval(parseValue(t, "['echo', input.greeting]"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, []any{"echo", "world"}, got)
 }
 
 func TestEvalVarReferencedInObject(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"region": "us-east-1",
 		"size":   int64(3),
 	}}
-	got, err := Eval(parseValue(t, "{ region: var.region, size: var.size }"), ctx)
+	got, err := Eval(parseValue(t, "{ region: input.region, size: input.size }"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
 		"region": "us-east-1",
@@ -218,7 +218,7 @@ func TestEvalIndexedAddress(t *testing.T) {
 }
 
 func TestEvalPositionalIndex(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"names": []any{"alpha", "beta", "gamma"},
 		"subnets": []any{
 			map[string]any{"id": "s-1", "az": "a"},
@@ -246,17 +246,17 @@ func TestEvalPositionalIndex(t *testing.T) {
 		src  string
 		want any
 	}{
-		{name: "first element", src: "var.names[0]", want: "alpha"},
-		{name: "last element", src: "var.names[2]", want: "gamma"},
-		{name: "index then field", src: "var.subnets[0].id", want: "s-1"},
-		{name: "field after later element", src: "var.subnets[1].az", want: "b"},
-		{name: "nested list", src: "var.matrix[0][1]", want: int64(2)},
-		{name: "nested list other", src: "var.matrix[1][0]", want: int64(3)},
-		{name: "computed index", src: "var.names[var.i]", want: "beta"},
-		{name: "arithmetic index", src: "var.names[1 + 1]", want: "gamma"},
-		{name: "map field then index", src: "var.region.zones[1]", want: "z-2"},
-		{name: "deep alternating list and map", src: "var.regions[0].subnets[1].id", want: "s-1-1"},
-		{name: "list of lists of maps", src: "var.grid[1][0].name", want: "c"},
+		{name: "first element", src: "input.names[0]", want: "alpha"},
+		{name: "last element", src: "input.names[2]", want: "gamma"},
+		{name: "index then field", src: "input.subnets[0].id", want: "s-1"},
+		{name: "field after later element", src: "input.subnets[1].az", want: "b"},
+		{name: "nested list", src: "input.matrix[0][1]", want: int64(2)},
+		{name: "nested list other", src: "input.matrix[1][0]", want: int64(3)},
+		{name: "computed index", src: "input.names[input.i]", want: "beta"},
+		{name: "arithmetic index", src: "input.names[1 + 1]", want: "gamma"},
+		{name: "map field then index", src: "input.region.zones[1]", want: "z-2"},
+		{name: "deep alternating list and map", src: "input.regions[0].subnets[1].id", want: "s-1-1"},
+		{name: "list of lists of maps", src: "input.grid[1][0].name", want: "c"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestEvalPositionalIndex(t *testing.T) {
 }
 
 func TestEvalNavigateErrors(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"names":    []any{"alpha", "beta"},
 		"region":   map[string]any{"zone": "z-1"},
 		"empty":    []any{},
@@ -281,16 +281,16 @@ func TestEvalNavigateErrors(t *testing.T) {
 		src  string
 		want string
 	}{
-		{name: "out of range", src: "var.names[5]", want: "not found"},
-		{name: "negative index", src: "var.names[-1]", want: "not found"},
-		{name: "empty list", src: "var.empty[0]", want: "not found"},
-		{name: "empty map field", src: "var.emptymap.missing", want: "not found"},
-		{name: "empty map string key", src: "var.emptymap['missing']", want: "not found"},
-		{name: "integer index into map", src: "var.region[0]", want: "cannot index into"},
-		{name: "index into scalar", src: "var.scalar[0]", want: "cannot index into"},
-		{name: "string key into list", src: "var.names['x']", want: "cannot navigate into"},
-		{name: "field into list", src: "var.names.field", want: "cannot navigate into"},
-		{name: "null element then field", src: "var.sparse[0].x", want: "cannot navigate into"},
+		{name: "out of range", src: "input.names[5]", want: "not found"},
+		{name: "negative index", src: "input.names[-1]", want: "not found"},
+		{name: "empty list", src: "input.empty[0]", want: "not found"},
+		{name: "empty map field", src: "input.emptymap.missing", want: "not found"},
+		{name: "empty map string key", src: "input.emptymap['missing']", want: "not found"},
+		{name: "integer index into map", src: "input.region[0]", want: "cannot index into"},
+		{name: "index into scalar", src: "input.scalar[0]", want: "cannot index into"},
+		{name: "string key into list", src: "input.names['x']", want: "cannot navigate into"},
+		{name: "field into list", src: "input.names.field", want: "cannot navigate into"},
+		{name: "null element then field", src: "input.sparse[0].x", want: "cannot navigate into"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -302,7 +302,7 @@ func TestEvalNavigateErrors(t *testing.T) {
 }
 
 func TestEvalConditional(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{"prod": true, "n": int64(5)}}
+	ctx := &EvalContext{Inputs: map[string]any{"prod": true, "n": int64(5)}}
 	tests := []struct {
 		name string
 		src  string
@@ -310,8 +310,8 @@ func TestEvalConditional(t *testing.T) {
 	}{
 		{name: "true takes then", src: "if true then 'a' else 'b'", want: "a"},
 		{name: "false takes else", src: "if false then 'a' else 'b'", want: "b"},
-		{name: "var condition", src: "if var.prod then 'big' else 'small'", want: "big"},
-		{name: "comparison condition", src: "if var.n > 3 then 'hi' else 'lo'", want: "hi"},
+		{name: "input condition", src: "if input.prod then 'big' else 'small'", want: "big"},
+		{name: "comparison condition", src: "if input.n > 3 then 'hi' else 'lo'", want: "hi"},
 		{name: "else-if chain", src: "if false then 1 else if true then 2 else 3", want: int64(2)},
 	}
 	for _, tt := range tests {
@@ -324,13 +324,13 @@ func TestEvalConditional(t *testing.T) {
 }
 
 func TestEvalConditionalShortCircuits(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{}}
-	// The dead branch reads a missing var, but must not be evaluated.
-	got, err := Eval(parseValue(t, "if true then 'ok' else var.missing"), ctx)
+	ctx := &EvalContext{Inputs: map[string]any{}}
+	// The dead branch reads a missing input, but must not be evaluated.
+	got, err := Eval(parseValue(t, "if true then 'ok' else input.missing"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "ok", got)
 
-	got, err = Eval(parseValue(t, "if false then var.missing else 'ok'"), ctx)
+	got, err = Eval(parseValue(t, "if false then input.missing else 'ok'"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "ok", got)
 }
@@ -366,14 +366,14 @@ func TestEvalCallArgError(t *testing.T) {
 			},
 		},
 	}}
-	_, err := Eval(parseValue(t, "lib.upper(var.missing)"), ctx)
+	_, err := Eval(parseValue(t, "lib.upper(input.missing)"), ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "lib.upper")
 	require.Contains(t, err.Error(), "arg 0")
 }
 
 func TestEvalGuardedNavigation(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"tls": nil,
 		"cfg": map[string]any{"db": map[string]any{"host": "h"}},
 		"bad": map[string]any{"db": nil},
@@ -382,10 +382,10 @@ func TestEvalGuardedNavigation(t *testing.T) {
 		src  string
 		want any
 	}{
-		{"var.tls?.port", nil},
-		{"var.cfg?.db?.host", "h"},
-		{"var.cfg?.db.host", "h"},
-		{"var.bad?.db?.host", nil},
+		{"input.tls?.port", nil},
+		{"input.cfg?.db?.host", "h"},
+		{"input.cfg?.db.host", "h"},
+		{"input.bad?.db?.host", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
@@ -395,31 +395,31 @@ func TestEvalGuardedNavigation(t *testing.T) {
 		})
 	}
 
-	_, err := Eval(parseValue(t, "var.tls.port"), ctx)
+	_, err := Eval(parseValue(t, "input.tls.port"), ctx)
 	require.Error(t, err, "an unguarded read of null still fails")
 	require.Contains(t, err.Error(), "cannot navigate into null")
 }
 
 func TestEvalCoalesce(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"set":   "v",
 		"unset": nil,
 	}}
-	got, err := Eval(parseValue(t, "var.set ?? 'd'"), ctx)
+	got, err := Eval(parseValue(t, "input.set ?? 'd'"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "v", got)
 
-	got, err = Eval(parseValue(t, "var.unset ?? 'd'"), ctx)
+	got, err = Eval(parseValue(t, "input.unset ?? 'd'"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "d", got)
 
 	// The right side only evaluates when the left is null: this
 	// fallback would fail if it ran.
-	got, err = Eval(parseValue(t, "var.set ?? var.set.bogus.deep"), ctx)
+	got, err = Eval(parseValue(t, "input.set ?? input.set.bogus.deep"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "v", got)
 
-	got, err = Eval(parseValue(t, "var.unset ?? null"), ctx)
+	got, err = Eval(parseValue(t, "input.unset ?? null"), ctx)
 	require.NoError(t, err)
 	require.Nil(t, got)
 }
@@ -490,10 +490,10 @@ func TestEvalArithmeticNegative(t *testing.T) {
 func TestEvalArithmeticBigInt(t *testing.T) {
 	// 2^53 + 1: exact in int64, loses a bit when round-tripped through
 	// float64. The arithmetic path must stay in the integer domain.
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"big": int64(1<<53 + 1),
 	}}
-	got, err := Eval(parseValue(t, "var.big + 0"), ctx)
+	got, err := Eval(parseValue(t, "input.big + 0"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(1<<53+1), got)
 }
@@ -650,13 +650,13 @@ func TestEvalLogical(t *testing.T) {
 }
 
 func TestEvalLogicalShortCircuit(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{}}
+	ctx := &EvalContext{Inputs: map[string]any{}}
 
-	got, err := Eval(parseValue(t, "false && var.missing"), ctx)
+	got, err := Eval(parseValue(t, "false && input.missing"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, false, got)
 
-	got, err = Eval(parseValue(t, "true || var.missing"), ctx)
+	got, err = Eval(parseValue(t, "true || input.missing"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, got)
 }
@@ -680,8 +680,8 @@ func TestEvalPrefixNeg(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, -1.5, got)
 
-	ctx := &EvalContext{Vars: map[string]any{"x": int64(3), "y": int64(4)}}
-	got, err = Eval(parseValue(t, "-(var.x + var.y)"), ctx)
+	ctx := &EvalContext{Inputs: map[string]any{"x": int64(3), "y": int64(4)}}
+	got, err = Eval(parseValue(t, "-(input.x + input.y)"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(-7), got)
 }
@@ -738,7 +738,7 @@ func TestEvalEqualityBigIntPrecision(t *testing.T) {
 	// 2^53 and 2^53+1 are distinct int64 but collapse to the same
 	// float64; comparing in the integer domain keeps them apart, in
 	// equality and ordering alike, inside collections too.
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"a": int64(1 << 53),
 		"b": int64(1<<53 + 1),
 	}}
@@ -746,12 +746,12 @@ func TestEvalEqualityBigIntPrecision(t *testing.T) {
 		src  string
 		want bool
 	}{
-		{"var.a == var.b", false},
-		{"var.a != var.b", true},
-		{"var.b > var.a", true},
-		{"var.a < var.b", true},
-		{"var.a >= var.b", false},
-		{"[var.a] == [var.b]", false},
+		{"input.a == input.b", false},
+		{"input.a != input.b", true},
+		{"input.b > input.a", true},
+		{"input.a < input.b", true},
+		{"input.a >= input.b", false},
+		{"[input.a] == [input.b]", false},
 	}
 	for _, c := range cases {
 		t.Run(c.src, func(t *testing.T) {
@@ -808,7 +808,7 @@ func TestEvalEachOutsideForEachIsError(t *testing.T) {
 
 func TestEvalCallModuleFunction(t *testing.T) {
 	ctx := &EvalContext{
-		Vars: map[string]any{"name": "web"},
+		Inputs: map[string]any{"name": "web"},
 		Libraries: map[string]*Library{
 			"lib": {
 				Name: "lib",
@@ -823,7 +823,7 @@ func TestEvalCallModuleFunction(t *testing.T) {
 			},
 		},
 	}
-	got, err := Eval(parseValue(t, "lib.upper(var.name)"), ctx)
+	got, err := Eval(parseValue(t, "lib.upper(input.name)"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, "WEB", got)
 }
@@ -867,20 +867,20 @@ func TestEvalCallModuleFunctionError(t *testing.T) {
 }
 
 func TestEvalNestedExpr(t *testing.T) {
-	ctx := &EvalContext{Vars: map[string]any{
+	ctx := &EvalContext{Inputs: map[string]any{
 		"size":   int64(3),
 		"region": "us-east-1",
 	}}
-	got, err := Eval(parseValue(t, "(var.size + 1) * 2"), ctx)
+	got, err := Eval(parseValue(t, "(input.size + 1) * 2"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(8), got)
 
-	got, err = Eval(parseValue(t, "var.size > 0 && var.size < 10"), ctx)
+	got, err = Eval(parseValue(t, "input.size > 0 && input.size < 10"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, got)
 
 	got, err = Eval(parseValue(t,
-		"var.region == 'us-east-1' || var.region == 'us-west-2'"), ctx)
+		"input.region == 'us-east-1' || input.region == 'us-west-2'"), ctx)
 	require.NoError(t, err)
 	require.Equal(t, true, got)
 }

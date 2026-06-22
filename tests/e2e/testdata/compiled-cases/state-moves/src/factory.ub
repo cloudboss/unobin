@@ -33,7 +33,7 @@ factory: {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   resources: {
@@ -52,7 +52,7 @@ factory: {
       file-path:   local.group.file-path
       single-path: local.group.single-path
       content:     local.group.content
-      e2e-config:  var.e2e-config
+      e2e-config:  input.e2e-config
     }
 
     bad: e2e.file {

@@ -1,3 +1,3 @@
 constraints: [
-  { kind: mutually-exclusive, fields: [var.a, var.b] },
+  { kind: mutually-exclusive, fields: [input.a, input.b] },
 ]

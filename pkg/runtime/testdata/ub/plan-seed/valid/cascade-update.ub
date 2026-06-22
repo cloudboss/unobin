@@ -2,6 +2,6 @@ inputs: {
   t: { type: string }
 }
 resources: {
-  a: core.subnet { tag: var.t }
+  a: core.subnet { tag: input.t }
   it: core.instance { ref: resource.a.id }
 }

@@ -1,2 +1,2 @@
 inputs: { name: { type: string } }
-outputs: { shout: { value: core.uppercase(var.name) } }
+outputs: { shout: { value: core.uppercase(input.name) } }

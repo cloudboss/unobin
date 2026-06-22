@@ -32,7 +32,7 @@ func Plain(out io.Writer, dag *runtime.DAG) {
 }
 
 // DOT writes the DAG to out as a Graphviz directed graph named name.
-// Edges to non-node addresses (like `var.X`) are skipped so the
+// Edges to non-node addresses (like `input.X`) are skipped so the
 // rendered graph contains only nodes the runtime actually executes.
 func DOT(out io.Writer, dag *runtime.DAG, name string) {
 	fmt.Fprintf(out, "digraph %q {\n", name)

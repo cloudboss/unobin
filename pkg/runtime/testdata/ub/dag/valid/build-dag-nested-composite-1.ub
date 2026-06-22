@@ -1,3 +1,3 @@
 inputs: { path: { type: string } }
 
-resources: { x: local.file { path: var.path } }
+resources: { x: local.file { path: input.path } }

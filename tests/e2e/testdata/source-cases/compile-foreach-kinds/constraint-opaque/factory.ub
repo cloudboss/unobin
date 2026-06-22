@@ -1,6 +1,6 @@
 factory: {
   inputs: { blob: { type: opaque } }
   constraints: [
-    { kind: predicate, @for-each: var.blob, when: true, require: true },
+    { kind: predicate, @for-each: input.blob, when: true, require: true },
   ]
 }

@@ -2,6 +2,6 @@ description: 'test stack'
 
 inputs: { name: { type: string } }
 
-resources: { core.thing.one: { name: var.name } }
+resources: { core.thing.one: { name: input.name } }
 
 outputs: { id: { value: resource.core.thing.one.id } }

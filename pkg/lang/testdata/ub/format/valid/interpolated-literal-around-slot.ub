@@ -1,1 +1,1 @@
-x: $'a-{{var.x}}-b'
+x: $'a-{{input.x}}-b'

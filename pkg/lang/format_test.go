@@ -574,12 +574,12 @@ func TestSingleLineWidthAtoms(t *testing.T) {
 		{"triple-quote single line", "'''hi'''", 8},
 		{"empty object", "{}", 2},
 		{"empty array", "[]", 2},
-		{"dot path", "var.x.y", 7},
-		{"dot path with index", "var.x['k']", 10},
+		{"dot path", "input.x.y", 9},
+		{"dot path with index", "input.x['k']", 12},
 		{"bare call", "format('x', 1)", 14},
 		{"library call", "lib.foo(1, 2)", 13},
 		{"infix", "1 + 2", 5},
-		{"prefix", "!var.x", 6},
+		{"prefix", "!input.x", 8},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

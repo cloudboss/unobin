@@ -1,6 +1,6 @@
 factory: {
   inputs: { names: { type: optional(list(string)) } }
   constraints: [
-    { kind: predicate, @for-each: var.names, when: true, require: true },
+    { kind: predicate, @for-each: input.names, when: true, require: true },
   ]
 }

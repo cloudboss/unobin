@@ -1,4 +1,4 @@
 locals: {
-  dup: var.x
-  dup: var.y
+  dup: input.x
+  dup: input.y
 }

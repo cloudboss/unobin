@@ -9,7 +9,7 @@ import (
 )
 
 // FieldDisplay selects how a constraint diagnostic spells field names.
-// A factory-level check keeps the var root, the name an operator sets;
+// A factory-level check keeps the input root, the name an operator sets;
 // a node-scoped check (a Go type's spec, a composite's own block)
 // prints names relative to the node, matching the keys its body is
 // written with. Lookup always uses the rooted name; only the message
@@ -24,7 +24,7 @@ const (
 // name renders one field reference for a diagnostic.
 func (d FieldDisplay) name(f string) string {
 	if d == DisplayNodeRelative {
-		return strings.TrimPrefix(f, "var.")
+		return strings.TrimPrefix(f, "input.")
 	}
 	return f
 }
@@ -144,13 +144,13 @@ func CheckConstraintEntry(
 
 // ConstraintFieldRoots returns the names of the inputs a constraint
 // reads: the first path segment of each fields: entry for a set
-// constraint, and of every var reference in the when, require, and
+// constraint, and of every input reference in the when, require, and
 // @for-each expressions for a predicate. The names are sorted and
 // unique.
 func ConstraintFieldRoots(c ConstraintEntry) []string {
 	roots := map[string]struct{}{}
 	for _, f := range c.Fields {
-		rest, ok := strings.CutPrefix(f, "var.")
+		rest, ok := strings.CutPrefix(f, "input.")
 		if !ok {
 			continue
 		}
@@ -165,7 +165,7 @@ func ConstraintFieldRoots(c ConstraintEntry) []string {
 	for _, e := range exprs {
 		Walk(e, func(x Expr) {
 			dp, ok := x.(*DotPath)
-			if !ok || dp.Root == nil || dp.Root.Name != "var" || len(dp.Segments) == 0 {
+			if !ok || dp.Root == nil || dp.Root.Name != "input" || len(dp.Segments) == 0 {
 				return
 			}
 			if name := dp.Segments[0].Name; name != "" {
@@ -378,20 +378,20 @@ func readConstraint(obj *ObjectLit) (ConstraintEntry, bool) {
 	return c, true
 }
 
-// constraintFieldName renders a `fields:` element to the var reference
-// it must be: var.vpc-id names an input and var.code.inline a field
+// constraintFieldName renders a `fields:` element to the input reference
+// it must be: input.vpc-id names an input and input.code.inline a field
 // inside a nested one, the same spelling every other reference position
 // uses. A segment may index a list element with a whole-number literal
-// (var.listeners[0].cert) or splat every element (var.replicas[*].host);
+// (input.listeners[0].cert) or splat every element (input.replicas[*].host);
 // a splat must be followed by a field and may appear once per path. ok
 // is false for anything else, a bare name included.
 func constraintFieldName(e Expr) (string, bool) {
 	v, ok := e.(*DotPath)
-	if !ok || v.Root == nil || v.Root.Name != "var" || len(v.Segments) == 0 {
+	if !ok || v.Root == nil || v.Root.Name != "input" || len(v.Segments) == 0 {
 		return "", false
 	}
 	// The first segment must name an input; an index or splat applies
-	// to a field, never to var itself.
+	// to a field, never to input itself.
 	if v.Segments[0].Name == "" {
 		return "", false
 	}
@@ -430,17 +430,17 @@ func literalIndex(e Expr) (int, bool) {
 	return int(n.ParsedInt), true
 }
 
-// lookupPath reads a field value by its var reference, stepping into
-// nested maps for a name like "var.code.inline" and into list elements
-// for an indexed segment like "var.listeners[0].cert". The leading var
+// lookupPath reads a field value by its input reference, stepping into
+// nested maps for a name like "input.code.inline" and into list elements
+// for an indexed segment like "input.listeners[0].cert". The leading input
 // segment resolves to the values themselves; it is part of the name so
-// a field reads the same everywhere, never var-stripped in one place
-// and rooted in another. found is false for a name not rooted at var,
+// a field reads the same everywhere, never input-stripped in one place
+// and rooted in another. found is false for a name not rooted at input,
 // or when any segment is absent, an index is out of range, or a parent
 // value is not the right container, so an unset nested field reads the
 // same as an unset top-level one.
 func lookupPath(values map[string]any, name string) (any, bool) {
-	rest, ok := strings.CutPrefix(name, "var.")
+	rest, ok := strings.CutPrefix(name, "input.")
 	if !ok {
 		return nil, false
 	}
@@ -701,7 +701,7 @@ func checkPredicateLevels(
 // levelElementText renders the indexed source text a level's elements
 // are named by. A level rooted at an enclosing binding substitutes
 // that binding's own indexed text, so the failing element reads as one
-// path from the input down: var.rules[1].transitions[0].
+// path from the input down: input.rules[1].transitions[0].
 func levelElementText(
 	inText, at string, binds []EachBinding, display FieldDisplay,
 ) string {

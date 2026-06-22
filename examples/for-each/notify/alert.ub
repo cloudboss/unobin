@@ -11,8 +11,8 @@ alert: resource {
 
   resources: {
     this: std.fs-file {
-      path:             var.path
-      content:          $'ALERT {{ var.topic }}: {{ var.body }}\n'
+      path:             input.path
+      content:          $'ALERT {{ input.topic }}: {{ input.body }}\n'
       create-directory: true
     }
   }

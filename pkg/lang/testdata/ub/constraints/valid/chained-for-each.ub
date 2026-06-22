@@ -2,7 +2,7 @@ constraints: [
   {
     kind: predicate
     @for-each: [
-      { @rule: var.rules },
+      { @rule: input.rules },
       { @t:    @rule.value.transitions },
     ]
     when:    true

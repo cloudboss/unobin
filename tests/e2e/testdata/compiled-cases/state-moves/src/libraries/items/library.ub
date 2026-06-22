@@ -14,13 +14,13 @@ item: resource {
   }
 
   library-configs: {
-    e2e: var.e2e-config
+    e2e: input.e2e-config
   }
 
   resources: {
     file: e2e.file {
-      path:    var.path
-      content: var.content
+      path:    input.path
+      content: input.content
     }
   }
 

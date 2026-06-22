@@ -13,9 +13,9 @@ factory: {
 
   imports: { e2e: 'example.com/unobin/e2elib' }
 
-  library-configs: { e2e: var.e2e-config }
+  library-configs: { e2e: input.e2e-config }
 
   resources: {
-    many: e2e.file { @for-each: var.counts, path: @each.value, content: 'hi' }
+    many: e2e.file { @for-each: input.counts, path: @each.value, content: 'hi' }
   }
 }

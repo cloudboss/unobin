@@ -2,6 +2,6 @@ inputs: {
   t: { type: string }
 }
 resources: {
-  x: w.net { t: var.t }
+  x: w.net { t: input.t }
   it: core.instance { ref: resource.x.id }
 }

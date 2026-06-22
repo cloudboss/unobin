@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-schema: constraints[1] (exactly-one-of [var.replicas[0].inline, var.replicas[0].from-file]): expected exactly one to be set, got 2 (var.replicas[0].inline, var.replicas[0].from-file)
+schema: constraints[1] (exactly-one-of [input.replicas[0].inline, input.replicas[0].from-file]): expected exactly one to be set, got 2 (input.replicas[0].inline, input.replicas[0].from-file)

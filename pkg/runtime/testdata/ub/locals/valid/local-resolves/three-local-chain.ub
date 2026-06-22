@@ -1,5 +1,5 @@
 locals: {
-  a: var.x
+  a: input.x
   b: local.a
   c: local.b
 }

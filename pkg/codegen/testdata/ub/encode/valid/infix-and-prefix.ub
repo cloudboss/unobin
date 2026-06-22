@@ -1,1 +1,1 @@
-outputs: { x: { value: !(var.a == 1) } }
+outputs: { x: { value: !(input.a == 1) } }

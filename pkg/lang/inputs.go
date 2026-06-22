@@ -257,7 +257,7 @@ func applyDefaultSpecs(values map[string]any, specs []DefaultSpec, ev EvalFunc) 
 		if spec.Optional {
 			continue
 		}
-		path, ok := strings.CutPrefix(spec.Field, "var.")
+		path, ok := strings.CutPrefix(spec.Field, "input.")
 		if !ok || path == "" {
 			continue
 		}

@@ -36,12 +36,12 @@ func parseField0(t *testing.T, src string) *InterpolatedString {
 func TestFormatInterpolatedTripleEncodeDecode(t *testing.T) {
 	// Each form re-parses to the same form and the same value parts.
 	srcs := []string{
-		`$'''Hello {{ var.name }}!'''`,
-		`$'''id-{{ var.n:%03d }}'''`,
-		"$'''>\n  Greeting {{ var.name }} in\n  {{ var.region }}.\n  '''",
-		"$'''>-\n  {{ var.a }} and {{ var.b }} together\n  '''",
-		"$'''|-\n  echo {{ var.msg }}\n  exit {{ var.code }}\n  '''",
-		"$'''\\-\n  https://{{ var.host }}\n  /v1/{{ var.id }}\n  '''",
+		`$'''Hello {{ input.name }}!'''`,
+		`$'''id-{{ input.n:%03d }}'''`,
+		"$'''>\n  Greeting {{ input.name }} in\n  {{ input.region }}.\n  '''",
+		"$'''>-\n  {{ input.a }} and {{ input.b }} together\n  '''",
+		"$'''|-\n  echo {{ input.msg }}\n  exit {{ input.code }}\n  '''",
+		"$'''\\-\n  https://{{ input.host }}\n  /v1/{{ input.id }}\n  '''",
 	}
 	for _, src := range srcs {
 		t.Run(src, func(t *testing.T) {
@@ -55,4 +55,3 @@ func TestFormatInterpolatedTripleEncodeDecode(t *testing.T) {
 		})
 	}
 }
-

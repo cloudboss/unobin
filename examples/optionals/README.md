@@ -15,15 +15,15 @@ What each piece demonstrates:
   branches differ; for a plain fallback `??` is shorter.
 - **`??` supplies a fallback** — the `upstreams` local turns a
   possibly-null list into a plain list, and the `label` fan-out iterates
-  `var.labels ?? {}` so omitting the input means no instances.
-- **`?.` rides a maybe** — `var.tls?.cert ?? 'self-signed'` reads
+  `input.labels ?? {}` so omitting the input means no instances.
+- **`?.` rides a maybe** — `input.tls?.cert ?? 'self-signed'` reads
   through two optional levels and supplies the result; each nullable
   level wears its own `?.`.
 - **a filter narrows** — `ports` keeps each upstream's port only where
   `u.port != null` held, so the element type is integer, not
   optional(integer).
 - **a constraint's when guards its require** — constraints read missing
-  values as null, and the `when: var.upstreams != null` test narrows
+  values as null, and the `when: input.upstreams != null` test narrows
   what `require` reads.
 
 Try removing one of the discharges and recompiling: the error shows

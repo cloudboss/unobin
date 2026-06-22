@@ -1,4 +1,4 @@
 factory: {
   inputs: { xs: { type: list(object({ ys: list(number) })) } }
-  outputs: { d: { value: [ for a in var.xs : [ for b in a.ys : a-b ] ] } }
+  outputs: { d: { value: [ for a in input.xs : [ for b in a.ys : a-b ] ] } }
 }

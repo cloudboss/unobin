@@ -335,7 +335,7 @@ func defaultingLibs(c *resourceCounters) map[string]*Library {
 				),
 			},
 			Defaults: map[string][]lang.DefaultSpec{
-				"resource.thing": {{Field: "var.size", Value: "7"}},
+				"resource.thing": {{Field: "input.size", Value: "7"}},
 			},
 		},
 	}

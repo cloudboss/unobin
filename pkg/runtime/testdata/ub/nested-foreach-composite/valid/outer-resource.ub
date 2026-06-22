@@ -2,7 +2,7 @@ inputs: {
   t: { type: string }
 }
 resources: {
-  i: w.inner { tag: var.t }
+  i: w.inner { tag: input.t }
 }
 outputs: {
   id: { value: resource.i.id }

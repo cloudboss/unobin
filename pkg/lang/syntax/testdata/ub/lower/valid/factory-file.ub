@@ -12,17 +12,17 @@ locals: {
 }
 
 constraints: [
-  { when: var.message require: var.message != '' }
+  { when: input.message require: input.message != '' }
 ]
 
 library-configs: {
-  std: var.std-config
+  std: input.std-config
 }
 
 resources: {
   hello: std.fs-file {
     path: local.path
-    content: var.message
+    content: input.message
   }
 }
 

@@ -1,1 +1,1 @@
-write var.count-1 to reference the name, or var.count - 1 to subtract
+write input.count-1 to reference the name, or input.count - 1 to subtract

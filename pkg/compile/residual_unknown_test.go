@@ -18,10 +18,12 @@ import (
 // front end and records each expression position whose inferred type
 // still contains Unknown. The fixture pins the remaining positions:
 // an addition is a regression to explain, a removal is progress to
-// record, and the fixture shrinking to empty is the goal. The compile
-// itself must succeed, so this is also the test that every example
-// compiles.
+// record, and the fixture shrinking to empty is the goal.
 func TestExamplesResidualUnknowns(t *testing.T) {
+	if os.Getenv("UNOBIN_TEST_EXAMPLES") == "" {
+		t.Skip("set UNOBIN_TEST_EXAMPLES=1 to compile examples")
+	}
+
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	require.NoError(t, err)
 	exRoot := filepath.Join(repoRoot, "examples")

@@ -5,6 +5,6 @@ inputs: {
 constraints: [
   {
     kind: required-together
-    fields: [var.replicas[*].host, var.listeners[0].cert, var.volumes[*].id]
+    fields: [input.replicas[*].host, input.listeners[0].cert, input.volumes[*].id]
   },
 ]
