@@ -3,10 +3,12 @@ package compile
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/stretchr/testify/require"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestConstraintsFromSchema(t *testing.T) {
@@ -39,15 +41,8 @@ func TestConstraintsFromSchemaEmpty(t *testing.T) {
 }
 
 func TestUsedLibraryTypes(t *testing.T) {
-	f, err := lang.ParseSource("factory.ub", []byte(`
-inputs: { path: { type: string } }
-resources: {
-  aws.vpc.main: { cidr-block: '10.0.0.0/16' }
-  aws.subnet.a: { vpc-id: resource.aws.vpc.main.id }
-}
-data:    { aws.ami.ubuntu: { most-recent: true } }
-actions: { core.command.hi: { argv: ['echo'] } }
-`))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/used-library-types", "generic")
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{
 		"aws":  {"resource.vpc": true, "resource.subnet": true, "data.ami": true},
@@ -57,23 +52,15 @@ actions: { core.command.hi: { argv: ['echo'] } }
 
 func TestUsedLibraryTypesNoDeclarations(t *testing.T) {
 	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(nil))
-	f, err := lang.ParseSource("factory.ub", []byte("inputs: { x: { type: string } }\n"))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/used-library-types", "inputs-only")
+	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(f))
 }
 
 func TestUsedSyntaxLibraryTypes(t *testing.T) {
-	f, err := syntax.ParseSource("factory.ub", []byte(`
-factory: {
-  inputs: { path: { type: string } }
-  resources: {
-    main: aws.vpc { cidr-block: '10.0.0.0/16' }
-    a: aws.subnet { vpc-id: resource.main.id }
-  }
-  data:    { ubuntu: aws.ami { most-recent: true } }
-  actions: { hi: core.command { argv: ['echo'] } }
-}
-`))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/used-library-types", "syntax")
+	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{
 		"aws":  {"resource.vpc": true, "resource.subnet": true, "data.ami": true},
