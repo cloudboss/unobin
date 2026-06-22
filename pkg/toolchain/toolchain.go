@@ -5,7 +5,9 @@ package toolchain
 
 import (
 	"io"
+	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/cloudboss/cachedeps"
 )
@@ -40,6 +42,11 @@ var Go = cachedeps.Dependency{
 // the running platform.
 var All = []cachedeps.Dependency{Go}
 
+const (
+	cacheLockPoll       = 50 * time.Millisecond
+	cacheLockStaleAfter = 30 * time.Minute
+)
+
 // Ensure returns the path to the pinned `go` executable, fetching and
 // caching the toolchain under the user cache dir on first use. Progress
 // is written to out; pass nil for silent operation. The archive unpacks
@@ -48,9 +55,67 @@ var All = []cachedeps.Dependency{Go}
 func Ensure(out io.Writer) (string, error) {
 	cache := cachedeps.New("unobin")
 	cache.Output = out
-	dir, err := cache.Ensure(Go)
+	dir, err := ensureDependency(cache, Go, func() (string, error) {
+		return cache.Ensure(Go)
+	})
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(dir, "go", "bin", "go"), nil
+}
+
+func ensureDependency(
+	cache *cachedeps.Cache,
+	dep cachedeps.Dependency,
+	ensure func() (string, error),
+) (string, error) {
+	unlock, err := lockCacheDependency(cache, dep)
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
+	return ensure()
+}
+
+func lockCacheDependency(
+	cache *cachedeps.Cache,
+	dep cachedeps.Dependency,
+) (func(), error) {
+	root, err := cache.Root()
+	if err != nil {
+		return nil, err
+	}
+	lockParent := filepath.Join(root, ".locks")
+	if err := os.MkdirAll(lockParent, 0o755); err != nil {
+		return nil, err
+	}
+	lockDir := filepath.Join(lockParent, dep.CacheKey()+".lock")
+	for {
+		if err := os.Mkdir(lockDir, 0o700); err == nil {
+			return func() { _ = os.Remove(lockDir) }, nil
+		} else if !os.IsExist(err) {
+			return nil, err
+		}
+		if err := removeStaleCacheLock(lockDir); err != nil {
+			return nil, err
+		}
+		time.Sleep(cacheLockPoll)
+	}
+}
+
+func removeStaleCacheLock(lockDir string) error {
+	info, err := os.Stat(lockDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if time.Since(info.ModTime()) <= cacheLockStaleAfter {
+		return nil
+	}
+	if err := os.Remove(lockDir); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
