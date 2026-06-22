@@ -8,12 +8,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func writeFile(t *testing.T, path, body string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
+}
+
+func localResolverFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadFixture(t, "testdata/ub/local-resolver/"+name+".ub")
 }
 
 func TestLocalResolverRelative(t *testing.T) {
@@ -64,7 +71,8 @@ func TestLocalResolverRejectsSymlinkPath(t *testing.T) {
 func TestLocalResolverRejectsImportOutsideProjectRoot(t *testing.T) {
 	base := t.TempDir()
 	project := filepath.Join(base, "project")
-	writeFile(t, filepath.Join(project, "manifest.ub"), "manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(project, "manifest.ub"),
+		localResolverFixture(t, "valid/empty-manifest"))
 	writeFile(t, filepath.Join(base, "shared", "library.ub"), "thing: resource {}\n")
 
 	_, err := NewLocalResolver(project).Resolve(&LocalImport{Path: "../shared"})
@@ -74,9 +82,10 @@ func TestLocalResolverRejectsImportOutsideProjectRoot(t *testing.T) {
 
 func TestLocalResolverRejectsImportIntoNestedManifestRoot(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "manifest.ub"), "manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(root, "manifest.ub"),
+		localResolverFixture(t, "valid/empty-manifest"))
 	writeFile(t, filepath.Join(root, "shared", "abc", "manifest.ub"),
-		"manifest: { requires: {} }\n")
+		localResolverFixture(t, "valid/empty-manifest"))
 	writeFile(t, filepath.Join(root, "shared", "abc", "library.ub"), "thing: resource {}\n")
 
 	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./shared/abc"})
@@ -86,7 +95,8 @@ func TestLocalResolverRejectsImportIntoNestedManifestRoot(t *testing.T) {
 
 func TestLocalResolverUnmarkedRootDoesNotClassifyTargetProject(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "shared", "manifest.ub"), "manifest: not-valid\n")
+	writeFile(t, filepath.Join(root, "shared", "manifest.ub"),
+		localResolverFixture(t, "invalid/bad-manifest"))
 	writeFile(t, filepath.Join(root, "shared", "library.ub"), "thing: resource {}\n")
 
 	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./shared"})
