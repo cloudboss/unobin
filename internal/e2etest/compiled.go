@@ -14,10 +14,13 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		t.Skip("skipped: spawns go build")
 	}
 	workspace := copyCaseToWorkspace(t, c.Dir)
+	logProgress(t, "%s: fixture copied", c.Name)
+	logProgress(t, "%s: compile start", c.Name)
 	binary, err := compileCase(t.Context(), cfg.repoRoot, cfg.e2eLibraryDir, c, workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
+	logProgress(t, "%s: compile done", c.Name)
 	if c.Build {
 		if _, err := os.Stat(binary); err != nil {
 			t.Fatalf("built binary: %v", err)
@@ -29,29 +32,35 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	if err := createStateLocks(workspace, c); err != nil {
 		t.Fatal(err)
 	}
+	logProgress(t, "%s: state prepared", c.Name)
 	pinned := map[string]bool{}
 	var lastStackPath string
 	for _, cmd := range c.Commands {
 		if stackPath, ok := stackPathFromArgs(cmd.Args); ok {
 			lastStackPath = stackPath
 			if shouldPinStack(cmd, stackPath, pinned) {
+				logProgress(t, "%s: pin %s start", c.Name, stackPath)
 				pinStack(t, workspace, binary, stackPath)
 				pinned[stackPath] = true
+				logProgress(t, "%s: pin %s done", c.Name, stackPath)
 			}
 		}
 		if err := tamperPlanFiles(workspace, cmd.TamperPlanFiles); err != nil {
 			t.Fatal(err)
 		}
+		logProgress(t, "%s: command %s start: %s", c.Name, cmd.Name, strings.Join(cmd.Args, " "))
 		got, err := runCommand(t.Context(), workspace, binary, cmd)
 		if err != nil {
 			t.Fatalf("%s: %v", cmd.Name, err)
 		}
+		logProgress(t, "%s: command %s done: exit %d", c.Name, cmd.Name, got.ExitCode)
 		got = normalizeCommandResult(got, cfg.repoRoot)
 		if err := compareCommandGoldens(c.Dir, cmd, got, *update); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if len(c.Files) > 0 {
+		logProgress(t, "%s: file checks start", c.Name)
 		files, err := readFileResults(workspace, c.Files)
 		if err != nil {
 			t.Fatal(err)
@@ -60,6 +69,7 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
 			t.Fatal(err)
 		}
+		logProgress(t, "%s: file checks done", c.Name)
 	}
 	if err := comparePlanSummaries(c.Dir, workspace, c.PlanSummaries, *update); err != nil {
 		t.Fatal(err)

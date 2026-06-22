@@ -23,9 +23,11 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 		t.Skip("skipped: spawns go build")
 	}
 	workspace := copyCaseToWorkspace(t, c.Dir)
+	logProgress(t, "%s: fixture copied", c.Name)
 	if err := copySourceModules(workspace, cfg.e2eLibraryDir); err != nil {
 		t.Fatal(err)
 	}
+	logProgress(t, "%s: source modules ready", c.Name)
 	runRoot, cleanup, err := rootCommandRunner(workspace, c)
 	if err != nil {
 		t.Fatal(err)
@@ -39,10 +41,12 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 	for _, cmd := range c.Commands {
 		cmd = sourceCommand(c, cmd)
 		cmd = expandCommand(cmd, expansions)
+		logProgress(t, "%s: command %s start: %s", c.Name, cmd.Name, strings.Join(cmd.Args, " "))
 		got, err := runSourceCommand(t.Context(), workspace, executable, c, cmd, runRoot)
 		if err != nil {
 			t.Fatalf("%s: %v", cmd.Name, err)
 		}
+		logProgress(t, "%s: command %s done: exit %d", c.Name, cmd.Name, got.ExitCode)
 		got = normalizeCommandResult(got, cfg.repoRoot)
 		got = normalizeWorkspaceResult(got, workspace)
 		if err := compareCommandGoldens(c.Dir, cmd, got, *update); err != nil {
@@ -50,6 +54,7 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 		}
 	}
 	if len(c.Files) > 0 {
+		logProgress(t, "%s: file checks start", c.Name)
 		files, err := readFileResults(workspace, c.Files)
 		if err != nil {
 			t.Fatal(err)
@@ -58,6 +63,7 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 		if err := compareFileGoldens(c.Dir, c.Files, files, *update); err != nil {
 			t.Fatal(err)
 		}
+		logProgress(t, "%s: file checks done", c.Name)
 	}
 	if err := checkAbsentFiles(workspace, c.AbsentFiles); err != nil {
 		t.Fatal(err)

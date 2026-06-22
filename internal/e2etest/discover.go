@@ -140,10 +140,12 @@ func RunSourceCases(t *testing.T, dir string, opts ...Option) {
 		if testing.Short() {
 			t.Skip("skipped: builds unobin CLI")
 		}
+		logProgress(t, "source cases: unobin CLI build start")
 		executable, err = buildUnobinCLI(t.Context(), cfg.repoRoot, t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}
+		logProgress(t, "source cases: unobin CLI build done")
 	}
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
