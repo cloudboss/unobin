@@ -1,0 +1,6 @@
+box: resource {
+  inputs: { name: { type: string } }
+  locals: { label: var.name + '-ok' }
+  resources: { one: core.thing { name: local.label, size: 1 } }
+  outputs: { id: { value: resource.one.id } }
+}

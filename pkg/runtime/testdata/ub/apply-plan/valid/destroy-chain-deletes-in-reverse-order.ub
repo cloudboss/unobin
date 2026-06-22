@@ -1,0 +1,5 @@
+resources: {
+  a: core.thing { name: 'a' }
+  b: core.thing { name: 'b', dep: resource.a.id }
+  c: core.thing { name: 'c', dep: resource.b.id }
+}

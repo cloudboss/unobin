@@ -1,0 +1,1 @@
+actions: { one: core.old { echo: 'hello' } }

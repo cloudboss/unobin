@@ -1,0 +1,4 @@
+resources: {
+  base: core.thing      { name: 'base', size: 1 }
+  dependent: core.thing { name: resource.base.id, size: 2 }
+}

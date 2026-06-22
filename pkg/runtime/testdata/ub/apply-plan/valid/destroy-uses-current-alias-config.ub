@@ -1,0 +1,2 @@
+library-configs: { aws: { endpoint: 'https://create.example' } }
+resources: { x: aws.thing { name: 'x' } }

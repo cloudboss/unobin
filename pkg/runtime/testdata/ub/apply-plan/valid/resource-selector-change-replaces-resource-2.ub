@@ -1,0 +1,1 @@
+resources: { one: core.new { name: 'alpha', size: 1 } }

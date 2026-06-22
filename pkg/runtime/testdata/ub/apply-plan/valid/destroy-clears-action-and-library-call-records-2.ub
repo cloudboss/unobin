@@ -1,0 +1,2 @@
+actions:   { top: core.echo { echo: 'hi' } }
+resources: { x: w.box { msg: 'wrapped' } }

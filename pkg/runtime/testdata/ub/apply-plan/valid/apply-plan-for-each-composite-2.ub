@@ -1,0 +1,5 @@
+resources: { many: w.box { @for-each: var.configs, name: @each.key, size: @each.value } }
+outputs: {
+  alpha-id: { value: resource.many['alpha'].id }
+  beta-id:  { value: resource.many['beta'].id }
+}

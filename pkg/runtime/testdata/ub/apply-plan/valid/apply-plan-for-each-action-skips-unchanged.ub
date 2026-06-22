@@ -1,0 +1,1 @@
+actions: { many: core.echo { @for-each: var.names, echo: @each.value } }

@@ -1,0 +1,2 @@
+resources: { one: core.thing { name: 'alpha', size: 1 } }
+outputs:   { id: { value: resource.one.id } }

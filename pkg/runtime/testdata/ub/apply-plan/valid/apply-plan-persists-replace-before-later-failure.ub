@@ -1,0 +1,4 @@
+resources: {
+  first: core.inc { name: 'new', size: 1 }
+  later: core.inc { @depends-on: [resource.first], name: 'fail-create', size: 1 }
+}

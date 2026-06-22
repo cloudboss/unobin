@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,6 +29,11 @@ func applyPlanTestExecutor(
 	return &Executor{
 		DAG: dag, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: factory,
 	}
+}
+
+func applyPlanFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/apply-plan", name)
 }
 
 // deleteOrder records the order resources were deleted in, so a test
@@ -130,12 +137,8 @@ func TestResourceSelectorChangeReplacesResource(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	oldSrc := `
-resources: { one: core.old { name: 'alpha', size: 1 } }
-`
-	newSrc := `
-resources: { one: core.new { name: 'alpha', size: 1 } }
-`
+	oldSrc := applyPlanFixture(t, "resource-selector-change-replaces-resource-1")
+	newSrc := applyPlanFixture(t, "resource-selector-change-replaces-resource-2")
 	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
 
 	exec := applyPlanTestExecutor(t, newSrc, libs, store, stack)
@@ -169,12 +172,8 @@ func TestActionSelectorChangeRerunsAction(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	oldSrc := `
-actions: { one: core.old { echo: 'hello' } }
-`
-	newSrc := `
-actions: { one: core.new { echo: 'hello' } }
-`
+	oldSrc := applyPlanFixture(t, "action-selector-change-reruns-action-1")
+	newSrc := applyPlanFixture(t, "action-selector-change-reruns-action-2")
 	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
 
 	exec := applyPlanTestExecutor(t, newSrc, libs, store, stack)
@@ -193,12 +192,7 @@ func TestDestroyDeletesDependentsFirst(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	withBoth := `
-resources: {
-  a: core.thing { name: 'a' }
-  b: core.thing { name: 'b', dep: resource.a.id }
-}
-`
+	withBoth := applyPlanFixture(t, "destroy-deletes-dependents-first")
 	exec := applyPlanTestExecutor(t, withBoth, libs, store, stack)
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -270,10 +264,7 @@ func TestDestroyUsesCurrentAliasConfig(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	withResource := `
-library-configs: { aws: { endpoint: 'https://create.example' } }
-resources: { x: aws.thing { name: 'x' } }
-`
+	withResource := applyPlanFixture(t, "destroy-uses-current-alias-config")
 	exec := applyPlanTestExecutor(t, withResource, libs, store, stack)
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -416,13 +407,7 @@ func TestPlanDestroyTearsDownEverything(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	src := `
-resources: {
-  a: core.thing { name: 'a' }
-  b: core.thing { name: 'b', dep: resource.a.id }
-}
-outputs: { a-id: { value: resource.a.id } }
-`
+	src := applyPlanFixture(t, "plan-destroy-tears-down-everything")
 	build := func(destroy bool) *Executor {
 		exec := applyPlanTestExecutor(t, src, libs, store, stack)
 		exec.Destroy = destroy
@@ -477,9 +462,7 @@ func TestPlanDestroyMarksEveryEntryForDeletion(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	src := `
-resources: { a: core.thing { name: 'a' }, b: core.thing { name: 'b' }, c: core.thing { name: 'c' } }
-`
+	src := applyPlanFixture(t, "plan-destroy-marks-every-entry-for-deletion")
 	applyStack(t, store, libs, src, nil)
 
 	exec := applyPlanTestExecutor(t, src, libs, store,
@@ -498,7 +481,7 @@ func TestPlanDestroyWithNoPriorStateIsEmpty(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	src := `resources: { a: core.thing { name: 'a' } }`
+	src := applyPlanFixture(t, "plan-destroy-with-no-prior-state-is-empty")
 
 	res, err := destroyStack(t, store, libs, src)
 	require.NoError(t, err)
@@ -508,13 +491,7 @@ func TestPlanDestroyWithNoPriorStateIsEmpty(t *testing.T) {
 }
 
 func TestDestroyChainDeletesInReverseOrder(t *testing.T) {
-	src := `
-resources: {
-  a: core.thing { name: 'a' }
-  b: core.thing { name: 'b', dep: resource.a.id }
-  c: core.thing { name: 'c', dep: resource.b.id }
-}
-`
+	src := applyPlanFixture(t, "destroy-chain-deletes-in-reverse-order")
 	// Run the whole cycle several times; the reverse order must be
 	// byte-identical every time, not just usually.
 	for range 10 {
@@ -533,9 +510,7 @@ func TestDestroyForEachDeletesAllInstances(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	store := newStateStore(t)
-	src := `
-resources: { many: core.thing { @for-each: var.names, name: @each.key } }
-`
+	src := applyPlanFixture(t, "destroy-for-each-deletes-all-instances")
 	applyStack(t, store, libs, src,
 		map[string]any{"names": map[string]any{"alpha": "a", "beta": "b"}})
 	_, err := destroyStack(t, store, libs, src)
@@ -547,16 +522,13 @@ resources: { many: core.thing { @for-each: var.names, name: @each.key } }
 func TestDestroyComposite(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
-	composite := syntaxResourceComposite(t, "box", `
-resources: { one: core.thing { name: var.name } }
-outputs:   { id: { value: resource.one.id } }
-`)
+	composite := syntaxResourceComposite(t, "box", applyPlanFixture(t, "destroy-composite-1"))
 	libs["w"] = &Library{
 		Name:               "w",
 		ResourceComposites: map[string]*CompositeType{"box": composite},
 	}
 	store := newStateStore(t)
-	src := `resources: { x: w.box { name: 'alpha' } }`
+	src := applyPlanFixture(t, "destroy-composite-2")
 	applyStack(t, store, libs, src, nil)
 
 	// Before destroy there is the library-call record plus its internal leaf.
@@ -589,10 +561,7 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 		},
 	}
 	store := newStateStore(t)
-	src := `
-resources: { r: core.thing { name: 'r' } }
-actions:   { e: core.echo { echo: 'hi' } }
-`
+	src := applyPlanFixture(t, "destroy-removes-action-without-running-it")
 	applyStack(t, store, libs, src, nil)
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
 
@@ -605,11 +574,8 @@ actions:   { e: core.echo { echo: 'hi' } }
 }
 
 func TestDestroyClearsActionAndLibraryCallRecords(t *testing.T) {
-	compositeBody := syntaxResourceComposite(t, "box", `
-inputs:  { msg: { type: string } }
-actions: { inner: core.echo { echo: var.msg } }
-outputs: { said: { value: action.inner.echo } }
-`)
+	compositeBody := syntaxResourceComposite(t, "box",
+		applyPlanFixture(t, "destroy-clears-action-and-library-call-records-1"))
 	libs := testModules()
 	libs["w"] = &Library{
 		Name:               "w",
@@ -620,10 +586,7 @@ outputs: { said: { value: action.inner.echo } }
 	// No leaf resources: only a root action, a library-call record, and
 	// the composite's internal action. This is the shape that used to
 	// plan as "No changes".
-	src := `
-actions:   { top: core.echo { echo: 'hi' } }
-resources: { x: w.box { msg: 'wrapped' } }
-`
+	src := applyPlanFixture(t, "destroy-clears-action-and-library-call-records-2")
 	exec := applyPlanTestExecutor(t, src, libs, store, stack)
 	_, err := planAndApply(exec)
 	require.NoError(t, err)
@@ -656,7 +619,7 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	libs := resourceModules(&c)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	src := `resources: { a: core.thing { name: 'a', size: 1 } }`
+	src := applyPlanFixture(t, "destroy-skips-delete-for-already-gone-resource")
 
 	create := applyPlanTestExecutor(t, src, libs, store, stack)
 	_, err := planAndApply(create)
@@ -685,12 +648,7 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 }
 
 func TestApplyPersistsDependsOn(t *testing.T) {
-	src := `
-resources: {
-  base: core.thing      { name: 'base', size: 1 }
-  dependent: core.thing { name: resource.base.id, size: 2 }
-}
-`
+	src := applyPlanFixture(t, "apply-persists-depends-on")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -713,13 +671,7 @@ resources: {
 }
 
 func TestApplyPlanForEachResource(t *testing.T) {
-	src := `
-resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
-outputs: {
-  alpha-id: { value: resource.many['alpha'].id }
-  beta-id:  { value: resource.many['beta'].id }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-for-each-resource")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -751,13 +703,7 @@ outputs: {
 }
 
 func TestApplyPlanForEachAction(t *testing.T) {
-	src := `
-actions: { many: core.echo { @for-each: var.names, echo: @each.value } }
-outputs: {
-  alpha-said: { value: action.many['alpha'].echo }
-  beta-said:  { value: action.many['beta'].echo }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-for-each-action")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := testModules()
@@ -781,9 +727,7 @@ outputs: {
 }
 
 func TestApplyPlanForEachActionSkipsUnchanged(t *testing.T) {
-	src := `
-actions: { many: core.echo { @for-each: var.names, echo: @each.value } }
-`
+	src := applyPlanFixture(t, "apply-plan-for-each-action-skips-unchanged")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	var runs int64
@@ -804,13 +748,7 @@ actions: { many: core.echo { @for-each: var.names, echo: @each.value } }
 }
 
 func TestApplyPlanForEachData(t *testing.T) {
-	src := `
-data: { many: core.lookup { @for-each: var.keys, key: @each.value } }
-outputs: {
-  alpha-value: { value: data.many['alpha'].value }
-  beta-value:  { value: data.many['beta'].value }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-for-each-data")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	libs := testModules()
@@ -825,10 +763,7 @@ outputs: {
 }
 
 func TestApplyPlanCreatesResource(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-outputs:   { id: { value: resource.one.id } }
-`
+	src := applyPlanFixture(t, "apply-plan-creates-resource")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -850,12 +785,7 @@ outputs:   { id: { value: resource.one.id } }
 }
 
 func TestApplyPlanPersistsCreateBeforeLaterFailure(t *testing.T) {
-	src := `
-resources: {
-  first: core.inc { name: 'first', size: 1 }
-  later: core.inc { @depends-on: [resource.first], name: 'fail-create', size: 1 }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-persists-create-before-later-failure")
 	store := newStateStore(t)
 	var c incrementalResourceCounters
 
@@ -870,12 +800,7 @@ resources: {
 }
 
 func TestApplyPlanPersistsUpdateBeforeLaterFailure(t *testing.T) {
-	src := `
-resources: {
-  first: core.inc { name: 'first', size: 2 }
-  later: core.inc { @depends-on: [resource.first], name: 'fail-create', size: 1 }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-persists-update-before-later-failure")
 	store := newStateStore(t)
 	seedIncrementalState(t, store,
 		incrementalEntry("resource.first", "first", 1))
@@ -894,12 +819,7 @@ resources: {
 }
 
 func TestApplyPlanPersistsReplaceBeforeLaterFailure(t *testing.T) {
-	src := `
-resources: {
-  first: core.inc { name: 'new', size: 1 }
-  later: core.inc { @depends-on: [resource.first], name: 'fail-create', size: 1 }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-persists-replace-before-later-failure")
 	store := newStateStore(t)
 	seedIncrementalState(t, store,
 		incrementalEntry("resource.first", "old", 1))
@@ -935,11 +855,8 @@ func TestApplyPlanPersistsDestroyBeforeLaterFailure(t *testing.T) {
 }
 
 func TestApplyPlanForEachComposite(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs:    { name: { type: string }, size: { type: integer } }
-resources: { only: core.thing { name: var.name, size: var.size } }
-outputs:   { id: { value: resource.only.id } }
-`)
+	composite := syntaxResourceComposite(t, "box",
+		applyPlanFixture(t, "apply-plan-for-each-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	composite.Libraries = libs
@@ -949,13 +866,7 @@ outputs:   { id: { value: resource.only.id } }
 			"box": composite,
 		},
 	}
-	src := `
-resources: { many: w.box { @for-each: var.configs, name: @each.key, size: @each.value } }
-outputs: {
-  alpha-id: { value: resource.many['alpha'].id }
-  beta-id:  { value: resource.many['beta'].id }
-}
-`
+	src := applyPlanFixture(t, "apply-plan-for-each-composite-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := applyPlanTestExecutor(t, src, libs, store, stack)
@@ -982,10 +893,8 @@ outputs: {
 }
 
 func TestApplyPlanForEachCompositeOrphan(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs:    { name: { type: string } }
-resources: { only: core.thing { name: var.name, size: 1 } }
-`)
+	composite := syntaxResourceComposite(t, "box",
+		applyPlanFixture(t, "apply-plan-for-each-composite-orphan-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	composite.Libraries = libs
@@ -995,9 +904,7 @@ resources: { only: core.thing { name: var.name, size: 1 } }
 			"box": composite,
 		},
 	}
-	src := `
-resources: { many: w.box { @for-each: var.configs, name: @each.key } }
-`
+	src := applyPlanFixture(t, "apply-plan-for-each-composite-orphan-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	apply := func(configs map[string]any) {
@@ -1024,14 +931,8 @@ resources: { many: w.box { @for-each: var.configs, name: @each.key } }
 }
 
 func TestApplyPlanCompositeUsesSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-box: resource {
-  inputs: { name: { type: string } }
-  locals: { label: var.name + '-ok' }
-  resources: { one: core.thing { name: local.label, size: 1 } }
-  outputs: { id: { value: resource.one.id } }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t,
+		applyPlanFixture(t, "apply-plan-composite-uses-syntax-body-1"))
 	body := composite.body
 	var c resourceCounters
 	libs := resourceModules(&c)
@@ -1041,12 +942,8 @@ box: resource {
 			"box": {Name: "box", SyntaxBody: &body, Libraries: libs},
 		},
 	}
-	root := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: { x: w.box { name: 'alpha' } }
-  outputs: { out: { value: resource.x.id } }
-}
-`)
+	root := parseSyntaxFactoryFixture(t,
+		applyPlanFixture(t, "apply-plan-composite-uses-syntax-body-2"))
 	store := newStateStore(t)
 	exec := &Executor{
 		DAG:       BuildSyntaxDAG(root.body, libs),
@@ -1079,10 +976,7 @@ factory: {
 }
 
 func TestApplyPlanComposite(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-resources: { one: core.thing { name: var.name, size: 1 } }
-outputs:   { id: { value: resource.one.id } }
-`)
+	composite := syntaxResourceComposite(t, "box", applyPlanFixture(t, "apply-plan-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -1091,10 +985,7 @@ outputs:   { id: { value: resource.one.id } }
 			"box": composite,
 		},
 	}
-	src := `
-resources: { x: w.box { name: 'alpha' } }
-outputs:   { out: { value: resource.x.id } }
-`
+	src := applyPlanFixture(t, "apply-plan-composite-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := applyPlanTestExecutor(t, src, libs, store, stack)
@@ -1126,20 +1017,10 @@ outputs:   { out: { value: resource.x.id } }
 }
 
 func TestApplyPlanNestedComposite(t *testing.T) {
-	clusterBody := syntaxResourceComposite(t, "cluster", `
-inputs: { path: { type: string } }
-
-resources: { x: core.thing { name: var.path, size: 1 } }
-
-outputs: { path: { value: resource.x.name } }
-`)
-	layerBody := syntaxResourceComposite(t, "layer", `
-inputs: { target: { type: string } }
-
-resources: { only: inner-lib.cluster { path: var.target } }
-
-outputs: { path: { value: resource.only.path } }
-`)
+	clusterBody := syntaxResourceComposite(t, "cluster",
+		applyPlanFixture(t, "apply-plan-nested-composite-1"))
+	layerBody := syntaxResourceComposite(t, "layer",
+		applyPlanFixture(t, "apply-plan-nested-composite-2"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
@@ -1154,10 +1035,7 @@ outputs: { path: { value: resource.only.path } }
 			"cluster": clusterBody,
 		},
 	}
-	src := `
-resources: { mine: outer-lib.layer { target: 'alpha' } }
-outputs:   { out: { value: resource.mine.path } }
-`
+	src := applyPlanFixture(t, "apply-plan-nested-composite-3")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1196,12 +1074,8 @@ outputs:   { out: { value: resource.mine.path } }
 }
 
 func TestApplyPlanCompositeOrphan(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-resources: {
-  one: core.thing { name: var.name, size: 1 }
-  two: core.thing { name: var.name, size: 2 }
-}
-`)
+	composite := syntaxResourceComposite(t, "box",
+		applyPlanFixture(t, "apply-plan-composite-orphan-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -1210,12 +1084,8 @@ resources: {
 			"box": composite,
 		},
 	}
-	first := `
-resources: { keep: core.thing { name: 'kept', size: 7 }, x: w.box { name: 'alpha' } }
-`
-	second := `
-resources: { keep: core.thing { name: 'kept', size: 7 } }
-`
+	first := applyPlanFixture(t, "apply-plan-composite-orphan-2")
+	second := applyPlanFixture(t, "apply-plan-composite-orphan-3")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1270,10 +1140,8 @@ func TestApplyPlanCompositeWithRootVarArgs(t *testing.T) {
 	// have access to the root inputs that plan used. The composite
 	// boundary's args are evaluated at plan time and must seed the
 	// composite scope at apply time so internals can read them.
-	composite := syntaxResourceComposite(t, "hello", `
-inputs:    { who: { type: string } }
-resources: { greet: core.thing { name: var.who, size: 1 } }
-`)
+	composite := syntaxResourceComposite(t, "hello",
+		applyPlanFixture(t, "apply-plan-composite-with-root-var-args-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -1282,10 +1150,7 @@ resources: { greet: core.thing { name: var.who, size: 1 } }
 			"hello": composite,
 		},
 	}
-	src := `
-inputs:    { who: { type: string } }
-resources: { x: w.hello { who: var.who } }
-`
+	src := applyPlanFixture(t, "apply-plan-composite-with-root-var-args-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1322,9 +1187,8 @@ func findEntryByAddr(snap *state.Snapshot, addr string) *state.Entry {
 }
 
 func TestApplyPlanCompositeUpdateInPlace(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-resources: { one: core.thing { name: var.name, size: 1 } }
-`)
+	composite := syntaxResourceComposite(t, "box",
+		applyPlanFixture(t, "apply-plan-composite-update-in-place-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -1333,12 +1197,8 @@ resources: { one: core.thing { name: var.name, size: 1 } }
 			"box": composite,
 		},
 	}
-	first := `
-resources: { x: w.box { name: 'alpha' } }
-`
-	second := `
-resources: { x: w.box { name: 'alpha' } }
-`
+	first := applyPlanFixture(t, "apply-plan-composite-update-in-place-2")
+	second := applyPlanFixture(t, "apply-plan-composite-update-in-place-3")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -1364,9 +1224,7 @@ resources: { x: w.box { name: 'alpha' } }
 }
 
 func TestApplyPlanRefusesOnStateRevDrift(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := applyPlanFixture(t, "apply-plan-refuses-on-state-rev-drift")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1389,9 +1247,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestApplyPlanWaitsForLock(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := applyPlanFixture(t, "apply-plan-waits-for-lock")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1465,17 +1321,16 @@ func TestEncodeDecodePlan(t *testing.T) {
 
 func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 	src := func(name string) string {
-		return `
-resources: {
-  one: core.thing { name: '` + name + `', size: 1 }
+		return fmt.Sprintf(`%s: {
+  one: core.thing { name: '%s', size: 1 }
 }
-actions: {
+%s: {
   observe: core.echo {
     @trigger: resource.one.id
     echo:     'observed'
   }
 }
-`
+`, "resources", name, "actions")
 	}
 
 	store := newStateStore(t)

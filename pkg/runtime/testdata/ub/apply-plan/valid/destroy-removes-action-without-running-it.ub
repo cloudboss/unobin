@@ -1,0 +1,2 @@
+resources: { r: core.thing { name: 'r' } }
+actions:   { e: core.echo { echo: 'hi' } }

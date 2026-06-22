@@ -1,0 +1,5 @@
+data: { many: core.lookup { @for-each: var.keys, key: @each.value } }
+outputs: {
+  alpha-value: { value: data.many['alpha'].value }
+  beta-value:  { value: data.many['beta'].value }
+}

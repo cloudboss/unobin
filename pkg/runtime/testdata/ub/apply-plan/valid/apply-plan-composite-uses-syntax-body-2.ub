@@ -1,0 +1,4 @@
+factory: {
+  resources: { x: w.box { name: 'alpha' } }
+  outputs: { out: { value: resource.x.id } }
+}
