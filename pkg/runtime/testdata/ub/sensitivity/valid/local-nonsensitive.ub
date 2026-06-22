@@ -1,0 +1,3 @@
+inputs:    { region: { type: string } }
+locals:    { r: var.region }
+resources: { file: local.file { path: local.r } }

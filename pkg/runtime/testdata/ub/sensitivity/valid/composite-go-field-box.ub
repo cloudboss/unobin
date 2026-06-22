@@ -1,0 +1,3 @@
+resources: { this: vault.secret { name: 'x' } }
+
+outputs: { forwarded: { value: resource.this.value } }

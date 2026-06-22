@@ -1,0 +1,4 @@
+resources: {
+  one: wrap.box { message: 'hi' }
+  f:   local.file { path: 'out.txt', content: resource.one.token }
+}

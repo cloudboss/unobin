@@ -1,0 +1,4 @@
+resources: {
+  secret: vault.secret { name: 'token' }
+  file:   local.file { path: 'out.txt', content: resource.secret.arn }
+}

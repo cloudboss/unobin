@@ -23,21 +23,20 @@ type inlineUBFinding struct {
 }
 
 var inlineUBGreenlist = map[string]bool{
-	"cmd/unobin/root/cli_test.go":     true,
-	"pkg/check/constraints_test.go":   true,
-	"pkg/check/helpers_test.go":       true,
-	"pkg/check/types_test.go":         true,
-	"pkg/deps/lockwalk_test.go":       true,
-	"pkg/lang/constraints_test.go":    true,
-	"pkg/lang/syntax/lower_test.go":   true,
-	"pkg/runner/pin_test.go":          true,
-	"pkg/runner/runner_test.go":       true,
-	"pkg/runtime/apply_plan_test.go":  true,
-	"pkg/runtime/dag_test.go":         true,
-	"pkg/runtime/executor_test.go":    true,
-	"pkg/runtime/nodes_test.go":       true,
-	"pkg/runtime/plan_test.go":        true,
-	"pkg/runtime/sensitivity_test.go": true,
+	"cmd/unobin/root/cli_test.go":    true,
+	"pkg/check/constraints_test.go":  true,
+	"pkg/check/helpers_test.go":      true,
+	"pkg/check/types_test.go":        true,
+	"pkg/deps/lockwalk_test.go":      true,
+	"pkg/lang/constraints_test.go":   true,
+	"pkg/lang/syntax/lower_test.go":  true,
+	"pkg/runner/pin_test.go":         true,
+	"pkg/runner/runner_test.go":      true,
+	"pkg/runtime/apply_plan_test.go": true,
+	"pkg/runtime/dag_test.go":        true,
+	"pkg/runtime/executor_test.go":   true,
+	"pkg/runtime/nodes_test.go":      true,
+	"pkg/runtime/plan_test.go":       true,
 }
 
 var inlineUBTokens = []string{

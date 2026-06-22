@@ -1,0 +1,3 @@
+box: resource {
+  outputs: { token: { value: 'secret', @sensitive: true } }
+}

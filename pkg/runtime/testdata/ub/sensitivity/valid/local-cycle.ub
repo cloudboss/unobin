@@ -1,0 +1,2 @@
+locals:    { a: local.b, b: local.a }
+resources: { file: local.file { path: local.a } }

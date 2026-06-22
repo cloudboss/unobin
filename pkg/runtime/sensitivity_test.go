@@ -4,8 +4,18 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
+
+func sensitivityFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/sensitivity", name)
+}
+
+func factorySource(src string) string {
+	return "factory" + ": {\n" + src + "\n}"
+}
 
 func syntaxSensitivity(
 	t *testing.T,
@@ -13,19 +23,14 @@ func syntaxSensitivity(
 	libs map[string]*Library,
 ) (*DAG, *sensitivityAnalyzer) {
 	t.Helper()
-	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	fixture := parseSyntaxFactoryFixture(t, factorySource(src))
 	dag := BuildSyntaxDAG(fixture.body, libs)
 	return dag, newSensitivityAnalyzerFromSource(nil, &fixture.body, libs, dag)
 }
 
 func TestSensitivityLocalNonSensitive(t *testing.T) {
-	src := `
-inputs:    { region: { type: string } }
-locals:    { r: var.region }
-resources: { file: local.file { path: local.r } }
-`
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag, an := syntaxSensitivity(t, src, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "local-nonsensitive"), libs)
 
 	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
@@ -33,12 +38,8 @@ resources: { file: local.file { path: local.r } }
 }
 
 func TestSensitivityLocalCycleTerminates(t *testing.T) {
-	src := `
-locals:    { a: local.b, b: local.a }
-resources: { file: local.file { path: local.a } }
-`
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag, an := syntaxSensitivity(t, src, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "local-cycle"), libs)
 
 	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
@@ -49,13 +50,8 @@ resources: { file: local.file { path: local.a } }
 // other fields. Reading the non-sensitive field through the local is
 // not sensitive; reading the sensitive field is.
 func TestSensitivityNarrowsObjectLocalToNavigatedField(t *testing.T) {
-	src := `
-inputs:    { user: { type: string }, password: { type: string, @sensitive: true } }
-locals:    { creds: { name: var.user, secret: var.password } }
-resources: { file: local.file { path: local.creds.name, content: local.creds.secret } }
-`
 	libs := map[string]*Library{"local": {Name: "local"}}
-	dag, an := syntaxSensitivity(t, src, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "object-local"), libs)
 
 	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
@@ -63,12 +59,6 @@ resources: { file: local.file { path: local.creds.name, content: local.creds.sec
 }
 
 func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
-	src := `
-resources: {
-  secret: vault.secret { token: 'shh' }
-  file:   local.file { path: 'out.txt', content: resource.secret.token }
-}
-`
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -78,7 +68,7 @@ resources: {
 		},
 		"local": {Name: "local"},
 	}
-	dag, an := syntaxSensitivity(t, src, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "go-sensitive-input"), libs)
 
 	node := dag.Nodes["resource.file"]
 	require.NotNil(t, node)
@@ -88,12 +78,6 @@ resources: {
 }
 
 func TestSensitivityRecognizesNonSensitiveGoOutput(t *testing.T) {
-	src := `
-resources: {
-  secret: vault.secret { name: 'token' }
-  file:   local.file { path: 'out.txt', content: resource.secret.arn }
-}
-`
 	libs := map[string]*Library{
 		"vault": {
 			Name: "vault",
@@ -103,7 +87,7 @@ resources: {
 		},
 		"local": {Name: "local"},
 	}
-	dag, an := syntaxSensitivity(t, src, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "go-nonsensitive-output"), libs)
 
 	node := dag.Nodes["resource.file"]
 	got := an.sensitiveInputs(node.Body, node.Composite)
@@ -111,13 +95,7 @@ resources: {
 }
 
 func TestSensitivityPropagatesCompositeOutputDeclared(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs: { message: { type: string } }
-
-resources: { this: local.file { path: 'x.txt', content: var.message } }
-
-outputs: { token: { value: resource.this.sha256, @sensitive: true } }
-`)
+	composite := syntaxResourceComposite(t, "box", sensitivityFixture(t, "composite-output-box"))
 	composite.Libraries = map[string]*Library{"local": {Name: "local"}}
 	libs := map[string]*Library{
 		"wrap": {
@@ -128,12 +106,7 @@ outputs: { token: { value: resource.this.sha256, @sensitive: true } }
 		},
 		"local": {Name: "local"},
 	}
-	dag, an := syntaxSensitivity(t, `
-resources: {
-  one: wrap.box { message: 'hi' }
-  f:   local.file { path: 'out.txt', content: resource.one.token }
-}
-`, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "composite-output-call"), libs)
 
 	node := dag.Nodes["resource.f"]
 	require.NotNil(t, node)
@@ -142,11 +115,7 @@ resources: {
 }
 
 func TestSensitivityPropagatesTypedCompositeOutputDeclared(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-box: resource {
-  outputs: { token: { value: 'secret', @sensitive: true } }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t, sensitivityFixture(t, "typed-composite-output"))
 	body := composite.body
 	libs := map[string]*Library{
 		"wrap": {
@@ -160,14 +129,8 @@ box: resource {
 		},
 		"local": {Name: "local"},
 	}
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    one: wrap.box {}
-    file: local.file { path: 'out.txt', content: resource.one.token }
-  }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t,
+		factorySource(sensitivityFixture(t, "typed-composite-output-call")))
 	dag := BuildSyntaxDAG(fixture.body, libs)
 	an := newSensitivityAnalyzerFromSource(nil, &fixture.body, libs, dag)
 
@@ -178,12 +141,7 @@ factory: {
 }
 
 func TestSensitivityInsideTypedCompositeUsesSyntaxInputs(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-box: resource {
-  inputs: { password: { type: string, @sensitive: true } }
-  resources: { this: local.file { path: 'x.txt', content: var.password } }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t, sensitivityFixture(t, "typed-composite-input"))
 	body := composite.body
 	libs := map[string]*Library{
 		"wrap": {
@@ -198,11 +156,8 @@ box: resource {
 		},
 		"local": {Name: "local"},
 	}
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: { one: wrap.box { password: 'shh' } }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t,
+		factorySource(sensitivityFixture(t, "typed-composite-input-call")))
 	dag := BuildSyntaxDAG(fixture.body, libs)
 	an := newSensitivityAnalyzerFromSource(nil, &fixture.body, libs, dag)
 
@@ -219,11 +174,7 @@ func TestSensitivityPropagatesThroughCompositeOutputFromGoField(t *testing.T) {
 			"secret": {SensitiveOutputs: []string{"value"}},
 		}},
 	}
-	composite := syntaxResourceComposite(t, "box", `
-resources: { this: vault.secret { name: 'x' } }
-
-outputs: { forwarded: { value: resource.this.value } }
-`)
+	composite := syntaxResourceComposite(t, "box", sensitivityFixture(t, "composite-go-field-box"))
 	composite.Libraries = map[string]*Library{"vault": vault}
 	libs := map[string]*Library{
 		"wrap": {
@@ -234,12 +185,7 @@ outputs: { forwarded: { value: resource.this.value } }
 		},
 		"local": {Name: "local"},
 	}
-	dag, an := syntaxSensitivity(t, `
-resources: {
-  one: wrap.box {}
-  f:   local.file { path: 'out.txt', content: resource.one.forwarded }
-}
-`, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "composite-go-field-call"), libs)
 
 	node := dag.Nodes["resource.f"]
 	require.NotNil(t, node)
@@ -255,11 +201,7 @@ func TestSensitivityNoFalsePositiveOnPlainComposite(t *testing.T) {
 			"secret": {SensitiveOutputs: []string{"value"}},
 		}},
 	}
-	composite := syntaxResourceComposite(t, "box", `
-resources: { this: vault.secret { name: 'x' } }
-
-outputs: { arn: { value: resource.this.arn } }
-`)
+	composite := syntaxResourceComposite(t, "box", sensitivityFixture(t, "composite-plain-box"))
 	composite.Libraries = map[string]*Library{"vault": vault}
 	libs := map[string]*Library{
 		"wrap": {
@@ -270,12 +212,7 @@ outputs: { arn: { value: resource.this.arn } }
 		},
 		"local": {Name: "local"},
 	}
-	dag, an := syntaxSensitivity(t, `
-resources: {
-  one: wrap.box {}
-  f:   local.file { path: 'out.txt', content: resource.one.arn }
-}
-`, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "composite-plain-call"), libs)
 
 	node := dag.Nodes["resource.f"]
 	got := an.sensitiveInputs(node.Body, node.Composite)
@@ -283,13 +220,7 @@ resources: {
 }
 
 func TestSensitivityInsideCompositeUsesCompositeInputs(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs: { password: { type: string, @sensitive: true } }
-
-resources: { this: local.file { path: 'x.txt', content: var.password } }
-
-outputs: { sha: { value: resource.this.sha256 } }
-`)
+	composite := syntaxResourceComposite(t, "box", sensitivityFixture(t, "composite-input-box"))
 	composite.Libraries = map[string]*Library{"local": {Name: "local"}}
 	libs := map[string]*Library{
 		"wrap": {
@@ -300,9 +231,7 @@ outputs: { sha: { value: resource.this.sha256 } }
 		},
 		"local": {Name: "local"},
 	}
-	dag, an := syntaxSensitivity(t, `
-resources: { one: wrap.box { password: 'shh' } }
-`, libs)
+	dag, an := syntaxSensitivity(t, sensitivityFixture(t, "composite-input-call"), libs)
 
 	inner := dag.Nodes["resource.one/resource.this"]
 	require.NotNil(t, inner, "internal node should exist")
@@ -318,4 +247,3 @@ func TestSensitivityHandlesNilSource(t *testing.T) {
 	body := &lang.ObjectLit{}
 	require.Empty(t, an.sensitiveInputs(body, ""))
 }
-

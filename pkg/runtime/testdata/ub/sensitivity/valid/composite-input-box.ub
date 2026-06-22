@@ -1,0 +1,5 @@
+inputs: { password: { type: string, @sensitive: true } }
+
+resources: { this: local.file { path: 'x.txt', content: var.password } }
+
+outputs: { sha: { value: resource.this.sha256 } }
