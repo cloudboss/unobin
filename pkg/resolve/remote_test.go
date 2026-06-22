@@ -9,7 +9,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func remoteResolverFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/remote-resolver", name)
+}
 
 // makeRemoteRepo initializes a git repo at dir with the file tree
 // supplied by files (path -> body) and a tag `v1` pointing at HEAD.
@@ -126,12 +133,8 @@ func TestRemoteResolverHonorsSubdir(t *testing.T) {
 func TestRemoteResolverRootProjectServesChildPackage(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
-		"manifest.ub": "manifest: { requires: {} }\n",
-		"ub/helloer/resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+		"manifest.ub":                  remoteResolverFixture(t, "empty-manifest"),
+		"ub/helloer/resource-hello.ub": remoteResolverFixture(t, "hello-resource"),
 	})
 
 	r := &RemoteResolver{CacheRoot: t.TempDir()}
@@ -158,12 +161,8 @@ hello: resource {
 func TestRemoteResolverNestedProjectServesChildPackage(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	wantSHA := makeRemoteRepo(t, src, map[string]string{
-		"ub/project-b/manifest.ub": "manifest: { requires: {} }\n",
-		"ub/project-b/comprehensions/library.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+		"ub/project-b/manifest.ub":               remoteResolverFixture(t, "empty-manifest"),
+		"ub/project-b/comprehensions/library.ub": remoteResolverFixture(t, "hello-resource"),
 	})
 	runGit(t, src, "tag", "ub/project-b/v1")
 
