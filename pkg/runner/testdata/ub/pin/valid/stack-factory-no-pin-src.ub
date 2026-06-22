@@ -1,0 +1,8 @@
+stack: {
+  factory: {
+    inputs: { message: 'hi' }
+  }
+
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+}

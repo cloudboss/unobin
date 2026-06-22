@@ -1,0 +1,5 @@
+factory: {
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+  }
+}

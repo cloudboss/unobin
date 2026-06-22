@@ -1,0 +1,6 @@
+factory: {
+  pin: {
+    library-path: 'github.com/cloudboss/cluster-deploy'
+    supported-versions: [{ version: 'v0.1.0', content-revision: 'aaa' }]
+  }
+}
