@@ -1,0 +1,44 @@
+factory: {
+description: 'Example.'
+
+imports: { std: 'github.com/cloudboss/unobin-library-std' }
+
+inputs: {
+  message: { type: string }
+}
+
+locals: {
+  path: '/tmp/hello.txt'
+}
+
+constraints: [
+  { when: var.message require: var.message != '' }
+]
+
+library-configs: {
+  std: var.std-config
+}
+
+resources: {
+  hello: std.fs-file {
+    path: local.path
+    content: var.message
+  }
+}
+
+data: {
+  existing: std.file {
+    path: local.path
+  }
+}
+
+actions: {
+  run: std.exec {
+    command: 'echo hello'
+  }
+}
+
+outputs: {
+  path: { value: resource.hello.path }
+}
+}

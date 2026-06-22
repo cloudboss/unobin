@@ -1,0 +1,5 @@
+factory: {
+  inputs: {
+    cfg: { type: object({ port: { type: integer, default: 8080 } }) }
+  }
+}

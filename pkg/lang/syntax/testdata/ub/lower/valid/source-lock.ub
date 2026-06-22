@@ -1,0 +1,19 @@
+lock: {
+  version: 1
+  toolchain: {
+    unobin-version: 'v0.4.2'
+  }
+  deps: {
+    'github.com/cloudboss/unobin-library-std': {
+      kind: go
+      version: 'v0.1.0'
+      commit: 'abc123'
+    }
+    'example.com/ub-lib//network': {
+      kind: ub
+      version: 'v0.4.2'
+      commit: 'def456'
+      hash: 'sha256:789abc'
+    }
+  }
+}

@@ -1,0 +1,9 @@
+factory: {
+  inputs: {
+    bad: { type: list(unknown) }
+  }
+
+  resources: {
+    std.file: {}
+  }
+}

@@ -1,0 +1,5 @@
+factory: {
+  inputs: {
+    bad: { type: list(unknown) }
+  }
+}

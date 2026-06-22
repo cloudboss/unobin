@@ -13,6 +13,16 @@ import (
 	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
+func lowerFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/lower", name)
+}
+
+func lowerInvalidFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadFixture(t, "testdata/ub/lower/invalid/"+name+".ub")
+}
+
 func parseFile(t *testing.T, path, src string, kind parse.FileKind) *parse.File {
 	t.Helper()
 	f, err := lang.ParseSource(path, []byte(src))
@@ -27,52 +37,7 @@ func requireSpan(t *testing.T, span parse.Span) {
 }
 
 func TestLowerFactoryFile(t *testing.T) {
-	f := parseFile(t, "factory.ub", `
-factory: {
-description: 'Example.'
-
-imports: { std: 'github.com/cloudboss/unobin-library-std' }
-
-inputs: {
-  message: { type: string }
-}
-
-locals: {
-  path: '/tmp/hello.txt'
-}
-
-constraints: [
-  { when: var.message require: var.message != '' }
-]
-
-library-configs: {
-  std: var.std-config
-}
-
-resources: {
-  hello: std.fs-file {
-    path: local.path
-    content: var.message
-  }
-}
-
-data: {
-  existing: std.file {
-    path: local.path
-  }
-}
-
-actions: {
-  run: std.exec {
-    command: 'echo hello'
-  }
-}
-
-outputs: {
-  path: { value: resource.hello.path }
-}
-}
-`, parse.FileFactory)
+	f := parseFile(t, "factory.ub", lowerFixture(t, "factory-file"), parse.FileFactory)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -131,13 +96,7 @@ outputs: {
 }
 
 func TestLowerInputTypeFieldsUseParsedTypes(t *testing.T) {
-	f := parseFile(t, "factory.ub", `
-factory: {
-  inputs: {
-    cfg: { type: object({ port: { type: integer, default: 8080 } }) }
-  }
-}
-`, parse.FileFactory)
+	f := parseFile(t, "factory.ub", lowerFixture(t, "input-type-fields"), parse.FileFactory)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -159,12 +118,7 @@ factory: {
 }
 
 func TestParseSourceUsesTypeParserForInputFields(t *testing.T) {
-	src := []byte(`factory: {
-  inputs: {
-    payload: { type: open(object({ kind: string })) }
-  }
-}
-`)
+	src := []byte(lowerFixture(t, "parse-source-type-parser"))
 
 	got, err := ParseSource("factory.ub", src)
 	require.NoError(t, err)
@@ -177,12 +131,7 @@ func TestParseSourceUsesTypeParserForInputFields(t *testing.T) {
 }
 
 func TestParseSourceReportsTypeParserErrors(t *testing.T) {
-	src := []byte(`factory: {
-  inputs: {
-    bad: { type: list(unknown) }
-  }
-}
-`)
+	src := []byte(lowerInvalidFixture(t, "parse-source-type-parser-error"))
 
 	_, err := ParseSource("factory.ub", src)
 	require.Error(t, err)
@@ -191,10 +140,7 @@ func TestParseSourceReportsTypeParserErrors(t *testing.T) {
 }
 
 func TestLowerPreclassifiedStackFileRequiresSourceDeclaration(t *testing.T) {
-	f := parseFile(t, "dev.ub", `
-state: { @backend: local }
-encryption: { @key-source: noop }
-`, parse.FileStack)
+	f := parseFile(t, "dev.ub", lowerInvalidFixture(t, "preclassified-stack"), parse.FileStack)
 
 	got, errs := LowerFile(f)
 	require.NotZero(t, errs.Len())
@@ -203,13 +149,7 @@ encryption: { @key-source: noop }
 }
 
 func TestLowerPreclassifiedFactoryFileRequiresSourceDeclaration(t *testing.T) {
-	f := parseFile(t, "main.ub", `
-description: 'Example.'
-
-inputs: {
-  message: { type: string }
-}
-`, parse.FileFactory)
+	f := parseFile(t, "main.ub", lowerInvalidFixture(t, "preclassified-factory"), parse.FileFactory)
 
 	got, errs := LowerFile(f)
 	require.NotZero(t, errs.Len())
@@ -218,11 +158,8 @@ inputs: {
 }
 
 func TestLowerPreclassifiedManifestFileRequiresSourceDeclaration(t *testing.T) {
-	f := parseFile(t, "unobin.manifest", `
-requires: {
-  'github.com/cloudboss/example': 'v1.2.3'
-}
-`, parse.FileManifest)
+	f := parseFile(t, "unobin.manifest", lowerInvalidFixture(t, "preclassified-manifest"),
+		parse.FileManifest)
 
 	got, errs := LowerFile(f)
 	require.NotZero(t, errs.Len())
@@ -231,16 +168,7 @@ requires: {
 }
 
 func TestLowerSourceDeclaredFactoryFile(t *testing.T) {
-	f := parseFile(t, "factory.ub", `
-factory: {
-  description: 'Example.'
-  resources: {
-    hello: std.fs-file {
-      path: '/tmp/hello.txt'
-    }
-  }
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "factory.ub", lowerFixture(t, "source-factory"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -254,21 +182,7 @@ factory: {
 }
 
 func TestLowerSourceDeclaredStackFile(t *testing.T) {
-	f := parseFile(t, "dev.ub", `
-stack: {
-  factory: {
-    inputs: {
-      message: 'hello'
-    }
-  }
-
-  state: local {
-    path: '.unobin/state'
-  }
-
-  encryption: noop {}
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "dev.ub", lowerFixture(t, "source-stack"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -283,20 +197,7 @@ stack: {
 }
 
 func TestLowerSourceDeclaredManifestFile(t *testing.T) {
-	f := parseFile(t, "manifest.ub", `
-manifest: {
-  unobin-version: '0.2.0'
-  requires: {
-    'github.com/cloudboss/example': {
-      version: 'v1.2.3'
-    }
-    'github.com/cloudboss/std': {
-      version:  'v0.2.0'
-      indirect: true
-    }
-  }
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "manifest.ub", lowerFixture(t, "source-manifest"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -317,27 +218,7 @@ manifest: {
 }
 
 func TestLowerSourceDeclaredLockFile(t *testing.T) {
-	f := parseFile(t, "lock.ub", `
-lock: {
-  version: 1
-  toolchain: {
-    unobin-version: 'v0.4.2'
-  }
-  deps: {
-    'github.com/cloudboss/unobin-library-std': {
-      kind: go
-      version: 'v0.1.0'
-      commit: 'abc123'
-    }
-    'example.com/ub-lib//network': {
-      kind: ub
-      version: 'v0.4.2'
-      commit: 'def456'
-      hash: 'sha256:789abc'
-    }
-  }
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "lock.ub", lowerFixture(t, "source-lock"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -361,17 +242,7 @@ lock: {
 }
 
 func TestLowerSourceDeclaredLibraryFile(t *testing.T) {
-	f := parseFile(t, "library.ub", `
-greeting: resource {
-  outputs: {
-    message: { value: 'hello' }
-  }
-}
-
-lookup: data {
-  outputs: {}
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "library.ub", lowerFixture(t, "source-library"), parse.FileUnknown)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 0, errs.Len(), errs.Error())
@@ -385,15 +256,8 @@ lookup: data {
 }
 
 func TestLowerPreclassifiedExportedTypeFileRequiresSourceDeclaration(t *testing.T) {
-	f := parseFile(t, "resource-greeting.ub", `
-inputs: {
-  message: { type: string }
-}
-
-outputs: {
-  message: { value: var.message }
-}
-`, parse.FileExportedType)
+	f := parseFile(t, "resource-greeting.ub", lowerInvalidFixture(t, "preclassified-exported-type"),
+		parse.FileExportedType)
 
 	got, errs := LowerFile(f)
 	require.Equal(t, 1, errs.Len(), errs.Error())
@@ -550,17 +414,7 @@ func objectFieldCount(obj *parse.ObjectLit) int {
 }
 
 func TestLowerReportsSchemaErrors(t *testing.T) {
-	f := parseFile(t, "factory.ub", `
-factory: {
-  inputs: {
-    bad: { type: list(unknown) }
-  }
-
-  resources: {
-    std.file: {}
-  }
-}
-`, parse.FileFactory)
+	f := parseFile(t, "factory.ub", lowerInvalidFixture(t, "schema-errors"), parse.FileFactory)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
@@ -569,10 +423,7 @@ factory: {
 }
 
 func TestLowerRejectsUnwrappedFactoryFile(t *testing.T) {
-	f := parseFile(t, "factory.ub", `
-inputs: {}
-resources: {}
-`, parse.FileFactory)
+	f := parseFile(t, "factory.ub", lowerInvalidFixture(t, "unwrapped-factory"), parse.FileFactory)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
@@ -580,7 +431,8 @@ resources: {}
 }
 
 func TestLowerReportsUserFacingFileRoleError(t *testing.T) {
-	f := parseFile(t, "unknown.ub", "description: 'minimal'\n", parse.FileUnknown)
+	f := parseFile(t, "unknown.ub", lowerInvalidFixture(t, "user-facing-file-role"),
+		parse.FileUnknown)
 
 	_, errs := LowerFile(f)
 	require.Equal(t, 1, errs.Len())
@@ -590,10 +442,7 @@ func TestLowerReportsUserFacingFileRoleError(t *testing.T) {
 }
 
 func TestLowerReportsMixedSourceDeclaredFileRoles(t *testing.T) {
-	f := parseFile(t, "mixed.ub", `
-factory: {}
-stack: {}
-`, parse.FileUnknown)
+	f := parseFile(t, "mixed.ub", lowerInvalidFixture(t, "mixed-file-roles"), parse.FileUnknown)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
@@ -602,51 +451,52 @@ stack: {}
 
 func TestLowerReportsReservedFilenameMismatch(t *testing.T) {
 	cases := []struct {
-		name string
-		path string
-		src  string
-		want string
+		name    string
+		path    string
+		fixture string
+		want    string
 	}{
 		{
-			name: "factory file without factory declaration",
-			path: "factory.ub",
-			src:  "greeting: resource {}\n",
-			want: "factory.ub must declare factory",
+			name:    "factory file without factory declaration",
+			path:    "factory.ub",
+			fixture: "reserved-factory-missing-declaration",
+			want:    "factory.ub must declare factory",
 		},
 		{
-			name: "manifest file with factory declaration",
-			path: "manifest.ub",
-			src:  "factory: {}\n",
-			want: "manifest.ub must declare manifest",
+			name:    "manifest file with factory declaration",
+			path:    "manifest.ub",
+			fixture: "reserved-manifest-with-factory",
+			want:    "manifest.ub must declare manifest",
 		},
 		{
-			name: "lock file with manifest declaration",
-			path: "lock.ub",
-			src:  "manifest: {}\n",
-			want: "lock.ub must declare lock",
+			name:    "lock file with manifest declaration",
+			path:    "lock.ub",
+			fixture: "reserved-lock-with-manifest",
+			want:    "lock.ub must declare lock",
 		},
 		{
-			name: "factory declaration outside factory file",
-			path: "app.ub",
-			src:  "factory: {}\n",
-			want: "factory declaration must be in factory.ub",
+			name:    "factory declaration outside factory file",
+			path:    "app.ub",
+			fixture: "reserved-factory-outside-factory",
+			want:    "factory declaration must be in factory.ub",
 		},
 		{
-			name: "manifest declaration outside manifest file",
-			path: "app.ub",
-			src:  "manifest: {}\n",
-			want: "manifest declaration must be in manifest.ub",
+			name:    "manifest declaration outside manifest file",
+			path:    "app.ub",
+			fixture: "reserved-manifest-outside-manifest",
+			want:    "manifest declaration must be in manifest.ub",
 		},
 		{
-			name: "lock declaration outside lock file",
-			path: "app.ub",
-			src:  "lock: {}\n",
-			want: "lock declaration must be in lock.ub",
+			name:    "lock declaration outside lock file",
+			path:    "app.ub",
+			fixture: "reserved-lock-outside-lock",
+			want:    "lock declaration must be in lock.ub",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f := parseFile(t, c.path, c.src, parse.FileUnknown)
+			src := lowerInvalidFixture(t, c.fixture)
+			f := parseFile(t, c.path, src, parse.FileUnknown)
 
 			_, errs := LowerFile(f)
 			require.NotEqual(t, 0, errs.Len())
@@ -689,8 +539,8 @@ func TestLowerReportsManifestRequireSchemaErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f := parseFile(t, "manifest.ub", "manifest: { requires: { "+c.src+" } }\n",
-				parse.FileUnknown)
+			body := "manifest" + ": { requires: { " + c.src + " } }\n"
+			f := parseFile(t, "manifest.ub", body, parse.FileUnknown)
 
 			_, errs := LowerFile(f)
 			require.NotEqual(t, 0, errs.Len())
@@ -700,28 +550,7 @@ func TestLowerReportsManifestRequireSchemaErrors(t *testing.T) {
 }
 
 func TestLowerReportsLockSchemaErrors(t *testing.T) {
-	f := parseFile(t, "lock.ub", `
-lock: {
-  version: '1'
-  deps: {
-    'github.com/cloudboss/example': {
-      kind: ub
-      version: 'v0.1.0'
-      commit: 'abc123'
-    }
-    'github.com/cloudboss/example-go': {
-      kind: go
-      version: 'v0.1.0'
-      commit: 'def456'
-      hash: 'sha256:nope'
-    }
-    'github.com/cloudboss/example-bad': {
-      kind: other
-      commit: 'bad789'
-    }
-  }
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "lock.ub", lowerInvalidFixture(t, "lock-schema-errors"), parse.FileUnknown)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())
@@ -735,13 +564,8 @@ lock: {
 }
 
 func TestLowerReportsLockToolchainSchemaErrors(t *testing.T) {
-	f := parseFile(t, "lock.ub", `
-lock: {
-  version: 1
-  toolchain: {}
-  deps: {}
-}
-`, parse.FileUnknown)
+	f := parseFile(t, "lock.ub", lowerInvalidFixture(t, "lock-toolchain-schema-errors"),
+		parse.FileUnknown)
 
 	_, errs := LowerFile(f)
 	require.NotEqual(t, 0, errs.Len())

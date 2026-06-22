@@ -1,0 +1,8 @@
+factory: {
+  description: 'Example.'
+  resources: {
+    hello: std.fs-file {
+      path: '/tmp/hello.txt'
+    }
+  }
+}

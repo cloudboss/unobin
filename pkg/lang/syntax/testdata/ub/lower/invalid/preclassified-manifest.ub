@@ -1,0 +1,3 @@
+requires: {
+  'github.com/cloudboss/example': 'v1.2.3'
+}

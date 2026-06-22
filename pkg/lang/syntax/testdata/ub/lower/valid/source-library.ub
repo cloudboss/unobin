@@ -1,0 +1,9 @@
+greeting: resource {
+  outputs: {
+    message: { value: 'hello' }
+  }
+}
+
+lookup: data {
+  outputs: {}
+}
