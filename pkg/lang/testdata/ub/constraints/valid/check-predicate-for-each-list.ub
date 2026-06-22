@@ -1,0 +1,9 @@
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.replicas
+    when:      true
+    require:   @each.value.tls == true
+    message:   'tls required'
+  },
+]

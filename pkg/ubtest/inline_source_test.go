@@ -24,7 +24,6 @@ type inlineUBFinding struct {
 
 var inlineUBGreenlist = map[string]bool{
 	"pkg/deps/lockwalk_test.go":      true,
-	"pkg/lang/constraints_test.go":   true,
 	"pkg/runtime/apply_plan_test.go": true,
 	"pkg/runtime/executor_test.go":   true,
 	"pkg/runtime/plan_test.go":       true,

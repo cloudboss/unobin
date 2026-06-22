@@ -1,0 +1,3 @@
+constraints: [
+  { kind: forbidden-with, fields: [var.use-spot, var.reserved-capacity] },
+]

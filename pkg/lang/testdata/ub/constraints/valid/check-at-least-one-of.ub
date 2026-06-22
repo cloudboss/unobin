@@ -1,0 +1,3 @@
+constraints: [
+  { kind: at-least-one-of, fields: [var.a, var.b] },
+]

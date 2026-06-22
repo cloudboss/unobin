@@ -1,0 +1,3 @@
+constraints: [
+  { kind: exactly-one-of, fields: [var.a, var.b, var.c] },
+]

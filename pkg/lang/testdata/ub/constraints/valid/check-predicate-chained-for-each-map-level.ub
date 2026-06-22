@@ -1,0 +1,12 @@
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @env: var.envs },
+      { @s:   @env.value.subnets }
+    ]
+    when:    true
+    require: @s.value.az == 'set'
+    message: 'subnet needs an az'
+  },
+]

@@ -4,7 +4,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func constraintFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/constraints", name)
+}
 
 // boolExprEval evaluates a tiny set of expressions used by the
 // predicate tests: bool literals, equality and inequality between a
@@ -86,11 +93,7 @@ func evalLeaf(e Expr, values map[string]any, binds []EachBinding) (any, error) {
 }
 
 func TestCheckExactlyOneOf(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: exactly-one-of, fields: [var.a, var.b, var.c] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-exactly-one-of"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": "x", "b": nil, "c": nil,
@@ -112,11 +115,7 @@ constraints: [
 }
 
 func TestCheckAtLeastOneOf(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: at-least-one-of, fields: [var.a, var.b] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-at-least-one-of"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": nil, "b": "x",
@@ -131,11 +130,7 @@ constraints: [
 }
 
 func TestCheckAtMostOneOf(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: at-most-one-of, fields: [var.a, var.b, var.c] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-at-most-one-of"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"a": nil, "b": nil, "c": nil,
@@ -155,11 +150,7 @@ constraints: [
 }
 
 func TestCheckRequiredTogether(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: required-together, fields: [var.vpc-id, var.subnet-ids] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-required-together"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"vpc-id": "vpc-abc", "subnet-ids": []any{"a"},
@@ -179,11 +170,7 @@ constraints: [
 }
 
 func TestCheckRequiredWith(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: required-with, fields: [var.trigger, var.dep1, var.dep2] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-required-with"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"trigger": nil, "dep1": nil, "dep2": nil,
@@ -204,11 +191,7 @@ constraints: [
 }
 
 func TestCheckForbiddenWith(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: forbidden-with, fields: [var.use-spot, var.reserved-capacity] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-forbidden-with"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"use-spot": true, "reserved-capacity": nil,
@@ -223,11 +206,7 @@ constraints: [
 }
 
 func TestCheckConstraintsNestedFields(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: exactly-one-of, fields: [var.code.inline, var.code.from-file] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-constraints-nested-fields"))
 
 	errs := CheckConstraints(block, map[string]any{
 		"code": map[string]any{"inline": "x"},
@@ -248,11 +227,7 @@ constraints: [
 }
 
 func TestCheckConstraintsSplatFields(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: exactly-one-of, fields: [var.replicas[*].inline, var.replicas[*].from-file] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-constraints-splat-fields"))
 	errs := CheckConstraints(block, map[string]any{
 		"replicas": []any{
 			map[string]any{"inline": "a"},
@@ -264,11 +239,7 @@ constraints: [
 }
 
 func TestCheckConstraintsIndexedFields(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: required-together, fields: [var.listeners[0].cert, var.listeners[0].key] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-constraints-indexed-fields"))
 	errs := CheckConstraints(block, map[string]any{
 		"listeners": []any{
 			map[string]any{"cert": "c"},
@@ -279,16 +250,7 @@ constraints: [
 }
 
 func TestCheckPredicateWhenFalseSkipsRequire(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:    predicate
-    when:    var.region == 'us-gov-east-1'
-    require: var.fips-mode == true
-    message: 'GovCloud regions require FIPS mode enabled'
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-when-false-skips-require"))
 	values := map[string]any{
 		"region":    "us-east-1",
 		"fips-mode": false,
@@ -298,16 +260,7 @@ constraints: [
 }
 
 func TestCheckPredicateWhenTrueRequireFails(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:    predicate
-    when:    var.region == 'us-gov-east-1'
-    require: var.fips-mode == true
-    message: 'GovCloud regions require FIPS mode enabled'
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-when-true-require-fails"))
 	values := map[string]any{
 		"region":    "us-gov-east-1",
 		"fips-mode": false,
@@ -319,15 +272,7 @@ constraints: [
 }
 
 func TestCheckPredicateWhenTrueRequireOK(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:    predicate
-    when:    var.region == 'us-gov-east-1'
-    require: var.fips-mode == true
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-when-true-require-ok"))
 	values := map[string]any{
 		"region":    "us-gov-east-1",
 		"fips-mode": true,
@@ -337,15 +282,7 @@ constraints: [
 }
 
 func TestCheckPredicateNoMessageDefaults(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:    predicate
-    when:    true
-    require: false
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-no-message-defaults"))
 	errs := CheckConstraints(block, map[string]any{}, boolExprEval(nil), DisplayRooted)
 	require.Equal(t, 1, errs.Len())
 	require.Contains(t, errs.Err().Error(), "predicate requirement not satisfied")
@@ -916,12 +853,7 @@ func TestParseSpecsReportsBadExpression(t *testing.T) {
 }
 
 func TestCheckConstraintsCollectsMultiple(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: exactly-one-of, fields: [var.a, var.b] },
-  { kind: required-together, fields: [var.c, var.d] },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-constraints-collects-multiple"))
 	errs := CheckConstraints(block, map[string]any{
 		"a": nil, "b": nil,
 		"c": "x", "d": nil,
@@ -934,20 +866,7 @@ constraints: [
 // judged against the outer one, and a failure names the element as one
 // path from the input down through both levels.
 func TestCheckPredicateChainedForEach(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind: predicate
-    @for-each: [
-      { @rule: var.items },
-      { @t:    @rule.value.subs }
-    ]
-    when:    true
-    require: @t.value.n == @rule.value.n
-    message: 'sub must match its rule'
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-chained-for-each"))
 	values := map[string]any{"items": []any{
 		map[string]any{"n": "a", "subs": []any{
 			map[string]any{"n": "a"},
@@ -967,20 +886,8 @@ constraints: [
 // TestCheckPredicateChainedForEachMapLevel proves a map level iterates
 // in sorted key order and names the element by its key.
 func TestCheckPredicateChainedForEachMapLevel(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind: predicate
-    @for-each: [
-      { @env: var.envs },
-      { @s:   @env.value.subnets }
-    ]
-    when:    true
-    require: @s.value.az == 'set'
-    message: 'subnet needs an az'
-  },
-]
-`)
+	block := parseConstraintsBlock(t,
+		constraintFixture(t, "check-predicate-chained-for-each-map-level"))
 	values := map[string]any{"envs": map[string]any{
 		"prod": map[string]any{"subnets": []any{
 			map[string]any{"az": "set"},
@@ -997,19 +904,8 @@ constraints: [
 // TestCheckPredicateChainedForEachNonList proves a level whose iterable
 // is not a list or map reports rather than judging garbage.
 func TestCheckPredicateChainedForEachNonList(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind: predicate
-    @for-each: [
-      { @rule: var.items },
-      { @t:    @rule.value.subs }
-    ]
-    when:    true
-    require: true
-  },
-]
-`)
+	block := parseConstraintsBlock(t,
+		constraintFixture(t, "check-predicate-chained-for-each-non-list"))
 	values := map[string]any{"items": []any{
 		map[string]any{"subs": "not-a-list"},
 	}}
@@ -1033,7 +929,7 @@ func TestCheckPredicateChainedForEachMalformedSkips(t *testing.T) {
 	}
 	values := map[string]any{"items": []any{map[string]any{}}}
 	for _, src := range cases {
-		block := parseConstraintsBlock(t, "constraints: [\n  "+src+",\n]\n")
+		block := parseConstraintsBlock(t, "constraints"+": [\n  "+src+",\n]\n")
 		errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
 		require.Equal(t, 0, errs.Len(), "malformed chain should skip: %s", src)
 	}
@@ -1067,17 +963,7 @@ func TestParseSpecsChainedLevels(t *testing.T) {
 }
 
 func TestCheckPredicateForEachList(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:      predicate
-    @for-each: var.replicas
-    when:      true
-    require:   @each.value.tls == true
-    message:   'tls required'
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-for-each-list"))
 	values := map[string]any{"replicas": []any{
 		map[string]any{"tls": true},
 		map[string]any{"tls": false},
@@ -1095,16 +981,8 @@ constraints: [
 }
 
 func TestCheckPredicateForEachWhenGatesPerElement(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:      predicate
-    @for-each: var.replicas
-    when:      @each.value.enabled == true
-    require:   @each.value.tls == true
-  },
-]
-`)
+	block := parseConstraintsBlock(t,
+		constraintFixture(t, "check-predicate-for-each-when-gates-per-element"))
 	values := map[string]any{"replicas": []any{
 		map[string]any{"enabled": true, "tls": true},
 		map[string]any{"enabled": false, "tls": false},
@@ -1116,17 +994,7 @@ constraints: [
 }
 
 func TestCheckPredicateForEachMap(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  {
-    kind:      predicate
-    @for-each: var.configs
-    when:      true
-    require:   @each.value.on == true
-    message:   'must be on'
-  },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-for-each-map"))
 	values := map[string]any{"configs": map[string]any{
 		"b": map[string]any{"on": false},
 		"a": map[string]any{"on": true},
@@ -1141,22 +1009,14 @@ constraints: [
 }
 
 func TestCheckPredicateForEachUnsetIterable(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: predicate, @for-each: var.replicas, when: true, require: false },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-for-each-unset-iterable"))
 	errs := CheckConstraints(block, map[string]any{},
 		boolExprEval(map[string]any{}), DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
 }
 
 func TestCheckPredicateForEachNotIterable(t *testing.T) {
-	block := parseConstraintsBlock(t, `
-constraints: [
-  { kind: predicate, @for-each: var.replicas, when: true, require: false },
-]
-`)
+	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-for-each-not-iterable"))
 	values := map[string]any{"replicas": "oops"}
 	errs := CheckConstraints(block, values, boolExprEval(values), DisplayRooted)
 	require.Equal(t, 1, errs.Len())

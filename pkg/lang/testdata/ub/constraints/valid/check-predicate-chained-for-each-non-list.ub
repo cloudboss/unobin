@@ -1,0 +1,11 @@
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.items },
+      { @t:    @rule.value.subs }
+    ]
+    when:    true
+    require: true
+  },
+]

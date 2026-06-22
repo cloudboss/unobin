@@ -1,0 +1,8 @@
+constraints: [
+  {
+    kind:      predicate
+    @for-each: var.replicas
+    when:      @each.value.enabled == true
+    require:   @each.value.tls == true
+  },
+]

@@ -1,0 +1,12 @@
+constraints: [
+  {
+    kind: predicate
+    @for-each: [
+      { @rule: var.items },
+      { @t:    @rule.value.subs }
+    ]
+    when:    true
+    require: @t.value.n == @rule.value.n
+    message: 'sub must match its rule'
+  },
+]

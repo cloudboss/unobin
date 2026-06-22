@@ -1,0 +1,7 @@
+constraints: [
+  {
+    kind:    predicate
+    when:    var.region == 'us-gov-east-1'
+    require: var.fips-mode == true
+  },
+]

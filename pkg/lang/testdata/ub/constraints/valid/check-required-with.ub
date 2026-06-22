@@ -1,0 +1,3 @@
+constraints: [
+  { kind: required-with, fields: [var.trigger, var.dep1, var.dep2] },
+]

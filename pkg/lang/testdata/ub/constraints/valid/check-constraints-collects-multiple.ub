@@ -1,0 +1,4 @@
+constraints: [
+  { kind: exactly-one-of, fields: [var.a, var.b] },
+  { kind: required-together, fields: [var.c, var.d] },
+]
