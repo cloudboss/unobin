@@ -1,0 +1,5 @@
+actions: {
+  first: core.echo  { echo: 'one' }
+  second: core.echo { echo: action.first.echo }
+}
+outputs: { result: { value: action.second.echo } }

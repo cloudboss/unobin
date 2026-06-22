@@ -1,0 +1,2 @@
+actions: { hello: ops.greet { msg: 'hi' } }
+outputs: { out: { value: action.hello.said } }

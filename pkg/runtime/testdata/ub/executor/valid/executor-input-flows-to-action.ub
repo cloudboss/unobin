@@ -1,0 +1,2 @@
+actions: { greet: core.echo { echo: var.name } }
+outputs: { said: { value: action.greet.echo } }

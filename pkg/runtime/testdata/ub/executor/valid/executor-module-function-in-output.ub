@@ -1,0 +1,3 @@
+outputs: {
+  shout: { value: core.uppercase(var.name) }
+}

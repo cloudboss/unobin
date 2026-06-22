@@ -1,0 +1,3 @@
+outputs: {
+  region: { value: var.region }
+}

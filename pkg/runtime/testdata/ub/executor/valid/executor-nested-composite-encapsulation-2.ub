@@ -1,0 +1,5 @@
+inputs: { target: { type: string } }
+
+resources: { only: inner-lib.cluster { path: var.target } }
+
+outputs: { exposed: { value: resource.only.path } }

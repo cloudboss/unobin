@@ -1,0 +1,2 @@
+actions: { it: core.echo { echo: var.msg } }
+outputs: { said: { value: action.it.echo } }

@@ -1,0 +1,2 @@
+resources: { x: wrapper.layer { name: 'hi' } }
+outputs:   { out: { value: resource.x.shout } }

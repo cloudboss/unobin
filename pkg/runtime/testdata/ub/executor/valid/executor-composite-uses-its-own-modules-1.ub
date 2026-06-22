@@ -1,0 +1,5 @@
+inputs: { name: { type: string } }
+
+resources: { y: core.thing { name: var.name, size: 1 } }
+
+outputs: { id: { value: resource.y.id } }

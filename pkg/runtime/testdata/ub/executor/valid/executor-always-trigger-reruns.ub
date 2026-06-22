@@ -1,0 +1,1 @@
+actions: { hi: core.echo { @trigger: 'always', echo: 'hello' } }

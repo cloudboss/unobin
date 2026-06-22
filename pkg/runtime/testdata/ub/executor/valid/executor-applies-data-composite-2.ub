@@ -1,0 +1,2 @@
+data:    { x: w.box { key: 'abc' } }
+outputs: { out: { value: data.x.value } }

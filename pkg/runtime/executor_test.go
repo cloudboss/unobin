@@ -14,8 +14,14 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
+
+func executorFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/executor", name)
+}
 
 type echoAction struct {
 	Echo string
@@ -97,59 +103,44 @@ func TestExecutorRequiresStore(t *testing.T) {
 }
 
 func TestExecutorOutputOnly(t *testing.T) {
-	res, err := runExecutor(t, `
-outputs: {
-  region: { value: var.region }
-}
-`, map[string]any{"region": "us-east-1"})
+	res, err := runExecutor(t,
+		executorFixture(t, "executor-output-only"),
+		map[string]any{"region": "us-east-1"})
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"region": "us-east-1"}, res.Outputs)
 }
 
 func TestExecutorActionRuns(t *testing.T) {
-	res, err := runExecutor(t, `
-actions: { hi: core.echo { echo: 'hello' } }
-outputs: { said: { value: action.hi.echo }, letters: { value: action.hi.len } }
-`, nil)
+	res, err := runExecutor(t, executorFixture(t, "executor-action-runs"), nil)
 	require.NoError(t, err)
 	require.Equal(t, "hello", res.Outputs["said"])
 	require.Equal(t, int64(5), res.Outputs["letters"])
 }
 
 func TestExecutorInputFlowsToAction(t *testing.T) {
-	res, err := runExecutor(t, `
-actions: { greet: core.echo { echo: var.name } }
-outputs: { said: { value: action.greet.echo } }
-`, map[string]any{"name": "world"})
+	res, err := runExecutor(t,
+		executorFixture(t, "executor-input-flows-to-action"),
+		map[string]any{"name": "world"})
 	require.NoError(t, err)
 	require.Equal(t, "world", res.Outputs["said"])
 }
 
 func TestExecutorDataSource(t *testing.T) {
-	res, err := runExecutor(t, `
-data:    { it: core.lookup { key: var.key } }
-outputs: { found: { value: data.it.value } }
-`, map[string]any{"key": "abc"})
+	res, err := runExecutor(t,
+		executorFixture(t, "executor-data-source"),
+		map[string]any{"key": "abc"})
 	require.NoError(t, err)
 	require.Equal(t, "looked-up:abc", res.Outputs["found"])
 }
 
 func TestExecutorActionDependsOnAction(t *testing.T) {
-	res, err := runExecutor(t, `
-actions: {
-  first: core.echo  { echo: 'one' }
-  second: core.echo { echo: action.first.echo }
-}
-outputs: { result: { value: action.second.echo } }
-`, nil)
+	res, err := runExecutor(t, executorFixture(t, "executor-action-depends-on-action"), nil)
 	require.NoError(t, err)
 	require.Equal(t, "one", res.Outputs["result"])
 }
 
 func TestExecutorPropagatesActionError(t *testing.T) {
-	_, err := runExecutor(t, `
-actions: { f: core.fail {} }
-`, nil)
+	_, err := runExecutor(t, executorFixture(t, "executor-propagates-action-error"), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "action.f")
 	require.Contains(t, err.Error(), "intentional failure")
@@ -370,10 +361,7 @@ func fnAllBools(args []any) (any, error) {
 }
 
 func TestExecutorRunsComposite(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-resources: { one: core.thing { name: var.name, size: 1 } }
-outputs:   { id: { value: resource.one.id } }
-`)
+	composite := syntaxResourceComposite(t, "box", executorFixture(t, "executor-runs-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -382,10 +370,7 @@ outputs:   { id: { value: resource.one.id } }
 			"box": composite,
 		},
 	}
-	src := `
-resources: { x: w.box { name: 'alpha' } }
-outputs:   { out: { value: resource.x.id } }
-`
+	src := executorFixture(t, "executor-runs-composite-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, libs, store, stack)
@@ -420,10 +405,8 @@ outputs:   { out: { value: resource.x.id } }
 }
 
 func TestExecutorAppliesDataComposite(t *testing.T) {
-	composite := syntaxComposite(t, "box", NodeData, `
-data:    { it: core.lookup { key: var.key } }
-outputs: { value: { value: data.it.value } }
-`)
+	composite := syntaxComposite(t, "box", NodeData,
+		executorFixture(t, "executor-applies-data-composite-1"))
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
@@ -431,10 +414,7 @@ outputs: { value: { value: data.it.value } }
 			"box": composite,
 		},
 	}
-	src := `
-data:    { x: w.box { key: 'abc' } }
-outputs: { out: { value: data.x.value } }
-`
+	src := executorFixture(t, "executor-applies-data-composite-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, libs, store, stack)
@@ -464,10 +444,8 @@ outputs: { out: { value: data.x.value } }
 }
 
 func TestExecutorAppliesActionComposite(t *testing.T) {
-	composite := syntaxComposite(t, "greet", NodeAction, `
-actions: { it: core.echo { echo: var.msg } }
-outputs: { said: { value: action.it.echo } }
-`)
+	composite := syntaxComposite(t, "greet", NodeAction,
+		executorFixture(t, "executor-applies-action-composite-1"))
 	libs := testModules()
 	libs["ops"] = &Library{
 		Name: "ops",
@@ -475,10 +453,7 @@ outputs: { said: { value: action.it.echo } }
 			"greet": composite,
 		},
 	}
-	src := `
-actions: { hello: ops.greet { msg: 'hi' } }
-outputs: { out: { value: action.hello.said } }
-`
+	src := executorFixture(t, "executor-applies-action-composite-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, libs, store, stack)
@@ -501,13 +476,7 @@ outputs: { out: { value: action.hello.said } }
 }
 
 func TestExecutorForEachResourceCreatesPerInstance(t *testing.T) {
-	src := `
-resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
-outputs: {
-  alpha-id: { value: resource.many['alpha'].id }
-  beta-id:  { value: resource.many['beta'].id }
-}
-`
+	src := executorFixture(t, "executor-for-each-resource-creates-per-instance")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -535,9 +504,7 @@ outputs: {
 }
 
 func TestExecutorForEachOrphanInstanceDeleted(t *testing.T) {
-	src := `
-resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @each.value } }
-`
+	src := executorFixture(t, "executor-for-each-orphan-instance-deleted")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -564,9 +531,7 @@ resources: { many: core.thing { @for-each: var.configs, name: @each.key, size: @
 }
 
 func TestExecutorForEachRejectsList(t *testing.T) {
-	src := `
-resources: { many: core.thing { @for-each: var.items, name: @each.value } }
-`
+	src := executorFixture(t, "executor-for-each-rejects-list")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -579,20 +544,16 @@ resources: { many: core.thing { @for-each: var.items, name: @each.value } }
 }
 
 func TestExecutorModuleFunctionInOutput(t *testing.T) {
-	res, err := runExecutor(t, `
-outputs: {
-  shout: { value: core.uppercase(var.name) }
-}
-`, map[string]any{"name": "hello"})
+	res, err := runExecutor(t,
+		executorFixture(t, "executor-module-function-in-output"),
+		map[string]any{"name": "hello"})
 	require.NoError(t, err)
 	require.Equal(t, "HELLO", res.Outputs["shout"])
 }
 
 func TestExecutorModuleFunctionInsideComposite(t *testing.T) {
-	layerBody := syntaxResourceComposite(t, "layer", `
-inputs: { name: { type: string } }
-outputs: { shout: { value: core.uppercase(var.name) } }
-`)
+	layerBody := syntaxResourceComposite(t, "layer",
+		executorFixture(t, "executor-module-function-inside-composite-1"))
 	layerBody.Libraries = testModules()
 	rootMods := map[string]*Library{
 		"wrapper": {
@@ -602,10 +563,7 @@ outputs: { shout: { value: core.uppercase(var.name) } }
 			},
 		},
 	}
-	src := `
-resources: { x: wrapper.layer { name: 'hi' } }
-outputs:   { out: { value: resource.x.shout } }
-`
+	src := executorFixture(t, "executor-module-function-inside-composite-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, rootMods, store, stack)
@@ -619,13 +577,8 @@ func TestExecutorCompositeUsesItsOwnModules(t *testing.T) {
 	// against the composite's Libraries table, not the stack root's. This
 	// is the encapsulation that lets a composite be reusable without the
 	// caller needing to import everything the composite uses transitively.
-	composite := syntaxResourceComposite(t, "layer", `
-inputs: { name: { type: string } }
-
-resources: { y: core.thing { name: var.name, size: 1 } }
-
-outputs: { id: { value: resource.y.id } }
-`)
+	composite := syntaxResourceComposite(t, "layer",
+		executorFixture(t, "executor-composite-uses-its-own-modules-1"))
 	var c resourceCounters
 	// "core" is registered only in the composite's Libraries, never in
 	// the stack-root libs.
@@ -638,10 +591,7 @@ outputs: { id: { value: resource.y.id } }
 			},
 		},
 	}
-	src := `
-resources: { x: outer-lib.layer { name: 'alpha' } }
-outputs:   { out: { value: resource.x.id } }
-`
+	src := executorFixture(t, "executor-composite-uses-its-own-modules-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, rootMods, store, stack)
@@ -653,20 +603,10 @@ outputs:   { out: { value: resource.x.id } }
 }
 
 func TestExecutorRunsNestedComposite(t *testing.T) {
-	clusterBody := syntaxResourceComposite(t, "cluster", `
-inputs: { path: { type: string } }
-
-resources: { x: core.thing { name: var.path, size: 1 } }
-
-outputs: { path: { value: resource.x.name } }
-`)
-	layerBody := syntaxResourceComposite(t, "layer", `
-inputs: { target: { type: string } }
-
-resources: { only: inner-lib.cluster { path: var.target } }
-
-outputs: { path: { value: resource.only.path } }
-`)
+	clusterBody := syntaxResourceComposite(t, "cluster",
+		executorFixture(t, "executor-runs-nested-composite-1"))
+	layerBody := syntaxResourceComposite(t, "layer",
+		executorFixture(t, "executor-runs-nested-composite-2"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
@@ -681,10 +621,7 @@ outputs: { path: { value: resource.only.path } }
 			"cluster": clusterBody,
 		},
 	}
-	src := `
-resources: { mine: outer-lib.layer { target: 'alpha' } }
-outputs:   { out: { value: resource.mine.path } }
-`
+	src := executorFixture(t, "executor-runs-nested-composite-3")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, libs, store, stack)
@@ -726,20 +663,10 @@ func TestExecutorNestedCompositeEncapsulation(t *testing.T) {
 	// Inner's leaf produces {id, name, size}; inner only publishes
 	// {path}. Outer's outputs reference the boundary's published
 	// outputs, not the leaf's internals.
-	clusterBody := syntaxResourceComposite(t, "cluster", `
-inputs: { path: { type: string } }
-
-resources: { x: core.thing { name: var.path, size: 7 } }
-
-outputs: { path: { value: resource.x.name } }
-`)
-	layerBody := syntaxResourceComposite(t, "layer", `
-inputs: { target: { type: string } }
-
-resources: { only: inner-lib.cluster { path: var.target } }
-
-outputs: { exposed: { value: resource.only.path } }
-`)
+	clusterBody := syntaxResourceComposite(t, "cluster",
+		executorFixture(t, "executor-nested-composite-encapsulation-1"))
+	layerBody := syntaxResourceComposite(t, "layer",
+		executorFixture(t, "executor-nested-composite-encapsulation-2"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["outer-lib"] = &Library{
@@ -756,10 +683,7 @@ outputs: { exposed: { value: resource.only.path } }
 	}
 
 	t.Run("only published outputs cross the boundary", func(t *testing.T) {
-		src := `
-resources: { mine: outer-lib.layer { target: 'beta' } }
-outputs:   { out: { value: resource.mine.exposed } }
-`
+		src := executorFixture(t, "executor-nested-composite-encapsulation-3")
 		store := newStateStore(t)
 		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := executorTestExecutor(t, src, libs, store, stack)
@@ -789,10 +713,7 @@ outputs:   { out: { value: resource.mine.exposed } }
 		// inner leaf's `size` field, not in inner's `outputs:` block. The
 		// reference must fail at eval time because outer scope holds only the
 		// boundary's published map.
-		src := `
-resources: { mine: outer-lib.layer { target: 'gamma' } }
-outputs:   { leak: { value: resource.mine.size } }
-`
+		src := executorFixture(t, "executor-nested-composite-encapsulation-4")
 		store := newStateStore(t)
 		stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 		exec := executorTestExecutor(t, src, libs, store, stack)
@@ -804,12 +725,8 @@ outputs:   { leak: { value: resource.mine.size } }
 }
 
 func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs:  { key: { type: string } }
-data:    { found: core.lookup { key: var.key } }
-actions: { say: core.echo { echo: data.found.value } }
-outputs: { said: { value: action.say.echo } }
-`)
+	composite := syntaxResourceComposite(t, "box",
+		executorFixture(t, "executor-composite-internal-data-and-action-1"))
 	libs := testModules()
 	libs["w"] = &Library{
 		Name: "w",
@@ -817,10 +734,7 @@ outputs: { said: { value: action.say.echo } }
 			"box": composite,
 		},
 	}
-	src := `
-resources: { x: w.box { key: 'banana' } }
-outputs:   { result: { value: resource.x.said } }
-`
+	src := executorFixture(t, "executor-composite-internal-data-and-action-2")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	exec := executorTestExecutor(t, src, libs, store, stack)
@@ -848,10 +762,7 @@ outputs:   { result: { value: resource.x.said } }
 }
 
 func TestExecutorCreatesResource(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-outputs:   { id: { value: resource.one.id } }
-`
+	src := executorFixture(t, "executor-creates-resource")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -864,9 +775,7 @@ outputs:   { id: { value: resource.one.id } }
 }
 
 func TestExecutorSameInputsNoCreateOrUpdate(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := executorFixture(t, "executor-same-inputs-no-create-or-update")
 	var c resourceCounters
 	runExecutorTwice(t, src, resourceModules(&c))
 	require.Equal(t, int64(1), atomic.LoadInt64(&c.creates))
@@ -874,12 +783,8 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestExecutorChangedInputsTriggersUpdate(t *testing.T) {
-	first := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
-	second := `
-resources: { one: core.thing { name: 'alpha', size: 9 } }
-`
+	first := executorFixture(t, "executor-changed-inputs-triggers-update-1")
+	second := executorFixture(t, "executor-changed-inputs-triggers-update-2")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -893,12 +798,8 @@ resources: { one: core.thing { name: 'alpha', size: 9 } }
 }
 
 func TestExecutorReplaceFieldChangeTriggersDeleteAndCreate(t *testing.T) {
-	first := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
-	second := `
-resources: { one: core.thing { name: 'beta', size: 1 } }
-`
+	first := executorFixture(t, "executor-replace-field-change-triggers-delete-and-create-1")
+	second := executorFixture(t, "executor-replace-field-change-triggers-delete-and-create-2")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -916,12 +817,8 @@ resources: { one: core.thing { name: 'beta', size: 1 } }
 }
 
 func TestExecutorOrphanResourceDeleted(t *testing.T) {
-	first := `
-resources: { keep: core.thing { name: 'a', size: 1 }, orph: core.thing { name: 'b', size: 2 } }
-`
-	second := `
-resources: { keep: core.thing { name: 'a', size: 1 } }
-`
+	first := executorFixture(t, "executor-orphan-resource-deleted-1")
+	second := executorFixture(t, "executor-orphan-resource-deleted-2")
 	var c resourceCounters
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -945,25 +842,19 @@ resources: { keep: core.thing { name: 'a', size: 1 } }
 }
 
 func TestExecutorResourceMissingType(t *testing.T) {
-	_, err := runExecutor(t, `
-resources: { x: core.not-a-thing {} }
-`, nil)
+	_, err := runExecutor(t, executorFixture(t, "executor-resource-missing-type"), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not-a-thing")
 }
 
 func TestExecutorUnknownModule(t *testing.T) {
-	_, err := runExecutor(t, `
-actions: { x: unknown.echo { echo: 'hi' } }
-`, nil)
+	_, err := runExecutor(t, executorFixture(t, "executor-unknown-module"), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown")
 }
 
 func TestExecutorUnknownActionType(t *testing.T) {
-	_, err := runExecutor(t, `
-actions: { x: core.not-a-type {} }
-`, nil)
+	_, err := runExecutor(t, executorFixture(t, "executor-unknown-action-type"), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not-a-type")
 }
@@ -1024,9 +915,11 @@ func countingModules(runs *int64) map[string]*Library {
 func TestExecutorPersistsSnapshot(t *testing.T) {
 	store := newStateStore(t)
 	libs := testModules()
-	exec := executorTestExecutor(t, `
-actions: { hi: core.echo { echo: 'hello' } }
-`, libs, store, state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
+	exec := executorTestExecutor(t,
+		executorFixture(t, "executor-persists-snapshot"),
+		libs,
+		store,
+		state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"})
 	res := applyOnce(t, exec)
 	require.NotEmpty(t, res.WrittenRev)
 
@@ -1043,9 +936,7 @@ actions: { hi: core.echo { echo: 'hello' } }
 }
 
 func TestExecutorSkipsActionWhenInputsUnchanged(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-`
+	src := executorFixture(t, "executor-skips-action-when-inputs-unchanged")
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs),
@@ -1053,9 +944,7 @@ actions: { hi: core.echo { echo: 'hello' } }
 }
 
 func TestExecutorAlwaysTriggerReruns(t *testing.T) {
-	src := `
-actions: { hi: core.echo { @trigger: 'always', echo: 'hello' } }
-`
+	src := executorFixture(t, "executor-always-trigger-reruns")
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
 	require.Equal(t, int64(2), atomic.LoadInt64(&runs),
@@ -1063,9 +952,7 @@ actions: { hi: core.echo { @trigger: 'always', echo: 'hello' } }
 }
 
 func TestExecutorExplicitTriggerSkipsWhenSame(t *testing.T) {
-	src := `
-actions: { hi: core.echo { @trigger: 'fixed-key', echo: 'hello' } }
-`
+	src := executorFixture(t, "executor-explicit-trigger-skips-when-same")
 	var runs int64
 	runExecutorTwice(t, src, countingModules(&runs))
 	require.Equal(t, int64(1), atomic.LoadInt64(&runs))
@@ -1107,10 +994,7 @@ func TestConfigForNoConfigReturnsNil(t *testing.T) {
 }
 
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'cached-value' } }
-outputs: { said: { value: action.hi.echo } }
-`
+	src := executorFixture(t, "executor-propagates-skipped-outputs")
 	var runs int64
 	first, second := runExecutorTwice(t, src, countingModules(&runs))
 	require.Equal(t, "cached-value", first.Outputs["said"])

@@ -1,0 +1,2 @@
+resources: { x: outer-lib.layer { name: 'alpha' } }
+outputs:   { out: { value: resource.x.id } }

@@ -1,0 +1,2 @@
+resources: { x: w.box { key: 'banana' } }
+outputs:   { result: { value: resource.x.said } }

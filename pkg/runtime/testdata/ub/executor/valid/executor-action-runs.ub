@@ -1,0 +1,2 @@
+actions: { hi: core.echo { echo: 'hello' } }
+outputs: { said: { value: action.hi.echo }, letters: { value: action.hi.len } }

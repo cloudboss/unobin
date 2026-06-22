@@ -1,0 +1,1 @@
+actions: { x: unknown.echo { echo: 'hi' } }

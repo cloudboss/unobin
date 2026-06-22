@@ -1,0 +1,2 @@
+data:    { it: core.lookup { key: var.key } }
+outputs: { value: { value: data.it.value } }

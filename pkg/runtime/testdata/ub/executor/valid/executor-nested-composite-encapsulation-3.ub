@@ -1,0 +1,2 @@
+resources: { mine: outer-lib.layer { target: 'beta' } }
+outputs:   { out: { value: resource.mine.exposed } }

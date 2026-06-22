@@ -1,0 +1,2 @@
+resources: { mine: outer-lib.layer { target: 'gamma' } }
+outputs:   { leak: { value: resource.mine.size } }
