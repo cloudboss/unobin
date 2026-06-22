@@ -30,9 +30,9 @@ import (
 )
 
 // EnvVarPrefix is the prefix unobin reads input overrides from. An env
-// var like `UB_VAR_cluster_name=web-prod` overrides the `cluster-name`
+// var like `UB_INPUT_cluster_name=web-prod` overrides the `cluster-name`
 // input, with snake case converted to kebab case.
-const EnvVarPrefix = "UB_VAR_"
+const EnvVarPrefix = "UB_INPUT_"
 
 // Info bundles everything a generated factory binary passes into Run.
 // FactoryBody is the embedded factory source the binary parses on each
@@ -851,14 +851,14 @@ func loadStackInputs(config *parsedStack, path string) (map[string]any, error) {
 	return out, nil
 }
 
-// applyEnvOverrides reads UB_VAR_<name> environment variables and writes
+// applyEnvOverrides reads UB_INPUT_<name> environment variables and writes
 // them into inputs. Underscores in the env name become hyphens to match
 // kebab case input names. The declared input type directs the parse: a
 // string input takes the raw text exactly as given, so a value that
 // happens to look like another literal (true, 42) arrives unmangled,
 // while every other type reads its value as a UB literal and, failing
-// that, as JSON, so `UB_VAR_size=5` arrives as int64,
-// `UB_VAR_subnets=['a', 'b']` as a list, and a value written as JSON --
+// that, as JSON, so `UB_INPUT_size=5` arrives as int64,
+// `UB_INPUT_subnets=['a', 'b']` as a list, and a value written as JSON --
 // double-quoted, which UB does not accept -- as a map or list. A value
 // that parses as neither falls through to the raw string and input
 // validation reports it against the declaration.

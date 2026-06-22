@@ -26,7 +26,7 @@
       "name": "plan-env-override",
       "args": ["plan", "--ascii", "-c", "stacks/env.ub", "-o", "env.ubp"],
       "env": {
-        "UB_VAR_e2e_config": "{base-dir: '.', event-log-path: 'events.ndjson', prefix: 'env-', nested: {label: 'nested'}}"
+        "UB_INPUT_e2e_config": "{base-dir: '.', event-log-path: 'events.ndjson', prefix: 'env-', nested: {label: 'nested'}}"
       },
       "stdout": "want/plan-env-override.stdout",
       "stderr": "want/plan-env-override.stderr"
@@ -47,7 +47,7 @@
       "name": "plan-bad-config",
       "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
       "env": {
-        "UB_VAR_e2e_config": "{base-dir: '.', event-log-path: 'events.ndjson', prefix: 1, nested: {label: 'nested'}}"
+        "UB_INPUT_e2e_config": "{base-dir: '.', event-log-path: 'events.ndjson', prefix: 1, nested: {label: 'nested'}}"
       },
       "stderr": "want/plan-bad-config.stderr",
       "exitCode": 1
