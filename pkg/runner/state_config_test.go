@@ -27,6 +27,25 @@ func parseStateConfigFixture(t *testing.T, name string) *parsedStack {
 	return config
 }
 
+func isolateAWSEnv(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(dir, "credentials"))
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	t.Setenv("AWS_PROFILE", "")
+	t.Setenv("AWS_DEFAULT_PROFILE", "")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("AWS_SESSION_TOKEN", "")
+}
+
+func polluteAWSProfile(t *testing.T) {
+	t.Helper()
+	t.Setenv("AWS_PROFILE", "missing-profile")
+	t.Setenv("AWS_DEFAULT_PROFILE", "missing-profile")
+}
+
 func TestParseStateConfigNilFile(t *testing.T) {
 	sc, err := parseStateConfig(nil, "")
 	require.NoError(t, err)
@@ -98,10 +117,8 @@ func TestResolveBackendLocal(t *testing.T) {
 }
 
 func TestResolveBackendS3(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
-	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(dir, "credentials"))
-	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	polluteAWSProfile(t)
+	isolateAWSEnv(t)
 	ref := &resolverRef{Name: "s3", Body: map[string]any{
 		"bucket": "acme-state",
 		"prefix": "unobin",
@@ -154,10 +171,8 @@ func TestResolveEncrypterNamed(t *testing.T) {
 }
 
 func TestResolveEncrypterKMS(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
-	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(dir, "credentials"))
-	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	polluteAWSProfile(t)
+	isolateAWSEnv(t)
 	ref := &resolverRef{Name: "kms", Body: map[string]any{
 		"key-id": "alias/unobin-state",
 		"aws":    map[string]any{"region": "us-east-1"},

@@ -25,14 +25,23 @@ func testClient(t *testing.T, url string) *kms.Client {
 	t.Setenv("AWS_CONFIG_FILE", filepath.Join(dir, "config"))
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(dir, "credentials"))
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	t.Setenv("AWS_PROFILE", "")
+	t.Setenv("AWS_DEFAULT_PROFILE", "")
 	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("AWS_SESSION_TOKEN", "")
 	awsCfg, err := awscfg.Load(context.Background(), &awscfg.Configuration{
 		Region:      &cfg.String{Value: "us-east-1"},
 		EndpointURL: &cfg.String{Value: url},
 	})
 	require.NoError(t, err)
 	return kms.NewFromConfig(awsCfg)
+}
+
+func TestClientIgnoresEnvProfile(t *testing.T) {
+	t.Setenv("AWS_PROFILE", "missing-profile")
+	t.Setenv("AWS_DEFAULT_PROFILE", "missing-profile")
+	assert.NotNil(t, testClient(t, "http://127.0.0.1:1"))
 }
 
 func testEncrypter(t *testing.T) (*KMS, *fakeKMS) {
