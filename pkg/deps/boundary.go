@@ -88,8 +88,8 @@ func nestedProjectOwnershipError(owner ProjectID, pkg RemotePackage, nestedRel s
 	}
 	return fmt.Errorf(
 		"selected project %s does not own package %s; "+
-			"the package is inside nested project %s. "+
-			"Add that project to manifest.requires or replace it directly.",
+			"the package is inside nested project %s; "+
+			"add that project to manifest.requires or replace it directly",
 		owner, pkg, nested)
 }
 

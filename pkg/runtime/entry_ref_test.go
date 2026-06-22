@@ -92,7 +92,7 @@ func TestParseEntryRefInvalid(t *testing.T) {
 		{
 			name: "address missing name",
 			in:   "aws.instance@resource",
-			want: "address must start with resource., data., or action.",
+			want: "address must start with resource., data., or action",
 		},
 		{
 			name: "malformed instance key",

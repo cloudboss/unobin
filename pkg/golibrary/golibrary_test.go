@@ -177,7 +177,7 @@ func TestValidatePackageRejectsInvalidLibraryForms(t *testing.T) {
 func (T) Library() *runtime.Library {
 	return &runtime.Library{}
 }`),
-			want: "no package-level Library function",
+			want: "no package-level library function",
 		},
 		{
 			name: "parameters",
@@ -209,7 +209,7 @@ func (T) Library() *runtime.Library {
 func Library() *runtime.Library {
 	return &runtime.Library{}
 }`),
-			want: "more than one package-level Library function",
+			want: "more than one package-level library function",
 		},
 		{
 			name: "two returns",

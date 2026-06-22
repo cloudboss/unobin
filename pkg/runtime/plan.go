@@ -794,21 +794,12 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 	return rs.eval, nil
 }
 
-func seedNested(target map[string]any, alias, typeName, name string, value map[string]any) {
-	seedPath(target, []string{alias, typeName, name}, value)
-}
-
 func seedAddress(target map[string]any, addr string, value map[string]any) {
 	path, ok := addressValuePath(addr)
 	if !ok {
 		return
 	}
 	seedPath(target, path, value)
-}
-
-// seedInstance writes one for-each instance's outputs into scope.
-func seedInstance(target map[string]any, alias, typeName, name, key string, value map[string]any) {
-	seedPathInstance(target, []string{alias, typeName, name}, key, value)
 }
 
 func seedAddressInstance(target map[string]any, addr, key string, value map[string]any) {

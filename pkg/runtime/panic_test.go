@@ -159,31 +159,31 @@ func TestResourceCreatePanicBecomesError(t *testing.T) {
 func TestResourceReadPanicBecomesError(t *testing.T) {
 	reg := MakeResource[panicResource, any, any]()
 	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil, nil)
-	requirePanicError(t, err, "boom in read")
+	_ = requirePanicError(t, err, "boom in read")
 }
 
 func TestResourceUpdatePanicBecomesError(t *testing.T) {
 	reg := MakeResource[panicResource, any, any]()
 	_, err := reg.Update(context.Background(), reg.NewReceiver(), nil, nil, nil, nil)
-	requirePanicError(t, err, "boom in update")
+	_ = requirePanicError(t, err, "boom in update")
 }
 
 func TestResourceDeletePanicBecomesError(t *testing.T) {
 	reg := MakeResource[panicResource, any, any]()
 	err := reg.Delete(context.Background(), reg.NewReceiver(), nil, nil)
-	requirePanicError(t, err, "boom in delete")
+	_ = requirePanicError(t, err, "boom in delete")
 }
 
 func TestActionRunPanicBecomesError(t *testing.T) {
 	reg := MakeAction[panicAction, any, any]()
 	_, err := reg.Run(context.Background(), reg.NewReceiver(), nil)
-	requirePanicError(t, err, "boom in run")
+	_ = requirePanicError(t, err, "boom in run")
 }
 
 func TestDataSourceReadPanicBecomesError(t *testing.T) {
 	reg := MakeDataSource[panicData, any, any]()
 	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil)
-	requirePanicError(t, err, "boom in data read")
+	_ = requirePanicError(t, err, "boom in data read")
 }
 
 func TestLibraryFunctionPanicBecomesError(t *testing.T) {

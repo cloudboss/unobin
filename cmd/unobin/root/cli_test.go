@@ -9,7 +9,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -52,19 +51,6 @@ func currentCommandRemotes() map[string]*resolve.Source {
 	out := make(map[string]*resolve.Source, len(commandRemoteSources))
 	maps.Copy(out, commandRemoteSources)
 	return out
-}
-
-func addCommandRemoteSource(t *testing.T, key string, src *resolve.Source) {
-	t.Helper()
-	prev, hadPrev := commandRemoteSources[key]
-	commandRemoteSources[key] = src
-	t.Cleanup(func() {
-		if hadPrev {
-			commandRemoteSources[key] = prev
-		} else {
-			delete(commandRemoteSources, key)
-		}
-	})
 }
 
 // runCommandWithRemotes is runCommand with a fake resolver that returns
@@ -154,41 +140,9 @@ func remoteSourceKey(url, subdir, version string) string {
 	return key
 }
 
-func readCLIFixture(name string) string {
-	path := filepath.Join("testdata", "ub", "cli", "valid", name+".ub")
-	body, err := os.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	return string(body)
-}
-
 func cliFixture(t testing.TB, name string) string {
 	t.Helper()
 	return ubtest.ReadValidFixture(t, "testdata/ub/cli", name)
-}
-
-func factorySource(body string) []byte {
-	trimmed := strings.TrimPrefix(body, "\n")
-	if strings.HasPrefix(strings.TrimSpace(trimmed), "factory"+":") {
-		return []byte(body)
-	}
-	return []byte("factory" + ": {\n" + trimmed + "}\n")
-}
-
-func validGoLibrarySource(pkg string) []byte {
-	return fmt.Appendf(nil, `package %s
-
-import "github.com/cloudboss/unobin/pkg/runtime"
-
-func Library() *runtime.Library {
-	return &runtime.Library{
-		Resources: map[string]runtime.ResourceRegistration{
-			"x": nil,
-		},
-	}
-}
-`, pkg)
 }
 
 func resetFlags(cmd *cobra.Command) {
@@ -214,132 +168,6 @@ func TestVersionPrintsVersion(t *testing.T) {
 
 func manifestSource(body string) []byte {
 	return []byte("manifest" + ": {\n" + body + "}\n")
-}
-
-func goCoreRemotes() map[string]*resolve.Source {
-	goMod := &fstest.MapFile{Data: []byte("module github.com/x/core\n")}
-	return map[string]*resolve.Source{
-		"github.com/x/core@v1.0.0": {
-			Commit: "abc123",
-			FS:     fstest.MapFS{"go.mod": goMod},
-		},
-		"github.com/x/core//lib@v1.0.0": {
-			Commit: "abc123",
-			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core/lib\n")},
-				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
-			},
-		},
-	}
-}
-
-func stubListTags(t *testing.T, tags map[string][]string) {
-	t.Helper()
-	prev := depsListTags
-	depsListTags = func(url string) ([]string, error) { return tags[url], nil }
-	t.Cleanup(func() { depsListTags = prev })
-}
-
-func writeGetProject(t *testing.T) string {
-	t.Helper()
-	root := filepath.Join(t.TempDir(), "proj")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource(cliFixture(t, "get-project-imports")), 0o644))
-	stubListTags(t, map[string][]string{
-		"github.com/x/core": {"lib/v1.0.0", "lib/v1.2.0", "lib/v2.0.0"},
-	})
-	return root
-}
-
-func goLibRemotes(version, commit string) map[string]*resolve.Source {
-	return map[string]*resolve.Source{
-		"github.com/x/core@" + version: {FS: fstest.MapFS{}},
-		"github.com/x/core//lib@" + version: {
-			Commit: commit,
-			FS: fstest.MapFS{
-				"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/core/lib\n")},
-				"lib.go": &fstest.MapFile{Data: []byte("package lib")},
-			},
-		},
-	}
-}
-
-func writeScratchImportProject(t *testing.T, manifestBody string) string {
-	t.Helper()
-	root := filepath.Join(t.TempDir(), "proj")
-	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource(cliFixture(t, "scratch-import-body")), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
-		manifestSource(manifestBody), 0o644))
-	return root
-}
-
-func scratchStdRemotes() map[string]*resolve.Source {
-	scratchProject := scratchProjectFS()
-	return map[string]*resolve.Source{
-		"github.com/x/scratch@v0.8.0": {
-			Commit: "scratch",
-			FS:     scratchProject,
-		},
-		"github.com/x/scratch//ub/helloer@v0.8.0": {
-			Commit: "scratch",
-			FS: fstest.MapFS{
-				"library.ub": scratchProject["ub/helloer/library.ub"],
-			},
-		},
-		"github.com/x/std@v0.1.0": stdGoSource("v0.1.0"),
-		"github.com/x/std@v0.2.0": stdGoSource("v0.2.0"),
-	}
-}
-
-func scratchProjectFS() fstest.MapFS {
-	return fstest.MapFS{
-		deps.ManifestFileName: &fstest.MapFile{Data: manifestSource(`requires: {
-  'github.com/x/std': { version: 'v0.1.0' }
-}
-`)},
-		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(readCLIFixture("scratch-library"))},
-	}
-}
-
-func stdGoSource(version string) *resolve.Source {
-	return &resolve.Source{
-		Commit: "std-" + version,
-		FS: fstest.MapFS{
-			"go.mod": &fstest.MapFile{Data: []byte("module github.com/x/std\n")},
-			"lib.go": &fstest.MapFile{Data: []byte("package std")},
-		},
-	}
-}
-
-// writeCompileLock writes a source lock into dir pinning each id (a
-// repo//subdir or bare Go path) to a version. Compile takes versions from
-// the lock, so a fixture with versionless imports needs one. Each entry is
-// recorded as a Go library, which is all compile reads from the lock.
-func writeCompileLock(t *testing.T, dir string, pins map[string]string) {
-	t.Helper()
-	lock := deps.NewLock()
-	lock.ToolchainVersion = "dev"
-	for id, version := range pins {
-		lock.Deps[id] = &deps.LockedDep{Kind: deps.LockKindGo, Version: version, Commit: "c"}
-		src := goTestSource(goModulePath(id))
-		addCommandRemoteSource(t, id+"@"+version, src)
-		addCommandRemoteSource(t, id+"@c", src)
-	}
-	require.NoError(t, deps.WriteSourceLock(filepath.Join(dir, deps.SourceLockFileName), lock))
-}
-
-func goModulePath(id string) string {
-	return strings.Replace(id, "//", "/", 1)
-}
-
-func goTestSource(modulePath string) *resolve.Source {
-	return &resolve.Source{FS: fstest.MapFS{
-		"go.mod": &fstest.MapFile{Data: []byte("module " + modulePath + "\n")},
-		"lib.go": &fstest.MapFile{Data: []byte("package lib\n")},
-	}}
 }
 
 // setCLIVersion stamps the CLI version for one test, the way a release

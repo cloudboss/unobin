@@ -21,7 +21,7 @@ type PackageOwner struct {
 }
 
 func (p ProjectID) Dependency() Dependency {
-	return Dependency{URL: p.URL, Subdir: p.Subdir}
+	return Dependency(p)
 }
 
 func (p ProjectID) String() string {
@@ -29,7 +29,7 @@ func (p ProjectID) String() string {
 }
 
 func (p RemotePackage) Dependency() Dependency {
-	return Dependency{URL: p.URL, Subdir: p.Subdir}
+	return Dependency(p)
 }
 
 func (p RemotePackage) String() string {
@@ -37,11 +37,11 @@ func (p RemotePackage) String() string {
 }
 
 func ProjectIDFromDependency(dep Dependency) ProjectID {
-	return ProjectID{URL: dep.URL, Subdir: dep.Subdir}
+	return ProjectID(dep)
 }
 
 func RemotePackageFromDependency(dep Dependency) RemotePackage {
-	return RemotePackage{URL: dep.URL, Subdir: dep.Subdir}
+	return RemotePackage(dep)
 }
 
 func ProjectIDsFromDependencies[V any](deps map[Dependency]V) []ProjectID {

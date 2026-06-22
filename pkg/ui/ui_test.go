@@ -52,7 +52,7 @@ func connectSSE(t *testing.T, s *Server) *bufio.Reader {
 	t.Helper()
 	resp, err := http.Get(s.URL() + "events")
 	require.NoError(t, err)
-	t.Cleanup(func() { resp.Body.Close() })
+	t.Cleanup(func() { _ = resp.Body.Close() })
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
 	return bufio.NewReader(resp.Body)
@@ -177,7 +177,7 @@ func TestServerPaths(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := http.Get(tt.url)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			assert.Equal(t, tt.status, resp.StatusCode)
 			if tt.contentType != "" {
 				assert.Equal(t, tt.contentType, resp.Header.Get("Content-Type"))

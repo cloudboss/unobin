@@ -44,7 +44,7 @@ func parseSelector(s string) (state.Selector, error) {
 func ValidateAddress(address string) error {
 	rootEnd := strings.IndexAny(address, "./[")
 	if rootEnd < 0 || rootEnd == len(address)-1 || address[rootEnd] != '.' {
-		return fmt.Errorf("address must start with resource., data., or action.")
+		return fmt.Errorf("address must start with resource., data., or action")
 	}
 	root := address[:rootEnd]
 	if root != "resource" && root != "data" && root != "action" {

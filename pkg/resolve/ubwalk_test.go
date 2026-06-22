@@ -157,7 +157,7 @@ func TestWalkUBRejectsGoPackageImportConflict(t *testing.T) {
 	_, err := WalkUB(refs, r, newRecordingVisitor(), versions)
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Go package example.com/pkg")
+	require.Contains(t, err.Error(), "go package example.com/pkg")
 	require.Contains(t, err.Error(), "example.com/module-a")
 	require.Contains(t, err.Error(), "example.com/module-b")
 }

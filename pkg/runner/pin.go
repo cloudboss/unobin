@@ -284,15 +284,6 @@ func spliceBefore(src []byte, idx int, text string) []byte {
 	return out
 }
 
-// spliceReplace replaces src[start:end] with text.
-func spliceReplace(src []byte, start, end int, text string) []byte {
-	out := make([]byte, 0, len(src)-(end-start)+len(text))
-	out = append(out, src[:start]...)
-	out = append(out, text...)
-	out = append(out, src[end:]...)
-	return out
-}
-
 const (
 	pinActionAddedFactoryBlock      = "added factory block"
 	pinActionAddedPin               = "added pin block"

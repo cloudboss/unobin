@@ -138,7 +138,7 @@ func runUnobinDownload(stderr io.Writer, version string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	gomod := "module m\n\ngo " + GoMajorMinor() + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		return err

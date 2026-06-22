@@ -630,16 +630,6 @@ func (c *referenceChecker) checkNodeCycles() {
 	}
 }
 
-// localNames returns the set of names declared in a file's `locals:`
-// block.
-func localNames(f *lang.File) map[string]bool {
-	out := map[string]bool{}
-	for name := range lang.FieldMap(lang.TopLevelBlock(f, "locals")) {
-		out[name] = true
-	}
-	return out
-}
-
 func syntaxInputNames(inputs []syntax.InputDecl) map[string]bool {
 	out := map[string]bool{}
 	for _, input := range inputs {

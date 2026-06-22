@@ -1560,7 +1560,7 @@ func planResourcesSrc(n int) string {
 	var src strings.Builder
 	fmt.Fprintf(&src, "%s: {\n", "resources")
 	for i := range n {
-		src.WriteString(fmt.Sprintf("  r%d: core.thing { name: 'r%d', size: %d }\n", i, i, i))
+		fmt.Fprintf(&src, "  r%d: core.thing { name: 'r%d', size: %d }\n", i, i, i)
 	}
 	src.WriteString("}\n")
 	return src.String()

@@ -3,28 +3,14 @@ package runner
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
-	sdkenc "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
-
-// freshKeyB64 returns a random 32 byte AES key encoded in base64.
-func freshKeyB64(t *testing.T) string {
-	t.Helper()
-	k := make([]byte, 32)
-	_, err := rand.Read(k)
-	require.NoError(t, err)
-	return base64.StdEncoding.EncodeToString(k)
-}
 
 // echoAction is a tiny test action: takes an Echo string, returns it
 // in its outputs.
@@ -34,25 +20,6 @@ type echoAction struct {
 
 func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo}, nil
-}
-
-type runnerAWSConfig struct {
-	Region  *cfg.String
-	Profile *cfg.String
-}
-
-func runnerConfigLibrary() *runtime.Library {
-	return &runtime.Library{
-		Name: "aws",
-		Configuration: &cfg.ConfigurationType[*runnerAWSConfig]{
-			New: func() *runnerAWSConfig {
-				return &runnerAWSConfig{
-					Region:  &cfg.String{Default: "us-east-1"},
-					Profile: &cfg.String{Default: "default"},
-				}
-			},
-		},
-	}
 }
 
 func testInfo(t *testing.T, src string) Info {
@@ -96,100 +63,6 @@ func sourceFactory(body string) string {
 		return body
 	}
 	return "factory" + ": {\n" + body + "\n}\n"
-}
-
-func runRoot(t *testing.T, info Info, args ...string) (string, error) {
-	t.Helper()
-	root := newRootCmd(info)
-	out := &bytes.Buffer{}
-	root.SetOut(out)
-	root.SetErr(out)
-	root.SetArgs(args)
-	err := root.Execute()
-	return out.String(), err
-}
-
-// applyVia runs `plan -o <tmp> -c cfg` then `apply <tmp>` and returns the
-// apply output. Tests use this when they don't need to inspect the plan
-// separately. An empty configPath gets a generated stack file with just the
-// required state block. The plan call passes --allow-version-mismatch
-// since most tests do not exercise pin verification.
-func applyVia(t *testing.T, info Info, configPath string) string {
-	t.Helper()
-	if configPath == "" {
-		configPath = writeStateStack(t, "")
-	}
-	planFile := filepath.Join(t.TempDir(), "plan.json")
-	args := []string{"plan", "--allow-version-mismatch", "-o", planFile, "-c", configPath}
-	_, err := runRoot(t, info, args...)
-	require.NoError(t, err)
-	out, err := runRoot(t, info, "apply", planFile)
-	require.NoError(t, err)
-	return out
-}
-
-// stateStackBody is the state: and encryption: blocks every test stack file
-// needs, now that a backend must be configured explicitly.
-const stateStackBody = `state: local {
-  path: '.unobin/state'
-}
-
-encryption: noop {}
-`
-
-// writeStateStack writes a stack file with the required state block plus body
-// and returns its path. The file is named default.ub so its stack
-// name matches the "default" a missing -c used to produce, which the state
-// tests' hand-built stores also use.
-func writeStateStack(t *testing.T, body string) string {
-	t.Helper()
-	cfg := filepath.Join(t.TempDir(), "default.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(stateStackBody+body)), 0o644))
-	return cfg
-}
-
-// runWithStack runs a factory command with a fresh -c stack file appended, for
-// commands that resolve a backend (plan, output, refresh, state). Every
-// stack file basename is default.ub, so each command in a test maps to the same
-// stack and shares state.
-func runWithStack(t *testing.T, info Info, args ...string) (string, error) {
-	t.Helper()
-	return runRoot(t, info, append(args, "-c", writeStateStack(t, ""))...)
-}
-
-const backendStackBody = `state: local {
-  path: '.unobin/state'
-}
-
-encryption: env-key {
-  env-var: 'UB_STATE_KEY'
-}
-`
-
-func writeBackendConfig(t *testing.T) string {
-	t.Helper()
-	cfg := filepath.Join(t.TempDir(), "default.ub")
-	require.NoError(t, os.WriteFile(cfg, []byte(sourceStack(backendStackBody)), 0o644))
-	return cfg
-}
-
-// runBackend runs a command with a fresh -c backend-only config appended.
-func runBackend(t *testing.T, info Info, args ...string) (string, error) {
-	t.Helper()
-	return runRoot(t, info, append(args, "-c", writeBackendConfig(t))...)
-}
-
-// openPlanFile reads a plan file from disk and returns its inner
-// PlanFile, resolving the envelope's encrypter ref the same way apply does.
-func openPlanFile(t *testing.T, path string) *runtime.PlanFile {
-	t.Helper()
-	body, err := os.ReadFile(path)
-	require.NoError(t, err)
-	pf, err := runtime.OpenPlan(body, func(ref *runtime.StateRef) (sdkenc.Encrypter, error) {
-		return resolveEncrypter(fromRuntimeStateRef(ref))
-	})
-	require.NoError(t, err)
-	return pf
 }
 
 func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
@@ -782,7 +655,3 @@ func TestLoadEncrypterRejectsBadKey(t *testing.T) {
 	_, err := loadEncrypter(nil, "")
 	require.Error(t, err)
 }
-
-// Ensure t.TempDir is visible to the loadStore call (which writes to
-// `.unobin/state` relative to cwd) by chdir-ing in testInfo.
-var _ = filepath.Join

@@ -594,39 +594,6 @@ func nodeDeclsObject(decls []NodeDecl) *parse.ObjectLit {
 	return obj
 }
 
-func nodeDeclsSelectorObject(decls []NodeDecl) *parse.ObjectLit {
-	obj := &parse.ObjectLit{}
-	if len(decls) > 0 {
-		obj.S = decls[0].S
-	}
-	for _, decl := range decls {
-		obj.Fields = append(obj.Fields, selectorField(decl))
-	}
-	return obj
-}
-
-func selectorField(decl NodeDecl) *parse.Field {
-	return &parse.Field{
-		S: decl.S,
-		Key: parse.FieldKey{
-			S:    decl.Name.S,
-			Kind: parse.FieldIdent,
-			Name: decl.Name.Name,
-		},
-		Decl: &parse.SelectorBody{
-			S: decl.S,
-			Selector: parse.Selector{
-				S: decl.Selector.S,
-				Parts: []parse.Ident{
-					{S: decl.Selector.Alias.S, Name: decl.Selector.Alias.Name},
-					{S: decl.Selector.Export.S, Name: decl.Selector.Export.Name},
-				},
-			},
-			Body: decl.Body,
-		},
-	}
-}
-
 func manifestRequiresObject(decls []ManifestRequire) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {
@@ -656,53 +623,6 @@ func manifestReplaceObject(decls []ManifestReplace) *parse.ObjectLit {
 		obj.Fields = append(obj.Fields, stringField(decl.ID.Value, decl.ID.S, decl.Path))
 	}
 	return obj
-}
-
-func expandShortNodeRefs(obj *parse.ObjectLit, body FactoryBody) {
-	selectors := map[string]map[string][]string{
-		"resource": nodeSelectorRefs(body.Resources),
-		"data":     nodeSelectorRefs(body.Data),
-		"action":   nodeSelectorRefs(body.Actions),
-	}
-	lang.Walk(obj, func(expr parse.Expr) {
-		dp, ok := expr.(*parse.DotPath)
-		if !ok || dp.Root == nil || len(dp.Segments) == 0 {
-			return
-		}
-		byName := selectors[dp.Root.Name]
-		if len(byName) == 0 {
-			return
-		}
-		first := dp.Segments[0]
-		if first.Name == "" || first.Index != nil || first.Splat || first.Guarded {
-			return
-		}
-		prefix := byName[first.Name]
-		if len(prefix) == 0 {
-			return
-		}
-		dp.Segments = append(selectorSegments(first.S, prefix), dp.Segments[1:]...)
-	})
-}
-
-func nodeSelectorRefs(nodes []NodeDecl) map[string][]string {
-	out := make(map[string][]string, len(nodes))
-	for _, node := range nodes {
-		out[node.Name.Name] = []string{
-			node.Selector.Alias.Name,
-			node.Selector.Export.Name,
-			node.Name.Name,
-		}
-	}
-	return out
-}
-
-func selectorSegments(span parse.Span, names []string) []parse.DotSegment {
-	out := make([]parse.DotSegment, 0, len(names))
-	for _, name := range names {
-		out = append(out, parse.DotSegment{S: span, Name: name})
-	}
-	return out
 }
 
 func stackLocalNames(decls []LocalDecl) map[string]bool {

@@ -898,7 +898,7 @@ func traverseSegments(
 		case Object, LibraryConfig:
 			field, ok := current.Field(seg.Name)
 			if !ok {
-				if !(skipFirst && i == 0) {
+				if !skipFirst || i != 0 {
 					errs.Addf(lang.ErrType, seg.S.Start,
 						"unknown field %q on %s%s", seg.Name, current,
 						openFieldHint(current))
@@ -925,7 +925,7 @@ func traverseSegments(
 				at, seg.Name)
 			return TUnknown()
 		default:
-			if !(skipFirst && i == 0) {
+			if !skipFirst || i != 0 {
 				errs.Addf(lang.ErrType, seg.S.Start,
 					"cannot read field %q of %s", seg.Name, current)
 			}

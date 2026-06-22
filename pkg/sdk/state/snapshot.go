@@ -89,19 +89,7 @@ func (e *Entry) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	*e = Entry{
-		Address:          raw.Address,
-		Type:             raw.Type,
-		Kind:             raw.Kind,
-		Selector:         raw.Selector,
-		SchemaVersion:    raw.SchemaVersion,
-		SensitiveInputs:  raw.SensitiveInputs,
-		SensitiveOutputs: raw.SensitiveOutputs,
-		TriggerHash:      raw.TriggerHash,
-		Inputs:           raw.Inputs,
-		Outputs:          raw.Outputs,
-		DependsOn:        raw.DependsOn,
-	}
+	*e = Entry(raw)
 	return nil
 }
 

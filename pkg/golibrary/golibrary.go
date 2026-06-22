@@ -108,27 +108,42 @@ func readModulePath(moduleRoot string) (string, error) {
 	return modulePath, nil
 }
 
-func parsePackage(packageDir string) (*ast.Package, error) {
+type parsedPackage struct {
+	Name  string
+	Files []*ast.File
+}
+
+func parsePackage(packageDir string) (*parsedPackage, error) {
 	fset := token.NewFileSet()
-	packages, err := parser.ParseDir(fset, packageDir, func(info os.FileInfo) bool {
-		return !strings.HasSuffix(info.Name(), "_test.go")
-	}, 0)
+	entries, err := os.ReadDir(packageDir)
 	if err != nil {
 		return nil, err
 	}
-	if len(packages) == 0 {
+	filesByPackage := map[string][]*ast.File{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, filepath.Join(packageDir, name), nil, 0)
+		if err != nil {
+			return nil, err
+		}
+		filesByPackage[file.Name.Name] = append(filesByPackage[file.Name.Name], file)
+	}
+	if len(filesByPackage) == 0 {
 		return nil, fmt.Errorf("no Go package in %s", packageDir)
 	}
-	if len(packages) > 1 {
+	if len(filesByPackage) > 1 {
 		return nil, fmt.Errorf("more than one Go package in %s", packageDir)
 	}
-	for _, pkg := range packages {
-		return pkg, nil
+	for name, files := range filesByPackage {
+		return &parsedPackage{Name: name, Files: files}, nil
 	}
 	panic("unreachable")
 }
 
-func runtimeImportAliases(pkg *ast.Package) (map[string]bool, error) {
+func runtimeImportAliases(pkg *parsedPackage) (map[string]bool, error) {
 	aliases := map[string]bool{}
 	for _, file := range pkg.Files {
 		for _, spec := range file.Imports {
@@ -152,7 +167,7 @@ func runtimeImportAliases(pkg *ast.Package) (map[string]bool, error) {
 	return aliases, nil
 }
 
-func libraryFunction(pkg *ast.Package) (*ast.FuncDecl, error) {
+func libraryFunction(pkg *parsedPackage) (*ast.FuncDecl, error) {
 	var found []*ast.FuncDecl
 	for _, file := range pkg.Files {
 		for _, decl := range file.Decls {
@@ -164,46 +179,46 @@ func libraryFunction(pkg *ast.Package) (*ast.FuncDecl, error) {
 		}
 	}
 	if len(found) == 0 {
-		return nil, fmt.Errorf("no Library() function; no package-level Library function")
+		return nil, fmt.Errorf("no Library() function; no package-level library function")
 	}
 	if len(found) > 1 {
-		return nil, fmt.Errorf("more than one package-level Library function")
+		return nil, fmt.Errorf("more than one package-level library function")
 	}
 	return found[0], nil
 }
 
 func validateSignature(fn *ast.FuncDecl, runtimeAliases map[string]bool) error {
 	if fn.Type.TypeParams != nil && len(fn.Type.TypeParams.List) > 0 {
-		return fmt.Errorf("Library function must not declare type parameters")
+		return fmt.Errorf("library function must not declare type parameters")
 	}
 	if fn.Type.Params != nil && len(fn.Type.Params.List) > 0 {
-		return fmt.Errorf("Library function must not accept parameters")
+		return fmt.Errorf("library function must not accept parameters")
 	}
 	if fn.Type.Results == nil || len(fn.Type.Results.List) != 1 {
-		return fmt.Errorf("Library function must return *runtime.Library")
+		return fmt.Errorf("library function must return *runtime.Library")
 	}
 	if !isRuntimeLibraryPointer(fn.Type.Results.List[0].Type, runtimeAliases) {
-		return fmt.Errorf("Library function must return *runtime.Library")
+		return fmt.Errorf("library function must return *runtime.Library")
 	}
 	return nil
 }
 
 func validateBody(fn *ast.FuncDecl, runtimeAliases map[string]bool) (*Validation, error) {
 	if fn.Body == nil || countReturns(fn.Body) != 1 {
-		return nil, fmt.Errorf("Library function must have exactly one return statement")
+		return nil, fmt.Errorf("library function must have exactly one return statement")
 	}
 	stmt := onlyReturn(fn.Body)
 	if stmt == nil || len(stmt.Results) != 1 {
-		return nil, fmt.Errorf("Library function must have exactly one return statement")
+		return nil, fmt.Errorf("library function must have exactly one return statement")
 	}
 	literal, ok := directLibraryLiteral(stmt.Results[0], runtimeAliases)
 	if !ok {
-		return nil, fmt.Errorf("Library function must return &runtime.Library{...}")
+		return nil, fmt.Errorf("library function must return &runtime.Library{...}")
 	}
 	validation := registeredFields(literal)
 	if !validation.HasResources && !validation.HasData && !validation.HasActions &&
 		!validation.HasFunctions {
-		return nil, fmt.Errorf("Library function must register at least one usable type")
+		return nil, fmt.Errorf("library function must register at least one usable type")
 	}
 	return validation, nil
 }

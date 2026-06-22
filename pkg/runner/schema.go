@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/backends"
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/spf13/cobra"
 )
 
@@ -91,52 +89,6 @@ func printOutputSchema(out io.Writer, parsed *parsedFactory) {
 	}
 }
 
-// printConfigurationSchema lists each library config schema known to the binary.
-func printConfigurationSchema(out io.Writer, parsed *parsedFactory, info Info) {
-	_ = parsed
-	var aliases []string
-	for alias, lib := range info.Libraries {
-		if lib.Configuration != nil {
-			aliases = append(aliases, alias)
-		}
-	}
-	if len(aliases) == 0 {
-		return
-	}
-	slices.Sort(aliases)
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "library configs:")
-	for _, alias := range aliases {
-		lib := info.Libraries[alias]
-		fmt.Fprintf(out, "  %s:", alias)
-		if d := lib.Configuration.DescriptionText(); d != "" {
-			fmt.Fprintf(out, "  -- %s", d)
-		}
-		fmt.Fprintln(out)
-		writeShowFields(out, cfg.Describe(lib.Configuration), "    ")
-	}
-}
-
-// writeShowFields prints configuration fields one per line, indenting
-// an object field's own fields beneath it.
-func writeShowFields(out io.Writer, fields []cfg.Field, indent string) {
-	for _, fl := range fields {
-		fmt.Fprintf(out, "%s%s: %s", indent, fl.Name, fieldTypeLabel(fl))
-		if fl.Description != "" {
-			fmt.Fprintf(out, "  -- %s", fl.Description)
-		}
-		fmt.Fprintln(out)
-		writeShowFields(out, fl.Fields, indent+"  ")
-	}
-}
-
-func fieldTypeLabel(f cfg.Field) string {
-	if f.Optional {
-		return "optional(" + f.Type + ")"
-	}
-	return f.Type
-}
-
 func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 	parsed, err := parseFactory(info)
 	if err != nil {
@@ -191,46 +143,6 @@ func renderInputsTemplate(out io.Writer, parsed *parsedFactory) {
 			input.name, placeholderForType(input.typeExpr), printType(input.typeExpr))
 	}
 	fmt.Fprintln(out, "}")
-}
-
-// writeTemplateFields scaffolds one placeholder line per
-// configuration field. An object field opens a block and scaffolds
-// its own fields inside; its type comment goes on its own line above
-// the field, so optionality stays visible where the canonical form
-// keeps it.
-func writeTemplateFields(out io.Writer, fields []cfg.Field) {
-	for _, fl := range fields {
-		if fl.Description != "" {
-			fmt.Fprintf(out, "# %s\n", fl.Description)
-		}
-		if len(fl.Fields) > 0 {
-			fmt.Fprintf(out, "# type: %s\n", fieldTypeLabel(fl))
-			fmt.Fprintf(out, "%s: {\n", fl.Name)
-			writeTemplateFields(out, fl.Fields)
-			fmt.Fprintln(out, "}")
-			continue
-		}
-		fmt.Fprintf(out, "%s: %s  # type: %s\n",
-			fl.Name, placeholderForFieldType(fl.Type), fieldTypeLabel(fl))
-	}
-}
-
-// placeholderForFieldType picks a starter value for one configuration
-// field by its language type label.
-func placeholderForFieldType(t string) string {
-	switch {
-	case t == "string":
-		return "''"
-	case t == "integer" || t == "number":
-		return "0"
-	case t == "boolean":
-		return "false"
-	case strings.HasPrefix(t, "list("):
-		return "[]"
-	case strings.HasPrefix(t, "map(") || t == "object":
-		return "{}"
-	}
-	return "null"
 }
 
 func placeholderForType(e lang.Expr) string {

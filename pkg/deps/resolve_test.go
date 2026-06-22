@@ -44,14 +44,6 @@ func dep(id string) Dependency {
 	return d
 }
 
-func toDeps(m map[string]string) map[Dependency]string {
-	out := make(map[Dependency]string, len(m))
-	for id, v := range m {
-		out[dep(id)] = v
-	}
-	return out
-}
-
 func selected(m map[Dependency]string) map[string]string {
 	out := make(map[string]string, len(m))
 	for d, v := range m {

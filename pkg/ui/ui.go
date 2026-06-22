@@ -90,7 +90,7 @@ func Start(cfg Config) (*Server, error) {
 	}
 	tok := make([]byte, 16)
 	if _, err := rand.Read(tok); err != nil {
-		ln.Close()
+		_ = ln.Close()
 		return nil, fmt.Errorf("run view: %w", err)
 	}
 	now := cfg.now
@@ -112,7 +112,7 @@ func Start(cfg Config) (*Server, error) {
 		s.steps[n.Address] = &stepState{decision: n.Decision}
 	}
 	s.hsrv = &http.Server{Handler: s.routes()}
-	go s.hsrv.Serve(ln)
+	go func() { _ = s.hsrv.Serve(ln) }()
 	return s, nil
 }
 
@@ -216,7 +216,7 @@ func (s *Server) WaitServed(d time.Duration) bool {
 
 // Close shuts the server down, closing any open event streams.
 func (s *Server) Close() {
-	s.hsrv.Close()
+	_ = s.hsrv.Close()
 }
 
 func (s *Server) routes() http.Handler {
@@ -235,7 +235,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handleAsset(w http.ResponseWriter, r *http.Request) {
@@ -259,7 +259,7 @@ func (s *Server) handleAsset(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", contentType)
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {

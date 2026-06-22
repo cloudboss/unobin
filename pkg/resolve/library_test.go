@@ -263,11 +263,3 @@ func TestWalkUBAllowsSameExportNameAcrossKinds(t *testing.T) {
 	require.Contains(t, lib.SyntaxBodies["data"], "vpc")
 	require.Contains(t, lib.SyntaxBodies["action"], "vpc")
 }
-
-func keysOf[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
-}

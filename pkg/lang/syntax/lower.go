@@ -1223,10 +1223,6 @@ func arrayValue(fld *parse.Field, what string, errs *parse.ErrorList) *parse.Arr
 	return value
 }
 
-func keyPart(key parse.FieldKey, name string) Ident {
-	return Ident{S: key.S, Name: name}
-}
-
 func selectorIdent(sel parse.Selector, what string, errs *parse.ErrorList) (Ident, bool) {
 	if len(sel.Parts) != 1 {
 		errs.Addf(parse.ErrSchema, sel.S.Start,

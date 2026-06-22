@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
@@ -604,20 +603,33 @@ func objectField(name string, t typecheck.Type) typecheck.ObjectField {
 
 func parsePackageDir(dir string) ([]*ast.File, error) {
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
-		return !strings.HasSuffix(fi.Name(), "_test.go")
-	}, parser.ParseComments)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", dir, err)
 	}
-	for _, pkg := range pkgs {
-		files := make([]*ast.File, 0, len(pkg.Files))
-		for _, f := range pkg.Files {
-			files = append(files, f)
+	var packageName string
+	var files []*ast.File
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
 		}
-		return files, nil
+		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.ParseComments)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", dir, err)
+		}
+		if packageName == "" {
+			packageName = file.Name.Name
+		}
+		if file.Name.Name != packageName {
+			return nil, fmt.Errorf("more than one Go package found in %s", dir)
+		}
+		files = append(files, file)
 	}
-	return nil, fmt.Errorf("no Go package found in %s", dir)
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no Go package found in %s", dir)
+	}
+	return files, nil
 }
 
 func findModuleFunc(files []*ast.File) *ast.FuncDecl {
@@ -1197,19 +1209,6 @@ func stringLit(e ast.Expr) (string, bool) {
 		return "", false
 	}
 	return s, true
-}
-
-// intLit reads a non-negative integer literal.
-func intLit(e ast.Expr) (int, bool) {
-	lit, ok := e.(*ast.BasicLit)
-	if !ok || lit.Kind != token.INT {
-		return 0, false
-	}
-	n, err := strconv.Atoi(lit.Value)
-	if err != nil {
-		return 0, false
-	}
-	return n, true
 }
 
 // boolLit reads a true or false literal.

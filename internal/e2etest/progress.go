@@ -30,7 +30,7 @@ func writeTTYProgress(message string) bool {
 	if err != nil {
 		return false
 	}
-	defer tty.Close()
+	defer func() { _ = tty.Close() }()
 	_, err = fmt.Fprintln(tty, message)
 	return err == nil
 }

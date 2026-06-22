@@ -261,8 +261,8 @@ func remoteNestedProjectError(
 	nested := remoteProjectID(r.URL, nestedSubdir)
 	return fmt.Errorf(
 		"selected project %s does not own package %s; "+
-			"the package is inside nested project %s. "+
-			"Add that project to manifest.requires or replace it directly.",
+			"the package is inside nested project %s; "+
+			"add that project to manifest.requires or replace it directly",
 		project, pkg, nested)
 }
 
@@ -398,13 +398,13 @@ func (w *ubWalker) checkGoImportConflict(
 ) error {
 	projectID := remoteProjectID(r.URL, remoteProjectSubdir(r))
 	if previous, ok := w.goModuleProjects[modulePath]; ok && previous != projectID {
-		return fmt.Errorf("Go module %s is resolved by both %s and %s",
+		return fmt.Errorf("go module %s is resolved by both %s and %s",
 			modulePath, previous, projectID)
 	}
 	w.goModuleProjects[modulePath] = projectID
 
 	if previous, ok := w.goPackageModules[path]; ok && previous != modulePath {
-		return fmt.Errorf("Go package %s is resolved by both modules %s and %s",
+		return fmt.Errorf("go package %s is resolved by both modules %s and %s",
 			path, previous, modulePath)
 	}
 	w.goPackageModules[path] = modulePath
