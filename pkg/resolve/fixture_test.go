@@ -10,10 +10,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newUBFixtureSource(t testing.TB, name string) *Source {
+func ubFixtureDir(t testing.TB, name string) string {
 	t.Helper()
 	root := filepath.Join("testdata/ub", filepath.FromSlash(name))
 	require.DirExists(t, root)
+	return root
+}
+
+func ubFixtureText(t testing.TB, name string) string {
+	t.Helper()
+	path := filepath.Join("testdata/ub", filepath.FromSlash(name)+".ub")
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(body)
+}
+
+func ubFixtureFS(t testing.TB, name string) fstest.MapFS {
+	t.Helper()
+	root := ubFixtureDir(t, name)
 	mfs := fstest.MapFS{}
 	require.NoError(t, filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -33,5 +47,10 @@ func newUBFixtureSource(t testing.TB, name string) *Source {
 		mfs[filepath.ToSlash(rel)] = &fstest.MapFile{Data: body}
 		return nil
 	}))
-	return &Source{FS: mfs, Commit: "ub"}
+	return mfs
+}
+
+func newUBFixtureSource(t testing.TB, name string) *Source {
+	t.Helper()
+	return &Source{FS: ubFixtureFS(t, name), Commit: "ub"}
 }

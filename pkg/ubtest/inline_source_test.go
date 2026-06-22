@@ -30,7 +30,6 @@ var inlineUBGreenlist = map[string]bool{
 	"pkg/deps/lockwalk_test.go":            true,
 	"pkg/lang/constraints_test.go":         true,
 	"pkg/lang/syntax/lower_test.go":        true,
-	"pkg/resolve/ubwalk_test.go":           true,
 	"pkg/runner/pin_test.go":               true,
 	"pkg/runner/runner_test.go":            true,
 	"pkg/runtime/apply_plan_test.go":       true,

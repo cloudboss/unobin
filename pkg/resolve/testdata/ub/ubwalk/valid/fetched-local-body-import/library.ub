@@ -1,0 +1,4 @@
+greeting: resource {
+  imports: { child: './child' }
+  resources: { x: child.hello {} }
+}

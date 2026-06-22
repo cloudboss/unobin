@@ -1,0 +1,5 @@
+other: resource {
+  description: 'o'
+  imports: { a: 'github.com/x/a' }
+  inputs: { y: { type: string } }
+}

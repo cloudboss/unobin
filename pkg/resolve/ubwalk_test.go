@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -94,23 +95,11 @@ func TestWalkUBRecordsGoImports(t *testing.T) {
 }
 
 func TestWalkUBRejectsParentProjectPastNestedMarker(t *testing.T) {
-	projectFS := fstest.MapFS{
-		"manifest.ub": &fstest.MapFile{
-			Data: []byte("manifest: { requires: {} }\n"),
-		},
-		"ub/project-b/manifest.ub": &fstest.MapFile{
-			Data: []byte("manifest: { requires: {} }\n"),
-		},
-		"ub/project-b/comprehensions/library.ub": &fstest.MapFile{
-			Data: []byte("hello: resource {}\n"),
-		},
-	}
+	projectFS := ubFixtureFS(t, "ubwalk/valid/parent-project-past-nested-marker/project")
 	r := &fakeUBResolver{remotes: map[string]*Source{
 		"example.com/repo//ub/project-b/comprehensions@v1.0.0": {
-			Commit: "c1",
-			FS: fstest.MapFS{
-				"library.ub": &fstest.MapFile{Data: []byte("hello: resource {}\n")},
-			},
+			Commit:        "c1",
+			FS:            ubFixtureFS(t, "ubwalk/valid/parent-project-past-nested-marker/package"),
 			ProjectFS:     projectFS,
 			PackageSubdir: "ub/project-b/comprehensions",
 		},
@@ -245,15 +234,7 @@ func TestWalkUBValidatesGoModulePath(t *testing.T) {
 }
 
 func TestWalkUBRecordsUBLibrary(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"library.ub": `
-greeter: resource {
-  description: 'g'
-  imports: { core: 'github.com/x/unobin//core' }
-  inputs: { name: { type: string } }
-}
-`,
-	})
+	src := newUBFixtureSource(t, "ubwalk/valid/records-ub-library")
 	refs := map[string]ImportRef{
 		"hello": &RemoteImport{URL: "github.com/x/hello"},
 	}
@@ -295,15 +276,17 @@ func TestWalkUBLocalGoLibraryGuidesToReplace(t *testing.T) {
 	msg := err.Error()
 	require.Contains(t, msg, "is a Go library (module github.com/cloudboss/unobin-library-aws)")
 	require.Contains(t, msg, "in the .ub file:")
-	require.Contains(t, msg, "imports: { aws: 'github.com/cloudboss/unobin-library-aws' }")
+	require.Contains(t, msg, strings.TrimSpace(ubFixtureText(
+		t, "ubwalk/valid/local-go-library-import-hint")))
 	require.Contains(t, msg, "in manifest.ub:")
-	require.Contains(t, msg,
-		"manifest: { replace: { 'github.com/cloudboss/unobin-library-aws': '../../../..' } }")
+	require.Contains(t, msg, strings.TrimSpace(ubFixtureText(
+		t, "ubwalk/valid/local-go-library-manifest-hint")))
 }
 
 func TestWalkUBNestedLocalGoLibraryGuidesToReplace(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "manifest.ub"), "manifest: { requires: {} }\n")
+	writeFile(t, filepath.Join(root, "manifest.ub"), ubFixtureText(
+		t, "ubwalk/valid/empty-manifest"))
 	writeFile(t, filepath.Join(root, "go-lib", "go.mod"),
 		"module example.com/go-lib\n\ngo 1.26\n")
 	writeFile(t, filepath.Join(root, "go-lib", "lib.go"), "package lib\n")
@@ -327,21 +310,7 @@ func TestWalkUBLocalNonLibraryReports(t *testing.T) {
 }
 
 func TestWalkUBResolvesLocalBodyImportFromDeclaringPackage(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "greeter"), 0o755))
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "helloer"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "greeter", "library.ub"), []byte(`
-greeting: resource {
-  imports: { helloer: '../helloer' }
-  resources: { x: helloer.hello {} }
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "helloer", "library.ub"), []byte(`
-hello: resource {
-  description: 'hello'
-  resources: { x: local.file { path: '/tmp/x' } }
-}
-`), 0o644))
+	root := ubFixtureDir(t, "ubwalk/valid/local-body-import-declaring-package")
 
 	refs := map[string]ImportRef{"greeter": &LocalImport{Path: "./greeter"}}
 	v := newRecordingVisitor()
@@ -355,20 +324,7 @@ hello: resource {
 }
 
 func TestWalkUBResolvesFetchedLocalBodyImportFromSourceTree(t *testing.T) {
-	parent := newUBSource(t, map[string]string{
-		"library.ub": `
-greeting: resource {
-  imports: { child: './child' }
-  resources: { x: child.hello {} }
-}
-`,
-		"child/library.ub": `
-hello: resource {
-  description: 'hello'
-  resources: { x: local.file { path: '/tmp/x' } }
-}
-`,
-	})
+	parent := newUBFixtureSource(t, "ubwalk/valid/fetched-local-body-import")
 	r := &fakeUBResolver{remotes: map[string]*Source{
 		"github.com/x/parent@v1": parent,
 	}}
@@ -384,21 +340,7 @@ hello: resource {
 }
 
 func TestWalkUBRejectsLocalImportIntoDifferentProject(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, "manifest.ub"), []byte(`
-manifest: { requires: {} }
-`), 0o644))
-	child := filepath.Join(root, "library-c")
-	require.NoError(t, os.MkdirAll(child, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "manifest.ub"), []byte(`
-manifest: { requires: {} }
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(child, "library.ub"), []byte(`
-hello: resource {
-  description: 'hello'
-  resources: { x: local.file { path: '/tmp/x' } }
-}
-`), 0o644))
+	root := ubFixtureDir(t, "ubwalk/valid/local-import-different-project")
 
 	refs := map[string]ImportRef{"child": &LocalImport{Path: "./library-c"}}
 	_, err := WalkUBFrom(refs, NewLocalResolver(root), newRecordingVisitor(), nil,
@@ -410,9 +352,7 @@ hello: resource {
 }
 
 func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"library.ub": "thing: resource { description: 'thing' inputs: { x: { type: string } } }\n",
-	})
+	src := newUBFixtureSource(t, "ubwalk/valid/dedups-by-canonical-key")
 	refs := map[string]ImportRef{
 		"a": &RemoteImport{URL: "github.com/x/y", Version: "v1.0.0"},
 		"b": &RemoteImport{URL: "github.com/x/y", Version: "v1.0.0"},
@@ -431,24 +371,8 @@ func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 }
 
 func TestWalkUBDetectsCycle(t *testing.T) {
-	a := newUBSource(t, map[string]string{
-		"library.ub": `
-thing: resource {
-  description: 't'
-  imports: { b: 'github.com/x/b' }
-  inputs: { x: { type: string } }
-}
-`,
-	})
-	b := newUBSource(t, map[string]string{
-		"library.ub": `
-other: resource {
-  description: 'o'
-  imports: { a: 'github.com/x/a' }
-  inputs: { y: { type: string } }
-}
-`,
-	})
+	a := newUBFixtureSource(t, "ubwalk/valid/cycle-a")
+	b := newUBFixtureSource(t, "ubwalk/valid/cycle-b")
 	r := &fakeUBResolver{remotes: map[string]*Source{
 		"github.com/x/a@v1": a,
 		"github.com/x/b@v1": b,

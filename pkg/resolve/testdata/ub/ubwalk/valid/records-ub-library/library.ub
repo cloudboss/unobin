@@ -1,0 +1,5 @@
+greeter: resource {
+  description: 'g'
+  imports: { core: 'github.com/x/unobin//core' }
+  inputs: { name: { type: string } }
+}
