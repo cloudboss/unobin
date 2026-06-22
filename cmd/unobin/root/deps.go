@@ -84,11 +84,21 @@ var depsListTags = func(url string) ([]string, error) {
 	return git.ListTags(context.Background(), resolve.WithDefaultScheme(url))
 }
 
+var newRemoteResolver = resolve.NewRemoteResolver
+
 // SetDepsListTagsForTest replaces tag listing and returns a restore function.
 func SetDepsListTagsForTest(listTags func(string) ([]string, error)) func() {
 	prev := depsListTags
 	depsListTags = listTags
 	return func() { depsListTags = prev }
+}
+
+// SetRemoteResolverForTest replaces remote resolver construction and returns
+// a restore function.
+func SetRemoteResolverForTest(newResolver func() (*resolve.RemoteResolver, error)) func() {
+	prev := newRemoteResolver
+	newRemoteResolver = newResolver
+	return func() { newRemoteResolver = prev }
 }
 
 type depsSyncConfig struct {
@@ -631,7 +641,7 @@ func readLockOrNil(root string) (*deps.Lock, error) {
 // runDepsClean removes the cached dependency sources, which are shared
 // across projects.
 func runDepsClean(cmd *cobra.Command) error {
-	resolver, err := resolve.NewRemoteResolver()
+	resolver, err := newRemoteResolver()
 	if err != nil {
 		return err
 	}

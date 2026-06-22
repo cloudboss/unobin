@@ -1,7 +1,9 @@
 package e2etest
 
 import (
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -31,8 +33,8 @@ func normalizeCommandResult(result CommandResult, repoRoot string) CommandResult
 }
 
 func normalizeWorkspaceResult(result CommandResult, workspace string) CommandResult {
-	result.Stdout = strings.ReplaceAll(result.Stdout, workspace, "<workspace>")
-	result.Stderr = strings.ReplaceAll(result.Stderr, workspace, "<workspace>")
+	result.Stdout = normalizeWorkspaceText(result.Stdout, workspace)
+	result.Stderr = normalizeWorkspaceText(result.Stderr, workspace)
 	return result
 }
 
@@ -44,10 +46,50 @@ func normalizeFileResults(
 	out := make(map[string]string, len(results))
 	for path, content := range results {
 		content = normalizeDynamicText(content, repoRoot)
-		content = strings.ReplaceAll(content, workspace, "<workspace>")
+		content = normalizeWorkspaceText(content, workspace)
 		out[path] = content
 	}
 	return out
+}
+
+func normalizeWorkspaceText(s string, workspace string) string {
+	for _, alias := range workspaceAliases(workspace) {
+		s = strings.ReplaceAll(s, alias, "<workspace>")
+	}
+	return s
+}
+
+func workspaceAliases(workspace string) []string {
+	seen := map[string]bool{}
+	var aliases []string
+	add := func(path string) {
+		if path == "" {
+			return
+		}
+		path = filepath.Clean(path)
+		if seen[path] {
+			return
+		}
+		seen[path] = true
+		aliases = append(aliases, path)
+	}
+	add(workspace)
+	if resolved, err := filepath.EvalSymlinks(workspace); err == nil {
+		add(resolved)
+	}
+	for _, alias := range append([]string(nil), aliases...) {
+		if strings.HasPrefix(alias, "/var/") {
+			add("/private" + alias)
+		}
+		if strings.HasPrefix(alias, "/private/var/") {
+			add(strings.TrimPrefix(alias, "/private"))
+			add("/private" + alias)
+		}
+	}
+	sort.Slice(aliases, func(i, j int) bool {
+		return len(aliases[i]) > len(aliases[j])
+	})
+	return aliases
 }
 
 func normalizeDynamicText(s string, repoRoot string) string {

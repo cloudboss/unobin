@@ -24,9 +24,12 @@ type RemoteResolver struct {
 }
 
 // NewRemoteResolver returns a RemoteResolver with CacheRoot set to
-// the user's cache directory (XDG_CACHE_HOME or its platform default)
+// UNOBIN_CACHE_ROOT when present, otherwise the user's cache directory
 // joined with `unobin`.
 func NewRemoteResolver() (*RemoteResolver, error) {
+	if cacheRoot := os.Getenv("UNOBIN_CACHE_ROOT"); cacheRoot != "" {
+		return &RemoteResolver{CacheRoot: cacheRoot}, nil
+	}
 	cache, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err

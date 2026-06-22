@@ -24,6 +24,32 @@ func TestNormalizeFileResults(t *testing.T) {
 	require.Equal(t, "repo <repo> workspace <workspace>\n", got["out.txt"])
 }
 
+func TestNormalizeWorkspaceResultHandlesPrivateVarAlias(t *testing.T) {
+	got := normalizeWorkspaceResult(CommandResult{
+		Stdout: "/private/var/folders/work/cache\n",
+		Stderr: "removed /private/var/folders/work/cache\n",
+	}, "/var/folders/work")
+
+	require.Equal(t, "<workspace>/cache\n", got.Stdout)
+	require.Equal(t, "removed <workspace>/cache\n", got.Stderr)
+}
+
+func TestNormalizeFileResultsHandlesPrivateVarAlias(t *testing.T) {
+	got := normalizeFileResults(map[string]string{
+		"go.mod": "replace example.com/lib => /private/var/folders/work/lib\n",
+	}, "", "/var/folders/work")
+
+	require.Equal(t, "replace example.com/lib => <workspace>/lib\n", got["go.mod"])
+}
+
+func TestNormalizeFileResultsHandlesNestedPrivateVarAlias(t *testing.T) {
+	got := normalizeFileResults(map[string]string{
+		"go.mod": "replace example.com/lib => /private/private/var/folders/work/lib\n",
+	}, "", "/private/var/folders/work")
+
+	require.Equal(t, "replace example.com/lib => <workspace>/lib\n", got["go.mod"])
+}
+
 func TestNormalizeStateRevisionLines(t *testing.T) {
 	got := normalizeDynamicText("  2026-06-20T12:00:01Z\n* 2026-06-20T12:00:02.3Z_1\n", "")
 

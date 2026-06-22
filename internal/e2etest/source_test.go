@@ -106,6 +106,27 @@ func TestRootCommandRunnerSetsCLIVersion(t *testing.T) {
 	require.Contains(t, got.Stdout, "v9.9.9")
 }
 
+func TestRootCommandRunnerUsesWorkspaceImportCache(t *testing.T) {
+	workspace := t.TempDir()
+	t.Setenv("HOME", filepath.Join(workspace, "home"))
+	t.Setenv("XDG_CACHE_HOME", "")
+	runRoot, cleanup, err := rootCommandRunner(workspace, SourceCase{Executor: "root"})
+	require.NoError(t, err)
+	defer cleanup()
+
+	got, err := runRoot(t.Context(), workspace, Command{
+		Name: "deps-clean",
+		Args: []string{"deps", "clean"},
+	})
+	require.NoError(t, err)
+
+	want := "Removed the import cache at " +
+		filepath.Join(workspace, "cache", "unobin", "imports") + "\n"
+	require.Equal(t, want, got.Stderr)
+	require.Empty(t, got.Stdout)
+	require.Zero(t, got.ExitCode)
+}
+
 func TestSourceCaseHelper(t *testing.T) {
 	if os.Getenv("E2ETEST_SOURCE_HELPER") != "1" {
 		return

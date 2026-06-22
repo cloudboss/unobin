@@ -184,7 +184,13 @@ func rootCommandRunner(workspace string, c SourceCase) (rootCommandFunc, func(),
 		}
 		return nil, fmt.Errorf("fake tags: no tags for %s", url)
 	})
+	restoreRemoteResolver := cmdroot.SetRemoteResolverForTest(func() (*resolve.RemoteResolver, error) {
+		return &resolve.RemoteResolver{
+			CacheRoot: filepath.Join(workspace, "cache", "unobin"),
+		}, nil
+	})
 	cleanup := func() {
+		restoreRemoteResolver()
 		restoreTags()
 		restoreResolver()
 	}

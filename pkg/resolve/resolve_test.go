@@ -127,6 +127,15 @@ func TestRemoteResolverRejectsLocalRef(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot handle")
 }
 
+func TestNewRemoteResolverUsesEnvCacheRoot(t *testing.T) {
+	cacheRoot := filepath.Join(t.TempDir(), "cache", "unobin")
+	t.Setenv("UNOBIN_CACHE_ROOT", cacheRoot)
+
+	r, err := NewRemoteResolver()
+	require.NoError(t, err)
+	require.Equal(t, cacheRoot, r.CacheRoot)
+}
+
 func TestIsUBLibrary(t *testing.T) {
 	root := t.TempDir()
 	withManifest := filepath.Join(root, "with")

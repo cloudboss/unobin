@@ -6,7 +6,7 @@
     {
       "name": "deps-clean",
       "args": ["deps", "clean"],
-      "env": { "XDG_CACHE_HOME": "$WORKSPACE/cache" },
+      "env": { "UNOBIN_CACHE_ROOT": "$WORKSPACE/cache/unobin" },
       "stderr": "want/deps-clean.stderr"
     }
   ],
