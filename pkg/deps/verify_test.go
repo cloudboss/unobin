@@ -3,19 +3,19 @@ package deps
 import (
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func TestVerifyHashesUBProjectRootWhenResolverHashEmpty(t *testing.T) {
 	fsys := mapFS(map[string]string{
-		ManifestFileName: "manifest: { requires: {} }\n",
-		"ub/helloer/library.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
+		ManifestFileName: ubtest.ReadValidFixture(
+			t, "testdata/ub/verify", "empty-manifest"),
+		"ub/helloer/library.ub": ubtest.ReadValidFixture(
+			t, "testdata/ub/verify", "helloer-library"),
 	})
 	hash := hashProject(t, fsys)
 	lock := NewLock()
