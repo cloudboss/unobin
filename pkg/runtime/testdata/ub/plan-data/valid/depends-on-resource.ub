@@ -1,4 +1,4 @@
 inputs:    { t: { type: string } }
 resources: { one: core.versioned { tag: input.t } }
-data:      { cfg: core.dial { @depends-on: [resource.one], key: 'fixed' } }
-outputs:   { v: { value: data.cfg.value } }
+data-sources:      { cfg: core.dial { @depends-on: [resource.one], key: 'fixed' } }
+outputs:   { v: { value: data-source.cfg.value } }

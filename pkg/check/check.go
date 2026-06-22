@@ -110,7 +110,7 @@ func (c *Checker) collectCompositeScopes() {
 func (c *referenceChecker) checkDeclarations() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
-		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
+		case runtime.NodeResource, runtime.NodeDataSource, runtime.NodeAction:
 		default:
 			continue
 		}
@@ -161,7 +161,7 @@ func libraryDeclares(lib *runtime.Library, kind runtime.NodeKind, typ string) bo
 		if _, ok := lib.Resources[typ]; ok {
 			return true
 		}
-	case runtime.NodeData:
+	case runtime.NodeDataSource:
 		if _, ok := lib.DataSources[typ]; ok {
 			return true
 		}
@@ -276,8 +276,8 @@ func constraintForEach(obj *lang.ObjectLit) lang.Expr {
 
 // checkConstraintExpr walks a constraint's when, require, or @for-each
 // expression. A constraint checks input values, so input is the only
-// address root in scope; a resource, data, action, or local reference
-// has no value where constraints evaluate, so it is rejected at
+// address root in scope; a resource, data-source, action, or local
+// reference has no value where constraints evaluate, so it is rejected at
 // compile instead of reading as null and silently passing the
 // predicate. eachOK admits @each inside an entry that iterates with
 // @for-each. Comprehension bindings and library calls resolve as
@@ -291,7 +291,7 @@ func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it 
 			switch {
 			case n.Root.Name == "input":
 				c.checkInput(n, scope)
-			case n.Root.Name == "resource", n.Root.Name == "data",
+			case n.Root.Name == "resource", n.Root.Name == "data-source",
 				n.Root.Name == "action", n.Root.Name == "local":
 				c.addf(n.S.Start,
 					"a constraint may read inputs only, not %s", namedPathText(n))
@@ -350,7 +350,7 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 			switch n.Root.Name {
 			case "input":
 				c.checkInput(n, scope)
-			case "resource", "data", "action":
+			case "resource", "data-source", "action":
 				c.checkNode(n, scope)
 			case "local":
 				c.checkLocal(n, scope)
@@ -671,6 +671,9 @@ func (c *referenceChecker) checkNode(dp *lang.DotPath, scope string) {
 			return
 		}
 		kind, _, _ := strings.Cut(ref, ".")
+		if kind == "data-source" {
+			kind = "data source"
+		}
 		c.addf(dp.S.Start, `unknown %s %q`, kind, ref)
 		return
 	}
@@ -732,7 +735,7 @@ func (c *referenceChecker) attrsFor(node *runtime.Node, scope string) map[string
 	switch node.Kind {
 	case runtime.NodeResource:
 		ts = lib.Schema.Resources[node.Type]
-	case runtime.NodeData:
+	case runtime.NodeDataSource:
 		ts = lib.Schema.DataSources[node.Type]
 	case runtime.NodeAction:
 		ts = lib.Schema.Actions[node.Type]
@@ -765,7 +768,7 @@ func compositeOutputNames(node *runtime.Node) map[string]typecheck.Type {
 	return out
 }
 
-// trailingField extracts the field segment from a resource, data,
+// trailingField extracts the field segment from a resource, data-source,
 // or action reference, returning its name and segment index. An index
 // segment after the node identity is skipped. Returns "" when the path
 // has no trailing field segment.
@@ -852,7 +855,7 @@ func (c *referenceChecker) checkPathRoot(root *lang.Ident, bound map[string]bool
 		return
 	}
 	c.addf(root.S.Start,
-		"unknown name %q; references start with input, local, resource, data, or action", name)
+		"unknown name %q; references start with input, local, resource, data-source, or action", name)
 }
 
 func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
@@ -941,7 +944,7 @@ func walkFreeIdents(
 // on the iteration context enclosing the expression.
 func addressRoot(name string) bool {
 	switch name {
-	case "input", "resource", "data", "action", "local":
+	case "input", "resource", "data-source", "action", "local":
 		return true
 	}
 	return strings.HasPrefix(name, "@")

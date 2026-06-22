@@ -1,4 +1,4 @@
 resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-data:      { ubuntu: aws.ami { most-recent: true } }
+data-sources:      { ubuntu: aws.ami { most-recent: true } }
 actions:   { hello: core.command { argv: ['echo'] } }
 outputs:   { vpc-id: { value: resource.main.id }, static: { value: 'literal' } }

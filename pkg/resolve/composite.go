@@ -24,15 +24,15 @@ func validateCompositeCounts(kind, typeName string, resources, actions, outputs 
 		errs = append(errs, fmt.Errorf("composite %q (%s): %s", typeName, kind, msg))
 	}
 	switch kind {
-	case "data":
+	case "data-source":
 		if outputs == 0 {
-			add("a data composite must declare at least one output")
+			add("a data source composite must declare at least one output")
 		}
 		if resources > 0 {
-			add("a data composite must not contain resources")
+			add("a data source composite must not contain resources")
 		}
 		if actions > 0 {
-			add("a data composite must not contain actions")
+			add("a data source composite must not contain actions")
 		}
 	case "action":
 		if actions == 0 {

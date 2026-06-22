@@ -1,1 +1,1 @@
-Error: import "lib": composite "lookup" (data): a data composite must declare at least one output
+Error: import "lib": composite "lookup" (data-source): a data source composite must declare at least one output

@@ -346,7 +346,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
 				if !step.Composite {
 					switch step.Kind {
-					case NodeResource, NodeData, NodeAction:
+					case NodeResource, NodeDataSource, NodeAction:
 						if configAddr, pending := e.pendingInternalConfig(node); pending {
 							step.DeferredConfig = configAddr
 						}
@@ -426,7 +426,7 @@ func destroyEntryKind(t state.EntryType) (kind NodeKind, composite, ok bool) {
 	case state.EntryAction:
 		return NodeAction, false, true
 	case state.EntryData:
-		return NodeData, false, true
+		return NodeDataSource, false, true
 	case state.EntryLibraryCall:
 		return "", true, true
 	}
@@ -594,7 +594,7 @@ func (e *Executor) planOneInstance(
 			return nil, err
 		}
 		return e.planOneAction(rs, n, scope, addr)
-	case NodeData:
+	case NodeDataSource:
 		if _, err := e.dataRegistration(n); err != nil {
 			return nil, err
 		}
@@ -659,7 +659,7 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		return e.seedCompositeOutputs(rs, step)
 	}
 	switch step.Kind {
-	case NodeResource, NodeData, NodeAction:
+	case NodeResource, NodeDataSource, NodeAction:
 	default:
 		return nil
 	}
@@ -913,7 +913,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		return e.planComposite(rs, n)
 	}
 	switch n.Kind {
-	case NodeResource, NodeAction, NodeData:
+	case NodeResource, NodeAction, NodeDataSource:
 		scope, err := e.scopeFor(rs, n)
 		if err != nil {
 			return nil, err
@@ -941,7 +941,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 		return nil
 	}
 	switch step.Kind {
-	case NodeResource, NodeData, NodeAction:
+	case NodeResource, NodeDataSource, NodeAction:
 	default:
 		return nil
 	}

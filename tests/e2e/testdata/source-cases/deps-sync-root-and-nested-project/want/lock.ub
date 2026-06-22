@@ -6,13 +6,13 @@ lock: {
       kind:    ub
       version: 'v0.8.0'
       commit:  'root'
-      hash:    'sha256:e4a42bab1e366f80d20173c9c9d0cf658982a3168809d97c6410e01d83509765'
+      hash:    'sha256:c987ab5242c211d889cad6d1606ddcfbf9e4e51605c3ffb3c9063240103205c9'
     }
     'github.com/scratch/repo//ub/project-b': {
       kind:    ub
       version: 'v0.1.0'
       commit:  'project-b'
-      hash:    'sha256:c674cf005cf52b7bfb096b59283baa8f95b3411500e5e8eb4efa59cae15f1d84'
+      hash:    'sha256:337838ec7ef96878021bcb1ca787cab17e8198b21a6bd8bea19c05a73639960d'
     }
   }
 }

@@ -71,7 +71,7 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	validateLibraryConfigDecls(body.LibraryConfigs, errs)
 	validateStateMoves(body.StateMoves, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
-	validateNodeDecls(body.Data, "data", dataBodyMeta, errs)
+	validateNodeDecls(body.Data, string(NodeDataSource), dataBodyMeta, errs)
 	validateNodeDecls(body.Actions, "action", actionBodyMeta, errs)
 	mergeErrors(errs, lang.ValidateOutputs(outputDeclsObject(body.Outputs)))
 	mergeErrors(errs, lang.ValidateComprehensionBindings(parseFactoryBody(body)))
@@ -499,7 +499,7 @@ func factoryBodyObject(
 	}
 	if len(body.Data) > 0 {
 		data := nodes(body.Data)
-		obj.Fields = append(obj.Fields, identField("data", data.S, data))
+		obj.Fields = append(obj.Fields, identField("data-sources", data.S, data))
 	}
 	if len(body.Actions) > 0 {
 		actions := nodes(body.Actions)

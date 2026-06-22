@@ -3,5 +3,5 @@ resources: {
   aws.vpc.main: { cidr-block: '10.0.0.0/16' }
   aws.subnet.a: { vpc-id: resource.aws.vpc.main.id }
 }
-data:    { aws.ami.ubuntu: { most-recent: true } }
+data-sources:    { aws.ami.ubuntu: { most-recent: true } }
 actions: { core.command.hi: { argv: ['echo'] } }

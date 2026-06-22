@@ -25,9 +25,9 @@ func TestParseEntryRefValid(t *testing.T) {
 			address: "action.hi",
 		},
 		{
-			name:    "data",
-			input:   "data.image",
-			address: "data.image",
+			name:    "data source",
+			input:   "data-source.image",
+			address: "data-source.image",
 		},
 		{
 			name:    "composite child",
@@ -64,7 +64,16 @@ func TestParseEntryRefInvalid(t *testing.T) {
 	}{
 		{name: "legacy qualified ref", in: "aws.instance@resource.web", want: "expected state ref"},
 		{name: "empty address", in: "", want: "expected state ref"},
-		{name: "invalid root", in: "input.web", want: "address root must be resource, data, or action"},
+		{
+			name: "data root",
+			in:   "data.image",
+			want: "address root must be resource, data-source, or action",
+		},
+		{
+			name: "invalid root",
+			in:   "input.web",
+			want: "address root must be resource, data-source, or action",
+		},
 		{
 			name: "address missing name",
 			in:   "resource",

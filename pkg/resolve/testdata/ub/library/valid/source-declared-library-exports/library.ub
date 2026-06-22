@@ -10,7 +10,7 @@ greeting: resource {
   }
 }
 
-lookup: data {
+lookup: data-source {
   outputs: {
     id: { value: 'id-1' }
   }

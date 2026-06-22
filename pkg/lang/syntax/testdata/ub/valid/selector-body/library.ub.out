@@ -1,2 +1,2 @@
 export resource greeting outputs=1
-export data lookup outputs=1
+export data-source lookup outputs=1

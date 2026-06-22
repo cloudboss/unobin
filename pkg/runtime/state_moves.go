@@ -337,7 +337,7 @@ func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
 			return fmt.Errorf("leaf entry cannot move to %s", n.Kind)
 		}
 	case state.EntryData:
-		if n.Kind != NodeData || n.IsComposite() {
+		if n.Kind != NodeDataSource || n.IsComposite() {
 			return fmt.Errorf("data entry cannot move to %s", n.Kind)
 		}
 	case state.EntryAction:

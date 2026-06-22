@@ -1,1 +1,1 @@
-data: { cfg: core.dial { @for-each: { a: 'x', b: 'y' }, key: @each.value } }
+data-sources: { cfg: core.dial { @for-each: { a: 'x', b: 'y' }, key: @each.value } }

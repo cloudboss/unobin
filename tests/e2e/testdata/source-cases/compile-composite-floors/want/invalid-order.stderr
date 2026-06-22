@@ -1,2 +1,2 @@
-Error: import "lib": composite "a" (data): a data composite must declare at least one output
+Error: import "lib": composite "a" (data-source): a data source composite must declare at least one output
 composite "b" (resource): a resource composite must contain at least one resource

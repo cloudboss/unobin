@@ -16,7 +16,7 @@ factory: {
 
   library-configs: { e2e: input.e2e-config }
 
-  data: {
+  data-sources: {
     x: e2e.file { path: 'files/x.txt', content: 'hi' }
   }
 }

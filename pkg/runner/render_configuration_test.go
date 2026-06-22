@@ -23,8 +23,8 @@ func TestPrintPlanShowsDeferredLibraryConfigReads(t *testing.T) {
 			DeferredConfig: "library-config.fix",
 		},
 		{
-			Address:        "data.fix.probe.p",
-			Kind:           runtime.NodeData,
+			Address:        "data-source.fix.probe.p",
+			Kind:           runtime.NodeDataSource,
 			Decision:       runtime.DecisionRead,
 			DeferredConfig: "library-config.fix",
 		},
@@ -35,7 +35,7 @@ func TestPrintPlanShowsDeferredLibraryConfigReads(t *testing.T) {
       name: 'apps'
 
 Deferred reads (2):
-  data.fix.probe.p    library-config.fix pending; read deferred to apply
+  data-source.fix.probe.p    library-config.fix pending; read deferred to apply
   resource.fix.other.b    library-config.fix pending; drift unchecked this plan
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

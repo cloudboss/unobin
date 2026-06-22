@@ -9,7 +9,7 @@ factory: {
     }
   }
 
-  data: {
+  data-sources: {
     existing: std.file {
       path: input.path
     }

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	factoryBody        = "factory: {\n  imports: { local: './lib' }\n  data: {\n    message: local.message {}\n  }\n}\n"
+	factoryBody        = "factory: {\n  imports: { local: './lib' }\n  data-sources: {\n    message: local.message {}\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "app"
 )

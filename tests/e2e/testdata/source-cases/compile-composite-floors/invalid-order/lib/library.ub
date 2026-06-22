@@ -1,2 +1,2 @@
-a: data { data: { x: aws.ami {} } }
-b: resource { data: { x: aws.ami {} } }
+a: data-source { data-sources: { x: aws.ami {} } }
+b: resource { data-sources: { x: aws.ami {} } }

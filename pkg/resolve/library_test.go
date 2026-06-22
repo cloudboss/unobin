@@ -125,7 +125,7 @@ func TestWalkUBParsesSourceDeclaredKindsAndNames(t *testing.T) {
 	require.NotNil(t, lib)
 
 	require.Contains(t, lib.SyntaxBodies["resource"], "greeting")
-	require.Contains(t, lib.SyntaxBodies["data"], "ami")
+	require.Contains(t, lib.SyntaxBodies["data-source"], "ami")
 	require.Contains(t, lib.SyntaxBodies["action"], "notify")
 }
 
@@ -238,7 +238,7 @@ func TestWalkUBParsesSourceDeclaredLibraryExports(t *testing.T) {
 	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
 	require.NotNil(t, lib)
 	require.Contains(t, lib.SyntaxBodies["resource"], "greeting")
-	require.Contains(t, lib.SyntaxBodies["data"], "lookup")
+	require.Contains(t, lib.SyntaxBodies["data-source"], "lookup")
 	body := lib.SyntaxBodies["resource"]["greeting"]
 	require.Len(t, body.Resources, 1)
 	require.Len(t, body.Outputs, 1)
@@ -260,6 +260,6 @@ func TestWalkUBAllowsSameExportNameAcrossKinds(t *testing.T) {
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
 	require.Contains(t, lib.SyntaxBodies["resource"], "vpc")
-	require.Contains(t, lib.SyntaxBodies["data"], "vpc")
+	require.Contains(t, lib.SyntaxBodies["data-source"], "vpc")
 	require.Contains(t, lib.SyntaxBodies["action"], "vpc")
 }

@@ -227,7 +227,7 @@ func (g *DAG) UnderForEachComposite(n *Node) bool {
 // its alias config derives from.
 func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
 	switch n.Kind {
-	case NodeResource, NodeData, NodeAction:
+	case NodeResource, NodeDataSource, NodeAction:
 	default:
 		return "", false
 	}
@@ -248,7 +248,8 @@ func internalsOf(callSite string, nodes map[string]*Node) []string {
 // scopeRef rewrites a reference into a composite internal address.
 // `resource.inner` under call site `resource.outer` becomes
 // `resource.outer/resource.inner`; every segment keeps its own kind
-// root, so resource, data, and action refs all join the same way.
+// root, so resource, data-source, and action refs all join the same
+// way.
 // Input refs and unsupported kinds pass through unchanged so toposort
 // skips them. An empty callSite means the ref is already in its target
 // scope (a top-level boundary's body refs, or a no-op when walking up
@@ -258,7 +259,7 @@ func ScopeRef(ref, callSite string) string {
 		return ref
 	}
 	if strings.HasPrefix(ref, "resource.") ||
-		strings.HasPrefix(ref, "data.") ||
+		strings.HasPrefix(ref, "data-source.") ||
 		strings.HasPrefix(ref, "action.") {
 		return callSite + "/" + ref
 	}

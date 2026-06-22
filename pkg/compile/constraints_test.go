@@ -30,8 +30,8 @@ func TestConstraintsFromSchema(t *testing.T) {
 	}
 	got := constraintsFromSchema(schema)
 	require.Equal(t, map[string][]lang.ConstraintSpec{
-		"resource.vpc": {{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}}},
-		"data.ami":     {{Kind: "predicate", When: "true", Require: "(input.owner != null)"}},
+		"resource.vpc":    {{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}}},
+		"data-source.ami": {{Kind: "predicate", When: "true", Require: "(input.owner != null)"}},
 	}, got)
 }
 
@@ -45,7 +45,7 @@ func TestUsedLibraryTypes(t *testing.T) {
 	f, err := lang.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{
-		"aws":  {"resource.vpc": true, "resource.subnet": true, "data.ami": true},
+		"aws":  {"resource.vpc": true, "resource.subnet": true, "data-source.ami": true},
 		"core": {"action.command": true},
 	}, usedLibraryTypes(f))
 }
@@ -63,7 +63,7 @@ func TestUsedSyntaxLibraryTypes(t *testing.T) {
 	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
 	require.Equal(t, map[string]map[string]bool{
-		"aws":  {"resource.vpc": true, "resource.subnet": true, "data.ami": true},
+		"aws":  {"resource.vpc": true, "resource.subnet": true, "data-source.ami": true},
 		"core": {"action.command": true},
 	}, usedSyntaxLibraryTypes(f.Factory.Body))
 }
@@ -73,27 +73,27 @@ func TestPruneUnusedSpecs(t *testing.T) {
 		"aws": {
 			"resource.vpc":    {{Kind: "exactly-one-of"}},
 			"resource.subnet": {{Kind: "predicate"}},
-			"data.ami":        {{Kind: "predicate"}},
+			"data-source.ami": {{Kind: "predicate"}},
 		},
 		"unused": {
 			"resource.thing": {{Kind: "predicate"}},
 		},
 	}
 	pruneUnusedSpecs(specs, map[string]map[string]bool{
-		"aws": {"resource.vpc": true, "data.ami": true},
+		"aws": {"resource.vpc": true, "data-source.ami": true},
 	})
 	require.Equal(t, map[string]map[string][]lang.ConstraintSpec{
 		"aws": {
-			"resource.vpc": {{Kind: "exactly-one-of"}},
-			"data.ami":     {{Kind: "predicate"}},
+			"resource.vpc":    {{Kind: "exactly-one-of"}},
+			"data-source.ami": {{Kind: "predicate"}},
 		},
 	}, specs)
 }
 
 func TestKeepUsedTypes(t *testing.T) {
 	m := map[string][]lang.ConstraintSpec{
-		"resource.vpc": {{Kind: "exactly-one-of"}},
-		"data.ami":     {{Kind: "predicate"}},
+		"resource.vpc":    {{Kind: "exactly-one-of"}},
+		"data-source.ami": {{Kind: "predicate"}},
 	}
 	require.Equal(t, map[string][]lang.ConstraintSpec{
 		"resource.vpc": {{Kind: "exactly-one-of"}},

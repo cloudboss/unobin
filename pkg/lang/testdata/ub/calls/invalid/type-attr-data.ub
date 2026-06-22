@@ -1,1 +1,1 @@
-data: { core.lookup.it: { type: pick() } }
+data-sources: { core.lookup.it: { type: pick() } }

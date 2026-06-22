@@ -1,5 +1,5 @@
-widget: data {
+widget: data-source {
   imports: { secret: 'github.com/other/z//internal/secret' }
-  data: { s: secret.secret { y: 'ok' } }
-  outputs: { y: { value: data.s.y } }
+  data-sources: { s: secret.secret { y: 'ok' } }
+  outputs: { y: { value: data-source.s.y } }
 }

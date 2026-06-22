@@ -1,4 +1,4 @@
 inputs:    { t: { type: string } }
 resources: { x: w.box { t: input.t } }
-data:      { cfg: core.dial { @depends-on: [resource.x], key: 'fixed' } }
-outputs:   { v: { value: data.cfg.value } }
+data-sources:      { cfg: core.dial { @depends-on: [resource.x], key: 'fixed' } }
+outputs:   { v: { value: data-source.cfg.value } }

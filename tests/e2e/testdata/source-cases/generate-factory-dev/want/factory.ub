@@ -1,9 +1,9 @@
 factory: {
-  description: 'TODO: describe this factory'
-  inputs:      {}
-  imports:     {}
-  data:        {}
-  resources:   {}
-  actions:     {}
-  outputs:     {}
+  description:  'TODO: describe this factory'
+  inputs:       {}
+  imports:      {}
+  data-sources: {}
+  resources:    {}
+  actions:      {}
+  outputs:      {}
 }

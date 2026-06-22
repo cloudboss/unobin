@@ -2,7 +2,7 @@ factory: {
   resources: {
     std.file.example: {}
   }
-  data: {
+  data-sources: {
     std.lookup.current: {}
   }
   actions: {

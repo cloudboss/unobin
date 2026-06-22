@@ -74,7 +74,7 @@ func TestForEachCompositeCallingComposite(t *testing.T) {
 // boundary finalizes. The outer's outputs read it through the
 // per-instance scope.
 func TestForEachCompositeCallingDataComposite(t *testing.T) {
-	label := syntaxComposite(t, "label", NodeData,
+	label := syntaxComposite(t, "label", NodeDataSource,
 		ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "data-label"))
 	outer := syntaxResourceComposite(t, "outer",
 		ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "outer-data-resource"))

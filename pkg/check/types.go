@@ -23,7 +23,7 @@ import (
 func (c *referenceChecker) checkTypes() {
 	for _, n := range c.dag.Nodes {
 		switch n.Kind {
-		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
+		case runtime.NodeResource, runtime.NodeDataSource, runtime.NodeAction:
 		default:
 			continue
 		}
@@ -74,7 +74,7 @@ func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(
 			continue
 		}
 		switch n.Kind {
-		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
+		case runtime.NodeResource, runtime.NodeDataSource, runtime.NodeAction:
 		default:
 			continue
 		}
@@ -496,7 +496,7 @@ func (c *referenceChecker) lookupTypeSchema(n *runtime.Node) *runtime.TypeSchema
 	switch n.Kind {
 	case runtime.NodeResource:
 		return lib.Schema.Resources[n.Type]
-	case runtime.NodeData:
+	case runtime.NodeDataSource:
 		return lib.Schema.DataSources[n.Type]
 	case runtime.NodeAction:
 		return lib.Schema.Actions[n.Type]
@@ -720,7 +720,7 @@ func (c *referenceChecker) nodeAttrType(node *runtime.Node) typecheck.Type {
 	switch node.Kind {
 	case runtime.NodeResource:
 		ts = lib.Schema.Resources[node.Type]
-	case runtime.NodeData:
+	case runtime.NodeDataSource:
 		ts = lib.Schema.DataSources[node.Type]
 	case runtime.NodeAction:
 		ts = lib.Schema.Actions[node.Type]

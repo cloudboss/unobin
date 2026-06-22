@@ -9,7 +9,7 @@ import (
 
 // Refs returns the addresses an expression depends on, in source order
 // with duplicates removed. Each returned address is the canonical form
-// of another node: input.name, resource.name, data.name, or action.name.
+// of another node: input.name, resource.name, data-source.name, or action.name.
 // Field segments past the node address and @each.X bindings are skipped.
 func Refs(e lang.Expr) []string {
 	if e == nil {
@@ -167,7 +167,7 @@ func deferredRefs(e lang.Expr, locals map[string]lang.Expr) []string {
 	var out []string
 	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
 		switch dp.Root.Name {
-		case "input", "resource", "data", "action":
+		case "input", "resource", "data-source", "action":
 			if path := DotPathString(dp); path != "" {
 				out = append(out, path)
 			}
@@ -210,7 +210,12 @@ func RefAddress(p *lang.DotPath) string {
 			return ""
 		}
 		return "input." + p.Segments[0].Name
-	case "resource", "data", "action":
+	case "data-source":
+		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
+			return ""
+		}
+		return "data-source." + p.Segments[0].Name
+	case "resource", "action":
 		if len(p.Segments) < 3 {
 			return ""
 		}
@@ -248,7 +253,7 @@ func RefMatchInScope(
 		}
 		return RefMatch{Address: "input." + p.Segments[0].Name, Segments: 1}, true
 	}
-	if p.Root.Name != "resource" && p.Root.Name != "data" && p.Root.Name != "action" {
+	if p.Root.Name != "resource" && p.Root.Name != "data-source" && p.Root.Name != "action" {
 		return RefMatch{}, false
 	}
 	for _, n := range []int{3, 1} {
@@ -268,7 +273,7 @@ func UnknownRefAddress(p *lang.DotPath, nodes map[string]*Node, scope string) st
 	if p == nil || p.Root == nil {
 		return ""
 	}
-	if p.Root.Name != "resource" && p.Root.Name != "data" && p.Root.Name != "action" {
+	if p.Root.Name != "resource" && p.Root.Name != "data-source" && p.Root.Name != "action" {
 		return ""
 	}
 	if scopeHasShortNodes(nodes, scope, p.Root.Name) {
@@ -346,7 +351,7 @@ func pairKeyDeps(
 			return
 		}
 		if !strings.HasPrefix(match.Address, "resource.") &&
-			!strings.HasPrefix(match.Address, "data.") &&
+			!strings.HasPrefix(match.Address, "data-source.") &&
 			!strings.HasPrefix(match.Address, "action.") {
 			return
 		}

@@ -1405,8 +1405,8 @@ func TestEncodePlanUsesDeferredConfig(t *testing.T) {
 	plan := &Plan{
 		Factory: state.FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
 		Steps: []*PlanStep{{
-			Address:        "data.lookup",
-			Kind:           NodeData,
+			Address:        "data-source.lookup",
+			Kind:           NodeDataSource,
 			Decision:       DecisionNoOp,
 			DeferredConfig: "library-config.aws",
 		}},
@@ -1426,8 +1426,8 @@ func TestDecodePlanReadsDeferredConfig(t *testing.T) {
   "format-version": 1,
   "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
   "steps": [{
-    "address": "data.lookup",
-    "node-kind": "data",
+    "address": "data-source.lookup",
+    "node-kind": "data-source",
     "decision": "no-op",
     "deferred-config": "library-config.aws"
   }]

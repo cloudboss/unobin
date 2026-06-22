@@ -23,9 +23,9 @@ type Library struct {
 	Resources     map[string]ResourceRegistration
 	DataSources   map[string]DataSourceRegistration
 	// Composites are kept in one map per kind, mirroring the
-	// Resources / DataSources / Actions Go-type maps. resource, data,
-	// and action are distinct namespaces, so a library may declare
-	// resource.foo and data.foo as separate composites.
+	// Resources / DataSources / Actions Go-type maps. resource,
+	// data-source, and action are distinct namespaces, so a library may
+	// declare resource.foo and data-source.foo as separate composites.
 	ResourceComposites map[string]*CompositeType
 	DataComposites     map[string]*CompositeType
 	ActionComposites   map[string]*CompositeType
@@ -38,7 +38,7 @@ type Library struct {
 
 	// Constraints holds each Go type's cross-field constraints in the
 	// embeddable spec form, keyed by "<kind>.<type>" (e.g. "resource.vpc")
-	// since resource, data, and action are distinct namespaces. codegen
+	// since resource, data-source, and action are distinct namespaces. codegen
 	// sets it in the generated main.go from the constraints goschema
 	// derived from the library's source; the plan checks a node against
 	// Constraints[node.Kind + "." + node.Type]. UB composites carry their
@@ -88,11 +88,11 @@ type CompositeType struct {
 }
 
 // Composite returns the composite of the given kind and name, or nil
-// when the library has none. resource, data, and action are independent
-// namespaces, so the kind selects which map to consult.
+// when the library has none. resource, data-source, and action are
+// independent namespaces, so the kind selects which map to consult.
 func (l *Library) Composite(kind NodeKind, name string) *CompositeType {
 	switch kind {
-	case NodeData:
+	case NodeDataSource:
 		return l.DataComposites[name]
 	case NodeAction:
 		return l.ActionComposites[name]
@@ -105,7 +105,7 @@ func (l *Library) Composite(kind NodeKind, name string) *CompositeType {
 // first use.
 func (l *Library) AddComposite(ct *CompositeType) {
 	switch ct.Kind {
-	case NodeData:
+	case NodeDataSource:
 		if l.DataComposites == nil {
 			l.DataComposites = map[string]*CompositeType{}
 		}

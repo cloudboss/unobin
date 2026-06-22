@@ -26,7 +26,7 @@ factory: {
     }
   }
 
-  data: {
+  data-sources: {
     read-back: e2e.read-file {
       path: resource.doc.path
     }
@@ -35,13 +35,13 @@ factory: {
   actions: {
     capture: e2e.record {
       name:    'read'
-      message: data.read-back.content
+      message: data-source.read-back.content
     }
   }
 
   outputs: {
-    read-content: { value: data.read-back.content }
-    read-size:    { value: data.read-back.size }
+    read-content: { value: data-source.read-back.content }
+    read-size:    { value: data-source.read-back.size }
     recorded:     { value: action.capture.record }
   }
 }

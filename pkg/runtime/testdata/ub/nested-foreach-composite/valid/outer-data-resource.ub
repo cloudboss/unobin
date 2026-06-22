@@ -1,12 +1,12 @@
 inputs: {
   t: { type: string }
 }
-data: {
+data-sources: {
   i: w.label { note: input.t }
 }
 resources: {
   s: core.subnet { tag: input.t }
 }
 outputs: {
-  marker: { value: data.i.marker }
+  marker: { value: data-source.i.marker }
 }

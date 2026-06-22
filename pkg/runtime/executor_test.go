@@ -405,7 +405,7 @@ func TestExecutorRunsComposite(t *testing.T) {
 }
 
 func TestExecutorAppliesDataComposite(t *testing.T) {
-	composite := syntaxComposite(t, "box", NodeData,
+	composite := syntaxComposite(t, "box", NodeDataSource,
 		executorFixture(t, "executor-applies-data-composite-1"))
 	libs := testModules()
 	libs["w"] = &Library{
@@ -431,9 +431,9 @@ func TestExecutorAppliesDataComposite(t *testing.T) {
 		}
 	}
 	require.NotNil(t, libCall, "the data composite call records a library-call entry")
-	require.Equal(t, "data.x", libCall.Address,
+	require.Equal(t, "data-source.x", libCall.Address,
 		"the boundary address has the data kind root")
-	require.Equal(t, "data", libCall.Kind)
+	require.Equal(t, "data-source", libCall.Kind)
 	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
 	require.Equal(t, "looked-up:abc", libCall.Outputs["value"])
 

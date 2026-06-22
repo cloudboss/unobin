@@ -4,7 +4,7 @@ factory: {
     hello: std.fs-file { path: '/tmp/hello' }
     selected: std.fs-file { path: resource.hello.path }
   }
-  data: { lookup: std.file-info { path: resource.selected.path } }
-  actions: { show: std.exec-command { argv: ['echo', data.lookup.path] } }
+  data-sources: { lookup: std.file-info { path: resource.selected.path } }
+  actions: { show: std.exec-command { argv: ['echo', data-source.lookup.path] } }
   outputs: { path: { value: resource.selected.path } }
 }

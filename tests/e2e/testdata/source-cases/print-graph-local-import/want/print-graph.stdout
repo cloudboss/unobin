@@ -1,4 +1,4 @@
-data.message
+data-source.message
 
 output.text
-  -> data.message
+  -> data-source.message

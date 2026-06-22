@@ -113,7 +113,7 @@ type Selector struct {
 // Kind == FieldIdent: bare identifier (possibly @-prefixed).
 // Kind == FieldString: quoted string literal.
 // Kind == FieldPath: dotted identifier path, such as aws.iam-role.it. Only
-// a resource, data, or action declaration head uses this form.
+// a resource, data-source, or action declaration head uses this form.
 //
 // The post-parse pass is responsible for deciding whether a given key is
 // permitted at its position (e.g., closed set enum identifier vs free form
@@ -296,11 +296,11 @@ func (n *Ident) Span() Span { return n.S }
 func (n *Ident) exprNode()  {}
 
 // DotPath is a dot-separated address like `input.region`,
-// `resource.app.id`, or `data.ami.id`. Segments after the root navigate
+// `resource.app.id`, or `data-source.ami.id`. Segments after the root navigate
 // by name (`.id`), by a string key or integer position
 // (`["alpha"]`, `[0]`), or project over a list with a splat (`[*]`). The
-// first segment (Root) is one of the reserved address roots: input, data,
-// resource, action, @each.
+// first segment (Root) is one of the reserved address roots: input,
+// data-source, resource, action, @each.
 type DotPath struct {
 	S        Span
 	Root     *Ident

@@ -148,7 +148,7 @@ var compositeKinds = []struct {
 	symbol   string
 }{
 	{"resource", "ResourceComposites", "runtime.NodeResource"},
-	{"data", "DataComposites", "runtime.NodeData"},
+	{"data-source", "DataComposites", "runtime.NodeDataSource"},
 	{"action", "ActionComposites", "runtime.NodeAction"},
 }
 

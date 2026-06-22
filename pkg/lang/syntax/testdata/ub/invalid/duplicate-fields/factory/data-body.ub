@@ -1,5 +1,5 @@
 factory: {
-  data: {
+  data-sources: {
     current: std.file {
       path: '/tmp/one'
       path: '/tmp/two'

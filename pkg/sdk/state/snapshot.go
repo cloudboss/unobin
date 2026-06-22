@@ -21,7 +21,7 @@ const (
 	// EntryData records what a data source read during the last
 	// apply. Nothing in the world belongs to it, so removing the node
 	// removes the record without a destroy.
-	EntryData EntryType = "data"
+	EntryData EntryType = "data-source"
 )
 
 // Selector identifies the implementation selected for an entry.
@@ -31,8 +31,8 @@ type Selector struct {
 }
 
 // Entry is one record in a snapshot. Type is the entry discriminator.
-// Kind is the graph node kind for resource, data, action, and composite
-// entries. Selector names the implementation used by that entry.
+// Kind is the graph node kind for resource, data-source, action, and
+// composite entries. Selector names the implementation used by that entry.
 //
 // SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
 // values came from a sensitive source. Renderers mask the matching
@@ -200,7 +200,7 @@ func (e *Entry) validate() error {
 			return err
 		}
 	case EntryLibraryCall:
-		if err := e.validateNodeKind("resource", "data", "action"); err != nil {
+		if err := e.validateNodeKind("resource", "data-source", "action"); err != nil {
 			return err
 		}
 		if err := e.validateGraphSelector(); err != nil {
@@ -214,7 +214,7 @@ func (e *Entry) validate() error {
 			return err
 		}
 	case EntryData:
-		if err := e.validateNodeKind("data"); err != nil {
+		if err := e.validateNodeKind("data-source"); err != nil {
 			return err
 		}
 		if err := e.validateGraphSelector(); err != nil {

@@ -19,7 +19,7 @@ func TestExtractTimeout(t *testing.T) {
 	}{
 		{name: "action", fixture: "action-timeout", want: 30 * time.Second},
 		{name: "resource", fixture: "resource-timeout", want: 5 * time.Minute},
-		{name: "data", fixture: "data-timeout", want: 90 * time.Minute},
+		{name: "data-source", fixture: "data-timeout", want: 90 * time.Minute},
 		{name: "none", fixture: "no-timeout", want: 0},
 	}
 	for _, tt := range tests {

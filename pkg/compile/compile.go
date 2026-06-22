@@ -1085,7 +1085,7 @@ func typeSpecsFromSchema[T any](
 		}
 	}
 	add(ubruntime.NodeResource, schema.Resources)
-	add(ubruntime.NodeData, schema.DataSources)
+	add(ubruntime.NodeDataSource, schema.DataSources)
 	add(ubruntime.NodeAction, schema.Actions)
 	if len(out) == 0 {
 		return nil
@@ -1094,8 +1094,8 @@ func typeSpecsFromSchema[T any](
 }
 
 // usedLibraryTypes returns, per import alias, the set of "<kind>.<type>"
-// keys the factory body declares in its resources, data, and actions
-// blocks. The keys match the form typeSpecsFromSchema produces, so the
+// keys the factory body declares in its resources, data-sources, and
+// actions blocks. The keys match the form typeSpecsFromSchema produces, so the
 // compiler can omit specs for types the factory never declares.
 func usedLibraryTypes(f *lang.File) map[string]map[string]bool {
 	used := map[string]map[string]bool{}
@@ -1138,7 +1138,7 @@ func usedSyntaxLibraryTypes(body syntax.FactoryBody) map[string]map[string]bool 
 		}
 	}
 	add("resource", body.Resources)
-	add("data", body.Data)
+	add(string(ubruntime.NodeDataSource), body.Data)
 	add("action", body.Actions)
 	return used
 }
@@ -1169,8 +1169,8 @@ func blockKind(block string) string {
 	switch block {
 	case "resources":
 		return "resource"
-	case "data":
-		return "data"
+	case "data-sources":
+		return string(ubruntime.NodeDataSource)
 	case "actions":
 		return "action"
 	}
@@ -1231,7 +1231,7 @@ func keepUsedSchema(
 	}
 	out := &ubruntime.LibrarySchema{
 		Resources:   keepSensitiveTypes(schema.Resources, used, string(ubruntime.NodeResource)),
-		DataSources: keepSensitiveTypes(schema.DataSources, used, string(ubruntime.NodeData)),
+		DataSources: keepSensitiveTypes(schema.DataSources, used, string(ubruntime.NodeDataSource)),
 		Actions:     keepSensitiveTypes(schema.Actions, used, string(ubruntime.NodeAction)),
 	}
 	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 {

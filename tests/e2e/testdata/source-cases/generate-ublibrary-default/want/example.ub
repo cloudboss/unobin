@@ -1,9 +1,9 @@
 example: resource {
-  description: 'TODO: describe this composite type'
-  inputs:      {}
-  imports:     {}
-  data:        {}
-  resources:   {}
-  actions:     {}
-  outputs:     {}
+  description:  'TODO: describe this composite type'
+  inputs:       {}
+  imports:      {}
+  data-sources: {}
+  resources:    {}
+  actions:      {}
+  outputs:      {}
 }

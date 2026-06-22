@@ -1,4 +1,4 @@
-lookup: data {
+lookup: data-source {
   resources: { x: local.file {} }
   outputs: { id: { value: 'x' } }
 }

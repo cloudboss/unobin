@@ -1,2 +1,2 @@
 a: resource { description: 'a' }
-b: data { description: 'b' }
+b: data-source { description: 'b' }

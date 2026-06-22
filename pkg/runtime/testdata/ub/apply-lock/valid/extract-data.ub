@@ -1,3 +1,3 @@
-data: {
+data-sources: {
   x: aws.ami { @lock: 'reads', most-recent: true }
 }

@@ -82,7 +82,7 @@ func TestLowerFactoryFile(t *testing.T) {
 
 	require.Len(t, got.Factory.Body.Data, 1)
 	requireSpan(t, got.Factory.Body.Data[0].S)
-	assert.Equal(t, NodeData, got.Factory.Body.Data[0].Kind)
+	assert.Equal(t, NodeDataSource, got.Factory.Body.Data[0].Kind)
 	assert.Equal(t, "existing", got.Factory.Body.Data[0].Name.Name)
 
 	require.Len(t, got.Factory.Body.Actions, 1)
@@ -251,8 +251,17 @@ func TestLowerSourceDeclaredLibraryFile(t *testing.T) {
 	require.Len(t, got.Library.Exports, 2)
 	assert.Equal(t, NodeResource, got.Library.Exports[0].Kind)
 	assert.Equal(t, "greeting", got.Library.Exports[0].Name.Name)
-	assert.Equal(t, NodeData, got.Library.Exports[1].Kind)
+	assert.Equal(t, NodeDataSource, got.Library.Exports[1].Kind)
+	assert.Equal(t, "data-source", string(got.Library.Exports[1].Kind))
 	assert.Equal(t, "lookup", got.Library.Exports[1].Name.Name)
+}
+
+func TestLowerRejectsDataBlock(t *testing.T) {
+	f := parseFile(t, "factory.ub", lowerInvalidFixture(t, "factory-data-block"), parse.FileUnknown)
+
+	_, errs := LowerFile(f)
+	require.NotEqual(t, 0, errs.Len())
+	assert.Contains(t, errs.Error(), `"data" is not a valid factory field`)
 }
 
 func TestLowerPreclassifiedExportedTypeFileRequiresSourceDeclaration(t *testing.T) {

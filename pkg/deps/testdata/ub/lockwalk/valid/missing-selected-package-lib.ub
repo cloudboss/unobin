@@ -1,4 +1,4 @@
 
-hello: data {
+hello: data-source {
   outputs: { message: { value: 'hi' } }
 }

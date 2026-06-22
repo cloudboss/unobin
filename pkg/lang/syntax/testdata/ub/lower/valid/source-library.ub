@@ -4,6 +4,6 @@ greeting: resource {
   }
 }
 
-lookup: data {
+lookup: data-source {
   outputs: {}
 }

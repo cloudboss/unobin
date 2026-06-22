@@ -256,9 +256,9 @@ func lowerFactoryBodyWithMode(
 			if obj := objectValue(fld, "resources", errs); obj != nil {
 				body.Resources = lowerNodes(obj, NodeResource, errs)
 			}
-		case "data":
-			if obj := objectValue(fld, "data", errs); obj != nil {
-				body.Data = lowerNodes(obj, NodeData, errs)
+		case "data-sources":
+			if obj := objectValue(fld, "data-sources", errs); obj != nil {
+				body.Data = lowerNodes(obj, NodeDataSource, errs)
 			}
 		case "actions":
 			if obj := objectValue(fld, "actions", errs); obj != nil {
@@ -526,20 +526,20 @@ func lowerCompositeDecls(
 }
 
 func compositeKind(sel parse.Selector, errs *parse.ErrorList) (NodeKind, bool) {
-	id, ok := selectorIdent(sel, "library export selector", errs)
+	id, ok := selectorIdent(sel, "library export category", errs)
 	if !ok {
 		return "", false
 	}
 	switch id.Name {
 	case string(NodeResource):
 		return NodeResource, true
-	case string(NodeData):
-		return NodeData, true
+	case string(NodeDataSource):
+		return NodeDataSource, true
 	case string(NodeAction):
 		return NodeAction, true
 	default:
 		errs.Addf(parse.ErrSchema, id.S.Start,
-			"library export selector must be resource, data, or action")
+			"library export category must be resource, data-source, or action")
 		return "", false
 	}
 }

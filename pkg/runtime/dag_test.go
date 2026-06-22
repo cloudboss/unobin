@@ -182,7 +182,7 @@ func TestBuildDAGCompositeInternalRewritesDataAndActionRefs(t *testing.T) {
 	g := syntaxDAG(t, dagFixture(t, "composite-data-action-call"), libs)
 	require.Contains(t,
 		g.Edges["resource.web/action.lookup"],
-		"resource.web/data.ubuntu")
+		"resource.web/data-source.ubuntu")
 	require.Contains(t,
 		g.Edges["resource.web/action.verify"],
 		"resource.web/action.lookup")

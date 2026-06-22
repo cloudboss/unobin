@@ -8,9 +8,9 @@ import (
 type Category string
 
 const (
-	CategoryResource Category = "resource"
-	CategoryData     Category = "data"
-	CategoryAction   Category = "action"
+	CategoryResource   Category = "resource"
+	CategoryDataSource Category = "data-source"
+	CategoryAction     Category = "action"
 )
 
 type StringKey struct {
@@ -146,7 +146,7 @@ func parseSegment(s string) (StateAddressSegment, error) {
 	}
 	category, ok := parseCategory(s[:dot])
 	if !ok {
-		return StateAddressSegment{}, fmt.Errorf("address root must be resource, data, or action")
+		return StateAddressSegment{}, fmt.Errorf("address root must be resource, data-source, or action")
 	}
 	rest := s[dot+1:]
 	name := rest
@@ -170,7 +170,7 @@ func parseSegment(s string) (StateAddressSegment, error) {
 
 func parseCategory(s string) (Category, bool) {
 	switch Category(s) {
-	case CategoryResource, CategoryData, CategoryAction:
+	case CategoryResource, CategoryDataSource, CategoryAction:
 		return Category(s), true
 	default:
 		return "", false

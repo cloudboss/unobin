@@ -1,1 +1,1 @@
-factory.ub:3:13: schema: state-moves[0].from: address root must be resource, data, or action
+factory.ub:3:13: schema: state-moves[0].from: address root must be resource, data-source, or action

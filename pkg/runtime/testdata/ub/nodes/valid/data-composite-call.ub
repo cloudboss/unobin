@@ -1,1 +1,1 @@
-data: { latest: img.lookup { family: 'ubuntu' } }
+data-sources: { latest: img.lookup { family: 'ubuntu' } }

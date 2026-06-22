@@ -129,7 +129,7 @@ func TestExtractLockName(t *testing.T) {
 	}{
 		{name: "action", fixture: "extract-action", want: "kubectl"},
 		{name: "resource", fixture: "extract-resource", want: "sg"},
-		{name: "data", fixture: "extract-data", want: "reads"},
+		{name: "data-source", fixture: "extract-data", want: "reads"},
 		{name: "no lock", fixture: "extract-none", want: ""},
 	}
 	for _, tt := range tests {

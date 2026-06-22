@@ -153,9 +153,9 @@ func TestGenerateUBLibraryOmitsGenericBody(t *testing.T) {
 
 func TestGenerateUBLibrarySplitsByKind(t *testing.T) {
 	bodies := map[string]map[string]syntax.FactoryBody{
-		"resource": {"box": parseSyntaxUB(t, "resource", "box", "description: 'r'")},
-		"data":     {"lookup": parseSyntaxUB(t, "data", "lookup", "description: 'd'")},
-		"action":   {"run": parseSyntaxUB(t, "action", "run", "description: 'a'")},
+		"resource":    {"box": parseSyntaxUB(t, "resource", "box", "description: 'r'")},
+		"data-source": {"lookup": parseSyntaxUB(t, "data-source", "lookup", "description: 'd'")},
+		"action":      {"run": parseSyntaxUB(t, "action", "run", "description: 'a'")},
 	}
 
 	out, err := GenerateUBLibrary("mixed", bodies, nil, nil)
@@ -170,7 +170,7 @@ func TestGenerateUBLibrarySplitsByKind(t *testing.T) {
 	require.Regexp(t, `DataComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
 	require.Regexp(t, `ActionComposites:\s*map\[string\]\*runtime\.CompositeType\{`, s)
 	require.Regexp(t, `"box":\s*\{\s*Name:\s*"box",\s*Kind:\s*runtime\.NodeResource`, s)
-	require.Regexp(t, `"lookup":\s*\{\s*Name:\s*"lookup",\s*Kind:\s*runtime\.NodeData`, s)
+	require.Regexp(t, `"lookup":\s*\{\s*Name:\s*"lookup",\s*Kind:\s*runtime\.NodeDataSource`, s)
 	require.Regexp(t, `"run":\s*\{\s*Name:\s*"run",\s*Kind:\s*runtime\.NodeAction`, s)
 }
 
@@ -190,9 +190,9 @@ func TestGenerateUBLibraryRejectsUnknownKind(t *testing.T) {
 
 func TestGenerateUBLibraryAllowsSameNameAcrossKinds(t *testing.T) {
 	bodies := map[string]map[string]syntax.FactoryBody{
-		"resource": {"vpc": parseSyntaxUB(t, "resource", "vpc", "description: 'r'")},
-		"data":     {"vpc": parseSyntaxUB(t, "data", "vpc", "description: 'd'")},
-		"action":   {"vpc": parseSyntaxUB(t, "action", "vpc", "description: 'a'")},
+		"resource":    {"vpc": parseSyntaxUB(t, "resource", "vpc", "description: 'r'")},
+		"data-source": {"vpc": parseSyntaxUB(t, "data-source", "vpc", "description: 'd'")},
+		"action":      {"vpc": parseSyntaxUB(t, "action", "vpc", "description: 'a'")},
 	}
 
 	out, err := GenerateUBLibrary("net", bodies, nil, nil)
@@ -205,7 +205,7 @@ func TestGenerateUBLibraryAllowsSameNameAcrossKinds(t *testing.T) {
 	s := string(out)
 	require.Equal(t, 3, strings.Count(s, `"vpc":`))
 	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeResource`, s)
-	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeData`, s)
+	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeDataSource`, s)
 	require.Regexp(t, `"vpc":\s*\{\s*Name:\s*"vpc",\s*Kind:\s*runtime\.NodeAction`, s)
 }
 

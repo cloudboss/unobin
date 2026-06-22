@@ -20,7 +20,7 @@ factory: {
     doc: e2e.file { path: 'files/doc.txt', content: 'hello' }
   }
 
-  data: {
+  data-sources: {
     prior: e2e.read-file { path: 'files/doc.txt', optional: true }
   }
 

@@ -259,7 +259,7 @@ func TestPersistedDependsOn(t *testing.T) {
 			name: "collapse through a data source",
 			steps: []PlanStep{
 				leafStep("a"),
-				{Address: "d", Kind: NodeData, Decision: DecisionRead},
+				{Address: "d", Kind: NodeDataSource, Decision: DecisionRead},
 				leafStep("r"),
 			},
 			// a -> d -> r; d is not persisted, so a records r.
@@ -311,8 +311,8 @@ func TestPersistedDependsOn(t *testing.T) {
 			name: "diamond through data sources collapses to one",
 			steps: []PlanStep{
 				leafStep("a"),
-				{Address: "d1", Kind: NodeData, Decision: DecisionRead},
-				{Address: "d2", Kind: NodeData, Decision: DecisionRead},
+				{Address: "d1", Kind: NodeDataSource, Decision: DecisionRead},
+				{Address: "d2", Kind: NodeDataSource, Decision: DecisionRead},
 				leafStep("r"),
 			},
 			// a -> d1 -> r and a -> d2 -> r; a records r once.

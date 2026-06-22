@@ -1,1 +1,1 @@
-Error: import "helloer": github.com/scratch/repo: hash mismatch (locked sha256:bad, got sha256:e4a42bab1e366f80d20173c9c9d0cf658982a3168809d97c6410e01d83509765)
+Error: import "helloer": github.com/scratch/repo: hash mismatch (locked sha256:bad, got sha256:c987ab5242c211d889cad6d1606ddcfbf9e4e51605c3ffb3c9063240103205c9)

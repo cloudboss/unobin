@@ -1,3 +1,3 @@
-lookup: data {
+lookup: data-source {
   description: 'lookup'
 }

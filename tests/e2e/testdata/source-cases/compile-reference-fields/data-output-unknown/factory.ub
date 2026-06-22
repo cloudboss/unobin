@@ -14,9 +14,9 @@ factory: {
 
   library-configs: { e2e: input.e2e-config }
 
-  data: {
+  data-sources: {
     doc: e2e.read-file { path: 'files/missing.txt', optional: true }
   }
 
-  outputs: { bad: { value: data.doc.nope } }
+  outputs: { bad: { value: data-source.doc.nope } }
 }

@@ -182,6 +182,33 @@ func TestSnapshotPersistsOutputs(t *testing.T) {
 	require.Contains(t, string(b), `"outputs":`)
 }
 
+func TestSnapshotDataSourceEntry(t *testing.T) {
+	snap := &Snapshot{
+		FormatVersion: CurrentFormatVersion,
+		Factory:       FactoryInfo{Name: "x", Version: "v1", ContentRevision: "abc"},
+		Stack:         "prod",
+		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		Entries: []*Entry{
+			{
+				Address:  "data-source.image",
+				Type:     EntryData,
+				Kind:     "data-source",
+				Selector: &Selector{Alias: "aws", Export: "ami"},
+				Inputs:   map[string]any{"name": "ubuntu"},
+				Outputs:  map[string]any{"id": "ami-abc"},
+			},
+		},
+	}
+
+	b, err := EncodeSnapshot(snap)
+	require.NoError(t, err)
+	got, err := DecodeSnapshot(b)
+	require.NoError(t, err)
+	require.Equal(t, snap, got)
+	require.Contains(t, string(b), `"entry-kind": "data-source"`)
+	require.Contains(t, string(b), `"node-kind": "data-source"`)
+}
+
 func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
 	snap := &Snapshot{
 		FormatVersion: CurrentFormatVersion,

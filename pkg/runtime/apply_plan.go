@@ -154,7 +154,7 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		return e.applyAction(ctx, rs, step)
 	case NodeResource:
 		return e.applyResource(ctx, rs, step)
-	case NodeData:
+	case NodeDataSource:
 		return e.applyData(ctx, rs, step)
 	case NodeOutput:
 		return nil

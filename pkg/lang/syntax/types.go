@@ -19,9 +19,9 @@ const (
 type NodeKind string
 
 const (
-	NodeResource NodeKind = "resource"
-	NodeData     NodeKind = "data"
-	NodeAction   NodeKind = "action"
+	NodeResource   NodeKind = "resource"
+	NodeDataSource NodeKind = "data-source"
+	NodeAction     NodeKind = "action"
 )
 
 type Ident struct {

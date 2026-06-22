@@ -27,7 +27,7 @@ var inlineUBGreenlist = map[string]bool{}
 var inlineUBTokens = []string{
 	"actions:",
 	"constraints:",
-	"data:",
+	"data-sources:",
 	"factory:",
 	"imports:",
 	"inputs:",

@@ -24,7 +24,7 @@ func (e *Executor) CheckLibraryConfigs() error {
 			continue
 		}
 		switch n.Kind {
-		case NodeResource, NodeData, NodeAction:
+		case NodeResource, NodeDataSource, NodeAction:
 		default:
 			continue
 		}

@@ -116,7 +116,7 @@ func TestPlanReadsResolvedDataSource(t *testing.T) {
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Equal(t, map[string]any{"value": "a:k"}, ds.ObservedOutputs)
 	require.Empty(t, ds.UnresolvedInputs)
@@ -198,7 +198,7 @@ func TestPlanDefersDataWithPendingInputs(t *testing.T) {
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs)
 	require.Contains(t, ds.UnresolvedInputs, "key")
@@ -230,7 +230,7 @@ func TestDataDefersWhenUpstreamResourceCreated(t *testing.T) {
 	}
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs,
 		"a data source reading a to-be-created resource defers its read to apply")
@@ -268,7 +268,7 @@ func TestApplyErrorsWhenDataChangedSincePlan(t *testing.T) {
 	value = "b"
 	_, err = exec.ApplyPlan(ctx, pf)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "data.cfg")
+	require.Contains(t, err.Error(), "data-source.cfg")
 	require.Contains(t, err.Error(), "changed since the plan")
 	require.Contains(t, err.Error(), `value: "a:k" -> "b:k"`,
 		"the error names each differing field with both values")
@@ -290,10 +290,10 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	ent := snap.Find("data.cfg")
+	ent := snap.Find("data-source.cfg")
 	require.NotNil(t, ent, "the data read belongs in state")
 	require.Equal(t, state.EntryData, ent.Type)
-	require.Equal(t, "data", ent.Kind)
+	require.Equal(t, "data-source", ent.Kind)
 	require.Equal(t, &state.Selector{Alias: "core", Export: "dial"}, ent.Selector)
 	require.Equal(t, map[string]any{"key": "k"}, ent.Inputs)
 	require.Equal(t, map[string]any{"value": "a:k"}, ent.Outputs)
@@ -310,14 +310,14 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	for _, s := range plan.Steps {
-		require.NotEqual(t, "data.cfg", s.Address,
+		require.NotEqual(t, "data-source.cfg", s.Address,
 			"a removed data node prunes from state without a step")
 	}
 	_, err = planAndApplyExisting(second, plan)
 	require.NoError(t, err)
 	snap, err = store.Current()
 	require.NoError(t, err)
-	require.Nil(t, snap.Find("data.cfg"))
+	require.Nil(t, snap.Find("data-source.cfg"))
 }
 
 // Each @for-each instance reads at plan with its own key.
@@ -337,9 +337,9 @@ func TestForEachDataReadsAtPlan(t *testing.T) {
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"value": "v:x"},
-		findStep(t, plan, `data.cfg['a']`).ObservedOutputs)
+		findStep(t, plan, `data-source.cfg['a']`).ObservedOutputs)
 	require.Equal(t, map[string]any{"value": "v:y"},
-		findStep(t, plan, `data.cfg['b']`).ObservedOutputs)
+		findStep(t, plan, `data-source.cfg['b']`).ObservedOutputs)
 	require.Equal(t, int64(2), reads)
 }
 
@@ -402,7 +402,7 @@ func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.one").Decision)
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read past the stale prior id")
 	require.Empty(t, ds.UnresolvedInputs)
@@ -437,7 +437,7 @@ func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	}
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read until apply")
@@ -522,7 +522,7 @@ func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.one").Decision)
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"a pending @depends-on target defers the read")
 	res, err := planAndApplyExisting(second, plan)
@@ -539,7 +539,7 @@ func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
 	require.Equal(t, DecisionNoOp,
 		findStep(t, plan, "resource.one").Decision)
 	require.Equal(t, map[string]any{"value": "a:fixed"},
-		findStep(t, plan, "data.cfg").ObservedOutputs)
+		findStep(t, plan, "data-source.cfg").ObservedOutputs)
 }
 
 // An explicit @depends-on naming a composite defers the data read
@@ -575,7 +575,7 @@ func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, DecisionUpdate,
 		findStep(t, plan, "resource.x/resource.one").Decision)
-	ds := findStep(t, plan, "data.cfg")
+	ds := findStep(t, plan, "data-source.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"a pending change inside the @depends-on composite defers the read")
 	res, err := planAndApplyExisting(second, plan)
@@ -589,7 +589,7 @@ func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"value": "a:fixed"},
-		findStep(t, plan, "data.cfg").ObservedOutputs)
+		findStep(t, plan, "data-source.cfg").ObservedOutputs)
 }
 
 // amiOut mimics a cloud data source's richer output: a nested struct
@@ -676,7 +676,7 @@ func TestDestroyRemovesDataEntry(t *testing.T) {
 	require.Equal(t, readsBefore, reads, "destroy reads no data sources")
 	snap, err := store.Current()
 	require.NoError(t, err)
-	require.Nil(t, snap.Find("data.cfg"))
+	require.Nil(t, snap.Find("data-source.cfg"))
 	require.Nil(t, snap.Find("resource.one"))
 }
 

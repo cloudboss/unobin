@@ -24,6 +24,6 @@ factory: {
 
   outputs: {
     good: { value: resource.one.path }
-    bad:  { value: data.missing.value }
+    bad:  { value: data-source.missing.value }
   }
 }

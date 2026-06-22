@@ -240,7 +240,7 @@ func TestDataReadDefersWhileLibraryConfigPending(t *testing.T) {
 	plan, err := exec.Plan(context.Background())
 	require.NoError(t, err)
 	require.Empty(t, seen)
-	ds := findStep(t, plan, "data.p")
+	ds := findStep(t, plan, "data-source.p")
 	require.Equal(t, "library-config.fix", ds.DeferredConfig)
 
 	fresh := configurationTestExecutor(t, src, libs)

@@ -96,5 +96,5 @@ func validateUblibraryTypeName(name string) error {
 
 func renderCompositeStub(name string) string {
 	return fmt.Sprintf("%s: resource {description: 'TODO: describe this composite type' "+
-		"inputs: {} imports: {} data: {} resources: {} actions: {} outputs: {}}\n", name)
+		"inputs: {} imports: {} data-sources: {} resources: {} actions: {} outputs: {}}\n", name)
 }

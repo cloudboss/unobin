@@ -43,8 +43,8 @@ func TestRefsResourceForEachIndex(t *testing.T) {
 }
 
 func TestRefsDataAndAction(t *testing.T) {
-	require.Equal(t, []string{"data.aws.ami.ubuntu"},
-		Refs(parseValue(t, "data.aws.ami.ubuntu.id")))
+	require.Equal(t, []string{"data-source.ubuntu"},
+		Refs(parseValue(t, "data-source.ubuntu.id")))
 	require.Equal(t, []string{"action.core.command.smoke"},
 		Refs(parseValue(t, "action.core.command.smoke.exit-code")))
 }
@@ -66,7 +66,7 @@ func TestRefsInterpolated(t *testing.T) {
 		{"each binding ignored", `$'{{@each.value}}'`, nil},
 		{"single input", `$'{{input.region}}'`, []string{"input.region"}},
 		{"single resource", `$'{{resource.aws.vpc.main.id}}'`, []string{"resource.aws.vpc.main"}},
-		{"single data", `$'{{data.aws.ami.ubuntu.id}}'`, []string{"data.aws.ami.ubuntu"}},
+		{"single data", `$'{{data-source.ubuntu.id}}'`, []string{"data-source.ubuntu"}},
 		{
 			"single action",
 			`$'{{action.core.command.smoke.exit-code}}'`,
@@ -84,13 +84,13 @@ func TestRefsInterpolated(t *testing.T) {
 		{"duplicate ref deduped", `$'{{input.x}}/{{input.x}}'`, []string{"input.x"}},
 		{
 			"mixed kinds",
-			`$'{{input.region}}/{{resource.aws.vpc.main.id}}/{{data.aws.ami.ubuntu.id}}'`,
-			[]string{"input.region", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
+			`$'{{input.region}}/{{resource.aws.vpc.main.id}}/{{data-source.ubuntu.id}}'`,
+			[]string{"input.region", "resource.aws.vpc.main", "data-source.ubuntu"},
 		},
 		{
 			"conditional slot unions both branches",
-			`$'{{if input.cond then resource.aws.vpc.main.id else data.aws.ami.ubuntu.id}}'`,
-			[]string{"input.cond", "resource.aws.vpc.main", "data.aws.ami.ubuntu"},
+			`$'{{if input.cond then resource.aws.vpc.main.id else data-source.ubuntu.id}}'`,
+			[]string{"input.cond", "resource.aws.vpc.main", "data-source.ubuntu"},
 		},
 		{"call argument ref", `$'{{format('%s', input.x)}}'`, []string{"input.x"}},
 	}

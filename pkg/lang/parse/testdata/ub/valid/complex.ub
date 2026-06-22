@@ -20,4 +20,4 @@ unary-on-paren:      -(input.x + input.y)
 chain-with-calls:    a + format('%s', x) + b
 call-with-arr-arg:   build([1, 2, 3], input.opts)
 call-with-obj-arg:   merge({a: 1, b: 2}, input.extra)
-double-indexed:      data.x['outer']['inner'].field
+double-indexed:      data-source.x['outer']['inner'].field

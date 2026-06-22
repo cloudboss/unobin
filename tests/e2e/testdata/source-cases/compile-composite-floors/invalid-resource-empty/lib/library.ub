@@ -1,3 +1,3 @@
 box: resource {
-  data: { x: aws.ami {} }
+  data-sources: { x: aws.ami {} }
 }

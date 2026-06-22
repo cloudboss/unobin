@@ -80,14 +80,14 @@ func TestExtractNodesAllKinds(t *testing.T) {
 	}
 	require.Equal(t, []string{
 		"resource.main",
-		"data.ubuntu",
+		"data-source.ubuntu",
 		"action.hello",
 		"output.vpc-id",
 		"output.static",
 	}, addresses)
 
 	require.Equal(t, NodeResource, got[0].Kind)
-	require.Equal(t, NodeData, got[1].Kind)
+	require.Equal(t, NodeDataSource, got[1].Kind)
 	require.Equal(t, NodeAction, got[2].Kind)
 	require.Equal(t, NodeOutput, got[3].Kind)
 }
@@ -99,7 +99,7 @@ func TestExtractSyntaxNodesMatchesFactoryDAG(t *testing.T) {
 	require.Contains(t, got.Nodes, "library-config.std")
 	require.Contains(t, got.Nodes, "resource.hello")
 	require.Contains(t, got.Nodes, "resource.selected")
-	require.Contains(t, got.Nodes, "data.lookup")
+	require.Contains(t, got.Nodes, "data-source.lookup")
 	require.Contains(t, got.Nodes, "action.show")
 	require.Contains(t, got.Nodes, "output.path")
 }
@@ -326,7 +326,7 @@ func TestExtractNodesReadsLibraryConfigAlias(t *testing.T) {
 	require.Len(t, got, 4)
 
 	require.Equal(t, "resource.web", got[0].Address)
-	require.Equal(t, "data.ubuntu", got[1].Address)
+	require.Equal(t, "data-source.ubuntu", got[1].Address)
 	require.Equal(t, "action.probe", got[2].Address)
 	require.Equal(t, "library-config.aws", got[3].Address)
 	require.Equal(t, NodeLibraryConfig, got[3].Kind)
@@ -334,7 +334,7 @@ func TestExtractNodesReadsLibraryConfigAlias(t *testing.T) {
 }
 
 func TestExtractNodesExpandsDataComposite(t *testing.T) {
-	composite := syntaxComposite(t, "lookup", NodeData, nodeFixture(t, "data-composite-body"))
+	composite := syntaxComposite(t, "lookup", NodeDataSource, nodeFixture(t, "data-composite-body"))
 	libs := map[string]*Library{
 		"img": {
 			Name: "img",
@@ -347,15 +347,15 @@ func TestExtractNodesExpandsDataComposite(t *testing.T) {
 	got := extractSyntaxTestNodes(t, src, libs)
 	require.Len(t, got, 2)
 
-	require.Equal(t, "data.latest", got[0].Address)
+	require.Equal(t, "data-source.latest", got[0].Address)
 	require.True(t, got[0].IsComposite())
-	require.Equal(t, NodeData, got[0].Kind)
+	require.Equal(t, NodeDataSource, got[0].Kind)
 	require.Same(t, composite.SyntaxBody, got[0].CompositeSyntaxBody)
 	require.Empty(t, got[0].Composite)
 
-	require.Equal(t, "data.latest/data.ubuntu", got[1].Address)
-	require.Equal(t, NodeData, got[1].Kind)
-	require.Equal(t, "data.latest", got[1].Composite)
+	require.Equal(t, "data-source.latest/data-source.ubuntu", got[1].Address)
+	require.Equal(t, NodeDataSource, got[1].Kind)
+	require.Equal(t, "data-source.latest", got[1].Composite)
 }
 
 func TestExtractNodesExpandsActionComposite(t *testing.T) {

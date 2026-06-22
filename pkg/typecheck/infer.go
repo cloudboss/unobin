@@ -683,7 +683,7 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 	switch dp.Root.Name {
 	case "input":
 		return inferInput(dp, scope, errs)
-	case "resource", "data", "action":
+	case "resource", "data-source", "action":
 		return inferNode(dp, scope, errs)
 	case "local":
 		return inferLocal(dp, scope, errs)
@@ -1372,7 +1372,7 @@ func join(a, b Type) (Type, bool) {
 // messages. Lives here so check_refs.go and the inferrer agree.
 func FieldKindLabel(kind string) string {
 	switch strings.ToLower(kind) {
-	case "data":
+	case "data-source":
 		return "data source"
 	default:
 		return strings.ToLower(kind)

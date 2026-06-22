@@ -48,7 +48,7 @@ type Executor struct {
 	Store   state.Backend
 	Factory state.FactoryInfo
 
-	// Parallelism caps the number of in-flight resource, data, and
+	// Parallelism caps the number of in-flight resource, data-source, and
 	// action steps during ApplyPlan. Zero or negative falls back to
 	// DefaultParallelism.
 	Parallelism int
@@ -116,8 +116,8 @@ func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
 	return v, ok
 }
 
-// stateScope builds an evaluation context whose resource, data, and
-// action values come from a prior snapshot, for evaluating internal
+// stateScope builds an evaluation context whose resource, data-source,
+// and action values come from a prior snapshot, for evaluating internal
 // configurations against what the last apply recorded. Only root
 // entries seed it: configurations are defined at the factory root and
 // cannot reference composite internals.
@@ -610,7 +610,7 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 			continue
 		}
 		switch step.Kind {
-		case NodeAction, NodeResource, NodeData:
+		case NodeAction, NodeResource, NodeDataSource:
 			keep[step.Address] = true
 		}
 	}
@@ -629,7 +629,7 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 // boundary directly) falls back to resources.
 func scopeMapForKind(scope *EvalContext, kind NodeKind) map[string]any {
 	switch kind {
-	case NodeData:
+	case NodeDataSource:
 		return scope.Data
 	case NodeAction:
 		return scope.Actions

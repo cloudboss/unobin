@@ -1,5 +1,5 @@
-data: { al: core.ami { key: 'k' } }
+data-sources: { al: core.ami { key: 'k' } }
 outputs: {
-  id:   { value: data.al.id }
-  name: { value: data.al.devices[0].name }
+  id:   { value: data-source.al.id }
+  name: { value: data-source.al.devices[0].name }
 }

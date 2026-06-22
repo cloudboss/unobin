@@ -737,9 +737,9 @@ func TestParseFixtureComplex(t *testing.T) {
 	require.IsType(t, &ObjectLit{}, cwo.Args[0])
 	require.Len(t, cwo.Args[0].(*ObjectLit).Fields, 2)
 
-	// double-indexed: data.x['outer']['inner'].field
+	// double-indexed: data-source.x['outer']['inner'].field
 	di := byKey["double-indexed"].(*DotPath)
-	require.Equal(t, "data", di.Root.Name)
+	require.Equal(t, "data-source", di.Root.Name)
 	require.Len(t, di.Segments, 4)
 	require.Equal(t, "x", di.Segments[0].Name)
 	require.Equal(t, "outer", di.Segments[1].Index.(*StringLit).Value)

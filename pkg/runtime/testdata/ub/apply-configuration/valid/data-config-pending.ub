@@ -7,6 +7,6 @@ library-configs: {
 resources: {
   src: base.echo { value: 'https://cluster.example' }
 }
-data: {
+data-sources: {
   p: fix.probe {}
 }

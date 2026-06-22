@@ -1,5 +1,5 @@
-widget: data {
+widget: data-source {
   imports: { shared: 'github.com/x/y//internal/shared' }
-  data: { s: shared.secret { y: 'ok' } }
-  outputs: { y: { value: data.s.y } }
+  data-sources: { s: shared.secret { y: 'ok' } }
+  outputs: { y: { value: data-source.s.y } }
 }

@@ -1,5 +1,5 @@
   (rerun)   action.capture
-      message: <data.read-back.content>
+      message: <data-source.read-back.content>
       name: 'read'
   (create)  resource.doc
       content: 'one'

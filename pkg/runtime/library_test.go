@@ -123,18 +123,18 @@ func TestLibraryHoldsCompositeTypes(t *testing.T) {
 		},
 	}
 	require.Same(t, composite.SyntaxBody, lib.Composite(NodeResource, "cluster").SyntaxBody)
-	require.Nil(t, lib.Composite(NodeData, "cluster"), "kind selects the map")
+	require.Nil(t, lib.Composite(NodeDataSource, "cluster"), "kind selects the map")
 }
 
 func TestLibraryAddComposite(t *testing.T) {
 	lib := &Library{}
 	lib.AddComposite(&CompositeType{Name: "box", Kind: NodeResource})
-	lib.AddComposite(&CompositeType{Name: "box", Kind: NodeData})
+	lib.AddComposite(&CompositeType{Name: "box", Kind: NodeDataSource})
 	lib.AddComposite(&CompositeType{Name: "run", Kind: NodeAction})
 
 	require.NotNil(t, lib.Composite(NodeResource, "box"))
-	require.NotNil(t, lib.Composite(NodeData, "box"),
-		"resource.box and data.box are independent namespaces")
+	require.NotNil(t, lib.Composite(NodeDataSource, "box"),
+		"resource.box and data-source.box are independent namespaces")
 	require.NotNil(t, lib.Composite(NodeAction, "run"))
 	require.Nil(t, lib.Composite(NodeAction, "box"))
 }

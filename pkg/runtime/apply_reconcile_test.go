@@ -108,7 +108,7 @@ func TestReconcileTargets(t *testing.T) {
 			name: "data read is not a mutator",
 			steps: []PlanStep{
 				res("a", DecisionNoOp),
-				{Address: "d", Kind: NodeData, Decision: DecisionRead},
+				{Address: "d", Kind: NodeDataSource, Decision: DecisionRead},
 			},
 			deps: map[string][]string{"d": {"a"}},
 			want: nil,

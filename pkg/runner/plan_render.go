@@ -88,7 +88,7 @@ func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 	fmt.Fprintf(out, "Deferred reads (%d):\n", len(deferred))
 	for _, s := range deferred {
 		reason := "drift unchecked this plan"
-		if s.Kind == runtime.NodeData {
+		if s.Kind == runtime.NodeDataSource {
 			reason = "read deferred to apply"
 		}
 		fmt.Fprintf(out, "  %s    %s pending; %s\n",

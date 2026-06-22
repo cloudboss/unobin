@@ -90,5 +90,5 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 
 func renderFactoryStub() string {
 	return "factory: {description: 'TODO: describe this factory' inputs: {} imports: {} " +
-		"data: {} resources: {} actions: {} outputs: {}}\n"
+		"data-sources: {} resources: {} actions: {} outputs: {}}\n"
 }

@@ -13,7 +13,7 @@ type NodeKind string
 
 const (
 	NodeResource      NodeKind = "resource"
-	NodeData          NodeKind = "data"
+	NodeDataSource    NodeKind = "data-source"
 	NodeAction        NodeKind = "action"
 	NodeOutput        NodeKind = "output"
 	NodeLibraryConfig NodeKind = "library-config"
@@ -22,9 +22,10 @@ const (
 // Node is one addressable element of a stack: a single resource instance,
 // data source, action, output, or composite call site. Address is the
 // dotted form the language uses to reference the node from elsewhere,
-// such as `resource.app`, `action.deploy`, or `output.cluster-arn`.
-// Body is the source expression: an ObjectLit for resources, data,
-// actions, and composites; any Expr for outputs.
+// such as `resource.app`, `data-source.image`, `action.deploy`, or
+// `output.cluster-arn`.
+// Body is the source expression: an ObjectLit for resources, data
+// sources, actions, and composites; any Expr for outputs.
 //
 // A node inside a composite stores the call site address in Composite so
 // the runtime evaluates its body against the composite's scope rather
@@ -87,7 +88,7 @@ func ExtractSyntaxNodes(body syntax.FactoryBody, libs map[string]*Library) []*No
 func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]*Library) []*Node {
 	var nodes []*Node
 	nodes = append(nodes, extractSyntaxKind(body.Resources, NodeResource, parent, libs)...)
-	nodes = append(nodes, extractSyntaxKind(body.Data, NodeData, parent, libs)...)
+	nodes = append(nodes, extractSyntaxKind(body.Data, NodeDataSource, parent, libs)...)
 	nodes = append(nodes, extractSyntaxKind(body.Actions, NodeAction, parent, libs)...)
 	nodes = append(nodes, extractSyntaxLibraryConfigs(body.LibraryConfigs, parent)...)
 	if parent == "" {

@@ -1,2 +1,2 @@
-data:    { x: w.box { key: 'abc' } }
-outputs: { out: { value: data.x.value } }
+data-sources:    { x: w.box { key: 'abc' } }
+outputs: { out: { value: data-source.x.value } }

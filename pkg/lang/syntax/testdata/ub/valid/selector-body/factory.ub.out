@@ -1,4 +1,4 @@
 library config greet expr=input
 resource hello -> std.fs-file fields=1
-data existing -> std.file fields=1
+data-source existing -> std.file fields=1
 action run -> std.exec fields=1

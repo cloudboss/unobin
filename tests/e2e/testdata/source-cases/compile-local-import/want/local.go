@@ -13,7 +13,7 @@ func Library() *runtime.Library {
 		DataComposites: map[string]*runtime.CompositeType{
 			"message": {
 				Name:       "message",
-				Kind:       runtime.NodeData,
+				Kind:       runtime.NodeDataSource,
 				SyntaxBody: &syntax.FactoryBody{Outputs: []syntax.OutputDecl{{Name: syntax.Ident{Name: "text"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "value"}, Value: &lang.StringLit{Value: "hi"}}}}}}},
 			},
 		},

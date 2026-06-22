@@ -29,9 +29,9 @@
       ]
     },
     {
-      "address": "data.read-back",
-      "entry-kind": "data",
-      "node-kind": "data",
+      "address": "data-source.read-back",
+      "entry-kind": "data-source",
+      "node-kind": "data-source",
       "selector": {
         "alias": "e2e",
         "export": "read-file"

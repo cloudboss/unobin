@@ -23,7 +23,7 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 			continue
 		}
 		switch n.Kind {
-		case runtime.NodeResource, runtime.NodeData, runtime.NodeAction:
+		case runtime.NodeResource, runtime.NodeDataSource, runtime.NodeAction:
 		default:
 			continue
 		}

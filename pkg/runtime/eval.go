@@ -746,7 +746,7 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		root = ctx.Inputs
 	case "resource":
 		root = ctx.Resources
-	case "data":
+	case "data-source":
 		root = ctx.Data
 	case "action":
 		root = ctx.Actions

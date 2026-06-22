@@ -2,7 +2,7 @@ vpc: resource {
   outputs: { id: { value: 'managed' } }
 }
 
-vpc: data {
+vpc: data-source {
   outputs: { id: { value: 'existing' } }
 }
 

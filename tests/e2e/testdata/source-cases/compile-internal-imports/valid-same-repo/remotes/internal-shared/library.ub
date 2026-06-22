@@ -1,4 +1,4 @@
-secret: data {
+secret: data-source {
   inputs: { y: { type: string } }
   outputs: { y: { value: input.y } }
 }

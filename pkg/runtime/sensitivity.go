@@ -161,7 +161,7 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 		return names
 	}
 	switch n.Kind {
-	case NodeResource, NodeAction, NodeData:
+	case NodeResource, NodeAction, NodeDataSource:
 		libs, _ := s.libsForNode(n)
 		lib, ok := libs[n.Alias]
 		if !ok || lib == nil || lib.Schema == nil {
@@ -171,7 +171,7 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 		switch n.Kind {
 		case NodeResource:
 			ts = lib.Schema.Resources[n.Type]
-		case NodeData:
+		case NodeDataSource:
 			ts = lib.Schema.DataSources[n.Type]
 		case NodeAction:
 			ts = lib.Schema.Actions[n.Type]
@@ -338,7 +338,7 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 		return sc.inputs[dp.Segments[0].Name]
 	case "local":
 		return s.localSensitive(dp, sc)
-	case "resource", "data", "action":
+	case "resource", "data-source", "action":
 		if sc.nodes != nil {
 			if match, ok := RefMatchInScope(dp, sc.nodes, sc.scope); ok {
 				field := trailingNamedSegmentAfter(dp, match.Segments)
@@ -393,7 +393,7 @@ func (s *sensitivityAnalyzer) libraryFieldSensitive(
 		if comp, ok := lib.ResourceComposites[typ]; ok {
 			return s.compositeTypeOutputs(comp)[field]
 		}
-	case "data":
+	case "data-source":
 		if comp, ok := lib.DataComposites[typ]; ok {
 			return s.compositeTypeOutputs(comp)[field]
 		}
@@ -409,7 +409,7 @@ func (s *sensitivityAnalyzer) libraryFieldSensitive(
 	switch root {
 	case "resource":
 		ts = lib.Schema.Resources[typ]
-	case "data":
+	case "data-source":
 		ts = lib.Schema.DataSources[typ]
 	case "action":
 		ts = lib.Schema.Actions[typ]
