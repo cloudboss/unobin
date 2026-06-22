@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,6 +13,16 @@ import (
 // or a state snapshot. Bump it when the envelope itself changes; the inner
 // body keeps its own format version, which moves independently.
 const EnvelopeVersion = 1
+
+// PayloadType labels the plaintext body sealed inside an Envelope.
+type PayloadType string
+
+const (
+	// PayloadTypePlan marks a sealed plan file body.
+	PayloadTypePlan PayloadType = "plan"
+	// PayloadTypeState marks a sealed state snapshot body.
+	PayloadTypeState PayloadType = "state"
+)
 
 // Ref names an entry in the fixed backend or encrypter registry. Name is
 // the bare state or encryption selector from the stack file; Body is the
@@ -38,16 +49,20 @@ type Ref struct {
 // decrypt with the encrypter resolved from the stack file and treat the
 // recorded ref as information for operators and error messages.
 type Envelope struct {
-	EnvelopeVersion int    `json:"envelope-version"`
-	Encrypter       *Ref   `json:"encrypter,omitempty"`
-	Ciphertext      []byte `json:"ciphertext"`
+	EnvelopeVersion int         `json:"envelope-version"`
+	PayloadType     PayloadType `json:"payload-type,omitempty"`
+	Encrypter       *Ref        `json:"encrypter,omitempty"`
+	Ciphertext      []byte      `json:"ciphertext"`
 }
 
 // Seal encrypts body with enc and wraps the result in an Envelope ready for
 // atomic write. The envelope records enc's description, taken after
 // encrypting so it includes facts resolved on first use, like the kms
 // encrypter's key ARN.
-func Seal(body []byte, enc encrypt.Encrypter) ([]byte, error) {
+func Seal(body []byte, payloadType PayloadType, enc encrypt.Encrypter) ([]byte, error) {
+	if payloadType == "" {
+		return nil, errors.New("envelope: payload-type is required")
+	}
 	sealed, err := enc.Encrypt(body)
 	if err != nil {
 		return nil, fmt.Errorf("seal: encrypt: %w", err)
@@ -55,6 +70,7 @@ func Seal(body []byte, enc encrypt.Encrypter) ([]byte, error) {
 	d := enc.Describe()
 	env := Envelope{
 		EnvelopeVersion: EnvelopeVersion,
+		PayloadType:     payloadType,
 		Encrypter:       &Ref{Name: d.KeySource, Body: d.Config},
 		Ciphertext:      sealed,
 	}
@@ -68,7 +84,11 @@ func Seal(body []byte, enc encrypt.Encrypter) ([]byte, error) {
 // Open reads an envelope and returns the decrypted inner body. resolveEnc
 // builds or selects an encrypter from the envelope's ref; it receives nil
 // when the envelope has no encrypter ref.
-func Open(b []byte, resolveEnc func(*Ref) (encrypt.Encrypter, error)) ([]byte, error) {
+func Open(
+	b []byte,
+	expectedPayloadType PayloadType,
+	resolveEnc func(*Ref) (encrypt.Encrypter, error),
+) ([]byte, error) {
 	var env Envelope
 	if err := json.Unmarshal(b, &env); err != nil {
 		return nil, fmt.Errorf("envelope: %w", err)
@@ -77,6 +97,10 @@ func Open(b []byte, resolveEnc func(*Ref) (encrypt.Encrypter, error)) ([]byte, e
 		return nil, fmt.Errorf(
 			"envelope: unsupported envelope-version %d (this build expects %d)",
 			env.EnvelopeVersion, EnvelopeVersion)
+	}
+	if expectedPayloadType != "" && env.PayloadType != "" && env.PayloadType != expectedPayloadType {
+		return nil, fmt.Errorf(
+			"envelope: payload-type %s, expected %s", env.PayloadType, expectedPayloadType)
 	}
 	enc, err := resolveEnc(env.Encrypter)
 	if err != nil {

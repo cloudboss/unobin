@@ -46,10 +46,10 @@ func reverseBytes(b []byte) []byte {
 }
 
 func TestSealOpenRoundTrip(t *testing.T) {
-	sealed, err := Seal([]byte("the body"), reversingEncrypter{})
+	sealed, err := Seal([]byte("the body"), PayloadTypeState, reversingEncrypter{})
 	require.NoError(t, err)
 
-	body, err := Open(sealed, func(got *Ref) (encrypt.Encrypter, error) {
+	body, err := Open(sealed, PayloadTypeState, func(got *Ref) (encrypt.Encrypter, error) {
 		require.NotNil(t, got, "envelope should include the encrypter ref")
 		assert.Equal(t, "reversing", got.Name)
 		assert.Equal(t, map[string]any{"direction": "backward"}, got.Body)
@@ -60,19 +60,20 @@ func TestSealOpenRoundTrip(t *testing.T) {
 }
 
 func TestSealRecordsEncrypterDescription(t *testing.T) {
-	sealed, err := Seal([]byte("body"), reversingEncrypter{})
+	sealed, err := Seal([]byte("body"), PayloadTypeState, reversingEncrypter{})
 	require.NoError(t, err)
 
 	var env Envelope
 	require.NoError(t, json.Unmarshal(sealed, &env))
 	require.Equal(t, EnvelopeVersion, env.EnvelopeVersion)
+	require.Equal(t, PayloadTypeState, env.PayloadType)
 	require.NotNil(t, env.Encrypter)
 	require.Equal(t, "reversing", env.Encrypter.Name)
 	require.Equal(t, map[string]any{"direction": "backward"}, env.Encrypter.Body)
 }
 
 func TestSealOmitsBodyForEmptyConfig(t *testing.T) {
-	sealed, err := Seal([]byte("body"), failingEncrypter{
+	sealed, err := Seal([]byte("body"), PayloadTypeState, failingEncrypter{
 		desc: encrypt.Description{KeySource: "failing"},
 	})
 	require.NoError(t, err)
@@ -93,7 +94,7 @@ func TestOpenPassesNilForMissingRef(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	body, err := Open(raw, func(got *Ref) (encrypt.Encrypter, error) {
+	body, err := Open(raw, PayloadTypeState, func(got *Ref) (encrypt.Encrypter, error) {
 		assert.Nil(t, got, "resolver should receive nil ref when none is in the envelope")
 		return reversingEncrypter{}, nil
 	})
@@ -105,11 +106,29 @@ func TestOpenRejectsUnknownEnvelopeVersion(t *testing.T) {
 	raw, err := json.Marshal(Envelope{EnvelopeVersion: 99, Ciphertext: []byte("x")})
 	require.NoError(t, err)
 
-	_, err = Open(raw, func(*Ref) (encrypt.Encrypter, error) {
+	_, err = Open(raw, PayloadTypeState, func(*Ref) (encrypt.Encrypter, error) {
 		return reversingEncrypter{}, nil
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "envelope-version 99")
+}
+
+func TestOpenRejectsMismatchedPayloadType(t *testing.T) {
+	raw, err := json.Marshal(Envelope{
+		EnvelopeVersion: EnvelopeVersion,
+		PayloadType:     PayloadTypePlan,
+		Ciphertext:      reverseBytes([]byte("the body")),
+	})
+	require.NoError(t, err)
+
+	called := false
+	_, err = Open(raw, PayloadTypeState, func(*Ref) (encrypt.Encrypter, error) {
+		called = true
+		return reversingEncrypter{}, nil
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "payload-type plan, expected state")
+	assert.False(t, called)
 }
 
 func TestOpenDecryptFailureNamesKeySource(t *testing.T) {
@@ -146,10 +165,10 @@ func TestOpenDecryptFailureNamesKeySource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			enc := failingEncrypter{desc: tt.desc}
-			sealed, err := Seal([]byte("body"), enc)
+			sealed, err := Seal([]byte("body"), PayloadTypeState, enc)
 			require.NoError(t, err)
 
-			_, err = Open(sealed, func(*Ref) (encrypt.Encrypter, error) {
+			_, err = Open(sealed, PayloadTypeState, func(*Ref) (encrypt.Encrypter, error) {
 				return enc, nil
 			})
 			require.Error(t, err)
@@ -166,7 +185,7 @@ func TestOpenDecryptFailureWithoutRefStaysPlain(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = Open(raw, func(*Ref) (encrypt.Encrypter, error) {
+	_, err = Open(raw, PayloadTypeState, func(*Ref) (encrypt.Encrypter, error) {
 		return failingEncrypter{}, nil
 	})
 	require.Error(t, err)

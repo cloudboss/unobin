@@ -218,6 +218,7 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 
 	var env sdkstate.Envelope
 	require.NoError(t, json.Unmarshal(onDisk, &env))
+	require.Equal(t, sdkstate.PayloadTypeState, env.PayloadType)
 	require.NotNil(t, env.Encrypter, "snapshot should record the key source that sealed it")
 	require.Equal(t, "env-key", env.Encrypter.Name)
 	require.Equal(t, "UB_TEST_KEY", env.Encrypter.Body["env-var"])

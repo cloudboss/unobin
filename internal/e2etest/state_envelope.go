@@ -12,9 +12,10 @@ import (
 )
 
 type stateEnvelopeSummary struct {
-	EnvelopeVersion int        `json:"envelope-version"`
-	Encrypter       *state.Ref `json:"encrypter,omitempty"`
-	CiphertextJSON  bool       `json:"ciphertext-json"`
+	EnvelopeVersion int               `json:"envelope-version"`
+	PayloadType     state.PayloadType `json:"payload-type,omitempty"`
+	Encrypter       *state.Ref        `json:"encrypter,omitempty"`
+	CiphertextJSON  bool              `json:"ciphertext-json"`
 }
 
 func compareStateEnvelopes(
@@ -52,6 +53,7 @@ func stateEnvelopeSummaryJSON(workspace string, factoryName string, stack string
 	}
 	summary := stateEnvelopeSummary{
 		EnvelopeVersion: env.EnvelopeVersion,
+		PayloadType:     env.PayloadType,
 		Encrypter:       env.Encrypter,
 		CiphertextJSON:  json.Valid(env.Ciphertext),
 	}

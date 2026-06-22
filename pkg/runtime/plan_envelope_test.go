@@ -61,6 +61,7 @@ func TestSealPlanRecordsEncrypterDescription(t *testing.T) {
 	require.NoError(t, err)
 	var env state.Envelope
 	require.NoError(t, json.Unmarshal(sealed, &env))
+	require.Equal(t, state.PayloadTypePlan, env.PayloadType)
 	require.NotNil(t, env.Encrypter)
 	require.Equal(t, "reversing", env.Encrypter.Name)
 	require.Equal(t, map[string]any{"direction": "backward"}, env.Encrypter.Body)

@@ -1,5 +1,6 @@
 {
   "envelope-version": 1,
+  "payload-type": "state",
   "encrypter": {
     "name": "env-key",
     "body": {

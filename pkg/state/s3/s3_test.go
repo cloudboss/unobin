@@ -286,6 +286,7 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 
 	var env sdkstate.Envelope
 	require.NoError(t, json.Unmarshal(body, &env))
+	assert.Equal(t, sdkstate.PayloadTypeState, env.PayloadType)
 	require.NotNil(t, env.Encrypter, "snapshot should record the key source that sealed it")
 	assert.Equal(t, "env-key", env.Encrypter.Name)
 	assert.Equal(t, "TEST_S3_STATE_KEY", env.Encrypter.Body["env-var"])

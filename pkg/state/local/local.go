@@ -100,7 +100,7 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sealed, err := sdkstate.Seal(body, s.enc)
+	sealed, err := sdkstate.Seal(body, sdkstate.PayloadTypeState, s.enc)
 	if err != nil {
 		return "", err
 	}
@@ -192,9 +192,13 @@ func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := sdkstate.Open(sealed, func(*sdkstate.Ref) (sdkencrypt.Encrypter, error) {
-		return s.enc, nil
-	})
+	body, err := sdkstate.Open(
+		sealed,
+		sdkstate.PayloadTypeState,
+		func(*sdkstate.Ref) (sdkencrypt.Encrypter, error) {
+			return s.enc, nil
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("local store: open %s: %w", rev, err)
 	}

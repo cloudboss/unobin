@@ -14,7 +14,7 @@ func SealPlan(p *Plan, enc encrypt.Encrypter) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return state.Seal(body, enc)
+	return state.Seal(body, state.PayloadTypePlan, enc)
 }
 
 // OpenPlan opens a sealed plan envelope and returns its inner PlanFile.
@@ -28,7 +28,7 @@ func OpenPlan(
 	b []byte,
 	resolveEnc func(*StateRef) (encrypt.Encrypter, error),
 ) (*PlanFile, error) {
-	body, err := state.Open(b, resolveEnc)
+	body, err := state.Open(b, state.PayloadTypePlan, resolveEnc)
 	if err != nil {
 		return nil, err
 	}

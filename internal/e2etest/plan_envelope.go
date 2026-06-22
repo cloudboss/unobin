@@ -11,9 +11,10 @@ import (
 )
 
 type planEnvelopeSummary struct {
-	EnvelopeVersion int        `json:"envelope-version"`
-	Encrypter       *state.Ref `json:"encrypter,omitempty"`
-	CiphertextJSON  bool       `json:"ciphertext-json"`
+	EnvelopeVersion int               `json:"envelope-version"`
+	PayloadType     state.PayloadType `json:"payload-type,omitempty"`
+	Encrypter       *state.Ref        `json:"encrypter,omitempty"`
+	CiphertextJSON  bool              `json:"ciphertext-json"`
 }
 
 func comparePlanEnvelopes(
@@ -73,6 +74,7 @@ func planEnvelopeSummaryJSON(workspace string, relPath string) (string, error) {
 	}
 	summary := planEnvelopeSummary{
 		EnvelopeVersion: env.EnvelopeVersion,
+		PayloadType:     env.PayloadType,
 		Encrypter:       env.Encrypter,
 		CiphertextJSON:  json.Valid(env.Ciphertext),
 	}
