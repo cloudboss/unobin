@@ -1,0 +1,12 @@
+stack: {
+  factory: {
+    pin: {
+      library-path: 'github.com/cloudboss/different-source'
+      supported-versions: [
+        { version: 'v0.1.0'  content-revision: 'abcdef' }
+      ]
+    }
+  }
+
+  encryption: noop {}
+}

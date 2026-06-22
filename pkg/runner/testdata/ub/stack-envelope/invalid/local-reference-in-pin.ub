@@ -1,0 +1,7 @@
+stack: {
+  locals: { repo: 'github.com/cloudboss/cluster-deploy' }
+
+  factory: { pin: { library-path: local.repo } }
+
+  encryption: noop {}
+}

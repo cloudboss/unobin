@@ -1,0 +1,5 @@
+stack: {
+  locals: { region: 'us-east-1' }
+
+  encryption: noop {}
+}

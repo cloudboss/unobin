@@ -1,0 +1,13 @@
+stack: {
+  factory: {
+    pin: {
+      library-path: 'github.com/cloudboss/cluster-deploy'
+      supported-versions: [
+        { version: 'v0.1.0', content-revision: 'abcdef' },
+        { version: 'v0.2.0', content-revision: '123456' },
+      ]
+    }
+  }
+
+  encryption: noop {}
+}

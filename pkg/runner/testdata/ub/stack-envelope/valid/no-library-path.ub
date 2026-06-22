@@ -1,0 +1,11 @@
+stack: {
+  factory: {
+    pin: {
+      supported-versions: [
+        { version: 'v0.1.0'  content-revision: 'abcdef' }
+      ]
+    }
+  }
+
+  encryption: noop {}
+}

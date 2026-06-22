@@ -1,0 +1,4 @@
+factory: {
+  inputs: { region: { type: string } }
+  resources: { x: local.file { path: '/tmp/x', content: 'hi' } }
+}

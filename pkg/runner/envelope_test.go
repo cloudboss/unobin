@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func writeConfig(t *testing.T, body string) string {
@@ -15,6 +17,19 @@ func writeConfig(t *testing.T, body string) string {
 	path := filepath.Join(t.TempDir(), "dev.ub")
 	require.NoError(t, os.WriteFile(path, []byte(sourceStackWithNoop(body)), 0o600))
 	return path
+}
+
+func stackEnvelopeFixture(t testing.TB, name string) string {
+	t.Helper()
+	path := filepath.Join("testdata/ub/stack-envelope", filepath.FromSlash(name)+".ub")
+	require.FileExists(t, path)
+	return path
+}
+
+func readStackEnvelopeFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadFixture(t,
+		filepath.Join("testdata/ub/stack-envelope", filepath.FromSlash(name)+".ub"))
 }
 
 func sourceStack(body string) string {
@@ -50,23 +65,14 @@ func TestLoadFactoryEnvelopeNilFile(t *testing.T) {
 }
 
 func TestLoadFactoryEnvelopeNoFactoryBlock(t *testing.T) {
-	path := writeConfig(t, `locals: { region: 'us-east-1' }`)
+	path := stackEnvelopeFixture(t, "valid/no-factory-block")
 	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.False(t, env.Present)
 }
 
 func TestLoadFactoryEnvelopeWithPin(t *testing.T) {
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/cluster-deploy'
-    supported-versions: [
-      { version: 'v0.1.0', content-revision: 'abcdef' },
-      { version: 'v0.2.0', content-revision: '123456' },
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/with-pin")
 	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
@@ -78,10 +84,7 @@ factory: {
 }
 
 func TestLoadFactoryEnvelopeFactoryWithoutPin(t *testing.T) {
-	path := writeConfig(t, `
-factory: {
-  inputs: { region: 'us-east-1' }
-}`)
+	path := stackEnvelopeFixture(t, "valid/factory-without-pin")
 	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
@@ -90,12 +93,7 @@ factory: {
 }
 
 func TestLoadFactoryEnvelopePinWithoutSupportedVersions(t *testing.T) {
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/cluster-deploy'
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/pin-without-supported-versions")
 	env, err := loadFactoryEnvelope(parseTestStack(t, path), path)
 	require.NoError(t, err)
 	assert.True(t, env.Present)
@@ -122,7 +120,7 @@ func TestVerifyFactoryEnvelopeNoConfigOverrideAllows(t *testing.T) {
 
 func TestVerifyFactoryEnvelopeMissingFactoryBlockSoftFails(t *testing.T) {
 	info := Info{FactoryVersion: "v0.1.0", ContentRevision: "abcdef"}
-	path := writeConfig(t, `locals: { region: 'us-east-1' }`)
+	path := stackEnvelopeFixture(t, "valid/no-factory-block")
 	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
@@ -130,13 +128,7 @@ func TestVerifyFactoryEnvelopeMissingFactoryBlockSoftFails(t *testing.T) {
 
 func TestVerifyFactoryEnvelopeEmptySupportedVersionsSoftFails(t *testing.T) {
 	info := Info{FactoryVersion: "v0.1.0", ContentRevision: "abcdef"}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/test'
-    supported-versions: []
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/empty-supported-versions")
 	info.LibraryPath = "github.com/cloudboss/test"
 	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
@@ -150,15 +142,7 @@ func TestVerifyFactoryEnvelopeVersionNotInListSoftFails(t *testing.T) {
 		ContentRevision: "ffffff",
 		LibraryPath:     "github.com/cloudboss/test",
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/test'
-    supported-versions: [
-      { version: 'v0.1.0'  content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/version-not-in-list")
 	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--allow-version-mismatch")
@@ -171,15 +155,7 @@ func TestVerifyFactoryEnvelopeVersionMismatchOverrideAllows(t *testing.T) {
 		ContentRevision: "ffffff",
 		LibraryPath:     "github.com/cloudboss/test",
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/test'
-    supported-versions: [
-      { version: 'v0.1.0'  content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/version-not-in-list")
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, true))
 }
 
@@ -189,15 +165,7 @@ func TestVerifyFactoryEnvelopeLibraryPathMismatchHardFails(t *testing.T) {
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/binary-source",
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/different-source'
-    supported-versions: [
-      { version: 'v0.1.0'  content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/library-path-mismatch")
 	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, false)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "--allow-version-mismatch")
@@ -210,15 +178,7 @@ func TestVerifyFactoryEnvelopeLibraryPathMismatchNotOverridable(t *testing.T) {
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/binary-source",
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/different-source'
-    supported-versions: [
-      { version: 'v0.1.0'  content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/library-path-mismatch")
 	err := verifyFactoryEnvelope(info, parseTestStack(t, path), path, true)
 	require.Error(t, err)
 }
@@ -229,15 +189,7 @@ func TestVerifyFactoryEnvelopeMatchingPinPasses(t *testing.T) {
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/test",
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/test'
-    supported-versions: [
-      { version: 'v0.1.0'  content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/matching-pin")
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
@@ -247,14 +199,7 @@ func TestVerifyFactoryEnvelopeNoLibraryPathFieldChecksOnlyVersions(t *testing.T)
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/test",
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    supported-versions: [
-      { version: 'v0.1.0'  content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/no-library-path")
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
@@ -269,29 +214,14 @@ func TestVerifyFactoryEnvelopeComparesAgainstLibraryPathNotBody(t *testing.T) {
 		FactoryVersion:  "v0.1.0",
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/cluster-deploy",
-		FactoryBody: sourceFactory(`
-inputs:    { region: { type: string } }
-resources: { x: local.file { path: '/tmp/x', content: 'hi' } }
-`),
+		FactoryBody:     readStackEnvelopeFixture(t, "valid/factory-body"),
 	}
-	path := writeConfig(t, `
-factory: {
-  pin: {
-    library-path: 'github.com/cloudboss/cluster-deploy'
-    supported-versions: [
-      { version: 'v0.1.0', content-revision: 'abcdef' }
-    ]
-  }
-}`)
+	path := stackEnvelopeFixture(t, "valid/with-pin")
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
 func TestParseConfigRejectsLocalReferenceInPin(t *testing.T) {
-	path := writeConfig(t, `
-locals: { repo: 'github.com/cloudboss/cluster-deploy' }
-
-factory: { pin: { library-path: local.repo } }
-`)
+	path := stackEnvelopeFixture(t, "invalid/local-reference-in-pin")
 	_, err := parseStackFile(path)
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
