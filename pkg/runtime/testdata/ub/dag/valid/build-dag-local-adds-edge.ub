@@ -1,0 +1,3 @@
+locals:    { endpoint: resource.main.dns-name }
+resources: { main: aws.lb { name: 'main' } }
+actions:   { notify: core.command { argv: ['echo', local.endpoint] } }

@@ -1,0 +1,5 @@
+library-configs: { k8s: { host: resource.main.endpoint } }
+resources: {
+  main: aws.eks { name: 'web' }
+  apps: k8s.namespace { name: 'apps' }
+}

@@ -1,0 +1,5 @@
+resources: {
+  x: aws.a {}
+  y: aws.b {}
+  z: aws.c {}
+}

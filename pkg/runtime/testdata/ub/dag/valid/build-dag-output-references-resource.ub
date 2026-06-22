@@ -1,0 +1,2 @@
+resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
+outputs:   { vpc-id: { value: resource.main.id } }

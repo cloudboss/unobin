@@ -1,0 +1,2 @@
+library-configs: { aws: { token: resource.session.token } }
+resources: { session: aws.sts { name: 's' } }

@@ -1,0 +1,1 @@
+resources: { x: local.file { path: var.target } }

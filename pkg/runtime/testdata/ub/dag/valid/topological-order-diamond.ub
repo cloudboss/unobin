@@ -1,0 +1,6 @@
+resources: {
+  main: aws.vpc { cidr-block: '10.0.0.0/16' }
+  a:    aws.subnet { vpc-id: resource.main.id }
+  b:    aws.subnet { vpc-id: resource.main.id }
+  web:  aws.cluster { @depends-on: [resource.a, resource.b] }
+}

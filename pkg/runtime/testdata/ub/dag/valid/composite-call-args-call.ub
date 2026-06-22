@@ -1,0 +1,4 @@
+resources: {
+  src: local.file { path: 'src.txt' }
+  web: net.cluster { target: resource.src.path }
+}

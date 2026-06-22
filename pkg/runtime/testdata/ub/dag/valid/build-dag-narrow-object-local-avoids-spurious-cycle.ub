@@ -1,0 +1,6 @@
+locals: { net: { vpc: resource.vpcfile.path, other: resource.b.path } }
+resources: {
+  vpcfile: local.file { path: 'vpc.txt' }
+  a:       local.file { path: local.net.vpc }
+  b:       local.file { path: resource.a.path }
+}

@@ -1,0 +1,6 @@
+data: { ubuntu: aws.ami { most-recent: true } }
+actions: {
+  lookup: core.command { argv: ['echo', data.ubuntu.id] }
+  verify: core.command { argv: ['check', action.lookup.stdout] }
+}
+resources: { x: local.file { content: action.lookup.stdout } }

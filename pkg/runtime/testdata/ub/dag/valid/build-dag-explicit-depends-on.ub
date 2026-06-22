@@ -1,0 +1,4 @@
+resources: {
+  main: aws.vpc { cidr-block: '10.0.0.0/16' }
+  web:  aws.security-group { @depends-on: [resource.main], name: 'web' }
+}

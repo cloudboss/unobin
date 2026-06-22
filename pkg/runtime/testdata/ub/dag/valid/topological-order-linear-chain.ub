@@ -1,0 +1,5 @@
+resources: {
+  main:   aws.vpc { cidr-block: '10.0.0.0/16' }
+  public: aws.subnet { vpc-id: resource.main.id }
+  web:    aws.security-group { vpc-id: resource.public.vpc-id }
+}

@@ -1,0 +1,1 @@
+resources: { web: net.cluster { name: 'web' } }

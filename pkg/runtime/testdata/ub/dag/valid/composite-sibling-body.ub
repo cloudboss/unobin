@@ -1,0 +1,4 @@
+resources: {
+  a: local.file { path: 'a.txt' }
+  b: local.file { path: resource.a.path }
+}

@@ -1,0 +1,2 @@
+locals:  { greeting: 'hello' }
+actions: { go: core.command { argv: ['echo', local.greeting] } }

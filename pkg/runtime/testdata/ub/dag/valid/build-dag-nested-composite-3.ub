@@ -1,0 +1,4 @@
+resources: {
+  main: aws.vpc { cidr-block: '10.0.0.0/16' }
+  mine: outer-lib.layer { target: resource.main.id }
+}

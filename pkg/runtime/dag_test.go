@@ -4,12 +4,22 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
 
+func dagFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/dag", name)
+}
+
+func dagFactorySource(src string) string {
+	return "factory" + ": {\n" + src + "\n}"
+}
+
 func syntaxFactoryBody(t *testing.T, src string) syntax.FactoryBody {
 	t.Helper()
-	fixture := parseSyntaxFactoryFixture(t, "factory: {\n"+src+"\n}")
+	fixture := parseSyntaxFactoryFixture(t, dagFactorySource(src))
 	return fixture.body
 }
 
@@ -41,175 +51,108 @@ func syntaxResourceComposite(t *testing.T, name, src string) *CompositeType {
 }
 
 func TestBuildDAGEmpty(t *testing.T) {
-	g := syntaxDAG(t, `description: 'no nodes'`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-empty"), nil)
 	require.Empty(t, g.Nodes)
 	require.Empty(t, g.Edges)
 }
 
 func TestBuildDAGSingleResourceNoDeps(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-single-resource-no-deps"), nil)
 	require.Len(t, g.Nodes, 1)
 	require.Empty(t, g.Edges["resource.main"])
 }
 
 func TestBuildDAGLibraryConfigDependency(t *testing.T) {
-	g := syntaxDAG(t, `
-inputs: { aws-config: { type: library-config('github.com/acme/aws') } }
-library-configs: { aws: var.aws-config }
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-library-config-dependency"), nil)
 	require.Contains(t, g.Nodes, "library-config.aws")
 	require.Equal(t, NodeLibraryConfig, g.Nodes["library-config.aws"].Kind)
 	require.Equal(t, []string{"library-config.aws"}, g.Edges["resource.main"])
 }
 
 func TestBuildDAGImplicitDependency(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: {
-  main: aws.vpc { cidr-block: '10.0.0.0/16' }
-  web:  aws.security-group { vpc-id: resource.main.id }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-implicit-dependency"), nil)
 	require.Equal(t, []string{"resource.main"}, g.Edges["resource.web"])
 }
 
 func TestBuildDAGExplicitDependsOn(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: {
-  main: aws.vpc { cidr-block: '10.0.0.0/16' }
-  web:  aws.security-group { @depends-on: [resource.main], name: 'web' }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-explicit-depends-on"), nil)
 	require.Equal(t, []string{"resource.main"}, g.Edges["resource.web"])
 }
 
 func TestBuildDAGLocalAddsEdge(t *testing.T) {
-	g := syntaxDAG(t, `
-locals:    { endpoint: resource.main.dns-name }
-resources: { main: aws.lb { name: 'main' } }
-actions:   { notify: core.command { argv: ['echo', local.endpoint] } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-local-adds-edge"), nil)
 	require.Equal(t, []string{"resource.main"}, g.Edges["action.notify"])
 }
 
 func TestBuildDAGLocalChainAddsEdge(t *testing.T) {
-	g := syntaxDAG(t, `
-locals:    { raw: resource.main.dns-name, url: local.raw }
-resources: { main: aws.lb { name: 'main' } }
-actions:   { notify: core.command { argv: ['echo', local.url] } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-local-chain-adds-edge"), nil)
 	require.Equal(t, []string{"resource.main"}, g.Edges["action.notify"])
 }
 
 func TestBuildDAGLocalMergesMultipleUpstreams(t *testing.T) {
-	g := syntaxDAG(t, `
-locals: { pair: { a: resource.main.id, b: resource.web.id } }
-resources: {
-  main: aws.vpc { cidr-block: '10.0.0.0/16' }
-  web:  aws.subnet { cidr-block: '10.0.1.0/24' }
-}
-actions: { go: core.command { argv: ['echo', local.pair] } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-local-merges-multiple-upstreams"), nil)
 	require.ElementsMatch(t,
 		[]string{"resource.main", "resource.web"},
 		g.Edges["action.go"])
 }
 
 func TestBuildDAGLiteralLocalAddsNoEdge(t *testing.T) {
-	g := syntaxDAG(t, `
-locals:  { greeting: 'hello' }
-actions: { go: core.command { argv: ['echo', local.greeting] } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-literal-local-adds-no-edge"), nil)
 	require.Empty(t, g.Edges["action.go"])
 }
 
 func TestBuildDAGMergesImplicitAndExplicit(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: {
-  main:   aws.vpc { cidr-block: '10.0.0.0/16' }
-  public: aws.subnet { vpc-id: resource.main.id }
-  web:    aws.security-group {
-    @depends-on: [resource.public]
-    vpc-id:      resource.main.id
-  }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-merges-implicit-and-explicit"), nil)
 	require.ElementsMatch(t,
 		[]string{"resource.main", "resource.public"},
 		g.Edges["resource.web"])
 }
 
 func TestBuildDAGOutputReferencesResource(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-outputs:   { vpc-id: { value: resource.main.id } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-output-references-resource"), nil)
 	require.Equal(t, []string{"resource.main"}, g.Edges["output.vpc-id"])
 }
 
 func TestBuildDAGActionDependsOnResource(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-actions:   { log: core.command { argv: ['echo', resource.main.id] } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-action-depends-on-resource"), nil)
 	require.Equal(t, []string{"resource.main"}, g.Edges["action.log"])
 }
 
 func TestBuildDAGVarReferenceCreatesEdge(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: var.cidr } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-var-reference-creates-edge"), nil)
 	require.Equal(t, []string{"var.cidr"}, g.Edges["resource.main"])
 }
 
 func TestBuildDAGCompositeBoundaryDependsOnInternals(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", `
-resources: {
-  a: local.file { path: 'a.txt' }
-  b: local.file { path: 'b.txt' }
-}
-`)
+	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-boundary-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name:               "net",
 			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	g := syntaxDAG(t, `
-resources: { web: net.cluster { name: 'web' } }
-`, libs)
+	g := syntaxDAG(t, dagFixture(t, "composite-boundary-call"), libs)
 	require.ElementsMatch(t,
 		[]string{"resource.web/resource.a", "resource.web/resource.b"},
 		g.Edges["resource.web"])
 }
 
 func TestBuildDAGCompositeInternalRewritesSiblingRef(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", `
-resources: {
-  a: local.file { path: 'a.txt' }
-  b: local.file { path: resource.a.path }
-}
-`)
+	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-sibling-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name:               "net",
 			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	g := syntaxDAG(t, `
-resources: { web: net.cluster {} }
-`, libs)
+	g := syntaxDAG(t, dagFixture(t, "composite-sibling-call"), libs)
 	require.Equal(t,
 		[]string{"resource.web/resource.a"},
 		g.Edges["resource.web/resource.b"])
 }
 
 func TestBuildDAGCompositeInternalExcludesCompositeScopedVars(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", `
-resources: { x: local.file { path: var.path, content: var.message } }
-`)
+	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-scoped-vars-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
@@ -218,9 +161,7 @@ resources: { x: local.file { path: var.path, content: var.message } }
 			},
 		},
 	}
-	g := syntaxDAG(t, `
-resources: { web: net.cluster { path: var.target-path, message: var.target-message } }
-`, libs)
+	g := syntaxDAG(t, dagFixture(t, "composite-scoped-vars-call"), libs)
 	deps := g.Edges["resource.web/resource.x"]
 	require.NotContains(t, deps, "var.path")
 	require.NotContains(t, deps, "var.message")
@@ -229,14 +170,7 @@ resources: { web: net.cluster { path: var.target-path, message: var.target-messa
 }
 
 func TestBuildDAGCompositeInternalRewritesDataAndActionRefs(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", `
-data: { ubuntu: aws.ami { most-recent: true } }
-actions: {
-  lookup: core.command { argv: ['echo', data.ubuntu.id] }
-  verify: core.command { argv: ['check', action.lookup.stdout] }
-}
-resources: { x: local.file { content: action.lookup.stdout } }
-`)
+	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-data-action-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
@@ -245,9 +179,7 @@ resources: { x: local.file { content: action.lookup.stdout } }
 			},
 		},
 	}
-	g := syntaxDAG(t, `
-resources: { web: net.cluster {} }
-`, libs)
+	g := syntaxDAG(t, dagFixture(t, "composite-data-action-call"), libs)
 	require.Contains(t,
 		g.Edges["resource.web/action.lookup"],
 		"resource.web/data.ubuntu")
@@ -260,37 +192,22 @@ resources: { web: net.cluster {} }
 }
 
 func TestBuildDAGCompositeInternalInheritsCallSiteArgsRefs(t *testing.T) {
-	composite := syntaxResourceComposite(t, "cluster", `
-resources: { x: local.file { path: var.target } }
-`)
+	composite := syntaxResourceComposite(t, "cluster", dagFixture(t, "composite-call-args-body"))
 	libs := map[string]*Library{
 		"net": {
 			Name:               "net",
 			ResourceComposites: map[string]*CompositeType{"cluster": composite},
 		},
 	}
-	g := syntaxDAG(t, `
-resources: {
-  src: local.file { path: 'src.txt' }
-  web: net.cluster { target: resource.src.path }
-}
-`, libs)
+	g := syntaxDAG(t, dagFixture(t, "composite-call-args-call"), libs)
 	require.Contains(t,
 		g.Edges["resource.web/resource.x"],
 		"resource.src")
 }
 
 func TestBuildDAGNestedComposite(t *testing.T) {
-	clusterBody := syntaxResourceComposite(t, "cluster", `
-inputs: { path: { type: string } }
-
-resources: { x: local.file { path: var.path } }
-`)
-	layerBody := syntaxResourceComposite(t, "layer", `
-inputs: { target: { type: string } }
-
-resources: { only: inner-lib.cluster { path: var.target } }
-`)
+	clusterBody := syntaxResourceComposite(t, "cluster", dagFixture(t, "build-dag-nested-composite-1"))
+	layerBody := syntaxResourceComposite(t, "layer", dagFixture(t, "build-dag-nested-composite-2"))
 	libs := map[string]*Library{
 		"outer-lib": {
 			Name: "outer-lib",
@@ -305,12 +222,7 @@ resources: { only: inner-lib.cluster { path: var.target } }
 			},
 		},
 	}
-	g := syntaxDAG(t, `
-resources: {
-  main: aws.vpc { cidr-block: '10.0.0.0/16' }
-  mine: outer-lib.layer { target: resource.main.id }
-}
-`, libs)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-nested-composite-3"), libs)
 
 	outerAddr := "resource.mine"
 	innerAddr := outerAddr + "/resource.only"
@@ -330,28 +242,20 @@ resources: {
 }
 
 func TestTopologicalOrderEmpty(t *testing.T) {
-	got, err := syntaxDAG(t, `description: 'empty'`, nil).TopologicalOrder()
+	got, err := syntaxDAG(t, dagFixture(t, "topological-order-empty"), nil).TopologicalOrder()
 	require.NoError(t, err)
 	require.Empty(t, got)
 }
 
 func TestTopologicalOrderSingle(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "topological-order-single"), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{"resource.main"}, got)
 }
 
 func TestTopologicalOrderLinearChain(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: {
-  main:   aws.vpc { cidr-block: '10.0.0.0/16' }
-  public: aws.subnet { vpc-id: resource.main.id }
-  web:    aws.security-group { vpc-id: resource.public.vpc-id }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "topological-order-linear-chain"), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{
@@ -362,14 +266,7 @@ resources: {
 }
 
 func TestTopologicalOrderDiamond(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: {
-  main: aws.vpc { cidr-block: '10.0.0.0/16' }
-  a:    aws.subnet { vpc-id: resource.main.id }
-  b:    aws.subnet { vpc-id: resource.main.id }
-  web:  aws.cluster { @depends-on: [resource.a, resource.b] }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "topological-order-diamond"), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	indexOf := func(addr string) int {
@@ -387,21 +284,14 @@ resources: {
 }
 
 func TestTopologicalOrderVarsDontBlock(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: var.cidr } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "topological-order-vars-dont-block"), nil)
 	got, err := g.TopologicalOrder()
 	require.NoError(t, err)
 	require.Equal(t, []string{"resource.main"}, got)
 }
 
 func TestTopologicalOrderReportsCycle(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: {
-  x: aws.a { @depends-on: [resource.y] }
-  y: aws.b { @depends-on: [resource.x] }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "topological-order-reports-cycle"), nil)
 	_, err := g.TopologicalOrder()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cycle")
@@ -410,13 +300,7 @@ resources: {
 }
 
 func TestTopologicalOrderDeterministic(t *testing.T) {
-	src := `
-resources: {
-  x: aws.a {}
-  y: aws.b {}
-  z: aws.c {}
-}
-`
+	src := dagFixture(t, "topological-order-deterministic")
 	g := syntaxDAG(t, src, nil)
 	first, err := g.TopologicalOrder()
 	require.NoError(t, err)
@@ -428,14 +312,7 @@ resources: {
 }
 
 func TestBuildDAGNarrowObjectLocalAvoidsSpuriousCycle(t *testing.T) {
-	src := `
-locals: { net: { vpc: resource.vpcfile.path, other: resource.b.path } }
-resources: {
-  vpcfile: local.file { path: 'vpc.txt' }
-  a:       local.file { path: local.net.vpc }
-  b:       local.file { path: resource.a.path }
-}
-`
+	src := dagFixture(t, "build-dag-narrow-object-local-avoids-spurious-cycle")
 	libs := map[string]*Library{"local": {Name: "local"}}
 	dag := syntaxDAG(t, src, libs)
 
@@ -445,13 +322,7 @@ resources: {
 }
 
 func TestBuildDAGLibraryConfigNode(t *testing.T) {
-	g := syntaxDAG(t, `
-library-configs: { k8s: { host: resource.main.endpoint } }
-resources: {
-  main: aws.eks { name: 'web' }
-  apps: k8s.namespace { name: 'apps' }
-}
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-library-config-node"), nil)
 	cfg, ok := g.Nodes["library-config.k8s"]
 	require.True(t, ok, "library config node should exist")
 	require.Equal(t, NodeLibraryConfig, cfg.Kind)
@@ -462,17 +333,12 @@ resources: {
 }
 
 func TestBuildDAGNoLibraryConfigEdgeWhenAliasUnbound(t *testing.T) {
-	g := syntaxDAG(t, `
-resources: { main: aws.vpc { cidr-block: '10.0.0.0/16' } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-no-library-config-edge-when-alias-unbound"), nil)
 	require.Empty(t, g.Edges["resource.main"])
 }
 
 func TestBuildDAGLibraryConfigCycleDetected(t *testing.T) {
-	g := syntaxDAG(t, `
-library-configs: { aws: { token: resource.session.token } }
-resources: { session: aws.sts { name: 's' } }
-`, nil)
+	g := syntaxDAG(t, dagFixture(t, "build-dag-library-config-cycle-detected"), nil)
 	_, err := g.TopologicalOrder()
 	require.ErrorContains(t, err, "cycle")
 }

@@ -1,0 +1,4 @@
+resources: {
+  x: aws.a { @depends-on: [resource.y] }
+  y: aws.b { @depends-on: [resource.x] }
+}
