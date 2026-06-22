@@ -1,0 +1,7 @@
+description: 'test stack'
+
+inputs: { name: { type: string } }
+
+resources: { core.thing.one: { name: var.name } }
+
+outputs: { id: { value: resource.core.thing.one.id } }

@@ -1,0 +1,3 @@
+inputs: { size: { type: integer, default: 3 }, hosts: { type: list(string) } }
+
+resources: { local.file.one: { path: '/tmp/x', content: 'hello', mode: 420 } }

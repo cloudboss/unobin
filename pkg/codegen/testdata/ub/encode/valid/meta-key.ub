@@ -1,0 +1,1 @@
+actions: { core.command.hi: { @trigger: 'always', argv: ['echo'] } }

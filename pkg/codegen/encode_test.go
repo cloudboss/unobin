@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // parsesAsGoExpr returns the Go expression parsed from src, or fails
@@ -27,6 +29,11 @@ func encodeBody(t *testing.T, src string) string {
 	got, err := EncodeNode(f)
 	require.NoError(t, err)
 	return got
+}
+
+func encodeFixture(t *testing.T, name string) string {
+	t.Helper()
+	return encodeBody(t, ubtest.ReadValidFixture(t, "testdata/ub/encode", name))
 }
 
 func TestEncodeStringLit(t *testing.T) {
@@ -138,8 +145,7 @@ func TestEncodeSelectorBodyField(t *testing.T) {
 }
 
 func TestEncodeDotPath(t *testing.T) {
-	src := "outputs: { x: { value: resource.aws.vpc.main.id } }"
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "dot-path")
 	require.Contains(t, out, `&lang.DotPath{`)
 	require.Contains(t, out, `&lang.Ident{Name: "resource"}`)
 	require.Contains(t, out, `Segments: []lang.DotSegment{`)
@@ -149,31 +155,27 @@ func TestEncodeDotPath(t *testing.T) {
 }
 
 func TestEncodeDotPathSplat(t *testing.T) {
-	src := "outputs: { x: { value: var.subnets[*].id } }"
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "dot-path-splat")
 	require.Contains(t, out, `{Splat: true}`)
 	require.Contains(t, out, `{Name: "id"}`)
 	parsesAsGoExpr(t, out)
 }
 
 func TestEncodeDotPathGuarded(t *testing.T) {
-	src := "outputs: { x: { value: var.cfg?.db?.host } }"
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "dot-path-guarded")
 	require.Contains(t, out, `{Name: "db", Guarded: true}`)
 	require.Contains(t, out, `{Name: "host", Guarded: true}`)
 	parsesAsGoExpr(t, out)
 }
 
 func TestEncodeDotPathWithIndex(t *testing.T) {
-	src := "outputs: { x: { value: resource.aws.subnet.public['us-east-1a'].id } }"
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "dot-path-with-index")
 	require.Contains(t, out, `Index: &lang.StringLit{Value: "us-east-1a"}`)
 	parsesAsGoExpr(t, out)
 }
 
 func TestEncodeCall(t *testing.T) {
-	src := "outputs: { x: { value: format('%s-%s', var.a, var.b) } }"
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "call")
 	require.Contains(t, out, `&lang.Call{`)
 	require.Contains(t, out, `Callee: &lang.Ident{Name: "format"}`)
 	require.Contains(t, out, `Args: []lang.Expr{`)
@@ -181,23 +183,14 @@ func TestEncodeCall(t *testing.T) {
 }
 
 func TestEncodeInfixAndPrefix(t *testing.T) {
-	src := "outputs: { x: { value: !(var.a == 1) } }"
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "infix-and-prefix")
 	require.Contains(t, out, `&lang.Prefix{Op: "!"`)
 	require.Contains(t, out, `&lang.Infix{Op: "=="`)
 	parsesAsGoExpr(t, out)
 }
 
 func TestEncodeFile(t *testing.T) {
-	src := `description: 'test stack'
-
-inputs: { name: { type: string } }
-
-resources: { core.thing.one: { name: var.name } }
-
-outputs: { id: { value: resource.core.thing.one.id } }
-`
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "file")
 	require.True(t, strings.HasPrefix(out, "&lang.File{"))
 	require.Contains(t, out, "Kind: lang.FileUnknown")
 	require.Contains(t, out, "Body: &lang.ObjectLit{")
@@ -209,12 +202,7 @@ func TestEncodeFileExpressionTypechecks(t *testing.T) {
 	// Wrap the encoded expression in a stub Go file and parse it as a
 	// full file. This catches any obvious imbalance in braces or
 	// commas that ParseExpr alone might miss.
-	src := `
-inputs: { size: { type: integer, default: 3 }, hosts: { type: list(string) } }
-
-resources: { local.file.one: { path: '/tmp/x', content: 'hello', mode: 420 } }
-`
-	got := encodeBody(t, src)
+	got := encodeFixture(t, "file-expression-typechecks")
 	wrapped := "package x\n\nimport \"github.com/cloudboss/unobin/pkg/lang\"\n\nvar _ = " + got + "\n"
 	fset := token.NewFileSet()
 	_, err := parser.ParseFile(fset, "x.go", wrapped, parser.AllErrors)
@@ -240,8 +228,7 @@ func TestEncodeCallModuleQualified(t *testing.T) {
 }
 
 func TestEncodeMetaKey(t *testing.T) {
-	src := `actions: { core.command.hi: { @trigger: 'always', argv: ['echo'] } }`
-	out := encodeBody(t, src)
+	out := encodeFixture(t, "meta-key")
 	require.Contains(t, out, `Name: "@trigger"`)
 	parsesAsGoExpr(t, out)
 }
@@ -366,12 +353,7 @@ func TestEncodeComprehensionTwoNames(t *testing.T) {
 }
 
 func TestEncodeLocalsBlock(t *testing.T) {
-	got := encodeBody(t, `
-locals: {
-  endpoint: resource.aws.lb.main.dns-name
-  name:     $'{{local.endpoint}}-x'
-}
-`)
+	got := encodeFixture(t, "locals-block")
 	parsesAsGoExpr(t, got)
 	require.Contains(t, got, `Name: "locals"`,
 		"the locals block must survive codegen so a composite body keeps it")

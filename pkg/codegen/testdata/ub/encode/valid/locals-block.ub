@@ -1,0 +1,4 @@
+locals: {
+  endpoint: resource.aws.lb.main.dns-name
+  name:     $'{{local.endpoint}}-x'
+}
