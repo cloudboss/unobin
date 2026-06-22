@@ -15,6 +15,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 func parseSyntaxUB(t *testing.T, kind, name, src string) syntax.FactoryBody {
@@ -25,6 +26,11 @@ func parseSyntaxUB(t *testing.T, kind, name, src string) syntax.FactoryBody {
 	require.NotNil(t, f.Library)
 	require.Len(t, f.Library.Exports, 1)
 	return f.Library.Exports[0].Body
+}
+
+func readUBLibraryBody(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/ublibrary", name)
 }
 
 func resourceSyntaxBodies(
@@ -41,10 +47,7 @@ func compositeImports(
 }
 
 func TestGenerateUBLibraryProducesValidGo(t *testing.T) {
-	body := parseSyntaxUB(t, "resource", "cluster", `description: 'a cluster'
-
-resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
-`)
+	body := parseSyntaxUB(t, "resource", "cluster", readUBLibraryBody(t, "cluster"))
 
 	out, err := GenerateUBLibrary(
 		"net",
@@ -103,14 +106,7 @@ func TestGenerateUBLibraryHasExpectedForm(t *testing.T) {
 }
 
 func TestGenerateUBLibraryEmitsSyntaxBody(t *testing.T) {
-	syntaxBody := parseSyntaxUB(t, "resource", "greeting", `
-locals: { target: resource.helper.path }
-library-configs: { local: var.local-config }
-resources: {
-  helper: local.fs-file { path: '/tmp/helper' }
-  file: local.fs-file { path: local.target }
-}
-`)
+	syntaxBody := parseSyntaxUB(t, "resource", "greeting", readUBLibraryBody(t, "syntax-body"))
 
 	out, err := GenerateUBLibrary(
 		"net",
@@ -134,11 +130,7 @@ resources: {
 }
 
 func TestGenerateUBLibraryOmitsGenericBody(t *testing.T) {
-	syntaxBody := parseSyntaxUB(t, "resource", "greeting", `
-inputs: { path: { type: string } }
-resources: { file: local.file { path: var.path } }
-outputs: { path: { value: resource.file.path } }
-`)
+	syntaxBody := parseSyntaxUB(t, "resource", "greeting", readUBLibraryBody(t, "greeting-io"))
 
 	out, err := GenerateUBLibrary(
 		"net",
@@ -218,10 +210,7 @@ func TestGenerateUBLibraryAllowsSameNameAcrossKinds(t *testing.T) {
 }
 
 func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
-	body := parseSyntaxUB(t, "resource", "greeting", `description: 'a greeting'
-
-resources: { file: helloer.hello { message: var.message, path: var.path } }
-`)
+	body := parseSyntaxUB(t, "resource", "greeting", readUBLibraryBody(t, "greeting-import"))
 	imports := map[string]map[string]string{
 		"greeting": {
 			"helloer": "github.com/example/helloer",
@@ -399,10 +388,7 @@ func TestGenerateUBLibraryCompilesWithCaller(t *testing.T) {
 		t.Skip("skipped: spawns `go run` and is slow")
 	}
 
-	body := parseSyntaxUB(t, "resource", "cluster", `description: 'a cluster'
-
-resources: { x: local.file { path: '/tmp/x', content: 'hi', mode: 420 } }
-`)
+	body := parseSyntaxUB(t, "resource", "cluster", readUBLibraryBody(t, "cluster"))
 
 	out, err := GenerateUBLibrary(
 		"net",

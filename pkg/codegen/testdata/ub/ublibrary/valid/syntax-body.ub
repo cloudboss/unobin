@@ -1,0 +1,6 @@
+locals: { target: resource.helper.path }
+library-configs: { local: var.local-config }
+resources: {
+  helper: local.fs-file { path: '/tmp/helper' }
+  file: local.fs-file { path: local.target }
+}
