@@ -1,0 +1,2 @@
+inputs:    { t: { type: string } }
+resources: { one: core.versioned { tag: var.t } }

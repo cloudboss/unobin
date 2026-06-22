@@ -1,0 +1,6 @@
+inputs: { t: { type: string } }
+resources: {
+  one: core.versioned { tag: var.t }
+  two: core.thing { tag: resource.one.id }
+}
+outputs: { fed: { value: resource.two.tag } }

@@ -1,0 +1,5 @@
+data: { al: core.ami { key: 'k' } }
+outputs: {
+  id:   { value: data.al.id }
+  name: { value: data.al.devices[0].name }
+}

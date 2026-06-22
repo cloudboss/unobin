@@ -1,0 +1,3 @@
+resources: { one: core.thing { tag: 'fixed' } }
+data:      { cfg: core.dial { key: resource.one.tag } }
+outputs:   { v: { value: data.cfg.value } }

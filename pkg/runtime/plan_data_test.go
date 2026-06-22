@@ -6,9 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func planDataFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/plan-data", name)
+}
 
 // trackedResource reads back its prior outputs, so an unchanged input
 // set diffs to NoOp the way a real cloud resource would.
@@ -87,11 +94,10 @@ func stepAddresses(p *Plan) []string {
 	return out
 }
 
-const dataConsumerSrc = `
-data:      { cfg: core.dial { key: 'k' } }
-resources: { one: core.thing { tag: data.cfg.value } }
-outputs:   { v: { value: data.cfg.value } }
-`
+func dataConsumerSrc(t testing.TB) string {
+	t.Helper()
+	return planDataFixture(t, "data-consumer")
+}
 
 // A data source whose inputs resolve at plan is read during the plan,
 // so the resource consuming it diffs a real value, not a pending one.
@@ -99,7 +105,7 @@ func TestPlanReadsResolvedDataSource(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	dag, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc(t), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -133,7 +139,7 @@ func TestSecondPlanNoOpWhenDataUnchanged(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc(t), libs)
 
 	applyOnce(t, &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
@@ -156,7 +162,7 @@ func TestSecondPlanUpdatesWhenDataChanged(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc(t), libs)
 
 	applyOnce(t, &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
@@ -176,11 +182,7 @@ func TestSecondPlanUpdatesWhenDataChanged(t *testing.T) {
 // keeps today's behavior: the read defers to apply and everything
 // downstream of it stays pending. The apply still resolves end to end.
 func TestPlanDefersDataWithPendingInputs(t *testing.T) {
-	src := `
-resources: { one: core.thing { tag: 'fixed' } }
-data:      { cfg: core.dial { key: resource.one.id } }
-outputs:   { v: { value: data.cfg.value } }
-`
+	src := planDataFixture(t, "deferred-resource-id")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -212,11 +214,7 @@ outputs:   { v: { value: data.cfg.value } }
 // known. The known input let the read fire at plan against a resource
 // that was not there yet, and the cloud returned not-found.
 func TestDataDefersWhenUpstreamResourceCreated(t *testing.T) {
-	src := `
-resources: { one: core.thing { tag: 'fixed' } }
-data:      { cfg: core.dial { key: resource.one.tag } }
-outputs:   { v: { value: data.cfg.value } }
-`
+	src := planDataFixture(t, "deferred-resource-tag")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -251,7 +249,7 @@ func TestApplyErrorsWhenDataChangedSincePlan(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	dag, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	dag, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc(t), libs)
 	exec := &Executor{
 		DAG:          dag,
 		SyntaxSource: syntaxSource,
@@ -285,7 +283,7 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc(t), libs)
 	applyOnce(t, &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 	})
@@ -300,9 +298,7 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	require.Equal(t, map[string]any{"key": "k"}, ent.Inputs)
 	require.Equal(t, map[string]any{"value": "a:k"}, ent.Outputs)
 
-	withoutData := `
-resources: { one: core.thing { tag: 'fixed' } }
-`
+	withoutData := planDataFixture(t, "resource-only")
 	dagWithoutData, syntaxWithoutData := syntaxDAGAndBody(t, withoutData, libs)
 	second := &Executor{
 		DAG:          dagWithoutData,
@@ -326,9 +322,7 @@ resources: { one: core.thing { tag: 'fixed' } }
 
 // Each @for-each instance reads at plan with its own key.
 func TestForEachDataReadsAtPlan(t *testing.T) {
-	src := `
-data: { cfg: core.dial { @for-each: { a: 'x', b: 'y' }, key: @each.value } }
-`
+	src := planDataFixture(t, "for-each-data")
 	value := "v"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -383,12 +377,7 @@ func (r *versionedResource) ReplaceFields() []string                  { return n
 // value at apply, so one apply converges with no plan-versus-apply
 // disagreement to re-plan around.
 func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
-	src := `
-inputs:    { t: { type: string } }
-resources: { one: core.versioned { tag: var.t } }
-data:      { cfg: core.dial { key: resource.one.id } }
-outputs:   { v: { value: data.cfg.value } }
-`
+	src := planDataFixture(t, "versioned-resource-id")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -428,12 +417,7 @@ outputs:   { v: { value: data.cfg.value } }
 // would see at plan is not the one apply settles on. The read happens
 // at apply, against the updated resource, and picks up the new value.
 func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
-	src := `
-inputs:    { t: { type: string } }
-resources: { one: core.versioned { tag: var.t } }
-data:      { cfg: core.dial { key: resource.one.tag } }
-outputs:   { v: { value: data.cfg.value } }
-`
+	src := planDataFixture(t, "versioned-resource-tag")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -468,14 +452,7 @@ outputs:   { v: { value: data.cfg.value } }
 // output, the apply-time premise check refuses loudly and one re-plan
 // converges on the fresh value.
 func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
-	src := `
-inputs: { t: { type: string } }
-resources: {
-  one: core.versioned { tag: var.t }
-  two: core.thing { tag: resource.one.id }
-}
-outputs: { fed: { value: resource.two.tag } }
-`
+	src := planDataFixture(t, "upstream-output-premise")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -524,12 +501,7 @@ outputs: { fed: { value: resource.two.tag } }
 // changes pending, even when the data source's own inputs are settled;
 // once the target is settled again, the read happens at plan.
 func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
-	src := `
-inputs:    { t: { type: string } }
-resources: { one: core.versioned { tag: var.t } }
-data:      { cfg: core.dial { @depends-on: [resource.one], key: 'fixed' } }
-outputs:   { v: { value: data.cfg.value } }
-`
+	src := planDataFixture(t, "depends-on-resource")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -574,16 +546,8 @@ outputs:   { v: { value: data.cfg.value } }
 // while anything inside the composite has changes pending; once the
 // internals settle, the read returns to plan time.
 func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
-	composite := syntaxResourceComposite(t, "box", `
-inputs:    { t: { type: string } }
-resources: { one: core.versioned { tag: var.t } }
-`)
-	src := `
-inputs:    { t: { type: string } }
-resources: { x: w.box { t: var.t } }
-data:      { cfg: core.dial { @depends-on: [resource.x], key: 'fixed' } }
-outputs:   { v: { value: data.cfg.value } }
-`
+	composite := syntaxResourceComposite(t, "box", planDataFixture(t, "composite-box"))
+	src := planDataFixture(t, "depends-on-composite")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
@@ -669,13 +633,7 @@ func TestApplyAcceptsUnchangedStructOutputs(t *testing.T) {
 			},
 		},
 	}
-	src := `
-data: { al: core.ami { key: 'k' } }
-outputs: {
-  id:   { value: data.al.id }
-  name: { value: data.al.devices[0].name }
-}
-`
+	src := planDataFixture(t, "ami-output")
 	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
 	exec := &Executor{
 		DAG:          dag,
@@ -704,7 +662,7 @@ func TestDestroyRemovesDataEntry(t *testing.T) {
 	libs := dataPlanModules(&value, &reads)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc, libs)
+	g, syntaxSource := syntaxDAGAndBody(t, dataConsumerSrc(t), libs)
 	applyOnce(t, &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 	})

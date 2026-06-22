@@ -1,0 +1,4 @@
+inputs:    { t: { type: string } }
+resources: { one: core.versioned { tag: var.t } }
+data:      { cfg: core.dial { key: resource.one.tag } }
+outputs:   { v: { value: data.cfg.value } }
