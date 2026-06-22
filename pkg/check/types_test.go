@@ -9,7 +9,13 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func typeFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/types", name)
+}
 
 // localFileModule mirrors the input and output fields of the real
 // `local.file` resource, declared defaults included, so the tests
@@ -82,9 +88,8 @@ func TestCheckTypesSkipsUnknownTypedInput(t *testing.T) {
 			},
 		},
 	}
-	errs := checkSyntaxReferences(t, `
-resources: { one: ext.thing { name: 'a' } }
-`, map[string]*runtime.Library{"ext": lib})
+	errs := checkSyntaxReferences(t, typeFixture(t, "skips-unknown-typed-input"),
+		map[string]*runtime.Library{"ext": lib})
 
 	require.Empty(t, errs.Messages())
 }
@@ -93,27 +98,18 @@ resources: { one: ext.thing { name: 'a' } }
 // schema blocks nothing, matching how the rest of the checker treats
 // missing schemas.
 func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { one: ext.thing { name: 'a' } }
-`, map[string]*runtime.Library{"ext": {}})
+	errs := checkSyntaxReferences(t, typeFixture(t, "skips-schemaless-library"),
+		map[string]*runtime.Library{"ext": {}})
 
 	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesRequiresOneLibraryConfigSchema(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: {
-  primary: 'github.com/acme/aws'
-  backup: 'github.com/acme/aws'
-}
-inputs: {
-  aws-config: { type: library-config('github.com/acme/aws') }
-}
-locals: { region: var.aws-config.region }
-`, map[string]*runtime.Library{
-		"primary": libraryConfigSchemaLibrary("one"),
-		"backup":  libraryConfigSchemaLibrary("two"),
-	})
+	errs := checkSyntaxReferences(t, typeFixture(t, "one-library-config-schema"),
+		map[string]*runtime.Library{
+			"primary": libraryConfigSchemaLibrary("one"),
+			"backup":  libraryConfigSchemaLibrary("two"),
+		})
 
 	require.Equal(t,
 		[]string{`library-config "github.com/acme/aws": aliases disagree on config schema`},
@@ -121,32 +117,15 @@ locals: { region: var.aws-config.region }
 }
 
 func TestCheckTypesAllowsEmptyConfigWithoutBinding(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-imports: { aws: 'github.com/acme/aws' }
-resources: { bucket: aws.bucket {} }
-`, map[string]*runtime.Library{"aws": emptyConfigResourceLibrary()})
+	errs := checkSyntaxReferences(t, typeFixture(t, "empty-config-without-binding"),
+		map[string]*runtime.Library{"aws": emptyConfigResourceLibrary()})
 
 	require.Empty(t, errs.Messages())
 }
 
 func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, `
-greeting: resource {
-  inputs: { path: { type: string } }
-  outputs: {
-    size:   { value: 42 }
-    broken: { value: var.path + 1 }
-  }
-}
-`)
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  resources: {
-    app: outer.greeting {}
-    log: local.file { path: resource.app.size, content: 'x' }
-  }
-}
-`)
+	composite := parseSyntaxCompositeFixture(t, typeFixture(t, "composite-syntax-body"))
+	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "composite-syntax-root"))
 	body := composite.body
 	checker := NewSyntax(fixture.body, map[string]*runtime.Library{
 		"outer": {
@@ -169,30 +148,19 @@ factory: {
 }
 
 func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { one: local.file { path: 5, content: 'hi' } }
-`, map[string]*runtime.Library{
-		"local": {Schema: &runtime.LibrarySchema{
-			Resources: map[string]*runtime.TypeSchema{
-				"file": {Outputs: map[string]typecheck.Type{"path": typecheck.TString()}},
-			},
-		}},
-	})
+	errs := checkSyntaxReferences(t, typeFixture(t, "skips-when-inputs-schema-absent"),
+		map[string]*runtime.Library{
+			"local": {Schema: &runtime.LibrarySchema{
+				Resources: map[string]*runtime.TypeSchema{
+					"file": {Outputs: map[string]typecheck.Type{"path": typecheck.TString()}},
+				},
+			}},
+		})
 	require.Empty(t, errs.Messages())
 }
 
 func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  inputs: { path: { type: integer } }
-  resources: {
-    file: local.file {
-      path: var.path
-      content: 'x'
-    }
-  }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "root-inputs"))
 
 	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
@@ -203,17 +171,7 @@ factory: {
 }
 
 func TestNewSyntaxUsesRootLocalsForTypeChecks(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  locals: { path: 5 }
-  resources: {
-    file: local.file {
-      path: local.path
-      content: 'x'
-    }
-  }
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "root-locals"))
 
 	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
@@ -224,14 +182,7 @@ factory: {
 }
 
 func TestNewSyntaxUsesRootConstraints(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, `
-factory: {
-  locals: { ok: true }
-  constraints: [
-    { require: local.ok }
-  ]
-}
-`)
+	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "root-constraints"))
 
 	errs := NewSyntax(fixture.body, nil).References(nil)
 
@@ -244,9 +195,8 @@ factory: {
 // literals reaches a typed field as the precise merged object through
 // the full compile pipeline, not as an unknown that checks nothing.
 func TestCheckTypesMergeInfersPreciseObject(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-resources: { one: local.file { path: @core.merge({ a: 1 }, { b: 'x' }), content: 'c' } }
-`, map[string]*runtime.Library{"local": localFileLibrary()})
+	errs := checkSyntaxReferences(t, typeFixture(t, "merge-precise-object"),
+		map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Equal(t,
 		[]string{"type mismatch: expected string, got object({ a: integer  b: string })"},
 		errs.Messages())
@@ -256,9 +206,7 @@ resources: { one: local.file { path: @core.merge({ a: 1 }, { b: 'x' }), content:
 // argument whose keys the checker cannot know infers Unknown, so the
 // call checks nothing instead of guessing.
 func TestCheckTypesMergeOfMapChecksNothing(t *testing.T) {
-	errs := checkSyntaxReferences(t, `
-inputs: { tags: { type: map(string) } }
-resources: { one: local.file { path: @core.merge(var.tags, { a: 'x' }), content: 'c' } }
-`, map[string]*runtime.Library{"local": localFileLibrary()})
+	errs := checkSyntaxReferences(t, typeFixture(t, "merge-map-unknown"),
+		map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Empty(t, errs.Messages())
 }

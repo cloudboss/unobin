@@ -1,0 +1,6 @@
+factory: {
+  resources: {
+    app: outer.greeting {}
+    log: local.file { path: resource.app.size, content: 'x' }
+  }
+}

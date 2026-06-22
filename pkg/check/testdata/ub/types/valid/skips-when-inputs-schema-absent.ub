@@ -1,0 +1,1 @@
+resources: { one: local.file { path: 5, content: 'hi' } }

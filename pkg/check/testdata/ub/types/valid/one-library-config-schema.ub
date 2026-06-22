@@ -1,0 +1,8 @@
+imports: {
+  primary: 'github.com/acme/aws'
+  backup: 'github.com/acme/aws'
+}
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+locals: { region: var.aws-config.region }

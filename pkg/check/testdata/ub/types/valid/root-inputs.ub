@@ -1,0 +1,9 @@
+factory: {
+  inputs: { path: { type: integer } }
+  resources: {
+    file: local.file {
+      path: var.path
+      content: 'x'
+    }
+  }
+}

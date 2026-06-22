@@ -1,0 +1,2 @@
+imports: { aws: 'github.com/acme/aws' }
+resources: { bucket: aws.bucket {} }

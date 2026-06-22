@@ -1,0 +1,7 @@
+greeting: resource {
+  inputs: { path: { type: string } }
+  outputs: {
+    size:   { value: 42 }
+    broken: { value: var.path + 1 }
+  }
+}

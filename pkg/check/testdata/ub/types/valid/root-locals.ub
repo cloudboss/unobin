@@ -1,0 +1,9 @@
+factory: {
+  locals: { path: 5 }
+  resources: {
+    file: local.file {
+      path: local.path
+      content: 'x'
+    }
+  }
+}

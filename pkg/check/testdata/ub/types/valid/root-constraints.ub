@@ -1,0 +1,6 @@
+factory: {
+  locals: { ok: true }
+  constraints: [
+    { require: local.ok }
+  ]
+}
