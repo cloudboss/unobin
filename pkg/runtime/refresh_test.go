@@ -2,15 +2,20 @@ package runtime
 
 import (
 	"context"
-	"fmt"
 	"maps"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 )
+
+func refreshFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/refresh", name)
+}
 
 func refreshTestExecutor(
 	t *testing.T,
@@ -27,9 +32,7 @@ func refreshTestExecutor(
 }
 
 func TestRefreshUpdatesLeafOutputs(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -59,9 +62,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestRefreshUsesShortAddressSelector(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -89,9 +90,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestDestroyUsesShortAddressSelector(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -107,9 +106,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestRefreshDropsResourceThatIsGone(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -129,10 +126,8 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 	require.Empty(t, snap.Entries)
 }
 
-func TestRefreshCarriesActionEntriesForward(t *testing.T) {
-	src := `
-actions: { hi: core.echo { echo: 'hello' } }
-`
+func TestRefreshPreservesActionEntries(t *testing.T) {
+	src := refreshFixture(t, "action-hi")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, refreshTestExecutor(t, src, testModules(), store, stack))
@@ -150,9 +145,7 @@ actions: { hi: core.echo { echo: 'hello' } }
 }
 
 func TestRefreshWaitsForLock(t *testing.T) {
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
@@ -172,11 +165,7 @@ resources: { one: core.thing { name: 'alpha', size: 1 } }
 }
 
 func TestRefreshUpdatesCompositeInternalLeaf(t *testing.T) {
-	compositeBody := syntaxResourceComposite(t, "box", `
-inputs: { name: { type: string } }
-
-resources: { inside: core.thing { name: var.name, size: 1 } }
-`)
+	compositeBody := syntaxResourceComposite(t, "box", refreshFixture(t, "composite-box"))
 	var c resourceCounters
 	libs := resourceModules(&c)
 	libs["w"] = &Library{
@@ -185,9 +174,7 @@ resources: { inside: core.thing { name: var.name, size: 1 } }
 			"box": compositeBody,
 		},
 	}
-	src := `
-resources: { x: w.box { name: 'alpha' } }
-`
+	src := refreshFixture(t, "composite-call")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
@@ -221,18 +208,13 @@ resources: { x: w.box { name: 'alpha' } }
 
 func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	const n = 6
-	var src strings.Builder
-	src.WriteString("resources: {\n")
-	for i := range n {
-		src.WriteString(fmt.Sprintf("  r%d: core.thing { name: 'r%d', size: %d }\n", i, i, i))
-	}
-	src.WriteString("}\n")
+	src := refreshFixture(t, "parallel-resources")
 
 	var c resourceCounters
 	store := newStateStore(t)
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, refreshTestExecutor(t, src.String(), libs, store, stack))
+	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
 
 	const delay = 150 * time.Millisecond
 	c.readFn = func(prior any) (any, error) {
@@ -240,7 +222,7 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 		return prior, nil
 	}
 
-	exec := refreshTestExecutor(t, src.String(), libs, store, stack)
+	exec := refreshTestExecutor(t, src, libs, store, stack)
 	exec.Parallelism = n
 	start := time.Now()
 	res, err := exec.Refresh(context.Background())
@@ -269,9 +251,7 @@ func TestRefreshMigratesPriorEntry(t *testing.T) {
 	// rewritten entry must hold the migrated inputs stamped at the current
 	// version, not the old inputs stamped current, which would strand a
 	// later input migration.
-	src := `
-resources: { one: core.thing { name: 'alpha', size: 1 } }
-`
+	src := refreshFixture(t, "resource-one")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
@@ -311,9 +291,7 @@ func TestRefreshDoesNotInventDefaults(t *testing.T) {
 	// The defaults overlay is a plan-time concern. Refresh keeps prior
 	// inputs as they were read, so a field that exists only as a declared
 	// default is not invented into refreshed state.
-	src := `
-resources: { one: core.thing { name: 'alpha' } }
-`
+	src := refreshFixture(t, "resource-one-no-size")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{

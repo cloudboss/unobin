@@ -1,0 +1,8 @@
+resources: {
+  r0: core.thing { name: 'r0', size: 0 }
+  r1: core.thing { name: 'r1', size: 1 }
+  r2: core.thing { name: 'r2', size: 2 }
+  r3: core.thing { name: 'r3', size: 3 }
+  r4: core.thing { name: 'r4', size: 4 }
+  r5: core.thing { name: 'r5', size: 5 }
+}
