@@ -1,0 +1,17 @@
+greeting: resource {
+  imports: {
+    core: 'github.com/x/unobin//core'
+  }
+  resources: {
+    file: core.file { path: '/tmp/greeting' }
+  }
+  outputs: {
+    path: { value: resource.file.path }
+  }
+}
+
+lookup: data {
+  outputs: {
+    id: { value: 'id-1' }
+  }
+}

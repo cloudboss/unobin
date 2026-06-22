@@ -1,0 +1,3 @@
+greeting: resource { description: 'g' }
+ami: data { description: 'a' }
+notify: action { description: 'n' }

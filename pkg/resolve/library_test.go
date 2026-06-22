@@ -9,43 +9,39 @@ import (
 func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 	cases := []struct {
 		name             string
+		fixture          string
 		files            map[string]string
 		isLibrary        bool
 		hasFactorySource bool
 	}{
 		{
 			name:      "source-declared resource composite",
-			files:     map[string]string{"library.ub": "greeting: resource { description: 'g' }"},
+			fixture:   "library-classification/valid/source-declared-resource",
 			isLibrary: true,
 		},
 		{
 			name:      "source-declared data composite",
-			files:     map[string]string{"library.ub": "ami: data { description: 'a' }"},
+			fixture:   "library-classification/valid/source-declared-data",
 			isLibrary: true,
 		},
 		{
 			name:      "source-declared action composite",
-			files:     map[string]string{"library.ub": "notify: action { description: 'n' }"},
+			fixture:   "library-classification/valid/source-declared-action",
 			isLibrary: true,
 		},
 		{
-			name: "mixed source-declared composites",
-			files: map[string]string{
-				"library.ub": "a: resource { description: 'a' } b: data { description: 'b' }",
-			},
+			name:      "mixed source-declared composites",
+			fixture:   "library-classification/valid/mixed-source-declared-composites",
 			isLibrary: true,
 		},
 		{
-			name: "library with manifest",
-			files: map[string]string{
-				"library.ub":  "greeting: resource { description: 'g' }",
-				"manifest.ub": "manifest: { requires: {} }",
-			},
+			name:      "library with manifest",
+			fixture:   "library-classification/valid/library-with-manifest",
 			isLibrary: true,
 		},
 		{
-			name:  "manifest only",
-			files: map[string]string{"manifest.ub": "manifest: { requires: {} }"},
+			name:    "manifest only",
+			fixture: "library-classification/valid/manifest-only",
 		},
 		{
 			name: "lock only",
@@ -55,25 +51,22 @@ func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 		},
 		{
 			name:      "misnamed-only directory is still a library so parse can flag it",
-			files:     map[string]string{"greeting.ub": "description: 'g'"},
+			fixture:   "library-classification/valid/misnamed-only",
 			isLibrary: true,
 		},
 		{
 			name:      "factory file with wrong role is parsed later",
-			files:     map[string]string{"factory.ub": "description: 'f'"},
+			fixture:   "library-classification/valid/factory-file-wrong-role",
 			isLibrary: true,
 		},
 		{
 			name:             "grammar-first factory directory",
-			files:            map[string]string{"factory.ub": "factory: {}"},
+			fixture:          "library-classification/valid/grammar-first-factory",
 			hasFactorySource: true,
 		},
 		{
-			name: "factory with stray composite is still a factory",
-			files: map[string]string{
-				"factory.ub": "factory: {}",
-				"library.ub": "a: resource { description: 'a' }",
-			},
+			name:             "factory with stray composite is still a factory",
+			fixture:          "library-classification/valid/factory-with-stray-composite",
 			hasFactorySource: true,
 		},
 		{
@@ -87,12 +80,20 @@ func TestIsUBLibraryAndContainsFactorySource(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src := newUBSource(t, c.files)
+			src := sourceForLibraryCase(t, c.fixture, c.files)
 			require.Equal(t, c.isLibrary, IsUBLibrary(src), "IsUBLibrary")
 			require.Equal(t, c.hasFactorySource, ContainsFactorySource(src),
 				"ContainsFactorySource")
 		})
 	}
+}
+
+func sourceForLibraryCase(t *testing.T, fixture string, files map[string]string) *Source {
+	t.Helper()
+	if fixture != "" {
+		return newUBFixtureSource(t, fixture)
+	}
+	return newUBSource(t, files)
 }
 
 func TestIsUBLibraryNilSource(t *testing.T) {
@@ -118,13 +119,7 @@ func walkOneUB(t *testing.T, src *Source) (*UBLibrary, error) {
 }
 
 func TestWalkUBParsesSourceDeclaredKindsAndNames(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"library.ub": `
-greeting: resource { description: 'g' }
-ami: data { description: 'a' }
-notify: action { description: 'n' }
-`,
-	})
+	src := newUBFixtureSource(t, "library/valid/source-declared-kinds-and-names")
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
 	require.NotNil(t, lib)
@@ -136,31 +131,28 @@ notify: action { description: 'n' }
 
 func TestIsGoLibrary(t *testing.T) {
 	tests := []struct {
-		name  string
-		files map[string]string
-		want  bool
+		name string
+		src  *Source
+		want bool
 	}{
-		{name: "go mod", files: map[string]string{"go.mod": "module x\n"}, want: true},
-		{name: "go package", files: map[string]string{"lib.go": "package lib\n"}, want: true},
-		{name: "manifest only", files: map[string]string{"manifest.ub": "manifest: { requires: {} }"}},
-		{name: "empty", files: map[string]string{}},
+		{name: "go mod", src: newUBSource(t, map[string]string{"go.mod": "module x\n"}), want: true},
+		{
+			name: "go package",
+			src:  newUBSource(t, map[string]string{"lib.go": "package lib\n"}),
+			want: true,
+		},
+		{name: "manifest only", src: newUBFixtureSource(t, "library-classification/valid/manifest-only")},
+		{name: "empty", src: newUBSource(t, map[string]string{})},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, IsGoLibrary(newUBSource(t, tt.files)))
+			require.Equal(t, tt.want, IsGoLibrary(tt.src))
 		})
 	}
 }
 
 func TestWalkUBErrorsForNonPackageRootImport(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"manifest.ub": "manifest: { requires: {} }",
-		"ub/helloer/resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
-	})
+	src := newUBFixtureSource(t, "library/valid/non-package-root-import")
 	refs := map[string]ImportRef{
 		"scratch": &RemoteImport{URL: "github.com/x/libs"},
 	}
@@ -177,13 +169,7 @@ hello: resource {
 }
 
 func TestWalkUBParsesPackageFilesFromOwningProjectVersion(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
-	})
+	src := newUBFixtureSource(t, "library/valid/package-files")
 	refs := map[string]ImportRef{
 		"helloer": &RemoteImport{URL: "github.com/x/libs", Subdir: "ub/helloer"},
 	}
@@ -203,13 +189,7 @@ hello: resource {
 }
 
 func TestWalkUBParsesSubdirPackageLibraryFiles(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"resource-hello.ub": `
-hello: resource {
-  outputs: { message: { value: 'hi' } }
-}
-`,
-	})
+	src := newUBFixtureSource(t, "library/valid/package-files")
 	refs := map[string]ImportRef{
 		"helloer": &RemoteImport{URL: "github.com/x/libs", Subdir: "ub/helloer"},
 	}
@@ -229,11 +209,7 @@ hello: resource {
 }
 
 func TestWalkUBSkipsPackageMetadataFiles(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"manifest.ub": "manifest: { requires: {} }",
-		"lock.ub":     "lock: { version: 1 toolchain: { unobin-version: 'dev' } deps: {} }",
-		"library.ub":  "greeting: resource { outputs: { message: { value: 'hi' } } }",
-	})
+	src := newUBFixtureSource(t, "library/valid/package-metadata-files")
 
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
@@ -242,27 +218,7 @@ func TestWalkUBSkipsPackageMetadataFiles(t *testing.T) {
 }
 
 func TestWalkUBParsesSourceDeclaredLibraryExports(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"library.ub": `
-greeting: resource {
-  imports: {
-    core: 'github.com/x/unobin//core'
-  }
-  resources: {
-    file: core.file { path: '/tmp/greeting' }
-  }
-  outputs: {
-    path: { value: resource.file.path }
-  }
-}
-
-lookup: data {
-  outputs: {
-    id: { value: 'id-1' }
-  }
-}
-`,
-	})
+	src := newUBFixtureSource(t, "library/valid/source-declared-library-exports")
 	refs := map[string]ImportRef{
 		"hello": &RemoteImport{URL: "github.com/x/hello"},
 	}
@@ -293,30 +249,14 @@ lookup: data {
 }
 
 func TestWalkUBKeepsMultiHyphenTypeName(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"library.ub": "vpc-wrapper: resource { description: 'w' }",
-	})
+	src := newUBFixtureSource(t, "library/valid/multi-hyphen-type-name")
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
 	require.Contains(t, lib.SyntaxBodies["resource"], "vpc-wrapper")
 }
 
 func TestWalkUBAllowsSameExportNameAcrossKinds(t *testing.T) {
-	src := newUBSource(t, map[string]string{
-		"library.ub": `
-vpc: resource {
-  outputs: { id: { value: 'managed' } }
-}
-
-vpc: data {
-  outputs: { id: { value: 'existing' } }
-}
-
-vpc: action {
-  outputs: { id: { value: 'ran' } }
-}
-`,
-	})
+	src := newUBFixtureSource(t, "library/valid/same-export-name-across-kinds")
 	lib, err := walkOneUB(t, src)
 	require.NoError(t, err)
 	require.Contains(t, lib.SyntaxBodies["resource"], "vpc")

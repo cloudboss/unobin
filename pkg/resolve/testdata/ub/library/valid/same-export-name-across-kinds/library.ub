@@ -1,0 +1,11 @@
+vpc: resource {
+  outputs: { id: { value: 'managed' } }
+}
+
+vpc: data {
+  outputs: { id: { value: 'existing' } }
+}
+
+vpc: action {
+  outputs: { id: { value: 'ran' } }
+}
