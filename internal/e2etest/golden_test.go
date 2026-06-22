@@ -68,12 +68,16 @@ func TestGoldenCompareRequiresWholeContent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "want/stdout")
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-	require.NoError(t, os.WriteFile(path, []byte("hello\n"), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte("hello\nold\n"), 0o644))
 
-	err := compareTextGolden(path, "hello", *update)
+	err := compareTextGolden(path, "hello\nnew\n", *update)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "differs from golden")
+	assert.Contains(t, err.Error(), "--- golden")
+	assert.Contains(t, err.Error(), "+++ actual")
+	assert.Contains(t, err.Error(), "-old")
+	assert.Contains(t, err.Error(), "+new")
 }
 
 func TestCompareCommandResultsCatchesChangedSecondRun(t *testing.T) {

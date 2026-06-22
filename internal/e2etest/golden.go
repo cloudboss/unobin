@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/pmezard/go-difflib/difflib"
 )
 
 var update = flag.Bool("update", false, "rewrite e2e golden files from actual output")
@@ -84,9 +86,23 @@ func compareTextGolden(path string, got string, doUpdate bool) error {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 	if string(want) != got {
-		return fmt.Errorf("%s differs from golden", path)
+		return fmt.Errorf("%s differs from golden\n%s", path, goldenDiff(path, string(want), got))
 	}
 	return nil
+}
+
+func goldenDiff(path string, want string, got string) string {
+	diff, err := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
+		A:        difflib.SplitLines(want),
+		B:        difflib.SplitLines(got),
+		FromFile: "golden " + path,
+		ToFile:   "actual",
+		Context:  3,
+	})
+	if err != nil {
+		return fmt.Sprintf("build diff: %v", err)
+	}
+	return diff
 }
 
 func writeOrRemove(path string, content string) error {
