@@ -1,0 +1,11 @@
+factory: {
+  imports: { cloud: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
+  inputs: {
+    cloud-config: {
+      type:    library-config('github.com/cloudboss/unobin//examples/awscfg/cloud')
+      default: {}
+    }
+  }
+  library-configs: { cloud: var.cloud-config }
+  actions: { describe: cloud.describe { label: 'world' } }
+}

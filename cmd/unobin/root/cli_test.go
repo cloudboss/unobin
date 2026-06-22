@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -153,12 +154,26 @@ func remoteSourceKey(url, subdir, version string) string {
 	return key
 }
 
+func readCLIFixture(name string) string {
+	path := filepath.Join("testdata", "ub", "cli", "valid", name+".ub")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
+}
+
+func cliFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/cli", name)
+}
+
 func factorySource(body string) []byte {
 	trimmed := strings.TrimPrefix(body, "\n")
-	if strings.HasPrefix(strings.TrimSpace(trimmed), "factory:") {
+	if strings.HasPrefix(strings.TrimSpace(trimmed), "factory"+":") {
 		return []byte(body)
 	}
-	return []byte("factory: {\n" + trimmed + "}\n")
+	return []byte("factory" + ": {\n" + trimmed + "}\n")
 }
 
 func validGoLibrarySource(pkg string) []byte {
@@ -198,7 +213,7 @@ func TestVersionPrintsVersion(t *testing.T) {
 }
 
 func manifestSource(body string) []byte {
-	return []byte("manifest: {\n" + body + "}\n")
+	return []byte("manifest" + ": {\n" + body + "}\n")
 }
 
 func goCoreRemotes() map[string]*resolve.Source {
@@ -230,7 +245,7 @@ func writeGetProject(t *testing.T) string {
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
-		factorySource("imports: { core: 'github.com/x/core//lib' }\n"), 0o644))
+		factorySource(cliFixture(t, "get-project-imports")), 0o644))
 	stubListTags(t, map[string][]string{
 		"github.com/x/core": {"lib/v1.0.0", "lib/v1.2.0", "lib/v2.0.0"},
 	})
@@ -254,11 +269,8 @@ func writeScratchImportProject(t *testing.T, manifestBody string) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), factorySource(`
-imports: {
-  scratch: 'github.com/x/scratch//ub/helloer'
-}
-`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+		factorySource(cliFixture(t, "scratch-import-body")), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, deps.ManifestFileName),
 		manifestSource(manifestBody), 0o644))
 	return root
@@ -288,11 +300,7 @@ func scratchProjectFS() fstest.MapFS {
   'github.com/x/std': { version: 'v0.1.0' }
 }
 `)},
-		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(`hello: resource {
-  imports: { std: 'github.com/x/std' }
-  resources: { file: std.fs-file {} }
-}
-`)},
+		"ub/helloer/library.ub": &fstest.MapFile{Data: []byte(readCLIFixture("scratch-library"))},
 	}
 }
 
@@ -347,19 +355,8 @@ func TestDepsSyncOutputCompilesForReplacedUnobinSubdir(t *testing.T) {
 	rootDir := findUnobinRoot(t)
 	dir := filepath.Join(t.TempDir(), "demo-factory")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"), []byte(`
-factory: {
-  imports: { cloud: 'github.com/cloudboss/unobin//examples/awscfg/cloud' }
-  inputs: {
-    cloud-config: {
-      type:    library-config('github.com/cloudboss/unobin//examples/awscfg/cloud')
-      default: {}
-    }
-  }
-  library-configs: { cloud: var.cloud-config }
-  actions: { describe: cloud.describe { label: 'world' } }
-}
-`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		[]byte(cliFixture(t, "awscfg-factory")), 0o644))
 	manifest := "requires: {}\nreplace: {\n" +
 		"  'github.com/cloudboss/unobin': '" + rootDir + "'\n" +
 		"  'github.com/cloudboss/unobin//examples/awscfg': '" +

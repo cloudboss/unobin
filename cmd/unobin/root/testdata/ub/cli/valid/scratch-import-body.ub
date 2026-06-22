@@ -1,0 +1,3 @@
+imports: {
+  scratch: 'github.com/x/scratch//ub/helloer'
+}
