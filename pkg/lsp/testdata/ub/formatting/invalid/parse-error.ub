@@ -1,0 +1,4 @@
+factory: {
+  inputs: {
+    region: string
+

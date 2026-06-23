@@ -1,0 +1,1 @@
+factory:{inputs:{region:string,zone:string}}

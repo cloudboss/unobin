@@ -66,7 +66,7 @@ func (s *Session) HandleRequest(
 	case "textDocument/didClose":
 		return nil, s.handleDidClose(req.Params)
 	case "textDocument/formatting":
-		return []protocol.TextEdit{}, nil
+		return s.handleFormatting(req.Params)
 	case "textDocument/documentSymbol":
 		return []protocol.DocumentSymbol{}, nil
 	case "textDocument/definition":
@@ -148,6 +148,18 @@ func (s *Session) handleDidClose(params json.RawMessage) *protocol.ResponseError
 	}
 	s.documents.Close(close.TextDocument.URI)
 	return nil
+}
+
+func (s *Session) handleFormatting(params json.RawMessage) (any, *protocol.ResponseError) {
+	var formatting protocol.DocumentFormattingParams
+	if err := decodeParams(params, &formatting); err != nil {
+		return nil, err
+	}
+	doc, ok := s.documents.Get(formatting.TextDocument.URI)
+	if !ok {
+		return nil, protocol.InvalidParams("document is not open: " + formatting.TextDocument.URI)
+	}
+	return FormatText(doc.Path, doc.Text)
 }
 
 func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
