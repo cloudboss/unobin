@@ -4,14 +4,14 @@ project-lock: {
   deps: {
     'github.com/cloudboss/unobin-libraries-scratch': {
       kind:    ub
-      version: 'v0.9.0'
-      commit:  'd44d1437ddc0608da7144ac0d506beecd87bd35f'
-      hash:    'sha256:6aa2d9a6a249c55c5951a780b9d335d9731bc81ece1504103a48efba538ce7fd'
+      version: 'v0.9.1'
+      commit:  'f8497cbf9c4faf4f74a0380a038671d8c32d5d29'
+      hash:    'sha256:1be7c07d39ae2235554250321a5cd196aa19a44fcb1ff0b9d321665a0aedecda'
     }
     'github.com/cloudboss/unobin-library-std': {
       kind:    go
-      version: 'v0.2.0'
-      commit:  'bfd43697148ac0a233bf94a5099fcbbcf287e5eb'
+      version: 'v0.2.1'
+      commit:  '09f63e9942ddf3c13d1276a57bfbad0ab57199b4'
     }
   }
 }
