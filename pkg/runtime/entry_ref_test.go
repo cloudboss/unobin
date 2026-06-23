@@ -115,6 +115,60 @@ func TestParseEntryRefInvalid(t *testing.T) {
 	}
 }
 
+func TestInstanceAddressEscapesKey(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+		want string
+	}{
+		{
+			name: "plain",
+			key:  "blue",
+			want: "resource.items['blue']",
+		},
+		{
+			name: "quote",
+			key:  "team's blue",
+			want: "resource.items['team\\'s blue']",
+		},
+		{
+			name: "backslash",
+			key:  `a\b`,
+			want: "resource.items['a\\\\b']",
+		},
+		{
+			name: "slash",
+			key:  "a/b",
+			want: "resource.items['a/b']",
+		},
+		{
+			name: "quote bracket",
+			key:  "a']b",
+			want: "resource.items['a\\']b']",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := instanceAddress("resource.items", tt.key)
+			assert.Equal(t, tt.want, got)
+
+			template, key := SplitInstanceAddress(got)
+			assert.Equal(t, "resource.items", template)
+			assert.Equal(t, tt.key, key)
+			assert.Equal(t, "resource.items", templateAddress(got))
+		})
+	}
+}
+
+func TestDirectParentIgnoresSlashInKey(t *testing.T) {
+	root := instanceAddress("resource.items", "a/b")
+	child := root + "/resource.member"
+
+	assert.Equal(t, "", DirectParent(root))
+	assert.Equal(t, root, DirectParent(child))
+}
+
 func TestEntryRefFromEntryAndNode(t *testing.T) {
 	ent := &state.Entry{
 		Address:  "resource.web",

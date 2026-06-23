@@ -479,30 +479,20 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 // leaf instance addresses (`<y>['k']`) both reduce to their
 // template form.
 func templateAddress(addr string) string {
-	var out strings.Builder
-	rest := addr
-	for {
-		start := strings.Index(rest, "['")
-		if start < 0 {
-			out.WriteString(rest)
-			return out.String()
-		}
-		out.WriteString(rest[:start])
-		rest = rest[start:]
-		end := strings.Index(rest, "']")
-		if end < 0 {
-			out.WriteString(rest)
-			return out.String()
-		}
-		rest = rest[end+2:]
+	if template, ok := entryTemplate(addr); ok {
+		return template
 	}
+	return addr
 }
 
-// DirectParent returns the substring before the last `/` in addr, or
-// the empty string when addr has no `/`. Unlike templateAddress,
-// DirectParent preserves `['key']` segments so the result names a
-// per-instance composite call site when one is present.
+// DirectParent returns addr's parent state-ref segment path, or the
+// empty string for a root segment. Unlike templateAddress, DirectParent
+// preserves `['key']` segments so the result names a per-instance
+// composite call site when one is present.
 func DirectParent(addr string) string {
+	if parent, ok := entryParent(addr); ok {
+		return parent
+	}
 	if i := strings.LastIndex(addr, "/"); i >= 0 {
 		return addr[:i]
 	}
@@ -734,6 +724,9 @@ func childScopeWithEach(parent *EvalContext, key string, value any) *EvalContext
 // instanceAddress appends a per-key suffix to a template address using
 // the source-side `['<key>']` form so eval and state-lookup agree.
 func instanceAddress(templateAddr, key string) string {
+	if addr, ok := appendEntryKey(templateAddr, key); ok {
+		return addr
+	}
 	return fmt.Sprintf("%s['%s']", templateAddr, key)
 }
 

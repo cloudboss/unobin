@@ -843,14 +843,10 @@ func SplitInstanceAddress(addr string) (template, key string) {
 // and ApplyPlan. It is also exposed via SplitInstanceAddress for the
 // renderer in `pkg/runner`.
 func splitInstanceAddress(addr string) (template, key string) {
-	if !strings.HasSuffix(addr, "']") {
-		return addr, ""
+	if template, key, ok := splitEntryKey(addr); ok {
+		return template, key
 	}
-	idx := strings.LastIndex(addr, "['")
-	if idx < 0 {
-		return addr, ""
-	}
-	return addr[:idx], addr[idx+2 : len(addr)-2]
+	return addr, ""
 }
 
 // isUpstreamChange reports whether the named decision implies the

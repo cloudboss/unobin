@@ -393,13 +393,13 @@ func TestPrintPlanGroupsForEachInstances(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:  "resource.core.thing.many['alpha']",
+				Address:  "resource.many['alpha']",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs:   map[string]any{"name": "alpha", "size": int64(1)},
 			},
 			{
-				Address:  "resource.core.thing.many['beta']",
+				Address:  "resource.many['beta']",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs:   map[string]any{"name": "beta", "size": int64(2)},
@@ -408,7 +408,7 @@ func TestPrintPlanGroupsForEachInstances(t *testing.T) {
 	}
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
-	expected := `  + resource.core.thing.many  (for-each, 2 instances)
+	expected := `  + resource.many  (for-each, 2 instances)
     + ['alpha']
         name: 'alpha'
         size: 1
@@ -425,20 +425,20 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:   "resource.greeter.greeting.welcome",
+				Address:   "resource.welcome",
 				Kind:      runtime.NodeResource,
 				Composite: true,
 				Decision:  runtime.DecisionEval,
 				Inputs:    map[string]any{"path": "/tmp/x"},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/resource.local.file.many['a']",
+				Address:  "resource.welcome/resource.many['a']",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs:   map[string]any{"path": "/tmp/a"},
 			},
 			{
-				Address:  "resource.greeter.greeting.welcome/resource.local.file.many['b']",
+				Address:  "resource.welcome/resource.many['b']",
 				Kind:     runtime.NodeResource,
 				Decision: runtime.DecisionCreate,
 				Inputs:   map[string]any{"path": "/tmp/b"},
@@ -447,9 +447,9 @@ func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
 	}
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
-	expected := `  + resource.greeter.greeting.welcome  (composite)
+	expected := `  + resource.welcome  (composite)
       path: '/tmp/x'
-    + resource.local.file.many  (for-each, 2 instances)
+    + resource.many  (for-each, 2 instances)
       + ['a']
           path: '/tmp/a'
       + ['b']

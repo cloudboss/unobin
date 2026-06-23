@@ -66,6 +66,59 @@ func ValidateAddress(address string) error {
 	return err
 }
 
+// AppendInstanceKey returns template with key set on its final segment.
+func AppendInstanceKey(template string, key string) (string, error) {
+	ref, err := ParseStateRef(template)
+	if err != nil {
+		return "", err
+	}
+	last := &ref.Segments[len(ref.Segments)-1]
+	if last.Key != nil {
+		return "", fmt.Errorf("state ref already has an instance key")
+	}
+	last.Key = &StringKey{Value: key}
+	return ref.String(), nil
+}
+
+// SplitInstanceKey removes and returns the final segment's static key.
+func SplitInstanceKey(address string) (template string, key string, ok bool, err error) {
+	ref, err := ParseStateRef(address)
+	if err != nil {
+		return "", "", false, err
+	}
+	last := &ref.Segments[len(ref.Segments)-1]
+	if last.Key == nil {
+		return ref.String(), "", false, nil
+	}
+	key = last.Key.Value
+	last.Key = nil
+	return ref.String(), key, true, nil
+}
+
+// Template removes static keys from every segment in address.
+func Template(address string) (string, error) {
+	ref, err := ParseStateRef(address)
+	if err != nil {
+		return "", err
+	}
+	for i := range ref.Segments {
+		ref.Segments[i].Key = nil
+	}
+	return ref.String(), nil
+}
+
+// Parent returns the slash parent of address, or empty for a root segment.
+func Parent(address string) (string, error) {
+	ref, err := ParseStateRef(address)
+	if err != nil {
+		return "", err
+	}
+	if len(ref.Segments) == 1 {
+		return "", nil
+	}
+	return StateRef{Segments: ref.Segments[:len(ref.Segments)-1]}.String(), nil
+}
+
 func splitSegments(s string) ([]string, error) {
 	parts := []string{}
 	start := 0

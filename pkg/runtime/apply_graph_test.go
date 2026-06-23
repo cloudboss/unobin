@@ -28,132 +28,132 @@ func sortDependents(g *stepGraph) {
 
 func TestBuildStepGraphPlainLeaves(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.aws.subnet.this": {"resource.aws.vpc.main"},
-		"resource.aws.vpc.main":    nil,
+		"resource.subnet": {"resource.vpc"},
+		"resource.vpc":    nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.aws.vpc.main",
-		"resource.aws.subnet.this",
+		"resource.vpc",
+		"resource.subnet",
 	}, dag)
 	sortDependents(g)
-	assert.Equal(t, 0, g.indegree["resource.aws.vpc.main"])
-	assert.Equal(t, 1, g.indegree["resource.aws.subnet.this"])
+	assert.Equal(t, 0, g.indegree["resource.vpc"])
+	assert.Equal(t, 1, g.indegree["resource.subnet"])
 	assert.Equal(t,
-		[]string{"resource.aws.subnet.this"},
-		g.dependents["resource.aws.vpc.main"])
+		[]string{"resource.subnet"},
+		g.dependents["resource.vpc"])
 }
 
 func TestBuildStepGraphForEachOnPlain(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.aws.instance.nodes": {"resource.aws.subnet.this"},
-		"resource.aws.subnet.this":    nil,
+		"resource.nodes":  {"resource.subnet"},
+		"resource.subnet": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.aws.subnet.this",
-		"resource.aws.instance.nodes['alpha']",
-		"resource.aws.instance.nodes['beta']",
+		"resource.subnet",
+		"resource.nodes['alpha']",
+		"resource.nodes['beta']",
 	}, dag)
 	sortDependents(g)
-	assert.Equal(t, 0, g.indegree["resource.aws.subnet.this"])
-	assert.Equal(t, 1, g.indegree["resource.aws.instance.nodes['alpha']"])
-	assert.Equal(t, 1, g.indegree["resource.aws.instance.nodes['beta']"])
+	assert.Equal(t, 0, g.indegree["resource.subnet"])
+	assert.Equal(t, 1, g.indegree["resource.nodes['alpha']"])
+	assert.Equal(t, 1, g.indegree["resource.nodes['beta']"])
 	assert.Equal(t,
 		[]string{
-			"resource.aws.instance.nodes['alpha']",
-			"resource.aws.instance.nodes['beta']",
+			"resource.nodes['alpha']",
+			"resource.nodes['beta']",
 		},
-		g.dependents["resource.aws.subnet.this"])
+		g.dependents["resource.subnet"])
 }
 
 func TestBuildStepGraphPlainDependsOnForEach(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.aws.lb.web":         {"resource.aws.instance.nodes"},
-		"resource.aws.instance.nodes": nil,
+		"resource.lb":    {"resource.nodes"},
+		"resource.nodes": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.aws.instance.nodes['alpha']",
-		"resource.aws.instance.nodes['beta']",
-		"resource.aws.lb.web",
+		"resource.nodes['alpha']",
+		"resource.nodes['beta']",
+		"resource.lb",
 	}, dag)
-	assert.Equal(t, 2, g.indegree["resource.aws.lb.web"])
+	assert.Equal(t, 2, g.indegree["resource.lb"])
 	assert.Equal(t,
-		[]string{"resource.aws.lb.web"},
-		g.dependents["resource.aws.instance.nodes['alpha']"])
+		[]string{"resource.lb"},
+		g.dependents["resource.nodes['alpha']"])
 	assert.Equal(t,
-		[]string{"resource.aws.lb.web"},
-		g.dependents["resource.aws.instance.nodes['beta']"])
+		[]string{"resource.lb"},
+		g.dependents["resource.nodes['beta']"])
 }
 
 func TestBuildStepGraphForEachOnForEachCartesian(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.aws.volume.vols":    {"resource.aws.instance.nodes"},
-		"resource.aws.instance.nodes": nil,
+		"resource.vols":  {"resource.nodes"},
+		"resource.nodes": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.aws.instance.nodes['alpha']",
-		"resource.aws.instance.nodes['beta']",
-		"resource.aws.volume.vols['alpha']",
-		"resource.aws.volume.vols['beta']",
+		"resource.nodes['alpha']",
+		"resource.nodes['beta']",
+		"resource.vols['alpha']",
+		"resource.vols['beta']",
 	}, dag)
-	assert.Equal(t, 2, g.indegree["resource.aws.volume.vols['alpha']"])
-	assert.Equal(t, 2, g.indegree["resource.aws.volume.vols['beta']"])
+	assert.Equal(t, 2, g.indegree["resource.vols['alpha']"])
+	assert.Equal(t, 2, g.indegree["resource.vols['beta']"])
 }
 
 func TestBuildStepGraphCompositeInternalsSameKeyOnly(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.net.cluster.web/resource.aws.subnet.this": {
-			"resource.net.cluster.web/resource.aws.vpc.this",
+		"resource.web/resource.subnet": {
+			"resource.web/resource.vpc",
 		},
-		"resource.net.cluster.web/resource.aws.vpc.this": nil,
+		"resource.web/resource.vpc": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.net.cluster.web['k1']/resource.aws.vpc.this",
-		"resource.net.cluster.web['k1']/resource.aws.subnet.this",
-		"resource.net.cluster.web['k2']/resource.aws.vpc.this",
-		"resource.net.cluster.web['k2']/resource.aws.subnet.this",
+		"resource.web['k1']/resource.vpc",
+		"resource.web['k1']/resource.subnet",
+		"resource.web['k2']/resource.vpc",
+		"resource.web['k2']/resource.subnet",
 	}, dag)
 	sortDependents(g)
-	assert.Equal(t, 1, g.indegree["resource.net.cluster.web['k1']/resource.aws.subnet.this"])
-	assert.Equal(t, 1, g.indegree["resource.net.cluster.web['k2']/resource.aws.subnet.this"])
+	assert.Equal(t, 1, g.indegree["resource.web['k1']/resource.subnet"])
+	assert.Equal(t, 1, g.indegree["resource.web['k2']/resource.subnet"])
 	assert.Equal(t,
-		[]string{"resource.net.cluster.web['k1']/resource.aws.subnet.this"},
-		g.dependents["resource.net.cluster.web['k1']/resource.aws.vpc.this"])
+		[]string{"resource.web['k1']/resource.subnet"},
+		g.dependents["resource.web['k1']/resource.vpc"])
 	assert.Equal(t,
-		[]string{"resource.net.cluster.web['k2']/resource.aws.subnet.this"},
-		g.dependents["resource.net.cluster.web['k2']/resource.aws.vpc.this"])
+		[]string{"resource.web['k2']/resource.subnet"},
+		g.dependents["resource.web['k2']/resource.vpc"])
 }
 
 func TestBuildStepGraphForEachCompositeBoundary(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.net.cluster.web": {
-			"resource.net.cluster.web/resource.aws.vpc.this",
-			"resource.net.cluster.web/resource.aws.subnet.this",
+		"resource.web": {
+			"resource.web/resource.vpc",
+			"resource.web/resource.subnet",
 		},
-		"resource.net.cluster.web/resource.aws.vpc.this":    nil,
-		"resource.net.cluster.web/resource.aws.subnet.this": nil,
+		"resource.web/resource.vpc":    nil,
+		"resource.web/resource.subnet": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.net.cluster.web['k1']/resource.aws.vpc.this",
-		"resource.net.cluster.web['k1']/resource.aws.subnet.this",
-		"resource.net.cluster.web['k1']",
-		"resource.net.cluster.web['k2']/resource.aws.vpc.this",
-		"resource.net.cluster.web['k2']/resource.aws.subnet.this",
-		"resource.net.cluster.web['k2']",
+		"resource.web['k1']/resource.vpc",
+		"resource.web['k1']/resource.subnet",
+		"resource.web['k1']",
+		"resource.web['k2']/resource.vpc",
+		"resource.web['k2']/resource.subnet",
+		"resource.web['k2']",
 	}, dag)
-	assert.Equal(t, 2, g.indegree["resource.net.cluster.web['k1']"])
-	assert.Equal(t, 2, g.indegree["resource.net.cluster.web['k2']"])
+	assert.Equal(t, 2, g.indegree["resource.web['k1']"])
+	assert.Equal(t, 2, g.indegree["resource.web['k2']"])
 }
 
 func TestBuildStepGraphOrphanHasNoPredecessors(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"resource.aws.vpc.main": nil,
+		"resource.vpc": nil,
 	})
 	g := buildStepGraphFromAddresses([]string{
-		"resource.aws.vpc.main",
-		"resource.aws.deleted.zombie",
+		"resource.vpc",
+		"resource.zombie",
 	}, dag)
-	assert.Equal(t, 0, g.indegree["resource.aws.deleted.zombie"])
-	assert.Nil(t, g.dependents["resource.aws.deleted.zombie"])
+	assert.Equal(t, 0, g.indegree["resource.zombie"])
+	assert.Nil(t, g.dependents["resource.zombie"])
 }
 
 func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
@@ -197,24 +197,24 @@ func TestKeyPath(t *testing.T) {
 	}{
 		{
 			name: "no key",
-			addr: "resource.aws.vpc.main",
+			addr: "resource.vpc",
 			want: nil,
 		},
 		{
 			name: "single key at root",
-			addr: "resource.aws.instance.nodes['alpha']",
-			want: []keyPosition{{at: "resource.aws.instance.nodes", key: "alpha"}},
+			addr: "resource.nodes['alpha']",
+			want: []keyPosition{{at: "resource.nodes", key: "alpha"}},
 		},
 		{
 			name: "key at composite boundary",
-			addr: "resource.net.cluster.web['k1']/resource.aws.vpc.this",
-			want: []keyPosition{{at: "resource.net.cluster.web", key: "k1"}},
+			addr: "resource.web['k1']/resource.vpc",
+			want: []keyPosition{{at: "resource.web", key: "k1"}},
 		},
 		{
 			name: "key only at internal",
-			addr: "resource.net.cluster.web/resource.aws.instance.nodes['alpha']",
+			addr: "resource.web/resource.nodes['alpha']",
 			want: []keyPosition{
-				{at: "resource.net.cluster.web/resource.aws.instance.nodes", key: "alpha"},
+				{at: "resource.web/resource.nodes", key: "alpha"},
 			},
 		},
 	}
@@ -226,10 +226,10 @@ func TestKeyPath(t *testing.T) {
 }
 
 func TestKeyPathsAgree(t *testing.T) {
-	a := keyPath("resource.net.cluster.web['k1']/resource.aws.subnet.this")
-	b := keyPath("resource.net.cluster.web['k1']/resource.aws.vpc.this")
-	c := keyPath("resource.net.cluster.web['k2']/resource.aws.vpc.this")
-	d := keyPath("resource.aws.subnet.this")
+	a := keyPath("resource.web['k1']/resource.subnet")
+	b := keyPath("resource.web['k1']/resource.vpc")
+	c := keyPath("resource.web['k2']/resource.vpc")
+	d := keyPath("resource.subnet")
 	assert.True(t, keyPathsAgree(a, b))
 	assert.False(t, keyPathsAgree(a, c))
 	assert.True(t, keyPathsAgree(a, d))
@@ -357,20 +357,20 @@ func TestPersistedDependsOn(t *testing.T) {
 // reads, since destroy ordering has no config entry to sequence against.
 func TestPersistedDependsOnCollapsesLibraryConfigs(t *testing.T) {
 	dag := newDAG(map[string][]string{
-		"library-config.greet":                            {"resource.greet.phrase.flourish"},
-		"action.greet.say.solo":                           {"library-config.greet"},
-		"action.greet.say.many":                           {"library-config.greet"},
-		"resource.net.cluster.web/action.greet.say.inner": {"library-config.greet"},
-		"resource.greet.phrase.flourish":                  nil,
+		"library-config.greet":      {"resource.flourish"},
+		"action.solo":               {"library-config.greet"},
+		"action.many":               {"library-config.greet"},
+		"resource.web/action.inner": {"library-config.greet"},
+		"resource.flourish":         nil,
 	})
 	steps := []PlanStep{
-		{Address: "resource.greet.phrase.flourish", Kind: NodeResource, Decision: DecisionCreate},
+		{Address: "resource.flourish", Kind: NodeResource, Decision: DecisionCreate},
 		{Address: "library-config.greet", Kind: NodeLibraryConfig, Decision: DecisionEval},
-		{Address: "action.greet.say.solo", Kind: NodeAction, Decision: DecisionCreate},
-		{Address: "action.greet.say.many['k1']", Kind: NodeAction, Decision: DecisionCreate},
-		{Address: "action.greet.say.many['k2']", Kind: NodeAction, Decision: DecisionCreate},
+		{Address: "action.solo", Kind: NodeAction, Decision: DecisionCreate},
+		{Address: "action.many['k1']", Kind: NodeAction, Decision: DecisionCreate},
+		{Address: "action.many['k2']", Kind: NodeAction, Decision: DecisionCreate},
 		{
-			Address:  "resource.net.cluster.web/action.greet.say.inner",
+			Address:  "resource.web/action.inner",
 			Kind:     NodeAction,
 			Decision: DecisionCreate,
 		},
@@ -382,11 +382,11 @@ func TestPersistedDependsOnCollapsesLibraryConfigs(t *testing.T) {
 	g := buildStepGraphFromAddresses(addrs, dag)
 	got := persistedDependsOn(g, steps)
 	assert.Equal(t, map[string][]string{
-		"action.greet.say.solo":       {"resource.greet.phrase.flourish"},
-		"action.greet.say.many['k1']": {"resource.greet.phrase.flourish"},
-		"action.greet.say.many['k2']": {"resource.greet.phrase.flourish"},
-		"resource.net.cluster.web/action.greet.say.inner": {
-			"resource.greet.phrase.flourish",
+		"action.solo":       {"resource.flourish"},
+		"action.many['k1']": {"resource.flourish"},
+		"action.many['k2']": {"resource.flourish"},
+		"resource.web/action.inner": {
+			"resource.flourish",
 		},
 	}, got)
 }
