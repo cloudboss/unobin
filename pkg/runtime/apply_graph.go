@@ -3,7 +3,8 @@ package runtime
 import (
 	"maps"
 	"slices"
-	"strings"
+
+	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
 // stepGraph is the apply-time view of step-to-step dependencies. It is
@@ -261,23 +262,21 @@ type keyPosition struct {
 // using template-form for every prior segment plus the current
 // segment's template form.
 func keyPath(addr string) []keyPosition {
-	if addr == "" || !strings.Contains(addr, "['") {
+	ref, err := stateref.ParseStateRef(addr)
+	if err != nil {
 		return nil
 	}
-	parts := strings.Split(addr, "/")
-	tmplParts := make([]string, len(parts))
-	for i, p := range parts {
-		t, _ := splitInstanceAddress(p)
-		tmplParts[i] = t
-	}
+	tmpl := make([]stateref.StateAddressSegment, 0, len(ref.Segments))
 	var out []keyPosition
-	for i, p := range parts {
-		_, key := splitInstanceAddress(p)
-		if key == "" {
+	for _, segment := range ref.Segments {
+		key := segment.Key
+		segment.Key = nil
+		tmpl = append(tmpl, segment)
+		if key == nil {
 			continue
 		}
-		prefix := strings.Join(tmplParts[:i+1], "/")
-		out = append(out, keyPosition{at: prefix, key: key})
+		prefix := stateref.StateRef{Segments: tmpl}.String()
+		out = append(out, keyPosition{at: prefix, key: key.Value})
 	}
 	return out
 }

@@ -123,6 +123,30 @@ func TestBuildStepGraphCompositeInternalsSameKeyOnly(t *testing.T) {
 		g.dependents["resource.web['k2']/resource.vpc"])
 }
 
+func TestBuildStepGraphCompositeInternalsSameKeyWithSlash(t *testing.T) {
+	dag := newDAG(map[string][]string{
+		"resource.web/resource.subnet": {
+			"resource.web/resource.vpc",
+		},
+		"resource.web/resource.vpc": nil,
+	})
+	g := buildStepGraphFromAddresses([]string{
+		"resource.web['a/b']/resource.vpc",
+		"resource.web['a/b']/resource.subnet",
+		"resource.web['a/c']/resource.vpc",
+		"resource.web['a/c']/resource.subnet",
+	}, dag)
+	sortDependents(g)
+	assert.Equal(t, 1, g.indegree["resource.web['a/b']/resource.subnet"])
+	assert.Equal(t, 1, g.indegree["resource.web['a/c']/resource.subnet"])
+	assert.Equal(t,
+		[]string{"resource.web['a/b']/resource.subnet"},
+		g.dependents["resource.web['a/b']/resource.vpc"])
+	assert.Equal(t,
+		[]string{"resource.web['a/c']/resource.subnet"},
+		g.dependents["resource.web['a/c']/resource.vpc"])
+}
+
 func TestBuildStepGraphForEachCompositeBoundary(t *testing.T) {
 	dag := newDAG(map[string][]string{
 		"resource.web": {
