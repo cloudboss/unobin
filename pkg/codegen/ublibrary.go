@@ -200,6 +200,7 @@ type libraryBinding struct {
 type specVar struct {
 	Name        string
 	GoIdent     string
+	Path        string
 	Constraints string
 	Defaults    string
 	Schema      string
@@ -224,7 +225,7 @@ func specVarsFor(
 		}
 		ident := idents.byPath[p]
 		name := strings.TrimPrefix(ident, "lib_") + "Lib"
-		v := specVar{Name: name, GoIdent: ident}
+		v := specVar{Name: name, GoIdent: ident, Path: p}
 		if len(specs.Constraints) > 0 {
 			v.Constraints = constraintsAssign(name, specs.Constraints)
 		}
@@ -348,7 +349,10 @@ import (
 {{end}})
 
 func Library() *runtime.Library {
-{{range .SpecVars}}	{{.Name}} := {{.GoIdent}}.Library()
+{{range .SpecVars}}	{{.Name}} := runtime.LibraryWithPath(
+		{{.GoIdent}}.Library(),
+		{{quote .Path}},
+	)
 {{- if .Constraints}}
 	{{.Constraints}}
 {{- end}}
@@ -369,7 +373,10 @@ func Library() *runtime.Library {
 {{- end}}
 {{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{
-{{range .Libraries}}					{{quote .LocalAlias}}: {{.Value}},
+{{range .Libraries}}					{{quote .LocalAlias}}: runtime.LibraryWithPath(
+						{{.Value}},
+						{{quote .Path}},
+					),
 {{end}}				},
 {{- end}}
 			},

@@ -17,6 +17,7 @@ import (
 // import.
 type Library struct {
 	Name          string
+	LibraryPath   string
 	Description   string
 	Configuration cfg.Registration
 	Actions       map[string]ActionRegistration
@@ -85,6 +86,14 @@ type CompositeType struct {
 	Kind       NodeKind
 	SyntaxBody *syntax.FactoryBody
 	Libraries  map[string]*Library
+}
+
+// LibraryWithPath records the resolved import path on a library registration.
+func LibraryWithPath(lib *Library, libraryPath string) *Library {
+	if lib != nil {
+		lib.LibraryPath = libraryPath
+	}
+	return lib
 }
 
 // Composite returns the composite of the given kind and name, or nil

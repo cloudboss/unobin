@@ -11,9 +11,10 @@
       "address": "action.go-secret",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "secret"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "secret"
       },
       "sensitive-inputs": [
         "value"
@@ -34,9 +35,10 @@
       "address": "action.record",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "record"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "record"
       },
       "sensitive-inputs": [
         "message"
@@ -55,9 +57,10 @@
       "address": "action.record-local",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "record"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "record"
       },
       "sensitive-inputs": [
         "message"
@@ -76,9 +79,10 @@
       "address": "action.record-output-local",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "record"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "record"
       },
       "sensitive-inputs": [
         "message"

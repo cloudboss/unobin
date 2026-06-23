@@ -71,7 +71,10 @@ var (
 
 func main() {
 	libraries := map[string]*runtime.Library{
-		"aws": lib_aws.Library(),
+		"aws": runtime.LibraryWithPath(
+			lib_aws.Library(),
+			"github.com/example/aws",
+		),
 	}
 	libraries["aws"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.vpc": {
@@ -137,7 +140,10 @@ var (
 
 func main() {
 	libraries := map[string]*runtime.Library{
-		"local": lib_local.Library(),
+		"local": runtime.LibraryWithPath(
+			lib_local.Library(),
+			"github.com/example/local",
+		),
 	}
 	libraries["local"].Defaults = map[string][]lang.DefaultSpec{
 		"resource.file": {
@@ -203,7 +209,10 @@ var (
 
 func main() {
 	libraries := map[string]*runtime.Library{
-		"vault": lib_vault.Library(),
+		"vault": runtime.LibraryWithPath(
+			lib_vault.Library(),
+			"github.com/example/vault",
+		),
 	}
 	libraries["vault"].Schema = &runtime.LibrarySchema{
 		Actions: map[string]*runtime.TypeSchema{
@@ -273,7 +282,10 @@ var (
 
 func main() {
 	libraries := map[string]*runtime.Library{
-		"aws": lib_aws.Library(),
+		"aws": runtime.LibraryWithPath(
+			lib_aws.Library(),
+			"github.com/example/aws",
+		),
 	}
 	libraries["aws"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.vpc": {
@@ -333,8 +345,12 @@ func TestGenerateSanitizesImportAliases(t *testing.T) {
 	require.NoError(t, err, "generated source should parse:\n%s", string(out))
 
 	s := string(out)
-	require.Contains(t, s, `"std-lib":   lib_std_lib.Library(),`)
-	require.Contains(t, s, `"project-b": lib_project_b.Library(),`)
+	require.Contains(t, s, `"std-lib": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_std_lib.Library(),`)
+	require.Contains(t, s, `"github.com/cloudboss/unobin-library-std",`)
+	require.Contains(t, s, `"project-b": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_project_b.Library(),`)
+	require.Contains(t, s, `"demo/internal/project-b",`)
 }
 
 func TestGenerateEmbedsFactoryName(t *testing.T) {
@@ -456,9 +472,18 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"core":    lib_core.Library(),
-			"cluster": lib_cluster.Library(),
-			"net":     lib_net.Library(),
+			"core": runtime.LibraryWithPath(
+				lib_core.Library(),
+				"github.com/cloudboss/unobin/pkg/libraries/core",
+			),
+			"cluster": runtime.LibraryWithPath(
+				lib_cluster.Library(),
+				"demo/internal/cluster",
+			),
+			"net": runtime.LibraryWithPath(
+				lib_net.Library(),
+				"demo/internal/net",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})
@@ -479,6 +504,10 @@ func TestGenerateBuildsLibrariesMap(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, `"aws":  lib_aws.Library(),`)
-	require.Contains(t, s, `"core": lib_core.Library(),`)
+	require.Contains(t, s, `"aws": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_aws.Library(),`)
+	require.Contains(t, s, `"github.com/cloudboss/unobin-libraries/aws",`)
+	require.Contains(t, s, `"core": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_core.Library(),`)
+	require.Contains(t, s, `"github.com/cloudboss/unobin/pkg/libraries/core",`)
 }

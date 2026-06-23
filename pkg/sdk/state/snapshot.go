@@ -24,15 +24,16 @@ const (
 	EntryData EntryType = "data-source"
 )
 
-// Selector identifies the implementation selected for an entry.
-type Selector struct {
-	Alias  string `json:"alias"`
-	Export string `json:"export,omitempty"`
+// Binding identifies the implementation selected for an entry.
+type Binding struct {
+	Alias       string `json:"alias"`
+	LibraryPath string `json:"library-path,omitempty"`
+	Export      string `json:"kind,omitempty"`
 }
 
 // Entry is one record in a snapshot. Type is the entry discriminator.
 // Kind is the graph node kind for resource, data-source, action, and
-// composite entries. Selector names the implementation used by that entry.
+// composite entries. Binding names the implementation used by that entry.
 //
 // SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
 // values came from a sensitive source. Renderers mask the matching
@@ -41,11 +42,11 @@ type Entry struct {
 	Address string    `json:"address"`
 	Type    EntryType `json:"entry-kind"`
 
-	Kind             string    `json:"node-kind,omitempty"`
-	Selector         *Selector `json:"selector,omitempty"`
-	SchemaVersion    int       `json:"schema-version,omitempty"`
-	SensitiveInputs  []string  `json:"sensitive-inputs,omitempty"`
-	SensitiveOutputs []string  `json:"sensitive-outputs,omitempty"`
+	Kind             string   `json:"node-kind,omitempty"`
+	Binding          *Binding `json:"binding,omitempty"`
+	SchemaVersion    int      `json:"schema-version,omitempty"`
+	SensitiveInputs  []string `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
 
 	TriggerHash string `json:"trigger-hash,omitempty"`
 
@@ -58,7 +59,7 @@ type entryJSON struct {
 	Address          string         `json:"address"`
 	Type             EntryType      `json:"entry-kind"`
 	Kind             string         `json:"node-kind,omitempty"`
-	Selector         *Selector      `json:"selector,omitempty"`
+	Binding          *Binding       `json:"binding,omitempty"`
 	SchemaVersion    int            `json:"schema-version,omitempty"`
 	SensitiveInputs  []string       `json:"sensitive-inputs,omitempty"`
 	SensitiveOutputs []string       `json:"sensitive-outputs,omitempty"`
@@ -73,7 +74,7 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 		Address:          e.Address,
 		Type:             e.Type,
 		Kind:             e.Kind,
-		Selector:         e.Selector,
+		Binding:          e.Binding,
 		SchemaVersion:    e.SchemaVersion,
 		SensitiveInputs:  e.SensitiveInputs,
 		SensitiveOutputs: e.SensitiveOutputs,
@@ -196,28 +197,28 @@ func (e *Entry) validate() error {
 		if err := e.validateNodeKind("resource"); err != nil {
 			return err
 		}
-		if err := e.validateGraphSelector(); err != nil {
+		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case EntryLibraryCall:
 		if err := e.validateNodeKind("resource", "data-source", "action"); err != nil {
 			return err
 		}
-		if err := e.validateGraphSelector(); err != nil {
+		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case EntryAction:
 		if err := e.validateNodeKind("action"); err != nil {
 			return err
 		}
-		if err := e.validateGraphSelector(); err != nil {
+		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case EntryData:
 		if err := e.validateNodeKind("data-source"); err != nil {
 			return err
 		}
-		if err := e.validateGraphSelector(); err != nil {
+		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case "":
@@ -238,15 +239,15 @@ func (e *Entry) validateNodeKind(allowed ...string) error {
 	return fmt.Errorf("snapshot: entry %q has node-kind %q", e.Address, e.Kind)
 }
 
-func (e *Entry) validateGraphSelector() error {
-	if e.Selector == nil {
-		return fmt.Errorf("snapshot: entry %q selector missing", e.Address)
+func (e *Entry) validateGraphBinding() error {
+	if e.Binding == nil {
+		return fmt.Errorf("snapshot: entry %q binding missing", e.Address)
 	}
-	if e.Selector.Alias == "" {
-		return fmt.Errorf("snapshot: entry %q selector missing alias", e.Address)
+	if e.Binding.Alias == "" {
+		return fmt.Errorf("snapshot: entry %q binding missing alias", e.Address)
 	}
-	if e.Selector.Export == "" {
-		return fmt.Errorf("snapshot: entry %q selector missing export", e.Address)
+	if e.Binding.Export == "" {
+		return fmt.Errorf("snapshot: entry %q binding missing kind", e.Address)
 	}
 	return nil
 }

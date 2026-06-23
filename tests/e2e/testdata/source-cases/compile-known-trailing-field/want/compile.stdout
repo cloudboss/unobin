@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"fake": lib_fake.Library(),
+			"fake": runtime.LibraryWithPath(
+				lib_fake.Library(),
+				"example.com/fake",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

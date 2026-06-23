@@ -29,8 +29,14 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"e2e": lib_e2e.Library(),
-			"net": lib_net.Library(),
+			"e2e": runtime.LibraryWithPath(
+				lib_e2e.Library(),
+				"example.com/unobin/e2elib",
+			),
+			"net": runtime.LibraryWithPath(
+				lib_net.Library(),
+				"demo-factory/internal/net",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

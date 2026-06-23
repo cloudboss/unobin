@@ -49,7 +49,7 @@ func moveEntryWithBinding(
 		Address:       r.Address,
 		Type:          typ,
 		Kind:          kind,
-		Selector:      &state.Selector{Alias: alias, Export: export},
+		Binding:       &state.Binding{Alias: alias, Export: export},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": r.Address},
 		Outputs:       map[string]any{"id": r.String()},

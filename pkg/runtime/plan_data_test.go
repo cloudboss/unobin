@@ -294,7 +294,7 @@ func TestDataStoredInStateAndPruned(t *testing.T) {
 	require.NotNil(t, ent, "the data read belongs in state")
 	require.Equal(t, state.EntryData, ent.Type)
 	require.Equal(t, "data-source", ent.Kind)
-	require.Equal(t, &state.Selector{Alias: "core", Export: "dial"}, ent.Selector)
+	require.Equal(t, &state.Binding{Alias: "core", Export: "dial"}, ent.Binding)
 	require.Equal(t, map[string]any{"key": "k"}, ent.Inputs)
 	require.Equal(t, map[string]any{"value": "a:k"}, ent.Outputs)
 

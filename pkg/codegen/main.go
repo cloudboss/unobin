@@ -378,8 +378,14 @@ var (
 func main() {
 {{if .Inject -}}
 	libraries := map[string]*runtime.Library{
-{{range .GoImports}}		{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
-{{end}}{{range .UBImports}}		{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
+{{range .GoImports}}		{{quote .LocalAlias}}: runtime.LibraryWithPath(
+			{{.GoIdent}}.Library(),
+			{{quote .Path}},
+		),
+{{end}}{{range .UBImports}}		{{quote .LocalAlias}}: runtime.LibraryWithPath(
+			{{.GoIdent}}.Library(),
+			{{quote .Path}},
+		),
 {{end}}	}
 {{range .ConstraintAliases}}	{{injectConstraints . $.GoConstraints}}
 {{end}}{{range .DefaultAliases}}	{{injectDefaults . $.GoDefaults}}
@@ -401,8 +407,14 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-{{range .GoImports}}			{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
-{{end}}{{range .UBImports}}			{{quote .LocalAlias}}: {{.GoIdent}}.Library(),
+{{range .GoImports}}			{{quote .LocalAlias}}: runtime.LibraryWithPath(
+				{{.GoIdent}}.Library(),
+				{{quote .Path}},
+			),
+{{end}}{{range .UBImports}}			{{quote .LocalAlias}}: runtime.LibraryWithPath(
+				{{.GoIdent}}.Library(),
+				{{quote .Path}},
+			),
 {{end}}		},
 		UnobinVersion: unobinVersion,
 	})

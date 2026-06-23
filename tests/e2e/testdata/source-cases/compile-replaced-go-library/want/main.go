@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"aws": lib_aws.Library(),
+			"aws": runtime.LibraryWithPath(
+				lib_aws.Library(),
+				"github.com/cloudboss/unobin-library-aws",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

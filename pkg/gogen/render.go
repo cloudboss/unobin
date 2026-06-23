@@ -206,6 +206,7 @@ func LibraryFile(
 	b.WriteString("func Library() *runtime.Library {\n")
 	b.WriteString("\treturn &runtime.Library{\n")
 	fmt.Fprintf(&b, "\t\tName:        \"%s\",\n", packageName)
+	fmt.Fprintf(&b, "\t\tLibraryPath: \"%s\",\n", modulePath)
 	fmt.Fprintf(&b, "\t\tDescription: \"Generated %s library\",\n", packageName)
 
 	if hasConfig {

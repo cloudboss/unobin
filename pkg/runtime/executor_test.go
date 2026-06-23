@@ -394,12 +394,12 @@ func TestExecutorRunsComposite(t *testing.T) {
 	require.NotNil(t, leaf)
 	require.Equal(t, "resource.x/resource.one", leaf.Address)
 	require.Equal(t, "resource", leaf.Kind)
-	require.Equal(t, &state.Selector{Alias: "core", Export: "thing"}, leaf.Selector)
+	require.Equal(t, &state.Binding{Alias: "core", Export: "thing"}, leaf.Binding)
 
 	require.NotNil(t, libCall)
 	require.Equal(t, "resource.x", libCall.Address)
 	require.Equal(t, "resource", libCall.Kind)
-	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
+	require.Equal(t, &state.Binding{Alias: "w", Export: "box"}, libCall.Binding)
 	require.Equal(t, "alpha", libCall.Inputs["name"])
 	require.Equal(t, "fake-alpha", libCall.Outputs["id"])
 }
@@ -434,7 +434,7 @@ func TestExecutorAppliesDataComposite(t *testing.T) {
 	require.Equal(t, "data-source.x", libCall.Address,
 		"the boundary address has the data kind root")
 	require.Equal(t, "data-source", libCall.Kind)
-	require.Equal(t, &state.Selector{Alias: "w", Export: "box"}, libCall.Selector)
+	require.Equal(t, &state.Binding{Alias: "w", Export: "box"}, libCall.Binding)
 	require.Equal(t, "looked-up:abc", libCall.Outputs["value"])
 
 	// A second plan and apply against the prior state still resolves the
@@ -649,14 +649,14 @@ func TestExecutorRunsNestedComposite(t *testing.T) {
 	require.NotNil(t, inner)
 	require.Equal(t, state.EntryLibraryCall, inner.Type)
 	require.Equal(t, "resource", inner.Kind)
-	require.Equal(t, &state.Selector{Alias: "inner-lib", Export: "cluster"}, inner.Selector)
+	require.Equal(t, &state.Binding{Alias: "inner-lib", Export: "cluster"}, inner.Binding)
 
 	outerAddr := "resource.mine"
 	outer := byAddr[outerAddr]
 	require.NotNil(t, outer)
 	require.Equal(t, state.EntryLibraryCall, outer.Type)
 	require.Equal(t, "resource", outer.Kind)
-	require.Equal(t, &state.Selector{Alias: "outer-lib", Export: "layer"}, outer.Selector)
+	require.Equal(t, &state.Binding{Alias: "outer-lib", Export: "layer"}, outer.Binding)
 }
 
 func TestExecutorNestedCompositeEncapsulation(t *testing.T) {

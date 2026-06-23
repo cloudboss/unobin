@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"partial": lib_partial.Library(),
+			"partial": runtime.LibraryWithPath(
+				lib_partial.Library(),
+				"example.com/partial",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

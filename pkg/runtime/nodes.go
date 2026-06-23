@@ -45,6 +45,7 @@ type Node struct {
 	Address             string
 	Kind                NodeKind
 	Alias               string
+	LibraryPath         string
 	Type                string
 	Name                string
 	Body                lang.Expr
@@ -106,25 +107,27 @@ func extractSyntaxKind(
 	out := make([]*Node, 0, len(decls))
 	for _, decl := range decls {
 		alias := decl.Selector.Alias.Name
+		libraryPath := libraryPathForAlias(libs, alias)
 		typ := decl.Selector.Export.Name
 		name := decl.Name.Name
 		addr := composeNameAddress(parent, kind, name)
 		if composite := lookupComposite(libs, alias, kind, typ); composite != nil {
 			out = append(out, expandSyntaxComposite(addr, parent,
-				alias, typ, name, kind, decl.Body, composite, libs)...)
+				alias, libraryPath, typ, name, kind, decl.Body, composite, libs)...)
 			continue
 		}
 		node := &Node{
-			Address:   addr,
-			Kind:      kind,
-			Alias:     alias,
-			Type:      typ,
-			Name:      name,
-			Body:      decl.Body,
-			Composite: parent,
-			ForEach:   extractForEach(decl.Body),
-			LockName:  extractLockName(decl.Body),
-			Timeout:   extractTimeout(decl.Body),
+			Address:     addr,
+			Kind:        kind,
+			Alias:       alias,
+			LibraryPath: libraryPath,
+			Type:        typ,
+			Name:        name,
+			Body:        decl.Body,
+			Composite:   parent,
+			ForEach:     extractForEach(decl.Body),
+			LockName:    extractLockName(decl.Body),
+			Timeout:     extractTimeout(decl.Body),
 		}
 		out = append(out, node)
 	}
@@ -195,6 +198,17 @@ func extractForEach(body lang.Expr) lang.Expr {
 	return nil
 }
 
+func libraryPathForAlias(libs map[string]*Library, alias string) string {
+	if libs == nil {
+		return ""
+	}
+	lib := libs[alias]
+	if lib == nil {
+		return ""
+	}
+	return lib.LibraryPath
+}
+
 func lookupComposite(
 	libs map[string]*Library, alias string, kind NodeKind, typ string,
 ) *CompositeType {
@@ -212,7 +226,7 @@ func lookupComposite(
 	return composite
 }
 
-func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
+func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, typ, name string,
 	kind NodeKind, args lang.Expr, composite *CompositeType,
 	fallMods map[string]*Library) []*Node {
 	scopeMods := composite.Libraries
@@ -223,6 +237,7 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, typ, name string,
 		Address:             callSiteAddr,
 		Kind:                kind,
 		Alias:               alias,
+		LibraryPath:         libraryPath,
 		Type:                typ,
 		Name:                name,
 		Body:                args,

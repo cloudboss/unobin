@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"fs": lib_fs.Library(),
+			"fs": runtime.LibraryWithPath(
+				lib_fs.Library(),
+				"example.com/repo/go/fs",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

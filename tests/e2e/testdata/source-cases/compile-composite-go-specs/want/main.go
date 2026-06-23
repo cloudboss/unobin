@@ -24,8 +24,14 @@ var (
 
 func main() {
 	libraries := map[string]*runtime.Library{
-		"e2e":   lib_e2e.Library(),
-		"files": lib_files.Library(),
+		"e2e": runtime.LibraryWithPath(
+			lib_e2e.Library(),
+			"example.com/unobin/e2elib",
+		),
+		"files": runtime.LibraryWithPath(
+			lib_files.Library(),
+			"demo-factory/internal/files",
+		),
 	}
 	libraries["e2e"].Constraints = map[string][]lang.ConstraintSpec{
 		"resource.file": {

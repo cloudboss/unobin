@@ -11,9 +11,10 @@
       "address": "action.hi",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "echo"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "echo"
       },
       "inputs": {
         "text": "hello",

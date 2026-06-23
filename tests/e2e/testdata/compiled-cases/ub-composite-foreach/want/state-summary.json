@@ -11,9 +11,10 @@
       "address": "resource.group",
       "entry-kind": "library-call",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "groups",
-        "export": "group"
+        "library-path": "ub-composite-foreach/internal/groups",
+        "kind": "group"
       },
       "inputs": {
         "e2e-config": {
@@ -51,9 +52,10 @@
       "address": "resource.group/resource.file['one']",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -74,9 +76,10 @@
       "address": "resource.group/resource.file['two']",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -97,9 +100,10 @@
       "address": "resource.group/resource.single",
       "entry-kind": "library-call",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "items",
-        "export": "item"
+        "library-path": "ub-composite-foreach/internal/items",
+        "kind": "item"
       },
       "inputs": {
         "content": "single",
@@ -126,9 +130,10 @@
       "address": "resource.group/resource.single/resource.file",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {

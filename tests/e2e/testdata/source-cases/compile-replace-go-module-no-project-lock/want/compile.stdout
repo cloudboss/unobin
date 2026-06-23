@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"cloud": lib_cloud.Library(),
+			"cloud": runtime.LibraryWithPath(
+				lib_cloud.Library(),
+				"github.com/x/cloud",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

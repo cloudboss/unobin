@@ -44,7 +44,7 @@ func sampleSnapshot() *sdkstate.Snapshot {
 				Address:       "resource.main",
 				Type:          sdkstate.EntryLeaf,
 				Kind:          "resource",
-				Selector:      &sdkstate.Selector{Alias: "aws", Export: "vpc"},
+				Binding:       &sdkstate.Binding{Alias: "aws", Export: "vpc"},
 				SchemaVersion: 1,
 				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
 				Outputs:       map[string]any{"id": "vpc-abc"},

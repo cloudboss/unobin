@@ -171,8 +171,8 @@ func TestDirectParentIgnoresSlashInKey(t *testing.T) {
 
 func TestEntryRefFromEntryAndNode(t *testing.T) {
 	ent := &state.Entry{
-		Address:  "resource.web",
-		Selector: &state.Selector{Alias: "aws", Export: "instance"},
+		Address: "resource.web",
+		Binding: &state.Binding{Alias: "aws", Export: "instance"},
 	}
 	fromEntry, ok := EntryRefFromEntry(ent)
 	require.True(t, ok)

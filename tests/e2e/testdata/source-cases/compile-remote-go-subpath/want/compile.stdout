@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"std": lib_std.Library(),
+			"std": runtime.LibraryWithPath(
+				lib_std.Library(),
+				"github.com/cloudboss/unobin-library-std/fs",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

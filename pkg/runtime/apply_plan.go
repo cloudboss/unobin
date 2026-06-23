@@ -240,7 +240,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		Address:          step.Address,
 		Type:             state.EntryAction,
 		Kind:             string(prep.node.Kind),
-		Selector:         selectorForNode(prep.node),
+		Binding:          bindingForNode(prep.node),
 		TriggerHash:      hash,
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
@@ -298,9 +298,9 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		deleteRT := rt
 		deleteReceiver := receiver
 		deleteCfg := cfg
-		if step.PriorSelector != nil && !sameSelector(step.PriorSelector, selectorForNode(prep.node)) {
-			priorRT, priorAlias, err := e.resourceRegistrationForSelector(
-				step.Address, step.PriorSelector,
+		if step.PriorBinding != nil && !sameBinding(step.PriorBinding, bindingForNode(prep.node)) {
+			priorRT, priorAlias, err := e.resourceRegistrationForBinding(
+				step.Address, step.PriorBinding,
 			)
 			if err != nil {
 				return err
@@ -339,7 +339,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		Address:          step.Address,
 		Type:             state.EntryLeaf,
 		Kind:             string(prep.node.Kind),
-		Selector:         selectorForNode(prep.node),
+		Binding:          bindingForNode(prep.node),
 		SchemaVersion:    rt.SchemaVersion(),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
@@ -377,7 +377,7 @@ func instanceScope(
 	return childScopeWithEach(parent, instKey, value), nil
 }
 
-// applyDestroy deletes a resource and drops it from state. The selector
+// applyDestroy deletes a resource and removes it from state. The binding
 // identifies the library, so this works whether the resource was
 // orphaned (removed from source) or is part of a full teardown.
 func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanStep) error {
@@ -386,9 +386,9 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if step.AlreadyGone {
 		return e.removeRecord(rs, step)
 	}
-	alias, typeName, ok := stepSelectorParts(step)
+	alias, typeName, ok := stepBindingParts(step)
 	if !ok {
-		return fmt.Errorf("destroy: missing selector for %q", step.Address)
+		return fmt.Errorf("destroy: missing binding for %q", step.Address)
 	}
 	lib, ok := e.librariesForAddress(step.Address)[alias]
 	if !ok {
@@ -530,7 +530,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 		Address:          step.Address,
 		Type:             state.EntryData,
 		Kind:             string(prep.node.Kind),
-		Selector:         selectorForNode(prep.node),
+		Binding:          bindingForNode(prep.node),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  step.SensitiveInputs,

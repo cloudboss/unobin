@@ -12,7 +12,7 @@
       "address": "resource.welcome",
       "entry-kind": "library-call",
       "node-kind": "resource",
-      "selector": { "alias": "greeter", "export": "greeting" },
+      "binding": { "alias": "greeter", "library-path": "state-command-composite-move/internal/greeter", "kind": "greeting" },
       "inputs": {
         "content": "hello",
         "e2e-config": {
@@ -34,7 +34,7 @@
       "address": "resource.welcome/resource.this",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": { "alias": "e2e", "export": "file" },
+      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
         "content": "hello",
@@ -54,7 +54,7 @@
       "address": "resource.other",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": { "alias": "e2e", "export": "file" },
+      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
         "content": "other",

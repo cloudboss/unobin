@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"self": lib_self.Library(),
+			"self": runtime.LibraryWithPath(
+				lib_self.Library(),
+				"demo-factory/internal/self",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

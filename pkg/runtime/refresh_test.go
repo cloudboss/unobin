@@ -61,7 +61,7 @@ func TestRefreshUpdatesLeafOutputs(t *testing.T) {
 	require.EqualValues(t, 99, snap.Entries[0].Outputs["size"])
 }
 
-func TestRefreshUsesShortAddressSelector(t *testing.T) {
+func TestRefreshUsesShortAddressBinding(t *testing.T) {
 	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
@@ -89,7 +89,7 @@ func TestRefreshUsesShortAddressSelector(t *testing.T) {
 	require.EqualValues(t, 99, snap.Entries[0].Outputs["size"])
 }
 
-func TestDestroyUsesShortAddressSelector(t *testing.T) {
+func TestDestroyUsesShortAddressBinding(t *testing.T) {
 	src := refreshFixture(t, "resource-one")
 	var c resourceCounters
 	store := newStateStore(t)
@@ -260,7 +260,7 @@ func TestRefreshMigratesPriorEntry(t *testing.T) {
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
-		Selector:      &state.Selector{Alias: "core", Export: "thing"},
+		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(1)},
@@ -298,7 +298,7 @@ func TestRefreshDoesNotInventDefaults(t *testing.T) {
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
-		Selector:      &state.Selector{Alias: "core", Export: "thing"},
+		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},

@@ -11,9 +11,10 @@
       "address": "resource.archived",
       "entry-kind": "library-call",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "files",
-        "export": "archive"
+        "library-path": "config-defaults-constraints/internal/files",
+        "kind": "archive"
       },
       "inputs": {
         "body": "archived",
@@ -40,9 +41,10 @@
       "address": "resource.archived/resource.member",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -63,9 +65,10 @@
       "address": "resource.direct",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {

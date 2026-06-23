@@ -12,7 +12,7 @@
       "address": "action.old",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": { "alias": "e2e", "export": "echo" },
+      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
       "inputs": {
         "text": "hello",
         "upper": false
@@ -27,7 +27,7 @@
       "address": "action.bye",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": { "alias": "e2e", "export": "echo" },
+      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
       "inputs": {
         "text": "bye",
         "upper": false

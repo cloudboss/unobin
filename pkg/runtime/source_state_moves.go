@@ -151,12 +151,12 @@ func (e *Executor) compositeEntryMovePrefixes(
 			prefixes = append(prefixes, prefix)
 		}
 	}
-	selector := selectorForNode(n)
+	binding := bindingForNode(n)
 	for _, ent := range prior.Entries {
 		if ent.Type != state.EntryLibraryCall {
 			continue
 		}
-		if templateAddress(ent.Address) != n.Address || !sameSelector(ent.Selector, selector) {
+		if templateAddress(ent.Address) != n.Address || !sameBinding(ent.Binding, binding) {
 			continue
 		}
 		add(compositeEntryMovePrefix{from: ent.Address, to: ent.Address})
@@ -183,7 +183,7 @@ func (e *Executor) compositeEntryMovePrefixes(
 		}
 		suffix := n.Address[len(toTemplate):]
 		fromAddress := spec.From.Address + suffix
-		if !priorCompositeEntryHasSelector(prior, fromAddress, selector) {
+		if !priorCompositeEntryHasBinding(prior, fromAddress, binding) {
 			continue
 		}
 		add(compositeEntryMovePrefix{from: fromAddress, to: spec.To.Address + suffix})
@@ -197,16 +197,16 @@ func (e *Executor) compositeEntryMovePrefixes(
 	return prefixes, nil
 }
 
-func priorCompositeEntryHasSelector(
+func priorCompositeEntryHasBinding(
 	prior *state.Snapshot,
 	address string,
-	selector *state.Selector,
+	binding *state.Binding,
 ) bool {
 	for _, ent := range prior.Entries {
 		if ent.Type != state.EntryLibraryCall {
 			continue
 		}
-		if ent.Address == address && sameSelector(ent.Selector, selector) {
+		if ent.Address == address && sameBinding(ent.Binding, binding) {
 			return true
 		}
 	}

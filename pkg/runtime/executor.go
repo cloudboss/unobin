@@ -667,7 +667,7 @@ func (e *Executor) finalizeComposite(
 		Address:          instAddr,
 		Type:             state.EntryLibraryCall,
 		Kind:             string(n.Kind),
-		Selector:         selectorForNode(n),
+		Binding:          bindingForNode(n),
 		Inputs:           inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  sensitiveInputs,
@@ -819,66 +819,66 @@ func addressParts(addr string) ([]string, bool) {
 	return parts, true
 }
 
-func selectorForNode(n *Node) *state.Selector {
+func bindingForNode(n *Node) *state.Binding {
 	if n == nil || n.Alias == "" || n.Type == "" {
 		return nil
 	}
-	return &state.Selector{Alias: n.Alias, Export: n.Type}
+	return &state.Binding{Alias: n.Alias, LibraryPath: n.LibraryPath, Export: n.Type}
 }
 
-func selectorFromEntry(ent *state.Entry) *state.Selector {
-	if ent == nil || ent.Selector == nil {
+func bindingFromEntry(ent *state.Entry) *state.Binding {
+	if ent == nil || ent.Binding == nil {
 		return nil
 	}
-	return cloneSelector(ent.Selector)
+	return cloneBinding(ent.Binding)
 }
 
-func cloneSelector(sel *state.Selector) *state.Selector {
+func cloneBinding(sel *state.Binding) *state.Binding {
 	if sel == nil {
 		return nil
 	}
-	return &state.Selector{Alias: sel.Alias, Export: sel.Export}
+	return &state.Binding{Alias: sel.Alias, LibraryPath: sel.LibraryPath, Export: sel.Export}
 }
 
-func selectorParts(sel *state.Selector) (alias, typeName string, ok bool) {
+func bindingParts(sel *state.Binding) (alias, typeName string, ok bool) {
 	if sel == nil || sel.Alias == "" || sel.Export == "" {
 		return "", "", false
 	}
 	return sel.Alias, sel.Export, true
 }
 
-func sameSelector(a, b *state.Selector) bool {
+func sameBinding(a, b *state.Binding) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	return a.Alias == b.Alias && a.Export == b.Export
+	return a.Alias == b.Alias && a.LibraryPath == b.LibraryPath && a.Export == b.Export
 }
 
-func entrySelectorParts(ent *state.Entry) (alias, typeName string, ok bool) {
-	if alias, typeName, ok := selectorParts(selectorFromEntry(ent)); ok {
+func entryBindingParts(ent *state.Entry) (alias, typeName string, ok bool) {
+	if alias, typeName, ok := bindingParts(bindingFromEntry(ent)); ok {
 		return alias, typeName, true
 	}
 	return "", "", false
 }
 
-func stepSelectorParts(step *PlanStep) (alias, typeName string, ok bool) {
+func stepBindingParts(step *PlanStep) (alias, typeName string, ok bool) {
 	if step == nil {
 		return "", "", false
 	}
-	if alias, typeName, ok := selectorParts(step.Selector); ok {
+	if alias, typeName, ok := bindingParts(step.Binding); ok {
 		return alias, typeName, true
 	}
 	_, alias, typeName, _, ok = parseAddress(step.Address)
 	return alias, typeName, ok
 }
 
-func (e *Executor) resourceRegistrationForSelector(
+func (e *Executor) resourceRegistrationForBinding(
 	addr string,
-	sel *state.Selector,
+	sel *state.Binding,
 ) (ResourceRegistration, string, error) {
-	alias, typeName, ok := selectorParts(sel)
+	alias, typeName, ok := bindingParts(sel)
 	if !ok {
-		return nil, "", fmt.Errorf("missing selector for %q", addr)
+		return nil, "", fmt.Errorf("missing binding for %q", addr)
 	}
 	lib, ok := e.librariesForAddress(addr)[alias]
 	if !ok {

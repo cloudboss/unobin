@@ -23,7 +23,7 @@ func sampleSnapshot() *Snapshot {
 				Address:       "resource.main",
 				Type:          EntryLeaf,
 				Kind:          "resource",
-				Selector:      &Selector{Alias: "aws", Export: "vpc"},
+				Binding:       &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
 				SchemaVersion: 1,
 				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
 				Outputs:       map[string]any{"id": "vpc-abc"},
@@ -32,7 +32,7 @@ func sampleSnapshot() *Snapshot {
 				Address:   "resource.web",
 				Type:      EntryLibraryCall,
 				Kind:      "resource",
-				Selector:  &Selector{Alias: "net", Export: "cluster"},
+				Binding:   &Binding{Alias: "net", LibraryPath: "example.com/net", Export: "cluster"},
 				Inputs:    map[string]any{"name": "web", "size": float64(5)},
 				Outputs:   map[string]any{"arn": "arn:..."},
 				DependsOn: []string{"resource.main"},
@@ -84,12 +84,12 @@ func TestSnapshotRejectsLeafWithoutKind(t *testing.T) {
 	require.Contains(t, err.Error(), "missing node-kind")
 }
 
-func TestSnapshotRejectsLibraryCallWithoutSelector(t *testing.T) {
+func TestSnapshotRejectsLibraryCallWithoutBinding(t *testing.T) {
 	s := sampleSnapshot()
-	s.Entries[1].Selector = nil
+	s.Entries[1].Binding = nil
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "selector missing")
+	require.Contains(t, err.Error(), "binding missing")
 }
 
 func TestSnapshotRejectsUnknownType(t *testing.T) {
@@ -103,10 +103,10 @@ func TestSnapshotRejectsUnknownType(t *testing.T) {
 func TestSnapshotRejectsDuplicateAddresses(t *testing.T) {
 	s := sampleSnapshot()
 	s.Entries = append(s.Entries, &Entry{
-		Address:  "resource.main",
-		Type:     EntryLeaf,
-		Kind:     "resource",
-		Selector: &Selector{Alias: "aws", Export: "vpc"},
+		Address: "resource.main",
+		Type:    EntryLeaf,
+		Kind:    "resource",
+		Binding: &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
 	})
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
@@ -139,6 +139,12 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.Contains(t, out, `"address": "resource.main"`)
 	require.Contains(t, out, `"entry-kind": "leaf"`)
 	require.Contains(t, out, `"node-kind": "resource"`)
+	require.Contains(t, out, `"binding": {`)
+	require.Contains(t, out, `"alias": "aws"`)
+	require.Contains(t, out, `"library-path": "example.com/aws"`)
+	require.Contains(t, out, `"kind": "vpc"`)
+	require.NotContains(t, out, `"selector":`)
+	require.NotContains(t, out, `"export":`)
 	require.NotContains(t, out, `"type":`)
 	require.NotContains(t, out, `"kind": "resource"`)
 	require.NotContains(t, out, `"library-type"`)
@@ -155,7 +161,7 @@ func TestSnapshotActionEntry(t *testing.T) {
 				Address:     "action.smoke-test",
 				Type:        EntryAction,
 				Kind:        "action",
-				Selector:    &Selector{Alias: "core", Export: "command"},
+				Binding:     &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
 				TriggerHash: "sha256:deadbeef",
 				Inputs:      map[string]any{"argv": []any{"true"}},
 				Outputs:     map[string]any{"stdout": "", "exit-code": float64(0)},
@@ -190,12 +196,12 @@ func TestSnapshotDataSourceEntry(t *testing.T) {
 		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
-				Address:  "data-source.image",
-				Type:     EntryData,
-				Kind:     "data-source",
-				Selector: &Selector{Alias: "aws", Export: "ami"},
-				Inputs:   map[string]any{"name": "ubuntu"},
-				Outputs:  map[string]any{"id": "ami-abc"},
+				Address: "data-source.image",
+				Type:    EntryData,
+				Kind:    "data-source",
+				Binding: &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "ami"},
+				Inputs:  map[string]any{"name": "ubuntu"},
+				Outputs: map[string]any{"id": "ami-abc"},
 			},
 		},
 	}
@@ -217,9 +223,9 @@ func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
 		GeneratedAt:   time.Now().UTC(),
 		Entries: []*Entry{
 			{
-				Address:  "action.x",
-				Type:     EntryAction,
-				Selector: &Selector{Alias: "core", Export: "command"},
+				Address: "action.x",
+				Type:    EntryAction,
+				Binding: &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
 			},
 		},
 	}

@@ -11,9 +11,10 @@
       "address": "resource.bad",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -34,9 +35,10 @@
       "address": "resource.direct",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -57,9 +59,10 @@
       "address": "resource.group",
       "entry-kind": "library-call",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "groups",
-        "export": "group"
+        "library-path": "state-moves/internal/groups",
+        "kind": "group"
       },
       "inputs": {
         "content": "grouped",
@@ -88,9 +91,10 @@
       "address": "resource.group/resource.file",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -111,9 +115,10 @@
       "address": "resource.group/resource.single",
       "entry-kind": "library-call",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "items",
-        "export": "item"
+        "library-path": "state-moves/internal/items",
+        "kind": "item"
       },
       "inputs": {
         "content": "grouped",
@@ -140,9 +145,10 @@
       "address": "resource.group/resource.single/resource.file",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -163,9 +169,10 @@
       "address": "resource.items['blue']",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {

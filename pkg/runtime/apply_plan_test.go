@@ -88,7 +88,7 @@ func orderModules(rec *deleteOrder) map[string]*Library {
 	}
 }
 
-func selectorChangeModules(oldC, newC *resourceCounters) map[string]*Library {
+func bindingChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
@@ -114,7 +114,7 @@ func (a *countedAction) Run(_ context.Context, _ any) (any, error) {
 	return map[string]any{"echo": a.Echo}, nil
 }
 
-func actionSelectorChangeModules(oldRuns, newRuns *int64) map[string]*Library {
+func actionBindingChangeModules(oldRuns, newRuns *int64) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
@@ -130,15 +130,15 @@ func actionSelectorChangeModules(oldRuns, newRuns *int64) map[string]*Library {
 	}
 }
 
-func TestResourceSelectorChangeReplacesResource(t *testing.T) {
+func TestResourceBindingChangeReplacesResource(t *testing.T) {
 	oldC := &resourceCounters{}
 	newC := &resourceCounters{}
-	libs := selectorChangeModules(oldC, newC)
+	libs := bindingChangeModules(oldC, newC)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	oldSrc := applyPlanFixture(t, "resource-selector-change-replaces-resource-1")
-	newSrc := applyPlanFixture(t, "resource-selector-change-replaces-resource-2")
+	oldSrc := applyPlanFixture(t, "resource-binding-change-replaces-resource-1")
+	newSrc := applyPlanFixture(t, "resource-binding-change-replaces-resource-2")
 	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
 
 	exec := applyPlanTestExecutor(t, newSrc, libs, store, stack)
@@ -146,8 +146,8 @@ func TestResourceSelectorChangeReplacesResource(t *testing.T) {
 	require.NoError(t, err)
 	step := findStep(t, plan, "resource.one")
 	require.Equal(t, DecisionReplace, step.Decision)
-	require.Equal(t, &state.Selector{Alias: "core", Export: "old"}, step.PriorSelector)
-	require.Equal(t, &state.Selector{Alias: "core", Export: "new"}, step.Selector)
+	require.Equal(t, &state.Binding{Alias: "core", Export: "old"}, step.PriorBinding)
+	require.Equal(t, &state.Binding{Alias: "core", Export: "new"}, step.Binding)
 	encoded, err := EncodePlan(plan)
 	require.NoError(t, err)
 	pf, err := DecodePlan(encoded)
@@ -162,18 +162,18 @@ func TestResourceSelectorChangeReplacesResource(t *testing.T) {
 	require.NoError(t, err)
 	ent := snap.Find("resource.one")
 	require.NotNil(t, ent)
-	require.Equal(t, &state.Selector{Alias: "core", Export: "new"}, ent.Selector)
+	require.Equal(t, &state.Binding{Alias: "core", Export: "new"}, ent.Binding)
 }
 
-func TestActionSelectorChangeRerunsAction(t *testing.T) {
+func TestActionBindingChangeRerunsAction(t *testing.T) {
 	var oldRuns int64
 	var newRuns int64
-	libs := actionSelectorChangeModules(&oldRuns, &newRuns)
+	libs := actionBindingChangeModules(&oldRuns, &newRuns)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	oldSrc := applyPlanFixture(t, "action-selector-change-reruns-action-1")
-	newSrc := applyPlanFixture(t, "action-selector-change-reruns-action-2")
+	oldSrc := applyPlanFixture(t, "action-binding-change-reruns-action-1")
+	newSrc := applyPlanFixture(t, "action-binding-change-reruns-action-2")
 	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
 
 	exec := applyPlanTestExecutor(t, newSrc, libs, store, stack)
@@ -358,7 +358,7 @@ func incrementalEntry(address, name string, size int64) *state.Entry {
 		Address:       address,
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
-		Selector:      &state.Selector{Alias: "core", Export: "inc"},
+		Binding:       &state.Binding{Alias: "core", Export: "inc"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": name, "size": size},
 		Outputs: map[string]any{

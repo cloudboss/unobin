@@ -236,8 +236,12 @@ func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
 	require.Contains(t, s, `lib_local "github.com/cloudboss/unobin/pkg/libraries/local"`)
 	require.Regexp(t, `Libraries:\s*map\[string\]\*runtime\.Library\{`,
 		s, "the composite keeps its resolved imports")
-	require.Contains(t, s, `"helloer": lib_helloer.Library()`)
-	require.Contains(t, s, `"local":   lib_local.Library()`)
+	require.Contains(t, s, `"helloer": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_helloer.Library(),`)
+	require.Contains(t, s, `"github.com/example/helloer",`)
+	require.Contains(t, s, `"local": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_local.Library(),`)
+	require.Contains(t, s, `"github.com/cloudboss/unobin/pkg/libraries/local",`)
 }
 
 func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
@@ -259,10 +263,13 @@ func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
 
 	s := string(out)
 	require.Equal(t, 1,
-		strings.Count(s, `"github.com/cloudboss/unobin/pkg/libraries/local"`),
+		strings.Count(s, `lib_local "github.com/cloudboss/unobin/pkg/libraries/local"`),
 		"the same path should be imported only once across composites")
-	require.Contains(t, s, `"local": lib_local.Library()`)
-	require.Contains(t, s, `"thing": lib_local.Library()`)
+	require.Contains(t, s, `"local": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `"thing": runtime.LibraryWithPath(`)
+	require.Equal(t, 2, strings.Count(s, `lib_local.Library(),`))
+	require.Equal(t, 2,
+		strings.Count(s, `"github.com/cloudboss/unobin/pkg/libraries/local",`))
 }
 
 // TestGenerateUBLibraryEmbedsGoLibrarySpecs locks the generated form
@@ -311,7 +318,9 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Contains(t, s, `diskLib := lib_disk.Library()`)
+	require.Contains(t, s, `diskLib := runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_disk.Library(),`)
+	require.Contains(t, s, `"github.com/example/disk",`)
 	require.Contains(t, s, `diskLib.Constraints = map[string][]lang.ConstraintSpec{`)
 	require.Contains(t, s, `{Kind: "predicate", Require: "input.path != null"`)
 	require.Contains(t, s, `{Field: "input.mode", Value: "420"}`)
@@ -321,8 +330,11 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 	require.Regexp(t, `Name:\s*"archive"`, s)
 	require.Regexp(t, `Kind:\s*runtime\.NodeResource`, s)
 	require.Contains(t, s, `SyntaxBody: &syntax.FactoryBody{`)
-	require.Contains(t, s, `"disk":  diskLib`)
-	require.Contains(t, s, `"plain": lib_plain.Library()`)
+	require.Contains(t, s, `"disk": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `diskLib,`)
+	require.Contains(t, s, `"plain": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `lib_plain.Library(),`)
+	require.Contains(t, s, `"github.com/example/plain",`)
 }
 
 // TestGenerateUBLibrarySharesSpecsAcrossComposites proves two
@@ -354,12 +366,13 @@ func TestGenerateUBLibrarySharesSpecsAcrossComposites(t *testing.T) {
 	require.NoError(t, err)
 
 	s := string(out)
-	require.Equal(t, 1, strings.Count(s, "diskLib := lib_disk.Library()"),
+	require.Equal(t, 1, strings.Count(s, `diskLib := runtime.LibraryWithPath(`),
 		"one construction for both bindings")
 	require.Equal(t, 1, strings.Count(s, `{Field: "input.mode", Value: "420"}`),
 		"specs are emitted once")
-	require.Contains(t, s, `"disk": diskLib`)
-	require.Contains(t, s, `"d": diskLib`)
+	require.Contains(t, s, `"disk": runtime.LibraryWithPath(`)
+	require.Contains(t, s, `"d": runtime.LibraryWithPath(`)
+	require.Equal(t, 2, strings.Count(s, `diskLib,`))
 }
 
 func TestGenerateUBLibraryEmptyBodies(t *testing.T) {

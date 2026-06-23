@@ -25,7 +25,11 @@ func TestSeedStateWritesCurrentSnapshot(t *testing.T) {
       "address": "resource.old",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": { "alias": "e2e", "export": "file" },
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
       "schema-version": 1,
       "inputs": {
         "content": "old",

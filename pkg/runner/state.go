@@ -416,9 +416,10 @@ func stateEntryRefs(snap *state.Snapshot) ([]string, error) {
 func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "address: %s\n", ent.Address)
-	if ent.Selector != nil {
-		fmt.Fprintf(out, "import-alias: %s\n", ent.Selector.Alias)
-		fmt.Fprintf(out, "kind: %s\n", ent.Selector.Export)
+	if ent.Binding != nil {
+		fmt.Fprintf(out, "import-alias: %s\n", ent.Binding.Alias)
+		fmt.Fprintf(out, "library-path: %s\n", ent.Binding.LibraryPath)
+		fmt.Fprintf(out, "kind: %s\n", ent.Binding.Export)
 	}
 	fmt.Fprintf(out, "entry-kind: %s\n", ent.Type)
 	fmt.Fprintf(out, "node-kind: %s\n", ent.Kind)

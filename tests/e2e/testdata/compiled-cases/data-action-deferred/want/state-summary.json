@@ -11,9 +11,10 @@
       "address": "action.capture",
       "entry-kind": "action",
       "node-kind": "action",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "record"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "record"
       },
       "inputs": {
         "message": "two",
@@ -32,9 +33,10 @@
       "address": "data-source.read-back",
       "entry-kind": "data-source",
       "node-kind": "data-source",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "read-file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "read-file"
       },
       "inputs": {
         "optional": false,
@@ -52,9 +54,10 @@
       "address": "resource.doc",
       "entry-kind": "leaf",
       "node-kind": "resource",
-      "selector": {
+      "binding": {
         "alias": "e2e",
-        "export": "file"
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
       },
       "schema-version": 1,
       "inputs": {

@@ -29,8 +29,14 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"shared": lib_shared.Library(),
-			"wrap":   lib_wrap.Library(),
+			"shared": runtime.LibraryWithPath(
+				lib_shared.Library(),
+				"demo-factory/internal/shared",
+			),
+			"wrap": runtime.LibraryWithPath(
+				lib_wrap.Library(),
+				"demo-factory/internal/wrap",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})

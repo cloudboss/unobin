@@ -331,8 +331,8 @@ func TestApplyPlanExecutesRecordedStateMove(t *testing.T) {
 	assert.Nil(t, snap.Find("resource.old"))
 	ent := snap.Find("resource.new")
 	require.NotNil(t, ent)
-	assert.Equal(t, "core", ent.Selector.Alias)
-	assert.Equal(t, "thing", ent.Selector.Export)
+	assert.Equal(t, "core", ent.Binding.Alias)
+	assert.Equal(t, "thing", ent.Binding.Export)
 }
 
 func TestApplyPersistsStateMoveBeforeLaterUpdateError(t *testing.T) {
@@ -398,7 +398,7 @@ func TestDestroyStateMoveRequiresPriorImportAlias(t *testing.T) {
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack,
-		stateMovePlanEntryWithSelector("old", "thing", "resource.previous"),
+		stateMovePlanEntryWithBinding("old", "thing", "resource.previous"),
 	)
 	libs := stateMoveNextOnlyLibs()
 	exec := planTestExecutor(t, stateMoveFixture(t, "destroy-prior-alias"), libs, store, stack)
@@ -503,16 +503,16 @@ func stateMoveNestedCompositeLibs(t *testing.T) map[string]*Library {
 	}
 }
 
-func stateMoveBoundaryEntry(selector, address string) *state.Entry {
-	alias, export, ok := strings.Cut(selector, ".")
+func stateMoveBoundaryEntry(binding, address string) *state.Entry {
+	alias, export, ok := strings.Cut(binding, ".")
 	if !ok {
-		panic("invalid test selector")
+		panic("invalid test binding")
 	}
 	return &state.Entry{
-		Address:  address,
-		Type:     state.EntryLibraryCall,
-		Kind:     "resource",
-		Selector: &state.Selector{Alias: alias, Export: export},
+		Address: address,
+		Type:    state.EntryLibraryCall,
+		Kind:    "resource",
+		Binding: &state.Binding{Alias: alias, Export: export},
 	}
 }
 
@@ -561,7 +561,7 @@ func stateMoveUpdateFailureEntry() *state.Entry {
 		Address:       "resource.fail",
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
-		Selector:      &state.Selector{Alias: "bad", Export: "thing"},
+		Binding:       &state.Binding{Alias: "bad", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "beta", "size": int64(1)},
 		Outputs:       map[string]any{"id": "beta", "size": int64(1)},
@@ -574,15 +574,15 @@ func stateMoveRootSource(t testing.TB) string {
 }
 
 func stateMovePlanEntry(address string) *state.Entry {
-	return stateMovePlanEntryWithSelector("core", "thing", address)
+	return stateMovePlanEntryWithBinding("core", "thing", address)
 }
 
-func stateMovePlanEntryWithSelector(alias, export, address string) *state.Entry {
+func stateMovePlanEntryWithBinding(alias, export, address string) *state.Entry {
 	return &state.Entry{
 		Address:       address,
 		Type:          state.EntryLeaf,
 		Kind:          "resource",
-		Selector:      &state.Selector{Alias: alias, Export: export},
+		Binding:       &state.Binding{Alias: alias, Export: export},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": int64(1)},
 		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": int64(1)},

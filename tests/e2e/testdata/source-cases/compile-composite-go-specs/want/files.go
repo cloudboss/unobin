@@ -9,7 +9,10 @@ import (
 )
 
 func Library() *runtime.Library {
-	e2elibLib := lib_e2elib.Library()
+	e2elibLib := runtime.LibraryWithPath(
+		lib_e2elib.Library(),
+		"example.com/unobin/e2elib",
+	)
 	e2elibLib.Constraints = map[string][]lang.ConstraintSpec{
 		"resource.file": {
 			{Kind: "predicate", When: "true", Require: "((input.path != null) && (@core.length(input.path) >= 1))", Message: "path is required"},
@@ -31,7 +34,10 @@ func Library() *runtime.Library {
 				Kind:       runtime.NodeResource,
 				SyntaxBody: &syntax.FactoryBody{Inputs: []syntax.InputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}, {Name: syntax.Ident{Name: "body"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}, {Name: syntax.Ident{Name: "e2e-config"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeLibraryConfig{Path: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}}}, Type: &lang.TypeLibraryConfig{Path: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}}, Imports: []syntax.ImportDecl{{Alias: syntax.Ident{Name: "e2e"}, Ref: &lang.StringLit{Value: "example.com/unobin/e2elib"}}}, LibraryConfigs: []syntax.LibraryConfigDecl{{Alias: syntax.Ident{Name: "e2e"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "e2e-config"}}}}}, Resources: []syntax.NodeDecl{{Kind: syntax.NodeKind("resource"), Name: syntax.Ident{Name: "member"}, Selector: syntax.NodeSelector{Alias: syntax.Ident{Name: "e2e"}, Export: syntax.Ident{Name: "file"}}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "path"}}}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "body"}}}}}}}}},
 				Libraries: map[string]*runtime.Library{
-					"e2e": e2elibLib,
+					"e2e": runtime.LibraryWithPath(
+						e2elibLib,
+						"example.com/unobin/e2elib",
+					),
 				},
 			},
 		},

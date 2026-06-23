@@ -108,9 +108,9 @@ func (e *Executor) refreshLeaf(
 	ctx context.Context,
 	ent *state.Entry,
 ) (*state.Entry, bool, error) {
-	alias, typeName, ok := entrySelectorParts(ent)
+	alias, typeName, ok := entryBindingParts(ent)
 	if !ok {
-		return nil, false, fmt.Errorf("missing selector for resource %q", ent.Address)
+		return nil, false, fmt.Errorf("missing binding for resource %q", ent.Address)
 	}
 	lib, ok := e.librariesForAddress(ent.Address)[alias]
 	if !ok {
@@ -141,7 +141,7 @@ func (e *Executor) refreshLeaf(
 		Address:          ent.Address,
 		Type:             state.EntryLeaf,
 		Kind:             string(NodeResource),
-		Selector:         &state.Selector{Alias: alias, Export: typeName},
+		Binding:          bindingFromEntry(ent),
 		SchemaVersion:    rt.SchemaVersion(),
 		SensitiveInputs:  ent.SensitiveInputs,
 		SensitiveOutputs: ent.SensitiveOutputs,

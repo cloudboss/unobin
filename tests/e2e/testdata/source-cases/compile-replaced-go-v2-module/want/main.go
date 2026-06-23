@@ -28,7 +28,10 @@ func main() {
 		FactoryBody:     factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-			"lib": lib_lib.Library(),
+			"lib": runtime.LibraryWithPath(
+				lib_lib.Library(),
+				"example.com/lib/v2",
+			),
 		},
 		UnobinVersion: unobinVersion,
 	})
