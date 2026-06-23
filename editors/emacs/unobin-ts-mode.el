@@ -43,6 +43,10 @@ Emacs session.  When t, install automatically."
 
 (defconst unobin-ts-mode--language 'unobin)
 
+(defconst unobin-ts-mode--source-file
+  (when-let* ((file (or load-file-name buffer-file-name)))
+    (file-truename file)))
+
 (defconst unobin-ts-mode--release-source
   '("https://github.com/cloudboss/unobin" nil "tree-sitter-unobin"
     "tree_sitter_unobin"))
@@ -75,7 +79,7 @@ Emacs session.  When t, install automatically."
 
 (defun unobin-ts-mode--repo-root ()
   "Return the repository root when this file is in a checkout."
-  (when-let* ((file (or load-file-name buffer-file-name))
+  (when-let* ((file unobin-ts-mode--source-file)
               (dir (file-name-directory file))
               (root (expand-file-name "../.." dir)))
     (when (file-directory-p (expand-file-name "tree-sitter-unobin" root))

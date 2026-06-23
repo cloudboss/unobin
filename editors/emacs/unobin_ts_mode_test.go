@@ -1,9 +1,11 @@
 package emacs_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -45,6 +47,28 @@ func TestUnobinTsModeByteCompiles(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
 
 	cmd := exec.Command(emacs, "-Q", "--batch", "-f", "batch-byte-compile", path)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
+func TestUnobinTsModeUsesCheckoutGrammarRecipe(t *testing.T) {
+	emacs, err := exec.LookPath("emacs")
+	if err != nil {
+		t.Skip("emacs not found")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	grammarDir := filepath.Clean(filepath.Join(cwd, "..", "..", "tree-sitter-unobin"))
+	form := fmt.Sprintf(
+		`(let* ((recipe (unobin-ts-mode--grammar-recipe))
+		        (source (nth 1 recipe)))
+		   (unless (equal source %s)
+		     (error "expected local grammar source, got %%S" recipe)))`,
+		strconv.Quote(grammarDir),
+	)
+
+	cmd := exec.Command(emacs, "-Q", "--batch", "--load", modePath, "--eval", form)
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))
 }
