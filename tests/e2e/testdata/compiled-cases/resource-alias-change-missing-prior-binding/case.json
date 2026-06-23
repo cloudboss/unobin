@@ -1,0 +1,16 @@
+{
+  "name": "resource-alias-change-missing-prior-binding",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/resource-alias-change-missing-prior-binding",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stderr": "want/plan.stderr",
+      "exitCode": 1
+    }
+  ],
+  "deterministic": true
+}

@@ -1,0 +1,2 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+resource.current: prior read: prior binding import alias old, library path example.com/unobin/e2elib, kind file is needed after current binding read returned not found; restore the import alias and library config or edit state manually: library "old" is not imported

@@ -307,6 +307,29 @@ func TestResourceAliasChangeCreatesWhenBothReadsMiss(t *testing.T) {
 	require.EqualValues(t, 1, newC.creates)
 }
 
+func TestResourceAliasChangeMissingPriorBindingExplainsRecovery(t *testing.T) {
+	oldC := &resourceCounters{}
+	newC := &resourceCounters{
+		readFn: func(any) (any, error) { return nil, ErrNotFound },
+	}
+	libs := aliasChangeModules(oldC, newC)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	oldSrc := applyPlanFixture(t, "resource-alias-change-current-read-1")
+	newSrc := applyPlanFixture(t, "resource-alias-change-current-read-2")
+	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
+
+	exec := applyPlanTestExecutor(t, newSrc, map[string]*Library{"new": libs["new"]}, store, stack)
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.ErrorContains(t, err,
+		"prior binding import alias old, library path example.com/shared, kind thing is needed")
+	require.ErrorContains(t, err,
+		"restore the import alias and library config or edit state manually")
+	require.ErrorContains(t, err, `library "old" is not imported`)
+}
+
 func TestDestroyDeletesDependentsFirst(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)

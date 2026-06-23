@@ -1,0 +1,37 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "resource-alias-change-missing-prior-binding",
+    "version": "v0.0.0",
+    "content-revision": "seed"
+  },
+  "stack": "dev",
+  "generated-at": "2026-06-20T00:00:00Z",
+  "entries": [
+    {
+      "address": "resource.current",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "old",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "current",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/missing.txt"
+      },
+      "outputs": {
+        "content": "current",
+        "exists": true,
+        "path": "files/missing.txt",
+        "sha256": "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191",
+        "size": 7
+      }
+    }
+  ],
+  "outputs": {}
+}

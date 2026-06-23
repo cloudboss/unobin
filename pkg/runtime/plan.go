@@ -1298,13 +1298,40 @@ func (e *Executor) readPriorBinding(ctx context.Context, pr *pendingRead) (map[s
 		pr.step.Address, pr.priorBinding,
 	)
 	if err != nil {
-		return nil, err
+		return nil, priorBindingUnavailableError(pr.priorBinding, err)
 	}
 	priorCfg, err := e.configForStateAddress(pr.step.Address, priorAlias)
 	if err != nil {
-		return nil, err
+		return nil, priorBindingUnavailableError(pr.priorBinding, err)
 	}
 	return readObserved(ctx, priorRT, priorAlias, priorCfg, pr.priorInputs, pr.priorOutputs)
+}
+
+func priorBindingUnavailableError(binding *state.Binding, err error) error {
+	return fmt.Errorf(
+		"prior binding %s is needed after current binding read returned not found; "+
+			"restore the import alias and library config or edit state manually: %w",
+		priorBindingLabel(binding), err)
+}
+
+func priorBindingLabel(binding *state.Binding) string {
+	if binding == nil {
+		return "metadata"
+	}
+	parts := make([]string, 0, 3)
+	if binding.Alias != "" {
+		parts = append(parts, "import alias "+binding.Alias)
+	}
+	if binding.LibraryPath != "" {
+		parts = append(parts, "library path "+binding.LibraryPath)
+	}
+	if binding.Export != "" {
+		parts = append(parts, "kind "+binding.Export)
+	}
+	if len(parts) == 0 {
+		return "metadata"
+	}
+	return strings.Join(parts, ", ")
 }
 
 func finalizeResourceRead(pr *pendingRead) error {
