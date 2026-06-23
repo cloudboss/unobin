@@ -17,6 +17,7 @@ func TestUnobinTsModeStaticRequirements(t *testing.T) {
 	require.Contains(t, body, "(defun unobin-install-treesit-grammar")
 	require.Contains(t, body, "(defcustom unobin-treesit-auto-install")
 	require.Contains(t, body, "(defcustom unobin-eglot-auto-start")
+	require.Contains(t, body, "highlights.scm")
 	require.Contains(t, body, ";;; unobin-ts-mode.el")
 	require.Contains(t, body, "Package-Requires:")
 }
@@ -30,6 +31,7 @@ func TestUnobinTsModeReadme(t *testing.T) {
 	require.NotContains(t, body, "load-path")
 	require.NotContains(t, body, "eglot-server-programs")
 	require.NotContains(t, body, "treesit-language-source-alist")
+	require.Contains(t, body, "Manual highlight check")
 }
 
 func TestUnobinTsModeByteCompiles(t *testing.T) {

@@ -47,29 +47,23 @@ Emacs session.  When t, install automatically."
   '("https://github.com/cloudboss/unobin" nil "tree-sitter-unobin"
     "tree_sitter_unobin"))
 
-(defvar unobin-ts-mode--install-asked nil)
+(defconst unobin-ts-mode--fallback-highlights
+  "
+(comment) @font-lock-comment-face
 
-(defvar unobin-ts-mode--font-lock-settings
-  (when (fboundp 'treesit-font-lock-rules)
-    (treesit-font-lock-rules
-     :language unobin-ts-mode--language
-     :feature 'comment
-     '((comment) @font-lock-comment-face)
-     :language unobin-ts-mode--language
-     :feature 'string
-     '((string) @font-lock-string-face)
-     :language unobin-ts-mode--language
-     :feature 'keyword
-     '(["factory" "stack" "project" "library" "inputs" "locals" "resources"
-        "data-sources" "actions" "outputs" "imports" "requires" "replace"]
-       @font-lock-keyword-face)
-     :language unobin-ts-mode--language
-     :feature 'property
-     '((field_key) @font-lock-property-name-face)
-     :language unobin-ts-mode--language
-     :feature 'variable
-     '((identifier) @font-lock-variable-name-face)))
-  "Tree-sitter font-lock settings for `unobin-ts-mode'.")
+[(string) (interpolated_string)] @font-lock-string-face
+
+(field_key) @font-lock-property-name-face
+
+(selector (identifier) @font-lock-function-name-face)
+
+(call function: (identifier) @font-lock-function-name-face)
+(call function: (path) @font-lock-function-name-face)
+
+(identifier) @font-lock-variable-name-face
+")
+
+(defvar unobin-ts-mode--install-asked nil)
 
 (defvar unobin-ts-mode--indent-rules
   `((,unobin-ts-mode--language
@@ -79,14 +73,44 @@ Emacs session.  When t, install automatically."
      (no-node parent-bol 0)))
   "Tree-sitter indentation rules for `unobin-ts-mode'.")
 
-(defun unobin-ts-mode--local-grammar-dir ()
-  "Return the local grammar directory when this file is in a checkout."
+(defun unobin-ts-mode--repo-root ()
+  "Return the repository root when this file is in a checkout."
   (when-let* ((file (or load-file-name buffer-file-name))
               (dir (file-name-directory file))
-              (root (expand-file-name "../.." dir))
+              (root (expand-file-name "../.." dir)))
+    (when (file-directory-p (expand-file-name "tree-sitter-unobin" root))
+      root)))
+
+(defun unobin-ts-mode--local-grammar-dir ()
+  "Return the local grammar directory when this file is in a checkout."
+  (when-let* ((root (unobin-ts-mode--repo-root))
               (grammar (expand-file-name "tree-sitter-unobin" root)))
     (when (file-directory-p grammar)
       grammar)))
+
+(defun unobin-ts-mode--query-file (name)
+  "Return the local Tree-sitter query file named NAME when available."
+  (when-let* ((root (unobin-ts-mode--repo-root))
+              (path (expand-file-name
+                     (concat "tree-sitter-unobin/queries/" name) root)))
+    (when (file-readable-p path)
+      path)))
+
+(defun unobin-ts-mode--highlight-query ()
+  "Return the highlight query for `unobin-ts-mode'."
+  (if-let* ((path (unobin-ts-mode--query-file "highlights.scm")))
+      (with-temp-buffer
+        (insert-file-contents path)
+        (buffer-string))
+    unobin-ts-mode--fallback-highlights))
+
+(defun unobin-ts-mode--font-lock-settings ()
+  "Return Tree-sitter font-lock settings for `unobin-ts-mode'."
+  (when (fboundp 'treesit-font-lock-rules)
+    (treesit-font-lock-rules
+     :language unobin-ts-mode--language
+     :feature 'highlight
+     (unobin-ts-mode--highlight-query))))
 
 (defun unobin-ts-mode--grammar-recipe ()
   "Return the Tree-sitter grammar recipe for Unobin."
@@ -151,9 +175,9 @@ Emacs session.  When t, install automatically."
   "Set up Tree-sitter parser, highlighting, and indentation."
   (when (unobin-ts-mode--ensure-grammar)
     (treesit-parser-create unobin-ts-mode--language)
-    (setq-local treesit-font-lock-settings unobin-ts-mode--font-lock-settings)
-    (setq-local treesit-font-lock-feature-list
-                '((comment string) (keyword) (property variable)))
+    (setq-local treesit-font-lock-settings
+                (unobin-ts-mode--font-lock-settings))
+    (setq-local treesit-font-lock-feature-list '((highlight)))
     (setq-local treesit-simple-indent-rules unobin-ts-mode--indent-rules)
     (treesit-major-mode-setup)))
 

@@ -25,4 +25,8 @@ To start eglot automatically in Unobin buffers:
 The first `.ub` buffer asks to install the Tree-sitter grammar by default. Run
 `M-x unobin-install-treesit-grammar` to install it explicitly.
 
+Manual highlight check: open a `.ub` file and verify that comments, strings,
+declarations, selectors, type constructors, root names, and meta keys receive
+faces from Tree-sitter highlighting.
+
 Keep the `unobin` executable on `PATH` so eglot can start `unobin lsp`.
