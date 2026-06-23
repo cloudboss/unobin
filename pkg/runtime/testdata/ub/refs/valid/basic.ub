@@ -1,0 +1,65 @@
+refs: {
+  literal-string: 'just a string'
+  literal-number: 42
+  literal-list: [1, 2, 3]
+  input-simple: input.region
+  input-field: input.network.vpc-id
+  resource-simple: resource.web.id
+  resource-static-index: resource.nodes['alpha'].id
+  resource-computed-index: resource.nodes[input.key].id
+  resource-each-index: resource.nodes[@each.key].id
+  data-source-simple: data-source.ubuntu.id
+  action-simple: action.smoke.exit-code
+  each-value: @each.value
+  each-key: @each.key
+  interpolated-empty: $''
+  interpolated-literal: $'just text'
+  interpolated-escaped-braces: $'\{{not a ref}}'
+  interpolated-each: $'{{@each.value}}'
+  interpolated-input: $'{{input.region}}'
+  interpolated-resource: $'{{resource.web.id}}'
+  interpolated-data: $'{{data-source.ubuntu.id}}'
+  interpolated-action: $'{{action.smoke.exit-code}}'
+  interpolated-literal-around-ref: $'https://{{input.host}}/v1'
+  interpolated-verb: $'{{input.n:%03d}}'
+  interpolated-nested-input: $'{{input.network.vpc-id}}'
+  interpolated-resource-index: $'{{resource.nodes['alpha'].id}}'
+  interpolated-two-inputs: $'{{input.z}}-{{input.a}}'
+  interpolated-duplicate: $'{{input.x}}/{{input.x}}'
+  interpolated-mixed: $'{{input.region}}/{{resource.web.id}}/{{data-source.ubuntu.id}}'
+  interpolated-conditional: $'{{if input.cond then resource.web.id else data-source.ubuntu.id}}'
+  interpolated-call: $'{{format('%s', input.x)}}'
+  array-object: [
+    input.a,
+    resource.web.id,
+    { sg: resource.security-group.id, az: input.zone },
+  ]
+  call: format('%s-%s', input.region, resource.web.id)
+  operators: input.a + input.b > 0 && resource.web.id == 'x'
+  conditional: if input.prod then resource.big.id else resource.small.id
+  comprehension: [ for s in input.subnets : s.cidr-block when s.public ]
+  map-comprehension: { for s in resource.subnets : s.id => input.tags }
+  unknown-root: weird.thing.somewhere
+}
+
+locals: {
+  net: { vpc: resource.vpc.id, sub: resource.subnet.id }
+  merged: merge(resource.vpc.tags, resource.subnet.tags)
+  lb: resource.lb.endpoint
+  outer: local.inner.attrs
+  inner: resource.lb.config
+}
+
+refs-with-locals: {
+  object-field: local.net.vpc
+  whole-object: local.net
+  call-local: local.merged.name
+  chain-dot-paths: local.outer.host
+}
+
+deferred-refs: {
+  dot-path-local: local.lb.host
+  splat: resource.vpc.subnets[*].cidr
+  object-field: local.net.sub
+  chain-dot-paths: local.outer.host
+}

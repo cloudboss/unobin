@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -205,30 +204,11 @@ func DotPathString(p *lang.DotPath) string {
 
 func RefAddress(p *lang.DotPath) string {
 	switch p.Root.Name {
-	case "input":
+	case "input", "resource", "data-source", "action":
 		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
 			return ""
 		}
-		return "input." + p.Segments[0].Name
-	case "data-source":
-		if len(p.Segments) == 0 || p.Segments[0].Name == "" {
-			return ""
-		}
-		return "data-source." + p.Segments[0].Name
-	case "resource", "action":
-		if len(p.Segments) < 3 {
-			return ""
-		}
-		for i := range 3 {
-			if p.Segments[i].Name == "" {
-				return ""
-			}
-		}
-		return fmt.Sprintf("%s.%s.%s.%s",
-			p.Root.Name,
-			p.Segments[0].Name,
-			p.Segments[1].Name,
-			p.Segments[2].Name)
+		return p.Root.Name + "." + p.Segments[0].Name
 	default:
 		return ""
 	}

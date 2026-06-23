@@ -1,0 +1,50 @@
+[refs]
+literal-string: <none>
+literal-number: <none>
+literal-list: <none>
+input-simple: input.region
+input-field: input.network
+resource-simple: resource.web
+resource-static-index: resource.nodes
+resource-computed-index: resource.nodes, input.key
+resource-each-index: resource.nodes
+data-source-simple: data-source.ubuntu
+action-simple: action.smoke
+each-value: <none>
+each-key: <none>
+interpolated-empty: <none>
+interpolated-literal: <none>
+interpolated-escaped-braces: <none>
+interpolated-each: <none>
+interpolated-input: input.region
+interpolated-resource: resource.web
+interpolated-data: data-source.ubuntu
+interpolated-action: action.smoke
+interpolated-literal-around-ref: input.host
+interpolated-verb: input.n
+interpolated-nested-input: input.network
+interpolated-resource-index: resource.nodes
+interpolated-two-inputs: input.z, input.a
+interpolated-duplicate: input.x
+interpolated-mixed: input.region, resource.web, data-source.ubuntu
+interpolated-conditional: input.cond, resource.web, data-source.ubuntu
+interpolated-call: input.x
+array-object: input.a, resource.web, resource.security-group, input.zone
+call: input.region, resource.web
+operators: input.a, input.b, resource.web
+conditional: input.prod, resource.big, resource.small
+comprehension: input.subnets
+map-comprehension: resource.subnets, input.tags
+unknown-root: <none>
+
+[refs-with-locals]
+object-field: resource.vpc
+whole-object: resource.vpc, resource.subnet
+call-local: resource.vpc, resource.subnet
+chain-dot-paths: resource.lb
+
+[deferred-refs]
+dot-path-local: resource.lb.endpoint.host
+splat: resource.vpc.subnets[*].cidr
+object-field: resource.subnet.id
+chain-dot-paths: resource.lb.config.attrs.host
