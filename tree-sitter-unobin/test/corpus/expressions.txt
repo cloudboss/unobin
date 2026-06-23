@@ -1,0 +1,228 @@
+==================
+Paths, calls, and operators
+==================
+
+factory: {
+  locals: {
+    guarded: input.tls?.cert ?? 'self-signed'
+    splat: input.subnets[*].id
+    index: input.matrix[*][0]
+    call: @core.join(input.subnets[*].id, ', ')
+    math: (input.count + 1) * 2 >= 4 && !input.disabled
+  }
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (binary_expression
+                              (expression
+                                (primary_expression
+                                  (path
+                                    (identifier)
+                                    (identifier)
+                                    (identifier))))
+                              (expression
+                                (primary_expression
+                                  (string)))))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (path
+                                (identifier)
+                                (identifier)
+                                (identifier))))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (path
+                                (identifier)
+                                (identifier)
+                                (expression
+                                  (primary_expression
+                                    (number))))))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (call
+                                (path
+                                  (identifier)
+                                  (identifier))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier)
+                                      (identifier))))
+                                (expression
+                                  (primary_expression
+                                    (string))))))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (binary_expression
+                              (expression
+                                (binary_expression
+                                  (expression
+                                    (binary_expression
+                                      (expression
+                                        (primary_expression
+                                          (expression
+                                            (binary_expression
+                                              (expression
+                                                (primary_expression
+                                                  (path
+                                                    (identifier)
+                                                    (identifier))))
+                                              (expression
+                                                (primary_expression
+                                                  (number)))))))
+                                      (expression
+                                        (primary_expression
+                                          (number)))))
+                                  (expression
+                                    (primary_expression
+                                      (number)))))
+                              (expression
+                                (unary_expression
+                                  (expression
+                                    (primary_expression
+                                      (path
+                                        (identifier)
+                                        (identifier)))))))))))))))))))))
+
+==================
+Comprehensions
+==================
+
+factory: {
+  locals: {
+    ids: [ for s in input.subnets : s.id when s.public ]
+    by-zone: { for s in input.subnets : s.zone => s.id... when s.public }
+    pairs: { for k, v in input.tags : k => v }
+  }
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (list_comprehension
+                                (binding
+                                  (identifier))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier))))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier))))
+                                (filter
+                                  (expression
+                                    (primary_expression
+                                      (path
+                                        (identifier)
+                                        (identifier))))))))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (map_comprehension
+                                (binding
+                                  (identifier))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier))))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier))))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier))))
+                                (filter
+                                  (expression
+                                    (primary_expression
+                                      (path
+                                        (identifier)
+                                        (identifier))))))))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (map_comprehension
+                                (binding
+                                  (identifier)
+                                  (identifier))
+                                (expression
+                                  (primary_expression
+                                    (path
+                                      (identifier)
+                                      (identifier))))
+                                (expression
+                                  (primary_expression
+                                    (identifier)))
+                                (expression
+                                  (primary_expression
+                                    (identifier)))))))))))))))))))

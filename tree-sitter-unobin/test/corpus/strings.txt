@@ -1,0 +1,72 @@
+==================
+Strings and comments
+==================
+
+# File comment
+factory: {
+  description: '''>-
+    Multi-line description.
+    '''
+  locals: {
+    single: 'hello \'world\''
+    triple: '''plain triple string'''
+    interp: $'name: {{ input.name }}'
+    multi-interp: $'''>-
+      region: {{ input.region }}
+      '''
+  }
+}
+
+---
+
+(source_file
+  (comment)
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (string)))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (string)))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (string)))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (interpolated_string)))))
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (interpolated_string))))))))))))))))

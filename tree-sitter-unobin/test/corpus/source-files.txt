@@ -1,0 +1,443 @@
+==================
+Factory file
+==================
+
+factory: {
+  inputs: {
+    region: {
+      type: string
+      description: 'AWS region'
+    }
+  }
+  imports: { aws: 'example.com/aws' }
+  resources: {
+    server: aws.instance {
+      name: input.region
+    }
+  }
+  outputs: { server-id: { value: resource.server.id } }
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (object
+                                (field
+                                  (type_value_field
+                                    (field_key)
+                                    (type_expression
+                                      (atomic_type))))
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (string)))))))))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (string))))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (selector_body_value
+                            (selector
+                              (identifier)
+                              (identifier))
+                            (object
+                              (field
+                                (value_field
+                                  (field_key
+                                    (identifier))
+                                  (expression
+                                    (primary_expression
+                                      (path
+                                        (identifier)
+                                        (identifier)))))))))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (object
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (path
+                                          (identifier)
+                                          (identifier)
+                                          (identifier))))))))))))))))))))))
+
+==================
+Stack file
+==================
+
+stack: {
+  factory: {
+    inputs: { region: 'us-east-1' }
+  }
+  state: local {
+    path: 'state.ub'
+  }
+  encryption: noop {}
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (object
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (string)))))))))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (selector_body_value
+                  (selector
+                    (identifier))
+                  (object
+                    (field
+                      (value_field
+                        (field_key
+                          (identifier))
+                        (expression
+                          (primary_expression
+                            (string)))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (selector_body_value
+                  (selector
+                    (identifier))
+                  (object))))))))))
+
+==================
+Project files
+==================
+
+project: {
+  unobin-version: 'v1.2.3'
+  requires: {
+    'example.com/aws': { version: 'v1.0.0' }
+  }
+  replace: {
+    'example.com/aws': '../aws'
+  }
+}
+
+project-lock: {
+  version: 1
+  toolchain: { unobin-version: 'v1.2.3' }
+  deps: {
+    'example.com/aws': {
+      kind: go
+      version: 'v1.0.0'
+      commit: 'abc123'
+      hash: 'sha256:abc'
+    }
+  }
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (string)))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (quoted_key
+                              (string)))
+                          (expression
+                            (primary_expression
+                              (object
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (string)))))))))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (quoted_key
+                              (string)))
+                          (expression
+                            (primary_expression
+                              (string)))))))))))))))
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (number)))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (string))))))))))
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (quoted_key
+                              (string)))
+                          (expression
+                            (primary_expression
+                              (object
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (identifier)))))
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (string)))))
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (string)))))
+                                (field
+                                  (value_field
+                                    (field_key
+                                      (identifier))
+                                    (expression
+                                      (primary_expression
+                                        (string)))))))))))))))))))))
+
+==================
+Library composites
+==================
+
+greeting: resource {
+  inputs: { message: { type: string } }
+  outputs: {
+    message: { value: input.message }
+  }
+}
+
+lookup: data-source {
+  outputs: {
+    id: { value: input.id }
+  }
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (selector_body_value
+        (selector
+          (identifier))
+        (object
+          (field
+            (value_field
+              (field_key
+                (identifier))
+              (expression
+                (primary_expression
+                  (object
+                    (field
+                      (value_field
+                        (field_key
+                          (identifier))
+                        (expression
+                          (primary_expression
+                            (object
+                              (field
+                                (type_value_field
+                                  (field_key)
+                                  (type_expression
+                                    (atomic_type))))))))))))))
+          (field
+            (value_field
+              (field_key
+                (identifier))
+              (expression
+                (primary_expression
+                  (object
+                    (field
+                      (value_field
+                        (field_key
+                          (identifier))
+                        (expression
+                          (primary_expression
+                            (object
+                              (field
+                                (value_field
+                                  (field_key
+                                    (identifier))
+                                  (expression
+                                    (primary_expression
+                                      (path
+                                        (identifier)
+                                        (identifier))))))))))))))))))))
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (selector_body_value
+        (selector
+          (identifier))
+        (object
+          (field
+            (value_field
+              (field_key
+                (identifier))
+              (expression
+                (primary_expression
+                  (object
+                    (field
+                      (value_field
+                        (field_key
+                          (identifier))
+                        (expression
+                          (primary_expression
+                            (object
+                              (field
+                                (value_field
+                                  (field_key
+                                    (identifier))
+                                  (expression
+                                    (primary_expression
+                                      (path
+                                        (identifier)
+                                        (identifier)))))))))))))))))))))
