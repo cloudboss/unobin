@@ -1,0 +1,62 @@
+{
+  "name": "unobin-vscode",
+  "displayName": "Unobin",
+  "description": "Unobin language support",
+  "version": "0.1.0",
+  "publisher": "cloudboss",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:unobin"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "check": "tsc -p ./ --noEmit"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "unobin",
+        "aliases": [
+          "Unobin",
+          "unobin"
+        ],
+        "extensions": [
+          ".ub"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "unobin",
+        "scopeName": "source.unobin",
+        "path": "./syntaxes/unobin.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Unobin",
+      "properties": {
+        "unobin.path": {
+          "type": "string",
+          "default": "unobin",
+          "description": "Path to the unobin executable."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.1",
+    "@types/vscode": "1.95.0",
+    "typescript": "5.8.3"
+  }
+}

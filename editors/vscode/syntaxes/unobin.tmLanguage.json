@@ -1,0 +1,95 @@
+{
+  "name": "Unobin",
+  "scopeName": "source.unobin",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#paths" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.unobin",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.triple.unobin",
+          "begin": "\\$?'''",
+          "end": "'''"
+        },
+        {
+          "name": "string.quoted.single.unobin",
+          "begin": "\\$?'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.unobin",
+              "match": "\\\\."
+            },
+            {
+              "name": "meta.interpolation.unobin",
+              "begin": "\\{\\{",
+              "end": "\\}\\}"
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.unobin",
+          "match": "\\b(if|then|else|for|in|when)\\b"
+        },
+        {
+          "name": "keyword.declaration.unobin",
+          "match": "\\b(factory|stack|project|project-lock|library)\\b"
+        },
+        {
+          "name": "keyword.declaration.block.unobin",
+          "match": "\\b(inputs|locals|imports|resources|data-sources|actions|outputs)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.unobin",
+          "match": "\\b(string|number|integer|boolean|null|opaque)\\b"
+        },
+        {
+          "name": "support.type.unobin",
+          "match": "\\b(list|map|tuple|optional|open|object|library-config)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.unobin",
+          "match": "\\b(true|false|null)\\b"
+        },
+        {
+          "name": "constant.numeric.unobin",
+          "match": "-?\\b[0-9]+(\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "paths": {
+      "patterns": [
+        {
+          "name": "variable.language.unobin",
+          "match": "@?[A-Za-z][A-Za-z0-9_-]*(?=\\.)"
+        }
+      ]
+    }
+  }
+}
