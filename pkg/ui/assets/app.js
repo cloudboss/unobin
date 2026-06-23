@@ -160,6 +160,30 @@ function nodeKind(node) {
   return node['node-kind'];
 }
 
+function exportKind(node) {
+  return node['kind'] || '';
+}
+
+function displayName(node) {
+  return node.name || node.address;
+}
+
+function displayTag(node) {
+  const category = node.category || nodeKind(node);
+  const parts = [category];
+  if (node.composite) parts.push('composite');
+  const exported = exportKind(node);
+  if (exported) {
+    const alias = node['import-alias'];
+    parts.push(alias ? alias + '.' + exported : exported);
+  }
+  return parts.join(' · ');
+}
+
+function detailValue(value) {
+  return value || '—';
+}
+
 function render() {
   const svg = $('graph');
   svg.textContent = '';
@@ -201,7 +225,7 @@ function render() {
       class: 'badge', x: NODE_W - 12, y: 19, 'text-anchor': 'end',
     });
     const label = el('text', { class: 'label', x: 12, y: 39 });
-    label.textContent = labelText(addr);
+    label.textContent = labelText(displayName(st.node));
     const title = el('title', {});
     title.textContent = addr;
     g.appendChild(tag);
@@ -278,9 +302,7 @@ function updateStep(addr) {
   if (st.node.composite) classes.push('composite');
   if (state.selected === addr) classes.push('selected');
   st.el.setAttribute('class', classes.join(' '));
-  st.tagEl.textContent = kind +
-    (st.node.composite ? ' · composite' : '') +
-    ' · ' + st.decision;
+  st.tagEl.textContent = displayTag(st.node) + ' · ' + st.decision;
   st.badgeEl.textContent = badgeText(st);
   if (state.selected === addr) fillDetail(st);
 }
@@ -396,6 +418,12 @@ function fillDetail(st) {
   $('detail-address').textContent = st.node.address;
   $('detail-kind').textContent = nodeKind(st.node) +
     (st.node.composite ? ' (composite)' : '');
+  $('detail-category').textContent = detailValue(st.node.category);
+  $('detail-import-alias').textContent = detailValue(st.node['import-alias']);
+  $('detail-library-path').textContent = detailValue(st.node['library-path']);
+  $('detail-export-kind').textContent = detailValue(exportKind(st.node));
+  $('detail-name').textContent = detailValue(st.node.name);
+  $('detail-parent').textContent = detailValue(st.node.parent);
   $('detail-decision').textContent = st.decision;
   $('detail-state').textContent = st.stage;
   const elapsed = st.stage === 'running'

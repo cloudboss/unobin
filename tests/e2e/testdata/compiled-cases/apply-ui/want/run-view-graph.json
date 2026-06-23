@@ -1,0 +1,26 @@
+{
+  "factory": "apply-ui",
+  "kind": "graph",
+  "seq": "<seq>",
+  "stack": "dev",
+  "steps": [
+    {
+      "address": "library-config.e2e",
+      "decision": "eval",
+      "node-kind": "library-config"
+    },
+    {
+      "address": "action.hi",
+      "category": "action",
+      "decision": "rerun",
+      "depends-on": [
+        "library-config.e2e"
+      ],
+      "import-alias": "e2e",
+      "kind": "echo",
+      "library-path": "example.com/unobin/e2elib",
+      "name": "hi",
+      "node-kind": "action"
+    }
+  ]
+}

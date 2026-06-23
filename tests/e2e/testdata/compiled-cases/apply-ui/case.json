@@ -13,10 +13,16 @@
     {
       "name": "apply-ui",
       "args": ["apply", "--ui", "plan.ubp"],
-      "env": { "BROWSER": "true" },
+      "env": {
+        "BROWSER": "$WORKSPACE/files/capture-run-view",
+        "RUN_VIEW_GRAPH": "$WORKSPACE/run-view-graph.json"
+      },
       "stdout": "want/apply-ui.stdout",
       "stderr": "want/apply-ui.stderr"
     }
+  ],
+  "files": [
+    { "path": "run-view-graph.json", "want": "want/run-view-graph.json" }
   ],
   "deterministic": true
 }
