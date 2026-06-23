@@ -1,0 +1,28 @@
+factory: {
+  inputs: {
+    region: {
+      type: string
+      description: 'AWS region to use.'
+    }
+    count: { type: integer }
+  }
+  locals: {
+    name: input.region
+  }
+  resources: {
+    server: example.web { name: local.name }
+  }
+  data-sources: {
+    lookup: example.lookup {}
+  }
+  actions: {
+    deploy: example.deploy {}
+  }
+  outputs: {
+    empty: { value: null }
+    root: { value: input.region }
+    server-ref: { value: resource.server }
+    lookup-ref: { value: data-source.lookup }
+    deploy-ref: { value: action.deploy }
+  }
+}

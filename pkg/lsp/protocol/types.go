@@ -18,6 +18,7 @@ const (
 	CompletionItemKindMethod   CompletionItemKind = 2
 	CompletionItemKindFunction CompletionItemKind = 3
 	CompletionItemKindField    CompletionItemKind = 5
+	CompletionItemKindVariable CompletionItemKind = 6
 	CompletionItemKindKeyword  CompletionItemKind = 14
 )
 

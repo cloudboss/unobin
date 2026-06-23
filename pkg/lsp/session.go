@@ -74,9 +74,9 @@ func (s *Session) HandleRequest(
 	case "textDocument/definition":
 		return s.handleDefinition(req.Params)
 	case "textDocument/completion":
-		return protocol.CompletionList{}, nil
+		return s.handleCompletion(req.Params)
 	case "textDocument/hover":
-		return nil, nil
+		return s.handleHover(req.Params)
 	default:
 		return nil, protocol.MethodNotFound(req.Method)
 	}
@@ -186,6 +186,30 @@ func (s *Session) handleDefinition(params json.RawMessage) (any, *protocol.Respo
 		return nil, protocol.InvalidParams("document is not open: " + definition.TextDocument.URI)
 	}
 	return DefinitionForText(doc.Path, doc.Text, definition.Position, s.projects)
+}
+
+func (s *Session) handleCompletion(params json.RawMessage) (any, *protocol.ResponseError) {
+	var completion protocol.CompletionParams
+	if err := decodeParams(params, &completion); err != nil {
+		return nil, err
+	}
+	doc, ok := s.documents.Get(completion.TextDocument.URI)
+	if !ok {
+		return nil, protocol.InvalidParams("document is not open: " + completion.TextDocument.URI)
+	}
+	return CompleteForText(doc.Path, doc.Text, completion.Position, s.projects)
+}
+
+func (s *Session) handleHover(params json.RawMessage) (any, *protocol.ResponseError) {
+	var hover protocol.HoverParams
+	if err := decodeParams(params, &hover); err != nil {
+		return nil, err
+	}
+	doc, ok := s.documents.Get(hover.TextDocument.URI)
+	if !ok {
+		return nil, protocol.InvalidParams("document is not open: " + hover.TextDocument.URI)
+	}
+	return HoverForText(doc.Path, doc.Text, hover.Position, s.projects)
 }
 
 func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
