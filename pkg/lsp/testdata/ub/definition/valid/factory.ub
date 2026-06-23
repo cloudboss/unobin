@@ -1,0 +1,26 @@
+factory: {
+  inputs: {
+    region: { type: string }
+  }
+  locals: {
+    name: input.region
+  }
+  imports: {
+    bundle: './bundle'
+  }
+  resources: {
+    server: bundle.web { name: local.name }
+  }
+  data-sources: {
+    lookup: bundle.lookup {}
+  }
+  actions: {
+    deploy: bundle.deploy {}
+  }
+  outputs: {
+    server-ref: { value: resource.server }
+    server-id: { value: resource.server.id }
+    lookup-ref: { value: data-source.lookup }
+    deploy-ref: { value: action.deploy }
+  }
+}

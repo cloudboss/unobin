@@ -83,6 +83,15 @@ func FileURIToPath(rawURI string) (string, error) {
 	return filepath.FromSlash(u.Path), nil
 }
 
+// PathToFileURI converts a local path to a file URI.
+func PathToFileURI(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = filepath.Clean(path)
+	}
+	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}).String()
+}
+
 func newDocument(uri string, version int32, text string) (*Document, error) {
 	path, err := FileURIToPath(uri)
 	if err != nil {

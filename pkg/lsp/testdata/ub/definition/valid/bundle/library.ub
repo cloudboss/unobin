@@ -1,0 +1,15 @@
+web: resource {
+  outputs: {
+    id: { value: 'web-id' }
+  }
+}
+lookup: data-source {
+  outputs: {
+    id: { value: 'lookup-id' }
+  }
+}
+deploy: action {
+  outputs: {
+    id: { value: 'deploy-id' }
+  }
+}

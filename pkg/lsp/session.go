@@ -12,6 +12,7 @@ import (
 type Session struct {
 	version   string
 	documents *DocumentStore
+	projects  *ProjectCache
 	shutdown  bool
 	sender    protocol.Sender
 }
@@ -21,6 +22,7 @@ func NewSession(version string) *Session {
 	return &Session{
 		version:   version,
 		documents: NewDocumentStore(),
+		projects:  NewProjectCache(""),
 	}
 }
 
@@ -70,7 +72,7 @@ func (s *Session) HandleRequest(
 	case "textDocument/documentSymbol":
 		return s.handleDocumentSymbols(req.Params)
 	case "textDocument/definition":
-		return nil, nil
+		return s.handleDefinition(req.Params)
 	case "textDocument/completion":
 		return protocol.CompletionList{}, nil
 	case "textDocument/hover":
@@ -172,6 +174,18 @@ func (s *Session) handleDocumentSymbols(params json.RawMessage) (any, *protocol.
 		return nil, protocol.InvalidParams("document is not open: " + documentSymbols.TextDocument.URI)
 	}
 	return DocumentSymbolsForText(doc.Path, doc.Text)
+}
+
+func (s *Session) handleDefinition(params json.RawMessage) (any, *protocol.ResponseError) {
+	var definition protocol.DefinitionParams
+	if err := decodeParams(params, &definition); err != nil {
+		return nil, err
+	}
+	doc, ok := s.documents.Get(definition.TextDocument.URI)
+	if !ok {
+		return nil, protocol.InvalidParams("document is not open: " + definition.TextDocument.URI)
+	}
+	return DefinitionForText(doc.Path, doc.Text, definition.Position, s.projects)
 }
 
 func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
