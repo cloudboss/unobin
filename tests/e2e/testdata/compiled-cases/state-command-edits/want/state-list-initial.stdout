@@ -1,2 +1,2 @@
-action.bye
-action.old
+action.bye (e2e.echo)
+action.old (e2e.echo)

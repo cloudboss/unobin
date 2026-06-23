@@ -279,13 +279,13 @@ func newStateListCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			refs, err := stateEntryRefs(snap)
+			entries, err := sortedStateEntries(snap)
 			if err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			for _, ref := range refs {
-				fmt.Fprintln(out, ref)
+			for _, ent := range entries {
+				fmt.Fprintln(out, stateEntryListLine(ent))
 			}
 			return nil
 		},
@@ -400,17 +400,35 @@ func loadStateStore(info Info, configPath string) (state.Backend, error) {
 	return loadStore(info, config, configPath, stackName(configPath), enc)
 }
 
-func stateEntryRefs(snap *state.Snapshot) ([]string, error) {
-	refs := make([]string, 0, len(snap.Entries))
+type listedStateEntry struct {
+	ref string
+	ent *state.Entry
+}
+
+func sortedStateEntries(snap *state.Snapshot) ([]*state.Entry, error) {
+	entries := make([]listedStateEntry, 0, len(snap.Entries))
 	for i, ent := range snap.Entries {
 		ref, ok := runtime.EntryRefFromEntry(ent)
 		if !ok {
 			return nil, fmt.Errorf("state entry %d is missing a valid state ref", i)
 		}
-		refs = append(refs, ref.String())
+		entries = append(entries, listedStateEntry{ref: ref.String(), ent: ent})
 	}
-	slices.Sort(refs)
-	return refs, nil
+	slices.SortFunc(entries, func(a, b listedStateEntry) int {
+		return strings.Compare(a.ref, b.ref)
+	})
+	out := make([]*state.Entry, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, entry.ent)
+	}
+	return out, nil
+}
+
+func stateEntryListLine(ent *state.Entry) string {
+	if ent.Binding == nil || ent.Binding.Alias == "" || ent.Binding.Export == "" {
+		return ent.Address
+	}
+	return fmt.Sprintf("%s (%s.%s)", ent.Address, ent.Binding.Alias, ent.Binding.Export)
 }
 
 func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
