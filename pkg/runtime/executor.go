@@ -17,6 +17,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
 // ErrInstanceGone is returned by ensureCompositeScope when a per-
@@ -134,7 +135,7 @@ func (e *Executor) stateScope(prior *state.Snapshot, inputs map[string]any) *Eva
 		return scope
 	}
 	for _, ent := range prior.Entries {
-		if strings.Contains(ent.Address, "/") {
+		if DirectParent(ent.Address) != "" {
 			continue
 		}
 		tmpl, instKey := splitInstanceAddress(ent.Address)
@@ -409,9 +410,9 @@ func compositeBodyLibraries(boundary *Node, fallback map[string]*Library) map[st
 // returned, which works whenever the parent composite type is still
 // imported at the stack root.
 func (e *Executor) librariesForAddress(addr string) map[string]*Library {
-	if i := strings.LastIndex(addr, "/"); i >= 0 {
-		callSite := addr[:i]
-		if boundary, ok := e.DAG.Nodes[callSite]; ok && boundary.Libraries != nil {
+	parent := DirectParent(addr)
+	if parent != "" {
+		if boundary, ok := e.DAG.Nodes[templateAddress(parent)]; ok && boundary.Libraries != nil {
 			return boundary.Libraries
 		}
 	}
@@ -807,9 +808,13 @@ func addressValuePath(addr string) ([]string, bool) {
 }
 
 func addressParts(addr string) ([]string, bool) {
+	if ref, err := stateref.ParseStateRef(addr); err == nil {
+		segment := ref.Segments[len(ref.Segments)-1]
+		return []string{string(segment.Category), segment.Name}, true
+	}
 	seg := addr
-	if i := strings.LastIndex(seg, "/"); i >= 0 {
-		seg = seg[i+1:]
+	if parent := DirectParent(addr); parent != "" {
+		seg = strings.TrimPrefix(addr, parent+"/")
 	}
 	seg, _ = splitInstanceAddress(seg)
 	parts := strings.Split(seg, ".")

@@ -1,0 +1,4 @@
+resources: {
+  x: core.subnet { @for-each: { 'a/b': 'one' }, tag: @each.value }
+  it: core.instance { ref: resource.x['a/b'].id }
+}

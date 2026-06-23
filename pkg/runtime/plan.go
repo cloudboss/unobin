@@ -777,21 +777,21 @@ func knownFields(step *PlanStep, inputs map[string]any) map[string]any {
 // scope to seed and the entry is skipped (a nil scope tells the
 // caller to move on).
 func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, error) {
-	if i := strings.LastIndex(addr, "/"); i >= 0 {
-		callSite := addr[:i]
-		if _, ok := e.DAG.Nodes[templateAddress(callSite)]; !ok {
+	callSite := DirectParent(addr)
+	if callSite == "" {
+		return rs.eval, nil
+	}
+	if _, ok := e.DAG.Nodes[templateAddress(callSite)]; !ok {
+		return nil, nil
+	}
+	scope, err := e.ensureCompositeScope(rs, callSite)
+	if err != nil {
+		if errors.Is(err, ErrInstanceGone) {
 			return nil, nil
 		}
-		scope, err := e.ensureCompositeScope(rs, callSite)
-		if err != nil {
-			if errors.Is(err, ErrInstanceGone) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return scope, nil
+		return nil, err
 	}
-	return rs.eval, nil
+	return scope, nil
 }
 
 func seedAddress(target map[string]any, addr string, value map[string]any) {

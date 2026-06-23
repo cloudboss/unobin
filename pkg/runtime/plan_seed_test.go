@@ -287,6 +287,38 @@ func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
 	require.Equal(t, map[string]any{"ref": "gen-2"}, ent.Inputs)
 }
 
+// A slash inside an instance key is not a nesting delimiter.
+func TestForEachKeyWithSlashSeedsPriorOutputs(t *testing.T) {
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"subnet":   MakeResource[subnetLike, any, any](),
+				"instance": MakeResource[instanceLike, any, any](),
+			},
+		},
+	}
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	g, syntaxSource := syntaxDAGAndBody(t,
+		ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "foreach-key-slash"), libs)
+
+	applyOnce(t, &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	})
+
+	second := &Executor{
+		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
+	}
+	plan, err := second.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, `resource.x['a/b']`).Decision)
+	inst := findStep(t, plan, "resource.it")
+	require.Equal(t, DecisionNoOp, inst.Decision)
+	require.Empty(t, inst.UnresolvedInputs)
+	require.Equal(t, "subnet-1", inst.Inputs["ref"])
+}
+
 // Each instance of a @for-each composite seeds its own outputs at its
 // keyed address, so a reader of one instance's output diffs a real
 // value on the second plan.
