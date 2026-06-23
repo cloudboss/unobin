@@ -1114,14 +1114,18 @@ func (e *Executor) planOneAction(
 // workers; finalizePendingReads then sets each step's Decision and
 // ObservedOutputs from the result.
 type pendingRead struct {
-	step         *PlanStep
-	rt           ResourceRegistration
-	alias        string
-	cfg          any
-	inputs       map[string]any
-	priorOutputs map[string]any
-	observed     map[string]any
-	err          error
+	step          *PlanStep
+	rt            ResourceRegistration
+	alias         string
+	cfg           any
+	inputs        map[string]any
+	priorBinding  *state.Binding
+	priorInputs   map[string]any
+	priorOutputs  map[string]any
+	observed      map[string]any
+	err           error
+	priorObserved map[string]any
+	priorErr      error
 }
 
 // planOneResource plans a single resource instance against the given
@@ -1159,7 +1163,8 @@ func (e *Executor) planOneResource(
 	}
 	inputs := withoutPending(display, unresolved)
 	priorBinding := bindingFromEntry(prior)
-	if !sameBinding(priorBinding, step.Binding) {
+	bindingChanged := !sameBinding(priorBinding, step.Binding)
+	if bindingChanged && !sameResourceImplementationKind(priorBinding, step.Binding) {
 		priorRT, priorAlias, err := e.resourceRegistrationForBinding(addr, priorBinding)
 		if err != nil {
 			return nil, err
@@ -1227,12 +1232,18 @@ func (e *Executor) planOneResource(
 		}
 		return step, nil
 	}
+	var priorReadBinding *state.Binding
+	if bindingChanged {
+		priorReadBinding = priorBinding
+	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
 		step:         step,
 		rt:           rt,
 		alias:        n.Alias,
 		cfg:          e.configFor(n),
 		inputs:       inputs,
+		priorBinding: priorReadBinding,
+		priorInputs:  priorInputs,
 		priorOutputs: migrated.Outputs,
 	})
 	return step, nil
@@ -1255,6 +1266,13 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 			pr.observed, pr.err = guard("reading this resource", true, func() (map[string]any, error) {
 				return readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
 			})
+			if !errors.Is(pr.err, ErrNotFound) || pr.priorBinding == nil {
+				return
+			}
+			pr.priorObserved, pr.priorErr = guard(
+				"reading this resource", true,
+				func() (map[string]any, error) { return e.readPriorBinding(ctx, pr) },
+			)
 		})
 	}
 	wg.Wait()
@@ -1275,10 +1293,23 @@ func (e *Executor) finalizePendingReads(rs *runState) error {
 	return nil
 }
 
+func (e *Executor) readPriorBinding(ctx context.Context, pr *pendingRead) (map[string]any, error) {
+	priorRT, priorAlias, err := e.resourceRegistrationForBinding(
+		pr.step.Address, pr.priorBinding,
+	)
+	if err != nil {
+		return nil, err
+	}
+	priorCfg, err := e.configForStateAddress(pr.step.Address, priorAlias)
+	if err != nil {
+		return nil, err
+	}
+	return readObserved(ctx, priorRT, priorAlias, priorCfg, pr.priorInputs, pr.priorOutputs)
+}
+
 func finalizeResourceRead(pr *pendingRead) error {
 	if errors.Is(pr.err, ErrNotFound) {
-		pr.step.Decision = DecisionCreate
-		return nil
+		return finalizeMissingCurrentRead(pr)
 	}
 	if pr.err != nil {
 		return fmt.Errorf("read: %w", pr.err)
@@ -1297,6 +1328,26 @@ func finalizeResourceRead(pr *pendingRead) error {
 		return nil
 	}
 	pr.step.Decision = DecisionNoOp
+	return nil
+}
+
+func finalizeMissingCurrentRead(pr *pendingRead) error {
+	if pr.priorBinding == nil {
+		pr.step.Decision = DecisionCreate
+		return nil
+	}
+	if errors.Is(pr.priorErr, ErrNotFound) {
+		pr.step.Decision = DecisionCreate
+		return nil
+	}
+	if pr.priorErr != nil {
+		return fmt.Errorf("prior read: %w", pr.priorErr)
+	}
+	pr.step.PriorBinding = cloneBinding(pr.priorBinding)
+	pr.step.ObservedOutputs = pr.priorObserved
+	pr.step.Decision = DecisionReplace
+	pr.step.regeneratesOutputs = true
+	pr.step.mayChangeOutputs = true
 	return nil
 }
 

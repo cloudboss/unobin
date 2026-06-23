@@ -1,0 +1,3 @@
+resources: {
+  one: new.thing { name: 'same', size: 1 }
+}

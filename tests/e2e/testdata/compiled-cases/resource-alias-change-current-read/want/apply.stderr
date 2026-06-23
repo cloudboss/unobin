@@ -1,0 +1,3 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+{ kind: 'apply-event', time: '<time>', stage: 'start', decision: 'eval', address: 'library-config.new' }
+{ kind: 'apply-event', time: '<time>', stage: 'done', decision: 'eval', address: 'library-config.new', elapsed: '<elapsed>' }

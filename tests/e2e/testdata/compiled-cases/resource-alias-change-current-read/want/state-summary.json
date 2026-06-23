@@ -1,0 +1,38 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "resource-alias-change-current-read",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.current",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "binding": {
+        "alias": "new",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "current",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/current.txt"
+      },
+      "outputs": {
+        "content": "current",
+        "exists": true,
+        "path": "files/current.txt",
+        "sha256": "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191",
+        "size": 7
+      }
+    }
+  ],
+  "outputs": {
+    "content": "current"
+  }
+}

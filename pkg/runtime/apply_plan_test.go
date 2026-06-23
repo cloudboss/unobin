@@ -104,6 +104,28 @@ func bindingChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 	}
 }
 
+func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
+	const libraryPath = "example.com/shared"
+	return map[string]*Library{
+		"old": LibraryWithPath(&Library{
+			Name: "old",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResource, any, any](
+					func() *countingResource { return &countingResource{counters: oldC} },
+				),
+			},
+		}, libraryPath),
+		"new": LibraryWithPath(&Library{
+			Name: "new",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResource, any, any](
+					func() *countingResource { return &countingResource{counters: newC} },
+				),
+			},
+		}, libraryPath),
+	}
+}
+
 type countedAction struct {
 	Echo string
 	runs *int64
@@ -184,6 +206,105 @@ func TestActionBindingChangeRerunsAction(t *testing.T) {
 	applyOnce(t, exec)
 	require.EqualValues(t, 1, oldRuns)
 	require.EqualValues(t, 1, newRuns)
+}
+
+func TestResourceAliasChangeCurrentReadNoOps(t *testing.T) {
+	oldC := &resourceCounters{}
+	newC := &resourceCounters{}
+	libs := aliasChangeModules(oldC, newC)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	oldSrc := applyPlanFixture(t, "resource-alias-change-current-read-1")
+	newSrc := applyPlanFixture(t, "resource-alias-change-current-read-2")
+	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
+
+	exec := applyPlanTestExecutor(t, newSrc, map[string]*Library{"new": libs["new"]}, store, stack)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.one")
+	require.Equal(t, DecisionNoOp, step.Decision)
+	require.Nil(t, step.PriorBinding)
+	require.EqualValues(t, 1, newC.reads)
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, oldC.creates)
+	require.EqualValues(t, 0, oldC.deletes)
+	require.EqualValues(t, 0, newC.creates)
+	require.EqualValues(t, 0, newC.deletes)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	ent := snap.Find("resource.one")
+	require.NotNil(t, ent)
+	require.Equal(t, &state.Binding{
+		Alias:       "new",
+		LibraryPath: "example.com/shared",
+		Export:      "thing",
+	}, ent.Binding)
+}
+
+func TestResourceAliasChangePriorReadReplaces(t *testing.T) {
+	oldC := &resourceCounters{}
+	newC := &resourceCounters{
+		readFn: func(any) (any, error) { return nil, ErrNotFound },
+	}
+	libs := aliasChangeModules(oldC, newC)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	oldSrc := applyPlanFixture(t, "resource-alias-change-current-read-1")
+	newSrc := applyPlanFixture(t, "resource-alias-change-current-read-2")
+	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
+
+	exec := applyPlanTestExecutor(t, newSrc, libs, store, stack)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.one")
+	require.Equal(t, DecisionReplace, step.Decision)
+	require.Equal(t, &state.Binding{
+		Alias:       "old",
+		LibraryPath: "example.com/shared",
+		Export:      "thing",
+	}, step.PriorBinding)
+	require.EqualValues(t, 1, newC.reads)
+	require.EqualValues(t, 1, oldC.reads)
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, oldC.deletes)
+	require.EqualValues(t, 1, newC.creates)
+}
+
+func TestResourceAliasChangeCreatesWhenBothReadsMiss(t *testing.T) {
+	oldC := &resourceCounters{
+		readFn: func(any) (any, error) { return nil, ErrNotFound },
+	}
+	newC := &resourceCounters{
+		readFn: func(any) (any, error) { return nil, ErrNotFound },
+	}
+	libs := aliasChangeModules(oldC, newC)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	oldSrc := applyPlanFixture(t, "resource-alias-change-current-read-1")
+	newSrc := applyPlanFixture(t, "resource-alias-change-current-read-2")
+	applyOnce(t, applyPlanTestExecutor(t, oldSrc, libs, store, stack))
+
+	exec := applyPlanTestExecutor(t, newSrc, libs, store, stack)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.one")
+	require.Equal(t, DecisionCreate, step.Decision)
+	require.Nil(t, step.PriorBinding)
+	require.EqualValues(t, 1, newC.reads)
+	require.EqualValues(t, 1, oldC.reads)
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, oldC.deletes)
+	require.EqualValues(t, 1, newC.creates)
 }
 
 func TestDestroyDeletesDependentsFirst(t *testing.T) {

@@ -854,6 +854,16 @@ func sameBinding(a, b *state.Binding) bool {
 	return a.Alias == b.Alias && a.LibraryPath == b.LibraryPath && a.Export == b.Export
 }
 
+func sameResourceImplementationKind(a, b *state.Binding) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a.LibraryPath == "" || b.LibraryPath == "" {
+		return false
+	}
+	return a.LibraryPath == b.LibraryPath && a.Export == b.Export
+}
+
 func entryBindingParts(ent *state.Entry) (alias, typeName string, ok bool) {
 	if alias, typeName, ok := bindingParts(bindingFromEntry(ent)); ok {
 		return alias, typeName, true

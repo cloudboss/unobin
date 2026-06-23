@@ -150,6 +150,7 @@ type resourceCounters struct {
 	creates int64
 	updates int64
 	deletes int64
+	reads   int64
 	// readFn lets a test control what countingResource.Read returns;
 	// nil means Read returns prior unchanged (no drift, not gone).
 	readFn func(prior any) (any, error)
@@ -174,6 +175,7 @@ func (r *countingResource) Create(_ context.Context, _ any) (any, error) {
 }
 
 func (r *countingResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	atomic.AddInt64(&r.counters.reads, 1)
 	if r.counters.readFn != nil {
 		return r.counters.readFn(prior)
 	}

@@ -1,0 +1,31 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    new: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    new: input.e2e-config
+  }
+
+  resources: {
+    current: new.file {
+      path:    'files/current.txt'
+      content: 'current'
+    }
+  }
+
+  outputs: {
+    content: { value: resource.current.content }
+  }
+}

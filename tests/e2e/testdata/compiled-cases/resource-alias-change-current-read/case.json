@@ -1,0 +1,23 @@
+{
+  "name": "resource-alias-change-current-read",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/resource-alias-change-current-read",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "stdout": "want/apply.stdout",
+      "stderr": "want/apply.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}
