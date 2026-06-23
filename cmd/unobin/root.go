@@ -21,6 +21,7 @@ func init() {
 		root.FmtCmd,
 		root.PrintGraphCmd,
 		root.DepsCmd,
+		root.LSPCmd,
 	)
 }
 

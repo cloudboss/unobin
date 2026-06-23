@@ -3,29 +3,25 @@ package lsp
 import (
 	"sort"
 	"unicode/utf8"
+
+	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 )
 
-// Position is a zero-based LSP UTF-16 text position.
-type Position struct {
-	Line      uint32 `json:"line"`
-	Character uint32 `json:"character"`
-}
-
 // OffsetToLSP converts a byte offset to a zero-based UTF-16 LSP position.
-func OffsetToLSP(text string, offset int) Position {
+func OffsetToLSP(text string, offset int) protocol.Position {
 	offset = clampToUTF8Boundary(text, offset)
 	lines := buildLineInfo(text)
 	lineIndex := lineForOffset(lines, offset)
 	line := lines[lineIndex]
 	lineOffset := min(offset, line.End)
-	return Position{
+	return protocol.Position{
 		Line:      uint32(lineIndex),
 		Character: uint32(utf16Len(text[line.Start:lineOffset])),
 	}
 }
 
 // LSPToOffset converts a zero-based UTF-16 LSP position to a byte offset.
-func LSPToOffset(text string, pos Position) (int, bool) {
+func LSPToOffset(text string, pos protocol.Position) (int, bool) {
 	lines := buildLineInfo(text)
 	if int(pos.Line) >= len(lines) {
 		return 0, false

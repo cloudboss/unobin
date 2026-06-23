@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 )
 
 func TestDocumentStoreLifecycle(t *testing.T) {
@@ -51,21 +53,36 @@ func TestOffsetToLSP(t *testing.T) {
 		name   string
 		text   string
 		offset int
-		want   Position
+		want   protocol.Position
 	}{
-		{name: "start of file", text: "alpha\nbeta", offset: 0, want: Position{Line: 0, Character: 0}},
-		{name: "ascii character", text: "alpha\nbeta", offset: 3, want: Position{Line: 0, Character: 3}},
-		{name: "next line", text: "alpha\nbeta", offset: 6, want: Position{Line: 1, Character: 0}},
+		{
+			name: "start of file", text: "alpha\nbeta", offset: 0,
+			want: protocol.Position{Line: 0, Character: 0},
+		},
+		{
+			name: "ascii character", text: "alpha\nbeta", offset: 3,
+			want: protocol.Position{Line: 0, Character: 3},
+		},
+		{
+			name: "next line", text: "alpha\nbeta", offset: 6,
+			want: protocol.Position{Line: 1, Character: 0},
+		},
 		{
 			name: "end of file", text: "alpha\nbeta", offset: len("alpha\nbeta"),
-			want: Position{Line: 1, Character: 4},
+			want: protocol.Position{Line: 1, Character: 4},
 		},
 		{
 			name: "multi byte utf8", text: "aé\n世", offset: len("aé\n世"),
-			want: Position{Line: 1, Character: 1},
+			want: protocol.Position{Line: 1, Character: 1},
 		},
-		{name: "surrogate pair", text: "a😀b", offset: len("a😀"), want: Position{Line: 0, Character: 3}},
-		{name: "inside multi byte utf8", text: "aé", offset: 2, want: Position{Line: 0, Character: 1}},
+		{
+			name: "surrogate pair", text: "a😀b", offset: len("a😀"),
+			want: protocol.Position{Line: 0, Character: 3},
+		},
+		{
+			name: "inside multi byte utf8", text: "aé", offset: 2,
+			want: protocol.Position{Line: 0, Character: 1},
+		},
 	}
 
 	for _, tt := range tests {
@@ -79,33 +96,42 @@ func TestLSPToOffset(t *testing.T) {
 	tests := []struct {
 		name string
 		text string
-		pos  Position
+		pos  protocol.Position
 		want int
 		ok   bool
 	}{
 		{
 			name: "start of file", text: "alpha\nbeta",
-			pos: Position{Line: 0, Character: 0}, want: 0, ok: true,
+			pos: protocol.Position{Line: 0, Character: 0}, want: 0, ok: true,
 		},
 		{
 			name: "ascii character", text: "alpha\nbeta",
-			pos: Position{Line: 0, Character: 3}, want: 3, ok: true,
+			pos: protocol.Position{Line: 0, Character: 3}, want: 3, ok: true,
 		},
 		{
 			name: "next line", text: "alpha\nbeta",
-			pos: Position{Line: 1, Character: 0}, want: 6, ok: true,
+			pos: protocol.Position{Line: 1, Character: 0}, want: 6, ok: true,
 		},
 		{
 			name: "end of file", text: "alpha\nbeta",
-			pos: Position{Line: 1, Character: 4}, want: len("alpha\nbeta"), ok: true,
+			pos: protocol.Position{Line: 1, Character: 4}, want: len("alpha\nbeta"), ok: true,
 		},
 		{
 			name: "after surrogate pair", text: "a😀b",
-			pos: Position{Line: 0, Character: 3}, want: len("a😀"), ok: true,
+			pos: protocol.Position{Line: 0, Character: 3}, want: len("a😀"), ok: true,
 		},
-		{name: "inside surrogate pair", text: "a😀b", pos: Position{Line: 0, Character: 2}, ok: false},
-		{name: "invalid line", text: "alpha\nbeta", pos: Position{Line: 2, Character: 0}, ok: false},
-		{name: "past line end", text: "alpha\nbeta", pos: Position{Line: 1, Character: 5}, ok: false},
+		{
+			name: "inside surrogate pair", text: "a😀b",
+			pos: protocol.Position{Line: 0, Character: 2}, ok: false,
+		},
+		{
+			name: "invalid line", text: "alpha\nbeta",
+			pos: protocol.Position{Line: 2, Character: 0}, ok: false,
+		},
+		{
+			name: "past line end", text: "alpha\nbeta",
+			pos: protocol.Position{Line: 1, Character: 5}, ok: false,
+		},
 	}
 
 	for _, tt := range tests {
