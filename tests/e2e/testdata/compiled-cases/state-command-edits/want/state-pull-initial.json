@@ -11,7 +11,7 @@
     {
       "address": "action.old",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -30,7 +30,7 @@
     {
       "address": "action.bye",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

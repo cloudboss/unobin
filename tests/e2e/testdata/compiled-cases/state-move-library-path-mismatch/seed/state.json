@@ -10,7 +10,7 @@
     {
       "address": "resource.legacy",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": {
         "alias": "other",
         "library-path": "example.com/unobin/otherlib",

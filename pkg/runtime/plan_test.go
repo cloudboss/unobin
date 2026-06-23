@@ -1016,7 +1016,7 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": float64(1)},
@@ -1071,7 +1071,7 @@ func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": float64(1)},
@@ -1117,7 +1117,7 @@ func TestPlanMigratesPriorInputsOnSchemaBump(t *testing.T) {
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
@@ -1152,7 +1152,7 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
@@ -1207,7 +1207,7 @@ func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
@@ -1234,7 +1234,7 @@ func TestPlanDefaultsOverlayKeepsExplicitPriorValue(t *testing.T) {
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha", "size": float64(3)},
@@ -1261,7 +1261,7 @@ func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
@@ -1297,7 +1297,7 @@ func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
@@ -1331,7 +1331,7 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 		&state.Entry{
 			Address:       "resource.many['alpha']",
 			Type:          state.EntryLeaf,
-			Kind:          "resource",
+			Category:      "resource",
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "alpha"},
@@ -1340,7 +1340,7 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 		&state.Entry{
 			Address:       "resource.many['beta']",
 			Type:          state.EntryLeaf,
-			Kind:          "resource",
+			Category:      "resource",
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "beta"},

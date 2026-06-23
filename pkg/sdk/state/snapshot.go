@@ -32,8 +32,9 @@ type Binding struct {
 }
 
 // Entry is one record in a snapshot. Type is the entry discriminator.
-// Kind is the graph node kind for resource, data-source, action, and
-// composite entries. Binding names the implementation used by that entry.
+// Category names the state address category for resource, data-source,
+// action, and composite entries. Binding names the implementation used by
+// that entry.
 //
 // SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
 // values came from a sensitive source. Renderers mask the matching
@@ -42,7 +43,7 @@ type Entry struct {
 	Address string    `json:"address"`
 	Type    EntryType `json:"entry-kind"`
 
-	Kind             string   `json:"node-kind,omitempty"`
+	Category         string   `json:"category,omitempty"`
 	Binding          *Binding `json:"binding,omitempty"`
 	SchemaVersion    int      `json:"schema-version,omitempty"`
 	SensitiveInputs  []string `json:"sensitive-inputs,omitempty"`
@@ -58,7 +59,7 @@ type Entry struct {
 type entryJSON struct {
 	Address          string         `json:"address"`
 	Type             EntryType      `json:"entry-kind"`
-	Kind             string         `json:"node-kind,omitempty"`
+	Category         string         `json:"category,omitempty"`
 	Binding          *Binding       `json:"binding,omitempty"`
 	SchemaVersion    int            `json:"schema-version,omitempty"`
 	SensitiveInputs  []string       `json:"sensitive-inputs,omitempty"`
@@ -73,7 +74,7 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 	return json.Marshal(entryJSON{
 		Address:          e.Address,
 		Type:             e.Type,
-		Kind:             e.Kind,
+		Category:         e.Category,
 		Binding:          e.Binding,
 		SchemaVersion:    e.SchemaVersion,
 		SensitiveInputs:  e.SensitiveInputs,
@@ -194,28 +195,28 @@ func (s *Snapshot) Validate() error {
 func (e *Entry) validate() error {
 	switch e.Type {
 	case EntryLeaf:
-		if err := e.validateNodeKind("resource"); err != nil {
+		if err := e.validateCategory("resource"); err != nil {
 			return err
 		}
 		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case EntryLibraryCall:
-		if err := e.validateNodeKind("resource", "data-source", "action"); err != nil {
+		if err := e.validateCategory("resource", "data-source", "action"); err != nil {
 			return err
 		}
 		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case EntryAction:
-		if err := e.validateNodeKind("action"); err != nil {
+		if err := e.validateCategory("action"); err != nil {
 			return err
 		}
 		if err := e.validateGraphBinding(); err != nil {
 			return err
 		}
 	case EntryData:
-		if err := e.validateNodeKind("data-source"); err != nil {
+		if err := e.validateCategory("data-source"); err != nil {
 			return err
 		}
 		if err := e.validateGraphBinding(); err != nil {
@@ -229,14 +230,14 @@ func (e *Entry) validate() error {
 	return nil
 }
 
-func (e *Entry) validateNodeKind(allowed ...string) error {
-	if e.Kind == "" {
-		return fmt.Errorf("snapshot: entry %q missing node-kind", e.Address)
+func (e *Entry) validateCategory(allowed ...string) error {
+	if e.Category == "" {
+		return fmt.Errorf("snapshot: entry %q missing category", e.Address)
 	}
-	if slices.Contains(allowed, e.Kind) {
+	if slices.Contains(allowed, e.Category) {
 		return nil
 	}
-	return fmt.Errorf("snapshot: entry %q has node-kind %q", e.Address, e.Kind)
+	return fmt.Errorf("snapshot: entry %q has category %q", e.Address, e.Category)
 }
 
 func (e *Entry) validateGraphBinding() error {

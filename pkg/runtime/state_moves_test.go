@@ -46,9 +46,9 @@ func moveEntryWithBinding(
 	t.Helper()
 	r := mustEntryRef(t, ref)
 	return &state.Entry{
-		Address: r.Address,
-		Type:    typ,
-		Kind:    kind,
+		Address:  r.Address,
+		Type:     typ,
+		Category: kind,
 		Binding: &state.Binding{
 			Alias:       alias,
 			LibraryPath: defaultMoveLibraryPath(alias),

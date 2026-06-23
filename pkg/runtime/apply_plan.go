@@ -239,7 +239,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	upsertEntry(rs.next, &state.Entry{
 		Address:          step.Address,
 		Type:             state.EntryAction,
-		Kind:             string(prep.node.Kind),
+		Category:         string(prep.node.Kind),
 		Binding:          bindingForNode(prep.node),
 		TriggerHash:      hash,
 		Inputs:           prep.inputs,
@@ -338,7 +338,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	upsertEntry(rs.next, &state.Entry{
 		Address:          step.Address,
 		Type:             state.EntryLeaf,
-		Kind:             string(prep.node.Kind),
+		Category:         string(prep.node.Kind),
 		Binding:          bindingForNode(prep.node),
 		SchemaVersion:    rt.SchemaVersion(),
 		Inputs:           prep.inputs,
@@ -529,7 +529,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	upsertEntry(rs.next, &state.Entry{
 		Address:          step.Address,
 		Type:             state.EntryData,
-		Kind:             string(prep.node.Kind),
+		Category:         string(prep.node.Kind),
 		Binding:          bindingForNode(prep.node),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,

@@ -10,7 +10,7 @@
     {
       "address": "action.go-secret",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -34,7 +34,7 @@
     {
       "address": "action.record",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -56,7 +56,7 @@
     {
       "address": "action.record-local",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -78,7 +78,7 @@
     {
       "address": "action.record-output-local",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

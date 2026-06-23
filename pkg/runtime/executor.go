@@ -666,7 +666,7 @@ func (e *Executor) finalizeComposite(
 	upsertEntry(rs.next, &state.Entry{
 		Address:          instAddr,
 		Type:             state.EntryLibraryCall,
-		Kind:             string(n.Kind),
+		Category:         string(n.Kind),
 		Binding:          bindingForNode(n),
 		Inputs:           inputs,
 		Outputs:          outputs,

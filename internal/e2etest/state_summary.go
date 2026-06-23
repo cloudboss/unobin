@@ -24,7 +24,7 @@ type stateSummary struct {
 type stateEntrySummary struct {
 	Address          string             `json:"address"`
 	Type             sdkstate.EntryType `json:"entry-kind"`
-	Kind             string             `json:"node-kind,omitempty"`
+	Category         string             `json:"category,omitempty"`
 	Binding          *sdkstate.Binding  `json:"binding,omitempty"`
 	SchemaVersion    int                `json:"schema-version,omitempty"`
 	SensitiveInputs  []string           `json:"sensitive-inputs,omitempty"`
@@ -99,7 +99,7 @@ func summarizeEntry(entry *sdkstate.Entry) stateEntrySummary {
 	return stateEntrySummary{
 		Address:          entry.Address,
 		Type:             entry.Type,
-		Kind:             entry.Kind,
+		Category:         entry.Category,
 		Binding:          entry.Binding,
 		SchemaVersion:    entry.SchemaVersion,
 		SensitiveInputs:  sortedCopy(entry.SensitiveInputs),

@@ -10,7 +10,7 @@
     {
       "address": "resource.current",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": {
         "alias": "old",
         "library-path": "example.com/unobin/e2elib",

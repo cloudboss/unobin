@@ -3,7 +3,7 @@ import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: file
 entry-kind: leaf
-node-kind: resource
+category: resource
 schema-version: 1
 inputs:
   content: 'hello'

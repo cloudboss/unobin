@@ -10,7 +10,7 @@
     {
       "address": "resource.old-direct",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
@@ -30,7 +30,7 @@
     {
       "address": "resource.old-items['blue']",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
@@ -50,7 +50,7 @@
     {
       "address": "resource.old-group",
       "entry-kind": "library-call",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "groups", "library-path": "state-moves/internal/groups", "kind": "group" },
       "inputs": {
         "content": "grouped",
@@ -75,7 +75,7 @@
     {
       "address": "resource.old-group/resource.old-file",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
@@ -95,7 +95,7 @@
     {
       "address": "resource.old-group/resource.old-single",
       "entry-kind": "library-call",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "items", "library-path": "state-moves/internal/items", "kind": "item" },
       "inputs": {
         "content": "grouped",
@@ -118,7 +118,7 @@
     {
       "address": "resource.old-group/resource.old-single/resource.old-file",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
@@ -138,7 +138,7 @@
     {
       "address": "resource.bad",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {

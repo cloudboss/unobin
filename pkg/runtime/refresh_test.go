@@ -259,7 +259,7 @@ func TestRefreshMigratesPriorEntry(t *testing.T) {
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"label": "alpha", "size": float64(1)},
@@ -297,7 +297,7 @@ func TestRefreshDoesNotInventDefaults(t *testing.T) {
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
 		Type:          state.EntryLeaf,
-		Kind:          "resource",
+		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},

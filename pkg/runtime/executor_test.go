@@ -395,12 +395,12 @@ func TestExecutorRunsComposite(t *testing.T) {
 	}
 	require.NotNil(t, leaf)
 	require.Equal(t, "resource.x/resource.one", leaf.Address)
-	require.Equal(t, "resource", leaf.Kind)
+	require.Equal(t, "resource", leaf.Category)
 	require.Equal(t, &state.Binding{Alias: "core", Export: "thing"}, leaf.Binding)
 
 	require.NotNil(t, libCall)
 	require.Equal(t, "resource.x", libCall.Address)
-	require.Equal(t, "resource", libCall.Kind)
+	require.Equal(t, "resource", libCall.Category)
 	require.Equal(t, &state.Binding{Alias: "w", Export: "box"}, libCall.Binding)
 	require.Equal(t, "alpha", libCall.Inputs["name"])
 	require.Equal(t, "fake-alpha", libCall.Outputs["id"])
@@ -435,7 +435,7 @@ func TestExecutorAppliesDataComposite(t *testing.T) {
 	require.NotNil(t, libCall, "the data composite call records a library-call entry")
 	require.Equal(t, "data-source.x", libCall.Address,
 		"the boundary address has the data kind root")
-	require.Equal(t, "data-source", libCall.Kind)
+	require.Equal(t, "data-source", libCall.Category)
 	require.Equal(t, &state.Binding{Alias: "w", Export: "box"}, libCall.Binding)
 	require.Equal(t, "looked-up:abc", libCall.Outputs["value"])
 
@@ -650,14 +650,14 @@ func TestExecutorRunsNestedComposite(t *testing.T) {
 	inner := byAddr[innerAddr]
 	require.NotNil(t, inner)
 	require.Equal(t, state.EntryLibraryCall, inner.Type)
-	require.Equal(t, "resource", inner.Kind)
+	require.Equal(t, "resource", inner.Category)
 	require.Equal(t, &state.Binding{Alias: "inner-lib", Export: "cluster"}, inner.Binding)
 
 	outerAddr := "resource.mine"
 	outer := byAddr[outerAddr]
 	require.NotNil(t, outer)
 	require.Equal(t, state.EntryLibraryCall, outer.Type)
-	require.Equal(t, "resource", outer.Kind)
+	require.Equal(t, "resource", outer.Category)
 	require.Equal(t, &state.Binding{Alias: "outer-lib", Export: "layer"}, outer.Binding)
 }
 

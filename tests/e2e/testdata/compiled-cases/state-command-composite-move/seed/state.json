@@ -11,7 +11,7 @@
     {
       "address": "resource.welcome",
       "entry-kind": "library-call",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "greeter", "library-path": "state-command-composite-move/internal/greeter", "kind": "greeting" },
       "inputs": {
         "content": "hello",
@@ -33,7 +33,7 @@
     {
       "address": "resource.welcome/resource.this",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {
@@ -53,7 +53,7 @@
     {
       "address": "resource.other",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
       "schema-version": 1,
       "inputs": {

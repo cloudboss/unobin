@@ -10,7 +10,7 @@
     {
       "address": "action.capture",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -32,7 +32,7 @@
     {
       "address": "data-source.read-back",
       "entry-kind": "data-source",
-      "node-kind": "data-source",
+      "category": "data-source",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -53,7 +53,7 @@
     {
       "address": "resource.doc",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

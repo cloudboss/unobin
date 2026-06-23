@@ -10,7 +10,7 @@
     {
       "address": "resource.hello",
       "entry-kind": "library-call",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": {
         "alias": "greeter",
         "library-path": "state-command-composite-move/internal/greeter",
@@ -39,7 +39,7 @@
     {
       "address": "resource.hello/resource.this",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -63,7 +63,7 @@
     {
       "address": "resource.other",
       "entry-kind": "leaf",
-      "node-kind": "resource",
+      "category": "resource",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

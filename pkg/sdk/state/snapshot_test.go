@@ -22,7 +22,7 @@ func sampleSnapshot() *Snapshot {
 			{
 				Address:       "resource.main",
 				Type:          EntryLeaf,
-				Kind:          "resource",
+				Category:      "resource",
 				Binding:       &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
 				SchemaVersion: 1,
 				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
@@ -31,7 +31,7 @@ func sampleSnapshot() *Snapshot {
 			{
 				Address:   "resource.web",
 				Type:      EntryLibraryCall,
-				Kind:      "resource",
+				Category:  "resource",
 				Binding:   &Binding{Alias: "net", LibraryPath: "example.com/net", Export: "cluster"},
 				Inputs:    map[string]any{"name": "web", "size": float64(5)},
 				Outputs:   map[string]any{"arn": "arn:..."},
@@ -64,7 +64,7 @@ func TestSnapshotFind(t *testing.T) {
 	s := sampleSnapshot()
 	e := s.Find("resource.main")
 	require.NotNil(t, e)
-	require.Equal(t, "resource", e.Kind)
+	require.Equal(t, "resource", e.Category)
 
 	require.Nil(t, s.Find("resource.no-such-thing"))
 }
@@ -76,12 +76,12 @@ func TestSnapshotRejectsBadFormatVersion(t *testing.T) {
 	require.Contains(t, err.Error(), "unsupported format-version")
 }
 
-func TestSnapshotRejectsLeafWithoutKind(t *testing.T) {
+func TestSnapshotRejectsLeafWithoutCategory(t *testing.T) {
 	s := sampleSnapshot()
-	s.Entries[0].Kind = ""
+	s.Entries[0].Category = ""
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing node-kind")
+	require.Contains(t, err.Error(), "missing category")
 }
 
 func TestSnapshotRejectsLibraryCallWithoutBinding(t *testing.T) {
@@ -100,13 +100,34 @@ func TestSnapshotRejectsUnknownType(t *testing.T) {
 	require.Contains(t, err.Error(), "unknown entry-kind")
 }
 
+func TestSnapshotRejectsNodeKindJSON(t *testing.T) {
+	body := []byte(`{
+  "format-version": 1,
+  "factory": { "name": "cluster" },
+  "stack": "prod",
+  "generated-at": "2026-05-01T00:00:00Z",
+  "entries": [
+    {
+      "address": "resource.main",
+      "entry-kind": "leaf",
+      "node-kind": "resource",
+      "binding": { "alias": "aws", "library-path": "example.com/aws", "kind": "vpc" }
+    }
+  ]
+}`)
+
+	_, err := DecodeSnapshot(body)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing category")
+}
+
 func TestSnapshotRejectsDuplicateAddresses(t *testing.T) {
 	s := sampleSnapshot()
 	s.Entries = append(s.Entries, &Entry{
-		Address: "resource.main",
-		Type:    EntryLeaf,
-		Kind:    "resource",
-		Binding: &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
+		Address:  "resource.main",
+		Type:     EntryLeaf,
+		Category: "resource",
+		Binding:  &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
 	})
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
@@ -138,11 +159,12 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.Contains(t, out, `"format-version": 1`)
 	require.Contains(t, out, `"address": "resource.main"`)
 	require.Contains(t, out, `"entry-kind": "leaf"`)
-	require.Contains(t, out, `"node-kind": "resource"`)
+	require.Contains(t, out, `"category": "resource"`)
 	require.Contains(t, out, `"binding": {`)
 	require.Contains(t, out, `"alias": "aws"`)
 	require.Contains(t, out, `"library-path": "example.com/aws"`)
 	require.Contains(t, out, `"kind": "vpc"`)
+	require.NotContains(t, out, `"node-kind":`)
 	require.NotContains(t, out, `"selector":`)
 	require.NotContains(t, out, `"export":`)
 	require.NotContains(t, out, `"type":`)
@@ -160,7 +182,7 @@ func TestSnapshotActionEntry(t *testing.T) {
 			{
 				Address:     "action.smoke-test",
 				Type:        EntryAction,
-				Kind:        "action",
+				Category:    "action",
 				Binding:     &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
 				TriggerHash: "sha256:deadbeef",
 				Inputs:      map[string]any{"argv": []any{"true"}},
@@ -196,12 +218,12 @@ func TestSnapshotDataSourceEntry(t *testing.T) {
 		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
-				Address: "data-source.image",
-				Type:    EntryData,
-				Kind:    "data-source",
-				Binding: &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "ami"},
-				Inputs:  map[string]any{"name": "ubuntu"},
-				Outputs: map[string]any{"id": "ami-abc"},
+				Address:  "data-source.image",
+				Type:     EntryData,
+				Category: "data-source",
+				Binding:  &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "ami"},
+				Inputs:   map[string]any{"name": "ubuntu"},
+				Outputs:  map[string]any{"id": "ami-abc"},
 			},
 		},
 	}
@@ -212,10 +234,11 @@ func TestSnapshotDataSourceEntry(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
 	require.Contains(t, string(b), `"entry-kind": "data-source"`)
-	require.Contains(t, string(b), `"node-kind": "data-source"`)
+	require.Contains(t, string(b), `"category": "data-source"`)
+	require.NotContains(t, string(b), `"node-kind":`)
 }
 
-func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
+func TestSnapshotRejectsActionWithoutCategory(t *testing.T) {
 	snap := &Snapshot{
 		FormatVersion: CurrentFormatVersion,
 		Factory:       FactoryInfo{Name: "x"},
@@ -231,5 +254,5 @@ func TestSnapshotRejectsActionWithoutKind(t *testing.T) {
 	}
 	_, err := EncodeSnapshot(snap)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing node-kind")
+	require.Contains(t, err.Error(), "missing category")
 }

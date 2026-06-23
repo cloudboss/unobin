@@ -3,7 +3,7 @@ import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: echo
 entry-kind: action
-node-kind: action
+category: action
 schema-version: 0
 trigger-hash: af79597b88b538443285c8682d49a45f6dee02e65253fc74104bd7e9a4743b6e
 inputs:

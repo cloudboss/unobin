@@ -140,7 +140,7 @@ func (e *Executor) refreshLeaf(
 	return &state.Entry{
 		Address:          ent.Address,
 		Type:             state.EntryLeaf,
-		Kind:             string(NodeResource),
+		Category:         string(NodeResource),
 		Binding:          bindingFromEntry(ent),
 		SchemaVersion:    rt.SchemaVersion(),
 		SensitiveInputs:  ent.SensitiveInputs,

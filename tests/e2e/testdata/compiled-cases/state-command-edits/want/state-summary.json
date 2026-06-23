@@ -10,7 +10,7 @@
     {
       "address": "action.hi",
       "entry-kind": "action",
-      "node-kind": "action",
+      "category": "action",
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
