@@ -1,0 +1,39 @@
+factory: {
+  inputs: {
+    definition-config: {
+      type: library-config('example.com/definition')
+      default: {
+        region: 'us-east-1'
+        retry: { count: 3 }
+      }
+    }
+  }
+  imports: {
+    def: 'example.com/definition'
+  }
+  library-configs: {
+    def: input.definition-config
+  }
+  resources: {
+    server: def.server {
+      id: 'input-id'
+      server-name: 'web'
+      settings: {
+        endpoint: {
+          url: 'https://example.com'
+        }
+      }
+    }
+  }
+  data-sources: {
+    lookup: def.lookup { query: 'web' }
+  }
+  actions: {
+    deploy: def.deploy {
+      version: def.slug('v1')
+    }
+  }
+  outputs: {
+    server-id: { value: resource.server.id }
+  }
+}

@@ -59,7 +59,9 @@ func TestSourceIndexCacheInvalidatesChangedSource(t *testing.T) {
 	path := filepath.Join(dir, "library.go")
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
-	updated := strings.Replace(string(body), "\tID       string\n", "\tIdentifier string\n", 1)
+	updated := strings.Replace(string(body),
+		"type ServerOutput struct {\n\tID       string\n",
+		"type ServerOutput struct {\n\tIdentifier string\n", 1)
 	require.NotEqual(t, string(body), updated)
 	require.NoError(t, os.WriteFile(path, []byte(updated), 0o644))
 

@@ -34,6 +34,7 @@ type Config struct {
 }
 
 type Server struct {
+	ID       string
 	Name     string `ub:"server-name"`
 	Settings shared.Settings
 }

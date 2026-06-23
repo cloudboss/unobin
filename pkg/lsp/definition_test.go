@@ -89,6 +89,91 @@ func TestDefinitionUBCompositeOutputReference(t *testing.T) {
 		"id: { value: 'web-id' }", "id")
 }
 
+func TestDefinitionGoImportAlias(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "def: 'example.com/definition'", "def"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"func Library()", "Library")
+}
+
+func TestDefinitionGoNodeSelector(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "def.server", "server"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"\"server\": runtime.MakeResource", "\"server\"")
+}
+
+func TestDefinitionGoNodeBodyFields(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+	sharedSource := readTestFile(t, filepath.Join(goDir, "shared", "shared.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "server-name: 'web'", "server-name"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"Name     string", "Name")
+
+	locations, rpcErr = DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "url: 'https://example.com'", "url"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "shared", "shared.go"),
+		sharedSource, "URL  string", "URL")
+}
+
+func TestDefinitionGoInputOutputCollisionPrefersOutputForRefs(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "id: 'input-id'", "id"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"ID       string", "ID")
+
+	locations, rpcErr = DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "resource.server.id", "id"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"type ServerOutput struct {\n\tID", "ID")
+}
+
+func TestDefinitionGoLibraryConfigField(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	sharedSource := readTestFile(t, filepath.Join(goDir, "shared", "shared.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "count: 3", "count"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "shared", "shared.go"),
+		sharedSource, "Count int", "Count")
+}
+
+func TestDefinitionGoFunctionCall(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "def.slug('v1')", "slug"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"func makeSlug", "makeSlug")
+}
+
 func TestSessionDefinitionReturnsLocations(t *testing.T) {
 	root, factoryPath, factorySource, _ := definitionProject(t)
 	session := NewSession("dev")
@@ -122,6 +207,29 @@ func definitionProject(t *testing.T) (string, string, string, string) {
 	libraryPath := filepath.Join(bundleDir, "library.ub")
 	require.NoError(t, os.WriteFile(libraryPath, []byte(librarySource), 0o644))
 	return root, factoryPath, factorySource, libraryPath
+}
+
+func goDefinitionProject(t *testing.T) (string, string, string, string) {
+	t.Helper()
+	root := t.TempDir()
+	goDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "definition"))
+	require.NoError(t, err)
+	dep := deps.Dependency{URL: "example.com/definition"}
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  map[deps.Dependency]string{dep: goDir},
+	}))
+	factorySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/go-backed-factory.ub")
+	factoryPath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	return root, factoryPath, factorySource, goDir
+}
+
+func readTestFile(t *testing.T, path string) string {
+	t.Helper()
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(body)
 }
 
 func requestDefinition(
