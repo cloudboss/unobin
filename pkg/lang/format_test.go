@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/pkg/ubtest"
+	"github.com/cloudboss/unobin/internal/ubtest"
 )
 
 func formatString(t *testing.T, src string) string {

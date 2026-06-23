@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"

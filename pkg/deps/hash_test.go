@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/pkg/ubtest"
+	"github.com/cloudboss/unobin/internal/ubtest"
 )
 
 func hashProject(t *testing.T, files fstest.MapFS) string {

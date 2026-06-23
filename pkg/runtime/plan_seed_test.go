@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // subnetLike has a tag input and a stable id output; updating it

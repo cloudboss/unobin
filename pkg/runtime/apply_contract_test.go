@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/cloudboss/unobin/pkg/ubtest"
 )
 
 // ghostResource mints a fresh id on every create. Its Read reports

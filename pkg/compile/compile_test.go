@@ -7,9 +7,9 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/cloudboss/unobin/pkg/ubtest"
 	"github.com/stretchr/testify/require"
 )
 

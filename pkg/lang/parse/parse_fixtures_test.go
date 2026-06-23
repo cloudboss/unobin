@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/pkg/ubtest"
+	"github.com/cloudboss/unobin/internal/ubtest"
 )
 
 func loadFixture(t *testing.T, path string) *File {

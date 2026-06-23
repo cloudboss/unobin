@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/ubtest"
+	"github.com/cloudboss/unobin/internal/ubtest"
 )
 
 func TestValidateFileFixtures(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudboss/unobin/pkg/ubtest"
+	"github.com/cloudboss/unobin/internal/ubtest"
 )
 
 func newDAG(edges map[string][]string) *DAG {
