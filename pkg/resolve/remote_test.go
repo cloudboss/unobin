@@ -217,6 +217,118 @@ func Library() *runtime.Library {
 	require.Equal(t, "example.com/lib/fs", got.GoImportPath)
 }
 
+func TestRemoteResolverCachedSourceMissingCache(t *testing.T) {
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	got, ok, err := r.CachedSource(&RemoteImport{URL: "github.com/x/y"}, "abc123")
+	require.NoError(t, err)
+	require.False(t, ok)
+	require.Nil(t, got)
+}
+
+func TestRemoteResolverCachedSourceServesPackageSubdir(t *testing.T) {
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	commit := "abc123"
+	cacheDir := r.cacheDir("github.com/x/y", commit)
+	require.NoError(t, os.MkdirAll(filepath.Join(cacheDir, "pkg"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cacheDir, "pkg", "library.ub"),
+		[]byte("thing: resource { description: 'cached' }\n"),
+		0o644,
+	))
+
+	got, ok, err := r.CachedSource(&RemoteImport{
+		URL: "github.com/x/y", Subdir: "pkg", PackageSubdir: "pkg",
+	}, commit)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, commit, got.Commit)
+	require.Equal(t, filepath.Join(cacheDir, "pkg"), got.Path)
+	require.Equal(t, cacheDir, got.ProjectPath)
+	require.Empty(t, got.ProjectSubdir)
+	require.Equal(t, "pkg", got.PackageSubdir)
+
+	body, err := fs.ReadFile(got.FS, "library.ub")
+	require.NoError(t, err)
+	require.Contains(t, string(body), "cached")
+}
+
+func TestRemoteResolverCachedSourceServesNestedProject(t *testing.T) {
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	commit := "abc123"
+	cacheDir := r.cacheDir("github.com/x/y", commit)
+	require.NoError(t, os.MkdirAll(filepath.Join(cacheDir, "ub", "project", "pkg"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cacheDir, "ub", "project", "project.ub"),
+		[]byte(remoteResolverFixture(t, "empty-project")),
+		0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cacheDir, "ub", "project", "pkg", "library.ub"),
+		[]byte("thing: resource { description: 'cached' }\n"),
+		0o644,
+	))
+
+	got, ok, err := r.CachedSource(&RemoteImport{
+		URL:           "github.com/x/y",
+		Subdir:        "ub/project/pkg",
+		ProjectSubdir: "ub/project",
+		PackageSubdir: "ub/project/pkg",
+	}, commit)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, filepath.Join(cacheDir, "ub", "project"), got.ProjectPath)
+	require.Equal(t, filepath.Join(cacheDir, "ub", "project", "pkg"), got.Path)
+	require.Equal(t, "ub/project", got.ProjectSubdir)
+	require.Equal(t, "ub/project/pkg", got.PackageSubdir)
+
+	project, err := fs.ReadFile(got.ProjectFS, "project.ub")
+	require.NoError(t, err)
+	require.Contains(t, string(project), "project:")
+}
+
+func TestRemoteResolverCachedSourceSetsGoModuleMetadata(t *testing.T) {
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	commit := "abc123"
+	cacheDir := r.cacheDir("github.com/x/y", commit)
+	require.NoError(t, os.MkdirAll(filepath.Join(cacheDir, "fs"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cacheDir, "go.mod"),
+		[]byte("module example.com/lib\n"),
+		0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cacheDir, "fs", "library.go"),
+		[]byte("package fs\n"),
+		0o644,
+	))
+
+	got, ok, err := r.CachedSource(&RemoteImport{
+		URL: "github.com/x/y", Subdir: "fs", PackageSubdir: "fs",
+	}, commit)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, cacheDir, got.ModuleRootPath)
+	require.Equal(t, "example.com/lib", got.ModulePath)
+	require.Equal(t, "example.com/lib/fs", got.GoImportPath)
+}
+
+func TestRemoteResolverCachedSourceDoesNotConsultRemote(t *testing.T) {
+	r := &RemoteResolver{CacheRoot: t.TempDir()}
+	commit := "abc123"
+	cacheDir := r.cacheDir("/path/that/does/not/exist", commit)
+	require.NoError(t, os.MkdirAll(cacheDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cacheDir, "library.ub"),
+		[]byte("thing: resource { description: 'cached' }\n"),
+		0o644,
+	))
+
+	got, ok, err := r.CachedSource(&RemoteImport{URL: "/path/that/does/not/exist"}, commit)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, cacheDir, got.Path)
+}
+
 func TestRemoteResolverCacheHitSkipsRefetch(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src")
 	makeRemoteRepo(t, src, map[string]string{

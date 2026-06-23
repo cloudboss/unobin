@@ -117,8 +117,25 @@ func (r *RemoteResolver) Resolve(ref ImportRef) (*Source, error) {
 		}
 	}
 
-	projectSubdir := remoteProjectSubdir(ri)
-	packageSubdir := remotePackageSubdir(ri)
+	return sourceFromRemoteCache(ri, commit, dir)
+}
+
+// CachedSource returns source data for an existing cached commit without contacting git.
+func (r *RemoteResolver) CachedSource(ref *RemoteImport, commit string) (*Source, bool, error) {
+	dir := r.cacheDir(ref.URL, commit)
+	if !dirExists(dir) {
+		return nil, false, nil
+	}
+	src, err := sourceFromRemoteCache(ref, commit, dir)
+	if err != nil {
+		return nil, true, err
+	}
+	return src, true, nil
+}
+
+func sourceFromRemoteCache(ref *RemoteImport, commit, dir string) (*Source, error) {
+	projectSubdir := remoteProjectSubdir(ref)
+	packageSubdir := remotePackageSubdir(ref)
 
 	projectPath := dir
 	if projectSubdir != "" {
