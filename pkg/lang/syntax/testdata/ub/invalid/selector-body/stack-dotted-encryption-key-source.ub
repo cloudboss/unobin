@@ -1,0 +1,4 @@
+stack: {
+  state: local {}
+  encryption: env.key {}
+}

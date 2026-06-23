@@ -497,7 +497,7 @@ func lowerCompositeDecls(
 		}
 		if fld.Decl.Default {
 			errs.Addf(parse.ErrSchema, fld.S.Start,
-				"library export must include a name before the selector")
+				"library export must include a name before the category")
 			continue
 		}
 		name, ok := fieldName(fld, "library export name", errs)
@@ -939,14 +939,14 @@ func lowerSelectorNode(
 ) (NodeDecl, bool) {
 	if fld.Decl.Default {
 		errs.Addf(parse.ErrSchema, fld.S.Start,
-			"%s declaration must include a name before the selector", kind)
+			"%s declaration must include a name before the alias-qualified kind", kind)
 		return NodeDecl{}, false
 	}
 	name, ok := fieldName(fld, string(kind)+" name", errs)
 	if !ok {
 		return NodeDecl{}, false
 	}
-	selector, ok := nodeSelector(fld.Decl.Selector, string(kind)+" selector", errs)
+	selector, ok := nodeSelector(fld.Decl.Selector, string(kind)+" alias-qualified kind", errs)
 	if !ok {
 		return NodeDecl{}, false
 	}
@@ -983,7 +983,7 @@ func lowerOutputs(block *parse.ObjectLit, errs *parse.ErrorList) []OutputDecl {
 }
 
 func lowerStateSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *StateDecl {
-	selector, ok := selectorIdent(fld.Decl.Selector, "state selector", errs)
+	selector, ok := selectorIdent(fld.Decl.Selector, "state backend", errs)
 	if !ok {
 		return &StateDecl{S: fld.S, Body: fld.Decl.Body}
 	}
@@ -991,7 +991,7 @@ func lowerStateSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *StateDecl 
 }
 
 func lowerEncryptionSelectorDecl(fld *parse.Field, errs *parse.ErrorList) *EncryptionDecl {
-	selector, ok := selectorIdent(fld.Decl.Selector, "encryption selector", errs)
+	selector, ok := selectorIdent(fld.Decl.Selector, "encryption key-source", errs)
 	if !ok {
 		return &EncryptionDecl{S: fld.S, Body: fld.Decl.Body}
 	}

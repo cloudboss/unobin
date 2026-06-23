@@ -1,0 +1,4 @@
+stack: {
+  state: local.extra {}
+  encryption: noop {}
+}

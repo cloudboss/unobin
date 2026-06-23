@@ -92,10 +92,10 @@ func validateStackFile(stack *StackFile, pos parse.Position, errs *parse.ErrorLi
 	}
 	if stack.State != nil {
 		validateStackResolverBody(stack.State.Body, stackResolverBodyRule{
-			role:         "state",
-			selectorName: "backend",
-			example:      "state: local { ... }",
-			locals:       localNames,
+			role:    "state",
+			metaKey: "@backend",
+			example: "state: local { ... }",
+			locals:  localNames,
 		}, errs)
 	}
 	if stack.Encryption == nil {
@@ -103,18 +103,18 @@ func validateStackFile(stack *StackFile, pos parse.Position, errs *parse.ErrorLi
 		return
 	}
 	validateStackResolverBody(stack.Encryption.Body, stackResolverBodyRule{
-		role:         "encryption",
-		selectorName: "key-source",
-		example:      "encryption: noop { ... }",
-		locals:       localNames,
+		role:    "encryption",
+		metaKey: "@key-source",
+		example: "encryption: noop { ... }",
+		locals:  localNames,
 	}, errs)
 }
 
 type stackResolverBodyRule struct {
-	role         string
-	selectorName string
-	example      string
-	locals       map[string]bool
+	role    string
+	metaKey string
+	example string
+	locals  map[string]bool
 }
 
 func validateStackResolverBody(
@@ -136,9 +136,8 @@ func validateStackResolverBody(
 		}
 		if fld.Key.IsMeta() {
 			errs.Addf(parse.ErrSchema, fld.Key.S.Start,
-				"%s body uses a %s selector before the body, "+
-					"not a body meta key; write %s",
-				rule.role, rule.selectorName, rule.example)
+				"%s body uses %s as a meta key; write %s",
+				rule.role, rule.metaKey, rule.example)
 			continue
 		}
 		name := fld.Key.Name

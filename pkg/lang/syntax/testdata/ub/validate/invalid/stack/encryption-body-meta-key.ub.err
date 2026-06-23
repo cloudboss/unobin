@@ -1,1 +1,1 @@
-encryption body uses a key-source selector before the body, not a body meta key; write encryption: noop { ... }
+encryption body uses @key-source as a meta key; write encryption: noop { ... }
