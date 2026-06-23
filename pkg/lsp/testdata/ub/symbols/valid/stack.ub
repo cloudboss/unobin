@@ -1,0 +1,13 @@
+stack: {
+  factory: {
+    inputs: {
+      region: 'us-east-1'
+    }
+  }
+  state: local { path: 'state.ubstate' }
+  encryption: noop {}
+  locals: {
+    label: 'dev'
+  }
+  parallelism: 4
+}

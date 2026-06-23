@@ -1,0 +1,32 @@
+factory: {
+  inputs: {
+    region: { type: string }
+  }
+  locals: {
+    full-name: input.region
+  }
+  constraints: [
+    { kind: exactly-one-of fields: [input.region] }
+  ]
+  imports: {
+    aws: 'example.com/aws'
+  }
+  library-configs: {
+    aws: { region: input.region }
+  }
+  state-moves: [
+    { from: resource.old to: resource.server }
+  ]
+  resources: {
+    server: aws.instance { ami-id: 'ami-123' }
+  }
+  data-sources: {
+    lookup: aws.ami { name: input.region }
+  }
+  actions: {
+    deploy: aws.deploy { name: resource.server.id }
+  }
+  outputs: {
+    endpoint: { value: resource.server.id }
+  }
+}

@@ -68,7 +68,7 @@ func (s *Session) HandleRequest(
 	case "textDocument/formatting":
 		return s.handleFormatting(req.Params)
 	case "textDocument/documentSymbol":
-		return []protocol.DocumentSymbol{}, nil
+		return s.handleDocumentSymbols(req.Params)
 	case "textDocument/definition":
 		return nil, nil
 	case "textDocument/completion":
@@ -160,6 +160,18 @@ func (s *Session) handleFormatting(params json.RawMessage) (any, *protocol.Respo
 		return nil, protocol.InvalidParams("document is not open: " + formatting.TextDocument.URI)
 	}
 	return FormatText(doc.Path, doc.Text)
+}
+
+func (s *Session) handleDocumentSymbols(params json.RawMessage) (any, *protocol.ResponseError) {
+	var documentSymbols protocol.DocumentSymbolParams
+	if err := decodeParams(params, &documentSymbols); err != nil {
+		return nil, err
+	}
+	doc, ok := s.documents.Get(documentSymbols.TextDocument.URI)
+	if !ok {
+		return nil, protocol.InvalidParams("document is not open: " + documentSymbols.TextDocument.URI)
+	}
+	return DocumentSymbolsForText(doc.Path, doc.Text)
 }
 
 func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
