@@ -35,6 +35,11 @@ import (
 // read source from when a referenced type lives outside the
 // library's own module.
 func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, error) {
+	schema, _, warnings, err := ReadWithIndex(dir, extra...)
+	return schema, warnings, err
+}
+
+func readSchema(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, error) {
 	rootPkg, err := parsePackageDir(dir)
 	if err != nil {
 		return nil, nil, err
