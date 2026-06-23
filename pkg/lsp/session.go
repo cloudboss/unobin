@@ -13,6 +13,7 @@ type Session struct {
 	version   string
 	documents *DocumentStore
 	shutdown  bool
+	sender    protocol.Sender
 }
 
 // NewSession returns a new LSP session.
@@ -33,6 +34,11 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, version string) err
 // Shutdown reports whether the client has requested shutdown.
 func (s *Session) Shutdown() bool {
 	return s.shutdown
+}
+
+// SetSender sets the server-to-client notification sender.
+func (s *Session) SetSender(sender protocol.Sender) {
+	s.sender = sender
 }
 
 // HandleRequest dispatches one JSON-RPC request to the session.
@@ -99,7 +105,7 @@ func (s *Session) handleDidOpen(params json.RawMessage) *protocol.ResponseError 
 	if err := decodeParams(params, &open); err != nil {
 		return err
 	}
-	_, err := s.documents.Open(
+	doc, err := s.documents.Open(
 		open.TextDocument.URI,
 		open.TextDocument.Version,
 		open.TextDocument.Text,
@@ -107,7 +113,7 @@ func (s *Session) handleDidOpen(params json.RawMessage) *protocol.ResponseError 
 	if err != nil {
 		return protocol.InvalidParams(err.Error())
 	}
-	return nil
+	return s.publishDiagnostics(doc)
 }
 
 func (s *Session) handleDidChange(params json.RawMessage) *protocol.ResponseError {
@@ -119,7 +125,7 @@ func (s *Session) handleDidChange(params json.RawMessage) *protocol.ResponseErro
 		return nil
 	}
 	last := change.ContentChanges[len(change.ContentChanges)-1]
-	_, err := s.documents.Change(
+	doc, err := s.documents.Change(
 		change.TextDocument.URI,
 		change.TextDocument.Version,
 		last.Text,
@@ -127,7 +133,7 @@ func (s *Session) handleDidChange(params json.RawMessage) *protocol.ResponseErro
 	if err != nil {
 		return protocol.InvalidParams(err.Error())
 	}
-	return nil
+	return s.publishDiagnostics(doc)
 }
 
 func (s *Session) handleDidSave(params json.RawMessage) *protocol.ResponseError {
@@ -141,6 +147,26 @@ func (s *Session) handleDidClose(params json.RawMessage) *protocol.ResponseError
 		return err
 	}
 	s.documents.Close(close.TextDocument.URI)
+	return nil
+}
+
+func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
+	if s.sender == nil {
+		return nil
+	}
+	version := doc.Version
+	diagnostics := DiagnosticsForText(doc.Path, doc.Text)
+	if diagnostics == nil {
+		diagnostics = []protocol.Diagnostic{}
+	}
+	err := s.sender("textDocument/publishDiagnostics", protocol.PublishDiagnosticsParams{
+		URI:         doc.URI,
+		Version:     &version,
+		Diagnostics: diagnostics,
+	})
+	if err != nil {
+		return protocol.InternalError(err)
+	}
 	return nil
 }
 

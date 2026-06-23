@@ -8,6 +8,14 @@ import (
 	"io"
 )
 
+// Sender writes a server-to-client notification.
+type Sender func(method string, params any) error
+
+// SenderSetter accepts a server-to-client notification sender.
+type SenderSetter interface {
+	SetSender(Sender)
+}
+
 // Server serves JSON-RPC messages over LSP stdio framing.
 type Server struct {
 	reader  *bufio.Reader
@@ -17,11 +25,32 @@ type Server struct {
 
 // NewServer returns a JSON-RPC server using LSP stdio framing.
 func NewServer(r io.Reader, w io.Writer, handler Handler) *Server {
-	return &Server{
+	server := &Server{
 		reader:  bufio.NewReader(r),
 		writer:  w,
 		handler: handler,
 	}
+	if setter, ok := handler.(SenderSetter); ok {
+		setter.SetSender(server.Notify)
+	}
+	return server
+}
+
+// Notify writes a server-to-client JSON-RPC notification.
+func (s *Server) Notify(method string, params any) error {
+	body, err := json.Marshal(struct {
+		JSONRPC string `json:"jsonrpc"`
+		Method  string `json:"method"`
+		Params  any    `json:"params,omitempty"`
+	}{
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  params,
+	})
+	if err != nil {
+		return err
+	}
+	return WriteMessage(s.writer, body)
 }
 
 // Serve reads requests until the input stream ends.
