@@ -119,6 +119,7 @@ func RunCompiledCases(t *testing.T, dir string, opts ...Option) {
 	}
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
 			runCompiledCase(t, cfg, c)
 		})
 	}
