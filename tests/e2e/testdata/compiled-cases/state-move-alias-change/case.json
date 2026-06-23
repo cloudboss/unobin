@@ -1,0 +1,17 @@
+{
+  "name": "state-move-alias-change",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-move-alias-change",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "commands": [
+    {
+      "name": "state-move",
+      "args": ["state", "move", "resource.legacy", "resource.current", "-c", "stacks/dev.ub"],
+      "stdout": "want/state-move.stdout",
+      "stderr": "want/state-move.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

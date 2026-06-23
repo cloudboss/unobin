@@ -46,14 +46,27 @@ func moveEntryWithBinding(
 	t.Helper()
 	r := mustEntryRef(t, ref)
 	return &state.Entry{
-		Address:       r.Address,
-		Type:          typ,
-		Kind:          kind,
-		Binding:       &state.Binding{Alias: alias, Export: export},
+		Address: r.Address,
+		Type:    typ,
+		Kind:    kind,
+		Binding: &state.Binding{
+			Alias:       alias,
+			LibraryPath: defaultMoveLibraryPath(alias),
+			Export:      export,
+		},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": r.Address},
 		Outputs:       map[string]any{"id": r.String()},
 	}
+}
+
+func defaultMoveLibraryPath(alias string) string {
+	return "example.com/" + alias
+}
+
+func setMoveEntryLibraryPath(ent *state.Entry, path string) *state.Entry {
+	ent.Binding.LibraryPath = path
+	return ent
 }
 
 func moveDAG(nodes ...*Node) *DAG {
@@ -74,11 +87,17 @@ func moveNodeWithBinding(ref string, kind NodeKind, alias string, export string)
 		panic(err)
 	}
 	return &Node{
-		Address: r.Address,
-		Kind:    kind,
-		Alias:   alias,
-		Type:    export,
+		Address:     r.Address,
+		Kind:        kind,
+		Alias:       alias,
+		LibraryPath: defaultMoveLibraryPath(alias),
+		Type:        export,
 	}
+}
+
+func setMoveNodeLibraryPath(n *Node, path string) *Node {
+	n.LibraryPath = path
+	return n
 }
 
 func moveCompositeNodeWithBinding(ref string, kind NodeKind, alias string, export string) *Node {
@@ -161,6 +180,30 @@ func TestApplyEntryMovesStrictResourceMoves(t *testing.T) {
 	}
 }
 
+func TestApplyEntryMovesPreservesBindingForSameImplementationKind(t *testing.T) {
+	entry := setMoveEntryLibraryPath(
+		moveEntryWithBinding(t, "resource.old", state.EntryLeaf, "resource", "legacy", "thing"),
+		"example.com/core",
+	)
+	snap := moveSnapshot(entry)
+	dag := moveDAG(moveNode("resource.new", NodeResource))
+
+	got, results, err := ApplyEntryMoves(
+		snap, dag, stateMovesLibs(), []EntryMoveSpec{moveSpec(t, "resource.old", "resource.new")},
+		EntryMoveStrict,
+	)
+
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	moved := got.Find("resource.new")
+	require.NotNil(t, moved)
+	require.Equal(t, &state.Binding{
+		Alias:       "legacy",
+		LibraryPath: "example.com/core",
+		Export:      "thing",
+	}, moved.Binding)
+}
+
 func TestApplyEntryMovesStrictErrors(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -236,7 +279,25 @@ func TestApplyEntryMovesStrictErrors(t *testing.T) {
 			specs: []EntryMoveSpec{
 				moveSpec(t, "resource.old", "resource.new"),
 			},
-			wantErr: "entry kind other cannot move to kind thing",
+			wantErr: "resource.old cannot move to resource.new as kind core.other differs from core.thing",
+		},
+		{
+			name: "implementation library path mismatch",
+			snap: moveSnapshot(
+				setMoveEntryLibraryPath(
+					moveEntryWithBinding(
+						t, "resource.old", state.EntryLeaf, "resource", "legacy", "thing",
+					),
+					"example.com/old",
+				),
+			),
+			dag: moveDAG(setMoveNodeLibraryPath(
+				moveNode("resource.new", NodeResource), "example.com/new",
+			)),
+			specs: []EntryMoveSpec{
+				moveSpec(t, "resource.old", "resource.new"),
+			},
+			wantErr: "resource.old cannot move to resource.new as kind legacy.thing differs from core.thing",
 		},
 	}
 

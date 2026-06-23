@@ -1,0 +1,17 @@
+{
+  "name": "state-move-library-path-mismatch",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-move-library-path-mismatch",
+  "build": true,
+  "stateSeed": "seed/state.json",
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "move.ubp"],
+      "stderr": "want/plan.stderr",
+      "exitCode": 1
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

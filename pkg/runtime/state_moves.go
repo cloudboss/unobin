@@ -351,13 +351,29 @@ func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
 	default:
 		return fmt.Errorf("unsupported state entry kind %s", ent.Type)
 	}
-	if ent.Binding != nil &&
-		ent.Binding.Export != "" &&
-		n.Type != "" &&
-		ent.Binding.Export != n.Type {
-		return fmt.Errorf("entry kind %s cannot move to kind %s", ent.Binding.Export, n.Type)
+	if ent.Binding == nil {
+		return nil
+	}
+	if ent.Binding.LibraryPath != n.LibraryPath || ent.Binding.Export != n.Type {
+		return fmt.Errorf(
+			"%s cannot move to %s as kind %s differs from %s",
+			ent.Address,
+			n.Address,
+			qualifiedMoveKind(ent.Binding.Alias, ent.Binding.Export),
+			qualifiedMoveKind(n.Alias, n.Type),
+		)
 	}
 	return nil
+}
+
+func qualifiedMoveKind(alias, kind string) string {
+	if alias == "" {
+		return kind
+	}
+	if kind == "" {
+		return alias
+	}
+	return alias + "." + kind
 }
 
 func migrateMovedEntry(

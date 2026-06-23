@@ -1,0 +1,2 @@
+notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
+resource.legacy cannot move to resource.current as kind e2e.file differs from e2e.object
