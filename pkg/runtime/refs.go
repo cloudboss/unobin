@@ -310,7 +310,7 @@ func segmentNames(segs []lang.DotSegment) string {
 // the result, the body says "depend on a specific instance of this
 // template, the instance whose key matches my own for-each key,"
 // which lets the apply scheduler narrow a cartesian fan-out down to
-// a same-key pair. Refs that do not carry an `[@each.key]` selector
+// a same-key pair. Refs that do not have an `[@each.key]` index segment
 // are not included even if their template appears elsewhere indexed.
 func pairKeyDeps(
 	e lang.Expr,

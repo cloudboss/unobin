@@ -37,6 +37,12 @@ func TestFormatFixtures(t *testing.T) {
 	)
 }
 
+func TestFormatInlineDeclarationDiagnosticUsesPublicTerms(t *testing.T) {
+	w := &formatter{maxColumn: DefaultMaxColumn}
+	err := w.writeObjectInline(&ObjectLit{Fields: []*Field{{Decl: &SelectorBody{}}}})
+	require.EqualError(t, err, "format: declaration body cannot appear inside an inline object")
+}
+
 func TestFormatTypeExpressionFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/format-types/valid",
 		func(name string, src []byte) (string, []string) {

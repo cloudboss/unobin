@@ -2,7 +2,6 @@ address: action.record
 import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: record
-entry-kind: action
 category: action
 schema-version: 0
 trigger-hash: be50edad1db1dd908c34f5df6efb122c9c18e133e37e0b7a78c446d40d6aedbb

@@ -2,7 +2,6 @@ address: resource.hello/resource.this
 import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: file
-entry-kind: leaf
 category: resource
 schema-version: 1
 inputs:

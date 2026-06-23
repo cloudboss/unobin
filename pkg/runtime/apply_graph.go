@@ -11,10 +11,10 @@ import (
 // derived from the plan's step addresses and the executor's DAG edges
 // (template-form). Each entry in indegree counts how many predecessors
 // have not yet completed. dependents names who depends on this step.
-// locks names the `@lock:` value carried by each step (empty for
-// steps not under a named lock). pairKey records the dep templates a
-// step's body references with an `[@each.key]` selector, which lets
-// the builder narrow the cartesian fan-out down to same-key pairs.
+// locks names the `@lock:` value for each step (empty for steps not
+// under a named lock). pairKey records the dep templates a
+// step's body references with an `[@each.key]` index segment, which
+// lets the builder narrow the cartesian fan-out down to same-key pairs.
 type stepGraph struct {
 	indegree   map[string]int
 	dependents map[string][]string

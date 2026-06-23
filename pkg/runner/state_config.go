@@ -18,7 +18,7 @@ import (
 )
 
 // resolverRef names one entry in the fixed backend or encrypter registry.
-// Name is the bare state or encryption selector from the stack file;
+// Name is the bare state backend or encryption key-source from the stack file;
 // Body is the operator-provided configuration for it.
 type resolverRef struct {
 	Name string

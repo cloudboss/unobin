@@ -1316,7 +1316,7 @@ func (w *formatter) writeObjectInline(o *ObjectLit) error {
 			w.buf.WriteString(", ")
 		}
 		if f.Decl != nil {
-			return fmt.Errorf("format: selector-body declaration in inline object")
+			return fmt.Errorf("format: declaration body cannot appear inside an inline object")
 		}
 		w.buf.WriteString(renderFieldKey(f.Key))
 		w.buf.WriteString(": ")

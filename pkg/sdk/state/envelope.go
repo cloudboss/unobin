@@ -25,8 +25,8 @@ const (
 )
 
 // Ref names an entry in the fixed backend or encrypter registry. Name is
-// the bare state or encryption selector from the stack file; Body is the
-// configuration the resolver decodes against that entry's schema.
+// the bare state backend or encryption key-source from the stack file;
+// Body is the configuration the resolver decodes against that entry's schema.
 //
 // A plan file records a Backend ref so apply can reconstruct the same
 // backend without re-reading the stack file, and every envelope records an

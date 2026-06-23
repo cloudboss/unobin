@@ -439,7 +439,6 @@ func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
 		fmt.Fprintf(out, "library-path: %s\n", ent.Binding.LibraryPath)
 		fmt.Fprintf(out, "kind: %s\n", ent.Binding.Export)
 	}
-	fmt.Fprintf(out, "entry-kind: %s\n", ent.Type)
 	fmt.Fprintf(out, "category: %s\n", ent.Category)
 	fmt.Fprintf(out, "schema-version: %d\n", ent.SchemaVersion)
 	if ent.TriggerHash != "" {
