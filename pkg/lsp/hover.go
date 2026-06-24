@@ -161,8 +161,9 @@ func hoverForNodeRef(
 		return nil, nil
 	}
 	if len(parts) >= 3 {
+		fieldPath := strings.Join(parts[2:], ".")
 		if hover, found, err := goNodeRefFieldHover(
-			path, node, parts[2], decls, projects,
+			path, node, fieldPath, decls, projects,
 		); found || err != nil {
 			return hover, err
 		}

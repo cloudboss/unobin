@@ -42,6 +42,18 @@ func TestHoverUnknownGoNodeSelectorReturnsNoHover(t *testing.T) {
 	require.Nil(t, hover)
 }
 
+func TestHoverNestedGoOutputFieldType(t *testing.T) {
+	root, path, source, _ := goDefinitionProjectFixture(
+		t, "testdata/ub/definition/valid/go-backed-nested-output.ub",
+	)
+
+	hover, rpcErr := HoverForText(path, source,
+		positionInText(source, "resource.server.endpoint.url", "url"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.NotNil(t, hover)
+	require.Equal(t, "url: string", hover.Contents.Value)
+}
+
 func TestHoverGoFunctionSignature(t *testing.T) {
 	root, path, source, _ := goDefinitionProject(t)
 

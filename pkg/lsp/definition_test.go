@@ -123,6 +123,28 @@ func TestDefinitionUBCompositeOutputReference(t *testing.T) {
 		"id: { value: 'web-id' }", "id")
 }
 
+func TestDefinitionUBImportAliasWithOneExport(t *testing.T) {
+	root, factoryPath, factorySource, libraryPath := singleExportImportProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, libraryPath)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "single: './single'", "single"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, libraryPath, librarySource,
+		"web: resource", "web")
+}
+
+func TestDefinitionUBImportAliasWithMultipleExportsReturnsNoLocation(t *testing.T) {
+	root, factoryPath, factorySource, _ := definitionProject(t)
+	cache := NewProjectCache(root)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "bundle: './bundle'", "bundle"), cache)
+	require.Nil(t, rpcErr)
+	require.Empty(t, locations)
+}
+
 func TestDefinitionGoImportAlias(t *testing.T) {
 	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
 	cache := NewProjectCache(root)
@@ -204,6 +226,20 @@ func TestDefinitionGoNodeBodyFieldWorksInsideKey(t *testing.T) {
 	require.Nil(t, rpcErr)
 	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
 		"Name     string", "Name")
+}
+
+func TestDefinitionGoNestedOutputReference(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProjectFixture(
+		t, "testdata/ub/definition/valid/go-backed-nested-output.ub",
+	)
+	cache := NewProjectCache(root)
+	sharedSource := readTestFile(t, filepath.Join(goDir, "shared", "shared.go"))
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "resource.server.endpoint.url", "url"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "shared", "shared.go"),
+		sharedSource, "URL  string", "URL")
 }
 
 func TestDefinitionGoInputOutputCollisionPrefersOutputForRefs(t *testing.T) {
@@ -288,6 +324,24 @@ func definitionProject(t *testing.T) (string, string, string, string) {
 	require.NoError(t, os.MkdirAll(bundleDir, 0o755))
 	librarySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/bundle/library.ub")
 	libraryPath := filepath.Join(bundleDir, "library.ub")
+	require.NoError(t, os.WriteFile(libraryPath, []byte(librarySource), 0o644))
+	return root, factoryPath, factorySource, libraryPath
+}
+
+func singleExportImportProject(t *testing.T) (string, string, string, string) {
+	t.Helper()
+	root := writeUBProject(t, nil, nil)
+	factorySource := ubtest.ReadFixture(
+		t, "testdata/ub/definition/valid/single-import-factory.ub",
+	)
+	factoryPath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	singleDir := filepath.Join(root, "single")
+	require.NoError(t, os.MkdirAll(singleDir, 0o755))
+	librarySource := ubtest.ReadFixture(
+		t, "testdata/ub/definition/valid/single/library.ub",
+	)
+	libraryPath := filepath.Join(singleDir, "library.ub")
 	require.NoError(t, os.WriteFile(libraryPath, []byte(librarySource), 0o644))
 	return root, factoryPath, factorySource, libraryPath
 }

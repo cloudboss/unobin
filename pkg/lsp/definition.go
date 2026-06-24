@@ -277,12 +277,13 @@ func nodeReferenceDefinition(
 		return []protocol.Location{}, nil
 	}
 	if len(parts) >= 3 {
+		fieldPath := strings.Join(parts[2:], ".")
 		if locations, found, err := goNodeRefFieldDefinition(
-			path, node, parts[2], decls, projects,
+			path, node, fieldPath, decls, projects,
 		); found || err != nil {
 			return locations, err
 		}
-		if target, ok, err := compositeTarget(path, node, parts[2], decls, projects); ok || err != nil {
+		if target, ok, err := compositeTarget(path, node, fieldPath, decls, projects); ok || err != nil {
 			if err != nil {
 				return nil, err
 			}
@@ -440,10 +441,49 @@ func goImportAliasDefinition(
 		return nil, false, err
 	}
 	index, found, err := goIndexForResolved(resolved)
-	if err != nil || !found {
-		return []protocol.Location{}, found, err
+	if err != nil || found {
+		if err != nil {
+			return nil, false, err
+		}
+		return goLocationDefinition(index.LibraryFunc)
 	}
-	return goLocationDefinition(index.LibraryFunc)
+	if resolved.sourceOK {
+		return singleCompositeExportDefinition(resolved.source)
+	}
+	return []protocol.Location{}, false, nil
+}
+
+func singleCompositeExportDefinition(src *resolve.Source) ([]protocol.Location, bool, error) {
+	if src == nil || src.Path == "" {
+		return []protocol.Location{}, false, nil
+	}
+	matches, err := filepath.Glob(filepath.Join(src.Path, "*.ub"))
+	if err != nil {
+		return nil, false, err
+	}
+	var target definitionTarget
+	count := 0
+	for _, path := range matches {
+		text, err := os.ReadFile(path)
+		if err != nil {
+			return nil, false, err
+		}
+		file, err := syntax.ParseSource(path, text)
+		if err != nil || file.Library == nil {
+			continue
+		}
+		for _, composite := range file.Library.Exports {
+			count++
+			if count > 1 {
+				return []protocol.Location{}, true, nil
+			}
+			target = definitionTarget{path: path, text: string(text), span: composite.Name.S}
+		}
+	}
+	if count == 0 {
+		return []protocol.Location{}, true, nil
+	}
+	return locationsForTargets(target), true, nil
 }
 
 func goNodeSelectorDefinition(
