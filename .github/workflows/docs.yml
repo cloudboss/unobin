@@ -1,0 +1,21 @@
+name: docs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version label for this build.
+        required: true
+        type: string
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+      id-token: write
+    uses: cloudboss/cloudboss-docs/.github/workflows/docs.yml@main
+    with:
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.release.tag_name }}
+      generate: go run ./cmd/hack docs all
