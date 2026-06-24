@@ -1,0 +1,78 @@
+site_name: unobin
+site_url: https://cloudboss.co/docs/unobin/
+repo_url: https://github.com/cloudboss/unobin
+repo_name: cloudboss/unobin
+copyright: Copyright (c) 2026 cloudboss
+
+theme:
+  name: cloudboss
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - literate-nav:
+      nav_file: SUMMARY.md
+
+extra:
+  version:
+    provider: mike
+    default: latest
+
+nav:
+  - Overview:
+      - What is unobin: index.md
+      - Core concepts: overview/concepts.md
+      - Unobin vs Terraform: overview/terraform.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - First factory: getting-started/first-factory.md
+      - Compile, plan, apply: getting-started/compile-plan-apply.md
+      - Dependencies: getting-started/dependencies.md
+  - Language:
+      - Syntax overview: language/index.md
+      - Files and blocks: language/files-and-blocks.md
+      - Strings: language/strings.md
+      - Expressions: language/expressions.md
+      - For comprehensions: language/for-comprehensions.md
+      - If expressions: language/if-expressions.md
+      - Builtin types: language/types.md
+      - Optional values and narrowing: language/optionals.md
+      - Builtin functions: language/functions.md
+  - Authoring:
+      - Factories: authoring/factories.md
+      - Stack files: authoring/stack-files.md
+      - Composite libraries: authoring/composite-libraries.md
+      - Project files and locks: authoring/project-files-and-locks.md
+      - Imports and versioning: authoring/imports-and-versioning.md
+      - Local development: authoring/local-development.md
+  - Editors:
+      - Editor setup: editors/index.md
+      - Emacs: editors/emacs.md
+      - VS Code: editors/vscode.md
+      - Tree-sitter: editors/tree-sitter.md
+      - LSP: editors/lsp.md
+  - Go SDK:
+      - Overview: go-sdk/index.md
+      - Libraries: go-sdk/libraries.md
+      - Configuration: go-sdk/configuration.md
+      - Resources: go-sdk/resources.md
+      - Data sources: go-sdk/data-sources.md
+      - Actions: go-sdk/actions.md
+      - Functions: go-sdk/functions.md
+      - Schemas, constraints, defaults: go-sdk/schemas-constraints-defaults.md
+      - State and migrations: go-sdk/state-migrations.md
+      - Testing: go-sdk/testing.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Go API: reference/api/

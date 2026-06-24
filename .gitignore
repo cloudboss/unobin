@@ -15,6 +15,9 @@
 
 _output/
 dist/
+site/
+.venv-docs/
+docs/reference/
 
 # Per-deployment runtime state generated when running an example.
 .unobin/
