@@ -33,6 +33,18 @@ func TestPackageDeclaresUnobinLanguage(t *testing.T) {
 	require.Contains(t, pkg.Contributes.Configuration.Properties, "unobin.path")
 }
 
+func TestPackageDisablesWordSuggestionsForUnobin(t *testing.T) {
+	var pkg struct {
+		Contributes struct {
+			ConfigurationDefaults map[string]map[string]string `json:"configurationDefaults"`
+		} `json:"contributes"`
+	}
+	readJSON(t, "package.json", &pkg)
+
+	require.Equal(t, "off",
+		pkg.Contributes.ConfigurationDefaults["[unobin]"]["editor.wordBasedSuggestions"])
+}
+
 func TestPackageCanBuildForPublishing(t *testing.T) {
 	var pkg struct {
 		Scripts    map[string]string `json:"scripts"`

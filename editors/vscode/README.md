@@ -9,6 +9,8 @@ This extension provides Unobin language support for Visual Studio Code.
 - Provides TextMate grammar highlighting for `.ub` files.
 - Watches `.ub`, `.go`, `go.mod`, `project.ub`, and `project-lock.ub` files so
   the language server can refresh project data.
+- Disables word-based suggestions for Unobin buffers so completion results come
+  from the language server.
 
 ## Configuration
 

@@ -52,6 +52,11 @@
         }
       }
     },
+    "configurationDefaults": {
+      "[unobin]": {
+        "editor.wordBasedSuggestions": "off"
+      }
+    },
     "commands": [
       {
         "command": "unobin.restartLanguageServer",
