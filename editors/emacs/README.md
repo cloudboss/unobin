@@ -11,7 +11,8 @@ registers `unobin lsp` with eglot when eglot is loaded.
   (unobin-treesit-auto-install 'ask))
 ```
 
-To start eglot automatically in Unobin buffers:
+Completions come from eglot. Run `M-x eglot` in a `.ub` buffer, or start it
+automatically in Unobin buffers:
 
 ```elisp
 (use-package unobin-ts-mode
@@ -28,5 +29,8 @@ The first `.ub` buffer asks to install the Tree-sitter grammar by default. Run
 Manual highlight check: open a `.ub` file and verify that comments, strings,
 declarations, selectors, type constructors, root names, and meta keys receive
 faces from Tree-sitter highlighting.
+
+Use `M-x completion-at-point` to check built-in completion. Popup completion
+menus require a CAPF frontend such as Corfu or Company.
 
 Keep the `unobin` executable on `PATH` so eglot can start `unobin lsp`.

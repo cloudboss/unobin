@@ -38,6 +38,7 @@ func TestUnobinTsModeReadme(t *testing.T) {
 	require.NotContains(t, body, "eglot-server-programs")
 	require.NotContains(t, body, "treesit-language-source-alist")
 	require.Contains(t, body, "Manual highlight check")
+	require.Contains(t, body, "M-x completion-at-point")
 }
 
 func TestUnobinTsModeByteCompiles(t *testing.T) {
@@ -162,6 +163,31 @@ func TestUnobinTsModeUsesCheckoutGrammarRecipe(t *testing.T) {
 		helperPath,
 		"--eval",
 		form,
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
+func TestUnobinTsModeKeepsUserEglotServerProgram(t *testing.T) {
+	emacs, err := exec.LookPath("emacs")
+	if err != nil {
+		t.Skip("emacs not found")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	helperPath := filepath.Join(cwd, "testdata", "fontify.el")
+
+	cmd := exec.Command(
+		emacs,
+		"-Q",
+		"--batch",
+		"--load",
+		modePath,
+		"--load",
+		helperPath,
+		"--eval",
+		"(unobin-test-eglot-keeps-user-server-program)",
 	)
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))

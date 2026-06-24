@@ -339,11 +339,27 @@ Emacs session.  When t, install automatically."
     (message "Unobin grammar missing; run M-x unobin-install-treesit-grammar")
     nil)))
 
+(defun unobin-ts-mode--eglot-entry-matches-p (entry)
+  "Return non-nil when ENTRY configures eglot for `unobin-ts-mode'."
+  (let ((modes (car-safe entry)))
+    (if (listp modes)
+        (memq 'unobin-ts-mode modes)
+      (eq modes 'unobin-ts-mode))))
+
+(defun unobin-ts-mode--eglot-registered-p ()
+  "Return non-nil when eglot already has a Unobin server program."
+  (catch 'found
+    (dolist (entry eglot-server-programs)
+      (when (unobin-ts-mode--eglot-entry-matches-p entry)
+        (throw 'found t)))
+    nil))
+
 (defun unobin-ts-mode--register-eglot ()
   "Register the Unobin language server with eglot."
   (with-eval-after-load 'eglot
-    (add-to-list 'eglot-server-programs
-                 '(unobin-ts-mode . ("unobin" "lsp")))))
+    (unless (unobin-ts-mode--eglot-registered-p)
+      (add-to-list 'eglot-server-programs
+                   '(unobin-ts-mode . ("unobin" "lsp"))))))
 
 (defun unobin-ts-mode--maybe-start-eglot ()
   "Start eglot when `unobin-eglot-auto-start' asks for it."

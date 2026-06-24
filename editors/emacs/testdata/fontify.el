@@ -16,6 +16,22 @@
       (unless (equal recipe expected)
         (error "expected release grammar recipe %S, got %S" expected recipe)))))
 
+(defun unobin-test-eglot-keeps-user-server-program ()
+  (require 'eglot)
+  (setq eglot-server-programs '((unobin-ts-mode . ("/custom/unobin" "lsp"))))
+  (unobin-ts-mode--register-eglot)
+  (unless (equal eglot-server-programs
+                 '((unobin-ts-mode . ("/custom/unobin" "lsp"))))
+    (error "expected custom eglot server program to stay first, got %S"
+           eglot-server-programs))
+  (setq eglot-server-programs
+        '(((unobin-ts-mode prog-mode) . ("/custom/unobin" "lsp"))))
+  (unobin-ts-mode--register-eglot)
+  (unless (equal eglot-server-programs
+                 '(((unobin-ts-mode prog-mode) . ("/custom/unobin" "lsp"))))
+    (error "expected grouped eglot server program to stay first, got %S"
+           eglot-server-programs)))
+
 (defun unobin-test-face-at (needle index face)
   (goto-char (point-min))
   (unless (search-forward needle nil t)
