@@ -11,6 +11,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/toolchain"
 )
 
 func TestProjectCacheUsesNearestMarker(t *testing.T) {
@@ -78,6 +79,17 @@ func TestProjectCacheInvalidatesGoSources(t *testing.T) {
 	second, err := cache.ProjectForPath(goFile)
 	require.NoError(t, err)
 	require.NotSame(t, first.GoIndex, second.GoIndex)
+}
+
+func TestProjectCacheIncludesCurrentUnobinSchemaRoot(t *testing.T) {
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
+	cache := NewProjectCache("")
+
+	require.Contains(t, cache.schemaRoots, goschema.ModuleRoot{
+		Path: toolchain.UnobinModulePath,
+		Dir:  repoRoot,
+	})
 }
 
 func TestImportResolverServesLocalImports(t *testing.T) {

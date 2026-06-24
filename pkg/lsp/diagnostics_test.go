@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -81,6 +82,28 @@ func TestDiagnosticsMissingRemoteCacheDoesNotPublishDiagnostic(t *testing.T) {
 
 	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
 	require.Empty(t, diags)
+}
+
+func TestDiagnosticsUseSchemaRootsForLibraryConfigTypes(t *testing.T) {
+	root, sourcePath, source := diagnosticProjectWithFixture(t, "go-config-field-type")
+	libraryDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "extroot", "library"))
+	require.NoError(t, err)
+	sharedDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "extroot", "shared"))
+	require.NoError(t, err)
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/extlib"}: libraryDir,
+		},
+	}))
+	cache := newProjectCacheWithSchemaRoots(root, []goschema.ModuleRoot{
+		{Path: "example.com/shared", Dir: sharedDir},
+	})
+
+	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+	require.NotEmpty(t, diags)
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"),
+		"type mismatch: expected string, got integer")
 }
 
 func TestSessionDidOpenPublishesParseDiagnostic(t *testing.T) {

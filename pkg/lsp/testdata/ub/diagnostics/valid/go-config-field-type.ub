@@ -1,0 +1,9 @@
+factory: {
+  inputs: {
+    ext-config: { type: library-config('example.com/extlib') }
+  }
+  imports: { ext: 'example.com/extlib' }
+  library-configs: {
+    ext: { region: 123 }
+  }
+}

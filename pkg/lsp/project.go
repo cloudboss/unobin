@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	stdruntime "runtime"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/compile"
@@ -12,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/toolchain"
 )
 
 // Project holds cached LSP data for one project marker root.
@@ -32,22 +34,49 @@ type ProjectCache struct {
 	workspaceRoots []string
 	projects       map[string]*Project
 	remoteFactory  func() (cachedRemoteSource, error)
+	schemaRoots    []goschema.ModuleRoot
 }
 
 // NewProjectCache returns an empty project cache.
 func NewProjectCache(workspaceRoot string) *ProjectCache {
-	return newProjectCacheWithRemote(workspaceRoot, func() (cachedRemoteSource, error) {
-		return resolve.NewRemoteResolver()
-	})
+	return newProjectCacheWithRemoteAndSchemaRoots(
+		workspaceRoot,
+		func() (cachedRemoteSource, error) { return resolve.NewRemoteResolver() },
+		defaultSchemaRoots(),
+	)
 }
 
 func newProjectCacheWithRemote(
 	workspaceRoot string,
 	remoteFactory func() (cachedRemoteSource, error),
 ) *ProjectCache {
+	return newProjectCacheWithRemoteAndSchemaRoots(
+		workspaceRoot,
+		remoteFactory,
+		defaultSchemaRoots(),
+	)
+}
+
+func newProjectCacheWithSchemaRoots(
+	workspaceRoot string,
+	schemaRoots []goschema.ModuleRoot,
+) *ProjectCache {
+	return newProjectCacheWithRemoteAndSchemaRoots(
+		workspaceRoot,
+		func() (cachedRemoteSource, error) { return resolve.NewRemoteResolver() },
+		schemaRoots,
+	)
+}
+
+func newProjectCacheWithRemoteAndSchemaRoots(
+	workspaceRoot string,
+	remoteFactory func() (cachedRemoteSource, error),
+	schemaRoots []goschema.ModuleRoot,
+) *ProjectCache {
 	cache := &ProjectCache{
 		projects:      map[string]*Project{},
 		remoteFactory: remoteFactory,
+		schemaRoots:   uniqueModuleRoots(schemaRoots),
 	}
 	cache.SetWorkspaceRoots(singleWorkspaceRoot(workspaceRoot))
 	return cache
@@ -124,7 +153,7 @@ func (c *ProjectCache) readProject(root string, marker projectmarker.Marker) (*P
 	if err != nil {
 		return nil, err
 	}
-	roots := schemaRootsForProject(root, marker)
+	roots := schemaRootsForProject(root, marker, c.schemaRoots)
 	return &Project{
 		Root:          root,
 		Marker:        marker,
@@ -221,11 +250,54 @@ func goModuleRootForSource(source *resolve.Source) (goschema.ModuleRoot, bool) {
 	return goschema.ModuleRoot{Path: marker.ModulePath, Dir: root}, true
 }
 
-func schemaRootsForProject(root string, marker projectmarker.Marker) []goschema.ModuleRoot {
-	if marker.Kind != projectmarker.Go || marker.ModulePath == "" {
+func schemaRootsForProject(
+	root string,
+	marker projectmarker.Marker,
+	base []goschema.ModuleRoot,
+) []goschema.ModuleRoot {
+	roots := append([]goschema.ModuleRoot(nil), base...)
+	if marker.Kind == projectmarker.Go && marker.ModulePath != "" {
+		roots = append(roots, goschema.ModuleRoot{Path: marker.ModulePath, Dir: root})
+	}
+	return uniqueModuleRoots(roots)
+}
+
+func defaultSchemaRoots() []goschema.ModuleRoot {
+	root, ok := currentUnobinModuleRoot()
+	if !ok {
 		return nil
 	}
-	return []goschema.ModuleRoot{{Path: marker.ModulePath, Dir: root}}
+	return []goschema.ModuleRoot{root}
+}
+
+func currentUnobinModuleRoot() (goschema.ModuleRoot, bool) {
+	_, file, _, ok := stdruntime.Caller(0)
+	if !ok {
+		return goschema.ModuleRoot{}, false
+	}
+	root, marker, err := deps.FindProjectMarkerDir(file)
+	if err != nil || marker.Kind != projectmarker.Go ||
+		marker.ModulePath != toolchain.UnobinModulePath {
+		return goschema.ModuleRoot{}, false
+	}
+	return goschema.ModuleRoot{Path: marker.ModulePath, Dir: root}, true
+}
+
+func uniqueModuleRoots(roots []goschema.ModuleRoot) []goschema.ModuleRoot {
+	out := make([]goschema.ModuleRoot, 0, len(roots))
+	seen := map[goschema.ModuleRoot]struct{}{}
+	for _, root := range roots {
+		if root.Path == "" || root.Dir == "" {
+			continue
+		}
+		root.Dir = filepath.Clean(root.Dir)
+		if _, ok := seen[root]; ok {
+			continue
+		}
+		seen[root] = struct{}{}
+		out = append(out, root)
+	}
+	return out
 }
 
 func pathInDir(path string, root string) bool {
