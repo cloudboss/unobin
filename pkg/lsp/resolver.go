@@ -62,10 +62,10 @@ func (r *ImportResolver) ResolveNoFetch(
 		}
 		return src, true, nil
 	case *resolve.RemoteImport:
-		if src, ok, err := r.resolveReplacement(v); ok || err != nil {
+		if src, ok, err := r.resolveCachedRemote(v); ok || err != nil {
 			return src, ok, err
 		}
-		return r.resolveCachedRemote(v)
+		return r.resolveReplacement(v)
 	default:
 		return nil, false, fmt.Errorf("unsupported import ref %T", ref)
 	}

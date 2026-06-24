@@ -13,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
+	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 func TestDefinitionInputName(t *testing.T) {
@@ -110,6 +111,23 @@ func TestDefinitionGoNodeSelector(t *testing.T) {
 		positionInText(factorySource, "def.server", "server"), cache)
 	require.Nil(t, rpcErr)
 	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"\"server\": runtime.MakeResource", "\"server\"")
+}
+
+func TestDefinitionGoUsesProjectLockCacheBeforeReplacement(t *testing.T) {
+	root, factoryPath, factorySource, cacheRoot := cachedGoDefinitionProject(t)
+	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: cacheRoot}, nil
+	})
+	cachedLibrary := filepath.Join(
+		cacheRoot, "imports", "example.com/definition", "abc123", "library.go",
+	)
+	librarySource := readTestFile(t, cachedLibrary)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "def.server", "server"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, cachedLibrary, librarySource,
 		"\"server\": runtime.MakeResource", "\"server\"")
 }
 
@@ -235,6 +253,58 @@ func goDefinitionProject(t *testing.T) (string, string, string, string) {
 	factoryPath := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
 	return root, factoryPath, factorySource, goDir
+}
+
+func cachedGoDefinitionProject(t *testing.T) (string, string, string, string) {
+	t.Helper()
+	root := t.TempDir()
+	fixtureDir := filepath.Join("..", "goschema", "testdata", "definition")
+	localDir := filepath.Join(root, "local-definition")
+	copyTestTree(t, fixtureDir, localDir)
+	cacheRoot := filepath.Join(root, "cache")
+	cachedDir := filepath.Join(
+		cacheRoot, "imports", "example.com/definition", "abc123",
+	)
+	copyTestTree(t, fixtureDir, cachedDir)
+
+	dep := deps.Dependency{URL: "example.com/definition"}
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  map[deps.Dependency]string{dep: localDir},
+	}))
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps[dep.String()] = &deps.ProjectLockDep{
+		Kind:    deps.ProjectLockKindGo,
+		Version: "v1.0.0",
+		Commit:  "abc123",
+	}
+	require.NoError(t, deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), lock))
+
+	factorySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/go-backed-factory.ub")
+	factoryPath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	return root, factoryPath, factorySource, cacheRoot
+}
+
+func copyTestTree(t *testing.T, src string, dst string) {
+	t.Helper()
+	entries, err := os.ReadDir(src)
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(dst, 0o755))
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		if entry.IsDir() {
+			copyTestTree(t, srcPath, dstPath)
+			continue
+		}
+		info, err := entry.Info()
+		require.NoError(t, err)
+		body, err := os.ReadFile(srcPath)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(dstPath, body, info.Mode()))
+	}
 }
 
 func readTestFile(t *testing.T, path string) string {
