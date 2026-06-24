@@ -14,6 +14,7 @@ type Session struct {
 	documents *DocumentStore
 	projects  *ProjectCache
 	shutdown  bool
+	exiting   bool
 	sender    protocol.Sender
 }
 
@@ -38,6 +39,16 @@ func (s *Session) Shutdown() bool {
 	return s.shutdown
 }
 
+// Exit reports whether the client has requested exit.
+func (s *Session) Exit() bool {
+	return s.exiting
+}
+
+// StopRequested reports whether the protocol server should stop serving.
+func (s *Session) StopRequested() bool {
+	return s.exiting
+}
+
 // SetSender sets the server-to-client notification sender.
 func (s *Session) SetSender(sender protocol.Sender) {
 	s.sender = sender
@@ -49,6 +60,12 @@ func (s *Session) HandleRequest(
 	req *protocol.RequestMessage,
 ) (any, *protocol.ResponseError) {
 	_ = ctx
+	if s.shutdown && req.Method != "exit" {
+		return nil, &protocol.ResponseError{
+			Code:    protocol.ErrorCodeInvalidRequest,
+			Message: "server is shut down",
+		}
+	}
 	switch req.Method {
 	case "initialize":
 		return s.handleInitialize(req.Params)
@@ -58,6 +75,7 @@ func (s *Session) HandleRequest(
 		s.shutdown = true
 		return nil, nil
 	case "exit":
+		s.exiting = true
 		return nil, nil
 	case "textDocument/didOpen":
 		return nil, s.handleDidOpen(req.Params)

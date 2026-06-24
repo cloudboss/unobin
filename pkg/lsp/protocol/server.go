@@ -66,7 +66,15 @@ func (s *Server) Serve(ctx context.Context) error {
 		if err := s.handleMessage(ctx, body); err != nil {
 			return err
 		}
+		if s.stopRequested() {
+			return nil
+		}
 	}
+}
+
+func (s *Server) stopRequested() bool {
+	stopper, ok := s.handler.(Stopper)
+	return ok && stopper.StopRequested()
 }
 
 func (s *Server) handleMessage(ctx context.Context, body []byte) error {

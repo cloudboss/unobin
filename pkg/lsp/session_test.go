@@ -1,8 +1,10 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,6 +43,37 @@ func TestSessionInitializeCapabilities(t *testing.T) {
 	require.NotContains(t, string(encoded), "protocolVersion")
 }
 
+func TestServeShutdownResponseContainsNullResult(t *testing.T) {
+	var input bytes.Buffer
+	require.NoError(t, protocol.WriteMessage(&input, []byte(
+		`{"jsonrpc":"2.0","id":1,"method":"shutdown"}`,
+	)))
+	var output bytes.Buffer
+
+	require.NoError(t, Serve(context.Background(), &input, &output, "dev"))
+
+	payload, err := protocol.ReadMessage(&output)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"jsonrpc":"2.0","id":1,"result":null}`, string(payload))
+}
+
+func TestServeStopsAfterExit(t *testing.T) {
+	var input bytes.Buffer
+	require.NoError(t, protocol.WriteMessage(&input, []byte(
+		`{"jsonrpc":"2.0","method":"exit"}`,
+	)))
+	require.NoError(t, protocol.WriteMessage(&input, []byte(
+		`{"jsonrpc":"2.0","id":99,"method":"workspace/symbol"}`,
+	)))
+	var output bytes.Buffer
+
+	require.NoError(t, Serve(context.Background(), &input, &output, "dev"))
+
+	payload, err := protocol.ReadMessage(&output)
+	require.ErrorIs(t, err, io.EOF)
+	require.Nil(t, payload)
+}
+
 func TestSessionShutdown(t *testing.T) {
 	session := NewSession("dev")
 	result, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
@@ -51,6 +84,32 @@ func TestSessionShutdown(t *testing.T) {
 	require.Nil(t, rpcErr)
 	require.Nil(t, result)
 	require.True(t, session.Shutdown())
+}
+
+func TestSessionRejectsRequestsAfterShutdown(t *testing.T) {
+	session := NewSession("dev")
+	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		ID:      protocol.NewNumberID(1),
+		Method:  "shutdown",
+	})
+	require.Nil(t, rpcErr)
+
+	_, rpcErr = session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		ID:      protocol.NewNumberID(2),
+		Method:  "textDocument/definition",
+	})
+	require.NotNil(t, rpcErr)
+	require.Equal(t, protocol.ErrorCodeInvalidRequest, rpcErr.Code)
+
+	result, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		Method:  "exit",
+	})
+	require.Nil(t, rpcErr)
+	require.Nil(t, result)
+	require.True(t, session.Exit())
 }
 
 func TestSessionUnknownMethod(t *testing.T) {

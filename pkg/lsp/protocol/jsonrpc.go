@@ -92,10 +92,41 @@ type RequestMessage struct {
 
 // ResponseMessage is a JSON-RPC response.
 type ResponseMessage struct {
-	JSONRPC string         `json:"jsonrpc"`
-	ID      *ID            `json:"id,omitempty"`
-	Result  any            `json:"result,omitempty"`
-	Error   *ResponseError `json:"error,omitempty"`
+	JSONRPC string
+	ID      *ID
+	Result  any
+	Error   *ResponseError
+}
+
+func (r ResponseMessage) MarshalJSON() ([]byte, error) {
+	jsonrpc := r.JSONRPC
+	if jsonrpc == "" {
+		jsonrpc = "2.0"
+	}
+	if r.Error != nil {
+		return json.Marshal(struct {
+			JSONRPC string         `json:"jsonrpc"`
+			ID      *ID            `json:"id"`
+			Error   *ResponseError `json:"error"`
+		}{
+			JSONRPC: jsonrpc,
+			ID:      r.ID,
+			Error:   r.Error,
+		})
+	}
+	result, err := json.Marshal(r.Result)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(struct {
+		JSONRPC string          `json:"jsonrpc"`
+		ID      *ID             `json:"id"`
+		Result  json.RawMessage `json:"result"`
+	}{
+		JSONRPC: jsonrpc,
+		ID:      r.ID,
+		Result:  result,
+	})
 }
 
 // ResponseError is a JSON-RPC response error object.
@@ -126,6 +157,11 @@ func InternalError(err error) *ResponseError {
 // Handler serves JSON-RPC requests.
 type Handler interface {
 	HandleRequest(context.Context, *RequestMessage) (any, *ResponseError)
+}
+
+// Stopper reports whether the server should stop reading messages.
+type Stopper interface {
+	StopRequested() bool
 }
 
 // HandlerFunc adapts a function to Handler.
