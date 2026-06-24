@@ -109,6 +109,31 @@ func TestUnobinTsModeFallbackQueriesCompile(t *testing.T) {
 	require.NoError(t, err, string(out))
 }
 
+func TestUnobinTsModeUsesReleaseGrammarRecipe(t *testing.T) {
+	emacs, err := exec.LookPath("emacs")
+	if err != nil {
+		t.Skip("emacs not found")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	helperPath := filepath.Join(cwd, "testdata", "fontify.el")
+
+	cmd := exec.Command(
+		emacs,
+		"-Q",
+		"--batch",
+		"--load",
+		modePath,
+		"--load",
+		helperPath,
+		"--eval",
+		"(unobin-test-release-recipe)",
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
 func TestUnobinTsModeUsesCheckoutGrammarRecipe(t *testing.T) {
 	emacs, err := exec.LookPath("emacs")
 	if err != nil {

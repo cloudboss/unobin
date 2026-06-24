@@ -48,8 +48,7 @@ Emacs session.  When t, install automatically."
     (file-truename file)))
 
 (defconst unobin-ts-mode--release-source
-  '("https://github.com/cloudboss/unobin" nil "tree-sitter-unobin"
-    "tree_sitter_unobin"))
+  '("https://github.com/cloudboss/unobin" nil "tree-sitter-unobin/src"))
 
 (defconst unobin-ts-mode--fallback-highlights
   (string-join
@@ -263,8 +262,7 @@ Emacs session.  When t, install automatically."
 (defun unobin-ts-mode--grammar-recipe ()
   "Return the Tree-sitter grammar recipe for Unobin."
   (if-let* ((grammar (unobin-ts-mode--local-grammar-dir)))
-      (cons unobin-ts-mode--language
-            (list grammar nil nil "tree_sitter_unobin"))
+      (cons unobin-ts-mode--language (list grammar nil "src"))
     (cons unobin-ts-mode--language unobin-ts-mode--release-source)))
 
 (defun unobin-ts-mode--with-grammar-recipe (body)

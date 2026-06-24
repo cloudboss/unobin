@@ -1,10 +1,20 @@
+(require 'cl-lib)
 (require 'treesit)
 
 (defun unobin-test-checkout-recipe (expected-dir)
-  (let* ((recipe (unobin-ts-mode--grammar-recipe))
-         (source (nth 1 recipe)))
-    (unless (equal source expected-dir)
-      (error "expected local grammar source, got %S" recipe))))
+  (let ((recipe (unobin-ts-mode--grammar-recipe))
+        (expected (list 'unobin expected-dir nil "src")))
+    (unless (equal recipe expected)
+      (error "expected local grammar recipe %S, got %S" expected recipe))))
+
+(defun unobin-test-release-recipe ()
+  (cl-letf (((symbol-function 'unobin-ts-mode--local-grammar-dir)
+             (lambda () nil)))
+    (let ((recipe (unobin-ts-mode--grammar-recipe))
+          (expected '(unobin "https://github.com/cloudboss/unobin" nil
+                              "tree-sitter-unobin/src")))
+      (unless (equal recipe expected)
+        (error "expected release grammar recipe %S, got %S" expected recipe)))))
 
 (defun unobin-test-face-at (needle index face)
   (goto-char (point-min))
