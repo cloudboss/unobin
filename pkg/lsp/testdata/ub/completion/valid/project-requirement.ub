@@ -1,0 +1,7 @@
+project: {
+  requires: {
+    'example.com/lib': {
+      version: 'v1.0.0'
+    }
+  }
+}

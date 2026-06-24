@@ -68,6 +68,21 @@ func completionForSourceContext(
 	if typeValueCompletionContext(prefix) {
 		return completionList(typeCompletionItems()), true
 	}
+	if selectorValueCompletionContext(prefix, "state") {
+		return completionList(stackStateCompletionItems()), true
+	}
+	if selectorValueCompletionContext(prefix, "encryption") {
+		return completionList(stackEncryptionCompletionItems()), true
+	}
+	if projectRequirementCompletionContext(text, offset) {
+		return completionList(projectRequirementCompletionItems()), true
+	}
+	if projectBlockCompletionContext(text, offset) {
+		return completionList(projectBlockCompletionItems()), true
+	}
+	if stackBlockCompletionContext(text, offset) {
+		return completionList(stackBlockCompletionItems()), true
+	}
 	if inputDeclarationCompletionContext(text, offset) {
 		return completionList(inputDeclarationCompletionItems()), true
 	}
@@ -84,6 +99,11 @@ func currentLinePrefix(text string, offset int) string {
 
 func typeValueCompletionContext(prefix string) bool {
 	before, ok := strings.CutSuffix(prefix, "type: ")
+	return ok && strings.TrimSpace(before) == ""
+}
+
+func selectorValueCompletionContext(prefix string, key string) bool {
+	before, ok := strings.CutSuffix(prefix, key+": ")
 	return ok && strings.TrimSpace(before) == ""
 }
 
@@ -116,10 +136,46 @@ func inputDeclarationCompletionContext(text string, offset int) bool {
 	return false
 }
 
+func projectRequirementCompletionContext(text string, offset int) bool {
+	if !insideNamedBlock(text, offset, "requires") {
+		return false
+	}
+	return completionCandidateMatches(text, offset, []string{"version", "indirect"})
+}
+
+func projectBlockCompletionContext(text string, offset int) bool {
+	return insideNamedBlock(text, offset, "project") &&
+		nearestProjectChildBlockName(text, offset) == "" &&
+		strings.TrimSpace(currentLinePrefix(text, offset)) == ""
+}
+
+func stackBlockCompletionContext(text string, offset int) bool {
+	return insideNamedBlock(text, offset, "stack") &&
+		nearestStackChildBlockName(text, offset) == "" &&
+		strings.TrimSpace(currentLinePrefix(text, offset)) == ""
+}
+
 func factoryBlockCompletionContext(text string, offset int) bool {
 	return insideNamedBlock(text, offset, "factory") &&
 		nearestFactoryChildBlockName(text, offset) == "" &&
 		strings.TrimSpace(currentLinePrefix(text, offset)) == ""
+}
+
+func completionCandidateMatches(text string, offset int, keys []string) bool {
+	line := strings.TrimSpace(currentLinePrefix(text, offset))
+	candidate := line
+	if candidate == "" {
+		candidate = strings.TrimSpace(currentLineSuffix(text, offset))
+	}
+	if candidate == "" {
+		return true
+	}
+	for _, key := range keys {
+		if strings.HasPrefix(key, candidate) || strings.HasPrefix(candidate, key+":") {
+			return true
+		}
+	}
+	return false
 }
 
 func insideNamedBlock(text string, offset int, name string) bool {
@@ -286,6 +342,26 @@ func factoryBlockCompletionItems() []protocol.CompletionItem {
 	)
 }
 
+func stackBlockCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("factory", "state", "encryption", "locals", "parallelism")
+}
+
+func projectBlockCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("unobin-version", "requires", "replace")
+}
+
+func projectRequirementCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("version", "indirect")
+}
+
+func stackStateCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("local", "s3")
+}
+
+func stackEncryptionCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("env-key", "kms", "noop")
+}
+
 func inputDeclarationCompletionItems() []protocol.CompletionItem {
 	return keywordCompletionItems("type", "description", "default", "sensitive")
 }
@@ -399,6 +475,18 @@ func nearestFactoryChildBlockName(text string, offset int) string {
 	return nearestBlockNameFrom(text, offset, []string{
 		"inputs", "imports", "library-configs", "resources", "data-sources",
 		"actions", "outputs", "constraints", "state-moves", "locals",
+	})
+}
+
+func nearestStackChildBlockName(text string, offset int) string {
+	return nearestBlockNameFrom(text, offset, []string{
+		"factory", "state", "encryption", "locals", "parallelism",
+	})
+}
+
+func nearestProjectChildBlockName(text string, offset int) string {
+	return nearestBlockNameFrom(text, offset, []string{
+		"unobin-version", "requires", "replace",
 	})
 }
 

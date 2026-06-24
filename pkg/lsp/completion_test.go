@@ -37,6 +37,63 @@ func TestCompletionFactoryBlocks(t *testing.T) {
 	requireCompletionLabels(t, list, "inputs", "resources", "outputs", "constraints")
 }
 
+func TestCompletionStackBlocks(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "stack.ub")
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "stack-empty-block")
+	offset := strings.Index(source, "\n\n") + 1
+	pos := OffsetToLSP(source, offset)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "factory", "state", "encryption", "locals", "parallelism")
+}
+
+func TestCompletionStackStateSelectors(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "stack.ub")
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "stack-state-selector")
+	pos := positionInText(source, "state: local", "local")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "local", "s3")
+}
+
+func TestCompletionStackEncryptionSelectors(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "stack.ub")
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "stack-encryption-selector")
+	pos := positionInText(source, "encryption: noop", "noop")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "env-key", "kms", "noop")
+}
+
+func TestCompletionProjectKeys(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "project.ub")
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "project-empty-block")
+	offset := strings.Index(source, "\n\n") + 1
+	pos := OffsetToLSP(source, offset)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "unobin-version", "requires", "replace")
+}
+
+func TestCompletionProjectRequirementKeys(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "project.ub")
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "project-requirement")
+	pos := positionInText(source, "version: 'v1.0.0'", "version")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "version", "indirect")
+}
+
 func TestCompletionInputDeclarationKeys(t *testing.T) {
 	root, path, source := completionProject(t)
 	pos := positionInText(source, "type: string", "type")
