@@ -114,14 +114,17 @@ func libraryConfigRequirement(lib *runtime.Library) (has, empty, known bool) {
 		}
 		return true, len(fields) == 0, true
 	}
-	if lib.Configuration == nil {
-		return false, false, true
+	if lib.Configuration != nil {
+		view, err := cfg.View(lib.Configuration)
+		if err != nil {
+			return true, false, false
+		}
+		return true, view.Empty, true
 	}
-	view, err := cfg.View(lib.Configuration)
-	if err != nil {
-		return true, false, false
+	if !libraryKnown(lib) {
+		return false, false, false
 	}
-	return true, view.Empty, true
+	return false, false, true
 }
 
 func (c *referenceChecker) checkLibraryConfigDeclsForScope(
@@ -433,7 +436,7 @@ func libraryConfigType(path string, lib *runtime.Library) (typecheck.Type, bool)
 			fields = configurationFieldsFromMap(lib.Schema.Configuration)
 		}
 		if fields == nil {
-			return typecheck.TUnknown(), false
+			return typecheck.TUnknown(), true
 		}
 		digest := lib.Schema.ConfigurationDigest
 		if digest == "" {
@@ -441,14 +444,17 @@ func libraryConfigType(path string, lib *runtime.Library) (typecheck.Type, bool)
 		}
 		return typecheck.TLibraryConfig(path, path, digest, fields), true
 	}
-	if lib.Configuration == nil {
-		return typecheck.TUnknown(), false
+	if lib.Configuration != nil {
+		view, err := cfg.View(lib.Configuration)
+		if err != nil {
+			return typecheck.TUnknown(), false
+		}
+		return typecheck.TLibraryConfig(path, path, view.SchemaDigest, view.Fields), true
 	}
-	view, err := cfg.View(lib.Configuration)
-	if err != nil {
-		return typecheck.TUnknown(), false
+	if !libraryKnown(lib) {
+		return typecheck.TUnknown(), true
 	}
-	return typecheck.TLibraryConfig(path, path, view.SchemaDigest, view.Fields), true
+	return typecheck.TUnknown(), false
 }
 
 func configurationFieldsFromMap(schema map[string]typecheck.Type) []typecheck.ObjectField {

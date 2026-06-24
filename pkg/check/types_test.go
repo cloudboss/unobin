@@ -104,6 +104,22 @@ func TestCheckTypesSkipsSchemalessLibrary(t *testing.T) {
 	require.Empty(t, errs.Messages())
 }
 
+func TestCheckTypesSkipsOpaqueLibraryConfig(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "opaque-library-config"),
+		map[string]*runtime.Library{"ext": {}})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesSkipsUnreadableLibraryConfig(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "opaque-library-config"),
+		map[string]*runtime.Library{"ext": {Schema: &runtime.LibrarySchema{
+			HasConfiguration: true,
+		}}})
+
+	require.Empty(t, errs.Messages())
+}
+
 func TestCheckTypesRequiresOneLibraryConfigSchema(t *testing.T) {
 	errs := checkSyntaxReferences(t, typeFixture(t, "one-library-config-schema"),
 		map[string]*runtime.Library{

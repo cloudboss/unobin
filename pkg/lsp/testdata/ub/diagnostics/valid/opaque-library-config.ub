@@ -1,0 +1,7 @@
+factory: {
+  inputs: {
+    ext-config: { type: library-config('example.com/ext') }
+  }
+  imports: { ext: 'example.com/ext' }
+  library-configs: { ext: input.ext-config }
+}
