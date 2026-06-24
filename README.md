@@ -45,6 +45,25 @@ Then run plan and apply. A factory cannot apply without first planning.
 
 See the [examples](./examples) directory for various example stacks that you can compile and run.
 
+## Editor support
+
+Unobin includes editor support for authoring `.ub` files:
+
+- `unobin lsp` starts the language server used by editors. It provides
+  diagnostics, formatting, document symbols, definitions, completions, and hover.
+- `unobin lsp --trace trace.json --log server.log` records JSON-RPC traffic and
+  server events for debugging. Trace files can include source text.
+- Emacs support lives in [`editors/emacs`](./editors/emacs) and uses the
+  Tree-sitter grammar plus Eglot registration.
+- VS Code support lives in [`editors/vscode`](./editors/vscode) and starts the
+  same LSP server with TextMate highlighting.
+- Tree-sitter grammar and query sources live in
+  [`tree-sitter-unobin`](./tree-sitter-unobin).
+
+The LSP does not fetch dependencies while editing. Run `unobin deps get` or
+`unobin deps sync` outside the editor to populate dependency sources and lock
+files.
+
 ## State inspection and relocation
 
 State commands name entries with a state ref:
