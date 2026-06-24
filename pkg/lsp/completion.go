@@ -23,12 +23,15 @@ func CompleteForText(
 	if !ok {
 		return protocol.CompletionList{}, protocol.InvalidParams("invalid document position")
 	}
+	if projects == nil {
+		projects = NewProjectCache("")
+	}
+	if list, ok := completionForSourceContext(text, offset); ok {
+		return list, nil
+	}
 	file, err := parseCompletionSource(path, text, offset)
 	if err != nil {
 		return protocol.CompletionList{}, protocol.InvalidParams(err.Error())
-	}
-	if projects == nil {
-		projects = NewProjectCache("")
 	}
 	body, hasScope := definitionBodyForOffset(file, offset)
 	decls := definitionDeclsForBody(body)
@@ -47,11 +50,103 @@ func CompleteForText(
 	if tok.text == "" {
 		return completionList(rootCompletionItems()), nil
 	}
-	list, err := completionForToken(path, tok.text, decls, projects)
+	list, err := completionForToken(path, text, offset, tok.text, decls, projects)
 	if err != nil {
 		return protocol.CompletionList{}, protocol.InternalError(err)
 	}
 	return list, nil
+}
+
+func completionForSourceContext(
+	text string,
+	offset int,
+) (protocol.CompletionList, bool) {
+	if strings.TrimSpace(text[:offset]) == "" {
+		return completionList(fileRoleCompletionItems()), true
+	}
+	prefix := currentLinePrefix(text, offset)
+	if typeValueCompletionContext(prefix) {
+		return completionList(typeCompletionItems()), true
+	}
+	if inputDeclarationCompletionContext(text, offset) {
+		return completionList(inputDeclarationCompletionItems()), true
+	}
+	if factoryBlockCompletionContext(text, offset) {
+		return completionList(factoryBlockCompletionItems()), true
+	}
+	return protocol.CompletionList{}, false
+}
+
+func currentLinePrefix(text string, offset int) string {
+	start := strings.LastIndex(text[:offset], "\n") + 1
+	return text[start:offset]
+}
+
+func typeValueCompletionContext(prefix string) bool {
+	before, ok := strings.CutSuffix(prefix, "type: ")
+	return ok && strings.TrimSpace(before) == ""
+}
+
+func currentLineSuffix(text string, offset int) string {
+	end := strings.Index(text[offset:], "\n")
+	if end < 0 {
+		return text[offset:]
+	}
+	return text[offset : offset+end]
+}
+
+func inputDeclarationCompletionContext(text string, offset int) bool {
+	if !insideNamedBlock(text, offset, "inputs") ||
+		typeValueCompletionContext(currentLinePrefix(text, offset)) {
+		return false
+	}
+	line := strings.TrimSpace(currentLinePrefix(text, offset))
+	candidate := line
+	if candidate == "" {
+		candidate = strings.TrimSpace(currentLineSuffix(text, offset))
+	}
+	if candidate == "" {
+		return true
+	}
+	for _, key := range []string{"type", "description", "default", "sensitive"} {
+		if strings.HasPrefix(key, candidate) || strings.HasPrefix(candidate, key+":") {
+			return true
+		}
+	}
+	return false
+}
+
+func factoryBlockCompletionContext(text string, offset int) bool {
+	return insideNamedBlock(text, offset, "factory") &&
+		nearestFactoryChildBlockName(text, offset) == "" &&
+		strings.TrimSpace(currentLinePrefix(text, offset)) == ""
+}
+
+func insideNamedBlock(text string, offset int, name string) bool {
+	prefix := text[:offset]
+	marker := name + ":"
+	start := strings.LastIndex(prefix, marker)
+	if start < 0 {
+		return false
+	}
+	open := strings.Index(prefix[start:], "{")
+	if open < 0 {
+		return false
+	}
+	depth := 0
+	blockText := prefix[start+open:]
+	for i, r := range blockText {
+		switch r {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 && i < len(blockText)-1 {
+				return false
+			}
+		}
+	}
+	return depth > 0
 }
 
 func parseCompletionSource(path string, text string, offset int) (*syntax.File, error) {
@@ -92,10 +187,12 @@ func completionAtOffset(
 	}
 	for _, node := range allNodes(*body) {
 		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
-		if !ok {
-			continue
+		if ok {
+			return goNodeFieldCompletions(path, node, fieldPath, decls, projects)
 		}
-		return goNodeFieldCompletions(path, node, fieldPath, decls, projects)
+		if spanContainsOffset(node.Body.Span(), offset) {
+			return goNodeFieldCompletions(path, node, "", decls, projects)
+		}
 	}
 	return protocol.CompletionList{}, false, nil
 }
@@ -127,6 +224,8 @@ func libraryConfigInputCompletions(
 
 func completionForToken(
 	path string,
+	text string,
+	offset int,
 	token string,
 	decls definitionDecls,
 	projects *ProjectCache,
@@ -157,7 +256,7 @@ func completionForToken(
 		return completionList(nodeNameItems(decls.nodes[syntax.NodeAction])), nil
 	default:
 		if list, found, err := goSelectorCompletions(
-			path, parts[0], decls, projects,
+			path, parts[0], selectorKindAtOffset(text, offset), decls, projects,
 		); found || err != nil {
 			return list, err
 		}
@@ -174,6 +273,39 @@ func rootCompletionItems() []protocol.CompletionItem {
 		{Label: "action", Kind: protocol.CompletionItemKindKeyword},
 		{Label: "@core", Kind: protocol.CompletionItemKindKeyword},
 	}
+}
+
+func fileRoleCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("factory", "stack", "project", "project-lock")
+}
+
+func factoryBlockCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems(
+		"inputs", "imports", "library-configs", "resources", "data-sources",
+		"actions", "outputs", "constraints", "state-moves", "locals",
+	)
+}
+
+func inputDeclarationCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems("type", "description", "default", "sensitive")
+}
+
+func typeCompletionItems() []protocol.CompletionItem {
+	return keywordCompletionItems(
+		"string", "number", "integer", "boolean", "null", "opaque", "object",
+		"list", "map", "tuple", "optional", "open", "library-config",
+	)
+}
+
+func keywordCompletionItems(labels ...string) []protocol.CompletionItem {
+	items := make([]protocol.CompletionItem, 0, len(labels))
+	for _, label := range labels {
+		items = append(items, protocol.CompletionItem{
+			Label: label,
+			Kind:  protocol.CompletionItemKindKeyword,
+		})
+	}
+	return items
 }
 
 func nodeNameItems(nodes map[string]syntax.NodeDecl) []protocol.CompletionItem {
@@ -209,6 +341,7 @@ func mapKeys[T any](m map[string]T) []string {
 func goSelectorCompletions(
 	path string,
 	alias string,
+	selectorKind syntax.NodeKind,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) (protocol.CompletionList, bool, error) {
@@ -220,12 +353,67 @@ func goSelectorCompletions(
 	if err != nil || !found {
 		return protocol.CompletionList{}, found, err
 	}
-	names := mapKeys(schema.Resources)
-	names = append(names, mapKeys(schema.DataSources)...)
-	names = append(names, mapKeys(schema.Actions)...)
-	names = append(names, mapKeys(schema.Functions)...)
+	names := selectorCompletionNames(schema, selectorKind)
 	items := namedCompletionItems(names, protocol.CompletionItemKindFunction)
 	return completionList(items), true, nil
+}
+
+func selectorCompletionNames(
+	schema *ubruntime.LibrarySchema,
+	selectorKind syntax.NodeKind,
+) []string {
+	switch selectorKind {
+	case syntax.NodeResource:
+		return mapKeys(schema.Resources)
+	case syntax.NodeDataSource:
+		return mapKeys(schema.DataSources)
+	case syntax.NodeAction:
+		return mapKeys(schema.Actions)
+	default:
+		names := mapKeys(schema.Resources)
+		names = append(names, mapKeys(schema.DataSources)...)
+		names = append(names, mapKeys(schema.Actions)...)
+		names = append(names, mapKeys(schema.Functions)...)
+		return names
+	}
+}
+
+func selectorKindAtOffset(text string, offset int) syntax.NodeKind {
+	switch nearestBlockName(text, offset) {
+	case "resources":
+		return syntax.NodeResource
+	case "data-sources":
+		return syntax.NodeDataSource
+	case "actions":
+		return syntax.NodeAction
+	default:
+		return ""
+	}
+}
+
+func nearestBlockName(text string, offset int) string {
+	return nearestBlockNameFrom(text, offset, []string{"resources", "data-sources", "actions"})
+}
+
+func nearestFactoryChildBlockName(text string, offset int) string {
+	return nearestBlockNameFrom(text, offset, []string{
+		"inputs", "imports", "library-configs", "resources", "data-sources",
+		"actions", "outputs", "constraints", "state-moves", "locals",
+	})
+}
+
+func nearestBlockNameFrom(text string, offset int, names []string) string {
+	prefix := text[:offset]
+	bestName := ""
+	bestOffset := -1
+	for _, name := range names {
+		idx := strings.LastIndex(prefix, name+":")
+		if idx > bestOffset {
+			bestName = name
+			bestOffset = idx
+		}
+	}
+	return bestName
 }
 
 func goNodeFieldCompletions(

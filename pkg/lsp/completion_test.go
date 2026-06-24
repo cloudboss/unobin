@@ -16,6 +16,65 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
+func TestCompletionFileRolesAtEmptySource(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "factory.ub")
+
+	list, rpcErr := CompleteForText(path, "", protocol.Position{}, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "factory", "stack", "project", "project-lock")
+}
+
+func TestCompletionFactoryBlocks(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "factory.ub")
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "factory-empty-block")
+	offset := strings.Index(source, "\n\n") + 1
+	pos := OffsetToLSP(source, offset)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "inputs", "resources", "outputs", "constraints")
+}
+
+func TestCompletionInputDeclarationKeys(t *testing.T) {
+	root, path, source := completionProject(t)
+	pos := positionInText(source, "type: string", "type")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "type", "description", "default")
+}
+
+func TestCompletionTypeConstructors(t *testing.T) {
+	root, path, source := completionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "type: string", "type: ")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "string", "integer", "list", "object", "optional")
+}
+
+func TestCompletionResourcesSelectorUsesResourceSchemaOnly(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "def.server", "def.")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "server")
+	requireNotCompletionLabels(t, list, "lookup", "deploy", "slug")
+}
+
+func TestCompletionGoBackedBodyFieldsAtBlankPosition(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source = strings.Replace(source, "server-name: 'web'", "", 1)
+	pos := positionInText(source, "settings:", "")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "id", "server-name", "settings")
+}
+
 func TestCompletionRoots(t *testing.T) {
 	root, path, source := completionProject(t)
 	source, pos := sourceWithCompletionCursor(t, source, "null", "")
@@ -73,7 +132,8 @@ func TestCompletionGoBackedSelectors(t *testing.T) {
 
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "server", "lookup", "deploy", "slug")
+	requireCompletionLabels(t, list, "server")
+	requireNotCompletionLabels(t, list, "lookup", "deploy", "slug")
 }
 
 func TestCompletionSelectorWithMissingCachedSourceReturnsEmptyList(t *testing.T) {
@@ -196,6 +256,21 @@ func requireCompletionLabels(
 	}
 	for _, label := range labels {
 		require.Truef(t, byLabel[label], "missing completion label %q in %#v", label, list.Items)
+	}
+}
+
+func requireNotCompletionLabels(
+	t *testing.T,
+	list protocol.CompletionList,
+	labels ...string,
+) {
+	t.Helper()
+	byLabel := map[string]bool{}
+	for _, item := range list.Items {
+		byLabel[item.Label] = true
+	}
+	for _, label := range labels {
+		require.Falsef(t, byLabel[label], "unexpected completion label %q in %#v", label, list.Items)
 	}
 }
 
