@@ -52,6 +52,15 @@ func TestHoverGoFunctionSignature(t *testing.T) {
 	require.Equal(t, "slug(string) string", hover.Contents.Value)
 }
 
+func TestHoverFunctionWithMissingCachedSourceReturnsNoHover(t *testing.T) {
+	_, path, source, cache := missingCachedGoDefinitionProject(t)
+
+	hover, rpcErr := HoverForText(path, source,
+		positionInText(source, "def.slug('v1')", "slug"), cache)
+	require.Nil(t, rpcErr)
+	require.Nil(t, hover)
+}
+
 func TestHoverUnknownTarget(t *testing.T) {
 	root, path, source := completionProject(t)
 

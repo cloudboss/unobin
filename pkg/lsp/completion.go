@@ -378,7 +378,7 @@ func goSchemaForResolved(
 	resolved resolvedImport,
 ) (*ubruntime.LibrarySchema, bool, error) {
 	if !resolved.sourceOK {
-		return nil, true, nil
+		return &ubruntime.LibrarySchema{}, true, nil
 	}
 	if resolved.source == nil || resolved.source.Path == "" || !resolve.IsGoLibrary(resolved.source) {
 		return nil, false, nil

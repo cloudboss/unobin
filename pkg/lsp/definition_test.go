@@ -204,6 +204,15 @@ func TestDefinitionGoFunctionCall(t *testing.T) {
 		"func makeSlug", "makeSlug")
 }
 
+func TestDefinitionFunctionWithMissingCachedSourceReturnsNoLocations(t *testing.T) {
+	_, factoryPath, factorySource, cache := missingCachedGoDefinitionProject(t)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "def.slug('v1')", "slug"), cache)
+	require.Nil(t, rpcErr)
+	require.Empty(t, locations)
+}
+
 func TestSessionDefinitionReturnsLocations(t *testing.T) {
 	root, factoryPath, factorySource, _ := definitionProject(t)
 	session := NewSession("dev")
@@ -295,6 +304,31 @@ func cachedGoDefinitionProject(t *testing.T) (string, string, string, string) {
 	factoryPath := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
 	return root, factoryPath, factorySource, cacheRoot
+}
+
+func missingCachedGoDefinitionProject(t *testing.T) (string, string, string, *ProjectCache) {
+	t.Helper()
+	root := t.TempDir()
+	dep := deps.Dependency{URL: "example.com/definition"}
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  map[deps.Dependency]string{},
+	}))
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps[dep.String()] = &deps.ProjectLockDep{
+		Kind:    deps.ProjectLockKindGo,
+		Version: "v1.0.0",
+		Commit:  "missing",
+	}
+	require.NoError(t, deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), lock))
+	factorySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/go-backed-factory.ub")
+	factoryPath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: filepath.Join(root, "cache")}, nil
+	})
+	return root, factoryPath, factorySource, cache
 }
 
 func copyTestTree(t *testing.T, src string, dst string) {

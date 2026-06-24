@@ -513,7 +513,7 @@ func resolveImportAlias(
 
 func goIndexForResolved(resolved resolvedImport) (*goschema.SourceIndex, bool, error) {
 	if !resolved.sourceOK {
-		return nil, true, nil
+		return &goschema.SourceIndex{}, true, nil
 	}
 	if resolved.source == nil || resolved.source.Path == "" || !resolve.IsGoLibrary(resolved.source) {
 		return nil, false, nil

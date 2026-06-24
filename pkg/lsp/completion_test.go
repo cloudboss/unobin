@@ -76,6 +76,15 @@ func TestCompletionGoBackedSelectors(t *testing.T) {
 	requireCompletionLabels(t, list, "server", "lookup", "deploy", "slug")
 }
 
+func TestCompletionSelectorWithMissingCachedSourceReturnsEmptyList(t *testing.T) {
+	_, path, source, cache := missingCachedGoDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "def.slug('v1')", "def.")
+
+	list, rpcErr := CompleteForText(path, source, pos, cache)
+	require.Nil(t, rpcErr)
+	require.Empty(t, list.Items)
+}
+
 func TestCompletionGoBackedBodyFields(t *testing.T) {
 	root, path, source, _ := goDefinitionProject(t)
 
