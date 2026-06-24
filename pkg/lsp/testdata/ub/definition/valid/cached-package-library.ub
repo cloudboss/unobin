@@ -1,0 +1,6 @@
+hello: resource {
+  inputs: {
+    message: { type: string }
+    path: { type: string }
+  }
+}

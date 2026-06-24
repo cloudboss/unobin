@@ -156,7 +156,19 @@ func definitionAtOffset(
 		if !ok {
 			continue
 		}
-		return goNodeFieldDefinition(path, node, fieldPath, decls, projects)
+		locations, found, err := goNodeFieldDefinition(path, node, fieldPath, decls, projects)
+		if found || err != nil {
+			return locations, found, err
+		}
+		if target, ok, err := compositeInputTarget(
+			path, node, fieldPath, decls, projects,
+		); ok || err != nil {
+			if err != nil {
+				return nil, true, err
+			}
+			return locationsForTargets(target), true, nil
+		}
+		return []protocol.Location{}, true, nil
 	}
 	return nil, false, nil
 }
@@ -300,6 +312,24 @@ func compositeTarget(
 	return findCompositeTarget(resolved.source, node.Kind, node.Selector.Export.Name, output)
 }
 
+func compositeInputTarget(
+	path string,
+	node syntax.NodeDecl,
+	fieldPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (definitionTarget, bool, error) {
+	inputName := fieldPath
+	if inputName == "" {
+		return definitionTarget{}, false, nil
+	}
+	resolved, err := resolveImportAlias(path, node.Selector.Alias.Name, decls, projects)
+	if err != nil || !resolved.found || !resolved.sourceOK {
+		return definitionTarget{}, false, err
+	}
+	return findCompositeInputTarget(resolved.source, node.Kind, node.Selector.Export.Name, inputName)
+}
+
 func findCompositeTarget(
 	src *resolve.Source,
 	kind syntax.NodeKind,
@@ -332,6 +362,42 @@ func findCompositeTarget(
 			for _, out := range composite.Body.Outputs {
 				if out.Name.Name == output {
 					return definitionTarget{path: path, text: string(text), span: out.Name.S}, true, nil
+				}
+			}
+		}
+	}
+	return definitionTarget{}, false, nil
+}
+
+func findCompositeInputTarget(
+	src *resolve.Source,
+	kind syntax.NodeKind,
+	export string,
+	input string,
+) (definitionTarget, bool, error) {
+	if src == nil || src.Path == "" {
+		return definitionTarget{}, false, nil
+	}
+	matches, err := filepath.Glob(filepath.Join(src.Path, "*.ub"))
+	if err != nil {
+		return definitionTarget{}, false, err
+	}
+	for _, path := range matches {
+		text, err := os.ReadFile(path)
+		if err != nil {
+			return definitionTarget{}, false, err
+		}
+		file, err := syntax.ParseSource(path, text)
+		if err != nil || file.Library == nil {
+			continue
+		}
+		for _, composite := range file.Library.Exports {
+			if composite.Kind != kind || composite.Name.Name != export {
+				continue
+			}
+			for _, in := range composite.Body.Inputs {
+				if in.Name.Name == input {
+					return definitionTarget{path: path, text: string(text), span: in.Name.S}, true, nil
 				}
 			}
 		}

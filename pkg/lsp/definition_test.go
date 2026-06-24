@@ -78,6 +78,39 @@ func TestDefinitionUBCompositeSelector(t *testing.T) {
 		"web: resource", "web")
 }
 
+func TestDefinitionUBCompositeInputField(t *testing.T) {
+	root, factoryPath, factorySource, libraryPath := definitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := ubtest.ReadFixture(t, libraryPath)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "name: local.name", "name"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, libraryPath, librarySource,
+		"name: { type: string }", "name")
+}
+
+func TestDefinitionCachedUBCompositePackageInputField(t *testing.T) {
+	_, factoryPath, factorySource, libraryPath, cache := cachedUBCompositePackageProject(t)
+	librarySource := readTestFile(t, libraryPath)
+	tests := []struct {
+		contextText string
+		input       string
+	}{
+		{contextText: "message: 'heyo'", input: "message"},
+		{contextText: "path: '/the/path/to/nowhere'", input: "path"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+				positionInText(factorySource, tt.contextText, tt.input), cache)
+			require.Nil(t, rpcErr)
+			requireDefinitionLocation(t, locations, libraryPath, librarySource,
+				tt.input+": { type: string }", tt.input)
+		})
+	}
+}
+
 func TestDefinitionUBCompositeOutputReference(t *testing.T) {
 	root, factoryPath, factorySource, libraryPath := definitionProject(t)
 	cache := NewProjectCache(root)
@@ -304,6 +337,41 @@ func cachedGoDefinitionProject(t *testing.T) (string, string, string, string) {
 	factoryPath := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
 	return root, factoryPath, factorySource, cacheRoot
+}
+
+func cachedUBCompositePackageProject(
+	t *testing.T,
+) (string, string, string, string, *ProjectCache) {
+	t.Helper()
+	root := t.TempDir()
+	dep := deps.Dependency{URL: "example.com/lib"}
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  map[deps.Dependency]string{},
+	}))
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps[dep.String()] = &deps.ProjectLockDep{
+		Kind:    deps.ProjectLockKindUB,
+		Version: "v1.0.0",
+		Commit:  "abc123",
+		Hash:    "sha256:test",
+	}
+	require.NoError(t, deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), lock))
+
+	factorySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/cached-package-factory.ub")
+	factoryPath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	cacheRoot := filepath.Join(root, "cache")
+	libraryDir := filepath.Join(cacheRoot, "imports", "example.com/lib", "abc123", "ub", "helloer")
+	require.NoError(t, os.MkdirAll(libraryDir, 0o755))
+	librarySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/cached-package-library.ub")
+	libraryPath := filepath.Join(libraryDir, "library.ub")
+	require.NoError(t, os.WriteFile(libraryPath, []byte(librarySource), 0o644))
+	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: cacheRoot}, nil
+	})
+	return root, factoryPath, factorySource, libraryPath, cache
 }
 
 func missingCachedGoDefinitionProject(t *testing.T) (string, string, string, *ProjectCache) {

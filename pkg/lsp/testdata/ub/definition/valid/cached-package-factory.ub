@@ -1,0 +1,11 @@
+factory: {
+  imports: {
+    helloer: 'example.com/lib//ub/helloer'
+  }
+  resources: {
+    file: helloer.hello {
+      message: 'heyo'
+      path: '/the/path/to/nowhere'
+    }
+  }
+}

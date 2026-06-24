@@ -1,4 +1,7 @@
 web: resource {
+  inputs: {
+    name: { type: string }
+  }
   outputs: {
     id: { value: 'web-id' }
   }
