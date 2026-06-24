@@ -100,6 +100,8 @@ func (s *Session) HandleRequest(
 		return nil, s.handleDidSave(req.Params)
 	case "textDocument/didClose":
 		return nil, s.handleDidClose(req.Params)
+	case "workspace/didChangeWatchedFiles":
+		return nil, s.handleDidChangeWatchedFiles(req.Params)
 	case "textDocument/formatting":
 		return s.handleFormatting(req.Params)
 	case "textDocument/documentSymbol":
@@ -120,6 +122,11 @@ func (s *Session) handleInitialize(params json.RawMessage) (any, *protocol.Respo
 	if err := decodeParams(params, &initialize); err != nil {
 		return nil, err
 	}
+	roots, err := initializeWorkspaceRoots(initialize)
+	if err != nil {
+		return nil, protocol.InvalidParams(err.Error())
+	}
+	s.projects.SetWorkspaceRoots(roots)
 	return protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
 			TextDocumentSync:           protocol.TextDocumentSyncKindFull,
@@ -173,7 +180,29 @@ func (s *Session) handleDidChange(params json.RawMessage) *protocol.ResponseErro
 
 func (s *Session) handleDidSave(params json.RawMessage) *protocol.ResponseError {
 	var save protocol.DidSaveTextDocumentParams
-	return decodeParams(params, &save)
+	if err := decodeParams(params, &save); err != nil {
+		return err
+	}
+	if err := s.invalidateURI(save.TextDocument.URI); err != nil {
+		return protocol.InvalidParams(err.Error())
+	}
+	if doc, ok := s.documents.Get(save.TextDocument.URI); ok {
+		return s.publishDiagnostics(doc)
+	}
+	return nil
+}
+
+func (s *Session) handleDidChangeWatchedFiles(params json.RawMessage) *protocol.ResponseError {
+	var watched protocol.DidChangeWatchedFilesParams
+	if err := decodeParams(params, &watched); err != nil {
+		return err
+	}
+	for _, change := range watched.Changes {
+		if err := s.invalidateURI(change.URI); err != nil {
+			return protocol.InvalidParams(err.Error())
+		}
+	}
+	return nil
 }
 
 func (s *Session) handleDidClose(params json.RawMessage) *protocol.ResponseError {
@@ -243,6 +272,37 @@ func (s *Session) handleHover(params json.RawMessage) (any, *protocol.ResponseEr
 		return nil, protocol.InvalidParams("document is not open: " + hover.TextDocument.URI)
 	}
 	return HoverForText(doc.Path, doc.Text, hover.Position, s.projects)
+}
+
+func (s *Session) invalidateURI(uri string) error {
+	path, err := FileURIToPath(uri)
+	if err != nil {
+		return err
+	}
+	s.projects.InvalidatePath(path)
+	return nil
+}
+
+func initializeWorkspaceRoots(initialize protocol.InitializeParams) ([]string, error) {
+	if len(initialize.WorkspaceFolders) > 0 {
+		roots := make([]string, 0, len(initialize.WorkspaceFolders))
+		for _, folder := range initialize.WorkspaceFolders {
+			path, err := FileURIToPath(folder.URI)
+			if err != nil {
+				return nil, err
+			}
+			roots = append(roots, path)
+		}
+		return roots, nil
+	}
+	if initialize.RootURI == "" {
+		return nil, nil
+	}
+	root, err := FileURIToPath(initialize.RootURI)
+	if err != nil {
+		return nil, err
+	}
+	return []string{root}, nil
 }
 
 func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {

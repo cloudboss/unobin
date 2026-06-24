@@ -141,6 +141,26 @@ type DidCloseTextDocumentParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
 }
 
+const (
+	FileChangeTypeCreated FileChangeType = 1
+	FileChangeTypeChanged FileChangeType = 2
+	FileChangeTypeDeleted FileChangeType = 3
+)
+
+// FileChangeType is an LSP watched-file change kind.
+type FileChangeType int
+
+// FileEvent is one watched-file change.
+type FileEvent struct {
+	URI  string         `json:"uri"`
+	Type FileChangeType `json:"type"`
+}
+
+// DidChangeWatchedFilesParams is sent when watched files change.
+type DidChangeWatchedFilesParams struct {
+	Changes []FileEvent `json:"changes"`
+}
+
 // DocumentFormattingParams is a whole-document formatting request.
 type DocumentFormattingParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`

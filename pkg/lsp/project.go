@@ -16,20 +16,22 @@ import (
 
 // Project holds cached LSP data for one project marker root.
 type Project struct {
-	Root        string
-	Marker      projectmarker.Marker
-	DepsProject *deps.Project
-	ProjectLock *deps.ProjectLock
-	Resolver    *ImportResolver
-	GoSchemas   *compile.SchemaCache
-	GoIndex     *goschema.SourceIndexCache
+	Root          string
+	Marker        projectmarker.Marker
+	DepsProject   *deps.Project
+	ProjectLock   *deps.ProjectLock
+	Resolver      *ImportResolver
+	GoSchemas     *compile.SchemaCache
+	GoIndex       *goschema.SourceIndexCache
+	GoModuleRoots []goschema.ModuleRoot
 }
 
 // ProjectCache stores project data by marker root.
 type ProjectCache struct {
-	workspaceRoot string
-	projects      map[string]*Project
-	remoteFactory func() (cachedRemoteSource, error)
+	workspaceRoot  string
+	workspaceRoots []string
+	projects       map[string]*Project
+	remoteFactory  func() (cachedRemoteSource, error)
 }
 
 // NewProjectCache returns an empty project cache.
@@ -43,10 +45,23 @@ func newProjectCacheWithRemote(
 	workspaceRoot string,
 	remoteFactory func() (cachedRemoteSource, error),
 ) *ProjectCache {
-	return &ProjectCache{
-		workspaceRoot: workspaceRoot,
+	cache := &ProjectCache{
 		projects:      map[string]*Project{},
 		remoteFactory: remoteFactory,
+	}
+	cache.SetWorkspaceRoots(singleWorkspaceRoot(workspaceRoot))
+	return cache
+}
+
+// SetWorkspaceRoots sets weak roots used for loose files without project markers.
+func (c *ProjectCache) SetWorkspaceRoots(roots []string) {
+	if c == nil {
+		return
+	}
+	c.workspaceRoots = cleanWorkspaceRoots(roots)
+	c.workspaceRoot = ""
+	if len(c.workspaceRoots) > 0 {
+		c.workspaceRoot = c.workspaceRoots[0]
 	}
 }
 
@@ -54,10 +69,11 @@ func newProjectCacheWithRemote(
 func (c *ProjectCache) ProjectForPath(path string) (*Project, error) {
 	root, marker, err := deps.FindProjectMarkerDir(path)
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) || c.workspaceRoot == "" {
+		weakRoot, ok := c.workspaceRootForPath(path)
+		if !errors.Is(err, fs.ErrNotExist) || !ok {
 			return nil, err
 		}
-		root = c.workspaceRoot
+		root = weakRoot
 		marker = projectmarker.Marker{Kind: projectmarker.None}
 	}
 	root = filepath.Clean(root)
@@ -77,9 +93,13 @@ func (c *ProjectCache) InvalidatePath(path string) {
 	if c == nil {
 		return
 	}
-	for root := range c.projects {
+	for root, project := range c.projects {
 		if pathInDir(path, root) {
 			delete(c.projects, root)
+			continue
+		}
+		if strings.HasSuffix(path, ".go") {
+			project.invalidateGoPath(path)
 		}
 	}
 }
@@ -104,15 +124,101 @@ func (c *ProjectCache) readProject(root string, marker projectmarker.Marker) (*P
 	if err != nil {
 		return nil, err
 	}
+	roots := schemaRootsForProject(root, marker)
 	return &Project{
-		Root:        root,
-		Marker:      marker,
-		DepsProject: depProject,
-		ProjectLock: projectLock,
-		Resolver:    NewImportResolver(root, depProject, projectLock, remote),
-		GoSchemas:   compile.NewSchemaCache(schemaRootsForProject(root, marker)...),
-		GoIndex:     goschema.NewSourceIndexCache(schemaRootsForProject(root, marker)...),
+		Root:          root,
+		Marker:        marker,
+		DepsProject:   depProject,
+		ProjectLock:   projectLock,
+		Resolver:      NewImportResolver(root, depProject, projectLock, remote),
+		GoSchemas:     compile.NewSchemaCache(roots...),
+		GoIndex:       goschema.NewSourceIndexCache(roots...),
+		GoModuleRoots: roots,
 	}, nil
+}
+
+// EnsureGoModuleRoot adds the Go module root for source when it can be found.
+func (p *Project) EnsureGoModuleRoot(source *resolve.Source) {
+	root, ok := goModuleRootForSource(source)
+	if !ok || p.hasGoModuleRoot(root) {
+		return
+	}
+	p.GoModuleRoots = append(p.GoModuleRoots, root)
+	p.GoSchemas = compile.NewSchemaCache(p.GoModuleRoots...)
+	p.GoIndex = goschema.NewSourceIndexCache(p.GoModuleRoots...)
+}
+
+func (p *Project) hasGoModuleRoot(root goschema.ModuleRoot) bool {
+	for _, existing := range p.GoModuleRoots {
+		if existing.Path == root.Path && filepath.Clean(existing.Dir) == filepath.Clean(root.Dir) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Project) invalidateGoPath(path string) {
+	for _, root := range p.GoModuleRoots {
+		if pathInDir(path, root.Dir) {
+			p.GoSchemas = compile.NewSchemaCache(p.GoModuleRoots...)
+			p.GoIndex = goschema.NewSourceIndexCache(p.GoModuleRoots...)
+			return
+		}
+	}
+}
+
+func (c *ProjectCache) workspaceRootForPath(path string) (string, bool) {
+	var best string
+	for _, root := range c.workspaceRoots {
+		if pathInDir(path, root) && len(root) > len(best) {
+			best = root
+		}
+	}
+	if best != "" {
+		return best, true
+	}
+	return "", false
+}
+
+func singleWorkspaceRoot(root string) []string {
+	if root == "" {
+		return nil
+	}
+	return []string{root}
+}
+
+func cleanWorkspaceRoots(roots []string) []string {
+	out := make([]string, 0, len(roots))
+	seen := map[string]struct{}{}
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		clean := filepath.Clean(root)
+		if _, ok := seen[clean]; ok {
+			continue
+		}
+		seen[clean] = struct{}{}
+		out = append(out, clean)
+	}
+	return out
+}
+
+func goModuleRootForSource(source *resolve.Source) (goschema.ModuleRoot, bool) {
+	if source == nil {
+		return goschema.ModuleRoot{}, false
+	}
+	if source.ModuleRootPath != "" && source.ModulePath != "" {
+		return goschema.ModuleRoot{Path: source.ModulePath, Dir: source.ModuleRootPath}, true
+	}
+	if source.Path == "" {
+		return goschema.ModuleRoot{}, false
+	}
+	root, marker, err := deps.FindProjectMarkerDir(source.Path)
+	if err != nil || marker.Kind != projectmarker.Go || marker.ModulePath == "" {
+		return goschema.ModuleRoot{}, false
+	}
+	return goschema.ModuleRoot{Path: marker.ModulePath, Dir: root}, true
 }
 
 func schemaRootsForProject(root string, marker projectmarker.Marker) []goschema.ModuleRoot {

@@ -33,6 +33,22 @@ func TestPackageDeclaresUnobinLanguage(t *testing.T) {
 	require.Contains(t, pkg.Contributes.Configuration.Properties, "unobin.path")
 }
 
+func TestExtensionWatchesFilesThatAffectLSPCaches(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("src", "extension.ts"))
+	require.NoError(t, err)
+	source := string(body)
+
+	for _, pattern := range []string{
+		"**/*.ub",
+		"**/*.go",
+		"**/go.mod",
+		"**/project.ub",
+		"**/project-lock.ub",
+	} {
+		require.Contains(t, source, "createFileSystemWatcher('"+pattern+"')")
+	}
+}
+
 func TestExtensionStartsUnobinLSP(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("src", "extension.ts"))
 	require.NoError(t, err)

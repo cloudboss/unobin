@@ -608,6 +608,7 @@ func goIndexForResolved(resolved resolvedImport) (*goschema.SourceIndex, bool, e
 	if resolved.source == nil || resolved.source.Path == "" || !resolve.IsGoLibrary(resolved.source) {
 		return nil, false, nil
 	}
+	resolved.project.EnsureGoModuleRoot(resolved.source)
 	_, index, _, err := resolved.project.GoIndex.Read(resolved.source.Path)
 	if err != nil {
 		return nil, true, err

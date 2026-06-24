@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
@@ -41,6 +42,27 @@ func TestProjectCacheInvalidatesProjectFiles(t *testing.T) {
 	third, err := cache.ProjectForPath(path)
 	require.NoError(t, err)
 	require.NotSame(t, second, third)
+}
+
+func TestProjectCacheUsesWorkspaceRootForLooseFiles(t *testing.T) {
+	root := t.TempDir()
+	cache := NewProjectCache(root)
+
+	project, err := cache.ProjectForPath(filepath.Join(root, "loose.ub"))
+	require.NoError(t, err)
+	require.Equal(t, root, project.Root)
+	require.Equal(t, projectmarker.None, project.Marker.Kind)
+}
+
+func TestProjectCacheChoosesMatchingWorkspaceRoot(t *testing.T) {
+	first := t.TempDir()
+	second := t.TempDir()
+	cache := NewProjectCache("")
+	cache.SetWorkspaceRoots([]string{first, second})
+
+	project, err := cache.ProjectForPath(filepath.Join(second, "loose.ub"))
+	require.NoError(t, err)
+	require.Equal(t, second, project.Root)
 }
 
 func TestProjectCacheInvalidatesGoSources(t *testing.T) {
@@ -147,6 +169,46 @@ func TestImportResolverServesCachedProjectLockPackageImports(t *testing.T) {
 	require.Equal(t, cached, src.ProjectPath)
 	require.Empty(t, src.ProjectSubdir)
 	require.Equal(t, "ub/helloer", src.PackageSubdir)
+}
+
+func TestProjectAddsGoModuleRootFromResolvedSource(t *testing.T) {
+	project := &Project{}
+	moduleRoot := t.TempDir()
+	writeGoMod(t, moduleRoot, "example.com/lib")
+	pkg := filepath.Join(moduleRoot, "pkg")
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
+
+	project.EnsureGoModuleRoot(&resolve.Source{Path: pkg})
+	require.Equal(t, []goschema.ModuleRoot{{Path: "example.com/lib", Dir: moduleRoot}},
+		project.GoModuleRoots)
+	firstIndex := project.GoIndex
+
+	project.EnsureGoModuleRoot(&resolve.Source{Path: pkg})
+	require.Same(t, firstIndex, project.GoIndex)
+	require.Len(t, project.GoModuleRoots, 1)
+}
+
+func TestProjectCacheInvalidatesExternalGoModuleSource(t *testing.T) {
+	ubRoot := writeUBProject(t, nil, nil)
+	moduleRoot := t.TempDir()
+	writeGoMod(t, moduleRoot, "example.com/lib")
+	project := &Project{
+		Root: ubRoot,
+		GoModuleRoots: []goschema.ModuleRoot{{
+			Path: "example.com/lib",
+			Dir:  moduleRoot,
+		}},
+		GoIndex: goschema.NewSourceIndexCache(goschema.ModuleRoot{
+			Path: "example.com/lib",
+			Dir:  moduleRoot,
+		}),
+	}
+	cache := NewProjectCache("")
+	cache.projects[ubRoot] = project
+	oldIndex := project.GoIndex
+
+	cache.InvalidatePath(filepath.Join(moduleRoot, "library.go"))
+	require.NotSame(t, oldIndex, project.GoIndex)
 }
 
 func TestImportResolverMissingRemoteCacheReturnsNoSource(t *testing.T) {

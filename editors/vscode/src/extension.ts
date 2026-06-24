@@ -21,7 +21,13 @@ export function activate(context: vscode.ExtensionContext): void {
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: 'file', language: 'unobin' }],
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.ub'),
+      fileEvents: [
+        vscode.workspace.createFileSystemWatcher('**/*.ub'),
+        vscode.workspace.createFileSystemWatcher('**/*.go'),
+        vscode.workspace.createFileSystemWatcher('**/go.mod'),
+        vscode.workspace.createFileSystemWatcher('**/project.ub'),
+        vscode.workspace.createFileSystemWatcher('**/project-lock.ub'),
+      ],
     },
   };
 

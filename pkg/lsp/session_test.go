@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,6 +73,105 @@ func TestServeStopsAfterExit(t *testing.T) {
 	payload, err := protocol.ReadMessage(&output)
 	require.ErrorIs(t, err, io.EOF)
 	require.Nil(t, payload)
+}
+
+func TestSessionInitializeSetsWorkspaceRoots(t *testing.T) {
+	session := NewSession("dev")
+	first := t.TempDir()
+	second := t.TempDir()
+	fallback := t.TempDir()
+	params := protocol.InitializeParams{
+		RootURI: PathToFileURI(fallback),
+		WorkspaceFolders: []protocol.WorkspaceFolder{
+			{URI: PathToFileURI(first), Name: "first"},
+			{URI: PathToFileURI(second), Name: "second"},
+		},
+	}
+	body, err := json.Marshal(params)
+	require.NoError(t, err)
+
+	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		ID:      protocol.NewNumberID(1),
+		Method:  "initialize",
+		Params:  body,
+	})
+	require.Nil(t, rpcErr)
+	require.Equal(t, []string{first, second}, session.projects.workspaceRoots)
+
+	project, err := session.projects.ProjectForPath(filepath.Join(second, "loose.ub"))
+	require.NoError(t, err)
+	require.Equal(t, second, project.Root)
+}
+
+func TestSessionInitializeUsesRootURIWithoutWorkspaceFolders(t *testing.T) {
+	session := NewSession("dev")
+	root := t.TempDir()
+	params := protocol.InitializeParams{RootURI: PathToFileURI(root)}
+	body, err := json.Marshal(params)
+	require.NoError(t, err)
+
+	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		ID:      protocol.NewNumberID(1),
+		Method:  "initialize",
+		Params:  body,
+	})
+	require.Nil(t, rpcErr)
+	require.Equal(t, []string{root}, session.projects.workspaceRoots)
+}
+
+func TestSessionDidSaveInvalidatesProjectCache(t *testing.T) {
+	session := NewSession("dev")
+	root := writeUBProject(t, nil, nil)
+	factoryPath := filepath.Join(root, "factory.ub")
+	projectPath := filepath.Join(root, "project.ub")
+	first, err := session.projects.ProjectForPath(factoryPath)
+	require.NoError(t, err)
+
+	params := protocol.DidSaveTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: PathToFileURI(projectPath)},
+	}
+	body, err := json.Marshal(params)
+	require.NoError(t, err)
+	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		Method:  "textDocument/didSave",
+		Params:  body,
+	})
+	require.Nil(t, rpcErr)
+
+	second, err := session.projects.ProjectForPath(factoryPath)
+	require.NoError(t, err)
+	require.NotSame(t, first, second)
+}
+
+func TestSessionWatchedFilesInvalidateProjectCache(t *testing.T) {
+	session := NewSession("dev")
+	root := writeUBProject(t, nil, nil)
+	factoryPath := filepath.Join(root, "factory.ub")
+	projectPath := filepath.Join(root, "project.ub")
+	first, err := session.projects.ProjectForPath(factoryPath)
+	require.NoError(t, err)
+
+	params := protocol.DidChangeWatchedFilesParams{
+		Changes: []protocol.FileEvent{{
+			URI:  PathToFileURI(projectPath),
+			Type: protocol.FileChangeTypeChanged,
+		}},
+	}
+	body, err := json.Marshal(params)
+	require.NoError(t, err)
+	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		Method:  "workspace/didChangeWatchedFiles",
+		Params:  body,
+	})
+	require.Nil(t, rpcErr)
+
+	second, err := session.projects.ProjectForPath(factoryPath)
+	require.NoError(t, err)
+	require.NotSame(t, first, second)
 }
 
 func TestSessionShutdown(t *testing.T) {
