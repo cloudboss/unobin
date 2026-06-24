@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,7 @@ func TestQueryFilesExist(t *testing.T) {
 		"queries/highlights.scm",
 		"queries/locals.scm",
 		"queries/tags.scm",
+		"queries/folds.scm",
 	} {
 		body := readQueryFile(t, path)
 		require.NotEmpty(t, body)
@@ -48,12 +50,45 @@ func TestQueriesValidateWithTreeSitter(t *testing.T) {
 		"queries/highlights.scm",
 		"queries/locals.scm",
 		"queries/tags.scm",
+		"queries/folds.scm",
 	} {
 		cmd := exec.Command(treeSitter,
 			"query", "--grammar-path", ".", "--quiet", path, sample)
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, string(out))
 	}
+}
+
+func TestTagsQueryCapturesDeclarationNames(t *testing.T) {
+	npm, err := exec.LookPath("npm")
+	if err != nil {
+		t.Skip("npm not found")
+	}
+	sample := "../pkg/lsp/testdata/ub/symbols/valid/factory.ub"
+	require.FileExists(t, sample)
+
+	cmd := exec.Command(npm,
+		"exec", "--package=tree-sitter-cli@0.26.9", "--",
+		"tree-sitter", "query", "--grammar-path", ".", "queries/tags.scm", sample)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	names := tagCaptureNames(string(out))
+
+	for _, name := range []string{"region", "full-name", "server", "lookup", "deploy", "endpoint"} {
+		require.Contains(t, names, name)
+	}
+	for _, name := range []string{"ami-id", "name", "value", "resources", "outputs"} {
+		require.NotContains(t, names, name)
+	}
+}
+
+func tagCaptureNames(output string) map[string]struct{} {
+	re := regexp.MustCompile("capture: \\d+ - name, .* text: `([^`]*)`")
+	names := map[string]struct{}{}
+	for _, match := range re.FindAllStringSubmatch(output, -1) {
+		names[match[1]] = struct{}{}
+	}
+	return names
 }
 
 func readQueryFile(t *testing.T, path string) string {

@@ -1,8 +1,11 @@
 (binding
   (identifier) @local.definition)
 
-(field
-  (value_field
-    key: (field_key) @local.definition))
+(path
+  (identifier) @local.reference)
 
-(identifier) @local.reference
+(call
+  function: (identifier) @local.reference)
+
+(call
+  function: (path (identifier) @local.reference))

@@ -5,6 +5,14 @@
   (interpolated_string)
 ] @font-lock-string-face
 
+(interpolation
+  ["{{" "}}"] @font-lock-preprocessor-face)
+
+(interpolation
+  format: (format_verb) @font-lock-constant-face)
+
+(escape_sequence) @font-lock-string-face
+
 [
   "else"
   "for"

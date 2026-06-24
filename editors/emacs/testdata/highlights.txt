@@ -9,6 +9,9 @@ factory: {
   }
   locals: {
     interpolated: $'name={{ input.name }}'
+    banner: $'''>-
+      region: {{ input.name }}
+      '''
     enabled: true
     missing: null
     math: (input.count ?? 0) + 1 >= 2 && !false

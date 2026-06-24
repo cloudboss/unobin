@@ -20,6 +20,10 @@ func TestUnobinTsModeStaticRequirements(t *testing.T) {
 	require.Contains(t, body, "(defcustom unobin-treesit-auto-install")
 	require.Contains(t, body, "(defcustom unobin-eglot-auto-start")
 	require.Contains(t, body, "highlights.scm")
+	require.Contains(t, body, "unobin-ts-mode--imenu-create-index")
+	require.Contains(t, body, "imenu-create-index-function")
+	require.Contains(t, body, "array")
+	require.Contains(t, body, "selector_body_value")
 	require.Contains(t, body, ";;; unobin-ts-mode.el")
 	require.Contains(t, body, "Package-Requires:")
 }

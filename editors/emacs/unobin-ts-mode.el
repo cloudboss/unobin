@@ -22,6 +22,7 @@
 (defvar treesit-font-lock-feature-list)
 (defvar treesit-font-lock-settings)
 (defvar treesit-simple-indent-rules)
+(defvar imenu-create-index-function)
 
 (defgroup unobin nil
   "Editor support for Unobin."
@@ -59,6 +60,14 @@ Emacs session.  When t, install automatically."
      "  (string)"
      "  (interpolated_string)"
      "] @font-lock-string-face"
+     ""
+     "(interpolation"
+     "  [\"{{\" \"}}\"] @font-lock-preprocessor-face)"
+     ""
+     "(interpolation"
+     "  format: (format_verb) @font-lock-constant-face)"
+     ""
+     "(escape_sequence) @font-lock-string-face"
      ""
      "["
      "  \"else\""
@@ -161,8 +170,22 @@ Emacs session.  When t, install automatically."
 (defvar unobin-ts-mode--indent-rules
   `((,unobin-ts-mode--language
      ((node-is "}") parent-bol 0)
+     ((node-is "]") parent-bol 0)
+     ((node-is ")") parent-bol 0)
      ((parent-is "object") parent-bol 2)
-     ((parent-is "block") parent-bol 2)
+     ((parent-is "array") parent-bol 2)
+     ((parent-is "selector_body_value") parent-bol 2)
+     ((parent-is "call") parent-bol 2)
+     ((parent-is "list_comprehension") parent-bol 2)
+     ((parent-is "map_comprehension") parent-bol 2)
+     ((parent-is "list_type") parent-bol 2)
+     ((parent-is "map_type") parent-bol 2)
+     ((parent-is "tuple_type") parent-bol 2)
+     ((parent-is "optional_type") parent-bol 2)
+     ((parent-is "open_type") parent-bol 2)
+     ((parent-is "object_type") parent-bol 2)
+     ((parent-is "block_triple_quoted_string") parent-bol 2)
+     ((parent-is "triple_interpolated_string") parent-bol 2)
      (no-node parent-bol 0)))
   "Tree-sitter indentation rules for `unobin-ts-mode'.")
 
@@ -271,6 +294,16 @@ Emacs session.  When t, install automatically."
          (cons (unobin-ts-mode--grammar-recipe) treesit-language-source-alist)))
     (funcall body)))
 
+(defun unobin-ts-mode--imenu-create-index ()
+  "Return an imenu index for Unobin declarations."
+  (let (items)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^[[:space:]]*\\([@A-Za-z][A-Za-z0-9_-]*\\):" nil t)
+        (push (cons (match-string 1) (match-beginning 1)) items)))
+    (nreverse items)))
+
 ;;;###autoload
 (defun unobin-install-treesit-grammar ()
   "Install the Unobin Tree-sitter grammar."
@@ -332,6 +365,7 @@ Emacs session.  When t, install automatically."
   "Major mode for Unobin source files."
   (setq-local comment-start "# ")
   (setq-local comment-end "")
+  (setq-local imenu-create-index-function #'unobin-ts-mode--imenu-create-index)
   (unobin-ts-mode--register-eglot)
   (unobin-ts-mode--setup-treesit)
   (unobin-ts-mode--maybe-start-eglot))

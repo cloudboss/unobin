@@ -48,6 +48,8 @@
                      ("optional" 0 font-lock-type-face)
                      ("'Name'" 1 font-lock-string-face)
                      ("$'name={{ input.name }}'" 1 font-lock-string-face)
+                     ("{{ input.name }}" 0 font-lock-preprocessor-face)
+                     ("$'''>-" 1 font-lock-string-face)
                      ("true" 0 font-lock-constant-face)
                      ("null" 0 font-lock-constant-face)
                      ("0" 0 font-lock-constant-face)
