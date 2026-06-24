@@ -15,7 +15,7 @@ func DocumentSymbolsForText(
 ) ([]protocol.DocumentSymbol, *protocol.ResponseError) {
 	file, err := syntax.ParseSource(path, []byte(text))
 	if err != nil {
-		return nil, protocol.InvalidParams(err.Error())
+		return []protocol.DocumentSymbol{}, nil
 	}
 	return documentSymbols(file, text), nil
 }

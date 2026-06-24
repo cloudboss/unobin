@@ -83,6 +83,15 @@ func TestDocumentSymbolsLibrary(t *testing.T) {
 	}, documentSymbolNames(symbols))
 }
 
+func TestDocumentSymbolsInvalidSourceReturnsNoSymbols(t *testing.T) {
+	path := filepath.Join("testdata/ub/symbols/invalid", "incomplete-factory.ub")
+	src := ubtest.ReadFixture(t, path)
+	symbols, rpcErr := DocumentSymbolsForText(path, src)
+	require.Nil(t, rpcErr)
+	require.NotNil(t, symbols)
+	require.Empty(t, symbols)
+}
+
 func TestSessionDocumentSymbolsReturnsOpenDocumentSymbols(t *testing.T) {
 	session := NewSession("dev")
 	src, _ := symbolFixture(t, "factory.ub")
