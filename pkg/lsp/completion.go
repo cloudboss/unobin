@@ -31,7 +31,7 @@ func CompleteForText(
 	}
 	file, err := parseCompletionSource(path, text, offset)
 	if err != nil {
-		return protocol.CompletionList{}, protocol.InvalidParams(err.Error())
+		return completionList([]protocol.CompletionItem{}), nil
 	}
 	body, hasScope := definitionBodyForOffset(file, offset)
 	decls := definitionDeclsForBody(body)

@@ -243,6 +243,24 @@ func TestCompletionDoesNotFetchRemotes(t *testing.T) {
 	require.Nil(t, rpcErr)
 }
 
+func TestSessionCompletionInvalidSourceReturnsEmptyList(t *testing.T) {
+	root := writeUBProject(t, nil, nil)
+	path := filepath.Join(root, "factory.ub")
+	uri := PathToFileURI(path)
+	source := ubtest.ReadFixture(t,
+		"testdata/ub/completion/invalid/incomplete-resource.ub")
+	session := NewSession("dev")
+	rpcErr := openDocument(t, session, uri, 1, source)
+	require.Nil(t, rpcErr)
+
+	result, rpcErr := requestCompletion(t, session, uri,
+		positionInText(source, "file", "file"))
+	require.Nil(t, rpcErr)
+	list, ok := result.(protocol.CompletionList)
+	require.True(t, ok)
+	require.Empty(t, list.Items)
+}
+
 func TestSessionCompletionReturnsItems(t *testing.T) {
 	_, path, source := completionProject(t)
 	session := NewSession("dev")
