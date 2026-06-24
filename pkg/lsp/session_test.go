@@ -35,6 +35,14 @@ func TestSessionInitializeCapabilities(t *testing.T) {
 	require.True(t, initialize.Capabilities.DefinitionProvider)
 	require.True(t, initialize.Capabilities.DocumentSymbolProvider)
 	require.NotNil(t, initialize.Capabilities.CompletionProvider)
+	require.Contains(t,
+		initialize.Capabilities.CompletionProvider.TriggerCharacters, ".")
+	require.Contains(t,
+		initialize.Capabilities.CompletionProvider.TriggerCharacters, "@")
+	require.Contains(t,
+		initialize.Capabilities.CompletionProvider.TriggerCharacters, ":")
+	require.Contains(t,
+		initialize.Capabilities.CompletionProvider.TriggerCharacters, " ")
 	require.True(t, initialize.Capabilities.HoverProvider)
 	require.Equal(t, "unobin", initialize.ServerInfo.Name)
 	require.Equal(t, "dev", initialize.ServerInfo.Version)

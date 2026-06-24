@@ -1,9 +1,12 @@
 package lsp
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
@@ -50,7 +53,7 @@ func CompleteForText(
 	if tok.text == "" {
 		return completionList(rootCompletionItems()), nil
 	}
-	list, err := completionForToken(path, text, offset, tok.text, decls, projects)
+	list, err := completionForToken(path, text, offset, tok.text, body, decls, projects)
 	if err != nil {
 		return protocol.CompletionList{}, protocol.InternalError(err)
 	}
@@ -210,8 +213,14 @@ func parseCompletionSource(path string, text string, offset int) (*syntax.File, 
 	if err == nil {
 		return file, nil
 	}
-	repaired := text[:offset] + "complete" + text[offset:]
-	return syntax.ParseSource(path, []byte(repaired))
+	for _, insertion := range []string{"complete", ": null"} {
+		repaired := text[:offset] + insertion + text[offset:]
+		file, err := syntax.ParseSource(path, []byte(repaired))
+		if err == nil {
+			return file, nil
+		}
+	}
+	return nil, err
 }
 
 func completionAtOffset(
@@ -242,12 +251,19 @@ func completionAtOffset(
 		return goConfigFieldCompletions(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
 	for _, node := range allNodes(*body) {
+		if tokenAtOffset(text, offset).text == "" {
+			valuePath, ok := objectValuePathAtOffset(node.Body, offset)
+			if ok {
+				return nodeValueCompletions(path, body, node, valuePath, decls, projects)
+			}
+		}
 		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if ok {
-			return goNodeFieldCompletions(path, node, fieldPath, decls, projects)
+			return nodeFieldCompletions(path, node, fieldPath, decls, projects)
 		}
-		if spanContainsOffset(node.Body.Span(), offset) {
-			return goNodeFieldCompletions(path, node, "", decls, projects)
+		if objectBodyKeyCompletionContext(text, node.Body, offset) {
+			fieldPrefix := strings.TrimSpace(currentObjectEntryPrefix(text, offset))
+			return nodeFieldCompletions(path, node, fieldPrefix, decls, projects)
 		}
 	}
 	return protocol.CompletionList{}, false, nil
@@ -278,11 +294,88 @@ func libraryConfigInputCompletions(
 	return protocol.CompletionList{}, false, nil
 }
 
+func objectValuePathAtOffset(obj *parse.ObjectLit, offset int) (string, bool) {
+	return objectValuePathAtOffsetPrefix(obj, offset, "")
+}
+
+func objectValuePathAtOffsetPrefix(
+	obj *parse.ObjectLit,
+	offset int,
+	prefix string,
+) (string, bool) {
+	if obj == nil {
+		return "", false
+	}
+	for _, field := range obj.Fields {
+		name, ok := fieldKeyName(field.Key)
+		if !ok {
+			continue
+		}
+		path := prefix + name
+		if child, ok := field.Value.(*parse.ObjectLit); ok {
+			if found, ok := objectValuePathAtOffsetPrefix(child, offset, path+"."); ok {
+				return found, true
+			}
+		}
+		if field.Decl != nil {
+			if found, ok := objectValuePathAtOffsetPrefix(
+				field.Decl.Body, offset, path+".",
+			); ok {
+				return found, true
+			}
+		}
+		if fieldValueContainsOffset(field, offset) {
+			return path, true
+		}
+	}
+	return "", false
+}
+
+func fieldValueContainsOffset(field *parse.Field, offset int) bool {
+	if field == nil || field.Value == nil {
+		return false
+	}
+	span := field.Value.Span()
+	start := span.Start.Offset
+	end := span.End.Offset
+	if end <= start {
+		return offset == start
+	}
+	return offset >= start && offset <= end
+}
+
+func objectBodyKeyCompletionContext(text string, obj *parse.ObjectLit, offset int) bool {
+	if obj == nil || !spanContainsOffset(obj.Span(), offset) {
+		return false
+	}
+	prefix := strings.TrimSpace(currentObjectEntryPrefix(text, offset))
+	if strings.Contains(prefix, ":") {
+		return false
+	}
+	if prefix != "" {
+		return true
+	}
+	suffix := strings.TrimSpace(currentLineSuffix(text, offset))
+	return suffix == "" || strings.HasPrefix(suffix, "}")
+}
+
+func currentObjectEntryPrefix(text string, offset int) string {
+	start := strings.LastIndex(text[:offset], "\n") + 1
+	for _, delimiter := range []string{"{", "}"} {
+		idx := strings.LastIndex(text[:offset], delimiter)
+		if idx >= start {
+			start = idx + 1
+		}
+	}
+	return text[start:offset]
+}
+
 func completionForToken(
 	path string,
 	text string,
 	offset int,
 	token string,
+	body *syntax.FactoryBody,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) (protocol.CompletionList, error) {
@@ -311,8 +404,14 @@ func completionForToken(
 	case string(syntax.NodeAction):
 		return completionList(nodeNameItems(decls.nodes[syntax.NodeAction])), nil
 	default:
+		selectorKind := selectorKindAtOffset(body, offset)
 		if list, found, err := goSelectorCompletions(
-			path, parts[0], selectorKindAtOffset(text, offset), decls, projects,
+			path, parts[0], selectorKind, decls, projects,
+		); found || err != nil {
+			return list, err
+		}
+		if list, found, err := compositeSelectorCompletions(
+			path, parts[0], selectorKind, decls, projects,
 		); found || err != nil {
 			return list, err
 		}
@@ -414,6 +513,51 @@ func mapKeys[T any](m map[string]T) []string {
 	return names
 }
 
+func compositeSelectorCompletions(
+	path string,
+	alias string,
+	selectorKind syntax.NodeKind,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (protocol.CompletionList, bool, error) {
+	resolved, err := resolveImportAlias(path, alias, decls, projects)
+	if err != nil || !resolved.found || !resolved.sourceOK {
+		return protocol.CompletionList{}, false, err
+	}
+	names, err := compositeExportNames(resolved.source, selectorKind)
+	if err != nil || len(names) == 0 {
+		return protocol.CompletionList{}, len(names) > 0, err
+	}
+	return completionList(namedCompletionItems(names, protocol.CompletionItemKindFunction)), true, nil
+}
+
+func compositeExportNames(src *resolve.Source, kind syntax.NodeKind) ([]string, error) {
+	if src == nil || src.Path == "" || kind == "" {
+		return nil, nil
+	}
+	matches, err := filepath.Glob(filepath.Join(src.Path, "*.ub"))
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0)
+	for _, path := range matches {
+		text, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		file, err := syntax.ParseSource(path, text)
+		if err != nil || file.Library == nil {
+			continue
+		}
+		for _, composite := range file.Library.Exports {
+			if composite.Kind == kind {
+				names = append(names, composite.Name.Name)
+			}
+		}
+	}
+	return names, nil
+}
+
 func goSelectorCompletions(
 	path string,
 	alias string,
@@ -446,29 +590,20 @@ func selectorCompletionNames(
 	case syntax.NodeAction:
 		return mapKeys(schema.Actions)
 	default:
-		names := mapKeys(schema.Resources)
-		names = append(names, mapKeys(schema.DataSources)...)
-		names = append(names, mapKeys(schema.Actions)...)
-		names = append(names, mapKeys(schema.Functions)...)
-		return names
+		return mapKeys(schema.Functions)
 	}
 }
 
-func selectorKindAtOffset(text string, offset int) syntax.NodeKind {
-	switch nearestBlockName(text, offset) {
-	case "resources":
-		return syntax.NodeResource
-	case "data-sources":
-		return syntax.NodeDataSource
-	case "actions":
-		return syntax.NodeAction
-	default:
+func selectorKindAtOffset(body *syntax.FactoryBody, offset int) syntax.NodeKind {
+	if body == nil {
 		return ""
 	}
-}
-
-func nearestBlockName(text string, offset int) string {
-	return nearestBlockNameFrom(text, offset, []string{"resources", "data-sources", "actions"})
+	for _, node := range allNodes(*body) {
+		if spanContainsOffset(node.Selector.S, offset) {
+			return node.Kind
+		}
+	}
+	return ""
 }
 
 func nearestFactoryChildBlockName(text string, offset int) string {
@@ -504,6 +639,241 @@ func nearestBlockNameFrom(text string, offset int, names []string) string {
 	return bestName
 }
 
+func nodeValueCompletions(
+	path string,
+	body *syntax.FactoryBody,
+	node syntax.NodeDecl,
+	fieldPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (protocol.CompletionList, bool, error) {
+	if list, found, err := goNodeValueCompletions(
+		path, body, node, fieldPath, decls, projects,
+	); found || err != nil {
+		return list, found, err
+	}
+	if list, found, err := compositeNodeValueCompletions(
+		path, body, node, fieldPath, decls, projects,
+	); found || err != nil {
+		return list, found, err
+	}
+	return completionList([]protocol.CompletionItem{}), true, nil
+}
+
+func nodeFieldCompletions(
+	path string,
+	node syntax.NodeDecl,
+	fieldPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (protocol.CompletionList, bool, error) {
+	if list, found, err := goNodeFieldCompletions(
+		path, node, fieldPath, decls, projects,
+	); found || err != nil {
+		return list, found, err
+	}
+	if list, found, err := compositeNodeFieldCompletions(
+		path, node, fieldPath, decls, projects,
+	); found || err != nil {
+		return list, found, err
+	}
+	return completionList([]protocol.CompletionItem{}), true, nil
+}
+
+func goNodeValueCompletions(
+	path string,
+	body *syntax.FactoryBody,
+	node syntax.NodeDecl,
+	fieldPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (protocol.CompletionList, bool, error) {
+	typeSchema, found, err := goNodeSchema(path, node, decls, projects)
+	if err != nil || !found || typeSchema == nil {
+		return protocol.CompletionList{}, found, err
+	}
+	target, ok := typeForFieldPath(typeSchema.Inputs, fieldPath)
+	if !ok || !target.IsKnown() {
+		return completionList([]protocol.CompletionItem{}), true, nil
+	}
+	items, err := valueCompletionItems(path, body, target, decls, projects)
+	if err != nil {
+		return protocol.CompletionList{}, true, err
+	}
+	return completionList(items), true, nil
+}
+
+func compositeNodeValueCompletions(
+	path string,
+	body *syntax.FactoryBody,
+	node syntax.NodeDecl,
+	fieldPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (protocol.CompletionList, bool, error) {
+	composite, found, err := compositeForNode(path, node, decls, projects)
+	if err != nil || !found {
+		return protocol.CompletionList{}, found, err
+	}
+	target, ok := typeForFieldPath(compositeInputTypes(composite.Body.Inputs), fieldPath)
+	if !ok || !target.IsKnown() {
+		return completionList([]protocol.CompletionItem{}), true, nil
+	}
+	items, err := valueCompletionItems(path, body, target, decls, projects)
+	if err != nil {
+		return protocol.CompletionList{}, true, err
+	}
+	return completionList(items), true, nil
+}
+
+func compositeNodeFieldCompletions(
+	path string,
+	node syntax.NodeDecl,
+	fieldPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (protocol.CompletionList, bool, error) {
+	composite, found, err := compositeForNode(path, node, decls, projects)
+	if err != nil || !found {
+		return protocol.CompletionList{}, found, err
+	}
+	return completionList(fieldCompletionItems(
+		compositeInputTypes(composite.Body.Inputs), fieldPath, node.Body,
+	)), true, nil
+}
+
+func compositeForNode(
+	path string,
+	node syntax.NodeDecl,
+	decls definitionDecls,
+	projects *ProjectCache,
+) (*syntax.CompositeDecl, bool, error) {
+	resolved, err := resolveImportAlias(path, node.Selector.Alias.Name, decls, projects)
+	if err != nil || !resolved.found || !resolved.sourceOK {
+		return nil, false, err
+	}
+	return findCompositeDecl(resolved.source, node.Kind, node.Selector.Export.Name)
+}
+
+func findCompositeDecl(
+	src *resolve.Source,
+	kind syntax.NodeKind,
+	export string,
+) (*syntax.CompositeDecl, bool, error) {
+	if src == nil || src.Path == "" {
+		return nil, false, nil
+	}
+	matches, err := filepath.Glob(filepath.Join(src.Path, "*.ub"))
+	if err != nil {
+		return nil, false, err
+	}
+	for _, path := range matches {
+		text, err := os.ReadFile(path)
+		if err != nil {
+			return nil, false, err
+		}
+		file, err := syntax.ParseSource(path, text)
+		if err != nil || file.Library == nil {
+			continue
+		}
+		for _, composite := range file.Library.Exports {
+			if composite.Kind == kind && composite.Name.Name == export {
+				return &composite, true, nil
+			}
+		}
+	}
+	return nil, false, nil
+}
+
+func compositeInputTypes(inputs []syntax.InputDecl) map[string]typecheck.Type {
+	out := make(map[string]typecheck.Type, len(inputs))
+	for _, input := range inputs {
+		out[input.Name.Name] = typecheck.FromLang(input.Type)
+	}
+	return out
+}
+
+func valueCompletionItems(
+	path string,
+	body *syntax.FactoryBody,
+	target typecheck.Type,
+	decls definitionDecls,
+	projects *ProjectCache,
+) ([]protocol.CompletionItem, error) {
+	items := make([]protocol.CompletionItem, 0)
+	if typecheck.Assignable(target, typecheck.TNull()) {
+		items = append(items, protocol.CompletionItem{
+			Label: "null",
+			Kind:  protocol.CompletionItemKindKeyword,
+		})
+	}
+	if typecheck.Assignable(target, typecheck.TBoolean()) {
+		items = append(items,
+			protocol.CompletionItem{Label: "false", Kind: protocol.CompletionItemKindKeyword},
+			protocol.CompletionItem{Label: "true", Kind: protocol.CompletionItemKindKeyword},
+		)
+	}
+	for _, input := range body.Inputs {
+		candidate := typecheck.FromLang(input.Type)
+		if completionTypeAssignable(target, candidate) {
+			items = append(items, protocol.CompletionItem{
+				Label: "input." + input.Name.Name,
+				Kind:  protocol.CompletionItemKindVariable,
+			})
+		}
+	}
+	locals, err := localCompletionTypes(path, body, projects)
+	if err != nil {
+		return nil, err
+	}
+	names := mapKeys(decls.locals)
+	slices.Sort(names)
+	for _, name := range names {
+		candidate, ok := locals[name]
+		if ok && completionTypeAssignable(target, candidate) {
+			items = append(items, protocol.CompletionItem{
+				Label: "local." + name,
+				Kind:  protocol.CompletionItemKindVariable,
+			})
+		}
+	}
+	slices.SortFunc(items, func(a, b protocol.CompletionItem) int {
+		return strings.Compare(a.Label, b.Label)
+	})
+	return items, nil
+}
+
+func completionTypeAssignable(target typecheck.Type, candidate typecheck.Type) bool {
+	if !target.IsKnown() || !candidate.IsKnown() {
+		return false
+	}
+	return typecheck.Assignable(target, candidate)
+}
+
+func localCompletionTypes(
+	path string,
+	body *syntax.FactoryBody,
+	projects *ProjectCache,
+) (map[string]typecheck.Type, error) {
+	out := map[string]typecheck.Type{}
+	if body == nil || len(body.Locals) == 0 {
+		return out, nil
+	}
+	libs, err := diagnosticLibraries(path, *body, projects)
+	if err != nil {
+		return nil, err
+	}
+	check.NewSyntax(*body, libs).References(func(expr parse.Expr, typ typecheck.Type) {
+		for _, local := range body.Locals {
+			if expr == local.Value {
+				out[local.Name.Name] = typ
+				return
+			}
+		}
+	})
+	return out, nil
+}
+
 func goNodeFieldCompletions(
 	path string,
 	node syntax.NodeDecl,
@@ -515,7 +885,7 @@ func goNodeFieldCompletions(
 	if err != nil || !found || typeSchema == nil {
 		return protocol.CompletionList{}, found, err
 	}
-	return completionList(fieldCompletionItems(typeSchema.Inputs, fieldPath)), true, nil
+	return completionList(fieldCompletionItems(typeSchema.Inputs, fieldPath, node.Body)), true, nil
 }
 
 func goConfigFieldCompletionsForPath(
@@ -549,32 +919,53 @@ func goConfigFieldCompletions(
 	if err != nil || !found {
 		return protocol.CompletionList{}, found, err
 	}
-	return completionList(fieldCompletionItems(schema.Configuration, fieldPath)), true, nil
+	return completionList(fieldCompletionItems(schema.Configuration, fieldPath, nil)), true, nil
 }
 
 func fieldCompletionItems(
 	fields map[string]typecheck.Type,
 	fieldPath string,
+	obj *parse.ObjectLit,
 ) []protocol.CompletionItem {
 	parent := fieldParentPath(fieldPath)
+	prefix := fieldLeafPrefix(fieldPath)
+	present := objectFieldNamesAtPath(obj, parent)
+	if fieldPath != "" {
+		delete(present, fieldPath)
+	}
 	if parent == "" {
-		return namedCompletionItems(mapKeys(fields), protocol.CompletionItemKindField)
+		return namedFieldCompletionItems(mapKeys(fields), prefix, present)
 	}
 	typ, ok := typeForFieldPath(fields, parent)
 	if !ok {
 		return nil
 	}
 	typ = typ.Unwrap()
-	items := make([]protocol.CompletionItem, 0, len(typ.Fields))
+	names := make([]string, 0, len(typ.Fields))
 	for _, field := range typ.Fields {
+		names = append(names, field.Name)
+	}
+	return namedFieldCompletionItems(names, prefix, present)
+}
+
+func namedFieldCompletionItems(
+	names []string,
+	prefix string,
+	present map[string]bool,
+) []protocol.CompletionItem {
+	names = append([]string(nil), names...)
+	slices.Sort(names)
+	names = slices.Compact(names)
+	items := make([]protocol.CompletionItem, 0, len(names))
+	for _, name := range names {
+		if present[name] || (prefix != "" && !strings.HasPrefix(name, prefix)) {
+			continue
+		}
 		items = append(items, protocol.CompletionItem{
-			Label: field.Name,
+			Label: name,
 			Kind:  protocol.CompletionItemKindField,
 		})
 	}
-	slices.SortFunc(items, func(a, b protocol.CompletionItem) int {
-		return strings.Compare(a.Label, b.Label)
-	})
 	return items
 }
 
@@ -584,6 +975,58 @@ func fieldParentPath(fieldPath string) string {
 		return ""
 	}
 	return fieldPath[:idx]
+}
+
+func fieldLeafPrefix(fieldPath string) string {
+	idx := strings.LastIndex(fieldPath, ".")
+	if idx < 0 {
+		return fieldPath
+	}
+	return fieldPath[idx+1:]
+}
+
+func objectFieldNamesAtPath(obj *parse.ObjectLit, fieldPath string) map[string]bool {
+	out := map[string]bool{}
+	target := objectAtPath(obj, fieldPath)
+	if target == nil {
+		return out
+	}
+	for _, field := range target.Fields {
+		name, ok := fieldKeyName(field.Key)
+		if ok {
+			out[name] = true
+		}
+	}
+	return out
+}
+
+func objectAtPath(obj *parse.ObjectLit, fieldPath string) *parse.ObjectLit {
+	if obj == nil || fieldPath == "" {
+		return obj
+	}
+	current := obj
+	for part := range strings.SplitSeq(fieldPath, ".") {
+		if part == "" {
+			return nil
+		}
+		var next *parse.ObjectLit
+		for _, field := range current.Fields {
+			name, ok := fieldKeyName(field.Key)
+			if !ok || name != part {
+				continue
+			}
+			next, _ = field.Value.(*parse.ObjectLit)
+			if next == nil && field.Decl != nil {
+				next = field.Decl.Body
+			}
+			break
+		}
+		if next == nil {
+			return nil
+		}
+		current = next
+	}
+	return current
 }
 
 func typeForFieldPath(

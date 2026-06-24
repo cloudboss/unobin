@@ -1,0 +1,34 @@
+factory: {
+  inputs: {
+    name: { type: string }
+    count: { type: integer }
+    definition-config: {
+      type: library-config('example.com/definition')
+      default: {
+        region: 'us-east-1'
+        retry: { count: 3 }
+      }
+    }
+  }
+  locals: {
+    std-name: input.name
+    tags: { env: 'dev' }
+  }
+  imports: {
+    def: 'example.com/definition'
+  }
+  library-configs: {
+    def: input.definition-config
+  }
+  resources: {
+    server: def.server {
+      id: 'input-id'
+      server-name: 'web'
+      settings: {
+        endpoint: {
+          url: 'https://example.com'
+        }
+      }
+    }
+  }
+}

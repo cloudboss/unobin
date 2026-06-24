@@ -134,7 +134,7 @@ func (s *Session) handleInitialize(params json.RawMessage) (any, *protocol.Respo
 			DefinitionProvider:         true,
 			DocumentSymbolProvider:     true,
 			CompletionProvider: &protocol.CompletionOptions{
-				TriggerCharacters: []string{".", "@"},
+				TriggerCharacters: []string{".", "@", ":", " "},
 			},
 			HoverProvider: true,
 		},

@@ -125,11 +125,65 @@ func TestCompletionResourcesSelectorUsesResourceSchemaOnly(t *testing.T) {
 func TestCompletionGoBackedBodyFieldsAtBlankPosition(t *testing.T) {
 	root, path, source, _ := goDefinitionProject(t)
 	source = strings.Replace(source, "server-name: 'web'", "", 1)
-	pos := positionInText(source, "settings:", "")
+	settingsOffset := strings.Index(source, "      settings:")
+	require.NotEqual(t, -1, settingsOffset)
+	source = source[:settingsOffset] + "      \n" + source[settingsOffset:]
+	pos := OffsetToLSP(source, settingsOffset+6)
 
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "id", "server-name", "settings")
+	requireCompletionLabels(t, list, "server-name")
+	requireNotCompletionLabels(t, list, "id", "settings")
+}
+
+func TestCompletionGoBackedBodyKeyPrefixUsesSchemaContext(t *testing.T) {
+	root, path, _, _ := goDefinitionProject(t)
+	source := ubtest.ReadValidFixture(
+		t, "testdata/ub/completion", "go-backed-typed-value",
+	)
+	source, pos := sourceWithCompletionCursor(t, source, "server-name: 'web'", "s")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "server-name")
+	requireNotCompletionLabels(t, list,
+		"@core", "action", "data-source", "input", "local", "resource", "settings")
+}
+
+func TestCompletionGoBackedBodyKeyPrefixExcludesPresentFields(t *testing.T) {
+	root, path, _, _ := goDefinitionProject(t)
+	source := ubtest.ReadValidFixture(
+		t, "testdata/ub/completion", "go-backed-typed-value",
+	)
+	source, pos := sourceWithCompletionCursor(t, source, "id: 'input-id'", "s")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Empty(t, list.Items)
+}
+
+func TestCompletionGoBackedStringFieldValueUsesTypeContext(t *testing.T) {
+	root, path, _, _ := goDefinitionProject(t)
+	source := ubtest.ReadValidFixture(
+		t, "testdata/ub/completion", "go-backed-typed-value",
+	)
+	source, pos := sourceWithCompletionCursor(t, source, "server-name: 'web'", "server-name: ")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "input.name", "local.std-name")
+	requireNotCompletionLabels(t, list,
+		"@core", "action", "data-source", "input", "local", "resource",
+		"input.count", "input.definition-config", "local.tags")
+}
+
+func TestCompletionGoBackedFieldValueDoesNotFallBackToRoots(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "id: 'input-id'", "id: ")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Empty(t, list.Items)
 }
 
 func TestCompletionRoots(t *testing.T) {
@@ -193,6 +247,46 @@ func TestCompletionGoBackedSelectors(t *testing.T) {
 	requireNotCompletionLabels(t, list, "lookup", "deploy", "slug")
 }
 
+func TestCompletionUBCompositeSelectors(t *testing.T) {
+	root, path, source, _ := definitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "bundle.web", "bundle.")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "web")
+	requireNotCompletionLabels(t, list, "lookup", "deploy")
+}
+
+func TestCompletionUBCompositeBodyKeys(t *testing.T) {
+	root, path, source, _ := definitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "name: local.name", "n")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "name")
+	requireNotCompletionLabels(t, list, "@core", "action", "input", "local", "resource")
+}
+
+func TestCompletionUBCompositeValuesUseInputTypes(t *testing.T) {
+	root, path, source, _ := definitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "name: local.name", "name: ")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "input.region", "local.name")
+	requireNotCompletionLabels(t, list, "@core", "input", "local", "resource")
+}
+
+func TestCompletionGoBackedExpressionSelectorsUseFunctionsOnly(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "def.slug('v1')", "def.")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "slug")
+	requireNotCompletionLabels(t, list, "server", "lookup", "deploy")
+}
+
 func TestCompletionSelectorWithMissingCachedSourceReturnsEmptyList(t *testing.T) {
 	_, path, source, cache := missingCachedGoDefinitionProject(t)
 	source, pos := sourceWithCompletionCursor(t, source, "def.slug('v1')", "def.")
@@ -208,7 +302,8 @@ func TestCompletionGoBackedBodyFields(t *testing.T) {
 	list, rpcErr := CompleteForText(path, source,
 		positionInText(source, "server-name: 'web'", "server-name"), NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "id", "server-name", "settings")
+	requireCompletionLabels(t, list, "server-name")
+	requireNotCompletionLabels(t, list, "id", "settings")
 }
 
 func TestCompletionUnknownGoNodeSelectorReturnsEmptyList(t *testing.T) {
@@ -228,7 +323,8 @@ func TestCompletionGoBackedConfigFields(t *testing.T) {
 	list, rpcErr := CompleteForText(path, source,
 		positionInText(source, "region: 'us-east-1'", "region"), NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "region", "retry")
+	requireCompletionLabels(t, list, "region")
+	requireNotCompletionLabels(t, list, "retry")
 }
 
 func TestCompletionDoesNotFetchRemotes(t *testing.T) {
