@@ -241,6 +241,16 @@ func definitionProject(t *testing.T) (string, string, string, string) {
 
 func goDefinitionProject(t *testing.T) (string, string, string, string) {
 	t.Helper()
+	return goDefinitionProjectFixture(
+		t, "testdata/ub/definition/valid/go-backed-factory.ub",
+	)
+}
+
+func goDefinitionProjectFixture(
+	t *testing.T,
+	fixture string,
+) (string, string, string, string) {
+	t.Helper()
 	root := t.TempDir()
 	goDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "definition"))
 	require.NoError(t, err)
@@ -249,7 +259,7 @@ func goDefinitionProject(t *testing.T) (string, string, string, string) {
 		Requires: map[deps.Dependency]deps.Requirement{},
 		Replace:  map[deps.Dependency]string{dep: goDir},
 	}))
-	factorySource := ubtest.ReadFixture(t, "testdata/ub/definition/valid/go-backed-factory.ub")
+	factorySource := ubtest.ReadFixture(t, fixture)
 	factoryPath := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
 	return root, factoryPath, factorySource, goDir

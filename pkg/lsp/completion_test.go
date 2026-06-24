@@ -85,6 +85,17 @@ func TestCompletionGoBackedBodyFields(t *testing.T) {
 	requireCompletionLabels(t, list, "id", "server-name", "settings")
 }
 
+func TestCompletionUnknownGoNodeSelectorReturnsEmptyList(t *testing.T) {
+	root, path, source, _ := goDefinitionProjectFixture(
+		t, "testdata/ub/definition/valid/go-backed-unknown-node.ub",
+	)
+
+	list, rpcErr := CompleteForText(path, source,
+		positionInText(source, "server-name: 'web'", "server-name"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Empty(t, list.Items)
+}
+
 func TestCompletionGoBackedConfigFields(t *testing.T) {
 	root, path, source, _ := goDefinitionProject(t)
 

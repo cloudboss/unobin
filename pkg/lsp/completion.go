@@ -233,7 +233,7 @@ func goNodeFieldCompletions(
 	projects *ProjectCache,
 ) (protocol.CompletionList, bool, error) {
 	typeSchema, found, err := goNodeSchema(path, node, decls, projects)
-	if err != nil || !found {
+	if err != nil || !found || typeSchema == nil {
 		return protocol.CompletionList{}, found, err
 	}
 	return completionList(fieldCompletionItems(typeSchema.Inputs, fieldPath)), true, nil

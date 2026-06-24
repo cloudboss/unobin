@@ -209,7 +209,7 @@ func goNodeFieldHover(
 	projects *ProjectCache,
 ) (*protocol.Hover, bool, error) {
 	typeSchema, found, err := goNodeSchema(path, node, decls, projects)
-	if err != nil || !found {
+	if err != nil || !found || typeSchema == nil {
 		return nil, found, err
 	}
 	typ, ok := typeForFieldPath(typeSchema.Inputs, fieldPath)
@@ -227,7 +227,7 @@ func goNodeRefFieldHover(
 	projects *ProjectCache,
 ) (*protocol.Hover, bool, error) {
 	typeSchema, found, err := goNodeSchema(path, node, decls, projects)
-	if err != nil || !found {
+	if err != nil || !found || typeSchema == nil {
 		return nil, found, err
 	}
 	if typ, ok := typeForFieldPath(typeSchema.Outputs, fieldPath); ok {

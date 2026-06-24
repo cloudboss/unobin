@@ -31,6 +31,17 @@ func TestHoverGoSchemaFieldType(t *testing.T) {
 	require.Equal(t, "server-name: string", hover.Contents.Value)
 }
 
+func TestHoverUnknownGoNodeSelectorReturnsNoHover(t *testing.T) {
+	root, path, source, _ := goDefinitionProjectFixture(
+		t, "testdata/ub/definition/valid/go-backed-unknown-node.ub",
+	)
+
+	hover, rpcErr := HoverForText(path, source,
+		positionInText(source, "server-name: 'web'", "server-name"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Nil(t, hover)
+}
+
 func TestHoverGoFunctionSignature(t *testing.T) {
 	root, path, source, _ := goDefinitionProject(t)
 
