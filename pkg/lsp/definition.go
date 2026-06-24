@@ -149,9 +149,14 @@ func definitionAtOffset(
 		return nil, false, nil
 	}
 	for _, imp := range body.Imports {
-		if spanContainsOffset(imp.Alias.S, offset) {
+		if identContainsOffset(text, imp.Alias, offset) {
 			return goImportAliasDefinition(path, imp.Alias.Name, decls, projects)
 		}
+	}
+	if locations, found, err := libraryConfigTypeDefinition(
+		path, text, offset, body.Inputs, decls, projects,
+	); found || err != nil {
+		return locations, found, err
 	}
 	if locations, found, err := libraryConfigInputDefinition(
 		path, text, offset, body.Inputs, decls, projects,
@@ -159,6 +164,9 @@ func definitionAtOffset(
 		return locations, found, err
 	}
 	for _, cfg := range body.LibraryConfigs {
+		if identContainsOffset(text, cfg.Alias, offset) {
+			return goConfigTypeDefinition(path, cfg.Alias.Name, decls, projects)
+		}
 		obj, ok := cfg.Value.(*parse.ObjectLit)
 		if !ok {
 			continue
@@ -195,6 +203,73 @@ func definitionAtOffset(
 		return []protocol.Location{}, true, nil
 	}
 	return nil, false, nil
+}
+
+func libraryConfigTypeDefinition(
+	path string,
+	text string,
+	offset int,
+	inputs []syntax.InputDecl,
+	decls definitionDecls,
+	projects *ProjectCache,
+) ([]protocol.Location, bool, error) {
+	for _, input := range inputs {
+		lib, ok := typeLibraryConfigAtOffset(text, input.Type, offset)
+		if !ok || lib.Path == nil {
+			continue
+		}
+		return goConfigTypeDefinitionForPath(path, lib.Path.Value, decls, projects)
+	}
+	return nil, false, nil
+}
+
+func typeLibraryConfigAtOffset(
+	text string,
+	typ parse.TypeExpr,
+	offset int,
+) (*parse.TypeLibraryConfig, bool) {
+	switch v := typ.(type) {
+	case *parse.TypeLibraryConfig:
+		if typeConstructorContainsOffset(text, v.S, "library-config", offset) {
+			return v, true
+		}
+	case *parse.TypeList:
+		return typeLibraryConfigAtOffset(text, v.Elem, offset)
+	case *parse.TypeMap:
+		return typeLibraryConfigAtOffset(text, v.Elem, offset)
+	case *parse.TypeOptional:
+		return typeLibraryConfigAtOffset(text, v.Elem, offset)
+	case *parse.TypeTuple:
+		for _, elem := range v.Elements {
+			if lib, ok := typeLibraryConfigAtOffset(text, elem, offset); ok {
+				return lib, true
+			}
+		}
+	case *parse.TypeObject:
+		for _, field := range v.Fields {
+			if field.Type == nil {
+				continue
+			}
+			if lib, ok := typeLibraryConfigAtOffset(text, field.Type, offset); ok {
+				return lib, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func typeConstructorContainsOffset(
+	text string,
+	span parse.Span,
+	name string,
+	offset int,
+) bool {
+	start := span.Start.Offset
+	end := start + len(name)
+	if start < 0 || end > len(text) || text[start:end] != name {
+		return spanContainsOffset(span, offset)
+	}
+	return offset >= start && offset < end
 }
 
 func libraryConfigInputDefinition(
@@ -556,6 +631,38 @@ func goNodeRefFieldDefinition(
 	return []protocol.Location{}, true, nil
 }
 
+func goConfigTypeDefinitionForPath(
+	path string,
+	libraryPath string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) ([]protocol.Location, bool, error) {
+	for alias, imp := range decls.imports {
+		if imp.Ref == nil || imp.Ref.Value != libraryPath {
+			continue
+		}
+		return goConfigTypeDefinition(path, alias, decls, projects)
+	}
+	return []protocol.Location{}, true, nil
+}
+
+func goConfigTypeDefinition(
+	path string,
+	alias string,
+	decls definitionDecls,
+	projects *ProjectCache,
+) ([]protocol.Location, bool, error) {
+	resolved, err := resolveImportAlias(path, alias, decls, projects)
+	if err != nil || !resolved.found {
+		return nil, false, err
+	}
+	index, found, err := goIndexForResolved(resolved)
+	if err != nil || !found {
+		return []protocol.Location{}, found, err
+	}
+	return goLocationDefinition(index.ConfigType)
+}
+
 func goConfigFieldDefinitionForPath(
 	path string,
 	libraryPath string,
@@ -778,6 +885,14 @@ func fieldKeyName(key parse.FieldKey) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func identContainsOffset(text string, ident syntax.Ident, offset int) bool {
+	start := ident.S.Start.Offset
+	if start < 0 || start >= len(text) {
+		return spanContainsOffset(ident.S, offset)
+	}
+	return offset >= start && offset < symbolEnd(text, start)
 }
 
 func fieldKeyContainsOffset(text string, key parse.FieldKey, offset int) bool {

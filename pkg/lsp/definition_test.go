@@ -149,12 +149,42 @@ func TestDefinitionGoImportAlias(t *testing.T) {
 	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
 	cache := NewProjectCache(root)
 	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+	start := offsetInText(factorySource, "def: 'example.com/definition'", "def")
+
+	for i := range len("def") {
+		locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+			OffsetToLSP(factorySource, start+i), cache)
+		require.Nil(t, rpcErr)
+		requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+			"func Library()", "Library")
+	}
+}
+
+func TestDefinitionLibraryConfigTypeConstructor(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
 
 	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
-		positionInText(factorySource, "def: 'example.com/definition'", "def"), cache)
+		positionInText(factorySource, "type: library-config", "library-config"), cache)
 	require.Nil(t, rpcErr)
 	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
-		"func Library()", "Library")
+		"type Config struct", "Config")
+}
+
+func TestDefinitionLibraryConfigAlias(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+	start := offsetInText(factorySource, "def: input.definition-config", "def")
+
+	for i := range len("def") {
+		locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+			OffsetToLSP(factorySource, start+i), cache)
+		require.Nil(t, rpcErr)
+		requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+			"type Config struct", "Config")
+	}
 }
 
 func TestDefinitionGoNodeSelector(t *testing.T) {
@@ -559,15 +589,19 @@ func requestDefinition(
 }
 
 func positionInText(text string, contextText string, target string) protocol.Position {
+	return OffsetToLSP(text, offsetInText(text, contextText, target))
+}
+
+func offsetInText(text string, contextText string, target string) int {
 	contextOffset := strings.Index(text, contextText)
 	if contextOffset < 0 {
-		return protocol.Position{}
+		return 0
 	}
 	targetOffset := strings.Index(contextText, target)
 	if targetOffset < 0 {
-		return protocol.Position{}
+		return 0
 	}
-	return OffsetToLSP(text, contextOffset+targetOffset)
+	return contextOffset + targetOffset
 }
 
 func requireDefinitionLocation(
