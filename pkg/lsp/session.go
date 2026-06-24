@@ -8,6 +8,13 @@ import (
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 )
 
+// Options configures an LSP session.
+type Options struct {
+	Version string
+	Trace   io.Writer
+	Log     io.Writer
+}
+
 // Session owns the state for one LSP client connection.
 type Session struct {
 	version   string
@@ -29,8 +36,16 @@ func NewSession(version string) *Session {
 
 // Serve runs an LSP session over stdio-compatible streams.
 func Serve(ctx context.Context, in io.Reader, out io.Writer, version string) error {
-	session := NewSession(version)
-	server := protocol.NewServer(in, out, session)
+	return ServeWithOptions(ctx, in, out, Options{Version: version})
+}
+
+// ServeWithOptions runs an LSP session over stdio-compatible streams.
+func ServeWithOptions(ctx context.Context, in io.Reader, out io.Writer, options Options) error {
+	session := NewSession(options.Version)
+	server := protocol.NewServerWithOptions(in, out, session, protocol.ServerOptions{
+		Trace: options.Trace,
+		Log:   options.Log,
+	})
 	return server.Serve(ctx)
 }
 

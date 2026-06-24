@@ -106,6 +106,42 @@ func TestServerReturnsInvalidRequestWithNullID(t *testing.T) {
 	require.Equal(t, ErrorCodeInvalidRequest, response.Error.Code)
 }
 
+func TestServerTraceIncludesNotification(t *testing.T) {
+	request := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)
+	var input bytes.Buffer
+	require.NoError(t, WriteMessage(&input, request))
+	var output bytes.Buffer
+	var trace bytes.Buffer
+	handler := &traceNotificationHandler{t: t}
+
+	server := NewServerWithOptions(&input, &output, handler, ServerOptions{Trace: &trace})
+	require.NoError(t, server.Serve(context.Background()))
+	require.Contains(t, trace.String(), `"direction":"in"`)
+	require.Contains(t, trace.String(), `"direction":"out"`)
+	require.Contains(t, trace.String(), "window/logMessage")
+}
+
+type traceNotificationHandler struct {
+	t      *testing.T
+	sender Sender
+}
+
+func (h *traceNotificationHandler) SetSender(sender Sender) {
+	h.sender = sender
+}
+
+func (h *traceNotificationHandler) HandleRequest(
+	ctx context.Context,
+	req *RequestMessage,
+) (any, *ResponseError) {
+	_ = ctx
+	_ = req
+	require.NoError(h.t, h.sender("window/logMessage", map[string]string{
+		"message": "hello",
+	}))
+	return nil, nil
+}
+
 func TestServerReturnsMethodNotFound(t *testing.T) {
 	request := []byte(`{"jsonrpc":"2.0","id":1,"method":"unknown"}`)
 	var input bytes.Buffer
