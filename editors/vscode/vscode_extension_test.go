@@ -33,6 +33,35 @@ func TestPackageDeclaresUnobinLanguage(t *testing.T) {
 	require.Contains(t, pkg.Contributes.Configuration.Properties, "unobin.path")
 }
 
+func TestPackageCanBuildForPublishing(t *testing.T) {
+	var pkg struct {
+		Scripts    map[string]string `json:"scripts"`
+		Repository map[string]string `json:"repository"`
+		Bugs       map[string]string `json:"bugs"`
+		Keywords   []string          `json:"keywords"`
+		Files      []string          `json:"files"`
+	}
+	readJSON(t, "package.json", &pkg)
+
+	require.Equal(t, "npm run compile", pkg.Scripts["vscode:prepublish"])
+	require.Equal(t, "git", pkg.Repository["type"])
+	require.NotEmpty(t, pkg.Repository["url"])
+	require.NotEmpty(t, pkg.Bugs["url"])
+	require.Contains(t, pkg.Keywords, "unobin")
+	require.Contains(t, pkg.Files, "out")
+	require.Contains(t, pkg.Files, "syntaxes")
+}
+
+func TestPackageReadmeExists(t *testing.T) {
+	body, err := os.ReadFile("README.md")
+	require.NoError(t, err)
+	text := string(body)
+
+	require.Contains(t, text, "unobin.path")
+	require.Contains(t, text, "unobin lsp")
+	require.Contains(t, text, "npm run compile")
+}
+
 func TestExtensionWatchesFilesThatAffectLSPCaches(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("src", "extension.ts"))
 	require.NoError(t, err)
