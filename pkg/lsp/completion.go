@@ -32,6 +32,9 @@ func CompleteForText(
 	if list, ok := completionForSourceContext(text, offset); ok {
 		return list, nil
 	}
+	if list, ok := inputDeclarationSourceCompletions(text, offset); ok {
+		return list, nil
+	}
 	file, err := parseCompletionSource(path, text, offset)
 	if err != nil {
 		return completionList([]protocol.CompletionItem{}), nil
@@ -68,7 +71,8 @@ func completionForSourceContext(
 		return completionList(fileRoleCompletionItems()), true
 	}
 	prefix := currentLinePrefix(text, offset)
-	if typeValueCompletionContext(prefix) {
+	if inputDeclarationTypeValueCompletionContext(text, offset) ||
+		typeValueCompletionContext(prefix) {
 		return completionList(typeCompletionItems()), true
 	}
 	if selectorValueCompletionContext(prefix, "state") {
@@ -86,7 +90,7 @@ func completionForSourceContext(
 	if stackBlockCompletionContext(text, offset) {
 		return completionList(stackBlockCompletionItems()), true
 	}
-	if inputDeclarationCompletionContext(text, offset) {
+	if inputDeclarationLineStartCompletionContext(text, offset) {
 		return completionList(inputDeclarationCompletionItems(text, offset)), true
 	}
 	if factoryBlockCompletionContext(text, offset) {
@@ -118,12 +122,10 @@ func currentLineSuffix(text string, offset int) string {
 	return text[offset : offset+end]
 }
 
-func inputDeclarationCompletionContext(text string, offset int) bool {
-	if !insideNamedBlock(text, offset, "inputs") ||
-		typeValueCompletionContext(currentLinePrefix(text, offset)) {
-		return false
-	}
-	if strings.TrimSpace(currentLinePrefix(text, offset)) != "" {
+func inputDeclarationLineStartCompletionContext(text string, offset int) bool {
+	if typeValueCompletionContext(currentLinePrefix(text, offset)) ||
+		!insideInputDeclarationObject(text, offset) ||
+		strings.TrimSpace(currentLinePrefix(text, offset)) != "" {
 		return false
 	}
 	candidate := strings.TrimSpace(currentLineSuffix(text, offset))
@@ -136,6 +138,285 @@ func inputDeclarationCompletionContext(text string, offset int) bool {
 		}
 	}
 	return false
+}
+
+func inputDeclarationSourceCompletions(
+	text string,
+	offset int,
+) (protocol.CompletionList, bool) {
+	if inputDeclarationTypeValueCompletionContext(text, offset) {
+		return completionList(typeCompletionItems()), true
+	}
+	if !inputDeclarationCompletionContext(text, offset) {
+		return protocol.CompletionList{}, false
+	}
+	items := inputDeclarationSourceCompletionItems(text, offset)
+	return completionList(items), true
+}
+
+func inputDeclarationSourceCompletionItems(
+	text string,
+	offset int,
+) []protocol.CompletionItem {
+	items := namedFieldCompletionItems(
+		[]string{"type", "description", "default", "@sensitive"},
+		completionObjectFieldKeyPrefix(text, offset),
+		inputDeclarationPresentKeys(text, offset),
+	)
+	return withMetaKeyTextEdits(text, offset, items)
+}
+
+func inputDeclarationCompletionContext(text string, offset int) bool {
+	if !insideInputDeclarationObject(text, offset) {
+		return false
+	}
+	_, afterColon, valueStarted, ok := inputDeclarationFieldAtOffset(text, offset)
+	if !ok || (afterColon && !valueStarted) {
+		return false
+	}
+	return completionObjectCandidateMatches(
+		text, offset, []string{"type", "description", "default", "@sensitive"},
+	)
+}
+
+func inputDeclarationTypeValueCompletionContext(text string, offset int) bool {
+	if !insideInputDeclarationObject(text, offset) {
+		return false
+	}
+	name, afterColon, valueStarted, ok := inputDeclarationFieldAtOffset(text, offset)
+	return ok && afterColon && !valueStarted && name == "type"
+}
+
+func completionObjectCandidateMatches(text string, offset int, keys []string) bool {
+	candidate := completionObjectFieldKeyPrefix(text, offset)
+	if candidate == "" {
+		return true
+	}
+	for _, key := range keys {
+		if strings.HasPrefix(key, candidate) || strings.HasPrefix(candidate, key+":") {
+			return true
+		}
+	}
+	return false
+}
+
+func completionObjectFieldKeyPrefix(text string, offset int) string {
+	name, afterColon, _, ok := inputDeclarationFieldAtOffset(text, offset)
+	if !ok || afterColon {
+		return ""
+	}
+	return name
+}
+
+func insideInputDeclarationObject(text string, offset int) bool {
+	if !insideNamedBlock(text, offset, "inputs") {
+		return false
+	}
+	open := nearestOpenObject(text, offset)
+	if open < 0 {
+		return false
+	}
+	key, ok := objectFieldKeyBeforeOpen(text, open)
+	if !ok {
+		return false
+	}
+	switch key {
+	case "inputs", "type", "description", "default", "@sensitive":
+		return false
+	default:
+		return true
+	}
+}
+
+func nearestOpenObject(text string, offset int) int {
+	depth := make([]int, 0)
+	for i, r := range text[:offset] {
+		switch r {
+		case '{':
+			depth = append(depth, i)
+		case '}':
+			if len(depth) > 0 {
+				depth = depth[:len(depth)-1]
+			}
+		}
+	}
+	if len(depth) == 0 {
+		return -1
+	}
+	return depth[len(depth)-1]
+}
+
+func objectFieldKeyBeforeOpen(text string, open int) (string, bool) {
+	i := open - 1
+	for i >= 0 && isSpaceByte(text[i]) {
+		i--
+	}
+	if i < 0 || text[i] != ':' {
+		return "", false
+	}
+	i--
+	for i >= 0 && isSpaceByte(text[i]) {
+		i--
+	}
+	end := i + 1
+	for i >= 0 && isSymbolByte(text[i]) {
+		i--
+	}
+	start := i + 1
+	if start >= end {
+		return "", false
+	}
+	return text[start:end], true
+}
+
+func inputDeclarationFieldAtOffset(text string, offset int) (string, bool, bool, bool) {
+	open := nearestOpenObject(text, offset)
+	if open < 0 {
+		return "", false, false, false
+	}
+	name := ""
+	afterColon := false
+	valueStarted := false
+	for i := open + 1; i < offset && i < len(text); {
+		switch {
+		case isSpaceByte(text[i]):
+			i++
+			continue
+		case text[i] == '#':
+			i = skipLineComment(text, i)
+			continue
+		case text[i] == '\'':
+			if afterColon {
+				valueStarted = true
+			}
+			i = skipSingleQuotedString(text, i)
+			continue
+		case text[i] == '{':
+			if afterColon {
+				valueStarted = true
+			}
+			i = matchingObjectClose(text, i) + 1
+			continue
+		case !isSymbolByte(text[i]):
+			if afterColon {
+				valueStarted = true
+			}
+			i++
+			continue
+		}
+		start := i
+		for i < offset && i < len(text) && isSymbolByte(text[i]) {
+			i++
+		}
+		candidate := text[start:i]
+		j := i
+		for j < offset && j < len(text) && isSpaceByte(text[j]) {
+			j++
+		}
+		if j < offset && j < len(text) && text[j] == ':' {
+			name = candidate
+			afterColon = true
+			valueStarted = false
+			i = j + 1
+			continue
+		}
+		if i >= offset {
+			if afterColon && !valueStarted {
+				return name, true, true, true
+			}
+			return candidate, false, false, true
+		}
+		if afterColon {
+			valueStarted = true
+		}
+	}
+	if name == "" {
+		return "", false, false, false
+	}
+	return name, afterColon, valueStarted, true
+}
+
+func inputDeclarationPresentKeys(text string, offset int) map[string]bool {
+	present := map[string]bool{}
+	open := nearestOpenObject(text, offset)
+	if open < 0 {
+		return present
+	}
+	close := matchingObjectClose(text, open)
+	for i := open + 1; i < close; {
+		switch {
+		case isSpaceByte(text[i]):
+			i++
+			continue
+		case text[i] == '#':
+			i = skipLineComment(text, i)
+			continue
+		case text[i] == '\'':
+			i = skipSingleQuotedString(text, i)
+			continue
+		case text[i] == '{':
+			i = matchingObjectClose(text, i) + 1
+			continue
+		case !isSymbolByte(text[i]):
+			i++
+			continue
+		}
+		start := i
+		for i < close && isSymbolByte(text[i]) {
+			i++
+		}
+		name := text[start:i]
+		j := i
+		for j < close && isSpaceByte(text[j]) {
+			j++
+		}
+		if j < close && text[j] == ':' {
+			present[name] = true
+		}
+	}
+	return present
+}
+
+func matchingObjectClose(text string, open int) int {
+	depth := 0
+	for i := open; i < len(text); i++ {
+		switch text[i] {
+		case '#':
+			i = skipLineComment(text, i) - 1
+		case '\'':
+			i = skipSingleQuotedString(text, i) - 1
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return len(text)
+}
+
+func skipLineComment(text string, offset int) int {
+	for offset < len(text) && text[offset] != '\n' {
+		offset++
+	}
+	return offset
+}
+
+func skipSingleQuotedString(text string, offset int) int {
+	offset++
+	for offset < len(text) {
+		if text[offset] == '\\' {
+			offset += 2
+			continue
+		}
+		if text[offset] == '\'' {
+			return offset + 1
+		}
+		offset++
+	}
+	return offset
 }
 
 func projectRequirementCompletionContext(text string, offset int) bool {

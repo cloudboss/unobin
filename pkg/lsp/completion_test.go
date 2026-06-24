@@ -103,6 +103,102 @@ func TestCompletionInputDeclarationKeys(t *testing.T) {
 	requireCompletionLabels(t, list, "type", "description", "default")
 }
 
+func TestCompletionInputDeclarationSuggestsMissingType(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "type: library-config", "t")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "type")
+}
+
+func TestCompletionInlineInputDeclarationSuggestsMissingType(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "type: string", "t")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "type")
+}
+
+func TestCompletionInlineInputDeclarationSuggestsMissingTypeAfterExistingField(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	tests := []struct {
+		name     string
+		existing string
+	}{
+		{name: "default", existing: "default: 'foo'"},
+		{name: "description", existing: "description: 'example'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, pos := inputDeclarationExistingFieldSource(t, source, tt.existing+" t")
+
+			list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+			require.Nil(t, rpcErr)
+			requireOnlyCompletionLabels(t, list, "type")
+		})
+	}
+}
+
+func TestCompletionInlineInputDeclarationKeysAfterExistingField(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	tests := []struct {
+		name     string
+		existing string
+		want     []string
+	}{
+		{
+			name:     "default",
+			existing: "default: 'foo'",
+			want:     []string{"@sensitive", "description", "type"},
+		},
+		{
+			name:     "description",
+			existing: "description: 'example'",
+			want:     []string{"@sensitive", "default", "type"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, pos := inputDeclarationExistingFieldSource(t, source, tt.existing+" ")
+
+			list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+			require.Nil(t, rpcErr)
+			requireOnlyCompletionLabels(t, list, tt.want...)
+		})
+	}
+}
+
+func TestCompletionInlineInputDeclarationTypeValue(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "type: string", "type:")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "string", "boolean", "library-config")
+	requireNotCompletionLabels(t, list, "@sensitive", "default", "input", "type")
+}
+
+func TestCompletionInputDeclarationTypeValueOnOpeningLine(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := inputDeclarationOpeningLineTypeSource(t, source)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "string", "boolean", "library-config")
+	requireNotCompletionLabels(t, list, "@sensitive", "default", "input", "type")
+}
+
+func TestCompletionInputDeclarationIgnoresCommentedType(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := inputDeclarationCommentedTypeSource(t, source)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "type")
+}
+
 func TestCompletionInputDeclarationMetaKeys(t *testing.T) {
 	root, path, source := completionProject(t)
 	source, pos := sourceWithCompletionCursor(
@@ -605,6 +701,45 @@ func inputDeclarationCompletionProject(t *testing.T) (string, string, string) {
 	path := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
 	return root, path, source
+}
+
+func inputDeclarationOpeningLineTypeSource(
+	t *testing.T,
+	source string,
+) (string, protocol.Position) {
+	t.Helper()
+	old := "namecheap-config: {\n      type: library-config"
+	new := "namecheap-config: { type:"
+	offset := strings.Index(source, old)
+	require.NotEqual(t, -1, offset)
+	source = source[:offset] + new + source[offset+len(old):]
+	return source, OffsetToLSP(source, offset+len(new))
+}
+
+func inputDeclarationCommentedTypeSource(
+	t *testing.T,
+	source string,
+) (string, protocol.Position) {
+	t.Helper()
+	old := "      type: library-config"
+	new := "      # type: library-config\n      t"
+	offset := strings.Index(source, old)
+	require.NotEqual(t, -1, offset)
+	source = source[:offset] + new + source[offset+len(old):]
+	return source, OffsetToLSP(source, offset+len(new))
+}
+
+func inputDeclarationExistingFieldSource(
+	t *testing.T,
+	source string,
+	new string,
+) (string, protocol.Position) {
+	t.Helper()
+	old := "type: string"
+	offset := strings.Index(source, old)
+	require.NotEqual(t, -1, offset)
+	source = source[:offset] + new + source[offset+len(old):]
+	return source, OffsetToLSP(source, offset+len(new))
 }
 
 func inputDeclarationSourceWithPrefix(
